@@ -74,6 +74,7 @@ require_once '../config.php';
             <div class="qr-info">
                 <strong>Code:</strong> <span id="code"></span>
             </div>
+            <button id="downloadBtn" style="display:none; margin-top: 1rem;">Download QR Code</button>
         </div>
         
         <div id="message"></div>
@@ -122,6 +123,26 @@ require_once '../config.php';
                     document.getElementById('redirectTo').textContent = result.redirect_to;
                     document.getElementById('code').textContent = result.code;
                     document.getElementById('qrResult').style.display = 'block';
+                    
+                    // Setup download button
+                    const downloadBtn = document.getElementById('downloadBtn');
+                    downloadBtn.style.display = 'inline-block';
+                    downloadBtn.onclick = function() {
+                        // Get the SVG element
+                        const svgElement = document.getElementById('qrCode').querySelector('svg');
+                        const svgString = new XMLSerializer().serializeToString(svgElement);
+                        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                        const url = URL.createObjectURL(blob);
+                        
+                        // Create download link
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `SCUTOONS-QR-${result.type.toUpperCase()}-${result.code}.svg`;
+                        a.click();
+                        
+                        // Clean up
+                        URL.revokeObjectURL(url);
+                    };
                     
                     messageDiv.innerHTML = '<div class="success">QR Code generated successfully!</div>';
                     
