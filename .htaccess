@@ -1,0 +1,13 @@
+RewriteEngine On
+
+# Direct access to /generate shows the form
+RewriteRule ^generate/?$ generate/index.php [L]
+
+# Allow access to generate directory files
+RewriteRule ^generate/(.+)$ generate/$1 [L]
+
+# Route QR code parameters to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/generate
+RewriteRule ^(.*)$ index.php [L,QSA]
