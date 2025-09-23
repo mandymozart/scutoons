@@ -95,7 +95,7 @@ if (isset($_GET['c'])) {
 
                 <body>
                     <div class="container">
-                        <h1>QR Code Found!</h1>
+                        <h1><?= $result['type'] ?> QR Code Found! <strong><?= $result['code'] ?></strong></h1>
                         <div class="info">
                             This QR code will redirect you to:<br>
                             <strong><?php echo htmlspecialchars($result['redirect_to']); ?></strong>

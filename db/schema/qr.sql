@@ -30,8 +30,8 @@ SET time_zone = "+00:00";
 CREATE TABLE `qr` (
   `id` uuid NOT NULL DEFAULT uuid(),
   `code` varchar(8) NOT NULL,
-  `created_at` date NOT NULL DEFAULT current_timestamp(),
-  `claimed_at` date NOT NULL DEFAULT current_timestamp(),
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `claimed_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `redirect_to` varchar(255) NOT NULL COMMENT 'to any app',
   `type` varchar(255) NOT NULL COMMENT 'fashion, collectable, promo, public, etc. not mandatory',
   `email` varchar(255) NOT NULL COMMENT 'claimed by'
