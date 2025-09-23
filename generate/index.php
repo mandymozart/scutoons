@@ -11,35 +11,32 @@ require_once '../config.php';
         import { nanoid } from 'https://cdn.jsdelivr.net/npm/nanoid/nanoid.js';
         window.nanoid = nanoid;
     </script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="lib/qrcode/qrcode.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://www.scutoons.com/assets/styles.css">
     <style>
         #qrResult {
-            margin-top: 30px;
+            margin-top: 2rem;
             text-align: center;
-            padding: 20px;
+            padding: 2rem;
             background-color: #f8f9fa;
-            border-radius: 5px;
             display: none;
         }
         #qrCode {
-            margin: 20px 0;
+            margin: 2rem 0;
         }
         .qr-info {
-            background-color: #e9ecef;
-            padding: 15px;
-            border-radius: 5px;
-            font-family: monospace;
+            padding: 1rem;
             word-break: break-all;
-            margin: 10px 0;
+            margin: 1rem 0;
             text-align: left;
         }
         .error {
             color: #dc3545;
-            margin: 10px 0;
+            margin: 1rem 0;
         }
         .success {
             color: #28a745;
-            margin: 10px 0;
+            margin: 1rem 0;
         }
     </style>
 </head>
@@ -109,16 +106,16 @@ require_once '../config.php';
                     // Clear previous QR code
                     document.getElementById('qrCode').innerHTML = '';
                     
-                    // Generate QR code using QRCode.js
-                    new QRCode(document.getElementById('qrCode'), {
-                        text: qrUrl,
-                        width: 256,
-                        height: 256,
-                        colorDark: '#000000',
-                        colorLight: '#FFFFFF',
-                        correctLevel: QRCode.CorrectLevel.H,
-
+                    // Generate SVG QR code
+                    const qrSvg = new QRCode({
+                        msg: qrUrl,
+                        dim: 256,
+                        pad: 4,
+                        ecl: 'H',
+                        pal: ['#000000', '#FFFFFF']
                     });
+                    
+                    document.getElementById('qrCode').appendChild(qrSvg);
                     
                     // Show result
                     document.getElementById('qrUrl').textContent = qrUrl;
