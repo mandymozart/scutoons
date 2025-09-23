@@ -51,8 +51,8 @@ require_once '../config.php';
             <div class="form-group">
                 <label for="type">Type:</label>
                 <select id="type" name="type">
-                    <option value="event">Event</option>
                     <option value="membership">Membership</option>
+                    <option value="event">Event</option>
                     <option value="xr">XR</option>
                     <option value="promo">Promo</option>
                 </select>
