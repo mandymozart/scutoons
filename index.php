@@ -120,6 +120,9 @@ if (isset($_GET['c'])) {
                             <button type="submit" class="skip-btn">Skip</button>
                         </form>
                     </div>
+                    <div class="logo">
+                        <img src="https://www.scutoons.com/SCUTOONS-logo.svg" alt="SCUTOONS" />
+                    </div>
                 </body>
 
                 </html>
