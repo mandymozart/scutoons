@@ -45,8 +45,8 @@ if (isset($_GET['c'])) {
         $result = $stmt->fetch();
 
         if ($result) {
-            // Check if already claimed (has email)
-            if (!empty($result['email'])) {
+            // Check if already claimed (has email) and if the type is event or xr and not member or promo
+            if (!empty($result['email']) || $result['type'] === 'event' || $result['type'] === 'xr') {
                 // Already claimed, redirect immediately with QR code parameter
                 $redirectUrl = $result['redirect_to'];
                 $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
@@ -129,7 +129,7 @@ if (isset($_GET['c'])) {
         } else {
             // Code not found
             http_response_code(404);
-            echo "QR Code not found";
+            echo "QR Code not found. Please contact us!";
             exit();
         }
     } catch (Exception $e) {
