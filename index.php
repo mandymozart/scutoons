@@ -50,7 +50,7 @@ if (isset($_GET['c'])) {
                 // Already claimed, redirect immediately with QR code parameter
                 $redirectUrl = $result['redirect_to'];
                 $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
-                header("Location: " . $redirectUrl . $separator . "qrcode=" . urlencode($code));
+                header("Location: " . $redirectUrl . $separator . "code=" . urlencode($code));
                 exit();
             } else {
                 // Not claimed yet, show email form
