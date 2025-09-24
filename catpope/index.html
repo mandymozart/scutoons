@@ -33,16 +33,34 @@
         // Initialize the Scutoon app
         const scutoon = new Scutoon('.', 'de');
         
-        // Check URL parameters for initial view
-        const urlParams = new URLSearchParams(window.location.search);
-        const view = urlParams.get('view') || 'toon';
-        const chapter = urlParams.get('chapter') || 1;
-        const season = urlParams.get('season') || 1;
-        const language = urlParams.get('language') || 'de';
+        // Function to handle navigation based on URL params
+        function handleNavigation() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const view = urlParams.get('view') || 'toon';
+            const chapter = parseInt(urlParams.get('chapter')) || 1;
+            const season = parseInt(urlParams.get('season')) || 1;
+            
+            // Navigate to the appropriate view without updating URL (since it's already correct)
+            switch(view) {
+                case 'season':
+                    scutoon.renderSeasonView(season);
+                    break;
+                case 'chapter':
+                    scutoon.renderChapterView(chapter);
+                    break;
+                default:
+                    scutoon.renderToonView();
+            }
+        }
         
-        // Initialize with the specified view
+        // Initialize on page load
         document.addEventListener('DOMContentLoaded', () => {
-            scutoon.init(view, chapter, season, language);
+            handleNavigation();
+        });
+        
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', (event) => {
+            handleNavigation();
         });
     </script>
 </body>

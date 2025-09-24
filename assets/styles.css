@@ -63,8 +63,10 @@ button:hover,.btn:hover {
 
 header {
   display: grid;
-  grid-template-columns: 4rem auto 20rem;
+  grid-template-columns: 7rem auto 20rem;
   align-items: center;
+  padding: 1rem;
+
 }
 
 header nav ul {

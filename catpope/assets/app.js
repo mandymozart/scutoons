@@ -16,6 +16,22 @@ class Scutoon {
     this.lang = lang;
   }
 
+  // Simple router - update URL without page reload
+  updateURL(params) {
+    const currentParams = new URLSearchParams(window.location.search);
+    
+    // Update or set new parameters
+    Object.keys(params).forEach(key => {
+      if (params[key] !== undefined && params[key] !== null) {
+        currentParams.set(key, params[key]);
+      }
+    });
+    
+    // Update URL without reload
+    const newURL = window.location.pathname + '?' + currentParams.toString();
+    window.history.pushState({ ...params }, '', newURL);
+  }
+
   async loadToon() {
     return fetch(`${this.toonName}/${this.lang}/toon.json`)
       .then(response => response.json())
@@ -26,13 +42,13 @@ class Scutoon {
       });
   }
 
-  async loadEpisode(number) {
-    return fetch(`${this.toonName}/${this.lang}/chapter${number}.json`)
+  async loadChapter(chapterNumber) {
+    return fetch(`${this.toonName}/${this.lang}/chapter${chapterNumber}.json`)
       .then(response => response.json())
       .then(data => {
-        console.log('Episode data:', data);
+        console.log('Chapter data:', data);
         this.episode = data;
-        this.currentChapter = number;
+        this.currentChapter = chapterNumber;
         return data;
       });
   }
@@ -63,13 +79,33 @@ class Scutoon {
     const data = await this.loadToon();
     this.currentView = 'toon';
     
-    // For now we have one chapter, but this can be expanded
-    // You could make this dynamic by checking which chapter files exist
-    const availableChapters = [
-      { number: 1, title: "Das Erwachen", status: "available" }
-      // Add more chapters here as they become available
-      // { number: 2, title: "Chapter 2 Title", status: "coming-soon" }
-    ];
+    // Update URL
+    this.updateURL({ view: 'toon' });
+    
+    // Load chapter details based on the number of chapters
+    const availableChapters = [];
+    const chapterCount = data.chapters || 0;
+    
+    for (let i = 1; i <= chapterCount; i++) {
+      try {
+        const chapterData = await this.loadChapter(i);
+        availableChapters.push({
+          number: i,
+          title: chapterData.title || `Kapitel ${i}`,
+          description: chapterData.description || '',
+          status: 'available'
+        });
+      } catch (error) {
+        console.error(`Failed to load chapter ${i}:`, error);
+        // Still show the chapter card but mark it as unavailable
+        availableChapters.push({
+          number: i,
+          title: `Kapitel ${i}`,
+          description: 'Nicht verfügbar',
+          status: 'error'
+        });
+      }
+    }
     
     const chaptersHtml = availableChapters.map(chapter => {
       if (chapter.status === 'available') {
@@ -126,6 +162,9 @@ class Scutoon {
     const data = await this.loadSeason(seasonNumber);
     this.currentView = 'season';
     
+    // Update URL
+    this.updateURL({ view: 'season', season: seasonNumber });
+    
     const content = `
       <div class="season-view">
         <h1>Staffel ${data.episode}: ${data.title}</h1>
@@ -161,8 +200,11 @@ class Scutoon {
 
   // Render chapter view (scrollable webtoon)
   async renderChapterView(chapterNumber = 1) {
-    const data = await this.loadEpisode(chapterNumber);
+    const data = await this.loadChapter(chapterNumber);
     this.currentView = 'chapter';
+    
+    // Update URL
+    this.updateURL({ view: 'chapter', chapter: chapterNumber });
     
     let slicesHtml = '';
     if (data.slices && data.slices.length > 0) {
@@ -181,7 +223,7 @@ class Scutoon {
       </div>
     `;
     
-    const contentDiv = document.querySelector('.content');
+  const contentDiv = document.querySelector('.content');
     if (contentDiv) {
       contentDiv.innerHTML = content;
       // Make content div fullscreen for chapter view
