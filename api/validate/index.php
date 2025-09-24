@@ -83,9 +83,6 @@ try {
         
         // Add validation status fields for convenience
         $result['is_claimed'] = !empty($result['email']);
-        $result['requires_claim'] = empty($result['email']) && 
-                                    $result['type'] !== 'event' && 
-                                    $result['type'] !== 'xr';
         
         sendResponse('success', $result);
     } else {
