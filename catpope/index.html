@@ -39,19 +39,9 @@
             const view = urlParams.get('view') || 'toon';
             const chapter = parseInt(urlParams.get('chapter')) || 1;
             const season = parseInt(urlParams.get('season')) || 1;
-            // Note: code is now handled in the Scutoon init method directly
             
-            // Navigate to the appropriate view without updating URL (since it's already correct)
-            switch(view) {
-                case 'season':
-                    scutoon.renderSeasonView(season);
-                    break;
-                case 'chapter':
-                    scutoon.renderChapterView(chapter);
-                    break;
-                default:
-                    scutoon.renderToonView();
-            }
+            // Use init() to properly process QR codes and then navigate
+            scutoon.init(view, chapter, season);
         }
         
         // Initialize on page load

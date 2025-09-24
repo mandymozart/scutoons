@@ -63,3 +63,9 @@ header.header-hidden {
     width: 100%;
     height: auto;
 }
+
+.membership-required {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
