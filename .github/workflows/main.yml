@@ -17,3 +17,8 @@ jobs:
         exclude: |
           db*
           db*/**
+          .git*
+          .git*/**
+          .gitignore
+          .github*
+          .github*/**
