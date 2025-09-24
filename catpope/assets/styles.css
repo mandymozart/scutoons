@@ -1,0 +1,19 @@
+body {
+    padding: 0;
+    margin: 0;
+}
+
+.toon-overview {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.webtoon-container {
+    margin: 0 auto;
+    max-width: 800px;
+}
+.webtoon-slice img {
+    width: 100%;
+    height: auto;
+}

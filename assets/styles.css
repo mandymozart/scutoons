@@ -17,7 +17,10 @@ body {
   margin: 0;
   overflow-x: hidden;
 }
-
+img {
+  display: block;
+  margin: 0;
+}
 .logo img {
   width: 100%;
   max-width: 100%;
@@ -52,11 +55,32 @@ button, .btn {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 1rem;
   cursor: pointer;
-  margin: 5px;
 }
 
 button:hover,.btn:hover {
   background-color: rgb(22, 22, 22);
+}
+
+header {
+  display: grid;
+  grid-template-columns: 4rem auto 20rem;
+  align-items: center;
+}
+
+header nav ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+}
+
+
+header nav ul li {
+  margin: 0;
+  padding: 0;
 }
 
 @media (min-width: 768px) {
