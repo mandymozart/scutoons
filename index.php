@@ -135,6 +135,12 @@ elseif (isset($_GET['c'])) {
 
                         <p>Would you like to provide your email to claim this QR code? Not sure? Skip it!</p>
 
+                        <form method="GET" style="display: inline;">
+                            <input type="hidden" name="c" value="<?php echo htmlspecialchars($code); ?>">
+                            <input type="hidden" name="skip" value="1">
+                            <button type="submit" class="skip-btn">Skip</button>
+                        </form>
+                        
                         <form method="POST">
                             <input type="hidden" name="claim_code" value="<?php echo htmlspecialchars($code); ?>">
                             <input type="email" name="email" placeholder="your@email.com" required>
@@ -142,11 +148,6 @@ elseif (isset($_GET['c'])) {
                             <button type="submit">Claim</button>
                         </form>
 
-                        <form method="GET" style="display: inline;">
-                            <input type="hidden" name="c" value="<?php echo htmlspecialchars($code); ?>">
-                            <input type="hidden" name="skip" value="1">
-                            <button type="submit" class="skip-btn">Skip</button>
-                        </form>
                     </div>
                     <div class="logo">
                         <img src="https://www.scutoons.com/SCUTOONS-logo.svg" alt="SCUTOONS" />
