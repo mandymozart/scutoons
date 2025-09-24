@@ -14,6 +14,34 @@ class Scutoon {
   constructor(toonName, lang) {
     this.toonName = toonName;
     this.lang = lang;
+    this.lastScrollTop = 0;
+    this.initScrollHandler();
+  }
+
+  // Initialize scroll handler for header
+  initScrollHandler() {
+    let lastScrollTop = 0;
+    let scrollThreshold = 5; // Minimum scroll amount to trigger
+    const header = document.querySelector('header');
+    
+    window.addEventListener('scroll', () => {
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+      
+      // Skip if scroll change is too small
+      if (Math.abs(scrollTop - lastScrollTop) <= scrollThreshold) {
+        return;
+      }
+      
+      if (scrollTop > lastScrollTop && scrollTop > 80) {
+        // Scrolling down & past header height
+        header?.classList.add('header-hidden');
+      } else {
+        // Scrolling up
+        header?.classList.remove('header-hidden');
+      }
+      
+      lastScrollTop = scrollTop;
+    });
   }
 
   // Simple router - update URL without page reload
