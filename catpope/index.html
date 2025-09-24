@@ -39,6 +39,7 @@
             const view = urlParams.get('view') || 'toon';
             const chapter = parseInt(urlParams.get('chapter')) || 1;
             const season = parseInt(urlParams.get('season')) || 1;
+            const code = urlParams.get('code') || null;
             
             // Navigate to the appropriate view without updating URL (since it's already correct)
             switch(view) {

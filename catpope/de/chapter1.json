@@ -1,9 +1,10 @@
 {
-    "title": "Das Erwachen",
+    "title": "Leugnen",
     "author": "Mandy Mozart",
-    "episode": "1",
+    "episode": 1,
     "language": "de",
     "release": "2025-10-04",
+    "status": "published",
     "description": "Die Morgenroutine wird gestört",
     "thumbnail": "assets/images/sc1c1-thumbnail.jpg",
     "keyvisual": "assets/images/3x/sc1c1-key-visual.jpg",

@@ -4,5 +4,11 @@
     "chapters": 1,
     "language": "de",
     "release": "2025-10-04",
-    "description": "Als die Morgenroutine einer narzisstischen religiösen Persönlichkeit durch eine mysteriöse Sphynx-Katze gestört wird, geraten sie in eine Spirale surrealer Begegnungen mit digitalen Verschwörungen, mythischen Kreaturen und glitchigen Realitäten, nur um schließlich zu entdecken, dass die Katze die ganze Zeit über ihre eigene gespaltene Identität war."
+    "status": "published",
+    "description": "Als die Morgenroutine einer narzisstischen religiösen Persönlichkeit durch eine mysteriöse Sphynx-Katze gestört wird, geraten sie in eine Spirale surrealer Begegnungen mit digitalen Verschwörungen, mythischen Kreaturen und glitchigen Realitäten, nur um schließlich zu entdecken, dass die Katze die ganze Zeit über ihre eigene gespaltene Identität war.",
+    "thumbnail": "assets/images/s1c1-thumbnail.jpg",
+    "cover": {
+        "square": "assets/images/1x/de/s1-cover-square.jpg",
+        "portrait": "assets/images/1x/de/s1-cover-portrait.jpg"
+    }
 }

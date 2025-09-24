@@ -121,7 +121,7 @@ class Scutoon {
           number: i,
           title: chapterData.title || `Kapitel ${i}`,
           description: chapterData.description || '',
-          status: 'available'
+          status: chapterData.status || 'unknown'
         });
       } catch (error) {
         console.error(`Failed to load chapter ${i}:`, error);
@@ -136,15 +136,18 @@ class Scutoon {
     }
     
     const chaptersHtml = availableChapters.map(chapter => {
-      if (chapter.status === 'available') {
+      if (chapter.status === 'published') {
         return `
-          <div class="chapter-card available">
+          <div class="chapter-card published">
+          <div class="chapter-number">#${chapter.number}</div>
+          <div class="chapter-image"><img src="${data.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
             <h3>Kapitel ${chapter.number}</h3>
             <p>${chapter.title}</p>
             <button onclick="scutoon.renderChapterView(${chapter.number})" class="btn-read">Lesen</button>
           </div>
         `;
-      } else {
+      } 
+      if (chapter.status === 'coming-soon') {
         return `
           <div class="chapter-card coming-soon">
             <h3>Kapitel ${chapter.number}</h3>
@@ -152,12 +155,14 @@ class Scutoon {
             <span class="status">Demnächst</span>
           </div>
         `;
-      }
+      } 
+      // skip error or unknown or draft
     }).join('');
     
     const content = `
       <div class="toon-overview">
         <div class="toon-header">
+          <img src="${data.cover.portrait}" alt="Cover" class="Cover" />
           <h1>${data.title}</h1>
           <p class="authors">von ${data.authors ? data.authors.join(' & ') : ''}</p>
           <p class="description">${data.description}</p>
@@ -195,7 +200,7 @@ class Scutoon {
     
     const content = `
       <div class="season-view">
-        <h1>Staffel ${data.episode}: ${data.title}</h1>
+        <h1>Staffel ${data.number}: ${data.title}</h1>
         <p class="authors">von ${data.authors ? data.authors.join(' & ') : ''}</p>
         <p class="description">${data.description}</p>
         ${data.cover ? `
@@ -261,13 +266,32 @@ class Scutoon {
     return data;
   }
 
+  checkPermissions() {
+    // this code is send a param from qr.scutoons.com. so please grad it on initialisation
+    fetch('https://qr.scutoons.com/api/validate/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ code: 'ABCD1234' })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.status === 'success') {
+        console.log('QR Data:', data.qr);
+      } else {
+        console.error('Error:', data.message);
+      }
+    });
+  }
+
   // Helper function to scroll to top
   scrollToTop() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // Initialize the app with a specific view
-  async init(initialView = 'toon', initialChapter = 1, initialSeason = 1) {
+  async init(initialView = 'toon', initialChapter = 1, initialSeason = 1, code = null) {
     switch(initialView) {
       case 'season':
         await this.renderSeasonView(initialSeason);

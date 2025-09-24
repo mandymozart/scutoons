@@ -32,7 +32,29 @@ header.header-hidden {
 .toon-overview {
     max-width: 800px;
     margin: 0 auto;
+}
+.toon-header {
     padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+}
+.toon-header img {
+    width: 100%;
+    height: auto;
+}
+
+.season-view {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 1rem;
+}
+.season-view img {
+    width: 100%;
+    height: auto;
+    margin: 1rem 0;
+}
+.season-view h1 {
+    margin-bottom: 0.5rem;
 }
 
 .webtoon-container {
