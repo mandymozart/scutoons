@@ -19,12 +19,10 @@ header.header-hidden {
     transform: translateY(-100%);
 }
 
-/* Adjust content to account for fixed header */
 .content {
     padding-top: 5rem; /* Adjust based on your header height */
 }
 
-/* For chapter view, remove extra padding */
 .content.chapter-mode {
     padding-top: 0;
 }

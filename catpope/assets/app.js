@@ -10,12 +10,81 @@ class Scutoon {
   currentView = 'toon'; // toon, season, chapter
   currentChapter = 1;
   currentSeason = 1;
+  membership = null; // Store membership data
   
   constructor(toonName, lang) {
     this.toonName = toonName;
     this.lang = lang;
     this.lastScrollTop = 0;
     this.initScrollHandler();
+    this.initMembership(); // Initialize membership system
+  }
+
+  // Initialize membership system
+  initMembership() {
+    const storedMembership = localStorage.getItem('scutoons_membership');
+    if (storedMembership) {
+      try {
+        this.membership = JSON.parse(storedMembership);
+        console.log('Found stored membership:', this.membership);
+        if (this.isMembershipExpired(this.membership)) {
+          console.log('Stored membership has expired, removing...');
+          this.clearMembership();
+        }
+      } catch (error) {
+        console.error('Error parsing stored membership:', error);
+        this.clearMembership();
+      }
+    }
+  }
+
+  // Check if membership has expired
+  isMembershipExpired(membership) {
+    if (!membership) return true;
+    
+    // Calculate expiry based on created_at or validatedAt
+    // Default: memberships are valid for 30 days from creation/validation
+    const baseDate = membership.created_at || membership.validatedAt;
+    if (!baseDate) return false; // If no date, consider it valid
+    
+    const createdDate = new Date(baseDate);
+    const expiryDate = new Date(createdDate);
+    expiryDate.setDate(expiryDate.getDate() + 30); // 30 days validity
+    
+    return expiryDate < new Date();
+  }
+
+  // Store membership to localStorage
+  storeMembership(membershipData) {
+    try {
+      if (membershipData.type === 'membership') {
+        this.membership = membershipData;
+        localStorage.setItem('scutoons_membership', JSON.stringify(membershipData));
+        console.log('Membership stored successfully:', membershipData);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error storing membership:', error);
+      return false;
+    }
+  }
+
+  // Clear membership from localStorage
+  clearMembership() {
+    this.membership = null;
+    localStorage.removeItem('scutoons_membership');
+    console.log('Membership cleared');
+  }
+
+  // Check if user has valid membership
+  hasValidMembership() {
+    if (!this.membership) return false;
+    if (this.isMembershipExpired(this.membership)) {
+      this.clearMembership();
+      return false;
+    }
+    return true;
   }
 
   // Initialize scroll handler for header
@@ -233,6 +302,12 @@ class Scutoon {
 
   // Render chapter view (scrollable webtoon)
   async renderChapterView(chapterNumber = 1) {
+    // Check membership before rendering chapter
+    if (!this.hasValidMembership()) {
+      this.renderMembershipRequired(chapterNumber);
+      return null;
+    }
+
     const data = await this.loadChapter(chapterNumber);
     this.currentView = 'chapter';
     
@@ -266,23 +341,213 @@ class Scutoon {
     return data;
   }
 
-  checkPermissions() {
-    // this code is send a param from qr.scutoons.com. so please grad it on initialisation
-    fetch('https://qr.scutoons.com/api/validate/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ code: 'ABCD1234' })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.status === 'success') {
-        console.log('QR Data:', data.qr);
+  // Render membership required message
+  renderMembershipRequired(chapterNumber) {
+    const content = `
+      <div class="membership-required">
+        <div class="membership-card">
+          <h2>🔒 Mitgliedschaft erforderlich</h2>
+          <p>Um Kapitel ${chapterNumber} zu lesen, benötigen Sie eine gültige SCUTOONS-Mitgliedschaft.</p>
+          
+          <div class="membership-info">
+            <h3>So erhalten Sie Zugang:</h3>
+            <ol>
+              <li>Scannen Sie einen gültigen SCUTOONS QR-Code</li>
+              <li>Sie werden automatisch zu dieser Seite weitergeleitet</li>
+              <li>Ihre Mitgliedschaft wird gespeichert und Sie können alle Kapitel lesen</li>
+            </ol>
+          </div>
+          
+          <div class="membership-actions">
+            <button onclick="scutoon.checkForNewCode()" class="btn-check">
+              🔄 Erneut prüfen
+            </button>
+            <button onclick="scutoon.renderToonView()" class="btn-back">
+              ← Zurück zur Übersicht
+            </button>
+          </div>
+          
+          ${this.membership && this.membership.type !== 'membership' ? `
+            <div class="membership-error">
+              <p>⚠️ Der gescannte QR-Code ist kein gültiger Mitgliedschaftscode.</p>
+            </div>
+          ` : ''}
+          
+          ${this.membership && this.membership.requires_claim && !this.membership.is_claimed ? `
+            <div class="membership-error">
+              <p>⚠️ Diese Mitgliedschaft muss zuerst auf qr.scutoons.com aktiviert werden.</p>
+              <a href="https://qr.scutoons.com/claim?code=${this.membership.code}" target="_blank" class="btn-claim">
+                Mitgliedschaft aktivieren →
+              </a>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+    
+    const contentDiv = document.querySelector('.content');
+    if (contentDiv) {
+      contentDiv.innerHTML = content;
+      contentDiv.classList.remove('chapter-mode');
+    }
+  }
+
+  // Validate QR code with the API
+  async validateQRCode(code) {
+    if (!code) {
+      console.log('No QR code provided');
+      return null;
+    }
+
+    try {
+      const response = await fetch('https://qr.scutoons.com/api/validate/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ code: code })
+      });
+
+      const data = await response.json();
+      
+      if (data.status === 'success' && data.qr) {
+        console.log('QR validation successful:', data.qr);
+        
+        // Check if it's a membership type
+        if (data.qr.type === 'membership') {
+          // Check if membership requires claiming and hasn't been claimed
+          if (data.qr.requires_claim && !data.qr.is_claimed) {
+            console.log('Membership requires claiming first');
+            return { 
+              success: false, 
+              message: 'Membership muss zuerst aktiviert werden', 
+              requiresClaim: true,
+              data: data.qr 
+            };
+          }
+          
+          // Store the membership with validation timestamp
+          const membershipData = {
+            ...data.qr,
+            code: code,
+            validatedAt: new Date().toISOString()
+          };
+          
+          this.storeMembership(membershipData);
+          return { success: true, membership: membershipData };
+        } else {
+          console.log('QR code is not a membership type:', data.qr.type);
+          return { success: false, message: 'Not a membership code', data: data.qr };
+        }
       } else {
-        console.error('Error:', data.message);
+        console.error('QR validation failed:', data.message);
+        return { success: false, message: data.message || 'Validation failed' };
       }
-    });
+    } catch (error) {
+      console.error('Error validating QR code:', error);
+      return { success: false, message: 'Network error', error };
+    }
+  }
+
+  // Get membership expiry date based on creation/validation
+  getMembershipExpiryDate(membership) {
+    if (!membership) return null;
+    
+    const baseDate = membership.created_at || membership.validatedAt;
+    if (!baseDate) return null;
+    
+    const createdDate = new Date(baseDate);
+    const expiryDate = new Date(createdDate);
+    expiryDate.setDate(expiryDate.getDate() + 30); // 30 days validity
+    
+    return expiryDate.toISOString();
+  }
+
+  // Check and process QR code from URL
+  async processQRCodeFromURL() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    
+    if (code) {
+      console.log('Found QR code in URL:', code);
+      
+      if (this.membership && this.membership.code === code) {
+        console.log('Code already validated and stored');
+        return this.membership;
+      }
+      
+      const result = await this.validateQRCode(code);
+      
+      // Clean up URL by removing the code parameter
+      urlParams.delete('code');
+      const newURL = window.location.pathname + 
+        (urlParams.toString() ? '?' + urlParams.toString() : '');
+      window.history.replaceState({}, '', newURL);
+      
+      return result;
+    }
+    
+    return null;
+  }
+
+  // Check for new QR code (manual trigger)
+  async checkForNewCode() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const code = urlParams.get('code');
+    
+    if (code) {
+      const result = await this.validateQRCode(code);
+      if (result && result.success) {
+        // If validation successful, try to render the chapter again
+        const chapter = parseInt(urlParams.get('chapter')) || 1;
+        this.renderChapterView(chapter);
+      } else {
+        alert('Kein gültiger Mitgliedschaftscode gefunden.');
+      }
+    } else {
+      alert('Kein QR-Code in der URL gefunden. Bitte scannen Sie einen gültigen SCUTOONS QR-Code.');
+    }
+  }
+
+  // Get membership status (for debugging/display)
+  getMembershipStatus() {
+    if (!this.membership) {
+      return { status: 'none', message: 'Keine Mitgliedschaft' };
+    }
+    
+    if (this.isMembershipExpired(this.membership)) {
+      return { status: 'expired', message: 'Mitgliedschaft abgelaufen', data: this.membership };
+    }
+    
+    const expiryDate = this.getMembershipExpiryDate(this.membership);
+    return { 
+      status: 'active', 
+      message: 'Aktive Mitgliedschaft',
+      data: this.membership,
+      validUntil: expiryDate,
+      claimedBy: this.membership.email || 'Unknown',
+      claimedAt: this.membership.claimed_at
+    };
+  }
+
+  // Debug function to test membership validation
+  debugMembership() {
+    const status = this.getMembershipStatus();
+    console.group('🔍 Membership Debug Info');
+    console.log('Status:', status.status);
+    console.log('Message:', status.message);
+    if (status.data) {
+      console.log('Type:', status.data.type);
+      console.log('Code:', status.data.code);
+      console.log('Is Claimed:', status.data.is_claimed);
+      console.log('Requires Claim:', status.data.requires_claim);
+      console.log('Email:', status.data.email || 'Not claimed');
+      console.log('Valid Until:', status.validUntil);
+    }
+    console.log('Has Valid Membership:', this.hasValidMembership());
+    console.log('localStorage data:', localStorage.getItem('scutoons_membership'));
+    console.groupEnd();
+    return status;
   }
 
   // Helper function to scroll to top
@@ -291,7 +556,14 @@ class Scutoon {
   }
 
   // Initialize the app with a specific view
-  async init(initialView = 'toon', initialChapter = 1, initialSeason = 1, code = null) {
+  async init(initialView = 'toon', initialChapter = 1, initialSeason = 1) {
+    // First process any QR code from URL
+    const qrResult = await this.processQRCodeFromURL();
+    
+    if (qrResult && qrResult.success) {
+      console.log('Successfully validated membership from QR code');
+    }
+    
     switch(initialView) {
       case 'season':
         await this.renderSeasonView(initialSeason);
