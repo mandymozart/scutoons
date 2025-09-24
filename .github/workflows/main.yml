@@ -14,3 +14,6 @@ jobs:
         server: ftp.scutoons.com
         username: f017b651
         password: 9TCUmdbGNVxBgXs3YAEJ
+        exclude: |
+          db*
+          db*/**
