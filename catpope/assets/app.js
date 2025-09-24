@@ -116,6 +116,26 @@ class Scutoon {
     window.history.pushState({ ...params }, '', newURL);
   }
 
+  // Navigate to a specific view through the router
+  navigateTo(view, params = {}) {
+    const navigationParams = { view, ...params };
+    
+    // Update URL first
+    this.updateURL(navigationParams);
+    
+    // Then render the appropriate view
+    switch(view) {
+      case 'season':
+        this.renderSeasonView(params.season || 1);
+        break;
+      case 'chapter':
+        this.renderChapterView(params.chapter || 1);
+        break;
+      default:
+        this.renderToonView();
+    }
+  }
+
   async loadToon() {
     return fetch(`${this.toonName}/${this.lang}/toon.json`)
       .then(response => response.json())
@@ -199,7 +219,7 @@ class Scutoon {
           <div class="chapter-image"><img src="${data.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
             <h3>Kapitel ${chapter.number}</h3>
             <p>${chapter.title}</p>
-            <button onclick="scutoon.renderChapterView(${chapter.number})" class="btn-read">Lesen</button>
+            <button onclick="scutoon.navigateTo('chapter', {chapter: ${chapter.number}})" class="btn-read">Lesen</button>
           </div>
         `;
       } 
@@ -275,8 +295,8 @@ class Scutoon {
           </div>
         ` : ''}
         <div class="navigation-buttons">
-          <button onclick="scutoon.renderToonView()" class="btn-back">Zurück zur Übersicht</button>
-          <button onclick="scutoon.renderChapterView(1)" class="btn-chapter">Kapitel 1 lesen</button>
+          <button onclick="scutoon.navigateTo('toon')" class="btn-back">Zurück zur Übersicht</button>
+          <button onclick="scutoon.navigateTo('chapter', {chapter: 1})" class="btn-chapter">Kapitel 1 lesen</button>
         </div>
       </div>
     `;
@@ -346,10 +366,7 @@ class Scutoon {
           </div>
           
           <div class="membership-actions">
-            <button onclick="scutoon.checkForNewCode()" class="btn-check">
-              🔄 Erneut prüfen
-            </button>
-            <button onclick="scutoon.renderToonView()" class="btn-back">
+            <button onclick="scutoon.navigateTo('toon')" class="btn-back">
               ← Zurück zur Übersicht
             </button>
           </div>
