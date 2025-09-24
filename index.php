@@ -32,8 +32,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['claim_code'])) {
     }
 }
 
-// Check if 'c' parameter exists in URL
-if (isset($_GET['c'])) {
+// Check if skip button was clicked (check this FIRST before just checking for 'c')
+if (isset($_GET['skip']) && isset($_GET['c'])) {
+    // Skip email, just redirect
+    $code = $_GET['c'];
+    try {
+        $pdo = getDbConnection();
+        $stmt = $pdo->prepare("SELECT redirect_to FROM qr WHERE code = ?");
+        $stmt->execute([$code]);
+        $result = $stmt->fetch();
+
+        if ($result) {
+            $redirectUrl = $result['redirect_to'];
+            // Add the QR code as a parameter to the redirect URL
+            $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
+            header("Location: " . $redirectUrl . $separator . "qr=" . urlencode($code));
+            exit();
+        } else {
+            // Code not found
+            http_response_code(404);
+            echo "QR Code not found. Please contact us!";
+            exit();
+        }
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo "Error: " . $e->getMessage();
+        exit();
+    }
+}
+// Check if 'c' parameter exists in URL (without skip)
+elseif (isset($_GET['c'])) {
     $code = $_GET['c'];
 
     try {
@@ -133,27 +161,6 @@ if (isset($_GET['c'])) {
             // Code not found
             http_response_code(404);
             echo "QR Code not found. Please contact us!";
-            exit();
-        }
-    } catch (Exception $e) {
-        http_response_code(500);
-        echo "Error: " . $e->getMessage();
-        exit();
-    }
-} elseif (isset($_GET['skip']) && isset($_GET['c'])) {
-    // Skip email, just redirect
-    $code = $_GET['c'];
-    try {
-        $pdo = getDbConnection();
-        $stmt = $pdo->prepare("SELECT redirect_to FROM qr WHERE code = ?");
-        $stmt->execute([$code]);
-        $result = $stmt->fetch();
-
-        if ($result) {
-            $redirectUrl = $result['redirect_to'];
-            // Add the QR code as a parameter to the redirect URL
-            $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
-            header("Location: " . $redirectUrl . $separator . "qr=" . urlencode($code));
             exit();
         }
     } catch (Exception $e) {
