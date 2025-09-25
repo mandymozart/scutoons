@@ -46,7 +46,7 @@ if (isset($_GET['skip']) && isset($_GET['c'])) {
             $redirectUrl = $result['redirect_to'];
             // Add the QR code as a parameter to the redirect URL
             $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
-            header("Location: " . $redirectUrl . $separator . "qr=" . urlencode($code));
+            header("Location: " . $redirectUrl . $separator . "code=" . urlencode($code));
             exit();
         } else {
             // Code not found
