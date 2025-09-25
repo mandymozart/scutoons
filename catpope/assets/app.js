@@ -233,7 +233,7 @@ class Scutoon {
     const content = `
       <div class="toon-overview">
         <div class="toon-header">
-          <img src="${data.cover.portrait}" alt="Cover" class="Cover" />
+          <img src="${data.cover.square}" alt="Cover" class="Cover" />
           <h1>${data.title}</h1>
           <p class="authors">von ${data.authors ? data.authors.join(' & ') : ''}</p>
           <p class="description">${data.description}</p>

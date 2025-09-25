@@ -43,6 +43,10 @@ header.header-hidden {
     width: 100%;
     height: auto;
 }
+.toon-header .meta-info {
+    color: #6b6b6b;
+    margin-top: 0.5rem;
+}
 
 .season-view {
     max-width: 800px;
@@ -62,6 +66,7 @@ header.header-hidden {
 
 .chapters-list {
     margin-bottom: 2rem;
+    padding: 0 2rem;
 }
 
 .chapter-item {
@@ -69,10 +74,19 @@ header.header-hidden {
     grid-template-columns: 6rem auto 7rem 3rem;
     align-items: center;
     gap: 1rem;
+    cursor: pointer;
 }
 .chapter-item img {
     width: 100%;
     height: auto;
+}
+
+.chapter-item .chapter-release,
+.chapter-item .chapter-number {
+    color: #6b6b6b;
+}
+.chapter-item:hover {
+    background-color: #f0f0f0;  
 }
 
 .chapter-item.coming-soon {
