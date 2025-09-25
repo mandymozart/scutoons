@@ -85,6 +85,14 @@ header nav ul li {
   padding: 0;
 }
 
+.cta {
+text-align: center;
+  font-size: 1.2rem;
+  margin: 2rem 0;
+  border: 4px solid;
+  padding: 2rem;
+}
+
 @media (min-width: 768px) {
   html {
     font-size: 24px;
