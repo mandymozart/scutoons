@@ -20,7 +20,8 @@ header.header-hidden {
 }
 
 .content {
-    padding-top: 5rem; /* Adjust based on your header height */
+    padding-top: 5rem;
+    /* Adjust based on your header height */
 }
 
 .content.chapter-mode {
@@ -31,11 +32,13 @@ header.header-hidden {
     max-width: 800px;
     margin: 0 auto;
 }
+
 .toon-header {
     padding: 2rem;
     text-align: center;
     margin-bottom: 2rem;
 }
+
 .toon-header img {
     width: 100%;
     height: auto;
@@ -46,19 +49,41 @@ header.header-hidden {
     margin: 0 auto;
     padding: 1rem;
 }
+
 .season-view img {
     width: 100%;
     height: auto;
     margin: 1rem 0;
 }
+
 .season-view h1 {
     margin-bottom: 0.5rem;
+}
+
+.chapters-list {
+    margin-bottom: 2rem;
+}
+
+.chapter-item {
+    display: grid;
+    grid-template-columns: 6rem auto 7rem 3rem;
+    align-items: center;
+    gap: 1rem;
+}
+.chapter-item img {
+    width: 100%;
+    height: auto;
+}
+
+.chapter-item.coming-soon {
+    opacity: 0.5;
 }
 
 .webtoon-container {
     margin: 0 auto;
     max-width: 800px;
 }
+
 .webtoon-slice img {
     width: 100%;
     height: auto;

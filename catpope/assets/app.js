@@ -5,7 +5,7 @@ class Scutoon {
   toonName;
   lang;
   toon;
-  episode;
+  chapter;
   season;
   currentView = 'toon'; // toon, season, chapter
   currentChapter = 1;
@@ -151,7 +151,7 @@ class Scutoon {
       .then(response => response.json())
       .then(data => {
         console.log('Chapter data:', data);
-        this.episode = data;
+        this.chapter = data;
         this.currentChapter = chapterNumber;
         return data;
       });
@@ -193,12 +193,7 @@ class Scutoon {
     for (let i = 1; i <= chapterCount; i++) {
       try {
         const chapterData = await this.loadChapter(i);
-        availableChapters.push({
-          number: i,
-          title: chapterData.title || `Kapitel ${i}`,
-          description: chapterData.description || '',
-          status: chapterData.status || 'unknown'
-        });
+        availableChapters.push(chapterData);
       } catch (error) {
         console.error(`Failed to load chapter ${i}:`, error);
         // Still show the chapter card but mark it as unavailable
@@ -214,21 +209,21 @@ class Scutoon {
     const chaptersHtml = availableChapters.map(chapter => {
       if (chapter.status === 'published') {
         return `
-          <div class="chapter-card published">
-          <div class="chapter-number">#${chapter.number}</div>
-          <div class="chapter-image"><img src="${data.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
-            <h3>Kapitel ${chapter.number}</h3>
-            <p>${chapter.title}</p>
-            <button onclick="scutoon.navigateTo('chapter', {chapter: ${chapter.number}})" class="btn-read">Lesen</button>
+          <div class="chapter-item published" onclick="scutoon.navigateTo('chapter', {chapter: ${chapter.number}})">
+            <div class="chapter-image"><img src="${data.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
+            <div class="chapter-title">${chapter.title}</div>
+            <div class="chapter-release">${chapter.release}</div>
+            <div class="chapter-number">#${chapter.number}</div>
           </div>
         `;
       } 
       if (chapter.status === 'coming-soon') {
         return `
-          <div class="chapter-card coming-soon">
-            <h3>Kapitel ${chapter.number}</h3>
-            <p>${chapter.title}</p>
-            <span class="status">Demnächst</span>
+          <div class="chapter-item coming-soon">
+            <div class="chapter-image"><img src="${data.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
+            <div class="chapter-title">${chapter.title}</div>
+            <div class="chapter-release">${chapter.release}</div>
+            <div class="chapter-number">#${chapter.number}</div>
           </div>
         `;
       } 
@@ -249,8 +244,7 @@ class Scutoon {
         </div>
         
         <div class="chapters-section">
-          <h2>Verfügbare Kapitel</h2>
-          <div class="chapters-grid">
+          <div class="chapters-list">
             ${chaptersHtml}
           </div>
         </div>
