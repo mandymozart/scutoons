@@ -132,8 +132,8 @@ elseif (isset($_GET['c'])) {
                         <?php if (isset($error)): ?>
                             <div class="error"><?php echo htmlspecialchars($error); ?></div>
                         <?php endif; ?>
-
-                        <p>Would you like to provide your email to claim this QR code? Not sure? Skip it!</p>
+                        <h3>Claim this QR code</h3>
+                        <p>Would you like to receive updates and new editions to your email?  Not sure? Skip it! </p>
 
                         <form method="GET" style="display: inline;">
                             <input type="hidden" name="c" value="<?php echo htmlspecialchars($code); ?>">
