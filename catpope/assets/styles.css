@@ -85,6 +85,10 @@ header.header-hidden {
 .chapter-item .chapter-number {
     color: #6b6b6b;
 }
+.chapter-item .chapter-number {
+    text-align: right;
+    padding-right: 1rem;
+}
 .chapter-item:hover {
     background-color: #f0f0f0;  
 }

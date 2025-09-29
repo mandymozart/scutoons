@@ -205,12 +205,12 @@ class Scutoon {
         });
       }
     }
-    
     const chaptersHtml = availableChapters.map(chapter => {
+      console.log(data.thumbnail, chapter.thumbnail)
       if (chapter.status === 'published') {
         return `
           <div class="chapter-item published" onclick="scutoon.navigateTo('chapter', {chapter: ${chapter.number}})">
-            <div class="chapter-image"><img src="${data.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
+            <div class="chapter-image"><img src="${chapter.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
             <div class="chapter-title">${chapter.title}</div>
             <div class="chapter-release">${chapter.release}</div>
             <div class="chapter-number">#${chapter.number}</div>
@@ -220,7 +220,7 @@ class Scutoon {
       if (chapter.status === 'coming-soon') {
         return `
           <div class="chapter-item coming-soon">
-            <div class="chapter-image"><img src="${data.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
+            <div class="chapter-image"><img src="${chapter.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
             <div class="chapter-title">${chapter.title}</div>
             <div class="chapter-release">${chapter.release}</div>
             <div class="chapter-number">#${chapter.number}</div>
