@@ -109,3 +109,27 @@ header.header-hidden {
     margin: 0 auto;
     padding: 2rem;
 }
+
+/* Sequential lazy loading styles */
+.webtoon-slice.lazy {
+    min-height: 100px;
+    position: relative;
+}
+
+.slice-placeholder {
+    padding: 2rem;
+    text-align: center;
+    background: #f5f5f5;
+    color: #666;
+    font-size: 14px;
+    border: 1px dashed #ddd;
+}
+
+.webtoon-slice.loaded .slice-placeholder {
+    display: none;
+}
+
+.webtoon-slice.error .slice-placeholder {
+    background: #fff5f5;
+    border-color: #e74c3c;
+}
