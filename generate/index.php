@@ -69,6 +69,11 @@ require_once '../config.php';
                         <option value="promo">Promo</option>
                     </select>
                 </div>
+                <div class="form-group">
+                    <label for="expiresAt">Expires At (optional):</label>
+                    <input type="datetime-local" id="expiresAt" name="expiresAt">
+                    <small>Leave empty for no expiration</small>
+                </div>
                 <button type="submit">Generate</button>
                 <button id="downloadBtn" style="display:none; margin-top: 1rem;">Download</button>
                 <div id="message"></div>

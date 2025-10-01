@@ -38,11 +38,24 @@ if (isset($_GET['skip']) && isset($_GET['c'])) {
     $code = $_GET['c'];
     try {
         $pdo = getDbConnection();
-        $stmt = $pdo->prepare("SELECT redirect_to FROM qr WHERE code = ?");
+        $stmt = $pdo->prepare("SELECT redirect_to, expires_at FROM qr WHERE code = ?");
         $stmt->execute([$code]);
         $result = $stmt->fetch();
 
         if ($result) {
+            // Check if QR code has expired
+            if (!is_null($result['expires_at'])) {
+                $expiresAt = new DateTime($result['expires_at']);
+                $now = new DateTime();
+                
+                if ($now > $expiresAt) {
+                    // QR code has expired
+                    http_response_code(410); // 410 Gone
+                    echo "QR Code Expired. Please contact us!";
+                    exit();
+                }
+            }
+            
             $redirectUrl = $result['redirect_to'];
             // Add the QR code as a parameter to the redirect URL
             $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
