@@ -96,8 +96,21 @@ require_once '../config.php';
     </div>
 
     <script>
+        let isSubmitting = false;
         document.getElementById('qrForm').addEventListener('submit', async function(e) {
             e.preventDefault();
+
+            // Prevent duplicate submissions
+            if (isSubmitting) {
+                console.log('Form submission already in progress, ignoring duplicate request');
+                return;
+            }
+            
+            isSubmitting = true;
+            const submitButton = this.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.textContent;
+            submitButton.disabled = true;
+            submitButton.textContent = 'Generating...';
 
             // Generate nanoid code  
             const code = window.nanoid(8);
@@ -168,6 +181,11 @@ require_once '../config.php';
                 }
             } catch (error) {
                 messageDiv.innerHTML = '<div class="error">Error generating QR code: ' + error.message + '</div>';
+            } finally {
+                // Re-enable the submit button after request completes
+                isSubmitting = false;
+                submitButton.disabled = false;
+                submitButton.textContent = originalButtonText;
             }
         });
     </script>
