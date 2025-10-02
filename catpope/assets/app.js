@@ -28,7 +28,7 @@ class Scutoon {
         this.membership = JSON.parse(storedMembership);
         console.log('Found stored membership:', this.membership);
         // Validate that stored membership is actually a membership type
-        if (!this.membership || this.membership.type !== 'membership') {
+        if (!this.membership || !this.isValidMembershipType(this.membership.type) || this.isMembershipExpired(this.membership.expires_at)) {
           console.log('Invalid stored membership type, clearing...');
           this.clearMembership();
         }
@@ -43,8 +43,10 @@ class Scutoon {
   // Store membership to localStorage
   storeMembership(membershipData) {
     try {
-      // Double validation: only store if it's truly a membership type
-      if (membershipData && membershipData.type === 'membership' && membershipData.code) {
+      // Double validation: only store if it's truly a  valid membership type
+      // TODO: Refactor membership type validation to own function returning a boolean
+      // Question nessecity of this validation
+      if (membershipData && this.isValidMembershipType(membershipData.type) && membershipData.code) {
         this.membership = membershipData;
         localStorage.setItem('scutoons_membership', JSON.stringify(membershipData));
         console.log('Membership stored successfully:', membershipData);
@@ -66,11 +68,23 @@ class Scutoon {
     console.log('Membership cleared');
   }
 
+  isValidMembershipType(type) {
+    return type === 'membership' || type === 'promo';
+  }
+
+  isMembershipExpired(expires_at = undefined) {
+    if(!expires_at) {
+      return true;
+    }
+    const exp = new Date(expires_at.replace(' ', 'T') + 'Z'); // "YYYY-MM-DDTHH:mm:ssZ"
+    return Date.now() > exp.getTime();
+  }
+
   // Check if user has valid membership
   hasValidMembership() {
-    // Must have membership object, must be type 'membership', and must have a code
-    return !!(this.membership && 
-             this.membership.type === 'membership' && 
+    // Must have membership object, must be type 'membership' or 'promo', and must have a code
+    return !!(this.membership && !this.isMembershipExpired(this.membership.expires_at) && 
+             this.isValidMembershipType(this.membership.type) && 
              this.membership.code);
   }
 
@@ -438,7 +452,7 @@ class Scutoon {
             </button>
           </div>
           
-          ${this.membership && this.membership.type !== 'membership' ? `
+          ${this.membership && !this.isValidMembershipType(this.membership.type) ? `
             <div class="membership-error">
               <p>⚠️ Der gescannte QR-Code ist kein gültiger Mitgliedschaftscode.</p>
             </div>
@@ -473,16 +487,21 @@ class Scutoon {
       const data = await response.json();
       
       if (data.status === 'success' && data.qr) {
-        console.log('QR validation successful:', data.qr);
+        console.log('QR validation successful:', data.qr, this.isMembershipExpired(data.qr.expires_at));
         
         // Check if it's a membership type
-        if (data.qr.type === 'membership') {
+        if (this.isValidMembershipType(data.qr.type)) {
+          if (this.isMembershipExpired(data.qr.expires_at)) { // Expired when NOW is AFTER expiration
+            console.log('QR code is expired');
+            return { success: false, message: 'QR code is expired', data: data.qr };
+          }
           // Allow all membership types (claimed or unclaimed)
           // Store the membership with validation timestamp
           const membershipData = {
             ...data.qr,
             code: code,
-            validatedAt: new Date().toISOString()
+            validated_at: new Date().toISOString(),
+            expires_at: data.qr.expires_at
           };
           
           this.storeMembership(membershipData);
@@ -555,7 +574,7 @@ class Scutoon {
       return { status: 'none', message: 'Keine Mitgliedschaft' };
     }
     
-    if (this.membership.type !== 'membership') {
+    if (!this.isValidMembershipType(this.membership.type)) {
       return { status: 'invalid', message: 'Ungültiger Mitgliedschaftstyp', data: this.membership };
     }
     
@@ -564,7 +583,8 @@ class Scutoon {
       message: 'Aktive Mitgliedschaft',
       data: this.membership,
       claimedBy: this.membership.email || 'Unknown',
-      claimedAt: this.membership.claimed_at
+      claimedAt: this.membership.claimed_at,
+      expires_at: this.membership.expires_at
     };
   }
 
