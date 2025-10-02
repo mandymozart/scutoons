@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['claim_code'])) {
                 $redirectUrl = $result['redirect_to'];
                 // Add the QR code as a parameter to the redirect URL
                 $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
-                header("Location: " . $redirectUrl . $separator . "qr=" . urlencode($code));
+                header("Location: " . $redirectUrl . $separator . "code=" . urlencode($code));
                 exit();
             }
         } catch (Exception $e) {
