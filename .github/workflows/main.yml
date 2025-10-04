@@ -1,16 +1,3 @@
-on: push
-name: 🚀 Deploy website on push
-jobs:
-  web-deploy:
-    name: 🎉 Deploy
-    runs-on: ubuntu-latest
-    steps:
-    - name: 🚚 Get latest code
-      uses: actions/checkout@v4
-    
-    - name: 📂 Sync files
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-      with:
-        server: ftp.scutoons.com
-        username: f017b642
-        password: vja2qGQ2VP3jD8HBFC4F
+version https://git-lfs.github.com/spec/v1
+oid sha256:84d30de8e054870754bd455a54ebbc3eae1c0877c5915f2d0d2a4fbc53a360e6
+size 380

@@ -1,12 +1,3 @@
-{
-    "title": "Depression",
-    "author": "Mandy Mozart",
-    "number": 4,
-    "language": "de",
-    "release": "2026-01-01",
-    "status": "coming-soon",
-    "description": "Eine Welt bringt zusammen",
-    "thumbnail": "assets/images/s1c4-thumbnail.jpg",
-    "keyvisual": "assets/images/3x/s1c4-key-visual.jpg",
-    "slices": [] 
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:393bd940d34d712c7715c36dc9af4d23005c0d743d413178105bda9fde9bc162
+size 333

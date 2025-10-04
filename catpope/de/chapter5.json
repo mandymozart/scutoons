@@ -1,12 +1,3 @@
-{
-    "title": "Akzeptanz",
-    "author": "Mandy Mozart",
-    "number": 5,
-    "language": "de",
-    "release": "2026-02-01",
-    "status": "coming-soon",
-    "description": "Wiedersehen mit einer alten Freundin",
-    "thumbnail": "assets/images/s1c5-thumbnail.jpg",
-    "keyvisual": "assets/images/3x/s1c5-key-visual.jpg",
-    "slices": [] 
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:27ecf495665f825e5e468ce04fc320649fe81f1ee22edd31b1cb9665db18003c
+size 343

@@ -1,12 +1,3 @@
-{
-    "title": "Feilchen",
-    "author": "Mandy Mozart",
-    "number": 3,
-    "language": "de",
-    "release": "2025-12-01",
-    "status": "coming-soon",
-    "description": "Eine Pilgerreise soll antworten bringen",
-    "thumbnail": "assets/images/s1c3-thumbnail.jpg",
-    "keyvisual": "assets/images/3x/s1c3-key-visual.jpg",
-    "slices": [] 
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:838076214eea90f725842dc812eaeab6c96e67dae15d0d9265b84d84747407b9
+size 345
