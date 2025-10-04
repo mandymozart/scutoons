@@ -72,8 +72,9 @@ class Scutoon {
     return type === 'membership' || type === 'promo';
   }
 
-  isMembershipExpired(expires_at = undefined) {
-    if(!expires_at) {
+  isMembershipExpired(expires_at = null) {
+    console.log(expires_at);
+    if(expires_at === null) {
       return false;
     }
     const exp = new Date(expires_at.replace(' ', 'T') + 'Z'); // "YYYY-MM-DDTHH:mm:ssZ"
