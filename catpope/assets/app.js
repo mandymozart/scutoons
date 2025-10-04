@@ -74,7 +74,7 @@ class Scutoon {
 
   isMembershipExpired(expires_at = undefined) {
     if(!expires_at) {
-      return true;
+      return false;
     }
     const exp = new Date(expires_at.replace(' ', 'T') + 'Z'); // "YYYY-MM-DDTHH:mm:ssZ"
     return Date.now() > exp.getTime();
