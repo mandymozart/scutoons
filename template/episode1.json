@@ -1,3 +1,32 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:f9628c06703f6af9b1802e1d3162b18fd0f8ae2a8effe94abe5e4668359d7fae
-size 811
+{
+    "title": "Example",
+    "author": "Example",
+    "episode": "1",
+    "language": "de",
+    "release": "2025-10-04",
+    "audio": {
+        "src": "assets/audio/Example.mp3",
+        "loop": true,
+        "autoplay": true
+    },
+    "slices": [
+        {
+            "image": "assets/images/3x/de/Example.jpg",
+            "events": [
+                {
+                    "type": "audio",
+                    "src": "assets/audio/de/Example.mp3",
+                    "loop": true,
+                    "autoplay": true
+                },{
+                    "type": "dialog",
+                    "text": "And so it begins",
+                    "x": 100,
+                    "y": 100,
+                    "width": 200,
+                    "height": "auto"
+                }
+            ]
+        }
+    ] 
+}

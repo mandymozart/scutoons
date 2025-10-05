@@ -1,3 +1,12 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:f1c02f05c4763673e6e5e4c774139095c1ef4b56c62323cdcf8683632cd40275
-size 329
+{
+    "title": "Ärger",
+    "author": "Mandy Mozart",
+    "number": 2,
+    "language": "de",
+    "release": "2025-11-01",
+    "status": "coming-soon",
+    "description": "Die Predigt wird gestört",
+    "thumbnail": "assets/images/s1c2-thumbnail.jpg",
+    "keyvisual": "assets/images/3x/s1c2-key-visual.jpg",
+    "slices": [] 
+}

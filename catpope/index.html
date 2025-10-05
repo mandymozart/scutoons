@@ -1,3 +1,57 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:7182181877aeb83dbc30cc678304d6e8f87c224ce56bb96df687be072adbef5b
-size 2076
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Katzenpapst - SCUTOONS</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="../assets/styles.css">
+    <link rel="stylesheet" type="text/css" href="assets/styles.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <a href="../">    <img src="../SCUTOONS-logo.svg" alt="SCUTOONS"/></a>
+        </div>
+        <div></div>
+        <nav>
+            <ul>
+                <li><a href="#" onclick="scutoon.navigateTo('toon'); return false;">Katzenpapst</a></li>
+            </ul>
+        </nav>
+    </header>
+    
+    <div class="content">
+        <!-- Content will be dynamically loaded here -->
+        <div class="loading">Lädt...</div>
+    </div>
+    <script src="assets/app.js"></script>
+    <script>
+        // Initialize the Scutoon app
+        const scutoon = new Scutoon('.', 'de');
+        
+        // Function to handle navigation based on URL params
+        function handleNavigation() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const view = urlParams.get('view') || 'toon';
+            const chapter = parseInt(urlParams.get('chapter')) || 1;
+            const season = parseInt(urlParams.get('season')) || 1;
+            
+            // Use init() to properly process QR codes and then navigate
+            scutoon.init(view, chapter, season);
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            handleNavigation();
+        });
+        
+        // Handle browser back/forward buttons
+        window.addEventListener('popstate', (event) => {
+            handleNavigation();
+        });
+    </script>
+</body>
+</html>
