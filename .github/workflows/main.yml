@@ -7,6 +7,15 @@ jobs:
     steps:
     - name: 🚚 Get latest code
       uses: actions/checkout@v4
+
+    - name: Checkout code with LFS
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+      
+    - name: Pull LFS files
+      run: git lfs pull
     
     - name: 📂 Sync files
       uses: SamKirkland/FTP-Deploy-Action@v4.3.6
