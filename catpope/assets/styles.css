@@ -57,6 +57,23 @@ header.header-hidden {
     margin: 0 auto;
 }
 
+.view table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.view table td {
+    padding: 0.5rem;
+    border: 1px solid #ccc;
+}
+.view table td:first-child {
+    background: #f0f0f0;
+    min-width:33%;
+}
+
+.account-view section {
+    margin-top: 2rem;
+}
 .season-view {
     max-width: 800px;
     margin: 0 auto;

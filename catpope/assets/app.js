@@ -691,15 +691,54 @@ class Scutoon {
   renderAccountView() {
     const contentDiv = document.querySelector('.content');
     if (contentDiv) {
+      const expiryText = this.membership.expires_at || 'Lifetime';
+      const claimedText = this.membership.claimed_at || 'Not claimed';
+      
       contentDiv.innerHTML = `
       <div class="view account-view">
         <h1>My Account</h1>
-        <p>Here you can manage your account and membership.</p>
-        <h2>Membership</h2>
-        <p>Membership Type: ${this.membership.type}</p>
-        <p>Membership Valid Until: ${this.membership.expires_at}</p>
-        <p>Membership Validated At: ${this.membership.validated_at}</p>
-        <p>My Code: ${this.membership.code}</p>
+        
+        ${!this.membership.is_claimed ? `
+        <div class="notification">
+          <p>🔔 Reminder: If you claim your membership, we will be able to send you emails about updates and you can make changes to your membership! After all, you did buy this QR code.</p>
+          <p><a href="https://qr.scutoons.com/?c=${this.membership.code}" target="_blank" class="btn">Claim Membership Now</a></p>
+        </div>
+        ` : ''}
+        
+        <section>
+        <h2>Membership Information</h2>
+        <table>
+          <tr><td>Type</td><td>${this.membership.type}</td></tr>
+          <tr><td>Status</td><td>${this.membership.is_claimed ? 'Claimed' : 'Unclaimed'}</td></tr>
+          <tr><td>Valid Until</td><td>${expiryText}</td></tr>
+          <tr><td>Code</td><td>${this.membership.code}</td></tr>
+        </table>
+        </section>
+        
+        <section>
+        <h2>Timeline</h2>
+        <table>
+          <tr><td>Created</td><td>${this.membership.created_at}</td></tr>
+          <tr><td>Claimed</td><td>${claimedText}</td></tr>
+          <tr><td>Last Validated</td><td>${this.membership.validated_at}</td></tr>
+        </table>
+        </section>
+        
+        ${this.membership.email ? `
+        <section>
+        <h2>Account Details</h2>
+        <table>
+          <tr><td>Email</td><td>${this.membership.email}</td></tr>
+        </table>
+        </section>
+        ` : ''}
+        
+        <section>
+        <h2>Technical Information</h2>
+        <table>
+          ${this.membership.redirect_to ? `<tr><td>Content URL</td><td><a href="${this.membership.redirect_to}" target="_blank">${this.membership.redirect_to}</a></td></tr>` : ''}
+        </table>
+        </section>
       </div>
       `;
     }
