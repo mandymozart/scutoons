@@ -12,7 +12,57 @@
     "credits": {
         "artist": ["Mandy Mozart", "Thomas Dalby"],
         "writer": "Mandy Mozart",
-        "music": ["Mandy Mozart","ZHKM"],
-        "sound": ["Mandy Mozart","ZHKM"]
-    }
+        "music": ["Mandy Mozart","Chris Nova Ludwig"],
+        "sound": ["Mandy Mozart","Chris Nova Ludwig"]
+    },
+    "sequence": [
+        {
+            "type": "song",
+            "file": "song1.json"
+        },
+        {
+            "type": "chapter",
+            "file": "chapter1.json"
+        },
+        {
+            "type": "chapter",
+            "file": "chapter2.json"
+        },
+        {
+            "type": "song",
+            "file": "song2.json"
+        },
+        {
+            "type": "chapter",
+            "file": "chapter3.json"
+        },
+        {
+            "type": "song",
+            "file": "song3.json"
+        },
+        {
+            "type": "chapter",
+            "file": "chapter4.json"
+        },
+        {
+            "type": "song",
+            "file": "song4.json"
+        },
+        {
+            "type": "chapter",
+            "file": "chapter5.json"
+        },
+        {
+            "type": "song",
+            "file": "song5.json"
+        },
+        {
+            "type": "chapter",
+            "file": "chapter6.json"
+        },
+        {
+            "type": "song",
+            "file": "song6.json"
+        }
+    ]
 }

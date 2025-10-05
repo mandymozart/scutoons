@@ -149,6 +149,9 @@ class Scutoon {
       case 'account':
         this.renderAccountView();
         break;
+      case 'credits':
+        this.renderCreditsView();
+        break;
       default:
         this.renderToonView();
     }
@@ -259,7 +262,6 @@ class Scutoon {
         <div class="toon-header">
           <img src="${data.cover.square}" alt="Cover" class="Cover" />
           <h1>${data.title}</h1>
-          <p class="authors">von ${data.authors ? data.authors.join(' & ') : ''}</p>
           <p class="description">${data.description}</p>
           ${downloadHtml}
         </div>
@@ -269,6 +271,7 @@ class Scutoon {
             ${chaptersHtml}
           </div>
         </div>
+                  <button onclick="scutoon.navigateTo('credits')">Credits</button>
       </div>
     `;
     
@@ -293,6 +296,7 @@ class Scutoon {
       <div class="season-view">
         <h1>Staffel ${data.number}: ${data.title}</h1>
         <p class="authors">von ${data.authors ? data.authors.join(' & ') : ''}</p>
+        
         <p class="description">${data.description}</p>
         ${data.cover ? `
           <div class="cover-images">
@@ -309,6 +313,7 @@ class Scutoon {
             <p><strong>Sound:</strong> ${data.credits.sound ? data.credits.sound.join(', ') : ''}</p>
           </div>
         ` : ''}
+        <button onclick="scutoon.navigateTo('credits')">Complete Credits</button>
         <div class="navigation-buttons">
           <button onclick="scutoon.navigateTo('toon')" class="btn-back">Zurück zur Übersicht</button>
           <button onclick="scutoon.navigateTo('chapter', {chapter: 1})" class="btn-chapter">Kapitel 1 lesen</button>
@@ -744,6 +749,74 @@ class Scutoon {
     }
   }
 
+  async renderCreditsView(){
+    const credits = await fetch(`${this.toonName}/${this.lang}/credits.json`)
+      .then(response => response.json());
+    
+    const contentDiv = document.querySelector('.content');
+    if (contentDiv) {
+      contentDiv.innerHTML = `
+      <div class="view credits-view">
+        <h1>Credits</h1>
+        
+        <section>
+        <h2>Crew</h2>
+        <table>
+          ${credits.crew.map(person => `
+            <tr><td>${person.name}</td><td>${person.role}</td></tr>
+          `).join('')}
+        </table>
+        </section>
+        
+        <section>
+        <h2>Choir</h2>
+        <p><strong>${credits.choir.name}</strong></p>
+        </section>
+        
+        <section>
+        <h2>Performance Casts</h2>
+        ${credits.casts.map(cast => `
+          <div class="cast-info">
+            <h3>${cast.name}</h3>
+            <p><strong>Venue:</strong> ${cast.venue}</p>
+            <p><strong>Date:</strong> ${cast.date}</p>
+            ${cast.conductor ? `<p><strong>Conductor:</strong> ${cast.conductor}</p>` : ''}
+            <table>
+              ${cast.members.map(member => `
+                <tr><td>${member.name}</td><td>${member.voice}</td></tr>
+              `).join('')}
+            </table>
+          </div>
+        `).join('')}
+        </section>
+        
+        <section>
+        <h2>Songs</h2>
+        ${credits.songs.map(song => `
+          <div class="song-credits">
+            <h3>${song.title}</h3>
+            <table>
+              ${song.credits.text ? `<tr><td>Text</td><td>${song.credits.text.join(', ')}</td></tr>` : ''}
+              ${song.credits.composition ? `<tr><td>Composition</td><td>${song.credits.composition.join(', ')}</td></tr>` : ''}
+              ${song.credits.production ? `<tr><td>Production</td><td>${song.credits.production.join(', ')}</td></tr>` : ''}
+              ${song.credits.recording_engineer ? `<tr><td>Recording Engineer</td><td>${song.credits.recording_engineer.join(', ')}</td></tr>` : ''}
+              ${song.credits.interpretation ? `<tr><td>Interpretation</td><td>${song.credits.interpretation.join(', ')}</td></tr>` : ''}
+              ${song.credits.musicians ? `<tr><td>Musicians</td><td>${song.credits.musicians.join(', ')}</td></tr>` : ''}
+              ${song.credits.choir ? `<tr><td>Choir</td><td>${song.credits.choir.join(', ')}</td></tr>` : ''}
+            </table>
+          </div>
+        `).join('')}
+        </section>
+        
+        <section>
+        <h2>Special Thanks</h2>
+        <p>${credits.special_thanks.join(', ')}</p>
+        </section>
+      </div>
+      `;
+    }
+  }
+
   // Initialize the app with a specific view
   async init(initialView = 'toon', initialChapter = 1, initialSeason = 1) {
     // First process any QR code from URL
@@ -764,6 +837,9 @@ class Scutoon {
         break;
       case 'account':
         await this.renderAccountView();
+        break;
+      case 'credits':
+        await this.renderCreditsView();
         break;
       default:
         await this.renderToonView();
