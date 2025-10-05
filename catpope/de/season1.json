@@ -1,18 +1,3 @@
-{
-    "title": "Das Erwachen",
-    "authors": ["Mandy Mozart", "Thomas Dalby"],
-    "language": "de",
-    "number": 1,
-    "release": "2025-10-04",
-    "description": "Als die Morgenroutine einer narzisstischen religiösen Persönlichkeit durch eine mysteriöse Sphynx-Katze gestört wird, geraten sie in eine Spirale surrealer Begegnungen mit digitalen Verschwörungen, mythischen Kreaturen und glitchigen Realitäten, nur um schließlich zu entdecken, dass die Katze die ganze Zeit über ihre eigene gespaltene Identität war.",
-    "cover": {
-        "square": "assets/images/1x/de/s1-cover-square.jpg",
-        "portrait": "assets/images/1x/de/s1-cover-portrait.jpg"
-    },
-    "credits": {
-        "artist": ["Mandy Mozart", "Thomas Dalby"],
-        "writer": "Mandy Mozart",
-        "music": ["Mandy Mozart","ZHKM"],
-        "sound": ["Mandy Mozart","ZHKM"]
-    }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:3c663b278c798259b3880a8358f5f2cec8a5d0d32323f8e93c62355d80194d1c
+size 871

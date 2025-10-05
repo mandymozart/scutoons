@@ -1,14 +1,3 @@
-{
-    "title": "Katzenpapst",
-    "authors": ["Mandy Mozart", "Thomas Dalby"],
-    "chapters": 5,
-    "language": "de",
-    "release": "2025-10-04",
-    "status": "published",
-    "description": "Als die Morgenroutine einer narzisstischen religiösen Persönlichkeit durch eine mysteriöse Sphynx-Katze gestört wird, geraten sie in eine Spirale surrealer Begegnungen mit digitalen Verschwörungen, mythischen Kreaturen und glitchigen Realitäten, nur um schließlich zu entdecken, dass die Katze die ganze Zeit über ihre eigene gespaltene Identität war.",
-    "thumbnail": "assets/images/s1c1-thumbnail.jpg",
-    "cover": {
-        "square": "assets/images/1x/de/s1-cover-square.jpg",
-        "portrait": "assets/images/1x/de/s1-cover-portrait.jpg"
-    }
-}
+version https://git-lfs.github.com/spec/v1
+oid sha256:df4d698a5658bd4f87ce3af4dee8bb6d490ef90e3465c664b239dc775793b21c
+size 870
