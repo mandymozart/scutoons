@@ -146,6 +146,9 @@ class Scutoon {
       case 'chapter':
         this.renderChapterView(params.chapter || 1);
         break;
+      case 'account':
+        this.renderAccountView();
+        break;
       default:
         this.renderToonView();
     }
@@ -436,6 +439,7 @@ class Scutoon {
   // Render membership required message
   renderMembershipRequired(chapterNumber) {
     const content = `
+    <div class="view membership-required-view">
       <div class="membership-required">
         <div class="membership-card">
           <h2>🔒 Mitgliedschaft erforderlich</h2>
@@ -463,6 +467,7 @@ class Scutoon {
           ` : ''}
         </div>
       </div>
+    </div>
     `;
     
     const contentDiv = document.querySelector('.content');
@@ -687,6 +692,7 @@ class Scutoon {
     const contentDiv = document.querySelector('.content');
     if (contentDiv) {
       contentDiv.innerHTML = `
+      <div class="view account-view">
         <h1>My Account</h1>
         <p>Here you can manage your account and membership.</p>
         <h2>Membership</h2>
@@ -694,6 +700,7 @@ class Scutoon {
         <p>Membership Valid Until: ${this.membership.expires_at}</p>
         <p>Membership Validated At: ${this.membership.validated_at}</p>
         <p>My Code: ${this.membership.code}</p>
+      </div>
       `;
     }
   }

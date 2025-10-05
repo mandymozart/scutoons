@@ -50,6 +50,13 @@ header.header-hidden {
 .toon-download {
     margin-top: 2rem;
 }
+
+.view {
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
 .season-view {
     max-width: 800px;
     margin: 0 auto;
