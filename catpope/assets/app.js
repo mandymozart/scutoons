@@ -629,6 +629,75 @@ class Scutoon {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
+  renderAccountNavItem() {
+    const nav = document.querySelector('.nav');
+    const accountNavItem = document.createElement('li');
+    accountNavItem.classList.add('nav-item', 'account-nav');
+    accountNavItem.innerHTML = `
+      <a href="#" class="nav-btn" onclick="scutoon.navigateTo('account'); return false;">
+        <img src="../assets/icons/account.svg" alt="Account"/>
+        <span>My Account</span>
+      </a>
+    `;
+    nav.querySelector('ul').appendChild(accountNavItem);
+  }
+
+  removeAccountNavItem() {
+    const nav = document.querySelector('.nav');
+    // check if account nav item exists
+    if (nav.querySelector('.account-nav')) {
+      nav.querySelector('.account-nav').remove();
+    }
+  }
+
+  renderClaimNavItem() {
+    const nav = document.querySelector('.nav');
+    const claimNavItem = document.createElement('li');
+    claimNavItem.classList.add('nav-item', 'claim-nav');
+    claimNavItem.innerHTML = `
+      <a href="https://qr.scutoons.com/" class="nav-btn">
+      <img src="../assets/icons/qr.svg" alt="QR"/>
+        <span>Claim Membership</span>
+      </a>
+    `;
+    nav.querySelector('ul').appendChild(claimNavItem);
+  }
+
+  removeClaimNavItem() {
+    const nav = document.querySelector('.nav');
+    // check if claim nav item exists
+    if (nav.querySelector('.claim-nav')) {
+      nav.querySelector('.claim-nav').remove();
+    }
+  }
+
+  renderAccountNavigation() {
+    const nav = document.querySelector('.nav');
+    // Check if membership exists
+    if (this.membership) {
+      this.renderAccountNavItem();
+      this.removeClaimNavItem();
+    } else {
+      this.removeAccountNavItem();
+      this.renderClaimNavItem();
+    }
+  }
+
+  renderAccountView() {
+    const contentDiv = document.querySelector('.content');
+    if (contentDiv) {
+      contentDiv.innerHTML = `
+        <h1>My Account</h1>
+        <p>Here you can manage your account and membership.</p>
+        <h2>Membership</h2>
+        <p>Membership Type: ${this.membership.type}</p>
+        <p>Membership Valid Until: ${this.membership.expires_at}</p>
+        <p>Membership Validated At: ${this.membership.validated_at}</p>
+        <p>My Code: ${this.membership.code}</p>
+      `;
+    }
+  }
+
   // Initialize the app with a specific view
   async init(initialView = 'toon', initialChapter = 1, initialSeason = 1) {
     // First process any QR code from URL
@@ -637,6 +706,8 @@ class Scutoon {
     if (qrResult && qrResult.success) {
       console.log('Successfully validated membership from QR code');
     }
+
+    this.renderAccountNavigation();
     
     switch(initialView) {
       case 'season':
@@ -644,6 +715,9 @@ class Scutoon {
         break;
       case 'chapter':
         await this.renderChapterView(initialChapter);
+        break;
+      case 'account':
+        await this.renderAccountView();
         break;
       default:
         await this.renderToonView();

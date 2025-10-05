@@ -62,11 +62,15 @@ button:hover,.btn:hover {
 }
 
 header {
-  display: grid;
-  grid-template-columns: 7rem auto 10rem;
+  display: flex;
+  justify-content: space-between;
   align-items: center;
   padding: 1rem;
 
+}
+
+header .logo {
+  width: 7rem;
 }
 
 header nav ul {
@@ -80,9 +84,47 @@ header nav ul {
 }
 
 
-header nav ul li {
+header nav ul li.nav-item {
   margin: 0;
   padding: 0;
+}
+
+header nav ul li.nav-item a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 16px;
+  line-height: 16px;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  text-decoration: none;
+  color: black;
+  border-radius: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+header nav ul li.nav-item a.nav-btn {
+  border: 2px solid #ccc;
+}
+
+header nav ul li.nav-item a.nav-btn:hover {
+  border-color: #000;
+  text-decoration: none;
+}
+
+header nav ul li.nav-item a img {
+  width: 2rem;
+}
+
+header nav ul li.nav-item a span {
+  font-size: 16px;
+  line-height: 16px;
+}
+
+header nav ul li.nav-item a:hover {
+  text-decoration: underline;
 }
 
 .cta {
