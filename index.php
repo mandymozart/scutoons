@@ -218,7 +218,14 @@ elseif (isset($_GET['c'])) {
             <img src="https://www.scutoons.com/SCUTOONS-logo.svg" alt="SCUTOONS" />
         </div>
         <div class="shop">
-            Now QR Code? QR Codes are only available with the purchase of SCUTOONS limited editions: <a href="https://www.willhaben.at/iad/kaufen-und-verkaufen/verkaeuferprofil/29873185" target="_blank">Shop (Willhaben)</a>
+            <h2>FAQ</h2>
+            <h3>
+
+            I don't have an access code! Where can I get one?
+        </h3>
+        <p>
+            QR Codes are only available with the purchase of SCUTOONS limited editions: <a href="https://www.willhaben.at/iad/kaufen-und-verkaufen/verkaeuferprofil/29873185" target="_blank">Shop (Willhaben)</a>
+        </p>
         </div>
     </body>
 
