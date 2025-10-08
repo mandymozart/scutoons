@@ -224,7 +224,7 @@ elseif (isset($_GET['c'])) {
             I don't have an access code! Where can I get one?
         </h3>
         <p>
-            QR Codes are only available with the purchase of SCUTOONS limited editions: <a href="https://www.willhaben.at/iad/kaufen-und-verkaufen/verkaeuferprofil/29873185" target="_blank">Shop (Willhaben)</a>
+            QR Codes are only available with the purchase of SCUTOONS limited editions: <a href="https://www.willhaben.at/iad/kaufen-und-verkaufen/verkaeuferprofil/29873185" target="_blank">Shop Now (Willhaben)</a>
         </p>
         </div>
     </body>
