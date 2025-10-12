@@ -141,12 +141,49 @@ header nav ul li.nav-item a:hover {
   text-decoration: underline;
 }
 
+.releases {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
 .cta {
 text-align: center;
   font-size: 1.2rem;
   margin: 2rem 0;
   border: 4px solid;
   padding: 2rem;
+}
+
+.cta-gallery {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.cta-gallery-item {
+  width: 100%;
+  overflow: hidden;
+}
+
+.cta-gallery-item a {
+  display: block;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+}
+
+.cta-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: opacity 0.2s ease;
+}
+
+.cta-gallery-item a:hover img {
+  opacity: 0.85;
 }
 
 @media (min-width: 768px) {
@@ -156,6 +193,14 @@ text-align: center;
 
   body {
     padding: 2rem;
+  }
+
+  .releases {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .cta-gallery {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
