@@ -360,7 +360,7 @@ class Scutoon {
             <div class="chapter-item song coming-soon">
               <div class="chapter-image"><img src="${item.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="${item.title} Thumbnail" loading="lazy"></div>
               <div class="chapter-title">${item.title}</div>
-              <div class="chapter-release">${item.release}</div>
+              <div class="chapter-release"><span class="badge">Coming Soon</span><br/>${item.release}</div>
               <div class="chapter-number"><img src="../assets/icons/headphones.svg" alt="Song"> #${item.number}</div>
             </div>
           `;
@@ -381,7 +381,7 @@ class Scutoon {
             <div class="chapter-item coming-soon">
               <div class="chapter-image"><img src="${item.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${item.number} Thumbnail" loading="lazy"></div>
               <div class="chapter-title">${item.title}</div>
-              <div class="chapter-release">${item.release}</div>
+              <div class="chapter-release"><span class="badge">Coming Soon</span><br/>${item.release}</div>
               <div class="chapter-number"><img src="../assets/icons/chapter.svg"/ alt="Chapter">#${item.number}</div>
             </div>
           `;

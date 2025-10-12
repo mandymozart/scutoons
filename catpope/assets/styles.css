@@ -126,6 +126,9 @@ header.header-hidden {
     height: auto;
 }
 
+.chapter-item .chapter-release {
+    font-size: .75rem;
+}
 .chapter-item .chapter-release,
 .chapter-item .chapter-number {
     color: #6b6b6b;
@@ -143,6 +146,10 @@ text-align: right;
 
 .chapter-item.coming-soon {
     opacity: 0.5;
+    cursor: not-allowed;
+}
+.chapter-item.coming-soon .chapter-release .badge {
+    font-size: .5rem;
 }
 
 .credits-section {
