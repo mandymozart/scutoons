@@ -1,4 +1,30 @@
 {
-    "title":"Roar Little Kitty",
-    "src":"assets/audio/1-CatPope-RoarLittleKitty.mp3"
+  "title": "Roar Little Kitty",
+  "author": "Mandy Mozart",
+  "number": 1,
+  "language": "en",
+  "release": "2025-10-04",
+  "status": "published",
+  "description": "A nightmare haunts our protagonist.",
+  "thumbnail": "assets/images/s1s1-thumbnail.jpg",
+  "src": "assets/audio/1-CatPope-RoarLittleKitty.mp3",
+  "video": {
+    "name": "Roar",
+    "sources": [
+      {
+        "id": "youtube",
+        "src": "https://youtu.be/J1gNRL5e_78"
+      }
+    ]
+  },
+  "scores": [
+    {
+      "name": "Roar Little Kitty (SATB)",
+      "src": "assets/scores/1-CatPope-RoarLittle-SATB.pdf"
+    },
+    {
+      "name": "Roar Little Kitty (Bariton & Organ)",
+      "src": "assets/scores/1-CatPope-RoarLittle-BaritonOrgan.pdf"
+    }
+  ]
 }
