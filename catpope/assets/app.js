@@ -11,11 +11,15 @@ class Scutoon {
   currentChapter = 1;
   currentSeason = 1;
   membership = null; // Store membership data
+  menuEl;
+  contentEl;
   
   constructor(toonName, lang) {
     this.toonName = toonName;
     this.lang = lang;
     this.lastScrollTop = 0;
+    this.menuEl = document.querySelector('.nav .menu');
+    this.contentEl = document.querySelector('.content');
     this.initScrollHandler();
     this.initMembership(); // Initialize membership system
   }
@@ -74,7 +78,7 @@ class Scutoon {
 
   isMembershipExpired(expires_at = null) {
     console.log(expires_at);
-    if(expires_at === null) {
+    if(!expires_at) {
       return false;
     }
     const exp = new Date(expires_at.replace(' ', 'T') + 'Z'); // "YYYY-MM-DDTHH:mm:ssZ"
@@ -278,10 +282,9 @@ class Scutoon {
       </div>
     `;
     
-    const contentDiv = document.querySelector('.content');
-    if (contentDiv) {
-      contentDiv.innerHTML = content;
-      contentDiv.classList.remove('chapter-mode');
+    if (this.contentEl) {
+        this.contentEl.innerHTML = content;
+      this.contentEl.classList.remove('chapter-mode');
     }
     
     return data;
@@ -324,8 +327,7 @@ class Scutoon {
       </div>
     `;
     
-    const contentDiv = document.querySelector('.content');
-    if (contentDiv) contentDiv.innerHTML = content;
+    if (this.contentEl) this.contentEl.innerHTML = content;
     
     return data;
   }
@@ -363,11 +365,10 @@ class Scutoon {
       </div>
     `;
     
-    const contentDiv = document.querySelector('.content');
-    if (contentDiv) {
-      contentDiv.innerHTML = content;
+    if (this.contentEl) {
+      this.contentEl.innerHTML = content;
       // Make content div fullscreen for chapter view
-      contentDiv.classList.add('chapter-mode');
+      this.contentEl.classList.add('chapter-mode');
     }
     
     // Start sequential lazy loading
@@ -478,10 +479,9 @@ class Scutoon {
     </div>
     `;
     
-    const contentDiv = document.querySelector('.content');
-    if (contentDiv) {
-      contentDiv.innerHTML = content;
-      contentDiv.classList.remove('chapter-mode');
+    if (this.contentEl) {
+      this.contentEl.innerHTML = content;
+      this.contentEl.classList.remove('chapter-mode');
     }
   }
 
@@ -643,7 +643,6 @@ class Scutoon {
   }
 
   renderAccountNavItem() {
-    const nav = document.querySelector('.nav');
     const accountNavItem = document.createElement('li');
     accountNavItem.classList.add('nav-item', 'account-nav');
     accountNavItem.innerHTML = `
@@ -652,19 +651,17 @@ class Scutoon {
         <span>My Account</span>
       </a>
     `;
-    nav.querySelector('ul').appendChild(accountNavItem);
+    this.menuEl.appendChild(accountNavItem);
   }
 
   removeAccountNavItem() {
-    const nav = document.querySelector('.nav');
     // check if account nav item exists
-    if (nav.querySelector('.account-nav')) {
-      nav.querySelector('.account-nav').remove();
+    if (this.menuEl.querySelector('.account-nav')) {
+      this.menuEl.querySelector('.account-nav').remove();
     }
   }
 
   renderClaimNavItem() {
-    const nav = document.querySelector('.nav');
     const claimNavItem = document.createElement('li');
     claimNavItem.classList.add('nav-item', 'claim-nav');
     claimNavItem.innerHTML = `
@@ -673,19 +670,19 @@ class Scutoon {
         <span>Claim Membership</span>
       </a>
     `;
-    nav.querySelector('ul').appendChild(claimNavItem);
+    this.menuEl.appendChild(claimNavItem);
   }
 
   removeClaimNavItem() {
-    const nav = document.querySelector('.nav');
     // check if claim nav item exists
-    if (nav.querySelector('.claim-nav')) {
-      nav.querySelector('.claim-nav').remove();
+    if (this.menuEl.querySelector('.claim-nav')) {
+      this.menuEl.querySelector('.claim-nav').remove();
     }
   }
 
   renderAccountNavigation() {
-    const nav = document.querySelector('.nav');
+    
+    this.menuEl.innerHTML = '';
     // Check if membership exists
     if (this.membership) {
       this.renderAccountNavItem();
@@ -697,12 +694,12 @@ class Scutoon {
   }
 
   renderAccountView() {
-    const contentDiv = document.querySelector('.content');
-    if (contentDiv) {
+    
+    if (this.contentEl) {
       const expiryText = this.membership.expires_at || 'Lifetime';
       const claimedText = this.membership.claimed_at || 'Not claimed';
       
-      contentDiv.innerHTML = `
+      this.contentEl.innerHTML = `
       <div class="view account-view">
         <h1>My Account</h1>
         
@@ -756,9 +753,8 @@ class Scutoon {
     const credits = await fetch(`${this.toonName}/${this.lang}/credits.json`)
       .then(response => response.json());
     
-    const contentDiv = document.querySelector('.content');
-    if (contentDiv) {
-      contentDiv.innerHTML = `
+    if (this.contentEl) {
+      this.contentEl.innerHTML = `
       <div class="view credits-view">
         <h1>Credits</h1>
         
@@ -837,9 +833,8 @@ class Scutoon {
   async renderPlayerView() {
     const songs = await this.loadSongs();
     
-    const contentDiv = document.querySelector('.content');
-    if (contentDiv) {
-      contentDiv.innerHTML = `
+    if (this.contentEl) {
+      this.contentEl.innerHTML = `
       <div class="view player-view">
         <div class="c-container">
           <div class="music-container">

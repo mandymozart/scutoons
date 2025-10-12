@@ -73,6 +73,9 @@ header .logo {
   width: 7rem;
 }
 
+header nav {
+  display: flex;
+}
 header nav ul {
   margin: 0;
   padding: 0;
@@ -103,6 +106,17 @@ header nav ul li.nav-item a {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 1rem;
   cursor: pointer;
+}
+
+header nav ul.toons li.nav-item a{
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: .25rem;
+
+}
+header nav ul.toons li.nav-item a span {
+  font-size: 10px;
 }
 
 header nav ul li.nav-item a.nav-btn {
@@ -142,6 +156,12 @@ text-align: center;
 
   body {
     padding: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .nav .toons .name {
+    display: none;
   }
 }
 
