@@ -165,6 +165,9 @@ class Scutoon {
       default:
         this.renderToonView();
     }
+    
+    // Scroll to top after view transition
+    window.scrollTo(0, 0);
   }
 
   async loadToon() {
@@ -1247,5 +1250,8 @@ class Scutoon {
       default:
         await this.renderToonView();
     }
+    
+    // Scroll to top after view transition
+    window.scrollTo(0, 0);
   }
 }
