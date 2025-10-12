@@ -97,6 +97,43 @@ require_once '../config.php';
 
     <script>
         let isSubmitting = false;
+        let currentQRData = null; // Store current QR data globally
+
+        // Setup download button handler once
+        document.getElementById('downloadBtn').addEventListener('click', function() {
+            if (!currentQRData) {
+                console.error('No QR code data available');
+                return;
+            }
+
+            // Get the current SVG element from DOM
+            const qrCodeDiv = document.getElementById('qrCode');
+            const svgElement = qrCodeDiv.querySelector('svg');
+            
+            if (!svgElement) {
+                console.error('No SVG element found');
+                return;
+            }
+
+            // Serialize the SVG
+            const svgString = new XMLSerializer().serializeToString(svgElement);
+            const blob = new Blob([svgString], {
+                type: 'image/svg+xml'
+            });
+            const url = URL.createObjectURL(blob);
+
+            // Create and trigger download
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SCUTOONS-QR-${currentQRData.type.toUpperCase()}-${currentQRData.code}.svg`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+
+            // Clean up
+            URL.revokeObjectURL(url);
+        });
+
         document.getElementById('qrForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -129,13 +166,23 @@ require_once '../config.php';
                 const result = await response.json();
 
                 if (result.success) {
-                    // Generate QR code
+                    // Store current QR data globally
+                    currentQRData = {
+                        code: result.code,
+                        type: result.type,
+                        redirect_to: result.redirect_to
+                    };
+
+                    // Generate QR code URL
                     const qrUrl = `https://qr.scutoons.com?c=${result.code}`;
 
-                    // Clear previous QR code
-                    document.getElementById('qrCode').innerHTML = '';
+                    // Clear previous QR code completely
+                    const qrCodeDiv = document.getElementById('qrCode');
+                    while (qrCodeDiv.firstChild) {
+                        qrCodeDiv.removeChild(qrCodeDiv.firstChild);
+                    }
 
-                    // Generate SVG QR code
+                    // Generate new SVG QR code
                     const qrSvg = new QRCode({
                         msg: qrUrl,
                         dim: 256,
@@ -144,35 +191,17 @@ require_once '../config.php';
                         pal: ['#000000', '#FFFFFF']
                     });
 
-                    document.getElementById('qrCode').appendChild(qrSvg);
+                    // Append new QR code
+                    qrCodeDiv.appendChild(qrSvg);
 
-                    // Show result
+                    // Update display info
                     document.getElementById('qrUrl').textContent = qrUrl;
                     document.getElementById('redirectTo').textContent = result.redirect_to;
                     document.getElementById('code').textContent = result.code;
                     document.getElementById('qrResult').style.display = 'block';
 
-                    // Setup download button
-                    const downloadBtn = document.getElementById('downloadBtn');
-                    downloadBtn.style.display = 'inline-block';
-                    downloadBtn.onclick = function() {
-                        // Get the SVG element
-                        const svgElement = document.getElementById('qrCode').querySelector('svg');
-                        const svgString = new XMLSerializer().serializeToString(svgElement);
-                        const blob = new Blob([svgString], {
-                            type: 'image/svg+xml'
-                        });
-                        const url = URL.createObjectURL(blob);
-
-                        // Create download link
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `SCUTOONS-QR-${result.type.toUpperCase()}-${result.code}.svg`;
-                        a.click();
-
-                        // Clean up
-                        URL.revokeObjectURL(url);
-                    };
+                    // Show download button
+                    document.getElementById('downloadBtn').style.display = 'inline-block';
 
                     messageDiv.innerHTML = '<div class="success">QR Code generated successfully!</div>';
 
