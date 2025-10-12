@@ -151,7 +151,7 @@ class Scutoon {
         this.renderChapterView(params.chapter || 1);
         break;
       case 'song':
-        this.renderSongView(params.song || 1);
+        this.renderSongView(parseInt(params.song) || 1);
         break;
       case 'account':
         this.renderAccountView();

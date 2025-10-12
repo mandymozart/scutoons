@@ -100,8 +100,13 @@ header.header-hidden {
 }
 
 .song-header {
-    font-size: 0.5rem;
+    font-size: 1rem;
     margin-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 50vh;
+    justify-content: center;
 }
 
 .chapters-list {

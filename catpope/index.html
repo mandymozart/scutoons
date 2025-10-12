@@ -39,9 +39,10 @@
             const view = urlParams.get('view') || 'toon';
             const chapter = parseInt(urlParams.get('chapter')) || 1;
             const season = parseInt(urlParams.get('season')) || 1;
+            const song = parseInt(urlParams.get('song')) || 1;
             
             // Use init() to properly process QR codes and then navigate
-            scutoon.init(view, chapter, season);
+            scutoon.init(view, chapter, season, song);
         }
         
         // Initialize on page load
