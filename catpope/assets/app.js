@@ -150,6 +150,9 @@ class Scutoon {
       case 'chapter':
         this.renderChapterView(params.chapter || 1);
         break;
+      case 'song':
+        this.renderSongView(params.song || 1);
+        break;
       case 'account':
         this.renderAccountView();
         break;
@@ -206,6 +209,95 @@ class Scutoon {
     });
   }
 
+  async loadSong(songNumber) {
+    return fetch(`${this.toonName}/${this.lang}/song${songNumber}.json`)
+      .then(response => response.json())
+      .then(data => {
+        console.log('Song data:', data);
+        this.song = data;
+        this.currentSong = songNumber;
+        return data;
+      });
+  }
+  // Render song view
+  async renderSongView(songNumber) {
+    // Check membership before rendering song
+    if (!this.hasValidMembership()) {
+      this.renderMembershipRequired(null, songNumber);
+      return null;
+    }
+
+    const songData = await this.loadSong(songNumber);
+    this.currentView = 'song';
+    this.currentSong = songNumber;
+    
+    // Update URL
+    this.updateURL({ view: 'song', song: songNumber });
+
+    let scoreHtml = '';
+    if(songData.scores){
+      scoreHtml = songData.scores.map(score => {
+          if(score.status === 'draft'){
+          return '';
+        }
+        return `
+        <div class="song-score">
+          <div class="song-score-title">${score.name}</div>
+          <div class="song-score-src"><a href="${score.src}" target="_blank">Download</a></div>
+        </div>
+      `;
+      }).join('');
+    }
+
+    let autoplayAudio = true;
+
+    let videoHtml = '';
+    if(songData.video && songData.video.sources && songData.video.sources.youtube && songData.video.sources.youtube.id){
+      const videoId = songData.video.sources.youtube.id;
+      videoHtml = `
+        <div class="song-video">
+          <iframe 
+            width="100%" 
+            height="315" 
+            src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+          </iframe>
+        </div>
+      `;
+      autoplayAudio = false;
+    }
+
+    let audioHtml = '';
+    if(songData.src){
+      audioHtml = `
+        <div class="song-src"><audio controls ${autoplayAudio ? 'autoplay' : ''}><source src="${songData.src}" type="audio/mpeg"></audio></div>
+      `;
+    }
+    const content = `
+      <div class="view song-view">
+        ${videoHtml}
+        <div class="song-header">
+          <div class="song-title">${songData.title}</div>
+          <div class="song-description">${songData.description}</div>
+          ${audioHtml}
+        </div>
+        ${scoreHtml}
+        <div class="song-navigation">
+          <button onclick="scutoon.navigateTo('toon')" class="btn-back">← Zur&uuml;ck zur &Uuml;bersicht</button>
+        </div>
+      </div>
+    `;
+    
+    if (this.contentEl) {
+      this.contentEl.innerHTML = content;
+      this.contentEl.classList.remove('chapter-mode');
+    }
+    
+    return songData;
+  }
+
   // Render toon view (main/overview with chapters list)
   async renderToonView() {
     const data = await this.loadToon();
@@ -216,52 +308,84 @@ class Scutoon {
 
     // Display download options
     let downloadHtml = ``;
-    if(data.download.music && this.hasValidMembership()){
-      downloadHtml = `<div class="toon-download"><button class="btn" onclick="scutoon.navigateTo('player')">Play</button><a class="btn" href="${data.download.music}" target="_blank">Download as MP3</a></div>`
+    if(data.download && data.download.music && this.hasValidMembership()){
+      downloadHtml = `<div class="toon-download"><a class="btn" href="${data.download.music}" target="_blank">Download</a></div>`
     } 
     
-    // Load chapter details based on the number of chapters
-    const availableChapters = [];
-    const chapterCount = data.chapters || 0;
+    // Load season1 data to get the sequence
+    const seasonData = await this.loadSeason(1);
     
-    for (let i = 1; i <= chapterCount; i++) {
+    // Load all items from the season sequence
+    const sequenceItems = [];
+    for (const item of seasonData.sequence) {
       try {
-        const chapterData = await this.loadChapter(i);
-        availableChapters.push(chapterData);
+        let itemData;
+        if (item.type === 'song') {
+          // Extract song number from filename (e.g., "song1.json" -> 1)
+          const songNumber = parseInt(item.file.match(/song(\d+)\.json/)[1]);
+          itemData = await this.loadSong(songNumber);
+          itemData.itemType = 'song';
+          itemData.itemNumber = songNumber;
+        } else if (item.type === 'chapter') {
+          // Extract chapter number from filename (e.g., "chapter1.json" -> 1)
+          const chapterNumber = parseInt(item.file.match(/chapter(\d+)\.json/)[1]);
+          itemData = await this.loadChapter(chapterNumber);
+          itemData.itemType = 'chapter';
+          itemData.itemNumber = chapterNumber;
+        }
+        sequenceItems.push(itemData);
       } catch (error) {
-        console.error(`Failed to load chapter ${i}:`, error);
-        // Still show the chapter card but mark it as unavailable
-        availableChapters.push({
-          number: i,
-          title: `Kapitel ${i}`,
-          description: 'Nicht verfügbar',
-          status: 'error'
-        });
+        console.error(`Failed to load ${item.type} from ${item.file}:`, error);
       }
     }
-    const chaptersHtml = availableChapters.map(chapter => {
-      console.log(data.thumbnail, chapter.thumbnail)
-      if (chapter.status === 'published') {
-        return `
-          <div class="chapter-item published" onclick="scutoon.navigateTo('chapter', {chapter: ${chapter.number}})">
-            <div class="chapter-image"><img src="${chapter.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
-            <div class="chapter-title">${chapter.title}</div>
-            <div class="chapter-release">${chapter.release}</div>
-            <div class="chapter-number">#${chapter.number}</div>
-          </div>
-        `;
-      } 
-      if (chapter.status === 'coming-soon') {
-        return `
-          <div class="chapter-item coming-soon">
-            <div class="chapter-image"><img src="${chapter.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${chapter.number} Thumbnail" loading="lazy"></div>
-            <div class="chapter-title">${chapter.title}</div>
-            <div class="chapter-release">${chapter.release}</div>
-            <div class="chapter-number">#${chapter.number}</div>
-          </div>
-        `;
-      } 
-      // skip error or unknown or draft
+    
+    // Render sequence items (mix of songs and chapters)
+    const sequenceHtml = sequenceItems.map(item => {
+      if (item.itemType === 'song') {
+        // Render song item
+        if (item.status === 'published') {
+          return `
+            <div class="chapter-item song published" onclick="scutoon.navigateTo('song', {song: ${item.itemNumber}})">
+              <div class="chapter-image"><img src="${item.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="${item.title} Thumbnail" loading="lazy"></div>
+              <div class="chapter-title">${item.title}</div>
+              <div class="chapter-release">${item.release}</div>
+              <div class="chapter-number"><img src="../assets/icons/headphones.svg" alt="Song"> #${item.number}</div>
+            </div>
+          `;
+        } else if (item.status === 'coming-soon') {
+          return `
+            <div class="chapter-item song coming-soon">
+              <div class="chapter-image"><img src="${item.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="${item.title} Thumbnail" loading="lazy"></div>
+              <div class="chapter-title">${item.title}</div>
+              <div class="chapter-release">${item.release}</div>
+              <div class="chapter-number"><img src="../assets/icons/headphones.svg" alt="Song"> #${item.number}</div>
+            </div>
+          `;
+        }
+      } else if (item.itemType === 'chapter') {
+        // Render chapter item
+        if (item.status === 'published') {
+          return `
+            <div class="chapter-item published" onclick="scutoon.navigateTo('chapter', {chapter: ${item.itemNumber}})">
+              <div class="chapter-image"><img src="${item.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${item.number} Thumbnail" loading="lazy"></div>
+              <div class="chapter-title">${item.title}</div>
+              <div class="chapter-release">${item.release}</div>
+              <div class="chapter-number"><img src="../assets/icons/chapter.svg" alt="Chapter"> #${item.number}</div>
+            </div>
+          `;
+        } else if (item.status === 'coming-soon') {
+          return `
+            <div class="chapter-item coming-soon">
+              <div class="chapter-image"><img src="${item.thumbnail || 'assets/images/default-thumbnail.jpg'}" alt="Kapitel ${item.number} Thumbnail" loading="lazy"></div>
+              <div class="chapter-title">${item.title}</div>
+              <div class="chapter-release">${item.release}</div>
+              <div class="chapter-number"><img src="../assets/icons/chapter.svg"/ alt="Chapter">#${item.number}</div>
+            </div>
+          `;
+        }
+      }
+      // Return empty string for items with other statuses (draft, error, etc.)
+      return '';
     }).join('');
     
     const content = `
@@ -273,17 +397,23 @@ class Scutoon {
           ${downloadHtml}
         </div>
         
-        <div class="chapters-section">
-          <div class="chapters-list">
-            ${chaptersHtml}
-          </div>
+        <section class="chapters-section">
+        <div class="chapters-header">
+          <h2>Season 1: ${seasonData.title}</h2>
+          <p class="season-description">${seasonData.description}</p>
         </div>
-                  <button onclick="scutoon.navigateTo('credits')">Credits</button>
+          <div class="chapters-list">
+            ${sequenceHtml}
+          </div>
+        </section>
+        <section class="credits-section">
+         <button onclick="scutoon.navigateTo('credits')">Credits</button>
+        </section>
       </div>
     `;
     
     if (this.contentEl) {
-        this.contentEl.innerHTML = content;
+      this.contentEl.innerHTML = content;
       this.contentEl.classList.remove('chapter-mode');
     }
     
@@ -446,13 +576,17 @@ class Scutoon {
   }
 
   // Render membership required message
-  renderMembershipRequired(chapterNumber) {
+  renderMembershipRequired(chapterNumber = null, songNumber = null) {
+    const contentType = songNumber ? 'Song' : 'Kapitel';
+    const contentNumber = songNumber || chapterNumber;
+    const actionText = songNumber ? 'zu hören' : 'zu lesen';
+    
     const content = `
     <div class="view membership-required-view">
       <div class="membership-required">
         <div class="membership-card">
           <h2>🔒 Mitgliedschaft erforderlich</h2>
-          <p>Um Kapitel ${chapterNumber} zu lesen, benötigen Sie eine gültige SCUTOONS-Mitgliedschaft.</p>
+          <p>Um ${contentType} ${contentNumber} ${actionText}, benötigen Sie eine gültige SCUTOONS-Mitgliedschaft.</p>
           
           <div class="membership-info">
             <h3>So erhalts du Zugang:</h3>
@@ -1081,7 +1215,7 @@ class Scutoon {
   }
 
   // Initialize the app with a specific view
-  async init(initialView = 'toon', initialChapter = 1, initialSeason = 1) {
+  async init(initialView = 'toon', initialChapter = 1, initialSeason = 1, initialSong = 1) {
     // First process any QR code from URL
     const qrResult = await this.processQRCodeFromURL();
     
@@ -1097,6 +1231,9 @@ class Scutoon {
         break;
       case 'chapter':
         await this.renderChapterView(initialChapter);
+        break;
+      case 'song':
+        await this.renderSongView(initialSong);
         break;
       case 'account':
         await this.renderAccountView();

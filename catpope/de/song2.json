@@ -1,4 +1,11 @@
 {
     "title":"Cloud 9",
+    "author": "Mandy Mozart",
+    "number": 2,
+    "language": "en",
+    "release": "2025-10-04",
+    "status": "published",
+    "description": "Cat Pope sings a sermon about their yearning of being a cloud.",
+    "thumbnail": "assets/images/s1s2-thumbnail.jpg",
     "src":"assets/audio/2-CatPope-Cloud9.mp3"
 }

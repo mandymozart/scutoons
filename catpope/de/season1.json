@@ -25,16 +25,12 @@
             "file": "chapter1.json"
         },
         {
-            "type": "chapter",
-            "file": "chapter2.json"
-        },
-        {
             "type": "song",
             "file": "song2.json"
         },
         {
             "type": "chapter",
-            "file": "chapter3.json"
+            "file": "chapter2.json"
         },
         {
             "type": "song",
@@ -42,7 +38,7 @@
         },
         {
             "type": "chapter",
-            "file": "chapter4.json"
+            "file": "chapter3.json"
         },
         {
             "type": "song",
@@ -50,7 +46,7 @@
         },
         {
             "type": "chapter",
-            "file": "chapter5.json"
+            "file": "chapter4.json"
         },
         {
             "type": "song",
@@ -58,7 +54,7 @@
         },
         {
             "type": "chapter",
-            "file": "chapter6.json"
+            "file": "chapter5.json"
         },
         {
             "type": "song",

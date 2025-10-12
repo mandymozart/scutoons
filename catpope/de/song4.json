@@ -1,4 +1,11 @@
 {
     "title":"No He Said",
+    "author": "Mandy Mozart",
+    "number": 4,
+    "language": "en",
+    "release": "2025-10-04",
+    "status": "published",
+    "description": "A memory from the past is bringing back an uneasy feeling.",
+    "thumbnail": "assets/images/s1s4-thumbnail.jpg",
     "src":"assets/audio/4-CatPope-NoHeSaid.mp3"
 }

@@ -1,4 +1,11 @@
 {
     "title":"Like A Baby",
+    "author": "Mandy Mozart",
+    "number": 6,
+    "language": "en",
+    "release": "2025-10-04",
+    "status": "published",
+    "description": "Cat Pope discovers their true nature for the first time.",
+    "thumbnail": "assets/images/s1s6-thumbnail.jpg",
     "src":"assets/audio/6-CatPope-LikeABaby.mp3"
 }

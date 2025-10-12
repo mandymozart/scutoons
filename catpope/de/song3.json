@@ -1,4 +1,11 @@
 {
     "title":"Not My City",
+    "author": "Mandy Mozart",
+    "number": 3,
+    "language": "en",
+    "release": "2025-10-04",
+    "status": "published",
+    "description": "Time to fly!",
+    "thumbnail": "assets/images/s1s3-thumbnail.jpg",
     "src":"assets/audio/3-CatPope-NotMyCity.mp3"
 }

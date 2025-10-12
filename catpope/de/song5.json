@@ -1,4 +1,11 @@
-{
+{   
     "title":"Once Twice Thrice",
+    "author": "Mandy Mozart",
+    "number": 5,
+    "language": "en",
+    "release": "2025-10-04",
+    "status": "published",
+    "description": "The Cat Pope can not deny the cat's existence, anymore.",
+    "thumbnail": "assets/images/s1s5-thumbnail.jpg",
     "src":"assets/audio/5-CatPope-OnceTwiceThrice.mp3"
 }
