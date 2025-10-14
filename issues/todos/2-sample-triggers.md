@@ -16,7 +16,13 @@ Recommended adoptions to the data structure of a chapter's json file.
                 "type": "scrollInView", // inView | click | hover,
                 "gate": false, // true | false,
                 "exclusive": false, // true | false (mutes other audio),
-                "mode": "mono", // mono | poly (can be triggered more than once if set to poly, otherwise the previous trigger will be debounced)
+                "mode": "mono", // mono | poly (can be triggered more than once if set to poly, otherwise the previous trigger will be debounced),
+                "rect": { // (optional, not needed for inView)
+                    "x": 0, // percentage (for now)
+                    "y": 0, // percentage (for now)
+                    "width": 100, // percentage (for now)
+                    "height": 100 // percentage (for now)
+                }
             },
             "path": "path/to/sample.mp3",
             "delay": 1000,
