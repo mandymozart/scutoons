@@ -16,8 +16,8 @@
             "transitionDuration": 3000,
             "defaultTrack": "calmness",
             "tracks": [
-                {"id": "tension", "path": "assets/audio/music/s1c1-instrumental-brass-morton.mp3"},
-                {"id": "calmness", "path": "assets/audio/music/s1c2-instrumental.mp3"}
+                {"id": "tension", "path": "assets/audio/music/s1c2-instrumental.mp3"},
+                {"id": "calmness", "path": "assets/audio/music/s1c1-instrumental-brass-morton.mp3"}
             ]
         },
         "sampleLibrary": [
