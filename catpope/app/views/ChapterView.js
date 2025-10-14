@@ -9,7 +9,8 @@ import {
   renderKeyVisual, 
   initKeyVisualVideo,
   initChapterAudio,
-  setupSliceObserver
+  setupSliceObserver,
+  initHotzoneVisualizer
 } from '../components/chapter/index.js';
 
 export class ChapterView {
@@ -17,6 +18,7 @@ export class ChapterView {
     this.scutoon = scutoon;
     this.audioManager = null;
     this.sliceObserver = null;
+    this.hotzoneCleanup = null;
   }
 
   async render(chapterNumber = 1) {
@@ -67,6 +69,9 @@ export class ChapterView {
       }
     }
 
+    // Initialize hotzone visualizer
+    this.hotzoneCleanup = initHotzoneVisualizer();
+
     // Start sequential lazy loading
     if (data.slices && data.slices.length > 0) {
       loadImagesSequentially();
@@ -86,6 +91,12 @@ export class ChapterView {
     if (this.sliceObserver) {
       this.sliceObserver.disconnect();
       this.sliceObserver = null;
+    }
+
+    // Cleanup hotzone observer
+    if (this.hotzoneCleanup) {
+      this.hotzoneCleanup();
+      this.hotzoneCleanup = null;
     }
 
     console.log('ChapterView cleaned up');

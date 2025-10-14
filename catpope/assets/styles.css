@@ -221,6 +221,10 @@ text-align: right;
     padding: 2rem;
 }
 
+.webtoon-slice {
+    position: relative;
+}
+
 /* Sequential lazy loading styles */
 .webtoon-slice.lazy {
     min-height: 100px;
@@ -243,6 +247,44 @@ text-align: right;
 .webtoon-slice.error .slice-placeholder {
     background: #fff5f5;
     border-color: #e74c3c;
+}
+
+/* Audio Hotzones */
+.audio-hotzone {
+    position: absolute;
+    border: 2px dashed rgba(255, 193, 7, 0.8);
+    background: rgba(255, 193, 7, 0.1);
+    pointer-events: auto;
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+    box-shadow: inset 0 0 20px rgba(255, 193, 7, 0.3);
+    cursor: pointer;
+}
+
+.audio-hotzone:hover {
+    opacity: 0.8;
+}
+
+.audio-hotzone:active {
+    opacity: 1;
+}
+
+/* Flash animation when hotzone comes into view */
+@keyframes hotzoneFlash {
+    0% {
+        opacity: 0;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.5;
+    }
+}
+
+.audio-hotzone.flash {
+    animation: hotzoneFlash 0.5s ease-in-out;
 }
 
 /* Audio Controls */
