@@ -40,26 +40,6 @@ app/
     └── player.js         # Music player functionality
 ```
 
-## Key Features
-
-### ES6 Modules
-- **No build system required** - Native browser support
-- **Proper scoping** - Each module has its own scope
-- **Explicit dependencies** - Clear import/export statements
-- **Tree-shakable** - Only load what you need
-
-### Architecture Patterns
-- **Stores** - Centralized state management
-- **Views** - Page-level components with rendering logic
-- **Components** - Reusable UI elements
-- **Utils** - Pure functions for common tasks
-
-### Global Exposure
-The main `Scutoon` instance is exposed as `window.scutoon` to support:
-- Inline `onclick` handlers in HTML/rendered content
-- Console debugging via `scutoon.debugMembership()`
-- Direct method access from browser DevTools
-
 ## Usage
 
 ### Development Server
@@ -93,23 +73,3 @@ npx serve
 2. Export functions
 3. Add to `app/utils/index.js`
 4. Import where needed
-
-## Browser Compatibility
-
-- Chrome 61+
-- Firefox 60+
-- Safari 11+
-- Edge 16+
-
-## Migration Notes
-
-The original `assets/app.js` has been fully refactored into this modular structure while **preserving all functionality**:
-
-- ✅ All views maintained
-- ✅ Membership/QR validation intact
-- ✅ Navigation routing preserved
-- ✅ Image lazy loading working
-- ✅ Music player functional
-- ✅ Debug methods available
-
-You can keep the old `assets/app.js` as a backup or remove it once you've tested the new structure.
