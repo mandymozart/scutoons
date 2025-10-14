@@ -23,13 +23,15 @@ Four synchronized audio players run continuously in parallel, one per emotion st
 {
   //...
   "audio": {
-    "transitionDuration": 3000, // ms - crossfade duration (global, defaults to 3000ms)
-    "tracks": {
-      "default": "path/to/default.mp3", // fallback track (required, used for single track scutoons)
-      "calmness": "path/to/calm.mp3",
-      "curiousness": "path/to/curious.mp3",
-      "tension": "path/to/tension.mp3",
-      "excitement": "path/to/excitement.mp3"
+    "music": {
+      "transitionDuration": 3000, // ms - crossfade duration (global, defaults to 3000ms)
+      "tracks": [
+        {"id": "default", "path": "path/to/default.mp3"}, // fallback track (required, used for single track scutoons)
+        {"id": "calmness", "path": "path/to/calm.mp3"},
+        {"id": "curiousness", "path": "path/to/curious.mp3"},
+        {"id": "tension", "path": "path/to/tension.mp3"},
+        {"id": "excitement", "path": "path/to/excitement.mp3"}
+      ]
     }
   }
 }
@@ -44,12 +46,26 @@ The application uses **slices** as waypoints that define target emotion ratios. 
   id: "scene_01",
   image: "path/to/image.jpg",
   audio: {
-    transitionDuration: 3000, // ms - crossfade duration
-    volumes: {
-      calmness: 0.8,
-      curiousness: 0.2,
-      tension: 0.0,
-      excitement: 0.0
+    music: {
+      transitionDuration: 3000, // ms - crossfade duration
+      tracks: [
+        {
+          "id": "calmness",
+          "volume": 0.8
+        },
+        {
+          "id": "curiousness",
+          "volume": 0.2
+        },
+        {
+          "id": "tension",
+          "volume": 0.0
+        },
+        {
+          "id": "excitement",
+          "volume": 0.0
+        }
+      ]
     }
   }
 }

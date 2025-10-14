@@ -1,6 +1,4 @@
-# SCUTOONS App - Modular Architecture
-
-This directory contains the refactored SCUTOONS application using ES6 modules.
+# SCUTOONS App 
 
 ## Directory Structure
 

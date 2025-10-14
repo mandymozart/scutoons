@@ -3,11 +3,34 @@
 Slices can trigger audio samples. Samples are defined in the audio section of the slice.
 
 
-Recommended adoptions to the data structure of a chapter's json file.
+Recommended adoptions to the data structure of a chapter's json file
+
+at chapter level:
+
+```json
+{
+  "audio": {
+    "tracks": { ... },
+    "sampleLibrary": [
+      {
+        "id": "footstep",
+        "path": "assets/audio/samples/footstep.mp3"
+      },
+      {
+        "id": "door_slam",
+        "path": "assets/audio/samples/door.mp3"
+      }
+    ]
+  }
+}
+```
+
+at slice level.
+
 ```json
 {
     //...
-  "audio":
+  "audio": {
     //...
     "samples": [
         {
@@ -38,7 +61,8 @@ Recommended adoptions to the data structure of a chapter's json file.
         }
         //...
     ]
-}
+  }
+}`
 ```
 
 ## Implementation

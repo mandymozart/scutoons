@@ -5,11 +5,18 @@ import { loadChapter } from '../utils/api.js';
 import { loadImagesSequentially } from '../utils/imageLoader.js';
 import { renderChapterSlice } from '../components/ChapterSlice.js';
 import { MembershipRequiredView } from './MembershipRequiredView.js';
-import { escapeHtml, sanitizeUrl, escapeAttr } from '../utils/template.js';
+import { 
+  renderKeyVisual, 
+  initKeyVisualVideo,
+  initChapterAudio,
+  setupSliceObserver
+} from '../components/chapter/index.js';
 
 export class ChapterView {
   constructor(scutoon) {
     this.scutoon = scutoon;
+    this.audioManager = null;
+    this.sliceObserver = null;
   }
 
   async render(chapterNumber = 1) {
@@ -23,34 +30,8 @@ export class ChapterView {
     const data = await loadChapter(this.scutoon.lang, chapterNumber);
     this.scutoon.chapter = data;
 
-    // Key visual with video support
-    let keyVisualHtml = '';
-    if (data.keyvisual) {
-      if (data.keyvisual.video && data.keyvisual.image) {
-        // Both video and image available
-        const videoUrl = sanitizeUrl(data.keyvisual.video);
-        const imageUrl = sanitizeUrl(data.keyvisual.image);
-        if (videoUrl && imageUrl) {
-          keyVisualHtml = `
-            <div class="key-visual-container">
-              <img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(data.title)}" class="key-visual key-visual-image" id="keyVisualImage">
-              <video src="${escapeHtml(videoUrl)}" class="key-visual key-visual-video" id="keyVisualVideo" muted playsinline style="display: none;"></video>
-              <button class="key-visual-replay" id="keyVisualReplay" style="display: none;">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
-                </svg>
-              </button>
-            </div>
-          `;
-        }
-      } else if (data.keyvisual.image) {
-        // Only image available
-        const imageUrl = sanitizeUrl(data.keyvisual.image);
-        if (imageUrl) {
-          keyVisualHtml = `<img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(data.title)}" class="key-visual">`;
-        }
-      }
-    }
+    // Render key visual
+    const keyVisualHtml = renderKeyVisual(data.keyvisual, data.title);
 
     // Create placeholder HTML for images
     let slicesHtml = '';
@@ -75,7 +56,15 @@ export class ChapterView {
 
     // Initialize key visual video functionality
     if (data.keyvisual && data.keyvisual.video && data.keyvisual.image) {
-      this.initKeyVisualVideo();
+      initKeyVisualVideo();
+    }
+
+    // Initialize audio system if chapter has audio config
+    if (data.audio) {
+      this.audioManager = await initChapterAudio(data);
+      if (this.audioManager) {
+        this.sliceObserver = setupSliceObserver(this.audioManager, data);
+      }
     }
 
     // Start sequential lazy loading
@@ -86,49 +75,19 @@ export class ChapterView {
     return data;
   }
 
-  initKeyVisualVideo() {
-    const video = document.getElementById('keyVisualVideo');
-    const image = document.getElementById('keyVisualImage');
-    const replayBtn = document.getElementById('keyVisualReplay');
+  cleanup() {
+    // Cleanup audio system
+    if (this.audioManager) {
+      this.audioManager.cleanup();
+      this.audioManager = null;
+    }
 
-    if (!video || !image || !replayBtn) return;
+    // Cleanup slice observer
+    if (this.sliceObserver) {
+      this.sliceObserver.disconnect();
+      this.sliceObserver = null;
+    }
 
-    // Function to play video
-    const playVideo = () => {
-      image.style.display = 'none';
-      replayBtn.style.display = 'none';
-      video.style.display = 'block';
-      video.currentTime = 0;
-      video.play().catch(err => {
-        console.error('Error playing video:', err);
-        // If autoplay fails, show image with replay button
-        showImageWithReplay();
-      });
-    };
-
-    // Function to show image with replay button
-    const showImageWithReplay = () => {
-      video.style.display = 'none';
-      image.style.display = 'block';
-      replayBtn.style.display = 'flex';
-    };
-
-    // When video ends, show image with replay button
-    video.addEventListener('ended', () => {
-      showImageWithReplay();
-    });
-
-    // Replay button click handler
-    replayBtn.addEventListener('click', () => {
-      playVideo();
-    });
-
-    // Auto-play video when loaded
-    video.addEventListener('canplay', () => {
-      playVideo();
-    }, { once: true });
-
-    // Start loading the video
-    video.load();
+    console.log('ChapterView cleaned up');
   }
 }

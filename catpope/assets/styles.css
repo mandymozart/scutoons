@@ -244,3 +244,100 @@ text-align: right;
     background: #fff5f5;
     border-color: #e74c3c;
 }
+
+/* Audio Controls */
+.audio-controls {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: rgba(255, 255, 255, 0.95);
+    border: 2px solid #000;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 900;
+    transition: opacity 0.3s ease;
+}
+
+.audio-controls:hover {
+    opacity: 1;
+}
+
+.audio-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.2s ease;
+}
+
+.audio-btn:hover {
+    transform: scale(1.1);
+}
+
+.audio-btn:active {
+    transform: scale(0.95);
+}
+
+.audio-volume-slider {
+    display: flex;
+    align-items: center;
+}
+
+.audio-volume-slider input[type="range"] {
+    width: 100px;
+    height: 4px;
+    background: #ddd;
+    border-radius: 2px;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+.audio-volume-slider input[type="range"]::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: #000;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.audio-volume-slider input[type="range"]::-webkit-slider-thumb:hover {
+    background: #333;
+}
+
+.audio-volume-slider input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    background: #000;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.audio-volume-slider input[type="range"]::-moz-range-thumb:hover {
+    background: #333;
+}
+
+/* Mobile responsive audio controls */
+@media (max-width: 768px) {
+    .audio-controls {
+        bottom: 1rem;
+        right: 1rem;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .audio-volume-slider input[type="range"] {
+        width: 60px;
+    }
+}
