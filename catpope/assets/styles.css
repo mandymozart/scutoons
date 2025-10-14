@@ -167,7 +167,14 @@ header.header-hidden {
     width: 100%;
     height: auto;
 }
-
+.chapter-item .chapter-thumbnail {
+    width: 6rem;
+    height: auto;
+}
+.chapter-item .chapter-icon {
+    width: 1rem;
+    height: auto;
+}
 .chapter-item .chapter-release {
     font-size: .75rem;
 }

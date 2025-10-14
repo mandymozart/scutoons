@@ -181,6 +181,7 @@ text-align: center;
 :root {
   --swiper-navigation-size: .75rem;
   --swiper-theme-color: black;
+  --swiper-navigation-sides-offset: 0rem;
 }
 
 @media (min-width: 768px) {
