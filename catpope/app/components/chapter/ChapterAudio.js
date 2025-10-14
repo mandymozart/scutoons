@@ -145,6 +145,34 @@ export function setupSliceObserver(audioManager, chapterData) {
     return null; // No audio systems to manage
   }
 
+  // Track last applied music config to avoid redundant updates
+  let lastAppliedConfig = null;
+
+  // Helper to check if two music configs are the same
+  function isSameConfig(config1, config2) {
+    if (!config1 || !config2) return false;
+    if (config1.tracks.length !== config2.tracks.length) return false;
+    
+    // Create maps for easier comparison
+    const map1 = new Map(config1.tracks.map(t => [t.id, t]));
+    const map2 = new Map(config2.tracks.map(t => [t.id, t]));
+    
+    // Check if all tracks have same values
+    for (const [id, track1] of map1) {
+      const track2 = map2.get(id);
+      if (!track2) return false;
+      
+      // Compare all properties (volume, reverb, etc.)
+      for (const key in track1) {
+        if (key !== 'id' && track1[key] !== track2[key]) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  }
+
   // Create IntersectionObserver for slice visibility
   const sliceObserver = new IntersectionObserver(
     (entries) => {
@@ -170,9 +198,10 @@ export function setupSliceObserver(audioManager, chapterData) {
               musicConfig = findPreviousMusicConfig(chapterData.slices, sliceIndex, allTrackIds);
             }
             
-            // Apply music config if found
-            if (musicConfig) {
+            // Only apply if config changed
+            if (musicConfig && !isSameConfig(musicConfig, lastAppliedConfig)) {
               musicPlayer.updateVolumes(musicConfig.tracks, musicConfig.transitionDuration);
+              lastAppliedConfig = musicConfig;
             }
           }
 
