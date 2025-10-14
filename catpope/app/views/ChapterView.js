@@ -22,10 +22,6 @@ export class ChapterView {
 
     const data = await loadChapter(this.scutoon.lang, chapterNumber);
     this.scutoon.chapter = data;
-    this.scutoon.navigationStore.setView('chapter', { chapter: chapterNumber });
-
-    // Update URL
-    this.scutoon.navigationStore.updateURL({ view: 'chapter', chapter: chapterNumber });
 
     // Key visual with video support
     let keyVisualHtml = '';

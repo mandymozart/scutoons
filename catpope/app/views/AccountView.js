@@ -9,9 +9,6 @@ export class AccountView {
   }
 
   render() {
-    this.scutoon.navigationStore.setView('account');
-    this.scutoon.navigationStore.updateURL({ view: 'account' });
-
     if (this.scutoon.contentEl) {
       const membership = this.scutoon.membershipStore.membership;
       const expiryText = escapeHtml(membership.expires_at || 'Lifetime');

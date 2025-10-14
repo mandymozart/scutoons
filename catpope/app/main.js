@@ -1,24 +1,16 @@
-/**
- * Main entry point for SCUTOONS app
- */
 import { Scutoon } from './Scutoon.js';
-import { sanitizeNumber } from './utils/template.js';
+import { parseURL, renderView } from './utils/navigation.js';
+import { scrollToTop } from './utils/scroll.js';
 
 const scutoon = new Scutoon('de');
 window.scutoon = scutoon;
 
-function handleNavigation() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const view = urlParams.get('view') || 'toon';
-  const chapter = sanitizeNumber(urlParams.get('chapter'), 1, 1, 999);
-  const song = sanitizeNumber(urlParams.get('song'), 1, 1, 999);
-
-  scutoon.init(view, chapter, song);
+async function handleNavigation() {
+  const navParams = parseURL();
+  await scutoon.init();
+  await renderView(scutoon, navParams);
+  scrollToTop();
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  handleNavigation();
-});
-window.addEventListener('popstate', (event) => {
-  handleNavigation();
-});
+document.addEventListener('DOMContentLoaded', () => handleNavigation());
+window.addEventListener('popstate', () => handleNavigation());

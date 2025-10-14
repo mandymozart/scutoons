@@ -10,9 +10,6 @@ export class CreditsView {
   }
 
   async render() {
-    this.scutoon.navigationStore.setView('credits');
-    this.scutoon.navigationStore.updateURL({ view: 'credits' });
-
     const credits = await loadCredits(this.scutoon.lang);
 
     if (this.scutoon.contentEl) {

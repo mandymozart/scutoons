@@ -13,10 +13,6 @@ export class ToonView {
   async render() {
     const data = await loadToon(this.scutoon.lang);
     this.scutoon.toon = data;
-    this.scutoon.navigationStore.setView('toon');
-
-    // Update URL
-    this.scutoon.navigationStore.updateURL({ view: 'toon' });
 
     // Display download options
     let downloadHtml = ``;

@@ -1,11 +1,7 @@
-/**
- * SCUTOONS Base App, used by all SCUTOONS
- */
 import { TOON_ID } from './config.js';
 import { MembershipStore, NavigationStore } from './stores/index.js';
-import { initScrollHandler, scrollToTop } from './utils/index.js';
+import { initScrollHandler, navigateToView } from './utils/index.js';
 import { renderAccountNavigation } from './components/Navigation.js';
-import { sanitizeNumber } from './utils/template.js';
 import {
   ToonView,
   ChapterView,
@@ -33,25 +29,7 @@ export class Scutoon {
   }
 
   navigateTo(view, params = {}) {
-    const navigationParams = { view, ...params };
-    this.navigationStore.updateURL(navigationParams);
-    switch (view) {
-      case 'chapter':
-        this.renderChapterView(sanitizeNumber(params.chapter, 1, 1, 999));
-        break;
-      case 'song':
-        this.renderSongView(sanitizeNumber(params.song, 1, 1, 999));
-        break;
-      case 'account':
-        this.renderAccountView();
-        break;
-      case 'credits':
-        this.renderCreditsView();
-        break;
-      default:
-        this.renderToonView();
-    }
-    scrollToTop();
+    return navigateToView(this, view, params);
   }
 
   async renderToonView() {
@@ -80,32 +58,11 @@ export class Scutoon {
     await view.render();
   }
 
-  async init(initialView = 'toon', initialChapter = 1, initialSong = 1) {
+  async init() {
     const qrResult = await this.membershipStore.processQRCodeFromURL();
-
     if (qrResult && qrResult.success) {
       console.log('Successfully validated membership from QR code');
     }
-
     renderAccountNavigation(this.membershipStore.membership);
-
-    switch (initialView) {
-      case 'chapter':
-        await this.renderChapterView(sanitizeNumber(initialChapter, 1, 1, 999));
-        break;
-      case 'song':
-        await this.renderSongView(sanitizeNumber(initialSong, 1, 1, 999));
-        break;
-      case 'account':
-        this.renderAccountView();
-        break;
-      case 'credits':
-        await this.renderCreditsView();
-        break;
-      default:
-        await this.renderToonView();
-    }
-
-    scrollToTop();
   }
 }

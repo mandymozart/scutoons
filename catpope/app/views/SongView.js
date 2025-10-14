@@ -20,10 +20,6 @@ export class SongView {
 
     const songData = await loadSong(this.scutoon.lang, songNumber);
     this.scutoon.song = songData;
-    this.scutoon.navigationStore.setView('song', { song: songNumber });
-
-    // Update URL
-    this.scutoon.navigationStore.updateURL({ view: 'song', song: songNumber });
 
     let scoreHtml = '';
     if (songData.scores) {
