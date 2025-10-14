@@ -19,6 +19,24 @@ When leaving a chapter view, the audio system gracefully shuts down:
 
 This ensures smooth transitions and proper resource management.
 
+## 🔄 Sample Trigger Modes
+
+### Mono vs Poly
+
+**Mono Mode** (`"mode": "mono"`):
+- **Debounces** retriggering - if the sample is already playing, new triggers are ignored
+- Use for sounds that shouldn't overlap (e.g., dialogue, single footsteps)
+- Default behavior if mode not specified
+
+**Poly Mode** (`"mode": "poly"`):
+- **Allows overlapping** - sample can play multiple times simultaneously
+- Each trigger creates a new playback instance
+- Use for rapid sounds (e.g., rapid gunfire, multiple impacts)
+
+**Gate** (`"gate": true`):
+- Similar to mono mode - prevents retriggering while playing
+- Can be used independently of mode setting
+
 ## 🎵 Adding Audio to a Chapter
 
 ### Minimal Setup (Music Only)
@@ -180,25 +198,45 @@ This ensures smooth transitions and proper resource management.
 }
 ```
 
-### Interactive Hotspot
+### Sample with Click Trigger (Mono)
 ```json
-"samples": [
-  {
-    "id": "secret_sound",
-    "trigger": {
-      "type": "click",
-      "mode": "poly",
-      "rect": {
-        "x": 20,
-        "y": 30,
-        "width": 15,
-        "height": 15
+{
+  "image": "slice.jpg",
+  "audio": {
+    "samples": [
+      {
+        "id": "dialogue",
+        "trigger": {
+          "type": "click",
+          "mode": "mono",
+          "rect": {"x": 20, "y": 30, "width": 10, "height": 15}
+        },
+        "volume": 0.8
       }
-    },
-    "volume": 0.8
+    ]
   }
-]
+}
 ```
+
+### Sample with Poly Mode (Overlapping)
+```json
+{
+  "image": "slice.jpg",
+  "audio": {
+    "samples": [
+      {
+        "id": "impact",
+        "trigger": {
+          "type": "click",
+          "mode": "poly"
+        },
+        "volume": 0.6
+      }
+    ]
+  }
+}
+```
+**Note**: With poly mode, clicking rapidly will play multiple overlapping instances of the sound.
 
 ## 🎛️ Parameter Ranges
 

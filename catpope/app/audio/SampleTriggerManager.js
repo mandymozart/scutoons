@@ -217,15 +217,18 @@ export class SampleTriggerManager {
       return;
     }
 
-    // Handle mono mode - stop if already playing
-    if (config.trigger?.mode === 'mono' && howl.playing()) {
-      howl.stop();
-    }
-
     // Handle gating - don't play if already playing
     if (config.trigger?.gate && howl.playing()) {
       return;
     }
+
+    // Handle mono mode - debounce (don't retrigger if already playing)
+    if (config.trigger?.mode === 'mono' && howl.playing()) {
+      return; // Debounce - already playing, skip this trigger
+    }
+
+    // Handle poly mode - allow multiple overlapping instances
+    // (default Howler behavior, nothing special needed)
 
     // Handle exclusive mode - mute other audio
     if (config.trigger?.exclusive) {
@@ -254,7 +257,7 @@ export class SampleTriggerManager {
       howl.play();
     }
 
-    console.log(`Triggered sample: ${config.id}`);
+    console.log(`Triggered sample: ${config.id}${config.trigger?.mode === 'poly' ? ' (poly)' : ''}`);
   }
 
   /**
