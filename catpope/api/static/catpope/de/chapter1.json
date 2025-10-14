@@ -74,7 +74,16 @@
         {"image": "assets/images/3x/de/S1C1 - Slice 17.jpg"},
         {"image": "assets/images/3x/de/S1C1 - Slice 18.jpg"},
         {"image": "assets/images/3x/de/S1C1 - Slice 19.jpg"},
-        {"image": "assets/images/3x/de/S1C1 - Slice 20.jpg"},
+        {
+            "image": "assets/images/3x/de/S1C1 - Slice 20.jpg",
+            "audio": {
+                "music": {
+                    "tracks": [
+                        {"id": "calmness", "volume": 0.2}
+                    ]
+                }
+            }
+        },
         {"image": "assets/images/3x/de/S1C1 - Slice 21.jpg"},
         {"image": "assets/images/3x/de/S1C1 - Slice 22.jpg"},
         {"image": "assets/images/3x/de/S1C1 - Slice 23.jpg"},
@@ -149,7 +158,27 @@
         {"image": "assets/images/3x/de/S1C1 - Slice 60.jpg"},
         {"image": "assets/images/3x/de/S1C1 - Slice 61.jpg"},
         {"image": "assets/images/3x/de/S1C1 - Slice 62.jpg"},
-        {"image": "assets/images/3x/de/S1C1 - Slice 63.jpg"},
+        {
+            "image": "assets/images/3x/de/S1C1 - Slice 63.jpg",
+            "audio": {
+                "samples": [
+                    {
+                        "id": "bells",
+                        "trigger": {
+                            "type": "click",
+                            "mode": "poly",
+                            "rect": {
+                                "x": 25,
+                                "y": 25,
+                                "width": 50,
+                                "height": 50
+                            }
+                        },
+                        "volume": 0.8
+                    }
+                ]
+            }
+        },
         {"image": "assets/images/3x/de/S1C1 - Slice 64.jpg"},
         {"image": "assets/images/3x/de/S1C1 - Slice 65.jpg"},
         {"image": "assets/images/3x/de/S1C1 - Slice 66.jpg"},

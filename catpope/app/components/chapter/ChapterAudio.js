@@ -57,6 +57,86 @@ export async function initChapterAudio(chapterData) {
   }
 }
 
+/**
+ * Find the most recent music configuration by looking backward through slices
+ * Each track parameter is found independently (sparse updates per-parameter)
+ * @param {Array} slices - All chapter slices
+ * @param {number} currentIndex - Current slice index
+ * @param {Array} allTrackIds - All available track IDs
+ * @returns {Object|null} Music configuration or null
+ */
+function findPreviousMusicConfig(slices, currentIndex, allTrackIds) {
+  // Map<trackId, Map<parameterName, value>>
+  const trackParameters = new Map();
+  
+  // Initialize structure for each track
+  allTrackIds.forEach(trackId => {
+    trackParameters.set(trackId, new Map());
+  });
+
+  let latestTransitionDuration = null;
+  const allParameterNames = ['volume']; // Future: 'reverb', 'delay', etc.
+  
+  // Calculate total parameters to find (tracks × parameters)
+  const totalParametersToFind = allTrackIds.length * allParameterNames.length;
+  let parametersFound = 0;
+
+  // Look backward from current slice to find most recent value for each parameter
+  for (let i = currentIndex - 1; i >= 0; i--) {
+    const musicConfig = slices[i]?.audio?.music;
+    if (!musicConfig?.tracks) continue;
+
+    // Check each track in this slice's config
+    musicConfig.tracks.forEach(track => {
+      const trackParams = trackParameters.get(track.id);
+      if (!trackParams) return; // Unknown track ID
+
+      // Check each parameter in the track
+      allParameterNames.forEach(paramName => {
+        // Only store if we haven't found this parameter for this track yet
+        if (!trackParams.has(paramName) && track[paramName] !== undefined) {
+          trackParams.set(paramName, track[paramName]);
+          parametersFound++;
+        }
+      });
+    });
+
+    // Use the transition duration from the most recent slice
+    if (latestTransitionDuration === null && musicConfig.transitionDuration !== undefined) {
+      latestTransitionDuration = musicConfig.transitionDuration;
+    }
+
+    // Stop early if we've found all parameters for all tracks
+    if (parametersFound >= totalParametersToFind) {
+      break;
+    }
+  }
+
+  // Build the tracks array from found parameters
+  const tracks = [];
+  trackParameters.forEach((params, trackId) => {
+    if (params.size > 0) {
+      // Build track object from found parameters
+      const trackObj = { id: trackId };
+      params.forEach((value, paramName) => {
+        trackObj[paramName] = value;
+      });
+      tracks.push(trackObj);
+    }
+  });
+
+  // If we found any parameters, return the config
+  if (tracks.length > 0) {
+    return {
+      tracks,
+      transitionDuration: latestTransitionDuration
+    };
+  }
+  
+  // No previous config found
+  return null;
+}
+
 export function setupSliceObserver(audioManager, chapterData) {
   const musicPlayer = audioManager?.getMusicPlayer();
   const sampleManager = audioManager?.getSampleManager();
@@ -74,16 +154,30 @@ export function setupSliceObserver(audioManager, chapterData) {
           const sliceIndex = parseInt(sliceElement.dataset.slice) - 1;
           const sliceData = chapterData.slices[sliceIndex];
 
-          if (!sliceData?.audio) return;
-
-          // Update music volumes if available
-          if (musicPlayer && sliceData.audio.music?.tracks) {
-            const transitionDuration = sliceData.audio.music.transitionDuration;
-            musicPlayer.updateVolumes(sliceData.audio.music.tracks, transitionDuration);
+          // Update music volumes
+          if (musicPlayer) {
+            let musicConfig = null;
+            
+            // Check if current slice has music config
+            if (sliceData?.audio?.music?.tracks) {
+              musicConfig = {
+                tracks: sliceData.audio.music.tracks,
+                transitionDuration: sliceData.audio.music.transitionDuration
+              };
+            } else {
+              // Look backward to find previous music config (per-track sparse lookup)
+              const allTrackIds = musicPlayer.getTrackIds();
+              musicConfig = findPreviousMusicConfig(chapterData.slices, sliceIndex, allTrackIds);
+            }
+            
+            // Apply music config if found
+            if (musicConfig) {
+              musicPlayer.updateVolumes(musicConfig.tracks, musicConfig.transitionDuration);
+            }
           }
 
           // Register sample triggers if available
-          if (sampleManager && sliceData.audio.samples) {
+          if (sampleManager && sliceData?.audio?.samples) {
             sampleManager.registerSliceTriggers(sliceElement, sliceData.audio.samples);
           }
         }
