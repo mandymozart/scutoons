@@ -166,6 +166,40 @@ export class AdaptiveMusicPlayer {
   }
 
   /**
+   * Fade out all tracks and then stop
+   * @param {number} duration - Fade out duration in ms (optional)
+   * @returns {Promise} Resolves when fade out completes
+   */
+  fadeOutAndStop(duration) {
+    return new Promise((resolve) => {
+      if (!this.isPlaying) {
+        resolve();
+        return;
+      }
+
+      const fadeDuration = duration || this.defaultTransitionDuration;
+      
+      console.log(`Fading out music over ${fadeDuration}ms...`);
+
+      // Fade all tracks to 0
+      const fadePromises = [];
+      this.tracks.forEach((howl, trackId) => {
+        const currentVolume = this.currentVolumes.get(trackId) || 0;
+        if (currentVolume > 0) {
+          howl.fade(currentVolume, 0, fadeDuration);
+          this.currentVolumes.set(trackId, 0);
+        }
+      });
+
+      // Stop after fade completes
+      setTimeout(() => {
+        this.stop();
+        resolve();
+      }, fadeDuration);
+    });
+  }
+
+  /**
    * Get current volume levels
    * @returns {Map<string, number>} Map of track IDs to volumes
    */

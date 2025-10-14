@@ -75,10 +75,10 @@ export class ChapterView {
     return data;
   }
 
-  cleanup() {
-    // Cleanup audio system
+  async cleanup() {
+    // Cleanup audio system with fade out
     if (this.audioManager) {
-      this.audioManager.cleanup();
+      await this.audioManager.cleanup(); // Uses default transition duration
       this.audioManager = null;
     }
 

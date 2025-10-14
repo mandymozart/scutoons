@@ -141,20 +141,36 @@ export class AudioManager {
   }
 
   /**
-   * Cleanup and stop all audio
+   * Cleanup and stop all audio with fade out
+   * @param {number} fadeDuration - Fade out duration in ms (optional)
+   * @returns {Promise} Resolves when cleanup is complete
    */
-  cleanup() {
+  async cleanup(fadeDuration) {
     console.log('Cleaning up AudioManager...');
 
+    // Fade out both music and samples in parallel
+    const cleanupPromises = [];
+
     if (this.musicPlayer) {
-      this.musicPlayer.stop();
-      this.musicPlayer = null;
+      cleanupPromises.push(
+        this.musicPlayer.fadeOutAndStop(fadeDuration).then(() => {
+          this.musicPlayer = null;
+        })
+      );
     }
 
     if (this.sampleManager) {
-      this.sampleManager.cleanup();
-      this.sampleManager = null;
+      // Samples use shorter fade (500ms) unless specified
+      const sampleFadeDuration = fadeDuration ? Math.min(fadeDuration, 1000) : 500;
+      cleanupPromises.push(
+        this.sampleManager.cleanup(sampleFadeDuration).then(() => {
+          this.sampleManager = null;
+        })
+      );
     }
+
+    // Wait for all audio to fade out
+    await Promise.all(cleanupPromises);
 
     // Stop and unload all Howler sounds
     if (typeof Howler !== 'undefined') {

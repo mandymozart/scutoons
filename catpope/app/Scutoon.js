@@ -33,28 +33,38 @@ export class Scutoon {
   }
 
   async renderToonView() {
+    await this.navigationStore.cleanupCurrentView();
     const view = new ToonView(this);
+    this.navigationStore.setViewInstance(view);
     return await view.render();
   }
 
   async renderChapterView(chapterNumber = 1) {
+    await this.navigationStore.cleanupCurrentView();
     const view = new ChapterView(this);
+    this.navigationStore.setViewInstance(view);
     return await view.render(chapterNumber);
   }
 
   async renderSongView(songNumber) {
+    await this.navigationStore.cleanupCurrentView();
     const view = new SongView(this);
+    this.navigationStore.setViewInstance(view);
     return await view.render(songNumber);
   }
 
 
-  renderAccountView() {
+  async renderAccountView() {
+    await this.navigationStore.cleanupCurrentView();
     const view = new AccountView(this);
+    this.navigationStore.setViewInstance(view);
     view.render();
   }
 
   async renderCreditsView() {
+    await this.navigationStore.cleanupCurrentView();
     const view = new CreditsView(this);
+    this.navigationStore.setViewInstance(view);
     await view.render();
   }
 

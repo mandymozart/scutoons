@@ -66,6 +66,11 @@ export class SampleTriggerManager {
       return;
     }
 
+    // Prevent duplicate registration - check if already registered
+    if (this.activeTriggers.has(sliceElement)) {
+      return; // Already registered, skip
+    }
+
     const cleanupFunctions = [];
 
     sampleConfigs.forEach(config => {
@@ -253,9 +258,11 @@ export class SampleTriggerManager {
   }
 
   /**
-   * Cleanup all triggers
+   * Cleanup all triggers with fade out
+   * @param {number} fadeDuration - Fade out duration in ms (optional, default 500ms for samples)
+   * @returns {Promise} Resolves when cleanup is complete
    */
-  cleanup() {
+  async cleanup(fadeDuration = 500) {
     console.log('Cleaning up sample triggers...');
 
     // Run all cleanup functions
@@ -271,7 +278,23 @@ export class SampleTriggerManager {
       this.intersectionObserver = null;
     }
 
-    // Stop and unload all samples
+    // Fade out and stop any playing samples
+    const playingSamples = [];
+    this.sampleLibrary.forEach((howl, sampleId) => {
+      if (howl.playing()) {
+        console.log(`Fading out sample: ${sampleId}`);
+        const currentVolume = howl.volume();
+        howl.fade(currentVolume, 0, fadeDuration);
+        playingSamples.push(howl);
+      }
+    });
+
+    // Wait for fade out to complete if there are playing samples
+    if (playingSamples.length > 0) {
+      await new Promise(resolve => setTimeout(resolve, fadeDuration));
+    }
+
+    // Unload all samples
     this.sampleLibrary.forEach((howl) => {
       howl.unload();
     });

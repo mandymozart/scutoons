@@ -28,21 +28,36 @@ A modular audio system for SCUTOONS chapters featuring adaptive music and event-
 ### Components
 
 ```
-audio/
-├── AudioManager.js              # Master coordinator
-├── AdaptiveMusicPlayer.js       # 4-track emotion system
-├── SampleTriggerManager.js      # Event-based samples
-└── index.js                     # Module exports
+AudioManager (Master Coordinator)
+├── AdaptiveMusicPlayer (4-track parallel music)
+│   └── Howl instances (background music tracks)
+└── SampleTriggerManager (Sound effects)
+    └── Howl instances (one-shot samples)
 ```
+
+### Why This Design?
+- **Single AudioContext**: Browsers limit concurrent audio contexts
+- **Centralized Control**: Master volume/mute affects all audio
+- **Lazy Loading**: Only load audio files when needed
+- **Modular**: Music and samples are independent systems
+- **Graceful Cleanup**: Audio fades out before stopping when leaving chapter
 
 ### Data Flow
 
+**Chapter Load:**
 1. **Chapter loads** → Audio config extracted
 2. **AudioManager** → Initializes music player and sample manager
 3. **Music Player** → Loads and starts all tracks at volume 0
 4. **Slice Observer** → Detects slice visibility changes
 5. **Music transitions** → Crossfades to new emotion mix
 6. **Sample triggers** → Fires based on configured events
+
+**Chapter Exit:**
+1. **User navigates away** → Cleanup triggered
+2. **Music fades out** → 3000ms (default transition duration)
+3. **Samples fade out** → 500ms (shorter for sound effects)
+4. **Parallel cleanup** → Both fade simultaneously
+5. **Resources released** → Audio context ready for next chapter
 
 ## Usage
 

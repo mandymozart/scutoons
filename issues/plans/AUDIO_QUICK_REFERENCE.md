@@ -1,5 +1,24 @@
 # Audio System Quick Reference
 
+## ✅ Audio Lifecycle
+
+When leaving a chapter view, the audio system gracefully shuts down:
+
+### Music Tracks
+1. **Fade out** over the default transition duration (3000ms)
+2. **Stop playback** after fade completes
+
+### Sample Sounds
+1. **Fade out** any playing samples (500ms or less)
+2. **Stop all samples** after fade completes
+
+### Cleanup
+- **Parallel fade-out** - Music and samples fade simultaneously
+- **Unload all audio** - Frees memory for the next chapter
+- **Release audio context** - Ready for reuse
+
+This ensures smooth transitions and proper resource management.
+
 ## 🎵 Adding Audio to a Chapter
 
 ### Minimal Setup (Music Only)
