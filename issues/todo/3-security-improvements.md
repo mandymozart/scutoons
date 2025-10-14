@@ -27,23 +27,18 @@
    - **Risk**: Potential brute-force attacks
    - **Recommendation**: Implement exponential backoff on failed attempts
 
-5. **External CDN Resources**
-   - **Issue**: Player icons loaded from `snowleo208.github.io`
-   - **Risk**: Supply chain attack if CDN compromised
-   - **Recommendation**: Host resources locally or use SRI (Subresource Integrity)
-
-6. **Inline Event Handlers**
+5. **Inline Event Handlers**
    - **Issue**: `onclick="scutoon.navigateTo(...)"` in HTML strings
    - **Risk**: Violates CSP, requires global scope
    - **Recommendation**: Use `addEventListener` with data attributes
 
 ### 🟢 Low Priority
 
-7. **Hardcoded API Endpoints**
+6. **Hardcoded API Endpoints**
    - **Issue**: QR validation URL hardcoded
    - **Recommendation**: Use environment variables or config
 
-8. **Console Warnings**
+9. **Console Warnings**
    - **Issue**: Still using `console.warn` for invalid inputs
    - **Recommendation**: Consider proper error tracking service in production
 
