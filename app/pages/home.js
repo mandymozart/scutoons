@@ -6,8 +6,8 @@ export class HomePage {
     this.scutoonPages = scutoonPages;
   }
 
-  init(params = {}) {
-    console.log('HomePage initialized', params);
+  init() {
+    console.log('HomePage initialized');
     const merchComponent = new MerchComponent(this.scutoonPages);
     merchComponent.init();
   }

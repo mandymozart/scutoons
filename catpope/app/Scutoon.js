@@ -27,28 +27,20 @@ export class Scutoon {
     this.menuEl = document.querySelector('.nav .menu');
     this.contentEl = document.querySelector('.content');
     
-    // Initialize stores
     this.membershipStore = new MembershipStore();
     this.navigationStore = new NavigationStore();
-    
-    // Initialize scroll handler
     initScrollHandler();
   }
 
-  // Navigate to a specific view through the router
   navigateTo(view, params = {}) {
     const navigationParams = { view, ...params };
-
-    // Update URL first
     this.navigationStore.updateURL(navigationParams);
-
-    // Then render the appropriate view
     switch (view) {
       case 'chapter':
-        this.renderChapterView(sanitizeNumber(params.chapter, 1, 1, 100));
+        this.renderChapterView(sanitizeNumber(params.chapter, 1, 1, 999));
         break;
       case 'song':
-        this.renderSongView(sanitizeNumber(params.song, 1, 1, 100));
+        this.renderSongView(sanitizeNumber(params.song, 1, 1, 999));
         break;
       case 'account':
         this.renderAccountView();
@@ -59,12 +51,9 @@ export class Scutoon {
       default:
         this.renderToonView();
     }
-
-    // Scroll to top after view transition
     scrollToTop();
   }
 
-  // View rendering methods
   async renderToonView() {
     const view = new ToonView(this);
     return await view.render();
@@ -91,28 +80,7 @@ export class Scutoon {
     await view.render();
   }
 
-  // Check for new QR code (manual trigger)
-  async checkForNewCode() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-
-    if (code) {
-      const result = await this.membershipStore.validateQRCode(code);
-      if (result && result.success) {
-        // If validation successful, try to render the chapter again
-        const chapter = sanitizeNumber(urlParams.get('chapter'), 1, 1, 100);
-        this.renderChapterView(chapter);
-      } else {
-        alert('Kein gültiger Mitgliedschaftscode gefunden.');
-      }
-    } else {
-      alert('Kein QR-Code in der URL gefunden. Bitte scannen Sie einen gültigen SCUTOONS QR-Code.');
-    }
-  }
-
-  // Initialize the app with a specific view
-  async init(initialView = 'toon', initialChapter = 1, initialSeason = 1, initialSong = 1) {
-    // First process any QR code from URL
+  async init(initialView = 'toon', initialChapter = 1, initialSong = 1) {
     const qrResult = await this.membershipStore.processQRCodeFromURL();
 
     if (qrResult && qrResult.success) {
@@ -123,13 +91,13 @@ export class Scutoon {
 
     switch (initialView) {
       case 'chapter':
-        await this.renderChapterView(sanitizeNumber(initialChapter, 1, 1, 100));
+        await this.renderChapterView(sanitizeNumber(initialChapter, 1, 1, 999));
         break;
       case 'song':
-        await this.renderSongView(sanitizeNumber(initialSong, 1, 1, 100));
+        await this.renderSongView(sanitizeNumber(initialSong, 1, 1, 999));
         break;
       case 'account':
-        await this.renderAccountView();
+        this.renderAccountView();
         break;
       case 'credits':
         await this.renderCreditsView();
@@ -138,7 +106,6 @@ export class Scutoon {
         await this.renderToonView();
     }
 
-    // Scroll to top after view transition
-    window.scrollTo(0, 0);
+    scrollToTop();
   }
 }

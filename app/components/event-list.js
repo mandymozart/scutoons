@@ -3,19 +3,16 @@ import { renderEventItem } from './event-item.js';
 
 export class EventListComponent {
 	scutoonPages;
-	params;
 	
 	constructor(scutoonPages) {
 		this.scutoonPages = scutoonPages;
 	}
 
-	init(params = {}) {
-		this.params = params;
+	init() {
 		this.initList();
 	}
 
 	initList() {
-		// Load events data and display them
 		fetch(`${API_BASE}/events.json`)
 			.then((response) => response.json())
 			.then((data) => {
@@ -25,17 +22,10 @@ export class EventListComponent {
 					dateObj: new Date(event.date)
 				}));
 				
-				// Filter upcoming and past events
 				const upcomingEvents = events.filter((event) => event.dateObj > now);
 				const pastEvents = events.filter((event) => event.dateObj <= now);
-				
-				// Sort upcoming events by date (earliest first)
 				upcomingEvents.sort((a, b) => a.dateObj - b.dateObj);
-				
-				// Sort past events by date (most recent first)
 				pastEvents.sort((a, b) => b.dateObj - a.dateObj);
-				
-				// Render the events
 				this.renderEvents(upcomingEvents, pastEvents);
 			})
 			.catch((error) => {
@@ -52,7 +42,6 @@ export class EventListComponent {
 		
 		let html = "";
 		
-		// Render upcoming events
 		if (upcomingEvents.length > 0) {
 			html += '<div class="events-section">';
 			upcomingEvents.forEach(event => {
@@ -61,7 +50,6 @@ export class EventListComponent {
 			html += '</div>';
 		}
 		
-		// Render past events
 		if (pastEvents.length > 0) {
 			html += '<div class="events-section">';
 			pastEvents.forEach(event => {
@@ -72,8 +60,4 @@ export class EventListComponent {
 		
 		container.innerHTML = html;
 	}
-
-	
-
-
 }

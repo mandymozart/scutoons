@@ -6,9 +6,9 @@ export class EventsPage {
     this.scutoonPages = scutoonPages;
   }
 
-  init(params = {}) {
-    console.log('EventsPage initialized', params);
+  init() {
+    console.log('EventsPage initialized');
     const eventListComponent = new EventListComponent(this.scutoonPages);
-    eventListComponent.init(params);
+    eventListComponent.init();
   }
 }

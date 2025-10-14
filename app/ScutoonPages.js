@@ -14,17 +14,17 @@ export class ScutoonPages {
 		console.log('ScutoonPages initialized');
 		
 		// Find matching route using Router utility
-		const matchResult = Router.findRoute(routes);
-		console.log('Route found:', matchResult);
+		const route = Router.findRoute(routes);
+		console.log('Route found:', route);
 		
-		if (matchResult) {
-			this.currentPage = matchResult.route.path;
-			this.loadPage(matchResult.route.component, matchResult.params);
+		if (route) {
+			this.currentPage = route.path;
+			this.loadPage(route.component);
 		}
 	}
 
-	loadPage(component, params = {}) {
+	loadPage(component) {
 		const page = new component(this);
-		page.init(params);
+		page.init();
 	}
 }

@@ -11,11 +11,9 @@ export class MerchComponent {
 	}
 
 	initGalleries() {
-		// Load merch data and initialize galleries
 		fetch(`${API_BASE}/merch.json`)
 			.then((response) => response.json())
 			.then((data) => {
-				// Initialize each gallery
 				const galleries = [
 					{
 						key: "hoodie_black",
@@ -51,7 +49,6 @@ export class MerchComponent {
 					const swiperContainer = document.querySelector(gallery.class);
 					const wrapper = swiperContainer.querySelector(".swiper-wrapper");
 
-					// Populate slides
 					productData.images.forEach((imagePath) => {
 						const slide = document.createElement("div");
 						slide.className = "swiper-slide";
@@ -59,7 +56,6 @@ export class MerchComponent {
 						wrapper.appendChild(slide);
 					});
 
-					// Initialize Swiper for this gallery
 					new Swiper(gallery.class, {
 						slidesPerView: 1,
 						spaceBetween: 16,
