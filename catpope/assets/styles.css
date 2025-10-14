@@ -109,6 +109,48 @@ header.header-hidden {
     justify-content: center;
 }
 
+.key-visual-container {
+    position: relative;
+    width: 100%;
+    margin-bottom: 0;
+}
+
+.key-visual {
+    width: 100%;
+    margin-bottom: 0;
+    display: block;
+}
+
+.key-visual-replay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.7);
+    border: 3px solid white;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    padding: 0;
+}
+
+.key-visual-replay:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.key-visual-replay svg {
+    width: 40px;
+    height: 40px;
+    margin-left: 4px;
+}
+
 .chapters-list {
     margin-bottom: 2rem;
     padding: 0 2rem;

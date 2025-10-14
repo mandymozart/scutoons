@@ -26,6 +26,28 @@ export class ChapterView {
     // Update URL
     this.scutoon.navigationStore.updateURL({ view: 'chapter', chapter: chapterNumber });
 
+    // Key visual with video support
+    let keyVisualHtml = '';
+    if (data.keyvisual) {
+      if (data.keyvisual.video && data.keyvisual.image) {
+        // Both video and image available
+        keyVisualHtml = `
+          <div class="key-visual-container">
+            <img src="${data.keyvisual.image}" alt="${data.title}" class="key-visual key-visual-image" id="keyVisualImage">
+            <video src="${data.keyvisual.video}" class="key-visual key-visual-video" id="keyVisualVideo" muted playsinline style="display: none;"></video>
+            <button class="key-visual-replay" id="keyVisualReplay" style="display: none;">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+              </svg>
+            </button>
+          </div>
+        `;
+      } else if (data.keyvisual.image) {
+        // Only image available
+        keyVisualHtml = `<img src="${data.keyvisual.image}" alt="${data.title}" class="key-visual">`;
+      }
+    }
+
     // Create placeholder HTML for images
     let slicesHtml = '';
     if (data.slices && data.slices.length > 0) {
@@ -35,6 +57,7 @@ export class ChapterView {
     const content = `
       <div class="chapter-view">
         <div class="webtoon-container">
+          ${keyVisualHtml}
           ${slicesHtml}
         </div>
       </div>
@@ -46,11 +69,62 @@ export class ChapterView {
       this.scutoon.contentEl.classList.add('chapter-mode');
     }
 
+    // Initialize key visual video functionality
+    if (data.keyvisual && data.keyvisual.video && data.keyvisual.image) {
+      this.initKeyVisualVideo();
+    }
+
     // Start sequential lazy loading
     if (data.slices && data.slices.length > 0) {
       loadImagesSequentially();
     }
 
     return data;
+  }
+
+  initKeyVisualVideo() {
+    const video = document.getElementById('keyVisualVideo');
+    const image = document.getElementById('keyVisualImage');
+    const replayBtn = document.getElementById('keyVisualReplay');
+
+    if (!video || !image || !replayBtn) return;
+
+    // Function to play video
+    const playVideo = () => {
+      image.style.display = 'none';
+      replayBtn.style.display = 'none';
+      video.style.display = 'block';
+      video.currentTime = 0;
+      video.play().catch(err => {
+        console.error('Error playing video:', err);
+        // If autoplay fails, show image with replay button
+        showImageWithReplay();
+      });
+    };
+
+    // Function to show image with replay button
+    const showImageWithReplay = () => {
+      video.style.display = 'none';
+      image.style.display = 'block';
+      replayBtn.style.display = 'flex';
+    };
+
+    // When video ends, show image with replay button
+    video.addEventListener('ended', () => {
+      showImageWithReplay();
+    });
+
+    // Replay button click handler
+    replayBtn.addEventListener('click', () => {
+      playVideo();
+    });
+
+    // Auto-play video when loaded
+    video.addEventListener('canplay', () => {
+      playVideo();
+    }, { once: true });
+
+    // Start loading the video
+    video.load();
   }
 }
