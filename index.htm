@@ -10,11 +10,11 @@
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" type="text/css" href="assets/styles.css" />
     <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"
+    rel="stylesheet"
+    href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css"
     />
+    <link rel="stylesheet" type="text/css" href="assets/styles.css" />
   </head>
   <body>
     <div class="logo">
@@ -25,22 +25,22 @@
     <section class="releases">
       <p>
         <a href="catpope/">Cat Pope</a><br />
-        Denial<br />
-        Release 4th of October<br />
+        2.Anger<br />
+        Release 1st of November<br />
         anno felis 2025
       </p>
 
       <p>
         <a href="catpope/">キャットポ</a><br />
-        覚醒<br />
-        10月4日発売<br />
+        2.疾風<br />
+        11月1日発売<br />
         猫暦2025年
       </p>
 
       <p>
         <a href="catpope/">캣 포프</a><br />
-        각성<br />
-        10월 4일 출시<br />
+        2.분노<br />
+        11월 1일 출시<br />
         고양이력 2025년
       </p>
     </section>
@@ -70,16 +70,22 @@
         <!-- Hoodie Black Gallery -->
         <div class="swiper gallery-hoodie-black">
           <div class="swiper-wrapper"></div>
+          <div class="swiper-button-prev"></div>
+          <div class="swiper-button-next"></div>
         </div>
 
         <!-- Hoodie Beige Gallery -->
         <div class="swiper gallery-hoodie-beige">
           <div class="swiper-wrapper"></div>
+          <div class="swiper-button-prev"></div>
+          <div class="swiper-button-next"></div>
         </div>
 
         <!-- Hoodie Grey Gallery -->
         <div class="swiper gallery-hoodie-grey">
           <div class="swiper-wrapper"></div>
+          <div class="swiper-button-prev"></div>
+          <div class="swiper-button-next"></div>
         </div>
       </article>
       <article class="product">
@@ -99,13 +105,22 @@
         <!-- T-Shirt White Gallery -->
         <div class="swiper gallery-tshirt-white">
           <div class="swiper-wrapper"></div>
+          <div class="swiper-button-prev"></div>
+          <div class="swiper-button-next"></div>
         </div>
 
         <!-- T-Shirt Black Gallery -->
         <div class="swiper gallery-tshirt-black">
           <div class="swiper-wrapper"></div>
+          <div class="swiper-button-prev"></div>
+          <div class="swiper-button-next"></div>
         </div>
       </article>
+      <div class="credits">
+        Credits:<br />
+        Design: Tatjana Stürmer<br />
+        Print: Louise Rath
+      </div>
     </section>
     <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <script>
@@ -159,6 +174,15 @@
             new Swiper(gallery.class, {
               slidesPerView: 1,
               spaceBetween: 16,
+              loop: true,
+              autoplay: {
+                delay: 5000,
+                disableOnInteraction: true,
+              },
+              navigation: {
+                nextEl: `${gallery.class} .swiper-button-next`,
+                prevEl: `${gallery.class} .swiper-button-prev`,
+              },
               breakpoints: {
                 768: {
                   slidesPerView: 3,

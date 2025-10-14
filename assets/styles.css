@@ -157,6 +157,10 @@ text-align: center;
   margin-bottom: 1rem;
 }
 
+.cta .swiper-slide {
+  cursor: grab;
+}
+
 .cta .swiper-slide img {
   width: 100%;
   height: auto;
@@ -172,8 +176,11 @@ text-align: center;
   transition: opacity 0.2s ease;
 }
 
-.cta .btn:hover {
-  opacity: 0.7;
+
+
+:root {
+  --swiper-navigation-size: .75rem;
+  --swiper-theme-color: black;
 }
 
 @media (min-width: 768px) {
