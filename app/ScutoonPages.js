@@ -1,5 +1,5 @@
-
 import { routes } from './routes.js';
+import { Router } from './utils/router.js';
 
 export class ScutoonPages {
 	lang;
@@ -12,21 +12,19 @@ export class ScutoonPages {
 	/** Call this explicitly */
 	init() {
 		console.log('ScutoonPages initialized');
-		// Load page app by path
-		const path = window.location.pathname;
-		// Strip .html to get the page name
-		const page = path.split('/').pop().replace('.html', '');
-		this.currentPage = page;
-		const route = routes.find((route) => route.path === this.currentPage);
-		console.log('Route found:', route);
-		if (route) {
-			this.currentPage = route.path;
-			this.loadPage(route.component);
+		
+		// Find matching route using Router utility
+		const matchResult = Router.findRoute(routes);
+		console.log('Route found:', matchResult);
+		
+		if (matchResult) {
+			this.currentPage = matchResult.route.path;
+			this.loadPage(matchResult.route.component, matchResult.params);
 		}
 	}
 
-	loadPage(component) {
-		const page = new component();
-		page.init(this);
+	loadPage(component, params = {}) {
+		const page = new component(this);
+		page.init(params);
 	}
 }

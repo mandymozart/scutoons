@@ -17,14 +17,22 @@ body {
   margin: 0;
   overflow-x: hidden;
 }
+
 img {
   display: block;
   margin: 0;
 }
+
 .logo img {
   width: 100%;
   max-width: 100%;
   height: auto;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
 }
 
 p {
@@ -46,7 +54,8 @@ input {
   box-sizing: border-box;
 }
 
-button, .btn {
+button,
+.btn {
   background-color: black;
   color: white;
   padding: 1rem 3rem;
@@ -57,7 +66,8 @@ button, .btn {
   cursor: pointer;
 }
 
-button:hover,.btn:hover {
+button:hover,
+.btn:hover {
   background-color: rgb(22, 22, 22);
 }
 
@@ -65,8 +75,8 @@ header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1rem;
-
+  padding: 0 1rem;
+  height: 5rem;
 }
 
 header .logo {
@@ -76,6 +86,7 @@ header .logo {
 header nav {
   display: flex;
 }
+
 header nav ul {
   margin: 0;
   padding: 0;
@@ -108,13 +119,13 @@ header nav ul li.nav-item a {
   cursor: pointer;
 }
 
-header nav ul.toons li.nav-item a{
+header nav ul.toons li.nav-item a {
   display: flex;
   align-items: center;
   flex-direction: column;
   gap: .25rem;
-
 }
+
 header nav ul.toons li.nav-item a span {
   font-size: 10px;
 }
@@ -141,14 +152,21 @@ header nav ul li.nav-item a:hover {
   text-decoration: underline;
 }
 
+.loading {
+  height: calc(100dvh - 5rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .releases {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
 }
 
 .cta {
-text-align: center;
+  text-align: center;
   font-size: 1.2rem;
   margin: 2rem 0;
 }

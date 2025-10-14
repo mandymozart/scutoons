@@ -1,3 +1,5 @@
+import { API_BASE } from '../config.js';
+
 export class MerchComponent {
 	scutoonPages;
 	constructor(scutoonPages) {
@@ -10,7 +12,7 @@ export class MerchComponent {
 
 	initGalleries() {
 		// Load merch data and initialize galleries
-		fetch("api/static/merch.json")
+		fetch(`${API_BASE}/merch.json`)
 			.then((response) => response.json())
 			.then((data) => {
 				// Initialize each gallery
@@ -42,6 +44,8 @@ export class MerchComponent {
 					},
 				];
 
+				const offset = 200;
+				let delay = 5000;
 				galleries.forEach((gallery) => {
 					const productData = data[gallery.key];
 					const swiperContainer = document.querySelector(gallery.class);
@@ -61,7 +65,7 @@ export class MerchComponent {
 						spaceBetween: 16,
 						loop: true,
 						autoplay: {
-							delay: 5000,
+							delay: delay,
 							disableOnInteraction: true,
 						},
 						navigation: {
@@ -74,6 +78,7 @@ export class MerchComponent {
 							},
 						},
 					});
+					delay += offset;
 				});
 			});
 

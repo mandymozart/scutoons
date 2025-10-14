@@ -4,7 +4,7 @@ export class AttributionsPage {
     this.scutoonPages = scutoonPages;
   }
 
-  init() {
-    console.log("Attributions page initialized (empty app)");
+  init(params = {}) {
+    console.log("Attributions page initialized", params);
   }
 } 

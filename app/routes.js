@@ -1,12 +1,15 @@
 import { HomePage } from './pages/home.js';
 import { AttributionsPage } from './pages/attributions.js';
-
+import { EventsPage } from './pages/events.js';
 /**
  * Routes for the app
  * 
- * .html is omitted so just use name_of_page.html or /name_of_page/index.[html|php|etc] 
+ * Supports:
+ * - Exact paths: 'events'
+ * - Wildcards: 'events/*' (matches any path starting with events/)
+ * - Parameters: 'events/:category/:id' (params available in component init)
  * 
- * TODO: nesting and params are not working properly yet
+ * Routes are matched in order, so put more specific routes before general ones.
  * 
  * @type {Array<{path: string, component: any}>}
  */
@@ -18,5 +21,17 @@ export const routes = [
 	{
 		path: 'attributions',
 		component: AttributionsPage
+	},
+	{
+		path: 'events/:category/:id',
+		component: EventsPage
+	},
+	{
+		path: 'events/:category',
+		component: EventsPage
+	},
+	{
+		path: 'events',
+		component: EventsPage
 	}
 ];
