@@ -14,7 +14,7 @@ export class MembershipStore {
     if (storedMembership) {
       try {
         this.membership = JSON.parse(storedMembership);
-        console.log('Found stored membership:', this.membership);
+        console.log('Found stored membership:');
         // Validate that stored membership is actually a membership type
         if (!this.membership || !this.isValidMembershipType(this.membership.type) || this.isMembershipExpired(this.membership.expires_at)) {
           console.log('Invalid stored membership type, clearing...');
@@ -34,10 +34,10 @@ export class MembershipStore {
       if (membershipData && this.isValidMembershipType(membershipData.type) && membershipData.code) {
         this.membership = membershipData;
         localStorage.setItem('scutoons_membership', JSON.stringify(membershipData));
-        console.log('Membership stored successfully:', membershipData);
+        console.log('Membership stored successfully.');
         return true;
       } else {
-        console.log('Attempted to store invalid membership:', membershipData);
+        console.log('Attempted to store invalid membership.');
         return false;
       }
     } catch (error) {
@@ -58,7 +58,6 @@ export class MembershipStore {
   }
 
   isMembershipExpired(expires_at = null) {
-    console.log(expires_at);
     if (!expires_at) {
       return false;
     }
@@ -93,7 +92,7 @@ export class MembershipStore {
       const data = await response.json();
 
       if (data.status === 'success' && data.qr) {
-        console.log('QR validation successful:', data.qr, this.isMembershipExpired(data.qr.expires_at));
+        console.log('QR validation successful.');
 
         // Check if it's a membership type
         if (this.isValidMembershipType(data.qr.type)) {
@@ -174,35 +173,4 @@ export class MembershipStore {
     };
   }
 
-  // Debug function to test membership validation
-  debugMembership() {
-    const status = this.getMembershipStatus();
-    console.group('🔍 Membership Debug Info');
-    console.log('Status:', status.status);
-    console.log('Message:', status.message);
-    if (status.data) {
-      console.log('Type:', status.data.type);
-      console.log('Code:', status.data.code);
-      console.log('Is Claimed:', status.data.is_claimed);
-      console.log('Requires Claim:', status.data.requires_claim);
-      console.log('Email:', status.data.email || 'Not claimed');
-      console.log('Created:', status.data.created_at);
-      console.log('Claimed:', status.data.claimed_at);
-    }
-    console.log('Has Valid Membership:', this.hasValidMembership());
-    console.log('localStorage data:', localStorage.getItem('scutoons_membership'));
-    console.groupEnd();
-    return status;
-  }
-
-  // Manual test to bypass attempt (for security testing)
-  testBypassAttempt(fakeData) {
-    console.group('🔒 Testing Bypass Attempt');
-    console.log('Attempting to store:', fakeData);
-    const stored = this.storeMembership(fakeData);
-    console.log('Store result:', stored);
-    console.log('Has valid membership after attempt:', this.hasValidMembership());
-    console.groupEnd();
-    return stored;
-  }
 }

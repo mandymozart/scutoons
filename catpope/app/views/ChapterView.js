@@ -5,6 +5,7 @@ import { loadChapter } from '../utils/api.js';
 import { loadImagesSequentially } from '../utils/imageLoader.js';
 import { renderChapterSlice } from '../components/ChapterSlice.js';
 import { MembershipRequiredView } from './MembershipRequiredView.js';
+import { escapeHtml, sanitizeUrl, escapeAttr } from '../utils/template.js';
 
 export class ChapterView {
   constructor(scutoon) {
@@ -19,7 +20,7 @@ export class ChapterView {
       return null;
     }
 
-    const data = await loadChapter(this.scutoon.toonName, this.scutoon.lang, chapterNumber);
+    const data = await loadChapter(this.scutoon.lang, chapterNumber);
     this.scutoon.chapter = data;
     this.scutoon.navigationStore.setView('chapter', { chapter: chapterNumber });
 
@@ -31,20 +32,27 @@ export class ChapterView {
     if (data.keyvisual) {
       if (data.keyvisual.video && data.keyvisual.image) {
         // Both video and image available
-        keyVisualHtml = `
-          <div class="key-visual-container">
-            <img src="${data.keyvisual.image}" alt="${data.title}" class="key-visual key-visual-image" id="keyVisualImage">
-            <video src="${data.keyvisual.video}" class="key-visual key-visual-video" id="keyVisualVideo" muted playsinline style="display: none;"></video>
-            <button class="key-visual-replay" id="keyVisualReplay" style="display: none;">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
-            </button>
-          </div>
-        `;
+        const videoUrl = sanitizeUrl(data.keyvisual.video);
+        const imageUrl = sanitizeUrl(data.keyvisual.image);
+        if (videoUrl && imageUrl) {
+          keyVisualHtml = `
+            <div class="key-visual-container">
+              <img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(data.title)}" class="key-visual key-visual-image" id="keyVisualImage">
+              <video src="${escapeHtml(videoUrl)}" class="key-visual key-visual-video" id="keyVisualVideo" muted playsinline style="display: none;"></video>
+              <button class="key-visual-replay" id="keyVisualReplay" style="display: none;">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                </svg>
+              </button>
+            </div>
+          `;
+        }
       } else if (data.keyvisual.image) {
         // Only image available
-        keyVisualHtml = `<img src="${data.keyvisual.image}" alt="${data.title}" class="key-visual">`;
+        const imageUrl = sanitizeUrl(data.keyvisual.image);
+        if (imageUrl) {
+          keyVisualHtml = `<img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(data.title)}" class="key-visual">`;
+        }
       }
     }
 

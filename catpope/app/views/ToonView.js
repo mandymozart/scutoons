@@ -3,6 +3,7 @@
  */
 import { loadToon, loadSeason, loadChapter, loadSong } from '../utils/api.js';
 import { renderSequenceItem } from '../components/SequenceItem.js';
+import { escapeHtml, sanitizeUrl, sanitizeNumber } from '../utils/template.js';
 
 export class ToonView {
   constructor(scutoon) {
@@ -10,7 +11,7 @@ export class ToonView {
   }
 
   async render() {
-    const data = await loadToon(this.scutoon.toonName, this.scutoon.lang);
+    const data = await loadToon(this.scutoon.lang);
     this.scutoon.toon = data;
     this.scutoon.navigationStore.setView('toon');
 
@@ -20,11 +21,14 @@ export class ToonView {
     // Display download options
     let downloadHtml = ``;
     if (data.download && data.download.music && this.scutoon.membershipStore.hasValidMembership()) {
-      downloadHtml = `<div class="toon-download"><a class="btn" href="${data.download.music}" target="_blank">Download</a></div>`;
+      const musicUrl = sanitizeUrl(data.download.music);
+      if (musicUrl) {
+        downloadHtml = `<div class="toon-download"><a class="btn" href="${escapeHtml(musicUrl)}" target="_blank">Download</a></div>`;
+      }
     }
 
     // Load season1 data to get the sequence
-    const seasonData = await loadSeason(this.scutoon.toonName, this.scutoon.lang, 1);
+    const seasonData = await loadSeason(this.scutoon.lang, 1);
     this.scutoon.season = seasonData;
 
     // Load all items from the season sequence
@@ -34,20 +38,29 @@ export class ToonView {
         let itemData;
         if (item.type === 'song') {
           // Extract song number from filename (e.g., "song1.json" -> 1)
-          const songNumber = parseInt(item.file.match(/song(\d+)\.json/)[1]);
-          itemData = await loadSong(this.scutoon.toonName, this.scutoon.lang, songNumber);
+          const match = item.file.match(/song(\d+)\.json/);
+          if (!match) {
+            throw new Error(`Invalid song file format: ${item.file}`);
+          }
+          const songNumber = sanitizeNumber(match[1], 1, 1, 999);
+          itemData = await loadSong(this.scutoon.lang, songNumber);
           itemData.itemType = 'song';
           itemData.itemNumber = songNumber;
         } else if (item.type === 'chapter') {
           // Extract chapter number from filename (e.g., "chapter1.json" -> 1)
-          const chapterNumber = parseInt(item.file.match(/chapter(\d+)\.json/)[1]);
-          itemData = await loadChapter(this.scutoon.toonName, this.scutoon.lang, chapterNumber);
+          const match = item.file.match(/chapter(\d+)\.json/);
+          if (!match) {
+            throw new Error(`Invalid chapter file format: ${item.file}`);
+          }
+          const chapterNumber = sanitizeNumber(match[1], 1, 1, 999);
+          itemData = await loadChapter(this.scutoon.lang, chapterNumber);
           itemData.itemType = 'chapter';
           itemData.itemNumber = chapterNumber;
         }
         sequenceItems.push(itemData);
       } catch (error) {
         console.error(`Failed to load ${item.type} from ${item.file}:`, error);
+        throw error;
       }
     }
 
@@ -57,16 +70,16 @@ export class ToonView {
     const content = `
       <div class="toon-overview">
         <div class="toon-header">
-          <img src="${data.cover.square}" alt="Cover" class="Cover" />
-          <h1>${data.title}</h1>
-          <p class="description">${data.description}</p>
+          <img src="${escapeHtml(sanitizeUrl(data.cover.square))}" alt="Cover" class="Cover" />
+          <h1>${escapeHtml(data.title)}</h1>
+          <p class="description">${escapeHtml(data.description)}</p>
           ${downloadHtml}
         </div>
         
         <section class="chapters-section">
         <div class="chapters-header">
-          <h2>Season 1: ${seasonData.title}</h2>
-          <p class="season-description">${seasonData.description}</p>
+          <h2>Season 1: ${escapeHtml(seasonData.title)}</h2>
+          <p class="season-description">${escapeHtml(seasonData.description)}</p>
         </div>
           <div class="chapters-list">
             ${sequenceHtml}

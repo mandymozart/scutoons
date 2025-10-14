@@ -3,6 +3,7 @@
  */
 import { loadSong } from '../utils/api.js';
 import { MembershipRequiredView } from './MembershipRequiredView.js';
+import { escapeHtml, sanitizeUrl, escapeAttr } from '../utils/template.js';
 
 export class SongView {
   constructor(scutoon) {
@@ -17,7 +18,7 @@ export class SongView {
       return null;
     }
 
-    const songData = await loadSong(this.scutoon.toonName, this.scutoon.lang, songNumber);
+    const songData = await loadSong(this.scutoon.lang, songNumber);
     this.scutoon.song = songData;
     this.scutoon.navigationStore.setView('song', { song: songNumber });
 
@@ -30,10 +31,12 @@ export class SongView {
         if (score.status === 'draft') {
           return '';
         }
+        const scoreUrl = sanitizeUrl(score.src);
+        if (!scoreUrl) return '';
         return `
         <div class="song-score">
-          <div class="song-score-title">${score.name}</div>
-          <div class="song-score-src"><a href="${score.src}" target="_blank">Download</a></div>
+          <div class="song-score-title">${escapeHtml(score.name)}</div>
+          <div class="song-score-src"><a href="${escapeHtml(scoreUrl)}" target="_blank">Download</a></div>
         </div>
       `;
       }).join('');
@@ -43,34 +46,40 @@ export class SongView {
 
     let videoHtml = '';
     if (songData.video && songData.video.sources && songData.video.sources.youtube && songData.video.sources.youtube.id) {
-      const videoId = songData.video.sources.youtube.id;
-      videoHtml = `
-        <div class="song-video">
-          <iframe 
-            width="100%" 
-            height="315" 
-            src="https://www.youtube.com/embed/${videoId}?autoplay=1" 
-            frameborder="0" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-            allowfullscreen>
-          </iframe>
-        </div>
-      `;
-      autoplayAudio = false;
+      // Validate YouTube video ID (alphanumeric, dash, underscore, 11 chars typical)
+      const videoId = String(songData.video.sources.youtube.id).trim();
+      if (/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        videoHtml = `
+          <div class="song-video">
+            <iframe 
+              width="100%" 
+              height="315" 
+              src="https://www.youtube.com/embed/${escapeAttr(videoId)}?autoplay=1" 
+              frameborder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowfullscreen>
+            </iframe>
+          </div>
+        `;
+        autoplayAudio = false;
+      }
     }
 
     let audioHtml = '';
     if (songData.src) {
-      audioHtml = `
-        <div class="song-src"><audio controls ${autoplayAudio ? 'autoplay' : ''}><source src="${songData.src}" type="audio/mpeg"></audio></div>
-      `;
+      const audioUrl = sanitizeUrl(songData.src);
+      if (audioUrl) {
+        audioHtml = `
+          <div class="song-src"><audio controls ${autoplayAudio ? 'autoplay' : ''}><source src="${escapeHtml(audioUrl)}" type="audio/mpeg"></audio></div>
+        `;
+      }
     }
     const content = `
       <div class="view song-view">
         ${videoHtml}
         <div class="song-header">
-          <div class="song-title">${songData.title}</div>
-          <div class="song-description">${songData.description}</div>
+          <div class="song-title">${escapeHtml(songData.title)}</div>
+          <div class="song-description">${escapeHtml(songData.description)}</div>
           ${audioHtml}
         </div>
         ${scoreHtml}

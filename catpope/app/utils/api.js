@@ -1,55 +1,94 @@
 /**
  * API utilities for loading content
  */
+import { API_BASE, TOON_ID } from '../config.js';
+import { sanitizeNumber } from './template.js';
 
-export async function loadToon(toonName, lang) {
-  return fetch(`${toonName}/${lang}/toon.json`)
-    .then(response => response.json())
+/**
+ * Validates language code to prevent path traversal
+ * @param {string} lang - Language code
+ * @returns {string} - Validated language code or default 'de'
+ */
+function validateLang(lang) {
+  // Only allow lowercase letters (ISO 639-1 language codes)
+  if (typeof lang === 'string' && /^[a-z]{2}$/.test(lang)) {
+    return lang;
+  }
+  console.warn('Invalid language code, defaulting to "de":', lang);
+  return 'de';
+}
+
+export async function loadToon(lang) {
+  const safeLang = validateLang(lang);
+  return fetch(`${API_BASE}/${TOON_ID}/${safeLang}/toon.json`)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
     .then(data => {
-      console.log('Toon data:', data);
       return data;
     });
 }
 
-export async function loadChapter(toonName, lang, chapterNumber) {
-  return fetch(`${toonName}/${lang}/chapter${chapterNumber}.json`)
-    .then(response => response.json())
+export async function loadChapter(lang, chapterNumber) {
+  const safeLang = validateLang(lang);
+  const safeNumber = sanitizeNumber(chapterNumber, 1, 1, 100);
+  return fetch(`${API_BASE}/${TOON_ID}/${safeLang}/chapter${safeNumber}.json`)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
     .then(data => {
-      console.log('Chapter data:', data);
       return data;
     });
 }
 
-export async function loadSeason(toonName, lang, number) {
-  return fetch(`${toonName}/${lang}/season${number}.json`)
-    .then(response => response.json())
+export async function loadSeason(lang, number) {
+  const safeLang = validateLang(lang);
+  const safeNumber = sanitizeNumber(number, 1, 1, 10);
+  return fetch(`${API_BASE}/${TOON_ID}/${safeLang}/season${safeNumber}.json`)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
     .then(data => {
-      console.log('Season data:', data);
       return data;
     });
 }
 
-export async function loadSong(toonName, lang, songNumber) {
-  return fetch(`${toonName}/${lang}/song${songNumber}.json`)
-    .then(response => response.json())
+export async function loadSong(lang, songNumber) {
+  const safeLang = validateLang(lang);
+  const safeNumber = sanitizeNumber(songNumber, 1, 1, 100);
+  return fetch(`${API_BASE}/${TOON_ID}/${safeLang}/song${safeNumber}.json`)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
     .then(data => {
-      console.log('Song data:', data);
       return data;
     });
 }
 
-export async function loadCredits(toonName, lang) {
-  return fetch(`${toonName}/${lang}/credits.json`)
-    .then(response => response.json());
+export async function loadCredits(lang) {
+  const safeLang = validateLang(lang);
+  return fetch(`${API_BASE}/${TOON_ID}/${safeLang}/credits.json`)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    });
 }
 
 // Load songs metadata for player
-export async function loadSongs(toonName, lang) {
+export async function loadSongs(lang) {
+  const safeLang = validateLang(lang);
   const songPromises = [];
   for (let i = 1; i <= 6; i++) {
     songPromises.push(
-      fetch(`${toonName}/${lang}/song${i}.json`)
-        .then(response => response.json())
+      fetch(`${API_BASE}/${TOON_ID}/${safeLang}/song${i}.json`)
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          return response.json();
+        })
         .then(data => ({ id: i, ...data }))
     );
   }
