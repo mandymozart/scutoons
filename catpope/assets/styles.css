@@ -24,10 +24,6 @@ header.header-hidden {
     /* Adjust based on your header height */
 }
 
-.content.chapter-mode {
-    padding-top: 0;
-}
-
 .toon-overview {
     max-width: 800px;
     margin: 0 auto;
@@ -210,7 +206,7 @@ text-align: right;
 
 .webtoon-container {
     margin: 0 auto;
-    max-width: 800px;
+    max-width: 480px;
 }
 
 .webtoon-slice img {

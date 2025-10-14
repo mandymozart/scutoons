@@ -1,29 +1,16 @@
-/**
- * Main entry point for SCUTOONS app
- */
 import { Scutoon } from './Scutoon.js';
+import { parseURL, renderView } from './utils/navigation.js';
+import { scrollToTop } from './utils/scroll.js';
 
-// Initialize the Scutoon app and expose globally for onclick handlers
-window.scutoon = new Scutoon('.', 'de');
+const scutoon = new Scutoon('de');
+window.scutoon = scutoon;
 
-// Function to handle navigation based on URL params
-function handleNavigation() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const view = urlParams.get('view') || 'toon';
-  const chapter = parseInt(urlParams.get('chapter')) || 1;
-  const season = parseInt(urlParams.get('season')) || 1;
-  const song = parseInt(urlParams.get('song')) || 1;
-
-  // Use init() to properly process QR codes and then navigate
-  window.scutoon.init(view, chapter, season, song);
+async function handleNavigation() {
+  const navParams = parseURL();
+  await scutoon.init();
+  await renderView(scutoon, navParams);
+  scrollToTop();
 }
 
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', () => {
-  handleNavigation();
-});
-
-// Handle browser back/forward buttons
-window.addEventListener('popstate', (event) => {
-  handleNavigation();
-});
+document.addEventListener('DOMContentLoaded', () => handleNavigation());
+window.addEventListener('popstate', () => handleNavigation());
