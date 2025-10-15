@@ -177,14 +177,15 @@ export class AdaptiveMusicPlayer {
         return;
       }
 
-      const fadeDuration = duration || this.defaultTransitionDuration;
+      const fadeDuration = duration !== undefined && duration !== null ? duration : this.defaultTransitionDuration;
       
       console.log(`Fading out music over ${fadeDuration}ms...`);
 
       // Fade all tracks to 0
       const fadePromises = [];
       this.tracks.forEach((howl, trackId) => {
-        const currentVolume = this.currentVolumes.get(trackId) || 0;
+        // Get actual current volume from Howler
+        const currentVolume = howl.volume();
         if (currentVolume > 0) {
           howl.fade(currentVolume, 0, fadeDuration);
           this.currentVolumes.set(trackId, 0);

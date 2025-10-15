@@ -56,18 +56,7 @@
 							"volume": 0.0
 						}
 					]
-				},
-				"samples": [
-					{
-						"id": "bells",
-						"trigger": {
-							"type": "scrollInView",
-							"mode": "mono"
-						},
-						"volume": 0.5,
-						"delay": 0
-					}
-				]
+				}
 			}
 		},
 		{
@@ -80,7 +69,20 @@
 			"image": "assets/images/3x/de/S1C1 - Slice 4.jpg"
 		},
 		{
-			"image": "assets/images/3x/de/S1C1 - Slice 5.jpg"
+			"image": "assets/images/3x/de/S1C1 - Slice 5.jpg",
+			"audio": {
+				"samples": [
+					{
+						"id": "bells",
+						"trigger": {
+							"type": "scrollInView",
+							"mode": "mono"
+						},
+						"volume": 0.5,
+						"delay": 0
+					}
+				]
+			}
 		},
 		{
 			"image": "assets/images/3x/de/S1C1 - Slice 6.jpg"
@@ -427,7 +429,7 @@
 							"type": "scrollInView",
 							"mode": "mono"
 						},
-						"volume": 0.9,
+						"volume": 1,
 						"delay": 0
 					}
 				]

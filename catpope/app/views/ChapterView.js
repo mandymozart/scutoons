@@ -81,9 +81,9 @@ export class ChapterView {
   }
 
   async cleanup() {
-    // Cleanup audio system with fade out
+    // Start audio fade out in background (don't wait for it)
     if (this.audioManager) {
-      await this.audioManager.cleanup(); // Uses default transition duration
+      this.audioManager.cleanup(); // Fades out in background
       this.audioManager = null;
     }
 

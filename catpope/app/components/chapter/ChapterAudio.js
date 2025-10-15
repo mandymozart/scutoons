@@ -186,17 +186,12 @@ export function setupSliceObserver(audioManager, chapterData) {
           if (musicPlayer) {
             let musicConfig = null;
             
-            // Check if current slice has music config
-            if (sliceData?.audio?.music?.tracks) {
-              musicConfig = {
-                tracks: sliceData.audio.music.tracks,
-                transitionDuration: sliceData.audio.music.transitionDuration
-              };
-            } else {
-              // Look backward to find previous music config (per-track sparse lookup)
-              const allTrackIds = musicPlayer.getTrackIds();
-              musicConfig = findPreviousMusicConfig(chapterData.slices, sliceIndex, allTrackIds);
-            }
+            // Always use sparse lookup to ensure all tracks have values
+            // This handles cases where a slice only specifies some tracks
+            const allTrackIds = musicPlayer.getTrackIds();
+            
+            // Start from current slice (include it in the lookup)
+            musicConfig = findPreviousMusicConfig(chapterData.slices, sliceIndex + 1, allTrackIds);
             
             // Only apply if config changed
             if (musicConfig && !isSameConfig(musicConfig, lastAppliedConfig)) {
