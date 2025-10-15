@@ -1,9 +1,10 @@
 /**
  * SongView - Song player and details
  */
-import { loadSong } from '../utils/api.js';
+import { loadSong, loadSeason, loadChapter } from '../utils/api.js';
+import { renderSequenceNavigation } from '../components/SequenceNavigation.js';
 import { MembershipRequiredView } from './MembershipRequiredView.js';
-import { escapeHtml, sanitizeUrl, escapeAttr } from '../utils/template.js';
+import { escapeHtml, sanitizeUrl, escapeAttr, sanitizeNumber } from '../utils/template.js';
 
 export class SongView {
   constructor(scutoon) {
@@ -20,6 +21,13 @@ export class SongView {
 
     const songData = await loadSong(this.scutoon.lang, songNumber);
     this.scutoon.song = songData;
+
+    // Load season data for navigation (default to season 1)
+    const seasonData = await loadSeason(this.scutoon.lang, 1);
+    this.scutoon.season = seasonData;
+
+    // Load all sequence items for navigation (needed to check status)
+    const sequenceItems = await this.loadSequenceItems(seasonData);
 
     let scoreHtml = '';
     if (songData.scores) {
@@ -70,6 +78,14 @@ export class SongView {
         `;
       }
     }
+
+    // Render sequence navigation
+    const navigationHtml = renderSequenceNavigation({
+      sequenceItems: sequenceItems,
+      currentType: 'song',
+      currentNumber: songNumber
+    });
+
     const content = `
       <div class="view song-view">
         ${videoHtml}
@@ -79,9 +95,7 @@ export class SongView {
           ${audioHtml}
         </div>
         ${scoreHtml}
-        <div class="song-navigation">
-          <button onclick="scutoon.navigateTo('toon')" class="btn-back">← Zur&uuml;ck zur &Uuml;bersicht</button>
-        </div>
+        ${navigationHtml}
       </div>
     `;
 
@@ -91,5 +105,36 @@ export class SongView {
     }
 
     return songData;
+  }
+
+  async loadSequenceItems(seasonData) {
+    const sequenceItems = [];
+    for (const item of seasonData.sequence) {
+      try {
+        let itemData;
+        if (item.type === 'song') {
+          const match = item.file.match(/song(\d+)\.json/);
+          if (!match) continue;
+          const songNumber = sanitizeNumber(match[1], 1, 1, 999);
+          itemData = await loadSong(this.scutoon.lang, songNumber);
+          itemData.itemType = 'song';
+          itemData.itemNumber = songNumber;
+        } else if (item.type === 'chapter') {
+          const match = item.file.match(/chapter(\d+)\.json/);
+          if (!match) continue;
+          const chapterNumber = sanitizeNumber(match[1], 1, 1, 999);
+          itemData = await loadChapter(this.scutoon.lang, chapterNumber);
+          itemData.itemType = 'chapter';
+          itemData.itemNumber = chapterNumber;
+        }
+        if (itemData) {
+          sequenceItems.push(itemData);
+        }
+      } catch (error) {
+        console.error(`Failed to load ${item.type} from ${item.file}:`, error);
+        // Continue loading other items even if one fails
+      }
+    }
+    return sequenceItems;
   }
 }

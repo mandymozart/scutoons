@@ -1,10 +1,12 @@
 /**
  * ChapterView - Webtoon chapter reader
  */
-import { loadChapter } from '../utils/api.js';
+import { loadChapter, loadSeason, loadSong } from '../utils/api.js';
 import { loadImagesSequentially } from '../utils/imageLoader.js';
 import { renderChapterSlice } from '../components/ChapterSlice.js';
+import { renderSequenceNavigation } from '../components/SequenceNavigation.js';
 import { MembershipRequiredView } from './MembershipRequiredView.js';
+import { sanitizeNumber } from '../utils/template.js';
 import { 
   renderKeyVisual, 
   initKeyVisualVideo,
@@ -32,6 +34,13 @@ export class ChapterView {
     const data = await loadChapter(this.scutoon.lang, chapterNumber);
     this.scutoon.chapter = data;
 
+    // Load season data for navigation (default to season 1)
+    const seasonData = await loadSeason(this.scutoon.lang, 1);
+    this.scutoon.season = seasonData;
+
+    // Load all sequence items for navigation (needed to check status)
+    const sequenceItems = await this.loadSequenceItems(seasonData);
+
     // Render key visual
     const keyVisualHtml = renderKeyVisual(data.keyvisual, data.title);
 
@@ -41,11 +50,19 @@ export class ChapterView {
       slicesHtml = data.slices.map((slice, index) => renderChapterSlice(slice, index)).join('');
     }
 
+    // Render sequence navigation
+    const navigationHtml = renderSequenceNavigation({
+      sequenceItems: sequenceItems,
+      currentType: 'chapter',
+      currentNumber: chapterNumber
+    });
+
     const content = `
       <div class="chapter-view">
         <div class="webtoon-container">
           ${keyVisualHtml}
           ${slicesHtml}
+          ${navigationHtml}
         </div>
       </div>
     `;
@@ -78,6 +95,37 @@ export class ChapterView {
     }
 
     return data;
+  }
+
+  async loadSequenceItems(seasonData) {
+    const sequenceItems = [];
+    for (const item of seasonData.sequence) {
+      try {
+        let itemData;
+        if (item.type === 'song') {
+          const match = item.file.match(/song(\d+)\.json/);
+          if (!match) continue;
+          const songNumber = sanitizeNumber(match[1], 1, 1, 999);
+          itemData = await loadSong(this.scutoon.lang, songNumber);
+          itemData.itemType = 'song';
+          itemData.itemNumber = songNumber;
+        } else if (item.type === 'chapter') {
+          const match = item.file.match(/chapter(\d+)\.json/);
+          if (!match) continue;
+          const chapterNumber = sanitizeNumber(match[1], 1, 1, 999);
+          itemData = await loadChapter(this.scutoon.lang, chapterNumber);
+          itemData.itemType = 'chapter';
+          itemData.itemNumber = chapterNumber;
+        }
+        if (itemData) {
+          sequenceItems.push(itemData);
+        }
+      } catch (error) {
+        console.error(`Failed to load ${item.type} from ${item.file}:`, error);
+        // Continue loading other items even if one fails
+      }
+    }
+    return sequenceItems;
   }
 
   async cleanup() {
