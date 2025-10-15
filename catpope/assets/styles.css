@@ -89,13 +89,16 @@ header.header-hidden {
 	margin-bottom: 0.5rem;
 }
 
+.song-view {
+	max-width: 100%;
+}
 .song-header {
 	font-size: 1rem;
 	margin-bottom: 1rem;
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	min-height: 50vh;
+	min-height: 30vh;
 	justify-content: center;
 }
 
@@ -433,6 +436,7 @@ header.header-hidden {
 /* Sequence Navigation */
 .sequence-navigation {
 	margin-top: 2rem;
+	margin-bottom: 2rem;
 }
 .sequence-navigation [onclick] {
 	cursor: pointer;
@@ -443,6 +447,13 @@ header.header-hidden {
 	gap: 1rem;
 	align-items: center;
 	max-width: 100%;
+}
+
+.sequence-navigation .btn-nav {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: .5rem;
 }
 
 .btn-prev {

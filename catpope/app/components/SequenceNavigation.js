@@ -66,11 +66,13 @@ export function renderSequenceNavigation({ sequenceItems, currentType, currentNu
   let nextButton = '';
 
   if (prevItem) {
-    const prevLabel = prevItem.itemType === 'chapter' ? `Kapitel ${prevItem.itemNumber}` : `Song ${prevItem.itemNumber}`;
+    const prevTypeLabel = prevItem.itemType === 'chapter' ? 'Kapitel' : 'Song';
+    const prevTitle = prevItem.title || '';
     prevButton = `
-      <div onclick="scutoon.navigateTo('${prevItem.itemType}', { ${prevItem.itemType}: ${prevItem.itemNumber} })" class="btn-nav btn-prev" title="${escapeHtml(prevLabel)}">
+      <div onclick="scutoon.navigateTo('${prevItem.itemType}', { ${prevItem.itemType}: ${prevItem.itemNumber} })" class="btn-nav btn-prev" title="${escapeHtml(`${prevTypeLabel} ${prevItem.itemNumber}: ${prevTitle}`)}">
         <span class="nav-icon">←</span>
-        <span class="nav-label">${escapeHtml(prevLabel)}</span>
+        <span class="nav-type">${escapeHtml(prevTypeLabel)} ${prevItem.itemNumber}</span>
+        <span class="nav-title">${escapeHtml(prevTitle)}</span>
       </div>
     `;
   } else {
@@ -84,10 +86,12 @@ export function renderSequenceNavigation({ sequenceItems, currentType, currentNu
   }
 
   if (nextItem) {
-    const nextLabel = nextItem.itemType === 'chapter' ? `Kapitel ${nextItem.itemNumber}` : `Song ${nextItem.itemNumber}`;
+    const nextTypeLabel = nextItem.itemType === 'chapter' ? 'Kapitel' : 'Song';
+    const nextTitle = nextItem.title || '';
     nextButton = `
-      <div onclick="scutoon.navigateTo('${nextItem.itemType}', { ${nextItem.itemType}: ${nextItem.itemNumber} })" class="btn-nav btn-next" title="${escapeHtml(nextLabel)}">
-        <span class="nav-label">${escapeHtml(nextLabel)}</span>
+      <div onclick="scutoon.navigateTo('${nextItem.itemType}', { ${nextItem.itemType}: ${nextItem.itemNumber} })" class="btn-nav btn-next" title="${escapeHtml(`${nextTypeLabel} ${nextItem.itemNumber}: ${nextTitle}`)}">
+        <span class="nav-type">${escapeHtml(nextTypeLabel)} ${nextItem.itemNumber}</span>
+        <span class="nav-title">${escapeHtml(nextTitle)}</span>
         <span class="nav-icon">→</span>
       </div>
     `;
@@ -127,10 +131,10 @@ function renderBasicNavigation() {
   return `
     <nav class="sequence-navigation">
       <div class="sequence-nav-container">
-        <button onclick="scutoon.navigateTo('toon')" class="btn-nav btn-overview" title="Zur Übersicht">
+        <div onclick="scutoon.navigateTo('toon')" class="btn-nav btn-overview" title="Zur Übersicht">
           <span class="nav-icon">⊞</span>
           <span class="nav-label">Übersicht</span>
-        </button>
+        </div>
       </div>
     </nav>
   `;
