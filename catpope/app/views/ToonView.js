@@ -19,7 +19,7 @@ export class ToonView {
     if (data.download && data.download.music && this.scutoon.membershipStore.hasValidMembership()) {
       const musicUrl = sanitizeUrl(data.download.music);
       if (musicUrl) {
-        downloadHtml = `<div class="toon-download"><a class="btn" href="${escapeHtml(musicUrl)}" target="_blank">Download</a></div>`;
+        downloadHtml = `<div class="toon-download"><a class="btn" href="${escapeHtml(musicUrl)}" target="_blank">Download Music</a></div>`;
       }
     }
 
