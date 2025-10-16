@@ -147,7 +147,7 @@
 					"tracks": [
 						{
 							"id": "calmness",
-							"volume": 0.0
+							"volume": 0
 						}
 					]
 				}
@@ -204,7 +204,7 @@
 					"tracks": [
 						{
 							"id": "calmness",
-							"volume": 0.7
+							"volume": 0.2
 						},
 						{
 							"id": "tension",
