@@ -70,17 +70,21 @@ export function renderSequenceNavigation({ sequenceItems, currentType, currentNu
     const prevTitle = prevItem.title || '';
     prevButton = `
       <div onclick="scutoon.navigateTo('${prevItem.itemType}', { ${prevItem.itemType}: ${prevItem.itemNumber} })" class="btn-nav btn-prev" title="${escapeHtml(`${prevTypeLabel} ${prevItem.itemNumber}: ${prevTitle}`)}">
-        <span class="nav-icon">←</span>
+      <span class="nav-icon">←</span>
+      <div>
         <span class="nav-type">${escapeHtml(prevTypeLabel)} ${prevItem.itemNumber}</span>
         <span class="nav-title">${escapeHtml(prevTitle)}</span>
+        </div>
       </div>
     `;
   } else {
     // At the beginning of published sequence
     prevButton = `
-      <div class="btn-nav btn-prev btn-disabled" disabled title="Anfang der Season">
+      <div class="btn-nav btn-prev btn-disabled btn-hidden" disabled title="Anfang der Season">
         <span class="nav-icon">←</span>
-        <span class="nav-label">Anfang</span>
+        <div>
+          <span class="nav-label">Anfang</span>
+        </div>
       </div>
     `;
   }
@@ -90,17 +94,23 @@ export function renderSequenceNavigation({ sequenceItems, currentType, currentNu
     const nextTitle = nextItem.title || '';
     nextButton = `
       <div onclick="scutoon.navigateTo('${nextItem.itemType}', { ${nextItem.itemType}: ${nextItem.itemNumber} })" class="btn-nav btn-next" title="${escapeHtml(`${nextTypeLabel} ${nextItem.itemNumber}: ${nextTitle}`)}">
+      <div class="nav-image">
+        <img src="${escapeHtml(nextItem.thumbnail)}" alt="${escapeHtml(nextTitle)}">
+      </div>
+      <div>
         <span class="nav-type">${escapeHtml(nextTypeLabel)} ${nextItem.itemNumber}</span>
         <span class="nav-title">${escapeHtml(nextTitle)}</span>
-        <span class="nav-icon">→</span>
+      </div>
+      <span class="nav-icon">→</span>
       </div>
     `;
   } else {
     // At the end of published sequence
     nextButton = `
       <div class="btn-nav btn-next btn-disabled" disabled title="Ende der Season">
-        <span class="nav-label">Ende</span>
-        <span class="nav-icon">→</span>
+        <div>
+          <span class="nav-label">Ende (to be continued)</span>
+          </div>
       </div>
     `;
   }
@@ -108,15 +118,15 @@ export function renderSequenceNavigation({ sequenceItems, currentType, currentNu
   const overviewButton = `
     <div onclick="scutoon.navigateTo('toon')" class="btn-nav btn-overview" title="Zur Übersicht">
       <span class="nav-icon">⊞</span>
-      <span class="nav-label"></span>
+      <span class="nav-label">Overview</span>
     </div>
   `;
 
   return `
     <nav class="sequence-navigation">
+      ${overviewButton}
       <div class="sequence-nav-container">
         ${prevButton}
-        ${overviewButton}
         ${nextButton}
       </div>
     </nav>

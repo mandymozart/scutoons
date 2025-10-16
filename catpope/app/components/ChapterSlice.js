@@ -31,8 +31,11 @@ export function renderChapterSlice(slice, index) {
   
   return `
     <div class="webtoon-slice lazy" data-slice="${escapeAttr(sliceNumber)}">
-      <div class="slice-placeholder">Loading image ${escapeHtml(sliceNumber)}...</div>
-      <img data-src="${escapeHtml(imageUrl)}" alt="${escapeAttr('Slice ' + sliceNumber)}" style="display: none;">
+      <div class="slice-image-wrapper">
+        <img src="../assets/1x1-pixel.png" class="slice-placeholder-img" alt="">
+        <img data-src="${escapeHtml(imageUrl)}" class="slice-content-img" alt="${escapeAttr('Slice ' + sliceNumber)}" style="display: none;">
+        <div class="slice-loading-text">Loading slice ${escapeHtml(sliceNumber)}...</div>
+      </div>
       ${hotzonesHtml}
     </div>
   `;

@@ -14,11 +14,12 @@ export function loadImagesSequentially() {
     }
 
     const slice = slices[currentIndex];
-    const img = slice.querySelector('img');
-    const placeholder = slice.querySelector('.slice-placeholder');
-    const src = img.getAttribute('data-src');
+    const img = slice.querySelector('.slice-content-img');
+    const loadingText = slice.querySelector('.slice-loading-text');
+    const placeholderImg = slice.querySelector('.slice-placeholder-img');
+    const src = img?.getAttribute('data-src');
 
-    if (!src) {
+    if (!src || !img) {
       currentIndex++;
       loadNextImage();
       return;
@@ -33,8 +34,11 @@ export function loadImagesSequentially() {
       // Image loaded successfully
       img.src = src;
       img.style.display = 'block';
-      if (placeholder) {
-        placeholder.style.display = 'none';
+      if (loadingText) {
+        loadingText.style.display = 'none';
+      }
+      if (placeholderImg) {
+        placeholderImg.style.display = 'none';
       }
       slice.classList.remove('lazy');
       slice.classList.add('loaded');
@@ -49,9 +53,9 @@ export function loadImagesSequentially() {
     tempImg.onerror = () => {
       // Image failed to load
       console.error(`Failed to load image ${currentIndex + 1}: ${src}`);
-      if (placeholder) {
-        placeholder.textContent = `Failed to load image ${currentIndex + 1}`;
-        placeholder.style.color = '#e74c3c';
+      if (loadingText) {
+        loadingText.textContent = `Failed to load slice ${currentIndex + 1}`;
+        loadingText.style.color = '#e74c3c';
       }
       slice.classList.add('error');
       currentIndex++;

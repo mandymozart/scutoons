@@ -13,8 +13,11 @@ export function renderKeyVisual(keyvisualData, title) {
     if (videoUrl && imageUrl) {
       return `
         <div class="key-visual-container">
-          <img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" class="key-visual key-visual-image" id="keyVisualImage">
-          <video src="${escapeHtml(videoUrl)}" class="key-visual key-visual-video" id="keyVisualVideo" muted playsinline style="display: none;"></video>
+          <div class="key-visual-wrapper">
+            <img src="../../assets/1x1-pixel.png" class="key-visual-placeholder" alt="">
+            <img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" class="key-visual key-visual-image" id="keyVisualImage">
+            <video src="${escapeHtml(videoUrl)}" class="key-visual key-visual-video" id="keyVisualVideo" muted playsinline style="display: none;"></video>
+          </div>
           <button class="key-visual-replay" id="keyVisualReplay" style="display: none;">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <polygon points="5 3 19 12 5 21 5 3"></polygon>
@@ -27,7 +30,12 @@ export function renderKeyVisual(keyvisualData, title) {
     // Only image available
     const imageUrl = sanitizeUrl(keyvisualData.image);
     if (imageUrl) {
-      return `<img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" class="key-visual">`;
+      return `
+        <div class="key-visual-wrapper">
+          <img src="../../assets/1x1-pixel.png" class="key-visual-placeholder" alt="">
+          <img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" class="key-visual">
+        </div>
+      `;
     }
   }
 
