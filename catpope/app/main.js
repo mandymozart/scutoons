@@ -1,6 +1,7 @@
 import { Scutoon } from './Scutoon.js';
 import { parseURL, renderView } from './utils/navigation.js';
 import { scrollToTop } from './utils/scroll.js';
+import { initAnimatedFavicon } from '../../app/favicon.js';
 
 const scutoon = new Scutoon('de');
 window.scutoon = scutoon;
@@ -12,5 +13,8 @@ async function handleNavigation() {
   scrollToTop();
 }
 
-document.addEventListener('DOMContentLoaded', () => handleNavigation());
+document.addEventListener('DOMContentLoaded', () => {
+  handleNavigation();
+  initAnimatedFavicon();
+});
 window.addEventListener('popstate', () => handleNavigation());

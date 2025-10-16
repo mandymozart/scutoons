@@ -1,35 +1,67 @@
 <!DOCTYPE html>
 <html lang="de">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Katzenpapst - SCUTOONS</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="../assets/styles.css">
-    <link rel="stylesheet" type="text/css" href="assets/styles.css">
-    
+
+    <!-- Favicons -->
+    <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="../assets/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="../assets/favicon-16x16.png"
+    />
+    <link rel="manifest" href="../assets/site.webmanifest" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" type="text/css" href="../assets/styles.css" />
+    <link rel="stylesheet" type="text/css" href="assets/styles.css" />
+
     <!-- Howler.js Audio Library -->
     <script src="https://cdn.jsdelivr.net/npm/howler@2.2.4/dist/howler.min.js"></script>
-</head>
-<body>
+  </head>
+  <body>
     <header>
-        <div class="logo">
-            <a href="../"><img src="../SCUTOONS-logo.svg" alt="SCUTOONS"/></a>
-        </div>
-        <nav class="nav">
-            <ul class="toons">
-                <li class="nav-item"><a href="#" onclick="scutoon.navigateTo('toon'); return false;"><img src="assets/images/avatar.png" alt="Avatar"/><span class="name">Katzenpapst</span></a></li>
-            </ul>
-            <ul class="menu"></ul>
-        </nav>
+      <div class="logo">
+        <a href="../"
+          ><img src="../assets/SCUTOONS-logo.svg" alt="SCUTOONS"
+        /></a>
+      </div>
+      <nav class="nav">
+        <ul class="toons">
+          <li class="nav-item">
+            <a href="#" onclick="scutoon.navigateTo('toon'); return false;"
+              ><img src="assets/images/avatar.png" alt="Avatar" /><span
+                class="name"
+                >Katzenpapst</span
+              ></a
+            >
+          </li>
+        </ul>
+        <ul class="menu"></ul>
+      </nav>
     </header>
-    
+
     <div class="content">
-        <!-- Content will be dynamically loaded here -->
-        <div class="loading">Patience ...</div>
+      <!-- Content will be dynamically loaded here -->
+      <div class="loading">
+        Patience ...<br />
+        <img src="../assets/SCUTOONS-logo-animated.svg" alt="SCUTOONS" />
+      </div>
     </div>
     <script type="module" src="app/main.js"></script>
-</body>
+  </body>
 </html>

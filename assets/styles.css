@@ -157,6 +157,7 @@ header nav ul li.nav-item a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
 }
 
 .releases {
