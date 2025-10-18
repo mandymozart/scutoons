@@ -14,6 +14,7 @@ require_once '../config.php';
 		} from 'https://cdn.jsdelivr.net/npm/nanoid/nanoid.js';
 		window.nanoid = nanoid;
 	</script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js"></script>
 	<script src="app/lib/qrcode/qrcode.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="https://www.scutoons.com/assets/styles.css">
 	<style>
@@ -57,6 +58,13 @@ require_once '../config.php';
 		<div class="content">
 			<form id="qrForm">
 				<div class="form-group">
+					<label for="toon">Select Toon (optional):</label>
+					<select id="toon" name="toon">
+						<option value="">-- Select a Toon --</option>
+					</select>
+					<small>Selecting a toon will prefill the redirect URL and show available editions</small>
+				</div>
+				<div class="form-group">
 					<label for="redirectUrl">Redirect URL:</label>
 					<input type="url" id="redirectUrl" name="redirectUrl" required placeholder="https://scutoons.com">
 				</div>
@@ -74,8 +82,13 @@ require_once '../config.php';
 					<input type="datetime-local" id="expiresAt" name="expiresAt">
 					<small>Leave empty for no expiration</small>
 				</div>
+				<section class="template-variables">
+					
+				</section>
 				<button type="submit">Generate</button>
-				<button id="downloadBtn" style="display:none; margin-top: 1rem;">Download</button>
+				<button id="downloadBtn" style="display:none; margin-top: 1rem;">Download SVG</button>
+				<button id="downloadCoaBtn" style="display:none; margin-top: 1rem;">Download Certificate of Authenticity</button>
+				<button id="downloadQrPrintBtn" style="display:none; margin-top: 1rem;">Download Printable QR</button>
 				<div id="message"></div>
 			</form>
 			<div id="qrResult">
