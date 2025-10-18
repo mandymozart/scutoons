@@ -12,18 +12,11 @@ jobs:
     timeout-minutes: 30
     
     steps:
-    - name: 🚚 Get latest code with LFS
+    - name: 🚚 Get latest code
       uses: actions/checkout@v4
       with:
-        lfs: true
         fetch-depth: 0
       
-    - name: 📥 Pull LFS files
-      run: |
-        git lfs pull
-        echo "LFS files pulled successfully"
-        git lfs ls-files -s
-    
     - name: 📂 Sync files via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.6
       with:
