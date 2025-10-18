@@ -6,7 +6,7 @@
     "release": "2025-12-01",
     "status": "coming-soon",
     "description": "Eine Pilgerreise soll antworten bringen",
-    "thumbnail": "assets/images/s1c3-thumbnail.jpg",
-    "keyvisual": "assets/images/3x/s1c3-key-visual.jpg",
+    "thumbnail": "images/s1c3-thumbnail.jpg",
+    "keyvisual": "images/3x/s1c3-key-visual.jpg",
     "slices": [] 
 }

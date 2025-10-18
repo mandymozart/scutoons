@@ -6,13 +6,13 @@
     "release": "2025-10-04",
     "status": "published",
     "description": "Geschichten von einer Katze in einer Welt voll Priestern, Influencer, und Verschwörungen.",
-    "thumbnail": "assets/images/s1c1-thumbnail.jpg",
+    "thumbnail": "images/s1c1-thumbnail.jpg",
     "cover": {
-        "square": "assets/images/1x/de/s1-cover-square.jpg",
-        "portrait": "assets/images/1x/de/s1-cover-portrait.jpg"
+        "square": "images/1x/de/s1-cover-square.jpg",
+        "portrait": "images/1x/de/s1-cover-portrait.jpg"
     },
     "download": {
         "complete": null,
-        "music":"assets/audio/CatPope-Awakening-Music.zip"
+        "music":"audio/CatPope-Awakening-Music.zip"
     }
 }

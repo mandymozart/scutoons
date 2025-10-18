@@ -2,6 +2,7 @@
  * AdaptiveMusicPlayer - 4-parallel-track emotion-based music system
  * Manages smooth crossfading between emotional states based on slice data
  */
+import { asset } from '../utils/cdn.js';
 
 export class AdaptiveMusicPlayer {
   constructor(audioManager) {
@@ -52,7 +53,7 @@ export class AdaptiveMusicPlayer {
   loadTrack(trackConfig) {
     return new Promise((resolve, reject) => {
       const howl = new Howl({
-        src: [trackConfig.path],
+        src: [asset(trackConfig.path)],
         loop: true,
         volume: 0, // Start at 0, will be adjusted by slice
         preload: true,

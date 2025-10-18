@@ -3,7 +3,8 @@
  */
 import { loadToon, loadSeason, loadChapter, loadSong } from '../utils/api.js';
 import { renderSequenceItem } from '../components/SequenceItem.js';
-import { escapeHtml, sanitizeUrl, sanitizeNumber } from '../utils/template.js';
+import { escapeHtml, sanitizeNumber } from '../utils/template.js';
+import { asset } from '../utils/cdn.js';
 
 export class ToonView {
   constructor(scutoon) {
@@ -17,9 +18,9 @@ export class ToonView {
     // Display download options
     let downloadHtml = ``;
     if (data.download && data.download.music && this.scutoon.membershipStore.hasValidMembership()) {
-      const musicUrl = sanitizeUrl(data.download.music);
+      const musicUrl = asset(data.download.music);
       if (musicUrl) {
-        downloadHtml = `<div class="toon-download"><a class="btn" href="${escapeHtml(musicUrl)}" target="_blank">Download Music</a></div>`;
+        downloadHtml = `<div class="toon-download"><a class="btn" href="${musicUrl}" target="_blank">Download Music</a></div>`;
       }
     }
 
@@ -66,7 +67,7 @@ export class ToonView {
     const content = `
       <div class="toon-overview">
         <div class="toon-header">
-          <img src="${escapeHtml(sanitizeUrl(data.cover.square))}" alt="Cover" class="Cover" />
+          <img src="${asset(data.cover.square)}" alt="Cover" class="Cover" />
           <h1>${escapeHtml(data.title)}</h1>
           <p class="description">${escapeHtml(data.description)}</p>
           ${downloadHtml}

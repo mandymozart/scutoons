@@ -24,9 +24,6 @@ export async function loadToon(lang) {
     .then(response => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
-    })
-    .then(data => {
-      return data;
     });
 }
 
@@ -37,9 +34,6 @@ export async function loadChapter(lang, chapterNumber) {
     .then(response => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
-    })
-    .then(data => {
-      return data;
     });
 }
 
@@ -50,9 +44,6 @@ export async function loadSeason(lang, number) {
     .then(response => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
-    })
-    .then(data => {
-      return data;
     });
 }
 
@@ -63,9 +54,6 @@ export async function loadSong(lang, songNumber) {
     .then(response => {
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.json();
-    })
-    .then(data => {
-      return data;
     });
 }
 

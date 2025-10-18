@@ -6,8 +6,8 @@
   "release": "2025-10-04",
   "status": "published",
   "description": "A nightmare haunts our protagonist.",
-  "thumbnail": "assets/images/s1s1-thumbnail.jpg",
-  "src": "assets/audio/1-CatPope-RoarLittleKitty.mp3",
+  "thumbnail": "images/s1s1-thumbnail.jpg",
+  "src": "audio/1-CatPope-RoarLittleKitty.mp3",
   "video": {
     "name": "Roar",
     "sources": {
@@ -20,12 +20,12 @@
   "scores": [
     {
       "name": "Roar Little Kitty (SATB)",
-      "src": "assets/scores/1-CatPope-RoarLittle-SATB.pdf",
+      "src": "scores/1-CatPope-RoarLittle-SATB.pdf",
       "status": "draft"
     },
     {
       "name": "Roar Little Kitty (Bariton & Organ)",
-      "src": "assets/scores/1-CatPope-RoarLittle-BaritonOrgan.pdf",
+      "src": "scores/1-CatPope-RoarLittle-BaritonOrgan.pdf",
       "status": "draft"
     }
   ]

@@ -6,6 +6,6 @@
     "release": "2025-10-04",
     "status": "published",
     "description": "Cat Pope chants a sermon about yearning to become a cloud.",
-    "thumbnail": "assets/images/s1s2-thumbnail.jpg",
-    "src":"assets/audio/2-CatPope-Cloud9.mp3"
+    "thumbnail": "images/s1s2-thumbnail.jpg",
+    "src":"audio/2-CatPope-Cloud9.mp3"
 }

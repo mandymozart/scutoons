@@ -1,10 +1,11 @@
 /**
  * ChapterSlice component - renders a webtoon image slice placeholder
  */
-import { sanitizeUrl, escapeHtml, escapeAttr } from '../utils/template.js';
+import { escapeHtml, escapeAttr } from '../utils/template.js';
+import { asset } from '../utils/cdn.js';
 
 export function renderChapterSlice(slice, index) {
-  const imageUrl = sanitizeUrl(slice.image);
+  const imageUrl = slice.image ? asset(slice.image) : null;
   if (!imageUrl) {
     console.warn(`Invalid image URL at slice ${index + 1}`);
     return '';
@@ -33,7 +34,7 @@ export function renderChapterSlice(slice, index) {
     <div class="webtoon-slice lazy" data-slice="${escapeAttr(sliceNumber)}">
       <div class="slice-image-wrapper">
         <img src="../assets/1x1-pixel.png" class="slice-placeholder-img" alt="">
-        <img data-src="${escapeHtml(imageUrl)}" class="slice-content-img" alt="${escapeAttr('Slice ' + sliceNumber)}" style="display: none;">
+        <img data-src="${imageUrl}" class="slice-content-img" alt="${escapeAttr('Slice ' + sliceNumber)}" style="display: none;">
         <div class="slice-loading-text">Loading slice ${escapeHtml(sliceNumber)}...</div>
       </div>
       ${hotzonesHtml}

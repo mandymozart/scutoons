@@ -1,4 +1,5 @@
 import { API_BASE } from '../config.js';
+import { asset } from '../utils/cdn.js';
 
 export class MerchComponent {
 	scutoonPages;
@@ -52,7 +53,7 @@ export class MerchComponent {
 					productData.images.forEach((imagePath) => {
 						const slide = document.createElement("div");
 						slide.className = "swiper-slide";
-						slide.innerHTML = `<img src="${imagePath}" alt="${gallery.label}" />`;
+						slide.innerHTML = `<img src="${asset(imagePath)}" alt="${gallery.label}" />`;
 						wrapper.appendChild(slide);
 					});
 

@@ -3,6 +3,7 @@
  * Handles navigation within and across seasons, skipping unpublished items
  */
 import { escapeHtml } from '../utils/template.js';
+import { asset } from '../utils/cdn.js';
 
 /**
  * Filters sequence items to only include published/available items
@@ -95,7 +96,7 @@ export function renderSequenceNavigation({ sequenceItems, currentType, currentNu
     nextButton = `
       <div onclick="scutoon.navigateTo('${nextItem.itemType}', { ${nextItem.itemType}: ${nextItem.itemNumber} })" class="btn-nav btn-next" title="${escapeHtml(`${nextTypeLabel} ${nextItem.itemNumber}: ${nextTitle}`)}">
       <div class="nav-image">
-        <img src="${escapeHtml(nextItem.thumbnail)}" alt="${escapeHtml(nextTitle)}">
+        <img src="${asset(nextItem.thumbnail)}" alt="${escapeHtml(nextTitle)}">
       </div>
       <div>
         <span class="nav-type">${escapeHtml(nextTypeLabel)} ${nextItem.itemNumber}</span>

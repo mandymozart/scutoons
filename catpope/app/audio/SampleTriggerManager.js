@@ -2,6 +2,7 @@
  * SampleTriggerManager - Event-based audio sample playback
  * Handles loading, caching, and triggering audio samples based on user interaction
  */
+import { asset } from '../utils/cdn.js';
 
 export class SampleTriggerManager {
   constructor(audioManager) {
@@ -39,7 +40,7 @@ export class SampleTriggerManager {
   loadSample(sampleConfig) {
     return new Promise((resolve, reject) => {
       const howl = new Howl({
-        src: [sampleConfig.path],
+        src: [asset(sampleConfig.path)],
         preload: true,
         html5: false,
         onload: () => {

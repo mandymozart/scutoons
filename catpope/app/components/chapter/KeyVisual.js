@@ -1,22 +1,23 @@
 /**
- * KeyVisual component - renders chapter key visual (image or video)
+ * KeyVisual component - renders chapter key visual
  */
-import { escapeHtml, sanitizeUrl, escapeAttr } from '../../utils/template.js';
+import { escapeHtml, escapeAttr } from '../../utils/template.js';
+import { asset } from '../../utils/cdn.js';
 
 export function renderKeyVisual(keyvisualData, title) {
   if (!keyvisualData) return '';
 
   if (keyvisualData.video && keyvisualData.image) {
     // Both video and image available
-    const videoUrl = sanitizeUrl(keyvisualData.video);
-    const imageUrl = sanitizeUrl(keyvisualData.image);
+    const videoUrl = asset(keyvisualData.video);
+    const imageUrl = asset(keyvisualData.image);
     if (videoUrl && imageUrl) {
       return `
         <div class="key-visual-container">
           <div class="key-visual-wrapper">
             <img src="../../assets/1x1-pixel.png" class="key-visual-placeholder" alt="">
-            <img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" class="key-visual key-visual-image" id="keyVisualImage">
-            <video src="${escapeHtml(videoUrl)}" class="key-visual key-visual-video" id="keyVisualVideo" muted playsinline style="display: none;"></video>
+            <img src="${imageUrl}" alt="${escapeAttr(title)}" class="key-visual key-visual-image" id="keyVisualImage">
+            <video src="${videoUrl}" class="key-visual key-visual-video" id="keyVisualVideo" muted playsinline style="display: none;"></video>
           </div>
           <button class="key-visual-replay" id="keyVisualReplay" style="display: none;">
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -28,12 +29,12 @@ export function renderKeyVisual(keyvisualData, title) {
     }
   } else if (keyvisualData.image) {
     // Only image available
-    const imageUrl = sanitizeUrl(keyvisualData.image);
+    const imageUrl = asset(keyvisualData.image);
     if (imageUrl) {
       return `
         <div class="key-visual-wrapper">
           <img src="../../assets/1x1-pixel.png" class="key-visual-placeholder" alt="">
-          <img src="${escapeHtml(imageUrl)}" alt="${escapeAttr(title)}" class="key-visual">
+          <img src="${imageUrl}" alt="${escapeAttr(title)}" class="key-visual">
         </div>
       `;
     }

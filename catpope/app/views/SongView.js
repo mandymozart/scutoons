@@ -4,7 +4,8 @@
 import { loadSong, loadSeason, loadChapter } from '../utils/api.js';
 import { renderSequenceNavigation } from '../components/SequenceNavigation.js';
 import { MembershipRequiredView } from './MembershipRequiredView.js';
-import { escapeHtml, sanitizeUrl, escapeAttr, sanitizeNumber } from '../utils/template.js';
+import { escapeHtml, escapeAttr, sanitizeNumber } from '../utils/template.js';
+import { asset } from '../utils/cdn.js';
 
 export class SongView {
   constructor(scutoon) {
@@ -35,12 +36,11 @@ export class SongView {
         if (score.status === 'draft') {
           return '';
         }
-        const scoreUrl = sanitizeUrl(score.src);
         if (!scoreUrl) return '';
         return `
         <div class="song-score">
           <div class="song-score-title">${escapeHtml(score.name)}</div>
-          <div class="song-score-src"><a href="${escapeHtml(scoreUrl)}" target="_blank">Download</a></div>
+          <div class="song-score-src"><a href="${asset(score.src)}" target="_blank">Download</a></div>
         </div>
       `;
       }).join('');
@@ -71,10 +71,10 @@ export class SongView {
 
     let audioHtml = '';
     if (songData.src) {
-      const audioUrl = sanitizeUrl(songData.src);
+      const audioUrl = asset(songData.src);
       if (audioUrl) {
         audioHtml = `
-          <div class="song-src"><audio controls ${autoplayAudio ? 'autoplay' : ''}><source src="${escapeHtml(audioUrl)}" type="audio/mpeg"></audio></div>
+          <div class="song-src"><audio controls ${autoplayAudio ? 'autoplay' : ''}><source src="${audioUrl}" type="audio/mpeg"></audio></div>
         `;
       }
     }
