@@ -26,9 +26,9 @@ if (empty($code)) {
 try {
     $pdo = getDbConnection();
     
-    // Retrieve signature only - all data is in signedData field
+    // Retrieve signature only - everything is stored in the signature JSON
     $stmt = $pdo->prepare("
-        SELECT signature 
+        SELECT signature, redirect_to
         FROM qr 
         WHERE code = ?
     ");
@@ -62,11 +62,20 @@ try {
         $fingerprint = strtoupper(implode(':', str_split($fingerprintBytes, 4)));
     }
     
-    // Return clean response - all data is in signedData already
+    // Parse signedData to get full QR data (includes template fields)
+    $signedDataParsed = json_decode($signatureData['signedData'], true);
+    
+    // Extract template fields from signedData (no duplication)
+    // Template fields are: receiver, productname, edition_number, edition_count, creators, etc.
+    // They're already in signedData, so we just pass signedDataParsed to frontend
+    
+    // Return complete data for verification AND regeneration
     echo json_encode([
         'success' => true,
         'signature' => $signatureData,  // Contains signedData with ALL fields
-        'fingerprint' => $fingerprint
+        'fingerprint' => $fingerprint,
+        'qr_data' => $signedDataParsed,  // ALL data including template fields
+        'redirect_to' => $qr['redirect_to']
     ]);
     
 } catch (Exception $e) {

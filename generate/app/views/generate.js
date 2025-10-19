@@ -243,7 +243,7 @@ export default class GenerateView {
 					}, null, 2);
 					await this.saveFile(sigData, sigFilename, 'signatures');
 					
-					// Also save signature to database
+					// Save signature to database (template data already in signedData)
 					await this.saveSignatureToDb(this.currentQR.code, signatureData);
 					
 					// Log for user to copy (can be used for manual verification)

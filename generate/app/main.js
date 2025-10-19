@@ -1,4 +1,5 @@
 import GenerateView from './views/generate.js';
+import RegenerateView from './views/regenerate.js';
 import TemplateVariableFields from './components/TemplateVariableFields.js';
 
 const App = {
@@ -13,10 +14,38 @@ const App = {
 			new TemplateVariableFields(templateVarsContainer, typeSelect, toonSelect, formEl);
 		}
 		
-		// Initialize generate view
+		// Initialize views
 		new GenerateView();
+		new RegenerateView();
+		
+		// Setup mode switching
+		this.setupModeSwitching();
 		
 		console.log('QR Generator App initialized');
+	},
+	
+	setupModeSwitching() {
+		const modeOptions = document.querySelectorAll('.mode-option');
+		const modePanels = document.querySelectorAll('.mode-panel');
+		
+		modeOptions.forEach(option => {
+			option.addEventListener('click', () => {
+				const targetMode = option.getAttribute('data-mode');
+				
+				// Update active mode option
+				modeOptions.forEach(opt => opt.classList.remove('active'));
+				option.classList.add('active');
+				
+				// Show corresponding panel
+				modePanels.forEach(panel => {
+					if (panel.id === targetMode + 'Mode') {
+						panel.classList.add('active');
+					} else {
+						panel.classList.remove('active');
+					}
+				});
+			});
+		});
 	}
 };
 
