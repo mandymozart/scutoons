@@ -54,7 +54,7 @@ if (file_exists($keysFile)) {
 <html>
 <head>
     <title>Generate ML-DSA-65 Keypair</title>
-    <script src="../../generate/app/lib/noble-post-quantum.min.js"></script>
+    <script src="/assets/js/noble-post-quantum.min.js"></script>
     <style>
         body { 
             font-family: monospace; 
