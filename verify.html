@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify QR - SCUTOONS</title>
-    <script src="generate/app/lib/noble-post-quantum.min.js"></script>
+    <script src="assets/js/noble-post-quantum.min.js"></script>
     <link rel="stylesheet" href="https://scutoons.com/assets/styles.css">
     <style>
         .verify-container {
@@ -14,6 +14,7 @@
 
         .result {
             margin-top: 1rem;
+            padding: 1rem;
         }
         .result.valid {
             background: #d4edda;
@@ -61,7 +62,7 @@
     </div>
 
     <script type="module">
-        import { verifySignature, importSignature } from './generate/app/utils/crypto.js';
+        import { verifySignature, importSignature } from './assets/js/verify-crypto.js';
 
         const qrCodeInput = document.getElementById('qrCodeInput');
         const verifyCodeBtn = document.getElementById('verifyCodeBtn');
@@ -217,7 +218,7 @@
                                 ${sigData.signature.publicKey}
                             </div>
                             
-                            <button id="downloadSigBtn" style="margin-top: 20px;">📥 Download Signature File</button>
+                            <button id="downloadSigBtn" style="margin-top: 20px;">Download Signature File</button>
                         </div>
                     `;
                     

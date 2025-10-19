@@ -121,51 +121,6 @@ export async function signQRCode(qrData) {
 }
 
 /**
- * Verify a signature
- * @param {string} signatureHex - Hex-encoded signature
- * @param {string} publicKeyHex - Hex-encoded public key
- * @param {string} signedData - The original signed data
- * @returns {boolean} True if signature is valid
- */
-export function verifySignature(signatureHex, publicKeyHex, signedData) {
-	try {
-		const ml_dsa65 = getMlDsa();
-		
-		console.log('verifySignature called with:');
-		console.log('- signatureHex length:', signatureHex.length, 'chars');
-		console.log('- publicKeyHex length:', publicKeyHex.length, 'chars');
-		console.log('- signedData length:', signedData.length, 'chars');
-		
-		const signature = hexToBytes(signatureHex);
-		const publicKey = hexToBytes(publicKeyHex);
-		const message = new TextEncoder().encode(signedData);
-		
-		console.log('After conversion:');
-		console.log('- signature:', signature.length, 'bytes');
-		console.log('- publicKey:', publicKey.length, 'bytes');
-		console.log('- message:', message.length, 'bytes');
-		
-		// Validate lengths
-		if (signature.length !== 3309) {
-			console.warn('⚠️ Unexpected signature length! Expected 3309, got', signature.length);
-		}
-		if (publicKey.length !== 1952) {
-			console.warn('⚠️ Unexpected public key length! Expected 1952, got', publicKey.length);
-		}
-		
-		// Match sign(message, secretKey) pattern with verify(signature, message, publicKey)
-		console.log('Attempting verification...');
-		console.log('Testing verify(signature, message, publicKey)...');
-		const result = ml_dsa65.verify(signature, message, publicKey);
-		console.log('Verification result:', result);
-		return result;
-	} catch (error) {
-		console.error('Signature verification failed:', error);
-		return false;
-	}
-}
-
-/**
  * Generate a human-readable certificate fingerprint
  * @param {Object} signatureData - The signature data
  * @returns {string} Formatted fingerprint
@@ -184,16 +139,6 @@ export function generateFingerprint(signatureData) {
 export function exportSignature(signatureData) {
 	const json = JSON.stringify(signatureData);
 	return btoa(json);
-}
-
-/**
- * Import signature data from storage
- * @param {string} base64Data - Base64-encoded signature package
- * @returns {Object} Signature data
- */
-export function importSignature(base64Data) {
-	const json = atob(base64Data);
-	return JSON.parse(json);
 }
 
 // Utility functions

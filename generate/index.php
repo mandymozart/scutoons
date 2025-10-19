@@ -16,7 +16,7 @@ require_once '../config.php';
 	</script>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js"></script>
 	<script src="app/lib/qrcode/qrcode.min.js"></script>
-	<script src="app/lib/noble-post-quantum.min.js"></script>
+	<script src="../assets/js/noble-post-quantum.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="https://www.scutoons.com/assets/styles.css">
 	<style>
 		#qrResult {
