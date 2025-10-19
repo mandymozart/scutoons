@@ -104,4 +104,40 @@ export class TemplateParser {
             return [];
         }
     }
+
+    /**
+     * Render template with data
+     * @param {string} templateContent - Template markdown content
+     * @param {Object} data - Data to fill in (qrData + templateData merged)
+     * @returns {string} Rendered template with data filled in
+     */
+    renderTemplate(templateContent, data) {
+        // Replace all {{variable}} and {{variable:type}} with actual data
+        return templateContent.replace(/\{\{(\w+)(?::\w+)?\}\}/g, (match, varName) => {
+            // Special handling for qr placeholder (will be replaced with image later)
+            if (varName === 'qr') {
+                return '[QR_CODE_PLACEHOLDER]';
+            }
+            
+            // Return data value or empty string if not found
+            return data[varName] !== undefined && data[varName] !== null ? data[varName] : '';
+        });
+    }
+
+    /**
+     * Fetch template and render with data
+     * @param {string} templateUrl - URL to template file
+     * @param {Object} data - Data to fill in
+     * @returns {Promise<string>} Rendered template
+     */
+    async fetchAndRenderTemplate(templateUrl, data) {
+        try {
+            const response = await fetch(templateUrl);
+            const content = await response.text();
+            return this.renderTemplate(content, data);
+        } catch (error) {
+            console.error('Error fetching/rendering template:', error);
+            return '';
+        }
+    }
 }

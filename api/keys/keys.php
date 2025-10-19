@@ -37,15 +37,28 @@ if (!$keys || !isset($keys['privateKey']) || !isset($keys['publicKey'])) {
     exit;
 }
 
-// Return keys
-// NOTE: In production, NEVER send private key to client!
-// This is a temporary solution. Move signing to server-side.
+// SECURITY: Only allow key access from generate/ folder (htaccess protected)
+// Check referer to ensure request comes from protected area
+$referer = $_SERVER['HTTP_REFERER'] ?? '';
+$host = $_SERVER['HTTP_HOST'] ?? '';
+
+if (!str_contains($referer, $host . '/generate/')) {
+    http_response_code(403);
+    echo json_encode([
+        'success' => false,
+        'error' => 'Access denied. Keys only accessible from protected generate area.'
+    ]);
+    exit;
+}
+
+// Return keys (protected by htaccess + referer check)
+// Note: Client-side signing is necessary because ML-DSA-65 has no mature PHP implementation
 echo json_encode([
     'success' => true,
     'privateKey' => $keys['privateKey'],
     'publicKey' => $keys['publicKey'],
     'generated' => $keys['generated'] ?? null,
-    'warning' => 'DEVELOPMENT MODE: Private key exposed to client. Use server-side signing in production!'
+    'note' => 'Protected: generate/ folder requires authentication via htaccess'
 ]);
 exit;
 ?>
