@@ -163,7 +163,7 @@ elseif (isset($_GET['c'])) {
 
                     </div>
                     <div class="logo">
-                        <img src="https://www.scutoons.com/SCUTOONS-logo.svg" alt="SCUTOONS" />
+                        <img src="https://scutoons.com/assets/SCUTOONS-logo.svg" alt="SCUTOONS" />
                     </div>
                 </body>
 
@@ -215,7 +215,7 @@ elseif (isset($_GET['c'])) {
             </form>
         </div>
         <div class="logo">
-            <img src="https://www.scutoons.com/SCUTOONS-logo.svg" alt="SCUTOONS" />
+            <img src="https://www.scutoons.com/assets/SCUTOONS-logo.svg" alt="SCUTOONS" />
         </div>
         <div class="shop">
             <h2>FAQ</h2>
