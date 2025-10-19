@@ -1,4 +1,4 @@
-import { TemplateParser } from '../utils/templateParser.js';
+import { TemplateParser } from '../utils/template.js';
 
 export default class TemplateVariableFields {
     constructor(containerEl, typeSelectEl, toonSelectEl, formEl) {

@@ -1,1 +1,4 @@
 .git
+generate/files
+.htpasswd
+api/keys/keypair.json

@@ -1,5 +1,6 @@
 import { generateQRCode } from '../utils/api.js';
 import { generateCoaPdf, generateQrPrintPdf } from '../utils/pdf.js';
+import { signQRCode, generateFingerprint, exportSignature } from '../utils/crypto.js';
 
 export default class GenerateView {
 	// Fields to exclude from template data (QR-specific system fields)
@@ -16,6 +17,7 @@ export default class GenerateView {
 		this.downloadBtnEl = document.getElementById('downloadBtn');
 		this.downloadCoaBtnEl = document.getElementById('downloadCoaBtn');
 		this.downloadQrPrintBtnEl = document.getElementById('downloadQrPrintBtn');
+		this.downloadSigBtnEl = document.getElementById('downloadSigBtn');
 		this.messageEl = document.getElementById('message');
 		this.qrCodeEl = document.getElementById('qrCode');
 		this.qrResultEl = document.getElementById('qrResult');
@@ -42,6 +44,10 @@ export default class GenerateView {
 
 		if (this.downloadQrPrintBtnEl) {
 			this.downloadQrPrintBtnEl.addEventListener('click', () => this.generateQrPrintPdf());
+		}
+
+		if (this.downloadSigBtnEl) {
+			this.downloadSigBtnEl.addEventListener('click', () => this.downloadSignature());
 		}
 	}
 
@@ -102,6 +108,19 @@ export default class GenerateView {
 		this.codeEl.textContent = qrData.code;
 		this.qrResultEl.style.display = 'block';
 		
+		// Show post-quantum signature info if available
+		if (qrData.signature) {
+			const sigInfoEl = document.getElementById('signatureInfo');
+			const sigAlgorithmEl = document.getElementById('sigAlgorithm');
+			const sigFingerprintEl = document.getElementById('sigFingerprint');
+			
+			if (sigInfoEl && sigAlgorithmEl && sigFingerprintEl) {
+				sigAlgorithmEl.textContent = qrData.signature.algorithm;
+				sigFingerprintEl.textContent = qrData.fingerprint;
+				sigInfoEl.style.display = 'block';
+			}
+		}
+		
 		// Always show SVG download
 		this.downloadBtnEl.style.display = 'inline-block';
 
@@ -115,6 +134,11 @@ export default class GenerateView {
 		
 		if (this.downloadQrPrintBtnEl) {
 			this.downloadQrPrintBtnEl.style.display = qrData.type === 'promo' ? 'inline-block' : 'none';
+		}
+		
+		// Show signature download if signature exists
+		if (this.downloadSigBtnEl) {
+			this.downloadSigBtnEl.style.display = qrData.signature ? 'inline-block' : 'none';
 		}
 	}
 
@@ -172,6 +196,46 @@ export default class GenerateView {
 					expires_at: result.expires_at || null,
 					svg: null
 				};
+
+				// Generate post-quantum cryptographic signature
+				try {
+					const signatureData = await signQRCode(this.currentQR);
+					this.currentQR.signature = signatureData;
+					this.currentQR.fingerprint = generateFingerprint(signatureData);
+					
+					// Export signature for storage and verification
+					const signatureExport = exportSignature(signatureData);
+					
+					// Save full signature to server (for audit trail and verification)
+					const sigFilename = `SIGNATURE-${this.currentQR.code}.json`;
+					const sigData = JSON.stringify({
+						code: this.currentQR.code,
+						type: this.currentQR.type,
+						signature: signatureData,
+						fingerprint: this.currentQR.fingerprint,
+						created_at: this.currentQR.created_at
+					}, null, 2);
+					await this.saveFile(sigData, sigFilename, 'signatures');
+					
+					// Log for user to copy (can be used for manual verification)
+					console.log('═══════════════════════════════════════════════');
+					console.log('POST-QUANTUM SIGNATURE GENERATED');
+					console.log('═══════════════════════════════════════════════');
+					console.log('QR Code:', this.currentQR.code);
+					console.log('Fingerprint:', this.currentQR.fingerprint);
+					console.log('\nTo verify this certificate:');
+					console.log('1. Visit: https://qr.scutoons.com/generate/verify.html');
+					console.log('2. Enter code:', this.currentQR.code);
+					console.log('\nFull signature export (base64):');
+					console.log(signatureExport);
+					console.log('═══════════════════════════════════════════════');
+					
+					// Store signature export in QR data for PDF generation
+					this.currentQR.signatureExport = signatureExport;
+				} catch (error) {
+					console.error('Failed to sign QR code:', error);
+					// Continue without signature - non-critical
+				}
 
 				// Render views from state
 				this.renderQRCode(this.currentQR);
@@ -265,6 +329,43 @@ export default class GenerateView {
 		} catch (error) {
 			console.error('Error generating QR Print PDF:', error);
 			this.renderMessage('Error generating Printable QR certificate', 'error');
+		}
+	}
+
+	downloadSignature() {
+		if (!this.currentQR || !this.currentQR.signature) {
+			this.renderMessage('No signature available to download', 'error');
+			return;
+		}
+
+		try {
+			// Create signature data object
+			const sigData = {
+				code: this.currentQR.code,
+				type: this.currentQR.type,
+				signature: this.currentQR.signature,
+				fingerprint: this.currentQR.fingerprint,
+				created_at: this.currentQR.created_at
+			};
+
+			// Convert to JSON and create blob
+			const json = JSON.stringify(sigData, null, 2);
+			const blob = new Blob([json], { type: 'application/json' });
+			const url = URL.createObjectURL(blob);
+			
+			// Create download link and trigger
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = `SIGNATURE-${this.currentQR.code}.json`;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+			
+			this.renderMessage('Signature file downloaded!', 'success');
+		} catch (error) {
+			console.error('Error downloading signature:', error);
+			this.renderMessage('Error downloading signature file', 'error');
 		}
 	}
 }

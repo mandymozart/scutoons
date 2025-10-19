@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verify QR - SCUTOONS</title>
+    <script src="generate/app/lib/noble-post-quantum.min.js"></script>
+    <link rel="stylesheet" href="https://scutoons.com/assets/styles.css">
+    <style>
+        .verify-container {
+            max-width: 800px;
+            margin: auto;
+        }
+
+        .result {
+            margin-top: 1rem;
+        }
+        .result.valid {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .result.invalid {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .signature-details {
+            font-size: 1rem;
+            word-break: break-all;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="verify-container">
+        <h1>🔐 Certificate Verification</h1>
+        <p>You want to know if your SCUTOONS QR code is authentic? Paste Code or Upload a Signature File</p>
+        <div>
+            <p>
+                <strong>Algorithm:</strong> ML-DSA-65 (FIPS 204)<br>
+                <strong>Security Level:</strong> NIST Level 3 (192-bit security)<br>
+            </p>
+        </div>
+
+        <div class="verify-form">
+            <h2>Verify Certificate Signature</h2>
+            
+            <h3 style="margin-top: 20px;">Option 1: Enter QR Code</h3>
+            <p>Enter the code from your certificate (e.g., yB56cs59):</p>
+            <input type="text" id="qrCodeInput" placeholder="Enter code...">
+            <button id="verifyCodeBtn">Verify by Code</button>
+            
+            <h3>Option 2: Upload Signature File</h3>
+            <p>Upload the SIGNATURE-*.json file:</p>
+            <input type="file" id="fileInput" accept=".json">
+            <button id="verifyFileBtn">Verify by File</button>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script type="module">
+        import { verifySignature, importSignature } from './generate/app/utils/crypto.js';
+
+        const qrCodeInput = document.getElementById('qrCodeInput');
+        const verifyCodeBtn = document.getElementById('verifyCodeBtn');
+        const fileInput = document.getElementById('fileInput');
+        const verifyFileBtn = document.getElementById('verifyFileBtn');
+        const resultDiv = document.getElementById('result');
+        
+        // Check if noble library is loaded
+        window.addEventListener('load', () => {
+            if (!window.noblePostQuantum || !window.noblePostQuantum.ml_dsa65) {
+                console.error('❌ noble-post-quantum library not loaded!');
+                resultDiv.innerHTML = '<div class="result invalid"><h3>❌ Library Error</h3><p>Post-quantum cryptography library failed to load. Please refresh the page.</p></div>';
+            } else {
+                console.log('✅ noble-post-quantum library loaded successfully');
+            }
+        });
+        
+        // Verify by uploading JSON file
+        verifyFileBtn.addEventListener('click', async () => {
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                resultDiv.innerHTML = '<div class="result invalid">Please select a signature file.</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="result" style="background: #f0f0f0;">Reading file...</div>';
+            
+            try {
+                // Read the file
+                const text = await file.text();
+                const sigData = JSON.parse(text);
+                
+                console.log('Loaded signature from file:', sigData);
+                console.log('Verifying with:');
+                console.log('- Signature length:', sigData.signature.signature.length);
+                console.log('- Public key length:', sigData.signature.publicKey.length);
+                console.log('- Signed data:', sigData.signature.signedData);
+                
+                // Verify the signature
+                const isValid = await verifySignature(
+                    sigData.signature.signature,
+                    sigData.signature.publicKey,
+                    sigData.signature.signedData
+                );
+                
+                console.log('Verification result:', isValid);
+                
+                if (isValid) {
+                    const qrData = JSON.parse(sigData.signature.signedData);
+                    resultDiv.innerHTML = `
+                        <div class="result valid">
+                            <h3>✅ Signature Valid</h3>
+                            <p>This certificate is authentic and has not been tampered with.</p>
+                            
+                            <h4>Certificate Details:</h4>
+                            <div class="signature-details">
+                                <strong>QR Code:</strong> ${qrData.code}<br>
+                                <strong>Type:</strong> ${qrData.type}<br>
+                                <strong>URL:</strong> ${qrData.url}<br>
+                                <strong>Created:</strong> ${new Date(qrData.created_at).toLocaleString()}<br>
+                                <strong>Fingerprint:</strong> ${sigData.fingerprint}<br>
+                                <strong>Algorithm:</strong> ${sigData.signature.algorithm}<br>
+                                <strong>Signed:</strong> ${new Date(sigData.signature.timestamp).toLocaleString()}
+                            </div>
+                            
+                            <h4>Public Key:</h4>
+                            <div class="signature-details" style="max-height: 100px; overflow-y: auto;">
+                                ${sigData.signature.publicKey}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result invalid">
+                            <h3>❌ Invalid Signature</h3>
+                            <p>This signature could not be verified. The certificate may have been tampered with.</p>
+                            <p style="font-size: 12px; margin-top: 10px;">Check the browser console for detailed error information.</p>
+                        </div>
+                    `;
+                    console.error('Verification failed for file:', file.name);
+                    console.error('Signature data:', sigData);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result invalid">
+                        <h3>❌ File Error</h3>
+                        <p>Could not read or parse signature file.</p>
+                        <p style="font-size: 12px; margin-top: 10px;">Error: ${error.message}</p>
+                        <p style="font-size: 12px;">Make sure the file is a valid SIGNATURE-*.json file.</p>
+                    </div>
+                `;
+                console.error('File read error:', error);
+            }
+        });
+        
+        // Verify by QR code (fetch signature from server)
+        verifyCodeBtn.addEventListener('click', async () => {
+            const code = qrCodeInput.value.trim();
+            
+            if (!code) {
+                resultDiv.innerHTML = '<div class="result invalid">Please enter a QR code.</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="result" style="background: #f0f0f0;">Loading signature...</div>';
+            
+            try {
+                // Fetch signature from server
+                const response = await fetch(`generate/files/signatures/SIGNATURE-${code}.json`);
+                
+                if (!response.ok) {
+                    throw new Error('Signature not found on server');
+                }
+                
+                const sigData = await response.json();
+                
+                console.log('Loaded signature data:', sigData);
+                console.log('Verifying with:');
+                console.log('- Signature length:', sigData.signature.signature.length);
+                console.log('- Public key length:', sigData.signature.publicKey.length);
+                console.log('- Signed data:', sigData.signature.signedData);
+                
+                // Verify the signature
+                const isValid = await verifySignature(
+                    sigData.signature.signature,
+                    sigData.signature.publicKey,
+                    sigData.signature.signedData
+                );
+                
+                console.log('Verification result:', isValid);
+                
+                if (isValid) {
+                    const qrData = JSON.parse(sigData.signature.signedData);
+                    resultDiv.innerHTML = `
+                        <div class="result valid">
+                            <h3>✅ Signature Valid</h3>
+                            <p>This certificate is authentic and has not been tampered with.</p>
+                            
+                            <h4>Certificate Details:</h4>
+                            <div class="signature-details">
+                                <strong>QR Code:</strong> ${qrData.code}<br>
+                                <strong>Type:</strong> ${qrData.type}<br>
+                                <strong>URL:</strong> ${qrData.url}<br>
+                                <strong>Created:</strong> ${new Date(qrData.created_at).toLocaleString()}<br>
+                                <strong>Fingerprint:</strong> ${sigData.fingerprint}<br>
+                                <strong>Algorithm:</strong> ${sigData.signature.algorithm}<br>
+                                <strong>Signed:</strong> ${new Date(sigData.signature.timestamp).toLocaleString()}
+                            </div>
+                            
+                            <h4>Public Key:</h4>
+                            <div class="signature-details" style="max-height: 100px; overflow-y: auto;">
+                                ${sigData.signature.publicKey}
+                            </div>
+                            
+                            <button id="downloadSigBtn" style="margin-top: 20px;">📥 Download Signature File</button>
+                        </div>
+                    `;
+                    
+                    // Add download functionality
+                    document.getElementById('downloadSigBtn').addEventListener('click', () => {
+                        const blob = new Blob([JSON.stringify(sigData, null, 2)], { type: 'application/json' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `SIGNATURE-${code}.json`;
+                        a.click();
+                        URL.revokeObjectURL(url);
+                    });
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="result invalid">
+                            <h3>❌ Invalid Signature</h3>
+                            <p>This signature could not be verified. The certificate may have been tampered with.</p>
+                            <p style="font-size: 12px; margin-top: 10px;">Check the browser console for detailed error information.</p>
+                        </div>
+                    `;
+                    console.error('Verification failed for code:', code);
+                    console.error('Signature data:', sigData);
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="result invalid">
+                        <h3>❌ Verification Error</h3>
+                        <p>Could not find or verify signature for code: <strong>${code}</strong></p>
+                        <p style="font-size: 12px; margin-top: 10px;">Error: ${error.message}</p>
+                        <p style="font-size: 12px;">Make sure the QR code is correct and the certificate exists in the system.</p>
+                    </div>
+                `;
+                console.error('Verification error:', error);
+            }
+        });
+    </script>
+</body>
+</html>

@@ -119,6 +119,58 @@ export async function generateCoaPdf(qrData, templateData, svgElement) {
 					doc.setFontSize(9);
 					const creatorText = doc.splitTextToSize(templateData.creators, pageWidth - 2 * margin);
 					doc.text(creatorText, margin, y);
+					y += creatorText.length * 5 + 10;
+				}
+
+				// Post-Quantum Cryptographic Signature
+				if (qrData.signature) {
+					// Add new page if needed
+					if (y > 220) {
+						doc.addPage();
+						y = margin;
+					}
+					
+					doc.setFontSize(11);
+					doc.text('Post-Quantum Cryptographic Verification', margin, y);
+					y += 6;
+					doc.setFontSize(8);
+					doc.text(`Algorithm: ${qrData.signature.algorithm}`, margin, y);
+					y += 5;
+					doc.text(`Timestamp: ${qrData.signature.timestamp}`, margin, y);
+					y += 5;
+					doc.text(`Fingerprint: ${qrData.fingerprint}`, margin, y);
+					y += 8;
+					
+					// Verification instructions
+					doc.setFontSize(9);
+					doc.text('To verify this certificate:', margin, y);
+					y += 5;
+					doc.setFontSize(8);
+					doc.text('1. Visit: https://qr.scutoons.com/verify.html', margin + 5, y);
+					y += 5;
+					doc.text('2. Paste the verification code below', margin + 5, y);
+					y += 8;
+					
+					// Verification code (shortened fingerprint for manual entry)
+					doc.setFontSize(9);
+					doc.text('Quick Verification Code:', margin, y);
+					y += 5;
+					doc.setFontSize(10);
+					doc.setFont('courier', 'bold');
+					doc.text(qrData.code.toUpperCase(), margin, y);
+					y += 8;
+					doc.setFont('courier', 'normal');
+					
+					// Full signature export (for advanced verification)
+					doc.setFontSize(7);
+					const sigNote = 'This certificate is protected by post-quantum cryptography (ML-DSA-65/Dilithium).';
+					const sigNoteLines = doc.splitTextToSize(sigNote, pageWidth - 2 * margin);
+					doc.text(sigNoteLines, margin, y);
+					y += sigNoteLines.length * 3 + 5;
+					
+					// Add download link for full signature file
+					doc.setFontSize(7);
+					doc.text('Full signature available at: ' + qrData.url.replace('?c=', '/verify?c='), margin, y);
 				}
 
 				resolve(doc);
