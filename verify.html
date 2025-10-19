@@ -171,14 +171,30 @@
             resultDiv.innerHTML = '<div class="result" style="background: #f0f0f0;">Loading signature...</div>';
             
             try {
-                // Fetch signature from server
-                const response = await fetch(`generate/files/signatures/SIGNATURE-${code}.json`);
+                // Try to fetch signature from database first
+                let response = await fetch(`generate/get-signature.php?code=${code}`);
+                let sigData;
                 
-                if (!response.ok) {
-                    throw new Error('Signature not found on server');
+                if (response.ok) {
+                    const dbResult = await response.json();
+                    if (dbResult.success) {
+                        console.log('✅ Loaded signature from database');
+                        sigData = dbResult;
+                    } else {
+                        throw new Error('Database lookup failed');
+                    }
+                } else {
+                    // Fallback to file system
+                    console.log('Database not available, trying file system...');
+                    response = await fetch(`generate/files/signatures/SIGNATURE-${code}.json`);
+                    
+                    if (!response.ok) {
+                        throw new Error('Signature not found in database or files');
+                    }
+                    
+                    sigData = await response.json();
+                    console.log('✅ Loaded signature from file system');
                 }
-                
-                const sigData = await response.json();
                 
                 console.log('Loaded signature data:', sigData);
                 console.log('Verifying with:');

@@ -82,22 +82,16 @@ export async function initializeKeypair() {
 
 /**
  * Sign QR code data using ML-DSA (Dilithium)
- * @param {Object} qrData - The QR code data to sign
+ * @param {Object} qrData - The QR code data to sign (includes all fields)
  * @returns {Promise<Object>} Signature data with metadata
  */
 export async function signQRCode(qrData) {
 	const ml_dsa65 = getMlDsa();
 	const keypair = await initializeKeypair();
 	
-	// Create a canonical string representation of the QR data
-	const dataToSign = JSON.stringify({
-		code: qrData.code,
-		type: qrData.type,
-		redirect_to: qrData.redirect_to,
-		url: qrData.url,
-		created_at: qrData.created_at,
-		expires_at: qrData.expires_at
-	});
+	// Create a canonical string representation of ALL QR data
+	// This ensures any additional fields are cryptographically signed
+	const dataToSign = JSON.stringify(qrData);
 	
 	// Convert to bytes
 	const message = new TextEncoder().encode(dataToSign);

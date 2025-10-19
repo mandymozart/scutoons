@@ -74,6 +74,30 @@ export default class GenerateView {
 		}
 	}
 
+	async saveSignatureToDb(code, signatureData) {
+		try {
+			const response = await fetch('save-signature.php', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					code: code,
+					signature: signatureData
+				})
+			});
+
+			const result = await response.json();
+			if (result.success) {
+				console.log('✅ Signature saved to database for code:', code);
+			} else {
+				console.error('❌ Database signature save error:', result.message);
+			}
+		} catch (error) {
+			console.error('❌ Error saving signature to database:', error);
+		}
+	}
+
 	renderQRCode(qrData) {
 		// Clear previous QR code
 		while (this.qrCodeEl.firstChild) {
@@ -185,7 +209,7 @@ export default class GenerateView {
 			const result = await generateQRCode(formData);
 
 			if (result.success) {
-				// Update state with new QR data
+				// Update state with new QR data including ALL template fields
 				const qrUrl = `https://qr.scutoons.com?c=${result.code}`;
 				this.currentQR = {
 					code: result.code,
@@ -194,10 +218,12 @@ export default class GenerateView {
 					url: qrUrl,
 					created_at: new Date().toISOString(),
 					expires_at: result.expires_at || null,
+					...this.templateData,  // Include ALL template fields for signing
 					svg: null
 				};
 
 				// Generate post-quantum cryptographic signature
+				// Signs ALL fields including template data (receiver, edition, artists, etc.)
 				try {
 					const signatureData = await signQRCode(this.currentQR);
 					this.currentQR.signature = signatureData;
@@ -216,6 +242,9 @@ export default class GenerateView {
 						created_at: this.currentQR.created_at
 					}, null, 2);
 					await this.saveFile(sigData, sigFilename, 'signatures');
+					
+					// Also save signature to database
+					await this.saveSignatureToDb(this.currentQR.code, signatureData);
 					
 					// Log for user to copy (can be used for manual verification)
 					console.log('═══════════════════════════════════════════════');
