@@ -86,6 +86,10 @@ require_once '../config.php';
 			display: block;
 		}
 
+		textarea {
+			height: 10rem;
+		}
+
 		@media screen and (max-width: 768px) {
 			.mode-selector {
 				margin-bottom: 1rem;
