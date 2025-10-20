@@ -150,10 +150,9 @@ require_once '../config.php';
 							</section>
 							<button type="submit">Generate</button>
 						</form>
-						<div>
+						<div class="downloads">
 							<div id="message"></div>
-							<div style="margin-top: 1rem;">
-								<h3>Downloads</h3>
+							<div style="margin-top: 1rem;" class="download-actions">
 								<button type="button" id="downloadBtn"
 									style="display:none; margin-top: 0.5rem;">SVG</button>
 								<button type="button" id="downloadCoaBtn"
