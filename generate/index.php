@@ -114,8 +114,8 @@ require_once '../config.php';
 				<!-- Generate Mode -->
 				<div class="mode-panel active" id="generateMode">
 					<div class="content">
-						<h2>Generate QR Code</h2>
 						<form id="qrForm">
+							<h2>Generate QR Code</h2>
 							<div class="form-group">
 								<label for="toon">Select Toon:</label>
 								<select id="toon" name="toon">
