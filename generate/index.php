@@ -188,7 +188,7 @@ require_once '../config.php';
 							<div class="form-group">
 								<label for="existingCode">Code:</label>
 								<input type="text" id="existingCode" name="existingCode" required
-									placeholder="Enter existing QR code" style="text-transform: uppercase;">
+									placeholder="Enter existing QR code">
 								<small>Enter the code from a previously generated QR</small>
 							</div>
 							<button type="submit">Load & Regenerate</button>
