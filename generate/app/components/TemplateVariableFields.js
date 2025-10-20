@@ -290,7 +290,7 @@ export default class TemplateVariableFields {
 
         if (fields.length > 0) {
             const heading = document.createElement('h3');
-            heading.textContent = 'Certificate Fields';
+            heading.textContent = 'Template Fields';
             heading.style.marginTop = '1rem';
             this.containerEl.appendChild(heading);
 
