@@ -19,6 +19,10 @@ require_once '../config.php';
 	<script src="../assets/js/noble-post-quantum.min.js"></script>
 	<link rel="stylesheet" type="text/css" href="https://www.scutoons.com/assets/styles.css">
 	<style>
+		html {
+			font-size: 16px;
+		}
+		
 		#qrResult {
 			text-align: center;
 			padding: 1rem;
@@ -110,6 +114,7 @@ require_once '../config.php';
 				<!-- Generate Mode -->
 				<div class="mode-panel active" id="generateMode">
 					<div class="content">
+						<h2>Generate QR Code</h2>
 						<form id="qrForm">
 							<div class="form-group">
 								<label for="toon">Select Toon:</label>
@@ -196,7 +201,6 @@ require_once '../config.php';
 						<div>
 							<div id="regenerateMessage"></div>
 							<div style="margin-top: 1rem;">
-								<h3>Downloads</h3>
 								<button type="button" id="regenDownloadBtn"
 									style="display:none; margin-top: 0.5rem;">SVG</button>
 								<button type="button" id="regenDownloadCoaBtn"
