@@ -52,15 +52,18 @@ require_once '../config.php';
 		}
 
 		.app-layout {
-			display: grid;
-			grid-template-columns: 1fr 1fr;
-			gap: 2rem;
+			
 		}
 
 		.mode-selector {
 			display: flex;
 			gap: 1rem;
 			align-items: baseline;
+			margin-bottom: 1rem;
+		}
+
+		.mode-option {
+			cursor: pointer;
 		}
 
 		.mode-option.active {
@@ -84,10 +87,6 @@ require_once '../config.php';
 		}
 
 		@media screen and (max-width: 768px) {
-			.app-layout {
-				grid-template-columns: 1fr;
-			}
-
 			.mode-selector {
 				margin-bottom: 1rem;
 			}
@@ -117,15 +116,10 @@ require_once '../config.php';
 						<form id="qrForm">
 							<h2>Generate QR Code</h2>
 							<div class="form-group">
-								<label for="toon">Select Toon:</label>
+								<label for="toon">Toon:</label>
 								<select id="toon" name="toon">
 									<option value="">none</option>
 								</select>
-							</div>
-							<div class="form-group">
-								<label for="redirectUrl">Redirect URL:</label>
-								<input type="url" id="redirectUrl" name="redirectUrl" required
-									placeholder="https://scutoons.com">
 							</div>
 							<div class="form-group">
 								<label for="type">Type:</label>
@@ -136,6 +130,12 @@ require_once '../config.php';
 									<option value="promo">Promo</option>
 								</select>
 							</div>
+							<div class="form-group">
+								<label for="redirectUrl">Redirect URL:</label>
+								<input type="url" id="redirectUrl" name="redirectUrl" required
+									placeholder="https://scutoons.com">
+							</div>
+
 							<div class="form-group">
 								<label for="expiresAt">Expires At (optional):</label>
 								<input type="datetime-local" id="expiresAt" name="expiresAt">
