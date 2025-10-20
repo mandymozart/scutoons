@@ -49,7 +49,7 @@ require_once '../config.php';
 
 		.app-layout {
 			display: grid;
-			grid-template-columns: auto 1fr;
+			grid-template-columns: 1fr 1fr;
 			gap: 2rem;
 		}
 
@@ -57,16 +57,6 @@ require_once '../config.php';
 			display: flex;
 			gap: 1rem;
 			align-items: baseline;
-		}
-
-		.mode-option {
-			cursor: pointer;
-			text-decoration: underline;
-			color: #0066cc;
-		}
-
-		.mode-option:hover {
-			color: #004499;
 		}
 
 		.mode-option.active {
@@ -107,13 +97,13 @@ require_once '../config.php';
 
 <body>
 	<div class="container">
+		<!-- Mode Selector -->
+		<div class="mode-selector">
+			<span>Mode:</span>
+			<span class="mode-option active" data-mode="generate">Generate</span>
+			<span class="mode-option" data-mode="regenerate">Regenerate</span>
+		</div>
 		<div class="app-layout">
-			<!-- Mode Selector -->
-			<div class="mode-selector">
-				<span>Mode:</span>
-				<span class="mode-option active" data-mode="generate">Generate</span>
-				<span class="mode-option" data-mode="regenerate">Regenerate</span>
-			</div>
 
 			<!-- Main Content Area -->
 			<div>
