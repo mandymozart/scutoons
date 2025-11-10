@@ -45,6 +45,10 @@ export class ChapterView {
     const keyVisualHtml = renderKeyVisual(data.keyvisual, data.title);
 
     // Create placeholder HTML for images
+    // TODO convey a concept that allows for various render types for the slices
+    // As described in InteractionManager.js
+    // Perhapse it makes sense to move this to a separate component file
+    // and to separate concerns of rendering vs interaction handling
     let slicesHtml = '';
     if (data.slices && data.slices.length > 0) {
       slicesHtml = data.slices.map((slice, index) => renderChapterSlice(slice, index)).join('');

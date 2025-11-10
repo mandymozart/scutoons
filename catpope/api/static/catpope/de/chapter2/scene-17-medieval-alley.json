@@ -1,0 +1,17 @@
+{
+  "id": "scene-17-medieval-alley",
+  "slices": [
+    {
+      "image": "images/3x/de/s1c2-slice-13.jpg"
+    },
+    {
+      "image": "images/3x/de/s1c2-slice-14.jpg"
+    },
+    {
+      "image": "images/3x/de/s1c2-slice-15.jpg"
+    },
+    {
+      "image": "images/3x/de/s1c2-slice-16.jpg"
+    }
+  ]
+}

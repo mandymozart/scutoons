@@ -1,0 +1,17 @@
+{
+  "id": "scene-16-cross-roads",
+  "slices": [
+    {
+      "image": "images/3x/de/s1c2-slice-9.jpg"
+    },
+    {
+      "image": "images/3x/de/s1c2-slice-10.jpg"
+    },
+    {
+      "image": "images/3x/de/s1c2-slice-11.jpg"
+    },
+    {
+      "image": "images/3x/de/s1c2-slice-12.jpg"
+    }
+  ]
+}

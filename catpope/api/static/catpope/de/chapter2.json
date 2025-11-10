@@ -1,12 +1,43 @@
 {
-    "title": "Ärger",
-    "author": "Mandy Mozart",
-    "number": 2,
-    "language": "de",
-    "release": "2025-11-01",
-    "status": "coming-soon",
-    "description": "Die Predigt wird gestört",
-    "thumbnail": "images/s1c2-thumbnail.jpg",
-    "keyvisual": "images/3x/s1c2-key-visual.jpg",
-    "slices": [] 
+  "title": "Ärger",
+  "author": "Mandy Mozart",
+  "number": 2,
+  "language": "de",
+  "release": "2025-11-01",
+  "status": "draft",
+  "description": "Die Predigt wird gestört",
+  "thumbnail": "images/s1c2-thumbnail.jpg",
+  "keyvisual": "images/3x/s1c2-key-visual.jpg",
+  "interaction": null,
+  "slices": [
+    {
+      "label": "scene-13-blue-hour",
+      "group": {
+        "interaction": "stroll",
+        "slices": [
+          { "scene": "scene-14-alterlaa-church" },
+          { "scene": "scene-15-brutalist-appartments" },
+          { "scene": "scene-16-cross-roads" },
+          { "scene": "scene-17-medieval-road" },
+          { "scene": "scene-18-brutalist-infinity-pool" }
+        ]
+      }
+    },
+    {
+      "label": "scene-19-cathedral-exterior",
+      "image": "images/3x/de/s1c2-slice-21.jpg",
+      "dialog": [
+        {
+          "rect": {
+            "x": 10,
+            "y": 10,
+            "width": 80
+          },
+          "text": [
+            "PLF betrat mit großen Schritten den Platz vor der Kathedrale. \nDer Auftritt schien mit der Schönheit des Tempels konkurrieren zu wollen. \nEin Gefühlscocktail von Ehrfurcht, Stolz, Macht und Bestätigung durchströmte jedes Glied. \nMan sah es PLF an: die ganze Statur war aufgereckt,\n jedes Glied stützte die Bögen, \nder Körper war kein organisches Gebilde aus Proteinen und Kohlenstoff mehr, sondern ein Geist, \nder zu schweben schien aus kosmischer Materie. \nErst einmal in Bewegung manifestierte sich das Werk. \nDie Einsicht, die Zuversicht, mit der PLF das Gewand an diesen Ort trug, vervollständigte das Ganze. \nDiese Kleider waren gemacht von Leuten für mächtige Leute."
+          ]
+        }
+      ]
+    }
+  ]
 }
