@@ -1,0 +1,36 @@
+[
+  {
+    "name": "catpope",
+    "image": "images/3x/de/catpope.png",
+    "description": "Is future self",
+    "collection": "lead"
+  },
+  {
+    "name": "plf",
+    "description": "Is catpope is human shape",
+    "image": "images/3x/de/plf.png",
+    "collection": "support"
+  },
+  {
+    "name": "cat",
+    "description": "Is cat shaped plf",
+    "image": "images/3x/de/catpope.png",
+    "collection": "lead"
+  },
+  {
+    "name": "boy",
+    "description": "See cat and is scared in front of church",
+    "image": "images/3x/de/boy.png",
+    "collection": "support"
+  },{
+    "name": "crows",
+    "description": "Are crows, can travel time and space, bringing a message from the future.",
+    "image": "images/3x/de/crows.png",
+    "collection": "support"
+  },{
+    "name": "mountain-tiger",
+    "description": "Is a large cat. plf kind of fighting themself.",
+    "image": "images/3x/de/mountain-tiger.png",
+    "collection": "lead"
+  }
+]

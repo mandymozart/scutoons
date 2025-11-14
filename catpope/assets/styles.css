@@ -298,6 +298,17 @@ header.header-hidden {
   padding: 2rem;
 }
 
+/* Chapter View */
+.chapter-view {
+  
+}
+
+.chapter-view .slices.horizontal-slices {
+  display: flex;
+  flex-direction: row;
+  height: 90vh;
+}
+
 .webtoon-slice {
   position: relative;
 }

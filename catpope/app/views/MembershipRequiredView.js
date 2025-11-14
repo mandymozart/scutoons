@@ -1,8 +1,10 @@
 /**
- * MembershipRequiredView - Locked content message
+ * @typedef {import('./types').IMembershipRequiredView} IMembershipRequiredView
  */
+
 import { escapeHtml, sanitizeNumber } from '../utils/template.js';
 
+/** @implements {IMembershipRequiredView} */
 export class MembershipRequiredView {
   constructor(scutoon) {
     this.scutoon = scutoon;
@@ -20,7 +22,7 @@ export class MembershipRequiredView {
       <div class="membership-required">
         <div class="membership-card">
           <h2>🔒 Mitgliedschaft erforderlich</h2>
-          <p>Um ${escapeHtml(contentType)} ${escapeHtml(contentNumber)} ${escapeHtml(actionText)}, benötigen Sie eine gültige SCUTOONS-Mitgliedschaft.</p>
+          <p>Um ${escapeHtml(contentType)} ${escapeHtml(contentNumber.toString())} ${escapeHtml(actionText)}, benötigen Sie eine gültige SCUTOONS-Mitgliedschaft.</p>
           
           <div class="membership-info">
             <h3>So erhalts du Zugang:</h3>

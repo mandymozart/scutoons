@@ -1,29 +1,44 @@
 /**
- * ChapterView - Webtoon chapter reader
+ * @typedef {import('../types').Chapter} Chapter
+ * @typedef {import('../types').Group} Group
+ * @typedef {import('../types').IScutoon} IScutoon
+ * @typedef {import('../types').IChapterView} IChapterView
  */
-import { loadChapter, loadSeason, loadSong } from '../utils/api.js';
-import { loadImagesSequentially } from '../utils/imageLoader.js';
-import { renderChapterSlice } from '../components/ChapterSlice.js';
-import { renderSequenceNavigation } from '../components/SequenceNavigation.js';
-import { MembershipRequiredView } from './MembershipRequiredView.js';
-import { sanitizeNumber } from '../utils/template.js';
-import { 
-  renderKeyVisual, 
-  initKeyVisualVideo,
-  initChapterAudio,
-  setupSliceObserver,
-  initHotzoneVisualizer
-} from '../components/chapter/index.js';
 
+import { loadChapter } from '../utils/api.js';
+import { MembershipRequiredView } from './MembershipRequiredView.js';
+import {
+  populateGroups,
+  buildGroupMap,
+  getFirstGroupLabel,
+  getGroupByLabel
+} from '../utils/groups.js';
+import { updateURL } from '../utils/navigation.js';
+import { GroupHandler } from '../controllers/GroupHandler.js';
+
+/** @implements {IChapterView} */
 export class ChapterView {
+  scutoon;
+  currentChapter;
+  groups;
+  groupMap;
+  groupHandler;
+
+  /** @param {IScutoon} scutoon */
   constructor(scutoon) {
     this.scutoon = scutoon;
-    this.audioManager = null;
-    this.sliceObserver = null;
-    this.hotzoneCleanup = null;
+    this.currentChapter = null;
+    this.groups = null;
+    this.groupMap = null;
+    this.groupHandler = null;
   }
 
-  async render(chapterNumber = 1) {
+  /**
+   * @param {number} [chapterNumber=1]
+   * @param {string | null} [label=null]
+   * @returns {Promise<Chapter | null>}
+   */
+  async render(chapterNumber = 1, label = null) {
     // Check membership before rendering chapter
     if (!this.scutoon.membershipStore.hasValidMembership()) {
       const membershipView = new MembershipRequiredView(this.scutoon);
@@ -31,124 +46,85 @@ export class ChapterView {
       return null;
     }
 
-    const data = await loadChapter(this.scutoon.lang, chapterNumber);
-    this.scutoon.chapter = data;
+    const data = await loadChapter(this.scutoon.navigationStore.currentLang, chapterNumber);
+    this.currentChapter = data;
 
-    // Load season data for navigation (default to season 1)
-    const seasonData = await loadSeason(this.scutoon.lang, 1);
-    this.scutoon.season = seasonData;
-
-    // Load all sequence items for navigation (needed to check status)
-    const sequenceItems = await this.loadSequenceItems(seasonData);
-
-    // Render key visual
-    const keyVisualHtml = renderKeyVisual(data.keyvisual, data.title);
-
-    // Create placeholder HTML for images
-    // TODO convey a concept that allows for various render types for the slices
-    // As described in InteractionManager.js
-    // Perhapse it makes sense to move this to a separate component file
-    // and to separate concerns of rendering vs interaction handling
-    let slicesHtml = '';
-    if (data.slices && data.slices.length > 0) {
-      slicesHtml = data.slices.map((slice, index) => renderChapterSlice(slice, index)).join('');
+    // Populate groups (load external group files if referenced via src)
+    const groupsArray = data.groups || [];
+    this.groups = await populateGroups(groupsArray, data.language, data.number);
+    
+    console.log(`Loaded ${this.groups.length} groups`);
+    
+    // Build label map
+    this.groupMap = buildGroupMap(this.groups);
+    
+    // Create group handler
+    this.groupHandler = new GroupHandler(
+      this.scutoon,
+      data,
+      this.groups
+    );
+    
+    // Determine start label
+    const startLabel = label || getFirstGroupLabel(this.groups);
+    if (!startLabel) {
+      console.error('No labeled groups found in chapter');
+      return data;
     }
-
-    // Render sequence navigation
-    const navigationHtml = renderSequenceNavigation({
-      sequenceItems: sequenceItems,
-      currentType: 'chapter',
-      currentNumber: chapterNumber
-    });
-
-    const content = `
-      <div class="chapter-view">
-        <div class="webtoon-container">
-          ${keyVisualHtml}
-          ${slicesHtml}
-          ${navigationHtml}
-        </div>
-      </div>
-    `;
-
-    if (this.scutoon.contentEl) {
-      this.scutoon.contentEl.innerHTML = content;
-      // Make content div fullscreen for chapter view
-      this.scutoon.contentEl.classList.add('chapter-mode');
-    }
-
-    // Initialize key visual video functionality
-    if (data.keyvisual && data.keyvisual.video && data.keyvisual.image) {
-      initKeyVisualVideo();
-    }
-
-    // Initialize audio system if chapter has audio config
-    if (data.audio) {
-      this.audioManager = await initChapterAudio(data);
-      if (this.audioManager) {
-        this.sliceObserver = setupSliceObserver(this.audioManager, data);
-      }
-    }
-
-    // Initialize hotzone visualizer
-    this.hotzoneCleanup = initHotzoneVisualizer();
-
-    // Start sequential lazy loading
-    if (data.slices && data.slices.length > 0) {
-      loadImagesSequentially();
-    }
+    
+    // Start rendering from label
+    await this.renderFromLabel(startLabel);
 
     return data;
   }
 
-  async loadSequenceItems(seasonData) {
-    const sequenceItems = [];
-    for (const item of seasonData.sequence) {
-      try {
-        let itemData;
-        if (item.type === 'song') {
-          const match = item.file.match(/song(\d+)\.json/);
-          if (!match) continue;
-          const songNumber = sanitizeNumber(match[1], 1, 1, 999);
-          itemData = await loadSong(this.scutoon.lang, songNumber);
-          itemData.itemType = 'song';
-          itemData.itemNumber = songNumber;
-        } else if (item.type === 'chapter') {
-          const match = item.file.match(/chapter(\d+)\.json/);
-          if (!match) continue;
-          const chapterNumber = sanitizeNumber(match[1], 1, 1, 999);
-          itemData = await loadChapter(this.scutoon.lang, chapterNumber);
-          itemData.itemType = 'chapter';
-          itemData.itemNumber = chapterNumber;
-        }
-        if (itemData) {
-          sequenceItems.push(itemData);
-        }
-      } catch (error) {
-        console.error(`Failed to load ${item.type} from ${item.file}:`, error);
-        // Continue loading other items even if one fails
-      }
+
+  /**
+   * @param {string} startLabel
+   * @returns {Promise<void>}
+   */
+  async renderFromLabel(startLabel) {
+    console.log(`Rendering from label: ${startLabel}`);
+    
+    // Find starting group by label
+    const startInfo = getGroupByLabel(this.groupMap, startLabel);
+    if (!startInfo) {
+      console.error(`Label not found: ${startLabel}`);
+      return;
     }
-    return sequenceItems;
+    
+    // Process the group and get next label (if any)
+    const nextLabel = await this.groupHandler.processGroup(startInfo.index);
+    
+    // If there's a next label, jump to it
+    if (nextLabel) {
+      await this.jumpToLabel(nextLabel);
+    }
+  }
+  
+  /**
+   * @param {string} label
+   * @returns {Promise<void>}
+   */
+  async jumpToLabel(label) {
+    console.log(`Jumping to label: ${label}`);
+    
+    updateURL({ 
+      view: 'chapter', 
+      chapter: this.currentChapter.number,
+      label: label,
+      lang: this.scutoon.navigationStore.currentLang
+    });
+    
+    // Render from the labeled group
+    await this.renderFromLabel(label);
   }
 
+  /** @returns {Promise<void>} */
   async cleanup() {
-    // Start audio fade out in background (don't wait for it)
-    if (this.audioManager) {
-      this.audioManager.cleanup(); // Fades out in background
-      this.audioManager = null;
-    }
-
-    // Cleanup slice observer
-    if (this.sliceObserver) {
-      this.sliceObserver.disconnect();
-      this.sliceObserver = null;
-    }
-
-    // Cleanup hotzone observer
-    if (this.hotzoneCleanup) {
-      this.hotzoneCleanup();
-      this.hotzoneCleanup = null;
+    // Cleanup group handler
+    if (this.groupHandler) {
+      await this.groupHandler.cleanup();
     }
 
     console.log('ChapterView cleaned up');

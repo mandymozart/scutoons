@@ -1,18 +1,21 @@
 /**
- * ToonView - Main overview with chapters/songs list
+ * @typedef {import('./types').IToonView} IToonView
  */
-import { loadToon, loadSeason, loadChapter, loadSong } from '../utils/api.js';
+
+import { loadToon, loadSeason } from '../utils/api.js';
+import { loadSequenceItems } from '../utils/sequence.js';
 import { renderSequenceItem } from '../components/SequenceItem.js';
-import { escapeHtml, sanitizeNumber } from '../utils/template.js';
+import { escapeHtml } from '../utils/template.js';
 import { asset } from '../utils/cdn.js';
 
+/** @implements {IToonView} */
 export class ToonView {
   constructor(scutoon) {
     this.scutoon = scutoon;
   }
 
   async render() {
-    const data = await loadToon(this.scutoon.lang);
+    const data = await loadToon(this.scutoon.navigationStore.currentLang);
     this.scutoon.toon = data;
 
     // Display download options
@@ -25,41 +28,10 @@ export class ToonView {
     }
 
     // Load season1 data to get the sequence
-    const seasonData = await loadSeason(this.scutoon.lang, 1);
-    this.scutoon.season = seasonData;
+    const seasonData = await loadSeason(this.scutoon.navigationStore.currentLang, 1);
 
     // Load all items from the season sequence
-    const sequenceItems = [];
-    for (const item of seasonData.sequence) {
-      try {
-        let itemData;
-        if (item.type === 'song') {
-          // Extract song number from filename (e.g., "song1.json" -> 1)
-          const match = item.file.match(/song(\d+)\.json/);
-          if (!match) {
-            throw new Error(`Invalid song file format: ${item.file}`);
-          }
-          const songNumber = sanitizeNumber(match[1], 1, 1, 999);
-          itemData = await loadSong(this.scutoon.lang, songNumber);
-          itemData.itemType = 'song';
-          itemData.itemNumber = songNumber;
-        } else if (item.type === 'chapter') {
-          // Extract chapter number from filename (e.g., "chapter1.json" -> 1)
-          const match = item.file.match(/chapter(\d+)\.json/);
-          if (!match) {
-            throw new Error(`Invalid chapter file format: ${item.file}`);
-          }
-          const chapterNumber = sanitizeNumber(match[1], 1, 1, 999);
-          itemData = await loadChapter(this.scutoon.lang, chapterNumber);
-          itemData.itemType = 'chapter';
-          itemData.itemNumber = chapterNumber;
-        }
-        sequenceItems.push(itemData);
-      } catch (error) {
-        console.error(`Failed to load ${item.type} from ${item.file}:`, error);
-        throw error;
-      }
-    }
+    const sequenceItems = await loadSequenceItems(seasonData, this.scutoon.navigationStore.currentLang);
 
     // Render sequence items (mix of songs and chapters)
     const sequenceHtml = sequenceItems.map(item => renderSequenceItem(item)).join('');

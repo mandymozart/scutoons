@@ -1,0 +1,55 @@
+{
+  "label": "scene-14",
+  "renderer": "vertical",
+  "interaction": "visual-novel",
+  "slices": [
+    {
+      "image": "images/1x/de/s1c2-slice-1.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-2.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-3.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-4.jpg"
+    }
+  ],
+  "events": [
+    {
+      "type": "showMessage",
+      "params": {
+        "character":"narrator",
+        "text": "Hi, du bist auf der Suche nach Gurken"
+      }
+    },
+    {
+      "type": "addChoice",
+      "params": {
+        "label": "Weiter Spazieren",
+        "onSelect": {
+          "jumpTo": "scene-15"
+        }
+      }
+    },
+    {
+      "type": "addChoice",
+      "params": {
+        "label": "Auf Arbeit",
+        "onSelect": {
+          "jumpTo": "scene-20"
+        }
+      }
+    },
+    {
+      "type": "showChoices"
+    },
+    {
+      "type": "end",
+      "params": {
+        "jumpTo": "scene-20"
+      }
+    }
+  ]
+}

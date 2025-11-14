@@ -1,16 +1,19 @@
 /**
  * KeyVisual component - renders chapter key visual
  */
-import { escapeHtml, escapeAttr } from '../../utils/template.js';
+import { escapeAttr } from '../../utils/template.js';
 import { asset } from '../../utils/cdn.js';
 
-export function renderKeyVisual(keyvisualData, title) {
-  if (!keyvisualData) return '';
+/** @param {import('../../types').KeyVisual} data 
+ * @param {string} title
+*/
+export function renderKeyVisual(data, title) {
+  if (!data) return '';
 
-  if (keyvisualData.video && keyvisualData.image) {
+  if (data.video && data.image) {
     // Both video and image available
-    const videoUrl = asset(keyvisualData.video);
-    const imageUrl = asset(keyvisualData.image);
+    const videoUrl = asset(data.video);
+    const imageUrl = asset(data.image);
     if (videoUrl && imageUrl) {
       return `
         <div class="key-visual-container">
@@ -27,9 +30,9 @@ export function renderKeyVisual(keyvisualData, title) {
         </div>
       `;
     }
-  } else if (keyvisualData.image) {
+  } else if (data.image) {
     // Only image available
-    const imageUrl = asset(keyvisualData.image);
+    const imageUrl = asset(data.image);
     if (imageUrl) {
       return `
         <div class="key-visual-wrapper">
@@ -44,9 +47,9 @@ export function renderKeyVisual(keyvisualData, title) {
 }
 
 export function initKeyVisualVideo() {
-  const video = document.getElementById('keyVisualVideo');
-  const image = document.getElementById('keyVisualImage');
-  const replayBtn = document.getElementById('keyVisualReplay');
+  const video = /** @type {HTMLVideoElement} */(document.getElementById('keyVisualVideo'));
+  const image = /** @type {HTMLImageElement} */(document.getElementById('keyVisualImage'));
+  const replayBtn = /** @type {HTMLButtonElement} */(document.getElementById('keyVisualReplay'));
 
   if (!video || !image || !replayBtn) return;
 

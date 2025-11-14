@@ -1,24 +1,15 @@
 /**
  * ChapterItem component - renders a single chapter card
  */
-import { escapeHtml, escapeAttr, sanitizeNumber } from "../utils/template.js";
-import { asset } from "../utils/cdn.js";
-
-function isLocalDev() {
-  return window.location.hostname === "localhost";
-}
-
-function getPublic(chapter) {
-  return chapter.status === "published" ||
-    (chapter.status === "draft" && isLocalDev());
-}
+import { escapeHtml, escapeAttr, sanitizeNumber, isItemPublic } from '../utils/template.js';
+import { asset } from '../utils/cdn.js';
 
 export function renderChapterItem(chapter, chapterNumber) {
   const safeChapterNumber = sanitizeNumber(chapterNumber, 1, 1, 100);
   const thumbnailUrl = asset(
     chapter.thumbnail || "images/default-thumbnail.jpg"
   );
-  const isPublic = getPublic(chapter);
+  const isPublic = isItemPublic(chapter);
     
   const status = chapter.status || "published";
 

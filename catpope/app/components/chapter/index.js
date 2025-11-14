@@ -1,7 +1,5 @@
 /**
- * Chapter components - Modular components for ChapterView
+ * Chapter components - Pure rendering functions
  */
 
-export { renderKeyVisual, initKeyVisualVideo } from './KeyVisual.js';
-export { initChapterAudio, setupSliceObserver } from './ChapterAudio.js';
-export { initHotzoneVisualizer } from './HotzoneVisualizer.js';
+export { renderKeyVisual } from './KeyVisual.js';

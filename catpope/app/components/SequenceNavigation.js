@@ -2,7 +2,7 @@
  * SequenceNavigation component - Navigation between sequence items (chapters/songs)
  * Handles navigation within and across seasons, skipping unpublished items
  */
-import { escapeHtml } from '../utils/template.js';
+import { escapeHtml, isItemPublic } from '../utils/template.js';
 import { asset } from '../utils/cdn.js';
 
 /**
@@ -12,10 +12,7 @@ import { asset } from '../utils/cdn.js';
  */
 function filterPublishedItems(sequenceItems) {
   if (!sequenceItems) return [];
-  return sequenceItems.filter(item => {
-    // Include items that are published or don't have a status field
-    return !item.status || item.status === 'published';
-  });
+  return sequenceItems.filter(item => isItemPublic(item));
 }
 
 /**

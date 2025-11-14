@@ -3,7 +3,7 @@ import { parseURL, renderView } from './utils/navigation.js';
 import { scrollToTop } from './utils/scroll.js';
 import { initAnimatedFavicon } from '../../app/favicon.js';
 
-const scutoon = new Scutoon('de');
+const scutoon = new Scutoon();
 window.scutoon = scutoon;
 
 async function handleNavigation() {

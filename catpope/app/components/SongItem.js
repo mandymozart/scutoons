@@ -1,16 +1,16 @@
 /**
  * SongItem component - renders a single song card
  */
-import { escapeHtml, escapeAttr, sanitizeNumber } from '../utils/template.js';
+import { escapeHtml, escapeAttr, sanitizeNumber, isItemPublic } from '../utils/template.js';
 import { asset } from '../utils/cdn.js';
 
 export function renderSongItem(song, songNumber) {
   const safeSongNumber = sanitizeNumber(songNumber, 1, 1, 100);
   const thumbnailUrl = asset(song.thumbnail || 'images/default-thumbnail.jpg');
-  const isPublished = song.status === 'published';
+  const isPublished = isItemPublic(song);
   const status = song.status || 'published';
   
-  if (!['published', 'coming-soon'].includes(status)) return '';
+  if (!['published', 'coming-soon', 'draft'].includes(status)) return '';
   
   return `
     <div class="chapter-item song ${status}"${isPublished ? ` onclick="scutoon.navigateTo('song', {song: ${safeSongNumber}})"` : ''}>

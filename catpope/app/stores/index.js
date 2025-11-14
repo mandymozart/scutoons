@@ -3,3 +3,5 @@
  */
 export { MembershipStore } from './MembershipStore.js';
 export { NavigationStore } from './NavigationStore.js';
+export { GameStore } from './GameStore.js';
+export { VisualNovelStore } from './VisualNovelStore.js';

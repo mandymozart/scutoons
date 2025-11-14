@@ -59,6 +59,10 @@
         {
             "type": "song",
             "file": "song6.json"
+        },
+        {
+            "type": "chapter",
+            "file": "chapter6.json"
         }
     ]
 }

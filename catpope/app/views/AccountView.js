@@ -1,8 +1,10 @@
 /**
- * AccountView - User account and membership details
+ * @typedef {import('./types').IAccountView} IAccountView
  */
+
 import { escapeHtml, sanitizeUrl, escapeAttr } from '../utils/template.js';
 
+/** @implements {IAccountView} */
 export class AccountView {
   constructor(scutoon) {
     this.scutoon = scutoon;
