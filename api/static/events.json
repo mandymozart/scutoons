@@ -1,27 +1,25 @@
-{
-  "events": [
-    {
-      "title": "Cat Pope Release Concert",
-      "date": "2025-10-02T19:00:00",
-      "location": "Ve.Sch",
-      "city": "Vienna",
-      "category": "irl",
-      "link": "https://ve-sch.at"
-    },
-    {
-      "title": "Cat Pope Release Webtoon & Party",
-      "date": "2025-10-04T20:00:00",
-      "location": "New Jörg",
-      "city": "Vienna",
-      "category": "irl",
-      "link": "https://newjoerg.at"
-    },
-    {
-      "title": "Cat Pope Chapter 2 Release",
-      "date": "2025-11-01T18:00:00",
-      "location": "Online",
-      "city": "Virtual",
-      "category": "virtual"
-    }
-  ]
-}
+[
+	{
+		"title": "Cat Pope Release Concert",
+		"date": "2025-10-02T19:00:00",
+		"location": "Ve.Sch",
+		"city": "Vienna",
+		"category": "irl",
+		"link": "https://ve-sch.at"
+	},
+	{
+		"title": "Cat Pope Release Webtoon & Party",
+		"date": "2025-10-04T20:00:00",
+		"location": "New Jörg",
+		"city": "Vienna",
+		"category": "irl",
+		"link": "https://newjoerg.at"
+	},
+	{
+		"title": "Cat Pope Chapter 2 Release",
+		"date": "2025-11-01T18:00:00",
+		"location": "Online",
+		"city": "Virtual",
+		"category": "virtual"
+	}
+]

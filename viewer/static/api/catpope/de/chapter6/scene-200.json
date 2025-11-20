@@ -1,0 +1,141 @@
+{
+	"label": "scene-200",
+	"renderer": { "type": "horizontal", "params": { "freeMode": true } },
+	"interaction": "visual-novel",
+	"events": [
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "We are in the cathedral. PLF is standing in front of the altar.",
+				"character": "narrator",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": { "characters": [{ "name": "catpope" }] }
+		},
+		{
+			"type": "showMessage",
+			"params": { "text": "What is this?", "character": "catpope" }
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "What's your favorite color?",
+				"character": "narrator"
+			}
+		},
+		{
+			"type": "addChoice",
+			"params": {
+				"label": "Red",
+				"onSelect": {
+					"set": {
+						"variable": "favoriteColor",
+						"value": "red"
+					}
+				}
+			}
+		},
+		{
+			"type": "addChoice",
+			"params": {
+				"label": "Green",
+				"onSelect": {
+					"set": {
+						"variable": "favoriteColor",
+						"value": "green"
+					}
+				}
+			}
+		},
+		{
+			"type": "showChoices"
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "You chose {favoriteColor}",
+				"character": "narrator"
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "You found an old wrinkled cucumber. Do you want to keep it?",
+				"character": "narrator"
+			}
+		},
+		{
+			"type": "addChoice",
+			"params": {
+				"label": "Yes",
+				"onSelect": {
+					"add": {
+						"variable": "cucumbers",
+						"value": 1
+					}
+				}
+			}
+		},
+		{
+			"type": "addChoice",
+			"params": {
+				"label": "No",
+				"onSelect": {
+					"jumpTo": "scene-300"
+				}
+			}
+		},
+		{
+			"type": "showChoices"
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "You got {cucumbers} cucumbers.",
+				"character": "narrator"
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "...",
+				"character": "cat",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [{ "name": "cat" }]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Weg ist das mistvieh?",
+				"character": "catpope",
+				"wait": true
+			}
+		},
+		{
+			"type": "end",
+			"params": {
+				"jumpTo": "scene-300"
+			}
+		}
+	],
+	"slices": [
+		{
+			"image": "images/3x/de/S1C1 - Slice 12.jpg"
+		},
+		{
+			"image": "images/3x/de/S1C1 - Slice 13.jpg"
+		},
+		{
+			"image": "images/3x/de/S1C1 - Slice 14.jpg"
+		}
+	]
+}

@@ -14,7 +14,7 @@ Refactored stroll interactions to use the new groups-based architecture with ext
   "groups": [
     {
       "label": "scene-13-blue-hour",
-      "renderer": "vertical",
+      "renderer": { "type": "vertical" },
       "interaction": "stroll",
       "slices": [
         { "scene": "scene-14" },
@@ -42,7 +42,7 @@ Refactored stroll interactions to use the new groups-based architecture with ext
     { "src": "chapter2/scene-16.json" },
     {
       "label": "scene-20",
-      "renderer": "vertical",
+      "renderer": { "type": "vertical" },
       "slices": [...]
     }
   ]
@@ -53,7 +53,7 @@ Refactored stroll interactions to use the new groups-based architecture with ext
 ```json
 {
   "label": "scene-14",
-  "renderer": "vertical",
+  "renderer": { "type": "vertical" },
   "interaction": "stroll",
   "slices": [
     { "image": "images/1x/de/s1c2-slice-1.jpg" },
@@ -183,7 +183,7 @@ Converted all `chapter2/scene-*.json` files:
 // After
 {
   "label": "scene-14",
-  "renderer": "vertical",
+  "renderer": { "type": "vertical" },
   "interaction": "stroll",
   "slices": [...]
 }
@@ -286,7 +286,7 @@ ChapterView automatically detects and handles consecutive stroll groups!
 ```json
 {
   "label": "scene-14",
-  "renderer": "vertical",    // Most scenes vertical
+  "renderer": { "type": "vertical" },    // Most scenes vertical
   "interaction": "stroll",
   "slices": [...]
 }
@@ -303,7 +303,7 @@ ChapterView automatically detects and handles consecutive stroll groups!
 ```json
 {
   "label": "scene-14",
-  "renderer": "vertical",
+  "renderer": { "type": "vertical" },
   "interaction": "stroll",
   "audio": {
     "music": {

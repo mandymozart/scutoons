@@ -1,4 +1,21 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from en!"
+	"attributions": "Attributions",
+	"events": "Events",
+	"slogan": "Tunes for your screen",
+	"next_release": "NEXT RELEASE",
+	"limited_editions": "Limited Editions",
+	"chapter": "Chapter {number}",
+	"song": "Song {number}",
+	"upcoming_events": "Upcoming Events",
+	"past_events": "Past Events",
+	"sequence_navigation": {
+		"overview": "Overview",
+		"alt_season_start": "Start of season",
+		"start": "Beginning",
+		"alt_start": "Start of season",
+		"end_tbc": "End (to be continued)",
+		"end": "End",
+		"alt_end": "End of season"
+	}
 }

@@ -1,0 +1,132 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap');
+
+html {
+  font-size: 16px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
+}
+
+body {
+  background: #ffffff;
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
+  max-width: 100%;
+  margin: 0;
+  overflow-x: hidden;
+}
+
+img {
+  display: block;
+  margin: 0;
+}
+
+.logo img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
+}
+
+p {
+  font-family: 'IBM Plex Mono', monospace;
+  font-weight: 400;
+  font-style: normal;
+  margin-bottom: 0;
+  line-height: 1.4;
+}
+
+input, select, textarea {
+  width: 100%;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  margin: 1rem 0;
+  box-sizing: border-box;
+}
+
+button,
+.btn {
+  background-color: black;
+  color: white;
+  padding: 1rem 3rem;
+  border: none;
+  border-radius: 0;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+button:hover,
+.btn:hover {
+  background-color: black;
+}
+
+button.btn-clear {
+	padding: 0;
+	margin: 0;
+	background: transparent;
+}
+
+.loading {
+  height: calc(100dvh - 5rem);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+}
+
+.releases {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.view {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.view table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.view table td {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+}
+
+.view table td:first-child {
+  background: #f0f0f0;
+  min-width: 33%;
+}
+
+
+
+@media (min-width: 768px) {
+  html {
+    font-size: 24px;
+  }
+}
+
+
+@media (max-width: 480px) {
+  html {
+    font-size: 14px;
+  }
+
+  p {
+    line-height: 1.3;
+  }
+}
+
+

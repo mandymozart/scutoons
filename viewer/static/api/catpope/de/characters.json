@@ -1,0 +1,36 @@
+[
+  {
+    "name": "catpope",
+    "image": "images/3x/de/catpope.png",
+    "description": "Zukünftiges Selbst",
+    "collection": "lead"
+  },
+  {
+    "name": "plf",
+    "description": "Katzenpapst in menschlicher Gestalt",
+    "image": "images/3x/de/plf.png",
+    "collection": "support"
+  },
+  {
+    "name": "cat",
+    "description": "In Katzenform",
+    "image": "images/3x/de/catpope.png",
+    "collection": "lead"
+  },
+  {
+    "name": "boy",
+    "description": "Katzenpapst sieht Katze und ist vor der Kirche erschrocken",
+    "image": "images/3x/de/boy.png",
+    "collection": "support"
+  },{
+    "name": "crows",
+    "description": "Krähen, können Zeit und Raum reisen, bringen eine Nachricht aus der Zukunft.",
+    "image": "images/3x/de/crows.png",
+    "collection": "support"
+  },{
+    "name": "mountain-tiger",
+    "description": "Grosses Tier, plf kämpft mit sich selbst.",
+    "image": "images/3x/de/mountain-tiger.png",
+    "collection": "lead"
+  }
+]

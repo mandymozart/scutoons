@@ -33,7 +33,7 @@ Successfully refactored the chapter system from slice-based to **groups-based ar
   "groups": [
     {
       "label": "intro",
-      "renderer": "vertical",
+      "renderer": { "type": "vertical" },
       "slices": [
         { "image": "..." },
         { "image": "..." }
@@ -79,7 +79,7 @@ Groups can now be stored in external files:
 ```json
 {
   "label": "intro",
-  "renderer": "vertical",
+  "renderer": { "type": "vertical" },
   "slices": [
     { "image": "..." }
   ]

@@ -13,7 +13,7 @@ Refactored visual novel (and future interactions) to use **event-driven architec
 ```json
 {
   "label": "dialogue-1",
-  "renderer": "vertical",
+  "renderer": { "type": "vertical" },
   "events": [
     {
       "type": "showMessage",
@@ -325,7 +325,7 @@ End events and jump to label
 ```json
 {
   "label": "scene-200",
-  "renderer": "vertical",
+  "renderer": { "type": "vertical" },
   "events": [
     {
       "type": "joinScene",
@@ -457,7 +457,7 @@ class VisualNovelInteraction {
 ```json
 {
   "label": "scene-200",
-  "renderer": "vertical",
+  "renderer": { "type": "vertical" },
   "events": [...],
   "slices": [...]
 }
@@ -475,7 +475,7 @@ Events are processed by `EventProcessor` → `VisualNovelEvents`
 ```json
 {
   "label": "morning-stroll",
-  "renderer": "vertical",
+  "renderer": { "type": "vertical" },
   "events": [
     {
       "type": "timePicker",

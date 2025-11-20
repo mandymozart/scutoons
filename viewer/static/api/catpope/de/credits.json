@@ -1,0 +1,135 @@
+{
+  "general": [
+    { "name": "Mandy Mozart", "roles": ["Idea", "Text", "Voice"] },
+    { "name": "Patrizia Ruthensteiner", "roles": ["Kostüm"] },
+    { "name": "Una Ryu", "roles": ["Mask & Spezialeffekte FX Makeup"] },
+    { "name": "Thomas B. Dalby", "roles": ["Fotografie", "Layout für Grafik Novell"] },
+    { "name": "Bernhard Hammer", "roles": ["Song-Writing", "Toningenieur"] },
+    { "name": "Brian Lawlor", "roles": ["Arrangement"] },
+    { "name": "Natasha Moreno", "roles": ["Komposition"] },
+    { "name": "Lukas Rehm", "roles": ["Video"] },
+    { "name": "Tatjana Stuermer", "roles": ["Grafikdesign", "Ornamente"] },
+    { "name": "Konrad Van", "roles": ["Übersetzung Englisch"] },
+    { "name": "Chris Nova Ludwig", "roles": ["Produktion", "Mixing", "Sounddesign"] },
+    { "name": "Paul Parking", "roles": ["Trumpets", "Modular Synth"] },
+    { "name": "Lena Wicke-Aengehyster", "roles": ["Hunting Horn", "FX Voice"] },
+    { "name": "Lisa Pulsatila", "roles": ["Flute", "Dronen", "Skript Bearbeitung"] },
+    { "name": "Monique Fessel", "roles": ["Orgel", "Dronen", "Synths"] },
+    { "name": "Vienna Struggle Drone Choir", "roles": ["Chor"] }
+  ],
+  "songs": [
+    {
+      "title": "Roar Little Kitty",
+      "credits": [
+        { "name": "Mandy Mozart", "roles": ["Text", "Komposition", "Produktion"] },
+        { "name": "Bernhard Hammer", "roles": ["Komposition", "Aufnahmeleitung"] },
+        { "name": "Chris Nova Ludwig", "roles": ["Produktion"] },
+        { "name": "Studio Cast", "roles": ["Chor"] },
+        { "name": "Portal Cast", "roles": ["Chor"] }
+      ]
+    },
+    {
+      "title": "Cloud 9",
+      "credits": [
+        { "name": "Mandy Mozart", "roles": ["Text", "Komposition", "Produktion"] },
+        { "name": "Bernhard Hammer", "roles": ["Komposition", "Aufnahmeleitung", "Musiker"] },
+        { "name": "Natasha Moreno", "roles": ["Komposition", "Interpretation"] },
+        { "name": "Chris Nova Ludwig", "roles": ["Komposition", "Produktion", "Interpretation"] },
+        { "name": "Tatjana Stuermer", "roles": ["Aufnahmeleitung"] },
+        { "name": "Christoph Hehn", "roles": ["Aufnahmeleitung"] },
+        { "name": "Otto Oscar Hernandez", "roles": ["Musiker:in"] },
+        { "name": "Shin Hyo Jin", "roles": ["Musiker:in"] },
+        { "name": "Monique Fessel", "roles": ["Interpretation"] },
+        { "name": "Studio Cast", "roles": ["Chor"] },
+        { "name": "Westbahnstudios Cast", "roles": ["Chor"] }
+      ]
+    },
+    {
+      "title": "Not My City",
+      "credits": [
+        { "name": "Mandy Mozart", "roles": ["Text", "Komposition", "Produktion"] },
+        { "name": "Bernhard Hammer", "roles": ["Komposition", "Aufnahmeleitung"] },
+        { "name": "Chris Nova Ludwig", "roles": ["Produktion", "Interpretation"] },
+        { "name": "Paul Parking", "roles": ["Interpretation"] },
+        { "name": "Monique Fessel", "roles": ["Interpretation"] },
+        { "name": "Studio Choir", "roles": ["Chor"] }
+      ]
+    },
+    {
+      "title": "Like A Baby",
+      "credits": [
+        { "name": "Mandy Mozart", "roles": ["Text", "Komposition", "Produktion"] },
+        { "name": "Natasha Moreno", "roles": ["Komposition"] },
+        { "name": "Bernhard Hammer", "roles": ["Aufnahmeleitung"] },
+        { "name": "Chris Nova Ludwig", "roles": ["Produktion", "Interpretation"] },
+        { "name": "Studio Cast", "roles": ["Chor"] },
+        { "name": "Westbahnstudios Cast", "roles": ["Chor"] }
+      ]
+    },
+    {
+      "title": "Once Twice Thrice",
+      "credits": [
+        { "name": "Mandy Mozart", "roles": ["Text", "Komposition", "Produktion", "Interpretation"] },
+        { "name": "Brian Lawlor", "roles": ["Komposition"] },
+        { "name": "Chris Nova Ludwig", "roles": ["Produktion", "Interpretation"] },
+        { "name": "Bernhard Hammer", "roles": ["Aufnahmeleitung"] },
+        { "name": "Studio Choir", "roles": ["Chor"] }
+      ]
+    },
+    {
+      "title": "No He Said",
+      "credits": [
+        { "name": "Mandy Mozart", "roles": ["Text", "Komposition", "Produktion", "Interpretation"] },
+        { "name": "Brian Lawlor", "roles": ["Komposition"] },
+        { "name": "Chris Nova Ludwig", "roles": ["Produktion", "Interpretation"] },
+        { "name": "Bernhard Hammer", "roles": ["Aufnahmeleitung"] },
+        { "name": "Studio Choir", "roles": ["Chor"] }
+      ]
+    }
+  ],
+  "performances": [
+    {
+      "name": "Portal Besetzung",
+      "venue": "Vienna Struggle Portal Spittelau, Wien",
+      "date": "11/2021",
+      "members": [
+        { "name": "Christine Gnigler", "roles": ["Mezzo Soprano"] },
+        { "name": "Patrizia Ruthensteiner", "roles": ["Mezzo Soprano"] },
+        { "name": "Alexandra Feusi", "roles": ["Alto"] },
+        { "name": "Bernhard Hammer", "roles": ["Tenor"] },
+        { "name": "Mandy Mozart", "roles": ["Baritone"] }
+      ]
+    },
+    {
+      "name": "Affirmations Besetzung",
+      "venue": "Westbahnstudios, Wien",
+      "date": "12/2023",
+      "conductor": "Bernhard Hammer",
+      "members": [
+        { "name": "Patrizia Ruthensteiner", "roles": ["Soprano"] },
+        { "name": "Karolina Preuschl", "roles": ["Alto"] },
+        { "name": "Kerstin Hruza", "roles": ["Alto"] },
+        { "name": "Julia Edthofer", "roles": ["Tenor"] },
+        { "name": "Mandy Mozart", "roles": ["Baritone"] },
+        { "name": "Julian Hruza", "roles": ["Bass"] }
+      ]
+    },
+    {
+      "name": "Showcase Besetzung",
+      "venue": "Westbahnstudios, Wien",
+      "date": "4-7/2024",
+      "members": [
+        { "name": "Nina Fuchs", "roles": ["Soprano"] },
+        { "name": "Lena Kauer", "roles": ["Alto"] },
+        { "name": "Thu Trang ha", "roles": ["Alto"] },
+        { "name": "Johanna Edthofer", "roles": ["Alto"] },
+        { "name": "Julia Edhofer", "roles": ["Tenor"] },
+        { "name": "Bernhard Hammer", "roles": ["Tenor"] },
+        { "name": "Pavel Naydenov", "roles": ["Bariton"] },
+        { "name": "Wolfram Leitner", "roles": ["Bariton"] },
+        { "name": "Joey", "roles": ["Bass"] }
+      ]
+    }
+  ],
+  "specialThanks": ["Eva Perner"]
+}

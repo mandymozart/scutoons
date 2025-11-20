@@ -59,7 +59,7 @@ Repeat...
     {
       "group": {
         "label": "intro",
-        "renderer": "vertical",
+        "renderer": { "type": "vertical" },
         "slices": [
           { "image": "slice1.jpg" },
           { "image": "slice2.jpg" }
@@ -69,7 +69,7 @@ Repeat...
     {
       "group": {
         "label": "vn-cathedral",
-        "renderer": "vertical",
+        "renderer": { "type": "vertical" },
         "interaction": "visual-novel",
         "slices": [
           { "scene": "scene-200" }
@@ -79,7 +79,7 @@ Repeat...
     {
       "group": {
         "label": "scene-300",
-        "renderer": "vertical",
+        "renderer": { "type": "vertical" },
         "slices": [
           { "image": "slice15.jpg" }
         ]

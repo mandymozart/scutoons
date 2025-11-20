@@ -1,4 +1,21 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from de!"
+	"events": "Veranstaltungen",
+	"attributions": "Quellenangaben",
+	"slogan": "Töne für deinen Bildschirm",
+	"next_release": "NÄCHSTE VERÖFFENTLICHUNG",
+	"limited_editions": "Exklusive Editionen kaufen",
+	"chapter": "Kapitel {number}",
+	"song": "Lied {number}",
+	"upcoming_events": "Kommende Veranstaltungen",
+	"past_events": "Vergangene Veranstaltungen",
+	"sequence_navigation": {
+		"overview": "Übersicht",
+		"alt_season_start": "Beginn der Staffel",
+		"start": "Anfang",
+		"alt_start": "Beginn der Staffel",
+		"end_tbc": "Ende (Fortsetzung folgt)",
+		"end": "Ende",
+		"alt_end": "Ende der Staffen"
+	}
 }
