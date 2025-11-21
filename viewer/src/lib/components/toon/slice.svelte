@@ -6,16 +6,12 @@
 	import Samples from './audio/samples.svelte';
 
 	let { slice, sliceIndex = 0, allSlices = [] }: { slice: Slice, sliceIndex?: number, allSlices?: Slice[] } = $props();
-	$inspect(slice);
 	
-	// Get toonId from route params and locale from paraglide
 	const toonId = $derived($page.params.toonId);
 	
-	// Construct the full image path: toonId/locale/slice.image
 	const imagePath = $derived(`${toonId}/${slice.image}`);
 	const imageUrl = $derived(asset(imagePath));
 	
-	// Placeholder states for image preloading (to be implemented)
 	let loading = false;
 	let error = false;
 </script>

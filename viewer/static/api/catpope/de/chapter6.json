@@ -137,6 +137,7 @@
 		{
 			"label": "scene-300",
 			"renderer": { "type": "vertical" },
+			"interaction": "webtoon",
 			"slices": [
 				{
 					"image": "images/3x/de/S1C1 - Slice 15.jpg"

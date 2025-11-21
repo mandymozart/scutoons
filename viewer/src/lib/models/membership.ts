@@ -7,7 +7,8 @@ export interface Membership {
 	validated_at: string;
 	email?: string;
 	claimed_at?: string;
-	redirect_to?: string;
+	redirect_to: string;
+	created_at: string;
 }
 
 export type ValidationResult =

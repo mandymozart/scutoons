@@ -6,6 +6,8 @@
 	import { goto } from '$app/navigation';
 	import ChaptersList from './chapters-list.svelte';
 	import { setContext } from 'svelte';
+	import { onClickOutside } from 'runed';
+	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
 
 	let {
 		sequence,
@@ -47,18 +49,38 @@
 		currentPosition < sequence.length - 1 ? sequence[currentPosition + 1] : null
 	);
 
-	let active = $state(false);
+	const nav = getNavigationContext();
+	const active = $derived(nav.isOpen('sequence'));
 
-	const bodyEl = document.querySelector('body');
-	const toggleActive = () => {
-		active = !active;
-		// if (bodyEl) bodyEl.style.overflow = active ? 'hidden' : '';
+	let navElement = $state<HTMLElement>();
+
+	const toggleActive = (e?: MouseEvent | KeyboardEvent) => {
+		e?.stopPropagation();
+		nav.toggleOverlay('sequence');
 	};
 
 	function navigate(url: string | URL, opts?: Parameters<typeof goto>[1]): void {
-		active = false;
+		nav.closeOverlay();
 		goto(url, opts);
 	}
+
+	onClickOutside(
+		() => navElement,
+		() => {
+			if (active) nav.closeOverlay();
+		}
+	);
+
+	$effect(() => {
+		function handleKeyDown(e: KeyboardEvent) {
+			if (e.key === 'Escape' && active) {
+				nav.closeOverlay();
+			}
+		}
+
+		window.addEventListener('keydown', handleKeyDown);
+		return () => window.removeEventListener('keydown', handleKeyDown);
+	});
 
 	// Override parent navigation context to close menu when navigating
 	setContext('navigation', navigate);
@@ -68,7 +90,7 @@
 	<img src="/icons/list.svg" alt="Navigation" />
 </button>
 
-<nav class={`sequence-navigation ${active ? 'active' : ''}`}>
+<nav class={`sequence-navigation ${active ? 'active' : ''}`} bind:this={navElement}>
 	<ChaptersList items={sequence} toonId={params.toonId} />
 
 	<footer>
@@ -130,19 +152,27 @@
 
 <style>
 	.sequence-navigation-toggle {
-		background: transparent;
 		position: fixed;
 		top: 0.5rem;
-		left: 3rem;
-		width: 3rem;
-		height: 3rem;
+		right: 5.5rem;
+		width: 2rem;
+		height: 2rem;
 		padding: 0;
 		display: flex;
 		align-items: center;
+		border: 2px solid black;
+		background: white;
+		border-radius: 50%;
 		justify-content: center;
-		filter: invert(1);
-		mix-blend-mode: difference;
-		z-index: 1000;
+		z-index: 1001;
+		cursor: pointer;
+		touch-action: manipulation;
+		&:hover {
+			background: var(--primary-color);
+		}
+		img {
+			width: 1rem;
+		}
 	}
 	.sequence-navigation {
 		transform: translateY(100vh);
@@ -156,7 +186,7 @@
 		right: 0;
 		height: calc(100vh - 4rem);
 		transition: transform 0.15s ease-in;
-		width: 100vw;
+		width: 100%;
 		border-top: 2px solid;
 		background: white;
 		/* background: rgba(255, 255, 255, 0.5);

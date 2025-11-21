@@ -17,5 +17,31 @@
 		"end_tbc": "Ende (Fortsetzung folgt)",
 		"end": "Ende",
 		"alt_end": "Ende der Staffen"
+	},
+	"account": {
+		"my_account": "Mein Konto",
+		"sign_out": "Abmelden",
+		"membership": "Vollmitgliedschaft",
+		"promo": "Promo",
+		"event": "Veranstaltung",
+		"xr": "XR",
+		"claim_membership_reminder": "Zur Erinnerung: Wenn du deine Mitgliedschaft beanspruchst, können wir dir E-Mails mit Updates schicken und du kannst Änderungen an deiner Mitgliedschaft vornehmen! Schließlich hast du diesen QR-Code gekauft.",
+		"type": "Typ",
+		"status": "Status",
+		"valid_until": "Gültig bis",
+		"claimed": "Beantragt",
+		"not_claimed": "Nicht beantragt",
+		"claim_membership": "Registriere dich jetzt",
+		"code": "Code",
+		"account_data": "Benutzerdaten",
+		"email": "E-Mail",
+		"timeline": "Zeitstrahl",
+		"expires_at": "Gültig bis",
+		"validated_at": "Validiert am",
+		"claimed_at": "Beantragt am",
+		"created_at": "Erstellt am",
+		"technical": "Technische Informationen",
+		"redirect_to": "Weiterleitung",
+		"no_membership_message": "Keine Mitgliedschaft gefunden. Bitte scanne einen QR-Code, um dein Konto zu aktivieren."
 	}
 }

@@ -1,0 +1,57 @@
+<script lang="ts">
+	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
+	import { getGameContext } from '$lib/contexts/game.svelte';
+	import { executeVariableAction } from '$lib/visual-novel/variable-actions.ts';
+
+	const vn = getVisualNovelContext();
+	const game = getGameContext();
+
+	const choices = $derived(vn.state.pendingChoices);
+	const visible = $derived(vn.state.choicesVisible && choices.length > 0);
+
+	function handleSelect(choice: typeof choices[0]) {
+		if (choice.onSelect) {
+			executeVariableAction(choice.onSelect, game);
+		}
+		vn.clearChoices();
+	}
+</script>
+
+<div class="vn-choices" class:visible>
+	{#each choices as choice}
+		<button class="vn-choice" onclick={() => handleSelect(choice)}>
+			{choice.label}
+		</button>
+	{/each}
+</div>
+
+<style>
+	.vn-choices {
+		display: none;
+		flex-direction: column;
+		gap: 0.75rem;
+	}
+
+	.vn-choices.visible {
+		display: flex;
+	}
+
+	.vn-choice {
+		background: white;
+		color: black;
+		padding: 1rem 1.5rem;
+		border: 2px solid lightgrey;
+		cursor: pointer;
+		font-size: 1rem;
+		text-align: left;
+	}
+
+	.vn-choice:hover {
+		background: white;
+		border-color: #333;
+	}
+
+	.vn-choice:active {
+		border-color: black;
+	}
+</style>

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { m } from '$lib/paraglide/messages.js';
+	import { formatDate } from '$lib/utils/date.ts';
 
 	const membershipCtx = getMembershipContext();
 	const membership = $derived(membershipCtx.membership);
@@ -13,14 +15,15 @@
 </script>
 
 {#if membership}
-	<div class="view account-view">
-		<h1>My Account</h1>
+	<div class="view account">
+		<header class="account-header">
+			<h1><img src="/icons/account.svg" alt="Account" /> {m['account.my_account']()}</h1>
+		</header>
 
 		{#if !isClaimed}
 			<div class="notification">
 				<p>
-					🔔 Reminder: If you claim your membership, we will be able to send you emails about
-					updates and you can make changes to your membership! After all, you did buy this QR code.
+					🔔 {m['account.claim_membership_reminder']()} 
 				</p>
 				<p>
 					<a
@@ -29,68 +32,87 @@
 						class="btn"
 						rel="noopener noreferrer"
 					>
-						Claim Membership Now
+						{m['account.claim_membership']()}
 					</a>
 				</p>
 			</div>
 		{/if}
 
 		<section>
-			<h2>Membership Information</h2>
 			<table>
 				<tbody>
-					<tr><td>Type</td><td>{membership.type}</td></tr>
-					<tr><td>Status</td><td>{isClaimed ? 'Claimed' : 'Unclaimed'}</td></tr>
-					<tr><td>Valid Until</td><td>{expiryText}</td></tr>
-					<tr><td>Code</td><td>{membership.code}</td></tr>
+					<tr><td>{m['account.type']()}</td><td>{m[`account.${membership.type}`]()}</td></tr>
+					<tr><td>{m['account.status']()}</td><td>{isClaimed ? m['account.claimed']() : m['account.not_claimed']}</td></tr>
+					<tr><td>{m['account.valid_until']()}</td><td>{expiryText}</td></tr>
+					<tr><td>{m['account.code']()}</td><td>{membership.code}</td></tr>
 				</tbody>
 			</table>
+			<button class="btn btn-sign-out" onclick={signOut}>{m['account.sign_out']()}</button>
 		</section>
 
-		<section>
-			<h2>Timeline</h2>
-			<table>
-				<tbody>
-					<tr><td>Created</td><td>{membership.created_at}</td></tr>
-					<tr><td>Claimed</td><td>{claimedText}</td></tr>
-					<tr><td>Last Validated</td><td>{membership.validated_at}</td></tr>
-				</tbody>
-			</table>
-		</section>
-
+		
 		{#if membership.email}
 			<section>
-				<h2>Account Details</h2>
+				<h2>{m['account.account_data']()}</h2>
 				<table>
 					<tbody>
-						<tr><td>Email</td><td>{membership.email}</td></tr>
+						<tr><td>{m['account.email']()}</td><td>{membership.email}</td></tr>
 					</tbody>
 				</table>
 			</section>
 		{/if}
 
 		<section>
-			<h2>Technical Information</h2>
+			<h2>{m['account.timeline']()}</h2>
 			<table>
 				<tbody>
-					{#if membership.redirect_to}
-						<tr>
-							<td>Content URL</td>
-							<td>
-								<a href={membership.redirect_to} target="_blank" rel="noopener noreferrer">
-								{membership.redirect_to}
-							</a>
-						</td>
-					</tr>
-				{/if}
+					<tr><td>{m['account.created_at']()}</td><td>{formatDate(new Date(membership.created_at))}</td></tr>
+					<tr><td>{m['account.claimed_at']()}</td><td>{membership.claimed_at ? formatDate(new Date(membership.claimed_at)) : m['account.not_claimed']()}</td></tr>
+					<tr><td>{m['account.validated_at']()}</td><td>{formatDate(new Date(membership.validated_at))}</td></tr>
 				</tbody>
 			</table>
 		</section>
+
+		<section>
+			<h2>{m['account.technical']()}</h2>
+			<div class="technical">
+				{m['account.redirect_to']()}:<br/>
+				{membership.redirect_to}
+			</div>
+		</section>
 	</div>
-	<button onclick={signOut}>Sign Out</button>
 {:else}
 	<div class="view account-view">
-		<h1>My Account</h1>
-		<p>No membership found. Please scan a QR code to access your account.</p>
+		<h1>{m['account.my_account']()}</h1>
+		<p>{m['account.no_membership_message']()}</p>
 	</div>
 {/if}
+
+<style>
+	.view.account {
+		max-width: 600px;
+		margin: 5rem auto;
+	}
+	header{
+		padding: 0 1rem;
+		h1 {
+			display: flex;
+			align-items: center;
+			gap: .5rem;
+		}
+		img {
+			width: 4rem;
+		}
+		display: grid;
+		grid-template-columns: auto 1fr;
+		align-items: center;
+		gap: 1rem;
+	}
+	section {
+		padding: 1rem;
+	}
+	.technical {
+		background-color: #f5f5f5;
+		padding: 1rem;
+	}
+</style>

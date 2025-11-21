@@ -1,7 +1,7 @@
+// TODO: merge content and visual novel since both basically became one.
 import { Renderer, Language, Status, Interaction, type EventCategory } from './enums.ts';
 import type { AudioEvents, AudioConfiguration } from './audio.ts';
 import type { VNEvent } from './visual-novel.ts';
-import type { SwiperOptions } from 'swiper/types';
 
 export interface KeyVisual {
 	image: string;

@@ -5,25 +5,42 @@
 	"events": [
 		{
 			"type": "showMessage",
+			"params": { "text": "Scene 200 - Infront of the cathedral", "wait": true }
+		},
+		{
+			"type": "joinScene",
+			"params": { "characters": [{ "name": "catpope", "position": { "variant": "avatar" } }] }
+		},
+		{
+			"type": "showMessage",
 			"params": {
 				"text": "We are in the cathedral. PLF is standing in front of the altar.",
-				"character": "narrator",
+				"character": "catpope",
 				"wait": true
 			}
 		},
 		{
 			"type": "joinScene",
-			"params": { "characters": [{ "name": "catpope" }] }
+			"params": { "characters": [{ "name": "plf", "position": { "variant": "portrait" } }] }
 		},
 		{
 			"type": "showMessage",
-			"params": { "text": "What is this?", "character": "catpope" }
+			"params": { "text": "What is this?", "character": "plf", "wait": true, "mood": "surprised" }
 		},
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "What's your favorite color?",
-				"character": "narrator"
+				"text": "I didn't know at the time that there was something else to it.",
+				"character": "catpope",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "To my surprise I was given a choice.",
+				"character": "catpope",
+				"wait": true
 			}
 		},
 		{
@@ -57,20 +74,24 @@
 			"type": "showMessage",
 			"params": {
 				"text": "You chose {favoriteColor}",
-				"character": "narrator"
+				"wait": true
 			}
+		},
+		{
+			"type": "joinScene",
+			"params": { "characters": [{ "name": "cat", "position": { "variant": "avatar" } }] }
 		},
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "You found an old wrinkled cucumber. Do you want to keep it?",
-				"character": "narrator"
+				"text": "You found an old wrinkled cucumber!",
+				"wait": true
 			}
 		},
 		{
 			"type": "addChoice",
 			"params": {
-				"label": "Yes",
+				"label": "Keep it",
 				"onSelect": {
 					"add": {
 						"variable": "cucumbers",
@@ -82,7 +103,7 @@
 		{
 			"type": "addChoice",
 			"params": {
-				"label": "No",
+				"label": "Ignore",
 				"onSelect": {
 					"jumpTo": "scene-300"
 				}
@@ -95,7 +116,7 @@
 			"type": "showMessage",
 			"params": {
 				"text": "You got {cucumbers} cucumbers.",
-				"character": "narrator"
+				"wait": true
 			}
 		},
 		{
@@ -113,10 +134,35 @@
 			}
 		},
 		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{ "name": "mountain-tiger", "position": { "variant": "avatar" } },
+					{ "name": "crow", "position": { "variant": "avatar" } },
+					{ "name": "boy", "position": { "variant": "avatar" } },
+					{ "name": "catpope", "position": { "variant": "avatar" } }
+				]
+			}
+		},
+		{
 			"type": "showMessage",
 			"params": {
 				"text": "Weg ist das mistvieh?",
 				"character": "catpope",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [{ "name": "mountain-tiger", "position": { "variant": "portrait" } }]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "ROAAARRR!!!!!",
+				"character": "mountain-tiger",
 				"wait": true
 			}
 		},
