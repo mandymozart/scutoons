@@ -43,5 +43,8 @@
 		"technical": "Technical Information",
 		"redirect_to": "Redirect To",
 		"no_membership_message": "No membership found. Please scan a QR code to activate your account."
+	},
+	"inventory": {
+		"empty": "Bee Wax, no pig in the pope (sic)!"
 	}
 }

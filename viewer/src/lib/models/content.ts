@@ -1,5 +1,5 @@
 // TODO: merge content and visual novel since both basically became one.
-import { Renderer, Language, Status, Interaction, type EventCategory } from './enums.ts';
+import { Renderer, Language, Status, Interaction, type EventCategory, OnomatopoeiaVariant, OnomatopoeiaEffect } from './enums.ts';
 import type { AudioEvents, AudioConfiguration } from './audio.ts';
 import type { VNEvent } from './visual-novel.ts';
 
@@ -14,18 +14,55 @@ export interface Dialog {
 		y: number;
 		width: number;
 	};
-	text: string[];
+	text: string | string[];
 }
 
 export interface Onomatopoeia {
-	position: {
-		x: number;
-		y: number;
-		size: number;
-		align: 'left' | 'right' | 'center';
+	position?: {
+		x?: number;
+		y?: number;
 	};
-	rotation: number;
-	text: string[];
+	size?: number;
+	align?: 'left' | 'right' | 'center';
+	rotation?: number;
+	variant?: OnomatopoeiaVariant;
+	effect?: OnomatopoeiaEffect;
+	duration?: number,
+	delay?: number,
+	text: string | string[];
+}
+
+export interface Map {
+	layers: MapLayers,
+	width: number,
+	height: number, 
+	center: MapCoordinates
+}
+
+export interface MapCoordinates {
+	x: number;
+	y: number;
+}
+
+export interface MapLayers {
+	terrain: string;
+}
+
+export interface MapLocation {
+	id: string;
+	label: string;
+	toonId: string;
+	chapterNumber?: string;
+	songNumber?: string;
+	type: string;
+	image: string;
+	coordinates: MapCoordinates;
+}
+
+export interface MapRoute {
+	id: string;
+	title: string;
+	locations: string[];
 }
 
 export interface Slice {
@@ -52,8 +89,8 @@ export interface RendererParams {
 export interface Group {
 	label?: string;
 	renderer?: {
-		type: Renderer, 
-		params?: RendererParams
+		type: Renderer;
+		params?: RendererParams;
 	};
 	interaction?: Interaction;
 	slices?: Slice[];
@@ -174,6 +211,7 @@ export interface Download {
 }
 
 export interface Toon {
+	id: string;
 	title: string;
 	authors: string[];
 	chapters: number;
@@ -183,6 +221,7 @@ export interface Toon {
 	description: string;
 	thumbnail: string;
 	cover: Cover;
+	map: Map;
 	download: Download;
 }
 

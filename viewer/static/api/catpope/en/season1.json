@@ -1,68 +1,68 @@
 {
-    "title": "Awakening",
-    "authors": ["Mandy Mozart", "Thomas Dalby"],
-    "language": "en",
-    "number": 1,
-    "release": "2025-12-01",
-    "description": "When the morning routine of a Nazi religious personality is disrupted by a mysterious Sphynx cat, they are plunged into a spiral of surreal encounters with digital conspiracies, mythological creatures, and glitchy realities, only to finally discover that the cat was her own split identity all along.",
-    "cover": {
-        "square": "images/1x/en/s1-cover-square.jpg",
-        "portrait": "images/1x/en/s1-cover-portrait.jpg"
-    },
-    "credits": {
-        "artist": ["Mandy Mozart", "Thomas Dalby"],
-        "writer": "Mandy Mozart",
-        "music": ["Mandy Mozart","Chris Nova Ludwig"],
-        "sound": ["Mandy Mozart","Chris Nova Ludwig"]
-    },
-    "sequence": [
-        {
-            "type": "song",
-            "number": 1
-        },
-        {
-            "type": "chapter",
-            "number": 1
-        },
-        {
-            "type": "song",
-            "number": 2
-        },
-        {
-            "type": "chapter",
-            "number": 2
-        },
-        {
-            "type": "song",
-            "number": 3
-        },
-        {
-            "type": "chapter",
-            "number": 3
-        },
-        {
-            "type": "song",
-            "number": 4
-        },
-        {
-            "type": "chapter",
-            "number": 4
-        },
-        {
-            "type": "song",
-            "number": 5
-        },
-        {
-            "type": "chapter",
-            "number": 5
-        },
-        {
-            "type": "song",
-            "number": 6
-        },
-        {
-            "type": "chapter",
-            "number": 6
-        }
-    ]
+	"title": "Awakening",
+	"authors": ["Mandy Mozart", "Thomas Dalby"],
+	"language": "en",
+	"number": 1,
+	"release": "2025-12-01",
+	"description": "When the morning routine of a Nazi religious personality is disrupted by a mysterious Sphynx cat, they are plunged into a spiral of surreal encounters with digital conspiracies, mythological creatures, and glitchy realities, only to finally discover that the cat was her own split identity all along.",
+	"cover": {
+		"square": "images/1x/en/s1-cover-square.jpg",
+		"portrait": "images/1x/en/s1-cover-portrait.jpg"
+	},
+	"credits": {
+		"artist": ["Mandy Mozart", "Thomas Dalby"],
+		"writer": "Mandy Mozart",
+		"music": ["Mandy Mozart", "Chris Nova Ludwig"],
+		"sound": ["Mandy Mozart", "Chris Nova Ludwig"]
+	},
+	"sequence": [
+		{
+			"type": "song",
+			"number": 1
+		},
+		{
+			"type": "chapter",
+			"number": 1
+		},
+		{
+			"type": "song",
+			"number": 2
+		},
+		{
+			"type": "chapter",
+			"number": 2
+		},
+		{
+			"type": "song",
+			"number": 3
+		},
+		{
+			"type": "chapter",
+			"number": 3
+		},
+		{
+			"type": "song",
+			"number": 4
+		},
+		{
+			"type": "chapter",
+			"number": 4
+		},
+		{
+			"type": "song",
+			"number": 5
+		},
+		{
+			"type": "chapter",
+			"number": 5
+		},
+		{
+			"type": "song",
+			"number": 6
+		},
+		{
+			"type": "chapter",
+			"number": 6
+		}
+	]
 }

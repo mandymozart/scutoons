@@ -2,178 +2,41 @@
 	import { goto } from '$app/navigation';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
+	import type { MapLocation, MapCoordinates, MapRoute, Map, Toon } from '$lib/models/content.ts';
 	import { onClickOutside } from 'runed';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
-
-	interface Coordinates {
-		x: number;
-		y: number;
-	}
-
-	interface Location {
-		id: string;
-		label: string;
-		toonId: string;
-		chapterNumber?: string;
-		songNumber?: string;
-		type: string;
-		image: string;
-		coordinates: Coordinates;
-	}
-
-	interface Route {
-		id: string;
-		locations: string[];
-	}
-
-	interface MapData {
-		locations: Location[];
-		routes: Route[];
-	}
-
-	const MAP_WIDTH = 2048;
-	const MAP_HEIGHT = 1046;
-	const CENTER_X = 1320;
-	const CENTER_Y = 440;
-
-	const DATA: MapData = {
-		locations: [
-			{
-				id: 'cathedral',
-				toonId: 'catpope',
-				label: 'Cathedral',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1182,
-					y: 323
-				}
-			},
-			{
-				id: 'apartment',
-				label: 'Apartment',
-				toonId: 'catpope',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1206,
-					y: 304
-				}
-			},
-			{
-				id: 'airport',
-				label: 'Airport',
-				toonId: 'catpope',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1254,
-					y: 252
-				}
-			},
-			{
-				id: 'medival-street',
-				label: 'Medival Street',
-				toonId: 'catpope',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1250,
-					y: 310
-				}
-			},
-			{
-				id: 'station',
-				label: 'Station',
-				toonId: 'catpope',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1202,
-					y: 332
-				}
-			},{
-				id: 'mountain-path',
-				label: 'Mountain Path',
-				toonId: 'catpope',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1448,
-					y: 554
-				}
-			},
-						{
-				id: 'monastery',
-				label: 'Monastery',
-				toonId: 'catpope',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1428,
-					y: 600
-				}
-			},
-			{
-				id: 'library',
-				label: 'Library',
-				toonId: 'catpope',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1431,
-					y: 586
-				}
-			},{
-				id: 'graveyard',
-				label: 'Graveyard',
-				toonId: 'catpope',
-				type: 'chapter',
-				chapterNumber: '1',
-				image: '',
-				coordinates: {
-					x: 1441,
-					y: 569
-				}
-			}
-		],
-		routes: [
-			{
-				id: 'season1',
-				locations: ['cathedral', 'apartment', 'graveyard', 'airport', 'medival-street', 'monastery']
-			}
-		]
-	};
+	import { page } from '$app/state';
+	import Routes from './routes.svelte';
+	import Layers from './layers.svelte';
 
 	let {
 		zoom = 1,
-		coordinates = { x: 0, y: 0 }
+		coordinates = { x: 0, y: 0 },
+		locations = [],
+		routes = []
 	}: {
 		zoom?: number;
-		coordinates?: { x: number; y: number };
+		coordinates?: MapCoordinates;
+		locations: MapLocation[];
+		routes: MapRoute[];
 	} = $props();
 
 	const nav = getNavigationContext();
 	const mapVisible = $derived(nav.isOpen('map'));
+
+	const toon = $derived(page.data.toon as Toon);
+	const map = $derived(toon.map as Map);
 
 	let mapContainer = $state<HTMLDivElement | null>(null);
 	let mapElement = $state<HTMLDivElement>();
 	let centerOffsetX = $state(0);
 	let centerOffsetY = $state(0);
 
-	// Calculate offset to center the world at (CENTER_X, CENTER_Y)
+	// Calculate offset to center the world at (map.center.x, map.center.y)
 	$effect(() => {
 		if (mapContainer) {
-			centerOffsetX = mapContainer.clientWidth / 2 - CENTER_X;
-			centerOffsetY = mapContainer.clientHeight / 2 - CENTER_Y;
+			centerOffsetX = mapContainer.clientWidth / 2 - map.center.x;
+			centerOffsetY = mapContainer.clientHeight / 2 - map.center.y;
 		}
 	});
 
@@ -184,7 +47,6 @@
 		}
 	);
 
-	// Keyboard shortcuts for map
 	$effect(() => {
 		function handleKeyDown(e: KeyboardEvent) {
 			if (e.key === 'Escape' && mapVisible) {
@@ -203,120 +65,47 @@
 		nav.toggleOverlay('map');
 	}
 
-	function handleLocationClick(location: Location) {
-		console.log(`Location clicked: ${location.id}`);
+	function handleLocationClick(location: MapLocation) {
 		nav.closeOverlay();
-		goto(localizeHref(`/${location.toonId}/${location.type}/${location.chapterNumber}?label=${location.id}`));
+		goto(
+			localizeHref(
+				`/${location.toonId}/${location.type}/${location.chapterNumber}?label=${location.id}`
+			)
+		);
 	}
-
-	function getRouteLocations(route: Route): Location[] {
-		return route.locations
-			.map((locId) => DATA.locations.find((loc) => loc.id === locId))
-			.filter((loc): loc is Location => loc !== undefined);
-	}
-
-	function createBezierPath(locations: Location[]): string {
-		if (locations.length < 2) return '';
-
-		const first = locations[0].coordinates;
-		let path = `M ${first.x} ${first.y}`;
-
-		// Handle length factor (0-1, lower = tighter curves)
-		const tension = 0.3;
-
-		for (let i = 1; i < locations.length; i++) {
-			const curr = locations[i].coordinates;
-			const prev = locations[i - 1].coordinates;
-
-			// Calculate tangent direction at previous point
-			let prevTangentX, prevTangentY;
-			if (i === 1) {
-				// First segment: tangent points to current
-				prevTangentX = curr.x - prev.x;
-				prevTangentY = curr.y - prev.y;
-			} else {
-				// Middle segments: tangent from prev-prev to current
-				const prevPrev = locations[i - 2].coordinates;
-				prevTangentX = curr.x - prevPrev.x;
-				prevTangentY = curr.y - prevPrev.y;
-			}
-
-			// Calculate tangent direction at current point
-			let currTangentX, currTangentY;
-			if (i === locations.length - 1) {
-				// Last segment: tangent from previous
-				currTangentX = curr.x - prev.x;
-				currTangentY = curr.y - prev.y;
-			} else {
-				// Middle segments: tangent from previous to next
-				const next = locations[i + 1].coordinates;
-				currTangentX = next.x - prev.x;
-				currTangentY = next.y - prev.y;
-			}
-
-			// Normalize and scale tangents
-			const prevLen = Math.sqrt(prevTangentX ** 2 + prevTangentY ** 2);
-			const currLen = Math.sqrt(currTangentX ** 2 + currTangentY ** 2);
-			
-			const segmentLen = Math.sqrt((curr.x - prev.x) ** 2 + (curr.y - prev.y) ** 2);
-
-			// Control points along tangent lines
-			const cx1 = prev.x + (prevTangentX / prevLen) * segmentLen * tension;
-			const cy1 = prev.y + (prevTangentY / prevLen) * segmentLen * tension;
-			const cx2 = curr.x - (currTangentX / currLen) * segmentLen * tension;
-			const cy2 = curr.y - (currTangentY / currLen) * segmentLen * tension;
-
-			path += ` C ${cx1} ${cy1}, ${cx2} ${cy2}, ${curr.x} ${curr.y}`;
-		}
-
-		return path;
-	}
+	$inspect(map);
 </script>
 
 <button class="map-toggle" onclick={toggleMap}><img src={'/icons/map.svg'} alt="Map" /></button>
 
 <div class="map {mapVisible ? 'visible' : 'hidden'}" bind:this={mapElement}>
+	<img class="frame frame--1" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
+	<img class="frame frame--2" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
+	<img class="frame frame--3" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
+	<img class="frame frame--4" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
+
 	<div class="map-viewport" bind:this={mapContainer}>
 		<div
 			class="map-content"
 			style:transform="translate({centerOffsetX + coordinates.x}px, {centerOffsetY +
 				coordinates.y}px) scale({zoom})"
-			style:width="{MAP_WIDTH}px"
-			style:height="{MAP_HEIGHT}px"
+			style:width="{map.width}px"
+			style:height="{map.height}px"
 		>
 			<!-- Background layer -->
 			<div class="layer layer-background"></div>
 
-			<!-- Terrain layer -->
-			<div class="layer layer-terrain">
-				<img
-					src={asset('catpope/images/map/map-layer-terrain.svg')}
-					alt="Map Terrain"
-					width={MAP_WIDTH}
-					height={MAP_HEIGHT}
-				/>
-			</div>
+			<!-- Custom layers -->
+			<Layers layers={map.layers} width={map.width} height={map.height} />
 
 			<!-- Routes layer -->
 			<div class="layer layer-routes">
-				<svg width={MAP_WIDTH} height={MAP_HEIGHT} style="position: absolute; pointer-events: none;">
-					{#each DATA.routes as route}
-						{@const locations = getRouteLocations(route)}
-						<path
-							d={createBezierPath(locations)}
-							stroke="black"
-							stroke-width="8"
-							fill="none"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						/>
-					{/each}
-				</svg>
+				<Routes width={map.width} height={map.height} {routes} {locations} />
 			</div>
 
 			<!-- Locations layer -->
 			<div class="layer layer-locations">
-				{#each DATA.locations as location}
+				{#each locations as location}
 					<button
 						class="location"
 						style:left="{location.coordinates.x}px"
@@ -330,7 +119,7 @@
 
 			<!-- Labels layer -->
 			<div class="layer layer-labels">
-				{#each DATA.locations as location}
+				{#each locations as location}
 					<span
 						class="label"
 						style:left="{location.coordinates.x}px"
@@ -373,7 +162,6 @@
 	.map {
 		position: fixed;
 		/* border: 1rem solid black; */
-		overflow: hidden;
 		inset: 0;
 		top: 0;
 		left: 0;
@@ -381,11 +169,77 @@
 		bottom: 0;
 		z-index: 1000;
 		background: white;
-		transform: translate(0, 100%);
-		transition: transform 0.1s ease;
-	}
-	.map.visible {
-		transform: translate(0, 0);
+		opacity: 0;
+		transform: translate(0, 100%) scale(1.1);
+		transition:
+			opacity 0.2s ease,
+			transform 0.4s
+				linear(
+					0,
+					0.03 1.1%,
+					0.125 2.4%,
+					0.906 9.8%,
+					1.046 12.3%,
+					1.11 15%,
+					1.116 16.3%,
+					1.11 17.8%,
+					1.014 25.8%,
+					0.987 31.2%,
+					1.001 47.2%,
+					1
+				);
+		border: 0 solid black;
+		.frame {
+			position: absolute;
+			pointer-events: none;
+			filter: drop-shadow(0px 0px 13px var(--primary-color));
+			z-index: 1;
+			transition: transform 2s
+				linear(
+					0,
+					0.03 1.1%,
+					0.125 2.4%,
+					0.906 9.8%,
+					1.046 12.3%,
+					1.11 15%,
+					1.116 16.3%,
+					1.11 17.8%,
+					1.014 25.8%,
+					0.987 31.2%,
+					1.001 47.2%,
+					1
+				);
+			&.frame--1 {
+				top: 0px;
+				right: 0px;
+				height: 105vw;
+				transform: rotate(90deg);
+				transform-origin: top;
+				filter: drop-shadow(0px 0px 13px var(--color-acid-purple));
+			}
+			&.frame--2 {
+				top: 0px;
+				right: -37px;
+				height: 100vh;
+				filter: drop-shadow(-10px 50px 33px var(--color-acid-purple));
+				transform: rotateY(180deg);
+				/* transform-origin: top; */
+			}
+			&.frame--3 {
+				bottom: 0px;
+				right: 0;
+				height: 105vw;
+				transform: rotate(-90deg);
+				transform-origin: bottom;
+				filter: drop-shadow(0px 0px 13px var(--color-acid-purple));
+			}
+			&.frame--4 {
+				top: 0px;
+				left: -33px;
+				height: 100vh;
+				filter: drop-shadow(0px 0px 13px var(--color-acid-purple));
+			}
+		}
 	}
 
 	.map-viewport {
@@ -413,16 +267,30 @@
 		background: var(--primary-color);
 	}
 
-	.layer-terrain img {
-		display: block;
-		width: 100%;
-		height: 100%;
-	}
-
-
 	.location {
+		opacity: 0;
 		position: absolute;
 		transform: translate(-50%, -50%);
+		transition-delay: 5s;
+		transition: opacity 2s
+			linear(
+				0,
+				0.109 9.8%,
+				0.259 15.8%,
+				0.995 27.8%,
+				0.396 38.4%,
+				0.526 42.6%,
+				0.996 48%,
+				0.582 55%,
+				0.999 62%,
+				0.724 67.4%,
+				0.999 73.4%,
+				0.837 77.8%,
+				1 83.2%,
+				0.923 86.8%,
+				1 92%,
+				1
+			);
 		font-size: 20px;
 		line-height: 1;
 		padding: 0;
@@ -438,10 +306,33 @@
 	}
 
 	.label {
+		opacity: 0;
 		position: absolute;
 		transform: translateX(-50%);
+		transition-delay: 4s;
+		transition: opacity 1s
+
+			linear(
+				0,
+				0.109 9.8%,
+				0.259 15.8%,
+				0.995 27.8%,
+				0.396 38.4%,
+				0.526 42.6%,
+				0.996 48%,
+				0.582 55%,
+				0.999 62%,
+				0.724 67.4%,
+				0.999 73.4%,
+				0.837 77.8%,
+				1 83.2%,
+				0.923 86.8%,
+				1 92%,
+				1
+			);
+
 		white-space: nowrap;
-		font-size: .75rem;
+		font-size: 0.75rem;
 		pointer-events: none;
 		text-shadow:
 			-1px -1px 0 white,
@@ -452,5 +343,28 @@
 			0 1px 0 white,
 			-1px 1px 0 white,
 			-1px 0 0 white;
+	}
+
+	.map.visible {
+		opacity: 1;
+		transform: translate(0, 0) scale(1);
+		.frame--1 {
+			transform: rotate(90deg) translate(3px, -6px);
+		}
+		.frame--2 {
+			transform: translate(-13px, -8px);
+		}
+		.frame--3 {
+			transform: rotate(-90deg) translate(1px, 25px);
+		}
+		.frame--4 {
+			transform: translate(13px, 8px);
+		}
+		.location {
+			opacity: 1;
+		}
+		.label {
+			opacity: 1;
+		}
 	}
 </style>

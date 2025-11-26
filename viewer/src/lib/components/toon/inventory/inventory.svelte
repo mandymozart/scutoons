@@ -1,18 +1,13 @@
 <script lang="ts">
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
+	import type { Collectable as CollectableType } from '$lib/models/visual-novel.ts';
+	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import Collectable from './collectable.svelte';
 	import { onClickOutside } from 'runed';
 
-	const COLLECTABLES = [
-		{
-			id: 'cucumbers',
-			name: 'Cucumbers',
-			description: 'Cucumbers are food, weapon, toy, and decoration.',
-			image: '/catpope/images/collectables/cucumber.png'
-		}
-	];
+	let { collectables }: { collectables: CollectableType[] } = $props();
 
 	const game = getGameContext();
 	const nav = getNavigationContext();
@@ -44,6 +39,7 @@
 		e?.stopPropagation();
 		nav.toggleOverlay('inventory');
 	}
+	$inspect(collectables);
 </script>
 
 <button class="inventory-toggle" onclick={toggleInventory}>
@@ -51,10 +47,11 @@
 </button>
 
 <div class="inventory {inventoryVisible ? 'visible' : 'hidden'}" bind:this={inventoryElement}>
-	<section class="items">
-		{#if Object.keys(game.state.variables).length > 0}
+	<img class="frame" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
+	{#if Object.keys(game?.state.variables).length > 0}
+		<section class="items">
 			{#each Object.entries(game.state.variables) as [key, value]}
-				{#each COLLECTABLES as collectable}
+				{#each collectables as collectable}
 					{#if collectable.id === key}
 						<div class="item">
 							<Collectable {collectable} />
@@ -63,10 +60,10 @@
 					{/if}
 				{/each}
 			{/each}
-		{:else}
-			<p class="empty">Beessss wax, nothing here!</p>
-		{/if}
-	</section>
+		</section>
+	{:else}
+		<p class="empty">{m['inventory.empty']()}</p>
+	{/if}
 </div>
 
 <style>
@@ -101,20 +98,49 @@
 		right: 0;
 		bottom: 0;
 		z-index: 1000;
-		background: white;
+		background: black;
 		border-top: 2px solid black;
-		padding: 1rem;
-		transform: translate(0, 100%);
-		transition: transform 0.1s ease;
+		/* padding: 1rem; */
+		transform: translate(0, 140%);
+		transition: transform 0.3s
+			linear(0, 0.996 33.2%, 0.875 39.4%, 0.84 44.4%, 0.999 57.8%, 0.946 65%, 1 74.6%, 1);
+		.frame {
+			position: absolute;
+			pointer-events: none;
+			top: -15px;
+			right: -10px;
+			height: 100vw;
+			transform: rotate(90deg);
+			transform-origin: top;
+			transition: transform 1s
+			linear(0, 0.996 33.2%, 0.875 39.4%, 0.84 44.4%, 0.999 57.8%, 0.946 65%, 1 74.6%, 1);
+			filter: invert(1);
+			/* or to blue */
+			filter: drop-shadow(0px 0px 13px var(--primary-color));
+		}
 	}
 	.inventory.visible {
 		transform: translate(0, 0);
+		.frame {
+			transform: rotate(90deg) translateY(-5px);
+			transform-origin: top;
+		}
+	}
+
+	.empty {
+		margin: 0;
+		padding: 1rem;
+		color: white;
 	}
 
 	.items {
+		background: black;
+		padding: 1rem;
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
 		gap: 1rem;
+		z-index: 1;
+		position: relative;
 	}
 	.item {
 		/* display: flex;
@@ -127,9 +153,9 @@
 		left: 0;
 		top: 0;
 		padding: 0 0.25rem;
-		font-size: .75rem;
+		font-size: 0.75rem;
 		background: white;
 		border: 1px solid black;
-		border-radius: .5rem;
+		border-radius: 0.5rem;
 	}
 </style>

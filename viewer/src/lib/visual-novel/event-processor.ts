@@ -57,6 +57,9 @@ export class EventProcessor {
 
 			case 'leaveScene':
 				return this.handleLeaveScene(event);
+			
+			case 'showOnomatopeia':
+				return this.handleShowOnomatopoeia(event);
 
 			case 'end':
 				return { jumpTo: event.params.jumpTo };
@@ -143,5 +146,17 @@ export class EventProcessor {
 	private handleLeaveScene(event: VNEvent & { type: 'leaveScene' }): void {
 		const { characters } = event.params;
 		this.vn.leaveScene(characters);
+	}
+
+	private async handleShowOnomatopoeia(event: VNEvent & { type: 'showOnomatopeia' }): Promise<void> {
+		const { wait = false } = event.params;
+		
+		this.vn.showOnomatopeia(event.params);
+
+		if (wait) {
+			return new Promise<void>((resolve) => {
+				this.vn.setOnomatopoeiaResolver(resolve);
+			});
+		}
 	}
 }

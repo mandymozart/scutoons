@@ -3,8 +3,8 @@
 	import { sanitizeNumber, isItemPublic } from '$lib/utils/template.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { Chapter } from '$lib/models/content.ts';
+	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
-	import { getContext } from 'svelte';
 
 	let {
 		chapter,
@@ -12,14 +12,15 @@
 		toonId
 	}: { chapter: Chapter; chapterNumber: number; toonId: string } = $props();
 
+	const nav = getNavigationContext();
 	const safeChapterNumber = sanitizeNumber(chapterNumber, 1, 1, 999);
 	const isPublic = isItemPublic(chapter);
 	const status = chapter.status ?? 'published';
 
-	let navigate: (url: string, opts?: any) => void = getContext('navigation');
 	function handleClick() {
 		if (!isPublic) return;
-		navigate(`/${toonId}/chapter/${safeChapterNumber}`);
+		nav.closeOverlay();
+		goto(localizeHref(`/${toonId}/chapter/${safeChapterNumber}`));
 	}
 </script>
 

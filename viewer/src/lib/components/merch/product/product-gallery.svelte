@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Swiper from 'swiper';
-	import { asset } from '$lib/utils/cdn';
+	import { asset } from '$lib/utils/cdn.ts';
 	let { product, label } = $props();
 
 	new Swiper('.swiper', {
@@ -21,8 +21,6 @@
 			}
 		}
 	});
-
-	$inspect(product);
 </script>
 
 <div class="swiper gallery-tshirt-white">

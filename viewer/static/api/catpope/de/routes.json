@@ -1,0 +1,16 @@
+[
+	{
+		"id": "season1",
+		"title": "Reinigung und Erleuchtung",
+		"locations": [
+			"airport",
+			"apartment",
+			"medival-street",
+			"cathedral",
+			"station",
+			"monastery",
+			"graveyard",
+			"garden"
+		]
+	}
+]

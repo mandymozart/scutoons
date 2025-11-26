@@ -1,36 +1,92 @@
 [
-  {
-    "name": "catpope",
-    "image": "images/3x/de/catpope.png",
-    "description": "Is future self",
-    "collection": "lead"
-  },
-  {
-    "name": "plf",
-    "description": "Is catpope is human shape",
-    "image": "images/3x/de/plf.png",
-    "collection": "support"
-  },
-  {
-    "name": "cat",
-    "description": "Is cat shaped plf",
-    "image": "images/3x/de/catpope.png",
-    "collection": "lead"
-  },
-  {
-    "name": "boy",
-    "description": "See cat and is scared in front of church",
-    "image": "images/3x/de/boy.png",
-    "collection": "support"
-  },{
-    "name": "crows",
-    "description": "Are crows, can travel time and space, bringing a message from the future.",
-    "image": "images/3x/de/crows.png",
-    "collection": "support"
-  },{
-    "name": "mountain-tiger",
-    "description": "Is a large cat. plf kind of fighting themself.",
-    "image": "images/3x/de/mountain-tiger.png",
-    "collection": "lead"
-  }
+	{
+		"name": "catpope",
+		"label": "Cat Pope",
+		"image": "images/characters/catpope/catpope.svg",
+		"color": "blue",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/catpope/catpope_avatar.svg",
+				"portrait": "images/characters/catpope/catpope_portrait.svg",
+				"full": "images/characters/catpope/catpope_full.svg"
+			}
+		},
+		"description": "Is future self",
+		"collection": "lead"
+	},
+	{
+		"name": "plf",
+		"description": "Is catpope is human shape. aka Pope-like figure",
+		"label": "PLF",
+		"image": "images/characters/plf/plf.svg",
+		"color": "lightblue",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/plf/plf_avatar.svg",
+				"portrait": "images/characters/plf/plf_portrait.svg",
+				"full": "images/characters/plf/plf_full.svg"
+			}
+		},
+		"collection": "support"
+	},
+	{
+		"name": "cat",
+		"description": "Is cat shaped plf",
+		"label": "Cat",
+		"image": "images/characters/cat/cat.svg",
+		"color": "darkblue",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/cat/cat_avatar.svg",
+				"portrait": "images/characters/cat/cat_portrait-neutral.svg",
+				"full": "images/characters/cat/cat_full.svg"
+			}
+		},
+		"collection": "lead"
+	},
+	{
+		"name": "boy",
+		"description": "See cat and is scared in front of church",
+		"label": "Boy",
+		"color": "red",
+		"image": "images/characters/boy/boy.svg",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/boy/boy_avatar.svg",
+				"portrait": "images/characters/boy/boy_portrait.svg",
+				"full": "images/characters/boy/boy_full.svg"
+			}
+		},
+		"collection": "support"
+	},
+	{
+		"name": "crows",
+		"description": "Are crows, can travel time and space, bringing a message from the future.",
+		"label": "Crows",
+		"color": "darkgreen",
+		"image": "images/characters/crows/crows.svg",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/crows/crows_avatar.svg",
+				"portrait": "images/characters/crows/crows_portrait.svg",
+				"full": "images/characters/crows/crows_full.svg"
+			}
+		},
+		"collection": "support"
+	},
+	{
+		"name": "mountain-tiger",
+		"description": "Is a large cat. plf kind of fighting themself.",
+		"label": "Mountain Tiger",
+		"color": "yellow",
+		"image": "images/characters/mountain-tiger/mountain-tiger.svg",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/mountain-tiger/mountain-tiger_avatar.svg",
+				"portrait": "images/characters/mountain-tiger/mountain-tiger_portrait.svg",
+				"full": "images/characters/mountain-tiger/mountain-tiger_full.svg"
+			}
+		},
+		"collection": "lead"
+	}
 ]

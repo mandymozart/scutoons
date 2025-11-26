@@ -1,7 +1,16 @@
 import { setContext, getContext } from 'svelte';
 import type { Character, VNChoice, Message, VNCharacterRef } from '$lib/models/visual-novel.ts';
+import type { Onomatopoeia } from '$lib/models/content.ts';
+import type { TriggerMode } from '$lib/models/enums.ts';
 
 const VN_KEY = Symbol('visual-novel');
+
+export interface VNActiveOnomatopoeia extends Onomatopoeia {
+	id: string;
+	wait: boolean;
+	mode: TriggerMode;
+	onComplete: () => void;
+}
 
 
 export type VisualNovelContext = ReturnType<typeof createVisualNovelContext>;
@@ -11,6 +20,8 @@ export function createVisualNovelContext() {
 	const sceneCharacters = $state<VNCharacterRef[]>([]);
 	const pendingChoices = $state<VNChoice[]>([]);
 	const isProcessingEvents = $state(false);
+	const activeOnomatopoeia = $state<VNActiveOnomatopoeia[]>([]);
+	const onomatopoeiaQueue = $state<VNActiveOnomatopoeia[]>([]);
 
 	let messageVisible = $state(false);
 	const message = $state<Message>({
@@ -20,6 +31,7 @@ export function createVisualNovelContext() {
 	});
 	let choicesVisible = $state(false);
 	let waitResolver: (() => void) | null = null;
+	let onomatopoeiaResolver: (() => void) | null = null;
 
 	function setCharacters(data: Character[]) {
 		characters.clear();
@@ -34,6 +46,8 @@ export function createVisualNovelContext() {
 	}
 
 	function joinScene(chars: VNCharacterRef[]): void {
+		const charsToAdd: VNCharacterRef[] = [];
+		
 		for (const newChar of chars) {
 			const existingIndex = sceneCharacters.findIndex((c) => c.name === newChar.name);
 
@@ -48,17 +62,24 @@ export function createVisualNovelContext() {
 					console.log(
 						`Character "${newChar.name}" already in scene (variant: "${existingVariant}", mood: "${existingMood}"), replacing with (variant: "${newVariant}", mood: "${newMood}")`
 					);
+					// Remove from current position, will be added in new order
 					sceneCharacters.splice(existingIndex, 1);
-					sceneCharacters.push(newChar);
+					charsToAdd.push(newChar);
 				} else {
 					console.log(
-						`Character "${newChar.name}" already in scene with same variant "${existingVariant}" and mood "${existingMood}", skipping`
+						`Character "${newChar.name}" already in scene with same variant "${existingVariant}" and mood "${existingMood}", reordering`
 					);
+					// Remove from current position to add in new order
+					sceneCharacters.splice(existingIndex, 1);
+					charsToAdd.push(existing);
 				}
 			} else {
-				sceneCharacters.push(newChar);
+				charsToAdd.push(newChar);
 			}
 		}
+		
+		// Add all characters in the order specified
+		sceneCharacters.push(...charsToAdd);
 	}
 
 	function leaveScene(chars: VNCharacterRef[]): void {
@@ -108,6 +129,60 @@ export function createVisualNovelContext() {
 		hideMessage();
 	}
 
+	function showOnomatopeia(
+		params: Onomatopoeia & { wait?: boolean; mode?: TriggerMode }
+	): void {
+		const id = `ono-${Date.now()}-${Math.random()}`;
+		const { wait = false, mode = 'poly' as TriggerMode, ...data } = params;
+
+		const item: VNActiveOnomatopoeia = {
+			...data,
+			id,
+			wait,
+			mode,
+			onComplete: () => handleOnomatopoeiaComplete(id)
+		};
+
+		const hasActiveMono = activeOnomatopoeia.some((o) => o.mode === 'mono');
+		if (mode === 'mono' && hasActiveMono) {
+			onomatopoeiaQueue.push(item);
+		} else {
+			activeOnomatopoeia.push(item);
+		}
+	}
+
+	function handleOnomatopoeiaComplete(id: string): void {
+		const index = activeOnomatopoeia.findIndex((o) => o.id === id);
+		if (index !== -1) {
+			const item = activeOnomatopoeia[index];
+			activeOnomatopoeia.splice(index, 1);
+
+			if (item.mode === 'mono' && onomatopoeiaQueue.length > 0) {
+				const next = onomatopoeiaQueue.shift();
+				if (next) {
+					activeOnomatopoeia.push(next);
+				}
+			}
+
+			const hasWaitingItems = activeOnomatopoeia.some((o) => o.wait) || 
+				onomatopoeiaQueue.some((o) => o.wait);
+			
+			if (!hasWaitingItems && onomatopoeiaResolver) {
+				onomatopoeiaResolver();
+				onomatopoeiaResolver = null;
+			}
+		}
+	}
+
+	function setOnomatopoeiaResolver(resolver: () => void): void {
+		onomatopoeiaResolver = resolver;
+	}
+
+	function continueFromOnomatopoeia(): void {
+		activeOnomatopoeia.forEach((item) => item.onComplete());
+		onomatopoeiaQueue.length = 0;
+	}
+
 	function clear(): void {
 		characters.clear();
 		sceneCharacters.length = 0;
@@ -117,6 +192,8 @@ export function createVisualNovelContext() {
 		message.text = '';
 		message.wait = false;
 		choicesVisible = false;
+		activeOnomatopoeia.length = 0;
+		onomatopoeiaQueue.length = 0;
 	}
 
 	return {
@@ -128,7 +205,8 @@ export function createVisualNovelContext() {
 				isProcessingEvents,
 				messageVisible,
 				message,
-				choicesVisible
+				choicesVisible,
+				activeOnomatopoeia
 			};
 		},
 		setCharacters,
@@ -143,6 +221,9 @@ export function createVisualNovelContext() {
 		showChoices,
 		hideChoices,
 		clearChoices,
+		showOnomatopeia,
+		setOnomatopoeiaResolver,
+		continueFromOnomatopoeia,
 		clear
 	};
 }

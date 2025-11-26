@@ -6,6 +6,7 @@
 	import { EventProcessor } from '$lib/visual-novel/event-processor.ts';
 	import MessageBox from '../vn/message.svelte';
 	import Characters from '../vn/characters.svelte';
+	import Onomatopeias from '../vn/onomatopeias.svelte';
 
 	let { group, onComplete }: { group: Group; onComplete: (jumpTo: string | null) => void } =
 		$props();
@@ -22,6 +23,7 @@
 </script>
 
 <Characters />
+<Onomatopeias />
 <MessageBox />
 
 <style>

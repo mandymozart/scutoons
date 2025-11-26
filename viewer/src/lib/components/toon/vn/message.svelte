@@ -13,16 +13,12 @@
 	}
 </script>
 
-<div
-	class="vn-message"
-	class:visible
-	class:clickable={vn.state.message.wait && !vn.state.choicesVisible}
-	onclick={handleClick}
-	role={vn.state.message.wait && !vn.state.choicesVisible ? 'link' : undefined}
-	tabindex={vn.state.message.wait && !vn.state.choicesVisible ? 0 : undefined}
-	onkeydown={(e) => e.key === 'Enter' && handleClick()}
-	aria-label={vn.state.message.wait && !vn.state.choicesVisible ? 'Continue' : undefined}
->
+<div class="vn-message" class:visible>
+	{#if vn.state.message.wait && !vn.state.choicesVisible}
+		<button class="continue-overlay" onclick={handleClick} aria-label="Continue">
+			<span class="sr-only">Continue</span>
+		</button>
+	{/if}
 	{#if vn.state.message.character}
 		{@const character = vn.getCharacter(vn.state.message.character.name)}
 		{#if character}
@@ -51,7 +47,7 @@
 		transform: translateY(14rem);
 		pointer-events: none;
 		transition: transform 0.1s ease;
-		z-index: 2;
+		z-index: 100;
 	}
 
 	.vn-message.visible {
@@ -59,15 +55,24 @@
 		pointer-events: auto;
 	}
 
-	.vn-message.clickable {
+	.continue-overlay {
+		position: absolute;
+		inset: 0;
+		background: transparent;
+		border: none;
 		cursor: pointer;
+		padding: 0;
+		margin: 0;
+		width: 100%;
+		height: 100%;
 	}
 
-	.vn-message.clickable::after {
+	.continue-overlay::after {
 		content: '...';
 		position: absolute;
 		bottom: 0.5rem;
 		right: 1rem;
+		color: black;
 		animation: pulse 1s ease-in-out infinite;
 	}
 
@@ -79,6 +84,18 @@
 		50% {
 			opacity: 1;
 		}
+	}
+
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0, 0, 0, 0);
+		white-space: nowrap;
+		border-width: 0;
 	}
 
 	.character-name {

@@ -43,5 +43,8 @@
 		"technical": "Technische Informationen",
 		"redirect_to": "Weiterleitung",
 		"no_membership_message": "Keine Mitgliedschaft gefunden. Bitte scanne einen QR-Code, um dein Konto zu aktivieren."
+	},
+	"inventory": {
+		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"
 	}
 }

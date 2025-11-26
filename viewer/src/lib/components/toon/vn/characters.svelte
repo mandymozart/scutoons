@@ -17,104 +17,81 @@
 	const portraitCharacters = $derived(
 		sceneCharacters.filter((c) => c.position?.variant === 'portrait')
 	);
-	const fullCharacters = $derived(
-		sceneCharacters.filter((c) => c.position?.variant === 'full')
-	);
+	const fullCharacters = $derived(sceneCharacters.filter((c) => c.position?.variant === 'full'));
 
-	function getStackOrder(charName: string, chars: typeof sceneCharacters): number {
-		if (charName === activeSpeaker) return 0;
-		const index = chars.findIndex((c) => c.name === charName);
-		const speakerIndex = chars.findIndex((c) => c.name === activeSpeaker);
-		if (speakerIndex === -1) return index;
-		return index > speakerIndex ? index - 1 : index;
+	/**
+	 * Creates an ordered array of character names with speaker first (position 0 = furthest left)
+	 * @param chars - Array of character references
+	 * @returns Ordered array where index = stack position
+	 */
+	function getStackedOrder(chars: typeof sceneCharacters): string[] {
+		const names = chars.map((c) => c.name);
+		
+		// If there's an active speaker, move them to the front
+		if (activeSpeaker && names.includes(activeSpeaker)) {
+			return [activeSpeaker, ...names.filter((n) => n !== activeSpeaker)];
+		}
+		
+		return names;
+	}
+
+	const avatarStackOrder = $derived(getStackedOrder(avatarCharacters));
+	const portraitStackOrder = $derived(getStackedOrder(portraitCharacters));
+
+	function getStackPosition(charName: string, stackOrder: string[]): number {
+		return stackOrder.indexOf(charName);
 	}
 </script>
 
+{#if avatarCharacters.length > 0}
+	{#each avatarCharacters as charRef}
+		{@const character = vn.getCharacter(charRef.name)}
+		{#if character}
+			<CharacterAvatar
+				{charRef}
+				{character}
+				{toonId}
+				isActive={charRef.name === activeSpeaker}
+				stackPosition={getStackPosition(charRef.name, avatarStackOrder)}
+			/>
+		{/if}
+	{/each}
+{/if}
 
-	{#if avatarCharacters.length > 0}
-		<div class="avatars-slot">
-			{#each avatarCharacters as charRef}
-				{@const character = vn.getCharacter(charRef.name)}
-				{#if character}
-					<CharacterAvatar
-						{charRef}
-						{character}
-						{toonId}
-						isActive={charRef.name === activeSpeaker}
-						stackOrder={getStackOrder(charRef.name, avatarCharacters)}
-					/>
-				{/if}
-			{/each}
-		</div>
-	{/if}
-
-	{#if portraitCharacters.length > 0}
-		<div class="portraits-slot">
-			{#each portraitCharacters as charRef}
-				{@const character = vn.getCharacter(charRef.name)}
-				{#if character}
-					<CharacterPortrait
-						{charRef}
-						{character}
-						{toonId}
-						isActive={charRef.name === activeSpeaker}
-						stackOrder={getStackOrder(charRef.name, portraitCharacters)}
-					/>
-				{/if}
-			{/each}
-		</div>
-	{/if}
-
-	<!-- Full characters centered (breaking 4th wall) -->
-	{#if fullCharacters.length > 0}
-	<div class="full-slot">
-		{#each fullCharacters as charRef}
+{#if portraitCharacters.length > 0}
+	<div class="portraits-slot">
+		{#each portraitCharacters as charRef}
 			{@const character = vn.getCharacter(charRef.name)}
 			{#if character}
-				<CharacterFull
+				<CharacterPortrait
 					{charRef}
 					{character}
 					{toonId}
 					isActive={charRef.name === activeSpeaker}
+					stackPosition={getStackPosition(charRef.name, portraitStackOrder)}
 				/>
 			{/if}
 		{/each}
 	</div>
-	{/if}
+{/if}
+
+<!-- Full characters centered (breaking 4th wall) -->
+{#if fullCharacters.length > 0}
+	<div class="full-slot">
+		{#each fullCharacters as charRef}
+			{@const character = vn.getCharacter(charRef.name)}
+			{#if character}
+				<CharacterFull {charRef} {character} {toonId} isActive={charRef.name === activeSpeaker} />
+			{/if}
+		{/each}
+	</div>
+{/if}
 
 <style>
-
-	.avatars-slot {
-		position: fixed;
-		bottom: 12rem;
-		left: 1rem;
-		display: flex;
-		align-items: center;
-		gap: 0;
-		z-index: 3;
-	}
-
 	.full-slot {
 		position: fixed;
 		inset: 0;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		gap: 2rem;
-		padding: 1rem;
-		padding-bottom: 13rem;
 		z-index: 1;
 	}
 
-	.portraits-slot {
-		position: fixed;
-		inset: 0;
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		gap: 2rem;
-		padding: 1rem;
-		padding-bottom: 13rem;
-		z-index: 1;
-	}
 </style>

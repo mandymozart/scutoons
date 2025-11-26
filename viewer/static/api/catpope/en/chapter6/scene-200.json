@@ -6,8 +6,7 @@
     {
       "type": "showMessage",
       "params": {
-        "text": "We are in the cathedral. PLF is standing in front of the altar.",
-        "character": "narrator",
+        "text": "Wir befinden uns vor der Kathedrale. PLF betritt den Raum und bleibt vor dem Altar stehen.",
         "wait": true
       }
     },
@@ -22,8 +21,7 @@
     {
       "type": "showMessage",
       "params": {
-        "text": "What's your favorite color?",
-        "character": "narrator"
+        "text": "What's your favorite color?"
       }
     },
     {
@@ -56,15 +54,13 @@
     {
       "type": "showMessage",
       "params": {
-        "text": "You chose {favoriteColor}",
-        "character": "narrator"
+        "text": "You chose {favoriteColor}"
       }
     },
     {
       "type": "showMessage",
       "params": {
-        "text": "You found an old wrinkled cucumber. Do you want to keep it?",
-        "character": "narrator"
+        "text": "You found an old wrinkled cucumber. Do you want to keep it?"
       }
     },
     {
@@ -73,7 +69,7 @@
         "label": "Yes",
         "onSelect": {
           "add": {
-            "variable": "cucumbers",
+            "variable": "cucumber",
             "value": 1
           }
         }
@@ -94,8 +90,7 @@
     {
       "type": "showMessage",
       "params": {
-        "text": "You got {cucumbers} cucumbers.",
-        "character": "narrator"
+        "text": "You got {cucumbers} cucumbers."
       }
     },
     {

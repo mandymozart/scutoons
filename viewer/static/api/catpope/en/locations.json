@@ -1,0 +1,110 @@
+[
+	{
+		"id": "cathedral",
+		"toonId": "catpope",
+		"label": "Cathedral",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1182,
+			"y": 323
+		}
+	},
+	{
+		"id": "apartment",
+		"label": "Apartment",
+		"toonId": "catpope",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1206,
+			"y": 304
+		}
+	},
+	{
+		"id": "airport",
+		"label": "Airport",
+		"toonId": "catpope",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1254,
+			"y": 252
+		}
+	},
+	{
+		"id": "medival-street",
+		"label": "Medival Street",
+		"toonId": "catpope",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1250,
+			"y": 310
+		}
+	},
+	{
+		"id": "station",
+		"label": "Station",
+		"toonId": "catpope",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1202,
+			"y": 332
+		}
+	},
+	{
+		"id": "mountain-path",
+		"label": "Mountain Path",
+		"toonId": "catpope",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1448,
+			"y": 554
+		}
+	},
+	{
+		"id": "monastery",
+		"label": "Monastery",
+		"toonId": "catpope",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1428,
+			"y": 600
+		}
+	},
+	{
+		"id": "library",
+		"label": "Library",
+		"toonId": "catpope",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1431,
+			"y": 586
+		}
+	},
+	{
+		"id": "graveyard",
+		"label": "Graveyard",
+		"toonId": "catpope",
+		"type": "chapter",
+		"chapterNumber": "1",
+		"image": "",
+		"coordinates": {
+			"x": 1441,
+			"y": 569
+		}
+	}
+]

@@ -5,7 +5,6 @@
 	import type { LayoutData } from './$types.js';
 	import { onMount, type Snippet } from 'svelte';
 	import Header from '$lib/components/header.svelte';
-	import { initAnimatedFavicon } from '$lib/utils/favicon.ts';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -14,7 +13,7 @@
 	const membership = setMembershipContext();
 
 	onMount(async () => {
-		initAnimatedFavicon();
+		// initAnimatedFavicon();
 
 		membership.initFromStorage();
 		const code = page.url.searchParams.get('code') || null;

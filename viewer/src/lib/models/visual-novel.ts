@@ -1,3 +1,6 @@
+import type { Onomatopoeia } from "./content.ts";
+import type { OnomatopoeiaEffect, OnomatopoeiaVariant, TriggerMode } from "./enums.ts";
+
 export interface CharacterImage {
 	avatar?: string;
 	portrait?: string;
@@ -24,6 +27,7 @@ export interface Collectable {
 	id: string;
 	description: string;
 	stock?: number; // unlimited if null
+	life_expectency?: number; // unlimited if null
 }
 
 export interface VNChoice {
@@ -100,6 +104,16 @@ export interface VNHideMessageEvent {
 	params?: {};
 }
 
+type OnomatopoeiaParams = Onomatopoeia & {
+	wait?: boolean;
+	mode?: TriggerMode;
+};
+
+export interface VNShowOnomatopeiaEvent {
+	type: 'showOnomatopeia';
+	params: OnomatopoeiaParams; // shares config with webtoon layout for convenience
+}
+
 export interface VNEndEvent {
 	type: 'end';
 	params: {
@@ -114,4 +128,5 @@ export type VNEvent =
 	| VNJoinSceneEvent
 	| VNLeaveSceneEvent
 	| VNHideMessageEvent
+	| VNShowOnomatopeiaEvent
 	| VNEndEvent;

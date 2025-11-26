@@ -39,10 +39,17 @@ export enum Interaction {
   VISUAL_NOVEL = "visual-novel",
 }
 
-export enum View {
-  TOON = "toon",
-  CHAPTER = "chapter",
-  SONG = "song",
-  ACCOUNT = "account",
-  CREDITS = "credits",
+export enum OnomatopoeiaVariant {
+	DEFAULT = "default",
+	PULSE = "outline",
+	WOBBLE = "bubble",
+	THORNS = "thorns"
 }
+
+export enum OnomatopoeiaEffect {
+	NONE = "none",
+	SHIVER = "shiver",
+	PULSE = "pulse",
+	WOBBLE = "wobble",
+}
+

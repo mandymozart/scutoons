@@ -49,8 +49,11 @@
 		currentPosition < sequence.length - 1 ? sequence[currentPosition + 1] : null
 	);
 
+	let active = $state(false);
 	const nav = getNavigationContext();
-	const active = $derived(nav.isOpen('sequence'));
+	$effect(()=>{
+		active = nav.isOpen('sequence')
+	})
 
 	let navElement = $state<HTMLElement>();
 
@@ -75,6 +78,8 @@
 		function handleKeyDown(e: KeyboardEvent) {
 			if (e.key === 'Escape' && active) {
 				nav.closeOverlay();
+			} else if (e.key === 'c' || e.key === 'C') {
+				nav.toggleOverlay('sequence');
 			}
 		}
 

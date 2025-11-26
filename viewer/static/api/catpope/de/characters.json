@@ -5,7 +5,7 @@
     "image": "images/characters/catpope/catpope.svg",
 		"color": "blue",
 		"images": {
-			"default":{
+			"neutral":{
 				"avatar": "images/characters/catpope/catpope_avatar.svg",
 				"portrait": "images/characters/catpope/catpope_portrait.svg",
 				"full": "images/characters/catpope/catpope_full.svg"
@@ -21,9 +21,9 @@
 		"image": "images/characters/plf/plf.svg",
 		"color": "lightblue",
 		"images": {
-			"default": {
-				"avatar": "images/characters/plf/plf_avatar.svg",
-				"portrait": "images/characters/plf/plf_portrait.svg",
+			"neutral": {
+				"avatar": "images/characters/plf/plf_avatar-neutral.png",
+				"portrait": "images/characters/plf/plf_portrait-neutral.png",
 				"full": "images/characters/plf/plf_full.svg"
 			}
 		},
@@ -36,9 +36,9 @@
 		"image": "images/characters/cat/cat.svg",
 		"color": "darkblue",
 		"images": {
-			"default": {
-				"avatar": "images/characters/cat/cat_avatar.svg",
-				"portrait": "images/characters/cat/cat_portrait.svg",
+			"neutral": {
+				"avatar": "images/characters/cat/cat_avatar-neutral.png",
+				"portrait": "images/characters/cat/cat_portrait-neutral.png",
 				"full": "images/characters/cat/cat_full.svg"
 			}
 		},
@@ -51,7 +51,7 @@
     "description": "Katzenpapst sieht Katze und ist vor der Kirche erschrocken",
 		"image": "images/characters/boy/boy.svg",
 		"images": {
-			"default": {
+			"neutral": {
 				"avatar": "images/characters/boy/boy_avatar.svg",
 				"portrait": "images/characters/boy/boy_portrait.svg",
 				"full": "images/characters/boy/boy_full.svg"
@@ -65,7 +65,7 @@
     "description": "Krähen, können Zeit und Raum reisen, bringen eine Nachricht aus der Zukunft.",
     "image": "images/characters/crows/crows.svg",
 		"images": {
-			"default": {
+			"neutral": {
 				"avatar": "images/characters/crows/crows_avatar.svg",
 				"portrait": "images/characters/crows/crows_portrait.svg",
 				"full": "images/characters/crows/crows_full.svg"
@@ -79,7 +79,7 @@
     "description": "Grosses Tier, plf kämpft mit sich selbst.",
 		"image": "images/characters/mountain-tiger/mountain-tiger.svg",
 		"images": {
-			"default": {
+			"neutral": {
 				"avatar": "images/characters/mountain-tiger/mountain-tiger_avatar.svg",
 				"portrait": "images/characters/mountain-tiger/mountain-tiger_portrait.svg",
 				"full": "images/characters/mountain-tiger/mountain-tiger_full.svg"
