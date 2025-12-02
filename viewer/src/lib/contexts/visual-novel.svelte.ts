@@ -33,7 +33,7 @@ export function createVisualNovelContext() {
 	let choicesVisible = $state(false);
 	let waitResolver: (() => void) | null = null;
 	let onomatopoeiaResolver: (() => void) | null = null;
-	let pendingJumpTo: string | null = null;
+	let navigationTriggered = $state(false);
 
 	function setCharacters(data: Character[]) {
 		characters.clear();
@@ -131,15 +131,14 @@ export function createVisualNovelContext() {
 		hideMessage();
 	}
 
-	function setPendingJumpTo(url: string | null): void {
-		pendingJumpTo = url;
+	function setNavigationTriggered(): void {
+		navigationTriggered = true;
 	}
 
-	function getPendingJumpTo(): string | null {
-		const url = pendingJumpTo;
-		pendingJumpTo = null;
-		return url;
+	function isNavigationTriggered(): boolean {
+		return navigationTriggered;
 	}
+
 
 	function showOnomatopeia(
 		params: Onomatopoeia & { wait?: boolean; mode?: TriggerMode }
@@ -206,7 +205,7 @@ export function createVisualNovelContext() {
 		choicesVisible = false;
 		activeOnomatopoeia.length = 0;
 		onomatopoeiaQueue.length = 0;
-		pendingJumpTo = null;
+		navigationTriggered = false;
 	}
 
 	return {
@@ -234,8 +233,8 @@ export function createVisualNovelContext() {
 		showChoices,
 		hideChoices,
 		clearChoices,
-		setPendingJumpTo,
-		getPendingJumpTo,
+		setNavigationTriggered,
+		isNavigationTriggered,
 		showOnomatopeia,
 		setOnomatopoeiaResolver,
 		continueFromOnomatopoeia,

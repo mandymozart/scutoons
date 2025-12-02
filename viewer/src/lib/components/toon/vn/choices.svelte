@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { executeVariableAction } from '$lib/visual-novel/variable-actions.ts';
@@ -17,11 +18,13 @@
 		}
 
 		if (jumpTo) {
-			console.log(`🎯 Choice selected with jumpTo: ${jumpTo}`);
-			vn.setPendingJumpTo(jumpTo);
+			console.log(`🎯 Choice selected, navigating to: ${jumpTo}`);
+			vn.setNavigationTriggered();
+			vn.clearChoices();
+			goto(jumpTo);
+		} else {
+			vn.clearChoices();
 		}
-
-		vn.clearChoices();
 	}
 </script>
 

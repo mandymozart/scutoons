@@ -8,10 +8,12 @@
 	const isDev = import.meta.env.DEV;
 
 	let { data }: PageProps = $props();
-	const label = page.url.searchParams.get('label');
+	
+	const currentLabel = $derived(page.url.searchParams.get('label') || null);
+	
 	let group = $derived(
-		page.url.searchParams.get('label') && data.chapter.groups.find((g) => g.label === label)
-			? data.chapter.groups.find((g) => g.label === label)
+		currentLabel && data.chapter.groups.find((g) => g.label === currentLabel)
+			? data.chapter.groups.find((g) => g.label === currentLabel)
 			: data.chapter.groups[0]
 	);
 </script>
@@ -25,13 +27,18 @@
 				{#if data.chapter.isPreview}
 					<p>Preview</p>
 				{/if}
+				{#if currentLabel}
+					<p>Label: {currentLabel}</p>
+				{/if}
 			</div>
 		{/if}
-		{#if group}
-			<Group {group} />
-		{:else}
-			<p>Upsi</p>
-		{/if}
+		{#key currentLabel}
+			{#if group}
+				<Group {group} />
+			{:else}
+				<p>Group not found for label: {currentLabel}</p>
+			{/if}
+		{/key}
 	</div>
 </MembershipBlocker>
 
