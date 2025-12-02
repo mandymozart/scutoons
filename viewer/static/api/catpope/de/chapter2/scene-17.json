@@ -1,7 +1,6 @@
 {
   "label": "scene-17",
   "renderer": { "type": "vertical" },
-  "interaction": "visual-novel",
   "slices": [
     {
       "image": "images/1x/de/s1c2-slice-12.jpg"

@@ -36,7 +36,7 @@
 		height: 100%;
 		pointer-events: none;
 		z-index: 50;
-		background: radial-gradient(var(--color-acid-purple), transparent);
+		/* background: radial-gradient(var(--color-acid-purple), transparent); */
 	}
 
 	.onomatopeias.active {

@@ -18,7 +18,6 @@
     {
       "label": "scene-20",
       "renderer": { "type": "vertical" },
-      "interaction": "webtoon",
       "slices": [
         {
           "image": "images/1x/de/s1c2-slice-23.jpg",
