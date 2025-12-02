@@ -1,5 +1,6 @@
 import type { AudioEvent, SampleTrigger } from '$lib/models/audio.ts';
 import type { AudioContext } from '$lib/contexts/audio.svelte.ts';
+import { Trigger, TriggerMode } from '$lib/models/enums.ts';
 
 export interface SampleHandlerContext {
 	audioContext: AudioContext;
@@ -33,7 +34,7 @@ export function handleSampleEvent(
 	};
 
 	switch (sample.trigger.type) {
-		case 'click':
+		case Trigger.CLICK:
 			if (sample.trigger.rect) {
 				const clickHandler = (event: MouseEvent) => {
 					if (isWithinRect(event, node, sample.trigger!.rect)) {
@@ -47,7 +48,7 @@ export function handleSampleEvent(
 				return () => node.removeEventListener('click', triggerSample);
 			}
 
-		case 'hover':
+		case Trigger.HOVER:
 			if (sample.trigger.rect) {
 				const hoverHandler = (event: MouseEvent) => {
 					if (isWithinRect(event, node, sample.trigger!.rect)) {
@@ -61,7 +62,7 @@ export function handleSampleEvent(
 				return () => node.removeEventListener('mouseenter', triggerSample);
 			}
 
-		case 'scrollInView':
+		case Trigger.INTERSECT:
 			const sampleObserver = new IntersectionObserver(
 				([entry]) => {
 					if (entry.isIntersecting) {

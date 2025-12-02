@@ -1,15 +1,8 @@
-import type { AudioEvents, AudioConfiguration } from '$lib/models/audio.ts';
-import type { Slice } from '$lib/models/content.ts';
+import type { AudioConfiguration, AudioEventsConfig } from '$lib/models/audio.ts';
 import type { Action } from 'svelte/action';
 import { getCurrentAudioContext } from '$lib/contexts/audio.svelte.ts';
 import { handleMusicEvent } from './handlers/music.ts';
 import { handleSampleEvent } from './handlers/samples.ts';
-
-export interface AudioEventsConfig {
-	events?: AudioEvents;
-	index: number;
-	slices: Slice[];
-}
 
 export const audioEvents: Action<HTMLElement, AudioEventsConfig | null | undefined> = (
 	node,

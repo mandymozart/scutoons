@@ -2,18 +2,19 @@
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import type { PageProps } from './$types.js';
 
 	let { data }: PageProps = $props();
 	let song = $state(data.song);
-	$inspect(song);
+	$inspect(page.params);
 	$effect(() => {
 		song = data.song;
 	});
 	let videoId = $derived(String(song.video?.sources?.youtube?.id).trim());
 	let hasVideo = $derived(/^[a-zA-Z0-9_-]{11}$/.test(String(song.video?.sources?.youtube?.id).trim()));
 	let audioAutoplay = $derived(!hasVideo);
+	let audioSrc = $derived(asset(`${page.params.toonId}/${song.src}`))
 </script>
 
 <MembershipBlocker songNumber={song.number} isPreview={song.isPreview}>
@@ -37,7 +38,7 @@
 			<div class="song-description">{song.description}</div>
 			{#if song.src}
 				<div class="song-src">
-					<audio controls autoplay={audioAutoplay}><source src={asset(`${data.toonId}/${song.src}`)} type="audio/mpeg" /></audio>
+					<audio controls autoplay={audioAutoplay}><source src={audioSrc} type="audio/mpeg" /></audio>
 				</div>
 			{/if}
 		</div>

@@ -1,5 +1,5 @@
-import type { Onomatopoeia } from "./content.ts";
-import type { OnomatopoeiaEffect, OnomatopoeiaVariant, TriggerMode } from "./enums.ts";
+import type { JumpToTarget, Onomatopoeia } from './content.ts';
+import type { Trigger, TriggerMode } from './enums.ts';
 
 export interface CharacterImage {
 	avatar?: string;
@@ -32,7 +32,7 @@ export interface Collectable {
 
 export interface VNChoice {
 	label: string;
-	onSelect?: VNVariableSetter | VNVariableAdder;
+	onSelect?: VNVariableSetter | VNVariableAdder | VNJumpTo;
 }
 
 export interface Message {
@@ -60,6 +60,12 @@ export interface VNVariableAdder {
 	add: {
 		variable: string;
 		value: number;
+	};
+}
+
+export interface VNJumpTo {
+	jumpTo: {
+		target: JumpToTarget;
 	};
 }
 
@@ -105,8 +111,8 @@ export interface VNHideMessageEvent {
 }
 
 type OnomatopoeiaParams = Onomatopoeia & {
-	wait?: boolean;
 	mode?: TriggerMode;
+	wait?: boolean;
 };
 
 export interface VNShowOnomatopeiaEvent {
@@ -114,10 +120,11 @@ export interface VNShowOnomatopeiaEvent {
 	params: OnomatopoeiaParams; // shares config with webtoon layout for convenience
 }
 
-export interface VNEndEvent {
-	type: 'end';
+export interface VNJumpToEvent {
+	type: 'jumpTo';
 	params: {
-		jumpTo: string;
+		target: JumpToTarget;
+		wait?: boolean;
 	};
 }
 
@@ -129,4 +136,25 @@ export type VNEvent =
 	| VNLeaveSceneEvent
 	| VNHideMessageEvent
 	| VNShowOnomatopeiaEvent
-	| VNEndEvent;
+	| VNJumpToEvent;
+	
+// enhanced types for slice triggered
+export interface VNEventTrigger {
+	type: Trigger;
+	once?: boolean;
+	rect?: {
+		x: number;
+		y: number;
+		width: number;
+		height: number;
+	};
+}
+
+export type VNSliceEvent = VNEvent & {
+	trigger: VNEventTrigger
+}
+
+export interface VNEventsConfig {
+	events?: VNSliceEvent[];
+	onNavigate?: (url: string) => void;
+}

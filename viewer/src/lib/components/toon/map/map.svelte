@@ -161,7 +161,6 @@
 
 	.map {
 		position: fixed;
-		/* border: 1rem solid black; */
 		inset: 0;
 		top: 0;
 		left: 0;

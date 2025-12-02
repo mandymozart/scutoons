@@ -9,6 +9,6 @@ export const load: PageLoad = async ({ fetch, params }) => {
 	);
 	if(!response.ok) throw error(404, `Song not found for ${getLocale()}. If you think this is a mistake, try the German version.`)
 	const song = await response.json();
-	if (song) return { song, toonId: params.toonId };
+	if (song) return { song };
 	error(404, 'Not found');
 };

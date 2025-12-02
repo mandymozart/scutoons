@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { page } from '$app/stores';
-	import CharacterAvatar from './character-avatar.svelte';
-	import CharacterPortrait from './character-portrait.svelte';
-	import CharacterFull from './character-full.svelte';
+	import CharacterAvatar from './characters/avatar.svelte';
+	import CharacterPortrait from './characters/portrait.svelte';
+	import CharacterFull from './characters/full.svelte';
 
 	const vn = getVisualNovelContext();
 	const toonId = $derived($page.params.toonId || '');
@@ -19,11 +19,6 @@
 	);
 	const fullCharacters = $derived(sceneCharacters.filter((c) => c.position?.variant === 'full'));
 
-	/**
-	 * Creates an ordered array of character names with speaker first (position 0 = furthest left)
-	 * @param chars - Array of character references
-	 * @returns Ordered array where index = stack position
-	 */
 	function getStackedOrder(chars: typeof sceneCharacters): string[] {
 		const names = chars.map((c) => c.name);
 		

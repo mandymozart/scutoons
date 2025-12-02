@@ -1,3 +1,4 @@
+import type { Slice } from './content.ts';
 import { Trigger, TriggerMode } from './enums.ts';
 
 export interface AudioTrack {
@@ -58,4 +59,10 @@ export interface AdoptiveMusicPlayerConfiguration {
 export interface AudioConfiguration {
   music?: AdoptiveMusicPlayerConfiguration;
   sampleLibrary?: AudioTrack[];
+}
+
+export interface AudioEventsConfig {
+	events?: AudioEvents;
+	index: number;
+	slices: Slice[];
 }

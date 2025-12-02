@@ -19,7 +19,7 @@ The SCUTOONS audio system has been updated to integrate seamlessly with Svelte 5
 ### 🗑️ Removed (DOM-Coupled Code)
 - `SampleTriggerManager.registerSliceTriggers()` - Moved to Svelte actions
 - `SampleTriggerManager.registerTrigger()` - Moved to Svelte actions
-- `SampleTriggerManager.registerScrollInViewTrigger()` - Moved to Svelte actions
+- `SampleTriggerManager.registerintersectTrigger()` - Moved to Svelte actions
 - `SampleTriggerManager.registerClickTrigger()` - Moved to Svelte actions
 - `SampleTriggerManager.registerHoverTrigger()` - Moved to Svelte actions
 - `SampleTriggerManager.isWithinRect()` - Moved to Svelte actions
@@ -115,7 +115,7 @@ Chapter 2                       └─────────────[loadC
 
 | Trigger Type | Before | After |
 |--------------|--------|-------|
-| Scroll | `registerScrollInViewTrigger()` | `use:audioTrigger` |
+| Scroll | `registerintersectTrigger()` | `use:audioTrigger` |
 | Click | `registerClickTrigger()` | `use:audioTrigger` |
 | Hover | `registerHoverTrigger()` | `use:audioTrigger` |
 | Manual | `trigger(sample)` | `audio.triggerSample(sample)` |

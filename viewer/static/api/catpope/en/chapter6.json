@@ -80,7 +80,7 @@
 							{
 								"id": "bells",
 								"trigger": {
-									"type": "scrollInView",
+									"type": "intersect",
 									"mode": "mono"
 								},
 								"volume": 0.5,
@@ -267,7 +267,7 @@
 							{
 								"id": "choir_once",
 								"trigger": {
-									"type": "scrollInView",
+									"type": "intersect",
 									"mode": "mono"
 								},
 								"volume": 0.8,
@@ -433,7 +433,7 @@
 							{
 								"id": "choir_loud",
 								"trigger": {
-									"type": "scrollInView",
+									"type": "intersect",
 									"mode": "mono"
 								},
 								"volume": 1,

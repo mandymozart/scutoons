@@ -10,9 +10,17 @@
 	const visible = $derived(vn.state.choicesVisible && choices.length > 0);
 
 	function handleSelect(choice: typeof choices[0]) {
+		let jumpTo: string | null = null;
+
 		if (choice.onSelect) {
-			executeVariableAction(choice.onSelect, game);
+			jumpTo = executeVariableAction(choice.onSelect, game);
 		}
+
+		if (jumpTo) {
+			console.log(`🎯 Choice selected with jumpTo: ${jumpTo}`);
+			vn.setPendingJumpTo(jumpTo);
+		}
+
 		vn.clearChoices();
 	}
 </script>

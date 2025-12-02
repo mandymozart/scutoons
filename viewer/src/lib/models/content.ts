@@ -1,7 +1,7 @@
 // TODO: merge content and visual novel since both basically became one.
-import { Renderer, Language, Status, Interaction, type EventCategory, OnomatopoeiaVariant, OnomatopoeiaEffect } from './enums.ts';
+import { Renderer, Language, Status, type EventCategory, OnomatopoeiaVariant, OnomatopoeiaEffect, JumpToTargetType } from './enums.ts';
 import type { AudioEvents, AudioConfiguration } from './audio.ts';
-import type { VNEvent } from './visual-novel.ts';
+import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -30,6 +30,12 @@ export interface Onomatopoeia {
 	duration?: number,
 	delay?: number,
 	text: string | string[];
+}
+
+export interface JumpToTarget {
+	type: JumpToTargetType;
+	value: string;
+	label?: string;
 }
 
 export interface Map {
@@ -67,9 +73,14 @@ export interface MapRoute {
 
 export interface Slice {
 	image: string;
+	// TODO: refactor at some point to use a unified entity system
+	// trigger: any[]; // placeholder for combined event system audio and vn
+	// layers: any[]; // placeholder for combined dialog, onomatopoeia and image layers
+	// entities: Entity[]; // even more general but requires massive refactor
 	audio?: AudioEvents;
 	dialog?: Dialog[];
 	onomatopoeia?: Onomatopoeia[];
+	events?: Array<VNSliceEvent>;
 	_type?: string;
 	_label?: string;
 }
@@ -86,13 +97,19 @@ export interface RendererParams {
 	freeMode?: boolean;
 }
 
+export interface Checkpoint {
+	uri: string; // Store checkpoints as stateful uris
+	isComplete: boolean;
+	created_at: string;
+	updated_at: string;
+}
+
 export interface Group {
 	label?: string;
 	renderer?: {
 		type: Renderer;
 		params?: RendererParams;
 	};
-	interaction?: Interaction;
 	slices?: Slice[];
 	events?: VNEvent[];
 	ref?: RefLink;

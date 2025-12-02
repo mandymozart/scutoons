@@ -1,6 +1,7 @@
 import type { VNEvent } from '$lib/models/visual-novel.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
+import { buildJumpToUrl } from './jump-to.ts';
 
 export class EventProcessor {
 	private events: VNEvent[];
@@ -50,19 +51,19 @@ export class EventProcessor {
 				return await this.handleShowChoices(event);
 
 			case 'addChoice':
-				return await this.handleAddChoice(event);
+				return this.handleAddChoice(event);
 
 			case 'joinScene':
 				return this.handleJoinScene(event);
 
 			case 'leaveScene':
 				return this.handleLeaveScene(event);
-			
+
 			case 'showOnomatopeia':
 				return this.handleShowOnomatopoeia(event);
 
-			case 'end':
-				return { jumpTo: event.params.jumpTo };
+			case 'jumpTo':
+				return this.handleJumpTo(event);
 
 			default:
 				console.warn(`Unknown event type: ${(event as any).type}`);
@@ -80,9 +81,7 @@ export class EventProcessor {
 		});
 	}
 
-	private async handleShowMessage(
-		event: VNEvent & { type: 'showMessage' }
-	): Promise<void> {
+	private async handleShowMessage(event: VNEvent & { type: 'showMessage' }): Promise<void> {
 		const { text, character: characterName, wait = false } = event.params;
 
 		let charRef = null;
@@ -111,15 +110,19 @@ export class EventProcessor {
 		this.vn.hideMessage();
 	}
 
-	private async handleShowChoices(
-		event: VNEvent & { type: 'showChoices' }
-	): Promise<void> {
+	private async handleShowChoices(event: VNEvent & { type: 'showChoices' }): Promise<{ jumpTo?: string } | void> {
 		this.vn.showChoices();
 
 		return new Promise((resolve) => {
 			const checkChoices = () => {
 				if (this.vn.state.pendingChoices.length === 0) {
-					resolve();
+					const jumpTo = this.vn.getPendingJumpTo();
+					if (jumpTo) {
+						console.log(`🔀 Choice triggered jumpTo: ${jumpTo}`);
+						resolve({ jumpTo });
+					} else {
+						resolve();
+					}
 				} else {
 					setTimeout(checkChoices, 50);
 				}
@@ -148,9 +151,11 @@ export class EventProcessor {
 		this.vn.leaveScene(characters);
 	}
 
-	private async handleShowOnomatopoeia(event: VNEvent & { type: 'showOnomatopeia' }): Promise<void> {
+	private async handleShowOnomatopoeia(
+		event: VNEvent & { type: 'showOnomatopeia' }
+	): Promise<void> {
 		const { wait = false } = event.params;
-		
+
 		this.vn.showOnomatopeia(event.params);
 
 		if (wait) {
@@ -158,5 +163,25 @@ export class EventProcessor {
 				this.vn.setOnomatopoeiaResolver(resolve);
 			});
 		}
+	}
+
+	private async handleJumpTo(event: VNEvent & { type: 'jumpTo' }): Promise<{ jumpTo: string } | void> {
+		const { target, wait = false } = event.params;
+		
+		const destinationUri = buildJumpToUrl(target, this.game.state.toonId);
+		
+		if (!destinationUri) {
+			console.warn('Invalid jumpTo target', target);
+			return;
+		}
+		
+		if (wait) {
+			await new Promise<void>((resolve) => {
+				this.vn.setWaitResolver(resolve);
+			});
+		}
+		
+		console.log(`🔗 Returning jumpTo: ${destinationUri}`);
+		return { jumpTo: destinationUri };
 	}
 }

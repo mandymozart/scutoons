@@ -12,8 +12,9 @@ export interface VNActiveOnomatopoeia extends Onomatopoeia {
 	onComplete: () => void;
 }
 
-
 export type VisualNovelContext = ReturnType<typeof createVisualNovelContext>;
+
+let _currentContext: VisualNovelContext | undefined;
 
 export function createVisualNovelContext() {
 	const characters = $state(new Map<string, Character>());
@@ -32,6 +33,7 @@ export function createVisualNovelContext() {
 	let choicesVisible = $state(false);
 	let waitResolver: (() => void) | null = null;
 	let onomatopoeiaResolver: (() => void) | null = null;
+	let pendingJumpTo: string | null = null;
 
 	function setCharacters(data: Character[]) {
 		characters.clear();
@@ -129,6 +131,16 @@ export function createVisualNovelContext() {
 		hideMessage();
 	}
 
+	function setPendingJumpTo(url: string | null): void {
+		pendingJumpTo = url;
+	}
+
+	function getPendingJumpTo(): string | null {
+		const url = pendingJumpTo;
+		pendingJumpTo = null;
+		return url;
+	}
+
 	function showOnomatopeia(
 		params: Onomatopoeia & { wait?: boolean; mode?: TriggerMode }
 	): void {
@@ -194,6 +206,7 @@ export function createVisualNovelContext() {
 		choicesVisible = false;
 		activeOnomatopoeia.length = 0;
 		onomatopoeiaQueue.length = 0;
+		pendingJumpTo = null;
 	}
 
 	return {
@@ -221,6 +234,8 @@ export function createVisualNovelContext() {
 		showChoices,
 		hideChoices,
 		clearChoices,
+		setPendingJumpTo,
+		getPendingJumpTo,
 		showOnomatopeia,
 		setOnomatopoeiaResolver,
 		continueFromOnomatopoeia,
@@ -231,9 +246,14 @@ export function createVisualNovelContext() {
 export function setVisualNovelContext() {
 	const context = createVisualNovelContext();
 	setContext(VN_KEY, context);
+	_currentContext = context;
 	return context;
 }
 
 export function getVisualNovelContext() {
 	return getContext<VisualNovelContext>(VN_KEY);
+}
+
+export function getCurrentVisualNovelContext() {
+	return _currentContext;
 }

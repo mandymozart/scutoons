@@ -40,7 +40,7 @@
 				loop: params.loop || false,
 				mousewheel: {
 					enabled: true,
-					forceToAxis: true,
+					forceToAxis: false,
 					sensitivity: 1,
 					releaseOnEdges: false
 				},
@@ -168,6 +168,18 @@
 </div>
 
 <style>
+	/* .renderer--horizontal.swiper {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+	.renderer--horizontal.swiper	.swiper-wrapper {
+						display: flex;
+			align-items: center;
+			justify-content: center;
+			height: 100vh;
+		
+	} */
 	.swiper-button-next {
 		opacity: 0;
 		transition: opacity 0.3s ease-in-out;
@@ -175,6 +187,9 @@
 		color: black;
 		width: 5rem;
     
+	}
+	.swiper-slide {
+		max-height: 100dvh;
 	}
 
 	.swiper-button-next.show-hint {

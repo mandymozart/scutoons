@@ -147,7 +147,13 @@
 			"params": {
 				"label": "Ignore",
 				"onSelect": {
-					"jumpTo": "scene-300"
+					"jumpTo": {
+						"target": {
+							"type": "chapter",
+							"value": "6",
+							"label": "scene-300"
+						}
+					}
 				}
 			}
 		},
@@ -209,9 +215,14 @@
 			}
 		},
 		{
-			"type": "end",
+			"type": "jumpTo",
 			"params": {
-				"jumpTo": "scene-300"
+				"target": {
+					"type": "chapter",
+					"value": "6",
+					"label": "scene-300"
+				},
+				"wait": true
 			}
 		}
 	],

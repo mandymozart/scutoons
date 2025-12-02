@@ -4,9 +4,16 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { audio } from '$lib/actions/audio/index.ts';
 	import type { PageProps } from './$types.js';
+	import { page } from '$app/state';
 	const isDev = import.meta.env.DEV;
 
 	let { data }: PageProps = $props();
+	const label = page.url.searchParams.get('label');
+	let group = $derived(
+		page.url.searchParams.get('label') && data.chapter.groups.find((g) => g.label === label)
+			? data.chapter.groups.find((g) => g.label === label)
+			: data.chapter.groups[0]
+	);
 </script>
 
 <MembershipBlocker chapterNumber={data.chapter.number} isPreview={data.chapter.isPreview}>
@@ -20,9 +27,11 @@
 				{/if}
 			</div>
 		{/if}
-		{#each data.chapter.groups as group}
+		{#if group}
 			<Group {group} />
-		{/each}
+		{:else}
+			<p>Upsi</p>
+		{/if}
 	</div>
 </MembershipBlocker>
 

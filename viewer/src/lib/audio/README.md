@@ -12,7 +12,7 @@ A modular audio system for SCUTOONS chapters featuring adaptive music and event-
 
 ### 🔊 Sample Trigger Manager
 - Event-based audio sample playback
-- Multiple trigger types: scrollInView, click, hover
+- Multiple trigger types: intersect, click, hover
 - Mono/poly modes for sample playback
 - Gating and exclusivity options
 - Audio envelopes (attack, sustain, release)
@@ -225,7 +225,7 @@ Svelte Integration (New)
       {
         "id": "footstep",
         "trigger": {
-          "type": "scrollInView",
+          "type": "intersect",
           "gate": false,
           "exclusive": false,
           "mode": "mono",
@@ -307,7 +307,7 @@ import { audioTrigger } from '$lib/actions/audio.ts';
 const sampleConfig = {
   id: 'footstep',
   trigger: {
-    type: 'scrollInView',  // 'click' | 'hover' | 'scrollInView'
+    type: 'intersect',  // 'click' | 'hover' | 'intersect'
     mode: 'mono',          // 'mono' | 'poly'
     gate: false,
     exclusive: false,
@@ -368,7 +368,7 @@ await audioManager.cleanup();
 | Property | Type | Description | Default |
 |----------|------|-------------|---------|
 | `id` | string | Sample identifier | Required |
-| `trigger.type` | string | 'scrollInView', 'click', 'hover' | 'scrollInView' |
+| `trigger.type` | string | 'intersect', 'click', 'hover' | 'intersect' |
 | `trigger.gate` | boolean | Only play if not already playing | false |
 | `trigger.exclusive` | boolean | Mute other audio | false |
 | `trigger.mode` | string | 'mono' or 'poly' | 'mono' |

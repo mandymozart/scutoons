@@ -1,3 +1,4 @@
+import type { Checkpoint } from '$lib/models/content.ts';
 import { setContext, getContext } from 'svelte';
 
 const GAME_KEY = Symbol('game');
@@ -6,13 +7,14 @@ const STORAGE_PREFIX = 'scutoons_game_';
 interface GameState {
 	toonId: string;
 	variables: Record<string, string | number>;
-	progress: Record<string, unknown>;
-	lastCheckpoint: string | null;
+	progress: Checkpoint[];
 	created_at: string;
 	updated_at: string;
 }
 
 export type GameContext = ReturnType<typeof createGameContext>;
+
+let _currentContext: GameContext | undefined;
 
 export function createGameContext(toonId: string) {
 	const storageKey = `${STORAGE_PREFIX}${toonId}`;
@@ -20,8 +22,7 @@ export function createGameContext(toonId: string) {
 	const state = $state<GameState>({
 		toonId,
 		variables: {},
-		progress: {},
-		lastCheckpoint: null,
+		progress: [],
 		created_at: new Date().toISOString(),
 		updated_at: new Date().toISOString()
 	});
@@ -36,7 +37,6 @@ export function createGameContext(toonId: string) {
 			const parsed = JSON.parse(saved);
 			state.variables = parsed.variables || {};
 			state.progress = parsed.progress || {};
-			state.lastCheckpoint = parsed.lastCheckpoint || null;
 			state.created_at = parsed.created_at || state.created_at;
 			state.updated_at = parsed.updated_at || state.updated_at;
 		} catch (error) {
@@ -67,12 +67,31 @@ export function createGameContext(toonId: string) {
 		saveState();
 	}
 
+	function hasCheckpoint(uri: string) {
+		return state.progress.some((p) => p.uri === uri);
+	}
+
+	function addCheckpoint(uri: string) {
+		state.progress.push({
+			uri: uri,
+			isComplete: false,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString()
+		});
+	}
+
+	function completeCheckpoint(uri: string) {
+		const checkpoint = state.progress.find((p) => p.uri === uri);
+		if (!checkpoint) return;
+		checkpoint.isComplete = true;
+		checkpoint.updated_at = new Date().toISOString();
+	}
+
 	function clear() {
 		if (typeof localStorage === 'undefined') return;
 		localStorage.removeItem(storageKey);
 		state.variables = {};
-		state.progress = {};
-		state.lastCheckpoint = null;
+		state.progress = [];
 	}
 
 	loadState();
@@ -86,6 +105,9 @@ export function createGameContext(toonId: string) {
 		addVariable,
 		saveState,
 		loadState,
+		hasCheckpoint,
+		addCheckpoint,
+		completeCheckpoint,
 		clear
 	};
 }
@@ -93,9 +115,14 @@ export function createGameContext(toonId: string) {
 export function setGameContext(toonId: string) {
 	const context = createGameContext(toonId);
 	setContext(GAME_KEY, context);
+	_currentContext = context;
 	return context;
 }
 
 export function getGameContext() {
 	return getContext<GameContext>(GAME_KEY);
+}
+
+export function getCurrentGameContext() {
+	return _currentContext;
 }

@@ -24,7 +24,7 @@ export enum Status {
 }
 
 export enum Trigger {
-  SCROLL_IN_VIEW = "scrollInView",
+  INTERSECT = "intersect",
   HOVER = "hover",
   CLICK = "click",
 }
@@ -32,11 +32,6 @@ export enum Trigger {
 export enum TriggerMode {
 	MONO = "mono",
 	POLY = "poly",
-}
-
-export enum Interaction {
-  WEBTOON = "webtoon",
-  VISUAL_NOVEL = "visual-novel",
 }
 
 export enum OnomatopoeiaVariant {
@@ -53,3 +48,11 @@ export enum OnomatopoeiaEffect {
 	WOBBLE = "wobble",
 }
 
+export enum JumpToTargetType {
+	CHAPTER = "chapter",
+	SONG = "song",
+	SEASON = "season",
+	TOON = "toon",
+	PRODUCT = "product",
+	XR = "xr",
+}
