@@ -19,7 +19,7 @@
     {
       "type": "showMessage",
       "params": {
-        "character":"narrator",
+				"wait": true,
         "text": "Hi, du bist auf der Suche nach Gurken"
       }
     },
