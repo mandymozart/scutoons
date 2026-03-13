@@ -40,7 +40,7 @@
     },
     {
       "title": "Cat Pope Webtoon Release",
-      "date": "2026-21-03T09:00:00",
+      "date": "2026-03-21T09:00:00",
       "location": "Next Comic",
       "city": "Linz",
       "category": "irl",
@@ -48,11 +48,27 @@
     },
     {
       "title": "Cat Pope Choir Concert",
-      "date": "2026-09-04T19:00:00",
+      "date": "2026-04-09T19:00:00",
       "location": "Kirche St. Ruprecht",
       "city": "Vienna",
       "category": "irl",
       "link": "https://www.ruprechtskirche.at/"
+    },
+    {
+      "title": "Cat Pope Concert",
+      "date": "2026-08-31T20:00:00",
+      "location": "Cafe Wolf",
+      "city": "Graz",
+      "category": "irl",
+      "link": "https://www.cafewolf.at/"
+    },
+    {
+      "title": "Cat Pope Concert",
+      "date": "2026-08-31T10:00:00",
+      "location": "Glasfarbik",
+      "city": "Leipzig",
+      "category": "irl",
+      "link": "https://www.glasfabrik.org"
     }
   ]
 }
