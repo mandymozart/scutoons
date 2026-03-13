@@ -22,6 +22,37 @@
       "location": "Online",
       "city": "Virtual",
       "category": "virtual"
+    },
+    {
+      "title": "Cat Pope & Cyrrca",
+      "date": "2025-12-19T21:00:00",
+      "location": "ChunHee 춘희",
+      "city": "Seoul",
+      "category": "irl",
+      "link": "https://www.instagram.com/chunhee.seoul/"
+    },
+    {
+      "title": "Cat Pope & Cyrrca",
+      "date": "2025-12-21T16:00:00",
+      "location": "Seoul Community Radio SCR",
+      "category": "online",
+      "link": "https://www.youtube.com/watch?v=jmn9qVJvuXw"
+    },
+    {
+      "title": "Cat Pope Webtoon Release",
+      "date": "2026-21-03T09:00:00",
+      "location": "Next Comic",
+      "city": "Linz",
+      "category": "irl",
+      "link": "https://www.nextcomic.org/NEXTCOMIC-2026/Suuuper-Samstag/"
+    },
+    {
+      "title": "Cat Pope Choir Concert",
+      "date": "2026-09-04T19:00:00",
+      "location": "Kirche St. Ruprecht",
+      "city": "Vienna",
+      "category": "irl",
+      "link": "https://www.ruprechtskirche.at/"
     }
   ]
 }
