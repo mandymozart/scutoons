@@ -1,25 +1,75 @@
-[
-	{
-		"title": "Cat Pope Release Concert",
-		"date": "2025-10-02T19:00:00",
-		"location": "Ve.Sch",
-		"city": "Vienna",
-		"category": "irl",
-		"link": "https://ve-sch.at"
-	},
-	{
-		"title": "Cat Pope Release Webtoon & Party",
-		"date": "2025-10-04T20:00:00",
-		"location": "New Jörg",
-		"city": "Vienna",
-		"category": "irl",
-		"link": "https://newjoerg.at"
-	},
-	{
-		"title": "Cat Pope Chapter 2 Release",
-		"date": "2025-11-01T18:00:00",
-		"location": "Online",
-		"city": "Virtual",
-		"category": "virtual"
-	}
-]
+{
+	"events": [
+		{
+			"title": "Cat Pope Release Concert",
+			"date": "2025-10-02T19:00:00",
+			"location": "Ve.Sch",
+			"city": "Vienna",
+			"category": "irl",
+			"link": "https://ve-sch.at"
+		},
+		{
+			"title": "Cat Pope Release Webtoon & Party",
+			"date": "2025-10-04T20:00:00",
+			"location": "New Jörg",
+			"city": "Vienna",
+			"category": "irl",
+			"link": "https://newjoerg.at"
+		},
+		{
+			"title": "Cat Pope Chapter 2 Release",
+			"date": "2025-11-01T18:00:00",
+			"location": "Online",
+			"city": "Virtual",
+			"category": "virtual"
+		},
+		{
+			"title": "Cat Pope & Cyrrca",
+			"date": "2025-12-19T21:00:00",
+			"location": "ChunHee 춘희",
+			"city": "Seoul",
+			"category": "irl",
+			"link": "https://www.instagram.com/chunhee.seoul/"
+		},
+		{
+			"title": "Cat Pope & Cyrrca",
+			"date": "2025-12-21T16:00:00",
+			"location": "Seoul Community Radio SCR",
+			"city": "Virtual",
+			"category": "virtual",
+			"link": "https://www.youtube.com/watch?v=jmn9qVJvuXw"
+		},
+		{
+			"title": "Cat Pope Webtoon Release",
+			"date": "2026-03-21T09:00:00",
+			"location": "Next Comic",
+			"city": "Linz",
+			"category": "irl",
+			"link": "https://www.nextcomic.org/NEXTCOMIC-2026/Suuuper-Samstag/"
+		},
+		{
+			"title": "Cat Pope Choir Concert",
+			"date": "2026-04-09T19:00:00",
+			"location": "Kirche St. Ruprecht",
+			"city": "Vienna",
+			"category": "irl",
+			"link": "https://www.ruprechtskirche.at/"
+		},
+		{
+			"title": "Cat Pope Concert",
+			"date": "2026-06-10T20:00:00",
+			"location": "Cafe Wolf",
+			"city": "Graz",
+			"category": "irl",
+			"link": "https://www.cafewolf.at/"
+		},
+		{
+			"title": "Cat Pope Concert",
+			"date": "2026-08-31T10:00:00",
+			"location": "Glasfarbik",
+			"city": "Leipzig",
+			"category": "irl",
+			"link": "https://www.glasfabrik.org"
+		}
+	]
+}

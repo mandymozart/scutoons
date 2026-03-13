@@ -1,5 +1,6 @@
-/node_modules
+node_modules
 /cdn/root
 /cdn/logs
 .env
 .venv
+.svelte-kit
