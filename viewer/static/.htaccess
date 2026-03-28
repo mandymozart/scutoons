@@ -1,8 +1,17 @@
 <IfModule mod_rewrite.c>
 	RewriteEngine On
 	RewriteBase /
-	RewriteRule ^index\.html$ - [L]
+	
+	# Don't rewrite if it's a real file or directory
 	RewriteCond %{REQUEST_FILENAME} !-f
 	RewriteCond %{REQUEST_FILENAME} !-d
-	RewriteRule . /index.html [L]
+	
+	# Don't rewrite requests for files with extensions
+	RewriteCond %{REQUEST_URI} !\.\w+$ [NC]
+	
+	# Don't rewrite static paths
+	RewriteCond %{REQUEST_URI} !^/(api|css|fonts|icons|_app|static)/ [NC]
+	
+	# Rewrite everything else to index.html
+	RewriteRule ^ /index.html [L]
 </IfModule>
