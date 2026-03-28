@@ -8,6 +8,7 @@
 	import { page } from '$app/state';
 	import Routes from './routes.svelte';
 	import Layers from './layers.svelte';
+	import mapIcon from '$lib/icons/map.svg';
 
 	let {
 		zoom = 1,
@@ -76,7 +77,7 @@
 	$inspect(map);
 </script>
 
-<button class="map-toggle" onclick={toggleMap}><img src={'/icons/map.svg'} alt="Map" /></button>
+<button class="map-toggle" onclick={toggleMap}><img src={mapIcon} alt="Map" /></button>
 
 <div class="map {mapVisible ? 'visible' : 'hidden'}" bind:this={mapElement}>
 	<img class="frame frame--1" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />

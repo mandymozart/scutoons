@@ -6,6 +6,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import Collectable from './collectable.svelte';
 	import { onClickOutside } from 'runed';
+	import inventoryIcon from '$lib/icons/inventory.svg';
 
 	let { collectables }: { collectables: CollectableType[] } = $props();
 
@@ -43,7 +44,7 @@
 </script>
 
 <button class="inventory-toggle" onclick={toggleInventory}>
-	<img src={'/icons/inventory.svg'} alt="Inventory" />
+	<img src={inventoryIcon} alt="Inventory" />
 </button>
 
 <div class="inventory {inventoryVisible ? 'visible' : 'hidden'}" bind:this={inventoryElement}>
