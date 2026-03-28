@@ -6,6 +6,8 @@
 	import type { ToonIndex } from '$lib/models/content.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { onClickOutside } from 'runed';
+	import accountIcon from '$lib/../../static/icons/account.svg';
+	import accountIcon from '$lib/../../static/icons/account.svg';
 
 	let { toons }: { toons: ToonIndex[] } = $props();
 
@@ -69,7 +71,7 @@
 					<li class="nav-item">
 						{#if isClaimed}
 							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
-								<img src="/icons/account.svg" alt="Account" />
+								<img src={accountIcon} alt="Account" />
 								<span>My Account</span>
 							</button>
 						{/if}

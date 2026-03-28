@@ -5,6 +5,7 @@
 	import type { Chapter } from '$lib/models/content.ts';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
+	import chapterIcon from '$lib/../../static/icons/chapter.svg';
 
 	let {
 		chapter,
@@ -49,7 +50,7 @@
 		</div>
 	</div>
 	<div class="chapter-number">
-		<img class="chapter-icon" src="/icons/chapter.svg" alt="Chapter" />
+		<img class="chapter-icon" src={chapterIcon} alt="Chapter" />
 		{isPublic ? ' ' : ''}#{chapter.number}
 	</div>
 </div>

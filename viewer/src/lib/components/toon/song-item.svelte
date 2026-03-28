@@ -4,6 +4,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { Song } from '$lib/models/content.ts';
 	import { getContext, setContext } from 'svelte';
+	import headphonesIcon from '$lib/../../static/icons/headphones.svg';
 
 	let { song, songNumber, toonId }: { song: Song; songNumber: number; toonId: string } = $props();
 
@@ -43,7 +44,7 @@
 		</div>
 	</div>
 	<div class="song-number">
-		<img class="song-icon" src="/icons/headphones.svg" alt="Song" />
+		<img class="song-icon" src={headphonesIcon} alt="Song" />
 		{isPublic ? ' ' : ''}#{song.number}
 	</div>
 </div>
