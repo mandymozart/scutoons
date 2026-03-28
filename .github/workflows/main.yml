@@ -35,3 +35,4 @@ jobs:
         local-dir: ./viewer/build/
         server-dir: /
         log-level: verbose
+        dangerous-clean-files: true
