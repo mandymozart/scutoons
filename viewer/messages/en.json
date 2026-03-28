@@ -18,6 +18,9 @@
 		"end": "End",
 		"alt_end": "End of season"
 	},
+	"download": {
+		"read_webtoon": "Read Webtoon"
+	},
 	"account": {
 		"my_account": "My Account",
 		"sign_out": "Sign Out",

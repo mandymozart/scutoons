@@ -18,6 +18,9 @@
 		"end": "Ende",
 		"alt_end": "Ende der Staffen"
 	},
+	"download": {
+		"read_webtoon": "Webtoon Lesen"
+	},
 	"account": {
 		"my_account": "Mein Konto",
 		"sign_out": "Abmelden",
