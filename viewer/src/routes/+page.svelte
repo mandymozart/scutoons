@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ProductGallery from '$lib/components/merch/product/product-gallery.svelte';
+	import ProductGallery from '$lib/components/shop/product/product-gallery.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 
