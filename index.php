@@ -87,7 +87,7 @@ elseif (isset($_GET['c'])) {
 
         if ($result) {
             // Check if already claimed (has email) and if the type is event or xr and not member or promo
-            if (!empty($result['email']) || $result['type'] === 'event' || $result['type'] === 'xr') {
+            if (!empty($result['email']) || $result['type'] === 'event' || $result['type'] === 'xr' || $result['type'] === 'page') {
                 // Already claimed, redirect immediately with QR code parameter
                 $redirectUrl = $result['redirect_to'];
                 $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';

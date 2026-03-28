@@ -132,6 +132,7 @@ require_once '../config.php';
 									<option value="event">Event</option>
 									<option value="xr">XR</option>
 									<option value="promo">Promo</option>
+									<option value="page">Page</option>
 								</select>
 							</div>
 							<div class="form-group">
