@@ -34,10 +34,21 @@
 	let centerOffsetY = $state(0);
 
 	// Calculate offset to center the world at (map.center.x, map.center.y)
-	$effect(() => {
+	function recalculateCenterOffset() {
 		if (mapContainer) {
 			centerOffsetX = mapContainer.clientWidth / 2 - map.center.x;
 			centerOffsetY = mapContainer.clientHeight / 2 - map.center.y;
+		}
+	}
+
+	$effect(() => {
+		if (mapContainer) {
+			recalculateCenterOffset();
+			const resizeObserver = new ResizeObserver(() => {
+				recalculateCenterOffset();
+			});
+			resizeObserver.observe(mapContainer);
+			return () => resizeObserver.disconnect();
 		}
 	});
 
