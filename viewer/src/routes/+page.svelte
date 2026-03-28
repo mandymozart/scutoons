@@ -19,8 +19,7 @@
 	<p>
 		<a href={localizeHref('catpope/')}>Katzenpapst</a><br />
 		2.&Auml;ger<br />
-		1. November<br />
-		anno felis 2025
+		Ank&uuml;ndigung folgt
 	</p>
 	<p>
 		<a href={localizeHref('catpope/')}>Cat Pope</a><br />
@@ -51,8 +50,8 @@
 	<article class="product">
 		<h3>Cat Pope Dago Hoodie</h3>
 		<div class="product-meta">
-			Sizes: M, L, XL, XXL<br />
-			Colors: Black, Beige, Grey<br />
+			Sizes: M, L, XL, <del>XXL</del><br />
+			Colors: <del>Black</del>, Beige, <del>Grey</del><br />
 			Price: 99.90 EUR<br />
 			Limited Edition: 12 Pieces<br />
 			<a
@@ -71,7 +70,7 @@
 			<h3>Cat Pope Dago Heavy T</h3>
 			<div class="product-meta">
 				Sizes: S, M, L, XL<br />
-				Colors: White, Black<br />
+				Colors: White, <del>Black</del><br />
 				Price: 59.90 EUR<br />
 				Limited Edition: 25 Pieces<br />
 				<a
