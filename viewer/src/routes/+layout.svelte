@@ -6,6 +6,7 @@
 	import { onMount, type Snippet } from 'svelte';
 	import Header from '$lib/components/header.svelte';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { initAnimatedFavicon } from '$lib/utils/favicon.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -13,7 +14,7 @@
 	const membership = setMembershipContext();
 
 	onMount(async () => {
-		// initAnimatedFavicon();
+		initAnimatedFavicon();
 
 		membership.initFromStorage();
 		const code = page.url.searchParams.get('code') || null;
