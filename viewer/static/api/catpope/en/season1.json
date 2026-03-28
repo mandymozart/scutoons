@@ -15,50 +15,30 @@
 		"music": ["Mandy Mozart", "Chris Nova Ludwig"],
 		"sound": ["Mandy Mozart", "Chris Nova Ludwig"]
 	},
-	"sequence": [
+		"sequence": [
 		{
 			"type": "song",
-			"number": 1
+			"number": 0
 		},
 		{
 			"type": "chapter",
 			"number": 1
 		},
-		{
-			"type": "song",
-			"number": 2
-		},
-		{
+				{
 			"type": "chapter",
 			"number": 2
 		},
-		{
-			"type": "song",
-			"number": 3
-		},
-		{
+			{
 			"type": "chapter",
 			"number": 3
 		},
-		{
-			"type": "song",
-			"number": 4
-		},
-		{
+				{
 			"type": "chapter",
 			"number": 4
 		},
-		{
-			"type": "song",
-			"number": 5
-		},
-		{
+				{
 			"type": "chapter",
 			"number": 5
-		},
-		{
-			"type": "song",
-			"number": 6
 		},
 		{
 			"type": "chapter",
