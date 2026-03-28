@@ -1,0 +1,10 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  
+  # Skip rewriting for actual files and directories
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  
+  # Rewrite everything else to index.html for SPA routing
+  RewriteRule ^(.*)$ /index.html [L]
+</IfModule>
