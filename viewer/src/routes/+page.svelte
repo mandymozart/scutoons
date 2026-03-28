@@ -57,7 +57,7 @@
 			Limited Edition: 12 Pieces<br />
 			<a
 			class="btn"
-			href="https://www.willhaben.at/iad/kaufen-und-verkaufen/d/limited-edition-oversized-hoodie-cat-pope-awakening-marke-scutoons-1906952716/"
+			href={products.hoodie_black.link}
 			target="_blank">BUY</a
 			>
 		</div>
@@ -76,7 +76,7 @@
 				Limited Edition: 25 Pieces<br />
 				<a
 				class="btn"
-				href="https://www.willhaben.at/iad/kaufen-und-verkaufen/d/limited-edition-oversized-heavy-t-shirt-cat-pope-awakening-marke-scutoons-unisex-987417831/"
+				href={products.tshirt_white.link}
 				target="_blank">BUY</a
 				><br />
 			</div>

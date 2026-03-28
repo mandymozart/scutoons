@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.ts';
 import { API_BASE } from '$lib/config.ts';
-import type { LoadedSequenceItem, Season } from '$lib/models/content.ts';
-import { sanitizeNumber } from '$lib/utils/template.ts';
+import type { LoadedSequenceItem, Season, Chapter, Song } from '$lib/models/content.ts';
+import { sanitizeNumber, isItemPublic } from '$lib/utils/template.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
 export const load: PageLoad = async ({ fetch, params }) => {
@@ -34,7 +34,10 @@ export const load: PageLoad = async ({ fetch, params }) => {
 			}
 		}
 
-		if (toon && season) return { toon, season, sequence };
+		// Filter to only show public items (published or draft in dev mode)
+		const filteredSequence = sequence.filter((item) => isItemPublic(item as Chapter | Song));
+
+		if (toon && season) return { toon, season, sequence: filteredSequence };
 	} catch (e) {
 		error(404, 'Not found');
 	}
