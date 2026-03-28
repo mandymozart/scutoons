@@ -168,7 +168,7 @@
 		right: 0;
 		bottom: 0;
 		z-index: 1000;
-		background: white;
+		background: #00d1ff;
 		opacity: 0;
 		transform: translate(0, 100%) scale(1.1);
 		transition:

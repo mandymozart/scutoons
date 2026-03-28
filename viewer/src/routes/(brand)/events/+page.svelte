@@ -74,11 +74,14 @@
 img {
 	width: 100%;
 }
+.events {
+	
+}
 	.events-section {
 		font-family: 'IBM Plex Mono', monospace;
 		font-size: 1rem;
 		margin-bottom: 1rem;
-		padding-bottom: 0.5rem;
+		padding: 0 1rem 0.5rem 1rem;
 		text-transform: uppercase;
 	}
 	.event-item.past-event {
