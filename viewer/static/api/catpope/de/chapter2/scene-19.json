@@ -1,0 +1,21 @@
+{
+  "label": "scene-19",
+  "renderer": { "type": "vertical" },
+  "slices": [
+    {
+      "image": "images/1x/de/s1c2-slice-16.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-17.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-18.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-19.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-20.jpg"
+    }
+  ]
+}

@@ -1,0 +1,240 @@
+{
+	"label": "scene-200",
+	"renderer": { "type": "horizontal", "params": { "freeMode": true } },
+	"interaction": "visual-novel",
+	"events": [
+		{
+			"type": "showMessage",
+			"params": { "text": "Kathedralen Vorplatz - Vormittags", "wait": true }
+		},
+		{
+			"type": "joinScene",
+			"params": { "characters": [{ "name": "catpope", "position": { "variant": "avatar" } }] }
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "So kam ich also an vor der Kathedrale. Majestätisch ragte sie in den Himmel. Ich schritt in Demut doch erhobenen Hauptes über den Platz...",
+				"character": "catpope",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{ "name": "plf", "position": { "variant": "portrait" } },
+					{
+						"name": "cat",
+						"position": { "variant": "portrait" }
+					}
+				]
+			}
+		},
+		{
+			"type": "showOnomatopeia",
+			"params": {
+				"text": "Zisch",
+				"position": {
+					"x": 30,
+					"y": 30
+				},
+				"size": 3,
+				"delay": 5000,
+				"effect": "shiver",
+				"mode": "poly"
+			}
+		},
+		{
+			"type": "showOnomatopeia",
+			"params": {
+				"text": ["gr", "gr", "gr"],
+				"position": {
+					"x": 40,
+					"y": 30
+				},
+				"size": 6,
+				"effect": "wobble",
+				"duration": 6000,
+				"variant": "outline",
+				"mode": "poly"
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "What? Was soll das?",
+				"character": "plf",
+				"wait": true,
+				"mood": "surprised"
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Ich hatte nicht gedacht, dass es noch etwas anderes zu sehen gibt.",
+				"character": "catpope",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Zu meiner Überraschung wurde mir ein weiterer Weg gezeigt.",
+				"character": "catpope",
+				"wait": true
+			}
+		},
+		{
+			"type": "addChoice",
+			"params": {
+				"label": "Red",
+				"onSelect": {
+					"set": {
+						"variable": "favoriteColor",
+						"value": "red"
+					}
+				}
+			}
+		},
+		{
+			"type": "addChoice",
+			"params": {
+				"label": "Green",
+				"onSelect": {
+					"set": {
+						"variable": "favoriteColor",
+						"value": "green"
+					}
+				}
+			}
+		},
+		{
+			"type": "showChoices"
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Du hast {favoriteColor} als Lieblingsfarbe ausgewählt.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": { "characters": [{ "name": "cat", "position": { "variant": "portrait" } }] }
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Du findest eine alte schrumeplige Gurke!",
+				"wait": true
+			}
+		},
+		{
+			"type": "addChoice",
+			"params": {
+				"label": "Behalten",
+				"onSelect": {
+					"add": {
+						"variable": "cucumber",
+						"value": 1
+					}
+				}
+			}
+		},
+		{
+			"type": "addChoice",
+			"params": {
+				"label": "Ignore",
+				"onSelect": {
+					"jumpTo": {
+						"target": {
+							"type": "chapter",
+							"value": "6",
+							"label": "scene-300"
+						}
+					}
+				}
+			}
+		},
+		{
+			"type": "showChoices"
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Bravo! Du hast jetzt {cucumber} Gurken.",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "...",
+				"character": "cat",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [{ "name": "cat" }]
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{ "name": "mountain-tiger", "position": { "variant": "avatar" } },
+					{ "name": "crow", "position": { "variant": "avatar" } },
+					{ "name": "boy", "position": { "variant": "avatar" } },
+					{ "name": "catpope", "position": { "variant": "avatar" } }
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Weg ist das mistvieh?",
+				"character": "catpope",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [{ "name": "mountain-tiger", "position": { "variant": "portrait" } }]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "ROAAARRR!!!!!",
+				"character": "mountain-tiger",
+				"wait": true
+			}
+		},
+		{
+			"type": "jumpTo",
+			"params": {
+				"target": {
+					"type": "chapter",
+					"value": "6",
+					"label": "scene-300"
+				},
+				"wait": true
+			}
+		}
+	],
+	"slices": [
+		{
+			"image": "images/3x/de/S1C1 - Slice 12.jpg"
+		},
+		{
+			"image": "images/3x/de/S1C1 - Slice 13.jpg"
+		},
+		{
+			"image": "images/3x/de/S1C1 - Slice 14.jpg"
+		}
+	]
+}

@@ -1,0 +1,50 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"attributions": "Attributions",
+	"events": "Events",
+	"slogan": "Tunes for your screen",
+	"next_release": "NEXT RELEASE",
+	"limited_editions": "Limited Editions",
+	"chapter": "Chapter {number}",
+	"song": "Song {number}",
+	"upcoming_events": "Upcoming Events",
+	"past_events": "Past Events",
+	"sequence_navigation": {
+		"overview": "Overview",
+		"alt_season_start": "Start of season",
+		"start": "Beginning",
+		"alt_start": "Start of season",
+		"end_tbc": "End (to be continued)",
+		"end": "End",
+		"alt_end": "End of season"
+	},
+	"account": {
+		"my_account": "My Account",
+		"sign_out": "Sign Out",
+		"membership": "Full Membership",
+		"promo": "Promo",
+		"event": "Event",
+		"xr": "XR",
+		"claim_membership_reminder": "Reminder: If you claim your membership, we can send you email updates and you can make changes to your membership! After all, you purchased this QR code.",
+		"type": "Type",
+		"status": "Status",
+		"valid_until": "Valid Until",
+		"claimed": "Claimed",
+		"not_claimed": "Not Claimed",
+		"claim_membership": "Register Now",
+		"code": "Code",
+		"account_data": "Account Data",
+		"email": "Email",
+		"timeline": "Timeline",
+		"expires_at": "Expires At",
+		"validated_at": "Validated At",
+		"claimed_at": "Claimed At",
+		"created_at": "Created At",
+		"technical": "Technical Information",
+		"redirect_to": "Redirect To",
+		"no_membership_message": "No membership found. Please scan a QR code to activate your account."
+	},
+	"inventory": {
+		"empty": "Bee Wax, no pig in the pope (sic)!"
+	}
+}

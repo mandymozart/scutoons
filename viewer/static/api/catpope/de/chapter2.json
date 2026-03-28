@@ -1,0 +1,46 @@
+{
+	"title": "Ärger",
+	"author": "Mandy Mozart",
+	"number": 2,
+	"language": "de",
+	"release": "2025-11-01",
+	"status": "draft",
+	"description": "Die Predigt wird gestört",
+	"thumbnail": "images/s1c2-thumbnail.jpg",
+	"keyvisual": "images/1x/s1c2-key-visual.jpg",
+	"groups": [
+		{ "ref": { "src": "chapter2/scene-14.json" } },
+		{ "ref": { "src": "chapter2/scene-15.json" } },
+		{ "ref": { "src": "chapter2/scene-16.json" } },
+		{ "ref": { "src": "chapter2/scene-17.json" } },
+		{ "ref": { "src": "chapter2/scene-18.json" } },
+		{ "ref": { "src": "chapter2/scene-19.json" } },
+		{
+			"label": "scene-20",
+			"renderer": { "type": "vertical" },
+			"slices": [
+				{
+					"image": "images/1x/de/s1c2-slice-23.jpg",
+					"dialog": [
+						{
+							"rect": {
+								"x": 10,
+								"y": 10,
+								"width": 80
+							},
+							"text": [
+								"PLF betrat mit großen Schritten den Platz vor der Kathedrale. \nDer Auftritt schien mit der Schönheit des Tempels konkurrieren zu wollen. \nEin Gefühlscocktail von Ehrfurcht, Stolz, Macht und Bestätigung durchströmte jedes Glied. \nMan sah es PLF an: die ganze Statur war aufgereckt,\n jedes Glied stützte die Bögen, \nder Körper war kein organisches Gebilde aus Proteinen und Kohlenstoff mehr, sondern ein Geist, \nder zu schweben schien aus kosmischer Materie. \nErst einmal in Bewegung manifestierte sich das Werk. \nDie Einsicht, die Zuversicht, mit der PLF das Gewand an diesen Ort trug, vervollständigte das Ganze. \nDiese Kleider waren gemacht von Leuten für mächtige Leute."
+							]
+						}
+					]
+				},
+				{
+					"image": "images/1x/de/s1c2-slice-24.jpg"
+				},
+				{
+					"image": "images/1x/de/s1c2-slice-25.jpg"
+				}
+			]
+		}
+	]
+}

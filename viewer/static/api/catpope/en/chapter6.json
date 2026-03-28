@@ -1,0 +1,474 @@
+{
+	"title": "visual novel",
+	"author": "Mandy Mozart",
+	"number": 6,
+	"language": "en",
+	"release": "2025-10-04",
+	"status": "draft",
+	"description": "TEST",
+	"thumbnail": "images/s1c1-thumbnail.jpg",
+	"keyvisual": {
+		"image": "images/3x/s1c1-key-visual.jpg",
+		"video": "videos/s1c1-key-visual.mp4"
+	},
+	"audio": {
+		"music": {
+			"transitionDuration": 3000,
+			"defaultTrack": "calmness",
+			"tracks": [
+				{
+					"id": "calmness",
+					"path": "audio/music/s1c1-instrumental-brass-morton.mp3"
+				},
+				{
+					"id": "tension",
+					"path": "audio/music/s1c2-instrumental.mp3"
+				}
+			]
+		},
+		"sampleLibrary": [
+			{
+				"id": "bells",
+				"path": "audio/samples/s1c1-bells.mp3"
+			},
+			{
+				"id": "choir_loud",
+				"path": "audio/samples/s1c1-choir-loud-loud-loud.mp3"
+			},
+			{
+				"id": "choir_once",
+				"path": "audio/samples/s1c1-choir-once-it-means-nothing.mp3"
+			}
+		]
+	},
+	"groups": [
+		{
+			"label": "intro",
+			"renderer": { "type": "horizontal" },
+			"interaction": "webtoon",
+			"slices": [
+				{
+					"image": "images/3x/de/S1C1 - Slice 1.jpg",
+					"audio": {
+						"music": {
+							"tracks": [
+								{
+									"id": "calmness",
+									"volume": 0.2
+								},
+								{
+									"id": "tension",
+									"volume": 0.0
+								}
+							]
+						}
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 2.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 3.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 4.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 5.jpg",
+					"audio": {
+						"samples": [
+							{
+								"id": "bells",
+								"trigger": {
+									"type": "intersect",
+									"mode": "mono"
+								},
+								"volume": 0.5,
+								"delay": 0
+							}
+						]
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 6.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 7.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 8.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 9.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 10.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 11.jpg"
+				}
+			]
+		},
+		{
+			"ref": {
+				"src": "chapter6/scene-200.json"
+			}
+		},
+		{
+			"label": "scene-300",
+			"renderer": { "type": "vertical" },
+			"slices": [
+				{
+					"image": "images/3x/de/S1C1 - Slice 15.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 16.jpg",
+					"audio": {
+						"music": {
+							"tracks": [
+								{
+									"id": "calmness",
+									"volume": 0.2
+								},
+								{
+									"id": "tension",
+									"volume": 0.5
+								}
+							]
+						}
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 17.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 18.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 19.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 20.jpg",
+					"audio": {
+						"music": {
+							"tracks": [
+								{
+									"id": "calmness",
+									"volume": 0
+								}
+							]
+						}
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 21.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 22.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 23.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 24.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 25.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 26.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 27.jpg",
+					"audio": {
+						"music": {
+							"tracks": [
+								{
+									"id": "calmness",
+									"volume": 0.1
+								},
+								{
+									"id": "tension",
+									"volume": 0.8
+								}
+							]
+						}
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 28.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 29.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 30.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 31.jpg",
+					"audio": {
+						"music": {
+							"tracks": [
+								{
+									"id": "calmness",
+									"volume": 0.2
+								},
+								{
+									"id": "tension",
+									"volume": 0
+								}
+							]
+						}
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 32.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 33.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 34.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 35.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 36.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 37.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 38.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 39.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 40.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 41.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 42.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 43.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 44.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 45.jpg",
+					"audio": {
+						"samples": [
+							{
+								"id": "choir_once",
+								"trigger": {
+									"type": "intersect",
+									"mode": "mono"
+								},
+								"volume": 0.8,
+								"delay": 0
+							}
+						]
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 46.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 47.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 48.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 49.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 50.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 51.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 52.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 53.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 54.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 55.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 56.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 57.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 58.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 59.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 60.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 61.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 62.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 63.jpg",
+					"audio": {
+						"samples": [
+							{
+								"id": "bells",
+								"trigger": {
+									"type": "click",
+									"mode": "poly",
+									"rect": {
+										"x": 33,
+										"y": 36,
+										"width": 30,
+										"height": 30
+									}
+								},
+								"volume": 0.6
+							}
+						]
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 64.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 65.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 66.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 67.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 68.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 69.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 70.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 71.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 72.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 73.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 74.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 75.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 76.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 77.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 78.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 79.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 80.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 81.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 82.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 83.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 84.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 85.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 86.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 87.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 88.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 89.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 90.jpg",
+					"audio": {
+						"samples": [
+							{
+								"id": "choir_loud",
+								"trigger": {
+									"type": "intersect",
+									"mode": "mono"
+								},
+								"volume": 1,
+								"delay": 0
+							}
+						]
+					}
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 91.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 92.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 93.jpg"
+				},
+				{
+					"image": "images/3x/de/S1C1 - Slice 94.jpg",
+					"audio": {
+						"music": {
+							"tracks": [
+								{
+									"id": "calmness",
+									"volume": 0
+								},
+								{
+									"id": "tension",
+									"volume": 0
+								}
+							]
+						}
+					}
+				}
+			]
+		}
+	]
+}

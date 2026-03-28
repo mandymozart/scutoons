@@ -1,0 +1,90 @@
+[
+  {
+    "name": "catpope",
+		"label": "Katzenpapst",
+    "image": "images/characters/catpope/catpope.svg",
+		"color": "blue",
+		"images": {
+			"neutral":{
+				"avatar": "images/characters/catpope/catpope_avatar.svg",
+				"portrait": "images/characters/catpope/catpope_portrait.svg",
+				"full": "images/characters/catpope/catpope_full.svg"
+			}
+		},
+    "description": "Zukünftiges Selbst",
+    "collection": "lead"
+  },
+  {
+    "name": "plf",
+		"label": "PLF",
+    "description": "Katzenpapst in menschlicher Gestalt",
+		"image": "images/characters/plf/plf.svg",
+		"color": "lightblue",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/plf/plf_avatar-neutral.png",
+				"portrait": "images/characters/plf/plf_portrait-neutral.png",
+				"full": "images/characters/plf/plf_full.svg"
+			}
+		},
+    "collection": "support"
+  },
+  {
+    "name": "cat",
+		"label": "Katze",
+    "description": "In Katzenform",
+		"image": "images/characters/cat/cat.svg",
+		"color": "darkblue",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/cat/cat_avatar-neutral.png",
+				"portrait": "images/characters/cat/cat_portrait-neutral.png",
+				"full": "images/characters/cat/cat_full.svg"
+			}
+		},
+    "collection": "lead"
+  },
+  {
+    "name": "boy",
+		"label": "Junge",
+		"color": "red",
+    "description": "Katzenpapst sieht Katze und ist vor der Kirche erschrocken",
+		"image": "images/characters/boy/boy.svg",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/boy/boy_avatar.svg",
+				"portrait": "images/characters/boy/boy_portrait.svg",
+				"full": "images/characters/boy/boy_full.svg"
+			}
+		},
+    "collection": "support"
+  },{
+    "name": "crows",
+		"label": "Krähen",
+		"color": "darkgreen",
+    "description": "Krähen, können Zeit und Raum reisen, bringen eine Nachricht aus der Zukunft.",
+    "image": "images/characters/crows/crows.svg",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/crows/crows_avatar.svg",
+				"portrait": "images/characters/crows/crows_portrait.svg",
+				"full": "images/characters/crows/crows_full.svg"
+			}
+		},
+    "collection": "support"
+  },{
+    "name": "mountain-tiger",
+		"label": "Gebirgs Tiger",
+		"color": "yellow",
+    "description": "Grosses Tier, plf kämpft mit sich selbst.",
+		"image": "images/characters/mountain-tiger/mountain-tiger.svg",
+		"images": {
+			"neutral": {
+				"avatar": "images/characters/mountain-tiger/mountain-tiger_avatar.svg",
+				"portrait": "images/characters/mountain-tiger/mountain-tiger_portrait.svg",
+				"full": "images/characters/mountain-tiger/mountain-tiger_full.svg"
+			}
+		},
+    "collection": "lead"
+  }
+]

@@ -106,3 +106,23 @@ export function sanitizeNumber(value, defaultValue = 1, min = 1, max = 999) {
   }
   return num;
 }
+
+/**
+ * Check if running in local development environment
+ * @returns {boolean}
+ */
+export function isLocalDev() {
+  return window.location.hostname === 'localhost';
+}
+
+/**
+ * Check if a chapter/song/item should be visible based on its status
+ * On localhost, draft items are also considered public
+ * @param {Object} item - Item with status field
+ * @returns {boolean}
+ */
+export function isItemPublic(item) {
+  if (!item) return false;
+  const status = item.status || 'published';
+  return status === 'published' || (status === 'draft' && isLocalDev());
+}

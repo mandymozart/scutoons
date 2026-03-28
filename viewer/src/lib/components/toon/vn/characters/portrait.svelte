@@ -1,0 +1,80 @@
+<script lang="ts">
+	import type { VNCharacterRef, Character } from '$lib/models/visual-novel.ts';
+	import { asset } from '$lib/utils/cdn.ts';
+
+		const Z_INDEX_MESSAGE_BOX = 100;
+	const Z_INDEX_ACTIVE_CHARACTER = 101;
+	const Z_INDEX_INACTIVE_BASE = 99;
+
+	let {
+		charRef,
+		character,
+		toonId,
+		isActive = false,
+		stackPosition = 0
+	}: {
+		charRef: VNCharacterRef;
+		character: Character;
+		toonId: string;
+		isActive: boolean;
+		stackPosition: number;
+	} = $props();
+
+	const imagePath = $derived(() => {
+		const variant = 'portrait';
+		const mood = charRef.mood || 'neutral';
+
+		let path =
+			character.images?.[mood]?.[variant] ||
+			character.images?.['neutral']?.[variant] ||
+			character.image;
+
+		if (!path) {
+			console.error(
+				`No image found for character "${character.name}" (mood: ${mood}, variant: ${variant})`
+			);
+			return '';
+		}
+
+		return `${toonId}/${path}`;
+	});
+	const imageUrl = $derived(asset(imagePath()));
+</script>
+
+<div
+	class="character-portrait"
+	class:active={isActive}
+style:right="{stackPosition * 2 + 1.5}rem"
+	style:z-index={isActive ? Z_INDEX_ACTIVE_CHARACTER : Z_INDEX_INACTIVE_BASE - stackPosition}
+	style:filter={isActive ? `drop-shadow(0 0 0.5rem ${character.color})` : ''}
+>
+	<img src={imageUrl} alt={character.label} />
+	{#if charRef.mood}
+		<span class="mood-badge">{charRef.mood}</span>
+	{/if}
+</div>
+
+<style>
+	.character-portrait {
+		position: fixed;
+		bottom: 12rem;
+		max-height: 80vh;
+		max-width: 40vw;
+		display: flex;
+		align-items: flex-end;
+		transition: all 0.3s ease;
+		filter: brightness(0.9);
+	}
+
+	.character-portrait.active {
+		filter: brightness(1);
+		animation: wiggle-portrait 0.5s ease-in-out infinite;
+	}
+
+	.character-portrait img {
+		max-height: 100%;
+		max-width: 100%;
+		object-fit: contain;
+		display: block;
+	}
+</style>

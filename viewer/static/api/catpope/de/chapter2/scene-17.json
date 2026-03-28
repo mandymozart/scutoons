@@ -1,0 +1,15 @@
+{
+  "label": "scene-17",
+  "renderer": { "type": "vertical" },
+  "slices": [
+    {
+      "image": "images/1x/de/s1c2-slice-12.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-13.jpg"
+    },
+    {
+      "image": "images/1x/de/s1c2-slice-14.jpg"
+    }
+  ]
+}

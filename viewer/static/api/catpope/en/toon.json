@@ -1,0 +1,30 @@
+{
+	"id": "catpope",
+	"title": "Cat Pope",
+	"authors": ["Mandy Mozart", "Thomas Dalby"],
+	"chapters": 5,
+	"language": "en",
+	"release": "2025-12-01",
+	"status": "published",
+	"description": "Stories of a cat in a world full of priests, influencers, and conspiracies.",
+	"thumbnail": "images/s1c1-thumbnail.jpg",
+	"cover": {
+		"square": "images/1x/en/s1-cover-square.jpg",
+		"portrait": "images/1x/en/s1-cover-portrait.jpg"
+	},
+	"map": {
+		"layers": {
+			"terrain": "images/map/map-layer-terrain.svg"
+		},
+		"width": 2048,
+		"height": 1046,
+		"center": {
+			"x": 1320,
+			"y": 440
+		}
+	},
+	"download": {
+		"complete": null,
+		"music": "audio/CatPope-Awakening-Music.zip"
+	}
+}
