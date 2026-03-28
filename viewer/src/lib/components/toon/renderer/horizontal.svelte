@@ -7,6 +7,7 @@
 	import 'swiper/css/effect-cube';
 	import 'swiper/css/effect-flip';
 	import 'swiper/css/navigation';
+	import swipeIcon from '$lib/icons/horizontal-swipe-gesture.svg';
 
 	let { group }: { group: Group } = $props();
 	let swiperContainer: HTMLElement;
@@ -163,7 +164,7 @@
 		{/each}
 	</div>
 	<div class="swiper-button-next" class:show-hint={showNavigationHint}>
-		<img src="/icons/horizontal-swipe-gesture.svg" alt="Swipe" />
+		<img src={swipeIcon} alt="Swipe" />
 	</div>
 </div>
 

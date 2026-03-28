@@ -2,6 +2,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';
+	import accountIcon from '$lib/icons/account.svg';
 
 	const membershipCtx = getMembershipContext();
 	const membership = $derived(membershipCtx.membership);
@@ -17,7 +18,7 @@
 {#if membership}
 	<div class="view account">
 		<header class="account-header">
-			<h1><img src="/icons/account.svg" alt="Account" /> {m['account.my_account']()}</h1>
+			<h1><img src={accountIcon} alt="Account" /> {m['account.my_account']()}</h1>
 		</header>
 
 		{#if !isClaimed}

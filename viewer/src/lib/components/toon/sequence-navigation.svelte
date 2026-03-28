@@ -8,6 +8,7 @@
 	import { setContext } from 'svelte';
 	import { onClickOutside } from 'runed';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
+	import listIcon from '$lib/icons/list.svg';
 
 	let {
 		sequence,
@@ -92,7 +93,7 @@
 </script>
 
 <button class="sequence-navigation-toggle" onclick={toggleActive} onkeydown={toggleActive}>
-	<img src="/icons/list.svg" alt="Navigation" />
+	<img src={listIcon} alt="Navigation" />
 </button>
 
 <nav class={`sequence-navigation ${active ? 'active' : ''}`} bind:this={navElement}>
