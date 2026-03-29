@@ -2,13 +2,15 @@
 	import { escapeAndJoin } from '$lib/utils/template.js';
 	import type { PageProps } from './$types.js';
 
-	let { data }:PageProps = $props();
+	let { data }: PageProps = $props();
 
 	let credits = data.credits;
 </script>
 
 <div class="view credits-view">
-	<h1>Credits</h1>
+	<header class="credits-header">
+		<h1>Credits</h1>
+	</header>
 
 	<section>
 		<h2>General Crew</h2>
@@ -72,3 +74,28 @@
 		<p>{@html escapeAndJoin(credits.specialThanks)}</p>
 	</section>
 </div>
+
+<style>
+	.credits-view {
+		max-width: 600px;
+		margin: 5rem auto;
+	}
+	header{
+		padding: 0 1rem;
+		h1 {
+			display: flex;
+			align-items: center;
+			gap: .5rem;
+		}
+		img {
+			width: 4rem;
+		}
+		display: grid;
+		grid-template-columns: auto 1fr;
+		align-items: center;
+		gap: 1rem;
+	}
+	section {
+		padding: 1rem;
+	}
+</style>

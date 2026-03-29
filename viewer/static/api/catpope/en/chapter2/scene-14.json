@@ -20,25 +20,36 @@
     {
       "type": "showMessage",
       "params": {
-        "character":"narrator",
-        "text": "Hi, du bist auf der Suche nach Gurken"
+        "text": "Hi, you are on the search for cucumbers. What do you want to do?"
       }
     },
     {
       "type": "addChoice",
       "params": {
-        "label": "Weiter Spazieren",
+        "label": "Keep strawling",
         "onSelect": {
-          "jumpTo": "scene-15"
+          "jumpTo": {
+						"target":{
+							"type": "chapter",
+							"value": 2,
+							"label":"scene-15"
+						}
+					}
         }
       }
     },
     {
       "type": "addChoice",
       "params": {
-        "label": "Auf Arbeit",
+        "label": "Go to work",
         "onSelect": {
-          "jumpTo": "scene-20"
+          "jumpTo": {
+						"target":{
+							"type": "chapter",
+							"value": 2,
+							"label":"scene-20"
+						}
+					}
         }
       }
     },
@@ -48,7 +59,13 @@
     {
       "type": "end",
       "params": {
-        "jumpTo": "scene-20"
+        "jumpTo": {
+					"target":{
+						"type": "chapter",
+						"value": 2,
+						"label":"scene-20"
+					}
+				}
       }
     }
   ]

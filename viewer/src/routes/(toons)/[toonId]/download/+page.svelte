@@ -31,16 +31,17 @@
 			{/if}
 
 			{#if data.toon.download?.complete}
-				<div class="download-item">
-					<h2>{data.toon.title} - Complete</h2>
-					<button onclick={() => handleDownload(asset(data.toon.download.complete))}>
-						Download Complete
-					</button>
-				</div>
+				{@const downloadUrl = data.toon.download.complete}
+	<div class="download-item">
+		<h2>{data.toon.title} - Complete</h2>
+		<button onclick={() => handleDownload(asset(downloadUrl))}>
+			Download Complete
+		</button>
+	</div>
 			{/if}
 
 			<div class="back-section">
-				<button onclick={goBack}>← {m.download.read_webtoon()}</button>
+				<button onclick={goBack}>← {m['download.read_webtoon']()}</button>
 			</div>
 		</div>
 	</div>

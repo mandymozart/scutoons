@@ -5,9 +5,19 @@
 	"slogan": "Töne für deinen Bildschirm",
 	"next_release": "NÄCHSTE VERÖFFENTLICHUNG",
 	"limited_editions": "Exklusive Editionen kaufen",
-	"buy": "Kaufen",
-	"chapter": "Kapitel {number}",
-	"song": "Lied {number}",
+	"shop": {
+		"title": "SCUTOONS Shop",
+		"description": "Entdecke unsere exklusiven Limited-Editions mit deinen Lieblings-SCUTOONS-Charakteren.\n\nJedes Stück wird sorgfältig gefertigt und so gestaltet, dass es dir ein Lächeln ins Gesicht zaubert. Durchstöbere unsere\n\nSammlung und finde das perfekte Stück für deine SCUTOONS-Sammlung!",
+		"buy": "Kaufen",
+		"sold_out": "Ausverkauft",
+		"limited_edition_of": "Limitierte Auflage von {edition}"
+	},
+	"common":{
+		"chapter": "Kapitel {number}",
+		"song": "Lied {number}",
+		"loading": "Geduld ...",
+		"cancel": "Abbrechen"
+	},
 	"upcoming_events": "Kommende Veranstaltungen",
 	"past_events": "Vergangene Veranstaltungen",
 	"sequence_navigation": {
@@ -50,5 +60,8 @@
 	},
 	"inventory": {
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"
+	},
+	"chapter": {
+		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht."
 	}
 }

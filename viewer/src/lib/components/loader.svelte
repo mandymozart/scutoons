@@ -7,7 +7,7 @@
 	<img src="/SCUTOONS-logo-animated.svg" alt="Patience ..." /><br />
 	{m['common.loading']()}<br />
 	{#if oncancel}
-		<button onclick={oncancel}>{m['common.cancel']()}</button>
+		<button class="btn btn-secondary" onclick={oncancel}>{m['common.cancel']()}</button>
 	{/if}
 </div>
 
@@ -29,5 +29,11 @@
 
 	.hidden {
 		display: none;
+	}
+	.btn {
+		position: absolute;
+		bottom: 2rem;
+		right: 2rem;
+		left: 2rem;
 	}
 </style>

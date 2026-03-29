@@ -22,7 +22,7 @@
 	<div class="chapter-view" use:audio={data.chapter.audio}>
 		{#if isDev}
 			<div class="debug">
-				<h2>{m.chapter({ number: data.chapter.number })}</h2>
+				<h2>{m['common.chapter']({ number: data.chapter.number })}</h2>
 				<p>{data.chapter.description}</p>
 				{#if data.chapter.isPreview}
 					<p>Preview</p>
@@ -36,7 +36,11 @@
 			{#if group}
 				<Group {group} />
 			{:else}
-				<p>Group not found for label: {currentLabel}</p>
+				{#if data.chapter.published}
+					<p>Group not found for label: {currentLabel}</p>
+					{:else}
+						<p>{m['chapter.not_public']()}</p>
+				{/if}
 			{/if}
 		{/key}
 	</div>

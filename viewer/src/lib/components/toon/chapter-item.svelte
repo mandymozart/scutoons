@@ -50,7 +50,6 @@
 		</div>
 	</div>
 	<div class="chapter-number">
-		<img class="chapter-icon" src={chapterIcon} alt="Chapter" />
 		{isPublic ? ' ' : ''}#{chapter.number}
 	</div>
 </div>
@@ -78,11 +77,6 @@
 
 	.chapter-item .chapter-thumbnail {
 		width: 100%;
-		height: auto;
-	}
-
-	.chapter-item .chapter-icon {
-		width: 1rem;
 		height: auto;
 	}
 

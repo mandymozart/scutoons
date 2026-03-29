@@ -17,10 +17,6 @@
 	},
 	"sequence": [
 		{
-			"type": "song",
-			"number": 1
-		},
-		{
 			"type": "chapter",
 			"number": 1
 		},

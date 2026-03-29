@@ -68,6 +68,7 @@ export function createGameContext(toonId: string) {
 	}
 
 	function hasCheckpoint(uri: string) {
+		if (!Array.isArray(state.progress)) return false;
 		return state.progress.some((p) => p.uri === uri);
 	}
 

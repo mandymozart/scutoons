@@ -5,9 +5,19 @@
 	"slogan": "Tunes for your screen",
 	"next_release": "NEXT RELEASE",
 	"limited_editions": "Limited Editions",
-	"buy": "Buy",
-	"chapter": "Chapter {number}",
-	"song": "Song {number}",
+	"shop": {
+		"title": "SCUTOONS Shop",
+		"description": "Discover our exclusive Limited-Editions with your favorite SCUTOONS characters.\n\nEach piece is carefully crafted and designed to bring a smile to your face. Browse our\n\ncollection and find the perfect piece for your SCUTOONS collection!",
+		"buy": "Buy",
+		"sold_out": "Sold Out",
+		"limited_edition_of": "Limited edition of {edition}"
+	},
+	"common":{
+		"chapter": "Chapter {number}",
+		"song": "Song {number}",
+		"loading": "Patience ...",
+		"cancel": "Cancel"
+	},
 	"upcoming_events": "Upcoming Events",
 	"past_events": "Past Events",
 	"sequence_navigation": {

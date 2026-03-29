@@ -32,7 +32,7 @@
 	});
 </script>
 
-<div class="swiper gallery-tshirt-white" bind:this={swiperContainer}>
+<div class="swiper" bind:this={swiperContainer}>
 	<div class="swiper-wrapper">
 		{#each product.images as image}
 			<div class="swiper-slide"><img src={asset(image)} alt={label} /></div>

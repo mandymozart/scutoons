@@ -14,7 +14,7 @@
 			.join(' ')
 	);
 
-	let autoPlayInterval: NodeJS.Timeout;
+	let autoPlayInterval: ReturnType<typeof setInterval>;
 
 	onMount(() => {
 		autoPlayInterval = setInterval(() => {
@@ -25,36 +25,34 @@
 	});
 </script>
 
-<div class="product-card">
+<div class="product-item">
 	<div class="image-container">
 		<img src={asset(product.images[currentImageIndex])} alt={displayName} />
 	</div>
 	<div class="product-info">
-		<div>
-			<h3>{displayName}</h3>
-			<p class="price">{product.price}</p>
-			<p class="edition">Limited edition of {product.edition}</p>
-		</div>
+		<h3>{displayName}</h3>
+		<p class="price">{product.price}</p>
+		<p class="edition">{m['shop.limited_edition_of']({ edition: product.edition })}</p>
 		{#if product.soldOut}
-			<button class="btn disabled" disabled>Sold Out</button>
+			<button class="btn disabled" disabled>{m['shop.sold_out']()}</button>
 		{:else}
-			<a href={product.link} target="_blank" rel="noopener noreferrer" class="btn">{m.buy()}</a>
+			<a href={product.link} target="_blank" rel="noopener noreferrer" class="btn"
+				>{m['shop.buy']()}</a
+			>
 		{/if}
 	</div>
 </div>
 
 <style>
-	.product-card {
+	.product-item {
 		display: flex;
 		flex-direction: column;
-		background: #fff;
 		height: 100%;
 	}
 
 	.image-container {
 		position: relative;
 		width: 100%;
-		background: #f9f9f9;
 		overflow: hidden;
 		flex-shrink: 0;
 	}
@@ -67,7 +65,7 @@
 	}
 
 	.product-info {
-		padding: 1.5rem 0;
+		padding: 1rem 0;
 		flex-grow: 1;
 		display: flex;
 		flex-direction: column;
@@ -77,28 +75,14 @@
 	.product-info h3 {
 		margin: 0;
 		font-size: 1rem;
-		font-weight: 600;
-		line-height: 1.3;
 	}
 
 	.price {
 		margin: 0.5rem 0 0 0;
-		font-size: 0.95rem;
-		font-weight: 600;
-		color: #333;
 	}
 
 	.edition {
-		margin: 0.25rem 0 0 0;
-		font-size: 0.85rem;
-		color: #666;
+		margin: 0.25rem 0 .5rem 0;
+		font-size: 0.75rem;
 	}
-
-	.btn {
-		display: inline-block;
-		margin-top: auto;
-		padding-top: 0.75rem;
-		align-self: flex-start;
-	}
-
 </style>
