@@ -3,7 +3,7 @@
 		"link": "https://mandymozart.bandcamp.com/merch/cat-pope-dago-hoodie",
 		"price": "99.90 EUR",
 		"edition": 4,
-		"soldOut": false,
+		"soldOut": true,
 		"images": [
 			"catpope/merch/1_catpope_dago_hoodie_black_web-31.jpg",
 			"catpope/merch/1_catpope_dago_hoodie_black_web-32.jpg",
@@ -43,7 +43,7 @@
 		"link": "https://mandymozart.bandcamp.com/merch/cat-pope-dago-hoodie",
 		"price": "99.90 EUR",
 		"edition": 4,
-		"soldOut": false,
+		"soldOut": true,
 		"images": [
 			"catpope/merch/1_catpope_dago_hoodie_grey_web-22.jpg",
 			"catpope/merch/1_catpope_dago_hoodie_grey_web-23.jpg",
@@ -81,7 +81,7 @@
 		"link": "https://mandymozart.bandcamp.com/merch/cat-pope-dago-heavy-t",
 		"price": "59.90 EUR",
 		"edition": 12,
-		"soldOut": false,
+		"soldOut": true,
 		"images": [
 			"catpope/merch/1_catpope_dago_heavy_t_black_web-7.jpg",
 			"catpope/merch/1_catpope_dago_heavy_t_black_web-8.jpg",

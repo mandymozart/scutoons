@@ -11,7 +11,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
 	let response = await fetch(
 		`${API_BASE}/${params.toonId}/${getLocale()}/chapter${params.chapterNumber}.json`
 	);
-	if(!response.ok) throw error(404,`${m.chapter({number: params.chapterNumber})} not found in ${getLocale().toUpperCase()}`);
+	if(!response.ok) throw error(404,`${m['common.chapter']({number: params.chapterNumber})} not found in ${getLocale().toUpperCase()}`);
 	const chapter: Chapter = await response.json();
 
 	// populate Groups

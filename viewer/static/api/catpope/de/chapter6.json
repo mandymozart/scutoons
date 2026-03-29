@@ -129,7 +129,13 @@
 						{
 							"type": "jumpTo",
 							"trigger": {
-								"type": "click"
+								"type": "click",
+								"rect": {
+									"x": 0,
+									"y":0,
+									"height": 100,
+									"width": 100
+								}
 							},
 							"params": {
 								"target": {
@@ -253,10 +259,10 @@
 							"trigger": {
 								"type": "click",
 								"rect": {
-									"x": 1,
-									"y": 1,
-									"height": 10,
-									"width": 10
+									"x": 0,
+									"y": 0,
+									"height": 100,
+									"width": 100
 								}
 							},
 							"params": {

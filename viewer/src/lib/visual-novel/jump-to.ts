@@ -2,7 +2,7 @@ import type { JumpToTarget } from '$lib/models/content.ts';
 
 export function buildJumpToUrl(target: JumpToTarget, toonId: string): string | null {
 	let url: string;
-	
+	console.log('Building jumpTo URL for target', target, 'and toonId', toonId);
 	switch (target.type) {
 		case 'chapter':
 			url = `/${toonId}/chapter/${target.value}`;
@@ -14,7 +14,7 @@ export function buildJumpToUrl(target: JumpToTarget, toonId: string): string | n
 			url = `/${toonId}/season/${target.value}`;
 			break;
 		case 'toon':
-			url = `/${toonId}`;
+			url = `/${target.value}`;
 			break;
 		case 'product':
 			url = `/shop/product/${target.value}`;

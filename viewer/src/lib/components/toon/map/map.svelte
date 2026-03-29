@@ -25,8 +25,8 @@
 	const nav = getNavigationContext();
 	const mapVisible = $derived(nav.isOpen('map'));
 
-	const toon = $derived(page.data.toon as Toon);
-	const map = $derived(toon.map as Map);
+const toon = $derived(page.data?.toon as Toon | undefined);
+const map = $derived(toon?.map as Map | undefined);
 
 	let mapContainer = $state<HTMLDivElement | null>(null);
 	let mapElement = $state<HTMLDivElement>();
@@ -42,7 +42,7 @@
 	}
 
 	$effect(() => {
-		if (mapContainer) {
+		if (mapContainer && map) {
 			recalculateCenterOffset();
 			const resizeObserver = new ResizeObserver(() => {
 				recalculateCenterOffset();
@@ -85,65 +85,82 @@
 			)
 		);
 	}
-	$inspect(map);
 </script>
 
 <button class="map-toggle" onclick={toggleMap}><img src={mapIcon} alt="Map" /></button>
 
-<div class="map {mapVisible ? 'visible' : 'hidden'}" bind:this={mapElement}>
-	<img class="frame frame--1" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
-	<img class="frame frame--2" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
-	<img class="frame frame--3" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
-	<img class="frame frame--4" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
+{#if map}
+	<div class="map {mapVisible ? 'visible' : 'hidden'}" bind:this={mapElement}>
+		<img
+			class="frame frame--1"
+			src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)}
+			alt=""
+		/>
+		<img
+			class="frame frame--2"
+			src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)}
+			alt=""
+		/>
+		<img
+			class="frame frame--3"
+			src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)}
+			alt=""
+		/>
+		<img
+			class="frame frame--4"
+			src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)}
+			alt=""
+		/>
 
-	<div class="map-viewport" bind:this={mapContainer}>
-		<div
-			class="map-content"
-			style:transform="translate({centerOffsetX + coordinates.x}px, {centerOffsetY +
-				coordinates.y}px) scale({zoom})"
-			style:width="{map.width}px"
-			style:height="{map.height}px"
-		>
-			<!-- Background layer -->
-			<div class="layer layer-background"></div>
+		<div class="map-viewport" bind:this={mapContainer}>
+			<div
+				class="map-content"
+				style:transform="translate({centerOffsetX + coordinates.x}px, {centerOffsetY +
+					coordinates.y}px) scale({zoom})"
+				style:width="{map.width}px"
+				style:height="{map.height}px"
+			>
+				<!-- Background layer -->
+				<div class="layer layer-background"></div>
 
-			<!-- Custom layers -->
-			<Layers layers={map.layers} width={map.width} height={map.height} />
+				<!-- Custom layers -->
+				<Layers layers={map.layers} width={map.width} height={map.height} />
 
-			<!-- Routes layer -->
-			<div class="layer layer-routes">
-				<Routes width={map.width} height={map.height} {routes} {locations} />
-			</div>
+				<!-- Routes layer -->
+				<div class="layer layer-routes">
+					<Routes width={map.width} height={map.height} {routes} {locations} />
+				</div>
 
-			<!-- Locations layer -->
-			<div class="layer layer-locations">
-				{#each locations as location}
-					<button
-						class="location"
-						style:left="{location.coordinates.x}px"
-						style:top="{location.coordinates.y}px"
-						onclick={() => handleLocationClick(location)}
-						title={location.label}
-					>
-					</button>
-				{/each}
-			</div>
+				<!-- Locations layer -->
+				<div class="layer layer-locations">
+					{#each locations as location}
+						<button
+							class="location"
+							style:left="{location.coordinates.x}px"
+							style:top="{location.coordinates.y}px"
+							onclick={() => handleLocationClick(location)}
+							title={location.label}
+						>
+						</button>
+					{/each}
+				</div>
 
-			<!-- Labels layer -->
-			<div class="layer layer-labels">
-				{#each locations as location}
-					<span
-						class="label"
-						style:left="{location.coordinates.x}px"
-						style:top="{location.coordinates.y - 25}px"
-					>
-						{location.label}
-					</span>
-				{/each}
+				<!-- Labels layer -->
+				<div class="layer layer-labels">
+					{#each locations as location}
+						<span
+							class="label"
+							style:left="{location.coordinates.x}px"
+							style:top="{location.coordinates.y - 25}px"
+						>
+							{location.label}
+						</span>
+					{/each}
+				</div>
 			</div>
 		</div>
 	</div>
-</div>
+{/if}
 
 <style>
 	.map-toggle {
@@ -322,7 +339,6 @@
 		transform: translateX(-50%);
 		transition-delay: 4s;
 		transition: opacity 1s
-
 			linear(
 				0,
 				0.109 9.8%,

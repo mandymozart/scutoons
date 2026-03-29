@@ -28,7 +28,13 @@
       "params": {
         "label": "Weiter Spazieren",
         "onSelect": {
-          "jumpTo": "scene-15"
+          "jumpTo": {
+						"target":{
+							"type": "chapter",
+							"value": 2,
+							"label":"scene-15"
+						}
+					}
         }
       }
     },
@@ -37,7 +43,13 @@
       "params": {
         "label": "Auf Arbeit",
         "onSelect": {
-          "jumpTo": "scene-20"
+          "jumpTo": {
+						"target":{
+							"type": "chapter",
+							"value": 2,
+							"label":"scene-20"
+						}
+					}
         }
       }
     },
@@ -47,7 +59,13 @@
     {
       "type": "end",
       "params": {
-        "jumpTo": "scene-20"
+        "jumpTo": {
+					"target":{
+						"type": "chapter",
+						"value": 2,
+						"label":"scene-20"
+					}
+				}
       }
     }
   ]

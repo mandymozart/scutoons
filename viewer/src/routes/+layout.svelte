@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { localizeHref, locales } from '$lib/paraglide/runtime.js';
-	import { page } from '$app/state';
+	import { page, navigating } from '$app/state';
 	import { goto } from '$app/navigation';
 	import type { LayoutData } from './$types.js';
 	import { onMount, type Snippet } from 'svelte';
 	import Header from '$lib/components/header.svelte';
+	import Loader from '$lib/components/loader.svelte';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { initAnimatedFavicon } from '$lib/utils/favicon.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
-	let toons = data.toons;
+	let toons = $derived(data.toons);
 	const membership = setMembershipContext();
+
 
 	onMount(async () => {
 		initAnimatedFavicon();
@@ -28,6 +30,8 @@
 		}
 	});
 </script>
+
+<Loader visible={!!navigating.to} oncancel={() => goto(page.url.href, { noScroll: true })} />
 
 <Header {toons} />
 
