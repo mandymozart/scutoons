@@ -28,11 +28,10 @@
 {:else}
 	<div class="view view-membership-blocker">
 		<header>
-			<h1><img src={accountIcon} alt="Account" /> Mitgliedschaft erforderlich</h1>
+			<h1><img src={accountIcon} alt="Account" />  {m['membership_blocker.title']()}</h1>
 		</header>
 		<section class="membership-required">
 			<div class="membership-card">
-				<h2>🔒 {m['membership_blocker.title']()}</h2>
 				<p>{m['membership_blocker.description']()}</p>
 
 				<div class="membership-info">
@@ -82,11 +81,5 @@
 	}
 	section {
 		padding: 1rem;
-	}
-	.membership-required {
-		border: 4px solid #000;
-		max-width: 800px;
-		margin: 0 auto;
-		padding: 2rem;
 	}
 </style>
