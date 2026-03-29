@@ -43,7 +43,7 @@
 			<table>
 				<tbody>
 					<tr><td>{m['account.type']()}</td><td>{m[`account.${membership.type}`]()}</td></tr>
-					<tr><td>{m['account.status']()}</td><td>{isClaimed ? m['account.claimed']() : m['account.not_claimed']}</td></tr>
+					<tr><td>{m['account.status']()}</td><td>{isClaimed ? m['account.claimed']() : m['account.not_claimed']()}</td></tr>
 					<tr><td>{m['account.valid_until']()}</td><td>{expiryText}</td></tr>
 					<tr><td>{m['account.code']()}</td><td>{membership.code}</td></tr>
 				</tbody>
