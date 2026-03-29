@@ -61,5 +61,14 @@
 	},
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"
+	},
+	"membership_blocker": {
+		"title": "Membership Required",
+		"description": "This content requires a valid SCUTOONS membership.",
+		"how_to_access": "How to get access:",
+		"step_1": "Scan a valid SCUTOONS QR code or enter a code at qr.scutoons.com.",
+		"step_2": "You will be automatically redirected to this page",
+		"step_3": "QR codes can be found on all SCUTOONS Limited Editions",
+		"invalid_code": "⚠️ The scanned QR code is not a valid membership code."
 	}
 }

@@ -18,7 +18,7 @@
 	);
 </script>
 
-<MembershipBlocker chapterNumber={data.chapter.number} isPreview={data.chapter.isPreview}>
+<MembershipBlocker isPreview={data.chapter.isPreview}>
 	<div class="chapter-view" use:audio={data.chapter.audio}>
 		{#if isDev}
 			<div class="debug">

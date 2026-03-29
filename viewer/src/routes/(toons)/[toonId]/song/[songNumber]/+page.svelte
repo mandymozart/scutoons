@@ -1,5 +1,4 @@
 <script lang="ts">
-	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { page } from '$app/state';
@@ -17,8 +16,7 @@
 	let audioSrc = $derived(asset(`${page.params.toonId}/${song.src}`))
 </script>
 
-<MembershipBlocker songNumber={song.number} isPreview={song.isPreview}>
-	<div class="song-view">
+<div class="song-view">
 		{#if hasVideo}
 			<div class="song-video">
 				<iframe
@@ -43,7 +41,6 @@
 			{/if}
 		</div>
 	</div>
-</MembershipBlocker>
 
 <style>
 

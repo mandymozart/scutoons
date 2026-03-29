@@ -64,5 +64,14 @@
 	},
 	"chapter": {
 		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht."
+	},
+	"membership_blocker": {
+		"title": "Mitgliedschaft erforderlich",
+		"description": "Dieser Inhalt erfordert eine gültige SCUTOONS-Mitgliedschaft.",
+		"how_to_access": "So erhältst du Zugang:",
+		"step_1": "Scanne einen gültigen SCUTOONS QR-Code oder gib einen Code auf qr.scutoons.com ein.",
+		"step_2": "Du wirst automatisch zu dieser Seite weitergeleitet",
+		"step_3": "QR Codes findest du auf allen SCUTOONS Limited Editions",
+		"invalid_code": "⚠️ Der gescannte QR-Code ist kein gültiger Mitgliedschaftscode."
 	}
 }
