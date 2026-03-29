@@ -1,16 +1,15 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { getMembershipContext } from '../../contexts/membership.svelte.ts';
 	import type { Snippet } from 'svelte';
+	import accountIcon from '$lib/icons/account.svg';
 
 	let {
 		chapterNumber = null,
-		songNumber = null,
 		isPreview = false,
 		children
 	}: {
 		chapterNumber?: number | null;
-		songNumber?: number | null;
 		isPreview?: boolean;
 		children: Snippet;
 	} = $props();
@@ -23,10 +22,9 @@
 	};
 
 	const safeChapterNumber = sanitizeNumber(chapterNumber, 1, 1, 999);
-	const safeSongNumber = sanitizeNumber(songNumber, 1, 1, 999);
-	const contentType = songNumber ? 'Song' : 'Kapitel';
-	const contentNumber = songNumber ? safeSongNumber : safeChapterNumber;
-	const actionText = songNumber ? 'zu hören' : 'zu lesen';
+	const contentType = 'Kapitel';
+	const contentNumber = safeChapterNumber;
+	const actionText = 'zu lesen';
 
 	const shouldShowContent = $derived(isPreview || membership.isValid);
 
@@ -38,10 +36,12 @@
 {#if shouldShowContent}
 	{@render children()}
 {:else}
-	<div class="view membership-required-view">
-		<div class="membership-required">
+	<div class="view view-membership-blocker">
+		<header>
+			<h1><img src={accountIcon} alt="Account" /> Mitgliedschaft erforderlich</h1>
+		</header>
+		<section class="membership-required">
 			<div class="membership-card">
-				<h2>🔒 Mitgliedschaft erforderlich</h2>
 				<p>
 					Um {contentType}
 					{contentNumber}
@@ -71,15 +71,37 @@
 					</div>
 				{/if}
 			</div>
-		</div>
+		</section>
 	</div>
 {/if}
 
 <style>
+	.view.view-membership-blocker {
+		max-width: 800px;
+		margin: 5rem auto;
+	}
+	header {
+		padding: 0 1rem;
+		h1 {
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+		}
+		img {
+			width: 4rem;
+		}
+		display: grid;
+		grid-template-columns: auto 1fr;
+		align-items: center;
+		gap: 1rem;
+	}
+	section {
+		padding: 1rem;
+	}
 	.membership-required {
-  border: 4px solid #000;
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-}
+		border: 4px solid #000;
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 2rem;
+	}
 </style>

@@ -8,7 +8,6 @@
 	const membership = $derived(membershipCtx.membership);
 
 	const expiryText = $derived(membership?.expires_at || 'Lifetime');
-	const claimedText = $derived(membership?.claimed_at || 'Not claimed');
 	const isClaimed = $derived(membership?.email || false);
 	function signOut() {
 		membershipCtx.clear();
@@ -16,15 +15,15 @@
 </script>
 
 {#if membership}
-	<div class="view account">
+	<div class="view view-account">
 		<header class="account-header">
 			<h1><img src={accountIcon} alt="Account" /> {m['account.my_account']()}</h1>
 		</header>
 
 		{#if !isClaimed}
-			<div class="notification">
+			<section class="notification">
 				<p>
-					🔔 {m['account.claim_membership_reminder']()} 
+					🔔 {m['account.claim_membership_reminder']()}
 				</p>
 				<p>
 					<a
@@ -36,14 +35,18 @@
 						{m['account.claim_membership']()}
 					</a>
 				</p>
-			</div>
+			</section>
 		{/if}
 
 		<section>
 			<table>
 				<tbody>
 					<tr><td>{m['account.type']()}</td><td>{m[`account.${membership.type}`]()}</td></tr>
-					<tr><td>{m['account.status']()}</td><td>{isClaimed ? m['account.claimed']() : m['account.not_claimed']()}</td></tr>
+					<tr
+						><td>{m['account.status']()}</td><td
+							>{isClaimed ? m['account.claimed']() : m['account.not_claimed']()}</td
+						></tr
+					>
 					<tr><td>{m['account.valid_until']()}</td><td>{expiryText}</td></tr>
 					<tr><td>{m['account.code']()}</td><td>{membership.code}</td></tr>
 				</tbody>
@@ -51,7 +54,6 @@
 			<button class="btn btn-sign-out" onclick={signOut}>{m['account.sign_out']()}</button>
 		</section>
 
-		
 		{#if membership.email}
 			<section>
 				<h2>{m['account.account_data']()}</h2>
@@ -67,9 +69,23 @@
 			<h2>{m['account.timeline']()}</h2>
 			<table>
 				<tbody>
-					<tr><td>{m['account.created_at']()}</td><td>{formatDate(new Date(membership.created_at))}</td></tr>
-					<tr><td>{m['account.claimed_at']()}</td><td>{membership.claimed_at ? formatDate(new Date(membership.claimed_at)) : m['account.not_claimed']()}</td></tr>
-					<tr><td>{m['account.validated_at']()}</td><td>{formatDate(new Date(membership.validated_at))}</td></tr>
+					<tr
+						><td>{m['account.created_at']()}</td><td
+							>{formatDate(new Date(membership.created_at))}</td
+						></tr
+					>
+					<tr
+						><td>{m['account.claimed_at']()}</td><td
+							>{membership.claimed_at
+								? formatDate(new Date(membership.claimed_at))
+								: m['account.not_claimed']()}</td
+						></tr
+					>
+					<tr
+						><td>{m['account.validated_at']()}</td><td
+							>{formatDate(new Date(membership.validated_at))}</td
+						></tr
+					>
 				</tbody>
 			</table>
 		</section>
@@ -77,29 +93,33 @@
 		<section>
 			<h2>{m['account.technical']()}</h2>
 			<div class="technical">
-				{m['account.redirect_to']()}:<br/>
+				{m['account.redirect_to']()}:<br />
 				{membership.redirect_to}
 			</div>
 		</section>
 	</div>
 {:else}
-	<div class="view account-view">
-		<h1>{m['account.my_account']()}</h1>
-		<p>{m['account.no_membership_message']()}</p>
+	<div class="view view-account">
+		<header>
+			<h1>{m['account.my_account']()}</h1>
+		</header>
+		<section>
+			<p>{m['account.no_membership_message']()}</p>
+		</section>
 	</div>
 {/if}
 
 <style>
-	.view.account {
+	.view.view-account {
 		max-width: 600px;
 		margin: 5rem auto;
 	}
-	header{
+	header {
 		padding: 0 1rem;
 		h1 {
 			display: flex;
 			align-items: center;
-			gap: .5rem;
+			gap: 0.5rem;
 		}
 		img {
 			width: 4rem;

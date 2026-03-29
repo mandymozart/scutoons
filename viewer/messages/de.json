@@ -14,7 +14,6 @@
 	},
 	"common":{
 		"chapter": "Kapitel {number}",
-		"song": "Lied {number}",
 		"loading": "Geduld ...",
 		"cancel": "Abbrechen"
 	},

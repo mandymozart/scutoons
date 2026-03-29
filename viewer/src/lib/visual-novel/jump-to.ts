@@ -7,9 +7,6 @@ export function buildJumpToUrl(target: JumpToTarget, toonId: string): string | n
 		case 'chapter':
 			url = `/${toonId}/chapter/${target.value}`;
 			break;
-		case 'song':
-			url = `/${toonId}/song/${target.value}`;
-			break;
 		case 'season':
 			url = `/${toonId}/season/${target.value}`;
 			break;

@@ -14,7 +14,6 @@
 	},
 	"common":{
 		"chapter": "Chapter {number}",
-		"song": "Song {number}",
 		"loading": "Patience ...",
 		"cancel": "Cancel"
 	},

@@ -61,10 +61,7 @@
 </div>
 
 <div class="main-menu">
-	<div
-		bind:this={menuElement}
-		class={`menu ${menuOpen ? 'open' : 'closed'}`}
-	>
+	<div bind:this={menuElement} class={`menu ${menuOpen ? 'open' : 'closed'}`}>
 		<div class="menu-header">
 			<nav class="nav nav--account">
 				<ul class="nav-list">
@@ -81,6 +78,7 @@
 							</button>
 						{:else}
 							<button class="nav-btn" onclick={() => navigate(localizeHref('/shop'))}>
+								<img src={accountIcon} alt={m['account.buy_access']()} />
 								<span>{m['account.buy_access']()}</span>
 							</button>
 						{/if}

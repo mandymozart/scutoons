@@ -17,7 +17,6 @@
 		sequence: LoadedSequenceItem[];
 		params: {
 			toonId: string;
-			songNumber?: string;
 			chapterNumber?: string;
 		};
 	} = $props();
@@ -28,12 +27,6 @@
 				params.chapterNumber &&
 				item.type === 'chapter' &&
 				item.number.toString() === params.chapterNumber
-			)
-				return item;
-			else if (
-				params.songNumber &&
-				item.type === 'song' &&
-				item.number.toString() === params.songNumber
 			)
 				return item;
 		});

@@ -50,7 +50,6 @@ export enum OnomatopoeiaEffect {
 
 export enum JumpToTargetType {
 	CHAPTER = "chapter",
-	SONG = "song",
 	SEASON = "season",
 	TOON = "toon",
 	PRODUCT = "product",

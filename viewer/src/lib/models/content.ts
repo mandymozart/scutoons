@@ -59,7 +59,6 @@ export interface MapLocation {
 	label: string;
 	toonId: string;
 	chapterNumber?: string;
-	songNumber?: string;
 	type: string;
 	image: string;
 	coordinates: MapCoordinates;
@@ -118,7 +117,7 @@ export interface Group {
 export interface RefLink {
 	id: string;
 	src: string;
-	type: 'chapter' | 'group' | 'song'; // db type
+	type: 'chapter' | 'group'; // db type
 }
 
 export interface Chapter {
@@ -141,29 +140,12 @@ export interface ChapterWithId extends Chapter {
 	id: number;
 }
 
-export interface Song {
-	title: string;
-	author?: string;
-	number: number;
-	language: Language;
-	published: boolean;
-	release: string;
-	status: Status;
-	description: string;
-	thumbnail: string;
-	src: string;
-	isPreview?: boolean;
-}
-
-export interface SongWithId extends Song {
-	id: number;
-}
-
 export interface Cover {
 	square?: string;
 	portrait?: string;
 }
 
+/* @deprecated */
 export interface Credits {
 	artist?: string[];
 	writer?: string;
@@ -171,11 +153,13 @@ export interface Credits {
 	sound?: string[];
 }
 
+/* @deprecated */
 export interface Person {
 	name: string;
 	roles: string[];
 }
 
+/* @deprecated */
 export interface PerformanceCast {
 	name: string;
 	venue: string;
@@ -184,11 +168,13 @@ export interface PerformanceCast {
 	members: Person[];
 }
 
+/* @deprecated */
 export interface SongCredits {
 	title: string;
 	credits: Person[];
 }
 
+/* @deprecated */
 export interface FullCredits {
 	general: Person[];
 	songs: SongCredits[];
@@ -197,7 +183,7 @@ export interface FullCredits {
 }
 
 export interface SequenceItem {
-	type: 'song' | 'chapter';
+	type: 'chapter';
 	number: number;
 }
 
@@ -250,7 +236,7 @@ export interface ToonIndex {
 	i18n: Record<string, Record<string, string>>;
 }
 
-export type LoadedSequenceItem = (Chapter | Song) & {
-	type: 'chapter' | 'song';
+export type LoadedSequenceItem = (Chapter) & {
+	type: 'chapter';
 	number: number;
 };

@@ -1,8 +1,8 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.ts';
 import { API_BASE } from '$lib/config.ts';
-import type { LoadedSequenceItem, Season, Chapter, Song } from '$lib/models/content.ts';
-import { sanitizeNumber, isItemPublic } from '$lib/utils/template.ts';
+import type { LoadedSequenceItem, Chapter } from '$lib/models/content.ts';
+import { isItemPublic } from '$lib/utils/template.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
 export const load: PageLoad = async ({ fetch, params }) => {
@@ -23,9 +23,9 @@ export const load: PageLoad = async ({ fetch, params }) => {
 					`${API_BASE}/${params.toonId}/${lang}/${item.type}${item.number}.json`
 				);
 				if (!response.ok) throw error(404, `Failed to load ${item.type} ${item.number}`);
-				const song = await response.json();
+				const data = await response.json();
 				sequence.push({
-					...song,
+					...data,
 					type: item.type,
 					number: item.number
 				});
@@ -35,7 +35,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
 		}
 
 		// Filter to only show public items (published or draft in dev mode)
-		const filteredSequence = sequence.filter((item) => isItemPublic(item as Chapter | Song));
+		const filteredSequence = sequence.filter((item) => isItemPublic(item as Chapter));
 
 		if (toon && season) return { toon, season, sequence: filteredSequence };
 	} catch (e) {

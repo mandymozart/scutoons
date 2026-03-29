@@ -32,7 +32,7 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 		if (!response3.ok)
 			throw error(
 				404,
-				`Failed to load song ${m[item.type]({ number: item.number })} (${lang}). Please use the German default for now until we were able to catch up.`
+				`Failed to load sequence item ${m['common.chapter']({ number: item.number })} (${lang}). Please use the German default for now until we were able to catch up.`
 			);
 		const loadedItem = await response3.json();
 		if (isItemPublic(loadedItem))
