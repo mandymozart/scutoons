@@ -17,14 +17,10 @@
 	},
 		"sequence": [
 		{
-			"type": "song",
-			"number": 0
-		},
-		{
 			"type": "chapter",
 			"number": 1
 		},
-				{
+		{
 			"type": "chapter",
 			"number": 2
 		},

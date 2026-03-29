@@ -70,8 +70,8 @@
 					<li class="nav-item">
 						{#if isClaimed}
 							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
-								<img src={accountIcon} alt="Account" />
-								<span>My Account</span>
+								<img src={accountIcon} alt="{m['account.my_account']()}" />
+								<span>{m['account.my_account']()}</span>
 							</button>
 						{/if}
 					</li>
