@@ -56,7 +56,8 @@
 		"created_at": "Created At",
 		"technical": "Technical Information",
 		"redirect_to": "Redirect To",
-		"no_membership_message": "No membership found. Please scan a QR code to activate your account."
+		"no_membership_message": "No membership found. Please scan a QR code to activate your account.",
+		"buy_access": "Buy Access"
 	},
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"

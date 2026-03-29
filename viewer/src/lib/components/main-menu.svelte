@@ -12,7 +12,8 @@
 
 	const membershipCtx = getMembershipContext();
 	const membership = $derived(membershipCtx.membership);
-	const isClaimed = $derived(membership?.email || false);
+	const isValid = $derived(membershipCtx.isValid);
+	const isClaimed = $derived(isValid && !!membership?.email);
 
 	let menuOpen = $state(false);
 	let menuElement = $state<HTMLDivElement>();
@@ -70,8 +71,17 @@
 					<li class="nav-item">
 						{#if isClaimed}
 							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
-								<img src={accountIcon} alt="{m['account.my_account']()}" />
+								<img src={accountIcon} alt={m['account.my_account']()} />
 								<span>{m['account.my_account']()}</span>
+							</button>
+						{:else if isValid}
+							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
+								<img src={accountIcon} alt={m['account.claim_membership']()} />
+								<span>{m['account.claim_membership']()}</span>
+							</button>
+						{:else}
+							<button class="nav-btn" onclick={() => navigate(localizeHref('/shop'))}>
+								<span>{m['account.buy_access']()}</span>
 							</button>
 						{/if}
 					</li>
