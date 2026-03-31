@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['claim_code'])) {
                 $redirectUrl = $result['redirect_to'];
                 // Add the QR code as a parameter to the redirect URL
                 $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
-                header("Location: " . $redirectUrl . $separator . "qr=" . urlencode($code));
+                header("Location: " . $redirectUrl . $separator . "code=" . urlencode($code));
                 exit();
             }
         } catch (Exception $e) {
@@ -87,7 +87,7 @@ elseif (isset($_GET['c'])) {
 
         if ($result) {
             // Check if already claimed (has email) and if the type is event or xr and not member or promo
-            if (!empty($result['email']) || $result['type'] === 'event' || $result['type'] === 'xr') {
+            if (!empty($result['email']) || $result['type'] === 'event' || $result['type'] === 'xr' || $result['type'] === 'page') {
                 // Already claimed, redirect immediately with QR code parameter
                 $redirectUrl = $result['redirect_to'];
                 $separator = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
@@ -163,7 +163,7 @@ elseif (isset($_GET['c'])) {
 
                     </div>
                     <div class="logo">
-                        <img src="https://www.scutoons.com/SCUTOONS-logo.svg" alt="SCUTOONS" />
+                        <img src="https://scutoons.com/assets/SCUTOONS-logo.svg" alt="SCUTOONS" />
                     </div>
                 </body>
 
@@ -215,7 +215,17 @@ elseif (isset($_GET['c'])) {
             </form>
         </div>
         <div class="logo">
-            <img src="https://www.scutoons.com/SCUTOONS-logo.svg" alt="SCUTOONS" />
+            <img src="https://www.scutoons.com/assets/SCUTOONS-logo.svg" alt="SCUTOONS" />
+        </div>
+        <div class="shop">
+            <h2>FAQ</h2>
+            <h3>
+
+            I don't have an access code! Where can I get one?
+        </h3>
+        <p>
+            QR Codes are only available with the purchase of SCUTOONS limited editions: <a href="https://www.willhaben.at/iad/kaufen-und-verkaufen/verkaeuferprofil/29873185" target="_blank">Shop Now (Willhaben)</a>
+        </p>
         </div>
     </body>
 
