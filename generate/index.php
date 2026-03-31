@@ -15,7 +15,7 @@ require_once '../config.php';
         window.nanoid = nanoid;
     </script>
     <script src="lib/qrcode/qrcode.min.js"></script>
-    <link rel="stylesheet" type="text/css" href="https://www.scutoons.com/assets/styles.css">
+    <link rel="stylesheet" type="text/css" href="https://www.scutoons.com/css/styles.css">
     <style>
         #qrResult {
             text-align: center;
