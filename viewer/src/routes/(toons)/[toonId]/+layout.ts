@@ -15,50 +15,46 @@ import { m } from '$lib/paraglide/messages.js';
 
 export const load: LayoutLoad = async ({ fetch, params }) => {
 	const lang = getLocale();
+	const base = `${API_BASE}/${params.toonId}/${lang}`;
 
-	const response1 = await fetch(`${API_BASE}/${params.toonId}/${lang}/characters.json`);
-	if (!response1.ok) throw error(404, `Failed to load characters of toon ${params.toonId}`);
-	const characters: Character[] = await response1.json();
+	const [charactersRes, seasonRes, locationsRes, routesRes, toonRes, collectablesRes] =
+		await Promise.all([
+			fetch(`${base}/characters.json`),
+			fetch(`${base}/season1.json`),
+			fetch(`${base}/locations.json`),
+			fetch(`${base}/routes.json`),
+			fetch(`${base}/toon.json`),
+			fetch(`${base}/collectables.json`)
+		]);
 
-	const response2 = await fetch(`${API_BASE}/${params.toonId}/${lang}/season1.json`);
-	if (!response2.ok) throw error(404, `Failed to load season 1 of toon ${params.toonId}`);
-	const season: Season = await response2.json();
+	if (!charactersRes.ok) throw error(404, `Failed to load characters of toon ${params.toonId}`);
+	if (!seasonRes.ok) throw error(404, `Failed to load season 1 of toon ${params.toonId}`);
+	if (!locationsRes.ok) throw error(404, `Failed to load locations of toon ${params.toonId}`);
+	if (!routesRes.ok) throw error(404, `Failed to load routes of toon ${params.toonId}`);
+	if (!toonRes.ok) throw error(404, `Failed to load toon ${params.toonId}`);
+	if (!collectablesRes.ok) throw error(404, `Failed to load toon ${params.toonId}`);
 
-	const sequence: LoadedSequenceItem[] = [];
-	for (const item of season.sequence) {
-		const response3 = await fetch(
-			`${API_BASE}/${params.toonId}/${lang}/${item.type}${item.number}.json`
-		);
-		if (!response3.ok)
-			throw error(
-				404,
-				`Failed to load sequence item ${m['common.chapter']({ number: item.number })} (${lang}). Please use the German default for now until we were able to catch up.`
-			);
-		const loadedItem = await response3.json();
-		if (isItemPublic(loadedItem))
-			sequence.push({
-				...loadedItem,
-				type: item.type,
-				number: item.number
-			});
-	}
+	const characters: Character[] = await charactersRes.json();
+	const season: Season = await seasonRes.json();
+	const locations: MapLocation[] = await locationsRes.json();
+	const routes: MapRoute[] = await routesRes.json();
+	const toon: Toon = await toonRes.json();
+	const collectables: Collectable[] = await collectablesRes.json();
 
-	const response3 = await fetch(`${API_BASE}/${params.toonId}/${lang}/locations.json`);
-	if (!response3.ok) throw error(404, `Failed to load locations of toon ${params.toonId}`);
-	const locations: MapLocation[] = await response3.json();
+	const publicItems = season.sequence.filter(isItemPublic);
 
-	const response4 = await fetch(`${API_BASE}/${params.toonId}/${lang}/routes.json`);
-	if (!response4.ok) throw error(404, `Failed to load routes of toon ${params.toonId}`);
-	const routes: MapRoute[] = await response4.json();
+	const sequence: LoadedSequenceItem[] = await Promise.all(
+		publicItems.map(async (item) => {
+			const response = await fetch(`${base}/${item.type}${item.number}.json`);
+			if (!response.ok)
+				throw error(
+					404,
+					`Failed to load sequence item ${m['common.chapter']({ number: item.number })} (${lang}). Please use the German default for now until we were able to catch up.`
+				);
+			const loadedItem = await response.json();
+			return { ...loadedItem, type: item.type, number: item.number };
+		})
+	);
 
-	const response5 = await fetch(`${API_BASE}/${params.toonId}/${lang}/toon.json`);
-	if (!response5.ok) throw error(404, `Failed to load toon ${params.toonId}`);
-	const toon: Toon = await response5.json();
-
-	const response6 = await fetch(`${API_BASE}/${params.toonId}/${lang}/collectables.json`);
-	if (!response6.ok) throw error(404, `Failed to load toon ${params.toonId}`);
-	const collectables: Collectable[] = await response6.json();
-
-	if (season) return { sequence, characters, locations, routes, toon, collectables };
-	error(404, 'Not found');
+	return { sequence, characters, locations, routes, toon, collectables, season };
 };

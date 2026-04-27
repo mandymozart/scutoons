@@ -3,7 +3,7 @@
  */
 const isDev = import.meta.env.DEV;
 
-import type { Chapter } from '$lib/models/content.ts';
+import type { Chapter, SequenceItem } from '$lib/models/content.ts';
 
 export function escapeHtml(text: string): string {
 	if (text === null || text === undefined) {
@@ -54,7 +54,7 @@ export function sanitizeNumber(value: number | string, defaultValue = 1, min = 1
 	return num;
 }
 
-export function isItemPublic(item: Chapter) {
+export function isItemPublic(item: Chapter | SequenceItem | { status?: string } | null | undefined) {
 	if (!item) return false;
 	const status = item.status || 'published';
 	return status === 'published' || (status === 'draft' && isDev);

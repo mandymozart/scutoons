@@ -185,6 +185,7 @@ export interface FullCredits {
 export interface SequenceItem {
 	type: 'chapter';
 	number: number;
+	status: Status;
 }
 
 export interface Season {

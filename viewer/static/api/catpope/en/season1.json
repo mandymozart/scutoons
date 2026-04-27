@@ -15,30 +15,12 @@
 		"music": ["Mandy Mozart", "Chris Nova Ludwig"],
 		"sound": ["Mandy Mozart", "Chris Nova Ludwig"]
 	},
-		"sequence": [
-		{
-			"type": "chapter",
-			"number": 1
-		},
-		{
-			"type": "chapter",
-			"number": 2
-		},
-			{
-			"type": "chapter",
-			"number": 3
-		},
-				{
-			"type": "chapter",
-			"number": 4
-		},
-				{
-			"type": "chapter",
-			"number": 5
-		},
-		{
-			"type": "chapter",
-			"number": 6
-		}
+	"sequence": [
+		{ "type": "chapter", "number": 1, "status": "published" },
+		{ "type": "chapter", "number": 2, "status": "draft" },
+		{ "type": "chapter", "number": 3, "status": "coming-soon" },
+		{ "type": "chapter", "number": 4, "status": "coming-soon" },
+		{ "type": "chapter", "number": 5, "status": "coming-soon" },
+		{ "type": "chapter", "number": 6, "status": "draft" }
 	]
 }
