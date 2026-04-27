@@ -24,7 +24,7 @@
 			{#if data.toon.download?.music}
 				<div class="download-item">
 					<h2>Music</h2>
-					<button onclick={() => handleDownload(asset(data.toon.download.music))}>
+					<button onclick={() => handleDownload(asset(`${params.toonId}/${data.toon.download.music}`))}>
 						Download Music
 					</button>
 				</div>
@@ -34,7 +34,7 @@
 				{@const downloadUrl = data.toon.download.complete}
 	<div class="download-item">
 		<h2>{data.toon.title} - Complete</h2>
-		<button onclick={() => handleDownload(asset(downloadUrl))}>
+		<button onclick={() => handleDownload(asset(`${params.toonId}/${downloadUrl}`))}>
 			Download Complete
 		</button>
 	</div>
