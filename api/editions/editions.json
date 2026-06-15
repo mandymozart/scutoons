@@ -7,7 +7,7 @@
     "edition_count": 37,
     "excluded_number": 3,
     "created_at": "2025-10-04T20:00:00.000Z",
-    "creators":"Tatjana Stuermer Vectors\nLouise Rath Silk Screen Print \nMandy Mozart Pre-Vector AI renderings, Concept",
+    "creators": "Tatjana Stuermer Vectors\nLouise Rath Silk Screen Print \nMandy Mozart Pre-Vector AI renderings, Concept",
     "variants": [
       {
         "id": "oversized_acid_wash_hoodie",
@@ -20,6 +20,24 @@
         "name": "Oversized Heavy T",
         "sizes": ["S", "M", "L", "XL"],
         "colors": ["black", "white"]
+      }
+    ]
+  },
+  {
+    "id": "2_catpope_beetles",
+    "toon": "catpope",
+    "name": "Cat Pope Beetles",
+    "description": "Jewlery made from Vector Motives",
+    "edition_count": 20,
+    "excluded_number": 0,
+    "created_at": "2026-05-15T20:00:00.000Z",
+    "creators": "Tatjana Stuermer Vectors\n\nMandy Mozart 3D, Concept",
+    "variants": [
+      {
+        "id": "scorpion_amulet_3d",
+        "name": "Scorpion Amulet 3D",
+        "sizes": ["regular"],
+        "colors": ["purple"]
       }
     ]
   }
