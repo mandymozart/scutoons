@@ -2,6 +2,9 @@
 // Copy this file to config.local.php for local development.
 // config.local.php is gitignored — never commit it.
 
+// ── Generate tool password ────────────────────────────────────────────────
+define('GENERATE_PASSWORD', 'your-password-here');
+
 // ── Option A: Local MySQL (Local by Flywheel / MAMP / XAMPP) ─────────────
 //
 // define('DB_HOST', 'localhost');

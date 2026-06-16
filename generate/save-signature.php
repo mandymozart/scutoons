@@ -1,9 +1,10 @@
 <?php
+require_once '../db.php';
+require_once __DIR__ . '/auth-check.php';
 /**
  * Save QR Code Signature to Database
  * Updates the signature field for an existing QR code
  */
-require_once '../config.php';
 
 // Set content type to JSON
 header('Content-Type: application/json');

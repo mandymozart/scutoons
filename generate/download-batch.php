@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/auth-check.php';
 $filename = basename($_GET['file'] ?? '');
 
 if (!preg_match('/^BATCH-[\w.-]+\.json$/', $filename)) {
@@ -58,6 +59,8 @@ foreach ($manifest['codes'] as $item) {
 
 $zip->close();
 
-// Redirect to the static file — avoids binary streaming issues with the built-in server
-header('Location: /generate/files/zips/' . rawurlencode($zipName));
-exit;
+header('Content-Type: application/zip');
+header('Content-Disposition: attachment; filename="' . $zipName . '"');
+header('Content-Length: ' . filesize($zipPath));
+header('Cache-Control: no-store');
+readfile($zipPath);

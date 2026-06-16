@@ -1,5 +1,6 @@
 import BatchProgressTable from '../components/BatchProgressTable.js';
 import { QR_BASE_URL } from '../config.js';
+import { getToken } from '../utils/auth.js';
 import { generateFingerprint, signQRCode } from '../utils/crypto.js';
 import { generateCoaPdf } from '../utils/pdf.js';
 import { generatePrintSheet } from '../utils/printSheet.js';
@@ -92,7 +93,7 @@ export default class BatchView {
           : '';
         const downloadBtn =
           b.done > 0
-            ? `<button class="btn-download" onclick="window.location.href='download-batch.php?file=${encodeURIComponent(b.filename)}'">Download ZIP</button>`
+            ? `<button class="btn-download" data-file="${b.filename}">Download ZIP</button>`
             : '';
         const printBtn =
           b.done > 0
@@ -131,6 +132,12 @@ export default class BatchView {
       btn.addEventListener('click', () => this.resumeBatch(btn.dataset.file));
     });
 
+    historyEl.querySelectorAll('.btn-download').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        window.location.href = `download-batch.php?file=${encodeURIComponent(btn.dataset.file)}&token=${encodeURIComponent(getToken())}`;
+      });
+    });
+
     historyEl.querySelectorAll('.btn-print-sheet').forEach((btn) => {
       btn.addEventListener('click', () =>
         this.downloadPrintSheet(btn.dataset.file),
@@ -152,6 +159,12 @@ export default class BatchView {
 
     this.panelEl.querySelectorAll('.btn-resume').forEach((btn) => {
       btn.addEventListener('click', () => this.resumeBatch(btn.dataset.file));
+    });
+
+    this.panelEl.querySelectorAll('.btn-download').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        window.location.href = `download-batch.php?file=${encodeURIComponent(btn.dataset.file)}&token=${encodeURIComponent(getToken())}`;
+      });
     });
 
     this.panelEl.querySelectorAll('.btn-print-sheet').forEach((btn) => {

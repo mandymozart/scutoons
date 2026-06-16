@@ -1,5 +1,6 @@
 <?php
-require_once '../config.php';
+require_once '../db.php';
+require_once __DIR__ . '/auth-check.php';
 
 // Set content type to JSON
 header('Content-Type: application/json');

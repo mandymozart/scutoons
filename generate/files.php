@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/auth-check.php';
 # save svg's and pdfs to files folder
 
 if (!file_exists('files')) {

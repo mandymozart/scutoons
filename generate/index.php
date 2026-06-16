@@ -109,6 +109,7 @@ require_once '../config.php';
 </head>
 
 <body>
+	<div id="app" hidden>
 	<div class="container">
 		<!-- Mode Selector -->
 		<div class="mode-selector">
@@ -252,6 +253,7 @@ require_once '../config.php';
 		</div>
 	</div>
 
+	</div><!-- /#app -->
 	<script type="module" src="app/main.js"></script>
 </body>
 

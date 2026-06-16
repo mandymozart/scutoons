@@ -3,7 +3,7 @@
  * Retrieve QR Code Signature from Database
  * Returns the signature data for verification
  */
-require_once '../config.php';
+require_once '../db.php';
 
 // Set content type to JSON
 header('Content-Type: application/json');

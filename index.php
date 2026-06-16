@@ -1,5 +1,5 @@
 <?php
-require_once 'config.php';
+require_once 'db.php';
 
 // Handle email claiming
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['claim_code'])) {
@@ -215,7 +215,7 @@ elseif (isset($_GET['c'])) {
             </form>
         </div>
         <div class="logo">
-            <img src="https://www.scutoons.com/assets/SCUTOONS-logo.svg" alt="SCUTOONS" />
+            <img src="https://www.scutoons.com/SCUTOONS-logo.svg" alt="SCUTOONS" />
         </div>
         <div class="shop">
             <h2>FAQ</h2>

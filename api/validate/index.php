@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 // Include database configuration
-require_once '../../config.php';
+require_once '../../db.php';
 
 // Function to send JSON response
 function sendResponse($status, $data = null, $message = null) {
