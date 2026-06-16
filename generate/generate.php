@@ -13,10 +13,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 // Get form data
 $redirectUrl = $_POST['redirectUrl'] ?? '';
-$type = $_POST['type'] ?? 'public';
-$email = $_POST['email'] ?? '';
-$code = $_POST['code'] ?? '';
-$expiresAt = $_POST['expiresAt'] ?? '';
+$type        = $_POST['type'] ?? 'public';
+$email       = $_POST['email'] ?? '';
+$code        = $_POST['code'] ?? '';
+$expiresAt   = $_POST['expiresAt'] ?? '';
+$editionId   = $_POST['edition_id'] ?? null;
 
 // Convert expires_at to MySQL timestamp format if provided
 if (!empty($expiresAt)) {
@@ -46,7 +47,7 @@ if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 
 try {
     $pdo = getDbConnection();
-    
+
     // Check if code already exists
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM qr WHERE code = ?");
     $stmt->execute([$code]);
@@ -54,14 +55,16 @@ try {
         echo json_encode(['success' => false, 'message' => 'Code already exists, please try again']);
         exit();
     }
-    
-    // Insert new QR code record
+
+    // Insert new QR code record (PHP-generated UUID and datetime for SQLite compatibility)
+    $id  = generateUuid();
+    $now = date('Y-m-d H:i:s');
     $stmt = $pdo->prepare("
-        INSERT INTO qr (code, redirect_to, type, email, created_at, claimed_at, expires_at) 
-        VALUES (?, ?, ?, ?, NOW(), NOW(), ?)
+        INSERT INTO qr (id, code, redirect_to, type, email, created_at, claimed_at, expires_at, edition_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ");
-    
-    $stmt->execute([$code, $redirectUrl, $type, $email, $expiresAtTimestamp]);
+
+    $stmt->execute([$id, $code, $redirectUrl, $type, $email, $now, $now, $expiresAtTimestamp, $editionId ?: null]);
     
     // Return success response
     echo json_encode([

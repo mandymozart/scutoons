@@ -43,16 +43,22 @@ require_once '../config.php';
 
 		.error {
 			color: #dc3545;
-			margin: 1rem 0;
 		}
-
+		
 		.success {
 			color: #28a745;
-			margin: 1rem 0;
+		}
+
+		.pending { 
+			color: #aaa; 
+		}
+
+		.container {
+			margin: 1rem 2rem;
 		}
 
 		.app-layout {
-			
+			max-width: 100%;
 		}
 
 		.mode-selector {
@@ -109,8 +115,9 @@ require_once '../config.php';
 			<span>Mode:</span>
 			<span class="mode-option active" data-mode="generate">Generate</span>
 			<span class="mode-option" data-mode="regenerate">Regenerate</span>
+			<span class="mode-option" data-mode="batch">Batch</span>
 		</div>
-		<div class="app-layout">
+		<div class="app-layout view">
 
 			<!-- Main Content Area -->
 			<div>
@@ -189,6 +196,8 @@ require_once '../config.php';
 
 					</div>
 				</div>
+				<!-- Batch Mode -->
+				<div class="mode-panel" id="batchMode"></div>
 				<!-- Regenerate Mode -->
 				<div class="mode-panel" id="regenerateMode">
 					<div class="content">

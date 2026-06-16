@@ -4,6 +4,7 @@
     "toon": "catpope",
     "name": "Cat Pope Dago",
     "description": "Oversized Hoodies and Shirts with Dago Vector Motiv",
+    "edition_number": 1,
     "edition_count": 37,
     "excluded_number": 3,
     "created_at": "2025-10-04T20:00:00.000Z",
@@ -28,6 +29,7 @@
     "toon": "catpope",
     "name": "Cat Pope Beetles",
     "description": "Jewlery made from Vector Motives",
+    "edition_number": 1,
     "edition_count": 20,
     "excluded_number": 0,
     "created_at": "2026-05-15T20:00:00.000Z",
@@ -42,10 +44,11 @@
     ]
   },
   {
-    "id": "2_catpope_vinyl",
+    "id": "3_catpope_vinyl",
     "toon": "catpope",
     "name": "Cat Pope Vinyl",
     "description": "Record of the Album",
+    "edition_number": 1,
     "edition_count": 300,
     "created_at": "2026-06-30T20:00:00.000Z",
     "creators": "Mandy Mozart & various",
