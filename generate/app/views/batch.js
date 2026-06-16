@@ -22,24 +22,55 @@ export default class BatchView {
   async init() {
     this.panelEl.innerHTML = '<p>Loading…</p>';
 
-    const [batchesRes, editionsRes, toonsRes] = await Promise.all([
-      fetch('get-batches.php')
-        .then((r) => r.json())
-        .catch(() => ({ batches: [] })),
-      fetch('../api/editions/index.php')
-        .then((r) => r.json())
-        .catch(() => []),
-      fetch('/api/toons/index.php')
-        .then((r) => r.json())
-        .catch(() => []),
-    ]);
+    try {
+      console.log('[batch] init start');
 
-    this.editions = Array.isArray(editionsRes)
-      ? editionsRes
-      : Object.values(editionsRes);
-    this.toons = Array.isArray(toonsRes) ? toonsRes : [];
-    this.batches = batchesRes.batches || [];
-    this.renderShell(this.batches);
+      const [batchesRes, editionsRes, toonsRes] = await Promise.all([
+        fetch('get-batches.php')
+          .then((r) => {
+            if (!r.ok) throw new Error(`get-batches.php ${r.status}`);
+            return r.json();
+          })
+          .catch((e) => {
+            console.warn('[batch] get-batches.php:', e.message);
+            return { batches: [] };
+          }),
+
+        fetch('../api/editions/index.php')
+          .then((r) => {
+            if (!r.ok) throw new Error(`editions ${r.status}`);
+            return r.json();
+          })
+          .catch((e) => {
+            console.warn('[batch] editions:', e.message);
+            return [];
+          }),
+
+        fetch('/api/toons/index.php')
+          .then((r) => {
+            if (!r.ok) throw new Error(`toons ${r.status}`);
+            return r.json();
+          })
+          .catch((e) => {
+            console.warn('[batch] toons:', e.message);
+            return [];
+          }),
+      ]);
+
+      this.editions = Array.isArray(editionsRes)
+        ? editionsRes
+        : Object.values(editionsRes);
+      this.toons = Array.isArray(toonsRes) ? toonsRes : [];
+      this.batches = batchesRes.batches || [];
+
+      console.log(
+        `[batch] loaded — editions: ${this.editions.length}, toons: ${this.toons.length}, batches: ${this.batches.length}`,
+      );
+      this.renderShell(this.batches);
+    } catch (err) {
+      console.error('[batch] init failed:', err);
+      this.panelEl.innerHTML = `<p class="error">Batch view failed to load: ${err.message}</p>`;
+    }
   }
 
   // ─── Shell (history always visible at top) ────────────────────────────────

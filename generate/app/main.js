@@ -18,7 +18,13 @@ const App = {
 		// Initialize views
 		new GenerateView();
 		new RegenerateView();
-		new BatchView();
+		try {
+			new BatchView();
+		} catch (err) {
+			console.error('[main] BatchView failed to initialise:', err);
+			const el = document.getElementById('batchMode');
+			if (el) el.innerHTML = `<p class="error">Batch view error: ${err.message}</p>`;
+		}
 		
 		// Setup mode switching
 		this.setupModeSwitching();
