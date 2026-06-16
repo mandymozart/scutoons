@@ -1,10 +1,11 @@
 import { generateQRCode } from '../utils/api.js';
 import { generateCoaPdf, generateQrPrintPdf } from '../utils/pdf.js';
 import { signQRCode, generateFingerprint, exportSignature } from '../utils/crypto.js';
+import { QR_BASE_URL, QR_DOMAIN } from '../config.js';
 
 export default class GenerateView {
 	// Fields to exclude from template data (QR-specific system fields)
-	static EXCLUDED_TEMPLATE_FIELDS = ['redirectUrl', 'type', 'expiresAt', 'code', 'toon', 'edition_select'];
+	static EXCLUDED_TEMPLATE_FIELDS = ['redirectUrl', 'type', 'expiresAt', 'code', 'toon', 'edition_select', 'edition_id'];
 
 	constructor() {
 		// State
@@ -210,7 +211,7 @@ export default class GenerateView {
 
 			if (result.success) {
 				// Update state with new QR data including ALL template fields
-				const qrUrl = `https://qr.scutoons.com?c=${result.code}`;
+				const qrUrl = QR_BASE_URL + result.code;
 				this.currentQR = {
 					code: result.code,
 					type: result.type,
@@ -253,7 +254,7 @@ export default class GenerateView {
 					console.log('QR Code:', this.currentQR.code);
 					console.log('Fingerprint:', this.currentQR.fingerprint);
 					console.log('\nTo verify this certificate:');
-					console.log('1. Visit: https://qr.scutoons.com/generate/verify.html');
+					console.log('1. Visit: ' + QR_DOMAIN + '/generate/verify.html');
 					console.log('2. Enter code:', this.currentQR.code);
 					console.log('\nFull signature export (base64):');
 					console.log(signatureExport);
@@ -352,7 +353,7 @@ export default class GenerateView {
 			
 			// Archive PDF to server
 			const pdfData = doc.output('datauristring');
-			await this.saveFile(pdfData, filename, 'qrs');
+			await this.saveFile(pdfData, filename, 'certificates');
 			
 			this.renderMessage('Printable QR certificate generated!', 'success');
 		} catch (error) {

@@ -177,6 +177,7 @@ export default class TemplateVariableFields {
                         this.selectedEdition = {
                             id: selectedOption.value,
                             name: selectedOption.textContent,
+                            edition_number: selectedOption.dataset.editionNumber,
                             edition_count: selectedOption.dataset.editionCount,
                             excluded_number: selectedOption.dataset.excludedNumber,
                             creators: selectedOption.dataset.creators
@@ -224,6 +225,7 @@ export default class TemplateVariableFields {
             const option = document.createElement('option');
             option.value = edition.id;
             option.textContent = edition.name;
+            option.dataset.editionNumber = edition.edition_number ?? 1;
             option.dataset.editionCount = edition.edition_count;
             option.dataset.excludedNumber = edition.excluded_number;
             option.dataset.creators = edition.creators || '';
@@ -235,19 +237,23 @@ export default class TemplateVariableFields {
         select.addEventListener('change', (e) => {
             const selectedOption = e.target.options[e.target.selectedIndex];
             if (selectedOption.value) {
-                // Store selected edition data
                 this.selectedEdition = {
                     id: selectedOption.value,
                     name: selectedOption.textContent,
+                    edition_number: selectedOption.dataset.editionNumber,
                     edition_count: selectedOption.dataset.editionCount,
                     excluded_number: selectedOption.dataset.excludedNumber,
                     creators: selectedOption.dataset.creators
                 };
-                
-                // Auto-fill all matching template fields with edition data
                 this.prefillEditionFields(this.selectedEdition);
+
+                // Keep the hidden edition_id input in sync
+                const hiddenInput = this.formEl.querySelector('input[name="edition_id"]');
+                if (hiddenInput) hiddenInput.value = selectedOption.value;
             } else {
                 this.selectedEdition = null;
+                const hiddenInput = this.formEl.querySelector('input[name="edition_id"]');
+                if (hiddenInput) hiddenInput.value = '';
             }
         });
 
@@ -305,7 +311,8 @@ export default class TemplateVariableFields {
             // Add hidden fields for edition data if edition is selected
             if (this.selectedEdition && this.typeSelectEl.value === 'membership') {
                 const hiddenFields = [
-                    { name: 'edition_count', value: this.selectedEdition.edition_count },
+                    { name: 'edition_id',      value: this.selectedEdition.id },
+                    { name: 'edition_count',   value: this.selectedEdition.edition_count },
                     { name: 'excluded_number', value: this.selectedEdition.excluded_number }
                 ];
 

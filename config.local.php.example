@@ -1,0 +1,43 @@
+<?php
+// Copy this file to config.local.php for local development.
+// config.local.php is gitignored — never commit it.
+
+// ── Option A: Local MySQL (Local by Flywheel / MAMP / XAMPP) ─────────────
+//
+// define('DB_HOST', 'localhost');
+// define('DB_NAME', 'scutoons');
+// define('DB_USER', 'root');
+// define('DB_PASS', 'root');
+//
+// function getDbConnection() {
+//     $pdo = new PDO(
+//         "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+//         DB_USER, DB_PASS,
+//         [
+//             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+//             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+//             PDO::ATTR_EMULATE_PREPARES   => false,
+//         ]
+//     );
+//     return $pdo;
+// }
+
+
+// ── Option B: SQLite (zero setup) ────────────────────────────────────────
+// The database file is created automatically on first request.
+// Import schema manually if needed: sqlite3 db/local.sqlite < db/schema/qr.sqlite.sql
+
+define('DB_SQLITE_PATH', __DIR__ . '/db/local.sqlite');
+
+function getDbConnection() {
+    $isNew = !file_exists(DB_SQLITE_PATH);
+    $pdo   = new PDO('sqlite:' . DB_SQLITE_PATH, null, null, [
+        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+    if ($isNew) {
+        // Auto-create schema on first connection
+        $pdo->exec(file_get_contents(__DIR__ . '/db/schema/qr.sqlite.sql'));
+    }
+    return $pdo;
+}

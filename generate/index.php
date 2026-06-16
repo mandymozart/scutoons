@@ -51,8 +51,12 @@ require_once '../config.php';
 			margin: 1rem 0;
 		}
 
+		.container {
+			margin: 1rem 2rem;
+		}
+
 		.app-layout {
-			
+			max-width: 100%;
 		}
 
 		.mode-selector {
@@ -99,6 +103,71 @@ require_once '../config.php';
 				grid-template-columns: 1fr;
 			}
 		}
+
+		/* ── Batch view ─────────────────────────────── */
+		/* .batch-table {
+			border-collapse: collapse;
+			font-size: .85rem;
+			font-family: 'Courier New', monospace;
+			width: 100%;
+		}
+		.batch-table th, .batch-table td {
+			padding: .25rem .6rem;
+			border: 1px solid #ddd;
+			white-space: nowrap;
+		}
+		.batch-table thead th {
+			background: #f0f0f0;
+			text-align: left;
+		}
+		.progress-wrap {
+			max-height: 62vh;
+			overflow-y: auto;
+			border: 1px solid #ddd;
+			margin-top: .5rem;
+		}
+		.progress-wrap .batch-table th,
+		.progress-wrap .batch-table td {
+			border-left: none;
+			border-right: none;
+		} */
+		.step-done    { color: #28a745; font-weight: bold; }
+		.step-error   { color: #dc3545; font-weight: bold; }
+		.step-pending { color: #aaa; }
+		/* .badge {
+			display: inline-block;
+			padding: .1rem .4rem;
+			border-radius: 3px;
+			font-size: .75rem;
+			font-weight: bold;
+		}
+		.badge-done { background: #d4edda; color: #155724; }
+		.badge-warn { background: #fff3cd; color: #856404; } */
+		/* .mono  { font-family: 'Courier New', monospace; letter-spacing: .05em; }
+		.muted { color: #666; font-size: .9rem; } */
+		.err   { color: #dc3545; }
+		/* .btn-download {
+			display: inline-block;
+			margin-left: .35rem;
+			padding: .15rem .5rem;
+			font-size: .8rem;
+			font-family: inherit;
+			border: 1px solid #ccc;
+			border-radius: 3px;
+			text-decoration: none;
+			color: inherit;
+			background: #f8f9fa;
+		}
+		.btn-download:hover { background: #e9ecef; } */
+		.batch-block-warning {
+			background: #f8d7da;
+			border: 1px solid #f5c2c7;
+			color: #842029;
+			padding: .5rem .75rem;
+			border-radius: 4px;
+			margin: .5rem 0;
+			font-size: .85rem;
+		}
 	</style>
 </head>
 
@@ -109,8 +178,9 @@ require_once '../config.php';
 			<span>Mode:</span>
 			<span class="mode-option active" data-mode="generate">Generate</span>
 			<span class="mode-option" data-mode="regenerate">Regenerate</span>
+			<span class="mode-option" data-mode="batch">Batch</span>
 		</div>
-		<div class="app-layout">
+		<div class="app-layout view">
 
 			<!-- Main Content Area -->
 			<div>
@@ -189,6 +259,8 @@ require_once '../config.php';
 
 					</div>
 				</div>
+				<!-- Batch Mode -->
+				<div class="mode-panel" id="batchMode"></div>
 				<!-- Regenerate Mode -->
 				<div class="mode-panel" id="regenerateMode">
 					<div class="content">

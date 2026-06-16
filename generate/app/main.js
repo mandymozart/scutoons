@@ -1,5 +1,6 @@
 import GenerateView from './views/generate.js';
 import RegenerateView from './views/regenerate.js';
+import BatchView from './views/batch.js';
 import TemplateVariableFields from './components/TemplateVariableFields.js';
 
 const App = {
@@ -17,6 +18,7 @@ const App = {
 		// Initialize views
 		new GenerateView();
 		new RegenerateView();
+		new BatchView();
 		
 		// Setup mode switching
 		this.setupModeSwitching();
