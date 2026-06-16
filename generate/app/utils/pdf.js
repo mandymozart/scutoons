@@ -1,4 +1,5 @@
 import { TemplateParser } from './template.js';
+import { QR_DOMAIN } from '../config.js';
 
 /**
  * Render template content to PDF (shared logic)
@@ -86,7 +87,7 @@ async function renderTemplateToPdf(doc, renderedTemplate, svgElement, qrData, qr
 					doc.text('This certificate is protected by post-quantum cryptography (ML-DSA-65/Dilithium).', margin, yBottom);
 					
 					yBottom -= 4; // Verify line
-					doc.text('Verify at https://qr.scutoons.com/verify.html with code: ' + qrData.code.toUpperCase(), margin, yBottom);
+					doc.text('Verify at ' + QR_DOMAIN + '/verify.html with code: ' + qrData.code.toUpperCase(), margin, yBottom);
 					
 					yBottom -= 4; // Fingerprint
 					doc.text(`Fingerprint: ${qrData.fingerprint}`, margin, yBottom);

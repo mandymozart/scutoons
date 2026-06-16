@@ -3,4 +3,4 @@ generate/files
 .htpasswd
 api/keys/keypair.json
 config.local.php
-local.sqlite
+db/local.sqlite

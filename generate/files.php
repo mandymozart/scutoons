@@ -9,10 +9,6 @@ if (!file_exists('files/certificates')) {
 	mkdir('files/certificates', 0777, true);
 }
 
-if (!file_exists('files/qrs')) {
-	mkdir('files/qrs', 0777, true);
-}
-
 if (!file_exists('files/svgs')) {
 	mkdir('files/svgs', 0777, true);
 }
@@ -21,10 +17,22 @@ if (!file_exists('files/signatures')) {
 	mkdir('files/signatures', 0777, true);
 }
 
+if (!file_exists('files/batch')) {
+	mkdir('files/batch', 0777, true);
+}
+
 # get the document content from the post request
 $doc = $_POST['doc'] ?? '';
 $filename = $_POST['filename'] ?? '';
-$type = $_POST['type'] ?? 'qrs'; // certificates, qrs, svgs, or signatures
+$type = $_POST['type'] ?? 'certificates';
+
+# validate type against whitelist
+$allowedTypes = ['certificates', 'svgs', 'signatures', 'batch', 'zips'];
+if (!in_array($type, $allowedTypes)) {
+	header('Content-Type: application/json');
+	echo json_encode(['success' => false, 'error' => 'Invalid file type']);
+	exit;
+}
 
 # validate inputs
 if (empty($doc) || empty($filename)) {
@@ -36,17 +44,29 @@ if (empty($doc) || empty($filename)) {
 # save the document to the server with UTF-8 encoding
 $filepath = 'files/' . $type . '/' . $filename;
 
+$ext = pathinfo($filename, PATHINFO_EXTENSION);
+
+// PDFs arrive as data URIs (data:application/pdf;base64,...) — decode to binary
+if ($ext === 'pdf') {
+	if (str_starts_with($doc, 'data:')) {
+		$doc = base64_decode(explode(',', $doc, 2)[1]);
+	}
+	if ($doc === false || strlen($doc) === 0) {
+		header('Content-Type: application/json');
+		echo json_encode(['success' => false, 'error' => 'Invalid PDF data']);
+		exit;
+	}
+}
+
 // For JSON files, ensure UTF-8 encoding
-if (pathinfo($filename, PATHINFO_EXTENSION) === 'json') {
-	// Validate JSON before saving
+if ($ext === 'json') {
 	$decoded = json_decode($doc);
 	if (json_last_error() !== JSON_ERROR_NONE) {
 		header('Content-Type: application/json; charset=utf-8');
 		echo json_encode(['success' => false, 'error' => 'Invalid JSON: ' . json_last_error_msg()]);
 		exit;
 	}
-	// Re-encode with UTF-8 to ensure proper encoding
-	$doc = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+	$doc = json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
 }
 
 file_put_contents($filepath, $doc);
