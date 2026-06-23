@@ -9,9 +9,9 @@ jobs:
       - name: 🚚 Get latest code
         uses: actions/checkout@v4
 
-      - name: 🔑 Generate config.local.php
+      - name: 🔑 Generate config.php
         run: |
-          cat > config.local.php << 'EOF'
+          cat > config.php << 'EOF'
           <?php
           define('GENERATE_PASSWORD', '${{ secrets.GENERATE_PASSWORD }}');
           define('DB_HOST', '${{ vars.DB_HOST }}');
