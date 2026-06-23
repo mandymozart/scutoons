@@ -6,31 +6,30 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-    - name: 🚚 Get latest code
-      uses: actions/checkout@v4
-    
-    - name: 🔑 Generate config.local.php
-      run: |
-        cat > config.local.php << 'EOF'
-        <?php
-        define('GENERATE_PASSWORD', '${{ secrets.GENERATE_PASSWORD }}');
-        define('DB_HOST', '${{ vars.DB_HOST }}');
-        define('DB_NAME', '${{ vars.DB_NAME }}');
-        define('DB_USER', '${{ secrets.DB_USER }}');
-        define('DB_PASS', '${{ secrets.DB_PASS }}');
-        EOF
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
 
-    - name: 📂 Sync files
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-      with:
-        server: ${{ vars.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
-        exclude: |
-          db*
-          db*/**
-          .git*
-          .git*/**
-          .gitignore
-          .github*
-          .github*/**
+      - name: 🔑 Generate config.local.php
+        run: |
+          cat > config.local.php << 'EOF'
+          <?php
+          define('GENERATE_PASSWORD', '${{ secrets.GENERATE_PASSWORD }}');
+          define('DB_HOST', '${{ vars.DB_HOST }}');
+          define('DB_NAME', '${{ vars.DB_NAME }}');
+          define('DB_USER', '${{ secrets.DB_USER }}');
+          define('DB_PASS', '${{ secrets.DB_PASS }}');
+          EOF
+
+      - name: 📂 Sync files
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ vars.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          exclude: |
+            db*/**
+            .git*
+            .git*/**
+            .gitignore
+            .github*
+            .github*/**
