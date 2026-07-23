@@ -64,7 +64,23 @@
 	},
 	{
 		"title": "Cat Pope Concert",
-		"date": "2026-08-31T10:00:00",
+		"date": "2026-08-03T21:00:00",
+		"location": "Kammerspiele",
+		"city": "Munich",
+		"category": "irl",
+		"link": "https://www.muenchner-kammerspiele.de/"
+	},
+	{
+		"title": "Cat Pope & Ritual Unions",
+		"date": "2026-08-05T16:00:00",
+		"location": "Berlin Fashion Week",
+		"city": "Berlin",
+		"category": "irl",
+		"link": "https://www.ritual-unions.com/"
+	},
+	{
+		"title": "Scutoons Brunch: Hosted by Cat Pope & Yellow Mouse",
+		"date": "2026-08-30T10:00:00",
 		"location": "Glasfarbik",
 		"city": "Leipzig",
 		"category": "irl",
