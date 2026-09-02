@@ -1,6 +1,7 @@
-[    
+[
 	{
 		"title": "Cat Pope",
+		"toon": ["catpope"],
 		"date": "2025-10-02T19:00:00",
 		"location": "Ve.Sch",
 		"city": "Vienna",
@@ -9,6 +10,7 @@
 	},
 	{
 		"title": "Cat Pope",
+		"toon": ["catpope"],
 		"date": "2025-10-04T20:00:00",
 		"location": "New Jörg",
 		"city": "Vienna",
@@ -17,6 +19,7 @@
 	},
 	{
 		"title": "Cat Pope & Cyrrca",
+		"toon": ["catpope"],
 		"date": "2025-12-19T21:00:00",
 		"location": "ChunHee 춘희",
 		"city": "Seoul",
@@ -25,6 +28,7 @@
 	},
 	{
 		"title": "Cat Pope & Cyrrca",
+		"toon": ["catpope"],
 		"date": "2025-12-21T16:00:00",
 		"location": "Seoul Community Radio SCR",
 		"city": "Virtual",
@@ -33,6 +37,7 @@
 	},
 	{
 		"title": "Cat Pope",
+		"toon": ["catpope"],
 		"date": "2026-03-21T09:00:00",
 		"location": "Next Comic",
 		"city": "Linz",
@@ -41,6 +46,7 @@
 	},
 	{
 		"title": "Cat Pope",
+		"toon": ["catpope"],
 		"date": "2026-04-09T19:00:00",
 		"location": "Kirche St. Ruprecht",
 		"city": "Vienna",
@@ -49,6 +55,7 @@
 	},
 	{
 		"title": "Cat Pope",
+		"toon": ["catpope"],
 		"date": "2026-06-10T20:00:00",
 		"location": "Cafe Wolf",
 		"city": "Graz",
@@ -57,6 +64,7 @@
 	},
 		{
 		"title": "Top Toy feat. Monique Fessl",
+		"toon": ["toptoy"],
 		"date": "2026-06-18T17:00:00",
 		"location": "Kalsdorf Calling Festival",
 		"city": "Kalsdorf",
@@ -65,6 +73,7 @@
 	},
 	{
 		"title": "Cat Pope",
+		"toon": ["catpope"],
 		"date": "2026-07-03T21:00:00",
 		"location": "Kammerspiele",
 		"city": "Munich",
@@ -73,6 +82,7 @@
 	},
 	{
 		"title": "Cat Pope & Ritual Unions",
+		"toon": ["catpope"],
 		"date": "2026-07-05T16:00:00",
 		"location": "Berlin Fashion Week",
 		"city": "Berlin",
@@ -81,6 +91,7 @@
 	},
 	{
 		"title": "Cat Pope",
+		"toon": ["catpope"],
 		"date": "2026-07-25T20:00:00",
 		"location": "Noise n Roses",
 		"city": "Budapest",
@@ -89,14 +100,16 @@
 	},
 	{
 		"title": "Scutoons Brunch: Hosted by Cat Pope & Yellow Mouse",
+		"toon": ["catpope", "yellowmouse"],
 		"date": "2026-08-30T10:00:00",
 		"location": "Glasfarbik",
 		"city": "Leipzig",
 		"category": "irl",
 		"link": "https://www.glasfabrik.org"
 	},
-	{	
+	{
 		"title": "Top Toy",
+		"toon": ["toptoy"],
 		"date": "2026-09-19T23:59:00",
 		"location": "Arena",
 		"city": "Vienna",
