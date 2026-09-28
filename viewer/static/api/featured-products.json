@@ -1,12 +1,10 @@
 [
 	{
-		"key": "hoodie_beige",
-		"class": ".gallery-hoodie-beige",
-		"label": "Hoodie Beige"
+		"product": "dago_hoodie",
+		"variant": "beige"
 	},
 	{
-		"key": "tshirt_white",
-		"class": ".gallery-tshirt-white",
-		"label": "T-Shirt White"
+		"product": "dago_heavy_t",
+		"variant": "white"
 	}
 ]

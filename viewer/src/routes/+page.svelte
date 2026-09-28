@@ -1,11 +1,27 @@
 <script lang="ts">
 	import ProductSlides from '$lib/components/shop/products/product-slides.svelte';
+	import {
+		editionPieces,
+		formatPrice,
+		isSoldOut,
+		localized,
+		pickVariant,
+		variantPrice
+	} from '$lib/components/shop/products/shop.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { localizeHref } from '$lib/paraglide/runtime.js';
+	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 
 	const { data } = $props();
-	let featuredProducts = $derived(data.featuredProducts);
-	let products = $derived(data.products);
+	const locale = getLocale();
+	const currency = $derived(data.catalog.currency);
+	// featured-products.json -> [{ product, variant }] resolved against products.json
+	const featured = $derived(
+		data.featured.flatMap((f) => {
+			const product = data.catalog.products.find((p) => p.id === f.product);
+			return product ? [{ product, variant: pickVariant(product, f.variant) }] : [];
+		})
+	);
+	const credits = $derived([...new Set(featured.flatMap(({ product }) => product.credits))]);
 </script>
 
 <div class="page">
@@ -17,7 +33,7 @@
 	<section class="releases">
 		<p>
 			<a href={localizeHref('catpope/')}>Katzenpapst</a><br />
-			2.&Auml;ger<br />
+			2.Ärger<br />
 			Ank&uuml;ndigung folgt
 		</p>
 		<p>
@@ -46,43 +62,47 @@
 				Worldwide shipping available<br />
 			</small>
 		</p>
-		<article class="product">
-			<h3>Cat Pope Dago Hoodie</h3>
-			<div class="product-meta">
-				Sizes: M, L, XL, <del>XXL</del><br />
-				Colors: <del>Black</del>, Beige, <del>Grey</del><br />
-				Price: 99.90 EUR<br />
-				Limited Edition: 12 Pieces<br />
-				<a class="btn" href={products.hoodie_black.link} target="_blank">BUY</a>
-			</div>
-			<!-- Hoodie Galleries -->
-			{#each featuredProducts as featuredProduct}
-				{#if featuredProduct.key === 'hoodie_black' || featuredProduct.key === 'hoodie_beige' || featuredProduct.key === 'hoodie_grey'}
-					<ProductSlides product={products[featuredProduct.key]} label={featuredProduct.label} />
-				{/if}
-			{/each}
+		{#each featured as { product, variant } (product.id)}
 			<article class="product">
-				<h3>Cat Pope Dago Heavy T</h3>
+				<h3>{product.name}</h3>
 				<div class="product-meta">
-					Sizes: S, M, L, XL<br />
-					Colors: White, <del>Black</del><br />
-					Price: 59.90 EUR<br />
-					Limited Edition: 25 Pieces<br />
-					<a class="btn" href={products.tshirt_white.link} target="_blank">BUY</a><br />
-				</div>
-				<!-- T-Shirt Galleries -->
-				{#each featuredProducts as featuredProduct}
-					{#if featuredProduct.key === 'tshirt_white' || featuredProduct.key === 'tshirt_black'}
-						<ProductSlides product={products[featuredProduct.key]} label={featuredProduct.label} />
+					{#if product.sizes.length}
+						{m['shop.sizes']()}:
+						{#each product.sizes as size, i (size)}{#if product.soldOutSizes.includes(size)}<del
+									>{size}</del
+								>{:else}{size}{/if}{i < product.sizes.length - 1 ? ', ' : ''}{/each}<br />
 					{/if}
-				{/each}
+					{#if product.variants.length > 1}
+						{m['shop.colors']()}:
+						{#each product.variants as v, i (v.id)}{#if v.soldOut}<del>{localized(v.name, locale)}</del
+								>{:else}{localized(v.name, locale)}{/if}{i < product.variants.length - 1
+								? ', '
+								: ''}{/each}<br />
+					{/if}
+					{m['shop.price']()}: {formatPrice(variantPrice(product, variant), currency, locale)}<br />
+					{#if editionPieces(product)}
+						{m['shop.limited_edition_of']({ edition: editionPieces(product) ?? '' })}<br />
+					{/if}
+					{#if isSoldOut(product)}
+						<span class="btn disabled">{m['shop.sold_out']()}</span>
+					{:else}
+						<a class="btn" href={product.link} target="_blank" rel="noopener noreferrer"
+							>{m['shop.buy']()}</a
+						>
+					{/if}
+				</div>
+				<ProductSlides
+					images={variant.images}
+					label={`${product.name} – ${localized(variant.name, locale)}`}
+				/>
 			</article>
+		{/each}
+		{#if credits.length}
 			<div class="credits">
-				Credits:<br />
-				Design: Tatjana Stürmer<br />
-				Print: Louise Rath
+				{m['shop.credits']()}:<br />
+				{#each credits as line (line)}{line}<br />{/each}
 			</div>
-		</article>
+		{/if}
 	</section>
 	<footer>
 		<p>

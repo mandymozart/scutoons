@@ -4,7 +4,7 @@
 	import type { PageProps } from './$types.js';
 
 	let { data }: PageProps = $props();
-	let products = data.products;
+	const catalog = $derived(data.catalog);
 </script>
 
 <div class="view shop-view">
@@ -20,8 +20,8 @@
 
 	<section>
 		<div class="products-grid">
-			{#each Object.entries(products) as [productKey, product]}
-				<ProductItem {productKey} {product} />
+			{#each catalog.products as product (product.id)}
+				<ProductItem {product} currency={catalog.currency} />
 			{/each}
 		</div>
 	</section>

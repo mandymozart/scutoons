@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import Swiper from 'swiper';
-	import { Navigation } from 'swiper/modules';
+	import { Autoplay, Navigation } from 'swiper/modules';
 	import 'swiper/css';
 	import 'swiper/css/navigation';
 	import { asset } from '$lib/utils/cdn.ts';
 
-	let { product, label } = $props();
-	let swiperContainer;
+	let { images, label }: { images: string[]; label: string } = $props();
+	let swiperContainer: HTMLElement;
+	let prevEl: HTMLElement;
+	let nextEl: HTMLElement;
 
 	onMount(() => {
-		new Swiper(swiperContainer, {
-			modules: [Navigation],
+		const swiper = new Swiper(swiperContainer, {
+			modules: [Navigation, Autoplay],
 			slidesPerView: 1,
 			spaceBetween: 16,
 			loop: true,
@@ -20,8 +22,9 @@
 				disableOnInteraction: true
 			},
 			navigation: {
-				nextEl: '.swiper-button-next',
-				prevEl: '.swiper-button-prev'
+				// scoped to this instance (several sliders on the homepage)
+				nextEl,
+				prevEl
 			},
 			breakpoints: {
 				768: {
@@ -29,17 +32,18 @@
 				}
 			}
 		});
+		return () => swiper.destroy();
 	});
 </script>
 
 <div class="swiper" bind:this={swiperContainer}>
 	<div class="swiper-wrapper">
-		{#each product.images as image}
-			<div class="swiper-slide"><img src={asset(image)} alt={label} /></div>
+		{#each images as image (image)}
+			<div class="swiper-slide"><img src={asset(image)} alt={label} loading="lazy" /></div>
 		{/each}
 	</div>
-	<div class="swiper-button-prev"></div>
-	<div class="swiper-button-next"></div>
+	<div class="swiper-button-prev" bind:this={prevEl}></div>
+	<div class="swiper-button-next" bind:this={nextEl}></div>
 </div>
 
 <style>
