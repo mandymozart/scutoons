@@ -27,6 +27,8 @@ export interface Dialog {
 	text: string | string[];
 	/** Default 'bubble'. */
 	variant?: DialogVariant;
+	/** caption / narration only: draw the paper box + ink border. Default true; false = bare text (use `mask`). */
+	frame?: boolean;
 	/** Font size in % of the slice width (rendered as cqw). Default 4. */
 	size?: number;
 	/** Default 'center' for bubble/sfx, 'left' for caption/narration. */

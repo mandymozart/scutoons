@@ -113,6 +113,8 @@ export interface Dialog {
   rect: { x: number; y: number; width: number; height?: number }; // % of slice (top-left origin)
   text: string | string[];     // array entries = lines / paragraphs
   variant?: DialogVariant;     // default 'bubble'
+  frame?: boolean;             // caption/narration: paper box + 2px ink border, default true; false = bare text
+                               // on the art (pair with `mask` to cover baked text)
   size?: number;               // font size, % of slice width (Figma px / frame width * 100); default 4
   align?: 'left' | 'center' | 'right';        // default: bubble/sfx 'center', caption/narration 'left'
   valign?: 'top' | 'middle' | 'bottom';        // default 'middle' (needs height)

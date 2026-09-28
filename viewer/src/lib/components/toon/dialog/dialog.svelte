@@ -10,6 +10,8 @@
 
 	const variant: DialogVariant = $derived(dialog.variant ?? 'bubble');
 	const boxed = $derived(variant === 'caption' || variant === 'narration');
+	/** caption / narration draw their paper box + ink border unless `frame: false` */
+	const framed = $derived(boxed && dialog.frame !== false);
 	const font: DialogFont = $derived(dialog.font ?? (boxed ? 'mono' : 'lettering'));
 	const align = $derived(dialog.align ?? (boxed ? 'left' : 'center'));
 	const valign = $derived(dialog.valign ?? 'middle');
@@ -31,36 +33,59 @@
 		);
 	}
 
+	/** Content size right after the last fit pass, so its own font change doesn't re-trigger the observer. */
+	let fittedSize = '';
+
+	const sizeOf = (element: HTMLElement) => `${element.offsetWidth}x${element.offsetHeight}`;
+
 	/** Shrink the font (down to MIN_FIT) until the text fits a box with a fixed height. */
 	function fit() {
-		if (!root) return;
+		if (!root || !box || !content) return;
+		// always measure from full size
 		let scale = 1;
 		root.style.setProperty('--fit', '1');
-		if (!hasHeight) return;
-		while (scale > MIN_FIT && overflows()) {
-			scale = Math.max(MIN_FIT, scale - FIT_STEP);
-			root.style.setProperty('--fit', String(scale));
+		// not laid out yet (hidden, container width 0, image not loaded) → wait for the observer
+		const measurable = hasHeight && box.clientWidth > 0 && box.clientHeight > 0 && content.clientWidth > 0;
+		if (measurable) {
+			while (scale > MIN_FIT && overflows()) {
+				scale = Math.max(MIN_FIT, Math.round((scale - FIT_STEP) * 1000) / 1000);
+				root.style.setProperty('--fit', String(scale));
+			}
 		}
+		fittedSize = sizeOf(content);
 	}
 
 	// re-fit whenever the text or geometry changes (e.g. locale switch)
 	$effect(() => {
-		void [lines, dialog.size, dialog.rect.width, dialog.rect.height, font, variant];
+		void [lines, dialog.size, dialog.rect.width, dialog.rect.height, font, variant, framed];
 		fit();
 	});
 
 	onMount(() => {
-		let frame = 0;
+		let pending = 0;
 		const schedule = () => {
-			cancelAnimationFrame(frame);
-			frame = requestAnimationFrame(fit);
+			cancelAnimationFrame(pending);
+			pending = requestAnimationFrame(fit);
 		};
-		const observer = new ResizeObserver(schedule);
+		const observer = new ResizeObserver((entries) => {
+			// ignore the content resize caused by our own --fit change
+			const external = entries.some(
+				(entry) => entry.target !== content || sizeOf(content!) !== fittedSize
+			);
+			if (external) schedule();
+		});
+		// slice (image load, column width), box (geometry) and content (web font swap)
+		const slice = root?.closest('.slice');
+		if (slice) observer.observe(slice);
 		if (box) observer.observe(box);
+		if (content) observer.observe(content);
+		// fonts load lazily on first use, so `ready` can resolve before the lettering font is even requested
 		document.fonts?.ready.then(schedule);
+		document.fonts?.addEventListener('loadingdone', schedule);
 		return () => {
-			cancelAnimationFrame(frame);
+			cancelAnimationFrame(pending);
 			observer.disconnect();
+			document.fonts?.removeEventListener('loadingdone', schedule);
 		};
 	});
 </script>
@@ -69,6 +94,7 @@
 	bind:this={root}
 	class="dialog dialog--{variant} font-{font}"
 	class:has-height={hasHeight}
+	class:framed
 	class:uppercase={dialog.uppercase ?? variant === 'sfx'}
 	data-id={dialog.id}
 	style:left="{dialog.rect.x}%"
@@ -168,9 +194,8 @@
 		display: block;
 	}
 
-	/* caption / narration: on-brand panel caption (paper box, 2px ink border, square) */
-	.dialog--caption .box,
-	.dialog--narration .box {
+	/* caption / narration: on-brand panel caption (paper box, 2px ink border, square), unless frame: false */
+	.framed .box {
 		background: var(--paper);
 		border: 2px solid var(--ink);
 		padding: 0.8em 1em;

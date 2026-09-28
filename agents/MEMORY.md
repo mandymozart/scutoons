@@ -114,8 +114,12 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
 - sfx = white fill + ink `-webkit-text-stroke` with `paint-order: stroke fill`, uppercase by default.
 - Auto-fit only runs when `rect.height` is set; steps `--fit` 1 → 0.8, then lets it overflow (no clipping).
 - Gotchas: `container-type` also makes `.slice` a stacking context + containing block for `position:fixed`
-  descendants (none today) — text overflowing a slice's bottom is painted under the next slice. The fit pass uses
-  rAF, so in a hidden tab it only settles once visible. Chrome on Windows didn't hyphenate German here
+  descendants (none today) — text overflowing a slice's bottom is painted under the next slice. This is intended:
+  chapter 1 split boxes (negative `rect.y`) rely on the later slice painting over the earlier one — keep it.
+- Fit pass (fixed 2026-09-29): resets `--fit` to 1 before measuring, skips while not laid out (width/height 0),
+  re-runs via ResizeObserver on slice + box + content (content catches the web-font swap; its own --fit resize is
+  ignored by comparing sizes) and on `document.fonts` `loadingdone` — `fonts.ready` alone resolves before lazily
+  requested fonts start loading. `frame: false` renders caption/narration without the paper box. Chrome on Windows didn't hyphenate German here
   (`overflow-wrap:anywhere` breaks instead). `lang` = `getLocale()` (chapter files are per locale); en chapter2
   still carries the German narration text.
 - Dev testing: port 8000 on this machine was taken by another project, so the CDN was run as
