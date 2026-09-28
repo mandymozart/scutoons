@@ -82,11 +82,11 @@
       "slot": "torso",
       "skills": [],
       "edition_id": "1_catpope_dago",
-      "product": "hoodie_black",
+      "product": "dago_hoodie",
       "variants": [
-        { "id": "black", "name": { "de": "Schwarz", "en": "Black" }, "icon": "catpope/items/dago_hoodie_black.png", "product": "hoodie_black" },
-        { "id": "beige", "name": { "de": "Beige", "en": "Beige" }, "icon": "catpope/items/dago_hoodie_beige.png", "product": "hoodie_beige" },
-        { "id": "grey", "name": { "de": "Grau", "en": "Grey" }, "icon": "catpope/items/dago_hoodie_grey.png", "product": "hoodie_grey" }
+        { "id": "black", "name": { "de": "Schwarz", "en": "Black" }, "icon": "catpope/items/dago_hoodie_black.png", "product": "dago_hoodie" },
+        { "id": "beige", "name": { "de": "Beige", "en": "Beige" }, "icon": "catpope/items/dago_hoodie_beige.png", "product": "dago_hoodie" },
+        { "id": "grey", "name": { "de": "Grau", "en": "Grey" }, "icon": "catpope/items/dago_hoodie_grey.png", "product": "dago_hoodie" }
       ]
     },
     {
@@ -106,10 +106,10 @@
       "slot": "torso",
       "skills": [],
       "edition_id": "1_catpope_dago",
-      "product": "tshirt_black",
+      "product": "dago_heavy_t",
       "variants": [
-        { "id": "black", "name": { "de": "Schwarz", "en": "Black" }, "icon": "catpope/items/dago_heavy_t_black.png", "product": "tshirt_black" },
-        { "id": "white", "name": { "de": "Weiß", "en": "White" }, "icon": "catpope/items/dago_heavy_t_white.png", "product": "tshirt_white" }
+        { "id": "black", "name": { "de": "Schwarz", "en": "Black" }, "icon": "catpope/items/dago_heavy_t_black.png", "product": "dago_heavy_t" },
+        { "id": "white", "name": { "de": "Weiß", "en": "White" }, "icon": "catpope/items/dago_heavy_t_white.png", "product": "dago_heavy_t" }
       ]
     },
     {
@@ -129,9 +129,9 @@
       "slot": "neck",
       "skills": [],
       "edition_id": "2_catpope_beetles",
-      "product": null,
+      "product": "scorpion_amulet",
       "variants": [
-        { "id": "purple", "name": { "de": "Lila", "en": "Purple" }, "icon": "catpope/items/scorpion_amulet_purple.png", "product": null }
+        { "id": "purple", "name": { "de": "Lila", "en": "Purple" }, "icon": "catpope/items/scorpion_amulet_purple.png", "product": "scorpion_amulet" }
       ]
     },
     {
@@ -151,7 +151,7 @@
       "slot": null,
       "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.mp3" }],
       "edition_id": "3_catpope_vinyl",
-      "product": null,
+      "product": "awakening_vinyl",
       "variants": null
     },
     {
@@ -171,10 +171,10 @@
       "slot": null,
       "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.mp3" }],
       "edition_id": null,
-      "product": null,
+      "product": "awakening_test_press",
       "variants": [
-        { "id": "1_of_2", "name": { "de": "Testpressung 1/2", "en": "Test press 1/2" }, "icon": "catpope/items/awakening_test_press_1_of_2.png", "product": null },
-        { "id": "2_of_2", "name": { "de": "Testpressung 2/2", "en": "Test press 2/2" }, "icon": "catpope/items/awakening_test_press_2_of_2.png", "product": null }
+        { "id": "1_of_2", "name": { "de": "Testpressung 1/2", "en": "Test press 1/2" }, "icon": "catpope/items/awakening_test_press_1_of_2.png", "product": "awakening_test_press" },
+        { "id": "2_of_2", "name": { "de": "Testpressung 2/2", "en": "Test press 2/2" }, "icon": "catpope/items/awakening_test_press_2_of_2.png", "product": "awakening_test_press" }
       ]
     },
     {
@@ -194,7 +194,7 @@
       "slot": "torso",
       "skills": [],
       "edition_id": null,
-      "product": null,
+      "product": "kangaroo_cat_hoodie",
       "variants": null
     }
   ],

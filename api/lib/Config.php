@@ -17,7 +17,7 @@ final class Config
         // Item icons: <CDN_URL><icon path>. Local CDN: http://localhost:8001/
         'CDN_URL' => 'https://cdn.scutoons.com/',
         // Browser origins that may call the API with credentials (comma separated) – ITEMS.md
-        'ALLOWED_ORIGINS' => 'https://scutoons.com,https://www.scutoons.com,http://localhost:5173,http://localhost:5174,http://localhost:4173',
+        'ALLOWED_ORIGINS' => 'https://scutoons.com,https://www.scutoons.com,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:4173',
         // smtp (production) | log (development: mails appended to MAIL_LOG_PATH) | mail (PHP mail())
         'MAIL_TRANSPORT' => 'smtp',
         'MAIL_FROM' => 'no-reply@scutoons.com',
