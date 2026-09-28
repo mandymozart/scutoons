@@ -4,6 +4,7 @@
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
+	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import CameraOverlay from '$lib/components/camera/camera-overlay.svelte';
 	import ClaimSheet from './claim-sheet.svelte';
@@ -14,6 +15,7 @@
 	/** Global item overlays (mounted once in the root layout). */
 	const inventory = getInventoryContext();
 	const ui = getItemsUiContext();
+	const membership = getMembershipContext();
 
 	function openInventory() {
 		ui.closeClaim();
@@ -69,6 +71,28 @@
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<audio src={/^https?:/.test(ui.audio.src) ? ui.audio.src : asset(ui.audio.src)} controls autoplay></audio>
 		<button class="close" onclick={ui.closeAudio} aria-label={m['items.close']()}>×</button>
+	</div>
+{/if}
+
+{#if membership.showLegacyPrompt && !ui.claimCode && membership.pendingCode}
+	<div class="banner" role="status">
+		<p>{m['claim.legacy_prompt']()}</p>
+		<div class="banner-actions">
+			<button
+				onclick={() => {
+					membership.dismissPrompt();
+					ui.openClaim(membership.pendingCode!);
+				}}>{m['items.sign_in']()}</button
+			>
+			<button class="btn-secondary" onclick={membership.dismissPrompt}>{m['claim.later']()}</button>
+		</div>
+	</div>
+{:else if membership.conflictCode}
+	<div class="banner" role="alert">
+		<p>{m['claim.legacy_conflict']({ code: membership.conflictCode })}</p>
+		<div class="banner-actions">
+			<button class="btn-secondary" onclick={membership.dismissConflict}>{m['items.close']()}</button>
+		</div>
 	</div>
 {/if}
 
@@ -139,6 +163,33 @@
 	}
 	.close:hover {
 		background: var(--primary-color);
+	}
+	.banner {
+		position: fixed;
+		z-index: 2030;
+		left: 0.5rem;
+		right: 0.5rem;
+		bottom: 0.5rem;
+		max-width: 500px;
+		margin: 0 auto;
+		box-sizing: border-box;
+		background: white;
+		border: 2px solid black;
+		padding: 0.75rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.banner p {
+		margin: 0;
+	}
+	.banner-actions {
+		display: flex;
+		gap: 0.5rem;
+	}
+	.banner-actions button {
+		flex: 1;
+		padding: 0.75rem 1rem;
 	}
 	.notices {
 		position: fixed;

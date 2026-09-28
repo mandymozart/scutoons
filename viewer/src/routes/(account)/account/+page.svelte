@@ -13,17 +13,11 @@
 	const membershipCtx = getMembershipContext();
 	const session = getSessionContext();
 	const inventory = getInventoryContext();
-	const membership = $derived(membershipCtx.membership);
 
-	const expiryText = $derived(membership?.expires_at || m['account.lifetime']());
-	const isClaimed = $derived(membership?.email || false);
 	const itemCount = $derived(inventory.entries.reduce((sum, e) => sum + e.qty, 0));
 
 	const typeLabel = (type: string) => (m as any)[`account.${type}`]?.() ?? type;
 
-	function signOut() {
-		membershipCtx.clear();
-	}
 </script>
 
 <div class="view view-account">
@@ -73,7 +67,11 @@
 	{:else}
 		<section>
 			<h2>{m['account.login_title']()}</h2>
-			<LoginForm />
+			{#if membershipCtx.pendingCode}
+				<p class="notification">{m['claim.legacy_prompt']()} ({membershipCtx.pendingCode})</p>
+			{/if}
+			<!-- a legacy device membership code is claimed together with the login -->
+			<LoginForm code={membershipCtx.pendingCode} />
 		</section>
 	{/if}
 
@@ -92,34 +90,6 @@
 		<Avatar />
 	</section>
 
-	{#if membership}
-		<section>
-			<h2>{m['account.device_membership']()}</h2>
-			{#if !isClaimed && !session.isLoggedIn}
-				<p class="notification">
-					🔔 {m['account.claim_membership_reminder']()}
-				</p>
-			{/if}
-			<table>
-				<tbody>
-					<tr><td>{m['account.type']()}</td><td>{typeLabel(membership.type)}</td></tr>
-					<tr
-						><td>{m['account.status']()}</td><td
-							>{isClaimed ? m['account.claimed']() : m['account.not_claimed']()}</td
-						></tr
-					>
-					<tr><td>{m['account.valid_until']()}</td><td>{expiryText}</td></tr>
-					<tr><td>{m['account.code']()}</td><td>{membership.code}</td></tr>
-					<tr
-						><td>{m['account.validated_at']()}</td><td
-							>{formatDate(new Date(membership.validated_at))}</td
-						></tr
-					>
-				</tbody>
-			</table>
-			<button class="btn btn-secondary btn-sign-out" onclick={signOut}>{m['account.sign_out']()}</button>
-		</section>
-	{/if}
 </div>
 
 <style>

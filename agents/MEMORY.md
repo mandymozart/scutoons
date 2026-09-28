@@ -195,14 +195,18 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   `getCurrentSession()`), `inventory.svelte.ts` (catalog, entries, avatar; guest = localStorage `scutoons_inventory`
   with starter items handed out once; on login guest items are imported — crafted items are split back into their
   recipe inputs since only grantable items import; `getCurrentInventory()`), `items-ui.svelte.ts` (camera / claim /
-  minigame / audio overlays rendered by `components/items/items-host.svelte`). Membership context counts `/me/`
-  memberships as valid (guest localStorage path unchanged).
+  minigame / audio overlays rendered by `components/items/items-host.svelte`).
+- Membership (changed later on 2026-09-29, "one code = one account"): `contexts/membership.svelte.ts` is valid only via
+  `/me/` memberships; `/validate/` is not used any more (`api/membership.service.ts` deleted). Legacy localStorage
+  `scutoons_membership` → `pendingCode`: silent `/inventory/claim/` after sign-in (cleared on success/409, 409 shown
+  once as banner), guests get a one-time prompt (`scutoons_membership_prompted`) in items-host. The account page's
+  login passes the pending code to `/auth/request/`. Membership blocker: guests "Sign in / Add your code" + "Buy access",
+  logged-in without membership "Scan code" (camera) + "Buy access"; shows loading while a stored session loads.
 - Game progress sync lives in `contexts/game.svelte.ts`: pull once per login (server newer → replace local; a device
   that never saved takes the server state), debounced (2s) PUT on every save. API `updated_at` = **ms since 1970**;
   PUT answers `status:"stale"` + newer state → applied locally.
 - Magic link from the mail is `<viewer origin>/?login=<token>` (backend decides the origin); root layout verifies it.
-  `?code=`: logged in → claim sheet auto-claims when there is nothing to choose; guest → old `/validate/` membership
-  path + claim sheet with inline login (`/auth/request/` with `code` → backend claims at verify, `claimed:[code]`).
+  `?code=`: logged in → claim sheet auto-claims when there is nothing to choose; guest → claim sheet with inline login (`/auth/request/` with `code` → backend claims at verify, `claimed:[code]`).
   `&inventory=open|1` opens the toon inventory.
 - VN `set`/`add` on a variable that is a catalog item id also grants it (source story) in
   `visual-novel/variable-actions.ts`; the game variable stays for text interpolation.

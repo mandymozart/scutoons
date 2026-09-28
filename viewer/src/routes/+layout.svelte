@@ -54,9 +54,8 @@
 		await session.init();
 
 		if (code) {
-			// guest path (and old viewers): device-local membership validation keeps working
-			if (!membership.isValid) await membership.validate(code);
-			// logged in → claim straight into the inventory; guest → preview + "add to inventory" (login)
+			// a code belongs to exactly one account: logged in → claim straight into the inventory;
+			// guest → preview + sign in (the backend claims it at verify). Nothing is granted to guests.
 			itemsUi.openClaim(code, session.isLoggedIn);
 		}
 	});

@@ -96,7 +96,9 @@
 		"step_1": "Scan a valid SCUTOONS QR code or enter a code at qr.scutoons.com.",
 		"step_2": "You will be automatically redirected to this page",
 		"step_3": "QR codes can be found on all SCUTOONS Limited Editions",
-		"invalid_code": "⚠️ The scanned QR code is not a valid membership code."
+		"invalid_code": "⚠️ The scanned QR code is not a valid membership code.",
+		"sign_in": "Sign in / Add your code",
+		"signed_in_hint": "Your account has no membership yet. Scan the QR code of your SCUTOONS item to add it."
 	},
 	"items": {
 		"tab_items": "Items",
@@ -146,7 +148,7 @@
 		"title": "SCUTOONS item",
 		"loading": "Checking code ...",
 		"not_found": "This code does not exist.",
-		"already_claimed": "This code has already been claimed.",
+		"already_claimed": "This code already belongs to another account.",
 		"claimed_by_me": "Already in your inventory.",
 		"add": "Add to inventory",
 		"choose": "Choose your item",
@@ -155,7 +157,9 @@
 		"done": "It's yours.",
 		"add_prompt": "Add this item to your inventory?",
 		"later": "Later",
-		"failed": "The code could not be claimed."
+		"failed": "The code could not be claimed.",
+		"legacy_prompt": "Sign in with your email to keep your membership.",
+		"legacy_conflict": "Your saved membership code {code} already belongs to another account."
 	},
 	"camera": {
 		"title_qr": "Scan a SCUTOONS QR code",
@@ -175,6 +179,7 @@
 		"detected": "Cucumber!",
 		"cooldown": "Next cucumber in {seconds}s",
 		"mode_qr": "QR",
-		"mode_object": "Cucumber"
+		"mode_object": "Cucumber",
+		"scan_code": "Scan code"
 	}
 }

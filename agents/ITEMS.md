@@ -126,7 +126,15 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
 - Config: `VITE_QR_API` (fallback prod URL) replaces the hardcoded `QRCODE_API_SERVER`.
 - Guest: local inventory in localStorage (starter camera + story items); on login → `/inventory/import/`.
 - VN `add` of a variable whose name is a catalog item id also grants the item (source `story`).
-- `?code=` on any page: logged in → claim; guest → keep old membership validation + offer "add to inventory" (login).
+- **A code belongs to exactly one account (U, 2026-09-29).** Membership = a valid membership of the logged-in account
+  (`/me/` memberships) only; the viewer never calls `/validate/` and grants nothing to guests.
+- `?code=` on any page: logged in → claim sheet auto-claims (when there is nothing to choose); guest → claim sheet
+  preview (`/code/`) + inline login (`/auth/request/` with `code` → claimed at verify). Claimed by someone else →
+  "This code already belongs to another account", nothing granted. The in-app `scan_qr` camera uses the same sheet.
+- Legacy `scutoons_membership` (device-local, pre-accounts) is no longer valid; its code is a pending claim: claimed
+  silently after sign-in (key cleared on success / already yours / 409 — 409 shown once), guests get a one-time
+  "Sign in with your email to keep your membership" prompt that opens the claim sheet.
+- Magic link = `<viewer origin>/?login=<token>`; progress `updated_at` = ms since 1970.
 - Inventory UI: grid of item icons (cut-outs), detail sheet (name, description, edition `n / total`, skills as
   actions: Use / Combine / Put on), combine mode (select 2 → recipe preview), avatar view with slots.
 - Camera: QR decode with `jsqr` (iOS has no BarcodeDetector); cucumber detection with TF.js MobileNet, lazy-loaded

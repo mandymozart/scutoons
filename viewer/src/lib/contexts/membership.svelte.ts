@@ -1,112 +1,123 @@
 import { setContext, getContext } from 'svelte';
-import { validateQRCode } from '$lib/api/membership.service.ts';
-import { isValidMembershipType, isMembershipExpired } from '$lib/auth/index.ts';
-import type { Membership } from '$lib/models/membership.ts';
+import { ApiError } from '$lib/api/client.ts';
+import { claimCode } from '$lib/api/qr.service.ts';
 import type { SessionContext } from './session.svelte.ts';
 
 const MEMBERSHIP_KEY = Symbol('membership');
-const STORAGE_KEY = 'scutoons_membership';
+/** legacy device-local membership (pre-accounts); now only a pending claim */
+const LEGACY_KEY = 'scutoons_membership';
+const PROMPTED_KEY = 'scutoons_membership_prompted';
+
+export type MembershipContext = ReturnType<typeof createMembershipContext>;
 
 /**
- * Guest path: one code in localStorage, validated via /validate/.
- * Logged in: any valid membership from /me/ counts as well.
- * @param {SessionContext} [session]
- * @returns {ReturnType<typeof createMembershipContext>}
+ * Membership = a valid membership of the logged-in account (`/me/` memberships). A code belongs to exactly
+ * one account, so nothing is granted to guests. A legacy `scutoons_membership` code is kept as a pending
+ * claim: claimed silently on sign-in, guests get a one-time prompt to sign in.
  */
-export const createMembershipContext = (session?: SessionContext) => {
-	let membership = $state<Membership | null>(null);
+export const createMembershipContext = (session: SessionContext) => {
+	let pendingCode = $state<string | null>(null);
+	let prompted = $state(true);
+	/** legacy code that turned out to belong to another account (message shown once) */
+	let conflictCode = $state<string | null>(null);
+	let migrating = false;
 
-	let isLocalValid = $derived(
-		membership !== null &&
-			!isMembershipExpired(membership.expires_at) &&
-			isValidMembershipType(membership.type)
-	);
-	let isValid = $derived(isLocalValid || !!session?.hasValidMembership);
+	const isValid = $derived(session.hasValidMembership);
+	const showLegacyPrompt = $derived(!!pendingCode && !prompted && session.ready && !session.isLoggedIn);
 
-	/**
-	 * @returns {void}
-	 */
-	const initFromStorage = () => {
-		if (typeof localStorage === 'undefined') return;
-
-		const stored = localStorage.getItem(STORAGE_KEY);
-		if (!stored) return;
-
+	function read(key: string) {
 		try {
-			const parsed = JSON.parse(stored);
-			if (isValidMembershipType(parsed.type) && !isMembershipExpired(parsed.expires_at)) {
-				membership = parsed;
-			} else {
-				clear();
-			}
+			return localStorage.getItem(key);
 		} catch {
-			clear();
+			return null;
 		}
-	};
+	}
 
-	/**
-	 * @param {Membership} data
-	 * @returns {void}
-	 */
-	const persist = (data: Membership) => {
-		if (typeof localStorage === 'undefined') return;
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-	};
-
-	/**
-	 * @returns {void}
-	 */
-	const clear = () => {
-		membership = null;
-		if (typeof localStorage !== 'undefined') {
-			localStorage.removeItem(STORAGE_KEY);
+	function clearLegacy() {
+		pendingCode = null;
+		try {
+			localStorage.removeItem(LEGACY_KEY);
+			localStorage.removeItem(PROMPTED_KEY);
+		} catch {
+			/* storage unavailable */
 		}
-	};
+	}
 
-	/**
-	 * @param {string} code
-	 * @returns {Promise<import('$lib/models/membership').ValidationResult>}
-	 */
-	const validate = async (code: string) => {
-		const result = await validateQRCode(code);
-
-		if (result.success) {
-			membership = result.membership;
-			persist(result.membership);
+	async function migrate() {
+		if (!pendingCode || migrating || !session.isLoggedIn) return;
+		migrating = true;
+		const code = pendingCode;
+		try {
+			await claimCode(code); // idempotent for the owner
+			clearLegacy();
+			await session.loadMe();
+		} catch (e) {
+			if (e instanceof ApiError && (e.status === 409 || e.code === 'already_claimed')) {
+				conflictCode = code;
+				clearLegacy();
+			} else if (e instanceof ApiError && e.status === 422) {
+				// needs a choice (e.g. item/variant): hand over to the claim sheet via the prompt
+				prompted = false;
+			} else {
+				console.warn('Legacy membership claim failed, will retry', e);
+			}
+		} finally {
+			migrating = false;
 		}
+	}
 
-		return result;
+	const initFromStorage = () => {
+		const stored = read(LEGACY_KEY);
+		if (stored) {
+			try {
+				pendingCode = JSON.parse(stored)?.code || null;
+			} catch {
+				pendingCode = null;
+			}
+			if (!pendingCode) clearLegacy();
+		}
+		prompted = read(PROMPTED_KEY) === '1';
+		session.subscribe((event) => {
+			if (event === 'login' || event === 'me') migrate();
+		});
+		migrate();
 	};
 
 	return {
-		get membership() {
-			return membership;
-		},
 		get isValid() {
 			return isValid;
 		},
-		/** valid through the device-local code (not the account) */
-		get isLocalValid() {
-			return isLocalValid;
+		get pendingCode() {
+			return pendingCode;
 		},
-		validate,
-		clear,
+		get showLegacyPrompt() {
+			return showLegacyPrompt;
+		},
+		get conflictCode() {
+			return conflictCode;
+		},
+		dismissPrompt() {
+			prompted = true;
+			try {
+				localStorage.setItem(PROMPTED_KEY, '1');
+			} catch {
+				/* storage unavailable */
+			}
+		},
+		clearLegacy,
+		dismissConflict() {
+			conflictCode = null;
+		},
 		initFromStorage
 	};
 };
 
-/**
- * @returns {ReturnType<typeof createMembershipContext>}
- */
-export const setMembershipContext = (session?: SessionContext) => {
+export const setMembershipContext = (session: SessionContext) => {
 	const context = createMembershipContext(session);
 	setContext(MEMBERSHIP_KEY, context);
 	return context;
 };
 
-/**
- * @returns {ReturnType<typeof createMembershipContext>}
- */
 export const getMembershipContext = () => {
-	return getContext<ReturnType<typeof createMembershipContext>>(MEMBERSHIP_KEY);
+	return getContext<MembershipContext>(MEMBERSHIP_KEY);
 };

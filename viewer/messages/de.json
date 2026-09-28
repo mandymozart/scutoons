@@ -99,7 +99,9 @@
 		"step_1": "Scanne einen gültigen SCUTOONS QR-Code oder gib einen Code auf qr.scutoons.com ein.",
 		"step_2": "Du wirst automatisch zu dieser Seite weitergeleitet",
 		"step_3": "QR Codes findest du auf allen SCUTOONS Limited Editions",
-		"invalid_code": "⚠️ Der gescannte QR-Code ist kein gültiger Mitgliedschaftscode."
+		"invalid_code": "⚠️ Der gescannte QR-Code ist kein gültiger Mitgliedschaftscode.",
+		"sign_in": "Anmelden / Code hinzufügen",
+		"signed_in_hint": "Dein Konto hat noch keine Mitgliedschaft. Scanne den QR-Code deines SCUTOONS-Gegenstands, um ihn hinzuzufügen."
 	},
 	"items": {
 		"tab_items": "Gegenstände",
@@ -149,7 +151,7 @@
 		"title": "SCUTOONS-Gegenstand",
 		"loading": "Prüfe Code ...",
 		"not_found": "Diesen Code gibt es nicht.",
-		"already_claimed": "Dieser Code wurde schon eingelöst.",
+		"already_claimed": "Dieser Code gehört bereits zu einem anderen Konto.",
 		"claimed_by_me": "Schon in deinem Inventar.",
 		"add": "Ins Inventar legen",
 		"choose": "Wähle deinen Gegenstand",
@@ -158,7 +160,9 @@
 		"done": "Gehört jetzt dir.",
 		"add_prompt": "Diesen Gegenstand in dein Inventar legen?",
 		"later": "Später",
-		"failed": "Der Code konnte nicht eingelöst werden."
+		"failed": "Der Code konnte nicht eingelöst werden.",
+		"legacy_prompt": "Melde dich mit deiner E-Mail an, um deine Mitgliedschaft zu behalten.",
+		"legacy_conflict": "Dein gespeicherter Mitgliedschafts-Code {code} gehört bereits zu einem anderen Konto."
 	},
 	"camera": {
 		"title_qr": "SCUTOONS-QR-Code scannen",
@@ -178,6 +182,7 @@
 		"detected": "Gurke!",
 		"cooldown": "Nächste Gurke in {seconds}s",
 		"mode_qr": "QR",
-		"mode_object": "Gurke"
+		"mode_object": "Gurke",
+		"scan_code": "Code scannen"
 	}
 }

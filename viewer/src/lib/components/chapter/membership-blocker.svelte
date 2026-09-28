@@ -3,6 +3,8 @@
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
+	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import type { Snippet } from 'svelte';
 	import accountIcon from '$lib/icons/account.svg';
 
@@ -15,8 +17,17 @@
 	} = $props();
 
 	const membership = getMembershipContext();
+	const session = getSessionContext();
+	const itemsUi = getItemsUiContext();
 
 	const shouldShowContent = $derived(isPreview || membership.isValid);
+	// don't flash the blocker while a stored session is still loading /me/
+	const loading = $derived(!!session.token && !session.ready);
+
+	const handleSignIn = () => {
+		if (membership.pendingCode) itemsUi.openClaim(membership.pendingCode);
+		else goto(localizeHref('/account'));
+	};
 
 	const handleBuyAccess = () => {
 		goto(localizeHref('/shop'));
@@ -25,6 +36,8 @@
 
 {#if shouldShowContent}
 	{@render children()}
+{:else if loading}
+	<p class="loading">{m['common.loading']()}</p>
 {:else}
 	<div class="view view-membership-blocker">
 		<header>
@@ -43,17 +56,22 @@
 					</ol>
 				</div>
 
+				{#if session.isLoggedIn}
+					<p>{m['membership_blocker.signed_in_hint']()}</p>
+				{/if}
+
 				<div class="membership-actions">
-					<button onclick={handleBuyAccess} class="btn-buy-access">
+					{#if session.isLoggedIn}
+						<button onclick={() => itemsUi.openCamera({ qr: true, object: null, entry: null })}>
+							{m['camera.scan_code']()}
+						</button>
+					{:else}
+						<button onclick={handleSignIn}>{m['membership_blocker.sign_in']()}</button>
+					{/if}
+					<button onclick={handleBuyAccess} class="btn-buy-access btn-secondary">
 						{m['account.buy_access']()}
 					</button>
 				</div>
-
-				{#if membership.membership && !membership.isValid}
-					<div class="membership-error">
-						<p>{m['membership_blocker.invalid_code']()}</p>
-					</div>
-				{/if}
 			</div>
 		</section>
 	</div>
@@ -81,5 +99,11 @@
 	}
 	section {
 		padding: 1rem;
+	}
+	.membership-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+		margin-top: 1rem;
 	}
 </style>
