@@ -8,13 +8,45 @@ export interface KeyVisual {
 	video?: string;
 }
 
+export type DialogVariant = 'bubble' | 'caption' | 'narration' | 'sfx';
+
+export type DialogFont = 'lettering' | 'mono';
+
+/** A live, translatable text box on top of a slice image (see agents/DESIGN.md → Part 2). */
 export interface Dialog {
+	/** Stable key (Figma node id) → i18n file. */
+	id?: string;
+	/** % of the slice box, top-left origin. `height` optional (needed for `valign` and auto-fit). */
 	rect: {
 		x: number;
 		y: number;
 		width: number;
+		height?: number;
 	};
+	/** Array entries are rendered as separate lines / paragraphs; `\n` inside an entry is a line break. */
 	text: string | string[];
+	/** Default 'bubble'. */
+	variant?: DialogVariant;
+	/** Font size in % of the slice width (rendered as cqw). Default 4. */
+	size?: number;
+	/** Default 'center' for bubble/sfx, 'left' for caption/narration. */
+	align?: 'left' | 'center' | 'right';
+	/** Default 'middle' (only has an effect with `rect.height`). */
+	valign?: 'top' | 'middle' | 'bottom';
+	/** Default 'lettering' for bubble/sfx, 'mono' for caption/narration (matches chapter 1). */
+	font?: DialogFont;
+	weight?: 400 | 700;
+	uppercase?: boolean;
+	/** Text color, default ink (#000). */
+	color?: string;
+	/** Degrees. */
+	rotation?: number;
+	/** Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'. */
+	mask?: string | true;
+	/** Default 'rect'. */
+	maskShape?: 'rect' | 'ellipse';
+	/** Extra mask padding in % of slice width. Default 0.5. */
+	pad?: number;
 }
 
 export interface Onomatopoeia {

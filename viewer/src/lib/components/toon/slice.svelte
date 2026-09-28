@@ -6,6 +6,7 @@
 	import { audioEvents } from '$lib/actions/audio/index.ts';
 	import Samples from './audio/samples.svelte';
 	import Triggers from './vn/triggers.svelte';
+	import Dialogs from './dialog/dialogs.svelte';
 
 	let { slice, sliceIndex = 0, allSlices = [] }: { slice: Slice, sliceIndex?: number, allSlices?: Slice[] } = $props();
 	
@@ -32,6 +33,7 @@
 		<Samples samples={slice.audio?.audio?.samples} />
 		<Triggers events={slice.events} />
 		<img src={imageUrl} alt="Slice" loading="eager"/>
+		<Dialogs dialogs={slice.dialog} />
 	{/if}
 </div>
 
@@ -40,6 +42,8 @@
 		position: relative;
 		width: 100%;
 		min-height: 200px;
+		/* dialog font sizes are in cqw = % of the slice width */
+		container-type: inline-size;
 		/* display: flex;
 		align-items: center;
 		justify-content: center; */

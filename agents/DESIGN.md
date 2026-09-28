@@ -114,13 +114,17 @@ export interface Dialog {
   text: string | string[];     // array entries = lines / paragraphs
   variant?: DialogVariant;     // default 'bubble'
   size?: number;               // font size, % of slice width (Figma px / frame width * 100); default 4
-  align?: 'left' | 'center' | 'right';        // default 'center'
+  align?: 'left' | 'center' | 'right';        // default: bubble/sfx 'center', caption/narration 'left'
   valign?: 'top' | 'middle' | 'bottom';        // default 'middle' (needs height)
-  font?: 'lettering' | 'mono';                 // default 'lettering' (font TBD)
+  font?: 'lettering' | 'mono';                 // default: bubble/sfx 'lettering' (Bangers, OFL), caption/narration 'mono' (IBM Plex Mono)
   weight?: 400 | 700;
   uppercase?: boolean;
   color?: string;              // default ink
   rotation?: number;           // degrees
+  mask?: string | true;        // fill the rect (+ `pad`) with a color before drawing text, to cover text that is
+                               // baked into legacy art (chapter 1). true = '#ffffff'. Omit for text-free art.
+  maskShape?: 'rect' | 'ellipse';  // default 'rect'; ellipse for round bubbles
+  pad?: number;                // extra mask padding in % of slice width, default 0.5
 }
 ```
 
