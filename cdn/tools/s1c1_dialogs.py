@@ -523,8 +523,13 @@ def build():
                 ty0 = glyph_top - 0.3 * em
                 ty1 = ty0 + n_lines * LINE_HEIGHT * em + 0.1 * em
             d["rect"] = pct_rect(tx0, ty0, tx1, ty1, yoff=yoff)
-            d["variant"] = "bubble"
-            d["font"] = "mono"
+            if b["style"] == "italic":
+                # italic lettering straight on the art: frameless narration keeps the italic
+                d["variant"] = "narration"
+                d["frame"] = False
+            else:
+                d["variant"] = "bubble"
+                d["font"] = "mono"
             d["size"] = size
             d["align"] = b.get("align", "left")
             d["valign"] = "top" if b.get("align") != "center" else "middle"
@@ -558,7 +563,7 @@ def dialog_block(dialogs, lang, indent_unit, base_indent):
             obj["rect"] = en_rect
         obj["text"] = de if lang == "de" else en
         # keep a stable, readable key order
-        order = ["id", "rect", "text", "variant", "font", "size", "align", "valign", "uppercase", "rotation",
+        order = ["id", "rect", "text", "variant", "frame", "font", "size", "align", "valign", "uppercase", "rotation",
                  "mask", "maskShape", "pad"]
         obj = {k: obj[k] for k in order if k in obj}
         rows.append(inner + json.dumps(obj, ensure_ascii=False, separators=(", ", ": ")))

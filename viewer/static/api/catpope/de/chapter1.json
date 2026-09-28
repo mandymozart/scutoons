@@ -365,7 +365,7 @@
 					"image": "images/3x/de/S1C1 - Slice 43.jpg",
 					"dialog": [
 						{"id": "s1c1-43-1", "rect": {"x": 8.03, "y": 1.17, "width": 45.3, "height": 11.63}, "text": "Ein Katzenvieh?\nIm Bademantel?", "variant": "caption", "size": 3.96, "mask": true, "maskShape": "rect", "pad": 0},
-						{"id": "s1c1-43-2", "rect": {"x": 3.76, "y": 85.79, "width": 94.19, "height": 7.18}, "text": "Nichts mehr! Wie es erschien, war es\nauch wieder weg.", "variant": "bubble", "font": "mono", "size": 4.11, "align": "left", "valign": "top", "mask": "#faf4f4", "maskShape": "rect", "pad": 0.3}
+						{"id": "s1c1-43-2", "rect": {"x": 3.76, "y": 85.79, "width": 94.19, "height": 7.18}, "text": "Nichts mehr! Wie es erschien, war es\nauch wieder weg.", "variant": "narration", "frame": false, "size": 4.11, "align": "left", "valign": "top", "mask": "#faf4f4", "maskShape": "rect", "pad": 0.3}
 					]
 				},
 				{
