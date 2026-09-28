@@ -49,7 +49,8 @@ final class Config
     {
         $env = getenv('QR_' . $key);
         if ($env !== false && $env !== '') return $env;
-        if (defined($key)) return (string) constant($key);
+        // An empty constant (e.g. an unset CI variable) falls back to the default
+        if (defined($key) && (string) constant($key) !== '') return (string) constant($key);
         return self::DEFAULTS[$key] ?? '';
     }
 

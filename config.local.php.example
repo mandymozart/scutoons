@@ -44,3 +44,15 @@ function getDbConnection() {
     }
     return $pdo;
 }
+
+// ── Accounts / items API (docs/ACCOUNTS.md) ─────────────────────────────
+// At least 32 random characters: php -r "echo bin2hex(random_bytes(32));"
+define('AUTH_SECRET', '');
+define('MAIL_TRANSPORT', 'log');                       // log = login mails go to logs/mail.log (smtp in production)
+define('QR_URL', 'http://localhost:9000');             // magic links from the landing page
+define('APP_URL', 'http://localhost:5173');            // the viewer
+define('CDN_URL', 'http://localhost:8001/');           // local CDN (item icons)
+// Production mail (MAIL_TRANSPORT = smtp):
+// define('MAIL_FROM', 'no-reply@scutoons.com');
+// define('SMTP_HOST', ''); define('SMTP_PORT', '587'); define('SMTP_SECURE', 'tls');
+// define('SMTP_USER', ''); define('SMTP_PASS', '');
