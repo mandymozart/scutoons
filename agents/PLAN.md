@@ -154,3 +154,24 @@ Agents don't commit in the scutoons repo (shared working tree); the coordinator 
 - 2026-09-28 — investigation done (viewer, cdn, qr.scutoons.com, graphic-novel-figma-plugin, cat-pope-agent,
   Bandcamp merch page, earlier design-system session). Branch `anger` created. Docs written. No code changed yet.
 - 2026-09-29 — user decisions (above); ITEMS.md concept + API contract written; 5 parallel agents started.
+- 2026-09-29 — landed on `anger` (scutoons): text-box renderer (b6aa594, 3cb7d19), chapter 1 text extraction
+  70 dialogs / 53 slices de+en (1f339a4, b163051), shop catalog + item icons (ae694b4), accounts/inventory/camera/
+  avatar viewer (8f7a62f). qr.scutoons.com local branch `anger` (not pushed): security fixes, accounts + items API,
+  landing page, smoke test 56/56. `npm run check` 0 errors, `npm run build` ok.
+
+## Next
+
+1. User review in the browser (see "Run locally" in MEMORY.md / below) and of the chapter-1 translations.
+2. Chapter 2 content from the user's Figma layout: slices 390×625 → `images/{1x,3x}/s1c2-slice-NN.jpg` (text-free),
+   dialogs authored per DESIGN.md Part 2 (manual or via `cdn/tools` scripts), release meta for 2026-10-04.
+3. Production rollout of qr.scutoons.com (docs/ACCOUNTS.md there): DB migration, backfill, secrets (AUTH_SECRET, SMTP),
+   decide which duplicate dago/beetles code set was printed, then merge qr `anger` → main.
+4. `python cdn/sync.py` for new icons (`catpope/items/`) and `merch/bandcamp/`.
+5. Minigames (registry has a placeholder only), avatar art, flat-lay product photos for cleaner icons.
+
+## Run locally
+
+- CDN: `python cdn/server.py 8001` (port 8000 is used by nadeos on this machine)
+- QR API: `cd C:\Development\qr.scutoons.com && php -S localhost:9000 router.php` (login codes in `logs/mail.log`)
+- Viewer: `cd viewer && npm run dev` (dev env in `viewer/.env.development`: VITE_CDN_URL, VITE_QR_API)
+
