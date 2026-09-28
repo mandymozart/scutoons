@@ -1,4 +1,4 @@
-import { QRCODE_API_SERVER } from '$lib/config.ts';
+import { QR_API } from '$lib/config.ts';
 import type { Membership, ValidationResult } from '$lib/models/membership.ts';
 
 /**
@@ -11,7 +11,7 @@ export const validateQRCode = async (code: string): Promise<ValidationResult> =>
 	}
 
 	try {
-		const response = await fetch(QRCODE_API_SERVER + 'validate/', {
+		const response = await fetch(QR_API + '/validate/', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json'

@@ -20,7 +20,7 @@ export function escapeHtml(text: string): string {
 		'/': '&#x2F;'
 	};
 
-	return str.replace(/[&<>"'/]/g, (char) => htmlEscapeMap[char]);
+	return str.replace(/[&<>"'/]/g, (char) => htmlEscapeMap[char as keyof typeof htmlEscapeMap]);
 }
 
 export function sanitizeUrl(url: string) {

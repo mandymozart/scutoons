@@ -6,27 +6,58 @@
 	import { onMount, type Snippet } from 'svelte';
 	import Header from '$lib/components/header.svelte';
 	import Loader from '$lib/components/loader.svelte';
+	import ItemsHost from '$lib/components/items/items-host.svelte';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { setSessionContext } from '$lib/contexts/session.svelte.ts';
+	import { setInventoryContext } from '$lib/contexts/inventory.svelte.ts';
+	import { setItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import { initAnimatedFavicon } from '$lib/utils/favicon.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	let toons = $derived(data.toons);
-	const membership = setMembershipContext();
-
+	const session = setSessionContext();
+	const membership = setMembershipContext(session);
+	const inventory = setInventoryContext(session);
+	const itemsUi = setItemsUiContext();
 
 	onMount(async () => {
 		initAnimatedFavicon();
 
 		membership.initFromStorage();
-		const code = page.url.searchParams.get('code') || null;
+		inventory.init();
 
-		if (!membership.isValid && code) {
-			await membership.validate(code);
+		const params = page.url.searchParams;
+		// magic link from the login mail: `<origin>/?login=<token>[&c=<code>]`
+		const magicToken = params.get('login') || params.get('token') || null;
+		const code = params.get('code') || (magicToken ? params.get('c') : null) || null;
 
+		if (code || magicToken) {
 			const url = new URL(window.location.href);
 			url.searchParams.delete('code');
+			if (magicToken) url.searchParams.delete('c');
+			// already consumed by the toon inventory (child onMount runs first)
+			url.searchParams.delete('inventory');
+			url.searchParams.delete('login');
+			url.searchParams.delete('token');
 			goto(url.pathname + url.search, { replaceState: true });
+		}
+
+		// magic link from the login mail
+		if (magicToken && !session.token) {
+			try {
+				await session.verifyToken(magicToken);
+			} catch (e) {
+				console.warn('Magic link login failed', e);
+			}
+		}
+		await session.init();
+
+		if (code) {
+			// guest path (and old viewers): device-local membership validation keeps working
+			if (!membership.isValid) await membership.validate(code);
+			// logged in → claim straight into the inventory; guest → preview + "add to inventory" (login)
+			itemsUi.openClaim(code, session.isLoggedIn);
 		}
 	});
 </script>
@@ -38,6 +69,8 @@
 <div class="content">
 	{@render children()}
 </div>
+
+<ItemsHost />
 
 <div style="display:none">
 	{#each locales as locale}

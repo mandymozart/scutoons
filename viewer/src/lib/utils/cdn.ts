@@ -1,6 +1,5 @@
 import { CDN_SERVER } from "../config.ts";
 import { sanitizeUrl } from "./template.js";
-const isProd = import.meta.env.PROD;
 
 export function asset(path: string) : string {
   if (!path || typeof path !== 'string') {
@@ -12,9 +11,5 @@ export function asset(path: string) : string {
     return '';
   }
   
-  if (CDN_SERVER && isProd) {
-    return `${CDN_SERVER}/${safePath}`;
-  } else {
-    return `http://localhost:8000/${safePath}`;
-  }
+  return `${CDN_SERVER}/${safePath.replace(/^\/+/, '')}`;
 }

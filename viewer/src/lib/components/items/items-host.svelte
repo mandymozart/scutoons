@@ -1,0 +1,176 @@
+<script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { localizeHref } from '$lib/paraglide/runtime.js';
+	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
+	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
+	import { m } from '$lib/paraglide/messages.js';
+	import CameraOverlay from '$lib/components/camera/camera-overlay.svelte';
+	import ClaimSheet from './claim-sheet.svelte';
+	import ItemIcon from './item-icon.svelte';
+	import { loadMinigame } from './minigames/registry.ts';
+	import { asset } from '$lib/utils/cdn.ts';
+
+	/** Global item overlays (mounted once in the root layout). */
+	const inventory = getInventoryContext();
+	const ui = getItemsUiContext();
+
+	function openInventory() {
+		ui.closeClaim();
+		if (page.params.toonId) {
+			ui.requestInventory();
+		} else {
+			goto(localizeHref('/catpope') + '?inventory=open');
+		}
+	}
+
+	function noticeText(n: { item_id: string; qty: number; kind: string }) {
+		const name = inventory.nameOf({ item_id: n.item_id, variant: null });
+		if (n.kind === 'craft') return m['items.crafted']({ name });
+		if (n.kind === 'claim') return m['items.claimed']({ name });
+		return m['items.granted']({ qty: n.qty, name });
+	}
+</script>
+
+{#if ui.camera}
+	<CameraOverlay
+		request={ui.camera}
+		onclose={ui.closeCamera}
+		oncode={(code) => {
+			ui.closeCamera();
+			ui.openClaim(code);
+		}}
+	/>
+{/if}
+
+{#if ui.claimCode}
+	{#key ui.claimCode}
+		<ClaimSheet code={ui.claimCode} auto={ui.claimAuto} onclose={ui.closeClaim} onopeninventory={openInventory} />
+	{/key}
+{/if}
+
+{#if ui.minigame}
+	<div class="overlay" role="dialog" aria-modal="true">
+		<div class="panel">
+			{#await loadMinigame(ui.minigame.id) then mod}
+				<mod.default entry={ui.minigame.entry} onclose={ui.closeMinigame} />
+			{/await}
+		</div>
+	</div>
+{/if}
+
+{#if ui.audio}
+	<div class="audio-player">
+		{#if ui.audio.entry}
+			<div class="thumb">
+				<ItemIcon srcs={[inventory.iconOf(ui.audio.entry)]} name={inventory.nameOf(ui.audio.entry)} />
+			</div>
+		{/if}
+		<!-- svelte-ignore a11y_media_has_caption -->
+		<audio src={/^https?:/.test(ui.audio.src) ? ui.audio.src : asset(ui.audio.src)} controls autoplay></audio>
+		<button class="close" onclick={ui.closeAudio} aria-label={m['items.close']()}>×</button>
+	</div>
+{/if}
+
+<div class="notices" aria-live="polite">
+	{#each inventory.notices as notice (notice.id)}
+		<div class="notice">
+			<div class="thumb">
+				<ItemIcon srcs={[inventory.item(notice.item_id)?.icon ?? '']} name={inventory.nameOf({ item_id: notice.item_id, variant: null })} />
+			</div>
+			<span>{noticeText(notice)}</span>
+		</div>
+	{/each}
+</div>
+
+<style>
+	.overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 2050;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+	}
+	.panel {
+		width: 100%;
+		max-width: 500px;
+		box-sizing: border-box;
+		background: white;
+		border: 2px solid black;
+		border-bottom: none;
+		padding: 1rem;
+	}
+	.audio-player {
+		position: fixed;
+		z-index: 2040;
+		left: 0.5rem;
+		right: 0.5rem;
+		bottom: 0.5rem;
+		max-width: 500px;
+		margin: 0 auto;
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		background: white;
+		border: 2px solid black;
+		padding: 0.25rem 0.5rem;
+	}
+	.audio-player audio {
+		flex: 1;
+		min-width: 0;
+	}
+	.thumb {
+		width: 2.5rem;
+		flex: none;
+	}
+	.close {
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+		border-radius: 50%;
+		background: white;
+		color: black;
+		border: 2px solid black;
+		font-size: 1.25rem;
+		line-height: 1;
+		flex: none;
+	}
+	.close:hover {
+		background: var(--primary-color);
+	}
+	.notices {
+		position: fixed;
+		z-index: 2200;
+		top: 3rem;
+		left: 50%;
+		transform: translateX(-50%);
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		pointer-events: none;
+		width: max-content;
+		max-width: calc(100vw - 2rem);
+	}
+	.notice {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		background: white;
+		border: 2px solid black;
+		padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+		filter: drop-shadow(0 0 8px var(--primary-color));
+		animation: notice-in 0.3s ease;
+	}
+	@keyframes notice-in {
+		from {
+			transform: translateY(-0.5rem);
+			opacity: 0;
+		}
+		to {
+			transform: none;
+			opacity: 1;
+		}
+	}
+</style>

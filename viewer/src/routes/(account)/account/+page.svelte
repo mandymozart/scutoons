@@ -1,47 +1,108 @@
 <script lang="ts">
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
+	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
+	import { isMembershipExpired } from '$lib/auth/index.ts';
+	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';
 	import accountIcon from '$lib/icons/account.svg';
+	import LoginForm from '$lib/components/account/login-form.svelte';
+	import Avatar from '$lib/components/avatar/avatar.svelte';
 
 	const membershipCtx = getMembershipContext();
+	const session = getSessionContext();
+	const inventory = getInventoryContext();
 	const membership = $derived(membershipCtx.membership);
 
-	const expiryText = $derived(membership?.expires_at || 'Lifetime');
+	const expiryText = $derived(membership?.expires_at || m['account.lifetime']());
 	const isClaimed = $derived(membership?.email || false);
+	const itemCount = $derived(inventory.entries.reduce((sum, e) => sum + e.qty, 0));
+
+	const typeLabel = (type: string) => (m as any)[`account.${type}`]?.() ?? type;
+
 	function signOut() {
 		membershipCtx.clear();
 	}
 </script>
 
-{#if membership}
-	<div class="view view-account">
-		<header class="account-header">
-			<h1><img src={accountIcon} alt="Account" /> {m['account.my_account']()}</h1>
-		</header>
+<div class="view view-account">
+	<header class="account-header">
+		<h1><img src={accountIcon} alt="Account" /> {m['account.my_account']()}</h1>
+	</header>
 
-		{#if !isClaimed}
-			<section class="notification">
-				<p>
-					🔔 {m['account.claim_membership_reminder']()}
-				</p>
-				<p>
-					<a
-						href="https://qr.scutoons.com/?c={membership.code}"
-						target="_blank"
-						class="btn"
-						rel="noopener noreferrer"
-					>
-						{m['account.claim_membership']()}
-					</a>
-				</p>
-			</section>
-		{/if}
-
+	{#if !session.ready && session.token}
+		<section><p>{m['common.loading']()}</p></section>
+	{:else if session.isLoggedIn && session.user}
 		<section>
 			<table>
 				<tbody>
-					<tr><td>{m['account.type']()}</td><td>{m[`account.${membership.type}`]()}</td></tr>
+					<tr><td>{m['account.signed_in_as']()}</td><td>{session.user.email}</td></tr>
+					{#if session.user.created_at}
+						<tr
+							><td>{m['account.created_at']()}</td><td
+								>{formatDate(new Date(session.user.created_at.replace(' ', 'T')))}</td
+							></tr
+						>
+					{/if}
+				</tbody>
+			</table>
+			<button class="btn btn-sign-out" onclick={() => session.logout()}>{m['account.sign_out']()}</button>
+		</section>
+
+		<section>
+			<h2>{m['account.memberships']()}</h2>
+			{#if session.memberships.length === 0}
+				<p>{m['account.no_memberships']()}</p>
+			{:else}
+				<table>
+					<tbody>
+						{#each session.memberships as ms}
+							<tr>
+								<td>{typeLabel(ms.type)}</td>
+								<td>
+									{ms.code} · {ms.expires_at || m['account.lifetime']()}
+									{#if isMembershipExpired(ms.expires_at)}(✕){/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			{/if}
+		</section>
+	{:else}
+		<section>
+			<h2>{m['account.login_title']()}</h2>
+			<LoginForm />
+		</section>
+	{/if}
+
+	<section>
+		<h2>{m['account.inventory']()}</h2>
+		<p class="inventory-line">
+			<span>{m['account.items_count']({ count: itemCount })}</span>
+			<a class="btn btn-secondary" href={localizeHref('/catpope') + '?inventory=open'}>
+				{m['account.open_inventory']()}
+			</a>
+		</p>
+	</section>
+
+	<section>
+		<h2>{m['account.avatar']()}</h2>
+		<Avatar />
+	</section>
+
+	{#if membership}
+		<section>
+			<h2>{m['account.device_membership']()}</h2>
+			{#if !isClaimed && !session.isLoggedIn}
+				<p class="notification">
+					🔔 {m['account.claim_membership_reminder']()}
+				</p>
+			{/if}
+			<table>
+				<tbody>
+					<tr><td>{m['account.type']()}</td><td>{typeLabel(membership.type)}</td></tr>
 					<tr
 						><td>{m['account.status']()}</td><td
 							>{isClaimed ? m['account.claimed']() : m['account.not_claimed']()}</td
@@ -49,38 +110,6 @@
 					>
 					<tr><td>{m['account.valid_until']()}</td><td>{expiryText}</td></tr>
 					<tr><td>{m['account.code']()}</td><td>{membership.code}</td></tr>
-				</tbody>
-			</table>
-			<button class="btn btn-sign-out" onclick={signOut}>{m['account.sign_out']()}</button>
-		</section>
-
-		{#if membership.email}
-			<section>
-				<h2>{m['account.account_data']()}</h2>
-				<table>
-					<tbody>
-						<tr><td>{m['account.email']()}</td><td>{membership.email}</td></tr>
-					</tbody>
-				</table>
-			</section>
-		{/if}
-
-		<section>
-			<h2>{m['account.timeline']()}</h2>
-			<table>
-				<tbody>
-					<tr
-						><td>{m['account.created_at']()}</td><td
-							>{formatDate(new Date(membership.created_at))}</td
-						></tr
-					>
-					<tr
-						><td>{m['account.claimed_at']()}</td><td
-							>{membership.claimed_at
-								? formatDate(new Date(membership.claimed_at))
-								: m['account.not_claimed']()}</td
-						></tr
-					>
 					<tr
 						><td>{m['account.validated_at']()}</td><td
 							>{formatDate(new Date(membership.validated_at))}</td
@@ -88,26 +117,10 @@
 					>
 				</tbody>
 			</table>
+			<button class="btn btn-secondary btn-sign-out" onclick={signOut}>{m['account.sign_out']()}</button>
 		</section>
-
-		<section>
-			<h2>{m['account.technical']()}</h2>
-			<div class="technical">
-				{m['account.redirect_to']()}:<br />
-				{membership.redirect_to}
-			</div>
-		</section>
-	</div>
-{:else}
-	<div class="view view-account">
-		<header>
-			<h1>{m['account.my_account']()}</h1>
-		</header>
-		<section>
-			<p>{m['account.no_membership_message']()}</p>
-		</section>
-	</div>
-{/if}
+	{/if}
+</div>
 
 <style>
 	.view.view-account {
@@ -132,8 +145,38 @@
 	section {
 		padding: 1rem;
 	}
-	.technical {
-		background-color: #f5f5f5;
-		padding: 1rem;
+	h2 {
+		font-size: 1rem;
+		font-weight: 700;
+		margin: 0 0 0.75rem;
+	}
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		margin-bottom: 1rem;
+	}
+	td {
+		padding: 0.25rem 0.5rem;
+		vertical-align: top;
+		overflow-wrap: anywhere;
+	}
+	td:first-child {
+		background: #f0f0f0;
+		width: 40%;
+	}
+	.inventory-line {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		flex-wrap: wrap;
+		margin: 0;
+	}
+	.inventory-line .btn {
+		padding: 0.75rem 1rem;
+		text-decoration: none;
+	}
+	.notification {
+		margin: 0 0 1rem;
 	}
 </style>

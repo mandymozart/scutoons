@@ -2,21 +2,26 @@ import { setContext, getContext } from 'svelte';
 import { validateQRCode } from '$lib/api/membership.service.ts';
 import { isValidMembershipType, isMembershipExpired } from '$lib/auth/index.ts';
 import type { Membership } from '$lib/models/membership.ts';
+import type { SessionContext } from './session.svelte.ts';
 
 const MEMBERSHIP_KEY = Symbol('membership');
 const STORAGE_KEY = 'scutoons_membership';
 
 /**
+ * Guest path: one code in localStorage, validated via /validate/.
+ * Logged in: any valid membership from /me/ counts as well.
+ * @param {SessionContext} [session]
  * @returns {ReturnType<typeof createMembershipContext>}
  */
-export const createMembershipContext = () => {
+export const createMembershipContext = (session?: SessionContext) => {
 	let membership = $state<Membership | null>(null);
 
-	let isValid = $derived(
+	let isLocalValid = $derived(
 		membership !== null &&
 			!isMembershipExpired(membership.expires_at) &&
 			isValidMembershipType(membership.type)
 	);
+	let isValid = $derived(isLocalValid || !!session?.hasValidMembership);
 
 	/**
 	 * @returns {void}
@@ -80,6 +85,10 @@ export const createMembershipContext = () => {
 		get isValid() {
 			return isValid;
 		},
+		/** valid through the device-local code (not the account) */
+		get isLocalValid() {
+			return isLocalValid;
+		},
 		validate,
 		clear,
 		initFromStorage
@@ -89,8 +98,8 @@ export const createMembershipContext = () => {
 /**
  * @returns {ReturnType<typeof createMembershipContext>}
  */
-export const setMembershipContext = () => {
-	const context = createMembershipContext();
+export const setMembershipContext = (session?: SessionContext) => {
+	const context = createMembershipContext(session);
 	setContext(MEMBERSHIP_KEY, context);
 	return context;
 };

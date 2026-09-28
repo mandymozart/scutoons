@@ -35,7 +35,7 @@ const map = $derived(toon?.map as Map | undefined);
 
 	// Calculate offset to center the world at (map.center.x, map.center.y)
 	function recalculateCenterOffset() {
-		if (mapContainer) {
+		if (mapContainer && map) {
 			centerOffsetX = mapContainer.clientWidth / 2 - map.center.x;
 			centerOffsetY = mapContainer.clientHeight / 2 - map.center.y;
 		}

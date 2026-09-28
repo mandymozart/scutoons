@@ -58,8 +58,11 @@
 		"svelte"
 	],
 	"dependencies": {
+		"@tensorflow-models/mobilenet": "^2.1.1",
+		"@tensorflow/tfjs": "^4.22.0",
 		"@types/howler": "^2.2.12",
 		"howler": "^2.2.4",
+		"jsqr": "^1.4.0",
 		"runed": "^0.36.0",
 		"swiper": "^12.0.3"
 	}

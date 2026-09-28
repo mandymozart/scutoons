@@ -135,6 +135,11 @@ export function createVisualNovelContext() {
 		navigationTriggered = true;
 	}
 
+	/** Choices navigate themselves (vn/choices.svelte → executeVariableAction); kept for the event processor. */
+	function getPendingJumpTo(): string | null {
+		return null;
+	}
+
 	function isNavigationTriggered(): boolean {
 		return navigationTriggered;
 	}
@@ -234,6 +239,7 @@ export function createVisualNovelContext() {
 		hideChoices,
 		clearChoices,
 		setNavigationTriggered,
+		getPendingJumpTo,
 		isNavigationTriggered,
 		showOnomatopeia,
 		setOnomatopoeiaResolver,

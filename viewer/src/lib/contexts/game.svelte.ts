@@ -1,8 +1,11 @@
 import type { Checkpoint } from '$lib/models/content.ts';
-import { setContext, getContext } from 'svelte';
+import { setContext, getContext, onDestroy } from 'svelte';
+import { fetchProgress, putProgress } from '$lib/api/qr.service.ts';
+import { getCurrentSession } from './session.svelte.ts';
 
 const GAME_KEY = Symbol('game');
 const STORAGE_PREFIX = 'scutoons_game_';
+const SYNC_DEBOUNCE_MS = 2000;
 
 interface GameState {
 	toonId: string;
@@ -49,7 +52,81 @@ export function createGameContext(toonId: string) {
 
 		state.updated_at = new Date().toISOString();
 		localStorage.setItem(storageKey, JSON.stringify(state));
+		schedulePush();
 	}
+
+	// ---------- account progress sync (/progress/<toonId>/, last-write-wins by updated_at) ----------
+
+	let pushTimer: ReturnType<typeof setTimeout> | undefined;
+	let synced = false;
+
+	function snapshot() {
+		return $state.snapshot(state);
+	}
+
+	function schedulePush() {
+		if (!getCurrentSession()?.isLoggedIn) return;
+		clearTimeout(pushTimer);
+		pushTimer = setTimeout(push, SYNC_DEBOUNCE_MS);
+	}
+
+	/** API timestamps are ms since 1970 (numbers); older states may carry ISO strings. */
+	function toMillis(value: unknown): number {
+		if (typeof value === 'number') return value;
+		return Date.parse(String(value ?? '')) || 0;
+	}
+
+	function applyRemote(remoteState: any, remoteTime: number) {
+		state.variables = remoteState.variables || {};
+		state.progress = Array.isArray(remoteState.progress) ? remoteState.progress : [];
+		state.created_at = remoteState.created_at || state.created_at;
+		state.updated_at = new Date(remoteTime).toISOString();
+		localStorage.setItem(storageKey, JSON.stringify(state));
+	}
+
+	async function push() {
+		if (!getCurrentSession()?.isLoggedIn) return;
+		try {
+			const result = await putProgress(toonId, snapshot(), toMillis(state.updated_at));
+			// another device wrote a newer state in between -> take it (last write wins)
+			if (result?.status === 'stale' && result.state) applyRemote(result.state, toMillis(result.updated_at));
+		} catch (error) {
+			console.warn('Progress sync (push) failed:', error);
+		}
+	}
+
+	/** Pull once per login: newer server state replaces local, newer local state is pushed. */
+	async function sync() {
+		if (synced || !getCurrentSession()?.isLoggedIn) return;
+		synced = true;
+		try {
+			const remote = await fetchProgress(toonId).catch(() => null);
+			const remoteState = remote?.state;
+			const remoteTime = toMillis(remote?.updated_at ?? remoteState?.updated_at);
+			const localHasData = Object.keys(state.variables).length > 0 || state.progress.length > 0;
+			// a device that never saved anything always takes the account state
+			const localTime = localHasData ? toMillis(state.updated_at) : 0;
+
+			if (remoteState && remoteTime > localTime) {
+				applyRemote(remoteState, remoteTime);
+			} else if (localHasData && localTime > remoteTime) {
+				await push();
+			}
+		} catch (error) {
+			synced = false;
+			console.warn('Progress sync failed:', error);
+		}
+	}
+
+	const unsubscribe =
+		getCurrentSession()?.subscribe((event) => {
+			if (event === 'logout') {
+				synced = false;
+				clearTimeout(pushTimer);
+			} else {
+				sync();
+			}
+		}) ?? (() => {});
 
 	function getVariable(key: string): string | number | undefined {
 		return state.variables[key];
@@ -79,6 +156,7 @@ export function createGameContext(toonId: string) {
 			created_at: new Date().toISOString(),
 			updated_at: new Date().toISOString()
 		});
+		saveState();
 	}
 
 	function completeCheckpoint(uri: string) {
@@ -86,6 +164,7 @@ export function createGameContext(toonId: string) {
 		if (!checkpoint) return;
 		checkpoint.isComplete = true;
 		checkpoint.updated_at = new Date().toISOString();
+		saveState();
 	}
 
 	function clear() {
@@ -96,6 +175,12 @@ export function createGameContext(toonId: string) {
 	}
 
 	loadState();
+	sync();
+
+	function destroy() {
+		unsubscribe();
+		clearTimeout(pushTimer);
+	}
 
 	return {
 		get state() {
@@ -109,7 +194,9 @@ export function createGameContext(toonId: string) {
 		hasCheckpoint,
 		addCheckpoint,
 		completeCheckpoint,
-		clear
+		clear,
+		sync,
+		destroy
 	};
 }
 
@@ -117,6 +204,10 @@ export function setGameContext(toonId: string) {
 	const context = createGameContext(toonId);
 	setContext(GAME_KEY, context);
 	_currentContext = context;
+	onDestroy(() => {
+		context.destroy();
+		if (_currentContext === context) _currentContext = undefined;
+	});
 	return context;
 }
 

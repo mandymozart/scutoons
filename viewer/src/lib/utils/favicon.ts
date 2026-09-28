@@ -43,6 +43,7 @@ export function initAnimatedFavicon() {
 	];
 
 	function drawFrame() {
+		if (!context || !favicon) return;
 		context.clearRect(0, 0, 32, 32);
 		context.fillStyle = '#ffffff';
 		context.fillRect(0, 0, 32, 32);

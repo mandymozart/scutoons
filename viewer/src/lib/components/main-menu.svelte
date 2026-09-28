@@ -5,15 +5,15 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ToonIndex } from '$lib/models/content.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { onClickOutside } from 'runed';
 	import accountIcon from '$lib/icons/account.svg';
 
 	let { toons }: { toons: ToonIndex[] } = $props();
 
 	const membershipCtx = getMembershipContext();
-	const membership = $derived(membershipCtx.membership);
+	const session = getSessionContext();
 	const isValid = $derived(membershipCtx.isValid);
-	const isClaimed = $derived(isValid && !!membership?.email);
 
 	let menuOpen = $state(false);
 	let menuElement = $state<HTMLDivElement>();
@@ -66,20 +66,15 @@
 			<nav class="nav nav--account">
 				<ul class="nav-list">
 					<li class="nav-item">
-						{#if isClaimed}
+						{#if session.isLoggedIn}
 							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
 								<img src={accountIcon} alt={m['account.my_account']()} />
 								<span>{m['account.my_account']()}</span>
 							</button>
-						{:else if isValid}
-							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
-								<img src={accountIcon} alt={m['account.claim_membership']()} />
-								<span>{m['account.claim_membership']()}</span>
-							</button>
 						{:else}
-							<button class="nav-btn" onclick={() => navigate(localizeHref('/shop'))}>
-								<img src={accountIcon} alt={m['account.buy_access']()} />
-								<span>{m['account.buy_access']()}</span>
+							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
+								<img src={accountIcon} alt={m['account.login_title']()} />
+								<span>{m['account.login_title']()}</span>
 							</button>
 						{/if}
 					</li>
@@ -104,6 +99,13 @@
 				<li class="nav-item">
 					<button class="nav-btn" onclick={() => navigate(localizeHref('/'))}>SCUTOONS</button>
 				</li>
+				{#if !isValid}
+					<li class="nav-item">
+						<button class="nav-btn" onclick={() => navigate(localizeHref('/shop'))}
+							>{m['account.buy_access']()}
+						</button>
+					</li>
+				{/if}
 				<li class="nav-item">
 					<button class="nav-btn" onclick={() => navigate(localizeHref('/shop'))}
 						>{m.limited_editions()}
