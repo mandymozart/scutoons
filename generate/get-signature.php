@@ -3,7 +3,7 @@
  * Retrieve QR Code Signature from Database
  * Returns the signature data for verification
  */
-require_once '../db.php';
+require_once __DIR__ . '/../db.php';
 
 // Set content type to JSON
 header('Content-Type: application/json');
@@ -79,10 +79,11 @@ try {
     ]);
     
 } catch (Exception $e) {
+    error_log('[qr] get-signature.php: ' . $e->getMessage());
     http_response_code(500);
     echo json_encode([
         'success' => false, 
-        'message' => 'Database error: ' . $e->getMessage()
+        'message' => 'Database error'
     ]);
 }
 ?>

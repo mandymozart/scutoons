@@ -1,0 +1,17 @@
+# Only keys.php (public key) is reachable over HTTP. keypair.json holds the PRIVATE key and must never be served.
+# generate-keys.php / save-keys.php are one-time setup scripts: to (re)generate keys, temporarily allow them
+# here, run the setup, then restore this file.
+<IfModule mod_authz_core.c>
+    Require all denied
+    <Files "keys.php">
+        Require all granted
+    </Files>
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+    <Files "keys.php">
+        Order allow,deny
+        Allow from all
+    </Files>
+</IfModule>

@@ -36,7 +36,6 @@ CREATE TABLE `qr` (
   `redirect_to` varchar(255) NOT NULL COMMENT 'to any app',
   `type` varchar(255) NOT NULL COMMENT 'membership, event, xr, promo',
   `email` varchar(255) NOT NULL COMMENT 'claimed by',
-  `expires_at` timestamp NULL DEFAULT NULL,
   `edition_id` varchar(100) DEFAULT NULL COMMENT 'links to editions.json id',
   `signature` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`signature`))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

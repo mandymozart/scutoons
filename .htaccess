@@ -1,5 +1,11 @@
 RewriteEngine On
 
+# Never serve secrets, local databases, logs or CLI-only files over HTTP
+<FilesMatch "^(keypair\.json|\.htpasswd|config(\.local)?\.php|config\.local\.php\.example|db\.php|router\.php|.*\.sqlite|.*\.log)$">
+    Require all denied
+</FilesMatch>
+RedirectMatch 404 ^/(db|logs|scripts|tests)(/|$)
+
 # Allow direct access to API routes
 RewriteCond %{REQUEST_URI} ^/api/
 RewriteRule ^api/(.*)$ api/$1 [L]

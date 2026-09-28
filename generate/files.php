@@ -43,7 +43,13 @@ if (empty($doc) || empty($filename)) {
 }
 
 # save the document to the server with UTF-8 encoding
-$filepath = 'files/' . $type . '/' . $filename;
+$filename = basename($filename);
+if (!preg_match('/^[A-Za-z0-9_.-]{1,200}\.(pdf|svg|json|zip)$/', $filename) || str_starts_with($filename, '.')) {
+	header('Content-Type: application/json');
+	echo json_encode(['success' => false, 'error' => 'Invalid filename']);
+	exit;
+}
+$filepath = __DIR__ . '/files/' . $type . '/' . $filename;
 
 $ext = pathinfo($filename, PATHINFO_EXTENSION);
 

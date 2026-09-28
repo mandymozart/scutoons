@@ -1,5 +1,5 @@
 <?php
-require_once '../db.php';
+require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/auth-check.php';
 /**
  * Save QR Code Signature to Database
@@ -69,9 +69,10 @@ try {
     ]);
     
 } catch (Exception $e) {
+    error_log('[qr] save-signature.php: ' . $e->getMessage());
     echo json_encode([
         'success' => false, 
-        'message' => 'Database error: ' . $e->getMessage()
+        'message' => 'Database error'
     ]);
 }
 ?>

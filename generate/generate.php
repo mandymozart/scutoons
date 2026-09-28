@@ -1,5 +1,5 @@
 <?php
-require_once '../db.php';
+require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/auth-check.php';
 
 // Set content type to JSON
@@ -78,6 +78,7 @@ try {
     ]);
     
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Database error: ' . $e->getMessage()]);
+    error_log('[qr] generate: ' . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Database error']);
 }
 ?>

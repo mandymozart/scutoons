@@ -1,4 +1,7 @@
-on: push
+on:
+  push:
+    branches:
+      - main
 name: 🚀 Deploy website on push
 jobs:
   web-deploy:
@@ -33,3 +36,5 @@ jobs:
             .gitignore
             .github*
             .github*/**
+            **/.htpasswd
+            api/keys/keypair.json

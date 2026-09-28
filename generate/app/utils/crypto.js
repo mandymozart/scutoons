@@ -35,12 +35,13 @@ export async function initializeKeypair() {
 		try {
 			console.log('🔐 Loading keypair from server...');
 			
-			const response = await fetch('/api/keys/keys.php');
+			// generate/keys.php: requires the admin token (added by the fetch patch in main.js)
+			const response = await fetch('keys.php');
 			const data = await response.json();
 			
 			if (!data.success) {
 				if (data.needsGeneration) {
-					throw new Error('Keys not generated yet. Please visit /api/keys/generate-keys.php to generate keys first.');
+					throw new Error('Keys not generated yet. See api/keys/README.md to generate keys first.');
 				}
 				throw new Error(data.error || 'Failed to load keys');
 			}

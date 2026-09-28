@@ -1,64 +1,26 @@
 <?php
 /**
- * Key Management for Post-Quantum Signatures
- * This file stores and retrieves the ML-DSA-65 keypair
- * 
- * SECURITY WARNING: This is a simplified implementation.
- * For production, use:
- * - Environment variables
- * - Hardware Security Module (HSM)
- * - Encrypted key storage
- * - Access control (authentication required)
+ * Public key of the ML-DSA-65 keypair (for verifying certificate signatures).
+ *
+ * SECURITY: this endpoint never returns the private key. The admin generate SPA loads the full keypair from
+ * /generate/keys.php, which requires the admin token (X-Generate-Token) and sits behind the generate/ Basic auth.
  */
 
 header('Content-Type: application/json');
+header('Cache-Control: no-store');
 
 $keysFile = __DIR__ . '/keypair.json';
+$keys = is_file($keysFile) ? json_decode((string) file_get_contents($keysFile), true) : null;
 
-// Check if keys exist
-if (!file_exists($keysFile)) {
-    // Keys don't exist yet - need to generate them
-    echo json_encode([
-        'success' => false,
-        'error' => 'Keys not initialized. Please run generate-keys.php first.',
-        'needsGeneration' => true
-    ]);
+if (!is_array($keys) || !isset($keys['publicKey'])) {
+    http_response_code(404);
+    echo json_encode(['success' => false, 'error' => 'Public key not available']);
     exit;
 }
 
-// Load existing keys
-$keys = json_decode(file_get_contents($keysFile), true);
-
-if (!$keys || !isset($keys['privateKey']) || !isset($keys['publicKey'])) {
-    echo json_encode([
-        'success' => false,
-        'error' => 'Invalid key file format'
-    ]);
-    exit;
-}
-
-// SECURITY: Only allow key access from generate/ folder (htaccess protected)
-// Check referer to ensure request comes from protected area
-$referer = $_SERVER['HTTP_REFERER'] ?? '';
-$host = $_SERVER['HTTP_HOST'] ?? '';
-
-if (!str_contains($referer, $host . '/generate/')) {
-    http_response_code(403);
-    echo json_encode([
-        'success' => false,
-        'error' => 'Access denied. Keys only accessible from protected generate area.'
-    ]);
-    exit;
-}
-
-// Return keys (protected by htaccess + referer check)
-// Note: Client-side signing is necessary because ML-DSA-65 has no mature PHP implementation
 echo json_encode([
-    'success' => true,
-    'privateKey' => $keys['privateKey'],
+    'success'   => true,
     'publicKey' => $keys['publicKey'],
+    'algorithm' => $keys['algorithm'] ?? 'ML-DSA-65',
     'generated' => $keys['generated'] ?? null,
-    'note' => 'Protected: generate/ folder requires authentication via htaccess'
 ]);
-exit;
-?>

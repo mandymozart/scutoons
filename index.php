@@ -1,5 +1,5 @@
 <?php
-require_once 'db.php';
+require_once __DIR__ . '/db.php';
 
 // Handle email claiming
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['claim_code'])) {
@@ -9,8 +9,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['claim_code'])) {
     if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
         try {
             $pdo = getDbConnection();
-            $stmt = $pdo->prepare("UPDATE qr SET email = ?, claimed_at = NOW() WHERE code = ?");
-            $stmt->execute([$email, $code]);
+            // PHP time instead of NOW() (SQLite); expired or already claimed codes are not overwritten
+            $stmt = $pdo->prepare("UPDATE qr SET email = ?, claimed_at = ? WHERE code = ? AND email = '' AND (expires_at IS NULL OR expires_at > ?)");
+            $stmt->execute([$email, qrNow(), $code, qrNow()]);
 
             // Get the redirect URL and redirect
             $stmt = $pdo->prepare("SELECT redirect_to FROM qr WHERE code = ?");
@@ -25,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['claim_code'])) {
                 exit();
             }
         } catch (Exception $e) {
-            $error = "Database error: " . $e->getMessage();
+            error_log('[qr] claim: ' . $e->getMessage());
+            $error = "Something went wrong. Please try again later.";
         }
     } else {
         $error = "Please provide a valid email address.";
@@ -69,7 +71,8 @@ if (isset($_GET['skip']) && isset($_GET['c'])) {
         }
     } catch (Exception $e) {
         http_response_code(500);
-        echo "Error: " . $e->getMessage();
+        error_log('[qr] landing: ' . $e->getMessage());
+        echo "Something went wrong. Please try again later.";
         exit();
     }
 }
@@ -84,6 +87,12 @@ elseif (isset($_GET['c'])) {
         $stmt = $pdo->prepare("SELECT * FROM qr WHERE code = ?");
         $stmt->execute([$code]);
         $result = $stmt->fetch();
+
+        if ($result && qrIsExpired($result)) {
+            http_response_code(410);
+            echo "QR Code Expired. Please contact us!";
+            exit();
+        }
 
         if ($result) {
             // Check if already claimed (has email) and if the type is event or xr and not member or promo
@@ -136,7 +145,7 @@ elseif (isset($_GET['c'])) {
 
                 <body>
                     <div class="container">
-                        <h1><?= $result['type'] ?> QR Code Found! <strong><?= $result['code'] ?></strong></h1>
+                        <h1><?= htmlspecialchars($result['type'], ENT_QUOTES, 'UTF-8') ?> QR Code Found! <strong><?= htmlspecialchars($result['code'], ENT_QUOTES, 'UTF-8') ?></strong></h1>
                         <div class="info">
                             This QR code will redirect you to:<br>
                             <strong><?php echo htmlspecialchars($result['redirect_to']); ?></strong>
@@ -179,7 +188,8 @@ elseif (isset($_GET['c'])) {
         }
     } catch (Exception $e) {
         http_response_code(500);
-        echo "Error: " . $e->getMessage();
+        error_log('[qr] landing: ' . $e->getMessage());
+        echo "Something went wrong. Please try again later.";
         exit();
     }
 } else {
