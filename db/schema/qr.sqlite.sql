@@ -100,3 +100,8 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 );
 CREATE INDEX IF NOT EXISTS rate_limits_bucket ON rate_limits (bucket, created_at);
 CREATE INDEX IF NOT EXISTS rate_limits_ref ON rate_limits (bucket, ref);
+
+-- One owner per QR code (db/migrations/2026-09-30-code-owner-guard.sqlite.sql)
+CREATE TRIGGER IF NOT EXISTS qr_owner_immutable BEFORE UPDATE OF claimed_by ON qr WHEN OLD.claimed_by IS NOT NULL AND NEW.claimed_by IS NOT NULL AND NEW.claimed_by <> OLD.claimed_by BEGIN SELECT RAISE(ABORT, 'qr code already belongs to another account'); END;
+CREATE TRIGGER IF NOT EXISTS inventory_code_owner_insert BEFORE INSERT ON inventory WHEN NEW.code IS NOT NULL AND NEW.user_id IS NOT (SELECT claimed_by FROM qr WHERE code = NEW.code) BEGIN SELECT RAISE(ABORT, 'inventory code does not belong to this account'); END;
+CREATE TRIGGER IF NOT EXISTS inventory_code_owner_update BEFORE UPDATE OF user_id, code ON inventory WHEN NEW.code IS NOT NULL AND NEW.user_id IS NOT (SELECT claimed_by FROM qr WHERE code = NEW.code) BEGIN SELECT RAISE(ABORT, 'inventory code does not belong to this account'); END;

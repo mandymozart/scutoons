@@ -1,85 +1,44 @@
 <?php
+declare(strict_types=1);
+
 /**
- * Legacy membership validation (old viewer): POST { code } or GET ?code= / ?c=
- * → { status: "success", qr: { …row without email and signature…, is_claimed, is_expired } }
+ * Membership validation: POST { code } or GET ?code= / ?c=, with `Authorization: Bearer <session>`.
  *
- * SECURITY: never returns `email` (who claimed it) or `signature`. Expired codes answer 410.
+ * A code belongs to exactly one account. This endpoint only confirms a code for the account that claimed it,
+ * so a photographed or shared code can't unlock anything on another device:
+ *   no session                → 401 login_required
+ *   code unclaimed            → 403 not_claimed      (claim it via /inventory/claim/ first)
+ *   claimed by someone else   → 409 already_claimed
+ *   claimed by the caller     → 200 { status: "success", qr: { …row without email/signature/claimed_by… } }
+ * Unknown → 404, expired → 410. Never returns `email`, `signature` or `claimed_by`.
  */
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization');
-header('Content-Type: application/json');
-header('Cache-Control: no-store');
+require_once __DIR__ . '/../lib/bootstrap.php';
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
-    http_response_code(204);
-    exit();
-}
+Http::run(function () {
+    $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+    if ($method !== 'GET' && $method !== 'POST') throw new ApiError(405, 'method_not_allowed', 'Use GET or POST.');
 
-require_once __DIR__ . '/../../db.php';
+    $input = $method === 'POST' ? Http::body() : [];
+    $code = Codes::normalize($input['code'] ?? $input['c'] ?? $_GET['code'] ?? $_GET['c'] ?? null)
+        ?? throw new ApiError(400, 'invalid_code', 'QR code parameter is missing or malformed.');
 
-function sendResponse($status, $data = null, $message = null) {
-    $response = ['status' => $status];
-    if ($status === 'success' && $data !== null) {
-        $response['qr'] = $data;
-    } elseif ($status === 'error' && $message !== null) {
-        $response['message'] = $message;
+    $row = Codes::find($code) ?? throw new ApiError(404, 'not_found', 'QR code not found.');
+    if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'QR code expired.');
+
+    $user = Auth::optionalUser()
+        ?? throw new ApiError(401, 'login_required', 'Sign in to use this code.');
+    if ($row['claimed_by'] === null) {
+        throw new ApiError(403, 'not_claimed', 'Add this code to your inventory first.');
     }
-    echo json_encode($response);
-    exit();
-}
-
-$code = $_GET['code'] ?? $_GET['c'] ?? null;
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $input = json_decode((string) file_get_contents('php://input'), true);
-    if (is_array($input)) {
-        $code = $input['code'] ?? $input['c'] ?? $code;
-    }
-}
-
-if (!is_string($code) || $code === '') {
-    http_response_code(400);
-    sendResponse('error', null, 'QR code parameter is required');
-}
-if (strlen($code) > 8) {
-    http_response_code(400);
-    sendResponse('error', null, 'Invalid QR code format');
-}
-
-try {
-    $pdo = getDbConnection();
-    $stmt = $pdo->prepare('SELECT * FROM qr WHERE code = ?');
-    $stmt->execute([$code]);
-    $result = $stmt->fetch();
-
-    if (!$result) {
-        http_response_code(404);
-        sendResponse('error', null, 'QR code not found');
+    if ($row['claimed_by'] !== $user['id']) {
+        throw new ApiError(409, 'already_claimed', 'This code belongs to another account.');
     }
 
-    if (qrIsExpired($result)) {
-        http_response_code(410);
-        sendResponse('error', null, 'QR code expired');
+    unset($row['email'], $row['signature'], $row['claimed_by']);
+    foreach (['created_at', 'claimed_at'] as $field) {
+        if (!empty($row[$field])) $row[$field] = date('c', (int) strtotime((string) $row[$field]));
     }
-
-    $isClaimed = !empty($result['email']) || !empty($result['claimed_by']);
-
-    // Never expose who claimed the code or the signature blob
-    unset($result['email'], $result['signature'], $result['claimed_by']);
-
-    if (isset($result['created_at'])) {
-        $result['created_at'] = date('c', strtotime($result['created_at']));
-    }
-    if (!empty($result['claimed_at'])) {
-        $result['claimed_at'] = date('c', strtotime($result['claimed_at']));
-    }
-    $result['is_claimed'] = $isClaimed;
-    $result['is_expired'] = false;
-
-    http_response_code(200);
-    sendResponse('success', $result);
-} catch (Throwable $e) {
-    error_log('[qr] validate: ' . $e->getMessage());
-    http_response_code(500);
-    sendResponse('error', null, 'An error occurred while validating the QR code');
-}
+    $row['is_claimed'] = true;
+    $row['is_expired'] = false;
+    Http::json(200, ['status' => 'success', 'qr' => $row]);
+});

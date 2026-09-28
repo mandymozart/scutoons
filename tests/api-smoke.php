@@ -236,14 +236,34 @@ $r = call('POST', "$api/inventory/import/", ['items' => [['item_id' => 'cucumber
 check($r['status'] === 200 && qty($r['body']['inventory'], 'cucumber') === 3 && qty($r['body']['inventory'], 'dago_hoodie') === 0
     && count($r['body']['skipped']) === 2, 'import: cucumbers merged, physical/starter items skipped', $r);
 
-// ── Legacy validate ────────────────────────────────────────────────────────────────────────────────────
-echo "\nLegacy /validate/\n";
+// ── Validate: only the owner of a code ─────────────────────────────────────────────────────────────────
+echo "
+/validate/ (one owner per code)
+";
 $r = call('POST', "$api/validate/", ['code' => $dago]);
+check($r['status'] === 401 && $r['body']['error'] === 'login_required', 'validate as guest → 401 login_required (no device-only membership)', $r);
+$r = call('POST', "$api/validate/", ['code' => $dago], $tokenA);
 $qr = $r['body']['qr'] ?? [];
-check($r['status'] === 200 && $r['body']['status'] === 'success' && $qr['is_claimed'] === true, 'validate claimed code → success, is_claimed', $r['status']);
+check($r['status'] === 200 && $r['body']['status'] === 'success' && $qr['is_claimed'] === true, 'validate as owner → success', $r);
 check(!array_key_exists('email', $qr) && !array_key_exists('signature', $qr) && !array_key_exists('claimed_by', $qr), 'validate has no email / signature / claimed_by', array_keys($qr));
-$r = call('GET', "$api/validate/?c=" . rawurlencode($vinyl));
-check($r['status'] === 200 && !array_key_exists('email', $r['body']['qr'] ?? []), 'validate GET ?c= has no email', $r['status']);
+$r = call('GET', "$api/validate/?c=" . rawurlencode($dago), null, $tokenB);
+check($r['status'] === 409 && $r['body']['error'] === 'already_claimed', 'validate as another account → 409 already_claimed', $r);
+$unclaimed = $pick('3_catpope_vinyl');
+$r = call('GET', "$api/validate/?c=" . rawurlencode((string) $unclaimed), null, $tokenB);
+check($r['status'] === 403 && $r['body']['error'] === 'not_claimed', 'validate unclaimed code → 403 not_claimed', $r);
+
+// ── Database guard: the triggers refuse a second owner even outside the API ────────────────────────────
+echo "
+Database owner guard
+";
+$userB = (string) Db::value('SELECT id FROM users WHERE email = ?', [$emailB]);
+$refused = function (callable $write): bool {
+    try { $write(); return false; } catch (Throwable) { return true; }
+};
+check($refused(fn() => Db::run('UPDATE qr SET claimed_by = ? WHERE code = ?', [$userB, $dago])), 'DB: re-assigning a claimed code to another account is refused');
+check(Db::value('SELECT claimed_by FROM qr WHERE code = ?', [$dago]) !== $userB, 'DB: code still belongs to its first owner');
+check($refused(fn() => Db::run("INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, acquired_at, updated_at) VALUES (?, ?, 'dago_hoodie', 'black', 1, 'qr', ?, NULL, ?, ?)",
+    [Db::uuid(), $userB, $dago, Db::now(), Db::now()])), 'DB: inventory row for a code owned by someone else is refused');
 
 // ── Private key never served ───────────────────────────────────────────────────────────────────────────
 $r = call('GET', "$api/keys/keys.php");
