@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "slots": ["head", "face", "neck", "torso", "hands", "legs", "feet", "back", "accessory"],
+  "items": [
+    {
+      "id": "camera",
+      "toon": "catpope",
+      "name": { "de": "Kamera", "en": "Camera" },
+      "description": {
+        "de": "Deine erste Kamera. Sie kann nur eines: die QR-Codes von SCUTOONS-Sachen scannen. Vielleicht lässt sie sich ja verbessern …",
+        "en": "Your very first camera. It does one thing: scan the QR codes on SCUTOONS things. Maybe it can be improved …"
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "catpope/items/camera.png",
+      "stackable": false,
+      "starter": true,
+      "grantable": [],
+      "slot": null,
+      "skills": [{ "type": "scan_qr" }],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
+      "id": "cucumber",
+      "toon": "catpope",
+      "name": { "de": "Gurke", "en": "Cucumber" },
+      "description": {
+        "de": "Eine knackige grüne Gurke. Cat Pope schwört darauf. Lässt sich mit anderen Dingen kombinieren.",
+        "en": "A crunchy green cucumber. Cat Pope swears by it. Can be combined with other things."
+      },
+      "kind": "virtual",
+      "category": "consumable",
+      "icon": "catpope/items/cucumber.png",
+      "stackable": true,
+      "starter": false,
+      "grantable": ["story", "scan"],
+      "slot": null,
+      "skills": [],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
+      "id": "cucumber_camera",
+      "toon": "catpope",
+      "name": { "de": "Gurkenkamera", "en": "Cucumber camera" },
+      "description": {
+        "de": "Eine Kamera mit Gurke. Scannt weiterhin QR-Codes – und erkennt jetzt echte Gurken in der echten Welt. Jede gefundene Gurke landet in deinem Inventar.",
+        "en": "A camera with a cucumber. Still scans QR codes – and now also recognises real cucumbers in the real world. Every cucumber it finds ends up in your inventory."
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "catpope/items/cucumber_camera.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": null,
+      "skills": [
+        { "type": "scan_qr" },
+        { "type": "scan_object", "labels": ["cucumber"], "grants": "cucumber", "cooldown_s": 10 }
+      ],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
+      "id": "dago_hoodie",
+      "toon": "catpope",
+      "name": { "de": "Cat Pope Dago Hoodie", "en": "Cat Pope Dago Hoodie" },
+      "description": {
+        "de": "Oversized Acid-Wash-Hoodie mit dem Dago-Vektormotiv, von Hand siebgedruckt. Limitierte, nummerierte Edition.",
+        "en": "Oversized acid wash hoodie with the Dago vector motif, hand silk-screen printed. Limited, numbered edition."
+      },
+      "kind": "physical",
+      "category": "wearable",
+      "icon": "catpope/items/dago_hoodie.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": "torso",
+      "skills": [],
+      "edition_id": "1_catpope_dago",
+      "product": "hoodie_black",
+      "variants": [
+        { "id": "black", "name": { "de": "Schwarz", "en": "Black" }, "icon": "catpope/items/dago_hoodie_black.png", "product": "hoodie_black" },
+        { "id": "beige", "name": { "de": "Beige", "en": "Beige" }, "icon": "catpope/items/dago_hoodie_beige.png", "product": "hoodie_beige" },
+        { "id": "grey", "name": { "de": "Grau", "en": "Grey" }, "icon": "catpope/items/dago_hoodie_grey.png", "product": "hoodie_grey" }
+      ]
+    },
+    {
+      "id": "dago_heavy_t",
+      "toon": "catpope",
+      "name": { "de": "Cat Pope Dago Heavy T", "en": "Cat Pope Dago Heavy T" },
+      "description": {
+        "de": "Oversized Heavy-T-Shirt mit dem Dago-Vektormotiv, von Hand siebgedruckt. Limitierte, nummerierte Edition.",
+        "en": "Oversized heavy tee with the Dago vector motif, hand silk-screen printed. Limited, numbered edition."
+      },
+      "kind": "physical",
+      "category": "wearable",
+      "icon": "catpope/items/dago_heavy_t.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": "torso",
+      "skills": [],
+      "edition_id": "1_catpope_dago",
+      "product": "tshirt_black",
+      "variants": [
+        { "id": "black", "name": { "de": "Schwarz", "en": "Black" }, "icon": "catpope/items/dago_heavy_t_black.png", "product": "tshirt_black" },
+        { "id": "white", "name": { "de": "Weiß", "en": "White" }, "icon": "catpope/items/dago_heavy_t_white.png", "product": "tshirt_white" }
+      ]
+    },
+    {
+      "id": "scorpion_amulet",
+      "toon": "catpope",
+      "name": { "de": "Skorpion-Amulett", "en": "Scorpion Amulet" },
+      "description": {
+        "de": "3D-gedrucktes Amulett nach den Käfer- und Skorpion-Vektoren aus Cat Pope. Nummerierte Edition von 20.",
+        "en": "3D printed amulet based on the beetle and scorpion vectors from Cat Pope. Numbered edition of 20."
+      },
+      "kind": "physical",
+      "category": "wearable",
+      "icon": "catpope/items/scorpion_amulet.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": "neck",
+      "skills": [],
+      "edition_id": "2_catpope_beetles",
+      "product": null,
+      "variants": [
+        { "id": "purple", "name": { "de": "Lila", "en": "Purple" }, "icon": "catpope/items/scorpion_amulet_purple.png", "product": null }
+      ]
+    },
+    {
+      "id": "awakening_vinyl",
+      "toon": "catpope",
+      "name": { "de": "Awakening – LE 12\" Vinyl", "en": "Awakening – LE 12\" vinyl" },
+      "description": {
+        "de": "Die limitierte 12\"-Schallplatte zum Cat-Pope-Album „Awakening“. Im Inventar spielt sie die Musik ab.",
+        "en": "The limited edition 12\" record of the Cat Pope album \"Awakening\". In the inventory it plays the music."
+      },
+      "kind": "physical",
+      "category": "media",
+      "icon": "catpope/items/awakening_vinyl.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": null,
+      "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.mp3" }],
+      "edition_id": "3_catpope_vinyl",
+      "product": null,
+      "variants": null
+    },
+    {
+      "id": "awakening_test_press",
+      "toon": "catpope",
+      "name": { "de": "Awakening – Testpressung", "en": "Awakening – test press" },
+      "description": {
+        "de": "Eine von nur zwei Testpressungen der „Awakening“-Platte, handnummeriert.",
+        "en": "One of only two test pressings of the \"Awakening\" record, hand numbered."
+      },
+      "kind": "physical",
+      "category": "media",
+      "icon": "catpope/items/awakening_test_press.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": null,
+      "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.mp3" }],
+      "edition_id": null,
+      "product": null,
+      "variants": [
+        { "id": "1_of_2", "name": { "de": "Testpressung 1/2", "en": "Test press 1/2" }, "icon": "catpope/items/awakening_test_press_1_of_2.png", "product": null },
+        { "id": "2_of_2", "name": { "de": "Testpressung 2/2", "en": "Test press 2/2" }, "icon": "catpope/items/awakening_test_press_2_of_2.png", "product": null }
+      ]
+    },
+    {
+      "id": "kangaroo_cat_hoodie",
+      "toon": "catpope",
+      "name": { "de": "Love For Women – Kangaroo Cat Hoodie", "en": "Love For Women – Kangaroo Cat Hoodie" },
+      "description": {
+        "de": "Hoodie mit der Känguru-Katze aus „Love For Women“.",
+        "en": "Hoodie featuring the kangaroo cat from \"Love For Women\"."
+      },
+      "kind": "physical",
+      "category": "wearable",
+      "icon": "catpope/items/kangaroo_cat_hoodie.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": "torso",
+      "skills": [],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    }
+  ],
+  "recipes": [
+    {
+      "id": "cucumber_camera",
+      "inputs": [
+        { "item": "camera", "qty": 1 },
+        { "item": "cucumber", "qty": 1 }
+      ],
+      "output": { "item": "cucumber_camera", "qty": 1 }
+    }
+  ]
+}
