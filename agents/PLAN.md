@@ -1,0 +1,156 @@
+# PLAN — Chapter 2 "Anger" (branch `anger`)
+
+Release target: **2026-10-04** (today when written: 2026-09-28 → 6 days).
+Companion files: [MEMORY.md](MEMORY.md) (facts, gotchas, findings), [DESIGN.md](DESIGN.md) (design system + text-box spec).
+
+## Goals
+
+1. **Figma → CDN pipeline**: export chapter slices from Figma straight into `cdn/root/catpope/images/…`,
+   repeatable, no manual "export → rename → copy".
+2. **Generated chapter config**: build `viewer/static/api/catpope/{de,en}/chapter2.json` from the Figma file,
+   with every speech bubble / caption coming from Figma TEXT layers → rendered as live, translatable text
+   on top of text-free slice art (the `Slice.dialog` "text box on slice" feature).
+3. **Ship chapter 2** (status `draft` → `published`, release date, thumbnail, key visual).
+4. *(Second track, priority to be confirmed)* **Physical merch in the user inventory**: items bought on
+   Bandcamp carry a QR code (qr.scutoons.com); scanning/claiming registers the item to the user's account
+   and it shows up in the viewer inventory. Clean up the duplicate product data.
+5. *(Later)* Retrofit chapter 1 the same way (text is baked into its 94 slices today).
+
+## Decisions (2026-09-29, user)
+
+- Figma exporter (Track A) **postponed** — the manual Figma → CDN workflow is fine for now. User keeps working on the
+  chapter-2 layout in Figma.
+- Slice size stays **390×625** (1x) / 1170×1875 (3x).
+- Text box on slice: build the renderer and **try it on chapter 1 "Denial"** by extracting the text baked into its
+  slices (OCR/vision) → live, translatable overlays (masking the baked German text).
+- Track D is **in scope now**, redefined in [ITEMS.md](ITEMS.md): items, skills, combining (camera + cucumber →
+  cucumber camera with real-world cucumber detection), avatar slots, product cut-out icons, email login ported from
+  osct, n codes per account, codes always contain items, progress stored per account.
+- Work autonomously, run in parallel, few questions. Commit in small steps so the user can rewind.
+- qr.scutoons.com is a separate git repo (`C:\Development\qr.scutoons.com`) — work on its local branch `anger`,
+  **never push** (its workflow deploys production on push to any branch).
+
+---
+
+## Track A — Figma export pipeline (`cdn/figma_export.py`)
+
+### Figma file convention (to agree on with the artist)
+
+```
+Page "S1C2 Anger"
+├── Frame  "flow"                 390 × N    long reading-flow master (reference only, not exported)
+├── Frame  "s1c2-slice-01"        390 × 875  one mobile slice (height may vary per slice)
+│   ├── Frame "art"               390 × 875  everything that is image: panels, bubble shapes, SFX art
+│   └── TEXT layers               …          every translatable line (bubble text, captions, narration)
+├── Frame  "s1c2-slice-02"
+└── …
+```
+
+- Slice frames are matched by name `^s1c2-slice-(\d+)$`; order = the number.
+- The `art` child is exported as the image → **no text is ever baked in**.
+- Every TEXT node directly in the slice frame (or in a group named `text`) becomes one `dialog` entry.
+  Optional layer-name hints: `#caption`, `#narration`, `#bubble`, `#sfx` → `variant`.
+- Bubble *shapes* stay in the art (keeps the artist's hand-drawn look); only the words are live text.
+- Scene/group split: optional Figma **Sections** named like `scene-14` around slices → config `groups`
+  (`label` = section name). No sections → one vertical group.
+
+### Script behaviour
+
+1. `GET /v1/files/:key/nodes?ids=<page>` (token from `cdn/.env` `FIGMA_TOKEN`, file key `FIGMA_FILE_KEY`).
+2. Collect slice frames, their `art` child ids and TEXT nodes (characters, absoluteBoundingBox, style:
+   fontFamily, fontSize, fontWeight, textAlignHorizontal, fills, textCase).
+3. `GET /v1/images/:key?ids=<art ids>&format=jpg&scale=1` and `scale=3` → download to
+   `cdn/root/catpope/images/1x/s1c2-slice-NN.jpg` and `…/3x/s1c2-slice-NN.jpg`
+   (language-neutral paths — no `/de/` since the art has no text).
+4. Convert text boxes to % of the slice frame (see DESIGN.md → Text box), font size to `cqw`.
+5. Write/merge:
+   - `viewer/static/api/catpope/i18n/s1c2.json` — `{ "<figmaNodeId>": { "de": "…", "en": "…" } }`;
+     new/changed German source text marks `en` as stale (`"en?": "old text"`), never silently overwritten.
+   - `viewer/static/api/catpope/{de,en}/chapter2.json` — **merge**, keyed by slice image: the generator owns
+     `image` + `dialog`, all hand-authored fields (`audio`, `events`, `onomatopoeia`, group `renderer`,
+     VN `ref` scene files) are preserved.
+6. `--dry-run` prints a diff/report (new/removed slices, missing translations) without writing.
+7. Upload stays `python sync.py` (existing FTP sync, option 3 → catpope).
+
+Alternatives kept on file: extend `C:\Development\graphic-novel-figma-plugin` with an "Export chapter"
+command (hide text → `exportAsync` → collect TEXT) if the art/text layer split can't be kept in the file;
+the Figma MCP connector for Claude to inspect the file while authoring (not needed for the pipeline itself).
+
+## Track B — Text-box renderer in the viewer
+
+The `Dialog` type and one usage in chapter 2 exist, **nothing renders them** (see MEMORY.md).
+
+- Extend `Dialog` in `viewer/src/lib/models/content.ts` (schema in DESIGN.md → Text box).
+- New `viewer/src/lib/components/toon/dialog/dialogs.svelte` + `dialog.svelte`; mount in
+  `toon/slice.svelte` above the `<img>`, below `Triggers`.
+- `.slice { container-type: inline-size }` so font sizes scale with the slice width (`cqw`).
+- Text is real DOM text (selectable, screen-reader readable); image `alt` stays decorative.
+- Fonts: whatever comic/lettering font the Figma bubbles use must be self-hosted in `viewer/static/fonts`
+  (licence check) — open question.
+- Fix the existing chapter-2 "scene-20" entry to the new schema.
+
+## Track C — Chapter 2 content & release
+
+- Run exporter → review in dev (`python cdn/server.py` + `npm run dev`) at 375/390/500 px widths.
+- Translate `i18n/s1c2.json` → `en` (German is source of truth, like the screenplay).
+- Chapter meta: `release: 2026-10-04`, `status: published` in `chapter2.json` (both locales) and
+  `season1.json` `sequence`; create missing `images/s1c2-thumbnail.jpg`, fix `keyvisual` to object form.
+- Decide what happens to the VN scene files `chapter2/scene-14..19.json` (placeholder cucumber choice,
+  18/19 duplicates).
+- Fix homepage "next release" block (`routes/+page.svelte:19-31`, typo `2.&Auml;ger` → `2.Ärger`).
+- `python sync.py` → CDN; merge `anger` → `main` → GitHub Action deploys viewer.
+
+## Track D — Physical merch → inventory (priority TBC)
+
+Today: one QR per physical item already exists (qr.scutoons.com batch generator, `edition_id` per code),
+but a "claim" is just an email written on the code row, there are no accounts, the viewer keeps **one**
+membership code in localStorage, and inventory only shows VN collectables. No "cucumber scan" exists anywhere.
+
+- **D0 – qr.scutoons.com security (do first, independent)**: private key served by `/api/keys/keys.php`
+  behind a Referer check; `/api/validate` returns the claimant's email with CORS `*`; unescaped output on
+  `index.php:139`; deploy to production on every branch push; path traversal in `generate/files.php`.
+- **D1 – one catalog**: merge viewer `static/api/products.json` (5 colour entries, prices, images) with qr
+  `api/editions/editions.json` (3 editions, variants, counts) into one product model keyed by `edition_id`
+  with colour/size variants; add the Bandcamp items missing from both (LE vinyl, test presses 1/2 and 2/2,
+  Scorpion Amulet, Love For Women – Kangaroo Cat Hoodie). Fix edition-size contradictions (4/12 vs 12/25 vs 37).
+- **D2 – item API**: `GET /api/item/?code=` → public fields only (`edition_id`, `edition_number`, `variant`,
+  `claimed`), no email. Add `edition_number` (+ `variant`) columns; backfill from batch manifests; dedupe the
+  doubled dago (74 vs 37) and beetles (40 vs 20) codes.
+- **D3 – accounts**: magic-link email login on qr.scutoons.com (`users` table, signed session token, CORS for
+  scutoons.com); claiming links code → user; `GET /api/me/items`. Viewer `/account` login + "My items".
+- **D4 – inventory UI**: viewer inventory gets a "Items" tab (physical, from account) next to collectables;
+  multiple codes per user; membership = any valid membership item.
+- **D5 – QR landing page update** (`qr.scutoons.com/index.php`): show the item (image, name, `n / total`,
+  variant), "Add to my inventory" → login/magic link → redirect to `scutoons.com/catpope?code=…&inventory=1`.
+
+## Parallelisation (running 2026-09-29)
+
+| Agent | Scope (files it owns) |
+|---|---|
+| B – textbox | `viewer/src/lib/models/content.ts` (Dialog), `viewer/src/lib/components/toon/dialog/*`, `toon/slice.svelte`, `viewer/static/fonts`, `static/css/fonts.css`, ch2 scene-20 fix |
+| B2 – ch1 text | `cdn/tools/*` (bubble detection), `viewer/static/api/catpope/i18n/s1c1.json`, `dialog` in `catpope/{de,en}/chapter1.json` |
+| D-backend | everything in `C:\Development\qr.scutoons.com` (branch `anger`): security, accounts, items API, landing page |
+| D-viewer | viewer account/login, inventory, camera, avatar, `config.ts`, `package.json`, `routes/+layout.svelte`, `lib/api`, `lib/contexts` |
+| D-catalog | cut-out icons in `cdn/root/catpope/items/`, viewer `static/api/products.json` dedupe + shop/homepage |
+
+Agents don't commit in the scutoons repo (shared working tree); the coordinator commits per track. Track A postponed.
+
+## Open questions (mostly answered 2026-09-29 — kept for history)
+
+1. **Priority**: chapter 2 only until 2026-10-04, merch after? Or merch must ship with it?
+2. **Figma access**: file URL + a personal access token in `cdn/.env` (`FIGMA_TOKEN`, you add it yourself),
+   and/or connect the Figma connector for Claude in claude.ai settings.
+3. **Slice size**: existing chapter-2 slices are **390×625** (1x) / 1170×1875 (3x), not 390×875. Is 875 the new
+   height for the redesigned chapter? (Renderer doesn't care; exporter supports any height.)
+4. Can the Figma file keep the `art` frame / TEXT layers split per slice? Which font(s) do the bubbles use?
+5. What is the **"cucumber scan"**? Nothing by that name exists (cucumber is only a VN collectable). Should
+   scanning a QR on a physical item also grant a collectable like the cucumber?
+6. Accounts: is magic-link email login OK, or keep it "email written on the code" + device-local wallet?
+7. Do you know which variant (colour/size) each printed QR sticker went on? Otherwise the user picks it at claim.
+8. Keep the VN placeholder scenes 14–19 in chapter 2 or is the Figma flow the whole chapter?
+
+## Log
+
+- 2026-09-28 — investigation done (viewer, cdn, qr.scutoons.com, graphic-novel-figma-plugin, cat-pope-agent,
+  Bandcamp merch page, earlier design-system session). Branch `anger` created. Docs written. No code changed yet.
+- 2026-09-29 — user decisions (above); ITEMS.md concept + API contract written; 5 parallel agents started.
