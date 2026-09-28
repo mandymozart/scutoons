@@ -131,3 +131,47 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
   actions: Use / Combine / Put on), combine mode (select 2 → recipe preview), avatar view with slots.
 - Camera: QR decode with `jsqr` (iOS has no BarcodeDetector); cucumber detection with TF.js MobileNet, lazy-loaded
   only when the cucumber camera is used.
+
+## Backend implementation notes (qr.scutoons.com, 2026-09-29)
+
+Implemented in `C:\Development\qr.scutoons.com` (details: its `docs/ACCOUNTS.md`). Everything above holds; these
+are **additive details / clarifications** the viewer can rely on:
+
+- **Ids**: `Entry.id`, `user.id` are UUID **strings**. Timestamps are ISO 8601 strings.
+- **Errors**: always `{ status:"error", error, message }` plus extra fields where noted. `401 unauthorized` when the
+  Bearer token is missing/invalid/expired (drop `scutoons_session` then). `429 rate_limited` may carry `retry_after`.
+- **Catalog**: each variant also has `product` (viewer `products.json` key, e.g. `hoodie_black`); item `product` =
+  the default variant's key.
+- `POST /auth/request/` also accepts `item_id`, `variant` (choice for the attached `code`); response
+  `{ status:"sent", expires_at }`; `429 rate_limited` (5 mails/email/hour, 30/IP/hour), `502 mail_failed`.
+  **Magic link**: request from an allowed viewer Origin → `<origin>/?login=<token>` (viewer calls
+  `/auth/verify/ { token }`); otherwise (QR landing page) → `https://qr.scutoons.com/?login=<token>&c=<code>`.
+- `POST /auth/verify/`: `{ email, otp }` checks the newest request of that address (5 wrong tries → `429
+  too_many_attempts`; `410 expired|already_used`; `400 invalid_otp|invalid_token`). Optional `item_id`, `variant`
+  override the stored choice. Response adds `created: bool` (new account → starter items granted) and, when the
+  attached code could not be claimed, `claimed: []` + `claim_error: { code, error, message, options? }` (e.g.
+  `choose_item` → call `/inventory/claim/` with the choice).
+- `GET /code/?c=`: also returns `redirect_to`, `expires_at`; `options[].variants` are variant **ids** (names from
+  the catalog). `404 not_found`, `410 expired`.
+- `POST /inventory/claim/` → `{ status:"success", claimed:"new"|"already_yours", code, inventory }`. If the options
+  have exactly one item+variant (vinyl, amulet) no choice is needed. Other errors: `422 invalid_item` (+options),
+  `422 not_claimable` (types event/xr/page), `410 expired`, `404 not_found`. A code claimed through the old
+  email-only form can be claimed by the account with that same email.
+- `POST /inventory/craft/` → `{ status, recipe_id, inventory }`; `422 missing_inputs` has `missing:[{item, qty}]`;
+  `404 unknown_recipe`. Crafting removes worn inputs from the avatar.
+- `POST /inventory/grant/` → `{ status, granted: 0|1, inventory }`. A repeated `ref` (per user+item) grants nothing
+  (`granted: 0`) – send e.g. `"catpope:ch1:scene3:cucumber"` for story grants. Limits: 120 grants/hour
+  (`429 rate_limited`); `source:"scan"` additionally needs a tool whose `scan_object` grants the item (`403 no_tool`)
+  and respects its `cooldown_s` (`429 cooldown`). `403 not_grantable`, `400 invalid_source`, `404 unknown_item`.
+- `POST /inventory/import/` → `{ status, imported:[{item_id,qty}], skipped:[{item_id,reason}], inventory }`.
+  Only items with non-empty `grantable`; stored with the item's first grantable source (`story`); qty capped at 99;
+  non-stackable items only if not owned yet; 10 imports/hour. Safe to call on every login.
+- `GET /avatar/` exists too. `PUT /avatar/` changes only the slots given; `avatar.slots` always lists every catalog
+  slot (`null` = empty). Errors `422 invalid_slot|not_owned|wrong_slot` carry `slot`.
+- `/progress/<toonId>/`: `GET` → `{ toon_id, state, updated_at }` (both `null` if nothing stored). `PUT
+  { state: {…}, updated_at: <ms> }` → `{ status:"success"|"stale", toon_id, state, updated_at }` – the answer is the
+  record that **won**; on `stale` the server kept a newer state, adopt it. `413 state_too_large` (> 256 KB).
+- `/validate/` additionally drops `claimed_by`, adds `edition_number`, `is_expired:false`; an expired code now answers
+  `410 { status:"error", message:"QR code expired" }`.
+- Local dev: API `http://localhost:9000/api`, login mails in `qr.scutoons.com/logs/mail.log`, icons from
+  `CDN_URL` (`http://localhost:8001/` locally).
