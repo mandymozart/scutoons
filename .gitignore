@@ -4,3 +4,6 @@ generate/files
 api/keys/keypair.json
 config.local.php
 db/local.sqlite
+db/*.sqlite*
+logs/
+*.log
