@@ -37,8 +37,6 @@ Http::run(function () {
     $route = "$method $path";
 
     match (true) {
-        $route === 'GET code' => Codes::get(),
-        $route === 'GET access', $route === 'POST access' => Codes::access(),
         $route === 'POST inventory/claim' => Inventory::claim(Http::body()),
         $route === 'POST inventory/craft' => Inventory::craft(Http::body()),
         $route === 'POST inventory/grant' => Inventory::grant(Http::body()),
