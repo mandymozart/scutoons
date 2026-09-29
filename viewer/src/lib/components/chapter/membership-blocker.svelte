@@ -24,10 +24,8 @@
 	// don't flash the blocker while a stored session is still loading /me/
 	const loading = $derived(!!session.token && !session.ready);
 
-	const handleSignIn = () => {
-		if (membership.pendingCode) itemsUi.openClaim(membership.pendingCode);
-		else goto(localizeHref('/account'));
-	};
+	const handleScan = () => itemsUi.openCamera({ qr: true, object: null, entry: null });
+	const handleSignIn = () => goto(localizeHref('/account'));
 
 	const handleBuyAccess = () => {
 		goto(localizeHref('/shop'));
@@ -61,12 +59,9 @@
 				{/if}
 
 				<div class="membership-actions">
-					{#if session.isLoggedIn}
-						<button onclick={() => itemsUi.openCamera({ qr: true, object: null, entry: null })}>
-							{m['camera.scan_code']()}
-						</button>
-					{:else}
-						<button onclick={handleSignIn}>{m['membership_blocker.sign_in']()}</button>
+					<button onclick={handleScan}>{m['membership_blocker.scan']()}</button>
+					{#if !session.isLoggedIn}
+						<button class="btn-secondary" onclick={handleSignIn}>{m['items.sign_in']()}</button>
 					{/if}
 					<button onclick={handleBuyAccess} class="btn-buy-access btn-secondary">
 						{m['account.buy_access']()}

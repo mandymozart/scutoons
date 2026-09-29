@@ -74,25 +74,10 @@
 	</div>
 {/if}
 
-{#if membership.showLegacyPrompt && !ui.claimCode && membership.pendingCode}
-	<div class="banner" role="status">
-		<p>{m['claim.legacy_prompt']()}</p>
-		<div class="banner-actions">
-			<button
-				onclick={() => {
-					membership.dismissPrompt();
-					ui.openClaim(membership.pendingCode!);
-				}}>{m['items.sign_in']()}</button
-			>
-			<button class="btn-secondary" onclick={membership.dismissPrompt}>{m['claim.later']()}</button>
-		</div>
-	</div>
-{:else if membership.conflictCode}
+{#if membership.invalidatedCode}
 	<div class="banner" role="alert">
-		<p>{m['claim.legacy_conflict']({ code: membership.conflictCode })}</p>
-		<div class="banner-actions">
-			<button class="btn-secondary" onclick={membership.dismissConflict}>{m['items.close']()}</button>
-		</div>
+		<p>{m['claim.no_longer_valid']()} ({membership.invalidatedCode})</p>
+		<button class="btn-secondary" onclick={membership.dismissInvalidated}>{m['items.close']()}</button>
 	</div>
 {/if}
 
@@ -177,19 +162,15 @@
 		border: 2px solid black;
 		padding: 0.75rem;
 		display: flex;
-		flex-direction: column;
+		align-items: center;
 		gap: 0.5rem;
 	}
 	.banner p {
 		margin: 0;
-	}
-	.banner-actions {
-		display: flex;
-		gap: 0.5rem;
-	}
-	.banner-actions button {
 		flex: 1;
-		padding: 0.75rem 1rem;
+	}
+	.banner button {
+		padding: 0.5rem 1rem;
 	}
 	.notices {
 		position: fixed;

@@ -9,6 +9,20 @@ export interface VerifyResult {
 	claimed?: string[];
 }
 
+/** `/access/`: what a code grants to whoever holds it (device viewing access), never who owns it */
+export interface AccessResult {
+	status: string;
+	code: string;
+	type: string;
+	expires_at: string | null;
+	permissions: string[];
+	claimable: boolean;
+	claimed: boolean;
+	claimed_by_me?: boolean;
+	/** server-signed access token (for a future server-side content gate) */
+	access_token?: string;
+}
+
 export interface InventoryResult {
 	status: string;
 	inventory: Entry[];
@@ -29,6 +43,9 @@ export const authVerifyOtp = (email: string, otp: string) =>
 
 export const authVerifyToken = (token: string) => api.post<VerifyResult>('/auth/verify/', { token });
 
+/** Device access check for a code (no login needed; sends the session if there is one). 404 / 410 expired / 429 */
+export const checkAccess = (code: string) => api.post<AccessResult>('/access/', { code });
+
 export const authLogout = () => api.post('/auth/logout/');
 
 export const fetchMe = () => api.get<Me>('/me/');
@@ -40,7 +57,7 @@ export const fetchEditions = () => api.get<Edition[]>('/editions/', { auth: fals
 export const fetchCode = (code: string) =>
 	api.get<CodeInfo>(`/code/?c=${encodeURIComponent(code)}`);
 
-export const claimCode = (code: string, item_id?: string, variant?: string | null) =>
+export const claimCode = (code: string, item_id?: string | null, variant?: string | null) =>
 	api.post<InventoryResult>('/inventory/claim/', {
 		code,
 		item_id: item_id || undefined,

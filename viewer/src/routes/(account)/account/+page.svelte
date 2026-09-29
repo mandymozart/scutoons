@@ -31,7 +31,20 @@
 		<section>
 			<table>
 				<tbody>
-					<tr><td>{m['account.signed_in_as']()}</td><td>{session.user.email}</td></tr>
+					<tr>
+						<td>{m['account.signed_in_as']()}</td>
+						<td>{session.user.email}</td>
+					</tr>
+					<tr>
+						<td>{m['account.access']()}</td>
+						<td>
+							{session.hasAccess
+								? m['account.access_unlocked']({
+										until: session.me?.access?.expires_at || m['account.lifetime']()
+									})
+								: m['account.access_none']()}
+						</td>
+					</tr>
 					{#if session.user.created_at}
 						<tr
 							><td>{m['account.created_at']()}</td><td
@@ -67,11 +80,20 @@
 	{:else}
 		<section>
 			<h2>{m['account.login_title']()}</h2>
-			{#if membershipCtx.pendingCode}
-				<p class="notification">{m['claim.legacy_prompt']()} ({membershipCtx.pendingCode})</p>
-			{/if}
-			<!-- a legacy device membership code is claimed together with the login -->
-			<LoginForm code={membershipCtx.pendingCode} />
+			<p>{m['account.login_hint']()}</p>
+			<LoginForm />
+		</section>
+	{/if}
+
+	{#if membershipCtx.deviceValid && membershipCtx.device}
+		<section>
+			<h2>{m['account.device_access']()}</h2>
+			<p>
+				{m['account.device_access_info']({
+					code: membershipCtx.device.code,
+					until: membershipCtx.device.expires_at || m['account.lifetime']()
+				})}
+			</p>
 		</section>
 	{/if}
 
@@ -145,8 +167,5 @@
 	.inventory-line .btn {
 		padding: 0.75rem 1rem;
 		text-decoration: none;
-	}
-	.notification {
-		margin: 0 0 1rem;
 	}
 </style>

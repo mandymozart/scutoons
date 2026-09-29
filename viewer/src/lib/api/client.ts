@@ -1,6 +1,27 @@
 import { QR_API } from '$lib/config.ts';
 
 export const SESSION_STORAGE_KEY = 'scutoons_session';
+const DEVICE_STORAGE_KEY = 'scutoons_device';
+
+let deviceId: string | null = null;
+
+/**
+ * Random per-browser id (sent as `X-Device-Id`; the server only stores an HMAC of it, for code activity stats).
+ * No device limits are enforced with it.
+ */
+export function getDeviceId(): string {
+	if (deviceId) return deviceId;
+	try {
+		deviceId = localStorage.getItem(DEVICE_STORAGE_KEY);
+		if (!deviceId) {
+			deviceId = crypto.randomUUID();
+			localStorage.setItem(DEVICE_STORAGE_KEY, deviceId);
+		}
+	} catch {
+		deviceId ??= crypto.randomUUID();
+	}
+	return deviceId;
+}
 
 /** Error returned by the qr.scutoons.com API: `{ status: "error", error: "<code>", message }`. */
 export class ApiError extends Error {
@@ -46,7 +67,7 @@ export async function request<T = any>(
 	body?: unknown,
 	opts: { auth?: boolean; signal?: AbortSignal } = {}
 ): Promise<T> {
-	const headers: Record<string, string> = { Accept: 'application/json' };
+	const headers: Record<string, string> = { Accept: 'application/json', 'X-Device-Id': getDeviceId() };
 	if (body !== undefined) headers['Content-Type'] = 'application/json';
 	const token = opts.auth === false ? null : getSessionToken();
 	if (token) headers.Authorization = `Bearer ${token}`;

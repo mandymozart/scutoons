@@ -288,14 +288,14 @@ export function createInventoryContext(session: SessionContext) {
 		}
 	}
 
-	/** Claim a QR code into the account inventory (login required). Throws ApiError (409 already_claimed, 422 choose_item). */
-	async function claim(code: string, item_id?: string, variant?: string | null) {
+	/** Claim (own) a QR code into the account inventory — login required. Throws ApiError (409 already_claimed |
+	 * email_required, 422 choose_item | not_claimable). */
+	async function claim(code: string, item_id?: string | null, variant?: string | null) {
 		busy = true;
 		try {
 			const result = await claimCode(code, item_id, variant);
 			applyInventory(result.inventory);
-			// memberships may have changed
-			await session.loadMe();
+			await session.loadMe(); // access permissions may have changed
 			const claimed = item_id ?? result.inventory?.find((e) => e.code === code)?.item_id;
 			if (claimed) notify(claimed, 1, 'claim');
 			return result;

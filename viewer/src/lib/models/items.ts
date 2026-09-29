@@ -119,6 +119,14 @@ export interface User {
 	created_at: string;
 }
 
+/** `/me/ access`: permissions granted by the account's owned, non-expired codes (server permissions map) */
+export interface Access {
+	permissions: string[];
+	access_token?: string;
+	expires_at: string | null;
+	codes: string[];
+}
+
 export interface ServerMembership {
 	code: string;
 	type: string;
@@ -128,6 +136,9 @@ export interface ServerMembership {
 export interface Me {
 	user: User;
 	memberships: ServerMembership[];
+	access?: Access;
+	/** server-signed access token for the account's permissions */
+	access_token?: string;
 	inventory: Entry[];
 	avatar: Avatar;
 }

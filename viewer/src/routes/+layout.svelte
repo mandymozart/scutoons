@@ -24,10 +24,13 @@
 	onMount(async () => {
 		initAnimatedFavicon();
 
-		membership.initFromStorage();
+		// device access from a scanned code (+ silent legacy migration, periodic re-check)
+		membership.init();
 		inventory.init();
 
 		const params = page.url.searchParams;
+		// `/account?code=` = "Add to my account" from the QR landing page: sign in, then claim
+		const addToAccount = /\/account\/?$/.test(page.url.pathname);
 		// magic link from the login mail: `<origin>/?login=<token>[&c=<code>]`
 		const magicToken = params.get('login') || params.get('token') || null;
 		const code = params.get('code') || (magicToken ? params.get('c') : null) || null;
@@ -54,9 +57,8 @@
 		await session.init();
 
 		if (code) {
-			// a code belongs to exactly one account: logged in → claim straight into the inventory;
-			// guest → preview + sign in (the backend claims it at verify). Nothing is granted to guests.
-			itemsUi.openClaim(code, session.isLoggedIn);
+			// the sheet grants device access via /access/ right away and offers "Add to my account"
+			itemsUi.openClaim(code, addToAccount);
 		}
 	});
 </script>

@@ -84,7 +84,13 @@
 		"items_count": "{count} Gegenstände",
 		"avatar": "Avatar",
 		"claim_with_login": "Melde dich an, um Code {code} in dein Inventar zu legen.",
-		"lifetime": "Unbegrenzt"
+		"lifetime": "Unbegrenzt",
+		"access": "Zugang",
+		"access_unlocked": "Alle Kapitel · {until}",
+		"access_none": "Noch kein Code in deinem Konto",
+		"login_hint": "Melde dich an, um deine Codes und Gegenstände zu besitzen und deinen Fortschritt auf jedem Gerät zu behalten. Zum Lesen reicht es, deinen Code zu scannen.",
+		"device_access": "Zugang auf diesem Gerät",
+		"device_access_info": "Code {code} schaltet auf diesem Gerät alle Kapitel frei ({until}). Er bleibt auch nach dem Abmelden."
 	},
 	"inventory": {
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"
@@ -100,8 +106,8 @@
 		"step_2": "Du wirst automatisch zu dieser Seite weitergeleitet",
 		"step_3": "QR Codes findest du auf allen SCUTOONS Limited Editions",
 		"invalid_code": "⚠️ Der gescannte QR-Code ist kein gültiger Mitgliedschaftscode.",
-		"sign_in": "Anmelden / Code hinzufügen",
-		"signed_in_hint": "Dein Konto hat noch keine Mitgliedschaft. Scanne den QR-Code deines SCUTOONS-Gegenstands, um ihn hinzuzufügen."
+		"signed_in_hint": "Dein Konto hat noch keine Mitgliedschaft. Scanne den QR-Code deines SCUTOONS-Gegenstands, um ihn hinzuzufügen.",
+		"scan": "Code scannen"
 	},
 	"items": {
 		"tab_items": "Gegenstände",
@@ -161,8 +167,15 @@
 		"add_prompt": "Diesen Gegenstand in dein Inventar legen?",
 		"later": "Später",
 		"failed": "Der Code konnte nicht eingelöst werden.",
-		"legacy_prompt": "Melde dich mit deiner E-Mail an, um deine Mitgliedschaft zu behalten.",
-		"legacy_conflict": "Dein gespeicherter Mitgliedschafts-Code {code} gehört bereits zu einem anderen Konto."
+		"email_required": "Melde dich mit der E-Mail an, die du für diesen Code verwendet hast.",
+		"device_unlocked": "Auf diesem Gerät freigeschaltet. Viel Spaß beim Lesen!",
+		"add_to_account": "Zu meinem Konto hinzufügen",
+		"add_to_account_hint": "Optional: Melde dich an, um diesen Gegenstand zu besitzen. Er landet in deinem Inventar und du kannst auf jedem Gerät lesen.",
+		"in_someones_account": "Dieser Code ist bereits in einem Konto. Lesen kannst du damit trotzdem.",
+		"not_claimable": "Dieser Code kann keinem Konto hinzugefügt werden.",
+		"expired": "Dieser Code ist abgelaufen.",
+		"continue_reading": "Weiterlesen",
+		"no_longer_valid": "Dieser Code ist nicht mehr gültig."
 	},
 	"camera": {
 		"title_qr": "SCUTOONS-QR-Code scannen",

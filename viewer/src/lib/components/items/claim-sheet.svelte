@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ApiError } from '$lib/api/client.ts';
-	import { fetchCode, type VerifyResult } from '$lib/api/qr.service.ts';
+	import { fetchCode, type AccessResult, type VerifyResult } from '$lib/api/qr.service.ts';
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
@@ -10,7 +10,11 @@
 	import LoginForm from '$lib/components/account/login-form.svelte';
 	import ItemIcon from './item-icon.svelte';
 
-	/** Preview + claim of a SCUTOONS QR code (from the in-app scanner or `?code=`). */
+	/**
+	 * A scanned SCUTOONS code (in-app scanner or `?code=`): grants device viewing access via `/access/` right away
+	 * (no login) and offers — never forces — "Add to my account" (login → `/inventory/claim/`).
+	 * `auto` = the reader explicitly came to add it (`/account?code=`): go straight to sign-in / claim.
+	 */
 	let {
 		code,
 		auto = false,
@@ -22,16 +26,23 @@
 	const session = getSessionContext();
 	const membership = getMembershipContext();
 
-	type Phase = 'loading' | 'preview' | 'login' | 'done' | 'error';
+	type Phase = 'loading' | 'ready' | 'login' | 'done' | 'error';
 	let phase = $state<Phase>('loading');
+	let access = $state<AccessResult | null>(null);
 	let info = $state<CodeInfo | null>(null);
 	let error = $state<string | null>(null);
+	let claimError = $state<string | null>(null);
 	let options = $state<CodeOption[]>([]);
 	let chosenItem = $state<string | null>(null);
 	let chosenVariant = $state<string | null>(null);
 	let claimedItem = $state<string | null>(null);
 	let working = $state(false);
 
+	const unlocksHere = $derived(!!access?.permissions?.includes('catalog') && membership.deviceValid);
+	const claimable = $derived(access ? access.claimable : true);
+	const ownedByOther = $derived(
+		!!(info?.claimed ?? access?.claimed) && !(info?.claimed_by_me || access?.claimed_by_me)
+	);
 	const needsChoice = $derived(options.length > 0 && (info?.items?.length ?? 0) === 0);
 	const chosenOption = $derived(options.find((o) => o.item_id === chosenItem));
 	const variantChoices = $derived<ItemVariant[]>(
@@ -48,33 +59,51 @@
 		!needsChoice || (!!chosenItem && (variantChoices.length === 0 || !!chosenVariant))
 	);
 	const previewItems = $derived(
-		(info?.items?.length ? info.items : options.map((o) => ({ item_id: o.item_id, variant: null, qty: 1 }))) ??
-			[]
+		info?.items?.length
+			? info.items
+			: options.map((o) => ({ item_id: o.item_id, variant: null as string | null, qty: 1 }))
 	);
+
+	function describe(e: unknown) {
+		if (e instanceof ApiError && e.status === 404) return m['claim.not_found']();
+		if (e instanceof ApiError && e.status === 410)
+			return e.code === 'expired' ? m['claim.expired']() : m['claim.no_longer_valid']();
+		if (e instanceof ApiError && e.status === 0) return m['account.network_error']();
+		return m['claim.failed']();
+	}
 
 	async function load() {
 		phase = 'loading';
-		try {
-			info = await fetchCode(code);
-			options = info.options ?? [];
-			if (options.length === 1) {
-				chosenItem = options[0].item_id;
-				const only = options[0].variants?.length === 1 ? options[0].variants[0] : null;
-				if (only) chosenVariant = typeof only === 'string' ? only : only.id;
-			}
-			phase = info.claimed_by_me ? 'done' : 'preview';
-			if (info.claimed_by_me) claimedItem = info.items?.[0]?.item_id ?? null;
-			// `?code=` while logged in: claim right away when there is nothing to choose
-			if (auto && phase === 'preview' && !info.claimed && session.isLoggedIn && canClaim) await claim();
-		} catch (e) {
-			error =
-				e instanceof ApiError && e.status === 404
-					? m['claim.not_found']()
-					: e instanceof ApiError && e.status === 0
-						? m['account.network_error']()
-						: m['claim.failed']();
+		const [accessResult, codeResult] = await Promise.allSettled([
+			membership.grantFromCode(code),
+			fetchCode(code)
+		]);
+		if (accessResult.status === 'rejected' && codeResult.status === 'rejected') {
+			error = describe(accessResult.reason);
 			phase = 'error';
+			return;
 		}
+		access = accessResult.status === 'fulfilled' ? accessResult.value : null;
+		info = codeResult.status === 'fulfilled' ? codeResult.value : null;
+
+		// codes that neither unlock nor can be owned (page / event / xr per the server's permissions map): continue
+		if (access && !access.claimable && !access.permissions?.includes('catalog')) {
+			onclose();
+			return;
+		}
+
+		options = info?.options ?? [];
+		if (options.length === 1) {
+			chosenItem = options[0].item_id;
+			const only = options[0].variants?.length === 1 ? options[0].variants[0] : null;
+			if (only) chosenVariant = typeof only === 'string' ? only : only.id;
+		}
+		if (info?.claimed_by_me || access?.claimed_by_me) {
+			phase = 'done';
+			return;
+		}
+		phase = 'ready';
+		if (auto && claimable && !ownedByOther && canClaim) await claim();
 	}
 
 	async function claim() {
@@ -83,20 +112,24 @@
 			return;
 		}
 		working = true;
-		error = null;
+		claimError = null;
 		try {
-			await inventory.claim(code, chosenItem ?? undefined, chosenVariant);
+			await inventory.claim(code, chosenItem, chosenVariant);
 			claimedItem = chosenItem ?? info?.items?.[0]?.item_id ?? null;
 			phase = 'done';
 		} catch (e) {
+			phase = 'ready';
 			if (e instanceof ApiError && e.code === 'choose_item') {
 				options = e.body?.options ?? options;
-				error = m['claim.choose']();
-				phase = 'preview';
+				claimError = m['claim.choose']();
+			} else if (e instanceof ApiError && e.code === 'email_required') {
+				claimError = m['claim.email_required']();
 			} else if (e instanceof ApiError && (e.status === 409 || e.code === 'already_claimed')) {
-				error = m['claim.already_claimed']();
+				claimError = m['claim.in_someones_account']();
+			} else if (e instanceof ApiError && e.code === 'not_claimable') {
+				claimError = m['claim.not_claimable']();
 			} else {
-				error = m['claim.failed']();
+				claimError = describe(e);
 			}
 		} finally {
 			working = false;
@@ -105,20 +138,14 @@
 
 	async function afterLogin(result: VerifyResult) {
 		if (result.claimed?.includes(code)) {
-			claimedItem = info?.items?.[0]?.item_id ?? null;
+			claimedItem = chosenItem ?? info?.items?.[0]?.item_id ?? null;
 			await session.loadMe();
 			phase = 'done';
 			return;
 		}
-		phase = 'preview';
+		phase = 'ready';
 		await claim();
 	}
-
-	// a legacy device membership code is settled once it is ours or known to belong to someone else
-	$effect(() => {
-		const settled = phase === 'done' || (phase === 'preview' && !!info?.claimed && !info?.claimed_by_me);
-		if (settled && membership.pendingCode === code) membership.clearLegacy();
-	});
 
 	onMount(load);
 </script>
@@ -136,6 +163,10 @@
 		<p class="error">{error}</p>
 		<button class="btn-secondary" onclick={onclose}>{m['items.close']()}</button>
 	{:else}
+		{#if unlocksHere}
+			<p class="unlocked">{m['claim.device_unlocked']()}</p>
+		{/if}
+
 		{#if info?.edition}
 			<p class="edition">
 				{info.edition.name}{info.edition.number
@@ -152,10 +183,15 @@
 			{@const id = claimedItem ?? previewItems[0]?.item_id}
 			<div class="done">
 				{#if id}
-					<div class="hero"><ItemIcon srcs={[inventory.item(id)?.icon ?? '']} name={inventory.nameOf({ item_id: id, variant: chosenVariant })} /></div>
+					<div class="hero">
+						<ItemIcon
+							srcs={[inventory.item(id)?.icon ?? '']}
+							name={inventory.nameOf({ item_id: id, variant: chosenVariant })}
+						/>
+					</div>
 					<strong>{inventory.nameOf({ item_id: id, variant: chosenVariant })}</strong>
 				{/if}
-				<p>{info?.claimed_by_me && !claimedItem ? m['claim.claimed_by_me']() : m['claim.done']()}</p>
+				<p>{claimedItem ? m['claim.done']() : m['claim.claimed_by_me']()}</p>
 				<div class="actions">
 					{#if onopeninventory}
 						<button onclick={onopeninventory}>{m['account.open_inventory']()}</button>
@@ -163,14 +199,9 @@
 					<button class="btn-secondary" onclick={onclose}>{m['items.close']()}</button>
 				</div>
 			</div>
-		{:else if info?.claimed}
-			<p class="error">{m['claim.already_claimed']()}</p>
-			<button class="btn-secondary" onclick={onclose}>{m['items.close']()}</button>
 		{:else}
-			{#if needsChoice && options.length > 1}
+			{#if needsChoice && options.length > 1 && !ownedByOther}
 				<h3>{m['claim.choose']()}</h3>
-			{:else if !session.isLoggedIn}
-				<h3>{m['claim.add_prompt']()}</h3>
 			{/if}
 			<ul class="items">
 				{#each previewItems as it}
@@ -180,7 +211,7 @@
 						<button
 							class="option"
 							class:selected={needsChoice && chosenItem === it.item_id}
-							disabled={!needsChoice}
+							disabled={!needsChoice || ownedByOther}
 							onclick={() => ((chosenItem = it.item_id), (chosenVariant = null))}
 						>
 							<div class="thumb">
@@ -195,7 +226,7 @@
 				{/each}
 			</ul>
 
-			{#if needsChoice && variantChoices.length > 1}
+			{#if needsChoice && variantChoices.length > 1 && !ownedByOther}
 				<h3>{m['claim.choose_variant']()}</h3>
 				<div class="variants">
 					{#each variantChoices as variant}
@@ -210,20 +241,29 @@
 				</div>
 			{/if}
 
-			{#if error}
-				<p class="error">{error}</p>
-			{/if}
-
-			{#if phase === 'login'}
-				<p>{m['claim.login_first']()}</p>
-				<LoginForm {code} onlogin={afterLogin} />
-			{:else}
-				<div class="actions">
+			{#if ownedByOther}
+				<p class="note">{m['claim.in_someones_account']()}</p>
+				<button class="btn-secondary" onclick={onclose}>{m['items.close']()}</button>
+			{:else if claimable}
+				<p class="note">{m['claim.add_to_account_hint']()}</p>
+				{#if claimError}
+					<p class="error">{claimError}</p>
+				{/if}
+				{#if phase === 'login'}
+					<LoginForm {code} onlogin={afterLogin} />
 					<button class="btn-secondary" onclick={onclose}>{m['claim.later']()}</button>
-					<button class:disabled={!canClaim || working} disabled={!canClaim || working} onclick={claim}>
-						{m['claim.add']()}
-					</button>
-				</div>
+				{:else}
+					<div class="actions">
+						<button class="btn-secondary" onclick={onclose}>
+							{unlocksHere ? m['claim.continue_reading']() : m['claim.later']()}
+						</button>
+						<button class:disabled={!canClaim || working} disabled={!canClaim || working} onclick={claim}>
+							{m['claim.add_to_account']()}
+						</button>
+					</div>
+				{/if}
+			{:else}
+				<button class="btn-secondary" onclick={onclose}>{m['items.close']()}</button>
 			{/if}
 		{/if}
 	{/if}
@@ -348,6 +388,17 @@
 	.actions button {
 		flex: 1;
 		padding: 0.75rem 1rem;
+	}
+	.unlocked {
+		background: black;
+		color: white;
+		padding: 0.5rem;
+		filter: drop-shadow(0 0 6px var(--primary-color));
+	}
+	.note {
+		font-size: 0.75rem;
+		line-height: 1.3;
+		color: #6b6b6b;
 	}
 	.error {
 		border: 2px solid black;

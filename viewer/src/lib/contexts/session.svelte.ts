@@ -9,7 +9,6 @@ import {
 	type VerifyResult
 } from '$lib/api/qr.service.ts';
 import type { Me, ServerMembership, User } from '$lib/models/items.ts';
-import { isMembershipExpired, isValidMembershipType } from '$lib/auth/index.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
 const SESSION_KEY = Symbol('session');
@@ -44,9 +43,13 @@ export function createSessionContext() {
 
 	const user = $derived<User | null>(me?.user ?? null);
 	const memberships = $derived<ServerMembership[]>(me?.memberships ?? []);
-	const hasValidMembership = $derived(
-		memberships.some((m) => isValidMembershipType(m.type) && !isMembershipExpired(m.expires_at))
-	);
+	/**
+	 * Access model 2026-09-30: which code type grants what is decided by the server's permissions map;
+	 * the viewer only checks the `catalog` permission (all chapters of all toons).
+	 */
+	const permissions = $derived<string[]>(me?.access?.permissions ?? []);
+	/** account access: the logged-in account owns a code granting `catalog` (device access: membership context) */
+	const hasAccess = $derived(permissions.includes('catalog'));
 
 	async function loadMe(): Promise<Me | null> {
 		if (!token) return null;
@@ -135,9 +138,13 @@ export function createSessionContext() {
 		get memberships() {
 			return memberships;
 		},
-		get hasValidMembership() {
-			return hasValidMembership;
+		get permissions() {
+			return permissions;
 		},
+		get hasAccess() {
+			return hasAccess;
+		},
+
 		get loading() {
 			return loading;
 		},

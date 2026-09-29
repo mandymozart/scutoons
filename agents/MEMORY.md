@@ -196,12 +196,19 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   with starter items handed out once; on login guest items are imported — crafted items are split back into their
   recipe inputs since only grantable items import; `getCurrentInventory()`), `items-ui.svelte.ts` (camera / claim /
   minigame / audio overlays rendered by `components/items/items-host.svelte`).
-- Membership (changed later on 2026-09-29, "one code = one account"): `contexts/membership.svelte.ts` is valid only via
-  `/me/` memberships; `/validate/` is not used any more (`api/membership.service.ts` deleted). Legacy localStorage
-  `scutoons_membership` → `pendingCode`: silent `/inventory/claim/` after sign-in (cleared on success/409, 409 shown
-  once as banner), guests get a one-time prompt (`scutoons_membership_prompted`) in items-host. The account page's
-  login passes the pending code to `/auth/request/`. Membership blocker: guests "Sign in / Add your code" + "Buy access",
-  logged-in without membership "Scan code" (camera) + "Buy access"; shows loading while a stored session loads.
+- Access (final model 2026-09-30): `membership.isValid` = device access OR account access.
+  Device access = `scutoons_access` {code, permissions, expires_at, checked_at, access_token} from `POST /access/`
+  (any holder of a code whose type grants `catalog`, also if someone else owns it; survives logout; re-checked via
+  `/access/` when older than 6 h → `410 revoked|expired` drops it with a one-time banner). Account access = `/me/
+  access.permissions` includes `catalog`. The viewer hardcodes no code types (server permissions map). Legacy
+  `scutoons_membership` → silently `/access/` → `scutoons_access`, key removed.
+- Claim sheet (`?code=`, in-app `scan_qr`): grants device access right away, previews via `/code/`, and *offers*
+  "Add to my account" (login inline → `/inventory/claim/`; 409 → "already in someone's account, you can still read";
+  `email_required` → "sign in with the email you used"; `choose_item` → picker). `/account?code=` (QR landing "Add to
+  my account") = same sheet with `auto` → sign in, then claim. Codes that neither unlock nor are claimable → sheet
+  closes. Blocker: "Scan your code", "Sign in", "Buy access". Every QR_API request carries `X-Device-Id`
+  (random `crypto.randomUUID()` in localStorage `scutoons_device`; server stores only an HMAC, for stats).
+- Dropped (never shipped): the 2026-09-29 "login required" gate and the anonymous-account / `/auth/code/` draft.
 - Game progress sync lives in `contexts/game.svelte.ts`: pull once per login (server newer → replace local; a device
   that never saved takes the server state), debounced (2s) PUT on every save. API `updated_at` = **ms since 1970**;
   PUT answers `status:"stale"` + newer state → applied locally.

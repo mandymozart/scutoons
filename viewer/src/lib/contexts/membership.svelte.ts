@@ -1,114 +1,162 @@
 import { setContext, getContext } from 'svelte';
 import { ApiError } from '$lib/api/client.ts';
-import { claimCode } from '$lib/api/qr.service.ts';
+import { checkAccess, type AccessResult } from '$lib/api/qr.service.ts';
 import type { SessionContext } from './session.svelte.ts';
 
 const MEMBERSHIP_KEY = Symbol('membership');
-/** legacy device-local membership (pre-accounts); now only a pending claim */
+/** device access from a scanned code (no account needed) */
+const ACCESS_KEY = 'scutoons_access';
+/** legacy device-local membership (pre-accounts) → migrated to ACCESS_KEY */
 const LEGACY_KEY = 'scutoons_membership';
-const PROMPTED_KEY = 'scutoons_membership_prompted';
+const RECHECK_MS = 6 * 60 * 60 * 1000;
+const CATALOG = 'catalog';
+
+export interface DeviceAccess {
+	code: string;
+	permissions: string[];
+	expires_at: string | null;
+	checked_at: string;
+	/** server-signed token, kept for a future server-side content gate */
+	access_token?: string;
+}
+
+/** ISO 8601 or SQL `YYYY-MM-DD HH:MM:SS` (UTC) */
+function isExpired(value: string | null | undefined): boolean {
+	if (!value) return false;
+	const t = Date.parse(/[TZ+]/.test(value.slice(10)) ? value : value.replace(' ', 'T') + 'Z');
+	return !Number.isNaN(t) && Date.now() > t;
+}
 
 export type MembershipContext = ReturnType<typeof createMembershipContext>;
 
 /**
- * Membership = a valid membership of the logged-in account (`/me/` memberships). A code belongs to exactly
- * one account, so nothing is granted to guests. A legacy `scutoons_membership` code is kept as a pending
- * claim: claimed silently on sign-in, guests get a one-time prompt to sign in.
+ * Access (final model 2026-09-30): chapters are unlocked by
+ *  - device access: a scanned code whose type grants `catalog` (`/access/`, stored in `scutoons_access`,
+ *    works even if someone else owns the code, survives logout), or
+ *  - the logged-in account owning such a code (`/me/ access.permissions`).
+ * Which code type grants what is decided by the server's permissions map — nothing is hardcoded here.
  */
 export const createMembershipContext = (session: SessionContext) => {
-	let pendingCode = $state<string | null>(null);
-	let prompted = $state(true);
-	/** legacy code that turned out to belong to another account (message shown once) */
-	let conflictCode = $state<string | null>(null);
-	let migrating = false;
+	let device = $state<DeviceAccess | null>(null);
+	/** code whose device access was dropped because the server says revoked / expired (one-time notice) */
+	let invalidatedCode = $state<string | null>(null);
 
-	const isValid = $derived(session.hasValidMembership);
-	const showLegacyPrompt = $derived(!!pendingCode && !prompted && session.ready && !session.isLoggedIn);
+	const deviceValid = $derived(
+		!!device && device.permissions.includes(CATALOG) && !isExpired(device.expires_at)
+	);
+	const isValid = $derived(deviceValid || session.hasAccess);
+	/** token for a future server-side gate: the account's when logged in, else the device's */
+	const accessToken = $derived<string | null>(
+		(session.hasAccess ? (session.me?.access_token ?? session.me?.access?.access_token) : null) ??
+			device?.access_token ??
+			null
+	);
 
-	function read(key: string) {
+	function read<T>(key: string): T | null {
 		try {
-			return localStorage.getItem(key);
+			const raw = localStorage.getItem(key);
+			return raw ? (JSON.parse(raw) as T) : null;
 		} catch {
 			return null;
 		}
 	}
 
-	function clearLegacy() {
-		pendingCode = null;
+	function store(value: DeviceAccess | null) {
+		device = value;
 		try {
-			localStorage.removeItem(LEGACY_KEY);
-			localStorage.removeItem(PROMPTED_KEY);
+			if (value) localStorage.setItem(ACCESS_KEY, JSON.stringify(value));
+			else localStorage.removeItem(ACCESS_KEY);
 		} catch {
 			/* storage unavailable */
 		}
 	}
 
-	async function migrate() {
-		if (!pendingCode || migrating || !session.isLoggedIn) return;
-		migrating = true;
-		const code = pendingCode;
+	function fromResult(result: AccessResult): DeviceAccess {
+		return {
+			code: result.code,
+			permissions: result.permissions ?? [],
+			expires_at: result.expires_at ?? null,
+			checked_at: new Date().toISOString(),
+			access_token: result.access_token
+		};
+	}
+
+	/**
+	 * Ask the server what a code grants. Grants device access when it includes `catalog`
+	 * (an existing device access is only replaced by one that unlocks). Throws ApiError (404, 410, 429, network).
+	 */
+	async function grantFromCode(code: string): Promise<AccessResult> {
+		const result = await checkAccess(code);
+		if (result.permissions?.includes(CATALOG)) store(fromResult(result));
+		return result;
+	}
+
+	/** Re-check the stored device code now and then (expiry, revocation); refreshes the access token. */
+	async function recheck(force = false) {
+		if (!device) return;
+		const age = Date.now() - (Date.parse(device.checked_at) || 0);
+		if (!force && age < RECHECK_MS && !isExpired(device.expires_at)) return;
 		try {
-			await claimCode(code); // idempotent for the owner
-			clearLegacy();
-			await session.loadMe();
+			const result = await checkAccess(device.code);
+			store(fromResult(result));
 		} catch (e) {
-			if (e instanceof ApiError && (e.status === 409 || e.code === 'already_claimed')) {
-				conflictCode = code;
-				clearLegacy();
-			} else if (e instanceof ApiError && e.status === 422) {
-				// needs a choice (e.g. item/variant): hand over to the claim sheet via the prompt
-				prompted = false;
-			} else {
-				console.warn('Legacy membership claim failed, will retry', e);
+			// revoked / expired / gone → drop (410 with a one-time notice); network / rate limit → keep, retry later
+			if (e instanceof ApiError && (e.status === 404 || e.status === 410)) {
+				if (e.status === 410) invalidatedCode = device.code;
+				store(null);
 			}
-		} finally {
-			migrating = false;
 		}
 	}
 
-	const initFromStorage = () => {
-		const stored = read(LEGACY_KEY);
-		if (stored) {
+	/** Pre-accounts `scutoons_membership` → device access via `/access/` (silent). */
+	async function migrateLegacy() {
+		const legacy = read<{ code?: string }>(LEGACY_KEY);
+		if (!legacy) return;
+		const clear = () => {
 			try {
-				pendingCode = JSON.parse(stored)?.code || null;
+				localStorage.removeItem(LEGACY_KEY);
+				localStorage.removeItem('scutoons_membership_prompted');
 			} catch {
-				pendingCode = null;
+				/* storage unavailable */
 			}
-			if (!pendingCode) clearLegacy();
+		};
+		if (!legacy.code) return clear();
+		try {
+			await grantFromCode(legacy.code);
+			clear();
+		} catch (e) {
+			if (e instanceof ApiError && e.status !== 0 && e.status !== 429) clear();
 		}
-		prompted = read(PROMPTED_KEY) === '1';
-		session.subscribe((event) => {
-			if (event === 'login' || event === 'me') migrate();
-		});
-		migrate();
-	};
+	}
+
+	async function init() {
+		device = read<DeviceAccess>(ACCESS_KEY);
+		await migrateLegacy();
+		await recheck();
+	}
 
 	return {
 		get isValid() {
 			return isValid;
 		},
-		get pendingCode() {
-			return pendingCode;
+		get device() {
+			return device;
 		},
-		get showLegacyPrompt() {
-			return showLegacyPrompt;
+		get deviceValid() {
+			return deviceValid;
 		},
-		get conflictCode() {
-			return conflictCode;
+		get accessToken() {
+			return accessToken;
 		},
-		dismissPrompt() {
-			prompted = true;
-			try {
-				localStorage.setItem(PROMPTED_KEY, '1');
-			} catch {
-				/* storage unavailable */
-			}
+		get invalidatedCode() {
+			return invalidatedCode;
 		},
-		clearLegacy,
-		dismissConflict() {
-			conflictCode = null;
+		dismissInvalidated() {
+			invalidatedCode = null;
 		},
-		initFromStorage
+		grantFromCode,
+		recheck,
+		init
 	};
 };
 

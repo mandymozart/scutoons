@@ -84,7 +84,13 @@
 		"items_count": "{count} items",
 		"avatar": "Avatar",
 		"claim_with_login": "Sign in to add code {code} to your inventory.",
-		"lifetime": "Lifetime"
+		"lifetime": "Lifetime",
+		"access": "Access",
+		"access_unlocked": "All chapters · {until}",
+		"access_none": "No code in your account yet",
+		"login_hint": "Sign in to own your codes and items and keep your progress on every device. To just read, scanning your code is enough.",
+		"device_access": "Access on this device",
+		"device_access_info": "Code {code} unlocks all chapters on this device ({until}). It stays after signing out."
 	},
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"
@@ -97,8 +103,8 @@
 		"step_2": "You will be automatically redirected to this page",
 		"step_3": "QR codes can be found on all SCUTOONS Limited Editions",
 		"invalid_code": "⚠️ The scanned QR code is not a valid membership code.",
-		"sign_in": "Sign in / Add your code",
-		"signed_in_hint": "Your account has no membership yet. Scan the QR code of your SCUTOONS item to add it."
+		"signed_in_hint": "Your account has no membership yet. Scan the QR code of your SCUTOONS item to add it.",
+		"scan": "Scan your code"
 	},
 	"items": {
 		"tab_items": "Items",
@@ -158,8 +164,15 @@
 		"add_prompt": "Add this item to your inventory?",
 		"later": "Later",
 		"failed": "The code could not be claimed.",
-		"legacy_prompt": "Sign in with your email to keep your membership.",
-		"legacy_conflict": "Your saved membership code {code} already belongs to another account."
+		"email_required": "Sign in with the email you used for this code.",
+		"device_unlocked": "Unlocked on this device. Enjoy reading!",
+		"add_to_account": "Add to my account",
+		"add_to_account_hint": "Optional: sign in to own this item. It goes into your inventory and you can read on every device.",
+		"in_someones_account": "This code is already in someone's account. You can still read with it.",
+		"not_claimable": "This code can't be added to an account.",
+		"expired": "This code has expired.",
+		"continue_reading": "Continue reading",
+		"no_longer_valid": "This code is no longer valid."
 	},
 	"camera": {
 		"title_qr": "Scan a SCUTOONS QR code",

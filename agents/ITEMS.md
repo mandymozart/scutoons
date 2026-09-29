@@ -222,15 +222,26 @@ Two separate things:
 ```
 `claimable` = can be owned by one account (goes into its inventory); `grants` = permissions while not expired, for
 anyone holding the code (device) and for its owner (account). Unknown types → `default`. Permission ids are open-ended
-(later e.g. `toon:catpope`, `chapter:catpope:2`); the viewer checks `catalog` today. Served at `GET /api/permissions/`.
+(later e.g. `toon:catpope`, `chapter:catpope:2`); the viewer checks `catalog` today. **Server-only** (security
+decision 2026-09-30): not served over HTTP, no `/api/permissions/` endpoint – the viewer only sees `permissions` in the
+`/access/` and `/me/` answers.
+
+**`access_token`** (implemented 2026-09-30): `/access/` (when the code grants `catalog`) and `/me/` `access` (when
+unlocked) also return `access_token` = `base64url(payload) "." base64url(HMAC-SHA256)`, payload
+`{ v:1, perms:[…], exp:<unix, min(code expiry, now+30 days)>, sub:"code:<keyed hash>"|"user:<id>" }`, key derived from
+`AUTH_SECRET` with its own label. Opaque to the viewer: store it with the device access (`scutoons_access`) and send it
+later when a server-side content gate exists (`Permissions::verifyToken()`; nothing checks it yet).
+`/me/ access` also carries `unlocked: bool` (= has `catalog`). `/access/` and `/code/` share the per-IP limit
+(120/hour, `429 rate_limited`).
 
 ### API
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET/POST | `/access/` | `{ code }` or `?c=` (optional Bearer) | `{ status:"success", code, type, expires_at, permissions:["catalog"], claimable, claimed: bool, claimed_by_me?: bool }` for any existing, non-expired code — never who owns it · 404 · 410 · 429 (rate limit per IP against enumeration) |
+| GET/POST | `/access/` | `{ code }` or `?c=` (optional Bearer) | `{ status:"success", code, type, expires_at, permissions:["catalog"], claimable, claimed: bool, claimed_by_me?: bool, access_token? }` for any existing, non-expired code — never who owns it · 404 · 410 · 429 (rate limit per IP against enumeration) |
 | POST | `/inventory/claim/` | as before (login) | one owner; claimable types only (`422 not_claimable` otherwise) |
-| GET | `/me/` | – | + `access: { permissions, expires_at, codes }` from owned codes |
+| GET | `/me/` | – | + `access: { permissions, unlocked, expires_at, codes, access_token? }` from owned codes; `memberships` = owned claimable codes (+ `grants`) |
+| POST | `/inventory/claim/` | legacy email-claimed code, other account | `409 email_required` |
 | GET/POST | `/validate/` | legacy | backwards compatible for the old viewer: success for any existing non-expired code (claimed or not), no email/signature/claimed_by |
 
 ### Landing page (qr.scutoons.com)
@@ -249,6 +260,10 @@ page. Non-claimable types keep their direct redirect.
 - Guest: local inventory/progress only; logged in: server inventory/progress; login imports the guest's grantable
   items (as before). Device access stays after logout.
 - Blocker (no access): "Scan your code", "Sign in", "Buy access".
+- Implemented 2026-09-30 (viewer): `/account?code=` opens the same sheet and goes straight to sign-in → claim;
+  `/access/` `access_token` is stored with the device access (account: `/me/` `access.access_token`) and exposed as
+  `membership.accessToken` for a future content gate (not sent yet); `X-Device-Id` on every QR_API request;
+  re-check every 6 h, `410` → device access dropped + one-time "This code is no longer valid" notice.
 
 ## Revoke + activity statistics (2026-09-30, user decision)
 
