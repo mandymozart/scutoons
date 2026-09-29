@@ -2,10 +2,13 @@
 /**
  * QR landing page (ITEMS.md "Access model", final: viewing is device-level, owning needs an account).
  *
- *   /?c=CODE            claimable types (permissions map api/permissions.json – today membership, promo):
+ *   /?c=CODE            claimable types (permissions map api/permissions.json – today membership):
  *                       preview of the item(s) + Continue → redirect_to?code=CODE (the viewer grants device access
  *                       via /api/access/) and "Add to my account" → <viewer origin>/account?code=CODE (sign in there,
- *                       then claim). No email step here. Other types (page, event, xr, unknown) redirect right away.
+ *                       then claim). No email step here.
+ *                       Signup-only types (not claimable, "signup": true – today promo): "Promo code – no item to
+ *                       collect" + Continue and "Create account" → <viewer origin>/account?code=CODE.
+ *                       Other types (page, event, xr, unknown) redirect right away.
  *   /?c=CODE&skip=1     redirect right away
  *   /?login=TOKEN       old magic links → forwarded to the viewer (APP_URL/?login=TOKEN)
  *   /                   enter a code by hand
@@ -65,6 +68,10 @@ const TEXTS = [
         'faq_q' => "I don't have an access code. Where can I get one?",
         'faq_a' => 'QR codes come with SCUTOONS limited editions:',
         'shop' => 'Shop now (Bandcamp)',
+        'promo' => 'Promo code – no item to collect',
+        'promo_hint' => 'This code unlocks every SCUTOONS chapter on your device. You can also create an account to save your progress across devices and get news about new releases.',
+        'create_account' => 'Create account',
+        'create_account_hint' => 'Sign up with your email – this code lets you create one.',
     ],
     'de' => [
         'found' => 'Gegenstand gefunden',
@@ -88,6 +95,10 @@ const TEXTS = [
         'faq_q' => 'Ich habe keinen Zugangscode. Wo bekomme ich einen?',
         'faq_a' => 'QR-Codes gibt es zu den limitierten SCUTOONS-Editionen:',
         'shop' => 'Zum Shop (Bandcamp)',
+        'promo' => 'Promo-Code – kein Gegenstand zum Sammeln',
+        'promo_hint' => 'Dieser Code schaltet alle SCUTOONS-Kapitel auf deinem Gerät frei. Du kannst auch ein Konto erstellen, um deinen Fortschritt auf allen Geräten zu speichern und Neuigkeiten zu neuen Veröffentlichungen zu bekommen.',
+        'create_account' => 'Konto erstellen',
+        'create_account_hint' => 'Registriere dich mit deiner E-Mail – mit diesem Code geht das.',
     ],
 ];
 
@@ -250,13 +261,24 @@ if (!isset($_GET['skip'])) Events::log('scan', $row['code'], null, Events::toonF
 if (qrIsExpired($row)) messagePage(410, $t['expired']);
 if (qrIsRevoked($row)) messagePage(410, $t['revoked']);
 
-// Skip, and code types that unlock nothing (permissions map: page/event/xr): plain redirect
-if (isset($_GET['skip']) || !Permissions::claimable((string) $row['type'])) {
+// Skip, and code types that can neither be owned nor create an account (permissions map: page/event/xr): redirect
+$typeRules = Permissions::forType((string) $row['type']);
+if (isset($_GET['skip']) || (!$typeRules['claimable'] && !$typeRules['signup'])) {
     header('Location: ' . continueUrl($row['redirect_to'], $row['code']));
     exit;
 }
+$accountUrl = viewerOrigin($row['redirect_to']) . '/account?code=' . rawurlencode($row['code']);
 
-// Claimable code: preview of what it contains + Continue. The viewer claims it (POST /auth/code/), asks for the
+// Promo code (signup, nothing to own): no item preview; Continue + Create account
+if (!$typeRules['claimable']) {
+    renderPage($t['promo'], '<div class="panel" id="promo"><h1>' . h($t['promo']) . '</h1><p>' . h($t['promo_hint']) . '</p>'
+        . '<div class="actions"><a class="btn" id="continue" href="' . h(continueUrl($row['redirect_to'], $row['code'])) . '">'
+        . h($t['continue']) . '</a><p class="caption">' . h($t['continue_hint']) . '</p>'
+        . '<a class="btn btn-secondary" id="create-account" href="' . h($accountUrl) . '">' . h($t['create_account']) . '</a>'
+        . '<p class="caption">' . h($t['create_account_hint']) . '</p></div></div>');
+}
+
+// Claimable code: preview of what it contains + Continue + Add to my account. The viewer claims it, asks for the
 // item choice when needed and decides what to do when the code already belongs to someone.
 $fixedItems = Codes::items($row['code']);
 $options = Codes::options($row, $fixedItems);
@@ -300,7 +322,7 @@ if ($fixedItems) {
 }
 $body .= '<div class="actions"><a class="btn" id="continue" href="' . h(continueUrl($row['redirect_to'], $row['code'])) . '">'
     . h($t['continue']) . '</a><p class="caption">' . h($t['continue_hint']) . '</p>'
-    . '<a class="btn btn-secondary" id="add-account" href="' . h(viewerOrigin($row['redirect_to']) . '/account?code=' . rawurlencode($row['code'])) . '">'
+    . '<a class="btn btn-secondary" id="add-account" href="' . h($accountUrl) . '">'
     . h($t['add_account']) . '</a><p class="caption">' . h($t['add_account_hint']) . '</p></div></div>';
 
 renderPage($fixedItems || $choices ? $t['found'] : $t['membership'], $body);
