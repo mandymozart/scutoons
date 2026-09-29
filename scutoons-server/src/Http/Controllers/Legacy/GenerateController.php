@@ -133,7 +133,8 @@ final class GenerateController
         try {
             $this->batches->writeFile($type, $filename, $doc);
         } catch (ApiError $error) {
-            return $this->json($response, 200, ['success' => false, 'error' => $error->getMessage()]);
+            $failed = $this->json($response, 200, ['success' => false, 'error' => $error->getMessage()]);
+            return str_starts_with($error->getMessage(), 'Invalid JSON') ? $failed->withHeader('Content-Type', 'application/json; charset=utf-8') : $failed;
         }
         return $this->json($response, 200, ['success' => true]);
     }
