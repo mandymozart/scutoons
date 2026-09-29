@@ -6,7 +6,8 @@
  *   php tests/api-smoke.php [http://localhost:9000]
  *
  * Uses fresh email addresses per run and picks unclaimed codes from the local DB (db/local.sqlite): it claims
- * one vinyl code (single option) and one Dago code (choice) – run it against a local copy only.
+ * one vinyl code (single option) and one Dago code (choice) – run it against a local copy only. Temporary codes
+ * (promo, page, …) are created and removed again. Also calls scripts/roles.php.
  * OTPs are read from the mail log (logs/mail.log). Exit code 0 = all checks passed.
  */
 if (PHP_SAPI !== 'cli') {
@@ -72,6 +73,18 @@ function otpFor(string $email): ?string
     return preg_match('/^\s{4}(\d{6})\s*$/m', substr($log, $pos), $m) ? $m[1] : null;
 }
 
+/** The newest mail to $email (headers + body) from the mail log, or null */
+function mailFor(string $email): ?string
+{
+    global $mailLog;
+    clearstatcache();
+    $log = (string) @file_get_contents($mailLog);
+    $pos = strrpos($log, "To: $email\r\n");
+    if ($pos === false) return null;
+    $next = strpos($log, "\nTo: ", $pos + 5);
+    return $next === false ? substr($log, $pos) : substr($log, $pos, $next - $pos);
+}
+
 function login(string $email, ?array $request = null, ?array $verifyExtra = null): array
 {
     global $api;
@@ -109,6 +122,23 @@ $emailA = "smoke-$run-a@example.com";
 $emailB = "smoke-$run-b@example.com";
 echo "API $api · codes vinyl=$vinyl dago=$dago · users $emailA, $emailB\n\n";
 
+// ── Temporary test codes (removed again at the end) ────────────────────────────────────────────────────
+$tempCodes = [];
+$tempCode = function (string $type, ?string $expiresAt = null, string $email = '') use (&$tempCodes): string {
+    $code = 't' . substr(bin2hex(random_bytes(4)), 0, 7);
+    Db::run("INSERT INTO qr (id, code, redirect_to, type, email, created_at, claimed_at, expires_at) VALUES (?, ?, 'https://scutoons.com/catpope', ?, ?, ?, ?, ?)",
+        [Db::uuid(), $code, $type, $email, qrNow(), qrNow(), $expiresAt]);
+    return $tempCodes[] = $code;
+};
+register_shutdown_function(function () use (&$tempCodes) {
+    foreach ($tempCodes as $code) {
+        Db::run('DELETE FROM inventory WHERE code = ?', [$code]);
+        Db::run('DELETE FROM code_events WHERE code = ?', [$code]);
+        Db::run('DELETE FROM qr WHERE code = ?', [$code]);
+    }
+});
+$promo = $tempCode('promo');
+
 // ── Public endpoints ───────────────────────────────────────────────────────────────────────────────────
 echo "Public\n";
 $r = call('GET', "$api/health/");
@@ -139,7 +169,9 @@ check($r['status'] === 400 && $r['body']['error'] === 'invalid_otp', 'auth/verif
 $otp = otpFor($emailA);
 check($otp !== null, 'OTP for user A found in mail log');
 $v = call('POST', "$api/auth/verify/", ['email' => $emailA, 'otp' => $otp]);
-check($v['status'] === 200 && $v['body']['created'] === true && $v['body']['claimed'] === [$vinyl], 'auth/verify → new user, vinyl code claimed', $v);
+check($v['status'] === 200 && $v['body']['created'] === true && $v['body']['claimed'] === [$vinyl], 'signup with a membership code → new account + vinyl claimed', $v);
+check(($v['body']['user']['roles'] ?? null) === ['member'] && ($v['body']['user']['marketing_opt_in'] ?? null) === false, 'new account: roles [member], opt-in false by default', $v['body']['user'] ?? null);
+check(Db::value('SELECT signup_code FROM users WHERE email = ?', [$emailA]) === $vinyl, 'users.signup_code = the membership code');
 $tokenA = $v['body']['session_token'];
 $r = call('POST', "$api/auth/verify/", ['email' => $emailA, 'otp' => $otp]);
 check($r['status'] === 410 && $r['body']['error'] === 'already_used', 'auth/verify same OTP again → 410 already_used', $r);
@@ -170,8 +202,9 @@ $r = call('GET', "$api/code/?c=" . rawurlencode($dago), null, $tokenA);
 check($r['status'] === 200 && $r['body']['claimed'] === true && $r['body']['claimed_by_me'] === true, 'GET /code/ as owner → claimed_by_me', $r);
 
 // ── Second user ────────────────────────────────────────────────────────────────────────────────────────
-echo "\nUser B\n";
-$b = login($emailB);
+echo "\nUser B (signs up with a promo code)\n";
+$b = login($emailB, ['code' => $promo]);
+check(($b['created'] ?? null) === true && !array_key_exists('claimed', $b) && !array_key_exists('claim_error', $b), 'promo signup: account created, nothing claimed', $b);
 $tokenB = $b['session_token'];
 $r = call('POST', "$api/inventory/claim/", ['code' => $dago, 'item_id' => 'dago_hoodie', 'variant' => 'black'], $tokenB);
 check($r['status'] === 409 && $r['body']['error'] === 'already_claimed', 'claim by another user → 409 already_claimed', $r);
@@ -236,22 +269,116 @@ $r = call('POST', "$api/inventory/import/", ['items' => [['item_id' => 'cucumber
 check($r['status'] === 200 && qty($r['body']['inventory'], 'cucumber') === 3 && qty($r['body']['inventory'], 'dago_hoodie') === 0
     && count($r['body']['skipped']) === 2, 'import: cucumbers merged, physical/starter items skipped', $r);
 
-// ── Temporary test codes (removed again at the end) ────────────────────────────────────────────────────
-$tempCodes = [];
-$tempCode = function (string $type, ?string $expiresAt = null, string $email = '') use (&$tempCodes): string {
-    $code = 't' . substr(bin2hex(random_bytes(4)), 0, 7);
-    Db::run("INSERT INTO qr (id, code, redirect_to, type, email, created_at, claimed_at, expires_at) VALUES (?, ?, 'https://scutoons.com/catpope', ?, ?, ?, ?, ?)",
-        [Db::uuid(), $code, $type, $email, qrNow(), qrNow(), $expiresAt]);
-    return $tempCodes[] = $code;
-};
-register_shutdown_function(function () use (&$tempCodes) {
-    foreach ($tempCodes as $code) {
-        Db::run('DELETE FROM inventory WHERE code = ?', [$code]);
-        Db::run('DELETE FROM code_events WHERE code = ?', [$code]);
-        Db::run('DELETE FROM qr WHERE code = ?', [$code]);
-    }
-});
 $userA = (string) Db::value('SELECT id FROM users WHERE email = ?', [$emailA]);
+
+// ── Signup rule: new accounts only with a product or promo code ────────────────────────────────────────
+echo "\nSignup rule\n";
+$emailC = "smoke-$run-c@example.com";
+$emailD = "smoke-$run-d@example.com";
+$noAccount = fn(string $email) => Db::value('SELECT 1 FROM users WHERE email = ?', [$email]) === null;
+$r = call('POST', "$api/auth/request/", ['email' => $emailC, 'locale' => 'en']);
+check($r['status'] === 200 && ($r['body']['status'] ?? null) === 'sent', 'no account, no code → still {status:"sent"}', $r);
+$mail = (string) mailFor($emailC);
+check(str_contains($mail, 'There is no account for it yet') && str_contains($mail, 'promo code') && otpFor($emailC) === null && !str_contains($mail, '?login='),
+    'no account, no code → mail explains the rule, no one-time code, no link', $mail);
+$r = call('POST', "$api/auth/verify/", ['email' => $emailC, 'otp' => '123456']);
+check($r['status'] === 400 && $noAccount($emailC), 'no account, no code → verify fails, no account created', $r);
+call('POST', "$api/auth/request/", ['email' => $emailC, 'locale' => 'de', 'code' => $tempCode('page')]);
+$mail = (string) mailFor($emailC);
+check(str_contains($mail, 'noch kein Konto') && str_contains($mail, 'kann kein Konto erstellt werden') && otpFor($emailC) === null, 'page code → no signup (German mail names the code)', $mail);
+call('POST', "$api/auth/request/", ['email' => $emailC, 'locale' => 'en', 'code' => $dago]);
+check(otpFor($emailC) === null && $noAccount($emailC), 'membership code owned by someone else → no signup');
+$revokedPromo = $tempCode('promo');
+Db::run('UPDATE qr SET revoked_at = ? WHERE code = ?', [qrNow(), $revokedPromo]);
+call('POST', "$api/auth/request/", ['email' => $emailC, 'locale' => 'en', 'code' => $revokedPromo]);
+check(otpFor($emailC) === null && $noAccount($emailC), 'revoked promo code → no signup');
+
+$lateRevoke = $tempCode('promo');
+call('POST', "$api/auth/request/", ['email' => $emailC, 'locale' => 'en', 'code' => $lateRevoke, 'marketing_opt_in' => true]);
+$otpC = otpFor($emailC);
+check($otpC !== null && str_contains((string) mailFor($emailC), 'This creates your SCUTOONS account'), 'promo code → sign-up mail with one-time code');
+Db::run('UPDATE qr SET revoked_at = ? WHERE code = ?', [qrNow(), $lateRevoke]);
+$r = call('POST', "$api/auth/verify/", ['email' => $emailC, 'otp' => $otpC]);
+check($r['status'] === 403 && $r['body']['error'] === 'signup_code_required' && $noAccount($emailC), 'code revoked before verify → 403 signup_code_required, no account', $r);
+
+$c = login($emailC, ['code' => $promo, 'marketing_opt_in' => true]);
+$tokenC = $c['session_token'];
+check($c['created'] === true && $c['user']['marketing_opt_in'] === true && $c['user']['roles'] === ['member'] && !array_key_exists('claimed', $c),
+    'second signup with the same promo code → account, opt-in stored', $c);
+$d = login($emailD, ['code' => $promo], ['marketing_opt_in' => false]);
+check($d['created'] === true && $d['user']['marketing_opt_in'] === false, 'third signup with the same promo code (reusable), opt-in false', $d);
+$promoRow = Codes::find($promo);
+check($promoRow['claimed_by'] === null && (string) $promoRow['email'] === '', 'promo code is not owned by anyone');
+check(Db::value('SELECT signup_code FROM users WHERE email = ?', [$emailD]) === $promo, 'users.signup_code = the promo code');
+check((int) Db::value("SELECT COUNT(*) FROM code_events WHERE code = ? AND event = 'signup'", [$promo]) === 3, 'signup events logged (3 for the promo code)');
+check(Db::value('SELECT marketing_opt_in_at FROM users WHERE email = ?', [$emailC]) !== null, 'marketing_opt_in_at set when opted in');
+$r = call('POST', "$api/inventory/claim/", ['code' => $promo], $tokenC);
+check($r['status'] === 422 && $r['body']['error'] === 'not_claimable', 'claim promo code → 422 not_claimable', $r);
+$r = call('GET', "$api/access/?c=$promo");
+check($r['status'] === 200 && $r['body']['permissions'] === ['catalog'] && $r['body']['claimable'] === false && $r['body']['signup'] === true, '/access/ promo → catalog, claimable false, signup true', $r);
+$r = call('GET', "$api/code/?c=$promo");
+check($r['status'] === 200 && $r['body']['claimable'] === false && $r['body']['signup'] === true, '/code/ promo → claimable false, signup true', $r);
+$r = call('GET', "$base/?c=$promo&lang=en");
+check($r['status'] === 200 && is_string($r['body']) && str_contains($r['body'], 'no item to collect') && str_contains($r['body'], '/account?code=' . $promo)
+    && str_contains($r['body'], 'Create account') && !str_contains($r['body'], 'Add to my account'), 'landing page promo: no item, Continue + Create account', $r['status']);
+$r = call('GET', "$base/?c=$vinyl&lang=en");
+check(is_string($r['body']) && str_contains($r['body'], 'Add to my account'), 'landing page membership: still Add to my account');
+
+$a2 = login($emailA);
+check($a2['created'] === false && ($a2['user']['email'] ?? null) === $emailA, 'existing account without a code → sign-in works');
+$a3 = login($emailA, ['code' => $tempCode('page')]);
+check($a3['created'] === false && !array_key_exists('claim_error', $a3), 'existing account with a page code → sign-in works, no claim attempted', $a3);
+check(Db::value('SELECT signup_code FROM users WHERE email = ?', [$emailA]) === $vinyl, 'signup_code unchanged by later sign-ins');
+
+// ── Roles ──────────────────────────────────────────────────────────────────────────────────────────────
+echo "\nRoles\n";
+$me = call('GET', "$api/me/", null, $tokenC);
+check(($me['body']['user']['roles'] ?? null) === ['member'], '/me/ user.roles = [member]', $me['body']['user'] ?? $me);
+$userC = (string) Db::value('SELECT id FROM users WHERE email = ?', [$emailC]);
+$adminHeader = ['X-Generate-Token: ' . hash_hmac('sha256', 'generate-access', GENERATE_PASSWORD)];
+$r = call('GET', "$base/generate/users.php?q=" . rawurlencode($emailC));
+check($r['status'] === 401, 'admin users.php without token → 401', $r['status']);
+$r = call('POST', "$base/generate/user-roles.php", ['user_id' => $userC, 'role' => 'creator', 'action' => 'grant']);
+check($r['status'] === 401 && !Roles::has($userC, 'creator'), 'admin user-roles.php without token → 401, nothing granted', $r['status']);
+$r = call('GET', "$base/generate/users.php?q=" . rawurlencode("smoke-$run-c@"), null, null, $adminHeader);
+$row = $r['body']['users'][0] ?? null;
+check($r['status'] === 200 && $r['body']['total'] === 1 && $row['email'] === $emailC && $row['roles'] === ['member'] && $row['signup_code'] === $promo
+    && $row['marketing_opt_in'] === true && in_array('creator', array_column($r['body']['roles'], 'name'), true), 'admin users.php search by email → roles, signup code, opt-in', $r['body']);
+$_SERVER['HTTP_AUTHORIZATION'] = "Bearer $tokenC";
+try { Roles::requireRole('creator'); $forbidden = false; } catch (ApiError $e) { $forbidden = $e->status === 403 && $e->errorCode === 'forbidden'; }
+check($forbidden, 'Roles::requireRole(creator) without the role → 403 forbidden');
+$r = call('POST', "$base/generate/user-roles.php", ['user_id' => $userC, 'role' => 'creator', 'action' => 'grant'], null, $adminHeader);
+check($r['status'] === 200 && $r['body']['changed'] === true && $r['body']['user']['roles'] === ['member', 'creator'], 'admin grants creator', $r['body']);
+$me = call('GET', "$api/me/", null, $tokenC);
+check(($me['body']['user']['roles'] ?? null) === ['member', 'creator'] && Roles::has($userC, 'creator'), '/me/ user.roles includes creator', $me['body']['user'] ?? null);
+check((Roles::requireRole('creator')['id'] ?? null) === $userC, 'Roles::requireRole(creator) with the role → the user');
+unset($_SERVER['HTTP_AUTHORIZATION']);
+$r = call('POST', "$base/generate/user-roles.php", ['user_id' => $userC, 'role' => 'creator', 'action' => 'grant'], null, $adminHeader);
+check($r['status'] === 200 && $r['body']['changed'] === false, 'grant again → unchanged', $r['body']);
+$r = call('POST', "$base/generate/user-roles.php", ['email' => $emailC, 'role' => 'creator', 'action' => 'revoke'], null, $adminHeader);
+check($r['status'] === 200 && $r['body']['changed'] === true && $r['body']['user']['roles'] === ['member'] && !Roles::has($userC, 'creator'), 'admin revokes creator (by email)', $r['body']);
+$r = call('POST', "$base/generate/user-roles.php", ['user_id' => $userC, 'role' => 'wizard', 'action' => 'grant'], null, $adminHeader);
+check($r['status'] === 400, 'unknown role → 400', $r);
+$cli = fn(string $args) => (string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/roles.php') . " $args 2>&1");
+$out = $cli('grant ' . escapeshellarg($emailC) . ' admin');
+check(str_contains($out, 'Granted admin') && Roles::has($userC, 'admin'), 'CLI roles.php grant', $out);
+$out = $cli('list ' . escapeshellarg($emailC));
+check(str_contains($out, 'member, admin'), 'CLI roles.php list <email>', $out);
+$out = $cli('revoke ' . escapeshellarg($emailC) . ' admin');
+check(str_contains($out, 'Revoked admin') && !Roles::has($userC, 'admin'), 'CLI roles.php revoke', $out);
+
+// ── Marketing opt-in on the account page ──────────────────────────────────────────────────────────────
+echo "\nMarketing opt-in\n";
+$r = call('PUT', "$api/me/", ['marketing_opt_in' => false]);
+check($r['status'] === 401, 'PUT /me/ without token → 401', $r['status']);
+$r = call('PUT', "$api/me/", ['marketing_opt_in' => 'maybe'], $tokenC);
+check($r['status'] === 400 && $r['body']['error'] === 'invalid_body', 'PUT /me/ with a non-boolean → 400', $r);
+$r = call('PUT', "$api/me/", ['marketing_opt_in' => false], $tokenC);
+check($r['status'] === 200 && $r['body']['user']['marketing_opt_in'] === false, 'PUT /me/ opt-out', $r);
+$r = call('PUT', "$api/me/", ['marketing_opt_in' => true], $tokenB);
+$me = call('GET', "$api/me/", null, $tokenB);
+check($r['status'] === 200 && ($me['body']['user']['marketing_opt_in'] ?? null) === true && Db::value('SELECT marketing_opt_in_at FROM users WHERE email = ?', [$emailB]) !== null,
+    'PUT /me/ opt-in → /me/ shows it, time stored', $me['body']['user'] ?? $r);
 
 // ── /access/: device-level viewing for anyone holding a code ───────────────────────────────────────────
 echo "\n/access/ (viewing is device-level)\n";
