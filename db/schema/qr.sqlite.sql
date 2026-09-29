@@ -13,7 +13,9 @@ CREATE TABLE IF NOT EXISTS qr (
     edition_id     TEXT NULL DEFAULT NULL,
     signature      TEXT NULL DEFAULT NULL,
     edition_number INTEGER NULL DEFAULT NULL,
-    claimed_by     TEXT NULL DEFAULT NULL
+    claimed_by     TEXT NULL DEFAULT NULL,
+    revoked_at     TEXT NULL DEFAULT NULL,
+    revoked_reason TEXT NULL DEFAULT NULL
 );
 
 CREATE TABLE IF NOT EXISTS users (
@@ -105,3 +107,18 @@ CREATE INDEX IF NOT EXISTS rate_limits_ref ON rate_limits (bucket, ref);
 CREATE TRIGGER IF NOT EXISTS qr_owner_immutable BEFORE UPDATE OF claimed_by ON qr WHEN OLD.claimed_by IS NOT NULL AND NEW.claimed_by IS NOT NULL AND NEW.claimed_by <> OLD.claimed_by BEGIN SELECT RAISE(ABORT, 'qr code already belongs to another account'); END;
 CREATE TRIGGER IF NOT EXISTS inventory_code_owner_insert BEFORE INSERT ON inventory WHEN NEW.code IS NOT NULL AND NEW.user_id IS NOT (SELECT claimed_by FROM qr WHERE code = NEW.code) BEGIN SELECT RAISE(ABORT, 'inventory code does not belong to this account'); END;
 CREATE TRIGGER IF NOT EXISTS inventory_code_owner_update BEFORE UPDATE OF user_id, code ON inventory WHEN NEW.code IS NOT NULL AND NEW.user_id IS NOT (SELECT claimed_by FROM qr WHERE code = NEW.code) BEGIN SELECT RAISE(ABORT, 'inventory code does not belong to this account'); END;
+
+-- Revoke + activity statistics (db/migrations/2026-09-30-revoke-events.sqlite.sql)
+CREATE TABLE IF NOT EXISTS code_events (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  code TEXT NOT NULL,
+  event TEXT NOT NULL,
+  device_hash TEXT NULL DEFAULT NULL,
+  user_id TEXT NULL DEFAULT NULL,
+  ip_hash TEXT NULL DEFAULT NULL,
+  toon TEXT NULL DEFAULT NULL,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS code_events_code ON code_events (code, created_at);
+CREATE INDEX IF NOT EXISTS code_events_event ON code_events (event, created_at);
+CREATE INDEX IF NOT EXISTS code_events_dedupe ON code_events (code, event, device_hash, created_at);

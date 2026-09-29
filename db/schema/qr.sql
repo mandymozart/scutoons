@@ -40,7 +40,9 @@ CREATE TABLE `qr` (
   `signature` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`signature`)),
   `template_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`template_data`)),
   `edition_number` int(11) DEFAULT NULL COMMENT 'n of the edition (batch manifest)',
-  `claimed_by` char(36) DEFAULT NULL COMMENT 'users.id of the claimer'
+  `claimed_by` char(36) DEFAULT NULL COMMENT 'users.id of the claimer',
+  `revoked_at` datetime DEFAULT NULL COMMENT 'set = the code grants nothing',
+  `revoked_reason` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- Accounts, items and inventory: see db/migrations/2026-09-29-accounts-inventory.mysql.sql (tables appended
@@ -179,3 +181,19 @@ CREATE TABLE IF NOT EXISTS `rate_limits` (
 CREATE TRIGGER IF NOT EXISTS `qr_owner_immutable` BEFORE UPDATE ON `qr` FOR EACH ROW BEGIN IF OLD.claimed_by IS NOT NULL AND NEW.claimed_by IS NOT NULL AND NEW.claimed_by <> OLD.claimed_by THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'qr code already belongs to another account'; END IF; END;
 CREATE TRIGGER IF NOT EXISTS `inventory_code_owner_insert` BEFORE INSERT ON `inventory` FOR EACH ROW BEGIN IF NEW.code IS NOT NULL AND NOT (NEW.user_id <=> (SELECT claimed_by FROM qr WHERE code = NEW.code)) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'inventory code does not belong to this account'; END IF; END;
 CREATE TRIGGER IF NOT EXISTS `inventory_code_owner_update` BEFORE UPDATE ON `inventory` FOR EACH ROW BEGIN IF NEW.code IS NOT NULL AND NOT (NEW.user_id <=> (SELECT claimed_by FROM qr WHERE code = NEW.code)) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'inventory code does not belong to this account'; END IF; END;
+
+-- Revoke + activity statistics (db/migrations/2026-09-30-revoke-events.mysql.sql)
+CREATE TABLE IF NOT EXISTS `code_events` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `code` VARCHAR(8) NOT NULL,
+  `event` VARCHAR(16) NOT NULL COMMENT 'scan | access | claim | claim_refused | login | revoke | unrevoke',
+  `device_hash` CHAR(64) NULL DEFAULT NULL,
+  `user_id` CHAR(36) NULL DEFAULT NULL,
+  `ip_hash` CHAR(64) NULL DEFAULT NULL,
+  `toon` VARCHAR(64) NULL DEFAULT NULL,
+  `created_at` DATETIME NOT NULL COMMENT 'UTC',
+  PRIMARY KEY (`id`),
+  KEY `code_events_code` (`code`, `created_at`),
+  KEY `code_events_event` (`event`, `created_at`),
+  KEY `code_events_dedupe` (`code`, `event`, `device_hash`, `created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
