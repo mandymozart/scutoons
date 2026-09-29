@@ -27,6 +27,17 @@
 							"type": "string"
 						}
 					}
+				},
+				"sourceLanguage": {
+					"$ref": "#/definitions/Language",
+					"description": "The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `i18n` key, else `de`."
+				},
+				"languages": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Language"
+					},
+					"description": "Every language of the toon, the source first. Default: the `i18n` keys (source first)."
 				}
 			},
 			"required": [
@@ -35,7 +46,8 @@
 				"status",
 				"avatar",
 				"i18n"
-			]
+			],
+			"description": "One toon's entry in `toons.json` (language-neutral). The creator keeps the newest version of it in the content store as `<toon>/_/index.json` (see `TOON_INDEX_FILE`); read the languages with `toonLanguages()`."
 		},
 		"Status": {
 			"type": "string",
@@ -43,6 +55,16 @@
 				"published",
 				"draft",
 				"coming-soon"
+			]
+		},
+		"Language": {
+			"type": "string",
+			"enum": [
+				"de",
+				"en",
+				"jp",
+				"kr",
+				"es"
 			]
 		}
 	}

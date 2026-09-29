@@ -41,7 +41,7 @@ final class ContentServiceTest extends TestCase
 
     public function testKeysAndBodiesAreValidated(): void
     {
-        foreach ([['Bad', 'de', 'a.json', 'invalid_toon'], ['t', 'deu', 'a.json', 'invalid_locale'], ['t', 'de', 'a/b/c.json', 'invalid_path'], ['t', 'de', 'A.json', 'invalid_path']] as [$toon, $locale, $path, $code]) {
+        foreach ([['Bad', 'de', 'a.json', 'invalid_toon'], ['t', 'deu', 'a.json', 'invalid_locale'], ['t', '__', 'a.json', 'invalid_locale'], ['t', 'de', 'a/b/c.json', 'invalid_path'], ['t', 'de', 'A.json', 'invalid_path']] as [$toon, $locale, $path, $code]) {
             try {
                 ContentService::checkKey($toon, $locale, $path);
                 self::fail("$code expected");
@@ -50,6 +50,8 @@ final class ContentServiceTest extends TestCase
             }
         }
         ContentService::checkKey('t', 'de', 'chapter2/scene-14.json');
+        ContentService::checkKey('t', ContentService::NEUTRAL_LOCALE, 'index.json');
+        self::assertSame(['t', '_', 'index.json'], ContentService::parseFile('t/_/index.json'));
         self::assertSame(['t', 'de', 'chapter2/scene-14.json'], ContentService::parseFile('t/de/chapter2/scene-14.json'));
         $content = $this->get(ContentService::class);
         try {

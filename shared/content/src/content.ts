@@ -263,12 +263,20 @@ export interface Toon {
 	download: Download;
 }
 
+/**
+ * One toon's entry in `toons.json` (language-neutral). The creator keeps the newest version of it in the content store
+ * as `<toon>/_/index.json` (see `TOON_INDEX_FILE`); read the languages with `toonLanguages()`.
+ */
 export interface ToonIndex {
 	id: string;
 	uri: string;
 	status: Status;
 	avatar: string;
 	i18n: Record<string, Record<string, string>>;
+	/** The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `i18n` key, else `de`. */
+	sourceLanguage?: Language;
+	/** Every language of the toon, the source first. Default: the `i18n` keys (source first). */
+	languages?: Language[];
 }
 
 export type LoadedSequenceItem = (Chapter) & {

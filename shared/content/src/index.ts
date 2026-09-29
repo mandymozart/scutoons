@@ -8,4 +8,5 @@ export * from './membership.ts';
 export * from './products.ts';
 export * from './template.ts';
 export * from './paths.ts';
+export * from './languages.ts';
 export * from './validate.ts';

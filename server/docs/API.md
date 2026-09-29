@@ -211,7 +211,7 @@ static files).
 - **Table `content_versions`** `(id, toon, locale, path, json, author → users.id | NULL, created_at UTC, status, message)`.
   Every save is a new row. Per file (toon, locale, path) at most **one** row is `published`; all others are `draft`. The
   newest row is the working copy.
-- **Validation** (minimal, the editor checks the TypeScript types): toon `^[a-z0-9_-]{1,64}$`, locale `^[a-z]{2}$`, path
+- **Validation** (minimal, the editor checks the TypeScript types): toon `^[a-z0-9_-]{1,64}$`, locale `^[a-z]{2}$` or `_` (language-neutral files: `<toon>/_/index.json` = the toon's `toons.json` entry incl. `sourceLanguage` / `languages`), path
   `^[a-z0-9_-]+(/[a-z0-9_-]+)?\.json$`, body JSON object or array, `CONTENT_MAX_BYTES` (default 2 MB). JSON is decoded
   as objects and stored re-encoded (unescaped unicode/slashes), so `{}` stays `{}`.
 

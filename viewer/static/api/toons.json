@@ -4,6 +4,8 @@
     "uri": "catpope",
     "status": "published",
     "avatar": "avatar.png",
+    "sourceLanguage": "de",
+    "languages": ["de", "en"],
     "i18n": {
       "de": {
         "name": "Katzenpapst",
@@ -19,6 +21,8 @@
     "id": "toptoy",
     "uri": "toptoy",
     "status": "draft",
+    "sourceLanguage": "de",
+    "languages": ["de", "en"],
     "i18n": {
       "de": {
         "name": "Toptoy",
@@ -34,6 +38,8 @@
     "id": "yellowmouse",
     "uri": "yellowmouse",
     "status": "draft",
+    "sourceLanguage": "de",
+    "languages": ["de", "en"],
     "i18n": {
       "de": {
         "name": "Mausboss",

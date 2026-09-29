@@ -17,12 +17,16 @@ use stdClass;
  *
  * Validation is minimal on purpose (the editor validates against the TypeScript types): JSON object or array, size
  * limit (CONTENT_MAX_BYTES, default 2 MB), toon/locale pattern and the path whitelist.
+ *
+ * Locale `_` (NEUTRAL_LOCALE) holds language-neutral files of a toon, e.g. `_/index.json` = the toon's entry of
+ * `toons.json` with its `sourceLanguage` / `languages` (written by the creator's toon page).
  */
 final class ContentService
 {
     public const PATH_PATTERN = '#^[a-z0-9_-]+(/[a-z0-9_-]+)?\.json$#';
     public const TOON_PATTERN = '#^[a-z0-9_-]{1,64}$#';
-    public const LOCALE_PATTERN = '#^[a-z]{2}$#';
+    public const LOCALE_PATTERN = '#^([a-z]{2}|_)$#';
+    public const NEUTRAL_LOCALE = '_';
     private const DEFAULT_MAX_BYTES = 2097152;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
 
