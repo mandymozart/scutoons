@@ -7,9 +7,6 @@ declare(strict_types=1);
  */
 final class Codes
 {
-    /** Codes whose type can be claimed into an inventory (event/xr/page just redirect) */
-    public const CLAIMABLE_TYPES = ['membership', 'promo'];
-
     /** A syntactically valid code (nanoid, max 8 chars) or null */
     public static function normalize(mixed $value): ?string
     {
@@ -89,38 +86,54 @@ final class Codes
     }
 
     /**
-     * Claims a code for a user: adds its items (or the chosen option) to the inventory and binds the code.
-     * Same user again → no change (idempotent). Returns true when the code was newly claimed.
-     * Throws 404 not_found, 410 expired, 422 not_claimable, 409 already_claimed, 422 choose_item / invalid_item.
+     * Claims a code for a user (see claimFor). Returns true when the code was newly claimed.
      */
     public static function claim(array $user, string $code, ?string $itemId, ?string $variant): bool
+    {
+        return self::claimFor($user, $code, $itemId, $variant)[0];
+    }
+
+    /**
+     * Claims a code: adds its items (or the chosen option) to the inventory and binds the code to the user.
+     * `$user` is a user row, or a factory that creates the user – called inside the transaction only after every
+     * check passed (so choose_item / already_claimed never leave an orphan account). Same user again → no change.
+     * Throws 404 not_found, 410 expired, 403 not_unlocking, 409 already_claimed / email_required,
+     * 422 choose_item / invalid_item.
+     * @return array{0: bool, 1: array<string, mixed>} [newly claimed, user]
+     */
+    public static function claimFor(array|Closure $user, string $code, ?string $itemId, ?string $variant): array
     {
         $code = self::normalize($code) ?? throw new ApiError(400, 'invalid_code', 'Code missing or malformed.');
         return Db::transaction(function () use ($user, $code, $itemId, $variant) {
             $row = Db::one('SELECT * FROM qr WHERE code = ?' . Db::forUpdate(), [$code]);
             if (!$row) throw new ApiError(404, 'not_found', 'This code does not exist.');
             if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
-            if ($row['claimed_by'] === $user['id']) return false;
-            if (!in_array($row['type'], self::CLAIMABLE_TYPES, true)) {
-                throw new ApiError(422, 'not_claimable', 'This code cannot be added to an inventory.');
+            if (!Permissions::claimable((string) $row['type'])) {
+                throw new ApiError(403, 'not_unlocking', 'This code does not give access.');
             }
-            // Claimed by someone else – or by the old email-only form with another address
+            $factory = $user instanceof Closure;
+            if (!$factory && $row['claimed_by'] === $user['id']) return [false, $user];
+            if ($row['claimed_by'] !== null) {
+                throw new ApiError(409, 'already_claimed', 'This code is already in use. If it\'s yours, sign in.');
+            }
+            // Claimed by the old email-only form: only the account with that email may take it over
             $legacyEmail = strtolower(trim((string) $row['email']));
-            if ($row['claimed_by'] !== null || ($legacyEmail !== '' && $legacyEmail !== $user['email'])) {
-                throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s inventory.');
+            if ($legacyEmail !== '' && ($factory || $user['email'] === null || $legacyEmail !== $user['email'])) {
+                throw new ApiError(409, 'email_required', 'Sign in with the email this code was registered with.');
             }
 
             $grants = self::resolveItems($row, $itemId, $variant);
+            if ($factory) $user = $user();
 
             $bound = Db::run('UPDATE qr SET claimed_by = ?, email = ?, claimed_at = ? WHERE code = ? AND claimed_by IS NULL',
-                [$user['id'], $user['email'], qrNow(), $code]);
-            if ($bound->rowCount() !== 1) throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s inventory.');
+                [$user['id'], (string) ($user['email'] ?? ''), qrNow(), $code]);
+            if ($bound->rowCount() !== 1) throw new ApiError(409, 'already_claimed', 'This code is already in use. If it\'s yours, sign in.');
 
             $editionNumber = $row['edition_number'] !== null ? (int) $row['edition_number'] : null;
             foreach ($grants as $grant) {
                 Inventory::add($user['id'], $grant['item_id'], $grant['variant'], $grant['qty'], 'qr', $code, $editionNumber);
             }
-            return true;
+            return [true, $user];
         });
     }
 

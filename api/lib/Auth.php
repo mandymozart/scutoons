@@ -19,6 +19,9 @@ final class Auth
         $variant = is_string($body['variant'] ?? null) ? substr($body['variant'], 0, 64) : null;
         $secret = self::secret();
         $ipHash = hash_hmac('sha256', Http::clientIp(), $secret);
+        // An anonymous account asking to add this email: merged/attached on verify (also via the magic link)
+        $current = self::optionalUser();
+        $anonId = $current !== null && $current['email'] === null ? $current['id'] : null;
 
         // Housekeeping: requests are only needed while they can be confirmed and for the hourly limits
         Db::run('DELETE FROM login_requests WHERE created_at < ?', [Db::now(-86400)]);
@@ -33,9 +36,9 @@ final class Auth
         $otp = sprintf('%06d', random_int(0, 999999));
         $ttl = Config::int('LOGIN_TTL_MINUTES') * 60;
         Db::run(
-            'INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, claim_item_id, claim_variant, ip_hash, attempts, created_at, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)',
-            [$id, $email, hash('sha256', $token), self::otpHash($id, $otp), $locale, $claimCode, $itemId, $variant, $ipHash, Db::now(), Db::now($ttl)]
+            'INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, claim_item_id, claim_variant, anon_user_id, ip_hash, attempts, created_at, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)',
+            [$id, $email, hash('sha256', $token), self::otpHash($id, $otp), $locale, $claimCode, $itemId, $variant, $anonId, $ipHash, Db::now(), Db::now($ttl)]
         );
 
         $mail = LoginMail::compose($locale, self::link($token, $claimCode), $otp, $claimCode);
@@ -52,7 +55,7 @@ final class Auth
 
     /**
      * Where the magic link points: the calling viewer (allowed Origin) → `<origin>/?login=<token>`;
-     * otherwise (the QR landing page) → `QR_URL/?login=<token>[&c=<code>]`.
+     * otherwise → the viewer at APP_URL (the QR landing page has no login step any more; it forwards old links).
      */
     private static function link(string $token, ?string $claimCode): string
     {
@@ -60,12 +63,15 @@ final class Auth
         if ($origin !== null && Http::isAllowedOrigin($origin)) {
             return $origin . '/?login=' . rawurlencode($token);
         }
-        return rtrim(Config::get('QR_URL'), '/') . '/?login=' . rawurlencode($token) . ($claimCode !== null ? '&c=' . rawurlencode($claimCode) : '');
+        return rtrim(Config::get('APP_URL'), '/') . '/?login=' . rawurlencode($token);
     }
 
     /**
      * POST /auth/verify { email, otp } | { token } (+ optional item_id, variant for the code of the request)
-     * → { status: "success", session_token, user, created, claimed?: [code], claim_error? }
+     * → { status: "success", session_token, user, created, merged, claimed?: [code], claim_error? }
+     * With an anonymous account (its Bearer now, or the one that made the request): the email is attached to it, or –
+     * when an account with this email exists – it is merged into that account (merged: true). The new session
+     * belongs to the resulting account.
      */
     public static function verify(array $body): never
     {
@@ -94,20 +100,31 @@ final class Auth
             }
         }
 
-        [$user, $created, $session] = Db::transaction(function () use ($request) {
+        $current = self::optionalUser();
+        $anonId = $current !== null && $current['email'] === null ? $current['id'] : $request['anon_user_id'];
+
+        [$user, $created, $merged, $session] = Db::transaction(function () use ($request, $anonId) {
             // Only one confirmation per request, also when link and code race
             $used = Db::run('UPDATE login_requests SET used_at = ? WHERE id = ? AND used_at IS NULL', [Db::now(), $request['id']]);
             if ($used->rowCount() !== 1) throw new ApiError(410, 'already_used', 'This link or code was used already.');
             $user = Users::byEmail($request['email']);
+            $anon = $anonId !== null ? Users::byId($anonId) : null;
+            if ($anon !== null && $anon['email'] !== null) $anon = null; // no longer anonymous
             $created = false;
-            if (!$user) {
+            $merged = false;
+            if ($user && $anon) {
+                Users::merge($anon['id'], $user['id']);
+                $merged = true;
+            } elseif ($anon) {
+                $user = Users::attachEmail($anon['id'], $request['email']);
+            } elseif (!$user) {
                 $user = Users::create($request['email'], $request['locale']);
                 $created = true;
             }
-            return [$user, $created, self::createSession($user['id'])];
+            return [$user, $created, $merged, self::createSession($user['id'])];
         });
 
-        $response = ['status' => 'success', 'session_token' => $session, 'user' => Users::toJson($user), 'created' => $created];
+        $response = ['status' => 'success', 'session_token' => $session, 'user' => Users::toJson($user), 'created' => $created, 'merged' => $merged];
 
         // The code sent with the login request is claimed in the same step
         if ($request['claim_code'] !== null) {
@@ -123,6 +140,44 @@ final class Auth
         }
 
         Http::json(200, $response);
+    }
+
+    /**
+     * POST /auth/code/ { code, item_id?, variant?, locale? } (+ optional Bearer) – the code is the credential.
+     * Signed in: claims the code into that account (claimed "new" | "already_yours").
+     * Not signed in: an unclaimed claimable code creates an anonymous account, claims it and returns its session.
+     * Rate-limited per IP (AUTH_CODE_MAX_PER_IP_HOUR, every attempt counts).
+     */
+    public static function code(array $body): never
+    {
+        $bucket = 'authcode:' . hash_hmac('sha256', Http::clientIp(), self::secret());
+        RateLimit::guard($bucket, Config::int('AUTH_CODE_MAX_PER_IP_HOUR'), 3600, 'Too many codes tried – try again later.');
+        RateLimit::hit($bucket);
+        $itemId = is_string($body['item_id'] ?? null) ? $body['item_id'] : null;
+        $variant = is_string($body['variant'] ?? null) ? $body['variant'] : null;
+        Http::json(200, self::unlock(self::optionalUser(), $body['code'] ?? null, $itemId, $variant,
+            LoginMail::locale($body['locale'] ?? null), Http::bearerToken()));
+    }
+
+    /**
+     * The logic of /auth/code/ (also used by tests/claim-race.php). Without a user, the anonymous account and its
+     * session are created in the same transaction as the claim, only after every check passed – a lost race,
+     * choose_item or any other error leaves no account behind.
+     * @return array<string, mixed>
+     */
+    public static function unlock(?array $user, mixed $code, ?string $itemId, ?string $variant, string $locale = 'en', ?string $token = null): array
+    {
+        $code = Codes::normalize($code) ?? throw new ApiError(400, 'invalid_code', 'Code missing or malformed.');
+        if ($user !== null) {
+            [$new] = Codes::claimFor($user, $code, $itemId, $variant);
+            return ['status' => 'success', 'session_token' => $token, 'user' => Users::toJson($user),
+                'claimed' => $new ? 'new' : 'already_yours', 'created' => false, 'code' => $code];
+        }
+        return Db::transaction(function () use ($code, $itemId, $variant, $locale) {
+            [, $user] = Codes::claimFor(fn() => Users::create(null, $locale), $code, $itemId, $variant);
+            return ['status' => 'success', 'session_token' => self::createSession($user['id']), 'user' => Users::toJson($user),
+                'claimed' => 'new', 'created' => true, 'code' => $code];
+        });
     }
 
     /** POST /auth/logout → { status: "success" } (this device only) */

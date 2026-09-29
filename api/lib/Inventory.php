@@ -184,18 +184,25 @@ final class Inventory
         Http::json(200, ['status' => 'success', 'imported' => $imported, 'skipped' => $skipped, 'inventory' => self::entries($user['id'])]);
     }
 
-    /** GET /me/ → { user, memberships, inventory, avatar } */
+    /**
+     * GET /me/ → { user, access, memberships, inventory, avatar }
+     * access = permissions of the owned, non-expired codes (api/permissions.json); memberships = owned codes of
+     * claimable types (with the permissions each grants).
+     */
     public static function me(): never
     {
         $user = Auth::user();
         $codes = Db::all('SELECT code, type, expires_at FROM qr WHERE claimed_by = ? ORDER BY claimed_at, code', [$user['id']]);
+        $claimable = array_values(array_filter($codes, fn($r) => Permissions::claimable((string) $r['type'])));
         Http::json(200, [
             'user' => Users::toJson($user),
+            'access' => Permissions::access($codes),
             'memberships' => array_map(fn($r) => [
                 'code' => $r['code'],
                 'type' => $r['type'],
                 'expires_at' => $r['expires_at'] ? date('c', (int) strtotime((string) $r['expires_at'])) : null,
-            ], $codes),
+                'grants' => Permissions::grants((string) $r['type']),
+            ], $claimable),
             'inventory' => self::entries($user['id']),
             'avatar' => Avatar::toJson($user['id']),
         ]);
