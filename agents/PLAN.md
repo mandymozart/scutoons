@@ -206,3 +206,29 @@ Agents don't commit in the scutoons repo (shared working tree); the coordinator 
   activity log + admin Stats view. qr `anger` smoke 108/108. Viewer 5b4dd60.
 - 2026-09-30 — Track Creator phase 1: content store (qr 660117b, 1475223, 7d9b917, b95cfb6, badc1eb, 0332912), `/creator` editor, reader loads
   the store first. Browser walkthrough on chapter 1 (edit de+en → draft → preview → publish → restored). Phase 2 open.
+
+## RULE: printed / public URLs never change (2026-09-30, owner)
+
+Physical items in the real world carry these links (QR stickers, certificates, prints). Until a deliberate, tested
+migration via the server's code mappings exists, **these URLs, paths and parameter names must keep working exactly as
+they are** — in every refactor, on every host/docroot change, in both old and new server layouts:
+
+| Where | URL / parameter | Used by |
+|---|---|---|
+| qr.scutoons.com | `https://qr.scutoons.com?c=<CODE>` and `https://qr.scutoons.com/?c=<CODE>` (param **`c`**) | every printed QR code (`QR_BASE_URL = QR_DOMAIN + '?c='`) |
+| qr.scutoons.com | `/?c=<CODE>&skip=1` (param **`skip`**) | legacy "continue without claiming" links |
+| qr.scutoons.com | `/verify.html` (+ its code input / query) | printed certificates: "Verify at https://qr.scutoons.com/verify.html with code: <CODE>" — the code is printed in **UPPER CASE** |
+| qr.scutoons.com | `/api/validate/` (GET `?code=` / `?c=`, POST `{code}` / `{c}`) and its response shape | old viewer builds, external links |
+| qr.scutoons.com | `/api/keys/keys.php` (public key) | verify page, third-party signature checks |
+| scutoons.com / www.scutoons.com | `/<toonId>` e.g. `/catpope` (toon entry + chapter overview) | `redirect_to` of all codes (`https://scutoons.com/catpope`, `https://www.scutoons.com/catpope`) |
+| scutoons.com | `/<toonId>/chapter/<n>` (+ `?label=`) | chapter links |
+| scutoons.com | `/<toonId>/credits`, `/<toonId>/download` | links in prints / socials |
+| scutoons.com | query param **`code`** on any viewer page (`?code=<CODE>`), plus `&inventory=open` | redirects from the QR landing page |
+| scutoons.com | `/de/...`, `/en/...` locale prefixes | shared links |
+
+- New URLs may be **added**; existing ones may only change through server-side code mappings (redirects per code),
+  with a migration plan, tests against real printed codes and a rollback. Not now.
+- Refactors must include a test that hits every URL above (status + target) before and after.
+- Known issue to handle carefully (not changed yet): certificates print the code in upper case, but codes are
+  case-sensitive nanoids — verify must accept the printed form (exact match first, then a case-insensitive match only
+  when it is unique). Test with real certificate codes before changing anything.
