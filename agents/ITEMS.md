@@ -418,5 +418,13 @@ signature (`PUT /admin/codes/{code}/signature` + the `signatures` file) → `PUT
 | GET | `/admin/catalog` | – | `{ status, catalog (= GET /items/), editions, toons, permissions (the server-only map, read-only) }` |
 | GET | `/admin/keys` | – | `{ status, algorithm, publicKey, privateKey, generated }` – the ML-DSA-65 keypair for client-side signing · `404 keys_missing` · `500 keys_invalid` |
 
+### Content (read-only overview, platform P2a)
+
+The admin app lists the content store without the `creator` role; editing stays in the creator.
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/content` | optional `toon` (`[a-z0-9_-]{1,64}`) | `{ status, toons: [{ id, name }], files: [{ toon, locale, path, latest, latest_status: "draft"\|"published", latest_at, published: id\|null, published_at, versions }] }` – `toons` = `config/toons.json` + toons that only exist in the store; files ordered by toon, path, locale; times are the store's `YYYY-MM-DD HH:MM:SS` (UTC) · `400 invalid_toon` |
+
 The legacy `generate/*.php` endpoints (static `X-Generate-Token`) keep working unchanged for the `generate/` SPA until the
 admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
