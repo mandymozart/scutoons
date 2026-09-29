@@ -45,6 +45,12 @@ final class Database
         return $this->pdo = $pdo;
     }
 
+    /** Drops the connection (the next query connects again) – e.g. before deleting an SQLite file */
+    public function close(): void
+    {
+        $this->pdo = null;
+    }
+
     /** "sqlite" or "mysql" */
     public function driver(): string
     {

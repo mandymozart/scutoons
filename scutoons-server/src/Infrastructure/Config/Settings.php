@@ -11,9 +11,24 @@ namespace Scutoons\Infrastructure\Config;
  */
 final class Settings
 {
-    /** @param array<string, string> $defaults */
-    public function __construct(private readonly string $root, private readonly array $defaults)
+    /**
+     * @param array<string, string> $defaults
+     * @param bool $isolated only $defaults count (no environment, no constants) – unit tests
+     */
+    public function __construct(private readonly string $root, private readonly array $defaults, private readonly bool $isolated = false)
     {
+    }
+
+    /**
+     * Settings from the defaults plus $values only – for unit tests (ignores QR_* variables and constants)
+     * @param array<string, string> $values
+     */
+    public static function fixed(string $root, array $values): self
+    {
+        $root = rtrim(str_replace('\\', '/', $root), '/');
+        /** @var array<string, string> $defaults */
+        $defaults = require "$root/config/settings.php";
+        return new self($root, $values + $defaults, true);
     }
 
     /**
@@ -34,7 +49,7 @@ final class Settings
         return new self($root, $defaults);
     }
 
-    /** The server folder (scutoons-server/) */
+    /** The server folder (the one with composer.json) */
     public function root(): string
     {
         return $this->root;
@@ -42,6 +57,7 @@ final class Settings
 
     public function get(string $key): string
     {
+        if ($this->isolated) return $this->defaults[$key] ?? '';
         $env = getenv('QR_' . $key);
         if ($env !== false && $env !== '') return $env;
         if (defined($key)) {

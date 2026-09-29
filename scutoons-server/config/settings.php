@@ -39,7 +39,7 @@ return [
     // Item icons: <CDN_URL><icon path>. Local CDN: http://localhost:8001/
     'CDN_URL' => 'https://cdn.scutoons.com/',
     // Browser origins that may call the API with a Bearer token (comma separated): viewer, creator, admin + dev ports
-    'ALLOWED_ORIGINS' => 'https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,'
+    'ALLOWED_ORIGINS' => 'https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,'
         . 'http://localhost:8000,http://localhost:10000,http://localhost:11000,'
         . 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:4173',
 

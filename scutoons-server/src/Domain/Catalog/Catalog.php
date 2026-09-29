@@ -74,7 +74,7 @@ final class Catalog
      */
     public function variantIds(array $item): array
     {
-        return array_map(fn($v) => (string) $v['id'], $item['variants'] ?? []);
+        return array_values(array_map(fn($v) => (string) $v['id'], $item['variants'] ?? []));
     }
 
     /**

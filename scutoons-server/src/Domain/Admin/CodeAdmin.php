@@ -278,7 +278,7 @@ final class CodeAdmin
             $this->db->run('UPDATE qr SET revoked_at = NULL, revoked_reason = NULL WHERE code = ?', [$code]);
         }
         $this->events->log($revoked ? 'revoke' : 'unrevoke', $code);
-        $row = $this->codes->find($code) ?? [];
+        $row = $this->db->one('SELECT revoked_at, revoked_reason FROM qr WHERE code = ?', [$code]) ?? [];
         return ['code' => $code, 'revoked_at' => $row['revoked_at'] ?? null, 'revoked_reason' => $row['revoked_reason'] ?? null];
     }
 

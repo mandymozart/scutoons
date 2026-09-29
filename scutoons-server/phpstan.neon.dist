@@ -1,0 +1,13 @@
+parameters:
+    level: 8
+    paths:
+        - src
+        - config
+        - public/index.php
+        - bin/console
+        - tests/Unit
+    tmpDir: .phpstan.cache
+    # Rows from PDO are array<string, mixed>: casting their values to string/int is intended
+    treatPhpDocTypesAsCertain: false
+    # Service methods read the database: the same call can return something else after a write
+    rememberPossiblyImpureFunctionValues: false

@@ -33,7 +33,7 @@ final class ProgressController
         $body = JsonBody::of($request);
         $user = CurrentSession::of($request)->requireUser();
         // The state is re-decoded with objects so an empty {} stays an object
-        $state = JsonBody::object($request)?->state ?? null;
+        $state = JsonBody::object($request)->state ?? null;
         return Json::response($response, 200, $this->progress->put((string) $user['id'], $args['toon'], $state, $body['updated_at'] ?? null));
     }
 }

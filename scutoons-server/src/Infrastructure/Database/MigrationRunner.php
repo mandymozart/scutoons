@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Scutoons\Infrastructure\Database;
 
-use PDO;
 
 /**
  * Applies the dated SQL migrations in migrations/<driver>/*.<driver>.sql (sqlite | mysql) in name order and records
@@ -117,9 +116,9 @@ final class MigrationRunner
     private function hasColumn(string $table, string $column): bool
     {
         $rows = $this->db->isSqlite()
-            ? $this->db->pdo()->query("PRAGMA table_info($table)")?->fetchAll(PDO::FETCH_ASSOC)
-            : $this->db->pdo()->query("SHOW COLUMNS FROM `$table`")?->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($rows ?: [] as $row) {
+            ? $this->db->all("PRAGMA table_info($table)")
+            : $this->db->all("SHOW COLUMNS FROM `$table`");
+        foreach ($rows as $row) {
             if (strcasecmp((string) ($row['name'] ?? $row['Field'] ?? ''), $column) === 0) return true;
         }
         return false;
