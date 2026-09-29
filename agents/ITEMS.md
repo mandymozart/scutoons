@@ -207,7 +207,7 @@ are **additive details / clarifications** the viewer can rely on:
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/auth/code/` | `{ code, item_id?, variant? }` (+ optional Bearer) | claimable types only (permissions map); no session: unclaimed → create anonymous user, claim, `{ status:"success", session_token, user, claimed:"new", created:true }` · with session: claim into that account (`claimed: "new"\|"already_yours"`) · `409 already_claimed` · `409 email_required` · `422 choose_item` (+options, **before** any user is created) · `403 not_unlocking` (xr/event) · 404 · 410 · 429 |
+| POST | `/auth/code/` | `{ code, item_id?, variant? }` (+ optional Bearer) | claimable types only (permissions map); no session: unclaimed → create anonymous user, claim, `{ status:"success", session_token, user, claimed:"new", created:true }` · with session: claim into that account (`claimed: "new"\|"already_yours"`) · `409 already_claimed` · `409 email_required` · `422 choose_item` (+options, **before** any user is created) · `403 not_unlocking` (non-claimable types: page/event/xr) · 404 · 410 · 429 |
 | POST | `/auth/request/` + `/auth/verify/` | as before; with an anonymous Bearer session: attaches the email (or merges into the existing account with that email) | verify adds `merged: true` when merged |
 
 - `user` gets `email: string|null` and `anonymous: boolean`. `users.email` becomes nullable (UNIQUE still holds for
