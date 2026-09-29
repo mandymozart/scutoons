@@ -578,31 +578,36 @@ server/docs/API.md "Rate limits").
 ## Characters
 
 2026-09-30 — characters model + creator Characters/Cast pages + viewer from the store (paths: agents/PLATFORM.md → Data →
-"Characters"). The model was revised with the owner several times during the day; final: Character → Persona → Look →
-Mood × View, casting per season, open mood vocabulary, asset requests, A-pose on the character level.
+"Characters"). The model was revised with the owner many times during the day; final: Character → Persona → Look →
+Mood × View, casting per season, open mood vocabulary, asset requests, A-pose on the character level; groups /
+affiliations, the cast group and the mannequin field were added and removed again ("keep it small").
 - Migration (`node --experimental-transform-types --no-warnings shared/content/scripts/migrate-characters.ts`): catpope
-  de+en `characters.json` → 6 characters (regular persona, default look), de/en labels + descriptions merged. Path
-  conflicts: de had the real PNG art for plf/cat avatar + portrait, en the 151-byte placeholder SVGs (and a broken
-  `cat_portrait-neutral.svg`) → the PNGs win, so the **en reader now shows the same plf/cat art as de**. Missing on the
-  CDN (kept, flagged in the grid): `boy_full.svg`, `crows_portrait.svg`.
-- Owner additions: catpope own_toon catpope, personas regular (papal look = `characters/catpope/`, 17 moods), `human`
-  (no images – wanted), `biker` (looks default "ohne Helm" 17 + `helmet` 17 + dizzy, member of `biker-gang`,
-  `introduced` empty); yellowmouse (own toon, looks default kimono 17 + tripping and `helmet` 17, transition helmet →
-  default = `yellowmouse_keyvisual-helmet-off.png`, leader of `biker-gang`); toptoy "duo" as one character (owner to
-  split if needed). A-poses: catpope swim/naked (the mannequins, SPHYNX anchors), yellowmouse swim (MOUSE anchors),
-  naked = an open asset request. Casts season 1: catpope (catpope regular+human, plf, cat, boy, crows, mountain-tiger),
+  de+en `characters.json` → catpope, boy, crows; plf / cat / mountain-tiger became Cat Pope personas `human` / `cat` /
+  `mountaintiger` (their colors → persona `color`, their images → the persona's default look, merged with the new
+  `characters/catpope-{human,cat}/` neutral PNGs; their old single images are dropped). de/en path conflicts: de had the
+  real PNG art for plf/cat avatar + portrait, en the 151-byte placeholder SVGs (and a broken `cat_portrait-neutral.svg`)
+  → the PNGs win, so the **en reader shows the same art as de**. Missing on the CDN (kept, flagged): `boy_full.svg`,
+  `crows_portrait.svg` (the crows' neutral portrait = an error in the problem list).
+- Owner additions: Cat Pope own toon, personas regular (papal look, 17 moods), human, cat, mountaintiger, biker (looks
+  "ohne Helm" 17 + helmet 17 + dizzy); yellowmouse (looks kimono 17 + tripping and helmet 17, transition helmet →
+  default = `yellowmouse_keyvisual-helmet-off.png`); toptoy "duo" as one character (owner to split if needed).
+  A-poses: catpope swim/naked + the dressed example as artwork, yellowmouse swim (SPHYNX / MOUSE anchors), yellowmouse
+  naked = an open asset request. Casts season 1: catpope (catpope regular+human+cat+mountaintiger, boy, crows),
   yellowmouse (catpope regular+biker, yellowmouse), toptoy (toptoy).
-- The catpope reader now shows the new PNG portraits/avatars for catpope (from `characters/catpope/`): **upload
-  `cdn/root/characters/` before running the SQL on production**, or the Cat Pope avatar breaks.
-- Local store: imported and updated several times with `--update` (published = newest seed: characters v140ff, casts,
-  groups, moods, asset-requests). Browser test (creator-test, headless Edge): test character "Testfigur Zett" as
-  draft, added to toptoy season 1 via the picker in a joinScene of toptoy chapter 1, saved as drafts v141–v144, restored
-  as v145–v148 (= the versions before), nothing published.
-- Viewer check (headless Edge, membership code, cookie locale): chapter 6 scene-200 renders catpope (new PNG), plf, cat,
-  mountain-tiger, boy in de; en stops after catpope because the en scene-200 shows "cat" before its joinScene
-  (pre-existing content bug, same with the static files). "crow" vs "crows" in scene-200 is also pre-existing.
-- Creator gotcha: new paraglide keys must exist in de + en before a component uses them – a missing key throws
-  `m.creator.x is not a function` at runtime and the page hangs on "Loading …" (happened once, the owner saw it).
-- Headless testing: `scratchpad/cdp.mjs`-style driver (Edge `--headless=new`, temp profile, CDP over Node's WebSocket),
-  session token via `/api/auth/request` + OTP from `server/logs/mail.log` + `/api/auth/verify/`, stored in
-  localStorage `scutoons_session` of :10000.
+- VN speaker plates change for the former characters: "PLF" → "Katzenpapst · Mensch" / "Cat Pope · human", "Katze" →
+  "Katzenpapst · Katze", "Gebirgs Tiger" → "Katzenpapst · Gebirgs Tiger" (persona label appended to the name).
+- Scene refs: `migrate-scene-refs.ts` rewrote `catpope/{de,en}/chapter6/scene-200.json` (static + store, published
+  locally as v152 de / v153 en) into `{ character, persona, look?, mood?, variant? }`; chapter 2 scenes 14–19 only have
+  narrator messages (no character refs). Pre-existing content bugs left as they are: scene-200 de has `crow` (not
+  `crows`, never rendered); the en scene-200 shows "cat" before its joinScene, so en stops after Cat Pope.
+- Local store: seed imported and updated several times with `--update`; newest = published. Browser test (creator-test,
+  headless Edge): test character "Testfigur Zett" as a draft, added to toptoy season 1 via the picker in a joinScene of
+  toptoy chapter 1, saved as drafts v141–v144, restored as v145–v148 (= the versions before), nothing published.
+- Viewer check (headless Edge, membership code, cookie locale): chapter 6 scene-200 renders Cat Pope (new PNG),
+  · Mensch, · Katze, · Gebirgs Tiger and Boy in de; en renders Cat Pope, then stops (content bug above).
+- Creator gotchas: a new paraglide key must exist in de + en before a component uses it (else `m.creator.x is not a
+  function`, the page hangs on "Loading …"); **removing** keys while the creator dev server runs breaks its module graph
+  (404 on `paraglide/messages/<key>.js`) – keep unused keys until the dev server is restarted. `npm run check`
+  regenerates `.svelte-kit` under the running dev server (harmless so far).
+- Headless testing: Edge `--headless=new` with a temp profile, driven over CDP from Node; session token via
+  `/api/auth/request` + OTP from `server/logs/mail.log` + `/api/auth/verify/`, stored in localStorage `scutoons_session`.

@@ -461,12 +461,11 @@ Language-neutral content store files (locale `_`), types/validation/schemas in `
 ### Characters (2026-09-30)
 
 Language-neutral content store files (locale `_`), types / validation / schemas / fallback rule in `@scutoons/content`
-`characters.ts` (`schema/{characters,groups,moods,asset-requests,cast}.schema.json`, unit tests `test/characters.test.ts`):
+`characters.ts` (`schema/{characters,moods,asset-requests,cast}.schema.json`, unit tests `test/characters.test.ts`):
 
 | Store path | Type | What |
 |---|---|---|
-| `scutoons/_/characters.json` | `CharacterRegistry` | every character, **global**: Character → Persona → Look → Mood × View. Character: `id`, `name`/`description` {locale}, `color`, cast `group` (lead/support/cast/extra), `own_toon?` (optional), `voiced_by?` (people.json), `mannequin?`, `tags?`, legacy `image`, `affiliations?`, `artwork?`, `apose?` { looks: [{ id (`swim` default, `naked`), label, default, path?, anchors: slot → { x, y, size } }] } (the reader's avatar body, character level), `personas` [{ id (`regular` always + e.g. `human`, `biker`), label, introduced?, description?, affiliations? (override), `looks` [{ id, label, default (exactly one), images: mood → view → CDN path }], transitions? [{ from, to, image }] }] |
-| `scutoons/_/groups.json` | `GroupVocabulary` | shared affiliations across toons (`biker-gang`) |
+| `scutoons/_/characters.json` | `CharacterRegistry` | every character, **global**: Character → Persona → Look → Mood × View. Character: `id`, `name`/`description` {locale}, `color`, `own_toon?`, `voiced_by?` (people.json), `tags?`, legacy `image`, `artwork?`, `apose?` { looks: [{ id (`swim` default, `naked`), label, default, path?, anchors: slot → { x, y, size } }] } (the reader's avatar body, character level), `personas` [{ id (`regular` always + e.g. `human`, `cat`, `mountaintiger`, `biker`), label, introduced?, description?, color?, `looks` [{ id, label, default (exactly one), images: mood → view → CDN path }], transitions? [{ from, to, image, label? }] }] |
 | `scutoons/_/moods.json` | `MoodVocabulary` | open-ended mood vocabulary `{ id, label, standard?, order? }` (17 standard + dizzy, tripping); only `neutral` is required |
 | `scutoons/_/asset-requests.json` | `AssetRequests` | wanted images `{ id, character, persona, look, mood, view, path (convention), note?, requested_by, requested_at, status open/done }` |
 | `<toon>/_/cast.json` | `ToonCast` | `{ seasons: { "<n>": [{ character, personas, role? }] } }` – casting per season, in order |
@@ -474,22 +473,30 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
 - Terms: **Persona** = another identity/role (changes who they are), **Look** = appearance right now (could come off in
   the next panel), **Mood** = expression, **View** = framing (data field `variant`; UI says View/Ansicht). Only the
   `portrait` is authored; `avatar` = generated 192px downscale, `full` unused.
+- Former characters are Cat Pope personas: plf → `human`, cat → `cat`, mountain-tiger → `mountaintiger`
+  (`LEGACY_CHARACTER_IDS`: old refs still resolve).
 - Paths are stored explicitly (CDN root). Convention for new files: `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.png`,
-  transitions `…_transition-<from>-to-<to>.png`, A-pose `characters/<character>/<character>_apose-<look>.png`.
+  transitions `…_transition-<from>-to-<to>.png`, A-pose `characters/<character>/<character>_apose-<look>.webp`.
 - Fallback (`resolveExpression`, used by the viewer VN and the creator): per step the view, then the same mood's
   portrait; steps persona+look+mood → persona+look+neutral → persona default look+mood → +neutral → regular default
   look+mood → +neutral → legacy `image`. The A-pose never falls back.
 - Viewer: the toon layout loads `fetchCharacters()` (@scutoons/api: registry + the toon's cast of every season from the
   store, published, `resolveCast()` → the legacy `characters.json` shape + `personas`) → static
-  `<toon>/<locale>/characters.json` → `[]`. VN refs `{ name, persona?, look?, mood?, position.variant }`; scene key =
-  character + persona; a look change with a transition shows the transition image for 800 ms.
-- Creator: `/characters` (list, detail, Groups, Moods, Wanted images tabs, glossary), `/<toon>/cast` (per season), the
-  visual picker in every VN character field (picking someone outside the season cast adds them, with undo).
+  `<toon>/<locale>/characters.json` → `[]`. VN refs `{ character, persona, look?, mood?, variant? }` (old form + old ids
+  accepted); scene key = character + persona; a look change with a transition shows the transition image for 800 ms.
+- Creator: `/characters` (list with persona chips, detail: personas → looks → mood grid, transitions, A-pose, artwork,
+  wanted images; tabs Moods and Wanted images; glossary), `/<toon>/cast` (per season), the visual picker in every VN
+  character field (picking someone outside the season cast adds them, with undo).
 - `avatarBodies(registry)` → `[{ character, look, label, path, anchors, default }]` for the reader's avatar picker (follow-up).
-- Seed / production: `shared/content/seed/` (written by `shared/content/scripts/migrate-characters.ts`), import
-  `bin/console import-content shared/content/seed --only=characters.json,groups.json,moods.json,asset-requests.json,cast.json`;
-  production SQL `shared/content/seed/characters-seed.mysql.sql` (idempotent) – **not yet run on production**, and the
-  images in `cdn/root/characters/` must be uploaded first (`python cdn/sync.py`; `cdn/root` is not in git).
+- Removed on the owner's request (keep it small): shared groups / affiliations (`groups.json`), the cast group
+  (`lead/support/…`, nothing read it), the `mannequin` field. A local store version of `scutoons/_/groups.json` may
+  exist – nothing reads it.
+- Seed / production: `shared/content/seed/` (`shared/content/scripts/migrate-characters.ts`), import
+  `bin/console import-content shared/content/seed --only=characters.json,moods.json,asset-requests.json,cast.json`;
+  production SQL `shared/content/seed/characters-seed.mysql.sql` (idempotent) – **not yet run on production**. Upload
+  `cdn/root/characters/` first (`python cdn/sync.py`; `cdn/root` is not in git), or Cat Pope's avatar in the reader
+  breaks. The store's `catpope/{de,en}/chapter6/scene-200.json` got a new published version with the new refs (run
+  `migrate-scene-refs.ts` logic on production too, or publish from the creator).
 
 ## CDN (careful — owner's live setup)
 
