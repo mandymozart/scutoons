@@ -48,6 +48,11 @@ export interface ValidateContext {
 	audio?: any;
 	/** character names known in characters.json */
 	characters?: string[];
+	/**
+	 * chapter files: the status of this chapter in the season of the same locale (the source of its visibility);
+	 * null = the season's sequence doesn't have the chapter; undefined = season not known (no check)
+	 */
+	seasonStatus?: string | null;
 }
 
 class Collector {
@@ -64,6 +69,9 @@ class Collector {
 	}
 	warn(path: Path, message: string) {
 		this.add('warning', path, message);
+	}
+	info(path: Path, message: string) {
+		this.add('info', path, message);
 	}
 }
 
@@ -246,8 +254,13 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 	if (!values(Language).includes(ch.language)) c.error(['language'], `language must be one of ${values(Language).join(', ')}`);
 	else if (ch.language !== locale) c.warn(['language'], `language is "${ch.language}" in the ${locale} file`);
 	if (!isStr(ch.release) || !DATE.test(ch.release)) c.error(['release'], 'release must be a date YYYY-MM-DD');
-	if (!values(Status).includes(ch.status)) c.error(['status'], `status must be one of ${values(Status).join(', ')}`);
-	if (typeof ch.published !== 'boolean') c.warn(['published'], 'published (boolean) is required by the Chapter type');
+	// visibility comes from the season (per locale); the chapter's own status is a deprecated mirror of it
+	if (ch.status !== undefined && !values(Status).includes(ch.status)) c.error(['status'], `status must be one of ${values(Status).join(', ')}`);
+	// a chapter always belongs to a season: without an entry the reader never lists it
+	if (ctx.seasonStatus === null) c.error(['status'], `the ${locale} season has no entry for this chapter – every chapter must belong to a season`);
+	else if (ctx.seasonStatus !== undefined && ch.status !== undefined && ch.status !== ctx.seasonStatus)
+		c.warn(['status'], `status "${ch.status}" differs from the season ("${ctx.seasonStatus}"), which is the source – saving aligns it`);
+	if (ch.published !== undefined) c.info(['published'], 'published is no longer used (the season status is the source) – saving removes it');
 	if (ch.keyvisual !== undefined) {
 		if (isStr(ch.keyvisual)) c.error(['keyvisual'], 'keyvisual must be an object { image, video? } (string form is outdated)');
 		else if (!isObj(ch.keyvisual) || !isStr(ch.keyvisual.image)) c.error(['keyvisual', 'image'], 'keyvisual.image is missing');

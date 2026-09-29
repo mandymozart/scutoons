@@ -159,9 +159,12 @@ export interface Chapter {
 	author: string;
 	number: number;
 	language: Language;
-	published: boolean;
 	release: string;
-	status: Status;
+	/**
+	 * @deprecated The season is the source of a chapter's visibility: `Season.sequence[].status`, per locale. The creator
+	 * mirrors the season status here on save, only for older viewer builds; nothing reads it any more.
+	 */
+	status?: Status;
 	description: string;
 	thumbnail: string;
 	keyvisual?: KeyVisual;
@@ -219,6 +222,10 @@ export interface FullCredits {
 export interface SequenceItem {
 	type: 'chapter';
 	number: number;
+	/**
+	 * Visibility of the chapter in this locale – the single source of truth (a toon may release de before en):
+	 * `published` = listed and readable, `draft` = hidden (shown in dev only), `coming-soon` = listed, not readable.
+	 */
 	status: Status;
 }
 
@@ -279,7 +286,9 @@ export interface ToonIndex {
 	languages?: Language[];
 }
 
-export type LoadedSequenceItem = (Chapter) & {
+/** A season sequence item with its chapter file loaded; `status` is the season's (never the chapter file's). */
+export type LoadedSequenceItem = Omit<Chapter, 'status'> & {
 	type: 'chapter';
 	number: number;
+	status: Status;
 };

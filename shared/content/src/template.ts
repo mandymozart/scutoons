@@ -1,7 +1,8 @@
 /**
  * Template utilities for safe HTML rendering (pure, no framework / bundler globals)
  */
-import type { Chapter, SequenceItem } from './content.ts';
+import type { Season, SequenceItem } from './content.ts';
+import { Status } from './enums.ts';
 
 export function escapeHtml(text: string): string {
 	if (text === null || text === undefined) {
@@ -53,16 +54,28 @@ export function sanitizeNumber(value: number | string, defaultValue = 1, min = 1
 }
 
 /**
- * Whether a chapter / sequence item is listed: `published` (or no status) always, `draft` only when `includeDrafts`
- * (the viewer passes `import.meta.env.DEV`).
+ * Whether a season sequence item can be read: `published` (or no status) always, `draft` only when `includeDrafts`
+ * (the viewer passes `import.meta.env.DEV`), `coming-soon` never. Pass the season's item (`Season.sequence[]`, per
+ * locale) – the chapter file's own `status` is deprecated and not read.
  */
 export function isItemPublic(
-	item: Chapter | SequenceItem | { status?: string } | null | undefined,
+	item: SequenceItem | { status?: string } | null | undefined,
 	includeDrafts = false
 ) {
 	if (!item) return false;
 	const status = item.status || 'published';
 	return status === 'published' || (status === 'draft' && includeDrafts);
+}
+
+/** Whether a season sequence item is listed in the chapter overview: readable ones and `coming-soon` (not clickable). */
+export function isItemListed(item: SequenceItem | { status?: string } | null | undefined, includeDrafts = false) {
+	return isItemPublic(item, includeDrafts) || item?.status === Status.COMING_SOON;
+}
+
+/** The season status of chapter `number` (the source of its visibility), or null when the sequence doesn't have it. */
+export function sequenceStatus(season: Pick<Season, 'sequence'> | null | undefined, number: number): Status | null {
+	const item = (season?.sequence ?? []).find((i) => i?.type === 'chapter' && Number(i.number) === Number(number));
+	return item?.status ?? null;
 }
 
 /** Absolute URL of a file on the CDN (`base` without trailing slash); '' for empty or unsafe paths. */

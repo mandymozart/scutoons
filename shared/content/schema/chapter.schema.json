@@ -19,14 +19,12 @@
 				"language": {
 					"$ref": "#/definitions/Language"
 				},
-				"published": {
-					"type": "boolean"
-				},
 				"release": {
 					"type": "string"
 				},
 				"status": {
-					"$ref": "#/definitions/Status"
+					"$ref": "#/definitions/Status",
+					"deprecated": "The season is the source of a chapter's visibility: `Season.sequence[].status`, per locale. The creator\nmirrors the season status here on save, only for older viewer builds; nothing reads it any more."
 				},
 				"description": {
 					"type": "string"
@@ -55,9 +53,7 @@
 				"author",
 				"number",
 				"language",
-				"published",
 				"release",
-				"status",
 				"description",
 				"thumbnail",
 				"groups"

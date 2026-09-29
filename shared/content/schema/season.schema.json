@@ -94,7 +94,8 @@
 					"type": "number"
 				},
 				"status": {
-					"$ref": "#/definitions/Status"
+					"$ref": "#/definitions/Status",
+					"description": "Visibility of the chapter in this locale – the single source of truth (a toon may release de before en): `published` = listed and readable, `draft` = hidden (shown in dev only), `coming-soon` = listed, not readable."
 				}
 			},
 			"required": [

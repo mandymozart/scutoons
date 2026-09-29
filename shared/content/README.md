@@ -17,7 +17,7 @@ No Svelte, no DOM access, no bundler globals (`import.meta.env`), no app state: 
 | `items.ts` | `Catalog`, `ItemDef`, `Skill`, `Recipe`, `Entry`, `Avatar`, `AVATAR_SLOTS`, `User`, `Me`, `Access`, `CodeInfo`, `Edition` (API contract: agents/ITEMS.md) |
 | `membership.ts` | `Membership`, `MembershipType`, `ValidationResult`, `isValidMembershipType()`, `isMembershipExpired()` |
 | `products.ts` | shop contract (`GET /api/products/`, `/api/products/featured/`): `ProductCatalog`, `Product`, `ProductVariant`, `FeaturedProduct`, `LocalizedText`; helpers `isSoldOut()`, `pickVariant()`, `variantPrice()`, `formatPrice()`, `editionPieces()`, `localized()` |
-| `template.ts` | `escapeHtml()`, `escapeAndJoin()`, `sanitizeUrl()`, `sanitizeNumber()`, `isItemPublic(item, includeDrafts)`, `cdnUrl(base, path)` |
+| `template.ts` | `escapeHtml()`, `escapeAndJoin()`, `sanitizeUrl()`, `sanitizeNumber()`, `isItemPublic(item, includeDrafts)` (readable), `isItemListed(item, includeDrafts)` (listed incl. coming-soon), `sequenceStatus(season, number)`, `cdnUrl(base, path)` |
 | `languages.ts` | toon languages (set per toon in `ToonIndex.sourceLanguage` / `.languages`): `toonLanguages(entry)` → `{ source, languages }` (defaults for older entries: `languages` → `i18n` keys → `de`), `withToonLanguages()`, `isLanguage()`, `NEUTRAL_LOCALE` (`_`), `TOON_INDEX_FILE` (`index.json`), `DEFAULT_SOURCE_LANGUAGE` |
 | `paths.ts` | `Path`, `getAt()`, `setAt()`, `deleteAt()`, `clone()`, `deepEqual()`, `pathKey()`, `round2()` |
 | `validate.ts` | `validateFile(kind, data, locale, ctx)`, `validateLocales(kind, file, files, primary)`, `forEachSlice()`, `checkEvent()`, `checkGroup()`, `Problem`, `Level`, `ValidateContext`, `textOf()`, `LENGTH_WARNING_RATIO` |
@@ -27,11 +27,14 @@ JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{ch
 ## Example
 
 ```ts
-import { Status, validateFile, isItemPublic, cdnUrl, type Chapter } from '@scutoons/content';
+import { validateFile, isItemPublic, sequenceStatus, cdnUrl, type Chapter, type Season } from '@scutoons/content';
 
+const season: Season = await (await fetch('/api/catpope/de/season1.json')).json();
 const chapter: Chapter = await (await fetch('/api/catpope/de/chapter1.json')).json();
-const problems = validateFile('chapter', chapter, 'de', { file: 'chapter1.json', characters: ['Cat Pope'] });
-const listed = isItemPublic(chapter, /* includeDrafts */ false) && chapter.status === Status.PUBLISHED;
+// visibility = the season's status of the chapter, per locale (the chapter file's `status` is a deprecated mirror)
+const status = sequenceStatus(season, 1);
+const readable = status !== null && isItemPublic({ status }, /* includeDrafts */ false);
+const problems = validateFile('chapter', chapter, 'de', { file: 'chapter1.json', characters: ['Cat Pope'], seasonStatus: status });
 const firstImage = cdnUrl('https://cdn.scutoons.com', `catpope/${chapter.groups[0].slices?.[0].image}`);
 ```
 
@@ -44,6 +47,11 @@ $schema = json_decode(file_get_contents('…/shared/content/schema/chapter.schem
 
 - `npm run schema -w @scutoons/content` regenerates `schema/*.schema.json` (commit the result).
 - `npm run check -w @scutoons/content` = `tsc --noEmit` + fails when a committed schema is out of date.
+
+**Chapter visibility** has one source: `Season.sequence[].status` of the locale (`published` | `draft` | `coming-soon`).
+`Chapter.status` is optional and deprecated (the creator mirrors the season status into it on save, for older viewer
+builds); `Chapter.published` is gone. A chapter always belongs to a season: `validateFile` reports a chapter without an
+entry in its locale's season (`seasonStatus: null`) as an error.
 
 Known gaps between the data and the types (the schema is generated strictly from the types): chapter 2 `keyvisual` is a
 string, `Collectable` lacks `name`/`image`, scene files use `{"type":"end"}` (see agents/MEMORY.md "Known bugs").
