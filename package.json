@@ -16,6 +16,7 @@
 	"scripts": {
 		"dev:viewer": "npm run dev -w viewer",
 		"dev:creator": "npm run dev -w creator",
+		"dev:admin": "npm run dev -w admin",
 		"check": "npm run check --workspaces --if-present",
 		"build": "npm run build --workspaces --if-present"
 	}

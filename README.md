@@ -9,7 +9,7 @@ scutoons/
 ├── viewer/             SvelteKit (static) → scutoons.com           reader, shop, events, account
 ├── creator/            SvelteKit (static) → creator.scutoons.com   editor, role `creator`
 ├── admin/              SvelteKit (static) → admin.scutoons.com     role `admin` (phase P2, not built yet)
-├── scutoons-server/    PHP (qr.scutoons.com API + QR landing page), own Composer setup
+├── server/             PHP (qr.scutoons.com API + QR landing page), own Composer setup
 ├── shared/
 │   ├── tokens/         @scutoons/tokens    design tokens (CSS custom properties), fonts, base CSS
 │   ├── content/        @scutoons/content   content/items types, pure helpers, validation, JSON Schema
@@ -27,27 +27,28 @@ apps → shared, never the other way; see each package's README.
 
 ```sh
 npm install                 # once, at the repo root (one lockfile for all workspaces)
-npm run dev:viewer          # viewer   http://localhost:5173
-npm run dev:creator         # creator  http://localhost:5180
+npm run dev:viewer          # viewer   http://localhost:8000
+npm run dev:creator         # creator  http://localhost:10000
 npm run check               # svelte-check / tsc in every workspace
 npm run build               # builds every workspace that has a build script (viewer, creator)
 ```
 
+Local dev ports (agents/PLATFORM.md → "Local dev ports", final):
+
 | Service | Port | Start |
 |---|---|---|
-| viewer | 5173 | `npm run dev:viewer` |
-| creator | 5180 | `npm run dev:creator` |
-| admin | 5190 | (phase P2) |
-| API (scutoons-server) | 9100 | `cd scutoons-server && php -S localhost:9100 router.php` |
-| API (old repo, until cutover) | 9000 | `cd C:\Development\qr.scutoons.com && php -S localhost:9000 router.php` |
-| CDN | 8000 | `python cdn/server.py 8000` (serves `cdn/root/`) |
+| viewer | 8000 | `npm run dev:viewer` |
+| CDN | 8001 | `cd cdn && python server.py 8001` (serves `cdn/root/`) |
+| API (server) | 9000 | `cd server && php -S localhost:9000 router.php` (until cutover the old repo `C:\Development\qr.scutoons.com` serves :9000 and the refactored server runs on :9100) |
+| creator | 10000 | `npm run dev:creator` |
+| admin | 11000 | `npm run dev:admin` (phase P2) |
 
 Dev settings live in each app's `.env.development` (gitignored, see `.env.example`): `VITE_QR_API` (API base, e.g.
-`http://localhost:9000/api`), `VITE_CDN_URL` (default `http://localhost:8000` in dev). The creator also has
+`http://localhost:9000/api`), `VITE_CDN_URL` (default `http://localhost:8001` in dev). The creator also has
 `VITE_VIEWER_URL` (draft preview links, static fallback files), the viewer `VITE_CREATOR_URL` (link on the account
 page).
 
-Every frontend origin must be in the API's `ALLOWED_ORIGINS` (`config.local.php`): `http://localhost:5173`,
-`http://localhost:5180`, later `http://localhost:5190`. Login mails are written to the server's `logs/mail.log`
+Every frontend origin must be in the API's `ALLOWED_ORIGINS` (`config.local.php`): `http://localhost:8000`,
+`http://localhost:10000`, `http://localhost:11000`. Login mails are written to the server's `logs/mail.log`
 locally. Sessions are per origin for now (localStorage `scutoons_session`), so the creator and the viewer each need
 their own sign-in.
