@@ -56,6 +56,7 @@ const TEXTS = [
         'add_account_hint' => 'Keep the item in your inventory and read on every device (sign in with your email).',
         'not_found' => 'QR code not found. Please contact us!',
         'expired' => 'This QR code has expired. Please contact us!',
+        'revoked' => 'This code is no longer valid.',
         'error' => 'Something went wrong. Please try again later.',
         'members' => 'Members area',
         'members_hint' => 'Scan a QR code to get started or type it here:',
@@ -78,6 +79,7 @@ const TEXTS = [
         'add_account_hint' => 'Behalte den Gegenstand in deinem Inventar und lies auf jedem Gerät (Anmeldung mit E-Mail).',
         'not_found' => 'QR-Code nicht gefunden. Bitte kontaktiere uns!',
         'expired' => 'Dieser QR-Code ist abgelaufen. Bitte kontaktiere uns!',
+        'revoked' => 'Dieser Code ist nicht mehr gültig.',
         'error' => 'Etwas ist schiefgelaufen. Bitte versuche es später noch einmal.',
         'members' => 'Mitgliederbereich',
         'members_hint' => 'Scanne einen QR-Code oder gib ihn hier ein:',
@@ -243,7 +245,10 @@ try {
     messagePage(500, $t['error']);
 }
 if (!$row) messagePage(404, $t['not_found']);
+// Statistics: every scan of an existing code (also expired/revoked ones)
+if (!isset($_GET['skip'])) Events::log('scan', $row['code'], null, Events::toonFromUrl($row['redirect_to']));
 if (qrIsExpired($row)) messagePage(410, $t['expired']);
+if (qrIsRevoked($row)) messagePage(410, $t['revoked']);
 
 // Skip, and code types that unlock nothing (permissions map: page/event/xr): plain redirect
 if (isset($_GET['skip']) || !Permissions::claimable((string) $row['type'])) {

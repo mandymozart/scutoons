@@ -23,6 +23,11 @@ function qrIsExpired(array $row) {
     return $expires !== false && $expires < time();
 }
 
+/** True when an admin revoked the code (qr.revoked_at): it grants nothing any more */
+function qrIsRevoked(array $row) {
+    return !empty($row['revoked_at']);
+}
+
 // Default MySQL connection — config.local.php may define its own (e.g. SQLite for local dev)
 if (!function_exists('getDbConnection')) {
     function getDbConnection() {

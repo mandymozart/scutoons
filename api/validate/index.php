@@ -25,9 +25,10 @@ Http::run(function () {
 
     $row = Codes::find($code) ?? throw new ApiError(404, 'not_found', 'QR code not found');
     if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'QR code expired');
+    if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'QR code is no longer valid');
 
     $isClaimed = Codes::isClaimed($row);
-    unset($row['email'], $row['signature'], $row['claimed_by']);
+    unset($row['email'], $row['signature'], $row['claimed_by'], $row['revoked_at'], $row['revoked_reason']);
     foreach (['created_at', 'claimed_at'] as $field) {
         if (!empty($row[$field])) $row[$field] = date('c', (int) strtotime((string) $row[$field]));
     }

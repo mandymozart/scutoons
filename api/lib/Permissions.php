@@ -77,7 +77,7 @@ final class Permissions
         $codes = [];
         $expiries = [];
         foreach ($rows as $row) {
-            if (qrIsExpired($row)) continue;
+            if (qrIsExpired($row) || qrIsRevoked($row)) continue;
             $grants = self::grants((string) $row['type']);
             if (!$grants) continue;
             $permissions = array_merge($permissions, $grants);

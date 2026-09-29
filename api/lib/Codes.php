@@ -81,6 +81,7 @@ final class Codes
             ?? throw new ApiError(400, 'invalid_code', 'Code missing or malformed.');
         $row = self::find($code) ?? throw new ApiError(404, 'not_found', 'This code does not exist.');
         if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
+        if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'This code is no longer valid.');
 
         $type = Permissions::forType((string) $row['type']);
         $expires = $row['expires_at'] ? (int) strtotime((string) $row['expires_at']) : null;
@@ -98,6 +99,8 @@ final class Codes
         if (in_array('catalog', $type['grants'], true)) {
             $response['access_token'] = Permissions::issueToken($type['grants'], $expires, Permissions::codeSubject($row['code']));
         }
+        $toon = $input['toon'] ?? $_GET['toon'] ?? null;
+        Events::logAccess($row['code'], $user['id'] ?? null, is_string($toon) ? $toon : null);
         Http::json(200, $response);
     }
 
@@ -110,6 +113,7 @@ final class Codes
         $row = self::find($code);
         if (!$row) throw new ApiError(404, 'not_found', 'This code does not exist.');
         if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
+        if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'This code is no longer valid.');
 
         $items = self::items($code);
         $response = [
@@ -137,10 +141,26 @@ final class Codes
     public static function claim(array $user, string $code, ?string $itemId, ?string $variant): bool
     {
         $code = self::normalize($code) ?? throw new ApiError(400, 'invalid_code', 'Code missing or malformed.');
+        try {
+            $new = self::claimLocked($user, $code, $itemId, $variant);
+        } catch (ApiError $error) {
+            // Statistics: refusals of an existing code (not typos, not the item choice)
+            if (in_array($error->errorCode, ['already_claimed', 'email_required', 'not_claimable', 'revoked', 'expired'], true)) {
+                Events::log('claim_refused', $code, $user['id']);
+            }
+            throw $error;
+        }
+        if ($new) Events::log('claim', $code, $user['id']);
+        return $new;
+    }
+
+    private static function claimLocked(array $user, string $code, ?string $itemId, ?string $variant): bool
+    {
         return Db::transaction(function () use ($user, $code, $itemId, $variant) {
             $row = Db::one('SELECT * FROM qr WHERE code = ?' . Db::forUpdate(), [$code]);
             if (!$row) throw new ApiError(404, 'not_found', 'This code does not exist.');
             if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
+        if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'This code is no longer valid.');
             if ($row['claimed_by'] === $user['id']) return false;
             // Which types can be owned: the permissions map (api/permissions.json)
             if (!Permissions::claimable((string) $row['type'])) {

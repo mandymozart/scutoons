@@ -188,7 +188,7 @@ final class Inventory
     public static function me(): never
     {
         $user = Auth::user();
-        $codes = Db::all('SELECT code, type, expires_at FROM qr WHERE claimed_by = ? ORDER BY claimed_at, code', [$user['id']]);
+        $codes = Db::all('SELECT code, type, expires_at, revoked_at FROM qr WHERE claimed_by = ? ORDER BY claimed_at, code', [$user['id']]);
         // Owned codes of claimable types (permissions map); access = their grants while not expired
         $owned = array_values(array_filter($codes, fn($r) => Permissions::claimable((string) $r['type'])));
         Http::json(200, [

@@ -122,6 +122,11 @@ final class Auth
             }
         }
 
+        // Statistics: one `login` event per code the account owns
+        foreach (Db::all('SELECT code FROM qr WHERE claimed_by = ?', [$user['id']]) as $owned) {
+            Events::log('login', $owned['code'], $user['id']);
+        }
+
         Http::json(200, $response);
     }
 
