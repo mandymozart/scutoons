@@ -248,3 +248,27 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   generator `cdn/tools/s1c1_dialogs.py` (git history has them). `cdn/tools/extract_bubbles.py` stays as a detector.
   Editing goes through the creator editor (`/creator`).
 
+
+- 2026-09-30 — Roles, signup rule, promo codes (qr `anger`, commits aa0096e..aa10f53, not pushed; viewer uncommitted):
+  - qr: migration `2026-09-30-roles-signup.{mysql,sqlite}.sql` (`roles` seeded member/admin/creator with fixed ids
+    1/2/3, `user_roles` + member backfill, `users.marketing_opt_in/_at/signup_code`, `login_requests.marketing_opt_in`).
+    Prod: run it in phpMyAdmin after the revoke-events one. `api/lib/Roles.php`: `has`, `of`, `requireRole` (401/403
+    `forbidden`), `grant`, `revoke` – the creator content API (Content.php) uses `requireRole(Roles::CREATOR)`.
+  - Signup rule: `permissions.json` types carry `signup`; promo is `claimable:false, signup:true`. New account only via
+    `Codes::signupRefusal()` = null (exists, unexpired, unrevoked, signup type, claimable ones still free). No account +
+    no usable code → `{status:"sent"}` + explanation mail without OTP/link (`LoginMail::composeNoAccount`, de/en);
+    verify re-checks → `403 signup_code_required`. Promo is never claimed (`claimed` absent in verify, claim → 422).
+    `/access/` + `/code/` return `signup` (and `/code/` `claimable`). `PUT /me/ { marketing_opt_in }`; ticking the
+    opt-in at sign-in also opts an existing account in (never out). Event `signup`.
+  - Found + fixed: "newest login request of an address" was random within one second (UUIDv4 tiebreak) → login
+    requests now use `Db::uuid7()` (time-ordered).
+  - Admin SPA "Users" (users.php, user-roles.php, views/users.js); CLI `php scripts/roles.php grant|revoke|list`.
+    Landing page promo: "Promo code – no item to collect" + Continue + Create account (`/account?code=`).
+  - Viewer: claim sheet promo branch (Continue reading · Create account → LoginForm `signup` with unchecked opt-in
+    checkbox), membership login form also shows the opt-in; account page: role tags, opt-in toggle, "Creator" link
+    for `creator`; guests see the signup rule; `signup_code_required` message. Session: `roles`, `hasRole`,
+    `setMarketingOptIn`; `requestLogin`/`verifyOtp` take the opt-in.
+  - Tests: api-smoke 171/171, claim-race PASS. Local test accounts left: browser-promo-0929a@, browser-member-0929@
+    (claimed vinyl vyJFcccV), browser-nocode-0929@ (no account). DB backup `db/local.sqlite.bak-2026-09-30-roles`.
+  - `npm run check` regenerates `.svelte-kit/types` and can break the running dev server (ENOENT
+    route_meta_data.json) → `npx svelte-kit sync` fixes it without a restart.

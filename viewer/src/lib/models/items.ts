@@ -117,6 +117,10 @@ export interface User {
 	id: number | string;
 	email: string;
 	created_at: string;
+	/** account roles from `/me/` (`member`, `creator`, `admin`) – ITEMS.md "Roles" */
+	roles?: string[];
+	/** "Send me news about new releases" (unchecked at signup, toggle on the account page) */
+	marketing_opt_in?: boolean;
 }
 
 /** `/me/ access`: permissions granted by the account's owned, non-expired codes (server permissions map) */
@@ -157,6 +161,10 @@ export interface CodeOption {
 export interface CodeInfo {
 	code: string;
 	type: string;
+	/** can be owned by one account (membership); promo codes are not */
+	claimable?: boolean;
+	/** a new account can be created with this code (membership, promo) */
+	signup?: boolean;
 	claimed: boolean;
 	claimed_by_me?: boolean;
 	items: CodeItem[];

@@ -6,6 +6,7 @@ import {
 	authVerifyOtp,
 	authVerifyToken,
 	fetchMe,
+	updateMe,
 	type VerifyResult
 } from '$lib/api/qr.service.ts';
 import type { Me, ServerMembership, User } from '$lib/models/items.ts';
@@ -22,6 +23,9 @@ let _current: SessionContext | undefined;
 /**
  * Email login against qr.scutoons.com. Token lives in localStorage `scutoons_session`,
  * `/me/` (user, memberships, inventory, avatar) is loaded on init and after login.
+ * Signup rule (ITEMS.md 2026-09-30): a new account needs a code from a SCUTOONS product or a promo code; without
+ * one the server still answers "sent" but mails only an explanation. Roles (`member`, `creator`, `admin`) come
+ * with `/me/ user.roles`.
  */
 export function createSessionContext() {
 	let token = $state<string | null>(null);
@@ -42,6 +46,7 @@ export function createSessionContext() {
 	};
 
 	const user = $derived<User | null>(me?.user ?? null);
+	const roles = $derived<string[]>(me?.user?.roles ?? []);
 	const memberships = $derived<ServerMembership[]>(me?.memberships ?? []);
 	/**
 	 * Access model 2026-09-30: which code type grants what is decided by the server's permissions map;
@@ -78,8 +83,9 @@ export function createSessionContext() {
 		ready = true;
 	}
 
-	function requestLogin(email: string, code?: string | null) {
-		return authRequest(email.trim(), code, getLocale());
+	/** `marketingOptIn` = "Send me news about new releases" (only used when the account is created) */
+	function requestLogin(email: string, code?: string | null, marketingOptIn = false) {
+		return authRequest(email.trim(), code, getLocale(), marketingOptIn);
 	}
 
 	async function applyVerify(result: VerifyResult) {
@@ -90,8 +96,17 @@ export function createSessionContext() {
 		return result;
 	}
 
-	const verifyOtp = async (email: string, otp: string) =>
-		applyVerify(await authVerifyOtp(email.trim(), otp.trim()));
+	const verifyOtp = async (email: string, otp: string, marketingOptIn?: boolean) =>
+		applyVerify(await authVerifyOtp(email.trim(), otp.trim(), marketingOptIn));
+
+	/** Account page toggle: `PUT /me/ { marketing_opt_in }` */
+	async function setMarketingOptIn(value: boolean) {
+		const result = await updateMe({ marketing_opt_in: value });
+		if (me) me = { ...me, user: { ...me.user, ...result.user } };
+		return result.user;
+	}
+
+	const hasRole = (role: string) => roles.includes(role);
 
 	const verifyToken = async (magicToken: string) => applyVerify(await authVerifyToken(magicToken));
 
@@ -135,6 +150,10 @@ export function createSessionContext() {
 		get user() {
 			return user;
 		},
+		/** `/me/ user.roles`, e.g. `['member', 'creator']` */
+		get roles() {
+			return roles;
+		},
 		get memberships() {
 			return memberships;
 		},
@@ -159,6 +178,8 @@ export function createSessionContext() {
 		requestLogin,
 		verifyOtp,
 		verifyToken,
+		setMarketingOptIn,
+		hasRole,
 		logout,
 		patchMe,
 		subscribe

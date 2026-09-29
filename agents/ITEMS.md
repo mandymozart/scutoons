@@ -313,3 +313,11 @@ page. Non-claimable types keep their direct redirect.
 collect. You can still create an account to save your progress across devices and get news about new releases."
 Buttons: "Continue reading" · "Create account" (email → code → opt-in checkbox). For membership codes keep
 "Add to my account".
+
+**Implemented (2026-09-30):** qr backend + viewer as specified (details: qr `docs/ACCOUNTS.md` "Signup rule" and
+"Roles"). Contract additions: `/access/` and `/code/` return `signup` (`/code/` also `claimable`); `/auth/request/` and
+`/auth/verify/` accept `marketing_opt_in` (verify wins; `true` at sign-in also opts an existing account in);
+`/auth/verify/` returns `created` and `403 signup_code_required` when a new account has no usable signup code;
+`claimed`/`claim_error` only for claimable codes; `/me/ user` = `{ id, email, created_at, roles, marketing_opt_in }`;
+`PUT /me/ { marketing_opt_in }` → `{ status, user }`. For other endpoints: `Roles::requireRole('creator')` (401/403
+`forbidden`). A membership code already owned by someone else cannot create an account.

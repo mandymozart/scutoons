@@ -4,22 +4,31 @@
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
-	/** Email → one-time code login. `code` = QR code to attach to the account in the same step. */
+	/**
+	 * Email → one-time code login. `code` = QR code sent with the request: a membership code is claimed in the same
+	 * step, and a membership or promo code allows creating a new account (signup rule, ITEMS.md 2026-09-30).
+	 * `signup` = the code can create an account: shows the (unchecked) "Send me news about new releases" checkbox
+	 * with the one-time code. Without a code, new addresses get a mail that explains the rule (no one-time code).
+	 */
 	let {
 		code = null,
+		signup = false,
 		onlogin
-	}: { code?: string | null; onlogin?: (result: VerifyResult) => void } = $props();
+	}: { code?: string | null; signup?: boolean; onlogin?: (result: VerifyResult) => void } = $props();
 
 	const session = getSessionContext();
 
 	let step = $state<'email' | 'otp'>('email');
 	let email = $state('');
 	let otp = $state('');
+	let marketingOptIn = $state(false);
 	let working = $state(false);
 	let error = $state<string | null>(null);
 
 	function describe(e: unknown) {
-		return e instanceof ApiError && e.status === 0 ? m['account.network_error']() : m['account.login_failed']();
+		if (e instanceof ApiError && e.status === 0) return m['account.network_error']();
+		if (e instanceof ApiError && e.code === 'signup_code_required') return m['account.signup_code_required']();
+		return m['account.login_failed']();
 	}
 
 	async function send(event?: SubmitEvent) {
@@ -43,7 +52,7 @@
 		working = true;
 		error = null;
 		try {
-			const result = await session.verifyOtp(email, otp);
+			const result = await session.verifyOtp(email, otp, signup ? marketingOptIn : undefined);
 			onlogin?.(result);
 		} catch (e) {
 			error = describe(e);
@@ -56,7 +65,7 @@
 <div class="login-form">
 	{#if step === 'email'}
 		<form onsubmit={send}>
-			<p>{m['account.login_intro']()}</p>
+			<p>{signup ? m['account.signup_intro']() : m['account.login_intro']()}</p>
 			<label>
 				<span>{m['account.email']()}</span>
 				<input
@@ -74,6 +83,9 @@
 	{:else}
 		<form onsubmit={verify}>
 			<p>{m['account.code_sent']({ email })}</p>
+			{#if !code}
+				<p class="hint">{m['account.code_sent_no_account']()}</p>
+			{/if}
 			<label>
 				<span>{m['account.otp_label']()}</span>
 				<input
@@ -85,6 +97,12 @@
 					bind:value={otp}
 				/>
 			</label>
+			{#if signup}
+				<label class="opt-in">
+					<input type="checkbox" name="marketing_opt_in" bind:checked={marketingOptIn} />
+					<span>{m['account.marketing_opt_in']()}</span>
+				</label>
+			{/if}
 			<button type="submit" class:disabled={working} disabled={working}>
 				{working ? m['account.logging_in']() : m['account.verify']()}
 			</button>
@@ -113,6 +131,28 @@
 	label span {
 		font-size: 0.75rem;
 		color: #6b6b6b;
+	}
+	.hint {
+		font-size: 0.75rem;
+		line-height: 1.3;
+		color: #6b6b6b;
+	}
+	.opt-in {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+	}
+	.opt-in input {
+		margin: 0;
+		width: 1.25rem;
+		height: 1.25rem;
+		flex: none;
+		accent-color: black;
+	}
+	.opt-in span {
+		font-size: 0.875rem;
+		color: black;
 	}
 	input {
 		margin: 0.25rem 0 0;

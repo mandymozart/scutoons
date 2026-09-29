@@ -17,6 +17,25 @@
 	const itemCount = $derived(inventory.entries.reduce((sum, e) => sum + e.qty, 0));
 
 	const typeLabel = (type: string) => (m as any)[`account.${type}`]?.() ?? type;
+	const roleLabel = (role: string) => (m as any)[`account.role_${role}`]?.() ?? role;
+
+	// "Send me news about new releases" (PUT /me/)
+	let optInSaving = $state(false);
+	let optInError = $state<string | null>(null);
+	async function toggleOptIn(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const value = input.checked;
+		optInSaving = true;
+		optInError = null;
+		try {
+			await session.setMarketingOptIn(value);
+		} catch {
+			input.checked = !value;
+			optInError = m['account.marketing_opt_in_failed']();
+		} finally {
+			optInSaving = false;
+		}
+	}
 
 </script>
 
@@ -35,6 +54,18 @@
 						<td>{m['account.signed_in_as']()}</td>
 						<td>{session.user.email}</td>
 					</tr>
+					{#if session.roles.length}
+						<tr>
+							<td>{m['account.roles']()}</td>
+							<td>
+								<span class="roles">
+									{#each session.roles as role}
+										<span class="role-tag">{roleLabel(role)}</span>
+									{/each}
+								</span>
+							</td>
+						</tr>
+					{/if}
 					<tr>
 						<td>{m['account.access']()}</td>
 						<td>
@@ -54,6 +85,27 @@
 					{/if}
 				</tbody>
 			</table>
+			<label class="opt-in">
+				<input
+					type="checkbox"
+					checked={!!session.user.marketing_opt_in}
+					disabled={optInSaving}
+					onchange={toggleOptIn}
+				/>
+				<span>
+					{m['account.marketing_opt_in']()}
+					<small>{m['account.marketing_opt_in_hint']()}</small>
+				</span>
+			</label>
+			{#if optInError}
+				<p class="error" role="alert">{optInError}</p>
+			{/if}
+			{#if session.hasRole('creator')}
+				<p class="creator-line">
+					<a class="btn btn-secondary" href={localizeHref('/creator')}>{m['account.creator_link']()}</a>
+					<small>{m['account.creator_hint']()}</small>
+				</p>
+			{/if}
 			<button class="btn btn-sign-out" onclick={() => session.logout()}>{m['account.sign_out']()}</button>
 		</section>
 
@@ -82,6 +134,7 @@
 			<h2>{m['account.login_title']()}</h2>
 			<p>{m['account.login_hint']()}</p>
 			<LoginForm />
+			<p class="signup-rule">{m['account.signup_rule']()}</p>
 		</section>
 	{/if}
 
@@ -155,6 +208,62 @@
 	td:first-child {
 		background: #f0f0f0;
 		width: 40%;
+	}
+	.roles {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+	}
+	.role-tag {
+		display: inline-block;
+		border: 2px solid black;
+		padding: 0 0.375rem;
+		font-size: 0.75rem;
+		line-height: 1.4;
+	}
+	.opt-in {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		margin: 0 0 1rem;
+		cursor: pointer;
+	}
+	.opt-in input {
+		margin: 0.125rem 0 0;
+		width: 1.25rem;
+		height: 1.25rem;
+		flex: none;
+		accent-color: black;
+	}
+	.opt-in span {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+	.opt-in small,
+	.creator-line small,
+	.signup-rule {
+		font-size: 0.75rem;
+		line-height: 1.3;
+		color: #6b6b6b;
+	}
+	.signup-rule {
+		margin: 1rem 0 0;
+	}
+	.creator-line {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		flex-wrap: wrap;
+		margin: 0 0 1rem;
+	}
+	.creator-line .btn {
+		padding: 0.75rem 1rem;
+		text-decoration: none;
+	}
+	.error {
+		border: 2px solid black;
+		padding: 0.5rem;
 	}
 	.inventory-line {
 		display: flex;

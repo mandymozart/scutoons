@@ -13,7 +13,9 @@
 	/**
 	 * A scanned SCUTOONS code (in-app scanner or `?code=`): grants device viewing access via `/access/` right away
 	 * (no login) and offers — never forces — "Add to my account" (login → `/inventory/claim/`).
-	 * `auto` = the reader explicitly came to add it (`/account?code=`): go straight to sign-in / claim.
+	 * Promo codes (not claimable, `signup`): no item to collect — offers "Create account" instead (email → one-time
+	 * code → opt-in checkbox); the code is only the signup code, nobody owns it.
+	 * `auto` = the reader explicitly came to add it (`/account?code=`): go straight to sign-in / claim / signup.
 	 */
 	let {
 		code,
@@ -26,7 +28,7 @@
 	const session = getSessionContext();
 	const membership = getMembershipContext();
 
-	type Phase = 'loading' | 'ready' | 'login' | 'done' | 'error';
+	type Phase = 'loading' | 'ready' | 'login' | 'signup' | 'welcome' | 'done' | 'error';
 	let phase = $state<Phase>('loading');
 	let access = $state<AccessResult | null>(null);
 	let info = $state<CodeInfo | null>(null);
@@ -37,9 +39,12 @@
 	let chosenVariant = $state<string | null>(null);
 	let claimedItem = $state<string | null>(null);
 	let working = $state(false);
+	let accountCreated = $state(false);
 
 	const unlocksHere = $derived(!!access?.permissions?.includes('catalog') && membership.deviceValid);
-	const claimable = $derived(access ? access.claimable : true);
+	const claimable = $derived(access ? access.claimable : (info?.claimable ?? true));
+	/** promo: unlocks and allows a signup, but there is nothing to own */
+	const signupOnly = $derived(!claimable && !!(access?.signup ?? info?.signup));
 	const ownedByOther = $derived(
 		!!(info?.claimed ?? access?.claimed) && !(info?.claimed_by_me || access?.claimed_by_me)
 	);
@@ -103,7 +108,8 @@
 			return;
 		}
 		phase = 'ready';
-		if (auto && claimable && !ownedByOther && canClaim) await claim();
+		if (auto && signupOnly && !session.isLoggedIn) phase = 'signup';
+		else if (auto && claimable && !ownedByOther && canClaim) await claim();
 	}
 
 	async function claim() {
@@ -147,13 +153,18 @@
 		await claim();
 	}
 
+	async function afterSignup(result: VerifyResult) {
+		accountCreated = !!result.created;
+		phase = 'welcome';
+	}
+
 	onMount(load);
 </script>
 
 <div class="claim-backdrop" role="presentation" onclick={onclose}></div>
-<div class="claim" role="dialog" aria-modal="true" aria-label={m['claim.title']()}>
+<div class="claim" role="dialog" aria-modal="true" aria-label={signupOnly ? m['claim.promo_title']() : m['claim.title']()}>
 	<header>
-		<h2>{m['claim.title']()}</h2>
+		<h2>{signupOnly ? m['claim.promo_title']() : m['claim.title']()}</h2>
 		<button class="close" onclick={onclose} aria-label={m['items.close']()}>×</button>
 	</header>
 
@@ -179,7 +190,26 @@
 			</p>
 		{/if}
 
-		{#if phase === 'done'}
+		{#if signupOnly}
+			{#if phase === 'welcome'}
+				<p>{accountCreated ? m['claim.account_created']() : m['claim.signed_in']()}</p>
+				<button onclick={onclose}>{m['claim.continue_reading']()}</button>
+			{:else if session.isLoggedIn}
+				<p class="note">{m['claim.promo_signed_in']()}</p>
+				<button onclick={onclose}>{m['claim.continue_reading']()}</button>
+			{:else}
+				<p class="note">{m['claim.promo_note']()}</p>
+				{#if phase === 'signup'}
+					<LoginForm {code} signup onlogin={afterSignup} />
+					<button class="btn-secondary" onclick={onclose}>{m['claim.continue_reading']()}</button>
+				{:else}
+					<div class="actions">
+						<button class="btn-secondary" onclick={onclose}>{m['claim.continue_reading']()}</button>
+						<button onclick={() => (phase = 'signup')}>{m['claim.create_account']()}</button>
+					</div>
+				{/if}
+			{/if}
+		{:else if phase === 'done'}
 			{@const id = claimedItem ?? previewItems[0]?.item_id}
 			<div class="done">
 				{#if id}
@@ -250,7 +280,7 @@
 					<p class="error">{claimError}</p>
 				{/if}
 				{#if phase === 'login'}
-					<LoginForm {code} onlogin={afterLogin} />
+					<LoginForm {code} signup={access?.signup ?? info?.signup ?? true} onlogin={afterLogin} />
 					<button class="btn-secondary" onclick={onclose}>{m['claim.later']()}</button>
 				{:else}
 					<div class="actions">

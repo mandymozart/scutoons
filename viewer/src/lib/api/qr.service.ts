@@ -6,7 +6,11 @@ export interface VerifyResult {
 	status: string;
 	session_token: string;
 	user: User;
+	/** true = the account was just created (signup with a membership or promo code) */
+	created?: boolean;
+	/** only for claimable codes (a promo code is never owned) */
 	claimed?: string[];
+	claim_error?: { code: string; error: string; message: string; options?: unknown };
 }
 
 /** `/access/`: what a code grants to whoever holds it (device viewing access), never who owns it */
@@ -17,6 +21,8 @@ export interface AccessResult {
 	expires_at: string | null;
 	permissions: string[];
 	claimable: boolean;
+	/** a new account can be created with this code (membership, promo) */
+	signup?: boolean;
 	claimed: boolean;
 	claimed_by_me?: boolean;
 	/** server-signed access token (for a future server-side content gate) */
@@ -35,11 +41,21 @@ export interface ProgressResult {
 	updated_at: number | null;
 }
 
-export const authRequest = (email: string, code?: string | null, locale?: string) =>
-	api.post<{ status: string }>('/auth/request/', { email, code: code || undefined, locale });
+/**
+ * Sends the login mail. New accounts only with a signup code (membership / promo): without an account and without
+ * such a code the answer is still `sent`, but the mail only explains how to get an account (no one-time code).
+ */
+export const authRequest = (email: string, code?: string | null, locale?: string, marketingOptIn = false) =>
+	api.post<{ status: string }>('/auth/request/', {
+		email,
+		code: code || undefined,
+		locale,
+		marketing_opt_in: marketingOptIn
+	});
 
-export const authVerifyOtp = (email: string, otp: string) =>
-	api.post<VerifyResult>('/auth/verify/', { email, otp });
+/** `marketing_opt_in`: stored for a new account; `true` also opts an existing account in. 403 signup_code_required */
+export const authVerifyOtp = (email: string, otp: string, marketingOptIn?: boolean) =>
+	api.post<VerifyResult>('/auth/verify/', { email, otp, marketing_opt_in: marketingOptIn });
 
 export const authVerifyToken = (token: string) => api.post<VerifyResult>('/auth/verify/', { token });
 
@@ -49,6 +65,10 @@ export const checkAccess = (code: string) => api.post<AccessResult>('/access/', 
 export const authLogout = () => api.post('/auth/logout/');
 
 export const fetchMe = () => api.get<Me>('/me/');
+
+/** Account settings: `PUT /me/ { marketing_opt_in }` → the updated user */
+export const updateMe = (patch: { marketing_opt_in: boolean }) =>
+	api.put<{ status: string; user: User }>('/me/', patch);
 
 export const fetchCatalog = () => api.get<Catalog>('/items/', { auth: false });
 
