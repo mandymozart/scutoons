@@ -4,17 +4,17 @@
 //                                            description, collection }] – one file per locale)
 //   <cdn>/characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.png   (convention folders)
 //   <cdn>/characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.png
-// → <out>/scutoons/_/{characters,groups,moods,asset-requests}.json, <out>/<toon>/_/cast.json (+ report on stdout).
+// → <out>/scutoons/_/{characters,moods,asset-requests}.json, <out>/<toon>/_/cast.json (+ report on stdout).
 //
 //   node --experimental-transform-types --no-warnings shared/content/scripts/migrate-characters.ts \
 //        [--api=viewer/static/api] [--cdn=cdn/root] [--out=shared/content/seed] [--json]
 //
 // Then import (published version 1, idempotent; `--update` after a seed change):
-//   php server/bin/console import-content shared/content/seed --only=characters.json,groups.json,moods.json,asset-requests.json,cast.json
+//   php server/bin/console import-content shared/content/seed --only=characters.json,moods.json,asset-requests.json,cast.json
 // Production SQL: the same with `--sql` (committed as shared/content/seed/characters-seed.mysql.sql).
 //
 // Rules: characters are matched by `name` (the id) across locales; `label` / `description` become { de, en } texts;
-// color / collection (→ group) / image paths come from the toon's source language (de). Old image paths get the toon
+// color / image paths come from the toon's source language (de). Old image paths get the toon
 // folder in front (registry paths are from the CDN root); when the locales disagree on a path, the one that exists on
 // the local CDN copy wins, the source language first (reported). Old images become the regular persona's default look.
 // A persona with a convention folder on the CDN gets its looks from there (every look / mood / view found, replacing
@@ -34,8 +34,8 @@ import {
 	CHARACTER_IMAGE_VARIANTS,
 	CHARACTERS_FILE,
 	CREDITS_SCOPE,
+	LEGACY_CHARACTER_IDS,
 	DEFAULT_LOOK,
-	GROUPS_FILE,
 	LEGACY_CHARACTERS_FILE,
 	MOODS_FILE,
 	REGULAR_PERSONA,
@@ -49,13 +49,11 @@ import {
 	resolveCast,
 	validateCast,
 	validateCharacters,
-	validateGroups,
 	validateMoods,
 	type Character,
 	type CharacterLook,
 	type CharacterPersona,
 	type CharacterRegistry,
-	type GroupVocabulary,
 	type LocaleText,
 	type RegistryCharacter,
 	type ToonCast
@@ -71,10 +69,9 @@ const SOURCE = 'de';
 
 // ── Owner input (2026-09-29) ──────────────────────────────────────────────────────────────────────────────────────
 
-const GROUPS: GroupVocabulary = { groups: [{ id: 'biker-gang', name: { de: 'Biker-Gang', en: 'Biker gang' } }] };
 const MOODS = defaultMoodVocabulary();
 
-/** Wear anchors of the reader's avatar bodies (768 × 1152), from viewer components/avatar/avatar.svelte */
+/** Wear anchors of the reader's avatar bodies (A-poses, 768 × 1152), from viewer components/avatar/avatar.svelte */
 const SPHYNX_WORN = {
 	head: { x: 370, y: 70, size: 170 },
 	face: { x: 372, y: 105, size: 110 },
@@ -105,30 +102,34 @@ const helmetLooks = (): CharacterLook[] => [
 	{ id: 'helmet', label: { de: 'mit Helm', en: 'with helmet' }, images: {} }
 ];
 
+/** Former characters that are personas of another character now (owner, 2026-09-30) – LEGACY_CHARACTER_IDS; labels. */
+const PERSONA_LABELS: Record<string, LocaleText | null> = {
+	human: { de: 'Mensch', en: 'human' },
+	cat: { de: 'Katze', en: 'cat' },
+	// the old characters.json labels
+	mountaintiger: null
+};
+
 /** Personas / fields added to migrated characters. */
 const UPDATES: Record<string, (c: RegistryCharacter) => void> = {
 	catpope: (c) => {
 		c.own_toon = 'catpope';
 		findPersona(c, REGULAR_PERSONA)!.looks[0].label = { de: 'päpstlich', en: 'papal' };
-		// the reader's avatar bodies (character level): swim pants (the mannequin) and naked
+		// the reader's avatar bodies (character level): swim pants and naked
 		c.apose = {
 			looks: [
-				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'catpope/avatar/mannequin.webp', anchors: { ...SPHYNX_WORN } },
-				{ id: 'naked', label: APOSE_LABEL.naked, path: 'catpope/avatar/mannequin-nude.webp', anchors: { ...SPHYNX_WORN } }
+				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/catpope/catpope_apose-swim.webp', anchors: { ...SPHYNX_WORN } },
+				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/catpope/catpope_apose-naked.webp', anchors: { ...SPHYNX_WORN } }
 			]
 		};
-		c.personas.push(
-			{ id: 'human', label: { de: 'Mensch', en: 'Human' }, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] },
-			{
-				id: 'biker',
-				label: { de: 'Biker', en: 'Biker' },
-				// `introduced` stays empty until the owner sets where he joins the gang
-				description: { de: 'Der Katzenpapst, nachdem er sich der Biker-Gang angeschlossen hat.', en: 'Cat Pope after he joins the biker gang.' },
-				// only the biker is in the gang
-				affiliations: [{ group: 'biker-gang', role: { de: 'Mitglied', en: 'Member' } }],
-				looks: helmetLooks()
-			}
-		);
+		c.artwork = [{ id: 'apose-example-dressed', path: 'characters/catpope/catpope_apose-example-dressed.webp', label: { de: 'A-Pose angezogen (Referenz)', en: 'A-pose dressed (reference)' } }];
+		c.personas.push({
+			id: 'biker',
+			label: { de: 'Biker', en: 'Biker' },
+			// `introduced` stays empty until the owner sets where he joins the gang
+			description: { de: 'Der Katzenpapst, nachdem er sich der Biker-Gang angeschlossen hat.', en: 'Cat Pope after he joins the biker gang.' },
+			looks: helmetLooks()
+		});
 	}
 };
 
@@ -142,17 +143,14 @@ const NEW: RegistryCharacter[] = [
 			en: 'The head of the biker gang – she always has been; this is her true self.'
 		},
 		color: 'yellow',
-		group: 'lead',
 		own_toon: 'yellowmouse',
-		mannequin: 'mouse',
 		image: 'yellowmouse/avatar.webp',
-		affiliations: [{ group: 'biker-gang', role: { de: 'Anführerin', en: 'Leader' } }],
 		// one persona, two looks: the kimono (default) and the biker helmet
 		personas: [{ id: REGULAR_PERSONA, looks: helmetLooks() }],
-		// avatar body: swim pants (the mannequin); naked is still to be delivered (an open asset request)
+		// avatar body: swim pants; naked is still to be delivered (an open asset request)
 		apose: {
 			looks: [
-				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'yellowmouse/avatar/mannequin.webp', anchors: { ...MOUSE_WORN } },
+				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/yellowmouse/yellowmouse_apose-swim.webp', anchors: { ...MOUSE_WORN } },
 				{ id: 'naked', label: APOSE_LABEL.naked }
 			]
 		}
@@ -162,13 +160,15 @@ const NEW: RegistryCharacter[] = [
 		name: { de: 'Toptoy', en: 'Toptoy' },
 		description: { de: 'Das Duo', en: 'The duo' },
 		color: 'black',
-		group: 'lead',
 		own_toon: 'toptoy',
 		tags: ['duo'],
 		image: 'toptoy/avatar.webp',
 		personas: [{ id: REGULAR_PERSONA, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] }]
 	}
 ];
+
+/** Looks whose old per-mood paths are replaced by the convention folder (owner: catpope's old SVGs only as `image`). */
+const REPLACE_OLD_IMAGES = ['catpope/regular/default'];
 
 /** Files in a convention folder that are transitions although they don't follow the transition naming. */
 const TRANSITION_FILES: Record<string, { persona: string; from: string; to: string; label: LocaleText }> = {
@@ -177,7 +177,7 @@ const TRANSITION_FILES: Record<string, { persona: string; from: string; to: stri
 
 /** Casts per toon and season (character → personas), in order. Legacy characters.json casts are season 1. */
 const CASTS: Record<string, Record<string, [string, string[]][]>> = {
-	catpope: { '1': [['catpope', [REGULAR_PERSONA, 'human']]] },
+	catpope: { '1': [['catpope', [REGULAR_PERSONA, 'human', 'cat', 'mountaintiger']]] },
 	yellowmouse: { '1': [['catpope', [REGULAR_PERSONA, 'biker']], ['yellowmouse', [REGULAR_PERSONA]]] },
 	toptoy: { '1': [['toptoy', [REGULAR_PERSONA]]] }
 };
@@ -258,7 +258,6 @@ for (const toon of toons) {
 			name: text('label') ?? { [SOURCE]: id },
 			...(description ? { description } : {}),
 			color: source.color,
-			group: source.collection ?? 'cast',
 			...(image ? { image } : {}),
 			personas: [{ id: REGULAR_PERSONA, looks: [{ id: DEFAULT_LOOK, default: true, images: moods }] }]
 		};
@@ -270,6 +269,32 @@ for (const toon of toons) {
 	notes.push(`${toon}: ${ids.length} characters (${ids.join(', ')}) from ${LOCALES.filter((l) => read(toon, l)).map((l) => `${l}/${LEGACY_CHARACTERS_FILE}`).join(' + ')} → season 1 cast`);
 }
 for (const c of NEW) if (!registry.characters.some((x) => x.id === c.id)) registry.characters.push(c);
+
+// former characters → personas (plf → catpope · human, cat → catpope · cat, mountain-tiger → catpope · mountaintiger):
+// label, description, color and images move over; old scene refs resolve through LEGACY_CHARACTER_IDS
+for (const [legacyId, { character, persona }] of Object.entries(LEGACY_CHARACTER_IDS)) {
+	const old = registry.characters.find((c) => c.id === legacyId);
+	const target = registry.characters.find((c) => c.id === character);
+	if (!old || !target) continue;
+	registry.characters = registry.characters.filter((c) => c !== old);
+	const oldRegular = findPersona(old, REGULAR_PERSONA)!;
+	target.personas.push({
+		id: persona,
+		label: PERSONA_LABELS[persona] ?? old.name,
+		...(old.description ? { description: old.description } : {}),
+		...(old.color && old.color !== target.color ? { color: old.color } : {}),
+		looks: oldRegular.looks
+	});
+	for (const cast of Object.values(casts))
+		for (const list of Object.values(cast.seasons)) {
+			const i = list.findIndex((e) => e.character === legacyId);
+			if (i >= 0) list.splice(i, 1);
+		}
+	notes.push(`${legacyId} → ${character} · ${persona} (label ${JSON.stringify(PERSONA_LABELS[persona] ?? old.name)}, color ${old.color}, old image ${old.image ?? '–'} dropped – the persona falls back to ${character}'s)`);
+}
+// Cat Pope's personas in the owner's order
+const PERSONA_ORDER = [REGULAR_PERSONA, 'human', 'cat', 'mountaintiger', 'biker'];
+for (const c of registry.characters) c.personas.sort((a, b) => (PERSONA_ORDER.indexOf(a.id) + 1 || 99) - (PERSONA_ORDER.indexOf(b.id) + 1 || 99));
 for (const [toon, seasons] of Object.entries(CASTS))
 	for (const [season, entries] of Object.entries(seasons)) for (const [character, personas] of entries) addToCast(toon, season, character, personas);
 
@@ -283,6 +308,7 @@ for (const character of registry.characters) {
 		const escaped = name.replace(/-/g, '\\-');
 		const expression = new RegExp(`^${escaped}(?:_([a-z0-9-]+))?_(${CHARACTER_IMAGE_VARIANTS.join('|')})-([a-z0-9-]+)\\.png$`);
 		const transition = new RegExp(`^${escaped}_transition-([a-z0-9]+)-to-([a-z0-9]+)\\.png$`);
+		const apose = new RegExp(`^${escaped}_apose-([a-z0-9-]+)\\.(webp|png)$`);
 		const other = new RegExp(`^${escaped}_([a-z0-9-]+)\\.(png|jpe?g|webp)$`);
 		const found: Record<string, Record<string, Record<string, string>>> = {};
 		const extras = new Set<string>();
@@ -293,6 +319,11 @@ for (const character of registry.characters) {
 				const [, look = DEFAULT_LOOK, view, mood] = e;
 				((found[look] ??= {})[mood] ??= {})[view] = path;
 				if (!isKnownMood(mood, MOODS)) extras.add(mood);
+				continue;
+			}
+			if (file.match(apose)) {
+				// A-pose looks / references are set explicitly above
+				if (!character.apose?.looks.some((l) => l.path === path) && !character.artwork?.some((a) => a.path === path)) ambiguous.push(`${character.id}: ${path} (an A-pose file) is not referenced`);
 				continue;
 			}
 			const mapped = TRANSITION_FILES[path];
@@ -319,10 +350,13 @@ for (const character of registry.characters) {
 				ambiguous.push(`${character.id} · ${persona.id}: look "${lookId}" found on the CDN without a label – label it in the creator`);
 			}
 			const replaced = Object.keys(look.images).length;
-			look.images = moods;
+			if (REPLACE_OLD_IMAGES.includes(`${character.id}/${persona.id}/${lookId}`)) look.images = moods;
+			else
+				// keep the old explicit paths the convention folder doesn't have (e.g. the legacy full svg)
+				for (const [mood, views] of Object.entries(moods)) look.images[mood] = { ...(look.images[mood] ?? {}), ...views };
 			notes.push(
 				`${character.id} · ${persona.id} · ${lookId}: ${lookPortraitMoods(look).length} moods from ${CHARACTER_IMAGE_ROOT}/${name}/` +
-					(replaced ? ` (replaces ${replaced} old mood entries; the old single image stays: ${character.image ?? '–'})` : '')
+					(replaced ? (REPLACE_OLD_IMAGES.includes(`${character.id}/${persona.id}/${lookId}`) ? ` (replaces ${replaced} old mood entries; the old single image stays: ${character.image ?? '–'})` : ' (merged with the old explicit paths)') : '')
 			);
 		}
 		if (extras.size) notes.push(`${character.id} · ${persona.id}: moods not in the vocabulary: ${[...extras].join(', ')}`);
@@ -370,15 +404,14 @@ REQUESTS.requests.push({
 	mood: DEFAULT_MOOD,
 	view: APOSE_VIEW,
 	path: aposeConventionPath('yellowmouse', 'naked'),
-	note: 'A-pose naked (768 × 1152, like yellowmouse/avatar/mannequin.webp)',
+	note: 'A-pose naked (768 × 1152, like yellowmouse_apose-swim.webp)',
 	requested_by: 'migration (owner request 2026-09-30)',
 	requested_at: '2026-09-30T00:00:00Z',
 	status: 'open'
 });
 const problems = [
-	...validateGroups(GROUPS, LOCALES),
 	...validateMoods(MOODS, LOCALES),
-	...validateCharacters(registry, { languages: LOCALES, toons: allToons, groups: GROUPS.groups.map((g) => g.id), moods: MOODS }),
+	...validateCharacters(registry, { languages: LOCALES, toons: allToons, moods: MOODS }),
 	...Object.entries(casts).flatMap(([toon, cast]) => validateCast(cast, { registry, languages: LOCALES, file: `${toon}/_/${CAST_FILE}` }))
 ].filter((p) => p.level !== 'info');
 
@@ -390,18 +423,17 @@ const write = (toon: string, file: string, data: unknown) => {
 };
 const written = [
 	write(CREDITS_SCOPE, CHARACTERS_FILE, registry),
-	write(CREDITS_SCOPE, GROUPS_FILE, GROUPS),
 	write(CREDITS_SCOPE, MOODS_FILE, MOODS),
 	write(CREDITS_SCOPE, ASSET_REQUESTS_FILE, REQUESTS),
 	...Object.entries(casts).map(([toon, cast]) => write(toon, CAST_FILE, cast))
 ];
 
 const personaSummary = (p: CharacterPersona) =>
-	`${p.id}[${p.looks.map((l) => `${l.id}${l.default ? '*' : ''}:${lookPortraitMoods(l).length}`).join(' ')}${p.transitions?.length ? ` +${p.transitions.length} transition` : ''}${p.affiliations ? ` ${p.affiliations.map((a) => a.group).join(',')}` : ''}]`;
+	`${p.id}[${p.looks.map((l) => `${l.id}${l.default ? '*' : ''}:${lookPortraitMoods(l).length}`).join(' ')}${p.transitions?.length ? ` +${p.transitions.length} transition` : ''}]`;
 const summary = {
 	characters: registry.characters.map(
 		(c) =>
-			`${c.id} (${Object.values(c.name).join(' / ')}, ${c.group}${c.own_toon ? `, own toon ${c.own_toon}` : ''}${c.affiliations?.length ? `, ${c.affiliations.map((a) => `${a.group} ${a.role?.en ?? ''}`).join(', ')}` : ''}) personas ${c.personas.map(personaSummary).join(' ')}`
+			`${c.id} (${Object.values(c.name).join(' / ')}${c.own_toon ? `, own toon ${c.own_toon}` : ''}${c.apose ? `, A-pose ${c.apose.looks.map((l) => `${l.id}${l.path ? '' : ' (wanted)'}`).join('/')}` : ''}) personas ${c.personas.map(personaSummary).join(' ')}`
 	),
 	casts: Object.entries(casts).flatMap(([t, c]) => Object.entries(c.seasons).map(([s, list]) => `${t} season ${s}: ${list.map((e) => `${e.character}(${e.personas.join('+')})`).join(', ')}`)),
 	ambiguous,
@@ -414,7 +446,7 @@ const summary = {
 if (process.argv.includes('--json')) console.log(JSON.stringify(summary, null, 2));
 else {
 	console.log(
-		`characters migration: ${registry.characters.length} characters, ${registry.characters.reduce((n, c) => n + c.personas.length, 0)} personas, ${MOODS.moods.length} moods, ${GROUPS.groups.length} group(s), casts: ${Object.entries(casts).map(([t, c]) => `${t} ${castEntries(c).length}`).join(', ')}`
+		`characters migration: ${registry.characters.length} characters, ${registry.characters.reduce((n, c) => n + c.personas.length, 0)} personas, ${MOODS.moods.length} moods, casts: ${Object.entries(casts).map(([t, c]) => `${t} ${castEntries(c).length}`).join(', ')}`
 	);
 	for (const [title, lines] of [
 		['Characters (persona[look*:portrait moods])', summary.characters],

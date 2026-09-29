@@ -11,7 +11,7 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
-import { REGULAR_PERSONA } from './characters.ts';
+import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -144,9 +144,16 @@ function checkTarget(c: Collector, target: any, path: Path) {
 
 /** Character / persona / look / mood of a VN character reference against the season's cast and the registry. */
 function checkCharacterRef(c: Collector, ref: { name?: unknown; persona?: unknown; look?: unknown; mood?: unknown }, path: Path, ctx: ValidateContext, key: string) {
-	const name = ref.name;
-	if (!isStr(name) || !name) return;
-	const persona = isStr(ref.persona) && ref.persona ? ref.persona : REGULAR_PERSONA;
+	if (!isStr(ref.name) || !ref.name) return;
+	let name: string = ref.name;
+	let persona = isStr(ref.persona) && ref.persona ? ref.persona : REGULAR_PERSONA;
+	// a former character that is a persona now (plf → catpope · human): resolves, but the ref should be updated
+	if (ctx.expressions && LEGACY_CHARACTER_IDS[name] && !ctx.expressions[name]) {
+		const resolved = resolveCharacterId(name, isStr(ref.persona) ? ref.persona : undefined);
+		c.info([...path, key], `"${name}" is an old id – now ${resolved.character} · ${resolved.persona}`);
+		name = resolved.character;
+		persona = resolved.persona;
+	}
 	if (ctx.cast) {
 		if (!ctx.cast[name]) {
 			c.warn([...path, key], ctx.expressions?.[name] ? `character "${name}" is not in this season's cast` : `unknown character "${name}"`);
@@ -201,10 +208,13 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			if (!isObj(p) || !Array.isArray(p.characters)) c.error([...pp, 'characters'], `${e.type} needs params.characters[]`);
 			else
 				p.characters.forEach((ch: any, i: number) => {
-					if (!isObj(ch) || !isStr(ch.name)) c.error([...pp, 'characters', i, 'name'], 'character needs a name');
-					else checkCharacterRef(c, e.type === 'joinScene' ? ch : { name: ch.name, persona: ch.persona }, [...pp, 'characters', i], ctx, 'name');
-					if (ch?.position?.variant && !CHARACTER_VARIANTS.includes(ch.position.variant)) {
-						c.error([...pp, 'characters', i, 'position'], 'position.variant must be avatar, full or portrait');
+					const id = isObj(ch) ? (ch.character ?? ch.name) : undefined;
+					const key = isObj(ch) && ch.character !== undefined ? 'character' : 'name';
+					if (!isStr(id) || !id) c.error([...pp, 'characters', i, 'character'], 'character is missing');
+					else checkCharacterRef(c, e.type === 'joinScene' ? { ...ch, name: id } : { name: id, persona: ch.persona }, [...pp, 'characters', i], ctx, key);
+					const view = ch?.variant ?? ch?.position?.variant;
+					if (view && !CHARACTER_VARIANTS.includes(view)) {
+						c.error([...pp, 'characters', i, ch?.variant !== undefined ? 'variant' : 'position'], 'the view (variant) must be avatar, full or portrait');
 					}
 				});
 			break;

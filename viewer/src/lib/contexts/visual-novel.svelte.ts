@@ -1,6 +1,6 @@
 import { setContext, getContext } from 'svelte';
-import type { Character, VNChoice, Message, VNCharacterRef } from '@scutoons/content';
-import { REGULAR_PERSONA, legacyTransition } from '@scutoons/content';
+import type { Character, VNChoice, Message, VNCharacterRef, SceneCharacter } from '@scutoons/content';
+import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, legacyTransition, normalizeSceneRef } from '@scutoons/content';
 import type { Onomatopoeia } from '@scutoons/content';
 import type { TriggerMode } from '@scutoons/content';
 import type { ActiveOnomatopoeia } from '@scutoons/reader';
@@ -11,7 +11,7 @@ const VN_KEY = Symbol('visual-novel');
 const TRANSITION_MS = 800;
 
 /** A character in a scene is identified by id + persona (Cat Pope may meet Cat Pope · Biker). */
-export const sceneKey = (ref: Pick<VNCharacterRef, 'name' | 'persona'>) => `${ref.name}:${ref.persona || REGULAR_PERSONA}`;
+export const sceneKey = (ref: Pick<SceneCharacter, 'name' | 'persona'>) => `${ref.name}:${ref.persona || REGULAR_PERSONA}`;
 
 /** An onomatopoeia on screen (rendered by `@scutoons/reader`'s `Onomatopoeia`). */
 export type VNActiveOnomatopoeia = ActiveOnomatopoeia;
@@ -22,7 +22,7 @@ let _currentContext: VisualNovelContext | undefined;
 
 export function createVisualNovelContext() {
 	const characters = $state(new Map<string, Character>());
-	const sceneCharacters = $state<VNCharacterRef[]>([]);
+	const sceneCharacters = $state<SceneCharacter[]>([]);
 	const pendingChoices = $state<VNChoice[]>([]);
 	const isProcessingEvents = $state(false);
 	const activeOnomatopoeia = $state<VNActiveOnomatopoeia[]>([]);
@@ -51,14 +51,47 @@ export function createVisualNovelContext() {
 		return characters.get(name);
 	}
 
-	/** The scene ref of a character (+ persona; without a persona: the regular one, else any persona of it). */
-	function findInScene(name: string, persona?: string): VNCharacterRef | undefined {
-		if (persona) return sceneCharacters.find((c) => sceneKey(c) === sceneKey({ name, persona }));
-		return sceneCharacters.find((c) => sceneKey(c) === sceneKey({ name })) ?? sceneCharacters.find((c) => c.name === name);
+	/**
+	 * An authored ref (`{ character, persona, look?, mood?, variant? }` or the old `{ name, position }`) as a character on
+	 * stage. Old ids (plf …) become their persona (catpope · human); when the loaded characters are the old static
+	 * characters.json (no personas), a persona ref goes the other way (catpope · human → plf).
+	 */
+	function toScene(ref: VNCharacterRef): SceneCharacter | null {
+		const n = normalizeSceneRef(ref);
+		if (!n) return null;
+		let name = n.character;
+		let persona = n.persona;
+		if (!characters.get(name)?.personas) {
+			const legacy = Object.entries(LEGACY_CHARACTER_IDS).find(([id, t]) => t.character === name && t.persona === persona && characters.has(id));
+			if (legacy) {
+				name = legacy[0];
+				persona = REGULAR_PERSONA;
+			} else if (!characters.has(name) && characters.has(ref.character ?? ref.name ?? '')) {
+				name = (ref.character ?? ref.name) as string;
+				persona = REGULAR_PERSONA;
+			}
+		}
+		return {
+			name,
+			...(persona !== REGULAR_PERSONA ? { persona } : {}),
+			...(n.look ? { look: n.look } : {}),
+			...(n.mood ? { mood: n.mood } : {}),
+			position: { variant: (n.variant as SceneCharacter['position']['variant']) ?? 'avatar' }
+		};
 	}
 
-	function joinScene(chars: VNCharacterRef[]): void {
-		const charsToAdd: VNCharacterRef[] = [];
+	/** The character on stage for a speaker (+ persona; without a persona: the regular one, else any persona of it). */
+	function findInScene(id: string, persona?: string): SceneCharacter | undefined {
+		const target = toScene({ character: id, persona });
+		if (!target) return undefined;
+		if (persona) return sceneCharacters.find((c) => sceneKey(c) === sceneKey(target));
+		return sceneCharacters.find((c) => sceneKey(c) === sceneKey(target)) ?? sceneCharacters.find((c) => c.name === target.name);
+	}
+
+
+	function joinScene(refs: VNCharacterRef[]): void {
+		const charsToAdd: SceneCharacter[] = [];
+		const chars = refs.map(toScene).filter((c): c is SceneCharacter => !!c);
 		
 		for (let newChar of chars) {
 			const existingIndex = sceneCharacters.findIndex((c) => sceneKey(c) === sceneKey(newChar));
@@ -104,15 +137,16 @@ export function createVisualNovelContext() {
 		sceneCharacters.push(...charsToAdd);
 	}
 
-	function leaveScene(chars: VNCharacterRef[]): void {
+	function leaveScene(refs: VNCharacterRef[]): void {
 		// with a persona: that persona; without: every persona of the character
-		const leaving = (c: VNCharacterRef) => chars.some((l) => (l.persona ? sceneKey(l) === sceneKey(c) : l.name === c.name));
+		const chars = refs.map((r) => ({ ref: r, scene: toScene(r) })).filter((x) => !!x.scene);
+		const leaving = (c: SceneCharacter) => chars.some(({ ref, scene }) => (ref.persona || scene!.persona ? sceneKey(scene!) === sceneKey(c) : scene!.name === c.name));
 		const filtered = sceneCharacters.filter((c) => !leaving(c));
 		sceneCharacters.length = 0;
 		sceneCharacters.push(...filtered);
 	}
 
-	function showMessage(charRef: VNCharacterRef | null, text: string, wait: boolean): void {
+	function showMessage(charRef: SceneCharacter | null, text: string, wait: boolean): void {
 		message.character = charRef;
 		message.text = text;
 		message.wait = wait;

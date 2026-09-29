@@ -1,21 +1,17 @@
 {
 	"label": "scene-200",
-	"renderer": { "type": "horizontal", "params": { "freeMode": true } },
+	"renderer": {
+		"type": "horizontal",
+		"params": {
+			"freeMode": true
+		}
+	},
 	"interaction": "visual-novel",
 	"events": [
 		{
 			"type": "showMessage",
-			"params": { "text": "Kathedralen Vorplatz - Vormittags", "wait": true }
-		},
-		{
-			"type": "joinScene",
-			"params": { "characters": [{ "name": "catpope", "position": { "variant": "avatar" } }] }
-		},
-		{
-			"type": "showMessage",
 			"params": {
-				"text": "So kam ich also an vor der Kathedrale. Majestätisch ragte sie in den Himmel. Ich schritt in Demut doch erhobenen Hauptes über den Platz...",
-				"character": "catpope",
+				"text": "Kathedralen Vorplatz - Vormittags",
 				"wait": true
 			}
 		},
@@ -23,10 +19,36 @@
 			"type": "joinScene",
 			"params": {
 				"characters": [
-					{ "name": "plf", "position": { "variant": "portrait" } },
 					{
-						"name": "cat",
-						"position": { "variant": "portrait" }
+						"character": "catpope",
+						"persona": "regular",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "So kam ich also an vor der Kathedrale. Majestätisch ragte sie in den Himmel. Ich schritt in Demut doch erhobenen Hauptes über den Platz...",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "human",
+						"variant": "portrait"
+					},
+					{
+						"character": "catpope",
+						"persona": "cat",
+						"variant": "portrait"
 					}
 				]
 			}
@@ -48,7 +70,11 @@
 		{
 			"type": "showOnomatopeia",
 			"params": {
-				"text": ["gr", "gr", "gr"],
+				"text": [
+					"gr",
+					"gr",
+					"gr"
+				],
 				"position": {
 					"x": 40,
 					"y": 30
@@ -63,8 +89,9 @@
 		{
 			"type": "showMessage",
 			"params": {
+				"character": "catpope",
+				"persona": "human",
 				"text": "What? Was soll das?",
-				"character": "plf",
 				"wait": true,
 				"mood": "surprised"
 			}
@@ -72,16 +99,18 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Ich hatte nicht gedacht, dass es noch etwas anderes zu sehen gibt.",
 				"character": "catpope",
+				"persona": "regular",
+				"text": "Ich hatte nicht gedacht, dass es noch etwas anderes zu sehen gibt.",
 				"wait": true
 			}
 		},
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Zu meiner Überraschung wurde mir ein weiterer Weg gezeigt.",
 				"character": "catpope",
+				"persona": "regular",
+				"text": "Zu meiner Überraschung wurde mir ein weiterer Weg gezeigt.",
 				"wait": true
 			}
 		},
@@ -121,7 +150,15 @@
 		},
 		{
 			"type": "joinScene",
-			"params": { "characters": [{ "name": "cat", "position": { "variant": "portrait" } }] }
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "cat",
+						"variant": "portrait"
+					}
+				]
+			}
 		},
 		{
 			"type": "showMessage",
@@ -170,47 +207,77 @@
 		{
 			"type": "showMessage",
 			"params": {
+				"character": "catpope",
+				"persona": "cat",
 				"text": "...",
-				"character": "cat",
 				"wait": true
 			}
 		},
 		{
 			"type": "leaveScene",
 			"params": {
-				"characters": [{ "name": "cat" }]
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "cat"
+					}
+				]
 			}
 		},
 		{
 			"type": "joinScene",
 			"params": {
 				"characters": [
-					{ "name": "mountain-tiger", "position": { "variant": "avatar" } },
-					{ "name": "crow", "position": { "variant": "avatar" } },
-					{ "name": "boy", "position": { "variant": "avatar" } },
-					{ "name": "catpope", "position": { "variant": "avatar" } }
+					{
+						"character": "catpope",
+						"persona": "mountaintiger",
+						"variant": "avatar"
+					},
+					{
+						"character": "crow",
+						"persona": "regular",
+						"variant": "avatar"
+					},
+					{
+						"character": "boy",
+						"persona": "regular",
+						"variant": "avatar"
+					},
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"variant": "avatar"
+					}
 				]
 			}
 		},
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Weg ist das mistvieh?",
 				"character": "catpope",
+				"persona": "regular",
+				"text": "Weg ist das mistvieh?",
 				"wait": true
 			}
 		},
 		{
 			"type": "joinScene",
 			"params": {
-				"characters": [{ "name": "mountain-tiger", "position": { "variant": "portrait" } }]
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "mountaintiger",
+						"variant": "portrait"
+					}
+				]
 			}
 		},
 		{
 			"type": "showMessage",
 			"params": {
+				"character": "catpope",
+				"persona": "mountaintiger",
 				"text": "ROAAARRR!!!!!",
-				"character": "mountain-tiger",
 				"wait": true
 			}
 		},

@@ -3,7 +3,7 @@ import type { Trigger, TriggerMode } from './enums.ts';
 
 /**
  * One mood of a character in its three views (framings). "View" is the term in the UI (never "variant", which would be
- * confused with looks); the keys and `VNCharacterRef.position.variant` keep their names for backwards compatibility.
+ * confused with looks); the keys and `VNCharacterRef.variant` keep their names for backwards compatibility.
  */
 export interface CharacterImage {
 	avatar?: string;
@@ -15,6 +15,8 @@ export interface CharacterImage {
 export interface ResolvedPersona {
 	/** the shown name, e.g. "Cat Pope · Biker" */
 	label: string;
+	/** the persona's own color (else the character's) */
+	color?: string;
 	defaultLook: string;
 	/** look → mood → view → path */
 	looks: Record<string, Record<string, CharacterImage>>;
@@ -60,28 +62,49 @@ export interface VNChoice {
 }
 
 export interface Message {
-	character: VNCharacterRef | null;
+	character: SceneCharacter | null;
 	text: string;
 	wait: boolean;
 }
 
+/** A view (framing) of a character in a scene. */
+export type CharacterView = 'avatar' | 'full' | 'portrait';
+
 /**
- * A character in a scene: `name` = the character id (legacy refs with only a name = the regular persona), optional
- * `persona`, `look` and `mood`; `position.variant` = the view (avatar / portrait / full). The same character may be in
- * a scene with several personas (Cat Pope meets Cat Pope · Biker): the scene key is name + persona.
+ * A character reference in a VN event (joinScene / leaveScene), as authored: `{ character, persona, look?, mood?,
+ * variant? }` (`variant` = the view). The old form `{ name, position: { variant } }` and old character ids (plf, cat,
+ * mountain-tiger → catpope personas) still resolve (`normalizeSceneRef` in characters.ts). The same character may be in
+ * a scene with several personas (Cat Pope meets Cat Pope · Biker).
  */
 export interface VNCharacterRef {
-	name: string;
+	/** the character id */
+	character?: string;
 	/** a persona of the character (none = `regular`) */
 	persona?: string;
-	/** `variant` = the view (avatar / portrait / full) */
-	position?: {
-		variant: 'avatar' | 'full' | 'portrait';
-	};
-	mood?: string;
-	/** a look of the character (e.g. `helmet`); none = its default look */
+	/** a look of the persona (e.g. `helmet`); none = its default look */
 	look?: string;
-	/** set by the reader while a look changes (a transition image shown briefly) – never authored */
+	mood?: string;
+	/** the view (avatar / portrait / full) */
+	variant?: CharacterView;
+	/** @deprecated old form: the character id */
+	name?: string;
+	/** @deprecated old form: the view */
+	position?: {
+		variant: CharacterView;
+	};
+}
+
+/** A character on stage (the reader's runtime form of a ref): the scene key is `name` (character id) + persona. */
+export interface SceneCharacter {
+	/** the character id */
+	name: string;
+	persona?: string;
+	look?: string;
+	mood?: string;
+	position: {
+		variant: CharacterView;
+	};
+	/** set while a look changes (a transition image shown briefly) */
 	transition?: string;
 }
 

@@ -2,9 +2,7 @@
 	import {
 		APOSE_LOOKS,
 		APOSE_VIEW,
-		CHARACTER_GROUPS,
 		DEFAULT_MOOD,
-		MANNEQUINS,
 		REGULAR_PERSONA,
 		castsOf,
 		characterName,
@@ -22,7 +20,6 @@
 		type AposeLook,
 		type CharacterRegistry,
 		type CreditPerson,
-		type GroupVocabulary,
 		type LocaleText,
 		type MoodVocabulary,
 		type RegistryCharacter,
@@ -47,14 +44,13 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from '../credits/locale-map-field.svelte';
-	import AffiliationsField from './affiliations-field.svelte';
 	import ExpressionGrid from './expression-grid.svelte';
 	import AposeEditor from './apose-editor.svelte';
 	import WantedImages from './wanted-images.svelte';
 
 	/**
-	 * One character: identity (name / description per language of its toons, color, cast group, own toon, voice,
-	 * mannequin, tags, affiliations, artwork), then its personas as tabs → the persona's looks as sub-tabs → the mood grid
+	 * One character: identity (name / description per language of its toons, color, own toon, voice, tags, artwork,
+	 * A-pose), then its personas as tabs → the persona's looks as sub-tabs → the mood grid
 	 * of the look, plus the persona's transitions, and the character's wanted images.
 	 */
 	let {
@@ -68,7 +64,6 @@
 		toons,
 		casts,
 		people,
-		groups,
 		onselect
 	}: {
 		registry: ContentDoc;
@@ -81,7 +76,6 @@
 		toons: ToonInfo[];
 		casts: Record<string, ToonCast | null>;
 		people: CreditPerson[];
-		groups: GroupVocabulary | null;
 		onselect: (id: string) => void;
 	} = $props();
 
@@ -261,11 +255,6 @@
 				</span>
 			</label>
 			<label>
-				{m['creator.characters_cast_group']()}
-				<input type="text" list="character-groups" value={character.group ?? ''} oninput={(e) => setField('group', e.currentTarget.value.trim())} data-testid="character-group" />
-				<datalist id="character-groups">{#each CHARACTER_GROUPS as g (g)}<option value={g}></option>{/each}</datalist>
-			</label>
-			<label>
 				{m['creator.characters_own_toon']()}
 				<select value={character.own_toon ?? ''} onchange={(e) => setField('own_toon', e.currentTarget.value)} data-testid="character-own-toon">
 					<option value="">–</option>
@@ -281,16 +270,6 @@
 				</select>
 			</label>
 			<label>
-				{m['creator.characters_mannequin']()}
-				<span class="inline">
-					{#if character.mannequin}<img class="mini-img" src={asset(MANNEQUINS.find((b) => b.id === character.mannequin)?.image ?? '')} alt="" />{/if}
-					<select value={character.mannequin ?? ''} onchange={(e) => setField('mannequin', e.currentTarget.value)}>
-						<option value="">–</option>
-						{#each MANNEQUINS as b (b.id)}<option value={b.id}>{b.id}</option>{/each}
-					</select>
-				</span>
-			</label>
-			<label>
 				{m['creator.characters_tags']()}
 				<input type="text" value={(character.tags ?? []).join(', ')} onchange={(e) => setField('tags', e.currentTarget.value.split(',').map((t) => t.trim()).filter(Boolean))} />
 			</label>
@@ -301,11 +280,6 @@
 					<input type="text" value={character.image ?? ''} placeholder="catpope/images/characters/…" onchange={(e) => setField('image', e.currentTarget.value.trim())} />
 				</span>
 			</label>
-		</section>
-
-		<section class="block">
-			<h3>{m['creator.characters_affiliations']()}</h3>
-			<AffiliationsField value={character.affiliations} {groups} {toons} {languages} testid="affiliations" onchange={(next) => setField('affiliations', next)} />
 		</section>
 
 		<!-- Personas → looks → moods -->
@@ -342,18 +316,14 @@
 								{/each}
 							</div>
 						</div>
+						<label class="persona-color">
+							{m['creator.characters_persona_color']()}
+							<span class="inline">
+								<span class="swatch" style:background={currentPersona.color || character.color || 'transparent'}></span>
+								<input type="text" value={currentPersona.color ?? ''} placeholder={character.color} oninput={(e) => changePersona((p) => { const v = e.currentTarget.value.trim(); if (v) p.color = v; else delete p.color; }, 'color')} data-testid="persona-color" />
+							</span>
+						</label>
 						<LocaleMapField value={currentPersona.description} {languages} label={m['creator.characters_description']()} multiline onchange={(v) => changePersona((p) => { const t = clean(v); if (t) p.description = t; else delete p.description; }, 'description')} />
-						<div class="own-aff">
-							<label class="check">
-								<input type="checkbox" checked={!!currentPersona.affiliations} onchange={(e) => changePersona((p) => { if (e.currentTarget.checked) p.affiliations = structuredClone($state.snapshot(character.affiliations ?? [])); else delete p.affiliations; })} data-testid="own-affiliations" />
-								{m['creator.characters_own_affiliations']()}
-							</label>
-							{#if currentPersona.affiliations}
-								<AffiliationsField value={currentPersona.affiliations} {groups} {toons} {languages} testid="persona-affiliations" onchange={(next) => changePersona((p) => (p.affiliations = next))} />
-							{:else}
-								<span class="hint">{m['creator.characters_inherits_affiliations']()}</span>
-							{/if}
-						</div>
 						<button type="button" class="ghost danger" onclick={removePersona}>{m['creator.characters_remove_persona']()}</button>
 					{/if}
 
@@ -624,10 +594,8 @@
 	.intro {
 		align-self: end;
 	}
-	.own-aff {
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
+	.persona-color {
+		max-width: 16rem;
 	}
 	.look-head {
 		display: grid;

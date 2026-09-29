@@ -1,5 +1,5 @@
 // Characters editor: the platform-wide files of the characters model (see @scutoons/content characters.ts) –
-// `scutoons/_/{characters,groups,moods,asset-requests}.json` – and the per-toon `<toon>/_/cast.json`, as ContentDocs with
+// `scutoons/_/{characters,moods,asset-requests}.json` – and the per-toon `<toon>/_/cast.json`, as ContentDocs with
 // the single locale `_`, saved / published through the ActionBar of the page that edits them (Characters page, Cast page,
 // chapter editor when the picker adds a character to the season's cast).
 import {
@@ -8,7 +8,6 @@ import {
 	CAST_FILE,
 	CHARACTERS_FILE,
 	CREDITS_SCOPE,
-	GROUPS_FILE,
 	MOODS_FILE,
 	NEUTRAL_LOCALE,
 	PEOPLE_FILE,
@@ -18,7 +17,6 @@ import {
 	emptyAssetRequests,
 	emptyCast,
 	emptyCharacterRegistry,
-	emptyGroups,
 	findPersona,
 	newCharacter,
 	newLook,
@@ -29,7 +27,6 @@ import {
 	type AssetRequests,
 	type CharacterPersona,
 	type CharacterRegistry,
-	type GroupVocabulary,
 	type LocaleText,
 	type MoodVocabulary,
 	type PeopleRegistry,
@@ -51,14 +48,12 @@ const neutralDoc = (toon: string, path: string) => new ContentDoc(toon, path, [N
 export const registryDoc = () => neutralDoc(CREDITS_SCOPE, CHARACTERS_FILE);
 export const castDoc = (toon: string) => neutralDoc(toon, CAST_FILE);
 export const peopleDoc = () => neutralDoc(CREDITS_SCOPE, PEOPLE_FILE);
-export const groupsDoc = () => neutralDoc(CREDITS_SCOPE, GROUPS_FILE);
 export const moodsDoc = () => neutralDoc(CREDITS_SCOPE, MOODS_FILE);
 export const requestsDoc = () => neutralDoc(CREDITS_SCOPE, ASSET_REQUESTS_FILE);
 
 export const registryOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as CharacterRegistry | null;
 export const castOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as ToonCast | null;
 export const peopleListOf = (doc: ContentDoc | null | undefined) => ((doc?.data[N] ?? null) as PeopleRegistry | null)?.people ?? [];
-export const groupsOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as GroupVocabulary | null;
 /** the stored vocabulary, else the built-in seed (17 standard + dizzy, tripping) */
 export const moodsOf = (doc: ContentDoc | null | undefined) => ((doc?.data[N] ?? null) as MoodVocabulary | null) ?? defaultMoodVocabulary();
 export const requestsOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as AssetRequests | null;
@@ -69,7 +64,6 @@ export function ensure(doc: ContentDoc, make: () => unknown) {
 }
 export const ensureRegistry = (doc: ContentDoc) => ensure(doc, emptyCharacterRegistry);
 export const ensureCast = (doc: ContentDoc) => ensure(doc, emptyCast);
-export const ensureGroups = (doc: ContentDoc) => ensure(doc, emptyGroups);
 export const ensureMoods = (doc: ContentDoc) => ensure(doc, defaultMoodVocabulary);
 export const ensureRequests = (doc: ContentDoc) => ensure(doc, emptyAssetRequests);
 

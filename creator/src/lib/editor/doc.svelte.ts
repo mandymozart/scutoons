@@ -11,9 +11,9 @@ import {
 	putDraft,
 	type ContentVersion
 } from '$lib/api.ts';
-import { ASSET_REQUESTS_FILE, CAST_FILE, CHARACTERS_FILE, GROUPS_FILE, MOODS_FILE, clone, CREDITS_FILE, deepEqual, getAt, NEUTRAL_LOCALE, PEOPLE_FILE, ROLES_FILE, setAt, TOON_INDEX_FILE, type Path } from '@scutoons/content';
+import { ASSET_REQUESTS_FILE, CAST_FILE, CHARACTERS_FILE, MOODS_FILE, clone, CREDITS_FILE, deepEqual, getAt, NEUTRAL_LOCALE, PEOPLE_FILE, ROLES_FILE, setAt, TOON_INDEX_FILE, type Path } from '@scutoons/content';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'groups' | 'moods' | 'requests';
+export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests';
 export type DocSource = 'store' | 'static' | 'new' | 'missing';
 /** The file of a locale when the store has none (default: the viewer's static file). */
 export type DocFallback = (locale: string) => Promise<any | null>;
@@ -49,7 +49,6 @@ export function kindOfPath(path: string, locale?: string): DocKind {
 	// the old per-locale characters.json is not a store file; in `_` it is the registry
 	if (path === CHARACTERS_FILE && (locale === undefined || locale === NEUTRAL_LOCALE)) return 'characters';
 	if (path === CAST_FILE) return 'cast';
-	if (locale === NEUTRAL_LOCALE && path === GROUPS_FILE) return 'groups';
 	if (locale === NEUTRAL_LOCALE && path === MOODS_FILE) return 'moods';
 	if (locale === NEUTRAL_LOCALE && path === ASSET_REQUESTS_FILE) return 'requests';
 	return 'group';

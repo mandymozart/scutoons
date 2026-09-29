@@ -22,14 +22,12 @@
 		lookLabel,
 		lookMoods,
 		moodLabel,
-		personaAffiliations,
 		personaIds,
 		pickText,
 		searchCharacters,
 		sortedMoods,
 		type CastEntry,
 		type CharacterRegistry,
-		type GroupVocabulary,
 		type MoodVocabulary,
 		type RegistryCharacter
 	} from '@scutoons/content';
@@ -48,7 +46,6 @@
 		registry,
 		moods,
 		toons = [],
-		groups = null,
 		cast = [],
 		season,
 		value,
@@ -60,7 +57,6 @@
 		registry: CharacterRegistry | null;
 		moods: MoodVocabulary;
 		toons?: ToonInfo[];
-		groups?: GroupVocabulary | null;
 		/** the season's cast (shown first; picking someone else adds them – the caller does that) */
 		cast?: CastEntry[];
 		/** e.g. "Season 1" (section title) */
@@ -77,7 +73,6 @@
 	let look = $state('');
 	let query = $state('');
 	let toonFilter = $state('');
-	let groupFilter = $state('');
 	let missingOnly = $state(false);
 	let allMoods = $state(false);
 	let grid = $state<HTMLElement>();
@@ -104,7 +99,6 @@
 		searchCharacters(characters, query, 10000).filter(
 			(c) =>
 				(!toonFilter || c.own_toon === toonFilter) &&
-				(!groupFilter || personaIds(c).some((p) => personaAffiliations(c, p).some((a) => a.group === groupFilter))) &&
 				(!missingOnly || missingStates(c))
 		)
 	);
@@ -164,12 +158,6 @@
 					<option value="">{m['creator.characters_all_toons']()}</option>
 					{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
 				</select>
-				{#if groups?.groups.length}
-					<select bind:value={groupFilter} aria-label={m['creator.characters_groups']()}>
-						<option value="">{m['creator.characters_all_groups']()}</option>
-						{#each groups.groups as g (g.id)}<option value={g.id}>{pickText(g.name, locale)}</option>{/each}
-					</select>
-				{/if}
 				<label class="check"><input type="checkbox" bind:checked={missingOnly} /> {m['creator.characters_has_missing']()}</label>
 			</div>
 			<!-- svelte-ignore a11y_no_static_element_interactions -->

@@ -12,8 +12,6 @@
 		addToSeasonCast,
 		castDoc,
 		castOf,
-		groupsDoc,
-		groupsOf,
 		loadToons,
 		moodsDoc,
 		moodsOf,
@@ -63,7 +61,6 @@
 	const cast = castDoc(toon);
 	const registry = registryDoc();
 	const moods = moodsDoc();
-	const groupVocabulary = groupsDoc();
 	let toonInfos = $state<ToonInfo[]>([]);
 	let castTouched = $state(false);
 	let castNotice = $state<string | null>(null);
@@ -92,7 +89,6 @@
 					registry: registryOf(registry),
 					moods: moodsOf(moods),
 					toons: toonInfos,
-					groups: groupsOf(groupVocabulary),
 					cast: seasonCast,
 					season: m['creator.season']({ number: SEASON }),
 					locale: languages.source,
@@ -121,7 +117,7 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load(), groupVocabulary.load()]);
+		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load()]);
 		loadToons(getLocale()).then((list) => (toonInfos = list));
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
 		// characters.json of the source language (else the first language that has one)

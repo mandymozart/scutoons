@@ -35,7 +35,6 @@ const catpope: RegistryCharacter = {
 	id: 'catpope',
 	name: { de: 'Katzenpapst', en: 'Cat Pope' },
 	color: 'blue',
-	group: 'lead',
 	image: 'catpope/images/characters/catpope/catpope.svg',
 	personas: [
 		{ id: 'regular', looks: [look('catpope', 'default', ['neutral', 'happy', 'sad'], { default: true })] },
@@ -43,7 +42,6 @@ const catpope: RegistryCharacter = {
 		{
 			id: 'biker',
 			label: { de: 'Biker', en: 'Biker' },
-			affiliations: [{ group: 'biker-gang' }],
 			looks: [
 				look('catpope-biker', 'default', ['neutral', 'happy'], { default: true, label: { en: 'without helmet' } }),
 				look('catpope-biker', 'helmet', ['neutral', 'happy', 'dizzy'], { label: { en: 'with helmet' } })
@@ -55,9 +53,7 @@ const mouse: RegistryCharacter = {
 	id: 'yellowmouse',
 	name: { de: 'Mausboss', en: 'Yellow Mouse' },
 	color: 'yellow',
-	group: 'lead',
 	image: 'yellowmouse/avatar.webp',
-	affiliations: [{ group: 'biker-gang' }],
 	personas: [
 		{
 			id: 'regular',
@@ -73,7 +69,6 @@ const empty: RegistryCharacter = {
 	id: 'toptoy',
 	name: { en: 'Toptoy' },
 	color: 'black',
-	group: 'lead',
 	image: 'toptoy/avatar.webp',
 	personas: [{ id: 'regular', looks: [{ id: 'default', default: true, images: {} }] }]
 };
@@ -157,11 +152,10 @@ test('an old characters.json without personas still resolves (static fallback)',
 	assert.equal(legacyCharacterImage(old, { persona: 'biker', look: 'helmet' }, 'portrait'), 'images/characters/plf/plf_portrait-neutral.png');
 });
 
-test('validation: default looks, neutral anchor, groups, casts, scenes', () => {
+test('validation: default looks, neutral anchor, casts, scenes', () => {
 	const broken: RegistryCharacter = {
 		...mouse,
 		id: 'broken',
-		affiliations: [{ group: 'nope' }],
 		personas: [
 			{
 				id: 'regular',
@@ -172,12 +166,11 @@ test('validation: default looks, neutral anchor, groups, casts, scenes', () => {
 			}
 		]
 	};
-	const problems = validateCharacters({ characters: [catpope, broken] }, { languages: ['en'], groups: ['biker-gang'] });
+	const problems = validateCharacters({ characters: [catpope, broken] }, { languages: ['en'] });
 	const messages = problems.map((p) => `${p.level}: ${p.message}`);
 	assert.ok(messages.some((m) => m.startsWith('error') && m.includes('exactly one look must be the default')));
 	assert.ok(messages.some((m) => m.startsWith('error') && m.includes('no neutral portrait')));
 	assert.ok(messages.some((m) => m.startsWith('warning') && m.includes('no images yet')));
-	assert.ok(messages.some((m) => m.includes('unknown group "nope"')));
 	// the standard set is info only
 	assert.ok(!problems.some((p) => p.level !== 'info' && p.message.includes('standard set')));
 
@@ -248,6 +241,30 @@ test('A-pose: character level, its own view without fallback, avatar bodies', as
 	const bodies = avatarBodies({ characters: [c, m2] }, 'en');
 	assert.deepEqual(bodies.map((b) => `${b.character}/${b.look}${b.default ? '*' : ''}: ${b.label}`), ['catpope/swim*: Cat Pope (swim pants)', 'catpope/naked: Cat Pope (naked)', 'yellowmouse/swim*: Yellow Mouse (swim)']);
 	// the missing naked A-pose of the mouse is a wanted image
-	assert.ok(wantedImages({ characters: [m2] }).some((w) => w.view === 'apose' && w.look === 'naked' && w.path === 'characters/yellowmouse/yellowmouse_apose-naked.png'));
+	assert.ok(wantedImages({ characters: [m2] }).some((w) => w.view === 'apose' && w.look === 'naked' && w.path === 'characters/yellowmouse/yellowmouse_apose-naked.webp'));
 	assert.ok(!validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error'));
+});
+
+test('legacy ids and the new ref form', async () => {
+	const { normalizeSceneRef, resolveCharacterId } = await import('../src/index.ts');
+	assert.deepEqual(resolveCharacterId('plf'), { character: 'catpope', persona: 'human' });
+	assert.deepEqual(resolveCharacterId('mountain-tiger'), { character: 'catpope', persona: 'mountaintiger' });
+	assert.deepEqual(resolveCharacterId('boy'), { character: 'boy', persona: 'regular' });
+	assert.deepEqual(normalizeSceneRef({ name: 'cat', position: { variant: 'portrait' }, mood: 'happy' }), { character: 'catpope', persona: 'cat', mood: 'happy', variant: 'portrait' });
+	assert.deepEqual(normalizeSceneRef({ character: 'catpope', persona: 'biker', look: 'helmet', variant: 'avatar' }), { character: 'catpope', persona: 'biker', look: 'helmet', variant: 'avatar' });
+	assert.equal(normalizeSceneRef({}), null);
+	// scene validation accepts both forms; an old id is info only
+	const registry: CharacterRegistry = { characters: [catpope] };
+	const group = {
+		label: 's',
+		renderer: { type: 'vertical' },
+		slices: [],
+		events: [
+			{ type: 'joinScene', params: { characters: [{ name: 'plf', position: { variant: 'portrait' } }] } },
+			{ type: 'joinScene', params: { characters: [{ character: 'catpope', persona: 'human', variant: 'portrait' }] } }
+		]
+	};
+	const problems = validateFile('group', group, 'en', { file: 'g.json', cast: { catpope: ['regular', 'human'] }, expressions: expressionIndex(registry), moods: ['neutral'] });
+	assert.ok(problems.some((p) => p.level === 'info' && p.message.includes('"plf" is an old id')));
+	assert.ok(!problems.some((p) => p.level !== 'info'));
 });

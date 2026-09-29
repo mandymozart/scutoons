@@ -11,7 +11,6 @@
 				"en": "Is future self"
 			},
 			"color": "blue",
-			"group": "lead",
 			"image": "catpope/images/characters/catpope/catpope.svg",
 			"personas": [
 				{
@@ -101,13 +100,74 @@
 					"id": "human",
 					"label": {
 						"de": "Mensch",
-						"en": "Human"
+						"en": "human"
 					},
+					"description": {
+						"de": "Katzenpapst in menschlicher Gestalt",
+						"en": "Is catpope is human shape. aka Pope-like figure"
+					},
+					"color": "lightblue",
 					"looks": [
 						{
 							"id": "default",
 							"default": true,
-							"images": {}
+							"images": {
+								"neutral": {
+									"avatar": "characters/catpope-human/catpope-human_avatar-neutral.png",
+									"portrait": "characters/catpope-human/catpope-human_portrait-neutral.png",
+									"full": "catpope/images/characters/plf/plf_full.svg"
+								}
+							}
+						}
+					]
+				},
+				{
+					"id": "cat",
+					"label": {
+						"de": "Katze",
+						"en": "cat"
+					},
+					"description": {
+						"de": "In Katzenform",
+						"en": "Is cat shaped plf"
+					},
+					"color": "darkblue",
+					"looks": [
+						{
+							"id": "default",
+							"default": true,
+							"images": {
+								"neutral": {
+									"avatar": "characters/catpope-cat/catpope-cat_avatar-neutral.png",
+									"portrait": "characters/catpope-cat/catpope-cat_portrait-neutral.png",
+									"full": "catpope/images/characters/cat/cat_full.svg"
+								}
+							}
+						}
+					]
+				},
+				{
+					"id": "mountaintiger",
+					"label": {
+						"de": "Gebirgs Tiger",
+						"en": "Mountain Tiger"
+					},
+					"description": {
+						"de": "Grosses Tier, plf kämpft mit sich selbst.",
+						"en": "Is a large cat. plf kind of fighting themself."
+					},
+					"color": "yellow",
+					"looks": [
+						{
+							"id": "default",
+							"default": true,
+							"images": {
+								"neutral": {
+									"avatar": "catpope/images/characters/mountain-tiger/mountain-tiger_avatar.svg",
+									"portrait": "catpope/images/characters/mountain-tiger/mountain-tiger_portrait.svg",
+									"full": "catpope/images/characters/mountain-tiger/mountain-tiger_full.svg"
+								}
+							}
 						}
 					]
 				},
@@ -121,15 +181,6 @@
 						"de": "Der Katzenpapst, nachdem er sich der Biker-Gang angeschlossen hat.",
 						"en": "Cat Pope after he joins the biker gang."
 					},
-					"affiliations": [
-						{
-							"group": "biker-gang",
-							"role": {
-								"de": "Mitglied",
-								"en": "Member"
-							}
-						}
-					],
 					"looks": [
 						{
 							"id": "default",
@@ -303,7 +354,7 @@
 							"en": "swim pants"
 						},
 						"default": true,
-						"path": "catpope/avatar/mannequin.webp",
+						"path": "characters/catpope/catpope_apose-swim.webp",
 						"anchors": {
 							"head": {
 								"x": 370,
@@ -358,7 +409,7 @@
 							"de": "nackt",
 							"en": "naked"
 						},
-						"path": "catpope/avatar/mannequin-nude.webp",
+						"path": "characters/catpope/catpope_apose-naked.webp",
 						"anchors": {
 							"head": {
 								"x": 370,
@@ -408,69 +459,15 @@
 						}
 					}
 				]
-			}
-		},
-		{
-			"id": "plf",
-			"name": {
-				"de": "PLF",
-				"en": "PLF"
 			},
-			"description": {
-				"de": "Katzenpapst in menschlicher Gestalt",
-				"en": "Is catpope is human shape. aka Pope-like figure"
-			},
-			"color": "lightblue",
-			"group": "support",
-			"image": "catpope/images/characters/plf/plf.svg",
-			"personas": [
+			"artwork": [
 				{
-					"id": "regular",
-					"looks": [
-						{
-							"id": "default",
-							"default": true,
-							"images": {
-								"neutral": {
-									"avatar": "catpope/images/characters/plf/plf_avatar-neutral.png",
-									"portrait": "catpope/images/characters/plf/plf_portrait-neutral.png",
-									"full": "catpope/images/characters/plf/plf_full.svg"
-								}
-							}
-						}
-					]
-				}
-			]
-		},
-		{
-			"id": "cat",
-			"name": {
-				"de": "Katze",
-				"en": "Cat"
-			},
-			"description": {
-				"de": "In Katzenform",
-				"en": "Is cat shaped plf"
-			},
-			"color": "darkblue",
-			"group": "lead",
-			"image": "catpope/images/characters/cat/cat.svg",
-			"personas": [
-				{
-					"id": "regular",
-					"looks": [
-						{
-							"id": "default",
-							"default": true,
-							"images": {
-								"neutral": {
-									"avatar": "catpope/images/characters/cat/cat_avatar-neutral.png",
-									"portrait": "catpope/images/characters/cat/cat_portrait-neutral.png",
-									"full": "catpope/images/characters/cat/cat_full.svg"
-								}
-							}
-						}
-					]
+					"id": "apose-example-dressed",
+					"path": "characters/catpope/catpope_apose-example-dressed.webp",
+					"label": {
+						"de": "A-Pose angezogen (Referenz)",
+						"en": "A-pose dressed (reference)"
+					}
 				}
 			]
 		},
@@ -485,7 +482,6 @@
 				"en": "See cat and is scared in front of church"
 			},
 			"color": "red",
-			"group": "support",
 			"image": "catpope/images/characters/boy/boy.svg",
 			"personas": [
 				{
@@ -517,7 +513,6 @@
 				"en": "Are crows, can travel time and space, bringing a message from the future."
 			},
 			"color": "darkgreen",
-			"group": "support",
 			"image": "catpope/images/characters/crows/crows.svg",
 			"personas": [
 				{
@@ -539,38 +534,6 @@
 			]
 		},
 		{
-			"id": "mountain-tiger",
-			"name": {
-				"de": "Gebirgs Tiger",
-				"en": "Mountain Tiger"
-			},
-			"description": {
-				"de": "Grosses Tier, plf kämpft mit sich selbst.",
-				"en": "Is a large cat. plf kind of fighting themself."
-			},
-			"color": "yellow",
-			"group": "lead",
-			"image": "catpope/images/characters/mountain-tiger/mountain-tiger.svg",
-			"personas": [
-				{
-					"id": "regular",
-					"looks": [
-						{
-							"id": "default",
-							"default": true,
-							"images": {
-								"neutral": {
-									"avatar": "catpope/images/characters/mountain-tiger/mountain-tiger_avatar.svg",
-									"portrait": "catpope/images/characters/mountain-tiger/mountain-tiger_portrait.svg",
-									"full": "catpope/images/characters/mountain-tiger/mountain-tiger_full.svg"
-								}
-							}
-						}
-					]
-				}
-			]
-		},
-		{
 			"id": "yellowmouse",
 			"name": {
 				"de": "Mausboss",
@@ -581,19 +544,8 @@
 				"en": "The head of the biker gang – she always has been; this is her true self."
 			},
 			"color": "yellow",
-			"group": "lead",
 			"own_toon": "yellowmouse",
-			"mannequin": "mouse",
 			"image": "yellowmouse/avatar.webp",
-			"affiliations": [
-				{
-					"group": "biker-gang",
-					"role": {
-						"de": "Anführerin",
-						"en": "Leader"
-					}
-				}
-			],
 			"personas": [
 				{
 					"id": "regular",
@@ -780,7 +732,7 @@
 							"en": "swim pants"
 						},
 						"default": true,
-						"path": "yellowmouse/avatar/mannequin.webp",
+						"path": "characters/yellowmouse/yellowmouse_apose-swim.webp",
 						"anchors": {
 							"head": {
 								"x": 385,
@@ -850,7 +802,6 @@
 				"en": "The duo"
 			},
 			"color": "black",
-			"group": "lead",
 			"own_toon": "toptoy",
 			"tags": [
 				"duo"

@@ -26,8 +26,6 @@
 		castOf,
 		edit,
 		ensureCast,
-		groupsDoc,
-		groupsOf,
 		loadToons,
 		moodsDoc,
 		moodsOf,
@@ -54,7 +52,6 @@
 	const cast = castDoc(toon);
 	const registry = registryDoc();
 	const moods = moodsDoc();
-	const groups = groupsDoc();
 	const docs = [cast, registry];
 	const langs = $derived(languages.languages as string[]);
 	const source = $derived(languages.source as string);
@@ -65,7 +62,7 @@
 	let dragging = $state<number | null>(null);
 
 	onMount(async () => {
-		await Promise.all([cast.load(), registry.load(), moods.load(), groups.load()]);
+		await Promise.all([cast.load(), registry.load(), moods.load()]);
 		const seasons = castSeasons(castOf(cast));
 		if (seasons.length) season = seasons[0];
 		toons = await loadToons(getLocale());
@@ -225,7 +222,6 @@
 	registry={reg}
 	moods={moodsOf(moods)}
 	{toons}
-	groups={groupsOf(groups)}
 	cast={entries}
 	season={m['creator.season']({ number: season })}
 	locale={source}

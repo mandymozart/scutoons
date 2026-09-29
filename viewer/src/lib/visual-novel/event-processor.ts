@@ -138,14 +138,8 @@ export class EventProcessor {
 	}
 
 	private handleJoinScene(event: VNEvent & { type: 'joinScene' }): void {
-		const { characters } = event.params;
-		const charsWithDefaults = characters.map((char) => ({
-			...char,
-			// refs written as { character } are the same as { name }
-			name: char.name ?? (char as { character?: string }).character ?? '',
-			position: char.position || { variant: 'avatar' as const }
-		}));
-		this.vn.joinScene(charsWithDefaults);
+		// refs are normalized by the context (new and old form, old ids, view default avatar)
+		this.vn.joinScene(event.params.characters);
 	}
 
 	private handleLeaveScene(event: VNEvent & { type: 'leaveScene' }): void {

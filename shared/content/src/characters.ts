@@ -1,22 +1,21 @@
 // Characters: every character of the SCUTOONS universe in one global registry, and a cast per toon and season.
 // Language-neutral store files with translated texts inside:
 //
-//   scutoons/_/characters.json   CharacterRegistry – every character, global (a character may appear in several toons;
-//                                                    `own_toon` is optional – many characters have none)
-//   scutoons/_/groups.json       GroupVocabulary   – shared affiliations across toons (e.g. the biker gang)
-//   scutoons/_/moods.json        MoodVocabulary    – every mood id with its label per locale (open-ended; the 17
-//                                                    `standard` ones are a checklist, not a limit)
-//   <toon>/_/cast.json           ToonCast          – per season: which characters, with which personas
-//   scutoons/_/asset-requests.json AssetRequests   – wanted images (a note for the image supplier), open → done
+//   scutoons/_/characters.json      CharacterRegistry – every character, global (a character may appear in several
+//                                                       toons; `own_toon` is optional – many characters have none)
+//   scutoons/_/moods.json           MoodVocabulary    – every mood id with its label per locale (open-ended; the
+//                                                       `standard` ones are a checklist, not a limit)
+//   scutoons/_/asset-requests.json  AssetRequests     – wanted images (a note for the image supplier), open → done
+//   <toon>/_/cast.json              ToonCast          – per season: which characters, with which personas
 //
-// Hierarchy (owner, 2026-09-29): Character → Persona → Look → Mood × View.
-//   Character – the being. Identity-level: name, description, color, voiced_by, affiliations (default), tags, artwork.
-//   Persona   – a different identity or role of the same being (Cat Pope's `biker`). Nested in the character; every
-//               character has the persona `regular`. May override the affiliations. Changes who they are in the story.
+// Hierarchy (owner, 2026-09-30): Character → Persona → Look → Mood × View.
+//   Character – the being. Identity-level: name, description, color, voiced_by, tags, artwork, the A-pose.
+//   Persona   – a different identity or role of the same being (Cat Pope's `human`, `cat`, `biker`). Nested in the
+//               character; every character has the persona `regular`. Changes who they are in the story.
 //   Look      – the appearance right now: outfit, gear, accessories; can change within a scene (helmet on/off), one
 //               default look per persona. Rule of thumb: if it could come off in the next panel, it's a look.
 //               `transitions` (per persona) = an image shown while a look changes (helmet → default).
-//   Mood      – the expression. Open-ended vocabulary (moods.json); only `neutral` is required (the fallback anchor).
+//   Mood      – the expression. Open vocabulary (moods.json); only `neutral` is required (the fallback anchor).
 //   View      – the framing: avatar / portrait / full. The data field is called `variant` (backwards compatibility);
 //               every UI label says "View" / "Ansicht". Only `portrait` is authored now: `avatar` is a derived 192px
 //               downscale of the portrait, `full` is unused. Completeness counts portraits only.
@@ -27,7 +26,8 @@
 // Image fallback: `resolveExpression` (one implementation for the viewer VN and the creator). `resolveCast()` turns the
 // registry + a cast into the legacy `characters.json` shape of one locale (`Character[]`, visual-novel.ts: `images` =
 // regular persona, default look – what older readers show – plus `personas` with every persona's looks), so the viewer
-// VN renderer keeps working; `<toon>/<locale>/characters.json` stays the static fallback.
+// VN renderer keeps working; `<toon>/<locale>/characters.json` stays the static fallback. Old scene refs to former
+// characters (plf, cat, mountain-tiger) resolve through `LEGACY_CHARACTER_IDS`.
 import type { LocaleText } from './credits.ts';
 import { pickText } from './credits.ts';
 import type { Character, CharacterImage, ResolvedPersona } from './visual-novel.ts';
@@ -62,7 +62,7 @@ export type Mood = (typeof MOODS)[number];
 /** The mood every renderer falls back to. */
 export const DEFAULT_MOOD: Mood = 'neutral';
 
-/** Label of each mood per locale (languages without a label show the English one). */
+/** Label of each standard mood per locale (the seed of moods.json). */
 export const MOOD_LABELS: Record<Mood, LocaleText> = {
 	neutral: { de: 'neutral', en: 'neutral' },
 	happy: { de: 'fröhlich', en: 'happy' },
@@ -148,11 +148,7 @@ export const CHARACTER_IMAGE_VARIANTS = ['avatar', 'portrait', 'full'] as const;
 export type CharacterImageVariant = (typeof CHARACTER_IMAGE_VARIANTS)[number];
 /** The only view that is authored (the others fall back to it; `avatar` is a derived 192px downscale of it). */
 export const AUTHORED_VIEW: CharacterImageVariant = 'portrait';
-/** Derived from the portrait (generated, never flagged missing). */
-export const DERIVED_VIEWS: CharacterImageVariant[] = ['avatar'];
-/** Not used for now (hidden in the creator, never flagged missing). */
-export const UNUSED_VIEWS: CharacterImageVariant[] = ['full'];
-/** The A-pose view: the character's avatar body (`character.apose.looks`), one image per A-pose look. */
+/** The A-pose view (asset requests of `character.apose.looks`): never a fallback. */
 export const APOSE_VIEW = 'apose';
 
 /** Every character's base persona. */
@@ -160,16 +156,22 @@ export const REGULAR_PERSONA = 'regular';
 /** The look of a persona without other looks (and the look whose convention path has no look segment). */
 export const DEFAULT_LOOK = 'default';
 
-/** Suggested cast groups (free text is allowed): lead → cast → extra; `support` is the old catpope `collection`. */
-export const CHARACTER_GROUPS = ['lead', 'support', 'cast', 'extra'] as const;
-export type CharacterGroup = (typeof CHARACTER_GROUPS)[number] | (string & {});
+/**
+ * Former characters that are personas now (owner, 2026-09-30): old scene refs and old characters.json names resolve
+ * through this map.
+ */
+export const LEGACY_CHARACTER_IDS: Record<string, { character: string; persona: string }> = {
+	plf: { character: 'catpope', persona: 'human' },
+	cat: { character: 'catpope', persona: 'cat' },
+	'mountain-tiger': { character: 'catpope', persona: 'mountaintiger' }
+};
 
-/** Avatar bodies of the reader's avatar (viewer `components/avatar/avatar.svelte`): id → CDN image. */
-export const MANNEQUINS: { id: string; image: string }[] = [
-	{ id: 'sphynx', image: 'catpope/avatar/mannequin.webp' },
-	{ id: 'sphynx_nude', image: 'catpope/avatar/mannequin-nude.webp' },
-	{ id: 'mouse', image: 'yellowmouse/avatar/mannequin.webp' }
-];
+/** A character id (maybe a legacy one) + persona → the current character + persona. */
+export function resolveCharacterId(id: string, persona?: string): { character: string; persona: string } {
+	const legacy = LEGACY_CHARACTER_IDS[id];
+	if (legacy) return { character: legacy.character, persona: persona && persona !== REGULAR_PERSONA ? persona : legacy.persona };
+	return { character: id, persona: persona || REGULAR_PERSONA };
+}
 
 // ── Files ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -182,42 +184,6 @@ export interface StoryPoint {
 
 /** mood → view → CDN path */
 export type MoodImages = Partial<Record<string, CharacterImage>>;
-
-/** Where an avatar item sits on an A-pose image: centre and size in px of that image. */
-export interface AposeAnchor {
-	x: number;
-	y: number;
-	size: number;
-}
-
-/** One A-pose look of a character (full body, neutral): an avatar body with the wear anchors of the avatar slots. */
-export interface AposeLook {
-	/** `swim` (default) | `naked` | … */
-	id: string;
-	label?: LocaleText;
-	/** exactly one A-pose look is the default */
-	default?: boolean;
-	/** CDN path from the CDN root (e.g. `catpope/avatar/mannequin.webp`, 768 × 1152); missing = still to be delivered */
-	path?: string;
-	/** avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor in image px */
-	anchors?: Partial<Record<AvatarSlot, AposeAnchor>>;
-}
-
-/** The A-pose of a character (the reader's avatar body) – separate from the persona / story looks. */
-export interface CharacterApose {
-	looks: AposeLook[];
-}
-
-/** The standard A-pose looks. */
-export const APOSE_LOOKS: { id: string; label: LocaleText }[] = [
-	{ id: 'swim', label: { de: 'Badehose', en: 'swim pants' } },
-	{ id: 'naked', label: { de: 'nackt', en: 'naked' } }
-];
-
-/** `characters/<character>/<character>_apose-<look>.png` (convention for a new A-pose image) */
-export function aposeConventionPath(character: string, look: string): string {
-	return `${CHARACTER_IMAGE_ROOT}/${character}/${character}_apose-${look}.png`;
-}
 
 /** An appearance of a persona (with / without helmet): its own mood set. */
 export interface CharacterLook {
@@ -239,31 +205,53 @@ export interface LookTransition {
 	label?: LocaleText;
 }
 
-/** Membership of a character (or of one of its personas) in a shared group. */
-export interface Affiliation {
-	/** group id (GroupVocabulary) */
-	group: string;
-	/** e.g. "Anführerin" / "Leader" */
-	role?: LocaleText;
-	since?: StoryPoint;
-}
-
 /** A different identity or role of the same being. `regular` = the base persona every character has. */
 export interface CharacterPersona {
-	/** `regular` or `^[a-z0-9][a-z0-9-]*$` (e.g. `biker`, `human`) */
+	/** `regular` or `^[a-z0-9][a-z0-9-]*$` (e.g. `human`, `cat`, `biker`) */
 	id: string;
 	/** appended to the name: "Cat Pope · Biker" (the regular persona needs none) */
 	label?: LocaleText;
 	/** where the persona first appears (none = it has always been there) */
 	introduced?: StoryPoint;
 	description?: LocaleText;
-	/** replaces the character's affiliations for this persona (e.g. only the biker is in the gang) */
-	affiliations?: Affiliation[];
+	/** the persona's own color (VN avatar background); none = the character's */
+	color?: string;
 	looks: CharacterLook[];
 	transitions?: LookTransition[];
 }
 
-/** Character artwork that is not an expression (key visuals, turnarounds …). */
+/** Where an avatar item sits on an A-pose image: centre and size in px of that image. */
+export interface AposeAnchor {
+	x: number;
+	y: number;
+	size: number;
+}
+
+/** One A-pose look of a character (full body, neutral): an avatar body with the wear anchors of the avatar slots. */
+export interface AposeLook {
+	/** `swim` (default) | `naked` | … */
+	id: string;
+	label?: LocaleText;
+	/** exactly one A-pose look is the default */
+	default?: boolean;
+	/** CDN path from the CDN root (e.g. `characters/catpope/catpope_apose-swim.webp`, 768 × 1152); none = still wanted */
+	path?: string;
+	/** avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor in image px */
+	anchors?: Partial<Record<AvatarSlot, AposeAnchor>>;
+}
+
+/** The A-pose of a character (the reader's avatar body) – separate from the persona / story looks. */
+export interface CharacterApose {
+	looks: AposeLook[];
+}
+
+/** The standard A-pose looks. */
+export const APOSE_LOOKS: { id: string; label: LocaleText }[] = [
+	{ id: 'swim', label: { de: 'Badehose', en: 'swim pants' } },
+	{ id: 'naked', label: { de: 'nackt', en: 'naked' } }
+];
+
+/** Character artwork that is not an expression (key visuals, reference images …). */
 export interface CharacterArtwork {
 	/** `^[a-z0-9][a-z0-9-]*$`, unique per character */
 	id: string;
@@ -274,50 +262,31 @@ export interface CharacterArtwork {
 
 /** One character of the registry. Image values are CDN paths from the CDN root (`catpope/images/characters/…`). */
 export interface RegistryCharacter {
-	/** stable id, referenced by casts and by VN events (`joinScene` `name`) – `^[a-z0-9][a-z0-9-]*$` */
+	/** stable id, referenced by casts and by VN events – `^[a-z0-9][a-z0-9-]*$` */
 	id: string;
 	/** display name per locale (the VN speaker plate) */
 	name: LocaleText;
 	description?: LocaleText;
 	/** CSS color (VN avatar background, speaker accents) */
 	color: string;
-	/** cast group: `lead` | `support` | `cast` | `extra` | … */
-	group: CharacterGroup;
 	/** the toon this character is the protagonist of (optional – most characters have none) */
 	own_toon?: string;
 	/** person id of the voice (scutoons/_/people.json) */
 	voiced_by?: string;
-	/** avatar body id (MANNEQUINS) */
-	mannequin?: string;
+	/** search words */
 	tags?: string[];
 	/** legacy single image (the last fallback; placeholder e.g. `<toon>/avatar.webp`) */
 	image?: string;
-	/** default groups of every persona (a persona's own `affiliations` replace them) */
-	affiliations?: Affiliation[];
 	artwork?: CharacterArtwork[];
-	/** `regular` first */
-	personas: CharacterPersona[];
 	/** the reader's avatar body (character level – the persona doesn't matter) */
 	apose?: CharacterApose;
+	/** `regular` first */
+	personas: CharacterPersona[];
 }
 
 /** `scutoons/_/characters.json` */
 export interface CharacterRegistry {
 	characters: RegistryCharacter[];
-}
-
-/** A shared group / affiliation across toons (the biker gang, a family, a band …). */
-export interface AffiliationGroup {
-	/** `^[a-z0-9][a-z0-9-]*$` */
-	id: string;
-	name: LocaleText;
-	description?: LocaleText;
-	color?: string;
-}
-
-/** `scutoons/_/groups.json` */
-export interface GroupVocabulary {
-	groups: AffiliationGroup[];
 }
 
 /** A character in a season's cast, with the personas that appear in that season. */
@@ -335,18 +304,7 @@ export interface ToonCast {
 	seasons: Record<string, CastEntry[]>;
 }
 
-// ── Store paths ───────────────────────────────────────────────────────────────────────────────────────────────
-
-/** Registry file in the pseudo-toon `scutoons` (CREDITS_SCOPE), locale `_`. */
-export const CHARACTERS_FILE = 'characters.json';
-/** Shared affiliation groups (pseudo-toon `scutoons`, locale `_`). */
-export const GROUPS_FILE = 'groups.json';
-/** The mood vocabulary (pseudo-toon `scutoons`, locale `_`). */
-export const MOODS_FILE = 'moods.json';
-/** Wanted images (pseudo-toon `scutoons`, locale `_`). */
-export const ASSET_REQUESTS_FILE = 'asset-requests.json';
-
-/** A wanted image: one cell of a look (portrait only for now), with the convention path it should get. */
+/** A wanted image: one cell of a look (portrait) or an A-pose look, with the convention path it should get. */
 export interface AssetRequest {
 	id: string;
 	character: string;
@@ -369,6 +327,15 @@ export interface AssetRequest {
 export interface AssetRequests {
 	requests: AssetRequest[];
 }
+
+// ── Store paths ───────────────────────────────────────────────────────────────────────────────────────────────
+
+/** Registry file in the pseudo-toon `scutoons` (CREDITS_SCOPE), locale `_`. */
+export const CHARACTERS_FILE = 'characters.json';
+/** The mood vocabulary (pseudo-toon `scutoons`, locale `_`). */
+export const MOODS_FILE = 'moods.json';
+/** Wanted images (pseudo-toon `scutoons`, locale `_`). */
+export const ASSET_REQUESTS_FILE = 'asset-requests.json';
 /** Per-toon cast file, locale `_`. */
 export const CAST_FILE = 'cast.json';
 /** The old per-locale file (`<toon>/<locale>/characters.json`, static fallback). */
@@ -401,120 +368,14 @@ export function conventionTransitionPath(character: string, persona: string, fro
 	return `${CHARACTER_IMAGE_ROOT}/${name}/${name}_transition-${from}-to-${to}.png`;
 }
 
+/** `characters/<character>/<character>_apose-<look>.webp` (convention for a new A-pose image; .png works too) */
+export function aposeConventionPath(character: string, look: string, extension = 'webp'): string {
+	return `${CHARACTER_IMAGE_ROOT}/${character}/${character}_apose-${look}.${extension}`;
+}
+
 export const emptyCharacterRegistry = (): CharacterRegistry => ({ characters: [] });
 export const emptyCast = (): ToonCast => ({ seasons: {} });
-export const emptyGroups = (): GroupVocabulary => ({ groups: [] });
 export const emptyAssetRequests = (): AssetRequests => ({ requests: [] });
-
-/** The cell an asset request is about: `character/persona/look/mood/view`. */
-export const cellKey = (r: Pick<AssetRequest, 'character' | 'persona' | 'look' | 'mood' | 'view'>) => `${r.character}/${r.persona}/${r.look}/${r.mood}/${r.view}`;
-
-/** A missing image of a look: the standard moods without a portrait (only `portrait` is authored). */
-export interface WantedImage {
-	character: string;
-	persona: string;
-	look: string;
-	mood: string;
-	view: string;
-	/** the convention path (from the CDN root) */
-	path: string;
-	/** the open request for this cell, if any */
-	request?: AssetRequest;
-}
-
-/**
- * Every wanted image of the registry (or of one character): per persona and look, the standard moods of the vocabulary
- * (`standard: true`) plus every mood with an open request that have no portrait; ordered character → persona → look →
- * vocabulary order. `exists(path)` (optional) drops cells whose file is already at the convention path.
- */
-export function wantedImages(
-	registry: CharacterRegistry | null | undefined,
-	options: { moods?: MoodVocabulary | null; requests?: AssetRequests | null; character?: string; exists?: (path: string) => boolean } = {}
-): WantedImage[] {
-	const vocabulary = sortedMoods(options.moods ?? defaultMoodVocabulary());
-	const standard = vocabulary.filter((m) => m.standard).map((m) => m.id);
-	const order = vocabulary.map((m) => m.id);
-	const open = (options.requests?.requests ?? []).filter((r) => r?.status === 'open');
-	const out: WantedImage[] = [];
-	for (const c of registry?.characters ?? []) {
-		if (!c?.id || (options.character && c.id !== options.character)) continue;
-		// A-pose looks without an image (character level; persona `regular`, mood `neutral`, view `apose`)
-		for (const look of c.apose?.looks ?? []) {
-			if (!look?.id || look.path?.trim()) continue;
-			const path = aposeConventionPath(c.id, look.id);
-			if (options.exists?.(path)) continue;
-			const request = open.find((r) => r.character === c.id && r.view === APOSE_VIEW && r.look === look.id);
-			out.push({ character: c.id, persona: REGULAR_PERSONA, look: look.id, mood: DEFAULT_MOOD, view: APOSE_VIEW, path, ...(request ? { request } : {}) });
-		}
-		for (const personaId of personaIds(c)) {
-			const persona = findPersona(c, personaId)!;
-			for (const look of persona.looks ?? []) {
-				if (!look?.id) continue;
-				const requested = open.filter((r) => r.character === c.id && r.persona === personaId && r.look === look.id);
-				const moods = [...new Set([...standard, ...requested.map((r) => r.mood)])].sort((a, b) => {
-					const ia = order.indexOf(a);
-					const ib = order.indexOf(b);
-					return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib);
-				});
-				for (const mood of moods) {
-					if (lookImage(look, mood, AUTHORED_VIEW)) continue;
-					const path = conventionImagePath(c.id, AUTHORED_VIEW, mood, look.id, personaId);
-					if (options.exists?.(path)) continue;
-					const request = requested.find((r) => r.mood === mood && r.view === AUTHORED_VIEW);
-					out.push({ character: c.id, persona: personaId, look: look.id, mood, view: AUTHORED_VIEW, path, ...(request ? { request } : {}) });
-				}
-
-			}
-		}
-	}
-	return out;
-}
-
-/** The file names per line, grouped by character / persona / look (a brief for the image supplier). */
-export function wantedImagesText(wanted: WantedImage[]): string {
-	const lines: string[] = [];
-	let group = '';
-	for (const w of wanted) {
-		const head = `${w.character} · ${w.persona} · ${w.look}`;
-		if (head !== group) {
-			if (lines.length) lines.push('');
-			lines.push(head);
-			group = head;
-		}
-		lines.push(`  ${w.path.split('/').pop()}  (${w.mood}${w.request?.note ? ` – ${w.request.note}` : ''})`);
-	}
-	return lines.join('\n');
-}
-
-/** CSV: character,persona,look,mood,view,file,path,note */
-export function wantedImagesCsv(wanted: WantedImage[]): string {
-	const q = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-	const rows = wanted.map((w) => [w.character, w.persona, w.look, w.mood, w.view, w.path.split('/').pop() ?? '', w.path, w.request?.note ?? ''].map(q).join(','));
-	return ['character,persona,look,mood,view,file,path,note', ...rows].join('\n');
-}
-
-/**
- * Marks open requests done whose cell now has an image path (or whose file exists at the convention path, when
- * `exists` says so). Returns the number of requests closed.
- */
-export function closeFulfilledRequests(requests: AssetRequests, registry: CharacterRegistry | null | undefined, now: string, exists?: (path: string) => boolean): number {
-	const index = characterIndex(registry);
-	let closed = 0;
-	for (const r of requests.requests ?? []) {
-		if (r?.status !== 'open') continue;
-		const c = index.get(r.character);
-		const done =
-			r.view === APOSE_VIEW
-				? !!c?.apose?.looks?.find((l) => l?.id === r.look)?.path?.trim()
-				: !!lookImage(findLook(findPersona(c, r.persona), r.look), r.mood, r.view);
-		if (done || exists?.(r.path)) {
-			r.status = 'done';
-			r.done_at = now;
-			closed++;
-		}
-	}
-	return closed;
-}
 
 export function newLook(id: string = DEFAULT_LOOK, label?: LocaleText, isDefault = true): CharacterLook {
 	return { id, ...(label ? { label } : {}), ...(isDefault ? { default: true } : {}), images: {} };
@@ -523,7 +384,7 @@ export function newPersona(id: string, label?: LocaleText): CharacterPersona {
 	return { id, ...(label ? { label } : {}), looks: [newLook()] };
 }
 export function newCharacter(id: string, name: LocaleText, extra: Partial<RegistryCharacter> = {}): RegistryCharacter {
-	return { id, name, color: 'black', group: 'cast', personas: [newPersona(REGULAR_PERSONA)], ...extra };
+	return { id, name, color: 'black', personas: [newPersona(REGULAR_PERSONA)], ...extra };
 }
 
 // ── Lookup ────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -572,9 +433,19 @@ export function characterName(character: RegistryCharacter | null | undefined, l
 	return label ? `${name} · ${label}` : name;
 }
 
-/** The affiliations of a persona: its own (they replace the character's) or the character's. */
-export function personaAffiliations(character: RegistryCharacter, persona?: string): Affiliation[] {
-	return findPersona(character, persona)?.affiliations ?? character.affiliations ?? [];
+/** The explicit path of one mood/view of a look (no fallback), '' when not set. */
+export function lookImage(look: Pick<CharacterLook, 'images'> | null | undefined, mood: string, view: string): string {
+	const value = (look?.images?.[mood] as Record<string, unknown> | undefined)?.[view];
+	return typeof value === 'string' ? value.trim() : '';
+}
+
+export function lookHasImages(look: Pick<CharacterLook, 'images'> | null | undefined): boolean {
+	return Object.values(look?.images ?? {}).some((slots) => Object.values(slots ?? {}).some((p) => typeof p === 'string' && p.trim()));
+}
+
+/** Moods a look has an authored (portrait) image for. */
+export function lookPortraitMoods(look: Pick<CharacterLook, 'images'> | null | undefined): string[] {
+	return Object.keys(look?.images ?? {}).filter((m) => !!lookImage(look, m, AUTHORED_VIEW));
 }
 
 /**
@@ -587,21 +458,6 @@ export function lookMoods(look: Pick<CharacterLook, 'images'> | null | undefined
 	const known = order.filter((m) => own.includes(m) || m === DEFAULT_MOOD || all);
 	const unknown = own.filter((m) => !order.includes(m)).sort();
 	return [DEFAULT_MOOD, ...[...known, ...unknown].filter((m) => m !== DEFAULT_MOOD)];
-}
-
-/** Moods a look has an authored (portrait) image for. */
-export function lookPortraitMoods(look: Pick<CharacterLook, 'images'> | null | undefined): string[] {
-	return Object.keys(look?.images ?? {}).filter((m) => !!lookImage(look, m, AUTHORED_VIEW));
-}
-
-/** The explicit path of one mood/view of a look (no fallback), '' when not set. */
-export function lookImage(look: Pick<CharacterLook, 'images'> | null | undefined, mood: string, view: string): string {
-	const value = (look?.images?.[mood] as Record<string, unknown> | undefined)?.[view];
-	return typeof value === 'string' ? value.trim() : '';
-}
-
-export function lookHasImages(look: Pick<CharacterLook, 'images'> | null | undefined): boolean {
-	return Object.values(look?.images ?? {}).some((slots) => Object.values(slots ?? {}).some((p) => typeof p === 'string' && p.trim()));
 }
 
 // ── The fallback rule ─────────────────────────────────────────────────────────────────────────────────────────
@@ -618,6 +474,7 @@ export function lookHasImages(look: Pick<CharacterLook, 'images'> | null | undef
  * Within every step the requested view comes first, then the same mood's portrait (only `portrait` is authored: an
  * avatar or full view without its own file shows the portrait before any mood/look/persona step).
  * `lookSet(persona, look)` returns a look's mood → view → path map; `defaultLook(persona)` its default look id.
+ * The A-pose view never falls back (see `characterImage`).
  */
 export function resolveExpression(
 	lookSet: (persona: string, look: string) => Record<string, CharacterImage | undefined> | undefined,
@@ -626,13 +483,12 @@ export function resolveExpression(
 	view: string,
 	legacyImage?: string
 ): string {
+	if (view === APOSE_VIEW) return '';
 	const persona = ref.persona || REGULAR_PERSONA;
 	const mood = ref.mood || DEFAULT_MOOD;
 	const personaDefault = defaultLook(persona);
 	const look = ref.look || personaDefault;
 	const regularDefault = defaultLook(REGULAR_PERSONA);
-	// the A-pose never falls back (a look without one is no avatar body)
-	if (view === APOSE_VIEW) return '';
 	const views = view === AUTHORED_VIEW ? [view] : [view, AUTHORED_VIEW];
 	const steps: [string, string, string][] = [
 		[persona, look, mood],
@@ -658,7 +514,7 @@ export interface ExpressionRef {
 	mood?: string;
 }
 
-/** The image of a registry character (`resolveExpression`). */
+/** The image of a registry character (`resolveExpression`; the A-pose view: `ref.look` = an A-pose look, no fallback). */
 export function characterImage(character: RegistryCharacter | null | undefined, ref: ExpressionRef, view: string): string {
 	if (!character) return '';
 	if (view === APOSE_VIEW) {
@@ -699,6 +555,12 @@ export function legacyCharacterLabel(character: Character | null | undefined, pe
 	return (persona && character.personas?.[persona]?.label) || character.label;
 }
 
+/** The color of a resolved `Character` for a persona (its own, else the character's). */
+export function legacyCharacterColor(character: Character | null | undefined, persona?: string): string {
+	if (!character) return '';
+	return (persona && character.personas?.[persona]?.color) || character.color;
+}
+
 /** The transition image of a resolved `Character` when a persona's look changes from `from` to `to` ('' = none). */
 export function legacyTransition(character: Character | null | undefined, persona: string | undefined, from: string | undefined, to: string | undefined): string {
 	const p = character?.personas?.[persona || REGULAR_PERSONA];
@@ -708,6 +570,33 @@ export function legacyTransition(character: Character | null | undefined, person
 	if (fromLook === toLook) return '';
 	return p.transitions?.find((t) => t.from === fromLook && t.to === toLook)?.image ?? '';
 }
+
+// ── Scene refs ────────────────────────────────────────────────────────────────────────────────────────────────
+
+/** A VN character reference as authored: the current form `{ character, persona, look?, mood?, variant? }` or the old one `{ name, position: { variant }, mood? }`. */
+export interface SceneRefInput {
+	character?: string;
+	name?: string;
+	persona?: string;
+	look?: string;
+	mood?: string;
+	variant?: string;
+	position?: { variant?: string };
+}
+
+/**
+ * The current form of a VN character ref: `character` (legacy ids mapped to their persona), `persona`, `look?`, `mood?`,
+ * `variant?` (the view). `null` when it names no character.
+ */
+export function normalizeSceneRef(ref: SceneRefInput | null | undefined): { character: string; persona: string; look?: string; mood?: string; variant?: string } | null {
+	const id = ref?.character ?? ref?.name;
+	if (!id) return null;
+	const { character, persona } = resolveCharacterId(id, ref?.persona);
+	const variant = ref?.variant ?? ref?.position?.variant;
+	return { character, persona, ...(ref?.look ? { look: ref.look } : {}), ...(ref?.mood ? { mood: ref.mood } : {}), ...(variant ? { variant } : {}) };
+}
+
+// ── Casts ─────────────────────────────────────────────────────────────────────────────────────────────────────
 
 /** For the VN validation (ValidateContext.expressions): character → persona → default look + look → portrait moods. */
 export function expressionIndex(registry: CharacterRegistry | null | undefined): Record<string, Record<string, { defaultLook: string; looks: Record<string, string[]> }>> {
@@ -724,13 +613,6 @@ export function expressionIndex(registry: CharacterRegistry | null | undefined):
 		}
 	}
 	return out;
-}
-
-// ── Casts ─────────────────────────────────────────────────────────────────────────────────────────────────────
-
-/** For the VN validation (ValidateContext.cast): character → cast persona ids of one season (or of every season). */
-export function castIndex(cast: ToonCast | null | undefined, season?: number): Record<string, string[]> {
-	return Object.fromEntries(castEntries(cast, season).map((e) => [e.character, e.personas]));
 }
 
 /** The season numbers of a cast, ascending. */
@@ -755,6 +637,11 @@ export function castEntries(cast: ToonCast | null | undefined, season?: number):
 		}
 	}
 	return out;
+}
+
+/** For the VN validation (ValidateContext.cast): character → cast persona ids of one season (or of every season). */
+export function castIndex(cast: ToonCast | null | undefined, season?: number): Record<string, string[]> {
+	return Object.fromEntries(castEntries(cast, season).map((e) => [e.character, e.personas]));
 }
 
 /** Toons whose cast (any season) lists the character – "appears in". */
@@ -798,9 +685,9 @@ function legacyLook(look: CharacterLook | undefined, toon: string): Record<strin
 
 /**
  * The legacy `characters.json` of a toon in one locale (`Character[]`, cast order): `name` = registry id, `label` =
- * name, `collection` = group, `images` = the regular persona's default look (what older readers show), `personas` =
- * every persona with its label ("Name · Label"), looks, default look and transitions; image paths relative to the toon
- * folder (see `toonRelativePath`). Cast entries that are not in the registry are skipped.
+ * name, `images` = the regular persona's default look (what older readers show), `personas` =
+ * every persona with its label ("Name · Label"), color, looks, default look and transitions; image paths relative to
+ * the toon folder (see `toonRelativePath`). Cast entries that are not in the registry are skipped.
  */
 export function resolveCast(
 	registry: CharacterRegistry | null | undefined,
@@ -822,6 +709,7 @@ export function resolveCast(
 			const p = findPersona(c, id)!;
 			personas[id] = {
 				label: characterName(c, locale, id, fallbacks),
+				...(p.color ? { color: p.color } : {}),
 				defaultLook: defaultLookId(p),
 				looks: Object.fromEntries((p.looks ?? []).filter((l) => l?.id).map((l) => [l.id, legacyLook(l, toon)])),
 				...(p.transitions?.length ? { transitions: p.transitions.map((t) => ({ from: t.from, to: t.to, image: toonRelativePath(t.image, toon) })) } : {})
@@ -834,14 +722,13 @@ export function resolveCast(
 			color: c.color ?? '',
 			images: legacyLook(findLook(regular, defaultLookId(regular)), toon),
 			...(description ? { description } : {}),
-			...(c.group ? { collection: c.group } : {}),
 			personas
 		});
 	}
 	return out;
 }
 
-// ── Editing helpers ───────────────────────────────────────────────────────────────────────────────────────────
+// ── Editing / listing helpers ─────────────────────────────────────────────────────────────────────────────────
 
 /** Sets (or clears, with '') one cell of a look; empty moods are removed except `neutral`. */
 export function setLookImage(look: CharacterLook, mood: string, view: string, path: string) {
@@ -850,6 +737,29 @@ export function setLookImage(look: CharacterLook, mood: string, view: string, pa
 	if (path.trim()) slots[view] = path.trim();
 	else delete slots[view];
 	if (!Object.keys(slots).length && mood !== DEFAULT_MOOD) delete look.images[mood];
+}
+
+/** Characters matching a query (id, names in any language, persona ids + labels, tags), best first. */
+export function searchCharacters(characters: RegistryCharacter[], query: string, limit = 50): RegistryCharacter[] {
+	const q = query.trim().toLowerCase();
+	const all = characters.filter((c) => !!c?.id);
+	if (!q) return all.slice(0, limit);
+	const score = (c: RegistryCharacter) => {
+		const names = [c.id, ...Object.values(c.name ?? {}), ...(c.personas ?? []).flatMap((p) => [p?.id, ...Object.values(p?.label ?? {})]), ...(c.tags ?? [])]
+			.filter((n): n is string => typeof n === 'string')
+			.map((n) => n.toLowerCase());
+		if (names.some((n) => n === q)) return 0;
+		if (names.some((n) => n.startsWith(q))) return 1;
+		if (names.some((n) => n.split(/[\s-]+/).some((w) => w.startsWith(q)))) return 2;
+		if (names.some((n) => n.includes(q))) return 3;
+		return 9;
+	};
+	return all
+		.map((c) => [c, score(c)] as const)
+		.filter(([, s]) => s < 9)
+		.sort((a, b) => a[1] - b[1] || a[0].id.localeCompare(b[0].id))
+		.slice(0, limit)
+		.map(([c]) => c);
 }
 
 /** An avatar body for the reader: a character's A-pose look with an image. */
@@ -875,54 +785,121 @@ export function avatarBodies(registry: CharacterRegistry | null | undefined, loc
 		for (const look of looks) {
 			if (!look?.id || !look.path?.trim()) continue;
 			const lookName = pickText(look.label, locale, ['en', 'de']) || look.id;
-			out.push({
-				character: c.id,
-				look: look.id,
-				label: `${characterName(c, locale)} (${lookName})`,
-				path: look.path.trim(),
-				anchors: look.anchors ?? {},
-				default: look.id === defaultId
-			});
+			out.push({ character: c.id, look: look.id, label: `${characterName(c, locale)} (${lookName})`, path: look.path.trim(), anchors: look.anchors ?? {}, default: look.id === defaultId });
 		}
 	}
 	return out;
 }
 
-/** Every character (and persona) with an affiliation to a group, registry order. */
-export function groupMembers(groupId: string, registry: CharacterRegistry | null | undefined) {
-	const out: { character: RegistryCharacter; persona: string; affiliation: Affiliation }[] = [];
+// ── Wanted images (asset requests) ────────────────────────────────────────────────────────────────────────────
+
+/** The cell an asset request is about: `character/persona/look/mood/view`. */
+export const cellKey = (r: Pick<AssetRequest, 'character' | 'persona' | 'look' | 'mood' | 'view'>) => `${r.character}/${r.persona}/${r.look}/${r.mood}/${r.view}`;
+
+/** A missing image: a standard mood without a portrait, an A-pose look without an image, or an open request. */
+export interface WantedImage {
+	character: string;
+	persona: string;
+	look: string;
+	mood: string;
+	view: string;
+	/** the convention path (from the CDN root) */
+	path: string;
+	/** the open request for this cell, if any */
+	request?: AssetRequest;
+}
+
+/**
+ * Every wanted image of the registry (or of one character): A-pose looks without an image, then per persona and look
+ * the standard moods of the vocabulary (`standard: true`) plus every mood with an open request that have no portrait;
+ * ordered character → persona → look → vocabulary order. `exists(path)` (optional) drops cells whose file is already at
+ * the convention path.
+ */
+export function wantedImages(
+	registry: CharacterRegistry | null | undefined,
+	options: { moods?: MoodVocabulary | null; requests?: AssetRequests | null; character?: string; exists?: (path: string) => boolean } = {}
+): WantedImage[] {
+	const vocabulary = sortedMoods(options.moods ?? defaultMoodVocabulary());
+	const standard = vocabulary.filter((m) => m.standard).map((m) => m.id);
+	const order = vocabulary.map((m) => m.id);
+	const open = (options.requests?.requests ?? []).filter((r) => r?.status === 'open');
+	const out: WantedImage[] = [];
 	for (const c of registry?.characters ?? []) {
-		if (!c?.id) continue;
-		for (const persona of personaIds(c)) {
-			const affiliation = personaAffiliations(c, persona).find((a) => a?.group === groupId);
-			// the regular persona stands for the character; other personas only when they have their own affiliations
-			if (affiliation && (persona === REGULAR_PERSONA || findPersona(c, persona)?.affiliations)) out.push({ character: c, persona, affiliation });
+		if (!c?.id || (options.character && c.id !== options.character)) continue;
+		for (const look of c.apose?.looks ?? []) {
+			if (!look?.id || look.path?.trim()) continue;
+			const request = open.find((r) => r.character === c.id && r.view === APOSE_VIEW && r.look === look.id);
+			const path = request?.path ?? aposeConventionPath(c.id, look.id);
+			if (options.exists?.(path)) continue;
+			out.push({ character: c.id, persona: REGULAR_PERSONA, look: look.id, mood: DEFAULT_MOOD, view: APOSE_VIEW, path, ...(request ? { request } : {}) });
+		}
+		for (const personaId of personaIds(c)) {
+			const persona = findPersona(c, personaId)!;
+			for (const look of persona.looks ?? []) {
+				if (!look?.id) continue;
+				const requested = open.filter((r) => r.character === c.id && r.persona === personaId && r.look === look.id && r.view === AUTHORED_VIEW);
+				const moods = [...new Set([...standard, ...requested.map((r) => r.mood)])].sort((a, b) => {
+					const ia = order.indexOf(a);
+					const ib = order.indexOf(b);
+					return (ia < 0 ? Infinity : ia) - (ib < 0 ? Infinity : ib);
+				});
+				for (const mood of moods) {
+					if (lookImage(look, mood, AUTHORED_VIEW)) continue;
+					const path = conventionImagePath(c.id, AUTHORED_VIEW, mood, look.id, personaId);
+					if (options.exists?.(path)) continue;
+					const request = requested.find((r) => r.mood === mood);
+					out.push({ character: c.id, persona: personaId, look: look.id, mood, view: AUTHORED_VIEW, path, ...(request ? { request } : {}) });
+				}
+			}
 		}
 	}
 	return out;
 }
 
-/** Characters matching a query (id, names in any language, persona labels, tags), best first. */
-export function searchCharacters(characters: RegistryCharacter[], query: string, limit = 50): RegistryCharacter[] {
-	const q = query.trim().toLowerCase();
-	const all = characters.filter((c) => !!c?.id);
-	if (!q) return all.slice(0, limit);
-	const score = (c: RegistryCharacter) => {
-		const names = [c.id, ...Object.values(c.name ?? {}), ...(c.personas ?? []).flatMap((p) => [p?.id, ...Object.values(p?.label ?? {})]), ...(c.tags ?? [])]
-			.filter((n): n is string => typeof n === 'string')
-			.map((n) => n.toLowerCase());
-		if (names.some((n) => n === q)) return 0;
-		if (names.some((n) => n.startsWith(q))) return 1;
-		if (names.some((n) => n.split(/[\s-]+/).some((w) => w.startsWith(q)))) return 2;
-		if (names.some((n) => n.includes(q))) return 3;
-		return 9;
-	};
-	return all
-		.map((c) => [c, score(c)] as const)
-		.filter(([, s]) => s < 9)
-		.sort((a, b) => a[1] - b[1] || a[0].id.localeCompare(b[0].id))
-		.slice(0, limit)
-		.map(([c]) => c);
+/** The file names per line, grouped by character / persona / look (a brief for the image supplier). */
+export function wantedImagesText(wanted: WantedImage[]): string {
+	const lines: string[] = [];
+	let group = '';
+	for (const w of wanted) {
+		const head = w.view === APOSE_VIEW ? `${w.character} · A-pose` : `${w.character} · ${w.persona} · ${w.look}`;
+		if (head !== group) {
+			if (lines.length) lines.push('');
+			lines.push(head);
+			group = head;
+		}
+		lines.push(`  ${w.path.split('/').pop()}  (${w.view === APOSE_VIEW ? w.look : w.mood}${w.request?.note ? ` – ${w.request.note}` : ''})`);
+	}
+	return lines.join('\n');
+}
+
+/** CSV: character,persona,look,mood,view,file,path,note */
+export function wantedImagesCsv(wanted: WantedImage[]): string {
+	const q = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+	const rows = wanted.map((w) => [w.character, w.persona, w.look, w.mood, w.view, w.path.split('/').pop() ?? '', w.path, w.request?.note ?? ''].map(q).join(','));
+	return ['character,persona,look,mood,view,file,path,note', ...rows].join('\n');
+}
+
+/**
+ * Marks open requests done whose cell now has an image path (or whose file exists at the convention path, when
+ * `exists` says so). Returns the number of requests closed.
+ */
+export function closeFulfilledRequests(requests: AssetRequests, registry: CharacterRegistry | null | undefined, now: string, exists?: (path: string) => boolean): number {
+	const index = characterIndex(registry);
+	let closed = 0;
+	for (const r of requests.requests ?? []) {
+		if (r?.status !== 'open') continue;
+		const c = index.get(r.character);
+		const done =
+			r.view === APOSE_VIEW
+				? !!c?.apose?.looks?.find((l) => l?.id === r.look)?.path?.trim()
+				: !!lookImage(findLook(findPersona(c, r.persona), r.look), r.mood, r.view);
+		if (done || exists?.(r.path)) {
+			r.status = 'done';
+			r.done_at = now;
+			closed++;
+		}
+	}
+	return closed;
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -948,32 +925,15 @@ function checkStoryPoint(add: Add, value: unknown, path: Path, what: string, too
 	}
 }
 
-function checkAffiliations(add: Add, value: unknown, path: Path, who: string, languages: string[], ctx: CharactersContext) {
-	if (value === undefined) return;
-	if (!Array.isArray(value)) return add('error', path, `${who}: affiliations must be a list`);
-	const groups = new Set<string>();
-	value.forEach((a: any, j: number) => {
-		const ap: Path = [...path, j];
-		if (!isObj(a) || !isStr(a.group)) return add('error', ap, `${who}: affiliation ${j + 1} must be { group, role?, since? }`);
-		if (ctx.groups && !ctx.groups.includes(a.group)) add('error', [...ap, 'group'], `${who}: unknown group "${a.group}"`);
-		if (groups.has(a.group)) add('warning', [...ap, 'group'], `${who}: in group "${a.group}" twice`);
-		groups.add(a.group);
-		checkText(add, a.role, [...ap, 'role'], `${who}: ${a.group} role`, languages);
-		if (a.since !== undefined) checkStoryPoint(add, a.since, [...ap, 'since'], `${who}: ${a.group} since`, ctx.toons);
-	});
-}
-
 export interface CharactersContext {
-	/** the mood vocabulary (unknown moods are info; default: the seed vocabulary) */
+	/** the mood vocabulary (unknown moods are warnings; default: the seed vocabulary) */
 	moods?: MoodVocabulary | null;
 	/** languages the texts must exist in: per character (its own toon / the toons whose cast lists it) or for all */
 	languages: string[] | ((character: RegistryCharacter) => string[]);
 	/** known person ids (voiced_by) */
 	people?: string[];
-	/** known toon ids (own_toon, introduced, since) */
+	/** known toon ids (own_toon, introduced) */
 	toons?: string[];
-	/** known group ids (affiliations) */
-	groups?: string[];
 	file?: string;
 }
 
@@ -994,19 +954,17 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 		if (!isStr(c.id) || !CHARACTER_ID.test(c.id)) add('error', [...path, 'id'], `${who}: id must match ${CHARACTER_ID.source}`);
 		else if (seen.has(c.id)) add('error', [...path, 'id'], `${who}: id is used twice`);
 		else seen.add(c.id);
+		if (isStr(c.id) && LEGACY_CHARACTER_IDS[c.id]) add('warning', [...path, 'id'], `${who}: this id is a legacy alias of ${LEGACY_CHARACTER_IDS[c.id].character} · ${LEGACY_CHARACTER_IDS[c.id].persona} – old scene refs would resolve to this character`);
 		const languages = typeof ctx.languages === 'function' ? ctx.languages(c as RegistryCharacter) : ctx.languages;
 
 		if (!isObj(c.name) || !Object.values(c.name).some((t) => isStr(t) && t.trim())) add('error', [...path, 'name'], `${who}: name is empty`);
 		else checkText(add, c.name, [...path, 'name'], `${who}: name`, languages);
 		checkText(add, c.description, [...path, 'description'], `${who}: description`, languages);
 		if (!isStr(c.color) || !c.color.trim()) add('warning', [...path, 'color'], `${who}: no color`);
-		if (!isStr(c.group) || !c.group.trim()) add('warning', [...path, 'group'], `${who}: no cast group`);
 		if (c.own_toon !== undefined && (!isStr(c.own_toon) || (ctx.toons && !ctx.toons.includes(c.own_toon)))) add('warning', [...path, 'own_toon'], `${who}: unknown own toon "${c.own_toon}"`);
 		if (c.voiced_by !== undefined && (!isStr(c.voiced_by) || (ctx.people && !ctx.people.includes(c.voiced_by)))) add('error', [...path, 'voiced_by'], `${who}: voiced by an unknown person "${c.voiced_by}"`);
-		if (c.mannequin !== undefined && !MANNEQUINS.some((b) => b.id === c.mannequin)) add('warning', [...path, 'mannequin'], `${who}: unknown mannequin "${c.mannequin}"`);
 		if (c.tags !== undefined && !(Array.isArray(c.tags) && c.tags.every(isStr))) add('error', [...path, 'tags'], `${who}: tags must be a list of texts`);
 		if (c.image !== undefined && c.image !== '' && (!isStr(c.image) || !IMAGE_PATH.test(c.image))) add('warning', [...path, 'image'], `${who}: image must be a CDN image path`);
-		checkAffiliations(add, c.affiliations, [...path, 'affiliations'], who, languages, ctx);
 		if (c.artwork !== undefined) {
 			if (!Array.isArray(c.artwork)) add('error', [...path, 'artwork'], `${who}: artwork must be a list`);
 			else {
@@ -1069,7 +1027,7 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 			else checkText(add, p.label, [...pp, 'label'], `${pwho}: label`, languages);
 			checkText(add, p.description, [...pp, 'description'], `${pwho}: description`, languages);
 			if (p.introduced !== undefined) checkStoryPoint(add, p.introduced, [...pp, 'introduced'], `${pwho}: introduced`, ctx.toons);
-			checkAffiliations(add, p.affiliations, [...pp, 'affiliations'], pwho, languages, ctx);
+			if (p.color !== undefined && !isStr(p.color)) add('error', [...pp, 'color'], `${pwho}: color must be a text`);
 
 			if (!Array.isArray(p.looks) || !p.looks.length) {
 				add('error', [...pp, 'looks'], `${pwho}: needs at least one look`);
@@ -1126,30 +1084,6 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 	return problems;
 }
 
-/** scutoons/_/groups.json (`languages`: every language any toon uses, missing names are warnings) */
-export function validateGroups(vocabulary: unknown, languages: string[] = [], file = GROUPS_FILE): Problem[] {
-	const problems: Problem[] = [];
-	const add: Add = (level, path, message) => problems.push({ level, file, locale: null, path, message });
-	if (!isObj(vocabulary) || !Array.isArray(vocabulary.groups)) {
-		add('error', [], 'groups file must be { groups: [...] }');
-		return problems;
-	}
-	const seen = new Set<string>();
-	vocabulary.groups.forEach((g: any, i: number) => {
-		const path: Path = ['groups', i];
-		if (!isObj(g)) return add('error', path, `group ${i + 1} must be an object`);
-		const who = isStr(g.id) && g.id ? g.id : `group ${i + 1}`;
-		if (!isStr(g.id) || !CHARACTER_ID.test(g.id)) add('error', [...path, 'id'], `${who}: id must match ${CHARACTER_ID.source}`);
-		else if (seen.has(g.id)) add('error', [...path, 'id'], `${who}: id is used twice`);
-		else seen.add(g.id);
-		if (!isObj(g.name) || !Object.values(g.name).some((t) => isStr(t) && t.trim())) add('error', [...path, 'name'], `${who}: name is empty`);
-		else checkText(add, g.name, [...path, 'name'], `${who}: name`, languages);
-		checkText(add, g.description, [...path, 'description'], `${who}: description`, languages);
-		if (g.color !== undefined && !isStr(g.color)) add('error', [...path, 'color'], `${who}: color must be a text`);
-	});
-	return problems;
-}
-
 /** scutoons/_/moods.json */
 export function validateMoods(vocabulary: unknown, languages: string[] = [], file = MOODS_FILE): Problem[] {
 	const problems: Problem[] = [];
@@ -1190,8 +1124,8 @@ export function validateAssetRequests(requests: unknown, registry: CharacterRegi
 		if (r.status !== 'open' && r.status !== 'done') add('error', [...path, 'status'], `request ${r.id}: status must be open or done`);
 		const c = index.get(r.character);
 		if (registry && !c) add('warning', [...path, 'character'], `request ${r.id}: unknown character "${r.character}"`);
-		else if (c && !findPersona(c, r.persona)) add('warning', [...path, 'persona'], `request ${r.id}: ${r.character} has no persona "${r.persona}"`);
-		if (r.status === 'open') add('info', path, `wanted: ${r.character} · ${r.persona} · ${r.look} · ${r.mood} (${r.view})${r.note ? ` – ${r.note}` : ''}`);
+		else if (c && r.view !== APOSE_VIEW && !findPersona(c, r.persona)) add('warning', [...path, 'persona'], `request ${r.id}: ${r.character} has no persona "${r.persona}"`);
+		if (r.status === 'open') add('info', path, `wanted: ${r.character} · ${r.view === APOSE_VIEW ? `A-pose ${r.look}` : `${r.persona} · ${r.look} · ${r.mood} (${r.view})`}${r.note ? ` – ${r.note}` : ''}`);
 	});
 	return problems;
 }

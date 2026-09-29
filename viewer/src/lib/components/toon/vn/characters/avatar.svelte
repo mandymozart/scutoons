@@ -1,7 +1,7 @@
 <script lang="ts">
-	import type { VNCharacterRef, Character } from '@scutoons/content';
+	import type { SceneCharacter as VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { DEFAULT_MOOD, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
+	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
 
 	const Z_INDEX_MESSAGE_BOX = 100;
 	const Z_INDEX_ACTIVE_CHARACTER = 101;
@@ -47,7 +47,7 @@
 	class:active={isActive}
 	style:left="{stackPosition * 0.5 + 1.5}rem"
 	style:z-index={isActive ? Z_INDEX_ACTIVE_CHARACTER : Z_INDEX_INACTIVE_BASE - stackPosition}
-	style:background-color={character.color}
+	style:background-color={legacyCharacterColor(character, charRef.persona)}
 >
 	<img src={imageUrl} alt={legacyCharacterLabel(character, charRef.persona)} />
 </div>

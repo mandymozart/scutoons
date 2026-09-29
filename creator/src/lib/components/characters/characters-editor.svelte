@@ -5,7 +5,6 @@
 	import { replaceState } from '$app/navigation';
 	import {
 		AUTHORED_VIEW,
-		CHARACTER_GROUPS,
 		CREDITS_SCOPE,
 		DEFAULT_MOOD,
 		REGULAR_PERSONA,
@@ -13,7 +12,6 @@
 		characterImage,
 		characterName,
 		lookImage,
-		personaAffiliations,
 		personaIds,
 		pickText,
 		findPersona,
@@ -21,7 +19,6 @@
 		validateAssetRequests,
 		validateCast,
 		validateCharacters,
-		validateGroups,
 		validateMoods,
 		type AssetRequests,
 		type Problem,
@@ -36,8 +33,6 @@
 		castOf,
 		characterLanguages,
 		edit,
-		groupsDoc,
-		groupsOf,
 		imageExists,
 		loadToons,
 		moodsDoc,
@@ -55,7 +50,6 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import MetaPage from '../meta-page.svelte';
 	import CharacterDetail from './character-detail.svelte';
-	import GroupsPanel from './groups-panel.svelte';
 	import MoodsPanel from './moods-panel.svelte';
 	import WantedImages from './wanted-images.svelte';
 
@@ -65,11 +59,10 @@
 	 * requests). Casts of every toon are read for "appears in", the filters and the validation; people for "voiced by".
 	 */
 	const registry = registryDoc();
-	const groups = groupsDoc();
 	const moods = moodsDoc();
 	const requests = requestsDoc();
 	const people = peopleDoc();
-	const docs = [registry, groups, moods, requests];
+	const docs = [registry, moods, requests];
 
 	let toons = $state<ToonInfo[]>([]);
 	let castDocs = $state<Record<string, ContentDoc>>({});
@@ -79,18 +72,16 @@
 	let selected = $state<string>(params.get('id') ?? '');
 	let persona = $state<string>(params.get('persona') ?? REGULAR_PERSONA);
 	let look = $state<string>(params.get('look') ?? '');
-	let tab = $state<string>(['groups', 'moods', 'wanted'].includes(params.get('tab') ?? '') ? (params.get('tab') as string) : 'characters');
+	let tab = $state<string>(['moods', 'wanted'].includes(params.get('tab') ?? '') ? (params.get('tab') as string) : 'characters');
 	let query = $state('');
 	let toonFilter = $state<string>(params.get('toon') ?? '');
-	let tierFilter = $state('');
-	let groupFilter = $state('');
 	let missingOnly = $state(false);
 	let creating = $state(false);
 	let newName = $state('');
 	let nameInput = $state<HTMLInputElement>();
 
 	onMount(async () => {
-		await Promise.all([registry.load(), groups.load(), moods.load(), requests.load(), people.load()]);
+		await Promise.all([registry.load(), moods.load(), requests.load(), people.load()]);
 		toons = await loadToons(getLocale());
 		const loaded: Record<string, ContentDoc> = {};
 		await Promise.all(
@@ -156,13 +147,10 @@
 			if (toonFilter === '__none') {
 				if (castsOf(c.id, casts).length || c.own_toon) return false;
 			} else if (toonFilter && c.own_toon !== toonFilter && !castsOf(c.id, casts).includes(toonFilter)) return false;
-			if (tierFilter && (c.group ?? '') !== tierFilter) return false;
-			if (groupFilter && !personaIds(c).some((p) => personaAffiliations(c, p).some((a) => a.group === groupFilter))) return false;
 			if (missingOnly && !imageIssues(c).length) return false;
 			return true;
 		})
 	);
-	const tiers = $derived([...new Set([...CHARACTER_GROUPS, ...characters.map((c) => c.group).filter(Boolean)])]);
 
 	function select(id: string, p: string = REGULAR_PERSONA, l = '') {
 		selected = id;
@@ -206,7 +194,6 @@
 
 	function validate(): Problem[] {
 		const out: Problem[] = [];
-		const groupIds = (groupsOf(groups)?.groups ?? []).map((g) => g.id);
 		const registryFile = `${CREDITS_SCOPE}/characters.json`;
 		if (file) {
 			out.push(
@@ -214,7 +201,6 @@
 					languages: (c) => characterLanguages(c, toons, castsOf(c.id, casts)).languages as string[],
 					people: people.loading ? undefined : peopleListOf(people).map((p) => p.id),
 					toons: toons.length ? toons.map((t) => t.id) : undefined,
-					groups: groupIds,
 					moods: vocabulary,
 					file: registryFile
 				})
@@ -229,8 +215,6 @@
 				}
 			});
 		}
-		const g = groupsOf(groups);
-		if (g) out.push(...validateGroups(g, allLanguages, `${CREDITS_SCOPE}/groups.json`));
 		if (moods.present.length) out.push(...validateMoods(vocabulary, allLanguages, `${CREDITS_SCOPE}/moods.json`));
 		const r = requestsOf(requests);
 		if (r) out.push(...validateAssetRequests(r, file, `${CREDITS_SCOPE}/asset-requests.json`));
@@ -269,7 +253,6 @@
 	<Tabs
 		tabs={[
 			{ id: 'characters', label: `${m['creator.characters']()} (${characters.length})` },
-			{ id: 'groups', label: `${m['creator.characters_groups']()} (${groupsOf(groups)?.groups.length ?? 0})` },
 			{ id: 'moods', label: `${m['creator.characters_moods']()} (${vocabulary.moods.length})` },
 			{ id: 'wanted', label: `${m['creator.characters_wanted']()}${openRequests ? ` (${openRequests} ✉)` : ''}` }
 		]}
@@ -277,9 +260,7 @@
 		label={m['creator.characters']()}
 	>
 		{#snippet children(active)}
-			{#if active === 'groups'}
-				<div class="pad-top"><GroupsPanel {groups} registry={file} languages={allLanguages} onselect={(id, p) => select(id, p)} /></div>
-			{:else if active === 'moods'}
+			{#if active === 'moods'}
 				<div class="pad-top"><MoodsPanel {moods} registry={file} languages={allLanguages} /></div>
 			{:else if active === 'wanted'}
 				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={uiLocale} onopen={(id, p, l) => select(id, p, l)} /></div>
@@ -292,14 +273,6 @@
 								<option value="">{m['creator.characters_all_toons']()}</option>
 								{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
 								<option value="__none">{m['creator.characters_no_toon']()}</option>
-							</select>
-							<select bind:value={tierFilter} aria-label={m['creator.characters_cast_group']()} data-testid="filter-tier">
-								<option value="">{m['creator.characters_all_cast_groups']()}</option>
-								{#each tiers as g (g)}<option value={g}>{g}</option>{/each}
-							</select>
-							<select bind:value={groupFilter} aria-label={m['creator.characters_groups']()} data-testid="filter-group">
-								<option value="">{m['creator.characters_all_groups']()}</option>
-								{#each groupsOf(groups)?.groups ?? [] as g (g.id)}<option value={g.id}>{pickText(g.name, uiLocale, allLanguages)}</option>{/each}
 							</select>
 							<label class="check"><input type="checkbox" bind:checked={missingOnly} data-testid="filter-missing" /> {m['creator.characters_missing_images']()}</label>
 						</div>
@@ -322,7 +295,7 @@
 											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} alt="" loading="lazy" />{/if}</span>
 											<span class="text">
 												<strong>{characterName(c, uiLocale)}</strong>
-												<span class="hint">{c.id} · {c.group}{c.own_toon ? ` · ${c.own_toon}` : ''}{castsOf(c.id, casts).length ? ` · ${castsOf(c.id, casts).join(', ')}` : ''}</span>
+												<span class="hint">{c.id}{c.own_toon ? ` · ${c.own_toon}` : ''}{castsOf(c.id, casts).length ? ` · ${castsOf(c.id, casts).join(', ')}` : ''}</span>
 												{#if personaIds(c).length > 1}
 													<span class="chips">
 														{#each personaIds(c) as p (p)}
@@ -357,7 +330,6 @@
 									{toons}
 									{casts}
 									people={peopleListOf(people)}
-									groups={groupsOf(groups)}
 									onselect={(id) => select(id)}
 								/>
 							{/key}

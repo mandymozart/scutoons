@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { VNCharacterRef, Character } from '@scutoons/content';
+	import type { SceneCharacter as VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { DEFAULT_MOOD, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
 

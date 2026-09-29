@@ -5,19 +5,9 @@
 				"character": "catpope",
 				"personas": [
 					"regular",
-					"human"
-				]
-			},
-			{
-				"character": "plf",
-				"personas": [
-					"regular"
-				]
-			},
-			{
-				"character": "cat",
-				"personas": [
-					"regular"
+					"human",
+					"cat",
+					"mountaintiger"
 				]
 			},
 			{
@@ -28,12 +18,6 @@
 			},
 			{
 				"character": "crows",
-				"personas": [
-					"regular"
-				]
-			},
-			{
-				"character": "mountain-tiger",
 				"personas": [
 					"regular"
 				]

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	import type { CastEntry, CharacterRegistry, GroupVocabulary, MoodVocabulary } from '@scutoons/content';
+	import type { CastEntry, CharacterRegistry, MoodVocabulary } from '@scutoons/content';
 	import type { ToonInfo } from '$lib/editor/characters.ts';
 
 	/** What the VN character fields pick from (see the chapter editor). */
@@ -7,7 +7,6 @@
 		registry: CharacterRegistry | null;
 		moods: MoodVocabulary;
 		toons: ToonInfo[];
-		groups: GroupVocabulary | null;
 		/** the cast of the chapter's season */
 		cast: CastEntry[];
 		/** e.g. "Season 1" */
@@ -27,6 +26,7 @@
 		characterName,
 		findPersona,
 		getAt,
+		resolveCharacterId,
 		lookLabel,
 		moodLabel,
 		type Path
@@ -38,8 +38,8 @@
 
 	/**
 	 * A VN character reference: shows who (thumbnail, "Cat Pope · Biker · with helmet · happy") and opens the visual
-	 * picker. `scene` refs (joinScene/leaveScene) store `name`, `persona`, `look`, `mood`; `speaker` refs (showMessage)
-	 * store `character` and `persona`. Written to every locale file (one undo step).
+	 * picker. `scene` refs (joinScene/leaveScene) store `character`, `persona`, `look?`, `mood?` (+ `variant`, the view);
+	 * `speaker` refs (showMessage) store `character` and `persona`. Written to every locale file (one undo step).
 	 */
 	let {
 		doc,
@@ -59,10 +59,11 @@
 	} = $props();
 
 	let open = $state(false);
-	const keys = $derived(kind === 'scene' ? { character: 'name', persona: 'persona', look: 'look', mood: 'mood' } : { character: 'character', persona: 'persona', look: '', mood: '' });
 	const ref = $derived<Record<string, any>>(getAt(doc.data[doc.primary], path) ?? {});
-	const id = $derived<string>(ref[keys.character] ?? '');
-	const persona = $derived<string>(ref.persona || REGULAR_PERSONA);
+	// old refs ({ name }, old ids like plf) are read as their current form
+	const normalized = $derived(resolveCharacterId(ref.character ?? ref.name ?? '', ref.persona));
+	const id = $derived<string>(ref.character ?? ref.name ? normalized.character : '');
+	const persona = $derived<string>(normalized.persona);
 	const index = $derived(characterIndex(choices.registry));
 	const character = $derived(index.get(id) ?? null);
 	const inCast = $derived(choices.cast.find((e) => e.character === id));
@@ -80,10 +81,13 @@
 		doc.structural((file) => {
 			let target = getAt(file, path);
 			if (!target) return;
-			target[keys.character] = p.character;
-			if (p.persona && p.persona !== REGULAR_PERSONA) target.persona = p.persona;
-			else delete target.persona;
+			// the current form: { character, persona, look?, mood?, variant? } (old `name` / `position` go)
+			target.character = p.character;
+			target.persona = p.persona || REGULAR_PERSONA;
+			delete target.name;
 			if (kind === 'scene') {
+				if (target.position?.variant && !target.variant) target.variant = target.position.variant;
+				delete target.position;
 				const c = index.get(p.character);
 				const defaultLook = findPersona(c, p.persona)?.looks.find((l) => l.default)?.id;
 				if (p.look && p.look !== defaultLook) target.look = p.look;
@@ -113,7 +117,6 @@
 	registry={choices.registry}
 	moods={choices.moods}
 	toons={choices.toons}
-	groups={choices.groups}
 	cast={choices.cast}
 	season={choices.season}
 	locale={choices.locale}

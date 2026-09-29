@@ -80,7 +80,7 @@
 				"requested_at",
 				"status"
 			],
-			"description": "A wanted image: one cell of a look (portrait only for now), with the convention path it should get."
+			"description": "A wanted image: one cell of a look (portrait) or an A-pose look, with the convention path it should get."
 		}
 	}
 }

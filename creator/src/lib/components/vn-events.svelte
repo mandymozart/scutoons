@@ -8,6 +8,7 @@
 	import CharacterRefField, { type CharacterChoices } from './characters/character-ref-field.svelte';
 	import {
 		REGULAR_PERSONA,
+		resolveCharacterId,
 		characterIndex,
 		defaultLookId,
 		defaultMoodVocabulary,
@@ -63,7 +64,7 @@
 				return { type, params: { text: 'BAM', position: { x: 50, y: 50 }, size: 3, effect: 'shiver', mode: 'poly' } };
 			case 'joinScene':
 			case 'leaveScene':
-				return { type, params: { characters: [{ name: characters[0]?.name ?? '', position: { variant: 'avatar' } }] } };
+				return { type, params: { characters: [{ character: characters[0]?.name ?? '', persona: 'regular', ...(type === 'joinScene' ? { variant: 'avatar' } : {}) }] } };
 			default:
 				return { type };
 		}
@@ -149,7 +150,7 @@
 			const params = getAt(file, [...eventsPath, index, 'params']);
 			if (!params) return;
 			params.characters ??= [];
-			params.characters.push({ name: characters[0]?.name ?? '', position: { variant: 'avatar' } });
+			params.characters.push({ character: characters[0]?.name ?? '', persona: 'regular', variant: 'avatar' });
 		});
 	}
 
@@ -176,7 +177,10 @@
 	const vocabulary = $derived(choices?.moods ?? defaultMoodVocabulary());
 	const choiceIndex = $derived(characterIndex(choices?.registry));
 	/** the persona of a scene ref (registry) */
-	const personaOf = (row: any) => findPersona(choiceIndex.get(row?.name), row?.persona || REGULAR_PERSONA);
+	const personaOf = (row: any) => {
+		const r = resolveCharacterId(row?.character ?? row?.name ?? '', row?.persona);
+		return findPersona(choiceIndex.get(r.character), r.persona || REGULAR_PERSONA);
+	};
 	/** the looks of the ref's persona (the default first) */
 	function looksOf(row: any) {
 		const p = personaOf(row);
@@ -298,7 +302,7 @@
 							<PropField {doc} path={[...p, 'params', 'characters', ci, 'name']} label="character" type="select" options={charOptions} required />
 						{/if}
 						{#if event.type === 'joinScene'}
-							<PropField {doc} path={[...p, 'params', 'characters', ci, 'position', 'variant']} label="view" type="select" options={['avatar', 'portrait', 'full']} placeholder="avatar" />
+							<PropField {doc} path={[...p, 'params', 'characters', ci, row?.position && !row?.variant ? 'position' : 'variant', ...(row?.position && !row?.variant ? ['variant'] : [])]} label="view" type="select" options={['avatar', 'portrait', 'full']} placeholder="avatar" />
 							<PropField {doc} path={[...p, 'params', 'characters', ci, 'mood']} label="mood" type="select" options={moodOptions(row)} placeholder="neutral" />
 							{#if looks.length > 1 || row?.look}
 								<PropField {doc} path={[...p, 'params', 'characters', ci, 'look']} label="look" type="select" options={looks.slice(1).map((l) => ({ value: l.id, label: l.label }))} placeholder={looks[0] ? `${looks[0].label} (default)` : 'default'} />
