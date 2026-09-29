@@ -7,12 +7,12 @@ declare(strict_types=1);
  */
 final class Codes
 {
-    /** A syntactically valid code (nanoid, max 8 chars) or null */
+    /** A syntactically valid code (generated codes are nanoid(8); up to 32 chars allowed for hand-made test codes) or null */
     public static function normalize(mixed $value): ?string
     {
         if (!is_string($value)) return null;
         $code = trim($value);
-        return preg_match('/^[A-Za-z0-9_-]{1,8}$/', $code) ? $code : null;
+        return preg_match('/^[A-Za-z0-9_-]{1,32}$/', $code) ? $code : null;
     }
 
     /** @return array<string, mixed>|null */
