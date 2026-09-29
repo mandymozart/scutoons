@@ -31,6 +31,7 @@ use Scutoons\Http\Controllers\LandingController;
 use Scutoons\Http\Controllers\LegacyBridge;
 use Scutoons\Http\Controllers\Legacy\GenerateController;
 use Scutoons\Http\Controllers\MeController;
+use Scutoons\Http\Controllers\NotFoundController;
 use Scutoons\Http\Controllers\ProgressController;
 use Scutoons\Http\Controllers\ValidateController;
 use Scutoons\Http\Middleware\GenerateToken;
@@ -55,7 +56,7 @@ return static function (App $app): void {
     );
 
     // TEMPORARY (refactor step 1): modules moved to Slim so far; the rest runs the old scripts (LegacyBridge)
-    $movedModules = ['health', 'catalog', 'auth', 'me', 'access', 'inventory', 'avatar', 'progress', 'validate'];
+    $movedModules = ['health', 'catalog', 'auth', 'me', 'access', 'inventory', 'avatar', 'progress', 'validate', 'content', 'api-done', 'keys'];
     $moved = static fn(string $module): bool => in_array($module, $movedModules, true);
 
     // ── Public API (agents/ITEMS.md) ───────────────────────────────────────────────────────────────────
@@ -141,9 +142,7 @@ return static function (App $app): void {
     }
 
     // Everything else below /api/ is unknown (ErrorHandler → 404 not_found "Unknown endpoint.")
-    $app->any('/api[/{rest:.*}]', $moved('api-done') ? static function (): never {
-        throw new \Scutoons\Domain\ApiError(404, 'not_found', 'Unknown endpoint.');
-    } : LegacyBridge::class);
+    $app->any('/api[/{rest:.*}]', $moved('api-done') ? NotFoundController::class : LegacyBridge::class);
 
     // ── LEGACY generate/ SPA endpoints (static token; removed once the admin app has parity) ────────────
     if ($moved('generate')) {

@@ -9,7 +9,7 @@ require_once __DIR__ . '/auth-check.php';
 header('Content-Type: application/json');
 header('Cache-Control: no-store');
 
-$keysFile = __DIR__ . '/../api/keys/keypair.json';
+$keysFile = __DIR__ . '/../storage/keys/keypair.json';
 
 if (!is_file($keysFile)) {
     echo json_encode([

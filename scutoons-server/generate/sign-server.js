@@ -18,7 +18,7 @@ const ml_dsa65 = noblePostQuantum.ml_dsa65;
  * Load keypair from secure storage
  */
 function loadKeypair() {
-    const keysFile = path.join(__dirname, '../api/keys/keypair.json');
+    const keysFile = path.join(__dirname, '../storage/keys/keypair.json');
     
     if (!fs.existsSync(keysFile)) {
         throw new Error('Keypair not found. Please generate keys first.');

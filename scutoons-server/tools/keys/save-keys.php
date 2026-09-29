@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$keysFile = __DIR__ . '/keypair.json';
+$keysFile = __DIR__ . '/../../storage/keys/keypair.json';
 
 // Check if keys already exist (prevent overwrite)
 if (file_exists($keysFile)) {

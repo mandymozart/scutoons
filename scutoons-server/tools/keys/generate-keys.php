@@ -7,7 +7,7 @@
  * After keys are generated, access is blocked for security
  */
 
-$keysFile = __DIR__ . '/keypair.json';
+$keysFile = __DIR__ . '/../../storage/keys/keypair.json';
 
 // Check if keys already exist
 if (file_exists($keysFile)) {
@@ -54,7 +54,7 @@ if (file_exists($keysFile)) {
 <html>
 <head>
     <title>Generate ML-DSA-65 Keypair</title>
-    <script src="/assets/js/noble-post-quantum.min.js"></script>
+    <script src="../../public/assets/js/noble-post-quantum.min.js"></script>
     <style>
         body { 
             font-family: monospace; 
