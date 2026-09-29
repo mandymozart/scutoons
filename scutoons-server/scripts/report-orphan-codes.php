@@ -19,7 +19,7 @@ $pdo = getDbConnection();
 $rows = $pdo->query("SELECT code, edition_id, created_at, email, claimed_by, signature FROM qr
                      WHERE edition_id IS NOT NULL AND edition_id <> '' ORDER BY edition_id, created_at, code")->fetchAll(PDO::FETCH_ASSOC);
 
-$editions = json_decode((string) file_get_contents(__DIR__ . '/../api/editions/editions.json'), true) ?: [];
+$editions = json_decode((string) file_get_contents(__DIR__ . '/../config/editions.json'), true) ?: [];
 $counts = [];
 foreach ($editions as $edition) $counts[$edition['id']] = (int) ($edition['edition_count'] ?? 0);
 

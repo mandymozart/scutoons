@@ -12,7 +12,7 @@ final class Catalog
 
     public static function path(): string
     {
-        return __DIR__ . '/../items/items.json';
+        return __DIR__ . '/../../config/items.json';
     }
 
     /** @return array<string, mixed> the whole catalog as served by GET /api/items/ */
@@ -110,7 +110,7 @@ final class Catalog
         if ($id === null || $id === '') return null;
         if (self::$editions === null) {
             self::$editions = [];
-            $list = json_decode((string) file_get_contents(__DIR__ . '/../editions/editions.json'), true) ?: [];
+            $list = json_decode((string) file_get_contents(__DIR__ . '/../../config/editions.json'), true) ?: [];
             foreach ($list as $edition) self::$editions[$edition['id']] = $edition;
         }
         return self::$editions[$id] ?? null;

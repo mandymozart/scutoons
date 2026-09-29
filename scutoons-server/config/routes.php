@@ -55,7 +55,7 @@ return static function (App $app): void {
     );
 
     // TEMPORARY (refactor step 1): modules moved to Slim so far; the rest runs the old scripts (LegacyBridge)
-    $movedModules = ['health'];
+    $movedModules = ['health', 'catalog'];
     $moved = static fn(string $module): bool => in_array($module, $movedModules, true);
 
     // ── Public API (agents/ITEMS.md) ───────────────────────────────────────────────────────────────────

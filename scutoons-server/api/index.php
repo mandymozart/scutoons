@@ -44,7 +44,6 @@ Http::run(function () {
         $route === 'PUT me' => Users::updateMe(Http::body()),
         $route === 'GET code' => Codes::get(),
         $route === 'GET access', $route === 'POST access' => Codes::access(),
-        $route === 'GET items' => Http::json(200, Catalog::data()),
         $route === 'POST inventory/claim' => Inventory::claim(Http::body()),
         $route === 'POST inventory/craft' => Inventory::craft(Http::body()),
         $route === 'POST inventory/grant' => Inventory::grant(Http::body()),

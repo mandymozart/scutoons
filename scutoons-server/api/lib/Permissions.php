@@ -24,7 +24,7 @@ final class Permissions
 
     public static function path(): string
     {
-        return self::$override ?? (Config::get('PERMISSIONS_PATH') ?: __DIR__ . '/../permissions.json');
+        return self::$override ?? (Config::get('PERMISSIONS_PATH') ?: __DIR__ . '/../../config/permissions.json');
     }
 
     /** Use another map file (null = back to the configured one) – for tests */
