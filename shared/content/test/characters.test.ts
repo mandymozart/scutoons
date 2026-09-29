@@ -231,18 +231,23 @@ test('wanted images and asset requests', async () => {
 	assert.equal(requests.requests[0].status, 'done');
 });
 
-test('A-pose: its own view without fallback, avatar bodies', async () => {
-	const { avatarBodies } = await import('../src/index.ts');
+test('A-pose: character level, its own view without fallback, avatar bodies', async () => {
+	const { avatarBodies, wantedImages } = await import('../src/index.ts');
 	const c: RegistryCharacter = structuredClone(catpope);
-	c.personas[0].looks[0].apose = { path: 'catpope/avatar/mannequin.webp', anchors: { head: { x: 370, y: 70, size: 170 } } };
-	c.personas[0].looks.push({ id: 'nude', label: { en: 'nude' }, images: {}, apose: { path: 'catpope/avatar/mannequin-nude.webp' } });
+	c.apose = {
+		looks: [
+			{ id: 'swim', label: { en: 'swim pants' }, default: true, path: 'catpope/avatar/mannequin.webp', anchors: { head: { x: 370, y: 70, size: 170 } } },
+			{ id: 'naked', label: { en: 'naked' }, path: 'catpope/avatar/mannequin-nude.webp' }
+		]
+	};
+	const m2: RegistryCharacter = { ...structuredClone(mouse), apose: { looks: [{ id: 'swim', default: true, path: 'yellowmouse/avatar/mannequin.webp' }, { id: 'naked' }] } };
 	assert.equal(characterImage(c, {}, 'apose'), 'catpope/avatar/mannequin.webp');
-	assert.equal(characterImage(c, { look: 'nude' }, 'apose'), 'catpope/avatar/mannequin-nude.webp');
+	assert.equal(characterImage(c, { look: 'naked' }, 'apose'), 'catpope/avatar/mannequin-nude.webp');
 	// no A-pose → '' (never the portrait)
-	assert.equal(characterImage(c, { persona: 'biker' }, 'apose'), '');
-	// the nude look has only the A-pose: its portraits fall back (default look)
-	assert.equal(characterImage(c, { look: 'nude', mood: 'happy' }, 'portrait'), png('catpope', 'default', 'portrait', 'happy'));
-	const bodies = avatarBodies({ characters: [c, mouse] }, 'en');
-	assert.deepEqual(bodies.map((b) => `${b.character}/${b.persona}/${b.look}: ${b.label}`), ['catpope/regular/default: Cat Pope (default)', 'catpope/regular/nude: Cat Pope (nude)']);
+	assert.equal(characterImage(catpope, {}, 'apose'), '');
+	const bodies = avatarBodies({ characters: [c, m2] }, 'en');
+	assert.deepEqual(bodies.map((b) => `${b.character}/${b.look}${b.default ? '*' : ''}: ${b.label}`), ['catpope/swim*: Cat Pope (swim pants)', 'catpope/naked: Cat Pope (naked)', 'yellowmouse/swim*: Yellow Mouse (swim)']);
+	// the missing naked A-pose of the mouse is a wanted image
+	assert.ok(wantedImages({ characters: [m2] }).some((w) => w.view === 'apose' && w.look === 'naked' && w.path === 'characters/yellowmouse/yellowmouse_apose-naked.png'));
 	assert.ok(!validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error'));
 });

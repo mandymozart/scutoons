@@ -1,3 +1,17 @@
 {
-	"requests": []
+	"requests": [
+		{
+			"id": "yellowmouse-apose-naked",
+			"character": "yellowmouse",
+			"persona": "regular",
+			"look": "naked",
+			"mood": "neutral",
+			"view": "apose",
+			"path": "characters/yellowmouse/yellowmouse_apose-naked.png",
+			"note": "A-pose naked (768 × 1152, like yellowmouse/avatar/mannequin.webp)",
+			"requested_by": "migration (owner request 2026-09-30)",
+			"requested_at": "2026-09-30T00:00:00Z",
+			"status": "open"
+		}
+	]
 }

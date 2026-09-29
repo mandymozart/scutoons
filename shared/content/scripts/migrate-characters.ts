@@ -24,7 +24,11 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+	APOSE_LOOKS,
+	APOSE_VIEW,
 	ASSET_REQUESTS_FILE,
+	DEFAULT_MOOD,
+	aposeConventionPath,
 	CAST_FILE,
 	CHARACTER_IMAGE_ROOT,
 	CHARACTER_IMAGE_VARIANTS,
@@ -94,6 +98,8 @@ const MOUSE_WORN = {
 	accessory: { x: 595, y: 625, size: 90 }
 };
 
+const APOSE_LABEL = Object.fromEntries(APOSE_LOOKS.map((l) => [l.id, l.label])) as Record<'swim' | 'naked', LocaleText>;
+
 const helmetLooks = (): CharacterLook[] => [
 	{ id: DEFAULT_LOOK, label: { de: 'ohne Helm', en: 'without helmet' }, default: true, images: {} },
 	{ id: 'helmet', label: { de: 'mit Helm', en: 'with helmet' }, images: {} }
@@ -103,11 +109,14 @@ const helmetLooks = (): CharacterLook[] => [
 const UPDATES: Record<string, (c: RegistryCharacter) => void> = {
 	catpope: (c) => {
 		c.own_toon = 'catpope';
-		// the reader's avatar bodies: the mannequin (shorts) on the default look, the nude one as its own look
-		const regular = findPersona(c, REGULAR_PERSONA)!;
-		regular.looks[0].label = { de: 'päpstlich', en: 'papal' };
-		regular.looks[0].apose = { path: 'catpope/avatar/mannequin.webp', anchors: { ...SPHYNX_WORN } };
-		regular.looks.push({ id: 'nude', label: { de: 'nackt', en: 'nude' }, images: {}, apose: { path: 'catpope/avatar/mannequin-nude.webp', anchors: { ...SPHYNX_WORN } } });
+		findPersona(c, REGULAR_PERSONA)!.looks[0].label = { de: 'päpstlich', en: 'papal' };
+		// the reader's avatar bodies (character level): swim pants (the mannequin) and naked
+		c.apose = {
+			looks: [
+				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'catpope/avatar/mannequin.webp', anchors: { ...SPHYNX_WORN } },
+				{ id: 'naked', label: APOSE_LABEL.naked, path: 'catpope/avatar/mannequin-nude.webp', anchors: { ...SPHYNX_WORN } }
+			]
+		};
 		c.personas.push(
 			{ id: 'human', label: { de: 'Mensch', en: 'Human' }, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] },
 			{
@@ -138,8 +147,15 @@ const NEW: RegistryCharacter[] = [
 		mannequin: 'mouse',
 		image: 'yellowmouse/avatar.webp',
 		affiliations: [{ group: 'biker-gang', role: { de: 'Anführerin', en: 'Leader' } }],
-		// one persona, two looks: the kimono (default, also the avatar body) and the biker helmet
-		personas: [{ id: REGULAR_PERSONA, looks: helmetLooks().map((l) => (l.id === DEFAULT_LOOK ? { ...l, apose: { path: 'yellowmouse/avatar/mannequin.webp', anchors: { ...MOUSE_WORN } } } : l)) }]
+		// one persona, two looks: the kimono (default) and the biker helmet
+		personas: [{ id: REGULAR_PERSONA, looks: helmetLooks() }],
+		// avatar body: swim pants (the mannequin); naked is still to be delivered (an open asset request)
+		apose: {
+			looks: [
+				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'yellowmouse/avatar/mannequin.webp', anchors: { ...MOUSE_WORN } },
+				{ id: 'naked', label: APOSE_LABEL.naked }
+			]
+		}
 	},
 	{
 		id: 'toptoy',
@@ -344,7 +360,21 @@ for (const toon of toons) {
 }
 
 const allToons = [...new Set([...toons, ...Object.keys(casts)])];
+// the missing naked A-pose of the mouse: an open asset request
 const REQUESTS = emptyAssetRequests();
+REQUESTS.requests.push({
+	id: 'yellowmouse-apose-naked',
+	character: 'yellowmouse',
+	persona: REGULAR_PERSONA,
+	look: 'naked',
+	mood: DEFAULT_MOOD,
+	view: APOSE_VIEW,
+	path: aposeConventionPath('yellowmouse', 'naked'),
+	note: 'A-pose naked (768 × 1152, like yellowmouse/avatar/mannequin.webp)',
+	requested_by: 'migration (owner request 2026-09-30)',
+	requested_at: '2026-09-30T00:00:00Z',
+	status: 'open'
+});
 const problems = [
 	...validateGroups(GROUPS, LOCALES),
 	...validateMoods(MOODS, LOCALES),

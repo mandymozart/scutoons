@@ -82,6 +82,10 @@
 						"$ref": "#/definitions/CharacterPersona"
 					},
 					"description": "`regular` first"
+				},
+				"apose": {
+					"$ref": "#/definitions/CharacterApose",
+					"description": "the reader's avatar body (character level – the persona doesn't matter)"
 				}
 			},
 			"required": [
@@ -223,10 +227,6 @@
 				"images": {
 					"$ref": "#/definitions/MoodImages",
 					"description": "mood → view → CDN path (from the CDN root)"
-				},
-				"apose": {
-					"$ref": "#/definitions/CharacterApose",
-					"description": "the A-pose (avatar body) of this look – optional, never a fallback for other views"
 				}
 			},
 			"required": [
@@ -257,12 +257,62 @@
 			},
 			"description": "One mood of a character in its three views (framings). \"View\" is the term in the UI (never \"variant\", which would be confused with looks); the keys and `VNCharacterRef.position.variant` keep their names for backwards compatibility."
 		},
+		"LookTransition": {
+			"type": "object",
+			"properties": {
+				"from": {
+					"type": "string"
+				},
+				"to": {
+					"type": "string"
+				},
+				"image": {
+					"type": "string",
+					"description": "CDN path from the CDN root"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"from",
+				"to",
+				"image"
+			],
+			"description": "An image shown while a persona's look changes (the mouse taking her helmet off)."
+		},
 		"CharacterApose": {
 			"type": "object",
 			"properties": {
+				"looks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AposeLook"
+					}
+				}
+			},
+			"required": [
+				"looks"
+			],
+			"description": "The A-pose of a character (the reader's avatar body) – separate from the persona / story looks."
+		},
+		"AposeLook": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`swim` (default) | `naked` | …"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"default": {
+					"type": "boolean",
+					"description": "exactly one A-pose look is the default"
+				},
 				"path": {
 					"type": "string",
-					"description": "CDN path from the CDN root (e.g. `catpope/avatar/mannequin.webp`, 768 × 1152)"
+					"description": "CDN path from the CDN root (e.g. `catpope/avatar/mannequin.webp`, 768 × 1152); missing = still to be delivered"
 				},
 				"anchors": {
 					"type": "object",
@@ -295,13 +345,13 @@
 							"$ref": "#/definitions/AposeAnchor"
 						}
 					},
-					"description": "avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor"
+					"description": "avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor in image px"
 				}
 			},
 			"required": [
-				"path"
+				"id"
 			],
-			"description": "The A-pose of a look (full body, neutral): the reader's avatar body with the wear anchors of the avatar slots."
+			"description": "One A-pose look of a character (full body, neutral): an avatar body with the wear anchors of the avatar slots."
 		},
 		"AposeAnchor": {
 			"type": "object",
@@ -322,30 +372,6 @@
 				"size"
 			],
 			"description": "Where an avatar item sits on an A-pose image: centre and size in px of that image."
-		},
-		"LookTransition": {
-			"type": "object",
-			"properties": {
-				"from": {
-					"type": "string"
-				},
-				"to": {
-					"type": "string"
-				},
-				"image": {
-					"type": "string",
-					"description": "CDN path from the CDN root"
-				},
-				"label": {
-					"$ref": "#/definitions/LocaleText"
-				}
-			},
-			"required": [
-				"from",
-				"to",
-				"image"
-			],
-			"description": "An image shown while a persona's look changes (the mouse taking her helmet off)."
 		}
 	}
 }

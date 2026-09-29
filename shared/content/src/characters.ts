@@ -20,8 +20,9 @@
 //   View      – the framing: avatar / portrait / full. The data field is called `variant` (backwards compatibility);
 //               every UI label says "View" / "Ansicht". Only `portrait` is authored now: `avatar` is a derived 192px
 //               downscale of the portrait, `full` is unused. Completeness counts portraits only.
-//               `apose` (per persona + look, always neutral, one image + wear anchors per avatar slot) is the reader's
-//               avatar body – it never falls back to the portrait; a look without one isn't an avatar body.
+//   A-pose    – `character.apose.looks` (character level, not per persona): the reader's avatar body in its own looks
+//               (`swim` default, `naked`), each one image + wear anchors per avatar slot. Never a fallback; outfitting
+//               happens only in the reader's inventory.
 //
 // Image fallback: `resolveExpression` (one implementation for the viewer VN and the creator). `resolveCast()` turns the
 // registry + a cast into the legacy `characters.json` shape of one locale (`Character[]`, visual-novel.ts: `images` =
@@ -151,7 +152,7 @@ export const AUTHORED_VIEW: CharacterImageVariant = 'portrait';
 export const DERIVED_VIEWS: CharacterImageVariant[] = ['avatar'];
 /** Not used for now (hidden in the creator, never flagged missing). */
 export const UNUSED_VIEWS: CharacterImageVariant[] = ['full'];
-/** The A-pose view: full body, neutral, one image per look (`look.apose`), the reader's avatar body. */
+/** The A-pose view: the character's avatar body (`character.apose.looks`), one image per A-pose look. */
 export const APOSE_VIEW = 'apose';
 
 /** Every character's base persona. */
@@ -189,12 +190,33 @@ export interface AposeAnchor {
 	size: number;
 }
 
-/** The A-pose of a look (full body, neutral): the reader's avatar body with the wear anchors of the avatar slots. */
-export interface CharacterApose {
-	/** CDN path from the CDN root (e.g. `catpope/avatar/mannequin.webp`, 768 × 1152) */
-	path: string;
-	/** avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor */
+/** One A-pose look of a character (full body, neutral): an avatar body with the wear anchors of the avatar slots. */
+export interface AposeLook {
+	/** `swim` (default) | `naked` | … */
+	id: string;
+	label?: LocaleText;
+	/** exactly one A-pose look is the default */
+	default?: boolean;
+	/** CDN path from the CDN root (e.g. `catpope/avatar/mannequin.webp`, 768 × 1152); missing = still to be delivered */
+	path?: string;
+	/** avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor in image px */
 	anchors?: Partial<Record<AvatarSlot, AposeAnchor>>;
+}
+
+/** The A-pose of a character (the reader's avatar body) – separate from the persona / story looks. */
+export interface CharacterApose {
+	looks: AposeLook[];
+}
+
+/** The standard A-pose looks. */
+export const APOSE_LOOKS: { id: string; label: LocaleText }[] = [
+	{ id: 'swim', label: { de: 'Badehose', en: 'swim pants' } },
+	{ id: 'naked', label: { de: 'nackt', en: 'naked' } }
+];
+
+/** `characters/<character>/<character>_apose-<look>.png` (convention for a new A-pose image) */
+export function aposeConventionPath(character: string, look: string): string {
+	return `${CHARACTER_IMAGE_ROOT}/${character}/${character}_apose-${look}.png`;
 }
 
 /** An appearance of a persona (with / without helmet): its own mood set. */
@@ -206,8 +228,6 @@ export interface CharacterLook {
 	default?: boolean;
 	/** mood → view → CDN path (from the CDN root) */
 	images: MoodImages;
-	/** the A-pose (avatar body) of this look – optional, never a fallback for other views */
-	apose?: CharacterApose;
 }
 
 /** An image shown while a persona's look changes (the mouse taking her helmet off). */
@@ -277,6 +297,8 @@ export interface RegistryCharacter {
 	artwork?: CharacterArtwork[];
 	/** `regular` first */
 	personas: CharacterPersona[];
+	/** the reader's avatar body (character level – the persona doesn't matter) */
+	apose?: CharacterApose;
 }
 
 /** `scutoons/_/characters.json` */
@@ -416,6 +438,14 @@ export function wantedImages(
 	const out: WantedImage[] = [];
 	for (const c of registry?.characters ?? []) {
 		if (!c?.id || (options.character && c.id !== options.character)) continue;
+		// A-pose looks without an image (character level; persona `regular`, mood `neutral`, view `apose`)
+		for (const look of c.apose?.looks ?? []) {
+			if (!look?.id || look.path?.trim()) continue;
+			const path = aposeConventionPath(c.id, look.id);
+			if (options.exists?.(path)) continue;
+			const request = open.find((r) => r.character === c.id && r.view === APOSE_VIEW && r.look === look.id);
+			out.push({ character: c.id, persona: REGULAR_PERSONA, look: look.id, mood: DEFAULT_MOOD, view: APOSE_VIEW, path, ...(request ? { request } : {}) });
+		}
 		for (const personaId of personaIds(c)) {
 			const persona = findPersona(c, personaId)!;
 			for (const look of persona.looks ?? []) {
@@ -433,6 +463,7 @@ export function wantedImages(
 					const request = requested.find((r) => r.mood === mood && r.view === AUTHORED_VIEW);
 					out.push({ character: c.id, persona: personaId, look: look.id, mood, view: AUTHORED_VIEW, path, ...(request ? { request } : {}) });
 				}
+
 			}
 		}
 	}
@@ -471,8 +502,12 @@ export function closeFulfilledRequests(requests: AssetRequests, registry: Charac
 	let closed = 0;
 	for (const r of requests.requests ?? []) {
 		if (r?.status !== 'open') continue;
-		const look = findLook(findPersona(index.get(r.character), r.persona), r.look);
-		if (lookImage(look, r.mood, r.view) || exists?.(r.path)) {
+		const c = index.get(r.character);
+		const done =
+			r.view === APOSE_VIEW
+				? !!c?.apose?.looks?.find((l) => l?.id === r.look)?.path?.trim()
+				: !!lookImage(findLook(findPersona(c, r.persona), r.look), r.mood, r.view);
+		if (done || exists?.(r.path)) {
 			r.status = 'done';
 			r.done_at = now;
 			closed++;
@@ -627,8 +662,9 @@ export interface ExpressionRef {
 export function characterImage(character: RegistryCharacter | null | undefined, ref: ExpressionRef, view: string): string {
 	if (!character) return '';
 	if (view === APOSE_VIEW) {
-		const persona = findPersona(character, ref.persona);
-		return findLook(persona, ref.look || defaultLookId(persona))?.apose?.path?.trim() ?? '';
+		const looks = character.apose?.looks ?? [];
+		const look = looks.find((l) => l?.id === ref.look) ?? looks.find((l) => l?.default) ?? looks[0];
+		return look?.path?.trim() ?? '';
 	}
 	return resolveExpression(
 		(p, l) => findLook(findPersona(character, p), l)?.images,
@@ -816,34 +852,37 @@ export function setLookImage(look: CharacterLook, mood: string, view: string, pa
 	if (!Object.keys(slots).length && mood !== DEFAULT_MOOD) delete look.images[mood];
 }
 
-/** An avatar body for the reader: a character / persona / look with an A-pose. */
+/** An avatar body for the reader: a character's A-pose look with an image. */
 export interface AvatarBody {
 	character: string;
-	persona: string;
+	/** A-pose look id (`swim`, `naked`, …) */
 	look: string;
-	/** "Cat Pope · Biker (with helmet)" in the requested locale */
+	/** "Cat Pope (swim pants)" in the requested locale */
 	label: string;
-	apose: CharacterApose;
+	path: string;
+	anchors: Partial<Record<AvatarSlot, AposeAnchor>>;
+	/** the character's default A-pose look */
+	default: boolean;
 }
 
-/** Every look with an A-pose (registry order) – what the reader's avatar picker offers. */
+/** Every A-pose look with an image (registry order) – what the reader's avatar picker offers. */
 export function avatarBodies(registry: CharacterRegistry | null | undefined, locale = 'en'): AvatarBody[] {
 	const out: AvatarBody[] = [];
 	for (const c of registry?.characters ?? []) {
 		if (!c?.id) continue;
-		for (const personaId of personaIds(c)) {
-			const persona = findPersona(c, personaId)!;
-			for (const look of persona.looks ?? []) {
-				if (!look?.apose?.path?.trim()) continue;
-				const lookName = persona.looks.length > 1 ? lookLabel(persona, look.id, locale) : '';
-				out.push({
-					character: c.id,
-					persona: personaId,
-					look: look.id,
-					label: `${characterName(c, locale, personaId)}${lookName ? ` (${lookName})` : ''}`,
-					apose: look.apose
-				});
-			}
+		const looks = c.apose?.looks ?? [];
+		const defaultId = looks.find((l) => l?.default)?.id ?? looks[0]?.id;
+		for (const look of looks) {
+			if (!look?.id || !look.path?.trim()) continue;
+			const lookName = pickText(look.label, locale, ['en', 'de']) || look.id;
+			out.push({
+				character: c.id,
+				look: look.id,
+				label: `${characterName(c, locale)} (${lookName})`,
+				path: look.path.trim(),
+				anchors: look.anchors ?? {},
+				default: look.id === defaultId
+			});
 		}
 	}
 	return out;
@@ -984,6 +1023,35 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 			}
 		}
 
+		// the A-pose (avatar body): its own looks, one default, image + anchors
+		if (c.apose !== undefined) {
+			const ap: Path = [...path, 'apose'];
+			if (!isObj(c.apose) || !Array.isArray(c.apose.looks)) add('error', ap, `${who}: apose must be { looks: [...] }`);
+			else {
+				const ids = new Set<string>();
+				c.apose.looks.forEach((l: any, j: number) => {
+					const lp: Path = [...ap, 'looks', j];
+					if (!isObj(l) || !isStr(l.id) || !CHARACTER_ID.test(l.id)) return add('error', lp, `${who}: A-pose look ${j + 1} needs an id matching ${CHARACTER_ID.source}`);
+					if (ids.has(l.id)) add('error', [...lp, 'id'], `${who}: A-pose look "${l.id}" is used twice`);
+					ids.add(l.id);
+					checkText(add, l.label, [...lp, 'label'], `${who}: A-pose ${l.id} label`, languages);
+					if (l.path === undefined || l.path === '') add('warning', [...lp, 'path'], `${who}: A-pose "${l.id}" has no image yet`);
+					else if (!isStr(l.path) || !IMAGE_PATH.test(l.path)) add('error', [...lp, 'path'], `${who}: A-pose "${l.id}" needs a CDN image path`);
+					if (l.anchors !== undefined) {
+						if (!isObj(l.anchors)) add('error', [...lp, 'anchors'], `${who}: A-pose anchors must be { <slot>: { x, y, size } }`);
+						else
+							for (const [slot, anchor] of Object.entries(l.anchors)) {
+								if (!(AVATAR_SLOTS as string[]).includes(slot)) add('warning', [...lp, 'anchors', slot], `${who}: unknown avatar slot "${slot}" (${AVATAR_SLOTS.join(', ')})`);
+								const a = anchor as any;
+								if (!isObj(a) || ![a.x, a.y, a.size].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0)) add('error', [...lp, 'anchors', slot], `${who}: anchor ${slot} must be { x, y, size } in px`);
+							}
+					}
+				});
+				const defaults = c.apose.looks.filter((l: any) => isObj(l) && l.default === true).length;
+				if (c.apose.looks.length && defaults !== 1) add('error', [...ap, 'looks'], `${who}: exactly one A-pose look must be the default (${defaults} are)`);
+			}
+		}
+
 		// personas → looks → moods × views
 		if (!Array.isArray(c.personas)) {
 			add('error', [...path, 'personas'], `${who}: personas must be a list (with "${REGULAR_PERSONA}")`);
@@ -1030,24 +1098,8 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 						else if (!isStr(value) || (value && !IMAGE_PATH.test(value))) add('warning', [...mp, view], `${lwho}: ${mood} ${view} must be a CDN image path`);
 					}
 				}
-				if (l.apose !== undefined) {
-					const ap: Path = [...lp, 'apose'];
-					if (!isObj(l.apose) || !isStr(l.apose.path) || !IMAGE_PATH.test(l.apose.path)) add('error', ap, `${lwho}: the A-pose needs a CDN image path`);
-					else if (l.apose.anchors !== undefined) {
-						if (!isObj(l.apose.anchors)) add('error', [...ap, 'anchors'], `${lwho}: A-pose anchors must be { <slot>: { x, y, size } }`);
-						else
-							for (const [slot, anchor] of Object.entries(l.apose.anchors)) {
-								if (!(AVATAR_SLOTS as string[]).includes(slot)) add('warning', [...ap, 'anchors', slot], `${lwho}: unknown avatar slot "${slot}" (${AVATAR_SLOTS.join(', ')})`);
-								const a = anchor as any;
-								if (!isObj(a) || ![a.x, a.y, a.size].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0)) add('error', [...ap, 'anchors', slot], `${lwho}: anchor ${slot} must be { x, y, size } in px`);
-							}
-					}
-				}
-				// only `neutral` is required (the fallback anchor); portraits only (avatar is derived, full unused);
-				// a look with only an A-pose (e.g. `nude`) is fine: its portraits fall back
-				if (!lookHasImages(l as CharacterLook) && isObj(l.apose)) {
-					/* A-pose only */
-				} else if (!lookHasImages(l as CharacterLook)) add('warning', [...lp, 'images'], `${lwho}: no images yet (the reader falls back – neutral portrait needed)`);
+				// only `neutral` is required (the fallback anchor); portraits only (avatar is derived, full unused)
+				if (!lookHasImages(l as CharacterLook)) add('warning', [...lp, 'images'], `${lwho}: no images yet (the reader falls back – neutral portrait needed)`);
 				else if (!lookImage(l as CharacterLook, DEFAULT_MOOD, AUTHORED_VIEW)) add('error', [...lp, 'images', DEFAULT_MOOD, AUTHORED_VIEW], `${lwho}: no neutral portrait (the fallback anchor)`);
 				else {
 					const standard = sortedMoods(ctx.moods ?? defaultMoodVocabulary()).filter((m) => m.standard).map((m) => m.id);
