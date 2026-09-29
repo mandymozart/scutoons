@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ActionBar } from '@scutoons/ui';
+	import { ActionBar, ToonAvatar } from '@scutoons/ui';
 	import { STATIC_API, VIEWER_URL } from '$lib/config.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { toonLanguages, type ToonIndex } from '@scutoons/content';
@@ -38,11 +38,7 @@
 				{#each toons as toon (toon.id)}
 					<li>
 						<a href="/{toon.id}" data-testid="toon-{toon.id}">
-							{#if toon.avatar}
-								<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
-							{:else}
-								<span class="placeholder"></span>
-							{/if}
+							<ToonAvatar src={toon.avatar ? asset(`${toon.id}/${toon.avatar}`) : null} name={name(toon)} size="4rem" />
 							<strong>{name(toon)}</strong>
 							<span class="meta">{toon.id} · {toon.status}</span>
 						</a>
@@ -114,13 +110,6 @@
 	}
 	.toons a:hover {
 		border-color: var(--ink);
-	}
-	.toons img,
-	.placeholder {
-		width: 4rem;
-		height: 4rem;
-		object-fit: cover;
-		background: var(--surface-panel);
 	}
 	.meta {
 		color: var(--muted);

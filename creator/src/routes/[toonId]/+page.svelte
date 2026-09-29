@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ActionBar } from '@scutoons/ui';
+	import { ActionBar, ToonAvatar } from '@scutoons/ui';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { newChapter } from '$lib/editor/defaults.ts';
 	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
+	import { asset } from '$lib/utils/cdn.ts';
 	import { Language, NEUTRAL_LOCALE, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import StyleGuide from '$lib/components/style-guide.svelte';
@@ -36,6 +37,9 @@
 	const targets = $derived(edited ? edited.languages.filter((l) => l !== edited.source) : []);
 	const addable = $derived(edited ? ALL_LANGUAGES.filter((l) => !edited.languages.includes(l)) : []);
 	const languagesChanged = $derived(!!edited && !!langs && edited.languages.join(',') !== langs.languages.join(','));
+
+	/** navigation avatar: the index entry's `avatar`, else the convention `<toon>/avatar.webp` */
+	const avatarSrc = $derived(asset(`${toonId}/${index?.data?.[NEUTRAL_LOCALE]?.avatar || 'avatar.webp'}`));
 
 	const sequence = $derived<SequenceItem[]>(season?.data?.[season.primary]?.sequence ?? []);
 	const pageDocs = $derived([index, season, toonFile].filter((d): d is ContentDoc => !!d));
@@ -216,6 +220,7 @@
 
 <div class="creator-page">
 	<header class="creator-top">
+		<ToonAvatar src={avatarSrc} name={toonId} />
 		<nav class="crumbs"><a href="/">{m['creator.title']()}</a> / <strong>{toonId}</strong></nav>
 	</header>
 	<main class="browser">
@@ -344,6 +349,7 @@
 	.creator-top {
 		display: flex;
 		align-items: center;
+		gap: 0.75rem;
 		min-height: 64px;
 		padding: 0 1rem 0 96px;
 		border-bottom: 2px solid var(--ink);
