@@ -3,6 +3,7 @@ import { getToken } from './utils/auth.js';
 import AuthView from './views/AuthView.js';
 import BatchView from './views/batch.js';
 import StatsView from './views/stats.js';
+import UsersView from './views/users.js';
 import GenerateView from './views/generate.js';
 import RegenerateView from './views/regenerate.js';
 
@@ -47,6 +48,7 @@ const App = {
     try {
       new BatchView();
       new StatsView();
+      new UsersView();
     } catch (err) {
       console.error('[main] BatchView failed to initialise:', err);
       const el = document.getElementById('batchMode');

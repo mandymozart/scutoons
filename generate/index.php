@@ -128,6 +128,7 @@ require_once __DIR__ . '/../config.php';
 			<span class="mode-option" data-mode="regenerate">Regenerate</span>
 			<span class="mode-option" data-mode="batch">Batch</span>
 			<span class="mode-option" data-mode="stats">Stats</span>
+			<span class="mode-option" data-mode="users">Users</span>
 		</div>
 		<div class="app-layout view">
 
@@ -212,6 +213,8 @@ require_once __DIR__ . '/../config.php';
 				<div class="mode-panel" id="batchMode"></div>
 				<!-- Stats Mode -->
 				<div class="mode-panel" id="statsMode"></div>
+				<!-- Users Mode -->
+				<div class="mode-panel" id="usersMode"></div>
 				<!-- Regenerate Mode -->
 				<div class="mode-panel" id="regenerateMode">
 					<div class="content">
