@@ -346,6 +346,32 @@ are the fallback and the seed.
   adding `es` showed "es: 8 files … Create es from en" (not clicked); restored to `de` + `["de","en"]` (v75 = the
   static entry), **nothing published** – local store has 3 draft versions of `catpope/_/index.json`, no published one.
 
+- **2026-09-29 — chapter visibility = the season status, per locale** (single source of truth; a toon may release de
+  before en). **Rule (owner): a chapter always belongs to a season** (PLAN.md "RULE: every chapter belongs to a season") – chapter files without a season entry are invalid.
+  - Viewer: the toon layout lists `isItemListed` items of the season (published; drafts in dev; coming-soon as
+    non-clickable "Coming Soon" entries with 0.5 opacity) and sets `LoadedSequenceItem.status` from the season (the
+    chapter file's `status` is dropped). prev/next skip coming-soon. `chapter/[n]/+page.ts` gates via `parent()` season:
+    coming-soon → "Coming soon" + chapter title + release date (also in dev); draft or not in the season → the existing
+    `chapter.not_public` text in production (dev shows drafts); the URL keeps resolving, the chapter content is not
+    fetched. Before this, drafts/coming-soon chapters were readable by direct URL in production.
+  - `@scutoons/content`: `Chapter.published` removed, `Chapter.status` optional + `@deprecated`; helpers
+    `isItemListed`, `sequenceStatus`; `validateFile(ctx.seasonStatus)`: chapter status ≠ season → warning, no season
+    entry → error, a `published` key → info. Schemas regenerated.
+  - Creator: meta panel "Status" = one select per locale editing `season1.json` → saved/published with the chapter via
+    the ActionBar (season doc is part of the editor's docs). On save the chapter file's `status` mirrors the season and
+    `published` is removed (`lib/editor/visibility.ts` `syncChapter`; "Align now" in the meta panel). "published (flag)"
+    field and the "also set the status in the season" hint are gone. Toon page: status per locale per chapter, saving
+    also saves the mirrored chapter files (published with the season). Toon without a season: "Create season 1"
+    (season1.json + toon.json if missing, drafts; adopts existing chapter files as draft entries); "New chapter" always
+    creates the chapter inside the season (numbers after every stored chapter file, errors shown in the ActionBar).
+  - Data: static catpope chapter files have no `published`, statuses match the season (de + en). Store: only
+    `toptoy/{de,en}/chapter1.json` had `published: false` → new drafts without it (v81/v82). Test edits on catpope
+    chapter 2 en (status → coming-soon → back) left drafts v77–v80, the newest equal to the published versions.
+    toptoy (was: no season, no toon.json, chapter 1 orphan) now has draft season1.json (chapters 1 + 2, draft),
+    toon.json and chapter2.json – nothing published.
+  - Caveat: the released viewer still reads the chapter file's `status` for clickability, so a season status change
+    needs the mirrored chapter file published too (both publish flows do that).
+
 ## Platform P1a
 
 2026-09-30 (branch `platform`, commits 52ba2d7..see git log; details + package map: PLATFORM.md "P1a — result").
