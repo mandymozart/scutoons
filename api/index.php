@@ -19,6 +19,8 @@ declare(strict_types=1);
  *   POST /api/inventory/import/      { items: [{ item_id, qty }] }
  *   GET|PUT /api/avatar/             { slots: { <slot>: entryId|null } }
  *   GET|PUT /api/progress/<toonId>/  { state, updated_at }
+ *   GET|PUT /api/content/<toon>/<locale>/<path>.json, GET content/versions|index, POST content/publish|unpublish|restore
+ *                                    content store of the creator editor (api/lib/Content.php; drafts/writes: role creator)
  *
  * Signed-in requests send `Authorization: Bearer <session_token>`.
  */
@@ -49,6 +51,8 @@ Http::run(function () {
         $route === 'PUT avatar' => Avatar::put(Http::body()),
         (bool) preg_match('#^(GET|PUT) progress/([A-Za-z0-9_-]{1,64})$#', $route, $m) =>
             $m[1] === 'GET' ? Progress::get($m[2]) : Progress::put($m[2], Http::body()),
+        (bool) preg_match('#^(GET|PUT|POST) content/(.+)$#', $route, $m) =>
+            (require_once __DIR__ . '/lib/Content.php') && Content::route($m[1], $m[2]),
         default => throw new ApiError(404, 'not_found', 'Unknown endpoint.'),
     };
 });
