@@ -334,6 +334,47 @@ check($a4['created'] === false && $a4['user']['marketing_opt_in'] === true, 'exi
 $a5 = login($emailA, null, ['marketing_opt_in' => false]);
 check($a5['user']['marketing_opt_in'] === true, 'signing in without the tick never opts out', $a5['user'] ?? $a5);
 
+// ── Promo accounts read on every device: /me access from the signup code ─────────────────────────────
+echo "\nPromo account access (/me)\n";
+$me = call('GET', "$api/me/", null, $tokenC);
+$access = $me['body']['access'] ?? [];
+check(($access['unlocked'] ?? false) === true && $access['permissions'] === ['catalog'] && $access['signup_code'] === $promo && $access['codes'] === [$promo]
+    && isset($access['access_token']) && $me['body']['memberships'] === [], '/me/ access via the promo signup code (not owned, no membership)', $me['body']);
+check(Codes::find($promo)['claimed_by'] === null, 'promo code still owned by nobody');
+$me = call('GET', "$api/me/", null, $tokenA);
+check(array_key_exists('signup_code', $me['body']['access'] ?? []) && $me['body']['access']['signup_code'] === null && in_array($vinyl, $me['body']['access']['codes'], true), '/me/ membership signup code counts as owned code (signup_code null)', $me['body']['access'] ?? null);
+
+// ── Signup + claim are atomic ─────────────────────────────────────────────────────────────────────────
+echo "\nAtomic signup + claim\n";
+$choice = $tempCode('membership');
+Db::run("UPDATE qr SET edition_id = '1_catpope_dago' WHERE code = ?", [$choice]);
+$emailF = "smoke-$run-f@example.com";
+call('POST', "$api/auth/request/", ['email' => $emailF, 'locale' => 'en', 'code' => $choice]);
+$otpF = otpFor($emailF);
+$r = call('POST', "$api/auth/verify/", ['email' => $emailF, 'otp' => $otpF]);
+check($r['status'] === 422 && $r['body']['error'] === 'choose_item' && count($r['body']['options'] ?? []) === 2 && $noAccount($emailF),
+    'signup with a code that needs a choice, no choice → 422 choose_item, no account', $r);
+$r = call('POST', "$api/auth/verify/", ['email' => $emailF, 'otp' => $otpF, 'item_id' => 'dago_heavy_t', 'variant' => 'white']);
+check($r['status'] === 200 && $r['body']['created'] === true && $r['body']['claimed'] === [$choice] && Codes::find($choice)['claimed_by'] === $r['body']['user']['id'],
+    'same one-time code again with the choice → account + claim', $r);
+$taken = $tempCode('membership');
+$emailG = "smoke-$run-g@example.com";
+call('POST', "$api/auth/request/", ['email' => $emailG, 'locale' => 'en', 'code' => $taken]);
+$otpG = otpFor($emailG);
+$r = call('POST', "$api/inventory/claim/", ['code' => $taken], $tokenC);
+check($r['status'] === 200, 'someone else claims the code between request and verify', $r);
+$r = call('POST', "$api/auth/verify/", ['email' => $emailG, 'otp' => $otpG]);
+check($r['status'] === 409 && $r['body']['error'] === 'already_claimed' && $noAccount($emailG), 'verify then → 409 already_claimed, no account', $r);
+$signupRequest = [
+    'id' => 'x', 'email' => "smoke-$run-h@example.com", 'locale' => 'en', 'claim_code' => $choice,
+    'claim_item_id' => null, 'claim_variant' => null, 'marketing_opt_in' => 0,
+];
+Db::run("INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, ip_hash, attempts, created_at, expires_at) VALUES (?, ?, ?, ?, 'en', ?, 'x', 0, ?, ?)",
+    [$signupRequest['id'] = Db::uuid7(), $signupRequest['email'], bin2hex(random_bytes(32)), str_repeat('0', 64), $choice, Db::now(), Db::now(600)]);
+try { Auth::confirm($signupRequest, []); $refusedInner = false; } catch (ApiError $err) { $refusedInner = $err->errorCode === 'already_claimed'; }
+check($refusedInner && $noAccount($signupRequest['email']) && Db::value('SELECT used_at FROM login_requests WHERE id = ?', [$signupRequest['id']]) === null,
+    'Auth::confirm with an owned product code → already_claimed, rolled back (no user, request unused)');
+
 // ── Roles ──────────────────────────────────────────────────────────────────────────────────────────────
 echo "\nRoles\n";
 $me = call('GET', "$api/me/", null, $tokenC);
@@ -422,8 +463,13 @@ check(($access['unlocked'] ?? false) === true && $access['permissions'] === ['ca
     && $access['expires_at'] === null, '/me/ access from owned codes', $access);
 $payload = Permissions::verifyToken((string) ($access['access_token'] ?? ''));
 check($payload !== null && $payload['sub'] === "user:$userA" && $payload['exp'] <= time() + Permissions::TOKEN_MAX_SECONDS + 5, '/me/ access_token verifies (sub user, exp ≤ 30 days)', $payload);
-$me = call('GET', "$api/me/", null, $tokenB);
-check(($me['body']['access']['unlocked'] ?? null) === false && !isset($me['body']['access']['access_token']), '/me/ without owned codes → no access, no token', $me['body']['access'] ?? null);
+$emailE = "smoke-$run-e@example.com";
+$promoE = $tempCode('promo');
+$e = login($emailE, ['code' => $promoE]);
+Db::run('UPDATE qr SET revoked_at = ? WHERE code = ?', [qrNow(), $promoE]);
+$me = call('GET', "$api/me/", null, $e['session_token']);
+check(($me['body']['access']['unlocked'] ?? null) === false && !isset($me['body']['access']['access_token']) && array_key_exists('signup_code', $me['body']['access'] ?? []) && $me['body']['access']['signup_code'] === null,
+    '/me/ with no owned code and a revoked signup code → no access, no token', $me['body']['access'] ?? null);
 [$p, $sig] = explode('.', (string) ($access['access_token'] ?? '.'));
 $forged = json_decode((string) base64_decode(strtr($p, '-_', '+/')), true) ?: [];
 $forged['perms'][] = 'admin';
