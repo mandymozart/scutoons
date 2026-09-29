@@ -34,6 +34,7 @@ Relative paths are relative to the server folder. Secrets never go into the repo
 | `PROGRESS_MAX_BYTES`, `CONTENT_MAX_BYTES` | 262144, 2097152 | |
 | `ADMIN_MAX_PAGE_SIZE` | 500 | largest `page_size` of the admin lists |
 | `ITEMS_PATH`, `EDITIONS_PATH`, `TOONS_PATH` | `config/*.json` | catalog data |
+| `PRODUCTS_PATH`, `FEATURED_PRODUCTS_PATH` | `config/products.json`, `config/featured-products.json` | shop catalog + homepage featured products, served as stored |
 | `PERMISSIONS_PATH` | `config/permissions.json` | what each code type grants (server-only) – see docs/API.md |
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |
 | `KEYPAIR_PATH` | `storage/keys/keypair.json` | ML-DSA-65 keypair (was `api/keys/keypair.json`) |

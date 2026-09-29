@@ -63,6 +63,21 @@ final class AppTest extends TestCase
         self::assertFalse($this->request('GET', 'http://localhost/api/toons/', ['Origin' => 'http://viewer.test'])->hasHeader('Access-Control-Allow-Origin'));
     }
 
+    public function testProductsAreTheStoredFilesByteForByte(): void
+    {
+        $root = dirname(__DIR__, 3);
+        foreach (['products' => 'products.json', 'products/featured' => 'featured-products.json'] as $path => $file) {
+            $r = $this->request('GET', "http://localhost/api/$path/", ['Origin' => 'https://evil.test']);
+            self::assertSame(200, $r->getStatusCode(), $path);
+            self::assertSame((string) file_get_contents("$root/config/$file"), (string) $r->getBody(), $path);
+            self::assertSame('application/json; charset=utf-8', $r->getHeaderLine('Content-Type'));
+            self::assertSame(['*', 'public, max-age=300'], [$r->getHeaderLine('Access-Control-Allow-Origin'), $r->getHeaderLine('Cache-Control')]);
+        }
+        self::assertSame('http://viewer.test', $this->request('GET', 'http://localhost/api/products', ['Origin' => 'http://viewer.test'])->getHeaderLine('Access-Control-Allow-Origin'));
+        $r = $this->request('PUT', 'http://localhost/api/products/featured/');
+        self::assertSame([405, 'method_not_allowed'], [$r->getStatusCode(), self::json($r)['error']]);
+    }
+
     public function testAdminRoutesNeedTheAdminRole(): void
     {
         $user = $this->user();

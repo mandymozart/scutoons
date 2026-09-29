@@ -145,6 +145,21 @@ $r = call('GET', "$api/health/");
 check($r['status'] === 200 && $r['body']['db'] === 'ok', 'GET /health/', $r);
 $r = call('GET', "$api/items/");
 check($r['status'] === 200 && count($r['body']['items'] ?? []) === 9 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 9 items + recipe', $r['status']);
+// Shop data: the stored files byte-for-byte (config/products.json, config/featured-products.json), public + cached
+foreach (['products' => 'config/products.json', 'products/featured' => 'config/featured-products.json'] as $path => $file) {
+    $raw = @file_get_contents("$api/$path/", false, stream_context_create(['http' => ['header' => "Origin: https://evil.example\r\n", 'ignore_errors' => true]]));
+    $head = strtolower(implode("\n", $http_response_header ?? []));
+    check($raw !== false && $raw === file_get_contents(dirname(__DIR__) . "/$file") && str_contains($head, ' 200')
+        && str_contains($head, 'access-control-allow-origin: *') && str_contains($head, 'cache-control: public, max-age=300')
+        && str_contains($head, 'content-type: application/json'), "GET /$path/ → $file byte-for-byte, CORS *, cached", $head);
+}
+$r = call('GET', "$api/products/", null, null, ['Origin: http://localhost:5173']);
+check(($r['body']['version'] ?? null) === 2 && count($r['body']['products'] ?? []) > 0
+    && ($r['headers']['access-control-allow-origin'] ?? '') === 'http://localhost:5173', 'GET /products/ → catalog v2, allowed origin echoed', $r['headers']);
+$r = call('GET', "$api/products/featured/");
+check(is_array($r['body']) && array_is_list($r['body']) && is_string($r['body'][0]['product'] ?? null), 'GET /products/featured/ → [{ product, variant }]', $r['body']);
+$r = call('POST', "$api/products/", []);
+check($r['status'] === 405 && ($r['body']['error'] ?? '') === 'method_not_allowed', 'POST /products/ → 405', $r);
 $r = call('GET', "$api/code/?c=" . rawurlencode($dago));
 check($r['status'] === 200 && $r['body']['claimed'] === false && count($r['body']['options']) === 2
     && $r['body']['edition']['count'] === 37 && is_int($r['body']['edition']['number']), 'GET /code/ dago → 2 options, edition n / 37', $r);

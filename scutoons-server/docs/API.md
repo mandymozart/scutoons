@@ -23,6 +23,8 @@ Public on qr forever: `/?c=`, `/verify.html`, `/api/validate/`, `/api/keys/keys.
 | GET | `/health/` | – | `{ status, db }` |
 | GET | `/items/` | – | catalog (`config/items.json`); any origin (`*`), cached 5 min |
 | GET | `/editions/` (`?toon=`), `/toons/` | – | public lists (`config/editions.json`, `config/toons.json`) |
+| GET | `/products/` | – | shop catalog = `config/products.json` byte-for-byte (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`); any origin (`*`), cached 5 min; other methods 405 |
+| GET | `/products/featured/` | – | homepage featured products = `config/featured-products.json` (`[{ product, variant? }]`); same headers |
 | POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in? }` → `{ status:"sent", expires_at }` (always; new accounts only with a signup code) |
 | POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required` |
 | POST | `/auth/logout/` | Bearer | ends this session |

@@ -102,7 +102,7 @@ like osct's Progress. Local dev: mail is written to a log file instead of sent.
 
 (Platform P1b: the same paths answer on `https://api.scutoons.com/api` – the target base, `VITE_API_URL` – and stay
 on `https://qr.scutoons.com/api` during the transition, `QR_HOST_SERVES_API`; agents/PLATFORM.md "Domain architecture".
-Production CORS adds creator, admin and shop origins; dev 8000/10000/11000.)
+Production CORS adds creator, admin and shop origins; dev 8000/10000/11000/12000.)
 
 All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoons.com`, `https://www.scutoons.com`,
 `http://localhost:5173`, `http://localhost:5174`, `http://localhost:4173`. Errors: `{ "status": "error", "error": "<code>", "message": "…" }`.
@@ -114,6 +114,8 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
 | POST | `/auth/logout/` | – | `{ status: "success" }` |
 | GET | `/me/` | – | `{ user, memberships:[{code,type,expires_at}], inventory:[Entry], avatar:{ slots:{ <slot>: entryId|null } } }` |
 | GET | `/items/` | – | catalog (above) |
+| GET | `/products/` | – | shop catalog, `config/products.json` as stored (`{ version:2, currency, checked_at, source, products:[Product] }`, `@scutoons/content` `ProductCatalog`); CORS `*`, cached 5 min (platform P2b) |
+| GET | `/products/featured/` | – | homepage featured products, `config/featured-products.json` as stored (`[{ product, variant? }]`) |
 | GET | `/code/?c=CODE` | – | `{ code, type, claimed: bool, claimed_by_me?: bool, items:[{item_id, variant, qty}], options:[{item_id, variants:[…]}], edition:{ id, name, number?, count } }` — never an email |
 | POST | `/inventory/claim/` | `{ code, item_id?, variant? }` | `{ status, inventory:[Entry] }` · 409 `already_claimed` · 422 `choose_item` (+options) |
 | POST | `/inventory/craft/` | `{ recipe_id }` | `{ status, inventory }` · 422 `missing_inputs` |

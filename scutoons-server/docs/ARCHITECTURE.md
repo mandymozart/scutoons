@@ -77,7 +77,7 @@ answers `Time::localIso()`).
   `TestCase` gives each test a fresh copy of a migrated SQLite database, a `FrozenClock` and isolated settings
   (`Settings::fixed()` – no `config.local.php`, no environment).
 - Contract suites (`composer test:contract` = `tests/run-contract.php`: copies the local DB, starts `php -S` on :9180
-  and :9181, runs everything, stops them): `api-smoke.php` (the public API, 182 checks), `content-smoke.php`,
+  and :9181, runs everything, stops them): `api-smoke.php` (the public API, 187 checks), `content-smoke.php`,
   `claim-race.php` (concurrent claims and signups), `admin-smoke.php` (admin API), `public-urls.php` (printed URLs,
   identical to the old server; `--hosts` host routing). They boot through `tests/support/legacy.php`, which gives
   them the static calls of the old server (`Db::`, `Codes::`, …) as facades over the new services.

@@ -30,7 +30,7 @@ composer serve                                    # http://localhost:9000  (php 
 - Login mails land in `logs/mail.log` (`MAIL_TRANSPORT = log`).
 - Local-only files (gitignored): `config.local.php`, `db/local.sqlite`, `storage/files/` (batch output),
   `storage/keys/keypair.json` (signing keys), `logs/`.
-- Dev ports (final): viewer 8000, CDN 8001, server 9000, creator 10000, admin 11000. `composer serve:9100` runs a
+- Dev ports (final): viewer 8000, CDN 8001, server 9000, creator 10000, admin 11000, shop 12000. `composer serve:9100` runs a
   second copy on :9100 (e.g. next to the old plain-PHP server during the transition).
 
 ## Everyday commands

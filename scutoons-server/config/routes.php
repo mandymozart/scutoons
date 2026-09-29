@@ -32,6 +32,7 @@ use Scutoons\Http\Controllers\LandingController;
 use Scutoons\Http\Controllers\Legacy\GenerateController;
 use Scutoons\Http\Controllers\MeController;
 use Scutoons\Http\Controllers\NotFoundController;
+use Scutoons\Http\Controllers\ProductsController;
 use Scutoons\Http\Controllers\ProgressController;
 use Scutoons\Http\Controllers\ValidateController;
 use Scutoons\Http\Middleware\GenerateToken;
@@ -62,6 +63,10 @@ return static function (App $app): void {
     $app->any('/api/editions[/index.php]', [CatalogController::class, 'editions']);
     $app->any('/api/toons[/index.php]', [CatalogController::class, 'toons']);
     $app->get('/api/{folder:items|editions|toons}/{file:items|editions|toons}.json', [CatalogController::class, 'file']);
+
+    // Shop data (config/products.json, config/featured-products.json – was the viewer's static/api/*.json)
+    $app->any('/api/products', [ProductsController::class, 'catalog']);
+    $app->any('/api/products/featured', [ProductsController::class, 'featured']);
 
     $app->post('/api/auth/request', [AuthController::class, 'request']);
     $app->post('/api/auth/verify', [AuthController::class, 'verify']);

@@ -77,6 +77,9 @@ return [
     'ITEMS_PATH' => 'config/items.json',
     'EDITIONS_PATH' => 'config/editions.json',
     'TOONS_PATH' => 'config/toons.json',
+    // Shop catalog + homepage featured products (GET /api/products/, /api/products/featured/)
+    'PRODUCTS_PATH' => 'config/products.json',
+    'FEATURED_PRODUCTS_PATH' => 'config/featured-products.json',
     // What each code type grants (server-only, never served)
     'PERMISSIONS_PATH' => 'config/permissions.json',
     // Batch manifests, QR SVGs, certificates, signatures, ZIPs (was generate/files/)
