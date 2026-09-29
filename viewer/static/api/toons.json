@@ -3,7 +3,7 @@
     "id": "catpope",
     "uri": "catpope",
     "status": "published",
-    "avatar": "avatar.png",
+    "avatar": "avatar.webp",
     "sourceLanguage": "de",
     "languages": ["de", "en"],
     "i18n": {
@@ -21,6 +21,7 @@
     "id": "toptoy",
     "uri": "toptoy",
     "status": "draft",
+    "avatar": "avatar.webp",
     "sourceLanguage": "de",
     "languages": ["de", "en"],
     "i18n": {
@@ -38,6 +39,7 @@
     "id": "yellowmouse",
     "uri": "yellowmouse",
     "status": "draft",
+    "avatar": "avatar.webp",
     "sourceLanguage": "de",
     "languages": ["de", "en"],
     "i18n": {
