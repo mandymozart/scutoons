@@ -39,7 +39,3 @@ export const {
 /** Toon / season / chapter configs and VN scene files: content store (published) → static `/api` files. */
 export const contentApi = createContentApi({ client: api, staticBase: API_BASE });
 export const { fetchContent } = contentApi;
-// editor endpoints for lib/creator until the creator moves to its own app
-export const { getDraft, getVersion, putDraft, publishVersion, unpublishFile, restoreVersion, listVersions, contentIndex, getStatic } =
-	contentApi;
-export { CONTENT_PATH, type ContentVersion, type WrappedContent, type ContentIndexFile } from '@scutoons/api';

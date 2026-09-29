@@ -6,6 +6,7 @@
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';
+	import { CREATOR_URL } from '$lib/config.ts';
 	import accountIcon from '$lib/icons/account.svg';
 	import LoginForm from '$lib/components/account/login-form.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
@@ -111,7 +112,7 @@
 			{/if}
 			{#if session.hasRole('creator')}
 				<p class="creator-line">
-					<a class="btn btn-secondary" href={localizeHref('/creator')}>{m['account.creator_link']()}</a>
+					<a class="btn btn-secondary" href={CREATOR_URL}>{m['account.creator_link']()}</a>
 					<small>{m['account.creator_hint']()}</small>
 				</p>
 			{/if}

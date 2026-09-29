@@ -1,0 +1,32 @@
+{
+	"name": "scutoons-creator",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS creator: editor for toon / season / chapter configs (role creator), creator.scutoons.com",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "node scripts/paraglide.js && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+	},
+	"dependencies": {
+		"@scutoons/api": "*",
+		"@scutoons/content": "*",
+		"@scutoons/reader": "*",
+		"@scutoons/tokens": "*",
+		"@scutoons/ui": "*"
+	},
+	"devDependencies": {
+		"@inlang/paraglide-js": "^2.4.0",
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.55.0",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"@types/node": "^22",
+		"svelte": "^5.55.0",
+		"svelte-check": "^4.1.0",
+		"typescript": "^5.9.3",
+		"vite": "^8.0.0"
+	}
+}

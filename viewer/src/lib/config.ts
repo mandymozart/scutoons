@@ -25,3 +25,8 @@ export const QR_HOSTS = ['qr.scutoons.com', 'localhost:9000', '127.0.0.1:9000'];
 export const SCAN_OBJECT_THRESHOLD = Number(import.meta.env.VITE_SCAN_OBJECT_THRESHOLD || 0.35);
 export const SCAN_OBJECT_FRAMES = 3;
 export const SCAN_OBJECT_FPS = 2;
+
+/** The creator app (own origin), linked from the account page for the creator role. `VITE_CREATOR_URL`. */
+export const CREATOR_URL: string = (
+	import.meta.env.VITE_CREATOR_URL || (import.meta.env.PROD ? 'https://creator.scutoons.com' : 'http://localhost:10000')
+).replace(/\/+$/, '');

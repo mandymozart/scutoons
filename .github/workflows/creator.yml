@@ -1,0 +1,50 @@
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'creator/**'
+      - 'shared/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.npmrc'
+      - '.github/workflows/creator.yml'
+
+name: 🚀 Deploy creator (creator.scutoons.com)
+
+jobs:
+  web-deploy:
+    name: 🎉 Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+    - name: 🚚 Get latest code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 📦 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    - name: 🔨 Install (workspace root) and build creator
+      run: npm ci && npm run build -w creator
+      env:
+        # optional repository variables; the app falls back to the production URLs when unset
+        VITE_API_URL: ${{ vars.VITE_API_URL }}
+        VITE_CDN_URL: ${{ vars.VITE_CDN_URL }}
+        VITE_VIEWER_URL: ${{ vars.VITE_VIEWER_URL }}
+        VITE_STATIC_API: ${{ vars.VITE_STATIC_API }}
+
+    - name: 📂 Sync files via FTP
+      uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+      with:
+        server: ${{ secrets.CREATOR_FTP_SERVER }}
+        username: ${{ secrets.CREATOR_FTP_USERNAME }}
+        password: ${{ secrets.CREATOR_FTP_PASSWORD }}
+        local-dir: ./creator/build/
+        server-dir: /
+        log-level: verbose
