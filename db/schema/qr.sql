@@ -70,10 +70,10 @@ COMMIT;
 
 CREATE TABLE IF NOT EXISTS `users` (
   `id` CHAR(36) NOT NULL,
-  `email` VARCHAR(254) NULL DEFAULT NULL COMMENT 'NULL = anonymous account (code only)',
+  `email` VARCHAR(254) NOT NULL,
   `locale` VARCHAR(8) NOT NULL DEFAULT 'en',
   `created_at` DATETIME NOT NULL,
-  `confirmed_at` DATETIME NULL DEFAULT NULL,
+  `confirmed_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `users_email` (`email`)
@@ -95,7 +95,6 @@ CREATE TABLE IF NOT EXISTS `login_requests` (
   `created_at` DATETIME NOT NULL,
   `expires_at` DATETIME NOT NULL,
   `used_at` DATETIME NULL DEFAULT NULL,
-  `anon_user_id` CHAR(36) NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `login_requests_token` (`token_hash`),
   KEY `login_requests_email` (`email`, `created_at`),

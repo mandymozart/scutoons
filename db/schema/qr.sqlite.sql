@@ -18,10 +18,10 @@ CREATE TABLE IF NOT EXISTS qr (
 
 CREATE TABLE IF NOT EXISTS users (
   id TEXT NOT NULL PRIMARY KEY,
-  email TEXT NULL UNIQUE,
+  email TEXT NOT NULL UNIQUE,
   locale TEXT NOT NULL DEFAULT 'en',
   created_at TEXT NOT NULL,
-  confirmed_at TEXT NULL,
+  confirmed_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
@@ -38,8 +38,7 @@ CREATE TABLE IF NOT EXISTS login_requests (
   attempts INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,
   expires_at TEXT NOT NULL,
-  used_at TEXT NULL DEFAULT NULL,
-  anon_user_id TEXT NULL DEFAULT NULL
+  used_at TEXT NULL DEFAULT NULL
 );
 CREATE INDEX IF NOT EXISTS login_requests_email ON login_requests (email, created_at);
 CREATE INDEX IF NOT EXISTS login_requests_ip ON login_requests (ip_hash, created_at);
