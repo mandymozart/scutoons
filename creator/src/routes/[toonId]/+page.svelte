@@ -333,6 +333,8 @@
 	<header class="creator-top">
 		<ToonAvatar src={avatarSrc} name={toonId} />
 		<nav class="crumbs"><a href="/">{m['creator.title']()}</a> / <strong>{toonId}</strong></nav>
+		<a class="btn credits-link" href="/{toonId}/credits" title={m['creator.credits_open_hint']()} data-testid="edit-credits">{m['creator.credits_open']()} →</a>
+		<span class="hint credits-hint">{m['creator.credits_open_hint']()}</span>
 	</header>
 	<main class="browser">
 		<section>
@@ -486,6 +488,14 @@
 		min-height: 64px;
 		padding: 0 1rem 0 96px;
 		border-bottom: 2px solid var(--ink);
+	}
+	.credits-link {
+		margin-left: 1rem;
+	}
+	@media (max-width: 700px) {
+		.credits-hint {
+			display: none;
+		}
 	}
 	.crumbs a,
 	.bar-link {

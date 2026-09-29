@@ -11,9 +11,9 @@ import {
 	putDraft,
 	type ContentVersion
 } from '$lib/api.ts';
-import { clone, deepEqual, getAt, setAt, TOON_INDEX_FILE, type Path } from '@scutoons/content';
+import { clone, CREDITS_FILE, deepEqual, getAt, PEOPLE_FILE, ROLES_FILE, setAt, TOON_INDEX_FILE, type Path } from '@scutoons/content';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index';
+export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles';
 export type DocSource = 'store' | 'static' | 'new' | 'missing';
 /** The file of a locale when the store has none (default: the viewer's static file). */
 export type DocFallback = (locale: string) => Promise<any | null>;
@@ -43,6 +43,9 @@ export function kindOfPath(path: string): DocKind {
 	if (/^season\d+\.json$/.test(path)) return 'season';
 	if (path === 'toon.json') return 'toon';
 	if (path === TOON_INDEX_FILE) return 'index';
+	if (path === CREDITS_FILE) return 'credits';
+	if (path === PEOPLE_FILE) return 'people';
+	if (path === ROLES_FILE) return 'roles';
 	return 'group';
 }
 
@@ -74,6 +77,8 @@ export class ContentDoc {
 	private redoStack = $state<string[]>([]);
 	private lastKey: string | null = null;
 	private lastTime = 0;
+	/** time of the newest undo step (pages editing several docs undo the most recently edited one) */
+	lastEditAt = $state(0);
 
 	/** `locales`: the toon's languages; `primary`: its source language (see ./languages.ts). */
 	constructor(toon: string, path: string, locales: readonly string[], primary: string, fallback?: DocFallback) {
@@ -203,6 +208,7 @@ export class ContentDoc {
 		this.redoStack = [];
 		this.lastKey = key ?? null;
 		this.lastTime = now;
+		this.lastEditAt = now;
 	}
 
 	undo() {

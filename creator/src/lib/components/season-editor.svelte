@@ -73,13 +73,23 @@
 		</section>
 
 		<section class="block" data-testid="season-credits">
-			<h2>{m['creator.credits']()}</h2>
-			<div class="grid g4">
-				<SharedField doc={season} path={['credits', 'artist']} label="credits.artist" kind="list" testid="credits-artist" />
-				<SharedField doc={season} path={['credits', 'writer']} label="credits.writer" testid="credits-writer" />
-				<SharedField doc={season} path={['credits', 'music']} label="credits.music" kind="list" testid="credits-music" />
-				<SharedField doc={season} path={['credits', 'sound']} label="credits.sound" kind="list" testid="credits-sound" />
-			</div>
+			<h2>{m['creator.credits']()} <span class="hint">(deprecated)</span></h2>
+			<p class="note" data-testid="credits-moved">
+				{m['creator.credits_deprecated']()} <a class="btn secondary" href="/{toon}/credits">{m['creator.credits_open']()} →</a>
+			</p>
+			<table class="old-credits">
+				<tbody>
+					{#each ['artist', 'writer', 'music', 'sound'] as field (field)}
+						<tr>
+							<th>credits.{field}</th>
+							{#each season.present as l (l)}
+								{@const value = season.get(l, ['credits', field])}
+								<td>{l}: {Array.isArray(value) ? value.join(', ') : (value ?? '–')}</td>
+							{/each}
+						</tr>
+					{/each}
+				</tbody>
+			</table>
 		</section>
 
 		<section class="block" data-testid="season-sequence">
@@ -146,12 +156,8 @@
 	.g3 {
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
-	.g4 {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-	}
 	@media (max-width: 900px) {
-		.g3,
-		.g4 {
+		.g3 {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
@@ -178,5 +184,23 @@
 	}
 	.chapters select {
 		width: auto;
+	}
+	.note {
+		margin: 0;
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		flex-wrap: wrap;
+	}
+	.old-credits {
+		border-collapse: collapse;
+		font-size: 12px;
+		color: var(--text-muted);
+	}
+	.old-credits th,
+	.old-credits td {
+		text-align: left;
+		padding: 0.15rem 0.75rem 0.15rem 0;
+		font-weight: 400;
 	}
 </style>

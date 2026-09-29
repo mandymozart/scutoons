@@ -21,6 +21,8 @@
 		docs,
 		companions = () => [],
 		beforeSave = () => {},
+		validate,
+		wide = false,
 		children
 	}: {
 		toon: string;
@@ -28,10 +30,19 @@
 		docs: ContentDoc[];
 		companions?: () => ContentDoc[];
 		beforeSave?: () => void;
+		/** replaces the per-file validation (e.g. credits, checked against the people + roles files) */
+		validate?: () => Problem[];
+		/** full-width content (editor + preview side by side) */
+		wide?: boolean;
 		children: Snippet;
 	} = $props();
 
 	const main = $derived(docs[0]);
+	/** undo/redo act on the most recently edited doc */
+	const undoDoc = $derived(docs.filter((d) => d.canUndo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? main);
+	const redoDoc = $derived(docs.filter((d) => d.canRedo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? main);
+	let historyPath = $state<string | null>(null);
+	const historyDoc = $derived(docs.find((d) => d.path === historyPath) ?? main);
 	const loaded = $derived(docs.every((d) => !d.loading));
 	const anyDirty = $derived(docs.some((d) => d.dirty) || companions().some((d) => d.dirty));
 	const anySaving = $derived(docs.some((d) => d.saving));
@@ -44,6 +55,11 @@
 
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
+		if (validate) {
+			if (docs.some((d) => d.loading)) return out;
+			const order = { error: 0, warning: 1, info: 2 };
+			return validate().sort((a, b) => order[a.level] - order[b.level]);
+		}
 		for (const doc of docs) {
 			if (doc.loading) continue;
 			for (const l of doc.locales) {
@@ -131,11 +147,11 @@
 			saveAll();
 		} else if (key === 'z' && !isField(event.target)) {
 			event.preventDefault();
-			if (event.shiftKey) main?.redo();
-			else main?.undo();
+			if (event.shiftKey) redoDoc?.redo();
+			else undoDoc?.undo();
 		} else if (key === 'y' && !isField(event.target)) {
 			event.preventDefault();
-			main?.redo();
+			redoDoc?.redo();
 		}
 	}
 	function isField(target: EventTarget | null) {
@@ -151,7 +167,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="meta-page" class:with-panel={panel !== null}>
+<div class="meta-page" class:with-panel={panel !== null} class:wide>
 	<header class="topbar">
 		<nav class="crumbs">
 			<a href="/">{m['creator.title']()}</a> / <a href="/{toon}">{toon}</a> / <strong>{title}</strong>
@@ -171,8 +187,8 @@
 			</button>
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" disabled={!main?.canUndo} onclick={() => main?.undo()} data-testid="undo">↶</button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" disabled={!main?.canRedo} onclick={() => main?.redo()} data-testid="redo">↷</button>
+			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
+			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => (panel = panel === 'history' ? null : 'history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
@@ -221,8 +237,15 @@
 		<aside class="side-panel">
 			{#if panel === 'problems'}
 				<ProblemsPanel {problems} onclose={() => (panel = null)} />
-			{:else if panel === 'history' && main}
-				<HistoryPanel doc={main} onclose={() => (panel = null)} />
+			{:else if panel === 'history' && historyDoc}
+				{#if docs.length > 1}
+					<p class="history-files">
+						{#each docs as d (d.toon + d.path)}
+							<button class="ghost" class:active={d === historyDoc} onclick={() => (historyPath = d.path)}>{d.toon}/{d.path}</button>
+						{/each}
+					</p>
+				{/if}
+				{#key historyDoc}<HistoryPanel doc={historyDoc} onclose={() => (panel = null)} />{/key}
 			{/if}
 		</aside>
 	{/if}
@@ -286,6 +309,15 @@
 	.content {
 		padding: 1rem 1rem 3rem;
 		max-width: 70rem;
+	}
+	.wide .content {
+		max-width: none;
+	}
+	.history-files {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem;
+		margin: 0 0 0.5rem;
 	}
 	.with-panel .content {
 		margin-right: min(24rem, 92vw);
