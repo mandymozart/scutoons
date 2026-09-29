@@ -1,0 +1,22 @@
+{
+	"name": "scutoons",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"description": "SCUTOONS monorepo: viewer, creator and admin apps, shared libraries (server: scutoons-server/, Composer)",
+	"workspaces": [
+		"viewer",
+		"creator",
+		"admin",
+		"shared/*"
+	],
+	"engines": {
+		"node": ">=22"
+	},
+	"scripts": {
+		"dev:viewer": "npm run dev -w viewer",
+		"dev:creator": "npm run dev -w creator",
+		"check": "npm run check --workspaces --if-present",
+		"build": "npm run build --workspaces --if-present"
+	}
+}

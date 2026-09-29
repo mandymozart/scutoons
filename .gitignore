@@ -6,3 +6,5 @@ node_modules
 .svelte-kit
 .claude
 .claude/worktrees/
+# npm workspaces (each app keeps its own .gitignore)
+*.tsbuildinfo
