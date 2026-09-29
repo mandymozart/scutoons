@@ -3,7 +3,7 @@
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
-	"description": "SCUTOONS monorepo: viewer, creator, admin and shop apps, shared libraries (server: server/, Composer)",
+	"description": "SCUTOONS monorepo: viewer, creator, admin and shop apps, shared libraries (PHP: server/ = the API with Composer, qr/ = qr.scutoons.com, plain PHP)",
 	"workspaces": [
 		"viewer",
 		"creator",
@@ -19,7 +19,10 @@
 		"dev:creator": "npm run dev -w creator",
 		"dev:admin": "npm run dev -w admin",
 		"dev:shop": "npm run dev -w shop",
+		"dev:api": "php -S localhost:9000 -t server/public server/public/router.php",
+		"dev:qr": "php -S localhost:9001 -t qr/public qr/public/router.php",
 		"check": "npm run check --workspaces --if-present",
-		"build": "npm run build --workspaces --if-present"
+		"build": "npm run build --workspaces --if-present",
+		"deploy:dry-run": "node deploy/deploy.mjs all --dry-run --list=summary"
 	}
 }

@@ -434,3 +434,26 @@ are the fallback and the seed.
   (`GIT_INDEX_FILE=… git read-tree HEAD` + `git apply --cached` of the own hunks), never a plain `git commit` of the
   shared index; check `git status` for other agents' edits inside a folder before committing the whole folder (the
   creator commit had to be redone once because another agent's `creator/package.json` + `config.ts` slipped in).
+
+## Platform P3
+
+2026-09-30 — qr app, API-only server, deploy targets, versions (details: agents/PLATFORM.md "P3 — result" and
+"Cutover checklist (all-inkl)"; deploy/README.md; qr/README.md).
+- `qr/` = qr.scutoons.com, plain PHP (no Composer deps), :9001 (`npm run dev:qr`), config `qr/config.local.php`
+  (`API_URL` http://localhost:9000, `QR_PROXY_SECRET` = the one in `server/config.local.php`). Landing HTML is
+  byte-identical to the old server's; templates moved from `server/templates/landing/`.
+- `server/` is the API only: `/?c=` and `/verify.html` answer 404 there now – use :9001. `composer test` starts the qr
+  app itself (ports 9180–9185); `api-smoke.php` / `admin-smoke.php` take the qr base as 2nd argument.
+- Scans: the qr app calls `/api/code/?c=&scan=1`; the API logs the scan only for the trusted proxy (secret header).
+  Running the qr app against the dev DB logs real `scan` events there (as the old landing page did).
+- The printed-URL suite lives in `qr/tests/public-urls.php` (`--api=` required). Baseline recorded before the change
+  (scratchpad `p3/pu-baseline.txt`) = the P1b baseline; qr result identical (+ a revoked code that now exists in the
+  local DB: `ahhdknMu`).
+- Deploy: `node deploy/deploy.mjs <app|all> --dry-run` stages into `.deploy/<app>/` (gitignored); `api` runs composer
+  in the staging copy (never touches `server/vendor`). Builds write `version.json` (`deploy/version.mjs`); on Windows
+  composer's `vendor/composer/tmp-*.zip` can vanish mid-listing (handled).
+- Env names: one FTP set (`FTP_SERVER/USERNAME/PASSWORD`), `VITE_WWW_URL` replaces `VITE_VIEWER_URL` (creator reads
+  both; admin gets it via `buildEnv`), `.env.example` is the owner's checklist. `MAIL_FROM` must be a bare address.
+- PowerShell gotchas: `git commit -m @'…'@` with quotes breaks native arg passing → use `-F <file>` (ASCII/UTF-8
+  without BOM; `Set-Content -Encoding utf8` writes a BOM into the message). `[IO.File]` paths are relative to the
+  process cwd, not the PowerShell location – use absolute paths.

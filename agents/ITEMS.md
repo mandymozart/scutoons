@@ -419,6 +419,11 @@ signature (`PUT /admin/codes/{code}/signature` + the `signatures` file) → `PUT
 | GET | `/admin/events` | list (default page_size 100); sort `created_at` (default `-created_at`), `code`, `event`; filters `code`, `event` (comma list of scan, access, claim, claim_refused, login, signup, revoke, unrevoke), `edition_id` (`none`), `toon`, `from`, `to` (`YYYY-MM-DD`, UTC); `q` = part of the code | items `{ id, code, event, created_at, device, account, toon, edition_id }` · `400 invalid_event\|invalid_date` |
 | GET | `/admin/catalog` | – | `{ status, catalog (= GET /items/), editions, toons, permissions (the server-only map, read-only) }` |
 | GET | `/admin/keys` | – | `{ status, algorithm, publicKey, privateKey, generated }` – the ML-DSA-65 keypair for client-side signing · `404 keys_missing` · `500 keys_invalid` |
+| GET | `/admin/versions` | – | `{ status, checked_at, api: { app:"api", version, git_sha, built_at }, apps: [{ app, url, ok, http_status, version?, git_sha?, built_at?, shared?: { "@scutoons/api": "0.1.0", … }, error? }] }` – every deployed app's `version.json` (server setting `VERSION_URLS`: viewer, admin, creator, shop, qr) fetched in parallel (4 s timeout), next to the API's own; for the dashboard's out-of-sync check (platform P3) |
+
+Also platform P3: `GET /health/` returns `{ status, db, version, git_sha, built_at }`; `GET /code/?c=&scan=1` logs a
+`scan` event only for the qr app (trusted proxy: `X-Scutoons-Proxy-Secret` = `QR_PROXY_SECRET`, which also lets it
+forward `X-Scutoons-Client-Ip` / `X-Scutoons-Device-Id`); for everyone else `scan` is ignored.
 
 ### Content (read-only overview, platform P2a)
 

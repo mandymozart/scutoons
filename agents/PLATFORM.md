@@ -262,6 +262,9 @@ creator/admin origins (+ dev ports: viewer 8000, creator 10000, admin 11000). La
 
 ## Deploy
 
+> Superseded by "Hosting layout & deployment" and "P3 — result" (deploy/targets.json, one reusable workflow,
+> `deploy-all.yml`, one FTP secret set). Kept for history:
+
 Root `.github/workflows/`: `viewer.yml`, `creator.yml`, `admin.yml` (path filters incl. `shared/**`), `server.yml`
 (`server/**`: PHPUnit + PHPStan, composer install --no-dev, generated config.php, FTP; build
 tokens CSS copy not needed yet – the landing page inlines its tokens). Deploy only from `main`.
@@ -276,7 +279,7 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 | P1a | Monorepo foundation: root workspaces, `shared/{tokens,content,reader,api,ui}` extracted from viewer, viewer consumes them; `creator/` app split out of viewer | agent "frontend-platform" | P0 ✅ |
 | P1b | Server refactor to Slim 4 structure, contract suites green, `/api/admin/*` with role auth | agent "server-refactor" | P0 ✅ |
 | P2 | `admin/` app on shared ui + admin API; parity with `generate/` | agent "admin" | P1a ui/tokens, P1b admin API |
-| P3 | CI workflows, root README, local dev (one command), cutover checklist, archive old repo | coordinator/agent | P1–P2 |
+| P3 | CI workflows, root README, local dev (one command), cutover checklist, archive old repo | coordinator/agent | P1–P2 ✅ (see "P3 — result") |
 
 ## Rules while `anger` is being released
 
@@ -363,7 +366,8 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 |---|---|---|
 | viewer (main, scutoons.com) | **8000** | `npm run dev:viewer` |
 | cdn (static files) | **8001** | `cd cdn && python server.py 8001` |
-| server (qr.scutoons.com) | **9000** | `cd server && composer serve` (or `php -S localhost:9000 …`) |
+| API (server/, api.scutoons.com) | **9000** | `npm run dev:api` or `cd server && composer serve` |
+| qr (qr/, qr.scutoons.com) | **9001** | `npm run dev:qr` or `cd qr && composer serve` (calls the API on :9000) |
 | creator (creator.scutoons.com) | **10000** | `npm run dev:creator` |
 | admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
 | shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |
@@ -403,7 +407,8 @@ The Slim app routes by host:
 viewer route `/shop` is a redirect to `shop.scutoons.com` (RULE: `/shop` keeps working). ✅ P2b, see "P2b — result".
 
 **Deployment:** one workflow per app (`viewer.yml`, `server.yml`, `admin.yml`, `creator.yml`, `shop.yml`), path
-filters incl. `shared/**`, deploy only from `main`, each to its own FTP folder (secrets `<APP>_FTP_*`). The owner
+filters incl. `shared/**`, deploy only from `main`, each to its own FTP folder (~~secrets `<APP>_FTP_*`~~ – one FTP
+secret set, see "Hosting layout & deployment"; the server/qr host routing above is superseded by the qr app). The owner
 creates the subdomains/folders in all-inkl (`api.`, `admin.`, `shop.` are new; `creator.` exists without SSL yet —
 enable SSL).
 
@@ -449,7 +454,7 @@ Rules now:
 | P1b | server refactor (Slim), host routing qr/api, admin API (folder renamed to `server/` 2026-09-30) | ✅ 2026-09-30 |
 | P2a | `admin/` app incl. port of `generate/` (QR generation, batches, certificates) to Svelte; bottom ActionBar in admin + creator | ✅ 2026-09-30 |
 | P2b | `shop/` app split out of the viewer, `/shop` redirect, products from the API | ✅ 2026-09-30 |
-| P3 | workflows per app, env per app (`VITE_API_URL` → api.scutoons.com), cutover checklist (subdomains/folders/SSL in all-inkl), remove `generate/` after admin parity | after P2 |
+| P3 | `qr/` app (qr.scutoons.com) + server API-only, `deploy/targets.json` + one reusable deploy workflow + `deploy-all`, versions (`version.json`, `/api/health/`, `/api/admin/versions`, CHANGELOGs), cutover checklist | ✅ 2026-09-30 (see "P3 — result"; open: switch `VITE_API_URL`, remove `generate/` after admin parity) |
 | P4 | data into the DB via the API (own migration plan) | later |
 | P5 | CDN plan with bunny.net (with owner) | later |
 
@@ -498,3 +503,146 @@ output; the API's `/api/health/` returns its own. The admin dashboard shows all 
 flags mismatches (e.g. a frontend built against an older `@scutoons/api` than the API expects). Each app keeps a
 `CHANGELOG.md`.
 
+## P3 — result (2026-09-30)
+
+**Structure**
+
+| Where | What |
+|---|---|
+| `qr/` | plain PHP app for qr.scutoons.com, no Composer deps (`src/` App, Landing, Api, Proxy, Http, Cache, Config, View, Response, Client; `public/` docroot with `index.php`, `router.php`, `.htaccess`, `verify.html`, `assets/js/`; `templates/landing/` moved from the server unchanged + `unavailable.php`; root `.htaccess` forwards into `public/` if the docroot is `qr/`; `config.local.php.example`, README, CHANGELOG, `composer.json` = version + `serve`/`test` scripts) |
+| `qr/tests/public-urls.php` | the printed-URL suite (moved from the server): every printed URL through the qr app; proxies byte-identical to the API; `--full-api=off`; `--down` (fallback page); `--limited` (429 page) |
+| `server/` | API only: `HostRouting`, `LandingController`, `templates/landing`, `public/verify.html`, `assets/js/verify-crypto.js` removed (noble stays for `generate/`); non-API paths → plain 404 (`PageNotFoundController`); settings `QR_HOST`/`API_HOST`/`QR_HOST_SERVES_API` gone, new `QR_PROXY_SECRET`, `VERSION_URLS`; `composer.json` `version` 1.0.0 |
+| `deploy/` | `targets.json` (the one description of every target), `deploy.mjs` (build → stage `.deploy/<app>/` → version.json → generated config.php → plan; `--dry-run`, `--github`, `--setup`), `version.mjs`, README |
+| `.github/workflows/` | `deploy-app.yml` (reusable, environment `production`, secrets/vars as JSON), `viewer/shop/creator/admin.yml` (callers), `qr.yml` (php -l + offline smoke test, deploy), `server.yml` (PHPUnit + PHPStan, deploy), `deploy-all.yml` (manual / tag `deploy-*`: migrations reminder → api → qr → frontends, matrix from `targets.json`) |
+| versions | apps `package.json` 0.1.0 (qr, api `composer.json` 1.0.0), shared packages 0.0.0 → 0.1.0; `npm run build` writes `version.json` (`node ../deploy/version.mjs build`); `CHANGELOG.md` in viewer, creator, shop, admin, qr, server |
+
+**Decisions**
+- qr → API: `GET /api/code/?c=&scan=1` (new: `scan=1` logs the `scan` event, only for the trusted proxy, also for
+  expired/revoked codes – as the old landing page did) + `GET /api/items/` (names, icons). The lookup now counts against
+  the API's per-IP lookup limit (`ACCESS_MAX_PER_IP_HOUR`, shared with `/access/`) → new 429 page; the old landing page
+  had no limit.
+- **Trusted proxy:** qr sends `X-Scutoons-Proxy-Secret`, `X-Scutoons-Client-Ip` (REMOTE_ADDR), `X-Scutoons-Device-Id`
+  (the browser's `X-Device-Id`); the API's `DeviceId` middleware uses them only when the secret equals its
+  `QR_PROXY_SECRET` (hash_equals; forwarded IP must be a valid IP). Clients' own `X-Scutoons-*` headers are dropped
+  by the proxy. Behind Cloudflare later, REMOTE_ADDR would be Cloudflare's → use `CF-Connecting-IP` then.
+- Cache: APCu if enabled, else JSON files in `qr/cache/`. A scan always asks the API (counting + rate limit); the
+  cache serves `skip=1` (fresh 60 s) and the fallback page's Continue (kept 1 day); catalog 5 min.
+- Proxy: method, query, body and headers pass through (minus hop-by-hop, Host, Accept-Encoding, Cookie); the answer's
+  status, body and headers (minus hop-by-hop, lengths, Date/Server/X-Powered-By) come back unchanged; PHP's default
+  content type is suppressed. API unreachable → 502 `api_unavailable`. The verify page's
+  `generate/get-signature.php` + `generate/files/signatures/SIGNATURE-*.json` are proxied too (they must stay in the API
+  when `generate/` retires); other `/generate/*` → 302 to `API_URL/generate/…`.
+- `/?login=` (old magic links) → `WWW_URL` (default `https://scutoons.com`, as `APP_URL` before). qr's `API_URL` in
+  production is fixed to `https://api.scutoons.com` in `targets.json` (never from `VITE_API_URL`, which points at qr
+  during the transition → loop).
+- Deploy: `deploy.mjs` stages exactly the upload (PHP targets build `vendor/` inside the staging copy, the dev vendor is
+  never touched), `SamKirkland/FTP-Deploy-Action` uploads it; `protect` globs become its `exclude` (neither uploaded
+  nor deleted: `api/storage/`, `db/`, `logs/`, `config.local.php`, `.htpasswd`; `qr/cache/`). Generated values with
+  an unset `${VAR}` are left out (the app default applies). The creator reads `VITE_WWW_URL` (old `VITE_VIEWER_URL`
+  still read); the admin build gets `VITE_VIEWER_URL=${VITE_WWW_URL}` via `buildEnv`; `VITE_STATIC_API` dropped
+  (default `<VITE_WWW_URL>/api` is right).
+- `.env.example`: `MAIL_FROM` must be a plain address (the server builds `From: SCUTOONS <MAIL_FROM>`; the earlier
+  example value `SCUTOONS <no-reply@…>` would have broken the header and the SMTP envelope).
+
+**Verified**
+- Landing HTML of 11 states (vinyl, dago choice, beetles, no edition, promo, unknown, enter form; de variants)
+  **byte-identical** to the server's before the move.
+- Printed-URL suite: qr on :9191 → API on :9190 (DB copy) with `--out`, diffed against the baseline recorded from the
+  server before the change (identical to the P1b baseline of the old plain-PHP server): identical, plus 3 lines for a
+  revoked code that exists in the local DB now (410 as expected). Live :9001 → :9000: 79/79.
+- `composer test` (server): PHPUnit 46 tests; api-smoke 187/187, content-smoke 62/62, claim-race claim + signup PASS,
+  admin-smoke 65/65, public-urls via qr 89/89, with `PROXY_FULL_API=0` 78/78. PHPStan level 8 clean. `npm run check`:
+  0 errors in every workspace.
+- Browser at 375px: vinyl (de), dago choice, promo, revoked, unknown, enter form, API down (fallback + Continue),
+  rate-limited; `/verify.html` verifies a real signed code through the proxy.
+- `npm run deploy:dry-run` (all builds): api 676 files / 2.9 MB → `api/`, qr 29 / 109 KB → `qr/`, viewer 155 / 2.1 MB
+  → `viewer/dist/`, shop 42 / 353 KB, creator 54 / 485 KB, admin 98 / 1.3 MB; every output has `version.json` with the
+  shared package versions.
+
+**Open**
+- Switch `VITE_API_URL` to `https://api.scutoons.com/api` after the cutover (checklist step 8), then later
+  `PROXY_FULL_API` → 0 (targets.json) once qr's access log shows no more `/api/*` except validate/keys.
+- Admin dashboard widget for `GET /api/admin/versions` (admin app).
+- Remove `generate/` + `GENERATE_PASSWORD` after admin parity; keep `generate/get-signature.php` and the signature
+  files route in the API (the verify page needs them) – e.g. move them to `/api/…` paths and change qr's proxy map.
+- The printed-URL suite reads codes from SQLite; against production it needs a SQLite copy of the MySQL data, or a few
+  real codes by hand (checklist step 6).
+
+## Cutover checklist (all-inkl)
+
+For the owner, in this order. Nothing public changes until step 5; every step until 8 is undone by pointing a
+subdomain back at its old folder (the old folders stay untouched until step 10).
+
+**0. Before** (a quiet hour; the `anger` release is out)
+- Do **not** merge `platform` into `main` yet: every push to `main` deploys the touched apps – that is step 4.
+- In the **old** repo `mandymozart/qr.scutoons.com`: disable Actions (or archive the repo) so it never uploads again.
+- Backups: FTP download of the current qr folder (at least `api/keys/keypair.json`, `generate/files/`,
+  `generate/.htpasswd`, `config.php`) and of the viewer folder; phpMyAdmin export of the database.
+- GitHub → repo `scutoons` → Settings → Environments → **`production`** (restrict to branch `main`): every secret and
+  variable of the root `.env.example` (`AUTH_SECRET` and `QR_PROXY_SECRET`: new random strings, ≥ 32 chars).
+  Keep `VITE_API_URL=https://qr.scutoons.com/api` for now.
+
+**1. Folders** (KAS → FTP / file manager, in the root of the FTP account from `FTP_USERNAME`)
+- Create `viewer/dist/`, `admin/dist/`, `creator/dist/`, `shop/dist/`, `qr/public/`, `api/public/`,
+  `api/storage/keys/`, `api/storage/files/`.
+
+**2. Private data → `api/storage/`** (before the first API deploy, so `/api/keys/keys.php` never 404s)
+- Upload `api/keys/keypair.json` (old qr folder) as `api/storage/keys/keypair.json`.
+- Copy the old `generate/files/*` into `api/storage/files/` (batch output; the verify page's signature fallback).
+
+**3. Database** (phpMyAdmin, same MySQL database)
+- Compare `server/migrations/mysql/*.sql` with the `schema_migrations` table and run the missing files in file-name order
+  (`2026-09-29-accounts-inventory`, `2026-09-30-code-owner-guard`, `2026-09-30-content-versions`,
+  `2026-09-30-revoke-events`, `2026-09-30-roles-signup`), then the seeds if not done: edition numbers
+  (`php bin/console backfill-edition-numbers --sql` locally → run the output) and the content store
+  (`php bin/console import-content <viewer/static/api> --sql`). server/docs/DATABASE.md.
+
+**4. Deploy into the new folders** (nothing points at them yet)
+- Merge `platform` into `main` (the push deploys the touched apps into the new folders).
+- Actions → "Deploy all" → Run workflow with **dry run** → read the plan (files → folders, protected paths).
+- Run it again without dry run (or push the tag `deploy-<date>`). Order: api → qr → frontends.
+
+**5. api.scutoons.com** (new subdomain)
+- KAS → Domains → Subdomain `api` → target directory `/api/public/` → SSL: enable Let's Encrypt (+ "force HTTPS").
+- Upload `generate/.htpasswd` to `api/public/generate/.htpasswd` and set `AuthUserFile` in
+  `api/public/generate/.htaccess` to its absolute path (KAS shows `/www/htdocs/<account>/…`).
+- Check: `https://api.scutoons.com/api/health/` → `status ok, db ok, version 1.0.0, git_sha <main>`;
+  `/api/items/`, `/api/keys/keys.php` (same `publicKey` as the old qr site), `/?c=x` → 404, `/generate/` asks for
+  the password.
+
+**6. qr.scutoons.com → the qr app** (printed URLs – check carefully)
+- KAS → subdomain `qr` → target directory `/qr/public/` (SSL stays on; re-issue if KAS asks).
+- Check with real codes: a membership code `/?c=CODE` and `?c=CODE` (no slash) → item page with Continue + Add to my
+  account; a promo code → Create account; a page code → redirect; `/?c=CODE&skip=1` → redirect; an unknown code → 404
+  page; `/verify.html` with a real certificate code (behaves as before – the known UPPER CASE issue of the RULE section is unchanged); `/api/validate/?c=CODE` (JSON,
+  `Access-Control-Allow-Origin: *`); `/api/keys/keys.php`; `/version.json`.
+- Admin (or `generate/` Stats): the scan shows up with a device/IP hash – if every scan has the same IP hash,
+  `QR_PROXY_SECRET` differs between api and qr.
+- Rollback: target back to the old qr folder.
+
+**7. Frontends**
+- `admin.scutoons.com` (new) → `/admin/dist/`, SSL; `shop.scutoons.com` (new) → `/shop/dist/`, SSL;
+  `creator.scutoons.com` (exists) → `/creator/dist/`, **enable SSL**; `scutoons.com` + `www.scutoons.com` →
+  `/viewer/dist/` (SSL on both).
+- Check each `https://<host>/version.json`, the viewer home + `/catpope` + a chapter, `/shop` → shop, the creator and
+  admin logins.
+
+**8. API URL switch**
+- Variable `VITE_API_URL` → `https://api.scutoons.com/api`; run "Deploy all" (the frontends rebuild).
+- Check: viewer `?code=CODE` (device access), sign in + claim, progress sync; creator save/publish; admin dashboard and
+  "versions" (`/api/admin/versions` lists every app).
+
+**9. Admin role + generate/**
+- Grant `admin` to the owner's account (legacy `generate/` → Users, or `php bin/console roles grant`).
+- When the admin app has parity: remove `generate/` and `GENERATE_PASSWORD` (separate change).
+
+**10. Later**
+- When qr's access log (KAS statistics) shows no `/api/*` traffic except `/api/validate/` and `/api/keys/keys.php`:
+  set `PROXY_FULL_API` to `0` in `deploy/targets.json` and deploy qr.
+- After one release without problems: delete the old qr folder and the old viewer folder (keep the backups).
+
+**Rollback**
+- Pages/apps: point the subdomain back at the old folder (instant; old folders are untouched until step 10).
+- API: the old qr folder still has its own keypair and batch files (copied, not moved) and talks to the same DB; the
+  migrations only add tables/columns.
+- Code: re-run the deploy of an earlier commit (Actions → the app's workflow on that commit) or `deploy-*` tag.
