@@ -1,0 +1,904 @@
+{
+	"toon": "catpope",
+	"roles": [
+		{
+			"id": "recording-engineer",
+			"category": "music",
+			"label": {
+				"de": "Toningenieur",
+				"en": "Recording Engineer"
+			}
+		},
+		{
+			"id": "recording-direction",
+			"category": "music",
+			"label": {
+				"de": "Aufnahmeleitung",
+				"en": "Recording Engineer"
+			}
+		}
+	],
+	"sections": [
+		{
+			"id": "toon",
+			"kind": "toon",
+			"lead": [
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "writer"
+						},
+						{
+							"role": "artist"
+						},
+						{
+							"role": "music"
+						},
+						{
+							"role": "sound"
+						}
+					]
+				},
+				{
+					"person": "thomas-b-dalby",
+					"roles": [
+						{
+							"role": "artist"
+						}
+					]
+				}
+			],
+			"entries": [
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "idea"
+						},
+						{
+							"role": "text"
+						},
+						{
+							"role": "voice"
+						}
+					]
+				},
+				{
+					"person": "patrizia-ruthensteiner",
+					"roles": [
+						{
+							"role": "costume"
+						}
+					]
+				},
+				{
+					"person": "una-ryu",
+					"roles": [
+						{
+							"role": "makeup-fx"
+						}
+					]
+				},
+				{
+					"person": "thomas-b-dalby",
+					"roles": [
+						{
+							"role": "photography"
+						},
+						{
+							"role": "layout"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "song-writing"
+						},
+						{
+							"role": "recording-engineer"
+						}
+					]
+				},
+				{
+					"person": "brian-lawlor",
+					"roles": [
+						{
+							"role": "arrangement"
+						}
+					]
+				},
+				{
+					"person": "natasha-moreno",
+					"roles": [
+						{
+							"role": "composition"
+						}
+					]
+				},
+				{
+					"person": "lukas-rehm",
+					"roles": [
+						{
+							"role": "video"
+						}
+					]
+				},
+				{
+					"person": "tatjana-stuermer",
+					"roles": [
+						{
+							"role": "graphic-design"
+						},
+						{
+							"role": "ornaments"
+						}
+					]
+				},
+				{
+					"person": "konrad-van",
+					"roles": [
+						{
+							"role": "translation",
+							"language": "en"
+						}
+					]
+				},
+				{
+					"person": "chris-nova-ludwig",
+					"roles": [
+						{
+							"role": "production"
+						},
+						{
+							"role": "mixing"
+						},
+						{
+							"role": "sound-design"
+						}
+					]
+				},
+				{
+					"person": "paul-parking",
+					"roles": [
+						{
+							"role": "trumpet"
+						},
+						{
+							"role": "modular-synth"
+						}
+					]
+				},
+				{
+					"person": "lena-wicke-aengehyster",
+					"roles": [
+						{
+							"role": "hunting-horn"
+						},
+						{
+							"role": "fx-voice"
+						}
+					]
+				},
+				{
+					"person": "lisa-pulsatila",
+					"roles": [
+						{
+							"role": "flute"
+						},
+						{
+							"role": "drones"
+						},
+						{
+							"role": "script-editing"
+						}
+					]
+				},
+				{
+					"person": "monique-fessel",
+					"roles": [
+						{
+							"role": "organ"
+						},
+						{
+							"role": "drones"
+						},
+						{
+							"role": "synths"
+						}
+					]
+				},
+				{
+					"person": "vienna-struggle-drone-choir",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "season-1",
+			"kind": "season",
+			"number": 1,
+			"entries": [
+				{
+					"person": "chris-nova-ludwig",
+					"roles": [
+						{
+							"role": "music"
+						},
+						{
+							"role": "sound"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "song-roar-little-kitty",
+			"kind": "song",
+			"title": {
+				"de": "Roar Little Kitty",
+				"en": "Roar Little Kitty"
+			},
+			"entries": [
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "text"
+						},
+						{
+							"role": "composition"
+						},
+						{
+							"role": "production"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "composition"
+						},
+						{
+							"role": "recording-direction"
+						}
+					]
+				},
+				{
+					"person": "chris-nova-ludwig",
+					"roles": [
+						{
+							"role": "production"
+						}
+					]
+				},
+				{
+					"person": "studio-cast",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				},
+				{
+					"person": "portal-cast",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "song-cloud-9",
+			"kind": "song",
+			"title": {
+				"de": "Cloud 9",
+				"en": "Cloud 9"
+			},
+			"entries": [
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "text"
+						},
+						{
+							"role": "composition"
+						},
+						{
+							"role": "production"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "composition"
+						},
+						{
+							"role": "recording-direction"
+						},
+						{
+							"role": "musician"
+						}
+					]
+				},
+				{
+					"person": "natasha-moreno",
+					"roles": [
+						{
+							"role": "composition"
+						},
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "chris-nova-ludwig",
+					"roles": [
+						{
+							"role": "composition"
+						},
+						{
+							"role": "production"
+						},
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "tatjana-stuermer",
+					"roles": [
+						{
+							"role": "recording-direction"
+						}
+					]
+				},
+				{
+					"person": "christoph-hehn",
+					"roles": [
+						{
+							"role": "recording-direction"
+						}
+					]
+				},
+				{
+					"person": "otto-oscar-hernandez",
+					"roles": [
+						{
+							"role": "musician"
+						}
+					]
+				},
+				{
+					"person": "shin-hyo-jin",
+					"roles": [
+						{
+							"role": "musician"
+						}
+					]
+				},
+				{
+					"person": "monique-fessel",
+					"roles": [
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "studio-cast",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				},
+				{
+					"person": "westbahnstudios-cast",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "song-not-my-city",
+			"kind": "song",
+			"title": {
+				"de": "Not My City",
+				"en": "Not My City"
+			},
+			"entries": [
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "text"
+						},
+						{
+							"role": "composition"
+						},
+						{
+							"role": "production"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "composition"
+						},
+						{
+							"role": "recording-direction"
+						}
+					]
+				},
+				{
+					"person": "chris-nova-ludwig",
+					"roles": [
+						{
+							"role": "production"
+						},
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "paul-parking",
+					"roles": [
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "monique-fessel",
+					"roles": [
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "studio-choir",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "song-like-a-baby",
+			"kind": "song",
+			"title": {
+				"de": "Like A Baby",
+				"en": "Like A Baby"
+			},
+			"entries": [
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "text"
+						},
+						{
+							"role": "composition"
+						},
+						{
+							"role": "production"
+						}
+					]
+				},
+				{
+					"person": "natasha-moreno",
+					"roles": [
+						{
+							"role": "composition"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "recording-direction"
+						}
+					]
+				},
+				{
+					"person": "chris-nova-ludwig",
+					"roles": [
+						{
+							"role": "production"
+						},
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "studio-cast",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				},
+				{
+					"person": "westbahnstudios-cast",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "song-once-twice-thrice",
+			"kind": "song",
+			"title": {
+				"de": "Once Twice Thrice",
+				"en": "Once Twice Thrice"
+			},
+			"entries": [
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "text"
+						},
+						{
+							"role": "composition"
+						},
+						{
+							"role": "production"
+						},
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "brian-lawlor",
+					"roles": [
+						{
+							"role": "composition"
+						}
+					]
+				},
+				{
+					"person": "chris-nova-ludwig",
+					"roles": [
+						{
+							"role": "production"
+						},
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "recording-direction"
+						}
+					]
+				},
+				{
+					"person": "studio-choir",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "song-no-he-said",
+			"kind": "song",
+			"title": {
+				"de": "No He Said",
+				"en": "No He Said"
+			},
+			"entries": [
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "text"
+						},
+						{
+							"role": "composition"
+						},
+						{
+							"role": "production"
+						},
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "brian-lawlor",
+					"roles": [
+						{
+							"role": "composition"
+						}
+					]
+				},
+				{
+					"person": "chris-nova-ludwig",
+					"roles": [
+						{
+							"role": "production"
+						},
+						{
+							"role": "interpretation"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "recording-direction"
+						}
+					]
+				},
+				{
+					"person": "studio-choir",
+					"roles": [
+						{
+							"role": "choir"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "performance-portal-cast",
+			"kind": "performance",
+			"title": {
+				"de": "Portal Besetzung",
+				"en": "Portal Cast"
+			},
+			"venue": {
+				"de": "Vienna Struggle Portal Spittelau, Wien",
+				"en": "Vienna Struggle Portal Spittelau, Vienna"
+			},
+			"date": "11/2021",
+			"entries": [
+				{
+					"person": "christine-gnigler",
+					"roles": [
+						{
+							"role": "mezzo-soprano"
+						}
+					]
+				},
+				{
+					"person": "patrizia-ruthensteiner",
+					"roles": [
+						{
+							"role": "mezzo-soprano"
+						}
+					]
+				},
+				{
+					"person": "alexandra-feusi",
+					"roles": [
+						{
+							"role": "alto"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "tenor"
+						}
+					]
+				},
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "baritone"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "performance-affirmations-cast",
+			"kind": "performance",
+			"title": {
+				"de": "Affirmations Besetzung",
+				"en": "Affirmations Cast"
+			},
+			"venue": {
+				"de": "Westbahnstudios, Wien",
+				"en": "Westbahnstudios, Vienna"
+			},
+			"date": "12/2023",
+			"entries": [
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "conductor"
+						}
+					]
+				},
+				{
+					"person": "patrizia-ruthensteiner",
+					"roles": [
+						{
+							"role": "soprano"
+						}
+					]
+				},
+				{
+					"person": "karolina-preuschl",
+					"roles": [
+						{
+							"role": "alto"
+						}
+					]
+				},
+				{
+					"person": "kerstin-hruza",
+					"roles": [
+						{
+							"role": "alto"
+						}
+					]
+				},
+				{
+					"person": "julia-edthofer",
+					"roles": [
+						{
+							"role": "tenor"
+						}
+					]
+				},
+				{
+					"person": "mandy-mozart",
+					"roles": [
+						{
+							"role": "baritone"
+						}
+					]
+				},
+				{
+					"person": "julian-hruza",
+					"roles": [
+						{
+							"role": "bass"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "performance-showcase-cast",
+			"kind": "performance",
+			"title": {
+				"de": "Showcase Besetzung",
+				"en": "Showcase Cast"
+			},
+			"venue": {
+				"de": "Westbahnstudios, Wien",
+				"en": "Westbahnstudios, Vienna"
+			},
+			"date": "4-7/2024",
+			"entries": [
+				{
+					"person": "nina-fuchs",
+					"roles": [
+						{
+							"role": "soprano"
+						}
+					]
+				},
+				{
+					"person": "lena-kauer",
+					"roles": [
+						{
+							"role": "alto"
+						}
+					]
+				},
+				{
+					"person": "thu-trang-ha",
+					"roles": [
+						{
+							"role": "alto"
+						}
+					]
+				},
+				{
+					"person": "johanna-edthofer",
+					"roles": [
+						{
+							"role": "alto"
+						}
+					]
+				},
+				{
+					"person": "julia-edhofer",
+					"roles": [
+						{
+							"role": "tenor"
+						}
+					]
+				},
+				{
+					"person": "bernhard-hammer",
+					"roles": [
+						{
+							"role": "tenor"
+						}
+					]
+				},
+				{
+					"person": "pavel-naydenov",
+					"roles": [
+						{
+							"role": "baritone"
+						}
+					]
+				},
+				{
+					"person": "wolfram-leitner",
+					"roles": [
+						{
+							"role": "baritone"
+						}
+					]
+				},
+				{
+					"person": "joey",
+					"roles": [
+						{
+							"role": "bass"
+						}
+					]
+				}
+			]
+		},
+		{
+			"id": "thanks",
+			"kind": "thanks",
+			"entries": [
+				{
+					"person": "eva-perner",
+					"roles": []
+				}
+			]
+		}
+	]
+}

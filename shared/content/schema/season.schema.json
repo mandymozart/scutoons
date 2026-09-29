@@ -32,7 +32,8 @@
 					"$ref": "#/definitions/Cover"
 				},
 				"credits": {
-					"$ref": "#/definitions/Credits"
+					"$ref": "#/definitions/Credits",
+					"deprecated": "moved to `<toon>/_/credits.json` (the creator shows it read-only); the viewer never rendered it"
 				},
 				"sequence": {
 					"type": "array",
@@ -81,7 +82,8 @@
 						"type": "string"
 					}
 				}
-			}
+			},
+			"deprecated": "moved to `<toon>/_/credits.json` (`ToonCredits`, credits.ts); the creator shows it read-only"
 		},
 		"SequenceItem": {
 			"type": "object",

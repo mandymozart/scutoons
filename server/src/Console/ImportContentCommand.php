@@ -38,7 +38,8 @@ final class ImportContentCommand extends Command
             ->addOption('sql', null, InputOption::VALUE_NONE, 'Print idempotent MySQL INSERTs instead of writing (production seed for phpMyAdmin)')
             ->setHelp(<<<'HELP'
                 Stores toon.json, season<N>.json, chapter<N>.json and the VN scene files chapter<N>/<name>.json of every
-                toon and locale folder as published version 1 (author NULL, message "import from static files").
+                toon and locale folder as published version 1 (author NULL, message "import from static files"); in the
+                language-neutral folder `_`: credits.json, people.json, roles.json (the credits seed in shared/content/seed).
                 Idempotent: files already in the store are skipped (the store is the source of truth once seeded).
                 Production: bin/console import-content <path> --sql > content-seed.sql, then import that file in phpMyAdmin
                 after migrations/mysql/2026-09-30-content-versions.mysql.sql. Each statement skips files already stored.
@@ -97,7 +98,7 @@ final class ImportContentCommand extends Command
                 sort($files);
                 foreach ($files as $file) {
                     $relative = substr(str_replace('\\', '/', $file), strlen(str_replace('\\', '/', $localeDir)) + 1);
-                    if (!self::isContentFile($relative)) continue;
+                    if (!self::isContentFile($locale, $relative)) continue;
                     $label = "$toon/$locale/$relative";
                     try {
                         ContentService::checkKey($toon, $locale, $relative);
@@ -151,9 +152,14 @@ final class ImportContentCommand extends Command
         return $stats['invalid'] > 0 ? self::FAILURE : self::SUCCESS;
     }
 
-    /** Store-managed files below <toon>/<locale>/ */
-    private static function isContentFile(string $relative): bool
+    /**
+     * Store-managed files below <toon>/<locale>/. The language-neutral locale `_` holds the credits files:
+     * `<toon>/_/credits.json` and, in the pseudo-toon `scutoons`, `people.json` + `roles.json`
+     * (seed: shared/content/seed, written by shared/content/scripts/migrate-credits.ts).
+     */
+    public static function isContentFile(string $locale, string $relative): bool
     {
+        if ($locale === ContentService::NEUTRAL_LOCALE) return preg_match('#^(credits|people|roles)\.json$#', $relative) === 1;
         return preg_match('#^(toon|season\d+|chapter\d+)\.json$#', $relative) === 1
             || preg_match('#^chapter\d+/[a-z0-9_-]+\.json$#', $relative) === 1;
     }

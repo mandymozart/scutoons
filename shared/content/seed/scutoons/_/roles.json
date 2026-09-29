@@ -1,0 +1,324 @@
+{
+	"roles": [
+		{
+			"id": "idea",
+			"category": "story",
+			"label": {
+				"de": "Idea",
+				"en": "Idea"
+			}
+		},
+		{
+			"id": "text",
+			"category": "story",
+			"label": {
+				"de": "Text",
+				"en": "Text"
+			}
+		},
+		{
+			"id": "writer",
+			"category": "story",
+			"label": {
+				"de": "Autor:in",
+				"en": "Writer"
+			}
+		},
+		{
+			"id": "script-editing",
+			"category": "story",
+			"label": {
+				"de": "Skript Bearbeitung",
+				"en": "Script Editing"
+			}
+		},
+		{
+			"id": "artist",
+			"category": "art",
+			"label": {
+				"de": "Künstler:in",
+				"en": "Artist"
+			}
+		},
+		{
+			"id": "layout",
+			"category": "art",
+			"label": {
+				"de": "Layout für Grafik Novell",
+				"en": "Layout for Graphic Novel"
+			}
+		},
+		{
+			"id": "graphic-design",
+			"category": "art",
+			"label": {
+				"de": "Grafikdesign",
+				"en": "Graphic Design"
+			}
+		},
+		{
+			"id": "ornaments",
+			"category": "art",
+			"label": {
+				"de": "Ornamente",
+				"en": "Ornaments"
+			}
+		},
+		{
+			"id": "photography",
+			"category": "art",
+			"label": {
+				"de": "Fotografie",
+				"en": "Photography"
+			}
+		},
+		{
+			"id": "costume",
+			"category": "art",
+			"label": {
+				"de": "Kostüm",
+				"en": "Costume Design"
+			}
+		},
+		{
+			"id": "makeup-fx",
+			"category": "art",
+			"label": {
+				"de": "Mask & Spezialeffekte FX Makeup",
+				"en": "Mask & Special FX Makeup"
+			}
+		},
+		{
+			"id": "video",
+			"category": "art",
+			"label": {
+				"de": "Video",
+				"en": "Video"
+			}
+		},
+		{
+			"id": "music",
+			"category": "music",
+			"label": {
+				"de": "Musik",
+				"en": "Music"
+			}
+		},
+		{
+			"id": "sound",
+			"category": "music",
+			"label": {
+				"de": "Sound",
+				"en": "Sound"
+			}
+		},
+		{
+			"id": "song-writing",
+			"category": "music",
+			"label": {
+				"de": "Song-Writing",
+				"en": "Song-Writing"
+			}
+		},
+		{
+			"id": "composition",
+			"category": "music",
+			"label": {
+				"de": "Komposition",
+				"en": "Composition"
+			}
+		},
+		{
+			"id": "arrangement",
+			"category": "music",
+			"label": {
+				"de": "Arrangement",
+				"en": "Arrangement"
+			}
+		},
+		{
+			"id": "mixing",
+			"category": "music",
+			"label": {
+				"de": "Mixing",
+				"en": "Mixing"
+			}
+		},
+		{
+			"id": "sound-design",
+			"category": "music",
+			"label": {
+				"de": "Sounddesign",
+				"en": "Sounddesign"
+			}
+		},
+		{
+			"id": "musician",
+			"category": "music",
+			"label": {
+				"de": "Musiker:in",
+				"en": "Musician"
+			}
+		},
+		{
+			"id": "trumpet",
+			"category": "music",
+			"label": {
+				"de": "Trumpets",
+				"en": "Trumpets"
+			}
+		},
+		{
+			"id": "hunting-horn",
+			"category": "music",
+			"label": {
+				"de": "Hunting Horn",
+				"en": "Hunting Horn"
+			}
+		},
+		{
+			"id": "flute",
+			"category": "music",
+			"label": {
+				"de": "Flute",
+				"en": "Flute"
+			}
+		},
+		{
+			"id": "organ",
+			"category": "music",
+			"label": {
+				"de": "Orgel",
+				"en": "Organs"
+			}
+		},
+		{
+			"id": "synths",
+			"category": "music",
+			"label": {
+				"de": "Synths",
+				"en": "Synths"
+			}
+		},
+		{
+			"id": "modular-synth",
+			"category": "music",
+			"label": {
+				"de": "Modular Synth",
+				"en": "Modular Synth"
+			}
+		},
+		{
+			"id": "drones",
+			"category": "music",
+			"label": {
+				"de": "Dronen",
+				"en": "Drones"
+			}
+		},
+		{
+			"id": "voice",
+			"category": "performance",
+			"label": {
+				"de": "Voice",
+				"en": "Voice"
+			}
+		},
+		{
+			"id": "fx-voice",
+			"category": "performance",
+			"label": {
+				"de": "FX Voice",
+				"en": "FX Voice"
+			}
+		},
+		{
+			"id": "interpretation",
+			"category": "performance",
+			"label": {
+				"de": "Interpretation",
+				"en": "Interpretation"
+			}
+		},
+		{
+			"id": "choir",
+			"category": "performance",
+			"label": {
+				"de": "Chor",
+				"en": "Choir"
+			}
+		},
+		{
+			"id": "conductor",
+			"category": "performance",
+			"label": {
+				"de": "Dirigent:in",
+				"en": "Conductor"
+			}
+		},
+		{
+			"id": "soprano",
+			"category": "performance",
+			"label": {
+				"de": "Soprano",
+				"en": "Soprano"
+			}
+		},
+		{
+			"id": "mezzo-soprano",
+			"category": "performance",
+			"label": {
+				"de": "Mezzo Soprano",
+				"en": "Mezzo Soprano"
+			}
+		},
+		{
+			"id": "alto",
+			"category": "performance",
+			"label": {
+				"de": "Alto",
+				"en": "Alto"
+			}
+		},
+		{
+			"id": "tenor",
+			"category": "performance",
+			"label": {
+				"de": "Tenor",
+				"en": "Tenor"
+			}
+		},
+		{
+			"id": "baritone",
+			"category": "performance",
+			"label": {
+				"de": "Bariton",
+				"en": "Baritone"
+			}
+		},
+		{
+			"id": "bass",
+			"category": "performance",
+			"label": {
+				"de": "Bass",
+				"en": "Bass"
+			}
+		},
+		{
+			"id": "production",
+			"category": "production",
+			"label": {
+				"de": "Produktion",
+				"en": "Production"
+			}
+		},
+		{
+			"id": "translation",
+			"category": "translation",
+			"label": {
+				"de": "Übersetzung",
+				"en": "Translation"
+			}
+		}
+	]
+}

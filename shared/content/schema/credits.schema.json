@@ -1,0 +1,327 @@
+{
+	"$id": "https://scutoons.com/schema/credits.schema.json",
+	"title": "ToonCredits",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/ToonCredits",
+	"definitions": {
+		"ToonCredits": {
+			"type": "object",
+			"properties": {
+				"toon": {
+					"type": "string"
+				},
+				"roles": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditRole"
+					},
+					"description": "roles only this toon uses (ids must not clash with the vocabulary)"
+				},
+				"sections": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditSection"
+					}
+				}
+			},
+			"required": [
+				"toon",
+				"sections"
+			],
+			"description": "`<toon>/_/credits.json`"
+		},
+		"CreditRole": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z0-9][a-z0-9-]*$`; custom roles of a toon must not reuse a global id"
+				},
+				"category": {
+					"$ref": "#/definitions/RoleCategory"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"id",
+				"category",
+				"label"
+			]
+		},
+		"RoleCategory": {
+			"type": "string",
+			"enum": [
+				"story",
+				"art",
+				"music",
+				"performance",
+				"production",
+				"translation",
+				"other"
+			]
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		},
+		"CreditSection": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/ToonCreditSection"
+				},
+				{
+					"$ref": "#/definitions/SeasonCreditSection"
+				},
+				{
+					"$ref": "#/definitions/ChapterCreditSection"
+				},
+				{
+					"$ref": "#/definitions/SongCreditSection"
+				},
+				{
+					"$ref": "#/definitions/PerformanceCreditSection"
+				},
+				{
+					"$ref": "#/definitions/ThanksCreditSection"
+				}
+			]
+		},
+		"ToonCreditSection": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable id within the file (list keys, drag and drop)"
+				},
+				"entries": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditEntry"
+					},
+					"description": "ordered people with their roles"
+				},
+				"kind": {
+					"type": "string",
+					"const": "toon"
+				},
+				"lead": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditEntry"
+					}
+				}
+			},
+			"required": [
+				"entries",
+				"id",
+				"kind",
+				"lead"
+			],
+			"description": "The toon's general credits: `lead` = \"Created by\" (shown first, prominently), `entries` grouped by role category."
+		},
+		"CreditEntry": {
+			"type": "object",
+			"properties": {
+				"person": {
+					"type": "string"
+				},
+				"roles": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditRoleEntry"
+					}
+				}
+			},
+			"required": [
+				"person",
+				"roles"
+			]
+		},
+		"CreditRoleEntry": {
+			"type": "object",
+			"properties": {
+				"role": {
+					"type": "string",
+					"description": "id from the vocabulary or the toon's custom roles"
+				},
+				"detail": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "specifics, e.g. `{ de: \"Trompete\", en: \"Trumpets\" }` → \"Musician (Trumpets)\""
+				},
+				"language": {
+					"$ref": "#/definitions/Language",
+					"description": "for translation roles: the target language → \"Translation English\""
+				}
+			},
+			"required": [
+				"role"
+			],
+			"description": "One role of a person in a section."
+		},
+		"Language": {
+			"type": "string",
+			"enum": [
+				"de",
+				"en",
+				"jp",
+				"kr",
+				"es"
+			]
+		},
+		"SeasonCreditSection": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable id within the file (list keys, drag and drop)"
+				},
+				"entries": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditEntry"
+					},
+					"description": "ordered people with their roles"
+				},
+				"kind": {
+					"type": "string",
+					"const": "season"
+				},
+				"number": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"entries",
+				"id",
+				"kind",
+				"number"
+			]
+		},
+		"ChapterCreditSection": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable id within the file (list keys, drag and drop)"
+				},
+				"entries": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditEntry"
+					},
+					"description": "ordered people with their roles"
+				},
+				"kind": {
+					"type": "string",
+					"const": "chapter"
+				},
+				"number": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"entries",
+				"id",
+				"kind",
+				"number"
+			]
+		},
+		"SongCreditSection": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable id within the file (list keys, drag and drop)"
+				},
+				"entries": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditEntry"
+					},
+					"description": "ordered people with their roles"
+				},
+				"kind": {
+					"type": "string",
+					"const": "song"
+				},
+				"title": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"entries",
+				"id",
+				"kind",
+				"title"
+			]
+		},
+		"PerformanceCreditSection": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable id within the file (list keys, drag and drop)"
+				},
+				"entries": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditEntry"
+					},
+					"description": "ordered people with their roles"
+				},
+				"kind": {
+					"type": "string",
+					"const": "performance"
+				},
+				"title": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"venue": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"date": {
+					"type": "string",
+					"description": "free text as printed, e.g. \"11/2021\""
+				}
+			},
+			"required": [
+				"entries",
+				"id",
+				"kind",
+				"title"
+			],
+			"description": "A live performance / recording cast."
+		},
+		"ThanksCreditSection": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable id within the file (list keys, drag and drop)"
+				},
+				"entries": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditEntry"
+					},
+					"description": "ordered people with their roles"
+				},
+				"kind": {
+					"type": "string",
+					"const": "thanks"
+				}
+			},
+			"required": [
+				"entries",
+				"id",
+				"kind"
+			],
+			"description": "Special thanks: people without roles (roles are optional here)."
+		}
+	}
+}

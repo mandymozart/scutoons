@@ -1,0 +1,162 @@
+{
+	"people": [
+		{
+			"id": "mandy-mozart",
+			"name": "Mandy Mozart"
+		},
+		{
+			"id": "patrizia-ruthensteiner",
+			"name": "Patrizia Ruthensteiner"
+		},
+		{
+			"id": "una-ryu",
+			"name": "Una Ryu"
+		},
+		{
+			"id": "thomas-b-dalby",
+			"name": "Thomas B. Dalby",
+			"aliases": [
+				"Thomas Dalby"
+			]
+		},
+		{
+			"id": "bernhard-hammer",
+			"name": "Bernhard Hammer"
+		},
+		{
+			"id": "brian-lawlor",
+			"name": "Brian Lawlor"
+		},
+		{
+			"id": "natasha-moreno",
+			"name": "Natasha Moreno"
+		},
+		{
+			"id": "lukas-rehm",
+			"name": "Lukas Rehm"
+		},
+		{
+			"id": "tatjana-stuermer",
+			"name": "Tatjana Stuermer"
+		},
+		{
+			"id": "konrad-van",
+			"name": "Konrad Van"
+		},
+		{
+			"id": "chris-nova-ludwig",
+			"name": "Chris Nova Ludwig",
+			"aliases": [
+				"Nova Lux"
+			]
+		},
+		{
+			"id": "paul-parking",
+			"name": "Paul Parking"
+		},
+		{
+			"id": "lena-wicke-aengehyster",
+			"name": "Lena Wicke-Aengehyster"
+		},
+		{
+			"id": "lisa-pulsatila",
+			"name": "Lisa Pulsatila"
+		},
+		{
+			"id": "monique-fessel",
+			"name": "Monique Fessel"
+		},
+		{
+			"id": "vienna-struggle-drone-choir",
+			"name": "Vienna Struggle Drone Choir"
+		},
+		{
+			"id": "studio-cast",
+			"name": "Studio Cast"
+		},
+		{
+			"id": "portal-cast",
+			"name": "Portal Cast"
+		},
+		{
+			"id": "christoph-hehn",
+			"name": "Christoph Hehn"
+		},
+		{
+			"id": "otto-oscar-hernandez",
+			"name": "Otto Oscar Hernandez"
+		},
+		{
+			"id": "shin-hyo-jin",
+			"name": "Shin Hyo Jin"
+		},
+		{
+			"id": "westbahnstudios-cast",
+			"name": "Westbahnstudios Cast"
+		},
+		{
+			"id": "studio-choir",
+			"name": "Studio Choir"
+		},
+		{
+			"id": "christine-gnigler",
+			"name": "Christine Gnigler"
+		},
+		{
+			"id": "alexandra-feusi",
+			"name": "Alexandra Feusi"
+		},
+		{
+			"id": "karolina-preuschl",
+			"name": "Karolina Preuschl"
+		},
+		{
+			"id": "kerstin-hruza",
+			"name": "Kerstin Hruza"
+		},
+		{
+			"id": "julia-edthofer",
+			"name": "Julia Edthofer"
+		},
+		{
+			"id": "julian-hruza",
+			"name": "Julian Hruza"
+		},
+		{
+			"id": "nina-fuchs",
+			"name": "Nina Fuchs"
+		},
+		{
+			"id": "lena-kauer",
+			"name": "Lena Kauer"
+		},
+		{
+			"id": "thu-trang-ha",
+			"name": "Thu Trang ha"
+		},
+		{
+			"id": "johanna-edthofer",
+			"name": "Johanna Edthofer"
+		},
+		{
+			"id": "julia-edhofer",
+			"name": "Julia Edhofer"
+		},
+		{
+			"id": "pavel-naydenov",
+			"name": "Pavel Naydenov"
+		},
+		{
+			"id": "wolfram-leitner",
+			"name": "Wolfram Leitner"
+		},
+		{
+			"id": "joey",
+			"name": "Joey"
+		},
+		{
+			"id": "eva-perner",
+			"name": "Eva Perner"
+		}
+	]
+}

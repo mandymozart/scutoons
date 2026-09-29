@@ -19,10 +19,11 @@ No Svelte, no DOM access, no bundler globals (`import.meta.env`), no app state: 
 | `products.ts` | shop contract (`GET /api/products/`, `/api/products/featured/`): `ProductCatalog`, `Product`, `ProductVariant`, `FeaturedProduct`, `LocalizedText`; helpers `isSoldOut()`, `pickVariant()`, `variantPrice()`, `formatPrice()`, `editionPieces()`, `localized()` |
 | `template.ts` | `escapeHtml()`, `escapeAndJoin()`, `sanitizeUrl()`, `sanitizeNumber()`, `isItemPublic(item, includeDrafts)` (readable), `isItemListed(item, includeDrafts)` (listed incl. coming-soon), `sequenceStatus(season, number)`, `cdnUrl(base, path)` |
 | `languages.ts` | toon languages (set per toon in `ToonIndex.sourceLanguage` / `.languages`): `toonLanguages(entry)` → `{ source, languages }` (defaults for older entries: `languages` → `i18n` keys → `de`), `withToonLanguages()`, `isLanguage()`, `NEUTRAL_LOCALE` (`_`), `TOON_INDEX_FILE` (`index.json`), `DEFAULT_SOURCE_LANGUAGE` |
+| `credits.ts` | credits model (language-neutral, labels per locale): `PeopleRegistry`/`CreditPerson` (`scutoons/_/people.json`), `RoleVocabulary`/`CreditRole`/`RoleCategory` (`scutoons/_/roles.json`), `ToonCredits`/`CreditSection`/`CreditEntry`/`CreditRoleEntry` (`<toon>/_/credits.json`); `resolveCredits()` (one locale, ready to render with `CreditsView` of @scutoons/reader), `validatePeople()`, `validateRoleVocabulary()`, `validateCredits()`, `replacePerson()`, `personUsage()`, `slugId()`, `uniqueId()`, `CREDITS_LABELS`, store constants `CREDITS_SCOPE`/`PEOPLE_FILE`/`ROLES_FILE`/`CREDITS_FILE` |
 | `paths.ts` | `Path`, `getAt()`, `setAt()`, `deleteAt()`, `clone()`, `deepEqual()`, `pathKey()`, `round2()` |
 | `validate.ts` | `validateFile(kind, data, locale, ctx)`, `validateLocales(kind, file, files, primary)`, `forEachSlice()`, `checkEvent()`, `checkGroup()`, `Problem`, `Level`, `ValidateContext`, `textOf()`, `LENGTH_WARNING_RATIO` |
 
-JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{chapter,season,toon,toon-index,group,catalog}.schema.json`.
+JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{chapter,season,toon,toon-index,group,catalog,credits,people,roles}.schema.json`.
 
 ## Example
 
@@ -44,6 +45,12 @@ $schema = json_decode(file_get_contents('…/shared/content/schema/chapter.schem
 ```
 
 ## Scripts
+
+- `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-credits.ts [--toon=catpope]`
+  (from the repo root) converts the old `viewer/static/api/<toon>/{de,en}/credits.json` + season `credits` + toon
+  `authors` into `seed/` (`scutoons/_/people.json`, `scutoons/_/roles.json`, `<toon>/_/credits.json`) and prints a report
+  (ambiguous roles, aliases, possible duplicates). Import: `php server/bin/console import-content shared/content/seed`
+  (`--sql` = production statements, committed as `seed/credits-seed.mysql.sql`).
 
 - `npm run schema -w @scutoons/content` regenerates `schema/*.schema.json` (commit the result).
 - `npm run check -w @scutoons/content` = `tsc --noEmit` + fails when a committed schema is out of date.

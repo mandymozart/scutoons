@@ -8,14 +8,18 @@ import { createGenerator } from 'ts-json-schema-generator';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/** file name → root type. Content files: `<toon>/<locale>/{toon,season1,chapterN,<chapter>/scene-N}.json`. */
+/** file name → root type. Content files: `<toon>/<locale>/{toon,season1,chapterN,<chapter>/scene-N}.json`;
+ *  credits: `<toon>/_/credits.json`, `scutoons/_/people.json`, `scutoons/_/roles.json`. */
 const SCHEMAS = {
 	chapter: 'Chapter',
 	season: 'Season',
 	toon: 'Toon',
 	'toon-index': 'ToonIndex',
 	group: 'Group',
-	catalog: 'Catalog'
+	catalog: 'Catalog',
+	credits: 'ToonCredits',
+	people: 'PeopleRegistry',
+	roles: 'RoleVocabulary'
 };
 
 const generator = createGenerator({

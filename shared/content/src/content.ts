@@ -182,7 +182,7 @@ export interface Cover {
 	portrait?: string;
 }
 
-/* @deprecated */
+/** @deprecated moved to `<toon>/_/credits.json` (`ToonCredits`, credits.ts); the creator shows it read-only */
 export interface Credits {
 	artist?: string[];
 	writer?: string;
@@ -190,7 +190,7 @@ export interface Credits {
 	sound?: string[];
 }
 
-/* @deprecated */
+/** @deprecated the old per-locale `<toon>/<locale>/credits.json` (fallback of the viewer's credits page); new: `CreditPerson` + `ToonCredits` */
 export interface Person {
 	name: string;
 	roles: string[];
@@ -237,6 +237,7 @@ export interface Season {
 	release?: string;
 	description?: string;
 	cover?: Cover;
+	/** @deprecated moved to `<toon>/_/credits.json` (the creator shows it read-only); the viewer never rendered it */
 	credits?: Credits;
 	sequence: SequenceItem[];
 }

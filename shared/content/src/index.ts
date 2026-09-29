@@ -9,4 +9,5 @@ export * from './products.ts';
 export * from './template.ts';
 export * from './paths.ts';
 export * from './languages.ts';
+export * from './credits.ts';
 export * from './validate.ts';
