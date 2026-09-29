@@ -280,6 +280,93 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 	else ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
 }
 
+function checkStringList(c: Collector, value: unknown, path: Path, required = false) {
+	if (value === undefined) {
+		if (required) c.error(path, `${path.join('.')} must be a list of names`);
+		return;
+	}
+	if (!Array.isArray(value) || value.some((v) => !isStr(v))) c.error(path, `${path.join('.')} must be a list of names`);
+	else if (value.some((v) => !v.trim())) c.warn(path, `${path.join('.')} has an empty name`);
+}
+
+function checkLanguage(c: Collector, value: unknown, locale: string, required: boolean) {
+	if (value === undefined && !required) return;
+	if (!values(Language).includes(value as string)) c.error(['language'], `language must be one of ${values(Language).join(', ')}`);
+	else if (value !== locale) c.warn(['language'], `language is "${value}" in the ${locale} file`);
+}
+
+function checkImagePath(c: Collector, value: unknown, path: Path, required = false) {
+	if (value === undefined || value === null || value === '') {
+		if (required) c.warn(path, `${path.join('.')} is empty`);
+		return;
+	}
+	if (!isStr(value)) c.error(path, `${path.join('.')} must be a path on the CDN`);
+	else if (!/\.(jpe?g|png|webp|gif|svg)$/i.test(value)) c.warn(path, `${path.join('.')} is not an image path (.jpg, .png, .webp, .gif, .svg)`);
+}
+
+/** season1.json: meta (Season type) + the sequence (the chapters' visibility) */
+function checkSeason(c: Collector, s: any, locale: string) {
+	if (!isObj(s)) return c.error([], 'season file must be an object');
+	if (!isStr(s.title) || !s.title.trim()) c.warn(['title'], 'title is empty');
+	if (s.description !== undefined && !isStr(s.description)) c.error(['description'], 'description must be a string');
+	else if (!s.description?.trim()) c.warn(['description'], 'description (plot) is empty');
+	if (s.number !== undefined && !Number.isInteger(s.number)) c.error(['number'], 'number must be an integer');
+	if (s.release !== undefined && (!isStr(s.release) || !DATE.test(s.release))) c.error(['release'], 'release must be a date YYYY-MM-DD');
+	checkLanguage(c, s.language, locale, false);
+	checkStringList(c, s.authors, ['authors']);
+	if (s.cover !== undefined) {
+		if (!isObj(s.cover)) c.error(['cover'], 'cover must be { square?, portrait? }');
+		else for (const key of ['square', 'portrait']) checkImagePath(c, s.cover[key], ['cover', key]);
+	}
+	if (s.credits !== undefined) {
+		if (!isObj(s.credits)) c.error(['credits'], 'credits must be { artist?, writer?, music?, sound? }');
+		else {
+			for (const key of ['artist', 'music', 'sound']) checkStringList(c, s.credits[key], ['credits', key]);
+			if (s.credits.writer !== undefined && !isStr(s.credits.writer)) c.error(['credits', 'writer'], 'credits.writer must be a name');
+		}
+	}
+	if (!Array.isArray(s.sequence)) c.error(['sequence'], 'season needs a sequence');
+	else {
+		const numbers = new Set<number>();
+		s.sequence.forEach((item: any, i: number) => {
+			if (item?.type !== 'chapter' || !Number.isInteger(item?.number)) c.error(['sequence', i], 'sequence item needs type "chapter" and a number');
+			else if (numbers.has(item.number)) c.error(['sequence', i], `chapter ${item.number} is in the sequence twice`);
+			else numbers.add(item.number);
+			if (!values(Status).includes(item?.status)) c.error(['sequence', i, 'status'], 'status must be published, draft or coming-soon');
+		});
+	}
+}
+
+/** toon.json (Toon type): what the reader shows on the toon page, the map and the download page */
+function checkToon(c: Collector, t: any, locale: string) {
+	if (!isObj(t)) return c.error([], 'toon file must be an object');
+	if (!isStr(t.id) || !t.id) c.error(['id'], 'id must be the toon id');
+	if (!isStr(t.title) || !t.title.trim()) c.warn(['title'], 'title is empty');
+	if (!isStr(t.description) || !t.description.trim()) c.warn(['description'], 'description is empty');
+	checkLanguage(c, t.language, locale, true);
+	checkStringList(c, t.authors, ['authors'], true);
+	if (!Number.isInteger(t.chapters)) c.error(['chapters'], 'chapters must be an integer');
+	if (!isStr(t.release) || !DATE.test(t.release)) c.error(['release'], 'release must be a date YYYY-MM-DD');
+	if (!values(Status).includes(t.status)) c.error(['status'], `status must be one of ${values(Status).join(', ')}`);
+	checkImagePath(c, t.thumbnail, ['thumbnail'], true);
+	if (!isObj(t.cover)) c.error(['cover'], 'cover must be { square?, portrait? }');
+	else {
+		checkImagePath(c, t.cover.square, ['cover', 'square'], true);
+		checkImagePath(c, t.cover.portrait, ['cover', 'portrait']);
+	}
+	if (!isObj(t.map)) c.error(['map'], 'map must be { layers, width, height, center }');
+	else {
+		checkImagePath(c, t.map.layers?.terrain, ['map', 'layers', 'terrain'], true);
+		for (const key of ['width', 'height'] as const) if (!isNum(t.map[key]) || t.map[key] <= 0) c.warn(['map', key], `map.${key} must be a positive number (px)`);
+		for (const key of ['x', 'y'] as const) if (!isNum(t.map.center?.[key])) c.error(['map', 'center', key], `map.center.${key} must be a number (px)`);
+	}
+	if (!isObj(t.download)) c.error(['download'], 'download must be { complete, music }');
+	else {
+		if (t.download.complete !== null && !isStr(t.download.complete)) c.error(['download', 'complete'], 'download.complete must be a path or null');
+		if (!isStr(t.download.music)) c.error(['download', 'music'], 'download.music must be a path');
+	}
+}
+
 /** Problems of one locale file */
 export function validateFile(kind: string, data: any, locale: string, ctx: ValidateContext): Problem[] {
 	const c = new Collector(ctx.file, locale);
@@ -289,14 +376,8 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 	}
 	if (kind === 'chapter') checkChapter(c, data, locale, ctx);
 	else if (kind === 'group') checkGroup(c, data, [], ctx);
-	else if (kind === 'season') {
-		if (!Array.isArray(data?.sequence)) c.error(['sequence'], 'season needs a sequence');
-		else
-			data.sequence.forEach((item: any, i: number) => {
-				if (item?.type !== 'chapter' || !Number.isInteger(item?.number)) c.error(['sequence', i], 'sequence item needs type "chapter" and a number');
-				if (!values(Status).includes(item?.status)) c.error(['sequence', i, 'status'], 'status must be published, draft or coming-soon');
-			});
-	}
+	else if (kind === 'season') checkSeason(c, data, locale);
+	else if (kind === 'toon') checkToon(c, data, locale);
 	return c.problems;
 }
 
@@ -326,6 +407,17 @@ export function validateLocales(kind: string, file: string, files: Record<string
 				const sb = b[i].slices ?? [];
 				if (sa.length !== sb.length) add('error', locale, ['groups', i, 'slices'], `group ${i + 1}: ${locale} has ${sb.length} slices, ${primary} has ${sa.length}`);
 			});
+		} else if (kind === 'season' || kind === 'toon') {
+			for (const key of ['title', 'description']) {
+				const src = textOf(source[key]).trim();
+				const tr = textOf(data[key]).trim();
+				if (src && !tr) add('warning', locale, [key], `missing ${locale} ${key}`);
+				else if (src && tr === src) add('info', locale, [key], `${locale} ${key} is the same as ${primary} (not translated?)`);
+			}
+			if (kind === 'season') {
+				const numbers = (file: any) => (file?.sequence ?? []).map((i: any) => Number(i?.number)).sort((a: number, b: number) => a - b).join(',');
+				if (numbers(source) !== numbers(data)) add('warning', locale, ['sequence'], `${locale} season lists chapters ${numbers(data) || '–'}, ${primary} lists ${numbers(source) || '–'}`);
+			}
 		} else if (kind === 'group') {
 			const sa = source.slices ?? [];
 			const sb = data.slices ?? [];
