@@ -6,8 +6,8 @@
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 
 	/**
-	 * Default reader avatar: the sphynx mannequin (CDN, 768 × 1152) with named slot tiles in a column on each side.
-	 * Equipped items are drawn on the body; positions are in % of the mannequin image.
+	 * Default reader avatar: a character's A-pose (CDN, 768 × 1152) with named slot tiles in a column on each side.
+	 * Equipped items are drawn on the body; positions are in % of the A-pose image.
 	 */
 	const W = 768;
 	const H = 1152;
@@ -40,9 +40,9 @@
 
 	/** Avatar bodies (768 × 1152 each). The first one is the default. */
 	const BODIES = [
-		{ id: 'sphynx', image: 'catpope/avatar/mannequin.webp', worn: SPHYNX_WORN },
-		{ id: 'sphynx_nude', image: 'catpope/avatar/mannequin-nude.webp', worn: SPHYNX_WORN },
-		{ id: 'mouse', image: 'yellowmouse/avatar/mannequin.webp', worn: MOUSE_WORN }
+		{ id: 'sphynx', image: 'characters/catpope/catpope_apose-swim.webp', worn: SPHYNX_WORN },
+		{ id: 'sphynx_nude', image: 'characters/catpope/catpope_apose-naked.webp', worn: SPHYNX_WORN },
+		{ id: 'mouse', image: 'characters/yellowmouse/yellowmouse_apose-swim.webp', worn: MOUSE_WORN }
 	] as const;
 	type BodyId = (typeof BODIES)[number]['id'];
 	// Body choice is a per-device preference for now (no server field yet)
@@ -141,7 +141,7 @@
 			{#each left as slot (slot)}{@render tile(slot)}{/each}
 		</div>
 		<div class="figure" style="aspect-ratio: {W} / {H}">
-			<img class="mannequin" src={asset(body.image)} alt="" draggable="false" />
+			<img class="apose" src={asset(body.image)} alt="" draggable="false" />
 			{#each WORN_ORDER as slot}
 				{@const worn = slots.includes(slot) ? inventory.equippedEntry(slot) : undefined}
 				{#if worn}
@@ -233,7 +233,7 @@
 		position: relative;
 		width: 100%;
 	}
-	.mannequin {
+	.apose {
 		position: absolute;
 		inset: 0;
 		width: 100%;
