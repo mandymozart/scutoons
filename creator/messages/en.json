@@ -76,7 +76,13 @@
 		"preview_source_published": "published version / static file",
 		"sign_out": "Sign out",
 		"signed_in_as": "Signed in as {email}",
-		"open_reader": "Open the reader"
+		"open_reader": "Open the reader",
+		"page_actions": "Editor actions",
+		"more": "More",
+		"slice_navigation": "Slices",
+		"prev_slice": "Previous slice",
+		"next_slice": "Next slice",
+		"slice_of": "Slice {index} / {count}"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { STATIC_API } from '$lib/config.ts';
+	import { ActionBar } from '@scutoons/ui';
+	import { STATIC_API, VIEWER_URL } from '$lib/config.ts';
+	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import type { ToonIndex } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import StyleGuide from '$lib/components/style-guide.svelte';
 
+	const session = getCreatorSession();
 	let toons = $state<ToonIndex[]>([]);
 	let error = $state<string | null>(null);
 
@@ -51,9 +54,24 @@
 			<StyleGuide />
 		</aside>
 	</main>
+	<!-- Bottom action bar: toon count · sign out · open the reader -->
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+		{#snippet start()}
+			<span class="hint">{m['creator.toons']()}: {toons.length}</span>
+		{/snippet}
+		{#snippet secondary()}
+			<button class="secondary" onclick={() => session.logout()}>{m['creator.sign_out']()}</button>
+		{/snippet}
+		{#snippet end()}
+			<a class="btn" href={VIEWER_URL}>{m['creator.open_reader']()}</a>
+		{/snippet}
+	</ActionBar>
 </div>
 
 <style>
+	.creator-page {
+		--action-bar-height: 64px;
+	}
 	.creator-top {
 		display: flex;
 		align-items: center;

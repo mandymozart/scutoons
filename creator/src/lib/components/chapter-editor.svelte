@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ActionBar } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { STATIC_API } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -379,27 +380,43 @@
 			<FileStatus doc={chapter} />
 			{#if refSrc && refs[refSrc]}<span class="hint">{refSrc}</span><FileStatus doc={refs[refSrc]} />{/if}
 		</div>
-		<div class="actions">
+	</header>
+
+	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+		{#snippet start()}
+			<a class="bar-link" href="/{toon}" data-testid="back-to-chapters">← {m['creator.chapters']()}</a>
+			{#if section === 'slice' && activeGroup?.slices?.length}
+				<span class="slice-nav" role="group" aria-label={m['creator.slice_navigation']()}>
+					<button class="ghost" onclick={() => selectSlice(sliceIndex - 1)} disabled={sliceIndex <= 0} title={m['creator.prev_slice']()} data-testid="prev-slice">‹</button>
+					<span class="hint">{m['creator.slice_of']({ index: sliceIndex + 1, count: activeGroup.slices.length })}</span>
+					<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} data-testid="next-slice">›</button>
+				</span>
+			{/if}
+			<button class="ghost" class:active={panel === 'problems'} onclick={() => (panel = panel === 'problems' ? null : 'problems')} data-testid="problems-toggle">
+				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
+			</button>
+		{/snippet}
+		{#snippet secondary()}
 			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" disabled={!activeDoc?.canUndo} onclick={() => activeDoc?.undo()} data-testid="undo">↶</button>
 			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo">↷</button>
-			<input class="message" type="text" placeholder="note (optional)" bind:value={saveMessage} />
-			<button onclick={() => saveAll()} disabled={!anyDirty || anySaving} data-testid="save-draft">
-				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
-			</button>
-			<button class="secondary" onclick={publishAll} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each LOCALES as l}
 					<a href={previewHref(l)} target="_blank" rel="noopener" title="Draft preview in {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
-			<button class="ghost" class:active={panel === 'problems'} onclick={() => (panel = panel === 'problems' ? null : 'problems')} data-testid="problems-toggle">
-				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
-			</button>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => (panel = panel === 'history' ? null : 'history')}>{m['creator.history']()}</button>
 			<button class="ghost" class:active={panel === 'guide'} onclick={() => (panel = panel === 'guide' ? null : 'guide')} data-testid="guide-toggle">{m['creator.style_guide']()}</button>
-		</div>
-	</header>
+		{/snippet}
+		{#snippet end()}
+			<input class="message" type="text" placeholder="note (optional)" bind:value={saveMessage} />
+			<button onclick={() => saveAll()} disabled={!anyDirty || anySaving} data-testid="save-draft">
+				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
+			</button>
+			<button class="secondary" onclick={publishAll} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>
+		{/snippet}
+	</ActionBar>
 
 	{#if chapter.loading}
 		<p class="pad">{m['creator.loading']()}</p>
@@ -521,7 +538,6 @@
 								<option value="locale">only {displayLocale}</option>
 							</select>
 						</label>
-						<span class="hint">{sliceIndex + 1} / {activeGroup?.slices?.length ?? 0}</span>
 					</div>
 					<p class="hint draw-hint">{m['creator.draw_hint']()}</p>
 					<div class="canvas-scroll">
@@ -624,9 +640,11 @@
 <style>
 	.editor {
 		--top: 64px;
+		/* the fixed bottom ActionBar mirrors the top bar; the editor fills the space between them */
+		--action-bar-height: var(--top);
 		display: flex;
 		flex-direction: column;
-		height: 100dvh;
+		height: calc(100dvh - var(--action-bar-height));
 		overflow: hidden;
 	}
 	.topbar {
@@ -647,12 +665,15 @@
 		gap: 0.4rem;
 		align-items: center;
 	}
-	.actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.3rem;
+	.slice-nav {
+		display: inline-flex;
 		align-items: center;
-		margin-left: auto;
+		gap: 0.2rem;
+		white-space: nowrap;
+	}
+	.bar-link {
+		color: var(--ink);
+		white-space: nowrap;
 	}
 	.message {
 		width: 11rem !important;

@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import type { Chapter, Group } from '@scutoons/content';
 	import { Slice } from '@scutoons/reader';
-	import { Badge, Tabs } from '@scutoons/ui';
+	import { ActionBar, Badge, Tabs } from '@scutoons/ui';
 	import { fetchContent } from '$lib/api.ts';
 	import { LOCALES, SOURCE_LOCALE } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -83,23 +83,6 @@
 			<a href="/{toon}/chapter/{chapterNumber}">{m['creator.preview_back']()}</a> /
 			<strong>{m['creator.preview_title']()}</strong>
 		</nav>
-		<div class="controls">
-			<Tabs
-				label={m['creator.preview_locale']()}
-				tabs={LOCALES.map((l) => ({ id: l, label: l }))}
-				value={locale}
-				onchange={(id) => setParam('locale', id)}
-			/>
-			<label class="group-select">
-				<span>{m['creator.preview_group']()}</span>
-				<select value={label ?? ''} onchange={(e) => setParam('label', e.currentTarget.value || null)}>
-					<option value="">–</option>
-					{#each groups as group, index (index)}
-						{#if group.label}<option value={group.label}>{group.label}</option>{/if}
-					{/each}
-				</select>
-			</label>
-		</div>
 	</header>
 
 	<p class="meta">
@@ -128,6 +111,30 @@
 			{/each}
 		</main>
 	{/if}
+
+	<!-- Bottom action bar: locale + group filter · back to the editor -->
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+		{#snippet start()}
+			<Tabs
+				label={m['creator.preview_locale']()}
+				tabs={LOCALES.map((l) => ({ id: l, label: l }))}
+				value={locale}
+				onchange={(id) => setParam('locale', id)}
+			/>
+			<label class="group-select">
+				<span>{m['creator.preview_group']()}</span>
+				<select value={label ?? ''} onchange={(e) => setParam('label', e.currentTarget.value || null)}>
+					<option value="">–</option>
+					{#each groups as group, index (index)}
+						{#if group.label}<option value={group.label}>{group.label}</option>{/if}
+					{/each}
+				</select>
+			</label>
+		{/snippet}
+		{#snippet end()}
+			<a class="btn" href="/{toon}/chapter/{chapterNumber}">{m['creator.preview_back']()}</a>
+		{/snippet}
+	</ActionBar>
 </div>
 
 <style>
@@ -151,12 +158,10 @@
 	.crumbs a {
 		color: var(--ink);
 	}
-	.controls {
-		display: flex;
-		align-items: center;
-		gap: 1rem;
+	.preview-page {
+		--action-bar-height: 64px;
 	}
-	.controls :global(.list) {
+	.preview-page :global(.sc-action-bar .list) {
 		margin: 0;
 	}
 	.group-select {

@@ -76,7 +76,13 @@
 		"preview_source_published": "veröffentlichte Version / statische Datei",
 		"sign_out": "Abmelden",
 		"signed_in_as": "Angemeldet als {email}",
-		"open_reader": "Reader öffnen"
+		"open_reader": "Reader öffnen",
+		"page_actions": "Editor-Aktionen",
+		"more": "Mehr",
+		"slice_navigation": "Slices",
+		"prev_slice": "Vorheriger Slice",
+		"next_slice": "Nächster Slice",
+		"slice_of": "Slice {index} / {count}"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

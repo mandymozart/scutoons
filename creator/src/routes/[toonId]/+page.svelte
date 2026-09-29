@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { ActionBar } from '@scutoons/ui';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { m } from '$lib/paraglide/messages.js';
@@ -114,8 +115,6 @@
 					</div>
 					<div class="actions">
 						<FileStatus doc={season} />
-						<button class="secondary" disabled={busy || !season.dirty} onclick={saveSeason}>{m['creator.save_draft']()}</button>
-						<button class="secondary" disabled={busy || !season.stored.length} onclick={publishSeason}>{m['creator.publish']()}</button>
 					</div>
 				</div>
 
@@ -144,9 +143,6 @@
 						{/each}
 					</tbody>
 				</table>
-				<p>
-					<button onclick={createChapter} disabled={busy} data-testid="new-chapter">+ {m['creator.new_chapter']()}</button>
-				</p>
 				{#if message}<p class="hint">{message}</p>{/if}
 			{/if}
 			{#if error}<p class="error">{error}</p>{/if}
@@ -155,6 +151,20 @@
 			<StyleGuide />
 		</aside>
 	</main>
+	<!-- Bottom action bar: back to the toons · new chapter · season save / publish -->
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+		{#snippet start()}
+			<a class="bar-link" href="/">← {m['creator.toons']()}</a>
+			{#if season?.dirty}<span class="hint">{m['creator.unsaved']()}</span>{/if}
+		{/snippet}
+		{#snippet secondary()}
+			<button onclick={createChapter} disabled={busy || !season || season.loading} data-testid="new-chapter">+ {m['creator.new_chapter']()}</button>
+		{/snippet}
+		{#snippet end()}
+			<button class="secondary" disabled={busy || !season?.dirty} onclick={saveSeason}>{m['creator.save_draft']()}</button>
+			<button class="secondary" disabled={busy || !season?.stored.length} onclick={publishSeason}>{m['creator.publish']()}</button>
+		{/snippet}
+	</ActionBar>
 </div>
 
 <style>
@@ -165,8 +175,12 @@
 		padding: 0 1rem 0 96px;
 		border-bottom: 2px solid var(--ink);
 	}
-	.crumbs a {
+	.crumbs a,
+	.bar-link {
 		color: var(--ink);
+	}
+	.creator-page {
+		--action-bar-height: 64px;
 	}
 	.browser {
 		display: grid;
