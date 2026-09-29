@@ -5,6 +5,19 @@
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
 	import OnomatopoeiaPreview from './onomatopoeia-preview.svelte';
+	import CharacterRefField, { type CharacterChoices } from './characters/character-ref-field.svelte';
+	import {
+		REGULAR_PERSONA,
+		characterIndex,
+		defaultLookId,
+		defaultMoodVocabulary,
+		findLook,
+		findPersona,
+		lookLabel,
+		lookPortraitMoods,
+		moodLabel,
+		sortedMoods
+	} from '@scutoons/content';
 
 	/**
 	 * Visual-novel events: group scripts (`group.events`) or slice-triggered events (`slice.events`, with `trigger`).
@@ -15,6 +28,7 @@
 		eventsPath,
 		sliceEvents = false,
 		characters = [],
+		choices,
 		background = '',
 		selected = -1,
 		onselect
@@ -23,6 +37,8 @@
 		eventsPath: Path;
 		sliceEvents?: boolean;
 		characters?: { name: string; label?: string }[];
+		/** the toon's cast + registry: character fields become a cast select with "Add from registry…" / "New character…" */
+		choices?: CharacterChoices;
 		/** slice image for the onomatopoeia preview */
 		background?: string;
 		selected?: number;
@@ -157,6 +173,30 @@
 	}
 
 	const charOptions = $derived(characters.map((c) => ({ value: c.name, label: c.label ? `${c.name} (${c.label})` : c.name })));
+	const vocabulary = $derived(choices?.moods ?? defaultMoodVocabulary());
+	const choiceIndex = $derived(characterIndex(choices?.registry));
+	/** the persona of a scene ref (registry) */
+	const personaOf = (row: any) => findPersona(choiceIndex.get(row?.name), row?.persona || REGULAR_PERSONA);
+	/** the looks of the ref's persona (the default first) */
+	function looksOf(row: any) {
+		const p = personaOf(row);
+		if (!p) return [];
+		const main = defaultLookId(p);
+		return [...p.looks].sort((a, b) => Number(b.id === main) - Number(a.id === main)).map((l) => ({ id: l.id, label: lookLabel(p, l.id, choices?.locale ?? 'en') }));
+	}
+	/** moods with an image for the ref's persona / look first, then the rest of the vocabulary (they fall back) */
+	function moodOptions(row: any) {
+		const p = personaOf(row);
+		const look = findLook(p, row?.look || defaultLookId(p));
+		const available = lookPortraitMoods(look);
+		const all = sortedMoods(vocabulary).map((x) => x.id);
+		const locale = choices?.locale ?? 'en';
+		return [
+			...all.filter((x) => available.includes(x)).map((x) => ({ value: x, label: moodLabel(x, locale, vocabulary) })),
+			...available.filter((x) => !all.includes(x)).map((x) => ({ value: x, label: x })),
+			...all.filter((x) => !available.includes(x)).map((x) => ({ value: x, label: `${moodLabel(x, locale, vocabulary)} (→ neutral)` }))
+		];
+	}
 </script>
 
 <section class="vn-events" data-testid="vn-events">
@@ -190,9 +230,13 @@
 				</div>
 			{:else if event.type === 'showMessage'}
 				<div class="grid g3">
-					<PropField {doc} path={[...p, 'params', 'character']} label="character" type="select" options={charOptions} placeholder="narrator" />
+					{#if choices}
+						<CharacterRefField {doc} path={[...p, 'params']} kind="speaker" label="character" {choices} placeholder="narrator" />
+					{:else}
+						<PropField {doc} path={[...p, 'params', 'character']} label="character" type="select" options={charOptions} placeholder="narrator" />
+					{/if}
 					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
-					<PropField {doc} path={[...p, 'params', 'mood']} label="mood" placeholder="" />
+					<PropField {doc} path={[...p, 'params', 'mood']} label="mood" type="select" options={moodOptions(null)} placeholder="–" />
 				</div>
 				<LocaleText {doc} path={[...p, 'params', 'text']} rows={2} />
 			{:else if event.type === 'addChoice'}
@@ -245,12 +289,20 @@
 					<OnomatopoeiaPreview params={event.params ?? {}} {background} toon={doc.toon} />
 				</div>
 			{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
-				{#each characterRows(i) as _, ci (ci)}
+				{#each characterRows(i) as row, ci (ci)}
+					{@const looks = looksOf(row)}
 					<div class="grid g4">
-						<PropField {doc} path={[...p, 'params', 'characters', ci, 'name']} label="character" type="select" options={charOptions} required />
+						{#if choices}
+							<CharacterRefField {doc} path={[...p, 'params', 'characters', ci]} label="character" {choices} />
+						{:else}
+							<PropField {doc} path={[...p, 'params', 'characters', ci, 'name']} label="character" type="select" options={charOptions} required />
+						{/if}
 						{#if event.type === 'joinScene'}
-							<PropField {doc} path={[...p, 'params', 'characters', ci, 'position', 'variant']} label="variant" type="select" options={['avatar', 'portrait', 'full']} placeholder="avatar" />
-							<PropField {doc} path={[...p, 'params', 'characters', ci, 'mood']} label="mood" placeholder="neutral" />
+							<PropField {doc} path={[...p, 'params', 'characters', ci, 'position', 'variant']} label="view" type="select" options={['avatar', 'portrait', 'full']} placeholder="avatar" />
+							<PropField {doc} path={[...p, 'params', 'characters', ci, 'mood']} label="mood" type="select" options={moodOptions(row)} placeholder="neutral" />
+							{#if looks.length > 1 || row?.look}
+								<PropField {doc} path={[...p, 'params', 'characters', ci, 'look']} label="look" type="select" options={looks.slice(1).map((l) => ({ value: l.id, label: l.label }))} placeholder={looks[0] ? `${looks[0].label} (default)` : 'default'} />
+							{/if}
 						{/if}
 						<button type="button" class="ghost" onclick={() => removeCharacter(i, ci)}>✕</button>
 					</div>

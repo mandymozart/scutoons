@@ -32,6 +32,10 @@
 	</header>
 	<main class="browser">
 		<section>
+			<p class="shared">
+				<a class="btn" href="/characters" data-testid="open-characters">{m['creator.characters']()} →</a>
+				<span class="hint">{m['creator.characters_home_hint']()}</span>
+			</p>
 			<h2>{m['creator.toons']()}</h2>
 			{#if error}<p class="error">{error}</p>{/if}
 			<ul class="toons">
@@ -117,5 +121,11 @@
 	}
 	.error {
 		color: var(--error);
+	}
+	.shared {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		margin: 0 0 1.5rem;
 	}
 </style>

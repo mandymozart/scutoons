@@ -334,6 +334,8 @@
 		<ToonAvatar src={avatarSrc} name={toonId} />
 		<nav class="crumbs"><a href="/">{m['creator.title']()}</a> / <strong>{toonId}</strong></nav>
 		<a class="btn credits-link" href="/{toonId}/credits" title={m['creator.credits_open_hint']()} data-testid="edit-credits">{m['creator.credits_open']()} →</a>
+		<a class="btn secondary" href="/{toonId}/cast" title={m['creator.cast_open_hint']()} data-testid="edit-cast">{m['creator.cast']()} →</a>
+		<a class="btn secondary" href="/characters?toon={toonId}" data-testid="open-characters">{m['creator.characters']()} →</a>
 		<span class="hint credits-hint">{m['creator.credits_open_hint']()}</span>
 	</header>
 	<main class="browser">

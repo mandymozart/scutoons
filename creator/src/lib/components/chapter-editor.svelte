@@ -7,6 +7,22 @@
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { getAt, deleteAt, type Path, type ToonLanguages } from '@scutoons/content';
+	import { castEntries, castIndex, characterIndex, characterName, expressionIndex, validateCast } from '@scutoons/content';
+	import {
+		addToSeasonCast,
+		castDoc,
+		castOf,
+		groupsDoc,
+		groupsOf,
+		loadToons,
+		moodsDoc,
+		moodsOf,
+		registryDoc,
+		registryOf,
+		type ToonInfo
+	} from '$lib/editor/characters.ts';
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import type { CharacterChoices } from './characters/character-ref-field.svelte';
 	import { newDialog, newGroup, nextDialogId } from '$lib/editor/defaults.ts';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
@@ -37,12 +53,62 @@
 	// svelte-ignore state_referenced_locally
 	const season = toonDoc(toon, 'season1.json', languages);
 	let refs = $state<Record<string, ContentDoc>>({});
-	let characters = $state<{ name: string; label?: string }[]>([]);
+	/** the old static characters.json (fallback while the toon has no cast in the store) */
+	let legacyCharacters = $state<{ name: string; label?: string }[]>([]);
+	// the season's cast + the character registry: the VN character fields pick from every character (the season's cast
+	// first); picking someone who isn't cast adds them to the season's cast (saved / published with the chapter)
+	/** the chapter's season (the editor edits season1.json) */
+	const SEASON = 1;
+	// svelte-ignore state_referenced_locally
+	const cast = castDoc(toon);
+	const registry = registryDoc();
+	const moods = moodsDoc();
+	const groupVocabulary = groupsDoc();
+	let toonInfos = $state<ToonInfo[]>([]);
+	let castTouched = $state(false);
+	let castNotice = $state<string | null>(null);
+	const registryIndex = $derived(characterIndex(registryOf(registry)));
+	const hasCast = $derived(!!castOf(cast) && !!registryOf(registry));
+	const seasonCast = $derived(castEntries(castOf(cast), SEASON));
+	const characters = $derived<{ name: string; label?: string }[]>(
+		hasCast
+			? seasonCast.map((e) => ({ name: e.character, label: characterName(registryIndex.get(e.character), languages.source) || e.character }))
+			: legacyCharacters
+	);
+	function ensureCast(character: string, persona: string) {
+		const changed = addToSeasonCast(cast, SEASON, character, persona);
+		if (!changed) return;
+		castTouched = true;
+		castNotice = m['creator.characters_cast_added']({ name: characterName(registryIndex.get(character), languages.source, persona) || character, season: m['creator.season']({ number: SEASON }) });
+	}
+	function undoCast() {
+		cast.undo();
+		castNotice = null;
+	}
+	const choices = $derived<CharacterChoices | undefined>(
+		registry.loading || cast.loading
+			? undefined
+			: {
+					registry: registryOf(registry),
+					moods: moodsOf(moods),
+					toons: toonInfos,
+					groups: groupsOf(groupVocabulary),
+					cast: seasonCast,
+					season: m['creator.season']({ number: SEASON }),
+					locale: languages.source,
+					ensureCast
+				}
+	);
 	let images = $state<string[]>([]);
 
 	const chapterData = $derived(chapter.data[chapter.primary]);
 	const groups = $derived<any[]>(chapterData?.groups ?? []);
-	const allDocs = $derived<ContentDoc[]>([chapter, season, ...Object.values(refs)]);
+	const allDocs = $derived<ContentDoc[]>([
+		chapter,
+		season,
+		...Object.values(refs),
+		...(castTouched || cast.dirty ? [cast] : [])
+	]);
 	const anyDirty = $derived(allDocs.some((d) => d.dirty));
 	const anySaving = $derived(allDocs.some((d) => d.saving));
 
@@ -55,14 +121,15 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([chapter.load(), season.load()]);
+		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load(), groupVocabulary.load()]);
+		loadToons(getLocale()).then((list) => (toonInfos = list));
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
 		// characters.json of the source language (else the first language that has one)
 		for (const locale of chapter.locales) {
 			try {
 				const response = await fetch(`${STATIC_API}/${toon}/${locale}/characters.json`);
 				if (!response.ok || !(response.headers.get('content-type') || '').includes('json')) continue;
-				characters = await response.json();
+				legacyCharacters = await response.json();
 				break;
 			} catch {
 				/* optional */
@@ -129,6 +196,8 @@
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
 		const names = characters.map((c) => c.name);
+		const expressions = registryOf(registry) ? expressionIndex(registryOf(registry)) : undefined;
+		const moodIds = moodsOf(moods).moods.map((x) => x.id);
 		for (const doc of allDocs) {
 			if (doc.loading) continue;
 			for (const l of doc.locales) {
@@ -140,13 +209,17 @@
 					...validateFile(doc.kind, doc.data[l], l, {
 						file: doc.path,
 						audio: chapterData?.audio,
-						characters: names.length ? names : undefined,
+						characters: !hasCast && names.length ? names : undefined,
+						cast: hasCast ? castIndex(castOf(cast), SEASON) : undefined,
+						expressions,
+						moods: moodIds,
 						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined
 					})
 				);
 			}
 			out.push(...validateLocales(doc.kind, doc.path, doc.data, doc.primary));
 		}
+		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: `${toon}/_/cast.json` }));
 		const order = { error: 0, warning: 1, info: 2 };
 		return out.sort((a, b) => order[a.level] - order[b.level]);
 	});
@@ -475,6 +548,13 @@
 			</div>
 		{/if}
 		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)}>✕</button></div>{/if}
+		{#if castNotice}
+			<div class="bar note-bar" data-testid="cast-notice">
+				{castNotice}
+				<button class="secondary" onclick={undoCast} data-testid="cast-undo">{m['creator.undo']()}</button>
+				<button class="ghost" onclick={() => (castNotice = null)}>✕</button>
+			</div>
+		{/if}
 
 		<div class="columns" class:has-inspector={section === 'slice'}>
 			<!-- Tree -->
@@ -524,7 +604,7 @@
 						{/if}
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} background={activeGroup?.slices?.[0]?.image ?? ''} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} background={activeGroup?.slices?.[0]?.image ?? ''} />
 						{:else}
 							<p class="hint">No VN script in this group.
 								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
@@ -641,6 +721,7 @@
 							eventsPath={[...slicePath, 'events']}
 							sliceEvents
 							{characters}
+							{choices}
 							background={activeSlice.image}
 							selected={selection?.kind === 'event' ? selection.index : -1}
 							onselect={(i) => (selection = { kind: 'event', index: i })}

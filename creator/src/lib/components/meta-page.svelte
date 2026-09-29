@@ -23,8 +23,11 @@
 		beforeSave = () => {},
 		validate,
 		wide = false,
+		crumbs,
+		actions,
 		children
 	}: {
+		/** the toon of the page (crumbs + back link); pages about platform-wide files pass `crumbs` instead */
 		toon: string;
 		title: string;
 		docs: ContentDoc[];
@@ -34,9 +37,15 @@
 		validate?: () => Problem[];
 		/** full-width content (editor + preview side by side) */
 		wide?: boolean;
+		/** the path between "Creator" and the title (default: the toon); the last one is also the back link */
+		crumbs?: { href: string; label: string }[];
+		/** extra items at the start of the ActionBar (page-level actions, e.g. "New character") */
+		actions?: Snippet;
 		children: Snippet;
 	} = $props();
 
+	const path = $derived(crumbs ?? [{ href: `/${toon}`, label: toon }]);
+	const back = $derived(path[path.length - 1] ?? { href: '/', label: m['creator.title']() });
 	const main = $derived(docs[0]);
 	/** undo/redo act on the most recently edited doc */
 	const undoDoc = $derived(docs.filter((d) => d.canUndo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? main);
@@ -170,21 +179,23 @@
 <div class="meta-page" class:with-panel={panel !== null} class:wide>
 	<header class="topbar">
 		<nav class="crumbs">
-			<a href="/">{m['creator.title']()}</a> / <a href="/{toon}">{toon}</a> / <strong>{title}</strong>
+			<a href="/">{m['creator.title']()}</a> /{#each path as c (c.href)}{' '}<a href={c.href}>{c.label}</a> /{/each}
+			<strong>{title}</strong>
 		</nav>
 		<div class="files">
 			{#each docs as d (d.path)}
-				{#if !d.loading}<span class="hint">{d.path}</span><FileStatus doc={d} />{/if}
+				{#if !d.loading}<span class="hint">{docs.some((o) => o !== d && o.path === d.path) || d.toon !== toon ? `${d.toon}/` : ''}{d.path}</span><FileStatus doc={d} />{/if}
 			{/each}
 		</div>
 	</header>
 
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
-			<a class="bar-link" href="/{toon}" data-testid="back-to-toon">← {toon}</a>
+			<a class="bar-link" href={back.href} data-testid="back-to-toon">← {back.label}</a>
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => (panel = panel === 'problems' ? null : 'problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
 			</button>
+			{@render actions?.()}
 		{/snippet}
 		{#snippet secondary()}
 			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>

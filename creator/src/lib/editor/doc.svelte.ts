@@ -11,9 +11,9 @@ import {
 	putDraft,
 	type ContentVersion
 } from '$lib/api.ts';
-import { clone, CREDITS_FILE, deepEqual, getAt, PEOPLE_FILE, ROLES_FILE, setAt, TOON_INDEX_FILE, type Path } from '@scutoons/content';
+import { ASSET_REQUESTS_FILE, CAST_FILE, CHARACTERS_FILE, GROUPS_FILE, MOODS_FILE, clone, CREDITS_FILE, deepEqual, getAt, NEUTRAL_LOCALE, PEOPLE_FILE, ROLES_FILE, setAt, TOON_INDEX_FILE, type Path } from '@scutoons/content';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles';
+export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'groups' | 'moods' | 'requests';
 export type DocSource = 'store' | 'static' | 'new' | 'missing';
 /** The file of a locale when the store has none (default: the viewer's static file). */
 export type DocFallback = (locale: string) => Promise<any | null>;
@@ -38,7 +38,7 @@ export class SaveConflict extends Error {
 	}
 }
 
-export function kindOfPath(path: string): DocKind {
+export function kindOfPath(path: string, locale?: string): DocKind {
 	if (/^chapter\d+\.json$/.test(path)) return 'chapter';
 	if (/^season\d+\.json$/.test(path)) return 'season';
 	if (path === 'toon.json') return 'toon';
@@ -46,6 +46,12 @@ export function kindOfPath(path: string): DocKind {
 	if (path === CREDITS_FILE) return 'credits';
 	if (path === PEOPLE_FILE) return 'people';
 	if (path === ROLES_FILE) return 'roles';
+	// the old per-locale characters.json is not a store file; in `_` it is the registry
+	if (path === CHARACTERS_FILE && (locale === undefined || locale === NEUTRAL_LOCALE)) return 'characters';
+	if (path === CAST_FILE) return 'cast';
+	if (locale === NEUTRAL_LOCALE && path === GROUPS_FILE) return 'groups';
+	if (locale === NEUTRAL_LOCALE && path === MOODS_FILE) return 'moods';
+	if (locale === NEUTRAL_LOCALE && path === ASSET_REQUESTS_FILE) return 'requests';
 	return 'group';
 }
 
@@ -84,7 +90,7 @@ export class ContentDoc {
 	constructor(toon: string, path: string, locales: readonly string[], primary: string, fallback?: DocFallback) {
 		this.toon = toon;
 		this.path = path;
-		this.kind = kindOfPath(path);
+		this.kind = kindOfPath(path, locales.length === 1 ? locales[0] : undefined);
 		this.locales = [primary, ...locales.filter((l) => l !== primary)];
 		this.primary = primary;
 		this.fallback = fallback ?? ((locale) => getStatic(toon, locale, path));
