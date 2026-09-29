@@ -31,7 +31,7 @@ final class Landing
     {
     }
 
-    /** @param array<string, mixed> $query */
+    /** @param array<int|string, mixed> $query */
     public function handle(array $query, string $acceptLanguage): Response
     {
         $this->locale = self::pageLocale($query['lang'] ?? null, $acceptLanguage);

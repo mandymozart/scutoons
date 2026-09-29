@@ -22,7 +22,10 @@ final class Proxy
     {
     }
 
-    /** @return array{status: int, headers: list<array{0: string, 1: string}>, body: string} */
+    /**
+     * @param array<string, string> $requestHeaders
+     * @return array{status: int, headers: list<array{0: string, 1: string}>, body: string}
+     */
     public function forward(string $method, string $path, string $query, array $requestHeaders, string $body): array
     {
         $headers = [];

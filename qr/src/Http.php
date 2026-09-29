@@ -29,7 +29,7 @@ final class Http
         if ($ch === false) return null;
         $responseHeaders = [];
         $options = [
-            CURLOPT_CUSTOMREQUEST => $method,
+            CURLOPT_CUSTOMREQUEST => $method === '' ? 'GET' : $method,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_FOLLOWLOCATION => false,
             CURLOPT_CONNECTTIMEOUT => max(1, $this->config->int('API_CONNECT_TIMEOUT')),
