@@ -207,3 +207,76 @@ and the refactored server runs on :9100 for the baseline comparison; after that 
 5173/5174/5175/4173 until nothing uses them). The earlier ports (viewer 5173, creator 5180, admin 5190, CDN 8000) are
 superseded.
 
+## Domain architecture (2026-09-30, owner — target)
+
+One app per subdomain; on all-inkl every subdomain points to its own build/runtime folder (set in the all-inkl
+admin, e.g. `/creator.scutoons.com/`), so each app deploys independently by FTP into its folder.
+
+| Domain | App (repo folder) | Purpose | Runtime |
+|---|---|---|---|
+| `www.scutoons.com` / `scutoons.com` | `viewer/` | landing page, events, marketing pages **and the reader** (`/<toon>`, `/<toon>/chapter/<n>`, credits, download, account) — printed QR codes redirect here, so the reader stays on this domain | static build |
+| `qr.scutoons.com` | `server/` (public pages only) | the low-level public frontend: QR landing `?c=`, verify page, legacy `/api/validate/`, `/api/keys/keys.php` — **nothing else** | PHP (same server code, host-based routing) |
+| `api.scutoons.com` | `server/` | the backend for all apps: accounts, access, items, inventory, content, admin API, data | PHP |
+| `admin.scutoons.com` | `admin/` | administration: QR generation/batches (port of `generate/` to Svelte), codes, revoke, stats, users & roles, content, catalog, data migrations | static build |
+| `creator.scutoons.com` | `creator/` | the creator editor (role `creator`) | static build |
+| `shop.scutoons.com` | `shop/` | the shop (moves out of the viewer; `scutoons.com/shop` keeps working as a redirect) | static build |
+| `cdn.scutoons.com` | `cdn/` (tools) | all static media — see CDN below | all-inkl origin (+ bunny.net) |
+
+**Server host routing:** one codebase (`server/`), deployed once; `qr.` and `api.` both point to `server/public/`.
+The Slim app routes by host:
+- `qr.scutoons.com` → landing, verify, `/api/validate/`, `/api/keys/keys.php` (+ assets). Anything else → 404.
+- `api.scutoons.com` → `/api/*` (the full API). No landing page.
+- **Transition:** until every frontend uses `api.scutoons.com`, the full `/api/*` also stays reachable on
+  `qr.scutoons.com` (the released viewer calls `https://qr.scutoons.com/api/...`). Remove only after all apps are
+  switched and the stats show no more traffic there. Printed URLs (RULE above) are never removed.
+- Dev: one server on :9000 answers both roles (host check relaxed for localhost); frontends use `VITE_API_URL`.
+
+**Shop app:** `shop/` (dev port 12000) with `@scutoons/ui` + tokens; products data from the API (later) or static
+for now; viewer route `/shop` becomes a redirect to `shop.scutoons.com` (RULE: `/shop` keeps working).
+
+**Deployment:** one workflow per app (`viewer.yml`, `server.yml`, `admin.yml`, `creator.yml`, `shop.yml`), path
+filters incl. `shared/**`, deploy only from `main`, each to its own FTP folder (secrets `<APP>_FTP_*`). The owner
+creates the subdomains/folders in all-inkl (`api.`, `admin.`, `shop.` are new; `creator.` exists without SSL yet —
+enable SSL).
+
+## Data (later phase — needs its own migration plan)
+
+Today some data is static JSON shipped with the viewer (`viewer/static/api/`: toons, events, products,
+featured-products, characters, collectables, locations, routes, credits, season/chapter configs) and some comes from
+the server (content store, items, editions, codes). Target: **everything served by `api.scutoons.com`**, stored in the
+DB. Rules:
+- The **toon configuration format stays** — self-contained, interchangeable JSON (import/export per toon); the API
+  returns it in that format so the viewer keeps working. The DB is storage, the format is the contract
+  (`@scutoons/content` schema).
+- Not everything moves at once: first catalog data (products, events), then toon/season/chapter configs (the content
+  store already holds them), then items/editions JSON → tables.
+- Each step: export → import script → compare (API output == old static file) → switch the frontend → keep the static
+  fallback for one release → remove.
+- Starts after P1–P3 (refactor + apps) are done.
+
+## CDN (careful — owner's live setup)
+
+`cdn.scutoons.com` is served from the all-inkl server and/or bunny.net (owner has set up bunny.net; confirm the exact
+current setup before touching anything). Long-term: all static content global via bunny.net (media + app builds).
+Rules now:
+- **Do not change DNS, pull zones, paths or the FTP sync target.** Asset paths in configs are relative to the CDN base
+  and must keep working.
+- One config value per app for the CDN base (`VITE_CDN_URL`, server `CDN_URL`) — switching origin/pull zone later is a
+  config change, not a code change.
+- New uploads get content-hashed or versioned filenames where they may change (cache-safe for a global CDN).
+- A separate CDN plan (bunny pull zone ↔ all-inkl origin, cache purge on sync, app builds on CDN) is written with the
+  owner before any change.
+
+## Phases (updated)
+
+| Phase | What | Who |
+|---|---|---|
+| P0 | monorepo + history import | ✅ |
+| P1a | workspaces, shared packages, standalone creator | agent (running) |
+| P1b | server refactor (Slim), `server/`, host routing qr/api, admin API | agent (running) |
+| P2a | `admin/` app incl. port of `generate/` (QR generation, batches, certificates) to Svelte | next |
+| P2b | `shop/` app split out of the viewer, `/shop` redirect | next |
+| P3 | workflows per app, env per app (`VITE_API_URL` → api.scutoons.com), cutover checklist (subdomains/folders/SSL in all-inkl), remove `generate/` after admin parity | after P2 |
+| P4 | data into the DB via the API (own migration plan) | later |
+| P5 | CDN plan with bunny.net (with owner) | later |
+
