@@ -11,10 +11,13 @@
  *   --update           files that are already stored get a new published version when the static file differs
  *                      (default: stored files are skipped – the store is the source of truth once seeded)
  *   --dry-run          only report
+ *   --sql              print idempotent MySQL INSERTs instead of writing anything (production has no shell: run the
+ *                      output in phpMyAdmin after db/migrations/2026-09-30-content-versions.mysql.sql). Each statement
+ *                      skips its file when the store already has a version of it.
  *
  * Idempotent: running it twice imports nothing the second time. The content_versions table is created when it
  * is missing (same statements as db/migrations/2026-09-30-content-versions.*.sql).
- * Production (no shell): run it locally against a copy of the production data or use phpMyAdmin with --dry-run's list.
+ * Production: `php scripts/import-content.php <path> --sql > content-seed.sql`, then import that file in phpMyAdmin.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
@@ -26,10 +29,10 @@ require_once __DIR__ . '/../api/lib/Content.php';
 
 $args = array_slice($argv, 1);
 $root = null;
-$options = ['toon' => null, 'db' => null, 'update' => false, 'dry-run' => false];
+$options = ['toon' => null, 'db' => null, 'update' => false, 'dry-run' => false, 'sql' => false];
 foreach ($args as $arg) {
     if (preg_match('/^--(toon|db)=(.+)$/', $arg, $m)) $options[$m[1]] = $m[2];
-    elseif ($arg === '--update' || $arg === '--dry-run') $options[substr($arg, 2)] = true;
+    elseif (in_array($arg, ['--update', '--dry-run', '--sql'], true)) $options[substr($arg, 2)] = true;
     elseif (!str_starts_with($arg, '--') && $root === null) $root = $arg;
     else {
         fwrite(STDERR, "Unknown argument $arg\n");
@@ -37,10 +40,25 @@ foreach ($args as $arg) {
     }
 }
 if ($root === null || !is_dir($root)) {
-    fwrite(STDERR, "Usage: php scripts/import-content.php <path to viewer/static/api> [--toon=<id>] [--db=<sqlite file>] [--update] [--dry-run]\n");
+    fwrite(STDERR, "Usage: php scripts/import-content.php <path to viewer/static/api> [--toon=<id>] [--db=<sqlite file>] [--update] [--dry-run] [--sql]\n");
     exit(2);
 }
 $root = rtrim(str_replace('\\', '/', realpath($root)), '/');
+$sqlMode = $options['sql'];
+
+/** A MySQL string literal (backslash escapes, as in mysqldump) */
+function sqlString(string $value): string
+{
+    return "'" . strtr($value, ['\\' => '\\\\', "'" => "\\'", "\0" => '\\0', "\n" => '\\n', "\r" => '\\r', "\x1a" => '\\Z']) . "'";
+}
+
+/** Report lines go to STDERR in --sql mode so the output stays a clean SQL file */
+function report(string $line): void
+{
+    global $sqlMode;
+    if ($sqlMode) fwrite(STDERR, $line);
+    else echo $line;
+}
 
 if ($options['db'] !== null) {
     if (!is_file($options['db'])) {
@@ -53,17 +71,23 @@ if ($options['db'] !== null) {
     (new ReflectionProperty(Db::class, 'pdo'))->setValue(null, $pdo);
 }
 
-// content_versions must exist
-$driver = Db::isSqlite() ? 'sqlite' : 'mysql';
-$hasTable = $driver === 'sqlite'
-    ? Db::value("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'content_versions'") !== null
-    : Db::value("SHOW TABLES LIKE 'content_versions'") !== null;
-if (!$hasTable) {
-    $sql = preg_replace('/^\s*--.*$/m', '', (string) file_get_contents(__DIR__ . "/../db/migrations/2026-09-30-content-versions.$driver.sql"));
-    foreach (array_filter(array_map('trim', preg_split('/;\s*(\r?\n|$)/', (string) $sql))) as $statement) {
-        Db::pdo()->exec($statement);
+if ($sqlMode) {
+    echo "-- Content store seed from the viewer's static configs (scripts/import-content.php --sql, " . gmdate('Y-m-d H:i') . " UTC).\n";
+    echo "-- Run db/migrations/2026-09-30-content-versions.mysql.sql first. Idempotent: files already in the store are skipped.\n";
+    echo "SET NAMES utf8mb4;\n";
+} else {
+    // content_versions must exist
+    $driver = Db::isSqlite() ? 'sqlite' : 'mysql';
+    $hasTable = $driver === 'sqlite'
+        ? Db::value("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'content_versions'") !== null
+        : Db::value("SHOW TABLES LIKE 'content_versions'") !== null;
+    if (!$hasTable) {
+        $sql = preg_replace('/^\s*--.*$/m', '', (string) file_get_contents(__DIR__ . "/../db/migrations/2026-09-30-content-versions.$driver.sql"));
+        foreach (array_filter(array_map('trim', preg_split('/;\s*(\r?\n|$)/', (string) $sql))) as $statement) {
+            Db::pdo()->exec($statement);
+        }
+        echo "Created table content_versions\n";
     }
-    echo "Created table content_versions\n";
 }
 
 /** Store-managed files below <toon>/<locale>/ */
@@ -95,8 +119,18 @@ foreach ($toons as $toonDir) {
                 }
                 $json = Content::encode($decoded);
             } catch (ApiError $error) {
-                echo "  invalid   $label ({$error->getMessage()})\n";
+                report("  invalid   $label ({$error->getMessage()})\n");
                 $stats['invalid']++;
+                continue;
+            }
+            if ($sqlMode) {
+                $where = '`toon` = ' . sqlString($toon) . ' AND `locale` = ' . sqlString($locale) . ' AND `path` = ' . sqlString($relative);
+                echo "INSERT INTO `content_versions` (`toon`, `locale`, `path`, `json`, `author`, `created_at`, `status`, `message`)\n"
+                    . 'SELECT ' . implode(', ', array_map('sqlString', [$toon, $locale, $relative, $json])) . ', NULL, '
+                    . sqlString(Db::now()) . ", 'published', 'import from static files' FROM DUAL\n"
+                    . "WHERE NOT EXISTS (SELECT 1 FROM `content_versions` WHERE $where);\n";
+                report("  statement $label (" . strlen($json) . " bytes)\n");
+                $stats['imported']++;
                 continue;
             }
             $latest = Content::latest($toon, $locale, $relative);
@@ -124,6 +158,7 @@ foreach ($toons as $toonDir) {
     }
 }
 
-echo sprintf("\n%s%d imported, %d updated, %d unchanged, %d skipped, %d invalid\n",
-    $options['dry-run'] ? '[dry run] ' : '', $stats['imported'], $stats['updated'], $stats['unchanged'], $stats['skipped'], $stats['invalid']);
+report(sprintf("\n%s%d %s, %d updated, %d unchanged, %d skipped, %d invalid\n",
+    $options['dry-run'] ? '[dry run] ' : '', $stats['imported'], $sqlMode ? 'statements' : 'imported',
+    $stats['updated'], $stats['unchanged'], $stats['skipped'], $stats['invalid']));
 exit($stats['invalid'] > 0 ? 1 : 0);

@@ -223,6 +223,20 @@ try {
         $scene = array_filter($rows, fn($r) => $r['path'] === 'chapter2/scene-14.json');
         check(count($scene) === 2, 'import: VN scene files of both locales', count($scene));
         check((int) Db::value('SELECT COUNT(*) FROM content_versions') === $before, 'import with --db leaves the configured database alone');
+
+        // --sql (production seed for phpMyAdmin): one guarded INSERT per file, literals decode back to the same JSON
+        exec("$script --toon=catpope --sql 2>" . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null'), $sqlOut, $sqlCode);
+        $sql = implode("\n", $sqlOut);
+        preg_match_all("/^SELECT 'catpope', '(\w+)', '([^']+)', '((?:[^'\\\\]++|\\\\.)*+)', NULL/m", $sql, $inserts, PREG_SET_ORDER);
+        $roundTrip = true;
+        foreach ($inserts as [, $locale, $path, $literal]) {
+            $json = preg_replace_callback('/\\\\(.)/s', fn($m) => ['0' => "\0", 'n' => "\n", 'r' => "\r", 'Z' => "\x1a"][$m[1]] ?? $m[1], $literal);
+            $static = json_decode((string) file_get_contents("$staticApi/catpope/$locale/$path"), true);
+            if (json_decode($json, true) !== $static) $roundTrip = false;
+        }
+        check($sqlCode === 0 && count($inserts) === $expected && substr_count($sql, 'WHERE NOT EXISTS') === $expected && $roundTrip,
+            '--sql: guarded INSERT per file, MySQL literals decode to the static JSON', [$sqlCode, count($inserts), $expected, $roundTrip]);
+        check((int) Db::value('SELECT COUNT(*) FROM content_versions') === $before, '--sql writes nothing');
         $pdo = null;
         @unlink($copy);
     }
