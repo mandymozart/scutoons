@@ -17,3 +17,14 @@ export const CREATOR_URL: string = trim(
 export const VIEWER_URL: string = trim(
 	import.meta.env.VITE_VIEWER_URL || (import.meta.env.PROD ? 'https://scutoons.com' : 'http://localhost:8000')
 );
+
+/** CDN base for images, e.g. the toon avatars (`VITE_CDN_URL`; dev `python cdn/server.py 8001`). */
+export const CDN_SERVER: string = trim(
+	import.meta.env.VITE_CDN_URL || (import.meta.env.PROD ? 'https://cdn.scutoons.com' : 'http://localhost:8001')
+);
+
+/**
+ * A toon's navigation avatar by convention: `<CDN>/<toonId>/avatar.webp` (the server catalog has no avatar field;
+ * the viewer's toons.json names the same file).
+ */
+export const toonAvatarUrl = (toonId: string): string => `${CDN_SERVER}/${encodeURIComponent(toonId)}/avatar.webp`;

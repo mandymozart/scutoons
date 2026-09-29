@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, RecordInspector, Section, Skeleton, Tabs, type Column } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, DataTable, RecordInspector, Section, Skeleton, Tabs, ToonAvatar, type Column } from '@scutoons/ui';
 	import type { AdminCatalog } from '@scutoons/api';
 	import { loadCatalog } from '$lib/catalog.ts';
+	import { toonAvatarUrl } from '$lib/config.ts';
 	import { errorText } from '$lib/format.ts';
 	import { inspectorLabels, tableLabels } from '$lib/labels.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -120,6 +121,7 @@
 			{:else if active === 'toons'}
 				<DataTable
 					columns={[
+						{ id: 'avatar', label: '', width: '3.5rem' },
 						{ id: 'id', label: 'id' },
 						{ id: 'name', label: m['catalog.name']() },
 						{ id: 'redirectUrl', label: m['codes.redirect']() }
@@ -127,7 +129,12 @@
 					rows={catalog!.toons as Row[]}
 					rowKey={(t) => t.id}
 					labels={tableLabels()}
-				/>
+				>
+					{#snippet cell(t, column)}
+						{#if column.id === 'avatar'}<ToonAvatar src={toonAvatarUrl(t.id)} name={t.name} />
+						{:else}{text(t[column.id])}{/if}
+					{/snippet}
+				</DataTable>
 			{:else}
 				<Section title={m['catalog.types']()} hint={m['catalog.types_hint']()}>
 					<DataTable

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, Section, Skeleton } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, Section, Skeleton, ToonAvatar } from '@scutoons/ui';
 	import type { AdminContentFile, AdminContentIndex } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
-	import { CREATOR_URL } from '$lib/config.ts';
+	import { CREATOR_URL, toonAvatarUrl } from '$lib/config.ts';
 	import { errorText, minute } from '$lib/format.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -62,13 +62,15 @@
 <ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
 	{#snippet start()}
 		{#if data}
-			<label class="bar-filter">
-				<span>{m['events.col_toon']()}</span>
-				<select value={toonFilter} onchange={(e) => setParam('toon', e.currentTarget.value)}>
-					<option value="">{m['common.all']()}</option>
-					{#each data.toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
-				</select>
-			</label>
+			<div class="toon-chips" role="group" aria-label={m['events.col_toon']()}>
+				<button type="button" class="toon-chip" aria-pressed={!toonFilter} onclick={() => setParam('toon', '')}>{m['common.all']()}</button>
+				{#each data.toons as t (t.id)}
+					<button type="button" class="toon-chip" aria-pressed={toonFilter === t.id} onclick={() => setParam('toon', t.id)}>
+						<ToonAvatar src={toonAvatarUrl(t.id)} name={t.name} size="1.5rem" />
+						<span>{t.name}</span>
+					</button>
+				{/each}
+			</div>
 			<label class="bar-filter">
 				<span>{m['content.state']()}</span>
 				<select value={stateFilter} onchange={(e) => setParam('state', e.currentTarget.value)}>
@@ -93,6 +95,7 @@
 
 	{#each groups as group (group.toon.id)}
 		<Section title={group.toon.name} hint={m['content.files']({ count: group.rows.length })}>
+			{#snippet media()}<ToonAvatar src={toonAvatarUrl(group.toon.id)} name={group.toon.name} />{/snippet}
 			{#snippet actions()}
 				<Button size="sm" variant="secondary" href="{CREATOR_URL}/{group.toon.id}" target="_blank" rel="noreferrer">{m['content.open_in_creator']()}</Button>
 			{/snippet}
@@ -139,6 +142,33 @@
 {/if}
 
 <style>
+	/* toon selector: nav chips (DESIGN.md: 2px border-muted → ink on hover / active) */
+	.toon-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-05);
+	}
+	.toon-chip {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-05);
+		min-height: 2.25rem;
+		padding: var(--space-025) var(--space-075) var(--space-025) var(--space-025);
+		border: var(--border-width-regular) solid var(--border-muted);
+		border-radius: var(--radius-none);
+		background: var(--paper);
+		color: var(--ink);
+		font: inherit;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+	.toon-chip:first-child {
+		padding-left: var(--space-075);
+	}
+	.toon-chip:hover,
+	.toon-chip[aria-pressed='true'] {
+		border-color: var(--ink);
+	}
 	.table-scroll {
 		overflow-x: auto;
 		border: var(--border-width-regular) solid var(--ink);
