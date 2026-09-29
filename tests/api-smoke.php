@@ -236,21 +236,99 @@ $r = call('POST', "$api/inventory/import/", ['items' => [['item_id' => 'cucumber
 check($r['status'] === 200 && qty($r['body']['inventory'], 'cucumber') === 3 && qty($r['body']['inventory'], 'dago_hoodie') === 0
     && count($r['body']['skipped']) === 2, 'import: cucumbers merged, physical/starter items skipped', $r);
 
-// ── Validate: only the owner of a code ─────────────────────────────────────────────────────────────────
-echo "
-/validate/ (one owner per code)
-";
-$r = call('POST', "$api/validate/", ['code' => $dago]);
-check($r['status'] === 401 && $r['body']['error'] === 'login_required', 'validate as guest → 401 login_required (no device-only membership)', $r);
-$r = call('POST', "$api/validate/", ['code' => $dago], $tokenA);
-$qr = $r['body']['qr'] ?? [];
-check($r['status'] === 200 && $r['body']['status'] === 'success' && $qr['is_claimed'] === true, 'validate as owner → success', $r);
-check(!array_key_exists('email', $qr) && !array_key_exists('signature', $qr) && !array_key_exists('claimed_by', $qr), 'validate has no email / signature / claimed_by', array_keys($qr));
-$r = call('GET', "$api/validate/?c=" . rawurlencode($dago), null, $tokenB);
-check($r['status'] === 409 && $r['body']['error'] === 'already_claimed', 'validate as another account → 409 already_claimed', $r);
+// ── Temporary test codes (removed again at the end) ────────────────────────────────────────────────────
+$tempCodes = [];
+$tempCode = function (string $type, ?string $expiresAt = null, string $email = '') use (&$tempCodes): string {
+    $code = 't' . substr(bin2hex(random_bytes(4)), 0, 7);
+    Db::run("INSERT INTO qr (id, code, redirect_to, type, email, created_at, claimed_at, expires_at) VALUES (?, ?, 'https://scutoons.com/catpope', ?, ?, ?, ?, ?)",
+        [Db::uuid(), $code, $type, $email, qrNow(), qrNow(), $expiresAt]);
+    return $tempCodes[] = $code;
+};
+register_shutdown_function(function () use (&$tempCodes) {
+    foreach ($tempCodes as $code) {
+        Db::run('DELETE FROM inventory WHERE code = ?', [$code]);
+        Db::run('DELETE FROM qr WHERE code = ?', [$code]);
+    }
+});
+$userA = (string) Db::value('SELECT id FROM users WHERE email = ?', [$emailA]);
+
+// ── /access/: device-level viewing for anyone holding a code ───────────────────────────────────────────
+echo "\n/access/ (viewing is device-level)\n";
 $unclaimed = $pick('3_catpope_vinyl');
-$r = call('GET', "$api/validate/?c=" . rawurlencode((string) $unclaimed), null, $tokenB);
-check($r['status'] === 403 && $r['body']['error'] === 'not_claimed', 'validate unclaimed code → 403 not_claimed', $r);
+$r = call('GET', "$api/access/?c=" . rawurlencode((string) $unclaimed));
+check($r['status'] === 200 && $r['body']['permissions'] === ['catalog'] && $r['body']['claimable'] === true && $r['body']['claimed'] === false
+    && !array_key_exists('claimed_by_me', $r['body']), 'access as guest, unclaimed code → catalog', $r);
+$payload = Permissions::verifyToken((string) ($r['body']['access_token'] ?? ''));
+check($payload !== null && $payload['perms'] === ['catalog'] && str_starts_with($payload['sub'], 'code:') && !str_contains($payload['sub'], (string) $unclaimed),
+    'access_token verifies (sub = hashed code)', $payload);
+$r = call('POST', "$api/access/", ['code' => $dago], $tokenA);
+check($r['status'] === 200 && $r['body']['claimed'] === true && $r['body']['claimed_by_me'] === true && $r['body']['permissions'] === ['catalog'], 'access as owner → claimed_by_me', $r);
+$r = call('POST', "$api/access/", ['code' => $dago], $tokenB);
+check($r['status'] === 200 && $r['body']['claimed_by_me'] === false && $r['body']['permissions'] === ['catalog'] && isset($r['body']['access_token']),
+    'access with a code owned by someone else → still catalog (viewing)', $r);
+$r = call('POST', "$api/access/", ['code' => $dago]);
+check($r['status'] === 200 && $r['body']['claimed'] === true && !preg_match('/@|claimed_by"/', (string) json_encode($r['body'])), 'access as guest, claimed code → catalog, owner never revealed', $r);
+$r = call('GET', "$api/access/?c=" . $tempCode('membership', '2020-01-01 00:00:00'));
+check($r['status'] === 410 && $r['body']['error'] === 'expired', 'access expired code → 410', $r);
+$page = $tempCode('page');
+$r = call('GET', "$api/access/?c=$page");
+check($r['status'] === 200 && $r['body']['permissions'] === [] && $r['body']['claimable'] === false && !isset($r['body']['access_token']), 'access page code → no permissions, no token', $r);
+$r = call('GET', "$api/access/?c=" . $tempCode('mystery'));
+check($r['status'] === 200 && $r['body']['permissions'] === [] && $r['body']['claimable'] === false, 'access unknown type → default (nothing)', $r);
+$r = call('GET', "$api/access/?c=zzzzzzzz");
+check($r['status'] === 404, 'access unknown code → 404', $r['status']);
+$r = call('POST', "$api/inventory/claim/", ['code' => $page], $tokenA);
+check($r['status'] === 422 && $r['body']['error'] === 'not_claimable', 'claim page code → 422 not_claimable', $r);
+$r = call('POST', "$api/inventory/claim/", ['code' => $tempCode('membership', null, 'legacy-owner@example.com')], $tokenA);
+check($r['status'] === 409 && $r['body']['error'] === 'email_required', 'claim legacy email-claimed code with another account → 409 email_required', $r);
+
+// ── /me/ access + signed tokens ────────────────────────────────────────────────────────────────────────
+echo "\n/me/ access, access tokens\n";
+$me = call('GET', "$api/me/", null, $tokenA);
+$access = $me['body']['access'] ?? [];
+check(($access['unlocked'] ?? false) === true && $access['permissions'] === ['catalog'] && in_array($vinyl, $access['codes'], true) && in_array($dago, $access['codes'], true)
+    && $access['expires_at'] === null, '/me/ access from owned codes', $access);
+$payload = Permissions::verifyToken((string) ($access['access_token'] ?? ''));
+check($payload !== null && $payload['sub'] === "user:$userA" && $payload['exp'] <= time() + Permissions::TOKEN_MAX_SECONDS + 5, '/me/ access_token verifies (sub user, exp ≤ 30 days)', $payload);
+$me = call('GET', "$api/me/", null, $tokenB);
+check(($me['body']['access']['unlocked'] ?? null) === false && !isset($me['body']['access']['access_token']), '/me/ without owned codes → no access, no token', $me['body']['access'] ?? null);
+[$p, $sig] = explode('.', (string) ($access['access_token'] ?? '.'));
+$forged = json_decode((string) base64_decode(strtr($p, '-_', '+/')), true) ?: [];
+$forged['perms'][] = 'admin';
+$forgedPart = rtrim(strtr(base64_encode((string) json_encode($forged)), '+/', '-_'), '=');
+check(Permissions::verifyToken("$forgedPart.$sig") === null, 'token with tampered perms fails');
+check(Permissions::verifyToken(Permissions::issueToken(['catalog'], time() - 10, 'code:test')) === null, 'expired token fails');
+check((Permissions::verifyToken(Permissions::issueToken(['catalog'], time() + 60, 'code:test'))['exp'] ?? PHP_INT_MAX) <= time() + 60, 'token exp = min(code expiry, 30 days)');
+check(Permissions::verifyToken('garbage') === null && Permissions::verifyToken($p . '.' . strrev($sig)) === null, 'malformed / wrong signature fails');
+
+// ── Permissions map is data, not code ──────────────────────────────────────────────────────────────────
+echo "\nPermissions map\n";
+$r = call('GET', "$api/permissions.json");
+check(in_array($r['status'], [403, 404], true), 'api/permissions.json not served', $r['status']);
+$r = call('GET', "$api/permissions/");
+check($r['status'] === 404, 'no /api/permissions/ endpoint', $r['status']);
+$override = tempnam(sys_get_temp_dir(), 'perm');
+file_put_contents($override, json_encode(['version' => 1, 'permissions' => ['catalog' => '', 'toon:catpope' => ''],
+    'types' => ['page' => ['claimable' => true, 'grants' => ['toon:catpope']]], 'default' => ['claimable' => false, 'grants' => []]]));
+Permissions::useFile($override);
+check(Permissions::claimable('page') && !Permissions::claimable('membership'), 'override map: page claimable, membership not');
+$ownedNew = Codes::claim(Users::byId($userA), $page, null, null);
+$access = Permissions::access(Db::all('SELECT code, type, expires_at FROM qr WHERE claimed_by = ?', [$userA]), $userA);
+check($ownedNew && $access['permissions'] === ['toon:catpope'] && $access['unlocked'] === false, 'override map: page code claimed, grants toon:catpope only (data-driven)', $access);
+Permissions::useFile(null);
+unlink($override);
+check(!Permissions::claimable('page') && Permissions::claimable('membership'), 'default map restored');
+
+// ── Validate: backwards compatible for the old viewer ──────────────────────────────────────────────────
+echo "\n/validate/ (legacy, backwards compatible)\n";
+$r = call('POST', "$api/validate/", ['code' => $dago]);
+$qr = $r['body']['qr'] ?? [];
+check($r['status'] === 200 && $r['body']['status'] === 'success' && $qr['is_claimed'] === true, 'validate claimed code as guest → success', $r);
+check(!array_key_exists('email', $qr) && !array_key_exists('signature', $qr) && !array_key_exists('claimed_by', $qr), 'validate has no email / signature / claimed_by', array_keys($qr));
+$r = call('GET', "$api/validate/?c=" . rawurlencode((string) $unclaimed));
+check($r['status'] === 200 && ($r['body']['qr']['is_claimed'] ?? null) === false, 'validate unclaimed code → success', $r);
+$r = call('GET', "$api/validate/?c=zzzzzzzz");
+check($r['status'] === 404 && $r['body']['status'] === 'error', 'validate unknown → 404', $r);
 
 // ── Database guard: the triggers refuse a second owner even outside the API ────────────────────────────
 echo "
