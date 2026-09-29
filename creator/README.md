@@ -5,9 +5,14 @@ The editor for toon / season / chapter configs and VN scene files, a standalone 
 
 - **Sign-in** on this origin: email → one-time code (or the magic link `<creator origin>/?login=<token>` from the mail).
   Sessions are per origin (localStorage `scutoons_session`), so signing in to the viewer doesn't sign you in here.
-- **Editor**: `/` toons · `/<toon>` season and chapters · `/<toon>/chapter/<n>` chapter editor (meta, groups, slices,
+- **Languages are per toon**: the toon page's "Languages" section sets the source language and the translations
+  (`Language` enum). Stored as the toon's index entry (`sourceLanguage`, `languages`) in the content store file
+  `<toon>/_/index.json` (draft/publish like the other files; before the first save: the viewer's `toons.json`). Every
+  editor takes its locales + source from it (`src/lib/editor/languages.ts`); a newly added language offers
+  "Create <locale> from <source>" for toon.json, season, chapters and scene files.
+- **Editor**: `/` toons · `/<toon>` languages, season and chapters · `/<toon>/chapter/<n>` chapter editor (meta, groups, slices,
   WYSIWYG text boxes, audio, VN events, validation, history, undo/redo, autosave, save draft / publish).
-- **Draft preview**: `/<toon>/chapter/<n>/preview?locale=de|en[&label=<group>]` renders the newest saved versions
+- **Draft preview**: `/<toon>/chapter/<n>/preview?locale=<one of the toon's languages>[&label=<group>]` renders the newest saved versions
   (chapter + scene files) with `@scutoons/reader`, like the reader does. VN events are not played; horizontal groups
   are shown one below the other.
 

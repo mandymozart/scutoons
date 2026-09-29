@@ -1,6 +1,8 @@
 // One config file of a toon, edited in all locales at once (chapter1.json in de + en, chapter2/scene-14.json, …).
 // Same structure as the files the reader loads: text stays inline per locale; geometry and other shared fields are
 // edited once and written to every locale that has not overridden them (see `setShared`).
+// The locales and the source ("primary") come from the toon (`ToonIndex.languages` / `.sourceLanguage`, loaded with
+// `loadToonLanguages` in ./languages.ts), never from constants.
 import { ApiError } from '$lib/api.ts';
 import {
 	getDraft,
@@ -9,13 +11,12 @@ import {
 	putDraft,
 	type ContentVersion
 } from '$lib/api.ts';
-import { clone, deepEqual, getAt, setAt, type Path } from '@scutoons/content';
+import { clone, deepEqual, getAt, setAt, TOON_INDEX_FILE, type Path } from '@scutoons/content';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'toon';
+export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index';
 export type DocSource = 'store' | 'static' | 'new' | 'missing';
-
-export const LOCALES = ['de', 'en'] as const;
-export const SOURCE_LOCALE = 'de';
+/** The file of a locale when the store has none (default: the viewer's static file). */
+export type DocFallback = (locale: string) => Promise<any | null>;
 
 const HISTORY_LIMIT = 150;
 const COALESCE_MS = 1200;
@@ -41,6 +42,7 @@ export function kindOfPath(path: string): DocKind {
 	if (/^chapter\d+\.json$/.test(path)) return 'chapter';
 	if (/^season\d+\.json$/.test(path)) return 'season';
 	if (path === 'toon.json') return 'toon';
+	if (path === TOON_INDEX_FILE) return 'index';
 	return 'group';
 }
 
@@ -49,7 +51,9 @@ export class ContentDoc {
 	readonly path: string;
 	readonly kind: DocKind;
 	readonly locales: string[];
+	/** the toon's source language (the first of `locales`) */
 	readonly primary: string;
+	private readonly fallback: DocFallback;
 
 	/** the edited files, per locale (null = this locale has no file) */
 	data = $state<Record<string, any>>({});
@@ -71,12 +75,14 @@ export class ContentDoc {
 	private lastKey: string | null = null;
 	private lastTime = 0;
 
-	constructor(toon: string, path: string, locales: readonly string[] = LOCALES, primary = SOURCE_LOCALE) {
+	/** `locales`: the toon's languages; `primary`: its source language (see ./languages.ts). */
+	constructor(toon: string, path: string, locales: readonly string[], primary: string, fallback?: DocFallback) {
 		this.toon = toon;
 		this.path = path;
 		this.kind = kindOfPath(path);
-		this.locales = [...locales];
+		this.locales = [primary, ...locales.filter((l) => l !== primary)];
 		this.primary = primary;
+		this.fallback = fallback ?? ((locale) => getStatic(toon, locale, path));
 	}
 
 	get canUndo() {
@@ -128,7 +134,7 @@ export class ContentDoc {
 					} catch (e) {
 						if (!(e instanceof ApiError) || e.status !== 404) throw e;
 					}
-					const fallback = await getStatic(this.toon, locale, this.path);
+					const fallback = await this.fallback(locale);
 					data[locale] = fallback;
 					base[locale] = null;
 					published[locale] = null;

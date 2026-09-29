@@ -13,12 +13,22 @@ export function isoDate(date = new Date()) {
 	return date.toISOString().slice(0, 10);
 }
 
+/** The title of a new chapter per language (any locale of the toon; unknown ones get the English title). */
+const CHAPTER_TITLES: Record<string, (n: number) => string> = {
+	de: (n) => `Kapitel ${n}`,
+	en: (n) => `Chapter ${n}`,
+	es: (n) => `Capítulo ${n}`,
+	jp: (n) => `第${n}話`,
+	kr: (n) => `제${n}화`
+};
+export const chapterTitle = (number: number, locale: string) => (CHAPTER_TITLES[locale] ?? CHAPTER_TITLES.en)(number);
+
 export function newChapter(number: number, locale: string, author = 'Mandy Mozart', season = 1): Chapter {
 	const slug = chapterSlug(number, season);
 	const release = new Date();
 	release.setDate(release.getDate() + 30);
 	return {
-		title: locale === 'de' ? `Kapitel ${number}` : `Chapter ${number}`,
+		title: chapterTitle(number, locale),
 		author,
 		number,
 		language: locale as Chapter['language'],

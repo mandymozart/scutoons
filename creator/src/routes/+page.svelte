@@ -3,7 +3,7 @@
 	import { ActionBar } from '@scutoons/ui';
 	import { STATIC_API, VIEWER_URL } from '$lib/config.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
-	import type { ToonIndex } from '@scutoons/content';
+	import { toonLanguages, type ToonIndex } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -23,7 +23,7 @@
 		}
 	});
 
-	const name = (toon: ToonIndex) => toon.i18n?.[getLocale()]?.name ?? toon.i18n?.de?.name ?? toon.id;
+	const name = (toon: ToonIndex) => toon.i18n?.[getLocale()]?.name ?? toon.i18n?.[toonLanguages(toon).source]?.name ?? toon.id;
 </script>
 
 <div class="creator-page">

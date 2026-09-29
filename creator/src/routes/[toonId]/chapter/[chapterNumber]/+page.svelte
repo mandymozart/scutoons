@@ -1,11 +1,30 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import ChapterEditor from '$lib/components/chapter-editor.svelte';
+	import { loadToonLanguages } from '$lib/editor/languages.ts';
+	import { m } from '$lib/paraglide/messages.js';
 
 	const toon = $derived(page.params.toonId as string);
 	const chapterNumber = $derived(Number(page.params.chapterNumber));
+	// the toon's source + languages (newest draft of its index entry) decide the locales of every file
+	const languages = $derived(loadToonLanguages(toon));
 </script>
 
-{#key `${toon}/${chapterNumber}`}
-	<ChapterEditor {toon} {chapterNumber} />
-{/key}
+{#await languages}
+	<p class="pad">{m['creator.loading']()}</p>
+{:then langs}
+	{#key `${toon}/${chapterNumber}/${langs.languages.join(',')}`}
+		<ChapterEditor {toon} {chapterNumber} languages={langs} />
+	{/key}
+{:catch error}
+	<p class="pad error">{error instanceof Error ? error.message : String(error)}</p>
+{/await}
+
+<style>
+	.pad {
+		padding: 1rem;
+	}
+	.error {
+		color: var(--error);
+	}
+</style>

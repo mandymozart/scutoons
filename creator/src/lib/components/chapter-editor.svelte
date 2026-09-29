@@ -4,8 +4,9 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { STATIC_API } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { ContentDoc, LOCALES, SaveConflict, SOURCE_LOCALE } from '$lib/editor/doc.svelte.ts';
-	import { getAt, deleteAt, type Path } from '@scutoons/content';
+	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
+	import { toonDoc } from '$lib/editor/languages.ts';
+	import { getAt, deleteAt, type Path, type ToonLanguages } from '@scutoons/content';
 	import { newDialog, newGroup, nextDialogId } from '$lib/editor/defaults.ts';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
@@ -24,12 +25,13 @@
 	import HistoryPanel from './history-panel.svelte';
 	import FileStatus from './file-status.svelte';
 
-	let { toon, chapterNumber }: { toon: string; chapterNumber: number } = $props();
+	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
+	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
 
 	// ── Documents ───────────────────────────────────────────────────────────────────────────────────────
-	// the page re-creates this component per chapter ({#key}), so the initial props are the right ones
+	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
 	// svelte-ignore state_referenced_locally
-	const chapter = new ContentDoc(toon, `chapter${chapterNumber}.json`);
+	const chapter = toonDoc(toon, `chapter${chapterNumber}.json`, languages);
 	let refs = $state<Record<string, ContentDoc>>({});
 	let characters = $state<{ name: string; label?: string }[]>([]);
 	let images = $state<string[]>([]);
@@ -42,7 +44,7 @@
 
 	async function ensureRef(src: string) {
 		if (refs[src]) return refs[src];
-		const doc = new ContentDoc(toon, src);
+		const doc = toonDoc(toon, src, languages);
 		refs[src] = doc;
 		await doc.load();
 		return doc;
@@ -51,17 +53,22 @@
 	onMount(async () => {
 		await chapter.load();
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
-		try {
-			const response = await fetch(`${STATIC_API}/${toon}/${SOURCE_LOCALE}/characters.json`);
-			if (response.ok) characters = await response.json();
-		} catch {
-			/* optional */
+		// characters.json of the source language (else the first language that has one)
+		for (const locale of chapter.locales) {
+			try {
+				const response = await fetch(`${STATIC_API}/${toon}/${locale}/characters.json`);
+				if (!response.ok || !(response.headers.get('content-type') || '').includes('json')) continue;
+				characters = await response.json();
+				break;
+			} catch {
+				/* optional */
+			}
 		}
 		refreshImages();
 	});
 
 	function refreshImages() {
-		knownImages(toon, LOCALES, allDocs.map((d) => $state.snapshot(d.data))).then((list) => (images = list));
+		knownImages(toon, chapter.locales, allDocs.map((d) => $state.snapshot(d.data))).then((list) => (images = list));
 	}
 
 	// ── Selection / view state ──────────────────────────────────────────────────────────────────────────
@@ -71,7 +78,8 @@
 	let sliceIndex = $state(-1);
 	let selection = $state<CanvasSelection | null>(null);
 	let inspectorTab = $state<'text' | 'slice' | 'audio' | 'events'>('text');
-	let displayLocale = $state<string>(SOURCE_LOCALE);
+	// svelte-ignore state_referenced_locally
+	let displayLocale = $state<string>(languages.source);
 	let zoom = $state<1 | 3>(1);
 	let grid = $state(0.5);
 	let tool = $state<Tool>('text');
@@ -172,7 +180,7 @@
 			slice.dialog.push(newDialog(id, { ...rect }));
 		});
 		onCanvasSelect({ kind: 'dialog', index: sliceDialogs.length - 1 });
-		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${SOURCE_LOCALE}"]`)?.focus());
+		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${doc.primary}"]`)?.focus());
 	}
 
 	function addSampleArea(rect: { x: number; y: number; width: number; height: number }) {
@@ -218,7 +226,7 @@
 				notice = 'The file name must look like chapter2/scene-21.json (a-z, 0-9, - and _).';
 				return;
 			}
-			const doc = new ContentDoc(toon, src);
+			const doc = toonDoc(toon, src, languages);
 			doc.create(() => newGroup(src.split('/').pop()!.replace(/\.json$/, '')));
 			refs[src] = doc;
 			chapter.structural((file) => file.groups.push({ ref: { src } }));
@@ -402,7 +410,7 @@
 			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo">↷</button>
 			<span class="preview">
 				{m['creator.preview']()}:
-				{#each LOCALES as l}
+				{#each chapter.locales as l}
 					<a href={previewHref(l)} target="_blank" rel="noopener" title="Draft preview in {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>

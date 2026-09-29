@@ -20,9 +20,9 @@
 	<h3>Text-free art</h3>
 	<ul>
 		<li>Export the art <b>without words</b>. Bubble <i>shapes</i> stay in the art; the words are live text boxes.</li>
-		<li>Every locale shares the same images – only the text changes (de is the source, en follows).</li>
+		<li>Every locale shares the same images – only the text changes (the toon's source language is the source, the other languages follow; set it on the toon page under Languages).</li>
 		<li>Legacy art with baked text (chapter 1): cover it with <code>mask</code> (+ <code>pad</code>, <code>maskShape</code>).</li>
-		<li>Leave room: English runs ~10–30% longer. Boxes over 130% of the German length get a warning.</li>
+		<li>Leave room: translations often run ~10–30% longer (German → English). Boxes over 130% of the source length get a warning.</li>
 	</ul>
 
 	<h3>Lettering</h3>

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { Chapter, Group } from '@scutoons/content';
+	import { toonLanguages, type Chapter, type Group, type ToonLanguages } from '@scutoons/content';
 	import { Slice } from '@scutoons/reader';
 	import { ActionBar, Badge, Tabs } from '@scutoons/ui';
 	import { fetchContent } from '$lib/api.ts';
-	import { LOCALES, SOURCE_LOCALE } from '$lib/editor/doc.svelte.ts';
+	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -16,11 +16,18 @@
 	 */
 	const toon = $derived(page.params.toonId as string);
 	const chapterNumber = $derived(Number(page.params.chapterNumber));
-	const locale = $derived(
-		(LOCALES as readonly string[]).includes(page.url.searchParams.get('locale') ?? '')
-			? (page.url.searchParams.get('locale') as string)
-			: SOURCE_LOCALE
-	);
+	/** the toon's languages (newest draft of its index entry); `?locale=` must be one of them, else the source */
+	let languages = $state<ToonLanguages | null>(null);
+	$effect(() => {
+		loadToonLanguages(toon)
+			.then((l) => (languages = l))
+			.catch(() => (languages = toonLanguages(null)));
+	});
+	const locale = $derived.by(() => {
+		if (!languages) return null;
+		const wanted = page.url.searchParams.get('locale') ?? '';
+		return (languages.languages as string[]).includes(wanted) ? wanted : languages.source;
+	});
 	const label = $derived(page.url.searchParams.get('label'));
 
 	let chapter = $state<Chapter | null>(null);
@@ -56,7 +63,7 @@
 	}
 
 	$effect(() => {
-		void load(toon, chapterNumber, locale);
+		if (locale) void load(toon, chapterNumber, locale);
 	});
 
 	const groups = $derived(chapter?.groups ?? []);
@@ -73,7 +80,7 @@
 </script>
 
 <svelte:head>
-	<title>{m['creator.preview_title']()} · {toon} {chapterNumber} ({locale})</title>
+	<title>{m['creator.preview_title']()} · {toon} {chapterNumber} ({locale ?? '…'})</title>
 </svelte:head>
 
 <div class="preview-page" data-testid="draft-preview">
@@ -101,12 +108,12 @@
 	{:else if error}
 		<p class="status error">{error}</p>
 	{:else if chapter}
-		<main class="column" lang={locale}>
+		<main class="column" lang={locale ?? undefined}>
 			<h1>{chapter.title}</h1>
 			{#each shown as group, g (g)}
 				{#if group.label}<h2 class="group-label">{group.label}</h2>{/if}
 				{#each group.slices ?? [] as slice, s (s)}
-					<Slice {slice} src={asset(`${toon}/${slice.image}`)} lang={locale} />
+					<Slice {slice} src={asset(`${toon}/${slice.image}`)} lang={locale ?? undefined} />
 				{/each}
 			{/each}
 		</main>
@@ -117,8 +124,8 @@
 		{#snippet start()}
 			<Tabs
 				label={m['creator.preview_locale']()}
-				tabs={LOCALES.map((l) => ({ id: l, label: l }))}
-				value={locale}
+				tabs={(languages?.languages ?? []).map((l) => ({ id: l, label: l }))}
+				value={locale ?? ''}
 				onchange={(id) => setParam('locale', id)}
 			/>
 			<label class="group-select">
