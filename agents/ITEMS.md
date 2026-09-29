@@ -184,65 +184,68 @@ are **additive details / clarifications** the viewer can rely on:
 - Local dev: API `http://localhost:9000/api`, login mails in `qr.scutoons.com/logs/mail.log`, icons from
   `CDN_URL` (`http://localhost:8001/` locally).
 
-## Access model (2026-09-30, user decision — supersedes the "login required" step)
+## Access model (2026-09-30, user decision — final; replaces the anonymous-account draft)
+
+Two separate things:
+
+1. **Viewing content (device access, no account).** Any existing, non-expired code whose type grants `catalog` in the
+   permissions map (today: `membership`, `promo`) unlocks every chapter of every toon **on this device** — also when
+   the code is owned by someone else. No login, nothing stored on the server: device access, story items, progress
+   and the guest inventory live only in the browser (localStorage).
+2. **Account actions (login required).** Owning a code (item in the inventory, edition number), avatar, synced
+   progress, crafting on the server, account page → email login (one-time code / magic link). **One owner per code**
+   applies here: claiming a code someone else owns → `409 already_claimed` (they can still *view* with it).
 
 - **Public, never gated:** `/`, toon landing `/<toon>`, credits, events, shop, attributions.
-- **Gated:** chapter views (and chapter download) → need access. Account pages → need a session.
-- **Access = a valid code whose type grants it.** Today only **`membership` and `promo`** unlock the **entire SCUTOONS
-  catalog** (all toons), until `expires_at`. `page`, `event`, `xr` (and unknown types) unlock nothing and keep their
-  plain redirect. Which type grants what is **not hardcoded**: it lives in the permissions map below.
-- **The code is the credential.** The first device that uses an unclaimed code becomes its owner **without email**:
-  the server creates an *anonymous account* (no email), claims the code to it and returns a session. No login screen.
-- **One owner per code stays.** A claimed code works only for its owner's session. Anyone else gets
-  `409 already_claimed` → "This code is already in use. If it's yours, sign in."
-- **Login (email + one-time code) is only for people without a valid code on this device**: new phone, cleared
-  browser, or to use codes already in their account. Anonymous accounts can **add an email** any time (account page,
-  prompted gently after the first unlock) so they can sign in elsewhere later.
-- Adding an email that already has an account **merges** the anonymous account into it (codes + inventory + avatar +
-  progress move over, anonymous user deleted, session switches).
-- Codes claimed by the old email-only form (`qr.email` set, `claimed_by` NULL) can only be taken over by signing in
-  with that email (`409 email_required`).
+- **Gated by access:** chapter views and chapter download. Access = device code access **or** a logged-in account
+  that owns an unlocking code.
+- **No anonymous accounts.** `users.email` stays NOT NULL.
+- Codes claimed by the old email-only form (`qr.email` set, `claimed_by` NULL) can only be claimed by an account with
+  that email (`409 email_required`); viewing with them works like any code.
 
-### API changes
+### Permissions map
+
+`C:\Development\qr.scutoons.compi\permissions.json` (the owner edits this file; no code change):
+```json
+{
+  "version": 1,
+  "permissions": { "catalog": "Read every chapter of every toon" },
+  "types": {
+    "membership": { "claimable": true,  "grants": ["catalog"] },
+    "promo":      { "claimable": true,  "grants": ["catalog"] },
+    "page":       { "claimable": false, "grants": [] },
+    "event":      { "claimable": false, "grants": [] },
+    "xr":         { "claimable": false, "grants": [] }
+  },
+  "default":      { "claimable": false, "grants": [] }
+}
+```
+`claimable` = can be owned by one account (goes into its inventory); `grants` = permissions while not expired, for
+anyone holding the code (device) and for its owner (account). Unknown types → `default`. Permission ids are open-ended
+(later e.g. `toon:catpope`, `chapter:catpope:2`); the viewer checks `catalog` today. Served at `GET /api/permissions/`.
+
+### API
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/auth/code/` | `{ code, item_id?, variant? }` (+ optional Bearer) | claimable types only (permissions map); no session: unclaimed → create anonymous user, claim, `{ status:"success", session_token, user, claimed:"new", created:true }` · with session: claim into that account (`claimed: "new"\|"already_yours"`) · `409 already_claimed` · `409 email_required` · `422 choose_item` (+options, **before** any user is created) · `403 not_unlocking` (non-claimable types: page/event/xr) · 404 · 410 · 429 |
-| POST | `/auth/request/` + `/auth/verify/` | as before; with an anonymous Bearer session: attaches the email (or merges into the existing account with that email) | verify adds `merged: true` when merged |
+| GET/POST | `/access/` | `{ code }` or `?c=` (optional Bearer) | `{ status:"success", code, type, expires_at, permissions:["catalog"], claimable, claimed: bool, claimed_by_me?: bool }` for any existing, non-expired code — never who owns it · 404 · 410 · 429 (rate limit per IP against enumeration) |
+| POST | `/inventory/claim/` | as before (login) | one owner; claimable types only (`422 not_claimable` otherwise) |
+| GET | `/me/` | – | + `access: { permissions, expires_at, codes }` from owned codes |
+| GET/POST | `/validate/` | legacy | backwards compatible for the old viewer: success for any existing non-expired code (claimed or not), no email/signature/claimed_by |
 
-- `user` gets `email: string|null` and `anonymous: boolean`. `users.email` becomes nullable (UNIQUE still holds for
-  non-null).
-- `/me/` → `access` per the permissions map (see above). `memberships` stays for compatibility.
-- **Permissions map** `C:\Development\qr.scutoons.compi\permissions.json` (the owner edits this file; no code change):
-  ```json
-  {
-    "version": 1,
-    "permissions": { "catalog": "Read every chapter of every toon" },
-    "types": {
-      "membership": { "claimable": true,  "grants": ["catalog"] },
-      "promo":      { "claimable": true,  "grants": ["catalog"] },
-      "page":       { "claimable": false, "grants": [] },
-      "event":      { "claimable": false, "grants": [] },
-      "xr":         { "claimable": false, "grants": [] }
-    },
-    "default":      { "claimable": false, "grants": [] }
-  }
-  ```
-  `claimable` = can be owned (goes into an inventory, one owner); `grants` = permissions the owner gets while the code
-  is not expired. Unknown types use `default`. Permission ids are open-ended for later (e.g. `toon:catpope`,
-  `chapter:catpope:2`); the viewer only checks `catalog` today. Served read-only at `GET /api/permissions/`.
-  `/me/` → `access: { permissions: ["catalog"], unlocked: <has catalog>, expires_at, codes }`.
-  Non-claimable codes at `/auth/code/` → `403 not_unlocking` (viewer just continues, no error).
-- `/validate/` unchanged (owner-only), the viewer does not use it.
-- qr landing page: for claimable codes show the item preview + **Continue** → `redirect_to?code=<code>` (the viewer
-  claims). No email step on the landing page; if the code is already claimed the page still continues (the viewer
-  decides: owner's device → fine, else "in use, sign in"). Non-claimable types (page/event/xr) keep their direct redirect.
+### Landing page (qr.scutoons.com)
+
+Claimable codes: item preview + **Continue** → `redirect_to?code=<code>` (the viewer grants device access) and a
+secondary "Add to my account" → viewer `/account?code=<code>` (sign in there, then claim). No email step on the landing
+page. Non-claimable types keep their direct redirect.
 
 ### Viewer
 
-- `?code=` or in-app scan: session? → `/auth/code/` with Bearer : → `/auth/code/` without → store session → unlocked
-  immediately; `choose_item` → picker; `already_claimed`/`email_required` → message + sign-in.
-- Legacy `scutoons_membership` in localStorage → silently `/auth/code/` with its code; success → cleared, unlocked.
-- Blocker (guests without access): "Scan your code" (camera), "I have an account – sign in", "Buy access".
-- Account page for anonymous users: "Add your email to keep access on other devices"; logout warns that an anonymous
-  account can't be recovered without an email.
+- `?code=` / in-app `scan_qr` / legacy `scutoons_membership` → `/access/` → store device access
+  (`scutoons_access`: code, permissions, expires_at, checked_at) → chapters unlocked. Re-check it with `/access/`
+  now and then (expiry). Code claimed by someone else still grants viewing.
+- After a successful scan, offer (not force) "Add to my account" → login → `/inventory/claim/` (409 → "already in
+  someone's account, you can still read with it").
+- Guest: local inventory/progress only; logged in: server inventory/progress; login imports the guest's grantable
+  items (as before). Device access stays after logout.
+- Blocker (no access): "Scan your code", "Sign in", "Buy access".
