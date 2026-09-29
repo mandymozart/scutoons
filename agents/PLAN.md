@@ -167,7 +167,12 @@ Agents don't commit in the scutoons repo (shared working tree); the coordinator 
 3. Production rollout of qr.scutoons.com (docs/ACCOUNTS.md there): DB migration, backfill, secrets (AUTH_SECRET, SMTP),
    decide which duplicate dago/beetles code set was printed, then merge qr `anger` → main.
 4. `python cdn/sync.py` for new icons (`catpope/items/`) and `merch/bandcamp/`.
-5. Minigames (registry has a placeholder only), avatar art, flat-lay product photos for cleaner icons.
+5. **Server-side content gate (security, after release unless the user wants it earlier):** the paywall is
+   client-side today (device access in localStorage, chapter JSON shipped static with the viewer build, slice images
+   on the public CDN with predictable names). Plan: chapter configs served by a PHP gate that verifies the signed
+   `access_token` from `/access/`·`/me/`; slice images via signed/expiring URLs or a token-checked rewrite on the CDN.
+   Ownership (claims) is already server-enforced (API + DB triggers).
+6. Minigames (registry has a placeholder only), avatar art, flat-lay product photos for cleaner icons.
 
 ## Run locally
 
