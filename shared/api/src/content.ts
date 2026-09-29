@@ -3,6 +3,17 @@
 // static files (`{staticBase}/<toon>/<locale>/<path>`, shipped with the viewer) are the fallback (store not seeded,
 // file not published, API unreachable). The editor endpoints need the role `creator`.
 import type { ApiClient } from './client.ts';
+import {
+	CAST_FILE,
+	CHARACTERS_FILE,
+	CREDITS_SCOPE,
+	LEGACY_CHARACTERS_FILE,
+	NEUTRAL_LOCALE,
+	resolveCast,
+	type Character,
+	type CharacterRegistry,
+	type ToonCast
+} from '@scutoons/content';
 
 type Fetch = typeof fetch;
 
@@ -105,11 +116,47 @@ export function createContentApi({ client, staticBase }: ContentApiOptions) {
 		return fetchFn(`${staticRoot()}/${toon}/${locale}/${path}`);
 	}
 
+	/** JSON of a response, null when it failed or isn't JSON (a static host answers unknown files with an HTML page). */
+	async function jsonOf<T>(response: Response): Promise<T | null> {
+		if (!response.ok) return null;
+		try {
+			return (await response.json()) as T;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
+	 * The characters of a toon in one locale, in the legacy `characters.json` shape the VN renderer reads: the global
+	 * registry `scutoons/_/characters.json` + the toon's `<toon>/_/cast.json` from the content store (published, or the
+	 * newest drafts with `draft`), resolved with `resolveCast`; fallback: the old static
+	 * `<toon>/<locale>/characters.json`; none of them → an empty list (a toon without characters).
+	 * `fallbacks`: locales tried when a name/description is missing in `locale` (e.g. the toon's source language).
+	 */
+	async function fetchCharacters(
+		fetchFn: Fetch,
+		toon: string,
+		locale: string,
+		options: ContentOptions & { fallbacks?: string[] } = {}
+	): Promise<{ source: 'store' | 'static' | 'none'; characters: Character[] }> {
+		const [registry, cast] = await Promise.all([
+			fetchContent(fetchFn, CREDITS_SCOPE, NEUTRAL_LOCALE, CHARACTERS_FILE, options).then((r) => jsonOf<CharacterRegistry>(r)),
+			fetchContent(fetchFn, toon, NEUTRAL_LOCALE, CAST_FILE, options).then((r) => jsonOf<ToonCast>(r))
+		]);
+		if (registry && Array.isArray(registry.characters) && cast && Array.isArray(cast.members)) {
+			return { source: 'store', characters: resolveCast(registry, cast, toon, locale, { fallbacks: options.fallbacks }) };
+		}
+		const legacy = await jsonOf<Character[]>(await fetchFn(`${staticRoot()}/${toon}/${locale}/${LEGACY_CHARACTERS_FILE}`).catch(() => new Response(null, { status: 404 })));
+		if (Array.isArray(legacy)) return { source: 'static', characters: legacy };
+		return { source: 'none', characters: [] };
+	}
+
 	const file = (toon: string, locale: string, path: string) =>
 		`/content/${encodeURIComponent(toon)}/${encodeURIComponent(locale)}/${path}`;
 
 	return {
 		fetchContent,
+		fetchCharacters,
 
 		// ── Editor API (role creator) ─────────────────────────────────────────────────────────────────────
 

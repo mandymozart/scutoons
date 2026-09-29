@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { DEFAULT_MOOD } from '@scutoons/content';
 
 	const Z_INDEX_MESSAGE_BOX = 100;
 	const Z_INDEX_ACTIVE_CHARACTER = 101;
@@ -23,11 +24,11 @@
 	const imagePath = $derived(() => {
 		const variant = 'avatar';
 
-		const mood = charRef.mood || 'neutral';
-		// neutral, happy, sad, angry, mad, surprised, excited, touched, tease and disgust
+		const mood = charRef.mood || DEFAULT_MOOD;
+		// moods: MOODS of @scutoons/content (neutral = the fallback)
 		let path =
 			character.images?.[mood]?.[variant] ||
-			character.images?.['neutral']?.[variant] ||
+			character.images?.[DEFAULT_MOOD]?.[variant] ||
 			character.image;
 
 		if (!path) {
@@ -37,7 +38,8 @@
 			return '';
 		}
 
-		return `${toonId}/${path}`;
+		// a leading / = from the CDN root (a registry character whose images live outside this toon's folder)
+		return path.startsWith('/') ? path : `${toonId}/${path}`;
 	});
 	const imageUrl = $derived(asset(imagePath()));
 </script>

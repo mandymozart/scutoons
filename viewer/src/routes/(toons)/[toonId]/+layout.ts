@@ -12,7 +12,7 @@ import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
 import { isItemListed, Status, type Chapter } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
-import { fetchContent } from '$lib/api.ts';
+import { fetchCharacters, fetchContent } from '$lib/api.ts';
 
 export const load: LayoutLoad = async ({ fetch, params }) => {
 	const lang = getLocale();
@@ -20,9 +20,11 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 	// toon / season / chapter configs: content store first (published versions), static files as fallback
 	const content = (path: string) => fetchContent(fetch, params.toonId, lang, path);
 
-	const [charactersRes, seasonRes, locationsRes, routesRes, toonRes, collectablesRes] =
+	// characters: registry + the toon's cast from the content store, resolved to the old characters.json shape;
+	// fallback: the static characters.json of the locale; a toon without any → []
+	const [charactersResult, seasonRes, locationsRes, routesRes, toonRes, collectablesRes] =
 		await Promise.all([
-			fetch(`${base}/characters.json`),
+			fetchCharacters(fetch, params.toonId, lang),
 			content('season1.json'),
 			fetch(`${base}/locations.json`),
 			fetch(`${base}/routes.json`),
@@ -30,14 +32,13 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 			fetch(`${base}/collectables.json`)
 		]);
 
-	if (!charactersRes.ok) throw error(404, `Failed to load characters of toon ${params.toonId}`);
 	if (!seasonRes.ok) throw error(404, `Failed to load season 1 of toon ${params.toonId}`);
 	if (!locationsRes.ok) throw error(404, `Failed to load locations of toon ${params.toonId}`);
 	if (!routesRes.ok) throw error(404, `Failed to load routes of toon ${params.toonId}`);
 	if (!toonRes.ok) throw error(404, `Failed to load toon ${params.toonId}`);
 	if (!collectablesRes.ok) throw error(404, `Failed to load toon ${params.toonId}`);
 
-	const characters: Character[] = await charactersRes.json();
+	const characters: Character[] = charactersResult.characters;
 	const season: Season = await seasonRes.json();
 	const locations: MapLocation[] = await locationsRes.json();
 	const routes: MapRoute[] = await routesRes.json();

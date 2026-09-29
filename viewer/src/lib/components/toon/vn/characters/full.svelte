@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { DEFAULT_MOOD } from '@scutoons/content';
 
 	let {
 		charRef,
@@ -16,11 +17,11 @@
 
 	const imagePath = $derived(() => {
 		const variant = 'full';
-		const mood = charRef.mood || 'default';
+		const mood = charRef.mood || DEFAULT_MOOD;
 
 		let path =
 			character.images?.[mood]?.[variant] ||
-			character.images?.['default']?.[variant] ||
+			character.images?.[DEFAULT_MOOD]?.[variant] ||
 			character.image;
 
 		if (!path) {
@@ -30,7 +31,8 @@
 			return '';
 		}
 
-		return `${toonId}/${path}`;
+		// a leading / = from the CDN root (a registry character whose images live outside this toon's folder)
+		return path.startsWith('/') ? path : `${toonId}/${path}`;
 	});
 	const imageUrl = $derived(asset(imagePath()));
 </script>
