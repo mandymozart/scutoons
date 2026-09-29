@@ -28,18 +28,18 @@
 				},
 				"name": {
 					"$ref": "#/definitions/LocaleText",
-					"description": "display name per locale (the VN speaker plate)"
+					"description": "display name per locale (the VN speaker plate); a persona without one uses its base's name"
 				},
 				"description": {
 					"$ref": "#/definitions/LocaleText"
 				},
 				"color": {
 					"type": "string",
-					"description": "CSS color (VN avatar background, speaker accents)"
+					"description": "CSS color (VN avatar background, speaker accents); a persona inherits its base's when empty"
 				},
 				"group": {
 					"$ref": "#/definitions/CharacterGroup",
-					"description": "`lead` | `support` | `cast` | `extra` | …"
+					"description": "cast group: `lead` | `support` | `cast` | `extra` | …"
 				},
 				"own_toon": {
 					"type": "string",
@@ -61,20 +61,46 @@
 				},
 				"image": {
 					"type": "string",
-					"description": "legacy single image (last fallback of every mood/variant; placeholder e.g. `<toon>/avatar.webp`)"
+					"description": "legacy single image (last fallback of every look/mood/variant; placeholder e.g. `<toon>/avatar.webp`)"
+				},
+				"looks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CharacterLook"
+					},
+					"description": "the character's looks; none = the one look `default`"
 				},
 				"images": {
 					"type": "object",
 					"additionalProperties": {
-						"$ref": "#/definitions/CharacterImage"
+						"$ref": "#/definitions/MoodImages"
 					},
-					"description": "mood → variant → CDN path"
+					"description": "look → mood → variant → CDN path"
+				},
+				"artwork": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CharacterArtwork"
+					},
+					"description": "key visuals and other artwork"
+				},
+				"persona_of": {
+					"type": "string",
+					"description": "base character id: this character is a persona (another appearance) of it – one level only"
+				},
+				"persona": {
+					"$ref": "#/definitions/Persona"
+				},
+				"affiliations": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Affiliation"
+					},
+					"description": "groups the character belongs to (scutoons/_/groups.json)"
 				}
 			},
 			"required": [
 				"id",
-				"name",
-				"color",
 				"group",
 				"images"
 			],
@@ -90,6 +116,34 @@
 		"CharacterGroup": {
 			"type": "string"
 		},
+		"CharacterLook": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z0-9][a-z0-9-]*$`; `default` = no look segment in the convention path"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"default": {
+					"type": "boolean",
+					"description": "exactly one look of a character is the default (VN refs without `look`)"
+				}
+			},
+			"required": [
+				"id",
+				"label"
+			],
+			"description": "The same character in different gear (with / without helmet), each with its own mood set."
+		},
+		"MoodImages": {
+			"type": "object",
+			"additionalProperties": {
+				"$ref": "#/definitions/CharacterImage"
+			},
+			"description": "mood → variant → CDN path"
+		},
 		"CharacterImage": {
 			"type": "object",
 			"properties": {
@@ -103,6 +157,85 @@
 					"type": "string"
 				}
 			}
+		},
+		"CharacterArtwork": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z0-9][a-z0-9-]*$`, unique per character"
+				},
+				"path": {
+					"type": "string",
+					"description": "CDN path from the CDN root"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"id",
+				"path"
+			],
+			"description": "Character artwork that is not an expression (key visuals, turnarounds …)."
+		},
+		"Persona": {
+			"type": "object",
+			"properties": {
+				"label": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "appended to the name: \"Cat Pope · Biker\""
+				},
+				"introduced": {
+					"$ref": "#/definitions/StoryPoint",
+					"description": "where the persona first appears (none = it has always been there)"
+				},
+				"note": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"label"
+			],
+			"description": "What makes a registry character a persona of its base (`persona_of`)."
+		},
+		"StoryPoint": {
+			"type": "object",
+			"properties": {
+				"toon": {
+					"type": "string"
+				},
+				"season": {
+					"type": "number"
+				},
+				"chapter": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"toon"
+			],
+			"description": "A point in a toon's story (a free reference for the editor and the story bible)."
+		},
+		"Affiliation": {
+			"type": "object",
+			"properties": {
+				"group": {
+					"type": "string",
+					"description": "group id (GroupVocabulary)"
+				},
+				"role": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "e.g. \"Anführerin\" / \"Leader\""
+				},
+				"since": {
+					"$ref": "#/definitions/StoryPoint"
+				}
+			},
+			"required": [
+				"group"
+			],
+			"description": "Membership of a character in a shared group."
 		}
 	}
 }

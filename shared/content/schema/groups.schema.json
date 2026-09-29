@@ -1,0 +1,53 @@
+{
+	"$id": "https://scutoons.com/schema/groups.schema.json",
+	"title": "GroupVocabulary",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/GroupVocabulary",
+	"definitions": {
+		"GroupVocabulary": {
+			"type": "object",
+			"properties": {
+				"groups": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AffiliationGroup"
+					}
+				}
+			},
+			"required": [
+				"groups"
+			],
+			"description": "`scutoons/_/groups.json`"
+		},
+		"AffiliationGroup": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z0-9][a-z0-9-]*$`"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"description": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"color": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"id",
+				"name"
+			],
+			"description": "A shared group / affiliation across toons (the biker gang, a family, a band …)."
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		}
+	}
+}

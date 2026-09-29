@@ -1,8 +1,12 @@
 {
 	"members": [
 		{
-			"character": "mouse",
+			"character": "yellowmouse",
 			"order": 1
+		},
+		{
+			"character": "yellowmouse-biker",
+			"order": 2
 		}
 	]
 }

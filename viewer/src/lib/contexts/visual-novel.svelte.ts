@@ -57,7 +57,7 @@ export function createVisualNovelContext() {
 				const existingMood = existing.mood;
 				const newMood = newChar.mood;
 
-				if (existingVariant !== newVariant || existingMood !== newMood) {
+				if (existingVariant !== newVariant || existingMood !== newMood || existing.look !== newChar.look) {
 					console.log(
 						`Character "${newChar.name}" already in scene (variant: "${existingVariant}", mood: "${existingMood}"), replacing with (variant: "${newVariant}", mood: "${newMood}")`
 					);

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { DEFAULT_MOOD } from '@scutoons/content';
+	import { DEFAULT_MOOD, legacyCharacterImage } from '@scutoons/content';
 
 	const Z_INDEX_MESSAGE_BOX = 100;
 	const Z_INDEX_ACTIVE_CHARACTER = 101;
@@ -26,14 +26,12 @@
 
 		const mood = charRef.mood || DEFAULT_MOOD;
 		// moods: MOODS of @scutoons/content (neutral = the fallback)
-		let path =
-			character.images?.[mood]?.[variant] ||
-			character.images?.[DEFAULT_MOOD]?.[variant] ||
-			character.image;
+		// look + mood → the look's neutral → the default look → the first look with images → the legacy image
+		const path = legacyCharacterImage(character, mood, variant, charRef.look);
 
 		if (!path) {
 			console.error(
-				`No image found for character "${character.name}" (mood: ${mood}, variant: ${variant})`
+				`No image found for character "${character.name}" (look: ${charRef.look ?? 'default'}, mood: ${mood}, variant: ${variant})`
 			);
 			return '';
 		}

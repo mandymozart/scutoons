@@ -23,6 +23,10 @@
 		{
 			"character": "mountain-tiger",
 			"order": 6
+		},
+		{
+			"character": "catpope-biker",
+			"order": 7
 		}
 	]
 }

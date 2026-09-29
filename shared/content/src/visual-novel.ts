@@ -14,7 +14,12 @@ export interface Character {
 	image: string; // depreacted for images slots
 	description?: string;
 	collection?: string;
+	/** mood → variant → path (the default look) */
 	images?: Record<string, CharacterImage>;
+	/** look → mood → variant → path, for characters with several looks (registry `looks`) */
+	looks?: Record<string, Record<string, CharacterImage>>;
+	/** the look used when a ref names none */
+	defaultLook?: string;
 }
 
 export interface CollectableRef {
@@ -47,6 +52,8 @@ export interface VNCharacterRef {
 		variant: 'avatar' | 'full' | 'portrait';
 	};
 	mood?: string;
+	/** a look of the character (e.g. `helmet`); none = its default look */
+	look?: string;
 }
 
 export interface VNVariableSetter {

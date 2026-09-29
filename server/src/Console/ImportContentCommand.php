@@ -41,7 +41,7 @@ final class ImportContentCommand extends Command
                 Stores toon.json, season<N>.json, chapter<N>.json and the VN scene files chapter<N>/<name>.json of every
                 toon and locale folder as published version 1 (author NULL, message "import from static files"); in the
                 language-neutral folder `_`: credits.json, people.json, roles.json (the credits seed in shared/content/seed),
-                characters.json + cast.json (the characters seed; `--only=characters.json,cast.json` imports just those).
+                characters.json + groups.json + cast.json (the characters seed; `--only=characters.json,groups.json,cast.json` imports just those).
                 Idempotent: files already in the store are skipped (the store is the source of truth once seeded).
                 Production: bin/console import-content <path> --sql > content-seed.sql, then import that file in phpMyAdmin
                 after migrations/mysql/2026-09-30-content-versions.mysql.sql. Each statement skips files already stored.
@@ -159,11 +159,11 @@ final class ImportContentCommand extends Command
      * Store-managed files below <toon>/<locale>/. The language-neutral locale `_` holds the credits files:
      * `<toon>/_/credits.json` and, in the pseudo-toon `scutoons`, `people.json` + `roles.json`
      * (seed: shared/content/seed, written by shared/content/scripts/migrate-credits.ts); the characters registry
-     * `scutoons/_/characters.json` and the casts `<toon>/_/cast.json` (shared/content/scripts/migrate-characters.ts).
+     * `scutoons/_/characters.json`, the groups `scutoons/_/groups.json` and the casts `<toon>/_/cast.json` (shared/content/scripts/migrate-characters.ts).
      */
     public static function isContentFile(string $locale, string $relative): bool
     {
-        if ($locale === ContentService::NEUTRAL_LOCALE) return preg_match('#^(credits|people|roles|characters|cast)\.json$#', $relative) === 1;
+        if ($locale === ContentService::NEUTRAL_LOCALE) return preg_match('#^(credits|people|roles|characters|groups|cast)\.json$#', $relative) === 1;
         return preg_match('#^(toon|season\d+|chapter\d+)\.json$#', $relative) === 1
             || preg_match('#^chapter\d+/[a-z0-9_-]+\.json$#', $relative) === 1;
     }

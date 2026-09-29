@@ -11,7 +11,7 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
-import { MOODS, isMood } from './characters.ts';
+import { EXTRA_MOODS, MOODS, isKnownMood } from './characters.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -51,6 +51,8 @@ export interface ValidateContext {
 	characters?: string[];
 	/** every character id of the registry (a name in the registry but not in `characters` = "not in the cast") */
 	registry?: string[];
+	/** look ids per character (joinScene `look`) */
+	looks?: Record<string, string[]>;
 	/**
 	 * chapter files: the status of this chapter in the season of the same locale (the source of its visibility);
 	 * null = the season's sequence doesn't have the chapter; undefined = season not known (no check)
@@ -172,8 +174,11 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				p.characters.forEach((ch: any, i: number) => {
 					if (!isObj(ch) || !isStr(ch.name)) c.error([...pp, 'characters', i, 'name'], 'character needs a name');
 					else if (ctx.characters && !ctx.characters.includes(ch.name)) c.warn([...pp, 'characters', i, 'name'], unknownCharacter(ch.name, ctx));
-					if (isObj(ch) && ch.mood !== undefined && ch.mood !== '' && !isMood(ch.mood)) {
-						c.warn([...pp, 'characters', i, 'mood'], `mood "${ch.mood}" is not one of ${MOODS.join(', ')} – the reader shows neutral`);
+					if (isObj(ch) && isStr(ch.look) && ch.look && isStr(ch.name) && ctx.looks?.[ch.name] && !ctx.looks[ch.name].includes(ch.look)) {
+						c.warn([...pp, 'characters', i, 'look'], `${ch.name} has no look "${ch.look}" (${ctx.looks[ch.name].join(', ')}) – the reader shows the default look`);
+					}
+					if (isObj(ch) && ch.mood !== undefined && ch.mood !== '' && !isKnownMood(ch.mood)) {
+						c.warn([...pp, 'characters', i, 'mood'], `mood "${ch.mood}" is not one of ${[...MOODS, ...EXTRA_MOODS].join(', ')} – the reader shows neutral`);
 					}
 					if (ch?.position?.variant && !CHARACTER_VARIANTS.includes(ch.position.variant)) {
 						c.error([...pp, 'characters', i, 'position'], 'position.variant must be avatar, full or portrait');

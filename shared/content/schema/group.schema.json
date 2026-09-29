@@ -874,6 +874,10 @@
 				},
 				"mood": {
 					"type": "string"
+				},
+				"look": {
+					"type": "string",
+					"description": "a look of the character (e.g. `helmet`); none = its default look"
 				}
 			},
 			"required": [
