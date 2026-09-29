@@ -2,49 +2,41 @@
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import type { AvatarSlot, Entry } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import { asset } from '$lib/utils/cdn.ts';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 
 	/**
-	 * Default reader avatar: ink-line silhouette with one tappable zone per catalog slot.
-	 * Coordinates are in the SVG viewBox (360 × 400); zones are positioned in % of it.
+	 * Default reader avatar: the sphynx mannequin (CDN, 768 × 1152) with named slot tiles in a column on each side.
+	 * Equipped items are drawn on the body; positions are in % of the mannequin image.
 	 */
-	const W = 360;
-	const H = 400;
-	const TILE = 70;
+	const MANNEQUIN = 'catpope/avatar/mannequin.webp';
+	const W = 768;
+	const H = 1152;
 
-	type Zone = { slot: AvatarSlot; x: number; y: number; ax: number; ay: number };
-	/** where an equipped item is drawn on the body: centre + size (viewBox units) */
+	/** where an equipped item sits on the mannequin: centre + width (image px) */
 	const WORN: Record<AvatarSlot, { x: number; y: number; size: number }> = {
-		head: { x: 180, y: 30, size: 64 },
-		face: { x: 180, y: 50, size: 40 },
-		neck: { x: 180, y: 100, size: 44 },
-		torso: { x: 180, y: 160, size: 130 },
-		hands: { x: 121, y: 236, size: 36 },
-		legs: { x: 180, y: 300, size: 110 },
-		feet: { x: 180, y: 380, size: 60 },
-		back: { x: 180, y: 150, size: 120 },
-		accessory: { x: 239, y: 236, size: 36 }
+		head: { x: 370, y: 70, size: 170 },
+		face: { x: 372, y: 105, size: 110 },
+		neck: { x: 372, y: 200, size: 110 },
+		torso: { x: 372, y: 340, size: 330 },
+		hands: { x: 150, y: 575, size: 90 },
+		legs: { x: 372, y: 760, size: 300 },
+		feet: { x: 372, y: 1040, size: 330 },
+		back: { x: 372, y: 330, size: 360 },
+		accessory: { x: 598, y: 575, size: 90 }
 	};
 	// draw order: back first, face/head last
 	const WORN_ORDER: AvatarSlot[] = ['back', 'legs', 'feet', 'torso', 'hands', 'accessory', 'neck', 'head', 'face'];
-
-	const LAYOUT: Record<AvatarSlot, Omit<Zone, 'slot'>> = {
-		head: { x: 8, y: 6, ax: 168, ay: 36 },
-		face: { x: 8, y: 84, ax: 176, ay: 54 },
-		hands: { x: 8, y: 162, ax: 121, ay: 236 },
-		legs: { x: 8, y: 240, ax: 166, ay: 300 },
-		feet: { x: 8, y: 318, ax: 160, ay: 382 },
-		neck: { x: 282, y: 6, ax: 189, ay: 84 },
-		torso: { x: 282, y: 84, ax: 196, ay: 150 },
-		back: { x: 282, y: 162, ax: 224, ay: 118 },
-		accessory: { x: 282, y: 240, ax: 239, ay: 236 }
-	};
+	// tiles: left column top→bottom, right column top→bottom
+	const LEFT: AvatarSlot[] = ['head', 'face', 'hands', 'legs', 'feet'];
+	const RIGHT: AvatarSlot[] = ['neck', 'torso', 'back', 'accessory'];
 
 	const inventory = getInventoryContext();
 	const slots = $derived<AvatarSlot[]>(
-		(inventory.catalog?.slots ?? (Object.keys(LAYOUT) as AvatarSlot[])).filter((s) => s in LAYOUT)
+		(inventory.catalog?.slots ?? (Object.keys(WORN) as AvatarSlot[])).filter((s) => s in WORN)
 	);
-	const zones = $derived<Zone[]>(slots.map((slot) => ({ slot, ...LAYOUT[slot] })));
+	const left = $derived(LEFT.filter((s) => slots.includes(s)));
+	const right = $derived([...RIGHT, ...slots.filter((s) => !LEFT.includes(s) && !RIGHT.includes(s))].filter((s) => slots.includes(s)));
 
 	let selected = $state<AvatarSlot | null>(null);
 	let working = $state(false);
@@ -67,65 +59,47 @@
 	}
 </script>
 
-<div class="avatar">
-	<div class="figure" style="aspect-ratio: {W} / {H}">
-		<svg viewBox="0 0 {W} {H}" aria-hidden="true">
-			{#each zones as zone}
-				{@const on = !!inventory.equippedEntry(zone.slot)}
-				<line
-					x1={zone.x < W / 2 ? zone.x + TILE : zone.x}
-					y1={zone.y + TILE / 2}
-					x2={zone.ax}
-					y2={zone.ay}
-					class:on
-					class:active={selected === zone.slot}
-				/>
-				<circle cx={zone.ax} cy={zone.ay} r="3" class="anchor" class:on />
-			{/each}
-			<g class="body">
-				<circle cx="180" cy="48" r="26" />
-				<path
-					d="M171,72 L171,90 L142,98 Q128,102 126,118 L114,226 L128,228 L138,136 L144,240 L150,372 L172,372 L178,262 L182,262 L188,372 L210,372 L216,240 L222,136 L232,228 L246,226 L234,118 Q232,102 218,98 L189,90 L189,72"
-				/>
-				<path d="M150,372 L144,386 L174,386 L172,372 M188,372 L186,386 L216,386 L210,372" />
-				<circle cx="121" cy="236" r="7" />
-				<circle cx="239" cy="236" r="7" />
-			</g>
-		</svg>
-
-		{#each WORN_ORDER as slot}
-			{@const worn = slots.includes(slot) ? inventory.equippedEntry(slot) : undefined}
-			{#if worn}
-				{@const w = WORN[slot]}
-				<div
-					class="worn"
-					style="left:{((w.x - w.size / 2) / W) * 100}%; top:{((w.y - w.size / 2) / H) * 100}%; width:{(w.size /
-						W) *
-						100}%"
-				>
-					<ItemIcon srcs={[inventory.iconOf(worn)]} name={inventory.nameOf(worn)} />
-				</div>
+{#snippet tile(slot: AvatarSlot)}
+	{@const entry = inventory.equippedEntry(slot)}
+	<button
+		class="tile"
+		class:equipped={!!entry}
+		class:active={selected === slot}
+		onclick={() => (selected = selected === slot ? null : slot)}
+		aria-pressed={selected === slot}
+	>
+		<span class="thumb">
+			{#if entry}
+				<ItemIcon srcs={[inventory.iconOf(entry)]} name={inventory.nameOf(entry)} />
 			{/if}
-		{/each}
+		</span>
+		<span class="label">{slotLabel(slot)}</span>
+	</button>
+{/snippet}
 
-		{#each zones as zone}
-			{@const entry = inventory.equippedEntry(zone.slot)}
-			<button
-				class="zone"
-				class:equipped={!!entry}
-				class:active={selected === zone.slot}
-				style="left:{(zone.x / W) * 100}%; top:{(zone.y / H) * 100}%; width:{(TILE / W) * 100}%; height:{(TILE /
-					H) *
-					100}%"
-				onclick={() => (selected = selected === zone.slot ? null : zone.slot)}
-				aria-label={slotLabel(zone.slot)}
-			>
-				{#if entry}
-					<ItemIcon srcs={[inventory.iconOf(entry)]} name={inventory.nameOf(entry)} />
+<div class="avatar">
+	<div class="stage">
+		<div class="column">
+			{#each left as slot (slot)}{@render tile(slot)}{/each}
+		</div>
+		<div class="figure" style="aspect-ratio: {W} / {H}">
+			<img class="mannequin" src={asset(MANNEQUIN)} alt="" draggable="false" />
+			{#each WORN_ORDER as slot}
+				{@const worn = slots.includes(slot) ? inventory.equippedEntry(slot) : undefined}
+				{#if worn}
+					{@const w = WORN[slot]}
+					<div
+						class="worn"
+						style="left:{((w.x - w.size / 2) / W) * 100}%; top:{((w.y - w.size / 2) / H) * 100}%; width:{(w.size / W) * 100}%"
+					>
+						<ItemIcon srcs={[inventory.iconOf(worn)]} name={inventory.nameOf(worn)} />
+					</div>
 				{/if}
-				<span class="label">{slotLabel(zone.slot)}</span>
-			</button>
-		{/each}
+			{/each}
+		</div>
+		<div class="column">
+			{#each right as slot (slot)}{@render tile(slot)}{/each}
+		</div>
 	</div>
 
 	{#if selected}
@@ -163,79 +137,75 @@
 		flex-direction: column;
 		gap: 1rem;
 	}
+	.stage {
+		display: grid;
+		grid-template-columns: 4.5rem minmax(0, 1fr) 4.5rem;
+		align-items: stretch;
+		gap: 0.5rem;
+		max-width: 560px;
+		width: 100%;
+		margin: 0 auto;
+	}
+	.column {
+		display: flex;
+		flex-direction: column;
+		justify-content: space-around;
+		gap: 0.5rem;
+	}
 	.figure {
 		position: relative;
 		width: 100%;
-		max-width: 420px;
-		margin: 0 auto;
 	}
-	svg {
+	.mannequin {
 		position: absolute;
 		inset: 0;
 		width: 100%;
 		height: 100%;
-	}
-	.body {
-		fill: none;
-		stroke: black;
-		stroke-width: 2;
-		stroke-linejoin: miter;
-	}
-	line {
-		stroke: #ccc;
-		stroke-width: 1;
-		stroke-dasharray: 3 3;
-	}
-	line.on,
-	line.active {
-		stroke: black;
-		stroke-dasharray: none;
-	}
-	.anchor {
-		fill: white;
-		stroke: #ccc;
-		stroke-width: 1;
-	}
-	.anchor.on {
-		fill: var(--primary-color);
-		stroke: black;
+		object-fit: contain;
+		user-select: none;
 	}
 	.worn {
 		position: absolute;
 		pointer-events: none;
 	}
-	.zone {
-		position: absolute;
+	.tile {
 		box-sizing: border-box;
-		padding: 0.125rem;
+		padding: 0.25rem;
 		background: white;
 		color: black;
 		border: 2px solid #ccc;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		justify-content: flex-end;
+		gap: 0.25rem;
 		touch-action: manipulation;
 		transition: border-color 0.1s ease;
+		cursor: pointer;
 	}
-	.zone :global(.item-icon) {
+	.tile:hover,
+	.tile.active,
+	.tile.equipped {
+		border-color: black;
+	}
+	.tile.active {
+		background: var(--primary-color);
+	}
+	.thumb {
+		position: relative;
+		width: 2.5rem;
+		height: 2.5rem;
+		display: block;
+	}
+	.thumb :global(.item-icon) {
 		position: absolute;
-		inset: 0.125rem 0.125rem 0.75rem;
+		inset: 0;
 		width: auto !important;
 	}
-	.zone:hover,
-	.zone.active {
-		border-color: black;
-		background: white;
-	}
-	.zone.equipped {
-		border-color: black;
-	}
 	.label {
-		font-size: 0.5rem;
-		line-height: 1;
-		position: relative;
-		background: white;
+		font-size: 0.625rem;
+		line-height: 1.1;
+		text-align: center;
+		overflow-wrap: anywhere;
 	}
 	.picker h3 {
 		margin: 0 0 0.5rem;
