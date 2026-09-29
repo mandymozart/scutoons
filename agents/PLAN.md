@@ -232,3 +232,10 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 - Known issue to handle carefully (not changed yet): certificates print the code in upper case, but codes are
   case-sensitive nanoids — verify must accept the printed form (exact match first, then a case-insensitive match only
   when it is unique). Test with real certificate codes before changing anything.
+
+## RULE: every chapter belongs to a season (2026-09-30, owner)
+
+A chapter exists only as an entry in a season's `sequence` (per locale) plus its chapter file. No chapter without a
+season: the creator creates season 1 first on a toon without one; stray chapter files get attached to a season or are
+flagged as errors by the validation. The season entry is also the single source of chapter visibility (status).
+
