@@ -37,11 +37,6 @@ Http::run(function () {
     $route = "$method $path";
 
     match (true) {
-        $route === 'POST auth/request' => Auth::request(Http::body()),
-        $route === 'POST auth/verify' => Auth::verify(Http::body()),
-        $route === 'POST auth/logout' => Auth::logout(),
-        $route === 'GET me' => Inventory::me(),
-        $route === 'PUT me' => Users::updateMe(Http::body()),
         $route === 'GET code' => Codes::get(),
         $route === 'GET access', $route === 'POST access' => Codes::access(),
         $route === 'POST inventory/claim' => Inventory::claim(Http::body()),
