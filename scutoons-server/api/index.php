@@ -37,14 +37,6 @@ Http::run(function () {
     $route = "$method $path";
 
     match (true) {
-        $route === 'POST inventory/claim' => Inventory::claim(Http::body()),
-        $route === 'POST inventory/craft' => Inventory::craft(Http::body()),
-        $route === 'POST inventory/grant' => Inventory::grant(Http::body()),
-        $route === 'POST inventory/import' => Inventory::import(Http::body()),
-        $route === 'GET avatar' => Avatar::get(),
-        $route === 'PUT avatar' => Avatar::put(Http::body()),
-        (bool) preg_match('#^(GET|PUT) progress/([A-Za-z0-9_-]{1,64})$#', $route, $m) =>
-            $m[1] === 'GET' ? Progress::get($m[2]) : Progress::put($m[2], Http::body()),
         (bool) preg_match('#^(GET|PUT|POST) content/(.+)$#', $route, $m) =>
             (require_once __DIR__ . '/lib/Content.php') && Content::route($m[1], $m[2]),
         default => throw new ApiError(404, 'not_found', 'Unknown endpoint.'),
