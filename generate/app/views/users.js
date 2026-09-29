@@ -70,7 +70,7 @@ export default class UsersView {
           <td>${day(u.created_at)}</td>
           <td class="users-roles">${this.roles
             .map(
-              (r) => `<label title="${esc(r.description)}" style="white-space:nowrap;margin-right:0.75rem">
+              (r) => `<label title="${esc(r.description)}">
                 <input type="checkbox" data-role="${esc(r.name)}" ${u.roles.includes(r.name) ? 'checked' : ''}> ${esc(r.name)}</label>`,
             )
             .join('')}</td>

@@ -113,6 +113,9 @@ require_once __DIR__ . '/../config.php';
 		.stats-table tr.revoked td { opacity: 0.6; }
 		.stats-detail { border: 2px solid #000; padding: 1rem; margin-bottom: 1rem; }
 		.stats-revoke { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0 1rem; }
+		.users-roles label { display: inline-flex; align-items: center; gap: 0.25rem; margin: 0 0.75rem 0.25rem 0; white-space: nowrap; cursor: pointer; }
+		.users-roles input[type=checkbox] { width: auto; margin: 0; }
+		.users-table td { vertical-align: top; }
 		.err { color: #dc3545; }
 		.muted { color: #6b6b6b; }
 	</style>
