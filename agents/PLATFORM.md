@@ -190,3 +190,20 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 - Known issue to handle carefully (not changed yet): certificates print the code in upper case, but codes are
   case-sensitive nanoids — verify must accept the printed form (exact match first, then a case-insensitive match only
   when it is unique). Test with real certificate codes before changing anything.
+
+## Local dev ports (2026-09-30, owner — final)
+
+| App | Port | Start |
+|---|---|---|
+| viewer (main, scutoons.com) | **8000** | `npm run dev:viewer` |
+| cdn (static files) | **8001** | `cd cdn && python server.py 8001` |
+| server (qr.scutoons.com) | **9000** | `cd server && composer serve` (or `php -S localhost:9000 …`) |
+| creator (creator.scutoons.com) | **10000** | `npm run dev:creator` |
+| admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
+
+Transition: until the server refactor is verified, the old repo `C:\Development\qr.scutoons.com` may still serve :9000
+and the refactored server runs on :9100 for the baseline comparison; after that the platform server owns :9000.
+`ALLOWED_ORIGINS` (dev): `http://localhost:8000`, `http://localhost:10000`, `http://localhost:11000` (+ the old
+5173/5174/5175/4173 until nothing uses them). The earlier ports (viewer 5173, creator 5180, admin 5190, CDN 8000) are
+superseded.
+
