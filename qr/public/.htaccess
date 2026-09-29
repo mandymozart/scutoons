@@ -1,0 +1,27 @@
+# Web root of qr.scutoons.com (the qr app). Static files are served as they are (verify.html, assets/, version.json);
+# everything else goes to the front controller index.php (landing page + proxies to the API, ../src/App.php).
+Options -Indexes
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Pass the Authorization header through to PHP (proxied /api/* with Bearer tokens; FastCGI drops it otherwise)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # The front controller itself
+    RewriteRule ^index\.php$ - [L]
+
+    # Dot files are never served
+    RewriteRule (^|/)\. - [R=404,L]
+
+    # Existing static files as they are, everything else (/, /?c=, /api/…, /generate/…) to the front controller
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteCond %{REQUEST_FILENAME} !\.php$
+    RewriteRule ^ - [L]
+    RewriteRule ^ index.php [END,QSA]
+</IfModule>
+<IfModule mod_setenvif.c>
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>

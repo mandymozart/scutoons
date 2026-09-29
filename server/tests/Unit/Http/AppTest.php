@@ -6,17 +6,21 @@ namespace Scutoons\Tests\Http;
 use Psr\Http\Message\ResponseInterface;
 use Scutoons\Domain\Auth\Sessions;
 use Scutoons\Domain\Roles\Roles;
-use Scutoons\Http\Middleware\HostRouting;
+use Scutoons\Domain\RequestContext;
 use Scutoons\Kernel;
 use Scutoons\Tests\TestCase;
 use Slim\Psr7\Factory\ServerRequestFactory;
 
-/** The Slim app in-process: middleware order, error shape, CORS, host routing, role guard */
+/** The Slim app in-process: middleware order, error shape, CORS, role guard, trusted proxy (qr app), versions */
 final class AppTest extends TestCase
 {
     protected function settings(): array
     {
-        return ['QR_HOST' => 'qr.test', 'API_HOST' => 'api.test', 'ALLOWED_ORIGINS' => 'http://viewer.test,http://admin.test'] + parent::settings();
+        return [
+            'ALLOWED_ORIGINS' => 'http://viewer.test,http://admin.test',
+            'QR_PROXY_SECRET' => 'proxy-secret-for-tests',
+            'VERSION_URLS' => 'viewer=http://127.0.0.1:1/version.json,bad=ftp://x',
+        ] + parent::settings();
     }
 
     /** @param array<string, string> $headers */
@@ -91,43 +95,64 @@ final class AppTest extends TestCase
         self::assertSame(['member', 'admin', 'creator'], array_column(self::json($r)['items'], 'name'));
     }
 
-    public function testHostRouting(): void
+
+    public function testApiOnlyNoPublicPages(): void
     {
         $code = $this->code('membership', ['edition_id' => '3_catpope_vinyl']);
-        self::assertSame(200, $this->request('GET', "http://qr.test/?c=$code")->getStatusCode());
-        self::assertSame(200, $this->request('GET', "http://qr.test/api/validate/?c=$code")->getStatusCode());
-        self::assertSame(401, $this->request('GET', 'http://qr.test/api/me/')->getStatusCode(), 'transition: full API on the qr host');
-        self::assertSame(404, $this->request('GET', "http://api.test/?c=$code")->getStatusCode(), 'no landing page on the api host');
-        self::assertSame(200, $this->request('GET', "http://api.test/api/validate/?c=$code")->getStatusCode());
-        self::assertSame(200, $this->request('GET', 'http://api.test/api/health/')->getStatusCode());
-        self::assertSame(HostRouting::PUBLIC_API, HostRouting::area('/api/keys/keys.php'));
-        self::assertSame(HostRouting::PAGES, HostRouting::area('/generate/get-signature.php'));
-        self::assertSame(HostRouting::LEGACY_ADMIN, HostRouting::area('/generate/stats.php'));
+        $r = $this->request('GET', "http://localhost/?c=$code");
+        self::assertSame([404, 'Not found'], [$r->getStatusCode(), (string) $r->getBody()], 'the landing page lives in the qr app');
+        self::assertSame(404, $this->request('GET', 'http://localhost/verify.html')->getStatusCode());
+        self::assertSame(200, $this->request('GET', "http://api.test/api/validate/?c=$code")->getStatusCode(), 'proxy target of the qr app');
+        self::assertSame(401, $this->request('GET', 'http://qr.test/api/me/')->getStatusCode(), 'no host routing any more');
+        $r = $this->request('GET', 'http://localhost/api/health/');
+        self::assertSame(['ok', 'ok', '1.0.0', 'dev'], [self::json($r)['status'], self::json($r)['db'], self::json($r)['version'], self::json($r)['git_sha']]);
     }
 
-    public function testQrHostWithoutTheTransitionFlag(): void
+    public function testForwardedClientOnlyWithTheProxySecret(): void
     {
-        $settings = \Scutoons\Infrastructure\Config\Settings::fixed(self::root(), ['QR_HOST_SERVES_API' => '0'] + $this->settings());
-        $routing = new HostRouting($settings, new \Slim\Psr7\Factory\ResponseFactory());
-        self::assertNotContains(HostRouting::API, $routing->areasFor('qr.test'));
-        self::assertContains(HostRouting::PUBLIC_API, $routing->areasFor('QR.TEST'));
-        self::assertSame([HostRouting::API, HostRouting::PUBLIC_API], $routing->areasFor('api.test'));
-        self::assertCount(4, $routing->areasFor('localhost'));
-    }
+        $code = $this->code('membership', ['redirect_to' => 'https://scutoons.com/catpope']);
+        $context = $this->get(RequestContext::class);
+        $forwarded = ['X-Scutoons-Client-Ip' => '198.51.100.7', 'X-Scutoons-Device-Id' => 'device-from-proxy-1'];
 
-    public function testLandingPageAndRedirects(): void
-    {
-        $promo = $this->code('promo');
-        $r = $this->request('GET', "http://localhost/?c=$promo&lang=de");
+        // Without / with a wrong secret: the forwarded headers are ignored, and so is scan=1
+        $this->request('GET', "http://localhost/api/code/?c=$code&scan=1", $forwarded);
+        self::assertSame(['127.0.0.1', null, false], [$context->clientIp(), $context->deviceId(), $context->viaTrustedProxy()]);
+        $this->request('GET', "http://localhost/api/code/?c=$code&scan=1", $forwarded + ['X-Scutoons-Proxy-Secret' => 'wrong']);
+        self::assertSame(['127.0.0.1', false, 0], [$context->clientIp(), $context->viaTrustedProxy(), $this->scans($code)]);
+
+        $r = $this->request('GET', "http://localhost/api/code/?c=$code&scan=1", $forwarded + ['X-Scutoons-Proxy-Secret' => 'proxy-secret-for-tests']);
         self::assertSame(200, $r->getStatusCode());
-        self::assertStringContainsString('Promo-Code – kein Gegenstand zum Sammeln', (string) $r->getBody());
-        self::assertStringContainsString("https://scutoons.com/account?code=$promo", (string) $r->getBody());
-        $page = $this->code('page', ['redirect_to' => 'https://scutoons.com/catpope?x=1']);
-        $r = $this->request('GET', "http://localhost/?c=$page");
-        self::assertSame([302, "https://scutoons.com/catpope?x=1&code=$page"], [$r->getStatusCode(), $r->getHeaderLine('Location')]);
-        self::assertSame(404, $this->request('GET', 'http://localhost/?c=zzzzzzzz')->getStatusCode());
-        $r = $this->request('GET', 'http://localhost/?login=tok_en');
-        self::assertSame('http://viewer.test/?login=tok_en', $r->getHeaderLine('Location'));
-        self::assertSame(1, (int) $this->db->value("SELECT COUNT(*) FROM code_events WHERE code = ? AND event = 'scan'", [$promo]));
+        self::assertSame(['198.51.100.7', 'device-from-proxy-1', true], [$context->clientIp(), $context->deviceId(), $context->viaTrustedProxy()]);
+        self::assertSame(1, $this->scans($code));
+        self::assertSame('catpope', $this->db->value("SELECT toon FROM code_events WHERE code = ? AND event = 'scan'", [$code]));
+
+        // Expired / revoked codes are scanned too (410 afterwards), unknown codes are not
+        $revoked = $this->code('membership', ['revoked_at' => $this->clock->local()]);
+        $r = $this->request('GET', "http://localhost/api/code/?c=$revoked&scan=1", ['X-Scutoons-Proxy-Secret' => 'proxy-secret-for-tests']);
+        self::assertSame([410, 'revoked', 1], [$r->getStatusCode(), self::json($r)['error'], $this->scans($revoked)]);
+        self::assertSame(404, $this->request('GET', 'http://localhost/api/code/?c=zzzzzzzz&scan=1', ['X-Scutoons-Proxy-Secret' => 'proxy-secret-for-tests'])->getStatusCode());
+
+        // A forwarded value that is not an IP falls back to REMOTE_ADDR
+        $this->request('GET', "http://localhost/api/code/?c=$code", ['X-Scutoons-Proxy-Secret' => 'proxy-secret-for-tests', 'X-Scutoons-Client-Ip' => 'not-an-ip']);
+        self::assertSame('127.0.0.1', $context->clientIp());
+    }
+
+    public function testVersionsOfTheDeployedApps(): void
+    {
+        $user = $this->user();
+        $this->get(Roles::class)->grant((string) $user['id'], Roles::ADMIN);
+        $token = $this->get(Sessions::class)->create((string) $user['id']);
+        $r =$this->request('GET', 'http://localhost/api/admin/versions', ['Authorization' => "Bearer $token"]);
+        $body = self::json($r);
+        self::assertSame(200, $r->getStatusCode());
+        self::assertSame(['api', '1.0.0'], [$body['api']['app'], $body['api']['version']]);
+        self::assertCount(1, $body['apps'], 'only http(s) URLs');
+        self::assertSame(['viewer', false], [$body['apps'][0]['app'], $body['apps'][0]['ok']]);
+        self::assertSame(401, $this->request('GET', 'http://localhost/api/admin/versions')->getStatusCode());
+    }
+
+    private function scans(string $code): int
+    {
+        return (int) $this->db->value("SELECT COUNT(*) FROM code_events WHERE code = ? AND event = 'scan'", [$code]);
     }
 }

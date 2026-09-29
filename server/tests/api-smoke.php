@@ -18,6 +18,8 @@ if (PHP_SAPI !== 'cli') {
 require_once __DIR__ . '/support/legacy.php';
 
 $base = rtrim($argv[1] ?? 'http://localhost:9000', '/');
+// The QR landing page is the qr app (in front of this API, it logs the scans through /api/code/?scan=1)
+$qrBase = rtrim($argv[2] ?? 'http://localhost:9001', '/');
 $api = $base . '/api';
 $mailLog = Config::get('MAIL_LOG_PATH');
 $failures = 0;
@@ -333,10 +335,10 @@ $r = call('GET', "$api/access/?c=$promo");
 check($r['status'] === 200 && $r['body']['permissions'] === ['catalog'] && $r['body']['claimable'] === false && $r['body']['signup'] === true, '/access/ promo → catalog, claimable false, signup true', $r);
 $r = call('GET', "$api/code/?c=$promo");
 check($r['status'] === 200 && $r['body']['claimable'] === false && $r['body']['signup'] === true, '/code/ promo → claimable false, signup true', $r);
-$r = call('GET', "$base/?c=$promo&lang=en");
+$r = call('GET', "$qrBase/?c=$promo&lang=en");
 check($r['status'] === 200 && is_string($r['body']) && str_contains($r['body'], 'no item to collect') && str_contains($r['body'], '/account?code=' . $promo)
     && str_contains($r['body'], 'Create account') && !str_contains($r['body'], 'Add to my account'), 'landing page promo: no item, Continue + Create account', $r['status']);
-$r = call('GET', "$base/?c=$vinyl&lang=en");
+$r = call('GET', "$qrBase/?c=$vinyl&lang=en");
 check(is_string($r['body']) && str_contains($r['body'], 'Add to my account'), 'landing page membership: still Add to my account');
 
 $a2 = login($emailA);
@@ -545,7 +547,7 @@ $r = call('POST', "$api/inventory/claim/", ['code' => $rv], $tokenB);
 check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: claim → 410 revoked', $r);
 $me = call('GET', "$api/me/", null, $tokenA);
 check(!in_array($rv, $me['body']['access']['codes'] ?? [], true) && in_array($vinyl, $me['body']['access']['codes'] ?? [], true), 'revoked: /me access ignores it', $me['body']['access'] ?? null);
-$r = call('GET', "$base/?c=$rv");
+$r = call('GET', "$qrBase/?c=$rv");
 check($r['status'] === 410 && is_string($r['body']) && str_contains($r['body'], 'no longer valid'), 'revoked: landing page says no longer valid', $r['status']);
 $r = call('POST', "$base/generate/revoke.php", ['code' => $rv, 'action' => 'unrevoke'], null, $admin);
 check($r['status'] === 200 && $r['body']['revoked_at'] === null, 'admin unrevokes the code', $r);
@@ -569,7 +571,7 @@ check((int) Db::value('SELECT COUNT(DISTINCT device_hash) FROM code_events WHERE
 check(Db::value("SELECT 1 FROM code_events WHERE code = ? AND (device_hash LIKE 'smoke-%' OR ip_hash LIKE '127.%')", [$ev]) === null, 'no raw device id or IP stored');
 $r = call('OPTIONS', "$api/access/", null, null, ['Origin: http://localhost:5173', 'Access-Control-Request-Headers: x-device-id']);
 check(str_contains(strtolower($r['headers']['access-control-allow-headers'] ?? ''), 'x-device-id'), 'CORS allows X-Device-Id', $r['headers']);
-call('GET', "$base/?c=$ev");
+call('GET', "$qrBase/?c=$ev");
 check($count('scan') === 1, 'scan: landing page visit → 1 event', $count('scan'));
 call('POST', "$api/inventory/claim/", ['code' => $ev], $tokenA);
 check($count('claim') === 1, 'claim → 1 event', $count('claim'));

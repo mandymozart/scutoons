@@ -2,11 +2,12 @@
 declare(strict_types=1);
 
 /**
- * Every URL of the server. The public API contract is agents/ITEMS.md; the admin API is docs/API.md "Admin API".
- * API paths are matched without their trailing slash (NormalizePath): `/api/me/` → `/api/me`.
+ * Every URL of the API (api.scutoons.com). The public API contract is agents/ITEMS.md; the admin API is docs/API.md
+ * "Admin API". API paths are matched without their trailing slash (NormalizePath): `/api/me/` → `/api/me`.
  * PUBLIC URLS printed on physical items (QR codes, certificates) must never change – agents/PLATFORM.md
- * "RULE: printed / public URLs never change": /?c=, /?c=&skip=1, /verify.html (static), /api/validate/,
- * /api/keys/keys.php, and generate/get-signature.php as used by the verify page.
+ * "RULE: printed / public URLs never change". The pages (/?c=, /?c=&skip=1, /verify.html) are the qr app (qr/); it
+ * proxies /api/validate/, /api/keys/keys.php and the verify page's generate/get-signature.php + signature files to
+ * the routes below, byte for byte – so these must never change either.
  */
 
 use DI\Container;
@@ -21,6 +22,7 @@ use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SystemController;
 use Scutoons\Http\Controllers\Admin\UsersController;
+use Scutoons\Http\Controllers\Admin\VersionsController;
 use Scutoons\Http\Controllers\AuthController;
 use Scutoons\Http\Controllers\AvatarController;
 use Scutoons\Http\Controllers\CatalogController;
@@ -28,10 +30,10 @@ use Scutoons\Http\Controllers\ContentController;
 use Scutoons\Http\Controllers\HealthController;
 use Scutoons\Http\Controllers\InventoryController;
 use Scutoons\Http\Controllers\KeysController;
-use Scutoons\Http\Controllers\LandingController;
 use Scutoons\Http\Controllers\Legacy\GenerateController;
 use Scutoons\Http\Controllers\MeController;
 use Scutoons\Http\Controllers\NotFoundController;
+use Scutoons\Http\Controllers\PageNotFoundController;
 use Scutoons\Http\Controllers\ProductsController;
 use Scutoons\Http\Controllers\ProgressController;
 use Scutoons\Http\Controllers\ValidateController;
@@ -101,6 +103,7 @@ return static function (App $app): void {
         $admin->get('/events', [SystemController::class, 'events']);
         $admin->get('/catalog', [SystemController::class, 'catalog']);
         $admin->get('/keys', [SystemController::class, 'keys']);
+        $admin->get('/versions', VersionsController::class);
 
         $admin->get('/codes', [CodesController::class, 'list']);
         $admin->post('/codes', [CodesController::class, 'create']);
@@ -134,7 +137,8 @@ return static function (App $app): void {
     // ── LEGACY generate/ SPA endpoints (static token; removed once the admin app has parity) ────────────
     $token = $c->get(GenerateToken::class);
     $app->post('/generate/auth.php', [GenerateController::class, 'auth']);
-    $app->any('/generate/get-signature.php', [GenerateController::class, 'signature']); // PUBLIC: verify page
+    // PUBLIC: the verify page (qr app, proxied) – these two stay in the API when generate/ retires
+    $app->any('/generate/get-signature.php', [GenerateController::class, 'signature']);
     $app->get('/generate/files/signatures/{name:SIGNATURE-[A-Za-z0-9_-]{1,32}\.json}', [GenerateController::class, 'signatureFile']); // verify page fallback
     $app->group('/generate', function (RouteCollectorProxy $generate): void {
         $generate->any('/generate.php', [GenerateController::class, 'generate']);
@@ -151,6 +155,7 @@ return static function (App $app): void {
         $generate->any('/user-roles.php', [GenerateController::class, 'userRoles']);
     })->add($token);
 
-    // ── QR landing page: /, /?c=CODE (printed on every QR code), and every other page path ──────────────
-    $app->any('/[{path:.*}]', LandingController::class);
+    // Every other path: 404 (plain text). The QR landing page /?c= and /verify.html live in the qr app (qr/), which
+    // proxies /api/validate/, /api/keys/keys.php, the verify page's get-signature.php / signature files (+ /api/*) here.
+    $app->any('/[{path:.*}]', PageNotFoundController::class);
 };

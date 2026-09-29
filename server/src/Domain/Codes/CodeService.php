@@ -144,6 +144,13 @@ final class CodeService
         return $response;
     }
 
+    /** A scan of the QR landing page (qr app): logged for every existing code, also expired / revoked ones */
+    public function logScan(string $code): void
+    {
+        $row = $this->find($code);
+        if ($row) $this->events->log('scan', (string) $row['code'], null, EventLog::toonFromUrl((string) $row['redirect_to']));
+    }
+
     /**
      * GET /code/?c= → public info about a code (never an email)
      * @param array<string, mixed>|null $user

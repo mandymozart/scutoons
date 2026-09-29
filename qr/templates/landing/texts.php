@@ -27,6 +27,10 @@ return [
         'promo_hint' => 'This code unlocks every SCUTOONS chapter on your device. You can also create an account to save your progress across devices and get news about new releases.',
         'create_account' => 'Create account',
         'create_account_hint' => 'Sign up with your email – this code lets you create one.',
+        'unavailable' => 'Scanning works, try again in a minute',
+        'unavailable_hint' => 'Your code is fine – we just can\'t look it up right now.',
+        'retry' => 'Try again',
+        'rate_limited' => 'Too many codes checked – try again later.',
     ],
     'de' => [
         'found' => 'Gegenstand gefunden',
@@ -54,5 +58,9 @@ return [
         'promo_hint' => 'Dieser Code schaltet alle SCUTOONS-Kapitel auf deinem Gerät frei. Du kannst auch ein Konto erstellen, um deinen Fortschritt auf allen Geräten zu speichern und Neuigkeiten zu neuen Veröffentlichungen zu bekommen.',
         'create_account' => 'Konto erstellen',
         'create_account_hint' => 'Registriere dich mit deiner E-Mail – mit diesem Code geht das.',
+        'unavailable' => 'Scannen klappt, versuch es in einer Minute noch einmal',
+        'unavailable_hint' => 'Dein Code ist in Ordnung – wir können ihn gerade nur nicht nachschlagen.',
+        'retry' => 'Nochmal versuchen',
+        'rate_limited' => 'Zu viele Codes geprüft – versuch es später noch einmal.',
     ],
 ];

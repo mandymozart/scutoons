@@ -2,7 +2,7 @@
 /**
  * A claimable code: preview of what it contains + Continue + Add to my account. The viewer claims it, asks for the
  * item choice when needed and decides what to do when the code already belongs to someone.
- * @var callable $e  @var \Scutoons\Infrastructure\Templates\Templates $view  @var array<string, string> $t
+ * @var callable $e  @var \Qr\View $view  @var array<string, string> $t
  * @var string $heading  @var ?string $hint  @var bool $hintCaption  @var list<array<string, mixed>> $rows (item partial vars)
  * @var ?string $description  @var string $continueUrl  @var string $accountUrl
  */

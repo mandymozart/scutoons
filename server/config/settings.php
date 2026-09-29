@@ -22,18 +22,13 @@ return [
     'AUTH_SECRET' => '',
     // Password of the legacy generate/ SPA (static admin token, until the admin app replaces it)
     'GENERATE_PASSWORD' => '',
-
-    // ── Hosts (Http\Middleware\HostRouting): both subdomains point at public/ ────────────────────────────
-    // The public pages: QR landing ?c=, verify, /api/validate/, /api/keys/keys.php (+ legacy generate/)
-    'QR_HOST' => 'qr.scutoons.com',
-    // The full API /api/* (no landing page)
-    'API_HOST' => 'api.scutoons.com',
-    // TRANSITION: the full /api/* also answers on QR_HOST (released viewers call https://qr.scutoons.com/api/…).
-    // Switch off (0) only when every app uses API_HOST and the stats show no more API traffic on QR_HOST.
-    'QR_HOST_SERVES_API' => '1',
+    // Shared secret of the qr app (qr.scutoons.com, calls the API server-side): only requests carrying it in
+    // X-Scutoons-Proxy-Secret may forward the client IP / device id (Http\Middleware\DeviceId). Empty = trust nobody.
+    // Same value as QR_PROXY_SECRET in the qr app's config. openssl rand -hex 32
+    'QR_PROXY_SECRET' => '',
 
     // ── URLs ───────────────────────────────────────────────────────────────────────────────────────────
-    // This site (links in login mails sent from the landing page) and the viewer
+    // The qr app (magic links of login requests without an Origin; it forwards /?login= to the viewer) and the viewer
     'QR_URL' => 'https://qr.scutoons.com',
     'APP_URL' => 'https://scutoons.com',
     // Item icons: <CDN_URL><icon path>. Local CDN: http://localhost:8001/
@@ -72,6 +67,10 @@ return [
     'CONTENT_MAX_BYTES' => '2097152',
     // Admin lists: largest page_size
     'ADMIN_MAX_PAGE_SIZE' => '500',
+    // GET /api/admin/versions: the version.json of every deployed app (app=url, comma separated)
+    'VERSION_URLS' => 'viewer=https://scutoons.com/version.json,admin=https://admin.scutoons.com/version.json,'
+        . 'creator=https://creator.scutoons.com/version.json,shop=https://shop.scutoons.com/version.json,'
+        . 'qr=https://qr.scutoons.com/version.json',
 
     // ── Data files (config/) and private storage ───────────────────────────────────────────────────────
     'ITEMS_PATH' => 'config/items.json',

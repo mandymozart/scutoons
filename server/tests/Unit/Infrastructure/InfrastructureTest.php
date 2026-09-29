@@ -18,8 +18,7 @@ final class InfrastructureTest extends TestCase
         self::assertSame(['a', 'b'], $settings->list('ALLOWED_ORIGINS'));
         self::assertSame(self::root() . '/storage/x', $settings->path('FILES_PATH'));
         self::assertSame('C:/abs/k.json', $settings->path('KEYPAIR_PATH'));
-        self::assertSame('qr.scutoons.com', $settings->get('QR_HOST'));
-        self::assertTrue($settings->bool('QR_HOST_SERVES_API'));
+        self::assertSame('', $settings->get('QR_PROXY_SECRET'), 'trust no proxy by default');
         self::assertSame(120, $settings->int('ACCESS_MAX_PER_IP_HOUR'));
     }
 

@@ -1,0 +1,4 @@
+config.php
+config.local.php
+cache/
+public/version.json

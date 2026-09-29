@@ -1,6 +1,7 @@
 {
     "name": "scutoons/server",
-    "description": "SCUTOONS server: QR landing page, verify page, accounts / items / content API, admin API (qr.scutoons.com)",
+    "description": "SCUTOONS API (api.scutoons.com): accounts / items / content API, admin API, legacy validate + public key",
+    "version": "1.0.0",
     "type": "project",
     "license": "proprietary",
     "require": {

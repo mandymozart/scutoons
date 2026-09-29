@@ -1,0 +1,24 @@
+# Only used when the document root of qr.scutoons.com is this folder (qr/) instead of qr/public/ (recommended):
+# every request is forwarded into public/, so the printed URLs (/?c=, /verify.html, /api/validate/, /api/keys/keys.php)
+# answer the same either way. Private folders and files are denied in any case.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Private: code, templates, cache, tests, local files
+    RewriteRule ^(src|templates|cache|tests)(/|$) - [R=404,L]
+    RewriteRule ^(config(\.local)?\.php|config\.local\.php\.example|composer\.json|README\.md|CHANGELOG\.md)$ - [R=404,L]
+    RewriteRule (^|/)\. - [R=404,L]
+
+    # Everything else lives in public/
+    RewriteRule ^public/ - [L]
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+<FilesMatch "^(config(\.local)?\.php|composer\.json|.*\.md)$">
+    Require all denied
+</FilesMatch>

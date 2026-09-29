@@ -1,59 +1,72 @@
 <?php
 /**
  * Printed / public URLs must never change (agents/PLATFORM.md "RULE: printed / public URLs never change").
- * Requests every such URL against a running server and checks status, content type and redirect target:
+ * Requests every such URL against the running qr app (qr.scutoons.com) and checks status, content type and redirect
+ * target:
  *
  *   /?c=<CODE> and ?c=<CODE> (with and without the leading slash), /?c=<CODE>&skip=1, /?login=<token>,
  *   /verify.html (+ what it loads: assets/js/noble-post-quantum.min.js, generate/get-signature.php?code=,
  *   generate/files/signatures/SIGNATURE-<code>.json), /api/validate/ (GET ?code= / ?c=, POST {code} / {c}) and its
  *   response shape, /api/keys/keys.php.
  *
- *   php tests/public-urls.php [base url] [--db=<sqlite file>] [--out=<file>] [--hosts[=only]] [--qr-api=on|off]
+ *   php tests/public-urls.php [qr base url] --api=<api base url> [--db=<sqlite file>] [--out=<file>]
+ *       [--full-api=on|off] [--down=<qr base url>] [--limited=<qr base url>]
  *
- * --hosts adds the host routing of the refactored server (agents/PLATFORM.md "Domain architecture"), sending
- * `Host: qr.scutoons.com` / `Host: api.scutoons.com` (QR_HOST / API_HOST) to the dev server: qr serves the public pages,
- * /api/validate/ and /api/keys/keys.php (+ the full /api/* while the transition flag QR_HOST_SERVES_API is on –
- * --qr-api=off expects a server started with it off), api serves /api/* and no landing page. --hosts=only skips the
- * rest. The host checks are not written to --out (the old server has no host routing).
+ * --api: the API the qr app proxies to. The proxied answers (validate, keys, verify data, /api/*) must equal the API's
+ * own answers byte for byte (status, body, content type, caching, CORS, ETag, Location, Retry-After), and the API must
+ * no longer serve the pages. --full-api=off expects a qr app started with PROXY_FULL_API=0 (only the printed API URLs
+ * are proxied, the rest of /api/* is 404).
+ * --down: a qr app whose API does not answer (same cache directory): the fallback page ("Scanning works, try again in
+ * a minute", 503) with Continue for a code this run already looked up, 502 JSON for the proxies.
+ * --limited: a qr app in front of an API with a tiny ACCESS_MAX_PER_IP_HOUR: the rate-limited page (429).
  *
- * Codes are picked from the server's SQLite database (default: the configured DB_SQLITE_PATH; for another server pass
- * its --db), one per kind (membership with one option / a choice / no edition, promo, page, event, xr, owned,
- * expired, revoked), ordered by created_at + code so two copies of the same database pick the same codes.
- * --out writes the normalized results (one line per request) so two servers can be compared with `diff`:
+ * Codes are picked from the API's SQLite database (default: ../server/db/local.sqlite, via its settings; pass the
+ * server's --db when it runs on a copy), one per kind (membership with one option / a choice / no edition, promo, page,
+ * event, xr, owned, expired, revoked), ordered by created_at + code so two copies of the same database pick the same
+ * codes. --out writes the normalized results (one line per request) so two installations can be compared with `diff`
+ * (the recorded baseline of the old server: agents/PLATFORM.md "P3 — result"):
  *
- *   php tests/public-urls.php http://localhost:9000 --db=<old repo>/db/local.sqlite --out=old.txt
- *   php tests/public-urls.php http://localhost:9100 --out=new.txt && diff old.txt new.txt
+ *   php tests/public-urls.php http://localhost:9001 --api=http://localhost:9000 --out=new.txt && diff baseline.txt new.txt
  *
  * Read-only apart from the `scan` events the landing page logs. Exit code 0 = all checks passed.
+ * `composer test` in server/ runs it against fresh servers on a copy of the database (server/tests/run-contract.php).
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
 }
 
-$base = 'http://localhost:9100';
+$serverDir = dirname(__DIR__, 2) . '/server';
+$base = 'http://localhost:9001';
+$api = null;
 $dbFile = null;
 $outFile = null;
-$hosts = null; // null | 'also' | 'only'
-$qrApi = true;
+$fullApi = true;
+$downBase = null;
+$limitedBase = null;
 foreach (array_slice($argv, 1) as $arg) {
     if (str_starts_with($arg, '--db=')) $dbFile = substr($arg, 5);
     elseif (str_starts_with($arg, '--out=')) $outFile = substr($arg, 6);
-    elseif ($arg === '--hosts') $hosts = 'also';
-    elseif ($arg === '--hosts=only') $hosts = 'only';
-    elseif (str_starts_with($arg, '--qr-api=')) $qrApi = substr($arg, 9) !== 'off';
+    elseif (str_starts_with($arg, '--api=')) $api = rtrim(substr($arg, 6), '/');
+    elseif (str_starts_with($arg, '--full-api=')) $fullApi = substr($arg, 11) !== 'off';
+    elseif (str_starts_with($arg, '--down=')) $downBase = rtrim(substr($arg, 7), '/');
+    elseif (str_starts_with($arg, '--limited=')) $limitedBase = rtrim(substr($arg, 10), '/');
     else $base = rtrim($arg, '/');
 }
+if ($api === null) {
+    fwrite(STDERR, "Pass the API the qr app proxies to: --api=http://localhost:9000\n");
+    exit(2);
+}
 if ($dbFile === null) {
-    require_once __DIR__ . '/../vendor/autoload.php';
-    $dbFile = Scutoons\Infrastructure\Config\Settings::load()->path('DB_SQLITE_PATH');
+    require_once $serverDir . '/vendor/autoload.php';
+    $dbFile = Scutoons\Infrastructure\Config\Settings::load($serverDir)->path('DB_SQLITE_PATH');
 }
 if (!is_file($dbFile)) {
     fwrite(STDERR, "SQLite database not found: $dbFile\n");
     exit(2);
 }
 $pdo = new PDO('sqlite:' . $dbFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-$permissionsFile = __DIR__ . '/../config/permissions.json';
+$permissionsFile = $serverDir . '/config/permissions.json';
 $permissions = json_decode((string) file_get_contents($permissionsFile), true);
 
 $failures = 0;
@@ -96,7 +109,7 @@ function request(string $method, string $url, ?string $body = null, array $extra
     $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
     curl_close($ch);
     $type = strtolower(trim(explode(';', $headers['content-type'] ?? '')[0]));
-    return ['status' => $status, 'type' => $type, 'location' => $headers['location'] ?? '', 'body' => $raw];
+    return ['status' => $status, 'type' => $type, 'location' => $headers['location'] ?? '', 'body' => $raw, 'headers' => $headers];
 }
 
 /** Records the normalized result of a request (for --out) and returns it */
@@ -146,7 +159,7 @@ $cases = array_values(array_filter([
     $pick('revoked', 'revoked_at IS NOT NULL'),
 ]));
 $signed = $pick('signed', "signature IS NOT NULL AND signature <> '' AND $valid");
-echo "Server $base · database $dbFile · " . count($cases) . " kinds of codes\n\n";
+echo "qr $base · API $api · database $dbFile · " . count($cases) . " kinds of codes\n\n";
 
 function finish(): never
 {
@@ -154,38 +167,6 @@ function finish(): never
     if ($outFile !== null) file_put_contents($outFile, implode("\n", $lines) . "\n");
     echo "\n" . ($checks - $failures) . " / $checks checks passed\n";
     exit($failures === 0 ? 0 : 1);
-}
-
-// ── Host routing (refactored server only): qr = public pages, api = /api/* ───────────────────────────────
-if ($hosts !== null) {
-    require_once __DIR__ . '/../vendor/autoload.php';
-    $settings = Scutoons\Infrastructure\Config\Settings::load();
-    $qrHost = 'Host: ' . $settings->get('QR_HOST');
-    $apiHost = 'Host: ' . $settings->get('API_HOST');
-    $member = $cases[0];
-    $page = array_values(array_filter($cases, fn($c) => $c['type'] === 'page'))[0] ?? null;
-    echo 'Host routing (' . $settings->get('QR_HOST') . ', ' . $settings->get('API_HOST') . ', full API on the qr host: ' . ($qrApi ? 'on' : 'off') . ")\n";
-    foreach ([['/?c=' . $member['code'], 200], ['?c=' . $member['code'], 200], ['/?c=' . $member['code'] . '&skip=1', 302], ['/', 200],
-              ['/api/validate/?c=' . $member['code'], 200], ['/api/keys/keys.php', 200], ['/generate/get-signature.php?code=zzzzzzzz', 404],
-              ['/api/health/', $qrApi ? 200 : 404], ['/api/me/', $qrApi ? 401 : 404], ['/api/items/', $qrApi ? 200 : 404]] as [$path, $status]) {
-        $r = request('GET', $base . $path, null, [$qrHost]);
-        check($r['status'] === $status, "qr host: GET $path → $status", [$r['status'], substr($r['body'], 0, 120)]);
-    }
-    $r = request('POST', $base . '/api/validate/', json_encode(['c' => $member['code']]), [$qrHost]);
-    check($r['status'] === 200 && (json_decode($r['body'], true)['status'] ?? null) === 'success', 'qr host: POST /api/validate/ {c} → success', $r['status']);
-    if ($page) {
-        $r = request('GET', $base . '/?c=' . $page['code'], null, [$qrHost]);
-        check($r['status'] === 302 && $r['location'] === continueUrl($page['redirect_to'], $page['code']), 'qr host: page code → 302 redirect_to?code=', [$r['status'], $r['location']]);
-    }
-    foreach ([['/api/health/', 200], ['/api/me/', 401], ['/api/validate/?c=' . $member['code'], 200], ['/api/keys/keys.php', 200],
-              ['/?c=' . $member['code'], 404], ['/', 404], ['/generate/stats.php', 404], ['/api/nope/', 404]] as [$path, $status]) {
-        $r = request('GET', $base . $path, null, [$apiHost]);
-        check($r['status'] === $status, "api host: GET $path → $status", [$r['status'], substr($r['body'], 0, 120)]);
-    }
-    $r = request('GET', $base . '/?c=' . $member['code'], null, ['Host: localhost']);
-    check($r['status'] === 200, 'other host (localhost): landing page and API both answer', $r['status']);
-    echo "\n";
-    if ($hosts === 'only') finish();
 }
 
 // ── QR landing page: ?c= (printed on every QR code), &skip=1, ?login= ───────────────────────────────────
@@ -248,7 +229,7 @@ if ($signed) {
 }
 $r = probe('GET', '/generate/get-signature.php?code=zzzzzzzz');
 check($r['status'] === 404, 'generate/get-signature.php?code=<unknown> → 404 (verify page falls back to the file)', $r['status']);
-$signatureFiles = glob(dirname(__DIR__) . '/{storage/files,generate/files}/signatures/SIGNATURE-*.json', GLOB_BRACE) ?: [];
+$signatureFiles = glob($serverDir . '/{storage/files,generate/files}/signatures/SIGNATURE-*.json', GLOB_BRACE) ?: [];
 sort($signatureFiles);
 if ($signatureFiles) {
     $name = basename($signatureFiles[0]);
@@ -306,4 +287,101 @@ $lines[] = "GET /api/keys/keys.php → {$r['status']} {$r['type']} " . $shape($r
 check($r['status'] === 200 && $r['type'] === 'application/json' && ($body['success'] ?? null) === true && is_string($body['publicKey'] ?? null)
     && !array_key_exists('privateKey', $body), '/api/keys/keys.php → public key only', [$r['status'], substr($r['body'], 0, 100)]);
 
+// ── The qr app: proxies are byte-identical to the API, the API has no pages any more ────────────────────
+// (not written to --out: the old server had no separate API to compare with)
+echo "\nqr app → API ($api)" . ($fullApi ? '' : ', PROXY_FULL_API off') . "\n";
+/** The headers a client can notice (everything else is transport: Date, Server, Connection, lengths) */
+function relevantHeaders(array $r): array
+{
+    $keep = [];
+    foreach ($r['headers'] as $name => $value) {
+        if (in_array($name, ['content-type', 'cache-control', 'etag', 'last-modified', 'location', 'retry-after', 'vary',
+            'content-disposition', 'allow'], true) || str_starts_with($name, 'access-control-')) $keep[$name] = $value;
+    }
+    ksort($keep);
+    return $keep;
+}
+$signedCode = $signed['code'] ?? $member['code'];
+$identical = [
+    ['GET', '/api/validate/?c=' . $member['code'], null, []],
+    ['GET', '/api/validate/?code=' . $member['code'], null, ['Origin: https://scutoons.com']],
+    ['POST', '/api/validate/', json_encode(['c' => $member['code']]), []],
+    ['GET', '/api/validate/index.php?c=' . $member['code'], null, []],
+    ['GET', '/api/validate?c=zzzzzzzz', null, []],
+    ['GET', '/api/validate/', null, []],
+    ['OPTIONS', '/api/validate/', null, ['Origin: https://example.org', 'Access-Control-Request-Method: POST']],
+    ['PUT', '/api/validate/', '{}', []],
+    ['GET', '/api/keys/keys.php', null, []],
+    ['GET', '/generate/get-signature.php?code=' . rawurlencode($signedCode), null, []],
+    ['GET', '/generate/get-signature.php?code=zzzzzzzz', null, []],
+];
+if ($signatureFiles ?? []) $identical[] = ['GET', '/generate/files/signatures/' . basename($signatureFiles[0]), null, []];
+if ($fullApi) {
+    array_push($identical,
+        ['GET', '/api/health/', null, []],
+        ['GET', '/api/items/', null, ['Origin: https://scutoons.com']],
+        ['GET', '/api/products/', null, []],
+        ['GET', '/api/me/', null, ['Origin: https://scutoons.com']],
+        ['GET', '/api/me/', null, ['Authorization: Bearer not-a-session', 'Origin: http://localhost:8000']],
+        ['OPTIONS', '/api/me/', null, ['Origin: https://scutoons.com', 'Access-Control-Request-Method: GET', 'Access-Control-Request-Headers: authorization,x-device-id']],
+        ['GET', '/api/code/?c=' . $member['code'], null, []],
+        ['POST', '/api/auth/request/', '{bad', []],
+        ['GET', '/api/nope/', null, []],
+    );
+}
+foreach ($identical as [$method, $path, $body, $headers]) {
+    $viaQr = request($method, $base . $path, $body, $headers);
+    $direct = request($method, $api . $path, $body, $headers);
+    $same = $viaQr['status'] === $direct['status'] && $viaQr['body'] === $direct['body'] && relevantHeaders($viaQr) === relevantHeaders($direct);
+    check($same && $viaQr['status'] !== 502, "proxy $method $path → {$direct['status']} identical to the API", [
+        'qr' => [$viaQr['status'], relevantHeaders($viaQr), substr($viaQr['body'], 0, 120)],
+        'api' => [$direct['status'], relevantHeaders($direct), substr($direct['body'], 0, 120)],
+    ]);
+}
+if (!$fullApi) {
+    foreach (['/api/health/', '/api/me/', '/api/items/', '/api/code/?c=' . $member['code']] as $path) {
+        $r = request('GET', $base . $path);
+        check($r['status'] === 404 && (json_decode($r['body'], true)['error'] ?? null) === 'not_found', "PROXY_FULL_API off: GET $path → 404 not_found", [$r['status'], $r['body']]);
+    }
+}
+$r = request('GET', $base . '/generate/?x=1');
+check($r['status'] === 302 && $r['location'] === $api . '/generate/?x=1', 'legacy generate/ → 302 to the API', [$r['status'], $r['location']]);
+$r = request('GET', $base . '/version.json');
+$version = json_decode($r['body'], true);
+check($r['status'] === 200 && ($version['app'] ?? null) === 'qr' && is_string($version['version'] ?? null) && isset($version['git_sha']), '/version.json → { app: qr, version, git_sha }', [$r['status'], $r['body']]);
+foreach (['/?c=' . $member['code'], '/verify.html', '/', '/?login=abc'] as $path) {
+    $r = request('GET', $api . $path);
+    check($r['status'] === 404, "API: GET $path → 404 (the pages are the qr app)", $r['status']);
+}
+$r = request('GET', $api . '/api/health/');
+$health = json_decode($r['body'], true);
+check($r['status'] === 200 && is_string($health['version'] ?? null) && is_string($health['git_sha'] ?? null), 'API: /api/health/ → version + git_sha', $r['body']);
+
+// ── API down: the fallback page (a code of this run is cached) ──────────────────────────────────────────
+if ($downBase !== null) {
+    echo "\nAPI down ($downBase)\n";
+    $r = request('GET', $downBase . '/?c=' . $member['code']);
+    check($r['status'] === 503 && str_contains($r['body'], 'Scanning works, try again in a minute')
+        && str_contains($r['body'], htmlspecialchars(continueUrl($member['redirect_to'], $member['code']), ENT_QUOTES, 'UTF-8')),
+        'cached code → 503 "Scanning works, try again in a minute" + Continue to redirect_to?code=', [$r['status'], substr($r['body'], -600)]);
+    $r = request('GET', $downBase . '/?c=' . $member['code'] . '&skip=1');
+    check(in_array($r['status'], [302, 503], true), 'cached code &skip=1 → redirect (fresh cache) or fallback page', $r['status']);
+    $r = request('GET', $downBase . '/?c=neverSeen1');
+    check($r['status'] === 503 && !str_contains($r['body'], 'id="continue"') && ($r['headers']['retry-after'] ?? '') === '60', 'uncached code → 503 without Continue, Retry-After 60', [$r['status'], $r['headers']]);
+    $r = request('GET', $downBase . '/api/validate/?c=' . $member['code']);
+    check($r['status'] === 502 && (json_decode($r['body'], true)['error'] ?? null) === 'api_unavailable', 'proxy → 502 api_unavailable', [$r['status'], $r['body']]);
+    $r = request('GET', $downBase . '/verify.html');
+    check($r['status'] === 200, 'verify page is static: still 200', $r['status']);
+}
+
+// ── Rate limit of the API (per client IP, forwarded by the qr app) ──────────────────────────────────────
+if ($limitedBase !== null) {
+    echo "\nRate limit ($limitedBase)\n";
+    $limited = null;
+    for ($i = 0; $i < 6 && $limited === null; $i++) {
+        $r = request('GET', $limitedBase . '/?c=' . $member['code']);
+        if ($r['status'] === 429) $limited = $r;
+    }
+    check($limited !== null && $limited['type'] === 'text/html' && str_contains($limited['body'], 'Too many codes checked'), 'too many lookups → 429 page', $limited['status'] ?? null);
+}
 finish();

@@ -1,0 +1,15 @@
+<?php
+// Local settings of the qr app. Copy to config.local.php (gitignored). Every key and its default: src/Config.php.
+// Production has no config.local.php: the deploy writes config.php (deploy/README.md). QRAPP_<KEY> (environment) wins.
+return [
+    // The API (server/, composer serve) – server-side calls, no /api suffix
+    'API_URL' => 'http://localhost:9000',
+    // Same value as QR_PROXY_SECRET in server/config.local.php: the API then trusts the client IP / device id we
+    // forward (rate limits, scan statistics). Empty = the API sees this server's IP for every scan.
+    'QR_PROXY_SECRET' => '',
+    // Transition: proxy the whole /api/* (released viewers call qr.scutoons.com/api/…)
+    'PROXY_FULL_API' => '1',
+    // The viewer (old magic links /?login=, account link fallback) and the CDN (item icons)
+    'WWW_URL' => 'http://localhost:8000',
+    'CDN_URL' => 'http://localhost:8001/',
+];

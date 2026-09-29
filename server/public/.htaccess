@@ -1,6 +1,6 @@
-# Web root of the SCUTOONS server (document root of qr.scutoons.com and api.scutoons.com).
-# Static files here are served as they are (verify.html, assets/, the legacy generate/ SPA); everything else goes to
-# the front controller index.php (Slim, routes in ../config/routes.php). No other PHP file is ever run.
+# Web root of the SCUTOONS API (document root of api.scutoons.com; the public pages of qr.scutoons.com are the qr app).
+# Static files here are served as they are (assets/, the legacy generate/ SPA); everything else goes to the front
+# controller index.php (Slim, routes in ../config/routes.php). No other PHP file is ever run.
 Options -Indexes
 DirectoryIndex index.html
 
@@ -16,11 +16,6 @@ DirectoryIndex index.html
 
     # Dot files are never served
     RewriteRule (^|/)\. - [R=404,L]
-
-    # api.<domain> is the API only: its static files (verify page, assets, generate/) belong to qr.<domain> – the
-    # front controller answers 404 for them (Http\Middleware\HostRouting)
-    RewriteCond %{HTTP_HOST} ^api\. [NC]
-    RewriteRule !^api(/|$) index.php [END]
 
     # Existing static files and folders with an index.html as they are, everything else to the front controller
     RewriteCond %{REQUEST_FILENAME} -f

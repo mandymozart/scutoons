@@ -19,6 +19,8 @@ use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Storage\FileStore;
 
 $base = rtrim($argv[1] ?? 'http://localhost:9000', '/');
+// The QR landing page is the qr app (in front of this API, it logs the scans through /api/code/?scan=1)
+$qrBase = rtrim($argv[2] ?? 'http://localhost:9001', '/');
 $api = "$base/api/admin";
 $failures = 0;
 $checks = 0;
@@ -126,7 +128,7 @@ try {
     $r = call('GET', "$api/codes?q=" . rawurlencode((string) $code), null, $adminToken);
     check(($r['body']['pagination']['total'] ?? 0) === 1 && $r['body']['items'][0]['code'] === $code, 'q finds the code', $r['body']);
 
-    call('GET', "$base/?c=$code");
+    call('GET', "$qrBase/?c=$code");
     $r = call('GET', "$api/codes/$code", null, $adminToken);
     check($r['status'] === 200 && $r['body']['code']['code'] === $code && $r['body']['code']['claimed'] === false && $r['body']['stats']['scans'] === 1
         && $r['body']['signed'] === false && !array_key_exists('email', $r['body']['code']), 'detail: row, stats (1 scan), no email', $r['body']);

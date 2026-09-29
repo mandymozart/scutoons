@@ -8,6 +8,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Codes\CodeService;
+use Scutoons\Domain\RequestContext;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
@@ -19,7 +20,7 @@ use Scutoons\Http\Middleware\JsonBody;
  */
 final class AccessController
 {
-    public function __construct(private readonly CodeService $codes)
+    public function __construct(private readonly CodeService $codes, private readonly RequestContext $context)
     {
     }
 
@@ -34,11 +35,16 @@ final class AccessController
         return Json::response($response, 200, $this->codes->access($code, $user, is_string($toon) ? $toon : null));
     }
 
+    /**
+     * `&scan=1` from the qr app (trusted proxy, RequestContext::viaTrustedProxy()) logs a `scan` event – the QR landing
+     * page counts every scan of an existing code, also expired / revoked ones. Ignored for everybody else.
+     */
     public function code(Request $request, Response $response): Response
     {
         $query = $request->getQueryParams();
         $code = CodeRules::normalize($query['c'] ?? $query['code'] ?? null)
             ?? throw new ApiError(400, 'invalid_code', 'Code missing or malformed.');
+        if (($query['scan'] ?? null) === '1' && $this->context->viaTrustedProxy()) $this->codes->logScan($code);
         return Json::response($response, 200, $this->codes->info($code, CurrentSession::of($request)->user()));
     }
 }

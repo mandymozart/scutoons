@@ -8,7 +8,6 @@ use DI\ContainerBuilder;
 use Scutoons\Http\Middleware\Cors;
 use Scutoons\Http\Middleware\DeviceId;
 use Scutoons\Http\Middleware\ErrorHandler;
-use Scutoons\Http\Middleware\HostRouting;
 use Scutoons\Http\Middleware\JsonBody;
 use Scutoons\Http\Middleware\NormalizePath;
 use Scutoons\Http\Middleware\Session;
@@ -42,15 +41,15 @@ final class Kernel
         $app = AppFactory::create();
         $settings = $container->get(Settings::class);
 
-        // Middleware runs outside-in in the reverse order of adding: NormalizePath → HostRouting → Cors → ErrorHandler → routing →
+        // Middleware runs outside-in in the reverse order of adding: NormalizePath → Cors → ErrorHandler → routing →
         // DeviceId → JsonBody → Session → route middleware (RequireRole, RateLimit, GenerateToken) → controller.
+        // No host routing: this is the API only; the public pages (qr.scutoons.com) are the qr app, which proxies here.
         $app->add(Session::class);
         $app->add(JsonBody::class);
         $app->add(DeviceId::class);
         $app->addRoutingMiddleware();
         $app->add(ErrorHandler::class);
         $app->add(Cors::class);
-        $app->add(HostRouting::class);
         $app->add(NormalizePath::class);
 
         (require $settings->root() . '/config/routes.php')($app);

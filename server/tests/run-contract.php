@@ -5,12 +5,13 @@
  *
  *   php tests/run-contract.php [--port=9180] [--keep]
  *
- * 1. copies DB_SQLITE_PATH (config.local.php) to a temp file
- * 2. starts `php -S 127.0.0.1:<port> -t public public/router.php` (QR_DB_SQLITE_PATH = the copy) and a second one on
- *    <port+1> with the transition flag off (QR_QR_HOST_SERVES_API=0) for the host-routing checks
- * 3. runs api-smoke, content-smoke, claim-race (claim + signup), admin-smoke, public-urls (+ --hosts) and the
- *    host checks with the flag off
- * 4. stops the servers and deletes the copy (--keep keeps it and prints its path)
+ * 1. copies DB_SQLITE_PATH (config.local.php) to a temp file and adds an expired and a revoked code to the copy
+ * 2. starts the API `php -S 127.0.0.1:<port> -t public public/router.php` (QR_DB_SQLITE_PATH = the copy, a random
+ *    QR_PROXY_SECRET) and the qr app (../qr) in front of it: <port+1> full API proxied, <port+2> PROXY_FULL_API=0,
+ *    <port+3> with its API down (fallback page), <port+4> in front of a second API (<port+5>) with a lookup limit of 1
+ * 3. runs api-smoke, content-smoke, claim-race (claim + signup), admin-smoke against the API and the printed-URL suite
+ *    (../qr/tests/public-urls.php) against the qr app
+ * 4. stops the servers and deletes the copy and the qr caches (--keep keeps the copy and prints its path)
  * Needs config.local.php with MAIL_TRANSPORT=log (the suites read one-time codes from the mail log).
  */
 if (PHP_SAPI !== 'cli') {
@@ -42,37 +43,62 @@ $copy = str_replace('\\', '/', sys_get_temp_dir()) . '/scutoons-contract-' . get
 copy($source, $copy);
 echo "Database copy: $copy (from $source)\n";
 
+// The printed-URL suite needs an expired and a revoked code (the local database may have none): only in the copy
+$pdo = new PDO('sqlite:' . $copy);
+$insert = $pdo->prepare("INSERT OR IGNORE INTO qr (id, code, redirect_to, type, email, created_at, expires_at, revoked_at, revoked_reason) VALUES (?, ?, 'https://scutoons.com/catpope', 'membership', '', ?, ?, ?, ?)");
+$insert->execute(['contract-expired', 'contractExpired1', '2020-01-01 00:00:00', '2020-01-02 00:00:00', null, null]);
+$insert->execute(['contract-revoked', 'contractRevoked1', '2020-01-01 00:00:00', null, '2020-01-03 00:00:00', 'contract suite']);
+$pdo = null;
+
+$qrRoot = dirname($root) . '/qr';
+$tmp = str_replace('\\', '/', sys_get_temp_dir()) . '/scutoons-contract-' . getmypid();
+$secret = bin2hex(random_bytes(16));
 $env = getenv() + [];
 $env['QR_DB_SQLITE_PATH'] = $copy;
+$env['QR_QR_PROXY_SECRET'] = $secret;          // the API trusts the qr app's forwarded client IP / device id
+$env['QR_ACCESS_MAX_PER_IP_HOUR'] = '100000';  // every suite runs from 127.0.0.1
 $servers = [];
-$start = function (int $port, array $extraEnv) use ($root, $env, &$servers): void {
+$start = function (int $port, array $extraEnv, string $dir = '', string $ready = '/api/health/') use ($root, $env, &$servers): void {
+    $dir = $dir !== '' ? $dir : $root;
     $log = str_replace('\\', '/', sys_get_temp_dir()) . "/scutoons-contract-server-$port.log";
-    $proc = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", '-t', "$root/public", "$root/public/router.php"],
-        [0 => ['file', 'php://stdin', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, $root, $extraEnv + $env);
+    $proc = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", '-t', "$dir/public", "$dir/public/router.php"],
+        [0 => ['file', 'php://stdin', 'r'], 1 => ['file', $log, 'w'], 2 => ['file', $log, 'a']], $pipes, $dir, $extraEnv + $env);
     if (!is_resource($proc)) throw new RuntimeException("could not start the server on :$port");
     $servers[] = $proc;
     for ($i = 0; $i < 100; $i++) {
-        $ok = @file_get_contents("http://127.0.0.1:$port/api/health/");
+        $ok = @file_get_contents("http://127.0.0.1:$port$ready");
         if ($ok !== false) return;
         usleep(100000);
     }
     throw new RuntimeException("server on :$port did not answer (log: $log)");
 };
+$qr = fn(int $apiPort, string $cache, array $extra = []): array => $extra + [
+    'QRAPP_API_URL' => "http://127.0.0.1:$apiPort", 'QRAPP_QR_PROXY_SECRET' => $secret, 'QRAPP_CACHE_DIR' => "$tmp-$cache",
+    'QRAPP_PROXY_FULL_API' => '1', 'QRAPP_WWW_URL' => 'http://viewer.test',
+];
 
 $results = [];
 $exit = 0;
 try {
+    // API :port (+ a copy with a tiny lookup limit on :port+5); the qr app on :port+1 (full API proxied), :port+2
+    // (PROXY_FULL_API=0), :port+3 (its API is down, same cache as :port+1), :port+4 (in front of the limited API)
     $start($port, []);
-    $start($port + 1, ['QR_QR_HOST_SERVES_API' => '0']);
+    $start($port + 5, ['QR_ACCESS_MAX_PER_IP_HOUR' => '1']);
+    $start($port + 1, $qr($port, 'cache'), $qrRoot, '/version.json');
+    $start($port + 2, $qr($port, 'cache-off', ['QRAPP_PROXY_FULL_API' => '0']), $qrRoot, '/version.json');
+    $start($port + 3, $qr(1, 'cache'), $qrRoot, '/version.json');
+    $start($port + 4, $qr($port + 5, 'cache-limited'), $qrRoot, '/version.json');
     $base = "http://127.0.0.1:$port";
+    $publicUrls = "$qrRoot/tests/public-urls.php";
     $suites = [
-        'api-smoke' => ['tests/api-smoke.php', $base],
+        'api-smoke' => ['tests/api-smoke.php', $base, 'http://127.0.0.1:' . ($port + 1)],
         'content-smoke' => ['tests/content-smoke.php', $base],
         'claim-race (claim)' => ['tests/claim-race.php', '8', 'claim'],
         'claim-race (signup)' => ['tests/claim-race.php', '8', 'signup'],
-        'admin-smoke' => ['tests/admin-smoke.php', $base],
-        'public-urls (+ hosts)' => ['tests/public-urls.php', $base, '--hosts'],
-        'public-urls (hosts, QR_HOST_SERVES_API=0)' => ['tests/public-urls.php', 'http://127.0.0.1:' . ($port + 1), '--hosts=only', '--qr-api=off'],
+        'admin-smoke' => ['tests/admin-smoke.php', $base, 'http://127.0.0.1:' . ($port + 1)],
+        'public-urls (qr app → API)' => [$publicUrls, 'http://127.0.0.1:' . ($port + 1), "--api=$base", "--db=$copy",
+            '--down=http://127.0.0.1:' . ($port + 3), '--limited=http://127.0.0.1:' . ($port + 4)],
+        'public-urls (PROXY_FULL_API=0)' => [$publicUrls, 'http://127.0.0.1:' . ($port + 2), "--api=$base", "--db=$copy", '--full-api=off'],
     ];
     foreach ($suites as $name => $args) {
         echo "\n━━ $name ━━\n";
@@ -95,6 +121,8 @@ try {
         proc_terminate($proc);
         proc_close($proc);
     }
+    foreach (glob("$tmp-cache*/*.json") ?: [] as $file) @unlink($file);
+    foreach (glob("$tmp-cache*", GLOB_ONLYDIR) ?: [] as $dir) @rmdir($dir);
     if ($keep) echo "\nKept the database copy: $copy\n";
     else @unlink($copy);
 }
