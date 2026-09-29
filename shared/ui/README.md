@@ -15,7 +15,7 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 | `IconButton` | `label` (required: aria-label + title), `icon` (image URL, 16px) or children, `pressed`; 2rem circle, cyan fill on hover/pressed |
 | `Field` | `label`, `hint`, `error`, `required`, `id`; `children({ id, describedby, invalid })` renders the app's input/select/textarea (styled inside `.field`) |
 | `Panel` | framed box: `title`, `hint`, `actions` snippet, `quiet` (surface-panel, no border) |
-| `Section` | entity-detail section: `title`, `hint`, `actions` snippet |
+| `Section` | entity-detail section: `title`, `hint`, `media` snippet (leading visual, e.g. a `ToonAvatar`), `actions` snippet |
 | `Sheet` | modal on native `<dialog>`: `bind:open`, `title`, `side` `center` \| `bottom` \| `right`, `closeLabel`, `onclose`, `footer` snippet (sticky action bar) |
 | `Tabs` | `tabs: { id, label, disabled? }[]`, `bind:value`, `label`, `onchange`, `children(activeId)` = active panel; arrow keys / Home / End |
 | `Toggle` | switch: `bind:checked`, `label`, `hint`, `disabled`, `onchange(checked)` |
@@ -34,6 +34,7 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 | `Skeleton` | loading placeholder: `variant` `text` (`lines`) \| `block` (`height`) \| `table` (`rows`, `columns`), `label`; static bars, no shimmer |
 | `Chart` | plain SVG `kind` `line` \| `bar`, `labels` (x), `series: { label, values }[]` (≤ 4), `height`, `ariaLabel`, `formatLabel`, `formatValue`; one y-axis from 0, cyan only as fill, series told apart by fill/outline/hatch or dash pattern + legend; hover / arrow keys = crosshair + values |
 | `RecordInspector` | raw record as key/value table or JSON (toggle): `record`, `labels` |
+| `ToonAvatar` | a toon's navigation avatar (CDN `<toonId>/avatar.webp`, 512² transparent WebP): `src`, `alt` (default `''`), `name` (placeholder letter, default `alt`), `size` (CSS length for width + height, default `2.5rem`); `radius-sm`, no border, `object-fit: contain`, `loading="lazy"`; no `src` or a load error → first letter on `surface-hover` |
 
 ## Example
 

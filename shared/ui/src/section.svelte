@@ -5,11 +5,14 @@
 	let {
 		title,
 		hint,
+		media,
 		actions,
 		children
 	}: {
 		title: string;
 		hint?: string;
+		/** leading visual before the title (e.g. a ToonAvatar) */
+		media?: Snippet;
 		actions?: Snippet;
 		children: Snippet;
 	} = $props();
@@ -17,9 +20,12 @@
 
 <section class="section">
 	<header>
-		<div>
-			<h2>{title}</h2>
-			{#if hint}<p class="hint">{hint}</p>{/if}
+		<div class="heading">
+			{#if media}{@render media()}{/if}
+			<div>
+				<h2>{title}</h2>
+				{#if hint}<p class="hint">{hint}</p>{/if}
+			</div>
 		</div>
 		{#if actions}<div class="actions">{@render actions()}</div>{/if}
 	</header>
@@ -37,6 +43,12 @@
 		justify-content: space-between;
 		gap: var(--space-1);
 		margin-bottom: var(--space-1);
+	}
+	.heading {
+		display: flex;
+		align-items: center;
+		gap: var(--space-075);
+		min-width: 0;
 	}
 	h2 {
 		margin: 0;
