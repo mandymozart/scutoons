@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { shopUrl } from '$lib/config.ts';
 	import type { ToonIndex } from '@scutoons/content';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
@@ -44,6 +45,12 @@
 		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	});
+
+	// the shop is its own app (shop.scutoons.com)
+	const openShop = () => {
+		menuOpen = false;
+		window.location.href = shopUrl(getLocale());
+	};
 
 	const navigate = (
 		url: string | URL,
@@ -101,13 +108,13 @@
 				</li>
 				{#if !isValid}
 					<li class="nav-item">
-						<button class="nav-btn" onclick={() => navigate(localizeHref('/shop'))}
+						<button class="nav-btn" onclick={openShop}
 							>{m['account.buy_access']()}
 						</button>
 					</li>
 				{/if}
 				<li class="nav-item">
-					<button class="nav-btn" onclick={() => navigate(localizeHref('/shop'))}
+					<button class="nav-btn" onclick={openShop}
 						>{m.limited_editions()}
 					</button>
 				</li>

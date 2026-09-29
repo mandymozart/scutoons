@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { localizeHref } from '$lib/paraglide/runtime.js';
+	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
+	import { shopUrl } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
@@ -27,8 +28,9 @@
 	const handleScan = () => itemsUi.openCamera({ qr: true, object: null, entry: null });
 	const handleSignIn = () => goto(localizeHref('/account'));
 
+	// the shop is its own app (shop.scutoons.com)
 	const handleBuyAccess = () => {
-		goto(localizeHref('/shop'));
+		window.location.href = shopUrl(getLocale());
 	};
 </script>
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { asset } from '$lib/utils/cdn.ts';
+	import { asset } from '$lib/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import {

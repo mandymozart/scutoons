@@ -6,16 +6,12 @@
 	"next_release": "NEXT RELEASE",
 	"limited_editions": "Limited Editions",
 	"shop": {
-		"title": "SCUTOONS Shop",
-		"description": "Discover our exclusive Limited-Editions with your favorite SCUTOONS characters.\n\nEach piece is carefully crafted and designed to bring a smile to your face. Browse our\n\ncollection and find the perfect piece for your SCUTOONS collection!",
 		"buy": "Buy",
 		"sold_out": "Sold Out",
 		"limited_edition_of": "Limited edition of {edition}",
 		"sizes": "Sizes",
-		"variants": "Variants",
 		"colors": "Colors",
 		"price": "Price",
-		"remaining": "{count} left",
 		"credits": "Credits"
 	},
 	"common": {

@@ -1,0 +1,20 @@
+{
+	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"shop": {
+		"title": "SCUTOONS Shop",
+		"description": "Entdecke unsere exklusiven Limited-Editions mit deinen Lieblings-SCUTOONS-Charakteren.\n\nJedes Stück wird sorgfältig gefertigt und so gestaltet, dass es dir ein Lächeln ins Gesicht zaubert. Durchstöbere unsere\n\nSammlung und finde das perfekte Stück für deine SCUTOONS-Sammlung!",
+		"buy": "Kaufen",
+		"sold_out": "Ausverkauft",
+		"limited_edition_of": "Limitierte Auflage von {edition}",
+		"sizes": "Größen",
+		"variants": "Varianten",
+		"remaining": "Noch {count} verfügbar"
+	},
+	"nav": {
+		"home": "Zur SCUTOONS-Startseite",
+		"language": "Sprache"
+	},
+	"error": {
+		"products": "Die Produkte konnten nicht geladen werden."
+	}
+}

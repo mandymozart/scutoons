@@ -1,6 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.ts';
 import { fetchProducts } from '$lib/api.ts';
+import { m } from '$lib/paraglide/messages.js';
 
 export const load: PageLoad = async () => {
 	try {
@@ -9,5 +10,5 @@ export const load: PageLoad = async () => {
 	} catch (e) {
 		console.error(e);
 	}
-	error(404, 'Error fetching products');
+	error(503, m['error.products']());
 };

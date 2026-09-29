@@ -10,6 +10,7 @@
 	} from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
+	import { shopUrl } from '$lib/config.ts';
 
 	const { data } = $props();
 	const locale = getLocale();
@@ -97,6 +98,11 @@
 				/>
 			</article>
 		{/each}
+		{#if featured.length}
+			<p class="shop-link">
+				<a class="btn btn-secondary" href={shopUrl(locale)}>{m.limited_editions()}</a>
+			</p>
+		{/if}
 		{#if credits.length}
 			<div class="credits">
 				{m['shop.credits']()}:<br />

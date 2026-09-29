@@ -30,3 +30,13 @@ export const SCAN_OBJECT_FPS = 2;
 export const CREATOR_URL: string = (
 	import.meta.env.VITE_CREATOR_URL || (import.meta.env.PROD ? 'https://creator.scutoons.com' : 'http://localhost:10000')
 ).replace(/\/+$/, '');
+
+/** The shop (own app, shop.scutoons.com): menu links, "Buy access", `/shop` redirect. `VITE_SHOP_URL`. */
+export const SHOP_URL: string = (
+	import.meta.env.VITE_SHOP_URL || (import.meta.env.PROD ? 'https://shop.scutoons.com' : 'http://localhost:12000')
+).replace(/\/+$/, '');
+
+/** The shop in a locale: `<SHOP_URL>/<locale>/` (the shop reads the locale from the URL prefix). */
+export function shopUrl(locale: string): string {
+	return `${SHOP_URL}/${locale}/`;
+}

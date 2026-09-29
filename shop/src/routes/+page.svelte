@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ProductItem from '$lib/components/shop/products/product-item.svelte';
+	import ProductItem from '$lib/components/product-item.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { PageProps } from './$types.js';
 
@@ -20,7 +20,7 @@
 
 	<section>
 		<p>
-			{m['shop.description']()	}
+			{m['shop.description']()}
 		</p>
 	</section>
 
