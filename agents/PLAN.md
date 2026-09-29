@@ -252,3 +252,15 @@ last commit 0332912 is the imported subtree). The release ships `platform` → `
 
 Rollback per subdomain = point back to the old folder (old folders untouched, migrations additive).
 
+## RULE: definition of done = full suite green (2026-09-30, owner)
+
+No task (agent or coordinator) is finished until ALL of these pass on the current tree:
+- `npm run check` at the root (every workspace, 0 errors)
+- `npm run build` for every app (viewer, creator, admin, shop)
+- `cd server && composer test` (PHPUnit, PHPStan, all contract suites incl. claim-race, public-urls via qr)
+- `cd qr && composer test`
+- the dev servers the owner uses (viewer 8000, CDN 8001, API 9000, qr 9001, creator 10000, admin 11000, shop 12000)
+  still start and load
+If something breaks that another task caused, report it — don't silently skip. After a larger stretch of breaking
+changes the coordinator tags a known-good state (`git tag stable-YYYY-MM-DD[-n]`).
+
