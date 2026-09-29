@@ -53,7 +53,10 @@
 		"content": "Inhalte",
 		"content_hint": "Toons und Kapitel im Store",
 		"catalog": "Katalog",
-		"catalog_hint": "Items, Editionen, Rechte"
+		"catalog_hint": "Items, Editionen, Rechte",
+		"group_system": "System",
+		"settings": "Einstellungen",
+		"settings_hint": "Scan- und Abfrage-Limits"
 	},
 	"palette": {
 		"label": "Befehlspalette",
@@ -375,5 +378,26 @@
 		"version_line": "#{latest} · veröffentlicht #{published} · {versions} Versionen",
 		"edit": "Bearbeiten",
 		"empty": "Für diesen Toon ist noch nichts gespeichert."
+	},
+	"settings": {
+		"title": "Einstellungen",
+		"meta": "Laufzeit-Einstellungen der API. Sie gelten ab der nächsten Anfrage, ohne Deploy.",
+		"section_limits": "Limits",
+		"section_limits_hint": "Pro Client-IP und Stunde. Jeder Versuch zählt. 0 = kein Limit.",
+		"scan_limit_per_hour": "QR-Scans pro Stunde",
+		"scan_limit_per_hour_hint": "Scans pro Stunde aus einem Netz (die QR-Landingpage). Bei Events teilen sich alle eine IP (ein WLAN) – hoch lassen. 0 = kein Limit.",
+		"lookup_limit_per_hour": "Direkte Code-Abfragen pro Stunde",
+		"lookup_limit_per_hour_hint": "Geprüfte Codes pro Stunde von einer IP im Viewer oder über die API (/code/, /access/). Niedrig gegen Code-Raten. 0 = kein Limit.",
+		"current": "Aktuell {value} · Standard {default}",
+		"unlimited": "kein Limit",
+		"last_change": "Geändert {at} von {by}",
+		"never_changed": "Standard (nie geändert)",
+		"invalid": "Eine ganze Zahl von {min} bis {max}.",
+		"reset": "Standard verwenden",
+		"save": "Speichern",
+		"saving": "Speichert …",
+		"saved": "Einstellungen gespeichert.",
+		"nothing_changed": "Nichts geändert.",
+		"unsaved": "Ungespeicherte Änderungen"
 	}
 }

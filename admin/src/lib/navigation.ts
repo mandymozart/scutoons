@@ -51,6 +51,13 @@ export const navigation: NavGroup[] = [
 			{ id: 'content', title: () => m['nav.content'](), description: () => m['nav.content_hint'](), href: '/content', icon: '¶', keywords: 'chapters toons versions publish' },
 			{ id: 'catalog', title: () => m['nav.catalog'](), description: () => m['nav.catalog_hint'](), href: '/catalog', icon: '◇', keywords: 'items editions permissions' }
 		]
+	},
+	{
+		id: 'system',
+		title: () => m['nav.group_system'](),
+		items: [
+			{ id: 'settings', title: () => m['nav.settings'](), description: () => m['nav.settings_hint'](), href: '/settings', icon: '⚙', keywords: 'rate limit scans lookups event wifi config' }
+		]
 	}
 ];
 

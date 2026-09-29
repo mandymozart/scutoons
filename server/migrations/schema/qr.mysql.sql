@@ -197,3 +197,12 @@ CREATE TABLE IF NOT EXISTS `code_events` (
   KEY `code_events_event` (`event`, `created_at`),
   KEY `code_events_dedupe` (`code`, `event`, `device_hash`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Runtime settings (migrations/mysql/2026-09-30-settings.mysql.sql)
+CREATE TABLE IF NOT EXISTS `settings` (
+  `key` VARCHAR(64) NOT NULL,
+  `value` JSON NOT NULL,
+  `updated_at` DATETIME NOT NULL COMMENT 'UTC',
+  `updated_by` VARCHAR(255) NULL DEFAULT NULL COMMENT 'admin:<email> | cli',
+  PRIMARY KEY (`key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

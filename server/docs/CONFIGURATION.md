@@ -9,6 +9,11 @@ Every setting has a default in `config/settings.php`. Per installation, a value 
 
 Relative paths are relative to the server folder. Secrets never go into the repository.
 
+**Runtime settings** (table `settings`, admin app → Settings, `GET/PUT /api/admin/settings`): a few values the owner
+changes without a deploy. A stored value wins over the config; without a row the config value below is the default.
+Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per_hour` (default
+`ACCESS_MAX_PER_IP_HOUR`). `Domain\Settings\RuntimeSettings`.
+
 | Key | Default | Notes |
 |---|---|---|
 | `DB_SQLITE_PATH` | – | set → SQLite (local, tests); empty → MySQL/MariaDB with the next keys |
@@ -24,7 +29,8 @@ Relative paths are relative to the server folder. Secrets never go into the repo
 | `MAIL_FROM`, `MAIL_FROM_NAME` | `no-reply@scutoons.com`, `SCUTOONS` | |
 | `MAIL_LOG_PATH` | `logs/mail.log` | for `log` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_TIMEOUT` | –, 587, `tls`, –, –, 15 | `SMTP_SECURE`: `tls` (STARTTLS) / `ssl` (465) / `none` |
-| `ACCESS_MAX_PER_IP_HOUR` | 120 | `/access/` + `/code/` lookups per IP and hour |
+| `ACCESS_MAX_PER_IP_HOUR` | 120 | direct `/access/` + `/code/` lookups per IP and hour; 0 = no limit. Default of the runtime setting `lookup_limit_per_hour` |
+| `SCAN_MAX_PER_IP_HOUR` | 1000 | QR scans per client IP and hour (`/code/?scan=1` from the qr app, own bucket); 0 = no limit. Default of the runtime setting `scan_limit_per_hour` |
 | `LOGIN_TTL_MINUTES`, `LOGIN_MAX_ATTEMPTS` | 30, 5 | validity of link + code; wrong codes per mail |
 | `LOGIN_MAX_PER_EMAIL_HOUR`, `LOGIN_MAX_PER_IP_HOUR` | 5, 30 | login mails per hour |
 | `SESSION_TTL_DAYS` | 365 | sessions end after this long unused |

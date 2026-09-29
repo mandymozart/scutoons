@@ -53,8 +53,12 @@ return [
     'SMTP_TIMEOUT' => '15',
 
     // ── Limits ─────────────────────────────────────────────────────────────────────────────────────────
-    // GET/POST /access/ + /code/ lookups per IP and hour (every attempt counts – against code enumeration)
+    // GET/POST /access/ + /code/ lookups per IP and hour (every attempt counts – against code enumeration); 0 = no limit.
+    // Default of the runtime setting lookup_limit_per_hour (admin app → Settings; a stored value wins)
     'ACCESS_MAX_PER_IP_HOUR' => '120',
+    // QR scans per client IP and hour (GET /code/?scan=1 from the qr app, trusted proxy; own bucket). Events share one
+    // IP, so keep it high; 0 = no limit. Default of the runtime setting scan_limit_per_hour (admin app → Settings)
+    'SCAN_MAX_PER_IP_HOUR' => '1000',
     'LOGIN_TTL_MINUTES' => '30',
     'LOGIN_MAX_ATTEMPTS' => '5',
     'LOGIN_MAX_PER_EMAIL_HOUR' => '5',

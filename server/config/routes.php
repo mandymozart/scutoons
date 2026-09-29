@@ -16,10 +16,12 @@ use Scutoons\Domain\RateLimit\RateLimiter;
 use Scutoons\Domain\RequestContext;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Domain\Secrets;
+use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
+use Scutoons\Http\Controllers\Admin\SettingsController;
 use Scutoons\Http\Controllers\Admin\SystemController;
 use Scutoons\Http\Controllers\Admin\UsersController;
 use Scutoons\Http\Controllers\Admin\VersionsController;
@@ -47,13 +49,26 @@ use Slim\Routing\RouteCollectorProxy;
 return static function (App $app): void {
     /** @var Container $c */
     $c = $app->getContainer();
-    $settings = $c->get(Settings::class);
 
-    // Public code lookups: every attempt counts against a per-IP limit (code enumeration)
+    // Public code lookups: every attempt counts against a per-IP limit (code enumeration). The limits are runtime
+    // settings (admin app → Settings; 0 = no limit). QR scans (GET /code/?scan=1 from the qr app, trusted proxy) have
+    // their own, higher bucket: at an event many people scan over one Wi-Fi, i.e. one public IP.
+    $ipHash = static fn(): string => $c->get(Secrets::class)->hmac($c->get(RequestContext::class)->clientIp());
+    $isScan = static fn(Request $request): bool => ($request->getQueryParams()['scan'] ?? null) === '1'
+        && $c->get(RequestContext::class)->viaTrustedProxy();
     $lookupLimit = new RateLimit(
         $c->get(RateLimiter::class),
-        static fn(Request $request): string => 'lookup:' . $c->get(Secrets::class)->hmac($c->get(RequestContext::class)->clientIp()),
-        $settings->int('ACCESS_MAX_PER_IP_HOUR'),
+        static fn(Request $request): string => 'lookup:' . $ipHash(),
+        static fn(Request $request): int => $c->get(RuntimeSettings::class)->lookupLimitPerHour(),
+        3600,
+        'Too many codes checked – try again later.',
+    );
+    $codeLimit = new RateLimit(
+        $c->get(RateLimiter::class),
+        static fn(Request $request): string => ($isScan($request) ? 'qrscan:' : 'lookup:') . $ipHash(),
+        static fn(Request $request): int => $isScan($request)
+            ? $c->get(RuntimeSettings::class)->scanLimitPerHour()
+            : $c->get(RuntimeSettings::class)->lookupLimitPerHour(),
         3600,
         'Too many codes checked – try again later.',
     );
@@ -78,7 +93,7 @@ return static function (App $app): void {
     $app->put('/api/me', [MeController::class, 'put']);
 
     $app->map(['GET', 'POST'], '/api/access', [AccessController::class, 'access'])->add($lookupLimit);
-    $app->get('/api/code', [AccessController::class, 'code'])->add($lookupLimit);
+    $app->get('/api/code', [AccessController::class, 'code'])->add($codeLimit);
 
     $app->post('/api/inventory/claim', [InventoryController::class, 'claim']);
     $app->post('/api/inventory/craft', [InventoryController::class, 'craft']);
@@ -104,6 +119,8 @@ return static function (App $app): void {
         $admin->get('/catalog', [SystemController::class, 'catalog']);
         $admin->get('/keys', [SystemController::class, 'keys']);
         $admin->get('/versions', VersionsController::class);
+        $admin->get('/settings', [SettingsController::class, 'get']);
+        $admin->put('/settings', [SettingsController::class, 'put']);
 
         $admin->get('/codes', [CodesController::class, 'list']);
         $admin->post('/codes', [CodesController::class, 'create']);

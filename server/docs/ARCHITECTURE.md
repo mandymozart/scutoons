@@ -17,7 +17,7 @@ plain 404 (except the legacy `generate/` SPA until the admin app retires it).
 | 5 | `DeviceId` | fills the domain's `RequestContext`: client IP, valid `X-Device-Id`, `Origin`; from the qr app (trusted proxy: `X-Scutoons-Proxy-Secret` = `QR_PROXY_SECRET`) the forwarded `X-Scutoons-Client-Ip` / `X-Scutoons-Device-Id` instead |
 | 6 | `JsonBody` | keeps the raw body; `JsonBody::of($request)` parses lazily (`400 invalid_json`), `JsonBody::object()` keeps `{}` |
 | 7 | `Session` | `Authorization: Bearer …` → `CurrentSession` attribute; the user is looked up only when asked for |
-| – | route middleware | `RequireRole(admin)` on `/api/admin/*` (401/403 `forbidden { role }`), `RateLimit` on `/api/access/` + `/api/code/` (per IP), `GenerateToken` on the legacy `generate/*.php` |
+| – | route middleware | `RequireRole(admin)` on `/api/admin/*` (401/403 `forbidden { role }`), `RateLimit` on `/api/access/` + `/api/code/` (per IP; qr-app scans in their own bucket; limits = runtime settings, docs/API.md "Rate limits"), `GenerateToken` on the legacy `generate/*.php` |
 
 CORS runs outside the error handler, so error responses carry the CORS headers too.
 

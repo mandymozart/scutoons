@@ -264,7 +264,52 @@ try {
     check($r['status'] === 400 && $r['body']['error'] === 'invalid_toon', 'content: invalid toon → 400', $r);
     $r = call('GET', "$api/content", null, $memberToken);
     check($r['status'] === 403, 'content for a member → 403', $r['status']);
+
+    // Runtime settings + the scan limit, end to end through the qr app (it forwards the client IP, 127.0.0.1 here)
+    echo "\nSettings\n";
+    $r = call('GET', "$api/settings");
+    check($r['status'] === 401, 'settings without a session → 401', $r['status']);
+    $r = call('PUT', "$api/settings", ['scan_limit_per_hour' => 3], $memberToken);
+    check($r['status'] === 403 && $r['body']['error'] === 'forbidden', 'settings update by a member → 403', $r);
+    $r = call('GET', "$api/settings", null, $adminToken);
+    $settingsBefore = array_column((array) ($r['body']['items'] ?? []), null, 'key');
+    check($r['status'] === 200 && isset($settingsBefore['scan_limit_per_hour']['value'], $settingsBefore['lookup_limit_per_hour']['default'])
+        && array_key_exists('updated_by', $settingsBefore['scan_limit_per_hour']), 'GET settings: scan + lookup limit with value, default, last change', $r['body']);
+    $r = call('PUT', "$api/settings", ['scan_limit_per_hour' => -1], $adminToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'invalid_setting', 'negative limit → 400 invalid_setting', $r);
+    $r = call('PUT', "$api/settings", ['scan_limit_per_hour' => 3], $adminToken);
+    $scanSetting = array_column((array) ($r['body']['items'] ?? []), null, 'key')['scan_limit_per_hour'] ?? [];
+    check($r['status'] === 200 && ($scanSetting['value'] ?? null) === 3 && ($scanSetting['updated_by'] ?? null) === "admin:{$admin['email']}",
+        'PUT scan_limit_per_hour = 3 (updated_by = the admin)', $r['body']);
+
+    $secrets = TestContainer::get(Scutoons\Domain\Secrets::class);
+    $scanBuckets = array_map(fn(string $ip) => 'qrscan:' . $secrets->hmac($ip), ['127.0.0.1', '203.0.113.77']);
+    $clearScanBuckets = fn() => Db::run('DELETE FROM rate_limits WHERE bucket IN (?, ?)', $scanBuckets);
+    $clearScanBuckets(); // earlier suites scanned from 127.0.0.1 too
+    $scanCode = call('POST', "$api/codes", ['redirect_to' => 'https://scutoons.com/catpope', 'type' => 'promo'], $adminToken)['body']['code']['code'] ?? null;
+    $statuses = [];
+    for ($i = 0; $i < 4; $i++) $statuses[] = call('GET', "$qrBase/?c=$scanCode");
+    check(array_column(array_slice($statuses, 0, 3), 'status') === [200, 200, 200], 'scans 1–3 through the qr app → 200', array_column($statuses, 'status'));
+    check($statuses[3]['status'] === 429 && str_contains($statuses[3]['raw'], 'Too many codes checked'), 'scan 4 → the qr app\'s 429 page', $statuses[3]['status']);
+    $proxy = ['X-Scutoons-Proxy-Secret: ' . TestContainer::get(Settings::class)->get('QR_PROXY_SECRET'), 'X-Scutoons-Client-Ip: 203.0.113.77'];
+    $r = call('GET', "$base/api/code/?c=$scanCode&scan=1", null, null, $proxy);
+    check($r['status'] === 200, 'another forwarded client IP still scans (own bucket)', $r['status']);
+    $r = call('GET', "$base/api/code/?c=$scanCode");
+    check($r['status'] === 200, 'a direct lookup from the limited IP still works (lookups have their own bucket)', $r['status']);
+    $r = call('PUT', "$api/settings", ['scan_limit_per_hour' => 0], $adminToken);
+    $statuses = [];
+    for ($i = 0; $i < 5; $i++) $statuses[] = call('GET', "$qrBase/?c=$scanCode")['status'];
+    check($r['status'] === 200 && $statuses === [200, 200, 200, 200, 200], 'scan_limit_per_hour = 0 → unlimited', $statuses);
 } finally {
+    // Back to the limits from before the suite, and no test rate-limit rows left
+    if (isset($settingsBefore) && $settingsBefore) {
+        call('PUT', "$api/settings", array_map(fn($s) => $s['stored'] ? $s['value'] : null, $settingsBefore), $adminToken);
+    }
+    if (isset($clearScanBuckets)) $clearScanBuckets();
+    if (isset($scanCode) && is_string($scanCode)) {
+        Db::run('DELETE FROM code_events WHERE code = ?', [$scanCode]);
+        Db::run('DELETE FROM qr WHERE code = ?', [$scanCode]);
+    }
     if (isset($contentToon)) Db::run('DELETE FROM content_versions WHERE toon = ?', [$contentToon]);
     foreach (array_filter([$code, $batch['codes'][0]['code'] ?? null, $batch['codes'][1]['code'] ?? null]) as $c) {
         Db::run('DELETE FROM code_events WHERE code = ?', [$c]);

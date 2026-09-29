@@ -53,7 +53,10 @@
 		"content": "Content",
 		"content_hint": "Toons and chapters in the store",
 		"catalog": "Catalog",
-		"catalog_hint": "Items, editions, permissions"
+		"catalog_hint": "Items, editions, permissions",
+		"group_system": "System",
+		"settings": "Settings",
+		"settings_hint": "Scan and lookup limits"
 	},
 	"palette": {
 		"label": "Command palette",
@@ -375,5 +378,26 @@
 		"version_line": "#{latest} · published #{published} · {versions} versions",
 		"edit": "Edit",
 		"empty": "Nothing stored for this toon yet."
+	},
+	"settings": {
+		"title": "Settings",
+		"meta": "Runtime settings of the API. They apply to the next request, no deploy needed.",
+		"section_limits": "Rate limits",
+		"section_limits_hint": "Per client IP and hour. Every attempt counts. 0 = no limit.",
+		"scan_limit_per_hour": "QR scans per hour",
+		"scan_limit_per_hour_hint": "Scans per hour from one network (the QR landing page). Events share one IP (one Wi-Fi) – keep this high. 0 = no limit.",
+		"lookup_limit_per_hour": "Direct code lookups per hour",
+		"lookup_limit_per_hour_hint": "Codes checked per hour from one IP in the viewer or via the API (/code/, /access/). Low against guessing codes. 0 = no limit.",
+		"current": "Now {value} · default {default}",
+		"unlimited": "no limit",
+		"last_change": "Changed {at} by {by}",
+		"never_changed": "Default (never changed)",
+		"invalid": "A whole number from {min} to {max}.",
+		"reset": "Use default",
+		"save": "Save",
+		"saving": "Saving …",
+		"saved": "Settings saved.",
+		"nothing_changed": "Nothing changed.",
+		"unsaved": "Unsaved changes"
 	}
 }

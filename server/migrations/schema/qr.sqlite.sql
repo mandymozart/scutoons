@@ -122,3 +122,11 @@ CREATE TABLE IF NOT EXISTS code_events (
 CREATE INDEX IF NOT EXISTS code_events_code ON code_events (code, created_at);
 CREATE INDEX IF NOT EXISTS code_events_event ON code_events (event, created_at);
 CREATE INDEX IF NOT EXISTS code_events_dedupe ON code_events (code, event, device_hash, created_at);
+
+-- Runtime settings (migrations/sqlite/2026-09-30-settings.sqlite.sql)
+CREATE TABLE IF NOT EXISTS settings (
+  `key` TEXT NOT NULL PRIMARY KEY,
+  `value` TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  updated_by TEXT NULL DEFAULT NULL
+);

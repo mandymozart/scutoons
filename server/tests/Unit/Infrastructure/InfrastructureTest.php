@@ -32,8 +32,9 @@ final class InfrastructureTest extends TestCase
         $fresh = $this->dir . '/fresh.sqlite';
         $freshRunner = new MigrationRunner(Database::sqlite($fresh), self::root() . '/migrations');
         self::assertTrue($freshRunner->needsBaseSchema());
-        self::assertCount(5, $freshRunner->migrate(static fn() => null));
+        self::assertSame($freshRunner->files(), $freshRunner->migrate(static fn() => null), 'every migration runs on the base schema');
         self::assertTrue($freshRunner->tableExists('content_versions'));
+        self::assertTrue($freshRunner->tableExists('settings'));
     }
 
     public function testFileStoreWhitelist(): void

@@ -44,6 +44,6 @@ locally, import the file in phpMyAdmin; edition numbers → copy `storage/files/
 
 In phpMyAdmin, in this order (all idempotent): `2026-09-29-accounts-inventory.mysql.sql`,
 `2026-09-30-code-owner-guard.mysql.sql` (delimiter `$$`), `2026-09-30-revoke-events.mysql.sql`,
-`2026-09-30-roles-signup.mysql.sql`, `2026-09-30-content-versions.mysql.sql`; then the content seed and the
+`2026-09-30-roles-signup.mysql.sql`, `2026-09-30-content-versions.mysql.sql`, `2026-09-30-settings.mysql.sql`; then the content seed and the
 edition-number backfill above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

@@ -32,6 +32,8 @@ export {
 	type AdminContentIndex,
 	type AdminEventRow,
 	type AdminKeys,
+	type AdminSetting,
+	type AdminSettings,
 	type AdminUserDetail,
 	type AdminUserRow,
 	type BatchManifest,

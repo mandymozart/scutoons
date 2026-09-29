@@ -425,6 +425,23 @@ Also platform P3: `GET /health/` returns `{ status, db, version, git_sha, built_
 `scan` event only for the qr app (trusted proxy: `X-Scutoons-Proxy-Secret` = `QR_PROXY_SECRET`, which also lets it
 forward `X-Scutoons-Client-Ip` / `X-Scutoons-Device-Id`); for everyone else `scan` is ignored.
 
+### Settings (runtime, 2026-09-30)
+
+Values the owner changes without a deploy (table `settings`: `key`, `value` JSON, `updated_at`, `updated_by`). A stored
+value wins; without a row the config value is the default. Read once per request (`Domain\Settings\RuntimeSettings`).
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/settings` | – | `{ status, items: [{ key, value, default, min, max, stored, updated_at, updated_by }] }` (`updated_at` ISO 8601 UTC, `updated_by` = `admin:<email>` of the last change, both null while nothing is stored) |
+| PUT | `/admin/settings` | `{ <key>: int\|null, … }` or `{ settings: { … } }` – integer `min…max`, `null` = back to the default (row removed) | `{ status, changed: [keys], items }` – all validated first, only changed values written · `400 invalid_setting { key, min, max }\|unknown_setting { settings }\|invalid_settings` (empty body) |
+
+| Key | Default (config) | What |
+|---|---|---|
+| `scan_limit_per_hour` | `SCAN_MAX_PER_IP_HOUR` = 1000 | QR scans per client IP and hour: `GET /code/?c=&scan=1` from the qr app (trusted proxy, forwarded IP), own bucket `qrscan:<ip hash>`. Events share one IP – keep it high. 0 = no limit |
+| `lookup_limit_per_hour` | `ACCESS_MAX_PER_IP_HOUR` = 120 | direct `/code/` + `/access/` lookups per IP and hour (bucket `lookup:<ip hash>`). 0 = no limit |
+
+Over a limit: `429 rate_limited { retry_after: 3600 }`; the qr app shows its rate-limited page (429). Range 0…1000000.
+
 ### Content (read-only overview, platform P2a)
 
 The admin app lists the content store without the `creator` role; editing stays in the creator.

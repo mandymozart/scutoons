@@ -513,3 +513,21 @@ are the fallback and the seed.
 - PowerShell gotchas: `git commit -m @'…'@` with quotes breaks native arg passing → use `-F <file>` (ASCII/UTF-8
   without BOM; `Set-Content -Encoding utf8` writes a BOM into the message). `[IO.File]` paths are relative to the
   process cwd, not the PowerShell location – use absolute paths.
+
+## Runtime settings + scan limit
+
+2026-09-29 — owner requirement: the QR scan limit is a setting in the admin (details: ITEMS.md "Admin API" → Settings,
+server/docs/API.md "Rate limits").
+- Table `settings` (`key`, JSON `value`, `updated_at`, `updated_by` = `admin:<email>`), migration
+  `2026-09-30-settings` (dated after `roles-signup` so it sorts last; in the cutover list). Service
+  `server/src/Domain/Settings/RuntimeSettings.php`: stored value wins, else config (`SCAN_MAX_PER_IP_HOUR` 1000,
+  `ACCESS_MAX_PER_IP_HOUR` 120); rows read once per request; a missing table = defaults (production before the
+  migration keeps working). `0` = no limit (nothing counted). Admin page `admin/src/routes/settings` (nav group System).
+- Buckets: `qrscan:<ip hash>` for `/code/?scan=1` through the trusted qr proxy, `lookup:<ip hash>` for direct
+  `/code/` + `/access/`. Not `scan:` – `InventoryService` already uses `scan:<userId>:<item>` for scan-grant cooldowns.
+- Locally, curl `http://localhost:9001/…` reaches the qr app as `::1`, so the forwarded client IP (and the bucket) is
+  `::1`, not 127.0.0.1. `run-contract.php` migrates the DB copy and deletes its stored settings (a stored value would
+  override the suites' env limits); admin-smoke sets the scan limit to 3 → 4th scan via qr = 429 page, another
+  forwarded IP 200, 0 = unlimited, then restores the previous values and deletes its `qrscan:` rows.
+- Verified 2026-09-29 on the dev stack: admin UI scan limit 3 → `?c=membership_test` 200/200/200/429 → back to 1000 in
+  the UI → 200. Local SQLite backup before the migration: `server/db/local.sqlite.bak-2026-09-29-settings`.

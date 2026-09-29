@@ -273,6 +273,28 @@ export interface AdminContentIndex {
 	files: AdminContentFile[];
 }
 
+/** A runtime setting (table `settings`), see ITEMS.md "Admin API" → Settings. 0 = no limit for the limits. */
+export interface AdminSetting {
+	key: 'scan_limit_per_hour' | 'lookup_limit_per_hour' | (string & {});
+	value: number;
+	/** the config value used when nothing is stored */
+	default: number;
+	min: number;
+	max: number;
+	/** a value is stored (else the default applies) */
+	stored: boolean;
+	updated_at: string | null;
+	/** `admin:<email>` of the last change */
+	updated_by: string | null;
+}
+
+export interface AdminSettings {
+	status: 'success';
+	items: AdminSetting[];
+	/** PUT only: the keys that changed */
+	changed?: string[];
+}
+
 /** `?a=1&b=x` from params (empty / null / undefined dropped) */
 export function toQuery(params: ListParams = {}): string {
 	const search = new URLSearchParams();
@@ -340,6 +362,10 @@ export function createAdminApi(api: ApiClient) {
 		listEvents: (params: ListParams = {}) => api.get<ListResult<AdminEventRow>>(`/admin/events${toQuery(params)}`),
 		catalog: () => api.get<AdminCatalog>('/admin/catalog'),
 		keys: () => api.get<AdminKeys>('/admin/keys'),
-		content: (params: { toon?: string } = {}) => api.get<AdminContentIndex>(`/admin/content${toQuery(params)}`)
+		content: (params: { toon?: string } = {}) => api.get<AdminContentIndex>(`/admin/content${toQuery(params)}`),
+
+		settings: () => api.get<AdminSettings>('/admin/settings'),
+		/** key → whole number (min…max), or null = back to the default */
+		saveSettings: (values: Record<string, number | null>) => api.put<AdminSettings>('/admin/settings', values)
 	};
 }

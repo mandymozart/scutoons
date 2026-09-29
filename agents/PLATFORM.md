@@ -87,7 +87,8 @@ styled by `@scutoons/tokens` + `@scutoons/ui` (square, ink/paper, mono, cyan onl
 
 Sections: Dashboard (scans, unlocks, claims, signups per day/edition) · Codes (table, filters, detail timeline, revoke)
 · Batches (port of generate: sign, QR SVG, certificate PDF, sticker sheet, ZIP) · Users & roles · Content (versions,
-publish state per toon/chapter) · Catalog (items, editions, permissions map read-only view) · Events log.
+publish state per toon/chapter) · Catalog (items, editions, permissions map read-only view) · Events log · Settings
+(runtime settings: QR scan limit + lookup limit per IP and hour, `GET/PUT /api/admin/settings`).
 
 ## Creator app (creator.scutoons.com) — standalone (2026-09-30, owner)
 
@@ -597,7 +598,8 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 **3. Database** (phpMyAdmin, same MySQL database)
 - Compare `server/migrations/mysql/*.sql` with the `schema_migrations` table and run the missing files in file-name order
   (`2026-09-29-accounts-inventory`, `2026-09-30-code-owner-guard`, `2026-09-30-content-versions`,
-  `2026-09-30-revoke-events`, `2026-09-30-roles-signup`), then the seeds if not done: edition numbers
+  `2026-09-30-revoke-events`, `2026-09-30-roles-signup`, `2026-09-30-settings` – runtime settings table for the
+  admin's Settings page; without it the API uses the config defaults: scans 1000/h, lookups 120/h), then the seeds if not done: edition numbers
   (`php bin/console backfill-edition-numbers --sql` locally → run the output) and the content store
   (`php bin/console import-content <viewer/static/api> --sql`). server/docs/DATABASE.md.
 

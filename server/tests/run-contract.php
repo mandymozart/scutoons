@@ -5,10 +5,11 @@
  *
  *   php tests/run-contract.php [--port=9180] [--keep]
  *
- * 1. copies DB_SQLITE_PATH (config.local.php) to a temp file and adds an expired and a revoked code to the copy
+ * 1. copies DB_SQLITE_PATH (config.local.php) to a temp file, migrates the copy, drops its stored runtime settings and
+ *    adds an expired and a revoked code to it
  * 2. starts the API `php -S 127.0.0.1:<port> -t public public/router.php` (QR_DB_SQLITE_PATH = the copy, a random
  *    QR_PROXY_SECRET) and the qr app (../qr) in front of it: <port+1> full API proxied, <port+2> PROXY_FULL_API=0,
- *    <port+3> with its API down (fallback page), <port+4> in front of a second API (<port+5>) with a lookup limit of 1
+ *    <port+3> with its API down (fallback page), <port+4> in front of a second API (<port+5>) with lookup + scan limit 1
  * 3. runs api-smoke, content-smoke, claim-race (claim + signup), admin-smoke against the API and the printed-URL suite
  *    (../qr/tests/public-urls.php) against the qr app
  * 4. stops the servers and deletes the copy and the qr caches (--keep keeps the copy and prints its path)
@@ -43,11 +44,18 @@ $copy = str_replace('\\', '/', sys_get_temp_dir()) . '/scutoons-contract-' . get
 copy($source, $copy);
 echo "Database copy: $copy (from $source)\n";
 
+$copyDb = Scutoons\Infrastructure\Database\Database::sqlite($copy);
+(new Scutoons\Infrastructure\Database\MigrationRunner($copyDb, $root . '/migrations'))->migrate(static fn() => null);
+$copyDb->close();
+$copyDb = null;
+
 // The printed-URL suite needs an expired and a revoked code (the local database may have none): only in the copy
 $pdo = new PDO('sqlite:' . $copy);
 $insert = $pdo->prepare("INSERT OR IGNORE INTO qr (id, code, redirect_to, type, email, created_at, expires_at, revoked_at, revoked_reason) VALUES (?, ?, 'https://scutoons.com/catpope', 'membership', '', ?, ?, ?, ?)");
 $insert->execute(['contract-expired', 'contractExpired1', '2020-01-01 00:00:00', '2020-01-02 00:00:00', null, null]);
 $insert->execute(['contract-revoked', 'contractRevoked1', '2020-01-01 00:00:00', null, '2020-01-03 00:00:00', 'contract suite']);
+// Stored runtime settings (admin app → Settings) would override the limits below: the copy starts with the defaults
+$pdo->exec('DELETE FROM settings');
 $pdo = null;
 
 $qrRoot = dirname($root) . '/qr';
@@ -57,6 +65,7 @@ $env = getenv() + [];
 $env['QR_DB_SQLITE_PATH'] = $copy;
 $env['QR_QR_PROXY_SECRET'] = $secret;          // the API trusts the qr app's forwarded client IP / device id
 $env['QR_ACCESS_MAX_PER_IP_HOUR'] = '100000';  // every suite runs from 127.0.0.1
+$env['QR_SCAN_MAX_PER_IP_HOUR'] = '100000';    // (admin-smoke sets the scan limit to 3 and back through the admin API)
 $servers = [];
 $start = function (int $port, array $extraEnv, string $dir = '', string $ready = '/api/health/') use ($root, $env, &$servers): void {
     $dir = $dir !== '' ? $dir : $root;
@@ -83,7 +92,7 @@ try {
     // API :port (+ a copy with a tiny lookup limit on :port+5); the qr app on :port+1 (full API proxied), :port+2
     // (PROXY_FULL_API=0), :port+3 (its API is down, same cache as :port+1), :port+4 (in front of the limited API)
     $start($port, []);
-    $start($port + 5, ['QR_ACCESS_MAX_PER_IP_HOUR' => '1']);
+    $start($port + 5, ['QR_ACCESS_MAX_PER_IP_HOUR' => '1', 'QR_SCAN_MAX_PER_IP_HOUR' => '1']);
     $start($port + 1, $qr($port, 'cache'), $qrRoot, '/version.json');
     $start($port + 2, $qr($port, 'cache-off', ['QRAPP_PROXY_FULL_API' => '0']), $qrRoot, '/version.json');
     $start($port + 3, $qr(1, 'cache'), $qrRoot, '/version.json');

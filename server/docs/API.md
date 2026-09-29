@@ -34,7 +34,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET | `/me/` | Bearer | `{ user, access, memberships, inventory, avatar }` – `user: { id, email, created_at, roles, marketing_opt_in }`, `access: { permissions, unlocked, expires_at, codes, signup_code, access_token? }` (owned codes + the valid signup code) |
 | PUT | `/me/` | Bearer | `{ marketing_opt_in: bool }` → `{ status, user }` · `400 invalid_body` |
 | GET/POST | `/access/` | optional | `{ code }` / `?c=` → device access: `type, expires_at, permissions, claimable, signup, claimed, claimed_by_me?, access_token?` (never the owner); per-IP limit; logs `access`; send `X-Device-Id` |
-| GET | `/code/?c=CODE` | optional | items/options/edition, `claimable`, `signup` of a code, `claimed_by_me` when signed in; per-IP limit |
+| GET | `/code/?c=CODE` | optional | items/options/edition, `claimable`, `signup` of a code, `claimed_by_me` when signed in; per-IP limit (`&scan=1` from the qr app: logs a `scan`, own per-IP scan limit – see "Rate limits") |
 | POST | `/inventory/claim/` | Bearer | `{ code, item_id?, variant? }` |
 | POST | `/inventory/craft/` | Bearer | `{ recipe_id }` |
 | POST | `/inventory/grant/` | Bearer | `{ item_id, source:"story"\|"scan", ref? }` |
@@ -74,6 +74,7 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET | `/events` | activity log (filters code, event list, edition_id, toon, from, to) |
 | GET | `/catalog` · `/keys` | items, editions, toons, permissions map (read-only) · the ML-DSA-65 keypair for client-side signing |
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
+| GET/PUT | `/settings` | runtime settings (table `settings`): `GET` → `{ status, items: [{ key, value, default, min, max, stored, updated_at, updated_by }] }`; `PUT { key: int\|null, … }` (or `{ settings: {…} }`) → `{ status, changed, items }` – integer `min…max` (0…1000000), `null` = back to the config default; only changed values are written, `updated_by` = `admin:<email>` · `400 invalid_setting { key, min, max }\|unknown_setting { settings }\|invalid_settings`. Keys: `scan_limit_per_hour`, `lookup_limit_per_hour` (see "Rate limits") |
 | GET | `/versions` | the deployed version of every app: `{ status, checked_at, api: { app, version, git_sha, built_at }, apps: [{ app, url, ok, http_status, version?, git_sha?, built_at?, shared?, error? }] }` – each app's `version.json` (`VERSION_URLS`) fetched in parallel, 4 s timeout (platform P3) |
 
 The legacy `generate/*.php` endpoints (static token `X-Generate-Token`) stay for the `generate/` SPA until the admin
@@ -103,7 +104,22 @@ app has parity; they call the same services.
 Tests: `tests/api-smoke.php` and `tests/claim-race.php [n] [claim|signup|both]` (n processes claim one code at once →
 exactly one owner; n fresh emails sign up with one product code at once → exactly one account, owning it). `/access/`
 + `/code/` share a per-IP limit (120/hour) – `composer test` works on a fresh DB copy each run; against the dev DB use
-`DELETE FROM rate_limits WHERE bucket LIKE 'lookup:%'` or raise `ACCESS_MAX_PER_IP_HOUR` in config.local.php.
+`DELETE FROM rate_limits WHERE bucket LIKE 'lookup:%'` or raise the limit (admin app → Settings).
+
+### Rate limits (code lookups, QR scans)
+
+Every attempt counts (also unknown codes – against code enumeration); over the limit → `429 rate_limited
+{ retry_after: 3600 }`, and the qr app shows its "Too many codes checked" page (429). Per client IP and hour, in two
+buckets of `rate_limits`:
+
+| Bucket | Counts | Limit (runtime setting → config default) |
+|---|---|---|
+| `lookup:<ip hash>` | direct `/access/` + `/code/` calls (viewer, API) | `lookup_limit_per_hour` → `ACCESS_MAX_PER_IP_HOUR` (120) |
+| `qrscan:<ip hash>` | `/code/?scan=1` from the qr app (trusted proxy, forwarded client IP) = QR landing-page scans | `scan_limit_per_hour` → `SCAN_MAX_PER_IP_HOUR` (1000) |
+
+Scans have their own, higher limit because at an event everybody scans over one Wi-Fi (one public IP). `0` = no limit
+(nothing is counted). The owner changes both in the admin app (Settings → `PUT /api/admin/settings`); a stored value
+applies to the next request. `scan=1` without the proxy secret is an ordinary lookup.
 
 ## Permissions map – how to change what a code type unlocks
 
