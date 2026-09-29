@@ -1,0 +1,173 @@
+{
+	"moods": [
+		{
+			"id": "neutral",
+			"label": {
+				"de": "neutral",
+				"en": "neutral"
+			},
+			"standard": true,
+			"order": 1
+		},
+		{
+			"id": "happy",
+			"label": {
+				"de": "fröhlich",
+				"en": "happy"
+			},
+			"standard": true,
+			"order": 2
+		},
+		{
+			"id": "laughing",
+			"label": {
+				"de": "lachend",
+				"en": "laughing"
+			},
+			"standard": true,
+			"order": 3
+		},
+		{
+			"id": "sad",
+			"label": {
+				"de": "traurig",
+				"en": "sad"
+			},
+			"standard": true,
+			"order": 4
+		},
+		{
+			"id": "crying",
+			"label": {
+				"de": "weinend",
+				"en": "crying"
+			},
+			"standard": true,
+			"order": 5
+		},
+		{
+			"id": "angry",
+			"label": {
+				"de": "verärgert",
+				"en": "angry"
+			},
+			"standard": true,
+			"order": 6
+		},
+		{
+			"id": "furious",
+			"label": {
+				"de": "wütend",
+				"en": "furious"
+			},
+			"standard": true,
+			"order": 7
+		},
+		{
+			"id": "surprised",
+			"label": {
+				"de": "überrascht",
+				"en": "surprised"
+			},
+			"standard": true,
+			"order": 8
+		},
+		{
+			"id": "scared",
+			"label": {
+				"de": "verängstigt",
+				"en": "scared"
+			},
+			"standard": true,
+			"order": 9
+		},
+		{
+			"id": "disgusted",
+			"label": {
+				"de": "angeekelt",
+				"en": "disgusted"
+			},
+			"standard": true,
+			"order": 10
+		},
+		{
+			"id": "confused",
+			"label": {
+				"de": "verwirrt",
+				"en": "confused"
+			},
+			"standard": true,
+			"order": 11
+		},
+		{
+			"id": "thinking",
+			"label": {
+				"de": "nachdenklich",
+				"en": "thinking"
+			},
+			"standard": true,
+			"order": 12
+		},
+		{
+			"id": "smug",
+			"label": {
+				"de": "selbstgefällig",
+				"en": "smug"
+			},
+			"standard": true,
+			"order": 13
+		},
+		{
+			"id": "embarrassed",
+			"label": {
+				"de": "verlegen",
+				"en": "embarrassed"
+			},
+			"standard": true,
+			"order": 14
+		},
+		{
+			"id": "denial",
+			"label": {
+				"de": "Leugnen",
+				"en": "denial"
+			},
+			"standard": true,
+			"order": 15
+		},
+		{
+			"id": "bargaining",
+			"label": {
+				"de": "Verhandeln",
+				"en": "bargaining"
+			},
+			"standard": true,
+			"order": 16
+		},
+		{
+			"id": "acceptance",
+			"label": {
+				"de": "Akzeptanz",
+				"en": "acceptance"
+			},
+			"standard": true,
+			"order": 17
+		},
+		{
+			"id": "dizzy",
+			"label": {
+				"de": "benommen",
+				"en": "dizzy"
+			},
+			"order": 18
+		},
+		{
+			"id": "tripping",
+			"label": {
+				"de": "auf Trip",
+				"en": "tripping"
+			},
+			"order": 19
+		}
+	]
+}

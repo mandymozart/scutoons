@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { DEFAULT_MOOD, legacyCharacterImage } from '@scutoons/content';
+	import { DEFAULT_MOOD, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
 
 	let {
 		charRef,
@@ -19,8 +19,8 @@
 		const variant = 'full';
 		const mood = charRef.mood || DEFAULT_MOOD;
 
-		// look + mood → the look's neutral → the default look → the first look with images → the legacy image
-		const path = legacyCharacterImage(character, mood, variant, charRef.look);
+		// a look transition image (shown briefly), else the fallback rule (resolveExpression in @scutoons/content)
+		const path = charRef.transition || legacyCharacterImage(character, { persona: charRef.persona, look: charRef.look, mood }, variant);
 
 		if (!path) {
 			console.error(
@@ -36,7 +36,7 @@
 </script>
 
 <div class="character-full" class:active={isActive}>
-	<img src={imageUrl} alt={character.label} />
+	<img src={imageUrl} alt={legacyCharacterLabel(character, charRef.persona)} />
 </div>
 
 <style>

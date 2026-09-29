@@ -497,7 +497,12 @@
 									"type": "string"
 								},
 								"character": {
-									"type": "string"
+									"type": "string",
+									"description": "the speaking character's id"
+								},
+								"persona": {
+									"type": "string",
+									"description": "the speaker's persona (none = regular)"
 								},
 								"wait": {
 									"type": "boolean"
@@ -856,6 +861,10 @@
 				"name": {
 					"type": "string"
 				},
+				"persona": {
+					"type": "string",
+					"description": "a persona of the character (none = `regular`)"
+				},
 				"position": {
 					"type": "object",
 					"properties": {
@@ -870,7 +879,8 @@
 					},
 					"required": [
 						"variant"
-					]
+					],
+					"description": "`variant` = the view (avatar / portrait / full)"
 				},
 				"mood": {
 					"type": "string"
@@ -878,11 +888,16 @@
 				"look": {
 					"type": "string",
 					"description": "a look of the character (e.g. `helmet`); none = its default look"
+				},
+				"transition": {
+					"type": "string",
+					"description": "set by the reader while a look changes (a transition image shown briefly) – never authored"
 				}
 			},
 			"required": [
 				"name"
-			]
+			],
+			"description": "A character in a scene: `name` = the character id (legacy refs with only a name = the regular persona), optional `persona`, `look` and `mood`; `position.variant` = the view (avatar / portrait / full). The same character may be in a scene with several personas (Cat Pope meets Cat Pope · Biker): the scene key is name + persona."
 		},
 		"JumpToTarget": {
 			"type": "object",
@@ -954,7 +969,12 @@
 							"type": "string"
 						},
 						"character": {
-							"type": "string"
+							"type": "string",
+							"description": "the speaking character's id"
+						},
+						"persona": {
+							"type": "string",
+							"description": "the speaker's persona (none = regular)"
 						},
 						"wait": {
 							"type": "boolean"

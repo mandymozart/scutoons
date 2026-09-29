@@ -1,12 +1,19 @@
 {
-	"members": [
-		{
-			"character": "yellowmouse",
-			"order": 1
-		},
-		{
-			"character": "yellowmouse-biker",
-			"order": 2
-		}
-	]
+	"seasons": {
+		"1": [
+			{
+				"character": "catpope",
+				"personas": [
+					"regular",
+					"biker"
+				]
+			},
+			{
+				"character": "yellowmouse",
+				"personas": [
+					"regular"
+				]
+			}
+		]
+	}
 }

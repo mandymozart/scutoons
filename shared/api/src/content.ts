@@ -143,7 +143,7 @@ export function createContentApi({ client, staticBase }: ContentApiOptions) {
 			fetchContent(fetchFn, CREDITS_SCOPE, NEUTRAL_LOCALE, CHARACTERS_FILE, options).then((r) => jsonOf<CharacterRegistry>(r)),
 			fetchContent(fetchFn, toon, NEUTRAL_LOCALE, CAST_FILE, options).then((r) => jsonOf<ToonCast>(r))
 		]);
-		if (registry && Array.isArray(registry.characters) && cast && Array.isArray(cast.members)) {
+		if (registry && Array.isArray(registry.characters) && cast && cast.seasons && typeof cast.seasons === 'object') {
 			return { source: 'store', characters: resolveCast(registry, cast, toon, locale, { fallbacks: options.fallbacks }) };
 		}
 		const legacy = await jsonOf<Character[]>(await fetchFn(`${staticRoot()}/${toon}/${locale}/${LEGACY_CHARACTERS_FILE}`).catch(() => new Response(null, { status: 404 })));

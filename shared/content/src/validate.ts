@@ -11,7 +11,7 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
-import { EXTRA_MOODS, MOODS, isKnownMood } from './characters.ts';
+import { REGULAR_PERSONA } from './characters.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -47,12 +47,14 @@ export interface ValidateContext {
 	file: string;
 	/** chapter audio config (for slice music/sample ids) */
 	audio?: any;
-	/** character names the chapter may use: the toon's cast (or the names of the legacy characters.json) */
+	/** character names of the legacy characters.json (when the toon has no cast in the store) */
 	characters?: string[];
-	/** every character id of the registry (a name in the registry but not in `characters` = "not in the cast") */
-	registry?: string[];
-	/** look ids per character (joinScene `look`) */
-	looks?: Record<string, string[]>;
+	/** the season's cast: character id → persona ids (`castIndex` in characters.ts) */
+	cast?: Record<string, string[]>;
+	/** the registry: character id → persona → { defaultLook, looks: look → moods with a portrait } (`expressionIndex`) */
+	expressions?: Record<string, Record<string, { defaultLook: string; looks: Record<string, string[]> }>>;
+	/** the mood vocabulary's ids */
+	moods?: string[];
 	/**
 	 * chapter files: the status of this chapter in the season of the same locale (the source of its visibility);
 	 * null = the season's sequence doesn't have the chapter; undefined = season not known (no check)
@@ -140,8 +142,37 @@ function checkTarget(c: Collector, target: any, path: Path) {
 	if (target.value === undefined || target.value === '') c.error([...path, 'value'], 'target.value is missing');
 }
 
-function unknownCharacter(name: string, ctx: ValidateContext) {
-	return ctx.registry?.includes(name) ? `character "${name}" is not in the toon's cast` : `unknown character "${name}"`;
+/** Character / persona / look / mood of a VN character reference against the season's cast and the registry. */
+function checkCharacterRef(c: Collector, ref: { name?: unknown; persona?: unknown; look?: unknown; mood?: unknown }, path: Path, ctx: ValidateContext, key: string) {
+	const name = ref.name;
+	if (!isStr(name) || !name) return;
+	const persona = isStr(ref.persona) && ref.persona ? ref.persona : REGULAR_PERSONA;
+	if (ctx.cast) {
+		if (!ctx.cast[name]) {
+			c.warn([...path, key], ctx.expressions?.[name] ? `character "${name}" is not in this season's cast` : `unknown character "${name}"`);
+			return;
+		}
+	} else if (ctx.characters && !ctx.characters.includes(name)) {
+		c.warn([...path, key], `unknown character "${name}"`);
+		return;
+	}
+	const personas = ctx.expressions?.[name];
+	if (!personas) return;
+	const p = personas[persona];
+	if (!p) {
+		c.warn([...path, 'persona'], `${name} has no persona "${persona}" (${Object.keys(personas).join(', ')})`);
+		return;
+	}
+	if (ctx.cast?.[name] && !ctx.cast[name].includes(persona)) c.warn([...path, 'persona'], `${name} · ${persona} is not in this season's cast`);
+	const look = isStr(ref.look) && ref.look ? ref.look : p.defaultLook;
+	if (!p.looks[look]) {
+		c.warn([...path, 'look'], `${name}${persona === REGULAR_PERSONA ? '' : ` · ${persona}`} has no look "${look}" (${Object.keys(p.looks).join(', ')}) – the reader shows the default look`);
+		return;
+	}
+	if (isStr(ref.mood) && ref.mood) {
+		if (ctx.moods && !ctx.moods.includes(ref.mood)) c.warn([...path, 'mood'], `mood "${ref.mood}" is not in the mood vocabulary – the reader shows neutral`);
+		else if (!p.looks[look].includes(ref.mood)) c.warn([...path, 'mood'], `${name} (${look}) has no "${ref.mood}" image – falls back to neutral`);
+	}
 }
 
 export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContext, sliceEvent: boolean) {
@@ -155,9 +186,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 	switch (e.type) {
 		case 'showMessage':
 			if (!isObj(p) || !isStr(p.text)) c.error([...pp, 'text'], 'showMessage needs params.text');
-			if (isObj(p) && p.character && ctx.characters && !ctx.characters.includes(p.character)) {
-				c.warn([...pp, 'character'], unknownCharacter(p.character, ctx));
-			}
+			if (isObj(p) && p.character) checkCharacterRef(c, { name: p.character, persona: p.persona }, pp, ctx, 'character');
 			break;
 		case 'addChoice':
 			if (!isObj(p) || !isStr(p.label)) c.error([...pp, 'label'], 'addChoice needs params.label');
@@ -173,13 +202,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			else
 				p.characters.forEach((ch: any, i: number) => {
 					if (!isObj(ch) || !isStr(ch.name)) c.error([...pp, 'characters', i, 'name'], 'character needs a name');
-					else if (ctx.characters && !ctx.characters.includes(ch.name)) c.warn([...pp, 'characters', i, 'name'], unknownCharacter(ch.name, ctx));
-					if (isObj(ch) && isStr(ch.look) && ch.look && isStr(ch.name) && ctx.looks?.[ch.name] && !ctx.looks[ch.name].includes(ch.look)) {
-						c.warn([...pp, 'characters', i, 'look'], `${ch.name} has no look "${ch.look}" (${ctx.looks[ch.name].join(', ')}) – the reader shows the default look`);
-					}
-					if (isObj(ch) && ch.mood !== undefined && ch.mood !== '' && !isKnownMood(ch.mood)) {
-						c.warn([...pp, 'characters', i, 'mood'], `mood "${ch.mood}" is not one of ${[...MOODS, ...EXTRA_MOODS].join(', ')} – the reader shows neutral`);
-					}
+					else checkCharacterRef(c, e.type === 'joinScene' ? ch : { name: ch.name, persona: ch.persona }, [...pp, 'characters', i], ctx, 'name');
 					if (ch?.position?.variant && !CHARACTER_VARIANTS.includes(ch.position.variant)) {
 						c.error([...pp, 'characters', i, 'position'], 'position.variant must be avatar, full or portrait');
 					}

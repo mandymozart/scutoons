@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { DEFAULT_MOOD, legacyCharacterImage } from '@scutoons/content';
+	import { DEFAULT_MOOD, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
 
 	const Z_INDEX_MESSAGE_BOX = 100;
 	const Z_INDEX_ACTIVE_CHARACTER = 101;
@@ -26,8 +26,8 @@
 
 		const mood = charRef.mood || DEFAULT_MOOD;
 		// moods: MOODS of @scutoons/content (neutral = the fallback)
-		// look + mood → the look's neutral → the default look → the first look with images → the legacy image
-		const path = legacyCharacterImage(character, mood, variant, charRef.look);
+		// a look transition image (shown briefly), else the fallback rule (resolveExpression in @scutoons/content)
+		const path = charRef.transition || legacyCharacterImage(character, { persona: charRef.persona, look: charRef.look, mood }, variant);
 
 		if (!path) {
 			console.error(
@@ -49,7 +49,7 @@
 	style:z-index={isActive ? Z_INDEX_ACTIVE_CHARACTER : Z_INDEX_INACTIVE_BASE - stackPosition}
 	style:background-color={character.color}
 >
-	<img src={imageUrl} alt={character.label} />
+	<img src={imageUrl} alt={legacyCharacterLabel(character, charRef.persona)} />
 </div>
 
 <style>

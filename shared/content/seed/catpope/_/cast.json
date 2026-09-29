@@ -1,32 +1,43 @@
 {
-	"members": [
-		{
-			"character": "catpope",
-			"order": 1
-		},
-		{
-			"character": "plf",
-			"order": 2
-		},
-		{
-			"character": "cat",
-			"order": 3
-		},
-		{
-			"character": "boy",
-			"order": 4
-		},
-		{
-			"character": "crows",
-			"order": 5
-		},
-		{
-			"character": "mountain-tiger",
-			"order": 6
-		},
-		{
-			"character": "catpope-biker",
-			"order": 7
-		}
-	]
+	"seasons": {
+		"1": [
+			{
+				"character": "catpope",
+				"personas": [
+					"regular",
+					"human"
+				]
+			},
+			{
+				"character": "plf",
+				"personas": [
+					"regular"
+				]
+			},
+			{
+				"character": "cat",
+				"personas": [
+					"regular"
+				]
+			},
+			{
+				"character": "boy",
+				"personas": [
+					"regular"
+				]
+			},
+			{
+				"character": "crows",
+				"personas": [
+					"regular"
+				]
+			},
+			{
+				"character": "mountain-tiger",
+				"personas": [
+					"regular"
+				]
+			}
+		]
+	}
 }

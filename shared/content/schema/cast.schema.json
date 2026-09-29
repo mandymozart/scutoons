@@ -7,38 +7,45 @@
 		"ToonCast": {
 			"type": "object",
 			"properties": {
-				"members": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/CastMember"
+				"seasons": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "array",
+						"items": {
+							"$ref": "#/definitions/CastEntry"
+						}
 					}
 				}
 			},
 			"required": [
-				"members"
+				"seasons"
 			],
-			"description": "`<toon>/_/cast.json`"
+			"description": "`<toon>/_/cast.json` – per season (key = season number), in display order"
 		},
-		"CastMember": {
+		"CastEntry": {
 			"type": "object",
 			"properties": {
 				"character": {
 					"type": "string",
 					"description": "registry id"
 				},
+				"personas": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "persona ids (`regular` …)"
+				},
 				"role": {
 					"$ref": "#/definitions/LocaleText",
 					"description": "the character's role in this toon, per locale (e.g. \"Erzähler\" / \"Narrator\")"
-				},
-				"order": {
-					"type": "number",
-					"description": "display order (ascending)"
 				}
 			},
 			"required": [
 				"character",
-				"order"
-			]
+				"personas"
+			],
+			"description": "A character in a season's cast, with the personas that appear in that season."
 		},
 		"LocaleText": {
 			"type": "object",

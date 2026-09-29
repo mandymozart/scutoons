@@ -1,8 +1,12 @@
 {
-	"members": [
-		{
-			"character": "toptoy",
-			"order": 1
-		}
-	]
+	"seasons": {
+		"1": [
+			{
+				"character": "toptoy",
+				"personas": [
+					"regular"
+				]
+			}
+		]
+	}
 }

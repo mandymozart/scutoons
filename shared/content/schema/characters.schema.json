@@ -28,14 +28,14 @@
 				},
 				"name": {
 					"$ref": "#/definitions/LocaleText",
-					"description": "display name per locale (the VN speaker plate); a persona without one uses its base's name"
+					"description": "display name per locale (the VN speaker plate)"
 				},
 				"description": {
 					"$ref": "#/definitions/LocaleText"
 				},
 				"color": {
 					"type": "string",
-					"description": "CSS color (VN avatar background, speaker accents); a persona inherits its base's when empty"
+					"description": "CSS color (VN avatar background, speaker accents)"
 				},
 				"group": {
 					"$ref": "#/definitions/CharacterGroup",
@@ -43,7 +43,7 @@
 				},
 				"own_toon": {
 					"type": "string",
-					"description": "the toon this character is the protagonist of (e.g. the mouse → `yellowmouse`)"
+					"description": "the toon this character is the protagonist of (optional – most characters have none)"
 				},
 				"voiced_by": {
 					"type": "string",
@@ -61,48 +61,35 @@
 				},
 				"image": {
 					"type": "string",
-					"description": "legacy single image (last fallback of every look/mood/variant; placeholder e.g. `<toon>/avatar.webp`)"
-				},
-				"looks": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/CharacterLook"
-					},
-					"description": "the character's looks; none = the one look `default`"
-				},
-				"images": {
-					"type": "object",
-					"additionalProperties": {
-						"$ref": "#/definitions/MoodImages"
-					},
-					"description": "look → mood → variant → CDN path"
-				},
-				"artwork": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/CharacterArtwork"
-					},
-					"description": "key visuals and other artwork"
-				},
-				"persona_of": {
-					"type": "string",
-					"description": "base character id: this character is a persona (another appearance) of it – one level only"
-				},
-				"persona": {
-					"$ref": "#/definitions/Persona"
+					"description": "legacy single image (the last fallback; placeholder e.g. `<toon>/avatar.webp`)"
 				},
 				"affiliations": {
 					"type": "array",
 					"items": {
 						"$ref": "#/definitions/Affiliation"
 					},
-					"description": "groups the character belongs to (scutoons/_/groups.json)"
+					"description": "default groups of every persona (a persona's own `affiliations` replace them)"
+				},
+				"artwork": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CharacterArtwork"
+					}
+				},
+				"personas": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CharacterPersona"
+					},
+					"description": "`regular` first"
 				}
 			},
 			"required": [
 				"id",
+				"name",
+				"color",
 				"group",
-				"images"
+				"personas"
 			],
 			"description": "One character of the registry. Image values are CDN paths from the CDN root (`catpope/images/characters/…`)."
 		},
@@ -116,47 +103,43 @@
 		"CharacterGroup": {
 			"type": "string"
 		},
-		"CharacterLook": {
+		"Affiliation": {
 			"type": "object",
 			"properties": {
-				"id": {
+				"group": {
 					"type": "string",
-					"description": "`^[a-z0-9][a-z0-9-]*$`; `default` = no look segment in the convention path"
+					"description": "group id (GroupVocabulary)"
 				},
-				"label": {
-					"$ref": "#/definitions/LocaleText"
+				"role": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "e.g. \"Anführerin\" / \"Leader\""
 				},
-				"default": {
-					"type": "boolean",
-					"description": "exactly one look of a character is the default (VN refs without `look`)"
+				"since": {
+					"$ref": "#/definitions/StoryPoint"
 				}
 			},
 			"required": [
-				"id",
-				"label"
+				"group"
 			],
-			"description": "The same character in different gear (with / without helmet), each with its own mood set."
+			"description": "Membership of a character (or of one of its personas) in a shared group."
 		},
-		"MoodImages": {
-			"type": "object",
-			"additionalProperties": {
-				"$ref": "#/definitions/CharacterImage"
-			},
-			"description": "mood → variant → CDN path"
-		},
-		"CharacterImage": {
+		"StoryPoint": {
 			"type": "object",
 			"properties": {
-				"avatar": {
+				"toon": {
 					"type": "string"
 				},
-				"portrait": {
-					"type": "string"
+				"season": {
+					"type": "number"
 				},
-				"full": {
-					"type": "string"
+				"chapter": {
+					"type": "number"
 				}
-			}
+			},
+			"required": [
+				"toon"
+			],
+			"description": "A point in a toon's story (a free reference for the editor and the story bible)."
 		},
 		"CharacterArtwork": {
 			"type": "object",
@@ -179,63 +162,120 @@
 			],
 			"description": "Character artwork that is not an expression (key visuals, turnarounds …)."
 		},
-		"Persona": {
+		"CharacterPersona": {
 			"type": "object",
 			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`regular` or `^[a-z0-9][a-z0-9-]*$` (e.g. `biker`, `human`)"
+				},
 				"label": {
 					"$ref": "#/definitions/LocaleText",
-					"description": "appended to the name: \"Cat Pope · Biker\""
+					"description": "appended to the name: \"Cat Pope · Biker\" (the regular persona needs none)"
 				},
 				"introduced": {
 					"$ref": "#/definitions/StoryPoint",
 					"description": "where the persona first appears (none = it has always been there)"
 				},
-				"note": {
+				"description": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"affiliations": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Affiliation"
+					},
+					"description": "replaces the character's affiliations for this persona (e.g. only the biker is in the gang)"
+				},
+				"looks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CharacterLook"
+					}
+				},
+				"transitions": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/LookTransition"
+					}
+				}
+			},
+			"required": [
+				"id",
+				"looks"
+			],
+			"description": "A different identity or role of the same being. `regular` = the base persona every character has."
+		},
+		"CharacterLook": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z0-9][a-z0-9-]*$`; `default` = no look segment in the convention path"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"default": {
+					"type": "boolean",
+					"description": "exactly one look of a persona is the default (VN refs without `look`)"
+				},
+				"images": {
+					"$ref": "#/definitions/MoodImages",
+					"description": "mood → view → CDN path (from the CDN root)"
+				}
+			},
+			"required": [
+				"id",
+				"images"
+			],
+			"description": "An appearance of a persona (with / without helmet): its own mood set."
+		},
+		"MoodImages": {
+			"type": "object",
+			"additionalProperties": {
+				"$ref": "#/definitions/CharacterImage"
+			},
+			"description": "mood → view → CDN path"
+		},
+		"CharacterImage": {
+			"type": "object",
+			"properties": {
+				"avatar": {
+					"type": "string"
+				},
+				"portrait": {
+					"type": "string"
+				},
+				"full": {
+					"type": "string"
+				}
+			},
+			"description": "One mood of a character in its three views (framings). \"View\" is the term in the UI (never \"variant\", which would be confused with looks); the keys and `VNCharacterRef.position.variant` keep their names for backwards compatibility."
+		},
+		"LookTransition": {
+			"type": "object",
+			"properties": {
+				"from": {
+					"type": "string"
+				},
+				"to": {
+					"type": "string"
+				},
+				"image": {
+					"type": "string",
+					"description": "CDN path from the CDN root"
+				},
+				"label": {
 					"$ref": "#/definitions/LocaleText"
 				}
 			},
 			"required": [
-				"label"
+				"from",
+				"to",
+				"image"
 			],
-			"description": "What makes a registry character a persona of its base (`persona_of`)."
-		},
-		"StoryPoint": {
-			"type": "object",
-			"properties": {
-				"toon": {
-					"type": "string"
-				},
-				"season": {
-					"type": "number"
-				},
-				"chapter": {
-					"type": "number"
-				}
-			},
-			"required": [
-				"toon"
-			],
-			"description": "A point in a toon's story (a free reference for the editor and the story bible)."
-		},
-		"Affiliation": {
-			"type": "object",
-			"properties": {
-				"group": {
-					"type": "string",
-					"description": "group id (GroupVocabulary)"
-				},
-				"role": {
-					"$ref": "#/definitions/LocaleText",
-					"description": "e.g. \"Anführerin\" / \"Leader\""
-				},
-				"since": {
-					"$ref": "#/definitions/StoryPoint"
-				}
-			},
-			"required": [
-				"group"
-			],
-			"description": "Membership of a character in a shared group."
+			"description": "An image shown while a persona's look changes (the mouse taking her helmet off)."
 		}
 	}
 }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
+	import { getVisualNovelContext, sceneKey } from '$lib/contexts/visual-novel.svelte';
 	import { page } from '$app/stores';
 	import CharacterAvatar from './characters/avatar.svelte';
 	import CharacterPortrait from './characters/portrait.svelte';
@@ -9,7 +9,8 @@
 	const toonId = $derived($page.params.toonId || '');
 
 	const sceneCharacters = $derived(vn.state.sceneCharacters);
-	const activeSpeaker = $derived(vn.state.message.character?.name);
+	/** the speaking character + persona (scene key) */
+	const activeSpeaker = $derived(vn.state.message.character ? sceneKey(vn.state.message.character) : undefined);
 
 	const avatarCharacters = $derived(
 		sceneCharacters.filter((c) => c.position?.variant === 'avatar')
@@ -20,7 +21,7 @@
 	const fullCharacters = $derived(sceneCharacters.filter((c) => c.position?.variant === 'full'));
 
 	function getStackedOrder(chars: typeof sceneCharacters): string[] {
-		const names = chars.map((c) => c.name);
+		const names = chars.map((c) => sceneKey(c));
 		
 		// If there's an active speaker, move them to the front
 		if (activeSpeaker && names.includes(activeSpeaker)) {
@@ -46,8 +47,8 @@
 				{charRef}
 				{character}
 				{toonId}
-				isActive={charRef.name === activeSpeaker}
-				stackPosition={getStackPosition(charRef.name, avatarStackOrder)}
+				isActive={sceneKey(charRef) === activeSpeaker}
+				stackPosition={getStackPosition(sceneKey(charRef), avatarStackOrder)}
 			/>
 		{/if}
 	{/each}
@@ -62,8 +63,8 @@
 					{charRef}
 					{character}
 					{toonId}
-					isActive={charRef.name === activeSpeaker}
-					stackPosition={getStackPosition(charRef.name, portraitStackOrder)}
+					isActive={sceneKey(charRef) === activeSpeaker}
+					stackPosition={getStackPosition(sceneKey(charRef), portraitStackOrder)}
 				/>
 			{/if}
 		{/each}
@@ -76,7 +77,7 @@
 		{#each fullCharacters as charRef}
 			{@const character = vn.getCharacter(charRef.name)}
 			{#if character}
-				<CharacterFull {charRef} {character} {toonId} isActive={charRef.name === activeSpeaker} />
+				<CharacterFull {charRef} {character} {toonId} isActive={sceneKey(charRef) === activeSpeaker} />
 			{/if}
 		{/each}
 	</div>

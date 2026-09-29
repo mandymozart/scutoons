@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import Choices from './choices.svelte';
+	import { legacyCharacterLabel } from '@scutoons/content';
 
 	const vn = getVisualNovelContext();
 
@@ -22,7 +23,7 @@
 	{#if vn.state.message.character}
 		{@const character = vn.getCharacter(vn.state.message.character.name)}
 		{#if character}
-			<div class="character-name">{character.label}</div>
+			<div class="character-name">{legacyCharacterLabel(character, vn.state.message.character.persona)}</div>
 		{/if}
 	{/if}
 	{#if vn.state.message.text}

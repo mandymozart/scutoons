@@ -82,11 +82,11 @@ export class EventProcessor {
 	}
 
 	private async handleShowMessage(event: VNEvent & { type: 'showMessage' }): Promise<void> {
-		const { text, character: characterName, wait = false } = event.params;
+		const { text, character: characterName, persona, wait = false } = event.params;
 
 		let charRef = null;
 		if (characterName) {
-			const inScene = this.vn.state.sceneCharacters.find((c) => c.name === characterName);
+			const inScene = this.vn.findInScene(characterName, persona);
 			if (!inScene) {
 				console.error(
 					`Character "${characterName}" is not in the scene. Add them with joinScene first.`
@@ -141,6 +141,8 @@ export class EventProcessor {
 		const { characters } = event.params;
 		const charsWithDefaults = characters.map((char) => ({
 			...char,
+			// refs written as { character } are the same as { name }
+			name: char.name ?? (char as { character?: string }).character ?? '',
 			position: char.position || { variant: 'avatar' as const }
 		}));
 		this.vn.joinScene(charsWithDefaults);
