@@ -17,6 +17,11 @@
 	const itemCount = $derived(inventory.entries.reduce((sum, e) => sum + e.qty, 0));
 
 	const typeLabel = (type: string) => (m as any)[`account.${type}`]?.() ?? type;
+	/** access only through the promo code the account was created with (not owned) */
+	const promoAccessCode = $derived.by(() => {
+		const access = session.me?.access;
+		return access?.signup_code && access.codes.length === 1 ? access.signup_code : null;
+	});
 	const roleLabel = (role: string) => (m as any)[`account.role_${role}`]?.() ?? role;
 
 	// "Send me news about new releases" (PUT /me/)
@@ -69,11 +74,15 @@
 					<tr>
 						<td>{m['account.access']()}</td>
 						<td>
-							{session.hasAccess
-								? m['account.access_unlocked']({
-										until: session.me?.access?.expires_at || m['account.lifetime']()
-									})
-								: m['account.access_none']()}
+							{#if session.hasAccess && promoAccessCode}
+								{m['account.access_promo']({ code: promoAccessCode })}
+							{:else if session.hasAccess}
+								{m['account.access_unlocked']({
+									until: session.me?.access?.expires_at || m['account.lifetime']()
+								})}
+							{:else}
+								{m['account.access_none']()}
+							{/if}
 						</td>
 					</tr>
 					{#if session.user.created_at}

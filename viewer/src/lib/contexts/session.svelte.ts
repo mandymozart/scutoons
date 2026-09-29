@@ -84,8 +84,13 @@ export function createSessionContext() {
 	}
 
 	/** `marketingOptIn` = "Send me news about new releases" (only used when the account is created) */
-	function requestLogin(email: string, code?: string | null, marketingOptIn = false) {
-		return authRequest(email.trim(), code, getLocale(), marketingOptIn);
+	function requestLogin(
+		email: string,
+		code?: string | null,
+		marketingOptIn = false,
+		choice?: { item_id?: string | null; variant?: string | null }
+	) {
+		return authRequest(email.trim(), code, getLocale(), marketingOptIn, choice);
 	}
 
 	async function applyVerify(result: VerifyResult) {

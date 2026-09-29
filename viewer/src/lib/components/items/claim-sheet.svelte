@@ -280,7 +280,13 @@
 					<p class="error">{claimError}</p>
 				{/if}
 				{#if phase === 'login'}
-					<LoginForm {code} signup={access?.signup ?? info?.signup ?? true} onlogin={afterLogin} />
+					<LoginForm
+						{code}
+						itemId={chosenItem}
+						variant={chosenVariant}
+						signup={access?.signup ?? info?.signup ?? true}
+						onlogin={afterLogin}
+					/>
 					<button class="btn-secondary" onclick={onclose}>{m['claim.later']()}</button>
 				{:else}
 					<div class="actions">

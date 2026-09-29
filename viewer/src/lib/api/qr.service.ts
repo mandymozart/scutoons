@@ -45,15 +45,28 @@ export interface ProgressResult {
  * Sends the login mail. New accounts only with a signup code (membership / promo): without an account and without
  * such a code the answer is still `sent`, but the mail only explains how to get an account (no one-time code).
  */
-export const authRequest = (email: string, code?: string | null, locale?: string, marketingOptIn = false) =>
+export const authRequest = (
+	email: string,
+	code?: string | null,
+	locale?: string,
+	marketingOptIn = false,
+	choice?: { item_id?: string | null; variant?: string | null }
+) =>
 	api.post<{ status: string }>('/auth/request/', {
 		email,
 		code: code || undefined,
 		locale,
-		marketing_opt_in: marketingOptIn
+		marketing_opt_in: marketingOptIn,
+		// the item picked for a code with options (a new account claims it in the same transaction)
+		item_id: choice?.item_id || undefined,
+		variant: choice?.variant || undefined
 	});
 
-/** `marketing_opt_in`: stored for a new account; `true` also opts an existing account in. 403 signup_code_required */
+/**
+ * `marketing_opt_in`: stored for a new account; `true` also opts an existing account in.
+ * New account with a product code = account + claim in one step: 409 already_claimed / 422 choose_item → no account.
+ * 403 signup_code_required.
+ */
 export const authVerifyOtp = (email: string, otp: string, marketingOptIn?: boolean) =>
 	api.post<VerifyResult>('/auth/verify/', { email, otp, marketing_opt_in: marketingOptIn });
 

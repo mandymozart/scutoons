@@ -104,7 +104,9 @@
 		"code_sent_no_account": "If there is no account for this address yet, the mail explains how to create one (you need a code from a SCUTOONS product or a promo code).",
 		"signup_code_required": "There is no account for this email yet. An account needs a code from a SCUTOONS product or a promo code.",
 		"signup_title": "Create account",
-		"signup_intro": "Create your account with your email. We send you a one-time code, no password."
+		"signup_intro": "Create your account with your email. We send you a one-time code, no password.",
+		"access_promo": "All chapters · through your promo code {code}",
+		"signup_code_taken": "This code is already in someone else's account, so it can't create a new one. You can still read with it."
 	},
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"

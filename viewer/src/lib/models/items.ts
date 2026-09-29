@@ -129,6 +129,8 @@ export interface Access {
 	access_token?: string;
 	expires_at: string | null;
 	codes: string[];
+	/** the (promo) code the account was created with, when it grants the access – not owned */
+	signup_code?: string | null;
 }
 
 export interface ServerMembership {

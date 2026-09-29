@@ -12,9 +12,18 @@
 	 */
 	let {
 		code = null,
+		itemId = null,
+		variant = null,
 		signup = false,
 		onlogin
-	}: { code?: string | null; signup?: boolean; onlogin?: (result: VerifyResult) => void } = $props();
+	}: {
+		code?: string | null;
+		/** the item/variant picked for a code with options – a new account claims it in the same step */
+		itemId?: string | null;
+		variant?: string | null;
+		signup?: boolean;
+		onlogin?: (result: VerifyResult) => void;
+	} = $props();
 
 	const session = getSessionContext();
 
@@ -28,6 +37,8 @@
 	function describe(e: unknown) {
 		if (e instanceof ApiError && e.status === 0) return m['account.network_error']();
 		if (e instanceof ApiError && e.code === 'signup_code_required') return m['account.signup_code_required']();
+		if (e instanceof ApiError && e.code === 'already_claimed') return m['account.signup_code_taken']();
+		if (e instanceof ApiError && (e.code === 'choose_item' || e.code === 'invalid_item')) return m['claim.choose']();
 		return m['account.login_failed']();
 	}
 
@@ -37,7 +48,7 @@
 		working = true;
 		error = null;
 		try {
-			await session.requestLogin(email, code);
+			await session.requestLogin(email, code, false, { item_id: itemId, variant });
 			step = 'otp';
 		} catch (e) {
 			error = describe(e);

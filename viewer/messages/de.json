@@ -104,7 +104,9 @@
 		"code_sent_no_account": "Falls es für diese Adresse noch kein Konto gibt, erklärt die E-Mail, wie du eins erstellst (du brauchst einen Code von einem SCUTOONS-Produkt oder einen Promo-Code).",
 		"signup_code_required": "Für diese E-Mail gibt es noch kein Konto. Für ein Konto brauchst du einen Code von einem SCUTOONS-Produkt oder einen Promo-Code.",
 		"signup_title": "Konto erstellen",
-		"signup_intro": "Erstelle dein Konto mit deiner E-Mail. Wir schicken dir einen Einmal-Code, kein Passwort."
+		"signup_intro": "Erstelle dein Konto mit deiner E-Mail. Wir schicken dir einen Einmal-Code, kein Passwort.",
+		"access_promo": "Alle Kapitel · über deinen Promo-Code {code}",
+		"signup_code_taken": "Dieser Code ist schon in einem anderen Konto, damit kann kein neues erstellt werden. Lesen kannst du trotzdem damit."
 	},
 	"inventory": {
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"

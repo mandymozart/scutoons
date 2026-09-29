@@ -272,3 +272,12 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
     (claimed vinyl vyJFcccV), browser-nocode-0929@ (no account). DB backup `db/local.sqlite.bak-2026-09-30-roles`.
   - `npm run check` regenerates `.svelte-kit/types` and can break the running dev server (ENOENT
     route_meta_data.json) → `npx svelte-kit sync` fixes it without a restart.
+- 2026-09-30 — Follow-up (qr 5a87d11..616a32d): signup with a product code is atomic (`Auth::confirm` creates the
+  user and calls `Codes::claimInTransaction` in one transaction; failure → 409 already_claimed / 422 choose_item,
+  no account, login request stays unused so the same OTP can be confirmed again with item_id/variant; the viewer now
+  sends the picked item/variant with `/auth/request/`). `tests/claim-race.php [n] [claim|signup|both]`: 8 concurrent
+  signups with one vinyl → 1 account owning it, 7× 409. Promo accounts: `/me access` includes the valid
+  `signup_code` grants (not owned; `access.signup_code` set) → account page "All chapters · through your promo code X".
+  `/de` showing English is not a bug in these files: paraglide strategy is cookie → globalVariable → baseLocale
+  (no `url` strategy), so the locale cookie wins over the path. The `/access/`+`/code/` per-IP limit (120/h) trips
+  after ~4 smoke runs locally → `DELETE FROM rate_limits WHERE bucket LIKE 'lookup:%'`.
