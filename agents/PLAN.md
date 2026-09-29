@@ -239,3 +239,16 @@ A chapter exists only as an entry in a season's `sequence` (per locale) plus its
 season: the creator creates season 1 first on a toon without one; stray chapter files get attached to a season or are
 flagged as errors by the validation. The season entry is also the single source of chapter visibility (status).
 
+## Release 2026-10-04 — `platform` + `anger` together (owner decision 2026-09-30)
+
+`anger` is fully contained in `platform` (checked: no commits on `anger` missing from `platform`; the old qr repo's
+last commit 0332912 is the imported subtree). The release ships `platform` → `main`.
+
+| When | Owner | Coordinator / agents |
+|---|---|---|
+| Sep 30 – Oct 2 | Chapter 2 slices from Figma: text-free art 390×625 (1x) + 1170×1875 (3x) → `cdn/root/catpope/images/{1x,3x}/s1c2-slice-NN.jpg`; GitHub environment `production` from `.env.example`; all-inkl: subdomains `api.` `admin.` `shop.` (+ SSL, `creator.` SSL), folders per hosting layout, mailbox `no-reply@` + SPF/DKIM | credits (running), scan-limit setting (running); wire chapter 2 into the creator once slices land (text boxes, season status `coming-soon` → `published` on release day, release date 2026-10-04); release checklist dry runs |
+| Oct 3 | backups (DB, old qr folder, viewer folder); run migrations in phpMyAdmin (order in PLATFORM.md cutover); `cdn/sync.py` (chapter 2, icons, avatars, mannequins) | `npm run deploy:dry-run` review; merge `platform` → `main`; "Deploy all"; point `api.` + `qr.` → test real stickers; then frontends |
+| Oct 4 | publish chapter 2 (creator: season status → published, Publish) | final smoke: printed URLs, scan, claim, login mail, chapter 1 + 2 de/en, shop, admin |
+
+Rollback per subdomain = point back to the old folder (old folders untouched, migrations additive).
+
