@@ -1,0 +1,53 @@
+import type { EventName } from '@scutoons/api';
+import { m } from '$lib/paraglide/messages.js';
+
+const EVENTS: Record<EventName, () => string> = {
+	scan: () => m['events.scan'](),
+	access: () => m['events.access'](),
+	claim: () => m['events.claim'](),
+	claim_refused: () => m['events.claim_refused'](),
+	login: () => m['events.login'](),
+	signup: () => m['events.signup'](),
+	revoke: () => m['events.revoke'](),
+	unrevoke: () => m['events.unrevoke']()
+};
+
+export const eventLabel = (name: string) => EVENTS[name as EventName]?.() ?? name;
+
+const STATUSES: Record<string, () => string> = {
+	claimed: () => m['codes.status_claimed'](),
+	unclaimed: () => m['codes.status_unclaimed'](),
+	revoked: () => m['codes.status_revoked'](),
+	expired: () => m['codes.status_expired'](),
+	active: () => m['codes.status_active'](),
+	signed: () => m['codes.status_signed'](),
+	unsigned: () => m['codes.status_unsigned']()
+};
+
+export const statusLabel = (name: string) => STATUSES[name]?.() ?? name;
+
+/** Labels of the shared DataTable / Pager in the UI language */
+export const tableLabels = () => ({
+	selectAll: m['table.select_all'](),
+	selectRow: (key: string) => m['table.select_row']({ key }),
+	selected: (count: number) => m['table.selected']({ count }),
+	clearSelection: m['table.clear_selection'](),
+	sortedAscending: m['table.sorted_ascending'](),
+	sortedDescending: m['table.sorted_descending']()
+});
+
+export const pagerLabels = () => ({
+	label: m['table.pages'](),
+	previous: m['table.previous'](),
+	next: m['table.next'](),
+	range: (from: number, to: number, total: number) => m['table.range']({ from, to, total }),
+	pageSize: m['table.per_page']()
+});
+
+export const inspectorLabels = () => ({
+	fields: m['inspector.fields'](),
+	json: m['inspector.json'](),
+	key: m['inspector.key'](),
+	value: m['inspector.value'](),
+	view: m['inspector.view']()
+});

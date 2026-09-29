@@ -1,0 +1,33 @@
+{
+	"name": "scutoons-admin",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS admin: codes, batches (QR, certificates), stats, users & roles, content, catalog (role admin), admin.scutoons.com",
+	"scripts": {
+		"dev": "vite dev",
+		"build": "vite build",
+		"preview": "vite preview",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "node scripts/paraglide.js && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+	},
+	"dependencies": {
+		"@noble/post-quantum": "^0.5.0",
+		"@scutoons/api": "*",
+		"@scutoons/content": "*",
+		"@scutoons/tokens": "*",
+		"@scutoons/ui": "*",
+		"jspdf": "3.0.3"
+	},
+	"devDependencies": {
+		"@inlang/paraglide-js": "^2.4.0",
+		"@sveltejs/adapter-static": "^3.0.10",
+		"@sveltejs/kit": "^2.55.0",
+		"@sveltejs/vite-plugin-svelte": "^7.0.0",
+		"@types/node": "^22",
+		"svelte": "^5.55.0",
+		"svelte-check": "^4.1.0",
+		"typescript": "^5.9.3",
+		"vite": "^8.0.0"
+	}
+}
