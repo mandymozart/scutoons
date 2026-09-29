@@ -23,9 +23,11 @@ and the starter items) and returns a session token (Bearer). Tokens and codes ar
 | `generate/users.php`, `user-roles.php` + `app/views/users.js` | Admin "Users" view: search by email, roles, signup code, opt-in |
 | `db/migrations/2026-09-29-accounts-inventory.{mysql,sqlite}.sql` | New tables + `qr.edition_number`, `qr.claimed_by` |
 | `db/migrations/2026-09-30-code-owner-guard.*`, `2026-09-30-revoke-events.*` | Owner triggers; `qr.revoked_at`/`revoked_reason`, `code_events` |
+| `api/lib/Content.php`, `db/migrations/2026-09-30-content-versions.*` | Content store of the creator editor (`content_versions`) – see "Content API" |
 | `db/migrations/2026-09-30-roles-signup.*` | `roles`, `user_roles` (+ backfill `member`), `users.marketing_opt_in`/`_at`/`signup_code`, `login_requests.marketing_opt_in` |
-| `scripts/` | CLI: `migrate.php`, `backfill-edition-numbers.php`, `report-orphan-codes.php`, `roles.php` |
+| `scripts/` | CLI: `migrate.php`, `backfill-edition-numbers.php`, `report-orphan-codes.php`, `roles.php`, `import-content.php` |
 | `tests/api-smoke.php` (`.sh`), `tests/claim-race.php` | End-to-end API test against a running server (incl. signup rule, roles, opt-in); concurrent claim + concurrent signup test |
+| `tests/content-smoke.php` | Content API: roles (401/403), draft vs published, versions/restore, path whitelist, import script against a DB copy |
 | `router.php` | `php -S` router (local only) |
 | `logs/` | `mail.log` (dev login mails), `error.log` (API errors) – gitignored, denied over HTTP |
 
@@ -62,6 +64,10 @@ The smoke test claims one unclaimed vinyl and one Dago code of the local DB per 
 | POST | `/inventory/import/` | Bearer | `{ items:[{ item_id, qty }] }` |
 | GET/PUT | `/avatar/` | Bearer | `{ slots:{ <slot>: entryId\|null } }` |
 | GET/PUT | `/progress/<toonId>/` | Bearer | `{ state, updated_at }` last write wins |
+| GET | `/content/<toon>/<locale>/<path>.json` | – / creator | published config (raw JSON); `?draft=1`, `?version=`, `&wrap=1` need `creator` – see "Content API" |
+| PUT | `/content/<toon>/<locale>/<path>.json` | creator | `{ content, message?, base? }` → new draft version |
+| GET | `/content/versions`, `/content/index` | creator | history of a file / all stored files of a toon |
+| POST | `/content/publish`, `/content/unpublish`, `/content/restore` | creator | make a version live / nothing live / old version → new draft |
 | GET/POST | `/validate/` | – | legacy, backwards compatible: success for any existing, unexpired, unrevoked code (claimed or not) |
 
 Errors: `{ status:"error", error:"<code>", message }` (+ `options`, `missing`, `slot`, `retry_after` where noted).
@@ -112,6 +118,10 @@ The deploy (push to `main`) uploads code only; `db/` and `scripts/` are not depl
    Then `db/migrations/2026-09-30-revoke-events.mysql.sql` (idempotent), then
    `db/migrations/2026-09-30-roles-signup.mysql.sql` (idempotent; backfills `member` for every account).
    Grant `creator` afterwards in the admin SPA (Users) – there is no shell on the host.
+   Content store: run `db/migrations/2026-09-30-content-versions.mysql.sql`, then seed it from the viewer's static
+   configs: locally `php scripts/import-content.php <scutoons>/viewer/static/api --sql > content-seed.sql` and import
+   `content-seed.sql` in phpMyAdmin (idempotent – files already in the store are skipped). Until then the viewer
+   falls back to its static files, so the order of deploys does not matter.
 3. Edition numbers: copy the server's `generate/files/batch/*.json` locally (FTP), then
    `php scripts/backfill-edition-numbers.php --sql --manifests=<that folder> > backfill.sql` and run `backfill.sql`
    in phpMyAdmin. Only codes listed in a manifest get a number.
@@ -271,6 +281,46 @@ with `SELECT email FROM users WHERE marketing_opt_in = 1` when sending news.
 Retention suggestion: aggregate what you need and delete events older than 13 months
 (`DELETE FROM code_events WHERE created_at < NOW() - INTERVAL 13 MONTH` in phpMyAdmin, e.g. yearly), and mention
 the anonymous usage statistics in the privacy policy.
+
+## Content API (creator editor)
+
+Store for the chapter / season / toon configs and VN scene files that the viewer used to ship only as static files
+(`viewer/static/api/<toon>/<locale>/<path>`). Edited at `scutoons.com/creator` (role `creator`); the viewer reads the
+store first and falls back to its static files (scutoons `agents/MEMORY.md` → "Creator editor").
+
+- **Table `content_versions`** `(id, toon, locale, path, json, author → users.id | NULL, created_at UTC, status, message)`.
+  Every save is a new row. Per file (toon, locale, path) at most **one** row is `published` (the live one); all other
+  rows are `draft`. The newest row is the working copy (what the editor loads, what `?preview=draft` shows).
+- **Validation** (minimal on purpose, the editor checks the TypeScript types): toon `^[a-z0-9_-]{1,64}$`, locale
+  `^[a-z]{2}$`, path `^[a-z0-9_-]+(/[a-z0-9_-]+)?\.json$` (e.g. `chapter2.json`, `chapter2/scene-14.json`), body JSON
+  object or array, `CONTENT_MAX_BYTES` (default 2 MB). JSON is decoded as objects and stored re-encoded
+  (unescaped unicode/slashes), so `{}` stays `{}`.
+
+| Method | Path | Role | Body / query → answer |
+|---|---|---|---|
+| GET | `/content/<toon>/<locale>/<path>` | – | the published version as raw JSON (`ETag: "v<id>"`, `Cache-Control: no-cache`, 304 on `If-None-Match`, headers `X-Content-Version`/`X-Content-Status`) · 404 `not_found` when nothing is published |
+| GET | same `?draft=1` | creator | the newest version (raw JSON, `no-store`) · 401 / 403 `forbidden` |
+| GET | same `?version=<id>` | creator | that version of this file · 404 |
+| GET | same `…&wrap=1` | creator | `{ status, version: meta, published: { id, created_at } \| null, content }` |
+| PUT | `/content/<toon>/<locale>/<path>` | creator | `{ content, message?, base? }` → `{ status, unchanged, version: meta }`; same JSON as the newest version → `unchanged: true`, no row. `base` = the version id the edit started from (`null` = none): if it is not the newest any more → **409 `conflict`** `{ latest: meta }` |
+| GET | `/content/versions?toon=&locale=&path=&limit=` | creator | `{ versions: [{ id, status, created_at, author, author_email, message, size }] }` newest first |
+| GET | `/content/index?toon=` | creator | `{ files: [{ locale, path, latest, published, versions }] }` |
+| POST | `/content/publish` | creator | `{ toon, locale, path, version? }` (default: newest) → `{ version }`; the previously published row becomes `draft` |
+| POST | `/content/unpublish` | creator | `{ toon, locale, path }` → `{ unpublished: n }`; public GET answers 404 (viewer: static file) |
+| POST | `/content/restore` | creator | `{ id, message? }` → `{ version }` – copies that version as the newest **draft** (publish it to go live) |
+
+`meta = { id, toon, locale, path, status, created_at, author, author_email, message, size }`. Errors as everywhere:
+`400 invalid_toon|invalid_locale|invalid_path|invalid_json|missing_content`, `413 content_too_large`,
+`422 invalid_content`, `401 unauthorized`, `403 forbidden` (`role: "creator"`).
+
+**Seeding / CLI** – `php scripts/import-content.php <scutoons>/viewer/static/api [--toon=] [--db=<sqlite>] [--update]
+[--dry-run] [--sql]`: stores `toon.json`, `season<N>.json`, `chapter<N>.json`, `chapter<N>/<name>.json` of every
+toon/locale folder as published version 1 (`author` NULL, message "import from static files"). Files that are already
+stored are skipped (idempotent); `--update` adds a new published version where the static file differs; `--db` works
+on a SQLite copy; `--sql` prints guarded MySQL INSERTs for phpMyAdmin instead of writing.
+
+**Tests** – `php tests/content-smoke.php [base url] [viewer static api folder]` (running server, local DB): throw-away
+member + creator users, writes only to a random `smoke…` toon and cleans up; the import part runs against a copy.
 
 ## Security notes
 
