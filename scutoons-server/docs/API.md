@@ -68,6 +68,7 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | PUT/DELETE | `/users/{id}/roles/{role}` | grant / revoke |
 | GET | `/events` | activity log (filters code, event list, edition_id, toon, from, to) |
 | GET | `/catalog` · `/keys` | items, editions, toons, permissions map (read-only) · the ML-DSA-65 keypair for client-side signing |
+| GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
 
 The legacy `generate/*.php` endpoints (static token `X-Generate-Token`) stay for the `generate/` SPA until the admin
 app has parity; they call the same services.

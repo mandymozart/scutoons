@@ -244,7 +244,26 @@ try {
         'keys for client-side signing (admin only)', [$r['status'], array_keys((array) $r['body'])]);
     $r = call('GET', "$api/keys", null, $memberToken);
     check($r['status'] === 403, 'keys for a member → 403', $r['status']);
+
+    echo "\nContent store overview\n";
+    $contentToon = 'admin-smoke-' . strtolower($run);
+    $now = gmdate('Y-m-d H:i:s');
+    Db::run("INSERT INTO content_versions (toon, locale, path, json, author, created_at, status, message) VALUES (?, 'de', 'chapter1.json', '{}', NULL, ?, 'published', 'smoke')", [$contentToon, $now]);
+    Db::run("INSERT INTO content_versions (toon, locale, path, json, author, created_at, status, message) VALUES (?, 'de', 'chapter1.json', '{\"a\":1}', NULL, ?, 'draft', 'smoke')", [$contentToon, $now]);
+    $r = call('GET', "$api/content", null, $adminToken);
+    $mine = array_values(array_filter((array) ($r['body']['files'] ?? []), fn($f) => ($f['toon'] ?? null) === $contentToon));
+    check($r['status'] === 200 && in_array('catpope', array_column((array) ($r['body']['toons'] ?? []), 'id'), true) && in_array($contentToon, array_column((array) ($r['body']['toons'] ?? []), 'id'), true),
+        'content: toons from config + store', array_keys((array) $r['body']));
+    check(count($mine) === 1 && $mine[0]['versions'] === 2 && $mine[0]['latest_status'] === 'draft' && is_int($mine[0]['published']) && $mine[0]['published'] < $mine[0]['latest'] && $mine[0]['published_at'] === $now,
+        'content: newest draft ahead of the published version', $mine);
+    $r = call('GET', "$api/content?toon=$contentToon", null, $adminToken);
+    check($r['status'] === 200 && count($r['body']['files']) === 1 && count($r['body']['toons']) === 1, 'content ?toon= filter', $r['body']);
+    $r = call('GET', "$api/content?toon=" . urlencode('Bad Toon!'), null, $adminToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'invalid_toon', 'content: invalid toon → 400', $r);
+    $r = call('GET', "$api/content", null, $memberToken);
+    check($r['status'] === 403, 'content for a member → 403', $r['status']);
 } finally {
+    if (isset($contentToon)) Db::run('DELETE FROM content_versions WHERE toon = ?', [$contentToon]);
     foreach (array_filter([$code, $batch['codes'][0]['code'] ?? null, $batch['codes'][1]['code'] ?? null]) as $c) {
         Db::run('DELETE FROM code_events WHERE code = ?', [$c]);
         Db::run('DELETE FROM qr WHERE code = ?', [$c]);

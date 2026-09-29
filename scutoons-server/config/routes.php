@@ -18,6 +18,7 @@ use Scutoons\Domain\Secrets;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CodesController;
+use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SystemController;
 use Scutoons\Http\Controllers\Admin\UsersController;
 use Scutoons\Http\Controllers\AuthController;
@@ -118,6 +119,8 @@ return static function (App $app): void {
         $admin->put('/users/{id}/roles/{role}', [UsersController::class, 'grant']);
         $admin->delete('/users/{id}/roles/{role}', [UsersController::class, 'revoke']);
         $admin->get('/roles', [UsersController::class, 'roles']);
+
+        $admin->get('/content', [AdminContentController::class, 'index']);
     })->add(new RequireRole($c->get(Roles::class), Roles::ADMIN));
 
     // Everything else below /api/ is unknown (ErrorHandler → 404 not_found "Unknown endpoint.")
