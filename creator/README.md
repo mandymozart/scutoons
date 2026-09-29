@@ -10,13 +10,18 @@ The editor for toon / season / chapter configs and VN scene files, a standalone 
   `<toon>/_/index.json` (draft/publish like the other files; before the first save: the viewer's `toons.json`). Every
   editor takes its locales + source from it (`src/lib/editor/languages.ts`); a newly added language offers
   "Create <locale> from <source>" for toon.json, season, chapters and scene files.
-- **Editor**: `/` toons · `/<toon>` languages, season and chapters · `/<toon>/chapter/<n>` chapter editor (meta, groups, slices,
+- **Editor**: `/` toons · `/<toon>` languages, season and chapters · `/<toon>/season/<n>` season meta · `/<toon>/toon` toon.json · `/<toon>/chapter/<n>` chapter editor (meta, groups, slices,
   WYSIWYG text boxes, audio, VN events, validation, history, undo/redo, autosave, save draft / publish).
 - **Chapter status = the season**: the chapter's visibility (published / draft / coming-soon) is set per language in
   the season (`season1.json` → `sequence[].status`), in the chapter meta panel or the toon page; it is saved with the
   chapter, and the chapter file's deprecated `status` is mirrored on save. A chapter always belongs to a season: "New
   chapter" creates it inside the season (a toon without one gets "Create season 1", which also adopts existing chapter
   files as drafts).
+- **Season and toon meta**: `/<toon>/season/<n>` edits `season<n>.json` (title / plot per language; number, release,
+  authors, covers with the CDN picker, credits lists once for all languages, differing languages shown as overrides,
+  "per language" / "same for all"; plus the chapter status table), `/<toon>/toon` edits `toon.json` (title,
+  description, id, status, release, chapters, authors, thumbnail, covers, map, downloads). Both validate into the
+  problem list and save / publish through the ActionBar; the season page also mirrors chapter statuses on save.
 - **Draft preview**: `/<toon>/chapter/<n>/preview?locale=<one of the toon's languages>[&label=<group>]` renders the newest saved versions
   (chapter + scene files) with `@scutoons/reader`, like the reader does. VN events are not played; horizontal groups
   are shown one below the other.

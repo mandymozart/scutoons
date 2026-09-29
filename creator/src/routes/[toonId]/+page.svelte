@@ -406,6 +406,8 @@
 					</div>
 					<div class="actions">
 						<FileStatus doc={season} />
+						<a class="btn" href="/{toonId}/season/1" data-testid="edit-season">{m['creator.edit_season']()}</a>
+						{#if toonFile && !toonFile.loading && toonFile.present.length}<a class="btn" href="/{toonId}/toon" data-testid="edit-toon">{m['creator.edit_toon']()}</a>{/if}
 					</div>
 				</div>
 

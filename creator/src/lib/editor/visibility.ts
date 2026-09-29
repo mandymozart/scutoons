@@ -58,3 +58,18 @@ export function syncChapter(chapter: ContentDoc, season: ContentDoc | null | und
 	}
 	return true;
 }
+
+/** Mirrors the season status into every loaded chapter doc of the season (before a save); returns the changed ones. */
+export function syncChapters(chapters: Record<number, ContentDoc>, season: ContentDoc | null | undefined): ContentDoc[] {
+	const changed: ContentDoc[] = [];
+	for (const [number, doc] of Object.entries(chapters)) {
+		if (doc && !doc.loading && syncChapter(doc, season, Number(number))) changed.push(doc);
+	}
+	return changed;
+}
+
+/** Chapter numbers of a season doc in any of its locales. */
+export function seasonChapterNumbers(season: ContentDoc | null | undefined): number[] {
+	if (!season) return [];
+	return [...new Set(season.present.flatMap((l) => (season.data[l]?.sequence ?? []).map((i: SequenceItem) => Number(i.number))))].sort((a, b) => a - b);
+}
