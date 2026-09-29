@@ -133,9 +133,9 @@ account page may link to `creator.scutoons.com` for creators, nothing more.
 
 ## P1b — result (2026-09-30)
 
-Server folder still `scutoons-server/` (the `git mv` to `server/` was refused by the session's permission guard; to do:
+Server folder renamed to `server/` on 2026-09-30 (owner go; was `server/`). (Former note:
 rename + update the path filter / `SERVER_DIR` in `.github/workflows/server.yml`, the root README and package.json –
-the code has no folder-name dependency). Docs: `scutoons-server/README.md` + `docs/{ARCHITECTURE,API,CONFIGURATION,
+the code has no folder-name dependency). Docs: `server/README.md` + `docs/{ARCHITECTURE,API,CONFIGURATION,
 DATABASE,DEPLOY}.md`; the admin API contract is ITEMS.md "Admin API".
 
 **Structure**: `public/` (front controller, `router.php` for `php -S`, `.htaccess`, verify.html, assets, generate/ SPA
@@ -213,7 +213,7 @@ creator/admin origins (+ dev ports: viewer 8000, creator 10000, admin 11000). La
 ## Deploy
 
 Root `.github/workflows/`: `viewer.yml`, `creator.yml`, `admin.yml` (path filters incl. `shared/**`), `server.yml`
-(`scutoons-server/**` until the rename: PHPUnit + PHPStan, composer install --no-dev, generated config.php, FTP; build
+(`server/**`: PHPUnit + PHPStan, composer install --no-dev, generated config.php, FTP; build
 tokens CSS copy not needed yet – the landing page inlines its tokens). Deploy only from `main`.
 New FTP targets / docroots / DNS for creator.scutoons.com and admin.scutoons.com are set up by the owner.
 The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is inert inside `server/.github`.
@@ -237,7 +237,7 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 
 ## Local dev (platform branch)
 
-- Server: `cd scutoons-server && composer serve` (:9000; `composer serve:9100` while the old repo still serves :9000),
+- Server: `cd server && composer serve` (:9000; `composer serve:9100` while the old repo still serves :9000),
   local-only files (config.local.php, db/local.sqlite, storage/files, storage/keys/keypair.json) — gitignored.
   `composer test` = PHPUnit + every contract suite on freshly started servers and a copy of the DB.
 - CDN: `python cdn/server.py 8001`. Viewer 8000, creator 10000, admin 11000 (see "Local dev ports").
@@ -387,7 +387,7 @@ Rules now:
 |---|---|---|
 | P0 | monorepo + history import | ✅ |
 | P1a | workspaces, shared packages, standalone creator | ✅ 2026-09-30 |
-| P1b | server refactor (Slim), host routing qr/api, admin API (folder rename `scutoons-server/` → `server/` still pending) | ✅ 2026-09-30 |
+| P1b | server refactor (Slim), host routing qr/api, admin API (folder renamed to `server/` 2026-09-30) | ✅ 2026-09-30 |
 | P2a | `admin/` app incl. port of `generate/` (QR generation, batches, certificates) to Svelte | next |
 | P2b | `shop/` app split out of the viewer, `/shop` redirect, products from the API | ✅ 2026-09-30 |
 | P3 | workflows per app, env per app (`VITE_API_URL` → api.scutoons.com), cutover checklist (subdomains/folders/SSL in all-inkl), remove `generate/` after admin parity | after P2 |

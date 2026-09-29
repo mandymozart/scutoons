@@ -2,7 +2,7 @@
 
 ## How it deploys
 
-`.github/workflows/server.yml` (monorepo root), path filter `scutoons-server/**`:
+`.github/workflows/server.yml` (monorepo root), path filter `server/**`:
 
 1. **test** (every push / pull request touching the server): PHP 8.3, `composer install`, PHPUnit, PHPStan.
 2. **web-deploy** (only `main`, after the tests): `composer install --no-dev --optimize-autoloader` (the host has no

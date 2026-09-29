@@ -165,7 +165,7 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   edition_id, edition_size, name, link, price, limited, remaining, sizes, soldOutSizes, credits, icon,
   defaultVariant, variants:[{id, name{de,en}, soldOut, icon, images, price?}]}]}`; `featured-products.json` =
   `[{product, variant}]`. Types + helpers: `viewer/src/lib/components/shop/products/shop.ts`.
-  → since platform P2b (2026-09-30): files in `scutoons-server/config/`, served by `GET /api/products/` +
+  → since platform P2b (2026-09-30): files in `server/config/`, served by `GET /api/products/` +
   `/api/products/featured/`; types + helpers in `@scutoons/content` (`products.ts`).
 
 ## Chapter 1 text extraction
@@ -362,9 +362,9 @@ are the fallback and the seed.
 
 ## Platform P1b
 
-2026-09-30 — server refactor to Slim 4 (branch `platform`, folder still `scutoons-server/`; rename to `server/` pending
+2026-09-30 — server refactor to Slim 4 (branch `platform`, renamed to `server/` on 2026-09-30
 – `git mv` was refused by the permission guard). Details: agents/PLATFORM.md "P1b — result", server docs
-`scutoons-server/README.md` + `docs/*.md`, admin API contract ITEMS.md "Admin API".
+`server/README.md` + `docs/*.md`, admin API contract ITEMS.md "Admin API".
 - Layout: `public/` web root (front controller, `router.php` for php -S, verify.html, assets, generate/ SPA files),
   `src/{Http,Domain,Infrastructure,Console}`, `config/` (settings/container/routes + items/editions/toons/permissions
   JSON), `templates/`, `migrations/{sqlite,mysql,schema}`, `bin/console`, `storage/` (private), `tools/keys/`.
@@ -410,6 +410,6 @@ are the fallback and the seed.
   `VITE_API_URL=http://localhost:9100/api` (`composer serve:9100`). The python CDN on :8001 is single-threaded and
   hung during this session (a second one on :8011 was used).
 - Mistake: `php tests/api-smoke.php http://localhost:9100` was run once against the server using the real
-  `scutoons-server/db/local.sqlite` (not a copy) – it claimed one unclaimed vinyl code and one Dago code for fresh
+  `server/db/local.sqlite` (not a copy) – it claimed one unclaimed vinyl code and one Dago code for fresh
   `smoke` accounts there (vinyl `v-Hr9Pn_`, Dago `rVLQjIiE`, accounts `smoke-20260929133603-fef6-{a,b,c}@example.com`;
   the DB already held such rows from earlier direct runs). Always use `composer test` (DB copies).

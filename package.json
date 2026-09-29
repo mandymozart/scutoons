@@ -3,7 +3,7 @@
 	"private": true,
 	"version": "0.0.0",
 	"type": "module",
-	"description": "SCUTOONS monorepo: viewer, creator, admin and shop apps, shared libraries (server: scutoons-server/, Composer)",
+	"description": "SCUTOONS monorepo: viewer, creator, admin and shop apps, shared libraries (server: server/, Composer)",
 	"workspaces": [
 		"viewer",
 		"creator",

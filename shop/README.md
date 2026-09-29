@@ -26,7 +26,7 @@ npm run build -w shop  # → shop/build (SPA, index.html fallback + .htaccess re
 
 Env (`shop/.env.development`, see `.env.example`): `VITE_API_URL` (dev `http://localhost:9000/api`, prod fallback
 `https://qr.scutoons.com/api`), `VITE_CDN_URL` (dev `http://localhost:8001`), `VITE_WWW_URL` (dev
-`http://localhost:8000`, prod `https://scutoons.com`). The API needs the platform server (`scutoons-server/`,
+`http://localhost:8000`, prod `https://scutoons.com`). The API needs the platform server (`server/`,
 `/api/products/`); the old `qr.scutoons.com` repo does not have that endpoint.
 
 Deploy: `.github/workflows/shop.yml` (push to `main` touching `shop/**` or `shared/**`) → FTP secrets

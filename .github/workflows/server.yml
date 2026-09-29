@@ -1,25 +1,25 @@
 # The PHP server (qr.scutoons.com + api.scutoons.com, one folder whose document root is <folder>/public).
 # Tests on every push / pull request that touches the server; deploys only from main (FTP, all-inkl).
-# Server folder: scutoons-server/ (rename to server/ pending – then change the two path filters and SERVER_DIR).
-# Setup, secrets and the cutover from the old plain-PHP layout: scutoons-server/docs/DEPLOY.md
+# Server folder: server/
+# Setup, secrets and the cutover from the old plain-PHP layout: server/docs/DEPLOY.md
 on:
   push:
     branches:
       - main
       - platform
     paths:
-      - 'scutoons-server/**'
+      - 'server/**'
       - '.github/workflows/server.yml'
   pull_request:
     paths:
-      - 'scutoons-server/**'
+      - 'server/**'
       - '.github/workflows/server.yml'
   workflow_dispatch:
 
 name: 🚀 Server (qr.scutoons.com, api.scutoons.com)
 
 env:
-  SERVER_DIR: scutoons-server
+  SERVER_DIR: server
 
 jobs:
   test:
