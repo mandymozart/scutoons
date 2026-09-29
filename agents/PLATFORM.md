@@ -11,7 +11,7 @@ scutoons/                         one git repo, npm workspaces (Node 22), Compos
 ├── viewer/                       SvelteKit (static) → scutoons.com            reader, shop, events, account
 ├── creator/                      SvelteKit (static) → creator.scutoons.com    role `creator`
 ├── admin/                        SvelteKit (static) → admin.scutoons.com      role `admin` (replaces generate/)
-├── scutoons-server/              PHP 8.3, Slim 4    → qr.scutoons.com (+ later api.scutoons.com)
+├── server/              PHP 8.3, Slim 4    → qr.scutoons.com (+ later api.scutoons.com)
 │   ├── public/                   web root: front controller, QR landing page, verify page, assets
 │   ├── src/                      Http (controllers, middleware) · Domain · Infrastructure
 │   ├── config/                   settings, permissions.json, items.json, editions.json
@@ -88,7 +88,13 @@ Sections: Dashboard (scans, unlocks, claims, signups per day/edition) · Codes (
 · Batches (port of generate: sign, QR SVG, certificate PDF, sticker sheet, ZIP) · Users & roles · Content (versions,
 publish state per toon/chapter) · Catalog (items, editions, permissions map read-only view) · Events log.
 
-## Creator app (creator.scutoons.com)
+## Creator app (creator.scutoons.com) — standalone (2026-09-30, owner)
+
+Like the server, the creator is its **own standalone app**: own folder, own build, own deploy to
+`creator.scutoons.com` (`.github/workflows/creator.yml`), own login screen (role `creator`). It shares only
+`shared/*` packages with the viewer — **no creator code in the viewer**. Draft preview happens inside the creator
+(a preview page rendering drafts with `@scutoons/reader`), not via a `?preview=draft` mode in the viewer; the viewer's
+account page may link to `creator.scutoons.com` for creators, nothing more.
 
 Move `viewer/src/routes/(creator)`, `lib/components/creator`, `lib/creator`, `lib/api/content.service.ts` into
 `creator/`; rendering from `@scutoons/reader`; role `creator`. The viewer keeps only the draft-preview loader.
@@ -102,15 +108,15 @@ creator/admin origins (+ dev ports: viewer 5173, creator 5180, admin 5190). Late
 ## Deploy
 
 Root `.github/workflows/`: `viewer.yml`, `creator.yml`, `admin.yml` (path filters incl. `shared/**`), `server.yml`
-(`scutoons-server/**`: composer install --no-dev, build tokens CSS copy, FTP). Deploy only from `main`.
+(`server/**`: composer install --no-dev, build tokens CSS copy, FTP). Deploy only from `main`.
 New FTP targets / docroots / DNS for creator.scutoons.com and admin.scutoons.com are set up by the owner.
-The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is inert inside `scutoons-server/.github`.
+The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is inert inside `server/.github`.
 
 ## Phases
 
 | Phase | What | Who | Depends on |
 |---|---|---|---|
-| P0 | `platform` branch; qr repo imported with history as `scutoons-server/` (git subtree) | coordinator | – ✅ |
+| P0 | `platform` branch; qr repo imported with history as `server/` (git subtree) | coordinator | – ✅ |
 | P1a | Monorepo foundation: root workspaces, `shared/{tokens,content,reader,api,ui}` extracted from viewer, viewer consumes them; `creator/` app split out of viewer | agent "frontend-platform" | P0 |
 | P1b | Server refactor to Slim 4 structure, contract suites green, `/api/admin/*` with role auth | agent "server-refactor" | P0 (parallel to P1a) |
 | P2 | `admin/` app on shared ui + admin API; parity with `generate/` | agent "admin" | P1a ui/tokens, P1b admin API |
@@ -120,12 +126,12 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 
 - Release fixes land on `anger` (viewer etc.) and, for the server, on the old repo `C:\Development\qr.scutoons.com`
   branch `anger`. `platform` pulls them in: `git merge anger` and
-  `git subtree pull --prefix=scutoons-server C:\Development\qr.scutoons.com anger`.
+  `git subtree pull --prefix=server C:\Development\qr.scutoons.com anger`.
 - After cutover the old repo is read-only.
 
 ## Local dev (platform branch)
 
-- Server: `cd scutoons-server && php -S localhost:9100 router.php` (port 9100 while the old repo still serves :9000),
+- Server: `cd server && php -S localhost:9100 router.php` (port 9100 while the old repo still serves :9000),
   local-only files copied from the old repo (config.local.php, db/local.sqlite, generate/files, keys) — gitignored.
 - CDN: `python cdn/server.py 8001`. Viewer 5173, creator 5180, admin 5190.
 
