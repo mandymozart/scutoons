@@ -37,6 +37,7 @@ jobs:
         VITE_API_URL: ${{ vars.VITE_API_URL }}
         VITE_CDN_URL: ${{ vars.VITE_CDN_URL }}
         VITE_CREATOR_URL: ${{ vars.VITE_CREATOR_URL }}
+        VITE_SHOP_URL: ${{ vars.VITE_SHOP_URL }}
 
     - name: 📂 Sync files via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.6
