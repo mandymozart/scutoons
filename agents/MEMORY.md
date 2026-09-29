@@ -242,3 +242,9 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
     "Stats" view in the generate SPA (table, chart, CSV, timeline, revoke). Prod: run
     `2026-09-30-revoke-events.mysql.sql` after the owner-guard migration.
   - Tests: `tests/api-smoke.php` 108/108, `tests/claim-race.php` PASS.
+
+- 2026-09-30 — Dialog text lives only inline in the per-locale chapter configs (`catpope/{de,en}/chapterN.json`,
+  `slice.dialog[].text`), same structure as every other field. Removed the redundant `i18n/s1c1.json` and the one-off
+  generator `cdn/tools/s1c1_dialogs.py` (git history has them). `cdn/tools/extract_bubbles.py` stays as a detector.
+  Editing goes through the creator editor (`/creator`).
+

@@ -64,7 +64,7 @@ Page "S1C2 Anger"
    (language-neutral paths — no `/de/` since the art has no text).
 4. Convert text boxes to % of the slice frame (see DESIGN.md → Text box), font size to `cqw`.
 5. Write/merge:
-   - `viewer/static/api/catpope/i18n/s1c2.json` — `{ "<figmaNodeId>": { "de": "…", "en": "…" } }`;
+   - (superseded 2026-09-30: no separate i18n file — text stays inline in the per-locale chapter configs)
      new/changed German source text marks `en` as stale (`"en?": "old text"`), never silently overwritten.
    - `viewer/static/api/catpope/{de,en}/chapter2.json` — **merge**, keyed by slice image: the generator owns
      `image` + `dialog`, all hand-authored fields (`audio`, `events`, `onomatopoeia`, group `renderer`,
