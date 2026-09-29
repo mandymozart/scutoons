@@ -100,6 +100,18 @@ final class Db
         return $time === false ? null : gmdate('c', $time);
     }
 
+    /**
+     * Time-ordered UUID (version 7 layout: 48-bit Unix ms, then random) – sorts by creation time, also within one
+     * second (login_requests: "the newest request of this address" = ORDER BY created_at DESC, id DESC).
+     */
+    public static function uuid7(): string
+    {
+        $bytes = substr(pack('J', (int) floor(microtime(true) * 1000)), 2, 6) . random_bytes(10);
+        $bytes[6] = chr((ord($bytes[6]) & 0x0f) | 0x70);
+        $bytes[8] = chr((ord($bytes[8]) & 0x3f) | 0x80);
+        return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($bytes), 4));
+    }
+
     public static function uuid(): string
     {
         $bytes = random_bytes(16);

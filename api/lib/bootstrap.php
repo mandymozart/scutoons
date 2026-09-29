@@ -7,7 +7,7 @@ declare(strict_types=1);
  */
 require_once __DIR__ . '/../../db.php';
 
-foreach (['Config', 'Http', 'Db', 'Catalog', 'Permissions', 'Events', 'RateLimit', 'Mailer', 'Smtp', 'LoginMail', 'Users', 'Auth', 'Codes', 'Inventory', 'Avatar', 'Progress'] as $class) {
+foreach (['Config', 'Http', 'Db', 'Catalog', 'Permissions', 'Events', 'RateLimit', 'Mailer', 'Smtp', 'LoginMail', 'Users', 'Roles', 'Auth', 'Codes', 'Inventory', 'Avatar', 'Progress'] as $class) {
     require_once __DIR__ . "/$class.php";
 }
 

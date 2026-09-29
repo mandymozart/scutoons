@@ -7,10 +7,12 @@ declare(strict_types=1);
  * endpoints: /api/validate/, /api/items/, /api/editions/, /api/toons/, /api/keys/.
  *
  *   GET  /api/health/
- *   POST /api/auth/request/          { email, code?, item_id?, variant?, locale? } → { status: "sent" }
+ *   POST /api/auth/request/          { email, code?, item_id?, variant?, locale?, marketing_opt_in? } → { status: "sent" }
+ *                                    (new accounts only with a signup code – api/permissions.json "signup")
  *   POST /api/auth/verify/           { email, otp } | { token } → { status, session_token, user, created, claimed?, claim_error? }
  *   POST /api/auth/logout/
- *   GET  /api/me/                    { user, access, memberships, inventory, avatar }
+ *   GET  /api/me/                    { user, access, memberships, inventory, avatar }   (user.roles, user.marketing_opt_in)
+ *   PUT  /api/me/                    { marketing_opt_in } → { status, user }
  *   GET  /api/code/?c=CODE           public code info (never an email)
  *   GET|POST /api/access/            { code } or ?c= → device access (permissions of a code, access_token)
  *   POST /api/inventory/claim/       { code, item_id?, variant? }
@@ -40,6 +42,7 @@ Http::run(function () {
         $route === 'POST auth/verify' => Auth::verify(Http::body()),
         $route === 'POST auth/logout' => Auth::logout(),
         $route === 'GET me' => Inventory::me(),
+        $route === 'PUT me' => Users::updateMe(Http::body()),
         $route === 'GET code' => Codes::get(),
         $route === 'GET access', $route === 'POST access' => Codes::access(),
         $route === 'GET items' => Http::json(200, Catalog::data()),

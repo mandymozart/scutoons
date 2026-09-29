@@ -4,12 +4,20 @@ declare(strict_types=1);
 /**
  * Email login (port of osct server/api/src/Auth.php): request → mail with a magic link and a 6-digit one-time
  * code → verify (link token or email + code) → session token (Bearer). The first confirmation creates the user
- * (with the starter items). A code sent with the request is claimed in the same step.
+ * (with the `member` role and the starter items). A claimable code sent with the request is claimed in the same step.
  * Tokens and codes are stored as hashes only.
+ *
+ * Signup rule (ITEMS.md "Roles, signup rule, promo codes"): a NEW account needs a signup code – a code whose type has
+ * `"signup": true` in api/permissions.json (membership = a product, promo = a PR code). An address without an account
+ * and without such a code still gets `{ status: "sent" }` (no user enumeration), but the mail only explains how to
+ * get an account (no link, no one-time code). Existing accounts sign in with or without a code.
  */
 final class Auth
 {
-    /** POST /auth/request { email, code?, item_id?, variant?, locale? } → { status: "sent" } (same for new and known addresses) */
+    /**
+     * POST /auth/request { email, code?, item_id?, variant?, locale?, marketing_opt_in? } → { status: "sent" }
+     * (same answer for new and known addresses, with or without a usable signup code)
+     */
     public static function request(array $body): never
     {
         $email = self::email($body['email'] ?? null);
@@ -28,17 +36,30 @@ final class Auth
             throw new ApiError(429, 'rate_limited', 'Too many emails requested – try again later.');
         }
 
-        $id = Db::uuid();
+        $optIn = Users::flag($body['marketing_opt_in'] ?? false);
+        $id = Db::uuid7(); // time-ordered: verify by email takes the newest request, also within one second
         $token = self::randomToken();
         $otp = sprintf('%06d', random_int(0, 999999));
         $ttl = Config::int('LOGIN_TTL_MINUTES') * 60;
+        $hasAccount = Users::byEmail($email) !== null;
+        $canSignIn = $hasAccount || Codes::signupRefusal($claimCode, $email) === null;
+        // Without an account and without a signup code the request is only recorded for the hourly limits: its
+        // hashes belong to values nobody knows (no link or code is mailed), so it can never be confirmed.
         Db::run(
-            'INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, claim_item_id, claim_variant, ip_hash, attempts, created_at, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)',
-            [$id, $email, hash('sha256', $token), self::otpHash($id, $otp), $locale, $claimCode, $itemId, $variant, $ipHash, Db::now(), Db::now($ttl)]
+            'INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, claim_item_id, claim_variant, marketing_opt_in, ip_hash, attempts, created_at, expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)',
+            [$id, $email, hash('sha256', $canSignIn ? $token : self::randomToken()), $canSignIn ? self::otpHash($id, $otp) : str_repeat('0', 64),
+                $locale, $claimCode, $itemId, $variant, $optIn ? 1 : 0, $ipHash, Db::now(), Db::now($ttl)]
         );
 
-        $mail = LoginMail::compose($locale, self::link($token, $claimCode), $otp, $claimCode);
+        if ($canSignIn) {
+            // Only claimable codes (products) go into the inventory; a promo code is just the signup code
+            $row = $claimCode !== null ? Codes::find($claimCode) : null;
+            $claimable = $row !== null && Permissions::claimable((string) $row['type']);
+            $mail = LoginMail::compose($locale, self::link($token, $claimCode), $otp, $claimable ? $claimCode : null, !$hasAccount);
+        } else {
+            $mail = LoginMail::composeNoAccount($locale, self::viewerUrl(), $claimCode);
+        }
         try {
             Mailer::send($email, $mail['subject'], $mail['text'], $mail['html']);
         } catch (Throwable $error) {
@@ -48,6 +69,13 @@ final class Auth
         }
 
         Http::json(200, ['status' => 'sent', 'expires_at' => gmdate('c', time() + $ttl)]);
+    }
+
+    /** The viewer the request came from (allowed Origin), else APP_URL – for the link in the no-account mail */
+    private static function viewerUrl(): string
+    {
+        $origin = Http::origin();
+        return $origin !== null && Http::isAllowedOrigin($origin) ? $origin : rtrim(Config::get('APP_URL'), '/');
     }
 
     /**
@@ -64,8 +92,11 @@ final class Auth
     }
 
     /**
-     * POST /auth/verify { email, otp } | { token } (+ optional item_id, variant for the code of the request)
+     * POST /auth/verify { email, otp } | { token } (+ optional item_id, variant for the code of the request,
+     * marketing_opt_in for a new account – overrides the value sent with the request)
      * → { status: "success", session_token, user, created, claimed?: [code], claim_error? }
+     * A new account needs the request's code to be a signup code (checked again here), else 403 signup_code_required.
+     * `claimed` / `claim_error` only for claimable codes (a promo code is never owned).
      */
     public static function verify(array $body): never
     {
@@ -94,23 +125,30 @@ final class Auth
             }
         }
 
-        [$user, $created, $session] = Db::transaction(function () use ($request) {
+        $optIn = array_key_exists('marketing_opt_in', $body) ? Users::flag($body['marketing_opt_in']) : (bool) (int) ($request['marketing_opt_in'] ?? 0);
+        [$user, $created, $session] = Db::transaction(function () use ($request, $optIn) {
             // Only one confirmation per request, also when link and code race
             $used = Db::run('UPDATE login_requests SET used_at = ? WHERE id = ? AND used_at IS NULL', [Db::now(), $request['id']]);
             if ($used->rowCount() !== 1) throw new ApiError(410, 'already_used', 'This link or code was used already.');
             $user = Users::byEmail($request['email']);
             $created = false;
             if (!$user) {
-                $user = Users::create($request['email'], $request['locale']);
+                // Signup rule: only with a code of a type with "signup": true (checked again – it may have changed)
+                if (Codes::signupRefusal($request['claim_code'], $request['email']) !== null) {
+                    throw new ApiError(403, 'signup_code_required', 'An account needs a code from a SCUTOONS product or a promo code.');
+                }
+                $user = Users::create($request['email'], $request['locale'], $request['claim_code'], $optIn);
                 $created = true;
             }
             return [$user, $created, self::createSession($user['id'])];
         });
+        if ($created) Events::log('signup', (string) $request['claim_code'], $user['id']);
 
         $response = ['status' => 'success', 'session_token' => $session, 'user' => Users::toJson($user), 'created' => $created];
 
-        // The code sent with the login request is claimed in the same step
-        if ($request['claim_code'] !== null) {
+        // A claimable code sent with the login request is claimed in the same step (promo codes: nothing to own)
+        $claimRow = $request['claim_code'] !== null ? Codes::find($request['claim_code']) : null;
+        if ($request['claim_code'] !== null && ($claimRow === null || Permissions::claimable((string) $claimRow['type']))) {
             $itemId = is_string($body['item_id'] ?? null) ? $body['item_id'] : $request['claim_item_id'];
             $variant = array_key_exists('variant', $body) ? (is_string($body['variant']) ? $body['variant'] : null) : $request['claim_variant'];
             try {

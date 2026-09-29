@@ -4,7 +4,8 @@ declare(strict_types=1);
 /**
  * Activity statistics per code (table code_events, append-only; ITEMS.md "Revoke + activity statistics").
  * Events: scan (landing page /?c=), access (/access/, at most once per code + device per UTC day), claim,
- * claim_refused, login (one row per owned code at sign-in), revoke, unrevoke.
+ * claim_refused, login (one row per owned code at sign-in), signup (account created with this code), revoke,
+ * unrevoke.
  *
  * Privacy: no raw IP, email or user agent. device_hash = HMAC of the browser's random `X-Device-Id` header;
  * ip_hash = HMAC of the IP with a daily salt derived from AUTH_SECRET + the UTC date (no salt table; hashes of
@@ -12,7 +13,7 @@ declare(strict_types=1);
  */
 final class Events
 {
-    public const TYPES = ['scan', 'access', 'claim', 'claim_refused', 'login', 'revoke', 'unrevoke'];
+    public const TYPES = ['scan', 'access', 'claim', 'claim_refused', 'login', 'signup', 'revoke', 'unrevoke'];
 
     public static function log(string $event, string $code, ?string $userId = null, ?string $toon = null): void
     {

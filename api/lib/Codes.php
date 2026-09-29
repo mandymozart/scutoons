@@ -53,6 +53,28 @@ final class Codes
         ];
     }
 
+    /**
+     * Can this code create a new account for $email? (ITEMS.md "Accounts only with a product or a PR code")
+     * Existing, not expired, not revoked, type with `"signup": true` in permissions.json; a claimable code (a
+     * product) additionally must still be free (or registered to this email by the old form) – it is claimed at signup.
+     * @return string|null null = yes; else the reason: not_found | expired | revoked | no_signup | already_claimed
+     */
+    public static function signupRefusal(?string $code, string $email): ?string
+    {
+        if ($code === null) return 'not_found';
+        $row = self::find($code);
+        if (!$row) return 'not_found';
+        if (qrIsExpired($row)) return 'expired';
+        if (qrIsRevoked($row)) return 'revoked';
+        $type = (string) $row['type'];
+        if (!Permissions::signup($type)) return 'no_signup';
+        if (Permissions::claimable($type)) {
+            $legacyEmail = strtolower(trim((string) $row['email']));
+            if ($row['claimed_by'] !== null || ($legacyEmail !== '' && $legacyEmail !== $email)) return 'already_claimed';
+        }
+        return null;
+    }
+
     public static function isClaimed(array $row): bool
     {
         return $row['claimed_by'] !== null || (string) $row['email'] !== '';
@@ -69,7 +91,7 @@ final class Codes
 
     /**
      * GET|POST /access/ { code } or ?c= (optional Bearer) → device access for anyone holding the code:
-     * { status, code, type, expires_at, permissions, claimable, claimed, claimed_by_me?, access_token? }
+     * { status, code, type, expires_at, permissions, claimable, signup, claimed, claimed_by_me?, access_token? }
      * Works for codes owned by someone else too (viewing is device-level); never says who owns it.
      * access_token only when the code grants "catalog".
      */
@@ -92,6 +114,7 @@ final class Codes
             'expires_at' => $expires !== null ? date('c', $expires) : null,
             'permissions' => $type['grants'],
             'claimable' => $type['claimable'],
+            'signup' => $type['signup'],
             'claimed' => self::isClaimed($row),
         ];
         $user = Auth::optionalUser();
@@ -116,9 +139,12 @@ final class Codes
         if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'This code is no longer valid.');
 
         $items = self::items($code);
+        $type = Permissions::forType((string) $row['type']);
         $response = [
             'code' => $row['code'],
             'type' => $row['type'],
+            'claimable' => $type['claimable'],
+            'signup' => $type['signup'],
             'claimed' => self::isClaimed($row),
         ];
         $user = Auth::optionalUser();
@@ -160,10 +186,11 @@ final class Codes
             $row = Db::one('SELECT * FROM qr WHERE code = ?' . Db::forUpdate(), [$code]);
             if (!$row) throw new ApiError(404, 'not_found', 'This code does not exist.');
             if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
-        if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'This code is no longer valid.');
+            if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'This code is no longer valid.');
             if ($row['claimed_by'] === $user['id']) return false;
             // Which types can be owned: the permissions map (api/permissions.json)
             if (!Permissions::claimable((string) $row['type'])) {
+                // e.g. promo codes: they unlock reading and allow a signup, but nobody owns them
                 throw new ApiError(422, 'not_claimable', 'This code cannot be added to an inventory.');
             }
             if ($row['claimed_by'] !== null) {

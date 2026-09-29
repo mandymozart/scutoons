@@ -6,6 +6,7 @@ declare(strict_types=1);
  * owner, no code change needed. Server-only: the file is not served over HTTP. Every claimable/grants decision goes
  * through this class:
  *   types.<type>.claimable  can be owned by one account (inventory, edition number)
+ *   types.<type>.signup     a new account can be created with a code of this type (membership, promo)
  *   types.<type>.grants     permission ids while the code is not expired – for anyone holding the code (device
  *                           access via /access/) and for its owner (/me/)
  *   default                 for types not listed
@@ -44,13 +45,14 @@ final class Permissions
         return self::$map;
     }
 
-    /** @return array{claimable: bool, grants: string[]} */
+    /** @return array{claimable: bool, signup: bool, grants: string[]} */
     public static function forType(string $type): array
     {
         $map = self::map();
         $entry = $map['types'][$type] ?? $map['default'] ?? [];
         return [
             'claimable' => (bool) ($entry['claimable'] ?? false),
+            'signup' => (bool) ($entry['signup'] ?? false),
             'grants' => array_values(array_filter((array) ($entry['grants'] ?? []), 'is_string')),
         ];
     }
@@ -58,6 +60,12 @@ final class Permissions
     public static function claimable(string $type): bool
     {
         return self::forType($type)['claimable'];
+    }
+
+    /** A new account may be created with a code of this type */
+    public static function signup(string $type): bool
+    {
+        return self::forType($type)['signup'];
     }
 
     /** @return string[] */
