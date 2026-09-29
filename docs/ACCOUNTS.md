@@ -25,7 +25,7 @@ and the starter items) and returns a session token (Bearer). Tokens and codes ar
 | `db/migrations/2026-09-30-code-owner-guard.*`, `2026-09-30-revoke-events.*` | Owner triggers; `qr.revoked_at`/`revoked_reason`, `code_events` |
 | `db/migrations/2026-09-30-roles-signup.*` | `roles`, `user_roles` (+ backfill `member`), `users.marketing_opt_in`/`_at`/`signup_code`, `login_requests.marketing_opt_in` |
 | `scripts/` | CLI: `migrate.php`, `backfill-edition-numbers.php`, `report-orphan-codes.php`, `roles.php` |
-| `tests/api-smoke.php` (`.sh`), `tests/claim-race.php` | End-to-end API test against a running server (incl. signup rule, roles, opt-in); concurrent claim test |
+| `tests/api-smoke.php` (`.sh`), `tests/claim-race.php` | End-to-end API test against a running server (incl. signup rule, roles, opt-in); concurrent claim + concurrent signup test |
 | `router.php` | `php -S` router (local only) |
 | `logs/` | `mail.log` (dev login mails), `error.log` (API errors) – gitignored, denied over HTTP |
 
@@ -52,7 +52,7 @@ The smoke test claims one unclaimed vinyl and one Dago code of the local DB per 
 | POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in? }` → `{ status:"sent" }` (always; new accounts only with a signup code) |
 | POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required` |
 | POST | `/auth/logout/` | Bearer | ends this session |
-| GET | `/me/` | Bearer | `{ user, access, memberships, inventory, avatar }` – `user: { id, email, created_at, roles, marketing_opt_in }`, `access: { permissions, unlocked, expires_at, codes, access_token? }` |
+| GET | `/me/` | Bearer | `{ user, access, memberships, inventory, avatar }` – `user: { id, email, created_at, roles, marketing_opt_in }`, `access: { permissions, unlocked, expires_at, codes, signup_code, access_token? }` (owned codes + the valid signup code) |
 | PUT | `/me/` | Bearer | `{ marketing_opt_in: bool }` → `{ status, user }` · `400 invalid_body` |
 | GET/POST | `/access/` | optional | `{ code }` / `?c=` → device access: `type, expires_at, permissions, claimable, signup, claimed, claimed_by_me?, access_token?` (never the owner); per-IP limit; logs `access`; send `X-Device-Id` |
 | GET | `/code/?c=CODE` | optional | items/options/edition, `claimable`, `signup` of a code, `claimed_by_me` when signed in |
@@ -143,7 +143,10 @@ The deploy (push to `main`) uploads code only; `db/` and `scripts/` are not depl
    and refuse inventory rows whose `code` belongs to someone else, even for writes outside the API.
    Releasing a code (support case) = set `claimed_by` to NULL and delete its inventory rows.
 
-Tests: `tests/api-smoke.php` and `tests/claim-race.php [n]` (n processes claim one code at once → exactly one owner).
+Tests: `tests/api-smoke.php` and `tests/claim-race.php [n] [claim|signup|both]` (n processes claim one code at once →
+exactly one owner; n fresh emails sign up with one product code at once → exactly one account, owning it).
+Note: `/access/` + `/code/` share a per-IP limit (120/hour) – a few smoke runs in a row hit it locally
+(`DELETE FROM rate_limits WHERE bucket LIKE 'lookup:%'` or raise `ACCESS_MAX_PER_IP_HOUR` in config.local.php).
 
 ## Permissions map – how to change what a code type unlocks
 
@@ -188,6 +191,15 @@ Tests: `tests/api-smoke.php` and `tests/claim-race.php [n]` (n processes claim o
   nobody knows – it can never be confirmed).
 - `POST /auth/verify/` checks the rule again for a new account (the code may have been revoked meanwhile) →
   `403 signup_code_required`, nothing created. Existing accounts sign in with or without a code.
+- **Signup with a product code is atomic** (`Auth::confirm`, `Codes::claimInTransaction`): creating the account and
+  claiming its code happen in one transaction. If the claim fails, nothing is created and the login request stays
+  unused: `409 already_claimed` (someone else owns it – also when two people sign up with the same code at the same
+  moment), `422 choose_item` (+ `options`; confirm again with the same one-time code plus `item_id`/`variant`, or
+  send the choice with `/auth/request/`), `422 invalid_item`. `tests/claim-race.php` has a signup mode for this.
+- **Promo accounts read on every device**: `/me/ access` also counts the grants of the account's `signup_code`
+  while it exists, is not expired or revoked and its type grants something – without owning it (no inventory, not
+  in `memberships`). `access.signup_code` names it when it contributes (else `null`); revoking the promo code ends
+  that access.
 - At signup: `users.signup_code` = the code, `users.marketing_opt_in` (+ `marketing_opt_in_at`) from
   `marketing_opt_in` in the request body (default false; `verify` may override it), role `member`, event `signup`.
   An existing account that sends `marketing_opt_in: true` while signing in is opted in (never opted out there).
