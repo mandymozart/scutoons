@@ -1,204 +1,26 @@
-# Post-Quantum Cryptographic Keys
+# Signing keys (ML-DSA-65) – one-time setup tools
 
-This directory stores the ML-DSA-65 keypair used for signing QR code certificates.
+The certificates of authenticity are signed client-side (noble-post-quantum in the admin tools) with one ML-DSA-65
+keypair. The server keeps it in **`storage/keys/keypair.json`** (setting `KEYPAIR_PATH`; private, never served, not in
+git, not deployed – upload it by FTP once) and hands out:
 
-## 🚀 Initial Setup
+- the **public key** to everyone: `GET /api/keys/keys.php` (printed URL, verify page, third-party checks);
+- the **full keypair** to admins only: `GET /api/admin/keys` (role admin) and the legacy `generate/keys.php` (token).
 
-### Step 1: Generate Keys (ONE TIME ONLY)
+**Generate a keypair ONLY ONCE** – a new key invalidates every signature printed so far. Production already has one;
+back it up outside the server (it was `api/keys/keypair.json` before the refactor).
 
-Visit in your browser:
-```
-https://qr.scutoons.com/api/keys/generate-keys.php
-```
+## Generating a keypair (only for a new installation)
 
-This will:
-1. Generate a secure ML-DSA-65 keypair
-2. Save it to `keypair.json`
-3. Display the public key for your records
+These pages are not deployed. Run them locally from the server folder:
 
-**⚠️ Run this ONLY ONCE!** Regenerating keys will invalidate all existing signatures.
-
-### Step 2: Verify Keys Were Created
-
-Check that this file exists:
-```
-/api/keys/keypair.json
+```bash
+php -S localhost:9200        # document root = the server folder
+# open http://localhost:9200/tools/keys/generate-keys.php → "Generate" → writes storage/keys/keypair.json
 ```
 
-Should contain:
-```json
-{
-    "privateKey": "hex_string...",
-    "publicKey": "hex_string...",
-    "algorithm": "ML-DSA-65",
-    "generated": "2025-10-19T00:00:00.000Z"
-}
-```
+`save-keys.php` refuses to overwrite an existing keypair. Then upload `storage/keys/keypair.json` to the same path on
+the server (permissions 600 where the host allows it) and check `/api/keys/keys.php`.
 
-### Step 3: Secure the Files
-
-**Production Security:**
-
-1. **Restrict access to keypair.json:**
-   ```bash
-   chmod 600 keypair.json  # Owner read/write only
-   ```
-
-2. **Delete or restrict generate-keys.php:**
-   ```bash
-   # After generating keys, remove public access:
-   chmod 000 generate-keys.php
-   # Or delete it entirely
-   rm generate-keys.php save-keys.php
-   ```
-
-3. **Add to .gitignore:**
-   ```
-   api/keys/keypair.json
-   api/keys/*.key
-   ```
-
-4. **Backup the keys securely!**
-   - Keep encrypted backup offline
-   - Store in password manager
-   - Use hardware security module (HSM) for production
-
-## 🔐 File Structure
-
-```
-api/keys/
-├── README.md              ← You are here
-├── generate-keys.php      ← One-time key generation (delete after use!)
-├── save-keys.php          ← Called by generate-keys.php (delete after use!)
-├── keys.php               ← API endpoint to retrieve keys
-└── keypair.json           ← PRIVATE KEY STORAGE (secure this!)
-```
-
-## 🔑 What Gets Loaded Where
-
-### Server-Side (api/keys/)
-- `keypair.json` - Contains both private and public keys
-- Only accessible via PHP scripts
-- **Private key never leaves the server** (in ideal setup)
-
-### Client-Side (generate/)
-- Keys loaded via `fetch('/api/keys/keys.php')`  
-- Used to sign certificates in browser
-- ⚠️ **Current limitation**: Private key exposed to client
-  - Acceptable for trusted admin interface
-  - **Not recommended** for public-facing apps
-  - Future: Move signing to server-side
-
-## 🛡️ Security Considerations
-
-### Current Implementation
-
-**Pros:**
-- ✅ Keys stored on server, not in JavaScript code
-- ✅ Same keys used across sessions
-- ✅ Signatures remain verifiable
-- ✅ Keys can be backed up and restored
-
-**Cons:**
-- ⚠️ Private key exposed to browser (via HTTPS)
-- ⚠️ Anyone with admin access can extract keys
-- ⚠️ Keys visible in browser dev tools
-
-**Acceptable for:**
-- Internal admin tools
-- Trusted users only
-- Development/testing
-
-**NOT acceptable for:**
-- Public websites
-- Untrusted users
-- High-security requirements
-
-### Better Approach: Server-Side Signing
-
-For production, implement server-side signing:
-
-```
-Client Request (QR data) 
-    ↓
-POST /api/sign.php
-    ↓
-Server: Load private key
-    ↓
-Server: Sign data with ML-DSA-65
-    ↓
-Return: { signature, publicKey }
-    ↓
-Client: Embed signature in PDF
-```
-
-This keeps the private key 100% server-side.
-
-## 📋 Key Specifications
-
-**Algorithm**: ML-DSA-65 (FIPS 204 / Dilithium)  
-**Security Level**: NIST Level 3 (192-bit security)  
-**Key Sizes**:
-- Private Key: 4,032 bytes (8,064 hex chars)
-- Public Key: 1,952 bytes (3,904 hex chars)  
-**Signature Size**: 3,293 bytes (6,586 hex chars)
-
-## 🔄 Key Rotation
-
-If you need to regenerate keys:
-
-1. **Backup old keys:**
-   ```bash
-   cp keypair.json keypair.json.backup.$(date +%Y%m%d)
-   ```
-
-2. **Delete current keys:**
-   ```bash
-   rm keypair.json
-   ```
-
-3. **Generate new keys:**
-   Visit `/api/keys/generate-keys.php` again
-
-4. **Update public key distribution:**
-   - Notify users of key change
-   - Publish new public key
-   - Keep old keys for verifying old signatures
-
-⚠️ **WARNING**: Old signatures will be invalid with new keys!
-
-## 🆘 Troubleshooting
-
-### "Keys not initialized" error
-
-**Problem**: `keypair.json` doesn't exist  
-**Solution**: Visit `/api/keys/generate-keys.php` to generate keys
-
-### "Failed to load keys" error
-
-**Problem**: `keys.php` can't read `keypair.json`  
-**Solution**: Check file permissions and path
-
-### "Invalid key length" error
-
-**Problem**: Corrupted key file  
-**Solution**: Delete and regenerate keys
-
-### Keys work but signatures don't verify
-
-**Problem**: Using different keys than when signature was created  
-**Solution**: Restore correct `keypair.json` from backup
-
-## 📞 Support
-
-For issues:
-1. Check browser console for detailed error messages
-2. Verify `keypair.json` exists and is valid JSON
-3. Check file permissions (should be readable by web server)
-4. Ensure noble-post-quantum library is loaded
-
-## 🔗 Related Documentation
-
-- `KEY-MANAGEMENT.md` - Key concepts and storage strategy
-- `SIGNATURE-STORAGE.md` - How signatures are stored and verified
-- `PQ-CRYPTO-README.md` - Post-quantum cryptography details
+`keypair.json` = `{ privateKey (hex, 4032 bytes), publicKey (hex, 1952 bytes), algorithm: "ML-DSA-65", generated }`.
+More background: docs/KEY-MANAGEMENT.md, docs/SECURITY-MODEL.md, docs/VERIFICATION-GUIDE.md.

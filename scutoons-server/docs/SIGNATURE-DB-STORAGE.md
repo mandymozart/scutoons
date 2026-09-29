@@ -1,5 +1,10 @@
 # Signature Storage - Database & File System
 
+> **Paths since the server refactor (P1b):** `generate/files/` → `storage/files/` (`FILES_PATH`),
+> `api/keys/keypair.json` → `storage/keys/keypair.json` (`KEYPAIR_PATH`), key setup pages → `tools/keys/`.
+> The URLs are unchanged: `/api/keys/keys.php` (public key), `/generate/*.php` (legacy SPA), `/verify.html`; the admin
+> API adds `/api/admin/keys` and `/api/admin/codes/{code}/signature`. Current docs: ../README.md, API.md, DEPLOY.md.
+
 ## Overview
 QR code signatures are now stored in **two locations** for redundancy and flexibility:
 
