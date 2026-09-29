@@ -89,7 +89,36 @@ return static function (App $app): void {
     $app->any('/api/validate[/index.php]', ValidateController::class);
     $app->any('/api/keys/keys.php', KeysController::class);
 
-    // ADMIN_API_PLACEHOLDER
+    // ── Admin API: Session + RequireRole(admin) (docs/API.md "Admin API") ──────────────────────────────
+    $app->group('/api/admin', function (RouteCollectorProxy $admin): void {
+        $admin->get('/dashboard', [SystemController::class, 'dashboard']);
+        $admin->get('/events', [SystemController::class, 'events']);
+        $admin->get('/catalog', [SystemController::class, 'catalog']);
+        $admin->get('/keys', [SystemController::class, 'keys']);
+
+        $admin->get('/codes', [CodesController::class, 'list']);
+        $admin->post('/codes', [CodesController::class, 'create']);
+        $admin->get('/codes/{code}', [CodesController::class, 'get']);
+        $admin->get('/codes/{code}/events', [CodesController::class, 'events']);
+        $admin->post('/codes/{code}/revoke', [CodesController::class, 'revoke']);
+        $admin->post('/codes/{code}/unrevoke', [CodesController::class, 'unrevoke']);
+        $admin->get('/codes/{code}/signature', [CodesController::class, 'signature']);
+        $admin->put('/codes/{code}/signature', [CodesController::class, 'saveSignature']);
+
+        $admin->get('/batches', [BatchesController::class, 'list']);
+        $admin->post('/batches', [BatchesController::class, 'create']);
+        $admin->get('/batches/{filename}', [BatchesController::class, 'get']);
+        $admin->put('/batches/{filename}', [BatchesController::class, 'save']);
+        $admin->get('/batches/{filename}/zip', [BatchesController::class, 'zip']);
+        $admin->get('/files/{type}/{filename}', [BatchesController::class, 'getFile']);
+        $admin->put('/files/{type}/{filename}', [BatchesController::class, 'putFile']);
+
+        $admin->get('/users', [UsersController::class, 'list']);
+        $admin->get('/users/{id}', [UsersController::class, 'get']);
+        $admin->put('/users/{id}/roles/{role}', [UsersController::class, 'grant']);
+        $admin->delete('/users/{id}/roles/{role}', [UsersController::class, 'revoke']);
+        $admin->get('/roles', [UsersController::class, 'roles']);
+    })->add(new RequireRole($c->get(Roles::class), Roles::ADMIN));
 
     // Everything else below /api/ is unknown (ErrorHandler → 404 not_found "Unknown endpoint.")
     $app->any('/api[/{rest:.*}]', NotFoundController::class);

@@ -8,7 +8,13 @@
  *   generate/files/signatures/SIGNATURE-<code>.json), /api/validate/ (GET ?code= / ?c=, POST {code} / {c}) and its
  *   response shape, /api/keys/keys.php.
  *
- *   php tests/public-urls.php [base url] [--db=<sqlite file>] [--out=<file>]
+ *   php tests/public-urls.php [base url] [--db=<sqlite file>] [--out=<file>] [--hosts[=only]] [--qr-api=on|off]
+ *
+ * --hosts adds the host routing of the refactored server (agents/PLATFORM.md "Domain architecture"), sending
+ * `Host: qr.scutoons.com` / `Host: api.scutoons.com` (QR_HOST / API_HOST) to the dev server: qr serves the public pages,
+ * /api/validate/ and /api/keys/keys.php (+ the full /api/* while the transition flag QR_HOST_SERVES_API is on –
+ * --qr-api=off expects a server started with it off), api serves /api/* and no landing page. --hosts=only skips the
+ * rest. The host checks are not written to --out (the old server has no host routing).
  *
  * Codes are picked from the server's SQLite database (default: the configured DB_SQLITE_PATH; for another server pass
  * its --db), one per kind (membership with one option / a choice / no edition, promo, page, event, xr, owned,
@@ -28,9 +34,14 @@ if (PHP_SAPI !== 'cli') {
 $base = 'http://localhost:9100';
 $dbFile = null;
 $outFile = null;
+$hosts = null; // null | 'also' | 'only'
+$qrApi = true;
 foreach (array_slice($argv, 1) as $arg) {
     if (str_starts_with($arg, '--db=')) $dbFile = substr($arg, 5);
     elseif (str_starts_with($arg, '--out=')) $outFile = substr($arg, 6);
+    elseif ($arg === '--hosts') $hosts = 'also';
+    elseif ($arg === '--hosts=only') $hosts = 'only';
+    elseif (str_starts_with($arg, '--qr-api=')) $qrApi = substr($arg, 9) !== 'off';
     else $base = rtrim($arg, '/');
 }
 if ($dbFile === null) {
@@ -42,7 +53,7 @@ if (!is_file($dbFile)) {
     exit(2);
 }
 $pdo = new PDO('sqlite:' . $dbFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
-$permissionsFile = is_file(__DIR__ . '/../config/permissions.json') ? __DIR__ . '/../config/permissions.json' : __DIR__ . '/../api/permissions.json';
+$permissionsFile = __DIR__ . '/../config/permissions.json';
 $permissions = json_decode((string) file_get_contents($permissionsFile), true);
 
 $failures = 0;
@@ -62,7 +73,7 @@ function check(bool $ok, string $label, mixed $detail = null): void
 }
 
 /** @return array{status: int, type: string, location: string, body: string} */
-function request(string $method, string $url, ?string $body = null): array
+function request(string $method, string $url, ?string $body = null, array $extraHeaders = []): array
 {
     $ch = curl_init($url);
     $headers = [];
@@ -71,7 +82,7 @@ function request(string $method, string $url, ?string $body = null): array
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_FOLLOWLOCATION => false,
         CURLOPT_TIMEOUT => 20,
-        CURLOPT_HTTPHEADER => $body !== null ? ['Content-Type: application/json'] : [],
+        CURLOPT_HTTPHEADER => array_merge($body !== null ? ['Content-Type: application/json'] : [], $extraHeaders),
         CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$headers) {
             if (str_contains($line, ':')) {
                 [$name, $value] = explode(':', $line, 2);
@@ -136,6 +147,46 @@ $cases = array_values(array_filter([
 ]));
 $signed = $pick('signed', "signature IS NOT NULL AND signature <> '' AND $valid");
 echo "Server $base · database $dbFile · " . count($cases) . " kinds of codes\n\n";
+
+function finish(): never
+{
+    global $checks, $failures, $lines, $outFile;
+    if ($outFile !== null) file_put_contents($outFile, implode("\n", $lines) . "\n");
+    echo "\n" . ($checks - $failures) . " / $checks checks passed\n";
+    exit($failures === 0 ? 0 : 1);
+}
+
+// ── Host routing (refactored server only): qr = public pages, api = /api/* ───────────────────────────────
+if ($hosts !== null) {
+    require_once __DIR__ . '/../vendor/autoload.php';
+    $settings = Scutoons\Infrastructure\Config\Settings::load();
+    $qrHost = 'Host: ' . $settings->get('QR_HOST');
+    $apiHost = 'Host: ' . $settings->get('API_HOST');
+    $member = $cases[0];
+    $page = array_values(array_filter($cases, fn($c) => $c['type'] === 'page'))[0] ?? null;
+    echo 'Host routing (' . $settings->get('QR_HOST') . ', ' . $settings->get('API_HOST') . ', full API on the qr host: ' . ($qrApi ? 'on' : 'off') . ")\n";
+    foreach ([['/?c=' . $member['code'], 200], ['?c=' . $member['code'], 200], ['/?c=' . $member['code'] . '&skip=1', 302], ['/', 200],
+              ['/api/validate/?c=' . $member['code'], 200], ['/api/keys/keys.php', 200], ['/generate/get-signature.php?code=zzzzzzzz', 404],
+              ['/api/health/', $qrApi ? 200 : 404], ['/api/me/', $qrApi ? 401 : 404], ['/api/items/', $qrApi ? 200 : 404]] as [$path, $status]) {
+        $r = request('GET', $base . $path, null, [$qrHost]);
+        check($r['status'] === $status, "qr host: GET $path → $status", [$r['status'], substr($r['body'], 0, 120)]);
+    }
+    $r = request('POST', $base . '/api/validate/', json_encode(['c' => $member['code']]), [$qrHost]);
+    check($r['status'] === 200 && (json_decode($r['body'], true)['status'] ?? null) === 'success', 'qr host: POST /api/validate/ {c} → success', $r['status']);
+    if ($page) {
+        $r = request('GET', $base . '/?c=' . $page['code'], null, [$qrHost]);
+        check($r['status'] === 302 && $r['location'] === continueUrl($page['redirect_to'], $page['code']), 'qr host: page code → 302 redirect_to?code=', [$r['status'], $r['location']]);
+    }
+    foreach ([['/api/health/', 200], ['/api/me/', 401], ['/api/validate/?c=' . $member['code'], 200], ['/api/keys/keys.php', 200],
+              ['/?c=' . $member['code'], 404], ['/', 404], ['/generate/stats.php', 404], ['/api/nope/', 404]] as [$path, $status]) {
+        $r = request('GET', $base . $path, null, [$apiHost]);
+        check($r['status'] === $status, "api host: GET $path → $status", [$r['status'], substr($r['body'], 0, 120)]);
+    }
+    $r = request('GET', $base . '/?c=' . $member['code'], null, ['Host: localhost']);
+    check($r['status'] === 200, 'other host (localhost): landing page and API both answer', $r['status']);
+    echo "\n";
+    if ($hosts === 'only') finish();
+}
 
 // ── QR landing page: ?c= (printed on every QR code), &skip=1, ?login= ───────────────────────────────────
 echo "QR landing page\n";
@@ -255,6 +306,4 @@ $lines[] = "GET /api/keys/keys.php → {$r['status']} {$r['type']} " . $shape($r
 check($r['status'] === 200 && $r['type'] === 'application/json' && ($body['success'] ?? null) === true && is_string($body['publicKey'] ?? null)
     && !array_key_exists('privateKey', $body), '/api/keys/keys.php → public key only', [$r['status'], substr($r['body'], 0, 100)]);
 
-if ($outFile !== null) file_put_contents($outFile, implode("\n", $lines) . "\n");
-echo "\n" . ($checks - $failures) . " / $checks checks passed\n";
-exit($failures === 0 ? 0 : 1);
+finish();
