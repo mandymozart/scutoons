@@ -75,12 +75,16 @@ final class Permissions
     }
 
     /**
-     * Account access from the codes a user owns (qr rows with code, type, expires_at) – for /me/.
+     * Account access from the codes a user owns (qr rows with code, type, expires_at) – for /me/ – plus, optionally,
+     * the still valid signup code the account was created with (a promo code; not owned).
      * @param list<array<string, mixed>> $rows
-     * @return array<string, mixed> { permissions, unlocked, expires_at, codes, access_token? }
+     * @param array<string, mixed>|null $signupRow
+     * @return array<string, mixed> { permissions, unlocked, expires_at, codes, signup_code, access_token? }
+     *   signup_code = the promo/signup code when it contributes grants (null otherwise)
      */
-    public static function access(array $rows, string $userId): array
+    public static function access(array $rows, string $userId, ?array $signupRow = null): array
     {
+        if ($signupRow !== null) $rows[] = $signupRow;
         $permissions = [];
         $codes = [];
         $expiries = [];
@@ -100,6 +104,7 @@ final class Permissions
             'unlocked' => in_array('catalog', $permissions, true),
             'expires_at' => $expires !== null ? date('c', $expires) : null,
             'codes' => $codes,
+            'signup_code' => $signupRow !== null && in_array($signupRow['code'], $codes, true) ? $signupRow['code'] : null,
         ];
         if ($access['unlocked']) $access['access_token'] = self::issueToken($permissions, $expires, 'user:' . $userId);
         return $access;

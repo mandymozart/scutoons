@@ -185,6 +185,22 @@ final class Inventory
     }
 
     /** GET /me/ → { user, access, memberships, inventory, avatar } (access incl. access_token when unlocked) */
+    /**
+     * The code the account was created with, when it is not owned by the account (a promo code): its grants count
+     * for /me access while it exists, is not expired or revoked and its type grants something – so a promo account
+     * reads on every device. It never becomes an owned code (no inventory, not in memberships).
+     * @param list<array<string, mixed>> $owned the owned qr rows
+     * @return array<string, mixed>|null
+     */
+    private static function signupCodeRow(array $user, array $owned): ?array
+    {
+        $code = $user['signup_code'] ?? null;
+        if (!is_string($code) || $code === '' || in_array($code, array_column($owned, 'code'), true)) return null;
+        $row = Db::one('SELECT code, type, expires_at, revoked_at FROM qr WHERE code = ?', [$code]);
+        if (!$row || qrIsExpired($row) || qrIsRevoked($row) || !Permissions::grants((string) $row['type'])) return null;
+        return $row;
+    }
+
     public static function me(): never
     {
         $user = Auth::user();
@@ -193,7 +209,7 @@ final class Inventory
         $owned = array_values(array_filter($codes, fn($r) => Permissions::claimable((string) $r['type'])));
         Http::json(200, [
             'user' => Users::toJson($user),
-            'access' => Permissions::access($codes, $user['id']),
+            'access' => Permissions::access($codes, $user['id'], self::signupCodeRow($user, $codes)),
             'memberships' => array_map(fn($r) => [
                 'code' => $r['code'],
                 'type' => $r['type'],

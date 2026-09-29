@@ -96,7 +96,9 @@ final class Auth
      * marketing_opt_in – overrides the value sent with the request; stored for a new account, `true` also opts an
      * existing account in)
      * → { status: "success", session_token, user, created, claimed?: [code], claim_error? }
-     * A new account needs the request's code to be a signup code (checked again here), else 403 signup_code_required.
+     * A new account needs the request's code to be a signup code (checked again here), else 403 signup_code_required;
+     * a product code someone else owns → 409 already_claimed. A new account and the claim of its product code are one
+     * transaction (claim fails → no account, e.g. 422 choose_item: confirm again with item_id/variant).
      * `claimed` / `claim_error` only for claimable codes (a promo code is never owned).
      */
     public static function verify(array $body): never
@@ -126,53 +128,88 @@ final class Auth
             }
         }
 
+        Http::json(200, self::confirm($request, $body));
+    }
+
+    /**
+     * Confirms a checked login request (OTP or link already verified): signs in, or creates the account.
+     * A NEW account with a claimable code (a product) is created and claims that code in ONE transaction – if the
+     * claim fails (409 already_claimed, 422 choose_item / invalid_item, …) nothing is created and the request stays
+     * unused, so the client can confirm again (e.g. with item_id/variant). Existing accounts claim afterwards, and a
+     * failed claim is only reported as claim_error. Public for tests/claim-race.php (signup mode).
+     * @param array<string, mixed> $request the login_requests row
+     * @param array<string, mixed> $body    item_id?, variant?, marketing_opt_in?
+     * @return array<string, mixed> the /auth/verify/ response
+     */
+    public static function confirm(array $request, array $body): array
+    {
         $optIn = array_key_exists('marketing_opt_in', $body) ? Users::flag($body['marketing_opt_in']) : (bool) (int) ($request['marketing_opt_in'] ?? 0);
-        [$user, $created, $session] = Db::transaction(function () use ($request, $optIn) {
-            // Only one confirmation per request, also when link and code race
-            $used = Db::run('UPDATE login_requests SET used_at = ? WHERE id = ? AND used_at IS NULL', [Db::now(), $request['id']]);
-            if ($used->rowCount() !== 1) throw new ApiError(410, 'already_used', 'This link or code was used already.');
-            $user = Users::byEmail($request['email']);
-            $created = false;
-            if (!$user) {
+        $code = $request['claim_code'];
+        $itemId = is_string($body['item_id'] ?? null) ? $body['item_id'] : $request['claim_item_id'];
+        $variant = array_key_exists('variant', $body) ? (is_string($body['variant']) ? $body['variant'] : null) : $request['claim_variant'];
+        $claimRow = $code !== null ? Codes::find($code) : null;
+        // Only claimable codes (products) are claimed; promo codes are just signup codes
+        $claimable = $code !== null && ($claimRow === null || Permissions::claimable((string) $claimRow['type']));
+
+        try {
+            [$user, $created, $session, $claimedNew] = Db::transaction(function () use ($request, $optIn, $code, $itemId, $variant, $claimable) {
+                // Only one confirmation per request, also when link and code race
+                $used = Db::run('UPDATE login_requests SET used_at = ? WHERE id = ? AND used_at IS NULL', [Db::now(), $request['id']]);
+                if ($used->rowCount() !== 1) throw new ApiError(410, 'already_used', 'This link or code was used already.');
+                $user = Users::byEmail($request['email']);
+                if ($user) return [$user, false, self::createSession($user['id']), null];
+
                 // Signup rule: only with a code of a type with "signup": true (checked again – it may have changed)
-                if (Codes::signupRefusal($request['claim_code'], $request['email']) !== null) {
+                $refusal = Codes::signupRefusal($code, $request['email']);
+                if ($refusal === 'already_claimed') {
+                    throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s account, so it cannot create a new one. You can still read with it.');
+                }
+                if ($refusal !== null) {
                     throw new ApiError(403, 'signup_code_required', 'An account needs a code from a SCUTOONS product or a promo code.');
                 }
-                $user = Users::create($request['email'], $request['locale'], $request['claim_code'], $optIn);
-                $created = true;
+                $user = Users::create($request['email'], $request['locale'], $code, $optIn);
+                // Account + claim of its product code are atomic: a failed claim rolls the new account back
+                $claimedNew = $claimable ? Codes::claimInTransaction($user, (string) $code, $itemId, $variant) : null;
+                return [$user, true, self::createSession($user['id']), $claimedNew];
+            });
+        } catch (ApiError $error) {
+            if ($code !== null && in_array($error->errorCode, ['already_claimed', 'email_required', 'revoked', 'expired'], true)) {
+                Events::log('claim_refused', (string) $code);
             }
-            return [$user, $created, self::createSession($user['id'])];
-        });
+            throw $error;
+        }
+
+        $response = ['status' => 'success', 'session_token' => $session, 'user' => null, 'created' => $created];
         if ($created) {
-            Events::log('signup', (string) $request['claim_code'], $user['id']);
-        } elseif ($optIn && !(int) $user['marketing_opt_in']) {
-            // An existing account that ticked "Send me news" while signing in opts in (never opts out here)
-            Users::setMarketingOptIn($user['id'], true);
-            $user = Users::byId($user['id']);
-        }
-
-        $response = ['status' => 'success', 'session_token' => $session, 'user' => Users::toJson($user), 'created' => $created];
-
-        // A claimable code sent with the login request is claimed in the same step (promo codes: nothing to own)
-        $claimRow = $request['claim_code'] !== null ? Codes::find($request['claim_code']) : null;
-        if ($request['claim_code'] !== null && ($claimRow === null || Permissions::claimable((string) $claimRow['type']))) {
-            $itemId = is_string($body['item_id'] ?? null) ? $body['item_id'] : $request['claim_item_id'];
-            $variant = array_key_exists('variant', $body) ? (is_string($body['variant']) ? $body['variant'] : null) : $request['claim_variant'];
-            try {
-                Codes::claim($user, $request['claim_code'], $itemId, $variant);
-                $response['claimed'] = [$request['claim_code']];
-            } catch (ApiError $error) {
-                $response['claimed'] = [];
-                $response['claim_error'] = ['code' => $request['claim_code'], 'error' => $error->errorCode, 'message' => $error->getMessage()] + $error->extra;
+            Events::log('signup', (string) $code, $user['id']);
+            if ($claimable) {
+                if ($claimedNew) Events::log('claim', (string) $code, $user['id']);
+                $response['claimed'] = [$code];
+            }
+        } else {
+            if ($optIn && !(int) $user['marketing_opt_in']) {
+                // An existing account that ticked "Send me news" while signing in opts in (never opts out here)
+                Users::setMarketingOptIn($user['id'], true);
+                $user = Users::byId($user['id']);
+            }
+            // Existing account: the code sent with the login request is claimed in the same step, failures are reported
+            if ($claimable) {
+                try {
+                    Codes::claim($user, (string) $code, $itemId, $variant);
+                    $response['claimed'] = [$code];
+                } catch (ApiError $error) {
+                    $response['claimed'] = [];
+                    $response['claim_error'] = ['code' => $code, 'error' => $error->errorCode, 'message' => $error->getMessage()] + $error->extra;
+                }
             }
         }
+        $response['user'] = Users::toJson($user);
 
         // Statistics: one `login` event per code the account owns
         foreach (Db::all('SELECT code FROM qr WHERE claimed_by = ?', [$user['id']]) as $owned) {
             Events::log('login', $owned['code'], $user['id']);
         }
-
-        Http::json(200, $response);
+        return $response;
     }
 
     /** POST /auth/logout → { status: "success" } (this device only) */

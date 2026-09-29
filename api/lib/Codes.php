@@ -182,38 +182,46 @@ final class Codes
 
     private static function claimLocked(array $user, string $code, ?string $itemId, ?string $variant): bool
     {
-        return Db::transaction(function () use ($user, $code, $itemId, $variant) {
-            $row = Db::one('SELECT * FROM qr WHERE code = ?' . Db::forUpdate(), [$code]);
-            if (!$row) throw new ApiError(404, 'not_found', 'This code does not exist.');
-            if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
-            if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'This code is no longer valid.');
-            if ($row['claimed_by'] === $user['id']) return false;
-            // Which types can be owned: the permissions map (api/permissions.json)
-            if (!Permissions::claimable((string) $row['type'])) {
-                // e.g. promo codes: they unlock reading and allow a signup, but nobody owns them
-                throw new ApiError(422, 'not_claimable', 'This code cannot be added to an inventory.');
-            }
-            if ($row['claimed_by'] !== null) {
-                throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s account. You can still read with it.');
-            }
-            // Claimed by the old email-only form: only the account with that email may own it
-            $legacyEmail = strtolower(trim((string) $row['email']));
-            if ($legacyEmail !== '' && $legacyEmail !== $user['email']) {
-                throw new ApiError(409, 'email_required', 'Sign in with the email this code was registered with.');
-            }
+        return Db::transaction(fn() => self::claimInTransaction($user, $code, $itemId, $variant));
+    }
 
-            $grants = self::resolveItems($row, $itemId, $variant);
+    /**
+     * The claim itself – call inside Db::transaction() (Auth::confirm uses it to create an account and claim its
+     * product code atomically). Locks the qr row (MySQL FOR UPDATE; SQLite: the transaction's write lock).
+     * No events are logged here. Returns true when newly claimed.
+     */
+    public static function claimInTransaction(array $user, string $code, ?string $itemId, ?string $variant): bool
+    {
+        $row = Db::one('SELECT * FROM qr WHERE code = ?' . Db::forUpdate(), [$code]);
+        if (!$row) throw new ApiError(404, 'not_found', 'This code does not exist.');
+        if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
+        if (qrIsRevoked($row)) throw new ApiError(410, 'revoked', 'This code is no longer valid.');
+        if ($row['claimed_by'] === $user['id']) return false;
+        // Which types can be owned: the permissions map (api/permissions.json)
+        if (!Permissions::claimable((string) $row['type'])) {
+            // e.g. promo codes: they unlock reading and allow a signup, but nobody owns them
+            throw new ApiError(422, 'not_claimable', 'This code cannot be added to an inventory.');
+        }
+        if ($row['claimed_by'] !== null) {
+            throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s account. You can still read with it.');
+        }
+        // Claimed by the old email-only form: only the account with that email may own it
+        $legacyEmail = strtolower(trim((string) $row['email']));
+        if ($legacyEmail !== '' && $legacyEmail !== $user['email']) {
+            throw new ApiError(409, 'email_required', 'Sign in with the email this code was registered with.');
+        }
 
-            $bound = Db::run('UPDATE qr SET claimed_by = ?, email = ?, claimed_at = ? WHERE code = ? AND claimed_by IS NULL',
-                [$user['id'], $user['email'], qrNow(), $code]);
-            if ($bound->rowCount() !== 1) throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s inventory.');
+        $grants = self::resolveItems($row, $itemId, $variant);
 
-            $editionNumber = $row['edition_number'] !== null ? (int) $row['edition_number'] : null;
-            foreach ($grants as $grant) {
-                Inventory::add($user['id'], $grant['item_id'], $grant['variant'], $grant['qty'], 'qr', $code, $editionNumber);
-            }
-            return true;
-        });
+        $bound = Db::run('UPDATE qr SET claimed_by = ?, email = ?, claimed_at = ? WHERE code = ? AND claimed_by IS NULL',
+            [$user['id'], $user['email'], qrNow(), $code]);
+        if ($bound->rowCount() !== 1) throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s inventory.');
+
+        $editionNumber = $row['edition_number'] !== null ? (int) $row['edition_number'] : null;
+        foreach ($grants as $grant) {
+            Inventory::add($user['id'], $grant['item_id'], $grant['variant'], $grant['qty'], 'qr', $code, $editionNumber);
+        }
+        return true;
     }
 
     /**
