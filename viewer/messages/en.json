@@ -158,6 +158,10 @@
 		"slot_feet": "Feet",
 		"slot_back": "Back",
 		"slot_accessory": "Accessory",
+		"avatar_body": "Body",
+		"avatar_body_sphynx": "Sphynx",
+		"avatar_body_sphynx_nude": "Sphynx nude",
+		"avatar_body_mouse": "Mouse",
 		"nothing_to_wear": "Nothing to wear for this slot yet.",
 		"play": "Play",
 		"minigame_soon": "This minigame is coming soon."

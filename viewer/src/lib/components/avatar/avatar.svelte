@@ -9,12 +9,12 @@
 	 * Default reader avatar: the sphynx mannequin (CDN, 768 × 1152) with named slot tiles in a column on each side.
 	 * Equipped items are drawn on the body; positions are in % of the mannequin image.
 	 */
-	const MANNEQUIN = 'catpope/avatar/mannequin.webp';
 	const W = 768;
 	const H = 1152;
 
-	/** where an equipped item sits on the mannequin: centre + width (image px) */
-	const WORN: Record<AvatarSlot, { x: number; y: number; size: number }> = {
+	type Worn = Record<AvatarSlot, { x: number; y: number; size: number }>;
+	/** where an equipped item sits on the sphynx body: centre + width (image px) */
+	const SPHYNX_WORN: Worn = {
 		head: { x: 370, y: 70, size: 170 },
 		face: { x: 372, y: 105, size: 110 },
 		neck: { x: 372, y: 200, size: 110 },
@@ -25,6 +25,52 @@
 		back: { x: 372, y: 330, size: 360 },
 		accessory: { x: 598, y: 575, size: 90 }
 	};
+	/** mouse: big head, shorter body */
+	const MOUSE_WORN: Worn = {
+		head: { x: 385, y: 130, size: 330 },
+		face: { x: 385, y: 230, size: 200 },
+		neck: { x: 385, y: 330, size: 120 },
+		torso: { x: 385, y: 450, size: 260 },
+		hands: { x: 175, y: 625, size: 90 },
+		legs: { x: 385, y: 770, size: 260 },
+		feet: { x: 385, y: 1010, size: 340 },
+		back: { x: 385, y: 450, size: 300 },
+		accessory: { x: 595, y: 625, size: 90 }
+	};
+
+	/** Avatar bodies (768 × 1152 each). The first one is the default. */
+	const BODIES = [
+		{ id: 'sphynx', image: 'catpope/avatar/mannequin.webp', worn: SPHYNX_WORN },
+		{ id: 'sphynx_nude', image: 'catpope/avatar/mannequin-nude.webp', worn: SPHYNX_WORN },
+		{ id: 'mouse', image: 'yellowmouse/avatar/mannequin.webp', worn: MOUSE_WORN }
+	] as const;
+	type BodyId = (typeof BODIES)[number]['id'];
+	// Body choice is a per-device preference for now (no server field yet)
+	const BODY_KEY = 'scutoons_avatar_body';
+
+	function readBody(): BodyId {
+		try {
+			const stored = localStorage.getItem(BODY_KEY);
+			if (BODIES.some((b) => b.id === stored)) return stored as BodyId;
+		} catch {
+			// storage unavailable → default body
+		}
+		return BODIES[0].id;
+	}
+
+	let bodyId = $state<BodyId>(readBody());
+	const body = $derived(BODIES.find((b) => b.id === bodyId) ?? BODIES[0]);
+	const WORN = $derived(body.worn);
+
+	function chooseBody(id: BodyId) {
+		bodyId = id;
+		try {
+			localStorage.setItem(BODY_KEY, id);
+		} catch {
+			// not persisted, still switches for this visit
+		}
+	}
+
 	// draw order: back first, face/head last
 	const WORN_ORDER: AvatarSlot[] = ['back', 'legs', 'feet', 'torso', 'hands', 'accessory', 'neck', 'head', 'face'];
 	// tiles: left column top→bottom, right column top→bottom
@@ -33,7 +79,7 @@
 
 	const inventory = getInventoryContext();
 	const slots = $derived<AvatarSlot[]>(
-		(inventory.catalog?.slots ?? (Object.keys(WORN) as AvatarSlot[])).filter((s) => s in WORN)
+		(inventory.catalog?.slots ?? (Object.keys(SPHYNX_WORN) as AvatarSlot[])).filter((s) => s in SPHYNX_WORN)
 	);
 	const left = $derived(LEFT.filter((s) => slots.includes(s)));
 	const right = $derived([...RIGHT, ...slots.filter((s) => !LEFT.includes(s) && !RIGHT.includes(s))].filter((s) => slots.includes(s)));
@@ -78,12 +124,24 @@
 {/snippet}
 
 <div class="avatar">
+	<div class="bodies" role="group" aria-label={m['items.avatar_body']()}>
+		{#each BODIES as b (b.id)}
+			<button
+				class="body-choice"
+				class:active={b.id === bodyId}
+				aria-pressed={b.id === bodyId}
+				onclick={() => chooseBody(b.id)}
+			>
+				{(m as any)[`items.avatar_body_${b.id}`]?.() ?? b.id}
+			</button>
+		{/each}
+	</div>
 	<div class="stage">
 		<div class="column">
 			{#each left as slot (slot)}{@render tile(slot)}{/each}
 		</div>
 		<div class="figure" style="aspect-ratio: {W} / {H}">
-			<img class="mannequin" src={asset(MANNEQUIN)} alt="" draggable="false" />
+			<img class="mannequin" src={asset(body.image)} alt="" draggable="false" />
 			{#each WORN_ORDER as slot}
 				{@const worn = slots.includes(slot) ? inventory.equippedEntry(slot) : undefined}
 				{#if worn}
@@ -136,6 +194,25 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
+	}
+	.bodies {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: center;
+		gap: 0.5rem;
+	}
+	.body-choice {
+		font: inherit;
+		font-size: 0.75rem;
+		padding: 0.25rem 0.75rem;
+		background: white;
+		color: black;
+		border: 2px solid #ccc;
+		cursor: pointer;
+	}
+	.body-choice:hover,
+	.body-choice.active {
+		border-color: black;
 	}
 	.stage {
 		display: grid;
