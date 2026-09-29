@@ -1,13 +1,11 @@
 <script lang="ts">
-	import { escapeAndJoin } from '@scutoons/content';
-	import type { PageProps } from './$types.js';
+	import { escapeAndJoin, type FullCredits } from '@scutoons/content';
 
-	let { data }: PageProps = $props();
-
-	let credits = data.credits;
+	/** The old per-locale `<toon>/<locale>/credits.json` – shown while the toon has no credits.json in the store. */
+	let { credits }: { credits: FullCredits } = $props();
 </script>
 
-<div class="view credits-view">
+<div class="legacy-credits">
 	<header class="credits-header">
 		<h1>Credits</h1>
 	</header>
@@ -76,19 +74,12 @@
 </div>
 
 <style>
-	.credits-view {
-		max-width: 600px;
-		margin: 5rem auto;
-	}
 	header{
 		padding: 0 1rem;
 		h1 {
 			display: flex;
 			align-items: center;
 			gap: .5rem;
-		}
-		img {
-			width: 4rem;
 		}
 		display: grid;
 		grid-template-columns: auto 1fr;

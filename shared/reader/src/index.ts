@@ -8,4 +8,5 @@ export { sliceAudio, type SliceAudioConfig, type SliceAudioPlayer } from './acti
 export { sliceEvents, type SliceEventsConfig } from './actions/slice-events.ts';
 export { getMusicStateForSlice } from './actions/music.ts';
 export { isWithinRect } from './rect.ts';
+export { default as CreditsView } from './credits/credits-view.svelte';
 export type { ActiveOnomatopoeia, PercentRect } from './types.ts';
