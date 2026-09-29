@@ -105,6 +105,16 @@ require_once __DIR__ . '/../config.php';
 				grid-template-columns: 1fr;
 			}
 		}
+		.stats-toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-bottom: 1rem; }
+		.stats-toolbar label { display: flex; flex-direction: column; font-size: 0.8rem; }
+		.stats-chart { border: 2px solid #000; padding: 0.5rem; margin-bottom: 1rem; }
+		.stats-table-wrap { overflow-x: auto; }
+		.stats-table th.sortable { cursor: pointer; white-space: nowrap; }
+		.stats-table tr.revoked td { opacity: 0.6; }
+		.stats-detail { border: 2px solid #000; padding: 1rem; margin-bottom: 1rem; }
+		.stats-revoke { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0 1rem; }
+		.err { color: #dc3545; }
+		.muted { color: #6b6b6b; }
 	</style>
 </head>
 
@@ -117,6 +127,7 @@ require_once __DIR__ . '/../config.php';
 			<span class="mode-option active" data-mode="generate">Generate</span>
 			<span class="mode-option" data-mode="regenerate">Regenerate</span>
 			<span class="mode-option" data-mode="batch">Batch</span>
+			<span class="mode-option" data-mode="stats">Stats</span>
 		</div>
 		<div class="app-layout view">
 
@@ -199,6 +210,8 @@ require_once __DIR__ . '/../config.php';
 				</div>
 				<!-- Batch Mode -->
 				<div class="mode-panel" id="batchMode"></div>
+				<!-- Stats Mode -->
+				<div class="mode-panel" id="statsMode"></div>
 				<!-- Regenerate Mode -->
 				<div class="mode-panel" id="regenerateMode">
 					<div class="content">

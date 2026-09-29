@@ -2,6 +2,7 @@ import TemplateVariableFields from './components/TemplateVariableFields.js';
 import { getToken } from './utils/auth.js';
 import AuthView from './views/AuthView.js';
 import BatchView from './views/batch.js';
+import StatsView from './views/stats.js';
 import GenerateView from './views/generate.js';
 import RegenerateView from './views/regenerate.js';
 
@@ -45,6 +46,7 @@ const App = {
     new RegenerateView();
     try {
       new BatchView();
+      new StatsView();
     } catch (err) {
       console.error('[main] BatchView failed to initialise:', err);
       const el = document.getElementById('batchMode');
