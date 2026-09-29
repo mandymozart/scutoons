@@ -96,13 +96,44 @@ Like the server, the creator is its **own standalone app**: own folder, own buil
 (a preview page rendering drafts with `@scutoons/reader`), not via a `?preview=draft` mode in the viewer; the viewer's
 account page may link to `creator.scutoons.com` for creators, nothing more.
 
-Move `viewer/src/routes/(creator)`, `lib/components/creator`, `lib/creator`, `lib/api/content.service.ts` into
-`creator/`; rendering from `@scutoons/reader`; role `creator`. The viewer keeps only the draft-preview loader.
+✅ Done in P1a: `viewer/src/routes/(creator)`, `lib/components/creator`, `lib/creator` moved into `creator/`
+(`src/routes`, `src/lib/components`, `src/lib/editor`); validation + paths in `@scutoons/content`, content store in
+`@scutoons/api`; the viewer's `?preview=draft` loader mode is removed. See "P1a — result" below.
+
+## P1a — result (2026-09-30)
+
+**Package map**
+
+| Where | What |
+|---|---|
+| `package.json` (root) | private, npm workspaces `viewer`, `creator`, `admin`, `shared/*` (missing folders are fine for npm); scripts `dev:viewer`, `dev:creator`, `dev:admin`, `check` (all workspaces), `build` (all with a build script); one `package-lock.json` + `.npmrc` (`engine-strict`) at the root |
+| `shared/tokens` | `tokens.css` (DESIGN.md Part 1 + `--state-error/warning` + legacy `--primary-color`, `--color-acid-*`), `fonts.css` + `fonts/` (Plex Mono 400/700 + italic, Bangers, OFL texts), `base.css` (html/body/headings/p, fluid root size), `index.css`; check = node script |
+| `shared/content` | types `content`, `enums`, `audio`, `visual-novel`, `items`, `membership` (+ `isMembershipExpired`, ex `lib/auth`), `template.ts` (escape/sanitize, `isItemPublic(item, includeDrafts)`, `cdnUrl(base, path)`), `paths.ts`, `validate.ts` (ex creator); `schema/{chapter,season,toon,toon-index,group,catalog}.schema.json` via `npm run schema` (ts-json-schema-generator), check = tsc + schema up to date |
+| `shared/reader` | `Slice`, `Dialogs`, `Dialog`, `Onomatopoeia` (+ variants/effects), actions `sliceAudio` (player injected), `sliceEvents` (VN `run` injected; ex unused `vnEvents`), `getMusicStateForSlice`, `isWithinRect`, type `ActiveOnomatopoeia`; check = svelte-check --fail-on-warnings |
+| `shared/api` | `createApiClient({ baseUrl, getToken, getDeviceId })`, `ApiError`, `createQrApi(client)`, `createContentApi({ client, staticBase })`, `getDeviceId`, `get/setSessionToken`; check = tsc |
+| `shared/ui` | `Button`, `IconButton`, `Field`, `Panel`, `Section`, `Sheet` (native dialog), `Tabs`, `Toggle`, `Badge`, `Menu` + `clickOutside`, `createToaster` + `ToastStack`; check = svelte-check --fail-on-warnings |
+| `viewer/` | consumes all five; app wiring in `lib/api.ts` (client + endpoints), `lib/config.ts` (`API_URL`, `CDN_SERVER`, `CREATOR_URL`), `lib/actions/audio/index.ts` (`audio` action + `audioPlayer()` adapter), `components/toon/slice.svelte` (thin wrapper around the reader Slice: CDN URL, locale, samples/triggers, audio attachment) |
+| `creator/` | SvelteKit static SPA on :10000, own paraglide (`creator.*`, `login.*`; cookie `SCUTOONS_CREATOR_LOCALE`), own session store + login screen (`@scutoons/ui`), role gate, magic link `/?login=`, draft preview `/<toon>/chapter/<n>/preview?locale=&label=` |
+| `.github/workflows/` | `viewer.yml` (was `main.yml`, same FTP secrets, now root `npm ci` + path filters), `creator.yml` (`CREATOR_FTP_*` secrets, `VITE_*` repo vars) |
+
+**Decisions**
+- Env: `VITE_API_URL` everywhere (still reads the old `VITE_QR_API`), prod fallback `https://qr.scutoons.com/api`;
+  `VITE_CDN_URL` (dev 8001); viewer `VITE_CREATOR_URL`; creator `VITE_VIEWER_URL` (+ optional `VITE_STATIC_API`).
+- Tokens are imported by the root layout (`import '@scutoons/tokens'`); the viewer keeps `static/css/styles.css`
+  (buttons, inputs, utilities) and `animations.css` as they were. Apps need `server.fs.allow: ['../shared']`.
+- `check` compiles paraglide first (`scripts/paraglide.js` with the same `paraglide.config.js` as the vite plugin), so
+  it works on a fresh clone / CI.
+- Shared components keep the old DOM/class names (`.slice`, `.dialog`, `.onomatopeia`) so output stays identical;
+  files are kebab-case like the apps. Reader onomatopoeia: `$inspect` dropped, props read via `$derived`.
+- No viewer markup was swapped for `@scutoons/ui` yet: nothing was a visually 1:1 match (e.g. role tags use a 2px
+  border, the kit's Badge a hairline); the creator's new login screen and preview use the kit.
+- The creator's static fallback files (`toons.json`, `characters.json`, store fallback) come from the viewer origin →
+  production needs CORS on `scutoons.com/api/*.json` for `creator.scutoons.com` (or those files via the API later).
 
 ## Cross-app auth
 
 Same endpoints, token per origin (localStorage `scutoons_session`) for now; `ALLOWED_ORIGINS` gains
-creator/admin origins (+ dev ports: viewer 5173, creator 5180, admin 5190). Later: one `HttpOnly` session cookie on
+creator/admin origins (+ dev ports: viewer 8000, creator 10000, admin 11000). Later: one `HttpOnly` session cookie on
 `.scutoons.com` for single sign-on.
 
 ## Deploy
@@ -117,7 +148,7 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 | Phase | What | Who | Depends on |
 |---|---|---|---|
 | P0 | `platform` branch; qr repo imported with history as `server/` (git subtree) | coordinator | – ✅ |
-| P1a | Monorepo foundation: root workspaces, `shared/{tokens,content,reader,api,ui}` extracted from viewer, viewer consumes them; `creator/` app split out of viewer | agent "frontend-platform" | P0 |
+| P1a | Monorepo foundation: root workspaces, `shared/{tokens,content,reader,api,ui}` extracted from viewer, viewer consumes them; `creator/` app split out of viewer | agent "frontend-platform" | P0 ✅ |
 | P1b | Server refactor to Slim 4 structure, contract suites green, `/api/admin/*` with role auth | agent "server-refactor" | P0 (parallel to P1a) |
 | P2 | `admin/` app on shared ui + admin API; parity with `generate/` | agent "admin" | P1a ui/tokens, P1b admin API |
 | P3 | CI workflows, root README, local dev (one command), cutover checklist, archive old repo | coordinator/agent | P1–P2 |
@@ -133,7 +164,7 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 
 - Server: `cd server && php -S localhost:9100 router.php` (port 9100 while the old repo still serves :9000),
   local-only files copied from the old repo (config.local.php, db/local.sqlite, generate/files, keys) — gitignored.
-- CDN: `python cdn/server.py 8001`. Viewer 5173, creator 5180, admin 5190.
+- CDN: `python cdn/server.py 8001`. Viewer 8000, creator 10000, admin 11000 (see "Local dev ports").
 
 ## Admin UI patterns (from akin)
 
@@ -272,7 +303,7 @@ Rules now:
 | Phase | What | Who |
 |---|---|---|
 | P0 | monorepo + history import | ✅ |
-| P1a | workspaces, shared packages, standalone creator | agent (running) |
+| P1a | workspaces, shared packages, standalone creator | ✅ 2026-09-30 |
 | P1b | server refactor (Slim), `server/`, host routing qr/api, admin API | agent (running) |
 | P2a | `admin/` app incl. port of `generate/` (QR generation, batches, certificates) to Svelte | next |
 | P2b | `shop/` app split out of the viewer, `/shop` redirect | next |

@@ -329,3 +329,31 @@ are the fallback and the seed.
   en > 130 % of de.
 - Browser tests with a second account: `http://[::1]:5173` is the same dev server with its own localStorage; it is
   in `ALLOWED_ORIGINS` of the local `config.local.php` only. Test creator `creator-test@example.com` (local DB).
+
+## Platform P1a
+
+2026-09-30 (branch `platform`, commits 52ba2d7..see git log; details + package map: PLATFORM.md "P1a — result").
+- Monorepo: root `package.json` workspaces `viewer`, `creator`, `admin`, `shared/*`; one lockfile + `.npmrc` at the
+  root; `node_modules` only at the root (viewer/node_modules removed). Scripts: `dev:viewer` (:8000), `dev:creator`
+  (:10000), `dev:admin`, `check`, `build`. Versions unchanged (svelte 5.55.0, kit 2.55.0, vite 8.0.3, paraglide 2.15.1).
+- Shared packages are source packages (`exports` → `src/index.ts`, `svelte` condition); every app's vite config needs
+  `server.fs.allow: ['../shared']` (otherwise fonts answer 403). After adding a new `@scutoons/*` dependency, restart
+  the dev server (vite caches the failed resolution).
+- The viewer's code moved: models → `@scutoons/content` (import from `'@scutoons/content'`), `lib/api/*` →
+  `@scutoons/api` + app wiring `viewer/src/lib/api.ts`, dialog/onomatopoeia components → `@scutoons/reader`,
+  fonts + `fonts.css` → `@scutoons/tokens`. `viewer/src/lib/components/toon/slice.svelte` is now a thin wrapper.
+- The creator lives in `creator/` (standalone, own login on its origin, role gate, magic link `<creator>/?login=`,
+  draft preview `/<toon>/chapter/<n>/preview?locale=de|en&label=`). The viewer has no creator code and no
+  `?preview=draft` mode any more; its account page links to `VITE_CREATOR_URL` for the creator role.
+- Env: `VITE_API_URL` (dev `http://localhost:9000/api`; old `VITE_QR_API` still read), `VITE_CDN_URL` (dev
+  `http://localhost:8001`), `VITE_CREATOR_URL` (viewer), `VITE_VIEWER_URL` / `VITE_STATIC_API` (creator).
+- `npm run check` compiles paraglide first (`<app>/scripts/paraglide.js` + `<app>/paraglide.config.js`, shared with the
+  vite plugin), so it no longer depends on a dev server having generated `src/lib/paraglide`.
+- Visual regression method (worked well): a probe that records tag + rounded box + 20 computed styles of every element
+  into localStorage (per origin!) before the change, then compares after, in an 800px iframe. Gotchas: localStorage is
+  per port, so baselines only compare on the same origin; a hidden browser tab never runs `requestAnimationFrame`, so
+  the dialog auto-fit stays at 0.8 there (not a bug of the page; bring the tab to the front); lazy images below the
+  fold and the home carousels load late (image heights 0 vs 294).
+- Verified identical against the pre-P1a baseline: home (en), shop (de/en), events, /catpope, credits, download,
+  /en/catpope, account, chapter 1 de + en (94 slices, 70 text boxes), chapter 1 with the inventory open.
+- Local sessions: tilman@porschuetz.de (creator) is signed in on :8000 and :10000 in the browser pane.
