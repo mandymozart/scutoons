@@ -252,10 +252,9 @@
 </div>
 
 <style>
+	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here */
 	.meta-page {
 		--top: 64px;
-		--action-bar-height: var(--top);
-		padding-bottom: var(--action-bar-height);
 	}
 	.topbar {
 		display: flex;
@@ -307,7 +306,7 @@
 		background: #eafaff;
 	}
 	.content {
-		padding: 1rem 1rem 3rem;
+		padding: 1rem;
 		max-width: 70rem;
 	}
 	.wide .content {

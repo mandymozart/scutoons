@@ -163,7 +163,22 @@ function findPerson(name: string, loose = false): CreditPerson | null {
 	return hits.length === 1 ? hits[0] : null;
 }
 
+/**
+ * Owner decisions: spelling variants of one person → the correct name (the variant becomes an alias).
+ * 2026-09-29: "Julia Edhofer" is "Julia Edthofer".
+ */
+const NAME_ALIASES: Record<string, string> = {
+	'Julia Edhofer': 'Julia Edthofer'
+};
+
 function person(name: string): CreditPerson {
+	const canonical = NAME_ALIASES[name.trim()];
+	if (canonical) {
+		const p = person(canonical);
+		addAlias(p, name.trim());
+		note(`name alias (owner): "${name.trim()}" → "${p.name}"`);
+		return p;
+	}
 	const found = findPerson(name);
 	if (found) return found;
 	const created: CreditPerson = { id: uniqueId(slugId(name), people.map((p) => p.id)), name: name.trim() };
@@ -303,6 +318,27 @@ for (const file of seasonFiles) {
 }
 (toonSection as any).lead = [...lead.values()];
 
+// one entry per person and list: duplicates (e.g. after a name alias) are combined, roles in order, no repeats
+let combined = 0;
+for (const section of [toonSection, ...seasonSections, ...songSections, ...performanceSections, thanksSection]) {
+	for (const key of ['lead', 'entries'] as const) {
+		const list: CreditEntry[] | undefined = (section as any)[key];
+		if (!list) continue;
+		const out: CreditEntry[] = [];
+		for (const entry of list) {
+			const first = out.find((e) => e.person === entry.person);
+			if (!first) {
+				out.push(entry);
+				continue;
+			}
+			combined++;
+			for (const role of entry.roles) if (!first.roles.some((r) => JSON.stringify(r) === JSON.stringify(role))) first.roles.push(role);
+		}
+		(section as any)[key] = out;
+	}
+}
+if (combined) note(`${combined} duplicate entries combined within their section`);
+
 // ── Output ──────────────────────────────────────────────────────────────────────────────────────────────────────
 const credits: ToonCredits = {
 	toon: TOON,
@@ -338,6 +374,7 @@ const distance = (a: string, b: string) => {
 for (let i = 0; i < people.length; i++)
 	for (let j = i + 1; j < people.length; j++)
 		if (distance(people[i].name.toLowerCase(), people[j].name.toLowerCase()) <= 2)
+			// (aliases resolved by NAME_ALIASES are one person already)
 			ambiguous.push(`possible duplicate people: "${people[i].name}" / "${people[j].name}" (kept apart – merge in the creator if they are the same)`);
 for (const [pair, [role, language]] of Object.entries(TRANSLATIONS)) {
 	if (seenPairs.has(pair)) note(`translation: de "${pair.split('|')[0]}" / en "${pair.split('|')[1]}" → role "${role}" + language "${language}" (renders "Übersetzung Englisch" / "Translation English")`);

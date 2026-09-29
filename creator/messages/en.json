@@ -76,7 +76,7 @@
 		"toon_missing": "This toon has no toon.json yet – create season 1 on the toon page (it creates toon.json too).",
 		"edit_season": "Edit season",
 		"edit_toon": "Edit toon.json",
-		"reader_uses_season": "The reader shows the season title and description (plot) on the toon page, and the sequence status decides which chapters are listed / readable. Not shown anywhere in the reader yet: authors, number, release, language, cover (square/portrait) and credits – the credits page reads its own credits.json (full credits, German file for every language).",
+		"reader_uses_season": "The reader shows the season title and description (plot) on the toon page, and the sequence status decides which chapters are listed / readable. Not shown anywhere in the reader yet: authors, number, release, language, cover (square/portrait) and credits – the credits page shows the toon's Credits (the Credits page) in the reader's language.",
 		"reader_uses_toon": "The reader shows title, description and cover.square on the toon page, map (terrain layer, size, center) in the map overlay, download.music / download.complete and title on the download page. Not used by the reader: id, authors, chapters, language, release, thumbnail, cover.portrait and status (listing uses the toon's index entry).",
 		"source": "source",
 		"missing": "missing",

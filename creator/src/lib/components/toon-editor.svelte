@@ -85,6 +85,9 @@
 		gap: 0.75rem;
 		margin-bottom: 2rem;
 	}
+	.block:last-child {
+		margin-bottom: 0;
+	}
 	h2 {
 		font-size: 14px;
 		margin: 0;

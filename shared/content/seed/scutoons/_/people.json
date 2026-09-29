@@ -116,7 +116,10 @@
 		},
 		{
 			"id": "julia-edthofer",
-			"name": "Julia Edthofer"
+			"name": "Julia Edthofer",
+			"aliases": [
+				"Julia Edhofer"
+			]
 		},
 		{
 			"id": "julian-hruza",
@@ -137,10 +140,6 @@
 		{
 			"id": "johanna-edthofer",
 			"name": "Johanna Edthofer"
-		},
-		{
-			"id": "julia-edhofer",
-			"name": "Julia Edhofer"
 		},
 		{
 			"id": "pavel-naydenov",

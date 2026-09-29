@@ -544,12 +544,14 @@ server/docs/API.md "Rate limits").
   normalized: "Musiker" → "Musiker:in", "Bariton"/"Baritone" → one role (de Bariton, en Baritone), "Translations
   English" → role `translation` + language `en` ("Translation English"). Names: "Thomas Dalby" (authors/season) =
   "Thomas B. Dalby" (alias), season de "Nova Lux" = en "Chris Nova Ludwig" (same slot → alias, **owner to confirm**);
-  possible duplicate kept apart: "Julia Edthofer" / "Julia Edhofer". Many de labels are English in the source files
+  owner 2026-09-29: "Julia Edhofer" = **Julia Edthofer** (migration rule `NAME_ALIASES`, alias; duplicate entries in a
+  section are combined) → 37 people; the two recording roles are confirmed as they are; Nova Lux still open. Many de labels are English in the source files
   (Idea, Voice, Trumpets, Soprano, …) – kept as they were. Lead ("Created by") = toon authors with their season-credit
   roles; season 1 section = the other season-credit people (Chris Nova Ludwig: music, sound).
 - Local store: imported as published v1 (ids 101 credits, 102 people, 103 roles) = same content as the static files,
   restructured. Browser test (creator-test, headless Edge): test person + custom role saved as drafts v104–v106,
-  restored as v107 (credits) / v108 (people) = published content, **nothing published**.
+  restored as v107 (credits) / v108 (people). Then the Julia merge was imported with `--update` and **published**
+  locally (owner decision): credits v109, people v110, roles v103 – newest = published for all three.
 - Viewer check (headless Edge, cookie `PARAGLIDE_LOCALE`): every person and role of the old de and en files is on the
   page (38/38 people; only the intended normalizations differ). The old page always loaded `de/credits.json` – fixed.
 - MetaPage got `validate` (cross-file problems) and `wide`; undo/redo acts on the most recently edited doc; the
