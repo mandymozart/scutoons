@@ -357,3 +357,30 @@ are the fallback and the seed.
 - Verified identical against the pre-P1a baseline: home (en), shop (de/en), events, /catpope, credits, download,
   /en/catpope, account, chapter 1 de + en (94 slices, 70 text boxes), chapter 1 with the inventory open.
 - Local sessions: tilman@porschuetz.de (creator) is signed in on :8000 and :10000 in the browser pane.
+
+## Platform P1b
+
+2026-09-30 — server refactor to Slim 4 (branch `platform`, folder still `scutoons-server/`; rename to `server/` pending
+– `git mv` was refused by the permission guard). Details: agents/PLATFORM.md "P1b — result", server docs
+`scutoons-server/README.md` + `docs/*.md`, admin API contract ITEMS.md "Admin API".
+- Layout: `public/` web root (front controller, `router.php` for php -S, verify.html, assets, generate/ SPA files),
+  `src/{Http,Domain,Infrastructure,Console}`, `config/` (settings/container/routes + items/editions/toons/permissions
+  JSON), `templates/`, `migrations/{sqlite,mysql,schema}`, `bin/console`, `storage/` (private), `tools/keys/`.
+- Local: `composer serve` (:9000; `serve:9100` next to the old repo), `composer test` (PHPUnit 45 tests + contract
+  suites on php -S :9180/:9181 with a DB copy), `composer analyse` (PHPStan level 8). `config.local.php` rewritten:
+  `DB_SQLITE_PATH` honours `QR_DB_SQLITE_PATH` (env) → servers/tests can use a copy; APP_URL :8000, CDN :8001,
+  origins incl. 8000/10000/11000. Backup of the old header: scratchpad only (contains secrets – not kept).
+- Local data moved: `generate/files/` → `storage/files/`, `api/keys/keypair.json` → `storage/keys/keypair.json`.
+  `db/local.sqlite` untouched by the test runs (all on copies); tilman@porschuetz.de got `admin` via
+  `bin/console roles grant`.
+- Contract results (on DB copies): api-smoke 182/182, content-smoke 62/62, claim-race claim+signup PASS, admin-smoke
+  60/60, public-urls 48/48 identical to the old server on :9000 (+ 21 host-routing checks, also with the transition flag
+  off). A byte/header diff of ~80 read-only requests against the old code on a scratch copy (:9199) was identical
+  except: private files (`/api/keys/keypair.json`, `/api/permissions.json`) now 404 as JSON `not_found` (before: plain
+  "Not found" 404 from the dev router / 403 on Apache).
+- Gotchas: symfony/console prints CRLF on Windows (diff with --strip-trailing-cr); Slim cannot bind static closures
+  as route handlers (use invokable classes); `php -S` + `$app->run()` works with `public/router.php` setting
+  SCRIPT_NAME; on Windows close the PDO before deleting SQLite files in tests (`Database::close()`); PHPStan needs
+  `rememberPossiblyImpureFunctionValues: false` for DB-reading services.
+- Production (not done): cutover steps in `docs/DEPLOY.md` (keys to storage/keys first, deploy, rename generate/files →
+  storage/files, docroot → public/, generate/ Basic auth path, api.scutoons.com subdomain); no DB change in P1b.

@@ -39,7 +39,7 @@ Local dev ports (agents/PLATFORM.md → "Local dev ports", final):
 |---|---|---|
 | viewer | 8000 | `npm run dev:viewer` |
 | CDN | 8001 | `cd cdn && python server.py 8001` (serves `cdn/root/`) |
-| API (server) | 9000 | `cd server && php -S localhost:9000 router.php` (until cutover the old repo `C:\Development\qr.scutoons.com` serves :9000 and the refactored server runs on :9100) |
+| API (server) | 9000 | `cd scutoons-server && composer serve` (= `php -S localhost:9000 -t public public/router.php`; the folder becomes `server/`; until cutover the old repo `C:\Development\qr.scutoons.com` serves :9000 – then use `composer serve:9100`) |
 | creator | 10000 | `npm run dev:creator` |
 | admin | 11000 | `npm run dev:admin` (phase P2) |
 

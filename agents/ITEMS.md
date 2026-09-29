@@ -20,7 +20,7 @@ Guiding example (U):
 
 ## Item definition (catalog)
 
-Single source: `C:\Development\qr.scutoons.com\api\items\items.json`, served at `GET /api/items/` (public). The viewer
+Single source: the server's `config/items.json` (was qr `api/items/items.json`), served at `GET /api/items/` (public). The viewer
 fetches it from the QR API; it is not duplicated in the viewer.
 
 ```jsonc
@@ -99,6 +99,10 @@ verify → session token (Bearer, stored by the viewer in localStorage `scutoons
 like osct's Progress. Local dev: mail is written to a log file instead of sent.
 
 ## HTTP API contract (base `QR_API` = `http://localhost:9000/api` dev, `https://qr.scutoons.com/api` prod)
+
+(Platform P1b: the same paths answer on `https://api.scutoons.com/api` – the target base, `VITE_API_URL` – and stay
+on `https://qr.scutoons.com/api` during the transition, `QR_HOST_SERVES_API`; agents/PLATFORM.md "Domain architecture".
+Production CORS adds creator, admin and shop origins; dev 8000/10000/11000.)
 
 All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoons.com`, `https://www.scutoons.com`,
 `http://localhost:5173`, `http://localhost:5174`, `http://localhost:4173`. Errors: `{ "status": "error", "error": "<code>", "message": "…" }`.
@@ -205,7 +209,7 @@ Two separate things:
 
 ### Permissions map
 
-`C:\Development\qr.scutoons.compi\permissions.json` (the owner edits this file; no code change):
+The server's `config/permissions.json` (was qr `api/permissions.json`; the owner edits this file; no code change):
 ```json
 {
   "version": 1,
@@ -294,7 +298,7 @@ page. Non-claimable types keep their direct redirect.
 - `creator` → may use `scutoons.com/creator` and the content API; `admin` → reserved (later: admin UI in the viewer).
 
 ### Accounts only with a product or a PR code
-- **A new account can only be created with a code whose type has `"signup": true`** in `api/permissions.json`:
+- **A new account can only be created with a code whose type has `"signup": true`** in `config/permissions.json` (server):
   - `membership` — physical product: signup + claim of that item (one owner, as before).
   - `promo` — PR code: **not claimable** (no item, no owner, reusable by many people), grants `catalog` and allows
     signup. Account = save progress across devices + optional promotional updates about new releases.
@@ -321,3 +325,98 @@ Buttons: "Continue reading" · "Create account" (email → code → opt-in check
 `claimed`/`claim_error` only for claimable codes; `/me/ user` = `{ id, email, created_at, roles, marketing_opt_in }`;
 `PUT /me/ { marketing_opt_in }` → `{ status, user }`. For other endpoints: `Roles::requireRole('creator')` (401/403
 `forbidden`). A membership code already owned by someone else cannot create an account.
+
+## Admin API (2026-09-30, platform P1b — final for the admin app)
+
+Server-side replacement of the `generate/*.php` endpoints for the admin app (admin.scutoons.com) plus KPIs and lists.
+Implemented in the server (`src/Http/Controllers/Admin/*`, `src/Domain/Admin/*`); tested by `tests/admin-smoke.php`.
+
+- **Base** `{API}/admin` (`VITE_API_URL` + `/admin`, e.g. `http://localhost:9000/api/admin`, prod
+  `https://api.scutoons.com/api/admin`). All JSON (UTF-8, unescaped), `Cache-Control: no-store`.
+- **Auth**: the normal account login (`/auth/request/`, `/auth/verify/`) → `Authorization: Bearer <session_token>`;
+  the account needs the role `admin` (`/me/ user.roles`). No session → `401 unauthorized`; without the role →
+  `403 forbidden { role: "admin" }`. Grant: `PUT /admin/users/{id}/roles/admin`, legacy SPA "Users", or
+  `bin/console roles grant <email> admin`.
+- **CORS**: origins in `ALLOWED_ORIGINS` (admin: `https://admin.scutoons.com`, dev `http://localhost:11000`); methods
+  `GET, POST, PUT, DELETE, OPTIONS`.
+- **Errors**: `{ status:"error", error, message, …extra }` as everywhere; unknown path `404 not_found`.
+- **Success** answers carry `status: "success"`; creates answer `201`.
+- **Lists** (URL-driven): `?page=1&page_size=50&sort=<field>|-<field>&q=<text>&<filter>=<value>` →
+  `{ status, items: [...], pagination: { total, page, pageSize } }`. `page` from 1; `page_size` clamped to 1…500;
+  `-field` = descending; unknown sort field → `400 invalid_sort { sortable }`.
+- **Privacy**: code, event and statistics answers never contain emails or user ids (`claimed`/`account` booleans,
+  `device` = first 10 characters of the device hash). Emails only in the users endpoints.
+- **Times**: `created_at`, `claimed_at`, `expires_at`, `revoked_at` of codes are the `qr` table's server-local
+  `YYYY-MM-DD HH:MM:SS`; everything else ISO 8601 (UTC) as in the public API.
+
+### Dashboard
+
+`GET /admin/dashboard?days=30&edition_id=<id>|none` (days 1–366, default 30; period ends today UTC) →
+```jsonc
+{ "status": "success", "days": 30, "from": "2026-09-01", "to": "2026-09-30", "edition_id": null,
+  "totals": { "codes", "codes_claimed", "codes_revoked", "codes_signed", "users", "users_opted_in", "users_new" },
+  "period": { "scan", "access", "claim", "signup", "login", "claim_refused", "revoke", "unrevoke", "unique_devices" },
+  "editions": [ { "id": "3_catpope_vinyl"|null, "name", "toon", "edition_count", "codes", "claimed", "revoked", "signed",
+                  "scan", "access", "claim", "signup", "login", "claim_refused", "revoke", "unrevoke" } ],
+  "daily": [ { "day": "2026-09-01", "scan", "access", "claim", "signup", "login", "claim_refused", "revoke", "unrevoke" } ],
+  "daily_by_edition": [ { "day", "edition_id", …same counts } ] }
+```
+`editions`: codes claimed/total per edition (all time) + activity in the period; `id: null` = codes without edition.
+`daily` has every day of the period (zeros included); `daily_by_edition` only rows with events. `400 invalid_days`.
+
+### Codes
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/codes` | list; sort `code` (default), `type`, `edition_id`, `edition_number`, `created_at`, `claimed_at`, `expires_at`, `revoked_at`, `scans`, `accesses`, `devices`, `logins`, `refused`, `first_seen`, `last_seen`; filters `edition_id` (`none` = without), `type`, `status` = `claimed`\|`unclaimed`\|`revoked`\|`expired`\|`active`\|`signed`\|`unsigned`; `q` = part of the code | items `{ code, type, edition_id, edition_number, created_at, claimed, claimed_at, expires_at, revoked_at, revoked_reason, scans, accesses, devices, logins, refused, first_seen, last_seen, signed }` · `400 invalid_status` |
+| GET | `/admin/codes?format=csv&…` | same filters, no paging | `text/csv` attachment (header row; booleans yes/no) |
+| POST | `/admin/codes` | `{ redirect_to, type, code?, email?, expires_at?, edition_id? }` – `code` omitted → a fresh nanoid(8); `email` = old email-only claim (normally empty) | `201 { status, code: { code, redirect_to, type, email, expires_at, edition_id } }` · `400 invalid_redirect_to\|invalid_type\|invalid_email\|invalid_code\|invalid_expires_at` · `409 code_exists` |
+| GET | `/admin/codes/{code}` | – | `{ status, code: { code, type, edition_id, edition_number, redirect_to, created_at, claimed_at, expires_at, revoked_at, revoked_reason, claimed }, items: [{ item_id, variant, qty }], options: [{ item_id, variants }], edition: { id, name, number, count }\|null, stats: { scans, accesses, devices, logins, refused, first_seen, last_seen }, signed, expired, revoked }` · `404 not_found` |
+| GET | `/admin/codes/{code}/events?limit=1000` | limit ≤ 5000 | `{ status, items: [{ event, created_at, device, account, toon }] }` newest first · 404 |
+| POST | `/admin/codes/{code}/revoke` | `{ reason? }` (≤ 255) | `{ status, code, revoked_at, revoked_reason }` (logged as event `revoke`) · 404 |
+| POST | `/admin/codes/{code}/unrevoke` | – | same, `revoked_at: null` · 404 |
+| GET | `/admin/codes/{code}/signature` | – | `{ status, signature: { signature, publicKey, algorithm, signedData, timestamp }, fingerprint, qr_data, redirect_to }` · `404 not_found\|no_signature` |
+| PUT | `/admin/codes/{code}/signature` | `{ signature: { signature, publicKey, algorithm, signedData, timestamp } }` (made client-side) | `{ status, code }` · `400 invalid_signature` · 404 |
+
+### Batches and files (port of the generate "Batch" mode)
+
+A batch = a manifest `BATCH-<UTC timestamp>-<edition id>.json`:
+`{ filename, edition, editionId, productname, edition_number, edition_count, excluded_number, creators, redirectUrl,
+total, created_at, codes: [{ n, code, status: "pending"|"running"|"done"|"error", completedSteps: ["db","svg","pdf","sig"] }] }`.
+Pipeline per code (client-side, like generate): sign (keys below) → register (`POST /admin/codes` with `code`,
+`redirect_to: redirectUrl`, `type: "membership"`, `edition_id`) → QR SVG → certificate PDF → store files → store the
+signature (`PUT /admin/codes/{code}/signature` + the `signatures` file) → `PUT` the manifest with the progress.
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/batches` | list; sort `created_at` (default `-created_at`), `filename`, `edition`, `total`, `done`, `errors`; filters `edition_id`, `complete` (1/0); `q` in filename + edition | items `{ filename, edition, editionId, total, done, errors, created_at, complete }` |
+| POST | `/admin/batches` | `{ edition_id, count? (default edition_count, 1–2000), start_number? (default 1), force? }` | `201 { status, batch: manifest }` – codes are unique (DB + all manifests) and reserved in the manifest only, **not** inserted · `404 unknown_edition` · `400 invalid_count\|invalid_start_number` · `409 batch_complete { batch }` (a complete batch of this edition exists; `force: true` to make more) |
+| GET | `/admin/batches/{filename}` | – | `{ status, batch: manifest }` · 404 |
+| PUT | `/admin/batches/{filename}` | `{ manifest }` (or the manifest itself) – must have a `codes` list, `filename` must match | `{ status, batch }` · `422 invalid_manifest` · 404 (create with POST) |
+| GET | `/admin/batches/{filename}/zip` | – | `application/zip` attachment: `manifest.json` + `svgs/`, `certificates/`, `signatures/` of every code with status `done` |
+| PUT | `/admin/files/{type}/{filename}` | `{ doc }` – SVG markup, a PDF as data URI (`data:application/pdf;base64,…`) or bytes, JSON text (stored pretty-printed UTF-8) | `{ status, type, filename }` · `400 invalid_type\|invalid_filename\|invalid_file` |
+| GET | `/admin/files/{type}/{filename}` | – | the file (`image/svg+xml`, `application/pdf`, `application/json`, `application/zip`) as attachment · 404 |
+
+`type` = `svgs` (`SCUTOONS-QR-MEMBERSHIP-<code>.svg`), `certificates` (`SCUTOONS-COA-<code>.pdf`), `signatures`
+(`SIGNATURE-<code>.json`), `batch`, `zips`; `filename` = `[A-Za-z0-9_.-]{1,200}.(pdf|svg|json|zip)`, no leading dot.
+
+### Users and roles
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/users` | list; sort `created_at` (default `-created_at`), `email`, `codes`; filters `role` (name), `opt_in` (1/0); `q` = part of the email | items `{ id, email, created_at, roles, signup_code, marketing_opt_in, marketing_opt_in_at, codes }` (`codes` = number owned) |
+| GET | `/admin/users/{id}` | – | `{ status, user: { id, email, created_at, roles, signup_code, marketing_opt_in, marketing_opt_in_at, locale, codes: [{ code, type, edition_id, edition_number, claimed_at, revoked_at }], inventory_entries, sessions, last_seen_at } }` · 404 |
+| PUT | `/admin/users/{id}/roles/{role}` | – | `{ status, changed, user }` (grant; `changed: false` when it had it; `granted_by` = `admin:<your email>`) · `400 unknown_role { roles }` · 404 |
+| DELETE | `/admin/users/{id}/roles/{role}` | – | `{ status, changed, user }` (revoke) |
+| GET | `/admin/roles` | – | `{ status, items: [{ id, name, description }] }` (member, admin, creator) |
+
+### Events, catalog, keys
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/events` | list (default page_size 100); sort `created_at` (default `-created_at`), `code`, `event`; filters `code`, `event` (comma list of scan, access, claim, claim_refused, login, signup, revoke, unrevoke), `edition_id` (`none`), `toon`, `from`, `to` (`YYYY-MM-DD`, UTC); `q` = part of the code | items `{ id, code, event, created_at, device, account, toon, edition_id }` · `400 invalid_event\|invalid_date` |
+| GET | `/admin/catalog` | – | `{ status, catalog (= GET /items/), editions, toons, permissions (the server-only map, read-only) }` |
+| GET | `/admin/keys` | – | `{ status, algorithm, publicKey, privateKey, generated }` – the ML-DSA-65 keypair for client-side signing · `404 keys_missing` · `500 keys_invalid` |
+
+The legacy `generate/*.php` endpoints (static `X-Generate-Token`) keep working unchanged for the `generate/` SPA until the
+admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.

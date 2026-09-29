@@ -130,6 +130,42 @@ account page may link to `creator.scutoons.com` for creators, nothing more.
 - The creator's static fallback files (`toons.json`, `characters.json`, store fallback) come from the viewer origin →
   production needs CORS on `scutoons.com/api/*.json` for `creator.scutoons.com` (or those files via the API later).
 
+## P1b — result (2026-09-30)
+
+Server folder still `scutoons-server/` (the `git mv` to `server/` was refused by the session's permission guard; to do:
+rename + update the path filter / `SERVER_DIR` in `.github/workflows/server.yml`, the root README and package.json –
+the code has no folder-name dependency). Docs: `scutoons-server/README.md` + `docs/{ARCHITECTURE,API,CONFIGURATION,
+DATABASE,DEPLOY}.md`; the admin API contract is ITEMS.md "Admin API".
+
+**Structure**: `public/` (front controller, `router.php` for `php -S`, `.htaccess`, verify.html, assets, generate/ SPA
+files) · `src/Http/{Controllers,Middleware}` · `src/Domain/*` (services, `ApiError`, `RequestContext`) ·
+`src/Infrastructure/*` (Settings, Database + MigrationRunner, Mail, Signing/KeyStore, Storage/FileStore, Templates,
+Clock) · `src/Console` + `bin/console` · `config/` (settings, container, routes, items/editions/toons/permissions JSON) ·
+`templates/` (landing, mails) · `migrations/{sqlite,mysql,schema}` · `storage/` (private: batch files, keypair) ·
+`tests/Unit` + contract suites · `tools/keys/` (key setup pages, not deployed).
+
+**Decisions**
+- Slim 4 + PHP-DI 7 (autowiring) + slim/psr7 + symfony/console; PHPUnit 11; PHPStan level **8** (clean).
+- Middleware order: NormalizePath → HostRouting → Cors → ErrorHandler → routing → DeviceId → JsonBody → Session →
+  route guards (RequireRole, RateLimit, GenerateToken). CORS outside the error handler, so errors carry CORS headers.
+- Contract kept byte-for-byte where clients could notice: JSON flags, `no-store`, CORS quirks (validate `*`, toons and
+  keys without CORS, items/editions `*` + public cache), 404 "Unknown endpoint." for wrong methods, body parsed before
+  the session check, lazy JSON body. Verified by the suites and by a byte/header diff against the old code.
+- Host routing: `QR_HOST` = public pages + `/api/validate/` + `/api/keys/keys.php` + legacy generate/;
+  `API_HOST` = `/api/*` only; transition flag `QR_HOST_SERVES_API` (default on); other hosts both. Both subdomains
+  point at `<server folder>/public/`; the root `.htaccess` keeps the old document root working (forward into public/).
+- Settings: env `QR_<KEY>` → constant (config.local.php / CI-generated config.php) → `config/settings.php`; SQLite when
+  `DB_SQLITE_PATH` is set. Batch output `generate/files/` → `storage/files/`, keypair `api/keys/` → `storage/keys/`.
+- Migrations moved to `migrations/<driver>/` with unchanged file names (schema_migrations stays valid);
+  `migrations/schema/qr.<driver>.sql` for fresh databases. No schema change in this phase.
+- The legacy `generate/*.php` URLs run on Slim (`Legacy\GenerateController` + `GenerateToken`) on the same services as
+  the admin API; `generate/get-signature.php` and `generate/files/signatures/*` stay public for the verify page.
+- Contract suites boot through `tests/support/legacy.php` (the old static calls as facades); `tests/admin-smoke.php`
+  and `tests/public-urls.php` (printed URLs, identical to the old server; `--hosts`) are new; `composer test` runs all.
+- CI `server.yml`: tests on every push/PR (incl. `platform`), deploy only from `main`; same secret/variable names as
+  the old workflow (`FTP_SERVER` var, `FTP_USERNAME`/`FTP_PASSWORD` secrets – not `SERVER_FTP_*`), production
+  `ALLOWED_ORIGINS` = scutoons.com, www, creator, admin, shop.
+
 ## Cross-app auth
 
 Same endpoints, token per origin (localStorage `scutoons_session`) for now; `ALLOWED_ORIGINS` gains
@@ -139,7 +175,8 @@ creator/admin origins (+ dev ports: viewer 8000, creator 10000, admin 11000). La
 ## Deploy
 
 Root `.github/workflows/`: `viewer.yml`, `creator.yml`, `admin.yml` (path filters incl. `shared/**`), `server.yml`
-(`server/**`: composer install --no-dev, build tokens CSS copy, FTP). Deploy only from `main`.
+(`scutoons-server/**` until the rename: PHPUnit + PHPStan, composer install --no-dev, generated config.php, FTP; build
+tokens CSS copy not needed yet – the landing page inlines its tokens). Deploy only from `main`.
 New FTP targets / docroots / DNS for creator.scutoons.com and admin.scutoons.com are set up by the owner.
 The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is inert inside `server/.github`.
 
@@ -149,7 +186,7 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 |---|---|---|---|
 | P0 | `platform` branch; qr repo imported with history as `server/` (git subtree) | coordinator | – ✅ |
 | P1a | Monorepo foundation: root workspaces, `shared/{tokens,content,reader,api,ui}` extracted from viewer, viewer consumes them; `creator/` app split out of viewer | agent "frontend-platform" | P0 ✅ |
-| P1b | Server refactor to Slim 4 structure, contract suites green, `/api/admin/*` with role auth | agent "server-refactor" | P0 (parallel to P1a) |
+| P1b | Server refactor to Slim 4 structure, contract suites green, `/api/admin/*` with role auth | agent "server-refactor" | P0 ✅ |
 | P2 | `admin/` app on shared ui + admin API; parity with `generate/` | agent "admin" | P1a ui/tokens, P1b admin API |
 | P3 | CI workflows, root README, local dev (one command), cutover checklist, archive old repo | coordinator/agent | P1–P2 |
 
@@ -162,8 +199,9 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 
 ## Local dev (platform branch)
 
-- Server: `cd server && php -S localhost:9100 router.php` (port 9100 while the old repo still serves :9000),
-  local-only files copied from the old repo (config.local.php, db/local.sqlite, generate/files, keys) — gitignored.
+- Server: `cd scutoons-server && composer serve` (:9000; `composer serve:9100` while the old repo still serves :9000),
+  local-only files (config.local.php, db/local.sqlite, storage/files, storage/keys/keypair.json) — gitignored.
+  `composer test` = PHPUnit + every contract suite on freshly started servers and a copy of the DB.
 - CDN: `python cdn/server.py 8001`. Viewer 8000, creator 10000, admin 11000 (see "Local dev ports").
 
 ## Admin UI patterns (from akin)
@@ -304,7 +342,7 @@ Rules now:
 |---|---|---|
 | P0 | monorepo + history import | ✅ |
 | P1a | workspaces, shared packages, standalone creator | ✅ 2026-09-30 |
-| P1b | server refactor (Slim), `server/`, host routing qr/api, admin API | agent (running) |
+| P1b | server refactor (Slim), host routing qr/api, admin API (folder rename `scutoons-server/` → `server/` still pending) | ✅ 2026-09-30 |
 | P2a | `admin/` app incl. port of `generate/` (QR generation, batches, certificates) to Svelte | next |
 | P2b | `shop/` app split out of the viewer, `/shop` redirect | next |
 | P3 | workflows per app, env per app (`VITE_API_URL` → api.scutoons.com), cutover checklist (subdomains/folders/SSL in all-inkl), remove `generate/` after admin parity | after P2 |
