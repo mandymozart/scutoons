@@ -190,6 +190,7 @@ Tests: `tests/api-smoke.php` and `tests/claim-race.php [n]` (n processes claim o
   `403 signup_code_required`, nothing created. Existing accounts sign in with or without a code.
 - At signup: `users.signup_code` = the code, `users.marketing_opt_in` (+ `marketing_opt_in_at`) from
   `marketing_opt_in` in the request body (default false; `verify` may override it), role `member`, event `signup`.
+  An existing account that sends `marketing_opt_in: true` while signing in is opted in (never opted out there).
 - **Promo codes are never owned**: no item, no owner, reusable for any number of signups. Claim → `422 not_claimable`;
   `/auth/verify/` with a promo code only creates/signs in (no `claimed`/`claim_error`). Landing page: "Promo code – no
   item to collect" with **Continue** and **Create account** (→ `<viewer>/account?code=`).
