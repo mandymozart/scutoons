@@ -188,8 +188,9 @@ are **additive details / clarifications** the viewer can rely on:
 
 - **Public, never gated:** `/`, toon landing `/<toon>`, credits, events, shop, attributions.
 - **Gated:** chapter views (and chapter download) → need access. Account pages → need a session.
-- **Access = a valid code.** Every code type **except `xr` and `event`** (i.e. membership, promo, page, none/public)
-  unlocks the **entire SCUTOONS catalog** (all toons), until `expires_at`.
+- **Access = a valid code whose type grants it.** Today only **`membership` and `promo`** unlock the **entire SCUTOONS
+  catalog** (all toons), until `expires_at`. `page`, `event`, `xr` (and unknown types) unlock nothing and keep their
+  plain redirect. Which type grants what is **not hardcoded**: it lives in the permissions map below.
 - **The code is the credential.** The first device that uses an unclaimed code becomes its owner **without email**:
   the server creates an *anonymous account* (no email), claims the code to it and returns a session. No login screen.
 - **One owner per code stays.** A claimed code works only for its owner's session. Anyone else gets
@@ -206,18 +207,36 @@ are **additive details / clarifications** the viewer can rely on:
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| POST | `/auth/code/` | `{ code, item_id?, variant? }` (+ optional Bearer) | no session: unclaimed → create anonymous user, claim, `{ status:"success", session_token, user, claimed:"new", created:true }` · with session: claim into that account (`claimed: "new"\|"already_yours"`) · `409 already_claimed` · `409 email_required` · `422 choose_item` (+options, **before** any user is created) · `403 not_unlocking` (xr/event) · 404 · 410 · 429 |
+| POST | `/auth/code/` | `{ code, item_id?, variant? }` (+ optional Bearer) | claimable types only (permissions map); no session: unclaimed → create anonymous user, claim, `{ status:"success", session_token, user, claimed:"new", created:true }` · with session: claim into that account (`claimed: "new"\|"already_yours"`) · `409 already_claimed` · `409 email_required` · `422 choose_item` (+options, **before** any user is created) · `403 not_unlocking` (xr/event) · 404 · 410 · 429 |
 | POST | `/auth/request/` + `/auth/verify/` | as before; with an anonymous Bearer session: attaches the email (or merges into the existing account with that email) | verify adds `merged: true` when merged |
 
 - `user` gets `email: string|null` and `anonymous: boolean`. `users.email` becomes nullable (UNIQUE still holds for
   non-null).
-- `/me/` → `access: { unlocked: boolean, expires_at: string|null, codes: [code] }` (unlocked = owns ≥1 non-expired
-  code whose type is not xr/event). `memberships` stays for compatibility.
-- Claimable/unlocking types = all except `xr`, `event` (server constant, one place).
+- `/me/` → `access` per the permissions map (see above). `memberships` stays for compatibility.
+- **Permissions map** `C:\Development\qr.scutoons.compi\permissions.json` (the owner edits this file; no code change):
+  ```json
+  {
+    "version": 1,
+    "permissions": { "catalog": "Read every chapter of every toon" },
+    "types": {
+      "membership": { "claimable": true,  "grants": ["catalog"] },
+      "promo":      { "claimable": true,  "grants": ["catalog"] },
+      "page":       { "claimable": false, "grants": [] },
+      "event":      { "claimable": false, "grants": [] },
+      "xr":         { "claimable": false, "grants": [] }
+    },
+    "default":      { "claimable": false, "grants": [] }
+  }
+  ```
+  `claimable` = can be owned (goes into an inventory, one owner); `grants` = permissions the owner gets while the code
+  is not expired. Unknown types use `default`. Permission ids are open-ended for later (e.g. `toon:catpope`,
+  `chapter:catpope:2`); the viewer only checks `catalog` today. Served read-only at `GET /api/permissions/`.
+  `/me/` → `access: { permissions: ["catalog"], unlocked: <has catalog>, expires_at, codes }`.
+  Non-claimable codes at `/auth/code/` → `403 not_unlocking` (viewer just continues, no error).
 - `/validate/` unchanged (owner-only), the viewer does not use it.
-- qr landing page: for unlocking codes show the item preview + **Continue** → `redirect_to?code=<code>` (the viewer
+- qr landing page: for claimable codes show the item preview + **Continue** → `redirect_to?code=<code>` (the viewer
   claims). No email step on the landing page; if the code is already claimed the page still continues (the viewer
-  decides: owner's device → fine, else "in use, sign in"). xr/event keep their direct redirect.
+  decides: owner's device → fine, else "in use, sign in"). Non-claimable types (page/event/xr) keep their direct redirect.
 
 ### Viewer
 
