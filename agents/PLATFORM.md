@@ -431,6 +431,10 @@ DB. Rules:
   checked by api-smoke + a unit test); shop and viewer homepage load them via `@scutoons/api`; the static copies in
   `viewer/static/api/` are deleted (no fallback release: the P2b brief asked for the removal in the same step). Still
   files, not DB tables.
+- Toon languages (2026-09-29): the toon index entry (`ToonIndex`, `toons.json`) carries `sourceLanguage` + `languages`
+  (source first; optional, defaults via `toonLanguages()`: `languages` → `i18n` keys → `de`). The creator edits it as
+  the language-neutral content store file `<toon>/_/index.json` (locale `_`), falling back to the static `toons.json`;
+  when `toons.json` moves to the API, that store file is its per-toon source.
 
 ## CDN (careful — owner's live setup)
 

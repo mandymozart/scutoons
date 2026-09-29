@@ -331,6 +331,20 @@ are the fallback and the seed.
   en > 130 % of de.
 - Browser tests with a second account: `http://[::1]:5173` is the same dev server with its own localStorage; it is
   in `ALLOWED_ORIGINS` of the local `config.local.php` only. Test creator `creator-test@example.com` (local DB).
+- **2026-09-29 — source language per toon** (owner: not per chapter, not global). `ToonIndex` got `sourceLanguage` +
+  `languages` (source first; optional – `toonLanguages()` in `@scutoons/content` defaults to `languages` → `i18n` keys
+  → `de`); `viewer/static/api/toons.json`: all three toons `de` + `["de","en"]`. The creator keeps the entry in the
+  content store as the language-neutral file `<toon>/_/index.json` (server `LOCALE_PATTERN` now `^([a-z]{2}|_)$`,
+  `ContentService::NEUTRAL_LOCALE`); before the first save it falls back to the static `toons.json` entry. The viewer
+  still reads only the static `toons.json` (unchanged). Toon page "Languages": source select, add/remove translations,
+  saved/published via the bottom ActionBar together with season1.json/toon.json; after saving a new language a bar
+  offers "Create <l> from <source>" (createLocale + save as draft for toon.json, season, chapters and their scene
+  files). `LOCALES`/`SOURCE_LOCALE` are gone: `ContentDoc(toon, path, locales, primary)` always gets the toon's
+  languages (`creator/src/lib/editor/languages.ts`: `loadToonLanguages`, `toonDoc`, `toonIndexDoc`); the chapter route
+  awaits the languages and keys the editor on them; the preview accepts only the toon's languages. Browser test: source
+  → `en` (draft v73): en first + "source", de "missing" on the scene-200 VN texts, length warnings "de … % of en";
+  adding `es` showed "es: 8 files … Create es from en" (not clicked); restored to `de` + `["de","en"]` (v75 = the
+  static entry), **nothing published** – local store has 3 draft versions of `catpope/_/index.json`, no published one.
 
 ## Platform P1a
 
