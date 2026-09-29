@@ -278,3 +278,7 @@ page. Non-claimable types keep their direct redirect.
 - **Admin stats** in the generate SPA (admin token): per code — edition, number, type, scans, unique devices,
   accesses, first/last seen, claimed (at), revoked; sort by spread; filter edition/type; daily chart scans/unlocks;
   CSV export; revoke/unrevoke with reason. Endpoints under `generate/` (admin token), never public.
+- **Implemented (qr backend, 2026-09-30):** as specified. Details for the viewer: `X-Device-Id` must match
+  `[A-Za-z0-9_-]{8,128}` (otherwise the access is deduped per daily IP hash); CORS allows the header. `/access/`
+  also accepts an optional `toon` (body or `?toon=`) stored with the event. `410 revoked` also comes from `/code/`.
+  Old magic links `qr.scutoons.com/?login=<token>` are forwarded to `APP_URL/?login=<token>`.

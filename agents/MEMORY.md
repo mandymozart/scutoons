@@ -227,3 +227,18 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   the paraglide outdir → occasional full reloads / a stale `proxy+layout.ts` ENOENT (fix: `npx svelte-kit sync`, restart).
 - Open: `/api/editions/` (old endpoint) sends no CORS headers → inventory shows `No. n` instead of `n / total`
   (claim preview has the total from `/code/`). Login mail rate limit: 5 per email per hour.
+
+- 2026-09-30 – Access model changes (qr `anger`, commits c1240ae..275b154, not pushed):
+  - Anonymous-account draft (`/auth/code/`, nullable `users.email`, merge) was built, then superseded by the final
+    model and reverted with `git revert` (3d7d5e8, aa1454c). Local DB: the one anonymous test user removed and the
+    users table rebuilt NOT NULL (backups `db/local.sqlite.bak-2026-09-30*`).
+  - Final model: viewing is device-level via `GET/POST /api/access/` (any unexpired, unrevoked code whose type grants
+    `catalog`, also when owned by someone else); owning needs email login, one owner per code (triggers kept).
+    `api/permissions.json` (server-only, denied over HTTP, no endpoint) drives claimable/grants; `/me/ access`;
+    signed `access_token` (HMAC, `Permissions::verifyToken()`, not enforced yet). `/validate/` backwards compatible
+    again. Landing page: preview + Continue + "Add to my account" (`<viewer>/account?code=`), no email step.
+  - Revoke + statistics: `qr.revoked_at/revoked_reason` (410 revoked everywhere), `code_events` (scan, access per
+    device/day, claim, claim_refused, login, revoke, unrevoke; hashed device id + daily-salted IP hash), admin
+    "Stats" view in the generate SPA (table, chart, CSV, timeline, revoke). Prod: run
+    `2026-09-30-revoke-events.mysql.sql` after the owner-guard migration.
+  - Tests: `tests/api-smoke.php` 108/108, `tests/claim-race.php` PASS.

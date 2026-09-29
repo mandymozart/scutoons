@@ -179,4 +179,7 @@ Agents don't commit in the scutoons repo (shared working tree); the coordinator 
 - CDN: `python cdn/server.py 8001` (port 8000 is used by nadeos on this machine)
 - QR API: `cd C:\Development\qr.scutoons.com && php -S localhost:9000 router.php` (login codes in `logs/mail.log`)
 - Viewer: `cd viewer && npm run dev` (dev env in `viewer/.env.development`: VITE_CDN_URL, VITE_QR_API)
+- 2026-09-30 — access model final: codes (membership/promo via permissions map) unlock reading on the device without
+  login; accounts only for owning codes (one owner, API + DB triggers + race test); revoke per code; code_events
+  activity log + admin Stats view. qr `anger` smoke 108/108. Viewer 5b4dd60.
 
