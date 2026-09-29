@@ -14,7 +14,7 @@ scutoons/
 │   ├── tokens/         @scutoons/tokens    design tokens (CSS custom properties), fonts, base CSS
 │   ├── content/        @scutoons/content   content/items types, pure helpers, validation, JSON Schema
 │   ├── reader/         @scutoons/reader    Slice, Dialogs, Onomatopoeia, pure slice actions
-│   ├── api/            @scutoons/api       typed API client (session, device id, QR API, content store)
+│   ├── api/            @scutoons/api       typed API client (session, device id, accounts/items API, content store)
 │   └── ui/             @scutoons/ui        Svelte UI kit (Button, Field, Sheet, Tabs, Toasts, …)
 ├── cdn/                python tools (sync, download, icons, bubble detector); cdn/root/ is gitignored
 └── agents/             plans and memory
@@ -45,7 +45,7 @@ Local dev ports (agents/PLATFORM.md → "Local dev ports", final):
 
 Dev settings live in each app's `.env.development` (gitignored, see `.env.example`): `VITE_QR_API` (API base, e.g.
 `http://localhost:9000/api`), `VITE_CDN_URL` (default `http://localhost:8001` in dev). The creator also has
-`VITE_VIEWER_URL` (draft preview links, static fallback files), the viewer `VITE_CREATOR_URL` (link on the account
+`VITE_VIEWER_URL` ("Open the reader" link, the static fallback files), the viewer `VITE_CREATOR_URL` (link on the account
 page).
 
 Every frontend origin must be in the API's `ALLOWED_ORIGINS` (`config.local.php`): `http://localhost:8000`,
