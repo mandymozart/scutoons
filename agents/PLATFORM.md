@@ -437,6 +437,27 @@ DB. Rules:
   the language-neutral content store file `<toon>/_/index.json` (locale `_`), falling back to the static `toons.json`;
   when `toons.json` moves to the API, that store file is its per-toon source.
 
+### Credits (2026-09-29)
+
+Language-neutral content store files (locale `_`), types/validation/schemas in `@scutoons/content` `credits.ts`
+(`schema/{credits,people,roles}.schema.json`):
+
+| Store path | Type | What |
+|---|---|---|
+| `scutoons/_/people.json` | `PeopleRegistry` | every person, **global** (same people on several toons): `{ id, name, sort_name?, aliases?, links?, image? (CDN path), bio? {locale}, merged_into? }` |
+| `scutoons/_/roles.json` | `RoleVocabulary` | shared roles `{ id, category (story/art/music/performance/production/translation/other), label {locale} }` |
+| `<toon>/_/credits.json` | `ToonCredits` | `{ toon, roles? (custom roles of the toon), sections[] }`; section kinds `toon` (`lead` = "Created by" + `entries`), `season` (number), `chapter` (number), `song` (title {locale}), `performance` (title, venue?, date?), `thanks`; entries `{ person, roles: [{ role, detail? {locale}, language? }] }` |
+
+- `scutoons` is a **pseudo-toon** of the store (`CREDITS_SCOPE`) for platform-wide files – never use it as a toon id.
+- Viewer `/<toon>/credits` (printed URL, unchanged): store (published) → `resolveCredits()` in the reader's locale →
+  `CreditsView` (@scutoons/reader, also the creator's preview); fallback while a toon has no `credits.json`: the old
+  static `<toon>/<locale>/credits.json` (current locale, then `de`).
+- Seed / production: `shared/content/seed/` (written by `shared/content/scripts/migrate-credits.ts`), imported with
+  `bin/console import-content shared/content/seed` (the command accepts `_/{credits,people,roles}.json`); production SQL
+  = `shared/content/seed/credits-seed.mysql.sql` (`--sql`, idempotent) – **not yet run on production**.
+- `Season.credits` is deprecated (creator shows it read-only); the old per-locale `credits.json` files stay as fallback
+  until production has the store files, then they can go.
+
 ## CDN (careful — owner's live setup)
 
 `cdn.scutoons.com` is served from the all-inkl server and/or bunny.net (owner has set up bunny.net; confirm the exact

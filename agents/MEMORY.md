@@ -531,3 +531,28 @@ server/docs/API.md "Rate limits").
   forwarded IP 200, 0 = unlimited, then restores the previous values and deletes its `qrscan:` rows.
 - Verified 2026-09-29 on the dev stack: admin UI scan limit 3 → `?c=membership_test` 200/200/200/429 → back to 1000 in
   the UI → 200. Local SQLite backup before the migration: `server/db/local.sqlite.bak-2026-09-29-settings`.
+
+## Credits
+
+2026-09-29 — credits model + creator Credits page + viewer credits from the store (paths: agents/PLATFORM.md → Data →
+"Credits").
+- Migration (`node --experimental-transform-types --no-warnings shared/content/scripts/migrate-credits.ts`, Node 22.14
+  runs the TS package directly with that flag): catpope de/en `credits.json` (general, songs, performances,
+  specialThanks) + `season1.json` `credits` + `toon.json` `authors` → 38 people, 40 shared roles, 2 custom roles,
+  12 sections, 79 entries, 120 role entries. De/en roles aligned by position; ambiguous: "Toningenieur" and
+  "Aufnahmeleitung" are both "Recording Engineer" in en → custom roles `recording-engineer` / `recording-direction`;
+  normalized: "Musiker" → "Musiker:in", "Bariton"/"Baritone" → one role (de Bariton, en Baritone), "Translations
+  English" → role `translation` + language `en` ("Translation English"). Names: "Thomas Dalby" (authors/season) =
+  "Thomas B. Dalby" (alias), season de "Nova Lux" = en "Chris Nova Ludwig" (same slot → alias, **owner to confirm**);
+  possible duplicate kept apart: "Julia Edthofer" / "Julia Edhofer". Many de labels are English in the source files
+  (Idea, Voice, Trumpets, Soprano, …) – kept as they were. Lead ("Created by") = toon authors with their season-credit
+  roles; season 1 section = the other season-credit people (Chris Nova Ludwig: music, sound).
+- Local store: imported as published v1 (ids 101 credits, 102 people, 103 roles) = same content as the static files,
+  restructured. Browser test (creator-test, headless Edge): test person + custom role saved as drafts v104–v106,
+  restored as v107 (credits) / v108 (people) = published content, **nothing published**.
+- Viewer check (headless Edge, cookie `PARAGLIDE_LOCALE`): every person and role of the old de and en files is on the
+  page (38/38 people; only the intended normalizations differ). The old page always loaded `de/credits.json` – fixed.
+- MetaPage got `validate` (cross-file problems) and `wide`; undo/redo acts on the most recently edited doc; the
+  history panel switches between the page's files. `kindOfPath`: credits/people/roles.
+- Headless browser testing without touching the owner's tabs: Edge `--headless=new --remote-debugging-port` with a temp
+  profile, driven over CDP from Node (global WebSocket); cookies via `Network.setCookie`, OTP from `server/logs/mail.log`.
