@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	let {
@@ -14,7 +14,8 @@
 		children: Snippet;
 	} = $props();
 
-	let visible = $state(delay === 0);
+	// initial value only: a delayed effect becomes visible in onMount
+	let visible = $state(untrack(() => delay === 0));
 	let playing = $state(false);
 
 	onMount(() => {

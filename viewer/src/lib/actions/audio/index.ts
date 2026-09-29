@@ -1,48 +1,23 @@
-import type { AudioConfiguration, AudioEventsConfig } from '@scutoons/content';
+import type { AudioConfiguration } from '@scutoons/content';
+import type { SliceAudioPlayer } from '@scutoons/reader';
 import type { Action } from 'svelte/action';
+import type { AdaptiveMusicPlayer } from '$lib/audio/AdaptiveMusicPlayer.ts';
 import { getCurrentAudioContext } from '$lib/contexts/audio.svelte.ts';
-import { handleMusicEvent } from './handlers/music.ts';
-import { handleSampleEvent } from './handlers/samples.ts';
 
-export const audioEvents: Action<HTMLElement, AudioEventsConfig | null | undefined> = (
-	node,
-	config
-) => {
-	const cleanups: Array<() => void> = [];
-
-	function setup(cfg: AudioEventsConfig | null | undefined) {
-		cleanups.forEach(fn => fn());
-		cleanups.length = 0;
-
-		if (!cfg || !cfg.events) return;
-
-		const audioContext = getCurrentAudioContext();
-		if (!audioContext) return;
-
-		if (cfg.events.music?.tracks && cfg.events.music.tracks.length > 0) {
-			const cleanup = handleMusicEvent(node, {
-				index: cfg.index,
-				slices: cfg.slices,
-				audioContext
-			});
-			if (cleanup) cleanups.push(cleanup);
-		}
-
-		if (cfg.events.audio) {
-			const cleanup = handleSampleEvent(node, cfg.events.audio, {
-				audioContext
-			});
-			if (cleanup) cleanups.push(cleanup);
-		}
-	}
-
-	setup(config);
-
+/**
+ * The current audio context as the player `@scutoons/reader`'s `sliceAudio` action expects (null = no audio).
+ * Resolved when the slice sets up its action, like the former `audioEvents` action did.
+ */
+export function audioPlayer(): SliceAudioPlayer | null {
+	const audioContext = getCurrentAudioContext();
+	if (!audioContext) return null;
 	return {
-		update: setup,
-		destroy: () => cleanups.forEach(fn => fn())
+		triggerSample: (sample) => audioContext.triggerSample(sample),
+		getTrackIds: () =>
+			(audioContext.manager.getMusicPlayer() as AdaptiveMusicPlayer | null)?.getTrackIds() ?? null,
+		updateMusicVolumes: (tracks) => audioContext.updateMusicVolumes(tracks)
 	};
-};
+}
 
 export const audio: Action<HTMLElement, AudioConfiguration | null | undefined> = (
 	node,

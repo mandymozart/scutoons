@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	let {
@@ -14,13 +14,17 @@
 		children: Snippet;
 	} = $props();
 
-	let visible = $state(delay === 0);
+	// initial value only: a delayed effect becomes visible in onMount
+	let visible = $state(untrack(() => delay === 0));
+	let playing = $state(false);
 
 	onMount(() => {
 		const delayTimer = setTimeout(() => {
 			visible = true;
+			playing = true;
 
 			const durationTimer = setTimeout(() => {
+				playing = false;
 				onComplete();
 			}, duration);
 
@@ -31,12 +35,12 @@
 	});
 </script>
 
-<div class="effect-none" class:visible={visible}>
+<div class="effect-wobble" class:visible class:playing style="--duration: {duration}ms">
 	{@render children()}
 </div>
 
 <style>
-	.effect-none {
+	.effect-wobble {
 		display: inline-block;
 		visibility: hidden;
 		opacity: 0;
@@ -45,9 +49,35 @@
 			visibility 0s linear 0.3s;
 	}
 
-	.effect-none.visible {
+	.effect-wobble.visible {
 		visibility: visible;
 		opacity: 1;
 		transition: opacity 0.3s ease;
+	}
+
+	.effect-wobble.playing {
+		animation: wobble var(--duration) ease-in-out;
+	}
+
+	@keyframes wobble {
+		0%,
+		100% {
+			transform: rotate(0deg);
+		}
+		15% {
+			transform: rotate(-5deg);
+		}
+		30% {
+			transform: rotate(3deg);
+		}
+		45% {
+			transform: rotate(-3deg);
+		}
+		60% {
+			transform: rotate(2deg);
+		}
+		75% {
+			transform: rotate(-1deg);
+		}
 	}
 </style>

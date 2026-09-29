@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
 
 	let {
@@ -14,7 +14,8 @@
 		children: Snippet;
 	} = $props();
 
-	let visible = $state(delay === 0);
+	// initial value only: a delayed effect becomes visible in onMount
+	let visible = $state(untrack(() => delay === 0));
 	let playing = $state(false);
 
 	onMount(() => {
@@ -34,12 +35,12 @@
 	});
 </script>
 
-<div class="effect-wobble" class:visible class:playing style="--duration: {duration}ms">
+<div class="effect-pulse" class:visible class:playing style="--duration: {duration}ms">
 	{@render children()}
 </div>
 
 <style>
-	.effect-wobble {
+	.effect-pulse {
 		display: inline-block;
 		visibility: hidden;
 		opacity: 0;
@@ -48,35 +49,25 @@
 			visibility 0s linear 0.3s;
 	}
 
-	.effect-wobble.visible {
+	.effect-pulse.visible {
 		visibility: visible;
 		opacity: 1;
 		transition: opacity 0.3s ease;
 	}
 
-	.effect-wobble.playing {
-		animation: wobble var(--duration) ease-in-out;
+	.effect-pulse.playing {
+		animation: pulse var(--duration) ease-in-out;
 	}
 
-	@keyframes wobble {
+	@keyframes pulse {
 		0%,
 		100% {
-			transform: rotate(0deg);
+			transform: scale(1);
+			opacity: 1;
 		}
-		15% {
-			transform: rotate(-5deg);
-		}
-		30% {
-			transform: rotate(3deg);
-		}
-		45% {
-			transform: rotate(-3deg);
-		}
-		60% {
-			transform: rotate(2deg);
-		}
-		75% {
-			transform: rotate(-1deg);
+		50% {
+			transform: scale(1.2);
+			opacity: 0.8;
 		}
 	}
 </style>

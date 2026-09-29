@@ -2,15 +2,12 @@ import { setContext, getContext } from 'svelte';
 import type { Character, VNChoice, Message, VNCharacterRef } from '@scutoons/content';
 import type { Onomatopoeia } from '@scutoons/content';
 import type { TriggerMode } from '@scutoons/content';
+import type { ActiveOnomatopoeia } from '@scutoons/reader';
 
 const VN_KEY = Symbol('visual-novel');
 
-export interface VNActiveOnomatopoeia extends Onomatopoeia {
-	id: string;
-	wait: boolean;
-	mode: TriggerMode;
-	onComplete: () => void;
-}
+/** An onomatopoeia on screen (rendered by `@scutoons/reader`'s `Onomatopoeia`). */
+export type VNActiveOnomatopoeia = ActiveOnomatopoeia;
 
 export type VisualNovelContext = ReturnType<typeof createVisualNovelContext>;
 

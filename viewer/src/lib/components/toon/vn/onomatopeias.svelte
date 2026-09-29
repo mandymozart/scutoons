@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte.ts';
-	import Onomatopeia from './onomatopeia.svelte';
+	import { Onomatopoeia } from '@scutoons/reader';
 
 	const vn = getVisualNovelContext();
 
@@ -22,8 +22,8 @@
 	role="button"
 	tabindex="0"
 >
-	{#each vn.state.activeOnomatopoeia as onomatopeia (onomatopeia.id)}
-		<Onomatopeia {onomatopeia} />
+	{#each vn.state.activeOnomatopoeia as onomatopoeia (onomatopoeia.id)}
+		<Onomatopoeia {onomatopoeia} />
 	{/each}
 </div>
 

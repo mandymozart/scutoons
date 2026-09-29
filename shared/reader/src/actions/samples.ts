@@ -1,17 +1,10 @@
-import type { AudioEvent, SampleTrigger } from '@scutoons/content';
-import type { AudioContext } from '$lib/contexts/audio.svelte.ts';
-import { Trigger, TriggerMode } from '@scutoons/content';
+import type { AudioEvent, Sample } from '@scutoons/content';
+import { Trigger } from '@scutoons/content';
+import { isWithinRect } from '../rect.ts';
 
 export interface SampleHandlerContext {
-	audioContext: AudioContext;
-}
-
-function isWithinRect(event: MouseEvent, element: HTMLElement, rect: SampleTrigger['rect']): boolean {
-	const bounds = element.getBoundingClientRect();
-	const x = ((event.clientX - bounds.left) / bounds.width) * 100;
-	const y = ((event.clientY - bounds.top) / bounds.height) * 100;
-
-	return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
+	/** plays one sample of the chapter's sample library (the app's audio player) */
+	triggerSample: (sample: Sample) => void;
 }
 
 export function handleSampleEvent(
@@ -30,7 +23,7 @@ export function handleSampleEvent(
 	}
 
 	const triggerSample = () => {
-		context.audioContext.triggerSample(sample);
+		context.triggerSample(sample);
 	};
 
 	switch (sample.trigger.type) {

@@ -1,6 +1,5 @@
 <script lang="ts">
-	import Onomatopeia from '$lib/components/toon/vn/onomatopeia.svelte';
-	import type { VNActiveOnomatopoeia } from '$lib/contexts/visual-novel.svelte.ts';
+	import { Onomatopoeia, type ActiveOnomatopoeia } from '@scutoons/reader';
 	import { TriggerMode } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 
@@ -9,7 +8,7 @@
 
 	let run = $state(0);
 
-	const active = $derived<VNActiveOnomatopoeia>({
+	const active = $derived<ActiveOnomatopoeia>({
 		...($state.snapshot(params) as any),
 		id: `preview-${run}`,
 		wait: false,
@@ -21,7 +20,7 @@
 <div class="preview">
 	<div class="stage" style:background-image={background ? `url("${asset(`${toon}/${background}`)}")` : null}>
 		{#key JSON.stringify(params) + run}
-			<Onomatopeia onomatopeia={active} />
+			<Onomatopoeia onomatopoeia={active} />
 		{/key}
 	</div>
 	<button type="button" class="secondary" onclick={() => run++}>↻ replay</button>

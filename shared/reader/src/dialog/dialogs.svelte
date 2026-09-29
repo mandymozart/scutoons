@@ -1,16 +1,13 @@
 <script lang="ts">
 	import type { Dialog as DialogModel } from '@scutoons/content';
-	import { getLocale } from '$lib/paraglide/runtime.js';
 	import Dialog from './dialog.svelte';
 
+	/** `lang` = language of the text (chapter files are per locale): drives hyphenation. */
 	let { dialogs, lang }: { dialogs?: DialogModel[]; lang?: string } = $props();
-
-	// chapter files are loaded per locale, so the UI locale is the language of the text
-	const language = $derived(lang ?? getLocale());
 </script>
 
 {#if dialogs?.length}
-	<div class="dialogs" lang={language}>
+	<div class="dialogs" {lang}>
 		{#each dialogs as dialog, index (dialog.id ?? index)}
 			<Dialog {dialog} />
 		{/each}

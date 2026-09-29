@@ -10,7 +10,7 @@
 
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import Dialogs from '$lib/components/toon/dialog/dialogs.svelte';
+	import { Dialogs } from '@scutoons/reader';
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
 	import { getAt, round2, type Path } from '@scutoons/content';
 	import { SLICE_RATIO } from '$lib/creator/defaults.ts';

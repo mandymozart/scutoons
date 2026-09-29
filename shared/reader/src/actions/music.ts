@@ -1,12 +1,11 @@
-import type { MusicEventTrack } from '@scutoons/content';
-import type { Slice } from '@scutoons/content';
-import type { AdaptiveMusicPlayer } from '$lib/audio/AdaptiveMusicPlayer.ts';
-import type { AudioContext } from '$lib/contexts/audio.svelte.ts';
+import type { MusicEventTrack, Slice } from '@scutoons/content';
 
 export interface MusicHandlerContext {
 	index: number;
 	slices: Slice[];
-	audioContext: AudioContext;
+	/** track ids of the loaded adaptive music player, null while there is none */
+	getTrackIds: () => string[] | null;
+	updateMusicVolumes: (tracks: MusicEventTrack[]) => void;
 }
 
 function findMostRecentTrackState(
@@ -53,17 +52,14 @@ export function getMusicStateForSlice(
 }
 
 export function handleMusicEvent(node: HTMLElement, context: MusicHandlerContext): (() => void) | null {
-	let player = context.audioContext.manager.getMusicPlayer() as AdaptiveMusicPlayer | null;
-
 	const updateMusic = () => {
-		player = context.audioContext.manager.getMusicPlayer() as AdaptiveMusicPlayer | null;
-		if (!player) return;
+		const trackIds = context.getTrackIds();
+		if (!trackIds) return;
 
-		const trackIds = player.getTrackIds();
 		const musicState = getMusicStateForSlice(context.index, context.slices, trackIds);
 
 		if (musicState.length > 0) {
-			context.audioContext.updateMusicVolumes(musicState);
+			context.updateMusicVolumes(musicState);
 		}
 	};
 

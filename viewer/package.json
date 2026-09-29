@@ -59,6 +59,7 @@
 	],
 	"dependencies": {
 		"@scutoons/content": "*",
+		"@scutoons/reader": "*",
 		"@scutoons/tokens": "*",
 		"@tensorflow-models/mobilenet": "^2.1.1",
 		"@tensorflow/tfjs": "^4.22.0",
