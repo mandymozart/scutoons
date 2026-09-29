@@ -13,13 +13,16 @@ and returns a session token (Bearer). Tokens and codes are only stored as hashes
 | Path | What |
 |---|---|
 | `api/index.php` | Front controller for every `/api/` path that is not an existing file/folder |
-| `api/lib/` | Classes: `Config`, `Http` (JSON, CORS, errors), `Db`, `Catalog`, `Auth`, `LoginMail`, `Mailer`, `Smtp`, `Users`, `Codes`, `Inventory`, `Avatar`, `Progress`, `RateLimit`, `bootstrap.php` (denied over HTTP) |
+| `api/lib/` | Classes: `Config`, `Http` (JSON, CORS, errors), `Db`, `Catalog`, `Permissions`, `Events`, `Auth`, `LoginMail`, `Mailer`, `Smtp`, `Users`, `Codes`, `Inventory`, `Avatar`, `Progress`, `RateLimit`, `bootstrap.php` (denied over HTTP) |
+| `api/permissions.json` | What each code type grants (server-only, denied over HTTP) – see "Permissions map" |
 | `api/items/items.json` | The item catalog (single source), served by `api/items/index.php` |
-| `api/validate/` | Membership check for the signed-in owner of a code only (no email/signature) |
-| `index.php` + `assets/js/claim.js` | QR landing page and claim flow |
+| `api/validate/` | Legacy membership check, backwards compatible (no email/signature/claimed_by) |
+| `index.php` | QR landing page: preview + Continue + "Add to my account" (no email step) |
+| `generate/stats.php`, `code-events.php`, `revoke.php` + `app/views/stats.js` | Admin "Stats" view: activity per code, revoke |
 | `db/migrations/2026-09-29-accounts-inventory.{mysql,sqlite}.sql` | New tables + `qr.edition_number`, `qr.claimed_by` |
+| `db/migrations/2026-09-30-code-owner-guard.*`, `2026-09-30-revoke-events.*` | Owner triggers; `qr.revoked_at`/`revoked_reason`, `code_events` |
 | `scripts/` | CLI: `migrate.php`, `backfill-edition-numbers.php`, `report-orphan-codes.php` |
-| `tests/api-smoke.php` (`.sh`) | End-to-end API test against a running server |
+| `tests/api-smoke.php` (`.sh`), `tests/claim-race.php` | End-to-end API test against a running server; concurrent claim test |
 | `router.php` | `php -S` router (local only) |
 | `logs/` | `mail.log` (dev login mails), `error.log` (API errors) – gitignored, denied over HTTP |
 
@@ -46,7 +49,8 @@ The smoke test claims one unclaimed vinyl and one Dago code of the local DB per 
 | POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale? }` → `{ status:"sent" }` |
 | POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` → session + claims the request's code |
 | POST | `/auth/logout/` | Bearer | ends this session |
-| GET | `/me/` | Bearer | `{ user, memberships, inventory, avatar }` |
+| GET | `/me/` | Bearer | `{ user, access, memberships, inventory, avatar }` – `access: { permissions, unlocked, expires_at, codes, access_token? }` |
+| GET/POST | `/access/` | optional | `{ code }` / `?c=` → device access: `type, expires_at, permissions, claimable, claimed, claimed_by_me?, access_token?` (never the owner); per-IP limit; logs `access`; send `X-Device-Id` |
 | GET | `/code/?c=CODE` | optional | items/options/edition of a code, `claimed_by_me` when signed in |
 | POST | `/inventory/claim/` | Bearer | `{ code, item_id?, variant? }` |
 | POST | `/inventory/craft/` | Bearer | `{ recipe_id }` |
@@ -54,7 +58,7 @@ The smoke test claims one unclaimed vinyl and one Dago code of the local DB per 
 | POST | `/inventory/import/` | Bearer | `{ items:[{ item_id, qty }] }` |
 | GET/PUT | `/avatar/` | Bearer | `{ slots:{ <slot>: entryId\|null } }` |
 | GET/PUT | `/progress/<toonId>/` | Bearer | `{ state, updated_at }` last write wins |
-| GET/POST | `/validate/` | `{ code }` + Bearer | owner only: 401 `login_required` · 403 `not_claimed` · 409 `already_claimed` · 200 legacy shape |
+| GET/POST | `/validate/` | – | legacy, backwards compatible: success for any existing, unexpired, unrevoked code (claimed or not) |
 
 Errors: `{ status:"error", error:"<code>", message }` (+ `options`, `missing`, `slot`, `retry_after` where noted).
 CORS (credentials via Bearer header, no cookies): `ALLOWED_ORIGINS`.
@@ -84,6 +88,8 @@ the deploy workflow in production) → default in `api/lib/Config.php`. An empty
 | `GRANT_MAX_PER_HOUR`, `IMPORT_MAX_PER_HOUR`, `IMPORT_MAX_QTY` | 120, 10, 99 | |
 | `PROGRESS_MAX_BYTES` | 262144 | |
 | `LOG_PATH` | `logs/error.log` | API error log; empty = the host's log |
+| `ACCESS_MAX_PER_IP_HOUR` | 120 | `/access/` + `/code/` lookups per IP and hour |
+| `PERMISSIONS_PATH` | `api/permissions.json` | another permissions map (tests, staging) |
 
 GitHub settings used by `.github/workflows/main.yml` (names only): secrets `AUTH_SECRET`, `SMTP_USER`, `SMTP_PASS`
 (plus the existing `GENERATE_PASSWORD`, `DB_USER`, `DB_PASS`, `FTP_USERNAME`, `FTP_PASSWORD`); variables
@@ -99,6 +105,7 @@ The deploy (push to `main`) uploads code only; `db/` and `scripts/` are not depl
    everywhere, safe to run twice). Requires MariaDB ≥ 10.3 (production is 10.11).
    Then run `db/migrations/2026-09-30-code-owner-guard.mysql.sql` (triggers; SQL tab with delimiter `$$`, see the
    file header). Before that, check no inventory row points at a code owned by someone else (none can exist yet).
+   Then `db/migrations/2026-09-30-revoke-events.mysql.sql` (idempotent).
 3. Edition numbers: copy the server's `generate/files/batch/*.json` locally (FTP), then
    `php scripts/backfill-edition-numbers.php --sql --manifests=<that folder> > backfill.sql` and run `backfill.sql`
    in phpMyAdmin. Only codes listed in a manifest get a number.
@@ -109,30 +116,94 @@ The deploy (push to `main`) uploads code only; `db/` and `scripts/` are not depl
 7. `generate/.htpasswd` is no longer in git and is excluded from the FTP sync, so the server copy stays.
    Keep a backup of it (and of `api/keys/keypair.json`) outside the repo.
 
-## One owner per code
+## Access model: viewing vs. owning
 
-Every code that goes through qr.scutoons.com belongs to at most one account, enforced in three layers:
+(ITEMS.md "Access model", final, 2026-09-30.)
+
+- **Viewing is device-level.** Anyone holding an existing, unexpired, unrevoked code whose type grants `catalog`
+  may read everything on that device – also when the code is owned by someone else. The viewer asks `/api/access/`
+  and keeps the answer (and its `access_token`) in the browser. Nothing is stored on the server except the
+  activity event. Codes are meant to be shareable (no device limits).
+- **Owning is an account action.** Claiming (item in the inventory, edition number), avatar, synced progress need an
+  email login. One owner per code applies only here.
+
+### One owner per code (ownership)
 
 1. **API** – `Codes::claim` runs in a transaction (`BEGIN IMMEDIATE` on SQLite, `SELECT … FOR UPDATE` on MariaDB)
    and binds with `UPDATE qr SET claimed_by = ? … WHERE claimed_by IS NULL`; a second account gets 409
-   `already_claimed`. Codes claimed by the old email-only form can only be claimed by an account with that email.
-   The owner claiming again is a no-op (`already_yours`).
-2. **No anonymous use** – `/api/validate/` only answers success for the signed-in owner. A photographed or shared
-   code unlocks nothing on another device; the viewer no longer grants device-only memberships.
-3. **Database** – triggers (`2026-09-30-code-owner-guard`) refuse re-assigning `qr.claimed_by` to another account
+   `already_claimed` (it can still read with the code). Codes claimed by the old email-only form can only be claimed
+   by an account with that email (409 `email_required`). The owner claiming again is a no-op (`already_yours`).
+2. **Database** – triggers (`2026-09-30-code-owner-guard`) refuse re-assigning `qr.claimed_by` to another account
    and refuse inventory rows whose `code` belongs to someone else, even for writes outside the API.
-   Releasing a code (support case) = set `claimed_by` to NULL and delete its inventory rows, then it can be claimed again.
+   Releasing a code (support case) = set `claimed_by` to NULL and delete its inventory rows.
 
-Not covered (by design): `event`, `xr` and `page` codes carry no items and only redirect, so they stay shareable.
+Tests: `tests/api-smoke.php` and `tests/claim-race.php [n]` (n processes claim one code at once → exactly one owner).
 
-Tests: `tests/api-smoke.php` (owner/guest/other/unclaimed validate, DB guard) and `tests/claim-race.php [n]`
-(n processes claim one code at the same moment → exactly one owner).
+## Permissions map – how to change what a code type unlocks
+
+`api/permissions.json` (server-only, never served over HTTP):
+
+```json
+{
+  "version": 1,
+  "permissions": { "catalog": "Read every chapter of every toon" },
+  "types": {
+    "membership": { "claimable": true,  "grants": ["catalog"] },
+    "promo":      { "claimable": true,  "grants": ["catalog"] },
+    "page":       { "claimable": false, "grants": [] }
+  },
+  "default":      { "claimable": false, "grants": [] }
+}
+```
+
+- `claimable`: the code can be owned by one account (goes into its inventory). `grants`: permission ids for anyone
+  holding the code (device) and for its owner (account) while it is neither expired nor revoked.
+- Types not listed use `default`. The viewer checks `catalog` today; ids like `toon:catpope` or
+  `chapter:catpope:2` can be added later without code changes on this server.
+- To change it: edit the file (valid JSON!), deploy (push to `main`) or upload it over FTP. No restart, no migration.
+  Check locally with `php tests/api-smoke.php` (it also proves an override map is applied). A broken file makes the
+  code endpoints answer 500, so validate the JSON before uploading.
+- `PERMISSIONS_PATH` points to another file (staging, tests).
+
+## Access tokens
+
+`/access/` (when the code grants `catalog`) and `/me/` `access` (when unlocked) include `access_token`:
+`base64url(payload) "." base64url(HMAC-SHA256(payload part))`, payload `{ v:1, perms, exp, sub }`,
+`exp = min(code expiry, now + 30 days)`, `sub = "code:<keyed hash of the code>"` or `"user:<id>"`. The key is
+derived from `AUTH_SECRET` with its own label; rotating `AUTH_SECRET` invalidates all tokens.
+`Permissions::verifyToken($token)` returns the payload or null – for a later server-side content gate (nothing
+checks the token yet).
+
+## Revoke + activity statistics
+
+- **Revoke** one code in the admin SPA ("Stats" → code → Revoke, with a reason). A revoked code answers
+  `410 revoked` in `/access/`, `/code/`, `/validate/` and claims; `/me/` access ignores it; the landing page says
+  "This code is no longer valid". Unrevoke restores it. Both are logged as events.
+- **Events** (`code_events`, append-only, `api/lib/Events.php`): `scan` (landing page), `access` (at most once per
+  code + device per UTC day), `claim`, `claim_refused`, `login` (one per owned code at sign-in), `revoke`,
+  `unrevoke`. Logging never breaks a request.
+- **Admin endpoints** (admin token, under `generate/`, never public): `stats.php` (per-code table, `?format=csv`,
+  `?days=` for the daily chart), `code-events.php?code=` (timeline), `revoke.php` (POST).
+
+### Privacy
+
+What is stored per event: the code, the event type, the time (UTC), optionally the toon, the account id for
+`claim`/`claim_refused`/`login`/signed-in `access`, `device_hash` = HMAC of the browser's random `X-Device-Id`
+(localStorage `scutoons_device`, not linked to a person), `ip_hash` = HMAC of the IP with a **daily** salt derived
+from `AUTH_SECRET` + UTC date (hashes of different days can't be linked; no salt is stored). Never stored: raw IP,
+email, user agent, the device id itself. The admin views show no emails or user ids (only "account: yes").
+
+Retention suggestion: aggregate what you need and delete events older than 13 months
+(`DELETE FROM code_events WHERE created_at < NOW() - INTERVAL 13 MONTH` in phpMyAdmin, e.g. yearly), and mention
+the anonymous usage statistics in the privacy policy.
 
 ## Security notes
 
 - `/api/keys/keys.php` serves the public key only; the admin SPA gets the keypair from `generate/keys.php`
   (admin token + Basic auth). `api/keys/.htaccess` denies everything else in that folder.
-- `/api/validate/` and `/api/code/` never return who claimed a code; `/api/validate/` answers only the owner.
+- `/api/validate/`, `/api/code/`, `/api/access/` never return who claimed a code.
+- `api/permissions.json` is server-only (denied in `.htaccess` and `router.php`); clients only see the resulting
+  `permissions`. Access tokens are HMAC-signed with a key derived from `AUTH_SECRET` (own label).
 - A code is bound to one account (`qr.claimed_by`); codes claimed with the old email-only form can be taken over
   only by an account with that email.
 - Grants are limited to the item's `grantable` sources; scan grants need a detecting tool and respect its cooldown.
