@@ -183,3 +183,47 @@ are **additive details / clarifications** the viewer can rely on:
   `410 { status:"error", message:"QR code expired" }`.
 - Local dev: API `http://localhost:9000/api`, login mails in `qr.scutoons.com/logs/mail.log`, icons from
   `CDN_URL` (`http://localhost:8001/` locally).
+
+## Access model (2026-09-30, user decision — supersedes the "login required" step)
+
+- **Public, never gated:** `/`, toon landing `/<toon>`, credits, events, shop, attributions.
+- **Gated:** chapter views (and chapter download) → need access. Account pages → need a session.
+- **Access = a valid code.** Every code type **except `xr` and `event`** (i.e. membership, promo, page, none/public)
+  unlocks the **entire SCUTOONS catalog** (all toons), until `expires_at`.
+- **The code is the credential.** The first device that uses an unclaimed code becomes its owner **without email**:
+  the server creates an *anonymous account* (no email), claims the code to it and returns a session. No login screen.
+- **One owner per code stays.** A claimed code works only for its owner's session. Anyone else gets
+  `409 already_claimed` → "This code is already in use. If it's yours, sign in."
+- **Login (email + one-time code) is only for people without a valid code on this device**: new phone, cleared
+  browser, or to use codes already in their account. Anonymous accounts can **add an email** any time (account page,
+  prompted gently after the first unlock) so they can sign in elsewhere later.
+- Adding an email that already has an account **merges** the anonymous account into it (codes + inventory + avatar +
+  progress move over, anonymous user deleted, session switches).
+- Codes claimed by the old email-only form (`qr.email` set, `claimed_by` NULL) can only be taken over by signing in
+  with that email (`409 email_required`).
+
+### API changes
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/auth/code/` | `{ code, item_id?, variant? }` (+ optional Bearer) | no session: unclaimed → create anonymous user, claim, `{ status:"success", session_token, user, claimed:"new", created:true }` · with session: claim into that account (`claimed: "new"\|"already_yours"`) · `409 already_claimed` · `409 email_required` · `422 choose_item` (+options, **before** any user is created) · `403 not_unlocking` (xr/event) · 404 · 410 · 429 |
+| POST | `/auth/request/` + `/auth/verify/` | as before; with an anonymous Bearer session: attaches the email (or merges into the existing account with that email) | verify adds `merged: true` when merged |
+
+- `user` gets `email: string|null` and `anonymous: boolean`. `users.email` becomes nullable (UNIQUE still holds for
+  non-null).
+- `/me/` → `access: { unlocked: boolean, expires_at: string|null, codes: [code] }` (unlocked = owns ≥1 non-expired
+  code whose type is not xr/event). `memberships` stays for compatibility.
+- Claimable/unlocking types = all except `xr`, `event` (server constant, one place).
+- `/validate/` unchanged (owner-only), the viewer does not use it.
+- qr landing page: for unlocking codes show the item preview + **Continue** → `redirect_to?code=<code>` (the viewer
+  claims). No email step on the landing page; if the code is already claimed the page still continues (the viewer
+  decides: owner's device → fine, else "in use, sign in"). xr/event keep their direct redirect.
+
+### Viewer
+
+- `?code=` or in-app scan: session? → `/auth/code/` with Bearer : → `/auth/code/` without → store session → unlocked
+  immediately; `choose_item` → picker; `already_claimed`/`email_required` → message + sign-in.
+- Legacy `scutoons_membership` in localStorage → silently `/auth/code/` with its code; success → cleared, unlocked.
+- Blocker (guests without access): "Scan your code" (camera), "I have an account – sign in", "Buy access".
+- Account page for anonymous users: "Add your email to keep access on other devices"; logout warns that an anonymous
+  account can't be recovered without an email.
