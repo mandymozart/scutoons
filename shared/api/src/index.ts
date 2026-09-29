@@ -19,3 +19,4 @@ export {
 	type WrappedContent,
 	type ContentIndexFile
 } from './content.ts';
+export { createProductsApi, type ProductsApi } from './products.ts';

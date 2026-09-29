@@ -10,7 +10,7 @@
 		isSoldOut,
 		variantPrice,
 		type Product
-	} from './shop.ts';
+	} from '@scutoons/content';
 
 	/** `variantId` pins the card to one colourway (shop grid: one tile per variant, sold-out ones included) */
 	let {

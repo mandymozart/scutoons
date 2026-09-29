@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ProductSlides from '$lib/components/shop/products/product-slides.svelte';
+	import ProductSlides from '$lib/components/home/product-slides.svelte';
 	import {
 		editionPieces,
 		formatPrice,
@@ -7,17 +7,17 @@
 		localized,
 		pickVariant,
 		variantPrice
-	} from '$lib/components/shop/products/shop.ts';
+	} from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 
 	const { data } = $props();
 	const locale = getLocale();
-	const currency = $derived(data.catalog.currency);
-	// featured-products.json -> [{ product, variant }] resolved against products.json
+	const currency = $derived(data.catalog?.currency ?? 'EUR');
+	// API /products/featured/ -> [{ product, variant }] resolved against the catalog (/products/)
 	const featured = $derived(
 		data.featured.flatMap((f) => {
-			const product = data.catalog.products.find((p) => p.id === f.product);
+			const product = data.catalog?.products.find((p) => p.id === f.product);
 			return product ? [{ product, variant: pickVariant(product, f.variant) }] : [];
 		})
 	);

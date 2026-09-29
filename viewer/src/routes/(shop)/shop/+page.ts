@@ -1,12 +1,10 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.ts';
-import { API_BASE } from '$lib/config.ts';
-import type { ProductCatalog } from '$lib/components/shop/products/shop.ts';
+import { fetchProducts } from '$lib/api.ts';
 
-export const load: PageLoad = async ({ fetch }) => {
+export const load: PageLoad = async () => {
 	try {
-		const response = await fetch(`${API_BASE}/products.json`);
-		const catalog: ProductCatalog = await response.json();
+		const catalog = await fetchProducts();
 		if (catalog?.products) return { catalog };
 	} catch (e) {
 		console.error(e);

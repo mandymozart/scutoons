@@ -1,6 +1,7 @@
-// Shop data contract for static/api/products.json (version 2) and featured-products.json.
+// Shop data contract: GET /api/products/ (server config/products.json, version 2) and GET /api/products/featured/
+// (config/featured-products.json). Was the viewer's static/api/*.json + lib/components/shop/products/shop.ts.
 // One product per Bandcamp item; colours / test-press numbers are variants.
-// `item_id` links to the item catalog (qr.scutoons.com /api/items/), `edition_id` to qr editions.json.
+// `item_id` links to the item catalog (/api/items/), `edition_id` to the server's editions.json.
 
 export type LocalizedText = { de: string; en: string } & Record<string, string>;
 

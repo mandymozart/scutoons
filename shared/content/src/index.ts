@@ -5,6 +5,7 @@ export * from './audio.ts';
 export * from './visual-novel.ts';
 export * from './items.ts';
 export * from './membership.ts';
+export * from './products.ts';
 export * from './template.ts';
 export * from './paths.ts';
 export * from './validate.ts';

@@ -15,6 +15,7 @@ Depends on `@scutoons/content` (types) only.
 | `ApiError` | `{ status, code, message, body }`; network failure = `status 0`, `code 'network'`; 401 → `'unauthorized'`. |
 | `createQrApi(client)` | `authRequest`, `authVerifyOtp`, `authVerifyToken`, `authLogout`, `checkAccess`, `fetchMe`, `updateMe`, `fetchCatalog`, `fetchEditions`, `fetchCode`, `claimCode`, `craftRecipe`, `grantItem`, `importItems`, `putAvatar`, `fetchProgress`, `putProgress` (+ types `VerifyResult`, `AccessResult`, `InventoryResult`, `ProgressResult`). |
 | `createContentApi({ client, staticBase })` | `fetchContent(fetch, toon, locale, path, { draft? })` (store → static fallback, 4 s timeout, returns a `Response`), editor endpoints `getDraft`, `getVersion`, `putDraft`, `publishVersion`, `unpublishFile`, `restoreVersion`, `listVersions`, `contentIndex`, `getStatic`; `CONTENT_PATH`; types `ContentVersion`, `WrappedContent`, `ContentIndexFile`. |
+| `createProductsApi(client)` | `fetchProducts()` (`GET /products/` → `ProductCatalog`), `fetchFeaturedProducts()` (`GET /products/featured/` → `FeaturedProduct[]`): the shop data, public. Give it a client without `getToken` / `getDeviceId` (`createApiClient({ baseUrl })`): then the browser sends a simple GET without a CORS preflight, which the API answers for any origin. |
 | `getDeviceId()` | random per-browser id in localStorage `scutoons_device`. |
 | `getSessionToken()` / `setSessionToken(token)` | localStorage `scutoons_session` of the current origin (`SESSION_STORAGE_KEY`). |
 

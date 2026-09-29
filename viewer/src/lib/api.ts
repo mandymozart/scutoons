@@ -1,5 +1,12 @@
 // The viewer's API wiring: @scutoons/api configured with this app's API base, static files and session token.
-import { createApiClient, createContentApi, createQrApi, getDeviceId, getSessionToken } from '@scutoons/api';
+import {
+	createApiClient,
+	createContentApi,
+	createProductsApi,
+	createQrApi,
+	getDeviceId,
+	getSessionToken
+} from '@scutoons/api';
 import { API_BASE, API_URL } from '$lib/config.ts';
 
 export {
@@ -35,6 +42,10 @@ export const {
 	fetchProgress,
 	putProgress
 } = createQrApi(api);
+
+/** Shop data (homepage slides): API /products/ and /products/featured/. Public: a client without session / device id
+ *  headers, so the browser sends a simple request (no CORS preflight). */
+export const { fetchProducts, fetchFeaturedProducts } = createProductsApi(createApiClient({ baseUrl: API_URL }));
 
 /** Toon / season / chapter configs and VN scene files: content store (published) → static `/api` files. */
 export const contentApi = createContentApi({ client: api, staticBase: API_BASE });
