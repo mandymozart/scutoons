@@ -91,7 +91,7 @@
 	.detail {
 		position: sticky;
 		top: var(--split-view-top, 0);
-		max-height: calc(100dvh - var(--split-view-top, 0px) - var(--space-1));
+		max-height: calc(100dvh - var(--split-view-top, 0px) - var(--split-view-bottom, var(--space-1)));
 		display: flex;
 		flex-direction: column;
 		border: var(--border-width-regular) solid var(--ink);

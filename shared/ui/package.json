@@ -3,7 +3,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"type": "module",
-	"description": "SCUTOONS Svelte UI kit: Button, IconButton, Field, Panel, Section, Sheet, Tabs, Toggle, Badge, Menu, Toasts, DataTable, Pager, SplitView, CommandPalette, Skeleton, Chart, RecordInspector",
+	"description": "SCUTOONS Svelte UI kit: Button, IconButton, Field, Panel, Section, Sheet, Tabs, Toggle, Badge, Menu, Toasts, ActionBar, DataTable, Pager, SplitView, CommandPalette, Skeleton, Chart, RecordInspector",
 	"sideEffects": [
 		"**/*.css",
 		"**/*.svelte"

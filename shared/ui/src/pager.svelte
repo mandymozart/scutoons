@@ -10,6 +10,7 @@
 		href,
 		sizeHref,
 		pageSizes = [25, 50, 100, 250],
+		compact = false,
 		labels = {
 			label: 'Pages',
 			previous: 'Previous',
@@ -25,6 +26,8 @@
 		/** link for another page size (shown as a small choice when given) */
 		sizeHref?: (pageSize: number) => string;
 		pageSizes?: number[];
+		/** one line without wrapping (inside the ActionBar) */
+		compact?: boolean;
 		labels?: {
 			label: string;
 			previous: string;
@@ -49,7 +52,7 @@
 	});
 </script>
 
-<nav class="sc-pager" aria-label={labels.label}>
+<nav class="sc-pager" class:compact aria-label={labels.label}>
 	<span class="range">{labels.range(from, to, total)}</span>
 	{#if pages > 1}
 		<span class="pages">
@@ -93,6 +96,15 @@
 		gap: var(--space-05) var(--space-1);
 		padding: var(--space-05) 0;
 		font-variant-numeric: tabular-nums;
+	}
+	.compact {
+		flex-wrap: nowrap;
+		padding: 0;
+		white-space: nowrap;
+	}
+	.compact .pages,
+	.compact .sizes {
+		flex-wrap: nowrap;
 	}
 	.range {
 		color: var(--text-muted);

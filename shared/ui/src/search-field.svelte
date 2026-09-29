@@ -8,12 +8,15 @@
 		label,
 		placeholder,
 		delay = 300,
+		compact = false,
 		onsearch
 	}: {
 		value?: string;
 		label: string;
 		placeholder?: string;
 		delay?: number;
+		/** one line: the label becomes the placeholder / accessible name (e.g. inside the ActionBar) */
+		compact?: boolean;
 		onsearch: (q: string) => void;
 	} = $props();
 
@@ -51,14 +54,14 @@
 	}
 </script>
 
-<div class="sc-search">
-	<label for="search-{uid}">{label}</label>
+<div class="sc-search" class:compact>
+	<label for="search-{uid}" class:sr-only={compact}>{label}</label>
 	<input
 		id="search-{uid}"
 		type="search"
 		autocomplete="off"
 		spellcheck="false"
-		{placeholder}
+		placeholder={placeholder ?? (compact ? label : undefined)}
 		bind:value={text}
 		oninput={input}
 		onkeydown={keydown}
@@ -87,6 +90,20 @@
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
+	}
+	.compact {
+		min-width: 10rem;
+	}
+	.compact input {
+		padding: var(--space-025) var(--space-05);
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	input:focus-visible {
 		outline: var(--border-width-regular) solid var(--ink);
