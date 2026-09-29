@@ -247,7 +247,7 @@ last commit 0332912 is the imported subtree). The release ships `platform` → `
 | When | Owner | Coordinator / agents |
 |---|---|---|
 | Sep 30 – Oct 2 | Chapter 2 slices from Figma: text-free art 390×625 (1x) + 1170×1875 (3x) → `cdn/root/catpope/images/{1x,3x}/s1c2-slice-NN.jpg`; GitHub environment `production` from `.env.example`; all-inkl: subdomains `api.` `admin.` `shop.` (+ SSL, `creator.` SSL), folders per hosting layout, mailbox `no-reply@` + SPF/DKIM | credits (running), scan-limit setting (running); wire chapter 2 into the creator once slices land (text boxes, season status `coming-soon` → `published` on release day, release date 2026-10-04); release checklist dry runs |
-| Oct 3 | backups (DB, old qr folder, viewer folder); run migrations in phpMyAdmin (order in PLATFORM.md cutover); `cdn/sync.py` (chapter 2, icons, avatars, mannequins) | `npm run deploy:dry-run` review; merge `platform` → `main`; "Deploy all"; point `api.` + `qr.` → test real stickers; then frontends |
+| Oct 3 | backups (DB, old qr folder, viewer folder); run migrations in phpMyAdmin (order in PLATFORM.md cutover) + content seed (`import-content --sql`) + credits seed (`shared/content/seed/credits-seed.mysql.sql`); `cdn/sync.py` (chapter 2, icons, avatars, mannequins) | `npm run deploy:dry-run` review; merge `platform` → `main`; "Deploy all"; point `api.` + `qr.` → test real stickers; then frontends |
 | Oct 4 | publish chapter 2 (creator: season status → published, Publish) | final smoke: printed URLs, scan, claim, login mail, chapter 1 + 2 de/en, shop, admin |
 
 Rollback per subdomain = point back to the old folder (old folders untouched, migrations additive).
