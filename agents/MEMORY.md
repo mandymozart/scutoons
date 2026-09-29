@@ -372,6 +372,22 @@ are the fallback and the seed.
   - Caveat: the released viewer still reads the chapter file's `status` for clickability, so a season status change
     needs the mirrored chapter file published too (both publish flows do that).
 
+- **2026-09-29 — season + toon meta editors.** `/<toon>/season/<n>` (`season-editor.svelte`) and `/<toon>/toon`
+  (`toon-editor.svelte`) on a shared shell `meta-page.svelte` (ActionBar, problems, history, autosave/recover, missing
+  locales, leave guard). Language-neutral fields use `shared-field.svelte` (one editor → `setShared`; when locales differ
+  or "per language" is chosen, one editor per locale with source/override pills and "same for all"), names use
+  `list-field.svelte`. Validation (`@scutoons/content` `validateFile` season/toon + `validateLocales` missing
+  translations, sequence mismatch between locales). Real catpope data: release, covers, credits.music/sound differ
+  de ↔ en (shown as overrides); the en covers `images/1x/en/s1-cover-{square,portrait}.jpg` are **not on the CDN**.
+  - What the viewer renders: season → title, description (toon page) + sequence status; toon.json → title,
+    description, cover.square (toon page), map (map overlay), download.music/complete + title (download page).
+    **Ignored by the viewer:** season authors, number, release, language, cover, credits; toon id, authors, chapters,
+    language, release, thumbnail, cover.portrait, status (the list uses toons.json). The credits route reads the static
+    `<toon>/de/credits.json` (FullCredits, always German, not in the store) – season `credits` are not shown anywhere.
+  - Browser test: catpope season description de/en + a credits.artist name saved as drafts v93/v94, restored in
+    v95/v96 (= published v30/v45), nothing published. yellowmouse "Create season 1" → drafts season1.json (v97 de,
+    v98 en) + toon.json (v99 de, v100 en), unpublished.
+
 ## Platform P1a
 
 2026-09-30 (branch `platform`, commits 52ba2d7..see git log; details + package map: PLATFORM.md "P1a — result").
