@@ -204,6 +204,56 @@ header, grid and four tiles incl. sold-out/badge) — identical at 1280px and 37
 URL forms, menu and "Buy access" on a viewer; homepage slides identical (+ the new link). Checks: viewer/creator/shop/
 shared 0 errors; builds OK; `composer test` green.
 
+## P2a — result (2026-09-30)
+
+**Admin app** `admin/` (:11000, `npm run dev:admin`, deploy `.github/workflows/admin.yml`, secrets `ADMIN_FTP_*`, repo
+vars `VITE_API_URL`, `VITE_CREATOR_URL`, `VITE_VIEWER_URL`): static SPA like the creator (own login + `admin` role
+gate, magic link `/?login=`, paraglide de/en with cookie `SCUTOONS_ADMIN_LOCALE`). Shell = sticky top bar (logo,
+command palette trigger, account, language, sign out) + sidebar from `src/lib/navigation.ts` (groups → items with a
+one-line description; burger < 768px) + the fixed bottom `ActionBar` on every page. `html` font size is pinned to
+16px in the admin (dense tool; the text is 14px), so rem tokens don't grow with the reader's fluid 24px root.
+
+| Route | Parity with `generate/` + new |
+|---|---|
+| `/` | Stats chart → KPIs (totals + period), daily scans/unlocks (line) and claims/signups (bar), claimed/total per edition |
+| `/codes`, `/codes/<code>` | Stats table/detail → URL-driven table (search, edition/type/status filters, sort, pager, bulk revoke/unrevoke, CSV), split-view drawer, detail page (facts, revoke with reason, stats, full timeline, raw record) |
+| `/codes/new` | Generate → all types, toon/redirect prefill, expiry, edition + template fields, ML-DSA-65 signing, archived SVG + signature, downloads SVG / CoA / printable QR / signature |
+| `/codes/<code>` → Certificate | Regenerate → rebuilt from the stored signature (`qr_data`), local signature check, legacy regenerate download names |
+| `/batches`, `/batches/<file>` | Batch → history (resume, ZIP, print sheet), new batch (edition, count, start number, `409 batch_complete` → "Create anyway"), resumable pipeline sign → db → svg → pdf → sig with pause/abort, manifest saved after every code |
+| `/users`, `/users/<id>` | Users → search + role/opt-in filters, detail (owned codes, signup code, opt-in, sessions), role toggles |
+| `/events` | new: activity log with event-type/code/edition/toon/date filters |
+| `/catalog` | new: items + recipes, editions, toons, permissions map (read-only) |
+| `/content` | new: content store per toon/file/locale (newest + published version, state), links into the creator |
+
+**Parity checks** (browser, same data, legacy `generate/` modules on :9000 vs the admin's): certificate PDF of a
+single code (regenerate path) and of a batch code, QR SVG and the batch print sheet are **byte-identical** apart from
+jsPDF's `/CreationDate` and `/ID`; `signedData` has the legacy key order (single: … template fields as strings,
+`svg: null`; batch: numbers, `receiver: ""`); QR URL `https://qr.scutoons.com?c=<CODE>`, footer "Verify at
+https://qr.scutoons.com/verify.html with code: <UPPER CASE>". Admin signatures verify with the verify page's bundled
+noble copy and use the published public key.
+
+**Decisions**
+- Libraries: `jspdf@3.0.3` (the legacy CDN version) and `@noble/post-quantum@^0.5` as npm deps; datalog
+  `qrcode-svg` is not on npm → vendored unchanged as `admin/src/lib/qr/qrcode-svg.js`. Printed URLs are constants
+  in `src/lib/qr/config.ts` (never env).
+- Batch pipeline fix vs legacy: a code whose `sig` step is still open also redoes its PDF, so certificate and stored
+  signature always come from the same (new) signature after a resume.
+- Legacy `exportSignature` (base64 of the signature, console only; `btoa` threw on non-Latin-1 text and then skipped
+  saving the signature) is dropped.
+- New server endpoint `GET /api/admin/content` (`Admin\ContentController` + `Domain\Admin\ContentAdmin`, admin-smoke
+  +5 checks; ITEMS.md "Admin API" → Content): the creator's `/content/index` needs the `creator` role and one toon.
+- `@scutoons/api`: `createAdminApi`, `client.delete`, `client.fetchRaw`. `@scutoons/ui`: `ActionBar`, `DataTable`,
+  `Pager`, `SearchField`, `readList`/`listHref`/`listParams`, `SplitView`, `CommandPalette`, `Skeleton`, `Chart`,
+  `RecordInspector` (README entries).
+- Bottom action bar (owner rule): `ActionBar` on every admin page (filters/search + pager in `start`, primary action
+  right-most) and every creator page (editor: back to chapters, slice ‹ n/N ›, problems summary · undo/redo, preview,
+  history, style guide · note, Save draft, Publish; toon page: new chapter, season save/publish; preview: locale +
+  group, back to the editor; toons: sign out, open the reader). < 1024px: `start` + `secondary` go into "More".
+
+**Open**: `generate/` + `GENERATE_PASSWORD` can be removed once the owner has used the admin in production (P3);
+the events type filter is a drop-up checklist in the bar; there is no page-size choice in the bar (URL `page_size`
+still works); production needs `https://admin.scutoons.com` in `ALLOWED_ORIGINS` (already in server.yml).
+
 ## Cross-app auth
 
 Same endpoints, token per origin (localStorage `scutoons_session`) for now; `ALLOWED_ORIGINS` gains
@@ -397,7 +447,7 @@ Rules now:
 | P0 | monorepo + history import | ✅ |
 | P1a | workspaces, shared packages, standalone creator | ✅ 2026-09-30 |
 | P1b | server refactor (Slim), host routing qr/api, admin API (folder renamed to `server/` 2026-09-30) | ✅ 2026-09-30 |
-| P2a | `admin/` app incl. port of `generate/` (QR generation, batches, certificates) to Svelte | next |
+| P2a | `admin/` app incl. port of `generate/` (QR generation, batches, certificates) to Svelte; bottom ActionBar in admin + creator | ✅ 2026-09-30 |
 | P2b | `shop/` app split out of the viewer, `/shop` redirect, products from the API | ✅ 2026-09-30 |
 | P3 | workflows per app, env per app (`VITE_API_URL` → api.scutoons.com), cutover checklist (subdomains/folders/SSL in all-inkl), remove `generate/` after admin parity | after P2 |
 | P4 | data into the DB via the API (own migration plan) | later |

@@ -413,3 +413,24 @@ are the fallback and the seed.
   `server/db/local.sqlite` (not a copy) – it claimed one unclaimed vinyl code and one Dago code for fresh
   `smoke` accounts there (vinyl `v-Hr9Pn_`, Dago `rVLQjIiE`, accounts `smoke-20260929133603-fef6-{a,b,c}@example.com`;
   the DB already held such rows from earlier direct runs). Always use `composer test` (DB copies).
+
+## Platform P2a
+
+2026-09-29/30 — admin app `admin/` (details: PLATFORM.md "P2a — result"; app README `admin/README.md`).
+- Admin on :11000 against the platform server on :9000 (`admin/.env.development`); sign-in tilman@porschuetz.de,
+  one-time codes in `server/logs/mail.log`. The browser pane is 761px wide: desktop checks need the viewport
+  emulation (1280x800) – the first screenshot after a navigation is often blank, take a second one; the SPA needs
+  ~5–8 s for the first render in dev (single-threaded `php -S`, ~0.3 s per API call).
+- Parity method that worked: open the legacy SPA page (`/generate/` on :9000) in a second tab and `import()` its
+  `app/utils/pdf.js` / `printSheet.js` (globals `QRCode`, `jspdf` are loaded by its index.html, no login needed),
+  `import('/src/lib/qr/pdf.ts')` in the admin tab (vite dev), render the same data, hash the output after removing
+  `/CreationDate (…)` and `/ID […]` → identical hashes for CoA, batch CoA, SVG and print sheet.
+- Test data (local DB only, all **revoked** afterwards, reasons "P2a admin test code/batch"): single code `ahhdknMu`
+  (membership, no edition), batch `BATCH-2026-09-29T140225-99_catpope_admintest.json` with `J307HdAr`, `P8mBhY4n`
+  (edition `99_catpope_admintest` exists only in a scratch copy of editions.json that a :9100 server used for the
+  create call via env `QR_EDITIONS_PATH`; the batch itself ran in the admin against :9000). Their files are in
+  `server/storage/files/{svgs,certificates,signatures,batch}`.
+- Commits next to other agents: `git commit -- <paths>` (only those paths) or a temporary index
+  (`GIT_INDEX_FILE=… git read-tree HEAD` + `git apply --cached` of the own hunks), never a plain `git commit` of the
+  shared index; check `git status` for other agents' edits inside a folder before committing the whole folder (the
+  creator commit had to be redone once because another agent's `creator/package.json` + `config.ts` slipped in).

@@ -8,7 +8,7 @@ scutoons/
 ├── package.json        npm workspaces: viewer, creator, admin, shop, shared/*
 ├── viewer/             SvelteKit (static) → scutoons.com           reader, events, account (/shop → shop app)
 ├── creator/            SvelteKit (static) → creator.scutoons.com   editor, role `creator`
-├── admin/              SvelteKit (static) → admin.scutoons.com     role `admin` (phase P2, not built yet)
+├── admin/              SvelteKit (static) → admin.scutoons.com     role `admin`: codes, batches, stats, users, content
 ├── shop/               SvelteKit (static) → shop.scutoons.com      limited editions (products from the API)
 ├── server/             PHP (qr.scutoons.com API + QR landing page), own Composer setup
 ├── shared/
@@ -30,6 +30,7 @@ apps → shared, never the other way; see each package's README.
 npm install                 # once, at the repo root (one lockfile for all workspaces)
 npm run dev:viewer          # viewer   http://localhost:8000
 npm run dev:creator         # creator  http://localhost:10000
+npm run dev:admin           # admin    http://localhost:11000
 npm run dev:shop            # shop     http://localhost:12000
 npm run check               # svelte-check / tsc in every workspace
 npm run build               # builds every workspace that has a build script (viewer, creator, shop, …)
@@ -43,13 +44,14 @@ Local dev ports (agents/PLATFORM.md → "Local dev ports", final):
 | CDN | 8001 | `cd cdn && python server.py 8001` (serves `cdn/root/`) |
 | API (server) | 9000 | `cd server && composer serve` (= `php -S localhost:9000 -t public public/router.php`) |
 | creator | 10000 | `npm run dev:creator` |
-| admin | 11000 | `npm run dev:admin` (phase P2) |
+| admin | 11000 | `npm run dev:admin` |
 | shop | 12000 | `npm run dev:shop` |
 
 Dev settings live in each app's `.env.development` (gitignored, see `.env.example`): `VITE_QR_API` (API base, e.g.
 `http://localhost:9000/api`), `VITE_CDN_URL` (default `http://localhost:8001` in dev). The creator also has
 `VITE_VIEWER_URL` ("Open the reader" link, the static fallback files), the viewer `VITE_CREATOR_URL` (link on the account
-page) and `VITE_SHOP_URL` (menu, "Buy access", `/shop` redirect), the shop `VITE_WWW_URL` (logo link back).
+page) and `VITE_SHOP_URL` (menu, "Buy access", `/shop` redirect), the shop `VITE_WWW_URL` (logo link back), the admin
+`VITE_CREATOR_URL` + `VITE_VIEWER_URL` (links; see `admin/README.md`).
 
 Every frontend origin must be in the API's `ALLOWED_ORIGINS` (`config.local.php`): `http://localhost:8000`,
 `http://localhost:10000`, `http://localhost:11000`, `http://localhost:12000`. Login mails are written to the server's `logs/mail.log`
