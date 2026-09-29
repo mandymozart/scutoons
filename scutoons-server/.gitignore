@@ -1,0 +1,9 @@
+.git
+generate/files
+.htpasswd
+api/keys/keypair.json
+config.local.php
+db/local.sqlite
+db/*.sqlite*
+logs/
+*.log

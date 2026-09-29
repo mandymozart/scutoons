@@ -1,0 +1,31 @@
+RewriteEngine On
+
+# Pass the Authorization header (Bearer session tokens) through to PHP
+SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+RewriteCond %{HTTP:Authorization} .
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+# Never serve secrets, the server-only permissions map, local databases, logs or CLI-only files over HTTP
+<FilesMatch "^(keypair\.json|permissions\.json|\.htpasswd|config(\.local)?\.php|config\.local\.php\.example|db\.php|router\.php|.*\.sqlite.*|.*\.log)$">
+    Require all denied
+</FilesMatch>
+RedirectMatch 404 ^/(db|logs|scripts|tests|api/lib)(/|$)
+
+# API: existing files and folders (validate/, items/, editions/, toons/, keys/) as they are,
+# every other /api/ path goes to the front controller (auth, me, code, inventory, avatar, progress)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^api/ api/index.php [L,QSA]
+
+# Direct access to /generate shows the form
+RewriteRule ^generate/?$ generate/index.php [L]
+
+# Allow access to generate directory files
+RewriteRule ^generate/(.+)$ generate/$1 [L]
+
+# Route QR code parameters to index.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_URI} !^/generate
+RewriteCond %{REQUEST_URI} !^/api/
+RewriteRule ^(.*)$ index.php [L,QSA]

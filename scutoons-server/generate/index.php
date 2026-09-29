@@ -1,0 +1,279 @@
+<?php
+require_once __DIR__ . '/../config.php';
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>SCUTOONS - QR</title>
+	<script type="module">
+		import {
+			nanoid
+		} from 'https://cdn.jsdelivr.net/npm/nanoid/nanoid.js';
+		window.nanoid = nanoid;
+	</script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js"></script>
+	<script src="app/lib/qrcode/qrcode.min.js"></script>
+	<script src="../assets/js/noble-post-quantum.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="https://www.scutoons.com/css/styles.css">
+	<style>
+		html {
+			font-size: 16px;
+		}
+		
+		#qrResult {
+			text-align: center;
+			padding: 1rem;
+			background-color: #f8f9fa;
+			display: none;
+		}
+
+		#qrCode {
+			margin: 2rem 0;
+		}
+
+		.qr-info {
+			padding: 1rem;
+			word-break: break-all;
+			margin: 1rem 0;
+			text-align: left;
+		}
+
+		.error {
+			color: #dc3545;
+		}
+		
+		.success {
+			color: #28a745;
+		}
+
+		.pending { 
+			color: #aaa; 
+		}
+
+		.container {
+			margin: 1rem 2rem;
+		}
+
+		.app-layout {
+			max-width: 100%;
+		}
+
+		.mode-selector {
+			display: flex;
+			gap: 1rem;
+			align-items: baseline;
+			margin-bottom: 1rem;
+		}
+
+		.mode-option {
+			cursor: pointer;
+		}
+
+		.mode-option.active {
+			font-weight: bold;
+			color: #000;
+			text-decoration: none;
+		}
+
+		.content {
+			display: grid;
+			grid-template-columns: 1fr 1fr;
+			gap: 1rem;
+		}
+
+		.mode-panel {
+			display: none;
+		}
+
+		.mode-panel.active {
+			display: block;
+		}
+
+		textarea {
+			height: 10rem;
+		}
+
+		@media screen and (max-width: 768px) {
+			.mode-selector {
+				margin-bottom: 1rem;
+			}
+
+			.content {
+				grid-template-columns: 1fr;
+			}
+		}
+		.stats-toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: end; margin-bottom: 1rem; }
+		.stats-toolbar label { display: flex; flex-direction: column; font-size: 0.8rem; }
+		.stats-chart { border: 2px solid #000; padding: 0.5rem; margin-bottom: 1rem; }
+		.stats-table-wrap { overflow-x: auto; }
+		.stats-table th.sortable { cursor: pointer; white-space: nowrap; }
+		.stats-table tr.revoked td { opacity: 0.6; }
+		.stats-detail { border: 2px solid #000; padding: 1rem; margin-bottom: 1rem; }
+		.stats-revoke { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0.5rem 0 1rem; }
+		.users-roles label { display: inline-flex; align-items: center; gap: 0.25rem; margin: 0 0.75rem 0.25rem 0; white-space: nowrap; cursor: pointer; }
+		.users-roles input[type=checkbox] { width: auto; margin: 0; }
+		.users-table td { vertical-align: top; }
+		.err { color: #dc3545; }
+		.muted { color: #6b6b6b; }
+	</style>
+</head>
+
+<body>
+	<div id="app" hidden>
+	<div class="container">
+		<!-- Mode Selector -->
+		<div class="mode-selector">
+			<span>Mode:</span>
+			<span class="mode-option active" data-mode="generate">Generate</span>
+			<span class="mode-option" data-mode="regenerate">Regenerate</span>
+			<span class="mode-option" data-mode="batch">Batch</span>
+			<span class="mode-option" data-mode="stats">Stats</span>
+			<span class="mode-option" data-mode="users">Users</span>
+		</div>
+		<div class="app-layout view">
+
+			<!-- Main Content Area -->
+			<div>
+				<!-- Generate Mode -->
+				<div class="mode-panel active" id="generateMode">
+					<div class="content">
+						<form id="qrForm">
+							<h2>Generate QR Code</h2>
+							<div class="form-group">
+								<label for="toon">Toon:</label>
+								<select id="toon" name="toon">
+									<option value="">none</option>
+								</select>
+							</div>
+							<div class="form-group">
+								<label for="type">Type:</label>
+								<select id="type" name="type">
+									<option value="membership">Membership</option>
+									<option value="event">Event</option>
+									<option value="xr">XR</option>
+									<option value="promo">Promo</option>
+									<option value="page">Page</option>
+								</select>
+							</div>
+							<div class="form-group">
+								<label for="redirectUrl">Redirect URL:</label>
+								<input type="url" id="redirectUrl" name="redirectUrl" required
+									placeholder="https://scutoons.com">
+							</div>
+
+							<div class="form-group">
+								<label for="expiresAt">Expires At (optional):</label>
+								<input type="datetime-local" id="expiresAt" name="expiresAt">
+								<small>Leave empty for no expiration</small>
+							</div>
+							<section class="template-variables">
+
+							</section>
+							<button type="submit">Generate</button>
+						</form>
+						<div class="downloads">
+							<div id="message"></div>
+							<div style="margin-top: 1rem;" class="download-actions">
+								<button type="button" id="downloadBtn"
+									style="display:none; margin-top: 0.5rem;">SVG</button>
+								<button type="button" id="downloadCoaBtn"
+									style="display:none; margin-top: 0.5rem;">CoS</button>
+								<button type="button" id="downloadQrPrintBtn"
+									style="display:none; margin-top: 0.5rem;">Printable QR</button>
+								<button type="button" id="downloadSigBtn"
+									style="display:none; margin-top: 0.5rem;">Signature File</button>
+							</div>
+							<div id="qrResult">
+								<div id="qrCode"></div>
+								<div class="qr-info">
+									<strong>QR URL:</strong><br>
+									<span id="qrUrl"></span>
+								</div>
+								<div class="qr-info">
+									<strong>Redirect to:</strong><br>
+									<span id="redirectTo"></span>
+								</div>
+								<div class="qr-info">
+									<strong>Code:</strong> <span id="code"></span>
+								</div>
+								<div class="qr-info" id="signatureInfo" style="display:none;">
+									<strong>🔐 Post-Quantum Signature:</strong><br>
+									<small>
+										Algorithm: <span id="sigAlgorithm"></span><br>
+										Fingerprint: <span id="sigFingerprint"></span><br>
+										<a href="../verify.html" target="_blank">Verify Certificate →</a>
+									</small>
+								</div>
+							</div>
+						</div>
+
+					</div>
+				</div>
+				<!-- Batch Mode -->
+				<div class="mode-panel" id="batchMode"></div>
+				<!-- Stats Mode -->
+				<div class="mode-panel" id="statsMode"></div>
+				<!-- Users Mode -->
+				<div class="mode-panel" id="usersMode"></div>
+				<!-- Regenerate Mode -->
+				<div class="mode-panel" id="regenerateMode">
+					<div class="content">
+						<form id="regenerateForm">
+							<h2>Regenerate from Existing Code</h2>
+							<div class="form-group">
+								<label for="existingCode">Code:</label>
+								<input type="text" id="existingCode" name="existingCode" required
+									placeholder="Enter existing QR code">
+								<small>Enter the code from a previously generated QR</small>
+							</div>
+							<button type="submit">Load & Regenerate</button>
+						</form>
+						<div>
+							<div id="regenerateMessage"></div>
+							<div style="margin-top: 1rem;">
+								<button type="button" id="regenDownloadBtn"
+									style="display:none; margin-top: 0.5rem;">SVG</button>
+								<button type="button" id="regenDownloadCoaBtn"
+									style="display:none; margin-top: 0.5rem;">CoS</button>
+								<button type="button" id="regenDownloadQrPrintBtn"
+									style="display:none; margin-top: 0.5rem;">Printable QR</button>
+								<button type="button" id="regenDownloadSigBtn"
+									style="display:none; margin-top: 0.5rem;">Signature File</button>
+							</div>
+							<div id="regenQrResult" style="display:none;">
+								<div id="regenQrCode"></div>
+								<div class="qr-info">
+									<strong>QR URL:</strong><br>
+									<span id="regenQrUrl"></span>
+								</div>
+								<div class="qr-info">
+									<strong>Redirect to:</strong><br>
+									<span id="regenRedirectTo"></span>
+								</div>
+								<div class="qr-info">
+									<strong>Code:</strong> <span id="regenCode"></span>
+								</div>
+								<div class="qr-info" id="regenSignatureInfo" style="display:none;">
+									<strong>🔐 Post-Quantum Signature:</strong><br>
+									<small>
+										Algorithm: <span id="regenSigAlgorithm"></span><br>
+										Fingerprint: <span id="regenSigFingerprint"></span><br>
+										<a href="../verify.html" target="_blank">Verify Certificate →</a>
+									</small>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	</div><!-- /#app -->
+	<script type="module" src="app/main.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "permissions": {
+    "catalog": "Read every chapter of every toon"
+  },
+  "types": {
+    "membership": { "claimable": true, "signup": true, "grants": ["catalog"] },
+    "promo": { "claimable": false, "signup": true, "grants": ["catalog"] },
+    "page": { "claimable": false, "signup": false, "grants": [] },
+    "event": { "claimable": false, "signup": false, "grants": [] },
+    "xr": { "claimable": false, "signup": false, "grants": [] }
+  },
+  "default": { "claimable": false, "signup": false, "grants": [] }
+}
