@@ -1,5 +1,5 @@
 // Known image paths of a toon, collected from every config the editor can reach (for the image path picker).
-import { fetchContent } from '$lib/api/content.service.ts';
+import { fetchContent } from '$lib/api.ts';
 import type { Season } from '@scutoons/content';
 
 const cache = new Map<string, Promise<string[]>>();

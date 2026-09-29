@@ -1,6 +1,6 @@
 import { setContext, getContext } from 'svelte';
-import { ApiError } from '$lib/api/client.ts';
-import { checkAccess, type AccessResult } from '$lib/api/qr.service.ts';
+import { ApiError } from '$lib/api.ts';
+import { checkAccess, type AccessResult } from '$lib/api.ts';
 import type { SessionContext } from './session.svelte.ts';
 
 const MEMBERSHIP_KEY = Symbol('membership');

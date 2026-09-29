@@ -1,14 +1,14 @@
 // One config file of a toon, edited in all locales at once (chapter1.json in de + en, chapter2/scene-14.json, …).
 // Same structure as the files the reader loads: text stays inline per locale; geometry and other shared fields are
 // edited once and written to every locale that has not overridden them (see `setShared`).
-import { ApiError } from '$lib/api/client.ts';
+import { ApiError } from '$lib/api.ts';
 import {
 	getDraft,
 	getStatic,
 	publishVersion,
 	putDraft,
 	type ContentVersion
-} from '$lib/api/content.service.ts';
+} from '$lib/api.ts';
 import { clone, deepEqual, getAt, setAt, type Path } from '@scutoons/content';
 
 export type DocKind = 'chapter' | 'group' | 'season' | 'toon';

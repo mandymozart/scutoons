@@ -12,14 +12,13 @@ import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
 import { isItemPublic } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
-import { fetchContent, isDraftPreview } from '$lib/api/content.service.ts';
+import { fetchContent } from '$lib/api.ts';
 
-export const load: LayoutLoad = async ({ fetch, params, url }) => {
+export const load: LayoutLoad = async ({ fetch, params }) => {
 	const lang = getLocale();
 	const base = `${API_BASE}/${params.toonId}/${lang}`;
-	// toon / season / chapter configs: content store first (drafts in `?preview=draft`), static files as fallback
-	const content = (path: string) =>
-		fetchContent(fetch, params.toonId, lang, path, { draft: isDraftPreview(url) });
+	// toon / season / chapter configs: content store first (published versions), static files as fallback
+	const content = (path: string) => fetchContent(fetch, params.toonId, lang, path);
 
 	const [charactersRes, seasonRes, locationsRes, routesRes, toonRes, collectablesRes] =
 		await Promise.all([

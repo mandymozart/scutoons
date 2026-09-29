@@ -1,5 +1,5 @@
 import { setContext, getContext } from 'svelte';
-import { ApiError, getSessionToken, setSessionToken } from '$lib/api/client.ts';
+import { ApiError, getSessionToken, setSessionToken } from '$lib/api.ts';
 import {
 	authLogout,
 	authRequest,
@@ -8,7 +8,7 @@ import {
 	fetchMe,
 	updateMe,
 	type VerifyResult
-} from '$lib/api/qr.service.ts';
+} from '$lib/api.ts';
 import type { Me, ServerMembership, User } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 

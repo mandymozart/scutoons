@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ApiError } from '$lib/api/client.ts';
-	import type { VerifyResult } from '$lib/api/qr.service.ts';
+	import { ApiError } from '$lib/api.ts';
+	import type { VerifyResult } from '$lib/api.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 

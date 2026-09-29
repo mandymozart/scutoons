@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listVersions, publishVersion, restoreVersion, unpublishFile, type ContentVersion } from '$lib/api/content.service.ts';
+	import { listVersions, publishVersion, restoreVersion, unpublishFile, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 

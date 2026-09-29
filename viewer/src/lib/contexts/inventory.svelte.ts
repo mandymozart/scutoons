@@ -1,5 +1,5 @@
 import { setContext, getContext } from 'svelte';
-import { ApiError } from '$lib/api/client.ts';
+import { ApiError } from '$lib/api.ts';
 import {
 	claimCode,
 	craftRecipe,
@@ -8,7 +8,7 @@ import {
 	grantItem,
 	importItems,
 	putAvatar
-} from '$lib/api/qr.service.ts';
+} from '$lib/api.ts';
 import type {
 	Avatar,
 	AvatarSlot,

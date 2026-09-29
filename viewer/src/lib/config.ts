@@ -7,10 +7,16 @@ export const CDN_SERVER: string = (
 	import.meta.env.VITE_CDN_URL || (import.meta.env.PROD ? 'https://cdn.scutoons.com' : 'http://localhost:8001')
 ).replace(/\/+$/, '');
 
-/** qr.scutoons.com API (accounts, items, inventory, codes). No trailing slash. Dev: VITE_QR_API=http://localhost:9000/api */
-export const QR_API: string = (import.meta.env.VITE_QR_API || 'https://qr.scutoons.com/api').replace(/\/+$/, '');
-/** @deprecated legacy name (with trailing slash), use QR_API */
-export const QRCODE_API_SERVER = QR_API + '/';
+/**
+ * Backend API (accounts, access, items, inventory, content store). No trailing slash. `VITE_API_URL`
+ * (dev http://localhost:9000/api); prod fallback https://qr.scutoons.com/api until api.scutoons.com exists.
+ * `VITE_QR_API` is the old name, still read for now.
+ */
+export const API_URL: string = (
+	import.meta.env.VITE_API_URL ||
+	import.meta.env.VITE_QR_API ||
+	'https://qr.scutoons.com/api'
+).replace(/\/+$/, '');
 
 /** Hosts whose QR codes carry SCUTOONS items (`https://qr.scutoons.com/?c=CODE`). */
 export const QR_HOSTS = ['qr.scutoons.com', 'localhost:9000', '127.0.0.1:9000'];

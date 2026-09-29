@@ -58,6 +58,7 @@
 		"svelte"
 	],
 	"dependencies": {
+		"@scutoons/api": "*",
 		"@scutoons/content": "*",
 		"@scutoons/reader": "*",
 		"@scutoons/tokens": "*",

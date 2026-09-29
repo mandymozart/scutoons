@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ApiError } from '$lib/api/client.ts';
-	import { fetchCode, type AccessResult, type VerifyResult } from '$lib/api/qr.service.ts';
+	import { ApiError } from '$lib/api.ts';
+	import { fetchCode, type AccessResult, type VerifyResult } from '$lib/api.ts';
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
