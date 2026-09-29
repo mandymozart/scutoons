@@ -1,7 +1,6 @@
-# OLD HOST LAYOUT ONLY – for a document root that points at this folder (as for the plain-PHP server). Every request is
-# forwarded into public/ (the web root; its .htaccess sends dynamic requests to public/index.php), so the public URLs
-# (/?c=, /verify.html, /api/validate/, /api/keys/keys.php, /api/*, /generate/) keep working unchanged.
-# Once the document root of qr./api.scutoons.com is public/ (docs/DEPLOY.md "Cutover"), this file is not used.
+# Only used when the document root of api.scutoons.com is this folder (api/ on the host) instead of api/public/
+# (recommended). Every request is forwarded into public/ (the web root; its .htaccess sends dynamic requests to
+# public/index.php), so /api/* and the legacy /generate/ answer the same either way (docs/DEPLOY.md).
 # The private folders are denied in any case, also should the forwarding below be switched off.
 Options -Indexes
 

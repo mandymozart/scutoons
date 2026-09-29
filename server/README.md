@@ -1,12 +1,14 @@
-# SCUTOONS server
+# SCUTOONS API (server/)
 
-One PHP codebase for two subdomains (agents/PLATFORM.md "Domain architecture"):
+The backend of every app – **api.scutoons.com** (agents/PLATFORM.md "Hosting layout & deployment"): accounts, access,
+items, inventory, avatar, progress, content store, products, admin API (`/api/*`), `/api/health/` – plus, until the
+admin app retires it, the legacy `generate/` admin SPA.
 
-- **qr.scutoons.com** – the public pages printed on physical items: QR landing page `/?c=CODE`, the certificate
-  verify page `/verify.html`, the legacy `/api/validate/` and the public key `/api/keys/keys.php` (plus, for now, the
-  legacy `generate/` admin SPA and – transition – the full API).
-- **api.scutoons.com** – the backend of every app: accounts, access, items, inventory, avatar, progress, content
-  store, admin API (`/api/*`).
+The public pages of **qr.scutoons.com** (QR landing page `/?c=CODE`, `/verify.html`) are the separate qr app
+([`../qr`](../qr/README.md)); it calls this API server-side and proxies the printed API URLs `/api/validate/` and
+`/api/keys/keys.php` (+ the verify page's `generate/get-signature.php` / signature files, + the whole `/api/*` during the
+transition) here byte for byte. It is a **trusted proxy**: with `QR_PROXY_SECRET` the API takes the client IP and
+device id it forwards.
 
 PHP 8.3 · [Slim 4](https://www.slimframework.com/) + PHP-DI · Composer (PSR-4 `Scutoons\` → `src/`) · MySQL/MariaDB in
 production, SQLite locally · PHPUnit · PHPStan (level 8). Shared hosting friendly: no long-running process, no shell
@@ -24,13 +26,13 @@ php bin/console migrate                           # creates/upgrades db/local.sq
 composer serve                                    # http://localhost:9000  (php -S … -t public public/router.php)
 ```
 
-- Landing page: http://localhost:9000/?c=CODE · verify page: http://localhost:9000/verify.html
+- Landing page + verify page: the qr app on http://localhost:9001 (`cd ../qr && composer serve`, same `QR_PROXY_SECRET`)
 - API: http://localhost:9000/api/ (frontends: `VITE_API_URL=http://localhost:9000/api`)
 - Legacy admin SPA: http://localhost:9000/generate/ (password = `GENERATE_PASSWORD`)
 - Login mails land in `logs/mail.log` (`MAIL_TRANSPORT = log`).
 - Local-only files (gitignored): `config.local.php`, `db/local.sqlite`, `storage/files/` (batch output),
   `storage/keys/keypair.json` (signing keys), `logs/`.
-- Dev ports (final): viewer 8000, CDN 8001, server 9000, creator 10000, admin 11000, shop 12000. `composer serve:9100` runs a
+- Dev ports (final): viewer 8000, CDN 8001, API 9000, qr 9001, creator 10000, admin 11000, shop 12000. `composer serve:9100` runs a
   second copy on :9100 (e.g. next to the old plain-PHP server during the transition).
 
 ## Everyday commands
@@ -50,7 +52,7 @@ composer serve                                    # http://localhost:9000  (php 
 
 ```
 public/            web root: index.php (front controller), router.php (php -S), .htaccess,
-                   verify.html, assets/, generate/ (legacy admin SPA files)
+                   assets/, generate/ (legacy admin SPA files)
 src/Http/          Controllers/ (thin), Middleware/, Json, Download, CurrentSession
 src/Domain/        services, no HTTP: Accounts, Auth, Codes, Access, Catalog, Inventory, Avatar, Progress,
                    Content, Events, RateLimit, Roles, Admin; ApiError, RequestContext, Secrets
@@ -60,11 +62,11 @@ src/Console/       bin/console commands
 src/Kernel.php     builds the container and the Slim app (middleware order)
 config/            settings.php (defaults of every setting), container.php (DI), routes.php (every URL),
                    items.json, editions.json, toons.json, permissions.json (server-only)
-templates/         landing page, login mails
+templates/         login mails
 migrations/        sqlite/, mysql/ (dated, recorded in schema_migrations), schema/ (base schema), mysql/legacy/
 bin/console        command line
 tests/             Unit/ (PHPUnit) + contract suites: api-smoke, content-smoke, claim-race, admin-smoke,
-                   public-urls; run-contract.php starts servers and runs them all
+                   and ../qr/tests/public-urls.php; run-contract.php starts the API + the qr app and runs them all
 storage/           private files (batch output, keys) – not in git, never served
 tools/keys/        one-time key generation pages (never deployed)
 .htaccess          only for the old host layout (document root = this folder): forwards into public/

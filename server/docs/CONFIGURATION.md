@@ -15,10 +15,8 @@ Relative paths are relative to the server folder. Secrets never go into the repo
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` | localhost, –, –, –, – | production |
 | `AUTH_SECRET` | – | **required**, ≥ 32 chars: HMAC of login codes, IP/device hashes, access tokens. Rotating it invalidates open login mails and access tokens |
 | `GENERATE_PASSWORD` | – | legacy `generate/` SPA password (its token = HMAC of it); empty = the SPA is locked |
-| `QR_HOST` | `qr.scutoons.com` | host of the public pages (`HostRouting`) |
-| `API_HOST` | `api.scutoons.com` | host of the API only |
-| `QR_HOST_SERVES_API` | `1` | **transition flag**: the full `/api/*` also answers on `QR_HOST` (released viewers call `https://qr.scutoons.com/api/…`). Set `0` only when every app uses `API_HOST` and the stats show no API traffic on the qr host any more |
-| `QR_URL` | `https://qr.scutoons.com` | magic links from the landing page |
+| `QR_PROXY_SECRET` | – | shared with the qr app (qr.scutoons.com): only requests carrying it in `X-Scutoons-Proxy-Secret` may forward the client IP (`X-Scutoons-Client-Ip`) and device id (`X-Scutoons-Device-Id`), and only they can log landing-page scans (`/api/code/?scan=1`). Empty = trust nobody |
+| `QR_URL` | `https://qr.scutoons.com` | the qr app: magic links of login requests without an Origin (it forwards `/?login=` to the viewer) |
 | `APP_URL` | `https://scutoons.com` | the viewer: old magic links are forwarded there; "Open SCUTOONS" in mails |
 | `CDN_URL` | `https://cdn.scutoons.com/` | item icons `<CDN_URL><icon>`; local `http://localhost:8001/` |
 | `ALLOWED_ORIGINS` | scutoons.com, www, creator, admin, shop + dev ports | comma separated; production sets it in the workflow (without localhost) |
@@ -33,6 +31,7 @@ Relative paths are relative to the server folder. Secrets never go into the repo
 | `GRANT_MAX_PER_HOUR`, `IMPORT_MAX_PER_HOUR`, `IMPORT_MAX_QTY` | 120, 10, 99 | |
 | `PROGRESS_MAX_BYTES`, `CONTENT_MAX_BYTES` | 262144, 2097152 | |
 | `ADMIN_MAX_PAGE_SIZE` | 500 | largest `page_size` of the admin lists |
+| `VERSION_URLS` | the five production `version.json` URLs | `app=url,…` fetched by `GET /api/admin/versions` (viewer, admin, creator, shop, qr) |
 | `ITEMS_PATH`, `EDITIONS_PATH`, `TOONS_PATH` | `config/*.json` | catalog data |
 | `PRODUCTS_PATH`, `FEATURED_PRODUCTS_PATH` | `config/products.json`, `config/featured-products.json` | shop catalog + homepage featured products, served as stored |
 | `PERMISSIONS_PATH` | `config/permissions.json` | what each code type grants (server-only) – see docs/API.md |
@@ -40,7 +39,8 @@ Relative paths are relative to the server folder. Secrets never go into the repo
 | `KEYPAIR_PATH` | `storage/keys/keypair.json` | ML-DSA-65 keypair (was `api/keys/keypair.json`) |
 | `LOG_PATH` | `logs/error.log` | PHP/API error log; empty = the host's log |
 
-GitHub settings of `.github/workflows/server.yml` (names only; same names as the old qr.scutoons.com workflow):
-secrets `AUTH_SECRET`, `GENERATE_PASSWORD`, `DB_USER`, `DB_PASS`, `SMTP_USER`, `SMTP_PASS`, `FTP_USERNAME`,
-`FTP_PASSWORD`; variables `DB_HOST`, `DB_NAME`, `MAIL_FROM`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `FTP_SERVER`,
-optional `SERVER_FTP_DIR` (default `./`). Values must not contain a single quote (they are written into PHP strings).
+Production values come from the GitHub environment `production` (the full list with comments: root `.env.example`);
+`deploy/targets.json` → `api.generate["config.php"]` says which of them become constants in the generated `config.php`
+(`GENERATE_PASSWORD`, `DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `ALLOWED_ORIGINS`); quotes and
+backslashes in values are escaped by the generator. The API's version: `composer.json` `version` + the
+deploy's `version.json` (git sha) → `GET /api/health/`.

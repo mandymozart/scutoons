@@ -3,18 +3,20 @@
 ## Request flow
 
 `public/index.php` (Apache: `public/.htaccess` sends every non-static request there; `php -S`: `public/router.php`)
-→ `Scutoons\Kernel::app()` → middleware (outside in) → route → controller → domain service → JSON / HTML response.
+→ `Scutoons\Kernel::app()` → middleware (outside in) → route → controller → domain service → JSON response.
+This server is the API only (api.scutoons.com): the QR landing page and the verify page are the qr app (`../qr`,
+qr.scutoons.com), which calls this API server-side and proxies the printed API URLs here. Non-API paths answer a
+plain 404 (except the legacy `generate/` SPA until the admin app retires it).
 
 | # | Middleware (`src/Http/Middleware/`) | What it does |
 |---|---|---|
 | 1 | `NormalizePath` | `/api/me/` = `/api/me` (routes are declared without the trailing slash) |
-| 2 | `HostRouting` | `QR_HOST` serves the public pages (+ legacy `generate/`, + the full API while `QR_HOST_SERVES_API`), `API_HOST` serves `/api/*` only, other hosts (localhost) both; anything else 404 |
-| 3 | `Cors` | `/api/*` for `ALLOWED_ORIGINS` (Bearer, no cookies); `OPTIONS` ends here with 204; `/api/validate/` is open to `*`; `/api/toons/` and `/api/keys/keys.php` send none (as always) |
-| 4 | `ErrorHandler` | `ApiError` → `{ status:"error", error, message, …extra }`; unknown route/method → 404 `not_found` "Unknown endpoint."; anything else → logged, 500 `server_error` |
-| 5 | Slim routing | `config/routes.php` |
-| 6 | `DeviceId` | fills the domain's `RequestContext`: client IP, valid `X-Device-Id`, `Origin` |
-| 7 | `JsonBody` | keeps the raw body; `JsonBody::of($request)` parses lazily (`400 invalid_json`), `JsonBody::object()` keeps `{}` |
-| 8 | `Session` | `Authorization: Bearer …` → `CurrentSession` attribute; the user is looked up only when asked for |
+| 2 | `Cors` | `/api/*` for `ALLOWED_ORIGINS` (Bearer, no cookies); `OPTIONS` ends here with 204; `/api/validate/` is open to `*`; `/api/toons/` and `/api/keys/keys.php` send none (as always) |
+| 3 | `ErrorHandler` | `ApiError` → `{ status:"error", error, message, …extra }`; unknown route/method → 404 `not_found` "Unknown endpoint."; anything else → logged, 500 `server_error` |
+| 4 | Slim routing | `config/routes.php` |
+| 5 | `DeviceId` | fills the domain's `RequestContext`: client IP, valid `X-Device-Id`, `Origin`; from the qr app (trusted proxy: `X-Scutoons-Proxy-Secret` = `QR_PROXY_SECRET`) the forwarded `X-Scutoons-Client-Ip` / `X-Scutoons-Device-Id` instead |
+| 6 | `JsonBody` | keeps the raw body; `JsonBody::of($request)` parses lazily (`400 invalid_json`), `JsonBody::object()` keeps `{}` |
+| 7 | `Session` | `Authorization: Bearer …` → `CurrentSession` attribute; the user is looked up only when asked for |
 | – | route middleware | `RequireRole(admin)` on `/api/admin/*` (401/403 `forbidden { role }`), `RateLimit` on `/api/access/` + `/api/code/` (per IP), `GenerateToken` on the legacy `generate/*.php` |
 
 CORS runs outside the error handler, so error responses carry the CORS headers too.
@@ -76,8 +78,10 @@ answers `Time::localIso()`).
 - `tests/Unit/` (PHPUnit, `composer test:unit`): services, the Slim app in-process (`AppTest`), infrastructure.
   `TestCase` gives each test a fresh copy of a migrated SQLite database, a `FrozenClock` and isolated settings
   (`Settings::fixed()` – no `config.local.php`, no environment).
-- Contract suites (`composer test:contract` = `tests/run-contract.php`: copies the local DB, starts `php -S` on :9180
-  and :9181, runs everything, stops them): `api-smoke.php` (the public API, 187 checks), `content-smoke.php`,
-  `claim-race.php` (concurrent claims and signups), `admin-smoke.php` (admin API), `public-urls.php` (printed URLs,
-  identical to the old server; `--hosts` host routing). They boot through `tests/support/legacy.php`, which gives
+- Contract suites (`composer test:contract` = `tests/run-contract.php`: copies the local DB, starts the API with
+  `php -S` on :9180 (+ :9185 with a lookup limit of 1) and the qr app on :9181–9184, runs everything, stops them):
+  `api-smoke.php` (the public API, 187 checks), `content-smoke.php`, `claim-race.php` (concurrent claims and signups),
+  `admin-smoke.php` (admin API) – both take the qr app's URL as second argument for the landing-page scans – and
+  `../qr/tests/public-urls.php` (printed URLs through the qr app, identical to the old server; proxies byte-identical;
+  API down; rate limit; `PROXY_FULL_API=0`). They boot through `tests/support/legacy.php`, which gives
   them the static calls of the old server (`Db::`, `Codes::`, …) as facades over the new services.

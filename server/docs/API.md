@@ -12,15 +12,18 @@ SCUTOONS product or a promo code) – see "Signup rule".
 
 ## Hosts
 
-Base `https://api.scutoons.com/api` (target) – and, during the transition (`QR_HOST_SERVES_API`, default on), the same
-paths on `https://qr.scutoons.com/api` (released viewers). Locally `http://localhost:9000/api` (`VITE_API_URL`).
-Public on qr forever: `/?c=`, `/verify.html`, `/api/validate/`, `/api/keys/keys.php`.
+Base `https://api.scutoons.com/api` (target). `https://qr.scutoons.com/api` answers the same during the transition: the
+qr app (`../qr`) proxies the whole `/api/*` here byte for byte while its `PROXY_FULL_API` is on (released viewers).
+Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Public on qr forever (qr app): `/?c=`,
+`/verify.html`, and – proxied – `/api/validate/`, `/api/keys/keys.php`. The qr app is a **trusted proxy**: with
+`X-Scutoons-Proxy-Secret` = `QR_PROXY_SECRET` the API takes the client IP / device id from `X-Scutoons-Client-Ip` /
+`X-Scutoons-Device-Id` (rate limits, statistics); without the secret those headers are ignored.
 
 ## Endpoints (base `/api`)
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| GET | `/health/` | – | `{ status, db }` |
+| GET | `/health/` | – | `{ status, db, version, git_sha, built_at }` (`composer.json` version, deploy's `version.json`; locally `git_sha: "dev"`) |
 | GET | `/items/` | – | catalog (`config/items.json`); any origin (`*`), cached 5 min |
 | GET | `/editions/` (`?toon=`), `/toons/` | – | public lists (`config/editions.json`, `config/toons.json`) |
 | GET | `/products/` | – | shop catalog = `config/products.json` byte-for-byte (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`); any origin (`*`), cached 5 min; other methods 405 |
@@ -71,6 +74,7 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET | `/events` | activity log (filters code, event list, edition_id, toon, from, to) |
 | GET | `/catalog` · `/keys` | items, editions, toons, permissions map (read-only) · the ML-DSA-65 keypair for client-side signing |
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
+| GET | `/versions` | the deployed version of every app: `{ status, checked_at, api: { app, version, git_sha, built_at }, apps: [{ app, url, ok, http_status, version?, git_sha?, built_at?, shared?, error? }] }` – each app's `version.json` (`VERSION_URLS`) fetched in parallel, 4 s timeout (platform P3) |
 
 The legacy `generate/*.php` endpoints (static token `X-Generate-Token`) stay for the `generate/` SPA until the admin
 app has parity; they call the same services.
@@ -180,7 +184,7 @@ returns the payload or null – for a later server-side content gate (nothing ch
 - **Revoke** one code (admin API `POST /api/admin/codes/{code}/revoke`, or the legacy SPA "Stats"): a revoked code
   answers `410 revoked` in `/access/`, `/code/`, `/validate/` and claims; `/me/` access ignores it; the landing page says
   "This code is no longer valid". Unrevoke restores it. Both are logged as events.
-- **Events** (`code_events`, append-only, `src/Domain/Events/EventLog.php`): `scan` (landing page), `access` (at most
+- **Events** (`code_events`, append-only, `src/Domain/Events/EventLog.php`): `scan` (landing page: the qr app's `/code/?c=&scan=1`, trusted proxy only, also for expired / revoked codes), `access` (at most
   once per code + device per UTC day), `claim`, `claim_refused`, `login` (one per owned code at sign-in), `signup`,
   `revoke`, `unrevoke`. Logging never breaks a request.
 - **Admin views**: `/api/admin/dashboard`, `/api/admin/codes`, `/api/admin/events` (and the legacy `generate/stats.php`,

@@ -8,6 +8,8 @@
 define('AUTH_SECRET', '');
 // Password of the legacy generate/ SPA (until the admin app replaces generate/)
 define('GENERATE_PASSWORD', 'your-password-here');
+// Shared with the qr app (qr/config.local.php, same value): it forwards the visitor's IP / device id and logs scans
+define('QR_PROXY_SECRET', '');
 
 // ── Database ────────────────────────────────────────────────────────────────────────────────────────────
 // SQLite (zero setup). A new file gets its tables with: php bin/console migrate
@@ -17,7 +19,7 @@ define('DB_SQLITE_PATH', getenv('QR_DB_SQLITE_PATH') ?: __DIR__ . '/db/local.sql
 // define('DB_HOST', 'localhost'); define('DB_NAME', 'scutoons'); define('DB_USER', 'root'); define('DB_PASS', 'root');
 
 // ── Local URLs (final dev ports, agents/PLATFORM.md "Local dev ports") ──────────────────────────────────
-define('QR_URL', 'http://localhost:9000');             // this server: magic links from the landing page
+define('QR_URL', 'http://localhost:9001');             // the qr app: magic links of requests without an Origin
 define('APP_URL', 'http://localhost:8000');            // the viewer
 define('CDN_URL', 'http://localhost:8001/');           // local CDN (item icons): cd cdn && python server.py 8001
 // Viewer 8000, creator 10000, admin 11000, shop 12000 (+ the old Vite ports while something still uses them)
