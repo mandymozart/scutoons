@@ -108,7 +108,9 @@
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"
 	},
 	"chapter": {
-		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht."
+		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht.",
+		"coming_soon": "Demnächst",
+		"release": "Erscheint am {date}"
 	},
 	"membership_blocker": {
 		"title": "Mitgliedschaft erforderlich",

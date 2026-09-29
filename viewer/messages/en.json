@@ -107,6 +107,11 @@
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"
 	},
+	"chapter": {
+		"not_public": "This chapter is not published yet.",
+		"coming_soon": "Coming soon",
+		"release": "Release: {date}"
+	},
 	"membership_blocker": {
 		"title": "Membership Required",
 		"description": "This content requires a valid SCUTOONS membership.",

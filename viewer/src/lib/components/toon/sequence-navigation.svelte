@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { LoadedSequenceItem } from '@scutoons/content';
+	import { isItemPublic, type LoadedSequenceItem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.js';
@@ -21,8 +21,11 @@
 		};
 	} = $props();
 
+	// prev / next skip the listed but unreadable (coming-soon) chapters
+	const readable = $derived(sequence.filter((item) => isItemPublic(item, import.meta.env.DEV)));
+
 	function getCurrentItem(): LoadedSequenceItem | undefined {
-		return sequence.find((item) => {
+		return readable.find((item) => {
 			if (
 				params.chapterNumber &&
 				item.type === 'chapter' &&
@@ -37,10 +40,10 @@
 		return current ? items.findIndex((item) => item === current) : -1;
 	}
 
-	const currentPosition = $derived(findCurrentPosition(sequence));
-	const prevItem = $derived(currentPosition > 0 ? sequence[currentPosition - 1] : null);
+	const currentPosition = $derived(findCurrentPosition(readable));
+	const prevItem = $derived(currentPosition > 0 ? readable[currentPosition - 1] : null);
 	const nextItem = $derived(
-		currentPosition < sequence.length - 1 ? sequence[currentPosition + 1] : null
+		currentPosition < readable.length - 1 ? readable[currentPosition + 1] : null
 	);
 
 	let active = $state(false);

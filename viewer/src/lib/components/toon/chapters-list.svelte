@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ChapterItem from './chapter-item.svelte';
-	import type { Chapter } from '@scutoons/content';
 	import type { LoadedSequenceItem } from '@scutoons/content';
 
 	let { items, toonId }: { items: LoadedSequenceItem[]; toonId: string } = $props();
@@ -8,7 +7,7 @@
 
 <div class="chapters-list">
 	{#each items as item}
-			<ChapterItem chapter={item as Chapter} chapterNumber={item.number} {toonId} />
+			<ChapterItem chapter={item} chapterNumber={item.number} {toonId} />
 	{/each}
 </div>
 

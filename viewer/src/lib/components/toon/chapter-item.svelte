@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { sanitizeNumber, isItemPublic } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
-	import type { Chapter } from '@scutoons/content';
+	import type { LoadedSequenceItem } from '@scutoons/content';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import chapterIcon from '$lib/icons/chapter.svg';
@@ -11,10 +11,11 @@
 		chapter,
 		chapterNumber,
 		toonId
-	}: { chapter: Chapter; chapterNumber: number; toonId: string } = $props();
+	}: { chapter: LoadedSequenceItem; chapterNumber: number; toonId: string } = $props();
 
 	const nav = getNavigationContext();
 	const safeChapterNumber = sanitizeNumber(chapterNumber, 1, 1, 999);
+	// `chapter.status` is the season's status of this locale (see the toon layout), never the chapter file's
 	const isPublic = isItemPublic(chapter, import.meta.env.DEV);
 	const status = chapter.status ?? 'published';
 
@@ -30,6 +31,7 @@
 	onclick={handleClick}
 	onkeydown={handleClick}
 	role="link"
+	aria-disabled={!isPublic}
 	tabindex="0"
 >
 	<div class="chapter-image">

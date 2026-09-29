@@ -10,7 +10,7 @@ import type { Character, Collectable } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
-import { isItemPublic } from '@scutoons/content';
+import { isItemListed, Status, type Chapter } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { fetchContent } from '$lib/api.ts';
 
@@ -44,18 +44,24 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 	const toon: Toon = await toonRes.json();
 	const collectables: Collectable[] = await collectablesRes.json();
 
-	const publicItems = season.sequence.filter((item) => isItemPublic(item, import.meta.env.DEV));
+	// visibility = the season's status per locale (the chapter files' own `status` is not read): readable chapters
+	// (drafts only in dev) and coming-soon ones, which are listed but not clickable
+	const listedItems = season.sequence.filter((item) => isItemListed(item, import.meta.env.DEV));
 
 	const sequence: LoadedSequenceItem[] = await Promise.all(
-		publicItems.map(async (item) => {
+		listedItems.map(async (item) => {
 			const response = await content(`${item.type}${item.number}.json`);
-			if (!response.ok)
+			if (!response.ok) {
+				// a coming-soon entry doesn't need its file (title / thumbnail / release stay empty)
+				if (item.status === Status.COMING_SOON)
+					return { title: '', thumbnail: '', release: '', type: item.type, number: item.number, status: item.status } as LoadedSequenceItem;
 				throw error(
 					404,
 					`Failed to load sequence item ${m['common.chapter']({ number: item.number })} (${lang}). Please use the German default for now until we were able to catch up.`
 				);
-			const loadedItem = await response.json();
-			return { ...loadedItem, type: item.type, number: item.number };
+			}
+			const { status: _deprecated, ...loadedItem }: Chapter = await response.json();
+			return { ...loadedItem, type: item.type, number: item.number, status: item.status };
 		})
 	);
 
