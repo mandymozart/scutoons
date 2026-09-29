@@ -265,6 +265,15 @@ reimplemented in SCUTOONS style, no copying of akin's look).
 - **CSS split by concern:** color, typography, forms, lists, entities, notifications, columns — values from
   `@scutoons/tokens`.
 
+**Bottom action bar (owner, 2026-09-30 — mandatory for admin and creator):** every page has a **fixed footer bar**
+that mirrors the top bar — same height, `paper` background, `border-width-regular` `ink` rule on top, full width, always
+visible (no fade, no auto-hide, unlike akin). It holds the page's **pagination, filters/search and primary actions**
+(primary action right-most, e.g. "Save draft · Publish" in the creator, "Generate batch" / "Revoke" in admin). Page
+content gets bottom padding so nothing hides behind it. On narrow screens the bar keeps the primary action visible and
+moves secondary items into a "More" menu. Implemented once as `ActionBar` in `@scutoons/ui` (slots via snippets:
+`start` = pagination/filters, `end` = actions) and used by both apps; no page-level action buttons elsewhere except
+inline row actions.
+
 **Build new (akin has none):** real data table (sortable headers, bulk select + actions, server-side search/filter),
 split view / detail drawer for fast triage, command palette (`/` or Ctrl+K) + keyboard shortcuts, loading skeletons,
 stats + charts (plain SVG, DESIGN.md rules), inline edit for small fields.
