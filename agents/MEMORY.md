@@ -574,3 +574,35 @@ server/docs/API.md "Rate limits").
   64px`), the chapter editor's style-guide/problems/history panel now stops at the bar.
 - Chrome: a fixed box with `top` + `bottom` and `align-self: start` (grid child) shrinks to its content – the old
   admin mobile drawer had that bug too; the shell sets `align-self: stretch` there.
+
+## Characters
+
+2026-09-30 — characters model + creator Characters/Cast pages + viewer from the store (paths: agents/PLATFORM.md → Data →
+"Characters"). The model was revised with the owner several times during the day; final: Character → Persona → Look →
+Mood × View, casting per season, open mood vocabulary, asset requests, A-pose on the character level.
+- Migration (`node --experimental-transform-types --no-warnings shared/content/scripts/migrate-characters.ts`): catpope
+  de+en `characters.json` → 6 characters (regular persona, default look), de/en labels + descriptions merged. Path
+  conflicts: de had the real PNG art for plf/cat avatar + portrait, en the 151-byte placeholder SVGs (and a broken
+  `cat_portrait-neutral.svg`) → the PNGs win, so the **en reader now shows the same plf/cat art as de**. Missing on the
+  CDN (kept, flagged in the grid): `boy_full.svg`, `crows_portrait.svg`.
+- Owner additions: catpope own_toon catpope, personas regular (papal look = `characters/catpope/`, 17 moods), `human`
+  (no images – wanted), `biker` (looks default "ohne Helm" 17 + `helmet` 17 + dizzy, member of `biker-gang`,
+  `introduced` empty); yellowmouse (own toon, looks default kimono 17 + tripping and `helmet` 17, transition helmet →
+  default = `yellowmouse_keyvisual-helmet-off.png`, leader of `biker-gang`); toptoy "duo" as one character (owner to
+  split if needed). A-poses: catpope swim/naked (the mannequins, SPHYNX anchors), yellowmouse swim (MOUSE anchors),
+  naked = an open asset request. Casts season 1: catpope (catpope regular+human, plf, cat, boy, crows, mountain-tiger),
+  yellowmouse (catpope regular+biker, yellowmouse), toptoy (toptoy).
+- The catpope reader now shows the new PNG portraits/avatars for catpope (from `characters/catpope/`): **upload
+  `cdn/root/characters/` before running the SQL on production**, or the Cat Pope avatar breaks.
+- Local store: imported and updated several times with `--update` (published = newest seed: characters v140ff, casts,
+  groups, moods, asset-requests). Browser test (creator-test, headless Edge): test character "Testfigur Zett" as
+  draft, added to toptoy season 1 via the picker in a joinScene of toptoy chapter 1, saved as drafts v141–v144, restored
+  as v145–v148 (= the versions before), nothing published.
+- Viewer check (headless Edge, membership code, cookie locale): chapter 6 scene-200 renders catpope (new PNG), plf, cat,
+  mountain-tiger, boy in de; en stops after catpope because the en scene-200 shows "cat" before its joinScene
+  (pre-existing content bug, same with the static files). "crow" vs "crows" in scene-200 is also pre-existing.
+- Creator gotcha: new paraglide keys must exist in de + en before a component uses them – a missing key throws
+  `m.creator.x is not a function` at runtime and the page hangs on "Loading …" (happened once, the owner saw it).
+- Headless testing: `scratchpad/cdp.mjs`-style driver (Edge `--headless=new`, temp profile, CDP over Node's WebSocket),
+  session token via `/api/auth/request` + OTP from `server/logs/mail.log` + `/api/auth/verify/`, stored in
+  localStorage `scutoons_session` of :10000.

@@ -458,6 +458,39 @@ Language-neutral content store files (locale `_`), types/validation/schemas in `
 - `Season.credits` is deprecated (creator shows it read-only); the old per-locale `credits.json` files stay as fallback
   until production has the store files, then they can go.
 
+### Characters (2026-09-30)
+
+Language-neutral content store files (locale `_`), types / validation / schemas / fallback rule in `@scutoons/content`
+`characters.ts` (`schema/{characters,groups,moods,asset-requests,cast}.schema.json`, unit tests `test/characters.test.ts`):
+
+| Store path | Type | What |
+|---|---|---|
+| `scutoons/_/characters.json` | `CharacterRegistry` | every character, **global**: Character → Persona → Look → Mood × View. Character: `id`, `name`/`description` {locale}, `color`, cast `group` (lead/support/cast/extra), `own_toon?` (optional), `voiced_by?` (people.json), `mannequin?`, `tags?`, legacy `image`, `affiliations?`, `artwork?`, `apose?` { looks: [{ id (`swim` default, `naked`), label, default, path?, anchors: slot → { x, y, size } }] } (the reader's avatar body, character level), `personas` [{ id (`regular` always + e.g. `human`, `biker`), label, introduced?, description?, affiliations? (override), `looks` [{ id, label, default (exactly one), images: mood → view → CDN path }], transitions? [{ from, to, image }] }] |
+| `scutoons/_/groups.json` | `GroupVocabulary` | shared affiliations across toons (`biker-gang`) |
+| `scutoons/_/moods.json` | `MoodVocabulary` | open-ended mood vocabulary `{ id, label, standard?, order? }` (17 standard + dizzy, tripping); only `neutral` is required |
+| `scutoons/_/asset-requests.json` | `AssetRequests` | wanted images `{ id, character, persona, look, mood, view, path (convention), note?, requested_by, requested_at, status open/done }` |
+| `<toon>/_/cast.json` | `ToonCast` | `{ seasons: { "<n>": [{ character, personas, role? }] } }` – casting per season, in order |
+
+- Terms: **Persona** = another identity/role (changes who they are), **Look** = appearance right now (could come off in
+  the next panel), **Mood** = expression, **View** = framing (data field `variant`; UI says View/Ansicht). Only the
+  `portrait` is authored; `avatar` = generated 192px downscale, `full` unused.
+- Paths are stored explicitly (CDN root). Convention for new files: `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.png`,
+  transitions `…_transition-<from>-to-<to>.png`, A-pose `characters/<character>/<character>_apose-<look>.png`.
+- Fallback (`resolveExpression`, used by the viewer VN and the creator): per step the view, then the same mood's
+  portrait; steps persona+look+mood → persona+look+neutral → persona default look+mood → +neutral → regular default
+  look+mood → +neutral → legacy `image`. The A-pose never falls back.
+- Viewer: the toon layout loads `fetchCharacters()` (@scutoons/api: registry + the toon's cast of every season from the
+  store, published, `resolveCast()` → the legacy `characters.json` shape + `personas`) → static
+  `<toon>/<locale>/characters.json` → `[]`. VN refs `{ name, persona?, look?, mood?, position.variant }`; scene key =
+  character + persona; a look change with a transition shows the transition image for 800 ms.
+- Creator: `/characters` (list, detail, Groups, Moods, Wanted images tabs, glossary), `/<toon>/cast` (per season), the
+  visual picker in every VN character field (picking someone outside the season cast adds them, with undo).
+- `avatarBodies(registry)` → `[{ character, look, label, path, anchors, default }]` for the reader's avatar picker (follow-up).
+- Seed / production: `shared/content/seed/` (written by `shared/content/scripts/migrate-characters.ts`), import
+  `bin/console import-content shared/content/seed --only=characters.json,groups.json,moods.json,asset-requests.json,cast.json`;
+  production SQL `shared/content/seed/characters-seed.mysql.sql` (idempotent) – **not yet run on production**, and the
+  images in `cdn/root/characters/` must be uploaded first (`python cdn/sync.py`; `cdn/root` is not in git).
+
 ## CDN (careful — owner's live setup)
 
 `cdn.scutoons.com` is served from the all-inkl server and/or bunny.net (owner has set up bunny.net; confirm the exact
