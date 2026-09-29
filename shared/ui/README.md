@@ -24,6 +24,15 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 | `createToaster({ timeout?, max? })` | runes store: `items`, `addToast({ message, type?, timeout? })`, `dismiss(id)`, `clear()`; errors stay until dismissed |
 | `ToastStack` | `toaster`, `dismissLabel`; fixed bottom-right |
 | `clickOutside(handler, { escape? })` | attachment: `<div {@attach clickOutside(close)}>` |
+| `DataTable` | generic (`T`): `columns: Column[]` (`{ id, label, sortable?, align?, width?, secondary? }` – secondary hides < 768px), `rows`, `rowKey`, `cell(row, column)` snippet, `sort` (`field`\|`-field`) + `sortHref(sort)` (URL-driven) or `onsort`, `defaultSortDir`, `selectable` + `bind:selected` + `bulk(keys)` snippet (bar above the table), `onrowclick` (click / Enter), `activeKey`, `rowClass`, `loading`, `empty` / `emptyLabel`, `caption`, `labels`; `nextSort(current, field)` |
+| `Pager` | URL-driven: `page`, `pageSize`, `total`, `href(page)`, optional `sizeHref(size)` + `pageSizes`, `labels` |
+| `SearchField` | debounced search input: `label`, `value` (follows the URL), `onsearch(q)`, `delay` |
+| `readList(url, { pageSize, sort, filters })` · `listHref(url, patch)` · `listParams(state)` | pure URL helpers for `?page=&page_size=&sort=&q=&<filter>=` lists (a change resets `page`) |
+| `SplitView` | list + detail: `open`, `title`, `onclose`, `list` / `detail` / `actions` snippets; ≥ `breakpoint` (1100px) a sticky pane (`--split-view-top`), narrower a right drawer (Sheet) |
+| `CommandPalette` | `bind:open`, `commands: Command[]` (`{ id, label, hint?, group?, keywords?, run }`), `dynamic(query)` (query-dependent commands first), `hotkeys` (Ctrl/⌘+K, `/` outside text fields), labels; `matchCommand` |
+| `Skeleton` | loading placeholder: `variant` `text` (`lines`) \| `block` (`height`) \| `table` (`rows`, `columns`), `label`; static bars, no shimmer |
+| `Chart` | plain SVG `kind` `line` \| `bar`, `labels` (x), `series: { label, values }[]` (≤ 4), `height`, `ariaLabel`, `formatLabel`, `formatValue`; one y-axis from 0, cyan only as fill, series told apart by fill/outline/hatch or dash pattern + legend; hover / arrow keys = crosshair + values |
+| `RecordInspector` | raw record as key/value table or JSON (toggle): `record`, `labels` |
 
 ## Example
 
@@ -59,5 +68,16 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 
 `npm run check -w @scutoons/ui` = `svelte-check --fail-on-warnings`.
 
-Not yet in the kit (build with the admin, see PLATFORM.md "Build new"): DataTable, split view, command palette,
-skeletons, charts, raw record inspector.
+Admin example (URL-driven list):
+
+```svelte
+<script lang="ts">
+	import { page } from '$app/state';
+	import { DataTable, Pager, readList, listHref, listParams } from '@scutoons/ui';
+	const query = $derived(readList(page.url, { sort: '-created_at', filters: ['status'] }));
+	// load: api.list(listParams(query)) → { items, pagination }
+</script>
+
+<DataTable {columns} rows={items} rowKey={(r) => r.code} sort={query.sort} sortHref={(sort) => listHref(page.url, { sort })} />
+<Pager {...pagination} href={(p) => listHref(page.url, { page: p })} />
+```
