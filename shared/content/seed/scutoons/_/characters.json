@@ -89,6 +89,118 @@
 									"avatar": "characters/catpope/catpope_avatar-thinking.png",
 									"portrait": "characters/catpope/catpope_portrait-thinking.png"
 								}
+							},
+							"label": {
+								"de": "päpstlich",
+								"en": "papal"
+							},
+							"apose": {
+								"path": "catpope/avatar/mannequin.webp",
+								"anchors": {
+									"head": {
+										"x": 370,
+										"y": 70,
+										"size": 170
+									},
+									"face": {
+										"x": 372,
+										"y": 105,
+										"size": 110
+									},
+									"neck": {
+										"x": 372,
+										"y": 200,
+										"size": 110
+									},
+									"torso": {
+										"x": 372,
+										"y": 340,
+										"size": 330
+									},
+									"hands": {
+										"x": 150,
+										"y": 575,
+										"size": 90
+									},
+									"legs": {
+										"x": 372,
+										"y": 760,
+										"size": 300
+									},
+									"feet": {
+										"x": 372,
+										"y": 1040,
+										"size": 330
+									},
+									"back": {
+										"x": 372,
+										"y": 330,
+										"size": 360
+									},
+									"accessory": {
+										"x": 598,
+										"y": 575,
+										"size": 90
+									}
+								}
+							}
+						},
+						{
+							"id": "nude",
+							"label": {
+								"de": "nackt",
+								"en": "nude"
+							},
+							"images": {},
+							"apose": {
+								"path": "catpope/avatar/mannequin-nude.webp",
+								"anchors": {
+									"head": {
+										"x": 370,
+										"y": 70,
+										"size": 170
+									},
+									"face": {
+										"x": 372,
+										"y": 105,
+										"size": 110
+									},
+									"neck": {
+										"x": 372,
+										"y": 200,
+										"size": 110
+									},
+									"torso": {
+										"x": 372,
+										"y": 340,
+										"size": 330
+									},
+									"hands": {
+										"x": 150,
+										"y": 575,
+										"size": 90
+									},
+									"legs": {
+										"x": 372,
+										"y": 760,
+										"size": 300
+									},
+									"feet": {
+										"x": 372,
+										"y": 1040,
+										"size": 330
+									},
+									"back": {
+										"x": 372,
+										"y": 330,
+										"size": 360
+									},
+									"accessory": {
+										"x": 598,
+										"y": 575,
+										"size": 90
+									}
+								}
 							}
 						}
 					]
@@ -558,6 +670,56 @@
 								"tripping": {
 									"avatar": "characters/yellowmouse/yellowmouse_avatar-tripping.png",
 									"portrait": "characters/yellowmouse/yellowmouse_portrait-tripping.png"
+								}
+							},
+							"apose": {
+								"path": "yellowmouse/avatar/mannequin.webp",
+								"anchors": {
+									"head": {
+										"x": 385,
+										"y": 130,
+										"size": 330
+									},
+									"face": {
+										"x": 385,
+										"y": 230,
+										"size": 200
+									},
+									"neck": {
+										"x": 385,
+										"y": 330,
+										"size": 120
+									},
+									"torso": {
+										"x": 385,
+										"y": 450,
+										"size": 260
+									},
+									"hands": {
+										"x": 175,
+										"y": 625,
+										"size": 90
+									},
+									"legs": {
+										"x": 385,
+										"y": 770,
+										"size": 260
+									},
+									"feet": {
+										"x": 385,
+										"y": 1010,
+										"size": 340
+									},
+									"back": {
+										"x": 385,
+										"y": 450,
+										"size": 300
+									},
+									"accessory": {
+										"x": 595,
+										"y": 625,
+										"size": 90
+									}
 								}
 							}
 						},

@@ -20,6 +20,8 @@
 //   View      – the framing: avatar / portrait / full. The data field is called `variant` (backwards compatibility);
 //               every UI label says "View" / "Ansicht". Only `portrait` is authored now: `avatar` is a derived 192px
 //               downscale of the portrait, `full` is unused. Completeness counts portraits only.
+//               `apose` (per persona + look, always neutral, one image + wear anchors per avatar slot) is the reader's
+//               avatar body – it never falls back to the portrait; a look without one isn't an avatar body.
 //
 // Image fallback: `resolveExpression` (one implementation for the viewer VN and the creator). `resolveCast()` turns the
 // registry + a cast into the legacy `characters.json` shape of one locale (`Character[]`, visual-novel.ts: `images` =
@@ -30,6 +32,7 @@ import { pickText } from './credits.ts';
 import type { Character, CharacterImage, ResolvedPersona } from './visual-novel.ts';
 import type { Path } from './paths.ts';
 import type { Level, Problem } from './validate.ts';
+import { AVATAR_SLOTS, type AvatarSlot } from './items.ts';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -148,6 +151,8 @@ export const AUTHORED_VIEW: CharacterImageVariant = 'portrait';
 export const DERIVED_VIEWS: CharacterImageVariant[] = ['avatar'];
 /** Not used for now (hidden in the creator, never flagged missing). */
 export const UNUSED_VIEWS: CharacterImageVariant[] = ['full'];
+/** The A-pose view: full body, neutral, one image per look (`look.apose`), the reader's avatar body. */
+export const APOSE_VIEW = 'apose';
 
 /** Every character's base persona. */
 export const REGULAR_PERSONA = 'regular';
@@ -177,6 +182,21 @@ export interface StoryPoint {
 /** mood → view → CDN path */
 export type MoodImages = Partial<Record<string, CharacterImage>>;
 
+/** Where an avatar item sits on an A-pose image: centre and size in px of that image. */
+export interface AposeAnchor {
+	x: number;
+	y: number;
+	size: number;
+}
+
+/** The A-pose of a look (full body, neutral): the reader's avatar body with the wear anchors of the avatar slots. */
+export interface CharacterApose {
+	/** CDN path from the CDN root (e.g. `catpope/avatar/mannequin.webp`, 768 × 1152) */
+	path: string;
+	/** avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor */
+	anchors?: Partial<Record<AvatarSlot, AposeAnchor>>;
+}
+
 /** An appearance of a persona (with / without helmet): its own mood set. */
 export interface CharacterLook {
 	/** `^[a-z0-9][a-z0-9-]*$`; `default` = no look segment in the convention path */
@@ -186,6 +206,8 @@ export interface CharacterLook {
 	default?: boolean;
 	/** mood → view → CDN path (from the CDN root) */
 	images: MoodImages;
+	/** the A-pose (avatar body) of this look – optional, never a fallback for other views */
+	apose?: CharacterApose;
 }
 
 /** An image shown while a persona's look changes (the mouse taking her helmet off). */
@@ -574,6 +596,8 @@ export function resolveExpression(
 	const personaDefault = defaultLook(persona);
 	const look = ref.look || personaDefault;
 	const regularDefault = defaultLook(REGULAR_PERSONA);
+	// the A-pose never falls back (a look without one is no avatar body)
+	if (view === APOSE_VIEW) return '';
 	const views = view === AUTHORED_VIEW ? [view] : [view, AUTHORED_VIEW];
 	const steps: [string, string, string][] = [
 		[persona, look, mood],
@@ -602,6 +626,10 @@ export interface ExpressionRef {
 /** The image of a registry character (`resolveExpression`). */
 export function characterImage(character: RegistryCharacter | null | undefined, ref: ExpressionRef, view: string): string {
 	if (!character) return '';
+	if (view === APOSE_VIEW) {
+		const persona = findPersona(character, ref.persona);
+		return findLook(persona, ref.look || defaultLookId(persona))?.apose?.path?.trim() ?? '';
+	}
 	return resolveExpression(
 		(p, l) => findLook(findPersona(character, p), l)?.images,
 		(p) => defaultLookId(findPersona(character, p)),
@@ -788,6 +816,39 @@ export function setLookImage(look: CharacterLook, mood: string, view: string, pa
 	if (!Object.keys(slots).length && mood !== DEFAULT_MOOD) delete look.images[mood];
 }
 
+/** An avatar body for the reader: a character / persona / look with an A-pose. */
+export interface AvatarBody {
+	character: string;
+	persona: string;
+	look: string;
+	/** "Cat Pope · Biker (with helmet)" in the requested locale */
+	label: string;
+	apose: CharacterApose;
+}
+
+/** Every look with an A-pose (registry order) – what the reader's avatar picker offers. */
+export function avatarBodies(registry: CharacterRegistry | null | undefined, locale = 'en'): AvatarBody[] {
+	const out: AvatarBody[] = [];
+	for (const c of registry?.characters ?? []) {
+		if (!c?.id) continue;
+		for (const personaId of personaIds(c)) {
+			const persona = findPersona(c, personaId)!;
+			for (const look of persona.looks ?? []) {
+				if (!look?.apose?.path?.trim()) continue;
+				const lookName = persona.looks.length > 1 ? lookLabel(persona, look.id, locale) : '';
+				out.push({
+					character: c.id,
+					persona: personaId,
+					look: look.id,
+					label: `${characterName(c, locale, personaId)}${lookName ? ` (${lookName})` : ''}`,
+					apose: look.apose
+				});
+			}
+		}
+	}
+	return out;
+}
+
 /** Every character (and persona) with an affiliation to a group, registry order. */
 export function groupMembers(groupId: string, registry: CharacterRegistry | null | undefined) {
 	const out: { character: RegistryCharacter; persona: string; affiliation: Affiliation }[] = [];
@@ -969,8 +1030,24 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 						else if (!isStr(value) || (value && !IMAGE_PATH.test(value))) add('warning', [...mp, view], `${lwho}: ${mood} ${view} must be a CDN image path`);
 					}
 				}
-				// only `neutral` is required (the fallback anchor); portraits only (avatar is derived, full unused)
-				if (!lookHasImages(l as CharacterLook)) add('warning', [...lp, 'images'], `${lwho}: no images yet (the reader falls back – neutral portrait needed)`);
+				if (l.apose !== undefined) {
+					const ap: Path = [...lp, 'apose'];
+					if (!isObj(l.apose) || !isStr(l.apose.path) || !IMAGE_PATH.test(l.apose.path)) add('error', ap, `${lwho}: the A-pose needs a CDN image path`);
+					else if (l.apose.anchors !== undefined) {
+						if (!isObj(l.apose.anchors)) add('error', [...ap, 'anchors'], `${lwho}: A-pose anchors must be { <slot>: { x, y, size } }`);
+						else
+							for (const [slot, anchor] of Object.entries(l.apose.anchors)) {
+								if (!(AVATAR_SLOTS as string[]).includes(slot)) add('warning', [...ap, 'anchors', slot], `${lwho}: unknown avatar slot "${slot}" (${AVATAR_SLOTS.join(', ')})`);
+								const a = anchor as any;
+								if (!isObj(a) || ![a.x, a.y, a.size].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0)) add('error', [...ap, 'anchors', slot], `${lwho}: anchor ${slot} must be { x, y, size } in px`);
+							}
+					}
+				}
+				// only `neutral` is required (the fallback anchor); portraits only (avatar is derived, full unused);
+				// a look with only an A-pose (e.g. `nude`) is fine: its portraits fall back
+				if (!lookHasImages(l as CharacterLook) && isObj(l.apose)) {
+					/* A-pose only */
+				} else if (!lookHasImages(l as CharacterLook)) add('warning', [...lp, 'images'], `${lwho}: no images yet (the reader falls back – neutral portrait needed)`);
 				else if (!lookImage(l as CharacterLook, DEFAULT_MOOD, AUTHORED_VIEW)) add('error', [...lp, 'images', DEFAULT_MOOD, AUTHORED_VIEW], `${lwho}: no neutral portrait (the fallback anchor)`);
 				else {
 					const standard = sortedMoods(ctx.moods ?? defaultMoodVocabulary()).filter((m) => m.standard).map((m) => m.id);

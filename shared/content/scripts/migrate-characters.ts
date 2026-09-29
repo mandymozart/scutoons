@@ -70,6 +70,30 @@ const SOURCE = 'de';
 const GROUPS: GroupVocabulary = { groups: [{ id: 'biker-gang', name: { de: 'Biker-Gang', en: 'Biker gang' } }] };
 const MOODS = defaultMoodVocabulary();
 
+/** Wear anchors of the reader's avatar bodies (768 × 1152), from viewer components/avatar/avatar.svelte */
+const SPHYNX_WORN = {
+	head: { x: 370, y: 70, size: 170 },
+	face: { x: 372, y: 105, size: 110 },
+	neck: { x: 372, y: 200, size: 110 },
+	torso: { x: 372, y: 340, size: 330 },
+	hands: { x: 150, y: 575, size: 90 },
+	legs: { x: 372, y: 760, size: 300 },
+	feet: { x: 372, y: 1040, size: 330 },
+	back: { x: 372, y: 330, size: 360 },
+	accessory: { x: 598, y: 575, size: 90 }
+};
+const MOUSE_WORN = {
+	head: { x: 385, y: 130, size: 330 },
+	face: { x: 385, y: 230, size: 200 },
+	neck: { x: 385, y: 330, size: 120 },
+	torso: { x: 385, y: 450, size: 260 },
+	hands: { x: 175, y: 625, size: 90 },
+	legs: { x: 385, y: 770, size: 260 },
+	feet: { x: 385, y: 1010, size: 340 },
+	back: { x: 385, y: 450, size: 300 },
+	accessory: { x: 595, y: 625, size: 90 }
+};
+
 const helmetLooks = (): CharacterLook[] => [
 	{ id: DEFAULT_LOOK, label: { de: 'ohne Helm', en: 'without helmet' }, default: true, images: {} },
 	{ id: 'helmet', label: { de: 'mit Helm', en: 'with helmet' }, images: {} }
@@ -79,6 +103,11 @@ const helmetLooks = (): CharacterLook[] => [
 const UPDATES: Record<string, (c: RegistryCharacter) => void> = {
 	catpope: (c) => {
 		c.own_toon = 'catpope';
+		// the reader's avatar bodies: the mannequin (shorts) on the default look, the nude one as its own look
+		const regular = findPersona(c, REGULAR_PERSONA)!;
+		regular.looks[0].label = { de: 'päpstlich', en: 'papal' };
+		regular.looks[0].apose = { path: 'catpope/avatar/mannequin.webp', anchors: { ...SPHYNX_WORN } };
+		regular.looks.push({ id: 'nude', label: { de: 'nackt', en: 'nude' }, images: {}, apose: { path: 'catpope/avatar/mannequin-nude.webp', anchors: { ...SPHYNX_WORN } } });
 		c.personas.push(
 			{ id: 'human', label: { de: 'Mensch', en: 'Human' }, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] },
 			{
@@ -109,8 +138,8 @@ const NEW: RegistryCharacter[] = [
 		mannequin: 'mouse',
 		image: 'yellowmouse/avatar.webp',
 		affiliations: [{ group: 'biker-gang', role: { de: 'Anführerin', en: 'Leader' } }],
-		// one persona, two looks: the kimono (default) and the biker helmet
-		personas: [{ id: REGULAR_PERSONA, looks: helmetLooks() }]
+		// one persona, two looks: the kimono (default, also the avatar body) and the biker helmet
+		personas: [{ id: REGULAR_PERSONA, looks: helmetLooks().map((l) => (l.id === DEFAULT_LOOK ? { ...l, apose: { path: 'yellowmouse/avatar/mannequin.webp', anchors: { ...MOUSE_WORN } } } : l)) }]
 	},
 	{
 		id: 'toptoy',

@@ -223,6 +223,10 @@
 				"images": {
 					"$ref": "#/definitions/MoodImages",
 					"description": "mood → view → CDN path (from the CDN root)"
+				},
+				"apose": {
+					"$ref": "#/definitions/CharacterApose",
+					"description": "the A-pose (avatar body) of this look – optional, never a fallback for other views"
 				}
 			},
 			"required": [
@@ -252,6 +256,72 @@
 				}
 			},
 			"description": "One mood of a character in its three views (framings). \"View\" is the term in the UI (never \"variant\", which would be confused with looks); the keys and `VNCharacterRef.position.variant` keep their names for backwards compatibility."
+		},
+		"CharacterApose": {
+			"type": "object",
+			"properties": {
+				"path": {
+					"type": "string",
+					"description": "CDN path from the CDN root (e.g. `catpope/avatar/mannequin.webp`, 768 × 1152)"
+				},
+				"anchors": {
+					"type": "object",
+					"properties": {
+						"head": {
+							"$ref": "#/definitions/AposeAnchor"
+						},
+						"face": {
+							"$ref": "#/definitions/AposeAnchor"
+						},
+						"neck": {
+							"$ref": "#/definitions/AposeAnchor"
+						},
+						"torso": {
+							"$ref": "#/definitions/AposeAnchor"
+						},
+						"hands": {
+							"$ref": "#/definitions/AposeAnchor"
+						},
+						"legs": {
+							"$ref": "#/definitions/AposeAnchor"
+						},
+						"feet": {
+							"$ref": "#/definitions/AposeAnchor"
+						},
+						"back": {
+							"$ref": "#/definitions/AposeAnchor"
+						},
+						"accessory": {
+							"$ref": "#/definitions/AposeAnchor"
+						}
+					},
+					"description": "avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor"
+				}
+			},
+			"required": [
+				"path"
+			],
+			"description": "The A-pose of a look (full body, neutral): the reader's avatar body with the wear anchors of the avatar slots."
+		},
+		"AposeAnchor": {
+			"type": "object",
+			"properties": {
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				},
+				"size": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"x",
+				"y",
+				"size"
+			],
+			"description": "Where an avatar item sits on an A-pose image: centre and size in px of that image."
 		},
 		"LookTransition": {
 			"type": "object",

@@ -230,3 +230,19 @@ test('wanted images and asset requests', async () => {
 	assert.equal(closeFulfilledRequests(requests, registry, 'now'), 1);
 	assert.equal(requests.requests[0].status, 'done');
 });
+
+test('A-pose: its own view without fallback, avatar bodies', async () => {
+	const { avatarBodies } = await import('../src/index.ts');
+	const c: RegistryCharacter = structuredClone(catpope);
+	c.personas[0].looks[0].apose = { path: 'catpope/avatar/mannequin.webp', anchors: { head: { x: 370, y: 70, size: 170 } } };
+	c.personas[0].looks.push({ id: 'nude', label: { en: 'nude' }, images: {}, apose: { path: 'catpope/avatar/mannequin-nude.webp' } });
+	assert.equal(characterImage(c, {}, 'apose'), 'catpope/avatar/mannequin.webp');
+	assert.equal(characterImage(c, { look: 'nude' }, 'apose'), 'catpope/avatar/mannequin-nude.webp');
+	// no A-pose → '' (never the portrait)
+	assert.equal(characterImage(c, { persona: 'biker' }, 'apose'), '');
+	// the nude look has only the A-pose: its portraits fall back (default look)
+	assert.equal(characterImage(c, { look: 'nude', mood: 'happy' }, 'portrait'), png('catpope', 'default', 'portrait', 'happy'));
+	const bodies = avatarBodies({ characters: [c, mouse] }, 'en');
+	assert.deepEqual(bodies.map((b) => `${b.character}/${b.persona}/${b.look}: ${b.label}`), ['catpope/regular/default: Cat Pope (default)', 'catpope/regular/nude: Cat Pope (nude)']);
+	assert.ok(!validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error'));
+});
