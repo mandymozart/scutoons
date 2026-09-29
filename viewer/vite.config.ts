@@ -9,5 +9,9 @@ export default defineConfig({
 			project: './project.inlang',
 			outdir: './src/lib/paraglide'
 		})
-	]
+	],
+	server: {
+		// shared workspace packages (@scutoons/*) are linked source folders outside the app (fonts, svelte files)
+		fs: { allow: ['../shared'] }
+	}
 });

@@ -1,27 +1,5 @@
-/* @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&display=swap'); */
-
-:root {
-	--primary-color: #00d1ff;
-	--color-acid-purple: #b70aff;
-	--color-acid-green: #3fff0a;
-	--color-acid-red: #ff210a;
-}
-html {
-  font-size: 16px;
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 400;
-  font-style: normal;
-}
-
-body {
-  background: #ffffff;
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 400;
-  font-style: normal;
-  max-width: 100%;
-  margin: 0;
-  overflow-x: hidden;
-}
+/* Viewer element + utility styles. Tokens, fonts and base element styles (html, body, headings, p, fluid root
+   font size) come from @scutoons/tokens, imported in routes/+layout.svelte. */
 
 img {
   display: block;
@@ -32,20 +10,6 @@ img {
   width: 100%;
   max-width: 100%;
   height: auto;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 400;
-  font-style: normal;
-}
-
-p {
-  font-family: 'IBM Plex Mono', monospace;
-  font-weight: 400;
-  font-style: normal;
-  margin-bottom: 0;
-  line-height: 1.4;
 }
 
 input, select, textarea {
@@ -133,24 +97,3 @@ button.btn-clear {
   background: #f0f0f0;
   min-width: 33%;
 }
-
-
-
-@media (min-width: 768px) {
-  html {
-    font-size: 24px;
-  }
-}
-
-
-@media (max-width: 480px) {
-  html {
-    font-size: 14px;
-  }
-
-  p {
-    line-height: 1.3;
-  }
-}
-
-

@@ -58,6 +58,7 @@
 		"svelte"
 	],
 	"dependencies": {
+		"@scutoons/tokens": "*",
 		"@tensorflow-models/mobilenet": "^2.1.1",
 		"@tensorflow/tfjs": "^4.22.0",
 		"@types/howler": "^2.2.12",
