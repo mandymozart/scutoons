@@ -264,3 +264,9 @@ No task (agent or coordinator) is finished until ALL of these pass on the curren
 If something breaks that another task caused, report it — don't silently skip. After a larger stretch of breaking
 changes the coordinator tags a known-good state (`git tag stable-YYYY-MM-DD[-n]`).
 
+## RULE: keep the configuration small (2026-09-30, owner)
+
+Model only what the product reads or the owner edits. Story context the owner explains (e.g. "she leads the biker
+gang") is context for us, not a data field. Before adding a field/file/vocabulary: which screen edits it, which code
+reads it? If neither, leave it out. (Groups/affiliations were removed for this reason.)
+
