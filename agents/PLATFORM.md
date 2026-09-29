@@ -7,10 +7,11 @@ back after the release. Companion docs: [PLAN.md](PLAN.md), [ITEMS.md](ITEMS.md)
 
 ```
 scutoons/                         one git repo, npm workspaces (Node 22), Composer for the server
-├── package.json                  workspaces: viewer, creator, admin, shared/*
-├── viewer/                       SvelteKit (static) → scutoons.com            reader, shop, events, account
+├── package.json                  workspaces: viewer, creator, admin, shop, shared/*
+├── viewer/                       SvelteKit (static) → scutoons.com            reader, events, account (/shop → shop)
 ├── creator/                      SvelteKit (static) → creator.scutoons.com    role `creator`
 ├── admin/                        SvelteKit (static) → admin.scutoons.com      role `admin` (replaces generate/)
+├── shop/                         SvelteKit (static) → shop.scutoons.com       limited editions (P2b)
 ├── server/              PHP 8.3, Slim 4    → qr.scutoons.com (+ later api.scutoons.com)
 │   ├── public/                   web root: front controller, QR landing page, verify page, assets
 │   ├── src/                      Http (controllers, middleware) · Domain · Infrastructure
@@ -166,6 +167,43 @@ Clock) · `src/Console` + `bin/console` · `config/` (settings, container, route
   the old workflow (`FTP_SERVER` var, `FTP_USERNAME`/`FTP_PASSWORD` secrets – not `SERVER_FTP_*`), production
   `ALLOWED_ORIGINS` = scutoons.com, www, creator, admin, shop.
 
+## P2b — result (2026-09-30)
+
+**What moved where**
+
+| From (viewer) | To |
+|---|---|
+| `routes/(shop)/shop/+page.{svelte,ts}` | `shop/src/routes/+page.{svelte,ts}` (loads `GET /api/products/`) |
+| `lib/components/shop/products/product-item.svelte` | `shop/src/lib/components/product-item.svelte` |
+| `lib/components/shop/products/shop.ts` (types + price/variant helpers) | `@scutoons/content` `products.ts` (`ProductCatalog`, `Product`, `ProductVariant`, `FeaturedProduct`, `LocalizedText`, `isSoldOut`, `pickVariant`, `variantPrice`, `formatPrice`, `editionPieces`, `localized`) |
+| `lib/components/shop/products/product-slides.svelte` (homepage only, Swiper) | stays in the viewer: `lib/components/home/product-slides.svelte` (not generic → not in `@scutoons/ui`) |
+| `static/api/products.json`, `featured-products.json` | server `config/products.json`, `config/featured-products.json` (`PRODUCTS_PATH`, `FEATURED_PRODUCTS_PATH`) |
+| messages `shop.title/description/variants/remaining` | `shop/messages/{de,en}.json` (the homepage keeps `shop.buy/sold_out/sizes/colors/price/limited_edition_of/credits`) |
+
+**API** (public, like `/api/items/`): `GET /api/products/` and `GET /api/products/featured/` return the stored files
+byte-for-byte (`Content-Type: application/json; charset=utf-8`, CORS `*` or the allowed origin, `Cache-Control:
+public, max-age=300`, other methods 405) — `Catalog\Products` + `ProductsController`; api-smoke 182 → 187 checks,
+`AppTest::testProductsAreTheStoredFilesByteForByte`. Client: `@scutoons/api` `createProductsApi(client)` →
+`fetchProducts`, `fetchFeaturedProducts`; apps pass a header-free client (`createApiClient({ baseUrl })`) so the
+browser sends a simple GET without a CORS preflight.
+
+**Shop app** `shop/` (:12000, `npm run dev:shop`, deploy `.github/workflows/shop.yml`, secrets `SHOP_FTP_*`): static
+SPA, paraglide de/en with strategy url → cookie → preferredLanguage → baseLocale and both locales prefixed (`/de/`,
+`/en/`); header = the viewer's logo position/size linking to `VITE_WWW_URL` + a de/en switch (`@scutoons/ui`
+Button); `app.css` carries the viewer's `img`/`.btn`/`.disabled` rules the page relied on. Env: `VITE_API_URL`,
+`VITE_CDN_URL`, `VITE_WWW_URL`.
+
+**Viewer**: `routes/(shop)/shop/[...rest]/+page.ts` redirects `/shop`, `/de/shop`, `/en/shop`, `/shop/…` (VN
+`jumpTo` product links) to `VITE_SHOP_URL/<locale>/` (URL prefix, else the reader's locale); menu "Buy access" /
+"Limited Editions" and the membership blocker open the shop URL; the homepage keeps the slides (Bandcamp buy links)
+and gains a "Limited Editions" link to the shop; it renders without the slides when the API fails.
+`VITE_SHOP_URL` (dev `http://localhost:12000`, prod `https://shop.scutoons.com`; `viewer.yml` passes the variable).
+
+**Verified**: the shop on :12000 against the viewer's shop before the move (probe of box + computed styles of the page
+header, grid and four tiles incl. sold-out/badge) — identical at 1280px and 375px; de/en; the redirects of all four
+URL forms, menu and "Buy access" on a viewer; homepage slides identical (+ the new link). Checks: viewer/creator/shop/
+shared 0 errors; builds OK; `composer test` green.
+
 ## Cross-app auth
 
 Same endpoints, token per origin (localStorage `scutoons_session`) for now; `ALLOWED_ORIGINS` gains
@@ -269,10 +307,12 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 | server (qr.scutoons.com) | **9000** | `cd server && composer serve` (or `php -S localhost:9000 …`) |
 | creator (creator.scutoons.com) | **10000** | `npm run dev:creator` |
 | admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
+| shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |
 
 Transition: until the server refactor is verified, the old repo `C:\Development\qr.scutoons.com` may still serve :9000
 and the refactored server runs on :9100 for the baseline comparison; after that the platform server owns :9000.
-`ALLOWED_ORIGINS` (dev): `http://localhost:8000`, `http://localhost:10000`, `http://localhost:11000` (+ the old
+`ALLOWED_ORIGINS` (dev): `http://localhost:8000`, `http://localhost:10000`, `http://localhost:11000`,
+`http://localhost:12000` (+ the old
 5173/5174/5175/4173 until nothing uses them). The earlier ports (viewer 5173, creator 5180, admin 5190, CDN 8000) are
 superseded.
 
@@ -300,8 +340,8 @@ The Slim app routes by host:
   switched and the stats show no more traffic there. Printed URLs (RULE above) are never removed.
 - Dev: one server on :9000 answers both roles (host check relaxed for localhost); frontends use `VITE_API_URL`.
 
-**Shop app:** `shop/` (dev port 12000) with `@scutoons/ui` + tokens; products data from the API (later) or static
-for now; viewer route `/shop` becomes a redirect to `shop.scutoons.com` (RULE: `/shop` keeps working).
+**Shop app:** `shop/` (dev port 12000) with `@scutoons/ui` + tokens; products data from the API (`/api/products/`);
+viewer route `/shop` is a redirect to `shop.scutoons.com` (RULE: `/shop` keeps working). ✅ P2b, see "P2b — result".
 
 **Deployment:** one workflow per app (`viewer.yml`, `server.yml`, `admin.yml`, `creator.yml`, `shop.yml`), path
 filters incl. `shared/**`, deploy only from `main`, each to its own FTP folder (secrets `<APP>_FTP_*`). The owner
@@ -322,6 +362,11 @@ DB. Rules:
 - Each step: export → import script → compare (API output == old static file) → switch the frontend → keep the static
   fallback for one release → remove.
 - Starts after P1–P3 (refactor + apps) are done.
+- ✅ First step done in P2b (2026-09-30): `products.json` + `featured-products.json` moved to the server's `config/`,
+  served as stored by `GET /api/products/` and `/api/products/featured/` (byte-for-byte = the old static files,
+  checked by api-smoke + a unit test); shop and viewer homepage load them via `@scutoons/api`; the static copies in
+  `viewer/static/api/` are deleted (no fallback release: the P2b brief asked for the removal in the same step). Still
+  files, not DB tables.
 
 ## CDN (careful — owner's live setup)
 
@@ -344,7 +389,7 @@ Rules now:
 | P1a | workspaces, shared packages, standalone creator | ✅ 2026-09-30 |
 | P1b | server refactor (Slim), host routing qr/api, admin API (folder rename `scutoons-server/` → `server/` still pending) | ✅ 2026-09-30 |
 | P2a | `admin/` app incl. port of `generate/` (QR generation, batches, certificates) to Svelte | next |
-| P2b | `shop/` app split out of the viewer, `/shop` redirect | next |
+| P2b | `shop/` app split out of the viewer, `/shop` redirect, products from the API | ✅ 2026-09-30 |
 | P3 | workflows per app, env per app (`VITE_API_URL` → api.scutoons.com), cutover checklist (subdomains/folders/SSL in all-inkl), remove `generate/` after admin parity | after P2 |
 | P4 | data into the DB via the API (own migration plan) | later |
 | P5 | CDN plan with bunny.net (with owner) | later |

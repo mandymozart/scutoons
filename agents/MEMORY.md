@@ -165,6 +165,8 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   edition_id, edition_size, name, link, price, limited, remaining, sizes, soldOutSizes, credits, icon,
   defaultVariant, variants:[{id, name{de,en}, soldOut, icon, images, price?}]}]}`; `featured-products.json` =
   `[{product, variant}]`. Types + helpers: `viewer/src/lib/components/shop/products/shop.ts`.
+  → since platform P2b (2026-09-30): files in `scutoons-server/config/`, served by `GET /api/products/` +
+  `/api/products/featured/`; types + helpers in `@scutoons/content` (`products.ts`).
 
 ## Chapter 1 text extraction
 
@@ -384,3 +386,30 @@ are the fallback and the seed.
   `rememberPossiblyImpureFunctionValues: false` for DB-reading services.
 - Production (not done): cutover steps in `docs/DEPLOY.md` (keys to storage/keys first, deploy, rename generate/files →
   storage/files, docroot → public/, generate/ Basic auth path, api.scutoons.com subdomain); no DB change in P1b.
+
+## Platform P2b
+
+2026-09-30 — shop split out of the viewer (details: agents/PLATFORM.md "P2b — result").
+- `shop/` = standalone SvelteKit SPA on :12000 (`npm run dev:shop`), deploy `.github/workflows/shop.yml`
+  (`SHOP_FTP_*`). Env `VITE_API_URL`, `VITE_CDN_URL`, `VITE_WWW_URL`; the viewer has `VITE_SHOP_URL`.
+- Products: server `config/products.json` + `featured-products.json`, `GET /api/products/` and
+  `/api/products/featured/` = the files byte-for-byte (CORS `*`, 5 min cache). `viewer/static/api/products*.json`
+  are gone. To change products: edit the server's config files (deploy the server), not the viewer.
+- Public data → a header-free API client (`createApiClient({ baseUrl })`): the viewer's normal client sends
+  `X-Device-Id`, which forces a CORS preflight that only ALLOWED_ORIGINS pass.
+- Paraglide in the shop: strategy url → cookie → preferredLanguage, both locales prefixed (`urlPatterns` in
+  `shop/paraglide.config.js`); `/` without prefix redirects to `/<locale>`. Locally the `PARAGLIDE_LOCALE` cookie is
+  shared by every localhost port (cookies ignore ports): switching the shop to en switches the viewer too.
+- Viewer `/shop`, `/de/shop`, `/en/shop`, `/shop/*` → `routes/(shop)/shop/[...rest]/+page.ts` (client redirect,
+  307 via kit `redirect`) to `<VITE_SHOP_URL>/<locale>/`.
+- Verification method: the same box + computed-style probe as P1a, run on a second viewer instance (:8010, env
+  overrides via process env: `VITE_API_URL=…9100…`, `VITE_CDN_URL=…8011`) before the move and on the shop after;
+  identical at 1280 and 375px.
+- Local dev trap: `C:\Development\qr.scutoons.com` still serves :9000 and has no `/api/products/`; until the
+  platform server owns :9000 the viewer home on :8000 shows no product slides and the shop needs
+  `VITE_API_URL=http://localhost:9100/api` (`composer serve:9100`). The python CDN on :8001 is single-threaded and
+  hung during this session (a second one on :8011 was used).
+- Mistake: `php tests/api-smoke.php http://localhost:9100` was run once against the server using the real
+  `scutoons-server/db/local.sqlite` (not a copy) – it claimed one unclaimed vinyl code and one Dago code for fresh
+  `smoke` accounts there (vinyl `v-Hr9Pn_`, Dago `rVLQjIiE`, accounts `smoke-20260929133603-fef6-{a,b,c}@example.com`;
+  the DB already held such rows from earlier direct runs). Always use `composer test` (DB copies).
