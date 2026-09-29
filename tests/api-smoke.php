@@ -247,6 +247,7 @@ $tempCode = function (string $type, ?string $expiresAt = null, string $email = '
 register_shutdown_function(function () use (&$tempCodes) {
     foreach ($tempCodes as $code) {
         Db::run('DELETE FROM inventory WHERE code = ?', [$code]);
+        Db::run('DELETE FROM code_events WHERE code = ?', [$code]);
         Db::run('DELETE FROM qr WHERE code = ?', [$code]);
     }
 });
@@ -329,6 +330,72 @@ $r = call('GET', "$api/validate/?c=" . rawurlencode((string) $unclaimed));
 check($r['status'] === 200 && ($r['body']['qr']['is_claimed'] ?? null) === false, 'validate unclaimed code → success', $r);
 $r = call('GET', "$api/validate/?c=zzzzzzzz");
 check($r['status'] === 404 && $r['body']['status'] === 'error', 'validate unknown → 404', $r);
+
+// ── Revoke (admin) ─────────────────────────────────────────────────────────────────────────────────────
+echo "\nRevoke + admin endpoints\n";
+$admin = ['X-Generate-Token: ' . hash_hmac('sha256', 'generate-access', GENERATE_PASSWORD)];
+foreach (['stats.php', 'code-events.php?code=' . $dago] as $path) {
+    $r = call('GET', "$base/generate/$path");
+    check($r['status'] === 401, "admin $path without token → 401", $r['status']);
+}
+$r = call('POST', "$base/generate/revoke.php", ['code' => $dago, 'action' => 'revoke']);
+check($r['status'] === 401, 'admin revoke.php without token → 401', $r['status']);
+$rv = $tempCode('membership');
+$r = call('POST', "$api/inventory/claim/", ['code' => $rv], $tokenA);
+check($r['status'] === 200 && $r['body']['claimed'] === 'new', 'claim a temp code (to be revoked)', $r);
+$r = call('POST', "$base/generate/revoke.php", ['code' => $rv, 'action' => 'revoke', 'reason' => 'smoke test'], null, $admin);
+check($r['status'] === 200 && $r['body']['success'] === true && $r['body']['revoked_reason'] === 'smoke test', 'admin revokes the code', $r);
+$r = call('GET', "$api/access/?c=$rv");
+check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: /access/ → 410 revoked', $r);
+$r = call('POST', "$api/validate/", ['code' => $rv]);
+check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: /validate/ → 410 revoked', $r);
+$r = call('POST', "$api/inventory/claim/", ['code' => $rv], $tokenB);
+check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: claim → 410 revoked', $r);
+$me = call('GET', "$api/me/", null, $tokenA);
+check(!in_array($rv, $me['body']['access']['codes'] ?? [], true) && in_array($vinyl, $me['body']['access']['codes'] ?? [], true), 'revoked: /me access ignores it', $me['body']['access'] ?? null);
+$r = call('GET', "$base/?c=$rv");
+check($r['status'] === 410 && is_string($r['body']) && str_contains($r['body'], 'no longer valid'), 'revoked: landing page says no longer valid', $r['status']);
+$r = call('POST', "$base/generate/revoke.php", ['code' => $rv, 'action' => 'unrevoke'], null, $admin);
+check($r['status'] === 200 && $r['body']['revoked_at'] === null, 'admin unrevokes the code', $r);
+$r = call('GET', "$api/access/?c=$rv");
+check($r['status'] === 200 && $r['body']['permissions'] === ['catalog'], 'unrevoked: /access/ works again', $r);
+$me = call('GET', "$api/me/", null, $tokenA);
+check(in_array($rv, $me['body']['access']['codes'] ?? [], true), 'unrevoked: back in /me access');
+
+// ── Activity events ────────────────────────────────────────────────────────────────────────────────────
+echo "\nActivity events\n";
+$ev = $tempCode('membership');
+$count = fn(string $event) => (int) Db::value('SELECT COUNT(*) FROM code_events WHERE code = ? AND event = ?', [$ev, $event]);
+$dev1 = ['X-Device-Id: smoke-' . $run . '-device-1'];
+$dev2 = ['X-Device-Id: smoke-' . $run . '-device-2'];
+call('GET', "$api/access/?c=$ev", null, null, $dev1);
+call('GET', "$api/access/?c=$ev&toon=catpope", null, null, $dev1);
+check($count('access') === 1, 'access: same device twice a day → 1 event', $count('access'));
+call('POST', "$api/access/", ['code' => $ev], null, $dev2);
+check($count('access') === 2, 'access: second device → 2 events', $count('access'));
+check((int) Db::value('SELECT COUNT(DISTINCT device_hash) FROM code_events WHERE code = ?', [$ev]) === 2, 'events store 2 distinct device hashes');
+check(Db::value("SELECT 1 FROM code_events WHERE code = ? AND (device_hash LIKE 'smoke-%' OR ip_hash LIKE '127.%')", [$ev]) === null, 'no raw device id or IP stored');
+$r = call('OPTIONS', "$api/access/", null, null, ['Origin: http://localhost:5173', 'Access-Control-Request-Headers: x-device-id']);
+check(str_contains(strtolower($r['headers']['access-control-allow-headers'] ?? ''), 'x-device-id'), 'CORS allows X-Device-Id', $r['headers']);
+call('GET', "$base/?c=$ev");
+check($count('scan') === 1, 'scan: landing page visit → 1 event', $count('scan'));
+call('POST', "$api/inventory/claim/", ['code' => $ev], $tokenA);
+check($count('claim') === 1, 'claim → 1 event', $count('claim'));
+call('POST', "$api/inventory/claim/", ['code' => $ev], $tokenB);
+check($count('claim_refused') === 1, 'claim by another account → claim_refused', $count('claim_refused'));
+$loginCount = (int) Db::value("SELECT COUNT(*) FROM code_events WHERE code = ? AND event = 'login' AND user_id = ?", [$vinyl, $userA]);
+check($loginCount >= 1, 'login at verify → login event for the owned vinyl code', $loginCount);
+$r = call('GET', "$base/generate/stats.php", null, null, $admin);
+$row = array_values(array_filter($r['body']['codes'] ?? [], fn($c) => $c['code'] === $ev))[0] ?? null;
+check($row && $row['accesses'] === 2 && $row['devices'] === 2 && $row['scans'] === 1 && $row['refused'] === 1 && $row['claimed'] === true
+    && !preg_match('/@/', (string) json_encode($r['body'])), 'admin stats.php aggregates the code, no emails', $row);
+$r = call('GET', "$base/generate/code-events.php?code=$ev", null, null, $admin);
+check($r['status'] === 200 && count($r['body']['events'] ?? []) === 5, 'admin code-events.php timeline (5 events)', $r['body']['events'] ?? $r);
+$ch = curl_init("$base/generate/stats.php?format=csv");
+curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => $admin]);
+$csv = (string) curl_exec($ch);
+curl_close($ch);
+check(str_starts_with($csv, 'code,type,edition_id') && str_contains($csv, $ev), 'admin CSV export');
 
 // ── Database guard: the triggers refuse a second owner even outside the API ────────────────────────────
 echo "
