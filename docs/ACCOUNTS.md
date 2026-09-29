@@ -5,24 +5,27 @@ format, HTTP API) is `C:\Development\scutoons\agents\ITEMS.md` – including the
 notes" with the exact response details. This file covers setup, configuration and operations.
 
 Email login is a port of osct `server/api/src/{Auth,LoginMail,Mailer,Smtp,Progress}.php`: a login request mails a
-6-digit one-time code and a magic link; confirming either creates the account (first time, with the starter items)
-and returns a session token (Bearer). Tokens and codes are only stored as hashes.
+6-digit one-time code and a magic link; confirming either creates the account (first time, with the `member` role
+and the starter items) and returns a session token (Bearer). Tokens and codes are only stored as hashes.
+**New accounts only with a signup code** (a SCUTOONS product or a promo code) – see "Signup rule".
 
 ## Layout
 
 | Path | What |
 |---|---|
 | `api/index.php` | Front controller for every `/api/` path that is not an existing file/folder |
-| `api/lib/` | Classes: `Config`, `Http` (JSON, CORS, errors), `Db`, `Catalog`, `Permissions`, `Events`, `Auth`, `LoginMail`, `Mailer`, `Smtp`, `Users`, `Codes`, `Inventory`, `Avatar`, `Progress`, `RateLimit`, `bootstrap.php` (denied over HTTP) |
+| `api/lib/` | Classes: `Config`, `Http` (JSON, CORS, errors), `Db`, `Catalog`, `Permissions`, `Events`, `Auth`, `LoginMail`, `Mailer`, `Smtp`, `Users`, `Roles`, `Codes`, `Inventory`, `Avatar`, `Progress`, `RateLimit`, `bootstrap.php` (denied over HTTP) |
 | `api/permissions.json` | What each code type grants (server-only, denied over HTTP) – see "Permissions map" |
 | `api/items/items.json` | The item catalog (single source), served by `api/items/index.php` |
 | `api/validate/` | Legacy membership check, backwards compatible (no email/signature/claimed_by) |
-| `index.php` | QR landing page: preview + Continue + "Add to my account" (no email step) |
+| `index.php` | QR landing page: preview + Continue + "Add to my account" (no email step); promo: Continue + "Create account" |
 | `generate/stats.php`, `code-events.php`, `revoke.php` + `app/views/stats.js` | Admin "Stats" view: activity per code, revoke |
+| `generate/users.php`, `user-roles.php` + `app/views/users.js` | Admin "Users" view: search by email, roles, signup code, opt-in |
 | `db/migrations/2026-09-29-accounts-inventory.{mysql,sqlite}.sql` | New tables + `qr.edition_number`, `qr.claimed_by` |
 | `db/migrations/2026-09-30-code-owner-guard.*`, `2026-09-30-revoke-events.*` | Owner triggers; `qr.revoked_at`/`revoked_reason`, `code_events` |
-| `scripts/` | CLI: `migrate.php`, `backfill-edition-numbers.php`, `report-orphan-codes.php` |
-| `tests/api-smoke.php` (`.sh`), `tests/claim-race.php` | End-to-end API test against a running server; concurrent claim test |
+| `db/migrations/2026-09-30-roles-signup.*` | `roles`, `user_roles` (+ backfill `member`), `users.marketing_opt_in`/`_at`/`signup_code`, `login_requests.marketing_opt_in` |
+| `scripts/` | CLI: `migrate.php`, `backfill-edition-numbers.php`, `report-orphan-codes.php`, `roles.php` |
+| `tests/api-smoke.php` (`.sh`), `tests/claim-race.php` | End-to-end API test against a running server (incl. signup rule, roles, opt-in); concurrent claim test |
 | `router.php` | `php -S` router (local only) |
 | `logs/` | `mail.log` (dev login mails), `error.log` (API errors) – gitignored, denied over HTTP |
 
@@ -46,12 +49,13 @@ The smoke test claims one unclaimed vinyl and one Dago code of the local DB per 
 |---|---|---|---|
 | GET | `/health/` | – | `{ status, db }` |
 | GET | `/items/` | – | catalog |
-| POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale? }` → `{ status:"sent" }` |
-| POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` → session + claims the request's code |
+| POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in? }` → `{ status:"sent" }` (always; new accounts only with a signup code) |
+| POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required` |
 | POST | `/auth/logout/` | Bearer | ends this session |
-| GET | `/me/` | Bearer | `{ user, access, memberships, inventory, avatar }` – `access: { permissions, unlocked, expires_at, codes, access_token? }` |
-| GET/POST | `/access/` | optional | `{ code }` / `?c=` → device access: `type, expires_at, permissions, claimable, claimed, claimed_by_me?, access_token?` (never the owner); per-IP limit; logs `access`; send `X-Device-Id` |
-| GET | `/code/?c=CODE` | optional | items/options/edition of a code, `claimed_by_me` when signed in |
+| GET | `/me/` | Bearer | `{ user, access, memberships, inventory, avatar }` – `user: { id, email, created_at, roles, marketing_opt_in }`, `access: { permissions, unlocked, expires_at, codes, access_token? }` |
+| PUT | `/me/` | Bearer | `{ marketing_opt_in: bool }` → `{ status, user }` · `400 invalid_body` |
+| GET/POST | `/access/` | optional | `{ code }` / `?c=` → device access: `type, expires_at, permissions, claimable, signup, claimed, claimed_by_me?, access_token?` (never the owner); per-IP limit; logs `access`; send `X-Device-Id` |
+| GET | `/code/?c=CODE` | optional | items/options/edition, `claimable`, `signup` of a code, `claimed_by_me` when signed in |
 | POST | `/inventory/claim/` | Bearer | `{ code, item_id?, variant? }` |
 | POST | `/inventory/craft/` | Bearer | `{ recipe_id }` |
 | POST | `/inventory/grant/` | Bearer | `{ item_id, source:"story"\|"scan", ref? }` |
@@ -105,7 +109,9 @@ The deploy (push to `main`) uploads code only; `db/` and `scripts/` are not depl
    everywhere, safe to run twice). Requires MariaDB ≥ 10.3 (production is 10.11).
    Then run `db/migrations/2026-09-30-code-owner-guard.mysql.sql` (triggers; SQL tab with delimiter `$$`, see the
    file header). Before that, check no inventory row points at a code owned by someone else (none can exist yet).
-   Then `db/migrations/2026-09-30-revoke-events.mysql.sql` (idempotent).
+   Then `db/migrations/2026-09-30-revoke-events.mysql.sql` (idempotent), then
+   `db/migrations/2026-09-30-roles-signup.mysql.sql` (idempotent; backfills `member` for every account).
+   Grant `creator` afterwards in the admin SPA (Users) – there is no shell on the host.
 3. Edition numbers: copy the server's `generate/files/batch/*.json` locally (FTP), then
    `php scripts/backfill-edition-numbers.php --sql --manifests=<that folder> > backfill.sql` and run `backfill.sql`
    in phpMyAdmin. Only codes listed in a manifest get a number.
@@ -148,22 +154,74 @@ Tests: `tests/api-smoke.php` and `tests/claim-race.php [n]` (n processes claim o
   "version": 1,
   "permissions": { "catalog": "Read every chapter of every toon" },
   "types": {
-    "membership": { "claimable": true,  "grants": ["catalog"] },
-    "promo":      { "claimable": true,  "grants": ["catalog"] },
-    "page":       { "claimable": false, "grants": [] }
+    "membership": { "claimable": true,  "signup": true,  "grants": ["catalog"] },
+    "promo":      { "claimable": false, "signup": true,  "grants": ["catalog"] },
+    "page":       { "claimable": false, "signup": false, "grants": [] },
+    "event":      { "claimable": false, "signup": false, "grants": [] },
+    "xr":         { "claimable": false, "signup": false, "grants": [] }
   },
-  "default":      { "claimable": false, "grants": [] }
+  "default":      { "claimable": false, "signup": false, "grants": [] }
 }
 ```
 
 - `claimable`: the code can be owned by one account (goes into its inventory). `grants`: permission ids for anyone
-  holding the code (device) and for its owner (account) while it is neither expired nor revoked.
+  holding the code (device) and for its owner (account) while it is neither expired nor revoked. `signup`: a new
+  account can be created with a code of this type (see "Signup rule").
 - Types not listed use `default`. The viewer checks `catalog` today; ids like `toon:catpope` or
   `chapter:catpope:2` can be added later without code changes on this server.
 - To change it: edit the file (valid JSON!), deploy (push to `main`) or upload it over FTP. No restart, no migration.
   Check locally with `php tests/api-smoke.php` (it also proves an override map is applied). A broken file makes the
   code endpoints answer 500, so validate the JSON before uploading.
 - `PERMISSIONS_PATH` points to another file (staging, tests).
+
+## Signup rule, promo codes
+
+(ITEMS.md "Roles, signup rule, promo codes", 2026-09-30.)
+
+- **A new account needs a signup code**: a code whose type has `"signup": true` (today `membership` and `promo`),
+  existing, not expired, not revoked. A claimable code (membership = a product) must also still be free (or
+  registered to this email by the old form) – it is claimed in the same step. `Codes::signupRefusal()` decides.
+- `POST /auth/request/` for an email **without** an account and **without** a usable signup code still answers
+  `{ status:"sent" }` (no user enumeration), but the mail (de/en, `LoginMail::composeNoAccount`) has no link and no
+  one-time code: it says there is no account yet and that one needs a code from a SCUTOONS product or a promo code
+  (and names the code sent, if it was not usable). The request is stored only for the hourly limits (hashes of values
+  nobody knows – it can never be confirmed).
+- `POST /auth/verify/` checks the rule again for a new account (the code may have been revoked meanwhile) →
+  `403 signup_code_required`, nothing created. Existing accounts sign in with or without a code.
+- At signup: `users.signup_code` = the code, `users.marketing_opt_in` (+ `marketing_opt_in_at`) from
+  `marketing_opt_in` in the request body (default false; `verify` may override it), role `member`, event `signup`.
+- **Promo codes are never owned**: no item, no owner, reusable for any number of signups. Claim → `422 not_claimable`;
+  `/auth/verify/` with a promo code only creates/signs in (no `claimed`/`claim_error`). Landing page: "Promo code – no
+  item to collect" with **Continue** and **Create account** (→ `<viewer>/account?code=`).
+- `PUT /me/ { marketing_opt_in }` toggles the opt-in (account page); `marketing_opt_in_at` = last change.
+- Login requests get time-ordered ids (`Db::uuid7()`), so "the newest request of this address" is exact also when
+  several mails are requested within one second.
+
+## Roles
+
+Tables `roles` (seeded: 1 `member` – every account, 2 `admin` – reserved, 3 `creator` – scutoons.com/creator and
+the content API) and `user_roles (user_id, role_id, granted_at, granted_by)`. `granted_by`: `signup`, `migration`,
+`admin` (SPA), `cli`. `/me/` and `/auth/verify/` return `user.roles` (e.g. `["member", "creator"]`).
+
+For other endpoints (`api/lib/Roles.php`):
+
+```php
+$user = Roles::requireRole(Roles::CREATOR); // signed-in user, else 401 unauthorized / 403 forbidden { role }
+Roles::has($user, 'creator');               // bool; $user = users row or id
+Roles::of($userId);                         // ['member', 'creator']
+Roles::grant($userId, 'creator', 'admin');  // true when newly granted
+Roles::revoke($userId, 'creator');          // true when removed
+```
+
+Granting/revoking:
+- Admin SPA → **Users**: search by email, checkboxes per role, signup code, news opt-in. Endpoints (admin token):
+  `GET generate/users.php?q=<email part>` → `{ success, roles, total, users:[{ id, email, created_at, roles,
+  signup_code, marketing_opt_in, marketing_opt_in_at }] }` (newest 50 when `q` is empty) and
+  `POST generate/user-roles.php { user_id | email, role, action:"grant"|"revoke" }` → `{ success, changed, user }`.
+- CLI: `php scripts/roles.php grant|revoke <email> <role>`, `php scripts/roles.php list [email]` (without email:
+  every account with a role other than member).
+
+The Users view shows emails (it is the place to manage accounts); the Stats view still shows none.
 
 ## Access tokens
 
@@ -180,18 +238,22 @@ checks the token yet).
   `410 revoked` in `/access/`, `/code/`, `/validate/` and claims; `/me/` access ignores it; the landing page says
   "This code is no longer valid". Unrevoke restores it. Both are logged as events.
 - **Events** (`code_events`, append-only, `api/lib/Events.php`): `scan` (landing page), `access` (at most once per
-  code + device per UTC day), `claim`, `claim_refused`, `login` (one per owned code at sign-in), `revoke`,
-  `unrevoke`. Logging never breaks a request.
+  code + device per UTC day), `claim`, `claim_refused`, `login` (one per owned code at sign-in), `signup` (account
+  created with this code), `revoke`, `unrevoke`. Logging never breaks a request.
 - **Admin endpoints** (admin token, under `generate/`, never public): `stats.php` (per-code table, `?format=csv`,
   `?days=` for the daily chart), `code-events.php?code=` (timeline), `revoke.php` (POST).
 
 ### Privacy
 
 What is stored per event: the code, the event type, the time (UTC), optionally the toon, the account id for
-`claim`/`claim_refused`/`login`/signed-in `access`, `device_hash` = HMAC of the browser's random `X-Device-Id`
+`claim`/`claim_refused`/`login`/`signup`/signed-in `access`, `device_hash` = HMAC of the browser's random `X-Device-Id`
 (localStorage `scutoons_device`, not linked to a person), `ip_hash` = HMAC of the IP with a **daily** salt derived
 from `AUTH_SECRET` + UTC date (hashes of different days can't be linked; no salt is stored). Never stored: raw IP,
-email, user agent, the device id itself. The admin views show no emails or user ids (only "account: yes").
+email, user agent, the device id itself. The Stats views show no emails or user ids (only "account: yes").
+
+Accounts store the email, the signup code and the news opt-in (`marketing_opt_in`, unchecked by default, with the
+time of the last change as consent record). Mention the opt-in in the privacy policy; export the opted-in addresses
+with `SELECT email FROM users WHERE marketing_opt_in = 1` when sending news.
 
 Retention suggestion: aggregate what you need and delete events older than 13 months
 (`DELETE FROM code_events WHERE created_at < NOW() - INTERVAL 13 MONTH` in phpMyAdmin, e.g. yearly), and mention
