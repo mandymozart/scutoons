@@ -37,7 +37,6 @@ Http::run(function () {
     $route = "$method $path";
 
     match (true) {
-        $route === 'GET health' => Http::json(200, ['status' => 'ok', 'db' => Db::value('SELECT 1') == 1 ? 'ok' : 'error']),
         $route === 'POST auth/request' => Auth::request(Http::body()),
         $route === 'POST auth/verify' => Auth::verify(Http::body()),
         $route === 'POST auth/logout' => Auth::logout(),

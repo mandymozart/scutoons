@@ -1,0 +1,64 @@
+<?php
+declare(strict_types=1);
+
+namespace Scutoons\Http\Controllers;
+
+use Psr\Http\Message\ResponseInterface as Response;
+use Psr\Http\Message\ServerRequestInterface as Request;
+use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Codes\CodeRules;
+use Scutoons\Domain\Codes\CodeService;
+use Scutoons\Domain\Inventory\InventoryService;
+use Scutoons\Http\CurrentSession;
+use Scutoons\Http\Json;
+use Scutoons\Http\Middleware\JsonBody;
+
+/**
+ * Signed-in inventory actions (Bearer):
+ *   POST /api/inventory/claim/   { code, item_id?, variant? } → { status, claimed: "new"|"already_yours", code, inventory }
+ *   POST /api/inventory/craft/   { recipe_id } → { status, recipe_id, inventory }
+ *   POST /api/inventory/grant/   { item_id, source, ref? } → { status, granted, inventory }
+ *   POST /api/inventory/import/  { items: [{ item_id, qty }] } → { status, imported, skipped, inventory }
+ */
+final class InventoryController
+{
+    public function __construct(private readonly InventoryService $inventory, private readonly CodeService $codes)
+    {
+    }
+
+    public function claim(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $code = CodeRules::normalize($body['code'] ?? null) ?? throw new ApiError(400, 'invalid_code', 'Code missing or malformed.');
+        $itemId = is_string($body['item_id'] ?? null) ? $body['item_id'] : null;
+        $variant = is_string($body['variant'] ?? null) ? $body['variant'] : null;
+        $new = $this->codes->claim($user, $code, $itemId, $variant);
+        return Json::response($response, 200, ['status' => 'success', 'claimed' => $new ? 'new' : 'already_yours', 'code' => $code,
+            'inventory' => $this->inventory->entries((string) $user['id'])]);
+    }
+
+    public function craft(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $recipe = $this->inventory->craft((string) $user['id'], $body['recipe_id'] ?? null);
+        return Json::response($response, 200, ['status' => 'success', 'recipe_id' => $recipe['id'], 'inventory' => $this->inventory->entries((string) $user['id'])]);
+    }
+
+    public function grant(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $granted = $this->inventory->grant((string) $user['id'], $body);
+        return Json::response($response, 200, ['status' => 'success', 'granted' => $granted, 'inventory' => $this->inventory->entries((string) $user['id'])]);
+    }
+
+    public function import(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $result = $this->inventory->import((string) $user['id'], $body);
+        return Json::response($response, 200, ['status' => 'success'] + $result + ['inventory' => $this->inventory->entries((string) $user['id'])]);
+    }
+}

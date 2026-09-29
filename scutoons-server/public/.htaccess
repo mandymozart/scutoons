@@ -1,0 +1,36 @@
+# Web root of the SCUTOONS server (document root of qr.scutoons.com and api.scutoons.com).
+# Static files here are served as they are (verify.html, assets/, the legacy generate/ SPA); everything else goes to
+# the front controller index.php (Slim, routes in ../config/routes.php). No other PHP file is ever run.
+Options -Indexes
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Pass the Authorization header (Bearer session tokens) through to PHP (FastCGI/CGI hosts drop it otherwise)
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # The front controller itself
+    RewriteRule ^index\.php$ - [L]
+
+    # Dot files are never served
+    RewriteRule (^|/)\. - [R=404,L]
+
+    # api.<domain> is the API only: its static files (verify page, assets, generate/) belong to qr.<domain> – the
+    # front controller answers 404 for them (Http\Middleware\HostRouting)
+    RewriteCond %{HTTP_HOST} ^api\. [NC]
+    RewriteRule !^api(/|$) index.php [END]
+
+    # Existing static files and folders with an index.html as they are, everything else to the front controller
+    RewriteCond %{REQUEST_FILENAME} -f
+    RewriteCond %{REQUEST_FILENAME} !\.php$
+    RewriteRule ^ - [L]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteCond %{REQUEST_FILENAME}/index.html -f
+    RewriteRule ^ - [L]
+    RewriteRule ^ index.php [END,QSA]
+</IfModule>
+<IfModule mod_setenvif.c>
+    SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
+</IfModule>

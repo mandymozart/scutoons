@@ -1,31 +1,27 @@
-RewriteEngine On
+# OLD HOST LAYOUT ONLY – for a document root that points at this folder (as for the plain-PHP server). Every request is
+# forwarded into public/ (the web root; its .htaccess sends dynamic requests to public/index.php), so the public URLs
+# (/?c=, /verify.html, /api/validate/, /api/keys/keys.php, /api/*, /generate/) keep working unchanged.
+# Once the document root of qr./api.scutoons.com is public/ (docs/DEPLOY.md "Cutover"), this file is not used.
+# The private folders are denied in any case, also should the forwarding below be switched off.
+Options -Indexes
 
-# Pass the Authorization header (Bearer session tokens) through to PHP
-SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
-RewriteCond %{HTTP:Authorization} .
-RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+<IfModule mod_rewrite.c>
+    RewriteEngine On
 
-# Never serve secrets, the server-only permissions map, local databases, logs or CLI-only files over HTTP
-<FilesMatch "^(keypair\.json|permissions\.json|\.htpasswd|config(\.local)?\.php|config\.local\.php\.example|db\.php|router\.php|.*\.sqlite.*|.*\.log)$">
+    # Pass the Authorization header (Bearer session tokens) through to PHP
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Private: code, configuration, dependencies, data, logs, CLI, tests, templates, docs, local files
+    RewriteRule ^(src|config|vendor|migrations|bin|tests|db|logs|storage|templates|docs)(/|$) - [R=404,L]
+    RewriteRule ^(config(\.local)?\.php|config\.local\.php\.example|composer\.(json|lock)|phpunit\.xml(\.dist)?|phpstan\.neon(\.dist)?|README\.md)$ - [R=404,L]
+    RewriteRule (^|/)\. - [R=404,L]
+
+    # Everything else lives in public/
+    RewriteRule ^public/ - [L]
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+<FilesMatch "^(keypair\.json|permissions\.json|\.htpasswd|config(\.local)?\.php|.*\.sqlite.*|.*\.log|composer\.(json|lock))$">
     Require all denied
 </FilesMatch>
-RedirectMatch 404 ^/(db|logs|scripts|tests|api/lib)(/|$)
-
-# API: existing files and folders (validate/, items/, editions/, toons/, keys/) as they are,
-# every other /api/ path goes to the front controller (auth, me, code, inventory, avatar, progress)
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^api/ api/index.php [L,QSA]
-
-# Direct access to /generate shows the form
-RewriteRule ^generate/?$ generate/index.php [L]
-
-# Allow access to generate directory files
-RewriteRule ^generate/(.+)$ generate/$1 [L]
-
-# Route QR code parameters to index.php
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_URI} !^/generate
-RewriteCond %{REQUEST_URI} !^/api/
-RewriteRule ^(.*)$ index.php [L,QSA]
