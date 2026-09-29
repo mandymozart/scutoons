@@ -11,6 +11,7 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
+import { MOODS, isMood } from './characters.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -46,8 +47,10 @@ export interface ValidateContext {
 	file: string;
 	/** chapter audio config (for slice music/sample ids) */
 	audio?: any;
-	/** character names known in characters.json */
+	/** character names the chapter may use: the toon's cast (or the names of the legacy characters.json) */
 	characters?: string[];
+	/** every character id of the registry (a name in the registry but not in `characters` = "not in the cast") */
+	registry?: string[];
 	/**
 	 * chapter files: the status of this chapter in the season of the same locale (the source of its visibility);
 	 * null = the season's sequence doesn't have the chapter; undefined = season not known (no check)
@@ -135,6 +138,10 @@ function checkTarget(c: Collector, target: any, path: Path) {
 	if (target.value === undefined || target.value === '') c.error([...path, 'value'], 'target.value is missing');
 }
 
+function unknownCharacter(name: string, ctx: ValidateContext) {
+	return ctx.registry?.includes(name) ? `character "${name}" is not in the toon's cast` : `unknown character "${name}"`;
+}
+
 export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContext, sliceEvent: boolean) {
 	if (!isObj(e)) return c.error(path, 'event must be an object');
 	if (!EVENT_TYPES.includes(e.type)) {
@@ -147,7 +154,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 		case 'showMessage':
 			if (!isObj(p) || !isStr(p.text)) c.error([...pp, 'text'], 'showMessage needs params.text');
 			if (isObj(p) && p.character && ctx.characters && !ctx.characters.includes(p.character)) {
-				c.warn([...pp, 'character'], `unknown character "${p.character}"`);
+				c.warn([...pp, 'character'], unknownCharacter(p.character, ctx));
 			}
 			break;
 		case 'addChoice':
@@ -164,7 +171,10 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			else
 				p.characters.forEach((ch: any, i: number) => {
 					if (!isObj(ch) || !isStr(ch.name)) c.error([...pp, 'characters', i, 'name'], 'character needs a name');
-					else if (ctx.characters && !ctx.characters.includes(ch.name)) c.warn([...pp, 'characters', i, 'name'], `unknown character "${ch.name}"`);
+					else if (ctx.characters && !ctx.characters.includes(ch.name)) c.warn([...pp, 'characters', i, 'name'], unknownCharacter(ch.name, ctx));
+					if (isObj(ch) && ch.mood !== undefined && ch.mood !== '' && !isMood(ch.mood)) {
+						c.warn([...pp, 'characters', i, 'mood'], `mood "${ch.mood}" is not one of ${MOODS.join(', ')} – the reader shows neutral`);
+					}
 					if (ch?.position?.variant && !CHARACTER_VARIANTS.includes(ch.position.variant)) {
 						c.error([...pp, 'characters', i, 'position'], 'position.variant must be avatar, full or portrait');
 					}

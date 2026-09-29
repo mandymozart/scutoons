@@ -1,0 +1,166 @@
+{
+	"characters": [
+		{
+			"id": "catpope",
+			"name": {
+				"de": "Katzenpapst",
+				"en": "Cat Pope"
+			},
+			"description": {
+				"de": "Zukünftiges Selbst",
+				"en": "Is future self"
+			},
+			"color": "blue",
+			"group": "lead",
+			"image": "catpope/images/characters/catpope/catpope.svg",
+			"images": {
+				"neutral": {
+					"avatar": "catpope/images/characters/catpope/catpope_avatar.svg",
+					"portrait": "catpope/images/characters/catpope/catpope_portrait.svg",
+					"full": "catpope/images/characters/catpope/catpope_full.svg"
+				}
+			}
+		},
+		{
+			"id": "plf",
+			"name": {
+				"de": "PLF",
+				"en": "PLF"
+			},
+			"description": {
+				"de": "Katzenpapst in menschlicher Gestalt",
+				"en": "Is catpope is human shape. aka Pope-like figure"
+			},
+			"color": "lightblue",
+			"group": "support",
+			"image": "catpope/images/characters/plf/plf.svg",
+			"images": {
+				"neutral": {
+					"avatar": "catpope/images/characters/plf/plf_avatar-neutral.png",
+					"portrait": "catpope/images/characters/plf/plf_portrait-neutral.png",
+					"full": "catpope/images/characters/plf/plf_full.svg"
+				}
+			}
+		},
+		{
+			"id": "cat",
+			"name": {
+				"de": "Katze",
+				"en": "Cat"
+			},
+			"description": {
+				"de": "In Katzenform",
+				"en": "Is cat shaped plf"
+			},
+			"color": "darkblue",
+			"group": "lead",
+			"image": "catpope/images/characters/cat/cat.svg",
+			"images": {
+				"neutral": {
+					"avatar": "catpope/images/characters/cat/cat_avatar-neutral.png",
+					"portrait": "catpope/images/characters/cat/cat_portrait-neutral.png",
+					"full": "catpope/images/characters/cat/cat_full.svg"
+				}
+			}
+		},
+		{
+			"id": "boy",
+			"name": {
+				"de": "Junge",
+				"en": "Boy"
+			},
+			"description": {
+				"de": "Katzenpapst sieht Katze und ist vor der Kirche erschrocken",
+				"en": "See cat and is scared in front of church"
+			},
+			"color": "red",
+			"group": "support",
+			"image": "catpope/images/characters/boy/boy.svg",
+			"images": {
+				"neutral": {
+					"avatar": "catpope/images/characters/boy/boy_avatar.svg",
+					"portrait": "catpope/images/characters/boy/boy_portrait.svg",
+					"full": "catpope/images/characters/boy/boy_full.svg"
+				}
+			}
+		},
+		{
+			"id": "crows",
+			"name": {
+				"de": "Krähen",
+				"en": "Crows"
+			},
+			"description": {
+				"de": "Krähen, können Zeit und Raum reisen, bringen eine Nachricht aus der Zukunft.",
+				"en": "Are crows, can travel time and space, bringing a message from the future."
+			},
+			"color": "darkgreen",
+			"group": "support",
+			"image": "catpope/images/characters/crows/crows.svg",
+			"images": {
+				"neutral": {
+					"avatar": "catpope/images/characters/crows/crows_avatar.svg",
+					"portrait": "catpope/images/characters/crows/crows_portrait.svg",
+					"full": "catpope/images/characters/crows/crows_full.svg"
+				}
+			}
+		},
+		{
+			"id": "mountain-tiger",
+			"name": {
+				"de": "Gebirgs Tiger",
+				"en": "Mountain Tiger"
+			},
+			"description": {
+				"de": "Grosses Tier, plf kämpft mit sich selbst.",
+				"en": "Is a large cat. plf kind of fighting themself."
+			},
+			"color": "yellow",
+			"group": "lead",
+			"image": "catpope/images/characters/mountain-tiger/mountain-tiger.svg",
+			"images": {
+				"neutral": {
+					"avatar": "catpope/images/characters/mountain-tiger/mountain-tiger_avatar.svg",
+					"portrait": "catpope/images/characters/mountain-tiger/mountain-tiger_portrait.svg",
+					"full": "catpope/images/characters/mountain-tiger/mountain-tiger_full.svg"
+				}
+			}
+		},
+		{
+			"id": "mouse",
+			"name": {
+				"de": "Mausboss",
+				"en": "Yellow Mouse"
+			},
+			"color": "yellow",
+			"group": "lead",
+			"own_toon": "yellowmouse",
+			"mannequin": "mouse",
+			"image": "yellowmouse/avatar.webp",
+			"images": {
+				"neutral": {}
+			}
+		},
+		{
+			"id": "toptoy",
+			"name": {
+				"de": "Toptoy",
+				"en": "Toptoy"
+			},
+			"description": {
+				"de": "Das Duo",
+				"en": "The duo"
+			},
+			"color": "black",
+			"group": "lead",
+			"own_toon": "toptoy",
+			"tags": [
+				"duo"
+			],
+			"image": "toptoy/avatar.webp",
+			"images": {
+				"neutral": {}
+			}
+		}
+	]
+}

@@ -1,0 +1,51 @@
+{
+	"$id": "https://scutoons.com/schema/cast.schema.json",
+	"title": "ToonCast",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/ToonCast",
+	"definitions": {
+		"ToonCast": {
+			"type": "object",
+			"properties": {
+				"members": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CastMember"
+					}
+				}
+			},
+			"required": [
+				"members"
+			],
+			"description": "`<toon>/_/cast.json`"
+		},
+		"CastMember": {
+			"type": "object",
+			"properties": {
+				"character": {
+					"type": "string",
+					"description": "registry id"
+				},
+				"role": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the character's role in this toon, per locale (e.g. \"Erzähler\" / \"Narrator\")"
+				},
+				"order": {
+					"type": "number",
+					"description": "display order (ascending)"
+				}
+			},
+			"required": [
+				"character",
+				"order"
+			]
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		}
+	}
+}

@@ -1,0 +1,28 @@
+{
+	"members": [
+		{
+			"character": "catpope",
+			"order": 1
+		},
+		{
+			"character": "plf",
+			"order": 2
+		},
+		{
+			"character": "cat",
+			"order": 3
+		},
+		{
+			"character": "boy",
+			"order": 4
+		},
+		{
+			"character": "crows",
+			"order": 5
+		},
+		{
+			"character": "mountain-tiger",
+			"order": 6
+		}
+	]
+}

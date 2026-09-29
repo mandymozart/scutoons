@@ -66,12 +66,21 @@ final class ContentServiceTest extends TestCase
     public function testImportAcceptsTheCreditsFiles(): void
     {
         // language-neutral credits files (shared/content/seed) next to the per-locale configs
-        foreach ([['_', 'credits.json'], ['_', 'people.json'], ['_', 'roles.json'], ['de', 'chapter1.json'], ['de', 'chapter2/scene-14.json'], ['en', 'season1.json']] as [$locale, $path]) {
+        foreach ([['_', 'credits.json'], ['_', 'people.json'], ['_', 'roles.json'], ['_', 'characters.json'], ['_', 'cast.json'], ['de', 'chapter1.json'], ['de', 'chapter2/scene-14.json'], ['en', 'season1.json']] as [$locale, $path]) {
             self::assertTrue(ImportContentCommand::isContentFile($locale, $path), "$locale/$path");
         }
         foreach ([['de', 'credits.json'], ['_', 'index.json'], ['_', 'chapter1.json'], ['de', 'characters.json']] as [$locale, $path]) {
             self::assertFalse(ImportContentCommand::isContentFile($locale, $path), "$locale/$path");
         }
         ContentService::checkKey('scutoons', ContentService::NEUTRAL_LOCALE, 'people.json');
+        ContentService::checkKey('scutoons', ContentService::NEUTRAL_LOCALE, 'characters.json');
+        ContentService::checkKey('catpope', ContentService::NEUTRAL_LOCALE, 'cast.json');
+    }
+
+    public function testImportOnlyFilter(): void
+    {
+        self::assertTrue(ImportContentCommand::matchesOnly('cast.json', ['characters.json', 'cast.json']));
+        self::assertFalse(ImportContentCommand::matchesOnly('credits.json', ['characters.json', 'cast.json']));
+        self::assertTrue(ImportContentCommand::matchesOnly('chapter2/scene-14.json', []));
     }
 }

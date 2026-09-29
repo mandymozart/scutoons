@@ -1,0 +1,108 @@
+{
+	"$id": "https://scutoons.com/schema/characters.schema.json",
+	"title": "CharacterRegistry",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/CharacterRegistry",
+	"definitions": {
+		"CharacterRegistry": {
+			"type": "object",
+			"properties": {
+				"characters": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/RegistryCharacter"
+					}
+				}
+			},
+			"required": [
+				"characters"
+			],
+			"description": "`scutoons/_/characters.json`"
+		},
+		"RegistryCharacter": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable id, referenced by casts and by VN events (`joinScene` `name`) – `^[a-z0-9][a-z0-9-]*$`"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "display name per locale (the VN speaker plate)"
+				},
+				"description": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"color": {
+					"type": "string",
+					"description": "CSS color (VN avatar background, speaker accents)"
+				},
+				"group": {
+					"$ref": "#/definitions/CharacterGroup",
+					"description": "`lead` | `support` | `cast` | `extra` | …"
+				},
+				"own_toon": {
+					"type": "string",
+					"description": "the toon this character is the protagonist of (e.g. the mouse → `yellowmouse`)"
+				},
+				"voiced_by": {
+					"type": "string",
+					"description": "person id of the voice (scutoons/_/people.json)"
+				},
+				"mannequin": {
+					"type": "string",
+					"description": "avatar body id (MANNEQUINS)"
+				},
+				"tags": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"image": {
+					"type": "string",
+					"description": "legacy single image (last fallback of every mood/variant; placeholder e.g. `<toon>/avatar.webp`)"
+				},
+				"images": {
+					"type": "object",
+					"additionalProperties": {
+						"$ref": "#/definitions/CharacterImage"
+					},
+					"description": "mood → variant → CDN path"
+				}
+			},
+			"required": [
+				"id",
+				"name",
+				"color",
+				"group",
+				"images"
+			],
+			"description": "One character of the registry. Image values are CDN paths from the CDN root (`catpope/images/characters/…`)."
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		},
+		"CharacterGroup": {
+			"type": "string"
+		},
+		"CharacterImage": {
+			"type": "object",
+			"properties": {
+				"avatar": {
+					"type": "string"
+				},
+				"portrait": {
+					"type": "string"
+				},
+				"full": {
+					"type": "string"
+				}
+			}
+		}
+	}
+}
