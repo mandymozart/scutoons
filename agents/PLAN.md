@@ -123,6 +123,28 @@ membership code in localStorage, and inventory only shows VN collectables. No "c
 - **D5 – QR landing page update** (`qr.scutoons.com/index.php`): show the item (image, name, `n / total`,
   variant), "Add to my inventory" → login/magic link → redirect to `scutoons.com/catpope?code=…&inventory=1`.
 
+## Track Creator — editor at scutoons.com/creator
+
+Web tool to make webtoons "SCUTOONS style" on the **existing** config structure (text inline per locale, no
+translation files). Details: MEMORY.md → "Creator editor"; API: qr `docs/ACCOUNTS.md` → "Content API".
+
+**Phase 1 — done (2026-09-30)**
+- Content store in qr.scutoons.com (`content_versions`, drafts/published/history/restore, role `creator`), import
+  script, reader loads store → static fallback, `?preview=draft` for creators.
+- Editor: toon → season → chapters (new chapter, season status), meta per locale, groups + scene files, slices
+  (thumbnails, drag reorder, image picker with CDN preview + 390×625 / 1170×1875 hint), WYSIWYG text boxes (draw / move /
+  resize, properties, de/en side by side, overrides, 130 % warning, grid snap, nudge, 1x/3x), audio (tracks, sample
+  library, per-slice volumes, samples with drawn trigger areas), VN forms + raw JSON + onomatopoeia preview, validation,
+  undo/redo, autosave, unsaved guard, save draft / publish / preview, style guide, version history.
+
+**Phase 2 — open**
+1. Image upload to the CDN (separate FTP host; today `python cdn/sync.py`) – upload from the image picker.
+2. Figma import (Track A: art frames → images, TEXT layers → `dialog` boxes, merge into the store instead of files).
+3. Production rollout: run `2026-09-30-content-versions.mysql.sql`, seed with `import-content.php` (needs PHP + DB
+   access or a phpMyAdmin import), grant `creator`, then treat the static files as seed/fallback only.
+4. Nice to have: publish per locale / per file from the top bar, diff view between versions, locking or live presence
+   for two editors, creating/renaming VN scene files for existing groups, slice-level `onomatopoeia` (typed, not rendered).
+
 ## Parallelisation (running 2026-09-29)
 
 | Agent | Scope (files it owns) |
@@ -182,4 +204,5 @@ Agents don't commit in the scutoons repo (shared working tree); the coordinator 
 - 2026-09-30 — access model final: codes (membership/promo via permissions map) unlock reading on the device without
   login; accounts only for owning codes (one owner, API + DB triggers + race test); revoke per code; code_events
   activity log + admin Stats view. qr `anger` smoke 108/108. Viewer 5b4dd60.
-
+- 2026-09-30 — Track Creator phase 1: content store (qr 660117b, 1475223, 7d9b917, b95cfb6, badc1eb, 0332912), `/creator` editor, reader loads
+  the store first. Browser walkthrough on chapter 1 (edit de+en → draft → preview → publish → restored). Phase 2 open.

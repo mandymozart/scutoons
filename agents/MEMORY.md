@@ -281,3 +281,51 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   `/de` showing English is not a bug in these files: paraglide strategy is cookie → globalVariable → baseLocale
   (no `url` strategy), so the locale cookie wins over the path. The `/access/`+`/code/` per-IP limit (120/h) trips
   after ~4 smoke runs locally → `DELETE FROM rate_limits WHERE bucket LIKE 'lookup:%'`.
+
+## Creator editor
+
+2026-09-30 — `scutoons.com/creator` (phase 1). **Source of truth for chapter / season / toon configs and VN scene files
+is now the content store** in qr.scutoons.com (`content_versions`); the static files in `viewer/static/api/<toon>/<locale>/`
+are the fallback and the seed.
+- Store (qr `api/lib/Content.php`, docs `docs/ACCOUNTS.md` → "Content API"): one row per saved version of a file
+  (toon, locale, path); at most one `published` row per file (live), all others `draft` (newest = working copy).
+  Public `GET {QR_API}/content/<toon>/<locale>/<path>.json` = published (ETag, 404 when none). Drafts, `PUT`,
+  `versions`, `index`, `publish`, `unpublish`, `restore` need role `creator` (`Roles::requireRole`). Path whitelist
+  `^[a-z0-9_-]+(/[a-z0-9_-]+)?\.json$`, 2 MB limit, JSON decoded as objects (keeps `{}`). `restore` copies an old
+  version as the newest draft (publish it to go live). Seed: `php scripts/import-content.php <viewer/static/api>`
+  (published v1, idempotent; `--update` adds new published versions for changed static files; `--db=<sqlite>` for copies;
+  `--sql` prints guarded MySQL INSERTs for phpMyAdmin = the production seed, not done yet).
+- Viewer loader (`lib/api/content.service.ts` `fetchContent`): `(toons)/[toonId]/+layout.ts` (toon.json, season1.json,
+  chapterN.json), `chapter/[chapterNumber]/+page.ts` (chapter + `ref.src` scene files), `download/+page.ts` (toon.json)
+  read the store first (4 s timeout) and fall back to the static `/api/...` file on 404/error. characters, locations,
+  routes, collectables, credits stay static. `?preview=draft` on a reader URL loads the newest drafts with the session
+  token (creators only; others fall back to published → static). jumpTo/navigation inside the reader drops `?preview`.
+- **Local dev: the local store is seeded** (2026-09-30), so the dev reader shows store content: editing a static file
+  no longer shows up until `php scripts/import-content.php C:\Development\scutoons\viewer\static\api --update` (or edit
+  in `/creator`). Chapter 1 was edited/published/restored in the browser test; its published version equals the static
+  file again (v49 de / v50 en = restores of v17 / v32).
+- Editor code: route `routes/(creator)/creator/**` (gate: session + `user.roles` includes `creator`, else sign-in form
+  / "No access"), components `lib/components/creator/*`, logic `lib/creator/*` (`doc.svelte.ts` ContentDoc,
+  `validate.ts`, `paths.ts`, `defaults.ts`, `images.ts`). Chapter editor = `chapter-editor.svelte`.
+- Model: a `ContentDoc` = one file in all locales (`data[locale]`). Shared fields (geometry, style, image, audio, VN
+  structure) are written with `setShared`: to the source locale `de` and to every locale whose value still equals the
+  old de value – differing locales keep their value and show as **override** ("Use shared value" resets). Text
+  (dialog text, VN text/labels, title, description) is per locale (`setLocal`). Structural edits (add/remove/reorder
+  slices, boxes, events, groups) apply to every locale file by index, so the locale files must stay aligned (the
+  problem list reports mismatches). Canvas drags/nudges move every locale by the same delta (keeps e.g. the wider en
+  rect of chapter 1) or only the shown locale (geometry scope "only en").
+- Canvas: real `Dialogs` renderer (`lang` prop) in a `container-type: inline-size` box of 390/1170 px (1x/3x) with an
+  overlay for dialog / sample / event rects (move, 8 handles, draw on empty space, snap to 0.5–5 % grid, arrows nudge,
+  Shift ×10, Delete). The reader's dialog/onomatopoeia components are used unchanged (no editable hooks were needed).
+- Undo/redo per file (snapshots, merged typing/drag steps, Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y), Ctrl+S saves, autosave of
+  unsaved files to localStorage `scutoons_creator:<toon>:<path>` (restore banner after a reload), `beforeNavigate`
+  guard. Save = `PUT` per changed locale with `base` = loaded version (409 → reload / overwrite). Publish = save, then
+  publish the newest version of every stored file of the chapter (incl. scene files).
+- Reader language is a cookie (paraglide strategy cookie → globalVariable → baseLocale), not the URL: the editor's
+  "Preview de/en" links set `PARAGLIDE_LOCALE` before opening `/<toon>/chapter/N?preview=draft[&label=]`.
+- Validation (`validate.ts`) mirrors the TS types: required chapter fields, enums, rects, dialog props, audio track /
+  sample ids vs the chapter library, trigger rects, VN event params, characters from `characters.json`, keyvisual
+  string form, `audio.samples` misplacement (one-click "Move them"), cross-locale structure, missing translations,
+  en > 130 % of de.
+- Browser tests with a second account: `http://[::1]:5173` is the same dev server with its own localStorage; it is
+  in `ALLOWED_ORIGINS` of the local `config.local.php` only. Test creator `creator-test@example.com` (local DB).

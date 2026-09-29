@@ -12,18 +12,22 @@ import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
 import { isItemPublic } from '$lib/utils/template.ts';
 import { m } from '$lib/paraglide/messages.js';
+import { fetchContent, isDraftPreview } from '$lib/api/content.service.ts';
 
-export const load: LayoutLoad = async ({ fetch, params }) => {
+export const load: LayoutLoad = async ({ fetch, params, url }) => {
 	const lang = getLocale();
 	const base = `${API_BASE}/${params.toonId}/${lang}`;
+	// toon / season / chapter configs: content store first (drafts in `?preview=draft`), static files as fallback
+	const content = (path: string) =>
+		fetchContent(fetch, params.toonId, lang, path, { draft: isDraftPreview(url) });
 
 	const [charactersRes, seasonRes, locationsRes, routesRes, toonRes, collectablesRes] =
 		await Promise.all([
 			fetch(`${base}/characters.json`),
-			fetch(`${base}/season1.json`),
+			content('season1.json'),
 			fetch(`${base}/locations.json`),
 			fetch(`${base}/routes.json`),
-			fetch(`${base}/toon.json`),
+			content('toon.json'),
 			fetch(`${base}/collectables.json`)
 		]);
 
@@ -45,7 +49,7 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 
 	const sequence: LoadedSequenceItem[] = await Promise.all(
 		publicItems.map(async (item) => {
-			const response = await fetch(`${base}/${item.type}${item.number}.json`);
+			const response = await content(`${item.type}${item.number}.json`);
 			if (!response.ok)
 				throw error(
 					404,
