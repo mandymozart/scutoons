@@ -9,8 +9,6 @@ declare(strict_types=1);
  *   GET  /api/health/
  *   POST /api/auth/request/          { email, code?, item_id?, variant?, locale? } → { status: "sent" }
  *   POST /api/auth/verify/           { email, otp } | { token } → { status, session_token, user, created, claimed?, claim_error? }
- *   POST /api/auth/code/             { code, item_id?, variant? } (+ optional Bearer) → anonymous account / claim
- *   GET  /api/permissions/           what each code type unlocks (api/permissions.json)
  *   POST /api/auth/logout/
  *   GET  /api/me/                    { user, memberships, inventory, avatar }
  *   GET  /api/code/?c=CODE           public code info (never an email)
@@ -37,12 +35,10 @@ Http::run(function () {
         $route === 'GET health' => Http::json(200, ['status' => 'ok', 'db' => Db::value('SELECT 1') == 1 ? 'ok' : 'error']),
         $route === 'POST auth/request' => Auth::request(Http::body()),
         $route === 'POST auth/verify' => Auth::verify(Http::body()),
-        $route === 'POST auth/code' => Auth::code(Http::body()),
         $route === 'POST auth/logout' => Auth::logout(),
         $route === 'GET me' => Inventory::me(),
         $route === 'GET code' => Codes::get(),
         $route === 'GET items' => Http::json(200, Catalog::data()),
-        $route === 'GET permissions' => Http::json(200, Permissions::map()),
         $route === 'POST inventory/claim' => Inventory::claim(Http::body()),
         $route === 'POST inventory/craft' => Inventory::craft(Http::body()),
         $route === 'POST inventory/grant' => Inventory::grant(Http::body()),

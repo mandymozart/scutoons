@@ -67,30 +67,9 @@ final class Db
         return self::isSqlite() ? '' : ' FOR UPDATE';
     }
 
-    private static int $depth = 0;
-
-    /** Runs $work in a transaction; nested calls join the outer transaction (all or nothing) */
     public static function transaction(callable $work): mixed
     {
-        if (self::$depth > 0) {
-            self::$depth++;
-            try {
-                return $work();
-            } finally {
-                self::$depth--;
-            }
-        }
         $pdo = self::pdo();
-        self::$depth = 1;
-        try {
-            return self::outerTransaction($pdo, $work);
-        } finally {
-            self::$depth = 0;
-        }
-    }
-
-    private static function outerTransaction(PDO $pdo, callable $work): mixed
-    {
         if (self::isSqlite()) {
             // Take the write lock up front so concurrent claims serialize
             $pdo->exec('BEGIN IMMEDIATE');
