@@ -5,8 +5,8 @@ SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1
 RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
-# Never serve secrets, local databases, logs or CLI-only files over HTTP
-<FilesMatch "^(keypair\.json|\.htpasswd|config(\.local)?\.php|config\.local\.php\.example|db\.php|router\.php|.*\.sqlite.*|.*\.log)$">
+# Never serve secrets, the server-only permissions map, local databases, logs or CLI-only files over HTTP
+<FilesMatch "^(keypair\.json|permissions\.json|\.htpasswd|config(\.local)?\.php|config\.local\.php\.example|db\.php|router\.php|.*\.sqlite.*|.*\.log)$">
     Require all denied
 </FilesMatch>
 RedirectMatch 404 ^/(db|logs|scripts|tests|api/lib)(/|$)

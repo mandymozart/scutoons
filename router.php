@@ -15,8 +15,8 @@ if (PHP_SAPI !== 'cli-server') {
 $path = rawurldecode((string) parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH));
 $file = __DIR__ . $path;
 
-// Never serve secrets, local databases, logs or CLI-only files
-if (preg_match('#(^|/)(\.|db/|logs/|scripts/|tests/|api/lib/)|keypair\.json$|\.htpasswd$|\.sqlite|\.log$|^/(config(\.local)?\.php|config\.local\.php\.example|db\.php|router\.php)$#', $path)
+// Never serve secrets, the server-only permissions map, local databases, logs or CLI-only files
+if (preg_match('#(^|/)(\.|db/|logs/|scripts/|tests/|api/lib/)|keypair\.json$|permissions\.json$|\.htpasswd$|\.sqlite|\.log$|^/(config(\.local)?\.php|config\.local\.php\.example|db\.php|router\.php)$#', $path)
     || str_contains($path, '..')) {
     http_response_code(404);
     echo 'Not found';

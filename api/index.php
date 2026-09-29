@@ -10,8 +10,9 @@ declare(strict_types=1);
  *   POST /api/auth/request/          { email, code?, item_id?, variant?, locale? } → { status: "sent" }
  *   POST /api/auth/verify/           { email, otp } | { token } → { status, session_token, user, created, claimed?, claim_error? }
  *   POST /api/auth/logout/
- *   GET  /api/me/                    { user, memberships, inventory, avatar }
+ *   GET  /api/me/                    { user, access, memberships, inventory, avatar }
  *   GET  /api/code/?c=CODE           public code info (never an email)
+ *   GET|POST /api/access/            { code } or ?c= → device access (permissions of a code, access_token)
  *   POST /api/inventory/claim/       { code, item_id?, variant? }
  *   POST /api/inventory/craft/       { recipe_id }
  *   POST /api/inventory/grant/       { item_id, source, ref? }
@@ -38,6 +39,7 @@ Http::run(function () {
         $route === 'POST auth/logout' => Auth::logout(),
         $route === 'GET me' => Inventory::me(),
         $route === 'GET code' => Codes::get(),
+        $route === 'GET access', $route === 'POST access' => Codes::access(),
         $route === 'GET items' => Http::json(200, Catalog::data()),
         $route === 'POST inventory/claim' => Inventory::claim(Http::body()),
         $route === 'POST inventory/craft' => Inventory::craft(Http::body()),

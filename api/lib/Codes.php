@@ -7,9 +7,6 @@ declare(strict_types=1);
  */
 final class Codes
 {
-    /** Codes whose type can be claimed into an inventory (event/xr/page just redirect) */
-    public const CLAIMABLE_TYPES = ['membership', 'promo'];
-
     /** A syntactically valid code (nanoid, max 8 chars) or null */
     public static function normalize(mixed $value): ?string
     {
@@ -61,9 +58,53 @@ final class Codes
         return $row['claimed_by'] !== null || (string) $row['email'] !== '';
     }
 
+    /** Per-IP limit for public code lookups (/access/, /code/) – every attempt counts, against code enumeration */
+    private static function guardLookup(): void
+    {
+        $bucket = 'lookup:' . hash_hmac('sha256', Http::clientIp(), Auth::secret());
+        RateLimit::guard($bucket, Config::int('ACCESS_MAX_PER_IP_HOUR'), 3600, 'Too many codes checked – try again later.');
+        RateLimit::hit($bucket);
+        RateLimit::prune();
+    }
+
+    /**
+     * GET|POST /access/ { code } or ?c= (optional Bearer) → device access for anyone holding the code:
+     * { status, code, type, expires_at, permissions, claimable, claimed, claimed_by_me?, access_token? }
+     * Works for codes owned by someone else too (viewing is device-level); never says who owns it.
+     * access_token only when the code grants "catalog".
+     */
+    public static function access(): never
+    {
+        self::guardLookup();
+        $input = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' ? Http::body() : [];
+        $code = self::normalize($input['code'] ?? $input['c'] ?? $_GET['c'] ?? $_GET['code'] ?? null)
+            ?? throw new ApiError(400, 'invalid_code', 'Code missing or malformed.');
+        $row = self::find($code) ?? throw new ApiError(404, 'not_found', 'This code does not exist.');
+        if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
+
+        $type = Permissions::forType((string) $row['type']);
+        $expires = $row['expires_at'] ? (int) strtotime((string) $row['expires_at']) : null;
+        $response = [
+            'status' => 'success',
+            'code' => $row['code'],
+            'type' => $row['type'],
+            'expires_at' => $expires !== null ? date('c', $expires) : null,
+            'permissions' => $type['grants'],
+            'claimable' => $type['claimable'],
+            'claimed' => self::isClaimed($row),
+        ];
+        $user = Auth::optionalUser();
+        if ($user !== null) $response['claimed_by_me'] = $row['claimed_by'] === $user['id'];
+        if (in_array('catalog', $type['grants'], true)) {
+            $response['access_token'] = Permissions::issueToken($type['grants'], $expires, Permissions::codeSubject($row['code']));
+        }
+        Http::json(200, $response);
+    }
+
     /** GET /code/?c=CODE → public info about a code (never an email) */
     public static function get(): never
     {
+        self::guardLookup();
         $code = self::normalize($_GET['c'] ?? $_GET['code'] ?? null);
         if ($code === null) throw new ApiError(400, 'invalid_code', 'Code missing or malformed.');
         $row = self::find($code);
@@ -101,13 +142,17 @@ final class Codes
             if (!$row) throw new ApiError(404, 'not_found', 'This code does not exist.');
             if (qrIsExpired($row)) throw new ApiError(410, 'expired', 'This code has expired.');
             if ($row['claimed_by'] === $user['id']) return false;
-            if (!in_array($row['type'], self::CLAIMABLE_TYPES, true)) {
+            // Which types can be owned: the permissions map (api/permissions.json)
+            if (!Permissions::claimable((string) $row['type'])) {
                 throw new ApiError(422, 'not_claimable', 'This code cannot be added to an inventory.');
             }
-            // Claimed by someone else – or by the old email-only form with another address
+            if ($row['claimed_by'] !== null) {
+                throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s account. You can still read with it.');
+            }
+            // Claimed by the old email-only form: only the account with that email may own it
             $legacyEmail = strtolower(trim((string) $row['email']));
-            if ($row['claimed_by'] !== null || ($legacyEmail !== '' && $legacyEmail !== $user['email'])) {
-                throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s inventory.');
+            if ($legacyEmail !== '' && $legacyEmail !== $user['email']) {
+                throw new ApiError(409, 'email_required', 'Sign in with the email this code was registered with.');
             }
 
             $grants = self::resolveItems($row, $itemId, $variant);

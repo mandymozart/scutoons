@@ -31,6 +31,10 @@ final class Config
         'SMTP_PASS' => '',
         'SMTP_TIMEOUT' => '15',
         // Login limits
+        // GET/POST /access/ lookups per IP and hour (every attempt counts – against code enumeration)
+        'ACCESS_MAX_PER_IP_HOUR' => '120',
+        // Another permissions map (default api/permissions.json)
+        'PERMISSIONS_PATH' => '',
         'LOGIN_TTL_MINUTES' => '30',
         'LOGIN_MAX_ATTEMPTS' => '5',
         'LOGIN_MAX_PER_EMAIL_HOUR' => '5',
