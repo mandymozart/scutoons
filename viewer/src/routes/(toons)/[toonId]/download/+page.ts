@@ -1,7 +1,7 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
-import type { Toon } from '$lib/models/content.ts';
+import type { Toon } from '@scutoons/content';
 import { fetchContent } from '$lib/api/content.service.ts';
 
 export const load: PageLoad = async ({ fetch, params }) => {

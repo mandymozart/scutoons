@@ -1,9 +1,9 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
-import type { Chapter } from '$lib/models/content.ts';
+import type { Chapter } from '@scutoons/content';
 
-import { type Group } from '$lib/models/content.ts';
+import { type Group } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { fetchContent, isDraftPreview } from '$lib/api/content.service.ts';
 

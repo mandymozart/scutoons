@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Group } from '$lib/models/content.ts';
+	import type { Group } from '@scutoons/content';
 	import Slice from '../slice.svelte';
 
 	let { group }: { group: Group } = $props();

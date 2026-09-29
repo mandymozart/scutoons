@@ -1,4 +1,4 @@
-// Checks config files against the viewer's TypeScript types (lib/models/{content,audio,visual-novel,enums}.ts)
+// Checks config files against the content types of this package (content, audio, visual-novel, enums)
 // and across locales (same structure, missing translations, text length). Minimal on the server, thorough here.
 import {
 	JumpToTargetType,
@@ -9,7 +9,7 @@ import {
 	Status,
 	Trigger,
 	TriggerMode
-} from '$lib/models/enums.ts';
+} from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 
 export type Level = 'error' | 'warning' | 'info';

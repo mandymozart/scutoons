@@ -5,8 +5,8 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, LOCALES, SOURCE_LOCALE } from '$lib/creator/doc.svelte.ts';
 	import { newChapter } from '$lib/creator/defaults.ts';
-	import { Status } from '$lib/models/enums.ts';
-	import type { SequenceItem } from '$lib/models/content.ts';
+	import { Status } from '@scutoons/content';
+	import type { SequenceItem } from '@scutoons/content';
 	import StyleGuide from '$lib/components/creator/style-guide.svelte';
 	import FileStatus from '$lib/components/creator/file-status.svelte';
 

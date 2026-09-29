@@ -12,7 +12,7 @@
 	import { onMount, tick } from 'svelte';
 	import Dialogs from '$lib/components/toon/dialog/dialogs.svelte';
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
-	import { getAt, round2, type Path } from '$lib/creator/paths.ts';
+	import { getAt, round2, type Path } from '@scutoons/content';
 	import { SLICE_RATIO } from '$lib/creator/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 

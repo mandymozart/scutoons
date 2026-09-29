@@ -1,5 +1,5 @@
 import type { Component } from 'svelte';
-import type { Entry } from '$lib/models/items.ts';
+import type { Entry } from '@scutoons/content';
 
 export interface MinigameProps {
 	entry: Entry | null;

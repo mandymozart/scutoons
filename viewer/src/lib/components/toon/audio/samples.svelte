@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Sample } from '$lib/models/audio.ts';
+	import type { Sample } from '@scutoons/content';
 	import SampleTrigger from './sample-trigger.svelte';
 
 	let { samples }: { samples?: Sample[] } = $props();

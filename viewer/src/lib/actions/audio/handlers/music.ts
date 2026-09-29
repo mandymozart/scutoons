@@ -1,5 +1,5 @@
-import type { MusicEventTrack } from '$lib/models/audio.ts';
-import type { Slice } from '$lib/models/content.ts';
+import type { MusicEventTrack } from '@scutoons/content';
+import type { Slice } from '@scutoons/content';
 import type { AdaptiveMusicPlayer } from '$lib/audio/AdaptiveMusicPlayer.ts';
 import type { AudioContext } from '$lib/contexts/audio.svelte.ts';
 

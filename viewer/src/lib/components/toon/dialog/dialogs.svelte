@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Dialog as DialogModel } from '$lib/models/content.ts';
+	import type { Dialog as DialogModel } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import Dialog from './dialog.svelte';
 

@@ -1,6 +1,6 @@
-import type { AudioEvent, SampleTrigger } from '$lib/models/audio.ts';
+import type { AudioEvent, SampleTrigger } from '@scutoons/content';
 import type { AudioContext } from '$lib/contexts/audio.svelte.ts';
-import { Trigger, TriggerMode } from '$lib/models/enums.ts';
+import { Trigger, TriggerMode } from '@scutoons/content';
 
 export interface SampleHandlerContext {
 	audioContext: AudioContext;

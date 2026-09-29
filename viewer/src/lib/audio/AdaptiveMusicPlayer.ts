@@ -1,4 +1,4 @@
-import type { AdoptiveMusicPlayerConfiguration, AudioTrack } from '$lib/models/audio.ts';
+import type { AdoptiveMusicPlayerConfiguration, AudioTrack } from '@scutoons/content';
 import type { IAdaptiveMusicPlayer, IAudioManager } from './types.ts';
 import { Howl } from 'howler';
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
-	import { Status } from '$lib/models/enums.ts';
+	import { Status } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';

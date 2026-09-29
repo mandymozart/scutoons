@@ -1,0 +1,152 @@
+{
+	"$id": "https://scutoons.com/schema/toon.schema.json",
+	"title": "Toon",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/Toon",
+	"definitions": {
+		"Toon": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"title": {
+					"type": "string"
+				},
+				"authors": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"chapters": {
+					"type": "number"
+				},
+				"language": {
+					"type": "string"
+				},
+				"release": {
+					"type": "string"
+				},
+				"status": {
+					"$ref": "#/definitions/Status"
+				},
+				"description": {
+					"type": "string"
+				},
+				"thumbnail": {
+					"type": "string"
+				},
+				"cover": {
+					"$ref": "#/definitions/Cover"
+				},
+				"map": {
+					"$ref": "#/definitions/Map"
+				},
+				"download": {
+					"$ref": "#/definitions/Download"
+				}
+			},
+			"required": [
+				"id",
+				"title",
+				"authors",
+				"chapters",
+				"language",
+				"release",
+				"status",
+				"description",
+				"thumbnail",
+				"cover",
+				"map",
+				"download"
+			]
+		},
+		"Status": {
+			"type": "string",
+			"enum": [
+				"published",
+				"draft",
+				"coming-soon"
+			]
+		},
+		"Cover": {
+			"type": "object",
+			"properties": {
+				"square": {
+					"type": "string"
+				},
+				"portrait": {
+					"type": "string"
+				}
+			}
+		},
+		"Map": {
+			"type": "object",
+			"properties": {
+				"layers": {
+					"$ref": "#/definitions/MapLayers"
+				},
+				"width": {
+					"type": "number"
+				},
+				"height": {
+					"type": "number"
+				},
+				"center": {
+					"$ref": "#/definitions/MapCoordinates"
+				}
+			},
+			"required": [
+				"layers",
+				"width",
+				"height",
+				"center"
+			]
+		},
+		"MapLayers": {
+			"type": "object",
+			"properties": {
+				"terrain": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"terrain"
+			]
+		},
+		"MapCoordinates": {
+			"type": "object",
+			"properties": {
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"x",
+				"y"
+			]
+		},
+		"Download": {
+			"type": "object",
+			"properties": {
+				"complete": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"music": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"complete",
+				"music"
+			]
+		}
+	}
+}

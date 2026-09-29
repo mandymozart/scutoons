@@ -1,0 +1,1353 @@
+{
+	"$id": "https://scutoons.com/schema/chapter.schema.json",
+	"title": "Chapter",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/Chapter",
+	"definitions": {
+		"Chapter": {
+			"type": "object",
+			"properties": {
+				"title": {
+					"type": "string"
+				},
+				"author": {
+					"type": "string"
+				},
+				"number": {
+					"type": "number"
+				},
+				"language": {
+					"$ref": "#/definitions/Language"
+				},
+				"published": {
+					"type": "boolean"
+				},
+				"release": {
+					"type": "string"
+				},
+				"status": {
+					"$ref": "#/definitions/Status"
+				},
+				"description": {
+					"type": "string"
+				},
+				"thumbnail": {
+					"type": "string"
+				},
+				"keyvisual": {
+					"$ref": "#/definitions/KeyVisual"
+				},
+				"audio": {
+					"$ref": "#/definitions/AudioConfiguration"
+				},
+				"groups": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Group"
+					}
+				},
+				"isPreview": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"title",
+				"author",
+				"number",
+				"language",
+				"published",
+				"release",
+				"status",
+				"description",
+				"thumbnail",
+				"groups"
+			]
+		},
+		"Language": {
+			"type": "string",
+			"enum": [
+				"de",
+				"en",
+				"jp",
+				"kr",
+				"es"
+			]
+		},
+		"Status": {
+			"type": "string",
+			"enum": [
+				"published",
+				"draft",
+				"coming-soon"
+			]
+		},
+		"KeyVisual": {
+			"type": "object",
+			"properties": {
+				"image": {
+					"type": "string"
+				},
+				"video": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"image"
+			]
+		},
+		"AudioConfiguration": {
+			"type": "object",
+			"properties": {
+				"music": {
+					"$ref": "#/definitions/AdoptiveMusicPlayerConfiguration"
+				},
+				"sampleLibrary": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AudioTrack"
+					}
+				}
+			}
+		},
+		"AdoptiveMusicPlayerConfiguration": {
+			"type": "object",
+			"properties": {
+				"transitionDuration": {
+					"type": "number"
+				},
+				"defaultTrack": {
+					"type": "string"
+				},
+				"tracks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AudioTrack"
+					}
+				}
+			}
+		},
+		"AudioTrack": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"path": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"id",
+				"path"
+			]
+		},
+		"Group": {
+			"type": "object",
+			"properties": {
+				"label": {
+					"type": "string"
+				},
+				"renderer": {
+					"type": "object",
+					"properties": {
+						"type": {
+							"$ref": "#/definitions/Renderer"
+						},
+						"params": {
+							"$ref": "#/definitions/RendererParams"
+						}
+					},
+					"required": [
+						"type"
+					]
+				},
+				"slices": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Slice"
+					}
+				},
+				"events": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/VNEvent"
+					}
+				},
+				"ref": {
+					"$ref": "#/definitions/RefLink"
+				}
+			}
+		},
+		"Renderer": {
+			"type": "string",
+			"enum": [
+				"vertical",
+				"horizontal"
+			]
+		},
+		"RendererParams": {
+			"type": "object",
+			"properties": {
+				"autoPlay": {
+					"type": "object",
+					"properties": {
+						"enabled": {
+							"type": "boolean"
+						},
+						"delay": {
+							"type": "number"
+						}
+					}
+				},
+				"loop": {
+					"type": "boolean"
+				},
+				"flip": {
+					"type": "boolean"
+				},
+				"keyboard": {
+					"type": "boolean"
+				},
+				"cube": {
+					"type": "boolean"
+				},
+				"freeMode": {
+					"type": "boolean"
+				}
+			}
+		},
+		"Slice": {
+			"type": "object",
+			"properties": {
+				"image": {
+					"type": "string"
+				},
+				"audio": {
+					"$ref": "#/definitions/AudioEvents"
+				},
+				"dialog": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Dialog"
+					}
+				},
+				"onomatopoeia": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Onomatopoeia"
+					}
+				},
+				"events": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/VNSliceEvent"
+					}
+				},
+				"_type": {
+					"type": "string"
+				},
+				"_label": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"image"
+			]
+		},
+		"AudioEvents": {
+			"type": "object",
+			"properties": {
+				"music": {
+					"$ref": "#/definitions/MusicEvent"
+				},
+				"audio": {
+					"$ref": "#/definitions/AudioEvent"
+				}
+			}
+		},
+		"MusicEvent": {
+			"type": "object",
+			"properties": {
+				"tracks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/MusicEventTrack"
+					}
+				}
+			},
+			"required": [
+				"tracks"
+			]
+		},
+		"MusicEventTrack": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"volume": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"id",
+				"volume"
+			]
+		},
+		"AudioEvent": {
+			"type": "object",
+			"properties": {
+				"samples": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Sample"
+					}
+				}
+			},
+			"required": [
+				"samples"
+			]
+		},
+		"Sample": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"trigger": {
+					"$ref": "#/definitions/SampleTrigger"
+				},
+				"volume": {
+					"type": "number"
+				},
+				"delay": {
+					"type": "number"
+				},
+				"loop": {
+					"type": "boolean"
+				},
+				"repeat": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"id"
+			]
+		},
+		"SampleTrigger": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/Trigger"
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width",
+						"height"
+					]
+				},
+				"mode": {
+					"$ref": "#/definitions/TriggerMode"
+				},
+				"exclusive": {
+					"type": "boolean"
+				},
+				"gate": {
+					"type": "boolean"
+				}
+			},
+			"required": [
+				"type",
+				"rect",
+				"mode",
+				"exclusive",
+				"gate"
+			]
+		},
+		"Trigger": {
+			"type": "string",
+			"enum": [
+				"intersect",
+				"hover",
+				"click"
+			]
+		},
+		"TriggerMode": {
+			"type": "string",
+			"enum": [
+				"mono",
+				"poly"
+			]
+		},
+		"Dialog": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "Stable key (Figma node id) → i18n file."
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width"
+					],
+					"description": "% of the slice box, top-left origin. `height` optional (needed for `valign` and auto-fit)."
+				},
+				"text": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					],
+					"description": "Array entries are rendered as separate lines / paragraphs; `\\n` inside an entry is a line break."
+				},
+				"variant": {
+					"$ref": "#/definitions/DialogVariant",
+					"description": "Default 'bubble'."
+				},
+				"frame": {
+					"type": "boolean",
+					"description": "caption / narration only: draw the paper box + ink border. Default true; false = bare text (use `mask`)."
+				},
+				"size": {
+					"type": "number",
+					"description": "Font size in % of the slice width (rendered as cqw). Default 4."
+				},
+				"align": {
+					"type": "string",
+					"enum": [
+						"left",
+						"center",
+						"right"
+					],
+					"description": "Default 'center' for bubble/sfx, 'left' for caption/narration."
+				},
+				"valign": {
+					"type": "string",
+					"enum": [
+						"top",
+						"middle",
+						"bottom"
+					],
+					"description": "Default 'middle' (only has an effect with `rect.height`)."
+				},
+				"font": {
+					"$ref": "#/definitions/DialogFont",
+					"description": "Default 'lettering' for bubble/sfx, 'mono' for caption/narration (matches chapter 1)."
+				},
+				"weight": {
+					"type": "number",
+					"enum": [
+						400,
+						700
+					]
+				},
+				"uppercase": {
+					"type": "boolean"
+				},
+				"color": {
+					"type": "string",
+					"description": "Text color, default ink (#000)."
+				},
+				"rotation": {
+					"type": "number",
+					"description": "Degrees."
+				},
+				"mask": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "boolean",
+							"const": true
+						}
+					],
+					"description": "Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'."
+				},
+				"maskShape": {
+					"type": "string",
+					"enum": [
+						"rect",
+						"ellipse"
+					],
+					"description": "Default 'rect'."
+				},
+				"pad": {
+					"type": "number",
+					"description": "Extra mask padding in % of slice width. Default 0.5."
+				}
+			},
+			"required": [
+				"rect",
+				"text"
+			],
+			"description": "A live, translatable text box on top of a slice image (see agents/DESIGN.md → Part 2)."
+		},
+		"DialogVariant": {
+			"type": "string",
+			"enum": [
+				"bubble",
+				"caption",
+				"narration",
+				"sfx"
+			]
+		},
+		"DialogFont": {
+			"type": "string",
+			"enum": [
+				"lettering",
+				"mono"
+			]
+		},
+		"Onomatopoeia": {
+			"type": "object",
+			"properties": {
+				"position": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						}
+					}
+				},
+				"size": {
+					"type": "number"
+				},
+				"align": {
+					"type": "string",
+					"enum": [
+						"left",
+						"right",
+						"center"
+					]
+				},
+				"rotation": {
+					"type": "number"
+				},
+				"variant": {
+					"$ref": "#/definitions/OnomatopoeiaVariant"
+				},
+				"effect": {
+					"$ref": "#/definitions/OnomatopoeiaEffect"
+				},
+				"duration": {
+					"type": "number"
+				},
+				"delay": {
+					"type": "number"
+				},
+				"text": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "array",
+							"items": {
+								"type": "string"
+							}
+						}
+					]
+				}
+			},
+			"required": [
+				"text"
+			]
+		},
+		"OnomatopoeiaVariant": {
+			"type": "string",
+			"enum": [
+				"default",
+				"outline",
+				"bubble",
+				"thorns"
+			]
+		},
+		"OnomatopoeiaEffect": {
+			"type": "string",
+			"enum": [
+				"none",
+				"shiver",
+				"pulse",
+				"wobble"
+			]
+		},
+		"VNSliceEvent": {
+			"anyOf": [
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"type": {
+							"type": "string",
+							"const": "showMessage"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"text": {
+									"type": "string"
+								},
+								"character": {
+									"type": "string"
+								},
+								"wait": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"text",
+								"character"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"type": {
+							"type": "string",
+							"const": "showChoices"
+						},
+						"params": {
+							"type": "object"
+						}
+					},
+					"required": [
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"type": {
+							"type": "string",
+							"const": "addChoice"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"label": {
+									"type": "string"
+								},
+								"onSelect": {
+									"anyOf": [
+										{
+											"$ref": "#/definitions/VNVariableSetter"
+										},
+										{
+											"$ref": "#/definitions/VNVariableAdder"
+										}
+									]
+								}
+							},
+							"required": [
+								"label"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"type": {
+							"type": "string",
+							"const": "joinScene"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"characters": {
+									"type": "array",
+									"items": {
+										"$ref": "#/definitions/VNCharacterRef"
+									}
+								}
+							},
+							"required": [
+								"characters"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"type": {
+							"type": "string",
+							"const": "leaveScene"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"characters": {
+									"type": "array",
+									"items": {
+										"$ref": "#/definitions/VNCharacterRef"
+									}
+								}
+							},
+							"required": [
+								"characters"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"type": {
+							"type": "string",
+							"const": "hideMessage"
+						},
+						"params": {
+							"type": "object"
+						}
+					},
+					"required": [
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"type": {
+							"type": "string",
+							"const": "showOnomatopeia"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"mode": {
+									"$ref": "#/definitions/TriggerMode"
+								},
+								"wait": {
+									"type": "boolean"
+								},
+								"position": {
+									"type": "object",
+									"properties": {
+										"x": {
+											"type": "number"
+										},
+										"y": {
+											"type": "number"
+										}
+									}
+								},
+								"size": {
+									"type": "number"
+								},
+								"align": {
+									"type": "string",
+									"enum": [
+										"left",
+										"right",
+										"center"
+									]
+								},
+								"rotation": {
+									"type": "number"
+								},
+								"variant": {
+									"$ref": "#/definitions/OnomatopoeiaVariant"
+								},
+								"effect": {
+									"$ref": "#/definitions/OnomatopoeiaEffect"
+								},
+								"duration": {
+									"type": "number"
+								},
+								"delay": {
+									"type": "number"
+								},
+								"text": {
+									"anyOf": [
+										{
+											"type": "string"
+										},
+										{
+											"type": "array",
+											"items": {
+												"type": "string"
+											}
+										}
+									]
+								}
+							},
+							"required": [
+								"text"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"type": {
+							"type": "string",
+							"const": "jumpTo"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"target": {
+									"$ref": "#/definitions/JumpToTarget"
+								},
+								"wait": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"target"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				}
+			]
+		},
+		"VNEventTrigger": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/Trigger"
+				},
+				"once": {
+					"type": "boolean"
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width",
+						"height"
+					]
+				}
+			},
+			"required": [
+				"type"
+			]
+		},
+		"VNVariableSetter": {
+			"type": "object",
+			"properties": {
+				"set": {
+					"type": "object",
+					"properties": {
+						"variable": {
+							"type": "string"
+						},
+						"value": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"variable",
+						"value"
+					]
+				}
+			},
+			"required": [
+				"set"
+			]
+		},
+		"VNVariableAdder": {
+			"type": "object",
+			"properties": {
+				"add": {
+					"type": "object",
+					"properties": {
+						"variable": {
+							"type": "string"
+						},
+						"value": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"variable",
+						"value"
+					]
+				}
+			},
+			"required": [
+				"add"
+			]
+		},
+		"VNCharacterRef": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string"
+				},
+				"position": {
+					"type": "object",
+					"properties": {
+						"variant": {
+							"type": "string",
+							"enum": [
+								"avatar",
+								"full",
+								"portrait"
+							]
+						}
+					},
+					"required": [
+						"variant"
+					]
+				},
+				"mood": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"name"
+			]
+		},
+		"JumpToTarget": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/JumpToTargetType"
+				},
+				"value": {
+					"type": "string"
+				},
+				"label": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"value"
+			]
+		},
+		"JumpToTargetType": {
+			"type": "string",
+			"enum": [
+				"chapter",
+				"season",
+				"toon",
+				"product",
+				"xr"
+			]
+		},
+		"VNEvent": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/VNShowMessageEvent"
+				},
+				{
+					"$ref": "#/definitions/VNShowChoicesEvent"
+				},
+				{
+					"$ref": "#/definitions/VNAddChoiceEvent"
+				},
+				{
+					"$ref": "#/definitions/VNJoinSceneEvent"
+				},
+				{
+					"$ref": "#/definitions/VNLeaveSceneEvent"
+				},
+				{
+					"$ref": "#/definitions/VNHideMessageEvent"
+				},
+				{
+					"$ref": "#/definitions/VNShowOnomatopeiaEvent"
+				},
+				{
+					"$ref": "#/definitions/VNJumpToEvent"
+				}
+			]
+		},
+		"VNShowMessageEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "showMessage"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"text": {
+							"type": "string"
+						},
+						"character": {
+							"type": "string"
+						},
+						"wait": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"text",
+						"character"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNShowChoicesEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "showChoices"
+				},
+				"params": {
+					"type": "object"
+				}
+			},
+			"required": [
+				"type"
+			]
+		},
+		"VNAddChoiceEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "addChoice"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"label": {
+							"type": "string"
+						},
+						"onSelect": {
+							"anyOf": [
+								{
+									"$ref": "#/definitions/VNVariableSetter"
+								},
+								{
+									"$ref": "#/definitions/VNVariableAdder"
+								}
+							]
+						}
+					},
+					"required": [
+						"label"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNJoinSceneEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "joinScene"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"characters": {
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/VNCharacterRef"
+							}
+						}
+					},
+					"required": [
+						"characters"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNLeaveSceneEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "leaveScene"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"characters": {
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/VNCharacterRef"
+							}
+						}
+					},
+					"required": [
+						"characters"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNHideMessageEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "hideMessage"
+				},
+				"params": {
+					"type": "object"
+				}
+			},
+			"required": [
+				"type"
+			]
+		},
+		"VNShowOnomatopeiaEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "showOnomatopeia"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"mode": {
+							"$ref": "#/definitions/TriggerMode"
+						},
+						"wait": {
+							"type": "boolean"
+						},
+						"position": {
+							"type": "object",
+							"properties": {
+								"x": {
+									"type": "number"
+								},
+								"y": {
+									"type": "number"
+								}
+							}
+						},
+						"size": {
+							"type": "number"
+						},
+						"align": {
+							"type": "string",
+							"enum": [
+								"left",
+								"right",
+								"center"
+							]
+						},
+						"rotation": {
+							"type": "number"
+						},
+						"variant": {
+							"$ref": "#/definitions/OnomatopoeiaVariant"
+						},
+						"effect": {
+							"$ref": "#/definitions/OnomatopoeiaEffect"
+						},
+						"duration": {
+							"type": "number"
+						},
+						"delay": {
+							"type": "number"
+						},
+						"text": {
+							"anyOf": [
+								{
+									"type": "string"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								}
+							]
+						}
+					},
+					"required": [
+						"text"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNJumpToEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "jumpTo"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"target": {
+							"$ref": "#/definitions/JumpToTarget"
+						},
+						"wait": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"target"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"RefLink": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"src": {
+					"type": "string"
+				},
+				"type": {
+					"type": "string",
+					"enum": [
+						"chapter",
+						"group"
+					]
+				}
+			},
+			"required": [
+				"id",
+				"src",
+				"type"
+			]
+		}
+	}
+}

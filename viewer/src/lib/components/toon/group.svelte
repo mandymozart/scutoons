@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
-	import { type Group } from '$lib/models/content.ts';
-	import { Renderer } from '$lib/models/enums.ts';
+	import { type Group } from '@scutoons/content';
+	import { Renderer } from '@scutoons/content';
 	import VisualNovel from './interactions/visual-novel.svelte';
 	import Horizontal from './renderer/horizontal.svelte';
 	import Vertical from './renderer/vertical.svelte';

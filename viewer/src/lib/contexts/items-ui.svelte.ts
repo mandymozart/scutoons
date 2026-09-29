@@ -1,5 +1,5 @@
 import { setContext, getContext } from 'svelte';
-import type { Entry, ScanObjectSkill, Skill } from '$lib/models/items.ts';
+import type { Entry, ScanObjectSkill, Skill } from '@scutoons/content';
 
 const ITEMS_UI_KEY = Symbol('items-ui');
 

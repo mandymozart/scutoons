@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ToonIndex } from '$lib/models/content.ts';
+	import type { ToonIndex } from '@scutoons/content';
 	import MainMenu from './main-menu.svelte';
 
 	let { toons }: { toons: ToonIndex[] } = $props();

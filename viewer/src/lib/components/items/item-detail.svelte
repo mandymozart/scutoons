@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
-	import type { Entry } from '$lib/models/items.ts';
+	import type { Entry } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
 

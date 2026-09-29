@@ -9,7 +9,7 @@ import {
 	putDraft,
 	type ContentVersion
 } from '$lib/api/content.service.ts';
-import { clone, deepEqual, getAt, setAt, type Path } from './paths.ts';
+import { clone, deepEqual, getAt, setAt, type Path } from '@scutoons/content';
 
 export type DocKind = 'chapter' | 'group' | 'season' | 'toon';
 export type DocSource = 'store' | 'static' | 'new' | 'missing';

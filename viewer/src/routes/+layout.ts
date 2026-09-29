@@ -5,8 +5,8 @@ export const ssr = false;
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.ts';
 import { API_BASE } from '$lib/config.ts';
-import type { ToonIndex } from '$lib/models/content.ts';
-import { Status } from '$lib/models/enums.ts';
+import type { ToonIndex } from '@scutoons/content';
+import { Status } from '@scutoons/content';
 
 export const load: LayoutLoad = async ({ fetch }) => {
 	try {

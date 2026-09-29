@@ -1,9 +1,7 @@
 /**
- * Template utilities for safe HTML rendering
+ * Template utilities for safe HTML rendering (pure, no framework / bundler globals)
  */
-const isDev = import.meta.env.DEV;
-
-import type { Chapter, SequenceItem } from '$lib/models/content.ts';
+import type { Chapter, SequenceItem } from './content.ts';
 
 export function escapeHtml(text: string): string {
 	if (text === null || text === undefined) {
@@ -54,8 +52,29 @@ export function sanitizeNumber(value: number | string, defaultValue = 1, min = 1
 	return num;
 }
 
-export function isItemPublic(item: Chapter | SequenceItem | { status?: string } | null | undefined) {
+/**
+ * Whether a chapter / sequence item is listed: `published` (or no status) always, `draft` only when `includeDrafts`
+ * (the viewer passes `import.meta.env.DEV`).
+ */
+export function isItemPublic(
+	item: Chapter | SequenceItem | { status?: string } | null | undefined,
+	includeDrafts = false
+) {
 	if (!item) return false;
 	const status = item.status || 'published';
-	return status === 'published' || (status === 'draft' && isDev);
+	return status === 'published' || (status === 'draft' && includeDrafts);
+}
+
+/** Absolute URL of a file on the CDN (`base` without trailing slash); '' for empty or unsafe paths. */
+export function cdnUrl(base: string, path: string): string {
+	if (!path || typeof path !== 'string') {
+		return '';
+	}
+
+	const safePath = sanitizeUrl(path);
+	if (!safePath) {
+		return '';
+	}
+
+	return `${base}/${safePath.replace(/^\/+/, '')}`;
 }

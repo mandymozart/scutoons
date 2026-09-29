@@ -5,11 +5,11 @@
 	import { cookieName } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, LOCALES, SaveConflict, SOURCE_LOCALE } from '$lib/creator/doc.svelte.ts';
-	import { getAt, deleteAt, type Path } from '$lib/creator/paths.ts';
+	import { getAt, deleteAt, type Path } from '@scutoons/content';
 	import { newDialog, newGroup, nextDialogId } from '$lib/creator/defaults.ts';
 	import { knownImages } from '$lib/creator/images.ts';
-	import { validateFile, validateLocales, type Problem } from '$lib/creator/validate.ts';
-	import { Trigger, TriggerMode } from '$lib/models/enums.ts';
+	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
+	import { Trigger, TriggerMode } from '@scutoons/content';
 	import SliceCanvas, { type CanvasSelection, type Scope, type Tool } from './slice-canvas.svelte';
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';

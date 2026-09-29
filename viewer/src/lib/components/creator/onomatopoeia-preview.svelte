@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Onomatopeia from '$lib/components/toon/vn/onomatopeia.svelte';
 	import type { VNActiveOnomatopoeia } from '$lib/contexts/visual-novel.svelte.ts';
-	import { TriggerMode } from '$lib/models/enums.ts';
+	import { TriggerMode } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 
 	/** The reader's onomatopoeia component on a slice-sized stage (replay to see effect + delay again). */

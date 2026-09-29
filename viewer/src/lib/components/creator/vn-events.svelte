@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
-	import { getAt, clone, type Path } from '$lib/creator/paths.ts';
-	import { JumpToTargetType, OnomatopoeiaEffect, OnomatopoeiaVariant, Trigger, TriggerMode } from '$lib/models/enums.ts';
+	import { getAt, clone, type Path } from '@scutoons/content';
+	import { JumpToTargetType, OnomatopoeiaEffect, OnomatopoeiaVariant, Trigger, TriggerMode } from '@scutoons/content';
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
 	import OnomatopoeiaPreview from './onomatopoeia-preview.svelte';

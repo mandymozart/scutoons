@@ -1,4 +1,4 @@
-import type { VNEvent } from '$lib/models/visual-novel.ts';
+import type { VNEvent } from '@scutoons/content';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { buildJumpToUrl } from './jump-to.ts';

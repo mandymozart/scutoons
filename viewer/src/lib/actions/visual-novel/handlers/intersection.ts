@@ -1,7 +1,7 @@
 import { EventProcessor } from '$lib/visual-novel/event-processor.ts';
 import { getCurrentVisualNovelContext } from '$lib/contexts/visual-novel.svelte.ts';
 import { getCurrentGameContext } from '$lib/contexts/game.svelte.ts';
-import type { VNEvent, VNSliceEvent } from '$lib/models/visual-novel.ts';
+import type { VNEvent, VNSliceEvent } from '@scutoons/content';
 
 export function handleIntersectionEvents(
 	node: HTMLElement,

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import type { VNSliceEvent, VNEvent } from '$lib/models/visual-novel.ts';
+	import type { VNSliceEvent, VNEvent } from '@scutoons/content';
 	import { EventProcessor } from '$lib/visual-novel/event-processor.ts';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { getGameContext } from '$lib/contexts/game.svelte';

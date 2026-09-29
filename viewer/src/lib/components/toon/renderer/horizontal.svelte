@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Group } from '$lib/models/content.ts';
+	import type { Group } from '@scutoons/content';
 	import Slice from '../slice.svelte';
 	import Swiper from 'swiper';
 	import { Autoplay, EffectCube, FreeMode, Navigation, Keyboard, EffectFlip, Mousewheel } from 'swiper/modules';

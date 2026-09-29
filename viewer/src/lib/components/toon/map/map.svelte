@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
-	import type { MapLocation, MapCoordinates, MapRoute, Map, Toon } from '$lib/models/content.ts';
+	import type { MapLocation, MapCoordinates, MapRoute, Map, Toon } from '@scutoons/content';
 	import { onClickOutside } from 'runed';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
 	import { page } from '$app/state';

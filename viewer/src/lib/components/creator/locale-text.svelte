@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
-	import type { Path } from '$lib/creator/paths.ts';
-	import { LENGTH_WARNING_RATIO, textOf } from '$lib/creator/validate.ts';
+	import type { Path } from '@scutoons/content';
+	import { LENGTH_WARNING_RATIO, textOf } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**

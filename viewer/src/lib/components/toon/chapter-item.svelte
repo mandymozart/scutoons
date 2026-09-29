@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { sanitizeNumber, isItemPublic } from '$lib/utils/template.ts';
+	import { sanitizeNumber, isItemPublic } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
-	import type { Chapter } from '$lib/models/content.ts';
+	import type { Chapter } from '@scutoons/content';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import chapterIcon from '$lib/icons/chapter.svg';
@@ -15,7 +15,7 @@
 
 	const nav = getNavigationContext();
 	const safeChapterNumber = sanitizeNumber(chapterNumber, 1, 1, 999);
-	const isPublic = isItemPublic(chapter);
+	const isPublic = isItemPublic(chapter, import.meta.env.DEV);
 	const status = chapter.status ?? 'published';
 
 	function handleClick() {

@@ -9,7 +9,7 @@ import {
 	updateMe,
 	type VerifyResult
 } from '$lib/api/qr.service.ts';
-import type { Me, ServerMembership, User } from '$lib/models/items.ts';
+import type { Me, ServerMembership, User } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
 const SESSION_KEY = Symbol('session');

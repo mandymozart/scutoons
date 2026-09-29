@@ -1,5 +1,5 @@
-import { TriggerMode } from '$lib/models/enums.ts';
-import type { SampleTrigger, Sample, AudioTrack } from '../models/audio.ts';
+import { TriggerMode } from '@scutoons/content';
+import type { SampleTrigger, Sample, AudioTrack } from '@scutoons/content';
 /**
  * SampleTriggerManager - Event-based audio sample playback
  * Handles loading, caching, and triggering audio samples based on user interaction

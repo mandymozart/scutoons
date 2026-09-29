@@ -1,4 +1,4 @@
-import type { AudioConfiguration, AudioEventsConfig } from '$lib/models/audio.ts';
+import type { AudioConfiguration, AudioEventsConfig } from '@scutoons/content';
 import type { Action } from 'svelte/action';
 import { getCurrentAudioContext } from '$lib/contexts/audio.svelte.ts';
 import { handleMusicEvent } from './handlers/music.ts';

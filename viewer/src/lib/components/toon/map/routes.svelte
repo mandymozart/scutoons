@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { MapLocation, MapRoute } from '$lib/models/content.ts';
+	import type { MapLocation, MapRoute } from '@scutoons/content';
 
 	let {
 		width,

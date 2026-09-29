@@ -1,0 +1,27 @@
+{
+	"name": "@scutoons/content",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS content contract: TS types for toon/season/chapter/slice/dialog/audio/VN/items, pure helpers, validation, JSON Schema",
+	"sideEffects": false,
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./schema/*": "./schema/*"
+	},
+	"files": [
+		"src",
+		"schema"
+	],
+	"scripts": {
+		"schema": "node scripts/schema.js",
+		"check": "tsc --noEmit -p tsconfig.json && node scripts/schema.js --check"
+	},
+	"devDependencies": {
+		"ts-json-schema-generator": "^2.4.0",
+		"typescript": "^5.9.3"
+	}
+}

@@ -1,6 +1,6 @@
 // Defaults for new content, following the existing catpope configs and agents/DESIGN.md (SCUTOONS style).
-import type { Chapter, Dialog, Group, Slice } from '$lib/models/content.ts';
-import { Renderer, Status } from '$lib/models/enums.ts';
+import type { Chapter, Dialog, Group, Slice } from '@scutoons/content';
+import { Renderer, Status } from '@scutoons/content';
 
 /** SCUTOONS slice format (DESIGN.md, PLAN.md decisions): 390×625 at 1x, 1170×1875 at 3x. */
 export const SLICE_FORMAT = { width1x: 390, height1x: 625, width3x: 1170, height3x: 1875 };

@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
-	import type { ToonIndex } from '$lib/models/content.ts';
+	import type { ToonIndex } from '@scutoons/content';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { onClickOutside } from 'runed';

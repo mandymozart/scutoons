@@ -1,6 +1,6 @@
 import type { GameContext } from '$lib/contexts/game.svelte';
 import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
-import type { VNVariableSetter, VNVariableAdder, VNJumpTo } from '$lib/models/visual-novel.ts';
+import type { VNVariableSetter, VNVariableAdder, VNJumpTo } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
 type VariableAction = VNVariableSetter | VNVariableAdder | VNJumpTo;

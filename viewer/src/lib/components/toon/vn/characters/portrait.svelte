@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { VNCharacterRef, Character } from '$lib/models/visual-novel.ts';
+	import type { VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 
 		const Z_INDEX_MESSAGE_BOX = 100;

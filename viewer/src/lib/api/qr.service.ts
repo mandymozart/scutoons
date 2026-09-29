@@ -1,6 +1,6 @@
 // Typed client for the qr.scutoons.com API (agents/ITEMS.md → HTTP API contract)
 import { api } from './client.ts';
-import type { Avatar, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, User } from '$lib/models/items.ts';
+import type { Avatar, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, User } from '@scutoons/content';
 
 export interface VerifyResult {
 	status: string;

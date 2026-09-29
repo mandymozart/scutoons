@@ -1,4 +1,4 @@
-import type { JumpToTarget } from '$lib/models/content.ts';
+import type { JumpToTarget } from '@scutoons/content';
 
 export function buildJumpToUrl(target: JumpToTarget, toonId: string): string | null {
 	let url: string;

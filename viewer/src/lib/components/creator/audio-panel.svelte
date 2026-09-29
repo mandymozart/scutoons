@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
-	import { getAt } from '$lib/creator/paths.ts';
+	import { getAt } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from './prop-field.svelte';

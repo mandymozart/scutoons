@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { SampleTrigger } from '$lib/models/audio.ts';
+	import type { SampleTrigger } from '@scutoons/content';
 
 	let { trigger }: { trigger?: SampleTrigger } = $props();
 	$inspect(trigger);

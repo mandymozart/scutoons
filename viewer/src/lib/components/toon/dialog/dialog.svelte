@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Dialog, DialogFont, DialogVariant } from '$lib/models/content.ts';
+	import type { Dialog, DialogFont, DialogVariant } from '@scutoons/content';
 
 	let { dialog }: { dialog: Dialog } = $props();
 

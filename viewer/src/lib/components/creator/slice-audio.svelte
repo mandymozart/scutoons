@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
-	import { getAt, deleteAt, type Path } from '$lib/creator/paths.ts';
-	import { Trigger, TriggerMode } from '$lib/models/enums.ts';
+	import { getAt, deleteAt, type Path } from '@scutoons/content';
+	import { Trigger, TriggerMode } from '@scutoons/content';
 	import PropField from './prop-field.svelte';
 
 	/** Per-slice audio: music volumes (per chapter track) and samples with triggers (rects drawn on the canvas). */

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Slice } from '$lib/models/content.ts';
+	import type { Slice } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';

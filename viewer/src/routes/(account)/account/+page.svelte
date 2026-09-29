@@ -2,7 +2,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
-	import { isMembershipExpired } from '$lib/auth/index.ts';
+	import { isMembershipExpired } from '@scutoons/content';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';

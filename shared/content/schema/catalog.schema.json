@@ -1,0 +1,330 @@
+{
+	"$id": "https://scutoons.com/schema/catalog.schema.json",
+	"title": "Catalog",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/Catalog",
+	"definitions": {
+		"Catalog": {
+			"type": "object",
+			"properties": {
+				"version": {
+					"type": "number"
+				},
+				"slots": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AvatarSlot"
+					}
+				},
+				"items": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/ItemDef"
+					}
+				},
+				"recipes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Recipe"
+					}
+				}
+			},
+			"required": [
+				"version",
+				"slots",
+				"items",
+				"recipes"
+			]
+		},
+		"AvatarSlot": {
+			"type": "string",
+			"enum": [
+				"head",
+				"face",
+				"neck",
+				"torso",
+				"hands",
+				"legs",
+				"feet",
+				"back",
+				"accessory"
+			]
+		},
+		"ItemDef": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"toon": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"name": {
+					"$ref": "#/definitions/Localized"
+				},
+				"description": {
+					"$ref": "#/definitions/Localized"
+				},
+				"kind": {
+					"$ref": "#/definitions/ItemKind"
+				},
+				"category": {
+					"$ref": "#/definitions/ItemCategory"
+				},
+				"icon": {
+					"type": "string"
+				},
+				"stackable": {
+					"type": "boolean"
+				},
+				"starter": {
+					"type": "boolean"
+				},
+				"grantable": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/GrantSource"
+					}
+				},
+				"slot": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/AvatarSlot"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"skills": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Skill"
+					}
+				},
+				"edition_id": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"product": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"variants": {
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/ItemVariant"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
+				}
+			},
+			"required": [
+				"id",
+				"toon",
+				"name",
+				"description",
+				"kind",
+				"category",
+				"icon",
+				"stackable",
+				"starter",
+				"grantable",
+				"slot",
+				"skills",
+				"edition_id",
+				"product",
+				"variants"
+			]
+		},
+		"Localized": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			}
+		},
+		"ItemKind": {
+			"type": "string",
+			"enum": [
+				"physical",
+				"virtual"
+			]
+		},
+		"ItemCategory": {
+			"type": "string",
+			"enum": [
+				"tool",
+				"consumable",
+				"wearable",
+				"collectible",
+				"media"
+			]
+		},
+		"GrantSource": {
+			"type": "string",
+			"enum": [
+				"story",
+				"scan"
+			]
+		},
+		"Skill": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/ScanQrSkill"
+				},
+				{
+					"$ref": "#/definitions/ScanObjectSkill"
+				},
+				{
+					"$ref": "#/definitions/MinigameSkill"
+				},
+				{
+					"$ref": "#/definitions/PlayAudioSkill"
+				}
+			]
+		},
+		"ScanQrSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "scan_qr"
+				}
+			},
+			"required": [
+				"type"
+			]
+		},
+		"ScanObjectSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "scan_object"
+				},
+				"labels": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"grants": {
+					"type": "string"
+				},
+				"cooldown_s": {
+					"type": "number"
+				},
+				"threshold": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"type",
+				"labels",
+				"grants"
+			]
+		},
+		"MinigameSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "minigame"
+				},
+				"id": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"id"
+			]
+		},
+		"PlayAudioSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "play_audio"
+				},
+				"src": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"src"
+			]
+		},
+		"ItemVariant": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"name": {
+					"$ref": "#/definitions/Localized"
+				},
+				"icon": {
+					"type": [
+						"string",
+						"null"
+					]
+				}
+			},
+			"required": [
+				"id",
+				"name"
+			]
+		},
+		"Recipe": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"inputs": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/RecipePart"
+					}
+				},
+				"output": {
+					"$ref": "#/definitions/RecipePart"
+				}
+			},
+			"required": [
+				"id",
+				"inputs",
+				"output"
+			]
+		},
+		"RecipePart": {
+			"type": "object",
+			"properties": {
+				"item": {
+					"type": "string"
+				},
+				"qty": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"item",
+				"qty"
+			]
+		}
+	}
+}

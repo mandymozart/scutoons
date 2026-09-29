@@ -2,8 +2,8 @@
 	// individual goes here and style is delegated to the components in the sub folder onomatopeia
 
 	import type { VNActiveOnomatopoeia } from '$lib/contexts/visual-novel.svelte.ts';
-	import { OnomatopoeiaVariant, OnomatopoeiaEffect } from '$lib/models/enums.ts';
-	import { sanitizeNumber } from '$lib/utils/template.ts';
+	import { OnomatopoeiaVariant, OnomatopoeiaEffect } from '@scutoons/content';
+	import { sanitizeNumber } from '@scutoons/content';
 
 	import EffectNone from './onomatopeia/effects/effect-none.svelte';
 	import EffectShiver from './onomatopeia/effects/effect-shiver.svelte';

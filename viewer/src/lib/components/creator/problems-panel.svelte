@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Problem } from '$lib/creator/validate.ts';
+	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {

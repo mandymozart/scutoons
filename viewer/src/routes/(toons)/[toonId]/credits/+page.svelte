@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { escapeAndJoin } from '$lib/utils/template.js';
+	import { escapeAndJoin } from '@scutoons/content';
 	import type { PageProps } from './$types.js';
 
 	let { data }: PageProps = $props();

@@ -1,6 +1,6 @@
 import type { Action } from 'svelte/action';
-import type { VNEventsConfig, VNSliceEvent } from '$lib/models/visual-novel.ts';
-import { Trigger } from '$lib/models/enums.ts';
+import type { VNEventsConfig, VNSliceEvent } from '@scutoons/content';
+import { Trigger } from '@scutoons/content';
 import { handleClickEvents } from './handlers/click.js';
 import { handleIntersectionEvents } from './handlers/intersection.js';
 import { handleHoverEvents } from './handlers/hover.js';

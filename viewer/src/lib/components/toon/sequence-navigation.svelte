@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { LoadedSequenceItem } from '$lib/models/content.ts';
+	import type { LoadedSequenceItem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.js';

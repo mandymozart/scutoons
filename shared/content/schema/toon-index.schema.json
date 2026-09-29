@@ -1,0 +1,49 @@
+{
+	"$id": "https://scutoons.com/schema/toon-index.schema.json",
+	"title": "ToonIndex",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/ToonIndex",
+	"definitions": {
+		"ToonIndex": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"uri": {
+					"type": "string"
+				},
+				"status": {
+					"$ref": "#/definitions/Status"
+				},
+				"avatar": {
+					"type": "string"
+				},
+				"i18n": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "string"
+						}
+					}
+				}
+			},
+			"required": [
+				"id",
+				"uri",
+				"status",
+				"avatar",
+				"i18n"
+			]
+		},
+		"Status": {
+			"type": "string",
+			"enum": [
+				"published",
+				"draft",
+				"coming-soon"
+			]
+		}
+	}
+}

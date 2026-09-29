@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ChapterItem from './chapter-item.svelte';
-	import type { Chapter } from '$lib/models/content.ts';
-	import type { LoadedSequenceItem } from '$lib/models/content.ts';
+	import type { Chapter } from '@scutoons/content';
+	import type { LoadedSequenceItem } from '@scutoons/content';
 
 	let { items, toonId }: { items: LoadedSequenceItem[]; toonId: string } = $props();
 </script>

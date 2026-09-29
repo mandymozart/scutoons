@@ -1,4 +1,4 @@
-import type { Checkpoint } from '$lib/models/content.ts';
+import type { Checkpoint } from '@scutoons/content';
 import { setContext, getContext, onDestroy } from 'svelte';
 import { fetchProgress, putProgress } from '$lib/api/qr.service.ts';
 import { getCurrentSession } from './session.svelte.ts';

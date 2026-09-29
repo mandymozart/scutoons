@@ -5,12 +5,12 @@ import type {
 	MapRoute,
 	Season,
 	Toon
-} from '$lib/models/content.ts';
-import type { Character, Collectable } from '$lib/models/visual-novel.ts';
+} from '@scutoons/content';
+import type { Character, Collectable } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
-import { isItemPublic } from '$lib/utils/template.ts';
+import { isItemPublic } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { fetchContent, isDraftPreview } from '$lib/api/content.service.ts';
 
@@ -45,7 +45,7 @@ export const load: LayoutLoad = async ({ fetch, params, url }) => {
 	const toon: Toon = await toonRes.json();
 	const collectables: Collectable[] = await collectablesRes.json();
 
-	const publicItems = season.sequence.filter(isItemPublic);
+	const publicItems = season.sequence.filter((item) => isItemPublic(item, import.meta.env.DEV));
 
 	const sequence: LoadedSequenceItem[] = await Promise.all(
 		publicItems.map(async (item) => {

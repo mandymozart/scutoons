@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
-	import type { Group } from '$lib/models/content.ts';
-	import type { VNEvent } from '$lib/models/visual-novel.ts';
+	import type { Group } from '@scutoons/content';
+	import type { VNEvent } from '@scutoons/content';
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { buildJumpToUrl } from '$lib/visual-novel/jump-to.ts';

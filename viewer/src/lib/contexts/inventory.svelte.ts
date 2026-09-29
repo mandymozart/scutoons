@@ -20,7 +20,7 @@ import type {
 	ItemVariant,
 	Localized,
 	Recipe
-} from '$lib/models/items.ts';
+} from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import type { SessionContext } from './session.svelte.ts';
 

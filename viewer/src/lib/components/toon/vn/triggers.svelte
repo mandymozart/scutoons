@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { VNSliceEvent } from '$lib/models/visual-novel.ts';
-	import { Trigger } from '$lib/models/enums.ts';
+	import type { VNSliceEvent } from '@scutoons/content';
+	import { Trigger } from '@scutoons/content';
 	import ClickTrigger from './triggers/click.svelte';
 	import HoverTrigger from './triggers/hover.svelte';
 	import IntersectTrigger from './triggers/intersect.svelte';

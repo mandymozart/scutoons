@@ -1,7 +1,7 @@
 import { setContext, getContext } from 'svelte';
-import type { Character, VNChoice, Message, VNCharacterRef } from '$lib/models/visual-novel.ts';
-import type { Onomatopoeia } from '$lib/models/content.ts';
-import type { TriggerMode } from '$lib/models/enums.ts';
+import type { Character, VNChoice, Message, VNCharacterRef } from '@scutoons/content';
+import type { Onomatopoeia } from '@scutoons/content';
+import type { TriggerMode } from '@scutoons/content';
 
 const VN_KEY = Symbol('visual-novel');
 

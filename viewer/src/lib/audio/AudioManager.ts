@@ -1,4 +1,4 @@
-import type { AudioConfiguration } from "$lib/models/audio.ts";
+import type { AudioConfiguration } from '@scutoons/content';
 import type { IAdaptiveMusicPlayer, IAudioManager, ISampleTriggerManager } from "./types.ts";
 import { Howler } from 'howler';
 import { SampleTriggerManager } from './SampleTriggerManager.ts';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
-	import { getAt, type Path } from '$lib/creator/paths.ts';
+	import { getAt, type Path } from '@scutoons/content';
 	import { newSlice } from '$lib/creator/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';

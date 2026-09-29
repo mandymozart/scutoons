@@ -5,7 +5,7 @@
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
-	import type { CodeInfo, CodeOption, ItemVariant } from '$lib/models/items.ts';
+	import type { CodeInfo, CodeOption, ItemVariant } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import LoginForm from '$lib/components/account/login-form.svelte';
 	import ItemIcon from './item-icon.svelte';

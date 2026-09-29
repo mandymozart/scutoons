@@ -6,8 +6,8 @@
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
-	import type { Collectable as CollectableType } from '$lib/models/visual-novel.ts';
-	import type { Entry } from '$lib/models/items.ts';
+	import type { Collectable as CollectableType } from '@scutoons/content';
+	import type { Entry } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { onClickOutside } from 'runed';

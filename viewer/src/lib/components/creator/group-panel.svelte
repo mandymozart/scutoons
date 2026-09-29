@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/creator/doc.svelte.ts';
-	import type { Path } from '$lib/creator/paths.ts';
-	import { Renderer } from '$lib/models/enums.ts';
+	import type { Path } from '@scutoons/content';
+	import { Renderer } from '@scutoons/content';
 	import PropField from './prop-field.svelte';
 
 	/** Group settings: label, renderer type + params. For ref groups the doc is the referenced scene file. */

@@ -1,5 +1,5 @@
 import { AudioManager } from '$lib/audio/AudioManager.ts';
-import type { AudioConfiguration, Sample } from '$lib/models/audio.ts';
+import type { AudioConfiguration, Sample } from '@scutoons/content';
 import { getContext, setContext } from 'svelte';
 import { asset } from '$lib/utils/cdn.ts';
 import { Howler } from 'howler';

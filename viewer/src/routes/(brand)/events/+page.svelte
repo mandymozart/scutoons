@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Event } from '$lib/models/content.ts';
+	import type { Event } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';
 	import type { PageProps } from './$types.js';

@@ -1,4 +1,4 @@
-import type { AdoptiveMusicPlayerConfiguration, AudioConfiguration, AudioTrack, Sample } from "$lib/models/audio.ts";
+import type { AdoptiveMusicPlayerConfiguration, AudioConfiguration, AudioTrack, Sample } from '@scutoons/content';
 
 export interface IAudioManager {
 	init(audioConfig: AudioConfiguration): Promise<void>;
