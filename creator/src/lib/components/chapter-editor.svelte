@@ -9,6 +9,7 @@
 	import { getAt, deleteAt, type Path, type ToonLanguages } from '@scutoons/content';
 	import { newDialog, newGroup, nextDialogId } from '$lib/editor/defaults.ts';
 	import { knownImages } from '$lib/editor/images.ts';
+	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
 	import SliceCanvas, { type CanvasSelection, type Scope, type Tool } from './slice-canvas.svelte';
@@ -32,13 +33,16 @@
 	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
 	// svelte-ignore state_referenced_locally
 	const chapter = toonDoc(toon, `chapter${chapterNumber}.json`, languages);
+	// the season holds the chapter's status (visibility, per locale): edited in the meta panel, saved with the chapter
+	// svelte-ignore state_referenced_locally
+	const season = toonDoc(toon, 'season1.json', languages);
 	let refs = $state<Record<string, ContentDoc>>({});
 	let characters = $state<{ name: string; label?: string }[]>([]);
 	let images = $state<string[]>([]);
 
 	const chapterData = $derived(chapter.data[chapter.primary]);
 	const groups = $derived<any[]>(chapterData?.groups ?? []);
-	const allDocs = $derived<ContentDoc[]>([chapter, ...Object.values(refs)]);
+	const allDocs = $derived<ContentDoc[]>([chapter, season, ...Object.values(refs)]);
 	const anyDirty = $derived(allDocs.some((d) => d.dirty));
 	const anySaving = $derived(allDocs.some((d) => d.saving));
 
@@ -51,7 +55,7 @@
 	}
 
 	onMount(async () => {
-		await chapter.load();
+		await Promise.all([chapter.load(), season.load()]);
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
 		// characters.json of the source language (else the first language that has one)
 		for (const locale of chapter.locales) {
@@ -132,7 +136,14 @@
 					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.path, locale: l, path: [], message: `no ${l} file` });
 					continue;
 				}
-				out.push(...validateFile(doc.kind, doc.data[l], l, { file: doc.path, audio: chapterData?.audio, characters: names.length ? names : undefined }));
+				out.push(
+					...validateFile(doc.kind, doc.data[l], l, {
+						file: doc.path,
+						audio: chapterData?.audio,
+						characters: names.length ? names : undefined,
+						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined
+					})
+				);
 			}
 			out.push(...validateLocales(doc.kind, doc.path, doc.data, doc.primary));
 		}
@@ -144,6 +155,10 @@
 
 	function gotoProblem(p: Problem) {
 		let path = p.path;
+		if (p.file === season.path) {
+			section = 'meta';
+			return;
+		}
 		if (p.file !== chapter.path) {
 			const gi = groups.findIndex((g) => g?.ref?.src === p.file);
 			if (gi < 0) return;
@@ -271,6 +286,8 @@
 	async function saveAll(force = false) {
 		notice = null;
 		conflict = null;
+		// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
+		syncChapter(chapter, season, chapterNumber);
 		for (const doc of allDocs) {
 			if (!doc.dirty) continue;
 			try {
@@ -288,6 +305,7 @@
 	}
 
 	async function publishAll() {
+		syncChapter(chapter, season, chapterNumber);
 		const docs = allDocs.filter((d) => d.dirty || d.unpublished.length || d.stored.length);
 		const files = docs.map((d) => d.path).join(', ');
 		if (errorCount && !confirm(`${errorCount} errors in the problem list. Publish anyway?`)) return;
@@ -387,6 +405,7 @@
 		<div class="files">
 			<FileStatus doc={chapter} />
 			{#if refSrc && refs[refSrc]}<span class="hint">{refSrc}</span><FileStatus doc={refs[refSrc]} />{/if}
+			{#if !season.loading && (season.dirty || season.unpublished.length)}<span class="hint">{season.path}</span><FileStatus doc={season} />{/if}
 		</div>
 	</header>
 
@@ -494,7 +513,7 @@
 			<!-- Main -->
 			<main class="main">
 				{#if section === 'meta'}
-					<MetaPanel doc={chapter} {images} />
+					<MetaPanel doc={chapter} {season} number={chapterNumber} {images} />
 				{:else if section === 'audio'}
 					<AudioPanel doc={chapter} />
 				{:else if section === 'group'}
