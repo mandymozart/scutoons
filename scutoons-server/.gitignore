@@ -1,14 +1,12 @@
-.git
-generate/files
-.htpasswd
-api/keys/keypair.json
+# Local-only / generated files of this installation
 config.local.php
-db/local.sqlite
+config.php
+.htpasswd
 db/*.sqlite*
 logs/
 *.log
-vendor/
 storage/files/
 storage/keys/
+vendor/
 .phpunit.cache/
 .phpunit.result.cache

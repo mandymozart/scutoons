@@ -2,12 +2,12 @@
 /**
  * End-to-end smoke test of the accounts/items API against a running local server.
  *
- *   php -S localhost:9000 router.php          (MAIL_TRANSPORT = log in config.local.php)
+ *   composer serve                            (php -S localhost:9000 -t public public/router.php; MAIL_TRANSPORT = log)
  *   php tests/api-smoke.php [http://localhost:9000]
  *
- * Uses fresh email addresses per run and picks unclaimed codes from the local DB (db/local.sqlite): it claims
+ * Uses fresh email addresses per run and picks unclaimed codes from the local DB (DB_SQLITE_PATH, or a copy via QR_DB_SQLITE_PATH): it claims
  * one vinyl code (single option) and one Dago code (choice) – run it against a local copy only. Temporary codes
- * (promo, page, …) are created and removed again. Also calls scripts/roles.php.
+ * (promo, page, …) are created and removed again. Also calls bin/console roles.
  * OTPs are read from the mail log (logs/mail.log). Exit code 0 = all checks passed.
  */
 if (PHP_SAPI !== 'cli') {
@@ -15,7 +15,7 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
-require_once __DIR__ . '/../api/lib/bootstrap.php';
+require_once __DIR__ . '/support/legacy.php';
 
 $base = rtrim($argv[1] ?? 'http://localhost:9000', '/');
 $api = $base . '/api';
@@ -404,7 +404,7 @@ $r = call('POST', "$base/generate/user-roles.php", ['email' => $emailC, 'role' =
 check($r['status'] === 200 && $r['body']['changed'] === true && $r['body']['user']['roles'] === ['member'] && !Roles::has($userC, 'creator'), 'admin revokes creator (by email)', $r['body']);
 $r = call('POST', "$base/generate/user-roles.php", ['user_id' => $userC, 'role' => 'wizard', 'action' => 'grant'], null, $adminHeader);
 check($r['status'] === 400, 'unknown role → 400', $r);
-$cli = fn(string $args) => (string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/roles.php') . " $args 2>&1");
+$cli = fn(string $args) => (string) shell_exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../bin/console') . " roles $args 2>&1");
 $out = $cli('grant ' . escapeshellarg($emailC) . ' admin');
 check(str_contains($out, 'Granted admin') && Roles::has($userC, 'admin'), 'CLI roles.php grant', $out);
 $out = $cli('list ' . escapeshellarg($emailC));

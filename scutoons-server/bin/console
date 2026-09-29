@@ -1,0 +1,36 @@
+#!/usr/bin/env php
+<?php
+declare(strict_types=1);
+
+/**
+ * Command line of the SCUTOONS server (local development / a host with a shell; production has none – see
+ * docs/DEPLOY.md for the phpMyAdmin equivalents):
+ *
+ *   php bin/console migrate [--status]                 apply pending migrations (migrations/<driver>/)
+ *   php bin/console roles grant|revoke|list <email> [role]
+ *   php bin/console import-content <viewer/static/api> [--toon=] [--db=] [--update] [--dry-run] [--sql]
+ *   php bin/console backfill-edition-numbers [--dry-run] [--sql] [--force] [--manifests=<dir>]
+ *   php bin/console report-orphan-codes [--csv] [--manifests=<dir>]
+ *   php bin/console list                               all commands, `help <command>` for details
+ */
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
+require __DIR__ . '/../vendor/autoload.php';
+
+use Scutoons\Console\BackfillEditionNumbersCommand;
+use Scutoons\Console\ImportContentCommand;
+use Scutoons\Console\MigrateCommand;
+use Scutoons\Console\ReportOrphanCodesCommand;
+use Scutoons\Console\RolesCommand;
+use Scutoons\Kernel;
+use Symfony\Component\Console\Application;
+
+$container = Kernel::container();
+$console = new Application('SCUTOONS server', '1.0');
+foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class] as $command) {
+    $console->add($container->get($command));
+}
+exit($console->run());

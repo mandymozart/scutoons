@@ -1,5 +1,5 @@
 -- Local development (SQLite): the same tables as 2026-09-29-accounts-inventory.mysql.sql.
--- ALTER TABLE ... ADD COLUMN is skipped by scripts/migrate.php when the column exists.
+-- ALTER TABLE ... ADD COLUMN is skipped by bin/console migrate when the column exists.
 
 ALTER TABLE qr ADD COLUMN edition_number INTEGER NULL DEFAULT NULL;
 ALTER TABLE qr ADD COLUMN claimed_by TEXT NULL DEFAULT NULL;

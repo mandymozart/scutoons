@@ -1,58 +1,34 @@
 <?php
-// Copy this file to config.local.php for local development.
-// config.local.php is gitignored — never commit it.
+// Local settings of this installation. Copy to config.local.php (gitignored – never commit it).
+// Every key and its default: config/settings.php (docs/CONFIGURATION.md). An environment variable QR_<KEY> wins.
+// Production has no config.local.php: the deploy workflow writes config.php with the same constants.
 
-// ── Generate tool password ────────────────────────────────────────────────
-define('GENERATE_PASSWORD', 'your-password-here');
-
-// ── Option A: Local MySQL (Local by Flywheel / MAMP / XAMPP) ─────────────
-//
-// define('DB_HOST', 'localhost');
-// define('DB_NAME', 'scutoons');
-// define('DB_USER', 'root');
-// define('DB_PASS', 'root');
-//
-// function getDbConnection() {
-//     $pdo = new PDO(
-//         "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
-//         DB_USER, DB_PASS,
-//         [
-//             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-//             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-//             PDO::ATTR_EMULATE_PREPARES   => false,
-//         ]
-//     );
-//     return $pdo;
-// }
-
-
-// ── Option B: SQLite (zero setup) ────────────────────────────────────────
-// The database file is created automatically on first request.
-// Import schema manually if needed: sqlite3 db/local.sqlite < db/schema/qr.sqlite.sql
-
-define('DB_SQLITE_PATH', __DIR__ . '/db/local.sqlite');
-
-function getDbConnection() {
-    $isNew = !file_exists(DB_SQLITE_PATH);
-    $pdo   = new PDO('sqlite:' . DB_SQLITE_PATH, null, null, [
-        PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-    if ($isNew) {
-        // Auto-create schema on first connection
-        $pdo->exec(file_get_contents(__DIR__ . '/db/schema/qr.sqlite.sql'));
-    }
-    return $pdo;
-}
-
-// ── Accounts / items API (docs/ACCOUNTS.md) ─────────────────────────────
+// ── Secrets ─────────────────────────────────────────────────────────────────────────────────────────────
 // At least 32 random characters: php -r "echo bin2hex(random_bytes(32));"
 define('AUTH_SECRET', '');
+// Password of the legacy generate/ SPA (until the admin app replaces generate/)
+define('GENERATE_PASSWORD', 'your-password-here');
+
+// ── Database ────────────────────────────────────────────────────────────────────────────────────────────
+// SQLite (zero setup). A new file gets its tables with: php bin/console migrate
+// QR_DB_SQLITE_PATH (environment) points the server and the tests at a copy (composer test does that).
+define('DB_SQLITE_PATH', getenv('QR_DB_SQLITE_PATH') ?: __DIR__ . '/db/local.sqlite');
+// …or a local MySQL/MariaDB: leave DB_SQLITE_PATH out and define
+// define('DB_HOST', 'localhost'); define('DB_NAME', 'scutoons'); define('DB_USER', 'root'); define('DB_PASS', 'root');
+
+// ── Local URLs (final dev ports, agents/PLATFORM.md "Local dev ports") ──────────────────────────────────
+define('QR_URL', 'http://localhost:9000');             // this server: magic links from the landing page
+define('APP_URL', 'http://localhost:8000');            // the viewer
+define('CDN_URL', 'http://localhost:8001/');           // local CDN (item icons): cd cdn && python server.py 8001
+// Viewer 8000, creator 10000, admin 11000 (+ the old Vite ports while something still uses them)
+define('ALLOWED_ORIGINS', 'http://localhost:8000,http://localhost:10000,http://localhost:11000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:4173');
+
+// ── Mail ────────────────────────────────────────────────────────────────────────────────────────────────
 define('MAIL_TRANSPORT', 'log');                       // log = login mails go to logs/mail.log (smtp in production)
-define('QR_URL', 'http://localhost:9000');             // magic links from the landing page
-define('APP_URL', 'http://localhost:5173');            // the viewer
-define('CDN_URL', 'http://localhost:8001/');           // local CDN (item icons)
-// Production mail (MAIL_TRANSPORT = smtp):
 // define('MAIL_FROM', 'no-reply@scutoons.com');
 // define('SMTP_HOST', ''); define('SMTP_PORT', '587'); define('SMTP_SECURE', 'tls');
 // define('SMTP_USER', ''); define('SMTP_PASS', '');
+
+// ── Local testing ───────────────────────────────────────────────────────────────────────────────────────
+define('LOGIN_MAX_PER_IP_HOUR', '1000');               // the smoke tests sign in many times (default 30)
+define('LOGIN_MAX_PER_EMAIL_HOUR', '20');

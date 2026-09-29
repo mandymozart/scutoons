@@ -10,14 +10,14 @@
  *
  *   php tests/claim-race.php [workers=8] [claim|signup|both=both]
  *
- * Runs against the configured local database (config.local.php) – local copy only. Creates throwaway users.
+ * Runs against the configured local database (DB_SQLITE_PATH / QR_DB_SQLITE_PATH) – local copy only. Creates throwaway users.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
 }
 
-require_once __DIR__ . '/../api/lib/bootstrap.php';
+require_once __DIR__ . '/support/legacy.php';
 
 // ── Workers: wait for the start signal, then claim / confirm ───────────────────────────────────────────
 if (($argv[1] ?? '') === '--worker' || ($argv[1] ?? '') === '--signup-worker') {

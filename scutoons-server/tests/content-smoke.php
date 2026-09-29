@@ -1,10 +1,10 @@
 <?php
 /**
- * Content store (api/lib/Content.php) end-to-end test against a running local server, plus the import script
+ * Content store (src/Domain/Content/ContentService.php) end-to-end test against a running local server, plus the import script
  * against a copy of the local database.
  *
- *   php -S localhost:9000 router.php
- *   php scripts/migrate.php                       (content_versions, roles)
+ *   composer serve                                (php -S localhost:9000 -t public public/router.php)
+ *   php bin/console migrate                       (content_versions, roles)
  *   php tests/content-smoke.php [http://localhost:9000] [path to scutoons viewer/static/api]
  *
  * Creates two throw-away users directly in the local DB (one member, one creator) with sessions, writes only to a
@@ -15,12 +15,11 @@ if (PHP_SAPI !== 'cli') {
     exit;
 }
 
-require_once __DIR__ . '/../api/lib/bootstrap.php';
-require_once __DIR__ . '/../api/lib/Content.php';
+require_once __DIR__ . '/support/legacy.php';
 
 $base = rtrim($argv[1] ?? 'http://localhost:9000', '/');
 $api = $base . '/api';
-$staticApi = $argv[2] ?? (getenv('SCUTOONS_STATIC_API') ?: __DIR__ . '/../../scutoons/viewer/static/api');
+$staticApi = $argv[2] ?? (getenv('SCUTOONS_STATIC_API') ?: __DIR__ . '/../../viewer/static/api');
 $failures = 0;
 $checks = 0;
 
@@ -203,7 +202,7 @@ try {
         $pdo = new PDO('sqlite:' . $copy, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
         $pdo->exec("DELETE FROM content_versions WHERE toon = 'catpope'");
         $pdo = null;
-        $script = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../scripts/import-content.php') . ' ' . escapeshellarg($staticApi) . ' --db=' . escapeshellarg($copy);
+        $script = escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg(__DIR__ . '/../bin/console') . ' import-content ' . escapeshellarg($staticApi) . ' --db=' . escapeshellarg($copy);
         $before = (int) Db::value('SELECT COUNT(*) FROM content_versions');
         exec("$script --toon=catpope 2>&1", $out1, $code1);
         exec("$script --toon=catpope 2>&1", $out2, $code2);

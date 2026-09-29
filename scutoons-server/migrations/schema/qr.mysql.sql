@@ -45,7 +45,7 @@ CREATE TABLE `qr` (
   `revoked_reason` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- Accounts, items and inventory: see db/migrations/2026-09-29-accounts-inventory.mysql.sql (tables appended
+-- Accounts, items and inventory: see migrations/mysql/2026-09-29-accounts-inventory.mysql.sql (tables appended
 -- at the end of this file).
 
 --
@@ -177,12 +177,12 @@ CREATE TABLE IF NOT EXISTS `rate_limits` (
   KEY `rate_limits_ref` (`bucket`, `ref`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- One owner per QR code (db/migrations/2026-09-30-code-owner-guard.mysql.sql); phpMyAdmin: use delimiter $$
+-- One owner per QR code (migrations/mysql/2026-09-30-code-owner-guard.mysql.sql); phpMyAdmin: use delimiter $$
 CREATE TRIGGER IF NOT EXISTS `qr_owner_immutable` BEFORE UPDATE ON `qr` FOR EACH ROW BEGIN IF OLD.claimed_by IS NOT NULL AND NEW.claimed_by IS NOT NULL AND NEW.claimed_by <> OLD.claimed_by THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'qr code already belongs to another account'; END IF; END;
 CREATE TRIGGER IF NOT EXISTS `inventory_code_owner_insert` BEFORE INSERT ON `inventory` FOR EACH ROW BEGIN IF NEW.code IS NOT NULL AND NOT (NEW.user_id <=> (SELECT claimed_by FROM qr WHERE code = NEW.code)) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'inventory code does not belong to this account'; END IF; END;
 CREATE TRIGGER IF NOT EXISTS `inventory_code_owner_update` BEFORE UPDATE ON `inventory` FOR EACH ROW BEGIN IF NEW.code IS NOT NULL AND NOT (NEW.user_id <=> (SELECT claimed_by FROM qr WHERE code = NEW.code)) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'inventory code does not belong to this account'; END IF; END;
 
--- Revoke + activity statistics (db/migrations/2026-09-30-revoke-events.mysql.sql)
+-- Revoke + activity statistics (migrations/mysql/2026-09-30-revoke-events.mysql.sql)
 CREATE TABLE IF NOT EXISTS `code_events` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `code` VARCHAR(8) NOT NULL,

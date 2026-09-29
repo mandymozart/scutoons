@@ -196,6 +196,41 @@ final class Batches
         $this->files->write($type, $filename, $doc);
     }
 
+    /**
+     * Every code of the batch manifests in a folder (default: the stored ones) → edition, number, manifest file.
+     * A code listed twice keeps its first manifest ($warn gets a line).
+     * @param callable(string): void|null $warn
+     * @return array<string, array{edition_id: string, n: int, file: string, status: string}>
+     */
+    public function manifestIndex(?string $dir = null, ?callable $warn = null): array
+    {
+        $dir = rtrim(str_replace('\\', '/', $dir ?? $this->files->root() . '/batch'), '/');
+        $codes = [];
+        $files = glob($dir . '/BATCH-*.json') ?: [];
+        sort($files);
+        foreach ($files as $file) {
+            $manifest = json_decode((string) file_get_contents($file), true);
+            if (!is_array($manifest) || !is_array($manifest['codes'] ?? null)) {
+                if ($warn) $warn('skipping invalid manifest ' . basename($file));
+                continue;
+            }
+            foreach ($manifest['codes'] as $entry) {
+                if (!isset($entry['code'], $entry['n'])) continue;
+                if (isset($codes[$entry['code']])) {
+                    if ($warn) $warn("code {$entry['code']} appears in more than one manifest; keeping " . $codes[$entry['code']]['file']);
+                    continue;
+                }
+                $codes[(string) $entry['code']] = [
+                    'edition_id' => (string) ($manifest['editionId'] ?? ''),
+                    'n' => (int) $entry['n'],
+                    'file' => basename($file),
+                    'status' => (string) ($entry['status'] ?? ''),
+                ];
+            }
+        }
+        return $codes;
+    }
+
     /** @return list<string> every code listed in a manifest */
     private function manifestCodes(): array
     {
