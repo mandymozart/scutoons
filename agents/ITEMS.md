@@ -461,7 +461,7 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
 - **Members can only pick characters they have unlocked.** Server tables (to build):
   `member_characters (user_id, character_id, source: default|code|item|story|admin, ref?, unlocked_at)` and
   `member_character_looks (user_id, character_id, look_id, source, unlocked_at)` for A-pose looks beyond the default.
-  A default-unlocked set is configurable (permissions/settings), unlocks can be granted by codes/items (catalog),
+  A default-unlocked set is configurable (permissions/settings) — **owner decision 2026-09-30: only `catpope` (both A-pose looks swim + naked) is unlocked for every member by default**; unlocks can be granted by codes/items (catalog),
   story events (VN `add`/grant) and admins. `avatar` gets `body: { character, look }` (server, per account; guests
   per device).
 - **No look creator:** outfitting (putting items on the body) happens only in the reader's inventory avatar view;
