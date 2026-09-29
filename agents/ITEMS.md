@@ -249,3 +249,17 @@ page. Non-claimable types keep their direct redirect.
 - Guest: local inventory/progress only; logged in: server inventory/progress; login imports the guest's grantable
   items (as before). Device access stays after logout.
 - Blocker (no access): "Scan your code", "Sign in", "Buy access".
+
+## Revoke + activity statistics (2026-09-30, user decision)
+
+- **No device limits** — codes are shareable for virality. Danger → the owner revokes that one code.
+- `qr.revoked_at` (+ `revoked_reason`): revoked codes grant nothing — `/access/`, `/validate/`, `/inventory/claim/`
+  → `410 revoked`; `/me` access ignores them. Viewer: on `410 revoked`/`expired` during a re-check → drop device access.
+- **`code_events`** (append-only): `id, code, event, device_hash NULL, user_id NULL, ip_hash NULL, toon NULL, created_at`.
+  Events: `scan` (landing page `/?c=`), `access` (at most once per code+device per UTC day), `claim`,
+  `claim_refused`, `login` (one row per owned code at sign-in), `revoke`, `unrevoke`.
+  Privacy: viewer sends a random per-browser id `X-Device-Id` (localStorage `scutoons_device`); server stores
+  `hmac(device id)` only. IP → `hmac(ip + daily salt)`. No raw IP, no email, no user agent string in events.
+- **Admin stats** in the generate SPA (admin token): per code — edition, number, type, scans, unique devices,
+  accesses, first/last seen, claimed (at), revoked; sort by spread; filter edition/type; daily chart scans/unlocks;
+  CSV export; revoke/unrevoke with reason. Endpoints under `generate/` (admin token), never public.
