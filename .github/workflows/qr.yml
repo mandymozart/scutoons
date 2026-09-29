@@ -1,0 +1,72 @@
+# The qr app (qr.scutoons.com: QR landing page, verify page, proxies to the API; plain PHP, qr/).
+# Checks on every push / pull request that touches it; deploys only from main. Target: deploy/targets.json → "qr";
+# the steps: .github/workflows/deploy-app.yml; docs: qr/README.md, deploy/README.md.
+# The printed-URL suite (qr/tests/public-urls.php) needs a database with codes – it runs locally with `composer test`
+# in server/ (agents/PLATFORM.md "RULE: printed / public URLs never change").
+on:
+  push:
+    branches:
+      - main
+      - platform
+    paths:
+      - 'qr/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy-app.yml'
+      - '.github/workflows/qr.yml'
+  pull_request:
+    paths:
+      - 'qr/**'
+      - '.github/workflows/qr.yml'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and list only, no upload
+        type: boolean
+        default: false
+
+name: 🚀 qr app (qr.scutoons.com)
+
+jobs:
+  test:
+    name: 🧪 Lint + offline smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: qr
+    steps:
+      - name: 🚚 Get the code
+        uses: actions/checkout@v4
+
+      - name: 🐘 PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl
+          coverage: none
+
+      - name: 🔍 php -l
+        run: find src public templates tests -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      # Without an API: the pages that need none answer, a scan shows the friendly fallback, proxies say 502
+      - name: 🧪 Smoke test with the API down
+        run: |
+          QRAPP_API_URL=http://127.0.0.1:9 QRAPP_CACHE_DIR=/tmp/qr-cache php -S 127.0.0.1:9001 -t public public/router.php > /tmp/qr.log 2>&1 &
+          sleep 1
+          check() { status=$(curl -s -o /tmp/body -w '%{http_code}' "http://127.0.0.1:9001$1"); echo "$1 → $status"; [ "$status" = "$2" ] || { cat /tmp/body; exit 1; }; }
+          check '/' 200
+          check '/verify.html' 200
+          check '/version.json' 200
+          check '/?c=abcDEF12' 503 && grep -q 'Scanning works, try again in a minute' /tmp/body
+          check '/?c=not%20a%20code' 404
+          check '/api/validate/?c=abcDEF12' 502
+          check '/?login=token' 302
+
+  deploy:
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app: qr
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets: inherit

@@ -6,7 +6,7 @@
 	"description": "SCUTOONS shop: limited editions (one tile per colourway, buy on Bandcamp), shop.scutoons.com",
 	"scripts": {
 		"dev": "vite dev",
-		"build": "vite build",
+		"build": "vite build && node ../deploy/version.mjs build",
 		"preview": "vite preview",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "node scripts/paraglide.js && svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"

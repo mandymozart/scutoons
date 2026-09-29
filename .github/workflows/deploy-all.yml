@@ -1,0 +1,69 @@
+# Deploys EVERY app in order: api → qr → the frontends (viewer, shop, creator, admin), each as described in
+# deploy/targets.json (steps: .github/workflows/deploy-app.yml; docs: deploy/README.md).
+# Run it by hand (Actions → "Deploy all" → Run workflow; optionally as a dry run) or push a tag `deploy-*`
+# (e.g. deploy-2026-10-04). Use it for the cutover and whenever the apps must go out together (API contract change).
+# DB migrations are NOT run – the first job lists the migration files; run new ones in phpMyAdmin BEFORE the deploy.
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and list only, no upload
+        type: boolean
+        default: false
+  push:
+    tags:
+      - 'deploy-*'
+
+name: 🚀 Deploy all (api → qr → frontends)
+
+jobs:
+  migrations:
+    name: ⚠️ Pending DB migrations?
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Get the code
+        uses: actions/checkout@v4
+      - name: 📋 Migration files in this release
+        run: |
+          {
+            echo "### Database migrations"
+            echo "The deploy does **not** run migrations. Compare these files with the \`schema_migrations\` table"
+            echo "(phpMyAdmin) and run every missing one **before** the API goes live – server/docs/DATABASE.md."
+            echo
+            ls -1 server/migrations/mysql/*.sql | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=DB migrations::Pending DB migrations are not run by the deploy – check the run summary and server/docs/DATABASE.md"
+      - name: 🗺️ Frontends from deploy/targets.json (order without api, qr)
+        id: frontends
+        run: echo "apps=$(node -e "console.log(JSON.stringify(require('./deploy/targets.json').order.filter(a => a !== 'api' && a !== 'qr')))")" >> "$GITHUB_OUTPUT"
+    outputs:
+      frontends: ${{ steps.frontends.outputs.apps }}
+
+  api:
+    needs: migrations
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app: api
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets: inherit
+
+  qr:
+    needs: api
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app: qr
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets: inherit
+
+  frontends:
+    needs: [migrations, qr]
+    strategy:
+      fail-fast: false
+      max-parallel: 2
+      matrix:
+        app: ${{ fromJSON(needs.migrations.outputs.frontends) }}
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app: ${{ matrix.app }}
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets: inherit

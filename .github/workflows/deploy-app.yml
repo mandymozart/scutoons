@@ -1,0 +1,77 @@
+# Reusable: deploys ONE app as described in deploy/targets.json (the single source of truth for targets – host path,
+# protocol, build, include/exclude; docs deploy/README.md). Called by viewer.yml, shop.yml, creator.yml, admin.yml,
+# qr.yml, server.yml and deploy-all.yml – no target is written into any workflow.
+# Secrets and variables: GitHub environment `production` (list: .env.example). They reach deploy/deploy.mjs as JSON,
+# so adding a value to a target is a change in targets.json + the environment, not here.
+# To move an app to another host (bunny.net, Cloudflare): change its protocol in targets.json and add an upload step
+# for that protocol below (see deploy/README.md).
+on:
+  workflow_call:
+    inputs:
+      app:
+        description: target name in deploy/targets.json
+        required: true
+        type: string
+      dry-run:
+        description: build + stage + list only, no upload
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deploy:
+    name: 🎉 Deploy ${{ inputs.app }}${{ inputs.dry-run && ' (dry run)' || '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    concurrency:
+      group: deploy-${{ inputs.app }}
+      cancel-in-progress: false
+    env:
+      SECRETS_JSON: ${{ toJSON(secrets) }}
+      VARS_JSON: ${{ toJSON(vars) }}
+    steps:
+      - name: 🚚 Get the code
+        uses: actions/checkout@v4
+
+      - name: 📦 Node.js 22 (deploy/deploy.mjs, frontend builds)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 🔎 What this target needs (deploy/targets.json)
+        id: setup
+        run: node deploy/deploy.mjs "${{ inputs.app }}" --setup >> "$GITHUB_OUTPUT"
+
+      - name: 📦 npm ci (workspace root)
+        if: steps.setup.outputs.npm == 'true'
+        run: npm ci
+
+      - name: 🐘 PHP 8.3 + Composer
+        if: steps.setup.outputs.php == 'true'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: 📋 Build, stage and plan
+        id: plan
+        run: node deploy/deploy.mjs "${{ inputs.app }}" --github --list=summary ${{ inputs.dry-run && '--dry-run' || '' }}
+
+      - name: 📂 Upload via FTP
+        if: steps.plan.outputs.protocol == 'ftp' && !inputs.dry-run
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ${{ steps.plan.outputs.local_dir }}
+          server-dir: ${{ steps.plan.outputs.server_dir }}
+          exclude: ${{ steps.plan.outputs.exclude }}
+          log-level: standard
+
+      - name: ⚠️ Reminder
+        if: steps.plan.outputs.reminder != ''
+        run: echo "::warning title=${{ inputs.app }}::${{ steps.plan.outputs.reminder }}"

@@ -1,6 +1,6 @@
 {
 	"name": "@scutoons/api",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"private": true,
 	"type": "module",
 	"description": "SCUTOONS typed API client (framework-agnostic): session, device id, access, items, inventory, content store",

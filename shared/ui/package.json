@@ -1,6 +1,6 @@
 {
 	"name": "@scutoons/ui",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"private": true,
 	"type": "module",
 	"description": "SCUTOONS Svelte UI kit: Button, IconButton, Field, Panel, Section, Sheet, Tabs, Toggle, Badge, Menu, Toasts, ActionBar, DataTable, Pager, SplitView, CommandPalette, Skeleton, Chart, RecordInspector",

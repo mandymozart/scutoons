@@ -1,3 +1,5 @@
+# Deploys the shop (shop.scutoons.com) on every push to main that touches it. Target (host path, build, include/exclude):
+# deploy/targets.json → "shop"; the steps: .github/workflows/deploy-app.yml; docs: deploy/README.md.
 on:
   push:
     branches:
@@ -8,42 +10,22 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.npmrc'
+      - 'deploy/**'
+      - '.github/workflows/deploy-app.yml'
       - '.github/workflows/shop.yml'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and list only, no upload
+        type: boolean
+        default: false
 
 name: 🚀 Deploy shop (shop.scutoons.com)
 
 jobs:
-  web-deploy:
-    name: 🎉 Deploy
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-    - name: 🚚 Get latest code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: 📦 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
-
-    - name: 🔨 Install (workspace root) and build shop
-      run: npm ci && npm run build -w shop
-      env:
-        # optional repository variables; the app falls back to the production URLs when unset
-        VITE_API_URL: ${{ vars.VITE_API_URL }}
-        VITE_CDN_URL: ${{ vars.VITE_CDN_URL }}
-        VITE_WWW_URL: ${{ vars.VITE_WWW_URL }}
-
-    - name: 📂 Sync files via FTP
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-      with:
-        server: ${{ secrets.SHOP_FTP_SERVER }}
-        username: ${{ secrets.SHOP_FTP_USERNAME }}
-        password: ${{ secrets.SHOP_FTP_PASSWORD }}
-        local-dir: ./shop/build/
-        server-dir: /
-        log-level: verbose
+  deploy:
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app: shop
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets: inherit

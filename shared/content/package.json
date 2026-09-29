@@ -1,6 +1,6 @@
 {
 	"name": "@scutoons/content",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"private": true,
 	"type": "module",
 	"description": "SCUTOONS content contract: TS types for toon/season/chapter/slice/dialog/audio/VN/items, pure helpers, validation, JSON Schema",

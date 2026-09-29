@@ -1,6 +1,6 @@
 {
 	"name": "@scutoons/tokens",
-	"version": "0.0.0",
+	"version": "0.1.0",
 	"private": true,
 	"type": "module",
 	"description": "SCUTOONS design tokens (CSS custom properties), self-hosted fonts and base element styles",

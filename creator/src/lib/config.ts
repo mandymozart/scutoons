@@ -13,9 +13,9 @@ export const CDN_SERVER: string = trim(
 	import.meta.env.VITE_CDN_URL || (import.meta.env.PROD ? 'https://cdn.scutoons.com' : 'http://localhost:8001')
 );
 
-/** The reader (viewer) origin: link "Open the reader" (`VITE_VIEWER_URL`; dev http://localhost:8000). */
+/** The reader (viewer) origin: link "Open the reader" (`VITE_WWW_URL`, old name `VITE_VIEWER_URL`; dev http://localhost:8000). */
 export const VIEWER_URL: string = trim(
-	import.meta.env.VITE_VIEWER_URL || (import.meta.env.PROD ? 'https://scutoons.com' : 'http://localhost:8000')
+	import.meta.env.VITE_WWW_URL || import.meta.env.VITE_VIEWER_URL || (import.meta.env.PROD ? 'https://scutoons.com' : 'http://localhost:8000')
 );
 
 /**

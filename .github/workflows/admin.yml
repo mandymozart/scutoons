@@ -1,3 +1,5 @@
+# Deploys the admin (admin.scutoons.com) on every push to main that touches it. Target (host path, build, include/exclude):
+# deploy/targets.json → "admin"; the steps: .github/workflows/deploy-app.yml; docs: deploy/README.md.
 on:
   push:
     branches:
@@ -8,42 +10,22 @@ on:
       - 'package.json'
       - 'package-lock.json'
       - '.npmrc'
+      - 'deploy/**'
+      - '.github/workflows/deploy-app.yml'
       - '.github/workflows/admin.yml'
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and list only, no upload
+        type: boolean
+        default: false
 
 name: 🚀 Deploy admin (admin.scutoons.com)
 
 jobs:
-  web-deploy:
-    name: 🎉 Deploy
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-    - name: 🚚 Get latest code
-      uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-
-    - name: 📦 Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '22'
-        cache: 'npm'
-
-    - name: 🔨 Install (workspace root) and build admin
-      run: npm ci && npm run build -w admin
-      env:
-        # optional repository variables; the app falls back to the production URLs when unset
-        VITE_API_URL: ${{ vars.VITE_API_URL }}
-        VITE_CREATOR_URL: ${{ vars.VITE_CREATOR_URL }}
-        VITE_VIEWER_URL: ${{ vars.VITE_VIEWER_URL }}
-
-    - name: 📂 Sync files via FTP
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.6
-      with:
-        server: ${{ secrets.ADMIN_FTP_SERVER }}
-        username: ${{ secrets.ADMIN_FTP_USERNAME }}
-        password: ${{ secrets.ADMIN_FTP_PASSWORD }}
-        local-dir: ./admin/build/
-        server-dir: /
-        log-level: verbose
+  deploy:
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app: admin
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets: inherit
