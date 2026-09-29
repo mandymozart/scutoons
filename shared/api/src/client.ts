@@ -46,6 +46,12 @@ export interface ApiClient {
 	get<T = any>(path: string, opts?: RequestOptions): Promise<T>;
 	post<T = any>(path: string, body?: unknown): Promise<T>;
 	put<T = any>(path: string, body?: unknown): Promise<T>;
+	delete<T = any>(path: string): Promise<T>;
+	/**
+	 * Raw GET for non-JSON answers (CSV, ZIP, PDF attachments): the `Response` of a 2xx, with the same headers
+	 * (session, device id). Non-2xx → ApiError (JSON error body parsed when there is one).
+	 */
+	fetchRaw(path: string, opts?: RequestOptions): Promise<Response>;
 }
 
 export function createApiClient(options: ApiClientOptions): ApiClient {
@@ -53,22 +59,16 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 		(typeof options.baseUrl === 'function' ? options.baseUrl() : options.baseUrl).replace(/\/+$/, '');
 	const getToken = () => options.getToken?.() ?? null;
 
-	async function request<T = any>(
-		method: Method,
-		path: string,
-		body?: unknown,
-		opts: RequestOptions = {}
-	): Promise<T> {
-		const headers: Record<string, string> = { Accept: 'application/json' };
+	async function send(method: Method, path: string, body: unknown, opts: RequestOptions, accept: string) {
+		const headers: Record<string, string> = { Accept: accept };
 		const deviceId = options.getDeviceId?.();
 		if (deviceId) headers['X-Device-Id'] = deviceId;
 		if (body !== undefined) headers['Content-Type'] = 'application/json';
 		const token = opts.auth === false ? null : getToken();
 		if (token) headers.Authorization = `Bearer ${token}`;
 
-		let response: Response;
 		try {
-			response = await (options.fetch ?? fetch)(base() + path, {
+			return await (options.fetch ?? fetch)(base() + path, {
 				method,
 				headers,
 				body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -77,26 +77,42 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 		} catch (error) {
 			throw new ApiError(0, 'network', 'Network error', error);
 		}
+	}
 
-		let data: any = null;
-		const text = await response.text();
-		if (text) {
-			try {
-				data = JSON.parse(text);
-			} catch {
-				data = { message: text };
-			}
+	function parse(text: string): any {
+		if (!text) return null;
+		try {
+			return JSON.parse(text);
+		} catch {
+			return { message: text };
 		}
+	}
 
-		if (!response.ok || data?.status === 'error') {
-			throw new ApiError(
-				response.status,
-				data?.error || (response.status === 401 ? 'unauthorized' : 'error'),
-				data?.message || response.statusText || 'Request failed',
-				data
-			);
-		}
+	function fail(response: Response, data: any): ApiError {
+		return new ApiError(
+			response.status,
+			data?.error || (response.status === 401 ? 'unauthorized' : 'error'),
+			data?.message || response.statusText || 'Request failed',
+			data
+		);
+	}
+
+	async function request<T = any>(
+		method: Method,
+		path: string,
+		body?: unknown,
+		opts: RequestOptions = {}
+	): Promise<T> {
+		const response = await send(method, path, body, opts, 'application/json');
+		const data = parse(await response.text());
+		if (!response.ok || data?.status === 'error') throw fail(response, data);
 		return data as T;
+	}
+
+	async function fetchRaw(path: string, opts: RequestOptions = {}): Promise<Response> {
+		const response = await send('GET', path, undefined, opts, '*/*');
+		if (!response.ok) throw fail(response, parse(await response.text()));
+		return response;
 	}
 
 	return {
@@ -107,6 +123,8 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 		request,
 		get: <T = any>(path: string, opts?: RequestOptions) => request<T>('GET', path, undefined, opts),
 		post: <T = any>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
-		put: <T = any>(path: string, body?: unknown) => request<T>('PUT', path, body ?? {})
+		put: <T = any>(path: string, body?: unknown) => request<T>('PUT', path, body ?? {}),
+		delete: <T = any>(path: string) => request<T>('DELETE', path),
+		fetchRaw
 	};
 }

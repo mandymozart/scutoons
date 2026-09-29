@@ -11,11 +11,12 @@ Depends on `@scutoons/content` (types) only.
 
 | Export | What |
 |---|---|
-| `createApiClient({ baseUrl, getToken?, getDeviceId?, fetch? })` | JSON client: `request`, `get`, `post`, `put`, `baseUrl`, `getToken()`. Sends `Accept`, `X-Device-Id`, `Authorization: Bearer`. Throws `ApiError` for non-2xx and `{status:"error"}` bodies. |
+| `createApiClient({ baseUrl, getToken?, getDeviceId?, fetch? })` | JSON client: `request`, `get`, `post`, `put`, `delete`, `fetchRaw` (raw `Response` for CSV/ZIP/PDF), `baseUrl`, `getToken()`. Sends `Accept`, `X-Device-Id`, `Authorization: Bearer`. Throws `ApiError` for non-2xx and `{status:"error"}` bodies. |
 | `ApiError` | `{ status, code, message, body }`; network failure = `status 0`, `code 'network'`; 401 → `'unauthorized'`. |
 | `createQrApi(client)` | `authRequest`, `authVerifyOtp`, `authVerifyToken`, `authLogout`, `checkAccess`, `fetchMe`, `updateMe`, `fetchCatalog`, `fetchEditions`, `fetchCode`, `claimCode`, `craftRecipe`, `grantItem`, `importItems`, `putAvatar`, `fetchProgress`, `putProgress` (+ types `VerifyResult`, `AccessResult`, `InventoryResult`, `ProgressResult`). |
 | `createContentApi({ client, staticBase })` | `fetchContent(fetch, toon, locale, path, { draft? })` (store → static fallback, 4 s timeout, returns a `Response`), editor endpoints `getDraft`, `getVersion`, `putDraft`, `publishVersion`, `unpublishFile`, `restoreVersion`, `listVersions`, `contentIndex`, `getStatic`; `CONTENT_PATH`; types `ContentVersion`, `WrappedContent`, `ContentIndexFile`. |
 | `createProductsApi(client)` | `fetchProducts()` (`GET /products/` → `ProductCatalog`), `fetchFeaturedProducts()` (`GET /products/featured/` → `FeaturedProduct[]`): the shop data, public. Give it a client without `getToken` / `getDeviceId` (`createApiClient({ baseUrl })`): then the browser sends a simple GET without a CORS preflight, which the API answers for any origin. |
+| `createAdminApi(client)` | the admin API (ITEMS.md "Admin API", role `admin`): `dashboard`, `listCodes`, `codesCsv`, `createCode`, `getCode`, `codeEvents`, `revokeCode`, `unrevokeCode`, `getSignature`, `saveSignature`, `listBatches`, `createBatch`, `getBatch`, `saveBatch`, `batchZip`, `putFile`, `getFile`, `listUsers`, `getUser`, `grantRole`, `revokeRole`, `roles`, `listEvents`, `catalog`, `keys`, `content` (+ types, `EVENT_NAMES`, `toQuery`). Lists take `ListParams` and answer `{ items, pagination }`; CSV/ZIP/files answer the raw `Response`. |
 | `getDeviceId()` | random per-browser id in localStorage `scutoons_device`. |
 | `getSessionToken()` / `setSessionToken(token)` | localStorage `scutoons_session` of the current origin (`SESSION_STORAGE_KEY`). |
 

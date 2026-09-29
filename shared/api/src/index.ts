@@ -20,3 +20,36 @@ export {
 	type ContentIndexFile
 } from './content.ts';
 export { createProductsApi, type ProductsApi } from './products.ts';
+export {
+	EVENT_NAMES,
+	createAdminApi,
+	toQuery,
+	type AdminApi,
+	type AdminCatalog,
+	type AdminCodeDetail,
+	type AdminCodeRow,
+	type AdminContentFile,
+	type AdminContentIndex,
+	type AdminEventRow,
+	type AdminKeys,
+	type AdminUserDetail,
+	type AdminUserRow,
+	type BatchManifest,
+	type BatchManifestCode,
+	type BatchRow,
+	type BatchStep,
+	type CodeEvent,
+	type CodeSignature,
+	type CodeSignatureResult,
+	type CreateCodeInput,
+	type CreatedCode,
+	type Dashboard,
+	type DashboardEdition,
+	type EventCounts,
+	type EventName,
+	type FileType,
+	type ListParams,
+	type ListResult,
+	type Pagination,
+	type RoleInfo
+} from './admin.ts';
