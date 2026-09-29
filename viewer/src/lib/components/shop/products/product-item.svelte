@@ -12,17 +12,28 @@
 		type Product
 	} from './shop.ts';
 
-	let { product, currency = 'EUR' }: { product: Product; currency?: string } = $props();
+	/** `variantId` pins the card to one colourway (shop grid: one tile per variant, sold-out ones included) */
+	let {
+		product,
+		currency = 'EUR',
+		variantId = null
+	}: { product: Product; currency?: string; variantId?: string | null } = $props();
 
 	const locale = getLocale();
 	let selectedId = $state<string | null>(null);
 	let currentImageIndex = $state(0);
 
+	const pinned = $derived(product.variants.find((v) => v.id === variantId) ?? null);
 	const variant = $derived(
-		product.variants.find((v) => v.id === selectedId) ?? pickVariant(product)
+		pinned ?? product.variants.find((v) => v.id === selectedId) ?? pickVariant(product)
 	);
 	const images = $derived(variant.images);
-	const hasVariantChoice = $derived(product.variants.length > 1);
+	const hasVariantChoice = $derived(!pinned && product.variants.length > 1);
+	const title = $derived(
+		pinned && product.variants.length > 1
+			? `${product.name} – ${localized(pinned.name, locale)}`
+			: product.name
+	);
 	const pieces = $derived(editionPieces(product));
 	const soldOut = $derived(isSoldOut(product));
 	const priceLabel = $derived(formatPrice(variantPrice(product, variant), currency, locale));
@@ -42,12 +53,15 @@
 	});
 </script>
 
-<div class="product-item">
+<div class="product-item" class:is-sold-out={soldOut || variant.soldOut}>
 	<div class="image-container">
-		<img src={asset(images[currentImageIndex % images.length])} alt={product.name} loading="lazy" />
+		<img src={asset(images[currentImageIndex % images.length])} alt={title} loading="lazy" />
+		{#if soldOut || variant.soldOut}
+			<span class="sold-out-badge">{m['shop.sold_out']()}</span>
+		{/if}
 	</div>
 	<div class="product-info">
-		<h3>{product.name}</h3>
+		<h3>{title}</h3>
 		<p class="price">{priceLabel}</p>
 		{#if hasVariantChoice}
 			<div class="variants" role="group" aria-label={m['shop.variants']()}>
@@ -108,6 +122,21 @@
 		height: 100%;
 		object-fit: contain;
 		display: block;
+	}
+
+	.is-sold-out .image-container img {
+		opacity: 0.6;
+	}
+
+	.sold-out-badge {
+		position: absolute;
+		top: 1rem;
+		left: 1rem;
+		padding: 0.25rem 0.5rem;
+		background: #000;
+		color: #fff;
+		font-size: 0.75rem;
+		text-transform: uppercase;
 	}
 
 	.product-info {

@@ -5,6 +5,12 @@
 
 	let { data }: PageProps = $props();
 	const catalog = $derived(data.catalog);
+	// One tile per variant (colourway / test press), like the original shop: sold-out pieces stay visible
+	const tiles = $derived(
+		catalog.products.flatMap((product) =>
+			product.variants.map((variant) => ({ product, variantId: variant.id }))
+		)
+	);
 </script>
 
 <div class="view shop-view">
@@ -20,8 +26,8 @@
 
 	<section>
 		<div class="products-grid">
-			{#each catalog.products as product (product.id)}
-				<ProductItem {product} currency={catalog.currency} />
+			{#each tiles as tile (tile.product.id + '/' + tile.variantId)}
+				<ProductItem product={tile.product} variantId={tile.variantId} currency={catalog.currency} />
 			{/each}
 		</div>
 	</section>
