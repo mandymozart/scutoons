@@ -329,6 +329,10 @@ check($a2['created'] === false && ($a2['user']['email'] ?? null) === $emailA, 'e
 $a3 = login($emailA, ['code' => $tempCode('page')]);
 check($a3['created'] === false && !array_key_exists('claim_error', $a3), 'existing account with a page code → sign-in works, no claim attempted', $a3);
 check(Db::value('SELECT signup_code FROM users WHERE email = ?', [$emailA]) === $vinyl, 'signup_code unchanged by later sign-ins');
+$a4 = login($emailA, null, ['marketing_opt_in' => true]);
+check($a4['created'] === false && $a4['user']['marketing_opt_in'] === true, 'existing account ticking the opt-in at sign-in → opted in', $a4['user'] ?? $a4);
+$a5 = login($emailA, null, ['marketing_opt_in' => false]);
+check($a5['user']['marketing_opt_in'] === true, 'signing in without the tick never opts out', $a5['user'] ?? $a5);
 
 // ── Roles ──────────────────────────────────────────────────────────────────────────────────────────────
 echo "\nRoles\n";

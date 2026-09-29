@@ -93,7 +93,8 @@ final class Auth
 
     /**
      * POST /auth/verify { email, otp } | { token } (+ optional item_id, variant for the code of the request,
-     * marketing_opt_in for a new account – overrides the value sent with the request)
+     * marketing_opt_in – overrides the value sent with the request; stored for a new account, `true` also opts an
+     * existing account in)
      * → { status: "success", session_token, user, created, claimed?: [code], claim_error? }
      * A new account needs the request's code to be a signup code (checked again here), else 403 signup_code_required.
      * `claimed` / `claim_error` only for claimable codes (a promo code is never owned).
@@ -142,7 +143,13 @@ final class Auth
             }
             return [$user, $created, self::createSession($user['id'])];
         });
-        if ($created) Events::log('signup', (string) $request['claim_code'], $user['id']);
+        if ($created) {
+            Events::log('signup', (string) $request['claim_code'], $user['id']);
+        } elseif ($optIn && !(int) $user['marketing_opt_in']) {
+            // An existing account that ticked "Send me news" while signing in opts in (never opts out here)
+            Users::setMarketingOptIn($user['id'], true);
+            $user = Users::byId($user['id']);
+        }
 
         $response = ['status' => 'success', 'session_token' => $session, 'user' => Users::toJson($user), 'created' => $created];
 
