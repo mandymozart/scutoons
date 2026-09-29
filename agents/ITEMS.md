@@ -282,3 +282,34 @@ page. Non-claimable types keep their direct redirect.
   `[A-Za-z0-9_-]{8,128}` (otherwise the access is deduped per daily IP hash); CORS allows the header. `/access/`
   also accepts an optional `toon` (body or `?toon=`) stored with the event. `410 revoked` also comes from `/code/`.
   Old magic links `qr.scutoons.com/?login=<token>` are forwarded to `APP_URL/?login=<token>`.
+
+## Roles, signup rule, promo codes (2026-09-30, user decision)
+
+### Roles
+- Tables: `roles (id PK, name, description)` seeded with `member`, `admin`, `creator`;
+  `user_roles (user_id, role_id, granted_at, granted_by NULL)`, PK (user_id, role_id).
+- Every new account gets `member`. `/me/` → `user.roles: ["member", …]`.
+- Grant/revoke: admin SPA (generate) "Users" view (search by email, toggle roles) via admin-token endpoints, and a CLI
+  `php scripts/roles.php grant|revoke <email> <role>`.
+- `creator` → may use `scutoons.com/creator` and the content API; `admin` → reserved (later: admin UI in the viewer).
+
+### Accounts only with a product or a PR code
+- **A new account can only be created with a code whose type has `"signup": true`** in `api/permissions.json`:
+  - `membership` — physical product: signup + claim of that item (one owner, as before).
+  - `promo` — PR code: **not claimable** (no item, no owner, reusable by many people), grants `catalog` and allows
+    signup. Account = save progress across devices + optional promotional updates about new releases.
+- `page`, `event`, `xr` → no signup.
+- `auth/request` for an email **without** an account and **without** a signup code → still `{status:"sent"}` (no user
+  enumeration), but the mail says there is no account yet and how to get one (a code from a SCUTOONS product / promo).
+  Existing accounts can always sign in without a code.
+- `users.marketing_opt_in` (bool) + `marketing_opt_in_at`, `users.signup_code` (the code used). Opt-in is an unchecked
+  checkbox at signup ("Send me news about new releases") and toggleable on the account page. Event `signup`.
+- permissions.json becomes:
+  `membership { claimable:true, signup:true, grants:["catalog"] }`, `promo { claimable:false, signup:true, grants:["catalog"] }`,
+  `page|event|xr { claimable:false, signup:false, grants:[] }`, `default` like page.
+
+### Viewer copy for promo codes (claim sheet)
+"Unlocked on this device. Enjoy reading!" then: **no item to claim** — "This is a promo code – there's no item to
+collect. You can still create an account to save your progress across devices and get news about new releases."
+Buttons: "Continue reading" · "Create account" (email → code → opt-in checkbox). For membership codes keep
+"Add to my account".
