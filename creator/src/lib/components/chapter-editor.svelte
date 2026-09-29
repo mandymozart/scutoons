@@ -903,7 +903,8 @@
 		position: fixed;
 		top: var(--top);
 		right: 0;
-		bottom: 0;
+		/* ends at the bottom ActionBar (its border and last lines are not hidden behind it) */
+		bottom: var(--action-bar-height);
 		width: min(24rem, 92vw);
 		background: var(--paper);
 		border-left: 2px solid var(--ink);

@@ -556,3 +556,19 @@ server/docs/API.md "Rate limits").
   history panel switches between the page's files. `kindOfPath`: credits/people/roles.
 - Headless browser testing without touching the owner's tabs: Edge `--headless=new --remote-debugging-port` with a temp
   profile, driven over CDP from Node (global WebSocket); cookies via `Network.setCookie`, OTP from `server/logs/mail.log`.
+
+## AppShell (sidebar borders reach the ActionBar)
+
+2026-09-29 — owner bug "the page sometimes scrolls and the sidebar border stops short of the bottom".
+- Root cause: `ActionBar` pads `body` with `calc(var(--action-bar-height, 3.25rem) + var(--space-1))`, but the apps
+  define `--action-bar-height` on inner elements, so `body` used the rem fallback (admin 68px, creator 102px at the
+  fluid 24px root). Admin frame = `100dvh - topbar` + 68px → every page scrolled 68px and the sticky nav (`align-self:
+  start`, content height) ended early (settings at 1280×800: 16px short when scrolled; /codes at 768: 384px short).
+  Creator chapter editor = `100dvh - 64` + 102px → scrolled 102px, tree border 102px short.
+- Fix: `@scutoons/ui` `AppShell` (topbar / sidebar / aside snippets, `mode` page|fill, `collapsible` drawer < 768px).
+  It zeroes the body padding (`html body:has(.sc-app-shell)`) and reserves `--action-bar-height` itself; sidebar =
+  sticky, exactly `100dvh - measured top bar - bar` tall, own scroll. Admin root layout uses it with the nav; the
+  creator root layout wraps every page in it (pages keep their own top bars; `.creator` sets `--action-bar-height:
+  64px`), the chapter editor's style-guide/problems/history panel now stops at the bar.
+- Chrome: a fixed box with `top` + `bottom` and `align-self: start` (grid child) shrinks to its content – the old
+  admin mobile drawer had that bug too; the shell sets `align-self: stretch` there.

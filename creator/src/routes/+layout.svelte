@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button } from '@scutoons/ui';
+	import { AppShell, Button } from '@scutoons/ui';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -60,7 +60,11 @@
 			</p>
 		</section>
 	{:else}
-		{@render children()}
+		<!-- Pages bring their own top bar (and the editor its own columns); the shell reserves the bottom ActionBar,
+		     so a page never scrolls by a stray amount and side borders end exactly at the bar -->
+		<AppShell>
+			{@render children()}
+		</AppShell>
 	{/if}
 </div>
 
@@ -73,6 +77,8 @@
 		--muted: var(--text-muted);
 		--error: var(--state-error);
 		--warn: var(--state-warning);
+		/* every creator page: the bottom ActionBar mirrors the 64px top bars (AppShell reserves this much) */
+		--action-bar-height: 64px;
 		font-family: var(--font-mono);
 		font-size: 13px;
 		line-height: 1.4;

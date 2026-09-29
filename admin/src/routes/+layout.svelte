@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button, CommandPalette, ToastStack, type Command } from '@scutoons/ui';
+	import { AppShell, Button, CommandPalette, ToastStack, type Command } from '@scutoons/ui';
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
@@ -104,55 +104,64 @@
 			</p>
 		</section>
 	{:else}
-		<header class="topbar">
-			<button
-				type="button"
-				class="burger"
-				aria-expanded={menuOpen}
-				aria-controls="admin-nav"
-				onclick={() => (menuOpen = !menuOpen)}
-			>
-				<span aria-hidden="true">☰</span><span class="sr-only">{m['shell.menu']()}</span>
-			</button>
-			<a class="brand" href="/">
-				<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
-				<span>{m['shell.admin']()}</span>
-			</a>
-			<button type="button" class="palette-trigger" onclick={() => (paletteOpen = true)}>
-				<span>{m['shell.search']()}</span><kbd>Ctrl K</kbd>
-			</button>
-			<div class="account">
-				<span class="email" title={session.user?.email}>{session.user?.email}</span>
-				<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
-					{otherLocale.toUpperCase()}
-				</button>
-				<button type="button" class="plain" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
-			</div>
-		</header>
-		<div class="frame">
-			<nav id="admin-nav" class="sidebar" class:open={menuOpen} aria-label={m['shell.navigation']()}>
-				{#each navigation as group (group.id)}
-					<p class="group">{group.title()}</p>
-					<ul>
-						{#each group.items as item (item.id)}
-							<li>
-								<a href={item.href} aria-current={current?.id === item.id ? 'page' : undefined}>
-									<span class="icon" aria-hidden="true">{item.icon}</span>
-									<span class="title">{item.title()}</span>
-									<span class="description">{item.description()}</span>
-								</a>
-							</li>
-						{/each}
-					</ul>
-				{/each}
-			</nav>
-			{#if menuOpen}
-				<button type="button" class="scrim" aria-label={m['shell.close_menu']()} onclick={() => (menuOpen = false)}></button>
-			{/if}
+		<AppShell
+			sidebarWidth="var(--admin-sidebar-width)"
+			sidebarId="admin-nav"
+			sidebarLabel={m['shell.navigation']()}
+			collapsible
+			sidebarOpen={menuOpen}
+			onclose={() => (menuOpen = false)}
+			closeLabel={m['shell.close_menu']()}
+		>
+			{#snippet topbar()}
+				<header class="topbar">
+					<button
+						type="button"
+						class="burger"
+						aria-expanded={menuOpen}
+						aria-controls="admin-nav"
+						onclick={() => (menuOpen = !menuOpen)}
+					>
+						<span aria-hidden="true">☰</span><span class="sr-only">{m['shell.menu']()}</span>
+					</button>
+					<a class="brand" href="/">
+						<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
+						<span>{m['shell.admin']()}</span>
+					</a>
+					<button type="button" class="palette-trigger" onclick={() => (paletteOpen = true)}>
+						<span>{m['shell.search']()}</span><kbd>Ctrl K</kbd>
+					</button>
+					<div class="account">
+						<span class="email" title={session.user?.email}>{session.user?.email}</span>
+						<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
+							{otherLocale.toUpperCase()}
+						</button>
+						<button type="button" class="plain" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
+					</div>
+				</header>
+			{/snippet}
+			{#snippet sidebar()}
+				<div class="sidebar">
+					{#each navigation as group (group.id)}
+						<p class="group">{group.title()}</p>
+						<ul>
+							{#each group.items as item (item.id)}
+								<li>
+									<a href={item.href} aria-current={current?.id === item.id ? 'page' : undefined}>
+										<span class="icon" aria-hidden="true">{item.icon}</span>
+										<span class="title">{item.title()}</span>
+										<span class="description">{item.description()}</span>
+									</a>
+								</li>
+							{/each}
+						</ul>
+					{/each}
+				</div>
+			{/snippet}
 			<main>
 				{@render children()}
 			</main>
-		</div>
+		</AppShell>
 		<CommandPalette
 			bind:open={paletteOpen}
 			{commands}
@@ -179,6 +188,7 @@
 		--action-bar-height: var(--topbar-height);
 		--split-view-top: calc(var(--topbar-height) + var(--space-1));
 		--split-view-bottom: calc(var(--action-bar-height) + var(--space-1));
+		--admin-sidebar-width: 15rem;
 		font-family: var(--font-mono);
 		font-size: 14px;
 		line-height: 1.4;
@@ -206,9 +216,6 @@
 	}
 
 	.topbar {
-		position: sticky;
-		top: 0;
-		z-index: 20;
 		display: flex;
 		align-items: center;
 		gap: var(--space-1);
@@ -286,21 +293,9 @@
 		font-size: 1.25em;
 	}
 
-	.frame {
-		display: grid;
-		grid-template-columns: 15rem minmax(0, 1fr);
-		min-height: calc(100dvh - var(--topbar-height));
-	}
+	/* the frame (top bar, sticky sidebar reaching the ActionBar, off-canvas < 768px) is @scutoons/ui AppShell */
 	.sidebar {
-		position: sticky;
-		top: var(--topbar-height);
-		align-self: start;
-		max-height: calc(100dvh - var(--topbar-height) - var(--action-bar-height));
-		overflow: auto;
 		padding: var(--space-1) 0;
-		box-sizing: border-box;
-		border-right: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
 	}
 	.sidebar ul {
 		margin: 0 0 var(--space-1);
@@ -351,9 +346,6 @@
 		min-width: 0;
 		padding: var(--space-15) var(--space-15) var(--space-3);
 	}
-	.scrim {
-		display: none;
-	}
 	.sr-only {
 		position: absolute;
 		width: 1px;
@@ -375,40 +367,13 @@
 		.email {
 			display: none;
 		}
-		.frame {
-			grid-template-columns: minmax(0, 1fr);
-		}
-		.sidebar {
-			position: fixed;
-			z-index: 30;
-			top: var(--topbar-height);
-			left: 0;
-			bottom: 0;
-			width: min(18rem, 85vw);
-			max-height: none;
-			transform: translateX(-100%);
-			transition: transform var(--duration-base) var(--easing);
-			visibility: hidden;
-		}
-		.sidebar.open {
-			transform: none;
-			visibility: visible;
-		}
-		.scrim {
-			display: block;
-			position: fixed;
-			z-index: 25;
-			inset: var(--topbar-height) 0 0 0;
-			border: 0;
-			background: rgb(0 0 0 / 0.4);
-		}
 		main {
 			padding: var(--space-1) var(--space-1) var(--space-3);
 		}
 	}
 	@media (min-width: 768px) and (max-width: 1023px) {
-		.frame {
-			grid-template-columns: 12rem minmax(0, 1fr);
+		.admin {
+			--admin-sidebar-width: 12rem;
 		}
 		.description {
 			display: none;
