@@ -35,10 +35,10 @@
 		data-state={reading.kind}
 	>
 		<span class="start-label">
+			{label}
 			<svg class="start-arrow" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
 				<path d="M1 8h13M9 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
 			</svg>
-			{label}
 		</span>
 		{#if percent !== null}
 			<span class="start-progress" aria-hidden="true"><span style:width="{percent}%"></span></span>
@@ -49,7 +49,9 @@
 <style>
 	/* the primary button (ink / paper, square), as a link */
 	.start-button {
-		display: inline-flex;
+		display: flex;
+		width: fit-content;
+		margin-inline: auto;
 		flex-direction: column;
 		gap: var(--space-05);
 		padding: var(--space-1) var(--space-15);

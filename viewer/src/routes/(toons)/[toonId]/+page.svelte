@@ -82,6 +82,7 @@
 	}
 	.season-download {
 		padding: var(--space-15) 2rem 0;
+		text-align: center;
 	}
 	.season-download .btn {
 		display: inline-block;
