@@ -128,6 +128,10 @@
 		"AposeLook": {
 			"type": "object",
 			"properties": {
+				"sensitive": {
+					"type": "boolean",
+					"description": "hidden while \"Hide sensitive content\" is on (members: on by default, guests: always on)"
+				},
 				"id": {
 					"type": "string",
 					"description": "`swim` (default) | `naked` | …"
@@ -154,7 +158,7 @@
 			"required": [
 				"id"
 			],
-			"description": "One A-pose look of a character (full body, neutral): an avatar body with its wear slots."
+			"description": "One A-pose look of a character (full body, neutral): an avatar body with its wear slots. `sensitive: true` (every `naked` look) = hidden while the reader's \"Hide sensitive content\" is on (sensitive.ts)."
 		},
 		"AvatarSlotInstance": {
 			"type": "object",

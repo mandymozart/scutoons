@@ -169,6 +169,7 @@ const TOPTOY_SLOTS = twins({
 });
 
 const APOSE_LABEL = Object.fromEntries(APOSE_LOOKS.map((l) => [l.id, l.label])) as Record<'swim' | 'naked', LocaleText>;
+// every `naked` A-pose look is `sensitive: true` (hidden while "Hide sensitive content" is on, ITEMS.md "Sensitive content")
 
 const helmetLooks = (): CharacterLook[] => [
 	{ id: DEFAULT_LOOK, label: { de: 'ohne Helm', en: 'without helmet' }, default: true, images: {} },
@@ -192,7 +193,7 @@ const UPDATES: Record<string, (c: RegistryCharacter) => void> = {
 		c.apose = {
 			looks: [
 				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/catpope/catpope_apose-swim.webp', slots: structuredClone(SPHYNX_SLOTS) },
-				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/catpope/catpope_apose-naked.webp', slots: structuredClone(SPHYNX_SLOTS) }
+				{ id: 'naked', label: APOSE_LABEL.naked, sensitive: true, path: 'characters/catpope/catpope_apose-naked.webp', slots: structuredClone(SPHYNX_SLOTS) }
 			]
 		};
 		c.artwork = [{ id: 'apose-example-dressed', path: 'characters/catpope/catpope_apose-example-dressed.webp', label: { de: 'A-Pose angezogen (Referenz)', en: 'A-pose dressed (reference)' } }];
@@ -225,7 +226,7 @@ const NEW: RegistryCharacter[] = [
 		apose: {
 			looks: [
 				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/yellowmouse/yellowmouse_apose-swim.webp', slots: structuredClone(MOUSE_SLOTS) },
-				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/yellowmouse/yellowmouse_apose-naked.webp', slots: structuredClone(MOUSE_SLOTS) }
+				{ id: 'naked', label: APOSE_LABEL.naked, sensitive: true, path: 'characters/yellowmouse/yellowmouse_apose-naked.webp', slots: structuredClone(MOUSE_SLOTS) }
 			]
 		}
 	},
@@ -242,7 +243,7 @@ const NEW: RegistryCharacter[] = [
 		apose: {
 			looks: [
 				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/toptoy/toptoy_apose-swim.webp', slots: structuredClone(TOPTOY_SLOTS) },
-				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/toptoy/toptoy_apose-naked.webp', slots: structuredClone(TOPTOY_SLOTS) }
+				{ id: 'naked', label: APOSE_LABEL.naked, sensitive: true, path: 'characters/toptoy/toptoy_apose-naked.webp', slots: structuredClone(TOPTOY_SLOTS) }
 			]
 		}
 	},

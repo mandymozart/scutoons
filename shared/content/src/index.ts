@@ -11,5 +11,6 @@ export * from './paths.ts';
 export * from './languages.ts';
 export * from './credits.ts';
 export * from './characters.ts';
+export * from './sensitive.ts';
 export * from './validate.ts';
 export * from './entities.ts';

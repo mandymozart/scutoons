@@ -152,6 +152,8 @@ export interface User {
 	roles?: string[];
 	/** "Send me news about new releases" (unchecked at signup, toggle on the account page) */
 	marketing_opt_in?: boolean;
+	/** "Hide sensitive content" (on by default; `PUT /me/ { hide_sensitive }`) – sensitive.ts, ITEMS.md "Sensitive content" */
+	hide_sensitive?: boolean;
 }
 
 /** `/me/ access`: permissions granted by the account's owned, non-expired codes (server permissions map) */

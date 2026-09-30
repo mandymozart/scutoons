@@ -196,9 +196,9 @@
 		if (existing) edit<AssetRequests>(requestsDoc, (f) => f.requests.forEach((r) => r.id === existing.id && (note.trim() ? (r.note = note.trim()) : delete r.note)));
 		else addAssetRequest(requestsDoc, { character: id, persona: REGULAR_PERSONA, look: target, mood: DEFAULT_MOOD, view: APOSE_VIEW }, note, session.user?.email ?? null);
 	}
-	/** the standard A-pose looks (swim default, naked) for a character without any */
+	/** the standard A-pose looks (swim default, naked – marked sensitive) for a character without any */
 	function startApose() {
-		change((c) => (c.apose = { looks: APOSE_LOOKS.map((l, i) => ({ id: l.id, label: { ...l.label }, ...(i === 0 ? { default: true } : {}) })) }));
+		change((c) => (c.apose = { looks: APOSE_LOOKS.map((l, i) => ({ id: l.id, label: { ...l.label }, ...(i === 0 ? { default: true } : {}), ...(l.sensitive ? { sensitive: true } : {}) })) }));
 	}
 
 	/** a cell's path; setting one also closes the cell's open request */

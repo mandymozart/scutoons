@@ -272,6 +272,29 @@ test('A-pose: character level, its own view without fallback, avatar bodies', as
 	assert.deepEqual(bodies[1].slots[3], { id: 'torso', slot: 'torso', x: 0, y: 0, size: 0 });
 });
 
+test('sensitive content: A-pose looks, the reader setting, validation', async () => {
+	const { avatarBodies, hidesSensitive, withoutSensitive, isSensitive, APOSE_LOOKS } = await import('../src/index.ts');
+	const c: RegistryCharacter = structuredClone(catpope);
+	c.apose = {
+		looks: [
+			{ id: 'swim', default: true, path: 'characters/catpope/catpope_apose-swim.webp' },
+			{ id: 'naked', sensitive: true, path: 'characters/catpope/catpope_apose-naked.webp' }
+		]
+	};
+	const bodies = avatarBodies({ characters: [c] }, 'en');
+	assert.deepEqual(bodies.map((b) => `${b.look}:${b.sensitive}`), ['swim:false', 'naked:true']);
+	// guests always hide, members by their setting (default on)
+	assert.equal(hidesSensitive(null), true);
+	assert.equal(hidesSensitive({}), true);
+	assert.equal(hidesSensitive({ hide_sensitive: false }), false);
+	assert.deepEqual(withoutSensitive(bodies, true).map((b) => b.look), ['swim']);
+	assert.deepEqual(withoutSensitive(bodies, false).map((b) => b.look), ['swim', 'naked']);
+	assert.equal(isSensitive(APOSE_LOOKS.find((l) => l.id === 'naked')), true);
+	assert.ok(!validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error'));
+	(c.apose!.looks[1] as any).sensitive = 'yes';
+	assert.ok(validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error' && p.path.join('.').endsWith('looks.1.sensitive')));
+});
+
 test('A-pose slot instances: twins, validation, remapping between bodies', async () => {
 	const { avatarBodies, remapAvatarSlots } = await import('../src/index.ts');
 	const duo: RegistryCharacter = structuredClone(mouse);

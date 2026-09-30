@@ -443,6 +443,7 @@
 							"de": "nackt",
 							"en": "naked"
 						},
+						"sensitive": true,
 						"path": "characters/catpope/catpope_apose-naked.webp",
 						"slots": [
 							{
@@ -857,6 +858,7 @@
 							"de": "nackt",
 							"en": "naked"
 						},
+						"sensitive": true,
 						"path": "characters/yellowmouse/yellowmouse_apose-naked.webp",
 						"slots": [
 							{
@@ -1178,6 +1180,7 @@
 							"de": "nackt",
 							"en": "naked"
 						},
+						"sensitive": true,
 						"path": "characters/toptoy/toptoy_apose-naked.webp",
 						"slots": [
 							{

@@ -34,6 +34,7 @@ import type { Character, CharacterImage, ResolvedPersona } from './visual-novel.
 import type { Path } from './paths.ts';
 import type { Level, Problem } from './validate.ts';
 import { AVATAR_SLOTS, type AvatarSlot } from './items.ts';
+import { isSensitive, type SensitiveFlag } from './sensitive.ts';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -265,8 +266,11 @@ export interface AvatarSlotInstance {
 	label?: LocaleText;
 }
 
-/** One A-pose look of a character (full body, neutral): an avatar body with its wear slots. */
-export interface AposeLook {
+/**
+ * One A-pose look of a character (full body, neutral): an avatar body with its wear slots. `sensitive: true` (every
+ * `naked` look) = hidden while the reader's "Hide sensitive content" is on (sensitive.ts).
+ */
+export interface AposeLook extends SensitiveFlag {
 	/** `swim` (default) | `naked` | … */
 	id: string;
 	label?: LocaleText;
@@ -327,9 +331,9 @@ export interface CharacterApose {
 }
 
 /** The standard A-pose looks. */
-export const APOSE_LOOKS: { id: string; label: LocaleText }[] = [
+export const APOSE_LOOKS: { id: string; label: LocaleText; sensitive?: boolean }[] = [
 	{ id: 'swim', label: { de: 'Badehose', en: 'swim pants' } },
-	{ id: 'naked', label: { de: 'nackt', en: 'naked' } }
+	{ id: 'naked', label: { de: 'nackt', en: 'naked' }, sensitive: true }
 ];
 
 /** Character artwork that is not an expression (key visuals, reference images …). */
@@ -956,6 +960,8 @@ export interface AvatarBody {
 	slots: AvatarSlotInstance[];
 	/** the character's default A-pose look */
 	default: boolean;
+	/** the look is marked sensitive (hidden while "Hide sensitive content" is on) */
+	sensitive: boolean;
 }
 
 /** Every A-pose look with an image (registry order) – what the reader's avatar picker offers. */
@@ -969,7 +975,7 @@ export function avatarBodies(registry: CharacterRegistry | null | undefined, loc
 			if (!look?.id || !look.path?.trim()) continue;
 			const lookName = pickText(look.label, locale, ['en', 'de']) || look.id;
 			const name = characterName(c, locale);
-			out.push({ character: c.id, look: look.id, label: `${name} (${lookName})`, name, lookLabel: lookName, path: look.path.trim(), slots: bodySlots(look.slots), default: look.id === defaultId });
+			out.push({ character: c.id, look: look.id, label: `${name} (${lookName})`, name, lookLabel: lookName, path: look.path.trim(), slots: bodySlots(look.slots), default: look.id === defaultId, sensitive: isSensitive(look) });
 		}
 	}
 	return out;
@@ -1191,6 +1197,7 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 					checkText(add, l.label, [...lp, 'label'], `${who}: A-pose ${l.id} label`, languages);
 					if (l.path === undefined || l.path === '') add('warning', [...lp, 'path'], `${who}: A-pose "${l.id}" has no image yet`);
 					else if (!isStr(l.path) || !IMAGE_PATH.test(l.path)) add('error', [...lp, 'path'], `${who}: A-pose "${l.id}" needs a CDN image path`);
+					if (l.sensitive !== undefined && typeof l.sensitive !== 'boolean') add('error', [...lp, 'sensitive'], `${who}: A-pose "${l.id}" sensitive must be true or false`);
 					if (l.anchors !== undefined) add('error', [...lp, 'anchors'], `${who}: A-pose "${l.id}" uses the old "anchors" – wear slots are "slots": [{ id, slot, x, y, size }]`);
 					if (l.slots !== undefined) {
 						if (!Array.isArray(l.slots)) add('error', [...lp, 'slots'], `${who}: A-pose "${l.id}" slots must be a list of { id, slot, x, y, size, label? }`);
