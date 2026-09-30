@@ -114,3 +114,52 @@ export function stageLayout(left: number, right: number, width: number, rem = 16
 	}
 	return { left: placeGroup('left', left, VIEWS.avatar, regionL, rem), right: placeGroup('right', right, VIEWS.portrait, regionR, rem) };
 }
+
+// ── Full view (owner 2026-09-30): the centre group ─────────────────────────────────────────────────────────────────
+// Full characters (breaking the 4th wall) stand in the centre of the screen, feet at the dialogue box's BOTTOM edge –
+// the box (always on top) covers the lower body, the rest reaches well above it. The front one (the speaker, else the
+// most recent) stands exactly centred at full size; the ones behind step back alternating left and right by
+// `FULL.stepRem` per step (2nd 1.5 rem left, 3rd 1.5 rem right, 4th 3 rem left …), each step 9 % smaller. The group is
+// behind the avatars and portraits (and the box) unless its speaker speaks: then it is in front of the stage, still
+// under the box.
+
+export const FULL = {
+	/** the front one's height: this share of the viewport height … */
+	heightVh: 0.8,
+	/** … at most as wide as the viewport minus this margin per side (rem); full images are 1 : 2 (600 × 1200) */
+	marginRem: 1,
+	aspect: 0.5,
+	/** smaller per step back */
+	shrink: 0.09,
+	/** sideways per step back (rem), alternating left / right */
+	stepRem: 1.5,
+	/** z: behind the portrait stage (90 − depth) and the avatars; the speaking one in front of the stage, under the box (100) */
+	zBehind: 70,
+	zSpeaker: 95
+} as const;
+
+export interface FullPlace {
+	/** 0 = front */
+	depth: number;
+	/** the image box (px) */
+	width: number;
+	height: number;
+	/** the box's centre, px from the viewport's left edge */
+	center: number;
+	/** px from the viewport's left edge to the box's left side */
+	left: number;
+}
+
+/** Sideways step of depth `k` in units of `FULL.stepRem`: 0, −1, +1, −2, +2 … (negative = left). */
+export const fullStep = (k: number) => (k === 0 ? 0 : (k % 2 ? -1 : 1) * Math.ceil(k / 2));
+
+/** The places of `n` full characters (index = depth, front to back) in a `width` × `height` px viewport. */
+export function fullLayout(n: number, width: number, height: number, rem = 16): FullPlace[] {
+	const front = Math.min(height * FULL.heightVh, (width - 2 * FULL.marginRem * rem) / FULL.aspect);
+	return Array.from({ length: n }, (_, k) => {
+		const h = front * Math.max(STAGE.minScale, 1 - FULL.shrink * k);
+		const w = h * FULL.aspect;
+		const center = width / 2 + fullStep(k) * FULL.stepRem * rem;
+		return { depth: k, width: +w.toFixed(2), height: +h.toFixed(2), center: +center.toFixed(2), left: +(center - w / 2).toFixed(2) };
+	});
+}

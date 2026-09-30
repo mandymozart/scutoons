@@ -1,17 +1,19 @@
 <script lang="ts">
 	import { getVisualNovelContext, sceneKey } from '$lib/contexts/visual-novel.svelte';
 	import { page } from '$app/stores';
-	import { STAGE, stageLayout } from '$lib/visual-novel/stage.ts';
+	import { fullLayout, STAGE, stageLayout } from '$lib/visual-novel/stage.ts';
 	import CharacterPortrait from './characters/portrait.svelte';
 	import CharacterFull from './characters/full.svelte';
 
 	// VN layout (DESIGN.md → "VN layout"): everyone in the scene is visible, standing on the dialogue box. The view of the
-	// joinScene ref is the side: `avatar` = the left group, `portrait` = the right group, `full` = centred. In each group
-	// the speaker is in front, the others by recency of speaking; placement in stage.ts.
+	// joinScene ref is the side: `avatar` = the left group, `portrait` = the right group, `full` = the centre group (feet on
+	// the box's bottom edge). In each group the speaker is in front, the others by recency of speaking; placement in
+	// stage.ts.
 	const vn = getVisualNovelContext();
 	const toonId = $derived($page.params.toonId || '');
 
 	let width = $state(375);
+	let height = $state(812);
 	let rem = $state(16);
 	$effect(() => {
 		// the root font size is fluid (14 / 16 / 24 px), re-read it when the viewport changes
@@ -39,7 +41,11 @@
 	const fullCharacters = $derived(sceneCharacters.filter((c) => c.position?.variant === 'full'));
 	const leftOrder = $derived(frontToBack(leftCharacters.map(sceneKey)));
 	const rightOrder = $derived(frontToBack(rightCharacters.map(sceneKey)));
+	const fullOrder = $derived(frontToBack(fullCharacters.map(sceneKey)));
 	const groups = $derived(stageLayout(leftCharacters.length, rightCharacters.length, width, rem));
+	const fullPlaces = $derived(fullLayout(fullCharacters.length, width, height, rem));
+	/** the full characters' feet: the box's bottom edge (the box sits 1 rem above the viewport bottom) */
+	const fullGround = $derived(Math.round(rem));
 	/** feet on the box top (the box sits 1 rem above the bottom), a few px into it */
 	const ground = $derived(Math.round(rem + (vn.state.boxHeight || 12 * rem + 4) - STAGE.sink));
 	const onStage = $derived([
@@ -48,7 +54,7 @@
 	]);
 </script>
 
-<svelte:window bind:innerWidth={width} />
+<svelte:window bind:innerWidth={width} bind:innerHeight={height} />
 
 {#each onStage as { c: charRef, place } (sceneKey(charRef))}
 	{@const character = vn.getCharacter(charRef.name)}
@@ -64,22 +70,11 @@
 	{/if}
 {/each}
 
-<!-- Full characters centered (breaking 4th wall) -->
-{#if fullCharacters.length > 0}
-	<div class="full-slot">
-		{#each fullCharacters as charRef (sceneKey(charRef))}
-			{@const character = vn.getCharacter(charRef.name)}
-			{#if character}
-				<CharacterFull {charRef} {character} {toonId} isActive={sceneKey(charRef) === activeSpeaker} />
-			{/if}
-		{/each}
-	</div>
-{/if}
-
-<style>
-	.full-slot {
-		position: fixed;
-		inset: 0;
-		z-index: 1;
-	}
-</style>
+<!-- Full characters: the centre group (breaking the 4th wall), under the box -->
+{#each fullCharacters as charRef (sceneKey(charRef))}
+	{@const character = vn.getCharacter(charRef.name)}
+	{@const place = fullPlaces[fullOrder.indexOf(sceneKey(charRef))]}
+	{#if character && place}
+		<CharacterFull {charRef} {character} {toonId} {place} ground={fullGround} isActive={sceneKey(charRef) === activeSpeaker} />
+	{/if}
+{/each}

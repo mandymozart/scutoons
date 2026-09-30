@@ -2,18 +2,26 @@
 	import type { SceneCharacter as VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { isKnownMissing, markMissing } from '$lib/utils/missing-images.svelte.ts';
-	import { DEFAULT_MOOD, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
+	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
+	import { FULL, STAGE, type FullPlace } from '$lib/visual-novel/stage.ts';
 
+	// A full character in the centre group (stage.ts `fullLayout`): feet on the dialogue box's bottom edge (the box, z 100,
+	// covers the lower body), the speaker un-dimmed with the glow in front of the stage, the others dimmed behind it.
 	let {
 		charRef,
 		character,
 		toonId,
-		isActive = false
+		isActive = false,
+		place,
+		ground
 	}: {
 		charRef: VNCharacterRef;
 		character: Character;
 		toonId: string;
 		isActive: boolean;
+		place: FullPlace;
+		/** px from the viewport bottom to the feet (the box's bottom edge) */
+		ground: number;
 	} = $props();
 
 	let rawPath = '';
@@ -38,19 +46,35 @@
 	const imageUrl = $derived(asset(imagePath()));
 </script>
 
-<div class="character-full" class:active={isActive}>
+<div
+	class="character-full"
+	class:active={isActive}
+	data-depth={place.depth}
+	data-key="{charRef.name}:{charRef.persona || 'regular'}"
+	style:left="{place.left}px"
+	style:width="{place.width}px"
+	style:height="{place.height}px"
+	style:bottom="{ground}px"
+	style:z-index={isActive ? FULL.zSpeaker : FULL.zBehind - place.depth}
+	style:filter={isActive ? `drop-shadow(0 0 0.5rem ${legacyCharacterColor(character, charRef.persona)})` : `brightness(${STAGE.dim})`}
+>
 	<img src={imageUrl} onerror={() => markMissing(rawPath)} alt={legacyCharacterLabel(character, charRef.persona)} />
 </div>
 
 <style>
 	.character-full {
 		position: fixed;
-		inset: 0;
 		display: flex;
-		align-items: center;
+		align-items: flex-end;
 		justify-content: center;
-		z-index: 5;
-		transition: all 0.3s ease;
+		transform-origin: bottom center;
+		transition:
+			left 0.3s ease,
+			bottom 0.3s ease,
+			width 0.3s ease,
+			height 0.3s ease,
+			filter 0.3s ease;
+		pointer-events: none;
 	}
 
 	.character-full.active {
@@ -58,9 +82,10 @@
 	}
 
 	.character-full img {
-		max-height: 90vh;
-		max-width: 90vw;
+		width: 100%;
+		height: 100%;
 		object-fit: contain;
+		object-position: bottom;
 		display: block;
 	}
 </style>
