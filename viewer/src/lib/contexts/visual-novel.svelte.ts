@@ -36,6 +36,8 @@ export function createVisualNovelContext() {
 	});
 	let choicesVisible = $state(false);
 	let waitResolver: (() => void) | null = null;
+	/** the reader has clicked the visible message away (its wait is answered) – a following `jumpTo` (wait) jumps at once */
+	let acknowledged = false;
 	let onomatopoeiaResolver: (() => void) | null = null;
 	let navigationTriggered = $state(false);
 
@@ -151,6 +153,7 @@ export function createVisualNovelContext() {
 		message.text = text;
 		message.wait = wait;
 		messageVisible = true;
+		acknowledged = false;
 	}
 
 	function hideMessage(): void {
@@ -163,9 +166,31 @@ export function createVisualNovelContext() {
 
 	function continueFromWait(): void {
 		if (waitResolver) {
-			waitResolver();
+			// the click answers this message: no "…" any more, and nothing else waits for the same click
+			message.wait = false;
+			acknowledged = true;
+			const resolve = waitResolver;
 			waitResolver = null;
+			resolve();
 		}
+	}
+
+	/**
+	 * `jumpTo` with `wait`: jump once the reader is done with the dialogue box. One click per message – when the reader
+	 * already clicked the last message away (or no message is shown), it resolves at once; a message shown without `wait`
+	 * gets the "…" and one click.
+	 */
+	function waitForContinue(): Promise<void> {
+		if (acknowledged || !messageVisible || choicesVisible) return Promise.resolve();
+		message.wait = true;
+		return new Promise<void>((resolve) => {
+			waitResolver = resolve;
+		});
+	}
+
+	/** The group's events are done: a message the reader already clicked away closes (the last click advances too). */
+	function endOfEvents(): void {
+		if (acknowledged && !choicesVisible) messageVisible = false;
 	}
 
 	function addChoice(choice: VNChoice): void {
@@ -260,6 +285,8 @@ export function createVisualNovelContext() {
 	 */
 	function clear(): void {
 		sceneCharacters.length = 0;
+		acknowledged = false;
+		waitResolver = null;
 		pendingChoices.length = 0;
 		messageVisible = false;
 		message.character = null;
@@ -293,6 +320,8 @@ export function createVisualNovelContext() {
 		hideMessage,
 		setWaitResolver,
 		continueFromWait,
+		waitForContinue,
+		endOfEvents,
 		addChoice,
 		showChoices,
 		hideChoices,

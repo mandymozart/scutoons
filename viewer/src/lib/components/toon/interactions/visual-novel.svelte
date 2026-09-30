@@ -101,12 +101,10 @@
 			return;
 		}
 		
-		if (wait) {
-			await new Promise<void>((resolve) => {
-				vn.setWaitResolver(resolve);
-			});
-		}
-		
+		// one click per message: the click on the last message is the one that jumps (no extra click)
+		if (wait) await vn.waitForContinue();
+		if (cancelled) return;
+
 		goto(destinationUri);
 	}
 
@@ -162,8 +160,9 @@
 				event.params
 			);
 
-			await processEvent(event);
+			if (await processEvent(event)) return;
 		}
+		if (!cancelled) vn.endOfEvents();
 	}
 
 	onMount(() => {

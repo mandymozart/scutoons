@@ -35,6 +35,7 @@ export class EventProcessor {
 			this.currentIndex++;
 		}
 
+		this.vn.endOfEvents();
 		console.log('✅ All VN events processed');
 		return null;
 	}
@@ -171,12 +172,9 @@ export class EventProcessor {
 			return;
 		}
 		
-		if (wait) {
-			await new Promise<void>((resolve) => {
-				this.vn.setWaitResolver(resolve);
-			});
-		}
-		
+		// one click per message: the click on the last message is the one that jumps (no extra click)
+		if (wait) await this.vn.waitForContinue();
+
 		console.log(`🔗 Returning jumpTo: ${destinationUri}`);
 		return { jumpTo: destinationUri };
 	}
