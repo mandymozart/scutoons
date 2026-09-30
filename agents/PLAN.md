@@ -297,3 +297,10 @@ No file-based loading. All content lives in the database and is served on demand
 caching, one request per chapter). The JSON configuration format stays only as import/export. Design: DATA.md.
 PWA preloading / save-to-device is designed in DATA.md and built after the data refactor.
 
+## Automation & workflows (2026-09-30, owner — vision)
+
+Production workflows live in `workflows/<domain>/` (first: `characters/base-views.md`, `scenes/generate-shots.md`).
+Long-term: story → script → scenes → frames/assets/missing characters, progressively, with artist uploads always
+overriding generated content, and an AI assistant in the creator that reorganizes content via the API only (not
+code). Dev and exploratory work stay separate. Details: [AUTOMATION.md](AUTOMATION.md).
+
