@@ -16,7 +16,10 @@
 		"navigation": "Sections",
 		"page_actions": "Page actions",
 		"more": "More",
-		"dismiss": "Dismiss"
+		"dismiss": "Dismiss",
+		"info": "Info",
+		"info_close": "Close",
+		"info_guide": "Full style guide (creator)"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",
@@ -407,5 +410,17 @@
 		"saved": "Settings saved.",
 		"nothing_changed": "Nothing changed.",
 		"unsaved": "Unsaved changes"
+	},
+	"help": {
+		"lists_title": "Lists",
+		"lists": "Search, filters, sort and page live in the URL: share or bookmark a view. The pager and the filters sit in the bottom bar (under “More” on narrow screens). Ctrl+K or / opens the command palette.",
+		"terms_title": "Terms",
+		"codes": "Search matches part of a code. Select rows for a bulk revoke or unrevoke; the CSV export takes the current filter. A click on a row opens the code beside the list.",
+		"code_sections_title": "Sections",
+		"batches": "Per code a batch runs sign → database → QR SVG → certificate PDF → signature. The manifest is saved on the server after every code, so a batch can be paused, aborted and resumed. The history has the ZIP and the print sheet of every batch.",
+		"users": "Search matches part of an email; filter by role and newsletter opt-in. A user's page shows owned codes, sessions, roles and reader characters.",
+		"events": "Every scan, unlock and claim, newest first. Filter by event type, code, edition, toon and date.",
+		"content": "Per toon every file of the content store with its newest and its published version. Editing and publishing happen in the creator (“In the creator”).",
+		"settings": "Changes apply to the next request, no deploy needed. “Use default” goes back to the default value."
 	}
 }

@@ -24,7 +24,8 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 | `createToaster({ timeout?, max? })` | runes store: `items`, `addToast({ message, type?, timeout? })`, `dismiss(id)`, `clear()`; errors stay until dismissed |
 | `ToastStack` | `toaster`, `dismissLabel`; fixed bottom-right |
 | `clickOutside(handler, { escape? })` | attachment: `<div {@attach clickOutside(close)}>` |
-| `ActionBar` | fixed bottom action bar (PLATFORM.md "Bottom action bar", mandatory for admin + creator): mirrors the top bar (height `--action-bar-height`, default 3.25rem; paper; 2px ink rule on top; full width; always visible). Snippets `start` (pagination, filters, search, status), `secondary` (secondary actions), `end` (primary action, right-most); below `breakpoint` (1024px) `start` + `secondary` move into a "More" panel opening upwards, `end` stays. Adds the bottom padding to `body` while it is on the page. Props `label`, `moreLabel`. Use compact controls inside (`SearchField compact`, `Pager compact`) |
+| `ActionBar` | fixed bottom action bar (PLATFORM.md "Bottom action bar", mandatory for admin + creator): mirrors the top bar (height `--action-bar-height`, default 3.25rem; paper; 2px ink rule on top; full width; always visible). Snippets `start` (pagination, filters, search, status), `secondary` (secondary actions), `end` (primary action, right-most); below `breakpoint` (1024px) `start` + `secondary` move into a "More" panel opening upwards, `end` stays. Adds the bottom padding to `body` while it is on the page. Props `label`, `moreLabel`. Use compact controls inside (`SearchField compact`, `Pager compact`). **Info:** pass the page's help as the `info` snippet → an "ⓘ Info" toggle (left-most, also on narrow screens) opens an `InfoPanel` with it; `infoTitle`, `infoHref` (link to the full style guide), `infoLabels` `{ toggle, close, guide }`, `bind:infoOpen`, `infoKey` (localStorage key; closed by default, the user's choice is remembered across pages) |
+| `InfoPanel` | the one place for a page's help (owner rule: explanations, conventions, glossaries, style guide go here, only short labels and errors stay inline): non-modal panel on the right from the top bar (`--info-panel-top`, else AppShell's `--sc-shell-top`) to the ActionBar, width `--info-panel-width` (24rem); from 1100px the AppShell content makes room for it. Props `title`, `closeLabel`, `href` + `hrefLabel` (full guide link), `onclose` (× and Escape), `id`; children = plain HTML (`h3`, `p`, `ul`, `dl`, `code`, `kbd` are styled). Normally rendered by `ActionBar`'s `info` |
 | `AppShell` | page frame of the tools (admin, creator): snippets `topbar`, `sidebar` (left, `sidebarTag` nav/aside/div, `sidebarLabel`, `sidebarId`), `aside` (right), children = content; `sidebarWidth` / `asideWidth` (CSS lengths). The sidebar/aside borders always reach the fixed `ActionBar`: `mode="page"` (document scrolls; sticky top bar; sidebar/aside sticky, exactly viewport − top bar − ActionBar tall, scroll on their own) or `mode="fill"` (viewport − ActionBar, no document scroll, every column scrolls itself – editors). Reserves `--action-bar-height` itself instead of the ActionBar's `body` padding (no stray page scroll); measures the top bar (`--sc-shell-top`). `collapsible` + `sidebarOpen` + `onclose` (+ `closeLabel`): off-canvas drawer with scrim below 768px |
 | `DataTable` | generic (`T`): `columns: Column[]` (`{ id, label, sortable?, align?, width?, secondary? }` – secondary hides < 768px), `rows`, `rowKey`, `cell(row, column)` snippet, `sort` (`field`\|`-field`) + `sortHref(sort)` (URL-driven) or `onsort`, `defaultSortDir`, `selectable` + `bind:selected` + `bulk(keys)` snippet (bar above the table), `onrowclick` (click / Enter), `activeKey`, `rowClass`, `loading`, `empty` / `emptyLabel`, `caption`, `labels`; `nextSort(current, field)` |
 | `Pager` | URL-driven: `page`, `pageSize`, `total`, `href(page)`, optional `sizeHref(size)` + `pageSizes`, `compact` (one line, for the ActionBar), `labels` |
@@ -65,6 +66,18 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 </Sheet>
 
 <ToastStack {toaster} />
+```
+
+Page help in the Info panel (every admin + creator page):
+
+```svelte
+<ActionBar infoTitle="Codes" infoHref="https://creator.scutoons.com/guide" infoLabels={{ toggle: 'Info', close: 'Close', guide: 'Style guide' }}>
+	{#snippet info()}
+		<h3>Filters</h3>
+		<p>Search matches the code, the email and the edition.</p>
+	{/snippet}
+	{#snippet end()}<Button>Generate</Button>{/snippet}
+</ActionBar>
 ```
 
 ## Check

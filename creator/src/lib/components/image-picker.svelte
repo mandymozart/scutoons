@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { asset } from '$lib/utils/cdn.ts';
-	import { m } from '$lib/paraglide/messages.js';
 	import { DEFAULT_SLICE } from '@scutoons/content';
 
 	/** Image path (relative to the toon's CDN folder) with the known paths as suggestions and a live CDN preview. */
@@ -75,7 +74,6 @@
 			</span>
 		</div>
 	{/if}
-	{#if showFormat}<p class="hint">{m['creator.format_hint']()}</p>{/if}
 
 	<button type="button" class="ghost browse" onclick={() => (open = !open)}>{open ? '▾' : '▸'} {known.length} known images</button>
 	{#if open}

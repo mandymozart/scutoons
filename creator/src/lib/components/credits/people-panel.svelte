@@ -144,7 +144,6 @@
 				</select>
 				<button type="button" class="secondary" disabled={!mergeTarget} onclick={merge} data-testid="merge">{m['creator.credits_merge']()}</button>
 			</div>
-			<p class="hint">{m['creator.credits_registry_hint']()}</p>
 		</div>
 	{/if}
 </div>

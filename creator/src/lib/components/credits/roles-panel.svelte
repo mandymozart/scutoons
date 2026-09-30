@@ -63,14 +63,12 @@
 	<input type="search" placeholder={m['creator.credits_search_roles']()} bind:value={query} />
 
 	<h3>{m['creator.credits_custom_roles']()} ({custom.length})</h3>
-	<p class="hint">{m['creator.credits_custom_roles_hint']()}</p>
 	{@render table(custom, 'custom')}
 	<button type="button" class="ghost" onclick={() => edit<ToonCredits>(credits, (f) => (f.roles = [...(f.roles ?? []), newRole({ [languages[0]]: 'New role' }, RoleCategory.OTHER, allIds)]))}
 		>+ {m['creator.credits_new_custom_role']()}</button
 	>
 
 	<h3>{m['creator.credits_vocabulary']()} ({vocabulary.length})</h3>
-	<p class="hint">{m['creator.credits_vocabulary_hint']()}</p>
 	{@render table(vocabulary, 'global')}
 	<button type="button" class="ghost" onclick={() => edit<RoleVocabulary>(roles, (f) => f.roles.push(newRole({ [languages[0]]: 'New role' }, RoleCategory.OTHER, allIds)))}
 		>+ {m['creator.credits_new_global_role']()}</button
@@ -102,8 +100,5 @@
 	.warn {
 		color: var(--warn);
 		font-size: 10px;
-	}
-	.hint {
-		margin: 0;
 	}
 </style>

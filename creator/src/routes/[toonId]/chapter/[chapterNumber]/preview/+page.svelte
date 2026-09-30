@@ -8,6 +8,8 @@
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 
 	/**
 	 * Draft preview: the newest saved draft of the chapter (and its scene files) in one locale, rendered with the
@@ -68,8 +70,6 @@
 
 	const groups = $derived(chapter?.groups ?? []);
 	const shown = $derived(label ? groups.filter((g) => g.label === label) : groups);
-	const hasVn = $derived(shown.some((g) => g.events?.length || g.slices?.some((s) => s.events?.length)));
-	const hasHorizontal = $derived(shown.some((g) => g.renderer?.type === 'horizontal'));
 
 	function setParam(key: string, value: string | null) {
 		const url = new URL(page.url);
@@ -93,14 +93,11 @@
 	</header>
 
 	<p class="meta">
-		{m['creator.preview_hint']()}
 		{#if chapter}
 			<Badge tone={fromDraft ? 'accent' : 'neutral'}>
 				{fromDraft ? m['creator.preview_source_draft']() : m['creator.preview_source_published']()}
 			</Badge>
 		{/if}
-		{#if hasVn}<span class="note">{m['creator.preview_vn_note']()}</span>{/if}
-		{#if hasHorizontal}<span class="note">{m['creator.preview_renderer_note']()}</span>{/if}
 	</p>
 
 	{#if loading && !chapter}
@@ -126,7 +123,8 @@
 	{/if}
 
 	<!-- Bottom action bar: locale + group filter · back to the editor -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={m['creator.preview_title']()}>
+		{#snippet info()}<PageHelp page="preview" />{/snippet}
 		{#snippet start()}
 			<Tabs
 				label={m['creator.preview_locale']()}
@@ -194,9 +192,6 @@
 		margin: 0.75rem auto;
 		padding: 0 1rem;
 		color: var(--muted);
-	}
-	.note {
-		color: var(--ink);
 	}
 	.status {
 		max-width: 500px;

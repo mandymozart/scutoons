@@ -16,7 +16,10 @@
 		"navigation": "Bereiche",
 		"page_actions": "Seitenaktionen",
 		"more": "Mehr",
-		"dismiss": "Schließen"
+		"dismiss": "Schließen",
+		"info": "Info",
+		"info_close": "Schließen",
+		"info_guide": "Ganzer Style Guide (Creator)"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",
@@ -407,5 +410,17 @@
 		"saved": "Einstellungen gespeichert.",
 		"nothing_changed": "Nichts geändert.",
 		"unsaved": "Ungespeicherte Änderungen"
+	},
+	"help": {
+		"lists_title": "Listen",
+		"lists": "Suche, Filter, Sortierung und Seite stehen in der URL: eine Ansicht lässt sich teilen oder merken. Pager und Filter sitzen in der Leiste unten (auf schmalen Bildschirmen unter „Mehr“). Strg+K oder / öffnet die Befehlspalette.",
+		"terms_title": "Begriffe",
+		"codes": "Die Suche findet Teile eines Codes. Zeilen auswählen für Sperren oder Entsperren in einem Schritt; der CSV-Export nimmt den aktuellen Filter. Ein Klick auf eine Zeile öffnet den Code neben der Liste.",
+		"code_sections_title": "Abschnitte",
+		"batches": "Pro Code läuft ein Batch: signieren → Datenbank → QR-SVG → Zertifikat-PDF → Signatur. Das Manifest wird nach jedem Code auf dem Server gespeichert, ein Batch lässt sich also pausieren, abbrechen und fortsetzen. Die Historie hat ZIP und Druckbogen jedes Batches.",
+		"users": "Die Suche findet Teile einer E-Mail; Filter nach Rolle und Newsletter-Opt-in. Die Seite eines Users zeigt eigene Codes, Sitzungen, Rollen und Reader-Figuren.",
+		"events": "Jeder Scan, jedes Entsperren und jeder Claim, neueste zuerst. Filter nach Event-Typ, Code, Edition, Toon und Datum.",
+		"content": "Pro Toon jede Datei des Content-Stores mit neuester und veröffentlichter Version. Bearbeiten und Veröffentlichen passiert im Creator („Im Creator“).",
+		"settings": "Änderungen gelten ab der nächsten Anfrage, ohne Deploy. „Standard verwenden“ stellt den Standardwert wieder her."
 	}
 }

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import {
@@ -170,7 +172,8 @@
 	{/if}
 {/snippet}
 
-<ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+<ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['codes.title']()}>
+	{#snippet info()}<PageHelp page="codes" />{/snippet}
 	{#snippet secondary()}
 		<Button size="sm" variant="secondary" onclick={exportCsv}>{m['codes.export_csv']()}</Button>
 	{/snippet}

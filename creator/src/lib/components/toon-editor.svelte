@@ -22,7 +22,7 @@
 	});
 </script>
 
-<MetaPage {toon} title="toon.json" docs={[file]}>
+<MetaPage {toon} title="toon.json" docs={[file]} help="toon-file">
 	{#if file.present.length === 0}
 		<p>{m['creator.toon_missing']()} <a href="/{toon}">← {toon}</a></p>
 	{:else}
@@ -69,11 +69,6 @@
 				<SharedField doc={file} path={['download', 'music']} label="download.music" placeholder="audio/….zip" required />
 				<SharedField doc={file} path={['download', 'complete']} label="download.complete" kind="nullable" placeholder="null (none)" />
 			</div>
-		</section>
-
-		<section class="block">
-			<h2>{m['creator.in_the_reader']()}</h2>
-			<p class="hint">{m['creator.reader_uses_toon']()}</p>
 		</section>
 	{/if}
 </MetaPage>

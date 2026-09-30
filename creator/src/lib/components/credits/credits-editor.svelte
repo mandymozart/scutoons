@@ -72,7 +72,7 @@
 	}
 </script>
 
-<MetaPage {toon} title={m['creator.credits']()} {docs} {validate} wide>
+<MetaPage {toon} title={m['creator.credits']()} {docs} {validate} wide help="credits">
 	{#if missing.length}
 		<section class="missing" data-testid="credits-missing">
 			<p>{m['creator.credits_missing']({ files: missing.map((d) => `${d.toon}/_/${d.path}`).join(', ') })}</p>

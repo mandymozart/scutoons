@@ -7,7 +7,8 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
-	import StyleGuide from '$lib/components/style-guide.svelte';
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 
 	const session = getCreatorSession();
 	let toons = $state<ToonIndex[]>([]);
@@ -34,7 +35,6 @@
 		<section>
 			<p class="shared">
 				<a class="btn" href="/characters" data-testid="open-characters">{m['creator.characters']()} →</a>
-				<span class="hint">{m['creator.characters_home_hint']()}</span>
 			</p>
 			<h2>{m['creator.toons']()}</h2>
 			{#if error}<p class="error">{error}</p>{/if}
@@ -50,12 +50,10 @@
 				{/each}
 			</ul>
 		</section>
-		<aside>
-			<StyleGuide />
-		</aside>
 	</main>
 	<!-- Bottom action bar: toon count · sign out · open the reader -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={m['creator.title']()}>
+		{#snippet info()}<PageHelp page="home" />{/snippet}
 		{#snippet start()}
 			<span class="hint">{m['creator.toons']()}: {toons.length}</span>
 		{/snippet}
@@ -84,16 +82,8 @@
 		margin: 0;
 	}
 	.browser {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) 22rem;
-		gap: 2rem;
 		padding: 1.5rem 1rem;
 		max-width: 1200px;
-	}
-	@media (max-width: 900px) {
-		.browser {
-			grid-template-columns: 1fr;
-		}
 	}
 	.toons {
 		list-style: none;

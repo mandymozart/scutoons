@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { ActionBar, Badge, Button, Field, Panel, Section } from '@scutoons/ui';
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
+	import { ActionBar, Badge, Button, Field, Panel } from '@scutoons/ui';
 	import type { CodeSignature } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { CODE_TYPES, loadCatalog, type Edition } from '$lib/catalog.ts';
@@ -179,7 +181,8 @@
 
 <PageHeader type={m['nav.group_codes']()} title={m['generate.title']()} meta={m['generate.meta']()} />
 
-<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['generate.title']()}>
+	{#snippet info()}<PageHelp page="generate" />{/snippet}
 	{#snippet start()}
 		<a href="/codes">← {m['codes.back_to_list']()}</a>
 		{#if current}<span class="muted">{m['generate.result']({ code: current.data.code })}</span>{/if}
@@ -292,14 +295,6 @@
 					</div>
 				</div>
 			</Panel>
-		{:else}
-			<Section title={m['generate.how_title']()} hint={m['generate.how_hint']()}>
-				<ol class="steps">
-					<li>{m['generate.how_1']()}</li>
-					<li>{m['generate.how_2']()}</li>
-					<li>{m['generate.how_3']()}</li>
-				</ol>
-			</Section>
 		{/if}
 	</div>
 </div>
@@ -323,9 +318,5 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-05);
-	}
-	.steps {
-		margin: 0;
-		padding-left: 1.2em;
 	}
 </style>

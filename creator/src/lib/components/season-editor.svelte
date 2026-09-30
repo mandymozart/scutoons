@@ -12,7 +12,7 @@
 
 	/**
 	 * Season meta (season<N>.json): title / plot per locale, language-neutral fields once (overrides per locale shown),
-	 * covers, credits – and the chapter sequence with the status per locale (the chapters' visibility), all one doc.
+	 * covers – and the chapter sequence with the status per locale (the chapters' visibility), all one doc.
 	 */
 	let { toon, number, languages }: { toon: string; number: number; languages: ToonLanguages } = $props();
 
@@ -41,6 +41,7 @@
 
 <MetaPage
 	{toon}
+	help="season"
 	title={m['creator.season']({ number })}
 	docs={[season]}
 	companions={() => Object.values(chapters)}
@@ -70,26 +71,6 @@
 				<SharedField doc={season} path={['cover', 'square']} label="cover.square" kind="image" {toon} known={images} />
 				<SharedField doc={season} path={['cover', 'portrait']} label="cover.portrait" kind="image" {toon} known={images} />
 			</div>
-		</section>
-
-		<section class="block" data-testid="season-credits">
-			<h2>{m['creator.credits']()} <span class="hint">(deprecated)</span></h2>
-			<p class="note" data-testid="credits-moved">
-				{m['creator.credits_deprecated']()} <a class="btn secondary" href="/{toon}/credits">{m['creator.credits_open']()} →</a>
-			</p>
-			<table class="old-credits">
-				<tbody>
-					{#each ['artist', 'writer', 'music', 'sound'] as field (field)}
-						<tr>
-							<th>credits.{field}</th>
-							{#each season.present as l (l)}
-								{@const value = season.get(l, ['credits', field])}
-								<td>{l}: {Array.isArray(value) ? value.join(', ') : (value ?? '–')}</td>
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
 		</section>
 
 		<section class="block" data-testid="season-sequence">
@@ -124,12 +105,6 @@
 					{/each}
 				</tbody>
 			</table>
-			<p class="hint">{m['creator.status_hint']({ file: season.path })} {m['creator.status_follow_chapters']()}</p>
-		</section>
-
-		<section class="block">
-			<h2>{m['creator.in_the_reader']()}</h2>
-			<p class="hint">{m['creator.reader_uses_season']()}</p>
 		</section>
 	{/if}
 </MetaPage>
@@ -187,23 +162,5 @@
 	}
 	.chapters select {
 		width: auto;
-	}
-	.note {
-		margin: 0;
-		display: flex;
-		gap: 0.75rem;
-		align-items: center;
-		flex-wrap: wrap;
-	}
-	.old-credits {
-		border-collapse: collapse;
-		font-size: 12px;
-		color: var(--text-muted);
-	}
-	.old-credits th,
-	.old-credits td {
-		text-align: left;
-		padding: 0.15rem 0.75rem 0.15rem 0;
-		font-weight: 400;
 	}
 </style>

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, Section, Skeleton, ToonAvatar } from '@scutoons/ui';
@@ -59,7 +61,8 @@
 
 <PageHeader type={m['nav.group_data']()} title={m['content.title']()} meta={m['content.meta']()} />
 
-<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['content.title']()}>
+	{#snippet info()}<PageHelp page="content" />{/snippet}
 	{#snippet start()}
 		{#if data}
 			<div class="toon-chips" role="group" aria-label={m['events.col_toon']()}>

@@ -12,7 +12,8 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { Language, NEUTRAL_LOCALE, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
-	import StyleGuide from '$lib/components/style-guide.svelte';
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import FileStatus from '$lib/components/file-status.svelte';
 
 	const toonId = $derived(page.params.toonId as string);
@@ -336,7 +337,6 @@
 		<a class="btn credits-link" href="/{toonId}/credits" title={m['creator.credits_open_hint']()} data-testid="edit-credits">{m['creator.credits_open']()} →</a>
 		<a class="btn secondary" href="/{toonId}/cast" title={m['creator.cast_open_hint']()} data-testid="edit-cast">{m['creator.cast']()} →</a>
 		<a class="btn secondary" href="/characters?toon={toonId}" data-testid="open-characters">{m['creator.characters']()} →</a>
-		<span class="hint credits-hint">{m['creator.credits_open_hint']()}</span>
 	</header>
 	<main class="browser">
 		<section>
@@ -346,7 +346,6 @@
 						<h2>{m['creator.languages']()}</h2>
 						<FileStatus doc={index} />
 					</div>
-					<p class="hint">{m['creator.languages_hint']()}</p>
 					<div class="language-grid">
 						<label class="field">
 							<span>{m['creator.source_language']()}</span>
@@ -378,7 +377,7 @@
 							{/if}
 						</div>
 					</div>
-					{#if languagesChanged}<p class="hint warn">{m['creator.languages_unsaved']()} {m['creator.languages_remove_note']()}</p>{/if}
+					{#if languagesChanged}<p class="hint warn">{m['creator.languages_unsaved']()}</p>{/if}
 					{#each missing as { locale, docs } (locale)}
 						<p class="missing-bar" data-testid="missing-{locale}">
 							{m['creator.missing_locale_files']({ locale, count: docs.length })}
@@ -453,7 +452,6 @@
 						{/each}
 					</tbody>
 				</table>
-				<p class="hint">{m['creator.status_hint']({ file: season.path })} {m['creator.status_follow_chapters']()}</p>
 			{/if}
 			{#if season && !season.loading && !seasonMissing && orphans.length}
 				<p class="error" data-testid="orphans">{m['creator.orphans']({ numbers: orphans.join(', '), file: season.path })}</p>
@@ -461,12 +459,10 @@
 			{#if message}<p class="hint">{message}</p>{/if}
 			{#if error}<p class="error">{error}</p>{/if}
 		</section>
-		<aside>
-			<StyleGuide />
-		</aside>
 	</main>
 	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season, toon.json) -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={toonId}>
+		{#snippet info()}<PageHelp page="toon" seasonFile={season?.path} />{/snippet}
 		{#snippet start()}
 			<a class="bar-link" href="/">← {m['creator.toons']()}</a>
 			{#if anyDirty}<span class="hint">{m['creator.unsaved']()}</span>{/if}
@@ -494,11 +490,6 @@
 	.credits-link {
 		margin-left: 1rem;
 	}
-	@media (max-width: 700px) {
-		.credits-hint {
-			display: none;
-		}
-	}
 	.crumbs a,
 	.bar-link {
 		color: var(--ink);
@@ -507,16 +498,8 @@
 		--action-bar-height: 64px;
 	}
 	.browser {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) 22rem;
-		gap: 2rem;
 		padding: 1.5rem 1rem;
 		max-width: 1300px;
-	}
-	@media (max-width: 1000px) {
-		.browser {
-			grid-template-columns: 1fr;
-		}
 	}
 	.season-missing {
 		border: 2px dashed var(--border-muted);

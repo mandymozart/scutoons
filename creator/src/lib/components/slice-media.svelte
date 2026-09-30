@@ -91,7 +91,6 @@
 			<label><input type="checkbox" checked={video.loop !== false} onchange={(e) => setFlag('loop', e.currentTarget.checked)} /> loop</label>
 			<label><input type="checkbox" checked={video.autoplay !== false} onchange={(e) => setFlag('autoplay', e.currentTarget.checked)} /> autoplay</label>
 		</div>
-		<p class="hint">{m['creator.video_hint']()}</p>
 	{/if}
 
 	<ImagePicker {toon} label={video ? m['creator.poster']() : 'image'} value={slice?.image} {known} showFormat onchange={setImage} />

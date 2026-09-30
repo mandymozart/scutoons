@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, DataTable, RecordInspector, Section, Skeleton, Tabs, ToonAvatar, type Column } from '@scutoons/ui';
@@ -64,7 +66,8 @@
 
 <PageHeader type={m['nav.group_data']()} title={m['catalog.title']()} meta={m['catalog.meta']()} />
 
-<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['catalog.title']()}>
+	{#snippet info()}<PageHelp page="catalog" />{/snippet}
 	{#snippet start()}
 		{#if catalog}
 			<span class="muted">{m['catalog.counts']({ items: catalog.catalog.items.length, editions: catalog.editions.length, toons: catalog.toons.length })}</span>
@@ -136,7 +139,7 @@
 					{/snippet}
 				</DataTable>
 			{:else}
-				<Section title={m['catalog.types']()} hint={m['catalog.types_hint']()}>
+				<Section title={m['catalog.types']()}>
 					<DataTable
 						columns={[
 							{ id: 'type', label: m['codes.col_type']() },

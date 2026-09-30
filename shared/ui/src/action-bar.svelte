@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import { clickOutside } from './click-outside.ts';
+	import InfoPanel from './info-panel.svelte';
 
 	/**
 	 * Fixed bottom action bar (PLATFORM.md "Admin UI patterns" → "Bottom action bar", owner rule for admin + creator):
@@ -9,6 +10,10 @@
 	 * actions, `end` = the primary action(s), right-most. Narrower than `breakpoint`: `end` stays visible, `start` and
 	 * `secondary` move into a "More" panel that opens upwards. While a bar is on the page, `body` gets a bottom padding
 	 * of the bar's height, so nothing hides behind it (place the component anywhere in the page markup).
+	 *
+	 * `info`: the page's help. The bar then shows an "ⓘ Info" toggle (left-most, also on narrow screens) that opens an
+	 * `InfoPanel` with this snippet (+ `infoHref`, a link to the full guide). Closed by default; open/closed is
+	 * remembered in localStorage (`infoKey`), so it stays open across pages until the user closes it.
 	 */
 	let {
 		start,
@@ -16,7 +21,13 @@
 		end,
 		label = 'Page actions',
 		moreLabel = 'More',
-		breakpoint = 1024
+		breakpoint = 1024,
+		info,
+		infoOpen = $bindable(false),
+		infoTitle = 'Info',
+		infoHref,
+		infoLabels = {},
+		infoKey = 'sc-info-open'
 	}: {
 		start?: Snippet;
 		secondary?: Snippet;
@@ -25,6 +36,18 @@
 		label?: string;
 		moreLabel?: string;
 		breakpoint?: number;
+		/** the page's help, shown in the InfoPanel */
+		info?: Snippet;
+		/** open state of the InfoPanel (bindable, e.g. to close other side panels while it is open) */
+		infoOpen?: boolean;
+		/** heading of the InfoPanel (e.g. the page name) */
+		infoTitle?: string;
+		/** link to the full style guide at the end of the panel */
+		infoHref?: string;
+		/** translated labels: `toggle` (default "Info"), `close`, `guide` (the link text) */
+		infoLabels?: { toggle?: string; close?: string; guide?: string };
+		/** localStorage key of the remembered open state */
+		infoKey?: string;
 	} = $props();
 
 	let narrow = $state(false);
@@ -43,10 +66,44 @@
 	});
 
 	const hasMore = $derived(!!start || !!secondary);
+
+	// the Info panel: closed by default, the user's choice is remembered (storage may be unavailable)
+	$effect(() => {
+		if (!info) return;
+		try {
+			infoOpen = localStorage.getItem(infoKey) === '1';
+		} catch {
+			/* private mode etc. */
+		}
+	});
+
+	function setInfo(open: boolean) {
+		infoOpen = open;
+		try {
+			if (open) localStorage.setItem(infoKey, '1');
+			else localStorage.removeItem(infoKey);
+		} catch {
+			/* not remembered */
+		}
+	}
 </script>
+
+{#snippet infoToggle()}
+	<button
+		type="button"
+		class="info-toggle"
+		aria-expanded={infoOpen}
+		aria-controls="{uid}-info"
+		onclick={() => setInfo(!infoOpen)}
+		data-testid="info-toggle"
+	>
+		<span aria-hidden="true">ⓘ</span> {infoLabels.toggle ?? 'Info'}
+	</button>
+{/snippet}
 
 <div class="sc-action-bar" role="region" aria-label={label}>
 	{#if narrow}
+		{#if info}{@render infoToggle()}{/if}
 		{#if hasMore}
 			<div class="more" {@attach clickOutside(() => (moreOpen = false))}>
 				<button
@@ -68,13 +125,29 @@
 		{/if}
 		<div class="end">{#if end}{@render end()}{/if}</div>
 	{:else}
-		<div class="start">{#if start}{@render start()}{/if}</div>
+		<div class="start">
+			{#if info}{@render infoToggle()}{/if}
+			{#if start}{@render start()}{/if}
+		</div>
 		<div class="end">
 			{#if secondary}{@render secondary()}{/if}
 			{#if end}{@render end()}{/if}
 		</div>
 	{/if}
 </div>
+
+{#if info && infoOpen}
+	<InfoPanel
+		id="{uid}-info"
+		title={infoTitle}
+		closeLabel={infoLabels.close}
+		href={infoHref}
+		hrefLabel={infoLabels.guide}
+		onclose={() => setInfo(false)}
+	>
+		{@render info()}
+	</InfoPanel>
+{/if}
 
 <style>
 	/* the page gets the bottom padding wherever the bar is placed in the markup */
@@ -115,6 +188,24 @@
 	}
 	.more {
 		position: relative;
+	}
+	.info-toggle {
+		flex: none;
+		padding: 0.45em 0.8em;
+		border: var(--border-width-regular) solid var(--border-muted);
+		background: var(--paper);
+		color: var(--ink);
+		font: inherit;
+		white-space: nowrap;
+		cursor: pointer;
+	}
+	.info-toggle:hover {
+		border-color: var(--ink);
+	}
+	.info-toggle[aria-expanded='true'] {
+		border-color: var(--ink);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.more-toggle {
 		padding: 0.45em 1em;

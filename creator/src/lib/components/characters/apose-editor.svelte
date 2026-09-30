@@ -62,7 +62,6 @@
 </script>
 
 <section class="apose" data-testid="apose-editor">
-	<p class="hint">{m['creator.characters_apose_hint']()}</p>
 	<div class="looks">
 		{#each looks as look (look.id)}
 			{@const path = look.path?.trim() ?? ''}
@@ -98,7 +97,6 @@
 								{/each}
 							</tbody>
 						</table>
-						<p class="hint">{m['creator.characters_apose_anchors_hint']()}</p>
 					</details>
 				{:else}
 					<button type="button" class="missing" onclick={() => ((dialogLook = look.id), (dialogOpen = true))} data-testid="apose-{look.id}-missing">

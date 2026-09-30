@@ -147,7 +147,7 @@
 				<PropField {doc} path={[...samplesPath, i, 'trigger', 'gate']} label="gate" type="bool" placeholder="false" />
 			</div>
 			{#if sample.trigger?.rect}
-				<p class="hint">Area: {sample.trigger.rect.x}/{sample.trigger.rect.y} {sample.trigger.rect.width}×{sample.trigger.rect.height}% – drag it on the slice.</p>
+				<p class="hint">Area: {sample.trigger.rect.x}/{sample.trigger.rect.y} {sample.trigger.rect.width}×{sample.trigger.rect.height}%</p>
 			{/if}
 		</div>
 	{/each}
@@ -155,7 +155,6 @@
 		<button type="button" class="secondary" onclick={() => addSample(Trigger.INTERSECT)} disabled={!library.length}>+ on scroll</button>
 		<button type="button" class="secondary" onclick={() => addSample(Trigger.CLICK)} disabled={!library.length}>+ on click (area)</button>
 	</div>
-	<p class="hint">Or pick the “sample area” tool and draw on the slice.</p>
 </section>
 
 <style>

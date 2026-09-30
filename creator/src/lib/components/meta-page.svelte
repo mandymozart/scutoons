@@ -8,6 +8,8 @@
 	import ProblemsPanel from './problems-panel.svelte';
 	import HistoryPanel from './history-panel.svelte';
 	import FileStatus from './file-status.svelte';
+	import PageHelp, { type HelpPage } from './page-help.svelte';
+	import { infoBar } from '$lib/info.ts';
 
 	/**
 	 * Editor shell for toon-level files (season, toon.json): top bar with the files' versions, the bottom ActionBar
@@ -25,6 +27,7 @@
 		wide = false,
 		crumbs,
 		actions,
+		help,
 		children
 	}: {
 		/** the toon of the page (crumbs + back link); pages about platform-wide files pass `crumbs` instead */
@@ -41,6 +44,8 @@
 		crumbs?: { href: string; label: string }[];
 		/** extra items at the start of the ActionBar (page-level actions, e.g. "New character") */
 		actions?: Snippet;
+		/** the page's help in the ActionBar's Info panel */
+		help: HelpPage;
 		children: Snippet;
 	} = $props();
 
@@ -56,6 +61,15 @@
 	const anyDirty = $derived(docs.some((d) => d.dirty) || companions().some((d) => d.dirty));
 	const anySaving = $derived(docs.some((d) => d.saving));
 	let panel = $state<'problems' | 'history' | null>(null);
+	/** the Info panel and the problems / history panel share the right edge */
+	let infoOpen = $state(false);
+	$effect(() => {
+		if (infoOpen) panel = null;
+	});
+	function togglePanel(next: 'problems' | 'history') {
+		panel = panel === next ? null : next;
+		if (panel) infoOpen = false;
+	}
 	let notice = $state<string | null>(null);
 	let conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
 	let saveMessage = $state('');
@@ -189,10 +203,11 @@
 		</div>
 	</header>
 
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} bind:infoOpen infoTitle={title}>
+		{#snippet info()}<PageHelp page={help} seasonFile={docs.find((d) => d.kind === 'season')?.path} />{/snippet}
 		{#snippet start()}
 			<a class="bar-link" href={back.href} data-testid="back-to-toon">← {back.label}</a>
-			<button class="ghost" class:active={panel === 'problems'} onclick={() => (panel = panel === 'problems' ? null : 'problems')} data-testid="problems-toggle">
+			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
 			</button>
 			{@render actions?.()}
@@ -200,7 +215,7 @@
 		{#snippet secondary()}
 			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
 			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
-			<button class="ghost" class:active={panel === 'history'} onclick={() => (panel = panel === 'history' ? null : 'history')}>{m['creator.history']()}</button>
+			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<input class="message" type="text" placeholder="note (optional)" bind:value={saveMessage} />

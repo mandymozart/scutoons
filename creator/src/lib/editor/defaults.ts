@@ -35,7 +35,7 @@ export function newChapter(number: number, locale: string, author = 'Mandy Mozar
 		status: Status.DRAFT,
 		description: '',
 		thumbnail: `images/${slug}-thumbnail.jpg`,
-		keyvisual: { image: `images/1x/${slug}-key-visual.jpg` },
+		keyvisual: { image: `images/${slug}-key-visual.jpg` },
 		groups: [newGroup('scene-1')]
 	};
 }
@@ -64,7 +64,7 @@ export function newSeason(locale: string, authors: string[] = [], number = 1): S
 		number,
 		release: isoDate(),
 		description: '',
-		cover: { square: `images/1x/${locale}/s${number}-cover-square.jpg`, portrait: `images/1x/${locale}/s${number}-cover-portrait.jpg` },
+		cover: { square: `images/${locale}/s${number}-cover-square.jpg`, portrait: `images/${locale}/s${number}-cover-portrait.jpg` },
 		sequence: []
 	};
 }
@@ -81,7 +81,7 @@ export function newToon(id: string, locale: string, entry: ToonIndex | null | un
 		status: Status.DRAFT,
 		description: entry?.i18n?.[locale]?.description ?? '',
 		thumbnail: `images/${chapterSlug(1)}-thumbnail.jpg`,
-		cover: { square: `images/1x/${locale}/s1-cover-square.jpg`, portrait: `images/1x/${locale}/s1-cover-portrait.jpg` },
+		cover: { square: `images/${locale}/s1-cover-square.jpg`, portrait: `images/${locale}/s1-cover-portrait.jpg` },
 		map: { layers: { terrain: '' }, width: 0, height: 0, center: { x: 0, y: 0 } },
 		download: { complete: null, music: '' }
 	};

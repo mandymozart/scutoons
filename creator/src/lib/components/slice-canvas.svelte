@@ -12,7 +12,7 @@
 	import { onMount, tick } from 'svelte';
 	import { Dialogs } from '@scutoons/reader';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { getAt, round2, type Path } from '@scutoons/content';
+	import { DEFAULT_SLICE, getAt, round2, type Path } from '@scutoons/content';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 
@@ -27,7 +27,6 @@
 		doc,
 		slicePath,
 		locale,
-		zoom = 1,
 		grid = 0,
 		tool = 'text',
 		scope = 'all',
@@ -39,7 +38,6 @@
 		slicePath: Path;
 		/** the locale shown (text + its geometry) */
 		locale: string;
-		zoom?: 1 | 3;
 		/** snap step in % (0 = off) */
 		grid?: number;
 		tool?: Tool;
@@ -53,6 +51,9 @@
 
 	const slice = $derived(doc.get(locale, slicePath) ?? doc.get(doc.primary, slicePath));
 	const image = $derived(slice?.image ? asset(`${doc.toon}/${slice.image}`) : '');
+	/** the slice's 1x size (standard 390 × 625) – the canvas never shows it larger */
+	const sliceWidth = $derived(slice?.width > 0 ? slice.width : DEFAULT_SLICE.width);
+	const sliceRatio = $derived(slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : SLICE_RATIO);
 
 	interface Item {
 		kind: ItemKind;
@@ -96,8 +97,8 @@
 	}
 
 	$effect(() => {
-		// re-measure when the text, geometry, zoom or locale change
-		void [JSON.stringify(slice?.dialog ?? []), zoom, locale, imageLoaded];
+		// re-measure when the text, geometry or locale change (a resize is caught by the ResizeObserver)
+		void [JSON.stringify(slice?.dialog ?? []), locale, imageLoaded];
 		tick().then(() => requestAnimationFrame(measure));
 	});
 
@@ -292,11 +293,12 @@
 	});
 </script>
 
-<div class="canvas-wrap" style:width="{390 * zoom}px">
+<!-- one resolution in the whole app (owner 2026-09-30): the slice at its 1x size, scaled down to fit the column -->
+<div class="canvas-wrap" style:max-width="{sliceWidth}px">
 	<div
 		class="slice creator-canvas"
 		bind:this={canvas}
-		style:min-height={imageLoaded ? null : `${390 * zoom * (slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : SLICE_RATIO)}px`}
+		style:aspect-ratio={imageLoaded ? null : `${sliceWidth} / ${sliceWidth * sliceRatio}`}
 		data-testid="slice-canvas"
 	>
 		{#if image}
@@ -370,6 +372,7 @@
 	.canvas-wrap {
 		position: relative;
 		flex: none;
+		width: 100%;
 		margin: 0 auto;
 	}
 	.creator-canvas {

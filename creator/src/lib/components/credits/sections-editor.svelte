@@ -94,7 +94,6 @@
 
 			{#if section.kind === 'toon'}
 				<h4>{m['creator.credits_lead']()}</h4>
-				<p class="hint">{m['creator.credits_lead_hint']()}</p>
 				<EntryList {credits} {people} {roles} {languages} {onperson} path={['sections', i, 'lead']} testid="lead-{section.id}" />
 				<h4>{m['creator.credits_entries']()}</h4>
 			{/if}
@@ -178,8 +177,5 @@
 		display: flex;
 		gap: 0.5rem;
 		align-items: center;
-	}
-	.hint {
-		margin: 0;
 	}
 </style>

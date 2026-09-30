@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { ActionBar, Button, Field, Section, Skeleton } from '@scutoons/ui';
 	import type { AdminSetting } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
@@ -10,9 +12,10 @@
 	/** Runtime settings of the API (GET/PUT /api/admin/settings): the scan and lookup rate limits. */
 	const toaster = getToaster();
 
-	const LABELS: Record<string, { label: () => string; hint: () => string }> = {
-		scan_limit_per_hour: { label: () => m['settings.scan_limit_per_hour'](), hint: () => m['settings.scan_limit_per_hour_hint']() },
-		lookup_limit_per_hour: { label: () => m['settings.lookup_limit_per_hour'](), hint: () => m['settings.lookup_limit_per_hour_hint']() }
+	// the explanations of the limits are in the Info panel (PageHelp "settings")
+	const LABELS: Record<string, { label: () => string }> = {
+		scan_limit_per_hour: { label: () => m['settings.scan_limit_per_hour']() },
+		lookup_limit_per_hour: { label: () => m['settings.lookup_limit_per_hour']() }
 	};
 
 	let items = $state<AdminSetting[] | null>(null);
@@ -67,7 +70,8 @@
 
 <PageHeader type={m['nav.group_system']()} title={m['settings.title']()} meta={m['settings.meta']()} />
 
-<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['settings.title']()}>
+	{#snippet info()}<PageHelp page="settings" />{/snippet}
 	{#snippet start()}
 		{#if changed.length > 0}<span class="unsaved">{m['settings.unsaved']()}</span>{/if}
 	{/snippet}
@@ -83,7 +87,7 @@
 {:else if !items}
 	<Skeleton lines={6} label={m['shell.loading']()} />
 {:else}
-	<Section title={m['settings.section_limits']()} hint={m['settings.section_limits_hint']()}>
+	<Section title={m['settings.section_limits']()}>
 		<form
 			class="settings"
 			onsubmit={(event) => {
@@ -95,7 +99,6 @@
 				<div class="setting">
 					<Field
 						label={LABELS[s.key]?.label() ?? s.key}
-						hint={LABELS[s.key]?.hint()}
 						error={invalid(s) ? m['settings.invalid']({ min: s.min, max: s.max }) : null}
 					>
 						{#snippet children({ id, describedby, invalid: isInvalid })}

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, DataTable, Pager, SearchField, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
@@ -112,7 +114,9 @@
 	{/if}
 {/snippet}
 
-<ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()}></ActionBar>
+<ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['events.title']()}>
+	{#snippet info()}<PageHelp page="events" />{/snippet}
+</ActionBar>
 
 
 {#if error}<p class="error-box" role="alert">{error}</p>{/if}

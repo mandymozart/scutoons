@@ -77,7 +77,6 @@
 			<button type="button" class="secondary" onclick={() => copy('csv')} disabled={!wanted.length} data-testid="copy-wanted-csv">{copied === 'csv' ? '✓' : ''} {m['creator.characters_copy_csv']()}</button>
 		</span>
 	</header>
-	<p class="hint">{m['creator.characters_wanted_hint']()}</p>
 	{#if fallbackText}<textarea rows="8" readonly value={fallbackText}></textarea>{/if}
 	{#each groups as g (g.key)}
 		{@const c = index.get(g.character)}

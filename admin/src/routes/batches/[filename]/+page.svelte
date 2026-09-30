@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { onDestroy, untrack } from 'svelte';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
@@ -93,7 +95,8 @@
 	{@const b = run.manifest}
 	<PageHeader type={m['batches.type_label']()} title={b.edition} meta={b.filename} />
 
-	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={b.edition}>
+		{#snippet info()}<PageHelp page="batch" />{/snippet}
 		{#snippet start()}
 			<a href="/batches">← {m['batches.back']()}</a>
 			<span class="bar-summary">{m['batches.summary']({ done: number(run!.done), total: number(b.total), errors: number(run!.failed) })}</span>
@@ -176,7 +179,7 @@
 		</table>
 	</div>
 
-	<Section title={m['batches.manifest']()} hint={m['batches.manifest_hint']()}>
+	<Section title={m['batches.manifest']()}>
 		<RecordInspector record={{ ...b, codes: `${b.codes.length} …` }} labels={inspectorLabels()} />
 	</Section>
 {/if}

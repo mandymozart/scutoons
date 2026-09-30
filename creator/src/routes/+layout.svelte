@@ -79,6 +79,8 @@
 		--warn: var(--state-warning);
 		/* every creator page: the bottom ActionBar mirrors the 64px top bars (AppShell reserves this much) */
 		--action-bar-height: 64px;
+		/* the Info panel (@scutoons/ui InfoPanel) starts below the pages' 64px top bars */
+		--info-panel-top: 64px;
 		font-family: var(--font-mono);
 		font-size: 13px;
 		line-height: 1.4;

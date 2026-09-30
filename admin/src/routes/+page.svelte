@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, Button, Chart, Panel, Skeleton, listHref } from '@scutoons/ui';
@@ -77,7 +79,8 @@
 	</label>
 {/snippet}
 
-<ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+<ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['dashboard.title']()}>
+	{#snippet info()}<PageHelp page="dashboard" />{/snippet}
 	{#snippet end()}
 		<Button size="sm" variant="secondary" href="/events">{m['nav.events']()}</Button>
 		<Button size="sm" href="/codes">{m['nav.codes']()}</Button>
@@ -102,7 +105,7 @@
 	</ul>
 
 	<div class="grid-2 charts">
-		<Panel title={m['dashboard.chart_scans']()} hint={m['dashboard.chart_scans_hint']()}>
+		<Panel title={m['dashboard.chart_scans']()}>
 			<Chart
 				kind="line"
 				{labels}
@@ -114,7 +117,7 @@
 				formatLabel={shortDay}
 			/>
 		</Panel>
-		<Panel title={m['dashboard.chart_claims']()} hint={m['dashboard.chart_claims_hint']()}>
+		<Panel title={m['dashboard.chart_claims']()}>
 			<Chart
 				kind="bar"
 				{labels}
@@ -128,7 +131,7 @@
 		</Panel>
 	</div>
 
-	<Panel title={m['dashboard.editions']()} hint={m['dashboard.editions_hint']()}>
+	<Panel title={m['dashboard.editions']()}>
 		<div class="table-scroll">
 			<table class="editions">
 				<thead>

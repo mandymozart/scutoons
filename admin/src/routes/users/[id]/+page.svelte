@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, DataTable, Field, RecordInspector, Section, Skeleton, Toggle, type Column } from '@scutoons/ui';
 	import type { AdminUserDetail, RoleInfo } from '@scutoons/api';
@@ -110,14 +112,15 @@
 {:else}
 	<PageHeader type={m['users.type_label']()} title={user.email} meta={m['users.meta']({ created: day(user.created_at), id: user.id })} />
 
-	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={user.email}>
+		{#snippet info()}<PageHelp page="user" />{/snippet}
 		{#snippet start()}
 			<a href="/users">← {m['users.back']()}</a>
 		{/snippet}
 	</ActionBar>
 
 	<div class="grid-2">
-		<Section title={m['users.section_account']()} hint={m['users.section_account_hint']()}>
+		<Section title={m['users.section_account']()}>
 			<dl class="facts">
 				<dt>{m['users.col_signup_code']()}</dt>
 				<dd>{#if user.signup_code}<a class="mono-code" href="/codes/{encodeURIComponent(user.signup_code)}">{user.signup_code}</a>{:else}—{/if}</dd>
@@ -133,7 +136,7 @@
 				<dd>{minute(user.last_seen_at)}</dd>
 			</dl>
 		</Section>
-		<Section title={m['users.section_roles']()} hint={m['users.section_roles_hint']()}>
+		<Section title={m['users.section_roles']()}>
 			<div class="roles">
 				{#each roles as role (role.id)}
 					<Toggle
@@ -149,7 +152,7 @@
 		</Section>
 	</div>
 
-	<Section title={m['users.section_characters']()} hint={m['users.section_characters_hint']()}>
+	<Section title={m['users.section_characters']()}>
 		<ul class="unlocks" data-testid="character-unlocks">
 			{#each user.characters ?? [] as u (u.character)}
 				<li>
@@ -177,7 +180,7 @@
 		</form>
 	</Section>
 
-	<Section title={m['users.section_codes']()} hint={m['users.section_codes_hint']()}>
+	<Section title={m['users.section_codes']()}>
 		<DataTable columns={codeColumns} rows={user.codes} rowKey={(c) => c.code} emptyLabel={m['users.no_codes']()} labels={tableLabels()}>
 			{#snippet cell(c, column)}
 				{#if column.id === 'code'}<a class="mono-code" href="/codes/{encodeURIComponent(c.code)}">{c.code}</a>
@@ -189,7 +192,7 @@
 		</DataTable>
 	</Section>
 
-	<Section title={m['codes.section_raw']()} hint={m['codes.section_raw_hint']()}>
+	<Section title={m['codes.section_raw']()}>
 		<RecordInspector record={user} labels={inspectorLabels()} />
 	</Section>
 {/if}

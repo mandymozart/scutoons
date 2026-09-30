@@ -52,7 +52,6 @@
 					</label>
 				{/each}
 			</div>
-			<p class="hint">{m['creator.status_hint']({ file: season.path })}</p>
 			{#if syncChanges.length}
 				<p class="hint" data-testid="status-sync">
 					{m['creator.status_sync']()} <span>({syncChanges.join(' · ')})</span>

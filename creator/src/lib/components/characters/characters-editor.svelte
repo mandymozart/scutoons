@@ -231,26 +231,10 @@
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
-<MetaPage toon={CREDITS_SCOPE} title={m['creator.characters']()} {docs} {validate} {crumbs} wide>
+<MetaPage toon={CREDITS_SCOPE} title={m['creator.characters']()} {docs} {validate} {crumbs} wide help="characters">
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character">+ {m['creator.characters_new']()}</button>
 	{/snippet}
-	<details class="glossary" data-testid="characters-glossary">
-		<summary>{m['creator.characters_glossary']()}</summary>
-		<dl>
-			<dt>{m['creator.characters_character']()}</dt>
-			<dd>{m['creator.characters_glossary_character']()}</dd>
-			<dt>{m['creator.characters_persona']()}</dt>
-			<dd>{m['creator.characters_glossary_persona']()}</dd>
-			<dt>{m['creator.characters_look']()}</dt>
-			<dd>{m['creator.characters_glossary_look']()}</dd>
-			<dt>{m['creator.characters_mood']()}</dt>
-			<dd>{m['creator.characters_glossary_mood']()}</dd>
-			<dt>{m['creator.characters_view']()}</dt>
-			<dd>{m['creator.characters_glossary_view']()}</dd>
-		</dl>
-		<p class="hint">{m['creator.characters_glossary_fallback']()}</p>
-	</details>
 	<Tabs
 		tabs={[
 			{ id: 'characters', label: `${m['creator.characters']()} (${characters.length})` },
@@ -343,27 +327,6 @@
 </MetaPage>
 
 <style>
-	.glossary {
-		margin-bottom: 0.75rem;
-		font-size: 12px;
-		max-width: 60rem;
-	}
-	.glossary summary {
-		cursor: pointer;
-		font-weight: 700;
-	}
-	.glossary dl {
-		display: grid;
-		grid-template-columns: 6rem 1fr;
-		gap: 0.25rem 0.75rem;
-		margin: 0.5rem 0;
-	}
-	.glossary dt {
-		font-weight: 700;
-	}
-	.glossary dd {
-		margin: 0;
-	}
 	.layout {
 		display: grid;
 		grid-template-columns: 20rem minmax(0, 1fr);

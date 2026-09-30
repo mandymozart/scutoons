@@ -54,7 +54,6 @@
 </script>
 
 <section class="moods" data-testid="moods-panel">
-	<p class="hint">{m['creator.characters_moods_hint']()}</p>
 	<ol>
 		{#each list as mood, i (mood.id)}
 			<li data-testid="mood-{mood.id}">

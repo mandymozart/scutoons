@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, DataTable, RecordInspector, Section, Skeleton, type Column } from '@scutoons/ui';
 	import type { AdminCodeDetail, CodeEvent } from '@scutoons/api';
@@ -57,7 +59,8 @@
 		<CodeStatus claimed={c.claimed} revoked={detail.revoked} expired={detail.expired} signed={detail.signed} />
 	</PageHeader>
 
-	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={code}>
+		{#snippet info()}<PageHelp page="code" />{/snippet}
 		{#snippet start()}
 			<a href="/codes">← {m['codes.back_to_list']()}</a>
 		{/snippet}
@@ -70,7 +73,7 @@
 	</ActionBar>
 
 	<div class="grid-2">
-		<Section title={m['codes.section_facts']()} hint={m['codes.section_facts_hint']()}>
+		<Section title={m['codes.section_facts']()}>
 			<dl class="facts">
 				<dt>{m['codes.qr_url']()}</dt>
 				<dd>{qrUrl(c.code)}</dd>
@@ -105,7 +108,7 @@
 			</dl>
 		</Section>
 
-		<Section title={m['codes.section_status']()} hint={m['codes.section_status_hint']()}>
+		<Section title={m['codes.section_status']()}>
 			<RevokeForm
 				formId="revoke-form"
 				inlineSubmit={false}
@@ -126,7 +129,7 @@
 		</Section>
 	</div>
 
-	<Section title={m['codes.section_activity']()} hint={m['codes.section_activity_hint']()}>
+	<Section title={m['codes.section_activity']()}>
 		<ul class="stats">
 			<li><strong>{number(detail.stats.scans)}</strong> {m['codes.col_scans']()}</li>
 			<li><strong>{number(detail.stats.devices)}</strong> {m['codes.col_devices']()}</li>
@@ -151,11 +154,11 @@
 		</DataTable>
 	</Section>
 
-	<Section title={m['codes.section_certificate']()} hint={m['codes.section_certificate_hint']()}>
+	<Section title={m['codes.section_certificate']()}>
 		<CertificatePanel code={c.code} type={c.type} />
 	</Section>
 
-	<Section title={m['codes.section_raw']()} hint={m['codes.section_raw_hint']()}>
+	<Section title={m['codes.section_raw']()}>
 		<RecordInspector record={detail} labels={inspectorLabels()} />
 	</Section>
 {/if}

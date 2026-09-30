@@ -52,7 +52,6 @@
 
 <section class="audio-panel" data-testid="audio-panel">
 	<h2>{m['creator.audio']()}</h2>
-	<p class="hint">Shared by every locale. Slices set music volumes and trigger samples (select a slice → Audio).</p>
 
 	<h3>Music</h3>
 	<div class="grid g2">
@@ -93,7 +92,6 @@
 		</tbody>
 	</table>
 	<button type="button" class="secondary" onclick={() => addTo('sampleLibrary')}>+ sample</button>
-	<p class="hint">Paths are relative to the toon's CDN folder (e.g. <code>audio/music/s1c1-instrumental.mp3</code>). Renaming an id does not rename its uses in slices – the problem list shows them.</p>
 </section>
 
 <style>

@@ -35,7 +35,8 @@
 	import AudioPanel from './audio-panel.svelte';
 	import SliceAudio from './slice-audio.svelte';
 	import VnEvents from './vn-events.svelte';
-	import StyleGuide from './style-guide.svelte';
+	import PageHelp from './page-help.svelte';
+	import { infoBar } from '$lib/info.ts';
 	import ProblemsPanel from './problems-panel.svelte';
 	import HistoryPanel from './history-panel.svelte';
 	import FileStatus from './file-status.svelte';
@@ -147,11 +148,19 @@
 	let inspectorTab = $state<'text' | 'slice' | 'audio' | 'events'>('text');
 	// svelte-ignore state_referenced_locally
 	let displayLocale = $state<string>(languages.source);
-	let zoom = $state<1 | 3>(1);
 	let grid = $state(0.5);
 	let tool = $state<Tool>('text');
 	let scope = $state<Scope>('all');
-	let panel = $state<'guide' | 'problems' | 'history' | null>(null);
+	let panel = $state<'problems' | 'history' | null>(null);
+	/** the ActionBar's Info panel (help + style guide) and the problems / history panel share the right edge */
+	let infoOpen = $state(false);
+	$effect(() => {
+		if (infoOpen) panel = null;
+	});
+	function togglePanel(next: 'problems' | 'history') {
+		panel = panel === next ? null : next;
+		if (panel) infoOpen = false;
+	}
 	let canvas = $state<SliceCanvas | null>(null);
 	let notice = $state<string | null>(null);
 	let conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
@@ -479,7 +488,14 @@
 	</header>
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
+	<ActionBar
+		label={m['creator.page_actions']()}
+		moreLabel={m['creator.more']()}
+		{...infoBar()}
+		bind:infoOpen
+		infoTitle="{m['creator.chapters']()} {chapterNumber}"
+	>
+		{#snippet info()}<PageHelp page="chapter" {section} seasonFile={season.path} />{/snippet}
 		{#snippet start()}
 			<a class="bar-link" href="/{toon}" data-testid="back-to-chapters">← {m['creator.chapters']()}</a>
 			{#if section === 'slice' && activeGroup?.slices?.length}
@@ -489,7 +505,7 @@
 					<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} data-testid="next-slice">›</button>
 				</span>
 			{/if}
-			<button class="ghost" class:active={panel === 'problems'} onclick={() => (panel = panel === 'problems' ? null : 'problems')} data-testid="problems-toggle">
+			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
 			</button>
 		{/snippet}
@@ -502,8 +518,7 @@
 					<a href={previewHref(l)} target="_blank" rel="noopener" title="Draft preview in {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
-			<button class="ghost" class:active={panel === 'history'} onclick={() => (panel = panel === 'history' ? null : 'history')}>{m['creator.history']()}</button>
-			<button class="ghost" class:active={panel === 'guide'} onclick={() => (panel = panel === 'guide' ? null : 'guide')} data-testid="guide-toggle">{m['creator.style_guide']()}</button>
+			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<input class="message" type="text" placeholder="note (optional)" bind:value={saveMessage} />
@@ -595,9 +610,7 @@
 				{:else if section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} />
-						{#if refSrc}
-							<p class="hint">Scene file <code>{refSrc}</code> – edited here and saved/published as its own file (same versions per locale).</p>
-						{/if}
+						{#if refSrc}<p class="hint">↗ <code>{refSrc}</code></p>{/if}
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
 							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} background={activeGroup?.slices?.[0]?.image ?? ''} />
@@ -617,10 +630,6 @@
 							{#each activeDoc.present as l}
 								<button class="ghost" class:active={displayLocale === l} onclick={() => (displayLocale = l)} data-testid="show-{l}">{l}</button>
 							{/each}
-						</span>
-						<span class="seg" role="group" aria-label="zoom">
-							<button class="ghost" class:active={zoom === 1} onclick={() => (zoom = 1)} data-testid="zoom-1">1x</button>
-							<button class="ghost" class:active={zoom === 3} onclick={() => (zoom = 3)} data-testid="zoom-3">3x</button>
 						</span>
 						<label class="inline">grid
 							<select bind:value={grid}>
@@ -642,14 +651,12 @@
 							</select>
 						</label>
 					</div>
-					<p class="hint draw-hint">{m['creator.draw_hint']()}</p>
 					<div class="canvas-scroll">
 						<SliceCanvas
 							bind:this={canvas}
 							doc={activeDoc}
 							{slicePath}
 							locale={displayLocale}
-							{zoom}
 							{grid}
 							{tool}
 							{scope}
@@ -726,9 +733,7 @@
 
 	{#if panel}
 		<aside class="side-panel">
-			{#if panel === 'guide'}
-				<StyleGuide onclose={() => (panel = null)} />
-			{:else if panel === 'problems'}
+			{#if panel === 'problems'}
 				<ProblemsPanel {problems} ongoto={gotoProblem} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && activeDoc}
 				<HistoryPanel doc={section === 'group' || section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
@@ -925,9 +930,6 @@
 	}
 	.inline select {
 		width: auto;
-	}
-	.draw-hint {
-		margin: 0.2rem 0 0.6rem;
 	}
 	.canvas-scroll {
 		overflow: auto;

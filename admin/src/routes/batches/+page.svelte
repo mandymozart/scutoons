@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { infoBar } from '$lib/info.ts';
+	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, DataTable, Field, Pager, Sheet, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
@@ -137,7 +139,8 @@
 	{/if}
 {/snippet}
 
-<ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()}>
+<ActionBar start={barStart} label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['batches.title']()}>
+	{#snippet info()}<PageHelp page="batches" />{/snippet}
 	{#snippet end()}
 		<Button size="sm" href={href({ new: 1, page: query.page > 1 ? query.page : null })}>{m['batches.new']()}</Button>
 	{/snippet}

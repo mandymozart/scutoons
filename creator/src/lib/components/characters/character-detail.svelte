@@ -375,7 +375,7 @@
 								<button type="button" class="ghost" onclick={() => changePersona((p) => { p.transitions?.splice(i, 1); if (!p.transitions?.length) delete p.transitions; })}>✕</button>
 							</div>
 						{:else}
-							<p class="hint">{m['creator.characters_no_transitions']()}</p>
+							<p class="hint">{m['creator.characters_no_transitions_short']()}</p>
 						{/each}
 						{#if lookIds.length > 1}
 							<button

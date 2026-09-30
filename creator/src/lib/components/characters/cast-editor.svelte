@@ -132,12 +132,11 @@
 	}
 </script>
 
-<MetaPage {toon} title={m['creator.cast']()} {docs} {validate}>
+<MetaPage {toon} title={m['creator.cast']()} {docs} {validate} help="cast">
 	{#snippet actions()}
 		<a class="bar-link" href="/characters?toon={toon}" data-testid="open-characters">{m['creator.characters']()} ↗</a>
 	{/snippet}
 	<section class="cast" data-testid="cast-editor">
-		<p class="hint">{m['creator.cast_hint']()}</p>
 		<nav class="seasons" aria-label={m['creator.cast_seasons']()}>
 			{#each seasons as s (s)}
 				<button type="button" class="tab" class:active={s === season} onclick={() => (season = s)} data-testid="cast-season-{s}">{m['creator.season']({ number: s })}</button>
