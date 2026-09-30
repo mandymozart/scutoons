@@ -34,7 +34,7 @@ npm run dev:viewer          # viewer   http://localhost:8000
 npm run dev:creator         # creator  http://localhost:10000
 npm run dev:admin           # admin    http://localhost:11000
 npm run dev:shop            # shop     http://localhost:12000
-npm run dev:api             # API      http://localhost:9000   (= cd server && composer serve)
+npm run dev:api             # API      http://localhost:9000   (= cd server && composer serve: 4 php -S workers + OPcache)
 npm run dev:qr              # qr app   http://localhost:9001   (= cd qr && composer serve; needs the API)
 npm run check               # svelte-check / tsc in every workspace
 npm run build               # builds every workspace that has a build script (+ version.json in each output)

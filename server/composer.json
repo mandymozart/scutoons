@@ -36,7 +36,8 @@
         }
     },
     "scripts": {
-        "serve": "@php -S localhost:9000 -t public public/router.php",
+        "serve": "node bin/dev-serve.mjs --port=9000",
+        "serve:php": "@php -S localhost:9000 -t public public/router.php",
         "serve:9100": "@php -S localhost:9100 -t public public/router.php",
         "test": [
             "@test:unit",

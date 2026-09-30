@@ -64,12 +64,28 @@ export interface ContentApiOptions {
 	 * `/api` URL in other apps. A getter is read on every call.
 	 */
 	staticBase: string | (() => string);
+	/**
+	 * Keep published reads (not drafts) in memory for this many ms: identical requests share one fetch while it runs
+	 * and reuse its body afterwards. The viewer's toon layout and chapter page both read `chapterN.json` (and scene files
+	 * repeat across navigations), so this removes duplicate requests. 0 / unset = no cache (the creator: it must see a
+	 * file right after publishing it).
+	 */
+	cacheMs?: number;
 }
 
 export type ContentApi = ReturnType<typeof createContentApi>;
 
-export function createContentApi({ client, staticBase }: ContentApiOptions) {
+interface CachedResponse {
+	status: number;
+	statusText: string;
+	headers: [string, string][];
+	body: string;
+}
+
+export function createContentApi({ client, staticBase, cacheMs = 0 }: ContentApiOptions) {
 	const staticRoot = () => (typeof staticBase === 'function' ? staticBase() : staticBase).replace(/\/+$/, '');
+	/** published reads by `toon/locale/path` (only successful ones; see `cacheMs`) */
+	const cache = new Map<string, { at: number; entry: Promise<CachedResponse | null> }>();
 
 	function storeUrl(toon: string, locale: string, path: string, query = '') {
 		return `${client.baseUrl}/content/${encodeURIComponent(toon)}/${encodeURIComponent(locale)}/${path}${query}`;
@@ -101,6 +117,46 @@ export function createContentApi({ client, staticBase }: ContentApiOptions) {
 		locale: string,
 		path: string,
 		options: ContentOptions = {}
+	): Promise<Response> {
+		if (cacheMs <= 0 || options.draft) return loadContent(fetchFn, toon, locale, path, options);
+		const key = `${toon}/${locale}/${path}`;
+		const now = Date.now();
+		const hit = cache.get(key);
+		if (!hit || now - hit.at > cacheMs) {
+			// the first caller gets the real response; the cache keeps a copy of its body
+			const response = loadContent(fetchFn, toon, locale, path, options);
+			const entry = response.then(async (r): Promise<CachedResponse | null> =>
+				r.ok
+					? { status: r.status, statusText: r.statusText, headers: headerList(r.headers), body: await r.clone().text() }
+					: null
+			);
+			const fresh = { at: now, entry };
+			cache.set(key, fresh);
+			// failures are not kept: the next call tries again
+			const drop = () => cache.get(key) === fresh && cache.delete(key);
+			entry.then((cached) => cached || drop(), drop);
+			return response;
+		}
+		const cached = await hit.entry.catch(() => null);
+		return cached ? toResponse(cached) : loadContent(fetchFn, toon, locale, path, options);
+	}
+
+	function headerList(headers: Headers): [string, string][] {
+		const list: [string, string][] = [];
+		headers.forEach((value, name) => list.push([name, value]));
+		return list;
+	}
+
+	function toResponse(cached: CachedResponse): Response {
+		return new Response(cached.body, { status: cached.status, statusText: cached.statusText, headers: cached.headers });
+	}
+
+	async function loadContent(
+		fetchFn: Fetch,
+		toon: string,
+		locale: string,
+		path: string,
+		options: ContentOptions
 	): Promise<Response> {
 		if (CONTENT_PATH.test(path)) {
 			if (options.draft) {

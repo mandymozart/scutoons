@@ -20,51 +20,55 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 	// toon / season / chapter configs: content store first (published versions), static files as fallback
 	const content = (path: string) => fetchContent(fetch, params.toonId, lang, path);
 
+	// The chapter files depend on the season only: they start as soon as season1.json is there, not after the slowest of
+	// the other files (agents/PERFORMANCE.md).
+	const seasonPromise = content('season1.json').then(async (seasonRes) => {
+		if (!seasonRes.ok) throw error(404, `Failed to load season 1 of toon ${params.toonId}`);
+		const season: Season = await seasonRes.json();
+		// visibility = the season's status per locale (the chapter files' own `status` is not read): readable chapters
+		// (drafts only in dev) and coming-soon ones, which are listed but not clickable
+		const listedItems = season.sequence.filter((item) => isItemListed(item, import.meta.env.DEV));
+		const sequence: LoadedSequenceItem[] = await Promise.all(
+			listedItems.map(async (item) => {
+				const response = await content(`${item.type}${item.number}.json`);
+				if (!response.ok) {
+					// a coming-soon entry doesn't need its file (title / thumbnail / release stay empty)
+					if (item.status === Status.COMING_SOON)
+						return { title: '', thumbnail: '', release: '', type: item.type, number: item.number, status: item.status } as LoadedSequenceItem;
+					throw error(
+						404,
+						`Failed to load sequence item ${m['common.chapter']({ number: item.number })} (${lang}). Please use the German default for now until we were able to catch up.`
+					);
+				}
+				const { status: _deprecated, ...loadedItem }: Chapter = await response.json();
+				return { ...loadedItem, type: item.type, number: item.number, status: item.status };
+			})
+		);
+		return { season, sequence };
+	});
+
 	// characters: registry + the toon's cast from the content store, resolved to the old characters.json shape;
 	// fallback: the static characters.json of the locale; a toon without any → []
-	const [charactersResult, seasonRes, locationsRes, routesRes, toonRes, collectablesRes] =
+	const [charactersResult, { season, sequence }, locationsRes, routesRes, toonRes, collectablesRes] =
 		await Promise.all([
 			fetchCharacters(fetch, params.toonId, lang),
-			content('season1.json'),
+			seasonPromise,
 			fetch(`${base}/locations.json`),
 			fetch(`${base}/routes.json`),
 			content('toon.json'),
 			fetch(`${base}/collectables.json`)
 		]);
 
-	if (!seasonRes.ok) throw error(404, `Failed to load season 1 of toon ${params.toonId}`);
 	if (!locationsRes.ok) throw error(404, `Failed to load locations of toon ${params.toonId}`);
 	if (!routesRes.ok) throw error(404, `Failed to load routes of toon ${params.toonId}`);
 	if (!toonRes.ok) throw error(404, `Failed to load toon ${params.toonId}`);
 	if (!collectablesRes.ok) throw error(404, `Failed to load toon ${params.toonId}`);
 
 	const characters: Character[] = charactersResult.characters;
-	const season: Season = await seasonRes.json();
 	const locations: MapLocation[] = await locationsRes.json();
 	const routes: MapRoute[] = await routesRes.json();
 	const toon: Toon = await toonRes.json();
 	const collectables: Collectable[] = await collectablesRes.json();
-
-	// visibility = the season's status per locale (the chapter files' own `status` is not read): readable chapters
-	// (drafts only in dev) and coming-soon ones, which are listed but not clickable
-	const listedItems = season.sequence.filter((item) => isItemListed(item, import.meta.env.DEV));
-
-	const sequence: LoadedSequenceItem[] = await Promise.all(
-		listedItems.map(async (item) => {
-			const response = await content(`${item.type}${item.number}.json`);
-			if (!response.ok) {
-				// a coming-soon entry doesn't need its file (title / thumbnail / release stay empty)
-				if (item.status === Status.COMING_SOON)
-					return { title: '', thumbnail: '', release: '', type: item.type, number: item.number, status: item.status } as LoadedSequenceItem;
-				throw error(
-					404,
-					`Failed to load sequence item ${m['common.chapter']({ number: item.number })} (${lang}). Please use the German default for now until we were able to catch up.`
-				);
-			}
-			const { status: _deprecated, ...loadedItem }: Chapter = await response.json();
-			return { ...loadedItem, type: item.type, number: item.number, status: item.status };
-		})
-	);
 
 	return { sequence, characters, locations, routes, toon, collectables, season };
 };

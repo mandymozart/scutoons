@@ -31,8 +31,6 @@ export const {
 	authLogout,
 	fetchMe,
 	updateMe,
-	fetchCatalog,
-	fetchEditions,
 	fetchCode,
 	claimCode,
 	craftRecipe,
@@ -44,10 +42,18 @@ export const {
 	putProgress
 } = createQrApi(api);
 
-/** Shop data (homepage slides): API /products/ and /products/featured/. Public: a client without session / device id
- *  headers, so the browser sends a simple request (no CORS preflight). */
-export const { fetchProducts, fetchFeaturedProducts } = createProductsApi(createApiClient({ baseUrl: API_URL }));
+/** Public data: a client without session / device id headers, so the browser sends a simple request (no CORS preflight). */
+const publicApi = createApiClient({ baseUrl: API_URL });
 
-/** Toon / season / chapter configs and VN scene files: content store (published) → static `/api` files. */
-export const contentApi = createContentApi({ client: api, staticBase: API_BASE });
+/** Shop data (homepage slides): API /products/ and /products/featured/. */
+export const { fetchProducts, fetchFeaturedProducts } = createProductsApi(publicApi);
+
+/** Item catalog + editions (public; the inventory loads them on every page). */
+export const { fetchCatalog, fetchEditions } = createQrApi(publicApi);
+
+/**
+ * Toon / season / chapter configs and VN scene files: content store (published) → static `/api` files. Published reads
+ * are kept 60 s, so the chapter page reuses the `chapterN.json` the toon layout just loaded (agents/PERFORMANCE.md).
+ */
+export const contentApi = createContentApi({ client: api, staticBase: API_BASE, cacheMs: 60_000 });
 export const { fetchContent, fetchCharacters, fetchRegistry } = contentApi;

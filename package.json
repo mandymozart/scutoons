@@ -19,7 +19,7 @@
 		"dev:creator": "npm run dev -w creator",
 		"dev:admin": "npm run dev -w admin",
 		"dev:shop": "npm run dev -w shop",
-		"dev:api": "php -S localhost:9000 -t server/public server/public/router.php",
+		"dev:api": "node server/bin/dev-serve.mjs --port=9000",
 		"dev:qr": "php -S localhost:9001 -t qr/public qr/public/router.php",
 		"check": "npm run check --workspaces --if-present",
 		"build": "npm run build --workspaces --if-present",

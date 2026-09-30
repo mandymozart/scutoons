@@ -23,11 +23,14 @@ section "Admin API". **Printed URLs never change** (agents/PLATFORM.md "RULE") â
 composer install
 cp config.local.php.example config.local.php     # set AUTH_SECRET: php -r "echo bin2hex(random_bytes(32));"
 php bin/console migrate                           # creates/upgrades db/local.sqlite
-composer serve                                    # http://localhost:9000  (php -S â€¦ -t public public/router.php)
+composer serve                                    # http://localhost:9000  (bin/dev-serve.mjs: php -S workers + OPcache)
 ```
 
 - Landing page + verify page: the qr app on http://localhost:9001 (`cd ../qr && composer serve`, same `QR_PROXY_SECRET`)
-- API: http://localhost:9000/api/ (frontends: `VITE_API_URL=http://localhost:9000/api`)
+- API: http://localhost:9000/api/ (frontends: `VITE_API_URL=http://localhost:9000/api`). `composer serve` runs
+  `bin/dev-serve.mjs` (Node): `php -S` answers one request at a time and cannot fork on Windows, so it starts 4 workers
+  (`[::1]:9200-9203`, OPcache on) behind a small proxy on :9000 (::1 + 127.0.0.1). `composer serve:php` = the plain
+  single-process `php -S localhost:9000`. Numbers: agents/PERFORMANCE.md.
 - Legacy admin SPA: http://localhost:9000/generate/ (password = `GENERATE_PASSWORD`)
 - Login mails land in `logs/mail.log` (`MAIL_TRANSPORT = log`).
 - Local-only files (gitignored): `config.local.php`, `db/local.sqlite`, `storage/files/` (batch output),

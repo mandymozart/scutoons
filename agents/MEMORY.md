@@ -638,3 +638,15 @@ affiliations, the cast group and the mannequin field were added and removed agai
     value → default.
   - Unused viewer message keys `items.avatar_body_{sphynx,sphynx_nude,mouse}` kept on purpose (removing keys under a
     running dev server breaks paraglide, see above) – remove after a dev-server restart.
+
+## Performance
+
+2026-09-30 (details, numbers and proposals: agents/PERFORMANCE.md).
+- The slowness was the dev stack + media size, not the file-based content store (SQLite read 0.2 ms).
+- Dev: `npm run dev:api` / `composer serve` = `server/bin/dev-serve.mjs` (4 `php -S` workers on [::1]:9200-9203 with
+  OPcache behind a Node proxy on :9000; `composer serve:php` = old single process). `cdn/server.py` is threaded and
+  listens on 127.0.0.1 + ::1. Vite dev + `npm run check` compile paraglide as `locale-modules`; `npm run build`
+  rewrites `src/lib/paraglide` as per-message modules → restart a running dev server after a local build.
+- Prod: chapter 1 = 43 MB (31 MB 320 kbps music decoded up front, 11 MB eager 3x JPG slices) → 23-25 s on 4G;
+  proposals P1 (music), P2 (lazy + WebP slices, needs slice dimensions) are the big wins.
+- Measure: `node scripts/perf/measure.mjs <label> <url> [--throttle] [--init=file.js]` (headless Chrome, CDP).

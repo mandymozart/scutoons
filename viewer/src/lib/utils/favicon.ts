@@ -18,8 +18,11 @@ export function initAnimatedFavicon() {
 		document.head.appendChild(favicon);
 	}
 
+	// A browser tab icon doesn't need 60 fps: every frame re-encodes the canvas as a PNG data URL and swaps the icon,
+	// which cost ~190 ms of main-thread script per second on every page (agents/PERFORMANCE.md). 12 fps, same speed.
+	const FPS = 12;
 	let scrollOffset = 0;
-	const scrollSpeed = 1.2;
+	const scrollSpeed = 1.2 * (60 / FPS);
 	const scrollContentHeight = 1242;
 	const scale = 32 / 107;
 
@@ -41,6 +44,8 @@ export function initAnimatedFavicon() {
 		'M-1.60742 1015.89H61.1816V1078.68H-1.60742V1015.89ZM64.8555 1036.27H108.719V1097.05L91.9082 1126.22H-1.60742V1082.36H64.8555V1036.27Z',
 		'M7.29883 928.611H54.168L76.7676 939.855L64.1875 946.201L65.8574 949.43L99.7012 932.619V985.389H7.29883V928.611Z'
 	];
+	// parsed once, not on every frame
+	const paths = scrollPaths.map((pathData) => new Path2D(pathData));
 
 	function drawFrame() {
 		if (!context || !favicon) return;
@@ -54,10 +59,7 @@ export function initAnimatedFavicon() {
 			const offsetY = repeat * scrollContentHeight + scrollOffset;
 			context.save();
 			context.translate(0, offsetY);
-			scrollPaths.forEach((pathData) => {
-				const path = new Path2D(pathData);
-				context.fill(path);
-			});
+			paths.forEach((path) => context.fill(path));
 			context.restore();
 		}
 		context.restore();
@@ -73,11 +75,15 @@ export function initAnimatedFavicon() {
 	}
 
 	let animationFrame: number;
+	let timer: ReturnType<typeof setTimeout> | undefined;
 	let isRunning = false;
 
 	function animate() {
 		drawFrame();
-		animationFrame = requestAnimationFrame(animate);
+		// rAF keeps it paused in background tabs; the timeout sets the frame rate
+		timer = setTimeout(() => {
+			if (isRunning) animationFrame = requestAnimationFrame(animate);
+		}, 1000 / FPS);
 	}
 
 	function startAnimation() {
@@ -90,6 +96,7 @@ export function initAnimatedFavicon() {
 	function stopAnimation() {
 		if (isRunning) {
 			isRunning = false;
+			clearTimeout(timer);
 			cancelAnimationFrame(animationFrame);
 		}
 	}
