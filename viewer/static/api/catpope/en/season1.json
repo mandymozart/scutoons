@@ -20,7 +20,6 @@
 		{ "type": "chapter", "number": 2, "status": "draft" },
 		{ "type": "chapter", "number": 3, "status": "coming-soon" },
 		{ "type": "chapter", "number": 4, "status": "coming-soon" },
-		{ "type": "chapter", "number": 5, "status": "coming-soon" },
-		{ "type": "chapter", "number": 6, "status": "draft" }
+		{ "type": "chapter", "number": 5, "status": "coming-soon" }
 	]
 }
