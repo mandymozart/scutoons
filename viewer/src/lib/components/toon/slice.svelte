@@ -23,6 +23,7 @@
 
 <Slice
 	{slice}
+	data-slice-index={sliceIndex}
 	src={imageUrl}
 	videoSrc={videoUrl}
 	eager={sliceIndex < EAGER_SLICES}

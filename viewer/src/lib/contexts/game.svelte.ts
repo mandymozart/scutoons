@@ -1,4 +1,5 @@
 import type { Checkpoint } from '@scutoons/content';
+import { advanceCheckpoint, chapterCheckpointUri } from '@scutoons/content';
 import { setContext, getContext, onDestroy } from 'svelte';
 import { fetchProgress, putProgress } from '$lib/api.ts';
 import { getCurrentSession } from './session.svelte.ts';
@@ -39,7 +40,7 @@ export function createGameContext(toonId: string) {
 		try {
 			const parsed = JSON.parse(saved);
 			state.variables = parsed.variables || {};
-			state.progress = parsed.progress || {};
+			state.progress = Array.isArray(parsed.progress) ? parsed.progress : [];
 			state.created_at = parsed.created_at || state.created_at;
 			state.updated_at = parsed.updated_at || state.updated_at;
 		} catch (error) {
@@ -167,6 +168,22 @@ export function createGameContext(toonId: string) {
 		saveState();
 	}
 
+	/**
+	 * Reading progress of a chapter (the toon page's start button, agents/DESIGN.md "Start button"): `position` = how far
+	 * (0..1, slices seen / the chapter's slices; 1 = its last slice was reached = finished); `fresh` = the first call of
+	 * this visit. Stored like every checkpoint: localStorage, and for a member `/api/progress/<toon>` (debounced).
+	 */
+	function readChapter(chapter: number, position: number, fresh: boolean) {
+		if (!Array.isArray(state.progress)) state.progress = [];
+		const uri = chapterCheckpointUri(toonId, chapter);
+		const index = state.progress.findIndex((p) => p.uri === uri);
+		const next = advanceCheckpoint(index >= 0 ? $state.snapshot(state.progress[index]) : undefined, uri, position, fresh, new Date().toISOString());
+		if (!next) return;
+		if (index >= 0) state.progress[index] = next;
+		else state.progress.push(next);
+		saveState();
+	}
+
 	function clear() {
 		if (typeof localStorage === 'undefined') return;
 		localStorage.removeItem(storageKey);
@@ -194,6 +211,7 @@ export function createGameContext(toonId: string) {
 		hasCheckpoint,
 		addCheckpoint,
 		completeCheckpoint,
+		readChapter,
 		clear,
 		sync,
 		destroy

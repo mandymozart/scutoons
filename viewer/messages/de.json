@@ -113,8 +113,6 @@
 		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht.",
 		"coming_soon": "Demnächst",
 		"release": "Erscheint am {date}",
-		"season_featuring": "Staffel {number} · mit",
-		"featuring": "mit",
 		"season_title": "Staffel {number}: {title}"
 	},
 	"membership_blocker": {
@@ -226,5 +224,14 @@
 		"detected": "Gurke!",
 		"cooldown": "Nächste Gurke in {seconds}s",
 		"scan_code": "Code scannen"
+	},
+	"start": {
+		"read": "S{season} K{chapter} lesen",
+		"continue": "S{season} K{chapter} weiterlesen",
+		"again": "S{season} K{chapter} erneut lesen",
+		"title": "Staffel {season}, Kapitel {chapter}: {title}"
+	},
+	"season": {
+		"download": "Musik herunterladen"
 	}
 }

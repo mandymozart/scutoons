@@ -113,8 +113,6 @@
 		"not_public": "This chapter is not published yet.",
 		"coming_soon": "Coming soon",
 		"release": "Release: {date}",
-		"season_featuring": "Season {number} · featuring",
-		"featuring": "featuring",
 		"season_title": "Season {number}: {title}"
 	},
 	"membership_blocker": {
@@ -226,5 +224,14 @@
 		"detected": "Cucumber!",
 		"cooldown": "Next cucumber in {seconds}s",
 		"scan_code": "Scan code"
+	},
+	"start": {
+		"read": "Read S{season} C{chapter}",
+		"continue": "Continue S{season} C{chapter}",
+		"again": "Read S{season} C{chapter} again",
+		"title": "Season {season}, chapter {chapter}: {title}"
+	},
+	"season": {
+		"download": "Download the music"
 	}
 }

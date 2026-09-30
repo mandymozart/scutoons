@@ -1,13 +1,13 @@
 <script lang="ts">
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import Group from '$lib/components/toon/group.svelte';
-	import Featuring from '$lib/components/toon/featuring.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audio } from '$lib/actions/audio/index.ts';
 	import type { PageProps } from './$types.js';
 	import { page } from '$app/state';
 	import { getLocale } from '$lib/paraglide/runtime.js';
-	const isDev = import.meta.env.DEV;
+	import { getGameContext } from '$lib/contexts/game.svelte.ts';
+	import { trackReading, type ReadingSpot } from '$lib/reading/track-reading.ts';
 
 	let { data }: PageProps = $props();
 	
@@ -20,6 +20,29 @@
 			? data.chapter.groups.find((g) => g.label === currentLabel)
 			: data.chapter.groups[0]
 	);
+
+	// reading progress for the toon page's start button: how far into the chapter (all its groups' slices), finished at
+	// the last slice of its last group (agents/DESIGN.md "Start button")
+	const game = getGameContext();
+	let visiting = 0;
+	const spot = $derived.by((): ReadingSpot | null => {
+		const chapter = data.chapter;
+		if (!chapter || !group) return null;
+		const at = chapter.groups.indexOf(group);
+		const count = (g: (typeof chapter.groups)[number]) => g.slices?.length ?? 0;
+		const number = chapter.number;
+		return {
+			offset: chapter.groups.slice(0, at).reduce((sum, g) => sum + count(g), 0),
+			count: count(group),
+			total: chapter.groups.reduce((sum, g) => sum + count(g), 0),
+			last: at === chapter.groups.length - 1,
+			onRead: (position) => {
+				const fresh = visiting !== number;
+				visiting = number;
+				game.readChapter(number, position, fresh);
+			}
+		};
+	});
 
 	/** YYYY-MM-DD → a date in the reader's language (as written, no time zone shift) */
 	function formatRelease(release: string) {
@@ -44,31 +67,7 @@
 	</div>
 {:else}
 <MembershipBlocker isPreview={data.chapter.isPreview}>
-	<div class="chapter-view" use:audio={data.chapter.audio}>
-		{#if isDev}
-			<div class="debug">
-				<h2>{m['common.chapter']({ number: data.chapter.number })}</h2>
-				<p>{data.chapter.description}</p>
-				{#if data.chapter.isPreview}
-					<p>Preview</p>
-				{/if}
-				{#if currentLabel}
-					<p>Label: {currentLabel}</p>
-				{/if}
-			</div>
-		{/if}
-		{#if !currentLabel && data.chapter.featuring?.length}
-			<!-- the chapter start: who appears in it ("Kapitel 2 · mit …") -->
-			<header class="chapter-start" data-testid="chapter-start">
-				<Featuring
-					ids={data.chapter.featuring}
-					characters={data.characters}
-					toonId={page.params.toonId as string}
-					lead="{m['common.chapter']({ number: data.chapter.number })} · {m['chapter.featuring']()}"
-					size="large"
-				/>
-			</header>
-		{/if}
+	<div class="chapter-view" use:audio={data.chapter.audio} {@attach trackReading(spot)}>
 		<!-- a new group (label) or another chapter starts the group from scratch (a VN group runs its events on mount) -->
 		{#key `${data.chapter.number}:${currentLabel}`}
 			{#if group}
@@ -99,29 +98,8 @@
 			margin: 0;
 		}
 	}
-	/* below the fixed chrome (logo left, menu icons right), a paper band above the first slice */
-	.chapter-start {
-		padding: 3.25rem var(--space-1, 1rem) var(--space-075, 0.75rem);
-		border-bottom: 2px solid var(--ink, #000);
-		background: var(--paper, #fff);
-	}
 	.chapter-view {
 		max-width: 500px;
 		margin: 0 auto;
-		.debug {
-			position: fixed;
-			top: 1rem;
-			right: 1rem;
-			text-align: right;
-			h2 {
-				font-size: 0.75rem;
-				font-weight: 400;
-				margin: 0;
-			}
-			p {
-				font-size: 0.75rem;
-				margin: 0;
-			}
-		}
 	}
 </style>

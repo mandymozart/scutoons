@@ -21,17 +21,19 @@
 		<div class="download-container">
 			<h1>Downloads {data.toon.title}</h1>
 
-			{#if data.toon.download?.music}
+			<!-- the season's downloads (season.download, agents/DATA.md) -->
+			{#if data.download?.music}
+				{@const musicUrl = data.download.music}
 				<div class="download-item">
 					<h2>Music</h2>
-					<button onclick={() => handleDownload(asset(`${params.toonId}/${data.toon.download.music}`))}>
-						Download Music
+					<button onclick={() => handleDownload(asset(`${params.toonId}/${musicUrl}`))}>
+						{m['season.download']()}
 					</button>
 				</div>
 			{/if}
 
-			{#if data.toon.download?.complete}
-				{@const downloadUrl = data.toon.download.complete}
+			{#if data.download?.complete}
+				{@const downloadUrl = data.download.complete}
 	<div class="download-item">
 		<h2>{data.toon.title} - Complete</h2>
 		<button onclick={() => handleDownload(asset(`${params.toonId}/${downloadUrl}`))}>
