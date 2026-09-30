@@ -175,7 +175,50 @@ of 3 runs. New metrics in the tool: LCP / CLS (when the init script records them
   (900×1974, H.264 High, CRF 27, `+faststart`, no audio track: 2.7 MB) as slice 1 (poster `images/s1c1-key-visual.webp`),
   carrying the slice-1 music.
 - Left for later: the samples (2.8 MB at 320 kbps, Web Audio, loaded in full) are now the biggest audio item – 128 kbps
-  and/or loading them when their slice comes near would save ~2 MB; P4–P7.
+  and/or loading them when their slice comes near would save ~2 MB; P4–P7. (128 kbps done, see below.)
+
+## Slice sharpness + samples 128 kbps (2026-09-30, later)
+
+Owner: 1x only, but as sharp as possible; samples at 128 kbps.
+
+**Slice sharpness** (`cdn/tools/make_slice_webp.py`). Variants rendered over all 94 chapter-1 slices (799×1280 source →
+390×625), compared on a crop sheet (3× zoom, nearest neighbour) of four spots with lettering and line art (slice 3
+caption over rain lines, slice 8 "CUCUMBER WATER" logo, slice 20 caption text, slice 40 cat eye + panel border):
+
+| Variant | Chapter 1 total | vs before | Look |
+|---|---|---|---|
+| A before: Lanczos, q85 | 2.036 MB | – | soft edges on lettering and lines |
+| D Lanczos, q90 | 2.613 MB | +28 % | same softness, fewer artefacts |
+| **B88 Lanczos + unsharp 0.6/60 %/2, q88 (chosen)** | **2.473 MB** | **+21 %** | crisp letter edges, close to the source |
+| B Lanczos + unsharp, q90 | 2.754 MB | +35 % | no visible gain over q88 |
+| B92 Lanczos + unsharp, q92 | 3.121 MB | +53 % | over budget |
+| C linear-light Lanczos + unsharp, q90 | 2.781 MB | +37 % | thins the dark lettering and lines (gamma-correct averaging lightens thin dark strokes) |
+
+Chosen: B at q88, method 6. Chapter 2 (390×625 JPGs, already 1x): re-encode only, no sharpening (it would lift the
+JPEG artefacts), q88: 0.478 → 0.560 MB (+17 %). Both chapters: 2.51 → 3.03 MB (+21 %). `sharp_yuv`: Pillow does not
+expose it; the tool uses `cwebp -sharp_yuv` automatically when `cwebp` is on the PATH (or `CWEBP`), which it isn't on
+this machine. The new files keep their paths (the `images/webtoon/` folders are not on the live CDN yet → cache-safe).
+
+**Samples**: `audio/samples/*.128.mp3` (libmp3lame 128 kbps CBR, 48 kHz stereo like the originals; originals locally
+`*.320.mp3`): 2.87 → 1.15 MB. Only chapter 1 has a sample library (static + store; checked every stored version).
+Trigger check with a CDP recorder (headless Chrome, autoplay allowed, scrolled slice by slice, then a click on the
+hotzone): before and after identical – bells at slice 5 (14.4 s buffer), choir_once at 45 (12.0 s), choir_loud at 90
+(45.4 s), bells (poly) on the click hotzone of slice 63.
+
+Chapter 1 (de), production build against the local API + CDN (`VITE_API_URL` / `VITE_CDN_URL` set at build time, CDN
+through a proxy on :8011 that serves the `.320.mp3` bytes for the "before"), 390×844 @3x, 4G, cold cache, median of 3:
+
+| Chapter 1, 4G | Before (320 kbps samples) | After (128 kbps) |
+|---|---|---|
+| Bytes on open | 6.68 MB | **5.00 MB** |
+| Page loaded (without media streams) | 4.8 s | **3.0 s** |
+| First contentful paint | 1.00 s | 1.18 s (noise, same page) |
+| Largest contentful paint | 1.06 s | 1.25 s (noise) |
+| CLS | 0 | 0 |
+| Main-thread CPU | 2.6–2.9 s | 2.6–3.0 s |
+| Requests | 94 | 94 |
+
+(Both runs already have the sharper slices; the first two slices on open are ~60 KB of the total.)
 ## Re-measuring
 
 ```bash

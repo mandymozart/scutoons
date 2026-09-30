@@ -40,24 +40,35 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   viewer). Slices live in `images/webtoon/<sXcY>/<sXcY>-slice-N.webp`, 1x only, 390 px wide (standard 390 × 625),
   written by `cdn/tools/make_slice_webp.py` next to the delivered JPGs. Ch1: `webtoon/s1c1/s1c1-slice-1..94.webp` from
   `webtoon/de/S1C1 - Slice N.jpg` (799×1280, text baked in German – the owner's source, untouched). Ch2: the fresh set
-  `webtoon/s1c2/s1c2-slice-1..22.{jpg,webp}` (390×625) – not wired yet: the chapter-2 configs still point to the old
-  25-slice cut `images/1x/de/s1c2-slice-*.jpg` (not local any more, live only) with 390 × 625 sizes.
+  `webtoon/s1c2/s1c2-slice-1..22.{jpg,webp}` (390×625 JPGs = re-encode only), wired 2026-09-30 (see Chapters).
+- Slice encode (2026-09-30, "1x but as sharp as possible"): Lanczos in sRGB from the biggest source + unsharp mask
+  0.6 / 60 % / 2 (only after a downscale) + WebP q88 method 6. Linear-light resize was tried: it thins dark lettering.
+  Pillow can't do `sharp_yuv`; the tool uses `cwebp -sharp_yuv` when `cwebp` is on PATH / in `CWEBP` (not installed
+  here). A/B + sizes: PERFORMANCE.md "Slice sharpness". Always regenerate with `--force` from the biggest source.
 - Key visual: `images/s1c1-key-visual.jpg` (1170×2535, moved out of 3x) + `.webp` (390×845, the video poster);
-  video `videos/s1c1-key-visual.900w.mp4` (slice 1 of chapter 1; the 17 MB original stays).
-- Music `audio/music/*.128.mp3` (originals locally `*.320.mp3`); samples still 320 kbps.
+  video `videos/s1c1-key-visual.900w.mp4` (slice 1 of chapter 1; the 17 MB original stays). No s1c2–s1c5 key
+  visual exists anywhere (local or live); ch2 keeps the dead path `images/1x/s1c2-key-visual.jpg` (object form),
+  ch3–5 the string form `images/3x/s1cN-key-visual.jpg` – the owner has to pick the art.
+- Season/toon cover: `images/s1-cover-{square,portrait}.{jpg,webp}` (1080², 1080×1920, restored from the live CDN by
+  the coordinator); catpope season1 + toon.json (de + en) and the sandbox toon point to the `.webp`.
+- Music `audio/music/*.128.mp3`, samples `audio/samples/*.128.mp3` (both 128 kbps CBR 48 kHz; originals locally
+  `*.320.mp3`, the live CDN keeps the old names for the released viewer).
 
 ## Chapters (season1 sequence)
 
 1 Denial/Leugnen published 2025-10-04 · 2 Anger/Ärger draft (config says 2025-11-01) · 3–5 coming-soon empty.
-The old chapter 6 (VN test bed) was removed 2026-09-30 – the VN test bed is the sandbox toon now. Ch2 = 6 VN ref groups scene-14..19 (only 14 has events: placeholder cucumber choice;
-18/19 duplicates) + inline group scene-20. Homepage `routes/+page.svelte:19-31` next-release block has typo
+The old chapter 6 (VN test bed) was removed 2026-09-30 – the VN test bed is the sandbox toon now. Ch2 (2026-09-30, the 22-slice set `images/webtoon/s1c2/`) = 5 ref groups scene-14 (slices 1–4, the only one with
+events: placeholder cucumber choice → scene-15 / scene-20), 15 (5–8), 16 (9–11), 17 (12–14), 18 (15–19; the old
+duplicate scene-19 was merged into it and removed, static + store unpublished) + inline `vertical` group scene-20
+(slices 20–22, regular scroll like chapter 1, not VN; the narration box stays on slice 20 over the sky – its en text
+is still German). Slice 19 has a cucumber painted in, without any event. The owner adds more slices in the creator. Homepage `routes/+page.svelte:19-31` next-release block has typo
 `2.&Auml;ger`.
 
 ## Known bugs spotted (not fixed)
 
 - Ch1 audio samples at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never fire.
 - Scene files use `{"type":"end"}` → "Unknown event type".
-- Ch2 `keyvisual` is a string, type expects `{image, video?}`. `Chapter.published` required but unused.
+- Ch3–5 `keyvisual` is a string, type expects `{image, video?}` (ch2 fixed 2026-09-30).
 - `Collectable` type lacks `name`/`image` that JSON + components use.
 
 ## Membership / inventory (viewer)
@@ -660,6 +671,12 @@ affiliations, the cast group and the mannequin field were added and removed agai
   `Slice.width`/`height` required (error), `video` optional (image = poster); reader lazy-loads all but the first 2.
   Character images: WebP next to the PNGs, registry points to WebP. Test helpers used: a CDP recorder of gain ramps /
   sample starts while scrolling, and a VN click-through counting character image bytes (both ad hoc, not committed).
+- 2026-09-30 (later) — sharper slices (+21 % bytes), samples 128 kbps (chapter 1 on 4G 6.7 → 5.0 MB, page without
+  media streams 4.8 → 3.0 s). Gotchas: a plain `vite build` bakes the PROD URLs (cdn.scutoons.com, qr.scutoons.com/api)
+  into the preview – for local measurements build with `VITE_API_URL=http://localhost:9000/api VITE_CDN_URL=…`; a
+  build while `vite preview` serves `viewer/build` kills the preview (and can fail the build); after a build run
+  `node <app>/scripts/paraglide.js` (or `npm run check`) or the running dev server fails with "Failed to fetch
+  dynamically imported module". Locale in headless checks: cookie `PARAGLIDE_LOCALE`, not the `/en` prefix.
 - Gotcha: `vite preview` (sirv) caches the file list at start – restart it after every `vite build`. The locale of a
   headless check is the cookie `PARAGLIDE_LOCALE` (the `/en/` prefix alone rendered German in the preview build).
 
