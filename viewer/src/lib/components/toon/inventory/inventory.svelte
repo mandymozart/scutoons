@@ -241,18 +241,20 @@
 		z-index: 1;
 		display: flex;
 		gap: 0.5rem;
-		padding: 1rem 1rem 0;
+		padding: 1rem;
+		background: black;
 	}
+	/* two plain buttons on the dark header (owner 2026-09-30): the active one inverted (ink), no tab joining the sheet */
 	.tabs button {
 		padding: 0.5rem 1rem;
-		background: black;
-		color: white;
-		border: 2px solid white;
-		border-bottom: none;
-	}
-	.tabs button.active {
 		background: white;
 		color: black;
+		border: 2px solid white;
+		cursor: pointer;
+	}
+	.tabs button.active {
+		background: black;
+		color: white;
 	}
 
 	.sheet {
