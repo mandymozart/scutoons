@@ -5,27 +5,27 @@
   },
   "slices": [
     {
-      "image": "images/1x/de/s1c2-slice-16.jpg",
+      "image": "images/webtoon/s1c2/s1c2-slice-15.webp",
       "width": 390,
       "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-17.jpg",
+      "image": "images/webtoon/s1c2/s1c2-slice-16.webp",
       "width": 390,
       "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-18.jpg",
+      "image": "images/webtoon/s1c2/s1c2-slice-17.webp",
       "width": 390,
       "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-19.jpg",
+      "image": "images/webtoon/s1c2/s1c2-slice-18.webp",
       "width": 390,
       "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-20.jpg",
+      "image": "images/webtoon/s1c2/s1c2-slice-19.webp",
       "width": 390,
       "height": 625
     }

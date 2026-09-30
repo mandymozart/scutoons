@@ -7,7 +7,9 @@
 	"status": "draft",
 	"description": "Die Predigt wird gestört",
 	"thumbnail": "images/s1c2-thumbnail.jpg",
-	"keyvisual": "images/1x/s1c2-key-visual.jpg",
+	"keyvisual": {
+		"image": "images/1x/s1c2-key-visual.jpg"
+	},
 	"groups": [
 		{
 			"ref": {
@@ -35,18 +37,14 @@
 			}
 		},
 		{
-			"ref": {
-				"src": "chapter2/scene-19.json"
-			}
-		},
-		{
 			"label": "scene-20",
 			"renderer": {
 				"type": "vertical"
 			},
+			"interaction": "webtoon",
 			"slices": [
 				{
-					"image": "images/1x/de/s1c2-slice-23.jpg",
+					"image": "images/webtoon/s1c2/s1c2-slice-20.webp",
 					"width": 390,
 					"height": 625,
 					"dialog": [
@@ -74,12 +72,12 @@
 					]
 				},
 				{
-					"image": "images/1x/de/s1c2-slice-24.jpg",
+					"image": "images/webtoon/s1c2/s1c2-slice-21.webp",
 					"width": 390,
 					"height": 625
 				},
 				{
-					"image": "images/1x/de/s1c2-slice-25.jpg",
+					"image": "images/webtoon/s1c2/s1c2-slice-22.webp",
 					"width": 390,
 					"height": 625
 				}
