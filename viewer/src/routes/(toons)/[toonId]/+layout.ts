@@ -10,12 +10,20 @@ import type { Character, Collectable } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
-import { isItemListed, Status, type Chapter } from '@scutoons/content';
+import { isItemListed, isItemPublic, Status, type Chapter, type ToonIndex } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { fetchCharacters, fetchContent } from '$lib/api.ts';
 
-export const load: LayoutLoad = async ({ fetch, params }) => {
+export const load: LayoutLoad = async ({ fetch, params, parent }) => {
 	const lang = getLocale();
+	// Draft toons (the sandbox, unreleased toons) exist in dev only, like draft chapters (isItemPublic): in a production
+	// build the toon and every page below it (chapters, credits, download) is the normal 404. Published = its toons.json
+	// entry (what the home page and menu list; the root layout keeps only published ones) and its own toon.json.
+	const gate = import.meta.env.DEV
+		? Promise.resolve()
+		: parent().then(({ toons }) => {
+				if (!(toons as ToonIndex[] | undefined)?.some((t) => t.id === params.toonId || t.uri === params.toonId)) error(404, 'Not found');
+			});
 	const base = `${API_BASE}/${params.toonId}/${lang}`;
 	// toon / season / chapter configs: content store first (published versions), static files as fallback
 	const content = (path: string) => fetchContent(fetch, params.toonId, lang, path);
@@ -49,8 +57,9 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 
 	// characters: registry + the toon's cast from the content store, resolved to the old characters.json shape;
 	// fallback: the static characters.json of the locale; a toon without any → []
-	const [charactersResult, { season, sequence }, locationsRes, routesRes, toonRes, collectablesRes] =
+	const [, charactersResult, { season, sequence }, locationsRes, routesRes, toonRes, collectablesRes] =
 		await Promise.all([
+			gate,
 			fetchCharacters(fetch, params.toonId, lang),
 			seasonPromise,
 			fetch(`${base}/locations.json`),
@@ -68,6 +77,7 @@ export const load: LayoutLoad = async ({ fetch, params }) => {
 	const locations: MapLocation[] = await locationsRes.json();
 	const routes: MapRoute[] = await routesRes.json();
 	const toon: Toon = await toonRes.json();
+	if (!isItemPublic(toon, import.meta.env.DEV)) error(404, 'Not found');
 	const collectables: Collectable[] = await collectablesRes.json();
 
 	return { sequence, characters, locations, routes, toon, collectables, season };
