@@ -4,6 +4,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
 	castIndex,
+	chapterSceneCharacters,
+	ensureStar,
+	featuredCharacters,
+	featuringSuggestions,
+	suggestFeaturing,
+	toonStar,
 	characterImage,
 	expressionIndex,
 	legacyCharacterImage,
@@ -284,4 +290,37 @@ test('legacy ids and the new ref form', async () => {
 	const problems = validateFile('group', group, 'en', { file: 'g.json', cast: { catpope: ['regular', 'human'] }, expressions: expressionIndex(registry), moods: ['neutral'] });
 	assert.ok(problems.some((p) => p.level === 'info' && p.message.includes('"plf" is an old id')));
 	assert.ok(!problems.some((p) => p.level !== 'info'));
+});
+
+test('the star is in every season of the cast (added in front, never twice)', () => {
+	const registry = { characters: [{ id: 'catpope', own_toon: 'catpope', name: { de: 'Katzenpapst' }, color: '', personas: [] }, { id: 'boy', name: { de: 'Boy' }, color: '', personas: [] }] } as unknown as CharacterRegistry;
+	assert.equal(toonStar(registry, 'catpope'), 'catpope');
+	assert.equal(toonStar(registry, 'toptoy'), null);
+	const cast: ToonCast = { seasons: { '1': [{ character: 'boy', personas: ['regular'] }], '2': [{ character: 'catpope', personas: ['regular', 'human'] }] } };
+	assert.equal(ensureStar(cast, 'catpope', [3]), true);
+	assert.deepEqual(cast.seasons['1'].map((e) => e.character), ['catpope', 'boy']);
+	assert.deepEqual(cast.seasons['2'], [{ character: 'catpope', personas: ['regular', 'human'] }]);
+	assert.deepEqual(cast.seasons['3'], [{ character: 'catpope', personas: ['regular'] }]);
+	assert.equal(ensureStar(cast, 'catpope'), false);
+	assert.equal(ensureStar(cast, null), false);
+});
+
+test('featuring: suggested from the VN scenes, validated against the cast', () => {
+	const groups = [
+		{ slices: [{ events: [{ type: 'showMessage', params: { character: 'crows', text: 'kra' }, trigger: {} }] }] },
+		{ events: [{ type: 'joinScene', params: { characters: [{ character: 'boy', variant: 'portrait' }, { name: 'plf' }] } }, { type: 'showMessage', params: { character: 'boy', text: 'hi' } }] },
+		{ slices: [] }
+	];
+	assert.deepEqual(chapterSceneCharacters(groups), ['crows', 'boy', 'catpope']);
+	assert.deepEqual(suggestFeaturing(groups, 'catpope'), ['catpope', 'crows', 'boy']);
+	assert.deepEqual(suggestFeaturing([{ slices: [] }], 'catpope'), ['catpope']);
+	const cast = { catpope: ['regular'], boy: ['regular'] };
+	const info = featuringSuggestions(['catpope'], ['crows', 'boy', 'catpope'], cast, 'chapter:catpope:2');
+	assert.deepEqual(info.map((p) => [p.level, p.message.split(' ')[0]]), [['info', '"crows"'], ['info', '"boy"']]);
+	assert.match(featuringSuggestions(undefined, ['boy'], cast, 'x')[0].message, /no "featuring" yet/);
+	const chapter = { title: 't', author: 'a', description: '', thumbnail: '', number: 2, language: 'de', release: '2026-10-04', groups: [{ slices: [] }], featuring: ['catpope', 'crows', 'catpope'] };
+	const problems = validateFile('chapter', chapter, 'de', { file: 'chapter:catpope:2', cast }).filter((p) => p.path[0] === 'featuring');
+	assert.deepEqual(problems.map((p) => p.message), [`"crows" is featured but not in this season's cast`, '"catpope" is featured twice']);
+	assert.equal(validateFile('chapter', { ...chapter, featuring: 'catpope' }, 'de', { file: 'x' }).some((p) => p.level === 'error' && p.path[0] === 'featuring'), true);
+	assert.deepEqual(featuredCharacters(['boy', 'nobody', 'catpope'], [{ name: 'catpope' }, { name: 'boy' }]).map((c) => c.name), ['boy', 'catpope']);
 });

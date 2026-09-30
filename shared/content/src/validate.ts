@@ -322,6 +322,15 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 	else if (ctx.seasonStatus !== undefined && ch.status !== undefined && ch.status !== ctx.seasonStatus)
 		c.warn(['status'], `status "${ch.status}" differs from the season ("${ctx.seasonStatus}"), which is the source – saving aligns it`);
 	if (ch.published !== undefined) c.info(['published'], 'published is no longer used (the season status is the source) – saving removes it');
+	if (ch.featuring !== undefined) {
+		if (!Array.isArray(ch.featuring) || ch.featuring.some((id: unknown) => !isStr(id) || !id)) c.error(['featuring'], 'featuring must be a list of character ids');
+		else {
+			ch.featuring.forEach((id: string, i: number) => {
+				if (ch.featuring.indexOf(id) !== i) c.warn(['featuring', i], `"${id}" is featured twice`);
+				else if (ctx.cast && !ctx.cast[id]) c.warn(['featuring', i], `"${id}" is featured but not in this season's cast`);
+			});
+		}
+	}
 	if (ch.keyvisual !== undefined) {
 		if (isStr(ch.keyvisual)) c.error(['keyvisual'], 'keyvisual must be an object { image, video? } (string form is outdated)');
 		else if (!isObj(ch.keyvisual) || !isStr(ch.keyvisual.image)) c.error(['keyvisual', 'image'], 'keyvisual.image is missing');
@@ -426,6 +435,25 @@ function checkToon(c: Collector, t: any, locale: string) {
 		if (t.download.complete !== null && !isStr(t.download.complete)) c.error(['download', 'complete'], 'download.complete must be a path or null');
 		if (!isStr(t.download.music)) c.error(['download', 'music'], 'download.music must be a path');
 	}
+}
+
+/**
+ * Suggestions from the chapter's VN usage (info, never errors): characters its scenes use that are not in `featuring`
+ * (when the chapter has a featuring list) or not in the season's cast. `scene` = `chapterSceneCharacters` of the chapter.
+ */
+export function featuringSuggestions(
+	featuring: string[] | null | undefined,
+	scene: string[],
+	cast: Record<string, string[]> | null | undefined,
+	file: string
+): Problem[] {
+	const out: Problem[] = [];
+	for (const id of scene) {
+		if (cast && !cast[id]) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `"${id}" appears in the scenes but not in the season's cast – add them to the cast` });
+		else if (Array.isArray(featuring) && !featuring.includes(id)) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `"${id}" appears in the scenes but not in "featuring"` });
+	}
+	if (!Array.isArray(featuring) && scene.length) out.push({ level: 'info', file, locale: null, path: ['featuring'], message: `no "featuring" yet – the scenes suggest ${scene.join(', ')}` });
+	return out;
 }
 
 /** Problems of one locale file */

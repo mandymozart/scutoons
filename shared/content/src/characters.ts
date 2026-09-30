@@ -696,6 +696,77 @@ export function castIndex(cast: ToonCast | null | undefined, season?: number): R
 	return Object.fromEntries(castEntries(cast, season).map((e) => [e.character, e.personas]));
 }
 
+/** The toon's star: the registry character whose `own_toon` is this toon (e.g. catpope → Cat Pope), or null. */
+export function toonStar(registry: CharacterRegistry | null | undefined, toon: string): string | null {
+	return registry?.characters?.find((c) => c?.own_toon === toon)?.id ?? null;
+}
+
+/**
+ * The star is in every season's cast (owner rule, agents/ITEMS.md "Cast & featuring"): adds `star` at the front of each
+ * season in `seasons` (and of every season the cast already has) where it is missing, with its regular persona.
+ * Mutates `cast`; returns true when it changed something. Casts are saved with it (creator) and served with it (library).
+ */
+export function ensureStar(cast: ToonCast, star: string | null | undefined, seasons: number[] = []): boolean {
+	if (!star) return false;
+	cast.seasons ??= {};
+	let changed = false;
+	for (const season of new Set([...Object.keys(cast.seasons), ...seasons.map(String)])) {
+		if (!/^[1-9]\d*$/.test(season)) continue;
+		const list = (cast.seasons[season] ??= []);
+		if (list.some((e) => e?.character === star)) continue;
+		list.unshift({ character: star, personas: [REGULAR_PERSONA] });
+		changed = true;
+	}
+	return changed;
+}
+
+/** Every character ref of a VN event list (joinScene / leaveScene refs, showMessage speakers), normalized. */
+function eventCharacters(events: unknown, out: string[]) {
+	if (!Array.isArray(events)) return;
+	for (const e of events as any[]) {
+		const refs: SceneRefInput[] =
+			e?.type === 'joinScene' || e?.type === 'leaveScene'
+				? (e.params?.characters ?? [])
+				: e?.type === 'showMessage' && e.params?.character
+					? [{ character: e.params.character, persona: e.params.persona }]
+					: [];
+		for (const ref of refs) {
+			const id = normalizeSceneRef(ref)?.character;
+			if (id && !out.includes(id)) out.push(id);
+		}
+	}
+}
+
+/**
+ * The characters a chapter's VN scenes use, in order of first appearance: the events of its groups (inline groups and
+ * the scene documents, passed in as groups) and of their slices (slice triggers). The suggestion for `Chapter.featuring`.
+ */
+export function chapterSceneCharacters(groups: unknown[]): string[] {
+	const out: string[] = [];
+	for (const g of groups as any[]) {
+		eventCharacters(g?.events, out);
+		for (const slice of g?.slices ?? []) eventCharacters(slice?.events, out);
+	}
+	return out;
+}
+
+/**
+ * The suggested `featuring` of a chapter: the toon's star first, then everyone its VN scenes use (first appearance).
+ * Non-VN chapters get the star only; the author edits the list by hand.
+ */
+export function suggestFeaturing(groups: unknown[], star: string | null | undefined): string[] {
+	return [...new Set([...(star ? [star] : []), ...chapterSceneCharacters(groups)])];
+}
+
+/**
+ * The characters shown as "featuring" (reader): `featuring` in order, each resolved from the loaded cast; ids without a
+ * character are skipped.
+ */
+export function featuredCharacters<T extends { name: string }>(featuring: string[] | null | undefined, characters: T[] | null | undefined): T[] {
+	if (!Array.isArray(featuring) || !characters?.length) return [];
+	return featuring.map((id) => characters.find((c) => c.name === id)).filter((c): c is T => !!c);
+}
+
 /** Toons whose cast (any season) lists the character – "appears in". */
 export function castsOf(id: string, casts: Record<string, ToonCast | null | undefined>): string[] {
 	return Object.entries(casts)

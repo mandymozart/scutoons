@@ -45,6 +45,8 @@ import {
 	MOODS_FILE,
 	REGULAR_PERSONA,
 	castEntries,
+	ensureStar,
+	toonStar,
 	conventionName,
 	conventionTransitionPath,
 	defaultMoodVocabulary,
@@ -348,6 +350,8 @@ const PERSONA_ORDER = [REGULAR_PERSONA, 'human', 'cat', 'mountaintiger', 'biker'
 for (const c of registry.characters) c.personas.sort((a, b) => (PERSONA_ORDER.indexOf(a.id) + 1 || 99) - (PERSONA_ORDER.indexOf(b.id) + 1 || 99));
 for (const [toon, seasons] of Object.entries(CASTS))
 	for (const [season, entries] of Object.entries(seasons)) for (const [character, personas] of entries) addToCast(toon, season, character, personas);
+// the toon's star (own_toon) is in every season of its cast (agents/ITEMS.md "Cast & featuring")
+for (const [toon, cast] of Object.entries(casts)) if (ensureStar(cast, toonStar(registry, toon))) notes.push(`${toon}: the star ${toonStar(registry, toon)} added to the cast`);
 
 // ── Convention folders on the CDN (the owner's delivered images) ─────────────────────────────────────────────────
 

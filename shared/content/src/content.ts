@@ -192,6 +192,12 @@ export interface Chapter {
 	audio?: AudioConfiguration;
 	groups: Group[];
 	isPreview?: boolean;
+	/**
+	 * Who appears in this chapter: registry character ids, a subset of the season's cast (`cast:<toon>`), in display
+	 * order. Optional and editorial – suggested from the chapter's VN scenes (`chapterSceneCharacters`), set by hand for
+	 * plain scroll chapters. The reader shows it on the chapter list item and at the chapter start.
+	 */
+	featuring?: string[];
 }
 
 export interface ChapterWithId extends Chapter {
