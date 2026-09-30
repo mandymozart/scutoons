@@ -315,3 +315,11 @@ must downscale the delivered `_avatar-*` image to the 192 px display copy instea
 and not overwrite a delivered avatar. **Done** (8ebce5b, 066c72f); owner answer on mood avatars: without a delivered
 avatar, crop the head with neck from each mood portrait (one aligned box per character/persona/look, MEMORY.md "Media").
 
+## RULE: one start-up routine, fixed ports (2026-09-30, owner)
+
+Local dev ports are fixed (viewer 8000, cdn 8001, api 9000, qr 9001, creator 10000, admin 11000, shop 12000;
+`strictPort`). Start servers ONLY with `npm run dev:up` (idempotent: starts what is down, never a second copy; logs in
+`logs/dev/`); `npm run dev:status` shows the table. Agents never start servers on other/side ports for the owner's stack,
+never kill servers they did not start, and use throw-away ports only for isolated test runs they stop again (e.g. the
+contract suites' own servers).
+

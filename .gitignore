@@ -11,3 +11,5 @@ node_modules
 
 # deploy/deploy.mjs staging folders (what gets uploaded)
 .deploy/
+
+/logs/dev
