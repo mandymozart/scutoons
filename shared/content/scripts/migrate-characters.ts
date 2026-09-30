@@ -101,6 +101,28 @@ const MOUSE_WORN = {
 	accessory: { x: 595, y: 625, size: 90 }
 };
 
+/**
+ * Toptoy (the duo as one character, delivered 2026-09-30): two figures side by side on the 768 × 1152 A-pose, swim and
+ * naked in the same framing → one set. Measured from the alpha mask of toptoy_apose-swim.png: left figure (orange head,
+ * yellow body, blue shorts) x 15–384, spike tips y 202, chin / narrowest row (neck) y 580, shorts ~700–845, soles 983;
+ * right figure x 388–754. The worn slots sit on the LEFT figure (head box = the head without the spike tips, face =
+ * eyes to mouth, torso = chest down to the shorts, legs = shorts hem to the ankles, feet = centroid of the feet);
+ * `hands` = the left figure's outer (left) hand (x 15, row 741), `accessory` = the right figure's outer (right) hand
+ * (x 754, row 746) – the duo holds a hand item and an accessory between them. Owner may move the worn slots to the
+ * right figure.
+ */
+const TOPTOY_WORN = {
+	head: { x: 202, y: 400, size: 330 },
+	face: { x: 205, y: 455, size: 210 },
+	neck: { x: 204, y: 590, size: 110 },
+	torso: { x: 202, y: 640, size: 200 },
+	hands: { x: 45, y: 750, size: 70 },
+	legs: { x: 202, y: 880, size: 200 },
+	feet: { x: 202, y: 945, size: 240 },
+	back: { x: 202, y: 640, size: 260 },
+	accessory: { x: 725, y: 755, size: 70 }
+};
+
 const APOSE_LABEL = Object.fromEntries(APOSE_LOOKS.map((l) => [l.id, l.label])) as Record<'swim' | 'naked', LocaleText>;
 
 const helmetLooks = (): CharacterLook[] => [
@@ -170,7 +192,14 @@ const NEW: RegistryCharacter[] = [
 		own_toon: 'toptoy',
 		tags: ['duo'],
 		image: 'toptoy/avatar.webp',
-		personas: [{ id: REGULAR_PERSONA, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] }]
+		personas: [{ id: REGULAR_PERSONA, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] }],
+		// avatar bodies (delivered 2026-09-30; the swim file came as `toptop-apose-swim.png`), anchors: TOPTOY_WORN
+		apose: {
+			looks: [
+				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/toptoy/toptoy_apose-swim.webp', anchors: { ...TOPTOY_WORN } },
+				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/toptoy/toptoy_apose-naked.webp', anchors: { ...TOPTOY_WORN } }
+			]
+		}
 	},
 	{
 		// owner delivery 2026-09-30: avatar (600 master), portrait, full — no A-pose yet, no own toon
@@ -362,7 +391,8 @@ for (const character of registry.characters) {
 				continue;
 			}
 			if (file.match(apose)) {
-				// A-pose looks / references are set explicitly above
+				// A-pose looks / references are set explicitly above (a delivered PNG master with its WebP: the WebP counts)
+				if (hasWebp(file)) continue;
 				if (!character.apose?.looks.some((l) => l.path === path) && !character.artwork?.some((a) => a.path === path)) ambiguous.push(`${character.id}: ${path} (an A-pose file) is not referenced`);
 				continue;
 			}
