@@ -13,8 +13,9 @@ often a minigame/tool), can be **combined** into new items (recipes), and wearab
 Guiding example (U):
 - Every reader starts with a **camera**. A regular camera can only **scan QR codes** of other SCUTOONS items.
 - **camera + cucumber → cucumber camera** (one cucumber is used up, the camera turns into the cucumber camera).
-- The **cucumber camera** can also scan the real world and recognises **real cucumbers** (on-device ML) → each
-  detected real cucumber grants a virtual cucumber. The learning: *items can be combined, and that unlocks logic.*
+- The **cucumber camera only scans cucumbers** (U, 2026-09-30): it recognises **real cucumbers** in the real world
+  (on-device ML) → each detected real cucumber grants a virtual cucumber, but it can no longer read QR codes. Crafting is
+  a real trade-off. The learning: *items can be combined, and that unlocks (and costs) logic.*
 - Buying a hoodie on Bandcamp → QR code in the package → scan (phone camera or in-app camera) → claim with email →
   the hoodie is in the inventory and can be worn by the avatar.
 
@@ -66,21 +67,33 @@ fetches it from the QR API; it is not duplicated in the viewer.
 | `play_audio` | `src` | e.g. the vinyl unlocks/plays a track |
 | (implicit) wear | item has `slot` | "Put on" / "Take off" on the avatar |
 
-A skill list is additive: the cucumber camera has `scan_qr` **and** `scan_object`.
+A camera session has one mode: an item with `scan_object` opens straight in object detection (no QR decoding, no mode
+toggle); `scan_qr` opens the QR scanner. The cucumber camera has **only** `scan_object` (U, 2026-09-30) – crafting
+consumes the starter camera, so the reader trades QR scanning for cucumber detection (the membership blocker's "Scan
+your code" still opens the QR scanner without any item).
 
 ### Initial catalog
 
 | id | kind | category | slot | skills | edition / product | notes |
 |---|---|---|---|---|---|---|
 | camera | virtual | tool | – | scan_qr | – | starter |
-| cucumber | virtual | consumable | – | – | – | stackable; grantable story, scan; VN variable `cucumber` |
-| cucumber_camera | virtual | tool | – | scan_qr, scan_object(cucumber) | – | from recipe |
+| cucumber | virtual | consumable | – | – | – | stackable; grantable story, scan; VN `add cucumber` grants it |
+| cucumber_camera | virtual | tool | – | scan_object(cucumber) | – | from recipe; no QR scanning |
 | dago_hoodie | physical | wearable | torso | – | `1_catpope_dago` / `hoodie_*` | variants black, beige, grey |
 | dago_heavy_t | physical | wearable | torso | – | `1_catpope_dago` / `tshirt_*` | variants black, white |
 | scorpion_amulet | physical | wearable | neck | – | `2_catpope_beetles` | variant purple |
 | awakening_vinyl | physical | media | – | play_audio | `3_catpope_vinyl` | LE 12" |
 | awakening_test_press | physical | media | – | play_audio | (no edition yet) | variants 1_of_2, 2_of_2 |
 | kangaroo_cat_hoodie | physical | wearable | torso | – | (no edition yet) | "Love For Women" |
+
+## Collectables removed – items are the only concept (U, 2026-09-30)
+
+The old VN inventory ("collectables": `<toon>/<locale>/collectables.json`, `Collectable`/`CollectableRef` types, the
+inventory showing game variables that matched a collectable id) is gone everywhere (files, types, loaders, UI, import /
+seed, library bundle, docs). Everything a reader can own is a catalog item. VN variables stay story logic (`{cucumber}`
+interpolation, conditions); the VN → item bridge (`set`/`add` of a variable whose name is a catalog item id grants the
+item, source `story`, ref per place) does the collecting. The old art `catpope/images/collectables/cucumber.png` is
+unreferenced (left on the CDN).
 
 ## Codes → items
 
@@ -142,10 +155,10 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
   silently after sign-in (key cleared on success / already yours / 409 — 409 shown once), guests get a one-time
   "Sign in with your email to keep your membership" prompt that opens the claim sheet.
 - Magic link = `<viewer origin>/?login=<token>`; progress `updated_at` = ms since 1970.
-- Inventory UI: grid of item icons (cut-outs), detail sheet (name, description, edition `n / total`, skills as
+- Inventory UI (catalog items only – collectables were removed 2026-09-30): grid of item icons (cut-outs), detail sheet (name, description, edition `n / total`, skills as
   actions: Use / Combine / Put on), combine mode (select 2 → recipe preview), avatar view with slots.
 - Camera: QR decode with `jsqr` (iOS has no BarcodeDetector); cucumber detection with TF.js MobileNet, lazy-loaded
-  only when the cucumber camera is used.
+  only when the cucumber camera is used (that session never loads jsQR).
 
 ## Backend implementation notes (qr.scutoons.com, 2026-09-29)
 

@@ -8,7 +8,7 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   Deployed by `.github/workflows/main.yml` on push to `main` → FTP to `ftp.scutoons.com:/`.
 - `viewer/static/api/` — the "fake API", served at `/api` and shipped with the app build (not the CDN):
   `toons.json`, `events.json`, `products.json`, `featured-products.json`,
-  `catpope/{de,en}/{toon,season1,chapter1..5,characters,collectables,locations,routes,credits}.json`,
+  `catpope/{de,en}/{toon,season1,chapter1..5,characters,locations,routes,credits}.json`,
   VN scene files `catpope/{de,en}/chapter2/scene-14..19.json`; the dev-only sandbox toon `sandbox/` (see "Sandbox").
 - `cdn/` — `root/` (gitignored, lives locally + on FTP), `sync.py` (interactive FTP push, "bidirectional" only
   in name), `download.py` (FTP pull), `server.py` (CORS static server on :8000). Env: `FTP_SERVER`,
@@ -69,15 +69,16 @@ is still German). Slice 19 has a cucumber painted in, without any event. The own
 - Ch1 audio samples at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never fire.
 - Scene files use `{"type":"end"}` → "Unknown event type".
 - Ch3–5 `keyvisual` is a string, type expects `{image, video?}` (ch2 fixed 2026-09-30).
-- `Collectable` type lacks `name`/`image` that JSON + components use.
+- ~~`Collectable` type lacks `name`/`image`~~ – collectables removed 2026-09-30 (see "Collectables removed").
 
 ## Membership / inventory (viewer)
 
 - Membership: `lib/contexts/membership.svelte.ts`, localStorage `scutoons_membership`, one code only, validated
   once via `POST https://qr.scutoons.com/api/validate/` (`lib/api/membership.service.ts`), code arrives as
   `?code=` handled in `routes/+layout.svelte:18-31`. Types `membership | promo`.
-- Inventory: `lib/components/toon/inventory/inventory.svelte` ("i" key) shows game variables that match a
-  collectable id (`game.svelte.ts`, localStorage `scutoons_game_<toonId>`). Only collectable: cucumber.
+- Inventory: `lib/components/toon/inventory/inventory.svelte` ("i" key) showed game variables that matched a
+  collectable id (`game.svelte.ts`, localStorage `scutoons_game_<toonId>`). Only collectable: cucumber. (Historical:
+  collectables were removed 2026-09-30, the inventory shows catalog items only.)
 - No accounts, no server session, no QR scanner, no `/qr` route. "Cucumber scan" does not exist anywhere.
 
 ## Merch data (duplicates)
@@ -169,7 +170,7 @@ is still German). Slice 19 has a cucumber painted in, without any event. The own
 - No flat lays of the Dago merch exist, all photos are worn by a masked model. Hoodie icons use the BACK views
   (front views leave a face hole in the hood); tees use front views (cloth mask eats the white back print).
   Base icons: dago_hoodie = beige, dago_heavy_t = white, awakening_test_press = 1_of_2, scorpion_amulet = purple.
-- `images/collectables/cucumber.png` is only 124px → cucumber icon is vector (same style as camera/cucumber_camera).
+- `images/collectables/cucumber.png` (old VN art, no longer referenced, left on the CDN) is only 124px → cucumber icon is vector (same style as camera/cucumber_camera).
 - Bandcamp originals in `cdn/root/catpope/merch/bandcamp/` (f4.bcbits.com `_0` = original size).
 - Bandcamp facts (checked 2026-09-29): Dago Hoodie "edition of 12", 3 remaining, €99.90; Heavy T "edition of 25",
   €59.90 (12 + 25 = 37 = qr edition `1_catpope_dago`); Kangaroo Cat Hoodie edition of 4, 3 remaining, €59.99;
@@ -314,7 +315,7 @@ are the fallback and the seed.
 - Viewer loader (`lib/api/content.service.ts` `fetchContent`): `(toons)/[toonId]/+layout.ts` (toon.json, season1.json,
   chapterN.json), `chapter/[chapterNumber]/+page.ts` (chapter + `ref.src` scene files), `download/+page.ts` (toon.json)
   read the store first (4 s timeout) and fall back to the static `/api/...` file on 404/error. characters, locations,
-  routes, collectables, credits stay static. `?preview=draft` on a reader URL loads the newest drafts with the session
+  routes, credits stay static. `?preview=draft` on a reader URL loads the newest drafts with the session
   token (creators only; others fall back to published → static). jumpTo/navigation inside the reader drops `?preview`.
 - **Local dev: the local store is seeded** (2026-09-30), so the dev reader shows store content: editing a static file
   no longer shows up until `php scripts/import-content.php C:\Development\scutoons\viewer\static\api --update` (or edit
@@ -697,7 +698,7 @@ character, persona, look and mood and doubles as the VN test bed.
   `vite build` + `vite preview`). A direct `/sandbox` URL still shows the empty toon page in production (like any draft
   toon); a toon-level gate would be a separate viewer change (done: "VN layout, one-click rule, draft toons 404").
 - **Generated, not hand-written**: `shared/content/scripts/make-sandbox.ts` (usage in `shared/content/README.md`)
-  → `viewer/static/api/sandbox/{de,en}/{toon,season1,chapterN,chapterN/<persona>-<look>,locations,routes,collectables}.json`
+  → `viewer/static/api/sandbox/{de,en}/{toon,season1,chapterN,chapterN/<persona>-<look>,locations,routes}.json`
   + `sandbox/_/cast.json`; then `php server/bin/console import-content viewer/static/api --toon=sandbox --update`
   (published locally). `import-content --sql` (the production seed) skips it (`ImportContentCommand::DEV_ONLY_TOONS`,
   unit test) – not in any seed/SQL. Encounter order Yellow Mouse, Toptoy, Boy, Crows (then any new character), then Cat
@@ -785,3 +786,26 @@ character, persona, look and mood and doubles as the VN test bed.
 - Fix for the stale dev server after a build: `touch viewer/vite.config.ts` (and `creator/vite.config.ts`) – Vite restarts
   itself in the same process and serves the regenerated paraglide modules (a touch of the paraglide files or messages
   is not enough).
+
+## Collectables removed; cucumber camera only scans cucumbers (2026-09-30, owner)
+
+- **Items are the only concept.** Collectables (the old VN inventory) are gone: `viewer/static/api/{catpope,sandbox}/
+  {de,en}/collectables.json`, the `Collectable` / `CollectableRef` types (`@scutoons/content` visual-novel.ts), the toon
+  layout's `collectables.json` fetch + `data.collectables`, the inventory's legacy icon fallback and the unused
+  `inventory/collectable.svelte`, the sandbox generator's empty `collectables.json`, `make_item_icons.py`'s empty
+  `COLLECTABLE_ICONS`. The server side (import-content, `/library/toons/<toon>` bundle, entities-compare, docs) was
+  removed by the data-refactor agent; the local store has no collectables documents. `catpope/images/collectables/
+  cucumber.png` stays on the CDN, unreferenced.
+- VN variables stay story logic (`{cucumber}` interpolation, conditions); VN `set`/`add` of a catalog item id grants the
+  item (`variable-actions.ts`). The inventory shows catalog items only.
+- **Cucumber camera = `scan_object` only** (`server/config/items.json`, descriptions de/en say it no longer reads QR
+  codes); the recipe is unchanged, so crafting trades the starter camera's `scan_qr` for cucumber detection. Viewer:
+  a camera session has one mode (`items-ui.use`: `scan_object` wins → object mode, `qr: false`); the overlay's QR/Cucumber
+  toggle and the `camera.mode_qr` / `mode_object` messages are gone; jsQR is not loaded for the cucumber camera.
+  api-smoke checks the skills (camera `scan_qr`, cucumber_camera `scan_object`).
+- Verified (headless Chrome, dev :8000): sandbox chapter 1 cucumber as guest (de) → `scutoons_inventory` gets cucumber 1,
+  grid "Kamera, Gurke"; as `avatar-member-0930@example.com` (en; its chapter-1 grant ref row deleted locally first) →
+  server 3 → 4, grid "4 Cucumber"; no `collectables` request, 0 console errors. Guest craft camera + cucumber → grid
+  "Gurkenkamera", Use → "Finde eine echte Gurke", meter, no mode toggle, no jsQR request. Chapter 2 scene-14 only
+  *mentions* cucumbers (message + "Weiter Spazieren" / "Auf Arbeit" jumps) – it has no `add cucumber`, so nothing to
+  grant there; it renders with the promo code `promo_test`.

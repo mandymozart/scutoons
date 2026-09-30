@@ -6,7 +6,7 @@ import type {
 	Season,
 	Toon
 } from '@scutoons/content';
-import type { Character, Collectable } from '@scutoons/content';
+import type { Character } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
@@ -57,28 +57,24 @@ export const load: LayoutLoad = async ({ fetch, params, parent }) => {
 
 	// characters: registry + the toon's cast from the content store, resolved to the old characters.json shape;
 	// fallback: the static characters.json of the locale; a toon without any → []
-	const [, charactersResult, { season, sequence }, locationsRes, routesRes, toonRes, collectablesRes] =
-		await Promise.all([
-			gate,
-			fetchCharacters(fetch, params.toonId, lang),
-			seasonPromise,
-			fetch(`${base}/locations.json`),
-			fetch(`${base}/routes.json`),
-			content('toon.json'),
-			fetch(`${base}/collectables.json`)
-		]);
+	const [, charactersResult, { season, sequence }, locationsRes, routesRes, toonRes] = await Promise.all([
+		gate,
+		fetchCharacters(fetch, params.toonId, lang),
+		seasonPromise,
+		fetch(`${base}/locations.json`),
+		fetch(`${base}/routes.json`),
+		content('toon.json')
+	]);
 
 	if (!locationsRes.ok) throw error(404, `Failed to load locations of toon ${params.toonId}`);
 	if (!routesRes.ok) throw error(404, `Failed to load routes of toon ${params.toonId}`);
 	if (!toonRes.ok) throw error(404, `Failed to load toon ${params.toonId}`);
-	if (!collectablesRes.ok) throw error(404, `Failed to load toon ${params.toonId}`);
 
 	const characters: Character[] = charactersResult.characters;
 	const locations: MapLocation[] = await locationsRes.json();
 	const routes: MapRoute[] = await routesRes.json();
 	const toon: Toon = await toonRes.json();
 	if (!isItemPublic(toon, import.meta.env.DEV)) error(404, 'Not found');
-	const collectables: Collectable[] = await collectablesRes.json();
 
-	return { sequence, characters, locations, routes, toon, collectables, season };
+	return { sequence, characters, locations, routes, toon, season };
 };

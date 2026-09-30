@@ -43,19 +43,6 @@ export interface Character {
 	personas?: Record<string, ResolvedPersona>;
 }
 
-export interface CollectableRef {
-	id: string;
-	count: number;
-	expiration_date?: string; // does not expire if null
-}
-
-export interface Collectable {
-	id: string;
-	description: string;
-	stock?: number; // unlimited if null
-	life_expectency?: number; // unlimited if null
-}
-
 export interface VNChoice {
 	label: string;
 	onSelect?: VNVariableSetter | VNVariableAdder | VNJumpTo;

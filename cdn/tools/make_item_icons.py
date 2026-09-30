@@ -6,7 +6,7 @@ Output: cdn/root/<toon>/items/<item_id>.png and <item_id>_<variant>.png
 Sources:
   - physical merch: product photos in cdn/root/catpope/merch/ (local shoot) and
     cdn/root/catpope/merch/bandcamp/ (originals from mandymozart.bandcamp.com, f4.bcbits.com)
-  - virtual items: collectable art (cucumber) or inline SVG drawn here (camera, cucumber_camera)
+  - virtual items: inline SVG drawn here (camera, cucumber, cucumber_camera)
 
 Background removal: rembg (isnet-general-use for garments, birefnet-general for objects) for the fine alpha; for garments that are worn in the
 photo, the alpha is additionally multiplied with the "upper cloth" mask of u2net_cloth_seg so head,
@@ -77,9 +77,8 @@ BASE_COPIES: dict[str, str] = {
     "awakening_test_press": "awakening_test_press_1_of_2",
 }
 
-# Collectable art copied as-is. images/collectables/cucumber.png is only 124x124 (blocky when scaled to
-# 512), so the cucumber is drawn as SVG below in the same style as the camera icons instead.
-COLLECTABLE_ICONS: dict[str, Path] = {}
+# The cucumber is drawn as SVG below in the same style as the camera icons (the old 124x124 VN art in
+# images/collectables/ was too small and is no longer referenced).
 
 INK = "#000000"
 PAPER = "#ffffff"
@@ -298,11 +297,6 @@ def build(only: set[str] | None = None) -> list[Path]:
                 if src == name:
                     made.append(save(icon, base))
                     print("base  ", base, "=", name)
-    for name, path in COLLECTABLE_ICONS.items():
-        if wanted(name):
-            im = Image.open(path).convert("RGBA")
-            made.append(save(fit(im), name))
-            print("art   ", name, "<-", path.relative_to(CDN_ROOT))
     for name, svg in SVG_ICONS.items():
         if wanted(name):
             made.append(save(fit(render_svg(svg)), name))

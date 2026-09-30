@@ -12,7 +12,6 @@
 	let sequence = data.sequence || [];
 	let locations = data.locations;
 	let routes = data.routes;
-	let collectables = data.collectables;
 
 	const audio = setAudioContext(params.toonId);
 	const vn = setVisualNovelContext();
@@ -30,4 +29,4 @@
 
 <SequenceNavigation {sequence} {params} />
 <Map {locations} {routes} />
-<Inventory {collectables} />
+<Inventory />

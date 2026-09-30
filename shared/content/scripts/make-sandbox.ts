@@ -507,7 +507,6 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		files[`${l}/season1.json`] = { title: meta[l].season, language: l, number: 1, release: RELEASE, description: meta[l].description, sequence };
 		files[`${l}/locations.json`] = [];
 		files[`${l}/routes.json`] = [];
-		files[`${l}/collectables.json`] = [];
 	}
 	// casting: the host, then everyone met, with every persona
 	const cast: ToonCast = {

@@ -6,7 +6,6 @@
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
-	import type { Collectable as CollectableType } from '@scutoons/content';
 	import type { Entry } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -16,9 +15,6 @@
 	import ItemDetail from '$lib/components/items/item-detail.svelte';
 	import RecipePreview from '$lib/components/items/recipe-preview.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
-
-	// toon collectables (legacy VN data) — used as icon fallback for items with the same id
-	let { collectables = [] }: { collectables?: CollectableType[] } = $props();
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -40,8 +36,7 @@
 	});
 
 	function iconsFor(entry: Entry): string[] {
-		const legacy = (collectables as any[]).find((c) => c.id === entry.item_id)?.image;
-		return [inventory.iconOf(entry), inventory.item(entry.item_id)?.icon ?? '', legacy ?? ''];
+		return [inventory.iconOf(entry), inventory.item(entry.item_id)?.icon ?? ''];
 	}
 
 	function reset() {
