@@ -18,6 +18,7 @@
 		"dev:up": "node scripts/dev/up.mjs",
 		"dev:status": "node scripts/dev/up.mjs --status",
 		"dev:test-user": "node scripts/dev/test-user.mjs",
+		"check:creator-cast": "node scripts/dev/creator-cast-check.mjs",
 		"dev:viewer": "npm run dev -w viewer",
 		"dev:creator": "npm run dev -w creator",
 		"dev:admin": "npm run dev -w admin",

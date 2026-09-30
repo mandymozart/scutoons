@@ -1033,3 +1033,26 @@ character, persona, look and mood and doubles as the VN test bed.
 - Gotcha: two contract runs at the same time (another agent's `composer test`) share ports 9180+ and the mail log →
   dozens of unrelated FAILs (OTP not found, 401s). Rerun when the other run is done.
 - The viewer at `/en/account` rendered German in the headless check (locale from the cookie/profile), not related.
+
+## Test user for agents + Cast page Save/Publish (2026-09-30)
+
+- **Test user**: `agent@scutoons.test` (member, creator, admin; Cat Pope unlocked with every A-pose look, source admin,
+  ref `dev:test-user`), created with the local promo code `promo_test` (the proper signup path; no raw SQL for the
+  account). `npm run dev:test-user` [`-- --browser <local app url>` | `--reset` | `--fresh`] – details in PLAN.md "RULE:
+  agents debug as the local test user". Session file `logs/dev/test-user.json` (gitignored). `--reset` is the only raw
+  SQL (local SQLite: non-starter inventory, progress, avatar slots/body, codes it claimed; no API empties an inventory).
+  The login mail subject is localized ("<otp> is your SCUTOONS code" / "<otp> ist dein SCUTOONS-Code") – the script
+  reads the 6 digits at the start of the subject.
+- **Cast page "Save draft / Publish don't work" (owner)**: with the test user in headless Chrome the save/publish
+  mechanics worked (PUT/publish 200 for `cast:catpope` and `characters`, chips, reload) – no 4xx, no console errors.
+  What the owner saw is the page without changes: Save draft was **disabled** (grey, looks broken) and Publish
+  **returned silently** when everything was already published (`publishAll`: `if (!files.length) return;`). Plus a real
+  dead control: unticking the only persona of an entry (Junge, Krähen: just "regular") cleared the box but changed
+  nothing (`togglePersona` forces `[regular]` back), so the page stayed clean and Save draft grey.
+  Fix (`MetaPage`, used by cast, credits, season, toon settings, characters): Save draft is always clickable (secondary
+  style while clean) and says "Nothing to save …" when clean (Ctrl+S too); Publish says "Nothing to publish …"; the
+  publish confirm names no `(_)` locale for language-neutral entities (`publish_confirm_neutral`). Cast editor: the last
+  ticked persona is disabled (tooltip), drag reorder sets `dataTransfer` (Firefox) and prevents the default drop.
+  Regression: `npm run check:creator-cast` (headless, test user, 18 checks, restores the published cast + characters;
+  refuses to run while either has an unpublished draft; don't run it while the owner edits the cast – it creates versions).
+- Chrome on this machine is `C:/Program Files (x86)/Google/Chrome/Application/chrome.exe` (not `Program Files`).

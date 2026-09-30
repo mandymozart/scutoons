@@ -4,7 +4,7 @@
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
-	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
+	import { NEUTRAL_LOCALE, validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import ProblemsPanel from './problems-panel.svelte';
 	import HistoryPanel from './history-panel.svelte';
 	import FileStatus from './file-status.svelte';
@@ -97,6 +97,16 @@
 	const errorCount = $derived(problems.filter((p) => p.level === 'error').length);
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning').length);
 
+	/** the button: never a silent no-op (owner 2026-09-30: "Save draft / Publish don't work" on a page without changes) */
+	async function saveClicked() {
+		beforeSave();
+		if (!anyDirty) {
+			notice = m['creator.nothing_to_save']();
+			return;
+		}
+		await saveAll();
+	}
+
 	async function saveAll(force = false) {
 		notice = null;
 		conflict = null;
@@ -121,10 +131,15 @@
 		beforeSave();
 		const follow = [...new Set([...companions().filter((d) => d.dirty), ...savedCompanions])];
 		const files = [...docs.filter((d) => d.dirty || d.unpublished.length), ...follow];
-		if (!files.length) return;
+		if (!files.length) {
+			notice = m['creator.nothing_to_publish']();
+			return;
+		}
 		if (errorCount && !confirm(`${errorCount} errors in the problem list. Publish anyway?`)) return;
-		const locales = [...new Set(files.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].join(', ');
-		if (!confirm(m['creator.publish_confirm']({ file: fileLabels(files.map((d) => d.entity)), locales }))) return;
+		// language-neutral entities (cast, characters …) have no locale to name
+		const locales = [...new Set(files.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].filter((l) => l !== NEUTRAL_LOCALE).join(', ');
+		const file = fileLabels(files.map((d) => d.entity));
+		if (!confirm(locales ? m['creator.publish_confirm']({ file, locales }) : m['creator.publish_confirm_neutral']({ file }))) return;
 		if (!(await saveAll())) return;
 		try {
 			for (const doc of [...docs, ...savedCompanions]) if (doc.stored.length && doc.unpublished.length) await doc.publish();
@@ -164,7 +179,7 @@
 		const key = event.key.toLowerCase();
 		if (key === 's') {
 			event.preventDefault();
-			saveAll();
+			saveClicked();
 		} else if (key === 'z' && !isField(event.target)) {
 			event.preventDefault();
 			if (event.shiftKey) redoDoc?.redo();
@@ -204,7 +219,7 @@
 		{/snippet}
 		{#snippet end()}
 			<input class="message" type="text" placeholder="note (optional)" bind:value={saveMessage} />
-			<button onclick={() => saveAll()} disabled={!anyDirty || anySaving} data-testid="save-draft">
+			<button class:secondary={!anyDirty} onclick={saveClicked} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
 			<button class="secondary" onclick={publishAll} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>

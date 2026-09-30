@@ -161,9 +161,16 @@
 						class="member"
 						class:dragging={dragging === i}
 						draggable="true"
-						ondragstart={() => (dragging = i)}
+						ondragstart={(e) => {
+							dragging = i;
+							// Firefox starts a drag only with data set
+							e.dataTransfer?.setData('text/plain', entry.character);
+							if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+						}}
 						ondragover={(e) => e.preventDefault()}
-						ondrop={() => {
+						ondrop={(e) => {
+							// never let the browser open the dragged image / link
+							e.preventDefault();
 							if (dragging !== null) move(dragging, i);
 							dragging = null;
 						}}
@@ -192,8 +199,11 @@
 								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{m['creator.characters_edit']()}</a>
 								<span class="personas" data-testid="cast-personas-{entry.character}">
 									{#each personaIds(c) as p (p)}
-										<label class="chip" class:on={entry.personas.includes(p)}>
-											<input type="checkbox" checked={entry.personas.includes(p)} onchange={(e) => togglePersona(entry.character, p, e.currentTarget.checked)} />
+										{@const on = entry.personas.includes(p)}
+										{@const last = on && entry.personas.length === 1}
+										<!-- the last persona can't be unticked (an entry has at least one): disabled instead of a tick that changes nothing -->
+										<label class="chip" class:on class:last title={last ? m['creator.cast_last_persona']() : undefined}>
+											<input type="checkbox" checked={on} disabled={last} onchange={(e) => togglePersona(entry.character, p, e.currentTarget.checked)} />
 											{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, source, langs) || p}
 										</label>
 									{/each}
@@ -325,6 +335,9 @@
 	.chip.on {
 		border-color: var(--ink);
 		background: var(--primary-cyan);
+	}
+	.chip.last {
+		cursor: default;
 	}
 	.order {
 		display: flex;
