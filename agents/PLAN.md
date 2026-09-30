@@ -286,3 +286,14 @@ The default slice is **390 × 625 px** (webtoon standard, Naver), delivered at 1
 `width`/`height`; new slices in the creator default to 390 × 625 (overwritten by the real image size when an image path
 is set). Other heights are allowed, the width stays 390.
 
+## RULE: one resolution everywhere (2026-09-30, owner)
+
+No multiple image resolutions/densities anywhere in the apps (no 2x/3x, no srcset by density, no resolution toggles).
+Slices are 1x WebP 390 px wide; the reduced load matters more than retina sharpness for now.
+
+## RULE: content is served by the API from the database (2026-09-30, owner)
+
+No file-based loading. All content lives in the database and is served on demand by the API service layer (entities,
+caching, one request per chapter). The JSON configuration format stays only as import/export. Design: DATA.md.
+PWA preloading / save-to-device is designed in DATA.md and built after the data refactor.
+
