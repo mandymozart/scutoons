@@ -18,7 +18,7 @@ final class CharacterUnlocksTest extends TestCase
             ['id' => 'yellowmouse', 'apose' => ['looks' => [$look('yellowmouse', 'swim', true), $look('yellowmouse', 'naked', false, false)]]],
             ['id' => 'toptoy'],
         ]]);
-        $this->db->run("INSERT INTO content_versions (toon, locale, path, json, author, created_at, status, message) VALUES ('scutoons', '_', 'characters.json', ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
     }
 
     private function userId(): string

@@ -16,7 +16,7 @@ if (PHP_SAPI !== 'cli') {
 
 $args = array_slice($argv, 1);
 $base = rtrim((string) ($args[0] ?? 'http://localhost:9000'), '/') . '/api';
-$static = __DIR__ . '/../../viewer/static/api';
+$static = __DIR__ . '/../../shared/content/seed';
 $seed = __DIR__ . '/../../shared/content/seed';
 $reportOnly = false;
 foreach ($args as $arg) {
@@ -129,7 +129,7 @@ compare('events == events.json', file_json("$static/events.json"), $events);
 
 foreach ($index as $entry) {
     $toon = $entry['id'];
-    if (!is_dir("$static/$toon")) continue;
+    if (glob("$static/$toon/*/toon.json") === []) continue; // no toon settings = not readable (404), e.g. toons with a cast only
     $source = $entry['sourceLanguage'] ?? 'de';
     $languages = array_values(array_unique([$source, ...($entry['languages'] ?? [])]));
     echo "\n$toon\n";

@@ -4,16 +4,17 @@
 // no such mood, tries, fails and is sad). Look changes use the registry's transition images; Cat Pope tries each new look
 // too (no such look → sad). One chapter per encounter, one VN group per persona × look, a goodbye at the end.
 //
-//   node --experimental-transform-types --no-warnings shared/content/scripts/make-sandbox.ts [--from=<api base>] [--out=<dir>] [--dry-run]
+//   node --experimental-transform-types --no-warnings shared/content/scripts/make-sandbox.ts [--from=<api base>] [--out=<dir>] [--no-import] [--dry-run]
 //
-//   --from   read the published registry + moods from a content store (e.g. http://localhost:9000/api) instead of the
-//            seed files shared/content/seed/scutoons/_/{characters,moods}.json
-//   --out    output folder (default viewer/static/api/sandbox; the script owns it and rewrites it completely)
-//
-// Then put it into the local content store (published):
-//   php server/bin/console import-content viewer/static/api --toon=sandbox --update
+//   --from       read the newest registry + moods from the API's content store (e.g. http://localhost:9000/api, a creator
+//                session token in SCUTOONS_TOKEN) instead of the seed files shared/content/seed/scutoons/_/{characters,moods}.json
+//   --out        output folder in the interchange layout (default shared/content/seed/sandbox; the script owns it and
+//                rewrites it completely)
+//   --no-import  only write the files. By default the script then imports them into the local content store (published):
+//                php server/bin/console import-content shared/content/seed --toon=sandbox --update
 // The sandbox never goes into the production seed (`import-content --sql` skips it, ImportContentCommand::DEV_ONLY_TOONS).
-// Re-run both after adding characters, personas, looks, moods or transitions. See agents/MEMORY.md "Sandbox".
+// Re-run after adding characters, personas, looks, moods or transitions. See agents/MEMORY.md "Sandbox", agents/DATA.md.
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join as pathJoin, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -523,17 +524,19 @@ async function main() {
 	const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 	const arg = (key: string) => process.argv.find((a) => a.startsWith(`--${key}=`))?.slice(key.length + 3);
 	const dry = process.argv.includes('--dry-run');
-	const out = resolve(root, arg('out') ?? `viewer/static/api/${SANDBOX_TOON}`);
+	const seedRoot = resolve(root, 'shared/content/seed');
+	const out = resolve(root, arg('out') ?? `shared/content/seed/${SANDBOX_TOON}`);
 	const from = arg('from');
 	let registry: CharacterRegistry;
 	let vocabulary: MoodVocabulary;
 	if (from) {
-		const get = async (file: string) => {
-			const res = await fetch(`${from.replace(/\/+$/, '')}/content/scutoons/_/${file}`);
-			if (!res.ok) throw new Error(`${file}: HTTP ${res.status}`);
+		const token = process.env.SCUTOONS_TOKEN;
+		const get = async (key: string) => {
+			const res = await fetch(`${from.replace(/\/+$/, '')}/entities/${key}?draft=1`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+			if (!res.ok) throw new Error(`${key}: HTTP ${res.status}${token ? '' : ' (set SCUTOONS_TOKEN to a creator session)'}`);
 			return res.json();
 		};
-		[registry, vocabulary] = await Promise.all([get('characters.json'), get('moods.json')]);
+		[registry, vocabulary] = await Promise.all([get('characters'), get('moods')]);
 	} else {
 		const seed = (file: string) => JSON.parse(readFileSync(pathJoin(root, 'shared/content/seed/scutoons/_', file), 'utf8'));
 		registry = seed('characters.json');
@@ -549,7 +552,7 @@ async function main() {
 			writeFileSync(file, JSON.stringify(json, null, '\t') + '\n');
 		}
 	}
-	const toons = JSON.parse(readFileSync(pathJoin(root, 'viewer/static/api/toons.json'), 'utf8')) as { id: string; status: string }[];
+	const toons = JSON.parse(readFileSync(pathJoin(seedRoot, 'toons.json'), 'utf8')) as { id: string; status: string }[];
 	const entry = toons.find((t) => t.id === SANDBOX_TOON);
 
 	console.log(`${dry ? '[dry run] ' : ''}${Object.keys(files).length} files → ${out}`);
@@ -560,9 +563,20 @@ async function main() {
 	console.log(`cucumbers: ${report.cucumbers.join(', ') || 'none'}`);
 	console.log(`Sonntagnachmittag (chapter ${report.chapters}): ${report.sundayCast} characters at once, ${report.sundayStage} on the portrait stage, ${report.sundayTransitions} look transitions`);
 	for (const s of report.perEncounter) console.log(`  chapter ${s.chapter}  ${s.name.padEnd(28)} ${String(s.moods).padStart(3)} moods, ${s.fails} failed  [${s.groups.join(', ')}]`);
-	if (!entry) console.warn(`! viewer/static/api/toons.json has no "${SANDBOX_TOON}" entry (status draft) – the creator lists toons from there`);
+	if (!entry) console.warn(`! shared/content/seed/toons.json has no "${SANDBOX_TOON}" entry (status draft) – the toon list comes from it`);
 	else if (entry.status !== 'draft') console.warn(`! toons.json: "${SANDBOX_TOON}" must stay status draft (hidden in production)`);
-	console.log(`next: php server/bin/console import-content viewer/static/api --toon=${SANDBOX_TOON} --update`);
+	const importArgs = ['server/bin/console', 'import-content', out.startsWith(seedRoot) ? seedRoot : dirname(out), `--toon=${SANDBOX_TOON}`, '--update'];
+	if (dry || process.argv.includes('--no-import')) {
+		console.log(`next: php ${importArgs.join(' ')}`);
+		return;
+	}
+	// into the content store through the import (the interchange format → entity keys), like every other content
+	const result = spawnSync(process.env.PHP_BINARY || 'php', importArgs, { cwd: root, encoding: 'utf8' });
+	process.stdout.write((result.stdout || '').split('\n').slice(-3).join('\n') + '\n');
+	if (result.status !== 0) {
+		console.error(result.stderr || result.error?.message || 'import-content failed');
+		process.exit(1);
+	}
 }
 
 if (process.argv[1]?.replace(/\\/g, '/').endsWith('make-sandbox.ts')) {

@@ -7,13 +7,13 @@
 // → <out>/scutoons/_/{characters,moods,asset-requests}.json, <out>/<toon>/_/cast.json (+ report on stdout).
 //
 //   node --experimental-transform-types --no-warnings shared/content/scripts/migrate-characters.ts \
-//        [--api=viewer/static/api] [--cdn=cdn/root] [--out=shared/content/seed] [--json] [--no-webp]
+//        [--api=shared/content/legacy] [--cdn=cdn/root] [--out=shared/content/seed] [--json] [--no-webp]
 //
 // First it runs cdn/tools/make_character_webp.py (cdn/.venv Python + Pillow): every portrait / transition PNG gets a WebP
 // next to it and a portrait without an avatar gets a generated avatar WebP; the registry then points to the WebP files.
 //
 // Then import (published version 1, idempotent; `--update` after a seed change):
-//   php server/bin/console import-content shared/content/seed --only=characters.json,moods.json,asset-requests.json,cast.json
+//   (the script runs it at the end, `--no-import` to skip) php server/bin/console import-content shared/content/seed --only=characters,moods,asset-requests,cast --update
 // Production SQL: the same with `--sql` (committed as shared/content/seed/characters-seed.mysql.sql).
 //
 // Rules: characters are matched by `name` (the id) across locales; `label` / `description` become { de, en } texts;
@@ -67,7 +67,7 @@ import {
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const arg = (name: string, fallback: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
-const API = resolve(repo, arg('api', 'viewer/static/api'));
+const API = resolve(repo, arg('api', 'shared/content/legacy'));
 const CDN = resolve(repo, arg('cdn', 'cdn/root'));
 const OUT = resolve(repo, arg('out', 'shared/content/seed'));
 const LOCALES = ['de', 'en'];
@@ -545,5 +545,17 @@ else {
 		if (!lines.length) continue;
 		console.log(`\n${title}:`);
 		for (const line of lines) console.log(`  - ${line}`);
+	}
+}
+
+// Into the content store through the import (interchange files → entity keys characters, moods, asset-requests,
+// cast:<toon>; agents/DATA.md), unless --no-import. Production: the same with --sql (characters-seed.mysql.sql).
+if (!process.argv.includes('--no-import')) {
+	const args = ['server/bin/console', 'import-content', OUT, '--only=characters,moods,asset-requests,cast', '--update'];
+	const run = spawnSync(process.env.PHP_BINARY || 'php', args, { cwd: repo, encoding: 'utf8' });
+	console.log(`\nimport: ${(run.stdout || '').trim().split('\n').pop() ?? ''}`);
+	if (run.status !== 0) {
+		console.error(run.stderr || run.error?.message || 'import-content failed');
+		process.exit(1);
 	}
 }

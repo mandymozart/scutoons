@@ -5,7 +5,9 @@ namespace Scutoons\Tests\Http;
 
 use Psr\Http\Message\ResponseInterface;
 use Scutoons\Domain\Auth\Sessions;
-use Scutoons\Domain\Content\ContentService;
+use Scutoons\Console\ContentFiles;
+use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Kernel;
 use Scutoons\Tests\TestCase;
@@ -30,9 +32,14 @@ final class LibraryApiTest extends TestCase
 
     private function publish(string $toon, string $locale, string $path, mixed $data, bool $publish = true): void
     {
-        $content = $this->get(ContentService::class);
-        $id = $content->insert($toon, $locale, $path, (string) json_encode($data), null, 'draft', null);
-        if ($publish) $content->setPublished(['id' => $id, 'toon' => $toon, 'locale' => $locale, 'path' => $path]);
+        $key = match (true) {
+            $path === 'index.json' => "toon:$toon",
+            $path === 'events.json' => 'events',
+            default => (string) ContentFiles::keyOf($toon, $locale, $path),
+        };
+        $store = $this->get(EntityStore::class);
+        $id = $store->insert(EntityKey::parse($key), (string) json_encode($data), null, 'draft', null);
+        if ($publish) $store->setPublished(['id' => $id, 'entity_key' => $key]);
     }
 
     protected function setUp(): void

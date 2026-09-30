@@ -28,7 +28,7 @@ use Scutoons\Http\Controllers\Admin\VersionsController;
 use Scutoons\Http\Controllers\AuthController;
 use Scutoons\Http\Controllers\AvatarController;
 use Scutoons\Http\Controllers\CatalogController;
-use Scutoons\Http\Controllers\ContentController;
+use Scutoons\Http\Controllers\EntitiesController;
 use Scutoons\Http\Controllers\HealthController;
 use Scutoons\Http\Controllers\InventoryController;
 use Scutoons\Http\Controllers\KeysController;
@@ -107,7 +107,12 @@ return static function (App $app): void {
     $app->get('/api/progress/{toon:[A-Za-z0-9_-]{1,64}}', [ProgressController::class, 'get']);
     $app->put('/api/progress/{toon:[A-Za-z0-9_-]{1,64}}', [ProgressController::class, 'put']);
 
-    $app->map(['GET', 'PUT', 'POST'], '/api/content/{rest:.+}', ContentController::class);
+    // Content store by entity key – the creator's write path (docs/API.md "Entities", role creator)
+    $app->get('/api/entities', [EntitiesController::class, 'index']);
+    $app->get('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'get']);
+    $app->put('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'put']);
+    $app->get('/api/entities/{key:[a-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
+    $app->post('/api/entities/{key:[a-z0-9:_-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
 
     // Library: the reader's entities composed from the content store (agents/DATA.md, docs/API.md "Library")
     $app->get('/api/library/toons', [LibraryController::class, 'toons']);
@@ -116,6 +121,7 @@ return static function (App $app): void {
     $app->get('/api/library/toons/{toon}/chapters/{number:[0-9]{1,6}}', [LibraryController::class, 'chapter']);
     $app->get('/api/library/toons/{toon}/cast', [LibraryController::class, 'cast']);
     $app->get('/api/library/toons/{toon}/credits', [LibraryController::class, 'credits']);
+    $app->get('/api/library/characters', [LibraryController::class, 'characters']);
     $app->get('/api/events', [LibraryController::class, 'events']);
 
     // PUBLIC URLS (printed): legacy validation for old viewer builds, public key of the certificate signatures

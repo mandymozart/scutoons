@@ -250,16 +250,16 @@ try {
     echo "\nContent store overview\n";
     $contentToon = 'admin-smoke-' . strtolower($run);
     $now = gmdate('Y-m-d H:i:s');
-    Db::run("INSERT INTO content_versions (toon, locale, path, json, author, created_at, status, message) VALUES (?, 'de', 'chapter1.json', '{}', NULL, ?, 'published', 'smoke')", [$contentToon, $now]);
-    Db::run("INSERT INTO content_versions (toon, locale, path, json, author, created_at, status, message) VALUES (?, 'de', 'chapter1.json', '{\"a\":1}', NULL, ?, 'draft', 'smoke')", [$contentToon, $now]);
+    Db::run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, 'chapter', ?, 'de', '{}', NULL, ?, 'published', 'smoke')", ["chapter:$contentToon:1:de", $contentToon, $now]);
+    Db::run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES (?, 'chapter', ?, 'de', '{\"a\":1}', NULL, ?, 'draft', 'smoke')", ["chapter:$contentToon:1:de", $contentToon, $now]);
     $r = call('GET', "$api/content", null, $adminToken);
-    $mine = array_values(array_filter((array) ($r['body']['files'] ?? []), fn($f) => ($f['toon'] ?? null) === $contentToon));
+    $mine = array_values(array_filter((array) ($r['body']['entities'] ?? []), fn($f) => ($f['toon'] ?? null) === $contentToon));
     check($r['status'] === 200 && in_array('catpope', array_column((array) ($r['body']['toons'] ?? []), 'id'), true) && in_array($contentToon, array_column((array) ($r['body']['toons'] ?? []), 'id'), true),
         'content: toons from config + store', array_keys((array) $r['body']));
-    check(count($mine) === 1 && $mine[0]['versions'] === 2 && $mine[0]['latest_status'] === 'draft' && is_int($mine[0]['published']) && $mine[0]['published'] < $mine[0]['latest'] && $mine[0]['published_at'] === $now,
+    check(count($mine) === 1 && $mine[0]['key'] === "chapter:$contentToon:1:de" && $mine[0]['kind'] === 'chapter' && $mine[0]['locale'] === 'de' && $mine[0]['versions'] === 2 && $mine[0]['latest_status'] === 'draft' && is_int($mine[0]['published']) && $mine[0]['published'] < $mine[0]['latest'] && $mine[0]['published_at'] === $now,
         'content: newest draft ahead of the published version', $mine);
     $r = call('GET', "$api/content?toon=$contentToon", null, $adminToken);
-    check($r['status'] === 200 && count($r['body']['files']) === 1 && count($r['body']['toons']) === 1, 'content ?toon= filter', $r['body']);
+    check($r['status'] === 200 && count($r['body']['entities']) === 1 && count($r['body']['toons']) === 1, 'content ?toon= filter', $r['body']);
     $r = call('GET', "$api/content?toon=" . urlencode('Bad Toon!'), null, $adminToken);
     check($r['status'] === 400 && $r['body']['error'] === 'invalid_toon', 'content: invalid toon → 400', $r);
     $r = call('GET', "$api/content", null, $memberToken);
@@ -304,7 +304,7 @@ try {
     echo "\nAvatar bodies & character unlocks (default: catpope swim + naked, AVATAR_DEFAULT_UNLOCKS)\n";
     // The unlock rules read the published character registry of the content store; a database without one gets a
     // minimal registry for the suite (removed at the end)
-    $registryRow = Db::one("SELECT id FROM content_versions WHERE toon = 'scutoons' AND locale = '_' AND path = 'characters.json' AND status = 'published' ORDER BY id DESC LIMIT 1");
+    $registryRow = Db::one("SELECT id FROM entity_versions WHERE entity_key = 'characters' AND status = 'published' ORDER BY id DESC LIMIT 1");
     if (!$registryRow) {
         $apose = fn(string $c, array $looks) => ['looks' => array_map(fn($l, $i) => ['id' => $l, 'default' => $i === 0, 'path' => "characters/$c/{$c}_apose-$l.webp", 'anchors' => ['torso' => ['x' => 1, 'y' => 1, 'size' => 1]]], $looks, array_keys($looks))];
         $json = json_encode(['characters' => [
@@ -312,8 +312,8 @@ try {
             ['id' => 'yellowmouse', 'name' => ['en' => 'Yellow Mouse'], 'color' => 'yellow', 'apose' => $apose('yellowmouse', ['swim', 'naked']), 'personas' => []],
             ['id' => 'toptoy', 'name' => ['en' => 'Toptoy'], 'color' => 'black', 'personas' => []],
         ]], JSON_UNESCAPED_SLASHES);
-        Db::run("INSERT INTO content_versions (toon, locale, path, json, author, created_at, status, message) VALUES ('scutoons', '_', 'characters.json', ?, NULL, ?, 'published', 'admin-smoke')", [$json, Db::now()]);
-        $testRegistryId = (int) Db::value('SELECT MAX(id) FROM content_versions');
+        Db::run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, ?, 'published', 'admin-smoke')", [$json, Db::now()]);
+        $testRegistryId = (int) Db::value('SELECT MAX(id) FROM entity_versions');
     }
     $userApi = "$base/api";
     $r = call('GET', "$userApi/me/", null, $memberToken);
@@ -375,7 +375,7 @@ try {
         Db::run('DELETE FROM code_events WHERE code = ?', [$scanCode]);
         Db::run('DELETE FROM qr WHERE code = ?', [$scanCode]);
     }
-    if (isset($contentToon)) Db::run('DELETE FROM content_versions WHERE toon = ?', [$contentToon]);
+    if (isset($contentToon)) Db::run('DELETE FROM entity_versions WHERE toon = ?', [$contentToon]);
     foreach (array_filter([$code, $batch['codes'][0]['code'] ?? null, $batch['codes'][1]['code'] ?? null]) as $c) {
         Db::run('DELETE FROM code_events WHERE code = ?', [$c]);
         Db::run('DELETE FROM qr WHERE code = ?', [$c]);
@@ -388,7 +388,7 @@ try {
             if ($files->exists($type, $name)) unlink($files->path($type, $name));
         }
     }
-    if (isset($testRegistryId)) Db::run('DELETE FROM content_versions WHERE id = ?', [$testRegistryId]);
+    if (isset($testRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$testRegistryId]);
     foreach ([$admin, $member] as $user) {
         foreach (['member_characters', 'member_character_looks', 'avatar_body', 'avatar_slots'] as $table) Db::run("DELETE FROM $table WHERE user_id = ?", [$user['id']]);
         Db::run('DELETE FROM sessions WHERE user_id = ?', [$user['id']]);

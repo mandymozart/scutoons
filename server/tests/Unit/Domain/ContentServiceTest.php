@@ -3,11 +3,14 @@ declare(strict_types=1);
 
 namespace Scutoons\Tests\Domain;
 
-use Scutoons\Console\ImportContentCommand;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Content\ContentService;
 use Scutoons\Tests\TestCase;
 
+/**
+ * The LEGACY path-keyed store (content_versions, replaced by EntityStore / entity_versions on 2026-09-30, agents/DATA.md).
+ * Kept only until the class is deleted (no route uses it any more).
+ */
 final class ContentServiceTest extends TestCase
 {
     public function testSavePublishRestore(): void
@@ -61,35 +64,5 @@ final class ContentServiceTest extends TestCase
         } catch (ApiError $error) {
             self::assertSame(422, $error->status);
         }
-    }
-
-    public function testImportAcceptsTheCreditsFiles(): void
-    {
-        // language-neutral credits files (shared/content/seed) next to the per-locale configs
-        foreach ([['_', 'credits.json'], ['_', 'people.json'], ['_', 'roles.json'], ['_', 'characters.json'], ['_', 'moods.json'], ['_', 'asset-requests.json'], ['_', 'cast.json'], ['de', 'chapter1.json'], ['de', 'chapter2/scene-14.json'], ['en', 'season1.json']] as [$locale, $path]) {
-            self::assertTrue(ImportContentCommand::isContentFile($locale, $path), "$locale/$path");
-        }
-        foreach ([['de', 'credits.json'], ['_', 'index.json'], ['_', 'chapter1.json'], ['de', 'characters.json']] as [$locale, $path]) {
-            self::assertFalse(ImportContentCommand::isContentFile($locale, $path), "$locale/$path");
-        }
-        ContentService::checkKey('scutoons', ContentService::NEUTRAL_LOCALE, 'people.json');
-        ContentService::checkKey('scutoons', ContentService::NEUTRAL_LOCALE, 'characters.json');
-        ContentService::checkKey('catpope', ContentService::NEUTRAL_LOCALE, 'cast.json');
-    }
-
-    public function testImportOnlyFilter(): void
-    {
-        self::assertTrue(ImportContentCommand::matchesOnly('cast.json', ['characters.json', 'cast.json']));
-        self::assertFalse(ImportContentCommand::matchesOnly('credits.json', ['characters.json', 'cast.json']));
-        self::assertTrue(ImportContentCommand::matchesOnly('chapter2/scene-14.json', []));
-    }
-
-    public function testSandboxStaysOutOfTheProductionSeed(): void
-    {
-        self::assertFalse(ImportContentCommand::includesToon('sandbox', null, true));
-        self::assertTrue(ImportContentCommand::includesToon('sandbox', 'sandbox', true));
-        self::assertTrue(ImportContentCommand::includesToon('sandbox', null, false));
-        self::assertTrue(ImportContentCommand::includesToon('catpope', null, true));
-        self::assertFalse(ImportContentCommand::includesToon('catpope', 'sandbox', false));
     }
 }

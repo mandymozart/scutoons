@@ -15,7 +15,7 @@ use Scutoons\Domain\Auth\LoginService;
 use Scutoons\Domain\Auth\Sessions;
 use Scutoons\Domain\Catalog\Catalog as CatalogService;
 use Scutoons\Domain\Codes\CodeService;
-use Scutoons\Domain\Content\ContentService;
+use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Roles\Roles as RolesService;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
@@ -236,6 +236,6 @@ final class Content
 {
     public static function maxBytes(): int
     {
-        return TestContainer::get(ContentService::class)->maxBytes();
+        return TestContainer::get(EntityStore::class)->maxBytes();
     }
 }

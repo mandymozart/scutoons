@@ -5,7 +5,7 @@ namespace Scutoons\Domain\Characters;
 
 use PDOException;
 use Scutoons\Domain\ApiError;
-use Scutoons\Domain\Content\ContentService;
+use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -26,8 +26,8 @@ use Throwable;
 final class CharacterUnlocks
 {
     public const SOURCES = ['default', 'code', 'item', 'story', 'admin'];
-    public const REGISTRY_TOON = 'scutoons';
-    public const REGISTRY_PATH = 'characters.json';
+    /** The character registry's entity key (published version) */
+    public const REGISTRY_KEY = 'characters';
     private const ID = '/^[a-z0-9][a-z0-9-]{0,63}$/';
 
     /** @var array<string, array<string, mixed>>|null character id → registry character (per request) */
@@ -37,7 +37,7 @@ final class CharacterUnlocks
         private readonly Database $db,
         private readonly Clock $clock,
         private readonly Settings $settings,
-        private readonly ContentService $content,
+        private readonly EntityStore $content,
     ) {
     }
 
@@ -66,9 +66,9 @@ final class CharacterUnlocks
         if ($this->registry !== null) return $this->registry;
         $this->registry = [];
         try {
-            $row = $this->content->published(self::REGISTRY_TOON, ContentService::NEUTRAL_LOCALE, self::REGISTRY_PATH);
+            $row = $this->content->published(self::REGISTRY_KEY);
         } catch (Throwable) {
-            $row = null; // content_versions not migrated yet
+            $row = null; // entity_versions not migrated yet
         }
         $data = $row ? json_decode((string) $row['json'], true) : null;
         foreach ((is_array($data) ? ($data['characters'] ?? []) : []) as $c) {

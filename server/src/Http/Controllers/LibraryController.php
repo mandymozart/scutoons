@@ -20,6 +20,7 @@ use Scutoons\Http\Middleware\Cors;
  *   GET /api/library/toons/{toon}/chapters/{n}?locale=   Chapter with its scenes inlined
  *   GET /api/library/toons/{toon}/cast[?chapter=]        { registry, cast }
  *   GET /api/library/toons/{toon}/credits                { credits, people, roles }
+ *   GET /api/library/characters                          CharacterRegistry (the whole registry)
  *   GET /api/events                                      Event[]
  * `?draft=1` (role creator): the newest versions, no status gates, not cached. Public answers: `Cache-Control: public,
  * max-age=60`, ETag (304 on If-None-Match), `Content-Language` / `X-Content-Fallback` for localized answers, any
@@ -73,6 +74,11 @@ final class LibraryController
     public function credits(Request $request, Response $response, array $args): Response
     {
         return $this->send($request, $response, $this->library->credits($args['toon'], $this->draft($request)));
+    }
+
+    public function characters(Request $request, Response $response): Response
+    {
+        return $this->send($request, $response, $this->library->characters($this->draft($request)));
     }
 
     public function events(Request $request, Response $response): Response

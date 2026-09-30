@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 namespace Scutoons\Tests\Domain;
 
+use Scutoons\Console\ContentFiles;
 use Scutoons\Console\ImportContentCommand;
 use Scutoons\Domain\ApiError;
-use Scutoons\Domain\Content\ContentService;
+use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Library\Library;
 use Scutoons\Tests\TestCase;
 
@@ -19,13 +21,22 @@ final class LibraryTest extends TestCase
         return ['CONTENT_SHOW_DRAFTS' => $this->showDrafts ? '1' : '0'] + parent::settings();
     }
 
-    /** Stores a document version (published unless told otherwise); returns its id */
+    /**
+     * Stores a version of the entity a file of the interchange layout stands for (published unless told otherwise);
+     * `<toon>/_/index.json` = the toon's index entry, `scutoons/_/events.json` = the events
+     */
     private function doc(string $toon, string $locale, string $path, mixed $data, bool $publish = true): int
     {
-        $content = $this->get(ContentService::class);
+        $key = match (true) {
+            $path === 'index.json' => "toon:$toon",
+            $path === 'events.json' => 'events',
+            default => ContentFiles::keyOf($toon, $locale, $path),
+        };
+        self::assertNotNull($key, "$toon/$locale/$path");
+        $store = $this->get(EntityStore::class);
         $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
-        $id = $content->insert($toon, $locale, $path, (string) $json, null, 'draft', null);
-        if ($publish) $content->setPublished(['id' => $id, 'toon' => $toon, 'locale' => $locale, 'path' => $path]);
+        $id = $store->insert(EntityKey::parse($key), (string) $json, null, 'draft', null);
+        if ($publish) $store->setPublished(['id' => $id, 'entity_key' => $key]);
         return $id;
     }
 
@@ -88,7 +99,7 @@ final class LibraryTest extends TestCase
         self::assertSame('scene en', $data['groups'][0]['label'], 'ref group replaced by the scene file');
         self::assertSame('inline', $data['groups'][1]['label']);
         self::assertSame(['ref' => ['src' => 'chapter1/gone.json']], $data['groups'][2], 'a missing scene keeps its ref group');
-        self::assertSame(['chapter1/gone.json'], $answer->missing);
+        self::assertSame(['scene:t:1:gone'], $answer->missing);
         self::assertStringContainsString('"params":{}', $answer->body, '{} stays an object');
         self::assertStringContainsString('"volume":1.0', $answer->body, 'zero fractions are kept');
 
@@ -223,9 +234,9 @@ final class LibraryTest extends TestCase
             file_put_contents("$root/t/de/$name.json", json_encode(['name' => $name]));
         }
         file_put_contents("$root/t/de/chapter1/scene-1.json", '{"params":{}}');
-        $keys = array_map(fn(array $s) => "$s[0]/$s[1]/$s[2]", ImportContentCommand::sources($root));
-        self::assertSame(['b/_/index.json', 'a/_/index.json', 'scutoons/_/events.json', 't/de/chapter1.json', 't/de/chapter1/scene-1.json',
-            't/de/locations.json', 't/de/routes.json', 't/de/season1.json', 't/de/toon.json'], $keys,
+        $keys = array_column(ContentFiles::sources($root), 0);
+        self::assertSame(['toon:b', 'toon:a', 'events', 'chapter:t:1:de', 'scene:t:1:scene-1:de',
+            'locations:t:de', 'routes:t:de', 'season:t:1:de', 'toon-settings:t:de'], $keys,
             'toons.json split in order, events, the map; legacy characters/credits.json and the removed collectables are not store files');
 
         $tester = new \Symfony\Component\Console\Tester\CommandTester($this->get(ImportContentCommand::class));
@@ -239,7 +250,7 @@ final class LibraryTest extends TestCase
         self::assertSame([['title' => 'E']], json_decode((string) file_get_contents("$out/events.json"), true));
         self::assertSame('{' . "\n" . '    "params": {}' . "\n}\n", file_get_contents("$out/t/de/chapter1/scene-1.json"));
         self::assertFileDoesNotExist("$out/t/de/characters.json");
-        $keysAgain = array_map(fn(array $s) => "$s[0]/$s[1]/$s[2]", ImportContentCommand::sources($out));
+        $keysAgain = array_column(ContentFiles::sources($out), 0);
         self::assertSame($keys, $keysAgain, 'the export reads back as the same documents');
     }
 }

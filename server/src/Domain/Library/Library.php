@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Library;
 
 use Scutoons\Domain\ApiError;
-use Scutoons\Domain\Content\ContentService;
+use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Infrastructure\Cache\Cache;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -12,22 +12,21 @@ use stdClass;
 
 /**
  * The reader's entity service (agents/DATA.md §3, docs/API.md "Library"): toons, seasons, chapters with their scenes
- * inlined, cast, credits and events, composed from the content store's documents (`content_versions`, keyed by
- * scope/locale/path – the configuration format of @scutoons/content stays the format of every document).
+ * inlined, cast, credits and events, composed from the content store's documents (`entity_versions`, keyed by entity
+ * key – the configuration format of @scutoons/content stays the format of every document).
  *
  * - Locale: the asked one, else the toon's source language, else another language of the toon (per document).
- * - Visibility (the viewer's rules, now on the server): toon index entry + toon.json must be public, a chapter's
+ * - Visibility (the viewer's rules, now on the server): toon index entry + toon settings must be public, a chapter's
  *   status is the season's `sequence[].status`; `coming-soon` → 403 coming_soon, `draft` / not listed → 403 not_public.
  *   CONTENT_SHOW_DRAFTS makes `draft` readable (local development). Draft mode (creators) reads the newest versions and
  *   skips every gate.
- * - Cache: answers are cached under endpoint + snapshot fingerprint (all version ids of the scopes), so a publish
+ * - Cache: answers are cached under endpoint + snapshot fingerprint (all version ids involved), so a publish
  *   changes the key – no invalidation. Drafts are never cached.
  */
 final class Library
 {
-    /** The platform pseudo-toon of global documents (characters, people, roles, events) = CREDITS_SCOPE */
+    /** Not a toon id (the old pseudo-toon of platform-wide documents) */
     public const PLATFORM = 'scutoons';
-    public const NEUTRAL = ContentService::NEUTRAL_LOCALE;
     public const PUBLISHED = 'published';
     public const DRAFT = 'draft';
     public const COMING_SOON = 'coming-soon';
@@ -60,9 +59,8 @@ final class Library
         $snapshot = Snapshot::toonIndex($this->db, $draft);
         return $this->answer('toons', $snapshot, function () use ($snapshot, $draft): array {
             $list = [];
-            foreach ($snapshot->scopes() as $toon) {
-                if ($toon === self::PLATFORM) continue;
-                $entry = $snapshot->doc($toon, self::NEUTRAL, 'index.json');
+            foreach ($snapshot->ordered() as $key) {
+                $entry = $snapshot->doc($key);
                 if (!$entry instanceof stdClass) continue;
                 $status = $entry->status ?? null;
                 $visible = $draft || $status === self::PUBLISHED || ($status === self::DRAFT && $this->showDrafts());
@@ -79,18 +77,19 @@ final class Library
         $locale ??= $ctx->source;
         return $this->answer("toon:$toon:$locale", $ctx->snapshot, function () use ($ctx, $locale): array {
             [$served, $toonDoc] = $this->visibleToon($ctx, $locale);
+            $toon = $ctx->toon;
             $seasons = [];
             foreach ($this->seasonNumbers($ctx) as $number) {
                 $overview = $this->seasonOverview($ctx, $number, $locale);
                 if ($overview !== null) $seasons[] = $overview;
             }
-            $list = fn(string $path) => $ctx->pick($path, $locale)[1] ?? [];
+            $list = fn(string $kind) => $ctx->pick("$kind:$toon", $locale)[1] ?? [];
             return [[
                 'entry' => $ctx->entry,
                 'toon' => $toonDoc,
                 'seasons' => $seasons,
-                'locations' => $list('locations.json'),
-                'routes' => $list('routes.json'),
+                'locations' => $list('locations'),
+                'routes' => $list('routes'),
             ], $served];
         }, $ctx);
     }
@@ -118,7 +117,7 @@ final class Library
             if (!$ctx->draft) {
                 $status = $this->chapterStatus($ctx, $number, $locale);
                 if ($status === self::COMING_SOON) {
-                    $picked = $ctx->pick("chapter$number.json", $locale);
+                    $picked = $ctx->pick("chapter:$ctx->toon:$number", $locale);
                     throw new ApiError(403, 'coming_soon', "Chapter $number is coming soon.",
                         ['chapter' => self::summary($picked[1] ?? null, 'chapter', $number, $status)]);
                 }
@@ -127,7 +126,7 @@ final class Library
                 }
             }
             $ctx->fallback = false; // the answer's fallback flag = the chapter + its scenes
-            $picked = $ctx->pick("chapter$number.json", $locale)
+            $picked = $ctx->pick("chapter:$ctx->toon:$number", $locale)
                 ?? throw new ApiError(404, 'not_found', "Chapter $number of $ctx->toon not found.");
             [$served, $chapter] = $picked;
             if (!$chapter instanceof stdClass) throw new ApiError(404, 'not_found', "Chapter $number of $ctx->toon not found.");
@@ -137,7 +136,7 @@ final class Library
 
     /**
      * GET /library/toons/{toon}/cast[?chapter=N] → { registry, cast }: the character registry reduced to the toon's cast
-     * (or to the characters the chapter's events reference) + the toon's cast.json; null where a document is missing.
+     * (or to the characters the chapter's events reference) + the toon's cast; null where one is missing.
      * Language-neutral: the client resolves names/images per locale with resolveCast().
      */
     public function cast(string $toon, ?int $chapter, bool $draft): Answer
@@ -145,10 +144,10 @@ final class Library
         $ctx = $this->context($toon, $draft);
         return $this->answer("cast:$toon:" . ($chapter ?? '*'), $ctx->snapshot, function () use ($ctx, $chapter): array {
             $this->visibleToon($ctx, $ctx->source);
-            $cast = $ctx->snapshot->doc($ctx->toon, self::NEUTRAL, 'cast.json');
-            $registry = $ctx->snapshot->doc(self::PLATFORM, self::NEUTRAL, 'characters.json');
+            $cast = $ctx->snapshot->doc("cast:$ctx->toon");
+            $registry = $ctx->snapshot->doc('characters');
             if ($chapter !== null) {
-                $doc = $ctx->pick("chapter$chapter.json", $ctx->source);
+                $doc = $ctx->pick("chapter:$ctx->toon:$chapter", $ctx->source);
                 if ($doc === null || !$doc[1] instanceof stdClass) throw new ApiError(404, 'not_found', "Chapter $chapter of $ctx->toon not found.");
                 $ids = self::referencedCharacters($this->withScenes($ctx, $doc[1], $doc[0]));
             } else {
@@ -171,33 +170,43 @@ final class Library
         }, $ctx);
     }
 
-    /** GET /library/toons/{toon}/credits → { credits, people (referenced only), roles }; 404 without credits.json */
+    /** GET /library/toons/{toon}/credits → { credits, people (referenced only), roles }; 404 without credits */
     public function credits(string $toon, bool $draft): Answer
     {
         $ctx = $this->context($toon, $draft);
         return $this->answer("credits:$toon", $ctx->snapshot, function () use ($ctx): array {
             $this->visibleToon($ctx, $ctx->source);
-            $credits = $ctx->snapshot->doc($ctx->toon, self::NEUTRAL, 'credits.json');
+            $credits = $ctx->snapshot->doc("credits:$ctx->toon");
             if (!$credits instanceof stdClass) throw new ApiError(404, 'not_found', "Toon $ctx->toon has no credits.");
-            $people = $ctx->snapshot->doc(self::PLATFORM, self::NEUTRAL, 'people.json');
+            $people = $ctx->snapshot->doc('people');
             if ($people instanceof stdClass && is_array($people->people ?? null)) {
                 $people = clone $people;
                 $people->people = self::referencedPeople($credits, $people->people);
             } else {
                 $people = null;
             }
-            $roles = $ctx->snapshot->doc(self::PLATFORM, self::NEUTRAL, 'roles.json');
+            $roles = $ctx->snapshot->doc('roles');
             $ctx->fallback = false;
             return [['credits' => $credits, 'people' => $people, 'roles' => $roles instanceof stdClass ? $roles : null], null];
         }, $ctx);
     }
 
-    /** GET /events → the stored events document (`scutoons/_/events.json`) */
+    /** GET /library/characters → the whole character registry (e.g. every A-pose body for the reader's avatar picker) */
+    public function characters(bool $draft): Answer
+    {
+        $snapshot = Snapshot::platform($this->db, $draft);
+        return $this->answer('characters', $snapshot, function () use ($snapshot): array {
+            $registry = $snapshot->doc('characters') ?? throw new ApiError(404, 'not_found', 'No characters stored.');
+            return [$registry, null];
+        });
+    }
+
+    /** GET /events → the stored events document (entity `events`) */
     public function events(bool $draft): Answer
     {
-        $snapshot = Snapshot::load($this->db, [self::PLATFORM], $draft);
+        $snapshot = Snapshot::platform($this->db, $draft);
         return $this->answer('events', $snapshot, function () use ($snapshot): array {
-            $events = $snapshot->doc(self::PLATFORM, self::NEUTRAL, 'events.json')
+            $events = $snapshot->doc('events')
                 ?? throw new ApiError(404, 'not_found', 'No events stored.');
             return [$events, null];
         });
@@ -207,12 +216,14 @@ final class Library
 
     private function context(string $toon, bool $draft): Context
     {
-        if (!preg_match(ContentService::TOON_PATTERN, $toon)) throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
+        if (!preg_match(EntityKey::TOON_PATTERN, $toon)) throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
         if ($toon === self::PLATFORM) throw new ApiError(404, 'not_found', "Unknown toon $toon.");
-        $snapshot = Snapshot::load($this->db, [$toon, self::PLATFORM], $draft);
-        $entry = $snapshot->doc($toon, self::NEUTRAL, 'index.json');
+        $snapshot = Snapshot::toon($this->db, $toon, $draft);
+        $entry = $snapshot->doc("toon:$toon");
         $entry = $entry instanceof stdClass ? $entry : null;
-        [$source, $languages] = self::languages($entry, $snapshot->locales($toon));
+        $stored = [];
+        foreach ($snapshot->keys("toon-settings:$toon:") as $key) $stored[] = substr($key, strlen("toon-settings:$toon:"));
+        [$source, $languages] = self::languages($entry, $stored);
         return new Context($snapshot, $toon, $entry, $source, $languages, $draft, $draft || $this->showDrafts());
     }
 
@@ -238,7 +249,7 @@ final class Library
     }
 
     /**
-     * The toon's toon.json when the toon is visible (index entry + toon.json public; production needs the index
+     * The toon's settings when the toon is visible (index entry + settings public; production needs the index
      * entry), else 404 – like the viewer's toon layout
      * @return array{0: string, 1: stdClass}
      */
@@ -248,7 +259,7 @@ final class Library
         if (!$ctx->draft) {
             if ($ctx->entry === null ? !$ctx->includeDrafts : !$ctx->isPublic($ctx->entry->status ?? null)) throw $notFound;
         }
-        $picked = $ctx->pick('toon.json', $locale);
+        $picked = $ctx->pick("toon-settings:$ctx->toon", $locale);
         if ($picked === null || !$picked[1] instanceof stdClass) throw $notFound;
         if (!$ctx->draft && !$ctx->isPublic($picked[1]->status ?? null)) throw $notFound;
         $ctx->servedLocale = $picked[0];
@@ -259,11 +270,7 @@ final class Library
     private function seasonNumbers(Context $ctx): array
     {
         $numbers = [];
-        foreach ($ctx->languages as $locale) {
-            foreach ($ctx->snapshot->paths($ctx->toon, $locale) as $path) {
-                if (preg_match('#^season(\d+)\.json$#', $path, $m)) $numbers[(int) $m[1]] = true;
-            }
-        }
+        foreach ($ctx->snapshot->keys("season:$ctx->toon:") as $key) $numbers[(int) explode(':', $key)[2]] = true;
         $numbers = array_keys($numbers);
         sort($numbers);
         return $numbers;
@@ -272,7 +279,7 @@ final class Library
     /** SeasonOverview { number, season, chapters: ChapterSummary[] } – the toon layout's chapter list, or null */
     private function seasonOverview(Context $ctx, int $number, string $locale): ?stdClass
     {
-        $picked = $ctx->pick("season$number.json", $locale);
+        $picked = $ctx->pick("season:$ctx->toon:$number", $locale);
         if ($picked === null || !$picked[1] instanceof stdClass) return null;
         [$served, $season] = $picked;
         $chapters = [];
@@ -282,10 +289,10 @@ final class Library
             $status = $item->status ?? null;
             if (!$ctx->draft && !$ctx->isListed($status)) continue;
             $type = is_string($item->type ?? null) ? $item->type : 'chapter';
-            $path = $type . $itemNumber . '.json';
-            $chapter = $ctx->pick($path, $served);
+            $entity = "$type:$ctx->toon:$itemNumber";
+            $chapter = $ctx->pick($entity, $served);
             if ($chapter === null) {
-                if ($status !== self::COMING_SOON) $ctx->missing[] = $path;
+                if ($status !== self::COMING_SOON) $ctx->missing[] = $entity;
                 $chapters[] = self::summary(null, $type, $itemNumber, $status);
                 continue;
             }
@@ -323,7 +330,7 @@ final class Library
     private function chapterStatus(Context $ctx, int $number, string $locale): ?string
     {
         foreach ($this->seasonNumbers($ctx) as $season) {
-            $doc = $ctx->pick("season$season.json", $locale)[1] ?? null;
+            $doc = $ctx->pick("season:$ctx->toon:$season", $locale)[1] ?? null;
             foreach ($doc instanceof stdClass && is_array($doc->sequence ?? null) ? $doc->sequence : [] as $item) {
                 if (is_object($item) && ($item->type ?? 'chapter') === 'chapter' && (int) ($item->number ?? 0) === $number) {
                     return is_string($item->status ?? null) ? $item->status : self::PUBLISHED;
@@ -344,9 +351,10 @@ final class Library
                 $groups[] = $group;
                 continue;
             }
-            $scene = preg_match(ContentService::PATH_PATTERN, $src) === 1 ? $ctx->pick($src, $locale) : null;
+            $entity = EntityKey::sceneOf($ctx->toon, $src);
+            $scene = $entity !== null ? $ctx->pick($entity, $locale) : null;
             if ($scene === null) {
-                $ctx->missing[] = $src;
+                $ctx->missing[] = $entity ?? $src;
                 $groups[] = $group;
                 continue;
             }

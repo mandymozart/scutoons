@@ -31,16 +31,16 @@ final class Context
     }
 
     /**
-     * A localized document of the toon: the asked locale, else the source language, else any other language of the
-     * toon. Records a fallback when the served locale differs from the asked one.
+     * A localized entity (`chapter:<toon>:2`) in the asked locale, else the source language, else any other language
+     * of the toon. Records a fallback when the served locale differs from the asked one.
      * @return array{0: string, 1: mixed}|null [served locale, document]
      */
-    public function pick(string $path, string $locale): ?array
+    public function pick(string $entity, string $locale): ?array
     {
         foreach (array_values(array_unique([$locale, $this->source, ...$this->languages])) as $candidate) {
-            if (!$this->snapshot->has($this->toon, $candidate, $path)) continue;
+            if (!$this->snapshot->has("$entity:$candidate")) continue;
             if ($candidate !== $locale) $this->fallback = true;
-            return [$candidate, $this->snapshot->doc($this->toon, $candidate, $path)];
+            return [$candidate, $this->snapshot->doc("$entity:$candidate")];
         }
         return null;
     }

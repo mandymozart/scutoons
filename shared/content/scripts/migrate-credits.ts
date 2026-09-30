@@ -4,7 +4,7 @@
 // → <out>/scutoons/_/people.json, <out>/scutoons/_/roles.json, <out>/<toon>/_/credits.json (+ report on stdout).
 //
 //   node --experimental-transform-types --no-warnings shared/content/scripts/migrate-credits.ts \
-//        [--api=viewer/static/api] [--toon=catpope] [--out=shared/content/seed] [--json]
+//        [--api=shared/content/legacy] [--toon=catpope] [--out=shared/content/seed] [--json]
 //
 // Then import (published version 1, idempotent):  php server/bin/console import-content shared/content/seed
 // Production SQL:                                 php server/bin/console import-content shared/content/seed --sql
@@ -37,7 +37,7 @@ import {
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const arg = (name: string, fallback: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
-const API = resolve(repo, arg('api', 'viewer/static/api'));
+const API = resolve(repo, arg('api', 'shared/content/legacy'));
 const TOON = arg('toon', 'catpope');
 const OUT = resolve(repo, arg('out', 'shared/content/seed'));
 const LOCALES = ['de', 'en'] as const;

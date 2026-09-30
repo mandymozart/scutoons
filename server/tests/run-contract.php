@@ -10,7 +10,7 @@
  * 2. starts the API `php -S 127.0.0.1:<port> -t public public/router.php` (QR_DB_SQLITE_PATH = the copy, a random
  *    QR_PROXY_SECRET) and the qr app (../qr) in front of it: <port+1> full API proxied, <port+2> PROXY_FULL_API=0,
  *    <port+3> with its API down (fallback page), <port+4> in front of a second API (<port+5>) with lookup + scan limit 1;
- *    <port+6> = an API on a FRESH database seeded with import-content from viewer/static/api + shared/content/seed
+ *    <port+6> = an API on a FRESH database seeded with import-content from shared/content/seed (the interchange files)
  *    (CONTENT_SHOW_DRAFTS=1) for the library compare
  * 3. runs api-smoke, content-smoke, claim-race (claim + signup), admin-smoke, entities-smoke against the API,
  *    entities-compare against <port+6> and the printed-URL suite (../qr/tests/public-urls.php) against the qr app
@@ -60,16 +60,15 @@ $insert->execute(['contract-revoked', 'contractRevoked1', '2020-01-01 00:00:00',
 $pdo->exec('DELETE FROM settings');
 $pdo = null;
 
-// A FRESH database seeded from the static files + the content seed only: the library compare (tests/entities-compare.php)
+// A FRESH database seeded from the interchange files (shared/content/seed) only: the library compare (tests/entities-compare.php)
 $fresh = str_replace('\\', '/', sys_get_temp_dir()) . '/scutoons-contract-fresh-' . getmypid() . '.sqlite';
 @unlink($fresh);
 $freshDb = Scutoons\Infrastructure\Database\Database::sqlite($fresh);
 (new Scutoons\Infrastructure\Database\MigrationRunner($freshDb, $root . '/migrations'))->migrate(static fn() => null);
 $freshDb->close();
 $freshDb = null;
-$staticApi = dirname($root) . '/viewer/static/api';
 $contentSeed = dirname($root) . '/shared/content/seed';
-foreach ([$staticApi, $contentSeed] as $folder) {
+foreach ([$contentSeed] as $folder) {
     exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("$root/bin/console") . ' import-content ' . escapeshellarg($folder) . ' --db=' . escapeshellarg($fresh), $importOut, $importCode);
     if ($importCode !== 0) {
         fwrite(STDERR, "import-content $folder failed:\n" . implode("\n", array_slice($importOut, -10)) . "\n");
@@ -123,12 +122,12 @@ try {
     $publicUrls = "$qrRoot/tests/public-urls.php";
     $suites = [
         'api-smoke' => ['tests/api-smoke.php', $base, 'http://127.0.0.1:' . ($port + 1)],
-        'content-smoke' => ['tests/content-smoke.php', $base],
+        'content-smoke' => ['tests/content-smoke.php', $base, $contentSeed],
         'claim-race (claim)' => ['tests/claim-race.php', '8', 'claim'],
         'claim-race (signup)' => ['tests/claim-race.php', '8', 'signup'],
         'admin-smoke' => ['tests/admin-smoke.php', $base, 'http://127.0.0.1:' . ($port + 1)],
         'entities-smoke' => ['tests/entities-smoke.php', $base],
-        'entities-compare (fresh DB = static files)' => ['tests/entities-compare.php', 'http://127.0.0.1:' . ($port + 6), "--static=$staticApi", "--seed=$contentSeed"],
+        'entities-compare (fresh DB = the seed files)' => ['tests/entities-compare.php', 'http://127.0.0.1:' . ($port + 6), "--static=$contentSeed", "--seed=$contentSeed"],
         'public-urls (qr app → API)' => [$publicUrls, 'http://127.0.0.1:' . ($port + 1), "--api=$base", "--db=$copy",
             '--down=http://127.0.0.1:' . ($port + 3), '--limited=http://127.0.0.1:' . ($port + 4)],
         'public-urls (PROXY_FULL_API=0)' => [$publicUrls, 'http://127.0.0.1:' . ($port + 2), "--api=$base", "--db=$copy", '--full-api=off'],
