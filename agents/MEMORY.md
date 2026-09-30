@@ -36,11 +36,15 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
 
 ## Images on CDN (catpope)
 
-- Ch1: `images/3x/de/S1C1 - Slice N.jpg` 94 × 1170×1875 (text baked in, German). `images/webtoon/de/` = 799×1280
-  exports for the Webtoon platform, unused by configs.
-- Ch2: `images/1x/de/s1c2-slice-1..25.jpg` 390×625 (1x only; 15, 21, 22 unused). No 3x, no en.
-- Missing on CDN but referenced: `images/s1c1-thumbnail.jpg`, `images/s1c2-thumbnail.jpg`,
-  `images/1x/s1c2-key-visual.jpg`.
+- 2026-09-30 (owner): the `images/1x/` and `3x/` folders are gone locally (still on the live CDN for the released
+  viewer). Slices live in `images/webtoon/<sXcY>/<sXcY>-slice-N.webp`, 1x only, 390 px wide (standard 390 × 625),
+  written by `cdn/tools/make_slice_webp.py` next to the delivered JPGs. Ch1: `webtoon/s1c1/s1c1-slice-1..94.webp` from
+  `webtoon/de/S1C1 - Slice N.jpg` (799×1280, text baked in German – the owner's source, untouched). Ch2: the fresh set
+  `webtoon/s1c2/s1c2-slice-1..22.{jpg,webp}` (390×625) – not wired yet: the chapter-2 configs still point to the old
+  25-slice cut `images/1x/de/s1c2-slice-*.jpg` (not local any more, live only) with 390 × 625 sizes.
+- Key visual: `images/s1c1-key-visual.jpg` (1170×2535, moved out of 3x) + `.webp` (390×845, the video poster);
+  video `videos/s1c1-key-visual.900w.mp4` (slice 1 of chapter 1; the 17 MB original stays).
+- Music `audio/music/*.128.mp3` (originals locally `*.320.mp3`); samples still 320 kbps.
 
 ## Chapters (season1 sequence)
 
@@ -649,6 +653,15 @@ affiliations, the cast group and the mannequin field were added and removed agai
 - Prod: chapter 1 = 43 MB (31 MB 320 kbps music decoded up front, 11 MB eager 3x JPG slices) → 23-25 s on 4G;
   proposals P1 (music), P2 (lazy + WebP slices, needs slice dimensions) are the big wins.
 - Measure: `node scripts/perf/measure.mjs <label> <url> [--throttle] [--init=file.js]` (headless Chrome, CDP).
+
+- 2026-09-30 (later) — P1–P3 done + video slices (PERFORMANCE.md "P1–P3 + video slices — result"): chapter 1 on 4G
+  42 MB / 22.3 s → 6.4 MB / 5.1 s (page without media streams), CLS 0.76 → 0. Music streamed through its own AudioContext
+  (never Howler's: Howler closes/replaces its context), loads after the first 2 slices; slice-1 music now actually starts.
+  `Slice.width`/`height` required (error), `video` optional (image = poster); reader lazy-loads all but the first 2.
+  Character images: WebP next to the PNGs, registry points to WebP. Test helpers used: a CDP recorder of gain ramps /
+  sample starts while scrolling, and a VN click-through counting character image bytes (both ad hoc, not committed).
+- Gotcha: `vite preview` (sirv) caches the file list at start – restart it after every `vite build`. The locale of a
+  headless check is the cookie `PARAGLIDE_LOCALE` (the `/en/` prefix alone rendered German in the preview build).
 
 ## Sandbox (VN test bed) – chapter 6 removed
 

@@ -119,13 +119,13 @@ Gotcha: `npm run build` compiles paraglide as per-message modules into the same 
 that is still running then serves ~200–380 message files again until it restarts (it recompiles as locale modules
 on start).
 
-## Proposals (not implemented — bigger changes)
+## Proposals (P1–P3 done 2026-09-30, see "P1–P3 + video slices — result" below; P4–P7 open)
 
 | # | Proposal | Expected gain (chapter 1, 4G 20 Mbit/60 ms) |
 |---|---|---|
-| P1 | **Music**: re-encode the tracks at 128 kbps MP3 (`s1c2` 16.5 → 6.6 MB) or Opus 96 kbps (5.1 MB). Stream them with Howler `html5: true` / `<audio>` + `MediaElementSource` so the crossfade still works, **or** start loading the music only after the first slices are shown / after the first user gesture (browsers block autoplay until then anyway). Load samples lazily when their slice comes near. | −31 MB (−72 % of bytes): 24 s → ~7 s without any other change; 5 s → 2 s CPU |
-| P2 | **Slices**: `loading="lazy"` + `decoding="async"` **with `width`/`height` (or aspect-ratio) in the chapter config** (without them the lazy slices collapse to height 0, all intersect at once and `sliceAudio` triggers would fire together, so this needs the dimensions first). Serve WebP q80 through `<picture>`/`srcset` 2x/3x. Measured on all 94 chapter-1 slices: JPG 3x 11.3 MB → WebP 3x 7.0 MB (−39 %) → WebP 2x 4.1 MB (−64 %). | First screen needs ~2 slices (~0.2 MB) instead of 11 MB; whole chapter −4 to −7 MB |
-| P3 | **Portraits / character art**: WebP q85 (412 KB → 52 KB, −87 %); lossless WebP −31 %. | −1 to −3 MB per VN scene |
+| P1 ✅ | **Music**: re-encode the tracks at 128 kbps MP3 (`s1c2` 16.5 → 6.6 MB) or Opus 96 kbps (5.1 MB). Stream them with Howler `html5: true` / `<audio>` + `MediaElementSource` so the crossfade still works, **or** start loading the music only after the first slices are shown / after the first user gesture (browsers block autoplay until then anyway). Load samples lazily when their slice comes near. | −31 MB (−72 % of bytes): 24 s → ~7 s without any other change; 5 s → 2 s CPU |
+| P2 ✅ (owner: 1x WebP only, no srcset) | **Slices**: `loading="lazy"` + `decoding="async"` **with `width`/`height` (or aspect-ratio) in the chapter config** (without them the lazy slices collapse to height 0, all intersect at once and `sliceAudio` triggers would fire together, so this needs the dimensions first). Serve WebP q80 through `<picture>`/`srcset` 2x/3x. Measured on all 94 chapter-1 slices: JPG 3x 11.3 MB → WebP 3x 7.0 MB (−39 %) → WebP 2x 4.1 MB (−64 %). | First screen needs ~2 slices (~0.2 MB) instead of 11 MB; whole chapter −4 to −7 MB |
+| P3 ✅ | **Portraits / character art**: WebP q85 (412 KB → 52 KB, −87 %); lossless WebP −31 %. | −1 to −3 MB per VN scene |
 | P4 | **One request per chapter**: an API endpoint (or a build step) that returns `chapterN.json` with its scene files inlined, plus a season "overview" with the list fields of every chapter (title, thumbnail, release), so the layout doesn't download six full chapter configs (~24 KB each) just to show the list. | −6 to −10 requests; −2 round trips on VN chapters (~120 ms on 4G); −100 KB JSON on `/catpope` |
 | P5 | **Production hosting**: confirm OPcache on all-inkl (PHP-FPM). Enable PHP-DI container compilation (`enableCompilation` into `storage/cache`) + `composer dump-autoload -o --classmap-authoritative` in the deploy. HTTP/2 on all subdomains. | a few ms per API call; the API is already ~15 ms with OPcache |
 | P6 | **CDN plan** (with the owner, see PLATFORM.md "CDN"): long `Cache-Control: max-age=31536000, immutable` for content-hashed media (P1–P3 produce new names anyway), Brotli/gzip for JSON/SVG (`map-layer-terrain.svg` 330 KB), bunny.net in front of all-inkl. | repeat visits load no media again; SVG −70 % |
@@ -134,6 +134,48 @@ on start).
 Suggested order: P1 (the single biggest win, a re-encode plus a loader flag), then P2 (needs slice dimensions in the
 config / creator), then P3, then P4–P6 with the production cutover.
 
+## P1–P3 + video slices — result (2026-09-30)
+
+Owner decisions, in this order, each measured with `scripts/perf/measure.mjs` on a production build (`vite build` +
+`vite preview` :4173 against the local API and CDN), chapter 1 (de), 390×844 @3x, **4G throttling**, cold cache, median
+of 3 runs. New metrics in the tool: LCP / CLS (when the init script records them), bytes of cancelled media streams, and
+"loaded without media streams" (an `<audio>`/`<video>` keeps its connection open while it buffers, so network idle comes
+~10 s late without saying anything about the page).
+
+| Chapter 1, 4G | Before | P1 music | + P2 slices (video blocked) | + video slice 1 (final) |
+|---|---|---|---|---|
+| Bytes on open | **42.0 MB** | 14.7 MB | 3.9 MB | **6.4 MB** (video 2.7 MB, samples 2.8 MB, music 0.25 MB buffered) |
+| Page loaded (without media streams) | 22.3 s | 7.3 s | 3.9 s | **5.1 s** |
+| Network idle incl. streams | 22.3 s | 17.3 s | 16.6 s | 16.8 s |
+| First contentful paint | 1.23 s | 1.19 s | 1.01 s | 1.17 s |
+| Largest contentful paint | 1.58 s | 1.50 s | 1.08 s | 1.24 s |
+| Cumulative layout shift | **0.76** | 0.76 | 0 | **0** |
+| Main-thread CPU | 5.0 s | 3.2 s | 2.9 s | 2.5 s |
+| Requests | 183 | 184 | 94 | 94 |
+| Whole chapter scrolled to the end | 42 MB | – | – | **8.4 MB** |
+
+- **P1 music**: `audio/music/*.128.mp3` (128 kbps, 4.9 + 6.6 MB instead of 12.3 + 16.5 MB; the originals stay locally as
+  `*.320.mp3`, the live CDN keeps the old names for the released viewer). `AdaptiveMusicPlayer` streams: one `<audio>`
+  per track → `MediaElementAudioSourceNode` → gain per track on the music's own AudioContext (Howler replaces its context
+  on every cleanup and once for the sample rate, which silenced media elements bound to it). Crossfades stay gain ramps
+  (iOS ignores `audio.volume`, so Howler `html5: true` would have broken them). The chapter's audio starts loading after the
+  media of the first 2 slices (max. 4 s). Checked with a CDP recorder that logs every gain ramp, sample start and media
+  play while scrolling slice by slice: the same targets at the same slices before/after (15: 0.2/0.5, 19: 0/0.5, 26: 0.1/0.8,
+  30: 0.2/0, 93: 0/0; bells 4, choir_once 44, choir_loud 89), plus one fix: **slice 1's `calmness 0.2` was lost before**
+  (the slice's trigger fired while the tracks were still loading, so the music stayed silent until slice 15); now the
+  volumes asked for while loading are applied (faded in) when the music starts. Gesture start (no autoplay) checked too.
+- **P2 slices** (owner: 1x only, WebP only, no srcset / JPG fallback): `images/webtoon/<sXcY>/<sXcY>-slice-N.webp`,
+  390 px wide (`cdn/tools/make_slice_webp.py`), chapter 1: 94 × 10.3 MB JPG (799×1280 source) → 2.0 MB WebP.
+  `Slice.width`/`height` (required, validation error), `<img loading="lazy" decoding="async" width height>`, first 2
+  slices eager. CLS 0.76 → 0 (the old eager JPGs had no size either). Text boxes checked de + en (same 5:8 ratio).
+- **P3 character images**: WebP q85 next to every portrait / avatar / transition PNG (180 files, 39.3 → 6.1 MB). The
+  measure tool can't click through a VN, so a CDP click-through of the sandbox VN chapters counted the character image bytes
+  (before = the same run with the PNG paths): sandbox chapter 1 **20.0 → 2.4 MB**, chapter 5 **15.0 → 2.1 MB**.
+- **Video slice**: the chapter-1 key visual (17 MB, 1080×2368, 10.6 Mbit/s) → `videos/s1c1-key-visual.900w.mp4`
+  (900×1974, H.264 High, CRF 27, `+faststart`, no audio track: 2.7 MB) as slice 1 (poster `images/s1c1-key-visual.webp`),
+  carrying the slice-1 music.
+- Left for later: the samples (2.8 MB at 320 kbps, Web Audio, loaded in full) are now the biggest audio item – 128 kbps
+  and/or loading them when their slice comes near would save ~2 MB; P4–P7.
 ## Re-measuring
 
 ```bash

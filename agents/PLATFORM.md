@@ -475,7 +475,7 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
   `portrait` is authored; `avatar` = generated 192px downscale, `full` unused.
 - Former characters are Cat Pope personas: plf → `human`, cat → `cat`, mountain-tiger → `mountaintiger`
   (`LEGACY_CHARACTER_IDS`: old refs still resolve).
-- Paths are stored explicitly (CDN root). Convention for new files: `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.png`,
+- Paths are stored explicitly (CDN root). Convention for new files: `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (delivered as PNG under the same name; the characters import runs `cdn/tools/make_character_webp.py` first: WebP q85 + a generated 192 px avatar, the registry points to the WebP; transitions likewise `.webp`),
   A-pose `characters/<character>/<character>_apose-<look>.webp`.
 - **Transitions are named after their states (owner 2026-09-30):**
   `characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.png` (look ids, e.g.
@@ -517,6 +517,11 @@ Rules now:
 - One config value per app for the CDN base (`VITE_CDN_URL`, server `CDN_URL`) — switching origin/pull zone later is a
   config change, not a code change.
 - New uploads get content-hashed or versioned filenames where they may change (cache-safe for a global CDN).
+- Media conventions (2026-09-30, PERFORMANCE.md P1–P3): slices `<toon>/images/webtoon/<sXcY>/<sXcY>-slice-N.webp` (1x, 390 px
+  wide, standard 390 × 625, every slice carries width/height); character images WebP next to the delivered PNGs; music
+  `audio/music/<name>.128.mp3` (128 kbps, streamed); slice videos H.264 MP4 ≤ 3 MB with the size in the name
+  (`videos/s1c1-key-visual.900w.mp4`). A changed file gets a new name – the old one stays on the CDN for older builds
+  (sync.py never deletes; a local file with the old name but other content would make sync.py ask to overwrite).
 - A separate CDN plan (bunny pull zone ↔ all-inkl origin, cache purge on sync, app builds on CDN) is written with the
   owner before any change.
 
