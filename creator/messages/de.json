@@ -209,7 +209,7 @@
 		"characters_character": "Figur",
 		"characters_color": "Farbe",
 		"characters_convention_all": "auch wo die Datei fehlt",
-		"characters_convention_hint": "Konvention für neue Bilder (ab CDN-Wurzel): {path}. Leere Zellen zeigen (blass), was der Reader stattdessen zeigt: das Neutral des Looks – bei einem leeren Look den Standard-Look – dann das Einzelbild.",
+		"characters_convention_hint": "Konvention für neue Bilder (ab CDN-Wurzel): {path} (Lieferung als PNG unter demselben Namen – der Charakter-Import schreibt WebP und Avatar). Leere Zellen zeigen (blass), was der Reader stattdessen zeigt: das Neutral des Looks – bei einem leeren Look den Standard-Look – dann das Einzelbild.",
 		"characters_create": "Anlegen",
 		"characters_create_named": "„{name}“ anlegen",
 		"characters_default": "Standard",

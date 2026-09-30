@@ -209,7 +209,7 @@
 		"characters_character": "Character",
 		"characters_color": "Color",
 		"characters_convention_all": "also where the file is missing",
-		"characters_convention_hint": "Convention for new images (from the CDN root): {path}. Empty cells show (faded) what the reader shows instead: the look's neutral – for an empty look the default look – then the single image.",
+		"characters_convention_hint": "Convention for new images (from the CDN root): {path} (delivered as PNG under the same name – the characters import writes the WebP and the avatar). Empty cells show (faded) what the reader shows instead: the look's neutral – for an empty look the default look – then the single image.",
 		"characters_create": "Create",
 		"characters_create_named": "Create “{name}”",
 		"characters_default": "default",

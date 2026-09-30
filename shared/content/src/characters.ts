@@ -379,19 +379,21 @@ export function conventionName(character: string, persona: string = REGULAR_PERS
 
 /**
  * Where a new image lives by convention (the owner's image supplier uses this naming), from the CDN root:
- * `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.png` – the regular persona and the
- * default look are left out. Stored paths are always explicit (existing files keep their paths).
+ * `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` – the regular persona and the
+ * default look are left out. Stored paths are always explicit (existing files keep their paths). The supplier delivers
+ * PNGs under the same name; the characters import writes the WebP next to them (`cdn/tools/make_character_webp.py`,
+ * quality 85, alpha kept, plus the derived 192 px avatar) – agents/PERFORMANCE.md P3.
  */
 export function conventionImagePath(character: string, view: string, mood: string, look: string = DEFAULT_LOOK, persona: string = REGULAR_PERSONA): string {
 	const name = conventionName(character, persona);
 	const lookPart = look && look !== DEFAULT_LOOK ? `_${look}` : '';
-	return `${CHARACTER_IMAGE_ROOT}/${name}/${name}${lookPart}_${view}-${mood}.png`;
+	return `${CHARACTER_IMAGE_ROOT}/${name}/${name}${lookPart}_${view}-${mood}.webp`;
 }
 
-/** `characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.png` */
+/** `characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.webp` (delivered as PNG, see above) */
 export function conventionTransitionPath(character: string, persona: string, from: string, to: string): string {
 	const name = conventionName(character, persona);
-	return `${CHARACTER_IMAGE_ROOT}/${name}/${name}_transition-${from}-to-${to}.png`;
+	return `${CHARACTER_IMAGE_ROOT}/${name}/${name}_transition-${from}-to-${to}.webp`;
 }
 
 /** `characters/<character>/<character>_apose-<look>.webp` (convention for a new A-pose image; .png works too) */

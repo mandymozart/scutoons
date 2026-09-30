@@ -21,72 +21,72 @@
 							"default": true,
 							"images": {
 								"acceptance": {
-									"avatar": "characters/catpope/catpope_avatar-acceptance.png",
-									"portrait": "characters/catpope/catpope_portrait-acceptance.png"
+									"avatar": "characters/catpope/catpope_avatar-acceptance.webp",
+									"portrait": "characters/catpope/catpope_portrait-acceptance.webp"
 								},
 								"angry": {
-									"avatar": "characters/catpope/catpope_avatar-angry.png",
-									"portrait": "characters/catpope/catpope_portrait-angry.png"
+									"avatar": "characters/catpope/catpope_avatar-angry.webp",
+									"portrait": "characters/catpope/catpope_portrait-angry.webp"
 								},
 								"bargaining": {
-									"avatar": "characters/catpope/catpope_avatar-bargaining.png",
-									"portrait": "characters/catpope/catpope_portrait-bargaining.png"
+									"avatar": "characters/catpope/catpope_avatar-bargaining.webp",
+									"portrait": "characters/catpope/catpope_portrait-bargaining.webp"
 								},
 								"confused": {
-									"avatar": "characters/catpope/catpope_avatar-confused.png",
-									"portrait": "characters/catpope/catpope_portrait-confused.png"
+									"avatar": "characters/catpope/catpope_avatar-confused.webp",
+									"portrait": "characters/catpope/catpope_portrait-confused.webp"
 								},
 								"crying": {
-									"avatar": "characters/catpope/catpope_avatar-crying.png",
-									"portrait": "characters/catpope/catpope_portrait-crying.png"
+									"avatar": "characters/catpope/catpope_avatar-crying.webp",
+									"portrait": "characters/catpope/catpope_portrait-crying.webp"
 								},
 								"denial": {
-									"avatar": "characters/catpope/catpope_avatar-denial.png",
-									"portrait": "characters/catpope/catpope_portrait-denial.png"
+									"avatar": "characters/catpope/catpope_avatar-denial.webp",
+									"portrait": "characters/catpope/catpope_portrait-denial.webp"
 								},
 								"disgusted": {
-									"avatar": "characters/catpope/catpope_avatar-disgusted.png",
-									"portrait": "characters/catpope/catpope_portrait-disgusted.png"
+									"avatar": "characters/catpope/catpope_avatar-disgusted.webp",
+									"portrait": "characters/catpope/catpope_portrait-disgusted.webp"
 								},
 								"embarrassed": {
-									"avatar": "characters/catpope/catpope_avatar-embarrassed.png",
-									"portrait": "characters/catpope/catpope_portrait-embarrassed.png"
+									"avatar": "characters/catpope/catpope_avatar-embarrassed.webp",
+									"portrait": "characters/catpope/catpope_portrait-embarrassed.webp"
 								},
 								"furious": {
-									"avatar": "characters/catpope/catpope_avatar-furious.png",
-									"portrait": "characters/catpope/catpope_portrait-furious.png"
+									"avatar": "characters/catpope/catpope_avatar-furious.webp",
+									"portrait": "characters/catpope/catpope_portrait-furious.webp"
 								},
 								"happy": {
-									"avatar": "characters/catpope/catpope_avatar-happy.png",
-									"portrait": "characters/catpope/catpope_portrait-happy.png"
+									"avatar": "characters/catpope/catpope_avatar-happy.webp",
+									"portrait": "characters/catpope/catpope_portrait-happy.webp"
 								},
 								"laughing": {
-									"avatar": "characters/catpope/catpope_avatar-laughing.png",
-									"portrait": "characters/catpope/catpope_portrait-laughing.png"
+									"avatar": "characters/catpope/catpope_avatar-laughing.webp",
+									"portrait": "characters/catpope/catpope_portrait-laughing.webp"
 								},
 								"neutral": {
-									"avatar": "characters/catpope/catpope_avatar-neutral.png",
-									"portrait": "characters/catpope/catpope_portrait-neutral.png"
+									"avatar": "characters/catpope/catpope_avatar-neutral.webp",
+									"portrait": "characters/catpope/catpope_portrait-neutral.webp"
 								},
 								"sad": {
-									"avatar": "characters/catpope/catpope_avatar-sad.png",
-									"portrait": "characters/catpope/catpope_portrait-sad.png"
+									"avatar": "characters/catpope/catpope_avatar-sad.webp",
+									"portrait": "characters/catpope/catpope_portrait-sad.webp"
 								},
 								"scared": {
-									"avatar": "characters/catpope/catpope_avatar-scared.png",
-									"portrait": "characters/catpope/catpope_portrait-scared.png"
+									"avatar": "characters/catpope/catpope_avatar-scared.webp",
+									"portrait": "characters/catpope/catpope_portrait-scared.webp"
 								},
 								"smug": {
-									"avatar": "characters/catpope/catpope_avatar-smug.png",
-									"portrait": "characters/catpope/catpope_portrait-smug.png"
+									"avatar": "characters/catpope/catpope_avatar-smug.webp",
+									"portrait": "characters/catpope/catpope_portrait-smug.webp"
 								},
 								"surprised": {
-									"avatar": "characters/catpope/catpope_avatar-surprised.png",
-									"portrait": "characters/catpope/catpope_portrait-surprised.png"
+									"avatar": "characters/catpope/catpope_avatar-surprised.webp",
+									"portrait": "characters/catpope/catpope_portrait-surprised.webp"
 								},
 								"thinking": {
-									"avatar": "characters/catpope/catpope_avatar-thinking.png",
-									"portrait": "characters/catpope/catpope_portrait-thinking.png"
+									"avatar": "characters/catpope/catpope_avatar-thinking.webp",
+									"portrait": "characters/catpope/catpope_portrait-thinking.webp"
 								}
 							},
 							"label": {
@@ -113,8 +113,8 @@
 							"default": true,
 							"images": {
 								"neutral": {
-									"avatar": "characters/catpope-human/catpope-human_avatar-neutral.png",
-									"portrait": "characters/catpope-human/catpope-human_portrait-neutral.png",
+									"avatar": "characters/catpope-human/catpope-human_avatar-neutral.webp",
+									"portrait": "characters/catpope-human/catpope-human_portrait-neutral.webp",
 									"full": "catpope/images/characters/plf/plf_full.svg"
 								}
 							}
@@ -138,8 +138,8 @@
 							"default": true,
 							"images": {
 								"neutral": {
-									"avatar": "characters/catpope-cat/catpope-cat_avatar-neutral.png",
-									"portrait": "characters/catpope-cat/catpope-cat_portrait-neutral.png",
+									"avatar": "characters/catpope-cat/catpope-cat_avatar-neutral.webp",
+									"portrait": "characters/catpope-cat/catpope-cat_portrait-neutral.webp",
 									"full": "catpope/images/characters/cat/cat_full.svg"
 								}
 							}
@@ -196,72 +196,72 @@
 							"default": true,
 							"images": {
 								"acceptance": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-acceptance.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-acceptance.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-acceptance.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-acceptance.webp"
 								},
 								"angry": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-angry.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-angry.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-angry.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-angry.webp"
 								},
 								"bargaining": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-bargaining.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-bargaining.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-bargaining.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-bargaining.webp"
 								},
 								"confused": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-confused.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-confused.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-confused.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-confused.webp"
 								},
 								"crying": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-crying.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-crying.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-crying.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-crying.webp"
 								},
 								"denial": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-denial.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-denial.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-denial.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-denial.webp"
 								},
 								"disgusted": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-disgusted.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-disgusted.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-disgusted.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-disgusted.webp"
 								},
 								"embarrassed": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-embarrassed.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-embarrassed.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-embarrassed.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-embarrassed.webp"
 								},
 								"furious": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-furious.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-furious.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-furious.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-furious.webp"
 								},
 								"happy": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-happy.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-happy.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-happy.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-happy.webp"
 								},
 								"laughing": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-laughing.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-laughing.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-laughing.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-laughing.webp"
 								},
 								"neutral": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-neutral.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-neutral.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-neutral.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-neutral.webp"
 								},
 								"sad": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-sad.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-sad.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-sad.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-sad.webp"
 								},
 								"scared": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-scared.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-scared.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-scared.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-scared.webp"
 								},
 								"smug": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-smug.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-smug.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-smug.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-smug.webp"
 								},
 								"surprised": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-surprised.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-surprised.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-surprised.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-surprised.webp"
 								},
 								"thinking": {
-									"avatar": "characters/catpope-biker/catpope-biker_avatar-thinking.png",
-									"portrait": "characters/catpope-biker/catpope-biker_portrait-thinking.png"
+									"avatar": "characters/catpope-biker/catpope-biker_avatar-thinking.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_portrait-thinking.webp"
 								}
 							}
 						},
@@ -273,76 +273,76 @@
 							},
 							"images": {
 								"acceptance": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-acceptance.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-acceptance.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-acceptance.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-acceptance.webp"
 								},
 								"angry": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-angry.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-angry.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-angry.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-angry.webp"
 								},
 								"bargaining": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-bargaining.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-bargaining.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-bargaining.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-bargaining.webp"
 								},
 								"confused": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-confused.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-confused.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-confused.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-confused.webp"
 								},
 								"crying": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-crying.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-crying.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-crying.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-crying.webp"
 								},
 								"denial": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-denial.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-denial.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-denial.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-denial.webp"
 								},
 								"disgusted": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-disgusted.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-disgusted.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-disgusted.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-disgusted.webp"
 								},
 								"dizzy": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-dizzy.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-dizzy.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-dizzy.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-dizzy.webp"
 								},
 								"embarrassed": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-embarrassed.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-embarrassed.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-embarrassed.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-embarrassed.webp"
 								},
 								"furious": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-furious.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-furious.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-furious.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-furious.webp"
 								},
 								"happy": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-happy.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-happy.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-happy.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-happy.webp"
 								},
 								"laughing": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-laughing.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-laughing.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-laughing.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-laughing.webp"
 								},
 								"neutral": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-neutral.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-neutral.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-neutral.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-neutral.webp"
 								},
 								"sad": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-sad.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-sad.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-sad.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-sad.webp"
 								},
 								"scared": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-scared.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-scared.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-scared.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-scared.webp"
 								},
 								"smug": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-smug.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-smug.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-smug.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-smug.webp"
 								},
 								"surprised": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-surprised.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-surprised.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-surprised.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-surprised.webp"
 								},
 								"thinking": {
-									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-thinking.png",
-									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-thinking.png"
+									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-thinking.webp",
+									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-thinking.webp"
 								}
 							}
 						}
@@ -351,7 +351,7 @@
 						{
 							"from": "helmet",
 							"to": "default",
-							"image": "characters/catpope-biker/catpope-biker_transition-helmet-to-default.png",
+							"image": "characters/catpope-biker/catpope-biker_transition-helmet-to-default.webp",
 							"label": {
 								"de": "Helm ab",
 								"en": "Taking the helmet off"
@@ -575,76 +575,76 @@
 							"default": true,
 							"images": {
 								"acceptance": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-acceptance.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-acceptance.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-acceptance.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-acceptance.webp"
 								},
 								"angry": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-angry.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-angry.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-angry.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-angry.webp"
 								},
 								"bargaining": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-bargaining.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-bargaining.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-bargaining.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-bargaining.webp"
 								},
 								"confused": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-confused.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-confused.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-confused.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-confused.webp"
 								},
 								"crying": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-crying.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-crying.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-crying.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-crying.webp"
 								},
 								"denial": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-denial.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-denial.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-denial.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-denial.webp"
 								},
 								"disgusted": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-disgusted.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-disgusted.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-disgusted.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-disgusted.webp"
 								},
 								"embarrassed": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-embarrassed.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-embarrassed.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-embarrassed.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-embarrassed.webp"
 								},
 								"furious": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-furious.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-furious.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-furious.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-furious.webp"
 								},
 								"happy": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-happy.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-happy.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-happy.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-happy.webp"
 								},
 								"laughing": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-laughing.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-laughing.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-laughing.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-laughing.webp"
 								},
 								"neutral": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-neutral.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-neutral.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-neutral.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-neutral.webp"
 								},
 								"sad": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-sad.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-sad.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-sad.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-sad.webp"
 								},
 								"scared": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-scared.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-scared.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-scared.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-scared.webp"
 								},
 								"smug": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-smug.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-smug.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-smug.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-smug.webp"
 								},
 								"surprised": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-surprised.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-surprised.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-surprised.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-surprised.webp"
 								},
 								"thinking": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-thinking.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-thinking.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-thinking.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-thinking.webp"
 								},
 								"tripping": {
-									"avatar": "characters/yellowmouse/yellowmouse_avatar-tripping.png",
-									"portrait": "characters/yellowmouse/yellowmouse_portrait-tripping.png"
+									"avatar": "characters/yellowmouse/yellowmouse_avatar-tripping.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_portrait-tripping.webp"
 								}
 							}
 						},
@@ -656,72 +656,72 @@
 							},
 							"images": {
 								"acceptance": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-acceptance.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-acceptance.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-acceptance.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-acceptance.webp"
 								},
 								"angry": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-angry.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-angry.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-angry.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-angry.webp"
 								},
 								"bargaining": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-bargaining.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-bargaining.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-bargaining.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-bargaining.webp"
 								},
 								"confused": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-confused.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-confused.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-confused.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-confused.webp"
 								},
 								"crying": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-crying.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-crying.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-crying.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-crying.webp"
 								},
 								"denial": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-denial.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-denial.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-denial.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-denial.webp"
 								},
 								"disgusted": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-disgusted.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-disgusted.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-disgusted.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-disgusted.webp"
 								},
 								"embarrassed": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-embarrassed.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-embarrassed.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-embarrassed.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-embarrassed.webp"
 								},
 								"furious": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-furious.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-furious.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-furious.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-furious.webp"
 								},
 								"happy": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-happy.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-happy.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-happy.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-happy.webp"
 								},
 								"laughing": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-laughing.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-laughing.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-laughing.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-laughing.webp"
 								},
 								"neutral": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-neutral.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-neutral.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-neutral.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-neutral.webp"
 								},
 								"sad": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-sad.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-sad.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-sad.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-sad.webp"
 								},
 								"scared": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-scared.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-scared.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-scared.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-scared.webp"
 								},
 								"smug": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-smug.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-smug.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-smug.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-smug.webp"
 								},
 								"surprised": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-surprised.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-surprised.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-surprised.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-surprised.webp"
 								},
 								"thinking": {
-									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-thinking.png",
-									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-thinking.png"
+									"avatar": "characters/yellowmouse/yellowmouse_helmet_avatar-thinking.webp",
+									"portrait": "characters/yellowmouse/yellowmouse_helmet_portrait-thinking.webp"
 								}
 							}
 						}
@@ -730,7 +730,7 @@
 						{
 							"from": "helmet",
 							"to": "default",
-							"image": "characters/yellowmouse/yellowmouse_transition-helmet-to-default.png",
+							"image": "characters/yellowmouse/yellowmouse_transition-helmet-to-default.webp",
 							"label": {
 								"de": "Helm ab",
 								"en": "Taking the helmet off"

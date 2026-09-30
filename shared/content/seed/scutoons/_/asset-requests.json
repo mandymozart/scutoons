@@ -21,7 +21,7 @@
 			"look": "helmet",
 			"mood": "neutral",
 			"view": "transition",
-			"path": "characters/catpope-biker/catpope-biker_transition-helmet-to-default.png",
+			"path": "characters/catpope-biker/catpope-biker_transition-helmet-to-default.webp",
 			"note": "Transition helmet → default (taking the helmet off), like the mouse’s",
 			"requested_by": "owner 2026-09-30",
 			"requested_at": "2026-09-30T00:00:00Z",

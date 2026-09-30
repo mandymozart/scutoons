@@ -41,9 +41,13 @@ UI (de/en) and docs:
 | **A-pose** | `character.apose.looks` (character level, `swim` default / `naked`): one image + wear anchors per avatar slot in image px – the reader's avatar body. Never a fallback; outfitting happens only in the reader's inventory |
 
 Convention for new files (stored paths are always explicit):
-`characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.png` (regular persona and default look
-left out), transitions `…/<character>[-<persona>]_transition-<from>-to-<to>.png`, A-pose
-`characters/<character>/<character>_apose-<look>.webp` (or .png).
+`characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (regular persona and default look
+left out), transitions `…/<character>[-<persona>]_transition-<from>-to-<to>.webp`, A-pose
+`characters/<character>/<character>_apose-<look>.webp` (or .png). The supplier delivers PNGs under the same names; the
+characters import (`migrate-characters.ts`, below) first runs `cdn/tools/make_character_webp.py`, which writes the WebP
+next to every portrait / avatar / transition PNG (quality 85, alpha kept) and a 192 px avatar WebP for a portrait that
+came without one, so the registry points to the WebP files (agents/PERFORMANCE.md P3: 600² portrait ~350 KB → ~55 KB).
+The PNGs stay on the CDN for older viewer builds; the missing-image substitutes stay PNG.
 
 Image fallback (`resolveExpression`, one implementation for the viewer VN components and the creator), regressive, one
 step at a time; within each step the requested view first, then the same mood's portrait:
@@ -94,6 +98,8 @@ $schema = json_decode(file_get_contents('…/shared/content/schema/chapter.schem
   (personas incl. the former characters plf / cat / mountain-tiger, looks, transitions, A-poses, casts per season) into
   `seed/scutoons/_/{characters,moods,asset-requests}.json`
   + `seed/<toon>/_/cast.json`, takes every image found in the convention folders `cdn/root/characters/<character>[-<persona>]/`
+  (after writing their WebP versions with `cdn/tools/make_character_webp.py` via `cdn/.venv` – `--no-webp` skips that; the WebP wins
+  over the PNG of the same name)
   and compares `resolveCast()` with the old files. Import: `php server/bin/console import-content shared/content/seed
   --only=characters.json,moods.json,asset-requests.json,cast.json` (`--update` after a seed change; `--sql` =
   production statements, committed as `seed/characters-seed.mysql.sql`).

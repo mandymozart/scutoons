@@ -7,7 +7,10 @@
 // → <out>/scutoons/_/{characters,moods,asset-requests}.json, <out>/<toon>/_/cast.json (+ report on stdout).
 //
 //   node --experimental-transform-types --no-warnings shared/content/scripts/migrate-characters.ts \
-//        [--api=viewer/static/api] [--cdn=cdn/root] [--out=shared/content/seed] [--json]
+//        [--api=viewer/static/api] [--cdn=cdn/root] [--out=shared/content/seed] [--json] [--no-webp]
+//
+// First it runs cdn/tools/make_character_webp.py (cdn/.venv Python + Pillow): every portrait / transition PNG gets a WebP
+// next to it and a portrait without an avatar gets a generated avatar WebP; the registry then points to the WebP files.
 //
 // Then import (published version 1, idempotent; `--update` after a seed change):
 //   php server/bin/console import-content shared/content/seed --only=characters.json,moods.json,asset-requests.json,cast.json
@@ -20,6 +23,7 @@
 // A persona with a convention folder on the CDN gets its looks from there (every look / mood / view found, replacing
 // the old per-mood paths of that look; the old single `image` stays the last fallback); transition files become
 // `transitions`, other files in the folder artwork.
+import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -179,8 +183,8 @@ const REPLACE_OLD_IMAGES = ['catpope/regular/default'];
  */
 const HELMET_OFF: LocaleText = { de: 'Helm ab', en: 'Taking the helmet off' };
 const TRANSITION_LABELS: Record<string, LocaleText> = {
-	'characters/yellowmouse/yellowmouse_transition-helmet-to-default.png': HELMET_OFF,
-	'characters/catpope-biker/catpope-biker_transition-helmet-to-default.png': HELMET_OFF
+	'characters/yellowmouse/yellowmouse_transition-helmet-to-default.webp': HELMET_OFF,
+	'characters/catpope-biker/catpope-biker_transition-helmet-to-default.webp': HELMET_OFF
 };
 
 /** Casts per toon and season (character → personas), in order. Legacy characters.json casts are season 1. */
@@ -308,20 +312,38 @@ for (const [toon, seasons] of Object.entries(CASTS))
 
 // ── Convention folders on the CDN (the owner's delivered images) ─────────────────────────────────────────────────
 
+// New PNG deliveries get their WebP (+ the avatar when only the portrait came) first – agents/PERFORMANCE.md P3.
+if (!process.argv.includes('--no-webp')) {
+	const venv = resolve(repo, 'cdn/.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
+	const python = existsSync(venv) ? venv : 'python';
+	const run = spawnSync(python, [resolve(repo, 'cdn/tools/make_character_webp.py'), `--root=${CDN}`], { encoding: 'utf8' });
+	if (run.status !== 0) {
+		console.error(`make_character_webp.py failed (${python}): ${run.error?.message ?? run.stderr}`);
+		console.error('Install Pillow (cdn/tools/requirements.txt) or run with --no-webp.');
+		process.exit(1);
+	}
+	const summary = run.stdout.trim().split('\n').pop();
+	if (summary) console.error(`character WebP: ${summary}`);
+}
+
 for (const character of registry.characters) {
 	for (const persona of character.personas) {
 		const name = conventionName(character.id, persona.id);
 		const folder = join(CDN, CHARACTER_IMAGE_ROOT, name);
 		if (!existsSync(folder)) continue;
 		const escaped = name.replace(/-/g, '\\-');
-		const expression = new RegExp(`^${escaped}(?:_([a-z0-9-]+))?_(${CHARACTER_IMAGE_VARIANTS.join('|')})-([a-z0-9-]+)\\.png$`);
-		const transition = new RegExp(`^${escaped}_transition-([a-z0-9]+)-to-([a-z0-9]+)\\.png$`);
+		// PNG deliveries have a WebP next to them (cdn/tools/make_character_webp.py, run above); the WebP wins
+		const expression = new RegExp(`^${escaped}(?:_([a-z0-9-]+))?_(${CHARACTER_IMAGE_VARIANTS.join('|')})-([a-z0-9-]+)\\.(png|webp)$`);
+		const transition = new RegExp(`^${escaped}_transition-([a-z0-9]+)-to-([a-z0-9]+)\\.(png|webp)$`);
+		const files = readdirSync(folder).sort();
+		const hasWebp = (file: string) => file.endsWith('.png') && files.includes(file.replace(/\.png$/, '.webp'));
 		const apose = new RegExp(`^${escaped}_apose-([a-z0-9-]+)\\.(webp|png)$`);
 		const other = new RegExp(`^${escaped}_([a-z0-9-]+)\\.(png|jpe?g|webp)$`);
 		const found: Record<string, Record<string, Record<string, string>>> = {};
 		const extras = new Set<string>();
-		for (const file of readdirSync(folder).sort()) {
+		for (const file of files) {
 			const path = `${CHARACTER_IMAGE_ROOT}/${name}/${file}`;
+			if (hasWebp(file) && (expression.test(file) || transition.test(file))) continue;
 			const e = file.match(expression);
 			if (e) {
 				const [, look = DEFAULT_LOOK, view, mood] = e;

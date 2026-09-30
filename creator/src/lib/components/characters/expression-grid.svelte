@@ -25,7 +25,7 @@
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /
 	 * ✗ not on the CDN, and a dashed "missing – add image" cell that opens the asset dialog (set the path, prefilled with
-	 * the convention path `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.png`, or leave a
+	 * the convention path `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (delivered as PNG; the characters import writes the WebP), or leave a
 	 * note = an asset request). The avatar is derived from the portrait (a small indicator); full is unused (only with
 	 * "all views"). Empty cells show faded what the reader shows instead (`resolveExpression`).
 	 */
