@@ -453,7 +453,7 @@ The admin app lists the content store without the `creator` role; editing stays 
 The legacy `generate/*.php` endpoints (static `X-Generate-Token`) keep working unchanged for the `generate/` SPA until the
 admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
 
-## Reader avatar bodies & character unlocks (2026-09-30, owner — follow-up, not built yet)
+## Reader avatar bodies & character unlocks (2026-09-30, owner — built 2026-09-30)
 
 - The reader avatar body is a **character's A-pose** (character level, not persona) in one of its A-pose looks:
   `swim` (default, swim pants) or `naked`. Data lives in the character registry (`character.apose.looks[]` with
@@ -467,3 +467,24 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
 - **No look creator:** outfitting (putting items on the body) happens only in the reader's inventory avatar view;
   the creator only stores A-pose images and anchors as data.
 
+**Implemented (2026-09-30):**
+- Server: migration `2026-09-30-member-characters.{mysql,sqlite}.sql` (idempotent; after `settings`): `member_characters
+  (user_id, character_id, source, ref, unlocked_at)`, `member_character_looks (user_id, character_id, look_id, source, ref,
+  unlocked_at)`, `avatar_body (user_id, character_id, look_id, updated_at)`. `Domain\Characters\CharacterUnlocks`: the
+  default unlocks are **one setting** `AVATAR_DEFAULT_UNLOCKS` (config/settings.php, JSON `{"catpope":["swim","naked"]}`,
+  overridable per install like every setting) – no rows per member; a `member_characters` row unlocks the character with
+  its **default** A-pose look, `member_character_looks` adds further looks. The registry is the published store file
+  `scutoons/_/characters.json` (which looks exist and have an image). Sources `default|code|item|story|admin` + `ref` are
+  stored; no code/item/story flows yet.
+- API: `/me/ avatar` = `{ slots, body: { character, look }|null, unlocked: [{ character, looks, source }] }`;
+  `PUT /avatar/ { body }` (with or without `slots`) → `422 locked` (not unlocked) / `no_apose` (no A-pose image),
+  `400 invalid_body`; `body: null` = default. Admin: `PUT /admin/users/{id}/characters/{character} { looks?, source?, ref? }`,
+  `DELETE /admin/users/{id}/characters/{character}[/looks/{look}]` → `{ changed, characters }`; `GET /admin/users/{id}`
+  has `characters` (defaults + rows). Admin app user page: section "Avatar bodies" (list, unlock by id + extra looks,
+  revoke). Contract: admin-smoke "Avatar bodies & character unlocks" (21 checks), PHPUnit `CharacterUnlocksTest`.
+- Viewer: `components/avatar/avatar.svelte` = `unlockedBodies(avatarBodies(registry, locale), inventory.unlocked)`
+  (registry via `fetchRegistry` of `@scutoons/api`, once per page load); thumbnails (A-pose + name + look label), locked
+  characters hidden; worn items at the body's `anchors` (SPHYNX_WORN/MOUSE_WORN are gone – they live in the registry).
+  Members save with `PUT /avatar/ { body }`; guests get `DEFAULT_AVATAR_UNLOCKS` (@scutoons/content, same list as the
+  server default) and store `{ character, look }` in localStorage `scutoons_avatar_body` (old values sphynx /
+  sphynx_nude / mouse are mapped; a locked choice falls back to the default).

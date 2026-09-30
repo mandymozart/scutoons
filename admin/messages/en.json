@@ -337,7 +337,15 @@
 		"revoke_own_admin": "Remove your own admin role? You lose access to this app.",
 		"section_codes": "Owned codes",
 		"section_codes_hint": "Codes claimed by this account.",
-		"no_codes": "No codes."
+		"no_codes": "No codes.",
+		"section_characters": "Avatar bodies",
+		"section_characters_hint": "Characters this account may wear as reader avatar. Defaults (every member) come from the setting AVATAR_DEFAULT_UNLOCKS and cannot be revoked here.",
+		"character_id": "Character id",
+		"character_looks": "Extra A-pose looks (comma separated, optional)",
+		"unlock": "Unlock",
+		"unlock_revoke": "Revoke",
+		"unlocked": "{character} unlocked for {email}",
+		"unlock_revoked": "{character} revoked for {email}"
 	},
 	"catalog": {
 		"title": "Catalog",

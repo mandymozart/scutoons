@@ -590,7 +590,7 @@ affiliations, the cast group and the mannequin field were added and removed agai
   `crows_portrait.svg` (the crows' neutral portrait = an error in the problem list).
 - Owner additions: Cat Pope own toon, personas regular (papal look, 17 moods), human, cat, mountaintiger, biker (looks
   "ohne Helm" 17 + helmet 17 + dizzy); yellowmouse (looks kimono 17 + tripping and helmet 17, transition helmet →
-  default = `yellowmouse_keyvisual-helmet-off.png`); toptoy "duo" as one character (owner to split if needed).
+  default = `yellowmouse_keyvisual-helmet-off.png`, renamed 2026-09-30 → `yellowmouse_transition-helmet-to-default.png`); toptoy "duo" as one character (owner to split if needed).
   A-poses: catpope swim/naked + the dressed example as artwork, yellowmouse swim (SPHYNX / MOUSE anchors), yellowmouse
   naked = an open asset request. Casts season 1: catpope (catpope regular+human+cat+mountaintiger, boy, crows),
   yellowmouse (catpope regular+biker, yellowmouse), toptoy (toptoy).
@@ -611,3 +611,30 @@ affiliations, the cast group and the mannequin field were added and removed agai
   regenerates `.svelte-kit` under the running dev server (harmless so far).
 - Headless testing: Edge `--headless=new` with a temp profile, driven over CDP from Node; session token via
   `/api/auth/request` + OTP from `server/logs/mail.log` + `/api/auth/verify/`, stored in localStorage `scutoons_session`.
+- 2026-09-30 (later) — owner fixes + avatar bodies:
+  - Cat Pope · Biker `introduced` = yellowmouse S1C1. Transitions named after their states (PLATFORM.md → Characters);
+    `cdn/root/characters/yellowmouse/yellowmouse_keyvisual-helmet-off.png` moved to `…_transition-helmet-to-default.png`
+    (plain move, cdn/root not in git – **upload with `cdn/sync.py`**, together with
+    `characters/catpope-biker/catpope-biker_transition-helmet-to-default.png`, `characters/yellowmouse/yellowmouse_apose-naked.webp`
+    and `characters/_missing/`). Both transitions registered; the asset requests for the biker transition and the mouse's
+    naked A-pose (now registered with MOUSE_WORN anchors) are `done` → no open requests. Seed + SQL regenerated; local
+    store: characters v155, asset-requests v154 (published).
+  - Scene fixes (static + store, published locally v156 de / v157 en): de `crow` → `crows`; en: the cat now joins
+    before it speaks (as in de), every message waits, choice jumpTo + the final `end` event in the reader's jumpTo form,
+    `{cucumbers}` → `{cucumber}`. Headless Edge: de plays 26/26 events, en 18/18, no console errors; both end on the
+    final `jumpTo` (wait) to chapter 6 scene-300, which doesn't exist (content, open). Still German text in the en file:
+    the opening narration and "Weg ist das mistvieh?" (owner to translate).
+  - Missing-image substitutes: `cdn/tools/make_missing_images.py` (resvg, byte-identical on re-run) →
+    `characters/_missing/missing_{avatar,portrait,full,apose}.png`; `resolveExpression(…, options)` / `characterImage` /
+    `legacyCharacterImage` return them last (`missingImagePath`, `isMissingImagePath`); viewer VN marks paths whose `<img>`
+    failed (`lib/utils/missing-images.svelte.ts`), creator marks failed CDN checks (`isKnownMissing` in
+    `editor/characters.ts`). `crows_portrait.svg` / `boy_full.svg` stay missing → substitutes.
+  - Avatar bodies & unlocks built (ITEMS.md "Reader avatar bodies & character unlocks" → Implemented). Local DB migrated
+    (backup `server/db/local.sqlite.bak-2026-09-30-member-characters`). Local test accounts: `avatar-member-0930@example.com`
+    (hoodie in inventory, yellowmouse granted by the check, currently wearing Cat Pope swim + hoodie) and
+    `avatar-admin-0930@example.com` (role admin), made directly in the DB (no login mail). Headless check 13/13: member
+    default Cat Pope swim/naked → admin grants yellowmouse → mouse appears, pick saved, survives reload, hoodie at the
+    mouse torso anchor (and at Cat Pope's after switching back); guest Cat Pope only, stored per device, old `mouse`
+    value → default.
+  - Unused viewer message keys `items.avatar_body_{sphynx,sphynx_nude,mouse}` kept on purpose (removing keys under a
+    running dev server breaks paraglide, see above) – remove after a dev-server restart.

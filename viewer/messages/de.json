@@ -169,7 +169,9 @@
 		"avatar_body_mouse": "Maus",
 		"nothing_to_wear": "Für diesen Platz hast du noch nichts zum Anziehen.",
 		"play": "Abspielen",
-		"minigame_soon": "Dieses Minispiel kommt bald."
+		"minigame_soon": "Dieses Minispiel kommt bald.",
+		"avatar_body_error": "Der Körper konnte nicht gewechselt werden – bitte nochmal versuchen.",
+		"avatar_body_none": "Noch kein Avatar-Körper verfügbar."
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",

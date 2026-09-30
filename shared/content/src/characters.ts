@@ -819,6 +819,10 @@ export interface AvatarBody {
 	look: string;
 	/** "Cat Pope (swim pants)" in the requested locale */
 	label: string;
+	/** the character's name ("Cat Pope") */
+	name: string;
+	/** the A-pose look's label ("swim pants") */
+	lookLabel: string;
 	path: string;
 	anchors: Partial<Record<AvatarSlot, AposeAnchor>>;
 	/** the character's default A-pose look */
@@ -835,9 +839,20 @@ export function avatarBodies(registry: CharacterRegistry | null | undefined, loc
 		for (const look of looks) {
 			if (!look?.id || !look.path?.trim()) continue;
 			const lookName = pickText(look.label, locale, ['en', 'de']) || look.id;
-			out.push({ character: c.id, look: look.id, label: `${characterName(c, locale)} (${lookName})`, path: look.path.trim(), anchors: look.anchors ?? {}, default: look.id === defaultId });
+			const name = characterName(c, locale);
+			out.push({ character: c.id, look: look.id, label: `${name} (${lookName})`, name, lookLabel: lookName, path: look.path.trim(), anchors: look.anchors ?? {}, default: look.id === defaultId });
 		}
 	}
+	return out;
+}
+
+/**
+ * The avatar bodies a reader may pick: `avatarBodies(registry)` filtered to the unlocked characters / A-pose looks
+ * (unlock order, then the registry's look order). Locked characters are left out.
+ */
+export function unlockedBodies(bodies: AvatarBody[], unlocked: { character: string; looks: string[] }[]): AvatarBody[] {
+	const out: AvatarBody[] = [];
+	for (const u of unlocked) for (const b of bodies) if (b.character === u.character && u.looks.includes(b.look)) out.push(b);
 	return out;
 }
 

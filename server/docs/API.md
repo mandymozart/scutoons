@@ -39,7 +39,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | POST | `/inventory/craft/` | Bearer | `{ recipe_id }` |
 | POST | `/inventory/grant/` | Bearer | `{ item_id, source:"story"\|"scan", ref? }` |
 | POST | `/inventory/import/` | Bearer | `{ items:[{ item_id, qty }] }` |
-| GET/PUT | `/avatar/` | Bearer | `{ slots:{ <slot>: entryId\|null } }` |
+| GET/PUT | `/avatar/` | Bearer | GET → `{ status, avatar: { slots, body, unlocked } }`; PUT `{ slots?:{ <slot>: entryId\|null }, body?: { character, look }\|null }` (at least one) – `body` must be unlocked and have an A-pose image (`422 locked\|no_apose`, `400 invalid_body`); `unlocked` = `[{ character, looks, source }]` (defaults from `AVATAR_DEFAULT_UNLOCKS` first); `body: null` = the first unlocked default |
 | GET/PUT | `/progress/<toonId>/` | Bearer | `{ state, updated_at }` last write wins |
 | GET | `/content/<toon>/<locale>/<path>.json` | – / creator | published config (raw JSON); `?draft=1`, `?version=`, `&wrap=1` need `creator` – see "Content API" |
 | PUT | `/content/<toon>/<locale>/<path>.json` | creator | `{ content, message?, base? }` → new draft version |
@@ -71,6 +71,8 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET/PUT | `/files/{type}/{filename}` | batch output (svgs, certificates, signatures, batch, zips) |
 | GET | `/users` · `/users/{id}` · `/roles` | accounts (emails shown here), detail, roles |
 | PUT/DELETE | `/users/{id}/roles/{role}` | grant / revoke |
+| PUT | `/users/{id}/characters/{character}` | unlock an avatar-body character `{ looks?, source?: default\|code\|item\|story\|admin (admin), ref? (admin:<email>) }` → `{ changed, characters }` · `400 unknown_character\|invalid_look\|invalid_source\|invalid_body` · 404 |
+| DELETE | `/users/{id}/characters/{character}[/looks/{look}]` | revoke the character (with its looks) or one look → `{ changed, characters }`; a worn body that is no longer unlocked is reset; defaults can't be revoked per account |
 | GET | `/events` | activity log (filters code, event list, edition_id, toon, from, to) |
 | GET | `/catalog` · `/keys` | items, editions, toons, permissions map (read-only) · the ML-DSA-65 keypair for client-side signing |
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |

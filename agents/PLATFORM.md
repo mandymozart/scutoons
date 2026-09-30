@@ -476,10 +476,19 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
 - Former characters are Cat Pope personas: plf → `human`, cat → `cat`, mountain-tiger → `mountaintiger`
   (`LEGACY_CHARACTER_IDS`: old refs still resolve).
 - Paths are stored explicitly (CDN root). Convention for new files: `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.png`,
-  transitions `…_transition-<from>-to-<to>.png`, A-pose `characters/<character>/<character>_apose-<look>.webp`.
+  A-pose `characters/<character>/<character>_apose-<look>.webp`.
+- **Transitions are named after their states (owner 2026-09-30):**
+  `characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.png` (look ids, e.g.
+  `yellowmouse_transition-helmet-to-default.png`, `catpope-biker_transition-helmet-to-default.png`). No other names
+  (the old `yellowmouse_keyvisual-helmet-off.png` was renamed); `conventionTransitionPath()`; the migration script picks
+  every such file up as `persona.transitions`. An asset request for a transition has `view: "transition"`
+  (`TRANSITION_VIEW`, `look` = from, `path` = the file).
 - Fallback (`resolveExpression`, used by the viewer VN and the creator): per step the view, then the same mood's
   portrait; steps persona+look+mood → persona+look+neutral → persona default look+mood → +neutral → regular default
-  look+mood → +neutral → legacy `image`. The A-pose never falls back.
+  look+mood → +neutral → legacy `image` → **missing-image substitute** `characters/_missing/missing_<view>.png`
+  (avatar 192², portrait 600², full 600×1200, apose 768×1152; `cdn/tools/make_missing_images.py`, reproducible) – also
+  when the resolved file is known to be missing (`options.isMissing`: viewer VN = an `<img>` error, creator = its CDN
+  check). The A-pose never falls back to expressions (only to its substitute). The creator still flags the real file ✗.
 - Viewer: the toon layout loads `fetchCharacters()` (@scutoons/api: registry + the toon's cast of every season from the
   store, published, `resolveCast()` → the legacy `characters.json` shape + `personas`) → static
   `<toon>/<locale>/characters.json` → `[]`. VN refs `{ character, persona, look?, mood?, variant? }` (old form + old ids

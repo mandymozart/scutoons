@@ -5,6 +5,7 @@ namespace Scutoons\Domain\Admin;
 
 use Scutoons\Domain\Accounts\Users;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Characters\CharacterUnlocks;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
@@ -21,6 +22,7 @@ final class UserAdmin
         private readonly Database $db,
         private readonly Users $users,
         private readonly Roles $roles,
+        private readonly CharacterUnlocks $unlocks,
     ) {
     }
 
@@ -93,7 +95,47 @@ final class UserAdmin
             'inventory_entries' => (int) $this->db->value('SELECT COUNT(*) FROM inventory WHERE user_id = ? AND qty > 0', [$id]),
             'sessions' => (int) ($sessions['n'] ?? 0),
             'last_seen_at' => Time::iso($sessions['last_used_at'] ?? null),
+            'characters' => $this->characters($id),
         ];
+    }
+
+    /**
+     * The member's avatar-body unlocks (defaults + rows): [{ character, looks, source, ref, unlocked_at }]
+     * @return list<array<string, mixed>>
+     */
+    public function characters(string $id): array
+    {
+        return array_map(fn(array $u) => ['unlocked_at' => Time::iso($u['unlocked_at'])] + $u, $this->unlocks->forUser($id));
+    }
+
+    /**
+     * Unlock a character (+ optional further A-pose looks) for an account. 404 not_found, 400 unknown_character |
+     * invalid_look | invalid_source | invalid_body.
+     * @param array<string, mixed> $body { looks?: string[], source?: default|code|item|story|admin, ref?: string }
+     * @return array{changed: bool, characters: list<array<string, mixed>>}
+     */
+    public function unlockCharacter(string $userId, string $character, array $body, string $by): array
+    {
+        $user = $this->users->byId($userId) ?? throw new ApiError(404, 'not_found', 'User not found');
+        $looks = $body['looks'] ?? [];
+        $source = $body['source'] ?? 'admin';
+        $ref = $body['ref'] ?? $by;
+        if (!is_array($looks) || !array_is_list($looks) || !is_string($source) || !is_string($ref) || strlen($ref) > 255) {
+            throw new ApiError(400, 'invalid_body', 'Body: { looks?: [look ids], source?, ref? }.');
+        }
+        $changed = $this->unlocks->grant((string) $user['id'], $character, $looks, $source, $ref);
+        return ['changed' => $changed, 'characters' => $this->characters((string) $user['id'])];
+    }
+
+    /**
+     * Revoke a character unlock (with its looks) or one look. Defaults can't be revoked per account.
+     * @return array{changed: bool, characters: list<array<string, mixed>>}
+     */
+    public function lockCharacter(string $userId, string $character, ?string $look = null): array
+    {
+        $user = $this->users->byId($userId) ?? throw new ApiError(404, 'not_found', 'User not found');
+        $changed = $this->unlocks->revoke((string) $user['id'], $character, $look);
+        return ['changed' => $changed, 'characters' => $this->characters((string) $user['id'])];
     }
 
     public function idByEmail(string $email): ?string

@@ -11,8 +11,8 @@ use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
 
 /**
- *   GET /api/avatar/  → { status, avatar: { slots } }
- *   PUT /api/avatar/  { slots: { <slot>: entryId|null } } → { status, avatar }
+ *   GET /api/avatar/  → { status, avatar: { slots, body, unlocked } }
+ *   PUT /api/avatar/  { slots?: { <slot>: entryId|null }, body?: { character, look }|null } → { status, avatar }
  */
 final class AvatarController
 {

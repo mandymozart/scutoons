@@ -35,6 +35,7 @@ export {
 	type AdminSetting,
 	type AdminSettings,
 	type AdminUserDetail,
+	type AdminCharacterUnlock,
 	type AdminUserRow,
 	type BatchManifest,
 	type BatchManifestCode,

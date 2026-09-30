@@ -1,7 +1,7 @@
 // Typed endpoints of the SCUTOONS API: accounts, access, items, inventory, avatar, progress
 // (agents/ITEMS.md → HTTP API contract). `createQrApi(client)` binds them to one configured client.
 import type { ApiClient } from './client.ts';
-import type { Avatar, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, User } from '@scutoons/content';
+import type { Avatar, AvatarBodyRef, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, User } from '@scutoons/content';
 
 export interface VerifyResult {
 	status: string;
@@ -113,6 +113,9 @@ export function createQrApi(api: ApiClient) {
 
 		putAvatar: (slots: Avatar['slots']) =>
 			api.put<{ status: string; avatar: Avatar }>('/avatar/', { slots }),
+		/** the avatar body (must be unlocked and have an A-pose image: 422 locked / no_apose); null = the default */
+		putAvatarBody: (body: AvatarBodyRef | null) =>
+			api.put<{ status: string; avatar: Avatar }>('/avatar/', { body }),
 
 		fetchProgress: (toonId: string) =>
 			api.get<ProgressResult>(`/progress/${encodeURIComponent(toonId)}/`),

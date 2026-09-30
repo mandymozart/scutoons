@@ -39,6 +39,7 @@ export const {
 	grantItem,
 	importItems,
 	putAvatar,
+	putAvatarBody,
 	fetchProgress,
 	putProgress
 } = createQrApi(api);
@@ -49,4 +50,4 @@ export const { fetchProducts, fetchFeaturedProducts } = createProductsApi(create
 
 /** Toon / season / chapter configs and VN scene files: content store (published) → static `/api` files. */
 export const contentApi = createContentApi({ client: api, staticBase: API_BASE });
-export const { fetchContent, fetchCharacters } = contentApi;
+export const { fetchContent, fetchCharacters, fetchRegistry } = contentApi;

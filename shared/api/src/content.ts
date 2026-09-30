@@ -140,7 +140,7 @@ export function createContentApi({ client, staticBase }: ContentApiOptions) {
 		options: ContentOptions & { fallbacks?: string[] } = {}
 	): Promise<{ source: 'store' | 'static' | 'none'; characters: Character[] }> {
 		const [registry, cast] = await Promise.all([
-			fetchContent(fetchFn, CREDITS_SCOPE, NEUTRAL_LOCALE, CHARACTERS_FILE, options).then((r) => jsonOf<CharacterRegistry>(r)),
+			fetchRegistry(fetchFn, options),
 			fetchContent(fetchFn, toon, NEUTRAL_LOCALE, CAST_FILE, options).then((r) => jsonOf<ToonCast>(r))
 		]);
 		if (registry && Array.isArray(registry.characters) && cast && cast.seasons && typeof cast.seasons === 'object') {
@@ -151,12 +151,19 @@ export function createContentApi({ client, staticBase }: ContentApiOptions) {
 		return { source: 'none', characters: [] };
 	}
 
+	/** The global character registry `scutoons/_/characters.json` (store → static file), null when there is none. */
+	async function fetchRegistry(fetchFn: Fetch, options: ContentOptions = {}): Promise<CharacterRegistry | null> {
+		const registry = await fetchContent(fetchFn, CREDITS_SCOPE, NEUTRAL_LOCALE, CHARACTERS_FILE, options).then((r) => jsonOf<CharacterRegistry>(r));
+		return registry && Array.isArray(registry.characters) ? registry : null;
+	}
+
 	const file = (toon: string, locale: string, path: string) =>
 		`/content/${encodeURIComponent(toon)}/${encodeURIComponent(locale)}/${path}`;
 
 	return {
 		fetchContent,
 		fetchCharacters,
+		fetchRegistry,
 
 		// ── Editor API (role creator) ─────────────────────────────────────────────────────────────────────
 

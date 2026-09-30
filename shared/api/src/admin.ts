@@ -217,6 +217,16 @@ export interface AdminUserDetail extends Omit<AdminUserRow, 'codes'> {
 	inventory_entries: number;
 	sessions: number;
 	last_seen_at: string | null;
+	/** avatar-body unlocks: the defaults (source `default`) + granted ones */
+	characters?: AdminCharacterUnlock[];
+}
+
+export interface AdminCharacterUnlock {
+	character: string;
+	looks: string[];
+	source: 'default' | 'code' | 'item' | 'story' | 'admin';
+	ref: string | null;
+	unlocked_at: string | null;
 }
 
 export interface RoleInfo {
@@ -358,6 +368,14 @@ export function createAdminApi(api: ApiClient) {
 				`/admin/users/${seg(id)}/roles/${seg(role)}`
 			),
 		roles: () => api.get<{ status: string; items: RoleInfo[] }>('/admin/roles'),
+		/** unlock an avatar-body character (+ further A-pose looks) for an account */
+		unlockCharacter: (id: string, character: string, body: { looks?: string[]; source?: AdminCharacterUnlock['source']; ref?: string } = {}) =>
+			api.put<{ status: string; changed: boolean; characters: AdminCharacterUnlock[] }>(`/admin/users/${seg(id)}/characters/${seg(character)}`, body),
+		/** revoke a character unlock (with its looks), or one look */
+		lockCharacter: (id: string, character: string, look?: string) =>
+			api.delete<{ status: string; changed: boolean; characters: AdminCharacterUnlock[] }>(
+				`/admin/users/${seg(id)}/characters/${seg(character)}${look ? `/looks/${seg(look)}` : ''}`
+			),
 
 		listEvents: (params: ListParams = {}) => api.get<ListResult<AdminEventRow>>(`/admin/events${toQuery(params)}`),
 		catalog: () => api.get<AdminCatalog>('/admin/catalog'),

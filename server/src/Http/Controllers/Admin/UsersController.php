@@ -9,6 +9,7 @@ use Scutoons\Domain\Admin\ListQuery;
 use Scutoons\Domain\Admin\UserAdmin;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\Json;
+use Scutoons\Http\Middleware\JsonBody;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
@@ -17,6 +18,9 @@ use Scutoons\Infrastructure\Config\Settings;
  *   GET    /users/{id}                   account detail (roles, owned codes, sessions)
  *   PUT    /users/{id}/roles/{role}      grant  → { changed, user }
  *   DELETE /users/{id}/roles/{role}      revoke → { changed, user }
+ *   PUT    /users/{id}/characters/{c}    unlock an avatar-body character { looks?, source?, ref? } → { changed, characters }
+ *   DELETE /users/{id}/characters/{c}    revoke it (with its looks) → { changed, characters }
+ *   DELETE /users/{id}/characters/{c}/looks/{look}   revoke one A-pose look → { changed, characters }
  *   GET    /roles                        every role
  */
 final class UsersController
@@ -47,6 +51,25 @@ final class UsersController
     public function revoke(Request $request, Response $response, array $args): Response
     {
         return Json::response($response, 200, ['status' => 'success'] + $this->users->setRole($args['id'], $args['role'], false, self::by($request)));
+    }
+
+    /** @param array{id: string, character: string} $args */
+    public function unlockCharacter(Request $request, Response $response, array $args): Response
+    {
+        $body = JsonBody::of($request);
+        return Json::response($response, 200, ['status' => 'success'] + $this->users->unlockCharacter($args['id'], $args['character'], $body, self::by($request)));
+    }
+
+    /** @param array{id: string, character: string} $args */
+    public function lockCharacter(Request $request, Response $response, array $args): Response
+    {
+        return Json::response($response, 200, ['status' => 'success'] + $this->users->lockCharacter($args['id'], $args['character']));
+    }
+
+    /** @param array{id: string, character: string, look: string} $args */
+    public function lockLook(Request $request, Response $response, array $args): Response
+    {
+        return Json::response($response, 200, ['status' => 'success'] + $this->users->lockCharacter($args['id'], $args['character'], $args['look']));
     }
 
     public function roles(Request $request, Response $response): Response

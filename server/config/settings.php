@@ -76,6 +76,11 @@ return [
         . 'creator=https://creator.scutoons.com/version.json,shop=https://shop.scutoons.com/version.json,'
         . 'qr=https://qr.scutoons.com/version.json',
 
+    // ── Avatar bodies ──────────────────────────────────────────────────────────────────────────────────
+    // Characters (with their A-pose looks) every member may wear as the reader's avatar body, without per-member rows
+    // (Domain\Characters\CharacterUnlocks). JSON { "<character>": ["<look>", …] }. Owner 2026-09-30: Cat Pope, swim + naked.
+    'AVATAR_DEFAULT_UNLOCKS' => '{"catpope":["swim","naked"]}',
+
     // ── Data files (config/) and private storage ───────────────────────────────────────────────────────
     'ITEMS_PATH' => 'config/items.json',
     'EDITIONS_PATH' => 'config/editions.json',

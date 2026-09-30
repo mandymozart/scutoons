@@ -109,8 +109,35 @@ export interface Entry {
 	acquired_at: string;
 }
 
+/** Where an avatar-body unlock came from (server `member_characters.source`) */
+export type UnlockSource = 'default' | 'code' | 'item' | 'story' | 'admin';
+
+/** A character the member may wear as avatar body, with the unlocked A-pose looks (`/me/ avatar.unlocked`) */
+export interface CharacterUnlock {
+	character: string;
+	/** A-pose look ids (`swim`, `naked`, …) */
+	looks: string[];
+	source: UnlockSource;
+}
+
+/** The chosen avatar body: a character's A-pose look */
+export interface AvatarBodyRef {
+	character: string;
+	look: string;
+}
+
+/**
+ * The default unlocks of every member and of guests (owner 2026-09-30: Cat Pope, swim + naked). The server's value is
+ * the setting AVATAR_DEFAULT_UNLOCKS (members get theirs from `/me/`); guests use this one.
+ */
+export const DEFAULT_AVATAR_UNLOCKS: CharacterUnlock[] = [{ character: 'catpope', looks: ['swim', 'naked'], source: 'default' }];
+
 export interface Avatar {
 	slots: Partial<Record<AvatarSlot, EntryId | null>>;
+	/** the chosen body (null = the first unlocked default) – ITEMS.md "Reader avatar bodies & character unlocks" */
+	body?: AvatarBodyRef | null;
+	/** what the member has unlocked (defaults first) */
+	unlocked?: CharacterUnlock[];
 }
 
 export interface User {

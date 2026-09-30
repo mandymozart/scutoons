@@ -143,6 +143,9 @@ return static function (App $app): void {
         $admin->get('/users/{id}', [UsersController::class, 'get']);
         $admin->put('/users/{id}/roles/{role}', [UsersController::class, 'grant']);
         $admin->delete('/users/{id}/roles/{role}', [UsersController::class, 'revoke']);
+        $admin->put('/users/{id}/characters/{character}', [UsersController::class, 'unlockCharacter']);
+        $admin->delete('/users/{id}/characters/{character}', [UsersController::class, 'lockCharacter']);
+        $admin->delete('/users/{id}/characters/{character}/looks/{look}', [UsersController::class, 'lockLook']);
         $admin->get('/roles', [UsersController::class, 'roles']);
 
         $admin->get('/content', [AdminContentController::class, 'index']);

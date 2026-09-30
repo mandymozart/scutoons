@@ -1,73 +1,58 @@
+<script lang="ts" module>
+	import type { CharacterRegistry } from '@scutoons/content';
+	import { fetchRegistry } from '$lib/api.ts';
+
+	/** The character registry (content store → static), loaded once per page load for every avatar view */
+	let registryPromise: Promise<CharacterRegistry | null> | null = null;
+	function loadRegistry(): Promise<CharacterRegistry | null> {
+		registryPromise ??= fetchRegistry(fetch).catch(() => null);
+		return registryPromise;
+	}
+</script>
+
 <script lang="ts">
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
-	import type { AvatarSlot, Entry } from '@scutoons/content';
+	import { AVATAR_SLOTS, avatarBodies, unlockedBodies, type AvatarBody, type AvatarSlot, type Entry } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 
 	/**
-	 * Default reader avatar: a character's A-pose (CDN, 768 × 1152) with named slot tiles in a column on each side.
-	 * Equipped items are drawn on the body; positions are in % of the A-pose image.
+	 * Reader avatar: a character's A-pose (CDN, 768 × 1152) with named slot tiles in a column on each side. The bodies
+	 * come from the character registry (`avatarBodies`), filtered to what the reader has unlocked (members: `/me/
+	 * avatar.unlocked`; guests: the default unlocks); locked characters are not shown. Equipped items are drawn at the
+	 * body's wear anchors (`apose.looks[].anchors`, image px). ITEMS.md "Reader avatar bodies & character unlocks".
 	 */
 	const W = 768;
 	const H = 1152;
 
-	type Worn = Record<AvatarSlot, { x: number; y: number; size: number }>;
-	/** where an equipped item sits on the sphynx body: centre + width (image px) */
-	const SPHYNX_WORN: Worn = {
-		head: { x: 370, y: 70, size: 170 },
-		face: { x: 372, y: 105, size: 110 },
-		neck: { x: 372, y: 200, size: 110 },
-		torso: { x: 372, y: 340, size: 330 },
-		hands: { x: 150, y: 575, size: 90 },
-		legs: { x: 372, y: 760, size: 300 },
-		feet: { x: 372, y: 1040, size: 330 },
-		back: { x: 372, y: 330, size: 360 },
-		accessory: { x: 598, y: 575, size: 90 }
-	};
-	/** mouse: big head, shorter body */
-	const MOUSE_WORN: Worn = {
-		head: { x: 385, y: 130, size: 330 },
-		face: { x: 385, y: 230, size: 200 },
-		neck: { x: 385, y: 330, size: 120 },
-		torso: { x: 385, y: 450, size: 260 },
-		hands: { x: 175, y: 625, size: 90 },
-		legs: { x: 385, y: 770, size: 260 },
-		feet: { x: 385, y: 1010, size: 340 },
-		back: { x: 385, y: 450, size: 300 },
-		accessory: { x: 595, y: 625, size: 90 }
-	};
+	const inventory = getInventoryContext();
+	let registry = $state<CharacterRegistry | null>(null);
+	let registryLoaded = $state(false);
+	$effect(() => {
+		loadRegistry().then((r) => {
+			registry = r;
+			registryLoaded = true;
+		});
+	});
 
-	/** Avatar bodies (768 × 1152 each). The first one is the default. */
-	const BODIES = [
-		{ id: 'sphynx', image: 'characters/catpope/catpope_apose-swim.webp', worn: SPHYNX_WORN },
-		{ id: 'sphynx_nude', image: 'characters/catpope/catpope_apose-naked.webp', worn: SPHYNX_WORN },
-		{ id: 'mouse', image: 'characters/yellowmouse/yellowmouse_apose-swim.webp', worn: MOUSE_WORN }
-	] as const;
-	type BodyId = (typeof BODIES)[number]['id'];
-	// Body choice is a per-device preference for now (no server field yet)
-	const BODY_KEY = 'scutoons_avatar_body';
+	const bodies = $derived<AvatarBody[]>(unlockedBodies(avatarBodies(registry, getLocale()), inventory.unlocked));
+	const body = $derived<AvatarBody | undefined>(
+		bodies.find((b) => b.character === inventory.body?.character && b.look === inventory.body?.look) ??
+			bodies.find((b) => b.default) ??
+			bodies[0]
+	);
+	const WORN = $derived(body?.anchors ?? {});
+	let bodyError = $state<string | null>(null);
 
-	function readBody(): BodyId {
+	async function chooseBody(b: AvatarBody) {
+		bodyError = null;
 		try {
-			const stored = localStorage.getItem(BODY_KEY);
-			if (BODIES.some((b) => b.id === stored)) return stored as BodyId;
-		} catch {
-			// storage unavailable → default body
-		}
-		return BODIES[0].id;
-	}
-
-	let bodyId = $state<BodyId>(readBody());
-	const body = $derived(BODIES.find((b) => b.id === bodyId) ?? BODIES[0]);
-	const WORN = $derived(body.worn);
-
-	function chooseBody(id: BodyId) {
-		bodyId = id;
-		try {
-			localStorage.setItem(BODY_KEY, id);
-		} catch {
-			// not persisted, still switches for this visit
+			await inventory.setBody({ character: b.character, look: b.look });
+		} catch (e) {
+			console.warn('Avatar body not saved', e);
+			bodyError = m['items.avatar_body_error']();
 		}
 	}
 
@@ -77,10 +62,7 @@
 	const LEFT: AvatarSlot[] = ['head', 'face', 'hands', 'legs', 'feet'];
 	const RIGHT: AvatarSlot[] = ['neck', 'torso', 'back', 'accessory'];
 
-	const inventory = getInventoryContext();
-	const slots = $derived<AvatarSlot[]>(
-		(inventory.catalog?.slots ?? (Object.keys(SPHYNX_WORN) as AvatarSlot[])).filter((s) => s in SPHYNX_WORN)
-	);
+	const slots = $derived<AvatarSlot[]>((inventory.catalog?.slots ?? AVATAR_SLOTS).filter((s) => (AVATAR_SLOTS as string[]).includes(s)));
 	const left = $derived(LEFT.filter((s) => slots.includes(s)));
 	const right = $derived([...RIGHT, ...slots.filter((s) => !LEFT.includes(s) && !RIGHT.includes(s))].filter((s) => slots.includes(s)));
 
@@ -124,28 +106,35 @@
 {/snippet}
 
 <div class="avatar">
-	<div class="bodies" role="group" aria-label={m['items.avatar_body']()}>
-		{#each BODIES as b (b.id)}
+	<div class="bodies" role="group" aria-label={m['items.avatar_body']()} data-testid="avatar-bodies">
+		{#each bodies as b (`${b.character}/${b.look}`)}
+			{@const active = b === body}
 			<button
 				class="body-choice"
-				class:active={b.id === bodyId}
-				aria-pressed={b.id === bodyId}
-				onclick={() => chooseBody(b.id)}
+				class:active
+				aria-pressed={active}
+				title={b.label}
+				data-body="{b.character}/{b.look}"
+				onclick={() => chooseBody(b)}
 			>
-				{(m as any)[`items.avatar_body_${b.id}`]?.() ?? b.id}
+				<img src={asset(b.path)} alt="" loading="lazy" draggable="false" />
+				<span class="body-name">{b.name}</span>
+				<span class="body-look">{b.lookLabel}</span>
 			</button>
 		{/each}
 	</div>
+	{#if bodyError}<p class="note" role="alert">{bodyError}</p>{/if}
+	{#if registryLoaded && !body}<p class="note">{m['items.avatar_body_none']()}</p>{/if}
 	<div class="stage">
 		<div class="column">
 			{#each left as slot (slot)}{@render tile(slot)}{/each}
 		</div>
 		<div class="figure" style="aspect-ratio: {W} / {H}">
-			<img class="apose" src={asset(body.image)} alt="" draggable="false" />
+			{#if body}<img class="apose" src={asset(body.path)} alt={body.label} draggable="false" />{/if}
 			{#each WORN_ORDER as slot}
 				{@const worn = slots.includes(slot) ? inventory.equippedEntry(slot) : undefined}
-				{#if worn}
-					{@const w = WORN[slot]}
+				{@const w = WORN[slot]}
+				{#if worn && w}
 					<div
 						class="worn"
 						style="left:{((w.x - w.size / 2) / W) * 100}%; top:{((w.y - w.size / 2) / H) * 100}%; width:{(w.size / W) * 100}%"
@@ -204,11 +193,33 @@
 	.body-choice {
 		font: inherit;
 		font-size: 0.75rem;
-		padding: 0.25rem 0.75rem;
+		width: 5.5rem;
+		padding: 0.25rem;
 		background: white;
 		color: black;
 		border: 2px solid #ccc;
 		cursor: pointer;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.125rem;
+	}
+	.body-choice img {
+		width: 100%;
+		aspect-ratio: 768 / 1152;
+		height: auto;
+		object-fit: contain;
+		user-select: none;
+	}
+	.body-name {
+		font-weight: 700;
+		line-height: 1.1;
+		text-align: center;
+	}
+	.body-look {
+		font-size: 0.625rem;
+		line-height: 1.1;
+		color: #6b6b6b;
 	}
 	.body-choice:hover,
 	.body-choice.active {

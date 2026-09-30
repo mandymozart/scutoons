@@ -300,6 +300,71 @@ try {
     $statuses = [];
     for ($i = 0; $i < 5; $i++) $statuses[] = call('GET', "$qrBase/?c=$scanCode")['status'];
     check($r['status'] === 200 && $statuses === [200, 200, 200, 200, 200], 'scan_limit_per_hour = 0 → unlimited', $statuses);
+
+    echo "\nAvatar bodies & character unlocks (default: catpope swim + naked, AVATAR_DEFAULT_UNLOCKS)\n";
+    // The unlock rules read the published character registry of the content store; a database without one gets a
+    // minimal registry for the suite (removed at the end)
+    $registryRow = Db::one("SELECT id FROM content_versions WHERE toon = 'scutoons' AND locale = '_' AND path = 'characters.json' AND status = 'published' ORDER BY id DESC LIMIT 1");
+    if (!$registryRow) {
+        $apose = fn(string $c, array $looks) => ['looks' => array_map(fn($l, $i) => ['id' => $l, 'default' => $i === 0, 'path' => "characters/$c/{$c}_apose-$l.webp", 'anchors' => ['torso' => ['x' => 1, 'y' => 1, 'size' => 1]]], $looks, array_keys($looks))];
+        $json = json_encode(['characters' => [
+            ['id' => 'catpope', 'name' => ['en' => 'Cat Pope'], 'color' => 'blue', 'apose' => $apose('catpope', ['swim', 'naked']), 'personas' => []],
+            ['id' => 'yellowmouse', 'name' => ['en' => 'Yellow Mouse'], 'color' => 'yellow', 'apose' => $apose('yellowmouse', ['swim', 'naked']), 'personas' => []],
+            ['id' => 'toptoy', 'name' => ['en' => 'Toptoy'], 'color' => 'black', 'personas' => []],
+        ]], JSON_UNESCAPED_SLASHES);
+        Db::run("INSERT INTO content_versions (toon, locale, path, json, author, created_at, status, message) VALUES ('scutoons', '_', 'characters.json', ?, NULL, ?, 'published', 'admin-smoke')", [$json, Db::now()]);
+        $testRegistryId = (int) Db::value('SELECT MAX(id) FROM content_versions');
+    }
+    $userApi = "$base/api";
+    $r = call('GET', "$userApi/me/", null, $memberToken);
+    $av = $r['body']['avatar'] ?? [];
+    check($r['status'] === 200 && array_key_exists('body', $av) && $av['body'] === null
+        && ($av['unlocked'] ?? null) === [['character' => 'catpope', 'looks' => ['swim', 'naked'], 'source' => 'default']], 'GET /me/: avatar.body null, unlocked = the default (catpope swim + naked)', $av);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'yellowmouse', 'look' => 'swim']], $memberToken);
+    check($r['status'] === 422 && $r['body']['error'] === 'locked', 'PUT /avatar/ body of a locked character → 422 locked', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'bogus']], $memberToken);
+    check($r['status'] === 422 && $r['body']['error'] === 'locked', 'unknown look → 422 locked', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => 'catpope'], $memberToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'invalid_body', 'body not { character, look } → 400 invalid_body', $r);
+    $r = call('PUT', "$userApi/avatar/", [], $memberToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'invalid_slots', 'neither slots nor body → 400 invalid_slots', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'naked']], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['body'] ?? null) === ['character' => 'catpope', 'look' => 'naked'] && isset($r['body']['avatar']['slots']), 'PUT /avatar/ { body } a default body → saved', $r);
+    $r = call('PUT', "$api/users/{$member['id']}/characters/yellowmouse", null, $memberToken);
+    check($r['status'] === 403, 'member cannot unlock characters (admin API)', $r);
+    $r = call('PUT', "$api/users/{$member['id']}/characters/nobody", null, $adminToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'unknown_character', 'unlock an unknown character → 400 unknown_character', $r);
+    $r = call('PUT', "$api/users/{$member['id']}/characters/yellowmouse", ['looks' => ['glitter']], $adminToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'invalid_look', 'unlock an unknown A-pose look → 400 invalid_look', $r);
+    $r = call('PUT', "$api/users/nobody/characters/yellowmouse", null, $adminToken);
+    check($r['status'] === 404, 'unknown user → 404', $r);
+    $r = call('PUT', "$api/users/{$member['id']}/characters/yellowmouse", null, $adminToken);
+    $mouse = array_values(array_filter($r['body']['characters'] ?? [], fn($c) => $c['character'] === 'yellowmouse'))[0] ?? null;
+    check($r['status'] === 200 && $r['body']['changed'] === true && $mouse && $mouse['looks'] === ['swim'] && $mouse['source'] === 'admin'
+        && str_starts_with((string) $mouse['ref'], 'admin:') && $mouse['unlocked_at'] !== null, 'admin unlocks yellowmouse → its default A-pose look (swim), source admin, ref admin:<email>', $r);
+    $r = call('PUT', "$api/users/{$member['id']}/characters/yellowmouse", null, $adminToken);
+    check($r['status'] === 200 && $r['body']['changed'] === false, 'unlocking again → changed false', $r);
+    $r = call('GET', "$api/users/{$member['id']}", null, $adminToken);
+    check(array_column($r['body']['user']['characters'] ?? [], 'character') === ['catpope', 'yellowmouse'], 'admin user detail lists the unlocks (default + granted)', $r['body']['user']['characters'] ?? $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'yellowmouse', 'look' => 'naked']], $memberToken);
+    check($r['status'] === 422 && $r['body']['error'] === 'locked', 'a look beyond the default stays locked', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'yellowmouse', 'look' => 'swim']], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['body'] ?? null) === ['character' => 'yellowmouse', 'look' => 'swim'], 'the member wears the unlocked mouse (swim)', $r);
+    $r = call('PUT', "$api/users/{$member['id']}/characters/yellowmouse", ['looks' => ['naked'], 'source' => 'item', 'ref' => 'admin-smoke'], $adminToken);
+    $mouse = array_values(array_filter($r['body']['characters'] ?? [], fn($c) => $c['character'] === 'yellowmouse'))[0] ?? null;
+    check($r['status'] === 200 && $r['body']['changed'] === true && $mouse && $mouse['looks'] === ['swim', 'naked'], 'unlock a further look (naked, source item)', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'yellowmouse', 'look' => 'naked'], 'slots' => new stdClass()], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['body']['look'] ?? null) === 'naked', 'body + slots in one PUT', $r);
+    $r = call('DELETE', "$api/users/{$member['id']}/characters/yellowmouse/looks/naked", null, $adminToken);
+    $me = call('GET', "$userApi/me/", null, $memberToken)['body']['avatar'] ?? [];
+    check($r['status'] === 200 && $r['body']['changed'] === true && $me['body'] === null, 'revoking the worn look resets avatar.body', [$r, $me]);
+    $r = call('DELETE', "$api/users/{$member['id']}/characters/yellowmouse", null, $adminToken);
+    $me = call('GET', "$userApi/me/", null, $memberToken)['body']['avatar'] ?? [];
+    check($r['status'] === 200 && $r['body']['changed'] === true && array_column($me['unlocked'] ?? [], 'character') === ['catpope'], 'revoke the character → only the default is left', [$r, $me]);
+    $r = call('DELETE', "$api/users/{$member['id']}/characters/catpope", null, $adminToken);
+    check($r['status'] === 200 && $r['body']['changed'] === false && array_column($r['body']['characters'], 'character') === ['catpope'], 'the default unlock cannot be revoked per member', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => null], $memberToken);
+    check($r['status'] === 200 && $r['body']['avatar']['body'] === null, 'body null → back to the default', $r);
 } finally {
     // Back to the limits from before the suite, and no test rate-limit rows left
     if (isset($settingsBefore) && $settingsBefore) {
@@ -323,7 +388,9 @@ try {
             if ($files->exists($type, $name)) unlink($files->path($type, $name));
         }
     }
+    if (isset($testRegistryId)) Db::run('DELETE FROM content_versions WHERE id = ?', [$testRegistryId]);
     foreach ([$admin, $member] as $user) {
+        foreach (['member_characters', 'member_character_looks', 'avatar_body', 'avatar_slots'] as $table) Db::run("DELETE FROM $table WHERE user_id = ?", [$user['id']]);
         Db::run('DELETE FROM sessions WHERE user_id = ?', [$user['id']]);
         Db::run('DELETE FROM user_roles WHERE user_id = ?', [$user['id']]);
         Db::run('DELETE FROM inventory WHERE user_id = ?', [$user['id']]);

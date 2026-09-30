@@ -7,11 +7,15 @@ import {
 	fetchEditions,
 	grantItem,
 	importItems,
-	putAvatar
+	putAvatar,
+	putAvatarBody
 } from '$lib/api.ts';
+import { DEFAULT_AVATAR_UNLOCKS } from '@scutoons/content';
 import type {
 	Avatar,
+	AvatarBodyRef,
 	AvatarSlot,
+	CharacterUnlock,
 	Catalog,
 	Entry,
 	EntryId,
@@ -26,6 +30,25 @@ import type { SessionContext } from './session.svelte.ts';
 
 const INVENTORY_KEY = Symbol('inventory');
 const GUEST_STORAGE_KEY = 'scutoons_inventory';
+/** The guest's avatar body { character, look } (per device; the old ids sphynx / sphynx_nude / mouse are mapped) */
+const GUEST_BODY_KEY = 'scutoons_avatar_body';
+const LEGACY_BODIES: Record<string, AvatarBodyRef> = {
+	sphynx: { character: 'catpope', look: 'swim' },
+	sphynx_nude: { character: 'catpope', look: 'naked' },
+	mouse: { character: 'yellowmouse', look: 'swim' }
+};
+
+function readGuestBody(): AvatarBodyRef | null {
+	try {
+		const raw = localStorage.getItem(GUEST_BODY_KEY);
+		if (!raw) return null;
+		if (LEGACY_BODIES[raw]) return LEGACY_BODIES[raw];
+		const parsed = JSON.parse(raw);
+		return typeof parsed?.character === 'string' && typeof parsed?.look === 'string' ? { character: parsed.character, look: parsed.look } : null;
+	} catch {
+		return null;
+	}
+}
 
 interface GuestState {
 	entries: Entry[];
@@ -73,6 +96,10 @@ export function createInventoryContext(session: SessionContext) {
 		isAccount ? (session.me?.inventory ?? []) : guest.entries
 	);
 	const avatar = $derived<Avatar>(isAccount ? (session.me?.avatar ?? { slots: {} }) : guest.avatar);
+	// avatar body: members from /me/ (server-checked unlocks), guests the default unlocks + a per-device choice
+	let guestBody = $state<AvatarBodyRef | null>(typeof localStorage === 'undefined' ? null : readGuestBody());
+	const unlocked = $derived<CharacterUnlock[]>(isAccount ? (session.me?.avatar?.unlocked ?? DEFAULT_AVATAR_UNLOCKS) : DEFAULT_AVATAR_UNLOCKS);
+	const body = $derived<AvatarBodyRef | null>(isAccount ? (session.me?.avatar?.body ?? null) : guestBody);
 	const itemsById = $derived<Record<string, ItemDef>>(
 		Object.fromEntries((catalog?.items ?? []).map((i) => [i.id, i]))
 	);
@@ -314,6 +341,22 @@ export function createInventoryContext(session: SessionContext) {
 		}
 	}
 
+	/** Choose the avatar body (must be unlocked; the server checks it for members: 422 locked / no_apose). */
+	async function setBody(ref: AvatarBodyRef | null) {
+		if (isAccount) {
+			const result = await putAvatarBody(ref);
+			session.patchMe({ avatar: result.avatar ?? { ...avatar, body: ref } });
+		} else {
+			guestBody = ref;
+			try {
+				if (ref) localStorage.setItem(GUEST_BODY_KEY, JSON.stringify(ref));
+				else localStorage.removeItem(GUEST_BODY_KEY);
+			} catch {
+				// not persisted, still switches for this visit
+			}
+		}
+	}
+
 	async function equip(entry: Entry) {
 		const slot = item(entry.item_id)?.slot;
 		if (!slot) return;
@@ -374,6 +417,15 @@ export function createInventoryContext(session: SessionContext) {
 		get avatar() {
 			return avatar;
 		},
+		/** characters (+ A-pose looks) the reader may wear as avatar body */
+		get unlocked() {
+			return unlocked;
+		},
+		/** the chosen avatar body (null = the first unlocked default) */
+		get body() {
+			return body;
+		},
+		setBody,
 		get isAccount() {
 			return isAccount;
 		},

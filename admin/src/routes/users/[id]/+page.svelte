@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, RecordInspector, Section, Skeleton, Toggle, type Column } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, DataTable, Field, RecordInspector, Section, Skeleton, Toggle, type Column } from '@scutoons/ui';
 	import type { AdminUserDetail, RoleInfo } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { day, errorText, minute } from '$lib/format.ts';
@@ -50,6 +50,43 @@
 		} catch (e) {
 			toaster.addToast({ message: errorText(e), type: 'error' });
 			user = { ...user };
+		} finally {
+			working = null;
+		}
+	}
+
+	// ── Avatar-body unlocks (ITEMS.md "Reader avatar bodies & character unlocks") ──
+	let unlockCharacter = $state('');
+	let unlockLooks = $state('');
+
+	async function unlock(e: SubmitEvent) {
+		e.preventDefault();
+		if (!user || !unlockCharacter.trim()) return;
+		const character = unlockCharacter.trim();
+		const looks = unlockLooks.split(',').map((l) => l.trim()).filter(Boolean);
+		working = 'characters';
+		try {
+			const result = await admin.unlockCharacter(user.id, character, looks.length ? { looks } : {});
+			user = { ...user, characters: result.characters };
+			unlockCharacter = '';
+			unlockLooks = '';
+			toaster.addToast({ message: m['users.unlocked']({ character, email: user.email }), type: 'success' });
+		} catch (err) {
+			toaster.addToast({ message: errorText(err), type: 'error' });
+		} finally {
+			working = null;
+		}
+	}
+
+	async function lock(character: string) {
+		if (!user) return;
+		working = 'characters';
+		try {
+			const result = await admin.lockCharacter(user.id, character);
+			user = { ...user, characters: result.characters };
+			toaster.addToast({ message: m['users.unlock_revoked']({ character, email: user.email }), type: 'success' });
+		} catch (err) {
+			toaster.addToast({ message: errorText(err), type: 'error' });
 		} finally {
 			working = null;
 		}
@@ -112,6 +149,34 @@
 		</Section>
 	</div>
 
+	<Section title={m['users.section_characters']()} hint={m['users.section_characters_hint']()}>
+		<ul class="unlocks" data-testid="character-unlocks">
+			{#each user.characters ?? [] as u (u.character)}
+				<li>
+					<strong>{u.character}</strong>
+					{#each u.looks as look (look)}<Badge tone="neutral">{look}</Badge> {/each}
+					<span class="meta">{u.source}{u.ref ? ` · ${u.ref}` : ''}{u.unlocked_at ? ` · ${minute(u.unlocked_at)}` : ''}</span>
+					{#if u.source !== 'default'}
+						<Button variant="clear" size="sm" disabled={working !== null} onclick={() => lock(u.character)}>{m['users.unlock_revoke']()}</Button>
+					{/if}
+				</li>
+			{/each}
+		</ul>
+		<form class="unlock" onsubmit={unlock}>
+			<Field label={m['users.character_id']()}>
+				{#snippet children({ id, describedby, invalid })}
+					<input {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={unlockCharacter} placeholder="yellowmouse" data-testid="unlock-character" />
+				{/snippet}
+			</Field>
+			<Field label={m['users.character_looks']()}>
+				{#snippet children({ id, describedby, invalid })}
+					<input {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={unlockLooks} placeholder="naked" />
+				{/snippet}
+			</Field>
+			<Button type="submit" disabled={working !== null || !unlockCharacter.trim()}>{m['users.unlock']()}</Button>
+		</form>
+	</Section>
+
 	<Section title={m['users.section_codes']()} hint={m['users.section_codes_hint']()}>
 		<DataTable columns={codeColumns} rows={user.codes} rowKey={(c) => c.code} emptyLabel={m['users.no_codes']()} labels={tableLabels()}>
 			{#snippet cell(c, column)}
@@ -137,5 +202,29 @@
 	}
 	.current {
 		margin: var(--space-1) 0 0;
+	}
+	.unlocks {
+		list-style: none;
+		margin: 0 0 var(--space-1);
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-05);
+	}
+	.unlocks li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-05);
+	}
+	.unlocks .meta {
+		font-size: 0.85em;
+		opacity: 0.7;
+	}
+	.unlock {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-end;
+		gap: var(--space-1);
 	}
 </style>
