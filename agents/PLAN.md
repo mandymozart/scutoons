@@ -336,3 +336,31 @@ tabs/sessions. Local dev only (the script refuses a non-localhost API).
   choices; `-- --fresh` signs in again. Never paste the token into reports or commits.
 - Browser checks run headless with their own throw-away profile (e.g. `npm run check:creator-cast`) and restore any
   content they publish.
+
+## Handover 2026-09-30 evening (state `stable-2026-09-30-6`)
+
+Full suite green on this state: `npm run check`, 4 builds, `server composer test`, `qr composer test`, vn-check,
+`check:locale`, `check:fonts`, `check:creator-cast`; all 7 dev servers via `npm run dev:up`. Nothing pushed.
+
+**CDN upload still pending (`cdn/root` is not in git, upload with `cdn/sync.py`):**
+- `catpope/images/s1c2-key-visual.{png,webp}`
+- `catpope/images/supporters/{ske,westbahnstudios,kuenstlerhof-frohnau}.svg`
+- `catpope/items/{cucumber_slice,camera_photo,cucumber_camera_photo}.png`
+- `characters/toptoy/*` (normalized A-poses + WebPs) and all regenerated `characters/*/*_avatar-*.webp`
+
+**Release 2026-10-04 (Oct 3 SQL run), migrations in order:** `content-versions` → `entity-keys` →
+`sensitive-content`, then `shared/content/seed/content-seed.mysql.sql` (+ characters seed). Regenerate the seed SQL if
+content changes before then (keep unchanged rows' timestamps, only changed statements differ).
+
+**Open owner questions:**
+- German season 1 credits list "Nova Lux" for music/sound, English now "Nova Ludwig": align?
+- Creator cast "Save/Publish don't work" could not be reproduced as the test user; the dead-looking buttons were fixed
+  (33b17af). If it happens again: note exactly what was changed, replay it as `agent@scutoons.test`.
+
+**Next (owner's roadmap):** catalog (items, editions, products) into the DB, then the PWA; performance roadmap above.
+
+**This round (for orientation):** entity keys + API-only content; creator UI rework (no version numbers); cast/star +
+featuring (data only, not shown in the reader); full view as centre group; multi-slot avatar bodies + Toptoy; sensitive
+content setting (default on); dark inventory; toon page = start button from reading progress + per-chapter progress bars,
+season music, credits colophon with supporters; IBM Plex Mono everywhere; `/en/` URLs fixed; `dev:up` / `dev:test-user`.
+
