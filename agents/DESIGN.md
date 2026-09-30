@@ -73,13 +73,36 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **IconButton** — fixed 2rem circle, `paper` bg, 2px `ink` border, hover fill `primary-cyan`, one 16px black icon,
   `touch-action: manipulation` (inventory / main-menu toggles).
 - **ChapterItem** — grid `6rem auto 3rem` (`5rem …` < 768px), hover `surface-hover`, meta in `caption` + `text-muted`,
-  coming-soon row at 0.5 opacity. Under the title: the chapter's "featuring" (when set).
-- **Featuring** (`toon/featuring.svelte`, agents/ITEMS.md "Cast & featuring") — one `caption` line in `text-muted`: the
-  lead ("Staffel 1 · mit" / "Season 1 · featuring", "mit" / "featuring", "Kapitel 2 · mit") then each character as a
-  framed avatar (the 192 px avatar view, persona colour behind the head, 2px `ink` border, `radius-sm`; 1.5 rem in the
-  chapter list, 2.25 rem on the season line and at the chapter start) + the name in `ink`. Season line = the season cast
-  (the star first) under the season text; chapter start = a `paper` band with a 2px `ink` rule above the first slice
-  (only at the chapter's start, not for a `?label=` jump), below the fixed logo / menu icons.
+  coming-soon row at 0.5 opacity. No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
+  and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
+- **Toon page, top to bottom** (owner 2026-09-30): cover, toon title + description, "Staffel 1: <title>", the season
+  text, **the start button**, the chapter list, **the season's music** (a secondary button "Musik herunterladen" /
+  "Download the music" → `/<toon>/download`, only when `season.download.music` is set), **the credits colophon**.
+  Chapters are named only in the chapter list (never in the music or the colophon).
+- **Start button** (`toon/start-button.svelte`, like Prime Video's "▶ S1 F1 wiedergeben" but reading): the primary
+  button (ink / paper, square, `button` type) as a link to the chapter, a 16 px forward arrow (2px stroke, square caps,
+  `currentColor`; not a play triangle – it navigates) + the label from paraglide `start.*`: de "S1 K1 lesen" /
+  "S1 K4 weiterlesen" / "S1 K1 erneut lesen", en "Read S1 C1" / "Continue S1 C4" / "Read S1 C1 again"; `title` = the
+  long form ("Staffel 1, Kapitel 4: <title>"). Only in "weiterlesen": a 2px bar under the label (read part `paper`, the
+  rest `text-muted`) = the stored position. State rule (`readingState` in `@scutoons/content` progress.ts, tests in
+  `test/progress.test.ts`), over the season's readable chapters (published; drafts in dev like the list; coming soon
+  never): nothing read → the first; the **last opened** chapter (newest checkpoint) not read to its end → continue it;
+  read to its end → the next readable chapter ("lesen"); after the last one → the first never-finished one; all
+  finished → the first chapter "erneut lesen". Opening a finished chapter again starts a new read-through (position
+  from 0, `isComplete` stays).
+- **Reading progress** (`reading/track-reading.ts` on the chapter page): a slice counts as read when ≥ 50 % of it is on
+  screen (or, taller than the screen, its bottom edge); position = (slices of the earlier groups + furthest slice + 1)
+  / the chapter's slices, < 1 until the **last slice of the last group** is reached (= finished). Stored as a
+  `Checkpoint { uri: "<toon>/chapter/<n>", isComplete, position }` in the existing game state (localStorage
+  `scutoons_game_<toon>`, a member's `/api/progress/<toon>` via the existing last-write-wins sync).
+- **Credits colophon** (`@scutoons/reader` `CreditsColophon`, owner 2026-09-30, typography after the back of the vinyl
+  cover; content = `credits:<toon>` as it is): `0.8125rem` (≈ 11.4 px on a phone), line-height 1.5, centred, max
+  36em; section headings in capitals, bold, letter-spacing 0.08em, inside a 2px `ink` framed bar (square); names as
+  running text "Name (role, role), Name (role)"; toon crew groups as "**Label:** names"; songs / performances as a
+  bold title line (+ "venue | date") then the names; chapter sections are left out. Ends with "UNTERSTÜTZT VON" /
+  "SUPPORTED BY" + the season's `supporters` logos: a centred wrapping row, one height (`clamp(28px, 2.125rem, 36px)`),
+  forced to ink (`filter: brightness(0)`), linked when `url` is set, `alt` = name; no logo → the name in bold fine
+  print. Replaces the old "Credits" button; `/<toon>/credits` (printed URL) keeps the full credits page.
 - **DialogueBox** (VN) — fixed bottom panel, `paper` bg, 2px `ink` border, square, `space-1` padding; hidden by
   `translateY(14rem)`, shown over 0.1s; speaker in `label-uppercase`; narrator italic; pulsing `...` when awaiting tap.
 - **ChoiceButton** (VN) — full width, left aligned, 2px `border-muted` → `border-hover` → `ink`, stacked with `space-075`.

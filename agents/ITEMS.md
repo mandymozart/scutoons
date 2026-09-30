@@ -577,6 +577,9 @@ cast computed from scenes would be empty there.
   pre-filled as a suggestion from the chapter's VN scene refs, set by hand for non-VN chapters.
 - **Reader:** season page "Staffel 1 · mit Katzenpapst, …" / "Season 1 · featuring Cat Pope, …" (small avatars);
   chapter list item + chapter start show the chapter's "featuring".
+  **Removed from the reader 2026-09-30 (owner: "the reader frontend is supposed to be super logical and simple"):** no
+  featuring line, avatars or chapter-start band any more (`toon/featuring.svelte` deleted); the data, the creator field
+  and `/cast?chapter=` stay for later (DESIGN.md "Toon page").
 - **Creator:** character picker shows the season cast first; picking someone outside adds them to the season cast
   (undo); problem list suggests missing cast/featuring entries from VN usage. Cast page = the season cast editor (no
   "+ Season" there); chapter "featuring" is edited on the chapter page.

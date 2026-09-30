@@ -980,6 +980,42 @@ character, persona, look and mood and doubles as the VN test bed.
 - **No version numbers in the UI** (owner): creator chips / history and the admin content overview show state words and
   dates (DESIGN.md "Creator navigation"); `ContentDoc.changedAt` holds the date of the version a locale is based on.
 
+## Toon page: no featuring, start button, season music, credits colophon, supporters (2026-09-30)
+
+- **Owner:** "this looks ugly … the reader frontend is supposed to be super logical and simple". Featuring removed from
+  the reader (season line, chapter-list rows, chapter-start band; `toon/featuring.svelte` + messages
+  `chapter.season_featuring` / `chapter.featuring` deleted); data + creator untouched. The dev-only debug overlay on the
+  chapter page (top right "Kapitel 1 / description / Preview / Label") was removed by the coordinator (owner request).
+- **Progress found:** the viewer's game context (`contexts/game.svelte.ts`) already had `progress: Checkpoint[]`
+  (`uri`, `isComplete`) stored in localStorage `scutoons_game_<toon>` and synced for members to `/api/progress/<toon>`
+  (server table `progress`, last write wins) – but nothing ever wrote a checkpoint (`addCheckpoint` unused, only a debug
+  `console.log(hasCheckpoint(...))` in `toon/group.svelte`, removed). No scroll position, no "finished". Also fixed:
+  `parsed.progress || {}` made a missing list an object.
+- **Added (minimal):** `Checkpoint.position` (0..1) + `readingState` / `advanceCheckpoint` / `chapterCheckpointUri`
+  (`@scutoons/content` progress.ts, node tests), `game.readChapter()`, `reading/track-reading.ts` on the chapter page
+  (IntersectionObserver over `[data-slice-index]`, ≥ 50 % visible). Rule + UI: DESIGN.md "Start button". Server
+  unchanged (the state is opaque JSON). In dev chapter 2 (draft) is readable, so "finished ch1" shows "S1 K2 lesen";
+  in production (only ch1 published) the same state is "S1 K1 erneut lesen".
+- Verified headless (scratchpad `shots.mjs`): the real flow with `?code=promo_test` – scrolling 16000 px of chapter 1 at
+  375 px → position 0.29, button "S1 K1 weiterlesen" + 29 % bar; scrolled to the end → `isComplete`, "S1 K2 lesen";
+  reopened → new read-through "weiterlesen" 1 %. Member `avatar-member-0930@example.com`: server progress with position
+  0.73 → a fresh browser (empty localStorage) shows "Continue S1 C1" 73 %; the member's old server state
+  (`cucumber: 2`, no checkpoints) was restored afterwards.
+- **Paraglide locale in headless checks:** the viewer's strategy is the cookie (`PARAGLIDE_LOCALE`), a `/en/` URL alone
+  renders German – set the cookie.
+- **Season music:** `Toon.download` → `Season.download` (DATA.md). Store: new published versions of
+  `toon-settings:catpope|sandbox:{de,en}` and `season:catpope:1:{de,en}` (backup `server/db/local.sqlite.bak-2026-09-30-
+  season-download`). The seed SQL regenerated keeping the old timestamps of unchanged rows (the generator stamps every
+  row with "now"; a 4-statement diff instead of 42).
+- **Credits colophon** (DESIGN.md): typography only, the `credits:<toon>` content as it is (owner: no PDF comparison, no
+  new credits, no track list, no songs ↔ chapters). Streamed from the toon page's own `+page.ts` (the page does not
+  wait for it) → one more library request on `/catpope` (credits).
+- **Supporters:** `Season.supporters`, creator season page list (add / remove / reorder, name, url, logo via the image
+  picker). catpope season 1 filled by the owner's instruction: SKE / austro mechana, Westbahnstudios, Künstlerhof
+  Frohnau, logos from the vinyl PDF as single-path SVGs in `cdn/root/catpope/images/supporters/` (**upload with
+  `cdn/sync.py`** – cdn/root is not in git). Rendered as `<img>` + `filter: brightness(0)` (ink; `currentColor` in an
+  `<img>` SVG is black anyway).
+
 ## Hide sensitive content (2026-09-30)
 
 - Owner: "Make it a member-wide setting. Hide sensitive content is on by default." Built as ITEMS.md "Sensitive

@@ -15,8 +15,8 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | What | Where | Edited in |
 |---|---|---|
 | toon list entry (status, names per language, languages) | DB entity `toon:<toon>` | creator (toon page) |
-| toon settings (title, description, covers, map, downloads) per locale | DB `toon-settings:<toon>:<l>` | creator |
-| season (title, plot, sequence + status per locale) | DB `season:<toon>:<n>:<l>` | creator |
+| toon settings (title, description, covers, map) per locale | DB `toon-settings:<toon>:<l>` | creator |
+| season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>:<l>` | creator (season page) |
 | chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>:<l>` | creator |
 | VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>:<l>` | creator |
 | map texts (locations, routes) | DB `locations:<toon>:<l>`, `routes:<toon>:<l>` | import (no editor yet) |
@@ -54,6 +54,18 @@ columns for filtering (NULL = platform-wide / language-neutral). A chapter group
 format (`ref.src: "chapter2/scene-14.json"`) and resolves to `scene:<toon>:2:scene-14` (`sceneEntityOfRef`,
 `EntityKey::sceneOf`). A chapter carries an optional `featuring` array (owner, built 2026-09-30, ITEMS.md "Cast & featuring") – the chapter
 endpoint and the season overview pass it through; the `/cast` answer always has the toon's star in every season.
+
+**Season downloads and supporters (2026-09-30, owner):** the music album belongs to its season: `Season.download
+{ music?, complete? }` (was `Toon.download`, removed from the type/schema; a leftover `download` in toon settings is only
+a validation warning) and `Season.supporters [{ name, logo?, url? }]` (ordered, logo = image path in the toon's CDN
+folder). Both language-neutral (the creator writes them to every locale), passed through by the library unchanged
+(`LibraryTest::testSeasonDownloadAndSupportersPassThrough`); the reader's `/<toon>/download` (printed URL, unchanged)
+offers season 1's `download`. catpope migrated in the seed + the local store (new published versions of
+`toon-settings:catpope:{de,en}`, `toon-settings:sandbox:{de,en}`, `season:catpope:1:{de,en}`) and in
+`content-seed.mysql.sql` (only those 4 catpope statements changed).
+
+**Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
+in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API).
 
 **Migration `2026-09-30-entity-keys`** (MySQL + SQLite, idempotent, dated after `content-versions`): creates
 `entity_versions` and copies every `content_versions` row with the **same id** (history, "v71" labels, drafts stay) and
