@@ -21,6 +21,7 @@
 	const labels = $derived(credits.labels);
 	const sections = $derived(credits.sections.filter((s) => s.kind !== 'chapter'));
 	const shownSupporters = $derived((supporters ?? []).filter((s) => s?.name?.trim()));
+	const logos = $derived(shownSupporters.filter((s) => s.logo));
 
 	const running = (entries: ResolvedEntry[]) =>
 		entries.map((e) => (e.roles.length ? `${e.person.name} (${e.roles.join(', ')})` : e.person.name)).join(', ');
@@ -52,28 +53,24 @@
 	{/each}
 
 	{#if shownSupporters.length}
+		<!-- supporters: the names as running text first, then their logos together in one framed box -->
 		<h2 class="bar">{labels.supportedBy}</h2>
-		<ul class="supporters" data-testid="supporters">
-			{#each shownSupporters as supporter, i (i)}
-				<li>
-					{#if supporter.url}
-						<a href={supporter.url} target="_blank" rel="noopener noreferrer">{@render mark(supporter)}</a>
-					{:else}
-						{@render mark(supporter)}
-					{/if}
-				</li>
-			{/each}
-		</ul>
+		<p data-testid="supporters">
+			{#each shownSupporters as supporter, i (i)}{#if i > 0}{', '}{/if}{#if supporter.url}<a
+						href={supporter.url}
+						target="_blank"
+						rel="noopener noreferrer">{supporter.name}</a
+					>{:else}{supporter.name}{/if}{/each}
+		</p>
+		{#if logos.length}
+			<ul class="logos" data-testid="supporter-logos">
+				{#each logos as supporter, i (i)}
+					<li><img src={imageUrl(supporter.logo ?? '')} alt={supporter.name} loading="lazy" /></li>
+				{/each}
+			</ul>
+		{/if}
 	{/if}
 </div>
-
-{#snippet mark(supporter: Supporter)}
-	{#if supporter.logo}
-		<img src={imageUrl(supporter.logo)} alt={supporter.name} loading="lazy" />
-	{:else}
-		<span class="label">{supporter.name}</span>
-	{/if}
-{/snippet}
 
 <style>
 	/* fine print: ~11–12 px at 375 px (root 14 px), centred, a readable measure */
@@ -107,24 +104,25 @@
 	.label {
 		font-weight: var(--font-weight-bold, 700);
 	}
-	.supporters {
+	/* the supporters' logos in one box (2px rule, square), in ink at one visual height (~28–32 px on a phone) */
+	.logos {
 		list-style: none;
 		margin: var(--space-1, 1rem) 0 0;
-		padding: 0;
+		padding: var(--space-15, 1.5rem) var(--space-1, 1rem);
+		border: var(--border-width-regular, 2px) solid var(--ink, #000);
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: center;
 		align-items: center;
 		gap: var(--space-15, 1.5rem) var(--space-3, 3rem);
 	}
-	/* logos in ink at one visual height (~28–32 px on a phone) */
-	.supporters img {
+	.logos img {
 		display: block;
 		height: clamp(28px, 2.125rem, 36px);
 		width: auto;
 		filter: brightness(0);
 	}
-	.supporters a {
+	.colophon a {
 		color: var(--ink, #000);
 	}
 </style>
