@@ -848,3 +848,8 @@ character, persona, look and mood and doubles as the VN test bed.
   the avatar positions (0.25 rem + k rem, 4 rem), right overlaps (33 % with room, ≤ 67 % crowded, equal within a side),
   grounding (speaker box top + 4 px, the rest + 1 rem), z against the box, glow, dimming. x is measured from computed
   left/width (the speaker's wiggle is a transform).
+
+- 2026-09-30 — Paraglide builds no longer break running dev servers: all four apps compile `outputStructure:
+  'locale-modules'` for dev AND build (vite.config.ts), so `npm run build` / `npm run check` no longer swap the modules
+  under a running `vite dev`. The old workaround (`touch <app>/vite.config.ts` after a build) is not needed any more.
+
