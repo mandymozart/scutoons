@@ -309,6 +309,6 @@ code). Dev and exploratory work stay separate. Details: [AUTOMATION.md](AUTOMATI
 The avatar is now a separately generated view (head with neck, 600 × 600) instead of a downscaled portrait; the
 portrait goes down to above the waist with arms. To do: `cdn/tools/make_character_webp.py` + the characters import
 must downscale the delivered `_avatar-*` image to the 192 px display copy instead of generating it from the portrait,
-and not overwrite a delivered avatar. Open question for the owner: mood avatars — generate per mood like portraits,
-or crop the head from each mood portrait? (Existing sets keep their portrait-derived avatars until replaced.)
+and not overwrite a delivered avatar. **Done** (8ebce5b, 066c72f); owner answer on mood avatars: without a delivered
+avatar, crop the head with neck from each mood portrait (one aligned box per character/persona/look, MEMORY.md "Media").
 

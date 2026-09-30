@@ -853,3 +853,37 @@ character, persona, look and mood and doubles as the VN test bed.
   'locale-modules'` for dev AND build (vite.config.ts), so `npm run build` / `npm run check` no longer swap the modules
   under a running `vite dev`. The old workaround (`touch <app>/vite.config.ts` after a build) is not needed any more.
 
+
+## Media: chapter-2 key visual + cucumber, Toptoy, avatar crops, cwebp (2026-09-30)
+
+- **Chapter 2**: key visual `catpope/images/s1c2-key-visual.png` (owner's `s1c2-keyvisual.png` renamed) + `.webp`
+  (390 × 845, q88) = `keyvisual.image` de/en. Cucumber on slice 19 (scene-18, the same rect as the sandbox) → offer →
+  `add cucumber 1`. Fix needed for it: a group's VN host (message box) was mounted only when the group itself had
+  `events`; `toon/group.svelte` now mounts it when any slice has events too (plain vertical groups with slice triggers).
+  Verified guest de/en and `avatar-member-0930@example.com` (server 4 → 5, a replay stays 5). The chapter-2 page shows
+  the promo-code sheet first with `?code=`; a click on the slice only closes it.
+- **Toptoy** (`characters/toptoy/`): A-poses `toptoy_apose-{swim,naked}.png` as delivered (768 × 1152, figures at
+  16–86 % of the height, i.e. not the spec's 5–92 %; a few stray alpha specks between the figures in the swim file),
+  full = the owner's `22.webp` normalized to 600 × 1200 (scale 0.834, width-limited by the duo, 12 px side margin,
+  soles at 96 %, head top at 27 %), portrait 1024 → crop (19, 19, 1024, 1024) → 600 (eye line = mean pupil centre
+  y 431 → 41 %, eye centre x 50 %). Anchors `TOPTOY_WORN` in migrate-characters.ts (worn slots on the left figure).
+  Before/after + anchor renders were scratchpad-only.
+- **Avatars from portraits** (`cdn/tools/make_character_webp.py`, owner rule): no delivered 600 px avatar → square
+  head-with-neck crop of each mood's portrait with one box per `<name>[_<look>]` (`cdn/tools/avatar-crops.json`,
+  `"source": "manual"` = override). Box: neck = narrowest smoothed alpha row between 25 % of the figure and 75 % of the
+  canvas, centred on the head's alpha centroid, side max(1.4 × head height, 1.2 × head width), then grown so every
+  mood's head fits (a neutral-only box clipped raised ears / tilted helmets). Old 192/96 px avatar PNGs are ignored.
+  `--sheet=<png>` = contact sheet. Full and A-pose PNGs get WebPs too.
+- **cwebp**: `winget install Google.Libwebp --scope user` → `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Google.Libwebp_…\
+  libwebp-1.6.0-windows-x64\bin\cwebp.exe` (no PATH link; set `CWEBP` to it). Slices with `-sharp_yuv` q88 vs the current
+  Pillow q88: chapter 1 2.473 → 2.556 MB (+3.4 %), chapter 2 0.560 → 0.573 MB (+2.4 %), luma PSNR equal (44.5 dB), chroma
+  +0.6–0.8 dB, no visible difference in 3× crops of the most colourful edges → **not adopted**, slices unchanged.
+- **Sandbox Sonntagnachmittag** now also uses the `full` view (everyone with a delivered full image under
+  `characters/…`: Toptoy, Bill; the legacy catpope `*_full.svg` are 550-byte placeholder silhouettes and are skipped).
+  Full placement today (`vn/characters/full.svelte`, not redesigned, for the owner to look at): every full character
+  is `position: fixed; inset: 0`, centred, `max-height 90vh / max-width 90vw` in a slot with z-index 1 → two full
+  characters overlap exactly (at 375 × 812 both 600 × 1200 images are 337 × 674 px at x 19–356, y 69–743), not grounded
+  (the box top is at y 626, so the lowest ~117 px – legs and feet – are behind the box), behind the portrait stage
+  and avatars (z 86–101), no speaker-in-front / dimming rule (only the wiggle). vn-check does not assert full.
+- `scripts/vn/vn-check.mjs` reads the scripts from the library API now (`--api=`, `SCUTOONS_TOKEN` for drafts outside
+  dev). One en run had chapter-6 failures while the viewer was being switched live; two reruns passed.
