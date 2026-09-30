@@ -323,3 +323,16 @@ Local dev ports are fixed (viewer 8000, cdn 8001, api 9000, qr 9001, creator 100
 never kill servers they did not start, and use throw-away ports only for isolated test runs they stop again (e.g. the
 contract suites' own servers).
 
+
+## RULE: agents debug as the local test user, never as the owner (2026-09-30, owner)
+
+"Create a test user for yourself, you can debug better." Agents sign in as **`agent@scutoons.test`** (roles member,
+creator, admin; Cat Pope unlocked) via `npm run dev:test-user` – never with the owner's account or in the owner's browser
+tabs/sessions. Local dev only (the script refuses a non-localhost API).
+- `npm run dev:test-user` ensures the account (signup with a local promo code, OTP from `server/logs/mail.log`, roles via
+  `bin/console roles`, Cat Pope via the admin API) and writes the session to `logs/dev/test-user.json` (gitignored);
+  `-- --browser http://localhost:10000` prints a one-line JS snippet (`localStorage.scutoons_session`, the same key in
+  viewer, creator, admin, shop) for a headless/own browser tab; `-- --reset` = starter items only, no progress, no avatar
+  choices; `-- --fresh` signs in again. Never paste the token into reports or commits.
+- Browser checks run headless with their own throw-away profile (e.g. `npm run check:creator-cast`) and restore any
+  content they publish.
