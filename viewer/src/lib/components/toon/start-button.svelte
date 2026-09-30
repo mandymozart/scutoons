@@ -27,63 +27,66 @@
 </script>
 
 {#if reading && target}
-	<a
-		class="start-button"
-		href={localizeHref(`/${toonId}/chapter/${reading.chapter}`)}
-		title={m['start.title']({ season, chapter: reading.chapter, title: target.title ?? '' })}
-		data-testid="start-button"
-		data-state={reading.kind}
-	>
-		<span class="start-label">
+	<div class="start">
+		<a
+			class="start-button"
+			href={localizeHref(`/${toonId}/chapter/${reading.chapter}`)}
+			title={m['start.title']({ season, chapter: reading.chapter, title: target.title ?? '' })}
+			data-testid="start-button"
+			data-state={reading.kind}
+		>
 			{label}
 			<svg class="start-arrow" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
 				<path d="M1 8h13M9 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
 			</svg>
-		</span>
+		</a>
 		{#if percent !== null}
-			<span class="start-progress" aria-hidden="true"><span style:width="{percent}%"></span></span>
+			<!-- the reading progress under the button, as wide as the button -->
+			<span class="start-progress" aria-hidden="true" data-testid="start-progress"><span style:width="{percent}%"></span></span>
 		{/if}
-	</a>
+	</div>
 {/if}
 
 <style>
-	/* the primary button (ink / paper, square), as a link */
-	.start-button {
+	/* centred, as wide as the button; the progress rule sits under it */
+	.start {
 		display: flex;
-		width: fit-content;
-		margin-inline: auto;
 		flex-direction: column;
 		gap: var(--space-05);
+		width: fit-content;
+		margin-inline: auto;
+	}
+	/* the primary button (ink / paper, square), as a link */
+	.start-button {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-075);
 		padding: var(--space-1) var(--space-15);
 		background: var(--ink);
 		color: var(--paper);
 		font-family: var(--font-mono);
 		font-size: var(--type-button-size);
 		line-height: var(--type-button-line);
+		white-space: nowrap;
 		text-decoration: none;
 		border-radius: var(--radius-none);
 		touch-action: manipulation;
-	}
-	.start-label {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-075);
-		white-space: nowrap;
 	}
 	.start-arrow {
 		flex: none;
 		width: 1em;
 		height: 1em;
 	}
-	/* a 2px rule: the rest of the chapter in text-muted, the part read in paper */
+	/* a 2px rule: the part read in ink, the rest of the chapter in border-muted */
 	.start-progress {
 		display: block;
 		height: var(--border-width-regular);
-		background: var(--text-muted);
+		background: var(--border-muted);
 	}
 	.start-progress span {
 		display: block;
 		height: 100%;
-		background: var(--paper);
+		background: var(--ink);
 	}
 </style>

@@ -77,7 +77,7 @@
 		margin-bottom: 2rem;
 		padding: 0 2rem;
 	}
-	.chapters-header :global(.start-button) {
+	.chapters-header :global(.start) {
 		margin-top: var(--space-1);
 	}
 	.season-download {
