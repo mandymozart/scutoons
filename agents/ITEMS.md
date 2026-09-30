@@ -502,3 +502,18 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
   Members save with `PUT /avatar/ { body }`; guests get `DEFAULT_AVATAR_UNLOCKS` (@scutoons/content, same list as the
   server default) and store `{ character, look }` in localStorage `scutoons_avatar_body` (old values sphynx /
   sphynx_nude / mouse are mapped; a locked choice falls back to the default).
+
+## Cast & "featuring" (2026-09-30, owner — concept, build after data refactor Phase C)
+
+The cast is an **editorial list**, not derived: non-VN chapters (plain vertical scroll) reference no characters, so a
+cast computed from scenes would be empty there.
+- **Season cast** (stored, as today): characters + the personas that appear. The toon's **star** (the character with
+  `own_toon` = this toon, e.g. catpope → Cat Pope) is always in it — added automatically, cannot be removed.
+- **Chapter "featuring"** (new, optional, small): list of season-cast character ids that appear in this chapter;
+  pre-filled as a suggestion from the chapter's VN scene refs, set by hand for non-VN chapters.
+- **Reader:** season page "Staffel 1 · mit Katzenpapst, …" / "Season 1 · featuring Cat Pope, …" (small avatars);
+  chapter list item + chapter start show the chapter's "featuring".
+- **Creator:** character picker shows the season cast first; picking someone outside adds them to the season cast
+  (undo); problem list suggests missing cast/featuring entries from VN usage. Cast page = the season cast editor (no
+  "+ Season" there); chapter "featuring" is edited on the chapter page.
+
