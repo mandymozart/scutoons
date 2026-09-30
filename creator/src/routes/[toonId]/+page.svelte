@@ -420,7 +420,7 @@
 							{#each season.locales as l}<th>{l}{l === season.primary ? ` (${m['creator.source']()})` : ''}</th>{/each}
 							<th>release</th>
 							<th>{m['creator.status']()}</th>
-							<th>version</th>
+							<th>{m['creator.saved_state']()}</th>
 						</tr>
 					</thead>
 					<tbody>

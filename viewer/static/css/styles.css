@@ -17,7 +17,7 @@ input, select, textarea {
   padding: 1rem;
   border: 1px solid #ddd;
   border-radius: 0;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 1rem;
   margin: 1rem 0;
   box-sizing: border-box;
@@ -31,7 +31,7 @@ button,
   border: none;
 	text-align: center;
   border-radius: 0;
-  font-family: 'IBM Plex Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 1rem;
   cursor: pointer;
 }

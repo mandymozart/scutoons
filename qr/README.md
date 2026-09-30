@@ -35,7 +35,9 @@ Every other path shows the landing page (as the old catch-all rewrite did).
 ## Structure
 
 ```
-public/            docroot: index.php (front controller), router.php (php -S), .htaccess, verify.html, assets/js/
+public/            docroot: index.php (front controller), router.php (php -S), .htaccess, verify.html, assets/js/,
+                   assets/tokens/ (GENERATED copy of @scutoons/tokens: tokens CSS + IBM Plex Mono woff2)
+bin/               sync-tokens.mjs – writes public/assets/tokens from shared/tokens (--check: in sync?)
 src/               App (routing), Landing (the page), Api (lookups + cache), Proxy, Http (curl), Cache, Config,
                    View (templates), Response, Client
 templates/landing/ page templates + texts (de/en) – moved from the server unchanged, + unavailable.php
@@ -55,6 +57,13 @@ composer serve                                  # http://localhost:9001  (= php 
 The API must run on :9000 (`cd server && composer serve`). Ports: agents/PLATFORM.md "Local dev ports".
 Settings (defaults in `src/Config.php`): `API_URL`, `QR_PROXY_SECRET`, `PROXY_FULL_API`, `WWW_URL`, `CDN_URL`, the
 timeouts and cache TTLs, `CACHE_DIR`. An environment variable `QRAPP_<KEY>` wins over the config files.
+
+## Styles and fonts
+
+The landing page and verify.html load `assets/tokens/scutoons-tokens.css` – tokens, the IBM Plex Mono `@font-face`
+rules and the base styles of `@scutoons/tokens` – with the woff2 files beside it (relative `url()`s, no font CDN).
+It is generated, never edited by hand: after a change in `shared/tokens` run `node qr/bin/sync-tokens.mjs` and commit
+the result. `npm run check` (the tokens package) and `qr.yml` fail when the copy is stale; `bin/` is not deployed.
 
 ## Tests
 

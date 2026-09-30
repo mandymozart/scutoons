@@ -2,6 +2,11 @@
 
 ## 1.0.0 – 2026-09-30
 
+- Self-hosted fonts (2026-09-30): landing page and verify.html use `assets/tokens/scutoons-tokens.css`, a generated
+  copy of `@scutoons/tokens` with the IBM Plex Mono woff2 (`bin/sync-tokens.mjs`). The landing page no longer loads
+  Google Fonts; verify.html no longer links the old site's `https://scutoons.com/assets/styles.css` (gone after the
+  cutover) and was rendered in Times/Arial. URLs, statuses and page content unchanged.
+
 - New app (platform P3): the QR landing page, verify page and legacy API URLs of qr.scutoons.com move out of the server
   into this plain PHP app. Pages are byte-identical to the server's; the printed-URL suite passes unchanged.
 - Server-side lookups against the API (`/api/code/?scan=1`, `/api/items/`) with a short cache (APCu or files).

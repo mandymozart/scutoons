@@ -150,13 +150,13 @@
 	}
 
 	.font-lettering {
-		font-family: 'Bangers', 'IBM Plex Mono', monospace;
+		font-family: var(--font-lettering);
 		line-height: 1.1;
 		letter-spacing: 0.03em;
 	}
 
 	.font-mono {
-		font-family: 'IBM Plex Mono', monospace;
+		font-family: var(--font-mono);
 		/* chapter 1 captions are set at ~1.35 */
 		line-height: 1.35;
 	}

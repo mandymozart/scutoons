@@ -11,7 +11,7 @@ bundles the CSS and emits the font files.
 | `@scutoons/tokens` / `@scutoons/tokens/index.css` | everything below, in this order |
 | `@scutoons/tokens/tokens.css` | `:root` custom properties |
 | `@scutoons/tokens/fonts.css` | `@font-face`: IBM Plex Mono 400/700 (+ italic 400/700), Bangers 400 (SIL OFL 1.1, `fonts/*-OFL.txt`) |
-| `@scutoons/tokens/base.css` | `html` / `body` / headings / `p`, fluid root font size (14px < 480px, 16px, 24px ≥ 768px) |
+| `@scutoons/tokens/base.css` | `html` / `body` / headings / `p`, fluid root font size (14px < 480px, 16px, 24px ≥ 768px); form controls (`button`, `input`, `select`, `textarea`) `font: inherit` and `code`/`kbd`/`samp`/`pre` in `--font-mono`, both with `:where()` (specificity 0) |
 | `@scutoons/tokens/fonts/*` | the font files (e.g. for a copy on the server) |
 
 Tokens (see `tokens.css` for values and usage notes):
@@ -52,7 +52,23 @@ Tokens (see `tokens.css` for values and usage notes):
 Vite apps must allow the shared folder for the dev server (`server.fs.allow: ['../shared']`), otherwise the font
 files answer 403.
 
+Every app root imports the whole package (`import '@scutoons/tokens'` in `routes/+layout.svelte`); no font CDN
+anywhere, no hardcoded `'IBM Plex Mono'` stacks (use `var(--font-mono)` / `var(--font-lettering)`).
+
+**qr** (plain PHP, no build step) serves a generated copy: `node qr/bin/sync-tokens.mjs` writes
+`qr/public/assets/tokens/scutoons-tokens.css` (tokens + the Plex Mono `@font-face` rules + base) and the Plex Mono
+woff2 files next to it (relative `url()`s). The copy is committed; run the script after changing this package.
+
 ## Check
 
 `npm run check -w @scutoons/tokens`: every DESIGN.md token is defined, every `var()` in the package is defined, every
-`url()` in `fonts.css` exists and every font file is used.
+`url()` in `fonts.css` exists and every font file is used, and qr's copy is in sync (`qr/bin/sync-tokens.mjs --check`).
+
+In a real browser: `npm run check:fonts` (= `node scripts/check-fonts.mjs --session`, dev servers from `npm run dev:up`)
+loads the pages, dialogs and sheets of viewer, creator, admin, shop and qr in headless Chrome and asserts per page:
+`document.fonts.check('1em "IBM Plex Mono"')` + a loaded Plex face, a Plex woff2 answered 200 on the network, no
+font-CDN request, the computed `font-family` of every visible text and form control starts with IBM Plex Mono
+(Bangers only as the lettering stack), and the font Chrome actually rendered (CDP `CSS.getPlatformFontsForNode`) for
+texts with Latin/Cyrillic letters or digits. `--session` creates a throw-away admin + creator user in the local DB for
+the signed-in pages and removes it; `--token=`/`SCUTOONS_TOKEN` uses an existing session; `--apps=qr,shop`,
+`--only=<page>`, `--list`, `--verbose`. Symbols Plex doesn't have (☰ ⓘ ✕ →, emoji, CJK) fall back by design.

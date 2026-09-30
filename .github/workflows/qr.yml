@@ -10,12 +10,14 @@ on:
       - platform
     paths:
       - 'qr/**'
+      - 'shared/tokens/**'
       - 'deploy/**'
       - '.github/workflows/deploy-app.yml'
       - '.github/workflows/qr.yml'
   pull_request:
     paths:
       - 'qr/**'
+      - 'shared/tokens/**'
       - '.github/workflows/qr.yml'
   workflow_dispatch:
     inputs:
@@ -48,6 +50,10 @@ jobs:
       - name: 🔍 php -l
         run: find src public templates tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      # public/assets/tokens is a generated copy of @scutoons/tokens (tokens CSS + IBM Plex Mono woff2)
+      - name: 🎨 Tokens copy in sync
+        run: node bin/sync-tokens.mjs --check
+
       # Without an API: the pages that need none answer, a scan shows the friendly fallback, proxies say 502
       - name: 🧪 Smoke test with the API down
         run: |
@@ -57,6 +63,8 @@ jobs:
           check '/' 200
           check '/verify.html' 200
           check '/version.json' 200
+          check '/assets/tokens/scutoons-tokens.css' 200
+          check '/assets/tokens/fonts/-F63fjptAgt5VM-kVkqdyU8n1i8q1w.woff2' 200
           check '/?c=abcDEF12' 503 && grep -q 'Scanning works, try again in a minute' /tmp/body
           check '/?c=not%20a%20code' 404
           check '/api/validate/?c=abcDEF12' 502

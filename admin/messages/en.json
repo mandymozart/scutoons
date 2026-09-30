@@ -377,19 +377,20 @@
 	},
 	"content": {
 		"title": "Content",
-		"meta": "Read-only: every file in the content store. Editing happens in the creator.",
+		"meta": "Read-only: everything in the content store. Editing happens in the creator.",
 		"open_creator": "Open the creator",
 		"open_in_creator": "In the creator",
 		"state": "State",
-		"published": "published",
-		"ahead": "draft ahead",
-		"draft_only": "draft only",
+		"published": "Published",
+		"ahead": "Draft · not published",
+		"draft_only": "Not published",
 		"files": "{count} files",
 		"path": "Content",
 		"version_line": "#{latest} · published #{published} · {versions} versions",
 		"edit": "Edit",
 		"empty": "Nothing stored for this toon yet.",
-		"platform": "Platform-wide (characters, people, roles, events)"
+		"platform": "Platform-wide (characters, people, roles, events)",
+		"changed_line": "{versions} versions · changed {when}"
 	},
 	"settings": {
 		"title": "Settings",

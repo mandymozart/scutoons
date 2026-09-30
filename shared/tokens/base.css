@@ -39,6 +39,18 @@ p {
 	line-height: 1.4;
 }
 
+/*
+ * Form controls don't inherit the font (the browser gives them its own, e.g. Arial 13.33px), code/kbd/samp/pre get
+ * the generic `monospace`. :where() keeps the specificity at 0: any app or component rule still wins.
+ */
+:where(button, input, select, textarea, optgroup) {
+	font: inherit;
+}
+
+:where(code, kbd, samp, pre) {
+	font-family: var(--font-mono);
+}
+
 /* custom properties can't be used in media queries: keep in sync with --root-size-* in tokens.css */
 @media (min-width: 768px) {
 	html {

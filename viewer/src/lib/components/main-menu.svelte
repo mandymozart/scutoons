@@ -199,7 +199,7 @@
 		color: black;
 		background: transparent;
 		border-radius: 0;
-		font-family: 'IBM Plex Mono', monospace;
+		font-family: var(--font-mono);
 		font-size: 1rem;
 		cursor: pointer;
 	}

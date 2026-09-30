@@ -1,6 +1,7 @@
 <?php
 /**
  * Page frame of the QR landing page in the Scutoons design (IBM Plex Mono, ink on paper, square, 2px rules).
+ * Tokens + self-hosted fonts: /assets/tokens/scutoons-tokens.css, qr's generated copy of @scutoons/tokens (bin/sync-tokens.mjs).
  * @var callable $e  @var string $locale  @var string $title  @var string $body (already escaped HTML)
  */
 ?>
@@ -11,37 +12,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
     <title><?= $e($title) ?> · SCUTOONS</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/tokens/scutoons-tokens.css">
     <style>
-        :root {
-            --ink: #000000;
-            --paper: #ffffff;
-            --primary-cyan: #00d1ff;
-            --border-muted: #cccccc;
-            --border-subtle: #dddddd;
-            --border-hover: #333333;
-            --surface-hover: #f0f0f0;
-            --surface-panel: #f5f5f5;
-            --surface-tint-cyan: #f0fcff;
-            --text-muted: #6b6b6b;
-            --acid-red: #ff210a;
-        }
         html { font-size: 16px; }
         @media (max-width: 479px) { html { font-size: 14px; } }
         @media (min-width: 768px) { html { font-size: 24px; } }
         *, *::before, *::after { box-sizing: border-box; }
         body {
             margin: 0; background: var(--paper); color: var(--ink);
-            font-family: 'IBM Plex Mono', monospace; font-size: 1rem; line-height: 1.4;
+            font-family: var(--font-mono); font-size: 1rem; line-height: 1.4;
         }
         main { max-width: 26rem; margin: 0 auto; padding: 1.5rem 1rem 3rem; }
         .logo { display: block; margin: 0 auto 1.5rem; width: 10rem; max-width: 60%; }
         .logo img { display: block; width: 100%; height: auto; }
         .panel { border: 2px solid var(--ink); padding: 1rem; margin-bottom: 1rem; }
         h1 { font-size: 1rem; font-weight: 700; margin: 0 0 0.75rem; }
-        p { margin: 0 0 0.75rem; }
+        p { margin: 0 0 0.75rem; line-height: inherit; }
         .caption { font-size: 0.75rem; line-height: 1.3; color: var(--text-muted); }
         .items { display: grid; gap: 0.75rem; margin: 0 0 1rem; }
         .item { display: grid; grid-template-columns: 5rem 1fr; gap: 0.75rem; align-items: center;
@@ -79,7 +65,7 @@
         }
         .field-label { display: block; font-weight: 700; margin: 0 0 0.25rem; }
         .actions .caption { margin: -0.25rem 0 0.5rem; }
-        .faq h2 { font-size: 1rem; margin: 0 0 0.5rem; }
+        .faq h2 { font-size: 1rem; font-weight: 700; margin: 0 0 0.5rem; }
         a { color: var(--ink); }
     </style>
 </head>

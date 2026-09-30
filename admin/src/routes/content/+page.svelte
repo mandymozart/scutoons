@@ -137,8 +137,7 @@
 												{:else if state === 'ahead'}<Badge tone="warning">{m['content.ahead']()}</Badge>
 												{:else}<Badge>{m['content.draft_only']()}</Badge>{/if}
 												<span class="meta">
-													{m['content.version_line']({ latest: f.latest, published: f.published ?? '—', versions: f.versions })}
-													<br />{minute(f.latest_at)}
+													{m['content.changed_line']({ versions: f.versions, when: minute(f.latest_at) })}
 												</span>
 											{:else}<span class="muted">—</span>{/if}
 										</td>

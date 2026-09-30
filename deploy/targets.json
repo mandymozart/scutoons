@@ -59,7 +59,7 @@
       "stageFirst": true,
       "build": null,
       "include": ["**"],
-      "exclude": ["tests/**", "cache/**", "config.php", "config.local.php", "config.local.php.example", "README.md", "CHANGELOG.md", "**/.git*", "**/.DS_Store"],
+      "exclude": ["tests/**", "bin/**", "cache/**", "config.php", "config.local.php", "config.local.php.example", "README.md", "CHANGELOG.md", "**/.git*", "**/.DS_Store"],
       "protect": ["cache/**", "config.local.php"],
       "version": "public/version.json",
       "generate": {

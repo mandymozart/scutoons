@@ -3,6 +3,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel } from '$lib/labels.ts';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 
 	/** Version history of one entity per locale: restore an old version as the new draft, publish / unpublish. */
 	let { doc, onclose }: { doc: ContentDoc; onclose?: () => void } = $props();
@@ -47,12 +48,12 @@
 
 	function restore(locale: string, v: ContentVersion) {
 		if (doc.dirtyLocales.includes(locale) && !confirm(m['creator.leave_confirm']())) return;
-		if (!confirm(m['creator.restore_confirm']({ id: v.id, locale }))) return;
+		if (!confirm(m['creator.restore_confirm_when']({ when: when(v.created_at), locale }))) return;
 		act(() => restoreVersion(doc.key(locale), v.id));
 	}
 
 	function publish(locale: string, v: ContentVersion) {
-		if (!confirm(m['creator.publish_confirm']({ file: `${fileLabel(doc.entity)} v${v.id}`, locales: locale }))) return;
+		if (!confirm(m['creator.publish_confirm']({ file: `${fileLabel(doc.entity)} (${when(v.created_at)})`, locales: locale }))) return;
 		act(() => publishVersion(doc.key(locale), v.id));
 	}
 
@@ -61,7 +62,11 @@
 		act(() => unpublishEntity(doc.key(locale)));
 	}
 
-	const when = (iso: string) => iso?.replace('T', ' ').slice(0, 16);
+	/** versions are told apart by date, author and note – never by their (store-wide) id */
+	const when = (iso: string) => {
+		const d = iso ? new Date(iso) : null;
+		return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d) : (iso ?? '');
+	};
 </script>
 
 <div class="history" data-testid="history-panel">
@@ -78,14 +83,14 @@
 			<ol>
 				{#each versions[l] as v (v.id)}
 					<li class:live={v.status === 'published'} class:current={v.id === doc.base[l]}>
-						<span class="id">#{v.id}</span>
 						<span class="what">
-							{when(v.created_at)} · {v.author_email ?? 'import'}
+							<b>{when(v.created_at)}</b>{#if v.id === doc.base[l]} <span class="tag">{m['creator.history_current']()}</span>{/if}
+							<br />{v.author_email ? m['creator.history_by']({ author: v.author_email }) : m['creator.history_import']()}
 							{#if v.message}<br /><i>{v.message}</i>{/if}
 						</span>
 						<span class="acts">
 							{#if v.status === 'published'}
-								<b>live</b>
+								<b>{m['creator.state_published']()}</b>
 								<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>unpublish</button>
 							{:else}
 								<button class="ghost" disabled={busy} onclick={() => publish(l, v)}>{m['creator.publish']()}</button>
@@ -127,14 +132,17 @@
 	}
 	li {
 		display: grid;
-		grid-template-columns: 3rem 1fr auto;
+		grid-template-columns: 1fr auto;
 		gap: 0.3rem;
 		padding: 0.25rem 0;
 		border-bottom: 1px solid var(--border-subtle);
 		align-items: start;
 	}
-	li.current .id {
-		text-decoration: underline;
+	.tag {
+		margin-left: 0.4rem;
+		font-size: 10px;
+		padding: 0 0.3em;
+		border: 1px solid var(--ink);
 	}
 	li.live {
 		border-left: 3px solid var(--ink);

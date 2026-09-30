@@ -82,6 +82,8 @@ export class ContentDoc {
 	/** stored version each locale is based on (null = not stored yet) */
 	base = $state<Record<string, number | null>>({});
 	published = $state<Record<string, number | null>>({});
+	/** when the version each locale is based on was saved (ISO; shown as a date, never the version id) */
+	changedAt = $state<Record<string, string | null>>({});
 	source = $state<Record<string, DocSource>>({});
 	/** canonical JSON of the last loaded/saved state, per locale */
 	saved = $state<Record<string, string>>({});
@@ -156,6 +158,7 @@ export class ContentDoc {
 						const wrapped = await getDraft(this.key(locale));
 						data[locale] = wrapped.content;
 						base[locale] = wrapped.version.id;
+						this.changedAt[locale] = wrapped.version.created_at ?? null;
 						published[locale] = wrapped.published?.id ?? null;
 						source[locale] = 'store';
 						return;
@@ -320,6 +323,7 @@ export class ContentDoc {
 				try {
 					const result = await putDraft(this.key(l), content, force ? undefined : this.base[l], message);
 					this.base[l] = result.version.id;
+					this.changedAt[l] = result.version.created_at ?? new Date().toISOString();
 					this.source[l] = 'store';
 					this.saved[l] = JSON.stringify(content);
 					done.push(l);

@@ -108,7 +108,7 @@
 
 <style>
 	.credits {
-		font-family: var(--font-mono, 'IBM Plex Mono', monospace);
+		font-family: var(--font-mono);
 		color: var(--ink, #000);
 	}
 	.credits-header {

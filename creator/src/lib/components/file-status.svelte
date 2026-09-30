@@ -1,24 +1,33 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 
+	/**
+	 * The saved state of an entity per locale as words (owner 2026-09-30: no version numbers anywhere – the ids are the
+	 * store's row ids and stay internal): "Published", "Draft · not published" (newer unpublished changes), "Not
+	 * published" (never published), "Missing", "not saved"; the title adds the date of the last change.
+	 */
 	let { doc, compact = false }: { doc: ContentDoc; compact?: boolean } = $props();
 
 	const dirty = $derived(doc.dirtyLocales);
 
 	function label(l: string) {
 		const source = doc.source[l];
-		if (source === 'missing') return m['creator.missing']();
+		if (source === 'missing') return m['creator.state_missing']();
 		if (source === 'new') return m['creator.not_saved']();
-		const base = doc.base[l];
-		return base === doc.published[l] ? m['creator.version_published']({ version: base ?? '' }) : m['creator.version_draft']({ version: base ?? '' });
+		if (doc.published[l] == null) return m['creator.state_unpublished']();
+		return doc.base[l] === doc.published[l] ? m['creator.state_published']() : m['creator.state_draft']();
 	}
+	const date = (iso: string | null | undefined) => {
+		const d = iso ? new Date(iso) : null;
+		return d && !Number.isNaN(d.getTime()) ? new Intl.DateTimeFormat(getLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(d) : '';
+	};
 	/** the language-neutral entities (credits, characters, cast …) carry no language */
 	const lang = (l: string) => (l === '_' ? '' : l);
 	function title(l: string) {
-		const source = doc.source[l];
-		if (source !== 'store') return `${lang(l) || '·'}: ${label(l)}`;
-		return `${lang(l) || '·'}: ${m['creator.in_store']()} v${doc.base[l]}${doc.published[l] ? ` · ${m['creator.published']()} v${doc.published[l]}` : ''}${doc.published[l] !== doc.base[l] ? ` · ${m['creator.unpublished_changes']()}` : ''}`;
+		const when = doc.source[l] === 'store' ? date(doc.changedAt[l]) : '';
+		return `${lang(l) || '·'}: ${label(l)}${when ? ` · ${m['creator.state_changed']({ date: when })}` : ''}`;
 	}
 </script>
 

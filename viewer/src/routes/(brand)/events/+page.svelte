@@ -78,7 +78,7 @@ img {
 	
 }
 	.events-section {
-		font-family: 'IBM Plex Mono', monospace;
+		font-family: var(--font-mono);
 		font-size: 1rem;
 		margin-bottom: 1rem;
 		padding: 0 1rem 0.5rem 1rem;

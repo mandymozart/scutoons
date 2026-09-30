@@ -1,6 +1,7 @@
 // @scutoons/tokens check: every DESIGN.md Part 1 token is defined, every url() in the CSS resolves to a file,
 // every font file is referenced, and base.css only uses defined tokens.
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -42,6 +43,13 @@ for (const file of readdirSync(join(root, 'fonts'))) {
 const index = read('index.css');
 for (const file of ['tokens.css', 'fonts.css', 'base.css']) {
 	if (!index.includes(`'./${file}'`)) errors.push(`index.css does not import ${file}`);
+}
+
+// qr (plain PHP) serves a generated copy of these files: it must not drift (qr/bin/sync-tokens.mjs)
+const qrSync = join(root, '../../qr/bin/sync-tokens.mjs');
+if (existsSync(qrSync)) {
+	const r = spawnSync(process.execPath, [qrSync, '--check'], { encoding: 'utf8' });
+	if (r.status !== 0) errors.push((r.stderr || r.stdout).trim());
 }
 
 if (errors.length) {

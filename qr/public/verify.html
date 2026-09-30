@@ -5,11 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify QR - SCUTOONS</title>
     <script src="assets/js/noble-post-quantum.min.js"></script>
-    <link rel="stylesheet" href="https://scutoons.com/assets/styles.css">
+    <!-- tokens + self-hosted IBM Plex Mono: qr's generated copy of @scutoons/tokens (qr/bin/sync-tokens.mjs) -->
+    <link rel="stylesheet" href="assets/tokens/scutoons-tokens.css">
     <style>
+        body {
+            color: var(--ink);
+        }
         .verify-container {
             max-width: 800px;
             margin: auto;
+            padding: 1rem;
+        }
+        input {
+            display: block;
+            width: 100%;
+            box-sizing: border-box;
+            padding: 1rem;
+            margin: 1rem 0;
+            border: var(--border-width-hairline) solid var(--border-subtle);
+            border-radius: var(--radius-none);
+            background: var(--paper);
+            color: var(--ink);
+        }
+        button {
+            padding: 1rem 3rem;
+            border: 0;
+            border-radius: var(--radius-none);
+            background: var(--ink);
+            color: var(--paper);
+            cursor: pointer;
         }
 
         .result {

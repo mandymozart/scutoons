@@ -377,19 +377,20 @@
 	},
 	"content": {
 		"title": "Inhalte",
-		"meta": "Nur lesen: jede Datei im Content-Store. Bearbeitet wird im Creator.",
+		"meta": "Nur lesen: alles im Content-Store. Bearbeitet wird im Creator.",
 		"open_creator": "Creator öffnen",
 		"open_in_creator": "Im Creator",
 		"state": "Stand",
-		"published": "veröffentlicht",
-		"ahead": "Entwurf neuer",
-		"draft_only": "nur Entwurf",
+		"published": "Veröffentlicht",
+		"ahead": "Entwurf · nicht veröffentlicht",
+		"draft_only": "Nicht veröffentlicht",
 		"files": "{count} Dateien",
 		"path": "Inhalt",
 		"version_line": "#{latest} · veröffentlicht #{published} · {versions} Versionen",
 		"edit": "Bearbeiten",
 		"empty": "Für diesen Toon ist noch nichts gespeichert.",
-		"platform": "Plattformweit (Figuren, Personen, Rollen, Veranstaltungen)"
+		"platform": "Plattformweit (Figuren, Personen, Rollen, Veranstaltungen)",
+		"changed_line": "{versions} Versionen · geändert {when}"
 	},
 	"settings": {
 		"title": "Einstellungen",

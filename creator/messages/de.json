@@ -425,7 +425,17 @@
 		"cast_star": "Star",
 		"cast_star_locked": "Der Star des Toons ist immer in der Besetzung",
 		"status_where": "Der Status wird nur auf der Kapitelseite (Meta) geändert; Toon-Seite und Staffel zeigen ihn nur an.",
-		"cast_star_hint": "Der Star des Toons ist immer in der Besetzung (automatisch, nicht entfernbar). Staffeln werden auf der Toon-Seite angelegt; wer in einem Kapitel vorkommt, steht auf der Kapitelseite („Mit“)."
+		"cast_star_hint": "Der Star des Toons ist immer in der Besetzung (automatisch, nicht entfernbar). Staffeln werden auf der Toon-Seite angelegt; wer in einem Kapitel vorkommt, steht auf der Kapitelseite („Mit“).",
+		"state_published": "Veröffentlicht",
+		"state_draft": "Entwurf · nicht veröffentlicht",
+		"state_unpublished": "Nicht veröffentlicht",
+		"state_missing": "Fehlt",
+		"saved_state": "Gespeichert",
+		"state_changed": "geändert {date}",
+		"history_current": "aktuell",
+		"restore_confirm_when": "Die Version vom {when} als neuen Entwurf von {locale} wiederherstellen?",
+		"history_by": "von {author}",
+		"history_import": "Import"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

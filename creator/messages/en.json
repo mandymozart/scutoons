@@ -425,7 +425,17 @@
 		"cast_star": "Star",
 		"cast_star_locked": "The toon’s star is always in the cast",
 		"status_where": "The status is changed only on the chapter page (Meta); the toon page and the season show it read-only.",
-		"cast_star_hint": "The toon’s star is always in the cast (added automatically, cannot be removed). Seasons are created on the toon page; who appears in a chapter is set on the chapter page (Featuring)."
+		"cast_star_hint": "The toon’s star is always in the cast (added automatically, cannot be removed). Seasons are created on the toon page; who appears in a chapter is set on the chapter page (Featuring).",
+		"state_published": "Published",
+		"state_draft": "Draft · not published",
+		"state_unpublished": "Not published",
+		"state_missing": "Missing",
+		"saved_state": "Saved",
+		"state_changed": "changed {date}",
+		"history_current": "current",
+		"restore_confirm_when": "Restore the version of {when} as a new draft of {locale}?",
+		"history_by": "by {author}",
+		"history_import": "import"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",
