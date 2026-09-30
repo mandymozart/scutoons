@@ -295,8 +295,7 @@ is still German). Slice 19 has a cucumber painted in, without any event. The own
   sends the picked item/variant with `/auth/request/`). `tests/claim-race.php [n] [claim|signup|both]`: 8 concurrent
   signups with one vinyl → 1 account owning it, 7× 409. Promo accounts: `/me access` includes the valid
   `signup_code` grants (not owned; `access.signup_code` set) → account page "All chapters · through your promo code X".
-  `/de` showing English is not a bug in these files: paraglide strategy is cookie → globalVariable → baseLocale
-  (no `url` strategy), so the locale cookie wins over the path. The `/access/`+`/code/` per-IP limit (120/h) trips
+  (Superseded 2026-09-30 "Viewer locale": `/de/…` and `/en/…` now always win over the cookie.) The `/access/`+`/code/` per-IP limit (120/h) trips
   after ~4 smoke runs locally → `DELETE FROM rate_limits WHERE bucket LIKE 'lookup:%'`.
 
 ## Creator editor
@@ -338,7 +337,7 @@ are the fallback and the seed.
   unsaved files to localStorage `scutoons_creator:<toon>:<path>` (restore banner after a reload), `beforeNavigate`
   guard. Save = `PUT` per changed locale with `base` = loaded version (409 → reload / overwrite). Publish = save, then
   publish the newest version of every stored file of the chapter (incl. scene files).
-- Reader language is a cookie (paraglide strategy cookie → globalVariable → baseLocale), not the URL: the editor's
+- Reader language on unprefixed URLs is the cookie (see 2026-09-30 "Viewer locale"; `/en/…` always wins): the editor's
   "Preview de/en" links set `PARAGLIDE_LOCALE` before opening `/<toon>/chapter/N?preview=draft[&label=]`.
 - Validation (`validate.ts`) mirrors the TS types: required chapter fields, enums, rects, dialog props, audio track /
   sample ids vs the chapter library, trigger rects, VN event params, characters from `characters.json`, keyvisual
@@ -677,9 +676,9 @@ affiliations, the cast group and the mannequin field were added and removed agai
   into the preview – for local measurements build with `VITE_API_URL=http://localhost:9000/api VITE_CDN_URL=…`; a
   build while `vite preview` serves `viewer/build` kills the preview (and can fail the build); after a build run
   `node <app>/scripts/paraglide.js` (or `npm run check`) or the running dev server fails with "Failed to fetch
-  dynamically imported module". Locale in headless checks: cookie `PARAGLIDE_LOCALE`, not the `/en` prefix.
-- Gotcha: `vite preview` (sirv) caches the file list at start – restart it after every `vite build`. The locale of a
-  headless check is the cookie `PARAGLIDE_LOCALE` (the `/en/` prefix alone rendered German in the preview build).
+  dynamically imported module". (Locale in headless checks: fixed 2026-09-30, `/en/…` alone is English now – "Viewer locale".)
+- Gotcha: `vite preview` (sirv) caches the file list at start – restart it after every `vite build`. (Earlier note "the
+  `/en/` prefix alone renders German, set the cookie" is obsolete since 2026-09-30 "Viewer locale".)
 
 ## Sandbox (VN test bed) – chapter 6 removed
 
@@ -1001,8 +1000,8 @@ character, persona, look and mood and doubles as the VN test bed.
   reopened → new read-through "weiterlesen" 1 %. Member `avatar-member-0930@example.com`: server progress with position
   0.73 → a fresh browser (empty localStorage) shows "Continue S1 C1" 73 %; the member's old server state
   (`cucumber: 2`, no checkpoints) was restored afterwards.
-- **Paraglide locale in headless checks:** the viewer's strategy is the cookie (`PARAGLIDE_LOCALE`), a `/en/` URL alone
-  renders German – set the cookie.
+- **Paraglide locale in headless checks:** ~~a `/en/` URL alone renders German – set the cookie~~ wrong since
+  2026-09-30 "Viewer locale": `/en/…` is English whatever the cookie; the cookie only decides unprefixed URLs.
 - **Season music:** `Toon.download` → `Season.download` (DATA.md). Store: new published versions of
   `toon-settings:catpope|sandbox:{de,en}` and `season:catpope:1:{de,en}` (backup `server/db/local.sqlite.bak-2026-09-30-
   season-download`). The seed SQL regenerated keeping the old timestamps of unchanged rows (the generator stamps every
@@ -1032,7 +1031,8 @@ character, persona, look and mood and doubles as the VN test bed.
   worn and kept after reload; on → body back to swim (stored), picker gone.
 - Gotcha: two contract runs at the same time (another agent's `composer test`) share ports 9180+ and the mail log →
   dozens of unrelated FAILs (OTP not found, 401s). Rerun when the other run is done.
-- The viewer at `/en/account` rendered German in the headless check (locale from the cookie/profile), not related.
+- The viewer at `/en/account` rendered German in the headless check – that was the locale bug, fixed 2026-09-30
+  ("Viewer locale").
 
 ## Test user for agents + Cast page Save/Publish (2026-09-30)
 
@@ -1056,3 +1056,32 @@ character, persona, look and mood and doubles as the VN test bed.
   Regression: `npm run check:creator-cast` (headless, test user, 18 checks, restores the published cast + characters;
   refuses to run while either has an unpublished draft; don't run it while the owner edits the cast – it creates versions).
 - Chrome on this machine is `C:/Program Files (x86)/Google/Chrome/Application/chrome.exe` (not `Program Files`).
+
+## Viewer locale: URL prefix wins (2026-09-30)
+
+- **Bug (owner):** `/en/…` rendered German unless the cookie `PARAGLIDE_LOCALE` was set (a first visit to
+  `scutoons.com/en/catpope` was German). Cause: `viewer/paraglide.config.js` set no strategy → paraglide's default
+  `cookie → globalVariable → baseLocale`; `hooks.ts` strips the prefix (`deLocalizeUrl`) but nothing read it. Just adding
+  `url` to the global strategy doesn't work either: with the default URL pattern (`de` unprefixed) paraglide reads every
+  unprefixed path as `de`, so the cookie and the browser language would never be used.
+- **Fix (config only):** global `strategy: ['cookie', 'preferredLanguage', 'baseLocale']` (unprefixed URLs, i.e. every
+  printed/QR URL, unchanged byte for byte) + `routeStrategies: [{ match: '/:locale(de|en)/:path(.*)?', strategy: ['url',
+  'cookie', 'baseLocale'] }]` (a prefix always wins). URL patterns stay the default: `localizeHref` gives `/en/…` for en
+  and unprefixed paths for de; `/de/…` is understood. On the first `getLocale()` paraglide writes the resolved locale
+  into the cookie (cookie is in both strategies), so a visit to `/en/…` makes the unprefixed links followed from there
+  English too (no flip back), and a first unprefixed visit stores the browser language. The menu's `setLocale` writes the
+  cookie and, on a prefixed URL, goes to the other locale's URL (`/en/x` → `/x`). No server redirects (the dev
+  middleware's `shouldRedirect` never fires: unprefixed has no `url` strategy, prefixed URLs already match).
+- The static build serves one fallback `index.html` with `<html lang="de">` (ssr = false, no text in it):
+  `routes/+layout.svelte` now sets `document.documentElement.lang = getLocale()`; the dev server's `%paraglide.lang%`
+  already agreed. Download page "back" uses `localizeHref`.
+- **Check:** `npm run check:locale` (`scripts/check-locale.mjs`, headless Chrome 375×812, fresh profile): dev-server HTML
+  lang + status, and after hydration `<html lang>`, UI text (de-only vs en-only strings of `viewer/messages`) and the
+  API `?locale=` for: `/en/catpope` (fresh, cookie de), `/en/catpope/chapter/1`, `/en/account`, `/de/catpope` with
+  cookie en, `/catpope` by cookie / Accept-Language en / de / fr, the menu switch de↔en (reload, internal link, back),
+  and the printed URLs via qr (`/?c=<CODE>&skip=1` → unchanged `https://(www.)scutoons.com/catpope?code=…`, then that
+  path on the local viewer in en / de / cookie en). 28/28. `--static` for a plain static host of `viewer/build` (the raw
+  shell is always `lang="de"`, only its status is checked); verified that way too with a local-URL build.
+- Other apps: **shop** already had `url → cookie → preferredLanguage → baseLocale` with both locales prefixed – correct,
+  unchanged. **creator** / **admin** have no locale URL prefixes (UI language by own cookie → browser language), not
+  affected.
