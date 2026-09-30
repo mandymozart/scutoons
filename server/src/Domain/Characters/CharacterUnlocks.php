@@ -101,6 +101,32 @@ final class CharacterUnlocks
         return false;
     }
 
+    /** true when the character's A-pose look is marked `sensitive: true` (agents/ITEMS.md "Sensitive content") */
+    public function isSensitive(string $character, string $look): bool
+    {
+        foreach ($this->aposeLooks($character) as $l) {
+            if (($l['id'] ?? null) === $look) return ($l['sensitive'] ?? false) === true;
+        }
+        return false;
+    }
+
+    /**
+     * The look a member wears instead of a hidden sensitive one: the character's first unlocked, non-sensitive A-pose
+     * look with an image (its default look first, then registry order); null = none.
+     */
+    public function safeLook(string $userId, string $character): ?string
+    {
+        $unlocked = [];
+        foreach ($this->forUser($userId) as $u) if ($u['character'] === $character) $unlocked = $u['looks'];
+        $ids = array_values(array_filter(array_map(fn(array $l) => $l['id'] ?? null, $this->aposeLooks($character)), 'is_string'));
+        $default = $this->defaultLook($character);
+        if ($default !== null) $ids = array_values(array_unique([$default, ...$ids]));
+        foreach ($ids as $look) {
+            if (in_array($look, $unlocked, true) && !$this->isSensitive($character, $look) && $this->hasApose($character, $look)) return $look;
+        }
+        return null;
+    }
+
     /**
      * The wear slots (slot instances) of a body: the A-pose look's `slots` as [{ id, slot }] (registry order; a duo has
      * `torso-left` + `torso-right`, a single figure `torso`). Empty = the look has none (or is unknown) – the caller
@@ -122,18 +148,20 @@ final class CharacterUnlocks
 
     /**
      * The body the reader sees when none is chosen (the viewer's rule): the first unlocked character whose default
-     * A-pose look is unlocked and has an image, else the first unlocked look with an image; null = none.
+     * A-pose look is unlocked and has an image, else the first unlocked look with an image; null = none. With
+     * $hideSensitive, looks marked sensitive are skipped.
      * @return array{character: string, look: string}|null
      */
-    public function defaultBody(string $userId): ?array
+    public function defaultBody(string $userId, bool $hideSensitive = false): ?array
     {
         $unlocked = $this->forUser($userId);
+        $ok = fn(string $character, string $look) => $this->hasApose($character, $look) && !($hideSensitive && $this->isSensitive($character, $look));
         foreach ($unlocked as $u) {
             $look = $this->defaultLook($u['character']);
-            if ($look !== null && in_array($look, $u['looks'], true) && $this->hasApose($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
+            if ($look !== null && in_array($look, $u['looks'], true) && $ok($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
         }
         foreach ($unlocked as $u) {
-            foreach ($u['looks'] as $look) if ($this->hasApose($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
+            foreach ($u['looks'] as $look) if ($ok($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
         }
         return null;
     }

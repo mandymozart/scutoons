@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Scutoons\Tests\Domain;
 
+use Scutoons\Domain\Accounts\AccountService;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Avatar\AvatarService;
 use Scutoons\Domain\Characters\CharacterUnlocks;
@@ -83,6 +84,60 @@ final class CharacterUnlocksTest extends TestCase
         $unlocks->grant($user, 'toptoy', [], 'admin', null);
         $avatar->update($user, ['body' => ['character' => 'toptoy', 'look' => 'swim']]);
         self::assertSame(['torso-left' => null, 'torso-right' => null], (array) $avatar->toJson($user)['slots']);
+    }
+
+    public function testSensitiveLooksFollowHideSensitive(): void
+    {
+        $json = json_encode(['characters' => [
+            ['id' => 'catpope', 'apose' => ['looks' => [
+                ['id' => 'swim', 'default' => true, 'path' => 'characters/catpope/catpope_apose-swim.webp'],
+                ['id' => 'naked', 'sensitive' => true, 'path' => 'characters/catpope/catpope_apose-naked.webp'],
+            ]]],
+        ]]);
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
+        $unlocks = $this->get(CharacterUnlocks::class);
+        $avatar = $this->get(AvatarService::class);
+        $accounts = $this->get(AccountService::class);
+        $user = $this->user();
+        $id = (string) $user['id'];
+        self::assertTrue($unlocks->isSensitive('catpope', 'naked'));
+        self::assertFalse($unlocks->isSensitive('catpope', 'swim'));
+        self::assertSame('swim', $unlocks->safeLook($id, 'catpope'));
+
+        // on by default: a sensitive look can't be chosen
+        self::assertTrue($avatar->hidesSensitive($id));
+        self::assertTrue($accounts->me($user)['user']['hide_sensitive']);
+        try {
+            $avatar->update($id, ['body' => ['character' => 'catpope', 'look' => 'naked']]);
+            self::fail('sensitive_hidden expected');
+        } catch (ApiError $e) {
+            self::assertSame(['sensitive_hidden', 422], [$e->errorCode, $e->status]);
+        }
+
+        // off: the naked look can be worn
+        $out = $accounts->update($user, ['hide_sensitive' => false]);
+        self::assertFalse($out['user']['hide_sensitive']);
+        $avatar->update($id, ['body' => ['character' => 'catpope', 'look' => 'naked']]);
+        self::assertSame(['character' => 'catpope', 'look' => 'naked'], $avatar->body($id));
+
+        // on again: the body moves to the same character's first non-sensitive look (stored, and in the answer)
+        $out = $accounts->update($user, ['hide_sensitive' => true]);
+        self::assertTrue($out['user']['hide_sensitive']);
+        self::assertSame(['character' => 'catpope', 'look' => 'swim'], $out['avatar']['body']);
+        self::assertSame('swim', $this->db->value('SELECT look_id FROM avatar_body WHERE user_id = ?', [$id]));
+
+        // a sensitive body stored before (e.g. before the setting existed) reads as the safe look while hidden
+        $this->db->run("UPDATE avatar_body SET look_id = 'naked' WHERE user_id = ?", [$id]);
+        self::assertSame(['character' => 'catpope', 'look' => 'swim'], $avatar->body($id));
+
+        foreach ([[], ['hide_sensitive' => 'yes'], ['marketing_opt_in' => true, 'hide_sensitive' => 1]] as $bad) {
+            try {
+                $accounts->update($user, $bad);
+                self::fail('invalid_body expected');
+            } catch (ApiError $e) {
+                self::assertSame('invalid_body', $e->errorCode);
+            }
+        }
     }
 
     public function testValidation(): void

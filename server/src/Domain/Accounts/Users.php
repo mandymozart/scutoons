@@ -65,6 +65,15 @@ final class Users
             [$optIn ? 1 : 0, $now, $now, $userId, $optIn ? 1 : 0]);
     }
 
+    /**
+     * Sets "Hide sensitive content" (agents/ITEMS.md "Sensitive content"; on by default). Returns whether it changed.
+     */
+    public function setHideSensitive(string $userId, bool $hide): bool
+    {
+        return $this->db->run('UPDATE users SET hide_sensitive = ?, updated_at = ? WHERE id = ? AND hide_sensitive <> ?',
+            [$hide ? 1 : 0, $this->clock->utc(), $userId, $hide ? 1 : 0])->rowCount() > 0;
+    }
+
     /** A boolean from a JSON body (true, 1, "1", "true", "on", "yes"); anything else = false */
     public static function flag(mixed $value): bool
     {
@@ -92,7 +101,17 @@ final class Users
             'created_at' => Time::iso($row['created_at']),
             'roles' => $this->roles->of((string) $row['id']),
             'marketing_opt_in' => (bool) (int) ($row['marketing_opt_in'] ?? 0),
+            'hide_sensitive' => self::hidesSensitive($row),
         ];
+    }
+
+    /**
+     * "Hide sensitive content" of a users row (on when the column is missing – not migrated yet – or not 0)
+     * @param array<string, mixed> $row
+     */
+    public static function hidesSensitive(array $row): bool
+    {
+        return !array_key_exists('hide_sensitive', $row) || $row['hide_sensitive'] === null || (int) $row['hide_sensitive'] !== 0;
     }
 
     /**
@@ -110,6 +129,7 @@ final class Users
             'signup_code' => $row['signup_code'] ?? null,
             'marketing_opt_in' => (bool) (int) ($row['marketing_opt_in'] ?? 0),
             'marketing_opt_in_at' => Time::iso($row['marketing_opt_in_at'] ?? null),
+            'hide_sensitive' => self::hidesSensitive($row),
         ];
     }
 }

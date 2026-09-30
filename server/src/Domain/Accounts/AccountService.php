@@ -51,18 +51,27 @@ final class AccountService
     }
 
     /**
-     * PUT /me/ { marketing_opt_in: bool } → the updated user
+     * PUT /me/ { marketing_opt_in?: bool, hide_sensitive?: bool } (at least one) → { user, avatar }. Turning
+     * hide_sensitive on while wearing a sensitive A-pose look moves the body to the same character's first
+     * non-sensitive look (AvatarService::hideSensitiveBody). 400 invalid_body.
      * @param array<string, mixed> $user
      * @param array<string, mixed> $body
-     * @return array<string, mixed>
+     * @return array{user: array<string, mixed>, avatar: array<string, mixed>}
      */
     public function update(array $user, array $body): array
     {
-        if (!array_key_exists('marketing_opt_in', $body) || !is_bool($body['marketing_opt_in'])) {
-            throw new ApiError(400, 'invalid_body', 'marketing_opt_in (true/false) is required.');
+        $fields = array_intersect_key($body, array_flip(['marketing_opt_in', 'hide_sensitive']));
+        if ($fields === [] || array_filter($fields, fn($v) => !is_bool($v)) !== []) {
+            throw new ApiError(400, 'invalid_body', 'marketing_opt_in and/or hide_sensitive (true/false) are required.');
         }
-        $this->users->setMarketingOptIn((string) $user['id'], $body['marketing_opt_in']);
-        return $this->users->toJson($this->users->byId((string) $user['id']) ?? $user);
+        $userId = (string) $user['id'];
+        if (array_key_exists('marketing_opt_in', $fields)) $this->users->setMarketingOptIn($userId, $fields['marketing_opt_in']);
+        if (array_key_exists('hide_sensitive', $fields)) {
+            $this->users->setHideSensitive($userId, $fields['hide_sensitive']);
+            // (own transaction) a worn sensitive body moves to the character's first non-sensitive look
+            if ($fields['hide_sensitive']) $this->avatar->hideSensitiveBody($userId);
+        }
+        return ['user' => $this->users->toJson($this->users->byId($userId) ?? $user), 'avatar' => $this->avatar->toJson($userId)];
     }
 
     /**

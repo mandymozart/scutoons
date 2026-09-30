@@ -306,7 +306,7 @@ try {
     // minimal registry for the suite (removed at the end)
     $registryRow = Db::one("SELECT id FROM entity_versions WHERE entity_key = 'characters' AND status = 'published' ORDER BY id DESC LIMIT 1");
     if (!$registryRow) {
-        $apose = fn(string $c, array $looks) => ['looks' => array_map(fn($l, $i) => ['id' => $l, 'default' => $i === 0, 'path' => "characters/$c/{$c}_apose-$l.webp", 'slots' => [['id' => 'torso', 'slot' => 'torso', 'x' => 1, 'y' => 1, 'size' => 1]]], $looks, array_keys($looks))];
+        $apose = fn(string $c, array $looks) => ['looks' => array_map(fn($l, $i) => ['id' => $l, 'default' => $i === 0, 'path' => "characters/$c/{$c}_apose-$l.webp", 'slots' => [['id' => 'torso', 'slot' => 'torso', 'x' => 1, 'y' => 1, 'size' => 1]]] + ($l === 'naked' ? ['sensitive' => true] : []), $looks, array_keys($looks))];
         $json = json_encode(['characters' => [
             ['id' => 'catpope', 'name' => ['en' => 'Cat Pope'], 'color' => 'blue', 'apose' => $apose('catpope', ['swim', 'naked']), 'personas' => []],
             ['id' => 'yellowmouse', 'name' => ['en' => 'Yellow Mouse'], 'color' => 'yellow', 'apose' => $apose('yellowmouse', ['swim', 'naked']), 'personas' => []],
@@ -315,6 +315,17 @@ try {
         Db::run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, ?, 'published', 'admin-smoke')", [$json, Db::now()]);
         $testRegistryId = (int) Db::value('SELECT MAX(id) FROM entity_versions');
     }
+    // every `naked` A-pose look is sensitive (agents/ITEMS.md "Sensitive content"): a version of the current registry that
+    // says so for sure (removed at the end)
+    $current = json_decode((string) Db::value("SELECT json FROM entity_versions WHERE entity_key = 'characters' AND status = 'published' ORDER BY id DESC LIMIT 1"), true);
+    foreach ($current['characters'] as &$character) {
+        foreach ($character['apose']['looks'] ?? [] as $k => $look) {
+            if (($look['id'] ?? null) === 'naked') $character['apose']['looks'][$k]['sensitive'] = true;
+        }
+    }
+    unset($character);
+    Db::run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, ?, 'published', 'admin-smoke sensitive')", [json_encode($current, JSON_UNESCAPED_SLASHES), Db::now()]);
+    $sensitiveRegistryId = (int) Db::value('SELECT MAX(id) FROM entity_versions');
     $userApi = "$base/api";
     $r = call('GET', "$userApi/me/", null, $memberToken);
     $av = $r['body']['avatar'] ?? [];
@@ -328,8 +339,28 @@ try {
     check($r['status'] === 400 && $r['body']['error'] === 'invalid_body', 'body not { character, look } → 400 invalid_body', $r);
     $r = call('PUT', "$userApi/avatar/", [], $memberToken);
     check($r['status'] === 400 && $r['body']['error'] === 'invalid_slots', 'neither slots nor body → 400 invalid_slots', $r);
+    echo "  (Hide sensitive content, agents/ITEMS.md \"Sensitive content\")\n";
+    $me = call('GET', "$userApi/me/", null, $memberToken);
+    check(($me['body']['user']['hide_sensitive'] ?? null) === true, 'GET /me/: user.hide_sensitive true by default', $me['body']['user'] ?? $me);
     $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'naked']], $memberToken);
-    check($r['status'] === 200 && ($r['body']['avatar']['body'] ?? null) === ['character' => 'catpope', 'look' => 'naked'] && isset($r['body']['avatar']['slots']), 'PUT /avatar/ { body } a default body → saved', $r);
+    check($r['status'] === 422 && $r['body']['error'] === 'sensitive_hidden' && ($r['body']['look'] ?? null) === 'naked', 'PUT /avatar/ a sensitive look while hidden → 422 sensitive_hidden', $r);
+    $r = call('PUT', "$userApi/me/", ['hide_sensitive' => 'no'], $memberToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'invalid_body', 'PUT /me/ hide_sensitive not a boolean → 400 invalid_body', $r);
+    $r = call('PUT', "$userApi/me/", ['hide_sensitive' => false], $memberToken);
+    check($r['status'] === 200 && $r['body']['user']['hide_sensitive'] === false && isset($r['body']['avatar']['slots']), 'PUT /me/ { hide_sensitive: false } → user + avatar', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'naked']], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['body'] ?? null) === ['character' => 'catpope', 'look' => 'naked'] && isset($r['body']['avatar']['slots']), 'PUT /avatar/ { body } a default body (naked, setting off) → saved', $r);
+    $r = call('PUT', "$userApi/me/", ['hide_sensitive' => true], $memberToken);
+    $me = call('GET', "$userApi/me/", null, $memberToken)['body'] ?? [];
+    check($r['status'] === 200 && ($r['body']['avatar']['body'] ?? null) === ['character' => 'catpope', 'look' => 'swim'] && ($me['avatar']['body'] ?? null) === ['character' => 'catpope', 'look' => 'swim']
+        && ($me['user']['hide_sensitive'] ?? null) === true && Db::value('SELECT look_id FROM avatar_body WHERE user_id = ?', [$member['id']]) === 'swim',
+        'turning it on while wearing naked → the body moves to catpope swim (stored)', [$r, $me]);
+    Db::run("UPDATE avatar_body SET look_id = 'naked' WHERE user_id = ?", [$member['id']]);
+    $me = call('GET', "$userApi/me/", null, $memberToken)['body']['avatar'] ?? [];
+    check(($me['body'] ?? null) === ['character' => 'catpope', 'look' => 'swim'], 'a sensitive body stored earlier reads as the safe look while hidden', $me);
+    $r = call('PUT', "$userApi/me/", ['hide_sensitive' => false], $memberToken);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'naked']], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['body']['look'] ?? null) === 'naked', 'setting off again → naked can be worn', $r);
     $r = call('PUT', "$api/users/{$member['id']}/characters/yellowmouse", null, $memberToken);
     check($r['status'] === 403, 'member cannot unlock characters (admin API)', $r);
     $r = call('PUT', "$api/users/{$member['id']}/characters/nobody", null, $adminToken);
@@ -365,6 +396,8 @@ try {
     check($r['status'] === 200 && $r['body']['changed'] === false && array_column($r['body']['characters'], 'character') === ['catpope'], 'the default unlock cannot be revoked per member', $r);
     $r = call('PUT', "$userApi/avatar/", ['body' => null], $memberToken);
     check($r['status'] === 200 && $r['body']['avatar']['body'] === null, 'body null → back to the default', $r);
+    $r = call('PUT', "$userApi/me/", ['hide_sensitive' => true], $memberToken);
+    check($r['status'] === 200 && $r['body']['user']['hide_sensitive'] === true && $r['body']['avatar']['body'] === null, 'hide sensitive on again (nothing sensitive worn → body unchanged)', $r);
 
     echo "\nSlots per avatar body (twin slot instances, agents/ITEMS.md)\n";
     // A registry version for this part (newest published, removed at the end): the current registry + a duo "toptoy"
@@ -428,6 +461,7 @@ try {
     check(array_column($rows, 'entry_id', 'slot') === ['torso-left' => $wear['hoodie'], 'torso-right' => $wear['tee']], 'the next save stores it by instance id', $rows);
 } finally {
     if (isset($twinRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$twinRegistryId]);
+    if (isset($sensitiveRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$sensitiveRegistryId]);
     // Back to the limits from before the suite, and no test rate-limit rows left
     if (isset($settingsBefore) && $settingsBefore) {
         call('PUT', "$api/settings", array_map(fn($s) => $s['stored'] ? $s['value'] : null, $settingsBefore), $adminToken);

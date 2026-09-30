@@ -4,6 +4,11 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- "Hide sensitive content" (agents/ITEMS.md "Sensitive content"): migration `2026-09-30-sensitive-content`
+  (`users.hide_sensitive`, default 1); `GET /api/me/` `user.hide_sensitive`; `PUT /api/me/ { hide_sensitive }` (with or
+  without `marketing_opt_in`, answer adds `avatar`) – turning it on moves a worn sensitive A-pose look to the character's
+  first non-sensitive look; `PUT /api/avatar/` rejects a sensitive look while it is on (`422 sensitive_hidden`).
+
 - Entity keys (agents/DATA.md): migration `2026-09-30-entity-keys` (table `entity_versions`, every `content_versions` row
   copied with the same id and a key such as `chapter:catpope:2:de`); `/api/entities/<key>` (creator: read, save draft,
   versions, publish, unpublish, restore, index) replaces `/api/content/*`; library, admin content view and avatar unlocks

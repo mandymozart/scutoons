@@ -191,6 +191,7 @@ check($otp !== null, 'OTP for user A found in mail log');
 $v = call('POST', "$api/auth/verify/", ['email' => $emailA, 'otp' => $otp]);
 check($v['status'] === 200 && $v['body']['created'] === true && $v['body']['claimed'] === [$vinyl], 'signup with a membership code → new account + vinyl claimed', $v);
 check(($v['body']['user']['roles'] ?? null) === ['member'] && ($v['body']['user']['marketing_opt_in'] ?? null) === false, 'new account: roles [member], opt-in false by default', $v['body']['user'] ?? null);
+check(($v['body']['user']['hide_sensitive'] ?? null) === true, 'new account: hide_sensitive true by default', $v['body']['user'] ?? null);
 check(Db::value('SELECT signup_code FROM users WHERE email = ?', [$emailA]) === $vinyl, 'users.signup_code = the membership code');
 $tokenA = $v['body']['session_token'];
 $r = call('POST', "$api/auth/verify/", ['email' => $emailA, 'otp' => $otp]);
@@ -439,7 +440,7 @@ check($r['status'] === 401, 'PUT /me/ without token → 401', $r['status']);
 $r = call('PUT', "$api/me/", ['marketing_opt_in' => 'maybe'], $tokenC);
 check($r['status'] === 400 && $r['body']['error'] === 'invalid_body', 'PUT /me/ with a non-boolean → 400', $r);
 $r = call('PUT', "$api/me/", ['marketing_opt_in' => false], $tokenC);
-check($r['status'] === 200 && $r['body']['user']['marketing_opt_in'] === false, 'PUT /me/ opt-out', $r);
+check($r['status'] === 200 && $r['body']['user']['marketing_opt_in'] === false && $r['body']['user']['hide_sensitive'] === true, 'PUT /me/ opt-out (hide_sensitive untouched)', $r);
 $r = call('PUT', "$api/me/", ['marketing_opt_in' => true], $tokenB);
 $me = call('GET', "$api/me/", null, $tokenB);
 check($r['status'] === 200 && ($me['body']['user']['marketing_opt_in'] ?? null) === true && Db::value('SELECT marketing_opt_in_at FROM users WHERE email = ?', [$emailB]) !== null,

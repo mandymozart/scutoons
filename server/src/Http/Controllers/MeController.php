@@ -12,7 +12,7 @@ use Scutoons\Http\Middleware\JsonBody;
 
 /**
  *   GET /api/me/   { user, access, memberships, inventory, avatar }
- *   PUT /api/me/   { marketing_opt_in } → { status, user }
+ *   PUT /api/me/   { marketing_opt_in?, hide_sensitive? } → { status, user, avatar }
  */
 final class MeController
 {
@@ -29,6 +29,6 @@ final class MeController
     {
         $body = JsonBody::of($request);
         $user = CurrentSession::of($request)->requireUser();
-        return Json::response($response, 200, ['status' => 'success', 'user' => $this->accounts->update($user, $body)]);
+        return Json::response($response, 200, ['status' => 'success'] + $this->accounts->update($user, $body));
     }
 }

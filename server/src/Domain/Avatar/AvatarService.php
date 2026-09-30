@@ -20,6 +20,10 @@ use Scutoons\Infrastructure\Database\Database;
  * Worn items follow the reader across bodies: on a body switch (and when reading rows that don't fit the current body)
  * an item stays on the instance with the same id, otherwise it goes to the first free instance of its slot type, else
  * it comes off (the same rule as `remapAvatarSlots` in @scutoons/content).
+ *
+ * Sensitive looks (agents/ITEMS.md "Sensitive content"): while the member's "Hide sensitive content" is on
+ * (`users.hide_sensitive`, the default) a look marked `sensitive: true` can't be chosen (422 sensitive_hidden), a stored
+ * one reads as the character's first non-sensitive look, and turning the setting on moves it there (hideSensitiveBody).
  */
 final class AvatarService
 {
@@ -40,20 +44,60 @@ final class AvatarService
     public function toJson(string $userId): array
     {
         $body = $this->body($userId);
-        $slots = $this->remap($this->stored($userId), $this->instances($body ?? $this->unlocks->defaultBody($userId)));
+        $slots = $this->remap($this->stored($userId), $this->instances($body ?? $this->unlocks->defaultBody($userId, $this->hidesSensitive($userId))));
         return ['slots' => (object) $slots, 'body' => $body, 'unlocked' => $this->unlocks->toJson($userId)];
     }
 
-    /** @return array{character: string, look: string}|null the chosen body while it is still unlocked */
+    /**
+     * The chosen body while it is still unlocked; a sensitive look while the member hides sensitive content reads as
+     * the character's first non-sensitive look (null when it has none).
+     * @return array{character: string, look: string}|null
+     */
     public function body(string $userId): ?array
+    {
+        $row = $this->storedBody($userId);
+        if (!$row || !$this->unlocks->isUnlocked($userId, $row['character'], $row['look'])) return null;
+        if ($this->unlocks->isSensitive($row['character'], $row['look']) && $this->hidesSensitive($userId)) {
+            $safe = $this->unlocks->safeLook($userId, $row['character']);
+            return $safe !== null ? ['character' => $row['character'], 'look' => $safe] : null;
+        }
+        return $row;
+    }
+
+    /** "Hide sensitive content" of the member (users.hide_sensitive; on by default and when not migrated yet) */
+    public function hidesSensitive(string $userId): bool
+    {
+        try {
+            $row = $this->db->one('SELECT hide_sensitive FROM users WHERE id = ?', [$userId]);
+        } catch (PDOException) {
+            return true;
+        }
+        return !$row || $row['hide_sensitive'] === null || (int) $row['hide_sensitive'] !== 0;
+    }
+
+    /**
+     * After "Hide sensitive content" was turned on: a stored sensitive body moves to the same character's first
+     * non-sensitive look (worn items move along like on any body switch); without one, back to the default body.
+     * Returns whether the body changed.
+     */
+    public function hideSensitiveBody(string $userId): bool
+    {
+        $row = $this->storedBody($userId);
+        if (!$row || !$this->unlocks->isSensitive($row['character'], $row['look'])) return false;
+        $safe = $this->unlocks->safeLook($userId, $row['character']);
+        $this->update($userId, ['body' => $safe !== null ? ['character' => $row['character'], 'look' => $safe] : null]);
+        return true;
+    }
+
+    /** @return array{character: string, look: string}|null the stored avatar_body row, unchecked */
+    private function storedBody(string $userId): ?array
     {
         try {
             $row = $this->db->one('SELECT character_id, look_id FROM avatar_body WHERE user_id = ?', [$userId]);
         } catch (PDOException) {
             return null; // not migrated yet
         }
-        if (!$row || !$this->unlocks->isUnlocked($userId, (string) $row['character_id'], (string) $row['look_id'])) return null;
-        return ['character' => (string) $row['character_id'], 'look' => (string) $row['look_id']];
+        return $row ? ['character' => (string) $row['character_id'], 'look' => (string) $row['look_id']] : null;
     }
 
     /**
@@ -74,7 +118,8 @@ final class AvatarService
      * default; the worn items move to the new body (same instance id, else the first free instance of their type).
      * slots: instance ids of the (new) body; the item's slot type must match the instance's type.
      * 400 invalid_slots (neither given / not an object), invalid_body; 422 invalid_slot (no such instance on this body),
-     * not_owned (entry is not the user's), wrong_slot, locked (body not unlocked), no_apose (no A-pose image for that look).
+     * not_owned (entry is not the user's), wrong_slot, locked (body not unlocked), no_apose (no A-pose image for that look),
+     * sensitive_hidden (a look marked sensitive while the member's "Hide sensitive content" is on).
      * @param array<string, mixed> $body
      */
     public function update(string $userId, array $body): void
@@ -90,7 +135,7 @@ final class AvatarService
         $target = $hasBody
             ? (is_array($body['body']) ? ['character' => (string) $body['body']['character'], 'look' => (string) $body['body']['look']] : null)
             : $this->body($userId);
-        $instances = $this->instances($target ?? $this->unlocks->defaultBody($userId));
+        $instances = $this->instances($target ?? $this->unlocks->defaultBody($userId, $this->hidesSensitive($userId)));
         $types = array_column($instances, 'slot', 'id');
 
         $changes = [];
@@ -194,6 +239,9 @@ final class AvatarService
         }
         if (!$this->unlocks->hasApose($character, $look)) {
             throw new ApiError(422, 'no_apose', 'This character has no A-pose image for that look.', ['character' => $character, 'look' => $look]);
+        }
+        if ($this->unlocks->isSensitive($character, $look) && $this->hidesSensitive($userId)) {
+            throw new ApiError(422, 'sensitive_hidden', 'This look is sensitive content: turn off "Hide sensitive content" on your account page to choose it.', ['character' => $character, 'look' => $look]);
         }
     }
 
