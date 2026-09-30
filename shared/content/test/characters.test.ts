@@ -251,7 +251,7 @@ test('A-pose: character level, its own view without fallback, avatar bodies', as
 	const c: RegistryCharacter = structuredClone(catpope);
 	c.apose = {
 		looks: [
-			{ id: 'swim', label: { en: 'swim pants' }, default: true, path: 'catpope/avatar/mannequin.webp', anchors: { head: { x: 370, y: 70, size: 170 } } },
+			{ id: 'swim', label: { en: 'swim pants' }, default: true, path: 'catpope/avatar/mannequin.webp', slots: [{ id: 'head', slot: 'head', x: 370, y: 70, size: 170 }] },
 			{ id: 'naked', label: { en: 'naked' }, path: 'catpope/avatar/mannequin-nude.webp' }
 		]
 	};
@@ -266,6 +266,56 @@ test('A-pose: character level, its own view without fallback, avatar bodies', as
 	// the missing naked A-pose of the mouse is a wanted image
 	assert.ok(wantedImages({ characters: [m2] }).some((w) => w.view === 'apose' && w.look === 'naked' && w.path === 'characters/yellowmouse/yellowmouse_apose-naked.webp'));
 	assert.ok(!validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error'));
+	// a body without slots gets one unplaced instance per slot type
+	assert.deepEqual(bodies[0].slots.map((s) => s.id), ['head']);
+	assert.equal(bodies[1].slots.length, 9);
+	assert.deepEqual(bodies[1].slots[3], { id: 'torso', slot: 'torso', x: 0, y: 0, size: 0 });
+});
+
+test('A-pose slot instances: twins, validation, remapping between bodies', async () => {
+	const { avatarBodies, remapAvatarSlots } = await import('../src/index.ts');
+	const duo: RegistryCharacter = structuredClone(mouse);
+	const twin = (side: string, x: number) => [
+		{ id: `head-${side}`, slot: 'head' as const, x, y: 460, size: 330, label: { en: `head ${side}` } },
+		{ id: `torso-${side}`, slot: 'torso' as const, x, y: 710, size: 200, label: { en: `torso ${side}` } }
+	];
+	duo.apose = { looks: [{ id: 'swim', default: true, path: 'characters/duo/duo_apose-swim.webp', slots: [...twin('left', 200), ...twin('right', 570)] }] };
+	assert.ok(!validateCharacters({ characters: [duo] }, { languages: ['en'] }).some((p) => p.level === 'error'));
+	const [body] = avatarBodies({ characters: [duo] }, 'en');
+	assert.deepEqual(body.slots.map((s) => s.id), ['head-left', 'torso-left', 'head-right', 'torso-right']);
+	// validation: unique ids, known types, numbers, no old anchors
+	const bad: RegistryCharacter = structuredClone(duo);
+	bad.apose!.looks[0].slots = [
+		{ id: 'torso-left', slot: 'torso', x: 1, y: 1, size: 1 },
+		{ id: 'torso-left', slot: 'torso', x: 1, y: 1, size: 1 },
+		{ id: 'tail', slot: 'tail' as any, x: 1, y: 1, size: 1 },
+		{ id: 'Neck', slot: 'neck', x: 1, y: 1, size: 1 },
+		{ id: 'neck', slot: 'neck', x: -1, y: 1, size: 1 }
+	];
+	(bad.apose!.looks[0] as any).anchors = { head: { x: 1, y: 1, size: 1 } };
+	const errors = validateCharacters({ characters: [bad] }, { languages: ['en'] }).filter((p) => p.level === 'error').map((p) => p.message);
+	assert.equal(errors.length, 5, errors.join(' | '));
+	assert.ok(errors.some((e) => e.includes('"torso-left" twice')));
+	assert.ok(errors.some((e) => e.includes('unknown slot type "tail"')));
+	assert.ok(errors.some((e) => e.includes('old "anchors"')));
+	// remapping: same id stays, otherwise by type to the first free instance, else off; an entry is worn once
+	const types: Record<string, 'head' | 'torso' | 'neck'> = { hoodie: 'torso', tee: 'torso', cap: 'head', chain: 'neck' };
+	const single = ['head', 'torso', 'neck'].map((t) => ({ id: t, slot: t as 'head' }));
+	const twins = body.slots;
+	assert.deepEqual(remapAvatarSlots({ torso: 'hoodie', head: 'cap', neck: 'chain' }, twins, (e) => types[e]), {
+		'head-left': 'cap',
+		'torso-left': 'hoodie',
+		'head-right': null,
+		'torso-right': null
+	});
+	assert.deepEqual(remapAvatarSlots({ 'torso-left': 'hoodie', 'torso-right': 'tee' }, single, (e) => types[e]), { head: null, torso: 'hoodie', neck: null });
+	assert.deepEqual(remapAvatarSlots({ 'torso-right': 'tee', torso: 'hoodie' }, twins, (e) => types[e]), {
+		'head-left': null,
+		'torso-left': 'hoodie',
+		'head-right': null,
+		'torso-right': 'tee'
+	});
+	assert.deepEqual(remapAvatarSlots({ torso: 'hoodie', neck: 'hoodie' }, single, (e) => types[e]), { head: null, torso: 'hoodie', neck: null });
 });
 
 test('legacy ids and the new ref form', async () => {

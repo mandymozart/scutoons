@@ -143,48 +143,30 @@
 					"type": "string",
 					"description": "CDN path from the CDN root (e.g. `characters/catpope/catpope_apose-swim.webp`, 768 × 1152); none = still wanted"
 				},
-				"anchors": {
-					"type": "object",
-					"properties": {
-						"head": {
-							"$ref": "#/definitions/AposeAnchor"
-						},
-						"face": {
-							"$ref": "#/definitions/AposeAnchor"
-						},
-						"neck": {
-							"$ref": "#/definitions/AposeAnchor"
-						},
-						"torso": {
-							"$ref": "#/definitions/AposeAnchor"
-						},
-						"hands": {
-							"$ref": "#/definitions/AposeAnchor"
-						},
-						"legs": {
-							"$ref": "#/definitions/AposeAnchor"
-						},
-						"feet": {
-							"$ref": "#/definitions/AposeAnchor"
-						},
-						"back": {
-							"$ref": "#/definitions/AposeAnchor"
-						},
-						"accessory": {
-							"$ref": "#/definitions/AposeAnchor"
-						}
+				"slots": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AvatarSlotInstance"
 					},
-					"description": "avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor in image px"
+					"description": "the wear slots (slot instances, anchors in image px); none = one unplaced instance per slot type"
 				}
 			},
 			"required": [
 				"id"
 			],
-			"description": "One A-pose look of a character (full body, neutral): an avatar body with the wear anchors of the avatar slots."
+			"description": "One A-pose look of a character (full body, neutral): an avatar body with its wear slots."
 		},
-		"AposeAnchor": {
+		"AvatarSlotInstance": {
 			"type": "object",
 			"properties": {
+				"id": {
+					"type": "string",
+					"description": "unique per body, `^[a-z0-9][a-z0-9-]*$`, at most 32 characters (`torso`, `torso-left`)"
+				},
+				"slot": {
+					"$ref": "#/definitions/AvatarSlot",
+					"description": "the slot type (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory)"
+				},
 				"x": {
 					"type": "number"
 				},
@@ -192,15 +174,36 @@
 					"type": "number"
 				},
 				"size": {
-					"type": "number"
+					"type": "number",
+					"description": "0 = not placed (nothing is drawn)"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the tile label (\"Kopf links\" / \"head left\"); none = the slot type's label"
 				}
 			},
 			"required": [
+				"id",
+				"slot",
 				"x",
 				"y",
 				"size"
 			],
-			"description": "Where an avatar item sits on an A-pose image: centre and size in px of that image."
+			"description": "One wear slot of an A-pose body (a slot instance): where an item of slot type `slot` sits on the image (centre and size in px of that image). A body may have a slot type more than once (twins, a duo: `torso-left`, `torso-right`); a single figure has one instance per type with `id` = the type. The reader's avatar stores worn items by instance id (agents/ITEMS.md \"Slots per avatar body\")."
+		},
+		"AvatarSlot": {
+			"type": "string",
+			"enum": [
+				"head",
+				"face",
+				"neck",
+				"torso",
+				"hands",
+				"legs",
+				"feet",
+				"back",
+				"accessory"
+			]
 		},
 		"CharacterPersona": {
 			"type": "object",

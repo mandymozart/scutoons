@@ -64,6 +64,27 @@ final class CharacterUnlocksTest extends TestCase
         self::assertSame(0, (int) $this->db->value('SELECT COUNT(*) FROM avatar_body'));
     }
 
+    public function testSlotInstancesAndTheDefaultBody(): void
+    {
+        $slot = fn(string $id, string $type) => ['id' => $id, 'slot' => $type, 'x' => 1, 'y' => 1, 'size' => 1];
+        $json = json_encode(['characters' => [
+            ['id' => 'catpope', 'apose' => ['looks' => [['id' => 'swim', 'default' => true, 'path' => 'characters/catpope/catpope_apose-swim.webp']]]],
+            ['id' => 'toptoy', 'apose' => ['looks' => [['id' => 'swim', 'default' => true, 'path' => 'characters/toptoy/toptoy_apose-swim.webp', 'slots' => [$slot('torso-left', 'torso'), $slot('torso-right', 'torso'), ['id' => 'broken']]]]]],
+        ]]);
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
+        $unlocks = $this->get(CharacterUnlocks::class);
+        $avatar = $this->get(AvatarService::class);
+        self::assertSame([['id' => 'torso-left', 'slot' => 'torso'], ['id' => 'torso-right', 'slot' => 'torso']], $unlocks->slotInstances('toptoy', 'swim'));
+        self::assertSame([], $unlocks->slotInstances('catpope', 'swim'));
+        // a body without slots: one instance per catalog slot type
+        self::assertContains(['id' => 'torso', 'slot' => 'torso'], $avatar->instances(['character' => 'catpope', 'look' => 'swim']));
+        self::assertSame(['character' => 'catpope', 'look' => 'swim'], $unlocks->defaultBody($this->userId()));
+        $user = $this->userId();
+        $unlocks->grant($user, 'toptoy', [], 'admin', null);
+        $avatar->update($user, ['body' => ['character' => 'toptoy', 'look' => 'swim']]);
+        self::assertSame(['torso-left' => null, 'torso-right' => null], (array) $avatar->toJson($user)['slots']);
+    }
+
     public function testValidation(): void
     {
         $this->registry();

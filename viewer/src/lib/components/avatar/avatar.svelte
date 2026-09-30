@@ -1,49 +1,29 @@
-<script lang="ts" module>
-	import type { CharacterRegistry } from '@scutoons/content';
-	import { fetchRegistry } from '$lib/api.ts';
-
-	/** The character registry (content store → static), loaded once per page load for every avatar view */
-	let registryPromise: Promise<CharacterRegistry | null> | null = null;
-	function loadRegistry(): Promise<CharacterRegistry | null> {
-		registryPromise ??= fetchRegistry().catch(() => null);
-		return registryPromise;
-	}
-</script>
-
 <script lang="ts">
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
-	import { AVATAR_SLOTS, avatarBodies, unlockedBodies, type AvatarBody, type AvatarSlot, type Entry } from '@scutoons/content';
+	import { AVATAR_SLOTS, pickText, type AvatarBody, type AvatarSlot, type AvatarSlotInstance, type Entry } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 
 	/**
-	 * Reader avatar: a character's A-pose (CDN, 768 × 1152) with named slot tiles in a column on each side. The bodies
-	 * come from the character registry (`avatarBodies`), filtered to what the reader has unlocked (members: `/me/
-	 * avatar.unlocked`; guests: the default unlocks); locked characters are not shown. Equipped items are drawn at the
-	 * body's wear anchors (`apose.looks[].anchors`, image px). ITEMS.md "Reader avatar bodies & character unlocks".
+	 * Reader avatar: a character's A-pose (CDN, 768 × 1152) with a tile per wear slot of that body in a column on each
+	 * side. The bodies come from the character registry (`avatarBodies`, loaded by the inventory context), filtered to
+	 * what the reader has unlocked (members: `/me/ avatar.unlocked`; guests: the default unlocks); locked characters are
+	 * not shown. A body's wear slots are slot instances (`apose.looks[].slots`: id, slot type, anchor) – a duo has every
+	 * slot type twice ("Kopf links" / "Kopf rechts"); worn items are drawn at the instance anchors (image px).
+	 * ITEMS.md "Reader avatar bodies & character unlocks", "Slots per avatar body".
 	 */
 	const W = 768;
 	const H = 1152;
 
 	const inventory = getInventoryContext();
-	let registry = $state<CharacterRegistry | null>(null);
-	let registryLoaded = $state(false);
 	$effect(() => {
-		loadRegistry().then((r) => {
-			registry = r;
-			registryLoaded = true;
-		});
+		inventory.loadRegistry();
 	});
 
-	const bodies = $derived<AvatarBody[]>(unlockedBodies(avatarBodies(registry, getLocale()), inventory.unlocked));
-	const body = $derived<AvatarBody | undefined>(
-		bodies.find((b) => b.character === inventory.body?.character && b.look === inventory.body?.look) ??
-			bodies.find((b) => b.default) ??
-			bodies[0]
-	);
-	const WORN = $derived(body?.anchors ?? {});
+	const bodies = $derived<AvatarBody[]>(inventory.bodies);
+	const body = $derived<AvatarBody | undefined>(inventory.currentBody);
 	let bodyError = $state<string | null>(null);
 
 	async function chooseBody(b: AvatarBody) {
@@ -58,22 +38,36 @@
 
 	// draw order: back first, face/head last
 	const WORN_ORDER: AvatarSlot[] = ['back', 'legs', 'feet', 'torso', 'hands', 'accessory', 'neck', 'head', 'face'];
-	// tiles: left column top→bottom, right column top→bottom
+	// tiles of a single figure: left column top→bottom, right column top→bottom
 	const LEFT: AvatarSlot[] = ['head', 'face', 'hands', 'legs', 'feet'];
 	const RIGHT: AvatarSlot[] = ['neck', 'torso', 'back', 'accessory'];
+	// tiles of a multi-figure body (a slot type more than once): each instance in the column of its anchor, top→bottom
+	const TYPE_ORDER: AvatarSlot[] = ['head', 'face', 'neck', 'torso', 'back', 'hands', 'accessory', 'legs', 'feet'];
 
-	const slots = $derived<AvatarSlot[]>((inventory.catalog?.slots ?? AVATAR_SLOTS).filter((s) => (AVATAR_SLOTS as string[]).includes(s)));
-	const left = $derived(LEFT.filter((s) => slots.includes(s)));
-	const right = $derived([...RIGHT, ...slots.filter((s) => !LEFT.includes(s) && !RIGHT.includes(s))].filter((s) => slots.includes(s)));
+	/** the catalog's slot types (instances of other types are not shown) */
+	const types = $derived<AvatarSlot[]>((inventory.catalog?.slots ?? AVATAR_SLOTS).filter((s) => (AVATAR_SLOTS as string[]).includes(s)));
+	const instances = $derived<AvatarSlotInstance[]>(inventory.slots.filter((s) => types.includes(s.slot)));
+	const multi = $derived(new Set(instances.map((s) => s.slot)).size < instances.length);
+	const byType = (list: AvatarSlotInstance[], order: AvatarSlot[]) =>
+		[...list].sort((a, b) => (order.indexOf(a.slot) + 1 || 99) - (order.indexOf(b.slot) + 1 || 99));
+	const left = $derived(
+		multi ? byType(instances.filter((s) => s.x < W / 2), TYPE_ORDER) : byType(instances.filter((s) => LEFT.includes(s.slot)), LEFT)
+	);
+	const right = $derived(
+		multi ? byType(instances.filter((s) => s.x >= W / 2), TYPE_ORDER) : byType(instances.filter((s) => !LEFT.includes(s.slot)), RIGHT)
+	);
+	const drawn = $derived(byType(instances.filter((s) => s.size > 0), WORN_ORDER));
 
-	let selected = $state<AvatarSlot | null>(null);
+	let selectedId = $state<string | null>(null);
+	const selected = $derived(instances.find((s) => s.id === selectedId));
 	let working = $state(false);
 
 	const wearables = $derived<Entry[]>(
-		selected ? inventory.entries.filter((e) => inventory.item(e.item_id)?.slot === selected) : []
+		selected ? inventory.entries.filter((e) => inventory.item(e.item_id)?.slot === selected.slot) : []
 	);
 
-	const slotLabel = (slot: AvatarSlot) => (m as any)[`items.slot_${slot}`]?.() ?? slot;
+	const typeLabel = (slot: AvatarSlot) => (m as any)[`items.slot_${slot}`]?.() ?? slot;
+	const slotLabel = (s: AvatarSlotInstance) => pickText(s.label, getLocale(), ['en', 'de']) || typeLabel(s.slot);
 
 	async function run(fn: () => Promise<void>) {
 		working = true;
@@ -87,14 +81,15 @@
 	}
 </script>
 
-{#snippet tile(slot: AvatarSlot)}
-	{@const entry = inventory.equippedEntry(slot)}
+{#snippet tile(slot: AvatarSlotInstance)}
+	{@const entry = inventory.equippedEntry(slot.id)}
 	<button
 		class="tile"
 		class:equipped={!!entry}
-		class:active={selected === slot}
-		onclick={() => (selected = selected === slot ? null : slot)}
-		aria-pressed={selected === slot}
+		class:active={selectedId === slot.id}
+		onclick={() => (selectedId = selectedId === slot.id ? null : slot.id)}
+		aria-pressed={selectedId === slot.id}
+		data-slot={slot.id}
 	>
 		<span class="thumb">
 			{#if entry}
@@ -124,19 +119,19 @@
 		{/each}
 	</div>
 	{#if bodyError}<p class="note" role="alert">{bodyError}</p>{/if}
-	{#if registryLoaded && !body}<p class="note">{m['items.avatar_body_none']()}</p>{/if}
-	<div class="stage">
+	{#if inventory.registryLoaded && !body}<p class="note">{m['items.avatar_body_none']()}</p>{/if}
+	<div class="stage" class:dense={multi}>
 		<div class="column">
-			{#each left as slot (slot)}{@render tile(slot)}{/each}
+			{#each left as slot (slot.id)}{@render tile(slot)}{/each}
 		</div>
 		<div class="figure" style="aspect-ratio: {W} / {H}">
 			{#if body}<img class="apose" src={asset(body.path)} alt={body.label} draggable="false" />{/if}
-			{#each WORN_ORDER as slot}
-				{@const worn = slots.includes(slot) ? inventory.equippedEntry(slot) : undefined}
-				{@const w = WORN[slot]}
-				{#if worn && w}
+			{#each drawn as w (w.id)}
+				{@const worn = inventory.equippedEntry(w.id)}
+				{#if worn}
 					<div
 						class="worn"
+						data-worn={w.id}
 						style="left:{((w.x - w.size / 2) / W) * 100}%; top:{((w.y - w.size / 2) / H) * 100}%; width:{(w.size / W) * 100}%"
 					>
 						<ItemIcon srcs={[inventory.iconOf(worn)]} name={inventory.nameOf(worn)} />
@@ -145,12 +140,12 @@
 			{/each}
 		</div>
 		<div class="column">
-			{#each right as slot (slot)}{@render tile(slot)}{/each}
+			{#each right as slot (slot.id)}{@render tile(slot)}{/each}
 		</div>
 	</div>
 
 	{#if selected}
-		{@const current = inventory.equippedEntry(selected)}
+		{@const current = inventory.equippedEntry(selected.id)}
 		<div class="picker">
 			<h3>{slotLabel(selected)}</h3>
 			{#if wearables.length === 0}
@@ -166,8 +161,7 @@
 							class={on ? '' : 'btn-secondary'}
 							class:disabled={working}
 							disabled={working}
-							onclick={() =>
-								run(() => (on ? inventory.unequip(selected!) : inventory.equip(entry)))}
+							onclick={() => run(() => (on ? inventory.unequip(selected.id) : inventory.equip(entry, selected.id)))}
 						>
 							{on ? m['items.take_off']() : m['items.put_on']()}
 						</button>
@@ -288,6 +282,17 @@
 		position: absolute;
 		inset: 0;
 		width: auto !important;
+	}
+	.dense .column {
+		gap: 0.25rem;
+	}
+	.dense .tile {
+		padding: 0.125rem;
+		gap: 0.125rem;
+	}
+	.dense .tile .thumb {
+		width: 1.75rem;
+		height: 1.75rem;
 	}
 	.label {
 		font-size: 0.625rem;

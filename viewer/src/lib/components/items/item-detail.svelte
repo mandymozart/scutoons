@@ -38,7 +38,7 @@
 		if (!def?.slot) return;
 		working = true;
 		try {
-			if (equipped) await inventory.unequip(def.slot);
+			if (equipped) await inventory.unequipEntry(entry);
 			else await inventory.equip(entry);
 		} catch (e) {
 			console.warn('Avatar update failed', e);

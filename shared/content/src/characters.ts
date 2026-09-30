@@ -20,8 +20,8 @@
 //               every UI label says "View" / "Ansicht". Only `portrait` is authored now: `avatar` is a derived 192px
 //               downscale of the portrait, `full` is unused. Completeness counts portraits only.
 //   A-pose    – `character.apose.looks` (character level, not per persona): the reader's avatar body in its own looks
-//               (`swim` default, `naked`), each one image + wear anchors per avatar slot. Never a fallback; outfitting
-//               happens only in the reader's inventory.
+//               (`swim` default, `naked`), each one image + its wear slots (slot instances with anchors; a duo/twins
+//               body has a slot type more than once). Never a fallback; outfitting happens only in the reader's inventory.
 //
 // Image fallback: `resolveExpression` (one implementation for the viewer VN and the creator). `resolveCast()` turns the
 // registry + a cast into the legacy `characters.json` shape of one locale (`Character[]`, visual-novel.ts: `images` =
@@ -246,14 +246,26 @@ export interface CharacterPersona {
 	transitions?: LookTransition[];
 }
 
-/** Where an avatar item sits on an A-pose image: centre and size in px of that image. */
-export interface AposeAnchor {
+/**
+ * One wear slot of an A-pose body (a slot instance): where an item of slot type `slot` sits on the image (centre and
+ * size in px of that image). A body may have a slot type more than once (twins, a duo: `torso-left`, `torso-right`); a
+ * single figure has one instance per type with `id` = the type. The reader's avatar stores worn items by instance id
+ * (agents/ITEMS.md "Slots per avatar body").
+ */
+export interface AvatarSlotInstance {
+	/** unique per body, `^[a-z0-9][a-z0-9-]*$`, at most 32 characters (`torso`, `torso-left`) */
+	id: string;
+	/** the slot type (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) */
+	slot: AvatarSlot;
 	x: number;
 	y: number;
+	/** 0 = not placed (nothing is drawn) */
 	size: number;
+	/** the tile label ("Kopf links" / "head left"); none = the slot type's label */
+	label?: LocaleText;
 }
 
-/** One A-pose look of a character (full body, neutral): an avatar body with the wear anchors of the avatar slots. */
+/** One A-pose look of a character (full body, neutral): an avatar body with its wear slots. */
 export interface AposeLook {
 	/** `swim` (default) | `naked` | … */
 	id: string;
@@ -262,8 +274,51 @@ export interface AposeLook {
 	default?: boolean;
 	/** CDN path from the CDN root (e.g. `characters/catpope/catpope_apose-swim.webp`, 768 × 1152); none = still wanted */
 	path?: string;
-	/** avatar slot (AVATAR_SLOTS: head, face, neck, torso, hands, legs, feet, back, accessory) → anchor in image px */
-	anchors?: Partial<Record<AvatarSlot, AposeAnchor>>;
+	/** the wear slots (slot instances, anchors in image px); none = one unplaced instance per slot type */
+	slots?: AvatarSlotInstance[];
+}
+
+/** Slot instance ids: unique per body, stored by the server (`avatar_slots.slot`, 32 characters). */
+export const SLOT_INSTANCE_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
+
+/** The wear slots of a body: its `slots`, or – when it has none – one unplaced instance per slot type (id = type). */
+export function bodySlots(slots: AvatarSlotInstance[] | null | undefined): AvatarSlotInstance[] {
+	if (Array.isArray(slots) && slots.length) return slots;
+	return AVATAR_SLOTS.map((slot) => ({ id: slot, slot, x: 0, y: 0, size: 0 }));
+}
+
+/**
+ * The worn items moved onto another body's slots (owner rule 2026-09-30, the server does the same in AvatarService):
+ * an item stays on the instance with the same id when the target has it (and the type fits), otherwise it goes to the
+ * first free instance of its slot type; without a free one it comes off. `typeOf` = the worn entry's item slot type
+ * (undefined = unknown: kept only by id). One entry is worn at most once. Returns every target instance id (null = empty).
+ */
+export function remapAvatarSlots<E extends string | number>(
+	worn: Record<string, E | null | undefined>,
+	target: Pick<AvatarSlotInstance, 'id' | 'slot'>[],
+	typeOf: (entry: E) => AvatarSlot | null | undefined
+): Record<string, E | null> {
+	const out: Record<string, E | null> = Object.fromEntries(target.map((t) => [t.id, null]));
+	const placed = new Set<string>();
+	const pending: E[] = [];
+	for (const [id, entry] of Object.entries(worn)) {
+		if (entry == null || placed.has(String(entry))) continue;
+		const inst = target.find((t) => t.id === id);
+		const type = typeOf(entry);
+		if (inst && out[id] == null && (!type || type === inst.slot)) {
+			out[id] = entry;
+			placed.add(String(entry));
+		} else pending.push(entry);
+	}
+	for (const entry of pending) {
+		if (placed.has(String(entry))) continue;
+		const type = typeOf(entry);
+		const free = type ? target.find((t) => t.slot === type && out[t.id] == null) : undefined;
+		if (!free) continue;
+		out[free.id] = entry;
+		placed.add(String(entry));
+	}
+	return out;
 }
 
 /** The A-pose of a character (the reader's avatar body) – separate from the persona / story looks. */
@@ -897,7 +952,8 @@ export interface AvatarBody {
 	/** the A-pose look's label ("swim pants") */
 	lookLabel: string;
 	path: string;
-	anchors: Partial<Record<AvatarSlot, AposeAnchor>>;
+	/** the body's wear slots (`bodySlots`: the look's slot instances, or one unplaced instance per slot type) */
+	slots: AvatarSlotInstance[];
 	/** the character's default A-pose look */
 	default: boolean;
 }
@@ -913,7 +969,7 @@ export function avatarBodies(registry: CharacterRegistry | null | undefined, loc
 			if (!look?.id || !look.path?.trim()) continue;
 			const lookName = pickText(look.label, locale, ['en', 'de']) || look.id;
 			const name = characterName(c, locale);
-			out.push({ character: c.id, look: look.id, label: `${name} (${lookName})`, name, lookLabel: lookName, path: look.path.trim(), anchors: look.anchors ?? {}, default: look.id === defaultId });
+			out.push({ character: c.id, look: look.id, label: `${name} (${lookName})`, name, lookLabel: lookName, path: look.path.trim(), slots: bodySlots(look.slots), default: look.id === defaultId });
 		}
 	}
 	return out;
@@ -1135,14 +1191,21 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 					checkText(add, l.label, [...lp, 'label'], `${who}: A-pose ${l.id} label`, languages);
 					if (l.path === undefined || l.path === '') add('warning', [...lp, 'path'], `${who}: A-pose "${l.id}" has no image yet`);
 					else if (!isStr(l.path) || !IMAGE_PATH.test(l.path)) add('error', [...lp, 'path'], `${who}: A-pose "${l.id}" needs a CDN image path`);
-					if (l.anchors !== undefined) {
-						if (!isObj(l.anchors)) add('error', [...lp, 'anchors'], `${who}: A-pose anchors must be { <slot>: { x, y, size } }`);
-						else
-							for (const [slot, anchor] of Object.entries(l.anchors)) {
-								if (!(AVATAR_SLOTS as string[]).includes(slot)) add('warning', [...lp, 'anchors', slot], `${who}: unknown avatar slot "${slot}" (${AVATAR_SLOTS.join(', ')})`);
-								const a = anchor as any;
-								if (!isObj(a) || ![a.x, a.y, a.size].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0)) add('error', [...lp, 'anchors', slot], `${who}: anchor ${slot} must be { x, y, size } in px`);
-							}
+					if (l.anchors !== undefined) add('error', [...lp, 'anchors'], `${who}: A-pose "${l.id}" uses the old "anchors" – wear slots are "slots": [{ id, slot, x, y, size }]`);
+					if (l.slots !== undefined) {
+						if (!Array.isArray(l.slots)) add('error', [...lp, 'slots'], `${who}: A-pose "${l.id}" slots must be a list of { id, slot, x, y, size, label? }`);
+						else {
+							const slotIds = new Set<string>();
+							l.slots.forEach((s: any, k: number) => {
+								const sp: Path = [...lp, 'slots', k];
+								if (!isObj(s) || !isStr(s.id) || !SLOT_INSTANCE_ID.test(s.id)) return add('error', sp, `${who}: A-pose "${l.id}" slot ${k + 1} needs an id matching ${SLOT_INSTANCE_ID.source}`);
+								if (slotIds.has(s.id)) add('error', [...sp, 'id'], `${who}: A-pose "${l.id}" has the slot id "${s.id}" twice`);
+								slotIds.add(s.id);
+								if (!(AVATAR_SLOTS as string[]).includes(s.slot)) add('error', [...sp, 'slot'], `${who}: slot "${s.id}" has an unknown slot type "${s.slot}" (${AVATAR_SLOTS.join(', ')})`);
+								if (![s.x, s.y, s.size].every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0)) add('error', sp, `${who}: slot "${s.id}" needs x, y, size in px (numbers ≥ 0)`);
+								if (s.label !== undefined) checkText(add, s.label, [...sp, 'label'], `${who}: slot "${s.id}" label`, languages);
+							});
+						}
 					}
 				});
 				const defaults = c.apose.looks.filter((l: any) => isObj(l) && l.default === true).length;

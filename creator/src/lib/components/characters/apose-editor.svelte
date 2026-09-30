@@ -1,12 +1,11 @@
 <script lang="ts">
 	import {
 		APOSE_VIEW,
-		AVATAR_SLOTS,
 		aposeConventionPath,
+		bodySlots,
 		pickText,
 		type AposeLook,
-		type AssetRequest,
-		type AvatarSlot
+		type AssetRequest
 	} from '@scutoons/content';
 	import { imageExists } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -15,8 +14,9 @@
 
 	/**
 	 * The character's A-pose looks (the reader's avatar body, character level): read-only thumbnails with a path field
-	 * checked against the CDN, the wear anchors as plain numbers in a collapsed technical section, and the usual
-	 * "missing – add image" / asset request for a look without an image. No look creator and no anchor dragging –
+	 * checked against the CDN, the wear slots (slot instances: id, type, label, anchor x/y/size in image px – a duo has
+	 * a type twice) as read-only numbers in a collapsed technical section (they come from the characters import), and the
+	 * usual "missing – add image" / asset request for a look without an image. No look creator and no anchor dragging –
 	 * outfitting happens in the reader's inventory.
 	 */
 	let {
@@ -51,12 +51,6 @@
 		}
 	});
 
-	function setAnchor(look: AposeLook, slot: AvatarSlot, key: 'x' | 'y' | 'size', raw: string) {
-		const value = Math.max(0, Math.round(Number(raw) || 0));
-		const anchors = { ...(look.anchors ?? {}) };
-		anchors[slot] = { ...(anchors[slot] ?? { x: 0, y: 0, size: 0 }), [key]: value };
-		onchange(look.id, { ...look, anchors }, `apose-${look.id}-${slot}-${key}`);
-	}
 	const requestOf = (id: string) => requests.find((r) => r.view === APOSE_VIEW && r.look === id && r.status === 'open');
 	const dialog = $derived(looks.find((l) => l.id === dialogLook));
 </script>
@@ -84,15 +78,15 @@
 					<details class="tech">
 						<summary>{m['creator.characters_apose_anchors']()}</summary>
 						<table>
-							<thead><tr><th>{m['creator.characters_slot']()}</th><th>x</th><th>y</th><th>{m['creator.characters_size']()}</th></tr></thead>
+							<thead><tr><th>id</th><th>{m['creator.characters_slot']()}</th><th>x</th><th>y</th><th>{m['creator.characters_size']()}</th></tr></thead>
 							<tbody>
-								{#each AVATAR_SLOTS as slot (slot)}
-									{@const a = look.anchors?.[slot]}
-									<tr>
-										<td>{slot}</td>
-										{#each ['x', 'y', 'size'] as const as key (key)}
-											<td><input type="number" min="0" value={a?.[key] ?? ''} onchange={(e) => setAnchor(look, slot, key, e.currentTarget.value)} data-testid="anchor-{look.id}-{slot}-{key}" /></td>
-										{/each}
+								{#each bodySlots(look.slots) as slot (slot.id)}
+									<tr data-testid="slot-{look.id}-{slot.id}" title={pickText(slot.label, locale, ['en', 'de'])}>
+										<td>{slot.id}</td>
+										<td>{slot.slot}</td>
+										<td class="num">{slot.x}</td>
+										<td class="num">{slot.y}</td>
+										<td class="num">{slot.size || '–'}</td>
 									</tr>
 								{/each}
 							</tbody>
@@ -197,8 +191,9 @@
 	td {
 		padding: 0.1rem 0.15rem;
 	}
-	td input {
-		width: 3.8rem;
+	td.num {
+		text-align: right;
+		font-variant-numeric: tabular-nums;
 	}
 	.missing {
 		all: unset;

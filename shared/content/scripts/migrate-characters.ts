@@ -30,6 +30,9 @@ import { fileURLToPath } from 'node:url';
 import {
 	APOSE_LOOKS,
 	APOSE_VIEW,
+	AVATAR_SLOTS,
+	type AvatarSlot,
+	type AvatarSlotInstance,
 	TRANSITION_VIEW,
 	ASSET_REQUESTS_FILE,
 	DEFAULT_MOOD,
@@ -79,8 +82,13 @@ const SOURCE = 'de';
 
 const MOODS = defaultMoodVocabulary();
 
-/** Wear anchors of the reader's avatar bodies (A-poses, 768 × 1152), from viewer components/avatar/avatar.svelte */
-const SPHYNX_WORN = {
+type Anchor = { x: number; y: number; size: number };
+/** One slot instance per slot type (id = type) – a single figure. */
+const single = (anchors: Record<AvatarSlot, Anchor>): AvatarSlotInstance[] =>
+	AVATAR_SLOTS.map((slot) => ({ id: slot, slot, ...anchors[slot] }));
+
+/** Wear slots of the reader's avatar bodies (A-poses, 768 × 1152), from viewer components/avatar/avatar.svelte */
+const SPHYNX_SLOTS = single({
 	head: { x: 370, y: 70, size: 170 },
 	face: { x: 372, y: 105, size: 110 },
 	neck: { x: 372, y: 200, size: 110 },
@@ -90,8 +98,8 @@ const SPHYNX_WORN = {
 	feet: { x: 372, y: 1040, size: 330 },
 	back: { x: 372, y: 330, size: 360 },
 	accessory: { x: 598, y: 575, size: 90 }
-};
-const MOUSE_WORN = {
+});
+const MOUSE_SLOTS = single({
 	head: { x: 385, y: 130, size: 330 },
 	face: { x: 385, y: 230, size: 200 },
 	neck: { x: 385, y: 330, size: 120 },
@@ -101,29 +109,64 @@ const MOUSE_WORN = {
 	feet: { x: 385, y: 1010, size: 340 },
 	back: { x: 385, y: 450, size: 300 },
 	accessory: { x: 595, y: 625, size: 90 }
+});
+
+/** Slot type names for the labels of twin slots ("Kopf links" / "head left"). */
+const SLOT_NAMES: Record<AvatarSlot, LocaleText> = {
+	head: { de: 'Kopf', en: 'Head' },
+	face: { de: 'Gesicht', en: 'Face' },
+	neck: { de: 'Hals', en: 'Neck' },
+	torso: { de: 'Oberkörper', en: 'Torso' },
+	hands: { de: 'Hände', en: 'Hands' },
+	legs: { de: 'Beine', en: 'Legs' },
+	feet: { de: 'Füße', en: 'Feet' },
+	back: { de: 'Rücken', en: 'Back' },
+	accessory: { de: 'Accessoire', en: 'Accessory' }
 };
+const SIDES = { left: { de: 'links', en: 'left' }, right: { de: 'rechts', en: 'right' } };
+/** One slot instance per type and figure (`<type>-left`, `<type>-right`) – a duo / twins. */
+const twins = (figures: Record<keyof typeof SIDES, Record<AvatarSlot, Anchor>>): AvatarSlotInstance[] =>
+	(Object.keys(SIDES) as (keyof typeof SIDES)[]).flatMap((side) =>
+		AVATAR_SLOTS.map((slot) => ({
+			id: `${slot}-${side}`,
+			slot,
+			...figures[side][slot],
+			label: { de: `${SLOT_NAMES[slot].de} ${SIDES[side].de}`, en: `${SLOT_NAMES[slot].en} ${SIDES[side].en}` }
+		}))
+	);
 
 /**
- * Toptoy (the duo as one character, delivered 2026-09-30): two figures side by side on the 768 × 1152 A-pose, swim and
- * naked in the same framing → one set. Measured from the alpha mask of toptoy_apose-swim.png: left figure (orange head,
- * yellow body, blue shorts) x 15–384, spike tips y 202, chin / narrowest row (neck) y 580, shorts ~700–845, soles 983;
- * right figure x 388–754. The worn slots sit on the LEFT figure (head box = the head without the spike tips, face =
- * eyes to mouth, torso = chest down to the shorts, legs = shorts hem to the ankles, feet = centroid of the feet);
- * `hands` = the left figure's outer (left) hand (x 15, row 741), `accessory` = the right figure's outer (right) hand
- * (x 754, row 746) – the duo holds a hand item and an accessory between them. Owner may move the worn slots to the
- * right figure.
+ * Toptoy (the duo as one character): two figures side by side on the 768 × 1152 A-pose, swim and naked in the same
+ * framing → one set, one slot instance per type and figure (owner 2026-09-30: "define slots per avatar, so an avatar can
+ * have the same slot twice"). Measured on the normalized A-pose (2026-09-30: specks removed, soles at 92 %, scale 1.012 –
+ * width-limited by the duo, head tips at 22 %): left figure x 10–384 (spike tips y 268, head ~300–635, chin/neck ~650,
+ * hands ~790–880, shorts ~770–918, soles 1058), right figure x 388–757 (tips 254). hands = each figure's outer hand,
+ * accessory = its inner hand (the two inner hands meet in the middle).
  */
-const TOPTOY_WORN = {
-	head: { x: 202, y: 400, size: 330 },
-	face: { x: 205, y: 455, size: 210 },
-	neck: { x: 204, y: 590, size: 110 },
-	torso: { x: 202, y: 640, size: 200 },
-	hands: { x: 45, y: 750, size: 70 },
-	legs: { x: 202, y: 880, size: 200 },
-	feet: { x: 202, y: 945, size: 240 },
-	back: { x: 202, y: 640, size: 260 },
-	accessory: { x: 725, y: 755, size: 70 }
-};
+const TOPTOY_SLOTS = twins({
+	left: {
+		head: { x: 199, y: 468, size: 334 },
+		face: { x: 202, y: 523, size: 213 },
+		neck: { x: 201, y: 655, size: 111 },
+		torso: { x: 199, y: 725, size: 250 },
+		hands: { x: 40, y: 828, size: 75 },
+		legs: { x: 199, y: 953, size: 202 },
+		feet: { x: 199, y: 1012, size: 243 },
+		back: { x: 199, y: 725, size: 290 },
+		accessory: { x: 352, y: 832, size: 70 }
+	},
+	right: {
+		head: { x: 571, y: 462, size: 340 },
+		face: { x: 571, y: 520, size: 213 },
+		neck: { x: 571, y: 658, size: 111 },
+		torso: { x: 571, y: 727, size: 250 },
+		hands: { x: 729, y: 830, size: 75 },
+		legs: { x: 571, y: 955, size: 202 },
+		feet: { x: 571, y: 1014, size: 243 },
+		back: { x: 571, y: 727, size: 290 },
+		accessory: { x: 408, y: 832, size: 70 }
+	}
+});
 
 const APOSE_LABEL = Object.fromEntries(APOSE_LOOKS.map((l) => [l.id, l.label])) as Record<'swim' | 'naked', LocaleText>;
 
@@ -148,8 +191,8 @@ const UPDATES: Record<string, (c: RegistryCharacter) => void> = {
 		// the reader's avatar bodies (character level): swim pants and naked
 		c.apose = {
 			looks: [
-				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/catpope/catpope_apose-swim.webp', anchors: { ...SPHYNX_WORN } },
-				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/catpope/catpope_apose-naked.webp', anchors: { ...SPHYNX_WORN } }
+				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/catpope/catpope_apose-swim.webp', slots: structuredClone(SPHYNX_SLOTS) },
+				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/catpope/catpope_apose-naked.webp', slots: structuredClone(SPHYNX_SLOTS) }
 			]
 		};
 		c.artwork = [{ id: 'apose-example-dressed', path: 'characters/catpope/catpope_apose-example-dressed.webp', label: { de: 'A-Pose angezogen (Referenz)', en: 'A-pose dressed (reference)' } }];
@@ -181,8 +224,8 @@ const NEW: RegistryCharacter[] = [
 		// avatar bodies: swim pants and naked (delivered 2026-09-30, same framing → same anchors)
 		apose: {
 			looks: [
-				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/yellowmouse/yellowmouse_apose-swim.webp', anchors: { ...MOUSE_WORN } },
-				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/yellowmouse/yellowmouse_apose-naked.webp', anchors: { ...MOUSE_WORN } }
+				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/yellowmouse/yellowmouse_apose-swim.webp', slots: structuredClone(MOUSE_SLOTS) },
+				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/yellowmouse/yellowmouse_apose-naked.webp', slots: structuredClone(MOUSE_SLOTS) }
 			]
 		}
 	},
@@ -195,11 +238,11 @@ const NEW: RegistryCharacter[] = [
 		tags: ['duo'],
 		image: 'toptoy/avatar.webp',
 		personas: [{ id: REGULAR_PERSONA, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] }],
-		// avatar bodies (delivered 2026-09-30; the swim file came as `toptop-apose-swim.png`), anchors: TOPTOY_WORN
+		// avatar bodies (delivered 2026-09-30; the swim file came as `toptop-apose-swim.png`), twin slots: TOPTOY_SLOTS
 		apose: {
 			looks: [
-				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/toptoy/toptoy_apose-swim.webp', anchors: { ...TOPTOY_WORN } },
-				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/toptoy/toptoy_apose-naked.webp', anchors: { ...TOPTOY_WORN } }
+				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/toptoy/toptoy_apose-swim.webp', slots: structuredClone(TOPTOY_SLOTS) },
+				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/toptoy/toptoy_apose-naked.webp', slots: structuredClone(TOPTOY_SLOTS) }
 			]
 		}
 	},

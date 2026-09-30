@@ -919,3 +919,29 @@ character, persona, look and mood and doubles as the VN test bed.
 - **Found in passing (not fixed, reported):** `qr/src/Config.php` is not in git: `qr/.gitignore` `config.php` matches
   it on Windows (`core.ignorecase=true`). A CI checkout / deploy of qr has no `Config.php` → every qr page 500s.
   Fix: `/config.php` in `qr/.gitignore` + `git add qr/src/Config.php`.
+
+## Avatar slots per body + Toptoy A-pose normalized (2026-09-30)
+
+- **Toptoy A-poses** (`cdn/root/characters/toptoy/toptoy_apose-{swim,naked}.png` + WebPs, cdn/root not in git – upload
+  with `cdn/sync.py`): stray alpha specks removed (connected components < 5000 px: swim 427 px in 17 islands – three
+  opaque specks between the figures –, naked 156 px in 12), one transform for both (overlay IoU 0.989), soles at 92 %,
+  centred, soft floor shadow per figure (blurred ellipse, alpha ≤ ~48, like catpope/yellowmouse; background stays
+  transparent like every other A-pose file – the spec's "white background" is only how the delivery looks). **The spec's
+  head top 5 % is impossible for the duo**: at that scale (1.26) the pair would be 931 px wide on a 768 px canvas, so the
+  scale is width-limited (1.012, 10 px margins) → head tips at 22 %, soles 92 %. Originals, the one-off script
+  (`normalize_toptoy.py`) and the before/after sheet were in the scratchpad only (originals also in the owner's
+  `Downloads/toptoy`).
+- **Slots per avatar body** built (ITEMS.md "Slots per avatar body"): `apose.looks[].slots` instances, Toptoy twins
+  (`<type>-left/right`), server stores instance ids in `avatar_slots.slot` (no migration needed, legacy type rows are
+  read by type), body switch keeps same-id instances else first free of the type. Seed + both SQL files regenerated (the
+  content SQL was generated from a seed copy with the HEAD chapter files, since another agent's `featuring` edits were
+  uncommitted), characters imported locally (backup `server/db/local.sqlite.bak-2026-09-30-avatar-slots`).
+- Local test data: `avatar-member-0930@example.com` has Toptoy unlocked (admin API, ref `slots-check-2026-09-30`) and a
+  second torso item, a `dago_hoodie` (black) entry `slots-check-dago-hoodie-0930` inserted **directly in the local DB**
+  (no admin/story grant path for physical items); it now wears Toptoy swim with the kangaroo hoodie on `torso-left` and
+  the Dago hoodie on `torso-right`. Browser check (430 px): 18 tiles "Kopf links … Füße rechts", picker filtered to
+  torso items, both hoodies drawn on their figure, survives reload, Toptoy → Cat Pope keeps the first torso and drops the
+  second, back → `torso-left`; item detail "Anziehen" puts on the first free instance; guest with a stored `torso-left`
+  shows it on Cat Pope's `torso`.
+- Gotcha: regenerating the seed while `composer test` runs makes entities-compare fail (the fresh DB is seeded at the
+  start, the files are compared later).

@@ -102,6 +102,43 @@ final class CharacterUnlocks
     }
 
     /**
+     * The wear slots (slot instances) of a body: the A-pose look's `slots` as [{ id, slot }] (registry order; a duo has
+     * `torso-left` + `torso-right`, a single figure `torso`). Empty = the look has none (or is unknown) – the caller
+     * falls back to one instance per catalog slot type (agents/ITEMS.md "Slots per avatar body").
+     * @return list<array{id: string, slot: string}>
+     */
+    public function slotInstances(string $character, string $look): array
+    {
+        foreach ($this->aposeLooks($character) as $l) {
+            if (($l['id'] ?? null) !== $look) continue;
+            $out = [];
+            foreach (is_array($l['slots'] ?? null) ? $l['slots'] : [] as $s) {
+                if (is_array($s) && is_string($s['id'] ?? null) && is_string($s['slot'] ?? null)) $out[] = ['id' => $s['id'], 'slot' => $s['slot']];
+            }
+            return $out;
+        }
+        return [];
+    }
+
+    /**
+     * The body the reader sees when none is chosen (the viewer's rule): the first unlocked character whose default
+     * A-pose look is unlocked and has an image, else the first unlocked look with an image; null = none.
+     * @return array{character: string, look: string}|null
+     */
+    public function defaultBody(string $userId): ?array
+    {
+        $unlocked = $this->forUser($userId);
+        foreach ($unlocked as $u) {
+            $look = $this->defaultLook($u['character']);
+            if ($look !== null && in_array($look, $u['looks'], true) && $this->hasApose($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
+        }
+        foreach ($unlocked as $u) {
+            foreach ($u['looks'] as $look) if ($this->hasApose($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
+        }
+        return null;
+    }
+
+    /**
      * Everything the member has unlocked, defaults first, then rows (unlock order):
      * [{ character, looks: [look ids], source, ref, unlocked_at }] – `source` / `ref` of the character unlock.
      * @return list<array<string, mixed>>

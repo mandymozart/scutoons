@@ -371,53 +371,71 @@
 						},
 						"default": true,
 						"path": "characters/catpope/catpope_apose-swim.webp",
-						"anchors": {
-							"head": {
+						"slots": [
+							{
+								"id": "head",
+								"slot": "head",
 								"x": 370,
 								"y": 70,
 								"size": 170
 							},
-							"face": {
+							{
+								"id": "face",
+								"slot": "face",
 								"x": 372,
 								"y": 105,
 								"size": 110
 							},
-							"neck": {
+							{
+								"id": "neck",
+								"slot": "neck",
 								"x": 372,
 								"y": 200,
 								"size": 110
 							},
-							"torso": {
+							{
+								"id": "torso",
+								"slot": "torso",
 								"x": 372,
 								"y": 340,
 								"size": 330
 							},
-							"hands": {
+							{
+								"id": "hands",
+								"slot": "hands",
 								"x": 150,
 								"y": 575,
 								"size": 90
 							},
-							"legs": {
+							{
+								"id": "legs",
+								"slot": "legs",
 								"x": 372,
 								"y": 760,
 								"size": 300
 							},
-							"feet": {
+							{
+								"id": "feet",
+								"slot": "feet",
 								"x": 372,
 								"y": 1040,
 								"size": 330
 							},
-							"back": {
+							{
+								"id": "back",
+								"slot": "back",
 								"x": 372,
 								"y": 330,
 								"size": 360
 							},
-							"accessory": {
+							{
+								"id": "accessory",
+								"slot": "accessory",
 								"x": 598,
 								"y": 575,
 								"size": 90
 							}
-						}
+						]
 					},
 					{
 						"id": "naked",
@@ -426,53 +444,71 @@
 							"en": "naked"
 						},
 						"path": "characters/catpope/catpope_apose-naked.webp",
-						"anchors": {
-							"head": {
+						"slots": [
+							{
+								"id": "head",
+								"slot": "head",
 								"x": 370,
 								"y": 70,
 								"size": 170
 							},
-							"face": {
+							{
+								"id": "face",
+								"slot": "face",
 								"x": 372,
 								"y": 105,
 								"size": 110
 							},
-							"neck": {
+							{
+								"id": "neck",
+								"slot": "neck",
 								"x": 372,
 								"y": 200,
 								"size": 110
 							},
-							"torso": {
+							{
+								"id": "torso",
+								"slot": "torso",
 								"x": 372,
 								"y": 340,
 								"size": 330
 							},
-							"hands": {
+							{
+								"id": "hands",
+								"slot": "hands",
 								"x": 150,
 								"y": 575,
 								"size": 90
 							},
-							"legs": {
+							{
+								"id": "legs",
+								"slot": "legs",
 								"x": 372,
 								"y": 760,
 								"size": 300
 							},
-							"feet": {
+							{
+								"id": "feet",
+								"slot": "feet",
 								"x": 372,
 								"y": 1040,
 								"size": 330
 							},
-							"back": {
+							{
+								"id": "back",
+								"slot": "back",
 								"x": 372,
 								"y": 330,
 								"size": 360
 							},
-							"accessory": {
+							{
+								"id": "accessory",
+								"slot": "accessory",
 								"x": 598,
 								"y": 575,
 								"size": 90
 							}
-						}
+						]
 					}
 				]
 			},
@@ -749,53 +785,71 @@
 						},
 						"default": true,
 						"path": "characters/yellowmouse/yellowmouse_apose-swim.webp",
-						"anchors": {
-							"head": {
+						"slots": [
+							{
+								"id": "head",
+								"slot": "head",
 								"x": 385,
 								"y": 130,
 								"size": 330
 							},
-							"face": {
+							{
+								"id": "face",
+								"slot": "face",
 								"x": 385,
 								"y": 230,
 								"size": 200
 							},
-							"neck": {
+							{
+								"id": "neck",
+								"slot": "neck",
 								"x": 385,
 								"y": 330,
 								"size": 120
 							},
-							"torso": {
+							{
+								"id": "torso",
+								"slot": "torso",
 								"x": 385,
 								"y": 450,
 								"size": 260
 							},
-							"hands": {
+							{
+								"id": "hands",
+								"slot": "hands",
 								"x": 175,
 								"y": 625,
 								"size": 90
 							},
-							"legs": {
+							{
+								"id": "legs",
+								"slot": "legs",
 								"x": 385,
 								"y": 770,
 								"size": 260
 							},
-							"feet": {
+							{
+								"id": "feet",
+								"slot": "feet",
 								"x": 385,
 								"y": 1010,
 								"size": 340
 							},
-							"back": {
+							{
+								"id": "back",
+								"slot": "back",
 								"x": 385,
 								"y": 450,
 								"size": 300
 							},
-							"accessory": {
+							{
+								"id": "accessory",
+								"slot": "accessory",
 								"x": 595,
 								"y": 625,
 								"size": 90
 							}
-						}
+						]
 					},
 					{
 						"id": "naked",
@@ -804,53 +858,71 @@
 							"en": "naked"
 						},
 						"path": "characters/yellowmouse/yellowmouse_apose-naked.webp",
-						"anchors": {
-							"head": {
+						"slots": [
+							{
+								"id": "head",
+								"slot": "head",
 								"x": 385,
 								"y": 130,
 								"size": 330
 							},
-							"face": {
+							{
+								"id": "face",
+								"slot": "face",
 								"x": 385,
 								"y": 230,
 								"size": 200
 							},
-							"neck": {
+							{
+								"id": "neck",
+								"slot": "neck",
 								"x": 385,
 								"y": 330,
 								"size": 120
 							},
-							"torso": {
+							{
+								"id": "torso",
+								"slot": "torso",
 								"x": 385,
 								"y": 450,
 								"size": 260
 							},
-							"hands": {
+							{
+								"id": "hands",
+								"slot": "hands",
 								"x": 175,
 								"y": 625,
 								"size": 90
 							},
-							"legs": {
+							{
+								"id": "legs",
+								"slot": "legs",
 								"x": 385,
 								"y": 770,
 								"size": 260
 							},
-							"feet": {
+							{
+								"id": "feet",
+								"slot": "feet",
 								"x": 385,
 								"y": 1010,
 								"size": 340
 							},
-							"back": {
+							{
+								"id": "back",
+								"slot": "back",
 								"x": 385,
 								"y": 450,
 								"size": 300
 							},
-							"accessory": {
+							{
+								"id": "accessory",
+								"slot": "accessory",
 								"x": 595,
 								"y": 625,
 								"size": 90
 							}
-						}
+						]
 					}
 				]
 			}
@@ -899,53 +971,206 @@
 						},
 						"default": true,
 						"path": "characters/toptoy/toptoy_apose-swim.webp",
-						"anchors": {
-							"head": {
+						"slots": [
+							{
+								"id": "head-left",
+								"slot": "head",
+								"x": 199,
+								"y": 468,
+								"size": 334,
+								"label": {
+									"de": "Kopf links",
+									"en": "Head left"
+								}
+							},
+							{
+								"id": "face-left",
+								"slot": "face",
 								"x": 202,
-								"y": 400,
-								"size": 330
+								"y": 523,
+								"size": 213,
+								"label": {
+									"de": "Gesicht links",
+									"en": "Face left"
+								}
 							},
-							"face": {
-								"x": 205,
-								"y": 455,
-								"size": 210
+							{
+								"id": "neck-left",
+								"slot": "neck",
+								"x": 201,
+								"y": 655,
+								"size": 111,
+								"label": {
+									"de": "Hals links",
+									"en": "Neck left"
+								}
 							},
-							"neck": {
-								"x": 204,
-								"y": 590,
-								"size": 110
+							{
+								"id": "torso-left",
+								"slot": "torso",
+								"x": 199,
+								"y": 725,
+								"size": 250,
+								"label": {
+									"de": "Oberkörper links",
+									"en": "Torso left"
+								}
 							},
-							"torso": {
-								"x": 202,
-								"y": 640,
-								"size": 200
+							{
+								"id": "hands-left",
+								"slot": "hands",
+								"x": 40,
+								"y": 828,
+								"size": 75,
+								"label": {
+									"de": "Hände links",
+									"en": "Hands left"
+								}
 							},
-							"hands": {
-								"x": 45,
-								"y": 750,
-								"size": 70
+							{
+								"id": "legs-left",
+								"slot": "legs",
+								"x": 199,
+								"y": 953,
+								"size": 202,
+								"label": {
+									"de": "Beine links",
+									"en": "Legs left"
+								}
 							},
-							"legs": {
-								"x": 202,
-								"y": 880,
-								"size": 200
+							{
+								"id": "feet-left",
+								"slot": "feet",
+								"x": 199,
+								"y": 1012,
+								"size": 243,
+								"label": {
+									"de": "Füße links",
+									"en": "Feet left"
+								}
 							},
-							"feet": {
-								"x": 202,
-								"y": 945,
-								"size": 240
+							{
+								"id": "back-left",
+								"slot": "back",
+								"x": 199,
+								"y": 725,
+								"size": 290,
+								"label": {
+									"de": "Rücken links",
+									"en": "Back left"
+								}
 							},
-							"back": {
-								"x": 202,
-								"y": 640,
-								"size": 260
+							{
+								"id": "accessory-left",
+								"slot": "accessory",
+								"x": 352,
+								"y": 832,
+								"size": 70,
+								"label": {
+									"de": "Accessoire links",
+									"en": "Accessory left"
+								}
 							},
-							"accessory": {
-								"x": 725,
-								"y": 755,
-								"size": 70
+							{
+								"id": "head-right",
+								"slot": "head",
+								"x": 571,
+								"y": 462,
+								"size": 340,
+								"label": {
+									"de": "Kopf rechts",
+									"en": "Head right"
+								}
+							},
+							{
+								"id": "face-right",
+								"slot": "face",
+								"x": 571,
+								"y": 520,
+								"size": 213,
+								"label": {
+									"de": "Gesicht rechts",
+									"en": "Face right"
+								}
+							},
+							{
+								"id": "neck-right",
+								"slot": "neck",
+								"x": 571,
+								"y": 658,
+								"size": 111,
+								"label": {
+									"de": "Hals rechts",
+									"en": "Neck right"
+								}
+							},
+							{
+								"id": "torso-right",
+								"slot": "torso",
+								"x": 571,
+								"y": 727,
+								"size": 250,
+								"label": {
+									"de": "Oberkörper rechts",
+									"en": "Torso right"
+								}
+							},
+							{
+								"id": "hands-right",
+								"slot": "hands",
+								"x": 729,
+								"y": 830,
+								"size": 75,
+								"label": {
+									"de": "Hände rechts",
+									"en": "Hands right"
+								}
+							},
+							{
+								"id": "legs-right",
+								"slot": "legs",
+								"x": 571,
+								"y": 955,
+								"size": 202,
+								"label": {
+									"de": "Beine rechts",
+									"en": "Legs right"
+								}
+							},
+							{
+								"id": "feet-right",
+								"slot": "feet",
+								"x": 571,
+								"y": 1014,
+								"size": 243,
+								"label": {
+									"de": "Füße rechts",
+									"en": "Feet right"
+								}
+							},
+							{
+								"id": "back-right",
+								"slot": "back",
+								"x": 571,
+								"y": 727,
+								"size": 290,
+								"label": {
+									"de": "Rücken rechts",
+									"en": "Back right"
+								}
+							},
+							{
+								"id": "accessory-right",
+								"slot": "accessory",
+								"x": 408,
+								"y": 832,
+								"size": 70,
+								"label": {
+									"de": "Accessoire rechts",
+									"en": "Accessory right"
+								}
 							}
-						}
+						]
 					},
 					{
 						"id": "naked",
@@ -954,53 +1179,206 @@
 							"en": "naked"
 						},
 						"path": "characters/toptoy/toptoy_apose-naked.webp",
-						"anchors": {
-							"head": {
+						"slots": [
+							{
+								"id": "head-left",
+								"slot": "head",
+								"x": 199,
+								"y": 468,
+								"size": 334,
+								"label": {
+									"de": "Kopf links",
+									"en": "Head left"
+								}
+							},
+							{
+								"id": "face-left",
+								"slot": "face",
 								"x": 202,
-								"y": 400,
-								"size": 330
+								"y": 523,
+								"size": 213,
+								"label": {
+									"de": "Gesicht links",
+									"en": "Face left"
+								}
 							},
-							"face": {
-								"x": 205,
-								"y": 455,
-								"size": 210
+							{
+								"id": "neck-left",
+								"slot": "neck",
+								"x": 201,
+								"y": 655,
+								"size": 111,
+								"label": {
+									"de": "Hals links",
+									"en": "Neck left"
+								}
 							},
-							"neck": {
-								"x": 204,
-								"y": 590,
-								"size": 110
+							{
+								"id": "torso-left",
+								"slot": "torso",
+								"x": 199,
+								"y": 725,
+								"size": 250,
+								"label": {
+									"de": "Oberkörper links",
+									"en": "Torso left"
+								}
 							},
-							"torso": {
-								"x": 202,
-								"y": 640,
-								"size": 200
+							{
+								"id": "hands-left",
+								"slot": "hands",
+								"x": 40,
+								"y": 828,
+								"size": 75,
+								"label": {
+									"de": "Hände links",
+									"en": "Hands left"
+								}
 							},
-							"hands": {
-								"x": 45,
-								"y": 750,
-								"size": 70
+							{
+								"id": "legs-left",
+								"slot": "legs",
+								"x": 199,
+								"y": 953,
+								"size": 202,
+								"label": {
+									"de": "Beine links",
+									"en": "Legs left"
+								}
 							},
-							"legs": {
-								"x": 202,
-								"y": 880,
-								"size": 200
+							{
+								"id": "feet-left",
+								"slot": "feet",
+								"x": 199,
+								"y": 1012,
+								"size": 243,
+								"label": {
+									"de": "Füße links",
+									"en": "Feet left"
+								}
 							},
-							"feet": {
-								"x": 202,
-								"y": 945,
-								"size": 240
+							{
+								"id": "back-left",
+								"slot": "back",
+								"x": 199,
+								"y": 725,
+								"size": 290,
+								"label": {
+									"de": "Rücken links",
+									"en": "Back left"
+								}
 							},
-							"back": {
-								"x": 202,
-								"y": 640,
-								"size": 260
+							{
+								"id": "accessory-left",
+								"slot": "accessory",
+								"x": 352,
+								"y": 832,
+								"size": 70,
+								"label": {
+									"de": "Accessoire links",
+									"en": "Accessory left"
+								}
 							},
-							"accessory": {
-								"x": 725,
-								"y": 755,
-								"size": 70
+							{
+								"id": "head-right",
+								"slot": "head",
+								"x": 571,
+								"y": 462,
+								"size": 340,
+								"label": {
+									"de": "Kopf rechts",
+									"en": "Head right"
+								}
+							},
+							{
+								"id": "face-right",
+								"slot": "face",
+								"x": 571,
+								"y": 520,
+								"size": 213,
+								"label": {
+									"de": "Gesicht rechts",
+									"en": "Face right"
+								}
+							},
+							{
+								"id": "neck-right",
+								"slot": "neck",
+								"x": 571,
+								"y": 658,
+								"size": 111,
+								"label": {
+									"de": "Hals rechts",
+									"en": "Neck right"
+								}
+							},
+							{
+								"id": "torso-right",
+								"slot": "torso",
+								"x": 571,
+								"y": 727,
+								"size": 250,
+								"label": {
+									"de": "Oberkörper rechts",
+									"en": "Torso right"
+								}
+							},
+							{
+								"id": "hands-right",
+								"slot": "hands",
+								"x": 729,
+								"y": 830,
+								"size": 75,
+								"label": {
+									"de": "Hände rechts",
+									"en": "Hands right"
+								}
+							},
+							{
+								"id": "legs-right",
+								"slot": "legs",
+								"x": 571,
+								"y": 955,
+								"size": 202,
+								"label": {
+									"de": "Beine rechts",
+									"en": "Legs right"
+								}
+							},
+							{
+								"id": "feet-right",
+								"slot": "feet",
+								"x": 571,
+								"y": 1014,
+								"size": 243,
+								"label": {
+									"de": "Füße rechts",
+									"en": "Feet right"
+								}
+							},
+							{
+								"id": "back-right",
+								"slot": "back",
+								"x": 571,
+								"y": 727,
+								"size": 290,
+								"label": {
+									"de": "Rücken rechts",
+									"en": "Back right"
+								}
+							},
+							{
+								"id": "accessory-right",
+								"slot": "accessory",
+								"x": 408,
+								"y": 832,
+								"size": 70,
+								"label": {
+									"de": "Accessoire rechts",
+									"en": "Accessory right"
+								}
 							}
-						}
+						]
 					}
 				]
 			}

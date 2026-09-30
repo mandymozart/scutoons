@@ -136,7 +136,7 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
 | POST | `/inventory/craft/` | `{ recipe_id }` | `{ status, inventory }` · 422 `missing_inputs` |
 | POST | `/inventory/grant/` | `{ item_id, source:"story"\|"scan", ref? }` | `{ status, inventory }` · 403 if not in item's `grantable` · 429 rate limit |
 | POST | `/inventory/import/` | `{ items:[{ item_id, qty }] }` | merge guest inventory on first login (grantable items only) |
-| PUT | `/avatar/` | `{ slots:{ <slot>: entryId\|null } }` | `{ status, avatar }` · 422 wrong slot/not owned |
+| PUT | `/avatar/` | `{ slots:{ <slot instance id>: entryId\|null }, body? }` | `{ status, avatar }` · 422 invalid_slot/wrong_slot/not owned ("Slots per avatar body") |
 | GET/PUT | `/progress/<toonId>/` | `{ state, updated_at }` | last-write-wins by `updated_at` |
 | POST/GET | `/validate/` | unchanged input | unchanged shape **minus** `email` and `signature` (backwards compatible for old viewer) |
 
@@ -195,8 +195,8 @@ are **additive details / clarifications** the viewer can rely on:
 - `POST /inventory/import/` → `{ status, imported:[{item_id,qty}], skipped:[{item_id,reason}], inventory }`.
   Only items with non-empty `grantable`; stored with the item's first grantable source (`story`); qty capped at 99;
   non-stackable items only if not owned yet; 10 imports/hour. Safe to call on every login.
-- `GET /avatar/` exists too. `PUT /avatar/` changes only the slots given; `avatar.slots` always lists every catalog
-  slot (`null` = empty). Errors `422 invalid_slot|not_owned|wrong_slot` carry `slot`.
+- `GET /avatar/` exists too. `PUT /avatar/` changes only the slots given; `avatar.slots` always lists every slot
+  instance of the current body (since 2026-09-30 – "Slots per avatar body"; before: every catalog slot) (`null` = empty). Errors `422 invalid_slot|not_owned|wrong_slot` carry `slot`.
 - `/progress/<toonId>/`: `GET` → `{ toon_id, state, updated_at }` (both `null` if nothing stored). `PUT
   { state: {…}, updated_at: <ms> }` → `{ status:"success"|"stale", toon_id, state, updated_at }` – the answer is the
   record that **won**; on `stale` the server kept a newer state, adopt it. `413 state_too_large` (> 256 KB).
@@ -472,7 +472,7 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
 
 - The reader avatar body is a **character's A-pose** (character level, not persona) in one of its A-pose looks:
   `swim` (default, swim pants) or `naked`. Data lives in the character registry (`character.apose.looks[]` with
-  path + wear anchors per slot); helper `avatarBodies(registry)` in `@scutoons/content`.
+  path + wear slots, see "Slots per avatar body"); helper `avatarBodies(registry)` in `@scutoons/content`.
 - **Members can only pick characters they have unlocked.** Server tables (to build):
   `member_characters (user_id, character_id, source: default|code|item|story|admin, ref?, unlocked_at)` and
   `member_character_looks (user_id, character_id, look_id, source, unlocked_at)` for A-pose looks beyond the default.
@@ -480,7 +480,7 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
   story events (VN `add`/grant) and admins. `avatar` gets `body: { character, look }` (server, per account; guests
   per device).
 - **No look creator:** outfitting (putting items on the body) happens only in the reader's inventory avatar view;
-  the creator only stores A-pose images and anchors as data.
+  the creator only stores A-pose images and wear slots as data.
 
 **Implemented (2026-09-30):**
 - Server: migration `2026-09-30-member-characters.{mysql,sqlite}.sql` (idempotent; after `settings`): `member_characters
@@ -499,10 +499,45 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
   revoke). Contract: admin-smoke "Avatar bodies & character unlocks" (21 checks), PHPUnit `CharacterUnlocksTest`.
 - Viewer: `components/avatar/avatar.svelte` = `unlockedBodies(avatarBodies(registry, locale), inventory.unlocked)`
   (registry via `fetchRegistry` of `@scutoons/api`, once per page load); thumbnails (A-pose + name + look label), locked
-  characters hidden; worn items at the body's `anchors` (SPHYNX_WORN/MOUSE_WORN are gone – they live in the registry).
+  characters hidden; worn items at the body's wear slots (since 2026-09-30 slot instances – "Slots per avatar body").
   Members save with `PUT /avatar/ { body }`; guests get `DEFAULT_AVATAR_UNLOCKS` (@scutoons/content, same list as the
   server default) and store `{ character, look }` in localStorage `scutoons_avatar_body` (old values sphynx /
   sphynx_nude / mouse are mapped; a locked choice falls back to the default).
+
+## Slots per avatar body (2026-09-30, owner — built 2026-09-30)
+
+Owner: "there is no rule for two… define slots per avatar, so an avatar can have the same slot twice; very useful for
+twins or triplets."
+
+- **Model** (`@scutoons/content` characters.ts): an A-pose look has `slots: AvatarSlotInstance[]` =
+  `[{ id, slot, x, y, size, label? }]` (replaces the old `anchors: { <slot>: { x, y, size } }`). `slot` = the slot type
+  (the catalog's `head, face, neck, torso, hands, legs, feet, back, accessory`), `id` = unique per body
+  (`^[a-z0-9][a-z0-9-]{0,31}$`), `x/y/size` = anchor in image px (768 × 1152; size 0 = not drawn), `label` = the tile
+  label per locale (none = the type's label). Single figures: one instance per type, `id` = type (catpope, yellowmouse).
+  Toptoy (the duo): one instance per type and figure, `<type>-left` / `<type>-right`, labels "Kopf links" / "Head left" …
+  (measured on the normalized A-pose; `hands` = a figure's outer hand, `accessory` = its inner hand).
+- Helpers: `bodySlots(look.slots)` (a body without slots = one unplaced instance per type), `avatarBodies()` →
+  `AvatarBody.slots`, `remapAvatarSlots(worn, target, typeOf)`. Validation: unique ids, id pattern, known slot types
+  (error), numbers ≥ 0, the old `anchors` field is an error. Source of the values: `migrate-characters.ts`
+  (`SPHYNX_SLOTS`, `MOUSE_SLOTS`, `TOPTOY_SLOTS` via `single()` / `twins()`); the creator shows them read-only (A-pose →
+  "Technical: wear slots": id, type, x, y, size).
+- **Server** (`AvatarService`): worn items are stored by **slot instance id** in `avatar_slots.slot` (no schema change,
+  hence no migration: for single figures the instance id equals the old type value, so existing rows stay valid; rows
+  that don't fit the current body – e.g. a legacy `torso` row on Toptoy – are read by type and rewritten on the next
+  save). `GET /me/` / `GET /avatar/` → `avatar.slots` = every instance of the current body (chosen body, else the first
+  unlocked default – `CharacterUnlocks::defaultBody`) → entry id | null. `PUT /avatar/ { slots: { <instance id>: entryId|null } }`:
+  `422 invalid_slot` (no such instance on this body, + `slots`), `wrong_slot` (item type ≠ instance type, + `slot_type`),
+  `not_owned`; one entry is worn once. **Body switch** (`PUT { body }`): an item stays on the instance with the same id,
+  otherwise it goes to the first free instance of its type, otherwise it comes off (same rule in `remapAvatarSlots` for
+  guests). `CharacterUnlocks::slotInstances(character, look)` reads the registry.
+- **Viewer**: the inventory context loads the registry lazily (`loadRegistry()`), exposes `bodies`, `currentBody`,
+  `slots` and the worn map by instance (`equippedEntry(id)`, `equip(entry, id?)` – without an id the first free instance
+  of the item's type –, `unequip(id)`, `unequipEntry(entry)`); guests store instance ids in `scutoons_inventory` and are
+  remapped on a body switch. `avatar.svelte`: one tile per instance (a multi-figure body puts each figure's tiles in its
+  column by anchor x, smaller tiles), the picker filters by the instance's type, worn items at the instance anchors.
+- Contract: admin-smoke "Slots per avatar body" (11 checks: invalid_slot, twin torsos, wrong_slot, one entry once,
+  switching single ↔ duo, a legacy type row); PHPUnit `CharacterUnlocksTest::testSlotInstancesAndTheDefaultBody`; content
+  tests "A-pose slot instances".
 
 ## Cast & "featuring" (2026-09-30, owner — concept, build after data refactor Phase C)
 

@@ -8,13 +8,17 @@ import {
 	grantItem,
 	importItems,
 	putAvatar,
-	putAvatarBody
+	putAvatarBody,
+	fetchRegistry
 } from '$lib/api.ts';
-import { DEFAULT_AVATAR_UNLOCKS } from '@scutoons/content';
+import { DEFAULT_AVATAR_UNLOCKS, avatarBodies, bodySlots as bodySlotsOf, remapAvatarSlots, unlockedBodies } from '@scutoons/content';
 import type {
 	Avatar,
+	AvatarBody,
 	AvatarBodyRef,
 	AvatarSlot,
+	AvatarSlotInstance,
+	CharacterRegistry,
 	CharacterUnlock,
 	Catalog,
 	Entry,
@@ -48,6 +52,13 @@ function readGuestBody(): AvatarBodyRef | null {
 	} catch {
 		return null;
 	}
+}
+
+/** The character registry (avatar bodies and their wear slots), loaded once per page load when an avatar view needs it */
+let registryPromise: Promise<CharacterRegistry | null> | null = null;
+function fetchRegistryOnce(): Promise<CharacterRegistry | null> {
+	registryPromise ??= fetchRegistry().catch(() => null);
+	return registryPromise;
 }
 
 interface GuestState {
@@ -100,9 +111,31 @@ export function createInventoryContext(session: SessionContext) {
 	let guestBody = $state<AvatarBodyRef | null>(typeof localStorage === 'undefined' ? null : readGuestBody());
 	const unlocked = $derived<CharacterUnlock[]>(isAccount ? (session.me?.avatar?.unlocked ?? DEFAULT_AVATAR_UNLOCKS) : DEFAULT_AVATAR_UNLOCKS);
 	const body = $derived<AvatarBodyRef | null>(isAccount ? (session.me?.avatar?.body ?? null) : guestBody);
+	// the bodies the reader may pick (registry, lazily loaded) and the current one with its wear slots (slot instances)
+	let registry = $state<CharacterRegistry | null>(null);
+	let registryLoaded = $state(false);
+	const bodies = $derived<AvatarBody[]>(unlockedBodies(avatarBodies(registry, getLocale()), unlocked));
+	const currentBody = $derived<AvatarBody | undefined>(
+		bodies.find((b) => b.character === body?.character && b.look === body?.look) ?? bodies.find((b) => b.default) ?? bodies[0]
+	);
+	const slots = $derived<AvatarSlotInstance[]>(currentBody?.slots ?? bodySlotsOf(null));
 	const itemsById = $derived<Record<string, ItemDef>>(
 		Object.fromEntries((catalog?.items ?? []).map((i) => [i.id, i]))
 	);
+	const slotTypeOf = (id: EntryId): AvatarSlot | undefined => {
+		const entry = entries.find((e) => String(e.id) === String(id));
+		return entry ? (itemsById[entry.item_id]?.slot ?? undefined) : undefined;
+	};
+	/** worn items by slot instance of the current body (stored ones moved onto it: same id, else by type) */
+	const worn = $derived<Record<string, EntryId | null>>(remapAvatarSlots(avatar.slots ?? {}, slots, slotTypeOf));
+
+	/** Loads the registry (avatar bodies) once; resolves when it is there (or failed). */
+	async function loadRegistry() {
+		if (registryLoaded) return;
+		const r = await fetchRegistryOnce();
+		registry = r;
+		registryLoaded = true;
+	}
 
 	// ---------- guest storage ----------
 
@@ -177,7 +210,7 @@ export function createInventoryContext(session: SessionContext) {
 			left -= take;
 			if (entry.qty <= 0) {
 				guest.entries = guest.entries.filter((e) => e !== entry);
-				for (const slot of Object.keys(guest.avatar.slots) as AvatarSlot[]) {
+				for (const slot of Object.keys(guest.avatar.slots)) {
 					if (guest.avatar.slots[slot] === entry.id) guest.avatar.slots[slot] = null;
 				}
 			}
@@ -252,13 +285,14 @@ export function createInventoryContext(session: SessionContext) {
 		});
 	}
 
-	function equippedEntry(slot: AvatarSlot): Entry | undefined {
-		const id = avatar.slots[slot];
+	/** the entry worn on a slot instance of the current body */
+	function equippedEntry(slotId: string): Entry | undefined {
+		const id = worn[slotId];
 		return id == null ? undefined : entries.find((e) => String(e.id) === String(id));
 	}
 
 	function isEquipped(entry: Entry): boolean {
-		return Object.values(avatar.slots).some((id) => id != null && String(id) === String(entry.id));
+		return Object.values(worn).some((id) => id != null && String(id) === String(entry.id));
 	}
 
 	function notify(item_id: string, qty: number, kind: Notice['kind']) {
@@ -331,22 +365,32 @@ export function createInventoryContext(session: SessionContext) {
 		}
 	}
 
-	async function setSlots(slots: Avatar['slots']) {
+	/** Put `entryId` on the slot instance `slotId` (null = empty it); one entry is worn at most once. */
+	async function setSlot(slotId: string, entryId: EntryId | null) {
+		const next = { ...worn };
+		if (entryId != null) for (const [id, e] of Object.entries(next)) if (e != null && String(e) === String(entryId)) next[id] = null;
+		next[slotId] = entryId;
 		if (isAccount) {
-			const result = await putAvatar(slots);
-			session.patchMe({ avatar: result.avatar ?? { slots } });
+			const result = await putAvatar({ [slotId]: entryId });
+			session.patchMe({ avatar: result.avatar ?? { ...avatar, slots: next } });
 		} else {
-			guest.avatar = { slots };
+			guest.avatar = { ...guest.avatar, slots: next };
 			saveGuest();
 		}
 	}
 
-	/** Choose the avatar body (must be unlocked; the server checks it for members: 422 locked / no_apose). */
+	/**
+	 * Choose the avatar body (must be unlocked; the server checks it for members: 422 locked / no_apose). The worn items
+	 * move along: same slot id, else the first free slot of their type (the server does the same for members).
+	 */
 	async function setBody(ref: AvatarBodyRef | null) {
 		if (isAccount) {
 			const result = await putAvatarBody(ref);
 			session.patchMe({ avatar: result.avatar ?? { ...avatar, body: ref } });
 		} else {
+			const target = ref ? bodies.find((b) => b.character === ref.character && b.look === ref.look) : (bodies.find((b) => b.default) ?? bodies[0]);
+			guest.avatar = { ...guest.avatar, slots: remapAvatarSlots(worn, target?.slots ?? bodySlotsOf(null), slotTypeOf) };
+			saveGuest();
 			guestBody = ref;
 			try {
 				if (ref) localStorage.setItem(GUEST_BODY_KEY, JSON.stringify(ref));
@@ -357,14 +401,28 @@ export function createInventoryContext(session: SessionContext) {
 		}
 	}
 
-	async function equip(entry: Entry) {
-		const slot = item(entry.item_id)?.slot;
-		if (!slot) return;
-		await setSlots({ ...avatar.slots, [slot]: entry.id });
+	/**
+	 * Wear an entry: on `slotId` (a slot instance of the current body) or – without one – on the first free instance of
+	 * the item's slot type, else the first instance of that type.
+	 */
+	async function equip(entry: Entry, slotId?: string) {
+		const type = item(entry.item_id)?.slot;
+		if (!type) return;
+		await loadRegistry();
+		const target = slotId ?? (slots.find((s) => s.slot === type && worn[s.id] == null) ?? slots.find((s) => s.slot === type))?.id;
+		if (!target) return;
+		await setSlot(target, entry.id);
 	}
 
-	async function unequip(slot: AvatarSlot) {
-		await setSlots({ ...avatar.slots, [slot]: null });
+	/** Take off whatever is worn on a slot instance. */
+	async function unequip(slotId: string) {
+		await setSlot(slotId, null);
+	}
+
+	/** Take an entry off wherever it is worn. */
+	async function unequipEntry(entry: Entry) {
+		const slotId = Object.entries(worn).find(([, id]) => id != null && String(id) === String(entry.id))?.[0];
+		if (slotId) await setSlot(slotId, null);
 	}
 
 	/** First login on this device: move guest items into the account (crafted items are split back into their inputs). */
@@ -425,6 +483,22 @@ export function createInventoryContext(session: SessionContext) {
 		get body() {
 			return body;
 		},
+		/** the bodies the reader may pick (after `loadRegistry()`) */
+		get bodies() {
+			return bodies;
+		},
+		/** the body shown (the chosen one, else the first unlocked default) */
+		get currentBody() {
+			return currentBody;
+		},
+		/** the current body's wear slots (slot instances) */
+		get slots() {
+			return slots;
+		},
+		get registryLoaded() {
+			return registryLoaded;
+		},
+		loadRegistry,
 		setBody,
 		get isAccount() {
 			return isAccount;
@@ -451,7 +525,8 @@ export function createInventoryContext(session: SessionContext) {
 		craft,
 		claim,
 		equip,
-		unequip
+		unequip,
+		unequipEntry
 	};
 	return context;
 }

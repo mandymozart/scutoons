@@ -133,7 +133,11 @@ export interface AvatarBodyRef {
 export const DEFAULT_AVATAR_UNLOCKS: CharacterUnlock[] = [{ character: 'catpope', looks: ['swim', 'naked'], source: 'default' }];
 
 export interface Avatar {
-	slots: Partial<Record<AvatarSlot, EntryId | null>>;
+	/**
+	 * worn items by slot instance id of the current body (`bodySlots` of its A-pose look: `torso`, `torso-left`, …;
+	 * members: every instance of the body, null = empty) – ITEMS.md "Slots per avatar body"
+	 */
+	slots: Record<string, EntryId | null>;
 	/** the chosen body (null = the first unlocked default) – ITEMS.md "Reader avatar bodies & character unlocks" */
 	body?: AvatarBodyRef | null;
 	/** what the member has unlocked (defaults first) */

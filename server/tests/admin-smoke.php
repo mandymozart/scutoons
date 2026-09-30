@@ -306,7 +306,7 @@ try {
     // minimal registry for the suite (removed at the end)
     $registryRow = Db::one("SELECT id FROM entity_versions WHERE entity_key = 'characters' AND status = 'published' ORDER BY id DESC LIMIT 1");
     if (!$registryRow) {
-        $apose = fn(string $c, array $looks) => ['looks' => array_map(fn($l, $i) => ['id' => $l, 'default' => $i === 0, 'path' => "characters/$c/{$c}_apose-$l.webp", 'anchors' => ['torso' => ['x' => 1, 'y' => 1, 'size' => 1]]], $looks, array_keys($looks))];
+        $apose = fn(string $c, array $looks) => ['looks' => array_map(fn($l, $i) => ['id' => $l, 'default' => $i === 0, 'path' => "characters/$c/{$c}_apose-$l.webp", 'slots' => [['id' => 'torso', 'slot' => 'torso', 'x' => 1, 'y' => 1, 'size' => 1]]], $looks, array_keys($looks))];
         $json = json_encode(['characters' => [
             ['id' => 'catpope', 'name' => ['en' => 'Cat Pope'], 'color' => 'blue', 'apose' => $apose('catpope', ['swim', 'naked']), 'personas' => []],
             ['id' => 'yellowmouse', 'name' => ['en' => 'Yellow Mouse'], 'color' => 'yellow', 'apose' => $apose('yellowmouse', ['swim', 'naked']), 'personas' => []],
@@ -365,7 +365,69 @@ try {
     check($r['status'] === 200 && $r['body']['changed'] === false && array_column($r['body']['characters'], 'character') === ['catpope'], 'the default unlock cannot be revoked per member', $r);
     $r = call('PUT', "$userApi/avatar/", ['body' => null], $memberToken);
     check($r['status'] === 200 && $r['body']['avatar']['body'] === null, 'body null → back to the default', $r);
+
+    echo "\nSlots per avatar body (twin slot instances, agents/ITEMS.md)\n";
+    // A registry version for this part (newest published, removed at the end): the current registry + a duo "toptoy"
+    // whose swim body has head/torso twice (left/right) and catpope's swim with one instance per type
+    $current = Db::one("SELECT json FROM entity_versions WHERE entity_key = 'characters' AND status = 'published' ORDER BY id DESC LIMIT 1");
+    $registry = json_decode((string) ($current['json'] ?? '{"characters":[]}'), true);
+    $inst = fn(string $id, string $slot, int $x) => ['id' => $id, 'slot' => $slot, 'x' => $x, 'y' => 100, 'size' => 50];
+    $single = array_map(fn($t) => $inst($t, $t, 380), ['head', 'face', 'neck', 'torso', 'hands', 'legs', 'feet', 'back', 'accessory']);
+    $twins = [$inst('head-left', 'head', 200), $inst('torso-left', 'torso', 200), $inst('head-right', 'head', 570), $inst('torso-right', 'torso', 570)];
+    $registry['characters'] = array_values(array_filter($registry['characters'] ?? [], fn($c) => !in_array($c['id'] ?? null, ['catpope', 'toptoy'], true)));
+    $registry['characters'][] = ['id' => 'catpope', 'name' => ['en' => 'Cat Pope'], 'color' => 'blue', 'personas' => [], 'apose' => ['looks' => [
+        ['id' => 'swim', 'default' => true, 'path' => 'characters/catpope/catpope_apose-swim.webp', 'slots' => $single],
+        ['id' => 'naked', 'path' => 'characters/catpope/catpope_apose-naked.webp'],
+    ]]];
+    $registry['characters'][] = ['id' => 'toptoy', 'name' => ['en' => 'Toptoy'], 'color' => 'black', 'personas' => [], 'apose' => ['looks' => [
+        ['id' => 'swim', 'default' => true, 'path' => 'characters/toptoy/toptoy_apose-swim.webp', 'slots' => $twins],
+    ]]];
+    Db::run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, ?, 'published', 'admin-smoke twins')", [json_encode($registry, JSON_UNESCAPED_SLASHES), Db::now()]);
+    $twinRegistryId = (int) Db::value('SELECT MAX(id) FROM entity_versions');
+    // two torso wearables (the same slot type) and a head-less item type check
+    $wear = [];
+    foreach (['hoodie' => ['dago_hoodie', 'black'], 'tee' => ['dago_heavy_t', 'white']] as $k => [$itemId, $variant]) {
+        $wear[$k] = 'admin-smoke-' . $k . '-' . bin2hex(random_bytes(4));
+        Db::run("INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, acquired_at, updated_at) VALUES (?, ?, ?, ?, 1, 'story', NULL, NULL, ?, ?)", [$wear[$k], $member['id'], $itemId, $variant, Db::now(), Db::now()]);
+    }
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['torso' => $wear['hoodie']]], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['slots']['torso'] ?? null) === $wear['hoodie'], 'default body (catpope swim, one instance per type): hoodie on torso', $r);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['torso-left' => $wear['tee']]], $memberToken);
+    check($r['status'] === 422 && $r['body']['error'] === 'invalid_slot' && $r['body']['slot'] === 'torso-left', 'an instance the body does not have → 422 invalid_slot', $r);
+    $r = call('PUT', "$api/users/{$member['id']}/characters/toptoy", null, $adminToken);
+    check($r['status'] === 200 && $r['body']['changed'] === true, 'admin unlocks the duo (toptoy)', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'toptoy', 'look' => 'swim']], $memberToken);
+    $slots = (array) ($r['body']['avatar']['slots'] ?? []);
+    check($r['status'] === 200 && array_keys($slots) === ['head-left', 'torso-left', 'head-right', 'torso-right'] && $slots['torso-left'] === $wear['hoodie'] && $slots['torso-right'] === null,
+        'switch to the duo: slots = its instances, the hoodie moves by type to the first free torso (torso-left)', $r);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['torso-right' => $wear['tee']]], $memberToken);
+    $slots = (array) ($r['body']['avatar']['slots'] ?? []);
+    check($r['status'] === 200 && $slots['torso-left'] === $wear['hoodie'] && $slots['torso-right'] === $wear['tee'], 'two torso items at once: hoodie left, tee right', $r);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['head-right' => $wear['tee']]], $memberToken);
+    check($r['status'] === 422 && $r['body']['error'] === 'wrong_slot' && ($r['body']['slot_type'] ?? null) === 'head', 'a torso item on a head instance → 422 wrong_slot', $r);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['torso-left' => $wear['tee']]], $memberToken);
+    $slots = (array) ($r['body']['avatar']['slots'] ?? []);
+    check($r['status'] === 200 && $slots['torso-left'] === $wear['tee'] && $slots['torso-right'] === null && $slots['head-left'] === null, 'one entry is worn once: the tee moves left, the hoodie comes off (left instance taken)', $r);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['torso-right' => $wear['hoodie']]], $memberToken);
+    $me = call('GET', "$userApi/me/", null, $memberToken)['body']['avatar'] ?? [];
+    check((array) ($me['slots'] ?? []) === ['head-left' => null, 'torso-left' => $wear['tee'], 'head-right' => null, 'torso-right' => $wear['hoodie']], 'GET /me/ lists the body\'s instances with both worn', $me);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'swim']], $memberToken);
+    $slots = (array) ($r['body']['avatar']['slots'] ?? []);
+    check($r['status'] === 200 && count($slots) === 9 && $slots['torso'] === $wear['tee'] && !in_array($wear['hoodie'], $slots, true),
+        'back to a single body: the first torso keeps the one torso instance, the second comes off', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'toptoy', 'look' => 'swim']], $memberToken);
+    $slots = (array) ($r['body']['avatar']['slots'] ?? []);
+    check($r['status'] === 200 && $slots['torso-left'] === $wear['tee'] && $slots['torso-right'] === null, 'and to the duo again: by type to torso-left', $r);
+    // a legacy row (stored by type) on the duo is read by type
+    Db::run('DELETE FROM avatar_slots WHERE user_id = ?', [$member['id']]);
+    Db::run("INSERT INTO avatar_slots (user_id, slot, entry_id, updated_at) VALUES (?, 'torso', ?, ?)", [$member['id'], $wear['hoodie'], Db::now()]);
+    $me = call('GET', "$userApi/me/", null, $memberToken)['body']['avatar'] ?? [];
+    check(($me['slots']['torso-left'] ?? null) === $wear['hoodie'], 'a row stored by slot type (before the instances) shows on the first instance of that type', $me);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['torso-right' => $wear['tee']]], $memberToken);
+    $rows = Db::all('SELECT slot, entry_id FROM avatar_slots WHERE user_id = ? ORDER BY slot', [$member['id']]);
+    check(array_column($rows, 'entry_id', 'slot') === ['torso-left' => $wear['hoodie'], 'torso-right' => $wear['tee']], 'the next save stores it by instance id', $rows);
 } finally {
+    if (isset($twinRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$twinRegistryId]);
     // Back to the limits from before the suite, and no test rate-limit rows left
     if (isset($settingsBefore) && $settingsBefore) {
         call('PUT', "$api/settings", array_map(fn($s) => $s['stored'] ? $s['value'] : null, $settingsBefore), $adminToken);
