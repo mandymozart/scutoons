@@ -189,9 +189,9 @@
 		font-size: 0.75rem;
 		width: 5.5rem;
 		padding: 0.25rem;
-		background: white;
-		color: black;
-		border: 2px solid #ccc;
+		background: var(--paper);
+		color: var(--ink);
+		border: 2px solid var(--border-muted);
 		cursor: pointer;
 		display: flex;
 		flex-direction: column;
@@ -213,11 +213,11 @@
 	.body-look {
 		font-size: 0.625rem;
 		line-height: 1.1;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 	.body-choice:hover,
 	.body-choice.active {
-		border-color: black;
+		border-color: var(--ink);
 	}
 	.stage {
 		display: grid;
@@ -253,9 +253,9 @@
 	.tile {
 		box-sizing: border-box;
 		padding: 0.25rem;
-		background: white;
-		color: black;
-		border: 2px solid #ccc;
+		background: var(--paper);
+		color: var(--ink);
+		border: 2px solid var(--border-muted);
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -267,7 +267,7 @@
 	.tile:hover,
 	.tile.active,
 	.tile.equipped {
-		border-color: black;
+		border-color: var(--ink);
 	}
 	.tile.active {
 		background: var(--primary-color);
@@ -318,7 +318,7 @@
 		grid-template-columns: 3rem 1fr auto;
 		align-items: center;
 		gap: 0.5rem;
-		border: 2px solid #ccc;
+		border: 2px solid var(--border-muted);
 		padding: 0.25rem;
 	}
 	.picker li button {
@@ -331,6 +331,6 @@
 	.note {
 		margin: 0;
 		font-size: 0.75rem;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 </style>

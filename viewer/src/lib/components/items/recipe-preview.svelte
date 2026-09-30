@@ -92,13 +92,13 @@
 		font-size: 0.75rem;
 		line-height: 1.3;
 		text-align: center;
-		border: 2px solid #ccc;
+		border: 2px solid var(--border-muted);
 		padding: 0.25rem;
 	}
 	.part.output {
-		border-color: black;
+		border-color: var(--ink);
 		filter: drop-shadow(0 0 6px var(--primary-color));
-		background: white;
+		background: var(--paper);
 	}
 	.op {
 		font-weight: 700;
@@ -106,7 +106,7 @@
 	.note {
 		margin: 0;
 		font-size: 0.75rem;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 	.actions {
 		display: flex;

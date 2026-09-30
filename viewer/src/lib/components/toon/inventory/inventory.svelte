@@ -181,7 +181,7 @@
 		top: 0.5rem;
 		right: 0.5rem;
 		z-index: 1001;
-		background: white;
+		background: var(--paper);
 		border: 2px solid black;
 		padding: 0;
 		border-radius: 50%;
@@ -247,8 +247,8 @@
 	/* two plain buttons on the dark header (owner 2026-09-30): the active one inverted (ink), no tab joining the sheet */
 	.tabs button {
 		padding: 0.5rem 1rem;
-		background: white;
-		color: black;
+		background: var(--paper);
+		color: var(--ink);
 		border: 2px solid white;
 		cursor: pointer;
 	}
@@ -257,10 +257,16 @@
 		color: white;
 	}
 
+	/* the whole inventory is dark (owner 2026-09-30): the tokens are inverted here, so items, avatar and detail views follow */
 	.sheet {
+		--ink: #ffffff;
+		--paper: #000000;
+		--text-muted: #a6a6a6;
+		--border-muted: #555555;
 		position: relative;
 		z-index: 1;
-		background: white;
+		background: var(--paper);
+		color: var(--ink);
 		padding: 1rem;
 		overflow-y: auto;
 		overscroll-behavior: contain;
@@ -271,10 +277,10 @@
 		margin: 0 0 1rem;
 		font-size: 0.75rem;
 		line-height: 1.3;
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 	.guest a {
-		color: black;
+		color: var(--ink);
 	}
 
 	.empty {
@@ -306,19 +312,19 @@
 		align-items: center;
 		gap: 0.25rem;
 		padding: 0.25rem;
-		background: white;
-		color: black;
-		border: 2px solid #ccc;
+		background: var(--paper);
+		color: var(--ink);
+		border: 2px solid var(--border-muted);
 		cursor: pointer;
 		touch-action: manipulation;
 		transition: border-color 0.1s ease;
 	}
 	.item:hover {
-		background: white;
-		border-color: black;
+		background: var(--paper);
+		border-color: var(--ink);
 	}
 	.item.source {
-		border-color: black;
+		border-color: var(--ink);
 		filter: drop-shadow(0 0 6px var(--primary-color));
 	}
 	.item.equipped::after {
@@ -343,7 +349,7 @@
 		top: 0.25rem;
 		padding: 0 0.25rem;
 		font-size: 0.75rem;
-		background: white;
+		background: var(--paper);
 		border: 1px solid black;
 		border-radius: 0.5rem;
 	}

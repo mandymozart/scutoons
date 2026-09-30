@@ -100,7 +100,7 @@
 	}
 	.btn-back {
 		align-self: flex-start;
-		color: black;
+		color: var(--ink);
 		font-size: 0.75rem;
 	}
 	.hero {
@@ -125,7 +125,7 @@
 		line-height: 1.3;
 	}
 	dt {
-		color: #6b6b6b;
+		color: var(--text-muted);
 	}
 	dd {
 		margin: 0;
