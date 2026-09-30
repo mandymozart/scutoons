@@ -9,7 +9,7 @@
 //   - right (portraits, 9 % smaller per step): further back = further right, overlapping the one in front by 1/3 of its
 //     width when there is room, the same larger share up to 2/3 when crowded, beyond that the side is smaller
 //   - no mood text
-// usage: node scripts/vn/vn-check.mjs [--base=http://localhost:8000] [--toon=sandbox] [--locale=de] [--width=375]
+// usage: node scripts/vn/vn-check.mjs [--base=http://localhost:8000] [--api=http://localhost:9000/api] [--toon=sandbox] [--locale=de] [--width=375]
 //        [--height=812] [--from=1] [--to=<last chapter>] [--shots=<dir>] [--json=<file>]
 // Needs the dev viewer (and API / CDN) running. Exit code 1 on any failed check.
 import { spawn } from 'node:child_process';
@@ -101,14 +101,23 @@ let transitions = 0, steps = 0, leftSteps = 0;
 // the viewer's locale comes from the paraglide cookie
 await send('Network.setCookie', { name: 'PARAGLIDE_LOCALE', value: locale, url: base });
 const prefix = '';
-const chapterFile = async (n) => (await fetch(`${base}/api/${toon}/${locale}/chapter${n}.json`)).json();
-const season = await (await fetch(`${base}/api/${toon}/${locale}/season1.json`)).json();
+// the scripts come from the library API (content from the DB, one request per chapter with the scenes inlined)
+const api = String(opt.api || 'http://localhost:9000/api').replace(/\/$/, '');
+const library = async (path) => {
+	// drafts (the sandbox) are served by the dev API (CONTENT_SHOW_DRAFTS); elsewhere pass a creator session in SCUTOONS_TOKEN
+	const token = process.env.SCUTOONS_TOKEN;
+	const r = await fetch(`${api}/library/toons/${toon}${path}?locale=${locale}${token ? '&draft=1' : ''}`, token ? { headers: { Authorization: `Bearer ${token}` } } : {});
+	if (!r.ok) throw new Error(`library ${path}: HTTP ${r.status}`);
+	return r.json();
+};
+const chapterFile = (n) => library(`/chapters/${n}`);
+const season = (await library('/seasons/1')).season;
 const last = Number(opt.to || Math.max(...season.sequence.map((i) => i.number)));
 const groups = [];
 for (let n = Number(opt.from || 1); n <= last; n++) {
 	const ch = await chapterFile(n);
 	for (const g of ch.groups) {
-		const group = g.ref ? await (await fetch(`${base}/api/${toon}/${locale}/${g.ref.src}`)).json() : g;
+		const group = g.ref ? await library(`/chapters/${n}`).then((c) => c.groups.find((x) => !x.ref && x.label === g.ref.src.split('/').pop().replace(/\.json$/, '')) ?? g) : g;
 		groups.push({ chapter: n, label: group.label, waited: (group.events ?? []).filter((e) => e.type === 'showMessage' && e.params?.wait).length, events: group.events ?? [], expected: expectedScenes(group.events ?? []) });
 	}
 }
