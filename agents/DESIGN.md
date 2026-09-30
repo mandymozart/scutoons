@@ -175,3 +175,36 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
 | layer name `#caption` / `#narration` / `#sfx` | `variant` |
 | node id | `id` → `i18n/s1c2.json` key |
 | `characters` (split on `\n`) | `text` (de source; `en` from i18n file) |
+
+## Creator navigation (owner 2026-09-30)
+
+The creator is a hierarchy: **Creator → toon → season → chapter → group (scene) → slice**, plus the platform-wide
+**Universe** (characters, moods, wanted images). Editing deeper must never change the frame around you.
+
+- **One top bar, the same on every page.** It holds only the breadcrumb of the full path
+  (`Creator / Cat Pope / Season 1 / Chapter 2 / scene-14 / Slice 3`) and, on wide screens, the signed-in account.
+  Every crumb is a link. The structure never changes between pages, only the depth (fixed 64 px; the middle crumbs
+  shrink first, "Creator" and the current level stay whole; burger for the sidebar below 768 px).
+- **Left sidebar = the children of the current level:** home → toons; toon (and its cast / credits / settings) →
+  seasons + Cast + Credits + Toon settings; season → its chapters with the status per language; chapter → Meta,
+  Audio, groups → slices (the chapter tree); draft preview → its groups. A leaf page shows its siblings with the
+  current one marked. The **Universe** section (Characters, Moods, Wanted images) is pinned to the bottom of the
+  sidebar on every page.
+- **Content** edits the selected item. **Bottom ActionBar** is the same component everywhere: Info (left-most),
+  "up" (the parent level), page status / filters, secondary actions, primary action right-most.
+- **URLs follow the hierarchy.** The existing routes map cleanly and stay: `/<toon>`, `/<toon>/season/<n>`,
+  `/<toon>/chapter/<n>` (a chapter belongs to its season; the breadcrumb shows it), `/<toon>/cast|credits|toon`,
+  `/characters?tab=moods|wanted&id=`. Inside the chapter the selection is in the query:
+  `/<toon>/chapter/2?group=scene-14&slice=3` (`group` = the group's label or scene name, else its number;
+  `slice` 1-based; `?section=audio`). Deep links, crumbs and back/forward all work through the URL.
+- **Keyboard:** Alt+ArrowUp = one level up (the parent crumb); Alt+ArrowDown = the first child in the sidebar.
+- **Names, not files:** the UI never shows storage keys (`chapter2.json` …): one mapping `entityLabel()` in
+  `@scutoons/ui` → "Chapter 2", "Season 1", "Scene 14", "Toon settings", "Characters", "Moods", "Wanted images".
+  Version chips read "de · Draft v71" / "Published v70".
+- **Help lives in Info** (`@scutoons/ui` InfoPanel via the ActionBar's "Info" toggle, closed by default, remembered),
+  not above the fields. Buttons and links carry no decorative arrows; icon-only buttons (reorder, remove, prev/next
+  slice) have an accessible label.
+
+Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route crumbs from the root layout, `extra`
+crumbs + `sidebar` + `fill` registered by a page with `usePageNav`), root layout = `AppShell` with the top bar and
+sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every ActionBar.

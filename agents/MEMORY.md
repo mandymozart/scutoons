@@ -787,6 +787,32 @@ character, persona, look and mood and doubles as the VN test bed.
   itself in the same process and serves the regenerated paraglide modules (a touch of the paraglide files or messages
   is not enough).
 
+## Creator/admin refinement: one resolution, Info panel, navigation (2026-09-30)
+
+- **One resolution:** the chapter editor's 1x/3x zoom is gone; the canvas shows the slice at its 1x size (`width` of the
+  slice, 390) scaled down to fit the column (`max-width`, aspect ratio from width/height before the image loads). No
+  other density switch / srcset / 2x-3x handling existed in the apps (the CDN check's "not 390 px wide" is the real
+  width and stays). New-file defaults: key visual `images/<sXcY>-key-visual.jpg`, covers `images/s<n>-cover-*.webp`.
+- **Info panel** (`@scutoons/ui` `InfoPanel` + ActionBar `info` snippet / "Info" toggle, left-most, also narrow):
+  closed by default, open state in localStorage `sc-info-open` (per app origin = per user/browser), stays open across
+  pages. From 1100 px the AppShell content makes room (`--info-panel-width`, creator 360 px because its root font is
+  fluid 24px; admin 24rem = 384 px). Page help = `creator/src/lib/components/page-help.svelte` and
+  `admin/src/lib/components/page-help.svelte` (one `page` key per page), link to the full style guide = creator
+  `/guide` (admin links there via `VITE_CREATOR_URL`). The chapter editor's Info also holds the whole style guide; it
+  and the problems/history side panel close each other (`bind:infoOpen`).
+- **Navigation** (DESIGN.md "Creator navigation"): the root layout owns the one top bar (breadcrumb) + sidebar;
+  `usePageNav({ sidebar, extra, fill })` from a page registers its children / deeper crumbs (owner token, so a leaving
+  page never clears the next one's entries). Chapter editor: `fill` mode, tree = sidebar snippet, selection mirrored in
+  `?group=&slice=` (`replaceState`; URL → selection effect applies deep links once the chapter is loaded).
+  Measured (Edge pane, 1280 and 768): top bar top 0 / 64 px high on home → toon → season → chapter → group → slice →
+  back via Alt+ArrowUp, toon settings, characters; Alt+ArrowDown opened chapter 1, the group's first slice.
+- **No file names in the UI:** `entityLabel()` (`@scutoons/ui`) + `fileLabel()` in each app; version chips
+  "de · Draft v71" / "Published v70"; scene groups are created by name (`chapter<N>/<name>` stays the internal key).
+- **No decorative arrows** on buttons/links (ActionBar "More", Menu, back links, "↗"); reorder/remove icon buttons have
+  aria-labels.
+- Gotcha: a Python script writing files on Windows must use `newline='\n'` (else CRLF); a heredoc piped into
+  `python -` breaks on non-ASCII unless `PYTHONUTF8=1`.
+
 ## Collectables removed; cucumber camera only scans cucumbers (2026-09-30, owner)
 
 - **Items are the only concept.** Collectables (the old VN inventory) are gone: `viewer/static/api/{catpope,sandbox}/
