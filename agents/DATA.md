@@ -13,7 +13,8 @@ rather than everything at once. For a PWA we will need smart pre-loading or a sa
 |---|---|
 | toon index (`toons.json`) | viewer static only (creator: static + store draft `<toon>/_/index.json`) |
 | toon, season, chapter, VN scene files | content store (published) → static fallback, **one file per request** (layout: season + every chapter file) |
-| map (`locations.json`, `routes.json`), `collectables.json` | viewer static only, per locale |
+| map (`locations.json`, `routes.json`) | viewer static only, per locale |
+| collectables (`collectables.json`) | **removed** (owner 2026-09-30): merged into items (`config/items.json`); VN variables stay story logic, the VN → item grant bridge does the collecting |
 | characters | store (`scutoons/_/characters.json` + `<toon>/_/cast.json`) → legacy static `<toon>/<l>/characters.json` |
 | credits | store (`<toon>/_/credits.json` + `scutoons/_/{people,roles}.json`) → legacy static `<toon>/<l>/credits.json` |
 | events | viewer static `events.json` |
@@ -43,7 +44,6 @@ format, unchanged). No new tables, no schema change:
 | chapter N | `<toon>/<l>/chapter<N>.json` | creator | – |
 | VN scene | `<toon>/<l>/chapter<N>/<name>.json` | creator | – |
 | map | `<toon>/<l>/locations.json`, `routes.json` | none yet (import / raw JSON) | **yes** |
-| collectables | `<toon>/<l>/collectables.json` | none yet | **yes** |
 | cast | `<toon>/_/cast.json` | creator | – |
 | characters, moods, asset requests | `scutoons/_/{characters,moods,asset-requests}.json` | creator | – |
 | credits, people, roles | `<toon>/_/credits.json`, `scutoons/_/{people,roles}.json` | creator | – |
@@ -65,7 +65,7 @@ unchanged (the creator's write path and the current viewer).
 | GET | Answer (types from `@scutoons/content`) |
 |---|---|
 | `/library/toons` | `ToonIndex[]` – published entries (`status` published) |
-| `/library/toons/{toon}?locale=` | `{ entry: ToonIndex, toon: Toon, seasons: SeasonOverview[], locations, routes, collectables }` – everything the toon layout needs in **one** request |
+| `/library/toons/{toon}?locale=` | `{ entry: ToonIndex, toon: Toon, seasons: SeasonOverview[], locations, routes }` – everything the toon layout needs in **one** request |
 | `/library/toons/{toon}/seasons/{n}?locale=` | `SeasonOverview = { number, season: Season, chapters: ChapterSummary[] }`; `ChapterSummary` = the chapter file without `groups`/`audio`/`status` + `type`, `number`, `status` (from the season) |
 | `/library/toons/{toon}/chapters/{n}?locale=` | `Chapter` with every `ref` group replaced by its scene file (P4: one request per chapter; a missing scene keeps its `ref` group, header `X-Content-Missing`) |
 | `/library/toons/{toon}/cast[?chapter=N]` | `{ registry: CharacterRegistry, cast: ToonCast }` – the registry reduced to the toon's cast (or to the characters a chapter's events reference); the client resolves with `resolveCast` (shared code, no PHP port) |
@@ -95,7 +95,7 @@ unchanged (the creator's write path and the current viewer).
 ## 4. Migration
 
 1. `import-content` learns the new kinds: `toons.json` → per-toon `_/index.json`, `events.json` → `scutoons/_/events.json`,
-   `<toon>/<l>/{locations,routes,collectables}.json`. Idempotent as today, `--update`, `--sql` for production
+   `<toon>/<l>/{locations,routes}.json`. Idempotent as today, `--update`, `--sql` for production
    (phpMyAdmin), dev-only toons (`sandbox`) stay out of `--sql`.
 2. **Compare** (`tests/entities-compare.php`, part of `composer test`): a fresh DB seeded from `viewer/static/api` →
    every library endpoint of every toon/locale/chapter == the same composition done from the static files (JSON-equal).
@@ -116,7 +116,7 @@ kinds (`import-content --sql`, only new files) → (3) `entities-compare --repor
 Unchanged: `PUT /content/<scope>/<locale>/<path>` (draft, `base` conflict check), `publish`, `unpublish`, `restore`,
 `versions`, `index` – they already are the entity write API. The creator stops falling back to static files (new files
 start empty) and lists toons from `/library/toons?draft=1`. Admin `/admin/content` stays as is. Documents without an
-editor (events, map, collectables; later products/items/editions/permissions) are written by `import-content --update`
+editor (events, map; later products/items/editions/permissions) are written by `import-content --update`
 or the creator's raw JSON editor until an editor exists; private documents are only readable with `draft=1` + role.
 
 **No JSON files in the UI (owner, 2026-09-30).** Once the API serves everything from the database, the creator and
@@ -124,7 +124,7 @@ admin never show file names (`chapter1.json`, `toon.json`, `season1.json`), `_` 
 "store file" wording – only entities: "Chapter 1", "Season 1", "Toon settings", "Characters", "Credits", "Draft v71 /
 Published v70". The path stays the storage key on the server (§2), hidden behind one mapping:
 - `@scutoons/content` gets `EntityKey = { kind, toon, locale?, number?, scene? }` (kinds: `toon-index`, `toon`,
-  `season`, `chapter`, `scene`, `map-locations`, `map-routes`, `collectables`, `cast`, `credits`, `characters`,
+  `season`, `chapter`, `scene`, `map-locations`, `map-routes`, `cast`, `credits`, `characters`,
   `moods`, `asset-requests`, `people`, `roles`, `events`) with `entityKey(scope, locale, path)` ↔
   `entityPath(key)`; `@scutoons/api`'s content functions take an `EntityKey`.
 - The creator's entity → label helper (built by the UI agent) switches from paths to `EntityKey` in Phase C; editor
@@ -164,7 +164,7 @@ Published v70". The path stays the storage key on the server (§2), hidden behin
 | D | PWA (§6) | after C |
 
 **Release 2026-10-04:** nothing of this plan is required for it. Oct 3 runs `import-content --sql` as planned (with B
-merged it also seeds events/map/collectables/index – harmless, nothing reads them yet). The release viewer keeps
+merged it also seeds events/map/index – harmless, nothing reads them yet). The release viewer keeps
 store → static.
 
 **Risks**
@@ -184,7 +184,7 @@ store → static.
 | `server/src/Http/Controllers/LibraryController.php` | the 7 GET routes (`config/routes.php`), headers, 304, `?draft=1` role check |
 | `server/src/Infrastructure/Cache/` | `Cache` + `ApcuCache`, `FileCache` (atomic writes, pruned by age), `NullCache`; `config/container.php` picks by `CACHE_DRIVER` |
 | settings | `CACHE_DRIVER` (auto), `CACHE_PATH` (`storage/cache`, gitignored, deploy-protected like all of `storage/`), `CONTENT_SHOW_DRAFTS` (0; `1` in the local `config.local.php`) |
-| `ImportContentCommand` | `sources()`: `toons.json` → `<toon>/_/index.json` (file order), `events.json` → `scutoons/_/events.json`, `<toon>/<l>/{locations,routes,collectables}.json`; `--only` also matches the source file name |
+| `ImportContentCommand` | `sources()`: `toons.json` → `<toon>/_/index.json` (file order), `events.json` → `scutoons/_/events.json`, `<toon>/<l>/{locations,routes}.json` (collectables: removed, merged into items); `--only` also matches the source file name |
 | `ExportContentCommand` | `export-content <dir> [--toon] [--draft] [--db]` – the store back into the file layout; reads back to the same documents (unit test) |
 | tests | PHPUnit `LibraryTest` (9) + `LibraryApiTest` (3); `tests/entities-smoke.php` (32 checks, through the creator's write path); `tests/entities-compare.php` (35 checks: every toon/locale/chapter, cast, credits, events of a fresh DB seeded from `viewer/static/api` + `shared/content/seed` == the static composition); both in `run-contract.php` (API on `<port+6>` with the fresh DB) |
 
@@ -194,7 +194,7 @@ else of the chapter file stays, the viewer's `LoadedSequenceItem` minus the heav
 language-neutral (resolution stays in `resolveCast`), `?chapter=` walks every `character` field of the composed chapter.
 
 Local dev store: backup `server/db/local.sqlite.bak-2026-09-30-library`, then `import-content … --only=toons.json,
-events.json,locations.json,routes.json,collectables.json` (15 new documents) and `--update --only=toons.json
+events.json,locations.json,routes.json,collectables.json` (15 new documents; the 4 collectables documents were deleted again when collectables were merged into items) and `--update --only=toons.json
 --toon=catpope` (catpope's index entry had drafts only). toptoy's published index entry (source `en`, a creator
 decision) was left alone – the store wins over `toons.json`.
 

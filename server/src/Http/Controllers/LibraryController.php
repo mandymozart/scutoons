@@ -15,7 +15,7 @@ use Scutoons\Http\Middleware\Cors;
 /**
  * The reader's entity endpoints (agents/DATA.md §3, docs/API.md "Library"), public GETs:
  *   GET /api/library/toons                               ToonIndex[]
- *   GET /api/library/toons/{toon}?locale=                { entry, toon, seasons, locations, routes, collectables }
+ *   GET /api/library/toons/{toon}?locale=                { entry, toon, seasons, locations, routes }
  *   GET /api/library/toons/{toon}/seasons/{n}?locale=    SeasonOverview
  *   GET /api/library/toons/{toon}/chapters/{n}?locale=   Chapter with its scenes inlined
  *   GET /api/library/toons/{toon}/cast[?chapter=]        { registry, cast }

@@ -262,7 +262,7 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 | GET | Answer |
 |---|---|
 | `/library/toons` | `ToonIndex[]`: every `<toon>/_/index.json` with `status: published` (creation order) |
-| `/library/toons/<toon>?locale=` | `{ entry, toon, seasons: SeasonOverview[], locations, routes, collectables }` – the toon layout in one request |
+| `/library/toons/<toon>?locale=` | `{ entry, toon, seasons: SeasonOverview[], locations, routes }` – the toon layout in one request |
 | `/library/toons/<toon>/seasons/<n>?locale=` | `SeasonOverview = { number, season, chapters: ChapterSummary[] }` – listed chapters (readable + coming-soon); a summary is the chapter file without `groups` / `audio` / `status` + the season's `type`, `number`, `status` |
 | `/library/toons/<toon>/chapters/<n>?locale=` | the chapter with every `ref` group replaced by its scene file (a missing scene keeps its `ref` group + `X-Content-Missing`) |
 | `/library/toons/<toon>/cast[?chapter=<n>]` | `{ registry, cast }`: `scutoons/_/characters.json` reduced to the toon's cast (or the characters the chapter references; legacy ids mapped) + `<toon>/_/cast.json`; `null` where missing. Resolve with `resolveCast()` |
@@ -284,7 +284,7 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
   cached. APCu when enabled, else files in `storage/cache/library/` (pruned by age).
 - Errors: `400 invalid_toon|invalid_locale|invalid_chapter`, `404 not_found`, `403 coming_soon|not_public`.
 - Seed / compare: `import-content` also stores `toons.json` (→ `<toon>/_/index.json`), `events.json` (→
-  `scutoons/_/events.json`) and `<toon>/<l>/{locations,routes,collectables}.json`; `tests/entities-compare.php` checks
+  `scutoons/_/events.json`) and `<toon>/<l>/{locations,routes}.json`; `tests/entities-compare.php` checks
   every answer against the static files (fresh DB, part of `composer test`); `export-content` writes the store back.
 
 ## Security notes

@@ -67,7 +67,7 @@ final class LibraryTest extends TestCase
         $data = self::decode($answer->body);
         self::assertSame('en', $answer->locale);
         self::assertTrue($answer->fallback, 'chapter 3 exists in de only');
-        self::assertSame(['entry', 'toon', 'seasons', 'locations', 'routes', 'collectables'], array_keys($data));
+        self::assertSame(['entry', 'toon', 'seasons', 'locations', 'routes'], array_keys($data));
         self::assertSame('T en', $data['toon']['title']);
         self::assertSame([['id' => 'loc-en']], $data['locations']);
         self::assertSame([], $data['routes'], 'missing lists are empty');
@@ -225,8 +225,8 @@ final class LibraryTest extends TestCase
         file_put_contents("$root/t/de/chapter1/scene-1.json", '{"params":{}}');
         $keys = array_map(fn(array $s) => "$s[0]/$s[1]/$s[2]", ImportContentCommand::sources($root));
         self::assertSame(['b/_/index.json', 'a/_/index.json', 'scutoons/_/events.json', 't/de/chapter1.json', 't/de/chapter1/scene-1.json',
-            't/de/collectables.json', 't/de/locations.json', 't/de/routes.json', 't/de/season1.json', 't/de/toon.json'], $keys,
-            'toons.json split in order, events, the map + collectables; legacy characters/credits.json are not store files');
+            't/de/locations.json', 't/de/routes.json', 't/de/season1.json', 't/de/toon.json'], $keys,
+            'toons.json split in order, events, the map; legacy characters/credits.json and the removed collectables are not store files');
 
         $tester = new \Symfony\Component\Console\Tester\CommandTester($this->get(ImportContentCommand::class));
         self::assertSame(0, $tester->execute(['root' => $root]));

@@ -72,7 +72,7 @@ final class Library
         });
     }
 
-    /** GET /library/toons/{toon}?locale= → { entry, toon, seasons: SeasonOverview[], locations, routes, collectables } */
+    /** GET /library/toons/{toon}?locale= → { entry, toon, seasons: SeasonOverview[], locations, routes } */
     public function toon(string $toon, ?string $locale, bool $draft): Answer
     {
         $ctx = $this->context($toon, $draft);
@@ -91,7 +91,6 @@ final class Library
                 'seasons' => $seasons,
                 'locations' => $list('locations.json'),
                 'routes' => $list('routes.json'),
-                'collectables' => $list('collectables.json'),
             ], $served];
         }, $ctx);
     }

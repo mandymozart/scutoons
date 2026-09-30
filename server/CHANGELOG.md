@@ -8,7 +8,7 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
   and `/api/events/` – the reader's entities composed from the content store (one request per chapter, scenes inlined;
   light season overview), locale fallback, visibility gates on the server, `?draft=1` for creators, ETag/304, server
   cache keyed by version ids (APCu or `storage/cache`). Settings `CACHE_DRIVER`, `CACHE_PATH`, `CONTENT_SHOW_DRAFTS`.
-- `import-content` also imports `toons.json`, `events.json` and the map/collectables files; new `export-content`.
+- `import-content` also imports `toons.json`, `events.json` and the map files (locations, routes); new `export-content`.
   Contract suites `entities-smoke` and `entities-compare` (fresh DB seeded from the static files).
 
 ## 1.0.0 – 2026-09-30

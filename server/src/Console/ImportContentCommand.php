@@ -46,8 +46,8 @@ final class ImportContentCommand extends Command
             ->addOption('sql', null, InputOption::VALUE_NONE, 'Print idempotent MySQL INSERTs instead of writing (production seed for phpMyAdmin)')
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'Only these file names, comma separated (e.g. characters.json,cast.json)')
             ->setHelp(<<<'HELP'
-                Stores toon.json, season<N>.json, chapter<N>.json, the VN scene files chapter<N>/<name>.json and the map /
-                collectables (locations.json, routes.json, collectables.json) of every toon and locale folder as published
+                Stores toon.json, season<N>.json, chapter<N>.json, the VN scene files chapter<N>/<name>.json and the map
+                (locations.json, routes.json) of every toon and locale folder as published
                 version 1 (author NULL, message "import from static files"); the root toons.json as one <toon>/_/index.json per
                 entry and the root events.json as scutoons/_/events.json (agents/DATA.md); in the
                 language-neutral folder `_`: credits.json, people.json, roles.json (the credits seed in shared/content/seed),
@@ -215,7 +215,7 @@ final class ImportContentCommand extends Command
     public static function isContentFile(string $locale, string $relative): bool
     {
         if ($locale === ContentService::NEUTRAL_LOCALE) return preg_match('#^(credits|people|roles|characters|moods|asset-requests|cast)\.json$#', $relative) === 1;
-        return preg_match('#^(toon|season\d+|chapter\d+|locations|routes|collectables)\.json$#', $relative) === 1
+        return preg_match('#^(toon|season\d+|chapter\d+|locations|routes)\.json$#', $relative) === 1
             || preg_match('#^chapter\d+/[a-z0-9_-]+\.json$#', $relative) === 1;
     }
 

@@ -209,7 +209,7 @@ try {
         $pdo = new PDO('sqlite:' . $copy, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
         $rows = $pdo->query("SELECT locale, path, status, json, author FROM content_versions WHERE toon = 'catpope'")->fetchAll();
         $expected = 0;
-        foreach (glob("$staticApi/catpope/*/{toon,season*,chapter*,locations,routes,collectables}.json", GLOB_BRACE) ?: [] as $f) $expected++;
+        foreach (glob("$staticApi/catpope/*/{toon,season*,chapter*,locations,routes}.json", GLOB_BRACE) ?: [] as $f) $expected++;
         foreach (glob("$staticApi/catpope/*/chapter*/*.json") ?: [] as $f) $expected++;
         $expected++; // catpope/_/index.json = its toons.json entry (agents/DATA.md)
         check($code1 === 0 && count($rows) === $expected && $expected > 10, "import: $expected files as versions", [$code1, count($rows), $expected, array_slice($out1, -2)]);

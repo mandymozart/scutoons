@@ -135,7 +135,7 @@ foreach ($index as $entry) {
     echo "\n$toon\n";
     foreach ($languages as $locale) {
         if (!is_dir("$static/$toon/$locale")) continue;
-        // the toon layout: toon.json, every season with its listed chapters (summaries), map, collectables
+        // the toon layout: toon.json, every season with its listed chapters (summaries), map
         $seasons = [];
         foreach (glob("$static/$toon/*/season*.json") ?: [] as $file) $seasons[(int) preg_replace('/\D/', '', basename($file))] = true;
         ksort($seasons);
@@ -155,7 +155,6 @@ foreach ($index as $entry) {
             'seasons' => $overviews,
             'locations' => $pick($toon, $locale, 'locations.json', $source) ?? [],
             'routes' => $pick($toon, $locale, 'routes.json', $source) ?? [],
-            'collectables' => $pick($toon, $locale, 'collectables.json', $source) ?? [],
         ];
         [$status, $bundle] = get("$base/library/toons/$toon?locale=$locale");
         compare("$toon/$locale toon bundle", $expected, $bundle);

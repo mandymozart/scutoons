@@ -116,7 +116,7 @@ try {
     check($r['status'] === 200 && $entry !== null && $entry['languages'] === ['de', 'en'], 'toons list has the published index entry', $r['raw']);
     check(($r['headers']['access-control-allow-origin'] ?? '') === '*' && ($r['headers']['cache-control'] ?? '') === 'public, max-age=60', 'public: any origin, cached 60 s', $r['headers']);
     $r = call('GET', "$lib?locale=en");
-    check($r['status'] === 200 && array_keys($r['body']) === ['entry', 'toon', 'seasons', 'locations', 'routes', 'collectables'], 'toon bundle shape', $r['raw']);
+    check($r['status'] === 200 && array_keys($r['body']) === ['entry', 'toon', 'seasons', 'locations', 'routes'], 'toon bundle shape', $r['raw']);
     check(($r['body']['toon']['title'] ?? '') === 'Toon en' && ($r['headers']['content-language'] ?? '') === 'en', 'toon.json in the asked locale', $r['headers']);
     check(($r['body']['locations'] ?? null) === [['id' => 'cathedral']], 'locations: en missing → de (source)', $r['body']['locations'] ?? null);
     $chapters = $r['body']['seasons'][0]['chapters'] ?? [];
