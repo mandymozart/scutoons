@@ -887,3 +887,35 @@ character, persona, look and mood and doubles as the VN test bed.
   and avatars (z 86–101), no speaker-in-front / dimming rule (only the wiggle). vn-check does not assert full.
 - `scripts/vn/vn-check.mjs` reads the scripts from the library API now (`--api=`, `SCUTOONS_TOKEN` for drafts outside
   dev). One en run had chapter-6 failures while the viewer was being switched live; two reruns passed.
+
+## Fonts: IBM Plex Mono everywhere, measured in the browser (2026-09-30, owner)
+
+- **Check:** `npm run check:fonts` (`scripts/check-fonts.mjs --session`; docs in `shared/tokens/README.md` → Check).
+  Headless Chrome/Edge over CDP, 52 pages/dialogs of viewer, creator, admin, shop, qr (Info panel, character picker,
+  claim sheet, inventory/avatar, VN dialogue box, main menu, account/login, guide, draft preview, certificate and print
+  sheet pages, 404s). Per page: `document.fonts.check`, a loaded Plex face, a Plex woff2 answered 200, no font-CDN
+  request, computed `font-family` of every visible text + form control, and the font actually rendered
+  (`CSS.getPlatformFontsForNode`). `--session` = throw-away admin+creator user in the local DB, removed at the end.
+  After the fixes: 52/52 at 390 × 844 and at 1280 × 900.
+- **Failed before:** qr landing page (every state) loaded Plex from Google Fonts; qr `verify.html` had no Plex at all
+  (Times New Roman text, Arial controls) and linked the old site's `https://scutoons.com/assets/styles.css`; creator
+  and admin form controls in the UA font (checkboxes/radios of the characters page, cast, character picker, admin code
+  list; empty icon buttons on the admin user detail: Arial); `<code>` in the generic `monospace` (Consolas) in the
+  creator guide / chapter-editor help / characters page. Viewer and shop passed (viewer `static/css/styles.css` sets
+  the controls' font itself).
+- **Fixes:** tokens `base.css`: `:where(button, input, select, textarea, optgroup) { font: inherit }` and
+  `:where(code, kbd, samp, pre) { font-family: var(--font-mono) }` (specificity 0, app rules still win). Hardcoded
+  `'IBM Plex Mono', monospace` / `'Bangers', …` stacks → `var(--font-mono)` / `var(--font-lettering)` (viewer
+  main menu, events, styles.css; reader dialog + credits). Commented Google Fonts links gone from `viewer/src/app.html`.
+  qr: `qr/bin/sync-tokens.mjs` generates `qr/public/assets/tokens/scutoons-tokens.css` (tokens + Plex `@font-face` +
+  base, relative urls) + the 14 Plex woff2 + OFL; committed (plain PHP, no build step); the tokens check (`npm run
+  check`) and `qr.yml` fail when it is stale; `bin/` excluded from the deploy; `.htaccess` `AddType font/woff2`.
+  Landing layout: the stylesheet instead of Google Fonts, its inline `:root` copy removed (from the tokens now),
+  `p { line-height: inherit }` + `.faq h2 { font-weight: 700 }` keep base.css from changing it → computed styles and
+  boxes of 5 states × 3 widths identical to before; body HTML identical; printed-URL `--out` diff = only the
+  verify.html body sha1. verify.html: the local stylesheet + a few token-based input/button rules.
+- Not failures (by design): glyphs Plex lacks (☰ ⓘ ✕ ★ ⋮ ⌕ →, emoji, CJK/Hangul on the home page) fall back to system
+  fonts; the certificate/print-sheet PDFs use jsPDF `courier` (printed artefacts, byte-identical rule).
+- **Found in passing (not fixed, reported):** `qr/src/Config.php` is not in git: `qr/.gitignore` `config.php` matches
+  it on Windows (`core.ignorecase=true`). A CI checkout / deploy of qr has no `Config.php` → every qr page 500s.
+  Fix: `/config.php` in `qr/.gitignore` + `git add qr/src/Config.php`.

@@ -51,7 +51,8 @@ types are the contract between creator (writes), server (stores/validates) and v
    its own paraglide messages.
 5. **Tokens are the single source of style:** `@scutoons/tokens` holds DESIGN.md Part 1 as CSS custom properties
    (`--ink`, `--paper`, `--primary-cyan`, `--space-*`, `--radius-*`, `--border-width-*`, type styles) + font files.
-   Apps and the server's public pages import the same CSS (server gets a built copy at deploy).
+   Apps and the server's public pages import the same CSS (qr gets a generated copy: `qr/bin/sync-tokens.mjs`).
+   Fonts only self-hosted from here (no font CDN); `npm run check:fonts` measures it in the browser.
 6. **Content types are the contract:** `@scutoons/content` is the only place the chapter schema is defined; it exports
    a JSON Schema that the server uses to validate creator writes.
 7. **Each shared package has a README** (purpose, public API, examples) and its own `check` script; `npm run check`
