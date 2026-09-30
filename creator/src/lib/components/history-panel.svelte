@@ -2,6 +2,7 @@
 	import { listVersions, publishVersion, restoreVersion, unpublishFile, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { fileLabel } from '$lib/labels.ts';
 
 	/** Version history of one file per locale: restore an old version as the new draft, publish / unpublish. */
 	let { doc, onclose }: { doc: ContentDoc; onclose?: () => void } = $props();
@@ -51,12 +52,12 @@
 	}
 
 	function publish(locale: string, v: ContentVersion) {
-		if (!confirm(m['creator.publish_confirm']({ file: `${doc.path} #${v.id}`, locales: locale }))) return;
+		if (!confirm(m['creator.publish_confirm']({ file: `${fileLabel(doc.path)} v${v.id}`, locales: locale }))) return;
 		act(() => publishVersion(doc.toon, locale, doc.path, v.id));
 	}
 
 	function unpublish(locale: string) {
-		if (!confirm(`Unpublish ${doc.path} (${locale})? Readers get the static file again (or nothing).`)) return;
+		if (!confirm(`Unpublish ${fileLabel(doc.path)} (${locale})? Readers get the seed version again (or nothing).`)) return;
 		act(() => unpublishFile(doc.toon, locale, doc.path));
 	}
 
@@ -65,14 +66,14 @@
 
 <div class="history" data-testid="history-panel">
 	<header>
-		<h2>{m['creator.history']()} · {doc.path}</h2>
+		<h2>{m['creator.history']()} · {fileLabel(doc.path)}</h2>
 		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close">✕</button>{/if}
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}
 	{#each doc.locales as l (l)}
 		<h3>{l}</h3>
 		{#if !versions[l]?.length}
-			<p class="hint">{doc.source[l] === 'store' ? '…' : `${m['creator.static_file']()} – not in the store yet`}</p>
+			<p class="hint">{doc.source[l] === 'store' ? '…' : m['creator.static_file']()}</p>
 		{:else}
 			<ol>
 				{#each versions[l] as v (v.id)}

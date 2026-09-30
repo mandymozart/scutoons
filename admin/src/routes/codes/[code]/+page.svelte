@@ -62,7 +62,7 @@
 	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={code}>
 		{#snippet info()}<PageHelp page="code" />{/snippet}
 		{#snippet start()}
-			<a href="/codes">← {m['codes.back_to_list']()}</a>
+			<a href="/codes">{m['codes.back_to_list']()}</a>
 		{/snippet}
 		{#snippet secondary()}
 			<Button size="sm" variant="secondary" href="/events?code={encodeURIComponent(c.code)}">{m['codes.in_events_log']()}</Button>

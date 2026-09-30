@@ -134,7 +134,7 @@
 
 <MetaPage {toon} title={m['creator.cast']()} {docs} {validate} help="cast">
 	{#snippet actions()}
-		<a class="bar-link" href="/characters?toon={toon}" data-testid="open-characters">{m['creator.characters']()} ↗</a>
+		<a class="bar-link" href="/characters?toon={toon}" data-testid="open-characters">{m['creator.characters']()}</a>
 	{/snippet}
 	<section class="cast" data-testid="cast-editor">
 		<nav class="seasons" aria-label={m['creator.cast_seasons']()}>
@@ -182,7 +182,7 @@
 						<span class="who">
 							{#if c}
 								<strong>{characterName(c, source)}</strong>
-								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{c.id} · {m['creator.characters_edit']()} →</a>
+								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{c.id} · {m['creator.characters_edit']()}</a>
 								<span class="personas" data-testid="cast-personas-{entry.character}">
 									{#each personaIds(c) as p (p)}
 										<label class="chip" class:on={entry.personas.includes(p)}>

@@ -10,6 +10,8 @@
 	import FileStatus from './file-status.svelte';
 	import PageHelp, { type HelpPage } from './page-help.svelte';
 	import { infoBar } from '$lib/info.ts';
+	import { fileLabel, fileLabels } from '$lib/labels.ts';
+	import UpLink from './up-link.svelte';
 
 	/**
 	 * Editor shell for toon-level files (season, toon.json): top bar with the files' versions, the bottom ActionBar
@@ -25,12 +27,11 @@
 		beforeSave = () => {},
 		validate,
 		wide = false,
-		crumbs,
 		actions,
 		help,
 		children
 	}: {
-		/** the toon of the page (crumbs + back link); pages about platform-wide files pass `crumbs` instead */
+		/** the toon of the page (content-store scope of its files) */
 		toon: string;
 		title: string;
 		docs: ContentDoc[];
@@ -40,8 +41,6 @@
 		validate?: () => Problem[];
 		/** full-width content (editor + preview side by side) */
 		wide?: boolean;
-		/** the path between "Creator" and the title (default: the toon); the last one is also the back link */
-		crumbs?: { href: string; label: string }[];
 		/** extra items at the start of the ActionBar (page-level actions, e.g. "New character") */
 		actions?: Snippet;
 		/** the page's help in the ActionBar's Info panel */
@@ -49,8 +48,6 @@
 		children: Snippet;
 	} = $props();
 
-	const path = $derived(crumbs ?? [{ href: `/${toon}`, label: toon }]);
-	const back = $derived(path[path.length - 1] ?? { href: '/', label: m['creator.title']() });
 	const main = $derived(docs[0]);
 	/** undo/redo act on the most recently edited doc */
 	const undoDoc = $derived(docs.filter((d) => d.canUndo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? main);
@@ -87,7 +84,7 @@
 			if (doc.loading) continue;
 			for (const l of doc.locales) {
 				if (doc.data[l] == null) {
-					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.path, locale: l, path: [], message: `no ${l} file` });
+					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.path, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
 					continue;
 				}
 				out.push(...validateFile(doc.kind, doc.data[l], l, { file: doc.path }));
@@ -111,7 +108,7 @@
 				if (!docs.includes(doc) && !savedCompanions.includes(doc)) savedCompanions.push(doc);
 			} catch (e) {
 				if (e instanceof SaveConflict) conflict = { doc, error: e };
-				else notice = `${doc.path}: ${e instanceof Error ? e.message : String(e)}`;
+				else notice = `${fileLabel(doc.path)}: ${e instanceof Error ? e.message : String(e)}`;
 				return false;
 			}
 		}
@@ -127,7 +124,7 @@
 		if (!files.length) return;
 		if (errorCount && !confirm(`${errorCount} errors in the problem list. Publish anyway?`)) return;
 		const locales = [...new Set(files.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].join(', ');
-		if (!confirm(m['creator.publish_confirm']({ file: files.map((d) => d.path).join(', '), locales }))) return;
+		if (!confirm(m['creator.publish_confirm']({ file: fileLabels(files.map((d) => d.path)), locales }))) return;
 		if (!(await saveAll())) return;
 		try {
 			for (const doc of [...docs, ...savedCompanions]) if (doc.stored.length && doc.unpublished.length) await doc.publish();
@@ -191,30 +188,18 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="meta-page" class:with-panel={panel !== null} class:wide>
-	<header class="topbar">
-		<nav class="crumbs">
-			<a href="/">{m['creator.title']()}</a> /{#each path as c (c.href)}{' '}<a href={c.href}>{c.label}</a> /{/each}
-			<strong>{title}</strong>
-		</nav>
-		<div class="files">
-			{#each docs as d (d.path)}
-				{#if !d.loading}<span class="hint">{docs.some((o) => o !== d && o.path === d.path) || d.toon !== toon ? `${d.toon}/` : ''}{d.path}</span><FileStatus doc={d} />{/if}
-			{/each}
-		</div>
-	</header>
-
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} bind:infoOpen infoTitle={title}>
 		{#snippet info()}<PageHelp page={help} seasonFile={docs.find((d) => d.kind === 'season')?.path} />{/snippet}
 		{#snippet start()}
-			<a class="bar-link" href={back.href} data-testid="back-to-toon">← {back.label}</a>
+			<UpLink />
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
 			</button>
 			{@render actions?.()}
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
+			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc?.canUndo} onclick={() => undoDoc?.undo()} data-testid="undo">↶</button>
+			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc?.canRedo} onclick={() => redoDoc?.redo()} data-testid="redo">↷</button>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
@@ -229,10 +214,15 @@
 	{#if !loaded}
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else}
+		<div class="files" data-testid="file-status">
+			{#each docs as d (d.toon + d.path)}
+				<span class="hint">{fileLabel(d.path)}</span><FileStatus doc={d} />
+			{/each}
+		</div>
 		{#if anyDirty}<div class="bar dirty-bar">{m['creator.unsaved']()}</div>{/if}
 		{#each recoverables as d (d.path)}
 			<div class="bar warn-bar">
-				{d.path}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
+				{fileLabel(d.path)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
 				{#if d.recoverableIsStale}<b>{m['creator.recover_stale']()}</b>{/if}
 				<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
 				<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
@@ -240,7 +230,7 @@
 		{/each}
 		{#each missingLocales as { doc, locale } (doc.path + locale)}
 			<div class="bar warn-bar">
-				{doc.path}: {locale} {m['creator.missing']()}
+				{fileLabel(doc.path)}: {locale} {m['creator.missing']()}
 				<button class="secondary" onclick={() => doc.createLocale(locale, (f) => (f && typeof f === 'object' && 'language' in f ? { ...f, language: locale } : f))}>
 					{m['creator.create_locale']({ locale, source: doc.primary })}
 				</button>
@@ -248,7 +238,7 @@
 		{/each}
 		{#if conflict}
 			<div class="bar error-bar">
-				{m['creator.conflict']({ locale: conflict.error.locale, file: conflict.doc.path })}
+				{m['creator.conflict']({ locale: conflict.error.locale, file: fileLabel(conflict.doc.path) })}
 				<button class="secondary" onclick={() => resolveConflict('reload')}>{m['creator.reload']()}</button>
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
@@ -267,7 +257,7 @@
 				{#if docs.length > 1}
 					<p class="history-files">
 						{#each docs as d (d.toon + d.path)}
-							<button class="ghost" class:active={d === historyDoc} onclick={() => (historyPath = d.path)}>{d.toon}/{d.path}</button>
+							<button class="ghost" class:active={d === historyDoc} onclick={() => (historyPath = d.path)}>{fileLabel(d.path)}</button>
 						{/each}
 					</p>
 				{/if}
@@ -282,26 +272,13 @@
 	.meta-page {
 		--top: 64px;
 	}
-	.topbar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.4rem 1rem;
-		min-height: var(--top);
-		padding: 0.4rem 0.75rem 0.4rem 96px;
-		border-bottom: 2px solid var(--ink);
-		box-sizing: border-box;
-	}
-	.crumbs a,
-	.bar-link {
-		color: var(--ink);
-		white-space: nowrap;
-	}
 	.files {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem;
 		align-items: center;
+		padding: 0.35rem 0.75rem;
+		border-bottom: 1px solid var(--border-subtle);
 	}
 	.message {
 		width: 11rem !important;

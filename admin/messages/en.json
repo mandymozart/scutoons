@@ -289,7 +289,7 @@
 		"count": "Count",
 		"count_hint": "Defaults to the edition size (1–2000).",
 		"start_number": "Starting number",
-		"complete_warning": "A complete batch of this edition exists ({done} codes, {date}). Add a new edition to editions.json to make more, or create one anyway.",
+		"complete_warning": "A complete batch of this edition exists ({done} codes, {date}). Add a new edition to the server configuration to make more, or create one anyway.",
 		"create_anyway": "Create anyway",
 		"back": "All batches",
 		"summary": "{done} / {total} done · {errors} errors",
@@ -352,7 +352,7 @@
 	},
 	"catalog": {
 		"title": "Catalog",
-		"meta": "Read-only: the server config (items.json, editions.json, toons.json, permissions.json).",
+		"meta": "Read-only: the server configuration (items, editions, toons, permissions).",
 		"items": "Items",
 		"editions": "Editions",
 		"toons": "Toons",
@@ -385,7 +385,7 @@
 		"ahead": "draft ahead",
 		"draft_only": "draft only",
 		"files": "{count} files",
-		"path": "File",
+		"path": "Content",
 		"version_line": "#{latest} · published #{published} · {versions} versions",
 		"edit": "Edit",
 		"empty": "Nothing stored for this toon yet."
@@ -422,5 +422,19 @@
 		"events": "Every scan, unlock and claim, newest first. Filter by event type, code, edition, toon and date.",
 		"content": "Per toon every file of the content store with its newest and its published version. Editing and publishing happen in the creator (“In the creator”).",
 		"settings": "Changes apply to the next request, no deploy needed. “Use default” goes back to the default value."
+	},
+	"entity": {
+		"chapter": "Chapter {number}",
+		"season": "Season {number}",
+		"scene": "Scene {label}",
+		"toon": "Toon settings",
+		"languages": "Languages",
+		"characters": "Characters",
+		"moods": "Moods",
+		"requests": "Wanted images",
+		"cast": "Cast",
+		"credits": "Credits",
+		"people": "People",
+		"roles": "Roles"
 	}
 }

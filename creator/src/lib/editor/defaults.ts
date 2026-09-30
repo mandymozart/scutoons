@@ -64,7 +64,7 @@ export function newSeason(locale: string, authors: string[] = [], number = 1): S
 		number,
 		release: isoDate(),
 		description: '',
-		cover: { square: `images/${locale}/s${number}-cover-square.jpg`, portrait: `images/${locale}/s${number}-cover-portrait.jpg` },
+		cover: { square: `images/s${number}-cover-square.webp`, portrait: `images/s${number}-cover-portrait.webp` },
 		sequence: []
 	};
 }
@@ -81,7 +81,7 @@ export function newToon(id: string, locale: string, entry: ToonIndex | null | un
 		status: Status.DRAFT,
 		description: entry?.i18n?.[locale]?.description ?? '',
 		thumbnail: `images/${chapterSlug(1)}-thumbnail.jpg`,
-		cover: { square: `images/${locale}/s1-cover-square.jpg`, portrait: `images/${locale}/s1-cover-portrait.jpg` },
+		cover: { square: `images/s1-cover-square.webp`, portrait: `images/s1-cover-portrait.webp` },
 		map: { layers: { terrain: '' }, width: 0, height: 0, center: { x: 0, y: 0 } },
 		download: { complete: null, music: '' }
 	};

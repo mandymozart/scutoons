@@ -25,7 +25,7 @@
 </script>
 
 <section class="meta-panel" data-testid="meta-panel">
-	<h2>{m['creator.meta']()} · chapter{ch?.number}.json</h2>
+	<h2>{m['creator.meta']()}</h2>
 
 	<LocaleText {doc} path={['title']} label="title" multiline={false} />
 	<LocaleText {doc} path={['description']} label="description" rows={3} />

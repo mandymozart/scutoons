@@ -113,7 +113,7 @@
 					aria-controls="{uid}-more"
 					onclick={() => (moreOpen = !moreOpen)}
 				>
-					{moreLabel} <span aria-hidden="true">{moreOpen ? '▾' : '▴'}</span>
+					{moreLabel}
 				</button>
 				{#if moreOpen}
 					<div class="more-panel" id="{uid}-more">

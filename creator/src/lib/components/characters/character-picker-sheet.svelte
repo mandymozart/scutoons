@@ -184,7 +184,7 @@
 			</div>
 		{:else}
 			<header class="step2">
-				<button type="button" class="ghost" onclick={() => (step = 1)} data-testid="picker-back">← {m['creator.characters_picker_back']()}</button>
+				<button type="button" class="ghost" onclick={() => (step = 1)} data-testid="picker-back">{m['creator.characters_picker_back']()}</button>
 				<strong>{characterName(character, locale)}</strong>
 				{#if !castIds.has(character.id) && season}<span class="note">{m['creator.characters_picker_will_add']({ season })}</span>{/if}
 			</header>

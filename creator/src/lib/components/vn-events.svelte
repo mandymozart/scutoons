@@ -2,6 +2,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, clone, type Path } from '@scutoons/content';
 	import { JumpToTargetType, OnomatopoeiaEffect, OnomatopoeiaVariant, Trigger, TriggerMode } from '@scutoons/content';
+	import { m } from '$lib/paraglide/messages.js';
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
 	import OnomatopoeiaPreview from './onomatopoeia-preview.svelte';
@@ -205,7 +206,7 @@
 		return [
 			...all.filter((x) => available.includes(x)).map((x) => ({ value: x, label: moodLabel(x, locale, vocabulary) })),
 			...available.filter((x) => !all.includes(x)).map((x) => ({ value: x, label: x })),
-			...all.filter((x) => !available.includes(x)).map((x) => ({ value: x, label: `${moodLabel(x, locale, vocabulary)} (→ neutral)` }))
+			...all.filter((x) => !available.includes(x)).map((x) => ({ value: x, label: `${moodLabel(x, locale, vocabulary)} (neutral fallback)` }))
 		];
 	}
 </script>
@@ -223,9 +224,9 @@
 				</select>
 				<span class="tools">
 					<button type="button" class="ghost" class:active={raw[i] || !known} title="raw JSON" onclick={() => (raw[i] = !raw[i])} disabled={!known}>{'{ }'}</button>
-					<button type="button" class="ghost" onclick={() => moveBy(i, -1)} disabled={i === 0}>↑</button>
-					<button type="button" class="ghost" onclick={() => moveBy(i, 1)} disabled={i === events.length - 1}>↓</button>
-					<button type="button" class="ghost" onclick={() => remove(i)}>✕</button>
+					<button type="button" class="ghost" onclick={() => moveBy(i, -1)} disabled={i === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}>↑</button>
+					<button type="button" class="ghost" onclick={() => moveBy(i, 1)} disabled={i === events.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}>↓</button>
+					<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}>✕</button>
 				</span>
 			</header>
 

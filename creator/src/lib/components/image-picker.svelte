@@ -75,7 +75,7 @@
 		</div>
 	{/if}
 
-	<button type="button" class="ghost browse" onclick={() => (open = !open)}>{open ? '▾' : '▸'} {known.length} known images</button>
+	<button type="button" class="ghost browse" aria-expanded={open} onclick={() => (open = !open)}>{known.length} known images</button>
 	{#if open}
 		<input type="search" placeholder="filter" bind:value={filter} />
 		<ul class="grid">

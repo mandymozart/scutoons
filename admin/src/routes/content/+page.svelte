@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fileLabel } from '$lib/labels.ts';
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
@@ -115,7 +116,7 @@
 						<tbody>
 							{#each group.rows as row (row.path)}
 								<tr>
-									<th scope="row">{row.path}</th>
+									<th scope="row">{fileLabel(row.path)}</th>
 									{#each group.locales as locale (locale)}
 										{@const f = row.byLocale[locale]}
 										<td>

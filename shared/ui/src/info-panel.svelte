@@ -47,7 +47,7 @@
 	<div class="body">
 		{@render children()}
 		{#if href}
-			<p class="guide"><a {href} target="_blank" rel="noopener">{hrefLabel} ↗</a></p>
+			<p class="guide"><a {href} target="_blank" rel="noopener">{hrefLabel}</a></p>
 		{/if}
 	</div>
 </aside>

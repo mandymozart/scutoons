@@ -98,7 +98,7 @@
 	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={b.edition}>
 		{#snippet info()}<PageHelp page="batch" />{/snippet}
 		{#snippet start()}
-			<a href="/batches">← {m['batches.back']()}</a>
+			<a href="/batches">{m['batches.back']()}</a>
 			<span class="bar-summary">{m['batches.summary']({ done: number(run!.done), total: number(b.total), errors: number(run!.failed) })}</span>
 		{/snippet}
 		{#snippet secondary()}

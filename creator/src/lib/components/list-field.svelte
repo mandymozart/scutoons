@@ -40,8 +40,8 @@
 	{#each list as item, i (i)}
 		<li>
 			<input type="text" value={item} oninput={(e) => set(i, e.currentTarget.value)} aria-label="{placeholder} {i + 1}" />
-			<button type="button" class="ghost" onclick={() => move(i, -1)} disabled={i === 0} title="up">↑</button>
-			<button type="button" class="ghost" onclick={() => remove(i)} title={m['creator.remove']()}>✕</button>
+			<button type="button" class="ghost" onclick={() => move(i, -1)} disabled={i === 0} title={m['creator.move_up']()} aria-label={m['creator.move_up']()}>↑</button>
+			<button type="button" class="ghost" onclick={() => remove(i)} title={m['creator.remove']()} aria-label={m['creator.remove']()}>✕</button>
 		</li>
 	{/each}
 	<li class="add">

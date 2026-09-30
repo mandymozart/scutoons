@@ -47,7 +47,7 @@
 		aria-label={trigger ? label : undefined}
 		onclick={() => (open = !open)}
 	>
-		{#if trigger}{@render trigger()}{:else}{label} <span aria-hidden="true">▾</span>{/if}
+		{#if trigger}{@render trigger()}{:else}{label}{/if}
 	</button>
 	{#if open}
 		<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->

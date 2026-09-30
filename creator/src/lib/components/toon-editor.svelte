@@ -6,6 +6,7 @@
 	import { knownImages } from '$lib/editor/images.ts';
 	import { STATUSES } from '$lib/editor/visibility.ts';
 	import MetaPage from './meta-page.svelte';
+	import { fileLabel } from '$lib/labels.ts';
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
 
@@ -22,19 +23,19 @@
 	});
 </script>
 
-<MetaPage {toon} title="toon.json" docs={[file]} help="toon-file">
+<MetaPage {toon} title={fileLabel('toon.json')} docs={[file]} help="toon-file">
 	{#if file.present.length === 0}
-		<p>{m['creator.toon_missing']()} <a href="/{toon}">← {toon}</a></p>
+		<p>{m['creator.toon_missing']()} <a href="/{toon}">{toon}</a></p>
 	{:else}
 		<section class="block" data-testid="toon-meta">
-			<h2>{m['creator.meta']()} · {file.path}</h2>
+			<h2>{m['creator.meta']()}</h2>
 			<LocaleText doc={file} path={['title']} label="title" multiline={false} />
 			<LocaleText doc={file} path={['description']} label="description" rows={3} />
 			<p class="hint">
 				language:
 				{#each file.present as l}
 					{@const value = file.get(l, ['language'])}
-					<span class:warn={value !== l}>{l} file → {value ?? '–'}</span>
+					<span class:warn={value !== l}>{l}: {value ?? '–'}</span>
 					{#if value !== l}<button type="button" class="ghost mini" onclick={() => file.setLocal(l, ['language'], l)}>= {l}</button>{/if}
 				{/each}
 			</p>

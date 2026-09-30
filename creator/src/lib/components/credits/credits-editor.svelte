@@ -17,6 +17,7 @@
 	import { creditsDocs, creditsOf, peopleOf, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import MetaPage from '../meta-page.svelte';
+	import { fileLabels } from '$lib/labels.ts';
 	import SectionsEditor from './sections-editor.svelte';
 	import PeoplePanel from './people-panel.svelte';
 	import RolesPanel from './roles-panel.svelte';
@@ -75,7 +76,7 @@
 <MetaPage {toon} title={m['creator.credits']()} {docs} {validate} wide help="credits">
 	{#if missing.length}
 		<section class="missing" data-testid="credits-missing">
-			<p>{m['creator.credits_missing']({ files: missing.map((d) => `${d.toon}/_/${d.path}`).join(', ') })}</p>
+			<p>{m['creator.credits_missing']({ files: fileLabels(missing.map((d) => d.path)) })}</p>
 			<button type="button" onclick={createMissing} data-testid="create-credits">+ {m['creator.credits_create']()}</button>
 		</section>
 	{:else}
@@ -109,7 +110,7 @@
 					{#each langs as l (l)}
 						<button type="button" class="ghost mini" class:active={previewLocale === l} onclick={() => (previewLocale = l)} data-testid="preview-{l}">{l}</button>
 					{/each}
-					<a class="hint" href="{VIEWER_URL}/{toon}/credits" target="_blank" rel="noreferrer">{m['creator.credits_live']()} ↗</a>
+					<a class="hint" href="{VIEWER_URL}/{toon}/credits" target="_blank" rel="noreferrer">{m['creator.credits_live']()}</a>
 				</header>
 				<div class="frame" lang={previewLocale}>
 					{#if preview}<CreditsView credits={preview} imageUrl={(path) => cdnUrl(CDN_SERVER, path)} />{/if}

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { fileLabel } from '$lib/labels.ts';
 	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -30,7 +31,7 @@
 		{#each visible as p, i (i)}
 			<li class="level-{p.level}">
 				<button type="button" class="ghost" onclick={() => ongoto?.(p)}>
-					<span class="where">{p.file}{p.locale ? ` · ${p.locale}` : ''} · {p.path.join('.') || '/'}</span>
+					<span class="where">{fileLabel(p.file)}{p.locale ? ` · ${p.locale}` : ''} · {p.path.join('.') || '/'}</span>
 					<span class="msg">{p.message}</span>
 				</button>
 			</li>

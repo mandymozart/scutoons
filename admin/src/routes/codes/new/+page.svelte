@@ -184,7 +184,7 @@
 <ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={m['generate.title']()}>
 	{#snippet info()}<PageHelp page="generate" />{/snippet}
 	{#snippet start()}
-		<a href="/codes">← {m['codes.back_to_list']()}</a>
+		<a href="/codes">{m['codes.back_to_list']()}</a>
 		{#if current}<span class="muted">{m['generate.result']({ code: current.data.code })}</span>{/if}
 	{/snippet}
 	{#snippet end()}

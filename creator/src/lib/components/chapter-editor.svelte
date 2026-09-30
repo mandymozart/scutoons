@@ -1,7 +1,11 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { ActionBar } from '@scutoons/ui';
-	import { beforeNavigate } from '$app/navigation';
+	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
+	import { usePageNav } from '$lib/nav.svelte.ts';
+	import { fileLabel, fileLabels } from '$lib/labels.ts';
+	import UpLink from './up-link.svelte';
 	import { STATIC_API } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
@@ -197,6 +201,75 @@
 		else if (next?.kind === 'event') inspectorTab = 'events';
 	}
 
+	// ── Navigation: the tree is the sidebar, group + slice are the deepest crumbs, the URL mirrors the selection ──
+	// (`?group=<label>&slice=<n>`, `?section=audio`; deep links and Alt+ArrowUp / crumbs work through the URL)
+	// the page re-creates this component per chapter ({#key})
+	// svelte-ignore state_referenced_locally
+	const chapterHref = `/${toon}/chapter/${chapterNumber}`;
+	const groupKey = (g: any, i: number) => g?.label ?? g?.ref?.src?.split('/').pop()?.replace(/\.json$/, '') ?? String(i + 1);
+	const groupName = (g: any, i: number) => (g?.ref?.src ? fileLabel(g.ref.src) : (g?.label ?? `${m['creator.groups']()} ${i + 1}`));
+	function hrefFor(next: { section: Section; group?: number; slice?: number }) {
+		const params = new URLSearchParams();
+		if (next.section === 'audio') params.set('section', 'audio');
+		if ((next.section === 'group' || next.section === 'slice') && next.group !== undefined) params.set('group', groupKey(groups[next.group], next.group));
+		if (next.section === 'slice' && next.slice !== undefined && next.slice >= 0) params.set('slice', String(next.slice + 1));
+		const query = params.toString();
+		return query ? `${chapterHref}?${query}` : chapterHref;
+	}
+	usePageNav({
+		sidebar: tree,
+		fill: true,
+		extra: () => {
+			if (section !== 'group' && section !== 'slice') return [];
+			const out = [{ href: hrefFor({ section: 'group', group: groupIndex }), label: groupName(groups[groupIndex], groupIndex) }];
+			if (section === 'slice' && sliceIndex >= 0) out.push({ href: hrefFor({ section: 'slice', group: groupIndex, slice: sliceIndex }), label: m['creator.slice_n']({ number: sliceIndex + 1 }) });
+			return out;
+		}
+	});
+	/** the URL has been applied once (after loading): only then does the selection write the URL */
+	let urlApplied = $state(false);
+	$effect(() => {
+		// URL → selection (deep links, crumbs, back / forward)
+		const params = page.url.searchParams;
+		if (chapter.loading) return;
+		const wantSection = params.get('section');
+		const wantGroup = params.get('group');
+		const wantSlice = Number(params.get('slice'));
+		untrack(() => {
+			if (wantGroup !== null) {
+				let gi = groups.findIndex((g, i) => groupKey(g, i) === wantGroup);
+				if (gi < 0 && /^\d+$/.test(wantGroup)) gi = Number(wantGroup) - 1;
+				if (gi >= 0 && gi < groups.length) {
+					if (gi !== groupIndex || (section !== 'group' && section !== 'slice')) selectGroup(gi);
+					if (wantSlice > 0) {
+						if (section !== 'slice' || sliceIndex !== wantSlice - 1) selectSlice(wantSlice - 1);
+					} else if (section === 'slice') {
+						selectGroup(gi);
+					}
+				}
+			} else if (wantSection === 'audio') {
+				section = 'audio';
+			} else if (section !== 'meta') {
+				section = 'meta';
+			}
+			urlApplied = true;
+		});
+	});
+	$effect(() => {
+		// selection → URL (shareable; a crumb goes back to the same place)
+		const href = hrefFor({ section, group: groupIndex, slice: sliceIndex });
+		if (!urlApplied) return;
+		untrack(() => {
+			if (href !== page.url.pathname + page.url.search) {
+				try {
+					replaceState(href, {});
+				} catch {
+					/* router not ready */
+				}
+			}
+		});
+	});
+
 	// ── Problems ────────────────────────────────────────────────────────────────────────────────────────
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
@@ -207,7 +280,7 @@
 			if (doc.loading) continue;
 			for (const l of doc.locales) {
 				if (doc.source[l] === 'missing' && doc.data[l] == null) {
-					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.path, locale: l, path: [], message: `no ${l} file` });
+					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.path, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
 					continue;
 				}
 				out.push(
@@ -313,12 +386,14 @@
 	function addGroup(ref: boolean) {
 		const label = `scene-${groups.length + 1}`;
 		if (ref) {
-			const src = prompt('Scene file (inside the chapter folder)', `chapter${chapterNumber}/${label}.json`)?.trim();
-			if (!src) return;
-			if (!/^[a-z0-9_-]+(\/[a-z0-9_-]+)?\.json$/.test(src)) {
-				notice = 'The file name must look like chapter2/scene-21.json (a-z, 0-9, - and _).';
+			// the scene's name is its key (stored with the chapter: chapter<N>/<name>)
+			const name = prompt('Scene name', label)?.trim();
+			if (!name) return;
+			if (!/^[a-z0-9_-]+$/.test(name)) {
+				notice = 'A scene name uses a-z, 0-9, - and _ (e.g. scene-21).';
 				return;
 			}
+			const src = `chapter${chapterNumber}/${name}.json`;
 			const doc = toonDoc(toon, src, languages);
 			doc.create(() => newGroup(src.split('/').pop()!.replace(/\.json$/, '')));
 			refs[src] = doc;
@@ -372,7 +447,7 @@
 				await doc.save(saveMessage.trim() || undefined, force);
 			} catch (e) {
 				if (e instanceof SaveConflict) conflict = { doc, error: e };
-				else notice = `${doc.path}: ${e instanceof Error ? e.message : String(e)}`;
+				else notice = `${fileLabel(doc.path)}: ${e instanceof Error ? e.message : String(e)}`;
 				return false;
 			}
 		}
@@ -385,7 +460,7 @@
 	async function publishAll() {
 		syncChapter(chapter, season, chapterNumber);
 		const docs = allDocs.filter((d) => d.dirty || d.unpublished.length || d.stored.length);
-		const files = docs.map((d) => d.path).join(', ');
+		const files = fileLabels(docs.map((d) => d.path));
 		if (errorCount && !confirm(`${errorCount} errors in the problem list. Publish anyway?`)) return;
 		if (!confirm(m['creator.publish_confirm']({ file: files, locales: chapter.locales.join(', ') }))) return;
 		if (!(await saveAll())) return;
@@ -474,18 +549,51 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="editor" class:with-panel={panel !== null}>
-	<header class="topbar">
-		<nav class="crumbs">
-			<a href="/">{m['creator.title']()}</a> / <a href="/{toon}">{toon}</a> /
-			<strong>{m['creator.chapters']()} {chapterNumber}{chapterData?.title ? ` · ${chapterData.title}` : ''}</strong>
-		</nav>
-		<div class="files">
-			<FileStatus doc={chapter} />
-			{#if refSrc && refs[refSrc]}<span class="hint">{refSrc}</span><FileStatus doc={refs[refSrc]} />{/if}
-			{#if !season.loading && (season.dirty || season.unpublished.length)}<span class="hint">{season.path}</span><FileStatus doc={season} />{/if}
+{#snippet tree()}
+	<!-- the chapter's children in the sidebar: meta, audio, groups → slices (Alt+ArrowDown opens the first child) -->
+	<div class="tree" data-testid="chapter-tree">
+		<button class="node" class:current={section === 'meta'} onclick={() => (section = 'meta')} data-testid="tree-meta">{m['creator.meta']()}</button>
+		<button class="node" class:current={section === 'audio'} onclick={() => (section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
+		<div class="node-head">{m['creator.groups']()}</div>
+		{#each groups as g, gi (gi)}
+			{@const open = gi === groupIndex && (section === 'group' || section === 'slice')}
+			<div class="group" class:open>
+				<div class="group-row">
+					<button
+						class="node"
+						class:current={section === 'group' && gi === groupIndex}
+						onclick={() => selectGroup(gi)}
+						data-nav-child={section === 'meta' || section === 'audio' ? '' : undefined}
+						data-testid="group-{gi}"
+					>
+						{groupName(g, gi)}
+						<span class="hint">{g?.ref ? '' : `${g?.slices?.length ?? 0}${g?.events ? ' · VN' : ''}`}</span>
+					</button>
+					<span class="tools">
+						<button class="ghost" onclick={() => moveGroup(gi, -1)} disabled={gi === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}>↑</button>
+						<button class="ghost" onclick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}>↓</button>
+						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}>✕</button>
+					</span>
+				</div>
+				{#if open}
+					{#if activeDoc && !activeDoc.loading}
+						<div class="slices" data-child-slices={section === 'group' ? '' : undefined}>
+							<SliceList doc={activeDoc} {groupPath} {chapterNumber} selected={section === 'slice' ? sliceIndex : -1} onselect={selectSlice} />
+						</div>
+					{:else}
+						<p class="hint pad">{m['creator.loading']()}</p>
+					{/if}
+				{/if}
+			</div>
+		{/each}
+		<div class="tree-add">
+			<button class="secondary" onclick={() => addGroup(false)}>{m['creator.add_group']()}</button>
+			<button class="secondary" onclick={() => addGroup(true)}>{m['creator.add_ref_group']()}</button>
 		</div>
-	</header>
+	</div>
+{/snippet}
+
+<div class="editor" class:with-panel={panel !== null}>
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
 	<ActionBar
@@ -493,16 +601,16 @@
 		moreLabel={m['creator.more']()}
 		{...infoBar()}
 		bind:infoOpen
-		infoTitle="{m['creator.chapters']()} {chapterNumber}"
+		infoTitle={fileLabel(chapter.path)}
 	>
 		{#snippet info()}<PageHelp page="chapter" {section} seasonFile={season.path} />{/snippet}
 		{#snippet start()}
-			<a class="bar-link" href="/{toon}" data-testid="back-to-chapters">← {m['creator.chapters']()}</a>
+			<UpLink />
 			{#if section === 'slice' && activeGroup?.slices?.length}
 				<span class="slice-nav" role="group" aria-label={m['creator.slice_navigation']()}>
-					<button class="ghost" onclick={() => selectSlice(sliceIndex - 1)} disabled={sliceIndex <= 0} title={m['creator.prev_slice']()} data-testid="prev-slice">‹</button>
+					<button class="ghost" onclick={() => selectSlice(sliceIndex - 1)} disabled={sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid="prev-slice">‹</button>
 					<span class="hint">{m['creator.slice_of']({ index: sliceIndex + 1, count: activeGroup.slices.length })}</span>
-					<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} data-testid="next-slice">›</button>
+					<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid="next-slice">›</button>
 				</span>
 			{/if}
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
@@ -510,8 +618,8 @@
 			</button>
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" disabled={!activeDoc?.canUndo} onclick={() => activeDoc?.undo()} data-testid="undo">↶</button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo">↷</button>
+			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!activeDoc?.canUndo} onclick={() => activeDoc?.undo()} data-testid="undo">↶</button>
+			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo">↷</button>
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each chapter.locales as l}
@@ -534,10 +642,15 @@
 	{:else if chapter.error}
 		<p class="pad error">{chapter.error}</p>
 	{:else}
+		<div class="files" data-testid="file-status">
+			<span class="hint">{fileLabel(chapter.path)}</span><FileStatus doc={chapter} />
+			{#if refSrc && refs[refSrc]}<span class="hint">{fileLabel(refSrc)}</span><FileStatus doc={refs[refSrc]} />{/if}
+			{#if !season.loading && (season.dirty || season.unpublished.length)}<span class="hint">{fileLabel(season.path)}</span><FileStatus doc={season} />{/if}
+		</div>
 		{#if anyDirty && !chapter.saving}<div class="bar dirty-bar">{m['creator.unsaved']()}{#if activeDoc?.dirty && section === 'slice'} · {activeDoc.dirtyLocales.join(', ')}{/if}</div>{/if}
 		{#each recoverables as d (d.path)}
 			<div class="bar warn-bar">
-				{d.path}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
+				{fileLabel(d.path)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
 				{#if d.recoverableIsStale}<b>{m['creator.recover_stale']()}</b>{/if}
 				<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
 				<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
@@ -545,7 +658,7 @@
 		{/each}
 		{#each missingLocales as { doc, locale } (doc.path + locale)}
 			<div class="bar warn-bar">
-				{doc.path}: {locale} {m['creator.missing']()}
+				{fileLabel(doc.path)}: {locale} {m['creator.missing']()}
 				<button class="secondary" onclick={() => doc.createLocale(locale, (f) => (f && doc.kind === 'chapter' ? { ...f, language: locale } : f))}>
 					{m['creator.create_locale']({ locale, source: doc.primary })}
 				</button>
@@ -553,7 +666,7 @@
 		{/each}
 		{#if conflict}
 			<div class="bar error-bar">
-				{m['creator.conflict']({ locale: conflict.error.locale, file: conflict.doc.path })}
+				{m['creator.conflict']({ locale: conflict.error.locale, file: fileLabel(conflict.doc.path) })}
 				<button class="secondary" onclick={() => resolveConflict('reload')}>{m['creator.reload']()}</button>
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
@@ -568,39 +681,6 @@
 		{/if}
 
 		<div class="columns" class:has-inspector={section === 'slice'}>
-			<!-- Tree -->
-			<nav class="tree" aria-label="chapter">
-				<button class="node" class:current={section === 'meta'} onclick={() => (section = 'meta')} data-testid="tree-meta">{m['creator.meta']()}</button>
-				<button class="node" class:current={section === 'audio'} onclick={() => (section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
-				<div class="node-head">{m['creator.groups']()}</div>
-				{#each groups as g, gi (gi)}
-					<div class="group" class:open={gi === groupIndex && (section === 'group' || section === 'slice')}>
-						<div class="group-row">
-							<button class="node" class:current={section === 'group' && gi === groupIndex} onclick={() => selectGroup(gi)} data-testid="group-{gi}">
-								{#if g?.ref}↗ {g.ref.src}{:else}{g?.label ?? `group ${gi + 1}`}{/if}
-								<span class="hint">{g?.ref ? '' : `${g?.slices?.length ?? 0}${g?.events ? ' · VN' : ''}`}</span>
-							</button>
-							<span class="tools">
-								<button class="ghost" onclick={() => moveGroup(gi, -1)} disabled={gi === 0}>↑</button>
-								<button class="ghost" onclick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1}>↓</button>
-								<button class="ghost" onclick={() => removeGroup(gi)}>✕</button>
-							</span>
-						</div>
-						{#if gi === groupIndex && (section === 'group' || section === 'slice')}
-							{#if activeDoc && !activeDoc.loading}
-								<SliceList doc={activeDoc} {groupPath} {chapterNumber} selected={section === 'slice' ? sliceIndex : -1} onselect={selectSlice} />
-							{:else}
-								<p class="hint pad">{m['creator.loading']()}</p>
-							{/if}
-						{/if}
-					</div>
-				{/each}
-				<div class="tree-add">
-					<button class="secondary" onclick={() => addGroup(false)}>+ {m['creator.add_group']()}</button>
-					<button class="secondary" onclick={() => addGroup(true)}>+ {m['creator.add_ref_group']()}</button>
-				</div>
-			</nav>
-
 			<!-- Main -->
 			<main class="main">
 				{#if section === 'meta'}
@@ -610,7 +690,6 @@
 				{:else if section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} />
-						{#if refSrc}<p class="hint">↗ <code>{refSrc}</code></p>{/if}
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
 							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} background={activeGroup?.slices?.[0]?.image ?? ''} />
@@ -703,8 +782,8 @@
 					{:else if inspectorTab === 'slice'}
 						<SliceMedia doc={activeDoc} {slicePath} {toon} known={images} />
 						<div class="row">
-							<button class="secondary" onclick={() => moveSlice(-1)} disabled={sliceIndex === 0}>↑ move up</button>
-							<button class="secondary" onclick={() => moveSlice(1)} disabled={sliceIndex >= (activeGroup?.slices?.length ?? 0) - 1}>↓ move down</button>
+							<button class="secondary" onclick={() => moveSlice(-1)} disabled={sliceIndex === 0}>{m['creator.move_up']()}</button>
+							<button class="secondary" onclick={() => moveSlice(1)} disabled={sliceIndex >= (activeGroup?.slices?.length ?? 0) - 1}>{m['creator.move_down']()}</button>
 						</div>
 					{:else if inspectorTab === 'audio'}
 						<SliceAudio
@@ -743,41 +822,25 @@
 </div>
 
 <style>
+	/* the AppShell runs in "fill" mode here: the editor is exactly the content area and scrolls its own columns */
 	.editor {
-		--top: 64px;
-		/* the fixed bottom ActionBar mirrors the top bar; the editor fills the space between them */
-		--action-bar-height: var(--top);
 		display: flex;
 		flex-direction: column;
-		height: calc(100dvh - var(--action-bar-height));
+		height: 100%;
 		overflow: hidden;
-	}
-	.topbar {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.4rem 1rem;
-		min-height: var(--top);
-		padding: 0.4rem 0.75rem 0.4rem 96px;
-		border-bottom: 2px solid var(--ink);
-		box-sizing: border-box;
-	}
-	.crumbs a {
-		color: var(--ink);
 	}
 	.files {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.4rem;
 		align-items: center;
+		padding: 0.35rem 0.75rem;
+		border-bottom: 1px solid var(--border-subtle);
 	}
 	.slice-nav {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.2rem;
-		white-space: nowrap;
-	}
-	.bar-link {
-		color: var(--ink);
 		white-space: nowrap;
 	}
 	.message {
@@ -820,30 +883,24 @@
 		flex: 1;
 		min-height: 0;
 		display: grid;
-		grid-template-columns: 250px minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1fr);
 	}
 	.columns.has-inspector {
-		grid-template-columns: 250px minmax(0, 1fr) 400px;
+		grid-template-columns: minmax(0, 1fr) 400px;
 	}
+	/* narrower: the inspector goes below the canvas */
 	@media (max-width: 1150px) {
 		.columns.has-inspector {
-			grid-template-columns: 220px minmax(0, 1fr);
+			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: minmax(0, 1fr) minmax(0, 45%);
 		}
 		.columns.has-inspector .inspector {
-			grid-column: 2;
 			border-left: 0;
 			border-top: 2px solid var(--ink);
 		}
-		.columns.has-inspector .tree {
-			grid-row: 1 / span 2;
-		}
 	}
 	.tree {
-		overflow: auto;
-		border-right: 2px solid var(--ink);
-		/* the reader's fixed logo toggle (top left) reaches below the top bar */
-		padding: 2rem 0 0.4rem;
+		padding: 0.25rem 0 0.4rem;
 	}
 	.node {
 		display: flex;

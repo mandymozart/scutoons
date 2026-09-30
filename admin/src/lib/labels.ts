@@ -1,3 +1,4 @@
+import { entityLabel } from '@scutoons/ui';
 import type { EventName } from '@scutoons/api';
 import { m } from '$lib/paraglide/messages.js';
 
@@ -51,3 +52,24 @@ export const inspectorLabels = () => ({
 	value: m['inspector.value'](),
 	view: m['inspector.view']()
 });
+
+/**
+ * What people see instead of a content-store key (no file names in the UI, owner 2026-09-30): `chapter2.json` →
+ * "Chapter 2" … The one mapping is @scutoons/ui `entityLabel`; this passes the admin's translations.
+ */
+export function fileLabel(path: string): string {
+	return entityLabel(path, {
+		chapter: (number) => m['entity.chapter']({ number }),
+		season: (number) => m['entity.season']({ number }),
+		scene: (label) => m['entity.scene']({ label }),
+		toon: m['entity.toon'](),
+		languages: m['entity.languages'](),
+		characters: m['entity.characters'](),
+		moods: m['entity.moods'](),
+		requests: m['entity.requests'](),
+		cast: m['entity.cast'](),
+		credits: m['entity.credits'](),
+		people: m['entity.people'](),
+		roles: m['entity.roles']()
+	});
+}

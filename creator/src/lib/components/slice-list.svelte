@@ -106,8 +106,8 @@
 				</span>
 			</button>
 			<span class="tools">
-				<button type="button" class="ghost" title={m['creator.add_slice']()} onclick={() => add(index)}>+</button>
-				<button type="button" class="ghost" title={m['creator.remove']()} onclick={() => remove(index)}>✕</button>
+				<button type="button" class="ghost" title={m['creator.add_slice']()} aria-label={m['creator.add_slice']()} onclick={() => add(index)}>+</button>
+				<button type="button" class="ghost" title={m['creator.remove']()} aria-label={m['creator.remove']()} onclick={() => remove(index)}>✕</button>
 			</span>
 		</li>
 	{/each}

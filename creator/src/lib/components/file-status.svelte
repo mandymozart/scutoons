@@ -12,12 +12,14 @@
 		if (source === 'static') return m['creator.static_file']();
 		if (source === 'new') return m['creator.not_saved']();
 		const base = doc.base[l];
-		return base === doc.published[l] ? `v${base} ✓` : `v${base}`;
+		return base === doc.published[l] ? m['creator.version_published']({ version: base ?? '' }) : m['creator.version_draft']({ version: base ?? '' });
 	}
+	/** the language-neutral files (credits, characters, cast …) carry no language */
+	const lang = (l: string) => (l === '_' ? '' : l);
 	function title(l: string) {
 		const source = doc.source[l];
-		if (source !== 'store') return `${l}: ${label(l)}`;
-		return `${l}: ${m['creator.in_store']()} v${doc.base[l]}${doc.published[l] ? ` · ${m['creator.published']()} v${doc.published[l]}` : ''}${doc.published[l] !== doc.base[l] ? ` · ${m['creator.unpublished_changes']()}` : ''}`;
+		if (source !== 'store') return `${lang(l) || '·'}: ${label(l)}`;
+		return `${lang(l) || '·'}: ${m['creator.in_store']()} v${doc.base[l]}${doc.published[l] ? ` · ${m['creator.published']()} v${doc.published[l]}` : ''}${doc.published[l] !== doc.base[l] ? ` · ${m['creator.unpublished_changes']()}` : ''}`;
 	}
 </script>
 
@@ -31,7 +33,7 @@
 			class:missing={doc.source[l] === 'missing'}
 			title={title(l)}
 		>
-			{l}{compact ? '' : ` ${label(l)}`}{dirty.includes(l) ? ' •' : ''}
+			{#if compact}{lang(l) || label(l)}{:else}{lang(l) ? `${l} · ` : ''}{label(l)}{/if}{dirty.includes(l) ? ' •' : ''}
 		</span>
 	{/each}
 </span>

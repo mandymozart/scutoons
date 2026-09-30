@@ -119,7 +119,7 @@
 					>
 					{#if person}
 						<button type="button" class="name" onclick={() => onperson?.(entry.person)}>{person.name}</button>
-						{#if person.merged_into}<span class="bad">→ {person.merged_into}</span>{/if}
+						{#if person.merged_into}<span class="bad" title={m['creator.credits_merged_into']({ id: person.merged_into })}>({person.merged_into})</span>{/if}
 					{:else}
 						<span class="name bad">? {entry.person}</span>
 					{/if}

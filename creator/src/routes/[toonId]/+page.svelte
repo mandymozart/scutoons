@@ -13,6 +13,8 @@
 	import { Language, NEUTRAL_LOCALE, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { infoBar } from '$lib/info.ts';
+	import { fileLabel, fileLabels } from '$lib/labels.ts';
+	import UpLink from '$lib/components/up-link.svelte';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import FileStatus from '$lib/components/file-status.svelte';
 
@@ -223,7 +225,7 @@
 			const files = [season, toonFile].filter((d) => d.dirty);
 			for (const doc of files) await doc.save(`create ${doc.path}`);
 			message = [
-				m['creator.season_created']({ files: files.map((d) => d.path).join(', ') }),
+				m['creator.season_created']({ files: fileLabels(files.map((d) => d.path)) }),
 				adopted.length ? m['creator.chapters_adopted']({ numbers: adopted.join(', ') }) : ''
 			].join(' ');
 		} catch (e) {
@@ -315,7 +317,7 @@
 		const docs = [...pageDocs.filter((d) => d.dirty || d.unpublished.length), ...follow];
 		if (!docs.length) return;
 		const locales = [...new Set(docs.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].join(', ');
-		if (!confirm(m['creator.publish_confirm']({ file: docs.map((d) => d.path).join(', '), locales }))) return;
+		if (!confirm(m['creator.publish_confirm']({ file: fileLabels(docs.map((d) => d.path)), locales }))) return;
 		if (!(await saveAll())) return;
 		busy = true;
 		try {
@@ -331,15 +333,9 @@
 </script>
 
 <div class="creator-page">
-	<header class="creator-top">
-		<ToonAvatar src={avatarSrc} name={toonId} />
-		<nav class="crumbs"><a href="/">{m['creator.title']()}</a> / <strong>{toonId}</strong></nav>
-		<a class="btn credits-link" href="/{toonId}/credits" title={m['creator.credits_open_hint']()} data-testid="edit-credits">{m['creator.credits_open']()} →</a>
-		<a class="btn secondary" href="/{toonId}/cast" title={m['creator.cast_open_hint']()} data-testid="edit-cast">{m['creator.cast']()} →</a>
-		<a class="btn secondary" href="/characters?toon={toonId}" data-testid="open-characters">{m['creator.characters']()} →</a>
-	</header>
 	<main class="browser">
 		<section>
+			<h1 class="toon-title"><ToonAvatar src={avatarSrc} name={toonId} /> {toonId}</h1>
 			{#if index && !index.loading && edited}
 				<section class="languages" data-testid="languages">
 					<div class="season-head">
@@ -381,7 +377,7 @@
 					{#each missing as { locale, docs } (locale)}
 						<p class="missing-bar" data-testid="missing-{locale}">
 							{m['creator.missing_locale_files']({ locale, count: docs.length })}
-							<span class="hint">{docs.map((d) => d.path).join(', ')}</span>
+							<span class="hint">{fileLabels(docs.map((d) => d.path))}</span>
 							<button class="secondary" disabled={busy} onclick={() => createLocaleFiles(locale)} data-testid="create-locale-{locale}">
 								{m['creator.create_locale']({ locale, source: langs?.source ?? '' })}
 							</button>
@@ -422,7 +418,7 @@
 							{#each season.locales as l}<th>{l}{l === season.primary ? ` (${m['creator.source']()})` : ''}</th>{/each}
 							<th>release</th>
 							{#each season.locales as l}<th>{m['creator.status']()} {l}</th>{/each}
-							<th>file</th><th></th>
+							<th>version</th><th></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -454,7 +450,7 @@
 				</table>
 			{/if}
 			{#if season && !season.loading && !seasonMissing && orphans.length}
-				<p class="error" data-testid="orphans">{m['creator.orphans']({ numbers: orphans.join(', '), file: season.path })}</p>
+				<p class="error" data-testid="orphans">{m['creator.orphans']({ numbers: orphans.join(', '), file: fileLabel(season.path) })}</p>
 			{/if}
 			{#if message}<p class="hint">{message}</p>{/if}
 			{#if error}<p class="error">{error}</p>{/if}
@@ -462,9 +458,9 @@
 	</main>
 	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season, toon.json) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={toonId}>
-		{#snippet info()}<PageHelp page="toon" seasonFile={season?.path} />{/snippet}
+		{#snippet info()}<PageHelp page="toon" seasonFile={season ? fileLabel(season.path) : undefined} />{/snippet}
 		{#snippet start()}
-			<a class="bar-link" href="/">← {m['creator.toons']()}</a>
+			<UpLink />
 			{#if anyDirty}<span class="hint">{m['creator.unsaved']()}</span>{/if}
 			{#if error}<span class="error" data-testid="page-error">{error}</span>{:else if message}<span class="hint">{message}</span>{/if}
 		{/snippet}
@@ -479,23 +475,11 @@
 </div>
 
 <style>
-	.creator-top {
+	.toon-title {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
-		min-height: 64px;
-		padding: 0 1rem 0 96px;
-		border-bottom: 2px solid var(--ink);
-	}
-	.credits-link {
-		margin-left: 1rem;
-	}
-	.crumbs a,
-	.bar-link {
-		color: var(--ink);
-	}
-	.creator-page {
-		--action-bar-height: 64px;
+		gap: 0.6rem;
+		font-size: 16px;
 	}
 	.browser {
 		padding: 1.5rem 1rem;

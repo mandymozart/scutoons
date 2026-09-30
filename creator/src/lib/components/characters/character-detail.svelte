@@ -240,6 +240,13 @@
 			<strong>{m['creator.characters_appears_in']()}:</strong>
 			{#each appearsIn as t (t)}<a href="/{t}/cast">{toons.find((x) => x.id === t)?.name ?? t}</a>{:else}<span class="hint">{m['creator.characters_in_no_cast']()}</span>{/each}
 		</p>
+		<!-- Creator roadmap (agents/AUTOMATION.md "Creator roadmap"): recorded, not built yet -->
+		<p class="roadmap" data-testid="character-actions">
+			<strong>{m['creator.actions_title']()}:</strong>
+			{#each [m['creator.action_base_views'](), m['creator.action_moods'](), m['creator.action_upload']()] as label (label)}
+				<button type="button" class="secondary" disabled title={m['creator.coming_soon']()}>{label} ({m['creator.coming_soon']()})</button>
+			{/each}
+		</p>
 
 		<section class="block">
 			<LocaleMapField value={character.name} {languages} label={m['creator.characters_name']()} required testid="character-name" onchange={(v) => change((c) => (c.name = v), 'name')} />
@@ -663,5 +670,11 @@
 	}
 	.pad {
 		padding: 1rem;
+	}
+	.roadmap {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.4rem;
 	}
 </style>

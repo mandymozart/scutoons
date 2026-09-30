@@ -115,7 +115,7 @@
 	<ActionBar label={m['shell.page_actions']()} moreLabel={m['shell.more']()} {...infoBar()} infoTitle={user.email}>
 		{#snippet info()}<PageHelp page="user" />{/snippet}
 		{#snippet start()}
-			<a href="/users">← {m['users.back']()}</a>
+			<a href="/users">{m['users.back']()}</a>
 		{/snippet}
 	</ActionBar>
 

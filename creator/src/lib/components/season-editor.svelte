@@ -9,6 +9,8 @@
 	import MetaPage from './meta-page.svelte';
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
+	import { usePageNav } from '$lib/nav.svelte.ts';
+	import { fileLabel } from '$lib/labels.ts';
 
 	/**
 	 * Season meta (season<N>.json): title / plot per locale, language-neutral fields once (overrides per locale shown),
@@ -37,7 +39,29 @@
 		chapters = docs;
 		images = await knownImages(toon, season.locales, [$state.snapshot(season.data)]);
 	});
+
+	// the season's children in the sidebar: its chapters with their status per language
+	usePageNav({ sidebar: chapterNav });
 </script>
+
+{#snippet chapterNav()}
+	<p class="nav-head">{m['creator.chapters']()}</p>
+	<ul class="nav-list" data-testid="season-chapters">
+		{#each numbers as n (n)}
+			<li>
+				<a href="/{toon}/chapter/{n}" data-nav-child data-testid="nav-chapter-{n}">
+					<span class="nav-title">{chapters[n]?.data?.[chapters[n].primary]?.title ?? fileLabel(`chapter${n}.json`)}</span>
+					<span class="nav-status">
+						{#each season.locales as l (l)}
+							{@const status = seasonStatusOf(season, l, n)}
+							{#if status}<span class="st st-{status}" title="{l}: {status}">{l}</span>{/if}
+						{/each}
+					</span>
+				</a>
+			</li>
+		{/each}
+	</ul>
+{/snippet}
 
 <MetaPage
 	{toon}
@@ -48,17 +72,17 @@
 	beforeSave={() => syncChapters(chapters, season)}
 >
 	{#if season.present.length === 0}
-		<p>{m['creator.season_missing']()} <a href="/{toon}">← {toon}</a></p>
+		<p>{m['creator.season_missing']()} <a href="/{toon}">{toon}</a></p>
 	{:else}
 		<section class="block" data-testid="season-meta">
-			<h2>{m['creator.meta']()} · {season.path}</h2>
+			<h2>{m['creator.meta']()}</h2>
 			<LocaleText doc={season} path={['title']} label="title" multiline={false} />
 			<LocaleText doc={season} path={['description']} label="description (plot)" rows={6} />
 			<p class="hint">
 				language:
 				{#each season.present as l}
 					{@const value = season.get(l, ['language'])}
-					<span class:warn={value !== undefined && value !== l}>{l} file → {value ?? '–'}</span>
+					<span class:warn={value !== undefined && value !== l}>{l}: {value ?? '–'}</span>
 					{#if value !== l}<button type="button" class="ghost mini" onclick={() => season.setLocal(l, ['language'], l)}>= {l}</button>{/if}
 				{/each}
 			</p>
@@ -162,5 +186,54 @@
 	}
 	.chapters select {
 		width: auto;
+	}
+	.nav-head {
+		margin: 0;
+		padding: 0.75rem 0.75rem 0.25rem;
+		font-size: 10px;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.nav-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.nav-list a {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.4rem;
+		padding: 0.35rem 0.75rem;
+		border-left: 3px solid transparent;
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.nav-list a:hover {
+		background: var(--surface-hover);
+	}
+	.nav-title {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.nav-status {
+		display: inline-flex;
+		gap: 0.2rem;
+		flex: none;
+	}
+	.st {
+		font-size: 10px;
+		padding: 0 0.3em;
+		border: 1px solid var(--border-muted);
+	}
+	.st-published {
+		background: var(--ink);
+		color: var(--paper);
+		border-color: var(--ink);
+	}
+	.st-coming-soon {
+		border-style: dashed;
+		border-color: var(--ink);
 	}
 </style>

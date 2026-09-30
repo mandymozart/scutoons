@@ -10,6 +10,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
+	import { usePageNav } from '$lib/nav.svelte.ts';
 
 	/**
 	 * Draft preview: the newest saved draft of the chapter (and its scene files) in one locale, rendered with the
@@ -77,21 +78,28 @@
 		else url.searchParams.delete(key);
 		goto(url.pathname + url.search, { replaceState: true, keepFocus: true, noScroll: true });
 	}
+
+	// the chapter's children in the sidebar: its groups (a click shows only that group)
+	usePageNav({ sidebar: groupNav });
 </script>
+
+{#snippet groupNav()}
+	<p class="nav-head">{m['creator.groups']()}</p>
+	<ul class="nav-list">
+		<li><button type="button" class:current={!label} onclick={() => setParam('label', null)}>{m['creator.preview_title']()}</button></li>
+		{#each groups as group, index (index)}
+			{#if group.label}
+				<li><button type="button" class:current={label === group.label} onclick={() => setParam('label', group.label ?? null)} data-nav-child>{group.label}</button></li>
+			{/if}
+		{/each}
+	</ul>
+{/snippet}
 
 <svelte:head>
 	<title>{m['creator.preview_title']()} · {toon} {chapterNumber} ({locale ?? '…'})</title>
 </svelte:head>
 
 <div class="preview-page" data-testid="draft-preview">
-	<header class="creator-top">
-		<nav class="crumbs">
-			<a href="/">{m['creator.title']()}</a> / <a href="/{toon}">{toon}</a> /
-			<a href="/{toon}/chapter/{chapterNumber}">{m['creator.preview_back']()}</a> /
-			<strong>{m['creator.preview_title']()}</strong>
-		</nav>
-	</header>
-
 	<p class="meta">
 		{#if chapter}
 			<Badge tone={fromDraft ? 'accent' : 'neutral'}>
@@ -153,22 +161,6 @@
 		min-height: 100dvh;
 		background: var(--surface-panel);
 	}
-	.creator-top {
-		position: sticky;
-		top: 0;
-		z-index: 10;
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		padding: 0.5rem 1rem;
-		background: var(--paper);
-		border-bottom: 2px solid var(--ink);
-	}
-	.crumbs a {
-		color: var(--ink);
-	}
 	.preview-page {
 		--action-bar-height: 64px;
 	}
@@ -222,5 +214,35 @@
 		color: var(--muted);
 		background: var(--surface-panel);
 		border-top: 1px solid var(--border-subtle);
+	}
+	.nav-head {
+		margin: 0;
+		padding: 0.75rem 0.75rem 0.25rem;
+		font-size: 10px;
+		text-transform: uppercase;
+		color: var(--muted);
+	}
+	.nav-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+	}
+	.nav-list button {
+		display: block;
+		width: 100%;
+		text-align: left;
+		padding: 0.35rem 0.75rem;
+		background: transparent;
+		color: var(--ink);
+		border: 0;
+		border-left: 3px solid transparent;
+	}
+	.nav-list button:hover {
+		background: var(--surface-hover);
+	}
+	.nav-list button.current {
+		border-left-color: var(--ink);
+		font-weight: 700;
+		background: var(--surface-hover);
 	}
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
 	import { page } from '$app/state';
 	import { replaceState } from '$app/navigation';
@@ -49,6 +49,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { usePageNav } from '$lib/nav.svelte.ts';
 	import MetaPage from '../meta-page.svelte';
 	import CharacterDetail from './character-detail.svelte';
 	import MoodsPanel from './moods-panel.svelte';
@@ -227,11 +228,27 @@
 	}
 
 	const thumb = (c: RegistryCharacter) => characterImage(c, {}, AUTHORED_VIEW, { isMissing: isKnownMissing });
-	const crumbs = $derived(toonFilter && toonFilter !== '__none' ? [{ href: `/${toonFilter}`, label: toonFilter }] : []);
+	// the selected character is the deepest crumb (Creator / Characters / <name>)
+	usePageNav({
+		extra: () => {
+			const c = tab === 'characters' ? characters.find((x) => x.id === selected) : undefined;
+			return c ? [{ href: `/characters?id=${encodeURIComponent(c.id)}`, label: characterName(c, uiLocale) || c.id }] : [];
+		}
+	});
+	// URL → state (the Universe links in the sidebar, crumbs, back / forward); the effect below mirrors state → URL
+	$effect(() => {
+		const params = page.url.searchParams;
+		const nextTab = ['moods', 'wanted'].includes(params.get('tab') ?? '') ? (params.get('tab') as string) : 'characters';
+		const nextId = params.get('id');
+		untrack(() => {
+			if (nextTab !== tab) tab = nextTab;
+			if (nextId !== null && nextId !== selected) selected = nextId;
+		});
+	});
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
-<MetaPage toon={CREDITS_SCOPE} title={m['creator.characters']()} {docs} {validate} {crumbs} wide help="characters">
+<MetaPage toon={CREDITS_SCOPE} title={m['creator.characters']()} {docs} {validate} wide help="characters">
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character">+ {m['creator.characters_new']()}</button>
 	{/snippet}

@@ -289,7 +289,7 @@
 		"count": "Anzahl",
 		"count_hint": "Standard: Größe der Edition (1–2000).",
 		"start_number": "Startnummer",
-		"complete_warning": "Für diese Edition gibt es schon einen fertigen Batch ({done} Codes, {date}). Für mehr eine neue Edition in editions.json anlegen oder trotzdem erzeugen.",
+		"complete_warning": "Für diese Edition gibt es schon einen fertigen Batch ({done} Codes, {date}). Für mehr eine neue Edition in der Server-Konfiguration anlegen oder trotzdem erzeugen.",
 		"create_anyway": "Trotzdem erzeugen",
 		"back": "Alle Batches",
 		"summary": "{done} / {total} fertig · {errors} Fehler",
@@ -352,7 +352,7 @@
 	},
 	"catalog": {
 		"title": "Katalog",
-		"meta": "Nur lesen: die Server-Konfiguration (items.json, editions.json, toons.json, permissions.json).",
+		"meta": "Nur lesen: die Server-Konfiguration (Items, Editionen, Toons, Berechtigungen).",
 		"items": "Items",
 		"editions": "Editionen",
 		"toons": "Toons",
@@ -385,7 +385,7 @@
 		"ahead": "Entwurf neuer",
 		"draft_only": "nur Entwurf",
 		"files": "{count} Dateien",
-		"path": "Datei",
+		"path": "Inhalt",
 		"version_line": "#{latest} · veröffentlicht #{published} · {versions} Versionen",
 		"edit": "Bearbeiten",
 		"empty": "Für diesen Toon ist noch nichts gespeichert."
@@ -422,5 +422,19 @@
 		"events": "Jeder Scan, jedes Entsperren und jeder Claim, neueste zuerst. Filter nach Event-Typ, Code, Edition, Toon und Datum.",
 		"content": "Pro Toon jede Datei des Content-Stores mit neuester und veröffentlichter Version. Bearbeiten und Veröffentlichen passiert im Creator („Im Creator“).",
 		"settings": "Änderungen gelten ab der nächsten Anfrage, ohne Deploy. „Standard verwenden“ stellt den Standardwert wieder her."
+	},
+	"entity": {
+		"chapter": "Kapitel {number}",
+		"season": "Staffel {number}",
+		"scene": "Szene {label}",
+		"toon": "Toon-Einstellungen",
+		"languages": "Sprachen",
+		"characters": "Figuren",
+		"moods": "Moods",
+		"requests": "Gesuchte Bilder",
+		"cast": "Besetzung",
+		"credits": "Credits",
+		"people": "Personen",
+		"roles": "Rollen"
 	}
 }

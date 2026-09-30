@@ -28,14 +28,8 @@
 </script>
 
 <div class="creator-page">
-	<header class="creator-top">
-		<h1>{m['creator.title']()}</h1>
-	</header>
 	<main class="browser">
 		<section>
-			<p class="shared">
-				<a class="btn" href="/characters" data-testid="open-characters">{m['creator.characters']()} →</a>
-			</p>
 			<h2>{m['creator.toons']()}</h2>
 			{#if error}<p class="error">{error}</p>{/if}
 			<ul class="toons">
@@ -67,20 +61,6 @@
 </div>
 
 <style>
-	.creator-page {
-		--action-bar-height: 64px;
-	}
-	.creator-top {
-		display: flex;
-		align-items: center;
-		min-height: 64px;
-		padding: 0 1rem 0 96px;
-		border-bottom: 2px solid var(--ink);
-	}
-	.creator-top h1 {
-		font-size: 16px;
-		margin: 0;
-	}
 	.browser {
 		padding: 1.5rem 1rem;
 		max-width: 1200px;
@@ -111,11 +91,5 @@
 	}
 	.error {
 		color: var(--error);
-	}
-	.shared {
-		display: flex;
-		gap: 0.75rem;
-		align-items: center;
-		margin: 0 0 1.5rem;
 	}
 </style>
