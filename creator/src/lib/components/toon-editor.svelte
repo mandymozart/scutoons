@@ -10,6 +10,7 @@
 	import { fileLabel } from '$lib/labels.ts';
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
+	import { getCreatorNav } from '$lib/nav.svelte.ts';
 
 	/** The toon's settings (entity toon-settings:<toon>, Toon type): title / description per locale, everything else language-neutral with overrides. */
 	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
@@ -17,6 +18,7 @@
 	// svelte-ignore state_referenced_locally
 	const file = toonDoc(entities.toonSettings(toon), languages);
 	let images = $state<string[]>([]);
+	const nav = getCreatorNav();
 
 	onMount(async () => {
 		await file.load();
@@ -26,7 +28,7 @@
 
 <MetaPage {toon} title={fileLabel(entities.toonSettings(toon))} docs={[file]} help="toon-file">
 	{#if file.present.length === 0}
-		<p>{m['creator.toon_missing']()} <a href="/{toon}">{toon}</a></p>
+		<p>{m['creator.toon_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
 		<section class="block" data-testid="toon-meta">
 			<h2>{m['creator.meta']()}</h2>

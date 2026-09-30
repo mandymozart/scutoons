@@ -5,12 +5,11 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { AppShell, Button } from '@scutoons/ui';
-	import { entities, toonLanguages, type ToonIndex } from '@scutoons/content';
+	import { entities } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { library } from '$lib/api.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import LoginForm from '$lib/components/login-form.svelte';
@@ -40,21 +39,21 @@
 
 	// ── Navigation (agents/DESIGN.md "Creator navigation"): one top bar, sidebar = children of the current level ──
 	const nav = setCreatorNav();
-	let toons = $state<ToonIndex[]>([]);
 	let menuOpen = $state(false);
-	onMount(async () => {
-		try {
-			toons = await library.fetchToons({ draft: true });
-		} catch {
-			/* names fall back to the ids */
-		}
+	// the toons (names for crumbs, sidebar, titles): loaded once the signed-in creator is known – a request before the
+	// session is restored (or before a login) would be refused and leave the ids in the UI
+	let toonsLoaded = false;
+	$effect(() => {
+		if (!isCreator || toonsLoaded) return;
+		toonsLoaded = true;
+		library
+			.fetchToons({ draft: true })
+			.then((list) => (nav.toons = list))
+			.catch(() => (toonsLoaded = false));
 	});
 
 	const toonId = $derived((page.params.toonId as string | undefined) ?? null);
-	const toonName = (id: string) => {
-		const t = toons.find((x) => x.id === id);
-		return (t && (t.i18n?.[getLocale()]?.name ?? t.i18n?.[toonLanguages(t).source]?.name)) || id;
-	};
+	const toonName = (id: string) => nav.toonName(id);
 	/** the crumbs of the route: Creator / toon / season / chapter (the chapter editor adds group and slice) */
 	const base = $derived.by<Crumb[]>(() => {
 		const out: Crumb[] = [{ href: '/', label: 'Creator' }];
@@ -185,7 +184,7 @@
 					{#if nav.sidebar}
 						{@render nav.sidebar()}
 					{:else}
-						<NavSidebar {toons} toon={toonId} />
+						<NavSidebar toons={nav.toons} toon={toonId} />
 					{/if}
 				</div>
 				<div class="universe">

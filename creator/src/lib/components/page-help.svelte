@@ -25,6 +25,7 @@
 {#snippet visibility()}
 	<h3>{m['creator.help_visibility_title']()}</h3>
 	<p>{m['creator.status_hint']({ file: seasonFile ? fileLabel(seasonFile) : m['creator.season']({ number: 1 }) })} {m['creator.status_follow_chapters']()}</p>
+	<p>{m['creator.status_where']()}</p>
 {/snippet}
 
 <div class="page-help" data-testid="page-help-{page}">
@@ -118,6 +119,7 @@
 		<StyleGuide sections={['characters']} />
 	{:else if page === 'cast'}
 		<p>{m['creator.cast_hint']()}</p>
+		<p>{m['creator.cast_star_hint']()}</p>
 		{@render saving()}
 	{:else if page === 'preview'}
 		<p>{m['creator.preview_hint']()}</p>

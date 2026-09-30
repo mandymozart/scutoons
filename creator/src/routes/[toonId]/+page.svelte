@@ -8,7 +8,7 @@
 	import { newChapter, newSeason, newToon } from '$lib/editor/defaults.ts';
 	import { contentIndex } from '$lib/api.ts';
 	import { sceneDoc, toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
-	import { chapterSyncChanges, seasonStatusOf, setSeasonStatus, STATUSES, syncChapter } from '$lib/editor/visibility.ts';
+	import { chapterSyncChanges, syncChapter } from '$lib/editor/visibility.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
@@ -17,8 +17,13 @@
 	import UpLink from '$lib/components/up-link.svelte';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import FileStatus from '$lib/components/file-status.svelte';
+	import StatusBadges from '$lib/components/status-badges.svelte';
+	import { getCreatorNav } from '$lib/nav.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
+	const nav = getCreatorNav();
+	/** the toon's display name in the UI language (never the id as a title) */
+	const toonName = $derived(nav.toonName(toonId));
 
 	/** Native names for the language picker (codes = the `Language` enum). */
 	const LANGUAGE_NAMES: Record<string, string> = { de: 'Deutsch', en: 'English', es: 'Español', jp: '日本語', kr: '한국어' };
@@ -273,11 +278,6 @@
 		}
 	}
 
-	/** the chapter's status (visibility) in one locale – the same control as in the chapter editor's meta panel */
-	function setStatus(number: number, locale: string, status: string) {
-		if (season) setSeasonStatus(season, locale, number, status as Status);
-	}
-
 	/** Mirrors the season status into the chapter files and saves them as drafts; returns the changed chapter docs. */
 	async function saveFollowers(): Promise<ContentDoc[]> {
 		const changed: ContentDoc[] = [];
@@ -335,7 +335,9 @@
 <div class="creator-page">
 	<main class="browser">
 		<section>
-			<h1 class="toon-title"><ToonAvatar src={avatarSrc} name={toonId} /> {toonId}</h1>
+			<h1 class="toon-title">
+				<a href="/{toonId}/toon" title={m['creator.open_toon_settings']({ name: toonName })} data-testid="toon-title"><ToonAvatar src={avatarSrc} name={toonName} /> <span>{toonName}</span></a>
+			</h1>
 			{#if index && !index.loading && edited}
 				<section class="languages" data-testid="languages">
 					<div class="season-head">
@@ -398,16 +400,16 @@
 			{:else}
 				<div class="season-head">
 					<div>
-						<h2>{m['creator.season']({ number: 1 })}: {season.data[season.primary]?.title}</h2>
+						<h2 class="season-title">
+							<a href="/{toonId}/season/1" title={m['creator.open_season_editor']({ season: m['creator.season']({ number: 1 }) })} data-testid="season-title"
+								>{m['creator.season']({ number: 1 })}: {season.data[season.primary]?.title}</a
+							>
+						</h2>
 						<p class="hint">
-							{#each season.locales as l}{l}: {season.data[l]?.title ?? '–'} {/each}
+							{#each season.locales.filter((l) => l !== season?.primary) as l}{l}: {season.data[l]?.title ?? '–'} {/each}
 						</p>
 					</div>
-					<div class="actions">
-						<FileStatus doc={season} />
-						<a class="btn" href="/{toonId}/season/1" data-testid="edit-season">{m['creator.edit_season']()}</a>
-						{#if toonFile && !toonFile.loading && toonFile.present.length}<a class="btn" href="/{toonId}/toon" data-testid="edit-toon">{m['creator.edit_toon']()}</a>{/if}
-					</div>
+					<FileStatus doc={season} />
 				</div>
 
 				<h3>{m['creator.chapters']()}</h3>
@@ -417,33 +419,30 @@
 							<th>#</th>
 							{#each season.locales as l}<th>{l}{l === season.primary ? ` (${m['creator.source']()})` : ''}</th>{/each}
 							<th>release</th>
-							{#each season.locales as l}<th>{m['creator.status']()} {l}</th>{/each}
-							<th>version</th><th></th>
+							<th>{m['creator.status']()}</th>
+							<th>version</th>
 						</tr>
 					</thead>
 					<tbody>
 						{#each sequence as item (item.number)}
 							{@const doc = chapters[item.number]}
-							<tr>
+							<!-- the whole row opens the chapter (the title link covers it) -->
+							<tr class="chapter-row" data-testid="chapter-row-{item.number}">
 								<td>{item.number}</td>
 								{#each season.locales as l}
-									<td>{doc?.data?.[l]?.title ?? '–'}</td>
-								{/each}
-								<td>{doc?.data?.[doc.primary]?.release ?? ''}</td>
-								{#each season.locales as l}
-									{@const status = seasonStatusOf(season, l, item.number)}
 									<td>
-										{#if status}
-											<select value={status} onchange={(e) => setStatus(item.number, l, e.currentTarget.value)} data-testid="status-{item.number}-{l}">
-												{#each STATUSES as s}<option value={s}>{s}</option>{/each}
-											</select>
+										{#if l === season.primary}
+											<a class="row-link" href="/{toonId}/chapter/{item.number}" title={m['creator.open_chapter_n']({ number: item.number })} data-testid="open-chapter-{item.number}"
+												>{doc?.data?.[l]?.title || fileLabel(entities.chapter(toonId, item.number))}</a
+											>
 										{:else}
-											<span class="hint">–</span>
+											{doc?.data?.[l]?.title ?? '–'}
 										{/if}
 									</td>
 								{/each}
+								<td>{doc?.data?.[doc.primary]?.release ?? ''}</td>
+								<td><StatusBadges {season} number={item.number} /></td>
 								<td>{#if doc}<FileStatus {doc} compact />{/if}</td>
-								<td><a class="btn" href="/{toonId}/chapter/{item.number}" data-testid="open-chapter-{item.number}">{m['creator.open']()}</a></td>
 							</tr>
 						{/each}
 					</tbody>
@@ -457,7 +456,7 @@
 		</section>
 	</main>
 	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season, toon.json) -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={toonId}>
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={toonName}>
 		{#snippet info()}<PageHelp page="toon" seasonFile={season ? fileLabel(season.entity) : undefined} />{/snippet}
 		{#snippet start()}
 			<UpLink />
@@ -476,10 +475,24 @@
 
 <style>
 	.toon-title {
-		display: flex;
+		font-size: 16px;
+	}
+	.toon-title a,
+	.season-title a {
+		color: var(--ink);
+		text-decoration: none;
+	}
+	.toon-title a {
+		display: inline-flex;
 		align-items: center;
 		gap: 0.6rem;
-		font-size: 16px;
+	}
+	.toon-title a:hover span,
+	.season-title a:hover {
+		text-decoration: underline;
+	}
+	.season-title {
+		font-size: 14px;
 	}
 	.browser {
 		padding: 1.5rem 1rem;
@@ -496,12 +509,6 @@
 		gap: 1rem;
 		align-items: flex-start;
 	}
-	.actions {
-		display: flex;
-		gap: 0.5rem;
-		align-items: center;
-		flex-wrap: wrap;
-	}
 	.chapters {
 		width: 100%;
 		border-collapse: collapse;
@@ -516,11 +523,26 @@
 		border-bottom: 2px solid var(--ink);
 		font-size: 11px;
 	}
-	.chapters tr:hover td {
+	.chapter-row {
+		position: relative;
+		cursor: pointer;
+	}
+	.chapter-row:hover td {
 		background: var(--surface-hover);
 	}
-	.chapters select {
-		width: auto;
+	.row-link {
+		color: var(--ink);
+		font-weight: 700;
+		text-decoration: none;
+	}
+	/* the title link covers the row: a click anywhere in it opens the chapter */
+	.row-link::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+	}
+	.chapter-row:hover .row-link {
+		text-decoration: underline;
 	}
 	.error {
 		color: var(--error);

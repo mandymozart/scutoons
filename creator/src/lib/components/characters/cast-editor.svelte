@@ -11,6 +11,7 @@
 		personaIds,
 		pickText,
 		findPersona,
+		toonStar,
 		validateCast,
 		validateCharacters,
 		type LocaleText,
@@ -22,6 +23,7 @@
 		addCharacter,
 		addToSeasonCast,
 		castDoc,
+		castWithStar,
 		castOf,
 		edit,
 		ensureCast,
@@ -66,12 +68,18 @@
 		await Promise.all([cast.load(), registry.load(), moods.load()]);
 		const seasons = castSeasons(castOf(cast));
 		if (seasons.length) season = seasons[0];
+		// the star is in every season (an older cast without it is completed here, saved with the next save)
+		castWithStar(cast, registry, toon, [season]);
 		toons = await loadToons(getLocale());
 	});
+
+	/** the toon's star: always in the cast, cannot be removed */
+	const star = $derived(toonStar(registryOf(registry), toon));
 
 	const file = $derived(castOf(cast));
 	const reg = $derived(registryOf(registry));
 	const index = $derived(characterIndex(reg));
+	// the seasons are created on the toon page; the cast lists the ones it has (and season 1)
 	const seasons = $derived([...new Set([1, ...castSeasons(file), season])].sort((a, b) => a - b));
 	const entries = $derived(file?.seasons?.[String(season)] ?? []);
 
@@ -105,6 +113,7 @@
 		}, `role-${season}-${character}`);
 	}
 	function remove(character: string) {
+		if (character === star) return;
 		change((f) => (f.seasons[String(season)] = list(f).filter((e) => e.character !== character)));
 	}
 	function createInline() {
@@ -131,7 +140,7 @@
 	}
 </script>
 
-<MetaPage {toon} title={m['creator.cast']()} {docs} {validate} help="cast">
+<MetaPage {toon} title={m['creator.cast']()} {docs} {validate} help="cast" beforeSave={() => castWithStar(cast, registry, toon, [season])}>
 	{#snippet actions()}
 		<a class="bar-link" href="/characters?toon={toon}" data-testid="open-characters">{m['creator.characters']()}</a>
 	{/snippet}
@@ -140,7 +149,6 @@
 			{#each seasons as s (s)}
 				<button type="button" class="tab" class:active={s === season} onclick={() => (season = s)} data-testid="cast-season-{s}">{m['creator.season']({ number: s })}</button>
 			{/each}
-			<button type="button" class="ghost" onclick={() => (season = Math.max(...seasons) + 1)} data-testid="cast-add-season">+ {m['creator.cast_add_season']()}</button>
 		</nav>
 		{#if cast.loading || registry.loading}
 			<p class="hint">{m['creator.loading']()}</p>
@@ -180,8 +188,8 @@
 						<span class="avatar" style:background={c?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 						<span class="who">
 							{#if c}
-								<strong>{characterName(c, source)}</strong>
-								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{c.id} · {m['creator.characters_edit']()}</a>
+								<strong>{characterName(c, source)}{#if c.id === star} <span class="star" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</strong>
+								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{m['creator.characters_edit']()}</a>
 								<span class="personas" data-testid="cast-personas-{entry.character}">
 									{#each personaIds(c) as p (p)}
 										<label class="chip" class:on={entry.personas.includes(p)}>
@@ -199,7 +207,11 @@
 						<span class="order">
 							<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}>↑</button>
 							<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === entries.length - 1} aria-label={m['creator.credits_down']()}>↓</button>
-							<button type="button" class="ghost" onclick={() => remove(entry.character)} aria-label={m['creator.credits_remove']()}>✕</button>
+							{#if entry.character === star}
+								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked">✕</button>
+							{:else}
+								<button type="button" class="ghost" onclick={() => remove(entry.character)} aria-label={m['creator.credits_remove']()}>✕</button>
+							{/if}
 						</span>
 					</li>
 				{:else}
@@ -316,7 +328,18 @@
 	}
 	.order {
 		display: flex;
+		align-items: center;
 	}
+	.star {
+		margin-left: 0.4rem;
+		font-size: 10px;
+		font-weight: 400;
+		padding: 0 0.4em;
+		border: 1px solid var(--ink);
+		background: var(--primary-cyan);
+		vertical-align: middle;
+	}
+
 	.bad {
 		color: var(--error);
 	}

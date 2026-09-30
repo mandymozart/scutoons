@@ -1,4 +1,6 @@
 import { getContext, setContext, type Snippet } from 'svelte';
+import { toonLanguages, type ToonIndex } from '@scutoons/content';
+import { getLocale } from '$lib/paraglide/runtime.js';
 
 /**
  * Creator navigation (agents/DESIGN.md "Creator navigation"): ONE top bar with the breadcrumb of the full path
@@ -26,7 +28,16 @@ export class CreatorNav {
 	/** which page registered `extra` / `sidebar` / `fill` (a page leaving must not clear the next page's entries) */
 	owner = 0;
 
+	/** every toon (library, drafts included), loaded by the layout once the creator is signed in */
+	toons = $state<ToonIndex[]>([]);
+
 	readonly crumbs = $derived([...this.base, ...this.extra]);
+
+	/** A toon's display name in the UI locale (else its source language); the id only while the list is loading. */
+	toonName(id: string): string {
+		const t = this.toons.find((x) => x.id === id || x.uri === id);
+		return (t && (t.i18n?.[getLocale()]?.name || t.i18n?.[toonLanguages(t).source]?.name)) || id;
+	}
 	/** where "up" goes: the crumb before the last one */
 	readonly parent = $derived(this.crumbs.length > 1 ? this.crumbs[this.crumbs.length - 2] : null);
 }

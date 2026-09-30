@@ -1,5 +1,7 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { statusWord } from './status-badges.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { chapterSyncChanges, seasonStatusOf, setSeasonStatus, STATUSES, syncChapter } from '$lib/editor/visibility.ts';
 	import PropField from './prop-field.svelte';
@@ -8,9 +10,16 @@
 
 	/**
 	 * Chapter meta. Title/description per locale; the rest shared, with per-locale overrides shown.
-	 * `season`: season 1 – the chapter's status (visibility in the reader) lives there, per locale.
+	 * `season`: season 1 – the chapter's status (visibility in the reader) lives there, per locale; this is the only place
+	 * where it is changed (lists show it read-only). `featuring`: the chapter's featuring field (chapter editor).
 	 */
-	let { doc, season = null, number, images = [] }: { doc: ContentDoc; season?: ContentDoc | null; number: number; images?: string[] } = $props();
+	let {
+		doc,
+		season = null,
+		number,
+		images = [],
+		featuring
+	}: { doc: ContentDoc; season?: ContentDoc | null; number: number; images?: string[]; featuring?: Snippet } = $props();
 
 	const ch = $derived(doc.get(doc.primary, []));
 	const statusLocales = $derived(season && !season.loading ? season.locales : []);
@@ -30,6 +39,8 @@
 	<LocaleText {doc} path={['title']} label="title" multiline={false} />
 	<LocaleText {doc} path={['description']} label="description" rows={3} />
 
+	{@render featuring?.()}
+
 	<fieldset class="status" data-testid="chapter-status">
 		<legend>{m['creator.status']()}</legend>
 		{#if !season || season.loading}
@@ -46,7 +57,7 @@
 							<span class="error">{m['creator.status_not_in_season']()}</span>
 						{:else}
 							<select value={status} onchange={(e) => setSeasonStatus(season, l, number, e.currentTarget.value as (typeof STATUSES)[number])} data-testid="status-{l}">
-								{#each STATUSES as s}<option value={s}>{s}</option>{/each}
+								{#each STATUSES as s}<option value={s}>{statusWord(s)}</option>{/each}
 							</select>
 						{/if}
 					</label>

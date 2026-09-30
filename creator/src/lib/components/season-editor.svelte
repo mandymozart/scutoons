@@ -6,11 +6,12 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { knownImages } from '$lib/editor/images.ts';
-	import { seasonChapterNumbers, seasonStatusOf, setSeasonStatus, STATUSES, syncChapters } from '$lib/editor/visibility.ts';
+	import { seasonChapterNumbers, seasonStatusOf, syncChapters } from '$lib/editor/visibility.ts';
 	import MetaPage from './meta-page.svelte';
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
-	import { usePageNav } from '$lib/nav.svelte.ts';
+	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import StatusBadges, { statusWord } from './status-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 
 	/**
@@ -43,6 +44,7 @@
 
 	// the season's children in the sidebar: its chapters with their status per language
 	usePageNav({ sidebar: chapterNav });
+	const nav = getCreatorNav();
 </script>
 
 {#snippet chapterNav()}
@@ -55,7 +57,7 @@
 					<span class="nav-status">
 						{#each season.locales as l (l)}
 							{@const status = seasonStatusOf(season, l, n)}
-							{#if status}<span class="st st-{status}" title="{l}: {status}">{l}</span>{/if}
+							{#if status}<span class="st st-{status}" title="{l}: {statusWord(status)}">{l}</span>{/if}
 						{/each}
 					</span>
 				</a>
@@ -73,7 +75,7 @@
 	beforeSave={() => syncChapters(chapters, season)}
 >
 	{#if season.present.length === 0}
-		<p>{m['creator.season_missing']()} <a href="/{toon}">{toon}</a></p>
+		<p>{m['creator.season_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
 		<section class="block" data-testid="season-meta">
 			<h2>{m['creator.meta']()}</h2>
@@ -105,27 +107,25 @@
 					<tr>
 						<th>#</th>
 						{#each season.locales as l}<th>{l}{l === season.primary ? ` (${m['creator.source']()})` : ''}</th>{/each}
-						{#each season.locales as l}<th>{m['creator.status']()} {l}</th>{/each}
-						<th></th>
+						<th>{m['creator.status']()}</th>
 					</tr>
 				</thead>
 				<tbody>
 					{#each numbers as n (n)}
 						{@const doc = chapters[n]}
-						<tr>
+						<!-- the whole row opens the chapter; the status is changed on the chapter page (meta) -->
+						<tr class="chapter-row">
 							<td>{n}</td>
-							{#each season.locales as l}<td>{doc?.data?.[l]?.title ?? '–'}</td>{/each}
 							{#each season.locales as l}
-								{@const status = seasonStatusOf(season, l, n)}
 								<td>
-									{#if status}
-										<select value={status} onchange={(e) => setSeasonStatus(season, l, n, e.currentTarget.value as (typeof STATUSES)[number])} data-testid="status-{n}-{l}">
-											{#each STATUSES as s}<option value={s}>{s}</option>{/each}
-										</select>
-									{:else}<span class="hint">–</span>{/if}
+									{#if l === season.primary}
+										<a class="row-link" href="/{toon}/chapter/{n}" title={m['creator.open_chapter_n']({ number: n })} data-testid="open-chapter-{n}"
+											>{doc?.data?.[l]?.title || fileLabel(entities.chapter(toon, n))}</a
+										>
+									{:else}{doc?.data?.[l]?.title ?? '–'}{/if}
 								</td>
 							{/each}
-							<td><a class="btn" href="/{toon}/chapter/{n}">{m['creator.open']()}</a></td>
+							<td><StatusBadges {season} number={n} /></td>
 						</tr>
 					{/each}
 				</tbody>
@@ -185,8 +185,25 @@
 		border-bottom: 2px solid var(--ink);
 		font-size: 11px;
 	}
-	.chapters select {
-		width: auto;
+	.chapter-row {
+		position: relative;
+		cursor: pointer;
+	}
+	.chapter-row:hover td {
+		background: var(--surface-hover);
+	}
+	.row-link {
+		color: var(--ink);
+		font-weight: 700;
+		text-decoration: none;
+	}
+	.row-link::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+	}
+	.chapter-row:hover .row-link {
+		text-decoration: underline;
 	}
 	.nav-head {
 		margin: 0;

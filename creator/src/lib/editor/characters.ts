@@ -12,6 +12,8 @@ import {
 	defaultMoodVocabulary,
 	emptyAssetRequests,
 	emptyCast,
+	ensureStar,
+	toonStar,
 	emptyCharacterRegistry,
 	findPersona,
 	newCharacter,
@@ -133,6 +135,22 @@ export function addToSeasonCast(doc: ContentDoc, season: number, character: stri
 		else entries.push({ character, personas: [persona] });
 	});
 	return entry ? 'persona' : 'character';
+}
+
+/**
+ * The toon's star (the registry character with `own_toon` = the toon) in every season of the cast (owner rule): added in
+ * front where it is missing, as one edit. Runs when the cast is loaded and before it is saved; returns true when it
+ * changed the cast. `seasons`: seasons that must exist (e.g. the one being edited).
+ */
+export function castWithStar(cast: ContentDoc, registry: ContentDoc, toon: string, seasons: number[] = []): boolean {
+	const star = toonStar(registryOf(registry), toon);
+	const file = castOf(cast);
+	if (!star || cast.loading || registry.loading) return false;
+	const probe: ToonCast = JSON.parse(JSON.stringify(file ?? emptyCast()));
+	if (!ensureStar(probe, star, seasons)) return false;
+	ensureCast(cast);
+	edit<ToonCast>(cast, (f) => ensureStar(f, star, seasons));
+	return true;
 }
 
 /** A new asset request (wanted image) for a cell; returns its id. */

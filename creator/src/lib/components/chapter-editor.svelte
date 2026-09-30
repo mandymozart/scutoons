@@ -10,11 +10,12 @@
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
 	import { entities, getAt, deleteAt, sceneNameOfRef, sceneRef, type Path, type ToonLanguages } from '@scutoons/content';
-	import { castEntries, castIndex, characterIndex, characterName, expressionIndex, validateCast } from '@scutoons/content';
+	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, characterName, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
 		castDoc,
 		castOf,
+		castWithStar,
 		loadToons,
 		moodsDoc,
 		moodsOf,
@@ -34,6 +35,7 @@
 	import DialogInspector from './dialog-inspector.svelte';
 	import SliceMedia from './slice-media.svelte';
 	import MetaPanel from './meta-panel.svelte';
+	import FeaturingField from './featuring-field.svelte';
 	import GroupPanel from './group-panel.svelte';
 	import AudioPanel from './audio-panel.svelte';
 	import SliceAudio from './slice-audio.svelte';
@@ -99,6 +101,10 @@
 
 	const chapterData = $derived(chapter.data[chapter.primary]);
 	const groups = $derived<any[]>(chapterData?.groups ?? []);
+	/** the toon's star (always in the cast, first in the suggested featuring) */
+	const star = $derived(toonStar(registryOf(registry), toon));
+	/** the chapter's groups with each scene document (source language) in place of its ref – what the VN plays */
+	const sceneGroups = () => groups.map((g) => (g?.ref?.src ? (refs[g.ref.src]?.data?.[refs[g.ref.src].primary] ?? {}) : g));
 	const allDocs = $derived<ContentDoc[]>([
 		chapter,
 		season,
@@ -282,6 +288,8 @@
 			out.push(...validateLocales(doc.kind, doc.entity, doc.data, doc.primary));
 		}
 		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: entities.cast(toon) }));
+		// suggestions from the VN usage (info): who the scenes use but the featuring / the season cast lacks
+		if (!chapter.loading && hasCast) out.push(...featuringSuggestions(chapterData?.featuring, chapterSceneCharacters(sceneGroups()), castIndex(castOf(cast), SEASON), chapter.entity));
 		const order = { error: 0, warning: 1, info: 2 };
 		return out.sort((a, b) => order[a.level] - order[b.level]);
 	});
@@ -425,6 +433,8 @@
 		conflict = null;
 		// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
 		syncChapter(chapter, season, chapterNumber);
+		// a cast saved from here keeps the toon's star in every season
+		if (castTouched || cast.dirty) castWithStar(cast, registry, toon, [SEASON]);
 		for (const doc of allDocs) {
 			if (!doc.dirty) continue;
 			try {
@@ -668,7 +678,21 @@
 			<!-- Main -->
 			<main class="main">
 				{#if section === 'meta'}
-					<MetaPanel doc={chapter} {season} number={chapterNumber} {images} />
+					<MetaPanel doc={chapter} {season} number={chapterNumber} {images}>
+						{#snippet featuring()}
+							{#if !cast.loading && !registry.loading}
+								<FeaturingField
+									doc={chapter}
+									cast={seasonCast}
+									registry={registryOf(registry)}
+									{star}
+									locale={languages.source}
+									{sceneGroups}
+									addToCast={(id) => ensureCast(id, REGULAR_PERSONA)}
+								/>
+							{/if}
+						{/snippet}
+					</MetaPanel>
 				{:else if section === 'audio'}
 					<AudioPanel doc={chapter} />
 				{:else if section === 'group'}
