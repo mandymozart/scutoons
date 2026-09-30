@@ -21,7 +21,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "neutral",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -97,7 +97,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "neutral",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -143,7 +143,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "happy",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -189,7 +189,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "laughing",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -235,7 +235,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "sad",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -281,7 +281,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "crying",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -327,7 +327,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "angry",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -373,7 +373,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "furious",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -419,7 +419,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "surprised",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -465,7 +465,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "scared",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -511,7 +511,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "disgusted",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -557,7 +557,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "confused",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -603,7 +603,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "thinking",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -649,7 +649,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "smug",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -695,7 +695,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "embarrassed",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -741,7 +741,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "denial",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -787,7 +787,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "bargaining",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -833,7 +833,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "acceptance",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}

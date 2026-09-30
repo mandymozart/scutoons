@@ -20,6 +20,13 @@
 		sortedMoods
 	} from '@scutoons/content';
 
+	/** the view of a joined character is its slot in the reader (DESIGN.md → "VN layout") */
+	const VIEW_SLOTS = [
+		{ value: 'avatar', label: 'Avatar (links)' },
+		{ value: 'portrait', label: 'Portrait (rechts)' },
+		{ value: 'full', label: 'Full (Mitte)' }
+	];
+
 	/**
 	 * Visual-novel events: group scripts (`group.events`) or slice-triggered events (`slice.events`, with `trigger`).
 	 * Structured forms for the common types; raw JSON (per locale) for everything else.
@@ -302,7 +309,7 @@
 							<PropField {doc} path={[...p, 'params', 'characters', ci, 'name']} label="character" type="select" options={charOptions} required />
 						{/if}
 						{#if event.type === 'joinScene'}
-							<PropField {doc} path={[...p, 'params', 'characters', ci, row?.position && !row?.variant ? 'position' : 'variant', ...(row?.position && !row?.variant ? ['variant'] : [])]} label="view" type="select" options={['avatar', 'portrait', 'full']} placeholder="avatar" />
+							<PropField {doc} path={[...p, 'params', 'characters', ci, row?.position && !row?.variant ? 'position' : 'variant', ...(row?.position && !row?.variant ? ['variant'] : [])]} label="Slot / Ansicht" type="select" options={VIEW_SLOTS} placeholder="Avatar (links)" />
 							<PropField {doc} path={[...p, 'params', 'characters', ci, 'mood']} label="mood" type="select" options={moodOptions(row)} placeholder="neutral" />
 							{#if looks.length > 1 || row?.look}
 								<PropField {doc} path={[...p, 'params', 'characters', ci, 'look']} label="look" type="select" options={looks.slice(1).map((l) => ({ value: l.id, label: l.label }))} placeholder={looks[0] ? `${looks[0].label} (default)` : 'default'} />

@@ -3,8 +3,9 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { isKnownMissing, markMissing } from '$lib/utils/missing-images.svelte.ts';
 	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
+	import type { StagePlace } from '$lib/visual-novel/stage.ts';
 
-		const Z_INDEX_MESSAGE_BOX = 100;
+	// above the dialogue box (z 100) while speaking, else below it, the front one on top
 	const Z_INDEX_ACTIVE_CHARACTER = 101;
 	const Z_INDEX_INACTIVE_BASE = 99;
 
@@ -13,13 +14,14 @@
 		character,
 		toonId,
 		isActive = false,
-		stackPosition = 0
+		place
 	}: {
 		charRef: VNCharacterRef;
 		character: Character;
 		toonId: string;
 		isActive: boolean;
-		stackPosition: number;
+		/** the place on the stage (stageLayout: size, right, lift, depth) */
+		place: StagePlace;
 	} = $props();
 
 	let rawPath = '';
@@ -47,37 +49,43 @@
 <div
 	class="character-portrait"
 	class:active={isActive}
-style:right="{stackPosition * 2 + 1.5}rem"
-	style:z-index={isActive ? Z_INDEX_ACTIVE_CHARACTER : Z_INDEX_INACTIVE_BASE - stackPosition}
-	style:filter={isActive ? `drop-shadow(0 0 0.5rem ${legacyCharacterColor(character, charRef.persona)})` : ''}
+	data-depth={place.depth}
+	style:width="{place.size}px"
+	style:height="{place.size}px"
+	style:right="{place.right}px"
+	style:bottom="calc(12rem + {place.lift}px)"
+	style:z-index={isActive ? Z_INDEX_ACTIVE_CHARACTER : Z_INDEX_INACTIVE_BASE - place.depth}
+	style:filter={isActive
+		? `drop-shadow(0 0 0.5rem ${legacyCharacterColor(character, charRef.persona)})`
+		: `brightness(${Math.min(0.9, place.brightness)})`}
 >
 	<img src={imageUrl} onerror={() => markMissing(rawPath)} alt={legacyCharacterLabel(character, charRef.persona)} />
-	{#if charRef.mood}
-		<span class="mood-badge">{charRef.mood}</span>
-	{/if}
 </div>
 
 <style>
 	.character-portrait {
 		position: fixed;
-		bottom: 12rem;
-		max-height: 80vh;
-		max-width: 40vw;
 		display: flex;
 		align-items: flex-end;
-		transition: all 0.3s ease;
-		filter: brightness(0.9);
+		justify-content: center;
+		transition:
+			right 0.3s ease,
+			bottom 0.3s ease,
+			width 0.3s ease,
+			height 0.3s ease,
+			filter 0.3s ease;
+		pointer-events: none;
 	}
 
 	.character-portrait.active {
-		filter: brightness(1);
 		animation: wiggle-portrait 0.5s ease-in-out infinite;
 	}
 
 	.character-portrait img {
-		max-height: 100%;
-		max-width: 100%;
+		width: 100%;
+		height: 100%;
 		object-fit: contain;
+		object-position: bottom;
 		display: block;
 	}
 </style>

@@ -21,7 +21,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "neutral",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}
@@ -82,7 +82,7 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "happy",
-						"variant": "portrait"
+						"variant": "avatar"
 					}
 				]
 			}

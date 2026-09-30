@@ -21,53 +21,6 @@
 						"persona": "regular",
 						"look": "default",
 						"mood": "happy",
-						"variant": "portrait"
-					}
-				]
-			}
-		},
-		{
-			"type": "joinScene",
-			"params": {
-				"characters": [
-					{
-						"character": "yellowmouse",
-						"persona": "regular",
-						"variant": "avatar"
-					},
-					{
-						"character": "toptoy",
-						"persona": "regular",
-						"variant": "avatar"
-					},
-					{
-						"character": "boy",
-						"persona": "regular",
-						"variant": "avatar"
-					},
-					{
-						"character": "crows",
-						"persona": "regular",
-						"variant": "avatar"
-					},
-					{
-						"character": "catpope",
-						"persona": "human",
-						"variant": "avatar"
-					},
-					{
-						"character": "catpope",
-						"persona": "cat",
-						"variant": "avatar"
-					},
-					{
-						"character": "catpope",
-						"persona": "mountaintiger",
-						"variant": "avatar"
-					},
-					{
-						"character": "catpope",
-						"persona": "biker",
 						"variant": "avatar"
 					}
 				]
@@ -83,12 +36,36 @@
 			}
 		},
 		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "yellowmouse",
+						"persona": "regular",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
 			"type": "showMessage",
 			"params": {
 				"character": "yellowmouse",
 				"persona": "regular",
 				"text": "Bye!",
 				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "toptoy",
+						"persona": "regular",
+						"variant": "portrait"
+					}
+				]
 			}
 		},
 		{
@@ -101,12 +78,36 @@
 			}
 		},
 		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "boy",
+						"persona": "regular",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
 			"type": "showMessage",
 			"params": {
 				"character": "boy",
 				"persona": "regular",
 				"text": "Bye!",
 				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "crows",
+						"persona": "regular",
+						"variant": "portrait"
+					}
+				]
 			}
 		},
 		{
@@ -119,12 +120,59 @@
 			}
 		},
 		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "yellowmouse",
+						"persona": "regular"
+					},
+					{
+						"character": "toptoy",
+						"persona": "regular"
+					},
+					{
+						"character": "boy",
+						"persona": "regular"
+					},
+					{
+						"character": "crows",
+						"persona": "regular"
+					}
+				]
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "human",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
 			"type": "showMessage",
 			"params": {
 				"character": "catpope",
 				"persona": "human",
 				"text": "Bye!",
 				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "cat",
+						"variant": "portrait"
+					}
+				]
 			}
 		},
 		{
@@ -137,6 +185,18 @@
 			}
 		},
 		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "mountaintiger",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
 			"type": "showMessage",
 			"params": {
 				"character": "catpope",
@@ -146,12 +206,47 @@
 			}
 		},
 		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "biker",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
 			"type": "showMessage",
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
 				"text": "Bye!",
 				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "human"
+					},
+					{
+						"character": "catpope",
+						"persona": "cat"
+					},
+					{
+						"character": "catpope",
+						"persona": "mountaintiger"
+					},
+					{
+						"character": "catpope",
+						"persona": "biker"
+					}
+				]
 			}
 		},
 		{

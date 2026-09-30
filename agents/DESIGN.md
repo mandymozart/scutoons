@@ -77,6 +77,21 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **DialogueBox** (VN) — fixed bottom panel, `paper` bg, 2px `ink` border, square, `space-1` padding; hidden by
   `translateY(14rem)`, shown over 0.1s; speaker in `label-uppercase`; narrator italic; pulsing `...` when awaiting tap.
 - **ChoiceButton** (VN) — full width, left aligned, 2px `border-muted` → `border-hover` → `ink`, stacked with `space-075`.
+- **VN layout** (2026-09-30, owner) — the author picks each character's slot: the view (`variant`) of its `joinScene`
+  ref *is* the slot, no extra field (creator: "Slot / Ansicht").
+  - `avatar` → the **left slot of the DialogueBox**: while that character speaks, its avatar (4rem, `radius-sm`, 2px
+    `ink` border, persona color behind it, current mood / look / transition) sits left in the box, name + text beside it
+    (grid `auto 1fr`, gap `space-1`). Silent avatar characters are not shown. In the stories: Cat Pope, the one the
+    reader follows.
+  - `portrait` → the **stage on the right**, standing on the box (bottom 12rem). Order front → back = the speaker, then
+    join order. Each step back: 15 % smaller (min 50 %), 0.75rem higher, dimmer, and **further right**; the backmost
+    stands at the right margin (1rem), the others to its left with a 0.375rem gap — the boxes never overlap. Front size
+    = min(55vw, 20rem, 45vh, what fits). Positions animate over 0.3s. (`viewer/src/lib/visual-novel/stage.ts`)
+  - `full` → centred, breaking the 4th wall (unchanged).
+  - The speaker glows: `drop-shadow(0 0 0.5rem <persona color>)` on the portrait or the avatar, plus the wiggle. No mood
+    text anywhere (the art shows the mood).
+  - One click per message, the last one included: the click on the last message also jumps (`jumpTo` with `wait`), and
+    a group's box closes after its last message is clicked away.
 - **Onomatopoeia** — bold uppercase mono, size (rem) / align / rotation per placement, color from `primary-cyan` or the
   acid trio. Variants: `default`, `outline` (8-way white text-shadow), `thorns` (jittered echo + glow), `bubble`
   (white ellipse, 3px currentColor border). Effects: `shiver`, `pulse`, `wobble`.

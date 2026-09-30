@@ -665,7 +665,7 @@ character, persona, look and mood and doubles as the VN test bed.
   pattern (toptoy, yellowmouse). Hidden in production by status: `toons.json` entry `draft` (home + menu list only
   published toons) and every chapter `draft` in the season (production shows "not published"; checked in a
   `vite build` + `vite preview`). A direct `/sandbox` URL still shows the empty toon page in production (like any draft
-  toon); a toon-level gate would be a separate viewer change.
+  toon); a toon-level gate would be a separate viewer change (done: "VN layout, one-click rule, draft toons 404").
 - **Generated, not hand-written**: `shared/content/scripts/make-sandbox.ts` (usage in `shared/content/README.md`)
   → `viewer/static/api/sandbox/{de,en}/{toon,season1,chapterN,chapterN/<persona>-<look>,locations,routes,collectables}.json`
   + `sandbox/_/cast.json`; then `php server/bin/console import-content viewer/static/api --toon=sandbox --update`
@@ -691,3 +691,32 @@ character, persona, look and mood and doubles as the VN test bed.
   Creator (creator-test): home lists "Sandbox · draft", `/sandbox` shows season 1 with chapters 1–5, chapter 1 editor
   0 problems.
 - Local DB backup before the store changes: `server/db/local.sqlite.bak-2026-09-30-sandbox`.
+
+## VN layout, one-click rule, draft toons 404 (2026-09-30)
+
+- **Draft toons are dev-only**: the toon layout (`routes/(toons)/[toonId]/+layout.ts`) throws the normal 404 in a
+  production build when the toon has no *published* `toons.json` entry (the root layout keeps only published ones) or
+  its `toon.json` is `draft` (`isItemPublic`) → `/sandbox`, `/toptoy`, `/yellowmouse` and every page below them
+  (chapters, credits, download) show "Not found"; dev shows them. Checked in `vite preview` of the build: /catpope,
+  chapter 1 (membership blocker as before), credits, download, `?code=` unchanged. The static JSON under
+  `build/api/sandbox/` is still shipped with the viewer build (not linked or routed; excluding it = a build step, open).
+- **VN layout** (DESIGN.md → "VN layout"): owner decision – no `lead` field, the joinScene ref's view is the slot.
+  `avatar` = left slot in the dialogue box while speaking (`vn/message.svelte`), `portrait` = right stage
+  (`vn/characters.svelte` + `lib/visual-novel/stage.ts`), `full` unchanged. Mood badge removed. Creator: the view select
+  is "Slot / Ansicht" with "Avatar (links)" / "Portrait (rechts)" / "Full (Mitte)". Sandbox generator: Cat Pope `avatar`,
+  everyone else `portrait`; the goodbye brings everyone met back in waves of 4 (the 1–4 portrait stage test).
+- **Last click needed twice (fixed)**: generated scenes end with `jumpTo` `wait: true`; the click on the last message
+  resolved the message, then the jump waited for a second click. Now `continueFromWait` marks the message as answered
+  (`message.wait = false`), `jumpTo` (wait) uses `vn.waitForContinue()` (resolves at once when the last message was
+  clicked away or no message is shown; a message shown without wait gets the "…" and one click), the runner stops after
+  a jump / choice navigation, and a group's box closes after its last message is clicked (`endOfEvents`). Same in the
+  slice-trigger `EventProcessor`.
+- **Regression check**: `node scripts/vn/vn-check.mjs [--locale=de|en] [--width=375] [--toon=sandbox] [--shots=dir]`
+  (headless Chrome, own profile, locale cookie; needs the dev stack): per group clicks == waited messages and the jump
+  happens; no portrait overlap, depth k+1 right of k, speaker in front and glowing, avatar slot left in the box, no mood
+  badge. 2026-09-30: sandbox de + en at 375×812 and 500×900: 11/11 groups, 211 steps, 95 with the avatar slot, both
+  transitions, 0 console errors. Stage boxes (x px, 375 wide): 1 = 154–360 (206); 2 = 14–198 | 204–361;
+  3 = 14–145 | 152–264 | 269–361; 4 = 16–122 | 128–218 | 224–298 | 303–361 (500 wide: 4 = 17–162 | 169–292 | 298–399 | 405–484).
+- Chapter 2 scenes 14–19 have no characters (narrator + choices); scene-14 renders and its choice jumps (de + en, with a
+  local membership code). At the time of the check the local CDN had no `catpope/images/{1x,3x}` (media agent's slice
+  work) → chapter-1/2 slices and the sandbox backgrounds were broken images locally; not a VN issue.

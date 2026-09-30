@@ -45,7 +45,11 @@ type Text = Record<Locale, string>;
 const RELEASE = '2026-09-30';
 /** preferred encounter order (owner); characters not listed follow in registry order, then the host's own personas */
 const ORDER = ['yellowmouse', 'toptoy', 'boy', 'crows'];
+/** the view = the slot (DESIGN.md → "VN layout"): Cat Pope is the avatar at the dialogue box, the others stand on the stage */
+const HOST_VIEW = 'avatar';
 const VIEW = 'portrait';
+/** the goodbye brings the characters met onto the stage in waves of up to 4 (the stage layout test: 1, 2, 3, 4 portraits) */
+const STAGE_WAVE = 4;
 /** Backgrounds: existing chapter-1 slices. Slice paths are relative to `<cdn>/<toon>/`, so `../catpope/…` reuses catpope's art. */
 const CATPOPE = '../catpope/';
 const BACKGROUNDS = [12, 20, 27, 33, 41, 48, 56, 63, 70, 77, 85].map((n) => `${CATPOPE}images/3x/de/S1C1 - Slice ${n}.jpg`);
@@ -190,7 +194,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 	const hostMoods = new Set(moodsOf(hostRegular, hostLook, vocabulary));
 	const hostLooks = new Set(looksOf(hostRegular));
 	const HOST_REF = { character: HOST, persona: REGULAR_PERSONA };
-	const hostAs = (mood: string, look = hostLook): Ref => ({ ...HOST_REF, look, mood, variant: VIEW });
+	const hostAs = (mood: string, look = hostLook): Ref => ({ ...HOST_REF, look, mood, variant: HOST_VIEW });
 
 	const others = characters.filter((c) => c.id !== HOST);
 	const ordered = [...ORDER.map((id) => others.find((c) => c.id === id)).filter((c): c is RegistryCharacter => !!c), ...others.filter((c) => !ORDER.includes(c.id))];
@@ -248,7 +252,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 				events.push(join(as(def, neutralOf(def))));
 				events.push(say(who, INTROS[`${c.id}:${plan.persona}`] ?? (plan.persona === REGULAR_PERSONA ? INTROS[c.id] : undefined) ?? LINES.intro(n)));
 				events.push(say(HOST_REF, pick(LINES.reply, lineNo++)));
-				met.push({ ...who, variant: 'avatar' });
+				met.push({ ...who, variant: VIEW });
 			} else {
 				// another look of the same persona: from the default look into this one (a transition image when there is one)
 				const lk = look(persona, plan.look);
@@ -301,9 +305,14 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		});
 
 		if (isLast) {
-			// goodbye: everyone met waves from the side, Cat Pope says bye, back to the toon page
-			const events: Draft[] = [join(hostAs('happy')), join(...met), say(HOST_REF, LINES.goodbyeHost)];
-			for (const m of met) events.push(say({ character: m.character, persona: m.persona }, LINES.goodbyeAll));
+			// goodbye: Cat Pope says bye, everyone met comes back onto the stage (waves of up to 4, one by one) and says bye,
+			// back to the toon page
+			const events: Draft[] = [join(hostAs('happy')), say(HOST_REF, LINES.goodbyeHost)];
+			for (let w = 0; w < met.length; w += STAGE_WAVE) {
+				const wave = met.slice(w, w + STAGE_WAVE);
+				for (const m of wave) events.push(join(m), say({ character: m.character, persona: m.persona }, LINES.goodbyeAll));
+				events.push(leave(...wave));
+			}
 			events.push(say(null, LINES.end), jump(next(labels.length - 1)));
 			scene(number, 'goodbye', background, events);
 		}

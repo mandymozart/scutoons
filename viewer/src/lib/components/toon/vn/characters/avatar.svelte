@@ -4,22 +4,20 @@
 	import { isKnownMissing, markMissing } from '$lib/utils/missing-images.svelte.ts';
 	import { DEFAULT_MOOD, legacyCharacterColor, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
 
-	const Z_INDEX_MESSAGE_BOX = 100;
-	const Z_INDEX_ACTIVE_CHARACTER = 101;
-	const Z_INDEX_INACTIVE_BASE = 99;
-
+	// the left slot of the dialogue box (message.svelte) – placed by its parent
 	let {
 		charRef,
 		character,
 		toonId,
 		isActive = false,
-		stackPosition = 0
+		size = 4
 	}: {
 		charRef: VNCharacterRef;
 		character: Character;
 		toonId: string;
 		isActive: boolean;
-		stackPosition: number;
+		/** rem */
+		size?: number;
 	} = $props();
 
 	let rawPath = '';
@@ -48,29 +46,25 @@
 <div
 	class="character-avatar"
 	class:active={isActive}
-	style:left="{stackPosition * 0.5 + 1.5}rem"
-	style:z-index={isActive ? Z_INDEX_ACTIVE_CHARACTER : Z_INDEX_INACTIVE_BASE - stackPosition}
+	style:width="{size}rem"
+	style:height="{size}rem"
 	style:background-color={legacyCharacterColor(character, charRef.persona)}
+	style:filter={isActive ? `drop-shadow(0 0 0.5rem ${legacyCharacterColor(character, charRef.persona)})` : ''}
 >
 	<img src={imageUrl} onerror={() => markMissing(rawPath)} alt={legacyCharacterLabel(character, charRef.persona)} />
 </div>
 
 <style>
 	.character-avatar {
-		position: fixed;
-		bottom: 13rem;
-		left: 1.5rem;
-		width: 3rem;
-		height: 3rem;
+		flex: none;
 		border-radius: 0.5rem;
 		overflow: hidden;
 		border: 2px solid black;
 		background: white;
-		transition: all 0.3s ease;
+		transition: filter 0.3s ease;
 	}
 
 	.character-avatar.active {
-		border-color: red;
 		animation: wiggle-avatar 0.5s ease-in-out infinite;
 	}
 
