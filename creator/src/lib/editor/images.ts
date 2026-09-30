@@ -1,6 +1,6 @@
-// Known image paths of a toon, collected from every config the editor can reach (for the image path picker).
-import { fetchContent } from '$lib/api.ts';
-import type { Path, Season } from '@scutoons/content';
+// Known image paths of a toon, collected from every entity the editor can reach (for the image path picker).
+import { library } from '$lib/api.ts';
+import type { Path } from '@scutoons/content';
 
 const cache = new Map<string, Promise<string[]>>();
 
@@ -21,17 +21,7 @@ function collect(node: unknown, out: Set<string>) {
 	}
 }
 
-async function json(toon: string, locale: string, path: string) {
-	try {
-		const response = await fetchContent(fetch, toon, locale, path);
-		if (!response.ok || !(response.headers.get('content-type') || '').includes('json')) return null;
-		return await response.json();
-	} catch {
-		return null;
-	}
-}
-
-/** Every image path used in toon, season, chapters and VN scene files (published or static) of all locales. */
+/** Every image path used in the toon's settings, seasons, chapters and VN scenes (newest versions) of all locales. */
 export function knownImages(toon: string, locales: readonly string[], extra: unknown[] = []): Promise<string[]> {
 	const key = `${toon}:${locales.join(',')}`;
 	if (!cache.has(key)) {
@@ -41,18 +31,13 @@ export function knownImages(toon: string, locales: readonly string[], extra: unk
 				const out = new Set<string>();
 				await Promise.all(
 					locales.map(async (locale) => {
-						const [toonFile, season] = await Promise.all([json(toon, locale, 'toon.json'), json(toon, locale, 'season1.json')]);
-						collect(toonFile, out);
-						collect(season, out);
-						const chapters = await Promise.all(
-							((season as Season | null)?.sequence ?? []).map((item) => json(toon, locale, `chapter${item.number}.json`))
-						);
-						const refs: string[] = [];
-						for (const chapter of chapters) {
-							collect(chapter, out);
-							for (const g of chapter?.groups ?? []) if (g?.ref?.src) refs.push(g.ref.src);
-						}
-						(await Promise.all(refs.map((src) => json(toon, locale, src)))).forEach((g) => collect(g, out));
+						const bundle = await library.fetchToon(toon, locale, { draft: true }).catch(() => null);
+						if (!bundle) return;
+						collect(bundle.toon, out);
+						for (const overview of bundle.seasons) collect(overview, out);
+						const numbers = bundle.seasons.flatMap((o) => o.chapters.map((c) => c.number));
+						const chapters = await Promise.all(numbers.map((n) => library.fetchChapter(toon, n, locale, { draft: true }).catch(() => null)));
+						for (const chapter of chapters) collect(chapter, out);
 					})
 				);
 				return [...out];

@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ActionBar, ToonAvatar } from '@scutoons/ui';
-	import { STATIC_API, VIEWER_URL } from '$lib/config.ts';
+	import { VIEWER_URL } from '$lib/config.ts';
+	import { library } from '$lib/api.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { toonLanguages, type ToonIndex } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -16,9 +17,8 @@
 
 	onMount(async () => {
 		try {
-			// all toons incl. drafts (the root layout only keeps published ones)
-			const response = await fetch(`${STATIC_API}/toons.json`);
-			toons = await response.json();
+			// all toons incl. drafts (newest index entries)
+			toons = await library.fetchToons({ draft: true });
 		} catch (e) {
 			error = String(e);
 		}

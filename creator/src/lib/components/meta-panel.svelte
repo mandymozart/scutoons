@@ -8,7 +8,7 @@
 
 	/**
 	 * Chapter meta. Title/description per locale; the rest shared, with per-locale overrides shown.
-	 * `season`: season1.json – the chapter's status (visibility in the reader) lives there, per locale.
+	 * `season`: season 1 – the chapter's status (visibility in the reader) lives there, per locale.
 	 */
 	let { doc, season = null, number, images = [] }: { doc: ContentDoc; season?: ContentDoc | null; number: number; images?: string[] } = $props();
 

@@ -501,7 +501,7 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
   (`lead/support/…`, nothing read it), the `mannequin` field. A local store version of `scutoons/_/groups.json` may
   exist – nothing reads it.
 - Seed / production: `shared/content/seed/` (`shared/content/scripts/migrate-characters.ts`), import
-  `bin/console import-content shared/content/seed --only=characters.json,moods.json,asset-requests.json,cast.json`;
+  `bin/console import-content shared/content/seed --only=characters,moods,asset-requests,cast` (entity kinds, DATA.md);
   production SQL `shared/content/seed/characters-seed.mysql.sql` (idempotent) – **not yet run on production**. Upload
   `cdn/root/characters/` first (`python cdn/sync.py`; `cdn/root` is not in git), or Cat Pope's avatar in the reader
   breaks. (The old chapter 6 VN test bed with the only character refs, `chapter6/scene-200.json`, was removed 2026-09-30;
@@ -673,10 +673,12 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 **3. Database** (phpMyAdmin, same MySQL database)
 - Compare `server/migrations/mysql/*.sql` with the `schema_migrations` table and run the missing files in file-name order
   (`2026-09-29-accounts-inventory`, `2026-09-30-code-owner-guard`, `2026-09-30-content-versions`,
+  `2026-09-30-entity-keys` (after content-versions: the content store by entity key, agents/DATA.md), `2026-09-30-member-characters`,
   `2026-09-30-revoke-events`, `2026-09-30-roles-signup`, `2026-09-30-settings` – runtime settings table for the
   admin's Settings page; without it the API uses the config defaults: scans 1000/h, lookups 120/h), then the seeds if not done: edition numbers
   (`php bin/console backfill-edition-numbers --sql` locally → run the output) and the content store
-  (`php bin/console import-content <viewer/static/api> --sql`). server/docs/DATABASE.md.
+  (`shared/content/seed/content-seed.mysql.sql` = `php bin/console import-content shared/content/seed --sql`, every toon's
+  content incl. characters + credits). server/docs/DATABASE.md, agents/DATA.md §4.
 
 **4. Deploy into the new folders** (nothing points at them yet)
 - Merge `platform` into `main` (the push deploys the touched apps into the new folders).

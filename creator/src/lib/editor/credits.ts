@@ -1,12 +1,9 @@
-// Credits editor: three language-neutral store files edited on one page – the toon's `<toon>/_/credits.json` and the
-// global `scutoons/_/people.json` + `scutoons/_/roles.json` (see @scutoons/content credits.ts). All three are
-// ContentDocs with the single locale `_`, saved / published together through the page's ActionBar.
+// Credits editor: three language-neutral entities edited on one page – the toon's `credits:<toon>` and the global
+// `people` + `roles` (see @scutoons/content credits.ts). All three are ContentDocs with the single locale `_`, saved /
+// published together through the page's ActionBar.
 import {
-	CREDITS_FILE,
-	CREDITS_SCOPE,
+	entities,
 	NEUTRAL_LOCALE,
-	PEOPLE_FILE,
-	ROLES_FILE,
 	slugId,
 	uniqueId,
 	type CreditEntry,
@@ -19,18 +16,16 @@ import {
 	type RoleVocabulary,
 	type ToonCredits
 } from '@scutoons/content';
-import { ContentDoc } from './doc.svelte.ts';
+import type { ContentDoc } from './doc.svelte.ts';
+import { neutralDoc } from './languages.ts';
 
 const N = NEUTRAL_LOCALE;
 
-/** A language-neutral file; no static fallback (the old per-locale credits.json is migrated, not edited). */
-const neutralDoc = (toon: string, path: string) => new ContentDoc(toon, path, [N], N, async () => null);
-
 export function creditsDocs(toon: string) {
 	return {
-		credits: neutralDoc(toon, CREDITS_FILE),
-		people: neutralDoc(CREDITS_SCOPE, PEOPLE_FILE),
-		roles: neutralDoc(CREDITS_SCOPE, ROLES_FILE)
+		credits: neutralDoc(entities.credits(toon)),
+		people: neutralDoc(entities.people),
+		roles: neutralDoc(entities.roles)
 	};
 }
 

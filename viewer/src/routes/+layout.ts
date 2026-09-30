@@ -4,18 +4,15 @@ export const ssr = false;
 
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.ts';
-import { API_BASE } from '$lib/config.ts';
-import type { ToonIndex } from '@scutoons/content';
 import { Status } from '@scutoons/content';
+import { fetchToons } from '$lib/api.ts';
 
-export const load: LayoutLoad = async ({ fetch }) => {
+/** The published toons (home page, menu) from the API's library (agents/DATA.md). */
+export const load: LayoutLoad = async () => {
 	try {
-		const response = await fetch(`${API_BASE}/toons.json`);
-		let toons = await response.json();
-		toons = toons.filter((toon: ToonIndex) => toon.status === Status.PUBLISHED);
-
-		if (toons) return { toons };
+		const toons = (await fetchToons()).filter((toon) => toon.status === Status.PUBLISHED);
+		return { toons };
 	} catch (e) {
-		error(404, 'Not found');
+		error(503, 'Not available');
 	}
 };

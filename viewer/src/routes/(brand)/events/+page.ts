@@ -1,10 +1,12 @@
 import { error } from '@sveltejs/kit';
 import type { PageLoad } from './$types.ts';
-import type { Event } from '@scutoons/content';
+import { fetchEvents } from '$lib/api.ts';
 
-export const load: PageLoad = async ({ fetch }) => {
-	const response = await fetch(`/api/events.json`);
-	const events: Event[] = await response.json();
-	if (events) return { events };
-	error(404, 'Not found');
+/** Events from the API's library (agents/DATA.md). */
+export const load: PageLoad = async () => {
+	try {
+		return { events: await fetchEvents() };
+	} catch {
+		error(404, 'Not found');
+	}
 };

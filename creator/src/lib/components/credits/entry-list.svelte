@@ -24,7 +24,7 @@
 		credits: ContentDoc;
 		people: ContentDoc;
 		roles: ContentDoc;
-		/** path of the list inside credits.json, e.g. ['sections', 0, 'lead'] */
+		/** path of the list inside the credits, e.g. ['sections', 0, 'lead'] */
 		path: Path;
 		languages: string[];
 		testid: string;

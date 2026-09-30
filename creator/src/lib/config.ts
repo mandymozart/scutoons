@@ -17,9 +17,3 @@ export const CDN_SERVER: string = trim(
 export const VIEWER_URL: string = trim(
 	import.meta.env.VITE_WWW_URL || import.meta.env.VITE_VIEWER_URL || (import.meta.env.PROD ? 'https://scutoons.com' : 'http://localhost:8000')
 );
-
-/**
- * Static config files shipped with the viewer (`toons.json`, `characters.json`, fallback of the content store):
- * `VITE_STATIC_API`, default `<VIEWER_URL>/api`. Cross-origin: the viewer host must allow the creator origin (CORS).
- */
-export const STATIC_API: string = trim(import.meta.env.VITE_STATIC_API || `${VIEWER_URL}/api`);

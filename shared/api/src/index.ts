@@ -10,15 +10,13 @@ export {
 	type ProgressResult
 } from './qr.ts';
 export {
-	CONTENT_PATH,
 	createContentApi,
 	type ContentApi,
-	type ContentApiOptions,
-	type ContentOptions,
 	type ContentVersion,
 	type WrappedContent,
-	type ContentIndexFile
+	type ContentIndexEntity
 } from './content.ts';
+export { createLibraryApi, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
 export { createProductsApi, type ProductsApi } from './products.ts';
 export {
 	EVENT_NAMES,
@@ -28,7 +26,7 @@ export {
 	type AdminCatalog,
 	type AdminCodeDetail,
 	type AdminCodeRow,
-	type AdminContentFile,
+	type AdminContentEntity,
 	type AdminContentIndex,
 	type AdminEventRow,
 	type AdminKeys,

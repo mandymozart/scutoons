@@ -4,13 +4,12 @@
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
-	import { fileLabel, fileLabels } from '$lib/labels.ts';
+	import { fileLabel, fileLabels, sceneLabel } from '$lib/labels.ts';
 	import UpLink from './up-link.svelte';
-	import { STATIC_API } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
-	import { toonDoc } from '$lib/editor/languages.ts';
-	import { getAt, deleteAt, type Path, type ToonLanguages } from '@scutoons/content';
+	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
+	import { entities, getAt, deleteAt, sceneNameOfRef, sceneRef, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, characterIndex, characterName, expressionIndex, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
@@ -51,16 +50,14 @@
 	// ── Documents ───────────────────────────────────────────────────────────────────────────────────────
 	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
 	// svelte-ignore state_referenced_locally
-	const chapter = toonDoc(toon, `chapter${chapterNumber}.json`, languages);
+	const chapter = toonDoc(entities.chapter(toon, chapterNumber), languages);
 	// the season holds the chapter's status (visibility, per locale): edited in the meta panel, saved with the chapter
 	// svelte-ignore state_referenced_locally
-	const season = toonDoc(toon, 'season1.json', languages);
+	const season = toonDoc(entities.season(toon, 1), languages);
 	let refs = $state<Record<string, ContentDoc>>({});
-	/** the old static characters.json (fallback while the toon has no cast in the store) */
-	let legacyCharacters = $state<{ name: string; label?: string }[]>([]);
 	// the season's cast + the character registry: the VN character fields pick from every character (the season's cast
 	// first); picking someone who isn't cast adds them to the season's cast (saved / published with the chapter)
-	/** the chapter's season (the editor edits season1.json) */
+	/** the chapter's season (the editor edits season 1) */
 	const SEASON = 1;
 	// svelte-ignore state_referenced_locally
 	const cast = castDoc(toon);
@@ -73,9 +70,7 @@
 	const hasCast = $derived(!!castOf(cast) && !!registryOf(registry));
 	const seasonCast = $derived(castEntries(castOf(cast), SEASON));
 	const characters = $derived<{ name: string; label?: string }[]>(
-		hasCast
-			? seasonCast.map((e) => ({ name: e.character, label: characterName(registryIndex.get(e.character), languages.source) || e.character }))
-			: legacyCharacters
+		hasCast ? seasonCast.map((e) => ({ name: e.character, label: characterName(registryIndex.get(e.character), languages.source) || e.character })) : []
 	);
 	function ensureCast(character: string, persona: string) {
 		const changed = addToSeasonCast(cast, SEASON, character, persona);
@@ -115,7 +110,7 @@
 
 	async function ensureRef(src: string) {
 		if (refs[src]) return refs[src];
-		const doc = toonDoc(toon, src, languages);
+		const doc = sceneDoc(toon, src, languages);
 		refs[src] = doc;
 		await doc.load();
 		return doc;
@@ -125,17 +120,6 @@
 		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load()]);
 		loadToons(getLocale()).then((list) => (toonInfos = list));
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
-		// characters.json of the source language (else the first language that has one)
-		for (const locale of chapter.locales) {
-			try {
-				const response = await fetch(`${STATIC_API}/${toon}/${locale}/characters.json`);
-				if (!response.ok || !(response.headers.get('content-type') || '').includes('json')) continue;
-				legacyCharacters = await response.json();
-				break;
-			} catch {
-				/* optional */
-			}
-		}
 		refreshImages();
 	});
 
@@ -206,8 +190,8 @@
 	// the page re-creates this component per chapter ({#key})
 	// svelte-ignore state_referenced_locally
 	const chapterHref = `/${toon}/chapter/${chapterNumber}`;
-	const groupKey = (g: any, i: number) => g?.label ?? g?.ref?.src?.split('/').pop()?.replace(/\.json$/, '') ?? String(i + 1);
-	const groupName = (g: any, i: number) => (g?.ref?.src ? fileLabel(g.ref.src) : (g?.label ?? `${m['creator.groups']()} ${i + 1}`));
+	const groupKey = (g: any, i: number) => g?.label ?? (g?.ref?.src ? sceneNameOfRef(g.ref.src) : null) ?? String(i + 1);
+	const groupName = (g: any, i: number) => (g?.ref?.src ? sceneLabel(toon, g.ref.src) : (g?.label ?? `${m['creator.groups']()} ${i + 1}`));
 	function hrefFor(next: { section: Section; group?: number; slice?: number }) {
 		const params = new URLSearchParams();
 		if (next.section === 'audio') params.set('section', 'audio');
@@ -280,12 +264,12 @@
 			if (doc.loading) continue;
 			for (const l of doc.locales) {
 				if (doc.source[l] === 'missing' && doc.data[l] == null) {
-					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.path, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
+					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.entity, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
 					continue;
 				}
 				out.push(
 					...validateFile(doc.kind, doc.data[l], l, {
-						file: doc.path,
+						file: doc.entity,
 						audio: chapterData?.audio,
 						characters: !hasCast && names.length ? names : undefined,
 						cast: hasCast ? castIndex(castOf(cast), SEASON) : undefined,
@@ -295,9 +279,9 @@
 					})
 				);
 			}
-			out.push(...validateLocales(doc.kind, doc.path, doc.data, doc.primary));
+			out.push(...validateLocales(doc.kind, doc.entity, doc.data, doc.primary));
 		}
-		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: `${toon}/_/cast.json` }));
+		if (castTouched && castOf(cast)) out.push(...validateCast(castOf(cast), { registry: registryOf(registry), languages: languages.languages, file: entities.cast(toon) }));
 		const order = { error: 0, warning: 1, info: 2 };
 		return out.sort((a, b) => order[a.level] - order[b.level]);
 	});
@@ -306,11 +290,11 @@
 
 	function gotoProblem(p: Problem) {
 		let path = p.path;
-		if (p.file === season.path) {
+		if (p.file === season.entity) {
 			section = 'meta';
 			return;
 		}
-		if (p.file !== chapter.path) {
+		if (p.file !== chapter.entity) {
 			const gi = groups.findIndex((g) => g?.ref?.src === p.file);
 			if (gi < 0) return;
 			selectGroup(gi);
@@ -393,9 +377,9 @@
 				notice = 'A scene name uses a-z, 0-9, - and _ (e.g. scene-21).';
 				return;
 			}
-			const src = `chapter${chapterNumber}/${name}.json`;
-			const doc = toonDoc(toon, src, languages);
-			doc.create(() => newGroup(src.split('/').pop()!.replace(/\.json$/, '')));
+			const src = sceneRef(chapterNumber, name);
+			const doc = sceneDoc(toon, src, languages);
+			doc.create(() => newGroup(sceneNameOfRef(src) ?? name));
 			refs[src] = doc;
 			chapter.structural((file) => file.groups.push({ ref: { src } }));
 		} else {
@@ -447,7 +431,7 @@
 				await doc.save(saveMessage.trim() || undefined, force);
 			} catch (e) {
 				if (e instanceof SaveConflict) conflict = { doc, error: e };
-				else notice = `${fileLabel(doc.path)}: ${e instanceof Error ? e.message : String(e)}`;
+				else notice = `${fileLabel(doc.entity)}: ${e instanceof Error ? e.message : String(e)}`;
 				return false;
 			}
 		}
@@ -460,7 +444,7 @@
 	async function publishAll() {
 		syncChapter(chapter, season, chapterNumber);
 		const docs = allDocs.filter((d) => d.dirty || d.unpublished.length || d.stored.length);
-		const files = fileLabels(docs.map((d) => d.path));
+		const files = fileLabels(docs.map((d) => d.entity));
 		if (errorCount && !confirm(`${errorCount} errors in the problem list. Publish anyway?`)) return;
 		if (!confirm(m['creator.publish_confirm']({ file: files, locales: chapter.locales.join(', ') }))) return;
 		if (!(await saveAll())) return;
@@ -601,9 +585,9 @@
 		moreLabel={m['creator.more']()}
 		{...infoBar()}
 		bind:infoOpen
-		infoTitle={fileLabel(chapter.path)}
+		infoTitle={fileLabel(chapter.entity)}
 	>
-		{#snippet info()}<PageHelp page="chapter" {section} seasonFile={season.path} />{/snippet}
+		{#snippet info()}<PageHelp page="chapter" {section} seasonFile={season.entity} />{/snippet}
 		{#snippet start()}
 			<UpLink />
 			{#if section === 'slice' && activeGroup?.slices?.length}
@@ -643,22 +627,22 @@
 		<p class="pad error">{chapter.error}</p>
 	{:else}
 		<div class="files" data-testid="file-status">
-			<span class="hint">{fileLabel(chapter.path)}</span><FileStatus doc={chapter} />
-			{#if refSrc && refs[refSrc]}<span class="hint">{fileLabel(refSrc)}</span><FileStatus doc={refs[refSrc]} />{/if}
-			{#if !season.loading && (season.dirty || season.unpublished.length)}<span class="hint">{fileLabel(season.path)}</span><FileStatus doc={season} />{/if}
+			<span class="hint">{fileLabel(chapter.entity)}</span><FileStatus doc={chapter} />
+			{#if refSrc && refs[refSrc]}<span class="hint">{sceneLabel(toon, refSrc)}</span><FileStatus doc={refs[refSrc]} />{/if}
+			{#if !season.loading && (season.dirty || season.unpublished.length)}<span class="hint">{fileLabel(season.entity)}</span><FileStatus doc={season} />{/if}
 		</div>
 		{#if anyDirty && !chapter.saving}<div class="bar dirty-bar">{m['creator.unsaved']()}{#if activeDoc?.dirty && section === 'slice'} · {activeDoc.dirtyLocales.join(', ')}{/if}</div>{/if}
-		{#each recoverables as d (d.path)}
+		{#each recoverables as d (d.entity)}
 			<div class="bar warn-bar">
-				{fileLabel(d.path)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
+				{fileLabel(d.entity)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
 				{#if d.recoverableIsStale}<b>{m['creator.recover_stale']()}</b>{/if}
 				<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
 				<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
 			</div>
 		{/each}
-		{#each missingLocales as { doc, locale } (doc.path + locale)}
+		{#each missingLocales as { doc, locale } (doc.entity + locale)}
 			<div class="bar warn-bar">
-				{fileLabel(doc.path)}: {locale} {m['creator.missing']()}
+				{fileLabel(doc.entity)}: {locale} {m['creator.missing']()}
 				<button class="secondary" onclick={() => doc.createLocale(locale, (f) => (f && doc.kind === 'chapter' ? { ...f, language: locale } : f))}>
 					{m['creator.create_locale']({ locale, source: doc.primary })}
 				</button>
@@ -666,7 +650,7 @@
 		{/each}
 		{#if conflict}
 			<div class="bar error-bar">
-				{m['creator.conflict']({ locale: conflict.error.locale, file: fileLabel(conflict.doc.path) })}
+				{m['creator.conflict']({ locale: conflict.error.locale, file: fileLabel(conflict.doc.entity) })}
 				<button class="secondary" onclick={() => resolveConflict('reload')}>{m['creator.reload']()}</button>
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
@@ -689,7 +673,7 @@
 					<AudioPanel doc={chapter} />
 				{:else if section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
-						<GroupPanel doc={activeDoc} {groupPath} {refSrc} />
+						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
 							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} background={activeGroup?.slices?.[0]?.image ?? ''} />

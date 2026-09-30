@@ -1,17 +1,12 @@
-// Characters editor: the platform-wide files of the characters model (see @scutoons/content characters.ts) –
-// `scutoons/_/{characters,moods,asset-requests}.json` – and the per-toon `<toon>/_/cast.json`, as ContentDocs with
+// Characters editor: the platform-wide entities of the characters model (see @scutoons/content characters.ts) –
+// `characters`, `moods`, `asset-requests` – and the per-toon `cast:<toon>`, as ContentDocs with
 // the single locale `_`, saved / published through the ActionBar of the page that edits them (Characters page, Cast page,
 // chapter editor when the picker adds a character to the season's cast).
 import { SvelteSet } from 'svelte/reactivity';
 import {
-	ASSET_REQUESTS_FILE,
 	AUTHORED_VIEW,
-	CAST_FILE,
-	CHARACTERS_FILE,
-	CREDITS_SCOPE,
-	MOODS_FILE,
+	entities,
 	NEUTRAL_LOCALE,
-	PEOPLE_FILE,
 	REGULAR_PERSONA,
 	conventionImagePath,
 	defaultMoodVocabulary,
@@ -36,21 +31,18 @@ import {
 	type ToonIndex,
 	type ToonLanguages
 } from '@scutoons/content';
-import { STATIC_API } from '$lib/config.ts';
+import { library } from '$lib/api.ts';
 import { asset } from '$lib/utils/cdn.ts';
-import { ContentDoc } from './doc.svelte.ts';
-import { loadToonEntry } from './languages.ts';
+import type { ContentDoc } from './doc.svelte.ts';
+import { loadToonEntry, neutralDoc } from './languages.ts';
 
 const N = NEUTRAL_LOCALE;
 
-/** Language-neutral store file without a static fallback. */
-const neutralDoc = (toon: string, path: string) => new ContentDoc(toon, path, [N], N, async () => null);
-
-export const registryDoc = () => neutralDoc(CREDITS_SCOPE, CHARACTERS_FILE);
-export const castDoc = (toon: string) => neutralDoc(toon, CAST_FILE);
-export const peopleDoc = () => neutralDoc(CREDITS_SCOPE, PEOPLE_FILE);
-export const moodsDoc = () => neutralDoc(CREDITS_SCOPE, MOODS_FILE);
-export const requestsDoc = () => neutralDoc(CREDITS_SCOPE, ASSET_REQUESTS_FILE);
+export const registryDoc = () => neutralDoc(entities.characters);
+export const castDoc = (toon: string) => neutralDoc(entities.cast(toon));
+export const peopleDoc = () => neutralDoc(entities.people);
+export const moodsDoc = () => neutralDoc(entities.moods);
+export const requestsDoc = () => neutralDoc(entities.assetRequests);
 
 export const registryOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as CharacterRegistry | null;
 export const castOf = (doc: ContentDoc | null | undefined) => (doc?.data[N] ?? null) as ToonCast | null;
@@ -176,12 +168,11 @@ export interface ToonInfo {
 	languages: ToonLanguages;
 }
 
-/** Every toon (viewer's toons.json) with its languages (newest index entry) – for filters and language lists. */
+/** Every toon (newest index entries, drafts included) with its languages – for filters and language lists. */
 export async function loadToons(locale: string): Promise<ToonInfo[]> {
 	let list: ToonIndex[] = [];
 	try {
-		const response = await fetch(`${STATIC_API}/toons.json`, { cache: 'no-cache' });
-		if (response.ok) list = await response.json();
+		list = await library.fetchToons({ draft: true });
 	} catch {
 		/* none */
 	}

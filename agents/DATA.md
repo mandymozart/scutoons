@@ -1,200 +1,175 @@
 # DATA — everything from the API, stored in the database (widened P4)
 
-Written 2026-09-30 (branch `platform`). Companion docs: [PLATFORM.md](PLATFORM.md) ("Data", domain architecture, CDN),
-[PERFORMANCE.md](PERFORMANCE.md) (P4), [ITEMS.md](ITEMS.md) (API contract), [PLAN.md](PLAN.md) (rules, release).
+Written 2026-09-30 (branch `platform`), Phase C done the same day. Companion docs: [PLATFORM.md](PLATFORM.md) ("Data",
+domain architecture, CDN), [PERFORMANCE.md](PERFORMANCE.md) (P4), [ITEMS.md](ITEMS.md) (API contract), [PLAN.md](PLAN.md)
+(rules, release).
 
-**Owner decision (2026-09-30):** "Switch the entire loading process to not file-based. It has to be served via the API
+**Owner decisions (2026-09-30):** "Switch the entire loading process to not file-based. It has to be served via the API
 and stored in the database. [...] a real service layer that can cache and get chapters or other entities on demand
-rather than everything at once. For a PWA we will need smart pre-loading or a save-to-device concept."
+rather than everything at once. For a PWA we will need smart pre-loading or a save-to-device concept." Then: clean
+entity keys in the database (not path-like keys); every **toon-related** text and translation lives in the database;
+UI translations stay in the apps' message files; the catalog (items, editions, products) follows later (B2).
 
-## 1. Today
+## 1. Which texts and data live where
 
-| Data | Where it is read from today |
-|---|---|
-| toon index (`toons.json`) | viewer static only (creator: static + store draft `<toon>/_/index.json`) |
-| toon, season, chapter, VN scene files | content store (published) → static fallback, **one file per request** (layout: season + every chapter file) |
-| map (`locations.json`, `routes.json`) | viewer static only, per locale |
-| collectables (`collectables.json`) | **removed** (owner 2026-09-30): merged into items (`config/items.json`); VN variables stay story logic, the VN → item grant bridge does the collecting |
-| characters | store (`scutoons/_/characters.json` + `<toon>/_/cast.json`) → legacy static `<toon>/<l>/characters.json` |
-| credits | store (`<toon>/_/credits.json` + `scutoons/_/{people,roles}.json`) → legacy static `<toon>/<l>/credits.json` |
-| events | viewer static `events.json` |
-| products, featured products | server `config/*.json` via `/api/products/` |
-| items, editions, permissions, QR toons | server `config/*.json` (`/api/items/`, `/api/editions/`, `/api/toons/`; permissions never served) |
-| codes, users, inventory, progress, avatar, settings | relational tables (unchanged by this plan) |
+| What | Where | Edited in |
+|---|---|---|
+| toon list entry (status, names per language, languages) | DB entity `toon:<toon>` | creator (toon page) |
+| toon settings (title, description, covers, map, downloads) per locale | DB `toon-settings:<toon>:<l>` | creator |
+| season (title, plot, sequence + status per locale) | DB `season:<toon>:<n>:<l>` | creator |
+| chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>:<l>` | creator |
+| VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>:<l>` | creator |
+| map texts (locations, routes) | DB `locations:<toon>:<l>`, `routes:<toon>:<l>` | import (no editor yet) |
+| cast per season | DB `cast:<toon>` | creator (cast page) |
+| characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts) | creator (characters) |
+| credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
+| events | DB `events` (toon-bound entries) | import (no editor yet) |
+| items, recipes, editions, products, featured products (catalog texts) | server `config/*.json` via `/api/items/`, `/api/editions/`, `/api/products/` | file → **B2** (after this) |
+| permissions map | server `config/permissions.json`, never served | file (private) |
+| UI chrome (buttons, labels, errors) | each app's paraglide `messages/{de,en}.json` | code |
+| codes, users, inventory, progress, avatar, settings | relational tables | admin / API |
+| collectables | **removed** (merged into items; VN variables stay story logic, the VN → item grant bridge collects) | – |
 
-## 2. Storage decision: documents, keyed by the path they already have
+No app ships content files any more: `viewer/static/api/**` is gone, and so is every static fallback.
 
-**One store: `content_versions`** (versions, draft/published, history, restore – exists, works, seeded on production on
-Oct 3). Every entity is a JSON document in the configuration format (`@scutoons/content` schemas = the import/export
-format, unchanged). No new tables, no schema change:
+## 2. Storage: one versioned document table, clean entity keys
 
-- **The key stays `(scope, locale, path)`** – `scope` = toon id or the platform pseudo-toon `scutoons`, `locale` = `de`/`en`
-  or `_` (language-neutral), `path` = the file name of the export format. The path already *is* the entity key
-  (`chapter2.json` = chapter 2, `chapter2/scene-14.json` = one of its scenes); turning it into another key would add a
-  mapping to the import/export and the creator's write path without a query that needs it. The server maps entity ↔
-  path in one class (`Domain\Library\Keys`).
-- **No relational tables for content**: every read is "one entity (+ its children) of one toon in one locale". The
-  season overview needs the list fields of a season's chapters – composed on read and cached (§4), no projection table.
+**Table `entity_versions`** (`id, entity_key, kind, toon NULL, locale NULL, json, author, created_at, status, message`):
+every save is a new version, at most one `published` per key, the newest is the working copy (draft/publish/history/
+restore). Documents are in the configuration format of `@scutoons/content` (unchanged). No relational content tables:
+every read is "one entity (+ its children) of one toon in one locale"; compositions are cached (§3).
 
-| Entity | Document (scope/locale/path) | Editor | New in the store |
-|---|---|---|---|
-| toon index entry | `<toon>/_/index.json` (`ToonIndex`) | creator toon page | seeded from `toons.json` (split per toon) |
-| toon | `<toon>/<l>/toon.json` | creator | – |
-| season N | `<toon>/<l>/season<N>.json` | creator | – |
-| chapter N | `<toon>/<l>/chapter<N>.json` | creator | – |
-| VN scene | `<toon>/<l>/chapter<N>/<name>.json` | creator | – |
-| map | `<toon>/<l>/locations.json`, `routes.json` | none yet (import / raw JSON) | **yes** |
-| cast | `<toon>/_/cast.json` | creator | – |
-| characters, moods, asset requests | `scutoons/_/{characters,moods,asset-requests}.json` | creator | – |
-| credits, people, roles | `<toon>/_/credits.json`, `scutoons/_/{people,roles}.json` | creator | – |
-| events | `scutoons/_/events.json` | none yet | **yes** |
-| products, featured | `scutoons/_/{products,featured-products}.json` | none yet | after the release (step B2) |
-| items, editions | `scutoons/_/{items,editions}.json` | admin later | after the release (step B2) |
-| permissions | `scutoons/_/permissions.json` – **private** (never served by any public GET) | admin later | after the release (step B2) |
-| legacy `<toon>/<l>/characters.json`, `<toon>/<l>/credits.json` | not imported – replaced by the registry / credits store; deleted with the static files | – | – |
+**Entity keys** (`EntityKey` in PHP, `parseEntityKey` / `entities` in `@scutoons/content`):
 
-The server's `config/*.json` files (items, editions, products, …) stay as a fallback until B2 moves them; the QR toons
-list (`/api/toons/`, `config/toons.json`) is later derived from the index documents (same bytes, compare test first).
+```
+toon:<toon>                              index entry            toon-settings:<toon>:<l>      settings
+season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>
+locations:<toon>:<l>   routes:<toon>:<l>  cast:<toon>   credits:<toon>
+characters   moods   asset-requests   people   roles   events          (platform-wide)
+```
+Segments are `:`-separated; the locale is the last segment of localized kinds; an *entity* is a key without its
+locale (`chapter:catpope:2`), which is what the creator edits across languages. `kind`, `toon`, `locale` are stored as
+columns for filtering (NULL = platform-wide / language-neutral). A chapter group's scene reference stays in the content
+format (`ref.src: "chapter2/scene-14.json"`) and resolves to `scene:<toon>:2:scene-14` (`sceneEntityOfRef`,
+`EntityKey::sceneOf`). A chapter may later carry an optional `featuring` array (owner) – the chapter endpoint passes any
+chapter field through, so that is no breaking change.
 
-## 3. API service layer (`/api/library/…`, public GETs)
+**Migration `2026-09-30-entity-keys`** (MySQL + SQLite, idempotent, dated after `content-versions`): creates
+`entity_versions` and copies every `content_versions` row with the **same id** (history, "v71" labels, drafts stay) and
+a key computed from its old path. `content_versions` is left untouched (rollback) and unused.
 
-Base as everywhere (`VITE_API_URL`: `…/api` on api.scutoons.com, qr during the transition). `/api/toons/` is taken by the
-QR toons list (contract), so reading entities lives under `/api/library/`. The old `/api/content/*` endpoints stay
-unchanged (the creator's write path and the current viewer).
+**Interchange format** (JSON files, the only place with file names): `shared/content/seed/` = `toons.json`,
+`events.json`, `<toon>/<l>/{toon,season<N>,chapter<N>,locations,routes}.json`, `<toon>/<l>/chapter<N>/<scene>.json`,
+`<toon>/_/{cast,credits}.json`, `scutoons/_/{characters,moods,asset-requests,people,roles}.json`. The mapping lives only in
+the server's `Console\ContentFiles` (`import-content`, `export-content`). Legacy inputs of the one-time migrations
+(per-locale `characters.json`, `credits.json`) are in `shared/content/legacy/`.
 
-| GET | Answer (types from `@scutoons/content`) |
-|---|---|
-| `/library/toons` | `ToonIndex[]` – published entries (`status` published) |
-| `/library/toons/{toon}?locale=` | `{ entry: ToonIndex, toon: Toon, seasons: SeasonOverview[], locations, routes }` – everything the toon layout needs in **one** request |
-| `/library/toons/{toon}/seasons/{n}?locale=` | `SeasonOverview = { number, season: Season, chapters: ChapterSummary[] }`; `ChapterSummary` = the chapter file without `groups`/`audio`/`status` + `type`, `number`, `status` (from the season) |
-| `/library/toons/{toon}/chapters/{n}?locale=` | `Chapter` with every `ref` group replaced by its scene file (P4: one request per chapter; a missing scene keeps its `ref` group, header `X-Content-Missing`) |
-| `/library/toons/{toon}/cast[?chapter=N]` | `{ registry: CharacterRegistry, cast: ToonCast }` – the registry reduced to the toon's cast (or to the characters a chapter's events reference); the client resolves with `resolveCast` (shared code, no PHP port) |
-| `/library/toons/{toon}/credits` | `{ credits: ToonCredits, people: PeopleRegistry (referenced people only), roles: RoleVocabulary }`; client: `resolveCredits` |
-| `/events` | `Event[]` (the stored document) |
+## 3. API
 
-- **Locale**: `?locale=` (query, not `Accept-Language` → cacheable URLs, no `Vary`). Default and fallback = the toon's
-  `sourceLanguage`. Per entity: requested locale if the toon lists it and the document exists there, else the source
-  language; the answer says which one: `Content-Language`, `X-Content-Fallback: 1`. Neutral documents ignore it.
-- **Visibility** (moves from the viewer into the API, same rules): the season's `sequence[].status` of the served
-  locale decides. `coming-soon` → `403 coming_soon { chapter: ChapterSummary }`, `draft` / not listed →
-  `403 not_public`, draft toon (index or toon.json) → `404 not_found`. Server setting `CONTENT_SHOW_DRAFTS` (default
-  off, on in `config.local.php`) = today's `import.meta.env.DEV` behaviour for local development.
-- **Drafts (creator preview)**: `?draft=1` with a `creator` session → the newest version of every document, no status
-  gate, `Cache-Control: private, no-store`; without the role `401 unauthorized` / `403 forbidden`. The creator's
-  preview page switches to these endpoints (no own composition).
-- **Membership gate (later, after the release)**: chapter content will need the `access_token` (ITEMS.md) unless
-  `isPreview`; then those answers become `private`. The endpoint is the single place to add it.
-- **HTTP caching**: public answers `Cache-Control: public, max-age=60` + `ETag` (= the fingerprint below; `304` on
-  `If-None-Match`); CORS like `/products/` (simple GET, no preflight). Errors: `{ status:"error", error, message, … }`.
-- **Server cache**: documents are immutable per version id. Each request reads the ids of the published (or newest)
-  versions it needs (one indexed query), the fingerprint = hash of endpoint + those ids; the composed answer is cached
-  under the fingerprint (APCu if present, else files in `storage/cache/library/`, pruned by age). Publishing creates a
-  new fingerprint → **invalidation on publish without any invalidation code**, no stale reads.
-- **Pagination**: none needed (toons < 10, a season < 50 chapters, events < 100); lists are complete arrays.
+**Library** (public GETs, readers; `LibraryController`): `/api/library/toons` · `/library/toons/<toon>?locale=`
+(`ToonBundle`: entry, settings, every `SeasonOverview`, map) · `/seasons/<n>` · `/chapters/<n>` (scenes inlined) ·
+`/cast[?chapter=]` (registry reduced to the cast + `cast:<toon>`; resolve with `resolveCast`) · `/credits`
+(credits, referenced people, roles) · `/library/characters` (whole registry, avatar bodies) · `/api/events/`.
+- Locale `?locale=`, per-document fallback to the source language (`Content-Language`, `X-Content-Fallback`).
+- Visibility on the server (the viewer's rules): `403 coming_soon { chapter }`, `403 not_public`, draft toon `404`;
+  `CONTENT_SHOW_DRAFTS=1` locally. `?draft=1` (role creator) = newest versions, no gates, `private, no-store`.
+- `Cache-Control: public, max-age=60` + `ETag`/304; server cache (APCu, else `storage/cache/library/`) keyed by the
+  version ids involved → a publish is a new key, nothing is ever invalidated; drafts are never cached.
 
-## 4. Migration
+**Entities** (the creator's write path, role creator, `EntitiesController`): `GET /api/entities?toon=` (index; `toon=`
+empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]` · `PUT /api/entities/<key>`
+`{ content, message?, base? }` (409 on a stale base) · `GET <key>/versions` · `POST <key>/publish { version? }` ·
+`/unpublish` · `/restore { id }`. `/api/content/*` (paths) is gone. Admin: `GET /api/admin/content` lists entities
+(`{ key, kind, toon, locale, latest, … }`).
 
-1. `import-content` learns the new kinds: `toons.json` → per-toon `_/index.json`, `events.json` → `scutoons/_/events.json`,
-   `<toon>/<l>/{locations,routes}.json`. Idempotent as today, `--update`, `--sql` for production
-   (phpMyAdmin), dev-only toons (`sandbox`) stay out of `--sql`.
-2. **Compare** (`tests/entities-compare.php`, part of `composer test`): a fresh DB seeded from `viewer/static/api` →
-   every library endpoint of every toon/locale/chapter == the same composition done from the static files (JSON-equal).
-   On production the same script runs read-only against the API with `--report` (differences = creator edits).
-3. Frontends switch (Phase C), then `viewer/static/api/**`, `getStatic`, `STATIC_API`, the store→static fallbacks and
-   the legacy characters/credits branches are deleted.
-4. `bin/console export-content <dir>` writes the published (or `--draft`) documents back into the file layout – the
-   import/export format, a backup, and the seed for new environments.
+## 4. Seeds, compare, production cutover
 
-**Cutover order** (production): the released viewer build carries its own static files and keeps reading them until a
-new viewer build is live, so nothing breaks in between. (1) API deploy with the library endpoints → (2) seed the new
-kinds (`import-content --sql`, only new files) → (3) `entities-compare --report` against production → (4) frontends
-(viewer, creator) with the library client → (5) the next release deletes the static files. Old `/api/content/*` stays
-(creator writes).
+- `php server/bin/console import-content shared/content/seed [--toon=] [--only=<kinds>] [--update] [--sql]` –
+  idempotent; `--sql` prints guarded INSERTs into `entity_versions` (dev-only `sandbox` left out).
+  Committed SQL: `shared/content/seed/content-seed.mysql.sql` (everything), `characters-seed.mysql.sql`,
+  `credits-seed.mysql.sql` (subsets; all idempotent – running more than one is harmless).
+- `export-content <dir> [--toon] [--draft]` writes the store back into the layout (backup, diff, refresh the seed).
+- Generators write the interchange layout and import it: `make-sandbox.ts` (→ `shared/content/seed/sandbox`, then
+  `import-content --toon=sandbox --update`), `migrate-characters.ts` (→ seed, then `--only=characters,moods,
+  asset-requests,cast --update`); `--no-import` skips the import. Regenerate the SQL after a seed change.
+- Compare: `tests/entities-compare.php` (in `composer test`, fresh DB seeded from `shared/content/seed`) checks every
+  library answer against the files; against production: `--report`.
 
-## 5. Creator / admin write paths
+**Cutover on production (Oct 3, phpMyAdmin, in this order)** – replaces the earlier `import-content <viewer/static/api>`
+step: (1) the pending migrations in file-name order, including `2026-09-30-content-versions` and then
+`2026-09-30-entity-keys`; (2) `shared/content/seed/content-seed.mysql.sql` (covers credits + characters too); (3) deploy
+api → qr → frontends ("Deploy all"); (4) `php server/tests/entities-compare.php https://api.scutoons.com --report` and
+the printed-URL checks. The old released viewer keeps its bundled static files until the new build replaces it, so
+nothing breaks in between; after step 3 every frontend reads the library (no fallback).
 
-Unchanged: `PUT /content/<scope>/<locale>/<path>` (draft, `base` conflict check), `publish`, `unpublish`, `restore`,
-`versions`, `index` – they already are the entity write API. The creator stops falling back to static files (new files
-start empty) and lists toons from `/library/toons?draft=1`. Admin `/admin/content` stays as is. Documents without an
-editor (events, map; later products/items/editions/permissions) are written by `import-content --update`
-or the creator's raw JSON editor until an editor exists; private documents are only readable with `draft=1` + role.
+## 5. Creator / admin
 
-**No JSON files in the UI (owner, 2026-09-30).** Once the API serves everything from the database, the creator and
-admin never show file names (`chapter1.json`, `toon.json`, `season1.json`), `_` locale chips, `v76` path chips or
-"store file" wording – only entities: "Chapter 1", "Season 1", "Toon settings", "Characters", "Credits", "Draft v71 /
-Published v70". The path stays the storage key on the server (§2), hidden behind one mapping:
-- `@scutoons/content` gets `EntityKey = { kind, toon, locale?, number?, scene? }` (kinds: `toon-index`, `toon`,
-  `season`, `chapter`, `scene`, `map-locations`, `map-routes`, `cast`, `credits`, `characters`,
-  `moods`, `asset-requests`, `people`, `roles`, `events`) with `entityKey(scope, locale, path)` ↔
-  `entityPath(key)`; `@scutoons/api`'s content functions take an `EntityKey`.
-- The creator's entity → label helper (built by the UI agent) switches from paths to `EntityKey` in Phase C; editor
-  documents (`ContentDoc`) are keyed by `EntityKey`, and the remaining path-based internals (path regexes in
-  components, `getStatic`, path chips) go.
-- JSON may be named only in the import/export UI (the interchange format).
+The creator edits `ContentDoc`s keyed by entity (`new ContentDoc(entity, locales, primary)`, `doc.key(locale)`), writes
+through `/api/entities`, lists toons from `/library/toons?draft=1`, previews through the library in draft mode, and has
+no static fallback (a missing entity starts empty). Labels come from one helper (`entityLabel` in `@scutoons/ui`, keyed
+by entity) – no file names, `_` chips or "file" wording in the creator or admin UI; JSON is named only in import/export.
 
 ## 6. PWA concept (design only)
 
-- **Service Worker** (SvelteKit `src/service-worker.ts`), caches per type:
-  | What | Strategy | Cache |
-  |---|---|---|
-  | app build + fonts | precache per build version, cache-first; old versions dropped on `activate` | `app-<version>` |
-  | library JSON | stale-while-revalidate with `ETag` (304 = no body) | `library` |
-  | slices, posters, portraits (immutable names, PLATFORM.md CDN rule) | cache-first, LRU ≈ 150 MB | `media` |
-  | audio, video | network (range requests); only saved chapters serve them from cache (SW answers ranges with 206) | `offline-*` |
-- **Smart preloading** (idle time, not with `saveData` / 2G): after the first 2 slices + audio start → the next
-  chapter's JSON (library endpoint), its first 3 slices, and the portraits of characters joining in the next scenes of
-  the current chapter (from the inlined groups + `resolveExpression`).
-- **Save to device** (chapter or season): `GET /library/toons/{t}/chapters/{n}/assets?locale=` lists every media path
-  (slices, video, poster, key visual, music, samples, cast portraits) with sizes → the SW downloads them into
-  `offline-<toon>-<locale>-c<n>`, a record in IndexedDB (fingerprint, bytes, saved_at). Before: `storage.estimate()`
-  and `storage.persist()`; the UI shows the size. Update: on the next online open, a new ETag → download only the
-  changed paths. Remove per chapter / season.
-- **Membership**: saving is offered only for chapters the device may read; the SW stores the access `expires_at` and
-  stops serving gated offline content after it or after a `410` on the 6-hourly `/access/` re-check (then the gated
-  offline caches are deleted). Preview chapters stay.
+- **Service Worker** (SvelteKit `src/service-worker.ts`): app build + fonts precached per build version (cache-first,
+  old caches dropped on `activate`); library JSON stale-while-revalidate with the ETag; slices/posters/portraits
+  (immutable names, PLATFORM.md CDN rule) cache-first with an LRU of ≈ 150 MB; audio/video from the network (range
+  requests) except for saved chapters (the SW answers ranges with 206).
+- **Smart preloading** (idle time, not with `saveData` / 2G): after the first 2 slices + audio start → the next chapter
+  (library), its first 3 slices, and the portraits of characters joining in the next scenes (inlined groups +
+  `resolveExpression`).
+- **Save to device** (chapter or season): a future `GET /library/toons/<t>/chapters/<n>/assets?locale=` lists every
+  media path with sizes → the SW fills `offline-<toon>-<locale>-c<n>`, IndexedDB keeps fingerprint/bytes/saved_at;
+  `storage.estimate()` + `storage.persist()` first; a new ETag downloads only changed paths; remove per chapter/season.
+- **Membership**: saving only for chapters the device may read; the SW keeps the access `expires_at` and stops serving
+  gated offline content after it or after a `410` on the 6-hourly `/access/` re-check (gated caches deleted).
 
 ## 7. Phases, release, risks
 
 | Phase | What | When |
 |---|---|---|
 | A | this design | ✅ 2026-09-30 |
-| B | server: library endpoints, cache, import of the new kinds, `export-content`, PHPUnit + `entities-smoke` + `entities-compare` | ✅ 2026-09-30 (below) – additive, the frontends don't call it; safe to ship with the release |
-| C | viewer, creator, admin, shop on the library endpoints; static files + fallbacks removed; `EntityKey` instead of paths in the creator/admin (no JSON file names in the UI, §5); measured with `scripts/perf/measure.mjs` + `scripts/vn/vn-check.mjs` | **after the release** (coordinator's go; the VN agent owns the viewer loaders until then) |
-| B2 | products/featured, items/editions, permissions (private) into the store, services read store → config fallback, QR toons list derived | after C |
-| D | PWA (§6) | after C |
+| B | server library endpoints, cache, import/export, contract suites | ✅ 2026-09-30 |
+| C | entity keys + migration, `/api/entities`, all frontends on the API, static files and fallbacks removed, UI without file names | ✅ 2026-09-30 – **ships with the release** |
+| B2 | catalog (items, editions, products/featured) into the store; QR toons list derived; permissions stay a private file | after the release |
+| D | PWA (§6) | after the release |
 
-**Release 2026-10-04:** nothing of this plan is required for it. Oct 3 runs `import-content --sql` as planned (with B
-merged it also seeds events/map/index – harmless, nothing reads them yet). The release viewer keeps
-store → static.
-
-**Risks**
-- No static fallback after C: API down = reader down → `/api/health/` monitoring; the PWA cache (D) covers repeat readers.
-- Visibility moves to the server: a wrong season status now hides a chapter for every client → compare test + the
-  `403` answers carry the reason.
-- Locale fallback: an `en` reader may get a `de` chapter (flagged) instead of today's error page.
-- all-inkl may lack APCu → file cache; `storage/cache/` must be writable and excluded from deploys (like `storage/`).
-- Store/static drift: after C the store is the only source; `export-content` is the backup/diff tool.
-- Draft leakage: draft answers are `no-store` and never enter the server cache.
+**Risks**: no static fallback – API down = reader down (`/api/health/` monitoring; PWA later); visibility decided on the
+server (compare test, `403` reasons); an `en` reader may get a flagged `de` document instead of an error; all-inkl may
+lack APCu (file cache in `storage/cache`, writable, deploy-protected); the store is the only source (use
+`export-content` as backup/diff; the seed folder is the reviewed snapshot); drafts are `no-store` and never cached.
 
 ## Phase B — result (2026-09-30)
 
-| Where | What |
-|---|---|
-| `server/src/Domain/Library/` | `Library` (compositions, gates, locale fallback, cache key), `Snapshot` (version ids of the scopes, lazy documents, fingerprint), `Context`, `Answer` |
-| `server/src/Http/Controllers/LibraryController.php` | the 7 GET routes (`config/routes.php`), headers, 304, `?draft=1` role check |
-| `server/src/Infrastructure/Cache/` | `Cache` + `ApcuCache`, `FileCache` (atomic writes, pruned by age), `NullCache`; `config/container.php` picks by `CACHE_DRIVER` |
-| settings | `CACHE_DRIVER` (auto), `CACHE_PATH` (`storage/cache`, gitignored, deploy-protected like all of `storage/`), `CONTENT_SHOW_DRAFTS` (0; `1` in the local `config.local.php`) |
-| `ImportContentCommand` | `sources()`: `toons.json` → `<toon>/_/index.json` (file order), `events.json` → `scutoons/_/events.json`, `<toon>/<l>/{locations,routes}.json` (collectables: removed, merged into items); `--only` also matches the source file name |
-| `ExportContentCommand` | `export-content <dir> [--toon] [--draft] [--db]` – the store back into the file layout; reads back to the same documents (unit test) |
-| tests | PHPUnit `LibraryTest` (9) + `LibraryApiTest` (3); `tests/entities-smoke.php` (32 checks, through the creator's write path); `tests/entities-compare.php` (35 checks: every toon/locale/chapter, cast, credits, events of a fresh DB seeded from `viewer/static/api` + `shared/content/seed` == the static composition); both in `run-contract.php` (API on `<port+6>` with the fresh DB) |
+Library service (`server/src/Domain/Library/`: `Library`, `Snapshot`, `Context`, `Answer`), `LibraryController`, cache
+layer (`server/src/Infrastructure/Cache/`), settings `CACHE_DRIVER`, `CACHE_PATH`, `CONTENT_SHOW_DRAFTS`,
+`export-content`, PHPUnit `LibraryTest` + `LibraryApiTest`, contract suites `entities-smoke` and `entities-compare`.
+Decisions: a season entry whose chapter is missing is listed with empty fields (+ `X-Content-Missing`); the summary drops
+`groups` + `audio` only; cast answers are language-neutral.
 
-Decisions made while building: a season entry whose chapter file is missing is listed with empty fields (+
-`X-Content-Missing`) instead of failing the whole toon; the chapter summary drops `groups` + `audio` only (everything
-else of the chapter file stays, the viewer's `LoadedSequenceItem` minus the heavy fields); the cast answer is
-language-neutral (resolution stays in `resolveCast`), `?chapter=` walks every `character` field of the composed chapter.
+## Phase C — result (2026-09-30)
 
-Local dev store: backup `server/db/local.sqlite.bak-2026-09-30-library`, then `import-content … --only=toons.json,
-events.json,locations.json,routes.json,collectables.json` (15 new documents; the 4 collectables documents were deleted again when collectables were merged into items) and `--update --only=toons.json
---toon=catpope` (catpope's index entry had drafts only). toptoy's published index entry (source `en`, a creator
-decision) was left alone – the store wins over `toons.json`.
+- **Server**: migration `2026-09-30-entity-keys` (local DB migrated: 298 → 298 rows, same ids; backups
+  `server/db/local.sqlite.bak-2026-09-30-library`, `…-entity-keys`), `EntityKey`, `EntityStore`, `EntitiesController`
+  (`/api/entities`), `Console\ContentFiles` (the only path ↔ key mapping), library + admin content + avatar unlocks on
+  keys, `/api/library/characters`. Tests: `EntityStoreTest` (store, key scheme, interchange layout, the SQL migration),
+  `content-smoke` rewritten for `/api/entities` (62), `entities-smoke` (32), `entities-compare` (37), admin-smoke on keys.
+  The legacy `ContentService` / `ContentController` classes are no longer routed or used; deleting them needs the
+  owner's permission (the deletion was refused by the permission guard).
+- **Content files**: `viewer/static/api/**` moved to `shared/content/seed/` (interchange), legacy inputs to
+  `shared/content/legacy/`; seed SQL regenerated.
+- **Viewer**: root layout `/library/toons`, toon layout one bundle + cast, chapter page one request, credits
+  `/library/…/credits` (legacy credits component removed), download from the layout, events `/events/`, avatar
+  registry `/library/characters`; `API_BASE` gone.
+- **Creator**: `ContentDoc` by entity, `/api/entities` write path, no `STATIC_API`/`getStatic`, preview and image
+  picker through the library (draft), toons from the library, labels by entity (breadcrumbs, groups, history, problems).
+- **Admin**: content overview by entity (+ a "platform-wide" group), labels by entity.
+- **Measured** (`scripts/perf/measure.mjs`, production builds, 4G, cold, median of 3; before = the previous build with
+  its bundled static files):
 
+  | Page | loaded (no media) | FCP | requests | content requests |
+  |---|---|---|---|---|
+  | `/` | 1534 → 1546 ms | 664 → 676 ms | 57 → 57 | 1 → 1 |
+  | `/catpope` | 1376 → **1133 ms** | 984 → **736 ms** | 73 → 64 | 12 (+ failed store reads) → **3** |
+  | chapter 1 | 2839 → **2672 ms** | 1036 → **896 ms** | 86 → 78 | 14 → **4** |
+  | sandbox chapter 5 (VN) | 1008 → **862 ms** | 808 → **740 ms** | 67 → 61 | 13 → **4** |

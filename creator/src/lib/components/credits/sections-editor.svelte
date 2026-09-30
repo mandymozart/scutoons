@@ -7,7 +7,7 @@
 	import EntryList from './entry-list.svelte';
 	import LocaleMapField from './locale-map-field.svelte';
 
-	/** The ordered sections of credits.json: add / reorder / remove sections and edit their people. */
+	/** The ordered sections of the credits: add / reorder / remove sections and edit their people. */
 	let {
 		credits,
 		people,

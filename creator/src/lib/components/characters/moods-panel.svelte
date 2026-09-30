@@ -6,7 +6,7 @@
 	import LocaleMapField from '../credits/locale-map-field.svelte';
 
 	/**
-	 * The mood vocabulary (`scutoons/_/moods.json`): open-ended – add, rename (label per language), reorder, mark as part of
+	 * The mood vocabulary (entity `moods`): open-ended – add, rename (label per language), reorder, mark as part of
 	 * the standard set (a checklist, never required). Only `neutral` is required (the fallback anchor).
 	 */
 	let { moods, registry, languages }: { moods: ContentDoc; registry: CharacterRegistry | null; languages: string[] } = $props();

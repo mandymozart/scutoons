@@ -309,8 +309,29 @@ export interface ToonIndex {
 }
 
 /** A season sequence item with its chapter file loaded; `status` is the season's (never the chapter file's). */
-export type LoadedSequenceItem = Omit<Chapter, 'status'> & {
+/**
+ * A chapter in a season's overview (the library's `ChapterSummary`): the chapter without its content (`groups`,
+ * `audio`) and its deprecated own `status`, plus the season entry's `type`, `number`, `status`.
+ */
+export type LoadedSequenceItem = Omit<Chapter, 'status' | 'groups' | 'audio'> & {
 	type: 'chapter';
 	number: number;
 	status: Status;
 };
+
+/** A season with its chapter list (library `/library/toons/<toon>/seasons/<n>`) */
+export interface SeasonOverview {
+	number: number;
+	season: Season;
+	chapters: LoadedSequenceItem[];
+}
+
+/** Everything the toon pages need in one answer (library `/library/toons/<toon>?locale=`) */
+export interface ToonBundle {
+	/** the toon's index entry (null only for creators' draft toons without one) */
+	entry: ToonIndex | null;
+	toon: Toon;
+	seasons: SeasonOverview[];
+	locations: MapLocation[];
+	routes: MapRoute[];
+}

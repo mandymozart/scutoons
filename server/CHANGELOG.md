@@ -4,6 +4,12 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Entity keys (agents/DATA.md): migration `2026-09-30-entity-keys` (table `entity_versions`, every `content_versions` row
+  copied with the same id and a key such as `chapter:catpope:2:de`); `/api/entities/<key>` (creator: read, save draft,
+  versions, publish, unpublish, restore, index) replaces `/api/content/*`; library, admin content view and avatar unlocks
+  on keys; `/api/library/characters`; `import-content` / `export-content` work on the interchange folder
+  `shared/content/seed` (`--only` takes entity kinds, `--sql` writes `entity_versions`).
+
 - Library (agents/DATA.md, docs/API.md "Library"): `GET /api/library/toons[/<toon>[/seasons/<n>|/chapters/<n>|/cast|/credits]]`
   and `/api/events/` – the reader's entities composed from the content store (one request per chapter, scenes inlined;
   light season overview), locale fallback, visibility gates on the server, `?draft=1` for creators, ETag/304, server

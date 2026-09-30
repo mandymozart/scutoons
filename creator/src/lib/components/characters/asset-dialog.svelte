@@ -7,7 +7,7 @@
 
 	/**
 	 * A missing (or broken) image cell: set its path – prefilled with the convention path, checked live against the CDN –
-	 * or leave a note for the image supplier (an asset request in scutoons/_/asset-requests.json).
+	 * or leave a note for the image supplier (an asset request in the wanted images).
 	 */
 	let {
 		open = $bindable(false),

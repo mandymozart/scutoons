@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { ToonAvatar } from '@scutoons/ui';
-	import { toonLanguages, type ToonIndex } from '@scutoons/content';
-	import { STATIC_API } from '$lib/config.ts';
+	import { entities, parseEntityKey, toonLanguages, type ToonIndex } from '@scutoons/content';
 	import { contentIndex } from '$lib/api.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -24,7 +23,7 @@
 		if (!id) return;
 		contentIndex(id)
 			.then((index) => {
-				const numbers = [...new Set(index.files.map((f) => Number(f.path.match(/^season(\d+)\.json$/)?.[1])).filter((n) => n > 0))];
+				const numbers = [...new Set(index.entities.map((e) => parseEntityKey(e.key)).filter((r) => r?.kind === 'season').map((r) => r!.number!))];
 				if (id === toon) seasons = numbers.length ? numbers.sort((a, b) => a - b) : [1];
 			})
 			.catch(() => {
@@ -43,14 +42,14 @@
 	<p class="head">{m['creator.seasons']()}</p>
 	<ul>
 		{#each seasons as n (n)}
-			<li><a href="/{toon}/season/{n}" data-nav-child={childAttr} aria-current={path.startsWith(`/${toon}/season/${n}`) ? 'page' : undefined}>{fileLabel(`season${n}.json`)}</a></li>
+			<li><a href="/{toon}/season/{n}" data-nav-child={childAttr} aria-current={path.startsWith(`/${toon}/season/${n}`) ? 'page' : undefined}>{fileLabel(entities.season(toon, n))}</a></li>
 		{/each}
 	</ul>
 	<p class="head">{m['creator.meta']()}</p>
 	<ul>
 		<li><a href="/{toon}/cast" data-nav-child={childAttr} aria-current={current(`/${toon}/cast`)}>{m['creator.cast']()}</a></li>
 		<li><a href="/{toon}/credits" data-nav-child={childAttr} aria-current={current(`/${toon}/credits`)}>{m['creator.credits']()}</a></li>
-		<li><a href="/{toon}/toon" data-nav-child={childAttr} aria-current={current(`/${toon}/toon`)} data-testid="nav-toon-settings">{fileLabel('toon.json')}</a></li>
+		<li><a href="/{toon}/toon" data-nav-child={childAttr} aria-current={current(`/${toon}/toon`)} data-testid="nav-toon-settings">{fileLabel(entities.toonSettings(toon))}</a></li>
 	</ul>
 {:else}
 	<p class="head">{m['creator.toons']()}</p>

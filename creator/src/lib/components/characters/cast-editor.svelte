@@ -2,8 +2,7 @@
 	import { onMount } from 'svelte';
 	import {
 		AUTHORED_VIEW,
-		CAST_FILE,
-		CREDITS_SCOPE,
+		entities,
 		REGULAR_PERSONA,
 		castSeasons,
 		characterImage,
@@ -43,7 +42,7 @@
 	import CharacterPickerSheet from './character-picker-sheet.svelte';
 
 	/**
-	 * The cast of a toon per season (`<toon>/_/cast.json`): registry characters with the personas that appear in that
+	 * The cast of a toon per season (entity `cast:<toon>`): registry characters with the personas that appear in that
 	 * season, in order, with a role per toon language. Add from the whole registry (visual picker: character → persona) or
 	 * create a character inline (a new registry entry); reorder by drag or ArrowUp/ArrowDown. Saved / published together
 	 * with the registry (a new character is a registry change).
@@ -117,12 +116,12 @@
 
 	function validate(): Problem[] {
 		const out: Problem[] = [];
-		if (file) out.push(...validateCast(file, { registry: reg, languages: langs, file: `${toon}/_/${CAST_FILE}` }));
+		if (file) out.push(...validateCast(file, { registry: reg, languages: langs, file: entities.cast(toon) }));
 		if (reg) {
 			// the registry's problems of this toon's characters only
 			const ids = new Set(castSeasons(file).flatMap((s) => (file?.seasons[String(s)] ?? []).map((e) => e.character)));
 			out.push(
-				...validateCharacters(reg, { languages: langs, moods: moodsOf(moods), file: `${CREDITS_SCOPE}/characters.json` }).filter((p) => {
+				...validateCharacters(reg, { languages: langs, moods: moodsOf(moods), file: entities.characters }).filter((p) => {
 					const i = p.path[1];
 					return typeof i === 'number' && ids.has(reg.characters[i]?.id);
 				})

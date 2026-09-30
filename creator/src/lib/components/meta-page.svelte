@@ -14,7 +14,7 @@
 	import UpLink from './up-link.svelte';
 
 	/**
-	 * Editor shell for toon-level files (season, toon.json): top bar with the files' versions, the bottom ActionBar
+	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
 	 * (problems · undo/redo · history · note + Save draft / Publish), autosave + recover, missing-locale bars, the
 	 * leave guard and Ctrl+S / Ctrl+Z. `docs` are validated, saved and published; `companions()` are files that follow
 	 * them (the chapter files whose status mirrors the season) – saved when dirty, published with the docs.
@@ -31,7 +31,7 @@
 		help,
 		children
 	}: {
-		/** the toon of the page (content-store scope of its files) */
+		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
 		title: string;
 		docs: ContentDoc[];
@@ -53,7 +53,7 @@
 	const undoDoc = $derived(docs.filter((d) => d.canUndo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? main);
 	const redoDoc = $derived(docs.filter((d) => d.canRedo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? main);
 	let historyPath = $state<string | null>(null);
-	const historyDoc = $derived(docs.find((d) => d.path === historyPath) ?? main);
+	const historyDoc = $derived(docs.find((d) => d.entity === historyPath) ?? main);
 	const loaded = $derived(docs.every((d) => !d.loading));
 	const anyDirty = $derived(docs.some((d) => d.dirty) || companions().some((d) => d.dirty));
 	const anySaving = $derived(docs.some((d) => d.saving));
@@ -84,12 +84,12 @@
 			if (doc.loading) continue;
 			for (const l of doc.locales) {
 				if (doc.data[l] == null) {
-					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.path, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
+					out.push({ level: l === doc.primary ? 'error' : 'warning', file: doc.entity, locale: l, path: [], message: `${m['creator.missing']()}: ${l}` });
 					continue;
 				}
-				out.push(...validateFile(doc.kind, doc.data[l], l, { file: doc.path }));
+				out.push(...validateFile(doc.kind, doc.data[l], l, { file: doc.entity }));
 			}
-			out.push(...validateLocales(doc.kind, doc.path, doc.data, doc.primary));
+			out.push(...validateLocales(doc.kind, doc.entity, doc.data, doc.primary));
 		}
 		const order = { error: 0, warning: 1, info: 2 };
 		return out.sort((a, b) => order[a.level] - order[b.level]);
@@ -108,7 +108,7 @@
 				if (!docs.includes(doc) && !savedCompanions.includes(doc)) savedCompanions.push(doc);
 			} catch (e) {
 				if (e instanceof SaveConflict) conflict = { doc, error: e };
-				else notice = `${fileLabel(doc.path)}: ${e instanceof Error ? e.message : String(e)}`;
+				else notice = `${fileLabel(doc.entity)}: ${e instanceof Error ? e.message : String(e)}`;
 				return false;
 			}
 		}
@@ -124,7 +124,7 @@
 		if (!files.length) return;
 		if (errorCount && !confirm(`${errorCount} errors in the problem list. Publish anyway?`)) return;
 		const locales = [...new Set(files.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].join(', ');
-		if (!confirm(m['creator.publish_confirm']({ file: fileLabels(files.map((d) => d.path)), locales }))) return;
+		if (!confirm(m['creator.publish_confirm']({ file: fileLabels(files.map((d) => d.entity)), locales }))) return;
 		if (!(await saveAll())) return;
 		try {
 			for (const doc of [...docs, ...savedCompanions]) if (doc.stored.length && doc.unpublished.length) await doc.publish();
@@ -189,7 +189,7 @@
 
 <div class="meta-page" class:with-panel={panel !== null} class:wide>
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} bind:infoOpen infoTitle={title}>
-		{#snippet info()}<PageHelp page={help} seasonFile={docs.find((d) => d.kind === 'season')?.path} />{/snippet}
+		{#snippet info()}<PageHelp page={help} seasonFile={docs.find((d) => d.kind === 'season')?.entity} />{/snippet}
 		{#snippet start()}
 			<UpLink />
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
@@ -215,22 +215,22 @@
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else}
 		<div class="files" data-testid="file-status">
-			{#each docs as d (d.toon + d.path)}
-				<span class="hint">{fileLabel(d.path)}</span><FileStatus doc={d} />
+			{#each docs as d (d.entity)}
+				<span class="hint">{fileLabel(d.entity)}</span><FileStatus doc={d} />
 			{/each}
 		</div>
 		{#if anyDirty}<div class="bar dirty-bar">{m['creator.unsaved']()}</div>{/if}
-		{#each recoverables as d (d.path)}
+		{#each recoverables as d (d.entity)}
 			<div class="bar warn-bar">
-				{fileLabel(d.path)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
+				{fileLabel(d.entity)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
 				{#if d.recoverableIsStale}<b>{m['creator.recover_stale']()}</b>{/if}
 				<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
 				<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
 			</div>
 		{/each}
-		{#each missingLocales as { doc, locale } (doc.path + locale)}
+		{#each missingLocales as { doc, locale } (doc.entity + locale)}
 			<div class="bar warn-bar">
-				{fileLabel(doc.path)}: {locale} {m['creator.missing']()}
+				{fileLabel(doc.entity)}: {locale} {m['creator.missing']()}
 				<button class="secondary" onclick={() => doc.createLocale(locale, (f) => (f && typeof f === 'object' && 'language' in f ? { ...f, language: locale } : f))}>
 					{m['creator.create_locale']({ locale, source: doc.primary })}
 				</button>
@@ -238,7 +238,7 @@
 		{/each}
 		{#if conflict}
 			<div class="bar error-bar">
-				{m['creator.conflict']({ locale: conflict.error.locale, file: fileLabel(conflict.doc.path) })}
+				{m['creator.conflict']({ locale: conflict.error.locale, file: fileLabel(conflict.doc.entity) })}
 				<button class="secondary" onclick={() => resolveConflict('reload')}>{m['creator.reload']()}</button>
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
@@ -256,8 +256,8 @@
 			{:else if panel === 'history' && historyDoc}
 				{#if docs.length > 1}
 					<p class="history-files">
-						{#each docs as d (d.toon + d.path)}
-							<button class="ghost" class:active={d === historyDoc} onclick={() => (historyPath = d.path)}>{fileLabel(d.path)}</button>
+						{#each docs as d (d.entity)}
+							<button class="ghost" class:active={d === historyDoc} onclick={() => (historyPath = d.entity)}>{fileLabel(d.entity)}</button>
 						{/each}
 					</p>
 				{/if}

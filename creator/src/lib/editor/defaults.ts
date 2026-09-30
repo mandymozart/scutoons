@@ -69,7 +69,7 @@ export function newSeason(locale: string, authors: string[] = [], number = 1): S
 	};
 }
 
-/** A new toon.json (title / description from the index entry; map and downloads empty until there are assets). */
+/** New toon settings (title / description from the index entry; map and downloads empty until there are assets). */
 export function newToon(id: string, locale: string, entry: ToonIndex | null | undefined, authors: string[] = []): Toon {
 	return {
 		id,

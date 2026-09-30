@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { entities } from '@scutoons/content';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -13,14 +14,14 @@
 	import { fileLabel } from '$lib/labels.ts';
 
 	/**
-	 * Season meta (season<N>.json): title / plot per locale, language-neutral fields once (overrides per locale shown),
+	 * Season meta (the entity season:<toon>:<N>): title / plot per locale, language-neutral fields once (overrides per locale shown),
 	 * covers – and the chapter sequence with the status per locale (the chapters' visibility), all one doc.
 	 */
 	let { toon, number, languages }: { toon: string; number: number; languages: ToonLanguages } = $props();
 
 	// the route re-creates this component per toon / season / languages ({#key})
 	// svelte-ignore state_referenced_locally
-	const season = toonDoc(toon, `season${number}.json`, languages);
+	const season = toonDoc(entities.season(toon, number), languages);
 	let chapters = $state<Record<number, ContentDoc>>({});
 	let images = $state<string[]>([]);
 
@@ -31,7 +32,7 @@
 		const docs: Record<number, ContentDoc> = {};
 		await Promise.all(
 			seasonChapterNumbers(season).map(async (n) => {
-				const doc = toonDoc(toon, `chapter${n}.json`, languages);
+				const doc = toonDoc(entities.chapter(toon, n), languages);
 				await doc.load();
 				docs[n] = doc;
 			})
@@ -50,7 +51,7 @@
 		{#each numbers as n (n)}
 			<li>
 				<a href="/{toon}/chapter/{n}" data-nav-child data-testid="nav-chapter-{n}">
-					<span class="nav-title">{chapters[n]?.data?.[chapters[n].primary]?.title ?? fileLabel(`chapter${n}.json`)}</span>
+					<span class="nav-title">{chapters[n]?.data?.[chapters[n].primary]?.title ?? fileLabel(entities.chapter(toon, n))}</span>
 					<span class="nav-status">
 						{#each season.locales as l (l)}
 							{@const status = seasonStatusOf(season, l, n)}

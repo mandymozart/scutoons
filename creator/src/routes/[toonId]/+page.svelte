@@ -7,10 +7,10 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { newChapter, newSeason, newToon } from '$lib/editor/defaults.ts';
 	import { contentIndex } from '$lib/api.ts';
-	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
+	import { sceneDoc, toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
 	import { chapterSyncChanges, seasonStatusOf, setSeasonStatus, STATUSES, syncChapter } from '$lib/editor/visibility.ts';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { Language, NEUTRAL_LOCALE, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
+	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { infoBar } from '$lib/info.ts';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
@@ -80,15 +80,15 @@
 	/** (Re)loads toon.json, the season and its chapters in the toon's languages. */
 	async function loadFiles(languages: ToonLanguages) {
 		langs = languages;
-		const nextToon = toonDoc(toonId, 'toon.json', languages);
-		const nextSeason = toonDoc(toonId, 'season1.json', languages);
+		const nextToon = toonDoc(entities.toonSettings(toonId), languages);
+		const nextSeason = toonDoc(entities.season(toonId, 1), languages);
 		await Promise.all([nextToon.load(), nextSeason.load()]);
 		toonFile = nextToon;
 		season = nextSeason;
 		// chapters of the season (every language) + chapter files in the store that no season lists
 		let stored: number[] = [];
 		try {
-			stored = [...new Set((await contentIndex(toonId)).files.map((f) => Number(f.path.match(/^chapter(\d+)\.json$/)?.[1])).filter((n) => n > 0))];
+			stored = [...new Set((await contentIndex(toonId)).entities.map((e) => parseEntityKey(e.key)).filter((r) => r?.kind === 'chapter').map((r) => r!.number!))];
 		} catch {
 			/* index unavailable: the season's chapters only */
 		}
@@ -98,7 +98,7 @@
 		const docs: Record<number, ContentDoc> = {};
 		await Promise.all(
 			[...numbers].map(async (number) => {
-				const chapter = toonDoc(toonId, `chapter${number}.json`, languages);
+				const chapter = toonDoc(entities.chapter(toonId, number), languages);
 				await chapter.load();
 				docs[number] = chapter;
 			})
@@ -168,7 +168,7 @@
 			}
 			const sceneDocs = await Promise.all(
 				[...scenes].map(async (src) => {
-					const doc = toonDoc(toonId, src, current);
+					const doc = sceneDoc(toonId, src, current);
 					await doc.load();
 					return doc;
 				})
@@ -223,9 +223,9 @@
 		busy = true;
 		try {
 			const files = [season, toonFile].filter((d) => d.dirty);
-			for (const doc of files) await doc.save(`create ${doc.path}`);
+			for (const doc of files) await doc.save(`create ${doc.entity}`);
 			message = [
-				m['creator.season_created']({ files: fileLabels(files.map((d) => d.path)) }),
+				m['creator.season_created']({ files: fileLabels(files.map((d) => d.entity)) }),
 				adopted.length ? m['creator.chapters_adopted']({ numbers: adopted.join(', ') }) : ''
 			].join(' ');
 		} catch (e) {
@@ -255,7 +255,7 @@
 		}
 		busy = true;
 		try {
-			const chapter = toonDoc(toonId, `chapter${number}.json`, langs);
+			const chapter = toonDoc(entities.chapter(toonId, number), langs);
 			chapter.create((locale) => newChapter(number, locale, author));
 			season.structural((file) => {
 				file.sequence ??= [];
@@ -263,7 +263,7 @@
 			});
 			await chapter.save(`new chapter ${number}`);
 			await season.save(`add chapter ${number}`);
-			if (toonFile.dirty) await toonFile.save(`create ${toonFile.path}`);
+			if (toonFile.dirty) await toonFile.save(`create ${toonFile.entity}`);
 			message = m['creator.new_chapter_created']({ number });
 			await goto(`/${toonId}/chapter/${number}`);
 		} catch (e) {
@@ -317,7 +317,7 @@
 		const docs = [...pageDocs.filter((d) => d.dirty || d.unpublished.length), ...follow];
 		if (!docs.length) return;
 		const locales = [...new Set(docs.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].join(', ');
-		if (!confirm(m['creator.publish_confirm']({ file: fileLabels(docs.map((d) => d.path)), locales }))) return;
+		if (!confirm(m['creator.publish_confirm']({ file: fileLabels(docs.map((d) => d.entity)), locales }))) return;
 		if (!(await saveAll())) return;
 		busy = true;
 		try {
@@ -377,7 +377,7 @@
 					{#each missing as { locale, docs } (locale)}
 						<p class="missing-bar" data-testid="missing-{locale}">
 							{m['creator.missing_locale_files']({ locale, count: docs.length })}
-							<span class="hint">{fileLabels(docs.map((d) => d.path))}</span>
+							<span class="hint">{fileLabels(docs.map((d) => d.entity))}</span>
 							<button class="secondary" disabled={busy} onclick={() => createLocaleFiles(locale)} data-testid="create-locale-{locale}">
 								{m['creator.create_locale']({ locale, source: langs?.source ?? '' })}
 							</button>
@@ -450,7 +450,7 @@
 				</table>
 			{/if}
 			{#if season && !season.loading && !seasonMissing && orphans.length}
-				<p class="error" data-testid="orphans">{m['creator.orphans']({ numbers: orphans.join(', '), file: fileLabel(season.path) })}</p>
+				<p class="error" data-testid="orphans">{m['creator.orphans']({ numbers: orphans.join(', '), file: fileLabel(season.entity) })}</p>
 			{/if}
 			{#if message}<p class="hint">{message}</p>{/if}
 			{#if error}<p class="error">{error}</p>{/if}
@@ -458,7 +458,7 @@
 	</main>
 	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season, toon.json) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={toonId}>
-		{#snippet info()}<PageHelp page="toon" seasonFile={season ? fileLabel(season.path) : undefined} />{/snippet}
+		{#snippet info()}<PageHelp page="toon" seasonFile={season ? fileLabel(season.entity) : undefined} />{/snippet}
 		{#snippet start()}
 			<UpLink />
 			{#if anyDirty}<span class="hint">{m['creator.unsaved']()}</span>{/if}

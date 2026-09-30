@@ -5,9 +5,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { AppShell, Button } from '@scutoons/ui';
-	import { toonLanguages, type ToonIndex } from '@scutoons/content';
+	import { entities, toonLanguages, type ToonIndex } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
-	import { STATIC_API, VIEWER_URL } from '$lib/config.ts';
+	import { VIEWER_URL } from '$lib/config.ts';
+	import { library } from '$lib/api.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
@@ -43,8 +44,7 @@
 	let menuOpen = $state(false);
 	onMount(async () => {
 		try {
-			const response = await fetch(`${STATIC_API}/toons.json`);
-			if (response.ok) toons = await response.json();
+			toons = await library.fetchToons({ draft: true });
 		} catch {
 			/* names fall back to the ids */
 		}
@@ -68,17 +68,17 @@
 		}
 		if (!toonId) return out;
 		out.push({ href: `/${toonId}`, label: toonName(toonId) });
-		// every chapter belongs to a season; the editor works on season 1 (season1.json) for now
+		// every chapter belongs to a season; the editor works on season 1 for now
 		const season = page.params.seasonNumber ?? (page.params.chapterNumber ? '1' : null);
-		if (season) out.push({ href: `/${toonId}/season/${season}`, label: fileLabel(`season${season}.json`) });
+		if (season) out.push({ href: `/${toonId}/season/${season}`, label: fileLabel(entities.season(toonId, Number(season))) });
 		if (page.params.chapterNumber) {
 			const n = page.params.chapterNumber;
-			out.push({ href: `/${toonId}/chapter/${n}`, label: fileLabel(`chapter${n}.json`) });
+			out.push({ href: `/${toonId}/chapter/${n}`, label: fileLabel(entities.chapter(toonId, Number(n))) });
 			if (route.endsWith('/preview')) out.push({ href: page.url.pathname + page.url.search, label: m['creator.preview_title']() });
 		}
 		if (route === '/[toonId]/cast') out.push({ href: `/${toonId}/cast`, label: m['creator.cast']() });
 		if (route === '/[toonId]/credits') out.push({ href: `/${toonId}/credits`, label: m['creator.credits']() });
-		if (route === '/[toonId]/toon') out.push({ href: `/${toonId}/toon`, label: fileLabel('toon.json') });
+		if (route === '/[toonId]/toon') out.push({ href: `/${toonId}/toon`, label: fileLabel(entities.toonSettings(toonId)) });
 		return out;
 	});
 	$effect(() => {

@@ -9,12 +9,11 @@
 	function label(l: string) {
 		const source = doc.source[l];
 		if (source === 'missing') return m['creator.missing']();
-		if (source === 'static') return m['creator.static_file']();
 		if (source === 'new') return m['creator.not_saved']();
 		const base = doc.base[l];
 		return base === doc.published[l] ? m['creator.version_published']({ version: base ?? '' }) : m['creator.version_draft']({ version: base ?? '' });
 	}
-	/** the language-neutral files (credits, characters, cast …) carry no language */
+	/** the language-neutral entities (credits, characters, cast …) carry no language */
 	const lang = (l: string) => (l === '_' ? '' : l);
 	function title(l: string) {
 		const source = doc.source[l];

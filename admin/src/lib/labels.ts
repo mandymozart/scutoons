@@ -54,11 +54,11 @@ export const inspectorLabels = () => ({
 });
 
 /**
- * What people see instead of a content-store key (no file names in the UI, owner 2026-09-30): `chapter2.json` →
+ * What people see instead of an entity key (no file names in the UI, owner 2026-09-30): `chapter:catpope:2` →
  * "Chapter 2" … The one mapping is @scutoons/ui `entityLabel`; this passes the admin's translations.
  */
-export function fileLabel(path: string): string {
-	return entityLabel(path, {
+export function fileLabel(key: string): string {
+	return entityLabel(key, {
 		chapter: (number) => m['entity.chapter']({ number }),
 		season: (number) => m['entity.season']({ number }),
 		scene: (label) => m['entity.scene']({ label }),

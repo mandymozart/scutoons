@@ -4,15 +4,16 @@
 </script>
 
 <script lang="ts">
+	import { fileLabel } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import StyleGuide from './style-guide.svelte';
 
 	/**
 	 * The help of every creator page, shown in the ActionBar's Info panel (@scutoons/ui `InfoPanel`, owner 2026-09-30):
 	 * explanations, conventions and glossaries live here instead of long hints above the fields; only short labels
-	 * and errors stay inline. `section`: the chapter editor's current tree section. `seasonFile`: the season's path.
+	 * and errors stay inline. `section`: the chapter editor's current tree section. `seasonFile`: the season's entity.
 	 */
-	let { page, section = 'meta', seasonFile = 'season1.json' }: { page: HelpPage; section?: ChapterSection; seasonFile?: string } = $props();
+	let { page, section = 'meta', seasonFile = '' }: { page: HelpPage; section?: ChapterSection; seasonFile?: string } = $props();
 </script>
 
 {#snippet saving()}
@@ -23,7 +24,7 @@
 
 {#snippet visibility()}
 	<h3>{m['creator.help_visibility_title']()}</h3>
-	<p>{m['creator.status_hint']({ file: seasonFile })} {m['creator.status_follow_chapters']()}</p>
+	<p>{m['creator.status_hint']({ file: seasonFile ? fileLabel(seasonFile) : m['creator.season']({ number: 1 }) })} {m['creator.status_follow_chapters']()}</p>
 {/snippet}
 
 <div class="page-help" data-testid="page-help-{page}">

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { toonLanguages, type Chapter, type Group, type ToonLanguages } from '@scutoons/content';
+	import { toonLanguages, type Chapter, type ToonLanguages } from '@scutoons/content';
 	import { Slice } from '@scutoons/reader';
 	import { ActionBar, Badge, Tabs } from '@scutoons/ui';
-	import { fetchContent } from '$lib/api.ts';
+	import { library } from '$lib/api.ts';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -13,8 +13,8 @@
 	import { usePageNav } from '$lib/nav.svelte.ts';
 
 	/**
-	 * Draft preview: the newest saved draft of the chapter (and its scene files) in one locale, rendered with the
-	 * reader's Slice / text boxes. Falls back to the published version / static file like the reader does.
+	 * Draft preview: the newest saved version of the chapter with its scenes in one locale (the library in draft mode,
+	 * the same composition the reader gets), rendered with the reader's Slice / text boxes.
 	 * Visual novel events are not played; horizontal groups are shown one slice below the other.
 	 */
 	const toon = $derived(page.params.toonId as string);
@@ -42,19 +42,10 @@
 		loading = true;
 		error = null;
 		try {
-			const response = await fetchContent(fetch, toonId, lang, `chapter${number}.json`, { draft: true });
-			if (!response.ok) throw new Error(m['creator.preview_not_found']({ number, locale: lang }));
-			const data: Chapter = await response.json();
-			let draft = response.url.includes('draft=1');
-			data.groups = await Promise.all(
-				(data.groups ?? []).map(async (group) => {
-					if (!group.ref) return group;
-					const ref = await fetchContent(fetch, toonId, lang, group.ref.src, { draft: true });
-					if (!ref.ok) return group;
-					draft ||= ref.url.includes('draft=1');
-					return { ...(await ref.json()), label: group.label ?? group.ref.id } as Group;
-				})
-			);
+			const data = await library.fetchChapter(toonId, number, lang, { draft: true }).catch(() => {
+				throw new Error(m['creator.preview_not_found']({ number, locale: lang }));
+			});
+			const draft = true;
 			chapter = data;
 			fromDraft = draft;
 		} catch (e) {

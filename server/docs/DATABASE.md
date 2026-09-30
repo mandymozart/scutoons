@@ -32,13 +32,13 @@ needed there – every file is idempotent.
 |---|---|
 | `migrate [--status] [--db=<sqlite>]` | apply pending migrations |
 | `roles grant\|revoke <email> <role>` · `roles list [email]` | account roles (member, admin, creator); `granted_by` = `cli` |
-| `import-content <viewer/static/api> [--toon=] [--db=] [--update] [--dry-run] [--sql]` | seed the content store from the viewer's static configs as published versions (idempotent; also `toons.json` → `<toon>/_/index.json`, `events.json` → `scutoons/_/events.json`, the map; `--only=<file names>`). `--sql` prints guarded MySQL INSERTs for phpMyAdmin (the production seed) |
+| `import-content <folder> [--toon=] [--db=] [--update] [--dry-run] [--sql] [--only=<kinds>]` | the interchange files (`shared/content/seed`: `toons.json`, `events.json`, `<toon>/<l>/…`, `<toon>/_/…`, `scutoons/_/…`) into `entity_versions` as published versions, keyed by entity (`Console\ContentFiles`; idempotent, `--update` for changed files). `--sql` prints guarded MySQL INSERTs for phpMyAdmin (the production seed, committed as `shared/content/seed/content-seed.mysql.sql`) |
 | `export-content <dir> [--toon=] [--draft] [--db=]` | the store back into the file layout (`toons.json`, `events.json`, `<toon>/<locale>/<path>`): backup, diff, seed for another environment (agents/DATA.md) |
 | `backfill-edition-numbers [--dry-run] [--sql] [--force] [--manifests=<dir>]` | `qr.edition_number` from the batch manifests (`--sql` for production) |
 | `report-orphan-codes [--csv] [--manifests=<dir>]` | read-only: edition codes in no manifest |
 
 Production equivalents without a shell: roles → admin app / `generate/` "Users"; content seed → `import-content --sql`
-locally, import the file in phpMyAdmin; edition numbers → copy `storage/files/batch/*.json` from the server, run
+locally (or the committed `shared/content/seed/content-seed.mysql.sql`), import the file in phpMyAdmin after `2026-09-30-entity-keys`; edition numbers → copy `storage/files/batch/*.json` from the server, run
 `backfill-edition-numbers --sql --manifests=<copy>` locally, import the output.
 
 ## Production data steps still open from the account system (docs/DEPLOY.md "Cutover")

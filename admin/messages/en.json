@@ -388,7 +388,8 @@
 		"path": "Content",
 		"version_line": "#{latest} · published #{published} · {versions} versions",
 		"edit": "Edit",
-		"empty": "Nothing stored for this toon yet."
+		"empty": "Nothing stored for this toon yet.",
+		"platform": "Platform-wide (characters, people, roles, events)"
 	},
 	"settings": {
 		"title": "Settings",

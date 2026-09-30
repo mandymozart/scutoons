@@ -265,10 +265,14 @@ export interface AdminKeys {
 }
 
 /** One stored file of the content store (every toon), see ITEMS.md "Admin API" → Content */
-export interface AdminContentFile {
-	toon: string;
-	locale: string;
-	path: string;
+/** One stored entity (entity key, agents/DATA.md) of the content store */
+export interface AdminContentEntity {
+	key: string;
+	kind: string;
+	/** null = platform-wide (characters, people, events …) */
+	toon: string | null;
+	/** null = language-neutral */
+	locale: string | null;
 	latest: number;
 	latest_status: 'draft' | 'published' | string;
 	latest_at: string;
@@ -280,7 +284,7 @@ export interface AdminContentFile {
 export interface AdminContentIndex {
 	status: 'success';
 	toons: { id: string; name: string }[];
-	files: AdminContentFile[];
+	entities: AdminContentEntity[];
 }
 
 /** A runtime setting (table `settings`), see ITEMS.md "Admin API" → Settings. 0 = no limit for the limits. */

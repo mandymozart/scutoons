@@ -1,4 +1,3 @@
-export const API_BASE = '/api';
 /**
  * CDN base used by `asset()` (lib/utils/cdn.ts). Override with VITE_CDN_URL;
  * default: prod https://cdn.scutoons.com, dev the local `python cdn/server.py 8001`.

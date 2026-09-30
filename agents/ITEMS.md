@@ -129,7 +129,8 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
 | GET | `/items/` | – | catalog (above) |
 | GET | `/products/` | – | shop catalog, `config/products.json` as stored (`{ version:2, currency, checked_at, source, products:[Product] }`, `@scutoons/content` `ProductCatalog`); CORS `*`, cached 5 min (platform P2b) |
 | GET | `/products/featured/` | – | homepage featured products, `config/featured-products.json` as stored (`[{ product, variant? }]`) |
-| GET | `/library/toons[/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]]`, `/events/` | – (`?draft=1`: creator) | the reader's entities from the content store (agents/DATA.md §3, server docs/API.md "Library"): toons list, toon bundle, season overview, chapter with scenes inlined, cast, credits, events; `?locale=`, ETag, 403 `coming_soon`/`not_public` |
+| GET | `/library/toons[/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]]`, `/library/characters`, `/events/` | – (`?draft=1`: creator) | the reader's entities from the content store (agents/DATA.md §3, server docs/API.md "Library"): toons list, toon bundle, season overview, chapter with scenes inlined, cast, credits, events; `?locale=`, ETag, 403 `coming_soon`/`not_public` |
+| GET/PUT/POST | `/entities/<key>…` | creator | the content store by entity key (`chapter:catpope:2:de`, `characters` …): read, save draft, versions, publish, unpublish, restore – server docs/API.md "Entities" (replaced `/content/*`) |
 | GET | `/code/?c=CODE` | – | `{ code, type, claimed: bool, claimed_by_me?: bool, items:[{item_id, variant, qty}], options:[{item_id, variants:[…]}], edition:{ id, name, number?, count } }` — never an email |
 | POST | `/inventory/claim/` | `{ code, item_id?, variant? }` | `{ status, inventory:[Entry] }` · 409 `already_claimed` · 422 `choose_item` (+options) |
 | POST | `/inventory/craft/` | `{ recipe_id }` | `{ status, inventory }` · 422 `missing_inputs` |

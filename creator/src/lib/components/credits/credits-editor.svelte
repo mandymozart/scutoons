@@ -2,8 +2,7 @@
 	import { onMount } from 'svelte';
 	import {
 		cdnUrl,
-		CREDITS_FILE,
-		CREDITS_SCOPE,
+		entities,
 		emptyCredits,
 		resolveCredits,
 		validateCredits,
@@ -23,8 +22,8 @@
 	import RolesPanel from './roles-panel.svelte';
 
 	/**
-	 * Credits page of a toon: sections of `<toon>/_/credits.json`, the global people registry and role vocabulary
-	 * (`scutoons/_/people.json`, `roles.json`) and a live preview per toon language (the viewer's CreditsView).
+	 * Credits page of a toon: sections of its credits (entity `credits:<toon>`), the global people registry and role
+	 * vocabulary (entities `people`, `roles`) and a live preview per toon language (the viewer's CreditsView).
 	 */
 	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
 
@@ -53,9 +52,9 @@
 		const registry = peopleOf(people);
 		const vocabulary = rolesOf(roles);
 		return [
-			...(creditsOf(credits) ? validateCredits(creditsOf(credits), { people: registry, vocabulary, languages: langs, file: CREDITS_FILE }) : []),
-			...(registry ? validatePeople(registry, langs, `${CREDITS_SCOPE}/people.json`) : []),
-			...(vocabulary ? validateRoleVocabulary(vocabulary, langs, `${CREDITS_SCOPE}/roles.json`) : [])
+			...(creditsOf(credits) ? validateCredits(creditsOf(credits), { people: registry, vocabulary, languages: langs, file: entities.credits(toon) }) : []),
+			...(registry ? validatePeople(registry, langs, entities.people) : []),
+			...(vocabulary ? validateRoleVocabulary(vocabulary, langs, entities.roles) : [])
 		];
 	}
 
@@ -76,7 +75,7 @@
 <MetaPage {toon} title={m['creator.credits']()} {docs} {validate} wide help="credits">
 	{#if missing.length}
 		<section class="missing" data-testid="credits-missing">
-			<p>{m['creator.credits_missing']({ files: fileLabels(missing.map((d) => d.path)) })}</p>
+			<p>{m['creator.credits_missing']({ files: fileLabels(missing.map((d) => d.entity)) })}</p>
 			<button type="button" onclick={createMissing} data-testid="create-credits">+ {m['creator.credits_create']()}</button>
 		</section>
 	{:else}

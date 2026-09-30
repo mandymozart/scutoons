@@ -42,10 +42,9 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET/PUT | `/avatar/` | Bearer | GET → `{ status, avatar: { slots, body, unlocked } }`; PUT `{ slots?:{ <slot>: entryId\|null }, body?: { character, look }\|null }` (at least one) – `body` must be unlocked and have an A-pose image (`422 locked\|no_apose`, `400 invalid_body`); `unlocked` = `[{ character, looks, source }]` (defaults from `AVATAR_DEFAULT_UNLOCKS` first); `body: null` = the first unlocked default |
 | GET/PUT | `/progress/<toonId>/` | Bearer | `{ state, updated_at }` last write wins |
 | GET | `/library/toons`, `/library/toons/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]`, `/events/` | – / creator | the reader's entities composed from the content store – see "Library" |
-| GET | `/content/<toon>/<locale>/<path>.json` | – / creator | published config (raw JSON); `?draft=1`, `?version=`, `&wrap=1` need `creator` – see "Content API" |
-| PUT | `/content/<toon>/<locale>/<path>.json` | creator | `{ content, message?, base? }` → new draft version |
-| GET | `/content/versions`, `/content/index` | creator | history of a file / all stored files of a toon |
-| POST | `/content/publish`, `/content/unpublish`, `/content/restore` | creator | make a version live / nothing live / old version → new draft |
+| GET | `/entities?toon=`, `/entities/<key>[?draft=1\|?version=<id>][&wrap=1]`, `/entities/<key>/versions` | creator | the content store by entity key – see "Entities" |
+| PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
+| POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -222,37 +221,40 @@ of the last change as consent record). Export the opted-in addresses with
 `SELECT email FROM users WHERE marketing_opt_in = 1` when sending news. Retention suggestion: delete events older than
 13 months (`DELETE FROM code_events WHERE created_at < NOW() - INTERVAL 13 MONTH`).
 
-## Content API (creator editor)
+## Entities (the content store, creator)
 
-Store for the chapter / season / toon configs and VN scene files (the viewer reads the store first and falls back to its
-static files).
+Every toon-related document (toon entry and settings, seasons, chapters, VN scenes, map, cast, credits, characters,
+moods, wanted images, people, roles, events) as versions in `entity_versions`, keyed by **entity key** (agents/DATA.md §2):
+`toon:<toon>`, `toon-settings:<toon>:<l>`, `season:<toon>:<n>:<l>`, `chapter:<toon>:<n>:<l>`,
+`scene:<toon>:<chapter>:<name>:<l>`, `locations:<toon>:<l>`, `routes:<toon>:<l>`, `cast:<toon>`, `credits:<toon>`,
+`characters`, `moods`, `asset-requests`, `people`, `roles`, `events`. Every save is a new version; per key at most **one**
+version is `published`, the newest is the working copy. Readers use the library (below); everything here needs the role
+`creator`.
 
-- **Table `content_versions`** `(id, toon, locale, path, json, author → users.id | NULL, created_at UTC, status, message)`.
-  Every save is a new row. Per file (toon, locale, path) at most **one** row is `published`; all others are `draft`. The
-  newest row is the working copy.
-- **Validation** (minimal, the editor checks the TypeScript types): toon `^[a-z0-9_-]{1,64}$`, locale `^[a-z]{2}$` or `_` (language-neutral files: `<toon>/_/index.json` = the toon's `toons.json` entry incl. `sourceLanguage` / `languages`), path
-  `^[a-z0-9_-]+(/[a-z0-9_-]+)?\.json$`, body JSON object or array, `CONTENT_MAX_BYTES` (default 2 MB). JSON is decoded
-  as objects and stored re-encoded (unescaped unicode/slashes), so `{}` stays `{}`.
+- **Validation** (minimal, the creator checks the TypeScript types): a valid key (`400 invalid_key`), body JSON object
+  or array, `CONTENT_MAX_BYTES` (default 2 MB). JSON is decoded as objects and stored re-encoded (unescaped
+  unicode/slashes), so `{}` stays `{}`.
 
-| Method | Path | Role | Body / query → answer |
-|---|---|---|---|
-| GET | `/content/<toon>/<locale>/<path>` | – | the published version as raw JSON (`ETag: "v<id>"`, `Cache-Control: no-cache`, 304 on `If-None-Match`, headers `X-Content-Version`/`X-Content-Status`) · 404 when nothing is published |
-| GET | same `?draft=1` | creator | the newest version (raw JSON, `no-store`) · 401 / 403 `forbidden` |
-| GET | same `?version=<id>` | creator | that version of this file · 404 |
-| GET | same `…&wrap=1` | creator | `{ status, version: meta, published: { id, created_at } \| null, content }` |
-| PUT | `/content/<toon>/<locale>/<path>` | creator | `{ content, message?, base? }` → `{ status, unchanged, version: meta }`; `base` not the newest → **409 `conflict`** `{ latest: meta }` |
-| GET | `/content/versions?toon=&locale=&path=&limit=` | creator | `{ versions: [{ id, status, created_at, author, author_email, message, size }] }` newest first |
-| GET | `/content/index?toon=` | creator | `{ files: [{ locale, path, latest, published, versions }] }` |
-| POST | `/content/publish` | creator | `{ toon, locale, path, version? }` (default: newest) → `{ version }` |
-| POST | `/content/unpublish` | creator | `{ toon, locale, path }` → `{ unpublished: n }` |
-| POST | `/content/restore` | creator | `{ id, message? }` → `{ version }` – that version as the newest **draft** |
+| Method | Path | Body / query → answer |
+|---|---|---|
+| GET | `/entities?toon=<toon>` | `{ entities: [{ key, kind, toon, locale, latest, published, versions }] }` (`toon=` empty: the platform-wide ones; no `toon`: all) |
+| GET | `/entities/<key>` | the published version as raw JSON (`no-store`, `X-Content-Version`/`X-Content-Status`) · 404 when nothing is published |
+| GET | same `?draft=1` / `?version=<id>` | the newest version / that version · 404 |
+| GET | same `…&wrap=1` | `{ status, version: meta, published: { id, created_at } \| null, content }` |
+| PUT | `/entities/<key>` | `{ content, message?, base? }` → `{ status, unchanged, version: meta }`; `base` not the newest → **409 `conflict`** `{ latest: meta }` |
+| GET | `/entities/<key>/versions?limit=` | `{ versions: [{ id, status, created_at, author, author_email, message, size }] }` newest first |
+| POST | `/entities/<key>/publish` | `{ version? }` (default: newest) → `{ version }` · 404 for a version of another key |
+| POST | `/entities/<key>/unpublish` | → `{ unpublished: n }` |
+| POST | `/entities/<key>/restore` | `{ id, message? }` → `{ version }` – that version (of this key) as the newest **draft** |
 
-`meta = { id, toon, locale, path, status, created_at, author, author_email, message, size }`. Errors:
-`400 invalid_toon|invalid_locale|invalid_path|invalid_json|missing_content`, `413 content_too_large`,
-`422 invalid_content`, `401 unauthorized`, `403 forbidden` (`role: "creator"`).
+`meta = { id, key, kind, toon, locale, status, created_at, author, author_email, message, size }`. Errors:
+`400 invalid_key|invalid_toon|invalid_json|missing_content`, `413 content_too_large`, `422 invalid_content`,
+`401 unauthorized`, `403 forbidden` (`role: "creator"`).
 
-**Seeding** – `php bin/console import-content <monorepo>/viewer/static/api [--toon=] [--db=<sqlite>] [--update]
-[--dry-run] [--sql]` (see [DATABASE.md](DATABASE.md)).
+**Seeding / interchange** – `php bin/console import-content shared/content/seed [--toon=] [--only=<kinds>] [--db=<sqlite>]
+[--update] [--dry-run] [--sql]`, `export-content <dir>` (see [DATABASE.md](DATABASE.md)); the path ↔ key mapping of the
+JSON folder layout is `Console\ContentFiles`. Migration `2026-09-30-entity-keys` created `entity_versions` from the
+former path-keyed `content_versions` (same ids).
 
 ## Library (the reader's entities, agents/DATA.md)
 
@@ -261,18 +263,19 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 
 | GET | Answer |
 |---|---|
-| `/library/toons` | `ToonIndex[]`: every `<toon>/_/index.json` with `status: published` (creation order) |
+| `/library/toons` | `ToonIndex[]`: every `toon:<toon>` entry with `status: published` (creation order) |
 | `/library/toons/<toon>?locale=` | `{ entry, toon, seasons: SeasonOverview[], locations, routes }` – the toon layout in one request |
 | `/library/toons/<toon>/seasons/<n>?locale=` | `SeasonOverview = { number, season, chapters: ChapterSummary[] }` – listed chapters (readable + coming-soon); a summary is the chapter file without `groups` / `audio` / `status` + the season's `type`, `number`, `status` |
 | `/library/toons/<toon>/chapters/<n>?locale=` | the chapter with every `ref` group replaced by its scene file (a missing scene keeps its `ref` group + `X-Content-Missing`) |
-| `/library/toons/<toon>/cast[?chapter=<n>]` | `{ registry, cast }`: `scutoons/_/characters.json` reduced to the toon's cast (or the characters the chapter references; legacy ids mapped) + `<toon>/_/cast.json`; `null` where missing. Resolve with `resolveCast()` |
-| `/library/toons/<toon>/credits` | `{ credits, people, roles }`: `<toon>/_/credits.json`, the referenced people (+ `merged_into` targets), the roles · 404 without credits |
-| `/events/` | `scutoons/_/events.json` |
+| `/library/toons/<toon>/cast[?chapter=<n>]` | `{ registry, cast }`: `characters` reduced to the toon's cast (or the characters the chapter references; legacy ids mapped) + `cast:<toon>`; `null` where missing. Resolve with `resolveCast()` |
+| `/library/toons/<toon>/credits` | `{ credits, people, roles }`: `credits:<toon>`, the referenced people (+ `merged_into` targets), the roles · 404 without credits |
+| `/library/characters` | the whole character registry (entity `characters`), e.g. the avatar bodies |
+| `/events/` | the entity `events` |
 
 - **Locale** `?locale=xx` (default: the toon's `sourceLanguage`): per document the asked locale, else the source
   language, else another language of the toon → `Content-Language` = the served one, `X-Content-Fallback: 1` when it
   differs. Language-neutral answers (cast, credits, events, the list) have no `Content-Language`.
-- **Visibility**: index entry + `toon.json` must be `published` (else `404 not_found`); a chapter's status is its season
+- **Visibility**: index entry + toon settings must be `published` (else `404 not_found`); a chapter's status is its season
   `sequence[].status`: `coming-soon` → `403 coming_soon { chapter: ChapterSummary }`, `draft` or not in any season →
   `403 not_public`. `CONTENT_SHOW_DRAFTS=1` (local development) makes `draft` readable.
 - **`?draft=1`** (role `creator`; `401` / `403 forbidden` otherwise): the newest version of every document, no gates,
@@ -280,12 +283,11 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 - **Headers**: `Cache-Control: public, max-age=60`, `ETag` (`304` on `If-None-Match`), `Access-Control-Allow-Origin`
   = the allowed origin or `*`, exposed `ETag, Content-Language, X-Content-Fallback, X-Content-Missing`.
 - **Server cache** (`CACHE_DRIVER`, `CACHE_PATH`): answers are cached under endpoint + the ids of every published
-  version of the toon and `scutoons` – a publish changes the key, so nothing is ever invalidated; drafts are never
+  version of the toon and of the platform-wide entities – a publish changes the key, so nothing is ever invalidated; drafts are never
   cached. APCu when enabled, else files in `storage/cache/library/` (pruned by age).
 - Errors: `400 invalid_toon|invalid_locale|invalid_chapter`, `404 not_found`, `403 coming_soon|not_public`.
-- Seed / compare: `import-content` also stores `toons.json` (→ `<toon>/_/index.json`), `events.json` (→
-  `scutoons/_/events.json`) and `<toon>/<l>/{locations,routes}.json`; `tests/entities-compare.php` checks
-  every answer against the static files (fresh DB, part of `composer test`); `export-content` writes the store back.
+- Compare: `tests/entities-compare.php` checks every answer against the interchange files of `shared/content/seed`
+  (fresh DB, part of `composer test`; `--report` against production).
 
 ## Security notes
 

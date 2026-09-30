@@ -3,44 +3,25 @@ import type { PageLoad } from './$types.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import type { Chapter } from '@scutoons/content';
 
-import { type Group, isItemPublic, sequenceStatus, Status } from '@scutoons/content';
+import { isItemPublic, sequenceStatus, Status } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
-import { fetchContent } from '$lib/api.ts';
+import { ApiError, fetchChapter } from '$lib/api.ts';
 
 /** Why a chapter's content is not shown: `draft` (not public), `coming-soon` (listed, not released yet). */
 export type ChapterGate = { reason: 'draft' | 'coming-soon'; number: number; title?: string; release?: string };
 
-/** The chapter file with its referenced groups (VN scene files) filled in; null when the file is missing. */
-async function loadChapter(fetch: typeof globalThis.fetch, toonId: string, locale: string, number: string): Promise<Chapter | null> {
-	// content store first (published versions), static /api files as fallback
-	const response = await fetchContent(fetch, toonId, locale, `chapter${number}.json`);
-	if (!response.ok) return null;
-	const chapter: Chapter = await response.json();
-	// populate Groups (in parallel)
-	chapter.groups = (await Promise.all(
-		chapter.groups.map(async (group) => {
-			if (group.ref) {
-				const response2 = await fetchContent(fetch, toonId, locale, group.ref.src);
-				const populatedGroup: Group = await response2.json();
-				return populatedGroup;
-			}
-			return group;
-		})
-	)) as Group[];
-	return chapter;
-}
-
-export const load: PageLoad = async ({ fetch, params, parent }) => {
-	// Started before `parent()`: the toon layout loads the same chapterN.json (the content cache shares that request),
-	// and the chapter's scene files load while the layout is still busy with the other chapters (agents/PERFORMANCE.md).
+export const load: PageLoad = async ({ params, parent }) => {
+	// One request per chapter: the library answers the chapter with its VN scenes inlined (agents/DATA.md). Started
+	// before `parent()`, so it runs while the toon layout loads; the API applies the same visibility rules (403).
 	const locale = getLocale();
-	const chapterPromise = loadChapter(fetch, params.toonId, locale, params.chapterNumber);
-	chapterPromise.catch(() => {}); // a gated chapter never awaits it
+	const number = Number(params.chapterNumber);
+	const chapterPromise: Promise<Chapter | ApiError> = Number.isInteger(number) && number > 0
+		? fetchChapter(params.toonId, number, locale).catch((e) => (e instanceof ApiError ? e : new ApiError(0, 'network', String(e))))
+		: Promise.resolve(new ApiError(404, 'not_found', 'Not found'));
 
 	// Visibility = the season's status of this chapter in this locale (the toon layout loaded the season); the chapter
 	// file's own `status` is not read. The URL itself always resolves (printed-URL rule) – only the content is gated.
 	const { season, sequence } = await parent();
-	const number = Number(params.chapterNumber);
 	const status = sequenceStatus(season, number);
 	if (status === Status.COMING_SOON) {
 		// title / release from the chapter overview (the layout loaded coming-soon items for the list)
@@ -55,6 +36,10 @@ export const load: PageLoad = async ({ fetch, params, parent }) => {
 	}
 
 	const chapter = await chapterPromise;
-	if (!chapter) throw error(404, `${m['common.chapter']({ number: params.chapterNumber })} not found in ${locale.toUpperCase()}`);
+	if (chapter instanceof ApiError) {
+		if (chapter.code === 'coming_soon') return { chapter: null, gate: { reason: 'coming-soon', number } as ChapterGate };
+		if (chapter.code === 'not_public') return { chapter: null, gate: { reason: 'draft', number } as ChapterGate };
+		throw error(chapter.status === 404 ? 404 : 503, `${m['common.chapter']({ number: params.chapterNumber })} not found in ${locale.toUpperCase()}`);
+	}
 	return { chapter, gate: null };
 };

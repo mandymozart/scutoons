@@ -102,32 +102,34 @@ $schema = json_decode(file_get_contents('…/shared/content/schema/chapter.schem
 ## Scripts
 
 - `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-credits.ts [--toon=catpope]`
-  (from the repo root) converts the old `viewer/static/api/<toon>/{de,en}/credits.json` + season `credits` + toon
+  (from the repo root) converts the old `shared/content/legacy/<toon>/{de,en}/credits.json` + season `credits` + toon
   `authors` into `seed/` (`scutoons/_/people.json`, `scutoons/_/roles.json`, `<toon>/_/credits.json`) and prints a report
   (ambiguous roles, aliases, possible duplicates). Import: `php server/bin/console import-content shared/content/seed`
   (`--sql` = production statements, committed as `seed/credits-seed.mysql.sql`).
 
 - `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-characters.ts` converts the old
-  `viewer/static/api/<toon>/{de,en}/characters.json` (→ regular persona, default look) and the owner's additions
+  `shared/content/legacy/<toon>/{de,en}/characters.json` (→ regular persona, default look) and the owner's additions
   (personas incl. the former characters plf / cat / mountain-tiger, looks, transitions, A-poses, casts per season) into
   `seed/scutoons/_/{characters,moods,asset-requests}.json`
   + `seed/<toon>/_/cast.json`, takes every image found in the convention folders `cdn/root/characters/<character>[-<persona>]/`
   (after writing their WebP versions with `cdn/tools/make_character_webp.py` via `cdn/.venv` – `--no-webp` skips that; the WebP wins
   over the PNG of the same name)
-  and compares `resolveCast()` with the old files. Import: `php server/bin/console import-content shared/content/seed
-  --only=characters.json,moods.json,asset-requests.json,cast.json` (`--update` after a seed change; `--sql` =
-  production statements, committed as `seed/characters-seed.mysql.sql`).
+  and compares `resolveCast()` with the old files, then imports them into the local content store
+  (`php server/bin/console import-content shared/content/seed --only=characters,moods,asset-requests,cast --update`;
+  `--no-import` skips it). Production statements: the same with `--sql`, committed as `seed/characters-seed.mysql.sql`
+  (and `seed/content-seed.mysql.sql` for everything).
 - `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-scene-refs.ts [--dry-run] <files>`
   rewrites VN character refs into the current form (`transformSceneRefs()`).
 
-- `node --experimental-transform-types --no-warnings shared/content/scripts/make-sandbox.ts [--from=<api base>] [--dry-run]`
+- `node --experimental-transform-types --no-warnings shared/content/scripts/make-sandbox.ts [--from=<api base>] [--no-import] [--dry-run]`
   generates the **sandbox toon** "Cat Pope's walk" (dev + creator only, hidden in production: toon, season chapters
-  all `draft`) from the registry + `moods.json` (seed files, or the published store with `--from=http://localhost:9000/api`)
-  into `viewer/static/api/sandbox/` (rewritten completely): one chapter per encounter (every other character, then Cat
+  all `draft`) from the registry + moods (seed files, or the store with `--from=http://localhost:9000/api` and a creator
+  session in `SCUTOONS_TOKEN`) into the interchange folder `seed/sandbox/` (rewritten completely): one chapter per encounter (every other character, then Cat
   Pope's own personas), one VN group per persona × look; everyone shows every mood of every look, Cat Pope mimics it
   (or is `sad` when his regular look lacks it), look changes use the registry transitions, Cat Pope tries each look.
-  Then `php server/bin/console import-content viewer/static/api --toon=sandbox --update` (the production seed `--sql`
-  skips it). Re-run both after adding characters, personas, looks, moods or transitions. It is also the VN test bed.
+  Then it imports it (`php server/bin/console import-content shared/content/seed --toon=sandbox --update`; `--no-import`
+  skips that; the production seed `--sql` leaves the sandbox out). Re-run after adding characters, personas, looks,
+  moods or transitions. It is also the VN test bed.
 - `npm run schema -w @scutoons/content` regenerates `schema/*.schema.json` (commit the result).
 - `npm run check -w @scutoons/content` = `tsc --noEmit` + fails when a committed schema is out of date + the unit tests (`npm test`).
 

@@ -5,7 +5,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from './locale-map-field.svelte';
 
-	/** The toon's custom roles (credits.json `roles`) and the shared vocabulary (scutoons/_/roles.json). */
+	/** The toon's custom roles (the credits' `roles`) and the shared vocabulary (entity `roles`). */
 	let { credits, roles, languages }: { credits: ContentDoc; roles: ContentDoc; languages: string[] } = $props();
 
 	let query = $state('');

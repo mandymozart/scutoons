@@ -5,7 +5,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, Section, Skeleton, ToonAvatar } from '@scutoons/ui';
-	import type { AdminContentFile, AdminContentIndex } from '@scutoons/api';
+	import type { AdminContentEntity, AdminContentIndex } from '@scutoons/api';
+	import { entityOf, parseEntityKey } from '@scutoons/content';
 	import { admin } from '$lib/api.ts';
 	import { CREATOR_URL, toonAvatarUrl } from '$lib/config.ts';
 	import { errorText, minute } from '$lib/format.ts';
@@ -26,30 +27,40 @@
 	});
 
 	type FileState = 'published' | 'ahead' | 'draft';
-	const fileState = (f: AdminContentFile): FileState =>
+	const fileState = (f: AdminContentEntity): FileState =>
 		f.published === null ? 'draft' : f.published === f.latest ? 'published' : 'ahead';
 
-	/** toon → path → locale → file */
+	/** the column of a stored entity: its locale, `·` for language-neutral ones */
+	const NEUTRAL = '·';
+	const column = (e: AdminContentEntity) => e.locale ?? NEUTRAL;
+
+	/** toon (then the platform-wide entities) → entity → locale → stored entity */
 	const groups = $derived.by(() => {
 		if (!data) return [];
-		return data.toons
-			.filter((t) => !toonFilter || t.id === toonFilter)
-			.map((toon) => {
-				const files = data!.files.filter((f) => f.toon === toon.id && (!stateFilter || fileState(f) === stateFilter));
-				const locales = [...new Set(data!.files.filter((f) => f.toon === toon.id).map((f) => f.locale))].sort();
-				const paths = [...new Set(files.map((f) => f.path))];
-				return {
-					toon,
-					locales,
-					rows: paths.map((path) => ({ path, byLocale: Object.fromEntries(files.filter((f) => f.path === path).map((f) => [f.locale, f])) }))
-				};
-			});
+		const scopes: { id: string | null; name: string }[] = [
+			...data.toons.filter((t) => !toonFilter || t.id === toonFilter),
+			...(!toonFilter ? [{ id: null, name: m['content.platform']() }] : [])
+		];
+		return scopes.map((toon) => {
+			const all = data!.entities.filter((e) => e.toon === toon.id && parseEntityKey(e.key));
+			const shown = all.filter((e) => !stateFilter || fileState(e) === stateFilter);
+			const locales = [...new Set(all.map(column))].sort((a, b) => (a === NEUTRAL ? -1 : b === NEUTRAL ? 1 : a.localeCompare(b)));
+			const ids = [...new Set(shown.map((e) => entityOf(e.key)))];
+			return {
+				toon,
+				locales,
+				rows: ids.map((entity) => ({ entity, byLocale: Object.fromEntries(shown.filter((e) => entityOf(e.key) === entity).map((e) => [column(e), e])) }))
+			};
+		});
 	});
 
-	/** chapterN.json and chapterN/<scene>.json open the chapter editor, everything else the toon page */
-	function creatorLink(toon: string, path: string) {
-		const chapter = /^chapter(\d+)(?:\.json|\/)/.exec(path);
-		return chapter ? `${CREATOR_URL}/${toon}/chapter/${chapter[1]}` : `${CREATOR_URL}/${toon}`;
+	/** chapters and their scenes open the chapter editor, characters the characters page, everything else the toon page */
+	function creatorLink(entity: string) {
+		const ref = parseEntityKey(entity);
+		if (!ref) return CREATOR_URL;
+		if ((ref.kind === 'chapter' || ref.kind === 'scene') && ref.toon) return `${CREATOR_URL}/${ref.toon}/chapter/${ref.number}`;
+		if (ref.kind === 'characters' || ref.kind === 'moods' || ref.kind === 'asset-requests') return `${CREATOR_URL}/characters`;
+		return ref.toon ? `${CREATOR_URL}/${ref.toon}` : CREATOR_URL;
 	}
 
 	const setParam = (key: string, value: string) => {
@@ -97,11 +108,11 @@
 	<Skeleton variant="table" label={m['shell.loading']()} />
 {:else}
 
-	{#each groups as group (group.toon.id)}
+	{#each groups as group (group.toon.id ?? '')}
 		<Section title={group.toon.name} hint={m['content.files']({ count: group.rows.length })}>
-			{#snippet media()}<ToonAvatar src={toonAvatarUrl(group.toon.id)} name={group.toon.name} />{/snippet}
+			{#snippet media()}{#if group.toon.id}<ToonAvatar src={toonAvatarUrl(group.toon.id)} name={group.toon.name} />{/if}{/snippet}
 			{#snippet actions()}
-				<Button size="sm" variant="secondary" href="{CREATOR_URL}/{group.toon.id}" target="_blank" rel="noreferrer">{m['content.open_in_creator']()}</Button>
+				<Button size="sm" variant="secondary" href="{CREATOR_URL}/{group.toon.id ?? ''}" target="_blank" rel="noreferrer">{m['content.open_in_creator']()}</Button>
 			{/snippet}
 			{#if group.rows.length}
 				<div class="table-scroll">
@@ -114,9 +125,9 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each group.rows as row (row.path)}
+							{#each group.rows as row (row.entity)}
 								<tr>
-									<th scope="row">{fileLabel(row.path)}</th>
+									<th scope="row">{fileLabel(row.entity)}</th>
 									{#each group.locales as locale (locale)}
 										{@const f = row.byLocale[locale]}
 										<td>
@@ -132,7 +143,7 @@
 											{:else}<span class="muted">—</span>{/if}
 										</td>
 									{/each}
-									<td><a href={creatorLink(group.toon.id, row.path)} target="_blank" rel="noreferrer">{m['content.edit']()}</a></td>
+									<td><a href={creatorLink(row.entity)} target="_blank" rel="noreferrer">{m['content.edit']()}</a></td>
 								</tr>
 							{/each}
 						</tbody>

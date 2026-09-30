@@ -6,7 +6,7 @@
 	import LocaleMapField from './locale-map-field.svelte';
 
 	/**
-	 * The global people registry (scutoons/_/people.json): search, add, edit, merge duplicates. Merging rewrites this
+	 * The global people registry (entity `people`): search, add, edit, merge duplicates. Merging rewrites this
 	 * toon's credits and leaves the old record as `merged_into` so other toons' credits still resolve.
 	 */
 	let {

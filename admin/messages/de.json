@@ -388,7 +388,8 @@
 		"path": "Inhalt",
 		"version_line": "#{latest} · veröffentlicht #{published} · {versions} Versionen",
 		"edit": "Bearbeiten",
-		"empty": "Für diesen Toon ist noch nichts gespeichert."
+		"empty": "Für diesen Toon ist noch nichts gespeichert.",
+		"platform": "Plattformweit (Figuren, Personen, Rollen, Veranstaltungen)"
 	},
 	"settings": {
 		"title": "Einstellungen",

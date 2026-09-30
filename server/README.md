@@ -48,7 +48,7 @@ composer serve                                    # http://localhost:9000  (bin/
 | `composer analyse` | PHPStan |
 | `php bin/console migrate [--status]` | apply pending migrations |
 | `php bin/console roles grant\|revoke\|list <email> [role]` | account roles (member, admin, creator) |
-| `php bin/console import-content <viewer/static/api> [--sql]` | seed the content store (`--sql` = production seed) |
+| `php bin/console import-content shared/content/seed [--sql]` · `export-content <dir>` | content in/out of the store in the interchange format (`--sql` = production seed; agents/DATA.md) |
 | `php bin/console backfill-edition-numbers [--sql]` · `report-orphan-codes` | edition numbers from batch manifests |
 
 ## Structure

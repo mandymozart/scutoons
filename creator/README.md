@@ -41,11 +41,10 @@ npm run build -w creator   # → creator/build (SPA, index.html fallback + .htac
 
 Env (`creator/.env.development`, see `.env.example`): `VITE_API_URL` (dev `http://localhost:9000/api`, prod fallback
 `https://qr.scutoons.com/api`), `VITE_CDN_URL` (dev `http://localhost:8001`), `VITE_VIEWER_URL` (dev
-`http://localhost:8000`; "Open the reader" and the viewer's static `/api` files: `toons.json`, `characters.json`, the
-store's fallback), optional `VITE_STATIC_API`.
+`http://localhost:8000`; "Open the reader"). Content is read and written by entity key through the API only
+(`/api/entities`, `/api/library` in draft mode; agents/DATA.md) – there are no static files.
 
-The API must allow this origin (`ALLOWED_ORIGINS`: `http://localhost:10000`, `https://creator.scutoons.com`). In
-production the viewer host must also send CORS headers for `/api/*.json` to the creator origin (static fallback files).
+The API must allow this origin (`ALLOWED_ORIGINS`: `http://localhost:10000`, `https://creator.scutoons.com`).
 
 Deploy: `.github/workflows/creator.yml` (push to `main` touching `creator/**` or `shared/**`) → FTP secrets
 `CREATOR_FTP_SERVER`, `CREATOR_FTP_USERNAME`, `CREATOR_FTP_PASSWORD`; optional repo variables `VITE_*`.

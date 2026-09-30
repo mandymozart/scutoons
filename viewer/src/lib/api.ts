@@ -1,13 +1,13 @@
 // The viewer's API wiring: @scutoons/api configured with this app's API base, static files and session token.
 import {
 	createApiClient,
-	createContentApi,
+	createLibraryApi,
 	createProductsApi,
 	createQrApi,
 	getDeviceId,
 	getSessionToken
 } from '@scutoons/api';
-import { API_BASE, API_URL } from '$lib/config.ts';
+import { API_URL } from '$lib/config.ts';
 
 export {
 	ApiError,
@@ -52,8 +52,9 @@ export const { fetchProducts, fetchFeaturedProducts } = createProductsApi(public
 export const { fetchCatalog, fetchEditions } = createQrApi(publicApi);
 
 /**
- * Toon / season / chapter configs and VN scene files: content store (published) → static `/api` files. Published reads
- * are kept 60 s, so the chapter page reuses the `chapterN.json` the toon layout just loaded (agents/PERFORMANCE.md).
+ * The reader's content from the API (library endpoints, agents/DATA.md): the toon page in one request, one request per
+ * chapter (scenes inlined), cast, credits, events. Public answers are kept 60 s, so the chapter page and the layout share
+ * requests (agents/PERFORMANCE.md).
  */
-export const contentApi = createContentApi({ client: api, staticBase: API_BASE, cacheMs: 60_000 });
-export const { fetchContent, fetchCharacters, fetchRegistry } = contentApi;
+export const library = createLibraryApi({ publicClient: publicApi, sessionClient: api, cacheMs: 60_000 });
+export const { fetchToons, fetchToon, fetchChapter, fetchCharacters, fetchRegistry, fetchCredits, fetchEvents } = library;

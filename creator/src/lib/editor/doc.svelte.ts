@@ -1,22 +1,16 @@
-// One config file of a toon, edited in all locales at once (chapter1.json in de + en, chapter2/scene-14.json, …).
-// Same structure as the files the reader loads: text stays inline per locale; geometry and other shared fields are
+// One entity of a toon (agents/DATA.md: `chapter:catpope:1`, `scene:catpope:2:scene-14`, `season:catpope:1`,
+// `toon-settings:catpope`, `characters` …), edited in all locales at once. Localized entities are stored per locale
+// (`<entity>:<locale>`); language-neutral ones under the entity itself (locale `_` in the editor).
+// Same structure as the documents the reader loads: text stays inline per locale; geometry and other shared fields are
 // edited once and written to every locale that has not overridden them (see `setShared`).
 // The locales and the source ("primary") come from the toon (`ToonIndex.languages` / `.sourceLanguage`, loaded with
 // `loadToonLanguages` in ./languages.ts), never from constants.
 import { ApiError } from '$lib/api.ts';
-import {
-	getDraft,
-	getStatic,
-	publishVersion,
-	putDraft,
-	type ContentVersion
-} from '$lib/api.ts';
-import { ASSET_REQUESTS_FILE, CAST_FILE, CHARACTERS_FILE, MOODS_FILE, clone, CREDITS_FILE, deepEqual, getAt, NEUTRAL_LOCALE, PEOPLE_FILE, ROLES_FILE, setAt, TOON_INDEX_FILE, type Path } from '@scutoons/content';
+import { getDraft, publishVersion, putDraft, type ContentVersion } from '$lib/api.ts';
+import { clone, deepEqual, entityKeyFor, getAt, parseEntityKey, setAt, type Path } from '@scutoons/content';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests';
-export type DocSource = 'store' | 'static' | 'new' | 'missing';
-/** The file of a locale when the store has none (default: the viewer's static file). */
-export type DocFallback = (locale: string) => Promise<any | null>;
+export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events';
+export type DocSource = 'store' | 'new' | 'missing';
 
 const HISTORY_LIMIT = 150;
 const COALESCE_MS = 1200;
@@ -38,34 +32,54 @@ export class SaveConflict extends Error {
 	}
 }
 
-export function kindOfPath(path: string, locale?: string): DocKind {
-	if (/^chapter\d+\.json$/.test(path)) return 'chapter';
-	if (/^season\d+\.json$/.test(path)) return 'season';
-	if (path === 'toon.json') return 'toon';
-	if (path === TOON_INDEX_FILE) return 'index';
-	if (path === CREDITS_FILE) return 'credits';
-	if (path === PEOPLE_FILE) return 'people';
-	if (path === ROLES_FILE) return 'roles';
-	// the old per-locale characters.json is not a store file; in `_` it is the registry
-	if (path === CHARACTERS_FILE && (locale === undefined || locale === NEUTRAL_LOCALE)) return 'characters';
-	if (path === CAST_FILE) return 'cast';
-	if (locale === NEUTRAL_LOCALE && path === MOODS_FILE) return 'moods';
-	if (locale === NEUTRAL_LOCALE && path === ASSET_REQUESTS_FILE) return 'requests';
-	return 'group';
+/** The editor kind of an entity (which validation and panels apply) */
+export function kindOfEntity(entity: string): DocKind {
+	switch (parseEntityKey(entity)?.kind) {
+		case 'chapter':
+			return 'chapter';
+		case 'season':
+			return 'season';
+		case 'toon-settings':
+			return 'toon';
+		case 'toon':
+			return 'index';
+		case 'credits':
+			return 'credits';
+		case 'people':
+			return 'people';
+		case 'roles':
+			return 'roles';
+		case 'characters':
+			return 'characters';
+		case 'cast':
+			return 'cast';
+		case 'moods':
+			return 'moods';
+		case 'asset-requests':
+			return 'requests';
+		case 'locations':
+		case 'routes':
+			return 'map';
+		case 'events':
+			return 'events';
+		default:
+			return 'group';
+	}
 }
 
 export class ContentDoc {
+	/** the entity (key without locale), e.g. `chapter:catpope:1` */
+	readonly entity: string;
+	/** the toon it belongs to ('' for platform-wide entities) */
 	readonly toon: string;
-	readonly path: string;
 	readonly kind: DocKind;
 	readonly locales: string[];
 	/** the toon's source language (the first of `locales`) */
 	readonly primary: string;
-	private readonly fallback: DocFallback;
 
-	/** the edited files, per locale (null = this locale has no file) */
+	/** the edited documents, per locale (null = this locale has none) */
 	data = $state<Record<string, any>>({});
-	/** store version each locale is based on (null = not in the store yet) */
+	/** stored version each locale is based on (null = not stored yet) */
 	base = $state<Record<string, number | null>>({});
 	published = $state<Record<string, number | null>>({});
 	source = $state<Record<string, DocSource>>({});
@@ -85,14 +99,18 @@ export class ContentDoc {
 	/** time of the newest undo step (pages editing several docs undo the most recently edited one) */
 	lastEditAt = $state(0);
 
-	/** `locales`: the toon's languages; `primary`: its source language (see ./languages.ts). */
-	constructor(toon: string, path: string, locales: readonly string[], primary: string, fallback?: DocFallback) {
-		this.toon = toon;
-		this.path = path;
-		this.kind = kindOfPath(path, locales.length === 1 ? locales[0] : undefined);
+	/** `locales`: the toon's languages (`['_']` for language-neutral entities); `primary`: its source language. */
+	constructor(entity: string, locales: readonly string[], primary: string) {
+		this.entity = entity;
+		this.toon = parseEntityKey(entity)?.toon ?? '';
+		this.kind = kindOfEntity(entity);
 		this.locales = [primary, ...locales.filter((l) => l !== primary)];
 		this.primary = primary;
-		this.fallback = fallback ?? ((locale) => getStatic(toon, locale, path));
+	}
+
+	/** The stored key of one locale (`chapter:catpope:1:de`; language-neutral entities: the entity) */
+	key(locale: string): string {
+		return entityKeyFor(this.entity, locale);
 	}
 
 	get canUndo() {
@@ -135,7 +153,7 @@ export class ContentDoc {
 			await Promise.all(
 				this.locales.map(async (locale) => {
 					try {
-						const wrapped = await getDraft(this.toon, locale, this.path);
+						const wrapped = await getDraft(this.key(locale));
 						data[locale] = wrapped.content;
 						base[locale] = wrapped.version.id;
 						published[locale] = wrapped.published?.id ?? null;
@@ -144,11 +162,10 @@ export class ContentDoc {
 					} catch (e) {
 						if (!(e instanceof ApiError) || e.status !== 404) throw e;
 					}
-					const fallback = await this.fallback(locale);
-					data[locale] = fallback;
+					data[locale] = null;
 					base[locale] = null;
 					published[locale] = null;
-					source[locale] = fallback === null ? 'missing' : 'static';
+					source[locale] = 'missing';
 				})
 			);
 		} catch (e) {
@@ -161,7 +178,7 @@ export class ContentDoc {
 		this.loading = false;
 	}
 
-	/** Starts a new file (e.g. a new chapter) in every locale. */
+	/** Starts a new entity (e.g. a new chapter) in every locale. */
 	create(make: (locale: string) => any) {
 		const data: Record<string, any> = {};
 		const base: Record<string, number | null> = {};
@@ -172,7 +189,7 @@ export class ContentDoc {
 			source[l] = 'new';
 		}
 		this.adopt(data, base, { ...base }, source);
-		// a new file is unsaved: nothing stored yet
+		// a new entity is unsaved: nothing stored yet
 		for (const l of this.locales) this.saved[l] = '';
 		this.loading = false;
 	}
@@ -234,7 +251,7 @@ export class ContentDoc {
 
 	// ── Editing ─────────────────────────────────────────────────────────────────────────────────────────
 
-	/** locales that have a file */
+	/** locales that have a document */
 	get present(): string[] {
 		return this.locales.filter((l) => this.data[l] !== null && this.data[l] !== undefined);
 	}
@@ -274,13 +291,13 @@ export class ContentDoc {
 		this.setLocal(locale, path, getAt(this.data[this.primary], path));
 	}
 
-	/** A structural change applied to every locale file (insert/remove/reorder slices, dialogs, events …). */
+	/** A structural change applied to every locale (insert/remove/reorder slices, dialogs, events …). */
 	structural(change: (file: any, locale: string) => void, key?: string) {
 		this.checkpoint(key);
 		for (const l of this.present) change(this.data[l], l);
 	}
 
-	/** Copies the source locale file to a locale that has none. */
+	/** Copies the source locale's document to a locale that has none. */
 	createLocale(locale: string, transform?: (file: any) => any) {
 		this.checkpoint();
 		const copy = clone(this.data[this.primary]);
@@ -301,7 +318,7 @@ export class ContentDoc {
 			for (const l of locales) {
 				const content = $state.snapshot(this.data[l]);
 				try {
-					const result = await putDraft(this.toon, l, this.path, content, force ? undefined : this.base[l], message);
+					const result = await putDraft(this.key(l), content, force ? undefined : this.base[l], message);
 					this.base[l] = result.version.id;
 					this.source[l] = 'store';
 					this.saved[l] = JSON.stringify(content);
@@ -328,7 +345,7 @@ export class ContentDoc {
 		this.saving = true;
 		try {
 			for (const l of this.stored) {
-				const result = await publishVersion(this.toon, l, this.path, this.base[l] ?? undefined);
+				const result = await publishVersion(this.key(l), this.base[l] ?? undefined);
 				this.published[l] = result.version.id;
 				done.push(l);
 			}
@@ -338,10 +355,10 @@ export class ContentDoc {
 		}
 	}
 
-	// ── Local autosave (browser only, per file) ─────────────────────────────────────────────────────────
+	// ── Local autosave (browser only, per entity) ─────────────────────────────────────────────────────────
 
 	get autosaveKey() {
-		return `${AUTOSAVE_PREFIX}${this.toon}:${this.path}`;
+		return `${AUTOSAVE_PREFIX}${this.entity}`;
 	}
 
 	autosave() {

@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { listVersions, publishVersion, restoreVersion, unpublishFile, type ContentVersion } from '$lib/api.ts';
+	import { listVersions, publishVersion, restoreVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { fileLabel } from '$lib/labels.ts';
 
-	/** Version history of one file per locale: restore an old version as the new draft, publish / unpublish. */
+	/** Version history of one entity per locale: restore an old version as the new draft, publish / unpublish. */
 	let { doc, onclose }: { doc: ContentDoc; onclose?: () => void } = $props();
 
 	let versions = $state<Record<string, ContentVersion[]>>({});
@@ -17,7 +17,7 @@
 			const out: Record<string, ContentVersion[]> = {};
 			await Promise.all(
 				doc.locales.map(async (l) => {
-					out[l] = doc.source[l] === 'store' ? (await listVersions(doc.toon, l, doc.path)).versions : [];
+					out[l] = doc.source[l] === 'store' ? (await listVersions(doc.key(l))).versions : [];
 				})
 			);
 			versions = out;
@@ -27,7 +27,7 @@
 	}
 
 	$effect(() => {
-		void [doc.path, doc.base[doc.primary], doc.published[doc.primary]];
+		void [doc.entity, doc.base[doc.primary], doc.published[doc.primary]];
 		load();
 	});
 
@@ -48,17 +48,17 @@
 	function restore(locale: string, v: ContentVersion) {
 		if (doc.dirtyLocales.includes(locale) && !confirm(m['creator.leave_confirm']())) return;
 		if (!confirm(m['creator.restore_confirm']({ id: v.id, locale }))) return;
-		act(() => restoreVersion(v.id));
+		act(() => restoreVersion(doc.key(locale), v.id));
 	}
 
 	function publish(locale: string, v: ContentVersion) {
-		if (!confirm(m['creator.publish_confirm']({ file: `${fileLabel(doc.path)} v${v.id}`, locales: locale }))) return;
-		act(() => publishVersion(doc.toon, locale, doc.path, v.id));
+		if (!confirm(m['creator.publish_confirm']({ file: `${fileLabel(doc.entity)} v${v.id}`, locales: locale }))) return;
+		act(() => publishVersion(doc.key(locale), v.id));
 	}
 
 	function unpublish(locale: string) {
-		if (!confirm(`Unpublish ${fileLabel(doc.path)} (${locale})? Readers get the seed version again (or nothing).`)) return;
-		act(() => unpublishFile(doc.toon, locale, doc.path));
+		if (!confirm(`Unpublish ${fileLabel(doc.entity)} (${locale})? Readers see nothing until a version is published again.`)) return;
+		act(() => unpublishEntity(doc.key(locale)));
 	}
 
 	const when = (iso: string) => iso?.replace('T', ' ').slice(0, 16);
@@ -66,7 +66,7 @@
 
 <div class="history" data-testid="history-panel">
 	<header>
-		<h2>{m['creator.history']()} · {fileLabel(doc.path)}</h2>
+		<h2>{m['creator.history']()} · {fileLabel(doc.entity)}</h2>
 		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close">✕</button>{/if}
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}

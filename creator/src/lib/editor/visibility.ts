@@ -1,4 +1,4 @@
-// Chapter visibility has ONE source: the season's sequence status, per locale (`season1.json` → `sequence[].status`:
+// Chapter visibility has ONE source: the season's sequence status, per locale (season 1 → `sequence[].status`:
 // published | draft | coming-soon; a toon may release de before en). The chapter file's own `status` is deprecated –
 // the creator mirrors the season status into it on save, only for older viewer builds – and `published` is gone.
 // A chapter always belongs to a season (owner rule): new chapters are created inside it, a new season adopts existing

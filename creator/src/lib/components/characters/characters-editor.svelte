@@ -5,7 +5,7 @@
 	import { replaceState } from '$app/navigation';
 	import {
 		AUTHORED_VIEW,
-		CREDITS_SCOPE,
+		entities,
 		DEFAULT_MOOD,
 		REGULAR_PERSONA,
 		castsOf,
@@ -56,7 +56,7 @@
 	import WantedImages from './wanted-images.svelte';
 
 	/**
-	 * The global Characters page: the registry (`scutoons/_/characters.json`) as a searchable, filterable list (characters
+	 * The global Characters page: the registry (entity `characters`) as a searchable, filterable list (characters
 	 * with persona chips) with a detail editor, the shared groups, the mood vocabulary and the wanted images (asset
 	 * requests). Casts of every toon are read for "appears in", the filters and the validation; people for "voiced by".
 	 */
@@ -97,7 +97,7 @@
 		closeArrivedRequests();
 	});
 
-	/** open requests whose file is now at the convention path are done (a draft edit of asset-requests.json) */
+	/** open requests whose file is now at the convention path are done (a draft edit of the wanted images) */
 	async function closeArrivedRequests() {
 		const open = (requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open');
 		const arrived: string[] = [];
@@ -196,7 +196,7 @@
 
 	function validate(): Problem[] {
 		const out: Problem[] = [];
-		const registryFile = `${CREDITS_SCOPE}/characters.json`;
+		const registryFile = entities.characters;
 		if (file) {
 			out.push(
 				...validateCharacters(file, {
@@ -217,12 +217,12 @@
 				}
 			});
 		}
-		if (moods.present.length) out.push(...validateMoods(vocabulary, allLanguages, `${CREDITS_SCOPE}/moods.json`));
+		if (moods.present.length) out.push(...validateMoods(vocabulary, allLanguages, entities.moods));
 		const r = requestsOf(requests);
-		if (r) out.push(...validateAssetRequests(r, file, `${CREDITS_SCOPE}/asset-requests.json`));
+		if (r) out.push(...validateAssetRequests(r, file, entities.assetRequests));
 		for (const [toon, doc] of Object.entries(castDocs)) {
 			const cast = castOf(doc);
-			if (cast) out.push(...validateCast(cast, { registry: file, languages: toons.find((t) => t.id === toon)?.languages.languages ?? ['de'], file: `${toon}/_/cast.json` }));
+			if (cast) out.push(...validateCast(cast, { registry: file, languages: toons.find((t) => t.id === toon)?.languages.languages ?? ['de'], file: entities.cast(toon) }));
 		}
 		return out;
 	}
@@ -248,7 +248,7 @@
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
 
-<MetaPage toon={CREDITS_SCOPE} title={m['creator.characters']()} {docs} {validate} wide help="characters">
+<MetaPage toon="" title={m['creator.characters']()} {docs} {validate} wide help="characters">
 	{#snippet actions()}
 		<button type="button" class="secondary" onclick={startNew} data-testid="new-character">+ {m['creator.characters_new']()}</button>
 	{/snippet}

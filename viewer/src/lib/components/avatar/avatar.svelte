@@ -5,7 +5,7 @@
 	/** The character registry (content store → static), loaded once per page load for every avatar view */
 	let registryPromise: Promise<CharacterRegistry | null> | null = null;
 	function loadRegistry(): Promise<CharacterRegistry | null> {
-		registryPromise ??= fetchRegistry(fetch).catch(() => null);
+		registryPromise ??= fetchRegistry().catch(() => null);
 		return registryPromise;
 	}
 </script>

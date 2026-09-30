@@ -2,25 +2,16 @@
 	import { resolveCredits } from '@scutoons/content';
 	import { CreditsView } from '@scutoons/reader';
 	import { asset } from '$lib/utils/cdn.ts';
-	import LegacyCredits from './legacy-credits.svelte';
 	import type { PageProps } from './$types.js';
 
 	let { data }: PageProps = $props();
 
 	const chapterTitles = $derived(Object.fromEntries((data.sequence ?? []).map((item) => [item.number, item.title])));
-	const resolved = $derived(
-		data.credits && data.people
-			? resolveCredits(data.credits, data.people, data.roles, data.locale, { chapterTitles })
-			: null
-	);
+	const resolved = $derived(resolveCredits(data.credits, data.people, data.roles, data.locale, { chapterTitles }));
 </script>
 
-<div class="view credits-view" data-credits-source={data.source}>
-	{#if resolved}
-		<CreditsView credits={resolved} imageUrl={asset} />
-	{:else if data.legacy}
-		<LegacyCredits credits={data.legacy} />
-	{/if}
+<div class="view credits-view">
+	<CreditsView credits={resolved} imageUrl={asset} />
 </div>
 
 <style>

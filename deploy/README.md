@@ -95,7 +95,7 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `VITE_ADMIN_URL` | variable | admin |
 
 Not used any more: `CREATOR_FTP_*`, `SHOP_FTP_*`, `ADMIN_FTP_*`, `SERVER_FTP_DIR`, `VITE_VIEWER_URL` (→ `VITE_WWW_URL`),
-`VITE_QR_API` (→ `VITE_API_URL`), `VITE_STATIC_API` (the creator's default `<VITE_WWW_URL>/api` is right).
+`VITE_QR_API` (→ `VITE_API_URL`), `VITE_STATIC_API` (no static files any more: content comes from the API, agents/DATA.md).
 Fixed in `targets.json` (not secret): the qr app's `API_URL` = `https://api.scutoons.com` (never derived from
 `VITE_API_URL`, which may still point at qr during the transition – that would proxy qr to itself), the API's
 `ALLOWED_ORIGINS`.

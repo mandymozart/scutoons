@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { entities } from '@scutoons/content';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -10,11 +11,11 @@
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
 
-	/** toon.json (Toon type): title / description per locale, everything else language-neutral with overrides. */
+	/** The toon's settings (entity toon-settings:<toon>, Toon type): title / description per locale, everything else language-neutral with overrides. */
 	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
 
 	// svelte-ignore state_referenced_locally
-	const file = toonDoc(toon, 'toon.json', languages);
+	const file = toonDoc(entities.toonSettings(toon), languages);
 	let images = $state<string[]>([]);
 
 	onMount(async () => {
@@ -23,7 +24,7 @@
 	});
 </script>
 
-<MetaPage {toon} title={fileLabel('toon.json')} docs={[file]} help="toon-file">
+<MetaPage {toon} title={fileLabel(entities.toonSettings(toon))} docs={[file]} help="toon-file">
 	{#if file.present.length === 0}
 		<p>{m['creator.toon_missing']()} <a href="/{toon}">{toon}</a></p>
 	{:else}

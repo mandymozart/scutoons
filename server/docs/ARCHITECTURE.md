@@ -39,7 +39,7 @@ CORS runs outside the error handler, so error responses carry the CORS headers t
 
 ### Time formats (kept from the plain-PHP server)
 
-Account tables (`users`, `sessions`, `inventory`, `code_events`, `content_versions`, …) store UTC `Y-m-d H:i:s`
+Account tables (`users`, `sessions`, `inventory`, `code_events`, `entity_versions`, …) store UTC `Y-m-d H:i:s`
 (`Clock::utc()`, answers use `Support\Time::iso()`); the `qr` table stores the server's local time (`Clock::local()`,
 answers `Time::localIso()`).
 

@@ -247,7 +247,7 @@ last commit 0332912 is the imported subtree). The release ships `platform` → `
 | When | Owner | Coordinator / agents |
 |---|---|---|
 | Sep 30 – Oct 2 | Chapter 2 slices from Figma: text-free art 390×625 (1x) + 1170×1875 (3x) → `cdn/root/catpope/images/{1x,3x}/s1c2-slice-NN.jpg`; GitHub environment `production` from `.env.example`; all-inkl: subdomains `api.` `admin.` `shop.` (+ SSL, `creator.` SSL), folders per hosting layout, mailbox `no-reply@` + SPF/DKIM | credits (running), scan-limit setting (running); wire chapter 2 into the creator once slices land (text boxes, season status `coming-soon` → `published` on release day, release date 2026-10-04); release checklist dry runs |
-| Oct 3 | backups (DB, old qr folder, viewer folder); run migrations in phpMyAdmin (order in PLATFORM.md cutover) + content seed (`import-content --sql`) + credits seed (`shared/content/seed/credits-seed.mysql.sql`); `cdn/sync.py` (chapter 2, icons, avatars, mannequins) | `npm run deploy:dry-run` review; merge `platform` → `main`; "Deploy all"; point `api.` + `qr.` → test real stickers; then frontends |
+| Oct 3 | backups (DB, old qr folder, viewer folder); run migrations in phpMyAdmin (order in PLATFORM.md cutover, incl. `2026-09-30-content-versions` then `2026-09-30-entity-keys`) + the content seed `shared/content/seed/content-seed.mysql.sql` (all toon content incl. characters + credits; DATA.md §4); `cdn/sync.py` (chapter 2, icons, avatars, mannequins) | `npm run deploy:dry-run` review; merge `platform` → `main`; "Deploy all"; point `api.` + `qr.` → test real stickers; then frontends |
 | Oct 4 | publish chapter 2 (creator: season status → published, Publish) | final smoke: printed URLs, scan, claim, login mail, chapter 1 + 2 de/en, shop, admin |
 
 Rollback per subdomain = point back to the old folder (old folders untouched, migrations additive).
@@ -296,6 +296,9 @@ Slices are 1x WebP 390 px wide; the reduced load matters more than retina sharpn
 No file-based loading. All content lives in the database and is served on demand by the API service layer (entities,
 caching, one request per chapter). The JSON configuration format stays only as import/export. Design: DATA.md.
 PWA preloading / save-to-device is designed in DATA.md and built after the data refactor.
+**Done 2026-09-30 (Phase C, ships with the release):** entity keys in `entity_versions`, `/api/library/*` for readers,
+`/api/entities/*` for the creator, `viewer/static/api` gone (interchange files in `shared/content/seed`), no static
+fallback anywhere. After the release: the catalog (items, editions, products) into the DB (B2), then the PWA.
 
 ## Automation & workflows (2026-09-30, owner — vision)
 
