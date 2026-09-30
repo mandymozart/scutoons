@@ -19,7 +19,7 @@ Moods are a separate step (`moods.md`, to come): every mood is a variation of th
 | **portrait**   | VN portrait stage (right), base for all moods | 600 × 600 px          | head down to above the waist, with arms, facing the viewer, eyes on the horizontal line at ~40 % from the top, head centred | transparent | neutral |
 | **avatar**     | VN avatar slot (left), lists, pickers         | 600 × 600 px (shown at 192 px) | head with neck, facing the viewer, eyes on a horizontal line, fully inside the frame — generated as its own view (owner decision 2026-09-30); the 192 px display copy is downscaled from it | transparent | neutral |
 | **full**     | full-body scenes                              | 600 × 1200 px (1 : 2) | whole figure in the character's characteristic standing pose, feet ~4 % above the bottom edge, head ~4 % below the top                                                                                                                         | transparent                                              | neutral    |
-| **apose**    | reader avatar body (items are drawn on it)    | 768 × 1152 px (2 : 3) | strict A-pose, front view, symmetrical, arms ~30–40° away from the body, palms towards the thighs, legs slightly apart, feet flat and fully visible, figure centred, same scale for every character (head top ~5 %, soles ~92 % of the height) | white with a soft floor shadow (as the existing A-poses) | neutral    |
+| **apose**    | reader avatar body (items are drawn on it)    | 768 × 1152 px (2 : 3) | strict A-pose, front view, symmetrical, arms ~30–40° away from the body, palms towards the thighs, legs slightly apart, feet flat and fully visible, figure centred, same scale for every character (head top ~5 %, soles ~92 % of the height); **multi-figure bodies** (duos, twins, triplets) that would exceed the width at that scale are scaled to fit the width (≥10 px side margins) with the soles still at ~92 %, so the heads sit lower (Toptoy ~22 %) | transparent with a soft floor shadow (as the existing A-poses) | neutral    |
 
 A-pose looks: `swim` (plain swim shorts/pants, the default) and `naked` (cartoon-neutral, no anatomical detail, as the
 existing Cat Pope and Yellow Mouse A-poses). Story looks (e.g. helmet) are **not** A-pose looks.
@@ -52,7 +52,7 @@ The views (all with a neutral expression):
    above the head and below the feet, 600 × 1200 px, transparent background. if a reference photo or concept art is provided use that to imagine what clothing and outfit the person has.
 4. A-POSE (SWIM) — strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the
    thighs, legs slightly apart, feet flat and fully visible, figure centred, head top at ~5 % and soles at ~92 % of
-   the height, 768 × 1152 px, white background with a soft shadow under the feet, wearing plain swim shorts.
+   the height, 768 × 1152 px, transparent background with a soft shadow under the feet, wearing plain swim shorts.
 5. A-POSE (NAKED) — identical to 4 in every pixel of pose, scale and framing, but without the swim shorts
    (cartoon-neutral, no anatomical detail).
 
@@ -103,3 +103,9 @@ File names for the delivery (the importer also accepts any name inside a folder 
 This workflow becomes a creator action: "Complete base views" on a character → the creator lists which views are
 missing, calls the generator with the available reference, shows the results for approval, and writes them through
 the API (no manual file handling).
+
+## Rules (owner, 2026-09-30)
+
+- **A-pose background:** transparent with a soft floor shadow, never white (a white box would show on the coloured avatar backgrounds). All existing A-poses are transparent.
+- **Wide multi-figure bodies:** keep the floor line (soles ~92 %) and scale to fit the width; don't crop, stretch or widen the canvas. Each figure gets its own wear slots (`<type>-left/-right`, see `agents/ITEMS.md` "Slots per avatar body").
+
