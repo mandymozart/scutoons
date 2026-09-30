@@ -5,7 +5,7 @@
 // withoutMediaStreamsMs = fully loaded without <audio>/<video> requests (streamed media keeps its connection open while
 // it buffers, so network idle comes late without saying anything about the page); lcp / cls are reported when the init script records them in window.__lcp / window.__cls (PerformanceObserver)
 import { spawn } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,6 +17,12 @@ import { existsSync } from 'node:fs';
 const CHROME = process.env.CHROME || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome'].find((p) => existsSync(p));
 const port = 9333 + Math.floor(Math.random() * 500);
 const profile = opt.profile || mkdtempSync(join(tmpdir(), 'perf-chrome-'));
+// a throw-away profile is removed on exit (they used to pile up in %TEMP%, ~120 MB each)
+process.on('exit', () => {
+	if (opt.profile) return;
+	try { chrome.kill(); } catch {}
+	try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {}
+});
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-extensions', `--window-size=${width},${height}`, 'about:blank'], { stdio: 'ignore' });
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
