@@ -389,16 +389,21 @@ await audioManager.cleanup();
 ## Performance
 
 ### Optimizations
-- Single Web Audio context (no resource limits)
-- Sample caching (loaded once, reused multiple times)
+- Music is **streamed** (2026-09-30, agents/PERFORMANCE.md P1): one `<audio>` element per track routed through its own
+  Web Audio output (`MediaElementAudioSourceNode` → gain per track → music master gain; one AudioContext per page,
+  never closed, because Howler replaces its own context). Fades are gain ramps (they work on iOS, where
+  `audio.volume` is read-only – the reason not to use Howler `html5: true`). The master volume / mute apply to it too.
+- The chapter's audio starts loading only after the media of the first 2 slices has loaded (max. 4 s wait,
+  `afterFirstSlices` in `lib/actions/audio`). Volumes the slices in view ask for meanwhile are remembered and
+  applied (faded in) when the music starts.
+- Samples: Web Audio buffers via Howler (loaded once, short latency), in parallel with the music
 - IntersectionObserver for efficient scroll detection
-- Debounced event handlers
 - Lazy trigger registration
 
 ### Resource Usage
-- **Memory**: ~5-10 MB per chapter (depends on audio file sizes)
+- **Memory**: samples decoded (~1-3 MB), the music is not decoded up front
 - **CPU**: Minimal (~1-2% during crossfades)
-- **Network**: All audio preloaded before chapter starts
+- **Network**: music 128 kbps MP3 (`*.128.mp3`), buffered progressively; samples downloaded in full
 
 ## Troubleshooting
 
@@ -433,7 +438,7 @@ await audioManager.cleanup();
 ### Extending Music System
 
 - Additional emotion states: Add new tracks to config
-- Custom crossfade curves: Modify `Howl.fade()` implementation
+- Custom crossfade curves: Modify `StreamedTrack.fade()` in `AdaptiveMusicPlayer.ts`
 - Dynamic tempo: Integrate with scroll speed
 
 ## Testing

@@ -2,6 +2,8 @@
 // Chrome: CHROME env or the usual install paths.
 // usage: node measure.mjs <label> <url> [--width=390] [--height=844] [--runs=3] [--warm] [--idle=1500] [--scroll]
 //        [--init=<js file run before navigation via addScriptToEvaluateOnNewDocument>] [--json=out.json]
+// withoutMediaStreamsMs = fully loaded without <audio>/<video> requests (streamed media keeps its connection open while
+// it buffers, so network idle comes late without saying anything about the page); lcp / cls are reported when the init script records them in window.__lcp / window.__cls (PerformanceObserver)
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -50,10 +52,13 @@ async function run(n) {
 			lastActivity = Date.now();
 		} else if (ignored.has(p?.requestId)) { return; } else if (m.method === 'Network.responseReceived') {
 			const r = reqs.get(p.requestId); if (r) { r.status = p.response.status; r.fromCache = p.response.fromDiskCache || p.response.fromServiceWorker || false; r.timing = p.response.timing; r.mime = p.response.mimeType; }
+		} else if (m.method === 'Network.dataReceived') {
+			// cancelled media streams report their bytes only per chunk
+			const r = reqs.get(p.requestId); if (r) r.received = (r.received || 0) + (p.encodedDataLength || 0);
 		} else if (m.method === 'Network.requestServedFromCache') {
 			const r = reqs.get(p.requestId); if (r) r.fromCache = true;
 		} else if (m.method === 'Network.loadingFinished' || m.method === 'Network.loadingFailed') {
-			const r = reqs.get(p.requestId); if (r && r.end === null) { r.end = p.timestamp; r.bytes = p.encodedDataLength || 0; r.failed = m.method === 'Network.loadingFailed'; r.error = p.errorText; inflight--; }
+			const r = reqs.get(p.requestId); if (r && r.end === null) { r.end = p.timestamp; r.bytes = Math.max(p.encodedDataLength || 0, r.received || 0); r.failed = m.method === 'Network.loadingFailed'; r.error = p.errorText; inflight--; }
 			lastActivity = Date.now();
 		}
 	};
@@ -76,7 +81,7 @@ async function run(n) {
 	listeners.splice(listeners.indexOf(l), 1);
 	const m1 = Object.fromEntries((await send('Performance.getMetrics')).result.metrics.map((x) => [x.name, x.value]));
 	const cpu = { taskMs: Math.round(m1.TaskDuration * 1000), scriptMs: Math.round(m1.ScriptDuration * 1000), layoutMs: Math.round(m1.LayoutDuration * 1000) };
-	const perf = JSON.parse((await send('Runtime.evaluate', { expression: `JSON.stringify({fcp: (performance.getEntriesByName('first-contentful-paint')[0]||{}).startTime, lcp: window.__lcp, dcl: performance.timing.domContentLoadedEventEnd-performance.timing.navigationStart, load: performance.timing.loadEventEnd-performance.timing.navigationStart, h: document.body.scrollHeight, imgs: document.images.length, title: document.title})`, returnByValue: true })).result.result.value);
+	const perf = JSON.parse((await send('Runtime.evaluate', { expression: `JSON.stringify({fcp: (performance.getEntriesByName('first-contentful-paint')[0]||{}).startTime, lcp: window.__lcp, cls: window.__cls, dcl: performance.timing.domContentLoadedEventEnd-performance.timing.navigationStart, load: performance.timing.loadEventEnd-performance.timing.navigationStart, h: document.body.scrollHeight, imgs: document.images.length, title: document.title})`, returnByValue: true })).result.result.value);
 	const list = [...reqs.values()].filter((r) => r.end !== null);
 	const lastEnd = Math.max(...list.map((r) => r.end));
 	const rel = (t) => Math.round((t - t0) * 1000);
@@ -84,13 +89,13 @@ async function run(n) {
 	const dups = [...byUrl].filter(([, c]) => c > 1).map(([u, c]) => `${c}x ${u}`);
 	const cat = (r) => /paraglide\/messages\//.test(r.url) ? 'paraglide' : /localhost:9000|\[::1\]:9000|:9190|:9191/.test(r.url) ? 'api' : /:8001|:8011/.test(r.url) ? 'cdn' : r.type === 'Image' ? 'img' : r.type === 'Font' ? 'font' : /\.(svelte|ts|js)(\?|$)|node_modules|@fs|@vite|@id/.test(r.url) ? 'module' : 'other';
 	const cats = {}; for (const r of list) { const c = cat(r); cats[c] ??= { n: 0, bytes: 0, maxMs: 0 }; cats[c].n++; cats[c].bytes += r.bytes; cats[c].maxMs = Math.max(cats[c].maxMs, rel(r.end) - rel(r.start)); }
-	return { n, cpu, faviconCount, top: list.map((r) => ({ kb: Math.round(r.bytes / 1024), type: r.type, url: r.url.slice(0, 140) })).sort((a, b) => b.kb - a.kb).slice(0, 25), ms: rel(lastEnd), fcp: Math.round(perf.fcp || 0), dcl: perf.dcl, load: perf.load, requests: list.length, bytes: list.reduce((a, r) => a + r.bytes, 0), cached: list.filter((r) => r.fromCache).length, failed: list.filter((r) => r.failed).map((r) => r.url + ' ' + r.error), cats, dups, slowest: list.map((r) => ({ ms: rel(r.end) - rel(r.start), at: rel(r.start), url: r.url.slice(0, 120), status: r.status })).sort((a, b) => b.ms - a.ms).slice(0, 8), api: list.filter((r) => cat(r) === "api" || /\/api\/|\.json/.test(r.url)).map((r) => ({ at: rel(r.start), end: rel(r.end), ms: rel(r.end) - rel(r.start), status: r.status, method: r.method, url: r.url.replace(/^https?:\/\/[^/]+/, '') })).sort((a, b) => a.at - b.at), perf };
+	return { n, cpu, faviconCount, top: list.map((r) => ({ kb: Math.round(r.bytes / 1024), type: r.type, url: r.url.slice(0, 140) })).sort((a, b) => b.kb - a.kb).slice(0, 25), ms: rel(lastEnd), msNoMedia: rel(Math.max(...list.filter((r) => r.type !== 'Media').map((r) => r.end))), mediaKb: Math.round(list.filter((r) => r.type === 'Media').reduce((a, r) => a + r.bytes, 0) / 1024), fcp: Math.round(perf.fcp || 0), dcl: perf.dcl, load: perf.load, requests: list.length, bytes: list.reduce((a, r) => a + r.bytes, 0), cached: list.filter((r) => r.fromCache).length, failed: list.filter((r) => r.failed).map((r) => r.url + ' ' + r.error), cats, dups, slowest: list.map((r) => ({ ms: rel(r.end) - rel(r.start), at: rel(r.start), url: r.url.slice(0, 120), status: r.status })).sort((a, b) => b.ms - a.ms).slice(0, 8), api: list.filter((r) => cat(r) === "api" || /\/api\/|\.json/.test(r.url)).map((r) => ({ at: rel(r.start), end: rel(r.end), ms: rel(r.end) - rel(r.start), status: r.status, method: r.method, url: r.url.replace(/^https?:\/\/[^/]+/, '') })).sort((a, b) => a.at - b.at), perf };
 }
 
 const results = [];
 for (let n = 0; n < runs; n++) results.push(await run(n));
 const med = (k) => { const v = results.map((r) => r[k]).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; };
-const summary = { cats: results[results.length-1].cats, label, url, runs, warm: !!opt.warm, fullyLoadedMs: med('ms'), fcpMs: med('fcp'), requests: med('requests'), kb: Math.round(med('bytes') / 1024), all: results.map((r) => ({ ms: r.ms, fcp: r.fcp, lcp: Math.round(r.perf.lcp||0), requests: r.requests, cached: r.cached, api: r.api.length, cpu: r.cpu.taskMs, fav: r.faviconCount })) };
+const summary = { cats: results[results.length-1].cats, label, url, runs, warm: !!opt.warm, fullyLoadedMs: med('ms'), withoutMediaStreamsMs: med('msNoMedia'), fcpMs: med('fcp'), requests: med('requests'), kb: Math.round(med('bytes') / 1024), all: results.map((r) => ({ ms: r.ms, msNoMedia: r.msNoMedia, mediaKb: r.mediaKb, fcp: r.fcp, lcp: Math.round(r.perf.lcp||0), cls: r.perf.cls, requests: r.requests, cached: r.cached, api: r.api.length, cpu: r.cpu.taskMs, fav: r.faviconCount })) };
 console.log(JSON.stringify(summary));
 if (opt.verbose) { const r = results[results.length - 1]; console.log(JSON.stringify({ cats: r.cats, dups: r.dups, failed: r.failed, slowest: r.slowest, api: r.api, perf: r.perf }, null, 1)); }
 if (opt.json) writeFileSync(opt.json, JSON.stringify({ summary, results }, null, 1));

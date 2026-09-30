@@ -18,11 +18,11 @@
       "tracks": [
         {
           "id": "calmness",
-          "path": "audio/music/s1c1-instrumental-brass-morton.mp3"
+          "path": "audio/music/s1c1-instrumental-brass-morton.128.mp3"
         },
         {
           "id": "tension",
-          "path": "audio/music/s1c2-instrumental.mp3"
+          "path": "audio/music/s1c2-instrumental.128.mp3"
         }
       ]
     },

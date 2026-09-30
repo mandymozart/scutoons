@@ -28,18 +28,22 @@ export class AudioManager implements IAudioManager {
     Howler.autoUnlock = true;
     if (audioConfig?.music?.tracks) {
       this.musicPlayer = new AdaptiveMusicPlayer(this);
-      await this.musicPlayer.loadTracks(audioConfig.music);
+      this.musicPlayer.setMasterVolume(this.masterVolume, this.isMuted);
     }
-    if (audioConfig?.sampleLibrary && audioConfig.sampleLibrary.length > 0) {
-      this.sampleManager = new SampleTriggerManager(this);
-      await this.sampleManager.loadSampleLibrary(audioConfig.sampleLibrary);
-    }
+    // music (streamed) and samples (Web Audio buffers) load in parallel
+    await Promise.all([
+      this.musicPlayer && audioConfig.music ? this.musicPlayer.loadTracks(audioConfig.music) : null,
+      audioConfig?.sampleLibrary && audioConfig.sampleLibrary.length > 0
+        ? (this.sampleManager = new SampleTriggerManager(this)).loadSampleLibrary(audioConfig.sampleLibrary)
+        : null
+    ]);
     this.isInitialized = true;
   }
 
   setMasterVolume(volume: number): void {
     this.masterVolume = Math.max(0, Math.min(1, volume));
     Howler.volume(this.masterVolume);
+    this.musicPlayer?.setMasterVolume(this.masterVolume, this.isMuted);
   }
 
   getMasterVolume(): number {
@@ -49,11 +53,13 @@ export class AudioManager implements IAudioManager {
   mute(): void {
     this.isMuted = true;
     Howler.mute(true);
+    this.musicPlayer?.setMasterVolume(this.masterVolume, true);
   }
 
   unmute(): void {
     this.isMuted = false;
     Howler.mute(false);
+    this.musicPlayer?.setMasterVolume(this.masterVolume, false);
   }
 
   toggleMute(): void {
@@ -76,8 +82,10 @@ export class AudioManager implements IAudioManager {
     return this.sampleManager;
   }
 
+  /** Whether the music can play without a user gesture (its own audio output, see AdaptiveMusicPlayer). */
   isAudioUnlocked(): boolean {
-    return Howler.ctx && Howler.ctx.state === 'running';
+    if (this.musicPlayer) return this.musicPlayer.isUnlocked();
+    return !!Howler.ctx && Howler.ctx.state === 'running';
   }
 
   async cleanup(fadeDuration?: number): Promise<void> {

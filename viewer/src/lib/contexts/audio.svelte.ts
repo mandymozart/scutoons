@@ -15,6 +15,13 @@ export type AudioContext = {
 		isPlaying: boolean;
 		currentConfig: AudioConfiguration | null;
 	};
+	/**
+	 * Announce the chapter's music before it loads (the loading waits for the first slices): the slices' music
+	 * volumes are remembered from now on and applied when the music starts.
+	 */
+	expect: (audioConfig: AudioConfiguration | null) => void;
+	/** track ids of the loaded music, or of the announced one while it loads; null = no music */
+	getTrackIds: () => string[] | null;
 	loadConfiguration: (audioConfig: AudioConfiguration) => Promise<void>;
 	unload: () => Promise<void>;
 	startMusic: () => Promise<void>;
@@ -62,9 +69,33 @@ export function setAudioContext(toonId: string): AudioContext {
 		currentConfig: null as AudioConfiguration | null
 	});
 
+	/** track ids of the announced music (see `expect`) */
+	let expectedTrackIds: string[] | null = null;
+	/** the last volume the slices asked for per track, applied when the music starts */
+	const requestedVolumes = new Map<string, number>();
+
+	function startPlayer(player: NonNullable<ReturnType<AudioManager['getMusicPlayer']>>) {
+		if (player.isCurrentlyPlaying()) return;
+		player.start();
+		state.isPlaying = true;
+		// volumes the slices in view asked for while the music was loading / waiting for a gesture
+		if (requestedVolumes.size > 0) {
+			player.updateVolumes([...requestedVolumes].map(([id, volume]) => ({ id, volume })));
+		}
+	}
+
 	const context = {
 		manager,
 		state,
+
+		expect(audioConfig: AudioConfiguration | null) {
+			expectedTrackIds = audioConfig?.music?.tracks?.map((track) => track.id) ?? null;
+			requestedVolumes.clear();
+		},
+
+		getTrackIds() {
+			return manager.getMusicPlayer()?.getTrackIds() ?? expectedTrackIds;
+		},
 
 		async loadConfiguration(audioConfig: AudioConfiguration) {
 
@@ -81,6 +112,8 @@ export function setAudioContext(toonId: string): AudioContext {
 		},
 
 		async unload() {
+			expectedTrackIds = null;
+			requestedVolumes.clear();
 			if (!state.isInitialized) return;
 
 			await manager.cleanup(1000);
@@ -92,24 +125,22 @@ export function setAudioContext(toonId: string): AudioContext {
 			const player = manager.getMusicPlayer();
 			if (player && !player.isCurrentlyPlaying()) {
 				if (!manager.isAudioUnlocked()) {
-					const resumeAudio = async () => {
-						if (Howler.ctx && Howler.ctx.state === 'suspended') {
-							await Howler.ctx.resume();
-							if (player && !player.isCurrentlyPlaying()) {
-								player.start();
-								state.isPlaying = true;
-							}
-						}
+					// the first gesture starts the (streamed) tracks synchronously, while the gesture still counts
+					// for autoplay, and resumes the audio context (Howler's own unlock may already be doing that)
+					const resumeAudio = () => {
 						document.removeEventListener('click', resumeAudio);
 						document.removeEventListener('keydown', resumeAudio);
 						document.removeEventListener('touchstart', resumeAudio);
+						if (manager.getMusicPlayer() !== player) return; // the chapter was left meanwhile
+						player.unlock();
+						startPlayer(player);
+						if (Howler.ctx && Howler.ctx.state !== 'running') Howler.ctx.resume();
 					};
 					document.addEventListener('click', resumeAudio, { once: true });
 					document.addEventListener('keydown', resumeAudio, { once: true });
 					document.addEventListener('touchstart', resumeAudio, { once: true });
 				} else {
-					player.start();
-					state.isPlaying = true;
+					startPlayer(player);
 				}
 			}
 		},
@@ -131,6 +162,7 @@ export function setAudioContext(toonId: string): AudioContext {
 		},
 
 		updateMusicVolumes(volumes: { id: string; volume: number }[], duration?: number) {
+			for (const { id, volume } of volumes) requestedVolumes.set(id, volume);
 			const player = manager.getMusicPlayer();
 			if (player) {
 				player.updateVolumes(volumes, duration);

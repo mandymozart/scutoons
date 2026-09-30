@@ -18,7 +18,15 @@ export interface IAdaptiveMusicPlayer {
 	stop(): void;
 	updateVolumes(volumes: { id: string; volume: number }[], duration?: number): void;
 	isCurrentlyPlaying(): boolean;
-	fadeOutAndStop(duration?: number): Promise<void>; // equivalent to cleanup()
+	fadeOutAndStop(duration?: number): Promise<void>; // equivalent to cleanup(), releases the tracks
+	/** releases the tracks (stops their download) */
+	unload(): void;
+	getTrackIds(): string[];
+	/** the music has its own audio output: whether it may play without a user gesture */
+	isUnlocked(): boolean;
+	/** resume the music output (inside a user gesture) */
+	unlock(): void;
+	setMasterVolume(volume: number, muted: boolean): void;
 }
 
 export interface ISampleTriggerManager {

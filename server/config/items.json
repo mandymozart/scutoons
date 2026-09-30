@@ -149,7 +149,7 @@
       "starter": false,
       "grantable": [],
       "slot": null,
-      "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.mp3" }],
+      "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.128.mp3" }],
       "edition_id": "3_catpope_vinyl",
       "product": "awakening_vinyl",
       "variants": null
@@ -169,7 +169,7 @@
       "starter": false,
       "grantable": [],
       "slot": null,
-      "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.mp3" }],
+      "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.128.mp3" }],
       "edition_id": null,
       "product": "awakening_test_press",
       "variants": [
