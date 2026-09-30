@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { sanitizeNumber, isItemPublic } from '@scutoons/content';
+	import { sanitizeNumber, isItemPublic, chapterProgress } from '@scutoons/content';
+	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { LoadedSequenceItem } from '@scutoons/content';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
@@ -18,6 +19,13 @@
 	// `chapter.status` is the season's status of this locale (see the toon layout), never the chapter file's
 	const isPublic = isItemPublic(chapter, import.meta.env.DEV);
 	const status = chapter.status ?? 'published';
+
+	// how far this chapter was read (guests: this browser, members: synced), agents/DESIGN.md "Chapter list progress"
+	const game = getGameContext();
+	const progress = $derived(isPublic ? chapterProgress(toonId, chapter.number, game.state.progress) : null);
+	// only a bar (owner 2026-09-30): a finished chapter = a full ink bar, one being read = how far
+	const percent = $derived(!progress ? 0 : progress.finished ? 100 : Math.max(1, Math.round(progress.position * 100)));
+	const shown = $derived(!!progress && (progress.finished || progress.position > 0));
 
 	function handleClick() {
 		if (!isPublic) return;
@@ -52,6 +60,11 @@
 			{/if}
 			<span class="chapter-release-date">{chapter.release}</span>
 		</div>
+		{#if shown}
+			<span class="chapter-progress" aria-hidden="true" data-testid="chapter-progress" data-percent={percent}
+				><span style:width="{percent}%"></span></span
+			>
+		{/if}
 	</div>
 	<div class="chapter-number">
 		{isPublic ? ' ' : ''}#{chapter.number}
@@ -86,6 +99,21 @@
 
 	.chapter-item .chapter-release {
 		font-size: 0.75rem;
+	}
+
+	/* progress: a 2px rule under the title, the read part in ink (a finished chapter: full) */
+	.chapter-progress {
+		grid-column: 1 / -1;
+		display: block;
+		max-width: 8rem;
+		height: var(--border-width-regular);
+		margin-top: 0.25rem;
+		background: var(--border-muted);
+	}
+	.chapter-progress span {
+		display: block;
+		height: 100%;
+		background: var(--ink);
 	}
 
 	.chapter-item .chapter-release,

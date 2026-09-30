@@ -2,7 +2,7 @@
 //   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceCheckpoint, chapterCheckpointUri, readingState, type Checkpoint } from '../src/index.ts';
+import { advanceCheckpoint, chapterCheckpointUri, chapterProgress, readingState, type Checkpoint } from '../src/index.ts';
 
 const cp = (n: number, position: number | undefined, isComplete: boolean, t: string, toon = 't'): Checkpoint => ({
 	uri: chapterCheckpointUri(toon, n),
@@ -49,4 +49,13 @@ test('advanceCheckpoint: positions only grow, a finished chapter opened again st
 	assert.deepEqual([done.position, done.isComplete], [1, true]);
 	const again = advanceCheckpoint(done, uri, 0.02, true, 'e')!;
 	assert.deepEqual([again.position, again.isComplete, again.created_at], [0.02, true, 'a']);
+});
+
+test('chapterProgress: never opened, in progress, finished and read again', () => {
+	const uri = chapterCheckpointUri('t', 2);
+	assert.equal(chapterProgress('t', 2, []), null);
+	assert.deepEqual(chapterProgress('t', 2, [{ uri, isComplete: false, position: 0.4 } as Checkpoint]), { position: 0.4, finished: false });
+	assert.deepEqual(chapterProgress('t', 2, [{ uri, isComplete: true, position: 1 } as Checkpoint]), { position: 1, finished: true });
+	assert.deepEqual(chapterProgress('t', 2, [{ uri, isComplete: true, position: 0.1 } as Checkpoint]), { position: 0.1, finished: true });
+	assert.equal(chapterProgress('t', 3, [{ uri, isComplete: true } as Checkpoint]), null);
 });

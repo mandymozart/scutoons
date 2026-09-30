@@ -19,6 +19,21 @@ export function checkpointPosition(checkpoint: Checkpoint): number {
 }
 
 /**
+ * One chapter's progress for the chapter list: `position` of the current read-through (0..1) and whether it was ever read
+ * to its end; null = never opened.
+ */
+export function chapterProgress(
+	toon: string,
+	chapter: number,
+	checkpoints: Checkpoint[] | null | undefined
+): { position: number; finished: boolean } | null {
+	const uri = chapterCheckpointUri(toon, chapter);
+	const cp = (Array.isArray(checkpoints) ? checkpoints : []).find((c) => c?.uri === uri);
+	if (!cp) return null;
+	return { position: checkpointPosition(cp), finished: !!cp.isComplete };
+}
+
+/**
  * The button's state:
  * - `start`    nothing of these chapters read yet → the first readable chapter
  * - `continue` the last opened chapter is not read to its end → that chapter, `position` = how far (0..1)
