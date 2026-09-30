@@ -124,6 +124,7 @@
 						"character": "toptoy",
 						"persona": "regular",
 						"look": "default",
+						"mood": "neutral",
 						"variant": "portrait"
 					}
 				]
@@ -148,11 +149,48 @@
 			}
 		},
 		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "toptoy",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
 			"type": "showMessage",
 			"params": {
 				"character": "toptoy",
 				"persona": "regular",
-				"text": "Mehr Gesichter hab ich noch nicht – der Zeichenstift ist unterwegs.",
+				"text": "Pass auf – neutral!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Neutral? Kann ich auch!",
 				"wait": true
 			}
 		},

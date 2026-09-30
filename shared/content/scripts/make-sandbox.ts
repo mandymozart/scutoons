@@ -200,6 +200,8 @@ export interface SandboxReport {
 	/** "Sonntagnachmittag": characters in the scene at once, of them on the portrait stage, look transitions */
 	sundayCast: number;
 	sundayStage: number;
+	/** who stands in the full view for a while */
+	sundayFull: string[];
 	sundayTransitions: number;
 	perEncounter: { chapter: number; name: string; groups: string[]; moods: number; fails: number }[];
 }
@@ -251,7 +253,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		return t.label ? text((l) => t.label?.[l] || t.label?.de || `${from} → ${to}`) : text(() => `${from} → ${to}`);
 	};
 
-	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], sundayCast: 0, sundayStage: 0, sundayTransitions: 0, perEncounter: [] };
+	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], sundayCast: 0, sundayStage: 0, sundayFull: [], sundayTransitions: 0, perEncounter: [] };
 	const files: Record<string, unknown> = {};
 	const sequence: { type: 'chapter'; number: number; status: 'draft' }[] = [];
 	const met: Ref[] = [];
@@ -390,12 +392,26 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		const personaOf = (w: Who) => findPersona(characters.find((c) => c.id === w.character), w.persona);
 		const state = new Map<Who, { look: string; mood?: string }>();
 		const neutralOf = (w: Who, lookId: string) => (moodsOf(personaOf(w), lookId, vocabulary).includes(DEFAULT_MOOD) ? DEFAULT_MOOD : undefined);
-		const ref = (w: Who, change: { look?: string; mood?: string } = {}): Ref => {
+		/** the view each one currently stands in (the Who's slot, or `full` for a while) */
+		const viewOf = new Map<Who, string>();
+		const ref = (w: Who, change: { look?: string; mood?: string; view?: string } = {}): Ref => {
 			const current = state.get(w) ?? { look: defaultLookId(personaOf(w)), mood: undefined };
 			const lookId = change.look ?? current.look;
 			const moodId = 'mood' in change ? change.mood : (current.mood ?? neutralOf(w, lookId));
 			state.set(w, { look: lookId, mood: moodId });
-			return { character: w.character, persona: w.persona, look: lookId, ...(moodId ? { mood: moodId } : {}), variant: w.view };
+			const view = change.view ?? viewOf.get(w) ?? w.view;
+			viewOf.set(w, view);
+			return { character: w.character, persona: w.persona, look: lookId, ...(moodId ? { mood: moodId } : {}), variant: view };
+		};
+		/**
+		 * a delivered full-body image of the current look (neutral, in the convention folders `characters/…`; the legacy
+		 * catpope `*_full.svg` entries are placeholder silhouettes), i.e. the character can stand in the `full` view
+		 */
+		const hasFull = (w: Who) => {
+			const persona = personaOf(w);
+			const lookId = state.get(w)?.look ?? defaultLookId(persona);
+			const images = persona?.looks.find((l) => l.id === lookId)?.images as Record<string, Record<string, string>> | undefined;
+			return !!images?.[DEFAULT_MOOD]?.full?.startsWith('characters/');
 		};
 		const who = (w: Who) => ({ character: w.character, persona: w.persona });
 		const L = (de: string, en: string): Text => ({ de, en });
@@ -426,6 +442,21 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			events.push(say(who(away), L('Ich hol mal Eis.', 'Getting some ice cream.')), leave(away), say(null, { de: `${away.name.de} ist kurz weg.`, en: `${away.name.en} is gone for a moment.` }));
 			const awayMoods = moodsOf(personaOf(away), state.get(away)!.look, vocabulary);
 			events.push(join(ref(away, awayMoods.includes('happy') ? { mood: 'happy' } : {})), say(who(away), L('Eis für alle!', 'Ice cream for everyone!')));
+		}
+		// full view (owner 2026-09-30): everyone with a full-body image steps forward in `full` for a while – next to the
+		// avatar group and the portrait stage, with speaker changes between all three (in front of / behind the box,
+		// recency order), then back to their slot
+		const fulls = cast.filter(hasFull);
+		if (fulls.length) {
+			events.push(say(null, L('Ganzkörper-Auftritt!', 'Full-body entrance!')));
+			fulls.forEach((w, i) => events.push(join(ref(w, { view: 'full' })), say(who(w), pick(hello, i + 1))));
+			const others = [cast[0], ...stage.filter((w) => !fulls.includes(w))].slice(0, 3);
+			const round = [...fulls, ...others];
+			round.forEach((w, i) => events.push(say(who(w), pick(chatter, i + 2))));
+			// the full ones again, last one first (recency among them)
+			[...fulls].reverse().forEach((w, i) => events.push(say(who(w), pick(moodLines, i))));
+			for (const w of fulls) events.push(join(ref(w, { view: w.view })), say(who(w), L('Zurück auf meinen Platz.', 'Back to my spot.')));
+			report.sundayFull = fulls.map((w) => `${w.character}·${w.persona}`);
 		}
 		// mood changes: two moods each (what the look has), Cat Pope too
 		for (const w of [...stage, cast[0]]) {
@@ -561,7 +592,7 @@ async function main() {
 			`${report.lookSwitches} look switches (${report.transitions} with a transition image), ${report.styleFails} styles Cat Pope lacks`
 	);
 	console.log(`cucumbers: ${report.cucumbers.join(', ') || 'none'}`);
-	console.log(`Sonntagnachmittag (chapter ${report.chapters}): ${report.sundayCast} characters at once, ${report.sundayStage} on the portrait stage, ${report.sundayTransitions} look transitions`);
+	console.log(`Sonntagnachmittag (chapter ${report.chapters}): ${report.sundayCast} characters at once, ${report.sundayStage} on the portrait stage, full view: ${report.sundayFull.join(', ') || 'nobody'}, ${report.sundayTransitions} look transitions`);
 	for (const s of report.perEncounter) console.log(`  chapter ${s.chapter}  ${s.name.padEnd(28)} ${String(s.moods).padStart(3)} moods, ${s.fails} failed  [${s.groups.join(', ')}]`);
 	if (!entry) console.warn(`! shared/content/seed/toons.json has no "${SANDBOX_TOON}" entry (status draft) – the toon list comes from it`);
 	else if (entry.status !== 'draft') console.warn(`! toons.json: "${SANDBOX_TOON}" must stay status draft (hidden in production)`);

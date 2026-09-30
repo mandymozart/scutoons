@@ -92,6 +92,7 @@
 						"character": "toptoy",
 						"persona": "regular",
 						"look": "default",
+						"mood": "neutral",
 						"variant": "portrait"
 					}
 				]
@@ -400,6 +401,168 @@
 				"character": "billthefrog",
 				"persona": "regular",
 				"text": "Eis für alle!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Ganzkörper-Auftritt!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "toptoy",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "full"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "Die Sonne scheint!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "full"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Da bin ich!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "Kuchen!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Ich liebe Sonntage.",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Was für ein Wetter!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "yellowmouse",
+				"persona": "regular",
+				"text": "Herrlich!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "boy",
+				"persona": "regular",
+				"text": "Kaffee?",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Hihi!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "Oh!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "toptoy",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "Zurück auf meinen Platz.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Zurück auf meinen Platz.",
 				"wait": true
 			}
 		},

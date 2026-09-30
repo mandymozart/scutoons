@@ -878,11 +878,132 @@
 						{
 							"id": "default",
 							"default": true,
-							"images": {}
+							"images": {
+								"neutral": {
+									"avatar": "characters/toptoy/toptoy_avatar-neutral.webp",
+									"full": "characters/toptoy/toptoy_full-neutral.webp",
+									"portrait": "characters/toptoy/toptoy_portrait-neutral.webp"
+								}
+							}
 						}
 					]
 				}
-			]
+			],
+			"apose": {
+				"looks": [
+					{
+						"id": "swim",
+						"label": {
+							"de": "Badehose",
+							"en": "swim pants"
+						},
+						"default": true,
+						"path": "characters/toptoy/toptoy_apose-swim.webp",
+						"anchors": {
+							"head": {
+								"x": 202,
+								"y": 400,
+								"size": 330
+							},
+							"face": {
+								"x": 205,
+								"y": 455,
+								"size": 210
+							},
+							"neck": {
+								"x": 204,
+								"y": 590,
+								"size": 110
+							},
+							"torso": {
+								"x": 202,
+								"y": 640,
+								"size": 200
+							},
+							"hands": {
+								"x": 45,
+								"y": 750,
+								"size": 70
+							},
+							"legs": {
+								"x": 202,
+								"y": 880,
+								"size": 200
+							},
+							"feet": {
+								"x": 202,
+								"y": 945,
+								"size": 240
+							},
+							"back": {
+								"x": 202,
+								"y": 640,
+								"size": 260
+							},
+							"accessory": {
+								"x": 725,
+								"y": 755,
+								"size": 70
+							}
+						}
+					},
+					{
+						"id": "naked",
+						"label": {
+							"de": "nackt",
+							"en": "naked"
+						},
+						"path": "characters/toptoy/toptoy_apose-naked.webp",
+						"anchors": {
+							"head": {
+								"x": 202,
+								"y": 400,
+								"size": 330
+							},
+							"face": {
+								"x": 205,
+								"y": 455,
+								"size": 210
+							},
+							"neck": {
+								"x": 204,
+								"y": 590,
+								"size": 110
+							},
+							"torso": {
+								"x": 202,
+								"y": 640,
+								"size": 200
+							},
+							"hands": {
+								"x": 45,
+								"y": 750,
+								"size": 70
+							},
+							"legs": {
+								"x": 202,
+								"y": 880,
+								"size": 200
+							},
+							"feet": {
+								"x": 202,
+								"y": 945,
+								"size": 240
+							},
+							"back": {
+								"x": 202,
+								"y": 640,
+								"size": 260
+							},
+							"accessory": {
+								"x": 725,
+								"y": 755,
+								"size": 70
+							}
+						}
+					}
+				]
+			}
 		},
 		{
 			"id": "billthefrog",

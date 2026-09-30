@@ -92,6 +92,7 @@
 						"character": "toptoy",
 						"persona": "regular",
 						"look": "default",
+						"mood": "neutral",
 						"variant": "portrait"
 					}
 				]
@@ -400,6 +401,168 @@
 				"character": "billthefrog",
 				"persona": "regular",
 				"text": "Ice cream for everyone!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Full-body entrance!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "toptoy",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "full"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "The sun is out!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "full"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Here I am!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "Cake!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "I love Sundays.",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "What weather!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "yellowmouse",
+				"persona": "regular",
+				"text": "Lovely!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "boy",
+				"persona": "regular",
+				"text": "Coffee?",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Hehe!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "Oh!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "toptoy",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "Back to my spot.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Back to my spot.",
 				"wait": true
 			}
 		},
