@@ -79,7 +79,7 @@
 
 	<div class="actions">
 		{#if usable}
-			<button onclick={() => ui.use(entry, skills)}>{m['items.use']()}</button>
+			<button class="btn-secondary" onclick={() => ui.use(entry, skills)}>{m['items.use']()}</button>
 		{/if}
 		{#if combinable}
 			<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>
