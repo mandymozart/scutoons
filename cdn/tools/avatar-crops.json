@@ -1,0 +1,10 @@
+{
+	"catpope": {"box": [95, -22, 398], "source": "auto"},
+	"catpope-biker": {"box": [100, -21, 445], "source": "auto"},
+	"catpope-biker_helmet": {"box": [123, -22, 377], "source": "auto"},
+	"catpope-cat": {"box": [188, 91, 226], "source": "auto"},
+	"catpope-human": {"box": [87, -7, 280], "source": "auto"},
+	"toptoy": {"box": [-25, -31, 655], "source": "auto"},
+	"yellowmouse": {"box": [28, -21, 540], "source": "auto"},
+	"yellowmouse_helmet": {"box": [68, -29, 491], "source": "auto"}
+}

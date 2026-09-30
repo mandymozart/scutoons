@@ -89,8 +89,11 @@ File names for the delivery (the importer also accepts any name inside a folder 
 4. **Review** (owner): approve each view or regenerate; artist-made images always win over generated ones and can
    replace them later (same file name → re-import).
 5. **Name and place** into `cdn/root/characters/<character>[-<persona>]/` with the convention names.
-6. **WebP**: `python cdn/tools/make_character_webp.py` (WebP next to every PNG). The 192 px avatar display copy is
-   downscaled from the delivered **avatar** view (not from the portrait) — see the follow-up in agents/PLAN.md.
+6. **WebP**: `python cdn/tools/make_character_webp.py` (WebP next to every PNG, incl. full and A-pose). The 192 px
+   avatar display copy is downscaled from a delivered **avatar** view (600 × 600); without one it is a square
+   head-with-neck **crop of that mood's portrait** (owner rule 2026-09-30): one box per `<name>[_<look>]`, derived from
+   the neutral portrait and grown to fit every mood's head, stored in `cdn/tools/avatar-crops.json` (set an entry's
+   `"source": "manual"` to override the box). `--sheet=<png>` writes a contact sheet to check them.
 7. **Register**: `node --experimental-transform-types shared/content/scripts/migrate-characters.ts` (+ import into the
    store) — the paths are picked up by convention; missing views stay open in "Wanted images".
 8. **Upload** with `cdn/sync.py` (option 3 → `characters`).
