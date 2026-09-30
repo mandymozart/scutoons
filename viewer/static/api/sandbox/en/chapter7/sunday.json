@@ -157,6 +157,29 @@
 			"params": {
 				"characters": [
 					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Ice cream, anyone?",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
 						"character": "catpope",
 						"persona": "human",
 						"look": "default",
@@ -254,7 +277,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "crows",
+				"character": "billthefrog",
 				"persona": "regular",
 				"text": "Lovely!",
 				"wait": true
@@ -263,7 +286,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "boy",
+				"character": "crows",
 				"persona": "regular",
 				"text": "Coffee?",
 				"wait": true
@@ -272,7 +295,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "toptoy",
+				"character": "boy",
 				"persona": "regular",
 				"text": "Cake!",
 				"wait": true
@@ -281,9 +304,18 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "yellowmouse",
+				"character": "toptoy",
 				"persona": "regular",
 				"text": "I love Sundays.",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "yellowmouse",
+				"persona": "regular",
+				"text": "What weather!",
 				"wait": true
 			}
 		},
@@ -324,7 +356,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "crows",
+				"character": "billthefrog",
 				"persona": "regular",
 				"text": "Getting some ice cream.",
 				"wait": true
@@ -335,7 +367,7 @@
 			"params": {
 				"characters": [
 					{
-						"character": "crows",
+						"character": "billthefrog",
 						"persona": "regular"
 					}
 				]
@@ -344,7 +376,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Crows is gone for a moment.",
+				"text": "Bill the Frog is gone for a moment.",
 				"wait": true
 			}
 		},
@@ -353,7 +385,7 @@
 			"params": {
 				"characters": [
 					{
-						"character": "crows",
+						"character": "billthefrog",
 						"persona": "regular",
 						"look": "default",
 						"mood": "neutral",
@@ -365,7 +397,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "crows",
+				"character": "billthefrog",
 				"persona": "regular",
 				"text": "Ice cream for everyone!",
 				"wait": true
@@ -631,6 +663,26 @@
 					{
 						"character": "catpope",
 						"persona": "human"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular"
 					}
 				]
 			}

@@ -40,7 +40,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "What a walk! Thanks, everyone – bye!",
+				"text": "Was für ein Spaziergang! Danke euch allen – tschüss!",
 				"wait": true
 			}
 		},
@@ -61,7 +61,7 @@
 			"params": {
 				"character": "yellowmouse",
 				"persona": "regular",
-				"text": "Bye!",
+				"text": "Tschüss!",
 				"wait": true
 			}
 		},
@@ -82,7 +82,7 @@
 			"params": {
 				"character": "toptoy",
 				"persona": "regular",
-				"text": "Bye!",
+				"text": "Tschüss!",
 				"wait": true
 			}
 		},
@@ -103,7 +103,7 @@
 			"params": {
 				"character": "boy",
 				"persona": "regular",
-				"text": "Bye!",
+				"text": "Tschüss!",
 				"wait": true
 			}
 		},
@@ -124,7 +124,7 @@
 			"params": {
 				"character": "crows",
 				"persona": "regular",
-				"text": "Bye!",
+				"text": "Tschüss!",
 				"wait": true
 			}
 		},
@@ -156,6 +156,27 @@
 			"params": {
 				"characters": [
 					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Tschüss!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
 						"character": "catpope",
 						"persona": "human",
 						"variant": "portrait"
@@ -168,7 +189,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "human",
-				"text": "Bye!",
+				"text": "Tschüss!",
 				"wait": true
 			}
 		},
@@ -189,7 +210,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "cat",
-				"text": "Bye!",
+				"text": "Tschüss!",
 				"wait": true
 			}
 		},
@@ -210,8 +231,31 @@
 			"params": {
 				"character": "catpope",
 				"persona": "mountaintiger",
-				"text": "Bye!",
+				"text": "Tschüss!",
 				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular"
+					},
+					{
+						"character": "catpope",
+						"persona": "human"
+					},
+					{
+						"character": "catpope",
+						"persona": "cat"
+					},
+					{
+						"character": "catpope",
+						"persona": "mountaintiger"
+					}
+				]
 			}
 		},
 		{
@@ -231,7 +275,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Bye!",
+				"text": "Tschüss!",
 				"wait": true
 			}
 		},
@@ -239,18 +283,6 @@
 			"type": "leaveScene",
 			"params": {
 				"characters": [
-					{
-						"character": "catpope",
-						"persona": "human"
-					},
-					{
-						"character": "catpope",
-						"persona": "cat"
-					},
-					{
-						"character": "catpope",
-						"persona": "mountaintiger"
-					},
 					{
 						"character": "catpope",
 						"persona": "biker"
@@ -261,7 +293,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "The end of the walk.",
+				"text": "Ende des Spaziergangs.",
 				"wait": true
 			}
 		},

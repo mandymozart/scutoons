@@ -1,5 +1,5 @@
 {
-	"label": "human-default",
+	"label": "regular-default",
 	"renderer": {
 		"type": "vertical"
 	},
@@ -32,7 +32,7 @@
 				{
 					"type": "showMessage",
 					"params": {
-						"text": "A cucumber!"
+						"text": "Eine Gurke!"
 					},
 					"trigger": {
 						"type": "click",
@@ -48,7 +48,7 @@
 				{
 					"type": "addChoice",
 					"params": {
-						"label": "Collect",
+						"label": "Einsammeln",
 						"onSelect": {
 							"add": {
 								"variable": "cucumber",
@@ -70,7 +70,7 @@
 				{
 					"type": "addChoice",
 					"params": {
-						"label": "Leave it"
+						"label": "Liegen lassen"
 					},
 					"trigger": {
 						"type": "click",
@@ -117,7 +117,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Suddenly, there stands … Cat Pope · human!",
+				"text": "Unterwegs trifft Katzenpapst: Bill der Frosch.",
 				"wait": true
 			}
 		},
@@ -126,8 +126,8 @@
 			"params": {
 				"characters": [
 					{
-						"character": "catpope",
-						"persona": "human",
+						"character": "billthefrog",
+						"persona": "regular",
 						"look": "default",
 						"mood": "neutral",
 						"variant": "portrait"
@@ -138,9 +138,9 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "catpope",
-				"persona": "human",
-				"text": "I'm you – as a human. Creepy, right?",
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Hallo! Ich bin Bill der Frosch.",
 				"wait": true
 			}
 		},
@@ -149,7 +149,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Well, look at that. Show me!",
+				"text": "Na sieh mal einer an. Zeig her!",
 				"wait": true
 			}
 		},
@@ -158,8 +158,8 @@
 			"params": {
 				"characters": [
 					{
-						"character": "catpope",
-						"persona": "human",
+						"character": "billthefrog",
+						"persona": "regular",
 						"look": "default",
 						"mood": "neutral",
 						"variant": "portrait"
@@ -170,9 +170,9 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "catpope",
-				"persona": "human",
-				"text": "Watch this – neutral!",
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Pass auf – neutral!",
 				"wait": true
 			}
 		},
@@ -195,7 +195,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Neutral? I can do that!",
+				"text": "Neutral? Kann ich auch!",
 				"wait": true
 			}
 		},
@@ -216,9 +216,9 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "catpope",
-				"persona": "human",
-				"text": "Bye, Cat Pope!",
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Tschüss, Katzenpapst!",
 				"wait": true
 			}
 		},
@@ -227,8 +227,8 @@
 			"params": {
 				"characters": [
 					{
-						"character": "catpope",
-						"persona": "human"
+						"character": "billthefrog",
+						"persona": "regular"
 					}
 				]
 			}
@@ -238,7 +238,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Nice meeting. Onward!",
+				"text": "Schöne Begegnung. Weiter!",
 				"wait": true
 			}
 		},
@@ -247,8 +247,7 @@
 			"params": {
 				"target": {
 					"type": "chapter",
-					"value": "5",
-					"label": "cat-default"
+					"value": "6"
 				},
 				"wait": true
 			}

@@ -1,31 +1,26 @@
 {
-	"label": "biker-default",
+	"label": "biker-helmet",
 	"renderer": {
 		"type": "vertical"
 	},
 	"slices": [
 		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-15.webp",
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-1.webp",
 			"width": 390,
 			"height": 625
 		},
 		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-16.webp",
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-2.webp",
 			"width": 390,
 			"height": 625
 		},
 		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-17.webp",
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-3.webp",
 			"width": 390,
 			"height": 625
 		},
 		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-18.webp",
-			"width": 390,
-			"height": 625
-		},
-		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-19.webp",
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-4.webp",
 			"width": 390,
 			"height": 625
 		}
@@ -46,13 +41,6 @@
 			}
 		},
 		{
-			"type": "showMessage",
-			"params": {
-				"text": "Plötzlich steht da … Katzenpapst · Biker!",
-				"wait": true
-			}
-		},
-		{
 			"type": "joinScene",
 			"params": {
 				"characters": [
@@ -67,31 +55,13 @@
 			}
 		},
 		{
-			"type": "showMessage",
-			"params": {
-				"character": "catpope",
-				"persona": "biker",
-				"text": "Ich bin du, auf zwei Rädern. Brumm brumm!",
-				"wait": true
-			}
-		},
-		{
-			"type": "showMessage",
-			"params": {
-				"character": "catpope",
-				"persona": "regular",
-				"text": "Na sieh mal einer an. Zeig her!",
-				"wait": true
-			}
-		},
-		{
 			"type": "joinScene",
 			"params": {
 				"characters": [
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "neutral",
 						"variant": "portrait"
 					}
@@ -101,47 +71,8 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "catpope",
-				"persona": "biker",
-				"text": "Pass auf – neutral!",
+				"text": "Cat Pope · Biker changes the look: with helmet.",
 				"wait": true
-			}
-		},
-		{
-			"type": "joinScene",
-			"params": {
-				"characters": [
-					{
-						"character": "catpope",
-						"persona": "regular",
-						"look": "default",
-						"mood": "neutral",
-						"variant": "avatar"
-					}
-				]
-			}
-		},
-		{
-			"type": "showMessage",
-			"params": {
-				"character": "catpope",
-				"persona": "regular",
-				"text": "Neutral? Kann ich auch!",
-				"wait": true
-			}
-		},
-		{
-			"type": "joinScene",
-			"params": {
-				"characters": [
-					{
-						"character": "catpope",
-						"persona": "biker",
-						"look": "default",
-						"mood": "happy",
-						"variant": "portrait"
-					}
-				]
 			}
 		},
 		{
@@ -149,99 +80,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Und jetzt: fröhlich.",
-				"wait": true
-			}
-		},
-		{
-			"type": "joinScene",
-			"params": {
-				"characters": [
-					{
-						"character": "catpope",
-						"persona": "regular",
-						"look": "default",
-						"mood": "happy",
-						"variant": "avatar"
-					}
-				]
-			}
-		},
-		{
-			"type": "showMessage",
-			"params": {
-				"character": "catpope",
-				"persona": "regular",
-				"text": "Nachgemacht: fröhlich!",
-				"wait": true
-			}
-		},
-		{
-			"type": "joinScene",
-			"params": {
-				"characters": [
-					{
-						"character": "catpope",
-						"persona": "biker",
-						"look": "default",
-						"mood": "laughing",
-						"variant": "portrait"
-					}
-				]
-			}
-		},
-		{
-			"type": "showMessage",
-			"params": {
-				"character": "catpope",
-				"persona": "biker",
-				"text": "So geht „lachend“:",
-				"wait": true
-			}
-		},
-		{
-			"type": "joinScene",
-			"params": {
-				"characters": [
-					{
-						"character": "catpope",
-						"persona": "regular",
-						"look": "default",
-						"mood": "laughing",
-						"variant": "avatar"
-					}
-				]
-			}
-		},
-		{
-			"type": "showMessage",
-			"params": {
-				"character": "catpope",
-				"persona": "regular",
-				"text": "Ha, „lachend“ – wie ich!",
-				"wait": true
-			}
-		},
-		{
-			"type": "joinScene",
-			"params": {
-				"characters": [
-					{
-						"character": "catpope",
-						"persona": "biker",
-						"look": "default",
-						"mood": "sad",
-						"variant": "portrait"
-					}
-				]
-			}
-		},
-		{
-			"type": "showMessage",
-			"params": {
-				"character": "catpope",
-				"persona": "biker",
-				"text": "Pass auf – traurig!",
+				"text": "New look: with helmet!",
 				"wait": true
 			}
 		},
@@ -264,7 +103,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Traurig? Kann ich auch!",
+				"text": "“with helmet”? I don't have that in my closet …",
 				"wait": true
 			}
 		},
@@ -275,7 +114,191 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
+						"look": "helmet",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "biker",
+				"text": "Watch this – neutral!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
 						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Neutral? I can do that!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "biker",
+						"look": "helmet",
+						"mood": "happy",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "biker",
+				"text": "And now: happy.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "happy",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Copied: happy!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "biker",
+						"look": "helmet",
+						"mood": "laughing",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "biker",
+				"text": "This is how “laughing” goes:",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "laughing",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Ha, “laughing” – just like me!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "biker",
+						"look": "helmet",
+						"mood": "sad",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "biker",
+				"text": "Watch this – sad!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "sad",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Sad? I can do that!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "biker",
+						"look": "helmet",
 						"mood": "crying",
 						"variant": "portrait"
 					}
@@ -287,7 +310,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Und jetzt: weinend.",
+				"text": "And now: crying.",
 				"wait": true
 			}
 		},
@@ -310,7 +333,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Nachgemacht: weinend!",
+				"text": "Copied: crying!",
 				"wait": true
 			}
 		},
@@ -321,7 +344,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "angry",
 						"variant": "portrait"
 					}
@@ -333,7 +356,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "So geht „verärgert“:",
+				"text": "This is how “angry” goes:",
 				"wait": true
 			}
 		},
@@ -356,7 +379,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Ha, „verärgert“ – wie ich!",
+				"text": "Ha, “angry” – just like me!",
 				"wait": true
 			}
 		},
@@ -367,7 +390,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "furious",
 						"variant": "portrait"
 					}
@@ -379,7 +402,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Pass auf – wütend!",
+				"text": "Watch this – furious!",
 				"wait": true
 			}
 		},
@@ -402,7 +425,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Wütend? Kann ich auch!",
+				"text": "Furious? I can do that!",
 				"wait": true
 			}
 		},
@@ -413,7 +436,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "surprised",
 						"variant": "portrait"
 					}
@@ -425,7 +448,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Und jetzt: überrascht.",
+				"text": "And now: surprised.",
 				"wait": true
 			}
 		},
@@ -448,7 +471,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Nachgemacht: überrascht!",
+				"text": "Copied: surprised!",
 				"wait": true
 			}
 		},
@@ -459,7 +482,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "scared",
 						"variant": "portrait"
 					}
@@ -471,7 +494,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "So geht „verängstigt“:",
+				"text": "This is how “scared” goes:",
 				"wait": true
 			}
 		},
@@ -494,7 +517,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Ha, „verängstigt“ – wie ich!",
+				"text": "Ha, “scared” – just like me!",
 				"wait": true
 			}
 		},
@@ -505,7 +528,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "disgusted",
 						"variant": "portrait"
 					}
@@ -517,7 +540,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Pass auf – angeekelt!",
+				"text": "Watch this – disgusted!",
 				"wait": true
 			}
 		},
@@ -540,7 +563,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Angeekelt? Kann ich auch!",
+				"text": "Disgusted? I can do that!",
 				"wait": true
 			}
 		},
@@ -551,7 +574,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "confused",
 						"variant": "portrait"
 					}
@@ -563,7 +586,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Und jetzt: verwirrt.",
+				"text": "And now: confused.",
 				"wait": true
 			}
 		},
@@ -586,7 +609,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Nachgemacht: verwirrt!",
+				"text": "Copied: confused!",
 				"wait": true
 			}
 		},
@@ -597,7 +620,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "thinking",
 						"variant": "portrait"
 					}
@@ -609,7 +632,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "So geht „nachdenklich“:",
+				"text": "This is how “thinking” goes:",
 				"wait": true
 			}
 		},
@@ -632,7 +655,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Ha, „nachdenklich“ – wie ich!",
+				"text": "Ha, “thinking” – just like me!",
 				"wait": true
 			}
 		},
@@ -643,7 +666,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "smug",
 						"variant": "portrait"
 					}
@@ -655,7 +678,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Pass auf – selbstgefällig!",
+				"text": "Watch this – smug!",
 				"wait": true
 			}
 		},
@@ -678,7 +701,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Selbstgefällig? Kann ich auch!",
+				"text": "Smug? I can do that!",
 				"wait": true
 			}
 		},
@@ -689,7 +712,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "embarrassed",
 						"variant": "portrait"
 					}
@@ -701,7 +724,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Und jetzt: verlegen.",
+				"text": "And now: embarrassed.",
 				"wait": true
 			}
 		},
@@ -724,7 +747,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Nachgemacht: verlegen!",
+				"text": "Copied: embarrassed!",
 				"wait": true
 			}
 		},
@@ -735,7 +758,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "denial",
 						"variant": "portrait"
 					}
@@ -747,7 +770,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "So geht „Leugnen“:",
+				"text": "This is how “denial” goes:",
 				"wait": true
 			}
 		},
@@ -770,7 +793,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Ha, „Leugnen“ – wie ich!",
+				"text": "Ha, “denial” – just like me!",
 				"wait": true
 			}
 		},
@@ -781,7 +804,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "bargaining",
 						"variant": "portrait"
 					}
@@ -793,7 +816,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Pass auf – Verhandeln!",
+				"text": "Watch this – bargaining!",
 				"wait": true
 			}
 		},
@@ -816,7 +839,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Verhandeln? Kann ich auch!",
+				"text": "Bargaining? I can do that!",
 				"wait": true
 			}
 		},
@@ -827,7 +850,7 @@
 					{
 						"character": "catpope",
 						"persona": "biker",
-						"look": "default",
+						"look": "helmet",
 						"mood": "acceptance",
 						"variant": "portrait"
 					}
@@ -839,7 +862,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "biker",
-				"text": "Und jetzt: Akzeptanz.",
+				"text": "And now: acceptance.",
 				"wait": true
 			}
 		},
@@ -862,7 +885,117 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Nachgemacht: Akzeptanz!",
+				"text": "Copied: acceptance!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "biker",
+						"look": "helmet",
+						"mood": "dizzy",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "biker",
+				"text": "This is how “dizzy” goes:",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "sad",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Wait … dizzy … hmph. Doesn't work.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "biker",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "*Taking the helmet off*",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "happy",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "biker",
+				"text": "Bye, Cat Pope!",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "biker"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Nice meeting. Onward!",
 				"wait": true
 			}
 		},
@@ -871,8 +1004,8 @@
 			"params": {
 				"target": {
 					"type": "chapter",
-					"value": "5",
-					"label": "biker-helmet"
+					"value": "6",
+					"label": "goodbye"
 				},
 				"wait": true
 			}

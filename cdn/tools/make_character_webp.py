@@ -4,7 +4,7 @@ The owner's image supplier delivers PNGs into the convention folders
 `cdn/root/characters/<character>[-<persona>]/`. This writes, next to them:
 
     <name>[_<look>]_portrait-<mood>.webp     from the portrait PNG (600 x 600), quality 85, alpha kept
-    <name>[_<look>]_avatar-<mood>.webp       from the avatar PNG when there is one, else generated from the portrait
+    <name>[_<look>]_avatar-<mood>.webp       192 px: downscaled from the delivered avatar PNG when there is one, else from the portrait
                                              (192 x 192 downscale, the derived view)
     <name>_transition-<from>-to-<to>.webp    from the transition PNG
 
@@ -69,7 +69,11 @@ def main(argv: list[str]) -> int:
             m = EXPRESSION.match(name)
             if not m:
                 continue
-            write(source, source.with_suffix(".webp"), lambda s=source: Image.open(s))
+            if m["view"] == "avatar":
+                # a delivered avatar is its own view (owner 2026-09-30): the WebP is its 192 px display copy
+                write(source, source.with_suffix(".webp"), lambda s=source: Image.open(s).convert("RGBA").resize((AVATAR_SIZE, AVATAR_SIZE), Image.LANCZOS))
+            else:
+                write(source, source.with_suffix(".webp"), lambda s=source: Image.open(s))
             if m["view"] == "portrait":
                 avatar_png = f"{m['prefix']}_avatar-{m['mood']}.png"
                 if avatar_png not in files:

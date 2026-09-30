@@ -171,6 +171,16 @@ const NEW: RegistryCharacter[] = [
 		tags: ['duo'],
 		image: 'toptoy/avatar.webp',
 		personas: [{ id: REGULAR_PERSONA, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] }]
+	},
+	{
+		// owner delivery 2026-09-30: avatar (600 master), portrait, full — no A-pose yet, no own toon
+		id: 'billthefrog',
+		name: { de: 'Bill der Frosch', en: 'Bill the Frog' },
+		description: { de: 'Frosch mit Brille, Sakko und Krawatte', en: 'A frog in glasses, blazer and tie' },
+		color: '#5b6b3a',
+		tags: ['frog'],
+		image: 'characters/billthefrog/billthefrog_portrait-neutral.webp',
+		personas: [{ id: REGULAR_PERSONA, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] }]
 	}
 ];
 

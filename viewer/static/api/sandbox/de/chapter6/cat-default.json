@@ -1,31 +1,26 @@
 {
-	"label": "mountaintiger-default",
+	"label": "cat-default",
 	"renderer": {
 		"type": "vertical"
 	},
 	"slices": [
 		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-15.webp",
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-1.webp",
 			"width": 390,
 			"height": 625
 		},
 		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-16.webp",
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-2.webp",
 			"width": 390,
 			"height": 625
 		},
 		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-17.webp",
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-3.webp",
 			"width": 390,
 			"height": 625
 		},
 		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-18.webp",
-			"width": 390,
-			"height": 625
-		},
-		{
-			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-19.webp",
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-4.webp",
 			"width": 390,
 			"height": 625
 		}
@@ -48,7 +43,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Suddenly, there stands … Cat Pope · Mountain Tiger!",
+				"text": "Plötzlich steht da … Katzenpapst · Katze!",
 				"wait": true
 			}
 		},
@@ -58,7 +53,7 @@
 				"characters": [
 					{
 						"character": "catpope",
-						"persona": "mountaintiger",
+						"persona": "cat",
 						"look": "default",
 						"mood": "neutral",
 						"variant": "portrait"
@@ -70,8 +65,8 @@
 			"type": "showMessage",
 			"params": {
 				"character": "catpope",
-				"persona": "mountaintiger",
-				"text": "ROAAAR! I'm you – the wild edition.",
+				"persona": "cat",
+				"text": "Miau. Ich bin du, nur ehrlicher.",
 				"wait": true
 			}
 		},
@@ -80,7 +75,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Nice to meet you! Show me what you’ve got.",
+				"text": "Freut mich! Zeig mal, was du draufhast.",
 				"wait": true
 			}
 		},
@@ -90,7 +85,7 @@
 				"characters": [
 					{
 						"character": "catpope",
-						"persona": "mountaintiger",
+						"persona": "cat",
 						"look": "default",
 						"mood": "neutral",
 						"variant": "portrait"
@@ -102,8 +97,8 @@
 			"type": "showMessage",
 			"params": {
 				"character": "catpope",
-				"persona": "mountaintiger",
-				"text": "Watch this – neutral!",
+				"persona": "cat",
+				"text": "Pass auf – neutral!",
 				"wait": true
 			}
 		},
@@ -126,7 +121,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Neutral? I can do that!",
+				"text": "Neutral? Kann ich auch!",
 				"wait": true
 			}
 		},
@@ -148,8 +143,8 @@
 			"type": "showMessage",
 			"params": {
 				"character": "catpope",
-				"persona": "mountaintiger",
-				"text": "Bye, Cat Pope!",
+				"persona": "cat",
+				"text": "Tschüss, Katzenpapst!",
 				"wait": true
 			}
 		},
@@ -159,7 +154,7 @@
 				"characters": [
 					{
 						"character": "catpope",
-						"persona": "mountaintiger"
+						"persona": "cat"
 					}
 				]
 			}
@@ -169,7 +164,7 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "Nice meeting. Onward!",
+				"text": "Schöne Begegnung. Weiter!",
 				"wait": true
 			}
 		},
@@ -178,8 +173,8 @@
 			"params": {
 				"target": {
 					"type": "chapter",
-					"value": "5",
-					"label": "biker-default"
+					"value": "6",
+					"label": "mountaintiger-default"
 				},
 				"wait": true
 			}

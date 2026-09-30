@@ -883,6 +883,40 @@
 					]
 				}
 			]
+		},
+		{
+			"id": "billthefrog",
+			"name": {
+				"de": "Bill der Frosch",
+				"en": "Bill the Frog"
+			},
+			"description": {
+				"de": "Frosch mit Brille, Sakko und Krawatte",
+				"en": "A frog in glasses, blazer and tie"
+			},
+			"color": "#5b6b3a",
+			"tags": [
+				"frog"
+			],
+			"image": "characters/billthefrog/billthefrog_portrait-neutral.webp",
+			"personas": [
+				{
+					"id": "regular",
+					"looks": [
+						{
+							"id": "default",
+							"default": true,
+							"images": {
+								"neutral": {
+									"avatar": "characters/billthefrog/billthefrog_avatar-neutral.webp",
+									"full": "characters/billthefrog/billthefrog_full-neutral.webp",
+									"portrait": "characters/billthefrog/billthefrog_portrait-neutral.webp"
+								}
+							}
+						}
+					]
+				}
+			]
 		}
 	]
 }

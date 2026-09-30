@@ -157,6 +157,29 @@
 			"params": {
 				"characters": [
 					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Eis, jemand?",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
 						"character": "catpope",
 						"persona": "human",
 						"look": "default",
@@ -254,7 +277,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "crows",
+				"character": "billthefrog",
 				"persona": "regular",
 				"text": "Herrlich!",
 				"wait": true
@@ -263,7 +286,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "boy",
+				"character": "crows",
 				"persona": "regular",
 				"text": "Kaffee?",
 				"wait": true
@@ -272,7 +295,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "toptoy",
+				"character": "boy",
 				"persona": "regular",
 				"text": "Kuchen!",
 				"wait": true
@@ -281,9 +304,18 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "yellowmouse",
+				"character": "toptoy",
 				"persona": "regular",
 				"text": "Ich liebe Sonntage.",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "yellowmouse",
+				"persona": "regular",
+				"text": "Was für ein Wetter!",
 				"wait": true
 			}
 		},
@@ -324,7 +356,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "crows",
+				"character": "billthefrog",
 				"persona": "regular",
 				"text": "Ich hol mal Eis.",
 				"wait": true
@@ -335,7 +367,7 @@
 			"params": {
 				"characters": [
 					{
-						"character": "crows",
+						"character": "billthefrog",
 						"persona": "regular"
 					}
 				]
@@ -344,7 +376,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Krähen ist kurz weg.",
+				"text": "Bill der Frosch ist kurz weg.",
 				"wait": true
 			}
 		},
@@ -353,7 +385,7 @@
 			"params": {
 				"characters": [
 					{
-						"character": "crows",
+						"character": "billthefrog",
 						"persona": "regular",
 						"look": "default",
 						"mood": "neutral",
@@ -365,7 +397,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"character": "crows",
+				"character": "billthefrog",
 				"persona": "regular",
 				"text": "Eis für alle!",
 				"wait": true
@@ -631,6 +663,26 @@
 					{
 						"character": "catpope",
 						"persona": "human"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Tschüss!",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular"
 					}
 				]
 			}

@@ -1,0 +1,183 @@
+{
+	"label": "human-default",
+	"renderer": {
+		"type": "vertical"
+	},
+	"slices": [
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-1.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-2.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-3.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-4.webp",
+			"width": 390,
+			"height": 625
+		}
+	],
+	"events": [
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Plötzlich steht da … Katzenpapst · Mensch!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "human",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "human",
+				"text": "Ich bin du – als Mensch. Gruselig, oder?",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Oh, hallo! Was für ein Gesicht machst du so?",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "human",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "human",
+				"text": "Pass auf – neutral!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Neutral? Kann ich auch!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "happy",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "human",
+				"text": "Tschüss, Katzenpapst!",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "human"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Schöne Begegnung. Weiter!",
+				"wait": true
+			}
+		},
+		{
+			"type": "jumpTo",
+			"params": {
+				"target": {
+					"type": "chapter",
+					"value": "6",
+					"label": "cat-default"
+				},
+				"wait": true
+			}
+		}
+	]
+}

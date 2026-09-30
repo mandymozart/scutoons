@@ -34,6 +34,11 @@
 			"type": "chapter",
 			"number": 6,
 			"status": "draft"
+		},
+		{
+			"type": "chapter",
+			"number": 7,
+			"status": "draft"
 		}
 	]
 }
