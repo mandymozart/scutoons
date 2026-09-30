@@ -1,4 +1,4 @@
-config.php
-config.local.php
+/config.php
+/config.local.php
 cache/
 public/version.json

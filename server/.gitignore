@@ -1,6 +1,6 @@
 # Local-only / generated files of this installation
-config.local.php
-config.php
+/config.local.php
+/config.php
 .htpasswd
 db/*.sqlite*
 logs/
