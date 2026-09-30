@@ -43,7 +43,8 @@
 		registryOf,
 		requestsDoc,
 		requestsOf,
-		type ToonInfo
+		type ToonInfo,
+		isKnownMissing
 	} from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -225,7 +226,7 @@
 		return out;
 	}
 
-	const thumb = (c: RegistryCharacter) => characterImage(c, {}, AUTHORED_VIEW);
+	const thumb = (c: RegistryCharacter) => characterImage(c, {}, AUTHORED_VIEW, { isMissing: isKnownMissing });
 	const crumbs = $derived(toonFilter && toonFilter !== '__none' ? [{ href: `/${toonFilter}`, label: toonFilter }] : []);
 	const openRequests = $derived((requestsOf(requests)?.requests ?? []).filter((r) => r.status === 'open').length);
 </script>
@@ -292,7 +293,7 @@
 									{@const src = thumb(c)}
 									<li>
 										<button type="button" class="item" class:active={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
-											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} alt="" loading="lazy" />{/if}</span>
+											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 											<span class="text">
 												<strong>{characterName(c, uiLocale)}</strong>
 												<span class="hint">{c.id}{c.own_toon ? ` · ${c.own_toon}` : ''}{castsOf(c.id, casts).length ? ` · ${castsOf(c.id, casts).join(', ')}` : ''}</span>

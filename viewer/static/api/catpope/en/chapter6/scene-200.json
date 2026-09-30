@@ -32,13 +32,15 @@
 			"params": {
 				"character": "catpope",
 				"persona": "regular",
-				"text": "What is this?"
+				"text": "What is this?",
+				"wait": true
 			}
 		},
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "What's your favorite color?"
+				"text": "What's your favorite color?",
+				"wait": true
 			}
 		},
 		{
@@ -71,13 +73,27 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "You chose {favoriteColor}"
+				"text": "You chose {favoriteColor}",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "cat",
+						"variant": "portrait"
+					}
+				]
 			}
 		},
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "You found an old wrinkled cucumber. Do you want to keep it?"
+				"text": "You found an old wrinkled cucumber. Do you want to keep it?",
+				"wait": true
 			}
 		},
 		{
@@ -97,7 +113,13 @@
 			"params": {
 				"label": "No",
 				"onSelect": {
-					"jumpTo": "scene-300"
+					"jumpTo": {
+						"target": {
+							"type": "chapter",
+							"value": "6",
+							"label": "scene-300"
+						}
+					}
 				}
 			}
 		},
@@ -107,7 +129,8 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "You got {cucumbers} cucumbers."
+				"text": "You got {cucumber} cucumbers.",
+				"wait": true
 			}
 		},
 		{
@@ -140,9 +163,14 @@
 			}
 		},
 		{
-			"type": "end",
+			"type": "jumpTo",
 			"params": {
-				"jumpTo": "scene-300"
+				"target": {
+					"type": "chapter",
+					"value": "6",
+					"label": "scene-300"
+				},
+				"wait": true
 			}
 		}
 	],

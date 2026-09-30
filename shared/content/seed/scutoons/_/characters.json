@@ -177,6 +177,11 @@
 						"de": "Biker",
 						"en": "Biker"
 					},
+					"introduced": {
+						"toon": "yellowmouse",
+						"season": 1,
+						"chapter": 1
+					},
 					"description": {
 						"de": "Der Katzenpapst, nachdem er sich der Biker-Gang angeschlossen hat.",
 						"en": "Cat Pope after he joins the biker gang."
@@ -339,6 +344,17 @@
 									"avatar": "characters/catpope-biker/catpope-biker_helmet_avatar-thinking.png",
 									"portrait": "characters/catpope-biker/catpope-biker_helmet_portrait-thinking.png"
 								}
+							}
+						}
+					],
+					"transitions": [
+						{
+							"from": "helmet",
+							"to": "default",
+							"image": "characters/catpope-biker/catpope-biker_transition-helmet-to-default.png",
+							"label": {
+								"de": "Helm ab",
+								"en": "Taking the helmet off"
 							}
 						}
 					]
@@ -714,7 +730,7 @@
 						{
 							"from": "helmet",
 							"to": "default",
-							"image": "characters/yellowmouse/yellowmouse_keyvisual-helmet-off.png",
+							"image": "characters/yellowmouse/yellowmouse_transition-helmet-to-default.png",
 							"label": {
 								"de": "Helm ab",
 								"en": "Taking the helmet off"
@@ -786,6 +802,54 @@
 						"label": {
 							"de": "nackt",
 							"en": "naked"
+						},
+						"path": "characters/yellowmouse/yellowmouse_apose-naked.webp",
+						"anchors": {
+							"head": {
+								"x": 385,
+								"y": 130,
+								"size": 330
+							},
+							"face": {
+								"x": 385,
+								"y": 230,
+								"size": 200
+							},
+							"neck": {
+								"x": 385,
+								"y": 330,
+								"size": 120
+							},
+							"torso": {
+								"x": 385,
+								"y": 450,
+								"size": 260
+							},
+							"hands": {
+								"x": 175,
+								"y": 625,
+								"size": 90
+							},
+							"legs": {
+								"x": 385,
+								"y": 770,
+								"size": 260
+							},
+							"feet": {
+								"x": 385,
+								"y": 1010,
+								"size": 340
+							},
+							"back": {
+								"x": 385,
+								"y": 450,
+								"size": 300
+							},
+							"accessory": {
+								"x": 595,
+								"y": 625,
+								"size": 90
+							}
 						}
 					}
 				]

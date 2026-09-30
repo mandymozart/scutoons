@@ -2,6 +2,7 @@
 // `scutoons/_/{characters,moods,asset-requests}.json` – and the per-toon `<toon>/_/cast.json`, as ContentDocs with
 // the single locale `_`, saved / published through the ActionBar of the page that edits them (Characters page, Cast page,
 // chapter editor when the picker adds a character to the season's cast).
+import { SvelteSet } from 'svelte/reactivity';
 import {
 	ASSET_REQUESTS_FILE,
 	AUTHORED_VIEW,
@@ -210,6 +211,11 @@ export function characterLanguages(character: RegistryCharacter | null | undefin
 // ── CDN check (✓ found / ✗ missing), cached per URL for the session ────────────────────────────────────────────
 
 const found = new Map<string, Promise<boolean>>();
+/** paths the CDN did not serve (reactive) – `resolveExpression` shows the missing-image substitute for them */
+const missingPaths = new SvelteSet<string>();
+
+/** For `characterImage(…, { isMissing })`: a path whose CDN check failed (the real file stays flagged ✗ in the grid). */
+export const isKnownMissing = (path: string): boolean => missingPaths.has(path);
 
 /** true when the CDN serves an image at `path` (from the CDN root). */
 export function imageExists(path: string): Promise<boolean> {
@@ -225,6 +231,7 @@ export function imageExists(path: string): Promise<boolean> {
 			img.src = url;
 		});
 		found.set(url, pending);
+		pending.then((ok) => (ok ? missingPaths.delete(path) : missingPaths.add(path)));
 	}
 	return pending;
 }
@@ -232,4 +239,5 @@ export function imageExists(path: string): Promise<boolean> {
 /** Forgets the cached results (after uploading images). */
 export function recheckImages() {
 	found.clear();
+	missingPaths.clear();
 }

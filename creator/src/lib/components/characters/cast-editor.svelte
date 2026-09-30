@@ -31,7 +31,9 @@
 		moodsOf,
 		registryDoc,
 		registryOf,
-		type ToonInfo
+		type ToonInfo,
+		isKnownMissing,
+		imageExists
 	} from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -148,7 +150,7 @@
 			<ol>
 				{#each entries as entry, i (entry.character)}
 					{@const c = index.get(entry.character)}
-					{@const src = c ? characterImage(c, { persona: entry.personas[0] }, AUTHORED_VIEW) : ''}
+					{@const src = c ? characterImage(c, { persona: entry.personas[0] }, AUTHORED_VIEW, { isMissing: isKnownMissing }) : ''}
 					<li
 						class="member"
 						class:dragging={dragging === i}
@@ -177,7 +179,7 @@
 								}
 							}}>⠿</button
 						>
-						<span class="avatar" style:background={c?.color || 'transparent'}>{#if src}<img src={asset(src)} alt="" />{/if}</span>
+						<span class="avatar" style:background={c?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 						<span class="who">
 							{#if c}
 								<strong>{characterName(c, source)}</strong>

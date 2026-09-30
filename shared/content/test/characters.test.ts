@@ -9,6 +9,8 @@ import {
 	legacyCharacterImage,
 	legacyCharacterLabel,
 	legacyTransition,
+	isMissingImagePath,
+	missingImagePath,
 	resolveCast,
 	validateCast,
 	validateCharacters,
@@ -61,7 +63,7 @@ const mouse: RegistryCharacter = {
 				look('yellowmouse', 'default', ['neutral', 'happy', 'tripping'], { default: true }),
 				look('yellowmouse', 'helmet', ['neutral', 'happy'], {}, ['happy'])
 			],
-			transitions: [{ from: 'helmet', to: 'default', image: 'characters/yellowmouse/yellowmouse_keyvisual-helmet-off.png' }]
+			transitions: [{ from: 'helmet', to: 'default', image: 'characters/yellowmouse/yellowmouse_transition-helmet-to-default.png' }]
 		}
 	]
 };
@@ -108,7 +110,21 @@ test('6. regular persona + default look + neutral', () => {
 
 test('7. the legacy image', () => {
 	assert.equal(characterImage(empty, { mood: 'happy' }, 'portrait'), 'toptoy/avatar.webp');
-	assert.equal(characterImage({ ...empty, image: undefined }, { mood: 'happy' }, 'portrait'), '');
+	assert.equal(characterImage({ ...empty, image: undefined }, { mood: 'happy' }, 'portrait', { substitute: '' }), '');
+});
+
+test('8. the missing-image substitute (after the legacy image, or when the resolved file is known to be missing)', () => {
+	assert.equal(characterImage({ ...empty, image: undefined }, { mood: 'happy' }, 'portrait'), 'characters/_missing/missing_portrait.png');
+	assert.equal(characterImage({ ...empty, image: undefined }, {}, 'avatar'), 'characters/_missing/missing_avatar.png');
+	// a known-missing file (e.g. crows_portrait.svg) → the substitute of the requested view
+	const missing = new Set([png('catpope', 'default', 'portrait', 'happy')]);
+	assert.equal(characterImage(catpope, { mood: 'happy' }, 'portrait', { isMissing: (p) => missing.has(p) }), 'characters/_missing/missing_portrait.png');
+	assert.equal(characterImage(catpope, { mood: 'happy' }, 'full', { isMissing: (p) => missing.has(p) }), 'characters/_missing/missing_full.png');
+	assert.equal(missingImagePath('apose'), 'characters/_missing/missing_apose.png');
+	assert.equal(missingImagePath('whatever'), 'characters/_missing/missing_portrait.png');
+	assert.ok(isMissingImagePath('/characters/_missing/missing_full.png'));
+	// the legacy (characters.json) form: from the CDN root with a leading /
+	assert.equal(legacyCharacterImage({ name: 'x', label: 'X', image: '', color: '' } as Character, {}, 'full'), '/characters/_missing/missing_full.png');
 });
 
 test('views: a missing view shows the same mood’s portrait before any mood step', () => {
@@ -133,7 +149,7 @@ test('the resolved cast (viewer shape) follows the same rule', () => {
 	assert.equal(legacyCharacterImage(pope, { persona: 'human', mood: 'sad' }, 'avatar'), '/' + png('catpope', 'default', 'avatar', 'sad'));
 	assert.equal(legacyCharacterImage(m, { look: 'helmet', mood: 'tripping' }, 'avatar'), '/' + png('yellowmouse', 'helmet', 'avatar', 'neutral'));
 	assert.equal(legacyCharacterImage(pope, { mood: 'happy' }, 'full'), '/' + png('catpope', 'default', 'portrait', 'happy'));
-	assert.equal(legacyTransition(m, 'regular', 'helmet', undefined), '/characters/yellowmouse/yellowmouse_keyvisual-helmet-off.png');
+	assert.equal(legacyTransition(m, 'regular', 'helmet', undefined), '/characters/yellowmouse/yellowmouse_transition-helmet-to-default.png');
 	assert.equal(legacyTransition(m, 'regular', 'default', 'helmet'), '');
 	// only one season
 	assert.equal(resolveCast(registry, { seasons: { '1': [{ character: 'yellowmouse', personas: ['regular'] }], '2': [{ character: 'catpope', personas: ['regular'] }] } }, 'x', 'en', { season: 1 }).length, 1);
@@ -236,8 +252,9 @@ test('A-pose: character level, its own view without fallback, avatar bodies', as
 	const m2: RegistryCharacter = { ...structuredClone(mouse), apose: { looks: [{ id: 'swim', default: true, path: 'yellowmouse/avatar/mannequin.webp' }, { id: 'naked' }] } };
 	assert.equal(characterImage(c, {}, 'apose'), 'catpope/avatar/mannequin.webp');
 	assert.equal(characterImage(c, { look: 'naked' }, 'apose'), 'catpope/avatar/mannequin-nude.webp');
-	// no A-pose → '' (never the portrait)
-	assert.equal(characterImage(catpope, {}, 'apose'), '');
+	// no A-pose → the A-pose substitute (never the portrait)
+	assert.equal(characterImage(catpope, {}, 'apose'), 'characters/_missing/missing_apose.png');
+	assert.equal(characterImage(catpope, {}, 'apose', { substitute: '' }), '');
 	const bodies = avatarBodies({ characters: [c, m2] }, 'en');
 	assert.deepEqual(bodies.map((b) => `${b.character}/${b.look}${b.default ? '*' : ''}: ${b.label}`), ['catpope/swim*: Cat Pope (swim pants)', 'catpope/naked: Cat Pope (naked)', 'yellowmouse/swim*: Yellow Mouse (swim)']);
 	// the missing naked A-pose of the mouse is a wanted image

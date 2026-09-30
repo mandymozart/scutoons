@@ -17,7 +17,7 @@
 		type MoodVocabulary,
 		type RegistryCharacter
 	} from '@scutoons/content';
-	import { imageExists, recheckImages } from '$lib/editor/characters.ts';
+	import { imageExists, recheckImages, isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import AssetDialog from './asset-dialog.svelte';
@@ -85,7 +85,7 @@
 	function cell(mood: string, view: string) {
 		const path = lookImage(look, mood, view);
 		const convention = conventionImagePath(character.id, view, mood, look.id, persona);
-		const fallback = path ? '' : characterImage(character, { persona, look: look.id, mood }, view);
+		const fallback = path ? '' : characterImage(character, { persona, look: look.id, mood }, view, { isMissing: isKnownMissing });
 		return { path, convention, fallback };
 	}
 

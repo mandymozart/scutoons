@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { SceneCharacter as VNCharacterRef, Character } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { isKnownMissing, markMissing } from '$lib/utils/missing-images.svelte.ts';
 	import { DEFAULT_MOOD, legacyCharacterImage, legacyCharacterLabel } from '@scutoons/content';
 
 	let {
@@ -15,13 +16,15 @@
 		isActive: boolean;
 	} = $props();
 
+	let rawPath = '';
 	const imagePath = $derived(() => {
 		const variant = 'full';
 		const mood = charRef.mood || DEFAULT_MOOD;
 
 		// a look transition image (shown briefly), else the fallback rule (resolveExpression in @scutoons/content)
-		const path = charRef.transition || legacyCharacterImage(character, { persona: charRef.persona, look: charRef.look, mood }, variant);
+		const path = charRef.transition || legacyCharacterImage(character, { persona: charRef.persona, look: charRef.look, mood }, variant, { isMissing: isKnownMissing });
 
+		rawPath = path;
 		if (!path) {
 			console.error(
 				`No image found for character "${character.name}" (look: ${charRef.look ?? 'default'}, mood: ${mood}, variant: ${variant})`
@@ -36,7 +39,7 @@
 </script>
 
 <div class="character-full" class:active={isActive}>
-	<img src={imageUrl} alt={legacyCharacterLabel(character, charRef.persona)} />
+	<img src={imageUrl} onerror={() => markMissing(rawPath)} alt={legacyCharacterLabel(character, charRef.persona)} />
 </div>
 
 <style>

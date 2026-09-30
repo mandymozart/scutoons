@@ -9,6 +9,7 @@
 </script>
 
 <script lang="ts">
+	import { isKnownMissing, imageExists } from '$lib/editor/characters.ts';
 	import { Sheet } from '@scutoons/ui';
 	import {
 		AUTHORED_VIEW,
@@ -145,7 +146,7 @@
 		const step = keys[event.key] === -100 ? -columns : keys[event.key] === 100 ? columns : keys[event.key];
 		cells[Math.min(cells.length - 1, Math.max(0, index + step))]?.focus();
 	}
-	const thumb = (c: RegistryCharacter, p?: string) => characterImage(c, { persona: p }, AUTHORED_VIEW);
+	const thumb = (c: RegistryCharacter, p?: string) => characterImage(c, { persona: p }, AUTHORED_VIEW, { isMissing: isKnownMissing });
 </script>
 
 <Sheet bind:open title={m['creator.characters_picker_title']()} side="right" closeLabel={m['creator.characters_close']()}>
@@ -168,7 +169,7 @@
 						{#each section.list as c (c.id)}
 							{@const src = thumb(c)}
 							<button type="button" class="card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
-								<span class="img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} alt="" loading="lazy" />{/if}</span>
+								<span class="img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 								<strong>{characterName(c, locale)}</strong>
 								<span class="hint">{c.own_toon ? (toons.find((t) => t.id === c.own_toon)?.name ?? c.own_toon) : '–'}</span>
 								{#if personaIds(c).length > 1}
@@ -193,7 +194,7 @@
 					{#each personaIds(character) as p (p)}
 						{@const src = thumb(character, p)}
 						<button type="button" class="card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
-							<span class="img">{#if src}<img src={asset(src)} alt="" loading="lazy" />{/if}</span>
+							<span class="img">{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 							<strong>{characterName(character, locale, p)}</strong>
 							{#if castPersonas.includes(p)}<span class="hint">{m['creator.characters_in_cast']()}</span>{/if}
 						</button>

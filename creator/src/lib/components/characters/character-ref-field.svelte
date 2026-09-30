@@ -18,6 +18,7 @@
 </script>
 
 <script lang="ts">
+	import { isKnownMissing, imageExists } from '$lib/editor/characters.ts';
 	import {
 		AUTHORED_VIEW,
 		REGULAR_PERSONA,
@@ -67,7 +68,7 @@
 	const index = $derived(characterIndex(choices.registry));
 	const character = $derived(index.get(id) ?? null);
 	const inCast = $derived(choices.cast.find((e) => e.character === id));
-	const src = $derived(character ? characterImage(character, { persona, look: ref.look, mood: ref.mood }, AUTHORED_VIEW) : '');
+	const src = $derived(character ? characterImage(character, { persona, look: ref.look, mood: ref.mood }, AUTHORED_VIEW, { isMissing: isKnownMissing }) : '');
 	const summary = $derived.by(() => {
 		if (!id) return placeholder;
 		if (!character) return `${id} (${m['creator.characters_unknown']()})`;
@@ -103,7 +104,7 @@
 <div class="field ref-field" data-testid="character-ref">
 	<span class="label">{label}</span>
 	<button type="button" class="ref" class:unknown={!!id && !character} class:off-cast={!!character && (!inCast || !inCast.personas.includes(persona))} onclick={() => (open = true)} data-testid="character-ref-open">
-		<span class="img" style:background={character?.color || 'transparent'}>{#if src}<img src={asset(src)} alt="" />{/if}</span>
+		<span class="img" style:background={character?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 		<span class="text">{summary}</span>
 		<span class="hint">{m['creator.characters_choose']()} …</span>
 	</button>

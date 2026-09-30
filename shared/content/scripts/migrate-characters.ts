@@ -26,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import {
 	APOSE_LOOKS,
 	APOSE_VIEW,
+	TRANSITION_VIEW,
 	ASSET_REQUESTS_FILE,
 	DEFAULT_MOOD,
 	aposeConventionPath,
@@ -41,6 +42,7 @@ import {
 	REGULAR_PERSONA,
 	castEntries,
 	conventionName,
+	conventionTransitionPath,
 	defaultMoodVocabulary,
 	emptyAssetRequests,
 	findPersona,
@@ -126,7 +128,8 @@ const UPDATES: Record<string, (c: RegistryCharacter) => void> = {
 		c.personas.push({
 			id: 'biker',
 			label: { de: 'Biker', en: 'Biker' },
-			// `introduced` stays empty until the owner sets where he joins the gang
+			// owner 2026-09-30: he joins the biker gang in Yellow Mouse, season 1, chapter 1
+			introduced: { toon: 'yellowmouse', season: 1, chapter: 1 },
 			description: { de: 'Der Katzenpapst, nachdem er sich der Biker-Gang angeschlossen hat.', en: 'Cat Pope after he joins the biker gang.' },
 			looks: helmetLooks()
 		});
@@ -147,11 +150,11 @@ const NEW: RegistryCharacter[] = [
 		image: 'yellowmouse/avatar.webp',
 		// one persona, two looks: the kimono (default) and the biker helmet
 		personas: [{ id: REGULAR_PERSONA, looks: helmetLooks() }],
-		// avatar body: swim pants; naked is still to be delivered (an open asset request)
+		// avatar bodies: swim pants and naked (delivered 2026-09-30, same framing → same anchors)
 		apose: {
 			looks: [
 				{ id: 'swim', label: APOSE_LABEL.swim, default: true, path: 'characters/yellowmouse/yellowmouse_apose-swim.webp', anchors: { ...MOUSE_WORN } },
-				{ id: 'naked', label: APOSE_LABEL.naked }
+				{ id: 'naked', label: APOSE_LABEL.naked, path: 'characters/yellowmouse/yellowmouse_apose-naked.webp', anchors: { ...MOUSE_WORN } }
 			]
 		}
 	},
@@ -170,9 +173,14 @@ const NEW: RegistryCharacter[] = [
 /** Looks whose old per-mood paths are replaced by the convention folder (owner: catpope's old SVGs only as `image`). */
 const REPLACE_OLD_IMAGES = ['catpope/regular/default'];
 
-/** Files in a convention folder that are transitions although they don't follow the transition naming. */
-const TRANSITION_FILES: Record<string, { persona: string; from: string; to: string; label: LocaleText }> = {
-	'characters/yellowmouse/yellowmouse_keyvisual-helmet-off.png': { persona: REGULAR_PERSONA, from: 'helmet', to: DEFAULT_LOOK, label: { de: 'Helm ab', en: 'Taking the helmet off' } }
+/**
+ * Labels of transition files (convention `<name>_transition-<from>-to-<to>.png`, owner 2026-09-30: transitions are named
+ * after their states; the mouse's former `yellowmouse_keyvisual-helmet-off.png` was renamed on the CDN).
+ */
+const HELMET_OFF: LocaleText = { de: 'Helm ab', en: 'Taking the helmet off' };
+const TRANSITION_LABELS: Record<string, LocaleText> = {
+	'characters/yellowmouse/yellowmouse_transition-helmet-to-default.png': HELMET_OFF,
+	'characters/catpope-biker/catpope-biker_transition-helmet-to-default.png': HELMET_OFF
 };
 
 /** Casts per toon and season (character → personas), in order. Legacy characters.json casts are season 1. */
@@ -326,12 +334,11 @@ for (const character of registry.characters) {
 				if (!character.apose?.looks.some((l) => l.path === path) && !character.artwork?.some((a) => a.path === path)) ambiguous.push(`${character.id}: ${path} (an A-pose file) is not referenced`);
 				continue;
 			}
-			const mapped = TRANSITION_FILES[path];
 			const t = file.match(transition);
-			if (mapped || t) {
-				const target = mapped ? (findPersona(character, mapped.persona) ?? persona) : persona;
-				(target.transitions ??= []).push({ from: mapped?.from ?? t![1], to: mapped?.to ?? t![2], image: path, ...(mapped?.label ? { label: mapped.label } : {}) });
-				notes.push(`${character.id} · ${target.id}: transition ${mapped?.from ?? t![1]} → ${mapped?.to ?? t![2]} (${path})`);
+			if (t) {
+				const label = TRANSITION_LABELS[path];
+				(persona.transitions ??= []).push({ from: t[1], to: t[2], image: path, ...(label ? { label } : {}) });
+				notes.push(`${character.id} · ${persona.id}: transition ${t[1]} → ${t[2]} (${path})`);
 				continue;
 			}
 			const a = file.match(other);
@@ -394,7 +401,7 @@ for (const toon of toons) {
 }
 
 const allToons = [...new Set([...toons, ...Object.keys(casts)])];
-// the missing naked A-pose of the mouse: an open asset request
+// the naked A-pose of the mouse: requested by the migration, delivered 2026-09-30 → done
 const REQUESTS = emptyAssetRequests();
 REQUESTS.requests.push({
 	id: 'yellowmouse-apose-naked',
@@ -407,7 +414,23 @@ REQUESTS.requests.push({
 	note: 'A-pose naked (768 × 1152, like yellowmouse_apose-swim.webp)',
 	requested_by: 'migration (owner request 2026-09-30)',
 	requested_at: '2026-09-30T00:00:00Z',
-	status: 'open'
+	status: 'done',
+	done_at: '2026-09-30T12:00:00Z'
+});
+// Cat Pope Biker's helmet transition: requested 2026-09-30, delivered the same day (owner) → done
+REQUESTS.requests.push({
+	id: 'catpope-biker-transition-helmet-to-default',
+	character: 'catpope',
+	persona: 'biker',
+	look: 'helmet',
+	mood: DEFAULT_MOOD,
+	view: TRANSITION_VIEW,
+	path: conventionTransitionPath('catpope', 'biker', 'helmet', DEFAULT_LOOK),
+	note: 'Transition helmet → default (taking the helmet off), like the mouse’s',
+	requested_by: 'owner 2026-09-30',
+	requested_at: '2026-09-30T00:00:00Z',
+	status: 'done',
+	done_at: '2026-09-30T12:00:00Z'
 });
 const problems = [
 	...validateMoods(MOODS, LOCALES),

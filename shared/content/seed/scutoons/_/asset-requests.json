@@ -11,7 +11,22 @@
 			"note": "A-pose naked (768 × 1152, like yellowmouse_apose-swim.webp)",
 			"requested_by": "migration (owner request 2026-09-30)",
 			"requested_at": "2026-09-30T00:00:00Z",
-			"status": "open"
+			"status": "done",
+			"done_at": "2026-09-30T12:00:00Z"
+		},
+		{
+			"id": "catpope-biker-transition-helmet-to-default",
+			"character": "catpope",
+			"persona": "biker",
+			"look": "helmet",
+			"mood": "neutral",
+			"view": "transition",
+			"path": "characters/catpope-biker/catpope-biker_transition-helmet-to-default.png",
+			"note": "Transition helmet → default (taking the helmet off), like the mouse’s",
+			"requested_by": "owner 2026-09-30",
+			"requested_at": "2026-09-30T00:00:00Z",
+			"status": "done",
+			"done_at": "2026-09-30T12:00:00Z"
 		}
 	]
 }
