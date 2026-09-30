@@ -388,6 +388,23 @@ function checkSeason(c: Collector, s: any, locale: string) {
 		if (!isObj(s.cover)) c.error(['cover'], 'cover must be { square?, portrait? }');
 		else for (const key of ['square', 'portrait']) checkImagePath(c, s.cover[key], ['cover', key]);
 	}
+	if (s.download !== undefined) {
+		if (!isObj(s.download)) c.error(['download'], 'download must be { music?, complete? }');
+		else {
+			if (s.download.music !== undefined && !isStr(s.download.music)) c.error(['download', 'music'], 'download.music must be a path');
+			if (s.download.complete != null && !isStr(s.download.complete)) c.error(['download', 'complete'], 'download.complete must be a path or null');
+		}
+	}
+	if (s.supporters !== undefined) {
+		if (!Array.isArray(s.supporters)) c.error(['supporters'], 'supporters must be a list of { name, logo?, url? }');
+		else
+			s.supporters.forEach((sup: any, i: number) => {
+				if (!isObj(sup)) return c.error(['supporters', i], 'a supporter must be { name, logo?, url? }');
+				if (!isStr(sup.name) || !sup.name.trim()) c.error(['supporters', i, 'name'], 'a supporter needs a name');
+				if (sup.logo !== undefined) checkImagePath(c, sup.logo, ['supporters', i, 'logo']);
+				if (sup.url !== undefined && (!isStr(sup.url) || !/^https?:\/\/\S+$/.test(sup.url))) c.error(['supporters', i, 'url'], 'url must be an http(s) link');
+			});
+	}
 	if (s.credits !== undefined) {
 		if (!isObj(s.credits)) c.error(['credits'], 'credits must be { artist?, writer?, music?, sound? }');
 		else {
@@ -407,7 +424,7 @@ function checkSeason(c: Collector, s: any, locale: string) {
 	}
 }
 
-/** toon.json (Toon type): what the reader shows on the toon page, the map and the download page */
+/** toon.json (Toon type): what the reader shows on the toon page and the map (downloads are per season) */
 function checkToon(c: Collector, t: any, locale: string) {
 	if (!isObj(t)) return c.error([], 'toon file must be an object');
 	if (!isStr(t.id) || !t.id) c.error(['id'], 'id must be the toon id');
@@ -430,11 +447,7 @@ function checkToon(c: Collector, t: any, locale: string) {
 		for (const key of ['width', 'height'] as const) if (!isNum(t.map[key]) || t.map[key] <= 0) c.warn(['map', key], `map.${key} must be a positive number (px)`);
 		for (const key of ['x', 'y'] as const) if (!isNum(t.map.center?.[key])) c.error(['map', 'center', key], `map.center.${key} must be a number (px)`);
 	}
-	if (!isObj(t.download)) c.error(['download'], 'download must be { complete, music }');
-	else {
-		if (t.download.complete !== null && !isStr(t.download.complete)) c.error(['download', 'complete'], 'download.complete must be a path or null');
-		if (!isStr(t.download.music)) c.error(['download', 'music'], 'download.music must be a path');
-	}
+	if (t.download !== undefined) c.warn(['download'], 'download belongs to a season now (season.download) – the reader ignores it here');
 }
 
 /**

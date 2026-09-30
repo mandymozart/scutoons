@@ -66,14 +66,6 @@
 				<SharedField doc={file} path={['map', 'center', 'y']} label="map.center.y (px)" kind="number" required />
 			</div>
 		</section>
-
-		<section class="block" data-testid="toon-download">
-			<h2>{m['creator.downloads']()}</h2>
-			<div class="grid g2">
-				<SharedField doc={file} path={['download', 'music']} label="download.music" placeholder="audio/….zip" required />
-				<SharedField doc={file} path={['download', 'complete']} label="download.complete" kind="nullable" placeholder="null (none)" />
-			</div>
-		</section>
 	{/if}
 </MetaPage>
 
@@ -95,9 +87,6 @@
 		display: grid;
 		gap: 0.75rem;
 		align-items: start;
-	}
-	.g2 {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	.g3 {
 		grid-template-columns: repeat(3, minmax(0, 1fr));

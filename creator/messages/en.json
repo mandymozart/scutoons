@@ -76,8 +76,8 @@
 		"toon_missing": "This toon has no settings yet – create season 1 on the toon page (it creates the settings too).",
 		"edit_season": "Edit season",
 		"edit_toon": "Toon settings",
-		"reader_uses_season": "The reader shows the season title and description (plot) on the toon page, and the sequence status decides which chapters are listed / readable. Not shown anywhere in the reader yet: authors, number, release, language, cover (square/portrait) and credits – the credits page shows the toon's Credits (the Credits page) in the reader's language.",
-		"reader_uses_toon": "The reader shows title, description and cover.square on the toon page, map (terrain layer, size, center) in the map overlay, download.music / download.complete and title on the download page. Not used by the reader: id, authors, chapters, language, release, thumbnail, cover.portrait and status (listing uses the toon's index entry).",
+		"reader_uses_season": "The reader shows the season title and description (plot) on the toon page, and the sequence status decides which chapters are listed / readable. download.music / download.complete: the season's downloads (the music album) – linked below the chapter list, offered on the download page. Not shown anywhere in the reader yet: authors, number, release, language, cover (square/portrait) and credits – the credits page shows the toon's Credits (the Credits page) in the reader's language.",
+		"reader_uses_toon": "The reader shows title, description and cover.square on the toon page, map (terrain layer, size, center) in the map overlay and title on the download page (the downloads themselves are per season). Not used by the reader: id, authors, chapters, language, release, thumbnail, cover.portrait and status (listing uses the toon's index entry).",
 		"source": "source",
 		"missing": "missing",
 		"override": "override",
@@ -435,7 +435,11 @@
 		"history_current": "current",
 		"restore_confirm_when": "Restore the version of {when} as a new draft of {locale}?",
 		"history_by": "by {author}",
-		"history_import": "import"
+		"history_import": "import",
+		"supporters": "Supporters",
+		"supporters_empty": "No supporters yet.",
+		"supporter_add": "Add supporter",
+		"supporter_remove": "Remove {name}"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

@@ -151,9 +151,16 @@ export interface RendererParams {
 	freeMode?: boolean;
 }
 
+/**
+ * One entry of the reader's progress (the viewer's game state per toon: localStorage `scutoons_game_<toon>`, and for a
+ * signed-in member `/api/progress/<toon>`). Chapters use `uri` = `<toon>/chapter/<n>` (`chapterCheckpointUri`, progress.ts).
+ */
 export interface Checkpoint {
 	uri: string; // Store checkpoints as stateful uris
+	/** the chapter's end was reached at least once */
 	isComplete: boolean;
+	/** furthest point of the current read-through, 0..1 (slices seen / the chapter's slices; 1 = the end); a finished chapter opened again starts a new read-through */
+	position?: number;
 	created_at: string;
 	updated_at: string;
 }
@@ -264,6 +271,10 @@ export interface Season {
 	release?: string;
 	description?: string;
 	cover?: Cover;
+	/** the season's downloads (the music album), shown below its chapter list */
+	download?: Download;
+	/** who supported the season, in order: "Supported by" at the end of the reader's credits fine print */
+	supporters?: Supporter[];
 	/** @deprecated moved to `<toon>/_/credits.json` (the creator shows it read-only); the viewer never rendered it */
 	credits?: Credits;
 	sequence: SequenceItem[];
@@ -278,9 +289,21 @@ export interface Event {
 	link?: string;
 }
 
+/** A supporter of a season (a logo row at the end of the credits fine print; without a logo its name as text) */
+export interface Supporter {
+	name: string;
+	/** logo image path in the toon's CDN folder (like the season's other images) */
+	logo?: string;
+	/** link of the logo / name */
+	url?: string;
+}
+
+/** A season's downloads (the reader's `/<toon>/download` page, linked below the season's chapter list) */
 export interface Download {
-	complete: string | null;
-	music: string;
+	/** the music album (a zip), path in the toon's CDN folder; no path = no download */
+	music?: string;
+	/** everything of the season in one file, if there is one */
+	complete?: string | null;
 }
 
 export interface Toon {
@@ -295,7 +318,6 @@ export interface Toon {
 	thumbnail: string;
 	cover: Cover;
 	map: Map;
-	download: Download;
 }
 
 /**

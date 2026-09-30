@@ -76,8 +76,8 @@
 		"toon_missing": "Dieser Toon hat noch keine Einstellungen – auf der Toon-Seite Staffel 1 anlegen (legt die Einstellungen mit an).",
 		"edit_season": "Staffel bearbeiten",
 		"edit_toon": "Toon-Einstellungen",
-		"reader_uses_season": "Der Reader zeigt Staffeltitel und Beschreibung (Handlung) auf der Toon-Seite, und der Status in der Sequenz entscheidet, welche Kapitel gelistet / lesbar sind. Noch nirgends im Reader angezeigt: authors, number, release, language, cover (square/portrait) und credits – die Credits-Seite liest die Credits des Toons (Seite „Credits“) in der Sprache des Lesers.",
-		"reader_uses_toon": "Der Reader zeigt title, description und cover.square auf der Toon-Seite, map (Terrain-Ebene, Größe, Mitte) im Karten-Overlay, download.music / download.complete und title auf der Download-Seite. Nicht vom Reader genutzt: id, authors, chapters, language, release, thumbnail, cover.portrait und status (die Liste nutzt den Index-Eintrag des Toons).",
+		"reader_uses_season": "Der Reader zeigt Staffeltitel und Beschreibung (Handlung) auf der Toon-Seite, und der Status in der Sequenz entscheidet, welche Kapitel gelistet / lesbar sind. download.music / download.complete: die Downloads der Staffel (das Musikalbum) – unter der Kapitelliste verlinkt, auf der Download-Seite angeboten. Noch nirgends im Reader angezeigt: authors, number, release, language, cover (square/portrait) und credits – die Credits-Seite liest die Credits des Toons (Seite „Credits“) in der Sprache des Lesers.",
+		"reader_uses_toon": "Der Reader zeigt title, description und cover.square auf der Toon-Seite, map (Terrain-Ebene, Größe, Mitte) im Karten-Overlay und title auf der Download-Seite (die Downloads selbst gehören zur Staffel). Nicht vom Reader genutzt: id, authors, chapters, language, release, thumbnail, cover.portrait und status (die Liste nutzt den Index-Eintrag des Toons).",
 		"source": "Quelle",
 		"missing": "fehlt",
 		"override": "abweichend",
@@ -435,7 +435,11 @@
 		"history_current": "aktuell",
 		"restore_confirm_when": "Die Version vom {when} als neuen Entwurf von {locale} wiederherstellen?",
 		"history_by": "von {author}",
-		"history_import": "Import"
+		"history_import": "Import",
+		"supporters": "Unterstützer",
+		"supporters_empty": "Noch keine Unterstützer.",
+		"supporter_add": "Unterstützer hinzufügen",
+		"supporter_remove": "{name} entfernen"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

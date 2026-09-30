@@ -10,6 +10,7 @@
 	import MetaPage from './meta-page.svelte';
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
+	import SupportersField from './supporters-field.svelte';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import StatusBadges, { statusWord } from './status-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
@@ -98,6 +99,21 @@
 				<SharedField doc={season} path={['cover', 'square']} label="cover.square" kind="image" {toon} known={images} />
 				<SharedField doc={season} path={['cover', 'portrait']} label="cover.portrait" kind="image" {toon} known={images} />
 			</div>
+		</section>
+
+		<!-- the season's downloads (the music album): the reader links them below the season's chapter list -->
+		<section class="block" data-testid="season-download">
+			<h2>{m['creator.downloads']()}</h2>
+			<div class="grid g2">
+				<SharedField doc={season} path={['download', 'music']} label="download.music" placeholder="audio/….zip" />
+				<SharedField doc={season} path={['download', 'complete']} label="download.complete" kind="nullable" placeholder="null (none)" />
+			</div>
+		</section>
+
+		<!-- who supported the season: "Supported by" logos at the end of the reader's credits fine print -->
+		<section class="block" data-testid="season-supporters">
+			<h2>{m['creator.supporters']()}</h2>
+			<SupportersField doc={season} {toon} known={images} />
 		</section>
 
 		<section class="block" data-testid="season-sequence">

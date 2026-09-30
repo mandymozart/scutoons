@@ -69,7 +69,7 @@ export function newSeason(locale: string, authors: string[] = [], number = 1): S
 	};
 }
 
-/** New toon settings (title / description from the index entry; map and downloads empty until there are assets). */
+/** New toon settings (title / description from the index entry; the map empty until there are assets; downloads are per season). */
 export function newToon(id: string, locale: string, entry: ToonIndex | null | undefined, authors: string[] = []): Toon {
 	return {
 		id,
@@ -82,8 +82,7 @@ export function newToon(id: string, locale: string, entry: ToonIndex | null | un
 		description: entry?.i18n?.[locale]?.description ?? '',
 		thumbnail: `images/${chapterSlug(1)}-thumbnail.jpg`,
 		cover: { square: `images/s1-cover-square.webp`, portrait: `images/s1-cover-portrait.webp` },
-		map: { layers: { terrain: '' }, width: 0, height: 0, center: { x: 0, y: 0 } },
-		download: { complete: null, music: '' }
+		map: { layers: { terrain: '' }, width: 0, height: 0, center: { x: 0, y: 0 } }
 	};
 }
 

@@ -14,3 +14,4 @@ export * from './characters.ts';
 export * from './sensitive.ts';
 export * from './validate.ts';
 export * from './entities.ts';
+export * from './progress.ts';

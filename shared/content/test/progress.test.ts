@@ -1,0 +1,52 @@
+// Unit tests of the start button's reading state (readingState / advanceCheckpoint, agents/DESIGN.md "Start button").
+//   npm test -w @scutoons/content
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { advanceCheckpoint, chapterCheckpointUri, readingState, type Checkpoint } from '../src/index.ts';
+
+const cp = (n: number, position: number | undefined, isComplete: boolean, t: string, toon = 't'): Checkpoint => ({
+	uri: chapterCheckpointUri(toon, n),
+	isComplete,
+	...(position === undefined ? {} : { position }),
+	created_at: t,
+	updated_at: t
+});
+
+test('readingState: nothing read → the first readable chapter', () => {
+	assert.deepEqual(readingState('t', [1, 2], []), { kind: 'start', chapter: 1 });
+	assert.deepEqual(readingState('t', [1, 2], undefined), { kind: 'start', chapter: 1 });
+	// checkpoints of other toons / unlisted (coming soon) chapters don't count
+	assert.deepEqual(readingState('t', [1, 2], [cp(1, 0.5, false, '2026-01-01', 'other'), cp(3, 0.5, false, '2026-01-02')]), { kind: 'start', chapter: 1 });
+	assert.equal(readingState('t', [], []), null);
+});
+
+test('readingState: the last opened chapter decides', () => {
+	// started, not finished → continue it (with its position)
+	assert.deepEqual(readingState('t', [1, 2, 3], [cp(1, 1, true, '2026-01-01'), cp(2, 0.4, false, '2026-01-02')]), { kind: 'continue', chapter: 2, position: 0.4 });
+	// finished → the next readable chapter
+	assert.deepEqual(readingState('t', [1, 2, 3], [cp(1, 1, true, '2026-01-01')]), { kind: 'next', chapter: 2 });
+	// finished the last one, an earlier one never finished → that one
+	assert.deepEqual(readingState('t', [1, 2], [cp(2, 1, true, '2026-01-02')]), { kind: 'next', chapter: 1 });
+	// everything finished → again from the start
+	assert.deepEqual(readingState('t', [1, 2], [cp(1, 1, true, '2026-01-01'), cp(2, 1, true, '2026-01-02')]), { kind: 'again', chapter: 1 });
+	// re-reading chapter 1 after finishing everything → continue chapter 1
+	assert.deepEqual(readingState('t', [1, 2], [cp(1, 0.2, true, '2026-01-03'), cp(2, 1, true, '2026-01-02')]), { kind: 'continue', chapter: 1, position: 0.2 });
+	// older checkpoints without position
+	assert.deepEqual(readingState('t', [1, 2], [cp(1, undefined, false, '2026-01-01')]), { kind: 'continue', chapter: 1, position: 0 });
+	assert.deepEqual(readingState('t', [1, 2], [cp(1, undefined, true, '2026-01-01')]), { kind: 'next', chapter: 2 });
+});
+
+test('advanceCheckpoint: positions only grow, a finished chapter opened again starts over', () => {
+	const uri = chapterCheckpointUri('t', 1);
+	const first = advanceCheckpoint(undefined, uri, 0.1, true, 'a')!;
+	assert.deepEqual([first.position, first.isComplete, first.updated_at], [0.1, false, 'a']);
+	assert.equal(advanceCheckpoint(first, uri, 0.05, false, 'b'), null, 'going back changes nothing');
+	const later = advanceCheckpoint(first, uri, 0.5, false, 'b')!;
+	assert.deepEqual([later.position, later.isComplete], [0.5, false]);
+	const reopened = advanceCheckpoint(later, uri, 0.02, true, 'c')!;
+	assert.deepEqual([reopened.position, reopened.updated_at], [0.5, 'c'], 'a new visit keeps the position, touches the time');
+	const done = advanceCheckpoint(reopened, uri, 1, false, 'd')!;
+	assert.deepEqual([done.position, done.isComplete], [1, true]);
+	const again = advanceCheckpoint(done, uri, 0.02, true, 'e')!;
+	assert.deepEqual([again.position, again.isComplete, again.created_at], [0.02, true, 'a']);
+});

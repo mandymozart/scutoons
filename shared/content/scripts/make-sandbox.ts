@@ -534,8 +534,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			description: meta[l].description,
 			thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
 			cover: { square: `${CATPOPE}images/s1-cover-square.webp` },
-			map: { layers: { terrain: `${CATPOPE}images/map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } },
-			download: { complete: null, music: '' }
+			map: { layers: { terrain: `${CATPOPE}images/map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
 		};
 		files[`${l}/season1.json`] = { title: meta[l].season, language: l, number: 1, release: RELEASE, description: meta[l].description, sequence };
 		files[`${l}/locations.json`] = [];

@@ -197,6 +197,8 @@ export interface CreditsLabels {
 	venue: string;
 	date: string;
 	thanks: string;
+	/** the season's supporters (logos) at the end of the fine print */
+	supportedBy: string;
 }
 
 export const CREDITS_LABELS: Record<string, CreditsLabels> = {
@@ -219,7 +221,8 @@ export const CREDITS_LABELS: Record<string, CreditsLabels> = {
 		performances: 'Besetzungen',
 		venue: 'Ort',
 		date: 'Datum',
-		thanks: 'Besonderer Dank'
+		thanks: 'Besonderer Dank',
+		supportedBy: 'Unterstützt von'
 	},
 	en: {
 		title: 'Credits',
@@ -240,7 +243,8 @@ export const CREDITS_LABELS: Record<string, CreditsLabels> = {
 		performances: 'Performance casts',
 		venue: 'Venue',
 		date: 'Date',
-		thanks: 'Special thanks'
+		thanks: 'Special thanks',
+		supportedBy: 'Supported by'
 	}
 };
 

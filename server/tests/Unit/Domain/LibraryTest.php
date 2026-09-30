@@ -187,6 +187,21 @@ final class LibraryTest extends TestCase
         self::assertSame(['star', 'crows'], $bundle['seasons'][0]['chapters'][1]['featuring'], 'the season overview passes featuring through');
     }
 
+    public function testSeasonDownloadAndSupportersPassThrough(): void
+    {
+        $this->seedToon();
+        $download = ['music' => 'audio/album.zip'];
+        $supporters = [['name' => 'A', 'logo' => 'images/supporters/a.svg'], ['name' => 'B', 'url' => 'https://b.example']];
+        foreach (['de', 'en'] as $l) {
+            $this->doc('t', $l, 'season1.json', ['title' => "S $l", 'download' => $download, 'supporters' => $supporters, 'sequence' => [['type' => 'chapter', 'number' => 1, 'status' => 'published']]]);
+        }
+        $bundle = self::decode($this->library()->toon('t', 'en', false)->body);
+        self::assertSame($download, $bundle['seasons'][0]['season']['download'], 'the season download (the music album) is passed through');
+        self::assertSame($supporters, $bundle['seasons'][0]['season']['supporters'], 'the supporters are passed through in order');
+        $season = self::decode($this->library()->season('t', 1, 'de', false)->body);
+        self::assertSame($supporters, $season['season']['supporters']);
+    }
+
     public function testCastAndCredits(): void
     {
         $this->seedToon();

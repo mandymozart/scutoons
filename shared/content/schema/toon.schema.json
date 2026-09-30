@@ -42,9 +42,6 @@
 				},
 				"map": {
 					"$ref": "#/definitions/Map"
-				},
-				"download": {
-					"$ref": "#/definitions/Download"
 				}
 			},
 			"required": [
@@ -58,8 +55,7 @@
 				"description",
 				"thumbnail",
 				"cover",
-				"map",
-				"download"
+				"map"
 			]
 		},
 		"Status": {
@@ -128,24 +124,6 @@
 			"required": [
 				"x",
 				"y"
-			]
-		},
-		"Download": {
-			"type": "object",
-			"properties": {
-				"complete": {
-					"type": [
-						"string",
-						"null"
-					]
-				},
-				"music": {
-					"type": "string"
-				}
-			},
-			"required": [
-				"complete",
-				"music"
 			]
 		}
 	}
