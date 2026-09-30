@@ -77,22 +77,26 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **DialogueBox** (VN) — fixed bottom panel, `paper` bg, 2px `ink` border, square, `space-1` padding; hidden by
   `translateY(14rem)`, shown over 0.1s; speaker in `label-uppercase`; narrator italic; pulsing `...` when awaiting tap.
 - **ChoiceButton** (VN) — full width, left aligned, 2px `border-muted` → `border-hover` → `ink`, stacked with `space-075`.
-- **VN layout** (2026-09-30, owner) — the author picks each character's slot: the view (`variant`) of its `joinScene`
-  ref *is* the slot, no extra field (creator: "Slot / Ansicht").
-  - `avatar` → the **left slot of the DialogueBox**: while that character speaks, its avatar (4rem, `radius-sm`, 2px
-    `ink` border, persona color behind it, current mood / look / transition) sits left in the box, name + text beside it
-    (grid `auto 1fr`, gap `space-1`). Silent avatar characters are not shown. In the stories: Cat Pope, the one the
-    reader follows.
-  - `portrait` → the **stage on the right**, standing on the box (bottom 12rem). Order front → back = the speaker, then
-    join order. Each step back: 15 % smaller (min 50 %), 0.75rem higher, dimmer, and **further right**; the backmost
-    stands at the right margin (1rem), the others to its left with a 0.375rem gap — the boxes never overlap. Front size
-    = min(55vw, 20rem, 45vh, what fits). Positions animate over 0.3s. (`viewer/src/lib/visual-novel/stage.ts`)
-    Crowded (the front one would get smaller than 7rem – more than 4 portraits at 375px, 5 at 500px): the sizes stay,
-    the lineup **stacks** – same order, the steps to the right shrink evenly so it still spans margin to margin, the
-    one in front drawn on top. Authors keep the stage to about 4 and put the reader's own characters in the avatar slot.
+- **VN layout** (2026-09-30, owner) — the author picks each character's side: the view (`variant`) of its
+  `joinScene` ref *is* the side, no extra field (creator: "Slot / Ansicht"). **Everyone in the scene is always visible**,
+  standing on the DialogueBox (`viewer/src/lib/visual-novel/stage.ts`, `vn/characters.svelte`).
+  - **Order** on each side, front → back: the speaker, then by recency of speaking (who just stopped speaking stands right
+    behind the speaker), then the ones who haven't spoken since they joined, in join order.
+  - **Speaker vs. the rest:** the speaker stands in front of the box (z above it), feet on the box top (4px into it),
+    with the glow `drop-shadow(0 0 0.5rem <persona color>)` + wiggle. Everyone else is behind the box (z below it),
+    dimmed (`brightness(0.85)`) and **1rem lower**. Changes animate over 0.3s (ease, no bounce).
+  - `avatar` → the **left side**: 4rem × 4rem, `radius-sm`, 2px `ink` border, persona colour behind the head (the avatar
+    image, cover). The front one 0.25rem inside the box's left border; each one behind **+1rem to the right**. Nothing
+    left of the box border. In the stories: Cat Pope and his personas.
+  - `portrait` → the **right side**: 9rem, each step back 9 % smaller (min 50 %), further right, the backmost at the
+    box's right border. The one behind overlaps the one in front by **1/3 of its (scaled) width**; crowded → the overlap
+    grows evenly for the whole side up to **2/3**; still too wide → the whole side scales down evenly. Nobody is hidden.
+    Room at 1/3 (right side alone / next to one avatar): 4 / 3 portraits at 375px, 5 / 4 at 500px; up to 2/3 without
+    scaling: 11 / 8 at 375px, 12+ / 11 at 500px.
+  - The two sides share the width: each gets what it needs at its default spacing; when both don't fit, the smaller
+    need is kept (up to half), the other side gets the rest.
   - `full` → centred, breaking the 4th wall (unchanged).
-  - The speaker glows: `drop-shadow(0 0 0.5rem <persona color>)` on the portrait or the avatar, plus the wiggle. No mood
-    text anywhere (the art shows the mood).
+  - No mood text anywhere (the art shows the mood).
   - One click per message, the last one included: the click on the last message also jumps (`jumpTo` with `wait`), and
     a group's box closes after its last message is clicked away.
 - **Onomatopoeia** — bold uppercase mono, size (rem) / align / rotation per placement, color from `primary-cyan` or the

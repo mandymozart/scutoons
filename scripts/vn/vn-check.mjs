@@ -1,9 +1,14 @@
 // Plays a toon's VN groups in headless Chrome (own temp profile, CDP, no dependencies) and checks the VN layout
 // (agents/DESIGN.md → "VN layout") and the one-click rule:
 //   - one reader click per waited message, the last one included (the click on the last message jumps)
-//   - `avatar` characters = the left slot of the dialogue box while speaking, `portrait` ones on the right stage
-//   - portrait boxes don't overlap (unless the stage is crowded = stacked, stage.ts), a character further back stands
-//     further right, the speaker glows, no mood text
+//   - everyone in the scene (replayed from the group's script) is on stage: `avatar` = left group, `portrait` = right
+//   - the speaker grounded on the box top (+4 px), in front of the box (z) with the glow; the others behind it, dimmed,
+//     1 rem lower
+//   - order on each side: the speaker, then by recency of speaking, then the ones who haven't spoken (join order)
+//   - left (avatars, 4 rem): the front one 0.25 rem inside the box's left border, each one behind +1 rem to the right
+//   - right (portraits, 9 % smaller per step): further back = further right, overlapping the one in front by 1/3 of its
+//     width when there is room, the same larger share up to 2/3 when crowded, beyond that the side is smaller
+//   - no mood text
 // usage: node scripts/vn/vn-check.mjs [--base=http://localhost:8000] [--toon=sandbox] [--locale=de] [--width=375]
 //        [--height=812] [--from=1] [--to=<last chapter>] [--shots=<dir>] [--json=<file>]
 // Needs the dev viewer (and API / CDN) running. Exit code 1 on any failed check.
@@ -42,26 +47,56 @@ await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFac
 
 // the state of the stage after each click
 const MEASURE = `(() => {
-	const r = (el) => { const b = el.getBoundingClientRect(); return { left: Math.round(b.left), right: Math.round(b.right), top: Math.round(b.top), bottom: Math.round(b.bottom), width: Math.round(b.width) }; };
-	const portraits = [...document.querySelectorAll('.character-portrait')].map((el) => ({ ...r(el), depth: Number(el.dataset.depth), crowded: el.dataset.crowded === 'true', active: el.classList.contains('active'), glow: /drop-shadow/.test(el.style.filter), alt: el.querySelector('img')?.alt, src: el.querySelector('img')?.getAttribute('src') }));
+	const q = (x) => Math.round(x * 10) / 10; const r = (el) => { const b = el.getBoundingClientRect(); return { left: q(b.left), right: q(b.right), top: q(b.top), bottom: q(b.bottom), width: q(b.width) }; };
+	// x from the layout (computed left / width): the speaker's wiggle (translateX) must not count
+	const lx = (el) => { const cs = getComputedStyle(el); const left = q(parseFloat(cs.left)), w = q(parseFloat(cs.width)); return { left, right: q(left + w), width: w }; };
+	const stage = [...document.querySelectorAll('.character-portrait')].map((el) => ({ ...r(el), ...lx(el), key: el.dataset.key, side: el.dataset.side, depth: Number(el.dataset.depth), z: Number(getComputedStyle(el).zIndex), active: el.classList.contains('active'), glow: /drop-shadow/.test(el.style.filter), dim: /brightness/.test(el.style.filter), alt: el.querySelector('img')?.alt, src: el.querySelector('img')?.getAttribute('src') }));
 	const box = document.querySelector('.vn-message');
-	const slot = box?.querySelector('.avatar-slot .character-avatar');
 	return {
 		href: location.href,
 		speaker: box?.querySelector('.character-name')?.textContent?.trim() ?? null,
-		text: box?.querySelector('.text')?.textContent?.trim() ?? '',
-		box: box ? r(box) : null,
-		avatar: slot ? { ...r(slot), alt: slot.querySelector('img')?.alt, glow: /drop-shadow/.test(slot.style.filter), src: slot.querySelector('img')?.getAttribute('src') } : null,
-		portraits,
+		box: box ? { ...r(box), z: Number(getComputedStyle(box).zIndex), visible: box.classList.contains('visible') } : null,
+		stage,
+		rem: parseFloat(getComputedStyle(document.documentElement).fontSize),
 		moodBadges: document.querySelectorAll('.mood-badge').length,
 		waiting: !!document.querySelector('.continue-overlay')
 	};
 })()`;
 
+/** The scene (keys → view) and the speaker at every waited message of a group's script: what must be on stage. */
+function expectedScenes(events) {
+	const scene = new Map();
+	const spoke = new Map();
+	let tick = 0;
+	const out = [];
+	const keyOf = (r) => `${r.character ?? r.name}:${r.persona || 'regular'}`;
+	for (const e of events) {
+		if (e.type === 'joinScene') for (const r of e.params?.characters ?? []) { if (!scene.has(keyOf(r))) spoke.delete(keyOf(r)); scene.delete(keyOf(r)); scene.set(keyOf(r), r.variant ?? r.position?.variant ?? 'avatar'); }
+		if (e.type === 'leaveScene') for (const r of e.params?.characters ?? []) {
+			if (r.persona) scene.delete(keyOf(r));
+			else for (const k of [...scene.keys()]) if (k.startsWith(`${r.character ?? r.name}:`)) scene.delete(k);
+		}
+		if (e.type === 'showMessage') {
+			const speaker = e.params?.character ? `${e.params.character}:${e.params.persona || 'regular'}` : null;
+			if (speaker) spoke.set(speaker, ++tick);
+			if (!e.params?.wait) continue;
+			// front to back per side: the speaker, then by recency of speaking, then the silent ones in join order
+			const order = (view) => {
+				const keys = [...scene].filter(([, v]) => v === view).map(([k]) => k);
+				const rest = keys.filter((k) => k !== speaker);
+				return [...(keys.includes(speaker) ? [speaker] : []), ...rest.filter((k) => spoke.has(k)).sort((a, b) => spoke.get(b) - spoke.get(a)), ...rest.filter((k) => !spoke.has(k))];
+			};
+			out.push({ scene: new Map(scene), speaker, order: { left: order('avatar'), right: order('portrait') } });
+		}
+	}
+	return out;
+}
+
 const failures = [];
 const fail = (msg) => { failures.push(msg); console.log('  FAIL ' + msg); };
-const byCount = {}; // portraits on stage → one example measurement
-let transitions = 0, steps = 0, avatarSteps = 0;
+const byCount = {}; // "left+right" → one example measurement
+const overlaps = []; // measured overlap / width of the one in front
+let transitions = 0, steps = 0, leftSteps = 0;
 
 // the viewer's locale comes from the paraglide cookie
 await send('Network.setCookie', { name: 'PARAGLIDE_LOCALE', value: locale, url: base });
@@ -74,34 +109,71 @@ for (let n = Number(opt.from || 1); n <= last; n++) {
 	const ch = await chapterFile(n);
 	for (const g of ch.groups) {
 		const group = g.ref ? await (await fetch(`${base}/api/${toon}/${locale}/${g.ref.src}`)).json() : g;
-		groups.push({ chapter: n, label: group.label, waited: (group.events ?? []).filter((e) => e.type === 'showMessage' && e.params?.wait).length, events: group.events ?? [] });
+		groups.push({ chapter: n, label: group.label, waited: (group.events ?? []).filter((e) => e.type === 'showMessage' && e.params?.wait).length, events: group.events ?? [], expected: expectedScenes(group.events ?? []) });
 	}
 }
 
-function checkStep(s, group) {
+function checkStep(s, group, expected) {
 	steps++;
 	if (s.moodBadges) fail(`${group}: ${s.moodBadges} mood badge(s) on screen`);
-	const ps = s.portraits;
-	for (let i = 0; i < ps.length; i++)
-		for (let j = i + 1; j < ps.length; j++) {
-			const a = ps[i], b = ps[j];
-			const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left), oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-			if (ox > 0 && oy > 0 && !(a.crowded && b.crowded)) fail(`${group}: portraits overlap (${a.alt} / ${b.alt}, ${ox}×${oy}px)`);
+	const ps = s.stage;
+	// everyone in the scene is shown (full ones are centred elsewhere)
+	if (expected) {
+		for (const [side, view] of [['left', 'avatar'], ['right', 'portrait']]) {
+			const want = [...expected.scene].filter(([, v]) => v === view).map(([k]) => k);
+			const got = ps.filter((p) => p.side === side).map((p) => p.key);
+			if (got.length !== want.length || got.some((k) => !want.includes(k))) fail(`${group}: ${side} shows ${got.join(', ') || '–'}, expected ${want.join(', ') || '–'}`);
 		}
-	const sorted = [...ps].sort((a, b) => a.depth - b.depth);
-	for (let k = 1; k < sorted.length; k++) if (sorted[k].left <= sorted[k - 1].left) fail(`${group}: depth ${k} is not right of depth ${k - 1}`);
-	for (const p of ps) if (p.left < 0 || p.right > width) fail(`${group}: portrait ${p.alt} off screen (${p.left}–${p.right})`);
-	if (ps.some((p) => p.active && !p.glow)) fail(`${group}: the speaking portrait has no glow`);
-	if (ps.some((p) => p.active && p.depth !== 0)) fail(`${group}: the speaker is not in front`);
-	if (s.avatar) {
-		avatarSteps++;
-		if (!s.avatar.glow) fail(`${group}: the avatar in the box has no glow`);
-		if (s.box && (s.avatar.left < s.box.left || s.avatar.right > s.box.left + s.box.width / 2)) fail(`${group}: the avatar is not in the left of the box`);
-		if (!s.speaker) fail(`${group}: an avatar without a speaker`);
+		if (expected.speaker && expected.scene.has(expected.speaker) && expected.scene.get(expected.speaker) !== 'full' && !ps.some((p) => p.key === expected.speaker && p.active)) fail(`${group}: the speaker ${expected.speaker} is not shown as speaking`);
 	}
-	if ([s.avatar?.src, ...ps.map((p) => p.src)].some((src) => /transition/.test(src ?? ''))) transitions++;
-	const n = ps.length;
-	if (n && !byCount[n]) byCount[n] = ps.map(({ alt, depth, left, right, top, bottom, width, active, crowded }) => ({ alt, depth, left, right, top, bottom, width, active, crowded }));
+	for (const side of ['left', 'right']) {
+		const g = ps.filter((p) => p.side === side).sort((a, b) => a.depth - b.depth);
+		if (expected && g.map((p) => p.key).join() !== expected.order[side].join()) fail(`${group}: ${side} order ${g.map((p) => p.key).join(' > ')}, expected ${expected.order[side].join(' > ')}`);
+		if (side === 'left') {
+			// the avatar stack: the front one 0.25 rem inside the box, each one behind +1 rem to the right, all 4 rem
+			for (let k = 0; k < g.length; k++) {
+				const want = (s.box?.left ?? 0) + 0.25 * s.rem + k * s.rem;
+				if (Math.abs(g[k].left - want) > 0.6) fail(`${group}: avatar ${g[k].alt} (depth ${k}) at x ${g[k].left}, expected ${want}`);
+				if (g[k].left < (s.box?.left ?? 0) + 0.25 * s.rem - 0.6) fail(`${group}: avatar ${g[k].alt} sticks out left of the box`);
+			}
+			continue;
+		}
+		const base = 1 / 3;
+		const ratios = [];
+		for (let k = 1; k < g.length; k++) {
+			const front = g[k - 1], back = g[k];
+			if (!(back.left > front.left)) fail(`${group}: ${side} depth ${k} is not further right than depth ${k - 1}`);
+			if (!(back.width < front.width)) fail(`${group}: ${side} depth ${k} has the wrong size (${back.width} after ${front.width})`);
+			const ov = front.right - back.left;
+			ratios.push(ov / front.width);
+		}
+		if (!ratios.length) continue;
+		overlaps.push(...ratios.map((r) => ({ side, r, crowded: false })));
+		const lo = Math.min(...ratios), hi = Math.max(...ratios);
+		if (hi - lo > 0.03) fail(`${group}: ${side} overlaps differ (${Math.round(lo * 100)}–${Math.round(hi * 100)} %)`);
+		if (lo < base - 0.03 || hi > 2 / 3 + 0.03) fail(`${group}: ${side} overlap ${Math.round(lo * 100)}–${Math.round(hi * 100)} % outside ${Math.round(base * 100)}–67 %`);
+		if (hi > base + 0.03) overlaps.slice(-ratios.length).forEach((o) => (o.crowded = true));
+	}
+	for (const p of ps) {
+		if (p.left < 0 || p.right > width) fail(`${group}: ${p.alt} off screen (${p.left}–${p.right})`);
+		if (p.active && !p.glow) fail(`${group}: the speaker ${p.alt} has no glow`);
+		if (p.active && p.depth !== 0) fail(`${group}: the speaker ${p.alt} is not in front`);
+		if (s.box) {
+			if (p.active && !(p.z > s.box.z)) fail(`${group}: the speaker ${p.alt} is not in front of the box (z ${p.z} / ${s.box.z})`);
+			if (!p.active && !(p.z < s.box.z)) fail(`${group}: ${p.alt} (not speaking) is not behind the box (z ${p.z} / ${s.box.z})`);
+			if (!p.active && !p.dim) fail(`${group}: ${p.alt} (not speaking) is not dimmed`);
+			const feet = s.box.top + 4 + (p.active ? 0 : s.rem);
+			if (s.box.visible && Math.abs(p.bottom - feet) > 3) fail(`${group}: ${p.alt} ${p.active ? 'not grounded' : 'not 1 rem lower'} (bottom ${p.bottom}, box top ${s.box.top})`);
+		}
+	}
+	const left = ps.filter((p) => p.side === 'left');
+	if (left.length) {
+		leftSteps++;
+		for (const p of left) if (Math.abs(p.width - 4 * s.rem) > 0.5) fail(`${group}: avatar ${p.alt} is ${p.width} px, not 4 rem (${4 * s.rem})`);
+	}
+	if (ps.some((p) => /transition/.test(p.src ?? ''))) transitions++;
+	const key = `${ps.filter((p) => p.side === 'left').length}+${ps.filter((p) => p.side === 'right').length}`;
+	if (ps.length && !byCount[key]) byCount[key] = { box: s.box, stage: ps.map(({ alt, side, depth, left, right, top, bottom, width, active, z }) => ({ alt, side, depth, left, right, top, bottom, width, active, z })) };
 }
 
 const shots = opt.shots ? String(opt.shots) : null;
@@ -121,8 +193,8 @@ for (const g of groups) {
 		await sleep(420); // the stage moves in 0.3 s
 		const s = await evaluate(MEASURE);
 		if (s.href !== start) { left = true; break; }
-		checkStep(s, name);
-		if (shots && (s.portraits.length >= 2 || (s.avatar && i < 4))) {
+		checkStep(s, name, g.expected[i]);
+		if (shots && s.stage.length >= 2) {
 			const r = await send('Page.captureScreenshot', { format: 'png' });
 			writeFileSync(join(shots, `${locale}-${width}-c${g.chapter}-${g.label}-${String(i).padStart(3, '0')}.png`), Buffer.from(r.result.data, 'base64'));
 		}
@@ -145,12 +217,19 @@ for (const g of groups) {
 	console.log(`${ok ? 'ok  ' : 'FAIL'} ${name.padEnd(40)} ${clicks}/${g.waited} clicks${endsWithJump ? (left ? ', jumped' : ', no jump') : ''}`);
 }
 
-console.log(`\n${locale} ${width}×${height}: ${groups.length} groups, ${steps} steps, ${avatarSteps} with the avatar slot, ${transitions} with a transition image, console errors: ${consoleErrors.length}`);
-for (const [n, ps] of Object.entries(byCount)) {
-	console.log(`  ${n} portrait(s)${ps[0]?.crowded ? ' (stacked)' : ''}: ` + ps.sort((a, b) => a.depth - b.depth).map((p) => `d${p.depth} ${p.alt} x ${p.left}–${p.right} (w ${p.width}) y ${p.top}–${p.bottom}${p.active ? ' *' : ''}`).join(' | '));
+const pct = (x) => `${(x * 100).toFixed(1)} %`;
+console.log(`\n${locale} ${width}×${height}: ${groups.length} groups, ${steps} steps, ${leftSteps} with the left group, ${transitions} with a transition image, console errors: ${consoleErrors.length}`);
+for (const side of ['left', 'right']) {
+	const all = overlaps.filter((o) => o.side === side);
+	const free = all.filter((o) => !o.crowded).map((o) => o.r), crowded = all.filter((o) => o.crowded).map((o) => o.r);
+	if (free.length) console.log(`  ${side} overlap with room: ${free.length} pairs, ${pct(Math.min(...free))} – ${pct(Math.max(...free))}`);
+	if (crowded.length) console.log(`  ${side} overlap crowded: ${crowded.length} pairs, ${pct(Math.min(...crowded))} – ${pct(Math.max(...crowded))}`);
+}
+for (const [n, m] of Object.entries(byCount)) {
+	console.log(`  left+right ${n} (box x ${m.box?.left}, top ${m.box?.top}, z ${m.box?.z}): ` + m.stage.sort((a, b) => (a.side === b.side ? a.depth - b.depth : a.side === 'left' ? -1 : 1)).map((p) => `${p.side[0]}${p.depth} ${p.alt} x ${p.left}–${p.right} (w ${p.width}) bottom ${p.bottom} z ${p.z}${p.active ? ' *' : ''}`).join(' | '));
 }
 for (const e of consoleErrors.slice(0, 10)) console.log('  console: ' + e);
-if (opt.json) writeFileSync(String(opt.json), JSON.stringify({ locale, width, height, report, byCount, steps, avatarSteps, transitions, consoleErrors, failures }, null, '\t'));
+if (opt.json) writeFileSync(String(opt.json), JSON.stringify({ locale, width, height, report, byCount, overlaps, steps, leftSteps, transitions, consoleErrors, failures }, null, '\t'));
 ws.close();
 chrome.kill();
 if (failures.length) { console.log(`${failures.length} failure(s)`); process.exit(1); }

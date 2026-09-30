@@ -835,3 +835,16 @@ character, persona, look and mood and doubles as the VN test bed.
   "Gurkenkamera", Use → "Finde eine echte Gurke", meter, no mode toggle, no jsQR request. Chapter 2 scene-14 only
   *mentions* cucumbers (message + "Weiter Spazieren" / "Auf Arbeit" jumps) – it has no `add cucumber`, so nothing to
   grant there; it renders with the promo code `promo_test`.
+- 2026-09-30 (later) — **VN stage reworked with the owner (several rounds; DESIGN.md "VN layout" is the final rule set):**
+  everyone in the scene is always visible and stands on the box (no in-box avatar any more, `vn/characters/avatar.svelte`
+  removed; `portrait.svelte` renders both sides, `stage.ts` places them, the box reports its height to the context).
+  Speaker in front of the box (z 101, glow), the rest behind it (z 90 − depth, brightness 0.85, 1 rem lower). Order per
+  side = speaker, then recency of speaking (`lastSpoke` in the VN context), then the silent ones in join order. Left:
+  framed 4 rem avatars, front one 0.25 rem inside the box, +1 rem per step to the right. Right: 9 rem portraits, −9 % per
+  step, overlap 1/3 of the one in front → up to 2/3 when crowded → the side scales down (no "+N", nobody hidden).
+  Intermediate owner rounds (no-overlap spacing, 1/2 avatar overlap, "+N" badge, in-box avatar) were replaced.
+  Sonntagnachmittag: the "step back" beat became three speakers in a row (the recency order).
+- `vn-check` asserts all of it per waited message, replaying the group's script: who is on stage per side, the order,
+  the avatar positions (0.25 rem + k rem, 4 rem), right overlaps (33 % with room, ≤ 67 % crowded, equal within a side),
+  grounding (speaker box top + 4 px, the rest + 1 rem), z against the box, glow, dimming. x is measured from computed
+  left/width (the speaker's wiggle is a transform).

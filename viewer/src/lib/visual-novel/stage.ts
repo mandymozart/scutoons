@@ -1,66 +1,116 @@
-// VN stage: where the characters joined as `portrait` stand (DESIGN.md → "VN layout"; `avatar` ones are the left slot
-// of the dialogue box). The stage is on the right, front to back = left to right: a character that goes into the back is
-// smaller, higher, dimmer and further to the right. The boxes don't overlap while the front one can stay at least 7 rem
-// (4 portraits at 375 px, 5 at 500 px); a more crowded stage keeps that size and stacks: the same order, the steps to the
-// right shrink evenly so the lineup still fits the width (the one in front is drawn on top).
+// VN stage (DESIGN.md → "VN layout"): every character in the scene stands on the dialogue box. The view of the joinScene
+// ref is the side: `avatar` = the left group (framed avatars), `portrait` = the right group. Each group is anchored at its
+// screen edge; front to back = towards the centre → towards the edge. Owner rules:
+//   - avatars (left): 4 rem, framed; the front one (the speaker) 0.25 rem inside the box's left border, each one behind
+//     just 1 rem further in (a tight stack behind the box);
+//   - portraits (right): 9 rem, a little smaller per step back (9 %); the one behind overlaps the one in front by 1/3
+//     of that one's (scaled) width; when the group doesn't fit its side, the overlap grows evenly up to 2/3; if 2/3
+//     doesn't fit either, the side is scaled down evenly until everyone fits – nobody is ever hidden.
+// Depth also shows as stacking order (the speaker in front of the box, everyone else behind it, 1 rem lower) and dimming.
 
-/** One portrait on the stage (px, relative to the viewport's right / bottom edge). */
+export type StageSide = 'left' | 'right';
+
+/** One character on the stage (px). */
 export interface StagePlace {
-	/** 0 = front (the speaker), 1, 2 … = further back */
+	side: StageSide;
+	/** 0 = front (the speaker of that side, else the first to join), 1, 2 … = further back */
 	depth: number;
-	/** width = height of the portrait box */
+	/** width = height of the image box (bottom-anchored) */
 	size: number;
-	right: number;
-	/** raise above the stage floor */
-	lift: number;
-	brightness: number;
-	/** more portraits than fit side by side: they overlap (stacked) */
-	crowded: boolean;
+	/** distance of the box's outer side from the side's screen edge (right edge for `right`, left edge for `left`) */
+	offset: number;
 }
 
-export const STAGE = {
-	/** each step back: 15 % smaller … */
-	shrink: 0.15,
-	/** … never below half the front size */
-	minScale: 0.5,
-	/** … 0.75 rem higher */
-	lift: 0.75,
-	/** … and dimmer */
-	dim: 0.12,
-	/** the front portrait at most 55 % of the viewport width, 20 rem, 45 % of its height */
-	maxWidthShare: 0.55,
-	maxRem: 20,
-	maxHeightShare: 0.45,
-	/** below this front size the stage stacks instead of shrinking further (rem) */
-	minFrontRem: 7,
-	/** side margin and the gap between two portraits (rem) */
-	margin: 1,
-	gap: 0.375
+export interface StageGroup {
+	/** front to back (index = depth) */
+	places: StagePlace[];
+	/** the overlap in use, as a share of the width of the one in front */
+	overlap: number;
+	/** < 1 when even 2/3 overlap didn't fit and the side was scaled down */
+	scale: number;
+}
+
+/** per view: size (rem), shrink per step back, default overlap; avatars: a fixed step (rem) instead */
+export const VIEWS = {
+	avatar: { rem: 4, shrink: 0, overlap: 0, stepRem: 1 },
+	portrait: { rem: 9, shrink: 0.09, overlap: 1 / 3, stepRem: 0 }
 } as const;
 
-/**
- * The places of `count` portraits (index = depth, 0 = front) in a viewport of `width` × `height` px with a root font size
- * of `rem` px: the backmost at the right margin, each one further forward to its left, without overlapping.
- */
-export function stageLayout(count: number, width: number, height: number, rem = 16): StagePlace[] {
-	if (count <= 0) return [];
-	const scales = Array.from({ length: count }, (_, k) => Math.max(STAGE.minScale, 1 - STAGE.shrink * k));
-	const margin = STAGE.margin * rem;
-	const gap = STAGE.gap * rem;
-	const fit = (width - 2 * margin - (count - 1) * gap) / scales.reduce((a, b) => a + b, 0);
-	const ideal = Math.max(0, Math.min(width * STAGE.maxWidthShare, STAGE.maxRem * rem, height * STAGE.maxHeightShare));
-	const minFront = Math.min(ideal, STAGE.minFrontRem * rem);
-	const crowded = fit < minFront;
-	const front = crowded ? minFront : Math.min(ideal, fit);
-	const sizes = scales.map((sc) => Math.floor(front * sc));
-	// the steps between the portraits: side by side, or (crowded) shrunk evenly so the front one ends at the left margin
-	const steps = sizes.slice(1).reduce((sum, size) => sum + size + gap, 0);
-	const squeeze = crowded && steps > 0 ? Math.max(0, width - 2 * margin - sizes[0]) / steps : 1;
-	const places: StagePlace[] = [];
-	let right = margin;
-	for (let k = count - 1; k >= 0; k--) {
-		places[k] = { depth: k, size: sizes[k], right: Math.round(right), lift: Math.round(k * STAGE.lift * rem), brightness: Math.max(0.5, 1 - STAGE.dim * k), crowded };
-		right += (sizes[k] + gap) * squeeze;
+export const STAGE = {
+	/** the most overlap when crowded (then "+N") */
+	maxOverlap: 2 / 3,
+	/** never smaller than half the front size */
+	minScale: 0.5,
+	/** not speaking: dimmed */
+	dim: 0.85,
+	/** side margins (rem): the avatars 0.25 rem inside the box's left border (the box is 1 rem from the edge), the
+	 * portraits at the box's right border; the gap between the two groups */
+	marginLeft: 1.25,
+	marginRight: 1,
+	centerGap: 0.5,
+	/** the ones not speaking stand this much lower, further behind the box (rem) */
+	behind: 1,
+	/** how far everyone stands into the box (px): grounded, the box covers the cut edge of the art */
+	sink: 4
+} as const;
+
+type View = (typeof VIEWS)[keyof typeof VIEWS];
+const sizesOf = (n: number, view: View, rem: number) =>
+	Array.from({ length: n }, (_, k) => view.rem * rem * Math.max(STAGE.minScale, 1 - view.shrink * k));
+/** a group's width: every box but the backmost counts with its visible part (1 - overlap), the backmost whole */
+const groupWidth = (sizes: number[], overlap: number) =>
+	sizes.length ? sizes.slice(0, -1).reduce((w, s) => w + s * (1 - overlap), 0) + sizes[sizes.length - 1] : 0;
+
+/** the avatar stack: the front one at the margin, each one behind a fixed step further in */
+function stackGroup(side: StageSide, n: number, view: View, rem: number): StageGroup {
+	const margin = (side === 'left' ? STAGE.marginLeft : STAGE.marginRight) * rem;
+	const size = view.rem * rem;
+	const places = Array.from({ length: n }, (_, k) => ({ side, depth: k, size, offset: +(margin + k * view.stepRem * rem).toFixed(2) }));
+	return { places, overlap: n > 1 ? 1 - (view.stepRem * rem) / size : 0, scale: 1 };
+}
+
+function placeGroup(side: StageSide, n: number, view: View, region: number, rem: number): StageGroup {
+	if (view.stepRem) return stackGroup(side, n, view, rem);
+	const margin = (side === 'left' ? STAGE.marginLeft : STAGE.marginRight) * rem;
+	let sizes = sizesOf(n, view, rem);
+	let overlap: number = view.overlap;
+	let scale = 1;
+	if (groupWidth(sizes, overlap) > region) {
+		if (groupWidth(sizes, STAGE.maxOverlap) <= region) {
+			// crowded: the overlap that just fits, the same for the whole group
+			const steps = sizes.slice(0, -1).reduce((a, s) => a + s, 0);
+			overlap = 1 - (region - sizes[sizes.length - 1]) / steps;
+		} else {
+			// even 2/3 is too wide: the whole side smaller, evenly, until it fits
+			overlap = STAGE.maxOverlap;
+			scale = region / groupWidth(sizes, overlap);
+			sizes = sizes.map((s) => s * scale);
+		}
 	}
-	return places;
+	const places: StagePlace[] = [];
+	// from the back end: the backmost shown one at the margin, each one in front further in
+	let offset = margin;
+	for (let k = sizes.length - 1; k >= 0; k--) {
+		places[k] = { side, depth: k, size: +sizes[k].toFixed(2), offset: +offset.toFixed(2) };
+		if (k > 0) offset += sizes[k - 1] * (1 - overlap) - (sizes[k - 1] - sizes[k]);
+	}
+	return { places, overlap, scale };
+}
+
+/** The groups of `left` avatar-view and `right` portrait-view characters in a viewport `width` px wide. */
+export function stageLayout(left: number, right: number, width: number, rem = 16): Record<StageSide, StageGroup> {
+	const avail = width - (STAGE.marginLeft + STAGE.marginRight) * rem - (left && right ? STAGE.centerGap * rem : 0);
+	// each side gets what it needs at its default overlap; when both don't fit, the smaller need is kept (up to half),
+	// the other side gets the rest
+	const needL = left ? (VIEWS.avatar.rem + (left - 1) * VIEWS.avatar.stepRem) * rem : 0;
+	const needR = groupWidth(sizesOf(right, VIEWS.portrait, rem), VIEWS.portrait.overlap);
+	let regionL = avail;
+	let regionR = avail;
+	if (left && right) {
+		if (needL + needR <= avail) [regionL, regionR] = [needL, needR];
+		else if (needL <= avail / 2) [regionL, regionR] = [needL, avail - needL];
+		else if (needR <= avail / 2) [regionL, regionR] = [avail - needR, needR];
+		else [regionL, regionR] = [avail / 2, avail / 2];
+	}
+	return { left: placeGroup('left', left, VIEWS.avatar, regionL, rem), right: placeGroup('right', right, VIEWS.portrait, regionR, rem) };
 }

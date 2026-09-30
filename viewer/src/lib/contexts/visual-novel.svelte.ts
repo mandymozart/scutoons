@@ -35,6 +35,11 @@ export function createVisualNovelContext() {
 		wait: false
 	});
 	let choicesVisible = $state(false);
+	/** the dialogue box's height (px): the characters stand on its top edge */
+	let boxHeight = $state(0);
+	/** scene key → when it last spoke (a counter), for the stage order: the speaker, then by recency (vn/characters) */
+	const lastSpoke = $state<Record<string, number>>({});
+	let spokeCounter = 0;
 	let waitResolver: (() => void) | null = null;
 	/** the reader has clicked the visible message away (its wait is answered) – a following `jumpTo` (wait) jumps at once */
 	let acknowledged = false;
@@ -100,6 +105,8 @@ export function createVisualNovelContext() {
 		for (let newChar of chars) {
 			const existingIndex = sceneCharacters.findIndex((c) => sceneKey(c) === sceneKey(newChar));
 
+			// a newcomer hasn't spoken yet (counts as the longest silent)
+			if (existingIndex === -1) delete lastSpoke[sceneKey(newChar)];
 			if (existingIndex !== -1) {
 				const existing = sceneCharacters[existingIndex];
 				const existingVariant = existing.position?.variant;
@@ -152,6 +159,7 @@ export function createVisualNovelContext() {
 
 	function showMessage(charRef: SceneCharacter | null, text: string, wait: boolean): void {
 		message.character = charRef;
+		if (charRef) lastSpoke[sceneKey(charRef)] = ++spokeCounter;
 		message.text = text;
 		message.wait = wait;
 		messageVisible = true;
@@ -310,6 +318,7 @@ export function createVisualNovelContext() {
 	 */
 	function clear(): void {
 		sceneCharacters.length = 0;
+		for (const key of Object.keys(lastSpoke)) delete lastSpoke[key];
 		acknowledged = false;
 		waitResolver = null;
 		suspended = null;
@@ -334,11 +343,16 @@ export function createVisualNovelContext() {
 				messageVisible,
 				message,
 				choicesVisible,
-				activeOnomatopoeia
+				activeOnomatopoeia,
+				boxHeight,
+				lastSpoke
 			};
 		},
 		setCharacters,
 		getCharacter,
+		setBoxHeight: (h: number) => {
+			boxHeight = h;
+		},
 		findInScene,
 		joinScene,
 		leaveScene,

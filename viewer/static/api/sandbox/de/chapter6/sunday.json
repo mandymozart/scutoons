@@ -288,23 +288,18 @@
 			}
 		},
 		{
-			"type": "joinScene",
+			"type": "showMessage",
 			"params": {
-				"characters": [
-					{
-						"character": "yellowmouse",
-						"persona": "regular",
-						"look": "default",
-						"mood": "neutral",
-						"variant": "portrait"
-					}
-				]
+				"text": "Alle reden durcheinander.",
+				"wait": true
 			}
 		},
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Mausboss tritt einen Schritt zurück.",
+				"character": "yellowmouse",
+				"persona": "regular",
+				"text": "Ich zuerst!",
 				"wait": true
 			}
 		},
@@ -313,7 +308,16 @@
 			"params": {
 				"character": "toptoy",
 				"persona": "regular",
-				"text": "Mehr Platz für mich!",
+				"text": "Nein, ich!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "boy",
+				"persona": "regular",
+				"text": "Ruhe jetzt!",
 				"wait": true
 			}
 		},

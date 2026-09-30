@@ -45,7 +45,7 @@ type Text = Record<Locale, string>;
 const RELEASE = '2026-09-30';
 /** preferred encounter order (owner); characters not listed follow in registry order, then the host's own personas */
 const ORDER = ['yellowmouse', 'toptoy', 'boy', 'crows'];
-/** the view = the slot (DESIGN.md → "VN layout"): Cat Pope is the avatar at the dialogue box, the others stand on the stage */
+/** the view = the side (DESIGN.md → "VN layout"): Cat Pope stands on the left (avatar view), the others on the right */
 const HOST_VIEW = 'avatar';
 const VIEW = 'portrait';
 /** the goodbye brings the characters met onto the stage in waves of up to 4 (the stage layout test: 1, 2, 3, 4 portraits) */
@@ -375,8 +375,8 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 
 	/**
 	 * "Sonntagnachmittag" – the layout test bed (owner 2026-09-30): everyone of the registry meets on a street. Cat Pope
-	 * and his personas speak from the avatar slot (left), everyone else stands on the stage (right). Exercises: joining one
-	 * by one until all are there, frequent speaker changes (glow, front), stepping back (depth reordering: moves right),
+	 * and his personas stand on the left (avatar view), everyone else stands on the stage (right). Exercises: joining one
+	 * by one until all are there, frequent speaker changes (glow, front; the order follows who spoke last),
 	 * leaving + coming back, mood changes, every registered look transition, everyone leaving.
 	 */
 	function sunday(number: number) {
@@ -415,10 +415,11 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		// the speaker changes often: everyone on the stage says something, back to front
 		[...stage].reverse().forEach((w, i) => events.push(say(who(w), pick(chatter, i))));
 		if (stage.length > 1) {
-			// someone steps back: rejoining moves them to the back of the stage (further right, smaller)
-			const back = stage[0];
-			events.push(join(ref(back)), say(null, { de: `${back.name.de} tritt einen Schritt zurück.`, en: `${back.name.en} steps back.` }));
-			events.push(say(who(stage[1]), L('Mehr Platz für mich!', 'More room for me!')));
+			// turns: three speak in a row → the last one in front, then the one before, then the first (who just stopped
+			// speaking stands right behind the speaker)
+			const turns = [L('Ich zuerst!', 'Me first!'), L('Nein, ich!', 'No, me!'), L('Ruhe jetzt!', 'Quiet now!')];
+			events.push(say(null, L('Alle reden durcheinander.', 'Everyone talks at once.')));
+			stage.slice(0, 3).forEach((w, i) => events.push(say(who(w), turns[i])));
 			// someone leaves and comes back
 			const away = stage[stage.length - 1];
 			events.push(say(who(away), L('Ich hol mal Eis.', 'Getting some ice cream.')), leave(away), say(null, { de: `${away.name.de} ist kurz weg.`, en: `${away.name.en} is gone for a moment.` }));

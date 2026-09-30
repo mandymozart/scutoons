@@ -288,23 +288,18 @@
 			}
 		},
 		{
-			"type": "joinScene",
+			"type": "showMessage",
 			"params": {
-				"characters": [
-					{
-						"character": "yellowmouse",
-						"persona": "regular",
-						"look": "default",
-						"mood": "neutral",
-						"variant": "portrait"
-					}
-				]
+				"text": "Everyone talks at once.",
+				"wait": true
 			}
 		},
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Yellow Mouse steps back.",
+				"character": "yellowmouse",
+				"persona": "regular",
+				"text": "Me first!",
 				"wait": true
 			}
 		},
@@ -313,7 +308,16 @@
 			"params": {
 				"character": "toptoy",
 				"persona": "regular",
-				"text": "More room for me!",
+				"text": "No, me!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "boy",
+				"persona": "regular",
+				"text": "Quiet now!",
 				"wait": true
 			}
 		},
