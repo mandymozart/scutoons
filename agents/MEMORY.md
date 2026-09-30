@@ -979,3 +979,21 @@ character, persona, look and mood and doubles as the VN test bed.
   `sandbox-edge-*` 0.7 GB) are still in `%TEMP%` – not ours to delete, but they fill the disk the same way.
 - **No version numbers in the UI** (owner): creator chips / history and the admin content overview show state words and
   dates (DESIGN.md "Creator navigation"); `ContentDoc.changedAt` holds the date of the version a locale is based on.
+
+## Hide sensitive content (2026-09-30)
+
+- Owner: "Make it a member-wide setting. Hide sensitive content is on by default." Built as ITEMS.md "Sensitive
+  content": `sensitive: true` on every `naked` A-pose look (registry, generic `SensitiveFlag`), member setting
+  `users.hide_sensitive` (default 1, migration `2026-09-30-sensitive-content`), `GET/PUT /me/`, `422 sensitive_hidden` on
+  `PUT /avatar/`, body moved to the safe look when the setting is turned on. **Guests always hide** (no toggle).
+- Storage choice: a column on `users`, like `marketing_opt_in` (there is no preferences/settings mechanism per member;
+  the `settings` table is the admin's runtime settings). Local DB migrated (backup
+  `server/db/local.sqlite.bak-2026-09-30-sensitive`), characters re-imported (`import-content … --only=characters
+  --update`), `characters-seed.mysql.sql` + `content-seed.mysql.sql` regenerated (characters statement only).
+- Browser check (headless, 375 × 812, throw-away member, removed afterwards; script + screenshots
+  `sensitive-{1-guest,2-member-default,3-toggle-off-naked,4-toggle-on-swim}.png` were in the session scratchpad): guest =
+  Cat Pope swim, no picker; member default = toggle on, swim only, no picker; off → picker "Badehose" / "nackt", naked
+  worn and kept after reload; on → body back to swim (stored), picker gone.
+- Gotcha: two contract runs at the same time (another agent's `composer test`) share ports 9180+ and the mail log →
+  dozens of unrelated FAILs (OTP not found, 401s). Rerun when the other run is done.
+- The viewer at `/en/account` rendered German in the headless check (locale from the cookie/profile), not related.

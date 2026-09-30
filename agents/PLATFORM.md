@@ -675,7 +675,8 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 - Compare `server/migrations/mysql/*.sql` with the `schema_migrations` table and run the missing files in file-name order
   (`2026-09-29-accounts-inventory`, `2026-09-30-code-owner-guard`, `2026-09-30-content-versions`,
   `2026-09-30-entity-keys` (after content-versions: the content store by entity key, agents/DATA.md), `2026-09-30-member-characters`,
-  `2026-09-30-revoke-events`, `2026-09-30-roles-signup`, `2026-09-30-settings` – runtime settings table for the
+  `2026-09-30-revoke-events`, `2026-09-30-roles-signup`, `2026-09-30-sensitive-content` (`users.hide_sensitive`, "Hide
+  sensitive content", default on – agents/ITEMS.md), `2026-09-30-settings` – runtime settings table for the
   admin's Settings page; without it the API uses the config defaults: scans 1000/h, lookups 120/h), then the seeds if not done: edition numbers
   (`php bin/console backfill-edition-numbers --sql` locally → run the output) and the content store
   (`shared/content/seed/content-seed.mysql.sql` = `php bin/console import-content shared/content/seed --sql`, every toon's

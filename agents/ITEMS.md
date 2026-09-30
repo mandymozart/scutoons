@@ -125,7 +125,8 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
 | POST | `/auth/request/` | `{ email, code?, locale? }` | `{ status: "sent" }` (always, no user enumeration) |
 | POST | `/auth/verify/` | `{ email, otp }` or `{ token }` | `{ status:"success", session_token, user:{ id, email, created_at }, claimed?: [code] }` |
 | POST | `/auth/logout/` | – | `{ status: "success" }` |
-| GET | `/me/` | – | `{ user, memberships:[{code,type,expires_at}], inventory:[Entry], avatar:{ slots:{ <slot>: entryId|null } } }` |
+| GET | `/me/` | – | `{ user, memberships:[{code,type,expires_at}], inventory:[Entry], avatar:{ slots:{ <slot>: entryId|null } } }` – `user.hide_sensitive` ("Sensitive content") |
+| PUT | `/me/` | `{ marketing_opt_in?, hide_sensitive? }` | `{ status, user, avatar }` – turning `hide_sensitive` on moves a worn sensitive body to the character's first non-sensitive look · 400 `invalid_body` |
 | GET | `/items/` | – | catalog (above) |
 | GET | `/products/` | – | shop catalog, `config/products.json` as stored (`{ version:2, currency, checked_at, source, products:[Product] }`, `@scutoons/content` `ProductCatalog`); CORS `*`, cached 5 min (platform P2b) |
 | GET | `/products/featured/` | – | homepage featured products, `config/featured-products.json` as stored (`[{ product, variant? }]`) |
@@ -136,7 +137,7 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
 | POST | `/inventory/craft/` | `{ recipe_id }` | `{ status, inventory }` · 422 `missing_inputs` |
 | POST | `/inventory/grant/` | `{ item_id, source:"story"\|"scan", ref? }` | `{ status, inventory }` · 403 if not in item's `grantable` · 429 rate limit |
 | POST | `/inventory/import/` | `{ items:[{ item_id, qty }] }` | merge guest inventory on first login (grantable items only) |
-| PUT | `/avatar/` | `{ slots:{ <slot instance id>: entryId\|null }, body? }` | `{ status, avatar }` · 422 invalid_slot/wrong_slot/not owned ("Slots per avatar body") |
+| PUT | `/avatar/` | `{ slots:{ <slot instance id>: entryId\|null }, body? }` | `{ status, avatar }` · 422 invalid_slot/wrong_slot/not owned ("Slots per avatar body") · 422 `sensitive_hidden` ("Sensitive content") |
 | GET/PUT | `/progress/<toonId>/` | `{ state, updated_at }` | last-write-wins by `updated_at` |
 | POST/GET | `/validate/` | unchanged input | unchanged shape **minus** `email` and `signature` (backwards compatible for old viewer) |
 
@@ -538,6 +539,33 @@ twins or triplets."
 - Contract: admin-smoke "Slots per avatar body" (11 checks: invalid_slot, twin torsos, wrong_slot, one entry once,
   switching single ↔ duo, a legacy type row); PHPUnit `CharacterUnlocksTest::testSlotInstancesAndTheDefaultBody`; content
   tests "A-pose slot instances".
+
+## Sensitive content (2026-09-30, owner — built 2026-09-30)
+
+Owner: "Make it a member-wide setting. Hide sensitive content is on by default."
+
+- **Data** (generic on purpose, only A-pose looks use it so far): `sensitive?: boolean` = `SensitiveFlag` in
+  `@scutoons/content` (`sensitive.ts`: `isSensitive`, `hidesSensitive(user)`, `withoutSensitive(items, hide)`,
+  `HIDE_SENSITIVE_DEFAULT`). `AposeLook extends SensitiveFlag`; **every `naked` look is `sensitive: true`**
+  (`migrate-characters.ts`, `APOSE_LOOKS`, the creator's "start A-pose"); schema + validation (not a boolean = error);
+  `AvatarBody.sensitive`. Other content can take the same flag later (not built).
+- **Setting `hide_sensitive`, default on.** Members: column `users.hide_sensitive` (migration
+  `2026-09-30-sensitive-content`, MySQL + SQLite, idempotent – the existing member-setting pattern of `marketing_opt_in`,
+  no preferences table exists), `GET /me/ user.hide_sensitive`, changed with `PUT /me/ { hide_sensitive }` (alone or with
+  `marketing_opt_in`; the answer adds `avatar`). **Guests: always on, no toggle** (a missing user counts as "hide").
+- **Server:** `PUT /avatar/ { body }` with a sensitive look while on → `422 sensitive_hidden { character, look }`.
+  Turning the setting on while wearing a sensitive look moves the body to the same character's first non-sensitive,
+  unlocked look with an image (its default look first; worn items move like on any body switch; none → the default
+  body) – `AvatarService::hideSensitiveBody`. A sensitive body stored earlier reads as that safe look while the setting
+  is on (`AvatarService::body`); the default body skips sensitive looks.
+- **Viewer:** the inventory context filters `bodies` with `withoutSensitive(…, hideSensitive)` (replaces the hard-coded
+  swim-only filter and its "move to swim" effect of 5e2b10d); `currentBody` falls back to the same character's visible
+  look. The picker shows only with more than one body; the look label under the name only when a character has more
+  than one visible look. Account page: checkbox "Sensible Inhalte ausblenden" / "Hide sensitive content" + one-line hint,
+  under the news opt-in (plain `.opt-in` style).
+- Tests: admin-smoke "(Hide sensitive content)" (default on, 422 sensitive_hidden, 400, off → naked, on → moved to swim
+  and stored, a stored naked body reads as swim), api-smoke (new accounts: on), PHPUnit
+  `CharacterUnlocksTest::testSensitiveLooksFollowHideSensitive`, content test "sensitive content".
 
 ## Cast & "featuring" (2026-09-30, owner — concept, build after data refactor Phase C)
 

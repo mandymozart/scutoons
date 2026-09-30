@@ -21,13 +21,14 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>:<l>` | creator |
 | map texts (locations, routes) | DB `locations:<toon>:<l>`, `routes:<toon>:<l>` | import (no editor yet) |
 | cast per season | DB `cast:<toon>` | creator (cast page) |
-| characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts) | creator (characters) |
+| characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts; A-pose looks may be `sensitive`, ITEMS.md "Sensitive content") | creator (characters) |
 | credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
 | events | DB `events` (toon-bound entries) | import (no editor yet) |
 | items, recipes, editions, products, featured products (catalog texts) | server `config/*.json` via `/api/items/`, `/api/editions/`, `/api/products/` | file → **B2** (after this) |
 | permissions map | server `config/permissions.json`, never served | file (private) |
 | UI chrome (buttons, labels, errors) | each app's paraglide `messages/{de,en}.json` | code |
 | codes, users, inventory, progress, avatar, settings | relational tables | admin / API |
+| member preferences ("Hide sensitive content") | column `users.hide_sensitive` (default on), `GET/PUT /me/` | reader account page |
 | collectables | **removed** (merged into items; VN variables stay story logic, the VN → item grant bridge collects) | – |
 
 No app ships content files any more: `viewer/static/api/**` is gone, and so is every static fallback.
