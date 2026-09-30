@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import Group from '$lib/components/toon/group.svelte';
+	import Featuring from '$lib/components/toon/featuring.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audio } from '$lib/actions/audio/index.ts';
 	import type { PageProps } from './$types.js';
@@ -56,6 +57,18 @@
 				{/if}
 			</div>
 		{/if}
+		{#if !currentLabel && data.chapter.featuring?.length}
+			<!-- the chapter start: who appears in it ("Kapitel 2 · mit …") -->
+			<header class="chapter-start" data-testid="chapter-start">
+				<Featuring
+					ids={data.chapter.featuring}
+					characters={data.characters}
+					toonId={page.params.toonId as string}
+					lead="{m['common.chapter']({ number: data.chapter.number })} · {m['chapter.featuring']()}"
+					size="large"
+				/>
+			</header>
+		{/if}
 		<!-- a new group (label) or another chapter starts the group from scratch (a VN group runs its events on mount) -->
 		{#key `${data.chapter.number}:${currentLabel}`}
 			{#if group}
@@ -85,6 +98,12 @@
 			color: #6b6b6b;
 			margin: 0;
 		}
+	}
+	/* below the fixed chrome (logo left, menu icons right), a paper band above the first slice */
+	.chapter-start {
+		padding: 3.25rem var(--space-1, 1rem) var(--space-075, 0.75rem);
+		border-bottom: 2px solid var(--ink, #000);
+		background: var(--paper, #fff);
 	}
 	.chapter-view {
 		max-width: 500px;

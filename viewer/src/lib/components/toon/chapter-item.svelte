@@ -6,6 +6,8 @@
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import chapterIcon from '$lib/icons/chapter.svg';
+	import { page } from '$app/state';
+	import Featuring from './featuring.svelte';
 
 	let {
 		chapter,
@@ -43,7 +45,11 @@
 		/>
 	</div>
 	<div class="chapter-info">
-		<div class="chapter-title">{chapter.title}</div>
+		<div class="chapter-title">
+			{chapter.title}
+			<!-- who appears in this chapter (its `featuring`; the characters come from the toon layout) -->
+			<Featuring ids={chapter.featuring} characters={page.data.characters} {toonId} />
+		</div>
 		<div class="chapter-release">
 			{#if !isPublic}
 				<span class="chapter-release-badge">Coming Soon</span>
@@ -84,6 +90,10 @@
 
 	.chapter-item .chapter-release {
 		font-size: 0.75rem;
+	}
+
+	.chapter-item .chapter-title :global(.featuring) {
+		margin-top: 0.25rem;
 	}
 
 	.chapter-item .chapter-release,

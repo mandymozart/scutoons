@@ -110,7 +110,10 @@
 	"chapter": {
 		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht.",
 		"coming_soon": "Demnächst",
-		"release": "Erscheint am {date}"
+		"release": "Erscheint am {date}",
+		"season_featuring": "Staffel {number} · mit",
+		"featuring": "mit",
+		"season_title": "Staffel {number}: {title}"
 	},
 	"membership_blocker": {
 		"title": "Mitgliedschaft erforderlich",

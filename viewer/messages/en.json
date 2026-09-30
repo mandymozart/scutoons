@@ -110,7 +110,10 @@
 	"chapter": {
 		"not_public": "This chapter is not published yet.",
 		"coming_soon": "Coming soon",
-		"release": "Release: {date}"
+		"release": "Release: {date}",
+		"season_featuring": "Season {number} · featuring",
+		"featuring": "featuring",
+		"season_title": "Season {number}: {title}"
 	},
 	"membership_blocker": {
 		"title": "Membership Required",

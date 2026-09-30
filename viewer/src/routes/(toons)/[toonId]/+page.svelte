@@ -3,6 +3,8 @@
 	import type { PageProps } from './$types.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import ChaptersList from '$lib/components/toon/chapters-list.svelte';
+	import Featuring from '$lib/components/toon/featuring.svelte';
+	import { m } from '$lib/paraglide/messages.js';
 
 	let { data, params }: PageProps = $props();
 	let toon = $state(data.toon);
@@ -34,8 +36,10 @@
 	<section class="chapters-section">
 		{#if season}
 			<div class="chapters-header">
-				<h2>Season 1: {season.title}</h2>
+				<h2>{m['chapter.season_title']({ number: 1, title: season.title })}</h2>
 				<p class="season-description">{season.description}</p>
+				<!-- the season cast: "Staffel 1 · mit …" (the star first) -->
+				<Featuring ids={data.characters.map((c) => c.name)} characters={data.characters} toonId={params.toonId} lead={m['chapter.season_featuring']({ number: 1 })} size="large" />
 			</div>
 			<!-- Chapter List -->
 			<ChaptersList items={sequence} toonId={params.toonId} />
@@ -66,6 +70,9 @@
 	.chapters-header {
 		margin-bottom: 2rem;
 		padding: 0 2rem;
+	}
+	.chapters-header :global(.featuring) {
+		margin-top: var(--space-075, 0.75rem);
 	}
 	.toon-download {
 		margin-top: 2rem;
