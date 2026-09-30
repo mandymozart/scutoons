@@ -246,7 +246,11 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
-		width: min(46rem, 92vw);
+		/* fill the sheet, never wider: the lists wrap into rows instead of scrolling sideways */
+		width: 100%;
+		max-width: 46rem;
+		min-width: 0;
+		overflow-x: hidden;
 		font-size: 12px;
 	}
 	.filters {
@@ -284,6 +288,8 @@
 	.cell {
 		all: unset;
 		box-sizing: border-box;
+		min-width: 0;
+		overflow-wrap: anywhere;
 		cursor: pointer;
 		display: flex;
 		flex-direction: column;

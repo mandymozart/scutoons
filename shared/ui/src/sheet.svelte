@@ -129,7 +129,10 @@
 	}
 	.body {
 		padding: var(--space-1);
-		overflow: auto;
+		/* dialogs scroll vertically only; content must wrap to the sheet width */
+		overflow-x: hidden;
+		overflow-y: auto;
+		min-width: 0;
 		flex: 1;
 	}
 	footer {
