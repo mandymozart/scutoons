@@ -27,27 +27,42 @@ existing Cat Pope and Yellow Mouse A-poses). Story looks (e.g. helmet) are **not
 Style for all views: identical to the reference — same rendering, line quality, colours, lighting, proportions,
 clothing of the look. No text, no watermark, no props unless they belong to the look.
 
-## Prompt definition for Luma (per view to generate)
+## Prompt definition for Luma (one instruction, creates everything that is missing)
 
-Attach the provided reference image every time. Replace `<name>`, `<persona>`, `<look>`.
+Attach **one** image: either one of the base views (portrait, full, A-pose) or **any other reference** of the
+character — a snapshot, an action pose, a concept artist's sketch. Replace `<name>`, `<persona>`, `<look>`.
 
 ```
-Recreate the character from the attached reference image EXACTLY: same character (<name>, persona <persona>,
-look <look>), same art style and rendering, same colours, lighting, proportions, face, markings and clothing.
-Do not redesign, restyle or add anything.
+Attached is a reference image of the character <name> (persona <persona>, look <look>).
+It is the starting point. Create this character's complete set of base views as SEPARATE images, recreating the
+character EXACTLY: same character, same art style and rendering, same colours, lighting, proportions, face,
+markings and clothing of this look. Do not redesign, restyle, add props or change anything else.
 
-Produce the <VIEW> view:
-- portrait: head and shoulders, facing the viewer, neutral expression, eyes on a horizontal line at 40 % of the
-  image height, head centred, 600 × 600 px, transparent background.
-- full: the whole figure standing in its natural, characteristic pose, neutral expression, feet fully visible,
-  600 × 1200 px, transparent background, small even margin above the head and below the feet.
-- apose: strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the thighs, legs
-  slightly apart, feet flat and fully visible, neutral expression, 768 × 1152 px, white background with a soft
-  shadow under the feet, figure centred; wearing <plain swim shorts | nothing (cartoon-neutral, no anatomical
-  detail)>.
+First decide what the attached image is:
+- If it already IS one of the views below (same framing and pose), keep it as that view and create ONLY the
+  views that are missing.
+- If it is NOT one of the views (e.g. a snapshot, an action pose, a sketch, a scene), use it ONLY as the identity
+  reference and create ALL views below.
 
-Consistency check before delivering: overlaid on the reference, the character must be recognisably identical;
-only framing and pose may differ.
+The views (all with a neutral expression):
+1. PORTRAIT — head and shoulders, facing the viewer, eyes on a horizontal line at 40 % of the image height,
+   head centred, 600 × 600 px, transparent background.
+2. FULL — the whole figure standing in its natural, characteristic pose, feet fully visible, small even margin
+   above the head and below the feet, 600 × 1200 px, transparent background.
+3. A-POSE (SWIM) — strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the
+   thighs, legs slightly apart, feet flat and fully visible, figure centred, head top at ~5 % and soles at ~92 % of
+   the height, 768 × 1152 px, white background with a soft shadow under the feet, wearing plain swim shorts.
+4. A-POSE (NAKED) — identical to 3 in every pixel of pose, scale and framing, but without the swim shorts
+   (cartoon-neutral, no anatomical detail).
+(The small avatar is made from the portrait afterwards — do not create it.)
+
+Deliver each view as its own image, named:
+  <character>[-<persona>][_<look>]_portrait-neutral.png
+  <character>[-<persona>][_<look>]_full-neutral.png
+  <character>_apose-swim.png
+  <character>_apose-naked.png
+Consistency check before delivering: placed side by side with the reference, the character must be recognisably
+identical in every view; only framing and pose may differ, and the two A-poses must overlay exactly.
 ```
 
 File names for the delivery (the importer also accepts any name inside a folder named after the character):
@@ -55,8 +70,9 @@ File names for the delivery (the importer also accepts any name inside a folder 
 
 ## Workflow steps
 
-1. **Take whatever is provided.** Any one of portrait / avatar / full / apose (an artist's drawing or a generated
-   image). Identify character, persona, look and view (folder name / file name / ask).
+1. **Take whatever is provided.** Either one of the base views (portrait / avatar / full / apose) or **any other
+   reference** (snapshot, action pose, concept art). Identify character, persona and look (folder name / file name /
+   ask). A reference that is not a view is fine — it just means all views get created.
 2. **Check against the spec** (canvas, framing, background, pose):
    - **matches** → keep it as that view.
    - **close** (wrong size, margins or background) → normalize: crop/pad/scale to the canvas, remove the
@@ -65,9 +81,9 @@ File names for the delivery (the importer also accepts any name inside a folder 
      view; use it **only as the Luma reference** and generate that view too.
    - An **avatar** given as the only source is too small to be a good reference: generate the portrait from it
      first, then derive the avatar from the portrait (replacing the given one only if the owner agrees).
-3. **Generate the missing views** with the prompt above (Luma), one view at a time, reference attached. Portrait
-   first when available — it is the most faithful reference for the face; full and apose use portrait + the provided
-   image together.
+3. **Generate the missing views** with the single prompt above (Luma): it keeps a matching view and creates all the
+   others — portrait, full, A-pose swim and A-pose naked. If a result drifts, regenerate just that view with the
+   approved portrait attached as a second reference (the most faithful source for the face).
 4. **Review** (owner): approve each view or regenerate; artist-made images always win over generated ones and can
    replace them later (same file name → re-import).
 5. **Name and place** into `cdn/root/characters/<character>[-<persona>]/` with the convention names.
