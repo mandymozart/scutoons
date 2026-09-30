@@ -87,6 +87,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     join order. Each step back: 15 % smaller (min 50 %), 0.75rem higher, dimmer, and **further right**; the backmost
     stands at the right margin (1rem), the others to its left with a 0.375rem gap — the boxes never overlap. Front size
     = min(55vw, 20rem, 45vh, what fits). Positions animate over 0.3s. (`viewer/src/lib/visual-novel/stage.ts`)
+    Crowded (the front one would get smaller than 7rem – more than 4 portraits at 375px, 5 at 500px): the sizes stay,
+    the lineup **stacks** – same order, the steps to the right shrink evenly so it still spans margin to margin, the
+    one in front drawn on top. Authors keep the stage to about 4 and put the reader's own characters in the avatar slot.
   - `full` → centred, breaking the 4th wall (unchanged).
   - The speaker glows: `drop-shadow(0 0 0.5rem <persona color>)` on the portrait or the avatar, plus the wiggle. No mood
     text anywhere (the art shows the mood).

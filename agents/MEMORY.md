@@ -754,3 +754,17 @@ character, persona, look and mood and doubles as the VN test bed.
 - Gotcha: a `vite build` of the viewer (anyone's suite run) rewrites `src/lib/paraglide` as per-message modules → the
   running dev server answers 404 for them ("Failed to fetch dynamically imported module …/nodes/0.js") until
   `npm run check` regenerated the locale modules; it recovers without a restart.
+- 2026-09-30 (later) — **"Sonntagnachmittag" / "Sunday afternoon"** = sandbox chapter 6 (`/sandbox/chapter/6`, dev only),
+  the layout test bed, generated (`sunday()` in make-sandbox.ts) from the registry: everyone meets on the street
+  (scene 5, slices 15–19: alley, lanterns, cobblestones). Cat Pope and his personas speak from the avatar slot, every
+  other character (all personas) stands on the portrait stage: join one by one until all 9 are there (4 portraits at
+  once today), speaker changes, a step back (re-join → back, further right), leave + come back, 2 moods each, every
+  registered look transition (Yellow Mouse and the biker, helmet → default), everyone leaves. Played de 375 / en 500:
+  38/38 clicks, 14 steps with the avatar slot, both transitions, 4 portraits without overlap (x at 375: 16–122 | 128–218
+  | 224–298 | 303–361), 0 console errors.
+- **Crowded stage** (`stage.ts`): side by side while the front portrait can stay ≥ 7 rem (≤ 4 at 375 px, ≤ 5 at 500 px);
+  beyond that the sizes stay (front 98 px at 375) and the lineup stacks – same order, steps shrink evenly (overlap at
+  375: 5 → 3 px, 6 → 16 px, 8 → 33 px). `vn-check` allows overlap only on a stacked stage (`data-crowded`).
+- Fix for the stale dev server after a build: `touch viewer/vite.config.ts` (and `creator/vite.config.ts`) – Vite restarts
+  itself in the same process and serves the regenerated paraglide modules (a touch of the paraglide files or messages
+  is not enough).

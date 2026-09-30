@@ -57,6 +57,8 @@ const CATPOPE = '../catpope/';
  * groups of an encounter share it), the goodbye → scene 6. More encounters wrap around scenes 1–5.
  */
 const SCENES: [number, number][] = [[1, 4], [5, 8], [9, 11], [12, 14], [15, 19], [20, 22]];
+/** the "Sonntagnachmittag" street: the alley with the lanterns and the cobblestones (scene 5) */
+const STREET: [number, number] = [15, 19];
 const slicePath = (n: number) => `${CATPOPE}images/webtoon/s1c2/s1c2-slice-${n}.webp`;
 /**
  * Cucumbers in the art (slice number → the click area, % of the 390 × 625 slice, a tight box around it); the first group
@@ -194,6 +196,10 @@ export interface SandboxReport {
 	styleFails: number;
 	/** where the cucumbers are offered */
 	cucumbers: string[];
+	/** "Sonntagnachmittag": characters in the scene at once, of them on the portrait stage, look transitions */
+	sundayCast: number;
+	sundayStage: number;
+	sundayTransitions: number;
 	perEncounter: { chapter: number; name: string; groups: string[]; moods: number; fails: number }[];
 }
 export interface SandboxFiles {
@@ -244,7 +250,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		return t.label ? text((l) => t.label?.[l] || t.label?.de || `${from} → ${to}`) : text(() => `${from} → ${to}`);
 	};
 
-	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], perEncounter: [] };
+	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], sundayCast: 0, sundayStage: 0, sundayTransitions: 0, perEncounter: [] };
 	const files: Record<string, unknown> = {};
 	const sequence: { type: 'chapter'; number: number; status: 'draft' }[] = [];
 	const met: Ref[] = [];
@@ -365,6 +371,87 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		report.perEncounter.push(stats);
 	});
 
+	sunday(encounters.length + 1);
+
+	/**
+	 * "Sonntagnachmittag" – the layout test bed (owner 2026-09-30): everyone of the registry meets on a street. Cat Pope
+	 * and his personas speak from the avatar slot (left), everyone else stands on the stage (right). Exercises: joining one
+	 * by one until all are there, frequent speaker changes (glow, front), stepping back (depth reordering: moves right),
+	 * leaving + coming back, mood changes, every registered look transition, everyone leaving.
+	 */
+	function sunday(number: number) {
+		type Who = { character: string; persona: string; view: string; name: Text };
+		const cast: Who[] = [
+			{ ...HOST_REF, view: HOST_VIEW, name: name(host, REGULAR_PERSONA) },
+			...ordered.flatMap((c) => personaIds(c).map((persona) => ({ character: c.id, persona, view: VIEW, name: name(c, persona) }))),
+			...personaIds(host).filter((p) => p !== REGULAR_PERSONA).map((persona) => ({ character: HOST, persona, view: HOST_VIEW, name: name(host, persona) }))
+		];
+		const personaOf = (w: Who) => findPersona(characters.find((c) => c.id === w.character), w.persona);
+		const state = new Map<Who, { look: string; mood?: string }>();
+		const neutralOf = (w: Who, lookId: string) => (moodsOf(personaOf(w), lookId, vocabulary).includes(DEFAULT_MOOD) ? DEFAULT_MOOD : undefined);
+		const ref = (w: Who, change: { look?: string; mood?: string } = {}): Ref => {
+			const current = state.get(w) ?? { look: defaultLookId(personaOf(w)), mood: undefined };
+			const lookId = change.look ?? current.look;
+			const moodId = 'mood' in change ? change.mood : (current.mood ?? neutralOf(w, lookId));
+			state.set(w, { look: lookId, mood: moodId });
+			return { character: w.character, persona: w.persona, look: lookId, ...(moodId ? { mood: moodId } : {}), variant: w.view };
+		};
+		const who = (w: Who) => ({ character: w.character, persona: w.persona });
+		const L = (de: string, en: string): Text => ({ de, en });
+		const hello = [L('Schönen Sonntag!', 'Happy Sunday!'), L('Die Sonne scheint!', 'The sun is out!'), L('Da bin ich!', 'Here I am!'), L('Hallo, alle zusammen!', 'Hi, everyone!'), L('Eis, jemand?', 'Ice cream, anyone?')];
+		const chatter = [L('Herrlich!', 'Lovely!'), L('Kaffee?', 'Coffee?'), L('Kuchen!', 'Cake!'), L('Ich liebe Sonntage.', 'I love Sundays.'), L('Was für ein Wetter!', 'What weather!')];
+		const moodLines = [L('Hihi!', 'Hehe!'), L('Oh!', 'Oh!'), L('Hm …', 'Hm …'), L('Na so was!', 'Well, well!')];
+		const MOOD_PICKS = ['happy', 'laughing', 'surprised', 'smug', 'thinking', 'confused', 'angry'];
+
+		const stage = cast.slice(1).filter((w) => w.view === VIEW);
+		const selves = cast.filter((w) => w.character === HOST && w.persona !== REGULAR_PERSONA);
+		const events: Draft[] = [say(null, L('Ein sonniger Sonntagnachmittag. Alle sind auf der Straße.', 'A sunny Sunday afternoon. Everyone is out on the street.'))];
+		events.push(join(ref(cast[0], { mood: 'happy' })), say(HOST_REF, L('Was für ein Sonntag!', 'What a Sunday!')));
+		// one by one onto the stage, each says hello (the newcomer is the speaker: in front, glowing)
+		stage.forEach((w, i) => events.push(join(ref(w)), say(who(w), pick(hello, i))));
+		// Cat Pope's personas join him on the left
+		for (const w of selves) events.push(join(ref(w)), say(who(w), { de: `Ich bin auch da – als ${w.name.de}!`, en: `Me too – as ${w.name.en}!` }));
+		events.push(say(null, L('Jetzt sind alle da.', 'Now everyone is here.')));
+		// the speaker changes often: everyone on the stage says something, back to front
+		[...stage].reverse().forEach((w, i) => events.push(say(who(w), pick(chatter, i))));
+		if (stage.length > 1) {
+			// someone steps back: rejoining moves them to the back of the stage (further right, smaller)
+			const back = stage[0];
+			events.push(join(ref(back)), say(null, { de: `${back.name.de} tritt einen Schritt zurück.`, en: `${back.name.en} steps back.` }));
+			events.push(say(who(stage[1]), L('Mehr Platz für mich!', 'More room for me!')));
+			// someone leaves and comes back
+			const away = stage[stage.length - 1];
+			events.push(say(who(away), L('Ich hol mal Eis.', 'Getting some ice cream.')), leave(away), say(null, { de: `${away.name.de} ist kurz weg.`, en: `${away.name.en} is gone for a moment.` }));
+			const awayMoods = moodsOf(personaOf(away), state.get(away)!.look, vocabulary);
+			events.push(join(ref(away, awayMoods.includes('happy') ? { mood: 'happy' } : {})), say(who(away), L('Eis für alle!', 'Ice cream for everyone!')));
+		}
+		// mood changes: two moods each (what the look has), Cat Pope too
+		for (const w of [...stage, cast[0]]) {
+			const moods = moodsOf(personaOf(w), state.get(w)!.look, vocabulary);
+			MOOD_PICKS.filter((m) => moods.includes(m)).slice(0, 2).forEach((m, k) => events.push(join(ref(w, { mood: m })), say(who(w), pick(moodLines, k))));
+		}
+		// every registered look transition (e.g. helmet → default): first into the `from` look, then the switch
+		for (const w of cast) {
+			const persona = personaOf(w);
+			for (const t of persona?.transitions ?? []) {
+				if (!looksOf(persona).includes(t.from) || !looksOf(persona).includes(t.to)) continue;
+				const lookName = (id: string) => look(persona, id);
+				if (state.get(w)?.look !== t.from) events.push(join(ref(w, { look: t.from, mood: neutralOf(w, t.from) })), say(who(w), { de: `${cap(lookName(t.from).de)}!`, en: `${cap(lookName(t.from).en)}!` }));
+				events.push(join(ref(w, { look: t.to, mood: neutralOf(w, t.to) })), say(who(w), { de: `Und jetzt: ${lookName(t.to).de}.`, en: `And now: ${lookName(t.to).en}.` }));
+				report.sundayTransitions++;
+			}
+		}
+		// everyone leaves, the last one in first; Cat Pope last
+		for (const w of [...cast.slice(1)].reverse()) events.push(say(who(w), L('Tschüss!', 'Bye!')), leave(w));
+		events.push(say(HOST_REF, L('Bis nächsten Sonntag!', 'See you next Sunday!')), leave(cast[0]), say(null, L('Die Sonne geht unter.', 'The sun goes down.')), jump({ type: 'toon', value: SANDBOX_TOON }));
+		report.sundayCast = cast.length;
+		report.sundayStage = stage.length;
+
+		scene(number, 'sunday', STREET, events);
+		chapter(number, L('Sonntagnachmittag', 'Sunday afternoon'), L('Sandkasten (Layout-Test): alle Figuren auf einer Straße – Plätze, Reihenfolge, Stimmungen, Looks.', 'Sandbox (layout test): every character on one street – slots, order, moods, looks.'), ['sunday']);
+		sequence.push({ type: 'chapter', number, status: 'draft' });
+	}
+
 	function scene(number: number, label: string, [from, to]: [number, number], events: Draft[]) {
 		const slices = [];
 		for (let n = from; n <= to; n++) {
@@ -471,6 +558,7 @@ async function main() {
 			`${report.lookSwitches} look switches (${report.transitions} with a transition image), ${report.styleFails} styles Cat Pope lacks`
 	);
 	console.log(`cucumbers: ${report.cucumbers.join(', ') || 'none'}`);
+	console.log(`Sonntagnachmittag (chapter ${report.chapters}): ${report.sundayCast} characters at once, ${report.sundayStage} on the portrait stage, ${report.sundayTransitions} look transitions`);
 	for (const s of report.perEncounter) console.log(`  chapter ${s.chapter}  ${s.name.padEnd(28)} ${String(s.moods).padStart(3)} moods, ${s.fails} failed  [${s.groups.join(', ')}]`);
 	if (!entry) console.warn(`! viewer/static/api/toons.json has no "${SANDBOX_TOON}" entry (status draft) – the creator lists toons from there`);
 	else if (entry.status !== 'draft') console.warn(`! toons.json: "${SANDBOX_TOON}" must stay status draft (hidden in production)`);

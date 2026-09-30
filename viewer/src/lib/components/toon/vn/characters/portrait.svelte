@@ -50,6 +50,7 @@
 	class="character-portrait"
 	class:active={isActive}
 	data-depth={place.depth}
+	data-crowded={place.crowded ? 'true' : undefined}
 	style:width="{place.size}px"
 	style:height="{place.size}px"
 	style:right="{place.right}px"

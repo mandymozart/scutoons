@@ -1,0 +1,18 @@
+{
+	"title": "Sonntagnachmittag",
+	"author": "SCUTOONS",
+	"number": 6,
+	"language": "de",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "Sandkasten (Layout-Test): alle Figuren auf einer Straße – Plätze, Reihenfolge, Stimmungen, Looks.",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"isPreview": true,
+	"groups": [
+		{
+			"ref": {
+				"src": "chapter6/sunday.json"
+			}
+		}
+	]
+}

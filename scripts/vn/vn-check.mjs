@@ -2,7 +2,8 @@
 // (agents/DESIGN.md → "VN layout") and the one-click rule:
 //   - one reader click per waited message, the last one included (the click on the last message jumps)
 //   - `avatar` characters = the left slot of the dialogue box while speaking, `portrait` ones on the right stage
-//   - portrait boxes never overlap, a character further back stands further right, the speaker glows, no mood text
+//   - portrait boxes don't overlap (unless the stage is crowded = stacked, stage.ts), a character further back stands
+//     further right, the speaker glows, no mood text
 // usage: node scripts/vn/vn-check.mjs [--base=http://localhost:8000] [--toon=sandbox] [--locale=de] [--width=375]
 //        [--height=812] [--from=1] [--to=<last chapter>] [--shots=<dir>] [--json=<file>]
 // Needs the dev viewer (and API / CDN) running. Exit code 1 on any failed check.
@@ -42,7 +43,7 @@ await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFac
 // the state of the stage after each click
 const MEASURE = `(() => {
 	const r = (el) => { const b = el.getBoundingClientRect(); return { left: Math.round(b.left), right: Math.round(b.right), top: Math.round(b.top), bottom: Math.round(b.bottom), width: Math.round(b.width) }; };
-	const portraits = [...document.querySelectorAll('.character-portrait')].map((el) => ({ ...r(el), depth: Number(el.dataset.depth), active: el.classList.contains('active'), glow: /drop-shadow/.test(el.style.filter), alt: el.querySelector('img')?.alt, src: el.querySelector('img')?.getAttribute('src') }));
+	const portraits = [...document.querySelectorAll('.character-portrait')].map((el) => ({ ...r(el), depth: Number(el.dataset.depth), crowded: el.dataset.crowded === 'true', active: el.classList.contains('active'), glow: /drop-shadow/.test(el.style.filter), alt: el.querySelector('img')?.alt, src: el.querySelector('img')?.getAttribute('src') }));
 	const box = document.querySelector('.vn-message');
 	const slot = box?.querySelector('.avatar-slot .character-avatar');
 	return {
@@ -85,7 +86,7 @@ function checkStep(s, group) {
 		for (let j = i + 1; j < ps.length; j++) {
 			const a = ps[i], b = ps[j];
 			const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left), oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
-			if (ox > 0 && oy > 0) fail(`${group}: portraits overlap (${a.alt} / ${b.alt}, ${ox}×${oy}px)`);
+			if (ox > 0 && oy > 0 && !(a.crowded && b.crowded)) fail(`${group}: portraits overlap (${a.alt} / ${b.alt}, ${ox}×${oy}px)`);
 		}
 	const sorted = [...ps].sort((a, b) => a.depth - b.depth);
 	for (let k = 1; k < sorted.length; k++) if (sorted[k].left <= sorted[k - 1].left) fail(`${group}: depth ${k} is not right of depth ${k - 1}`);
@@ -100,7 +101,7 @@ function checkStep(s, group) {
 	}
 	if ([s.avatar?.src, ...ps.map((p) => p.src)].some((src) => /transition/.test(src ?? ''))) transitions++;
 	const n = ps.length;
-	if (n && !byCount[n]) byCount[n] = ps.map(({ alt, depth, left, right, top, bottom, width, active }) => ({ alt, depth, left, right, top, bottom, width, active }));
+	if (n && !byCount[n]) byCount[n] = ps.map(({ alt, depth, left, right, top, bottom, width, active, crowded }) => ({ alt, depth, left, right, top, bottom, width, active, crowded }));
 }
 
 const shots = opt.shots ? String(opt.shots) : null;
@@ -146,7 +147,7 @@ for (const g of groups) {
 
 console.log(`\n${locale} ${width}×${height}: ${groups.length} groups, ${steps} steps, ${avatarSteps} with the avatar slot, ${transitions} with a transition image, console errors: ${consoleErrors.length}`);
 for (const [n, ps] of Object.entries(byCount)) {
-	console.log(`  ${n} portrait(s): ` + ps.sort((a, b) => a.depth - b.depth).map((p) => `d${p.depth} ${p.alt} x ${p.left}–${p.right} (w ${p.width}) y ${p.top}–${p.bottom}${p.active ? ' *' : ''}`).join(' | '));
+	console.log(`  ${n} portrait(s)${ps[0]?.crowded ? ' (stacked)' : ''}: ` + ps.sort((a, b) => a.depth - b.depth).map((p) => `d${p.depth} ${p.alt} x ${p.left}–${p.right} (w ${p.width}) y ${p.top}–${p.bottom}${p.active ? ' *' : ''}`).join(' | '));
 }
 for (const e of consoleErrors.slice(0, 10)) console.log('  console: ' + e);
 if (opt.json) writeFileSync(String(opt.json), JSON.stringify({ locale, width, height, report, byCount, steps, avatarSteps, transitions, consoleErrors, failures }, null, '\t'));
