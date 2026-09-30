@@ -22,9 +22,19 @@
 		inventory.loadRegistry();
 	});
 
-	const bodies = $derived<AvatarBody[]>(inventory.bodies);
+	// only the swim-shorts look is offered for now (owner 2026-09-30): one body per character, no look switch
+	const READER_LOOK = 'swim';
+	const bodies = $derived<AvatarBody[]>(inventory.bodies.filter((b) => b.look === READER_LOOK));
 	const body = $derived<AvatarBody | undefined>(inventory.currentBody);
 	let bodyError = $state<string | null>(null);
+
+	// a body saved with another look (e.g. naked, chosen before) moves to that character's swim look once
+	$effect(() => {
+		const current = body;
+		if (!current || current.look === READER_LOOK) return;
+		const swim = bodies.find((b) => b.character === current.character);
+		if (swim) chooseBody(swim);
+	});
 
 	async function chooseBody(b: AvatarBody) {
 		bodyError = null;
@@ -101,6 +111,7 @@
 {/snippet}
 
 <div class="avatar">
+	{#if bodies.length > 1}
 	<div class="bodies" role="group" aria-label={m['items.avatar_body']()} data-testid="avatar-bodies">
 		{#each bodies as b (`${b.character}/${b.look}`)}
 			{@const active = b === body}
@@ -114,10 +125,10 @@
 			>
 				<img src={asset(b.path)} alt="" loading="lazy" draggable="false" />
 				<span class="body-name">{b.name}</span>
-				<span class="body-look">{b.lookLabel}</span>
 			</button>
 		{/each}
 	</div>
+	{/if}
 	{#if bodyError}<p class="note" role="alert">{bodyError}</p>{/if}
 	{#if inventory.registryLoaded && !body}<p class="note">{m['items.avatar_body_none']()}</p>{/if}
 	<div class="stage" class:dense={multi}>
@@ -209,11 +220,6 @@
 		font-weight: 700;
 		line-height: 1.1;
 		text-align: center;
-	}
-	.body-look {
-		font-size: 0.625rem;
-		line-height: 1.1;
-		color: var(--text-muted);
 	}
 	.body-choice:hover,
 	.body-choice.active {
