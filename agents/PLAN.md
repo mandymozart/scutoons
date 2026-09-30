@@ -270,3 +270,13 @@ Model only what the product reads or the owner edits. Story context the owner ex
 gang") is context for us, not a data field. Before adding a field/file/vocabulary: which screen edits it, which code
 reads it? If neither, leave it out. (Groups/affiliations were removed for this reason.)
 
+## Performance roadmap (2026-09-30, owner)
+
+1. **Now (media agent):** P1 music 128 kbps (+ streaming), P3 character portraits WebP, P2 slices WebP + srcset +
+   lazy loading (slice width/height), video slices (`Slice.video`, editable in the creator) with the chapter-1 key
+   visual video re-encoded as slice 1.
+2. **Then:** P4 one request per chapter (chapter endpoint with inlined scenes + light season overview), P5 production
+   PHP tuning (OPcache check on all-inkl, compiled DI container, authoritative classmap, HTTP/2), P6 CDN plan
+   (immutable caching for hashed media, Brotli/gzip, bunny.net — agreed with the owner before any change).
+See PERFORMANCE.md for measurements.
+
