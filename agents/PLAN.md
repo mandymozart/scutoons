@@ -280,3 +280,9 @@ reads it? If neither, leave it out. (Groups/affiliations were removed for this r
    (immutable caching for hashed media, Brotli/gzip, bunny.net — agreed with the owner before any change).
 See PERFORMANCE.md for measurements.
 
+## RULE: slice size 390 × 625 (2026-09-30, owner)
+
+The default slice is **390 × 625 px** (webtoon standard, Naver), delivered at 1x as WebP. Every slice carries
+`width`/`height`; new slices in the creator default to 390 × 625 (overwritten by the real image size when an image path
+is set). Other heights are allowed, the width stays 390.
+
