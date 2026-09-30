@@ -11,7 +11,7 @@ import {
 	putAvatarBody,
 	fetchRegistry
 } from '$lib/api.ts';
-import { DEFAULT_AVATAR_UNLOCKS, avatarBodies, bodySlots as bodySlotsOf, remapAvatarSlots, unlockedBodies } from '@scutoons/content';
+import { DEFAULT_AVATAR_UNLOCKS, avatarBodies, bodySlots as bodySlotsOf, hidesSensitive, remapAvatarSlots, unlockedBodies, withoutSensitive } from '@scutoons/content';
 import type {
 	Avatar,
 	AvatarBody,
@@ -114,9 +114,16 @@ export function createInventoryContext(session: SessionContext) {
 	// the bodies the reader may pick (registry, lazily loaded) and the current one with its wear slots (slot instances)
 	let registry = $state<CharacterRegistry | null>(null);
 	let registryLoaded = $state(false);
-	const bodies = $derived<AvatarBody[]>(unlockedBodies(avatarBodies(registry, getLocale()), unlocked));
+	// "Hide sensitive content" (ITEMS.md "Sensitive content"): members by their setting (on by default), guests always
+	const hideSensitive = $derived(hidesSensitive(isAccount ? session.me?.user : null));
+	const bodies = $derived<AvatarBody[]>(withoutSensitive(unlockedBodies(avatarBodies(registry, getLocale()), unlocked), hideSensitive));
+	// the chosen body; a hidden (sensitive) one shows the same character's default / first visible look instead
 	const currentBody = $derived<AvatarBody | undefined>(
-		bodies.find((b) => b.character === body?.character && b.look === body?.look) ?? bodies.find((b) => b.default) ?? bodies[0]
+		bodies.find((b) => b.character === body?.character && b.look === body?.look) ??
+			bodies.find((b) => b.character === body?.character && b.default) ??
+			bodies.find((b) => b.character === body?.character) ??
+			bodies.find((b) => b.default) ??
+			bodies[0]
 	);
 	const slots = $derived<AvatarSlotInstance[]>(currentBody?.slots ?? bodySlotsOf(null));
 	const itemsById = $derived<Record<string, ItemDef>>(
@@ -482,6 +489,10 @@ export function createInventoryContext(session: SessionContext) {
 		/** the chosen avatar body (null = the first unlocked default) */
 		get body() {
 			return body;
+		},
+		/** "Hide sensitive content" is on (guests: always) – sensitive A-pose looks are left out of `bodies` */
+		get hideSensitive() {
+			return hideSensitive;
 		},
 		/** the bodies the reader may pick (after `loadRegistry()`) */
 		get bodies() {

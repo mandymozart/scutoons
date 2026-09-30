@@ -111,6 +111,16 @@ export function createSessionContext() {
 		return result.user;
 	}
 
+	/**
+	 * Account page toggle "Hide sensitive content": `PUT /me/ { hide_sensitive }` (on by default; turning it on moves a
+	 * worn sensitive avatar body to the character's first non-sensitive look – the answer carries the avatar)
+	 */
+	async function setHideSensitive(value: boolean) {
+		const result = await updateMe({ hide_sensitive: value });
+		if (me) me = { ...me, user: { ...me.user, ...result.user }, ...(result.avatar ? { avatar: result.avatar } : {}) };
+		return result.user;
+	}
+
 	const hasRole = (role: string) => roles.includes(role);
 
 	const verifyToken = async (magicToken: string) => applyVerify(await authVerifyToken(magicToken));
@@ -184,6 +194,7 @@ export function createSessionContext() {
 		verifyOtp,
 		verifyToken,
 		setMarketingOptIn,
+		setHideSensitive,
 		hasRole,
 		logout,
 		patchMe,

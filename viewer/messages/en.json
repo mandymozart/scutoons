@@ -90,6 +90,8 @@
 		"marketing_opt_in": "Send me news about new releases",
 		"marketing_opt_in_hint": "At most a few emails a year. You can turn this off here any time.",
 		"marketing_opt_in_failed": "That setting couldn't be saved. Try again later.",
+		"hide_sensitive": "Hide sensitive content",
+		"hide_sensitive_hint": "Hides e.g. the naked avatar bodies – for your account on every device.",
 		"roles": "Roles",
 		"role_member": "Member",
 		"role_creator": "Creator",

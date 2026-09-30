@@ -90,6 +90,8 @@
 		"marketing_opt_in": "Schickt mir Neuigkeiten zu neuen Veröffentlichungen",
 		"marketing_opt_in_hint": "Höchstens ein paar E-Mails im Jahr. Du kannst das hier jederzeit abschalten.",
 		"marketing_opt_in_failed": "Die Einstellung konnte nicht gespeichert werden. Versuch es später noch einmal.",
+		"hide_sensitive": "Sensible Inhalte ausblenden",
+		"hide_sensitive_hint": "Blendet z. B. die nackten Avatar-Körper aus – für dein Konto auf allen Geräten.",
 		"roles": "Rollen",
 		"role_member": "Mitglied",
 		"role_creator": "Creator",

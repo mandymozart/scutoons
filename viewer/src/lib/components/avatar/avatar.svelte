@@ -22,19 +22,14 @@
 		inventory.loadRegistry();
 	});
 
-	// only the swim-shorts look is offered for now (owner 2026-09-30): one body per character, no look switch
-	const READER_LOOK = 'swim';
-	const bodies = $derived<AvatarBody[]>(inventory.bodies.filter((b) => b.look === READER_LOOK));
+	// every visible look of the unlocked characters; looks marked `sensitive` (naked) are left out while "Hide sensitive
+	// content" is on (members: account page, on by default; guests: always) – ITEMS.md "Sensitive content". A hidden
+	// chosen body shows as the character's first visible look (inventory context; the server moves it on save).
+	const bodies = $derived<AvatarBody[]>(inventory.bodies);
 	const body = $derived<AvatarBody | undefined>(inventory.currentBody);
+	/** characters with more than one visible look show the look label under the name */
+	const lookCounts = $derived(bodies.reduce<Record<string, number>>((n, b) => ((n[b.character] = (n[b.character] ?? 0) + 1), n), {}));
 	let bodyError = $state<string | null>(null);
-
-	// a body saved with another look (e.g. naked, chosen before) moves to that character's swim look once
-	$effect(() => {
-		const current = body;
-		if (!current || current.look === READER_LOOK) return;
-		const swim = bodies.find((b) => b.character === current.character);
-		if (swim) chooseBody(swim);
-	});
 
 	async function chooseBody(b: AvatarBody) {
 		bodyError = null;
@@ -125,6 +120,7 @@
 			>
 				<img src={asset(b.path)} alt="" loading="lazy" draggable="false" />
 				<span class="body-name">{b.name}</span>
+				{#if lookCounts[b.character] > 1}<span class="body-look">{b.lookLabel}</span>{/if}
 			</button>
 		{/each}
 	</div>
@@ -220,6 +216,11 @@
 		font-weight: 700;
 		line-height: 1.1;
 		text-align: center;
+	}
+	.body-look {
+		font-size: 0.625rem;
+		line-height: 1.1;
+		color: var(--text-muted);
 	}
 	.body-choice:hover,
 	.body-choice.active {

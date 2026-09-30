@@ -84,9 +84,12 @@ export function createQrApi(api: ApiClient) {
 
 		fetchMe: () => api.get<Me>('/me/'),
 
-		/** Account settings: `PUT /me/ { marketing_opt_in }` → the updated user */
-		updateMe: (patch: { marketing_opt_in: boolean }) =>
-			api.put<{ status: string; user: User }>('/me/', patch),
+		/**
+		 * Account settings: `PUT /me/ { marketing_opt_in?, hide_sensitive? }` → the updated user and avatar (turning
+		 * `hide_sensitive` on moves a worn sensitive body to the character's first non-sensitive look)
+		 */
+		updateMe: (patch: { marketing_opt_in?: boolean; hide_sensitive?: boolean }) =>
+			api.put<{ status: string; user: User; avatar?: Avatar }>('/me/', patch),
 
 		fetchCatalog: () => api.get<Catalog>('/items/', { auth: false }),
 

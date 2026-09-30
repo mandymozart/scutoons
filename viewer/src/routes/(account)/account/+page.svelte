@@ -43,6 +43,24 @@
 		}
 	}
 
+	// "Hide sensitive content" (PUT /me/ { hide_sensitive }, on by default; guests always hide – no toggle there)
+	let hideSaving = $state(false);
+	let hideError = $state<string | null>(null);
+	async function toggleHideSensitive(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const value = input.checked;
+		hideSaving = true;
+		hideError = null;
+		try {
+			await session.setHideSensitive(value);
+		} catch {
+			input.checked = !value;
+			hideError = m['account.marketing_opt_in_failed']();
+		} finally {
+			hideSaving = false;
+		}
+	}
+
 </script>
 
 <div class="view view-account">
@@ -109,6 +127,21 @@
 			</label>
 			{#if optInError}
 				<p class="error" role="alert">{optInError}</p>
+			{/if}
+			<label class="opt-in" data-testid="hide-sensitive">
+				<input
+					type="checkbox"
+					checked={session.user.hide_sensitive !== false}
+					disabled={hideSaving}
+					onchange={toggleHideSensitive}
+				/>
+				<span>
+					{m['account.hide_sensitive']()}
+					<small>{m['account.hide_sensitive_hint']()}</small>
+				</span>
+			</label>
+			{#if hideError}
+				<p class="error" role="alert">{hideError}</p>
 			{/if}
 			{#if session.hasRole('creator')}
 				<p class="creator-line">
