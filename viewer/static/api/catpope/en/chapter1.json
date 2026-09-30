@@ -29,15 +29,15 @@
     "sampleLibrary": [
       {
         "id": "bells",
-        "path": "audio/samples/s1c1-bells.mp3"
+        "path": "audio/samples/s1c1-bells.128.mp3"
       },
       {
         "id": "choir_loud",
-        "path": "audio/samples/s1c1-choir-loud-loud-loud.mp3"
+        "path": "audio/samples/s1c1-choir-loud-loud-loud.128.mp3"
       },
       {
         "id": "choir_once",
-        "path": "audio/samples/s1c1-choir-once-it-means-nothing.mp3"
+        "path": "audio/samples/s1c1-choir-once-it-means-nothing.128.mp3"
       }
     ]
   },
