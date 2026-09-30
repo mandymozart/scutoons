@@ -9,7 +9,7 @@
 	"description": "Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft).",
 	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
 	"cover": {
-		"square": "../catpope/images/1x/de/s1-cover-square.jpg"
+		"square": "../catpope/images/s1-cover-square.webp"
 	},
 	"map": {
 		"layers": {

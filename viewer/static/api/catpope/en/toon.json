@@ -9,8 +9,8 @@
 	"description": "Stories of a cat in a world full of priests, influencers, and conspiracies.",
 	"thumbnail": "images/s1c1-thumbnail.jpg",
 	"cover": {
-		"square": "images/1x/en/s1-cover-square.jpg",
-		"portrait": "images/1x/en/s1-cover-portrait.jpg"
+		"square": "images/s1-cover-square.webp",
+		"portrait": "images/s1-cover-portrait.webp"
 	},
 	"map": {
 		"layers": {

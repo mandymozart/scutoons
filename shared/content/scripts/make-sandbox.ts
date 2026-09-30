@@ -500,7 +500,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			status: 'draft',
 			description: meta[l].description,
 			thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
-			cover: { square: `${CATPOPE}images/1x/de/s1-cover-square.jpg` },
+			cover: { square: `${CATPOPE}images/s1-cover-square.webp` },
 			map: { layers: { terrain: `${CATPOPE}images/map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } },
 			download: { complete: null, music: '' }
 		};

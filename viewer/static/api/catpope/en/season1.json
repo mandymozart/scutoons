@@ -6,8 +6,8 @@
 	"release": "2025-12-01",
 	"description": "When the morning routine of a Nazi religious personality is disrupted by a mysterious Sphynx cat, they are plunged into a spiral of surreal encounters with digital conspiracies, mythological creatures, and glitchy realities, only to finally discover that the cat was her own split identity all along.",
 	"cover": {
-		"square": "images/1x/en/s1-cover-square.jpg",
-		"portrait": "images/1x/en/s1-cover-portrait.jpg"
+		"square": "images/s1-cover-square.webp",
+		"portrait": "images/s1-cover-portrait.webp"
 	},
 	"credits": {
 		"artist": ["Mandy Mozart", "Thomas Dalby"],
