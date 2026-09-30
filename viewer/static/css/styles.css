@@ -25,8 +25,8 @@ input, select, textarea {
 
 button,
 .btn {
-  background-color: black;
-  color: white;
+  background-color: var(--ink);
+  color: var(--paper);
   padding: 1rem 3rem;
   border: none;
 	text-align: center;
@@ -38,20 +38,20 @@ button,
 
 button:hover,
 .btn:hover {
-  background-color: black;
+  background-color: var(--ink);
 }
 
 button.btn-secondary,
 .btn.btn-secondary {
 	background: transparent;
-	color: black;
-	border: 2px solid #ccc;
+	color: var(--ink);
+	border: 2px solid var(--border-muted);
 }
 
 button.btn-secondary:hover,
 .btn.btn-secondary:hover {
 	background: transparent;
-	border-color: black;
+	border-color: var(--ink);
 }
 
 button.btn-clear {
