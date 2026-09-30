@@ -56,7 +56,8 @@
 				{/if}
 			</div>
 		{/if}
-		{#key currentLabel}
+		<!-- a new group (label) or another chapter starts the group from scratch (a VN group runs its events on mount) -->
+		{#key `${data.chapter.number}:${currentLabel}`}
 			{#if group}
 				<Group {group} />
 			{:else}

@@ -254,8 +254,11 @@ export function createVisualNovelContext() {
 		onomatopoeiaQueue.length = 0;
 	}
 
+	/**
+	 * Resets the scene when a VN group ends. The characters stay: the toon layout loads them once (setCharacters), and the
+	 * next VN group (another label or chapter of the same toon) needs them again.
+	 */
 	function clear(): void {
-		characters.clear();
 		sceneCharacters.length = 0;
 		pendingChoices.length = 0;
 		messageVisible = false;
