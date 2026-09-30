@@ -2,6 +2,15 @@
 
 Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git_sha` (deploy/README.md "Versions").
 
+## Unreleased
+
+- Library (agents/DATA.md, docs/API.md "Library"): `GET /api/library/toons[/<toon>[/seasons/<n>|/chapters/<n>|/cast|/credits]]`
+  and `/api/events/` – the reader's entities composed from the content store (one request per chapter, scenes inlined;
+  light season overview), locale fallback, visibility gates on the server, `?draft=1` for creators, ETag/304, server
+  cache keyed by version ids (APCu or `storage/cache`). Settings `CACHE_DRIVER`, `CACHE_PATH`, `CONTENT_SHOW_DRAFTS`.
+- `import-content` also imports `toons.json`, `events.json` and the map/collectables files; new `export-content`.
+  Contract suites `entities-smoke` and `entities-compare` (fresh DB seeded from the static files).
+
 ## 1.0.0 – 2026-09-30
 
 - Slim 4 refactor of the plain-PHP qr.scutoons.com server (P1b); admin API `/api/admin/*` (role admin); products

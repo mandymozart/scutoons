@@ -41,6 +41,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | POST | `/inventory/import/` | Bearer | `{ items:[{ item_id, qty }] }` |
 | GET/PUT | `/avatar/` | Bearer | GET → `{ status, avatar: { slots, body, unlocked } }`; PUT `{ slots?:{ <slot>: entryId\|null }, body?: { character, look }\|null }` (at least one) – `body` must be unlocked and have an A-pose image (`422 locked\|no_apose`, `400 invalid_body`); `unlocked` = `[{ character, looks, source }]` (defaults from `AVATAR_DEFAULT_UNLOCKS` first); `body: null` = the first unlocked default |
 | GET/PUT | `/progress/<toonId>/` | Bearer | `{ state, updated_at }` last write wins |
+| GET | `/library/toons`, `/library/toons/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]`, `/events/` | – / creator | the reader's entities composed from the content store – see "Library" |
 | GET | `/content/<toon>/<locale>/<path>.json` | – / creator | published config (raw JSON); `?draft=1`, `?version=`, `&wrap=1` need `creator` – see "Content API" |
 | PUT | `/content/<toon>/<locale>/<path>.json` | creator | `{ content, message?, base? }` → new draft version |
 | GET | `/content/versions`, `/content/index` | creator | history of a file / all stored files of a toon |
@@ -252,6 +253,39 @@ static files).
 
 **Seeding** – `php bin/console import-content <monorepo>/viewer/static/api [--toon=] [--db=<sqlite>] [--update]
 [--dry-run] [--sql]` (see [DATABASE.md](DATABASE.md)).
+
+## Library (the reader's entities, agents/DATA.md)
+
+Public GETs composed from the content store's **published** documents (the configuration format of `@scutoons/content`
+is the format of every answer). Implementation: `Domain\Library\Library` + `LibraryController`.
+
+| GET | Answer |
+|---|---|
+| `/library/toons` | `ToonIndex[]`: every `<toon>/_/index.json` with `status: published` (creation order) |
+| `/library/toons/<toon>?locale=` | `{ entry, toon, seasons: SeasonOverview[], locations, routes, collectables }` – the toon layout in one request |
+| `/library/toons/<toon>/seasons/<n>?locale=` | `SeasonOverview = { number, season, chapters: ChapterSummary[] }` – listed chapters (readable + coming-soon); a summary is the chapter file without `groups` / `audio` / `status` + the season's `type`, `number`, `status` |
+| `/library/toons/<toon>/chapters/<n>?locale=` | the chapter with every `ref` group replaced by its scene file (a missing scene keeps its `ref` group + `X-Content-Missing`) |
+| `/library/toons/<toon>/cast[?chapter=<n>]` | `{ registry, cast }`: `scutoons/_/characters.json` reduced to the toon's cast (or the characters the chapter references; legacy ids mapped) + `<toon>/_/cast.json`; `null` where missing. Resolve with `resolveCast()` |
+| `/library/toons/<toon>/credits` | `{ credits, people, roles }`: `<toon>/_/credits.json`, the referenced people (+ `merged_into` targets), the roles · 404 without credits |
+| `/events/` | `scutoons/_/events.json` |
+
+- **Locale** `?locale=xx` (default: the toon's `sourceLanguage`): per document the asked locale, else the source
+  language, else another language of the toon → `Content-Language` = the served one, `X-Content-Fallback: 1` when it
+  differs. Language-neutral answers (cast, credits, events, the list) have no `Content-Language`.
+- **Visibility**: index entry + `toon.json` must be `published` (else `404 not_found`); a chapter's status is its season
+  `sequence[].status`: `coming-soon` → `403 coming_soon { chapter: ChapterSummary }`, `draft` or not in any season →
+  `403 not_public`. `CONTENT_SHOW_DRAFTS=1` (local development) makes `draft` readable.
+- **`?draft=1`** (role `creator`; `401` / `403 forbidden` otherwise): the newest version of every document, no gates,
+  `Cache-Control: private, no-store`.
+- **Headers**: `Cache-Control: public, max-age=60`, `ETag` (`304` on `If-None-Match`), `Access-Control-Allow-Origin`
+  = the allowed origin or `*`, exposed `ETag, Content-Language, X-Content-Fallback, X-Content-Missing`.
+- **Server cache** (`CACHE_DRIVER`, `CACHE_PATH`): answers are cached under endpoint + the ids of every published
+  version of the toon and `scutoons` – a publish changes the key, so nothing is ever invalidated; drafts are never
+  cached. APCu when enabled, else files in `storage/cache/library/` (pruned by age).
+- Errors: `400 invalid_toon|invalid_locale|invalid_chapter`, `404 not_found`, `403 coming_soon|not_public`.
+- Seed / compare: `import-content` also stores `toons.json` (→ `<toon>/_/index.json`), `events.json` (→
+  `scutoons/_/events.json`) and `<toon>/<l>/{locations,routes,collectables}.json`; `tests/entities-compare.php` checks
+  every answer against the static files (fresh DB, part of `composer test`); `export-content` writes the store back.
 
 ## Security notes
 

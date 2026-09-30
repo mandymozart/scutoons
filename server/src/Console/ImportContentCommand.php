@@ -5,6 +5,7 @@ namespace Scutoons\Console;
 
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Content\ContentService;
+use Scutoons\Domain\Library\Library;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -45,8 +46,10 @@ final class ImportContentCommand extends Command
             ->addOption('sql', null, InputOption::VALUE_NONE, 'Print idempotent MySQL INSERTs instead of writing (production seed for phpMyAdmin)')
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'Only these file names, comma separated (e.g. characters.json,cast.json)')
             ->setHelp(<<<'HELP'
-                Stores toon.json, season<N>.json, chapter<N>.json and the VN scene files chapter<N>/<name>.json of every
-                toon and locale folder as published version 1 (author NULL, message "import from static files"); in the
+                Stores toon.json, season<N>.json, chapter<N>.json, the VN scene files chapter<N>/<name>.json and the map /
+                collectables (locations.json, routes.json, collectables.json) of every toon and locale folder as published
+                version 1 (author NULL, message "import from static files"); the root toons.json as one <toon>/_/index.json per
+                entry and the root events.json as scutoons/_/events.json (agents/DATA.md); in the
                 language-neutral folder `_`: credits.json, people.json, roles.json (the credits seed in shared/content/seed),
                 characters.json + moods.json + asset-requests.json + cast.json (the characters seed; `--only=characters.json,moods.json,asset-requests.json,cast.json` imports just those).
                 Idempotent: files already in the store are skipped (the store is the source of truth once seeded).
@@ -98,15 +101,86 @@ final class ImportContentCommand extends Command
         }
 
         $stats = ['imported' => 0, 'updated' => 0, 'skipped' => 0, 'unchanged' => 0, 'invalid' => 0];
+        $devOnlyReported = [];
+        foreach (self::sources($root) as [$toon, $locale, $relative, $file, $label, $read]) {
+            if (!self::includesToon($toon, is_string($onlyToon) ? $onlyToon : null, $sqlMode)) {
+                if (!is_string($onlyToon) && !isset($devOnlyReported[$toon])) {
+                    $report("  skipped   $toon (dev only, not in the production seed; --toon=$toon to include it)\n");
+                    $devOnlyReported[$toon] = true;
+                }
+                continue;
+            }
+            if (!self::matchesOnly($relative, $onlyFiles) && !self::matchesOnly(basename($file), $onlyFiles)) continue;
+            try {
+                ContentService::checkKey($toon, $locale, $relative);
+                $decoded = $read();
+                $json = $content->encode($decoded);
+            } catch (ApiError $error) {
+                $report("  invalid   $label ({$error->getMessage()})\n");
+                $stats['invalid']++;
+                continue;
+            }
+            if ($sqlMode) {
+                $where = '`toon` = ' . self::sqlString($toon) . ' AND `locale` = ' . self::sqlString($locale) . ' AND `path` = ' . self::sqlString($relative);
+                $output->write("INSERT INTO `content_versions` (`toon`, `locale`, `path`, `json`, `author`, `created_at`, `status`, `message`)\n"
+                    . 'SELECT ' . implode(', ', array_map([self::class, 'sqlString'], [$toon, $locale, $relative, $json])) . ', NULL, '
+                    . self::sqlString($this->clock->utc()) . ", 'published', 'import from static files' FROM DUAL\n"
+                    . "WHERE NOT EXISTS (SELECT 1 FROM `content_versions` WHERE $where);\n");
+                $report("  statement $label (" . strlen($json) . " bytes)\n");
+                $stats['imported']++;
+                continue;
+            }
+            $latest = $content->latest($toon, $locale, $relative);
+            if ($latest && !$update) {
+                $output->write("  skipped   $label (stored, version {$latest['id']})\n");
+                $stats['skipped']++;
+                continue;
+            }
+            $published = $latest ? $content->published($toon, $locale, $relative) : null;
+            if ($published && $published['json'] === $json) {
+                $output->write("  unchanged $label\n");
+                $stats['unchanged']++;
+                continue;
+            }
+            $kind = $latest ? 'updated' : 'imported';
+            $output->write(sprintf("  %-9s %s (%d bytes)\n", $kind, $label, strlen($json)));
+            $stats[$kind]++;
+            if ($dryRun) continue;
+            $db->transaction(function () use ($content, $toon, $locale, $relative, $json, $latest) {
+                $id = $content->insert($toon, $locale, $relative, $json, null, 'draft', $latest ? 'update from static files' : 'import from static files');
+                $content->setPublished(['id' => $id, 'toon' => $toon, 'locale' => $locale, 'path' => $relative]);
+            });
+        }
+
+        $report(sprintf("\n%s%d %s, %d updated, %d unchanged, %d skipped, %d invalid\n",
+            $dryRun ? '[dry run] ' : '', $stats['imported'], $sqlMode ? 'statements' : 'imported',
+            $stats['updated'], $stats['unchanged'], $stats['skipped'], $stats['invalid']));
+        return $stats['invalid'] > 0 ? self::FAILURE : self::SUCCESS;
+    }
+
+    /**
+     * Every document below the root, in import order: the root files first (`toons.json` → one `<toon>/_/index.json`
+     * per entry, in the file's order = the toons list's order; `events.json` → `scutoons/_/events.json`), then every toon
+     * and locale folder. Each: [scope, locale, path, source file, label, reader (decoded JSON or ApiError)].
+     * @return list<array{0: string, 1: string, 2: string, 3: string, 4: string, 5: callable(): mixed}>
+     */
+    public static function sources(string $root): array
+    {
+        $sources = [];
+        if (is_file("$root/toons.json")) {
+            $index = json_decode((string) file_get_contents("$root/toons.json"));
+            foreach (is_array($index) ? $index : [] as $entry) {
+                $id = is_object($entry) && is_string($entry->id ?? null) ? $entry->id : null;
+                if ($id === null || !preg_match(ContentService::TOON_PATTERN, $id)) continue;
+                $sources[] = [$id, ContentService::NEUTRAL_LOCALE, 'index.json', "$root/toons.json", "$id/_/index.json (toons.json)", fn() => $entry];
+            }
+        }
+        if (is_file("$root/events.json")) {
+            $sources[] = [Library::PLATFORM, ContentService::NEUTRAL_LOCALE, 'events.json', "$root/events.json", Library::PLATFORM . '/_/events.json (events.json)', fn() => self::readJson("$root/events.json")];
+        }
         $toons = array_filter(glob("$root/*", GLOB_ONLYDIR) ?: [], fn($d) => preg_match(ContentService::TOON_PATTERN, basename($d)) === 1);
         foreach ($toons as $toonDir) {
             $toon = basename($toonDir);
-            if (is_string($onlyToon) && $toon !== $onlyToon) continue;
-            if (!self::includesToon($toon, is_string($onlyToon) ? $onlyToon : null, $sqlMode)) {
-                $report("  skipped   $toon (dev only, not in the production seed; --toon=$toon to include it)
-");
-                continue;
-            }
             foreach (glob("$toonDir/*", GLOB_ONLYDIR) ?: [] as $localeDir) {
                 $locale = basename($localeDir);
                 if (!preg_match(ContentService::LOCALE_PATTERN, $locale)) continue;
@@ -114,58 +188,22 @@ final class ImportContentCommand extends Command
                 sort($files);
                 foreach ($files as $file) {
                     $relative = substr(str_replace('\\', '/', $file), strlen(str_replace('\\', '/', $localeDir)) + 1);
-                    if (!self::isContentFile($locale, $relative) || !self::matchesOnly($relative, $onlyFiles)) continue;
-                    $label = "$toon/$locale/$relative";
-                    try {
-                        ContentService::checkKey($toon, $locale, $relative);
-                        $decoded = json_decode((string) file_get_contents($file));
-                        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
-                            throw new ApiError(422, 'invalid_json', json_last_error_msg());
-                        }
-                        $json = $content->encode($decoded);
-                    } catch (ApiError $error) {
-                        $report("  invalid   $label ({$error->getMessage()})\n");
-                        $stats['invalid']++;
-                        continue;
-                    }
-                    if ($sqlMode) {
-                        $where = '`toon` = ' . self::sqlString($toon) . ' AND `locale` = ' . self::sqlString($locale) . ' AND `path` = ' . self::sqlString($relative);
-                        $output->write("INSERT INTO `content_versions` (`toon`, `locale`, `path`, `json`, `author`, `created_at`, `status`, `message`)\n"
-                            . 'SELECT ' . implode(', ', array_map([self::class, 'sqlString'], [$toon, $locale, $relative, $json])) . ', NULL, '
-                            . self::sqlString($this->clock->utc()) . ", 'published', 'import from static files' FROM DUAL\n"
-                            . "WHERE NOT EXISTS (SELECT 1 FROM `content_versions` WHERE $where);\n");
-                        $report("  statement $label (" . strlen($json) . " bytes)\n");
-                        $stats['imported']++;
-                        continue;
-                    }
-                    $latest = $content->latest($toon, $locale, $relative);
-                    if ($latest && !$update) {
-                        $output->write("  skipped   $label (stored, version {$latest['id']})\n");
-                        $stats['skipped']++;
-                        continue;
-                    }
-                    $published = $latest ? $content->published($toon, $locale, $relative) : null;
-                    if ($published && $published['json'] === $json) {
-                        $output->write("  unchanged $label\n");
-                        $stats['unchanged']++;
-                        continue;
-                    }
-                    $kind = $latest ? 'updated' : 'imported';
-                    $output->write(sprintf("  %-9s %s (%d bytes)\n", $kind, $label, strlen($json)));
-                    $stats[$kind]++;
-                    if ($dryRun) continue;
-                    $db->transaction(function () use ($content, $toon, $locale, $relative, $json, $latest) {
-                        $id = $content->insert($toon, $locale, $relative, $json, null, 'draft', $latest ? 'update from static files' : 'import from static files');
-                        $content->setPublished(['id' => $id, 'toon' => $toon, 'locale' => $locale, 'path' => $relative]);
-                    });
+                    if (!self::isContentFile($locale, $relative)) continue;
+                    $sources[] = [$toon, $locale, $relative, $file, "$toon/$locale/$relative", fn() => self::readJson($file)];
                 }
             }
         }
+        return $sources;
+    }
 
-        $report(sprintf("\n%s%d %s, %d updated, %d unchanged, %d skipped, %d invalid\n",
-            $dryRun ? '[dry run] ' : '', $stats['imported'], $sqlMode ? 'statements' : 'imported',
-            $stats['updated'], $stats['unchanged'], $stats['skipped'], $stats['invalid']));
-        return $stats['invalid'] > 0 ? self::FAILURE : self::SUCCESS;
+    /** A JSON file decoded with objects (keeps `{}`), or an ApiError */
+    public static function readJson(string $file): mixed
+    {
+        $decoded = json_decode((string) file_get_contents($file));
+        if ($decoded === null && json_last_error() !== JSON_ERROR_NONE) {
+            throw new ApiError(422, 'invalid_json', json_last_error_msg());
+        }
+        return $decoded;
     }
 
     /**
@@ -177,7 +215,7 @@ final class ImportContentCommand extends Command
     public static function isContentFile(string $locale, string $relative): bool
     {
         if ($locale === ContentService::NEUTRAL_LOCALE) return preg_match('#^(credits|people|roles|characters|moods|asset-requests|cast)\.json$#', $relative) === 1;
-        return preg_match('#^(toon|season\d+|chapter\d+)\.json$#', $relative) === 1
+        return preg_match('#^(toon|season\d+|chapter\d+|locations|routes|collectables)\.json$#', $relative) === 1
             || preg_match('#^chapter\d+/[a-z0-9_-]+\.json$#', $relative) === 1;
     }
 

@@ -1,0 +1,200 @@
+<?php
+/**
+ * Contract suite of the library endpoints (/api/library/*, /api/events; agents/DATA.md §3, docs/API.md "Library")
+ * against a running server – run by tests/run-contract.php on a copy of the local database.
+ *
+ *   php tests/entities-smoke.php [http://localhost:9000]
+ *
+ * Needs a server with CONTENT_SHOW_DRAFTS off. Creates a throw-away creator + member directly in the DB, writes a
+ * throw-away toon (`ent<random>`) through the content API (the creator's write path), checks the composed answers,
+ * gates, locale fallback, ETag/304, draft mode and that a publish shows up at once (cache keyed by version ids), then
+ * deletes its rows and the users. Exit code 0 = all passed.
+ */
+if (PHP_SAPI !== 'cli') {
+    http_response_code(404);
+    exit;
+}
+
+require_once __DIR__ . '/support/legacy.php';
+
+$base = rtrim($argv[1] ?? 'http://localhost:9000', '/');
+$api = $base . '/api';
+$failures = 0;
+$checks = 0;
+
+function check(bool $ok, string $label, mixed $detail = null): void
+{
+    global $failures, $checks;
+    $checks++;
+    if ($ok) {
+        echo "  PASS  $label\n";
+        return;
+    }
+    $failures++;
+    echo "  FAIL  $label" . ($detail !== null ? "\n        " . substr(is_string($detail) ? $detail : json_encode($detail, JSON_UNESCAPED_SLASHES), 0, 600) : '') . "\n";
+}
+
+/** @return array{status: int, body: mixed, raw: string, headers: array<string, string>} */
+function call(string $method, string $url, mixed $body = null, ?string $token = null, array $headers = []): array
+{
+    $ch = curl_init($url);
+    $h = array_merge(['Content-Type: application/json'], $headers);
+    if ($token) $h[] = 'Authorization: Bearer ' . $token;
+    $responseHeaders = [];
+    curl_setopt_array($ch, [
+        CURLOPT_CUSTOMREQUEST => $method,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_HTTPHEADER => $h,
+        CURLOPT_TIMEOUT => 20,
+        CURLOPT_HEADERFUNCTION => function ($ch, $line) use (&$responseHeaders) {
+            if (str_contains($line, ':')) {
+                [$name, $value] = explode(':', $line, 2);
+                $responseHeaders[strtolower(trim($name))] = trim($value);
+            }
+            return strlen($line);
+        },
+    ]);
+    if ($body !== null) curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    $raw = (string) curl_exec($ch);
+    $status = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+    curl_close($ch);
+    return ['status' => $status, 'body' => json_decode($raw, true) ?? $raw, 'raw' => $raw, 'headers' => $responseHeaders];
+}
+
+$run = gmdate('YmdHis') . bin2hex(random_bytes(2));
+$toon = 'ent' . strtolower($run);
+[$member, $creator] = Db::transaction(fn() => [
+    Users::create("entities-smoke-$run-member@example.com", 'en'),
+    Users::create("entities-smoke-$run-creator@example.com", 'en'),
+]);
+Roles::grant($creator['id'], Roles::CREATOR, 'entities-smoke');
+$memberToken = Auth::createSession($member['id']);
+$creatorToken = Auth::createSession($creator['id']);
+echo "API $api · toon $toon\n\n";
+
+/** Saves a draft through the creator's write path and publishes it (unless $publish is false) */
+function store(string $locale, string $path, mixed $content, bool $publish = true, ?string $scope = null): void
+{
+    global $api, $toon, $creatorToken;
+    $scope ??= $toon;
+    $r = call('PUT', "$api/content/$scope/$locale/$path", ['content' => $content], $creatorToken);
+    if ($r['status'] !== 200) throw new RuntimeException("PUT $scope/$locale/$path: " . $r['raw']);
+    if ($publish) {
+        $r = call('POST', "$api/content/publish", ['toon' => $scope, 'locale' => $locale, 'path' => $path], $creatorToken);
+        if ($r['status'] !== 200) throw new RuntimeException("publish $scope/$locale/$path: " . $r['raw']);
+    }
+}
+
+$lib = "$api/library/toons/$toon";
+try {
+    echo "Before the toon exists\n";
+    $r = call('GET', $lib);
+    check($r['status'] === 404 && $r['body']['error'] === 'not_found', 'unknown toon → 404 not_found', $r);
+    $r = call('GET', "$api/library/toons");
+    check($r['status'] === 200 && is_array($r['body']) && !in_array($toon, array_column($r['body'], 'id'), true), 'toons list is a JSON array without it', $r['raw']);
+
+    // the creator's write path: index entry, toon, season (1 published, 2 draft, 3 coming soon), chapters, a scene
+    store('_', 'index.json', ['id' => $toon, 'uri' => $toon, 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']]);
+    foreach (['de', 'en'] as $l) {
+        store($l, 'toon.json', ['id' => $toon, 'title' => "Toon $l", 'status' => 'published']);
+        store($l, 'season1.json', ['title' => "Staffel $l", 'sequence' => [
+            ['type' => 'chapter', 'number' => 1, 'status' => 'published'],
+            ['type' => 'chapter', 'number' => 2, 'status' => 'draft'],
+            ['type' => 'chapter', 'number' => 3, 'status' => 'coming-soon'],
+        ]]);
+        store($l, 'chapter2.json', ['title' => "Zwei $l", 'number' => 2, 'groups' => []]);
+    }
+    store('de', 'chapter1.json', ['title' => 'Eins', 'number' => 1, 'thumbnail' => 't.webp', 'audio' => ['volume' => 0.5],
+        'groups' => [['ref' => ['src' => 'chapter1/scene-a.json']], ['label' => 'inline', 'slices' => []]]]);
+    store('de', 'chapter1/scene-a.json', ['label' => 'scene-a', 'params' => new stdClass(), 'events' => []]);
+    store('de', 'chapter3.json', ['title' => 'Drei', 'number' => 3, 'release' => '2027-01-01', 'groups' => [['label' => 'secret']]]);
+    store('de', 'locations.json', [['id' => 'cathedral']]);
+
+    echo "\nToons list + toon bundle\n";
+    $r = call('GET', "$api/library/toons", null, null, ['Origin: https://elsewhere.example']);
+    $entry = array_values(array_filter(is_array($r['body']) ? $r['body'] : [], fn($t) => ($t['id'] ?? '') === $toon))[0] ?? null;
+    check($r['status'] === 200 && $entry !== null && $entry['languages'] === ['de', 'en'], 'toons list has the published index entry', $r['raw']);
+    check(($r['headers']['access-control-allow-origin'] ?? '') === '*' && ($r['headers']['cache-control'] ?? '') === 'public, max-age=60', 'public: any origin, cached 60 s', $r['headers']);
+    $r = call('GET', "$lib?locale=en");
+    check($r['status'] === 200 && array_keys($r['body']) === ['entry', 'toon', 'seasons', 'locations', 'routes', 'collectables'], 'toon bundle shape', $r['raw']);
+    check(($r['body']['toon']['title'] ?? '') === 'Toon en' && ($r['headers']['content-language'] ?? '') === 'en', 'toon.json in the asked locale', $r['headers']);
+    check(($r['body']['locations'] ?? null) === [['id' => 'cathedral']], 'locations: en missing → de (source)', $r['body']['locations'] ?? null);
+    $chapters = $r['body']['seasons'][0]['chapters'] ?? [];
+    check(array_column($chapters, 'number') === [1, 3] && array_column($chapters, 'status') === ['published', 'coming-soon'], 'season overview lists published + coming-soon, not the draft', $chapters);
+    check(isset($chapters[0]) && !array_key_exists('groups', $chapters[0]) && !array_key_exists('audio', $chapters[0]) && $chapters[0]['title'] === 'Eins',
+        'chapter summaries carry no groups/audio', $chapters[0] ?? null);
+    $r = call('GET', "$lib/seasons/1?locale=de");
+    check($r['status'] === 200 && $r['body']['number'] === 1 && $r['body']['season']['title'] === 'Staffel de', 'season endpoint', $r['raw']);
+
+    echo "\nChapter\n";
+    $r = call('GET', "$lib/chapters/1?locale=de");
+    check($r['status'] === 200 && ($r['body']['groups'][0]['label'] ?? '') === 'scene-a' && ($r['body']['groups'][1]['label'] ?? '') === 'inline',
+        'one request: the ref group is the scene file', $r['raw']);
+    check(str_contains($r['raw'], '"params":{}') && str_contains($r['raw'], '"volume":0.5'), 'stored JSON kept ({} objects, numbers)', $r['raw']);
+    $etag = $r['headers']['etag'] ?? '';
+    check(preg_match('/^"l[0-9a-f]{24}"$/', $etag) === 1, 'ETag', $etag);
+    $r2 = call('GET', "$lib/chapters/1?locale=de", null, null, ["If-None-Match: $etag"]);
+    check($r2['status'] === 304 && $r2['raw'] === '', 'If-None-Match → 304 without body', $r2);
+    $r = call('GET', "$lib/chapters/1?locale=en");
+    check($r['status'] === 200 && ($r['headers']['content-language'] ?? '') === 'de' && ($r['headers']['x-content-fallback'] ?? '') === '1',
+        'en missing → de, flagged (Content-Language + X-Content-Fallback)', $r['headers']);
+    $r = call('GET', "$lib/chapters/2");
+    check($r['status'] === 403 && $r['body']['error'] === 'not_public', 'draft chapter → 403 not_public', $r);
+    $r = call('GET', "$lib/chapters/3");
+    check($r['status'] === 403 && $r['body']['error'] === 'coming_soon' && ($r['body']['chapter']['release'] ?? '') === '2027-01-01' && !isset($r['body']['chapter']['groups']),
+        'coming-soon → 403 coming_soon + summary (no content)', $r['raw']);
+    check(call('GET', "$lib/chapters/9")['status'] === 403, 'chapter not in the season → 403');
+    check(call('GET', "$lib/chapters/1?locale=xyz")['body']['error'] === 'invalid_locale', 'invalid locale → 400');
+
+    echo "\nPublish → visible at once (cache keyed by version ids)\n";
+    store('de', 'chapter1/scene-a.json', ['label' => 'scene-a v2', 'events' => []]);
+    $r = call('GET', "$lib/chapters/1?locale=de", null, null, ["If-None-Match: $etag"]);
+    check($r['status'] === 200 && ($r['body']['groups'][0]['label'] ?? '') === 'scene-a v2' && ($r['headers']['etag'] ?? '') !== $etag,
+        'new scene version: new ETag, new content', [$r['status'], $r['headers']['etag'] ?? null]);
+    store('de', 'chapter1/scene-a.json', ['label' => 'scene-a draft'], false);
+    $r = call('GET', "$lib/chapters/1?locale=de");
+    check(($r['body']['groups'][0]['label'] ?? '') === 'scene-a v2', 'an unpublished draft is not public');
+
+    echo "\nDraft mode (creator preview)\n";
+    $r = call('GET', "$lib/chapters/1?draft=1");
+    check($r['status'] === 401, '?draft=1 without session → 401', $r);
+    $r = call('GET', "$lib/chapters/1?draft=1", null, $memberToken);
+    check($r['status'] === 403 && $r['body']['error'] === 'forbidden', '?draft=1 as member → 403', $r);
+    $r = call('GET', "$lib/chapters/1?draft=1", null, $creatorToken);
+    check($r['status'] === 200 && ($r['body']['groups'][0]['label'] ?? '') === 'scene-a draft' && ($r['headers']['cache-control'] ?? '') === 'private, no-store',
+        'creator: newest versions, not cacheable', [$r['status'], $r['headers']['cache-control'] ?? null]);
+    $r = call('GET', "$lib/chapters/2?draft=1", null, $creatorToken);
+    check($r['status'] === 200 && $r['body']['title'] === 'Zwei de', 'creator: draft chapters readable', $r['raw']);
+
+    echo "\nCast, credits, events\n";
+    $r = call('GET', "$lib/cast");
+    check($r['status'] === 200 && array_key_exists('registry', $r['body']) && $r['body']['cast'] === null, 'cast without cast.json → cast null', $r['raw']);
+    check(call('GET', "$lib/credits")['status'] === 404, 'credits without credits.json → 404');
+    store('_', 'credits.json', ['toon' => $toon, 'sections' => []]);
+    $r = call('GET', "$lib/credits");
+    check($r['status'] === 200 && $r['body']['credits']['toon'] === $toon && array_key_exists('people', $r['body']), 'credits answer', $r['raw']);
+    $r = call('GET', "$api/events/");
+    check(in_array($r['status'], [200, 404], true) && ($r['status'] === 404 ? $r['body']['error'] === 'not_found' : is_array($r['body'])), 'events: the stored list (or 404 before the seed)', $r['status']);
+
+    echo "\nToon visibility\n";
+    store('_', 'index.json', ['id' => $toon, 'status' => 'draft', 'languages' => ['de', 'en']]);
+    $r = call('GET', "$lib/chapters/1");
+    check($r['status'] === 404, 'draft toon → every endpoint 404', $r);
+    check(!in_array($toon, array_column((array) call('GET', "$api/library/toons")['body'], 'id'), true), 'draft toon not listed');
+    $r = call('GET', "$api/library/toons?draft=1", null, $creatorToken);
+    check(in_array($toon, array_column((array) $r['body'], 'id'), true), 'creators list draft toons', $r['status']);
+} catch (Throwable $e) {
+    check(false, 'exception', $e->getMessage());
+} finally {
+    Db::run('DELETE FROM content_versions WHERE toon = ?', [$toon]);
+    foreach ([$member, $creator] as $user) {
+        Db::run('DELETE FROM sessions WHERE user_id = ?', [$user['id']]);
+        Db::run('DELETE FROM user_roles WHERE user_id = ?', [$user['id']]);
+        Db::run('DELETE FROM inventory WHERE user_id = ?', [$user['id']]);
+        Db::run('DELETE FROM avatar_slots WHERE user_id = ?', [$user['id']]);
+        Db::run('DELETE FROM users WHERE id = ?', [$user['id']]);
+    }
+}
+
+echo "\n" . ($checks - $failures) . "/$checks checks passed\n";
+exit($failures === 0 ? 0 : 1);

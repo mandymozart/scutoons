@@ -40,6 +40,8 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `VERSION_URLS` | the five production `version.json` URLs | `app=url,…` fetched by `GET /api/admin/versions` (viewer, admin, creator, shop, qr) |
 | `ITEMS_PATH`, `EDITIONS_PATH`, `TOONS_PATH` | `config/*.json` | catalog data |
 | `PRODUCTS_PATH`, `FEATURED_PRODUCTS_PATH` | `config/products.json`, `config/featured-products.json` | shop catalog + homepage featured products, served as stored |
+| `CACHE_DRIVER`, `CACHE_PATH` | `auto`, `storage/cache` | server cache of the library answers (docs/API.md "Library"): `auto` = APCu when enabled, else files below `CACHE_PATH`; `apcu`, `file`, `none` |
+| `CONTENT_SHOW_DRAFTS` | `0` | `1` = the library endpoints show `draft` toons/chapters (local development, like the dev viewer); production `0` |
 | `PERMISSIONS_PATH` | `config/permissions.json` | what each code type grants (server-only) – see docs/API.md |
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |
 | `KEYPAIR_PATH` | `storage/keys/keypair.json` | ML-DSA-65 keypair (was `api/keys/keypair.json`) |

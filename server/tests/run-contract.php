@@ -9,9 +9,11 @@
  *    adds an expired and a revoked code to it
  * 2. starts the API `php -S 127.0.0.1:<port> -t public public/router.php` (QR_DB_SQLITE_PATH = the copy, a random
  *    QR_PROXY_SECRET) and the qr app (../qr) in front of it: <port+1> full API proxied, <port+2> PROXY_FULL_API=0,
- *    <port+3> with its API down (fallback page), <port+4> in front of a second API (<port+5>) with lookup + scan limit 1
- * 3. runs api-smoke, content-smoke, claim-race (claim + signup), admin-smoke against the API and the printed-URL suite
- *    (../qr/tests/public-urls.php) against the qr app
+ *    <port+3> with its API down (fallback page), <port+4> in front of a second API (<port+5>) with lookup + scan limit 1;
+ *    <port+6> = an API on a FRESH database seeded with import-content from viewer/static/api + shared/content/seed
+ *    (CONTENT_SHOW_DRAFTS=1) for the library compare
+ * 3. runs api-smoke, content-smoke, claim-race (claim + signup), admin-smoke, entities-smoke against the API,
+ *    entities-compare against <port+6> and the printed-URL suite (../qr/tests/public-urls.php) against the qr app
  * 4. stops the servers and deletes the copy and the qr caches (--keep keeps the copy and prints its path)
  * Needs config.local.php with MAIL_TRANSPORT=log (the suites read one-time codes from the mail log).
  */
@@ -58,6 +60,23 @@ $insert->execute(['contract-revoked', 'contractRevoked1', '2020-01-01 00:00:00',
 $pdo->exec('DELETE FROM settings');
 $pdo = null;
 
+// A FRESH database seeded from the static files + the content seed only: the library compare (tests/entities-compare.php)
+$fresh = str_replace('\\', '/', sys_get_temp_dir()) . '/scutoons-contract-fresh-' . getmypid() . '.sqlite';
+@unlink($fresh);
+$freshDb = Scutoons\Infrastructure\Database\Database::sqlite($fresh);
+(new Scutoons\Infrastructure\Database\MigrationRunner($freshDb, $root . '/migrations'))->migrate(static fn() => null);
+$freshDb->close();
+$freshDb = null;
+$staticApi = dirname($root) . '/viewer/static/api';
+$contentSeed = dirname($root) . '/shared/content/seed';
+foreach ([$staticApi, $contentSeed] as $folder) {
+    exec(escapeshellarg(PHP_BINARY) . ' ' . escapeshellarg("$root/bin/console") . ' import-content ' . escapeshellarg($folder) . ' --db=' . escapeshellarg($fresh), $importOut, $importCode);
+    if ($importCode !== 0) {
+        fwrite(STDERR, "import-content $folder failed:\n" . implode("\n", array_slice($importOut, -10)) . "\n");
+        exit(2);
+    }
+}
+
 $qrRoot = dirname($root) . '/qr';
 $tmp = str_replace('\\', '/', sys_get_temp_dir()) . '/scutoons-contract-' . getmypid();
 $secret = bin2hex(random_bytes(16));
@@ -66,6 +85,8 @@ $env['QR_DB_SQLITE_PATH'] = $copy;
 $env['QR_QR_PROXY_SECRET'] = $secret;          // the API trusts the qr app's forwarded client IP / device id
 $env['QR_ACCESS_MAX_PER_IP_HOUR'] = '100000';  // every suite runs from 127.0.0.1
 $env['QR_SCAN_MAX_PER_IP_HOUR'] = '100000';    // (admin-smoke sets the scan limit to 3 and back through the admin API)
+$env['QR_CONTENT_SHOW_DRAFTS'] = '0';          // the library gates as in production (entities-smoke)
+$env['QR_CACHE_PATH'] = "$tmp-libcache";        // library answers of the test servers stay out of storage/cache
 $servers = [];
 $start = function (int $port, array $extraEnv, string $dir = '', string $ready = '/api/health/') use ($root, $env, &$servers): void {
     $dir = $dir !== '' ? $dir : $root;
@@ -93,6 +114,7 @@ try {
     // (PROXY_FULL_API=0), :port+3 (its API is down, same cache as :port+1), :port+4 (in front of the limited API)
     $start($port, []);
     $start($port + 5, ['QR_ACCESS_MAX_PER_IP_HOUR' => '1', 'QR_SCAN_MAX_PER_IP_HOUR' => '1']);
+    $start($port + 6, ['QR_DB_SQLITE_PATH' => $fresh, 'QR_CONTENT_SHOW_DRAFTS' => '1']);
     $start($port + 1, $qr($port, 'cache'), $qrRoot, '/version.json');
     $start($port + 2, $qr($port, 'cache-off', ['QRAPP_PROXY_FULL_API' => '0']), $qrRoot, '/version.json');
     $start($port + 3, $qr(1, 'cache'), $qrRoot, '/version.json');
@@ -105,6 +127,8 @@ try {
         'claim-race (claim)' => ['tests/claim-race.php', '8', 'claim'],
         'claim-race (signup)' => ['tests/claim-race.php', '8', 'signup'],
         'admin-smoke' => ['tests/admin-smoke.php', $base, 'http://127.0.0.1:' . ($port + 1)],
+        'entities-smoke' => ['tests/entities-smoke.php', $base],
+        'entities-compare (fresh DB = static files)' => ['tests/entities-compare.php', 'http://127.0.0.1:' . ($port + 6), "--static=$staticApi", "--seed=$contentSeed"],
         'public-urls (qr app → API)' => [$publicUrls, 'http://127.0.0.1:' . ($port + 1), "--api=$base", "--db=$copy",
             '--down=http://127.0.0.1:' . ($port + 3), '--limited=http://127.0.0.1:' . ($port + 4)],
         'public-urls (PROXY_FULL_API=0)' => [$publicUrls, 'http://127.0.0.1:' . ($port + 2), "--api=$base", "--db=$copy", '--full-api=off'],
@@ -130,6 +154,10 @@ try {
         proc_terminate($proc);
         proc_close($proc);
     }
+    foreach (glob("$tmp-libcache/library/*") ?: [] as $file) @unlink($file);
+    @rmdir("$tmp-libcache/library");
+    @rmdir("$tmp-libcache");
+    @unlink($fresh);
     foreach (glob("$tmp-cache*/*.json") ?: [] as $file) @unlink($file);
     foreach (glob("$tmp-cache*", GLOB_ONLYDIR) ?: [] as $dir) @rmdir($dir);
     if ($keep) echo "\nKept the database copy: $copy\n";

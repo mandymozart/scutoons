@@ -209,8 +209,9 @@ try {
         $pdo = new PDO('sqlite:' . $copy, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]);
         $rows = $pdo->query("SELECT locale, path, status, json, author FROM content_versions WHERE toon = 'catpope'")->fetchAll();
         $expected = 0;
-        foreach (glob("$staticApi/catpope/*/{toon,season*,chapter*}.json", GLOB_BRACE) ?: [] as $f) $expected++;
+        foreach (glob("$staticApi/catpope/*/{toon,season*,chapter*,locations,routes,collectables}.json", GLOB_BRACE) ?: [] as $f) $expected++;
         foreach (glob("$staticApi/catpope/*/chapter*/*.json") ?: [] as $f) $expected++;
+        $expected++; // catpope/_/index.json = its toons.json entry (agents/DATA.md)
         check($code1 === 0 && count($rows) === $expected && $expected > 10, "import: $expected files as versions", [$code1, count($rows), $expected, array_slice($out1, -2)]);
         check(count(array_filter($rows, fn($r) => $r['status'] === 'published' && $r['author'] === null)) === count($rows), 'import: all published, no author');
         check($code2 === 0 && str_contains(implode("\n", $out2), '0 imported') && (int) $pdo->query("SELECT COUNT(*) FROM content_versions WHERE toon = 'catpope'")->fetchColumn() === $expected,
@@ -230,7 +231,9 @@ try {
         $roundTrip = true;
         foreach ($inserts as [, $locale, $path, $literal]) {
             $json = preg_replace_callback('/\\\\(.)/s', fn($m) => ['0' => "\0", 'n' => "\n", 'r' => "\r", 'Z' => "\x1a"][$m[1]] ?? $m[1], $literal);
-            $static = json_decode((string) file_get_contents("$staticApi/catpope/$locale/$path"), true);
+            $static = $locale === '_' && $path === 'index.json'
+                ? array_values(array_filter(json_decode((string) file_get_contents("$staticApi/toons.json"), true), fn($t) => $t['id'] === 'catpope'))[0]
+                : json_decode((string) file_get_contents("$staticApi/catpope/$locale/$path"), true);
             if (json_decode($json, true) !== $static) $roundTrip = false;
         }
         check($sqlCode === 0 && count($inserts) === $expected && substr_count($sql, 'WHERE NOT EXISTS') === $expected && $roundTrip,

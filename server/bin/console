@@ -9,6 +9,7 @@ declare(strict_types=1);
  *   php bin/console migrate [--status]                 apply pending migrations (migrations/<driver>/)
  *   php bin/console roles grant|revoke|list <email> [role]
  *   php bin/console import-content <viewer/static/api> [--toon=] [--db=] [--update] [--dry-run] [--sql]
+ *   php bin/console export-content <dir> [--toon=] [--draft] [--db=]   the store back into files (import/export format)
  *   php bin/console backfill-edition-numbers [--dry-run] [--sql] [--force] [--manifests=<dir>]
  *   php bin/console report-orphan-codes [--csv] [--manifests=<dir>]
  *   php bin/console list                               all commands, `help <command>` for details
@@ -21,6 +22,7 @@ if (PHP_SAPI !== 'cli') {
 require __DIR__ . '/../vendor/autoload.php';
 
 use Scutoons\Console\BackfillEditionNumbersCommand;
+use Scutoons\Console\ExportContentCommand;
 use Scutoons\Console\ImportContentCommand;
 use Scutoons\Console\MigrateCommand;
 use Scutoons\Console\ReportOrphanCodesCommand;
@@ -30,7 +32,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class] as $command) {
+foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

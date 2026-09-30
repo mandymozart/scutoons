@@ -119,6 +119,19 @@ start empty) and lists toons from `/library/toons?draft=1`. Admin `/admin/conten
 editor (events, map, collectables; later products/items/editions/permissions) are written by `import-content --update`
 or the creator's raw JSON editor until an editor exists; private documents are only readable with `draft=1` + role.
 
+**No JSON files in the UI (owner, 2026-09-30).** Once the API serves everything from the database, the creator and
+admin never show file names (`chapter1.json`, `toon.json`, `season1.json`), `_` locale chips, `v76` path chips or
+"store file" wording – only entities: "Chapter 1", "Season 1", "Toon settings", "Characters", "Credits", "Draft v71 /
+Published v70". The path stays the storage key on the server (§2), hidden behind one mapping:
+- `@scutoons/content` gets `EntityKey = { kind, toon, locale?, number?, scene? }` (kinds: `toon-index`, `toon`,
+  `season`, `chapter`, `scene`, `map-locations`, `map-routes`, `collectables`, `cast`, `credits`, `characters`,
+  `moods`, `asset-requests`, `people`, `roles`, `events`) with `entityKey(scope, locale, path)` ↔
+  `entityPath(key)`; `@scutoons/api`'s content functions take an `EntityKey`.
+- The creator's entity → label helper (built by the UI agent) switches from paths to `EntityKey` in Phase C; editor
+  documents (`ContentDoc`) are keyed by `EntityKey`, and the remaining path-based internals (path regexes in
+  components, `getStatic`, path chips) go.
+- JSON may be named only in the import/export UI (the interchange format).
+
 ## 6. PWA concept (design only)
 
 - **Service Worker** (SvelteKit `src/service-worker.ts`), caches per type:
@@ -145,8 +158,8 @@ or the creator's raw JSON editor until an editor exists; private documents are o
 | Phase | What | When |
 |---|---|---|
 | A | this design | ✅ 2026-09-30 |
-| B | server: library endpoints, cache, import of the new kinds, `export-content`, PHPUnit + `entities-smoke` + `entities-compare` | now – additive, the frontends don't call it; safe to ship with the release |
-| C | viewer, creator, admin, shop on the library endpoints; static files + fallbacks removed; measured with `scripts/perf/measure.mjs` | **after the release** (coordinator's go; the VN agent owns the viewer loaders until then) |
+| B | server: library endpoints, cache, import of the new kinds, `export-content`, PHPUnit + `entities-smoke` + `entities-compare` | ✅ 2026-09-30 (below) – additive, the frontends don't call it; safe to ship with the release |
+| C | viewer, creator, admin, shop on the library endpoints; static files + fallbacks removed; `EntityKey` instead of paths in the creator/admin (no JSON file names in the UI, §5); measured with `scripts/perf/measure.mjs` + `scripts/vn/vn-check.mjs` | **after the release** (coordinator's go; the VN agent owns the viewer loaders until then) |
 | B2 | products/featured, items/editions, permissions (private) into the store, services read store → config fallback, QR toons list derived | after C |
 | D | PWA (§6) | after C |
 
@@ -162,3 +175,26 @@ store → static.
 - all-inkl may lack APCu → file cache; `storage/cache/` must be writable and excluded from deploys (like `storage/`).
 - Store/static drift: after C the store is the only source; `export-content` is the backup/diff tool.
 - Draft leakage: draft answers are `no-store` and never enter the server cache.
+
+## Phase B — result (2026-09-30)
+
+| Where | What |
+|---|---|
+| `server/src/Domain/Library/` | `Library` (compositions, gates, locale fallback, cache key), `Snapshot` (version ids of the scopes, lazy documents, fingerprint), `Context`, `Answer` |
+| `server/src/Http/Controllers/LibraryController.php` | the 7 GET routes (`config/routes.php`), headers, 304, `?draft=1` role check |
+| `server/src/Infrastructure/Cache/` | `Cache` + `ApcuCache`, `FileCache` (atomic writes, pruned by age), `NullCache`; `config/container.php` picks by `CACHE_DRIVER` |
+| settings | `CACHE_DRIVER` (auto), `CACHE_PATH` (`storage/cache`, gitignored, deploy-protected like all of `storage/`), `CONTENT_SHOW_DRAFTS` (0; `1` in the local `config.local.php`) |
+| `ImportContentCommand` | `sources()`: `toons.json` → `<toon>/_/index.json` (file order), `events.json` → `scutoons/_/events.json`, `<toon>/<l>/{locations,routes,collectables}.json`; `--only` also matches the source file name |
+| `ExportContentCommand` | `export-content <dir> [--toon] [--draft] [--db]` – the store back into the file layout; reads back to the same documents (unit test) |
+| tests | PHPUnit `LibraryTest` (9) + `LibraryApiTest` (3); `tests/entities-smoke.php` (32 checks, through the creator's write path); `tests/entities-compare.php` (35 checks: every toon/locale/chapter, cast, credits, events of a fresh DB seeded from `viewer/static/api` + `shared/content/seed` == the static composition); both in `run-contract.php` (API on `<port+6>` with the fresh DB) |
+
+Decisions made while building: a season entry whose chapter file is missing is listed with empty fields (+
+`X-Content-Missing`) instead of failing the whole toon; the chapter summary drops `groups` + `audio` only (everything
+else of the chapter file stays, the viewer's `LoadedSequenceItem` minus the heavy fields); the cast answer is
+language-neutral (resolution stays in `resolveCast`), `?chapter=` walks every `character` field of the composed chapter.
+
+Local dev store: backup `server/db/local.sqlite.bak-2026-09-30-library`, then `import-content … --only=toons.json,
+events.json,locations.json,routes.json,collectables.json` (15 new documents) and `--update --only=toons.json
+--toon=catpope` (catpope's index entry had drafts only). toptoy's published index entry (source `en`, a creator
+decision) was left alone – the store wins over `toons.json`.
+

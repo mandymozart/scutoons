@@ -32,6 +32,7 @@ use Scutoons\Http\Controllers\ContentController;
 use Scutoons\Http\Controllers\HealthController;
 use Scutoons\Http\Controllers\InventoryController;
 use Scutoons\Http\Controllers\KeysController;
+use Scutoons\Http\Controllers\LibraryController;
 use Scutoons\Http\Controllers\Legacy\GenerateController;
 use Scutoons\Http\Controllers\MeController;
 use Scutoons\Http\Controllers\NotFoundController;
@@ -107,6 +108,15 @@ return static function (App $app): void {
     $app->put('/api/progress/{toon:[A-Za-z0-9_-]{1,64}}', [ProgressController::class, 'put']);
 
     $app->map(['GET', 'PUT', 'POST'], '/api/content/{rest:.+}', ContentController::class);
+
+    // Library: the reader's entities composed from the content store (agents/DATA.md, docs/API.md "Library")
+    $app->get('/api/library/toons', [LibraryController::class, 'toons']);
+    $app->get('/api/library/toons/{toon}', [LibraryController::class, 'toon']);
+    $app->get('/api/library/toons/{toon}/seasons/{number:[0-9]{1,6}}', [LibraryController::class, 'season']);
+    $app->get('/api/library/toons/{toon}/chapters/{number:[0-9]{1,6}}', [LibraryController::class, 'chapter']);
+    $app->get('/api/library/toons/{toon}/cast', [LibraryController::class, 'cast']);
+    $app->get('/api/library/toons/{toon}/credits', [LibraryController::class, 'credits']);
+    $app->get('/api/events', [LibraryController::class, 'events']);
 
     // PUBLIC URLS (printed): legacy validation for old viewer builds, public key of the certificate signatures
     $app->any('/api/validate[/index.php]', ValidateController::class);

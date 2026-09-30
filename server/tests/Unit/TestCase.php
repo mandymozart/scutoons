@@ -56,6 +56,8 @@ abstract class TestCase extends BaseTestCase
             'MAIL_LOG_PATH' => $this->dir . '/mail.log',
             'FILES_PATH' => $this->dir . '/files',
             'KEYPAIR_PATH' => $this->dir . '/keypair.json',
+            'CACHE_DRIVER' => 'file',
+            'CACHE_PATH' => $this->dir . '/cache',
             'LOG_PATH' => '',
             'APP_URL' => 'http://viewer.test',
             'QR_URL' => 'http://qr.test',

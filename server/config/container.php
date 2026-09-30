@@ -9,6 +9,10 @@ declare(strict_types=1);
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Scutoons\Domain\RequestContext;
+use Scutoons\Infrastructure\Cache\ApcuCache;
+use Scutoons\Infrastructure\Cache\Cache;
+use Scutoons\Infrastructure\Cache\FileCache;
+use Scutoons\Infrastructure\Cache\NullCache;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Clock\SystemClock;
 use Scutoons\Infrastructure\Config\Settings;
@@ -34,4 +38,17 @@ return [
     Templates::class => static fn(ContainerInterface $c): Templates => new Templates($c->get(Settings::class)->root() . '/templates'),
     KeyStore::class => static fn(ContainerInterface $c): KeyStore => new KeyStore($c->get(Settings::class)->path('KEYPAIR_PATH')),
     FileStore::class => static fn(ContainerInterface $c): FileStore => new FileStore($c->get(Settings::class)->path('FILES_PATH')),
+
+    // Composed library answers (agents/DATA.md §3): APCu when the host has it, else files in CACHE_PATH
+    Cache::class => static function (ContainerInterface $c): Cache {
+        $settings = $c->get(Settings::class);
+        $driver = strtolower($settings->get('CACHE_DRIVER')) ?: 'auto';
+        $path = $settings->path('CACHE_PATH');
+        return match (true) {
+            $driver === 'none' => new NullCache(),
+            $driver === 'apcu' || ($driver === 'auto' && ApcuCache::available()) => ApcuCache::available() ? new ApcuCache() : new NullCache(),
+            $path === '' => new NullCache(),
+            default => new FileCache($path . '/library'),
+        };
+    },
 ];

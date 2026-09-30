@@ -88,6 +88,13 @@ return [
     // Shop catalog + homepage featured products (GET /api/products/, /api/products/featured/)
     'PRODUCTS_PATH' => 'config/products.json',
     'FEATURED_PRODUCTS_PATH' => 'config/featured-products.json',
+    // Composed answers of the library endpoints /api/library/* (agents/DATA.md): auto (APCu when enabled, else files
+    // in CACHE_PATH) | apcu | file | none. The keys contain the version ids, so publishing needs no invalidation.
+    'CACHE_DRIVER' => 'auto',
+    'CACHE_PATH' => 'storage/cache',
+    // 1 = toons / chapters with the status `draft` are readable through the public library endpoints (local
+    // development, like the viewer's dev mode); production 0. Creators read drafts with ?draft=1 either way.
+    'CONTENT_SHOW_DRAFTS' => '0',
     // What each code type grants (server-only, never served)
     'PERMISSIONS_PATH' => 'config/permissions.json',
     // Batch manifests, QR SVGs, certificates, signatures, ZIPs (was generate/files/)
