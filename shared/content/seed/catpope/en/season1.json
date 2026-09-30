@@ -20,8 +20,8 @@
 	"credits": {
 		"artist": ["Mandy Mozart", "Thomas Dalby"],
 		"writer": "Mandy Mozart",
-		"music": ["Mandy Mozart", "Chris Nova Ludwig"],
-		"sound": ["Mandy Mozart", "Chris Nova Ludwig"]
+		"music": ["Mandy Mozart", "Nova Ludwig"],
+		"sound": ["Mandy Mozart", "Nova Ludwig"]
 	},
 	"sequence": [
 		{ "type": "chapter", "number": 1, "status": "published" },
