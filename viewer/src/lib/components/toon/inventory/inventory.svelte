@@ -201,7 +201,13 @@
 		background: var(--primary-color);
 	}
 
+	/* the whole inventory is dark (owner 2026-09-30): the tokens are inverted here, so the switch, items, avatar and
+	   detail views follow */
 	.inventory {
+		--ink: #ffffff;
+		--paper: #000000;
+		--text-muted: #a6a6a6;
+		--border-muted: #555555;
 		position: fixed;
 		left: 0;
 		right: 0;
@@ -244,25 +250,22 @@
 		padding: 1rem;
 		background: black;
 	}
-	/* two plain buttons on the dark header (owner 2026-09-30): the active one inverted (ink), no tab joining the sheet */
+	/* the switch uses the secondary (outlined) button look of the panel, like "Kombinieren" (owner 2026-09-30):
+	   inactive = muted outline, active = ink outline */
 	.tabs button {
 		padding: 0.5rem 1rem;
-		background: var(--paper);
+		background: transparent;
 		color: var(--ink);
-		border: 2px solid white;
+		border: 2px solid var(--border-muted);
 		cursor: pointer;
 	}
+	.tabs button:hover,
 	.tabs button.active {
-		background: black;
-		color: white;
+		background: transparent;
+		border-color: var(--ink);
 	}
 
-	/* the whole inventory is dark (owner 2026-09-30): the tokens are inverted here, so items, avatar and detail views follow */
 	.sheet {
-		--ink: #ffffff;
-		--paper: #000000;
-		--text-muted: #a6a6a6;
-		--border-muted: #555555;
 		position: relative;
 		z-index: 1;
 		background: var(--paper);
