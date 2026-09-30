@@ -304,3 +304,11 @@ Long-term: story → script → scenes → frames/assets/missing characters, pro
 overriding generated content, and an AI assistant in the creator that reorganizes content via the API only (not
 code). Dev and exploratory work stay separate. Details: [AUTOMATION.md](AUTOMATION.md).
 
+## Follow-up: avatar is its own view (2026-09-30, owner edit of workflows/characters/base-views.md)
+
+The avatar is now a separately generated view (head with neck, 600 × 600) instead of a downscaled portrait; the
+portrait goes down to above the waist with arms. To do: `cdn/tools/make_character_webp.py` + the characters import
+must downscale the delivered `_avatar-*` image to the 192 px display copy instead of generating it from the portrait,
+and not overwrite a delivered avatar. Open question for the owner: mood avatars — generate per mood like portraits,
+or crop the head from each mood portrait? (Existing sets keep their portrait-derived avatars until replaced.)
+

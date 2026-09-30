@@ -14,12 +14,12 @@ Moods are a separate step (`moods.md`, to come): every mood is a variation of th
 
 ## The four base views (the spec)
 
-| View | Purpose | Canvas | Framing | Background | Mood |
-|---|---|---|---|---|---|
-| **portrait** | VN portrait stage (right), base for all moods | 600 × 600 px | head + shoulders, facing the viewer, eyes on the horizontal line at ~40 % from the top, head centred, top of the head/ears ~6 % below the top edge | transparent | neutral |
-| **avatar** | VN avatar slot (left), lists, pickers | 192 × 192 px | derived: the portrait scaled down (never generated separately) | transparent | = portrait |
-| **full** | full-body scenes | 600 × 1200 px (1 : 2) | whole figure in the character's characteristic standing pose, feet ~4 % above the bottom edge, head ~4 % below the top | transparent | neutral |
-| **apose** | reader avatar body (items are drawn on it) | 768 × 1152 px (2 : 3) | strict A-pose, front view, symmetrical, arms ~30–40° away from the body, palms towards the thighs, legs slightly apart, feet flat and fully visible, figure centred, same scale for every character (head top ~5 %, soles ~92 % of the height) | white with a soft floor shadow (as the existing A-poses) | neutral |
+| View         | Purpose                                       | Canvas                | Framing                                                                                                                                                                                                                                        | Background                                               | Mood       |
+| ------------ | --------------------------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------- | ---------- |
+| **portrait**   | VN portrait stage (right), base for all moods | 600 × 600 px          | head down to above the waist, with arms, facing the viewer, eyes on the horizontal line at ~40 % from the top, head centred | transparent | neutral |
+| **avatar**     | VN avatar slot (left), lists, pickers         | 600 × 600 px (shown at 192 px) | head with neck, facing the viewer, eyes on a horizontal line, fully inside the frame — generated as its own view (owner decision 2026-09-30); the 192 px display copy is downscaled from it | transparent | neutral |
+| **full**     | full-body scenes                              | 600 × 1200 px (1 : 2) | whole figure in the character's characteristic standing pose, feet ~4 % above the bottom edge, head ~4 % below the top                                                                                                                         | transparent                                              | neutral    |
+| **apose**    | reader avatar body (items are drawn on it)    | 768 × 1152 px (2 : 3) | strict A-pose, front view, symmetrical, arms ~30–40° away from the body, palms towards the thighs, legs slightly apart, feet flat and fully visible, figure centred, same scale for every character (head top ~5 %, soles ~92 % of the height) | white with a soft floor shadow (as the existing A-poses) | neutral    |
 
 A-pose looks: `swim` (plain swim shorts/pants, the default) and `naked` (cartoon-neutral, no anatomical detail, as the
 existing Cat Pope and Yellow Mouse A-poses). Story looks (e.g. helmet) are **not** A-pose looks.
@@ -45,18 +45,20 @@ First decide what the attached image is:
   reference and create ALL views below.
 
 The views (all with a neutral expression):
-1. PORTRAIT — head and shoulders, facing the viewer, eyes on a horizontal line at 40 % of the image height,
+1. AVATAR - head with neck, facing the viewer, eyes on a horizontal line, with in the frame. resolution 600x600px, transparent background
+2. PORTRAIT — head till above waist with arms, facing the viewer, eyes on a horizontal line at 40 % of the image height,
    head centred, 600 × 600 px, transparent background.
-2. FULL — the whole figure standing in its natural, characteristic pose, feet fully visible, small even margin
-   above the head and below the feet, 600 × 1200 px, transparent background.
-3. A-POSE (SWIM) — strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the
+3. FULL — the whole figure standing in its natural, characteristic pose, feet fully visible, small even margin
+   above the head and below the feet, 600 × 1200 px, transparent background. if a reference photo or concept art is provided use that to imagine what clothing and outfit the person has.
+4. A-POSE (SWIM) — strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the
    thighs, legs slightly apart, feet flat and fully visible, figure centred, head top at ~5 % and soles at ~92 % of
    the height, 768 × 1152 px, white background with a soft shadow under the feet, wearing plain swim shorts.
-4. A-POSE (NAKED) — identical to 3 in every pixel of pose, scale and framing, but without the swim shorts
+5. A-POSE (NAKED) — identical to 4 in every pixel of pose, scale and framing, but without the swim shorts
    (cartoon-neutral, no anatomical detail).
-(The small avatar is made from the portrait afterwards — do not create it.)
+
 
 Deliver each view as its own image, named:
+  <character>[-<persona>][_<look>]_avatar-neutral.png
   <character>[-<persona>][_<look>]_portrait-neutral.png
   <character>[-<persona>][_<look>]_full-neutral.png
   <character>_apose-swim.png
@@ -79,16 +81,16 @@ File names for the delivery (the importer also accepts any name inside a folder 
      background, align the eye line (portrait) or feet/head margins (full, apose). Show before/after.
    - **does not match** (e.g. a scene still, a 3/4 pose for an A-pose, cropped feet) → do **not** force it into the
      view; use it **only as the Luma reference** and generate that view too.
-   - An **avatar** given as the only source is too small to be a good reference: generate the portrait from it
-     first, then derive the avatar from the portrait (replacing the given one only if the owner agrees).
+   - An **avatar** (head with neck) is a view of its own now; as the only source it is a weak reference for the
+     body, so the full and A-pose views rely more on any other reference given.
 3. **Generate the missing views** with the single prompt above (Luma): it keeps a matching view and creates all the
    others — portrait, full, A-pose swim and A-pose naked. If a result drifts, regenerate just that view with the
    approved portrait attached as a second reference (the most faithful source for the face).
 4. **Review** (owner): approve each view or regenerate; artist-made images always win over generated ones and can
    replace them later (same file name → re-import).
 5. **Name and place** into `cdn/root/characters/<character>[-<persona>]/` with the convention names.
-6. **WebP + avatar**: `python cdn/tools/make_character_webp.py` (WebP next to every PNG, 192 px avatar from the
-   portrait).
+6. **WebP**: `python cdn/tools/make_character_webp.py` (WebP next to every PNG). The 192 px avatar display copy is
+   downscaled from the delivered **avatar** view (not from the portrait) — see the follow-up in agents/PLAN.md.
 7. **Register**: `node --experimental-transform-types shared/content/scripts/migrate-characters.ts` (+ import into the
    store) — the paths are picked up by convention; missing views stay open in "Wanted images".
 8. **Upload** with `cdn/sync.py` (option 3 → `characters`).
