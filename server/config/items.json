@@ -32,7 +32,7 @@
       },
       "kind": "virtual",
       "category": "consumable",
-      "icon": "catpope/items/cucumber.png",
+      "icon": "catpope/items/cucumber_slice.png",
       "stackable": true,
       "starter": false,
       "grantable": ["story", "scan"],
