@@ -3,6 +3,7 @@
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import type { PageProps } from './$types.js';
 
 	let { data, params }: PageProps = $props();
@@ -12,7 +13,7 @@
 	}
 
 	function goBack() {
-		goto(`/${params.toonId}`);
+		goto(localizeHref(`/${params.toonId}`));
 	}
 </script>
 

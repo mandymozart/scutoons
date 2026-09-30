@@ -1,6 +1,6 @@
 <script lang="ts">
 	import '@scutoons/tokens/index.css';
-	import { localizeHref, locales } from '$lib/paraglide/runtime.js';
+	import { getLocale, localizeHref, locales } from '$lib/paraglide/runtime.js';
 	import { page, navigating } from '$app/state';
 	import { goto } from '$app/navigation';
 	import type { LayoutData } from './$types.js';
@@ -21,6 +21,13 @@
 	const membership = setMembershipContext(session);
 	const inventory = setInventoryContext(session);
 	const itemsUi = setItemsUiContext();
+
+	// the static build serves one fallback index.html (`<html lang="de">`): the document language follows the locale of
+	// the URL (`/en/…` prefix, else cookie / browser language), like the dev server's `%paraglide.lang%`
+	$effect(() => {
+		void page.url.pathname;
+		document.documentElement.lang = getLocale();
+	});
 
 	onMount(async () => {
 		initAnimatedFavicon();

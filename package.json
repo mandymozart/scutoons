@@ -27,6 +27,7 @@
 		"dev:qr": "php -S localhost:9001 -t qr/public qr/public/router.php",
 		"check": "npm run check --workspaces --if-present",
 		"check:fonts": "node scripts/check-fonts.mjs --session",
+		"check:locale": "node scripts/check-locale.mjs",
 		"build": "npm run build --workspaces --if-present",
 		"deploy:dry-run": "node deploy/deploy.mjs all --dry-run --list=summary"
 	}
