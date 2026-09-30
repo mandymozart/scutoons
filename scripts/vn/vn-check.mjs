@@ -351,7 +351,7 @@ async function play(g, name) {
 let replays = 0;
 for (const g of groups) {
 	const name = `chapter ${g.chapter}${g.label ? ` · ${g.label}` : ''}`;
-	const counters = { steps, leftSteps, transitions, overlaps: overlaps.length, byCount: Object.keys(byCount) };
+	const counters = { steps, leftSteps, transitions, fullSteps, overlaps: overlaps.length, byCount: Object.keys(byCount) };
 	let result, attempts;
 	for (let attempt = 1; attempt <= 3; attempt++) {
 		sink = [];
@@ -362,7 +362,7 @@ for (const g of groups) {
 		replays++;
 		const why = viteLog.filter((l) => !/connect(ing|ed)/.test(l)).slice(-2).join(' / ');
 		console.log(`  replay: the dev server reloaded / updated the page during ${name}${why ? ` (${why})` : ''}`);
-		({ steps, leftSteps, transitions } = counters);
+		({ steps, leftSteps, transitions, fullSteps } = counters);
 		overlaps.length = counters.overlaps;
 		for (const k of Object.keys(byCount)) if (!counters.byCount.includes(k)) delete byCount[k];
 	}

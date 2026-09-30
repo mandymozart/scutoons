@@ -73,7 +73,13 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **IconButton** — fixed 2rem circle, `paper` bg, 2px `ink` border, hover fill `primary-cyan`, one 16px black icon,
   `touch-action: manipulation` (inventory / main-menu toggles).
 - **ChapterItem** — grid `6rem auto 3rem` (`5rem …` < 768px), hover `surface-hover`, meta in `caption` + `text-muted`,
-  coming-soon row at 0.5 opacity.
+  coming-soon row at 0.5 opacity. Under the title: the chapter's "featuring" (when set).
+- **Featuring** (`toon/featuring.svelte`, agents/ITEMS.md "Cast & featuring") — one `caption` line in `text-muted`: the
+  lead ("Staffel 1 · mit" / "Season 1 · featuring", "mit" / "featuring", "Kapitel 2 · mit") then each character as a
+  framed avatar (the 192 px avatar view, persona colour behind the head, 2px `ink` border, `radius-sm`; 1.5 rem in the
+  chapter list, 2.25 rem on the season line and at the chapter start) + the name in `ink`. Season line = the season cast
+  (the star first) under the season text; chapter start = a `paper` band with a 2px `ink` rule above the first slice
+  (only at the chapter's start, not for a `?label=` jump), below the fixed logo / menu icons.
 - **DialogueBox** (VN) — fixed bottom panel, `paper` bg, 2px `ink` border, square, `space-1` padding; hidden by
   `translateY(14rem)`, shown over 0.1s; speaker in `label-uppercase`; narrator italic; pulsing `...` when awaiting tap.
 - **ChoiceButton** (VN) — full width, left aligned, 2px `border-muted` → `border-hover` → `ink`, stacked with `space-075`.
@@ -95,7 +101,13 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     scaling: 11 / 8 at 375px, 12+ / 11 at 500px.
   - The two sides share the width: each gets what it needs at its default spacing; when both don't fit, the smaller
     need is kept (up to half), the other side gets the rest.
-  - `full` → centred, breaking the 4th wall (unchanged).
+  - `full` → the **centre group** (owner 2026-09-30), breaking the 4th wall: feet on the dialogue box's **bottom** edge
+    (the box covers the lower body; it always stays on top and readable), 80 % of the viewport height (≤ the width minus
+    1 rem per side, images 1 : 2). The front one (the speaker, else the most recent – the same recency order) stands
+    exactly centred at full size; the ones behind step back **alternating left and right by 1.5 rem** per step (2nd
+    1.5 rem left, 3rd 1.5 rem right, 4th 3 rem left …), each step 9 % smaller. The group stands behind the avatars and
+    portraits (z 70 − depth), dimmed; a full character that speaks is un-dimmed with the glow and in front of the stage
+    (z 95), still under the box (z 100). `stage.ts` `fullLayout`, `vn/characters/full.svelte`; vn-check asserts it.
   - No mood text anywhere (the art shows the mood).
   - One click per message, the last one included: the click on the last message also jumps (`jumpTo` with `wait`), and
     a group's box closes after its last message is clicked away.
@@ -204,7 +216,15 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
 - **Keyboard:** Alt+ArrowUp = one level up (the parent crumb); Alt+ArrowDown = the first child in the sidebar.
 - **Names, not files:** the UI never shows storage keys (`chapter2.json` …): one mapping `entityLabel()` in
   `@scutoons/ui` → "Chapter 2", "Season 1", "Scene 14", "Toon settings", "Characters", "Moods", "Wanted images".
-  Version chips read "de · Draft v71" / "Published v70".
+  **No version numbers anywhere** (owner 2026-09-30; the ids are store-wide row ids, kept in the API only): state chips
+  read "de · Published", "Draft · not published" (newer unpublished changes), "Not published" (never published), with
+  the last change's date in the title; the History panel lists versions by date, author and note (restore / publish
+  stay); the admin content overview shows the same state words + "N versions · changed <date>".
+- **Toon page** (owner 2026-09-30): the toon's display name (UI language, `CreatorNav.toonName`) is the title and links to
+  Toon settings; "Season 1: <title>" links to the season editor; a chapter row (its title link covers the row) opens
+  the chapter – no separate "Edit season" / "Toon settings" / "Open" buttons. **Statuses in lists are read-only badges**
+  (published / draft / coming soon per language, `status-badges.svelte`: toon page, season editor, season sidebar);
+  the status is changed only on the chapter page (Meta).
 - **Help lives in Info** (`@scutoons/ui` InfoPanel via the ActionBar's "Info" toggle, closed by default, remembered),
   not above the fields. Buttons and links carry no decorative arrows; icon-only buttons (reorder, remove, prev/next
   slice) have an accessible label.

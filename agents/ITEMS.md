@@ -552,4 +552,15 @@ cast computed from scenes would be empty there.
 - **Creator:** character picker shows the season cast first; picking someone outside adds them to the season cast
   (undo); problem list suggests missing cast/featuring entries from VN usage. Cast page = the season cast editor (no
   "+ Season" there); chapter "featuring" is edited on the chapter page.
+- **Implemented (2026-09-30):** `Chapter.featuring?: string[]` (@scutoons/content type + schema + validation: a list
+  of ids, duplicates / ids outside the season cast are warnings); helpers `toonStar`, `ensureStar`,
+  `chapterSceneCharacters`, `suggestFeaturing` (star + VN scene refs, first appearance), `featuredCharacters`,
+  `featuringSuggestions` (info problems). Star: added in front of every season by the creator (cast page on load +
+  save, chapter editor when it saves the cast; `castWithStar`), the characters generator (`migrate-characters.ts`) and
+  the library `/cast` answer (`Library::withStar`, for documents saved before); locked in the cast editor ("Star" badge,
+  no remove). Creator chapter page (Meta): featuring chips (order, remove), "Add …" (season cast first, others add to
+  the cast with the undo notice), "Suggest from the scenes" (adds, never removes). Library: the season overview and the
+  chapter pass `featuring` through; `/cast?chapter=N` includes the chapter's featuring. Reader: season line, chapter
+  list items, chapter start (DESIGN.md "Featuring"). Data: catpope chapters 1 + 2 `featuring: ["catpope"]` (chapter 1:
+  the star only until the owner names more; chapter 2: its scenes use no characters (narrator only) → the star).
 

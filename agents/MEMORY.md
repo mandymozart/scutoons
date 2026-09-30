@@ -945,3 +945,37 @@ character, persona, look and mood and doubles as the VN test bed.
   shows it on Cat Pope's `torso`.
 - Gotcha: regenerating the seed while `composer test` runs makes entities-compare fail (the fresh DB is seeded at the
   start, the files are compared later).
+
+## Cast & featuring, creator toon page, full view, vn-check (2026-09-30)
+
+- **Featuring** (ITEMS.md "Cast & featuring" → Implemented): `Chapter.featuring` + helpers in `@scutoons/content`; the
+  star rule in three places (creator `castWithStar`, `migrate-characters.ts`, library `/cast` via `Library::withStar`);
+  all existing casts already had their star (catpope, yellowmouse, toptoy, sandbox) – nothing to migrate in the store.
+  catpope chapters 1 + 2: `featuring: ["catpope"]` in the seed, imported with `import-content … --only=chapter --update`
+  (published locally: 4 new versions). Chapter 2's scenes 14–18 still have no character refs, so "suggest" = the star.
+  Open for the owner: who else appears in chapters 1 and 2 (Boy? the Crows?).
+- **Creator**: toon page title = display name (links Toon settings), season title links the season editor, rows open the
+  chapter; statuses in lists = read-only badges (`status-badges.svelte`), changed only in the chapter meta panel. Toon
+  names come from `CreatorNav.toons` (loaded once the session is a creator – the old `onMount` request could run before
+  the session was restored and leave ids in crumbs / up link). The toon page still shows "Chapters without a season: 6"
+  for catpope: the removed chapter 6's unpublished drafts are still in the entity index (store data, not touched).
+- **Full view** (DESIGN.md "VN layout" → `full`): centre group, `stage.ts` `fullLayout` (80 vh, ≤ width − 2 rem, 1 : 2),
+  feet on the box's bottom edge, alternating ±1.5 rem per step, −9 % per step, z 70 − depth / speaker 95 (box 100).
+  Sonntagnachmittag at 375 × 812: Bill (speaking) centre 187.5, 325 × 650, feet 798 (box bottom), z 95; Toptoy behind
+  centre 166.5 (−1.5 rem), 296 × 591 (−9 %), z 69, dimmed.
+- **vn-check flake – root cause**: not a VN race (10 stress runs with CPU throttling ×6 + 30 ms latency passed; a
+  probe showed `Page.navigate` returns after the new document committed). The check itself was timing-based – a fixed
+  420 ms sleep per step, 10 s for the group to start, 3 s for the next message, then it gave up silently – and it
+  didn't notice when the **dev server reloaded or hot-updated the page** mid-group (another agent's / app's file change,
+  dependency re-optimization): the VN component re-mounts and the group starts over, so the run shows "nothing shown /
+  N clicks for M messages / no jump". A 10× loop of the old flow during parallel work reproduced it (e.g. biker-default
+  39 clicks for 37, "right shows –"). It also leaked a ~120 MB Chrome profile per run in `%TEMP%` (64 `vn-check-*` =
+  8.4 GB) until **the disk was full** (0 bytes free on C: – page loads failed with `chrome-error://`); those profiles
+  were deleted and the check now removes its own. Fix: `settled()` (three equal measurements 150 ms apart), `open()`
+  (retries a failed load, waits up to 30 s for the first message), waits up to 15 s for a due message, counts main-frame
+  document loads + `[vite] hot updated` and **replays the group** (max 3 attempts, failures of a replayed attempt are
+  dropped, printed as "replay"), robust `measure()` while a document is replaced; stress options `--cpu`, `--latency`.
+  Other temp profiles of ad-hoc scripts (`perf-chrome-*` 3.8 GB, `edge-cdp-*` 2.9 GB, `vn-chrome-*` 1.8 GB,
+  `sandbox-edge-*` 0.7 GB) are still in `%TEMP%` – not ours to delete, but they fill the disk the same way.
+- **No version numbers in the UI** (owner): creator chips / history and the admin content overview show state words and
+  dates (DESIGN.md "Creator navigation"); `ContentDoc.changedAt` holds the date of the version a locale is based on.

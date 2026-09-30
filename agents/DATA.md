@@ -51,8 +51,8 @@ Segments are `:`-separated; the locale is the last segment of localized kinds; a
 locale (`chapter:catpope:2`), which is what the creator edits across languages. `kind`, `toon`, `locale` are stored as
 columns for filtering (NULL = platform-wide / language-neutral). A chapter group's scene reference stays in the content
 format (`ref.src: "chapter2/scene-14.json"`) and resolves to `scene:<toon>:2:scene-14` (`sceneEntityOfRef`,
-`EntityKey::sceneOf`). A chapter may later carry an optional `featuring` array (owner) – the chapter endpoint passes any
-chapter field through, so that is no breaking change.
+`EntityKey::sceneOf`). A chapter carries an optional `featuring` array (owner, built 2026-09-30, ITEMS.md "Cast & featuring") – the chapter
+endpoint and the season overview pass it through; the `/cast` answer always has the toon's star in every season.
 
 **Migration `2026-09-30-entity-keys`** (MySQL + SQLite, idempotent, dated after `content-versions`): creates
 `entity_versions` and copies every `content_versions` row with the **same id** (history, "v71" labels, drafts stay) and
