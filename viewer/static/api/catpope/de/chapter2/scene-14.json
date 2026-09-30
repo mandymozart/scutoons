@@ -1,25 +1,35 @@
 {
   "label": "scene-14",
-  "renderer": { "type": "vertical" },
+  "renderer": {
+    "type": "vertical"
+  },
   "slices": [
     {
-      "image": "images/1x/de/s1c2-slice-1.jpg"
+      "image": "images/1x/de/s1c2-slice-1.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-2.jpg"
+      "image": "images/1x/de/s1c2-slice-2.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-3.jpg"
+      "image": "images/1x/de/s1c2-slice-3.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-4.jpg"
+      "image": "images/1x/de/s1c2-slice-4.jpg",
+      "width": 390,
+      "height": 625
     }
   ],
   "events": [
     {
       "type": "showMessage",
       "params": {
-				"wait": true,
+        "wait": true,
         "text": "Hi, du bist auf der Suche nach Gurken"
       }
     },
@@ -29,12 +39,12 @@
         "label": "Weiter Spazieren",
         "onSelect": {
           "jumpTo": {
-						"target":{
-							"type": "chapter",
-							"value": 2,
-							"label":"scene-15"
-						}
-					}
+            "target": {
+              "type": "chapter",
+              "value": 2,
+              "label": "scene-15"
+            }
+          }
         }
       }
     },
@@ -44,12 +54,12 @@
         "label": "Auf Arbeit",
         "onSelect": {
           "jumpTo": {
-						"target":{
-							"type": "chapter",
-							"value": 2,
-							"label":"scene-20"
-						}
-					}
+            "target": {
+              "type": "chapter",
+              "value": 2,
+              "label": "scene-20"
+            }
+          }
         }
       }
     },
@@ -60,12 +70,12 @@
       "type": "end",
       "params": {
         "jumpTo": {
-					"target":{
-						"type": "chapter",
-						"value": 2,
-						"label":"scene-20"
-					}
-				}
+          "target": {
+            "type": "chapter",
+            "value": 2,
+            "label": "scene-20"
+          }
+        }
       }
     }
   ]

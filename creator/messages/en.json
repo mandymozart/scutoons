@@ -84,7 +84,7 @@
 		"use_shared": "Use shared value",
 		"make_override": "Only for {locale}",
 		"image": "Image",
-		"format_hint": "SCUTOONS slice: 390×625 px at 1x, 1170×1875 px at 3x – text-free art, the words are live text boxes.",
+		"format_hint": "SCUTOONS slice: 390 × 625 px (the webtoon standard), delivered at 1x as WebP (images/webtoon/<sXcY>/<sXcY>-slice-N.webp) – other heights are fine, the width stays 390. Text-free art, the words are live text boxes.",
 		"draw_hint": "Drag on the image to draw a text box. Arrows nudge, Shift+arrows ×10, Delete removes.",
 		"select_slice": "Select a slice on the left.",
 		"open_file": "Open file",
@@ -358,7 +358,14 @@
 		"characters_own_affiliations": "own groups for this persona",
 		"characters_remove_group_confirm": "Remove the group “{name}”? {count} characters still reference it.",
 		"characters_add_group": "Group",
-		"characters_since": "Since (toon)"
+		"characters_since": "Since (toon)",
+		"media_type": "Media",
+		"media_image": "Image",
+		"media_video": "Video",
+		"video_missing": "video not found on the CDN",
+		"video_hint": "Plays muted and inline, looping, while the slice is in view (poster only with reduced motion). H.264 MP4, ≤ 3 MB, a new file name for every new version. The image below is the poster.",
+		"poster": "poster (image)",
+		"slice_size": "Size {width} × {height} px (read from the image; standard {standard})"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

@@ -1,21 +1,33 @@
 {
   "label": "scene-18",
-  "renderer": { "type": "vertical" },
+  "renderer": {
+    "type": "vertical"
+  },
   "slices": [
     {
-      "image": "images/1x/de/s1c2-slice-16.jpg"
+      "image": "images/1x/de/s1c2-slice-16.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-17.jpg"
+      "image": "images/1x/de/s1c2-slice-17.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-18.jpg"
+      "image": "images/1x/de/s1c2-slice-18.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-19.jpg"
+      "image": "images/1x/de/s1c2-slice-19.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-20.jpg"
+      "image": "images/1x/de/s1c2-slice-20.jpg",
+      "width": 390,
+      "height": 625
     }
   ]
 }

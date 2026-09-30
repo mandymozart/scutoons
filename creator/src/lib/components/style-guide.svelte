@@ -12,8 +12,10 @@
 
 	<h3>Slices</h3>
 	<ul>
-		<li><b>390 × 625 px</b> at 1x, <b>1170 × 1875 px</b> at 3x (same 5 : 8 ratio). Other heights work, but keep the width.</li>
-		<li>Images live on the CDN under <code>&lt;toon&gt;/images/1x|3x/…</code>, named <code>s1c2-slice-NN.jpg</code>.</li>
+		<li>Standard slice: <b>390 × 625 px</b> (the webtoon standard, Naver), delivered at <b>1x only</b> as <b>WebP</b>. Other heights work, the width stays 390.</li>
+		<li>Images live on the CDN under <code>&lt;toon&gt;/images/webtoon/s1c2/s1c2-slice-N.webp</code> (one folder per chapter; <code>cdn/tools/make_slice_webp.py</code> turns delivered JPGs into these).</li>
+		<li>Every slice carries its <code>width</code> / <code>height</code> – the editor reads them from the image when you set its path (a missing size is an error).</li>
+		<li>A slice can be a <b>video</b> (muted, looping, plays in view): H.264 MP4 ≤ 3 MB, the slice image is its poster.</li>
 		<li>One reading column, max 500 px wide – all positions are <b>% of the slice</b>, font sizes <b>% of the slice width</b>.</li>
 	</ul>
 

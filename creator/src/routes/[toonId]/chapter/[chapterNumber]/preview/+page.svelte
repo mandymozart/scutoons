@@ -113,7 +113,13 @@
 			{#each shown as group, g (g)}
 				{#if group.label}<h2 class="group-label">{group.label}</h2>{/if}
 				{#each group.slices ?? [] as slice, s (s)}
-					<Slice {slice} src={asset(`${toon}/${slice.image}`)} lang={locale ?? undefined} />
+					<Slice
+							{slice}
+							src={asset(`${toon}/${slice.image}`)}
+							videoSrc={slice.video?.src ? asset(`${toon}/${slice.video.src}`) : undefined}
+							eager={g === 0 && s < 2}
+							lang={locale ?? undefined}
+						/>
 				{/each}
 			{/each}
 		</main>

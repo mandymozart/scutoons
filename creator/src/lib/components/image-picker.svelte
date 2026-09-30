@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { SLICE_FORMAT } from '$lib/editor/defaults.ts';
+	import { DEFAULT_SLICE } from '@scutoons/content';
 
 	/** Image path (relative to the toon's CDN folder) with the known paths as suggestions and a live CDN preview. */
 	let {
@@ -31,10 +31,8 @@
 	);
 	const formatNote = $derived.by(() => {
 		if (!size) return '';
-		const { w, h } = size;
-		if ((w === SLICE_FORMAT.width1x && h === SLICE_FORMAT.height1x) || (w === SLICE_FORMAT.width3x && h === SLICE_FORMAT.height3x)) return 'ok';
-		if (w === SLICE_FORMAT.width1x || w === SLICE_FORMAT.width3x) return 'height';
-		return 'off';
+		// slices are 390 px wide (1x); the standard height is 625, other heights are fine
+		return size.w === DEFAULT_SLICE.width ? 'ok' : 'off';
 	});
 
 	$effect(() => {
@@ -51,7 +49,7 @@
 			type="text"
 			list={listId}
 			value={value ?? ''}
-			placeholder="images/1x/s1c2-slice-1.jpg"
+			placeholder="images/webtoon/s1c2/s1c2-slice-1.webp"
 			onchange={(e) => onchange(e.currentTarget.value.trim())}
 			data-testid="image-path"
 		/>
@@ -73,8 +71,7 @@
 			/>
 			<span class="meta">
 				{#if failed}<b class="bad">not found on the CDN</b>{:else if size}{size.w} × {size.h} px{/if}
-				{#if showFormat && formatNote === 'height'}<span class="warn"> · width ok, height ≠ {SLICE_FORMAT.height1x}/{SLICE_FORMAT.height3x}</span>{/if}
-				{#if showFormat && formatNote === 'off'}<span class="bad"> · not {SLICE_FORMAT.width1x} / {SLICE_FORMAT.width3x} wide</span>{/if}
+				{#if showFormat && formatNote === 'off'}<span class="warn"> · not {DEFAULT_SLICE.width} px wide</span>{/if}
 			</span>
 		</div>
 	{/if}

@@ -84,7 +84,7 @@
 		"use_shared": "Gemeinsamen Wert nutzen",
 		"make_override": "Nur für {locale}",
 		"image": "Bild",
-		"format_hint": "SCUTOONS-Slice: 390×625 px bei 1x, 1170×1875 px bei 3x – Bild ohne Text, die Worte sind Live-Textboxen.",
+		"format_hint": "SCUTOONS-Slice: 390 × 625 px (Webtoon-Standard), geliefert in 1x als WebP (images/webtoon/<sXcY>/<sXcY>-slice-N.webp) – andere Höhen gehen, die Breite bleibt 390. Bild ohne Text, die Worte sind Live-Textboxen.",
 		"draw_hint": "Auf dem Bild ziehen, um eine Textbox zu zeichnen. Pfeiltasten verschieben, Shift+Pfeil ×10, Entf löscht.",
 		"select_slice": "Wähle links einen Slice.",
 		"open_file": "Datei öffnen",
@@ -358,7 +358,14 @@
 		"characters_own_affiliations": "eigene Gruppen für diese Persona",
 		"characters_remove_group_confirm": "Die Gruppe „{name}“ entfernen? {count} Figuren verweisen noch darauf.",
 		"characters_add_group": "Gruppe",
-		"characters_since": "Seit (Toon)"
+		"characters_since": "Seit (Toon)",
+		"media_type": "Medium",
+		"media_image": "Bild",
+		"media_video": "Video",
+		"video_missing": "Video nicht auf dem CDN gefunden",
+		"video_hint": "Läuft stumm und inline in Schleife, solange die Slice sichtbar ist (bei reduzierter Bewegung nur das Poster). H.264-MP4, ≤ 3 MB, für jede neue Fassung ein neuer Dateiname. Das Bild darunter ist das Poster.",
+		"poster": "Poster (Bild)",
+		"slice_size": "Größe {width} × {height} px (aus dem Bild gelesen; Standard {standard})"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

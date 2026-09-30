@@ -1,16 +1,24 @@
 {
   "label": "scene-17",
-  "renderer": { "type": "vertical" },
+  "renderer": {
+    "type": "vertical"
+  },
   "interaction": "visual-novel",
   "slices": [
     {
-      "image": "images/1x/de/s1c2-slice-12.jpg"
+      "image": "images/1x/de/s1c2-slice-12.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-13.jpg"
+      "image": "images/1x/de/s1c2-slice-13.jpg",
+      "width": 390,
+      "height": 625
     },
     {
-      "image": "images/1x/de/s1c2-slice-14.jpg"
+      "image": "images/1x/de/s1c2-slice-14.jpg",
+      "width": 390,
+      "height": 625
     }
   ]
 }

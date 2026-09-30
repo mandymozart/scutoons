@@ -44,6 +44,8 @@ export function afterFirstSlices(node: HTMLElement, count = 2, maxWait = FIRST_S
 					return new Promise<void>((ok) => {
 						el.addEventListener(el instanceof HTMLImageElement ? 'load' : 'loadeddata', () => ok(), { once: true });
 						el.addEventListener('error', () => ok(), { once: true });
+						// a failing <source> reports on itself, not on the <video>
+						el.querySelector('source:last-of-type')?.addEventListener('error', () => ok(), { once: true });
 					});
 				})
 			).then(done);

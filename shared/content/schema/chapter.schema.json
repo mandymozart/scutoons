@@ -216,7 +216,18 @@
 			"type": "object",
 			"properties": {
 				"image": {
-					"type": "string"
+					"type": "string",
+					"description": "CDN path of the slice image (1x WebP, 390 px wide) relative to the toon's folder; the poster of a video slice"
+				},
+				"width": {
+					"type": "number",
+					"description": "Size of the image in px (1x): the reader reserves the space before the lazy image loads."
+				},
+				"height": {
+					"type": "number"
+				},
+				"video": {
+					"$ref": "#/definitions/SliceVideo"
 				},
 				"audio": {
 					"$ref": "#/definitions/AudioEvents"
@@ -247,8 +258,31 @@
 				}
 			},
 			"required": [
-				"image"
+				"image",
+				"width",
+				"height"
 			]
+		},
+		"SliceVideo": {
+			"type": "object",
+			"properties": {
+				"src": {
+					"type": "string",
+					"description": "CDN path of an H.264 MP4, relative to the toon's folder like `image`"
+				},
+				"loop": {
+					"type": "boolean",
+					"description": "default true"
+				},
+				"autoplay": {
+					"type": "boolean",
+					"description": "default true: plays while the slice is in view (paused outside, poster only with reduced motion)"
+				}
+			},
+			"required": [
+				"src"
+			],
+			"description": "A looping video instead of the slice image (muted, inline). The slice's `image` is its poster."
 		},
 		"AudioEvents": {
 			"type": "object",

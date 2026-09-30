@@ -29,7 +29,7 @@
 	import SliceCanvas, { type CanvasSelection, type Scope, type Tool } from './slice-canvas.svelte';
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
-	import ImagePicker from './image-picker.svelte';
+	import SliceMedia from './slice-media.svelte';
 	import MetaPanel from './meta-panel.svelte';
 	import GroupPanel from './group-panel.svelte';
 	import AudioPanel from './audio-panel.svelte';
@@ -694,11 +694,7 @@
 							/>
 						{/if}
 					{:else if inspectorTab === 'slice'}
-						<ImagePicker toon={toon} value={activeSlice.image} known={images} showFormat onchange={(v) => activeDoc?.setShared([...slicePath, 'image'], v)} />
-						{#each activeDoc.overrides([...slicePath, 'image']) as l}
-							<p class="hint">{l}: {activeDoc.get(l, [...slicePath, 'image'])} ({m['creator.override']()})
-								<button class="ghost" onclick={() => activeDoc?.resetOverride(l, [...slicePath, 'image'])}>{m['creator.use_shared']()}</button></p>
-						{/each}
+						<SliceMedia doc={activeDoc} {slicePath} {toon} known={images} />
 						<div class="row">
 							<button class="secondary" onclick={() => moveSlice(-1)} disabled={sliceIndex === 0}>↑ move up</button>
 							<button class="secondary" onclick={() => moveSlice(1)} disabled={sliceIndex >= (activeGroup?.slices?.length ?? 0) - 1}>↓ move down</button>

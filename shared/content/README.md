@@ -11,7 +11,7 @@ No Svelte, no DOM access, no bundler globals (`import.meta.env`), no app state: 
 | Module | Exports |
 |---|---|
 | `enums.ts` | `Renderer`, `Status`, `Language`, `EventCategory`, `Trigger`, `TriggerMode`, `OnomatopoeiaVariant`, `OnomatopoeiaEffect`, `JumpToTargetType` |
-| `content.ts` | `Toon`, `ToonIndex`, `Season`, `SequenceItem`, `Chapter`, `Group`, `RefLink`, `Slice`, `Dialog` (+ `DialogVariant`, `DialogFont`), `Onomatopoeia`, `KeyVisual`, map / credits / event types, `LoadedSequenceItem` |
+| `content.ts` | `Toon`, `ToonIndex`, `Season`, `SequenceItem`, `Chapter`, `Group`, `RefLink`, `Slice` (`image` + required `width` / `height` in px + optional `video` `SliceVideo` { src, loop?, autoplay? } – the image is the video's poster), `DEFAULT_SLICE` (390 × 625), `Dialog` (+ `DialogVariant`, `DialogFont`), `Onomatopoeia`, `KeyVisual`, map / credits / event types, `LoadedSequenceItem` |
 | `audio.ts` | `AudioConfiguration`, `AudioTrack`, `AudioEvents`, `MusicEvent(Track)`, `Sample`, `SampleTrigger`, `AudioEventsConfig` |
 | `visual-novel.ts` | `VNEvent` (union of all event types), `VNSliceEvent`, `VNEventTrigger`, `Character`, `Collectable`, choices / setters / jumpTo |
 | `items.ts` | `Catalog`, `ItemDef`, `Skill`, `Recipe`, `Entry`, `Avatar`, `AVATAR_SLOTS`, `User`, `Me`, `Access`, `CodeInfo`, `Edition` (API contract: agents/ITEMS.md) |
@@ -25,6 +25,20 @@ No Svelte, no DOM access, no bundler globals (`import.meta.env`), no app state: 
 | `validate.ts` | `validateFile(kind, data, locale, ctx)`, `validateLocales(kind, file, files, primary)`, `forEachSlice()`, `checkEvent()`, `checkGroup()`, `Problem`, `Level`, `ValidateContext`, `textOf()`, `LENGTH_WARNING_RATIO` |
 
 JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{chapter,season,toon,toon-index,group,catalog,credits,people,roles,characters,moods,asset-requests,cast}.schema.json`.
+
+## Slices (owner 2026-09-30)
+
+- The standard slice is **390 × 625 px** (the Naver webtoon size, `DEFAULT_SLICE`), delivered and served at **1x only as
+  WebP**: `<toon>/images/webtoon/<sXcY>/<sXcY>-slice-N.webp` (one folder per chapter code, next to the delivered JPGs;
+  `cdn/tools/make_slice_webp.py` writes them, 390 px wide, never scaled up). Other heights are fine, the width stays 390.
+- Every slice carries `width` / `height` (px of the image): the reader reserves the space before the lazy image loads
+  (no layout shift, the audio intersection triggers fire slice by slice). `validateFile` reports a missing size as an
+  **error** and a width ≠ 390 as a warning; the creator reads the size from the CDN whenever an image path is set.
+- A slice can be a video (`video: { src, loop?, autoplay? }`, H.264 MP4 ≤ 3 MB, new name per version): muted, inline,
+  looping, plays in view, poster = `image` (the only image with reduced motion and in older viewers).
+- `node --experimental-transform-types --no-warnings shared/content/scripts/slice-sizes.ts <chapter/scene files…> [--webp]
+  [--default-missing] [--dry-run]` fills the sizes from the local CDN copy (`--webp` also points JPG slices to their WebP
+  by the naming rule); then `import-content … --update` publishes them to the store.
 
 ## Characters: glossary and the image fallback rule
 

@@ -9,18 +9,46 @@
 	"thumbnail": "images/s1c2-thumbnail.jpg",
 	"keyvisual": "images/1x/s1c2-key-visual.jpg",
 	"groups": [
-		{ "ref": { "src": "chapter2/scene-14.json" } },
-		{ "ref": { "src": "chapter2/scene-15.json" } },
-		{ "ref": { "src": "chapter2/scene-16.json" } },
-		{ "ref": { "src": "chapter2/scene-17.json" } },
-		{ "ref": { "src": "chapter2/scene-18.json" } },
-		{ "ref": { "src": "chapter2/scene-19.json" } },
+		{
+			"ref": {
+				"src": "chapter2/scene-14.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter2/scene-15.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter2/scene-16.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter2/scene-17.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter2/scene-18.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter2/scene-19.json"
+			}
+		},
 		{
 			"label": "scene-20",
-			"renderer": { "type": "vertical" },
+			"renderer": {
+				"type": "vertical"
+			},
 			"slices": [
 				{
 					"image": "images/1x/de/s1c2-slice-23.jpg",
+					"width": 390,
+					"height": 625,
 					"dialog": [
 						{
 							"id": "s1c2-slice-23-narration",
@@ -46,10 +74,14 @@
 					]
 				},
 				{
-					"image": "images/1x/de/s1c2-slice-24.jpg"
+					"image": "images/1x/de/s1c2-slice-24.jpg",
+					"width": 390,
+					"height": 625
 				},
 				{
-					"image": "images/1x/de/s1c2-slice-25.jpg"
+					"image": "images/1x/de/s1c2-slice-25.jpg",
+					"width": 390,
+					"height": 625
 				}
 			]
 		}

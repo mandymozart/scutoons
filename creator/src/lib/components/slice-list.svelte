@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { getAt, type Path } from '@scutoons/content';
+	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
+	import { fillSliceSize } from '$lib/editor/images.ts';
 	import { newSlice } from '$lib/editor/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -50,8 +51,10 @@
 			const prev = list[at - 1]?.image as string | undefined;
 			const next = prev?.match(/^(.*?)(\d+)(\.\w+)$/);
 			const image = next ? `${next[1]}${Number(next[2]) + 1}${next[3]}` : newSlice(chapterNumber, at).image;
-			list.splice(at, 0, { image });
+			list.splice(at, 0, { image, width: DEFAULT_SLICE.width, height: DEFAULT_SLICE.height });
 		});
+		// the standard size until the real one is read from the image on the CDN
+		fillSliceSize(doc, [...groupPath, 'slices', at], (path) => asset(`${doc.toon}/${path}`));
 		onselect(at);
 	}
 

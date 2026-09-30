@@ -1,6 +1,6 @@
 // Known image paths of a toon, collected from every config the editor can reach (for the image path picker).
 import { fetchContent } from '$lib/api.ts';
-import type { Season } from '@scutoons/content';
+import type { Path, Season } from '@scutoons/content';
 
 const cache = new Map<string, Promise<string[]>>();
 
@@ -69,4 +69,32 @@ export function knownImages(toon: string, locales: readonly string[], extra: unk
 /** "slice-2" before "slice-10" */
 export function naturalCompare(a: string, b: string) {
 	return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+/** Pixel size of an image on the CDN (absolute URL), null when it can't be loaded. */
+export function readImageSize(url: string): Promise<{ width: number; height: number } | null> {
+	return new Promise((resolve) => {
+		const img = new Image();
+		img.onload = () => resolve(img.naturalWidth > 0 ? { width: img.naturalWidth, height: img.naturalHeight } : null);
+		img.onerror = () => resolve(null);
+		img.src = url;
+	});
+}
+
+/**
+ * Every slice carries the size of its image (owner 2026-09-30): read it from the CDN and write `width` / `height` when
+ * they differ (a shared edit in every locale, undoable). A missing image keeps the current (standard) size.
+ */
+export async function fillSliceSize(
+	doc: { primary: string; get(locale: string, path: Path): any; setShared(path: Path, value: any, key?: string): void },
+	slicePath: Path,
+	url: (image: string) => string
+): Promise<void> {
+	const image = doc.get(doc.primary, slicePath)?.image;
+	if (typeof image !== 'string' || !image) return;
+	const size = await readImageSize(url(image));
+	const slice = doc.get(doc.primary, slicePath);
+	if (!size || !slice || slice.image !== image) return;
+	if (slice.width !== size.width) doc.setShared([...slicePath, 'width'], size.width, 'slice-size');
+	if (slice.height !== size.height) doc.setShared([...slicePath, 'height'], size.height, 'slice-size');
 }

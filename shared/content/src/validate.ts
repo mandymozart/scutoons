@@ -12,6 +12,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
+import { DEFAULT_SLICE } from './content.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -234,6 +235,18 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	if (!isObj(s)) return c.error(path, 'slice must be an object');
 	if (!isStr(s.image) || !s.image) c.error([...path, 'image'], 'slice.image is missing');
+	// every slice carries its size (lazy loading reserves the space; the audio triggers need real slice heights)
+	for (const key of ['width', 'height'] as const) {
+		if (!isNum(s[key]) || s[key] <= 0) c.error([...path, key], `slice.${key} is missing (px of the image, the standard is ${DEFAULT_SLICE.width} × ${DEFAULT_SLICE.height})`);
+	}
+	if (isNum(s.width) && s.width > 0 && s.width !== DEFAULT_SLICE.width) c.warn([...path, 'width'], `slices are ${DEFAULT_SLICE.width} px wide (this one is ${s.width})`);
+	if (s.video !== undefined) {
+		if (!isObj(s.video) || !isStr(s.video.src) || !s.video.src) c.error([...path, 'video', 'src'], 'video.src is missing (an .mp4 on the CDN)');
+		else if (!/\.(mp4|webm)$/i.test(s.video.src)) c.warn([...path, 'video', 'src'], 'video.src is not a video path (.mp4, .webm)');
+		for (const key of ['loop', 'autoplay'] as const) {
+			if (isObj(s.video) && s.video[key] !== undefined && typeof s.video[key] !== 'boolean') c.error([...path, 'video', key], `video.${key} must be true or false`);
+		}
+	}
 	if (s.dialog !== undefined) {
 		if (!Array.isArray(s.dialog)) c.error([...path, 'dialog'], 'dialog must be an array');
 		else s.dialog.forEach((d: any, i: number) => checkDialog(c, d, [...path, 'dialog', i]));

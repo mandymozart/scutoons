@@ -1,10 +1,9 @@
 // Defaults for new content, following the existing catpope configs and agents/DESIGN.md (SCUTOONS style).
 import type { Chapter, Dialog, Group, Season, Slice, Toon, ToonIndex } from '@scutoons/content';
-import { Renderer, Status } from '@scutoons/content';
+import { DEFAULT_SLICE, Renderer, Status } from '@scutoons/content';
 
-/** SCUTOONS slice format (DESIGN.md, PLAN.md decisions): 390×625 at 1x, 1170×1875 at 3x. */
-export const SLICE_FORMAT = { width1x: 390, height1x: 625, width3x: 1170, height3x: 1875 };
-export const SLICE_RATIO = SLICE_FORMAT.height1x / SLICE_FORMAT.width1x;
+/** The standard slice (PLAN.md rule, owner 2026-09-30): 390 × 625 px, delivered at 1x as WebP; other heights are fine. */
+export const SLICE_RATIO = DEFAULT_SLICE.height / DEFAULT_SLICE.width;
 
 /** `s1c2` for season 1 chapter 2 – prefix of image names and dialog ids */
 export const chapterSlug = (chapter: number, season = 1) => `s${season}c${chapter}`;
@@ -92,9 +91,14 @@ export function newGroup(label: string): Group {
 	return { label, renderer: { type: Renderer.VERTICAL }, slices: [] };
 }
 
+/** Where the slices of a chapter live: `images/webtoon/<sXcY>/<sXcY>-slice-N.webp` (1x, 390 px wide). */
+export const sliceImagePath = (chapter: number, index: number, season = 1) =>
+	`images/webtoon/${chapterSlug(chapter, season)}/${chapterSlug(chapter, season)}-slice-${index + 1}.webp`;
+
+/** A new slice: the standard size until the real image size is read from the CDN (`readImageSize`). */
 export function newSlice(chapter: number, index: number, season = 1): Slice {
 	// language-neutral path: text is live, the art is text-free (DESIGN.md Part 2)
-	return { image: `images/1x/${chapterSlug(chapter, season)}-slice-${index + 1}.jpg` };
+	return { image: sliceImagePath(chapter, index, season), width: DEFAULT_SLICE.width, height: DEFAULT_SLICE.height };
 }
 
 export function newDialog(id: string, rect: Dialog['rect'], variant: Dialog['variant'] = 'bubble'): Dialog {

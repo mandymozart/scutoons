@@ -14,6 +14,9 @@
 
 	const toonId = $derived(page.params.toonId);
 	const imageUrl = $derived(asset(`${toonId}/${slice.image}`));
+	const videoUrl = $derived(slice.video?.src ? asset(`${toonId}/${slice.video.src}`) : undefined);
+	/** the first slices load right away, the rest lazily (agents/PERFORMANCE.md P2) */
+	const EAGER_SLICES = 2;
 	// chapter files are loaded per locale, so the UI locale is the language of the text
 	const lang = getLocale();
 </script>
@@ -21,6 +24,8 @@
 <Slice
 	{slice}
 	src={imageUrl}
+	videoSrc={videoUrl}
+	eager={sliceIndex < EAGER_SLICES}
 	{lang}
 	{@attach fromAction(sliceAudio, () => ({
 		events: slice.audio,

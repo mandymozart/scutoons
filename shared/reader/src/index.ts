@@ -1,6 +1,7 @@
 // @scutoons/reader: the reader's rendering, shared by the viewer and the creator (identical output in both).
 // Components take props and emit callbacks; app state (VN/game/audio contexts, routing, i18n) stays in the apps.
 export { default as Slice } from './slice.svelte';
+export { default as SliceVideo } from './slice-video.svelte';
 export { default as Dialogs } from './dialog/dialogs.svelte';
 export { default as Dialog } from './dialog/dialog.svelte';
 export { default as Onomatopoeia } from './onomatopoeia/onomatopoeia.svelte';

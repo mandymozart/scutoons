@@ -296,7 +296,7 @@
 	<div
 		class="slice creator-canvas"
 		bind:this={canvas}
-		style:min-height={imageLoaded ? null : `${390 * zoom * SLICE_RATIO}px`}
+		style:min-height={imageLoaded ? null : `${390 * zoom * (slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : SLICE_RATIO)}px`}
 		data-testid="slice-canvas"
 	>
 		{#if image}
