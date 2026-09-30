@@ -10,6 +10,9 @@
   "keyvisual": {
     "image": "images/s1c2-key-visual.webp"
   },
+  "featuring": [
+    "catpope"
+  ],
   "groups": [
     {
       "ref": {
