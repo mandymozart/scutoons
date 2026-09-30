@@ -1,0 +1,23 @@
+{
+	"title": "Begegnung: Mausboss",
+	"author": "SCUTOONS",
+	"number": 1,
+	"language": "de",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "Sandkasten (VN-Testfeld): 35 Stimmungen in 2 Looks, Katzenpapst macht nach.",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"isPreview": true,
+	"groups": [
+		{
+			"ref": {
+				"src": "chapter1/regular-default.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter1/regular-helmet.json"
+			}
+		}
+	]
+}

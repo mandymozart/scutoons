@@ -52,5 +52,23 @@
         "description": ""
       }
     }
+  },
+  {
+    "id": "sandbox",
+    "uri": "sandbox",
+    "status": "draft",
+    "avatar": "../catpope/avatar.webp",
+    "sourceLanguage": "de",
+    "languages": ["de", "en"],
+    "i18n": {
+      "de": {
+        "name": "Sandkasten",
+        "description": "Testfeld: alle Figuren, Personas, Looks und Stimmungen (nur Entwicklung und Creator)"
+      },
+      "en": {
+        "name": "Sandbox",
+        "description": "Test bed: every character, persona, look and mood (development and creator only)"
+      }
+    }
   }
 ]

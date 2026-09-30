@@ -1,0 +1,40 @@
+{
+	"seasons": {
+		"1": [
+			{
+				"character": "catpope",
+				"personas": [
+					"regular",
+					"human",
+					"cat",
+					"mountaintiger",
+					"biker"
+				]
+			},
+			{
+				"character": "yellowmouse",
+				"personas": [
+					"regular"
+				]
+			},
+			{
+				"character": "toptoy",
+				"personas": [
+					"regular"
+				]
+			},
+			{
+				"character": "boy",
+				"personas": [
+					"regular"
+				]
+			},
+			{
+				"character": "crows",
+				"personas": [
+					"regular"
+				]
+			}
+		]
+	}
+}

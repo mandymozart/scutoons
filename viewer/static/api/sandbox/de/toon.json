@@ -1,0 +1,29 @@
+{
+	"id": "sandbox",
+	"title": "Sandkasten",
+	"authors": [],
+	"chapters": 5,
+	"language": "de",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "Testfeld: alle Figuren, Personas, Looks und Stimmungen als Visual Novel. Nur in der Entwicklung und im Creator sichtbar (Entwurf).",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"cover": {
+		"square": "../catpope/images/1x/de/s1-cover-square.jpg"
+	},
+	"map": {
+		"layers": {
+			"terrain": "../catpope/images/map/map-layer-terrain.svg"
+		},
+		"width": 2048,
+		"height": 1046,
+		"center": {
+			"x": 1320,
+			"y": 440
+		}
+	},
+	"download": {
+		"complete": null,
+		"music": ""
+	}
+}

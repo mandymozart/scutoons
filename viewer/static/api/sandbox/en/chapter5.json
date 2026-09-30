@@ -1,0 +1,43 @@
+{
+	"title": "Cat Pope meets himself",
+	"author": "SCUTOONS",
+	"number": 5,
+	"language": "en",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "Sandbox (VN test bed): 38 moods in 5 looks, Cat Pope mimics.",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"isPreview": true,
+	"groups": [
+		{
+			"ref": {
+				"src": "chapter5/human-default.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter5/cat-default.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter5/mountaintiger-default.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter5/biker-default.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter5/biker-helmet.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter5/goodbye.json"
+			}
+		}
+	]
+}

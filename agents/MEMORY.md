@@ -8,8 +8,8 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
   Deployed by `.github/workflows/main.yml` on push to `main` → FTP to `ftp.scutoons.com:/`.
 - `viewer/static/api/` — the "fake API", served at `/api` and shipped with the app build (not the CDN):
   `toons.json`, `events.json`, `products.json`, `featured-products.json`,
-  `catpope/{de,en}/{toon,season1,chapter1..6,characters,collectables,locations,routes,credits}.json`,
-  VN scene files `catpope/{de,en}/chapter2/scene-14..19.json`, `chapter6/scene-200.json`.
+  `catpope/{de,en}/{toon,season1,chapter1..5,characters,collectables,locations,routes,credits}.json`,
+  VN scene files `catpope/{de,en}/chapter2/scene-14..19.json`; the dev-only sandbox toon `sandbox/` (see "Sandbox").
 - `cdn/` — `root/` (gitignored, lives locally + on FTP), `sync.py` (interactive FTP push, "bidirectional" only
   in name), `download.py` (FTP pull), `server.py` (CORS static server on :8000). Env: `FTP_SERVER`,
   `FTP_USERNAME`, `FTP_PASSWORD`.
@@ -44,15 +44,14 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
 
 ## Chapters (season1 sequence)
 
-1 Denial/Leugnen published 2025-10-04 · 2 Anger/Ärger draft (config says 2025-11-01) · 3–5 coming-soon empty ·
-6 VN test bed (draft). Ch2 = 6 VN ref groups scene-14..19 (only 14 has events: placeholder cucumber choice;
+1 Denial/Leugnen published 2025-10-04 · 2 Anger/Ärger draft (config says 2025-11-01) · 3–5 coming-soon empty.
+The old chapter 6 (VN test bed) was removed 2026-09-30 – the VN test bed is the sandbox toon now. Ch2 = 6 VN ref groups scene-14..19 (only 14 has events: placeholder cucumber choice;
 18/19 duplicates) + inline group scene-20. Homepage `routes/+page.svelte:19-31` next-release block has typo
 `2.&Auml;ger`.
 
 ## Known bugs spotted (not fixed)
 
 - Ch1 audio samples at `slice.audio.samples` but code reads `slice.audio.audio.samples` → ch1 samples never fire.
-- `en/chapter6/scene-200.json` uses old string `jumpTo` and `{cucumbers}` vs variable `cucumber`.
 - Scene files use `{"type":"end"}` → "Unknown event type".
 - Ch2 `keyvisual` is a string, type expects `{image, video?}`. `Chapter.published` required but unused.
 - `Collectable` type lacks `name`/`image` that JSON + components use.
@@ -650,3 +649,45 @@ affiliations, the cast group and the mannequin field were added and removed agai
 - Prod: chapter 1 = 43 MB (31 MB 320 kbps music decoded up front, 11 MB eager 3x JPG slices) → 23-25 s on 4G;
   proposals P1 (music), P2 (lazy + WebP slices, needs slice dimensions) are the big wins.
 - Measure: `node scripts/perf/measure.mjs <label> <url> [--throttle] [--init=file.js]` (headless Chrome, CDP).
+
+## Sandbox (VN test bed) – chapter 6 removed
+
+2026-09-30 — owner: remove catpope chapter 6 (the VN test bed / demo data) and build a sandbox that shows every
+character, persona, look and mood and doubles as the VN test bed.
+- **Chapter 6 is gone**: static `catpope/{de,en}/chapter6.json` + `chapter6/scene-200.json` deleted, season 1 ends at
+  chapter 5 (de + en); local store: new published season1 versions, the four chapter-6 files unpublished (their versions
+  stay as unreferenced drafts). No test, seed or script used it. Production never had it in the store.
+- **Where the sandbox lives: a hidden toon `sandbox`** (not a catpope season 0). Why: the viewer loads only
+  `season1.json` (layout, chapter gate via `parent()`), the creator's toon page, chapter editor (status), images and
+  visibility helpers edit `season1.json` only, chapter numbers are unique per toon (a season 0 would need chapter numbers
+  like 901+ in catpope's space), and `castSeasons()` ignores season 0 – multi-season support is not cheap. A draft toon
+  needed **no app code**: its own season 1 / chapters 1–N, its own `cast.json` (everyone), the existing hidden-toon
+  pattern (toptoy, yellowmouse). Hidden in production by status: `toons.json` entry `draft` (home + menu list only
+  published toons) and every chapter `draft` in the season (production shows "not published"; checked in a
+  `vite build` + `vite preview`). A direct `/sandbox` URL still shows the empty toon page in production (like any draft
+  toon); a toon-level gate would be a separate viewer change.
+- **Generated, not hand-written**: `shared/content/scripts/make-sandbox.ts` (usage in `shared/content/README.md`)
+  → `viewer/static/api/sandbox/{de,en}/{toon,season1,chapterN,chapterN/<persona>-<look>,locations,routes,collectables}.json`
+  + `sandbox/_/cast.json`; then `php server/bin/console import-content viewer/static/api --toon=sandbox --update`
+  (published locally). `import-content --sql` (the production seed) skips it (`ImportContentCommand::DEV_ONLY_TOONS`,
+  unit test) – not in any seed/SQL. Encounter order Yellow Mouse, Toptoy, Boy, Crows (then any new character), then Cat
+  Pope's own personas (human, cat, mountaintiger, biker); lines de (source) + en, mood labels from `moods.json`.
+  Backgrounds / thumbnail / cover / toon avatar reuse catpope art via `../catpope/…` (slice paths are relative to
+  `<cdn>/<toon>/`; the browser resolves the dot segment, works on any CDN, no new files). Chapters `isPreview: true`
+  (no membership blocker).
+- Today: 5 chapters, 11 VN groups, 211 messages per locale; 75 moods shown (Yellow Mouse 18 + 17, Toptoy 0 – no images,
+  Boy 1, Crows 1, Cat Pope personas human/cat/mountaintiger 1 each, biker 17 + 18), 73 mimicked, 2 failed (`tripping`,
+  `dizzy` → Cat Pope `sad` + a disappointed line); 4 look switches, 2 with a transition image (helmet → default for
+  Yellow Mouse and the biker; default → helmet has none), Cat Pope lacks the helmet look twice (→ `sad`). Ends with a
+  goodbye group (everyone met as avatars) and a jump to `/sandbox`.
+- **VN renderer bugs the test bed found (fixed):** (1) `vn.clear()` on a VN group's destroy also cleared the toon's
+  characters, which the layout sets only once → every later VN group of the toon (another label or chapter) had no
+  characters; `clear()` now resets only the scene. (2) the chapter page keyed the group on `?label=` only → a jump to
+  another chapter without a label kept the old VN component (it runs its events on mount) → stuck on the last message;
+  the key is now chapter number + label.
+- Verified (headless Edge over CDP, own temp profile, dev viewer :8000): de and en played to the end, 211/211 messages in
+  file order, speaker plates, 394 portrait checks (mood badge + the look's mood image), both transitions shown, 0 console
+  errors/warnings; only substitute: the Crows' neutral portrait (`crows_portrait.svg` missing on the CDN, known).
+  Creator (creator-test): home lists "Sandbox · draft", `/sandbox` shows season 1 with chapters 1–5, chapter 1 editor
+  0 problems.
+- Local DB backup before the store changes: `server/db/local.sqlite.bak-2026-09-30-sandbox`.

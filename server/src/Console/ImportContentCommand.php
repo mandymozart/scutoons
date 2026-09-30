@@ -20,6 +20,13 @@ use Symfony\Component\Console\Output\OutputInterface;
 #[AsCommand(name: 'import-content', description: "Seed the content store from the viewer's static config files (published versions)")]
 final class ImportContentCommand extends Command
 {
+    /**
+     * Toons that live in the static files for development and the creator only (the generated VN test bed
+     * `viewer/static/api/sandbox`, shared/content/scripts/make-sandbox.ts): never part of the production seed (`--sql`)
+     * unless asked for by name (`--toon=sandbox`).
+     */
+    public const DEV_ONLY_TOONS = ['sandbox'];
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
@@ -45,6 +52,7 @@ final class ImportContentCommand extends Command
                 Idempotent: files already in the store are skipped (the store is the source of truth once seeded).
                 Production: bin/console import-content <path> --sql > content-seed.sql, then import that file in phpMyAdmin
                 after migrations/mysql/2026-09-30-content-versions.mysql.sql. Each statement skips files already stored.
+                The dev-only sandbox toon (DEV_ONLY_TOONS) is left out of --sql unless named with --toon.
                 HELP);
     }
 
@@ -94,6 +102,11 @@ final class ImportContentCommand extends Command
         foreach ($toons as $toonDir) {
             $toon = basename($toonDir);
             if (is_string($onlyToon) && $toon !== $onlyToon) continue;
+            if (!self::includesToon($toon, is_string($onlyToon) ? $onlyToon : null, $sqlMode)) {
+                $report("  skipped   $toon (dev only, not in the production seed; --toon=$toon to include it)
+");
+                continue;
+            }
             foreach (glob("$toonDir/*", GLOB_ONLYDIR) ?: [] as $localeDir) {
                 $locale = basename($localeDir);
                 if (!preg_match(ContentService::LOCALE_PATTERN, $locale)) continue;
@@ -166,6 +179,13 @@ final class ImportContentCommand extends Command
         if ($locale === ContentService::NEUTRAL_LOCALE) return preg_match('#^(credits|people|roles|characters|moods|asset-requests|cast)\.json$#', $relative) === 1;
         return preg_match('#^(toon|season\d+|chapter\d+)\.json$#', $relative) === 1
             || preg_match('#^chapter\d+/[a-z0-9_-]+\.json$#', $relative) === 1;
+    }
+
+    /** Whether a toon folder is imported: dev-only toons stay out of the production seed (`--sql`) unless named with `--toon`. */
+    public static function includesToon(string $toon, ?string $onlyToon, bool $sqlMode): bool
+    {
+        if ($onlyToon !== null) return $toon === $onlyToon;
+        return !($sqlMode && in_array($toon, self::DEV_ONLY_TOONS, true));
     }
 
     /**

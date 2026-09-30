@@ -100,6 +100,14 @@ $schema = json_decode(file_get_contents('…/shared/content/schema/chapter.schem
 - `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-scene-refs.ts [--dry-run] <files>`
   rewrites VN character refs into the current form (`transformSceneRefs()`).
 
+- `node --experimental-transform-types --no-warnings shared/content/scripts/make-sandbox.ts [--from=<api base>] [--dry-run]`
+  generates the **sandbox toon** "Cat Pope's walk" (dev + creator only, hidden in production: toon, season chapters
+  all `draft`) from the registry + `moods.json` (seed files, or the published store with `--from=http://localhost:9000/api`)
+  into `viewer/static/api/sandbox/` (rewritten completely): one chapter per encounter (every other character, then Cat
+  Pope's own personas), one VN group per persona × look; everyone shows every mood of every look, Cat Pope mimics it
+  (or is `sad` when his regular look lacks it), look changes use the registry transitions, Cat Pope tries each look.
+  Then `php server/bin/console import-content viewer/static/api --toon=sandbox --update` (the production seed `--sql`
+  skips it). Re-run both after adding characters, personas, looks, moods or transitions. It is also the VN test bed.
 - `npm run schema -w @scutoons/content` regenerates `schema/*.schema.json` (commit the result).
 - `npm run check -w @scutoons/content` = `tsc --noEmit` + fails when a committed schema is out of date + the unit tests (`npm test`).
 

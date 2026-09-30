@@ -1,0 +1,175 @@
+{
+	"label": "goodbye",
+	"renderer": {
+		"type": "horizontal",
+		"params": {
+			"freeMode": true
+		}
+	},
+	"slices": [
+		{
+			"image": "../catpope/images/3x/de/S1C1 - Slice 41.jpg"
+		}
+	],
+	"events": [
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "happy",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "yellowmouse",
+						"persona": "regular",
+						"variant": "avatar"
+					},
+					{
+						"character": "toptoy",
+						"persona": "regular",
+						"variant": "avatar"
+					},
+					{
+						"character": "boy",
+						"persona": "regular",
+						"variant": "avatar"
+					},
+					{
+						"character": "crows",
+						"persona": "regular",
+						"variant": "avatar"
+					},
+					{
+						"character": "catpope",
+						"persona": "human",
+						"variant": "avatar"
+					},
+					{
+						"character": "catpope",
+						"persona": "cat",
+						"variant": "avatar"
+					},
+					{
+						"character": "catpope",
+						"persona": "mountaintiger",
+						"variant": "avatar"
+					},
+					{
+						"character": "catpope",
+						"persona": "biker",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "What a walk! Thanks, everyone – bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "yellowmouse",
+				"persona": "regular",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "toptoy",
+				"persona": "regular",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "boy",
+				"persona": "regular",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "crows",
+				"persona": "regular",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "human",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "cat",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "mountaintiger",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "biker",
+				"text": "Bye!",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "The end of the walk.",
+				"wait": true
+			}
+		},
+		{
+			"type": "jumpTo",
+			"params": {
+				"target": {
+					"type": "toon",
+					"value": "sandbox"
+				},
+				"wait": true
+			}
+		}
+	]
+}

@@ -83,4 +83,13 @@ final class ContentServiceTest extends TestCase
         self::assertFalse(ImportContentCommand::matchesOnly('credits.json', ['characters.json', 'cast.json']));
         self::assertTrue(ImportContentCommand::matchesOnly('chapter2/scene-14.json', []));
     }
+
+    public function testSandboxStaysOutOfTheProductionSeed(): void
+    {
+        self::assertFalse(ImportContentCommand::includesToon('sandbox', null, true));
+        self::assertTrue(ImportContentCommand::includesToon('sandbox', 'sandbox', true));
+        self::assertTrue(ImportContentCommand::includesToon('sandbox', null, false));
+        self::assertTrue(ImportContentCommand::includesToon('catpope', null, true));
+        self::assertFalse(ImportContentCommand::includesToon('catpope', 'sandbox', false));
+    }
 }

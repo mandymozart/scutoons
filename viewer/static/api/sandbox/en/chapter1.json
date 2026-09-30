@@ -1,0 +1,23 @@
+{
+	"title": "Meeting Yellow Mouse",
+	"author": "SCUTOONS",
+	"number": 1,
+	"language": "en",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "Sandbox (VN test bed): 35 moods in 2 looks, Cat Pope mimics.",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"isPreview": true,
+	"groups": [
+		{
+			"ref": {
+				"src": "chapter1/regular-default.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter1/regular-helmet.json"
+			}
+		}
+	]
+}

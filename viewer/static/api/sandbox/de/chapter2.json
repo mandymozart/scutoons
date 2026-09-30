@@ -1,0 +1,18 @@
+{
+	"title": "Begegnung: Toptoy",
+	"author": "SCUTOONS",
+	"number": 2,
+	"language": "de",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "Sandkasten (VN-Testfeld): 0 Stimmungen in 1 Look, Katzenpapst macht nach.",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"isPreview": true,
+	"groups": [
+		{
+			"ref": {
+				"src": "chapter2/regular-default.json"
+			}
+		}
+	]
+}

@@ -504,8 +504,8 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
   `bin/console import-content shared/content/seed --only=characters.json,moods.json,asset-requests.json,cast.json`;
   production SQL `shared/content/seed/characters-seed.mysql.sql` (idempotent) – **not yet run on production**. Upload
   `cdn/root/characters/` first (`python cdn/sync.py`; `cdn/root` is not in git), or Cat Pope's avatar in the reader
-  breaks. The store's `catpope/{de,en}/chapter6/scene-200.json` got a new published version with the new refs (run
-  `migrate-scene-refs.ts` logic on production too, or publish from the creator).
+  breaks. (The old chapter 6 VN test bed with the only character refs, `chapter6/scene-200.json`, was removed 2026-09-30;
+  production never had it in the store – nothing to migrate there.)
 
 ## CDN (careful — owner's live setup)
 

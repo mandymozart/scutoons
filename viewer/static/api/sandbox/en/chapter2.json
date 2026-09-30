@@ -1,0 +1,18 @@
+{
+	"title": "Meeting Toptoy",
+	"author": "SCUTOONS",
+	"number": 2,
+	"language": "en",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "Sandbox (VN test bed): 0 moods in 1 look, Cat Pope mimics.",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"isPreview": true,
+	"groups": [
+		{
+			"ref": {
+				"src": "chapter2/regular-default.json"
+			}
+		}
+	]
+}
