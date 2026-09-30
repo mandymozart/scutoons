@@ -220,8 +220,6 @@
 		"model_failed": "Die Gurken-Erkennung konnte nicht geladen werden.",
 		"detected": "Gurke!",
 		"cooldown": "Nächste Gurke in {seconds}s",
-		"mode_qr": "QR",
-		"mode_object": "Gurke",
 		"scan_code": "Code scannen"
 	}
 }

@@ -220,8 +220,6 @@
 		"model_failed": "The cucumber detector could not be loaded.",
 		"detected": "Cucumber!",
 		"cooldown": "Next cucumber in {seconds}s",
-		"mode_qr": "QR",
-		"mode_object": "Cucumber",
 		"scan_code": "Scan code"
 	}
 }

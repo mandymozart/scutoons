@@ -147,6 +147,9 @@ $r = call('GET', "$api/health/");
 check($r['status'] === 200 && $r['body']['db'] === 'ok', 'GET /health/', $r);
 $r = call('GET', "$api/items/");
 check($r['status'] === 200 && count($r['body']['items'] ?? []) === 9 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 9 items + recipe', $r['status']);
+// the cucumber camera only scans cucumbers (owner 2026-09-30): crafting trades the starter camera's QR scan for it
+$skillsOf = fn(string $id) => array_column(array_values(array_filter($r['body']['items'] ?? [], fn($i) => $i['id'] === $id))[0]['skills'] ?? [], 'type');
+check($skillsOf('camera') === ['scan_qr'] && $skillsOf('cucumber_camera') === ['scan_object'], 'camera: scan_qr · cucumber_camera: scan_object only', [$skillsOf('camera'), $skillsOf('cucumber_camera')]);
 // Shop data: the stored files byte-for-byte (config/products.json, config/featured-products.json), public + cached
 foreach (['products' => 'config/products.json', 'products/featured' => 'config/featured-products.json'] as $path => $file) {
     $raw = @file_get_contents("$api/$path/", false, stream_context_create(['http' => ['header' => "Origin: https://evil.example\r\n", 'ignore_errors' => true]]));

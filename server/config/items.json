@@ -47,8 +47,8 @@
       "toon": "catpope",
       "name": { "de": "Gurkenkamera", "en": "Cucumber camera" },
       "description": {
-        "de": "Eine Kamera mit Gurke. Scannt weiterhin QR-Codes – und erkennt jetzt echte Gurken in der echten Welt. Jede gefundene Gurke landet in deinem Inventar.",
-        "en": "A camera with a cucumber. Still scans QR codes – and now also recognises real cucumbers in the real world. Every cucumber it finds ends up in your inventory."
+        "de": "Eine Kamera mit Gurke. Sie sieht nur noch Gurken: QR-Codes kann sie nicht mehr lesen, dafür erkennt sie echte Gurken in der echten Welt. Jede gefundene Gurke landet in deinem Inventar.",
+        "en": "A camera with a cucumber. It only sees cucumbers now: it can no longer read QR codes, but it recognises real cucumbers in the real world. Every cucumber it finds ends up in your inventory."
       },
       "kind": "virtual",
       "category": "tool",
@@ -57,10 +57,7 @@
       "starter": false,
       "grantable": [],
       "slot": null,
-      "skills": [
-        { "type": "scan_qr" },
-        { "type": "scan_object", "labels": ["cucumber"], "grants": "cucumber", "cooldown_s": 10 }
-      ],
+      "skills": [{ "type": "scan_object", "labels": ["cucumber"], "grants": "cucumber", "cooldown_s": 10 }],
       "edition_id": null,
       "product": null,
       "variants": null

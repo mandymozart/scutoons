@@ -19,8 +19,8 @@
 	type Mode = 'qr' | 'object';
 	type Status = 'starting' | 'running' | 'denied' | 'unsupported' | 'insecure' | 'not_found' | 'error';
 
-	// the cucumber camera starts in object mode; the toggle switches (request is fixed per overlay)
-	let mode = $state<Mode>(untrack(() => (request.object ? 'object' : 'qr')));
+	// one mode per session (request is fixed per overlay): the cucumber camera only detects cucumbers, no QR decoding
+	const mode: Mode = untrack(() => (request.object ? 'object' : 'qr'));
 	let status = $state<Status>('starting');
 	let video = $state<HTMLVideoElement>();
 	let canvas = $state<HTMLCanvasElement>();
@@ -141,7 +141,7 @@
 
 	$effect(() => {
 		const signal = { stopped: false };
-		if (mode === 'qr' && request.qr) qrLoop(signal);
+		if (mode === 'qr') qrLoop(signal);
 		if (mode === 'object' && skill) objectLoop(signal);
 		return () => (signal.stopped = true);
 	});
@@ -226,12 +226,6 @@
 		{:else}
 			<p>{m['camera.hint_qr']()}</p>
 		{/if}
-		{#if request.qr && skill}
-			<div class="modes">
-				<button class:active={mode === 'qr'} onclick={() => (mode = 'qr')}>{m['camera.mode_qr']()}</button>
-				<button class:active={mode === 'object'} onclick={() => (mode = 'object')}>{m['camera.mode_object']()}</button>
-			</div>
-		{/if}
 	</footer>
 </div>
 
@@ -304,22 +298,6 @@
 		color: black;
 		padding: 0.5rem;
 		font-size: 1rem !important;
-	}
-	.modes {
-		display: flex;
-		gap: 0.5rem;
-	}
-	.modes button {
-		flex: 1;
-		padding: 0.5rem;
-		background: black;
-		color: white;
-		border: 2px solid #6b6b6b;
-	}
-	.modes button.active {
-		background: white;
-		color: black;
-		border-color: white;
 	}
 	.center {
 		position: relative;

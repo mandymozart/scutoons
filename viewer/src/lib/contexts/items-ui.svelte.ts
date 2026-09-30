@@ -4,7 +4,9 @@ import type { Entry, ScanObjectSkill, Skill } from '@scutoons/content';
 const ITEMS_UI_KEY = Symbol('items-ui');
 
 export interface CameraRequest {
+	/** QR scanner (ignored when `object` is set) */
 	qr: boolean;
+	/** object detection (the cucumber camera): the session only detects, no QR decoding */
 	object: ScanObjectSkill | null;
 	/** entry whose skill opened the camera (for the header) */
 	entry: Entry | null;
@@ -24,12 +26,18 @@ export function createItemsUiContext() {
 	let audio = $state<{ src: string; entry: Entry | null } | null>(null);
 	let inventoryRequested = $state(false);
 
-	/** Run all "use" skills of an item. Camera skills are merged into one camera session. */
+	/**
+	 * Run the "use" skill of an item. A camera session has one mode: an item with `scan_object` (the cucumber camera)
+	 * opens straight in object detection and never decodes QR codes; `scan_qr` (the starter camera) opens the QR scanner.
+	 */
 	function use(entry: Entry | null, skills: Skill[]) {
-		const qr = skills.some((s) => s.type === 'scan_qr');
 		const object = (skills.find((s) => s.type === 'scan_object') as ScanObjectSkill | undefined) ?? null;
-		if (qr || object) {
-			camera = { qr, object, entry };
+		if (object) {
+			camera = { qr: false, object, entry };
+			return;
+		}
+		if (skills.some((s) => s.type === 'scan_qr')) {
+			camera = { qr: true, object: null, entry };
 			return;
 		}
 		const game = skills.find((s) => s.type === 'minigame');
