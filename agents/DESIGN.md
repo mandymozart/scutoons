@@ -165,7 +165,7 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
 
 | Figma | Config |
 |---|---|
-| slice frame `s1c2-slice-NN` (W × H) | `slice.image = images/3x/s1c2-slice-NN.jpg` |
+| slice frame `s1c2-slice-NN` (W × H) | `slice.image = images/webtoon/s1c2/s1c2-slice-NN.webp` (1x, 390 × 625; `width`/`height` set) |
 | TEXT node bbox (x, y, w, h relative to frame) | `rect = {x/W·100, y/H·100, w/W·100, h/H·100}` (2 decimals) |
 | `style.fontSize` | `size = fontSize / W · 100` |
 | `textAlignHorizontal` / `textAlignVertical` | `align` / `valign` |
