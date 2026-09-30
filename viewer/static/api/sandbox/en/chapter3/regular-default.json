@@ -1,14 +1,23 @@
 {
 	"label": "regular-default",
 	"renderer": {
-		"type": "horizontal",
-		"params": {
-			"freeMode": true
-		}
+		"type": "vertical"
 	},
 	"slices": [
 		{
-			"image": "../catpope/images/3x/de/S1C1 - Slice 27.jpg"
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-9.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-10.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-11.webp",
+			"width": 390,
+			"height": 625
 		}
 	],
 	"events": [

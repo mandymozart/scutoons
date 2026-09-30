@@ -6,13 +6,24 @@ import { buildJumpToUrl } from './jump-to.ts';
 type VariableAction = VNVariableSetter | VNVariableAdder | VNJumpTo;
 
 /**
+ * The grant's `ref` = the place of the find (page without locale prefix + `?label=`): the server grants a ref once per
+ * account, so each find counts once – replaying the same scene grants nothing, another find (another group) does.
+ */
+function storyRef(variable: string): string {
+	if (typeof location === 'undefined') return `vn:${variable}`;
+	const path = location.pathname.replace(/^\/(de|en)(?=\/)/, '');
+	const label = new URLSearchParams(location.search).get('label');
+	return `vn:${variable}:${path}${label ? `?label=${label}` : ''}`;
+}
+
+/**
  * A VN variable whose name is a catalog item id (e.g. `cucumber`) also grants that item (source "story").
  * The game variable itself is kept for text interpolation.
  */
 function grantStoryItem(variable: string, qty: number) {
 	const inventory = getCurrentInventory();
 	if (!inventory?.item(variable) || qty <= 0) return;
-	inventory.grant(variable, 'story', qty, `vn:${variable}`);
+	inventory.grant(variable, 'story', qty, storyRef(variable));
 }
 
 export function executeVariableAction(action: VariableAction, gameContext: GameContext): string | null {

@@ -720,3 +720,24 @@ character, persona, look and mood and doubles as the VN test bed.
 - Chapter 2 scenes 14–19 have no characters (narrator + choices); scene-14 renders and its choice jumps (de + en, with a
   local membership code). At the time of the check the local CDN had no `catpope/images/{1x,3x}` (media agent's slice
   work) → chapter-1/2 slices and the sandbox backgrounds were broken images locally; not a VN issue.
+- 2026-09-30 (later) — **sandbox backgrounds + cucumbers**: the VN groups scroll vertically over the chapter-2 slices
+  `../catpope/images/webtoon/s1c2/s1c2-slice-N.webp` (390 × 625): encounter 1–5 → scene 1–5 (slices 1–4, 5–8, 9–11,
+  12–14, 15–19; all groups of an encounter share it), the goodbye → scene 6 (20–22). Three cucumbers in the art, each a
+  slice click trigger (4 slice events with the same `trigger { type: click, rect, once }`: message "Eine Gurke!" /
+  "A cucumber!", choices "Einsammeln" (`add cucumber 1`) / "Liegen lassen") in the first group that shows the slice:
+  slice 4 `{x 7.69, y 37.76, w 22.56, h 10.08}` (ch. 1 regular-default), slice 8 `{x 78.46, y 7.52, w 8.72, h 8.64}`
+  (ch. 2), slice 19 `{x 52.05, y 15.68, w 45.38, h 16}` (ch. 5 human-default). The owner expected the third one in
+  scene 4 (12–14); it is in slice 19 (scene 5) – nothing green in 12–14.
+- **Slice triggers inside a running VN group**: a trigger's message used to overwrite the group's waiting message and
+  lose its click (the group got stuck). `EventProcessor.run` now parks the group's waiting message (`vn.interrupt()`),
+  the trigger uses the box, and `resumeIfIdle()` (after the choice, `clearChoices`, or after the click's task) brings the
+  message back with its wait → one click continues the group.
+- **Story grant ref per place**: `grantStoryItem` sent `ref: vn:<variable>` → the server grants a ref once per account,
+  so an account got only the first cucumber ever. The ref is now `vn:<variable>:<path without locale>?label=<group>`:
+  each find counts once per account, replays grant nothing. Guests (localStorage) count every collect.
+- Verified (dev, headless Chrome, real mouse events): all 3 cucumbers at 375 (de) and 500 (en): offer, collect, "+1
+  Gurke" notice, guest `scutoons_inventory` cucumber 1 → 2 → 3, the group's message back and one click goes on; account
+  `avatar-member-0930@example.com` (local): 3 cucumbers on the server, a replay stays 3, the inventory shows "3 Gurke".
+- Gotcha: a `vite build` of the viewer (anyone's suite run) rewrites `src/lib/paraglide` as per-message modules → the
+  running dev server answers 404 for them ("Failed to fetch dynamically imported module …/nodes/0.js") until
+  `npm run check` regenerated the locale modules; it recovers without a restart.

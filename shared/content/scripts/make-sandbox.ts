@@ -50,9 +50,23 @@ const HOST_VIEW = 'avatar';
 const VIEW = 'portrait';
 /** the goodbye brings the characters met onto the stage in waves of up to 4 (the stage layout test: 1, 2, 3, 4 portraits) */
 const STAGE_WAVE = 4;
-/** Backgrounds: existing chapter-1 slices. Slice paths are relative to `<cdn>/<toon>/`, so `../catpope/…` reuses catpope's art. */
+/** Slice paths are relative to `<cdn>/<toon>/`, so `../catpope/…` reuses catpope's art (no new files). */
 const CATPOPE = '../catpope/';
-const BACKGROUNDS = [12, 20, 27, 33, 41, 48, 56, 63, 70, 77, 85].map((n) => `${CATPOPE}images/3x/de/S1C1 - Slice ${n}.jpg`);
+/**
+ * Backgrounds (owner 2026-09-30): the chapter-2 slices as vertical scroll, in 6 scenes – encounter 1–5 → scene 1–5 (all
+ * groups of an encounter share it), the goodbye → scene 6. More encounters wrap around scenes 1–5.
+ */
+const SCENES: [number, number][] = [[1, 4], [5, 8], [9, 11], [12, 14], [15, 19], [20, 22]];
+const slicePath = (n: number) => `${CATPOPE}images/webtoon/s1c2/s1c2-slice-${n}.webp`;
+/**
+ * Cucumbers in the art (slice number → the click area, % of the 390 × 625 slice, a tight box around it); the first group
+ * of the encounter that shows the slice offers it (a slice click trigger, once).
+ */
+const CUCUMBERS: Record<number, { x: number; y: number; width: number; height: number }> = {
+	4: { x: 7.69, y: 37.76, width: 22.56, height: 10.08 },
+	8: { x: 78.46, y: 7.52, width: 8.72, height: 8.64 },
+	19: { x: 52.05, y: 15.68, width: 45.38, height: 16 }
+};
 
 // ── Lines (de = source, en) ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -110,7 +124,10 @@ const LINES = {
 	] as Text[],
 	goodbyeHost: { de: 'Was für ein Spaziergang! Danke euch allen – tschüss!', en: 'What a walk! Thanks, everyone – bye!' } as Text,
 	goodbyeAll: { de: 'Tschüss!', en: 'Bye!' } as Text,
-	end: { de: 'Ende des Spaziergangs.', en: 'The end of the walk.' } as Text
+	end: { de: 'Ende des Spaziergangs.', en: 'The end of the walk.' } as Text,
+	cucumber: { de: 'Eine Gurke!', en: 'A cucumber!' } as Text,
+	collect: { de: 'Einsammeln', en: 'Collect' } as Text,
+	leave: { de: 'Liegen lassen', en: 'Leave it' } as Text
 };
 
 // ── Events ──────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -132,6 +149,19 @@ const say = (who: { character: string; persona: string } | null, text: Text): Dr
 	params: { ...(who ? { character: who.character, persona: who.persona } : {}), text, wait: true }
 });
 const jump = (target: { type: 'chapter' | 'toon'; value: string; label?: string }): Draft => ({ type: 'jumpTo', params: { target, wait: true } });
+/**
+ * A cucumber to collect: a click on it (once) offers it – message + "Collect" (`add cucumber 1`, which also puts the
+ * item into the inventory, with its "+1" notice) / "Leave it". Slice events, all with the same trigger.
+ */
+const cucumberOffer = (rect: { x: number; y: number; width: number; height: number }): Draft[] => {
+	const trigger = { type: 'click', rect, once: true };
+	return [
+		{ type: 'showMessage', params: { text: LINES.cucumber }, trigger },
+		{ type: 'addChoice', params: { label: LINES.collect, onSelect: { add: { variable: 'cucumber', value: 1 } } }, trigger },
+		{ type: 'addChoice', params: { label: LINES.leave }, trigger },
+		{ type: 'showChoices', trigger }
+	];
+};
 
 function localize(value: unknown, locale: Locale): unknown {
 	if (Array.isArray(value)) return value.map((v) => localize(v, locale));
@@ -162,6 +192,8 @@ export interface SandboxReport {
 	lookSwitches: number;
 	transitions: number;
 	styleFails: number;
+	/** where the cucumbers are offered */
+	cucumbers: string[];
 	perEncounter: { chapter: number; name: string; groups: string[]; moods: number; fails: number }[];
 }
 export interface SandboxFiles {
@@ -212,10 +244,12 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		return t.label ? text((l) => t.label?.[l] || t.label?.de || `${from} → ${to}`) : text(() => `${from} → ${to}`);
 	};
 
-	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, perEncounter: [] };
+	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], perEncounter: [] };
 	const files: Record<string, unknown> = {};
 	const sequence: { type: 'chapter'; number: number; status: 'draft' }[] = [];
 	const met: Ref[] = [];
+	/** slices whose cucumber is already offered (a scene shared by several groups offers it in the first one) */
+	const cucumbersPlaced = new Set<number>();
 	let lineNo = 0;
 
 	encounters.forEach((enc, e) => {
@@ -226,7 +260,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		const isLast = e === encounters.length - 1;
 		if (isLast) labels.push('goodbye');
 		const stats = { chapter: number, name: characterName(enc.character, 'de', isHostChapter ? undefined : enc.personas[0]), groups: labels, moods: 0, fails: 0 };
-		const background = BACKGROUNDS[e % BACKGROUNDS.length];
+		const background = SCENES[e % (SCENES.length - 1)];
 		// the next group of this chapter, else the next chapter, after the goodbye the toon page
 		const next = (i: number) =>
 			i + 1 < labels.length
@@ -314,7 +348,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 				events.push(leave(...wave));
 			}
 			events.push(say(null, LINES.end), jump(next(labels.length - 1)));
-			scene(number, 'goodbye', background, events);
+			scene(number, 'goodbye', SCENES[SCENES.length - 1], events);
 		}
 
 		const title: Text = isHostChapter
@@ -331,8 +365,17 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		report.perEncounter.push(stats);
 	});
 
-	function scene(number: number, label: string, background: string, events: Draft[]) {
-		const group = { label, renderer: { type: 'horizontal', params: { freeMode: true } }, slices: [{ image: background }], events };
+	function scene(number: number, label: string, [from, to]: [number, number], events: Draft[]) {
+		const slices = [];
+		for (let n = from; n <= to; n++) {
+			const cucumber = CUCUMBERS[n] && !cucumbersPlaced.has(n) ? CUCUMBERS[n] : null;
+			if (cucumber) {
+				cucumbersPlaced.add(n);
+				report.cucumbers.push(`chapter ${number} · ${label}: slice ${n}`);
+			}
+			slices.push({ image: slicePath(n), width: 390, height: 625, ...(cucumber ? { events: cucumberOffer(cucumber) } : {}) });
+		}
+		const group = { label, renderer: { type: 'vertical' }, slices, events };
 		for (const l of LOCALES) files[`${l}/chapter${number}/${label}.json`] = localize(group, l);
 		report.groups++;
 	}
@@ -427,6 +470,7 @@ async function main() {
 		`${report.chapters} chapters (encounters), ${report.groups} VN groups, ${report.moods} moods shown, ${report.mimics} mimicked, ${report.fails} failed (sad), ` +
 			`${report.lookSwitches} look switches (${report.transitions} with a transition image), ${report.styleFails} styles Cat Pope lacks`
 	);
+	console.log(`cucumbers: ${report.cucumbers.join(', ') || 'none'}`);
 	for (const s of report.perEncounter) console.log(`  chapter ${s.chapter}  ${s.name.padEnd(28)} ${String(s.moods).padStart(3)} moods, ${s.fails} failed  [${s.groups.join(', ')}]`);
 	if (!entry) console.warn(`! viewer/static/api/toons.json has no "${SANDBOX_TOON}" entry (status draft) – the creator lists toons from there`);
 	else if (entry.status !== 'draft') console.warn(`! toons.json: "${SANDBOX_TOON}" must stay status draft (hidden in production)`);

@@ -17,7 +17,17 @@ export class EventProcessor {
 
 	async run(): Promise<string | null> {
 		console.log(`🎬 Processing ${this.events.length} VN events`);
+		// slice triggers share the box with the group's script: park its waiting message, bring it back when done (a
+		// click fires every event of the trigger one after another, so the check runs after the click's task)
+		this.vn.interrupt();
+		try {
+			return await this.runEvents();
+		} finally {
+			setTimeout(() => this.vn.resumeIfIdle(), 0);
+		}
+	}
 
+	private async runEvents(): Promise<string | null> {
 		while (this.currentIndex < this.events.length) {
 			const event = this.events[this.currentIndex];
 			console.log(

@@ -38,6 +38,8 @@ export function createVisualNovelContext() {
 	let waitResolver: (() => void) | null = null;
 	/** the reader has clicked the visible message away (its wait is answered) – a following `jumpTo` (wait) jumps at once */
 	let acknowledged = false;
+	/** the group's waiting message while a slice trigger (e.g. a cucumber offer) uses the box, see `interrupt` */
+	let suspended: { character: SceneCharacter | null; text: string; wait: boolean; resolver: () => void; acknowledged: boolean } | null = null;
 	let onomatopoeiaResolver: (() => void) | null = null;
 	let navigationTriggered = $state(false);
 
@@ -209,6 +211,29 @@ export function createVisualNovelContext() {
 		pendingChoices.length = 0;
 		hideChoices();
 		hideMessage();
+		resumeIfIdle();
+	}
+
+	/**
+	 * A slice trigger fires while the group's script waits for a click on its message: park that message (text + its
+	 * wait) so the trigger's message / choices can use the box, `resumeIfIdle` brings it back afterwards.
+	 */
+	function interrupt(): void {
+		if (suspended || !waitResolver || !messageVisible) return;
+		suspended = { character: message.character, text: message.text, wait: message.wait, resolver: waitResolver, acknowledged };
+		waitResolver = null;
+	}
+
+	/** Brings the parked message back once the trigger is done (no choices open, nothing waiting). */
+	function resumeIfIdle(): void {
+		if (!suspended || choicesVisible || pendingChoices.length || waitResolver) return;
+		message.character = suspended.character;
+		message.text = suspended.text;
+		message.wait = suspended.wait;
+		messageVisible = true;
+		waitResolver = suspended.resolver;
+		acknowledged = suspended.acknowledged;
+		suspended = null;
 	}
 
 	function setNavigationTriggered(): void {
@@ -287,6 +312,7 @@ export function createVisualNovelContext() {
 		sceneCharacters.length = 0;
 		acknowledged = false;
 		waitResolver = null;
+		suspended = null;
 		pendingChoices.length = 0;
 		messageVisible = false;
 		message.character = null;
@@ -326,6 +352,8 @@ export function createVisualNovelContext() {
 		showChoices,
 		hideChoices,
 		clearChoices,
+		interrupt,
+		resumeIfIdle,
 		setNavigationTriggered,
 		getPendingJumpTo,
 		isNavigationTriggered,

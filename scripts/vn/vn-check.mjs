@@ -110,7 +110,8 @@ for (const g of groups) {
 	const name = `chapter ${g.chapter}${g.label ? ` · ${g.label}` : ''}`;
 	const url = `${base}${prefix}/${toon}/chapter/${g.chapter}${g.label ? `?label=${encodeURIComponent(g.label)}` : ''}`;
 	await send('Page.navigate', { url });
-	await sleep(2500);
+	// the group starts once the chapter and its scene files are loaded (the first load in dev compiles modules)
+	for (let t = 0; t < 40 && !(await evaluate(`!!document.querySelector('.continue-overlay')`)); t++) await sleep(250);
 	const start = await evaluate('location.href');
 	const lang = await evaluate('document.documentElement.lang');
 	if (lang !== locale) fail(`${name}: page language ${lang}, expected ${locale}`);
@@ -124,7 +125,12 @@ for (const g of groups) {
 			const r = await send('Page.captureScreenshot', { format: 'png' });
 			writeFileSync(join(shots, `${locale}-${width}-c${g.chapter}-${g.label}-${String(i).padStart(3, '0')}.png`), Buffer.from(r.result.data, 'base64'));
 		}
-		if (!s.waiting) { await sleep(300); if (!(await evaluate(MEASURE)).waiting) break; }
+		if (!s.waiting) {
+			// the next message may take a moment (a busy dev server): up to 3 s before the group counts as done
+			let waiting = false;
+			for (let t = 0; t < 12 && !waiting; t++) { await sleep(250); waiting = (await evaluate(MEASURE)).waiting; }
+			if (!waiting) break;
+		}
 		await evaluate(`document.querySelector('.continue-overlay')?.click()`);
 		clicks++;
 	}
