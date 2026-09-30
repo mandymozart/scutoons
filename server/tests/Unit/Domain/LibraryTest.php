@@ -169,6 +169,24 @@ final class LibraryTest extends TestCase
         }
     }
 
+    public function testCastHasTheStarAndTheChapterFeaturing(): void
+    {
+        $this->seedToon();
+        foreach (['de', 'en'] as $l) {
+            $this->doc('t', $l, 'chapter2.json', ['title' => "Zwei $l", 'number' => 2, 'groups' => [], 'featuring' => ['star', 'crows']]);
+        }
+        $this->doc('t', '_', 'cast.json', ['seasons' => ['1' => [['character' => 'boy', 'personas' => ['regular']], ['character' => 'crows', 'personas' => ['regular']]], '2' => [['character' => 'star', 'personas' => ['regular', 'x']]]]]);
+        $this->doc(Library::PLATFORM, '_', 'characters.json', ['characters' => [['id' => 'star', 'own_toon' => 't'], ['id' => 'boy'], ['id' => 'crows'], ['id' => 'other', 'own_toon' => 'u']]]);
+        $all = self::decode($this->library()->cast('t', null, false)->body);
+        self::assertSame(['star', 'boy', 'crows'], array_column($all['cast']['seasons']['1'], 'character'), 'the star is added in front');
+        self::assertSame([['character' => 'star', 'personas' => ['regular', 'x']]], $all['cast']['seasons']['2'], 'a season with the star stays as it is');
+        self::assertSame(['star', 'boy', 'crows'], array_column($all['registry']['characters'], 'id'));
+        $chapter = self::decode($this->library()->cast('t', 2, true)->body);
+        self::assertSame(['star', 'crows'], array_column($chapter['registry']['characters'], 'id'), 'a chapter: its featuring');
+        $bundle = self::decode($this->library()->toon('t', 'de', true)->body);
+        self::assertSame(['star', 'crows'], $bundle['seasons'][0]['chapters'][1]['featuring'], 'the season overview passes featuring through');
+    }
+
     public function testCastAndCredits(): void
     {
         $this->seedToon();

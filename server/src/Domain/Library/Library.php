@@ -144,12 +144,16 @@ final class Library
         $ctx = $this->context($toon, $draft);
         return $this->answer("cast:$toon:" . ($chapter ?? '*'), $ctx->snapshot, function () use ($ctx, $chapter): array {
             $this->visibleToon($ctx, $ctx->source);
-            $cast = $ctx->snapshot->doc("cast:$ctx->toon");
             $registry = $ctx->snapshot->doc('characters');
+            $cast = self::withStar($ctx->snapshot->doc("cast:$ctx->toon"), self::star($registry, $ctx->toon));
             if ($chapter !== null) {
                 $doc = $ctx->pick("chapter:$ctx->toon:$chapter", $ctx->source);
                 if ($doc === null || !$doc[1] instanceof stdClass) throw new ApiError(404, 'not_found', "Chapter $chapter of $ctx->toon not found.");
                 $ids = self::referencedCharacters($this->withScenes($ctx, $doc[1], $doc[0]));
+                // the chapter's `featuring` (reader: avatars at the chapter start)
+                foreach (is_array($doc[1]->featuring ?? null) ? $doc[1]->featuring : [] as $id) {
+                    if (is_string($id)) $ids[$id] = true;
+                }
             } else {
                 $ids = [];
                 foreach ((array) ($cast->seasons ?? []) as $entries) {
@@ -381,6 +385,38 @@ final class Library
             foreach ($node as $value) self::referencedCharacters($value, $ids);
         }
         return $ids;
+    }
+
+    /** The toon's star: the registry character whose `own_toon` is the toon (e.g. catpope → catpope), or null. */
+    private static function star(mixed $registry, string $toon): ?string
+    {
+        foreach (is_object($registry) && is_array($registry->characters ?? null) ? $registry->characters : [] as $c) {
+            if (is_object($c) && ($c->own_toon ?? null) === $toon && is_string($c->id ?? null)) return $c->id;
+        }
+        return null;
+    }
+
+    /**
+     * The cast with the star in every season (owner rule, agents/ITEMS.md "Cast & featuring"; the creator saves it that
+     * way, this covers documents saved before): the star is added in front of a season that lacks it. A copy – the
+     * snapshot's document is not changed.
+     */
+    private static function withStar(mixed $cast, ?string $star): mixed
+    {
+        if ($star === null || !$cast instanceof stdClass || !is_object($cast->seasons ?? null)) return $cast;
+        $out = clone $cast;
+        $out->seasons = clone $cast->seasons;
+        foreach (get_object_vars($out->seasons) as $season => $entries) {
+            if (!is_array($entries)) continue;
+            foreach ($entries as $entry) {
+                if (is_object($entry) && ($entry->character ?? null) === $star) continue 2;
+            }
+            $entry = new stdClass();
+            $entry->character = $star;
+            $entry->personas = ['regular'];
+            $out->seasons->{$season} = [$entry, ...$entries];
+        }
+        return $out;
     }
 
     /**
