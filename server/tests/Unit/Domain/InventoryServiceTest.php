@@ -61,6 +61,18 @@ final class InventoryServiceTest extends TestCase
         $this->assertError('cooldown', fn() => $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'scan']));
     }
 
+    public function testCollectionLimitIs99PerItemUnlessTheItemSetsMax(): void
+    {
+        $id = (string) $this->user()['id'];
+        $this->inventory->add($id, 'cucumber', null, 120, 'story');
+        self::assertSame(99, $this->inventory->count($id, 'cucumber'), 'add caps at the limit');
+        $this->assertError('max_reached', fn() => $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'story', 'ref' => 'ch1:s9']));
+        $this->inventory->remove($id, 'cucumber', 1);
+        self::assertSame(1, $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'story', 'ref' => 'ch1:s9']));
+        self::assertSame(1, InventoryService::maxOf(['id' => 'x', 'max' => 1]));
+        self::assertSame(99, InventoryService::maxOf(['id' => 'x']));
+    }
+
     public function testScanGrantsStopAtTheCamerasDailyLimit(): void
     {
         $id = (string) $this->user()['id'];

@@ -25,12 +25,14 @@ export const QR_HOSTS = ['qr.scutoons.com', `localhost:${ports.api}`, `127.0.0.1
 /**
  * Object-camera tuning (`scoreScan` / `scanPasses` in @scutoons/content): a frame passes at a summed ImageNet probability
  * of THRESHOLD, or when the object is among the TOP predictions with at least MIN; FRAMES passing frames in a row grant
- * the item; FPS frames per second. Owner phone test 2026-10-02: a real cucumber scored 0.10–0.16 at rank 2–3.
+ * the item; FPS frames per second. Owner phone test 2026-10-02: a real cucumber scored 0.10–0.16 at rank 2–3, under the aim square up to 0.45; lowered
+ * the same day so aiming takes less long.
  */
-export const SCAN_OBJECT_THRESHOLD = Number(import.meta.env.VITE_SCAN_OBJECT_THRESHOLD || 0.25);
+export const SCAN_OBJECT_THRESHOLD = Number(import.meta.env.VITE_SCAN_OBJECT_THRESHOLD || 0.2);
 export const SCAN_OBJECT_TOP = 3;
-export const SCAN_OBJECT_MIN = 0.1;
-export const SCAN_OBJECT_FRAMES = 3;
+export const SCAN_OBJECT_MIN = 0.08;
+/** passing frames in a row (owner 2026-10-02: "so we don't have to aim so long" – 2 frames = 1 s) */
+export const SCAN_OBJECT_FRAMES = 2;
 export const SCAN_OBJECT_FPS = 2;
 
 /** The creator app (own origin), linked from the account page for the creator role. `VITE_CREATOR_URL`. */

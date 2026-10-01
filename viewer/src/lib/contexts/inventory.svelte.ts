@@ -26,6 +26,7 @@ import {
 	bodySlots as bodySlotsOf,
 	coverSensitive,
 	hidesSensitive,
+	maxOf,
 	remapAvatarSlots,
 	unlockedBodies,
 	wearOverlay,
@@ -255,7 +256,7 @@ export function createInventoryContext(session: SessionContext) {
 			? guest.entries.find((e) => e.item_id === item_id && e.variant === variant)
 			: undefined;
 		if (existing) {
-			existing.qty += qty;
+			existing.qty = Math.min(existing.qty + qty, maxOf(item));
 			return existing;
 		}
 		const entry: Entry = {
@@ -388,6 +389,7 @@ export function createInventoryContext(session: SessionContext) {
 	async function grant(item_id: string, source: GrantSource, qty = 1, ref?: string): Promise<{ ok: boolean; error?: string }> {
 		const def = item(item_id);
 		if (!def || !def.grantable?.includes(source) || qty <= 0) return { ok: false, error: 'not_grantable' };
+		if (count(item_id) >= maxOf(def)) return { ok: false, error: 'max_reached' };
 		if (isAccount) {
 			try {
 				let result;

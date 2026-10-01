@@ -261,11 +261,11 @@
 		"known": "Die kenn ich schon!",
 		"known_cheat": "Nicht schummeln: Das ist dieselbe Gurke wie vorhin. Such dir eine andere.",
 		"known_cheat_any": "Nicht schummeln: Das hast du vorhin schon gescannt. Such dir etwas anderes.",
-		"known_then": "vorhin",
-		"known_now": "jetzt",
 		"daily_limit": "Genug Gurken für heute. Morgen wieder!",
 		"daily_limit_any": "Genug gefunden für heute. Morgen wieder!",
-		"known_ok": "Okay, verstanden"
+		"known_ok": "Okay, verstanden",
+		"max_reached": "Du hast schon {max} Gurken. Mehr passen nicht in deine Sammlung.",
+		"max_reached_any": "Davon hast du schon {max}. Mehr passen nicht in deine Sammlung."
 	},
 	"start": {
 		"read": "S{season} K{chapter} lesen",

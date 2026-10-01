@@ -57,6 +57,9 @@ final class InventoryService
     public function add(string $userId, string $itemId, ?string $variant, int $qty, string $source, ?string $code = null, ?int $editionNumber = null): void
     {
         $item = $this->catalog->item($itemId) ?? throw new ApiError(404, 'unknown_item', "Unknown item $itemId.");
+        // the collection limit (`max`, default 99 per account; owner 2026-10-02) – never for a claimed physical
+        // product (a code): what was bought is always added
+        if ($code === null) $qty = min($qty, $this->room($userId, $item));
         if ($qty < 1) return;
         $now = $this->clock->utc();
         if (!empty($item['stackable'])) {
@@ -120,6 +123,21 @@ final class InventoryService
         return array_map(fn(array $e) => ['id' => $e['id'], 'slot' => $e['slot']], $out);
     }
 
+    /** Default collection limit: at most this many of one item per account (owner 2026-10-02). */
+    public const MAX_PER_ACCOUNT = 99;
+
+    /** How many of an item an account may hold: the item's `max`, else MAX_PER_ACCOUNT. @param array<string, mixed> $item */
+    public static function maxOf(array $item): int
+    {
+        return max(1, (int) ($item['max'] ?? self::MAX_PER_ACCOUNT));
+    }
+
+    /** How many more of an item fit (0 = the collection limit is reached). @param array<string, mixed> $item */
+    public function room(string $userId, array $item): int
+    {
+        return max(0, self::maxOf($item) - $this->count($userId, (string) $item['id']));
+    }
+
     public function count(string $userId, string $itemId): int
     {
         return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ?', [$userId, $itemId]);
@@ -159,6 +177,10 @@ final class InventoryService
                 if ($have < (int) $input['qty']) $missing[] = ['item' => $input['item'], 'qty' => (int) $input['qty'] - $have];
             }
             if ($missing) throw new ApiError(422, 'missing_inputs', 'Some ingredients are missing.', ['missing' => $missing]);
+            $output = $this->catalog->item($recipe['output']['item']);
+            if ($output && $this->room($userId, $output) < (int) $recipe['output']['qty']) {
+                throw new ApiError(409, 'max_reached', 'You cannot hold more of this.', ['max' => self::maxOf($output)]);
+            }
             foreach ($recipe['inputs'] as $input) $this->remove($userId, $input['item'], (int) $input['qty']);
             $this->add($userId, $recipe['output']['item'], null, (int) $recipe['output']['qty'], 'craft');
         });
@@ -169,7 +191,8 @@ final class InventoryService
      * Grants a found item: { item_id, source: "story"|"scan", ref? } → 1 granted, 0 = repeated ref.
      * 403 not_grantable (source not in the item's `grantable`) / no_tool (scan without a tool that detects it),
      * 429 rate_limited (hourly limit) / cooldown (scan tool cooldown) / daily_limit (the camera's `per_day` scans of
-     * this item in the last 24 h), 400 invalid_source, 404 unknown_item.
+     * this item in the last 24 h), 409 max_reached (the collection limit: `max`, default 99), 400 invalid_source,
+     * 404 unknown_item.
      * @param array<string, mixed> $body
      */
     public function grant(string $userId, array $body): int
@@ -186,6 +209,7 @@ final class InventoryService
         $granted = $this->db->transaction(function () use ($userId, $item, $source, $ref) {
             $refBucket = "grantref:$userId:{$item['id']}";
             if ($ref !== null && $this->limits->exists($refBucket, $ref)) return 0;
+            if ($this->room($userId, $item) < 1) throw new ApiError(409, 'max_reached', 'You cannot hold more of this.', ['max' => self::maxOf($item)]);
             $this->limits->guard("grant:$userId", $this->settings->int('GRANT_MAX_PER_HOUR'), 3600, 'Too many items granted – try again later.');
             if ($source === 'scan') {
                 $tools = $this->catalog->scanTools($item['id']);

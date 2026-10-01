@@ -839,3 +839,26 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
 --only=characters --update`). CDN: `cdn/tools/make_substance_icons.py`, then `cdn/sync.py` (`scutoons/items/`).
 The Check It camera needs nothing extra on deploy (catalog + viewer): it is crafted from camera + testo (recipe
 `checkit_camera`, ingredients adjustable in `server/config/items.json`), a story grant stays possible.
+
+## Collection limits & object-camera rules (2026-10-02, owner)
+
+**Built:**
+- **Collection limit:** at most **99 of any item per account** (`MAX_PER_ACCOUNT`, server `InventoryService::MAX_PER_ACCOUNT`).
+  An item can set less with `max` (catalog). The server refuses more with 409 `max_reached` (grant and craft output);
+  `add` caps silently (imports). A claimed physical product (QR code) is always added. Guests are capped locally.
+- **Camera cooldown:** cucumber camera `cooldown_s: 60` (owner: "1 minute and we are cool").
+- **Daily limit:** `per_day` on a `scan_object` skill = scan grants of that item per account in 24 h (cucumber camera
+  3; 429 `daily_limit`, "Genug Gurken für heute").
+- **"Die kenn ich schon!":** the camera keeps a picture fingerprint (MobileNet embedding; numbers, not an image) of each
+  granted scan on the device only (`viewer/src/lib/components/camera/scan-memory.ts`, last 20, 7 days); a hit that
+  looks ≥ 0.88 alike is not granted and the reader is told it is cheating. **No photos and no location** (owner
+  2026-10-02: privacy) – it recognises "this cucumber in this place", which is the farming case.
+- **Recognition:** only the frame under the aiming square is classified; cucumber + zucchini count together
+  (`scoreScan` / `scanPasses`).
+
+**Planned (not built – no such item exists yet):**
+- **Unique items:** some items exist **only once in the world**; if anybody else owns it, nobody else can get it
+  (grant/craft/claim refuse, e.g. 409 `taken`). Needs a catalog flag (e.g. `unique: true`, or `max_world: <n>` for
+  "only N exist"), a server check across all accounts inside the grant transaction, and a decision on what happens when
+  the owner's account is deleted (back into the world?) and whether it can be given away.
+- **Rarer items** set a lower `max` (built) – which items and how many is the owner's call per item.

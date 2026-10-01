@@ -111,6 +111,19 @@ export interface ItemDef {
 	effects?: StatEffect[] | null;
 	/** a substance's temporary reader effect */
 	effect?: TimedEffect | null;
+	/**
+	 * Collection limit: at most this many per account (owner 2026-10-02); none = `MAX_PER_ACCOUNT` (99). Rarer items set
+	 * less. The server refuses more (409 max_reached); a claimed physical product (QR code) is always added.
+	 */
+	max?: number;
+}
+
+/** Default collection limit per item and account (owner 2026-10-02). */
+export const MAX_PER_ACCOUNT = 99;
+
+/** How many of an item one account may hold. */
+export function maxOf(item: Pick<ItemDef, 'max'> | null | undefined): number {
+	return Math.max(1, item?.max ?? MAX_PER_ACCOUNT);
 }
 
 export interface RecipePart {

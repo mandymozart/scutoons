@@ -7,9 +7,9 @@
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 	import { decodeFrame, loadJsQR, parseScutoonsCode } from './qr.ts';
 	import { cropSquare, loadClassifier, squareUnder, type Classifier } from './object-detector.ts';
-	import { scanPasses, scanTargets, scoreScan } from '@scutoons/content';
+	import { maxOf, scanPasses, scanTargets, scoreScan } from '@scutoons/content';
 	import { localized } from '$lib/contexts/inventory.svelte.ts';
-	import { findKnown, locate, remember, snapshot, type Place } from './scan-memory.ts';
+	import { findKnown, remember } from './scan-memory.ts';
 
 	let {
 		request,
@@ -48,12 +48,12 @@
 	const cooldownLeft = $derived(Math.max(0, Math.ceil((cooldownUntil - now) / 1000)));
 	/** what the last hit was recognised as and which item it became (game text, never an analysis) */
 	let lastHit = $state<{ grants: string; object: string } | null>(null);
-	/** "I know that one!": the same thing scanned again – the earlier and the new photo (scan-memory.ts) */
-	let known = $state<{ then: string; now: string } | null>(null);
-	/** the server's daily limit was reached (429 daily_limit) */
-	let enough = $state(false);
-	/** the reader's rough place for "same cucumber, same place" (asked once when the object camera opens; stays on the device) */
-	let place: Place | null = null;
+	/** "I know that one!": the same thing scanned again (scan-memory.ts) – the reader is told it is cheating */
+	let known = $state(false);
+	/** the server's daily limit (429 daily_limit) or the collection limit (409 max_reached) was reached */
+	let enough = $state<'daily_limit' | 'max_reached' | null>(null);
+	/** the item the last grant attempt was for (the collection-limit text) */
+	let lastScanned = $state('');
 	/** a camera that finds substances (testo / Check It camera) shows the drug-checking notice every time it opens */
 	const substanceCamera = $derived(!!skill && scanTargets(skill).some((t) => inventory.item(t.grants)?.category === 'substance'));
 	/** checkit! – the real, anonymous drug-checking service of Suchthilfe Wien (official site checked 2026-10-01) */
@@ -154,21 +154,19 @@
 					if (hit && passes && streak >= SCAN_OBJECT_FRAMES && now >= cooldownUntil && !enough) {
 						streak = 0;
 						cooldownUntil = Date.now() + (skill.cooldown_s ?? 10) * 1000;
-						const crop = cropSquare(video, square, 1);
-						const fingerprint = await classifier.embed(crop);
-						const photo = snapshot(crop);
-						const earlier = findKnown(hit.target.grants, fingerprint, place);
-						if (earlier) {
-							known = { then: earlier.photo, now: photo };
+						const fingerprint = await classifier.embed(cropSquare(video, square, 1));
+						if (findKnown(hit.target.grants, fingerprint)) {
+							known = true;
 						} else {
+							lastScanned = hit.target.grants;
 							const result = await inventory.grant(hit.target.grants, 'scan', 1, `scan:${hit.label}`);
 							if (result.ok) {
-								remember(hit.target.grants, fingerprint, photo, place);
-								known = null;
+								remember(hit.target.grants, fingerprint);
+								known = false;
 								lastHit = { grants: hit.target.grants, object: localized(hit.target.name) || hit.label };
 								celebrate++;
-							} else if (result.error === 'daily_limit') {
-								enough = true;
+							} else if (result.error === 'daily_limit' || result.error === 'max_reached') {
+								enough = result.error;
 							}
 						}
 					}
@@ -183,10 +181,7 @@
 	$effect(() => {
 		const signal = { stopped: false };
 		if (mode === 'qr') qrLoop(signal);
-		if (mode === 'object' && skill) {
-			objectLoop(signal);
-			locate().then((p) => (place = p));
-		}
+		if (mode === 'object' && skill) objectLoop(signal);
 		return () => (signal.stopped = true);
 	});
 
@@ -241,12 +236,8 @@
 		{#if known}
 			<div class="known" role="alert" data-testid="camera-known">
 				<strong>{m['camera.known']()}</strong>
-				<div class="photos">
-					<figure><img src={known.then} alt="" /><figcaption>{m['camera.known_then']()}</figcaption></figure>
-					<figure><img src={known.now} alt="" /><figcaption>{m['camera.known_now']()}</figcaption></figure>
-				</div>
 				<p>{cucumberCamera ? m['camera.known_cheat']() : m['camera.known_cheat_any']()}</p>
-				<button onclick={() => (known = null)} data-testid="camera-known-ok">{m['camera.known_ok']()}</button>
+				<button onclick={() => (known = false)} data-testid="camera-known-ok">{m['camera.known_ok']()}</button>
 			</div>
 		{/if}
 		{#key celebrate}
@@ -280,8 +271,10 @@
 				<p>{m['camera.loading_model']()}</p>
 			{:else if modelState === 'failed'}
 				<p>{m['camera.model_failed']()}</p>
-			{:else if enough}
+			{:else if enough === 'daily_limit'}
 				<p data-testid="camera-daily-limit">{cucumberCamera ? m['camera.daily_limit']() : m['camera.daily_limit_any']()}</p>
+			{:else if enough === 'max_reached'}
+				<p data-testid="camera-max-reached">{cucumberCamera ? m['camera.max_reached']({ max: maxOf(inventory.item(lastScanned)) }) : m['camera.max_reached_any']({ max: maxOf(inventory.item(lastScanned)) })}</p>
 			{:else if cooldownLeft > 0}
 				<p>{cucumberCamera ? m['camera.cooldown']({ seconds: cooldownLeft }) : m['camera.cooldown_any']({ seconds: cooldownLeft })}</p>
 			{:else}
@@ -435,22 +428,6 @@
 	.known strong {
 		font-size: 1.25rem;
 	}
-	.known .photos {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 0.5rem;
-	}
-	.known figure {
-		margin: 0;
-	}
-	.known img {
-		display: block;
-		width: 100%;
-		aspect-ratio: 1;
-		object-fit: cover;
-		border: 2px solid white;
-	}
-	.known figcaption,
 	.known p {
 		margin: 0;
 		font-size: 0.75rem;

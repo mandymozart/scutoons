@@ -261,11 +261,11 @@
 		"known": "I know that one!",
 		"known_cheat": "No cheating: that is the same cucumber as before. Find another one.",
 		"known_cheat_any": "No cheating: you scanned that one before. Find something else.",
-		"known_then": "earlier",
-		"known_now": "now",
 		"daily_limit": "Enough cucumbers for today. Back tomorrow!",
 		"daily_limit_any": "Enough finds for today. Back tomorrow!",
-		"known_ok": "Okay, got it"
+		"known_ok": "Okay, got it",
+		"max_reached": "You already have {max} cucumbers. Your collection is full.",
+		"max_reached_any": "You already have {max} of these. Your collection is full."
 	},
 	"start": {
 		"read": "Read S{season} C{chapter}",
