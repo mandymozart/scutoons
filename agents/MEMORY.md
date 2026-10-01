@@ -1268,3 +1268,24 @@ character, persona, look and mood and doubles as the VN test bed.
   wordmark, tiles from the API incl. colours / helmet / no sandbox / no dates, editions in the API order with price,
   pieces, struck sizes, buy link, slider per view + arrow, footer, menu) + the test user changing the list in the admin UI
   (remove, add, save) → the landing page → restore. 51/51.
+
+## Toon settings without text live once in the toon entry (2026-10-01)
+
+- **Owner:** in the creator's toon settings, fields with no text were edited and stored per language (screenshot: tile.image
+  with "per language", the map at 0 in one language). Now `authors`, `chapters`, `thumbnail`, `map`, `announce`, `tile` are
+  stored once in `toon:<toon>` (`TOON_NEUTRAL_FIELDS`); `release`, `status`, `cover` stay per language on purpose (catpope's
+  en release is later, status gates a language, toptoy/yellowmouse covers are per-language files). Spec: DATA.md
+  "Language-neutral toon settings in the toon entry".
+- Library merges the entry's fields into the bundle's `toon` (entry wins), strips them from `entry` and from the list
+  (except `tile`) → viewer unchanged. Old data (fields still in the settings) keeps working for `announce` / `tile`.
+- Creator `toon-editor.svelte`: `docs={[settings, toonIndexDoc(toon)]}`, block "Same in every language" (testid
+  `toon-neutral`, sub-blocks `toon-landing`, `toon-map`); the publish confirm says "Publish Toon entry?" when only the entry
+  changed. Entry label "Toon entry" / "Toon-Eintrag" (creator + admin, `EntityLabels.entry`).
+- Verified as the test user in the creator: tile.color `#ff0000` + map center 1300/450 → Publish → `/library/toons` +
+  bundle and the viewer (red catpope tile on `/`, `/catpope` map `translate(-587.5px, 0px)` at 1425 × 900) → restored
+  (empty colour, 1320/440; the restored `toon:catpope` JSON equals the migrated one, library answers identical to before
+  the migration; map back at `translate(-607.5px, 10px)`). Gotcha: the library's `max-age=60` keeps the old bundle in the
+  browser for a minute after a publish – reload after that.
+- Gotcha while testing: another agent's dev-port work restarted the Vite servers, and every HMR re-mount dropped unsaved
+  creator edits (also the screenshot lagged once) – check field values with JS before saving. The pane's `confirm()` returns
+  false, so Publish needs `window.confirm = () => true` in the test tab.

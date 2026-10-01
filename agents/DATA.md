@@ -15,7 +15,8 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | What | Where | Edited in |
 |---|---|---|
 | toon list entry (status, names per language, languages) | DB entity `toon:<toon>` | creator (toon page) |
-| toon settings (title, description, covers, map) per locale | DB `toon-settings:<toon>:<l>` | creator |
+| language-neutral toon settings (authors, chapter count, thumbnail, map, landing `tile`, `announce`) | DB entity `toon:<toon>` (the same entry) | creator (toon settings, "Same in every language") |
+| toon settings per locale (title, description, release, status, covers) | DB `toon-settings:<toon>:<l>` | creator |
 | season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>:<l>` | creator (season page) |
 | chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>:<l>` | creator |
 | VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>:<l>` | creator |
@@ -105,6 +106,33 @@ registry name, owner 2026-10-01) and its entry has the duo `avatar.webp`. Seed (
 `yellowmouse/{de,en}/toon.json` new, from the owner's store versions), local store (new published versions; backups
 `server/db/local.sqlite.bak-2026-10-01-landing`, `…-top-toy`), seed SQL: 6 toon-settings statements (2 changed, 4 new),
 `toon:toptoy` and `characters` (also in `characters-seed.mysql.sql`); unchanged statements keep their timestamps.
+
+**Language-neutral toon settings in the toon entry (2026-10-01, owner):** "fields with no text are edited and stored per
+language, which is pointless". Every toon setting that is not text lives once in the index entry `toon:<toon>`
+(`TOON_NEUTRAL_FIELDS` in `@scutoons/content` = `Library::TOON_NEUTRAL_FIELDS`): `authors`, `chapters` (count),
+`thumbnail`, `map` (layers, width, height, center), `announce`, `tile` (image, color). They stay per language in
+`toon-settings:<toon>:<l>` (`ToonSettings`): `title`, `description`, `language`, `id`, **`release`** (catpope de 2025-10-04,
+en 2025-12-01 – a translation is released later), **`status`** (the library gates each language on it) and **`cover`**
+(toptoy/yellowmouse use `images/1x/<l>/…` – covers carry lettering). Types: `ToonIndex extends ToonNeutralSettings`,
+`ToonSettings = Omit<Toon, …>`, `Toon` = the reader's merged shape (unchanged); schema `toon.schema.json` ← `ToonSettings`.
+- **Library:** `/library/toons/<toon>` merges the entry's neutral fields into the locale's `toon` (the entry wins over a
+  stale per-language copy) and returns `entry` without them, so both answers keep their shape; `/library/toons` keeps only
+  `tile` (+ `announced`) of them. Older data without them in the entry still reads `announce` / `tile` from the settings
+  (`LibraryTest::testAnnounceAndTileFromOlderToonSettings`, `…MergesTheNeutralSettings`).
+- **Validation:** the neutral fields in a `toon-settings` document are warnings ("belongs to the toon entry – the reader
+  ignores it here"); the entry (`validateFile('index', …)`) checks them (all optional; map/tile rules as before).
+- **Creator:** the toon settings page edits the entry too (`docs={[settings, entry]}` – the bottom bar saves/publishes
+  both, like cast + characters); block "Für alle Sprachen gleich" / "Same in every language" without "per language".
+  The entry's label is "Toon-Eintrag" / "Toon entry" (was "Languages"; `EntityLabels.entry`). New toons: `newToon()` writes
+  the per-language part only, the neutral settings start empty in the entry.
+- **Migration:** seed `toons.json` carries them (the source language's value, else the non-empty one – de and en were equal
+  everywhere), the 8 `toon.json` files lost them; `make-sandbox.ts` checks the sandbox's entry (`neutralSettings`). Local
+  store: new published versions of `toon:{catpope,toptoy,yellowmouse,sandbox}` and their `toon-settings:*:{de,en}` through
+  `/api/entities` as the test user (backup `server/db/local.sqlite.bak-2026-10-01-neutral-settings`); the library answers
+  were byte-for-byte the same before and after (sorted JSON). Seed SQL: only the 3 + 6 changed statements (toon entries,
+  toon settings; old rows keep their timestamps), and its `characters` statement now equals `characters-seed.mysql.sql`'s
+  (it lagged behind the last colour change). Idempotent per key: a database that already has these keys needs the new
+  versions imported separately.
 
 **Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
 in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API).
