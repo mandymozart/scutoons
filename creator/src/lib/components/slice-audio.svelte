@@ -189,7 +189,7 @@
 		padding: 0.3rem;
 	}
 	.sample.selected {
-		border: 2px solid #b70aff;
+		border: 2px solid var(--acid-purple);
 	}
 	.row {
 		display: flex;

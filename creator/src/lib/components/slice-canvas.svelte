@@ -430,11 +430,11 @@
 		border-style: solid;
 	}
 	.box.kind-sample {
-		border-color: #b70aff;
+		border-color: var(--acid-purple);
 		background: rgba(183, 10, 255, 0.08);
 	}
 	.box.kind-event {
-		border-color: #ff210a;
+		border-color: var(--state-error);
 		background: rgba(255, 33, 10, 0.06);
 	}
 	.box.auto-height {

@@ -19,7 +19,7 @@ cut-out product photos (`cdn/tools/make_item_icons.py`).
 - `cdn/root/characters/catpope/catpope_portrait-neutral.webp`
 - `cdn/root/characters/yellowmouse/yellowmouse_portrait-neutral.webp`
 
-## Prompt for Luma
+## Brief (image generator or designer; attach the style references)
 
 ```
 Attached are two character renders from the SCUTOONS universe as STYLE references only (rendering, lighting,

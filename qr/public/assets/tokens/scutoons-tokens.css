@@ -13,9 +13,9 @@
 	/* signature accent: fills and glows only, never text or small icons (~1.8:1 on paper) */
 	--primary-cyan: #00d1ff;
 	/* acid VFX trio: onomatopoeia / interaction highlights in the VN layer only */
-	--acid-purple: #b70aff;
-	--acid-green: #3fff0a;
-	--acid-red: #ff210a;
+	--acid-purple: #b300ff;
+	--acid-green: #37ff00;
+	--acid-red: #ff1900;
 	/* border escalation: subtle → muted → hover → ink */
 	--border-subtle: #dddddd;
 	--border-muted: #cccccc;
@@ -27,8 +27,8 @@
 	--text-muted: #6b6b6b;
 
 	/* App UI states (creator / admin forms and problem lists). Not part of the reader palette. */
-	--state-error: #ff210a;
-	--state-warning: #b07a00;
+	--state-error: #ff1900;
+	--state-warning: #ff6600;
 
 	/* Legacy names used by viewer components (same values) */
 	--primary-color: var(--primary-cyan);
