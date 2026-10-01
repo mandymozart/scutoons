@@ -11,6 +11,7 @@
 		toonLanguages,
 		toonTileColor,
 		type CharacterRegistry,
+		type ToonMapView,
 		type Point,
 		type Problem,
 		type Waypoint,
@@ -22,6 +23,8 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import { addPlace, addRoute, cdnHas, editMap, editPlace, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf } from '$lib/editor/map.ts';
+	import { toonIndexDoc } from '$lib/editor/languages.ts';
+	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import MetaPage from '../meta-page.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from './map-canvas.svelte';
 	import MapProps from './map-props.svelte';
@@ -62,6 +65,36 @@
 		const entry = nav.toons.find((t) => t.id === toonFilter);
 		return toonTileColor(registry, toonFilter, entry?.tile) ?? NEUTRAL_SEA;
 	});
+
+	// ── the toon's start view (owner 2026-10-01): set here per toon, stored in the toon entry `toon:<toon>` (`map: { center,
+	//    zoom }`, language-neutral); the entry is saved / published with the map once set here ─────────────────────────
+	let entryDocs = $state<Record<string, ContentDoc>>({});
+	let touchedEntries = $state<string[]>([]);
+	$effect(() => {
+		const t = toonFilter;
+		if (!t || entryDocs[t]) return;
+		const d = toonIndexDoc(t);
+		d.load().then(() => (entryDocs = { ...entryDocs, [t]: d }));
+	});
+	const entryDoc = $derived(toonFilter ? entryDocs[toonFilter] : undefined);
+	const startView = $derived.by(() => {
+		const v = entryDoc?.data['_']?.map as ToonMapView | undefined;
+		return v?.center ? { center: v.center, zoom: v.zoom ?? 1 } : null;
+	});
+	function setStartView() {
+		if (!entryDoc?.present.length || !toonFilter) return;
+		const c = view.toWorld({ x: view.width / 2, y: view.height / 2 });
+		const zoom = Math.round(view.zoom * 100) / 100;
+		entryDoc.structural((entry) => {
+			entry.map = { center: { x: Math.round(c.x), y: Math.round(c.y) }, ...(zoom !== 1 ? { zoom } : {}) };
+		});
+		if (!touchedEntries.includes(toonFilter)) touchedEntries = [...touchedEntries, toonFilter];
+		phoneFrame = true;
+	}
+	function gotoStartView() {
+		if (startView) view.centerOn(startView.center, startView.zoom);
+	}
+	const pageDocs = $derived<ContentDoc[]>([doc, ...touchedEntries.map((t) => entryDocs[t]).filter((d): d is ContentDoc => !!d)]);
 
 	onMount(async () => {
 		library.fetchRegistry({ draft: true }).then((r) => (registry = r)).catch(() => {});
@@ -234,7 +267,7 @@
 			if (e.key === 'Backspace' && canvas.undoDraftPoint()) return void e.preventDefault();
 		}
 		if (e.key === 'Escape' && selection) return void (selection = null);
-		const tools: Record<string, MapTool> = { v: 'select', p: 'place', r: 'route', h: 'hand' };
+		const tools: Record<string, MapTool> = { v: 'select', p: 'place', r: 'route' };
 		if (tools[e.key.toLowerCase()] && !e.shiftKey) return void (tool = tools[e.key.toLowerCase()]);
 		if (e.key.startsWith('Arrow') && selection?.kind === 'place') {
 			e.preventDefault();
@@ -336,12 +369,12 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<MetaPage toon="" title={m['creator.map']()} docs={[doc]} validate={() => problems} wide fill help="map">
+<MetaPage toon="" title={m['creator.map']()} docs={pageDocs} validate={() => problems} wide fill help="map">
 	{#if map}
 		<div class="builder" data-testid="map-builder">
 			<div class="toolbar" role="toolbar" aria-label={m['creator.map']()}>
 				<div class="group" role="radiogroup">
-					{#each [['select', m['creator.map_tool_select'](), 'V'], ['place', m['creator.map_tool_place'](), 'P'], ['route', m['creator.map_tool_route'](), 'R'], ['hand', m['creator.map_tool_hand'](), 'H']] as [id, label, key] (id)}
+					{#each [['select', m['creator.map_tool_select'](), 'V'], ['place', m['creator.map_tool_place'](), 'P'], ['route', m['creator.map_tool_route'](), 'R']] as [id, label, key] (id)}
 						<button type="button" class="tool" class:on={tool === id} role="radio" aria-checked={tool === id} title="{label} ({key})" onclick={() => (tool = id as MapTool)} data-testid="tool-{id}">{label}</button>
 					{/each}
 				</div>
@@ -355,6 +388,17 @@
 					<label class="check"><input type="checkbox" bind:checked={readerView} data-testid="reader-view" /> {m['creator.map_reader_view']()}</label>
 					<label class="check"><input type="checkbox" bind:checked={phoneFrame} data-testid="phone-frame" /> {m['creator.map_phone_frame']()}</label>
 				</div>
+				{#if toonFilter}
+					<div class="group start" title={m['creator.map_start_view_hint']()} data-testid="start-view">
+						<span class="hint">
+							{startView
+								? m['creator.map_start_view_value']({ toon: nav.toonName(toonFilter), x: Math.round(startView.center.x), y: Math.round(startView.center.y), zoom: Math.round(startView.zoom * 100) })
+								: m['creator.map_start_view_none']({ toon: nav.toonName(toonFilter) })}
+						</span>
+						<button type="button" class="ghost" onclick={setStartView} disabled={!entryDoc} data-testid="start-view-set">{m['creator.map_start_view_set']()}</button>
+						{#if startView}<button type="button" class="ghost" onclick={gotoStartView} data-testid="start-view-go">{m['creator.map_start_view_go']()}</button>{/if}
+					</div>
+				{/if}
 				<div class="group zoom">
 					<button type="button" class="ghost" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()}>−</button>
 					<span class="pct" data-testid="zoom-pct">{zoomPercent} %</span>
@@ -372,6 +416,7 @@
 					{toonFilter}
 					{readerView}
 					{phoneFrame}
+					{startView}
 					{hiddenLayers}
 					{sea}
 					onselect={(s) => select(s)}

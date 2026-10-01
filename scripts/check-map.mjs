@@ -192,6 +192,11 @@ async function reader(width, locale) {
 		const bg = await evaluate(`getComputedStyle(document.querySelector('[data-testid="map-overlay"]')).backgroundColor`);
 		const want = rgb(data.view?.color ?? '#00ff00');
 		report(`the sea is the toon's colour (${data.view?.color ?? 'default'})`, bg === want ? [] : [`${bg} ≠ ${want}`]);
+		// the map opens at the toon's start view (set in the creator; the toon entry's map.center / zoom)
+		const vp = await evaluate(`(() => { const b = document.querySelector('[data-testid="map-viewport"]').getBoundingClientRect(); return { w: b.width, h: b.height }; })()`);
+		const cx = (vp.w / 2 - s.tx) / s.scale, cy = (vp.h / 2 - s.ty) / s.scale;
+		const v = data.view;
+		report(`it opens at the toon's start view (${v.center.x}, ${v.center.y} · ${Math.round(v.zoom * 100)} %)`, Math.abs(s.scale - v.zoom) < 0.01 && Math.abs(cx - v.center.x) <= 3 && Math.abs(cy - v.center.y) <= 3 ? [] : [`centre ${Math.round(cx)}, ${Math.round(cy)} · ${s.scale}`]);
 	}
 	await click('[data-testid="map-list-toggle"]');
 	const empty = await waitFor(`document.querySelector('[data-testid="map-list"] p')?.textContent ?? null`, 3000);
@@ -293,10 +298,21 @@ async function builder() {
 		report('the map has no unpublished draft (the check never touches work in progress)', [`newest version ${mapEntity?.version?.id} ≠ published ${mapEntity?.published?.id} – publish or discard it first`]);
 		return;
 	}
+	const entryBefore = await (await fetch(`${api}/entities/toon:catpope?draft=1&wrap=1`, { headers: auth })).json();
+	if (entryBefore?.published?.id !== entryBefore?.version?.id) {
+		report('the toon entry toon:catpope has no unpublished draft', [`newest ${entryBefore?.version?.id} ≠ published ${entryBefore?.published?.id}`]);
+		return;
+	}
 	const original = mapEntity.content;
 	restoreMap = async () => {
 		const put = await fetch(`${api}/entities/map`, { method: 'PUT', headers: auth, body: JSON.stringify({ content: original, message: 'check-map: restore' }) });
 		if (put.ok) await fetch(`${api}/entities/map/publish`, { method: 'POST', headers: auth, body: '{}' });
+		const now = await (await fetch(`${api}/entities/toon:catpope?draft=1&wrap=1`, { headers: auth })).json();
+		if (now?.version?.id !== entryBefore.version.id) {
+			const back = await fetch(`${api}/entities/toon:catpope`, { method: 'PUT', headers: auth, body: JSON.stringify({ content: entryBefore.content, message: 'check-map: restore' }) });
+			if (back.ok) await fetch(`${api}/entities/toon:catpope/publish`, { method: 'POST', headers: auth, body: '{}' });
+			entryBefore.version = (await (await fetch(`${api}/entities/toon:catpope?draft=1&wrap=1`, { headers: auth })).json()).version;
+		}
 	};
 	await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 	await send('Network.clearBrowserCookies');
@@ -386,6 +402,25 @@ async function builder() {
 	const neutral = await evaluate(`getComputedStyle(document.querySelector('[data-testid="map-canvas"]')).backgroundColor`);
 	const wrong = Object.entries(seas).filter(([t, bg]) => colorOf(t) && bg !== (colorOf(t).startsWith('#') ? rgb(colorOf(t)) : bg)).map(([t, bg]) => `${t}: ${bg} ≠ ${colorOf(t)}`);
 	report(`reader view: the sea is the filtered toon's colour (${Object.keys(seas).map((t) => `${t} ${colorOf(t)}`).join(', ')}), neon green #00ff00 without a filter`, !wrong.length && neutral === rgb('#00ff00') ? [] : [...wrong, `neutral ${neutral}`]);
+
+	// 15. the toon's start view: set in the builder from the current view (toon filter), stored in the toon entry
+	await click('[data-testid="filter-catpope"]');
+	await waitFor(`document.querySelector('[data-testid="start-view-set"]:not([disabled])') ? true : null`, 8000);
+	const canvasBox = await evaluate(`(() => { const b = document.querySelector('[data-testid="map-canvas"]').getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 }; })()`);
+	await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: canvasBox.x, y: canvasBox.y, deltaX: 0, deltaY: -300 });
+	await sleep(200);
+	await click('[data-testid="start-view-set"]');
+	const shown = await waitFor(`document.querySelector('[data-testid="phone-frame-box"]') && document.querySelector('[data-testid="start-view"] .hint')?.textContent.includes('%') ? document.querySelector('[data-testid="start-view"] .hint').textContent : null`, 3000);
+	await shot('builder-7-start-view');
+	await click('[data-testid="save-draft"]');
+	let entry = null;
+	for (let i = 0; i < 20; i++) {
+		entry = await (await fetch(`${api}/entities/toon:catpope?draft=1&wrap=1`, { headers: auth })).json();
+		if (entry?.version?.id !== entryBefore.version.id) break;
+		await sleep(400);
+	}
+	const sv = entry?.content?.map;
+	report('"Set start view" stores the toon entry map { center, zoom } from the builder view (shown + phone frame)', shown && sv?.center && Number.isInteger(sv.center.x) && sv.zoom > 1 && entry.version.id !== entryBefore.version.id ? [] : [JSON.stringify({ shown, map: sv })]);
 
 	// 14. bidirectional unlock (owner 2026-10-01): the chapter's slice sets "unlocks: <place>", the builder shows it with a
 	//     link back – one storage, the place's unlock { toon, chapter, slice: <the slice's image>, at: <its reading point> }

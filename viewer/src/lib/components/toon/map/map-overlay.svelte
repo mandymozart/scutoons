@@ -65,9 +65,10 @@
 		const center = data.view?.center ?? { x: data.width / 2, y: data.height / 2 };
 		view.minZoom = Math.min(1, Math.max(0.15, view.width / data.width));
 		view.centerOn(center, data.view?.zoom ?? 1);
-		// a phone (agents/MAP.md Q11): start on the places this reader has discovered in this toon, zoomed so they spread
+		// the start view is set per toon in the creator (owner 2026-10-01); only when it would show none of the places this
+		// reader discovered in this toon, the map fits those instead (never zoomed in further than 3×)
 		const mine = places.filter(own);
-		if (view.width < 768 && mine.length) view.fit(mine, 56, 3);
+		if (mine.length && !mine.some((p) => view.onScreen(p, -24))) view.fit(mine, 56, 3);
 	}
 
 	// ── labels: priority new → this toon's → others; hidden where they'd overlap ───────────────────────────────────

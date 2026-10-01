@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type MapTool = 'select' | 'place' | 'route' | 'hand';
+	export type MapTool = 'select' | 'place' | 'route';
 	export type MapSelection = { kind: 'place' | 'route' | 'layer'; id: string } | null;
 </script>
 
@@ -24,7 +24,8 @@
 
 	/**
 	 * The builder's canvas (agents/MAP.md §4.2): the world at any zoom (25 %–800 %), the tools – select (click, drag places
-	 * and waypoints, click a route), + place, draw route (places snap within 12 px, the terrain gives free points), hand –
+	 * and waypoints, click a route), + place, draw route (places snap within 12 px, the terrain gives free points); panning with the middle mouse button, Space + drag or a
+	 * drag on the empty terrain (no hand tool, DESIGN.md "Icons") –
 	 * the toon filter (others dimmed), the reader view (hidden things greyed) and the phone frame (a 375 × 812 reader
 	 * screen at the reader's zoom, labels that would overlap there outlined red). Edits go out through callbacks.
 	 */
@@ -36,6 +37,7 @@
 		toonFilter,
 		readerView,
 		phoneFrame,
+		startView = null,
 		hiddenLayers,
 		sea,
 		onselect,
@@ -52,6 +54,8 @@
 		toonFilter: string;
 		readerView: boolean;
 		phoneFrame: boolean;
+		/** the filtered toon's start view (the phone frame shows the reader's first screen there) */
+		startView?: { center: Point; zoom: number } | null;
 		hiddenLayers: Set<string>;
 		/** the sea's colour (the reader view: the filtered toon's colour) */
 		sea: string;
@@ -68,15 +72,15 @@
 	const inFilter = (toons: string[] | undefined) => !toonFilter || !!toons?.includes(toonFilter);
 	const placeById = $derived(new Map(map.locations.map((p) => [p.id, p])));
 
-	// ── panning: the hand tool, the middle button, Space held, or a drag on the empty terrain with Select ───────────
+	// ── panning: the middle button, Space held, or a drag on the empty terrain with Select (touch: drag / two fingers) ──
 	let space = $state(false);
 	function canPan(e: PointerEvent) {
-		if (tool === 'hand' || space || e.button === 1) return true;
+		if (space || e.button === 1) return true;
 		if (tool === 'select') return !(e.target as HTMLElement | null)?.closest('[data-handle]');
 		return false;
 	}
 	function onTap(e: PointerEvent, at: Point) {
-		if (space || tool === 'hand') return;
+		if (space) return;
 		const world = view.toWorld(at);
 		if (tool === 'place') {
 			if ((e.target as HTMLElement | null)?.closest('[data-handle]')) return;
@@ -190,15 +194,21 @@
 	const layerVisible = (id: string) => !hiddenLayers.has(id);
 
 	/** the phone frame: a 375 × 812 reader screen at the reader's zoom (the toon's start zoom, 1) around the canvas centre */
-	const frame = $derived({ w: 375 * view.zoom, h: 812 * view.zoom });
+	/** the reader's zoom in the frame: the toon's start zoom, else 1 */
+	const frameZoom = $derived(startView?.zoom ?? 1);
+	const frame = $derived.by(() => {
+		const at = startView ? view.toScreen(startView.center) : { x: view.width / 2, y: view.height / 2 };
+		return { w: (375 * view.zoom) / frameZoom, h: (812 * view.zoom) / frameZoom, x: at.x, y: at.y };
+	});
 	/** labels that would overlap at zoom 1 on a phone (only with the frame on): outlined red */
 	const collisions = $derived.by(() => {
 		if (!phoneFrame) return new Set<string>();
 		const items = map.locations.filter((p) => inFilter(p.toons) && !(readerView && p.hidden));
 		const name = (p: MapPlace) => mapName(p.name, locale) || p.id;
 		const shown = visibleLabels(
-			items.map((p) => ({ id: p.id, x: p.x, y: p.y - 8.4, width: name(p).length * 6.3 + 6, height: 14.5 })),
-			items.map((p) => ({ x: p.x, y: p.y, size: 14 }))
+			// world units at the reader's zoom (phone: 14 px root, 0.75rem labels = 10.5 px, 1 rem markers)
+			items.map((p) => ({ id: p.id, x: p.x, y: p.y - 8.4 / frameZoom, width: (name(p).length * 6.3 + 6) / frameZoom, height: 14.5 / frameZoom })),
+			items.map((p) => ({ x: p.x, y: p.y, size: 14 / frameZoom }))
 		);
 		return new Set(items.filter((p) => !shown.has(p.id)).map((p) => p.id));
 	});
@@ -322,7 +332,7 @@
 	{/if}
 
 	{#if phoneFrame}
-		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" aria-hidden="true"><span>375 × 812 · 100 %</span></div>
+		<div class="phone" style:width="{frame.w}px" style:height="{frame.h}px" style:left="{frame.x}px" style:top="{frame.y}px" aria-hidden="true" data-testid="phone-frame-box"><span>375 × 812 · {Math.round(frameZoom * 100)} %{startView ? ' · start' : ''}</span></div>
 	{/if}
 
 	{#if tool === 'route' || tool === 'place'}
@@ -341,7 +351,6 @@
 		user-select: none;
 		cursor: default;
 	}
-	.tool-hand,
 	.space {
 		cursor: grab;
 	}

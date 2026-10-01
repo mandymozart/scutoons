@@ -461,7 +461,7 @@
 		"toon_neutral_hint": "Einmal für den Toon gespeichert (im Toon-Eintrag), nicht pro Sprache: Autor:innen, Kapitelzahl, Vorschaubild, die Kachel auf der Startseite und die Karte. Speichern und Veröffentlichen unten gilt für beides.",
 		"toon_entry_missing": "Dieser Toon hat noch keinen Toon-Eintrag – auf der Toon-Seite die Sprachen festlegen und speichern:",
 		"map_start_view": "Startansicht auf der Weltkarte",
-		"map_start_view_hint": "Wo sich die Karte für diesen Toon öffnet (Weltkoordinaten, Zoom 1 = 100 %). Größe, Ebenen, Orte und Wege gehören zur Weltkarte.",
+		"map_start_view_hint": "Startansicht des Toons: so zoomen und verschieben, dass der Handy-Rahmen in der Mitte zeigt, was Leser zuerst sehen – dann setzen (gespeichert im Toon-Eintrag, für alle Sprachen gleich).",
 		"map_open_builder": "Weltkarte öffnen",
 		"map_layers": "Ebenen",
 		"map_places": "Orte",
@@ -471,7 +471,6 @@
 		"map_tool_select": "Auswahl",
 		"map_tool_place": "+ Ort",
 		"map_tool_route": "Weg zeichnen",
-		"map_tool_hand": "Hand",
 		"map_all_toons": "Alle Toons",
 		"map_reader_view": "Leser-Ansicht",
 		"map_phone_frame": "Handy-Rahmen",
@@ -541,7 +540,7 @@
 		"map_where": "Wo",
 		"map_message": "Meldung",
 		"map_label_collision": "Beschriftung überlappt auf dem Handy",
-		"map_help": "Die eine Weltkarte für alle Toons: Orte, Wege (mit freien Wegpunkten) und Ebenen. Speichern und Veröffentlichen wie überall unten. Werkzeuge: Auswahl (klicken, ziehen; Pfeiltasten verschieben um 1, mit Shift um 10), + Ort, Weg zeichnen, Hand (oder Leertaste / mittlere Maustaste) zum Verschieben, Mausrad zoomt. Die Toon-Chips filtern die Karte; Leser-Ansicht zeigt grau, was ein Leser am Anfang nicht sieht; der Handy-Rahmen zeigt einen Bildschirm des Lesers (375 × 812).",
+		"map_help": "Die eine Weltkarte für alle Toons: Orte, Wege (mit freien Wegpunkten) und Ebenen. Speichern und Veröffentlichen wie überall unten. Werkzeuge: Auswahl V (klicken, ziehen; Pfeiltasten verschieben um 1, mit Shift um 10), + Ort P, Weg zeichnen R. Verschieben: mittlere Maustaste, Leertaste + Ziehen oder Ziehen auf freiem Gelände; Mausrad oder zwei Finger zoomen. Die Toon-Chips filtern die Karte; Leser-Ansicht zeigt grau, was ein Leser am Anfang nicht sieht, im Meer seines Toons; der Handy-Rahmen zeigt einen Bildschirm des Lesers (375 × 812).",
 		"map_help_ids": "IDs sind die Adressen für Story-Ereignisse: bis zur ersten Veröffentlichung änderbar, danach fest.",
 		"map_help_images": "Ortsbilder: transparente WebP, 256 × 256 px, ≤ 40 KB (höchstens 60 KB), Bodenpunkt unten Mitte (50 / 90 %), im CDN-Ordner map/locations/.",
 		"map_free_name": "Name (optional)",
@@ -562,7 +561,11 @@
 		"slice_unlocks_on_map": "Auf der Karte",
 		"slice_unlocks_elsewhere": "bisher: Kapitel {chapter}",
 		"slice_unlocks_remove": "Freischaltung entfernen",
-		"slice_unlocks_no_image": "Der Slice braucht ein Bild (es ist seine Adresse)."
+		"slice_unlocks_no_image": "Der Slice braucht ein Bild (es ist seine Adresse).",
+		"map_start_view_set": "Startansicht setzen",
+		"map_start_view_go": "Zur Startansicht",
+		"map_start_view_value": "Start {toon}: {x}, {y} · {zoom} %",
+		"map_start_view_none": "{toon}: keine Startansicht (Mitte der Orte)"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

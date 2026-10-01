@@ -461,7 +461,7 @@
 		"toon_neutral_hint": "Stored once for the toon (in its toon entry), not per language: authors, chapter count, thumbnail, the homepage tile and the map. Save and Publish below cover both.",
 		"toon_entry_missing": "This toon has no toon entry yet – set its languages on the toon page and save:",
 		"map_start_view": "Start view on the world map",
-		"map_start_view_hint": "Where the map opens for this toon (world units, zoom 1 = 100 %). Size, layers, places and routes belong to the world map.",
+		"map_start_view_hint": "The toon's start view: zoom and pan until the phone frame in the middle shows what readers see first – then set it (stored in the toon entry, the same in every language).",
 		"map_open_builder": "Open the world map",
 		"map_layers": "Layers",
 		"map_places": "Places",
@@ -471,7 +471,6 @@
 		"map_tool_select": "Select",
 		"map_tool_place": "+ Place",
 		"map_tool_route": "Draw route",
-		"map_tool_hand": "Hand",
 		"map_all_toons": "All toons",
 		"map_reader_view": "Reader view",
 		"map_phone_frame": "Phone frame",
@@ -541,7 +540,7 @@
 		"map_where": "Where",
 		"map_message": "Message",
 		"map_label_collision": "Label overlaps on a phone",
-		"map_help": "The one world map of every toon: places, routes (with free waypoints) and layers. Save and publish at the bottom like everywhere. Tools: Select (click, drag; arrow keys move by 1, with Shift by 10), + Place, Draw route, Hand (or Space / the middle button) to pan, the wheel zooms. The toon chips filter the map; Reader view greys what a reader doesn't see at the start; the phone frame shows a reader's screen (375 × 812).",
+		"map_help": "The one world map of every toon: places, routes (with free waypoints) and layers. Save and publish at the bottom like everywhere. Tools: Select V (click, drag; arrow keys move by 1, with Shift by 10), + Place P, Draw route R. Pan: the middle mouse button, Space + drag or a drag on the empty terrain; the wheel or two fingers zoom. The toon chips filter the map; Reader view greys what a reader doesn't see at the start, on their toon's sea; the phone frame shows a reader's screen (375 × 812).",
 		"map_help_ids": "Ids are the addresses story events use: editable until the first publish, fixed afterwards.",
 		"map_help_images": "Place images: transparent WebP, 256 × 256 px, ≤ 40 KB (60 KB at most), ground point bottom centre (50 / 90 %), in the CDN folder map/locations/.",
 		"map_free_name": "Name (optional)",
@@ -562,7 +561,11 @@
 		"slice_unlocks_on_map": "On the map",
 		"slice_unlocks_elsewhere": "was: chapter {chapter}",
 		"slice_unlocks_remove": "Remove the unlock",
-		"slice_unlocks_no_image": "The slice needs an image (it is its address)."
+		"slice_unlocks_no_image": "The slice needs an image (it is its address).",
+		"map_start_view_set": "Set start view",
+		"map_start_view_go": "Go to the start view",
+		"map_start_view_value": "Start {toon}: {x}, {y} · {zoom} %",
+		"map_start_view_none": "{toon}: no start view (centre of the places)"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",
