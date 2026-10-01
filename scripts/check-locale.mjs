@@ -17,7 +17,7 @@
 // --static: the viewer is a plain static host of viewer/build (SPA fallback index.html, like production): the raw HTML
 // is the build-time shell (`<html lang="de">`, no text; ssr = false), so only its status is checked there – the
 // language is set on the client (routes/+layout.svelte) and checked after hydration as usual.
-// Needs the dev servers (npm run dev:up). Exit code 1 on any failure.
+// Needs the dev servers (npm run dev). Exit code 1 on any failure.
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

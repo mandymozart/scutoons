@@ -14,7 +14,7 @@
 // Signed-in pages (creator, admin, viewer account) need a session: --token= / SCUTOONS_TOKEN, or --session, which
 // creates a throw-away admin + creator user in the LOCAL database (server/tests/support/legacy.php) and removes it at
 // the end. Without one, creator and admin are checked on their sign-in screen only.
-// Needs the dev servers (npm run dev:up). Exit code 1 on any failure.
+// Needs the dev servers (npm run dev). Exit code 1 on any failure.
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

@@ -318,7 +318,7 @@ avatar, crop the head with neck from each mood portrait (one aligned box per cha
 ## RULE: one start-up routine, fixed ports (2026-09-30, owner)
 
 Local dev ports are fixed (viewer 8000, cdn 8001, api 9000, qr 9001, creator 10000, admin 11000, shop 12000;
-`strictPort`). Start servers ONLY with `npm run dev:up` (idempotent: starts what is down, never a second copy; logs in
+`strictPort`). Start servers ONLY with `npm run dev` (idempotent: starts what is down, never a second copy; logs in
 `logs/dev/`); `npm run dev:status` shows the table. Agents never start servers on other/side ports for the owner's stack,
 never kill servers they did not start, and use throw-away ports only for isolated test runs they stop again (e.g. the
 contract suites' own servers).
@@ -340,7 +340,7 @@ tabs/sessions. Local dev only (the script refuses a non-localhost API).
 ## Handover 2026-09-30 evening (state `stable-2026-09-30-6`)
 
 Full suite green on this state: `npm run check`, 4 builds, `server composer test`, `qr composer test`, vn-check,
-`check:locale`, `check:fonts`, `check:creator-cast`; all 7 dev servers via `npm run dev:up`. Nothing pushed.
+`check:locale`, `check:fonts`, `check:creator-cast`; all 7 dev servers via `npm run dev`. Nothing pushed.
 
 **CDN upload still pending (`cdn/root` is not in git, upload with `cdn/sync.py`):**
 - `catpope/images/s1c2-key-visual.{png,webp}`
@@ -362,5 +362,5 @@ content changes before then (keep unchanged rows' timestamps, only changed state
 **This round (for orientation):** entity keys + API-only content; creator UI rework (no version numbers); cast/star +
 featuring (data only, not shown in the reader); full view as centre group; multi-slot avatar bodies + Toptoy; sensitive
 content setting (default on); dark inventory; toon page = start button from reading progress + per-chapter progress bars,
-season music, credits colophon with supporters; IBM Plex Mono everywhere; `/en/` URLs fixed; `dev:up` / `dev:test-user`.
+season music, credits colophon with supporters; IBM Plex Mono everywhere; `/en/` URLs fixed; `npm run dev` / `dev:test-user`.
 

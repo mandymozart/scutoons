@@ -64,7 +64,7 @@ woff2 files next to it (relative `url()`s). The copy is committed; run the scrip
 `npm run check -w @scutoons/tokens`: every DESIGN.md token is defined, every `var()` in the package is defined, every
 `url()` in `fonts.css` exists and every font file is used, and qr's copy is in sync (`qr/bin/sync-tokens.mjs --check`).
 
-In a real browser: `npm run check:fonts` (= `node scripts/check-fonts.mjs --session`, dev servers from `npm run dev:up`)
+In a real browser: `npm run check:fonts` (= `node scripts/check-fonts.mjs --session`, dev servers from `npm run dev`)
 loads the pages, dialogs and sheets of viewer, creator, admin, shop and qr in headless Chrome and asserts per page:
 `document.fonts.check('1em "IBM Plex Mono"')` + a loaded Plex face, a Plex woff2 answered 200 on the network, no
 font-CDN request, the computed `font-family` of every visible text and form control starts with IBM Plex Mono

@@ -15,7 +15,7 @@
 		"node": ">=22"
 	},
 	"scripts": {
-		"dev:up": "node scripts/dev/up.mjs",
+		"dev": "node scripts/dev/up.mjs",
 		"dev:status": "node scripts/dev/up.mjs --status",
 		"dev:test-user": "node scripts/dev/test-user.mjs",
 		"check:creator-cast": "node scripts/dev/creator-cast-check.mjs",

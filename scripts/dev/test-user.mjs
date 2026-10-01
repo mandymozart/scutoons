@@ -128,7 +128,7 @@ async function login() {
 
 async function main() {
 	const health = await api('GET', '/health/').catch(() => null);
-	if (!health || health.status !== 200) fail(`the API ${API} is not answering – start it with npm run dev:up`);
+	if (!health || health.status !== 200) fail(`the API ${API} is not answering – start it with npm run dev`);
 
 	let session = readSession();
 	let token = session?.email === EMAIL && !flag('--fresh') ? session.token : null;
