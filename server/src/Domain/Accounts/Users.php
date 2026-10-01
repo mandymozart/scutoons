@@ -52,8 +52,10 @@ final class Users
             [$id, $email, $locale, $now, $now, $now, $signupCode, $marketingOptIn ? 1 : 0, $marketingOptIn ? $now : null]);
         $this->roles->grant($id, Roles::MEMBER, 'signup');
         foreach ($this->catalog->starters() as $item) {
+            if (is_string($item['slot'] ?? null)) continue; // the default wearables: granted and worn below
             $this->inventory->add($id, (string) $item['id'], null, 1, 'starter');
         }
+        $this->inventory->grantStarterWearables($id);
         return $this->byId($id) ?? throw new RuntimeException('user not stored');
     }
 

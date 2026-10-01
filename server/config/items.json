@@ -23,6 +23,78 @@
       "variants": null
     },
     {
+      "id": "scutoons_tshirt",
+      "toon": null,
+      "name": { "de": "SCUTOONS T-Shirt", "en": "SCUTOONS T-shirt" },
+      "description": {
+        "de": "Das T-Shirt, mit dem bei SCUTOONS alle anfangen. Zieh es an, zieh es aus, tausch es gegen etwas Besseres.",
+        "en": "The T-shirt everyone at SCUTOONS starts with. Put it on, take it off, swap it for something better."
+      },
+      "kind": "virtual",
+      "category": "wearable",
+      "icon": "scutoons/items/scutoons_tshirt.png",
+      "stackable": false,
+      "starter": true,
+      "grantable": [],
+      "slot": "torso",
+      "skills": [],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "wear": {
+        "catpope": "characters/catpope/wear/scutoons_tshirt.webp"
+      }
+    },
+    {
+      "id": "scutoons_swim_pants",
+      "toon": null,
+      "name": { "de": "SCUTOONS Badehose", "en": "SCUTOONS swim pants" },
+      "description": {
+        "de": "Die Badehose für alle Figuren. Solange „Sensible Inhalte ausblenden“ an ist, bleibt sie an, wenn nichts anderes die Beine bedeckt.",
+        "en": "The swim pants for every character. While \"Hide sensitive content\" is on, they stay on when nothing else covers the legs."
+      },
+      "kind": "virtual",
+      "category": "wearable",
+      "icon": "scutoons/items/scutoons_swim_pants.png",
+      "stackable": false,
+      "starter": true,
+      "grantable": [],
+      "slot": "legs",
+      "skills": [],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "wear": {
+        "catpope": "characters/catpope/wear/scutoons_swim_pants.webp",
+        "yellowmouse": "characters/yellowmouse/wear/scutoons_swim_pants.webp",
+        "toptoy/legs-left": "characters/toptoy/wear/scutoons_swim_pants-legs-left.webp",
+        "toptoy/legs-right": "characters/toptoy/wear/scutoons_swim_pants-legs-right.webp"
+      }
+    },
+    {
+      "id": "scutoons_shorts",
+      "toon": null,
+      "name": { "de": "SCUTOONS Shorts", "en": "SCUTOONS shorts" },
+      "description": {
+        "de": "Kurze Jeans-Shorts. Zieh sie über die Beine, die Badehose wandert zurück ins Inventar.",
+        "en": "Short denim shorts. Put them on and the swim pants go back into your inventory."
+      },
+      "kind": "virtual",
+      "category": "wearable",
+      "icon": "scutoons/items/scutoons_shorts.png",
+      "stackable": false,
+      "starter": true,
+      "grantable": [],
+      "slot": "legs",
+      "skills": [],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "wear": {
+        "catpope": "characters/catpope/wear/scutoons_shorts.webp"
+      }
+    },
+    {
       "id": "cucumber",
       "toon": "catpope",
       "name": { "de": "Gurke", "en": "Cucumber" },

@@ -76,6 +76,13 @@ export interface ItemDef {
 	edition_id: string | null;
 	product: string | null;
 	variants: ItemVariant[] | null;
+	/**
+	 * Wardrobe overlays of a wearable (ITEMS.md "Wardrobe"): `<character>` or `<character>/<slot instance id>` → CDN
+	 * path of a full-body overlay aligned to that character's A-pose (768 × 1152, transparent WebP, convention
+	 * `characters/<character>/wear/<item>[-<slot instance>].webp`). A body without an overlay draws the item's icon at
+	 * the slot anchor instead.
+	 */
+	wear?: Record<string, string> | null;
 }
 
 export interface RecipePart {

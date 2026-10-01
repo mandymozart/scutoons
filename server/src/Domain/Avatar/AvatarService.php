@@ -7,6 +7,7 @@ use PDOException;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Characters\CharacterUnlocks;
+use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 
@@ -24,15 +25,48 @@ use Scutoons\Infrastructure\Database\Database;
  * Sensitive looks (agents/ITEMS.md "Sensitive content"): while the member's "Hide sensitive content" is on
  * (`users.hide_sensitive`, the default) a look marked `sensitive: true` can't be chosen (422 sensitive_hidden), a stored
  * one reads as the character's first non-sensitive look, and turning the setting on moves it there (hideSensitiveBody).
+ *
+ * Wardrobe (agents/ITEMS.md "Wardrobe"): the default wearables (starter items with a slot: SCUTOONS T-shirt, swim
+ * pants, shorts) are granted and worn lazily for accounts older than them (ensureWardrobe). Putting an item on an
+ * occupied instance swaps the old one back into the inventory (it stays an entry, just not worn). While "Hide
+ * sensitive content" is on, every save refills the empty cover instances (SENSITIVE_COVER: `legs`) with an unworn
+ * wearable of that type, in catalog order (the swim pants first) – `restored` in the answer; the same rule as
+ * `coverSensitive` in @scutoons/content.
  */
 final class AvatarService
 {
+    /** Slot types that must stay covered while "Hide sensitive content" is on (SENSITIVE_COVER in @scutoons/content) */
+    public const SENSITIVE_COVER = ['legs'];
+
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
         private readonly Catalog $catalog,
         private readonly CharacterUnlocks $unlocks,
+        private readonly InventoryService $inventory,
     ) {
+    }
+
+    /**
+     * Grants (and wears, where the slot type is free) the default wearables the member owns none of yet – accounts made
+     * before an item became a starter. Returns the granted item ids (usually none: one cheap check per call).
+     * @return list<string>
+     */
+    public function ensureWardrobe(string $userId): array
+    {
+        if (!$this->inventory->missingStarterWearables($userId)) return [];
+        /** @var list<string> */
+        return $this->db->transaction(fn(): array => $this->inventory->grantStarterWearables($userId));
+    }
+
+    /**
+     * Applies the cover rule to the stored avatar now (after "Hide sensitive content" was turned on). Returns the
+     * refilled slot instance ids.
+     * @return list<string>
+     */
+    public function coverSensitive(string $userId): array
+    {
+        return $this->update($userId, ['slots' => []]);
     }
 
     /**
@@ -120,9 +154,12 @@ final class AvatarService
      * 400 invalid_slots (neither given / not an object), invalid_body; 422 invalid_slot (no such instance on this body),
      * not_owned (entry is not the user's), wrong_slot, locked (body not unlocked), no_apose (no A-pose image for that look),
      * sensitive_hidden (a look marked sensitive while the member's "Hide sensitive content" is on).
+     * Swap: the entry that was on an instance just comes off (stays in the inventory). While "Hide sensitive content" is
+     * on, empty cover instances are refilled (class doc); returns their ids (`restored`).
      * @param array<string, mixed> $body
+     * @return list<string>
      */
-    public function update(string $userId, array $body): void
+    public function update(string $userId, array $body): array
     {
         $hasBody = array_key_exists('body', $body);
         if ($hasBody) $this->checkBody($userId, $body['body']);
@@ -153,7 +190,9 @@ final class AvatarService
             $changes[$id] = $entryId;
         }
 
-        $this->db->transaction(function () use ($userId, $changes, $hasBody, $body, $instances) {
+        $hide = $this->hidesSensitive($userId);
+        /** @var list<string> */
+        return $this->db->transaction(function () use ($userId, $changes, $hasBody, $body, $instances, $hide): array {
             if ($hasBody) $this->saveBody($userId, $body['body']);
             // the worn items on the (new) body, then the changes; one entry is worn once
             $worn = $this->remap($this->stored($userId), $instances);
@@ -163,12 +202,40 @@ final class AvatarService
                 }
                 $worn[$id] = $entryId;
             }
+            $restored = [];
+            if ($hide) [$worn, $restored] = $this->cover($worn, $instances, $this->inventory->wearableEntries($userId));
             $this->db->run('DELETE FROM avatar_slots WHERE user_id = ?', [$userId]);
             $now = $this->clock->utc();
             foreach ($worn as $id => $entryId) {
                 if ($entryId !== null) $this->db->run('INSERT INTO avatar_slots (user_id, slot, entry_id, updated_at) VALUES (?, ?, ?, ?)', [$userId, $id, $entryId, $now]);
             }
+            return $restored;
         });
+    }
+
+    /**
+     * The cover rule: every empty instance of a SENSITIVE_COVER type gets the first candidate of that type that is not
+     * worn anywhere (candidates in catalog order); nothing left = stays empty (the reader draws the safe look).
+     * @param array<string, string|null> $worn
+     * @param list<array{id: string, slot: string}> $instances
+     * @param list<array{id: string, slot: string}> $candidates
+     * @return array{0: array<string, string|null>, 1: list<string>}
+     */
+    public static function cover(array $worn, array $instances, array $candidates): array
+    {
+        $used = array_flip(array_filter($worn, fn($e) => $e !== null));
+        $restored = [];
+        foreach ($instances as $i) {
+            if (!in_array($i['slot'], self::SENSITIVE_COVER, true) || ($worn[$i['id']] ?? null) !== null) continue;
+            foreach ($candidates as $c) {
+                if ($c['slot'] !== $i['slot'] || isset($used[$c['id']])) continue;
+                $worn[$i['id']] = $c['id'];
+                $used[$c['id']] = true;
+                $restored[] = $i['id'];
+                break;
+            }
+        }
+        return [$worn, $restored];
     }
 
     /**

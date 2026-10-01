@@ -33,6 +33,7 @@ final class AccountService
     public function me(array $user): array
     {
         $userId = (string) $user['id'];
+        $this->avatar->ensureWardrobe($userId); // default wearables for accounts older than them (agents/ITEMS.md "Wardrobe")
         $codes = $this->db->all('SELECT code, type, expires_at, revoked_at FROM qr WHERE claimed_by = ? ORDER BY claimed_at, code', [$userId]);
         // Owned codes of claimable types (permissions map); access = their grants while not expired
         $owned = array_values(array_filter($codes, fn(array $r) => $this->permissions->claimable((string) $r['type'])));
@@ -69,7 +70,10 @@ final class AccountService
         if (array_key_exists('hide_sensitive', $fields)) {
             $this->users->setHideSensitive($userId, $fields['hide_sensitive']);
             // (own transaction) a worn sensitive body moves to the character's first non-sensitive look
-            if ($fields['hide_sensitive']) $this->avatar->hideSensitiveBody($userId);
+            if ($fields['hide_sensitive']) {
+                $this->avatar->hideSensitiveBody($userId);
+                $this->avatar->coverSensitive($userId); // empty legs get the swim pants back (agents/ITEMS.md "Wardrobe")
+            }
         }
         return ['user' => $this->users->toJson($this->users->byId($userId) ?? $user), 'avatar' => $this->avatar->toJson($userId)];
     }

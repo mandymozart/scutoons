@@ -38,7 +38,7 @@ final class LoginServiceTest extends TestCase
         self::assertNotNull($this->get(Sessions::class)->user($result['session_token']));
         $items = array_column($this->db->all('SELECT item_id FROM inventory WHERE user_id = ?', [$result['user']['id']]), 'item_id');
         sort($items);
-        self::assertSame(['awakening_vinyl', 'camera'], $items, 'starter camera + the claimed vinyl');
+        self::assertSame(['awakening_vinyl', 'camera', 'scutoons_shorts', 'scutoons_swim_pants', 'scutoons_tshirt'], $items, 'starter camera + default wearables + the claimed vinyl');
         self::assertSame(['claim', 'login', 'signup'], array_column($this->db->all('SELECT event FROM code_events WHERE code = ? ORDER BY event', [$code]), 'event'));
 
         $this->expectApiError(410, 'already_used', fn() => $this->login->verify(['email' => 'new@example.com', 'otp' => $this->otp()]));

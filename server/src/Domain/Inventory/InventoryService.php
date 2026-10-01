@@ -76,6 +76,59 @@ final class InventoryService
         }
     }
 
+    /**
+     * The default wearables the member owns none of (agents/ITEMS.md "Wardrobe"): starter items with an avatar slot
+     * (SCUTOONS T-shirt, swim pants, shorts). Wearables are never consumed, so "owns none" means the account is older
+     * than the item.
+     * @return list<array<string, mixed>>
+     */
+    public function missingStarterWearables(string $userId): array
+    {
+        return array_values(array_filter($this->catalog->starters(), fn(array $item) => is_string($item['slot'] ?? null) && $this->count($userId, (string) $item['id']) === 0));
+    }
+
+    /**
+     * Grants the missing default wearables (source `starter`) and puts each one on when nothing of its slot type is worn
+     * yet (an avatar_slots row by slot type; it lands on the first free instance of that type of any body, like every
+     * row). No own transaction: signup calls it inside its own, GET /me/ wraps it (AvatarService::ensureWardrobe).
+     * @return list<string> the granted item ids
+     */
+    public function grantStarterWearables(string $userId): array
+    {
+        $granted = [];
+        $now = $this->clock->utc();
+        foreach ($this->missingStarterWearables($userId) as $item) {
+            $itemId = (string) $item['id'];
+            $this->add($userId, $itemId, null, 1, 'starter');
+            $granted[] = $itemId;
+            $worn = $this->db->all('SELECT i.item_id FROM avatar_slots a JOIN inventory i ON i.id = a.entry_id AND i.user_id = a.user_id WHERE a.user_id = ?', [$userId]);
+            $types = array_map(fn(array $r) => $this->catalog->item((string) $r['item_id'])['slot'] ?? null, $worn);
+            if (in_array($item['slot'], $types, true)) continue;
+            $entry = $this->db->value('SELECT id FROM inventory WHERE user_id = ? AND item_id = ? ORDER BY acquired_at DESC, id LIMIT 1', [$userId, $itemId]);
+            $this->db->run('DELETE FROM avatar_slots WHERE user_id = ? AND slot = ?', [$userId, $item['slot']]);
+            $this->db->run('INSERT INTO avatar_slots (user_id, slot, entry_id, updated_at) VALUES (?, ?, ?, ?)', [$userId, $item['slot'], $entry, $now]);
+        }
+        return $granted;
+    }
+
+    /**
+     * The member's wearable entries in catalog order (then oldest first) – the order the cover rule takes them in
+     * (agents/ITEMS.md "Wardrobe": the swim pants before the shorts).
+     * @return list<array{id: string, slot: string}>
+     */
+    public function wearableEntries(string $userId): array
+    {
+        $order = array_flip(array_keys($this->catalog->items()));
+        $rows = $this->db->all('SELECT id, item_id FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY acquired_at, id', [$userId]);
+        $out = [];
+        foreach ($rows as $r) {
+            $slot = $this->catalog->item((string) $r['item_id'])['slot'] ?? null;
+            if (is_string($slot)) $out[] = ['id' => (string) $r['id'], 'slot' => $slot, 'order' => $order[$r['item_id']] ?? PHP_INT_MAX];
+        }
+        usort($out, fn(array $a, array $b) => $a['order'] <=> $b['order']);
+        return array_map(fn(array $e) => ['id' => $e['id'], 'slot' => $e['slot']], $out);
+    }
+
     public function count(string $userId, string $itemId): int
     {
         return (int) $this->db->value('SELECT COALESCE(SUM(qty), 0) FROM inventory WHERE user_id = ? AND item_id = ?', [$userId, $itemId]);

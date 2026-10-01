@@ -12,6 +12,7 @@ export * from './languages.ts';
 export * from './credits.ts';
 export * from './characters.ts';
 export * from './sensitive.ts';
+export * from './wardrobe.ts';
 export * from './validate.ts';
 export * from './entities.ts';
 export * from './progress.ts';

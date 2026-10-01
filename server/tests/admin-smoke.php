@@ -240,7 +240,7 @@ try {
 
     echo "\nCatalog and keys\n";
     $r = call('GET', "$api/catalog", null, $adminToken);
-    check($r['status'] === 200 && count($r['body']['catalog']['items']) === 9 && isset($r['body']['permissions']['types']['membership']) && count($r['body']['toons']) >= 1, 'catalog + editions + toons + permissions map', array_keys((array) $r['body']));
+    check($r['status'] === 200 && count($r['body']['catalog']['items']) === 12 && isset($r['body']['permissions']['types']['membership']) && count($r['body']['toons']) >= 1, 'catalog + editions + toons + permissions map', array_keys((array) $r['body']));
     $r = call('GET', "$api/keys", null, $adminToken);
     check(($r['status'] === 200 && is_string($r['body']['privateKey'] ?? null) && is_string($r['body']['publicKey'] ?? null)) || ($r['status'] === 404 && $r['body']['error'] === 'keys_missing'),
         'keys for client-side signing (admin only)', [$r['status'], array_keys((array) $r['body'])]);
@@ -497,7 +497,48 @@ try {
     $r = call('PUT', "$userApi/avatar/", ['slots' => ['torso-right' => $wear['tee']]], $memberToken);
     $rows = Db::all('SELECT slot, entry_id FROM avatar_slots WHERE user_id = ? ORDER BY slot', [$member['id']]);
     check(array_column($rows, 'entry_id', 'slot') === ['torso-left' => $wear['hoodie'], 'torso-right' => $wear['tee']], 'the next save stores it by instance id', $rows);
+
+    echo "\nWardrobe (default wearables, swap, the cover rule – agents/ITEMS.md \"Wardrobe\")\n";
+    // the duo gets two legs instances for this part (a registry version, removed at the end)
+    $registry['characters'] = array_map(function ($c) use ($inst) {
+        if (($c['id'] ?? null) !== 'toptoy') return $c;
+        $c['apose']['looks'][0]['slots'] = array_merge($c['apose']['looks'][0]['slots'], [$inst('legs-left', 'legs', 200), $inst('legs-right', 'legs', 570)]);
+        return $c;
+    }, $registry['characters']);
+    Db::run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, ?, 'published', 'admin-smoke wardrobe')", [json_encode($registry, JSON_UNESCAPED_SLASHES), Db::now()]);
+    $wardrobeRegistryId = (int) Db::value('SELECT MAX(id) FROM entity_versions');
+    $me = call('GET', "$userApi/me/", null, $memberToken)['body'] ?? [];
+    $starter = [];
+    foreach ($me['inventory'] ?? [] as $e) if (str_starts_with((string) $e['item_id'], 'scutoons_')) $starter[$e['item_id']][] = $e;
+    check(array_map('count', $starter) == ['scutoons_tshirt' => 1, 'scutoons_swim_pants' => 1, 'scutoons_shorts' => 1]
+        && $starter['scutoons_swim_pants'][0]['source'] === 'starter', 'GET /me/: an account older than the default wearables gets each once (source starter)', $starter);
+    $pants = $starter['scutoons_swim_pants'][0]['id'] ?? '';
+    $shorts = $starter['scutoons_shorts'][0]['id'] ?? '';
+    $shirt = $starter['scutoons_tshirt'][0]['id'] ?? '';
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'swim'], 'slots' => ['torso' => $shirt, 'legs' => $shorts]], $memberToken);
+    $me = call('GET', "$userApi/me/", null, $memberToken)['body'] ?? [];
+    check($r['status'] === 200 && ($r['body']['avatar']['slots']['legs'] ?? null) === $shorts && ($r['body']['restored'] ?? null) === []
+        && in_array($pants, array_column($me['inventory'] ?? [], 'id'), true), 'shorts on legs → the swim pants come off and stay in the inventory', $r);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['legs' => null]], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['slots']['legs'] ?? null) === $pants && ($r['body']['restored'] ?? null) === ['legs'],
+        'hidden: taking the shorts off puts the swim pants back (restored: [legs])', $r);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['legs' => null]], $memberToken);
+    check(($r['body']['avatar']['slots']['legs'] ?? null) === $pants, 'hidden: the swim pants cannot come off', $r);
+    call('PUT', "$userApi/me/", ['hide_sensitive' => false], $memberToken);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['legs' => null]], $memberToken);
+    check($r['status'] === 200 && array_key_exists('legs', (array) ($r['body']['avatar']['slots'] ?? [])) && $r['body']['avatar']['slots']['legs'] === null && ($r['body']['restored'] ?? null) === [], 'setting off: legs can be empty (naked allowed)', $r);
+    $r = call('PUT', "$userApi/me/", ['hide_sensitive' => true], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['slots']['legs'] ?? null) === $pants, 'turning it on again puts the swim pants back', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'toptoy', 'look' => 'swim']], $memberToken);
+    $slots = (array) ($r['body']['avatar']['slots'] ?? []);
+    check($r['status'] === 200 && $slots['legs-left'] === $pants && $slots['legs-right'] === $shorts && ($r['body']['restored'] ?? null) === ['legs-right'],
+        'the duo: pants on the left figure, the cover rule puts the shorts on the right one', $r);
+    $r = call('PUT', "$userApi/avatar/", ['slots' => ['legs-right' => null]], $memberToken);
+    check(((array) ($r['body']['avatar']['slots'] ?? []))['legs-right'] === $shorts, 'hidden: the right figure keeps its legs covered too', $r);
+    $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'swim']], $memberToken);
+    check($r['status'] === 200 && ($r['body']['avatar']['slots']['legs'] ?? null) === $pants, 'back to a single figure: one legs slot, the pants', $r);
 } finally {
+    if (isset($wardrobeRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$wardrobeRegistryId]);
     if (isset($twinRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$twinRegistryId]);
     if (isset($sensitiveRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$sensitiveRegistryId]);
     // Back to the limits from before the suite, and no test rate-limit rows left
