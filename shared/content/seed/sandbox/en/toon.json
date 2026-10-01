@@ -4,8 +4,5 @@
 	"language": "en",
 	"release": "2026-09-30",
 	"status": "draft",
-	"description": "Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft).",
-	"cover": {
-		"square": "../catpope/images/s1-cover-square.webp"
-	}
+	"description": "Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft)."
 }
