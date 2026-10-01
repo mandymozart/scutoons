@@ -43,6 +43,8 @@ export interface ScanObjectSkill {
 	/** the item a hit grants */
 	grants: string;
 	cooldown_s?: number;
+	/** at most this many scan grants of `grants` per account in 24 h (server: 429 daily_limit); none = no daily limit */
+	per_day?: number;
 	threshold?: number;
 	/** what the camera says it recognised for `labels` ("Pillendose"); none = the matched model label */
 	name?: Localized;

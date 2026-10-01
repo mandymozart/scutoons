@@ -61,6 +61,21 @@ final class InventoryServiceTest extends TestCase
         $this->assertError('cooldown', fn() => $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'scan']));
     }
 
+    public function testScanGrantsStopAtTheCamerasDailyLimit(): void
+    {
+        $id = (string) $this->user()['id'];
+        $this->inventory->add($id, 'cucumber', null, 1, 'story');
+        $this->inventory->craft($id, 'cucumber_camera');
+        for ($i = 0; $i < 3; $i++) {
+            self::assertSame(1, $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'scan']));
+            $this->clock->advance(60);
+        }
+        $this->assertError('daily_limit', fn() => $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'scan']));
+        self::assertSame(1, $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'story']), 'story finds are not scans');
+        $this->clock->advance(86400);
+        self::assertSame(1, $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'scan']), 'a day later');
+    }
+
     public function testImportTakesOnlyGrantableItems(): void
     {
         $id = (string) $this->user()['id'];

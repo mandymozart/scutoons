@@ -168,7 +168,8 @@ final class InventoryService
     /**
      * Grants a found item: { item_id, source: "story"|"scan", ref? } → 1 granted, 0 = repeated ref.
      * 403 not_grantable (source not in the item's `grantable`) / no_tool (scan without a tool that detects it),
-     * 429 rate_limited (hourly limit) / cooldown (scan tool cooldown), 400 invalid_source, 404 unknown_item.
+     * 429 rate_limited (hourly limit) / cooldown (scan tool cooldown) / daily_limit (the camera's `per_day` scans of
+     * this item in the last 24 h), 400 invalid_source, 404 unknown_item.
      * @param array<string, mixed> $body
      */
     public function grant(string $userId, array $body): int
@@ -193,7 +194,11 @@ final class InventoryService
                 if ($tools['cooldown'] > 0 && $this->limits->count("scan:$userId:{$item['id']}", $tools['cooldown']) > 0) {
                     throw new ApiError(429, 'cooldown', 'The camera needs a moment.', ['retry_after' => $tools['cooldown']]);
                 }
+                if ($tools['per_day'] > 0 && $this->limits->count("scanday:$userId:{$item['id']}", 86400) >= $tools['per_day']) {
+                    throw new ApiError(429, 'daily_limit', 'Enough for today.', ['per_day' => $tools['per_day']]);
+                }
                 $this->limits->hit("scan:$userId:{$item['id']}");
+                $this->limits->hit("scanday:$userId:{$item['id']}");
             }
             $this->limits->hit("grant:$userId");
             if ($ref !== null) $this->limits->hit($refBucket, $ref);

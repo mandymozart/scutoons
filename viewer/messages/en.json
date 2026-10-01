@@ -257,7 +257,15 @@
 		"model_failed": "The cucumber detector could not be loaded.",
 		"detected": "Cucumber!",
 		"cooldown": "Next cucumber in {seconds}s",
-		"scan_code": "Scan code"
+		"scan_code": "Scan code",
+		"known": "I know that one!",
+		"known_cheat": "No cheating: that is the same cucumber as before. Find another one.",
+		"known_cheat_any": "No cheating: you scanned that one before. Find something else.",
+		"known_then": "earlier",
+		"known_now": "now",
+		"daily_limit": "Enough cucumbers for today. Back tomorrow!",
+		"daily_limit_any": "Enough finds for today. Back tomorrow!",
+		"known_ok": "Okay, got it"
 	},
 	"start": {
 		"read": "Read S{season} C{chapter}",

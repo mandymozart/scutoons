@@ -109,6 +109,8 @@ final class Catalog
     {
         $tools = [];
         $cooldown = null;
+        $perDay = 0; // 0 = no daily limit; the most generous camera wins (a tool without `per_day` lifts it)
+        $limited = true;
         foreach ($this->items() as $item) {
             foreach ($item['skills'] ?? [] as $skill) {
                 // `grants`, or one of `map[].grants` (a later multi-label camera, agents/ITEMS.md "Substances")
@@ -117,10 +119,12 @@ final class Catalog
                     $tools[] = (string) $item['id'];
                     $seconds = (int) ($skill['cooldown_s'] ?? 0);
                     $cooldown = $cooldown === null ? $seconds : min($cooldown, $seconds);
+                    $day = (int) ($skill['per_day'] ?? 0);
+                    if ($day > 0) $perDay = max($perDay, $day); else $limited = false;
                 }
             }
         }
-        return $tools ? ['tools' => $tools, 'cooldown' => (int) $cooldown] : null;
+        return $tools ? ['tools' => $tools, 'cooldown' => (int) $cooldown, 'per_day' => $limited ? $perDay : 0] : null;
     }
 
     /** @return array<string, mixed>|null the edition from editions.json */

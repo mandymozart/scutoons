@@ -8,6 +8,8 @@ export interface Prediction {
 
 export interface Classifier {
 	classify(source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement, topk?: number): Promise<Prediction[]>;
+	/** the model's picture fingerprint (MobileNet embedding, unit length) – "is this the same cucumber again?" */
+	embed(source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement): Promise<Float32Array>;
 }
 
 let classifierPromise: Promise<Classifier> | null = null;
@@ -16,7 +18,10 @@ export function loadClassifier(): Promise<Classifier> {
 	// DEV only – the browser checks (scripts/check-testo.mjs) set `globalThis.__scutoonsFakePredictions` to drive the
 	// object loop without downloading MobileNet; never in a production build
 	if (import.meta.env.DEV && (globalThis as any).__scutoonsFakePredictions) {
-		return Promise.resolve({ classify: async () => ((globalThis as any).__scutoonsFakePredictions as Prediction[]) ?? [] });
+		return Promise.resolve({
+			classify: async () => ((globalThis as any).__scutoonsFakePredictions as Prediction[]) ?? [],
+			embed: async () => new Float32Array((globalThis as any).__scutoonsFakeEmbedding ?? [Math.random(), Math.random(), Math.random()])
+		});
 	}
 	classifierPromise ??= (async () => {
 		const tf = await import('@tensorflow/tfjs');
@@ -24,7 +29,16 @@ export function loadClassifier(): Promise<Classifier> {
 		const mobilenet = await import('@tensorflow-models/mobilenet');
 		const model = await mobilenet.load({ version: 2, alpha: 1.0 });
 		const classifier: Classifier = {
-			classify: (source, topk = 5) => model.classify(source, topk)
+			classify: (source, topk = 5) => model.classify(source, topk),
+			embed: async (source) => {
+				const tensor = tf.tidy(() => {
+					const e = model.infer(source, true) as import('@tensorflow/tfjs').Tensor;
+					return tf.div(e, tf.norm(e)).flatten();
+				});
+				const data = (await tensor.data()) as Float32Array;
+				tensor.dispose();
+				return data;
+			}
 		};
 		return classifier;
 	})().catch((error) => {
@@ -109,4 +123,11 @@ export function matchLabels(predictions: Prediction[], labels: string[]): Predic
 		if (hit && (!best || p.probability > best.probability)) best = p;
 	}
 	return best;
+}
+
+/** Cosine similarity of two unit-length fingerprints (1 = identical picture). */
+export function similarity(a: ArrayLike<number>, b: ArrayLike<number>): number {
+	let dot = 0;
+	for (let i = 0; i < Math.min(a.length, b.length); i++) dot += a[i] * b[i];
+	return dot;
 }

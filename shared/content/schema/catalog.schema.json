@@ -284,6 +284,10 @@
 				"cooldown_s": {
 					"type": "number"
 				},
+				"per_day": {
+					"type": "number",
+					"description": "at most this many scan grants of `grants` per account in 24 h (server: 429 daily_limit); none = no daily limit"
+				},
 				"threshold": {
 					"type": "number"
 				},

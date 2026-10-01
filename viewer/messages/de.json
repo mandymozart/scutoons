@@ -257,7 +257,15 @@
 		"model_failed": "Die Gurken-Erkennung konnte nicht geladen werden.",
 		"detected": "Gurke!",
 		"cooldown": "Nächste Gurke in {seconds}s",
-		"scan_code": "Code scannen"
+		"scan_code": "Code scannen",
+		"known": "Die kenn ich schon!",
+		"known_cheat": "Nicht schummeln: Das ist dieselbe Gurke wie vorhin. Such dir eine andere.",
+		"known_cheat_any": "Nicht schummeln: Das hast du vorhin schon gescannt. Such dir etwas anderes.",
+		"known_then": "vorhin",
+		"known_now": "jetzt",
+		"daily_limit": "Genug Gurken für heute. Morgen wieder!",
+		"daily_limit_any": "Genug gefunden für heute. Morgen wieder!",
+		"known_ok": "Okay, verstanden"
 	},
 	"start": {
 		"read": "S{season} K{chapter} lesen",

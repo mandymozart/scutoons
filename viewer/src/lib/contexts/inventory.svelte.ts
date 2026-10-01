@@ -381,25 +381,28 @@ export function createInventoryContext(session: SessionContext) {
 
 	// ---------- mutations ----------
 
-	/** Grant an item from a client-side source (story, scan). Silently ignored if not grantable. */
-	async function grant(item_id: string, source: GrantSource, qty = 1, ref?: string): Promise<boolean> {
+	/**
+	 * Grant an item from a client-side source (story, scan). Silently ignored if not grantable. `error` = the API's
+	 * error code when the server refused (e.g. `daily_limit`, `cooldown`), `failed` otherwise.
+	 */
+	async function grant(item_id: string, source: GrantSource, qty = 1, ref?: string): Promise<{ ok: boolean; error?: string }> {
 		const def = item(item_id);
-		if (!def || !def.grantable?.includes(source) || qty <= 0) return false;
+		if (!def || !def.grantable?.includes(source) || qty <= 0) return { ok: false, error: 'not_grantable' };
 		if (isAccount) {
 			try {
 				let result;
 				for (let i = 0; i < Math.min(qty, 10); i++) result = await grantItem(item_id, source, ref);
 				applyInventory(result?.inventory);
-			} catch (e) {
+			} catch (e: any) {
 				console.warn('Grant failed', e);
-				return false;
+				return { ok: false, error: typeof e?.code === 'string' ? e.code : 'failed' };
 			}
 		} else {
 			addGuestEntry(item_id, qty, source);
 			saveGuest();
 		}
 		notify(item_id, qty, 'grant');
-		return true;
+		return { ok: true };
 	}
 
 	async function craft(recipe: Recipe): Promise<{ ok: boolean; error?: string }> {

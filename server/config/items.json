@@ -156,7 +156,7 @@
       "starter": false,
       "grantable": [],
       "slot": null,
-      "skills": [{ "type": "scan_object", "labels": ["cucumber", "cuke", "zucchini", "courgette"], "grants": "cucumber", "cooldown_s": 10 }],
+      "skills": [{ "type": "scan_object", "labels": ["cucumber", "cuke", "zucchini", "courgette"], "grants": "cucumber", "cooldown_s": 10, "per_day": 3 }],
       "edition_id": null,
       "product": null,
       "variants": null
