@@ -46,7 +46,9 @@ const listed = [...toonList.filter((t) => t.status === 'published' && !t.announc
 if (!listed.some((t) => t.announced)) { console.error('no announced toon in /library/toons (is the content imported?)'); process.exit(2); }
 const registry = await getJson('/library/characters');
 const CSS = { blue: 'rgb(0, 0, 255)', yellow: 'rgb(255, 255, 0)', black: 'rgb(0, 0, 0)', red: 'rgb(255, 0, 0)' };
-const tileColor = (t) => { const c = t.tile?.color ?? registry.characters.find((x) => x.own_toon === t.id)?.color; return CSS[c] ?? c; };
+// hex colours (the registry writes #rrggbb since 2026-10-01) → the computed rgb()
+const hexRgb = (c) => { const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(c ?? ''); if (!m) return c; const h = m[1].length === 3 ? [...m[1]].map((x) => x + x).join('') : m[1]; return `rgb(${[0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)).join(', ')})`; };
+const tileColor = (t) => { const c = t.tile?.color ?? registry.characters.find((x) => x.own_toon === t.id)?.color; return CSS[c] ?? hexRgb(c); };
 const seasons = {};
 for (const l of ['de', 'en']) {
 	seasons[l] = {};
