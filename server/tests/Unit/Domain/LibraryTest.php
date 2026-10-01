@@ -169,6 +169,50 @@ final class LibraryTest extends TestCase
         }
     }
 
+    /** Announced toons (owner 2026-10-01): listed publicly as "soon" with their tile, their pages stay 404; never the sandbox */
+    public function testAnnouncedToonsAndTilesInTheList(): void
+    {
+        $this->seedToon();
+        $tile = ['image' => '../characters/t/t_portrait-neutral.webp'];
+        foreach (['de', 'en'] as $l) $this->doc('t', $l, 'toon.json', ['id' => 't', 'title' => "T $l", 'status' => 'published', 'tile' => $tile]);
+        $this->doc('a', '_', 'index.json', ['id' => 'a', 'status' => 'draft', 'sourceLanguage' => 'de']);
+        $this->doc('a', 'de', 'toon.json', ['id' => 'a', 'status' => 'draft', 'announce' => true, 'tile' => ['image' => '../characters/a/a_helmet.webp', 'color' => '#ff0']]);
+        $this->doc('d', '_', 'index.json', ['id' => 'd', 'status' => 'draft']);
+        $this->doc('d', 'de', 'toon.json', ['id' => 'd', 'status' => 'draft', 'announce' => false]);
+        $this->doc('sandbox', '_', 'index.json', ['id' => 'sandbox', 'status' => 'draft']);
+        $this->doc('sandbox', 'de', 'toon.json', ['id' => 'sandbox', 'status' => 'draft', 'announce' => true]);
+        $this->doc('n', '_', 'index.json', ['id' => 'n', 'status' => 'draft']);
+        $this->doc('n', 'de', 'toon.json', ['id' => 'n', 'status' => 'draft', 'announce' => true], false); // announce not published yet
+
+        $list = self::decode($this->library()->toons(false)->body);
+        self::assertSame(['t', 'a'], array_column($list, 'id'), 'published + announced; not the draft, the sandbox, an unpublished announce');
+        self::assertSame($tile, $list[0]['tile']);
+        self::assertArrayNotHasKey('announced', $list[0], 'published toons are not "announced"');
+        self::assertSame(['id' => 'a', 'status' => 'draft', 'sourceLanguage' => 'de', 'announced' => true,
+            'tile' => ['image' => '../characters/a/a_helmet.webp', 'color' => '#ff0']], $list[1], 'the entry + announced + tile, nothing else');
+        foreach (['a', 'sandbox'] as $toon) {
+            try {
+                $this->library()->toon($toon, 'de', false);
+                self::fail("$toon: 404 expected");
+            } catch (ApiError $error) {
+                self::assertSame(404, $error->status, "$toon: an announced toon's pages stay closed");
+            }
+        }
+        self::assertSame(['t', 'a', 'd', 'sandbox', 'n'], array_column(self::decode($this->library()->toons(true)->body), 'id'), 'draft mode (creator): every entry');
+    }
+
+    public function testShowDraftsListsDraftsAndTheSandbox(): void
+    {
+        $this->showDrafts = true;
+        $this->setUp();
+        $this->doc('a', '_', 'index.json', ['id' => 'a', 'status' => 'draft']);
+        $this->doc('a', 'de', 'toon.json', ['id' => 'a', 'status' => 'draft', 'announce' => true]);
+        $this->doc('sandbox', '_', 'index.json', ['id' => 'sandbox', 'status' => 'draft']);
+        $list = self::decode($this->library()->toons(false)->body);
+        self::assertSame(['a', 'sandbox'], array_column($list, 'id'), 'local development (CONTENT_SHOW_DRAFTS) keeps listing drafts');
+        self::assertSame([true, null], [$list[0]['announced'] ?? null, $list[1]['announced'] ?? null]);
+    }
+
     public function testCastHasTheStarAndTheChapterFeaturing(): void
     {
         $this->seedToon();

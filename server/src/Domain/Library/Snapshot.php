@@ -39,10 +39,13 @@ final class Snapshot
         return self::where($db, 'toon IS NULL', [], $draft);
     }
 
-    /** Every toon's index entry `toon:<toon>` (the toons list), with the creation order of each */
+    /**
+     * Every toon's index entry `toon:<toon>` (the toons list), with the creation order of each, plus every toon's settings
+     * `toon-settings:<toon>:<l>` (announce + the landing tile)
+     */
     public static function toonIndex(Database $db, bool $draft): self
     {
-        $snapshot = self::where($db, "kind = 'toon'", [], $draft);
+        $snapshot = self::where($db, "kind IN ('toon', 'toon-settings')", [], $draft);
         $first = self::index($db->all("SELECT entity_key, MIN(id) AS id FROM entity_versions WHERE kind = 'toon' GROUP BY entity_key"));
         return new self($db, $snapshot->ids, $draft, $first);
     }

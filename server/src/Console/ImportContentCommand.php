@@ -6,6 +6,7 @@ namespace Scutoons\Console;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Library\Library;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -23,9 +24,10 @@ final class ImportContentCommand extends Command
 {
     /**
      * Toons for development and the creator only (the generated VN test bed `sandbox`,
-     * shared/content/scripts/make-sandbox.ts): never part of the production seed (`--sql`) unless named with `--toon`.
+     * shared/content/scripts/make-sandbox.ts): never part of the production seed (`--sql`) unless named with `--toon`,
+     * never in the public toons list (Library).
      */
-    public const DEV_ONLY_TOONS = ['sandbox'];
+    public const DEV_ONLY_TOONS = Library::DEV_ONLY_TOONS;
 
     public function __construct(
         private readonly Database $db,
