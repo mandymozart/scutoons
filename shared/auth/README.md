@@ -35,7 +35,7 @@ the browser side. Svelte 5, styled with `@scutoons/tokens` (IBM Plex Mono, ink/p
 |---|---|
 | viewer (scutoons.com) | anyone; member features need membership as before |
 | shop | anyone (shows "signed in as" only) |
-| creator | `creator` (the content API needs it; `admin` alone is not enough) |
+| creator | `creator` or `admin` (admin: "for now", owner 2026-10-01 – same rule as the server's `Roles::CONTENT_EDITORS`) |
 | admin | `admin` |
 | embassy | `liaison`, `ambassador` or `admin` |
 

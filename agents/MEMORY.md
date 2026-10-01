@@ -1286,7 +1286,9 @@ character, persona, look and mood and doubles as the VN test bed.
   leaves the browser signed in.
 - **Deploy order: api before the frontends** – the new apps send `credentials: 'include'`, which the old api's CORS
   (no `Access-Control-Allow-Credentials`) makes the browser reject.
-- The creator stays `creator`-only (not `admin`): the content API checks `creator`; role checks were to stay unchanged.
+- Owner decision (same day): admins get into the creator **for now** – server `Roles::CONTENT_EDITORS` = creator, admin
+  (`requireContentEditor`: entities read/save/versions/publish/unpublish/restore + library `?draft=1`; 403 still says
+  `role: creator`), client `APP_ROLES.creator` = creator, admin. Narrow later by changing just those two lists.
 - Isolated test runs from a worktree: API `QR_ALLOWED_ORIGINS=… node server/bin/dev-serve.mjs --port=<p>` on a DB copy,
   apps `VITE_API_URL=… npx vite dev --port <p> --strictPort`; `scripts/dev/creator-cast-check.mjs` takes
   `SCUTOONS_API` / `SCUTOONS_CREATOR`. The local dev DB already holds data of the main checkout's uncommitted "neutral

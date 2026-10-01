@@ -8,7 +8,7 @@
 	import { formatDate } from '$lib/utils/date.ts';
 	import { CREATOR_URL } from '$lib/config.ts';
 	import accountIcon from '$lib/icons/account.svg';
-	import { LoginForm, SignedInAs, authLabels } from '@scutoons/auth';
+	import { LoginForm, SignedInAs, authLabels, canUseApp } from '@scutoons/auth';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -151,7 +151,7 @@
 			{#if hideError}
 				<p class="error" role="alert">{hideError}</p>
 			{/if}
-			{#if session.hasRole('creator')}
+			{#if canUseApp('creator', session.roles)}
 				<p class="creator-line">
 					<a class="btn btn-secondary" href={CREATOR_URL}>{m['account.creator_link']()}</a>
 					<small>{m['account.creator_hint']()}</small>

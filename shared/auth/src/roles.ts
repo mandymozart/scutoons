@@ -7,8 +7,8 @@ export type AppId = 'viewer' | 'shop' | 'creator' | 'admin' | 'embassy';
 export const APP_ROLES: Record<AppId, readonly string[] | null> = {
 	viewer: null,
 	shop: null,
-	// the content API (/api/entities) requires `creator` itself – `admin` alone would only see 403s
-	creator: ['creator'],
+	// `admin` too – FOR NOW (owner 2026-10-01); the server's one rule is Roles::CONTENT_EDITORS, narrow both together
+	creator: ['creator', 'admin'],
 	admin: ['admin'],
 	embassy: ['liaison', 'ambassador', 'admin']
 };

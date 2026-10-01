@@ -295,7 +295,7 @@ viewer's login form are deleted. Apps keep their own routing (`/account?return=`
 |---|---|
 | viewer | anyone (member features need membership, as before) |
 | shop | anyone (shows "signed in as" + sign out only) |
-| creator | `creator` (not `admin` alone: the content API checks `creator`, role checks unchanged) |
+| creator | `creator` or `admin` – admin **for now** (owner 2026-10-01). One rule on each side: server `Roles::CONTENT_EDITORS` (`/api/entities/*`, library `?draft=1`), client `APP_ROLES.creator`; narrowing later = change those two lists |
 | admin | `admin` |
 | embassy | `liaison`, `ambassador`, `admin` |
 

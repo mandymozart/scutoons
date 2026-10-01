@@ -63,13 +63,16 @@ function call(string $method, string $url, mixed $body = null, ?string $token = 
 
 $run = gmdate('YmdHis') . bin2hex(random_bytes(2));
 $toon = 'ent' . strtolower($run);
-[$member, $creator] = Db::transaction(fn() => [
+[$member, $creator, $adminOnly] = Db::transaction(fn() => [
     Users::create("entities-smoke-$run-member@example.com", 'en'),
     Users::create("entities-smoke-$run-creator@example.com", 'en'),
+    Users::create("entities-smoke-$run-admin@example.com", 'en'),
 ]);
 Roles::grant($creator['id'], Roles::CREATOR, 'entities-smoke');
+Roles::grant($adminOnly['id'], Roles::ADMIN, 'entities-smoke');
 $memberToken = Auth::createSession($member['id']);
 $creatorToken = Auth::createSession($creator['id']);
+$adminToken = Auth::createSession($adminOnly['id']);
 echo "API $api · toon $toon\n\n";
 
 /**
@@ -180,6 +183,26 @@ try {
     $r = call('GET', "$api/events/");
     check(in_array($r['status'], [200, 404], true) && ($r['status'] === 404 ? $r['body']['error'] === 'not_found' : is_array($r['body'])), 'events: the stored list (or 404 before the seed)', $r['status']);
 
+    // "For now" (owner 2026-10-01): admin may edit content like a creator (Roles::CONTENT_EDITORS); members may not
+    echo "\nContent editors: creator or admin\n";
+    $key = "toon-settings:$toon:de";
+    $r = call('GET', "$api/entities/$key?draft=1&wrap=1", null, $adminToken);
+    check($r['status'] === 200 && isset($r['body']['version']['id']), 'admin-only: read an entity', [$r['status'], $r['raw']]);
+    $base = $r['body']['version']['id'] ?? null;
+    $r = call('PUT', "$api/entities/$key", ['content' => ['id' => $toon, 'title' => 'Toon de (admin)', 'status' => 'published'], 'base' => $base, 'message' => 'admin edit'], $adminToken);
+    check($r['status'] === 200 && isset($r['body']['version']['id']), 'admin-only: save a draft', [$r['status'], $r['raw']]);
+    $r = call('POST', "$api/entities/$key/publish", null, $adminToken);
+    check($r['status'] === 200, 'admin-only: publish', [$r['status'], $r['raw']]);
+    $r = call('GET', "$api/entities/$key/versions", null, $adminToken);
+    $byAdmin = array_filter($r['body']['versions'] ?? [], fn($v) => ($v['author_email'] ?? null) === $adminOnly['email'] && ($v['message'] ?? null) === 'admin edit');
+    check($r['status'] === 200 && count($byAdmin) === 1, 'admin-only: version history lists the admin version', [$r['status'], substr($r['raw'], 0, 200)]);
+    $r = call('GET', "$lib/chapters/1?draft=1", null, $adminToken);
+    check($r['status'] === 200, 'admin-only: library draft mode', $r['status']);
+    foreach ([['GET', "$api/entities/$key?draft=1"], ['PUT', "$api/entities/$key"], ['POST', "$api/entities/$key/publish"], ['GET', "$api/entities/$key/versions"], ['GET', "$lib/chapters/1?draft=1"]] as [$method, $url]) {
+        $r = call($method, $url, $method === 'PUT' ? ['content' => ['id' => $toon]] : null, $memberToken);
+        check($r['status'] === 403 && ($r['body']['role'] ?? null) === 'creator', "member-only: $method " . substr($url, strlen($api)) . ' → 403 { role: creator }', [$r['status'], $r['raw']]);
+    }
+
     echo "\nToon visibility\n";
     store('toon', ['id' => $toon, 'status' => 'draft', 'languages' => ['de', 'en']]);
     $r = call('GET', "$lib/chapters/1");
@@ -191,7 +214,7 @@ try {
     check(false, 'exception', $e->getMessage());
 } finally {
     Db::run('DELETE FROM entity_versions WHERE toon = ?', [$toon]);
-    foreach ([$member, $creator] as $user) {
+    foreach ([$member, $creator, $adminOnly] as $user) {
         Db::run('DELETE FROM sessions WHERE user_id = ?', [$user['id']]);
         Db::run('DELETE FROM user_roles WHERE user_id = ?', [$user['id']]);
         Db::run('DELETE FROM inventory WHERE user_id = ?', [$user['id']]);

@@ -7,6 +7,7 @@
 //   3. a throw-away account with only `member` (normal signup through the API with a local promo code, deleted at the
 //      end): signed in on the viewer, the admin, creator and embassy show "Dein Konto (x) hat keinen Zugang zu dieser
 //      App." → "Mit anderem Konto anmelden" → the admin's sign-in screen, and the viewer is signed out too
+//      then the same account gets `admin` (no `creator`): it gets into the creator (admins edit content "for now")
 //   4. sign in on the admin's own screen (the test user) → the creator is signed in; a sign-out elsewhere reaches the open
 //      creator on focus (no reload); sign in on the creator's screen, sign out there → the
 //      viewer, admin and embassy show their sign-in
@@ -236,6 +237,18 @@ try {
 		await open(`${apps.viewer}/de/account`);
 		if (!(await waitFor(`document.querySelector('[data-testid="login-form"]') && true`))) problems.push(`viewer still signed in: ${JSON.stringify(await state())}`);
 		report('switch account: signed out everywhere, the app shows its sign-in screen', problems);
+	}
+
+	// ── 3b. the same account with `admin` (no `creator`) gets into the creator – "for now" (owner 2026-10-01) ─────
+	{
+		sql([`INSERT INTO user_roles (user_id, role_id, granted_at, granted_by) SELECT u.id, r.id, datetime('now'), 'check-sso' FROM users u, roles r WHERE u.email = :email AND r.name = 'admin'`], { email: memberEmail });
+		await open(`${apps.creator}/`);
+		const problems = await signIn(memberEmail);
+		if (!(await waitFor(`document.querySelector('[data-testid="creator-bar"]') && true`))) problems.push(`creator: ${JSON.stringify(await state())}`);
+		if (!(await waitFor(`document.querySelector('[data-testid^="toon-"]') && true`))) problems.push('no toons listed (the draft library refused the admin?)');
+		report('creator: an admin-only account (member + admin, no creator) gets in and sees the toons', problems);
+		await click('[data-testid="sign-out"]');
+		await waitFor(`document.querySelector('[data-testid="creator-sign-in"]') && true`);
 	}
 
 	// ── 4. sign in on the admin's own screen, sign out in the creator ──────────────────────────────────────────────

@@ -228,6 +228,11 @@ Tables `roles` (seeded: 1 `member` – every account, 2 `admin` – the admin ap
 creator app and the content API, 4 `liaison` and 5 `ambassador` – the Embassy app and `/api/embassy/*`) and `user_roles (user_id, role_id, granted_at, granted_by)`. `granted_by`: `signup`,
 `migration`, `admin` (legacy SPA), `admin:<email>` (admin API), `cli`. `/me/` and `/auth/verify/` return `user.roles`.
 
+**Content editors – for now creator OR admin** (owner 2026-10-01): one rule, `Roles::CONTENT_EDITORS` = `creator`,
+`admin`, checked by `Roles::canEditContent()` / `requireContentEditor()` for every content endpoint (`/entities/*`,
+library `?draft=1`); the 403 keeps saying `role: "creator"`. The creator app gates with `@scutoons/auth`
+`APP_ROLES.creator` (same two roles). To narrow it later, change those two lists only.
+
 In code (`src/Domain/Roles/Roles.php`): `has($user, 'creator')`, `of($userId)`, `require($user, 'creator')`
 (401 / 403 `forbidden { role }`), `grant($userId, $role, $by)`, `revoke($userId, $role)`; routes use the
 `RequireRole` middleware. Granting: admin API `PUT|DELETE /api/admin/users/{id}/roles/{role}`, the legacy SPA "Users"
@@ -292,8 +297,9 @@ moods, wanted images, people, roles, events) as versions in `entity_versions`, k
 `toon:<toon>`, `toon-settings:<toon>:<l>`, `season:<toon>:<n>:<l>`, `chapter:<toon>:<n>:<l>`,
 `scene:<toon>:<chapter>:<name>:<l>`, `locations:<toon>:<l>`, `routes:<toon>:<l>`, `cast:<toon>`, `credits:<toon>`,
 `characters`, `moods`, `asset-requests`, `people`, `roles`, `events`. Every save is a new version; per key at most **one**
-version is `published`, the newest is the working copy. Readers use the library (below); everything here needs the role
-`creator`.
+version is `published`, the newest is the working copy. Readers use the library (below); everything here needs a
+content editor: role `creator` – or, **for now** (owner 2026-10-01), `admin` (`Roles::CONTENT_EDITORS`, see "Roles");
+otherwise `401` / `403 forbidden { role: "creator" }`.
 
 - **Validation** (minimal, the creator checks the TypeScript types): a valid key (`400 invalid_key`), body JSON object
   or array, `CONTENT_MAX_BYTES` (default 2 MB). JSON is decoded as objects and stored re-encoded (unescaped
@@ -342,7 +348,7 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 - **Visibility**: index entry + toon settings must be `published` (else `404 not_found`); a chapter's status is its season
   `sequence[].status`: `coming-soon` → `403 coming_soon { chapter: ChapterSummary }`, `draft` or not in any season →
   `403 not_public`. `CONTENT_SHOW_DRAFTS=1` (local development) makes `draft` readable.
-- **`?draft=1`** (role `creator`; `401` / `403 forbidden` otherwise): the newest version of every document, no gates,
+- **`?draft=1`** (a content editor: `creator`, for now also `admin`; `401` / `403 forbidden` otherwise): the newest version of every document, no gates,
   `Cache-Control: private, no-store`.
 - **Headers**: `Cache-Control: public, max-age=60`, `ETag` (`304` on `If-None-Match`), `Access-Control-Allow-Origin`
   = the allowed origin or `*`, exposed `ETag, Content-Language, X-Content-Fallback, X-Content-Missing`.

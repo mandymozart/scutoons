@@ -88,7 +88,7 @@ final class EntitiesController
     {
         $session = CurrentSession::of($request);
         $session->rejectCsrf();
-        return $this->roles->require($session->user(), Roles::CREATOR);
+        return $this->roles->requireContentEditor($session->user());
     }
 
     /** The request body decoded with objects (so `{}` stays an object) */
