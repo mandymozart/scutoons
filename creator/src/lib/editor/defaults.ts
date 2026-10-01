@@ -1,5 +1,5 @@
 // Defaults for new content, following the existing catpope configs and agents/DESIGN.md (SCUTOONS style).
-import type { Chapter, Dialog, Group, Season, Slice, Toon, ToonIndex } from '@scutoons/content';
+import type { Chapter, Dialog, Group, Season, Slice, ToonIndex, ToonSettings } from '@scutoons/content';
 import { DEFAULT_SLICE, Renderer, Status } from '@scutoons/content';
 
 /** The standard slice (PLAN.md rule, owner 2026-09-30): 390 × 625 px, delivered at 1x as WebP; other heights are fine. */
@@ -69,20 +69,19 @@ export function newSeason(locale: string, authors: string[] = [], number = 1): S
 	};
 }
 
-/** New toon settings (title / description from the index entry; the map empty until there are assets; downloads are per season). */
-export function newToon(id: string, locale: string, entry: ToonIndex | null | undefined, authors: string[] = []): Toon {
+/**
+ * New per-language toon settings (title / description from the index entry; downloads are per season). The
+ * language-neutral settings (authors, map, tile …) start empty in the index entry and are edited on the toon settings page.
+ */
+export function newToon(id: string, locale: string, entry: ToonIndex | null | undefined): ToonSettings {
 	return {
 		id,
 		title: toonName(entry, locale, id),
-		authors,
-		chapters: 0,
 		language: locale,
 		release: isoDate(),
 		status: Status.DRAFT,
 		description: entry?.i18n?.[locale]?.description ?? '',
-		thumbnail: `images/${chapterSlug(1)}-thumbnail.jpg`,
-		cover: { square: `images/s1-cover-square.webp`, portrait: `images/s1-cover-portrait.webp` },
-		map: { layers: { terrain: '' }, width: 0, height: 0, center: { x: 0, y: 0 } }
+		cover: { square: `images/s1-cover-square.webp`, portrait: `images/s1-cover-portrait.webp` }
 	};
 }
 

@@ -14,7 +14,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SCHEMAS = {
 	chapter: 'Chapter',
 	season: 'Season',
-	toon: 'Toon',
+	toon: 'ToonSettings',
 	'toon-index': 'ToonIndex',
 	group: 'Group',
 	catalog: 'Catalog',

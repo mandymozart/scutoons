@@ -212,7 +212,7 @@
 		const adopted = [...orphans];
 		const draft = (number: number): SequenceItem => ({ type: 'chapter', number, status: Status.DRAFT });
 		season.create((locale) => ({ ...newSeason(locale, authors), sequence: adopted.map(draft) }));
-		if (toonFile.present.length === 0) toonFile.create((locale) => newToon(toonId, locale, entry, authors));
+		if (toonFile.present.length === 0) toonFile.create((locale) => newToon(toonId, locale, entry));
 		return adopted;
 	}
 

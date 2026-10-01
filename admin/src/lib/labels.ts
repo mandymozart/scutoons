@@ -63,7 +63,7 @@ export function fileLabel(key: string): string {
 		season: (number) => m['entity.season']({ number }),
 		scene: (label) => m['entity.scene']({ label }),
 		toon: m['entity.toon'](),
-		languages: m['entity.languages'](),
+		entry: m['entity.toon_entry'](),
 		characters: m['entity.characters'](),
 		moods: m['entity.moods'](),
 		requests: m['entity.requests'](),

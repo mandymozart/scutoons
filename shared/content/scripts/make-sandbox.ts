@@ -523,18 +523,15 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		en: { toon: 'Sandbox', season: "Cat Pope's walk", description: 'Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft).' }
 	};
 	for (const l of LOCALES) {
+		// the language-neutral settings (authors, chapters, thumbnail, map) live in the toons.json entry (`neutralSettings`)
 		files[`${l}/toon.json`] = {
 			id: SANDBOX_TOON,
 			title: meta[l].toon,
-			authors: [],
-			chapters: report.chapters,
 			language: l,
 			release: RELEASE,
 			status: 'draft',
 			description: meta[l].description,
-			thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
-			cover: { square: `${CATPOPE}images/s1-cover-square.webp` },
-			map: { layers: { terrain: `${CATPOPE}images/map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
+			cover: { square: `${CATPOPE}images/s1-cover-square.webp` }
 		};
 		files[`${l}/season1.json`] = { title: meta[l].season, language: l, number: 1, release: RELEASE, description: meta[l].description, sequence };
 		files[`${l}/locations.json`] = [];
@@ -546,6 +543,16 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 	};
 	files['_/cast.json'] = cast;
 	return { files, report };
+}
+
+/** The sandbox's language-neutral toon settings: its entry in `shared/content/seed/toons.json` must carry these (checked by the CLI) */
+export function neutralSettings(report: SandboxReport) {
+	return {
+		authors: [],
+		chapters: report.chapters,
+		thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
+		map: { layers: { terrain: `${CATPOPE}images/map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
+	};
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -582,7 +589,7 @@ async function main() {
 			writeFileSync(file, JSON.stringify(json, null, '\t') + '\n');
 		}
 	}
-	const toons = JSON.parse(readFileSync(pathJoin(seedRoot, 'toons.json'), 'utf8')) as { id: string; status: string }[];
+	const toons = JSON.parse(readFileSync(pathJoin(seedRoot, 'toons.json'), 'utf8')) as ({ id: string; status: string } & Record<string, unknown>)[];
 	const entry = toons.find((t) => t.id === SANDBOX_TOON);
 
 	console.log(`${dry ? '[dry run] ' : ''}${Object.keys(files).length} files → ${out}`);
@@ -595,6 +602,9 @@ async function main() {
 	for (const s of report.perEncounter) console.log(`  chapter ${s.chapter}  ${s.name.padEnd(28)} ${String(s.moods).padStart(3)} moods, ${s.fails} failed  [${s.groups.join(', ')}]`);
 	if (!entry) console.warn(`! shared/content/seed/toons.json has no "${SANDBOX_TOON}" entry (status draft) – the toon list comes from it`);
 	else if (entry.status !== 'draft') console.warn(`! toons.json: "${SANDBOX_TOON}" must stay status draft (hidden in production)`);
+	for (const [field, value] of Object.entries(entry ? neutralSettings(report) : {})) {
+		if (JSON.stringify(entry![field]) !== JSON.stringify(value)) console.warn(`! toons.json: "${SANDBOX_TOON}".${field} should be ${JSON.stringify(value)} (language-neutral settings live in the entry)`);
+	}
 	const importArgs = ['server/bin/console', 'import-content', out.startsWith(seedRoot) ? seedRoot : dirname(out), `--toon=${SANDBOX_TOON}`, '--update'];
 	if (dry || process.argv.includes('--no-import')) {
 		console.log(`next: php ${importArgs.join(' ')}`);

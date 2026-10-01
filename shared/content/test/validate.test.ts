@@ -72,14 +72,15 @@ test('season.download.image: an image path on the CDN (decorative, beside the mu
 	assert.deepEqual(problems('season', season({ sequence, download: { ...download, image: 3 } })), ['error download.image']);
 });
 
-test('toon settings: announce (boolean) and the landing tile { image, color? }', () => {
-	const toon = (extra: object) => ({
-		id: 't', title: 'T', description: 'D', language: 'de', authors: ['A'], chapters: 0, release: '2026-10-04', status: 'draft',
-		thumbnail: 'images/t.webp', cover: { square: 'images/c.webp' }, map: { layers: { terrain: 'images/m.webp' }, width: 1, height: 1, center: { x: 0, y: 0 } },
+test('toon entry: announce (boolean) and the landing tile { image, color? }', () => {
+	const entry = (extra: object) => ({
+		id: 't', uri: 't', status: 'draft', avatar: 'avatar.webp', i18n: {}, authors: ['A'], chapters: 0, thumbnail: 'images/t.webp',
+		map: { layers: { terrain: 'images/m.webp' }, width: 1, height: 1, center: { x: 0, y: 0 } },
 		...extra
 	});
-	const tileProblems = (extra: object) => problems('toon', toon(extra)).filter((p) => /announce|tile/.test(p));
-	assert.deepEqual(tileProblems({}), []);
+	const tileProblems = (extra: object) => problems('index', entry(extra)).filter((p) => /announce|tile/.test(p));
+	assert.deepEqual(problems('index', entry({})), []);
+	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {} }), [], 'every neutral setting is optional');
 	assert.deepEqual(tileProblems({ announce: true, tile: { image: '../characters/y/y_helmet_portrait-neutral.webp' } }), []);
 	assert.deepEqual(tileProblems({ announce: false, tile: { image: 'images/tile.webp', color: '#ff0' } }), []);
 	assert.deepEqual(tileProblems({ tile: { image: 'images/tile.webp', color: 'darkgreen' } }), []);
@@ -88,6 +89,30 @@ test('toon settings: announce (boolean) and the landing tile { image, color? }',
 	assert.deepEqual(tileProblems({ tile: {} }), [], 'an emptied tile shows nothing');
 	assert.deepEqual(tileProblems({ tile: { image: 'images/t.webp', color: 'url(x)' } }), ['error tile.color']);
 	assert.deepEqual(tileProblems({ tile: 'images/t.webp' }), ['error tile']);
+	assert.deepEqual(problems('index', entry({ map: { layers: { terrain: '' }, width: 0, height: 0, center: { x: 0 } } })), [
+		'warning map.layers.terrain',
+		'warning map.width',
+		'warning map.height',
+		'error map.center.y'
+	]);
+	assert.deepEqual(problems('index', entry({ chapters: 1.5, authors: 'A' })), ['error authors', 'error chapters']);
+});
+
+test('toon settings (per language): the neutral settings are warned about, they belong to the toon entry', () => {
+	const settings = { id: 't', title: 'T', description: 'D', language: 'de', release: '2026-10-04', status: 'draft', cover: { square: 'images/c.webp' } };
+	assert.deepEqual(problems('toon', settings), []);
+	const neutral = {
+		authors: ['A'], chapters: 5, thumbnail: 'images/t.webp', announce: true, tile: { image: 'images/tile.webp' },
+		map: { layers: { terrain: 'images/m.svg' }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
+	};
+	assert.deepEqual(problems('toon', { ...settings, ...neutral }), [
+		'warning authors',
+		'warning chapters',
+		'warning thumbnail',
+		'warning map',
+		'warning announce',
+		'warning tile'
+	]);
 });
 
 test('isToonListed + toonTileColor: published or announced; the tile colour from the settings, else the star', async () => {

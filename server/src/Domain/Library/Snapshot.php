@@ -41,7 +41,7 @@ final class Snapshot
 
     /**
      * Every toon's index entry `toon:<toon>` (the toons list), with the creation order of each, plus every toon's settings
-     * `toon-settings:<toon>:<l>` (announce + the landing tile)
+     * `toon-settings:<toon>:<l>` (older data kept `announce` + the landing `tile` there)
      */
     public static function toonIndex(Database $db, bool $draft): self
     {

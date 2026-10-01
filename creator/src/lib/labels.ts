@@ -13,7 +13,7 @@ export function fileLabel(key: string): string {
 		season: (number) => m['creator.season']({ number }),
 		scene: (label) => m['creator.entity_scene']({ label }),
 		toon: m['creator.edit_toon'](),
-		languages: m['creator.languages'](),
+		entry: m['creator.toon_entry'](),
 		characters: m['creator.characters'](),
 		moods: m['creator.characters_moods'](),
 		requests: m['creator.characters_wanted'](),

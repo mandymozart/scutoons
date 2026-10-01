@@ -12,7 +12,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE } from './content.ts';
+import { DEFAULT_SLICE, TOON_NEUTRAL_FIELDS } from './content.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -454,30 +454,45 @@ function checkSeason(c: Collector, s: any, locale: string) {
 	}
 }
 
-/** toon.json (Toon type): what the reader shows on the toon page and the map (downloads are per season) */
+/**
+ * toon.json (`ToonSettings`, entity `toon-settings:<toon>:<l>`): the per-language settings (title, description, release,
+ * status, cover). The language-neutral ones (`TOON_NEUTRAL_FIELDS`: map, tile, announce …) belong to the index entry
+ * `toon:<toon>` – a copy here is a warning (the reader takes the entry's), so they don't creep back per language.
+ */
 function checkToon(c: Collector, t: any, locale: string) {
 	if (!isObj(t)) return c.error([], 'toon file must be an object');
 	if (!isStr(t.id) || !t.id) c.error(['id'], 'id must be the toon id');
 	if (!isStr(t.title) || !t.title.trim()) c.warn(['title'], 'title is empty');
 	if (!isStr(t.description) || !t.description.trim()) c.warn(['description'], 'description is empty');
 	checkLanguage(c, t.language, locale, true);
-	checkStringList(c, t.authors, ['authors'], true);
-	if (!Number.isInteger(t.chapters)) c.error(['chapters'], 'chapters must be an integer');
 	if (!isStr(t.release) || !DATE.test(t.release)) c.error(['release'], 'release must be a date YYYY-MM-DD');
 	if (!values(Status).includes(t.status)) c.error(['status'], `status must be one of ${values(Status).join(', ')}`);
-	checkImagePath(c, t.thumbnail, ['thumbnail'], true);
 	if (!isObj(t.cover)) c.error(['cover'], 'cover must be { square?, portrait? }');
 	else {
 		checkImagePath(c, t.cover.square, ['cover', 'square'], true);
 		checkImagePath(c, t.cover.portrait, ['cover', 'portrait']);
 	}
-	if (!isObj(t.map)) c.error(['map'], 'map must be { layers, width, height, center }');
-	else {
-		checkImagePath(c, t.map.layers?.terrain, ['map', 'layers', 'terrain'], true);
-		for (const key of ['width', 'height'] as const) if (!isNum(t.map[key]) || t.map[key] <= 0) c.warn(['map', key], `map.${key} must be a positive number (px)`);
-		for (const key of ['x', 'y'] as const) if (!isNum(t.map.center?.[key])) c.error(['map', 'center', key], `map.center.${key} must be a number (px)`);
-	}
 	if (t.download !== undefined) c.warn(['download'], 'download belongs to a season now (season.download) – the reader ignores it here');
+	for (const field of TOON_NEUTRAL_FIELDS) {
+		if (t[field] !== undefined) c.warn([field], `${field} is the same in every language: it belongs to the toon entry (toon:${t.id || '<toon>'}) – the reader ignores it here`);
+	}
+}
+
+/** The toon's index entry (`ToonIndex`, entity `toon:<toon>`): the language-neutral settings (`TOON_NEUTRAL_FIELDS`), all optional */
+function checkToonIndex(c: Collector, t: any) {
+	if (!isObj(t)) return c.error([], 'toon entry must be an object');
+	if (!isStr(t.id) || !t.id) c.error(['id'], 'id must be the toon id');
+	if (t.authors !== undefined) checkStringList(c, t.authors, ['authors']);
+	if (t.chapters !== undefined && !Number.isInteger(t.chapters)) c.error(['chapters'], 'chapters must be an integer');
+	if (t.thumbnail !== undefined) checkImagePath(c, t.thumbnail, ['thumbnail']);
+	if (t.map !== undefined) {
+		if (!isObj(t.map)) c.error(['map'], 'map must be { layers, width, height, center }');
+		else {
+			checkImagePath(c, t.map.layers?.terrain, ['map', 'layers', 'terrain'], true);
+			for (const key of ['width', 'height'] as const) if (!isNum(t.map[key]) || t.map[key] <= 0) c.warn(['map', key], `map.${key} must be a positive number (px)`);
+			for (const key of ['x', 'y'] as const) if (!isNum(t.map.center?.[key])) c.error(['map', 'center', key], `map.center.${key} must be a number (px)`);
+		}
+	}
 	if (t.announce !== undefined && typeof t.announce !== 'boolean') c.error(['announce'], 'announce must be true or false');
 	if (t.tile !== undefined) {
 		if (!isObj(t.tile)) c.error(['tile'], 'tile must be { image, color? }');
@@ -525,6 +540,7 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 	else if (kind === 'group') checkGroup(c, data, [], ctx);
 	else if (kind === 'season') checkSeason(c, data, locale);
 	else if (kind === 'toon') checkToon(c, data, locale);
+	else if (kind === 'index') checkToonIndex(c, data);
 	return c.problems;
 }
 

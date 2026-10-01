@@ -8,10 +8,10 @@ export interface EntityLabels {
 	season: (number: number) => string;
 	/** a scene stored on its own (a chapter's referenced group) */
 	scene: (label: string) => string;
-	/** the toon's settings (title, covers, map, downloads) */
+	/** the toon's per-language settings (title, description, covers) */
 	toon: string;
-	/** the toon's languages (its index entry) */
-	languages: string;
+	/** the toon's index entry (status, names, languages + the language-neutral settings: map, tile …) */
+	entry: string;
 	characters: string;
 	moods: string;
 	requests: string;
@@ -29,7 +29,7 @@ export const ENTITY_LABELS: EntityLabels = {
 	season: (n) => `Season ${n}`,
 	scene: (label) => `Scene ${label}`,
 	toon: 'Toon settings',
-	languages: 'Languages',
+	entry: 'Toon entry',
 	characters: 'Characters',
 	moods: 'Moods',
 	requests: 'Wanted images',
@@ -43,7 +43,7 @@ export const ENTITY_LABELS: EntityLabels = {
 
 const NAMED: Record<string, keyof EntityLabels> = {
 	'toon-settings': 'toon',
-	toon: 'languages',
+	toon: 'entry',
 	characters: 'characters',
 	moods: 'moods',
 	'asset-requests': 'requests',

@@ -174,19 +174,21 @@ final class LibraryTest extends TestCase
     {
         $this->seedToon();
         $tile = ['image' => '../characters/t/t_portrait-neutral.webp'];
-        foreach (['de', 'en'] as $l) $this->doc('t', $l, 'toon.json', ['id' => 't', 'title' => "T $l", 'status' => 'published', 'tile' => $tile]);
-        $this->doc('a', '_', 'index.json', ['id' => 'a', 'status' => 'draft', 'sourceLanguage' => 'de']);
-        $this->doc('a', 'de', 'toon.json', ['id' => 'a', 'status' => 'draft', 'announce' => true, 'tile' => ['image' => '../characters/a/a_helmet.webp', 'color' => '#ff0']]);
-        $this->doc('d', '_', 'index.json', ['id' => 'd', 'status' => 'draft']);
-        $this->doc('d', 'de', 'toon.json', ['id' => 'd', 'status' => 'draft', 'announce' => false]);
-        $this->doc('sandbox', '_', 'index.json', ['id' => 'sandbox', 'status' => 'draft']);
-        $this->doc('sandbox', 'de', 'toon.json', ['id' => 'sandbox', 'status' => 'draft', 'announce' => true]);
+        $map = ['layers' => ['terrain' => 'm.svg'], 'width' => 2, 'height' => 1, 'center' => ['x' => 1, 'y' => 0]];
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'], 'tile' => $tile, 'map' => $map]);
+        $this->doc('a', '_', 'index.json', ['id' => 'a', 'status' => 'draft', 'sourceLanguage' => 'de', 'announce' => true, 'tile' => ['image' => '../characters/a/a_helmet.webp', 'color' => '#ff0'], 'authors' => ['X']]);
+        $this->doc('a', 'de', 'toon.json', ['id' => 'a', 'status' => 'draft']);
+        $this->doc('d', '_', 'index.json', ['id' => 'd', 'status' => 'draft', 'announce' => false]);
+        $this->doc('d', 'de', 'toon.json', ['id' => 'd', 'status' => 'draft']);
+        $this->doc('sandbox', '_', 'index.json', ['id' => 'sandbox', 'status' => 'draft', 'announce' => true]);
+        $this->doc('sandbox', 'de', 'toon.json', ['id' => 'sandbox', 'status' => 'draft']);
         $this->doc('n', '_', 'index.json', ['id' => 'n', 'status' => 'draft']);
-        $this->doc('n', 'de', 'toon.json', ['id' => 'n', 'status' => 'draft', 'announce' => true], false); // announce not published yet
+        $this->doc('n', '_', 'index.json', ['id' => 'n', 'status' => 'draft', 'announce' => true], false); // announce not published yet
 
         $list = self::decode($this->library()->toons(false)->body);
         self::assertSame(['t', 'a'], array_column($list, 'id'), 'published + announced; not the draft, the sandbox, an unpublished announce');
         self::assertSame($tile, $list[0]['tile']);
+        self::assertArrayNotHasKey('map', $list[0], 'the list carries the tile only of the neutral settings');
         self::assertArrayNotHasKey('announced', $list[0], 'published toons are not "announced"');
         self::assertSame(['id' => 'a', 'status' => 'draft', 'sourceLanguage' => 'de', 'announced' => true,
             'tile' => ['image' => '../characters/a/a_helmet.webp', 'color' => '#ff0']], $list[1], 'the entry + announced + tile, nothing else');
@@ -201,12 +203,42 @@ final class LibraryTest extends TestCase
         self::assertSame(['t', 'a', 'd', 'sandbox', 'n'], array_column(self::decode($this->library()->toons(true)->body), 'id'), 'draft mode (creator): every entry');
     }
 
+    /** Older data (before 2026-10-01): `announce` + `tile` still in the toon settings are read from there */
+    public function testAnnounceAndTileFromOlderToonSettings(): void
+    {
+        $this->doc('a', '_', 'index.json', ['id' => 'a', 'status' => 'draft', 'sourceLanguage' => 'de']);
+        $this->doc('a', 'de', 'toon.json', ['id' => 'a', 'status' => 'draft', 'announce' => true, 'tile' => ['image' => 'a.webp']]);
+        $list = self::decode($this->library()->toons(false)->body);
+        self::assertSame([['id' => 'a', 'status' => 'draft', 'sourceLanguage' => 'de', 'announced' => true, 'tile' => ['image' => 'a.webp']]], $list);
+    }
+
+    /** The language-neutral settings (index entry) are merged into every locale's `toon`; `entry` stays the plain index entry */
+    public function testToonBundleMergesTheNeutralSettings(): void
+    {
+        $this->seedToon();
+        $map = ['layers' => ['terrain' => 'images/map/m.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]];
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'],
+            'authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc']]);
+        // a stale per-language value loses against the index entry
+        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'published', 'map' => ['width' => 0]]);
+        foreach (['de', 'en'] as $l) {
+            $data = self::decode($this->library()->toon('t', $l, false)->body);
+            self::assertSame("T $l", $data['toon']['title']);
+            self::assertSame($map, $data['toon']['map'], "$l: the map of the index entry");
+            self::assertSame(['A'], $data['toon']['authors']);
+            self::assertSame(5, $data['toon']['chapters']);
+            self::assertSame('th.webp', $data['toon']['thumbnail']);
+            self::assertSame(['image' => 'tile.webp', 'color' => '#0066cc'], $data['toon']['tile']);
+            self::assertSame(['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']], $data['entry'], 'entry without the settings');
+        }
+    }
+
     public function testShowDraftsListsDraftsAndTheSandbox(): void
     {
         $this->showDrafts = true;
         $this->setUp();
-        $this->doc('a', '_', 'index.json', ['id' => 'a', 'status' => 'draft']);
-        $this->doc('a', 'de', 'toon.json', ['id' => 'a', 'status' => 'draft', 'announce' => true]);
+        $this->doc('a', '_', 'index.json', ['id' => 'a', 'status' => 'draft', 'announce' => true]);
+        $this->doc('a', 'de', 'toon.json', ['id' => 'a', 'status' => 'draft']);
         $this->doc('sandbox', '_', 'index.json', ['id' => 'sandbox', 'status' => 'draft']);
         $list = self::decode($this->library()->toons(false)->body);
         self::assertSame(['a', 'sandbox'], array_column($list, 'id'), 'local development (CONTENT_SHOW_DRAFTS) keeps listing drafts');

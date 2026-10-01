@@ -1,7 +1,7 @@
 // Entity keys (agents/DATA.md §2): how every toon-related document is addressed in the database and the API.
 //
-//   toon:<toon>                       the toon's index entry (list entry: status, names, languages)
-//   toon-settings:<toon>:<locale>     the toon's settings (title, covers, map, downloads)
+//   toon:<toon>                       the toon's index entry (status, names, languages + the language-neutral settings: map, tile …)
+//   toon-settings:<toon>:<locale>     the toon's per-language settings (title, description, release, status, covers)
 //   season:<toon>:<n>:<locale>        chapter:<toon>:<n>:<locale>        scene:<toon>:<chapter>:<name>:<locale>
 //   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)

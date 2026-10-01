@@ -345,16 +345,24 @@ export interface Download {
 	image?: string;
 }
 
+/**
+ * A toon's settings as the reader gets them (`/library/toons/<toon>` → `toon`): the per-language document
+ * `toon-settings:<toon>:<l>` (`ToonSettings`: title, description, language, release, status, cover) with the
+ * language-neutral settings of the index entry `toon:<toon>` (`ToonNeutralSettings`) merged in by the library.
+ */
 export interface Toon {
 	id: string;
 	title: string;
 	authors: string[];
 	chapters: number;
 	language: string;
+	/** per language (a translation can be released later) */
 	release: string;
+	/** per language (a translation can stay a draft) */
 	status: Status;
 	description: string;
 	thumbnail: string;
+	/** per language (covers can carry lettering) */
 	cover: Cover;
 	map: Map;
 	/**
@@ -365,6 +373,20 @@ export interface Toon {
 	/** The landing page's tile (language-neutral); without it the tile uses the toon's avatar */
 	tile?: ToonTile;
 }
+
+/**
+ * The toon settings that are the same in every language (owner 2026-10-01): stored once in the toon's index entry
+ * `toon:<toon>` (`ToonIndex`), never in the per-language `toon-settings:<toon>:<l>` (the validation warns there).
+ * Text stays per language; `release`, `status` and `cover` too (see `Toon`).
+ */
+export const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'] as const;
+export type ToonNeutralField = (typeof TOON_NEUTRAL_FIELDS)[number];
+
+/** The language-neutral toon settings, stored in the index entry `toon:<toon>` (all optional there) */
+export type ToonNeutralSettings = Partial<Pick<Toon, ToonNeutralField>>;
+
+/** The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings */
+export type ToonSettings = Omit<Toon, ToonNeutralField>;
 
 /** A toon's tile on the landing page: a square image on a colour */
 export interface ToonTile {
@@ -378,7 +400,7 @@ export interface ToonTile {
  * One toon's entry in `toons.json` (language-neutral). The creator keeps the newest version of it in the content store
  * as `<toon>/_/index.json` (see `TOON_INDEX_FILE`); read the languages with `toonLanguages()`.
  */
-export interface ToonIndex {
+export interface ToonIndex extends ToonNeutralSettings {
 	id: string;
 	uri: string;
 	status: Status;
@@ -389,12 +411,10 @@ export interface ToonIndex {
 	/** Every language of the toon, the source first. Default: the `i18n` keys (source first). */
 	languages?: Language[];
 	/**
-	 * Library answer only (`/library/toons`), from the toon settings: the toon is not published but announced (`Toon.announce`)
-	 * – list it as "soon", never link it (its pages stay 404 publicly)
+	 * Library answer only (`/library/toons`): the toon is not published but announced (`announce`) – list it as "soon",
+	 * never link it (its pages stay 404 publicly)
 	 */
 	announced?: boolean;
-	/** Library answer only: the landing page tile from the toon settings (`Toon.tile`) */
-	tile?: ToonTile;
 }
 
 /** A toon the reader lists (landing page, main menu): published, or announced before its release (`announced`) */

@@ -80,7 +80,7 @@
 		"edit_season": "Edit season",
 		"edit_toon": "Toon settings",
 		"reader_uses_season": "The reader shows the season title and description (plot) on the toon page, and the sequence status decides which chapters are listed / readable. download.music / download.complete: the season's downloads (the music album) – linked below the chapter list, offered on the download page. Not shown anywhere in the reader yet: authors, number, release, language, cover (square/portrait) and credits – the credits page shows the toon's Credits (the Credits page) in the reader's language.",
-		"reader_uses_toon": "The reader shows title, description and cover.square on the toon page, map (terrain layer, size, center) in the map overlay and title on the download page (the downloads themselves are per season). Not used by the reader: id, authors, chapters, language, release, thumbnail, cover.portrait and status (listing uses the toon's index entry).",
+		"reader_uses_toon": "The reader shows title, description and cover.square on the toon page and title on the download page (the downloads themselves are per season). The same in every language (in the toon entry): map (terrain layer, size, center) in the map overlay, tile and announce on the homepage and in the menu; authors, chapters and thumbnail are not used by the reader. Per language, not used by the reader: id, language, release, cover.portrait and status.",
 		"source": "source",
 		"missing": "missing",
 		"override": "override",
@@ -93,6 +93,7 @@
 		"open_file": "Open",
 		"create_locale": "Create {locale} from {source}",
 		"languages": "Languages",
+		"toon_entry": "Toon entry",
 		"languages_hint": "The source language is the one the toon is written in; the others are translations of it. Every editor of this toon (text boxes, missing translations, length warnings, VN events, new chapters) follows these settings.",
 		"source_language": "Source language",
 		"target_languages": "Translations",
@@ -455,7 +456,10 @@
 		"landing_hint": "The toon’s tile on scutoons.com. The same in every language.",
 		"announce": "Announce",
 		"announce_hint": "Show it on the homepage and in the menu before it is published – as “soon”, no link, no chapters, no dates.",
-		"tile_color_placeholder": "the star’s colour"
+		"tile_color_placeholder": "the star’s colour",
+		"toon_neutral": "Same in every language",
+		"toon_neutral_hint": "Stored once for the toon (in its toon entry), not per language: authors, chapter count, thumbnail, the homepage tile and the map. Save and Publish below cover both.",
+		"toon_entry_missing": "This toon has no toon entry yet – set its languages on the toon page and save:"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

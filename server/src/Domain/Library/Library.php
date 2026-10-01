@@ -34,6 +34,11 @@ final class Library
     /** Toons for development and the creator only (the sandbox): never in the public toons list, never in the production seed */
     public const DEV_ONLY_TOONS = ['sandbox'];
     public const LOCALE_PATTERN = '#^[a-z]{2}$#';
+    /**
+     * Toon settings that are the same in every language (owner 2026-10-01): stored once in the toon's index entry
+     * `toon:<toon>`, merged into the bundle's per-language `toon` settings; @scutoons/content TOON_NEUTRAL_FIELDS
+     */
+    public const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'];
     /** Bump when the shape of an answer changes: old cache entries are never read again */
     private const FORMAT = 2;
     private const CACHE_TTL = 604800;
@@ -56,10 +61,11 @@ final class Library
     // ── Endpoints ─────────────────────────────────────────────────────────────────────────────────────────
 
     /**
-     * GET /library/toons → ToonIndex[]: published entries + announced ones (toon settings `announce: true`, marked
+     * GET /library/toons → ToonIndex[]: published entries + announced ones (`announce: true` in the index entry, marked
      * `announced: true` – their pages stay 404, so no season or chapter of them is exposed); drafts too with
      * CONTENT_SHOW_DRAFTS; all in draft mode. The dev-only toons (sandbox) are never listed publicly. Every entry carries
-     * the settings' landing `tile` when there is one.
+     * its landing `tile` when there is one; the other language-neutral settings (map …) are left out of the list.
+     * Entries stored before the neutral settings moved to the index read `announce` / `tile` from the toon settings.
      */
     public function toons(bool $draft): Answer
     {
@@ -72,15 +78,16 @@ final class Library
                 if (!$entry instanceof stdClass) continue;
                 $toon = substr($key, strlen('toon:'));
                 $settings = $this->listSettings($snapshot, $toon, $entry);
+                $announce = property_exists($entry, 'announce') ? $entry->announce : ($settings->announce ?? null);
+                $tile = property_exists($entry, 'tile') ? $entry->tile : ($settings->tile ?? null);
                 $status = $entry->status ?? null;
-                $announced = $status !== self::PUBLISHED && ($settings->announce ?? null) === true;
+                $announced = $status !== self::PUBLISHED && $announce === true;
                 $public = $status === self::PUBLISHED || $announced;
                 $visible = $draft || ($status === self::DRAFT && $this->showDrafts())
                     || ($public && !in_array($toon, self::DEV_ONLY_TOONS, true));
                 if (!$visible) continue;
-                $entry = clone $entry;
+                $entry = self::indexEntry($entry);
                 if ($announced) $entry->announced = true;
-                $tile = $settings->tile ?? null;
                 if ($tile instanceof stdClass) $entry->tile = $tile;
                 $list[] = $entry;
             }
@@ -88,7 +95,7 @@ final class Library
         });
     }
 
-    /** The toon settings the list reads `announce` and `tile` from (language-neutral): the source language's, else any */
+    /** Older data: the toon settings the list reads `announce` and `tile` from when the index entry lacks them (source language's, else any) */
     private function listSettings(Snapshot $snapshot, string $toon, stdClass $entry): ?stdClass
     {
         [$source] = self::languages($entry, []);
@@ -102,7 +109,29 @@ final class Library
         return null;
     }
 
-    /** GET /library/toons/{toon}?locale= → { entry, toon, seasons: SeasonOverview[], locations, routes } */
+    /** The index entry without the language-neutral toon settings it stores (the shape of `ToonIndex` in the answers) */
+    private static function indexEntry(stdClass $entry): stdClass
+    {
+        $entry = clone $entry;
+        foreach (self::TOON_NEUTRAL_FIELDS as $field) unset($entry->$field);
+        return $entry;
+    }
+
+    /** The reader's `Toon`: the per-language settings + the language-neutral ones of the index entry (the entry wins) */
+    private static function withNeutralSettings(stdClass $settings, ?stdClass $entry): stdClass
+    {
+        $settings = clone $settings;
+        if ($entry === null) return $settings;
+        foreach (self::TOON_NEUTRAL_FIELDS as $field) {
+            if (property_exists($entry, $field)) $settings->$field = $entry->$field;
+        }
+        return $settings;
+    }
+
+    /**
+     * GET /library/toons/{toon}?locale= → { entry, toon, seasons: SeasonOverview[], locations, routes }; `toon` = the
+     * locale's settings with the language-neutral ones of the index entry merged in, `entry` = the index entry without them
+     */
     public function toon(string $toon, ?string $locale, bool $draft): Answer
     {
         $ctx = $this->context($toon, $draft);
@@ -117,8 +146,8 @@ final class Library
             }
             $list = fn(string $kind) => $ctx->pick("$kind:$toon", $locale)[1] ?? [];
             return [[
-                'entry' => $ctx->entry,
-                'toon' => $toonDoc,
+                'entry' => $ctx->entry !== null ? self::indexEntry($ctx->entry) : null,
+                'toon' => self::withNeutralSettings($toonDoc, $ctx->entry),
                 'seasons' => $seasons,
                 'locations' => $list('locations'),
                 'routes' => $list('routes'),

@@ -121,16 +121,21 @@ echo "API $base · static $static\n\n";
 echo "Toons list\n";
 $index = file_json("$static/toons.json") ?? [];
 [$status, $toons] = get("$base/library/toons");
-// + from the toon settings (source language, else any): `announced` for an unpublished toon with `announce: true`, the `tile`
-$listed = array_map(function (array $t) use ($static): array {
-    $source = $t['sourceLanguage'] ?? ($t['languages'][0] ?? 'de');
-    $settings = file_json("$static/{$t['id']}/$source/toon.json");
-    foreach ($settings === null ? (glob("$static/{$t['id']}/*/toon.json") ?: []) : [] as $file) $settings ??= file_json($file);
-    if (($t['status'] ?? null) !== 'published' && ($settings['announce'] ?? null) === true) $t['announced'] = true;
-    if (is_array($settings['tile'] ?? null)) $t['tile'] = $settings['tile'];
+// the language-neutral toon settings live in the index entry (owner 2026-10-01, @scutoons/content TOON_NEUTRAL_FIELDS):
+// the list keeps only the `tile` of them (+ `announced` for an unpublished toon with `announce: true`); the bundle merges
+// them into the locale's settings and its `entry` is the index entry without them
+$neutral = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'];
+$withoutNeutral = function (array $t) use ($neutral): array {
+    foreach ($neutral as $field) unset($t[$field]);
     return $t;
+};
+$listed = array_map(function (array $t) use ($withoutNeutral): array {
+    $entry = $withoutNeutral($t);
+    if (($t['status'] ?? null) !== 'published' && ($t['announce'] ?? null) === true) $entry['announced'] = true;
+    if (is_array($t['tile'] ?? null)) $entry['tile'] = $t['tile'];
+    return $entry;
 }, array_values(array_filter($index, fn($t) => in_array($t['status'] ?? null, ['published', 'draft'], true))));
-compare('library/toons == toons.json (published + draft entries, same order) + announced/tile of the toon settings', $listed, $toons);
+compare('library/toons == toons.json (published + draft entries, same order, + announced, tile)', $listed, $toons);
 
 echo "\nEvents\n";
 [$status, $events] = get("$base/events");
@@ -158,9 +163,11 @@ foreach ($index as $entry) {
             }
             $overviews[] = ['number' => $n, 'season' => $season, 'chapters' => $chapters];
         }
+        $settings = $pick($toon, $locale, 'toon.json', $source);
+        foreach ($neutral as $field) if (is_array($settings) && array_key_exists($field, $entry)) $settings[$field] = $entry[$field];
         $expected = [
-            'entry' => $entry,
-            'toon' => $pick($toon, $locale, 'toon.json', $source),
+            'entry' => $withoutNeutral($entry),
+            'toon' => $settings,
             'seasons' => $overviews,
             'locations' => $pick($toon, $locale, 'locations.json', $source) ?? [],
             'routes' => $pick($toon, $locale, 'routes.json', $source) ?? [],
