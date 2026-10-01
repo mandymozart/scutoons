@@ -67,6 +67,7 @@
 			player={slice.video.player === true}
 			controls={slice.video.controls}
 			viewport={slice.video.viewport}
+			frame={slice.video.frame}
 			{autoplayPlayer}
 			{soundOnLabel}
 			{eager}

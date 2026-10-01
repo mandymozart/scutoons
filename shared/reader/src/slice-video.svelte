@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import type { SliceViewport } from '@scutoons/content';
+	import { parseFrameRatio, viewportObjectFit, viewportObjectPosition, type SliceFrame, type SliceViewport } from '@scutoons/content';
 	import { SLICE_PLAYER_EVENT, type SlicePlayerDetail } from './types.ts';
 
 	/**
@@ -17,7 +17,9 @@
 	 *
 	 * `src` is the one file to load: the app picks it for the reader's media quality (`pickQualityVariant`); undefined =
 	 * not decided yet (the poster only). A new `src` while it plays (the reader changed the quality) keeps the position and
-	 * the play state. `viewport` = the slice fills the viewport, the video (and its poster) placed in it (`SliceViewport`).
+	 * the play state. `viewport` = the slice fills the viewport, the video (and its poster) placed in it (`SliceViewport`);
+	 * `frame` = in the column, a box of that ratio (the slice's width / height follow it) with the video placed in it
+	 * (`SliceFrame`). The four fits: contain / width / height / cover (`viewportObjectFit` with the media's own ratio).
 	 */
 	let {
 		src,
@@ -30,6 +32,7 @@
 		player = false,
 		controls,
 		viewport,
+		frame,
 		autoplayPlayer = false,
 		soundOnLabel = 'Sound on',
 		eager = false
@@ -49,6 +52,8 @@
 		controls?: boolean;
 		/** fill the viewport, placed like this (`SliceVideo.viewport`) */
 		viewport?: SliceViewport;
+		/** in the column: a box of the frame's ratio (`SliceVideo.frame`; ignored with `viewport`) */
+		frame?: SliceFrame;
 		/** the player starts by itself once it is in view (muted + `soundOnLabel` when sound is blocked); needs `autoplay` */
 		autoplayPlayer?: boolean;
 		/** the label of the button that unmutes an autoplaying player (the app's language) */
@@ -67,10 +72,54 @@
 	let loaded = $state<string | undefined>(untrack(() => src));
 	const hasSource = $derived(!!loaded);
 	const showControls = $derived(controls ?? player);
-	const fit = $derived(viewport ? (viewport.fit ?? 'contain') : null);
-	const position = $derived(viewport?.position ?? 'center');
+	/** the placement: full viewport, else a frame in the column, else none (the media's own ratio) */
+	const placement = $derived<SliceViewport | SliceFrame | null>(viewport ?? (frame && parseFrameRatio(frame.ratio) ? frame : null));
+	const position = $derived(placement?.position ?? 'center');
 	/** the viewport's width without a scrollbar (100vw would include it and scroll sideways) */
 	let viewportWidth = $state<number | null>(null);
+	/** the box (viewport or frame) as measured */
+	let box = $state<HTMLElement | null>(null);
+	let boxRatio = $state<number | null>(null);
+	/** the media's own ratio: the video's once its metadata is there, before that the poster's, else the slice's */
+	let mediaRatio = $state<number | null>(null);
+	let posterRatio = $state<number | null>(null);
+	const ownRatio = $derived(mediaRatio ?? posterRatio ?? width / height);
+	/** contain or cover in this box (fit width / height depend on the two ratios) */
+	const objectFit = $derived(placement ? viewportObjectFit(placement.fit, ownRatio, boxRatio ?? (viewport && typeof window !== 'undefined' ? window.innerWidth / window.innerHeight : width / height)) : null);
+
+	$effect(() => {
+		const el = box;
+		if (!el || !placement) return;
+		const measure = () => {
+			if (el.clientHeight > 0) boxRatio = el.clientWidth / el.clientHeight;
+		};
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(el);
+		return () => observer.disconnect();
+	});
+
+	// the poster's own ratio (a placed video only): the same image the <video> shows, from the cache
+	$effect(() => {
+		if (!placement || !poster) return;
+		const img = new Image();
+		img.onload = () => {
+			if (img.naturalWidth > 0 && img.naturalHeight > 0) posterRatio = img.naturalWidth / img.naturalHeight;
+		};
+		img.src = poster;
+	});
+
+	// the video's own ratio
+	$effect(() => {
+		const el = video;
+		if (!el || !placement) return;
+		const read = () => {
+			if (el.videoWidth > 0 && el.videoHeight > 0) mediaRatio = el.videoWidth / el.videoHeight;
+		};
+		read();
+		el.addEventListener('loadedmetadata', read);
+		return () => el.removeEventListener('loadedmetadata', read);
+	});
 
 	onMount(() => {
 		const query = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -247,15 +296,20 @@
 </script>
 
 <div
+	bind:this={box}
 	class="video-box"
 	class:viewport={!!viewport}
-	class:cover={fit === 'cover'}
-	class:contain={fit === 'contain'}
-	data-position={viewport ? position : undefined}
-	data-fit={fit ?? undefined}
-	style:--ratio={width / height}
+	class:framed={!viewport && !!placement}
+	class:cover={objectFit === 'cover'}
+	class:contain={objectFit === 'contain'}
+	data-position={placement ? position : undefined}
+	data-fit={placement ? (placement.fit ?? 'contain') : undefined}
+	data-object-fit={objectFit ?? undefined}
+	style:--ratio={ownRatio}
+	style:--frame-ratio={!viewport && placement ? `${width} / ${height}` : undefined}
+	style:--object-position={viewportObjectPosition(position)}
 	style:--viewport-width={viewportWidth ? `${viewportWidth}px` : undefined}
-	data-testid={viewport ? 'viewport-video' : undefined}
+	data-testid={viewport ? 'viewport-video' : placement ? 'framed-video' : undefined}
 >
 	<div class="frame">
 		{#if player}
@@ -365,26 +419,33 @@
 		width: 100%;
 		height: 100%;
 	}
+	/* a frame in the column (SliceVideo.frame): the box has the frame's ratio (= the slice's width / height), the media
+	   fills it as contain (bars, placed by object-position) or cover (cropped, the position = the part that stays) */
+	.framed {
+		aspect-ratio: var(--frame-ratio);
+		background: var(--ink, #000);
+		overflow: hidden;
+	}
+	.framed .frame {
+		width: 100%;
+		height: 100%;
+	}
 	.viewport img,
-	.viewport video {
+	.viewport video,
+	.framed img,
+	.framed video {
 		width: 100%;
 		height: 100%;
 		aspect-ratio: auto !important;
 		object-fit: contain;
+		object-position: var(--object-position, 50% 50%);
 		background: var(--ink, #000);
 	}
 	.viewport.cover img,
-	.viewport.cover video {
+	.viewport.cover video,
+	.framed.cover img,
+	.framed.cover video {
 		object-fit: cover;
-		object-position: 50% 50%;
-	}
-	.viewport.cover[data-position='top'] img,
-	.viewport.cover[data-position='top'] video {
-		object-position: 50% 0%;
-	}
-	.viewport.cover[data-position='bottom'] img,
-	.viewport.cover[data-position='bottom'] video {
-		object-position: 50% 100%;
 	}
 
 	/* autoplay without sound: the primary button (ink / paper, square) in the middle of the video (the corners are under

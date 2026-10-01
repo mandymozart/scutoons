@@ -40,6 +40,15 @@ quality level"; DATA.md "Media quality"; MEMORY.md 2026-10-01 "Media quality set
    `Range: bytes=0-524287` → 206.
 5. Smoke: account page (guest + member) → the selector; chapter 0 per level loads 480p / 720p / 1080p.
 
+## Follow-up in this branch (owner, 2026-10-01)
+
+Four fits (`contain` "Ganz sichtbar", `width` "An Breite", `height` "An Höhe", `cover` "Füllen (beschnitten)"), frames in
+the column (`SliceVideo.frame`, presets 5:8 / 6:13 / 9:16 / 1:1 / custom 4:1…1:4), the creator's basic picker
+(`creator/src/lib/components/placement-picker.svelte`: "Ganz · Breite · Höhe · Füllen", "Oben · Mitte · Unten" when it
+matters, the ratio select) and the short size line. The owner's trial in the preview (chapter 0 published as full viewport,
+fit height) lives only in the worktree's DB copy – nothing to carry over unless the owner wants it in the seed. No stored content uses `viewport` / `frame`, so
+nothing to migrate. New creator messages `video_frame_*`, `video_fit*`, `video_position`, `slice_size_*`.
+
 ## Verified on this branch (own servers on throw-away ports 18000 / 18001 / 19000 / 20000, a copy of the owner's store)
 
 `npm run check` (0 errors), `npm run build` (all apps), `server composer test`, `qr composer test`, vn-check,

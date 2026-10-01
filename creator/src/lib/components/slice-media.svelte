@@ -1,10 +1,16 @@
 <script lang="ts">
-	import { DEFAULT_SLICE, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, getAt, type MediaQuality, type Path, type SliceVideo, type SliceViewport } from '@scutoons/content';
+	import {
+		DEFAULT_SLICE, FRAME_PRESETS, FRAME_RATIO_MAX, FRAME_RATIO_MIN, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, VIEWPORT_POSITIONS,
+		aspectRatioLabel, getAt, parseFrameRatio, viewportObjectFit, viewportObjectPosition,
+		type MediaQuality, type Path, type SliceVideo, type ViewportFit
+	} from '@scutoons/content';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { fillSliceSize } from '$lib/editor/images.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import ImagePicker from './image-picker.svelte';
+	import PlacementPicker from './placement-picker.svelte';
 
 	/**
 	 * The slice's background ("Hintergrund"): an image, or a video with the image as its poster. Width / height are read
@@ -28,6 +34,20 @@
 
 	$effect(() => {
 		videoState = video?.src ? 'pending' : null;
+	});
+
+	// the poster's own ratio (the previews of fit width / height, the "Original" warning)
+	$effect(() => {
+		const image = slice?.image;
+		posterRatio = null;
+		if (!image) return;
+		const img = new Image();
+		img.onload = () => (posterRatio = img.naturalWidth > 0 ? img.naturalWidth / img.naturalHeight : null);
+		img.src = url(image);
+	});
+	$effect(() => {
+		void video?.src;
+		videoRatio = null;
 	});
 
 	function setImage(path: string) {
@@ -109,26 +129,77 @@
 		if (file) doc.setShared([...slicePath, 'video', 'src'], file, 'slice-video-default');
 	}
 
-	// ── placement ────────────────────────────────────────────────────────────────────────────────────────────────────
-	const POSITIONS = ['top', 'center', 'bottom'] as const;
-	const FITS = ['contain', 'cover'] as const;
-	const placement = $derived<Required<SliceViewport> | null>(
-		video?.viewport ? { position: video.viewport.position ?? 'center', fit: video.viewport.fit ?? 'contain' } : null
+	// ── placement: full viewport, or a frame in the column ───────────────────────────────────────────────────────────
+	type Place = { position: (typeof VIEWPORT_POSITIONS)[number]; fit: ViewportFit };
+	const frameRatio = $derived(video?.frame ? parseFrameRatio(video.frame.ratio) : null);
+	/** what the picker edits: the viewport placement, else the frame's, else nothing (Original in the column) */
+	const placement = $derived<Place | null>(
+		video?.viewport
+			? { position: video.viewport.position ?? 'center', fit: video.viewport.fit ?? 'contain' }
+			: video?.frame && frameRatio
+				? { position: video.frame.position ?? 'center', fit: video.frame.fit ?? 'contain' }
+				: null
 	);
-	function setViewport(next: Required<SliceViewport> | null) {
+	const presetOf = (ratio: unknown) => {
+		const pair = parseFrameRatio(ratio);
+		return pair ? (FRAME_PRESETS.find((p) => { const q = parseFrameRatio(p.ratio)!; return q[0] * pair[1] === q[1] * pair[0]; })?.id ?? 'custom') : 'original';
+	};
+	const frameChoice = $derived(video?.frame ? presetOf(video.frame.ratio) : 'original');
+	let customW = $state(1);
+	let customH = $state(2);
+	$effect(() => {
+		if (frameChoice === 'custom' && frameRatio) [customW, customH] = frameRatio;
+	});
+
+	/** full viewport on/off (the frame doesn't apply there: it goes, and the size follows the poster again) */
+	function setViewportMode(on: boolean) {
 		editVideo((v) => {
-			if (next) v.viewport = { position: next.position, fit: next.fit };
-			else delete v.viewport;
+			if (on) {
+				v.viewport = { position: 'center', fit: 'contain' };
+				delete v.frame;
+			} else delete v.viewport;
 		}, 'slice-video-viewport');
+		fillSliceSize(doc, slicePath, url);
 	}
-	const positionLabel = (p: (typeof POSITIONS)[number]) => m[`creator.video_position_${p}`]();
-	const fitLabel = (f: (typeof FITS)[number]) => m[`creator.video_fit_${f}`]();
+	function setPlace(next: Place) {
+		editVideo((v) => {
+			if (v.viewport) v.viewport = { position: next.position, fit: next.fit };
+			else if (v.frame) v.frame = { ...v.frame, position: next.position, fit: next.fit };
+		}, 'slice-video-place');
+	}
+	/** a frame ratio ("9:16" / [w, h], clamped to 4:1 … 1:4) or null = Original; the slice size follows */
+	function setFrame(ratio: string | [number, number] | null) {
+		editVideo((v) => {
+			if (!ratio) delete v.frame;
+			else v.frame = { ratio, fit: v.frame?.fit ?? 'contain', position: v.frame?.position ?? 'center' };
+		}, 'slice-video-frame');
+		fillSliceSize(doc, slicePath, url);
+	}
+	function chooseFrame(choice: string) {
+		if (choice === 'original') return setFrame(null);
+		if (choice === 'custom') return setCustom(customW, customH);
+		const preset = FRAME_PRESETS.find((p) => p.id === choice);
+		if (preset) setFrame(preset.ratio);
+	}
+	function setCustom(w: number, h: number) {
+		if (!(w > 0) || !(h > 0)) return;
+		let r = w / h;
+		if (r > FRAME_RATIO_MAX) [w, h] = [FRAME_RATIO_MAX, 1];
+		else if (r < FRAME_RATIO_MIN) [w, h] = [1, 1 / FRAME_RATIO_MIN];
+		[customW, customH] = [w, h];
+		setFrame([w, h]);
+	}
 	const DEVICES = [
 		{ kind: 'phone', w: 390, h: 844 },
 		{ kind: 'desktop', w: 1440, h: 900 }
 	] as const;
-	/** the preview's object-position, like the reader (`slice-video.svelte`) */
-	const objectPosition = (p: string) => (p === 'top' ? '50% 0%' : p === 'bottom' ? '50% 100%' : '50% 50%');
+	/** the poster's own ratio (for fit width / height in the previews) and the video's (the "Original" warning) */
+	let posterRatio = $state<number | null>(null);
+	let videoRatio = $state<number | null>(null);
+	const mediaRatio = $derived(videoRatio ?? posterRatio ?? 16 / 9);
+	const originalMismatch = $derived(
+		!!video && !placement && !!posterRatio && !!videoRatio && Math.abs(posterRatio - videoRatio) / videoRatio > 0.02
+	);
 </script>
 
 <div class="media" data-testid="slice-media">
@@ -186,7 +257,7 @@
 					autoplay
 					playsinline
 					preload="metadata"
-					onloadedmetadata={() => (videoState = 'ok')}
+					onloadedmetadata={(e) => { videoState = 'ok'; const v = e.currentTarget; if (v.videoWidth > 0) videoRatio = v.videoWidth / v.videoHeight; }}
 					onerror={() => (videoState = 'missing')}
 				></video>
 				<span class="meta">
@@ -210,53 +281,72 @@
 		<fieldset class="group" data-testid="video-placement">
 			<legend>{m['creator.video_placement']()}</legend>
 			<div class="kind">
-				<label><input type="radio" name="video-viewport" checked={!placement} onchange={() => setViewport(null)} data-testid="video-in-column" /> {m['creator.video_in_column']()}</label>
+				<label><input type="radio" name="video-viewport" checked={!video.viewport} onchange={() => setViewportMode(false)} data-testid="video-in-column" /> {m['creator.video_in_column']()}</label>
 				<label title={m['creator.video_full_viewport_hint']()}
-					><input type="radio" name="video-viewport" checked={!!placement} onchange={() => setViewport({ position: 'center', fit: 'contain' })} data-testid="video-full-viewport" />
+					><input type="radio" name="video-viewport" checked={!!video.viewport} onchange={() => setViewportMode(true)} data-testid="video-full-viewport" />
 					{m['creator.video_full_viewport']()}</label
 				>
 			</div>
-			{#if placement}
-				<!-- three positions × two fits; each cell a tiny phone with the video placed like that -->
-				<div class="picker" role="radiogroup" aria-label={m['creator.video_placement']()}>
-					<span></span>
-					{#each POSITIONS as p (p)}<span class="lbl col">{positionLabel(p)}</span>{/each}
-					{#each FITS as f (f)}
-						<span class="lbl row" title={m[`creator.video_fit_${f}_hint`]()}>{fitLabel(f)}</span>
-						{#each POSITIONS as p (p)}
-							<button
-								type="button"
-								class="cell"
-								class:active={placement.position === p && placement.fit === f}
-								role="radio"
-								aria-checked={placement.position === p && placement.fit === f}
-								aria-label={`${fitLabel(f)}, ${positionLabel(p)}`}
-								title={`${fitLabel(f)}, ${positionLabel(p)}: ${m[`creator.video_fit_${f}_hint`]()}`}
-								onclick={() => setViewport({ position: p, fit: f })}
-								data-testid={`placement-${f}-${p}`}
-							>
-								<span class="screen"><span class="clip {f} {p}"></span></span>
-							</button>
+			{#if !video.viewport}
+				<!-- the box in the column: the media's own ratio, or a frame (the slice size follows it) -->
+				<label class="field ratio">
+					<span class="lbl" title={m['creator.video_frame_hint']()}>{m['creator.video_frame']()}</span>
+					<select value={frameChoice} onchange={(e) => chooseFrame(e.currentTarget.value)} data-testid="video-frame">
+						<option value="original">{m['creator.video_frame_original']()}</option>
+						{#each FRAME_PRESETS as preset (preset.id)}
+							<option value={preset.id}>{preset.id === 'keyvisual' ? m['creator.video_frame_keyvisual']() : preset.ratio}</option>
 						{/each}
-					{/each}
-				</div>
-				<p class="hint">{m[`creator.video_fit_${placement.fit}_hint`]()}</p>
+						<option value="custom">{m['creator.video_frame_custom']()}</option>
+					</select>
+				</label>
+				{#if frameChoice === 'custom'}
+					<div class="custom" data-testid="video-frame-custom">
+						<input type="number" min="1" step="any" value={customW} aria-label={m['creator.video_frame_width']()} onchange={(e) => setCustom(Number(e.currentTarget.value), customH)} data-testid="video-frame-w" />
+						<span>:</span>
+						<input type="number" min="1" step="any" value={customH} aria-label={m['creator.video_frame_height']()} onchange={(e) => setCustom(customW, Number(e.currentTarget.value))} data-testid="video-frame-h" />
+					</div>
+				{/if}
+				{#if originalMismatch}
+					<p class="hint warn" data-testid="video-original-mismatch">{m['creator.video_original_mismatch']()}</p>
+				{/if}
+			{/if}
+			{#if placement}
+				<!-- each fit a tiny screen with the poster placed in it; position buttons only where they matter -->
+				<PlacementPicker
+					fit={placement.fit}
+					position={placement.position}
+					{mediaRatio}
+					boxRatios={video.viewport ? DEVICES.map((d) => d.w / d.h) : frameRatio ? [frameRatio[0] / frameRatio[1]] : []}
+					onchange={(fit, position) => setPlace({ fit, position })}
+				/>
 				{#if slice?.image}
-					<!-- the poster placed like the reader does it, on a phone (390 × 844) and a desktop (1440 × 900) -->
+					<!-- the poster placed like the reader does it: on a phone + a desktop (full viewport) or in the frame -->
 					<div class="placement-preview" data-testid="placement-preview">
-						{#each DEVICES as { kind, w, h } (kind)}
+						{#if video.viewport}
+							{#each DEVICES as { kind, w, h } (kind)}
+								<figure>
+									<div class="device {kind}" style:aspect-ratio={`${w} / ${h}`}>
+										<img
+											src={url(slice.image)}
+											alt=""
+											style:object-fit={viewportObjectFit(placement.fit, mediaRatio, w / h)}
+											style:object-position={viewportObjectPosition(placement.position)}
+										/>
+									</div>
+								</figure>
+							{/each}
+						{:else if frameRatio}
 							<figure>
-								<div class="device" style:aspect-ratio={`${w} / ${h}`}>
+								<div class="device frame" style:aspect-ratio={`${frameRatio[0]} / ${frameRatio[1]}`}>
 									<img
 										src={url(slice.image)}
 										alt=""
-										style:object-fit={placement.fit}
-										style:object-position={objectPosition(placement.position)}
+										style:object-fit={viewportObjectFit(placement.fit, mediaRatio, frameRatio[0] / frameRatio[1])}
+										style:object-position={viewportObjectPosition(placement.position)}
 									/>
 								</div>
-								<figcaption>{m[`creator.video_preview_${kind}`]()}</figcaption>
 							</figure>
-						{/each}
+						{/if}
 					</div>
 				{/if}
 			{/if}
@@ -271,7 +361,13 @@
 		</p>
 	{/each}
 	<p class="hint" data-testid="slice-size">
-		{m['creator.slice_size']({ width: slice?.width ?? '–', height: slice?.height ?? '–', standard: `${DEFAULT_SLICE.width} × ${DEFAULT_SLICE.height}` })}
+		{#if video?.viewport}
+			{m['creator.slice_size_viewport']({ ratio: aspectRatioLabel(slice?.width ?? 0, slice?.height ?? 0, getLocale()) })}
+		{:else if video?.frame && frameRatio}
+			{m['creator.slice_size_frame']({ width: slice?.width ?? '–', height: slice?.height ?? '–' })}
+		{:else}
+			{m['creator.slice_size']({ width: slice?.width ?? '–', height: slice?.height ?? '–', standard: `${DEFAULT_SLICE.width} × ${DEFAULT_SLICE.height}` })}
+		{/if}
 	</p>
 </div>
 
@@ -330,85 +426,22 @@
 	.bad {
 		color: var(--error);
 	}
-	.picker {
-		display: grid;
-		grid-template-columns: auto repeat(3, 44px);
-		gap: 0.25rem;
+	.ratio select {
+		max-width: 100%;
+	}
+	.custom {
+		display: flex;
 		align-items: center;
-		justify-items: center;
+		gap: 0.3rem;
 	}
-	.picker .row {
-		justify-self: start;
-		max-width: 112px;
+	.custom input {
+		width: 64px;
 	}
-	.cell {
-		padding: 0.25rem;
-		border: 2px solid var(--border-muted);
-		background: var(--paper);
-		color: var(--ink);
-		cursor: pointer;
-		line-height: 0;
+	.warn {
+		color: var(--error);
 	}
-	.cell:hover {
-		border-color: var(--ink);
-	}
-	.cell.active {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
-	}
-	.cell.active .screen {
-		background: var(--ink);
-	}
-	/* a tiny phone (portrait) with a landscape video placed in it */
-	.screen {
-		position: relative;
-		display: block;
-		width: 20px;
-		height: 36px;
-		border: 1px solid currentColor;
-		background: var(--paper);
-		overflow: hidden;
-	}
-	.clip {
-		position: absolute;
-		left: 0;
-		right: 0;
-		background: currentColor;
-	}
-	.clip.contain {
-		height: 32%;
-	}
-	.clip.contain.top {
-		top: 0;
-	}
-	.clip.contain.center {
-		top: 34%;
-	}
-	.clip.contain.bottom {
-		bottom: 0;
-	}
-	/* cover fills it; a lighter band marks the part that stays when the top/bottom are cropped */
-	.clip.cover {
-		inset: 0;
-		background: color-mix(in srgb, currentColor 30%, transparent);
-	}
-	.clip.cover::after {
-		content: '';
-		position: absolute;
-		left: 0;
-		right: 0;
-		height: 40%;
-		background: currentColor;
-	}
-	.clip.cover.top::after {
-		top: 0;
-	}
-	.clip.cover.center::after {
-		top: 30%;
-	}
-	.clip.cover.bottom::after {
-		bottom: 0;
+	.device.frame {
+		width: 48px;
 	}
 	.placement-preview {
 		display: flex;
@@ -421,11 +454,11 @@
 		flex-direction: column;
 		gap: 0.2rem;
 	}
-	.placement-preview figure:first-child .device {
-		width: 56px;
+	.placement-preview .device.phone {
+		width: 40px;
 	}
-	.placement-preview figure:last-child .device {
-		width: 144px;
+	.placement-preview .device.desktop {
+		width: 96px;
 	}
 	.device {
 		background: #000;
@@ -436,9 +469,5 @@
 		display: block;
 		width: 100%;
 		height: 100%;
-	}
-	figcaption {
-		font-size: 10px;
-		color: var(--muted);
 	}
 </style>

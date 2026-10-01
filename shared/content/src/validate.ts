@@ -12,7 +12,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE } from './content.ts';
+import { DEFAULT_SLICE, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
 import { isMediaQuality } from './media-quality.ts';
 
 export type Level = 'error' | 'warning' | 'info';
@@ -266,8 +266,24 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 			if (!isObj(vp)) c.error([...path, 'video', 'viewport'], 'video.viewport must be { position?, fit? }');
 			else {
 				if (vp.position !== undefined && !['top', 'center', 'bottom'].includes(vp.position)) c.error([...path, 'video', 'viewport', 'position'], 'viewport.position must be top, center or bottom');
-				if (vp.fit !== undefined && !['contain', 'cover'].includes(vp.fit)) c.error([...path, 'video', 'viewport', 'fit'], 'viewport.fit must be contain (fit width) or cover (fit height)');
+				if (vp.fit !== undefined && !(VIEWPORT_FITS as readonly string[]).includes(vp.fit)) c.error([...path, 'video', 'viewport', 'fit'], 'viewport.fit must be contain (show all), width (fit width), height (fit height) or cover (fill, cropped)');
 				if (Array.isArray(s.dialog) && s.dialog.length) c.warn([...path, 'dialog'], 'text boxes are placed on the reading column; on a full-viewport video they do not follow the video');
+			}
+		}
+		if (isObj(s.video) && s.video.frame !== undefined) {
+			const fr = s.video.frame;
+			const fp = [...path, 'video', 'frame'];
+			if (!isObj(fr)) c.error(fp, 'video.frame must be { ratio, fit?, position? }');
+			else {
+				if (!parseFrameRatio(fr.ratio)) c.error([...fp, 'ratio'], 'frame.ratio must be "w:h" or [w, h] (e.g. "9:16")');
+				else if (!isFrameRatioAllowed(fr.ratio)) c.error([...fp, 'ratio'], 'frame.ratio must be between 4:1 and 1:4');
+				else {
+					const size = frameSliceSize(fr.ratio, isNum(s.width) && s.width > 0 ? s.width : DEFAULT_SLICE.width);
+					if (size && isNum(s.height) && Math.abs(s.height - size.height) > 1) c.warn([...path, 'height'], `the slice height ${s.height} doesn't follow the frame ${String(fr.ratio)} (${size.width} × ${size.height})`);
+				}
+				if (fr.fit !== undefined && !(VIEWPORT_FITS as readonly string[]).includes(fr.fit)) c.error([...fp, 'fit'], 'frame.fit must be contain, width, height or cover');
+				if (fr.position !== undefined && !['top', 'center', 'bottom'].includes(fr.position)) c.error([...fp, 'position'], 'frame.position must be top, center or bottom');
+				if (s.video.viewport !== undefined) c.warn(fp, 'a full-viewport video ignores the frame (the box is the viewport)');
 			}
 		}
 	}

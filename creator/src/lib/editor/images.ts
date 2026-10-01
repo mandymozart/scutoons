@@ -1,6 +1,6 @@
 // Known image paths of a toon, collected from every entity the editor can reach (for the image path picker).
 import { library } from '$lib/api.ts';
-import { DEFAULT_SLICE, type Path } from '@scutoons/content';
+import { DEFAULT_SLICE, frameSliceSize, type Path } from '@scutoons/content';
 
 const cache = new Map<string, Promise<string[]>>();
 
@@ -76,6 +76,14 @@ export async function fillSliceSize(
 	slicePath: Path,
 	url: (image: string) => string
 ): Promise<void> {
+	// a video in a frame: the size follows the frame's ratio, not the image (SliceVideo.frame)
+	const framed = frameSliceSize(doc.get(doc.primary, slicePath)?.video?.frame?.ratio);
+	if (framed && !doc.get(doc.primary, slicePath)?.video?.viewport) {
+		const current = doc.get(doc.primary, slicePath);
+		if (current.width !== framed.width) doc.setShared([...slicePath, 'width'], framed.width, 'slice-size');
+		if (current.height !== framed.height) doc.setShared([...slicePath, 'height'], framed.height, 'slice-size');
+		return;
+	}
 	const image = doc.get(doc.primary, slicePath)?.image;
 	if (typeof image !== 'string' || !image) return;
 	const size = await readImageSize(url(image));

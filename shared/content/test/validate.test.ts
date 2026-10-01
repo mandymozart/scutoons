@@ -59,6 +59,23 @@ test('slice video: variants { low, medium, high }, controls, viewport; sources i
 		'error groups.0.slices.0.video.viewport.fit'
 	]);
 	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', viewport: {} }, { dialog: [{ rect: { x: 1, y: 1, width: 10 }, text: 'x' }] }), ['warning groups.0.slices.0.dialog']);
+	for (const fit of ['contain', 'width', 'height', 'cover']) assert.deepEqual(videoProblems({ src: 'videos/p.mp4', viewport: { fit, position: 'bottom' } }), []);
+});
+
+test('slice video frame: a ratio within 4:1 … 1:4, the slice height follows it', () => {
+	const chapter = (video: unknown, height: number) => ({
+		title: 'P', number: 0, groups: [{ slices: [{ image: 'images/p.webp', width: 390, height, video }] }]
+	});
+	const framed = (frame: unknown, height = 693, extra: object = {}) =>
+		problems('chapter', chapter({ src: 'videos/p.mp4', frame, ...extra }, height)).filter((p) => p.includes('.video') || p.endsWith('.height'));
+	assert.deepEqual(framed({ ratio: '9:16', fit: 'cover', position: 'top' }), []);
+	assert.deepEqual(framed({ ratio: [1, 4] }, 1560), []);
+	assert.deepEqual(framed({ ratio: '6:13' }, 845), []);
+	assert.deepEqual(framed({ ratio: '1:5' }, 1950), ['error groups.0.slices.0.video.frame.ratio']);
+	assert.deepEqual(framed({ ratio: 'tall' }), ['error groups.0.slices.0.video.frame.ratio']);
+	assert.deepEqual(framed({ ratio: '9:16', fit: 'stretch' }), ['error groups.0.slices.0.video.frame.fit']);
+	assert.deepEqual(framed({ ratio: '9:16' }, 625), ['warning groups.0.slices.0.height']);
+	assert.deepEqual(framed({ ratio: '9:16' }, 693, { viewport: {} }), ['warning groups.0.slices.0.video.frame']);
 });
 
 test('season.trailer: { loop, poster, sources?, chapter? }', () => {

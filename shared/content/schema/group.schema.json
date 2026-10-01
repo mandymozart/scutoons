@@ -160,6 +160,10 @@
 				"viewport": {
 					"$ref": "#/definitions/SliceViewport",
 					"description": "fills the viewport instead of the reading column, placed like this (`SliceViewport`); omitted = in the column"
+				},
+				"frame": {
+					"$ref": "#/definitions/SliceFrame",
+					"description": "in the column: the box's ratio + how the video sits in it (`SliceFrame`); omitted = \"Original\" (the media's ratio)"
 				}
 			},
 			"required": [
@@ -195,15 +199,58 @@
 					"description": "default 'center'"
 				},
 				"fit": {
-					"type": "string",
-					"enum": [
-						"contain",
-						"cover"
-					],
+					"$ref": "#/definitions/ViewportFit",
 					"description": "default 'contain'"
 				}
 			},
-			"description": "Where a full-viewport slice video sits (`SliceVideo.viewport`, owner 2026-10-01). The slice then fills the whole viewport (its whole width, the screen's height) instead of the reading column, and the video – and its poster – is placed in that box:\n- `fit: 'contain'` (\"fit width\", the default): the whole video is visible, as big as the box allows; the rest of the   box is ink (bars above/below a landscape video). `position` = where the video sits: top, centre or bottom.\n- `fit: 'cover'` (\"fit height\"): the video fills the whole box, what doesn't fit is cropped (the sides of a landscape   video on a phone). `position` = which part stays when its top/bottom are cropped."
+			"description": "Where a full-viewport slice video sits (`SliceVideo.viewport`, owner 2026-10-01). The slice then fills the whole viewport (its whole width, the screen's height) instead of the reading column, and the video – and its poster – is placed in that box (owner 2026-10-01, four fits):\n- `contain` \"Ganz sichtbar\" / \"Show all\" (the default): the whole video, as big as the box allows, ink bars where needed;\n- `width` \"An Breite einpassen\" / \"Fit width\": the video is as wide as the viewport; a taller video is cropped at the   top/bottom, a flatter one gets bars above/below;\n- `height` \"An Höhe einpassen\" / \"Fit height\": the video is as high as the viewport; a wider video is cropped at the   sides, a narrower one gets bars left/right;\n- `cover` \"Füllen (beschnitten)\" / \"Fill (cropped)\": always fills the viewport, the overflow is cropped. `position` = which part stays when the video is cropped vertically, or where it sits when there are bars above/below. Cropping at the sides always keeps the centre. `viewportObjectFit` turns width/height into contain or cover for a box."
+		},
+		"ViewportFit": {
+			"type": "string",
+			"enum": [
+				"contain",
+				"width",
+				"height",
+				"cover"
+			]
+		},
+		"SliceFrame": {
+			"type": "object",
+			"properties": {
+				"ratio": {
+					"anyOf": [
+						{
+							"type": "string"
+						},
+						{
+							"type": "array",
+							"items": {
+								"type": "number"
+							},
+							"minItems": 2,
+							"maxItems": 2
+						}
+					],
+					"description": "\"w:h\" (a preset like \"9:16\", or any) or [w, h]; between 4:1 and 1:4"
+				},
+				"fit": {
+					"$ref": "#/definitions/ViewportFit",
+					"description": "default 'contain'"
+				},
+				"position": {
+					"type": "string",
+					"enum": [
+						"top",
+						"center",
+						"bottom"
+					],
+					"description": "default 'center'"
+				}
+			},
+			"required": [
+				"ratio"
+			],
+			"description": "The box of a video slice in the reading column (`SliceVideo.frame`, owner 2026-10-01): a ratio instead of the media's own (\"Original\" = no `frame`). The slice is 390 px wide and `width` / `height` follow the ratio (390 × 693 for 9:16), so the reader reserves the space before anything loads; the media is placed in the box with `fit` / `position` like a full-viewport video (`SliceViewport`). Doesn't apply in full viewport (the box is the viewport there)."
 		},
 		"AudioEvents": {
 			"type": "object",

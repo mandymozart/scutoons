@@ -1308,3 +1308,21 @@ character, persona, look and mood and doubles as the VN test bed.
   "Ton an" on the video; reduced motion = the poster placed the same), controls on / off (click toggles), the follow-up
   bar after a full-viewport player (fixed at the bottom), the creator's "Hintergrund" tab. 46/46. check-prolog now sets
   the guest's quality per run (375 low → 480p, 1280 medium → 720p, 1600 high → 1080p): 46/46.
+- **Follow-up (owner, same day): four fits, frames, a readable picker.** `fit` = contain ("Ganz sichtbar") / width ("An
+  Breite einpassen") / height ("An Höhe einpassen") / cover ("Füllen (beschnitten)") – the earlier two values were named
+  "fit width/height" for contain/cover, which was misleading; width/height resolve to contain or cover per box from the
+  two ratios (`viewportObjectFit`, unit-tested: a 16:9 video on a 390 × 844 phone = fit height → cropped sides, on a
+  2560 × 1080 screen = fit width → cropped top/bottom). Nothing stored used `viewport` yet, so no data migration. Frames in
+  the column: `SliceVideo.frame { ratio, fit, position }`, presets 5:8 / 6:13 (the s1c1 and s1c2 key visuals are both
+  exactly 390 × 845 = 6:13, measured with Pillow) / 9:16 / 1:1 / custom clamped to 4:1 … 1:4; the creator writes the
+  slice size from the ratio (`fillSliceSize` follows the frame), validation errors outside the limits and warns on a stale
+  height or frame + viewport. The creator picker went through three rounds the same day: a 4 × 3 grid of tiny icons
+  (unreadable for the owner) → picture tiles with sentences (too descriptive) → **basic**: one segmented row "Ganz ·
+  Breite · Höhe · Füllen", "Oben · Mitte · Unten" only when the position matters, short ratio labels, one small preview,
+  short size lines (`placement-picker.svelte`). The owner tried it in the preview and published chapter 0 with
+  `viewport { center, height }` **in the worktree's DB copy only** (not in the seed, not in the owner's store); the
+  regression checks then ran on a second fresh copy (API 18020 / viewer 18010 / creator 18030). Sizes in `em`: the creator's chrome is a fixed 13 px base while its
+  `html` root is the reader's fluid 24 px, so `rem` came out ~1.8× too big. check-media-quality: 12 full-viewport
+  combinations × 390 / 1440 × video / poster, 5 frames × 4 fits × 2 widths, the creator's ratio select + clamp + size
+  lines. Preview for the owner ran from the worktree on 21310 (viewer) / 21340 (creator; 21300 was another agent's) /
+  21320 (API) / 21330 (CDN).

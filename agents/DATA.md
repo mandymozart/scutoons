@@ -79,8 +79,10 @@ statements changed (old rows keep their timestamps). The seed is idempotent per 
 
 **Media quality (2026-10-01, owner, branch `media-quality`, merged after the release):** `SliceVideo.sources [{ src,
 media }]` is replaced by `SliceVideo.variants { low?, medium?, high? }` next to `src` (the default; DESIGN.md "Media
-quality", PLAN.md "RULE: one file per quality level"), plus `SliceVideo.controls` and `SliceVideo.viewport { position,
-fit }` (full-viewport placement). Chapter 0: `src` 720p, variants 480p / 720p / 1080p (`player: true` as before). Seed
+quality", PLAN.md "RULE: one file per quality level"), plus `SliceVideo.controls`, `SliceVideo.viewport { position,
+fit }` (full-viewport placement) and `SliceVideo.frame { ratio, fit?, position? }` (the box in the column; `ratio` "9:16" or
+[w, h] within 4:1 … 1:4, the slice's `height` follows at 390 wide); `fit` is one of contain / width / height / cover
+(DESIGN.md "Video placement"). No stored content uses `viewport` or `frame` yet, so nothing to migrate. Chapter 0: `src` 720p, variants 480p / 720p / 1080p (`player: true` as before). Seed
 (`catpope/{de,en}/chapter0.json`) and `content-seed.mysql.sql` (only the 2 chapter-0 statements changed, timestamps
 kept). **The seed is guarded by `WHERE NOT EXISTS`**, so a database that already has `chapter:catpope:0:*` (production
 after the 2026-10-04 cutover, every local store) needs a new published version: locally `php bin/console import-content

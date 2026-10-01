@@ -12,7 +12,7 @@
 //   5. the test user (agent@scutoons.test, `npm run dev:test-user`): the account page shows the server value; choosing
 //      "Niedrig" → `PUT /me/` → `GET /me/ user.media_quality` = low; the chapter then loads 480p although this device says
 //      high (the account wins); the member's previous value is restored;
-//   6. placement (`video.viewport`, injected into the chapter-0 answer by CDP Fetch): 3 positions × 2 fits at 390 × 844
+//   6. placement (`video.viewport`, injected into the chapter-0 answer by CDP Fetch): 3 positions × 4 fits at 390 × 844
 //      and 1440 × 900: the box = the whole viewport (no sideways scroll), contain = the video's own box placed top / centre
 //      / bottom, cover = filling with object-position; the poster too (reduced motion: the poster only); the "Ton an"
 //      button on the video; screenshots;
@@ -20,7 +20,8 @@
 //   8. the follow-up bar after the full-viewport player ended: shown, fixed at the bottom of the viewport; autoplay muted +
 //      "Ton an" under the normal autoplay policy;
 //   9. the creator's "Hintergrund" tab (test user, nothing saved): the 480p / 720p / 1080p fields with the default, player
-//      + controls, "Bildschirmfüllend" → the 3 × 2 placement picker and the phone / desktop preview.
+//      + controls, "Bildschirmfüllend" → the 4 × 3 placement picker, the phone / desktop preview and "Füllt den Bildschirm ·
+//      Seitenverhältnis …"; in the column the ratio select (9:16 → 390 × 693, custom 1:5 → clamped to 1:4).
 //
 // usage: node scripts/check-media-quality.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
 //        [--creator=http://localhost:10000] [--shots=<dir>] [--verbose]
@@ -84,6 +85,8 @@ let seq = 0; const pending = new Map(); let lastNet = Date.now();
 let videoRequests = [];
 /** what the chapter-0 answer gets patched with (null = unchanged) */
 let patchVideo = null;
+/** slice fields to patch with it (a frame's width / height) */
+let patchSlice = null;
 const send = (method, params = {}) => new Promise((r) => { const i = ++seq; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 ws.addEventListener('message', async (e) => {
 	const m = JSON.parse(e.data), p = m.params;
@@ -97,6 +100,7 @@ ws.addEventListener('message', async (e) => {
 		const chapter = JSON.parse(raw);
 		Object.assign(chapter.groups[0].slices[0].video, patchVideo);
 		for (const [k, v] of Object.entries(patchVideo)) if (v === undefined) delete chapter.groups[0].slices[0].video[k];
+		if (patchSlice) Object.assign(chapter.groups[0].slices[0], patchSlice);
 		const headers = p.responseHeaders.filter((h) => !/^(content-length|etag|content-encoding)$/i.test(h.name));
 		return send('Fetch.fulfillRequest', { requestId: p.requestId, responseCode: 200, responseHeaders: headers, body: Buffer.from(JSON.stringify(chapter)).toString('base64') });
 	}
@@ -338,50 +342,85 @@ if (step('member')) {
 	}
 }
 
-// 6. placement
+// 6. placement: full viewport, all 4 fits × 3 positions; frames in the column
+const FITS = ['contain', 'width', 'height', 'cover'];
+const POSITIONS = ['top', 'center', 'bottom'];
+/** contain or cover for a box (fit width / height depend on the ratios) – @scutoons/content viewportObjectFit */
+const objectFitFor = (fit, media, box) => fit === 'cover' ? 'cover' : fit === 'width' ? (media >= box ? 'contain' : 'cover') : fit === 'height' ? (media <= box ? 'contain' : 'cover') : 'contain';
+const objectPositionFor = (position) => position === 'top' ? '50% 0%' : position === 'bottom' ? '50% 100%' : '50% 50%';
+const PLACED = `(() => { const s = ${VIDEO}; if (!s) return null; const b = document.querySelector('.video-box'); const sl = b.closest('.slice').getBoundingClientRect();
+	return { ...s, fitAttr: b.dataset.fit, objectFitAttr: b.dataset.objectFit, slice: { w: sl.width, h: sl.height } }; })()`;
+const MEDIA_RATIO = `(() => { const v = document.querySelector('video[data-player]'); return v && v.videoWidth ? v.videoWidth / v.videoHeight : null; })()`;
 if (step('placement')) {
 	for (const reduced of [false, true]) {
 		await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: reduced ? 'reduce' : 'no-preference' }] });
 		for (const [w, h] of [[390, 844], [1440, 900]]) {
-			console.log(`placement ${w} × ${h}${reduced ? ' (reduced motion: the poster)' : ''}`);
+			console.log(`full viewport ${w} × ${h}${reduced ? ' (reduced motion: the poster)' : ''}`);
 			await viewport(w, h);
-			for (const fit of ['contain', 'cover']) {
-				for (const position of ['top', 'center', 'bottom']) {
+			for (const fit of FITS) {
+				for (const position of POSITIONS) {
 					patchVideo = { viewport: { position, fit } };
 					await guest('low');
-					videoRequests = [];
 					await open(`${viewer}/${toon}/chapter/0`);
 					await evaluate(`document.querySelector('[data-testid="viewport-video"]')?.scrollIntoView({ block: 'start' }), true`);
 					await sleep(300);
-					// playing (muted + "Ton an") or, with reduced motion, the poster
-					const v = await waitFor(`(() => { const s = ${VIDEO}; return s && s.box && (${reduced} ? s.readyState >= 1 : (s.button && !s.paused)) ? s : null; })()`, 20000);
+					const v = await waitFor(`(() => { const s = ${PLACED}; return s && s.box && s.objectFitAttr && (${reduced} ? s.readyState >= 1 : (s.button && !s.paused)) ? s : null; })()`, 20000);
 					const problems = [];
-					if (!v || v.error) { report(`${fit} ${position}`, [`no full-viewport player: ${JSON.stringify(await evaluate(VIDEO))}`]); continue; }
+					if (!v || v.error) { report(`${fit} ${position}`, [`no full-viewport player: ${JSON.stringify(await evaluate(PLACED))}`]); continue; }
+					const media = (await evaluate(MEDIA_RATIO)) || ratio;
+					const want = objectFitFor(fit, media, v.vw / v.vh);
+					if (v.fitAttr !== fit || v.objectFitAttr !== want) problems.push(`fit ${v.fitAttr} → ${v.objectFitAttr}, expected ${fit} → ${want}`);
 					if (!near(v.box.x, 0, 1) || !near(v.box.w, v.vw, 1) || !near(v.box.h, v.vh, 1)) problems.push(`box ${JSON.stringify(v.box)}, expected the viewport ${v.vw} × ${v.vh}`);
 					if (v.scrollWidth > v.vw) problems.push(`sideways scroll: ${v.scrollWidth} > ${v.vw}`);
-					if (fit === 'contain') {
-						const vw = Math.min(v.vw, v.vh * ratio), vh = vw / ratio;
+					if (want === 'contain') {
+						const vw = Math.min(v.vw, v.vh * media), vh = vw / media;
 						const top = position === 'top' ? 0 : position === 'bottom' ? v.vh - vh : (v.vh - vh) / 2;
 						if (!near(v.rect.w, vw, 2) || !near(v.rect.h, vh, 2) || !near(v.rect.y - v.box.y, top, 2) || !near(v.rect.x, (v.vw - vw) / 2, 2)) problems.push(`video ${JSON.stringify(v.rect)}, expected ${Math.round(vw)} × ${Math.round(vh)} at y ${Math.round(top)}`);
 					} else {
 						if (!near(v.rect.w, v.vw, 1) || !near(v.rect.h, v.vh, 1)) problems.push(`video ${JSON.stringify(v.rect)}, expected the whole viewport`);
-						const want = position === 'top' ? '50% 0%' : position === 'bottom' ? '50% 100%' : '50% 50%';
-						if (v.fit !== 'cover' || v.objectPosition !== want) problems.push(`object-fit ${v.fit} / object-position ${v.objectPosition}, expected cover / ${want}`);
+						if (v.fit !== 'cover' || v.objectPosition !== objectPositionFor(position)) problems.push(`object-fit ${v.fit} / object-position ${v.objectPosition}, expected cover / ${objectPositionFor(position)}`);
 					}
 					if (!reduced) {
 						const r = v.rect;
 						if (!(v.button.x > r.x && v.button.x < r.x + r.w && v.button.y > r.y && v.button.y < r.y + r.h && v.button.y > 0 && v.button.y < v.vh)) problems.push(`"Ton an" at ${JSON.stringify(v.button)}, not on the video ${JSON.stringify(r)}`);
-					} else if (videoRequests.some((q) => q.type === 'Media')) {
-						// a player with reduced motion only loads its metadata; fine – the poster is what shows
 					}
-					report(`${fit} ${position}${reduced ? ' (poster)' : ' + "Ton an" on the video'}`, problems, `video ${Math.round(v.rect.w)} × ${Math.round(v.rect.h)} at ${Math.round(v.rect.x)},${Math.round(v.rect.y - v.box.y)}`);
+					report(`${fit} ${position} → ${want}${reduced ? ' (poster)' : ' + "Ton an" on the video'}`, problems, `video ${Math.round(v.rect.w)} × ${Math.round(v.rect.h)} at ${Math.round(v.rect.x)},${Math.round(v.rect.y - v.box.y)}`);
 					await shot(`mq-placement-${w}-${fit}-${position}${reduced ? '-poster' : ''}`);
 				}
 			}
 		}
 	}
 	await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+	// frames in the column: each preset + custom 1:4, whole and cropped (+ fit width / height)
+	const FRAMES = [['5:8', [5, 8]], ['6:13', [6, 13]], ['9:16', [9, 16]], ['1:1', [1, 1]], [[1, 4], [1, 4]]];
+	for (const [w, h] of [[390, 844], [1440, 900]]) {
+		console.log(`frames in the column ${w} × ${h}`);
+		await viewport(w, h);
+		for (const [frameRatio, [fw, fh]] of FRAMES) {
+			for (const [fit, position] of [['contain', 'center'], ['cover', 'top'], ['width', 'center'], ['height', 'bottom']]) {
+				patchVideo = { frame: { ratio: frameRatio, fit, position } };
+				patchSlice = { width: 390, height: Math.round((390 * fh) / fw) };
+				await guest('low');
+				await open(`${viewer}/${toon}/chapter/0`);
+				await evaluate(`document.querySelector('[data-testid="framed-video"]')?.scrollIntoView({ block: 'start' }), true`);
+				const v = await waitFor(`(() => { const s = ${PLACED}; return s && s.box && s.objectFitAttr && s.readyState >= 1 ? s : null; })()`, 20000);
+				const problems = [];
+				const label = `${Array.isArray(frameRatio) ? frameRatio.join(':') + ' (custom)' : frameRatio} ${fit} ${position}`;
+				if (!v || v.error) { report(`frame ${label}`, [`no framed player: ${JSON.stringify(await evaluate(PLACED))}`]); continue; }
+				const media = (await evaluate(MEDIA_RATIO)) || ratio;
+				const want = objectFitFor(fit, media, fw / fh);
+				if (!near(v.box.h, (v.box.w * fh) / fw, 2)) problems.push(`box ${Math.round(v.box.w)} × ${Math.round(v.box.h)}, expected ${fw}:${fh}`);
+				if (!near(v.slice.h, v.box.h, 2)) problems.push(`slice ${Math.round(v.slice.h)} px high, the box ${Math.round(v.box.h)} (the reserved space doesn't match)`);
+				if (!near(v.rect.w, v.box.w, 1) || !near(v.rect.h, v.box.h, 1)) problems.push(`video ${JSON.stringify(v.rect)} doesn't fill the box ${JSON.stringify(v.box)}`);
+				if (v.objectFitAttr !== want || v.fit !== want || v.objectPosition !== objectPositionFor(position)) problems.push(`object-fit ${v.fit} (${v.objectFitAttr}) / ${v.objectPosition}, expected ${want} / ${objectPositionFor(position)}`);
+				if (v.scrollWidth > v.vw) problems.push(`sideways scroll: ${v.scrollWidth} > ${v.vw}`);
+				report(`frame ${label} → ${want}`, problems, `box ${Math.round(v.box.w)} × ${Math.round(v.box.h)}`);
+				if (fit === 'contain' || fit === 'cover') await shot(`mq-frame-${w}-${Array.isArray(frameRatio) ? 'custom-1-4' : frameRatio.replace(':', '-')}-${fit}`);
+			}
+		}
+	}
 	patchVideo = null;
+	patchSlice = null;
 }
 
 // 7. controls on / off
@@ -457,7 +496,9 @@ if (step('creator')) {
 				labels: [...p.querySelectorAll('.files .level')].map((l) => l.textContent.replace(/\\s+/g, ' ').trim()),
 				player: val('video-player')?.checked, controls: val('video-controls')?.checked,
 				column: val('video-in-column')?.checked, full: val('video-full-viewport')?.checked,
-				cells: p.querySelectorAll('.picker .cell').length, active: p.querySelector('.cell.active')?.dataset.testid ?? null,
+				cells: p.querySelectorAll('[data-testid^="fit-"]:not([data-testid="fit-help"])').length, active: p.querySelector('[data-testid^="fit-"][aria-checked="true"]')?.dataset.testid ?? null,
+				positions: p.querySelectorAll('[data-testid^="position-"]:not([data-testid="position-none"])').length, positionNone: !!p.querySelector('[data-testid="position-none"]'),
+				help: p.querySelector('[data-testid="fit-help"]')?.textContent.replace(/\\s+/g, ' ').trim() ?? null,
 				preview: [...p.querySelectorAll('[data-testid="placement-preview"] img')].map((i) => getComputedStyle(i).objectFit + ' ' + getComputedStyle(i).objectPosition) }; })()`;
 		const s = await waitFor(`(() => { const s = ${PANEL}; return s && s.low !== undefined ? s : null; })()`, 15000);
 		const problems = [];
@@ -467,28 +508,51 @@ if (step('creator')) {
 			if (s.low !== file('low') || s.medium !== file('medium') || s.high !== file('high')) problems.push(`files ${JSON.stringify([s.low, s.medium, s.high])}`);
 			if (s.def !== 'medium') problems.push(`default ${s.def}, expected medium (src = the 720p file)`);
 			if (!s.labels[0]?.startsWith('480p') || !s.labels[1]?.startsWith('720p') || !s.labels[2]?.startsWith('1080p')) problems.push(`labels ${JSON.stringify(s.labels)}`);
-			if (!s.player || !s.controls || !s.column || s.full || s.cells) problems.push(`flags / placement ${JSON.stringify(s)}`);
+			// (whatever placement a draft in the store has – the owner may be trying it out in a preview – the steps below set their own)
+			if (!s.player) problems.push(`flags ${JSON.stringify(s)}`);
 		}
 		await shot('mq-creator-1-panel');
 		// full viewport → the picker (3 × 2) + the preview; "fit height, top"; controls off; another default
 		await evaluate(`document.querySelector('[data-testid="video-full-viewport"]').click(), true`);
-		await waitFor(`document.querySelector('[data-testid="placement-cover-top"]') ? true : null`, 5000);
-		await evaluate(`document.querySelector('[data-testid="placement-cover-top"]').click(), document.querySelector('[data-testid="video-controls"]').click(), document.querySelector('[data-testid="video-default-high"]').click(), true`);
-		const s2 = await waitFor(`(() => { const s = ${PANEL}; return s && s.active === 'placement-cover-top' && !s.controls && s.def === 'high' ? s : null; })()`, 5000);
+		await waitFor(`document.querySelector('[data-testid="fit-cover"]') ? true : null`, 5000);
+		await evaluate(`document.querySelector('[data-testid="fit-cover"]').click(), (document.querySelector('[data-testid="video-controls"]').checked && document.querySelector('[data-testid="video-controls"]').click()), document.querySelector('[data-testid="video-default-high"]').click(), true`);
+		const s2 = await waitFor(`(() => { const s = ${PANEL}; return s && s.active === 'fit-cover' && !s.controls && s.def === 'high' ? s : null; })()`, 5000);
 		if (!s2 || s2.error) problems.push(`after full viewport + cover top + controls off + default 1080p: ${JSON.stringify(await evaluate(PANEL))}`);
 		else {
-			if (s2.cells !== 6 || !s2.full) problems.push(`picker cells ${s2.cells}`);
-			if (s2.preview.length !== 2 || !s2.preview.every((p) => p === 'cover 50% 0%')) problems.push(`preview ${JSON.stringify(s2.preview)}`);
+			if (s2.cells !== 4 || !s2.full) problems.push(`fit tiles ${s2.cells}`);
+			// a landscape video filling a phone or a 16:10 desktop is cropped at the sides only: no position buttons
+			if (s2.positions !== 0) problems.push(`position buttons for cover in full viewport: ${s2.positions}`);
+			if (s2.preview.length !== 2 || !s2.preview.every((p) => p === 'cover 50% 50%')) problems.push(`preview ${JSON.stringify(s2.preview)}`);
 		}
+		const SIZE = `document.querySelector('[data-testid="slice-size"]')?.textContent.replace(/\\s+/g, ' ').trim()`;
+		const sizeLine = await evaluate(SIZE);
+		if (!/^(Bildschirm|Screen) · 1[.,]89:1$/.test(sizeLine ?? '')) problems.push(`size line in full viewport "${sizeLine}"`);
+		if (await evaluate(`!!document.querySelector('[data-testid="video-frame"]')`)) problems.push('the ratio select shows in full viewport');
 		await shot('mq-creator-2-full-viewport');
+		// back to the column: 9:16 → the slice is 390 × 693, the picker + a framed preview; custom 1:5 → clamped to 1:4
+		await evaluate(`document.querySelector('[data-testid="video-in-column"]').click(), true`);
+		await waitFor(`document.querySelector('[data-testid="video-frame"]') ? true : null`, 5000);
+		await evaluate(`(() => { const s = document.querySelector('[data-testid="video-frame"]'); s.value = 'hd-portrait'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+		const framed = await waitFor(`(() => { const t = ${SIZE}; return t && t.includes('390 × 693') ? { t, cells: document.querySelectorAll('[data-testid^="fit-"]').length, positions: document.querySelectorAll('[data-testid^="position-"]').length, preview: document.querySelectorAll('[data-testid="placement-preview"] img').length } : null; })()`, 5000);
+		if (!framed || framed.error || framed.cells !== 4 || framed.positions !== 3 || framed.preview !== 1) problems.push(`9:16 frame: ${JSON.stringify(framed ?? (await evaluate(SIZE)))}`);
 		await evaluate(`document.querySelector('[data-testid="placement-preview"]')?.scrollIntoView({ block: 'end' }), true`);
+		await evaluate(`document.querySelector('[data-testid="position-top"]')?.click(), true`);
+		const top = await waitFor(`(() => { const i = document.querySelector('[data-testid="placement-preview"] img'); return i && getComputedStyle(i).objectPosition === '50% 0%' && getComputedStyle(i).objectFit === 'contain' ? true : null; })()`, 5000);
+		if (top !== true) problems.push('9:16 + "Oben": the framed preview does not move the video to the top');
+		await evaluate(`document.querySelector('[data-testid="placement-picker"]')?.scrollIntoView({ block: 'start' }), true`);
 		await sleep(300);
-		await shot('mq-creator-3-preview');
+		await shot('mq-creator-4-frame-9-16');
+		await evaluate(`(() => { const s = document.querySelector('[data-testid="video-frame"]'); s.value = 'custom'; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+		await waitFor(`document.querySelector('[data-testid="video-frame-h"]') ? true : null`, 5000);
+		await evaluate(`(() => { const w = document.querySelector('[data-testid="video-frame-w"]'); w.value = '1'; w.dispatchEvent(new Event('change', { bubbles: true })); const h = document.querySelector('[data-testid="video-frame-h"]'); h.value = '5'; h.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+		const clamped = await waitFor(`(() => { const t = ${SIZE}; return t && t.includes('390 × 1560') ? t : null; })()`, 5000);
+		if (!clamped || clamped.error) problems.push(`custom 1:5 → expected clamped to 1:4 (390 × 1560): "${await evaluate(SIZE)}"`);
+		await shot('mq-creator-5-custom-1-4');
 		// the 480p field emptied → the default stays (1080p), the level is gone
 		await evaluate(`(() => { const i = document.querySelector('[data-testid="video-variant-low"]'); i.value = ''; i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
 		const s3 = await waitFor(`(() => { const s = ${PANEL}; return s && s.low === '' ? s : null; })()`, 5000);
 		if (!s3 || s3.error || s3.def !== 'high') problems.push(`after emptying 480p: ${JSON.stringify(await evaluate(PANEL))}`);
-		report(`"${tab}" tab: 480p / 720p / 1080p fields (default 720p), player + controls, placement picker 3 × 2 with the preview, edits follow`, problems);
+		report(`"${tab}" tab: 480p / 720p / 1080p fields (default 720p), player + controls, fit row Ganz/Breite/Höhe/Füllen + position row only where it matters, the small preview, the short size lines, frame 9:16 → 390 × 693, custom 1:5 clamped to 1:4, edits follow`, problems);
 	}
 }
 
