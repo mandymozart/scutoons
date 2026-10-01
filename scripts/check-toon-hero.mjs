@@ -9,7 +9,8 @@
 //   - the season line, title, tagline; the start button (inverted, "Prolog ansehen" for a fresh guest) and
 //     "Trailer ansehen" + "Ton an" → /<toon>/chapter/0;
 //   - the logo + the round top icons are white over the hero (`html.on-hero`) and ink below it;
-//   - below: season (cols 1–5) left of the chapter list (cols 7–12), thumbnails 112 × 72, "Prolog" / "#n" right-aligned.
+//   - below: season + the credits colophon (as wide as the column) in cols 1–5 left of the chapter list (cols 7–12),
+//     thumbnails 112 × 72, "Prolog" / "#n" right-aligned.
 // Phone / tablet (390 × 844, 768 × 1024): no hero, no loop request, the cover + start button in the season column as before.
 // All widths: the menu button (top right, "Menü" / "Menu") opens the slide-out (also on the home page), and every menu
 // entry has the same font size (the toons too).
@@ -162,9 +163,9 @@ async function desktop(width, height, locale) {
 		const q = [];
 		if (!g.seasonCol || !g.listCol || !(g.seasonCol.x < g.listCol.x) || g.seasonCol.x + g.seasonCol.w > g.listCol.x) q.push(`columns ${JSON.stringify({ season: g.seasonCol, list: g.listCol })}`);
 		if (!g.thumb || g.thumb.w !== 112 || g.thumb.h !== 72) q.push(`thumbnail ${JSON.stringify(g.thumb)}`);
-		if (!g.colophon || g.colophonAnywhere !== 1 || g.colophon.x < g.seasonCol.x - 1 || g.colophon.x + g.colophon.w > g.seasonCol.x + g.seasonCol.w + 1) q.push(`colophon ${JSON.stringify(g.colophon)} (${g.colophonAnywhere} on the page) not inside the season column ${JSON.stringify(g.seasonCol)}`);
+		if (!g.colophon || g.colophonAnywhere !== 1 || g.colophon.x < g.seasonCol.x - 1 || g.colophon.x + g.colophon.w > g.seasonCol.x + g.seasonCol.w + 1 || Math.abs(g.colophon.w - g.seasonCol.w) > 2) q.push(`colophon ${JSON.stringify(g.colophon)} (${g.colophonAnywhere} on the page) not inside the season column ${JSON.stringify(g.seasonCol)}`);
 		if (g.firstNumber !== msg.chapter.prologue || g.numberAlign === null || g.numberAlign > 2) q.push(`first row "${g.firstNumber}", right gap ${g.numberAlign}`);
-		report('below: season + credits colophon left (cols 1–5), list right (cols 7–12), thumbnails 112 × 72, "Prolog" right-aligned', q, JSON.stringify({ season: g.seasonCol, list: g.listCol }));
+		report('below: season + credits colophon left (cols 1–5, the colophon as wide as the column), list right (cols 7–12), thumbnails 112 × 72, "Prolog" right-aligned', q, JSON.stringify({ season: g.seasonCol, list: g.listCol }));
 		await shot(`hero-${width}-${locale}-2-below`);
 		await evaluate('window.scrollTo(0, 0), true');
 		const back = await waitFor(`(() => { const s = ${HERO}; return s.video && !s.video.paused && s.onHero ? s : null; })()`, 5000);

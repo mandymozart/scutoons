@@ -145,7 +145,7 @@ async function open(url) { lastNet = Date.now(); await send('Page.navigate', { u
 async function shot(name, { list = false } = {}) {
 	if (!shots) return;
 	// the toon page: the start button and the chapter list in view (a full-page capture draws the fixed overlays wrongly)
-	if (list) { await evaluate(`document.querySelector('[data-testid="start-button"]')?.scrollIntoView({ block: 'start' }), window.scrollBy(0, -80), true`); await sleep(400); }
+	if (list) { await evaluate(`document.querySelector('[data-testid="start-button"], .list-column')?.scrollIntoView({ block: 'start' }), window.scrollBy(0, -80), true`); await sleep(400); }
 	const r = await send('Page.captureScreenshot', { format: 'png' });
 	writeFileSync(join(shots, `${name}.png`), Buffer.from(r.result.data, 'base64'));
 }
@@ -157,7 +157,7 @@ function report(name, problems, detail = '') {
 	else { passed++; console.log(`  ok    ${name}${opt.verbose && detail ? `  ${detail}` : ''}`); }
 }
 const TOON_STATE = `(() => {
-	const b = document.querySelector('[data-testid="start-button"]');
+	const b = document.querySelector('[data-testid="start-button"], [data-testid="hero-start"]');
 	const rows = [...document.querySelectorAll('.toon-overview .chapter-item')];
 	const first = rows[0];
 	const bar = first?.querySelector('[data-testid="chapter-progress"]');

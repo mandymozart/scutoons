@@ -231,7 +231,9 @@
 		.season-column .credits-section {
 			margin: 1.3333rem 0 var(--space-3);
 		}
+		/* the colophon fills the column (no 36em measure): heading bars, running text and the logo box span it */
 		.season-column .credits-section :global(.colophon) {
+			max-width: none;
 			margin: 0;
 			padding: 0;
 			/* fine print like on the phone (≈ 13 px at the 24 px root), not the 19.5 px the root scale would give */

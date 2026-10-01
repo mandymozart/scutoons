@@ -1131,7 +1131,10 @@ character, persona, look and mood and doubles as the VN test bed.
 
 - **Owner:** desktop design "A · Vollbild" (artifact AYHvMG81k7CQc1JrVf4n5R, `project/Main.dc.html` as visual reference)
   from 1024 px; phone/tablet unchanged. Then: the credits colophon in the LEFT column (below the music button), not
-  centred under the grid. Spec + sizes: DESIGN.md "Toon page desktop".
+  centred under the grid, filling the column's width (no 36em measure there). Spec + sizes: DESIGN.md "Toon page desktop".
+- creator-cast check: the owner's cast:catpope now has one member (Cat Pope; boy + crows removed by the owner's own
+  published version 10:36 UTC) – the reorder step assumed ≥ 2 members; it now creates the inline character first and
+  moves that one up (works for any cast size).
 - **Data:** `Season.trailer { loop, sources?, poster, chapter? }` (type, schema, validation incl. "chapter not in the
   sequence" warning, creator season page section "Trailer", library passthrough test). Desktop detection in the page
   (`matchMedia('(min-width: 1024px)')`, read synchronously so the phone never renders the hero); the hero reads

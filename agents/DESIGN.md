@@ -95,8 +95,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   - While the hero is under the fixed top bar `html.on-hero` turns the logo and the round icon toggles white
     (transparent, paper border, inverted icon; viewer `static/css/styles.css`), ink again below it.
   - **Below:** a 12-column grid (max 75rem, gutters 1.3333rem, 2rem sides): cols 1–5 the season heading (1.3333rem),
-    the season text, "Musik herunterladen" (secondary), then the **credits colophon** (its own centred fine print within
-    the column, ≈ 13 px); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
+    the season text, "Musik herunterladen" (secondary), then the **credits colophon** (its own centred fine print, ≈ 13 px,
+    filling the column: no 36em measure, heading bars, text and the logo box span it; phones keep the measure); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
     112 × 72 (cover), title 0.75rem (+ the progress rule 5.3333rem / the coming-soon line in caption), "#n" / "Prolog"
     right-aligned, coming soon at 50 %. Published rows show no date.
 - **Top-right icon group (all widths, all pages):** the menu button (round 2rem = 48 px at the desktop root, 3-line icon
