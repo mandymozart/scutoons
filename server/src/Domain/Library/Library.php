@@ -364,7 +364,7 @@ final class Library
                 // the sea is the toon's colour (owner 2026-10-01): its landing tile colour, else its star's registry colour
                 // (@scutoons/content toonTileColor); none → the reader's default
                 $tile = $entry instanceof stdClass && ($entry->tile ?? null) instanceof stdClass ? $entry->tile : null;
-                $color = is_string($tile->color ?? null) && $tile->color !== '' ? $tile->color : null;
+                $color = $tile !== null && is_string($tile->color ?? null) && $tile->color !== '' ? $tile->color : null;
                 if ($color === null) {
                     $registry = $snapshot->doc('characters');
                     foreach ($registry instanceof stdClass && is_array($registry->characters ?? null) ? $registry->characters : [] as $c) {
