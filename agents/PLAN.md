@@ -317,8 +317,8 @@ avatar, crop the head with neck from each mood portrait (one aligned box per cha
 
 ## RULE: one start-up routine, fixed ports (2026-09-30, owner)
 
-Local dev ports are fixed (viewer 8000, cdn 8001, api 9000, qr 9001, creator 10000, admin 11000, shop 12000;
-`strictPort`). Start servers ONLY with `npm run dev` (idempotent: starts what is down, never a second copy; logs in
+Local dev ports are fixed (viewer 8000, cdn 8001, api 9000, qr 9001, creator 10000, admin 11000, shop 12000, embassy 13000;
+`strictPort`), defined once in `shared/dev-ports.json` (PLATFORM.md "Local dev ports"; `npm run check:ports`). Start servers ONLY with `npm run dev` (idempotent: starts what is down, never a second copy; logs in
 `logs/dev/`); `npm run dev:status` shows the table. Agents never start servers on other/side ports for the owner's stack,
 never kill servers they did not start, and use throw-away ports only for isolated test runs they stop again (e.g. the
 contract suites' own servers).

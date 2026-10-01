@@ -18,12 +18,14 @@ define('DB_SQLITE_PATH', getenv('QR_DB_SQLITE_PATH') ?: __DIR__ . '/db/local.sql
 // …or a local MySQL/MariaDB: leave DB_SQLITE_PATH out and define
 // define('DB_HOST', 'localhost'); define('DB_NAME', 'scutoons'); define('DB_USER', 'root'); define('DB_PASS', 'root');
 
-// ── Local URLs (final dev ports, agents/PLATFORM.md "Local dev ports") ──────────────────────────────────
+// ── Local URLs (ports: shared/dev-ports.json, the single source of the local dev ports) ─────────────────
 define('QR_URL', 'http://localhost:9001');             // the qr app: magic links of requests without an Origin
 define('APP_URL', 'http://localhost:8000');            // the viewer
-define('CDN_URL', 'http://localhost:8001/');           // local CDN (item icons): cd cdn && python server.py 8001
-// Viewer 8000, creator 10000, admin 11000, shop 12000 (+ the old Vite ports while something still uses them)
-define('ALLOWED_ORIGINS', 'http://localhost:8000,http://localhost:10000,http://localhost:11000,http://localhost:12000,http://localhost:13000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:4173');
+define('CDN_URL', 'http://localhost:8001/');           // local CDN (item icons): npm run dev
+// CORS: on the dev server (npm run dev / composer serve = php -S) every port in shared/dev-ports.json is allowed
+// automatically (http://localhost:<port> + http://127.0.0.1:<port>: viewer 8000, creator 10000, admin 11000,
+// shop 12000, embassy 13000, …; Settings::allowedOrigins). List only extra origins here, e.g. the old Vite ports:
+define('ALLOWED_ORIGINS', 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:4173');
 
 // ── Mail ────────────────────────────────────────────────────────────────────────────────────────────────
 define('MAIL_TRANSPORT', 'log');                       // log = login mails go to logs/mail.log (smtp in production)

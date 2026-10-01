@@ -1289,3 +1289,17 @@ character, persona, look and mood and doubles as the VN test bed.
 - Gotcha while testing: another agent's dev-port work restarted the Vite servers, and every HMR re-mount dropped unsaved
   creator edits (also the screenshot lagged once) – check field values with JS before saving. The pane's `confirm()` returns
   false, so Publish needs `window.confirm = () => true` in the test tab.
+
+## Local dev ports: one file, `shared/dev-ports.json` (2026-10-01)
+
+- Owner: "Where do you define the ports … in code, no special place, a single source of truth." Every consumer reads
+  `shared/dev-ports.json` (list in PLATFORM.md "Local dev ports"); Node scripts via `scripts/dev/ports.mjs`
+  (`local('api', '/api')`), composer/npm `php -S` scripts via `scripts/dev/php-serve.php <service> <docroot> <router>`.
+- The API allows every port of the file as a CORS origin on `php -S` only (`Settings::allowedOrigins()`, also the magic
+  link origin in `LoginService`); the Embassy sign-in from :13000 worked with the 13000 entry removed from
+  `config.local.php`. Production never runs `php -S` and has no `shared/` folder.
+- `npm run check:ports` (first step of the root `npm run check`) catches hard-coded ports in vite configs / apps'
+  `config.ts` / `up.mjs` / package + composer scripts, mismatching URLs in the `.env.example` / `config.local.php.example`
+  files and a drifting PLATFORM.md table. `.claude/launch.json` is gitignored: regenerate with `npm run dev:launch-json`.
+- Not covered (can't read JSON): `cdn/.htaccess` (production CDN, allows `http://localhost:8000`), the CI qr smoke in
+  `.github/workflows/qr.yml` (own `php -S 127.0.0.1:9001`), server PHP smoke scripts' usage examples.

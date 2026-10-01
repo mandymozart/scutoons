@@ -2,6 +2,7 @@
 // Local settings of the qr app. Copy to config.local.php (gitignored). Every key and its default: src/Config.php.
 // Production has no config.local.php: the deploy writes config.php (deploy/README.md). QRAPP_<KEY> (environment) wins.
 return [
+    // Local URLs: ports from shared/dev-ports.json (the single source of the local dev ports)
     // The API (server/, composer serve) – server-side calls, no /api suffix
     'API_URL' => 'http://localhost:9000',
     // Same value as QR_PROXY_SECRET in server/config.local.php: the API then trusts the client IP / device id we

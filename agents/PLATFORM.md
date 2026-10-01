@@ -292,10 +292,10 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 
 ## Local dev (platform branch)
 
-- Server: `cd server && composer serve` (:9000; `composer serve:9100` while the old repo still serves :9000),
+- Server: `cd server && composer serve` (:9000),
   local-only files (config.local.php, db/local.sqlite, storage/files, storage/keys/keypair.json) — gitignored.
   `composer test` = PHPUnit + every contract suite on freshly started servers and a copy of the DB.
-- CDN: `python cdn/server.py 8001`. Viewer 8000, creator 10000, admin 11000 (see "Local dev ports").
+- CDN: `python cdn/server.py`. All ports: "Local dev ports" (`shared/dev-ports.json`).
 
 ## Admin UI patterns (from akin)
 
@@ -364,10 +364,22 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 
 ## Local dev ports (2026-09-30, owner — final)
 
+**Single source of truth: `shared/dev-ports.json`** (owner 2026-10-01: "in code, no special place"). Every consumer
+reads it: the apps' `vite.config.ts` (`server`/`preview` port + `strictPort`) and their `src/lib/config.ts` dev
+fallbacks, `scripts/dev/up.mjs` (`npm run dev`), `server/bin/dev-serve.mjs` (`composer serve`, `npm run dev:api`),
+`scripts/dev/php-serve.php` (`qr` `composer serve`, `npm run dev:qr`, server `composer serve:php`), `cdn/server.py`'s
+default, `qr/tests/public-urls.php`'s defaults (`qr composer test`), the Node check scripts (`scripts/dev/ports.mjs`),
+`.claude/launch.json` (local, generated: `npm run dev:launch-json`) and the API's local CORS: on a dev server
+(`php -S`, never production) `Settings::allowedOrigins()` allows `http://localhost:<port>` + `http://127.0.0.1:<port>`
+for every port in the file, so a new app needs no `config.local.php` entry. `npm run check:ports` (part of the root
+`npm run check`) fails when a vite config, the dev start-up code or package/composer scripts hard-code a port, when an
+`.env.example` / `config.local.php.example` URL doesn't match the file, or when this table drifts from it.
+New service: add it to the file, then to `up.mjs` + `launch-json.mjs` (both refuse an unknown name) and this table.
+
 | App | Port | Start |
 |---|---|---|
 | viewer (main, scutoons.com) | **8000** | `npm run dev:viewer` |
-| cdn (static files) | **8001** | `cd cdn && python server.py 8001` |
+| cdn (static files) | **8001** | `cd cdn && python server.py` |
 | API (server/, api.scutoons.com) | **9000** | `npm run dev:api` or `cd server && composer serve` |
 | qr (qr/, qr.scutoons.com) | **9001** | `npm run dev:qr` or `cd qr && composer serve` (calls the API on :9000) |
 | creator (creator.scutoons.com) | **10000** | `npm run dev:creator` |
@@ -375,12 +387,10 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 | shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |
 | embassy (embassy.scutoons.com) | **13000** | `npm run dev:embassy` (agents/EMBASSY.md) |
 
-Transition: until the server refactor is verified, the old repo `C:\Development\qr.scutoons.com` may still serve :9000
-and the refactored server runs on :9100 for the baseline comparison; after that the platform server owns :9000.
-`ALLOWED_ORIGINS` (dev): `http://localhost:8000`, `http://localhost:10000`, `http://localhost:11000`,
-`http://localhost:12000` (+ the old
-5173/5174/5175/4173 until nothing uses them). The earlier ports (viewer 5173, creator 5180, admin 5190, CDN 8000) are
-superseded.
+`ALLOWED_ORIGINS` (dev): nothing to list for the ports above (automatic on the dev server, see above); a local
+`config.local.php` only lists extra origins (the old 5173/5174/5175/4173 until nothing uses them). Production lists its
+origins explicitly (deploy/targets.json → config.php; never localhost). The earlier ports (viewer 5173, creator 5180,
+admin 5190, CDN 8000) and the transition server on :9100 are superseded.
 
 ## Domain architecture (2026-09-30, owner — target)
 

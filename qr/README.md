@@ -51,7 +51,7 @@ config.local.php   local (copy config.local.php.example); never in git
 
 ```sh
 cp config.local.php.example config.local.php   # API_URL http://localhost:9000, same QR_PROXY_SECRET as server/config.local.php
-composer serve                                  # http://localhost:9001  (= php -S localhost:9001 -t public public/router.php)
+composer serve                                  # http://localhost:9001  (php -S on the qr port of ../shared/dev-ports.json)
 ```
 
 The API must run on :9000 (`cd server && composer serve`). Ports: agents/PLATFORM.md "Local dev ports".

@@ -43,12 +43,12 @@ npm run build               # builds every workspace that has a build script (+ 
 npm run deploy:dry-run      # builds + stages every app, lists what would be uploaded where (deploy/README.md)
 ```
 
-Local dev ports (agents/PLATFORM.md → "Local dev ports", final):
+Local dev ports — single source of truth: `shared/dev-ports.json` (agents/PLATFORM.md → "Local dev ports"; `npm run check:ports`):
 
 | Service | Port | Start |
 |---|---|---|
 | viewer | 8000 | `npm run dev:viewer` |
-| CDN | 8001 | `cd cdn && python server.py 8001` (serves `cdn/root/`) |
+| CDN | 8001 | `cd cdn && python server.py` (serves `cdn/root/`) |
 | API (server) | 9000 | `npm run dev:api` or `cd server && composer serve` |
 | qr (qr.scutoons.com) | 9001 | `npm run dev:qr` or `cd qr && composer serve` – landing `/?c=`, `/verify.html`; config `qr/config.local.php` (`API_URL` :9000, same `QR_PROXY_SECRET` as `server/config.local.php`) |
 | creator | 10000 | `npm run dev:creator` |

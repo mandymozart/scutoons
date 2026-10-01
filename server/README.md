@@ -30,13 +30,14 @@ composer serve                                    # http://localhost:9000  (bin/
 - API: http://localhost:9000/api/ (frontends: `VITE_API_URL=http://localhost:9000/api`). `composer serve` runs
   `bin/dev-serve.mjs` (Node): `php -S` answers one request at a time and cannot fork on Windows, so it starts 4 workers
   (`[::1]:9200-9203`, OPcache on) behind a small proxy on :9000 (::1 + 127.0.0.1). `composer serve:php` = the plain
-  single-process `php -S localhost:9000`. Numbers: agents/PERFORMANCE.md.
+  single-process `php -S` on the same port. Numbers: agents/PERFORMANCE.md.
 - Legacy admin SPA: http://localhost:9000/generate/ (password = `GENERATE_PASSWORD`)
 - Login mails land in `logs/mail.log` (`MAIL_TRANSPORT = log`).
 - Local-only files (gitignored): `config.local.php`, `db/local.sqlite`, `storage/files/` (batch output),
   `storage/keys/keypair.json` (signing keys), `logs/`.
-- Dev ports (final): viewer 8000, CDN 8001, API 9000, qr 9001, creator 10000, admin 11000, shop 12000. `composer serve:9100` runs a
-  second copy on :9100 (e.g. next to the old plain-PHP server during the transition).
+- Dev ports: `../shared/dev-ports.json` (the single source; viewer 8000, CDN 8001, API 9000, qr 9001, creator 10000,
+  admin 11000, shop 12000, embassy 13000). On the dev server (`php -S`) CORS allows every port of that file
+  automatically (`Settings::allowedOrigins`); `ALLOWED_ORIGINS` in `config.local.php` only needs extra origins.
 
 ## Everyday commands
 
