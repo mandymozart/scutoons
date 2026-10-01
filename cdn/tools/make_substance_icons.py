@@ -1,7 +1,7 @@
 """Placeholder icons of the substance items (agents/ITEMS.md "Substances") in the house style of make_item_icons.py
 (thick ink outlines, paper/cyan accents, flat fills). Generic objects only – no real product look, no branding.
 
-Output: cdn/root/scutoons/items/{testo,testo_camera,psilocybin,lsd,semaglutide}.png (512 px, transparent, trimmed + fitted
+Output: cdn/root/scutoons/items/{checkit_camera,testo,testo_camera,psilocybin,lsd,semaglutide}.png (512 px, transparent, trimmed + fitted
 like every item icon). The owner replaces them later under the same names.
 
 Usage (from the repo root, with the cdn venv):
@@ -92,7 +92,25 @@ def semaglutide_svg() -> str:
 </svg>"""
 
 
+def checkit_camera_svg() -> str:
+    # the starter camera with a small test tube on the body - a generic mark, no real logo
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="150" y="146" width="130" height="58" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <rect x="40" y="186" width="432" height="232" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <rect x="352" y="160" width="62" height="26" fill="{INK}"/>
+  <circle cx="230" cy="302" r="98" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <circle cx="230" cy="302" r="62" fill="{CYAN}" stroke="{INK}" stroke-width="14"/>
+  <circle cx="230" cy="302" r="24" fill="{INK}"/>
+  <g transform="rotate(18 400 300)">
+    <path d="M378 226 V 342 A22 22 0 0 0 422 342 V 226" fill="{PAPER}" stroke="{INK}" stroke-width="14"/>
+    <path d="M378 292 H 422 V 342 A22 22 0 0 1 378 342 Z" fill="{MUSH}"/>
+    <path d="M366 226 H 434" stroke="{INK}" stroke-width="14" stroke-linecap="square"/>
+  </g>
+</svg>"""
+
+
 ICONS = {
+    "checkit_camera": checkit_camera_svg,
     "testo": testo_svg,
     "testo_camera": testo_camera_svg,
     "psilocybin": psilocybin_svg,

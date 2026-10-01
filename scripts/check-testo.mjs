@@ -212,6 +212,35 @@ async function flow(who) {
 	const gone = await waitFor(`!document.querySelector('[data-testid="reader-effect"]') && !document.documentElement.dataset.effect ? true : null`);
 	if (!gone) p5.push('"Effekt beenden" did not end it');
 	report(`${who}: magic mushroom → colour rush on the slices (off with reduced motion), "Effekt beenden" ends it`, p5);
+
+	// 6 – the Check It camera: the mandatory notice + the multi-label scan (a fake camera stream and fake model
+	// predictions through the DEV-only hook `__scutoonsFakePredictions`; MobileNet itself is not downloaded)
+	const p6 = [];
+	if (who === 'guest') await evaluate(`(() => { const s = JSON.parse(localStorage.getItem('scutoons_inventory')); s.entries.push({ id: 'local-check-checkit', item_id: 'checkit_camera', variant: null, qty: 1, source: 'story', code: null, edition_number: null, acquired_at: new Date().toISOString() }); localStorage.setItem('scutoons_inventory', JSON.stringify(s)); return true; })()`);
+	else await call('POST', '/inventory/grant/', { item_id: 'checkit_camera', source: 'story', ref: `check-testo:checkit:${Date.now()}` });
+	const before6 = await owned(who, 'semaglutide');
+	await openInventory();
+	await evaluate(`(() => {
+		globalThis.__scutoonsFakePredictions = [{ className: 'syringe', probability: 0.95 }, { className: 'pill bottle', probability: 0.02 }];
+		const c = document.createElement('canvas'); c.width = 640; c.height = 480;
+		const g = c.getContext('2d'); setInterval(() => { g.fillStyle = '#' + Math.floor(Math.random() * 0xffffff).toString(16).padStart(6, '0'); g.fillRect(0, 0, 640, 480); }, 100);
+		navigator.mediaDevices.getUserMedia = async () => c.captureStream(10);
+		return true;
+	})()`);
+	await clickEl(tile(nameOf('checkit_camera')));
+	await clickEl(`document.querySelector('[data-testid="item-use"]')`);
+	const notice = await waitFor(`(() => { const n = document.querySelector('[data-testid="camera-notice"]'); return n ? { text: n.textContent.replace(/\\s+/g, ' ').trim(), href: n.querySelector('a')?.href } : null; })()`);
+	const expected = `${de.camera.game_notice} ${de.camera.checkit}`;
+	if (notice?.text !== expected || notice?.href !== 'https://checkit.wien/') p6.push(`notice ${JSON.stringify(notice)}`);
+	const hitText = await waitFor(`document.querySelector('[data-testid="camera-hit"][data-grants="semaglutide"]')?.textContent.trim()`, 15000);
+	const wantHit = de.camera.recognised.replace('{object}', 'Spritze').replace('{item}', nameOf('semaglutide'));
+	if (hitText !== wantHit) p6.push(`hit "${hitText}" (want "${wantHit}")`);
+	await shot(`testo-${who}-6-checkit`);
+	await sleep(800);
+	if ((await owned(who, 'semaglutide')) !== before6 + 1) p6.push(`semaglutide ${before6} → ${await owned(who, 'semaglutide')}`);
+	if (/analys|enthält|contains|safe|sicher/i.test(hitText ?? '')) p6.push('the hit text sounds like an analysis');
+	await evaluate(`(document.querySelector('.camera .close')?.click(), delete globalThis.__scutoonsFakePredictions, true)`);
+	report(`${who}: Check It camera – notice with the checkit! link on open, "Erkannt: Spritze → ${nameOf('semaglutide')}", granted`, p6);
 }
 
 await open(`${viewer}/de/sandbox`);

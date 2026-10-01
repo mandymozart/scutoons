@@ -202,6 +202,39 @@
       "variants": null
     },
     {
+      "id": "checkit_camera",
+      "toon": null,
+      "name": { "de": "Check It Kamera", "en": "Check It camera" },
+      "description": {
+        "de": "Eine Spiel-Kamera, die Dinge aus der echten Welt in Spielgegenstände verwandelt: Pillendosen und Tuben, Spritzen, Pilze, kleine Briefchen. Sie analysiert keine echten Substanzen.",
+        "en": "A game camera that turns things from the real world into game items: pill jars and tubes, syringes, mushrooms, little envelopes. It does not analyse real substances."
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "scutoons/items/checkit_camera.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": ["story"],
+      "slot": null,
+      "skills": [
+        {
+          "type": "scan_object",
+          "labels": ["pill bottle", "lotion", "sunscreen"],
+          "grants": "testo",
+          "name": { "de": "Pillendose / Tube", "en": "pill jar / tube" },
+          "map": [
+            { "labels": ["syringe"], "grants": "semaglutide", "name": { "de": "Spritze", "en": "syringe" } },
+            { "labels": ["mushroom", "agaric"], "grants": "psilocybin", "name": { "de": "Pilz", "en": "mushroom" } },
+            { "labels": ["envelope"], "grants": "lsd", "name": { "de": "Briefchen", "en": "little envelope" } }
+          ],
+          "cooldown_s": 15
+        }
+      ],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
       "id": "psilocybin",
       "toon": null,
       "name": { "de": "Zauberpilz", "en": "Magic mushroom" },
@@ -214,7 +247,7 @@
       "icon": "scutoons/items/psilocybin.png",
       "stackable": true,
       "starter": false,
-      "grantable": ["story"],
+      "grantable": ["story", "scan"],
       "slot": null,
       "skills": [{ "type": "apply" }],
       "edition_id": null,
@@ -235,7 +268,7 @@
       "icon": "scutoons/items/lsd.png",
       "stackable": true,
       "starter": false,
-      "grantable": ["story"],
+      "grantable": ["story", "scan"],
       "slot": null,
       "skills": [{ "type": "apply" }],
       "edition_id": null,
@@ -256,7 +289,7 @@
       "icon": "scutoons/items/semaglutide.png",
       "stackable": true,
       "starter": false,
-      "grantable": ["story"],
+      "grantable": ["story", "scan"],
       "slot": null,
       "skills": [{ "type": "apply" }],
       "edition_id": null,

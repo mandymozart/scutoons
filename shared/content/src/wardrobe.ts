@@ -179,8 +179,11 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 		for (const sk of Array.isArray(item.skills) ? item.skills : []) {
 			if (sk?.type !== 'scan_object') continue;
 			for (const g of [sk.grants, ...(Array.isArray(sk.map) ? sk.map.map((m: any) => m?.grants) : [])]) {
-				if (!catalog.items.some((x: any) => x?.id === g)) add('error', [...path, 'skills'], `${item.id}: scan_object grants an unknown item "${g}"`);
+				const target = catalog.items.find((x: any) => x?.id === g);
+				if (!target) add('error', [...path, 'skills'], `${item.id}: scan_object grants an unknown item "${g}"`);
+				else if (!Array.isArray(target.grantable) || !target.grantable.includes('scan')) add('error', [...path, 'skills'], `${item.id}: "${g}" must be grantable by "scan"`);
 			}
+			if (Array.isArray(sk.map) && sk.map.some((m: any) => !isObj(m) || !Array.isArray(m.labels) || !m.labels.length)) add('error', [...path, 'skills'], `${item.id}: every scan_object map entry needs labels`);
 		}
 		if (item.default_worn != null && (typeof item.default_worn !== 'boolean' || (item.default_worn && (item.starter !== true || !item.slot)))) {
 			add('error', [...path, 'default_worn'], `${item.id}: default_worn: true is only for starter items with a slot`);

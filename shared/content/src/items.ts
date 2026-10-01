@@ -43,11 +43,13 @@ export interface ScanObjectSkill {
 	grants: string;
 	cooldown_s?: number;
 	threshold?: number;
+	/** what the camera says it recognised for `labels` ("Pillendose"); none = the matched model label */
+	name?: Localized;
 	/**
-	 * More than one thing to find (a later multi-label camera, ITEMS.md "Substances"): recognised labels → the item
-	 * they grant, checked after `labels` → `grants`. Not used by any item yet.
+	 * More things to find (the multi-label Check It camera, ITEMS.md "Substances"): recognised labels → the item they
+	 * grant, checked together with `labels` → `grants` (the best match wins) – `scanTargets` / `matchScan`.
 	 */
-	map?: { labels: string[]; grants: string }[];
+	map?: { labels: string[]; grants: string; name?: Localized }[];
 }
 
 export interface MinigameSkill {

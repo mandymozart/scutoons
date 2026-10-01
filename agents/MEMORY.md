@@ -1310,4 +1310,7 @@ character, persona, look and mood and doubles as the VN test bed.
   now deletes those refs and the reader stats/effects, and gives back a starter camera a recipe consumed.
 - The testo camera can only react to ImageNet's `lotion` / `sunscreen` / `pill bottle` (MobileNet) – the honest limit is
   in ITEMS.md; the multi-label "substance camera" is on hold (owner questions; the name "Check it" collides with checkit!).
-
+- Check It camera (owner unblocked it 2026-10-01): multi-label `scan_object.map`, mandatory notice linking
+  https://checkit.wien (verified as the official checkit! site of Suchthilfe Wien), DEV-only `__scutoonsFakePredictions`
+  hook for the headless check. The global grant toast briefly covers the notice for ~3 s after a hit (toast position is
+  global, left as is).

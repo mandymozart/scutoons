@@ -8,7 +8,7 @@
 // - A stat drifts back to its baseline with a half-life (`catalog.stats`: `{ baseline, half_life_days, label }`), computed
 //   lazily from `{ level, updated_at }` – no cron. The server stores the same and applies the same math
 //   (Domain\Reader\ReaderState); guests keep it in localStorage.
-import type { Catalog, ItemDef, Localized } from './items.ts';
+import type { Catalog, ItemDef, Localized, ScanObjectSkill } from './items.ts';
 
 export const STAT_MIN = 0;
 export const STAT_MAX = 100;
@@ -118,4 +118,36 @@ export function testoBand(level: number): TestoBand {
 export function characterTesto(character: { testo?: number; personas?: { id: string; testo?: number }[] } | null | undefined, persona?: string): number | undefined {
 	const own = persona ? character?.personas?.find((p) => p.id === persona)?.testo : undefined;
 	return own ?? character?.testo;
+}
+
+/** One thing a `scan_object` camera looks for: model labels → the item granted (and what to call it). */
+export interface ScanTarget {
+	labels: string[];
+	grants: string;
+	name?: Localized;
+}
+
+/** Every target of a `scan_object` skill: `labels` → `grants`, then each `map` entry. */
+export function scanTargets(skill: Pick<ScanObjectSkill, 'labels' | 'grants' | 'name' | 'map'>): ScanTarget[] {
+	return [{ labels: skill.labels ?? [], grants: skill.grants, name: skill.name }, ...(skill.map ?? [])].filter((t) => t.grants && t.labels?.length);
+}
+
+/**
+ * The best prediction that matches any target (ImageNet class names are comma lists like "sunscreen, sunblock, sun
+ * blocker": a label matches one of the parts, or one word of a part). Game recognition only – never an analysis.
+ */
+export function matchScan(
+	predictions: { className: string; probability: number }[],
+	skill: Pick<ScanObjectSkill, 'labels' | 'grants' | 'name' | 'map'>
+): { target: ScanTarget; label: string; probability: number } | null {
+	let best: { target: ScanTarget; label: string; probability: number } | null = null;
+	for (const target of scanTargets(skill)) {
+		const wanted = target.labels.map((l) => l.toLowerCase());
+		for (const p of predictions) {
+			const parts = p.className.toLowerCase().split(',').map((x) => x.trim());
+			const label = wanted.find((w) => parts.some((part) => part === w || part.split(/\s+/).includes(w)));
+			if (label && (!best || p.probability > best.probability)) best = { target, label, probability: p.probability };
+		}
+	}
+	return best;
 }

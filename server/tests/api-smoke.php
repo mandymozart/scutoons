@@ -146,7 +146,7 @@ echo "Public\n";
 $r = call('GET', "$api/health/");
 check($r['status'] === 200 && $r['body']['db'] === 'ok', 'GET /health/', $r);
 $r = call('GET', "$api/items/");
-check($r['status'] === 200 && count($r['body']['items'] ?? []) === 18 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 18 items + recipes', $r['status']);
+check($r['status'] === 200 && count($r['body']['items'] ?? []) === 19 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 19 items + recipes', $r['status']);
 // the cucumber camera only scans cucumbers (owner 2026-09-30): crafting trades the starter camera's QR scan for it
 $skillsOf = fn(string $id) => array_column(array_values(array_filter($r['body']['items'] ?? [], fn($i) => $i['id'] === $id))[0]['skills'] ?? [], 'type');
 check($skillsOf('camera') === ['scan_qr'] && $skillsOf('cucumber_camera') === ['scan_object'], 'camera: scan_qr · cucumber_camera: scan_object only', [$skillsOf('camera'), $skillsOf('cucumber_camera')]);
@@ -291,6 +291,14 @@ $r = call('POST', "$api/inventory/use/", ['item_id' => 'psilocybin'], $tokenB);
 check($r['status'] === 200 && ($r['body']['effects'][0]['kind'] ?? null) === 'psychedelic' && strtotime($r['body']['effects'][0]['until']) - time() > 19 * 60, 'use psilocybin → effect psychedelic for 20 minutes', $r);
 $r = call('POST', "$api/effects/end/", ['kind' => 'psychedelic'], $tokenB);
 check($r['status'] === 200 && $r['body']['ended'] === true && $r['body']['effects'] === [], 'POST /effects/end/ { kind: psychedelic } → ended', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'semaglutide', 'source' => 'scan'], $tokenB);
+check($r['status'] === 403 && $r['body']['error'] === 'no_tool', 'semaglutide scan without the Check It camera → 403 no_tool', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'checkit_camera', 'source' => 'story', 'ref' => "smoke:$run:checkit"], $tokenB);
+check($r['status'] === 200 && qty($r['body']['inventory'], 'checkit_camera') === 1, 'Check It camera granted by the story (owner decides how it is obtained)', $r);
+$ok = true;
+foreach (['semaglutide', 'psilocybin', 'lsd'] as $item) $ok = $ok && (call('POST', "$api/inventory/grant/", ['item_id' => $item, 'source' => 'scan'], $tokenB)['body']['granted'] ?? 0) === 1;
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'lsd', 'source' => 'scan'], $tokenB);
+check($ok && $r['status'] === 429 && $r['body']['error'] === 'cooldown', 'Check It camera: its map scan-grants semaglutide, psilocybin, lsd; the cooldown applies', $r);
 
 // ── Avatar ─────────────────────────────────────────────────────────────────────────────────────────────
 echo "\nAvatar\n";

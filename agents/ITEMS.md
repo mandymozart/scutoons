@@ -767,19 +767,46 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   `pill bottle`, so the testo camera reacts to **tubes and small bottles in general** (hand cream, sunscreen, pill jars),
   not to testo specifically, and only when the object fills the centre square (threshold 0.35, 3 frames). Game fiction:
   "every find is a tube of testo in the game".
-- **Later multi-label "substance camera" (ON HOLD, owner questions open):** `ScanObjectSkill.map: [{ labels, grants }]`
-  is typed, validated and honoured by the server's scan grant (`Catalog::scanTools`), so a later camera can map packaging
-  labels → substance items in one table; **no such camera exists yet** (it could only recognise packaging, never analyse
-  a substance – a disclaimer would be needed; the working name collides with Vienna's drug-checking service checkit!).
+- **Check It camera** (`checkit_camera`, "Check It Kamera" / "Check It camera"; owner 2026-10-01 – the name is a
+  deliberate nod to checkit!, the real anonymous drug-checking service of Suchthilfe Wien; no ™, no logo or branding
+  imitating it): a tool with a multi-label `scan_object` – `labels` → `grants` plus `map: [{ labels, grants, name }]`
+  (`scanTargets` / `matchScan` in `@scutoons/content`: the best prediction across all targets wins; the server's scan
+  grant honours the map, `Catalog::scanTools`). **How it is obtained is the owner's call:** for now `grantable:
+  ["story"]` (a story/admin grant; no recipe, not placed in any content yet). Mapping – **only labels MobileNet v2
+  (ImageNet) really has**, cooldown 15 s:
+
+  | model labels (ImageNet) | recognised as (game text) | grants |
+  |---|---|---|
+  | `pill bottle`, `lotion`, `sunscreen` | "Pillendose / Tube" | `testo` |
+  | `syringe` | "Spritze" | `semaglutide` (ImageNet has no injection pen; a syringe is the closest) |
+  | `mushroom`, `agaric` | "Pilz" | `psilocybin` (any mushroom – the model can't tell kinds of mushroom apart for this) |
+  | `envelope` | "Briefchen" | `lsd` (any envelope; ImageNet has no blotter paper) |
+
+  Limits: it recognises **everyday objects**, never what is in them; only the centre square, threshold 0.35, 3 frames in a
+  row. The scan result is game text only – "Erkannt: Spritze → Semaglutid-Pen" / "Recognised: syringe → Semaglutide pen",
+  never "analysed", "contains" or "safe". `psilocybin`, `lsd`, `semaglutide` are now also grantable by `scan` (validation:
+  every item a camera grants must be).
+- **Mandatory notice** in the camera UI, every time a camera that finds substances opens (testo camera and Check It
+  camera; compact, not dismissible): "Spiel-Kamera. Analysiert keine echten Substanzen. Echtes, anonymes Drug-Checking:
+  checkit! (Wien)" / "Game camera. Does not analyse real substances. Real, anonymous drug checking: checkit! (Vienna)",
+  linking **https://checkit.wien** – verified 2026-10-01 as the official site ("checkit! Kompetenzzentrum für
+  Freizeitdrogen", footer "checkit! Suchthilfe Wien gGmbH, Gumpendorfer Straße 8, 1060 Wien"; the press also names
+  www.checkyourdrugs.at). Object cameras other than the cucumber camera show their item name as the title and generic
+  hints ("Nächster Fund in 15s").
+- **Browser-check hook (DEV only):** `globalThis.__scutoonsFakePredictions` makes `loadClassifier()` return those
+  predictions instead of downloading MobileNet (with a canvas `getUserMedia` stub the object loop runs headless); never
+  active in a production build (`import.meta.env.DEV`).
 - **Icons** (placeholders in the house style, `cdn/tools/make_substance_icons.py` → `scutoons/items/`, to replace):
-  `testo.png` 41 KB (a squeeze tube), `testo_camera.png` 45 KB (the camera with a tube), `psilocybin.png` 29 KB (a
+  `checkit_camera.png` 31 KB (the camera with a small test tube, no logo), `testo.png` 41 KB (a squeeze tube), `testo_camera.png` 45 KB (the camera with a tube), `psilocybin.png` 29 KB (a
   mushroom), `lsd.png` 84 KB (a blotter square with a spiral), `semaglutide.png` 33 KB (a generic pen, no product look).
 - **Tests:** content `test/substances.test.ts` (catalog, decay, apply + cap, effect expiry/replace/end, testo bands,
   character validation), PHPUnit `ReaderStateTest` (decay math, apply + cap + decay with the frozen clock, semaglutide,
   the timed effect's expiry + end, recipe + scan grant + cooldown, story pickup once), api-smoke "Substances" (13 checks),
   `npm run check:testo` (`scripts/check-testo.mjs`, headless 390 px, guest + test user, 10 checks: sandbox pickup,
   "Benutzen" 50 → 70, decay → 60, combine → testo camera (+ scan grant and cooldown for the member), psychedelic on the
-  slices / off with reduced motion / ended).
+  slices / off with reduced motion / ended; the Check It camera's notice with the checkit! link on open and its hit
+  "Erkannt: Spritze → Semaglutid-Pen" + the grant, through the DEV hook – 12 checks). Content test "Check It camera"
+  (mapping, best match, the scan-grantable rule), PHPUnit + api-smoke (the map's scan grants + cooldown, no_tool).
 - `npm run dev:test-user -- --reset` also clears the stats/effects and the story pickup refs and gives back a starter
   camera a recipe used up.
 
@@ -788,3 +815,5 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
 `characters-seed.mysql.sql` / `content-seed.mysql.sql` carries Top Toy's `tendencies`; the seed skips an existing
 `characters` entity, so on production publish the registry once from the creator (or `import-content
 --only=characters --update`). CDN: `cdn/tools/make_substance_icons.py`, then `cdn/sync.py` (`scutoons/items/`).
+The Check It camera needs nothing extra on deploy (catalog + viewer); decide how readers obtain it (recipe or a story
+grant – it is `grantable: ["story"]` and placed nowhere yet).

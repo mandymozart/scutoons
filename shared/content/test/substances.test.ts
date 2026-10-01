@@ -9,6 +9,8 @@ import {
 	characterTesto,
 	endEffect,
 	isSubstance,
+	matchScan,
+	scanTargets,
 	statLevel,
 	statLevels,
 	testoBand,
@@ -84,3 +86,25 @@ test('substances: validation errors', () => {
 	assert.ok(msgs.some((m) => m.includes('duration_min > 0')));
 	assert.ok(msgs.some((m) => m.includes('stat "appetite"')));
 });
+
+test('Check It camera: the multi-label scan maps model labels to substances (game recognition only)', () => {
+	const cam = item('checkit_camera');
+	assert.equal(cam.name.de, 'Check It Kamera');
+	assert.deepEqual(cam.grantable, ['story']);
+	const skill = cam.skills[0] as any;
+	assert.deepEqual(scanTargets(skill).map((t) => t.grants), ['testo', 'semaglutide', 'psilocybin', 'lsd']);
+	const hit = (className: string, probability = 0.8) => matchScan([{ className, probability }], skill);
+	assert.equal(hit('pill bottle')?.target.grants, 'testo');
+	assert.equal(hit('sunscreen, sunblock, sun blocker')?.target.grants, 'testo');
+	assert.equal(hit('syringe')?.target.grants, 'semaglutide');
+	assert.equal(hit('agaric')?.target.grants, 'psilocybin');
+	assert.equal(hit('envelope')?.target.grants, 'lsd');
+	assert.equal(hit('cucumber, cuke'), null);
+	// the best prediction wins across targets
+	assert.equal(matchScan([{ className: 'syringe', probability: 0.4 }, { className: 'mushroom', probability: 0.7 }], skill)?.target.grants, 'psilocybin');
+	// every mapped item can be granted by a scan; a target granting a non-scannable item is an error
+	const bad = structuredClone(catalog);
+	(bad.items.find((i) => i.id === 'checkit_camera')!.skills[0] as any).map.push({ labels: ['banana'], grants: 'camera' });
+	assert.ok(validateCatalog(bad).some((p) => p.message.includes('"camera" must be grantable by "scan"')));
+});
+

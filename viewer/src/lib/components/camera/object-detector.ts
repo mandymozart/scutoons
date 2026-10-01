@@ -13,6 +13,11 @@ export interface Classifier {
 let classifierPromise: Promise<Classifier> | null = null;
 
 export function loadClassifier(): Promise<Classifier> {
+	// DEV only – the browser checks (scripts/check-testo.mjs) set `globalThis.__scutoonsFakePredictions` to drive the
+	// object loop without downloading MobileNet; never in a production build
+	if (import.meta.env.DEV && (globalThis as any).__scutoonsFakePredictions) {
+		return Promise.resolve({ classify: async () => ((globalThis as any).__scutoonsFakePredictions as Prediction[]) ?? [] });
+	}
 	classifierPromise ??= (async () => {
 		const tf = await import('@tensorflow/tfjs');
 		await tf.ready();

@@ -239,6 +239,11 @@
 		"signed_in": "Du bist angemeldet. Dein Fortschritt wird auf allen Geräten gespeichert."
 	},
 	"camera": {
+		"hint_any": "Richte die Kamera auf ein Ding aus der echten Welt.",
+		"cooldown_any": "Nächster Fund in {seconds}s",
+		"game_notice": "Spiel-Kamera. Analysiert keine echten Substanzen. Echtes, anonymes Drug-Checking:",
+		"checkit": "checkit! (Wien)",
+		"recognised": "Erkannt: {object} → {item}",
 		"title_qr": "SCUTOONS-QR-Code scannen",
 		"title_object": "Finde eine echte Gurke",
 		"hint_qr": "Richte die Kamera auf den QR-Code an deinem SCUTOONS-Gegenstand.",

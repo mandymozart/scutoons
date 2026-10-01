@@ -239,6 +239,11 @@
 		"signed_in": "You're signed in. Your progress is saved across devices."
 	},
 	"camera": {
+		"hint_any": "Point the camera at a thing from the real world.",
+		"cooldown_any": "Next find in {seconds}s",
+		"game_notice": "Game camera. Does not analyse real substances. Real, anonymous drug checking:",
+		"checkit": "checkit! (Vienna)",
+		"recognised": "Recognised: {object} → {item}",
 		"title_qr": "Scan a SCUTOONS QR code",
 		"title_object": "Find a real cucumber",
 		"hint_qr": "Point the camera at the QR code on your SCUTOONS item.",
