@@ -91,6 +91,7 @@ test('Check It camera: the multi-label scan maps model labels to substances (gam
 	const cam = item('checkit_camera');
 	assert.equal(cam.name.de, 'Check It Kamera');
 	assert.deepEqual(cam.grantable, ['story']);
+	assert.deepEqual(catalog.recipes.find((r) => r.id === 'checkit_camera')?.inputs.map((i) => `${i.item}×${i.qty}`).sort(), ['camera×1', 'testo×1']);
 	const skill = cam.skills[0] as any;
 	assert.deepEqual(scanTargets(skill).map((t) => t.grants), ['testo', 'semaglutide', 'psilocybin', 'lsd']);
 	const hit = (className: string, probability = 0.8) => matchScan([{ className, probability }], skill);

@@ -771,8 +771,11 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   deliberate nod to checkit!, the real anonymous drug-checking service of Suchthilfe Wien; no ™, no logo or branding
   imitating it): a tool with a multi-label `scan_object` – `labels` → `grants` plus `map: [{ labels, grants, name }]`
   (`scanTargets` / `matchScan` in `@scutoons/content`: the best prediction across all targets wins; the server's scan
-  grant honours the map, `Catalog::scanTools`). **How it is obtained is the owner's call:** for now `grantable:
-  ["story"]` (a story/admin grant; no recipe, not placed in any content yet). Mapping – **only labels MobileNet v2
+  grant honours the map, `Catalog::scanTools`). **Obtained by a recipe** (owner 2026-10-01): `checkit_camera` =
+  `camera` ×1 + `testo` ×1 (the owner may change the ingredients later; they are plain catalog data). The same two items
+  also make the testo camera, so the combine view asks "Was soll daraus werden?" with one button per result
+  (`recipe-preview.svelte`, default = the first recipe). `grantable: ["story"]` stays as well (a story/admin grant
+  remains possible; it is placed nowhere). Mapping – **only labels MobileNet v2
   (ImageNet) really has**, cooldown 15 s:
 
   | model labels (ImageNet) | recognised as (game text) | grants |
@@ -804,7 +807,7 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   the timed effect's expiry + end, recipe + scan grant + cooldown, story pickup once), api-smoke "Substances" (13 checks),
   `npm run check:testo` (`scripts/check-testo.mjs`, headless 390 px, guest + test user, 10 checks: sandbox pickup,
   "Benutzen" 50 → 70, decay → 60, combine → testo camera (+ scan grant and cooldown for the member), psychedelic on the
-  slices / off with reduced motion / ended; the Check It camera's notice with the checkit! link on open and its hit
+  slices / off with reduced motion / ended; camera + testo → the Check It camera through the recipe choice, its notice with the checkit! link on open and its hit
   "Erkannt: Spritze → Semaglutid-Pen" + the grant, through the DEV hook – 12 checks). Content test "Check It camera"
   (mapping, best match, the scan-grantable rule), PHPUnit + api-smoke (the map's scan grants + cooldown, no_tool).
 - `npm run dev:test-user -- --reset` also clears the stats/effects and the story pickup refs and gives back a starter
@@ -815,5 +818,5 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
 `characters-seed.mysql.sql` / `content-seed.mysql.sql` carries Top Toy's `tendencies`; the seed skips an existing
 `characters` entity, so on production publish the registry once from the creator (or `import-content
 --only=characters --update`). CDN: `cdn/tools/make_substance_icons.py`, then `cdn/sync.py` (`scutoons/items/`).
-The Check It camera needs nothing extra on deploy (catalog + viewer); decide how readers obtain it (recipe or a story
-grant – it is `grantable: ["story"]` and placed nowhere yet).
+The Check It camera needs nothing extra on deploy (catalog + viewer): it is crafted from camera + testo (recipe
+`checkit_camera`, ingredients adjustable in `server/config/items.json`), a story grant stays possible.
