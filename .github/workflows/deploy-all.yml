@@ -1,4 +1,4 @@
-# Deploys EVERY app in order: api → qr → the frontends (viewer, shop, creator, admin, embassy), each as described in
+# Deploys EVERY app in order: api → qr → the frontends (viewer, shop, creator, admin; embassy once it is in `order`), each as described in
 # deploy/targets.json (steps: .github/workflows/deploy-app.yml; docs: deploy/README.md).
 # Run it by hand (Actions → "Deploy all" → Run workflow; optionally as a dry run) or push a tag `deploy-*`
 # (e.g. deploy-2026-10-04). Use it for the cutover and whenever the apps must go out together (API contract change).

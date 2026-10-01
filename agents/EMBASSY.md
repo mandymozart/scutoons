@@ -207,6 +207,11 @@ own data, no per-seat fees. Phase 0 works either way.
 deploy adds the origin to `ALLOWED_ORIGINS`); grant roles in the admin app (Users); import the file on `/import`
 (dry run first). Local: add `http://localhost:13000` to `ALLOWED_ORIGINS` in `server/config.local.php`.
 
+**Held back from the 2026-10-04 rollout (owner 2026-10-01):** `embassy` is merged into `platform` but NOT in
+`deploy/targets.json` `order` (so "Deploy all" skips it), and `.github/workflows/embassy.yml` has no push trigger (manual
+runs only). At go-live: add `"embassy"` back to `order`, restore the workflow's push trigger (paths are listed in its header
+comment). The DB migration is additive and may run with the release or later.
+
 **Next (phase 2):** sending from the app (SMTP, shared mailbox), inbox sync, templates + call notes, member updates
 to opted-in members, daily reminder. Then phase 3 (AI enrichment, drafts, research runs).
 
