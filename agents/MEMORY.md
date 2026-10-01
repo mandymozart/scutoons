@@ -1268,3 +1268,25 @@ character, persona, look and mood and doubles as the VN test bed.
   wordmark, tiles from the API incl. colours / helmet / no sandbox / no dates, editions in the API order with price,
   pieces, struck sizes, buy link, slider per view + arrow, footer, menu) + the test user changing the list in the admin UI
   (remove, add, save) → the landing page → restore. 51/51.
+
+## Wardrobe: real clothing items with overlays (2026-10-01, branch `wardrobe`)
+
+- Owner decision + the build: ITEMS.md "Wardrobe" (default wearables T-shirt / swim pants / shorts as starter items, full-body
+  overlays per body in `items.json` `wear`, swap keeps the old item, cover rule while "Hide sensitive content" is on, naked
+  base only when allowed, one picker tile per character). Branch `wardrobe` from `platform` a83b1cc; merge after the
+  release (merge note in ITEMS.md).
+- **cdn/root could not be written from the agent worktree** (permission guard: shared resource). The placeholder overlays and
+  icons were made into a scratch CDN root; the owner (or the next session with permission) runs
+  `cdn/.venv/Scripts/python cdn/tools/make_wear_overlays.py` (default `--root` = `cdn/root`, `--sheet x.png` = QA sheet) and
+  uploads with `cdn/sync.py`. Until then the viewer falls back gracefully: a missing legs overlay never loads → the safe
+  swim base stays; a missing icon shows the initials placeholder.
+- Extraction tricks: difference of the **blurred** A-poses (sigma 2.5) instead of a blurred difference (Top Toy's fur noise
+  otherwise passes); hysteresis 60/24 for the low-contrast white waistband; wide opening + biggest blob per half + regrow
+  over the weak mask drops the tail drawn slightly differently in swim vs naked. The dressed reference's colour masks: shirt
+  S < 0.075 (sphynx skin S 0.10–0.20, hue 8–17°), shorts hue 190–250° S > 0.15.
+- Lazy default wearables: `missingStarterWearables` = starter items with a slot the member owns none of (wearables are
+  never consumed); `test-user --reset` deletes those rows too so the next `/me/` re-grants and wears them like a signup.
+- Local test env of the worktree: own `server/config.local.php` + a copy of the owner's `server/db/local.sqlite` (read only),
+  `storage/files/batch` copied for admin-smoke, a throw-away fake `storage/keys/keypair.json` (not a real key) for the
+  `/api/keys/keys.php` check; servers on 127.0.0.1:9770 (API), 9771 (scratch CDN), 9772 (viewer). Gotcha: other agents
+  listen on `[::1]:9490/9491/9492` – `localhost` resolved there; bind and call `127.0.0.1` explicitly.

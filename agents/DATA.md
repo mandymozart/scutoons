@@ -24,7 +24,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts; A-pose looks may be `sensitive`, ITEMS.md "Sensitive content") | creator (characters) |
 | credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
 | events | DB `events` (toon-bound entries) | import (no editor yet) |
-| items, recipes, editions, products (catalog texts) | server `config/*.json` via `/api/items/`, `/api/editions/`, `/api/products/` | file → **B2** (after this) |
+| items, recipes, editions, products (catalog texts; wearables' `wear` overlays per body, ITEMS.md "Wardrobe") | server `config/*.json` via `/api/items/`, `/api/editions/`, `/api/products/` | file → **B2** (after this) |
 | the landing page's featured editions (order, colour) | table `settings`, key `featured_products` (default `config/featured-products.json`) via `/api/products/featured/` | admin ("Startseite") |
 | permissions map | server `config/permissions.json`, never served | file (private) |
 | UI chrome (buttons, labels, errors) | each app's paraglide `messages/{de,en}.json` | code |
