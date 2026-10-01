@@ -52,35 +52,35 @@
 		gap: var(--space-05);
 		flex-wrap: wrap;
 	}
-	/* status chips (DESIGN.md "Brutalist tools"), filled from tokens.css --badge-*: published · saved draft ·
-	   unsaved (warning) · missing (error); anything else neutral */
+	/* status chips (DESIGN.md "Brutalist tools"), filled from tokens.css --badge-*: published · saved draft (grey) ·
+	   unsaved (warning) · missing (error); anything else neutral (black) */
 	.badge {
 		padding: 0.1em 0.4em;
 		border: var(--border-width-regular) solid currentColor;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 		border: 0;
-		background: var(--badge-neutral-bg);
-		color: var(--badge-neutral-fg);
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
 		white-space: nowrap;
 	}
 	.badge.live {
-		background: var(--badge-published-bg);
-		color: var(--badge-published-fg);
+		background: var(--badge-published);
+		color: var(--badge-published-text);
 	}
 	.badge.pending {
-		background: var(--badge-draft-bg);
-		color: var(--badge-draft-fg);
+		background: var(--badge-draft);
+		color: var(--badge-draft-text);
 	}
 	.badge.dirty {
-		background: var(--badge-warning-bg);
-		color: var(--badge-warning-fg);
+		background: var(--badge-warning);
+		color: var(--badge-warning-text);
 	}
 	.badge.missing {
-		background: var(--badge-error-bg);
-		color: var(--badge-error-fg);
+		background: var(--badge-error);
+		color: var(--badge-error-text);
 	}
 </style>

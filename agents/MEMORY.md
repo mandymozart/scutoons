@@ -1369,3 +1369,8 @@ character, persona, look and mood and doubles as the VN test bed.
   Measured (headless, test user): before creator 1440 = text 10–13px on a 24px root, 128 controls < 44px; after = only
   24px body / 18px caption, 0 controls < 44px; admin 14/12px → 24/18px.
 - Phase 2 left: ~129 px font sizes in 39 creator/embassy files (other screens), see the phase-2 plan in the report.
+- Owner review of phase 1 (2026-10-01): buttons = the viewer's (secondary `border-muted` → ink on hover, no hover
+  inversion, rem padding; compact `space-05 space-15`, phones `space-05 space-1` in the ActionBar); badges FILLED from
+  `--badge-<name>` / `--badge-<name>-text` in tokens.css (the owner's palette, ratios in DESIGN.md); bold sparingly
+  (regular caps 0.08em `--tracking-label`, bold caps only for section headings 0.12em `--tracking-label-bold`);
+  `--control-height` is rem-only now (2rem + frame = 32 · 36 · 52px, below the old 44px floor on phones).

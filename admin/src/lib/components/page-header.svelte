@@ -44,7 +44,7 @@
 		margin: 0 0 var(--space-05);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}

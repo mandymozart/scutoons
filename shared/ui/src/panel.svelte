@@ -56,7 +56,7 @@
 		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
+		letter-spacing: var(--tracking-label-bold);
 	}
 	.hint {
 		margin: var(--space-025) 0 0;

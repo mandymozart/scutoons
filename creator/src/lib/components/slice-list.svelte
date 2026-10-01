@@ -164,7 +164,6 @@
 		text-align: right;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
 	}
 	img {
 		flex: none;
@@ -190,7 +189,6 @@
 		gap: var(--space-05);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
 	}
 	.tools {
 		display: flex;

@@ -260,7 +260,6 @@
 	.crumbs li + li::before {
 		content: '/';
 		padding: 0 0.45rem;
-		font-weight: var(--font-weight-bold);
 	}
 	.crumbs a {
 		overflow: hidden;

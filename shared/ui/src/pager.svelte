@@ -147,6 +147,5 @@
 		background: var(--ink);
 		color: var(--paper);
 		border: var(--border-width-regular) solid var(--ink);
-		font-weight: var(--font-weight-bold);
 	}
 </style>

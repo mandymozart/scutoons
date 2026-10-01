@@ -27,9 +27,9 @@ Tokens (see `tokens.css` for values and usage notes):
 - Type: `--font-mono`, `--font-lettering`, `--font-weight-regular|bold`, `--type-{body,button,label,caption,nav-micro}-{size,line}`,
   `--root-size-small|root-size|root-size-large`.
 - Motion: `--duration-fast|base|slow` (0.1–0.3s), `--easing`.
-- Tools: `--tracking-label`, `--type-title-size|line` (the tool page title, 1.5rem), `--control-height` (2rem + the frame; rem only),
+- Tools: `--tracking-label` (regular caps 0.08em) + `--tracking-label-bold` (0.12em), `--type-title-size|line` (the tool page title, 1.5rem), `--control-height` (2rem + the frame; rem only),
   `--border-width-focus` + `--focus-offset`, `--tool-bar-height`, `--tool-sidebar-width`, `--tool-panel-width`.
-- Badges (filled; the one place for their colours): `--badge-{published,draft,soon,error,warning,info,neutral}-{bg,fg}`
+- Badges (filled; the one place for their colours): `--badge-{published,draft,soon,error,warning,info,neutral}` + `--badge-<name>-text`
   (contrast per pair in DESIGN.md "Brutalist tools").
 
 ## Example

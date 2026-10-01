@@ -427,8 +427,13 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   buttons); `caption` 0.75rem = **the smallest text** (field labels, table headers, chips, hints, meta);
   `--type-title-size` 1.5rem bold = the one page title (h1) and big numbers. `nav-micro` is not used in tools.
 - **No px font sizes anywhere** (also not 0.6em-style shrinking); sizes come from `--type-*` tokens.
-- Headings: h1 = title; h2/h3 = `label-uppercase` (1rem, bold, uppercase, `--tracking-label` 0.06em). Field labels,
-  table headers, sidebar group heads = the **tool label**: caption, bold, uppercase, ink (`.sc-label`, `.sc-nav-head`).
+- **Bold sparingly** (owner 2026-10-01): brutalism here is mostly regular weight. Bold only for the page title (h1),
+  key numbers (stats, codes), section headings (h2/h3) and the current breadcrumb. Bold caps get
+  `--tracking-label-bold` 0.12em (bold mono caps clump at small sizes); every other uppercase label is regular weight
+  with `--tracking-label` 0.08em. Selected / current items are shown by inversion, not by bold.
+- Headings: h1 = title (bold); h2/h3 = 1rem bold uppercase, 0.12em (`.sc-heading`). Field labels, table headers,
+  sidebar group heads, legends, summaries = the **tool label**: caption, regular, uppercase, 0.08em, ink
+  (`.sc-label`, `.sc-nav-head`).
   Hints / meta = caption in `text-muted` (`.sc-caption`). Badges with data (codes, ids) stay in their case.
 
 **Frames, colour, shape.**
@@ -441,22 +446,23 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 - Square everything (`radius-none`; `radius-sm` only for avatars). **No shadows** (also no inset box-shadow tricks).
 - Cyan (`primary-cyan`) only for **live** states: the "published" badge, the canvas selection, per-locale overrides'
   rule. Never for the current nav entry or a selected row.
-- **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **paper text where it reaches
-  4.5:1, else ink**; caption size, bold (status words uppercase; ids / codes keep their case). The colours live in one
-  place, `shared/tokens/tokens.css` `--badge-<name>-bg|fg` (owner will refine them):
+- **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **white text where it reaches
+  4.5:1, else ink**; caption size, regular weight (status words in uppercase with `--tracking-label`; ids / codes keep
+  their case). The colours (the owner's refined palette) live in one place, `shared/tokens/tokens.css`
+  `--badge-<name>` + `--badge-<name>-text`:
 
-  | Badge | Fill | Text | Contrast | Used for |
+  | Badge | Fill | Text | Contrast (white / ink) | Used for |
   |---|---|---|---|---|
-  | `published` | `#00d1ff` (primary-cyan) | ink | 11.56:1 (paper 1.82) | published, live, signed |
-  | `draft` | `#000000` (ink) | paper | 21:1 | saved draft, claimed, source language |
-  | `soon` | `#6b6b6b` | paper | 5.33:1 | coming soon, announced |
-  | `error` | `#d01a08` | paper | 5.48:1 | error, revoked, missing |
-  | `warning` | `#b07a00` (state-warning) | ink | 5.63:1 (paper 3.73) | warning, unsaved, too long |
-  | `info` | `#0057d9` | paper | 6.24:1 | info |
-  | `neutral` | `#cccccc` (border-muted) | ink | 13.08:1 | unclaimed, tags, plain counts |
+  | `published` | `#00d1ff` | ink | 1.82 / **11.56**:1 | published, live, signed |
+  | `draft` | `#6b6b6b` | white | **5.33** / 3.94:1 | saved draft, unclaimed |
+  | `soon` | `#b300ff` | white | **4.82** / 4.36:1 | coming soon, announced |
+  | `error` | `#ff1900` | ink | 3.90 / **5.39**:1 | error, revoked, missing |
+  | `warning` | `#ff6600` | ink | 2.94 / **7.15**:1 | warning, unsaved, expired, too long |
+  | `info` | `#0066cc` | white | **5.57** / 3.77:1 | info |
+  | `neutral` | `#000000` | white | **21** / 1:1 | claimed, source language, tags, plain counts |
 
-  `@scutoons/ui` `Badge tone` = these names (`accent` = published, `ink` = draft kept as aliases); tools.css
-  `.sc-chip` + `.is-<name>`.
+  `@scutoons/ui` `Badge tone` = these names (aliases: `accent` = published, `ink` = neutral); tools.css `.sc-chip`
+  (neutral) + `.is-<name>`.
 
 **Controls.**
 - **Sizes in rem** (owner 2026-10-01, no px): fields, nav entries and clickable rows are `--control-height` =

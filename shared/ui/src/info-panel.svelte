@@ -95,7 +95,7 @@
 		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
+		letter-spacing: var(--tracking-label-bold);
 	}
 	.close {
 		min-width: var(--control-height);
@@ -124,7 +124,7 @@
 		font-size: var(--type-label-size);
 		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
+		letter-spacing: var(--tracking-label-bold);
 	}
 	.body :global(h3:first-child) {
 		margin-top: 0;

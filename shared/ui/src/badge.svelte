@@ -4,7 +4,7 @@
 	/**
 	 * Status badge (claimed, revoked, draft, published, roles). Hairline border, caption size, square.
 	 * FILLED (owner 2026-10-01), colours from tokens.css `--badge-*`: tone neutral · published (alias accent: live,
-	 * signed) · draft (alias ink: claimed, source) · soon · info · warning · error. White text where it reaches 4.5:1,
+	 * signed) · draft · soon · info · warning · error; neutral (alias ink) is black. White text where it reaches 4.5:1,
 	 * else ink. Caption size, bold; no uppercase (badges carry ids and codes, which are case-sensitive).
 	 */
 	let {
@@ -25,38 +25,40 @@
 		padding: 0.15em 0.5em;
 		border: 0;
 		border-radius: var(--radius-none);
-		background: var(--badge-neutral-bg);
-		color: var(--badge-neutral-fg);
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
 		white-space: nowrap;
 		vertical-align: middle;
 	}
-	.ink,
+	.ink {
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
+	}
 	.draft {
-		background: var(--badge-draft-bg);
-		color: var(--badge-draft-fg);
+		background: var(--badge-draft);
+		color: var(--badge-draft-text);
 	}
 	.accent,
 	.published {
-		background: var(--badge-published-bg);
-		color: var(--badge-published-fg);
+		background: var(--badge-published);
+		color: var(--badge-published-text);
 	}
 	.soon {
-		background: var(--badge-soon-bg);
-		color: var(--badge-soon-fg);
+		background: var(--badge-soon);
+		color: var(--badge-soon-text);
 	}
 	.info {
-		background: var(--badge-info-bg);
-		color: var(--badge-info-fg);
+		background: var(--badge-info);
+		color: var(--badge-info-text);
 	}
 	.warning {
-		background: var(--badge-warning-bg);
-		color: var(--badge-warning-fg);
+		background: var(--badge-warning);
+		color: var(--badge-warning-text);
 	}
 	.error {
-		background: var(--badge-error-bg);
-		color: var(--badge-error-fg);
+		background: var(--badge-error);
+		color: var(--badge-error-text);
 	}
 </style>

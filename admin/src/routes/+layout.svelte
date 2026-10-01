@@ -219,7 +219,7 @@
 		gap: var(--space-05);
 		color: var(--ink);
 		text-decoration: none;
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
@@ -249,7 +249,6 @@
 	kbd {
 		font: inherit;
 		font-size: var(--type-caption-size);
-		font-weight: var(--font-weight-bold);
 		padding: 0 0.3em;
 		border: var(--border-width-regular) solid var(--ink);
 		color: var(--ink);
@@ -356,7 +355,7 @@
 		justify-content: center;
 	}
 	.title {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 	}
 	.description {
 		color: var(--text-muted);
@@ -436,7 +435,7 @@
 	:global(.admin .bar-filter > span) {
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 		color: var(--ink);
@@ -465,7 +464,7 @@
 	:global(.admin dl.facts dt) {
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}

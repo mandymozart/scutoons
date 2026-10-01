@@ -82,6 +82,9 @@
 		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
 		gap: var(--space-1);
 	}
+	.head b {
+		font-weight: inherit;
+	}
 	.head {
 		display: flex;
 		flex-wrap: wrap;
@@ -90,7 +93,7 @@
 		margin-bottom: var(--space-025);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 		color: var(--ink);
@@ -98,26 +101,26 @@
 	.pill {
 		padding: 0.1em 0.4em;
 		border: 0;
-		background: var(--badge-neutral-bg);
-		color: var(--badge-neutral-fg);
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
 	/* filled chips (tokens.css --badge-*) */
 	.source {
-		background: var(--badge-draft-bg);
-		color: var(--badge-draft-fg);
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
 	}
 	.miss {
-		background: var(--badge-error-bg);
-		color: var(--badge-error-fg);
+		background: var(--badge-error);
+		color: var(--badge-error-text);
 	}
 	.warn {
-		background: var(--badge-warning-bg);
-		color: var(--badge-warning-fg);
+		background: var(--badge-warning);
+		color: var(--badge-warning-text);
 	}
 	/* state = the frame's colour + a thick left rule, no tinted fills */
 	.missing textarea,

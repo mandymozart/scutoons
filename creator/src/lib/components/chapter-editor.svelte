@@ -902,7 +902,6 @@
 	.dirty-bar {
 		background: var(--ink);
 		color: var(--paper);
-		font-weight: var(--font-weight-bold);
 	}
 	.warn-bar {
 		border-left-color: var(--warn);
@@ -998,7 +997,7 @@
 		gap: var(--space-05);
 		align-items: center;
 		font-size: var(--type-caption-size);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
@@ -1048,6 +1047,9 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
+	}
+	.boxes b {
+		font-weight: inherit;
 	}
 	.boxes button.active .hint {
 		color: inherit;

@@ -118,7 +118,7 @@
 		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
+		letter-spacing: var(--tracking-label-bold);
 	}
 	.close {
 		margin: 0 0 0 auto;
