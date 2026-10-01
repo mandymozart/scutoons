@@ -9,9 +9,7 @@
 	import HistoryPanel from './history-panel.svelte';
 	import FileStatus from './file-status.svelte';
 	import PageHelp, { type HelpPage } from './page-help.svelte';
-	import { infoBar } from '$lib/info.ts';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
-	import UpLink from './up-link.svelte';
 
 	/**
 	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
@@ -64,14 +62,8 @@
 	const anyDirty = $derived(docs.some((d) => d.dirty) || companions().some((d) => d.dirty));
 	const anySaving = $derived(docs.some((d) => d.saving));
 	let panel = $state<'problems' | 'history' | null>(null);
-	/** the Info panel and the problems / history panel share the right edge */
-	let infoOpen = $state(false);
-	$effect(() => {
-		if (infoOpen) panel = null;
-	});
 	function togglePanel(next: 'problems' | 'history') {
 		panel = panel === next ? null : next;
-		if (panel) infoOpen = false;
 	}
 	let notice = $state<string | null>(null);
 	let conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
@@ -209,12 +201,10 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="meta-page" class:with-panel={panel !== null} class:wide class:fill>
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} bind:infoOpen infoTitle={title}>
-		{#snippet info()}<PageHelp page={help} seasonFile={docs.find((d) => d.kind === 'season')?.entity} />{/snippet}
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
-			<UpLink />
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
-				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
+				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 			{@render actions?.()}
 		{/snippet}

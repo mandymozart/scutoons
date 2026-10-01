@@ -5,7 +5,6 @@
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
 	import { fileLabel, fileLabels, sceneLabel } from '$lib/labels.ts';
-	import UpLink from './up-link.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
@@ -43,8 +42,6 @@
 	import AudioPanel from './audio-panel.svelte';
 	import SliceAudio from './slice-audio.svelte';
 	import VnEvents from './vn-events.svelte';
-	import PageHelp from './page-help.svelte';
-	import { infoBar } from '$lib/info.ts';
 	import ProblemsPanel from './problems-panel.svelte';
 	import HistoryPanel from './history-panel.svelte';
 	import FileStatus from './file-status.svelte';
@@ -154,14 +151,8 @@
 	let tool = $state<Tool>('text');
 	let scope = $state<Scope>('all');
 	let panel = $state<'problems' | 'history' | null>(null);
-	/** the ActionBar's Info panel (help + style guide) and the problems / history panel share the right edge */
-	let infoOpen = $state(false);
-	$effect(() => {
-		if (infoOpen) panel = null;
-	});
 	function togglePanel(next: 'problems' | 'history') {
 		panel = panel === next ? null : next;
-		if (panel) infoOpen = false;
 	}
 	let canvas = $state<SliceCanvas | null>(null);
 	let notice = $state<string | null>(null);
@@ -613,16 +604,11 @@
 		label={m['creator.page_actions']()}
 		moreLabel={m['creator.more']()}
 		breakpoint={2048}
-		{...infoBar()}
-		bind:infoOpen
-		infoTitle={fileLabel(chapter.entity)}
 	>
-		{#snippet info()}<PageHelp page="chapter" {section} seasonFile={season.entity} />{/snippet}
 		{#snippet start()}
-			<UpLink />
 			{@render sliceNav('start')}
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
-				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
+				{m['creator.problems']()} <span class:bad={errorCount > 0}>{errorCount}</span>/<span>{warningCount}</span>
 			</button>
 		{/snippet}
 		{#snippet secondary()}

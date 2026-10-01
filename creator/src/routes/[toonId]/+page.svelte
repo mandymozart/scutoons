@@ -12,10 +12,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
-	import { infoBar } from '$lib/info.ts';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
-	import UpLink from '$lib/components/up-link.svelte';
-	import PageHelp from '$lib/components/page-help.svelte';
 	import FileStatus from '$lib/components/file-status.svelte';
 	import StatusBadges from '$lib/components/status-badges.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
@@ -456,10 +453,8 @@
 		</section>
 	</main>
 	<!-- Bottom action bar: back to the toons · new chapter · save / publish (languages, season, toon.json) -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={toonName}>
-		{#snippet info()}<PageHelp page="toon" seasonFile={season ? fileLabel(season.entity) : undefined} />{/snippet}
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
-			<UpLink />
 			{#if anyDirty}<span class="hint">{m['creator.unsaved']()}</span>{/if}
 			{#if error}<span class="error" data-testid="page-error">{error}</span>{:else if message}<span class="hint">{message}</span>{/if}
 		{/snippet}

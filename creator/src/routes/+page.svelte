@@ -8,8 +8,6 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { infoBar } from '$lib/info.ts';
-	import PageHelp from '$lib/components/page-help.svelte';
 
 	const session = getCreatorSession();
 	let toons = $state<ToonIndex[]>([]);
@@ -46,8 +44,7 @@
 		</section>
 	</main>
 	<!-- Bottom action bar: toon count · sign out · open the reader -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={m['creator.title']()}>
-		{#snippet info()}<PageHelp page="home" />{/snippet}
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
 			<span class="hint">{m['creator.toons']()}: {toons.length}</span>
 		{/snippet}

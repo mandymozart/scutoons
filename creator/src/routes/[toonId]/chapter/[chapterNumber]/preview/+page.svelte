@@ -8,8 +8,6 @@
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { infoBar } from '$lib/info.ts';
-	import PageHelp from '$lib/components/page-help.svelte';
 	import { usePageNav } from '$lib/nav.svelte.ts';
 
 	/**
@@ -122,8 +120,7 @@
 	{/if}
 
 	<!-- Bottom action bar: locale + group filter · back to the editor -->
-	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} infoTitle={m['creator.preview_title']()}>
-		{#snippet info()}<PageHelp page="preview" />{/snippet}
+	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
 			<Tabs
 				label={m['creator.preview_locale']()}
