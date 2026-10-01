@@ -403,6 +403,19 @@ async function builder() {
 	const wrong = Object.entries(seas).filter(([t, bg]) => colorOf(t) && bg !== (colorOf(t).startsWith('#') ? rgb(colorOf(t)) : bg)).map(([t, bg]) => `${t}: ${bg} ≠ ${colorOf(t)}`);
 	report(`reader view: the sea is the filtered toon's colour (${Object.keys(seas).map((t) => `${t} ${colorOf(t)}`).join(', ')}), neon green #00ff00 without a filter`, !wrong.length && neutral === rgb('#00ff00') ? [] : [...wrong, `neutral ${neutral}`]);
 
+	// 16. Wanted images → Map places: every place without an image, derived from the map (owner 2026-10-01)
+	await restoreMap();
+	const current = (await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json()).content;
+	const lacking = current.locations.filter((p) => !p.image?.src).map((p) => p.id);
+	await open(`${creator}/characters?tab=wanted`);
+	const wantedPlaces = await waitFor(`(() => { const l = [...document.querySelectorAll('[data-testid="wanted-map-places"] li')].map((li) => li.dataset.testid.slice(11)); return l.length ? l : null; })()`, 10000);
+	const paths = await evaluate(`[...document.querySelectorAll('[data-testid="wanted-map-places"] li code')].map((c) => c.textContent)`);
+	report(`Wanted images lists every map place without an image (${lacking.length} of ${current.locations.length}) with its path <toon>/images/map/places/<id>.webp`,
+		JSON.stringify(wantedPlaces) === JSON.stringify(lacking) && paths.every((p, i) => p === `catpope/images/map/places/${lacking[i]}.webp`) ? [] : [JSON.stringify({ shown: wantedPlaces?.length, want: lacking.length, first: paths?.[0] })]);
+	await shot('builder-8-wanted-map');
+	await open(`${creator}/map`);
+	await waitFor(`document.querySelector('[data-testid="map-canvas"]') ? true : null`, 10000);
+
 	// 15. the toon's start view: set in the builder from the current view (toon filter), stored in the toon entry
 	await click('[data-testid="filter-catpope"]');
 	await waitFor(`document.querySelector('[data-testid="start-view-set"]:not([disabled])') ? true : null`, 8000);

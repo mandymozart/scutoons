@@ -54,6 +54,7 @@
 	import CharacterDetail from './character-detail.svelte';
 	import MoodsPanel from './moods-panel.svelte';
 	import WantedImages from './wanted-images.svelte';
+	import WantedMapImages from '../map/wanted-map-images.svelte';
 
 	/**
 	 * The global Characters page: the registry (entity `characters`) as a searchable, filterable list (characters
@@ -265,7 +266,7 @@
 			{#if active === 'moods'}
 				<div class="pad-top"><MoodsPanel {moods} registry={file} languages={allLanguages} /></div>
 			{:else if active === 'wanted'}
-				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={uiLocale} onopen={(id, p, l) => select(id, p, l)} /></div>
+				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={uiLocale} onopen={(id, p, l) => select(id, p, l)} /><WantedMapImages /></div>
 			{:else}
 				<div class="layout">
 					<aside class="list" data-testid="character-list">

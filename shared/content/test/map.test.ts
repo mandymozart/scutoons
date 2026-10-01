@@ -12,6 +12,9 @@ import {
 	emptyMapState,
 	isPlaceVisible,
 	legacyToonMap,
+	mapImageRequests,
+	mapImageRequestsText,
+	placeImagePath,
 	legacyToonMapSettings,
 	markPlacesSeen,
 	mergeMapState,
@@ -166,6 +169,21 @@ test('checkWorldMap: ids, positions, waypoints, unlock points', () => {
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true }] }), ['warning locations.0.hidden'], 'hidden and nothing unlocks it');
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: { toon: 't', chapter: 1, at: 2 } }] }), ['error locations.0.unlock.at']);
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], image: { src: 'map/a.webp', anchor: { x: 50, y: 120 } } }] }), ['error locations.0.image.anchor']);
+});
+
+test('wanted images: every place without an image, derived from the map (all 19 of the seed)', () => {
+	const world: WorldMap = json('scutoons/_/map.json');
+	const wanted = mapImageRequests(world);
+	assert.equal(wanted.length, world.locations.filter((p) => !p.image?.src).length);
+	assert.equal(wanted.length, 19, 'every catpope place incl. Garten Eden (no image yet)');
+	const garden = wanted.find((r) => r.place === 'garden')!;
+	assert.equal(garden.path, 'catpope/images/map/places/garden.webp');
+	assert.equal(garden.size, '256 × 256');
+	assert.match(garden.prompt, /Garden of Eden/);
+	assert.match(wanted.find((r) => r.place === 'cathedral')!.prompt, /baroque cathedral/);
+	assert.equal(placeImagePath({ id: 'x', toons: ['a', 'b'] }), 'scutoons/images/map/places/x.webp', 'a shared place goes to scutoons/');
+	assert.equal(mapImageRequests({ locations: [{ ...world.locations[0], image: { src: 'a.webp' } }] }).length, 0);
+	assert.match(mapImageRequestsText(wanted.slice(0, 1)), /images\/map\/places/);
 });
 
 test('the unlocking slice: its reading point (the reader checkpoint rule) and the places it unlocks', () => {

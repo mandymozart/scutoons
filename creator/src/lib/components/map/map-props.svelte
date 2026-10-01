@@ -6,6 +6,7 @@
 		MAP_STYLES,
 		slugId,
 		chapterSlices,
+		placeImagePath,
 		sliceUnlockPoint,
 		type ChapterSliceRef,
 		type LocaleText,
@@ -157,7 +158,11 @@
 	}
 
 	// ── image ────────────────────────────────────────────────────────────────────────────────────────────────
-	let folder = $state('map/locations/');
+	/** the place illustrations' folder (owner 2026-10-01): `<toon>/images/map/places/` (`scutoons/…` for a shared place) */
+	let folder = $state('');
+	$effect(() => {
+		if (place) folder = placeImagePath(place).replace(/[^/]+$/, '');
+	});
 	let folderFiles = $state<string[] | null>(null);
 	let browsing = $state(false);
 	async function browse() {
@@ -335,7 +340,7 @@
 
 		<fieldset data-testid="place-image">
 			<legend>{m['creator.map_image']()}</legend>
-			<input type="text" value={place.image?.src ?? ''} placeholder="map/locations/{place.id}.webp" onchange={(e) => setImage(e.currentTarget.value.trim())} aria-label={m['creator.map_image']()} data-testid="place-image-path" />
+			<input type="text" value={place.image?.src ?? ''} placeholder={placeImagePath(place)} onchange={(e) => setImage(e.currentTarget.value.trim())} aria-label={m['creator.map_image']()} data-testid="place-image-path" />
 			<div class="row">
 				<label class="field"><span>{m['creator.map_image_folder']()}</span><input type="text" bind:value={folder} /></label>
 				<button type="button" class="ghost" onclick={browse} aria-expanded={browsing}>{folderFiles ? m['creator.map_image_browse']({ count: folderFiles.length }) : '…'}</button>

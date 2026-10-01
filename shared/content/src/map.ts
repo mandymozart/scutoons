@@ -553,6 +553,74 @@ export function migrateLegacyMap(input: {
 	return { map, view: { center: { x: toonMap.center.x, y: toonMap.center.y } } };
 }
 
+// ── Wanted images: every place without an image (agents/MAP.md §5, owner 2026-10-01) ─────────────────────────────────
+
+const NL = String.fromCharCode(10);
+
+/** The place illustration spec (MAP.md §5.1) */
+export const PLACE_IMAGE_SPEC = '256 × 256 px transparent WebP, ≤ 40 KB (60 KB at most), ground point 50 % / 90 % (bottom centre), no text, no characters';
+export const PLACE_IMAGE_SIZE = '256 × 256';
+
+/** Descriptions of catpope's first places for the prompt (MAP.md §5.4); others use their name */
+const PLACE_DESCRIPTIONS: Record<string, string> = {
+	cathedral: 'a white baroque cathedral with two towers and cobalt-blue ornaments on the roofs, a small stone square in front',
+	apartment: 'a narrow five-storey old-town apartment house, pale plaster, one lit window, a tiny balcony with plants',
+	airport: 'a small modern airport terminal with a control tower and a short runway strip with one parked white jet',
+	'medival-street': 'a short medieval cobblestone alley with half-timbered houses and two hanging lanterns',
+	station: 'a 19th-century railway station hall with an arched glass roof and a clock above the entrance',
+	'mountain-path': 'a winding stony path up a steep green mountain slope with a wooden signpost without text',
+	monastery: 'a remote mountain monastery with a bell tower and terraced gardens on a rocky ledge',
+	library: 'an old monastery library building with tall arched windows and stacks of books visible inside',
+	graveyard: 'a small walled graveyard with crooked headstones, a cypress tree and a wrought-iron gate'
+};
+
+/** The Luma prompt of a place illustration (MAP.md §5.2; attach the style references listed there) */
+export function placeImagePrompt(place: Pick<MapPlace, 'id' | 'name'>): string {
+	const description = PLACE_DESCRIPTIONS[place.id] ?? `${mapName(place.name, 'en')} (${mapName(place.name, MAP_SOURCE_LANGUAGE)})`;
+	return [
+		'Attached are images from the SCUTOONS universe as STYLE references only (rendering, lighting, materials, colour palette). Do not include the characters.',
+		`Create a single small map illustration of a place in exactly that rendering style: ${description}.`,
+		'It is a tiny self-contained diorama for a world map: three-quarter view from above (about 30 degrees), the place sits on a small irregular patch of its own ground, nothing else around it.',
+		'Soft realistic 3D render, same light direction and softness as the references, slightly simplified shapes so it reads at 48 px. Centred horizontally, the point where the place meets the ground at 90 % of the image height, ~6 % padding left and right, 1024 x 1024 px, transparent background, no text, no letters on signs, no logo, no people or animals, no shadow outside the ground patch.'
+	].join(NL);
+}
+
+/** The CDN path a place's illustration should get: `<toon>/images/map/places/<id>.webp` (`scutoons/…` when it has no single toon) */
+export function placeImagePath(place: Pick<MapPlace, 'id' | 'toons'>): string {
+	const folder = place.toons?.length === 1 ? place.toons[0] : 'scutoons';
+	return `${folder}/images/map/places/${place.id}.webp`;
+}
+
+export interface MapImageRequest {
+	/** the place */
+	place: string;
+	name: LocaleText;
+	/** the toon whose folder the file goes to (`scutoons` for a shared place) */
+	toon: string;
+	/** the target path from the CDN root */
+	path: string;
+	size: string;
+	spec: string;
+	prompt: string;
+}
+
+/**
+ * The wanted place illustrations, derived from the map (never a hand-kept list, so it can't drift): every place without
+ * an `image`, in the map's order. Shown in the creator's "Wanted images" as "Map places".
+ */
+export function mapImageRequests(map: Pick<WorldMap, 'locations'> | null | undefined): MapImageRequest[] {
+	return (map?.locations ?? [])
+		.filter((p) => !p.image?.src)
+		.map((p) => ({ place: p.id, name: p.name, toon: p.toons?.length === 1 ? p.toons[0] : 'scutoons', path: placeImagePath(p), size: PLACE_IMAGE_SIZE, spec: PLACE_IMAGE_SPEC, prompt: placeImagePrompt(p) }));
+}
+
+/** Text for the image supplier: one block per place (name, path, spec, prompt) */
+export function mapImageRequestsText(requests: MapImageRequest[]): string {
+	return requests
+		.map((r) => [`${mapName(r.name, MAP_SOURCE_LANGUAGE)} / ${mapName(r.name, 'en')} (${r.place})`, `  ${r.path}  ${r.size}`, `  ${r.spec}`, ...r.prompt.split(NL).map((l) => `  ${l}`)].join(NL))
+		.join(NL + NL);
+}
+
 // ── Validation (agents/MAP.md §4.7; the cross-entity checks against events come with M3/M4) ─────────────────────────
 
 export interface MapProblem {
