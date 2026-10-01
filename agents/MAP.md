@@ -609,7 +609,8 @@ same unlocks after sync.
 
 ## 8. Built: M0 + M1 + M2 (2026-10-01, branch `map`)
 
-Branch `map` from `platform` bab74a3 (not merged with newer `platform`, see §8.8). Commits: M0 `91a0c8f`, M1 `4248cff`,
+Branch `map` from `platform` bab74a3; `platform` (icons, covers + media requests, colours, toon scripts, ports) merged in
+at `932c578`. Commits: M0 `91a0c8f`, M1 `4248cff`,
 M2 `7812916`, sea colour + bidirectional unlock `96896d3`, start view + no hand tool `387a588`, wanted images `3b9766f`,
 docs (the last one).
 
@@ -627,7 +628,8 @@ docs (the last one).
 | no hand tool | pan with the middle button or Space + drag (touch: drag, two fingers) | tools Select V, + Place P, Draw route R; a drag on the empty terrain pans too |
 | start view | set per toon in the builder; the reader opens there | "Set start view" (§8.5); the reader fits the discovered places only when the start view shows none of them |
 | wanted images | every place without an image in "Wanted images", derived from the map | "Map places" group (§8.5); 19 of 19 listed today |
-| icons | Feather via `<Icon>` (`@scutoons/ui`, platform e0055e9) for the builder tools | **not done**: needs `platform` merged into `map` (§8.8) |
+| icons | Feather via `<Icon>` (`@scutoons/ui`) for the builder tools | tools `mouse-pointer` / `map-pin` / `share-2` (label + shortcut in the tooltip), `zoom-in` / `zoom-out` / `maximize`, `layers`, waypoint `arrow-up` / `arrow-down` / `x`; the reader overlay keeps its own controls (the viewer has no `@scutoons/ui` dependency) |
+| the airport | "it does not unlock yet" | `unlock: null` = deliberately not unlockable yet: a valid hidden state (no warning); the builder's option "noch nicht freischaltbar / not unlockable yet"; still in the wanted images |
 
 Other open questions follow this document's recommendations: Q3 teaser – not modelled; Q6 typos – kept verbatim ("Medival
 Street"; the en route's `titel` is read as its name); Q7 frame art – kept (the four saws; only the sea follows the toon);
@@ -639,8 +641,8 @@ toon's start view (set in the builder) instead of a computed zoom.
 - `MapPlace.hidden` / `MapPath.hidden` are booleans (the builder writes `true` or removes the key).
 - `MapPlace.unlock?: { toon, chapter, at?, slice?, scene? }` (new): `at` = the reading position 0..1 where the place unlocks
   (the runtime rule, compared with the chapter checkpoint), `slice` = the unlocking slice's image path (§8.5), `scene` = the
-  screenplay scene (the reference for the M3/M4 event). A hidden place without an unlock point is a validation warning (only
-  the airport, which the screenplay never visits).
+  screenplay scene (the reference for the M3/M4 event). `unlock: null` = "not unlockable yet" (owner, the airport): valid;
+  a hidden place with no `unlock` at all is a validation warning (nothing unlocks it – forgotten?).
 - The card's `chapter` link = the chapter that introduces the place (the old files said "1" everywhere).
 - Toon entries keep only the start view `map: { center?, zoom? }`; toptoy / yellowmouse lost their empty placeholder. An
   entry still in the old shape (`layers` …) passes through unchanged.
@@ -685,7 +687,7 @@ the real slice with the bidirectional editor). **en names of the new places tran
 | `graveyard` | Friedhof / Graveyard | 4 | 36 | 20 % | 1441, 569 |
 | `well` new | Am Brunnen / At the well | 4 | 37 | 58 % | 1462, 596 |
 | `garden` new (was the route's dangling id) | Garten Eden / Garden of Eden | 5 | 38 | 100 % | 1404, 640 |
-| `airport` | Flughafen / Airport | – | – | never: not in the screenplay (only a song line mentions an airport) – hidden, no unlock point (the one validation warning); owner: give it a slice or show it | 1254, 252 |
+| `airport` | Flughafen / Airport | – | – | never: not in the screenplay (only a song line mentions an airport) – hidden, `unlock: null` = not unlockable yet (owner) | 1254, 252 |
 
 Interiors are folded into their building (rooms → apartment; altar → cathedral; shaft / platform → station; shelf, wall
 sensor → library; server farm, streamer studio, server room → monastery); scene 1 (the prologue's dream) unlocks nothing.
@@ -731,9 +733,9 @@ sensor → library; server farm, streamer studio, server room → monastery); sc
   the reader's first screen there; "Go to the start view".
 - **Wanted images → Map places** (owner): `mapImageRequests(map)` derives the list (every place without `image`: name,
   `<toon>/images/map/places/<id>.webp` – `scutoons/…` for a place of several toons –, 256 × 256 + spec, the §5.2 brief (for an image generator or a designer) with
-  the §5.4 description or the place's names). Shown below the character images in the creator's Wanted images (copy as
-  text). Not stored as asset requests: it can't drift. After merging `platform` it can sit next to the new "Toon media"
-  group.
+  the §5.4 description or the place's names). In the creator's Wanted images they are toon-media requests (`mapMediaRequests`:
+  `view: 'media'`, `toon`, `size`, `note`, `brief`), listed under "Toon media → Map places" with the brief and a link to the
+  builder, copied with the rest – derived from the map each time, never stored, so it can't drift (19 of 19 today).
 - Validation table (when nothing is selected) + the bottom bar's problems + "!" in the sidebar; save / publish / history /
   autosave / conflicts through `MetaPage` (new `fill` mode for a canvas page).
 - **Bidirectional unlock** (owner). One storage: the place's `unlock` in the world map. Two editors:
@@ -755,7 +757,7 @@ sensor → library; server farm, streamer studio, server room → monastery); sc
 
 M3 events (`MapEvent`, `runMapEvents`, slice triggers, toasts, follow-up bar text, travel, positions); M4 the event pickers,
 "Used in" from events, the server's 409 `in_use`; M5 the sandbox story; the place images (workflow §5,
-`make_location_webp.py`); the builder's Feather icons (needs `platform`, §8.8).
+`make_location_webp.py`).
 
 ### 8.7 Checks
 
@@ -771,17 +773,11 @@ M3 events (`MapEvent`, `runMapEvents`, slice triggers, toasts, follow-up bar tex
 
 ### 8.8 Merge note (the owner merges after the 2026-10-04 release)
 
-1. **`platform` is not merged into `map` yet** (the merge was refused by the agent's permission rules, 2026-10-01): newer
-   `platform` (e0055e9 icons, 8ae34cb language-neutral covers + media requests, 549d830 toon scripts …) touches the same files.
-   Merge `platform` → `map` first, then: replace the builder's tool words by `<Icon name>` (select `mouse-pointer`, place
-   `map-pin`, route `share-2`, zoom `zoom-in` / `zoom-out`, fit `maximize`, layers `layers`, each with label + shortcut).
-2. Expected conflicts: `shared/content/src/content.ts` (`TOON_NEUTRAL_FIELDS` gains `cover` there; `map` here is the start
-   view type) / `index.ts` (both export a new module) / `validate.ts`; `server/src/Domain/Library/Library.php` +
-   `LibraryTest.php` + `entities-compare.php` (keep both: cover in the neutral fields, the world map); the schemas
-   (regenerate: `npm run schema -w @scutoons/content`); `creator/messages/*.json`, `viewer/messages/*.json` (new keys only);
-   `creator/src/routes/+layout.svelte`; `chapter-editor.svelte` (the Map tab); `characters-editor.svelte` /
-   `wanted-images.svelte` (Map places next to Toon media); `agents/*.md` (append); `shared/content/seed/toons.json` +
-   `content-seed.mysql.sql` (re-run the "only changed statements" rule for the toon entries).
+1. `platform` is merged into `map` (`932c578`, 2026-10-01; conflicts resolved keeping both sides: covers / lettering, script
+   entities, media requests + the world map; schemas regenerated; the seed SQL = platform's file + only the changed
+   statements: `map` and the 3 toon entries). `map` → `platform` should now merge without conflicts unless `platform`
+   moved on; then the usual suspects: `shared/content/src/{content,index,validate}.ts`, the message files, `agents/*.md`,
+   `content-seed.mysql.sql` (re-run the "only changed statements" rule).
 3. On the owner's local store after merging: back up `server/db/local.sqlite`, then
    `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-map.ts` (imports `map`, rewrites the
    store's toon entries' `map` to the start view).

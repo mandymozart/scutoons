@@ -1372,3 +1372,6 @@ character, persona, look and mood and doubles as the VN test bed.
   on a cold admin; a rerun passes). Global creator/viewer button styles make text white: set `color` on new buttons.
 - `platform` merged into `map` on 2026-10-01 (started by the coordinator with the owner's OK; conflicts resolved: both sides
   kept – covers / scripts / media requests + the world map); the merge note for `map` → `platform` is MAP.md §8.8.
+- After the merge: the airport is `unlock: null` ("not unlockable yet", owner), the builder uses Feather `<Icon>`s, the map
+  places are derived toon-media requests in Wanted images (`mapMediaRequests`, never stored). `npm install` after merging
+  `platform` (feather-icons); a freshly (re)started Vite server can fail check-fonts once (dep re-optimisation) – rerun.
