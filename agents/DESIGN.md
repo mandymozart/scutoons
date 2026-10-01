@@ -398,3 +398,15 @@ sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every
   stringifies, validates or parses the whole text. Measured on the 1834-line Cat Pope script: one frame per keystroke
   (~17 ms round trip headless), no long tasks.
 - Check: `npm run check:creator-script` (SCUTOONS_API / SCUTOONS_CREATOR for other ports).
+
+## Icons (owner rule, 2026-10-01)
+
+- **UI icons come from Feather** (`feather-icons`, MIT) through the shared component `Icon` in `@scutoons/ui`
+  (`<Icon name="zoom-in" />`, names: feathericons.com). No other icon sets, no inline copies; if a Feather icon is
+  missing, add the SVG to the shared library (`shared/ui`), never into an app.
+- **Icons where a word makes no sense** (map tools, zoom, close, drag handle, play/pause); **text where a word is clearer**.
+  An icon-only control always has an accessible name (`label` / `aria-label`) and a tooltip.
+- Brutalist defaults: stroke 2.5, square caps, `currentColor`, 1.25em (scales with the fluid root type).
+- The brand's own hand-drawn icons (viewer: chapter, map, inventory, account …) stay as they are.
+- **No "hand" tool for panning:** canvases pan with the middle mouse button or Space + drag (and two fingers on touch).
+
