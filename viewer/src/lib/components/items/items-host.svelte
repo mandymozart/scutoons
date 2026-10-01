@@ -30,6 +30,9 @@
 		const name = inventory.nameOf({ item_id: n.item_id, variant: null });
 		if (n.kind === 'craft') return m['items.crafted']({ name });
 		if (n.kind === 'claim') return m['items.claimed']({ name });
+		if (n.kind === 'returned') return m['items.returned']({ name });
+		if (n.kind === 'used') return m['items.used']({ name });
+		if (n.kind === 'restored') return m['items.restored']({ name });
 		return m['items.granted']({ qty: n.qty, name });
 	}
 </script>

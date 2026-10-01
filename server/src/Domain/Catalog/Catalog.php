@@ -111,7 +111,9 @@ final class Catalog
         $cooldown = null;
         foreach ($this->items() as $item) {
             foreach ($item['skills'] ?? [] as $skill) {
-                if (($skill['type'] ?? '') === 'scan_object' && ($skill['grants'] ?? null) === $itemId) {
+                // `grants`, or one of `map[].grants` (a later multi-label camera, agents/ITEMS.md "Substances")
+                $grants = [$skill['grants'] ?? null, ...array_map(fn($m) => is_array($m) ? ($m['grants'] ?? null) : null, is_array($skill['map'] ?? null) ? $skill['map'] : [])];
+                if (($skill['type'] ?? '') === 'scan_object' && in_array($itemId, $grants, true)) {
                     $tools[] = (string) $item['id'];
                     $seconds = (int) ($skill['cooldown_s'] ?? 0);
                     $cooldown = $cooldown === null ? $seconds : min($cooldown, $seconds);

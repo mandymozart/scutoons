@@ -17,11 +17,27 @@
 	const def = $derived(inventory.item(entry.item_id));
 	const skills = $derived(def?.skills ?? []);
 	const usable = $derived(skills.length > 0);
+	// a substance (ITEMS.md "Substances"): "Benutzen" uses one piece up and applies it
+	const substance = $derived(skills.some((s) => s.type === 'apply'));
+	let useError = $state<string | null>(null);
+	async function useIt() {
+		useError = null;
+		working = true;
+		const result = await inventory.useSubstance(entry);
+		working = false;
+		if (!result.ok) useError = result.error ?? 'error';
+	}
 	const combinable = $derived(
 		(inventory.catalog?.recipes ?? []).some((r) => r.inputs.some((i) => i.item === entry.item_id))
 	);
 	const equipped = $derived(inventory.isEquipped(entry));
 	const total = $derived(inventory.editionTotal(entry.item_id));
+	// "Anziehen" swaps (ITEMS.md "Wardrobe"): what was on that slot goes back into the inventory, or – while "Hide
+	// sensitive content" is on – the swim pants come back on; the newest such note is shown under the buttons
+	const note = $derived([...inventory.notices].reverse().find((n) => n.kind === 'returned' || n.kind === 'restored'));
+	const noteText = $derived(
+		note ? (note.kind === 'returned' ? m['items.returned'] : m['items.restored'])({ name: inventory.nameOf({ item_id: note.item_id, variant: null }) }) : ''
+	);
 	let working = $state(false);
 
 	const sourceLabel = $derived(
@@ -75,11 +91,15 @@
 		{/if}
 		<dt>{m['items.source']()}</dt>
 		<dd>{sourceLabel}{entry.code ? ` · ${entry.code}` : ''}</dd>
+		{#if equipped}
+			<dt>{m['items.tab_avatar']()}</dt>
+			<dd data-testid="item-worn">{m['items.worn']()}</dd>
+		{/if}
 	</dl>
 
 	<div class="actions">
 		{#if usable}
-			<button class="btn-secondary" onclick={() => ui.use(entry, skills)}>{m['items.use']()}</button>
+			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : ui.use(entry, skills))} data-testid="item-use">{m['items.use']()}</button>
 		{/if}
 		{#if combinable}
 			<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>
@@ -90,6 +110,8 @@
 			</button>
 		{/if}
 	</div>
+	{#if noteText}<p class="swap-note" role="status" data-testid="item-note">{noteText}</p>{/if}
+	{#if useError}<p class="swap-note" role="alert">{m['items.use_failed']()}</p>{/if}
 </div>
 
 <style>
@@ -134,6 +156,11 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
+	}
+	.swap-note {
+		margin: 0;
+		font-size: 0.75rem;
+		line-height: 1.3;
 	}
 	.actions button {
 		flex: 1 1 auto;

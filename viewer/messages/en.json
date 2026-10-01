@@ -180,7 +180,17 @@
 		"play": "Play",
 		"minigame_soon": "This minigame is coming soon.",
 		"avatar_body_error": "Couldn't change the body – please try again.",
-		"avatar_body_none": "No avatar body available yet."
+		"avatar_body_none": "No avatar body available yet.",
+		"used": "Used: {name}",
+		"use_failed": "That didn't work – please try again.",
+		"effect_psychedelic": "Colour rush",
+		"effect_left": "{min} min left",
+		"effect_end": "End effect",
+		"worn": "worn",
+		"section_worn": "On your avatar",
+		"section_rest": "In your inventory",
+		"returned": "{name} is back in your inventory.",
+		"restored": "\"Hide sensitive content\" is on: {name} put on."
 	},
 	"claim": {
 		"title": "SCUTOONS item",
@@ -213,6 +223,11 @@
 		"signed_in": "You're signed in. Your progress is saved across devices."
 	},
 	"camera": {
+		"hint_any": "Point the camera at a thing from the real world.",
+		"cooldown_any": "Next find in {seconds}s",
+		"game_notice": "Game camera. Does not analyse real substances. Real, anonymous drug checking:",
+		"checkit": "checkit! (Vienna)",
+		"recognised": "Recognised: {object} → {item}",
 		"title_qr": "Scan a SCUTOONS QR code",
 		"title_object": "Find a real cucumber",
 		"hint_qr": "Point the camera at the QR code on your SCUTOONS item.",

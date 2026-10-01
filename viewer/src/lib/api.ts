@@ -35,6 +35,8 @@ export const {
 	importItems,
 	putAvatar,
 	putAvatarBody,
+	useItem,
+	endEffect,
 	fetchProgress,
 	putProgress
 } = createQrApi(api);

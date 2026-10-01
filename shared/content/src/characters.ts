@@ -251,6 +251,8 @@ export interface CharacterPersona {
 	description?: LocaleText;
 	/** the persona's own color (VN avatar background); none = the character's */
 	color?: string;
+	/** the persona's own testo level 0–100 (none = the character's) – substances.ts */
+	testo?: number;
 	looks: CharacterLook[];
 	transitions?: LookTransition[];
 }
@@ -362,6 +364,13 @@ export interface RegistryCharacter {
 	description?: LocaleText;
 	/** CSS color (VN avatar background, speaker accents) */
 	color: string;
+	/**
+	 * Testo level 0–100 (owner 2026-10-01: no male/female – the more testo, the more of its read characteristics; the
+	 * visual mapping comes later with the art, `testoBand`). none = not set.
+	 */
+	testo?: number;
+	/** story/workflow tendencies (`psychedelics` …), reference only, no runtime effect */
+	tendencies?: string[];
 	/** the toon this character is the protagonist of (optional – most characters have none) */
 	own_toon?: string;
 	/** person id of the voice (scutoons/_/people.json) */
@@ -1219,6 +1228,8 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 		else checkText(add, c.name, [...path, 'name'], `${who}: name`, languages);
 		checkText(add, c.description, [...path, 'description'], `${who}: description`, languages);
 		if (!isStr(c.color) || !c.color.trim()) add('warning', [...path, 'color'], `${who}: no color`);
+		if (c.testo !== undefined && !(typeof c.testo === 'number' && c.testo >= 0 && c.testo <= 100)) add('error', [...path, 'testo'], `${who}: testo must be a number 0–100`);
+		if (c.tendencies !== undefined && !(Array.isArray(c.tendencies) && c.tendencies.every((t: unknown) => isStr(t) && CHARACTER_ID.test(t)))) add('error', [...path, 'tendencies'], `${who}: tendencies must be a list of ids`);
 		if (c.own_toon !== undefined && (!isStr(c.own_toon) || (ctx.toons && !ctx.toons.includes(c.own_toon)))) add('warning', [...path, 'own_toon'], `${who}: unknown own toon "${c.own_toon}"`);
 		if (c.voiced_by !== undefined && (!isStr(c.voiced_by) || (ctx.people && !ctx.people.includes(c.voiced_by)))) add('error', [...path, 'voiced_by'], `${who}: voiced by an unknown person "${c.voiced_by}"`);
 		if (c.tags !== undefined && !(Array.isArray(c.tags) && c.tags.every(isStr))) add('error', [...path, 'tags'], `${who}: tags must be a list of texts`);
@@ -1294,6 +1305,7 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 			checkText(add, p.description, [...pp, 'description'], `${pwho}: description`, languages);
 			if (p.introduced !== undefined) checkStoryPoint(add, p.introduced, [...pp, 'introduced'], `${pwho}: introduced`, ctx.toons);
 			if (p.color !== undefined && !isStr(p.color)) add('error', [...pp, 'color'], `${pwho}: color must be a text`);
+			if (p.testo !== undefined && !(typeof p.testo === 'number' && p.testo >= 0 && p.testo <= 100)) add('error', [...pp, 'testo'], `${pwho}: testo must be a number 0–100`);
 
 			if (!Array.isArray(p.looks) || !p.looks.length) {
 				add('error', [...pp, 'looks'], `${pwho}: needs at least one look`);

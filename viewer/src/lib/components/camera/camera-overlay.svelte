@@ -6,7 +6,9 @@
 	import { SCAN_OBJECT_FPS, SCAN_OBJECT_FRAMES, SCAN_OBJECT_THRESHOLD } from '$lib/config.ts';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 	import { decodeFrame, loadJsQR, parseScutoonsCode } from './qr.ts';
-	import { centerCrop, loadClassifier, matchLabels, type Classifier } from './object-detector.ts';
+	import { centerCrop, loadClassifier, type Classifier } from './object-detector.ts';
+	import { matchScan, scanTargets } from '@scutoons/content';
+	import { localized } from '$lib/contexts/inventory.svelte.ts';
 
 	let {
 		request,
@@ -40,6 +42,15 @@
 	const skill = $derived(request.object);
 	const threshold = $derived(skill?.threshold ?? SCAN_OBJECT_THRESHOLD);
 	const cooldownLeft = $derived(Math.max(0, Math.ceil((cooldownUntil - now) / 1000)));
+	/** what the last hit was recognised as and which item it became (game text, never an analysis) */
+	let lastHit = $state<{ grants: string; object: string } | null>(null);
+	/** a camera that finds substances (testo / Check It camera) shows the drug-checking notice every time it opens */
+	const substanceCamera = $derived(!!skill && scanTargets(skill).some((t) => inventory.item(t.grants)?.category === 'substance'));
+	/** checkit! – the real, anonymous drug-checking service of Suchthilfe Wien (official site checked 2026-10-01) */
+	const CHECKIT_URL = 'https://checkit.wien';
+	/** the cucumber camera keeps its cucumber texts; every other object camera (testo, Check It) uses its item name */
+	const cucumberCamera = $derived(!!skill && scanTargets(skill).every((t) => t.grants === 'cucumber'));
+	const objectTitle = $derived(cucumberCamera || !request.entry ? m['camera.title_object']() : inventory.nameOf({ item_id: request.entry.item_id, variant: null }));
 
 	function flash(text: string) {
 		message = text;
@@ -122,14 +133,15 @@
 			if (status === 'running' && video && video.readyState >= 2) {
 				try {
 					const predictions = await classifier.classify(centerCrop(video));
-					const hit = matchLabels(predictions, skill.labels);
+					const hit = matchScan(predictions, skill);
 					confidence = hit?.probability ?? 0;
 					streak = hit && hit.probability >= threshold ? streak + 1 : 0;
-					if (streak >= SCAN_OBJECT_FRAMES && now >= cooldownUntil) {
+					if (hit && streak >= SCAN_OBJECT_FRAMES && now >= cooldownUntil) {
 						streak = 0;
 						cooldownUntil = Date.now() + (skill.cooldown_s ?? 10) * 1000;
+						lastHit = { grants: hit.target.grants, object: localized(hit.target.name) || hit.label };
 						celebrate++;
-						await inventory.grant(skill.grants, 'scan', 1, `scan:${hit?.className}`);
+						await inventory.grant(hit.target.grants, 'scan', 1, `scan:${hit.label}`);
 					}
 				} catch (error) {
 					console.warn('Classification failed', error);
@@ -168,14 +180,21 @@
 	);
 </script>
 
-<div class="camera" role="dialog" aria-modal="true" aria-label={mode === 'qr' ? m['camera.title_qr']() : m['camera.title_object']()}>
+<div class="camera" class:with-notice={substanceCamera} role="dialog" aria-modal="true" aria-label={mode === 'qr' ? m['camera.title_qr']() : objectTitle}>
 	<!-- svelte-ignore a11y_media_has_caption -->
 	<video bind:this={video} playsinline muted autoplay class:hidden={status !== 'running'}></video>
 	<canvas bind:this={canvas} hidden></canvas>
 
 	<header>
-		<h2>{mode === 'qr' ? m['camera.title_qr']() : m['camera.title_object']()}</h2>
+		<h2>{mode === 'qr' ? m['camera.title_qr']() : objectTitle}</h2>
 		<button class="close" onclick={onclose} aria-label={m['items.close']()}>×</button>
+		{#if substanceCamera}
+			<!-- mandatory on every open (owner 2026-10-01): a game camera, and where real drug checking is -->
+			<p class="game-notice" data-testid="camera-notice">
+				{m['camera.game_notice']()}
+				<a href={CHECKIT_URL} target="_blank" rel="noopener noreferrer">{m['camera.checkit']()}</a>
+			</p>
+		{/if}
 	</header>
 
 	{#if status === 'running'}
@@ -188,13 +207,13 @@
 			</div>
 		{/if}
 		{#key celebrate}
-			{#if celebrate > 0 && skill}
-				<div class="celebrate" aria-live="polite">
+			{#if celebrate > 0 && skill && lastHit}
+				<div class="celebrate" aria-live="polite" data-testid="camera-hit" data-grants={lastHit.grants}>
 					<div class="burst"></div>
 					<div class="icon">
-						<ItemIcon srcs={[inventory.item(skill.grants)?.icon ?? '']} name={inventory.nameOf({ item_id: skill.grants, variant: null })} />
+						<ItemIcon srcs={[inventory.item(lastHit.grants)?.icon ?? '']} name={inventory.nameOf({ item_id: lastHit.grants, variant: null })} />
 					</div>
-					<strong>{m['camera.detected']()}</strong>
+					<strong>{scanTargets(skill).length > 1 ? m['camera.recognised']({ object: lastHit.object, item: inventory.nameOf({ item_id: lastHit.grants, variant: null }) }) : m['camera.detected']()}</strong>
 				</div>
 			{/if}
 		{/key}
@@ -219,9 +238,9 @@
 			{:else if modelState === 'failed'}
 				<p>{m['camera.model_failed']()}</p>
 			{:else if cooldownLeft > 0}
-				<p>{m['camera.cooldown']({ seconds: cooldownLeft })}</p>
+				<p>{cucumberCamera ? m['camera.cooldown']({ seconds: cooldownLeft }) : m['camera.cooldown_any']({ seconds: cooldownLeft })}</p>
 			{:else}
-				<p>{m['camera.hint_object']()}</p>
+				<p>{cucumberCamera ? m['camera.hint_object']() : m['camera.hint_any']()}</p>
 			{/if}
 		{:else}
 			<p>{m['camera.hint_qr']()}</p>
@@ -257,8 +276,19 @@
 		background: black;
 		padding: 0.75rem 1rem;
 	}
+	.game-notice {
+		flex-basis: 100%;
+		margin: 0.25rem 0 0;
+		font-size: 0.6875rem;
+		line-height: 1.3;
+		color: #d0d0d0;
+	}
+	.game-notice a {
+		color: white;
+	}
 	header {
 		display: flex;
+		flex-wrap: wrap;
 		align-items: center;
 		justify-content: space-between;
 		gap: 1rem;
@@ -333,6 +363,9 @@
 		height: 0.5rem;
 		border: 2px solid white;
 		background: rgba(0, 0, 0, 0.4);
+	}
+	.with-notice .meter {
+		top: 7rem;
 	}
 	.meter .fill {
 		height: 100%;

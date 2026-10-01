@@ -1,4 +1,5 @@
 // Items, inventory, avatar — contract: agents/ITEMS.md (served by qr.scutoons.com /api)
+import type { StatDef, StatEffect, TimedEffect, ReaderState } from './substances.ts';
 
 export type Localized = Record<string, string>;
 
@@ -26,7 +27,7 @@ export const AVATAR_SLOTS: AvatarSlot[] = [
 ];
 
 export type ItemKind = 'physical' | 'virtual';
-export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media';
+export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance';
 export type GrantSource = 'story' | 'scan';
 export type EntrySource = 'qr' | 'story' | 'scan' | 'craft' | 'starter';
 
@@ -36,10 +37,19 @@ export interface ScanQrSkill {
 
 export interface ScanObjectSkill {
 	type: 'scan_object';
+	/** ImageNet class words that count as a hit (MobileNet on the device) */
 	labels: string[];
+	/** the item a hit grants */
 	grants: string;
 	cooldown_s?: number;
 	threshold?: number;
+	/** what the camera says it recognised for `labels` ("Pillendose"); none = the matched model label */
+	name?: Localized;
+	/**
+	 * More things to find (the multi-label Check It camera, ITEMS.md "Substances"): recognised labels → the item they
+	 * grant, checked together with `labels` → `grants` (the best match wins) – `scanTargets` / `matchScan`.
+	 */
+	map?: { labels: string[]; grants: string; name?: Localized }[];
 }
 
 export interface MinigameSkill {
@@ -52,7 +62,12 @@ export interface PlayAudioSkill {
 	src: string;
 }
 
-export type Skill = ScanQrSkill | ScanObjectSkill | MinigameSkill | PlayAudioSkill;
+/** "Benutzen" applies a substance: one piece is used up, its `effects` / `effect` hit the reader (substances.ts) */
+export interface ApplySkill {
+	type: 'apply';
+}
+
+export type Skill = ScanQrSkill | ScanObjectSkill | MinigameSkill | PlayAudioSkill | ApplySkill;
 
 export interface ItemVariant {
 	id: string;
@@ -76,6 +91,23 @@ export interface ItemDef {
 	edition_id: string | null;
 	product: string | null;
 	variants: ItemVariant[] | null;
+	/**
+	 * Wardrobe overlays of a wearable (ITEMS.md "Wardrobe"): `<character>` or `<character>/<slot instance id>` → CDN
+	 * path of a full-body overlay aligned to that character's A-pose (768 × 1152, transparent WebP, convention
+	 * `characters/<character>/wear/<item>[-<slot instance>].webp`). A body without an overlay draws the item's icon at
+	 * the slot anchor instead.
+	 */
+	wear?: Record<string, string> | null;
+	/**
+	 * Part of the basic dress (ITEMS.md "Wardrobe": T-shirt, shorts, sandals): a starter wearable that is put on when it
+	 * is handed out (signup, older accounts, guests). A body without an overlay for it wears another starter of the same
+	 * slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`.
+	 */
+	default_worn?: boolean;
+	/** a substance's stat changes (`catalog.stats` ids), ITEMS.md "Substances" */
+	effects?: StatEffect[] | null;
+	/** a substance's temporary reader effect */
+	effect?: TimedEffect | null;
 }
 
 export interface RecipePart {
@@ -94,6 +126,8 @@ export interface Catalog {
 	slots: AvatarSlot[];
 	items: ItemDef[];
 	recipes: Recipe[];
+	/** the reader stats substances change (`testo`, `appetite`): baseline + half-life, ITEMS.md "Substances" */
+	stats?: Record<string, StatDef>;
 }
 
 export type EntryId = number | string;
@@ -180,6 +214,9 @@ export interface Me {
 	access_token?: string;
 	inventory: Entry[];
 	avatar: Avatar;
+	/** stored stat levels (decay with `statLevel`) and running effects – ITEMS.md "Substances" */
+	stats?: ReaderState['stats'];
+	effects?: ReaderState['effects'];
 }
 
 export interface CodeItem {

@@ -75,7 +75,9 @@ final class InventoryServiceTest extends TestCase
         $user = $this->user();
         $id = (string) $user['id'];
         $avatar = $this->get(AvatarService::class);
-        self::assertSame('{"head":null,"face":null,"neck":null,"torso":null,"hands":null,"legs":null,"feet":null,"back":null,"accessory":null}',
+        // a new account wears the basic dress (agents/ITEMS.md "Wardrobe"): T-shirt, shorts, sandals
+        $wear = fn(string $item) => (string) $this->db->value('SELECT id FROM inventory WHERE user_id = ? AND item_id = ?', [$id, $item]);
+        self::assertSame('{"head":null,"face":null,"neck":null,"torso":"' . $wear('scutoons_tshirt') . '","hands":null,"legs":"' . $wear('scutoons_shorts') . '","feet":"' . $wear('scutoons_sandals') . '","back":null,"accessory":null}',
             json_encode($avatar->toJson($id)['slots']));
         $this->inventory->add($id, 'dago_hoodie', 'black', 1, 'story');
         $hoodie = (string) $this->db->value("SELECT id FROM inventory WHERE user_id = ? AND item_id = 'dago_hoodie'", [$id]);

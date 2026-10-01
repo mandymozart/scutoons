@@ -9,6 +9,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Codes\CodeService;
 use Scutoons\Domain\Inventory\InventoryService;
+use Scutoons\Domain\Reader\ReaderState;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
@@ -19,11 +20,33 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST /api/inventory/craft/   { recipe_id } → { status, recipe_id, inventory }
  *   POST /api/inventory/grant/   { item_id, source, ref? } → { status, granted, inventory }
  *   POST /api/inventory/import/  { items: [{ item_id, qty }] } → { status, imported, skipped, inventory }
+ *   POST /api/inventory/use/     { item_id } → { status, item_id, stats, effects, inventory } (a substance, ITEMS.md "Substances")
+ *   POST /api/effects/end/       { kind } → { status, ended, effects } ("Effekt beenden")
  */
 final class InventoryController
 {
-    public function __construct(private readonly InventoryService $inventory, private readonly CodeService $codes)
+    public function __construct(private readonly InventoryService $inventory, private readonly CodeService $codes, private readonly ReaderState $reader)
     {
+    }
+
+    public function use(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $id = (string) $user['id'];
+        $item = $this->reader->use($id, $body);
+        return Json::response($response, 200, ['status' => 'success', 'item_id' => $item['id'], 'stats' => (object) $this->reader->stats($id),
+            'effects' => $this->reader->effects($id), 'inventory' => $this->inventory->entries($id)]);
+    }
+
+    public function endEffect(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $id = (string) $user['id'];
+        $kind = is_string($body['kind'] ?? null) ? $body['kind'] : throw new ApiError(400, 'invalid_kind', 'kind is required.');
+        $ended = $this->reader->end($id, $kind);
+        return Json::response($response, 200, ['status' => 'success', 'ended' => $ended, 'effects' => $this->reader->effects($id)]);
     }
 
     public function claim(Request $request, Response $response): Response

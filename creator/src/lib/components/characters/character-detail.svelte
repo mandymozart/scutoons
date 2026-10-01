@@ -273,6 +273,14 @@
 					<input type="text" value={character.color ?? ''} oninput={(e) => setField('color', e.currentTarget.value.trim())} data-testid="character-color" />
 				</span>
 			</label>
+			<!-- no male/female: a testo level 0–100 (owner 2026-10-01, ITEMS.md "Substances"); empty = not set -->
+			<label>
+				{m['creator.characters_testo']()} {character.testo ?? '–'}
+				<span class="inline">
+					<input type="range" min="0" max="100" step="1" value={character.testo ?? 50} oninput={(e) => setField('testo', Number(e.currentTarget.value))} data-testid="character-testo" />
+					<button type="button" class="ghost" disabled={character.testo === undefined} onclick={() => setField('testo', undefined)} title={m['creator.characters_testo_clear']()}>✕</button>
+				</span>
+			</label>
 			<label>
 				{m['creator.characters_own_toon']()}
 				<select value={character.own_toon ?? ''} onchange={(e) => setField('own_toon', e.currentTarget.value)} data-testid="character-own-toon">
@@ -291,6 +299,10 @@
 			<label>
 				{m['creator.characters_tags']()}
 				<input type="text" value={(character.tags ?? []).join(', ')} onchange={(e) => setField('tags', e.currentTarget.value.split(',').map((t) => t.trim()).filter(Boolean))} />
+			</label>
+			<label>
+				{m['creator.characters_tendencies']()}
+				<input type="text" value={(character.tendencies ?? []).join(', ')} placeholder="psychedelics" onchange={(e) => setField('tendencies', e.currentTarget.value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))} data-testid="character-tendencies" />
 			</label>
 			<label class="wide">
 				{m['creator.characters_image']()}
@@ -340,6 +352,13 @@
 							<span class="inline">
 								<input type="color" class="picker" value={toHex(currentPersona.color || character.color)} oninput={(e) => { const v = e.currentTarget.value; changePersona((p) => { p.color = v; }, 'color'); }} aria-label="{m['creator.characters_persona_color']()} picker" data-testid="persona-color-picker" />
 								<input type="text" value={currentPersona.color ?? ''} placeholder={character.color} oninput={(e) => changePersona((p) => { const v = e.currentTarget.value.trim(); if (v) p.color = v; else delete p.color; }, 'color')} data-testid="persona-color" />
+							</span>
+						</label>
+						<label class="persona-color">
+							{m['creator.characters_persona_testo']()} {currentPersona.testo ?? character.testo ?? '–'}
+							<span class="inline">
+								<input type="range" min="0" max="100" step="1" value={currentPersona.testo ?? character.testo ?? 50} oninput={(e) => { const v = Number(e.currentTarget.value); changePersona((p) => { p.testo = v; }, 'testo'); }} data-testid="persona-testo" />
+								<button type="button" class="ghost" disabled={currentPersona.testo === undefined} onclick={() => changePersona((p) => { delete p.testo; }, 'testo')} title={m['creator.characters_testo_clear']()}>✕</button>
 							</span>
 						</label>
 						<LocaleMapField value={currentPersona.description} {languages} label={m['creator.characters_description']()} multiline onchange={(v) => changePersona((p) => { const t = clean(v); if (t) p.description = t; else delete p.description; }, 'description')} />

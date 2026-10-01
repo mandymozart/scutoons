@@ -83,7 +83,9 @@ final class CharacterUnlocksTest extends TestCase
         $user = $this->userId();
         $unlocks->grant($user, 'toptoy', [], 'admin', null);
         $avatar->update($user, ['body' => ['character' => 'toptoy', 'look' => 'swim']]);
-        self::assertSame(['torso-left' => null, 'torso-right' => null], (array) $avatar->toJson($user)['slots']);
+        // the default T-shirt moves onto the first torso instance (the registry's toptoy has no legs slots)
+        $shirt = (string) $this->db->value("SELECT id FROM inventory WHERE user_id = ? AND item_id = 'scutoons_tshirt'", [$user]);
+        self::assertSame(['torso-left' => $shirt, 'torso-right' => null], (array) $avatar->toJson($user)['slots']);
     }
 
     public function testSensitiveLooksFollowHideSensitive(): void

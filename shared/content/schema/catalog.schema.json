@@ -27,6 +27,13 @@
 					"items": {
 						"$ref": "#/definitions/Recipe"
 					}
+				},
+				"stats": {
+					"type": "object",
+					"additionalProperties": {
+						"$ref": "#/definitions/StatDef"
+					},
+					"description": "the reader stats substances change (`testo`, `appetite`): baseline + half-life, ITEMS.md \"Substances\""
 				}
 			},
 			"required": [
@@ -129,6 +136,49 @@
 							"type": "null"
 						}
 					]
+				},
+				"wear": {
+					"anyOf": [
+						{
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							}
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "Wardrobe overlays of a wearable (ITEMS.md \"Wardrobe\"): `<character>` or `<character>/<slot instance id>` → CDN path of a full-body overlay aligned to that character's A-pose (768 × 1152, transparent WebP, convention `characters/<character>/wear/<item>[-<slot instance>].webp`). A body without an overlay draws the item's icon at the slot anchor instead."
+				},
+				"default_worn": {
+					"type": "boolean",
+					"description": "Part of the basic dress (ITEMS.md \"Wardrobe\": T-shirt, shorts, sandals): a starter wearable that is put on when it is handed out (signup, older accounts, guests). A body without an overlay for it wears another starter of the same slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`."
+				},
+				"effects": {
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/StatEffect"
+							}
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "a substance's stat changes (`catalog.stats` ids), ITEMS.md \"Substances\""
+				},
+				"effect": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/TimedEffect"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "a substance's temporary reader effect"
 				}
 			},
 			"required": [
@@ -169,7 +219,8 @@
 				"consumable",
 				"wearable",
 				"collectible",
-				"media"
+				"media",
+				"substance"
 			]
 		},
 		"GrantSource": {
@@ -192,6 +243,9 @@
 				},
 				{
 					"$ref": "#/definitions/PlayAudioSkill"
+				},
+				{
+					"$ref": "#/definitions/ApplySkill"
 				}
 			]
 		},
@@ -218,16 +272,47 @@
 					"type": "array",
 					"items": {
 						"type": "string"
-					}
+					},
+					"description": "ImageNet class words that count as a hit (MobileNet on the device)"
 				},
 				"grants": {
-					"type": "string"
+					"type": "string",
+					"description": "the item a hit grants"
 				},
 				"cooldown_s": {
 					"type": "number"
 				},
 				"threshold": {
 					"type": "number"
+				},
+				"name": {
+					"$ref": "#/definitions/Localized",
+					"description": "what the camera says it recognised for `labels` (\"Pillendose\"); none = the matched model label"
+				},
+				"map": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"labels": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								}
+							},
+							"grants": {
+								"type": "string"
+							},
+							"name": {
+								"$ref": "#/definitions/Localized"
+							}
+						},
+						"required": [
+							"labels",
+							"grants"
+						]
+					},
+					"description": "More things to find (the multi-label Check It camera, ITEMS.md \"Substances\"): recognised labels → the item they grant, checked together with `labels` → `grants` (the best match wins) – `scanTargets` / `matchScan`."
 				}
 			},
 			"required": [
@@ -268,6 +353,19 @@
 				"src"
 			]
 		},
+		"ApplySkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "apply"
+				}
+			},
+			"required": [
+				"type"
+			],
+			"description": "\"Benutzen\" applies a substance: one piece is used up, its `effects` / `effect` hit the reader (substances.ts)"
+		},
 		"ItemVariant": {
 			"type": "object",
 			"properties": {
@@ -288,6 +386,39 @@
 				"id",
 				"name"
 			]
+		},
+		"StatEffect": {
+			"type": "object",
+			"properties": {
+				"stat": {
+					"type": "string"
+				},
+				"delta": {
+					"type": "number",
+					"description": "added to the current (decayed) level, then clamped to 0–100"
+				}
+			},
+			"required": [
+				"stat",
+				"delta"
+			],
+			"description": "One stat change of a substance."
+		},
+		"TimedEffect": {
+			"type": "object",
+			"properties": {
+				"kind": {
+					"type": "string"
+				},
+				"duration_min": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"kind",
+				"duration_min"
+			],
+			"description": "A temporary reader effect of a substance (e.g. `psychedelic`): active until now + duration."
 		},
 		"Recipe": {
 			"type": "object",
@@ -325,6 +456,28 @@
 				"item",
 				"qty"
 			]
+		},
+		"StatDef": {
+			"type": "object",
+			"properties": {
+				"label": {
+					"$ref": "#/definitions/Localized"
+				},
+				"baseline": {
+					"type": "number",
+					"description": "0–100, the neutral start and where the level drifts back to"
+				},
+				"half_life_days": {
+					"type": "number",
+					"description": "the distance to the baseline halves every N days"
+				}
+			},
+			"required": [
+				"label",
+				"baseline",
+				"half_life_days"
+			],
+			"description": "A reader stat (`catalog.stats.<id>`): where it rests and how fast it gets back there."
 		}
 	}
 }

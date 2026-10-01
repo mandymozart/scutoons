@@ -12,7 +12,76 @@
 		{
 			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-6.webp",
 			"width": 390,
-			"height": 625
+			"height": 625,
+			"events": [
+				{
+					"type": "showMessage",
+					"params": {
+						"text": "Eine Tube Testo!"
+					},
+					"trigger": {
+						"type": "click",
+						"rect": {
+							"x": 80,
+							"y": 83,
+							"width": 16,
+							"height": 9
+						},
+						"once": true
+					}
+				},
+				{
+					"type": "addChoice",
+					"params": {
+						"label": "Einsammeln",
+						"onSelect": {
+							"add": {
+								"variable": "testo",
+								"value": 1
+							}
+						}
+					},
+					"trigger": {
+						"type": "click",
+						"rect": {
+							"x": 80,
+							"y": 83,
+							"width": 16,
+							"height": 9
+						},
+						"once": true
+					}
+				},
+				{
+					"type": "addChoice",
+					"params": {
+						"label": "Liegen lassen"
+					},
+					"trigger": {
+						"type": "click",
+						"rect": {
+							"x": 80,
+							"y": 83,
+							"width": 16,
+							"height": 9
+						},
+						"once": true
+					}
+				},
+				{
+					"type": "showChoices",
+					"trigger": {
+						"type": "click",
+						"rect": {
+							"x": 80,
+							"y": 83,
+							"width": 16,
+							"height": 9
+						},
+						"once": true
+					}
+				}
+			]
 		},
 		{
 			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-7.webp",
@@ -112,7 +181,7 @@
 		{
 			"type": "showMessage",
 			"params": {
-				"text": "Unterwegs trifft Katzenpapst: Toptoy.",
+				"text": "Unterwegs trifft Katzenpapst: Top Toy.",
 				"wait": true
 			}
 		},

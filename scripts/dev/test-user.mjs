@@ -15,6 +15,7 @@
 // Session: logs/dev/test-user.json { email, token, created } (gitignored). Refuses anything but a localhost API.
 // --reset is local-only maintenance on the SQLite dev DB (there is no API to empty an inventory).
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -158,11 +159,15 @@ async function main() {
 	if (unlock.status !== 200) fail(`Cat Pope unlock answered ${unlock.status}: ${unlock.text.slice(0, 200)}`);
 
 	if (flag('--reset')) {
-		// known state = a fresh signup: only the starter items (qty 1), no progress, no avatar choices, codes released
+		// known state = a fresh signup: only the starter items (qty 1), no progress, no avatar choices, codes released.
+		// The default wearables (starter items with a slot) are removed too: the next GET /me/ grants them again and puts
+		// them on, exactly like a signup (agents/ITEMS.md "Wardrobe")
+		const catalog = (await api('GET', '/items/')).json;
+		const wearables = (catalog?.items ?? []).filter((i) => i.starter && i.slot && /^[a-z0-9_]+$/.test(i.id)).map((i) => `'${i.id}'`);
 		const [released, inv, , prog, slots, body] = sql(
 			[
 				'UPDATE qr SET claimed_by = NULL, claimed_at = NULL WHERE claimed_by = :id',
-				"DELETE FROM inventory WHERE user_id = :id AND source <> 'starter'",
+				`DELETE FROM inventory WHERE user_id = :id AND (source <> 'starter'${wearables.length ? ` OR item_id IN (${wearables.join(', ')})` : ''})`,
 				"UPDATE inventory SET qty = 1 WHERE user_id = :id AND source = 'starter'",
 				'DELETE FROM progress WHERE user_id = :id',
 				'DELETE FROM avatar_slots WHERE user_id = :id',
@@ -170,6 +175,18 @@ async function main() {
 			],
 			{ id: user.id }
 		);
+		// reader stats + effects (agents/ITEMS.md "Substances", tables of 2026-10-01-reader-state when migrated), the
+		// starter items a recipe used up (the camera in the cucumber / testo camera) – back like a fresh signup
+		const [tables] = sql(["SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('member_stats', 'member_effects')"]);
+		const clear = tables.map((t) => `DELETE FROM ${t.name} WHERE user_id = :id`);
+		// story pickups are granted once per place (a ref per user + item): a fresh reader can pick them up again
+		clear.push("DELETE FROM rate_limits WHERE bucket LIKE 'grantref:' || :id || ':%'");
+		const [owned] = sql(['SELECT DISTINCT item_id FROM inventory WHERE user_id = :id'], { id: user.id });
+		const have = new Set(owned.map((r) => r.item_id));
+		const missing = (catalog?.items ?? []).filter((i) => i.starter && !i.slot && !have.has(i.id) && /^[a-z0-9_]+$/.test(i.id));
+		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		const restore = missing.map((i) => `INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, acquired_at, updated_at) VALUES ('${randomUUID()}', :id, '${i.id}', NULL, 1, 'starter', NULL, NULL, '${now}', '${now}')`);
+		if (clear.length + restore.length) sql([...clear, ...restore], { id: user.id });
 		const pref = await api('PUT', '/me/', { hide_sensitive: true }, token);
 		if (pref.status !== 200) fail(`PUT /me/ answered ${pref.status}`);
 		console.log(`reset: ${inv} inventory rows, ${prog} progress rows, ${slots + body} avatar rows removed, ${released} codes released; hide_sensitive on`);

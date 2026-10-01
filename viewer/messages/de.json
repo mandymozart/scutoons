@@ -180,7 +180,17 @@
 		"play": "Abspielen",
 		"minigame_soon": "Dieses Minispiel kommt bald.",
 		"avatar_body_error": "Der Körper konnte nicht gewechselt werden – bitte nochmal versuchen.",
-		"avatar_body_none": "Noch kein Avatar-Körper verfügbar."
+		"avatar_body_none": "Noch kein Avatar-Körper verfügbar.",
+		"used": "Benutzt: {name}",
+		"use_failed": "Das hat nicht geklappt – bitte nochmal versuchen.",
+		"effect_psychedelic": "Farbrausch",
+		"effect_left": "noch {min} min",
+		"effect_end": "Effekt beenden",
+		"worn": "angezogen",
+		"section_worn": "Am Avatar",
+		"section_rest": "Im Inventar",
+		"returned": "{name} ist zurück im Inventar.",
+		"restored": "„Sensible Inhalte ausblenden“ ist an: {name} angezogen."
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",
@@ -213,6 +223,11 @@
 		"signed_in": "Du bist angemeldet. Dein Fortschritt wird auf allen Geräten gespeichert."
 	},
 	"camera": {
+		"hint_any": "Richte die Kamera auf ein Ding aus der echten Welt.",
+		"cooldown_any": "Nächster Fund in {seconds}s",
+		"game_notice": "Spiel-Kamera. Analysiert keine echten Substanzen. Echtes, anonymes Drug-Checking:",
+		"checkit": "checkit! (Wien)",
+		"recognised": "Erkannt: {object} → {item}",
 		"title_qr": "SCUTOONS-QR-Code scannen",
 		"title_object": "Finde eine echte Gurke",
 		"hint_qr": "Richte die Kamera auf den QR-Code an deinem SCUTOONS-Gegenstand.",

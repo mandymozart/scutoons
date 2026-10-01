@@ -85,6 +85,10 @@ your code" still opens the QR scanner without any item).
 | awakening_vinyl | physical | media | – | play_audio | `3_catpope_vinyl` | LE 12" |
 | awakening_test_press | physical | media | – | play_audio | (no edition yet) | variants 1_of_2, 2_of_2 |
 | kangaroo_cat_hoodie | physical | wearable | torso | – | (no edition yet) | "Love For Women" |
+| scutoons_tshirt | virtual | wearable | torso | – | – | starter, basic dress (`default_worn`), `wear` overlays ("Wardrobe") |
+| scutoons_swim_pants | virtual | wearable | legs | – | – | starter in the inventory, the cover rule's first choice (sensitive-content safety) |
+| scutoons_shorts | virtual | wearable | legs | – | – | starter, basic dress (owner may still move it to a story find) |
+| scutoons_sandals | virtual | wearable | feet | – | – | starter, basic dress |
 
 ## Collectables removed – items are the only concept (U, 2026-09-30)
 
@@ -140,7 +144,7 @@ CORS: `ALLOWED_ORIGINS` (with `Access-Control-Allow-Credentials: true`). Errors:
 | POST | `/inventory/craft/` | `{ recipe_id }` | `{ status, inventory }` · 422 `missing_inputs` |
 | POST | `/inventory/grant/` | `{ item_id, source:"story"\|"scan", ref? }` | `{ status, inventory }` · 403 if not in item's `grantable` · 429 rate limit |
 | POST | `/inventory/import/` | `{ items:[{ item_id, qty }] }` | merge guest inventory on first login (grantable items only) |
-| PUT | `/avatar/` | `{ slots:{ <slot instance id>: entryId\|null }, body? }` | `{ status, avatar }` · 422 invalid_slot/wrong_slot/not owned ("Slots per avatar body") · 422 `sensitive_hidden` ("Sensitive content") |
+| PUT | `/avatar/` | `{ slots:{ <slot instance id>: entryId\|null }, body? }` | `{ status, avatar, restored }` · 422 invalid_slot/wrong_slot/not owned ("Slots per avatar body") · 422 `sensitive_hidden` ("Sensitive content") · `restored` = instances the cover rule refilled ("Wardrobe") |
 | GET/PUT | `/progress/<toonId>/` | `{ state, updated_at }` | last-write-wins by `updated_at` |
 | POST/GET | `/validate/` | unchanged input | unchanged shape **minus** `email` and `signature` (backwards compatible for old viewer) |
 
@@ -580,7 +584,7 @@ Owner: "Make it a member-wide setting. Hide sensitive content is on by default."
 - **Viewer:** the inventory context filters `bodies` with `withoutSensitive(…, hideSensitive)` (replaces the hard-coded
   swim-only filter and its "move to swim" effect of 5e2b10d); `currentBody` falls back to the same character's visible
   look. The picker shows only with more than one body; the look label under the name only when a character has more
-  than one visible look. Account page: checkbox "Sensible Inhalte ausblenden" / "Hide sensitive content" + one-line hint,
+  than one visible look. (Superseded 2026-10-01 by "Wardrobe": one tile per character, the naked base comes from taking the swim pants off.) Account page: checkbox "Sensible Inhalte ausblenden" / "Hide sensitive content" + one-line hint,
   under the news opt-in (plain `.opt-in` style).
 - Tests: admin-smoke "(Hide sensitive content)" (default on, 422 sensitive_hidden, 400, off → naked, on → moved to swim
   and stored, a stored naked body reads as swim), api-smoke (new accounts: on), PHPUnit
@@ -614,3 +618,205 @@ cast computed from scenes would be empty there.
   list items, chapter start (DESIGN.md "Featuring"). Data: catpope chapters 1 + 2 `featuring: ["catpope"]` (chapter 1:
   the star only until the owner names more; chapter 2: its scenes use no characters (narrator only) → the star).
 
+
+## Wardrobe (2026-10-01, owner — built 2026-10-01 on branch `wardrobe`)
+
+Owner: "clothing becomes real, exchangeable items that overlay the character's A-pose."
+
+- **Default wearables** (starter items with a slot): `scutoons_tshirt` (torso), `scutoons_swim_pants` (legs),
+  `scutoons_shorts` (legs), `scutoons_sandals` (feet). Every reader owns all four.
+- **The basic dress** (owner 2026-10-01: "T-shirt + short pants + sandals") = the items marked `"default_worn": true`
+  (T-shirt, shorts, sandals), put on when the wearables are handed out, per slot type, where nothing of that type is worn
+  (`basicDress` in `@scutoons/content`, `AvatarService::basicDress` / `wearBasicDress`). **Rule per body:** for each slot
+  type the `default_worn` item with an overlay for the body's character; if it has none, another starter of that type with
+  one – so **yellowmouse and Top Toy (no shorts overlay) wear the swim pants** and their base never looks wrong; if no
+  starter of the type has one, the `default_worn` item anyway (drawn as an icon: the T-shirt and sandals there). The body
+  is the one the reader has at that moment (signup / guests: the default body, Cat Pope). The **swim pants** stay a starter
+  in the inventory: the sensitive-content safety (cover rule below). Members: granted at signup (`Users::create` →
+  `grantStarterWearables` + `wearBasicDress`), accounts older than the items get them lazily on `GET /me/` /
+  `GET|PUT /avatar/` (`AvatarService::ensureWardrobe`: only items the member owns none of – wearables are never consumed,
+  so no extra table). Guests: `giveGuestStarters` (once per item id, as before) dresses the same way.
+- **Overlays** (`ItemDef.wear`, type + schema + `validateCatalog` in `@scutoons/content` `wardrobe.ts`):
+  `{ "<character>": "<path>", "<character>/<slot instance>": "<path>" }` – a full-body image aligned to the character's
+  A-pose (same 768 × 1152 canvas, transparent WebP). Lookup `<character>/<instance>` first, then `<character>`
+  (`wearOverlay`). A body without an overlay for the worn item draws the item's **icon at the slot anchor** (as before;
+  hoodies, tee, amulet keep that). Validation: keys must be a known character / slot instance of the item's type, `.webp`
+  /`.png`, only wearables, a warning for one overlay on a multi-figure body, a warning when no starter covers `legs`.
+- **Draw order** (`WEAR_ORDER`, bottom → top): legs → feet → torso → back → hands → accessory → neck → head → face; then
+  the icon-only items (old order back … face) above all overlays.
+- **Swap**: putting an item on an occupied instance takes the old one off; it stays an inventory entry (nothing is ever
+  lost). The viewer says so ("SCUTOONS Badehose ist zurück im Inventar." – toast, a status line in the avatar view and
+  in the item detail), the Items tab lists worn items under "Am Avatar" and the rest under "Im Inventar".
+- **Sensitive rule** ("Hide sensitive content" on = members by default, guests always): the cover slots
+  (`SENSITIVE_COVER = ['legs']`) are never left empty – every save (`PUT /avatar/` slots or body, `PUT /me/
+  { hide_sensitive: true }`) refills each empty legs instance with the first unworn legs item in catalog order (swim
+  pants before shorts); the answer's `restored` lists them, the viewer notes "„Sensible Inhalte ausblenden“ ist an:
+  SCUTOONS Badehose angezogen." So taking off the swim pants is effectively blocked, taking off the shorts puts the swim
+  pants back. Same rule for guests in the inventory context (`coverSensitive`). With the setting off, legs may be empty
+  (naked allowed).
+- **Base image** (`wardrobeBase`): the character's sensitive (naked) look when it is unlocked and either the setting is
+  off or every legs instance wears an item **with an overlay** for this body; otherwise the safe look (swim, pants painted
+  in). While hidden the naked base is only shown once the legs overlays have loaded, on top of the safe look (a failed
+  layer can never reveal a naked body). Twins with one pair of pants (or an item without an overlay) → safe base.
+- **Bodies picker**: one tile per character (nakedness is the pants coming off, not a look). `body { character, look }`
+  stays in the API; the look ids `swim`/`naked` stay in the registry (the safe base and the naked base).
+
+### Files the owner replaces later (same names; placeholders made by `cdn/tools/make_wear_overlays.py`)
+
+Convention: `characters/<character>/wear/<item>.webp` (single figure) or `…/<item>-<slot instance>.webp` (multi-figure
+body), 768 × 1152 transparent WebP aligned to that character's A-pose; icon `scutoons/items/<item>.png` (512 px cut-out).
+
+| File (CDN root) | Size | Source / method |
+|---|---|---|
+| `characters/catpope/wear/scutoons_swim_pants.webp` | 8 KB | swim − naked difference |
+| `characters/catpope/wear/scutoons_tshirt.webp` | 14 KB | the reference `catpope_apose-example-dressed.webp`, colour segmentation (low saturation) |
+| `characters/catpope/wear/scutoons_shorts.webp` | 16 KB | the same reference, colour segmentation (denim blue) |
+| `characters/catpope/wear/scutoons_sandals.webp` | 10 KB | the same reference: brown/cork below the ankles, each sandal moved + scaled onto the naked foot |
+| `characters/yellowmouse/wear/scutoons_swim_pants.webp` | 9 KB | swim − naked difference |
+| `characters/toptoy/wear/scutoons_swim_pants-legs-left.webp` | 16 KB | swim − naked difference, left half |
+| `characters/toptoy/wear/scutoons_swim_pants-legs-right.webp` | 14 KB | swim − naked difference, right half |
+| `scutoons/items/scutoons_tshirt.png` | 122 KB | the catpope overlay, trimmed, 512 px |
+| `scutoons/items/scutoons_swim_pants.png` | 116 KB | the catpope overlay, trimmed, 512 px |
+| `scutoons/items/scutoons_shorts.png` | 190 KB | the catpope overlay, trimmed, 512 px |
+| `scutoons/items/scutoons_sandals.png` | 96 KB | the catpope overlay, the pair side by side, 512 px |
+
+**Missing overlays (asset requests, the icon is drawn meanwhile – `missingWearOverlays(catalog, registry)` lists them):**
+`characters/yellowmouse/wear/scutoons_tshirt.webp`, `characters/yellowmouse/wear/scutoons_shorts.webp`,
+`characters/toptoy/wear/scutoons_tshirt-torso-left.webp`, `…-torso-right.webp`,
+`characters/toptoy/wear/scutoons_shorts-legs-left.webp`, `…-legs-right.webp`,
+`characters/yellowmouse/wear/scutoons_sandals.webp`, `characters/toptoy/wear/scutoons_sandals-feet-left.webp`,
+`…-feet-right.webp` – plus every physical wearable (Dago hoodie /
+heavy T, kangaroo hoodie, scorpion amulet) on every body. They are not stored as `asset-requests` entries (that would
+change the release seed); add them in the creator's wanted images if the owner wants them listed there.
+
+**Extraction quality:** swim pants = clean (the two A-poses share one transform; fur/skin texture noise averaged out by
+blurring the images before the difference, thin attachments like a tail drawn differently dropped); the Top Toy pants
+carry a 2–4 px fringe of the figure's own fur (invisible over the same body). T-shirt/shorts from the dressed reference:
+the upper body lines up with the naked A-pose within 1–3 px, the shirt fits; the reference's legs stand wider than the
+A-pose's, so the shorts hang a little wide over the thighs (reads as loose shorts). The sandals: the reference's feet
+stand wider, turned out and 20 px higher than the naked A-pose's, so each sandal (brown/cork mask below y 950, the holes
+between the straps filled – the reference's toes come along and cover the cat's claws) is moved and scaled onto the naked
+foot (width = foot + 24 px, sole on the sole); it reads as a foot in a sandal in a slight 3/4 view over a front-facing
+foot, the sole edge keeps a few ragged shadow pixels.
+Placeholders only – the owner's branded artwork replaces them.
+
+**Tests:** content `test/wardrobe.test.ts` (catalog vs registry, validation errors, overlay lookup, the basic dress per
+body, cover rule, base image), PHPUnit `WardrobeTest` (new account wears the basic dress, basic dress per body, lazy grant
+once – the swim pants on Top Toy –, swap keeps the entry, cover rule, setting off/on, twins), api-smoke (a new account wears
+the basic dress, the swim pants wait), admin-smoke "Wardrobe" (9 checks), `npm run check:wardrobe` (headless, 390 + 1440,
+guest + test user, 24 checks: the basic dress, swim pants on → shorts back + Items lists, swim pants stay on while hidden,
+item detail swap, setting off → naked, Top Toy twins, back to Cat Pope). `npm run dev:test-user -- --reset` removes the
+default wearables so the next `/me/` hands them out and puts the basic dress on, like a signup.
+
+**Merge note (after the 2026-10-04 release):** no migration, no seed change. Deploy order: CDN first (`cdn/sync.py` the
+`characters/*/wear/` folders and `scutoons/items/` – run `cdn/tools/make_wear_overlays.py` on the owner's `cdn/root`
+first, the branch could not write there), then the API (items.json + services), then the viewer. Existing members get
+the four wearables on their next `/me/` with the basic dress (T-shirt, shorts, sandals – the swim pants on a body
+without a shorts overlay) worn where those slots were free. The bodies picker no longer
+offers "nackt" as a separate look.
+
+## Substances, reader stats, testo (2026-10-01, owner — built 2026-10-01 on branch `wardrobe`)
+
+Owner: "There is no male/female. Instead a testo value (a slider): the more testo, the more [gender-]read
+characteristics." Then: "other drugs too, taken at any time" → one small **substances** model, not a one-off. Game
+mechanics only: no dosing, no real-world use instructions, no claims about real effects in any text.
+
+- **No male/female anywhere.** There was no gender/sex field in the types, seed, creator or people (checked); none added.
+  Characters carry an optional `testo` level 0–100 (`RegistryCharacter.testo`, per-persona override
+  `CharacterPersona.testo`; validation 0–100; creator character page: a slider next to the colour + "✕" = unset, same
+  for the persona). **No values are set in the content** (unset = undefined). `characterTesto(c, persona)` reads it,
+  `testoBand(level)` → `testo-low | testo-mid | testo-high` (< 34 / < 67 / ≥ 67) is the hook for future A-pose / portrait
+  variants – **no visual change yet**. **Direction (owner 2026-10-01): more testo → the character reads more male, less
+  testo → more female** (`testo-low` = female-read, `testo-mid` = ambiguous, `testo-high` = male-read); the art variants
+  follow that later.
+- **Character tendencies** (`RegistryCharacter.tendencies: string[]`, creator field "Neigungen"): story/workflow
+  reference only, no runtime effect. Top Toy: `["psychedelics"]` (owner: "tends to take a lot of psychedelics";
+  `migrate-characters.ts`, the characters seed, the characters statement of both seed SQL files).
+- **Reader stats** (`catalog.stats` in `server/config/items.json`): `testo` and `appetite` (a placeholder stat, no
+  gameplay yet), each `{ label, baseline: 50, half_life_days: 3 }`. **Neutral start 50.** **Decay:** the level drifts back
+  to the baseline, `level(t) = baseline + (stored − baseline) · 0.5^(days / half_life_days)` – computed lazily on read from
+  `{ level, updated_at }`, no cron (one constant per stat, in the catalog). Members: table `member_stats`; guests:
+  localStorage `scutoons_reader`. `GET /me/ stats` = `{ <stat>: { level, updated_at } }` = the level **as of** `updated_at`
+  (= now, decayed, 0.1 steps), so the reader keeps decaying it from there.
+- **Substance items** (`category: "substance"`, consumable, stackable, skill `{ "type": "apply" }` = "Benutzen"):
+  `effects: [{ stat, delta }]` (current level + delta, clamped 0–100) and/or `effect: { kind, duration_min }` (a timed
+  reader effect; a running one of the same kind is replaced). Validation: known stats, delta ≠ 0, duration > 0, a
+  substance needs `apply` and `apply` needs effects.
+
+  | id (placeholder names, owner may rename) | what | grantable |
+  |---|---|---|
+  | `testo` | testo +20 | story, scan |
+  | `psilocybin` ("Zauberpilz") | effect `psychedelic` 20 min | story |
+  | `lsd` ("Bunte Pappe") | effect `psychedelic` 45 min | story |
+  | `semaglutide` ("Semaglutid-Pen", generic name only) | appetite −20 | story |
+  | `testo_camera` (tool) | `scan_object` labels `lotion`, `sunscreen`, `pill bottle` → grants `testo`, cooldown 10 s | – |
+
+  Recipe `testo_camera` = `camera` + `testo` (like the cucumber camera: the starter camera's QR scan is traded for it).
+- **API:** `POST /inventory/use/ { item_id }` → `{ status, item_id, stats, effects, inventory }` – consumes one piece and
+  applies it in **one transaction** · `422 missing` (none owned), `not_usable`, `404 unknown_item`.
+  `POST /effects/end/ { kind }` → `{ status, ended, effects }` ("Effekt beenden"; a POST, so the reader CORS methods stay
+  GET/POST/PUT). `GET /me/` adds `stats` and `effects: [{ kind, until }]` (running only). Server:
+  `Domain\Reader\ReaderState`.
+- **Psychedelic effect (viewer):** `components/items/reader-effect.svelte` (toon layout): `html[data-effect=psychedelic]`
+  makes the slice images drift in hue and wobble gently (CSS); **off with `prefers-reduced-motion: reduce`**; a small bar
+  "Farbrausch · noch N min · Effekt beenden" ends it at once. Stat bars: `reader-stats.svelte` at the top of the inventory
+  ("Testo 62", plain brutalist bar, no gendered wording).
+- **Story pickup:** one `testo` in the sandbox, chapter 2 (the Top Toy encounter), slice 6: a click on the stone ledge
+  right of the figure (the art has no tube drawn in) → "Eine Tube Testo!" / "Einsammeln" (`add testo 1` → the VN item
+  bridge grants it, source story, once per place). `make-sandbox.ts` (`TESTOS`), the sandbox seed (dev only; not in the
+  production seed SQL).
+- **Testo camera detection – the limits, honestly:** the camera uses MobileNet v2 (ImageNet 1000 classes) on the device,
+  like the cucumber camera. ImageNet has no "testosterone" or "gel tube" class; the closest are `lotion`, `sunscreen` and
+  `pill bottle`, so the testo camera reacts to **tubes and small bottles in general** (hand cream, sunscreen, pill jars),
+  not to testo specifically, and only when the object fills the centre square (threshold 0.35, 3 frames). Game fiction:
+  "every find is a tube of testo in the game".
+- **Check It camera** (`checkit_camera`, "Check It Kamera" / "Check It camera"; owner 2026-10-01 – the name is a
+  deliberate nod to checkit!, the real anonymous drug-checking service of Suchthilfe Wien; no ™, no logo or branding
+  imitating it): a tool with a multi-label `scan_object` – `labels` → `grants` plus `map: [{ labels, grants, name }]`
+  (`scanTargets` / `matchScan` in `@scutoons/content`: the best prediction across all targets wins; the server's scan
+  grant honours the map, `Catalog::scanTools`). **How it is obtained is the owner's call:** for now `grantable:
+  ["story"]` (a story/admin grant; no recipe, not placed in any content yet). Mapping – **only labels MobileNet v2
+  (ImageNet) really has**, cooldown 15 s:
+
+  | model labels (ImageNet) | recognised as (game text) | grants |
+  |---|---|---|
+  | `pill bottle`, `lotion`, `sunscreen` | "Pillendose / Tube" | `testo` |
+  | `syringe` | "Spritze" | `semaglutide` (ImageNet has no injection pen; a syringe is the closest) |
+  | `mushroom`, `agaric` | "Pilz" | `psilocybin` (any mushroom – the model can't tell kinds of mushroom apart for this) |
+  | `envelope` | "Briefchen" | `lsd` (any envelope; ImageNet has no blotter paper) |
+
+  Limits: it recognises **everyday objects**, never what is in them; only the centre square, threshold 0.35, 3 frames in a
+  row. The scan result is game text only – "Erkannt: Spritze → Semaglutid-Pen" / "Recognised: syringe → Semaglutide pen",
+  never "analysed", "contains" or "safe". `psilocybin`, `lsd`, `semaglutide` are now also grantable by `scan` (validation:
+  every item a camera grants must be).
+- **Mandatory notice** in the camera UI, every time a camera that finds substances opens (testo camera and Check It
+  camera; compact, not dismissible): "Spiel-Kamera. Analysiert keine echten Substanzen. Echtes, anonymes Drug-Checking:
+  checkit! (Wien)" / "Game camera. Does not analyse real substances. Real, anonymous drug checking: checkit! (Vienna)",
+  linking **https://checkit.wien** – verified 2026-10-01 as the official site ("checkit! Kompetenzzentrum für
+  Freizeitdrogen", footer "checkit! Suchthilfe Wien gGmbH, Gumpendorfer Straße 8, 1060 Wien"; the press also names
+  www.checkyourdrugs.at). Object cameras other than the cucumber camera show their item name as the title and generic
+  hints ("Nächster Fund in 15s").
+- **Browser-check hook (DEV only):** `globalThis.__scutoonsFakePredictions` makes `loadClassifier()` return those
+  predictions instead of downloading MobileNet (with a canvas `getUserMedia` stub the object loop runs headless); never
+  active in a production build (`import.meta.env.DEV`).
+- **Icons** (placeholders in the house style, `cdn/tools/make_substance_icons.py` → `scutoons/items/`, to replace):
+  `checkit_camera.png` 31 KB (the camera with a small test tube, no logo), `testo.png` 41 KB (a squeeze tube), `testo_camera.png` 45 KB (the camera with a tube), `psilocybin.png` 29 KB (a
+  mushroom), `lsd.png` 84 KB (a blotter square with a spiral), `semaglutide.png` 33 KB (a generic pen, no product look).
+- **Tests:** content `test/substances.test.ts` (catalog, decay, apply + cap, effect expiry/replace/end, testo bands,
+  character validation), PHPUnit `ReaderStateTest` (decay math, apply + cap + decay with the frozen clock, semaglutide,
+  the timed effect's expiry + end, recipe + scan grant + cooldown, story pickup once), api-smoke "Substances" (13 checks),
+  `npm run check:testo` (`scripts/check-testo.mjs`, headless 390 px, guest + test user, 10 checks: sandbox pickup,
+  "Benutzen" 50 → 70, decay → 60, combine → testo camera (+ scan grant and cooldown for the member), psychedelic on the
+  slices / off with reduced motion / ended; the Check It camera's notice with the checkit! link on open and its hit
+  "Erkannt: Spritze → Semaglutid-Pen" + the grant, through the DEV hook – 12 checks). Content test "Check It camera"
+  (mapping, best match, the scan-grantable rule), PHPUnit + api-smoke (the map's scan grants + cooldown, no_tool).
+- `npm run dev:test-user -- --reset` also clears the stats/effects and the story pickup refs and gives back a starter
+  camera a recipe used up.
+
+**Merge note (substances):** migration `server/migrations/{mysql,sqlite}/2026-10-01-reader-state.*.sql` (two new tables
+`member_stats`, `member_effects`, idempotent, after `2026-10-01-embassy`). The characters statement of
+`characters-seed.mysql.sql` / `content-seed.mysql.sql` carries Top Toy's `tendencies`; the seed skips an existing
+`characters` entity, so on production publish the registry once from the creator (or `import-content
+--only=characters --update`). CDN: `cdn/tools/make_substance_icons.py`, then `cdn/sync.py` (`scutoons/items/`).
+The Check It camera needs nothing extra on deploy (catalog + viewer); decide how readers obtain it (recipe or a story
+grant – it is `grantable: ["story"]` and placed nowhere yet).

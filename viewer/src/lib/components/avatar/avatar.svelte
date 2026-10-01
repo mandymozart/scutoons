@@ -1,6 +1,16 @@
 <script lang="ts">
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
-	import { AVATAR_SLOTS, pickText, type AvatarBody, type AvatarSlot, type AvatarSlotInstance, type Entry } from '@scutoons/content';
+	import {
+		AVATAR_SLOTS,
+		SENSITIVE_COVER,
+		WEAR_ORDER,
+		pickText,
+		wardrobeBase,
+		type AvatarBody,
+		type AvatarSlot,
+		type AvatarSlotInstance,
+		type Entry
+	} from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -11,8 +21,14 @@
 	 * side. The bodies come from the character registry (`avatarBodies`, loaded by the inventory context), filtered to
 	 * what the reader has unlocked (members: `/me/ avatar.unlocked`; guests: the default unlocks); locked characters are
 	 * not shown. A body's wear slots are slot instances (`apose.looks[].slots`: id, slot type, anchor) – a duo has every
-	 * slot type twice ("Kopf links" / "Kopf rechts"); worn items are drawn at the instance anchors (image px).
-	 * ITEMS.md "Reader avatar bodies & character unlocks", "Slots per avatar body".
+	 * slot type twice ("Kopf links" / "Kopf rechts").
+	 *
+	 * Wardrobe (ITEMS.md "Wardrobe"): the base image is the character's naked A-pose when the reader may see it ("Hide
+	 * sensitive content" off, or every legs instance wears an item with an overlay – and only once those overlays have
+	 * loaded), else the safe look (swim, pants painted in). On top: worn items with an overlay for this body as full-body
+	 * layers in WEAR_ORDER (legs → feet → torso → back → hands → accessory → neck → head → face), then the items without
+	 * one as icons at their slot anchors. The picker shows one tile per character (nakedness is the swim pants coming off,
+	 * not a look). ITEMS.md "Reader avatar bodies & character unlocks", "Slots per avatar body".
 	 */
 	const W = 768;
 	const H = 1152;
@@ -25,10 +41,11 @@
 	// every visible look of the unlocked characters; looks marked `sensitive` (naked) are left out while "Hide sensitive
 	// content" is on (members: account page, on by default; guests: always) – ITEMS.md "Sensitive content". A hidden
 	// chosen body shows as the character's first visible look (inventory context; the server moves it on save).
-	const bodies = $derived<AvatarBody[]>(inventory.bodies);
 	const body = $derived<AvatarBody | undefined>(inventory.currentBody);
-	/** characters with more than one visible look show the look label under the name */
-	const lookCounts = $derived(bodies.reduce<Record<string, number>>((n, b) => ((n[b.character] = (n[b.character] ?? 0) + 1), n), {}));
+	/** one tile per character: its current body, else its first visible look (the default first) */
+	const bodies = $derived<AvatarBody[]>(
+		inventory.bodies.filter((b, i, all) => all.findIndex((x) => x.character === b.character) === i).map((b) => (body?.character === b.character ? body : b))
+	);
 	let bodyError = $state<string | null>(null);
 
 	async function chooseBody(b: AvatarBody) {
@@ -41,7 +58,7 @@
 		}
 	}
 
-	// draw order: back first, face/head last
+	// icons without an overlay: back first, face/head last (drawn above every overlay)
 	const WORN_ORDER: AvatarSlot[] = ['back', 'legs', 'feet', 'torso', 'hands', 'accessory', 'neck', 'head', 'face'];
 	// tiles of a single figure: left column top→bottom, right column top→bottom
 	const LEFT: AvatarSlot[] = ['head', 'face', 'hands', 'legs', 'feet'];
@@ -61,7 +78,29 @@
 	const right = $derived(
 		multi ? byType(instances.filter((s) => s.x >= W / 2), TYPE_ORDER) : byType(instances.filter((s) => !LEFT.includes(s.slot)), RIGHT)
 	);
-	const drawn = $derived(byType(instances.filter((s) => s.size > 0), WORN_ORDER));
+	/** worn items with an overlay for this body (full-body layers, WEAR_ORDER) */
+	const overlays = $derived(
+		byType(instances, WEAR_ORDER).flatMap((s) => {
+			const entry = inventory.equippedEntry(s.id);
+			const src = entry ? inventory.overlayOf(entry, s.id) : null;
+			return entry && src ? [{ slot: s, entry, src }] : [];
+		})
+	);
+	/** worn items without an overlay: icons at the anchors */
+	const drawn = $derived(byType(instances.filter((s) => s.size > 0 && !overlays.some((o) => o.slot.id === s.id)), WORN_ORDER));
+	// the base: naked only when allowed; while hidden it waits until the legs overlays are there (never a naked frame)
+	let loaded = $state<Record<string, boolean>>({});
+	const coverSrcs = $derived(overlays.filter((o) => SENSITIVE_COVER.includes(o.slot.slot)).map((o) => asset(o.src)));
+	const coverReady = $derived(coverSrcs.every((src) => loaded[src] === true));
+	const wanted = $derived(wardrobeBase(inventory.unlockedBodies, body, { hide: inventory.hideSensitive, covered: inventory.covered }));
+	const safe = $derived(wardrobeBase(inventory.unlockedBodies, body, { hide: true, covered: false }));
+	const showNaked = $derived(!!wanted?.naked && (!inventory.hideSensitive || coverReady));
+	const base = $derived(showNaked ? wanted : safe);
+	/** the newest swap note (back in the inventory / put back on) for the status line */
+	const note = $derived([...inventory.notices].reverse().find((n) => n.kind === 'returned' || n.kind === 'restored'));
+	const noteText = $derived(
+		note ? (note.kind === 'returned' ? m['items.returned'] : m['items.restored'])({ name: inventory.nameOf({ item_id: note.item_id, variant: null }) }) : ''
+	);
 
 	let selectedId = $state<string | null>(null);
 	const selected = $derived(instances.find((s) => s.id === selectedId));
@@ -108,19 +147,18 @@
 <div class="avatar">
 	{#if bodies.length > 1}
 	<div class="bodies" role="group" aria-label={m['items.avatar_body']()} data-testid="avatar-bodies">
-		{#each bodies as b (`${b.character}/${b.look}`)}
-			{@const active = b === body}
+		{#each bodies as b (b.character)}
+			{@const active = b.character === body?.character}
 			<button
 				class="body-choice"
 				class:active
 				aria-pressed={active}
-				title={b.label}
+				title={b.name}
 				data-body="{b.character}/{b.look}"
 				onclick={() => chooseBody(b)}
 			>
 				<img src={asset(b.path)} alt="" loading="lazy" draggable="false" />
 				<span class="body-name">{b.name}</span>
-				{#if lookCounts[b.character] > 1}<span class="body-look">{b.lookLabel}</span>{/if}
 			</button>
 		{/each}
 	</div>
@@ -131,8 +169,26 @@
 		<div class="column">
 			{#each left as slot (slot.id)}{@render tile(slot)}{/each}
 		</div>
-		<div class="figure" style="aspect-ratio: {W} / {H}">
-			{#if body}<img class="apose" src={asset(body.path)} alt={body.label} draggable="false" />{/if}
+		<div class="figure" style="aspect-ratio: {W} / {H}" data-base={showNaked ? 'naked' : 'safe'}>
+			{#if body && safe && (!showNaked || inventory.hideSensitive)}
+				<!-- the safe look (swim): under the naked base while hidden, so nothing naked shows if a layer fails -->
+				<img class="apose" src={asset(safe.path)} alt={showNaked ? '' : body.name} draggable="false" data-layer="base-safe" />
+			{/if}
+			{#if body && showNaked && wanted}
+				<img class="apose" src={asset(wanted.path)} alt={body.name} draggable="false" data-layer="base-naked" />
+			{/if}
+			{#each overlays as o (o.slot.id)}
+				<img
+					class="apose"
+					src={asset(o.src)}
+					alt=""
+					draggable="false"
+					data-overlay={o.slot.id}
+					data-item={o.entry.item_id}
+					onload={() => (loaded[asset(o.src)] = true)}
+					onerror={() => (loaded[asset(o.src)] = false)}
+				/>
+			{/each}
 			{#each drawn as w (w.id)}
 				{@const worn = inventory.equippedEntry(w.id)}
 				{#if worn}
@@ -151,6 +207,8 @@
 		</div>
 	</div>
 
+	{#if noteText}<p class="note swap" role="status" data-testid="avatar-note">{noteText}</p>{/if}
+
 	{#if selected}
 		{@const current = inventory.equippedEntry(selected.id)}
 		<div class="picker">
@@ -163,7 +221,7 @@
 					{@const on = current && String(current.id) === String(entry.id)}
 					<li>
 						<div class="thumb"><ItemIcon srcs={[inventory.iconOf(entry)]} name={inventory.nameOf(entry)} /></div>
-						<span class="name">{inventory.nameOf(entry)}</span>
+						<span class="name">{inventory.nameOf(entry)}{#if on}<span class="worn-tag"> · {m['items.worn']()}</span>{/if}</span>
 						<button
 							class={on ? '' : 'btn-secondary'}
 							class:disabled={working}
@@ -216,11 +274,6 @@
 		font-weight: 700;
 		line-height: 1.1;
 		text-align: center;
-	}
-	.body-look {
-		font-size: 0.625rem;
-		line-height: 1.1;
-		color: var(--text-muted);
 	}
 	.body-choice:hover,
 	.body-choice.active {
@@ -338,6 +391,13 @@
 	.note {
 		margin: 0;
 		font-size: 0.75rem;
+		color: var(--text-muted);
+	}
+	.note.swap {
+		color: var(--ink);
+		text-align: center;
+	}
+	.worn-tag {
 		color: var(--text-muted);
 	}
 </style>

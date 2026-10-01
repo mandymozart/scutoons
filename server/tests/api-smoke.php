@@ -146,7 +146,7 @@ echo "Public\n";
 $r = call('GET', "$api/health/");
 check($r['status'] === 200 && $r['body']['db'] === 'ok', 'GET /health/', $r);
 $r = call('GET', "$api/items/");
-check($r['status'] === 200 && count($r['body']['items'] ?? []) === 10 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 10 items + recipes', $r['status']);
+check($r['status'] === 200 && count($r['body']['items'] ?? []) === 20 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 20 items + recipes', $r['status']);
 // the cucumber camera only scans cucumbers (owner 2026-09-30): crafting trades the starter camera's QR scan for it
 $skillsOf = fn(string $id) => array_column(array_values(array_filter($r['body']['items'] ?? [], fn($i) => $i['id'] === $id))[0]['skills'] ?? [], 'type');
 check($skillsOf('camera') === ['scan_qr'] && $skillsOf('cucumber_camera') === ['scan_object'], 'camera: scan_qr · cucumber_camera: scan_object only', [$skillsOf('camera'), $skillsOf('cucumber_camera')]);
@@ -206,6 +206,11 @@ $vinylEntry = entries($inv, 'awakening_vinyl')[0] ?? null;
 check($vinylEntry && $vinylEntry['code'] === $vinyl && $vinylEntry['source'] === 'qr' && is_int($vinylEntry['edition_number']), 'vinyl in inventory with code + edition_number', $vinylEntry);
 check(in_array($vinyl, array_column($me['body']['memberships'], 'code'), true), 'memberships list the vinyl code');
 check(array_keys((array) $me['body']['avatar']['slots']) === Catalog::slots(), 'avatar lists all slots');
+$slotsA = (array) $me['body']['avatar']['slots'];
+$basic = fn(string $item) => entries($inv, $item)[0]['id'] ?? 'missing';
+check([$slotsA['torso'], $slotsA['legs'], $slotsA['feet']] === [$basic('scutoons_tshirt'), $basic('scutoons_shorts'), $basic('scutoons_sandals')]
+    && qty($inv, 'scutoons_swim_pants') === 1 && !in_array($basic('scutoons_swim_pants'), $slotsA, true),
+    'new account wears the basic dress (T-shirt, shorts, sandals), the swim pants wait in the inventory (agents/ITEMS.md "Wardrobe")', $slotsA);
 
 // ── Claim with a choice ────────────────────────────────────────────────────────────────────────────────
 echo "\nClaim (dago code: choice needed)\n";
@@ -256,6 +261,44 @@ $r = call('POST', "$api/inventory/grant/", ['item_id' => 'cucumber', 'source' =>
 check($r['status'] === 200 && $r['body']['granted'] === 1, 'scan grant with cucumber camera → 1', $r);
 $r = call('POST', "$api/inventory/grant/", ['item_id' => 'cucumber', 'source' => 'scan'], $tokenA);
 check($r['status'] === 429 && $r['body']['error'] === 'cooldown', 'scan grant again at once → 429 cooldown', $r);
+
+// ── Substances (agents/ITEMS.md "Substances"): testo, the testo camera, a timed effect (user B) ─────────────
+echo "\nSubstances\n";
+$me = call('GET', "$api/me/", null, $tokenB)['body'] ?? [];
+check(($me['stats']['testo']['level'] ?? null) === 50 && is_string($me['stats']['testo']['updated_at'] ?? null) && ($me['effects'] ?? null) === [], 'GET /me/: testo 50 (the neutral start, as of now), no effects', [$me['stats'] ?? null, $me['effects'] ?? null]);
+$r = call('POST', "$api/inventory/use/", ['item_id' => 'testo'], $tokenB);
+check($r['status'] === 422 && $r['body']['error'] === 'missing', 'use testo without one → 422 missing', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'testo', 'source' => 'story', 'ref' => "smoke:$run:sandbox:testo"], $tokenB);
+check($r['status'] === 200 && $r['body']['granted'] === 1, 'story pickup: testo (once per place)', $r);
+$r = call('POST', "$api/inventory/use/", ['item_id' => 'testo'], $tokenB);
+check($r['status'] === 200 && ($r['body']['stats']['testo']['level'] ?? null) === 70 && qty($r['body']['inventory'], 'testo') === 0, 'use testo → 70, the piece is used up', $r);
+Db::run("UPDATE member_stats SET updated_at = ? WHERE user_id = ? AND stat = 'testo'", [gmdate('Y-m-d H:i:s', time() - 3 * 86400), $b['user']['id']]);
+$me = call('GET', "$api/me/", null, $tokenB)['body'] ?? [];
+check(abs(($me['stats']['testo']['level'] ?? 0) - 60) < 0.2, 'three days later (stored time moved back): halfway back to 50 → 60', $me['stats'] ?? null);
+$r = call('POST', "$api/inventory/use/", ['item_id' => 'camera'], $tokenB);
+check($r['status'] === 422 && $r['body']['error'] === 'not_usable', 'use the camera → 422 not_usable', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'testo', 'source' => 'scan'], $tokenB);
+check($r['status'] === 403 && $r['body']['error'] === 'no_tool', 'testo scan without the testo camera → 403 no_tool', $r);
+call('POST', "$api/inventory/grant/", ['item_id' => 'testo', 'source' => 'story', 'ref' => "smoke:$run:sandbox:testo-2"], $tokenB);
+$r = call('POST', "$api/inventory/craft/", ['recipe_id' => 'testo_camera'], $tokenB);
+check($r['status'] === 200 && qty($r['body']['inventory'], 'testo_camera') === 1 && qty($r['body']['inventory'], 'camera') === 0, 'craft testo + camera → testo camera', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'testo', 'source' => 'scan'], $tokenB);
+check($r['status'] === 200 && $r['body']['granted'] === 1, 'testo scan with the testo camera → 1', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'testo', 'source' => 'scan'], $tokenB);
+check($r['status'] === 429 && $r['body']['error'] === 'cooldown', 'testo scan again at once → 429 cooldown', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'psilocybin', 'source' => 'story', 'ref' => "smoke:$run:psilocybin"], $tokenB);
+$r = call('POST', "$api/inventory/use/", ['item_id' => 'psilocybin'], $tokenB);
+check($r['status'] === 200 && ($r['body']['effects'][0]['kind'] ?? null) === 'psychedelic' && strtotime($r['body']['effects'][0]['until']) - time() > 19 * 60, 'use psilocybin → effect psychedelic for 20 minutes', $r);
+$r = call('POST', "$api/effects/end/", ['kind' => 'psychedelic'], $tokenB);
+check($r['status'] === 200 && $r['body']['ended'] === true && $r['body']['effects'] === [], 'POST /effects/end/ { kind: psychedelic } → ended', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'semaglutide', 'source' => 'scan'], $tokenB);
+check($r['status'] === 403 && $r['body']['error'] === 'no_tool', 'semaglutide scan without the Check It camera → 403 no_tool', $r);
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'checkit_camera', 'source' => 'story', 'ref' => "smoke:$run:checkit"], $tokenB);
+check($r['status'] === 200 && qty($r['body']['inventory'], 'checkit_camera') === 1, 'Check It camera granted by the story (owner decides how it is obtained)', $r);
+$ok = true;
+foreach (['semaglutide', 'psilocybin', 'lsd'] as $item) $ok = $ok && (call('POST', "$api/inventory/grant/", ['item_id' => $item, 'source' => 'scan'], $tokenB)['body']['granted'] ?? 0) === 1;
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'lsd', 'source' => 'scan'], $tokenB);
+check($ok && $r['status'] === 429 && $r['body']['error'] === 'cooldown', 'Check It camera: its map scan-grants semaglutide, psilocybin, lsd; the cooldown applies', $r);
 
 // ── Avatar ─────────────────────────────────────────────────────────────────────────────────────────────
 echo "\nAvatar\n";
