@@ -55,6 +55,10 @@
 				"note": {
 					"type": "string"
 				},
+				"brief": {
+					"type": "string",
+					"description": "a full brief for an image generator or a designer (the map places' requests, derived from the map – `mapMediaRequests` in map.ts; never stored)"
+				},
 				"requested_by": {
 					"type": [
 						"string",
