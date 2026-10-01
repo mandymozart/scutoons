@@ -13,6 +13,7 @@ import {
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import { DEFAULT_SLICE } from './content.ts';
+import { isMediaQuality } from './media-quality.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -244,16 +245,30 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 		if (!isObj(s.video) || !isStr(s.video.src) || !s.video.src) c.error([...path, 'video', 'src'], 'video.src is missing (an .mp4 on the CDN)');
 		else if (!/\.(mp4|webm)$/i.test(s.video.src)) c.warn([...path, 'video', 'src'], 'video.src is not a video path (.mp4, .webm)');
 		if (isObj(s.video) && s.video.sources !== undefined) {
-			if (!Array.isArray(s.video.sources)) c.error([...path, 'video', 'sources'], 'video.sources must be a list of { src, media? }');
-			else
-				s.video.sources.forEach((source: any, i: number) => {
-					if (!isObj(source) || !isStr(source.src) || !source.src) c.error([...path, 'video', 'sources', i, 'src'], 'source.src is missing (an .mp4 on the CDN)');
-					else if (!/\.(mp4|webm)$/i.test(source.src)) c.warn([...path, 'video', 'sources', i, 'src'], 'source.src is not a video path (.mp4, .webm)');
-					if (isObj(source) && source.media !== undefined && !isStr(source.media)) c.error([...path, 'video', 'sources', i, 'media'], 'source.media must be a media query string');
-				});
+			c.error([...path, 'video', 'sources'], 'video.sources is replaced by video.variants { low, medium, high } (one file per quality level)');
 		}
-		for (const key of ['loop', 'autoplay', 'player'] as const) {
+		if (isObj(s.video) && s.video.variants !== undefined) {
+			const variants = s.video.variants;
+			if (!isObj(variants)) c.error([...path, 'video', 'variants'], 'video.variants must be { low?, medium?, high? } (480p / 720p / 1080p files)');
+			else
+				for (const [level, file] of Object.entries(variants)) {
+					const vp = [...path, 'video', 'variants', level];
+					if (!isMediaQuality(level)) c.error(vp, `unknown quality level "${level}" (low, medium, high)`);
+					else if (!isStr(file) || !file) c.error(vp, `video.variants.${level} is missing (an .mp4 on the CDN)`);
+					else if (!/\.(mp4|webm)$/i.test(file)) c.warn(vp, `video.variants.${level} is not a video path (.mp4, .webm)`);
+				}
+		}
+		for (const key of ['loop', 'autoplay', 'player', 'controls'] as const) {
 			if (isObj(s.video) && s.video[key] !== undefined && typeof s.video[key] !== 'boolean') c.error([...path, 'video', key], `video.${key} must be true or false`);
+		}
+		if (isObj(s.video) && s.video.viewport !== undefined) {
+			const vp = s.video.viewport;
+			if (!isObj(vp)) c.error([...path, 'video', 'viewport'], 'video.viewport must be { position?, fit? }');
+			else {
+				if (vp.position !== undefined && !['top', 'center', 'bottom'].includes(vp.position)) c.error([...path, 'video', 'viewport', 'position'], 'viewport.position must be top, center or bottom');
+				if (vp.fit !== undefined && !['contain', 'cover'].includes(vp.fit)) c.error([...path, 'video', 'viewport', 'fit'], 'viewport.fit must be contain (fit width) or cover (fit height)');
+				if (Array.isArray(s.dialog) && s.dialog.length) c.warn([...path, 'dialog'], 'text boxes are placed on the reading column; on a full-viewport video they do not follow the video');
+			}
 		}
 	}
 	if (s.dialog !== undefined) {

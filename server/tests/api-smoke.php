@@ -447,6 +447,26 @@ $me = call('GET', "$api/me/", null, $tokenB);
 check($r['status'] === 200 && ($me['body']['user']['marketing_opt_in'] ?? null) === true && Db::value('SELECT marketing_opt_in_at FROM users WHERE email = ?', [$emailB]) !== null,
     'PUT /me/ opt-in → /me/ shows it, time stored', $me['body']['user'] ?? $r);
 
+// ── Media quality on the account page (agents/DESIGN.md "Media quality") ─────────────────────────────
+echo "\nMedia quality\n";
+check(($me['body']['user']['media_quality'] ?? null) === 'auto', 'GET /me/: user.media_quality auto by default', $me['body']['user'] ?? null);
+$r = call('PUT', "$api/me/", ['media_quality' => 'low']);
+check($r['status'] === 401, 'PUT /me/ media_quality without token → 401', $r['status']);
+foreach (['ultra', '', 720, true] as $bad) {
+    $r = call('PUT', "$api/me/", ['media_quality' => $bad], $tokenB);
+    check($r['status'] === 400 && $r['body']['error'] === 'invalid_body', 'PUT /me/ media_quality ' . json_encode($bad) . ' → 400 invalid_body', $r);
+}
+foreach (['low', 'medium', 'high'] as $quality) {
+    $r = call('PUT', "$api/me/", ['media_quality' => $quality], $tokenB);
+    $me = call('GET', "$api/me/", null, $tokenB);
+    check($r['status'] === 200 && $r['body']['user']['media_quality'] === $quality && ($me['body']['user']['media_quality'] ?? null) === $quality
+        && Db::value('SELECT media_quality FROM users WHERE email = ?', [$emailB]) === $quality, "PUT /me/ { media_quality: $quality } → /me/ + users row", $me['body']['user'] ?? $r);
+}
+$r = call('PUT', "$api/me/", ['hide_sensitive' => true, 'marketing_opt_in' => true], $tokenB);
+check($r['status'] === 200 && $r['body']['user']['media_quality'] === 'high', 'PUT /me/ other settings leave media_quality untouched', $r);
+$r = call('PUT', "$api/me/", ['media_quality' => 'auto'], $tokenB);
+check($r['status'] === 200 && $r['body']['user']['media_quality'] === 'auto' && $r['body']['user']['marketing_opt_in'] === true, 'PUT /me/ back to auto (opt-in untouched)', $r);
+
 // ── /access/: device-level viewing for anyone holding a code ───────────────────────────────────────────
 echo "\n/access/ (viewing is device-level)\n";
 $unclaimed = $pick('3_catpope_vinyl');

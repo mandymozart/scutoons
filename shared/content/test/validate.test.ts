@@ -40,17 +40,25 @@ test('slice video: player is a boolean', () => {
 	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', player: 'yes' }), ['error groups.0.slices.0.video.player']);
 });
 
-test('slice video: sources [{ src, media? }] before src', () => {
-	const chapter = (video: unknown) => ({
-		title: 'P', number: 0, groups: [{ slices: [{ image: 'images/p.webp', width: 390, height: 206, video }] }]
+test('slice video: variants { low, medium, high }, controls, viewport; sources is gone', () => {
+	const chapter = (video: unknown, extra: object = {}) => ({
+		title: 'P', number: 0, groups: [{ slices: [{ image: 'images/p.webp', width: 390, height: 206, video, ...extra }] }]
 	});
-	const videoProblems = (video: unknown) => problems('chapter', chapter(video)).filter((p) => p.includes('.video'));
-	assert.deepEqual(videoProblems({ src: 'videos/p.1080p.mp4', player: true, sources: [{ src: 'videos/p.480p.mp4', media: '(max-width: 600px)' }, { src: 'videos/p.720p.mp4' }] }), []);
-	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', sources: [{ src: '' }, { src: 'videos/p.mp4', media: 600 }] }), [
-		'error groups.0.slices.0.video.sources.0.src',
-		'error groups.0.slices.0.video.sources.1.media'
+	const videoProblems = (video: unknown, extra?: object) => problems('chapter', chapter(video, extra)).filter((p) => p.includes('.video') || p.includes('.dialog'));
+	const variants = { low: 'videos/p.480p.mp4', medium: 'videos/p.720p.mp4', high: 'videos/p.1080p.mp4' };
+	assert.deepEqual(videoProblems({ src: 'videos/p.720p.mp4', variants, player: true, controls: false, viewport: { position: 'top', fit: 'cover' } }), []);
+	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', variants: { low: '', ultra: 'videos/p.4k.mp4' } }), [
+		'error groups.0.slices.0.video.variants.low',
+		'error groups.0.slices.0.video.variants.ultra'
 	]);
-	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', sources: 'videos/q.mp4' }), ['error groups.0.slices.0.video.sources']);
+	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', variants: ['videos/q.mp4'] }), ['error groups.0.slices.0.video.variants']);
+	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', sources: [{ src: 'videos/q.mp4' }] }), ['error groups.0.slices.0.video.sources']);
+	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', controls: 'yes', viewport: { position: 'left', fit: 'fill' } }), [
+		'error groups.0.slices.0.video.controls',
+		'error groups.0.slices.0.video.viewport.position',
+		'error groups.0.slices.0.video.viewport.fit'
+	]);
+	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', viewport: {} }, { dialog: [{ rect: { x: 1, y: 1, width: 10 }, text: 'x' }] }), ['warning groups.0.slices.0.dialog']);
 });
 
 test('season.trailer: { loop, poster, sources?, chapter? }', () => {

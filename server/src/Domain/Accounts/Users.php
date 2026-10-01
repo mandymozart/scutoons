@@ -74,6 +74,27 @@ final class Users
             [$hide ? 1 : 0, $this->clock->utc(), $userId, $hide ? 1 : 0])->rowCount() > 0;
     }
 
+    /** "Media quality" values (agents/DESIGN.md "Media quality"): auto = by the reader's bandwidth (the default) */
+    public const MEDIA_QUALITIES = ['auto', 'low', 'medium', 'high'];
+    public const MEDIA_QUALITY_DEFAULT = 'auto';
+
+    /** Sets "Media quality" (one of MEDIA_QUALITIES). Returns whether it changed. */
+    public function setMediaQuality(string $userId, string $quality): bool
+    {
+        return $this->db->run('UPDATE users SET media_quality = ?, updated_at = ? WHERE id = ? AND media_quality <> ?',
+            [$quality, $this->clock->utc(), $userId, $quality])->rowCount() > 0;
+    }
+
+    /**
+     * "Media quality" of a users row (auto when the column is missing – not migrated yet – or holds something unknown)
+     * @param array<string, mixed> $row
+     */
+    public static function mediaQuality(array $row): string
+    {
+        $value = $row['media_quality'] ?? null;
+        return is_string($value) && in_array($value, self::MEDIA_QUALITIES, true) ? $value : self::MEDIA_QUALITY_DEFAULT;
+    }
+
     /** A boolean from a JSON body (true, 1, "1", "true", "on", "yes"); anything else = false */
     public static function flag(mixed $value): bool
     {
@@ -102,6 +123,7 @@ final class Users
             'roles' => $this->roles->of((string) $row['id']),
             'marketing_opt_in' => (bool) (int) ($row['marketing_opt_in'] ?? 0),
             'hide_sensitive' => self::hidesSensitive($row),
+            'media_quality' => self::mediaQuality($row),
         ];
     }
 
@@ -130,6 +152,7 @@ final class Users
             'marketing_opt_in' => (bool) (int) ($row['marketing_opt_in'] ?? 0),
             'marketing_opt_in_at' => Time::iso($row['marketing_opt_in_at'] ?? null),
             'hide_sensitive' => self::hidesSensitive($row),
+            'media_quality' => self::mediaQuality($row),
         ];
     }
 }

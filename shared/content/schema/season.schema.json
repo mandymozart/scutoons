@@ -156,7 +156,7 @@
 			"required": [
 				"src"
 			],
-			"description": "One encoding of a slice video: a CDN path like `SliceVideo.src` + an optional media query (`<source media>`)"
+			"description": "One encoding of the season trailer's loop: a CDN path + an optional media query (`<source media>`)"
 		},
 		"Credits": {
 			"type": "object",

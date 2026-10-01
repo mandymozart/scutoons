@@ -2,6 +2,7 @@
 import { Renderer, Language, Status, type EventCategory, OnomatopoeiaVariant, OnomatopoeiaEffect, JumpToTargetType } from './enums.ts';
 import type { AudioEvents, AudioConfiguration } from './audio.ts';
 import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
+import type { QualityVariants } from './media-quality.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -110,10 +111,26 @@ export interface MapRoute {
  */
 export const DEFAULT_SLICE = { width: 390, height: 625 } as const;
 
-/** One encoding of a slice video: a CDN path like `SliceVideo.src` + an optional media query (`<source media>`) */
+/** One encoding of the season trailer's loop: a CDN path + an optional media query (`<source media>`) */
 export interface SliceVideoSource {
 	src: string;
 	media?: string;
+}
+
+/**
+ * Where a full-viewport slice video sits (`SliceVideo.viewport`, owner 2026-10-01). The slice then fills the whole
+ * viewport (its whole width, the screen's height) instead of the reading column, and the video – and its poster – is
+ * placed in that box:
+ * - `fit: 'contain'` ("fit width", the default): the whole video is visible, as big as the box allows; the rest of the
+ *   box is ink (bars above/below a landscape video). `position` = where the video sits: top, centre or bottom.
+ * - `fit: 'cover'` ("fit height"): the video fills the whole box, what doesn't fit is cropped (the sides of a landscape
+ *   video on a phone). `position` = which part stays when its top/bottom are cropped.
+ */
+export interface SliceViewport {
+	/** default 'center' */
+	position?: 'top' | 'center' | 'bottom';
+	/** default 'contain' */
+	fit?: 'contain' | 'cover';
 }
 
 /**
@@ -121,13 +138,16 @@ export interface SliceVideoSource {
  * in view; with `player` a video to watch (a music video, a trailer).
  */
 export interface SliceVideo {
-	/** CDN path of an H.264 MP4, relative to the toon's folder like `image`; with `sources` the default (the last source) */
+	/**
+	 * CDN path of an H.264 MP4, relative to the toon's folder like `image`: the default file – it plays when no variant
+	 * fits the reader's quality (`pickQualityVariant`) and in readers that don't know `variants`.
+	 */
 	src: string;
 	/**
-	 * Other encodings, tried before `src` in this order: the browser takes the first whose `media` query matches when the
-	 * video loads (e.g. 480p for `(max-width: 600px)`). No adaptive streaming (HLS) – one file per load.
+	 * One file per quality level (media-quality.ts): low = 480p, medium = 720p, high = 1080p. The reader takes its quality
+	 * setting's level, else the nearest lower one, else `src`. No adaptive streaming (HLS) – one file per load.
 	 */
-	sources?: SliceVideoSource[];
+	variants?: QualityVariants;
 	/** default true (ignored with `player`) */
 	loop?: boolean;
 	/** default true: plays while the slice is in view (paused outside, poster only with reduced motion; ignored with `player`) */
@@ -138,6 +158,10 @@ export interface SliceVideo {
 	 * plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress.
 	 */
 	player?: boolean;
+	/** the browser's basic controls (play/pause, time, volume, fullscreen); default: on for a player, off for a loop */
+	controls?: boolean;
+	/** fills the viewport instead of the reading column, placed like this (`SliceViewport`); omitted = in the column */
+	viewport?: SliceViewport;
 }
 
 export interface Slice {

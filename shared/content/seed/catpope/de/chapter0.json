@@ -20,17 +20,12 @@
           "width": 390,
           "height": 206,
           "video": {
-            "src": "videos/roar-little-kitty.1080p.mp4",
-            "sources": [
-              {
-                "src": "videos/roar-little-kitty.480p.mp4",
-                "media": "(max-width: 600px)"
-              },
-              {
-                "src": "videos/roar-little-kitty.720p.mp4",
-                "media": "(max-width: 1400px)"
-              }
-            ],
+            "src": "videos/roar-little-kitty.720p.mp4",
+            "variants": {
+              "low": "videos/roar-little-kitty.480p.mp4",
+              "medium": "videos/roar-little-kitty.720p.mp4",
+              "high": "videos/roar-little-kitty.1080p.mp4"
+            },
             "player": true
           }
         }

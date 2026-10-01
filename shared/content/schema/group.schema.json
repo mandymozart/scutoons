@@ -135,14 +135,11 @@
 			"properties": {
 				"src": {
 					"type": "string",
-					"description": "CDN path of an H.264 MP4, relative to the toon's folder like `image`; with `sources` the default (the last source)"
+					"description": "CDN path of an H.264 MP4, relative to the toon's folder like `image`: the default file – it plays when no variant fits the reader's quality (`pickQualityVariant`) and in readers that don't know `variants`."
 				},
-				"sources": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/SliceVideoSource"
-					},
-					"description": "Other encodings, tried before `src` in this order: the browser takes the first whose `media` query matches when the video loads (e.g. 480p for `(max-width: 600px)`). No adaptive streaming (HLS) – one file per load."
+				"variants": {
+					"$ref": "#/definitions/QualityVariants",
+					"description": "One file per quality level (media-quality.ts): low = 480p, medium = 720p, high = 1080p. The reader takes its quality setting's level, else the nearest lower one, else `src`. No adaptive streaming (HLS) – one file per load."
 				},
 				"loop": {
 					"type": "boolean",
@@ -155,6 +152,14 @@
 				"player": {
 					"type": "boolean",
 					"description": "A video player instead of the loop: sound, native controls (fullscreen through them), started by the reader, no loop. The slice's `width` / `height` are the video's aspect ratio at the slice width (no 390 × 625 crop). While it plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress."
+				},
+				"controls": {
+					"type": "boolean",
+					"description": "the browser's basic controls (play/pause, time, volume, fullscreen); default: on for a player, off for a loop"
+				},
+				"viewport": {
+					"$ref": "#/definitions/SliceViewport",
+					"description": "fills the viewport instead of the reading column, placed like this (`SliceViewport`); omitted = in the column"
 				}
 			},
 			"required": [
@@ -162,20 +167,43 @@
 			],
 			"description": "A video instead of the slice image. The slice's `image` is its poster. By default a muted, inline loop that plays while in view; with `player` a video to watch (a music video, a trailer)."
 		},
-		"SliceVideoSource": {
+		"QualityVariants": {
 			"type": "object",
 			"properties": {
-				"src": {
+				"low": {
 					"type": "string"
 				},
-				"media": {
+				"medium": {
+					"type": "string"
+				},
+				"high": {
 					"type": "string"
 				}
 			},
-			"required": [
-				"src"
-			],
-			"description": "One encoding of a slice video: a CDN path like `SliceVideo.src` + an optional media query (`<source media>`)"
+			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
+		},
+		"SliceViewport": {
+			"type": "object",
+			"properties": {
+				"position": {
+					"type": "string",
+					"enum": [
+						"top",
+						"center",
+						"bottom"
+					],
+					"description": "default 'center'"
+				},
+				"fit": {
+					"type": "string",
+					"enum": [
+						"contain",
+						"cover"
+					],
+					"description": "default 'contain'"
+				}
+			},
+			"description": "Where a full-viewport slice video sits (`SliceVideo.viewport`, owner 2026-10-01). The slice then fills the whole viewport (its whole width, the screen's height) instead of the reading column, and the video – and its poster – is placed in that box:\n- `fit: 'contain'` (\"fit width\", the default): the whole video is visible, as big as the box allows; the rest of the   box is ink (bars above/below a landscape video). `position` = where the video sits: top, centre or bottom.\n- `fit: 'cover'` (\"fit height\"): the video fills the whole box, what doesn't fit is cropped (the sides of a landscape   video on a phone). `position` = which part stays when its top/bottom are cropped."
 		},
 		"AudioEvents": {
 			"type": "object",
