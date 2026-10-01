@@ -21,6 +21,7 @@ use Scutoons\Http\Middleware\Cors;
  *   GET /api/library/toons/{toon}/cast[?chapter=]        { registry, cast }
  *   GET /api/library/toons/{toon}/credits                { credits, people, roles }
  *   GET /api/library/characters                          CharacterRegistry (the whole registry)
+ *   GET /api/library/map?locale=&toon=                  the world map for this reader (agents/MAP.md)
  *   GET /api/events                                      Event[]
  * `?draft=1` (role creator): the newest versions, no status gates, not cached. Public answers: `Cache-Control: public,
  * max-age=60`, ETag (304 on If-None-Match), `Content-Language` / `X-Content-Fallback` for localized answers, any
@@ -79,6 +80,14 @@ final class LibraryController
     public function characters(Request $request, Response $response): Response
     {
         return $this->send($request, $response, $this->library->characters($this->draft($request)));
+    }
+
+    /** GET /api/library/map?locale=&toon= (agents/MAP.md §2.3) */
+    public function map(Request $request, Response $response): Response
+    {
+        $toon = $request->getQueryParams()['toon'] ?? null;
+        if ($toon !== null && !is_string($toon)) throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
+        return $this->send($request, $response, $this->library->map($this->locale($request), $toon === '' ? null : $toon, $this->draft($request)));
     }
 
     public function events(Request $request, Response $response): Response

@@ -301,5 +301,26 @@
 		"footer": "SCUTOONS · No ads, no tracking.",
 		"events": "Events",
 		"attributions": "Attributions"
+	},
+	"map": {
+		"title": "Map",
+		"open": "Open the map",
+		"close": "Close the map",
+		"zoom_in": "Zoom in",
+		"zoom_out": "Zoom out",
+		"recenter": "Back to the start",
+		"places": "Places ({count})",
+		"places_title": "Discovered places",
+		"places_empty": "No places discovered yet – keep reading to find them.",
+		"read_chapter": "Read chapter {number}",
+		"read_prologue": "Watch the prologue",
+		"you_are_here": "You are here · {name}",
+		"new_place": "New",
+		"new_badge": "New on the map",
+		"close_card": "Close",
+		"other_toon": "From another story",
+		"loading": "Loading the map …",
+		"unavailable": "The map is not available right now.",
+		"hint": "Drag to move, wheel or two fingers to zoom"
 	}
 }

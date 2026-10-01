@@ -1,6 +1,7 @@
 # MAP — one world map for all of SCUTOONS: data, events, the creator's map builder, location images, a sandbox story
 
-Written 2026-10-01 (branch `platform`), **concept only, nothing built**. Companion docs: [DATA.md](DATA.md) (entities, API),
+Written 2026-10-01 (branch `platform`) as a concept; **M0 + M1 + M2 built the same day on branch `map`** (owner decisions
+and what differs from the concept: [§8 Built](#8-built-m0--m1--m2-2026-10-01-branch-map)). Companion docs: [DATA.md](DATA.md) (entities, API),
 [DESIGN.md](DESIGN.md) (reader + creator UI, follow-up bar, VN layout), [ITEMS.md](ITEMS.md) (grant bridge, inventory
 notices), [PLAN.md](PLAN.md) (rules: small configuration, API-first, the creator as the only editor).
 
@@ -603,3 +604,183 @@ same unlocks after sync.
 - **Accessibility.** A pan/zoom canvas is hard with a keyboard or screen reader: places are `<button>`s with their
   names, Tab moves between visible places (the map pans to the focused one), and the map has a text alternative
   ("Orte" list: unlocked places A–Z, "Du bist hier"). Reduced motion: no travel animation, no slide-in overshoot.
+
+---
+
+## 8. Built: M0 + M1 + M2 (2026-10-01, branch `map`)
+
+Branch `map` from `platform` bab74a3; `platform` (icons, covers + media requests, colours, toon scripts, ports) merged in
+at `932c578`. Commits: M0 `91a0c8f`, M1 `4248cff`,
+M2 `7812916`, sea colour + bidirectional unlock `96896d3`, start view + no hand tool `387a588`, wanted images `3b9766f`,
+docs (the last one).
+
+### 8.1 Owner decisions (2026-10-01) and how they are built
+
+| Question | Decision | Built as |
+|---|---|---|
+| Q1 unlocks across toons | **universe-wide** | one world state `scutoons` for every toon (§8.4); other toons' unlocked places show as plain markers |
+| Q2 catpope's places | first "visible from the start", then **unlock over time** | every catpope place `hidden: true` + `unlock` from the screenplay (§8.3); the reader turns chapter checkpoints into unlocks until the events exist (M3) |
+| Q4 place click | **a card** | name, image, "Du bist hier · <toon>", "Kapitel N lesen" only when readable for this reader |
+| Q5 "Garten" | **"Garten Eden" / "Garden of Eden"**, scene 38, end of chapter 5 | place `garden` (id kept), unlocked at 100 % of chapter 5; the season-1 route is complete |
+| the screenplay is the reference | every place in story order, missing ones added | §8.3: 10 new places, hidden, unlocked at their first scene |
+| the sea | **the colour of the toon being read** (tile colour, else its star's registry colour = `toonTileColor`), **default neon green `#00ff00`** | `/library/map?toon=` → `view.color`; the reader's background; the builder's reader view = the filtered toon's colour, else `#00ff00`; 2 px paper label halo, new places cyan + ink ring (readable on #64b1ff, #dd5ba2, #f9a900, #00ff00) |
+| bidirectional unlock | set / edit the unlock from the map builder AND from the chapter's slice | §8.5 |
+| no hand tool | pan with the middle button or Space + drag (touch: drag, two fingers) | tools Select V, + Place P, Draw route R; a drag on the empty terrain pans too |
+| start view | set per toon in the builder; the reader opens there | "Set start view" (§8.5); the reader fits the discovered places only when the start view shows none of them |
+| wanted images | every place without an image in "Wanted images", derived from the map | "Map places" group (§8.5); 19 of 19 listed today |
+| icons | Feather via `<Icon>` (`@scutoons/ui`) for the builder tools | tools `mouse-pointer` / `map-pin` / `share-2` (label + shortcut in the tooltip), `zoom-in` / `zoom-out` / `maximize`, `layers`, waypoint `arrow-up` / `arrow-down` / `x`; the reader overlay keeps its own controls (the viewer has no `@scutoons/ui` dependency) |
+| the airport | "it does not unlock yet" | `unlock: null` = deliberately not unlockable yet: a valid hidden state (no warning); the builder's option "noch nicht freischaltbar / not unlockable yet"; still in the wanted images |
+
+Other open questions follow this document's recommendations: Q3 teaser – not modelled; Q6 typos – kept verbatim ("Medival
+Street"; the en route's `titel` is read as its name); Q7 frame art – kept (the four saws; only the sea follows the toon);
+Q8 a world map outside a toon – not now; Q9 rewards – out of scope; Q10 image size – 48 px at zoom 1; Q11 phone zoom – the
+toon's start view (set in the builder) instead of a computed zoom.
+
+### 8.2 Data (M0) – what differs from §2
+
+- `MapPlace.hidden` / `MapPath.hidden` are booleans (the builder writes `true` or removes the key).
+- `MapPlace.unlock?: { toon, chapter, at?, slice?, scene? }` (new): `at` = the reading position 0..1 where the place unlocks
+  (the runtime rule, compared with the chapter checkpoint), `slice` = the unlocking slice's image path (§8.5), `scene` = the
+  screenplay scene (the reference for the M3/M4 event). `unlock: null` = "not unlockable yet" (owner, the airport): valid;
+  a hidden place with no `unlock` at all is a validation warning (nothing unlocks it – forgotten?).
+- The card's `chapter` link = the chapter that introduces the place (the old files said "1" everywhere).
+- Toon entries keep only the start view `map: { center?, zoom? }`; toptoy / yellowmouse lost their empty placeholder. An
+  entry still in the old shape (`layers` …) passes through unchanged.
+- The bundle's old fields for older viewer builds are computed from the world (`Library::legacyMapLists`,
+  `withLegacyMap`; TS `legacyToonMap`, `legacyToonMapSettings`): every place / route of the toon, **hidden ones too** (old
+  viewers have no unlock state and always showed every place).
+- `/library/map?toon=` answers `view { center, zoom, color? }` (start view + the sea colour).
+- `/api/progress/scutoons/` **merges on the server too** (`ProgressService::mergeWorldState`, the rule of `mergeMapState`):
+  a stale write still adds its discoveries (status `stale` + the merged state) – safe when two devices race.
+- Migration `shared/content/scripts/migrate-map.ts` (one-time, refuses a second run): seed `scutoons/_/map.json` (19 places,
+  1 route) from catpope's `locations.json` / `routes.json` + `toons.json` (edited in place: only the map blocks); the store:
+  `import-content --only=map --update`, then only the store's toon entries' `map` is rewritten (export → rewrite →
+  `import-content --only=toon --update`, so an entry changed since the seed keeps its other fields – toptoy's en source
+  survived). The old `locations.json` / `routes.json` stay in the seed for one release.
+- Compare test: every old location survives (id, label per locale, coordinates, toonId, type, image; `chapterNumber` = the
+  map's chapter), the other locations are exactly the new places, every old route survives (id, `title ?? titel`, the same
+  ids in order), `toon.map` = the pre-migration values. Seed SQL: + `map`, the 3 changed `toon:*` statements.
+
+### 8.3 Catpope's places from the screenplay (`cat-pope-awakening/de/screenplay.txt`)
+
+Chapters by the `# <n>. Kapitel` markers; `at` = the scene heading's line offset in its chapter (a first guess, replaced by
+the real slice with the bidirectional editor). **en names of the new places translate the de headings and need review**
+(the en script covers scenes 1–10); **positions are best guesses** near their neighbours (drag them in the builder).
+
+| id | Name de / en | Chapter | Scene | Unlocks at | x, y |
+|---|---|---|---|---|---|
+| `apartment` | Apartment / Apartment (scenes 2–11) | 1 | 2 | 0 % | 1206, 304 |
+| `church-square` new | Alterlaa Kirchenvorplatz / Alterlaa church square | 1 | 12 | 85 % | 1224, 284 |
+| `waterfall-tower` new | Brutalistisches Hochhaus mit Wasserfall / Brutalist tower with waterfall | 1 | 13 | 86 % | 1240, 272 |
+| `crossroads` new | Kreuzwege / Crossroads | 1 | 14 | 87 % | 1268, 290 |
+| `medival-street` | Mittelalterliche Strasse / Medival Street ("Mittelalterliche Gasse") | 1 | 15 | 88 % | 1250, 310 |
+| `infinity-pool` new | Brutalistischer Infinity Pool / Brutalist infinity pool | 1 | 16 | 89 % | 1226, 336 |
+| `cathedral` | Kathedrale / Cathedral (17–20) | 2 | 17 | 0 % | 1182, 323 |
+| `station` | Bahnhof / Station (U-Bahn, 21–24) | 2 | 21 | 67 % | 1202, 332 |
+| `mountain-village` new | Winterliches Bergdorf / Wintry mountain village | 3 | 25 | 0 % | 1478, 516 |
+| `beyond-the-crossroads` new | Hinter der Wegkreuzung / Beyond the crossroads | 3 | 26 | 5 % | 1464, 532 |
+| `mountain-path` | Bergpfad / Mountain Path ("Waldpfad") | 3 | 27 | 7 % | 1448, 554 |
+| `forest-clearing` new | Waldlichtung / Forest clearing | 3 | 28 | 11 % | 1416, 566 |
+| `monastery` | Kloster / Monastery (reached at the end of 28; 32–34) | 3 | 28 | 18 % | 1428, 600 |
+| `library` | Bibliothek / Library (29–31) | 3 | 29 | 19 % | 1431, 586 |
+| `crypt` new | Gruft / Crypt | 4 | 35 | 0 % | 1456, 578 |
+| `graveyard` | Friedhof / Graveyard | 4 | 36 | 20 % | 1441, 569 |
+| `well` new | Am Brunnen / At the well | 4 | 37 | 58 % | 1462, 596 |
+| `garden` new (was the route's dangling id) | Garten Eden / Garden of Eden | 5 | 38 | 100 % | 1404, 640 |
+| `airport` | Flughafen / Airport | – | – | never: not in the screenplay (only a song line mentions an airport) – hidden, `unlock: null` = not unlockable yet (owner) | 1254, 252 |
+
+Interiors are folded into their building (rooms → apartment; altar → cathedral; shaft / platform → station; shelf, wall
+sensor → library; server farm, streamer studio, server room → monastery); scene 1 (the prologue's dream) unlocks nothing.
+
+### 8.4 Reader (M1)
+
+- `viewer/src/lib/components/toon/map/map.svelte` (toggle + badge, key M; `/library/map?locale=&toon=` loads when the
+  browser is idle, a few KB; the overlay mounts on first open, so the 337 KB terrain loads only then) and
+  `map-overlay.svelte` (camera, layers by zoom, routes, places in screen space, labels, card, "Orte", tools). The old
+  `layer(s).svelte` / `routes.svelte` are gone; the toon layout passes nothing.
+- Shared with the builder (`@scutoons/reader`): `MapViewport` (one transform, zoom at a point, pan, fit, clamp),
+  `mapGestures` (drag, wheel, pinch, double click; tap vs. drag), `MapRoutes` (the §4.4 styles in screen space). Pure helpers
+  in `@scutoons/content` `map.ts`.
+- Labels never overlap each other or a marker (`visibleLabels`; new places first) – the phone overlap is gone, zooming in
+  shows the rest. Other toons' places: small markers without a label.
+- Accessibility: places are buttons, Tab walks them (the map pans to the focused one), "Orte" lists the discovered places
+  A–Z, Esc closes card → list → map, +/− and arrows, reduced motion drops the slide.
+- World state `viewer/src/lib/contexts/world.svelte.ts` (root layout): localStorage `scutoons_game_scutoons`, for members
+  `/api/progress/scutoons/` (debounced push; on login the guest's discoveries and the account's become one). `unlock`,
+  `seen`, `reveal`, `position` are set operations – M3's events call the same.
+- Before the events: `unlocksFromProgress(places, toon, checkpoints)` → the world state (so they count everywhere). Routes
+  are drawn through the visible places only (`routeDrawnTo`): the season-1 line grows with the reading.
+- The camera opens at the toon's start view (`view.center` / `zoom`); when that shows none of the places this reader
+  discovered in this toon, it fits those instead (max 3×).
+
+### 8.5 Builder (M2), start view, wanted images, the bidirectional unlock
+
+- `creator/src/routes/map/+page.svelte` → `lib/components/map/map-builder.svelte` (page, sidebar, toolbar, validation,
+  URL, start view), `map-canvas.svelte` (canvas + tools), `map-props.svelte` (properties), `lib/editor/map.ts`. Universe:
+  Characters · Moods · Wanted images · **Map**; crumbs `Creator / Map / <selection>` (like Characters; there is no Universe
+  page).
+- Tools V / P / R; pan with the middle button, Space + drag or a drag on the empty terrain; the wheel zooms at the cursor
+  (25–800 %). Drag places (whole units) and waypoints (a place waypoint asks first – it moves the shared place); arrows nudge
+  1 / Shift 10; a click on the selected route's line inserts a free point. A new place's id follows its de name until the
+  first publish, then it is fixed.
+- Images: path or pick from the CDN folder `<toon>/images/map/places/` (listed where the server has a directory index, e.g.
+  the local CDN), size, ground point (crosshair on a 160 px checkerboard), previews at 50 / 100 / 200 % on the sea colour,
+  warnings: not on the CDN, > 60 KB, blurry at 200 %. Upload waits for the creator's CDN upload (PLAN.md Creator phase 2).
+- Toon chips filter (others dimmed); Reader view (hidden things greyed, the toon's sea); Phone frame (375 × 812 at the
+  reader's zoom, labels that would be hidden there outlined red).
+- **Start view** (owner): with a toon filtered, "Set start view" stores the current view's centre and zoom in the toon entry
+  `toon:<toon>` (`map: { center, zoom }`, language-neutral; saved / published with the map page); the phone frame then shows
+  the reader's first screen there; "Go to the start view".
+- **Wanted images → Map places** (owner): `mapImageRequests(map)` derives the list (every place without `image`: name,
+  `<toon>/images/map/places/<id>.webp` – `scutoons/…` for a place of several toons –, 256 × 256 + spec, the §5.2 brief (for an image generator or a designer) with
+  the §5.4 description or the place's names). In the creator's Wanted images they are toon-media requests (`mapMediaRequests`:
+  `view: 'media'`, `toon`, `size`, `note`, `brief`), listed under "Toon media → Map places" with the brief and a link to the
+  builder, copied with the rest – derived from the map each time, never stored, so it can't drift (19 of 19 today).
+- Validation table (when nothing is selected) + the bottom bar's problems + "!" in the sidebar; save / publish / history /
+  autosave / conflicts through `MetaPage` (new `fill` mode for a canvas page).
+- **Bidirectional unlock** (owner). One storage: the place's `unlock` in the world map. Two editors:
+  - the chapter editor's slice inspector, tab **Map**: "this slice unlocks: [place] · On the map · ✕" + a picker (this
+    toon's places, other places; "was: chapter N"). It writes `{ toon, chapter, slice: <the slice's image>, at: <its
+    reading point> }` + `hidden: true`; the map is saved / published with the chapter (like the cast). Publishing the
+    chapter publishes the map's newest version (it is one document).
+  - the builder: chapter + **Slice** picker (the chapter's slices in reading order, scenes inlined), "Unlocked in chapter N,
+    slice k · Open in the chapter" (→ `/<toon>/chapter/<n>?group=<label>&slice=<k>`), a stale warning + "Update the point"
+    when slices moved, "the slice is no longer in this chapter" when it is gone.
+  - **Why the slice's image, not an index or a new id:** slices have no ids; an index (group + slice) silently points at
+    another slice after an insert or a reorder, the image path breaks visibly (the builder reports it) and already is the
+    slice's key in the Figma pipeline (PLAN.md Track A merges "keyed by slice image"). A replaced image (new name, CDN rule)
+    needs the unlock re-picked – the builder says so. `at` is derived (`sliceUnlockPoint` = the reader's checkpoint rule:
+    `(slices before + 1) / slices`, 0.99 cap, the last slice = 1) and stays the runtime rule until M3's slice events.
+  - VN groups without slices can't carry an unlock yet (they get `unlockLocation` events in M3).
+
+### 8.6 Not built yet
+
+M3 events (`MapEvent`, `runMapEvents`, slice triggers, toasts, follow-up bar text, travel, positions); M4 the event pickers,
+"Used in" from events, the server's 409 `in_use`; M5 the sandbox story; the place images (workflow §5,
+`make_location_webp.py`).
+
+### 8.7 Checks
+
+- `scripts/check-map.mjs` (headless CDP, test user; `--viewer --creator --api`): reader 390 de + 1440 en (sea colour, start
+  view, empty for a fresh guest, progress unlocks + badge + halo → seen, pan, "+", wheel, no overlapping labels, card +
+  chapter-link rule, "Orte", universe-wide in the sandbox), member (guest discoveries merge on sign-in), builder (add / name →
+  id / drag a place, draw a route, save, place image on its ground point + previews, reader-view sea colours, Wanted images →
+  Map places = every place without an image, Set start view, the bidirectional unlock). Restores the member's world state,
+  the published map and toon entry. 42 checks.
+- Unit: `shared/content/test/map.test.ts`, `LibraryTest` (world map, visibility, view + sea colour, the old bundle fields),
+  `InventoryServiceTest::testWorldProgressMergesTheMapState`. Contract: `entities-smoke` (/library/map), `api-smoke` (the
+  world-state merge incl. a stale write), `entities-compare` (§8.2).
+
+### 8.8 Merge note (the owner merges after the 2026-10-04 release)
+
+1. `platform` is merged into `map` (`932c578`, 2026-10-01; conflicts resolved keeping both sides: covers / lettering, script
+   entities, media requests + the world map; schemas regenerated; the seed SQL = platform's file + only the changed
+   statements: `map` and the 3 toon entries). `map` → `platform` should now merge without conflicts unless `platform`
+   moved on; then the usual suspects: `shared/content/src/{content,index,validate}.ts`, the message files, `agents/*.md`,
+   `content-seed.mysql.sql` (re-run the "only changed statements" rule).
+3. On the owner's local store after merging: back up `server/db/local.sqlite`, then
+   `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-map.ts` (imports `map`, rewrites the
+   store's toon entries' `map` to the start view).
+4. Production: the seed's `map` statement (idempotent) or publish the map once from the creator. Older viewer builds keep
+   working (the bundle's old fields are computed).
+5. Then the full suite on the merged tree + `node scripts/check-map.mjs`.

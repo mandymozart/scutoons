@@ -41,7 +41,7 @@ final class Library
      */
     public const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile', 'cover'];
     /** Bump when the shape of an answer changes: old cache entries are never read again */
-    private const FORMAT = 2;
+    private const FORMAT = 3;
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
     /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in scene refs → the registry character */
@@ -145,13 +145,21 @@ final class Library
                 $overview = $this->seasonOverview($ctx, $number, $locale);
                 if ($overview !== null) $seasons[] = $overview;
             }
-            $list = fn(string $kind) => $ctx->pick("$kind:$toon", $locale)[1] ?? [];
+            // the map: computed from the world map (entity `map`) in the old per-toon shape for older viewer builds; the
+            // old `locations:<toon>:<l>` / `routes:<toon>:<l>` documents only while no world map is stored
+            $world = $ctx->snapshot->doc('map');
+            if ($world instanceof stdClass) {
+                [$locations, $routes] = self::legacyMapLists($world, $toon, $locale);
+            } else {
+                $locations = $ctx->pick("locations:$toon", $locale)[1] ?? [];
+                $routes = $ctx->pick("routes:$toon", $locale)[1] ?? [];
+            }
             return [[
                 'entry' => $ctx->entry !== null ? self::indexEntry($ctx->entry) : null,
-                'toon' => self::withNeutralSettings($toonDoc, $ctx->entry),
+                'toon' => self::withLegacyMap(self::withNeutralSettings($toonDoc, $ctx->entry), $world instanceof stdClass ? $world : null, $toon),
                 'seasons' => $seasons,
-                'locations' => $list('locations'),
-                'routes' => $list('routes'),
+                'locations' => $locations,
+                'routes' => $routes,
             ], $served];
         }, $ctx);
     }
@@ -276,6 +284,199 @@ final class Library
                 ?? throw new ApiError(404, 'not_found', 'No events stored.');
             return [$events, null];
         });
+    }
+
+    /**
+     * GET /library/map?locale=&toon= → the SCUTOONS world map for this reader (agents/MAP.md §2.3): { width, height,
+     * layers, locations, routes[, view] } with every name resolved to the locale (else the source language `de`, else any;
+     * X-Content-Fallback when one was missing). Only the places / routes of toons the reader may see: published, not dev
+     * only (the sandbox) – drafts with CONTENT_SHOW_DRAFTS, everything in draft mode; announced toons' places stay out
+     * until the toon is published. Hidden places are sent (the unlock state is the reader's, client-side). `toon` adds
+     * `view` = where the map opens for that toon (its start view in `toon:<toon>`, else the centre of its places; 404 when
+     * the toon is not visible) and `view.color` = the toon's colour for the sea (tile colour, else its star's colour).
+     */
+    public function map(?string $locale, ?string $toon, bool $draft): Answer
+    {
+        if ($toon !== null && (!preg_match(EntityKey::TOON_PATTERN, $toon) || $toon === self::PLATFORM)) {
+            throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
+        }
+        $locale ??= self::DEFAULT_SOURCE;
+        $snapshot = Snapshot::kinds($this->db, ['map', 'toon', 'characters'], $draft);
+        $ctx = new Context($snapshot, self::PLATFORM, null, self::DEFAULT_SOURCE, [self::DEFAULT_SOURCE], $draft, $draft || $this->showDrafts());
+        return $this->answer("map:$locale:" . ($toon ?? '*'), $snapshot, function () use ($snapshot, $ctx, $locale, $toon, $draft): array {
+            $world = $snapshot->doc('map');
+            if (!$world instanceof stdClass) throw new ApiError(404, 'not_found', 'No world map stored.');
+            $visible = [];
+            $isVisible = function (mixed $id) use (&$visible, $snapshot, $draft): bool {
+                if (!is_string($id)) return false;
+                if (!array_key_exists($id, $visible)) {
+                    $entry = $snapshot->doc("toon:$id");
+                    $status = $entry instanceof stdClass ? ($entry->status ?? null) : null;
+                    $visible[$id] = $entry instanceof stdClass && ($draft
+                        || ($status === self::DRAFT && $this->showDrafts())
+                        || ($status === self::PUBLISHED && !in_array($id, self::DEV_ONLY_TOONS, true)));
+                }
+                return $visible[$id];
+            };
+            $anyVisible = fn(mixed $toons) => is_array($toons) && array_filter($toons, $isVisible) !== [];
+            $name = function (mixed $text) use ($locale, $ctx): string {
+                [$value, $fallback] = self::mapName($text, $locale);
+                if ($fallback) $ctx->fallback = true;
+                return $value;
+            };
+            $places = [];
+            foreach (is_array($world->locations ?? null) ? $world->locations : [] as $place) {
+                if (!$place instanceof stdClass || !$anyVisible($place->toons ?? null)) continue;
+                $place = clone $place;
+                $place->name = $name($place->name ?? null);
+                $places[] = $place;
+            }
+            $routes = [];
+            foreach (is_array($world->routes ?? null) ? $world->routes : [] as $route) {
+                if (!$route instanceof stdClass || !$anyVisible($route->toons ?? null)) continue;
+                $route = clone $route;
+                $route->name = $name($route->name ?? null);
+                $route->waypoints = array_map(function (mixed $w) use ($name) {
+                    if (!$w instanceof stdClass || !property_exists($w, 'name')) return $w;
+                    $w = clone $w;
+                    $w->name = $name($w->name);
+                    return $w;
+                }, is_array($route->waypoints ?? null) ? $route->waypoints : []);
+                $routes[] = $route;
+            }
+            $answer = [
+                'width' => $world->width ?? 0,
+                'height' => $world->height ?? 0,
+                'layers' => is_array($world->layers ?? null) ? $world->layers : [],
+                'locations' => $places,
+                'routes' => $routes,
+            ];
+            if ($toon !== null) {
+                if (!$isVisible($toon)) throw new ApiError(404, 'not_found', "Unknown toon $toon.");
+                $entry = $snapshot->doc("toon:$toon");
+                $view = $entry instanceof stdClass && ($entry->map ?? null) instanceof stdClass ? $entry->map : new stdClass();
+                $center = $view->center ?? null;
+                $answer['view'] = [
+                    'center' => $center instanceof stdClass && is_numeric($center->x ?? null) && is_numeric($center->y ?? null)
+                        ? ['x' => $center->x, 'y' => $center->y]
+                        : self::centerOfPlaces($world, $toon),
+                    'zoom' => is_numeric($view->zoom ?? null) && $view->zoom > 0 ? $view->zoom : 1,
+                ];
+                // the sea is the toon's colour (owner 2026-10-01): its landing tile colour, else its star's registry colour
+                // (@scutoons/content toonTileColor); none → the reader's default
+                $tile = $entry instanceof stdClass && ($entry->tile ?? null) instanceof stdClass ? $entry->tile : null;
+                $color = $tile !== null && is_string($tile->color ?? null) && $tile->color !== '' ? $tile->color : null;
+                if ($color === null) {
+                    $registry = $snapshot->doc('characters');
+                    foreach ($registry instanceof stdClass && is_array($registry->characters ?? null) ? $registry->characters : [] as $c) {
+                        if ($c instanceof stdClass && ($c->own_toon ?? null) === $toon && is_string($c->color ?? null) && $c->color !== '') {
+                            $color = $c->color;
+                            break;
+                        }
+                    }
+                }
+                if ($color !== null) $answer['view']['color'] = $color;
+            }
+            return [$answer, $locale];
+        }, $ctx);
+    }
+
+    /**
+     * A `{ de, en }` name in a locale: the locale, else the source language, else any non-empty one
+     * @return array{0: string, 1: bool} [name, whether it fell back]
+     */
+    private static function mapName(mixed $text, string $locale): array
+    {
+        if (is_string($text)) return [$text, false];
+        if (!$text instanceof stdClass) return ['', false];
+        foreach ([$locale, self::DEFAULT_SOURCE] as $i => $l) {
+            $value = $text->{$l} ?? null;
+            if (is_string($value) && trim($value) !== '') return [$value, $i > 0];
+        }
+        foreach (get_object_vars($text) as $value) {
+            if (is_string($value) && trim($value) !== '') return [$value, true];
+        }
+        return ['', false];
+    }
+
+    /** @return array{x: int|float, y: int|float} the centre of the bounding box of a toon's places (else the world's centre) */
+    private static function centerOfPlaces(stdClass $world, string $toon): array
+    {
+        $xs = $ys = [];
+        foreach (is_array($world->locations ?? null) ? $world->locations : [] as $place) {
+            if (!$place instanceof stdClass || !in_array($toon, is_array($place->toons ?? null) ? $place->toons : [], true)) continue;
+            if (is_numeric($place->x ?? null) && is_numeric($place->y ?? null)) {
+                $xs[] = $place->x;
+                $ys[] = $place->y;
+            }
+        }
+        if ($xs === [] || $ys === []) return ['x' => ($world->width ?? 0) / 2, 'y' => ($world->height ?? 0) / 2];
+        return ['x' => (min($xs) + max($xs)) / 2, 'y' => (min($ys) + max($ys)) / 2];
+    }
+
+    /**
+     * The toon's places and routes in the shape of the old `locations:<toon>:<l>` / `routes:<toon>:<l>` documents, for
+     * older viewer builds (one release, then dropped; @scutoons/content `legacyToonMap`): every place / route whose `toons`
+     * has the toon, hidden ones too (old viewers have no unlock state and always showed every place); a route lists its
+     * place waypoints (free points did not exist), unknown ids included, as before.
+     * @return array{0: list<array<string, mixed>>, 1: list<array<string, mixed>>}
+     */
+    private static function legacyMapLists(stdClass $world, string $toon, string $locale): array
+    {
+        $has = fn(mixed $item) => $item instanceof stdClass && in_array($toon, is_array($item->toons ?? null) ? $item->toons : [], true);
+        $locations = [];
+        foreach (is_array($world->locations ?? null) ? $world->locations : [] as $place) {
+            if (!$has($place)) continue;
+            $chapter = $place->chapter ?? null;
+            $location = [
+                'id' => $place->id ?? '',
+                'label' => self::mapName($place->name ?? null, $locale)[0],
+                'toonId' => $chapter instanceof stdClass && is_string($chapter->toon ?? null) ? $chapter->toon : $toon,
+                'type' => 'chapter',
+            ];
+            if ($chapter instanceof stdClass && isset($chapter->number)) $location['chapterNumber'] = (string) $chapter->number;
+            $location['image'] = ($place->image ?? null) instanceof stdClass && is_string($place->image->src ?? null) ? $place->image->src : '';
+            $location['coordinates'] = ['x' => $place->x ?? 0, 'y' => $place->y ?? 0];
+            $locations[] = $location;
+        }
+        $routes = [];
+        foreach (is_array($world->routes ?? null) ? $world->routes : [] as $route) {
+            if (!$has($route)) continue;
+            $ids = [];
+            foreach (is_array($route->waypoints ?? null) ? $route->waypoints : [] as $w) {
+                if ($w instanceof stdClass && is_string($w->location ?? null)) $ids[] = $w->location;
+            }
+            $routes[] = ['id' => $route->id ?? '', 'title' => self::mapName($route->name ?? null, $locale)[0], 'locations' => $ids];
+        }
+        return [$locations, $routes];
+    }
+
+    /**
+     * The old `toon.map` ({ layers: { terrain }, width, height, center }) for older viewer builds: the world's size and
+     * terrain (path relative to the toon's folder, as before) + the toon's start view; only when the toon has one (the
+     * entry's `map`). An entry stored before the world map (with `layers`) is passed through unchanged.
+     */
+    private static function withLegacyMap(stdClass $toonDoc, ?stdClass $world, string $toon): stdClass
+    {
+        $view = $toonDoc->map ?? null;
+        if ($world === null || !$view instanceof stdClass || property_exists($view, 'layers')) return $toonDoc;
+        $terrain = '';
+        foreach (is_array($world->layers ?? null) ? $world->layers : [] as $layer) {
+            if ($layer instanceof stdClass && is_string($layer->image ?? null) && ($terrain === '' || ($layer->id ?? null) === 'terrain')) {
+                $terrain = $layer->image;
+                if (($layer->id ?? null) === 'terrain') break;
+            }
+        }
+        if ($terrain !== '') $terrain = str_starts_with($terrain, "$toon/") ? substr($terrain, strlen($toon) + 1) : "../$terrain";
+        $center = $view->center ?? null;
+        $toonDoc = clone $toonDoc;
+        $toonDoc->map = [
+            'layers' => ['terrain' => $terrain],
+            'width' => $world->width ?? 0,
+            'height' => $world->height ?? 0,
+            'center' => $center instanceof stdClass && isset($center->x, $center->y) ? ['x' => $center->x, 'y' => $center->y] : self::centerOfPlaces($world, $toon),
+        ];
+        return $toonDoc;
     }
 
     // ── Composition ───────────────────────────────────────────────────────────────────────────────────────

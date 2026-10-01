@@ -9,6 +9,7 @@ import {
 	type CharacterRegistry,
 	type Event,
 	type PeopleRegistry,
+	type ReaderMap,
 	type RoleVocabulary,
 	type SeasonOverview,
 	type ToonBundle,
@@ -100,6 +101,18 @@ export function createLibraryApi({ publicClient, sessionClient, cacheMs = 0 }: L
 		fetchCredits: (toon: string, options?: LibraryOptions) =>
 			get<{ credits: ToonCredits; people: PeopleRegistry | null; roles: RoleVocabulary | null }>(`${toonPath(toon)}/credits`, options),
 
-		fetchEvents: (options?: LibraryOptions) => get<Event[]>('/events/', options)
+		fetchEvents: (options?: LibraryOptions) => get<Event[]>('/events/', options),
+
+		/**
+		 * The SCUTOONS world map for a reader (agents/MAP.md): places / routes of the readable toons, names in `locale`;
+		 * with `toon` the map's start `view` for that toon. ApiError 404 when no map is stored or the toon isn't readable.
+		 */
+		fetchMap: (locale?: string, toon?: string, options?: LibraryOptions) => {
+			const params = new URLSearchParams();
+			if (locale) params.set('locale', locale);
+			if (toon) params.set('toon', toon);
+			const query = params.toString();
+			return get<ReaderMap>(`/library/map${query ? `?${query}` : ''}`, options);
+		}
 	};
 }

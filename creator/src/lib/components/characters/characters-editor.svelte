@@ -54,6 +54,7 @@
 	import CharacterDetail from './character-detail.svelte';
 	import MoodsPanel from './moods-panel.svelte';
 	import WantedImages from './wanted-images.svelte';
+	import { mapDoc, mapOf } from '$lib/editor/map.ts';
 
 	/**
 	 * The global Characters page: the registry (entity `characters`) as a searchable, filterable list (characters
@@ -64,6 +65,8 @@
 	const moods = moodsDoc();
 	const requests = requestsDoc();
 	const people = peopleDoc();
+	// the world map: its places without an image are listed in Wanted images (read-only here, never saved from this page)
+	const worldMap = mapDoc();
 	const docs = [registry, moods, requests];
 
 	let toons = $state<ToonInfo[]>([]);
@@ -83,7 +86,7 @@
 	let nameInput = $state<HTMLInputElement>();
 
 	onMount(async () => {
-		await Promise.all([registry.load(), moods.load(), requests.load(), people.load()]);
+		await Promise.all([registry.load(), moods.load(), requests.load(), people.load(), worldMap.load()]);
 		toons = await loadToons(getLocale());
 		const loaded: Record<string, ContentDoc> = {};
 		await Promise.all(
@@ -265,7 +268,7 @@
 			{#if active === 'moods'}
 				<div class="pad-top"><MoodsPanel {moods} registry={file} languages={allLanguages} /></div>
 			{:else if active === 'wanted'}
-				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={uiLocale} onopen={(id, p, l) => select(id, p, l)} /></div>
+				<div class="pad-top"><WantedImages registry={file} moods={vocabulary} requests={requestsOf(requests)} locale={uiLocale} onopen={(id, p, l) => select(id, p, l)} map={mapOf(worldMap)} /></div>
 			{:else}
 				<div class="layout">
 					<aside class="list" data-testid="character-list">

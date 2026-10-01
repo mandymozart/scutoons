@@ -27,11 +27,6 @@
       "image": "../characters/catpope/catpope_portrait-neutral.webp"
     },
     "map": {
-      "layers": {
-        "terrain": "images/map/map-layer-terrain.svg"
-      },
-      "width": 2048,
-      "height": 1046,
       "center": {
         "x": 1320,
         "y": 440
@@ -61,17 +56,6 @@
     "announce": true,
     "tile": {
       "image": "../characters/toptoy/toptoy_portrait-neutral.webp"
-    },
-    "map": {
-      "layers": {
-        "terrain": ""
-      },
-      "width": 0,
-      "height": 0,
-      "center": {
-        "x": 0,
-        "y": 0
-      }
     }
   },
   {
@@ -97,17 +81,6 @@
     "announce": true,
     "tile": {
       "image": "../characters/yellowmouse/yellowmouse_helmet_portrait-neutral.webp"
-    },
-    "map": {
-      "layers": {
-        "terrain": ""
-      },
-      "width": 0,
-      "height": 0,
-      "center": {
-        "x": 0,
-        "y": 0
-      }
     }
   },
   {
@@ -134,11 +107,6 @@
       "square": "../catpope/images/s1-cover-square.webp"
     },
     "map": {
-      "layers": {
-        "terrain": "../catpope/images/map/map-layer-terrain.svg"
-      },
-      "width": 2048,
-      "height": 1046,
       "center": {
         "x": 1320,
         "y": 440

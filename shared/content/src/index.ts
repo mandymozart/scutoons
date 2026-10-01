@@ -20,3 +20,4 @@ export * from './entities.ts';
 export * from './progress.ts';
 export * from './script.ts';
 export * from './media-quality.ts';
+export * from './map.ts';

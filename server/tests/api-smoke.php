@@ -327,6 +327,21 @@ $r = call('PUT', "$api/progress/catpope/", ['state' => ['cucumber' => 3], 'updat
 check($r['body']['status'] === 'success' && $r['body']['state']['cucumber'] === 3, 'PUT newer state → success', $r);
 $r = call('GET', "$api/progress/catpope/", null, $tokenB);
 check($r['body']['state'] === null, 'progress is per user');
+// the world state `scutoons` (agents/MAP.md §2.4): map unlocks are universe-wide and merge as sets across devices
+$world = fn(array $places, array $positions, string $device) => ['map' => ['places' => $places, 'routes' => new stdClass(), 'positions' => $positions], 'device' => $device];
+$r = call('PUT', "$api/progress/scutoons/", ['state' => $world(['apartment' => ['unlocked' => 100]], ['catpope' => ['location' => 'apartment', 'at' => 100]], 'phone'), 'updated_at' => 2000], $tokenA);
+check($r['status'] === 200 && $r['body']['status'] === 'success', 'PUT world state (phone)', $r);
+$r = call('PUT', "$api/progress/scutoons/", ['state' => $world(['cathedral' => ['unlocked' => 200]], ['catpope' => ['location' => 'cathedral', 'at' => 200]], 'laptop'), 'updated_at' => 3000], $tokenA);
+$places = array_keys((array) ($r['body']['state']['map']['places'] ?? []));
+sort($places);
+check($r['body']['status'] === 'success' && $places === ['apartment', 'cathedral'] && ($r['body']['state']['map']['positions']['catpope']['location'] ?? '') === 'cathedral',
+    'PUT newer world state → the places merge (union), the newer position wins', $r['body']);
+$r = call('PUT', "$api/progress/scutoons/", ['state' => $world(['station' => ['unlocked' => 50]], [], 'old tablet'), 'updated_at' => 1000], $tokenA);
+$raw = call('GET', "$api/progress/scutoons/", null, $tokenA);
+$places = array_keys((array) ($raw['body']['state']['map']['places'] ?? []));
+sort($places);
+check($r['body']['status'] === 'stale' && $places === ['apartment', 'cathedral', 'station'] && $raw['body']['state']['device'] === 'laptop' && $raw['body']['updated_at'] === 3000,
+    'PUT older world state → stale, but its discovery is kept (set merge), the rest stays the newer', $raw['body']);
 
 // ── Import (guest inventory) ───────────────────────────────────────────────────────────────────────────
 echo "\nImport\n";

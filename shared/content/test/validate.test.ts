@@ -100,7 +100,7 @@ test('season.download.image: an image path on the CDN (decorative, beside the mu
 test('toon entry: announce (boolean) and the landing tile { image, color? }', () => {
 	const entry = (extra: object) => ({
 		id: 't', uri: 't', status: 'draft', avatar: 'avatar.webp', i18n: {}, authors: ['A'], chapters: 0, thumbnail: 'images/t.webp',
-		map: { layers: { terrain: 'images/m.webp' }, width: 1, height: 1, center: { x: 0, y: 0 } },
+		map: { center: { x: 0, y: 0 }, zoom: 1.5 },
 		...extra
 	});
 	const tileProblems = (extra: object) => problems('index', entry(extra)).filter((p) => /announce|tile/.test(p));
@@ -115,7 +115,7 @@ test('toon entry: announce (boolean) and the landing tile { image, color? }', ()
 	assert.deepEqual(tileProblems({ tile: { image: 'images/t.webp', color: 'url(x)' } }), ['error tile.color']);
 	assert.deepEqual(tileProblems({ tile: 'images/t.webp' }), ['error tile']);
 	assert.deepEqual(problems('index', entry({ map: { layers: { terrain: '' }, width: 0, height: 0, center: { x: 0 } } })), [
-		'warning map.layers.terrain',
+		'warning map.layers',
 		'warning map.width',
 		'warning map.height',
 		'error map.center.y'

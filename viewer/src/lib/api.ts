@@ -56,4 +56,4 @@ export const { fetchCatalog, fetchEditions } = createQrApi(publicApi);
  * requests (agents/PERFORMANCE.md).
  */
 export const library = createLibraryApi({ publicClient: publicApi, sessionClient: api, cacheMs: 60_000 });
-export const { fetchToons, fetchToon, fetchChapter, fetchCharacters, fetchRegistry, fetchCredits, fetchEvents } = library;
+export const { fetchToons, fetchToon, fetchChapter, fetchCharacters, fetchRegistry, fetchCredits, fetchEvents, fetchMap } = library;

@@ -13,6 +13,7 @@ import {
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import { DEFAULT_SLICE, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
+import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import { isMediaQuality } from './media-quality.ts';
@@ -520,11 +521,13 @@ function checkToonIndex(c: Collector, t: any) {
 	if (t.thumbnail !== undefined) checkImagePath(c, t.thumbnail, ['thumbnail']);
 	if (t.cover !== undefined) checkCover(c, t.cover);
 	if (t.map !== undefined) {
-		if (!isObj(t.map)) c.error(['map'], 'map must be { layers, width, height, center }');
+		// the toon's start view on the world map (agents/MAP.md §2.2); the world's size and layers live in the entity `map`
+		if (!isObj(t.map)) c.error(['map'], 'map must be the start view { center?: { x, y }, zoom? }');
 		else {
-			checkImagePath(c, t.map.layers?.terrain, ['map', 'layers', 'terrain'], true);
-			for (const key of ['width', 'height'] as const) if (!isNum(t.map[key]) || t.map[key] <= 0) c.warn(['map', key], `map.${key} must be a positive number (px)`);
-			for (const key of ['x', 'y'] as const) if (!isNum(t.map.center?.[key])) c.error(['map', 'center', key], `map.center.${key} must be a number (px)`);
+			for (const key of ['layers', 'width', 'height'] as const)
+				if (t.map[key] !== undefined) c.warn(['map', key], `map.${key} belongs to the world map (Universe → Map) – the reader ignores it here`);
+			if (t.map.center !== undefined) for (const key of ['x', 'y'] as const) if (!isNum(t.map.center?.[key])) c.error(['map', 'center', key], `map.center.${key} must be a number (world units)`);
+			if (t.map.zoom !== undefined && (!isNum(t.map.zoom) || t.map.zoom <= 0)) c.error(['map', 'zoom'], 'map.zoom must be a positive number');
 		}
 	}
 	if (t.announce !== undefined && typeof t.announce !== 'boolean') c.error(['announce'], 'announce must be true or false');
@@ -588,6 +591,7 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 	else if (kind === 'toon') checkToon(c, data, locale);
 	else if (kind === 'index') checkToonIndex(c, data);
 	else if (kind === 'script') checkScript(c, data);
+	else if (kind === 'map') for (const p of checkWorldMap(data)) c.add(p.level, p.path, p.message);
 	// a screenplay is plain text, no media paths
 	if (kind !== 'script') checkMediaLocale(c, data);
 	return c.problems;

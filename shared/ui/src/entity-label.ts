@@ -19,7 +19,7 @@ export interface EntityLabels {
 	credits: string;
 	people: string;
 	roles: string;
-	/** the map (locations, routes) */
+	/** the SCUTOONS world map (entity `map`; the old per-toon `locations` / `routes` too) */
 	map: string;
 	events: string;
 	/** the toon's screenplay (one per language, creator only) */
@@ -56,6 +56,7 @@ const NAMED: Record<string, keyof EntityLabels> = {
 	roles: 'roles',
 	locations: 'map',
 	routes: 'map',
+	map: 'map',
 	events: 'events',
 	script: 'script'
 };

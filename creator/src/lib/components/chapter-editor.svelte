@@ -34,6 +34,9 @@
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
 	import SliceMedia from './slice-media.svelte';
+	import SliceUnlocks from './map/slice-unlocks.svelte';
+	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
+	import { chapterSlices } from '@scutoons/content';
 	import MetaPanel from './meta-panel.svelte';
 	import FeaturingField from './featuring-field.svelte';
 	import GroupPanel from './group-panel.svelte';
@@ -65,6 +68,10 @@
 	const cast = castDoc(toon);
 	const registry = registryDoc();
 	const moods = moodsDoc();
+	// the world map: a slice unlocks places (agents/MAP.md, edited here and in the map builder – one storage, the place's
+	// `unlock`); saved / published with the chapter once edited here
+	const worldMap = worldMapDoc();
+	let mapTouched = $state(false);
 	let toonInfos = $state<ToonInfo[]>([]);
 	let castTouched = $state(false);
 	let castNotice = $state<string | null>(null);
@@ -109,7 +116,8 @@
 		chapter,
 		season,
 		...Object.values(refs),
-		...(castTouched || cast.dirty ? [cast] : [])
+		...(castTouched || cast.dirty ? [cast] : []),
+		...(mapTouched || worldMap.dirty ? [worldMap] : [])
 	]);
 	const anyDirty = $derived(allDocs.some((d) => d.dirty));
 	const anySaving = $derived(allDocs.some((d) => d.saving));
@@ -123,7 +131,7 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load()]);
+		await Promise.all([chapter.load(), season.load(), cast.load(), registry.load(), moods.load(), worldMap.load()]);
 		loadToons(getLocale()).then((list) => (toonInfos = list));
 		await Promise.all(groups.filter((g) => g?.ref?.src).map((g) => ensureRef(g.ref.src)));
 		refreshImages();
@@ -139,7 +147,7 @@
 	let groupIndex = $state(0);
 	let sliceIndex = $state(-1);
 	let selection = $state<CanvasSelection | null>(null);
-	let inspectorTab = $state<'text' | 'slice' | 'audio' | 'events'>('text');
+	let inspectorTab = $state<'text' | 'slice' | 'audio' | 'events' | 'map'>('text');
 	// svelte-ignore state_referenced_locally
 	let displayLocale = $state<string>(languages.source);
 	let grid = $state(0.5);
@@ -765,6 +773,7 @@
 						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => (inspectorTab = 'slice')} data-testid="tab-background">{m['creator.background']()}</button>
 						<button class="ghost" class:active={inspectorTab === 'audio'} onclick={() => (inspectorTab = 'audio')}>{m['creator.audio']()}</button>
 						<button class="ghost" class:active={inspectorTab === 'events'} onclick={() => (inspectorTab = 'events')}>Events ({activeSlice?.events?.length ?? 0})</button>
+						<button class="ghost" class:active={inspectorTab === 'map'} onclick={() => (inspectorTab = 'map')} data-testid="tab-map">{m['creator.map']()}</button>
 					</div>
 
 					{#if inspectorTab === 'text'}
@@ -801,7 +810,7 @@
 							selectedSample={selection?.kind === 'sample' ? selection.index : -1}
 							onselectsample={(i) => (selection = i >= 0 ? { kind: 'sample', index: i } : null)}
 						/>
-					{:else}
+					{:else if inspectorTab === 'events'}
 						<VnEvents
 							doc={activeDoc}
 							eventsPath={[...slicePath, 'events']}
@@ -812,6 +821,8 @@
 							selected={selection?.kind === 'event' ? selection.index : -1}
 							onselect={(i) => (selection = { kind: 'event', index: i })}
 						/>
+					{:else if inspectorTab === 'map'}
+						<SliceUnlocks mapDoc={worldMap} {toon} chapter={chapterNumber} image={activeSlice.image ?? ''} slices={chapterSlices(sceneGroups())} ontouch={() => (mapTouched = true)} />
 					{/if}
 				</aside>
 			{/if}

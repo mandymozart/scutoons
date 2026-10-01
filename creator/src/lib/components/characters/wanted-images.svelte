@@ -4,6 +4,8 @@
 		characterName,
 		findPersona,
 		lookLabel,
+		MAP_PLACE_REQUEST_PREFIX,
+		mapMediaRequests,
 		mediaRequests,
 		mediaRequestsText,
 		moodLabel,
@@ -12,7 +14,8 @@
 		wantedImagesText,
 		type AssetRequests,
 		type CharacterRegistry,
-		type MoodVocabulary
+		type MoodVocabulary,
+		type WorldMap
 	} from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -20,7 +23,8 @@
 	 * "Wanted images": every missing portrait of the standard set (+ open asset requests), grouped by character / persona /
 	 * look with the convention file name – copy as plain text or CSV to brief the image supplier. Interim until the CDN
 	 * upload exists. Below them the open media requests (`view: 'media'`: covers, key visuals … of a toon, no character),
-	 * unless the list is for one character.
+	 * unless the list is for one character – including every place of the world map without an illustration ("Map places",
+	 * derived from the map each time, never stored: `mapMediaRequests`).
 	 */
 	let {
 		registry,
@@ -28,6 +32,7 @@
 		requests,
 		locale,
 		character,
+		map = null,
 		onopen
 	}: {
 		registry: CharacterRegistry | null;
@@ -36,6 +41,8 @@
 		locale: string;
 		/** only this character */
 		character?: string;
+		/** the world map: its places without an image are wanted media too */
+		map?: WorldMap | null;
 		/** open a character on the Characters page */
 		onopen?: (id: string, persona: string, look: string) => void;
 	} = $props();
@@ -45,7 +52,9 @@
 	let fallbackText = $state('');
 
 	const index = $derived(characterIndex(registry));
-	const media = $derived(character ? [] : mediaRequests(requests));
+	const mapPlaces = $derived(character ? [] : mapMediaRequests(map, locale));
+	const media = $derived(character ? [] : [...mediaRequests(requests), ...mapPlaces]);
+	const storedMedia = $derived(media.filter((r) => !r.id.startsWith(MAP_PLACE_REQUEST_PREFIX)));
 	const wanted = $derived(wantedImages(registry, { moods, requests, character }).filter((w) => !requestedOnly || w.request));
 	const groups = $derived.by(() => {
 		const out: { key: string; character: string; persona: string; look: string; items: typeof wanted }[] = [];
@@ -115,15 +124,32 @@
 		<!-- toon media without a character (a lettering-free cover …): owner rule 2026-10-01, media are language-independent -->
 		<article class="group" data-testid="wanted-media">
 			<h4>{m['creator.wanted_media']()} <span class="hint">· {m['creator.characters_wanted_count']({ count: media.length })}</span></h4>
-			<ul class="media-list">
-				{#each media as r (r.id)}
-					<li>
-						<code>{r.path}</code>
-						{#if r.size}<span class="hint">{r.size}</span>{/if}
-						{#if r.note}<span class="req" title={r.requested_by ?? ''}>✉ {r.note}</span>{/if}
-					</li>
-				{/each}
-			</ul>
+			{#if storedMedia.length}
+				<ul class="media-list">
+					{#each storedMedia as r (r.id)}
+						<li>
+							<code>{r.path}</code>
+							{#if r.size}<span class="hint">{r.size}</span>{/if}
+							{#if r.note}<span class="req" title={r.requested_by ?? ''}>✉ {r.note}</span>{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
+			{#if mapPlaces.length}
+				<!-- the world map's places without an illustration (derived from the map, agents/MAP.md §5) -->
+				<h5 data-testid="wanted-map-places">{m['creator.wanted_map_places']()} <span class="hint">· {mapPlaces.length}</span></h5>
+				<ul class="media-list">
+					{#each mapPlaces as r (r.id)}
+						{@const place = r.id.slice(MAP_PLACE_REQUEST_PREFIX.length)}
+						<li data-testid="wanted-map-{place}">
+							<code>{r.path}</code>
+							{#if r.size}<span class="hint">{r.size}</span>{/if}
+							<span>{r.note} · <a href="/map?location={encodeURIComponent(place)}">{m['creator.map']()}</a></span>
+							{#if r.brief}<details><summary>{m['creator.wanted_map_prompt']()}</summary><pre>{r.brief}</pre></details>{/if}
+						</li>
+					{/each}
+				</ul>
+			{/if}
 		</article>
 	{/if}
 </section>
@@ -168,11 +194,31 @@
 		grid-template-columns: repeat(auto-fill, minmax(22rem, 1fr));
 		gap: 0.15rem 1rem;
 	}
+	h5 {
+		margin: 0.6rem 0 0.25rem;
+		font-size: 12px;
+	}
+	details {
+		flex-basis: 100%;
+	}
+	summary {
+		cursor: pointer;
+		font-size: 11px;
+		color: var(--muted);
+	}
+	pre {
+		white-space: pre-wrap;
+		font-size: 11px;
+		margin: 0.25rem 0 0;
+		padding: 0.4rem;
+		background: var(--surface-panel);
+	}
 	.media-list {
 		grid-template-columns: minmax(0, 1fr);
 	}
 	li {
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 		align-items: baseline;
 	}

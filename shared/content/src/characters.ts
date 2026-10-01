@@ -421,6 +421,11 @@ export interface AssetRequest {
 	/** media requests: the size wanted, e.g. "1080 × 1080" */
 	size?: string;
 	note?: string;
+	/**
+	 * a full brief for an image generator or a designer (the map places' requests, derived from the map – `mapMediaRequests`
+	 * in map.ts; never stored)
+	 */
+	brief?: string;
 	/** email / name of who asked */
 	requested_by?: string | null;
 	/** ISO date-time */
@@ -1106,6 +1111,7 @@ export function mediaRequestsText(requests: AssetRequest[]): string {
 			group = head;
 		}
 		lines.push(`  ${r.path}${r.size ? `  ${r.size}` : ''}${r.note ? `  – ${r.note}` : ''}`);
+		if (r.brief) for (const line of r.brief.split(String.fromCharCode(10))) lines.push(`    ${line}`);
 	}
 	return lines.join('\n');
 }

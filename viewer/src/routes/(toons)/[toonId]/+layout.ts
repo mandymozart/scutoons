@@ -1,4 +1,4 @@
-import type { Character, LoadedSequenceItem, MapLocation, MapRoute, Season, Toon, ToonIndex } from '@scutoons/content';
+import type { Character, LoadedSequenceItem, Season, Toon, ToonIndex } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
@@ -18,7 +18,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 				if (listed?.status !== Status.PUBLISHED) error(404, 'Not found');
 			});
 
-	// The toon page in one request (library: settings, every season with its chapter list, the map) + the characters
+	// The toon page in one request (library: settings, every season with its chapter list) + the characters
 	// (registry reduced to the toon's cast, resolved in the reader's locale); agents/DATA.md.
 	const [, bundle, characters] = await Promise.all([
 		gate,
@@ -36,8 +36,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	if (!overview) error(404, `Toon ${params.toonId} has no season`);
 	const season: Season = overview.season;
 	const sequence: LoadedSequenceItem[] = overview.chapters.filter((item) => isItemListed(item, import.meta.env.DEV));
-	const locations: MapLocation[] = bundle.locations;
-	const routes: MapRoute[] = bundle.routes;
-
-	return { sequence, characters, locations, routes, toon, season };
+	// the map loads its own data (`/library/map`, agents/MAP.md M1); the bundle's `locations` / `routes` are for older builds
+	return { sequence, characters, toon, season };
 };

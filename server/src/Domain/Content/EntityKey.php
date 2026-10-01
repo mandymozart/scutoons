@@ -14,7 +14,8 @@ use Scutoons\Domain\ApiError;
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
  *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
- *   characters  moods  asset-requests  people  roles  events           platform-wide, language-neutral
+ *   characters  moods  asset-requests  people  roles  events  map      platform-wide, language-neutral
+ *   (`map` = the SCUTOONS world map, agents/MAP.md; `locations:*` / `routes:*` are the old per-toon map, read-only)
  *
  * Every toon-related text of every locale lives in these documents (per-locale documents or `{ de, en }` fields); UI
  * chrome stays in the apps' message files; the catalog (items, editions, products) follows later (DATA.md "B2").
@@ -39,6 +40,7 @@ final class EntityKey
         'people' => [false, false, false, false],
         'roles' => [false, false, false, false],
         'events' => [false, false, false, false],
+        'map' => [false, false, false, false],
     ];
     /**
      * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only

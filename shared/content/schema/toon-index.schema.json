@@ -7,6 +7,9 @@
 		"ToonIndex": {
 			"type": "object",
 			"properties": {
+				"map": {
+					"$ref": "#/definitions/ToonMapView"
+				},
 				"authors": {
 					"type": "array",
 					"items": {
@@ -18,9 +21,6 @@
 				},
 				"thumbnail": {
 					"type": "string"
-				},
-				"map": {
-					"$ref": "#/definitions/Map"
 				},
 				"announce": {
 					"type": "boolean",
@@ -80,54 +80,29 @@
 			],
 			"description": "One toon's entry in `toons.json` (language-neutral). The creator keeps the newest version of it in the content store as `<toon>/_/index.json` (see `TOON_INDEX_FILE`); read the languages with `toonLanguages()`."
 		},
-		"Map": {
+		"ToonMapView": {
 			"type": "object",
 			"properties": {
-				"layers": {
-					"$ref": "#/definitions/MapLayers"
-				},
-				"width": {
-					"type": "number"
-				},
-				"height": {
-					"type": "number"
-				},
 				"center": {
-					"$ref": "#/definitions/MapCoordinates"
-				}
-			},
-			"required": [
-				"layers",
-				"width",
-				"height",
-				"center"
-			]
-		},
-		"MapLayers": {
-			"type": "object",
-			"properties": {
-				"terrain": {
-					"type": "string"
-				}
-			},
-			"required": [
-				"terrain"
-			]
-		},
-		"MapCoordinates": {
-			"type": "object",
-			"properties": {
-				"x": {
-					"type": "number"
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y"
+					]
 				},
-				"y": {
+				"zoom": {
 					"type": "number"
 				}
 			},
-			"required": [
-				"x",
-				"y"
-			]
+			"description": "The toon's start view on the world map (`toon:<toon>` → `map`; language-neutral)"
 		},
 		"ToonTile": {
 			"type": "object",

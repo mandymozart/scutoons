@@ -52,6 +52,16 @@ final class Snapshot
     }
 
     /**
+     * The entities of some kinds (the world map: `map` + every toon's index entry for the visibility of its places)
+     * @param list<string> $kinds
+     */
+    public static function kinds(Database $db, array $kinds, bool $draft): self
+    {
+        $marks = implode(', ', array_fill(0, count($kinds), '?'));
+        return self::where($db, "kind IN ($marks)", array_values($kinds), $draft);
+    }
+
+    /**
      * Creator-only kinds (the screenplays, EntityKey::CREATOR_ONLY_KINDS) are never part of a snapshot: no library
      * answer can contain them, and saving a script doesn't change the fingerprint (the cache key) of a reader's answer.
      * @param list<string> $params

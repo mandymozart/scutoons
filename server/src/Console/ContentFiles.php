@@ -12,7 +12,7 @@ use Scutoons\Domain\Content\EntityKey;
  *
  *   toons.json                         one entry per toon            → toon:<toon>
  *   events.json                                                      → events
- *   scutoons/_/<name>.json             characters, moods, asset-requests, people, roles → <name>
+ *   scutoons/_/<name>.json             characters, moods, asset-requests, people, roles, map → <name>
  *   <toon>/_/cast.json, credits.json                                 → cast:<toon>, credits:<toon>
  *   <toon>/<l>/toon.json                                             → toon-settings:<toon>:<l>
  *   <toon>/<l>/season<N>.json, chapter<N>.json                       → season:<toon>:<N>:<l>, chapter:<toon>:<N>:<l>
@@ -25,7 +25,7 @@ final class ContentFiles
 {
     public const PLATFORM_DIR = 'scutoons';
     public const NEUTRAL_DIR = '_';
-    private const PLATFORM_KINDS = ['characters', 'moods', 'asset-requests', 'people', 'roles'];
+    private const PLATFORM_KINDS = ['characters', 'moods', 'asset-requests', 'people', 'roles', 'map'];
 
     /** The entity key of a file `<dir>/<locale dir>/<relative>` of the layout, null when it is no entity */
     public static function keyOf(string $dir, string $localeDir, string $relative): ?string

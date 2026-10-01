@@ -83,7 +83,7 @@ function store(string $key, mixed $content, bool $publish = true): void
 {
     global $api, $toon, $creatorToken;
     $parts = explode(':', $key);
-    $full = in_array($parts[0], ['characters', 'moods', 'asset-requests', 'people', 'roles', 'events'], true) ? $key : $parts[0] . ":$toon" . (count($parts) > 1 ? ':' . implode(':', array_slice($parts, 1)) : '');
+    $full = in_array($parts[0], ['characters', 'moods', 'asset-requests', 'people', 'roles', 'events', 'map'], true) ? $key : $parts[0] . ":$toon" . (count($parts) > 1 ? ':' . implode(':', array_slice($parts, 1)) : '');
     $r = call('PUT', "$api/entities/$full", ['content' => $content], $creatorToken);
     if ($r['status'] !== 200) throw new RuntimeException("PUT $full: " . $r['raw']);
     if ($publish) {
@@ -125,11 +125,55 @@ try {
     $r = call('GET', "$lib?locale=en");
     check($r['status'] === 200 && array_keys($r['body']) === ['entry', 'toon', 'seasons', 'locations', 'routes'], 'toon bundle shape', $r['raw']);
     check(($r['body']['toon']['title'] ?? '') === 'Toon en' && ($r['headers']['content-language'] ?? '') === 'en', 'toon.json in the asked locale', $r['headers']);
-    check(($r['body']['locations'] ?? null) === [['id' => 'cathedral']], 'locations: en missing → de (source)', $r['body']['locations'] ?? null);
+    // the old per-toon map documents are read only while no world map (entity `map`, agents/MAP.md) is stored
+    $worldBefore = call('GET', "$api/entities/map?wrap=1", null, $creatorToken);
+    if ($worldBefore['status'] === 404) check(($r['body']['locations'] ?? null) === [['id' => 'cathedral']], 'locations: en missing → de (source)', $r['body']['locations'] ?? null);
+    else check(($r['body']['locations'] ?? null) === [], 'locations: computed from the world map (the old document is no longer read)', $r['body']['locations'] ?? null);
     $chapters = $r['body']['seasons'][0]['chapters'] ?? [];
     check(array_column($chapters, 'number') === [1, 3] && array_column($chapters, 'status') === ['published', 'coming-soon'], 'season overview lists published + coming-soon, not the draft', $chapters);
     check(isset($chapters[0]) && !array_key_exists('groups', $chapters[0]) && !array_key_exists('audio', $chapters[0]) && $chapters[0]['title'] === 'Eins',
         'chapter summaries carry no groups/audio', $chapters[0] ?? null);
+    echo "\nWorld map (/library/map, agents/MAP.md)\n";
+    // a world map with a place of this toon, a hidden one, one of an unknown (unlisted) toon; restored at the end
+    $previousMap = $worldBefore['status'] === 200 ? ($worldBefore['body']['published']['id'] ?? null) : null;
+    $world = ['width' => 2048, 'height' => 1046, 'layers' => [['id' => 'terrain', 'image' => 'catpope/images/map/map-layer-terrain.svg']],
+        'locations' => [
+            ['id' => "$toon-home", 'name' => ['de' => 'Zuhause', 'en' => 'Home'], 'x' => 100, 'y' => 200, 'toons' => [$toon], 'chapter' => ['toon' => $toon, 'number' => 1]],
+            ['id' => "$toon-tower", 'name' => ['de' => 'Turm'], 'x' => 300, 'y' => 400, 'toons' => [$toon], 'hidden' => true, 'unlock' => ['toon' => $toon, 'chapter' => 1, 'at' => 0.5]],
+            ['id' => "$toon-secret", 'name' => ['de' => 'Geheim'], 'x' => 5, 'y' => 5, 'toons' => ["x$toon"]],
+        ],
+        'routes' => [['id' => "$toon-way", 'name' => ['de' => 'Weg', 'en' => 'Way'], 'toons' => [$toon], 'style' => 'trail',
+            'waypoints' => [['location' => "$toon-home"], ['id' => 'bridge', 'x' => 200, 'y' => 300, 'name' => ['de' => 'Brücke', 'en' => 'Bridge']], ['location' => "$toon-tower"]]]],
+    ];
+    store('map', $world);
+    $r = call('GET', "$api/library/map?locale=en&toon=$toon", null, null, ['Origin: https://elsewhere.example']);
+    $mine = array_values(array_filter($r['body']['locations'] ?? [], fn($p) => str_starts_with($p['id'] ?? '', $toon)));
+    check($r['status'] === 200 && array_keys($r['body']) === ['width', 'height', 'layers', 'locations', 'routes', 'view'], '/library/map answer shape (+ view with ?toon=)', $r['raw']);
+    check(array_column($mine, 'id') === ["$toon-home", "$toon-tower"], "only listed toons' places (the unknown toon's place stays out)", array_column($mine, 'id'));
+    check(array_column($mine, 'name') === ['Home', 'Turm'] && ($r['headers']['x-content-fallback'] ?? '') === '1', 'names resolved to en, missing → de + X-Content-Fallback', [$mine, $r['headers']]);
+    check(($mine[1]['hidden'] ?? null) === true && ($mine[1]['unlock']['at'] ?? null) === 0.5, 'hidden places are sent with their unlock point (the state is the reader\'s)', $mine[1] ?? null);
+    $route = array_values(array_filter($r['body']['routes'] ?? [], fn($x) => ($x['id'] ?? '') === "$toon-way"))[0] ?? null;
+    check(($route['name'] ?? '') === 'Way' && ($route['waypoints'][1]['name'] ?? '') === 'Bridge', 'route + free waypoint names resolved', $route);
+    check(($r['body']['view']['center'] ?? null) === ['x' => 200, 'y' => 300] && ($r['body']['view']['zoom'] ?? null) === 1, 'view = the centre of the toon\'s places (no start view)', $r['body']['view'] ?? null);
+    check(($r['headers']['access-control-allow-origin'] ?? '') === '*' && ($r['headers']['cache-control'] ?? '') === 'public, max-age=60', '/library/map is public and cached 60 s', $r['headers']);
+    $etag = $r['headers']['etag'] ?? '';
+    check(call('GET', "$api/library/map?locale=en&toon=$toon", null, null, ["If-None-Match: $etag"])['status'] === 304, '/library/map ETag → 304');
+    check(call('GET', "$api/library/map?toon=x$toon")['status'] === 404, 'unknown / unlisted toon → 404');
+    check(call('GET', "$api/library/map?toon=Bad*Id")['status'] === 400 && call('GET', "$api/library/map?locale=deutsch")['status'] === 400, 'invalid toon / locale → 400');
+    check(call('GET', "$api/library/map?draft=1")['status'] === 401, 'draft mode needs a session');
+    $r = call('GET', "$lib?locale=en");
+    check(array_column($r['body']['locations'] ?? [], 'id') === ["$toon-home", "$toon-tower"] && ($r['body']['locations'][0]['chapterNumber'] ?? '') === '1'
+        && ($r['body']['routes'][0]['locations'] ?? null) === ["$toon-home", "$toon-tower"], 'toon bundle: the old locations / routes shape, computed from the world map', $r['body']['locations'] ?? null);
+    // a publish shows up at once (the cache is keyed by version ids)
+    $world['locations'][0]['x'] = 111;
+    store('map', $world);
+    $r = call('GET', "$api/library/map?locale=de&toon=$toon");
+    check(($r['body']['locations'][0]['x'] ?? null) === 111 || in_array(111, array_column($r['body']['locations'] ?? [], 'x'), true), 'map publish is served at once', $r['body']['locations'] ?? null);
+    if ($previousMap !== null) {
+        $restore = call('POST', "$api/entities/map/publish", ['version' => $previousMap], $creatorToken);
+        check($restore['status'] === 200, 'the world map published before the suite is published again', $restore['raw']);
+    }
+
     $r = call('GET', "$lib/seasons/1?locale=de");
     check($r['status'] === 200 && $r['body']['number'] === 1 && $r['body']['season']['title'] === 'Staffel de', 'season endpoint', $r['raw']);
 
@@ -235,6 +279,8 @@ try {
     check(false, 'exception', $e->getMessage());
 } finally {
     Db::run('DELETE FROM entity_versions WHERE toon = ?', [$toon]);
+    // the suite's versions of the world map (the one published before was published again above)
+    Db::run("DELETE FROM entity_versions WHERE entity_key = 'map' AND author = ?", [$creator['id']]);
     foreach ([$member, $creator, $adminOnly] as $user) {
         Db::run('DELETE FROM sessions WHERE user_id = ?', [$user['id']]);
         Db::run('DELETE FROM user_roles WHERE user_id = ?', [$user['id']]);
