@@ -1085,3 +1085,44 @@ character, persona, look and mood and doubles as the VN test bed.
 - Other apps: **shop** already had `url → cookie → preferredLanguage → baseLocale` with both locales prefixed – correct,
   unchanged. **creator** / **admin** have no locale URL prefixes (UI language by own cookie → browser language), not
   affected.
+
+## Prologue: chapter 0 = the "Roar Little Kitty" video, player video slices, CDN ranges (2026-10-01)
+
+- **Owner:** the video (chronologically before chapter 1, a trailer) is catpope season 1 **chapter 0 "Prolog" / "Prologue"**,
+  public (`isPreview: true`), published de + en, first in the sequence; reader texts never say "music video" (owner wording:
+  description de "Der Prolog zur ersten Staffel." / en "The prologue to season one."). A normal chapter whose one group holds
+  one **player video slice** – season/chapter logic and the creator unchanged apart from number 0 being allowed.
+- **Chapter 0 everywhere:** entity keys `chapter|scene:<toon>:0[...]` valid (PHP `EntityKey::CHAPTER_NUMBER_PATTERN`,
+  `ContentFiles` `chapter0.json` / `chapter0/<scene>.json`, TS `parseEntityKey` reads the raw digits – `Number('')` is 0, so
+  `chapter:x::de` must stay invalid; seasons and leading zeros stay invalid); the library route already took `[0-9]{1,6}`;
+  viewer chapter load `number > 0` → digits ≥ 0; chapter-item clamp `sanitizeNumber(n, 1, 0, 999)`; creator new chapter =
+  max + 1 (unchanged, ch0 never collides), creator layout crumbs (`"0"` is truthy) and toon page fine (screenshots).
+  content-smoke: `chapter:<toon>:0:de` is now a valid PUT; `00` / `season:…:0` still 400.
+- **Start button / list:** `readingState` gets a `prologue` state (chapter 0 among the readable ones, nothing else read, the
+  prologue not finished); everything else is computed over the other chapters, so ch0 is never the "first chapter" for
+  "again" nor the last opened one. List row label from paraglide `chapter.prologue`; number column `min-width: 3rem` in a
+  `6rem 1fr auto` grid (normal rows unchanged).
+- **Player slice** (`SliceVideo.player`, `sources`): reader `slice-video.svelte`; ducking = the bubbling `sliceplayer` event
+  (`SLICE_PLAYER_EVENT`, `SlicePlayerDetail`) caught by the viewer's `use:audio` on `.chapter-view` → `holdForPlayer`
+  (pauses the streamed music tracks; music that starts while held waits and starts on release; `unload` clears the hold).
+  Samples (Howler one-shots) are not paused. Progress: `trackReading` skips player slices in its IntersectionObserver and
+  reads them from the same event (share = video progress, 1 at `ended` or ≥ 95 %). `afterFirstSlices` waits ≤ 4 s for a
+  player video (preload metadata may never reach `loadeddata`).
+- **Media** (cdn/root, not in git): `videos/roar-little-kitty.{480p,720p,1080p}.mp4` (encoded by the coordinator; 910×480 /
+  1366×720 / 2048×1080), poster `images/webtoon/s1c0/s1c0-slice-1.webp` (780 × 411 = 2 × the slice width, frame at 11.2 s of
+  the 1080p file: title card with the sphynx cat; Pillow Lanczos + unsharp 0.6/60/2, WebP q88 m6), thumbnail
+  `images/s1c0-thumbnail.webp` (202 × 142 centre crop of the same frame). The slice is 390 × 206. The earlier
+  `roar-little-kitty.1280w.mp4` is superseded (not referenced). Chrome picks `<source media>` per viewport at load: 375 →
+  480p, 1280 → 720p, 1600 → 1080p (check-prolog asserts the network log).
+- **`cdn/server.py` ranges:** single `bytes=a-b` / `a-` / `-n` → 206 (+ `Content-Range`, `Accept-Ranges`, CORS `Range` /
+  exposed headers), past the end → 416, multi-range → 200 whole file; curl-verified (byte-identical slice of the file). A CDN
+  process started before this commit still answers 200 – restart it (`npm run dev` brings it back after it was stopped);
+  check-prolog then routes the video requests through its own throw-away `server.py` (CDP `Fetch.continueRequest` with a
+  rewritten URL works across ports). Production hosting serves ranges natively.
+- **Check:** `node scripts/check-prolog.mjs [--shots=<dir>] [--only=375-de] [--no-member]` – guest de/en at 375 + 1280
+  (start button, list label + bar, no blocker, player attributes, ratio, resolution per width, sound via
+  `webkitAudioDecodedByteCount`, music paused/resumed with chapter 1's music injected into the chapter-0 answer by CDP
+  Fetch, seek to 200 s with 206s, partial + finished checkpoints, "S1 K1 lesen" after `ended`, chapter 1 still gated),
+  1600 px → 1080p, and the test user as a member (finished checkpoint reaches `/api/progress/catpope`, the member's
+  previous server progress is PUT back). Chrome flags `--autoplay-policy=no-user-gesture-required --mute-audio`.
+- Open for the owner: chapter 0's `release` is set to the season's 2025-10-04 (not shown for published chapters).

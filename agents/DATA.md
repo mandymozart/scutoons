@@ -48,7 +48,9 @@ season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<c
 locations:<toon>:<l>   routes:<toon>:<l>  cast:<toon>   credits:<toon>
 characters   moods   asset-requests   people   roles   events          (platform-wide)
 ```
-Segments are `:`-separated; the locale is the last segment of localized kinds; an *entity* is a key without its
+Segments are `:`-separated; numbers are digits without leading zeros – seasons from 1, **chapters (and their scenes)
+from 0** (2026-10-01: chapter 0 = a season's prologue, `chapter:catpope:0:<l>`, file `chapter0.json`, `ref.src`
+`chapter0/<name>.json`; `EntityKey::CHAPTER_NUMBER_PATTERN`, `parseEntityKey`); the locale is the last segment of localized kinds; an *entity* is a key without its
 locale (`chapter:catpope:2`), which is what the creator edits across languages. `kind`, `toon`, `locale` are stored as
 columns for filtering (NULL = platform-wide / language-neutral). A chapter group's scene reference stays in the content
 format (`ref.src: "chapter2/scene-14.json"`) and resolves to `scene:<toon>:2:scene-14` (`sceneEntityOfRef`,
@@ -63,6 +65,16 @@ folder). Both language-neutral (the creator writes them to every locale), passed
 offers season 1's `download`. catpope migrated in the seed + the local store (new published versions of
 `toon-settings:catpope:{de,en}`, `toon-settings:sandbox:{de,en}`, `season:catpope:1:{de,en}`) and in
 `content-seed.mysql.sql` (only those 4 catpope statements changed).
+
+**Prologue (2026-10-01, owner):** catpope season 1 starts with chapter 0 "Roar Little Kitty" (the music video, public:
+`isPreview: true`, published de + en, first in the season `sequence`, no chapter audio). Its one group holds one player
+video slice (`SliceVideo.player` + `sources`, DESIGN.md "Player video slice"): poster `images/webtoon/s1c0/s1c0-slice-1.webp`
+(780 × 411, from the 1080p file at 11.2 s – twice the slice width so the poster stays sharp behind the controls; a single
+file, no density variants), thumbnail `images/s1c0-thumbnail.webp` (202 × 142 like the others), videos
+`videos/roar-little-kitty.{480p,720p,1080p}.mp4`. Seed + local store (new published `chapter:catpope:0:{de,en}`,
+`season:catpope:1:{de,en}`; backup `server/db/local.sqlite.bak-2026-10-01-prologue`), `content-seed.mysql.sql`: only those 4
+statements changed (old rows keep their timestamps). The seed is idempotent per key: on a database where
+`season:catpope:1:*` already exists the new season version must be imported separately.
 
 **Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
 in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API).

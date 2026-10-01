@@ -1,0 +1,40 @@
+{
+  "title": "Roar Little Kitty",
+  "author": "Mandy Mozart",
+  "number": 0,
+  "language": "de",
+  "release": "2025-10-04",
+  "status": "published",
+  "description": "Der Prolog zur ersten Staffel.",
+  "thumbnail": "images/s1c0-thumbnail.webp",
+  "isPreview": true,
+  "groups": [
+    {
+      "label": "roar-little-kitty",
+      "renderer": {
+        "type": "vertical"
+      },
+      "slices": [
+        {
+          "image": "images/webtoon/s1c0/s1c0-slice-1.webp",
+          "width": 390,
+          "height": 206,
+          "video": {
+            "src": "videos/roar-little-kitty.1080p.mp4",
+            "sources": [
+              {
+                "src": "videos/roar-little-kitty.480p.mp4",
+                "media": "(max-width: 600px)"
+              },
+              {
+                "src": "videos/roar-little-kitty.720p.mp4",
+                "media": "(max-width: 1400px)"
+              }
+            ],
+            "player": true
+          }
+        }
+      ]
+    }
+  ]
+}

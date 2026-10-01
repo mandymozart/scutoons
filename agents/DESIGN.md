@@ -72,8 +72,10 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   `not-allowed`. `.btn-clear`: no chrome. No third variant, no radius, no shadow.
 - **IconButton** — fixed 2rem circle, `paper` bg, 2px `ink` border, hover fill `primary-cyan`, one 16px black icon,
   `touch-action: manipulation` (inventory / main-menu toggles).
-- **ChapterItem** — grid `6rem auto 3rem` (`5rem …` < 768px), hover `surface-hover`, meta in `caption` + `text-muted`,
-  coming-soon row at 0.5 opacity. No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
+- **ChapterItem** — grid `6rem 1fr auto` (`5rem …` < 768px; the number column at least 3rem, wider only for the
+  prologue's label, set in `caption` size; < 768px the row keeps 0.5rem off the right edge), hover `surface-hover`, meta in `caption` + `text-muted`, coming-soon row at 0.5 opacity. Chapter 0
+  (the season's prologue) shows "Prolog" / "Prologue" (paraglide `chapter.prologue`) instead of "#0"; prev/next in the
+  chapter navigation and the coming-soon page name it the same way (`chapterName`, viewer `lib/utils/chapter-name.ts`). No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
   and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
 - **Toon page, top to bottom** (owner 2026-09-30): cover, toon title + description, "Staffel 1: <title>", the season
   text, **the start button**, the chapter list, **the season's music** (a secondary button "Musik herunterladen" /
@@ -90,11 +92,26 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   read to its end → the next readable chapter ("lesen"); after the last one → the first never-finished one; all
   finished → the first chapter "erneut lesen". Opening a finished chapter again starts a new read-through (position
   from 0, `isComplete` stays).
+  **Prologue (chapter 0, owner 2026-10-01):** a visitor who has read nothing of the other chapters and hasn't watched the
+  prologue to its end gets "Prolog ansehen →" / "Watch the prologue →" (`start.prologue`, state `prologue`, title
+  "Staffel 1, Prolog: <title>") → `/<toon>/chapter/0`; once it was watched (the video ended or reached 95 %) the rules
+  above apply to the other chapters ("S1 K1 lesen"). Chapter 0 is never "the first chapter" of "erneut lesen" and never
+  the "last opened" one for continue/next (`readingState`, `PROLOGUE` / `isPrologue` in progress.ts).
 - **Reading progress** (`reading/track-reading.ts` on the chapter page): a slice counts as read when ≥ 50 % of it is on
   screen (or, taller than the screen, its bottom edge); position = (slices of the earlier groups + furthest slice + 1)
   / the chapter's slices, < 1 until the **last slice of the last group** is reached (= finished). Stored as a
   `Checkpoint { uri: "<toon>/chapter/<n>", isComplete, position }` in the existing game state (localStorage
-  `scutoons_game_<toon>`, a member's `/api/progress/<toon>` via the existing last-write-wins sync).
+  `scutoons_game_<toon>`, a member's `/api/progress/<toon>` via the existing last-write-wins sync). A player video slice
+  is read by watching it, not by seeing it: its share of the position grows with the video's progress, and it counts as
+  read once the video ended or reached 95 % (`PLAYER_WATCHED`); the chapter list's bar shows the same.
+- **Player video slice** (`SliceVideo.player`, `@scutoons/reader` `slice-video.svelte`, owner 2026-10-01 for the music
+  video "Roar Little Kitty"): instead of the muted in-view loop a video to watch – sound, native controls (fullscreen
+  through them), no loop, no autoplay, `playsinline`, `preload="metadata"`, the slice image as poster. The slice's
+  `width` / `height` are the video's ratio at 390 px (390 × 206 for 1280 × 676 / 2048 × 1080), `object-fit: contain` on
+  ink. While it plays the chapter's music pauses and comes back after a pause or the end (bubbling `sliceplayer` event →
+  the viewer's audio action → `holdForPlayer`). `SliceVideo.sources [{ src, media? }]` = other encodings as `<source
+  media>` before `src` (chapter 0: 480p for `(max-width: 600px)`, 720p for `(max-width: 1400px)`, 1080p as `src`); the
+  browser picks once at load by viewport. No adaptive streaming: HLS (e.g. Bunny Stream) may come later.
 - **Credits colophon** (`@scutoons/reader` `CreditsColophon`, owner 2026-09-30, typography after the back of the vinyl
   cover; content = `credits:<toon>` as it is): `0.8125rem` (≈ 11.4 px on a phone), line-height 1.5, centred, max
   36em; section headings in capitals, bold, letter-spacing 0.08em, inside a 2px `ink` framed bar (square); names as

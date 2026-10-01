@@ -70,7 +70,7 @@
 		{/if}
 	</div>
 	<div class="chapter-number" data-testid="chapter-number">
-		{#if isPrologue(chapter.number)}{m['chapter.prologue']()}{:else}{isPublic ? ' ' : ''}#{chapter.number}{/if}
+		{#if isPrologue(chapter.number)}<span class="chapter-label">{m['chapter.prologue']()}</span>{:else}{isPublic ? ' ' : ''}#{chapter.number}{/if}
 	</div>
 </div>
 
@@ -132,6 +132,11 @@
 		align-items: center;
 	}
 
+	/* a word instead of "#n" (the prologue): caption size, so it fits the number column on a phone */
+	.chapter-item .chapter-label {
+		font-size: 0.75rem;
+	}
+
 	.chapter-item:hover {
 		background-color: #f0f0f0;
 	}
@@ -162,6 +167,8 @@
 		.chapter-item {
 			grid-template-columns: 5rem 1fr auto;
 			gap: 0.5rem;
+			/* the number column must not touch the screen edge ("Prologue") */
+			padding-right: 0.5rem;
 		}
 
 		.chapter-item .chapter-info {

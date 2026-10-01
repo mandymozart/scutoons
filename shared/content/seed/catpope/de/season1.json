@@ -24,6 +24,7 @@
 		"sound": ["Mandy Mozart", "Nova Lux"]
 	},
 	"sequence": [
+		{ "type": "chapter", "number": 0, "status": "published" },
 		{ "type": "chapter", "number": 1, "status": "published" },
 		{ "type": "chapter", "number": 2, "status": "draft" },
 		{ "type": "chapter", "number": 3, "status": "coming-soon" },
