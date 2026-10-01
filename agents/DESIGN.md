@@ -83,6 +83,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   the record's cut-out sits left of it, decorative (`alt=""`), lazy, ≈ 77 px on a phone / ≤ 96 px on a tablet, the pair
   centred; owner 2026-10-01), **the credits colophon**.
   Chapters are named only in the chapter list (never in the music or the colophon).
+- **Cover lettering** (owner 2026-10-01, everything language-independent; `CoverArt` in `@scutoons/reader`): with
+  `cover.lettering` the cover art is text-free and the UI sets the toon's name (small) over the season's title (big, in
+  quotes) in the reader's language – comic lettering, not UI chrome: Bangers (`--font-lettering`), paper fill, heavy ink
+  outline + hard ink shadow, tilted −5°, sizes in `cqw` of the cover, upper part of the art. Without the flag the image is
+  shown as delivered (catpope's cover still has its German title baked in). DATA.md "Language-independent media".
 - **Toon page desktop** (≥ 1024 px, owner 2026-10-01, reference: artboard "A · Vollbild" of
   https://claude.ai/artifact/AYHvMG81k7CQc1JrVf4n5R; phones and tablets keep the single column above):
   - **Hero** (`toon/hero.svelte`) = the first screen, `min(100vh, 900px)`, full-bleed: the season's trailer loop
