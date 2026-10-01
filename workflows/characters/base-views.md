@@ -5,7 +5,7 @@ registered, so the character works everywhere: VN dialogue (avatar, portrait), f
 reader avatar (A-pose).
 
 ```
-any 1 of 4 views  ──►  check against spec  ──►  generate the missing views (Luma)  ──►  normalize
+any 1 of 4 views  ──►  check against spec  ──►  generate the missing views (image generator or designer)  ──►  normalize
                                                                                          │
              register in the character registry  ◄──  WebP + avatar  ◄──  name + place ◄─┘
 ```
@@ -27,7 +27,7 @@ existing Cat Pope and Yellow Mouse A-poses). Story looks (e.g. helmet) are **not
 Style for all views: identical to the reference — same rendering, line quality, colours, lighting, proportions,
 clothing of the look. No text, no watermark, no props unless they belong to the look.
 
-## Prompt definition for Luma (one instruction, creates everything that is missing)
+## Brief (one instruction, creates everything that is missing; for any image generator that takes style references, or a designer)
 
 Attach **one** image: either one of the base views (portrait, full, A-pose) or **any other reference** of the
 character — a snapshot, an action pose, a concept artist's sketch. Replace `<name>`, `<persona>`, `<look>`.
@@ -80,10 +80,10 @@ File names for the delivery (the importer also accepts any name inside a folder 
    - **close** (wrong size, margins or background) → normalize: crop/pad/scale to the canvas, remove the
      background, align the eye line (portrait) or feet/head margins (full, apose). Show before/after.
    - **does not match** (e.g. a scene still, a 3/4 pose for an A-pose, cropped feet) → do **not** force it into the
-     view; use it **only as the Luma reference** and generate that view too.
+     view; use it **only as the style reference** and generate that view too.
    - An **avatar** (head with neck) is a view of its own now; as the only source it is a weak reference for the
      body, so the full and A-pose views rely more on any other reference given.
-3. **Generate the missing views** with the single prompt above (Luma): it keeps a matching view and creates all the
+3. **Generate the missing views** with the single brief above (any image generator or a designer): it keeps a matching view and creates all the
    others — portrait, full, A-pose swim and A-pose naked. If a result drifts, regenerate just that view with the
    approved portrait attached as a second reference (the most faithful source for the face).
 4. **Review** (owner): approve each view or regenerate; artist-made images always win over generated ones and can
