@@ -9,7 +9,7 @@ use Scutoons\Domain\ApiError;
  * The key of a stored entity (agents/DATA.md §2 "Entity keys"): `<kind>[:<toon>][:<number>][:<scene>][:<locale>]`.
  *
  *   toon:<toon>                          the toon's index entry (list entry, status, languages, names)
- *   toon-settings:<toon>:<l>             the toon's settings (title, covers, map, downloads) per locale
+ *   toon-settings:<toon>:<l>             the toon's per-language settings (title, description, release, status); the language-neutral ones (map, tile, cover …) are in toon:<toon>
  *   season:<toon>:<n>:<l>                chapter:<toon>:<n>:<l>        scene:<toon>:<chapter>:<name>:<l>
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon

@@ -5,7 +5,7 @@
 	import StartButton from '$lib/components/toon/start-button.svelte';
 	import Hero from '$lib/components/toon/hero.svelte';
 	import { onMount } from 'svelte';
-	import { CreditsColophon } from '@scutoons/reader';
+	import { CoverArt, CreditsColophon } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 
@@ -39,7 +39,18 @@
 		<Hero toonId={params.toonId} {toon} {season} {seasonNumber} {sequence} />
 	{/if}
 	<div class="toon-header">
-		<img src={asset(`${params.toonId}/${toon.cover.square}`)} alt="Cover" class="Cover" />
+		{#if toon.cover?.square}
+			<!-- one cover for every language; with cover.lettering the title is set over the text-free art in the reader's language -->
+			<CoverArt
+				src={asset(`${params.toonId}/${toon.cover.square}`)}
+				alt="Cover"
+				class="Cover"
+				lettering={toon.cover.lettering === true}
+				title={toon.title}
+				subtitle={season?.title ?? ''}
+				lang={toon.language}
+			/>
+		{/if}
 		<h1>{toon.title}</h1>
 		<p class="description">{toon.description}</p>
 	</div>
@@ -116,9 +127,8 @@
 		margin-bottom: 2rem;
 	}
 
-	.toon-header img {
+	.toon-header :global(.Cover) {
 		width: 100%;
-		height: auto;
 	}
 
 	.chapters-header {

@@ -1303,3 +1303,24 @@ character, persona, look and mood and doubles as the VN test bed.
   files and a drifting PLATFORM.md table. `.claude/launch.json` is gitignored: regenerate with `npm run dev:launch-json`.
 - Not covered (can't read JSON): `cdn/.htaccess` (production CDN, allows `http://localhost:8000`), the CI qr smoke in
   `.github/workflows/qr.yml` (own `php -S 127.0.0.1:9001`), server PHP smoke scripts' usage examples.
+
+## Language-independent media: covers in the toon entry, rendered lettering, audit (2026-10-01)
+
+- **Owner rule** (PLAN.md RULES): media are shared by all languages, text only in text fields, baked lettering → text the UI
+  renders. Spec + audit table + media requests: DATA.md "Language-independent media".
+- `cover` is a language-neutral toon setting now (`TOON_NEUTRAL_FIELDS` / `Library::TOON_NEUTRAL_FIELDS`), `Cover.lettering`
+  turns on `CoverArt` (`@scutoons/reader`): toon name + season title in Bangers over text-free art. catpope keeps its baked
+  German cover with the flag off; toptoy/yellowmouse have no cover (their `images/1x/<l>/` paths never existed).
+- The creator's toon settings show the cover once ("Same in every language" → Cover) with a per-language preview incl. the
+  rendered title over today's image (a blur `veil` behind it); the open media requests of the toon are listed there and in
+  Wanted images → "Toon media". Asset requests with `view: "media"` + `toon` + `size` = toon media (no character).
+- Validation warns on media paths with a locale segment in every entity (`media.ts`); the seed has none left.
+- Store migrated as the test user (backup `server/db/local.sqlite.bak-2026-10-01-covers`); library answers compared before/
+  after (46 URLs): identical except toptoy/yellowmouse losing the dead cover. Seed SQL: only the 8 changed statements.
+- Gotcha: Python's text mode on this Windows box writes CRLF – edit files with `newline=''` (or the Edit tool), else
+  `schema.js --check` reports every schema with a multi-line JSDoc as out of date.
+- Season covers stay in the season documents (no neutral season entity; one creator field writes every locale); the
+  validation warns when they differ between languages.
+- Audit side findings (not fixed): `viewer/static/favicon.svg` is still the Svelte logo (admin/creator/embassy use it); the
+  catpope placeholder SVGs in `images/characters/*` carry German names; ch2 slice 1 has the German SFX "FLATTER FLATTER"
+  baked in (clean art requested); toptoy's draft toon page has an empty map terrain `<img>` (`map.layers.terrain: ""`).

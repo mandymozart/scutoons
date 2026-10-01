@@ -523,15 +523,14 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		en: { toon: 'Sandbox', season: "Cat Pope's walk", description: 'Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft).' }
 	};
 	for (const l of LOCALES) {
-		// the language-neutral settings (authors, chapters, thumbnail, map) live in the toons.json entry (`neutralSettings`)
+		// the language-neutral settings (authors, chapters, thumbnail, map, cover) live in the toons.json entry (`neutralSettings`)
 		files[`${l}/toon.json`] = {
 			id: SANDBOX_TOON,
 			title: meta[l].toon,
 			language: l,
 			release: RELEASE,
 			status: 'draft',
-			description: meta[l].description,
-			cover: { square: `${CATPOPE}images/s1-cover-square.webp` }
+			description: meta[l].description
 		};
 		files[`${l}/season1.json`] = { title: meta[l].season, language: l, number: 1, release: RELEASE, description: meta[l].description, sequence };
 		files[`${l}/locations.json`] = [];
@@ -551,6 +550,7 @@ export function neutralSettings(report: SandboxReport) {
 		authors: [],
 		chapters: report.chapters,
 		thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
+		cover: { square: `${CATPOPE}images/s1-cover-square.webp` },
 		map: { layers: { terrain: `${CATPOPE}images/map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
 	};
 }

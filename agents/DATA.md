@@ -15,8 +15,8 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | What | Where | Edited in |
 |---|---|---|
 | toon list entry (status, names per language, languages) | DB entity `toon:<toon>` | creator (toon page) |
-| language-neutral toon settings (authors, chapter count, thumbnail, map, landing `tile`, `announce`) | DB entity `toon:<toon>` (the same entry) | creator (toon settings, "Same in every language") |
-| toon settings per locale (title, description, release, status, covers) | DB `toon-settings:<toon>:<l>` | creator |
+| language-neutral toon settings (authors, chapter count, thumbnail, cover, map, landing `tile`, `announce`) | DB entity `toon:<toon>` (the same entry) | creator (toon settings, "Same in every language") |
+| toon settings per locale (title, description, release, status) | DB `toon-settings:<toon>:<l>` | creator |
 | season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>:<l>` | creator (season page) |
 | chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>:<l>` | creator |
 | VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>:<l>` | creator |
@@ -110,10 +110,10 @@ registry name, owner 2026-10-01) and its entry has the duo `avatar.webp`. Seed (
 **Language-neutral toon settings in the toon entry (2026-10-01, owner):** "fields with no text are edited and stored per
 language, which is pointless". Every toon setting that is not text lives once in the index entry `toon:<toon>`
 (`TOON_NEUTRAL_FIELDS` in `@scutoons/content` = `Library::TOON_NEUTRAL_FIELDS`): `authors`, `chapters` (count),
-`thumbnail`, `map` (layers, width, height, center), `announce`, `tile` (image, color). They stay per language in
+`thumbnail`, `map` (layers, width, height, center), `announce`, `tile` (image, color) and – since the same evening –
+`cover` (below, "Language-independent media"). They stay per language in
 `toon-settings:<toon>:<l>` (`ToonSettings`): `title`, `description`, `language`, `id`, **`release`** (catpope de 2025-10-04,
-en 2025-12-01 – a translation is released later), **`status`** (the library gates each language on it) and **`cover`**
-(toptoy/yellowmouse use `images/1x/<l>/…` – covers carry lettering). Types: `ToonIndex extends ToonNeutralSettings`,
+en 2025-12-01 – a translation is released later) and **`status`** (the library gates each language on it). Types: `ToonIndex extends ToonNeutralSettings`,
 `ToonSettings = Omit<Toon, …>`, `Toon` = the reader's merged shape (unchanged); schema `toon.schema.json` ← `ToonSettings`.
 - **Library:** `/library/toons/<toon>` merges the entry's neutral fields into the locale's `toon` (the entry wins over a
   stale per-language copy) and returns `entry` without them, so both answers keep their shape; `/library/toons` keeps only
@@ -256,3 +256,83 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   | `/catpope` | 1376 → **1133 ms** | 984 → **736 ms** | 73 → 64 | 12 (+ failed store reads) → **3** |
   | chapter 1 | 2839 → **2672 ms** | 1036 → **896 ms** | 86 → 78 | 14 → **4** |
   | sandbox chapter 5 (VN) | 1008 → **862 ms** | 808 → **740 ms** | 67 → 61 | 13 → **4** |
+
+## Language-independent media (2026-10-01, owner rule – PLAN.md RULES)
+
+"Everything should be language-independent": media are shared by every language, text lives only in text fields, lettering
+baked into an image is extracted into text and rendered by the UI in the reader's language.
+
+**Covers → the toon entry + rendered lettering.** `cover` joined `TOON_NEUTRAL_FIELDS` (type `Cover { square?, portrait?,
+lettering? }`, `Toon.cover` optional now; schema `toon-index.schema.json`; a `cover` left in `toon-settings` is the usual
+"belongs to the toon entry" warning). The library merges it like the other neutral fields (the entry wins; older data
+without it in the entry keeps each language's cover – `LibraryTest::testCoverFromOlderToonSettings`).
+- **Lettering model:** the artwork carries no text; `cover.lettering: true` = the UI sets the title over it: the toon's name
+  (toon settings `title`) small on top, the season's title (season `title`) big in quotes beneath – `CoverArt` in
+  `@scutoons/reader` (`cover/cover-art.svelte`): Bangers (`--font-lettering`), white fill, a heavy ink outline under the fill
+  (`-webkit-text-stroke` + `paint-order`), a hard ink shadow, tilted −5° / skewed −4° like the hand-lettered catpope cover,
+  sizes in `cqw` (the big line ≈ 12.5 % of the width, smaller for long titles so it stays inside ~84 %), real DOM text with
+  `lang`. Default (no flag) = the image as it is – for artwork whose title is still baked in, so it never shows twice.
+- **Where:** the viewer's toon page (phone/tablet cover, `toon.cover?.square`; no cover → no image); the desktop hero uses
+  the bare artwork as its fallback background (it sets the title itself) and shows nothing when there is no image either.
+- **catpope:** keeps `images/s1-cover-{square,portrait}.webp` (German "KATZENPAPST" / "DAS ERWACHEN" baked in), lettering
+  off, until the owner delivers the lettering-free artwork (media requests below) – then `cover.square/portrait` → the
+  `-textless` files and the flag flips (creator toon settings, "Same in every language" → Cover).
+- **toptoy / yellowmouse:** their per-language covers `images/1x/<l>/s1-cover-*.jpg` never existed on the CDN → no cover
+  now (requested lettering-free, below). Their draft toon pages (dev only, 404 publicly) show no broken cover any more.
+- **Creator:** toon settings → "Same in every language" → **Cover** (`data-testid="toon-cover"`): `cover.square`,
+  `cover.portrait`, the "Lettering" checkbox, a **preview** per language – "as readers see it" and, while the flag is off,
+  "rendered title" (the `CoverArt` lettering over today's image with a soft blur behind it, `veil`, so the owner can judge
+  the model before the clean art exists) – and the toon's open media requests. The covers left the per-language block.
+- **Season covers** (`season.cover`, unused by the reader): seasons have no language-neutral entity – like `download`,
+  `trailer`, `supporters` the creator writes the cover to every locale (one field) – so it stays in `season:<toon>:<n>:<l>`
+  (catpope: the same two files in de + en). The cross-locale validation warns when a season's covers differ between
+  languages, and `Cover.lettering` works there too. A real move needs a neutral season entity (owner decision; not built:
+  keep the configuration small).
+- **Migration:** seed `toons.json` (catpope + sandbox `cover`), the 8 `toon.json` lost it, `make-sandbox.ts`'s
+  `neutralSettings` has it; local store: new published `toon:{catpope,sandbox}` + `toon-settings:{catpope,toptoy,yellowmouse,
+  sandbox}:{de,en}` + `asset-requests` as the test user (backup `server/db/local.sqlite.bak-2026-10-01-covers`; every newest
+  version was the published one). Library answers before/after (46 URLs, sorted JSON): identical except toptoy/yellowmouse's
+  bundles, which lost only their non-existent `cover`. Seed SQL: only the 8 changed statements (`toon:catpope`, 6
+  `toon-settings`, `asset-requests`; the old rows keep their timestamps), `characters-seed.mysql.sql`'s `asset-requests`
+  statement equals it. Idempotent per key: a database that has these keys needs the new versions imported separately.
+
+**Validation: locale segments in media paths.** `mediaLocaleSegment` / `mediaPathsWithLocale` (`@scutoons/content`
+`media.ts`): any media path (image, video, audio extension) with a locale folder (`de/`, `en-US/` …) or a locale suffix
+(`_de.`, `-en.`, `.de.`) is a warning in every entity (`validateFile` for chapters, scenes, seasons, toon settings, the toon
+entry; `validateCharacters`, `validateCredits`, `validatePeople`). The seed has none left.
+
+**Media requests.** Asset requests (`asset-requests`, the creator's "Wanted images") can be toon media now: `view: "media"`
+(`MEDIA_VIEW`), `toon`, `path` from the CDN root, `size`, `note`; character/persona/look/mood empty. `mediaRequests()`,
+listed under "Toon media" in Wanted images (+ copy as text/CSV) and on the toon settings page; closed when the file exists.
+Open (owner 2026-10-01):
+
+| id | path | size | why |
+|---|---|---|---|
+| `catpope-s1-cover-square-textless` | `catpope/images/s1-cover-square-textless.webp` | 1080 × 1080 | the cover without "KATZENPAPST" / "DAS ERWACHEN" → `cover.lettering` |
+| `catpope-s1-cover-portrait-textless` | `catpope/images/s1-cover-portrait-textless.webp` | 1080 × 1920 | the same, portrait |
+| `toptoy-s1-cover-square` / `-portrait` | `toptoy/images/s1-cover-{square,portrait}.webp` | 1080² / 1080 × 1920 | no cover exists (the old per-language paths never did) |
+| `yellowmouse-s1-cover-square` / `-portrait` | `yellowmouse/images/s1-cover-{square,portrait}.webp` | 1080² / 1080 × 1920 | the same; the mouse stays unrevealed |
+| `catpope-s1c2-slice-1-textless` | `catpope/images/webtoon/s1c2/s1c2-slice-1-textless.jpg` | 390 × 625 | chapter 2 slice 1 without the baked SFX "FLATTER FLATTER" → a `sfx` text box |
+
+New files get new names (PLATFORM.md "CDN": a changed file gets a new name).
+
+### Audit (2026-10-01): language baked into media
+
+Every file referenced by the seed (+ the apps' static images) was looked at. Slice art was not changed.
+
+| Path (CDN root unless noted) | Text baked in | Lang | Used by | Recommendation |
+|---|---|---|---|---|
+| `catpope/images/s1-cover-square.webp`, `s1-cover-portrait.webp` (+ unused `.jpg` twins) | "KATZENPAPST", "DAS ERWACHEN" | de | `toon:catpope` + `season:catpope:1:*` `cover`, sandbox cover | **new artwork** (requested); lettering via `cover.lettering` |
+| `toptoy/images/1x/{de,en}/s1-cover-*.jpg`, `yellowmouse/…` | – (never existed) | de/en paths | were `toon-settings` covers | removed; **new artwork** (requested), lettering-free |
+| `catpope/images/webtoon/s1c2/s1c2-slice-1.webp` (+ `.jpg`) | SFX "FLATTER FLATTER" (in no text field) | de | chapter 2, slice 1 | **extract** to a `dialog` `sfx` box; clean art requested. Slices 2–22 are text-free |
+| `catpope/images/webtoon/s1c1/*` (source `webtoon/de/S1C1 - Slice N.jpg`) | speech, captions | de | chapter 1 | **extracted** already (`dialog` + `mask`, MEMORY "Chapter 1 text extraction"); text-free art later (PLAN goal 5) |
+| `catpope/images/characters/{catpope,boy,crows,mountain-tiger,cat,plf}/*.svg` | placeholder names ("Katzenpapst", "Junge", "Krähen", "Gebirgs Tiger", "Katze"/"Cat", "PLF", "Character Placeholder") | de (en) | `characters` registry (old `image` / view paths of these characters) | **new artwork** via the characters' own wanted images; until then the on-brand "?" substitutes are a better fallback than named placeholders (owner decision) |
+| `catpope/images/s1-trailer-poster.webp`, `images/s1c0-thumbnail.webp`, `images/webtoon/s1c0/s1c0-slice-1.webp`, `videos/s1-trailer-loop.*`, `videos/roar-little-kitty.*` | "ROAR LITTLE KITTY" (title card) | en (song title) | season `trailer`, chapter 0 thumbnail + player slice | **keep** – the song's name, the same in every language; a clean poster/thumbnail frame is optional |
+| `catpope/images/s1-music-vinyl.webp`, `catpope/items/awakening_*.png`, `dago_*`, `catpope/merch/*.jpg` | SCUTOONS + katakana on the obi, "MEMBERSHIP", test-press handwriting, garment prints | brand | season `download.image`, items, products | **keep** – product design / photos of real products |
+| `catpope/images/supporters/{ske,kuenstlerhof-frohnau}.svg` | "SKE", "KF" logo letterforms | proper names | season `supporters` | **keep** (third-party logos) |
+| `viewer/static/SCUTOONS-logo*.svg` (+ admin, creator, embassy, shop copies), favicons, app icons | "SCUTOONS" + スクトゥーンズ, "S" monogram | brand | every app | **keep** (brand mark) |
+| key visuals `s1c1-key-visual.*` (+ video), `s1c2-key-visual.*`; thumbnails `s1c1–s1c5`, `s1s1–s1s6`; `map/map-layer-terrain.svg`; `vectors/*`; item cut-outs (camera, cucumber, hoodie, amulet); toon avatars; sampled character portraits / A-poses | none | – | chapters, map, items, registry | nothing to do |
+
+Not found: OG / social images (no `og:image` / `twitter:image` in any app). Side findings: `viewer/static/favicon.svg` (used by
+admin, creator, embassy via `app.html`) is still the default Svelte logo; seed paths missing on the CDN besides the covers:
+`catpope/images/3x/s1c3..5-key-visual.jpg` (chapters 3–5, known), `characters/boy/boy_full.svg`, `characters/crows/crows_portrait.svg`.

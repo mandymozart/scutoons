@@ -13,3 +13,4 @@ export { default as CreditsView } from './credits/credits-view.svelte';
 export type { ActiveOnomatopoeia, PercentRect, SlicePlayerDetail } from './types.ts';
 export { SLICE_PLAYER_EVENT } from './types.ts';
 export { default as CreditsColophon } from './credits/credits-colophon.svelte';
+export { default as CoverArt } from './cover/cover-art.svelte';

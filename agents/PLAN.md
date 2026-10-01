@@ -264,6 +264,16 @@ No task (agent or coordinator) is finished until ALL of these pass on the curren
 If something breaks that another task caused, report it — don't silently skip. After a larger stretch of breaking
 changes the coordinator tags a known-good state (`git tag stable-YYYY-MM-DD[-n]`).
 
+## RULE: everything is language-independent (2026-10-01, owner)
+
+"Everything should be language-independent." Media (images, video, audio files) are shared by all languages; **text only
+lives in text fields** (i18n: the per-locale documents, `{ de, en }` texts, the apps' message files). Lettering that is
+baked into an image is extracted into text and rendered by the UI in the reader's language (slice text → `dialog` text
+boxes, covers → `cover.lettering`, `CoverArt` in `@scutoons/reader`). New artwork is delivered lettering-free; a media path
+with a locale segment (`/de/`, `_en.` …) is a smell the validation warns about. Exempt: brand marks (the SCUTOONS wordmark
+with the katakana), proper names that are the same in every language (the song title "Roar Little Kitty"), product design
+on merch photos. Audit + model: DATA.md "Language-independent media".
+
 ## RULE: keep the configuration small (2026-09-30, owner)
 
 Model only what the product reads or the owner edits. Story context the owner explains (e.g. "she leads the biker

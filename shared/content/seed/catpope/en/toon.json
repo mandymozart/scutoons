@@ -4,9 +4,5 @@
 	"language": "en",
 	"release": "2025-12-01",
 	"status": "published",
-	"description": "Stories of a cat in a world full of priests, influencers, and conspiracies.",
-	"cover": {
-		"square": "images/s1-cover-square.webp",
-		"portrait": "images/s1-cover-portrait.webp"
-	}
+	"description": "Stories of a cat in a world full of priests, influencers, and conspiracies."
 }

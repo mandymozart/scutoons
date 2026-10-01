@@ -4,8 +4,5 @@
 	"language": "de",
 	"release": "2026-09-30",
 	"status": "draft",
-	"description": "Testfeld: alle Figuren, Personas, Looks und Stimmungen als Visual Novel. Nur in der Entwicklung und im Creator sichtbar (Entwurf).",
-	"cover": {
-		"square": "../catpope/images/s1-cover-square.webp"
-	}
+	"description": "Testfeld: alle Figuren, Personas, Looks und Stimmungen als Visual Novel. Nur in der Entwicklung und im Creator sichtbar (Entwurf)."
 }

@@ -29,7 +29,8 @@
 					"type": "string"
 				},
 				"cover": {
-					"$ref": "#/definitions/Cover"
+					"$ref": "#/definitions/Cover",
+					"description": "language-neutral like `download` / `trailer` (the creator writes it to every locale); not shown by the reader yet"
 				},
 				"download": {
 					"$ref": "#/definitions/Download",
@@ -70,8 +71,13 @@
 				},
 				"portrait": {
 					"type": "string"
+				},
+				"lettering": {
+					"type": "boolean",
+					"description": "the image is lettering-free: the UI renders the title over it (default false = shown as it is)"
 				}
-			}
+			},
+			"description": "A toon's / season's cover (language-neutral, owner 2026-10-01: media are shared by all languages). The artwork carries no text: with `lettering: true` the UI sets the toon's name + the season's title over it in the reader's language (`CoverLettering` in `@scutoons/reader`, agents/DATA.md \"Language-independent media\"). Without it the image is shown as it is – for artwork that still has its title baked in (catpope until the lettering-free cover is delivered)."
 		},
 		"Download": {
 			"type": "object",
