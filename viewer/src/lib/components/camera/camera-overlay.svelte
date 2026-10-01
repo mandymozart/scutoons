@@ -133,6 +133,7 @@
 			if (status === 'running' && video && video.readyState >= 2) {
 				try {
 					const predictions = await classifier.classify(centerCrop(video));
+					if (import.meta.env.DEV) console.debug('scan_object', predictions.map((p) => `${p.className} ${p.probability.toFixed(2)}`).join(' | '));
 					const hit = matchScan(predictions, skill);
 					confidence = hit?.probability ?? 0;
 					streak = hit && hit.probability >= threshold ? streak + 1 : 0;
