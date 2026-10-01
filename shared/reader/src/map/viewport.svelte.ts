@@ -95,6 +95,10 @@ export interface MapGestureOptions {
 	onTap?: (event: PointerEvent, at: Point) => void;
 	/** zoom with the wheel (default true) */
 	wheel?: boolean;
+	/** a double click; return true when handled (no zoom) – the builder finishes a route with it */
+	onDoubleClick?: (event: MouseEvent, at: Point) => boolean;
+	/** the pointer moved over the map (no button needed; the builder's route preview) */
+	onHover?: (event: PointerEvent, at: Point) => void;
 }
 
 /**
@@ -106,6 +110,8 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 		const pointers = new Map<number, Point>();
 		let start: Point | null = null;
 		let dragged = false;
+		/** the first pointer may pan (else it is only a tap: the builder's place / route tools) */
+		let panning = true;
 		let pinch: { distance: number; zoom: number } | null = null;
 		const local = (e: { clientX: number; clientY: number }): Point => {
 			const r = node.getBoundingClientRect();
@@ -128,7 +134,7 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 
 		function down(e: PointerEvent) {
 			if (e.button !== 0 && e.button !== 1) return;
-			if (pointers.size === 0 && options.canPan && !options.canPan(e)) return;
+			if (pointers.size === 0) panning = !options.canPan || options.canPan(e);
 			pointers.set(e.pointerId, local(e));
 			if (pointers.size === 1) {
 				start = local(e);
@@ -140,6 +146,7 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 			if (e.button === 1) e.preventDefault();
 		}
 		function move(e: PointerEvent) {
+			options.onHover?.(e, local(e));
 			const previous = pointers.get(e.pointerId);
 			if (!previous) return;
 			const p = local(e);
@@ -153,6 +160,10 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 				return;
 			}
 			if (!dragged && start && Math.hypot(p.x - start.x, p.y - start.y) < 4) return;
+			if (!panning) {
+				dragged = true;
+				return;
+			}
 			if (!dragged) {
 				dragged = true;
 				view.moving = true;
@@ -182,6 +193,7 @@ export function mapGestures(view: MapViewport, options: MapGestureOptions = {}) 
 			view.zoomAt(Math.exp(-delta * (e.ctrlKey ? 0.01 : 0.0015)), local(e));
 		}
 		function dblclick(e: MouseEvent) {
+			if (options.onDoubleClick?.(e, local(e))) return;
 			if ((e.target as HTMLElement | null)?.closest('button, a, input, select, textarea')) return;
 			view.zoomAt(e.shiftKey ? 0.5 : 2, local(e));
 		}

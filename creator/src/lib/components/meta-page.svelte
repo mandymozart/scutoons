@@ -27,6 +27,7 @@
 		beforeSave = () => {},
 		validate,
 		wide = false,
+		fill = false,
 		actions,
 		help,
 		children
@@ -41,6 +42,8 @@
 		validate?: () => Problem[];
 		/** full-width content (editor + preview side by side) */
 		wide?: boolean;
+		/** the content fills the page's height without padding (a canvas: the map builder; with `usePageNav({ fill })`) */
+		fill?: boolean;
 		/** extra items at the start of the ActionBar (page-level actions, e.g. "New character") */
 		actions?: Snippet;
 		/** the page's help in the ActionBar's Info panel */
@@ -202,7 +205,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="meta-page" class:with-panel={panel !== null} class:wide>
+<div class="meta-page" class:with-panel={panel !== null} class:wide class:fill>
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()} {...infoBar()} bind:infoOpen infoTitle={title}>
 		{#snippet info()}<PageHelp page={help} seasonFile={docs.find((d) => d.kind === 'season')?.entity} />{/snippet}
 		{#snippet start()}
@@ -328,6 +331,17 @@
 		max-width: 70rem;
 	}
 	.wide .content {
+		max-width: none;
+	}
+	.meta-page.fill {
+		height: 100%;
+		display: flex;
+		flex-direction: column;
+	}
+	.fill .content {
+		flex: 1 1 auto;
+		min-height: 0;
+		padding: 0;
 		max-width: none;
 	}
 	.history-files {

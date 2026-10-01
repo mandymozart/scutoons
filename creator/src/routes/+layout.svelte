@@ -65,6 +65,8 @@
 			if (tab === 'moods') out.push({ href: '/characters?tab=moods', label: m['creator.characters_moods']() });
 			if (tab === 'wanted') out.push({ href: '/characters?tab=wanted', label: m['creator.characters_wanted']() });
 		}
+		// the world map (agents/MAP.md §4.1): Creator / Karte / <selection – added by the builder>
+		if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
 		if (!toonId) return out;
 		out.push({ href: `/${toonId}`, label: toonName(toonId) });
 		// every chapter belongs to a season; the editor works on season 1 for now
@@ -91,10 +93,17 @@
 	const universe = $derived([
 		{ href: '/characters', label: m['creator.characters'](), tab: null as string | null },
 		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
-		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' }
+		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' },
+		{ href: '/map', label: m['creator.map'](), tab: 'map' }
 	]);
 	const universeCurrent = (tab: string | null) =>
-		page.route.id === '/characters' && (page.url.searchParams.get('tab') ?? null) === tab ? 'page' : undefined;
+		tab === 'map'
+			? page.route.id === '/map'
+				? 'page'
+				: undefined
+			: page.route.id === '/characters' && (page.url.searchParams.get('tab') ?? null) === tab
+				? 'page'
+				: undefined;
 
 	/** Alt+ArrowUp: one level up (the parent crumb); Alt+ArrowDown: the first child in the sidebar */
 	function onKeydown(event: KeyboardEvent) {
