@@ -225,6 +225,14 @@ def main() -> None:
     icons.mkdir(parents=True, exist_ok=True)
     for item in ("scutoons_tshirt", "scutoons_swim_pants", "scutoons_shorts", "scutoons_sandals"):
         overlay = Image.open(root / "characters" / "catpope" / "wear" / f"{item}.webp").convert("RGBA")
+        if item == "scutoons_sandals":
+            # the pair side by side (on the body they stand a whole stance apart)
+            parts = [overlay.crop((lo, 0, hi, H)) for lo, hi in ((0, W // 2), (W // 2, W))]
+            parts = [p.crop(p.getchannel("A").point(lambda v: 255 if v > 6 else 0).getbbox()) for p in parts]
+            pair = Image.new("RGBA", (sum(p.width for p in parts) + 16, max(p.height for p in parts)), (0, 0, 0, 0))
+            pair.alpha_composite(parts[0], (0, pair.height - parts[0].height))
+            pair.alpha_composite(parts[1], (parts[0].width + 16, pair.height - parts[1].height))
+            overlay = pair
         p = icons / f"{item}.png"
         icon_of(overlay).save(p, optimize=True, compress_level=9)
         print(f"{p.relative_to(root)}  {p.stat().st_size // 1024} KB")
