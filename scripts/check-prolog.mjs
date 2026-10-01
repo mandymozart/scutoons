@@ -6,8 +6,9 @@
 //      the chapter list's first row is labelled "Prolog" / "Prologue" (not "#0"), no progress bar yet;
 //   2. /catpope/chapter/0: no membership blocker, one player video (controls, sound, no loop / autoplay attribute, playsinline,
 //      preload=metadata, the poster), the slice box has the video's ratio (no 390 × 625 crop), and the browser loads the
-//      resolution for its width (`video.sources` media queries: 480p at 375, 720p at 1280, 1080p at 1600 – checked in
-//      the network log too);
+//      file of the reader's media quality (`video.variants`; the guest's setting is set per run: low at 375 → 480p,
+//      medium at 1280 → 720p, high at 1600 → 1080p – checked in the network log too; Automatic, the account page and the
+//      placement: scripts/check-media-quality.mjs);
 //   3. it starts by itself once in view (this Chrome allows sound without a click; the muted start + "Ton an" under the
 //      normal policy is scripts/check-next-bar.mjs): sound (decoded audio bytes); the chapter's music waits while it plays,
 //      starts after a pause and pauses again when it plays (chapter 0 has no audio of its own: the check injects chapter
@@ -211,7 +212,7 @@ async function run(width, locale) {
 	await send('Network.clearBrowserCookies');
 	await send('Network.setCookie', { name: 'PARAGLIDE_LOCALE', value: locale, url: viewer, path: '/' });
 	await open(`${viewer}/`);
-	await evaluate('localStorage.clear(), sessionStorage.clear(), true');
+	await evaluate(`localStorage.clear(), sessionStorage.clear(), localStorage.setItem('scutoons_media_quality', '${qualityFor(width)}'), true`);
 
 	// 1. fresh: the prologue first
 	await toonPage(prefix, locale, 'fresh toon page: start button "prologue", list row "Prolog", no bar', { state: 'prologue', bar: null });
@@ -306,25 +307,23 @@ async function run(width, locale) {
 	report('chapter 1 still shows the membership blocker to a guest', blocked === true ? [] : ['no blocker on chapter 1']);
 }
 
-// which file the browser takes per viewport width: the first source whose media matches, else `src`
-function expectedSource(width) {
-	const match = (playerSlice.video.sources ?? []).find((s) => !s.media || matchesWidth(s.media, width));
-	return (match ?? playerSlice.video).src;
+// the media quality each run sets for the guest (localStorage `scutoons_media_quality`), and the file it loads
+function qualityFor(width) {
+	return width < 768 ? 'low' : width < 1600 ? 'medium' : 'high';
 }
-function matchesWidth(media, width) {
-	const max = /max-width:\s*(\d+)px/.exec(media)?.[1];
-	const min = /min-width:\s*(\d+)px/.exec(media)?.[1];
-	return (!max || width <= Number(max)) && (!min || width >= Number(min));
+function expectedSource(width) {
+	return playerSlice.video.variants?.[qualityFor(width)] ?? playerSlice.video.src;
 }
 let videoUrls = [];
 
 const combos = [[375, 'de'], [375, 'en'], [1280, 'de'], [1280, 'en']].filter(([w, l]) => !opt.only || String(opt.only).split(',').includes(`${w}-${l}`));
 for (const [w, l] of combos) await run(w, l);
 
-// a wide screen takes the default `src` (1080p)
+// the high setting takes 1080p
 if (!opt.only) {
 	console.log('1600-en (resolution only)');
 	await send('Emulation.setDeviceMetricsOverride', { width: 1600, height: 1000, deviceScaleFactor: 1, mobile: false });
+	await evaluate(`localStorage.setItem('scutoons_media_quality', '${qualityFor(1600)}'), true`);
 	videoUrls = [];
 	await open(`${viewer}/en/${toon}/chapter/0`);
 	const v = await waitFor(`(() => { const s = ${VIDEO_STATE}; return s && s.readyState >= 1 ? s : null; })()`);
