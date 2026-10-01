@@ -26,7 +26,7 @@ const opt = (n) => args.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── static: the CSS of the tools ────────────────────────────────────────────────────────────────────────────────
-const DIRS = ['creator/src', 'admin/src', 'embassy/src', 'shared/ui/src', 'shared/tokens/tools.css'];
+const DIRS = ['creator/src', 'admin/src', 'embassy/src', 'shared/ui/src', 'shared/auth/src', 'shared/tokens/tools.css'];
 function walk(p) {
 	const abs = join(ROOT, p);
 	if (!existsSync(abs)) return [];
