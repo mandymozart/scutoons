@@ -92,7 +92,7 @@ final class AppTest extends TestCase
         $this->get(Roles::class)->grant((string) $user['id'], Roles::ADMIN);
         $r = $this->request('GET', 'http://localhost/api/admin/roles', ['Authorization' => "Bearer $token"]);
         self::assertSame(200, $r->getStatusCode());
-        self::assertSame(['member', 'admin', 'creator'], array_column(self::json($r)['items'], 'name'));
+        self::assertSame(['member', 'admin', 'creator', 'liaison', 'ambassador'], array_column(self::json($r)['items'], 'name'));
     }
 
 

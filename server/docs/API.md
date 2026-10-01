@@ -181,13 +181,33 @@ applies to the next request. `scan=1` without the proxy secret is an ordinary lo
 ## Roles
 
 Tables `roles` (seeded: 1 `member` – every account, 2 `admin` – the admin app and `/api/admin/*`, 3 `creator` – the
-creator app and the content API) and `user_roles (user_id, role_id, granted_at, granted_by)`. `granted_by`: `signup`,
+creator app and the content API, 4 `liaison` and 5 `ambassador` – the Embassy app and `/api/embassy/*`) and `user_roles (user_id, role_id, granted_at, granted_by)`. `granted_by`: `signup`,
 `migration`, `admin` (legacy SPA), `admin:<email>` (admin API), `cli`. `/me/` and `/auth/verify/` return `user.roles`.
 
 In code (`src/Domain/Roles/Roles.php`): `has($user, 'creator')`, `of($userId)`, `require($user, 'creator')`
 (401 / 403 `forbidden { role }`), `grant($userId, $role, $by)`, `revoke($userId, $role)`; routes use the
 `RequireRole` middleware. Granting: admin API `PUT|DELETE /api/admin/users/{id}/roles/{role}`, the legacy SPA "Users"
 view (`generate/users.php`, `generate/user-roles.php`), or `php bin/console roles grant|revoke|list <email> [role]`.
+
+## Embassy (`/api/embassy/*`, roles `liaison` / `ambassador`)
+
+The partner network app (embassy.scutoons.com, agents/EMBASSY.md). Domain rules: `src/Domain/Embassy/Embassy.php`,
+endpoint list: `src/Http/Controllers/EmbassyController.php`. Migration `2026-10-01-embassy` (tables `embassy_orgs`,
+`embassy_people`, `embassy_leads`, `embassy_activities`; roles 4 `liaison`, 5 `ambassador`).
+
+- Access: `ambassador` or `admin` = everything; `liaison` = read all, edit organisations and people, work own and
+  unowned leads (`403 not_your_lead` otherwise). Import, deleting and assigning a lead to somebody else need an
+  ambassador (`403 forbidden { role: "ambassador" }`). No role → `403 forbidden { role: "liaison" }`.
+- One lead per organisation × track (`live`, `vinyl`, `booking`, `promo`): `stage` (`research`, `ready`, `contacted`,
+  `in_conversation`, `won`, `not_now`, `no`, `dormant`), `owner_id`, `next_at` (YYYY-MM-DD, local date).
+- `POST /orgs/{id}/activities` with a `track` moves the lead on: `mail_out` → contacted + call in 6 days; `call`
+  `reached` / `mail_in` / `meeting` → in conversation + 10 days; `voicemail` / `no_answer` → 3 days; `call_back` needs
+  `next_at`; `declined` → stage `no`, no date. `stage` / `next_at` in the body override.
+- `GET /today?owner=me|all|none|<id>`: leads due today or earlier (not do-not-contact), with organisation, people and
+  the last activity; `unscheduled` = leads in research/ready without a date.
+- Duplicates: same normalized name (`Embassy::nameKey`) and same city (or country): `POST /orgs` → `409 duplicate
+  { id }` unless `force: true`; `POST /import` merges (fills empty fields, unites lists, adds new people and tracks,
+  never overwrites). `dry_run: true` reports without writing.
 
 ## Access tokens
 

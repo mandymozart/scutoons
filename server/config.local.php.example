@@ -23,7 +23,7 @@ define('QR_URL', 'http://localhost:9001');             // the qr app: magic link
 define('APP_URL', 'http://localhost:8000');            // the viewer
 define('CDN_URL', 'http://localhost:8001/');           // local CDN (item icons): cd cdn && python server.py 8001
 // Viewer 8000, creator 10000, admin 11000, shop 12000 (+ the old Vite ports while something still uses them)
-define('ALLOWED_ORIGINS', 'http://localhost:8000,http://localhost:10000,http://localhost:11000,http://localhost:12000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:4173');
+define('ALLOWED_ORIGINS', 'http://localhost:8000,http://localhost:10000,http://localhost:11000,http://localhost:12000,http://localhost:13000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:4173');
 
 // ── Mail ────────────────────────────────────────────────────────────────────────────────────────────────
 define('MAIL_TRANSPORT', 'log');                       // log = login mails go to logs/mail.log (smtp in production)
