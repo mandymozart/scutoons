@@ -459,7 +459,10 @@
 		"tile_color_placeholder": "Farbe der Hauptfigur",
 		"toon_neutral": "Für alle Sprachen gleich",
 		"toon_neutral_hint": "Einmal für den Toon gespeichert (im Toon-Eintrag), nicht pro Sprache: Autor:innen, Kapitelzahl, Vorschaubild, die Kachel auf der Startseite und die Karte. Speichern und Veröffentlichen unten gilt für beides.",
-		"toon_entry_missing": "Dieser Toon hat noch keinen Toon-Eintrag – auf der Toon-Seite die Sprachen festlegen und speichern:"
+		"toon_entry_missing": "Dieser Toon hat noch keinen Toon-Eintrag – auf der Toon-Seite die Sprachen festlegen und speichern:",
+		"map_start_view": "Startansicht auf der Weltkarte",
+		"map_start_view_hint": "Wo sich die Karte für diesen Toon öffnet (Weltkoordinaten, Zoom 1 = 100 %). Größe, Ebenen, Orte und Wege gehören zur Weltkarte.",
+		"map_open_builder": "Weltkarte öffnen"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

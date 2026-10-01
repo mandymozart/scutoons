@@ -141,6 +141,64 @@ echo "\nEvents\n";
 [$status, $events] = get("$base/events");
 compare('events == events.json', file_json("$static/events.json"), $events);
 
+/**
+ * The world map (agents/MAP.md M0): `scutoons/_/map.json` replaces catpope's per-locale `locations.json` / `routes.json`
+ * (kept in the seed for one release). The bundle's old fields are computed from it for older viewer builds – this proves
+ * every old value survived the migration:
+ *   - every old location is there with the same id, label (per locale), coordinates, toonId, type and image; only
+ *     `chapterNumber` changed (owner 2026-10-01: the place's card links the chapter that introduces it, the old files
+ *     said "1" everywhere) and must equal the map's `chapter`;
+ *   - the other locations of the toon are exactly the map's new places (the screenplay's places, owner 2026-10-01);
+ *   - every old route is there with the same id, title (`title ?? titel` – the en file's typo) and the same location ids
+ *     in the same order (incl. `garden`, which is now a place);
+ *   - `toon.map` equals the pre-migration values (literal below), from the world's size/terrain + the toon's start view.
+ */
+$world = file_json("$seed/scutoons/_/map.json");
+$OLD_TOON_MAPS = [
+    'catpope' => ['layers' => ['terrain' => 'images/map/map-layer-terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]],
+    'sandbox' => ['layers' => ['terrain' => '../catpope/images/map/map-layer-terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]],
+];
+$compareOldMap = function (string $toon, string $locale, array $entry, array $oldLocations, array $oldRoutes, array $bundle) use ($world, $OLD_TOON_MAPS): void {
+    $places = [];
+    foreach ($world['locations'] ?? [] as $p) if (in_array($toon, $p['toons'] ?? [], true)) $places[$p['id']] = $p;
+    $byId = array_column($bundle['locations'] ?? [], null, 'id');
+    $ok = true;
+    $why = [];
+    foreach ($oldLocations as $old) {
+        $new = $byId[$old['id']] ?? null;
+        $chapter = $places[$old['id']]['chapter']['number'] ?? null;
+        $expected = $old;
+        if ($chapter !== null) $expected['chapterNumber'] = (string) $chapter;
+        else unset($expected['chapterNumber']);
+        if ($new === null || !same($expected, $new)) {
+            $ok = false;
+            $why[] = [$old['id'], $new];
+        }
+    }
+    check($ok, "$toon/$locale every old location survived (id, label, coordinates, toonId, type, image; chapterNumber = the map's chapter)", $why ?: count($oldLocations));
+    $extra = array_values(array_diff(array_keys($byId), array_column($oldLocations, 'id')));
+    $added = array_values(array_diff(array_keys($places), array_column($oldLocations, 'id')));
+    check($extra === $added, "$toon/$locale the other locations are the map's new places", ['answer' => $extra, 'map' => $added]);
+    $routes = array_column($bundle['routes'] ?? [], null, 'id');
+    $ok = true;
+    foreach ($oldRoutes as $old) {
+        $new = $routes[$old['id']] ?? null;
+        $ok = $ok && $new !== null && $new['title'] === ($old['title'] ?? $old['titel'] ?? null) && $new['locations'] === $old['locations'];
+    }
+    check($ok && count($routes) === count($oldRoutes), "$toon/$locale every old route survived (id, title, the same place ids in order)", $bundle['routes'] ?? null);
+    if (isset($OLD_TOON_MAPS[$toon])) compare("$toon/$locale toon.map == the pre-migration settings", $OLD_TOON_MAPS[$toon], $bundle['toon']['map'] ?? null);
+    else check(!isset($bundle['toon']['map']) && !isset($entry['map']), "$toon/$locale no toon.map (no start view)", $bundle['toon']['map'] ?? null);
+};
+
+if ($world !== null) {
+    echo "\nWorld map\n";
+    [$status, $answer] = get("$base/library/map?locale=de");
+    $listed = array_column(array_filter($index, fn($t) => in_array($t['status'] ?? null, ['published', 'draft'], true)), 'id');
+    $readable = array_values(array_filter($world['locations'] ?? [], fn($p) => array_intersect($p['toons'] ?? [], $listed) !== []));
+    check($status === 200 && array_column($answer['locations'] ?? [], 'id') === array_column($readable, 'id'), 'library/map lists the places of the readable toons, in the map\'s order', [$status, array_column($answer['locations'] ?? [], 'id')]);
+    check(array_column($answer['locations'] ?? [], 'name') === array_map(fn($p) => $p['name']['de'] ?? '', $readable), 'library/map names resolved to de', array_column($answer['locations'] ?? [], 'name'));
+}
+
 foreach ($index as $entry) {
     $toon = $entry['id'];
     if (glob("$static/$toon/*/toon.json") === []) continue; // no toon settings = not readable (404), e.g. toons with a cast only
@@ -165,15 +223,26 @@ foreach ($index as $entry) {
         }
         $settings = $pick($toon, $locale, 'toon.json', $source);
         foreach ($neutral as $field) if (is_array($settings) && array_key_exists($field, $entry)) $settings[$field] = $entry[$field];
+        $oldLocations = $pick($toon, $locale, 'locations.json', $source) ?? [];
+        $oldRoutes = $pick($toon, $locale, 'routes.json', $source) ?? [];
         $expected = [
             'entry' => $withoutNeutral($entry),
             'toon' => $settings,
             'seasons' => $overviews,
-            'locations' => $pick($toon, $locale, 'locations.json', $source) ?? [],
-            'routes' => $pick($toon, $locale, 'routes.json', $source) ?? [],
+            'locations' => $oldLocations,
+            'routes' => $oldRoutes,
         ];
         [$status, $bundle] = get("$base/library/toons/$toon?locale=$locale");
-        compare("$toon/$locale toon bundle", $expected, $bundle);
+        if ($world !== null) {
+            // the world map (agents/MAP.md §2.6): the old answer is computed from it – compared on its own below
+            unset($expected['locations'], $expected['routes'], $expected['toon']['map']);
+            $actual = $bundle;
+            unset($actual['locations'], $actual['routes'], $actual['toon']['map']);
+            compare("$toon/$locale toon bundle (without the map)", $expected, $actual);
+            $compareOldMap($toon, $locale, $entry, $oldLocations, $oldRoutes, $bundle);
+        } else {
+            compare("$toon/$locale toon bundle", $expected, $bundle);
+        }
 
         // every chapter of the seasons: readable ones == chapter file with its ref groups filled in; coming-soon → 403
         foreach ($overviews as $overview) {

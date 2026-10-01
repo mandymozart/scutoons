@@ -50,6 +50,16 @@ final class Snapshot
         return new self($db, $snapshot->ids, $draft, $first);
     }
 
+    /**
+     * The entities of some kinds (the world map: `map` + every toon's index entry for the visibility of its places)
+     * @param list<string> $kinds
+     */
+    public static function kinds(Database $db, array $kinds, bool $draft): self
+    {
+        $marks = implode(', ', array_fill(0, count($kinds), '?'));
+        return self::where($db, "kind IN ($marks)", array_values($kinds), $draft);
+    }
+
     /** @param list<string> $params */
     private static function where(Database $db, string $where, array $params, bool $draft): self
     {

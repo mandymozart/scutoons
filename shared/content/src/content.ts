@@ -2,6 +2,7 @@
 import { Renderer, Language, Status, type EventCategory, OnomatopoeiaVariant, OnomatopoeiaEffect, JumpToTargetType } from './enums.ts';
 import type { AudioEvents, AudioConfiguration } from './audio.ts';
 import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
+import type { ToonMapView } from './map.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -72,6 +73,10 @@ export interface JumpToTarget {
 	label?: string;
 }
 
+/**
+ * The OLD per-toon map settings (`toon.map` in the reader's bundle): since the world map (entity `map`, agents/MAP.md) the
+ * library computes it from the world + the toon's start view, for older viewer builds only (one release, then dropped).
+ */
 export interface Map {
 	layers: MapLayers,
 	width: number,
@@ -88,6 +93,7 @@ export interface MapLayers {
 	terrain: string;
 }
 
+/** @deprecated the old `locations:<toon>:<l>` shape – computed from the world map for older viewer builds (`legacyToonMap`) */
 export interface MapLocation {
 	id: string;
 	label: string;
@@ -98,6 +104,7 @@ export interface MapLocation {
 	coordinates: MapCoordinates;
 }
 
+/** @deprecated the old `routes:<toon>:<l>` shape – computed from the world map for older viewer builds (`legacyToonMap`) */
 export interface MapRoute {
 	id: string;
 	title: string;
@@ -364,7 +371,8 @@ export interface Toon {
 	thumbnail: string;
 	/** per language (covers can carry lettering) */
 	cover: Cover;
-	map: Map;
+	/** the old per-toon map (older viewer builds), filled by the library from the world map + the toon's start view */
+	map?: Map;
 	/**
 	 * Show the toon publicly before it is published (owner 2026-10-01): the landing page's tile and the main menu list it
 	 * as "bald" / "soon" (not clickable, no dates, no chapters). Language-neutral.
@@ -382,8 +390,11 @@ export interface Toon {
 export const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'] as const;
 export type ToonNeutralField = (typeof TOON_NEUTRAL_FIELDS)[number];
 
-/** The language-neutral toon settings, stored in the index entry `toon:<toon>` (all optional there) */
-export type ToonNeutralSettings = Partial<Pick<Toon, ToonNeutralField>>;
+/**
+ * The language-neutral toon settings, stored in the index entry `toon:<toon>` (all optional there). `map` is the toon's
+ * start view on the world map (`{ center?, zoom? }`, agents/MAP.md §2.2); width, height and layers belong to the world.
+ */
+export type ToonNeutralSettings = Partial<Pick<Toon, Exclude<ToonNeutralField, 'map'>>> & { map?: ToonMapView };
 
 /** The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings */
 export type ToonSettings = Omit<Toon, ToonNeutralField>;

@@ -1,0 +1,292 @@
+{
+	"$id": "https://scutoons.com/schema/map.schema.json",
+	"title": "WorldMap",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/WorldMap",
+	"definitions": {
+		"WorldMap": {
+			"type": "object",
+			"properties": {
+				"width": {
+					"type": "number",
+					"description": "world units = px of the terrain artwork (2048 × 1046 today); every position is in this space"
+				},
+				"height": {
+					"type": "number"
+				},
+				"layers": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/MapLayer"
+					},
+					"description": "drawn bottom → top; image paths relative to the CDN root"
+				},
+				"locations": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/MapPlace"
+					}
+				},
+				"routes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/MapPath"
+					}
+				}
+			},
+			"required": [
+				"width",
+				"height",
+				"layers",
+				"locations",
+				"routes"
+			],
+			"description": "The SCUTOONS world map (entity `map`, seed `scutoons/_/map.json`)"
+		},
+		"MapLayer": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "e.g. `terrain`"
+				},
+				"image": {
+					"type": "string",
+					"description": "CDN-root path, e.g. `catpope/images/map/map-layer-terrain.svg`"
+				},
+				"minZoom": {
+					"type": "number",
+					"description": "shown only from / up to this zoom (e.g. a street-detail layer for the city)"
+				},
+				"maxZoom": {
+					"type": "number"
+				},
+				"builderHidden": {
+					"type": "boolean",
+					"description": "hidden in the builder only (the reader always draws it) – not stored when false"
+				}
+			},
+			"required": [
+				"id",
+				"image"
+			]
+		},
+		"MapPlace": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "slug, stable forever (events reference it)"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "`{ de, en }`, more languages as keys; missing → the source language (de)"
+				},
+				"x": {
+					"type": "number",
+					"description": "the place's ground point, world units"
+				},
+				"y": {
+					"type": "number"
+				},
+				"image": {
+					"$ref": "#/definitions/MapImage",
+					"description": "the small illustration (agents/MAP.md §5)"
+				},
+				"toons": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "the toons whose story uses the place (the builder's \"used by\", the reader's per-toon view)"
+				},
+				"hidden": {
+					"type": "boolean",
+					"description": "hidden until it is unlocked (by `unlock`, later by an event) – default: visible from the start"
+				},
+				"unlock": {
+					"$ref": "#/definitions/PlaceUnlock",
+					"description": "where the story reaches the place (owner 2026-10-01: places unlock over time) – read before the events exist (M3)"
+				},
+				"chapter": {
+					"type": "object",
+					"properties": {
+						"toon": {
+							"type": "string"
+						},
+						"number": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"toon",
+						"number"
+					],
+					"description": "the chapter the place's card links to"
+				}
+			},
+			"required": [
+				"id",
+				"name",
+				"x",
+				"y",
+				"toons"
+			]
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		},
+		"MapImage": {
+			"type": "object",
+			"properties": {
+				"src": {
+					"type": "string",
+					"description": "CDN-root path, e.g. `map/locations/cathedral.webp`"
+				},
+				"size": {
+					"type": "number",
+					"description": "drawn width in screen px at zoom 1 (default 48); the image keeps its ratio"
+				},
+				"anchor": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y"
+					],
+					"description": "the ground point inside the image, % of its box (default 50 / 90 = bottom centre) – sits on the place's (x, y)"
+				}
+			},
+			"required": [
+				"src"
+			]
+		},
+		"PlaceUnlock": {
+			"type": "object",
+			"properties": {
+				"toon": {
+					"type": "string"
+				},
+				"chapter": {
+					"type": "number"
+				},
+				"at": {
+					"type": "number",
+					"description": "reading position in the chapter, 0..1 (default 0)"
+				},
+				"scene": {
+					"type": "number",
+					"description": "the screenplay's scene number"
+				}
+			},
+			"required": [
+				"toon",
+				"chapter"
+			],
+			"description": "When a hidden place unlocks by reading progress: a chapter of a toon, from a reading position on (0..1 of the chapter, the reader's chapter checkpoint – 0 = when the chapter is opened, 1 = its end). `scene` = the screenplay scene that introduces the place (the reference for the event that replaces this rule in the editor, M3/M4)."
+		},
+		"MapPath": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"toons": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"waypoints": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Waypoint"
+					},
+					"description": "ordered, ≥ 2; a waypoint is a place or a free point"
+				},
+				"style": {
+					"$ref": "#/definitions/MapPathStyle",
+					"description": "how the line is drawn (default `road`)"
+				},
+				"hidden": {
+					"type": "boolean",
+					"description": "hidden until an event reveals it (default visible)"
+				}
+			},
+			"required": [
+				"id",
+				"name",
+				"toons",
+				"waypoints"
+			]
+		},
+		"Waypoint": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/PlaceWaypoint"
+				},
+				{
+					"$ref": "#/definitions/FreeWaypoint"
+				}
+			]
+		},
+		"PlaceWaypoint": {
+			"type": "object",
+			"properties": {
+				"location": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"location"
+			],
+			"description": "A place of the map (`location` = the place id; its waypoint id is the place id)"
+		},
+		"FreeWaypoint": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"x": {
+					"type": "number"
+				},
+				"y": {
+					"type": "number"
+				},
+				"name": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"id",
+				"x",
+				"y"
+			],
+			"description": "A free point on a route (a bridge, a pass); `id` unique within the route"
+		},
+		"MapPathStyle": {
+			"type": "string",
+			"enum": [
+				"road",
+				"trail",
+				"flight",
+				"sea"
+			]
+		}
+	}
+}

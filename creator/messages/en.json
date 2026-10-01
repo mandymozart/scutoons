@@ -459,7 +459,10 @@
 		"tile_color_placeholder": "the star’s colour",
 		"toon_neutral": "Same in every language",
 		"toon_neutral_hint": "Stored once for the toon (in its toon entry), not per language: authors, chapter count, thumbnail, the homepage tile and the map. Save and Publish below cover both.",
-		"toon_entry_missing": "This toon has no toon entry yet – set its languages on the toon page and save:"
+		"toon_entry_missing": "This toon has no toon entry yet – set its languages on the toon page and save:",
+		"map_start_view": "Start view on the world map",
+		"map_start_view_hint": "Where the map opens for this toon (world units, zoom 1 = 100 %). Size, layers, places and routes belong to the world map.",
+		"map_open_builder": "Open the world map"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

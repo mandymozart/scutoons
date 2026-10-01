@@ -102,6 +102,35 @@ final class InventoryServiceTest extends TestCase
         $this->assertError('invalid_updated_at', fn() => $progress->put($id, 'catpope', [], -1));
     }
 
+    /** The world state `scutoons` (agents/MAP.md §2.4): map discoveries merge as sets, a stale write loses none */
+    public function testWorldProgressMergesTheMapState(): void
+    {
+        $id = (string) $this->user()['id'];
+        $progress = $this->get(ProgressService::class);
+        $state = fn(array $map, string $note) => json_decode((string) json_encode(['map' => $map, 'note' => $note]));
+        $progress->put($id, 'scutoons', $state(['places' => ['home' => ['unlocked' => 100, 'seen' => 150]], 'routes' => ['way' => ['revealed' => 1]],
+            'positions' => ['t' => ['location' => 'home', 'at' => 100]]], 'phone'), 2000);
+        // a laptop that never saw the phone's state writes later: union, not replace
+        $r = $progress->put($id, 'scutoons', $state(['places' => ['tower' => ['unlocked' => 300], 'home' => ['unlocked' => 50]], 'routes' => ['way' => ['revealed' => 0, 'travelled' => 0]],
+            'positions' => ['t' => ['location' => 'tower', 'at' => 300]]], 'laptop'), 3000);
+        self::assertSame('success', $r['status']);
+        $map = json_decode((string) json_encode($r['state']->map), true);
+        self::assertEquals(['home' => ['unlocked' => 50, 'seen' => 150], 'tower' => ['unlocked' => 300]], $map['places']);
+        self::assertSame(['way' => ['revealed' => 1, 'travelled' => 0]], $map['routes']);
+        self::assertSame('tower', $map['positions']['t']['location']);
+        self::assertSame('laptop', $r['state']->note, 'other fields: the newer write');
+        // an older write (stale) still adds its discoveries; the newer fields stay
+        $r = $progress->put($id, 'scutoons', $state(['places' => ['pond' => ['unlocked' => 10]], 'positions' => ['t' => ['location' => 'pond', 'at' => 10]]], 'old'), 1000);
+        self::assertSame(['stale', 3000], [$r['status'], $r['updated_at']]);
+        $stored = json_decode((string) json_encode($progress->get($id, 'scutoons')['state']), true);
+        self::assertEqualsCanonicalizing(['home', 'tower', 'pond'], array_keys($stored['map']['places']));
+        self::assertSame(['tower', 'laptop'], [$stored['map']['positions']['t']['location'], $stored['note']]);
+        // other ids stay last-write-wins
+        $progress->put($id, 'catpope', $state(['places' => ['a' => ['unlocked' => 1]]], 'x'), 2000);
+        $r = $progress->put($id, 'catpope', $state(['places' => ['b' => ['unlocked' => 1]]], 'y'), 1000);
+        self::assertSame(['a'], array_keys((array) $r['state']->map->places));
+    }
+
     /** @param callable(): mixed $call */
     private function assertError(string $code, callable $call): void
     {

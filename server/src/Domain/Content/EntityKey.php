@@ -13,7 +13,8 @@ use Scutoons\Domain\ApiError;
  *   season:<toon>:<n>:<l>                chapter:<toon>:<n>:<l>        scene:<toon>:<chapter>:<name>:<l>
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
- *   characters  moods  asset-requests  people  roles  events           platform-wide, language-neutral
+ *   characters  moods  asset-requests  people  roles  events  map      platform-wide, language-neutral
+ *   (`map` = the SCUTOONS world map, agents/MAP.md; `locations:*` / `routes:*` are the old per-toon map, read-only)
  *
  * Every toon-related text of every locale lives in these documents (per-locale documents or `{ de, en }` fields); UI
  * chrome stays in the apps' message files; the catalog (items, editions, products) follows later (DATA.md "B2").
@@ -37,6 +38,7 @@ final class EntityKey
         'people' => [false, false, false, false],
         'roles' => [false, false, false, false],
         'events' => [false, false, false, false],
+        'map' => [false, false, false, false],
     ];
     public const TOON_PATTERN = '#^[a-z0-9_-]{1,64}$#';
     public const LOCALE_PATTERN = '#^[a-z]{2}$#';

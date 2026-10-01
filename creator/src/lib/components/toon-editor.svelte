@@ -92,13 +92,12 @@
 				</div>
 
 				<div class="sub" data-testid="toon-map">
-					<h3>{m['creator.map']()}</h3>
-					<SharedField doc={index} path={['map', 'layers', 'terrain']} label="map.layers.terrain" kind="image" {toon} known={images} />
+					<h3>{m['creator.map_start_view']()}</h3>
+					<p class="hint">{m['creator.map_start_view_hint']()} <a href="/map?toon={toon}">{m['creator.map_open_builder']()}</a></p>
 					<div class="grid g4">
-						<SharedField doc={index} path={['map', 'width']} label="map.width (px)" kind="number" required />
-						<SharedField doc={index} path={['map', 'height']} label="map.height (px)" kind="number" required />
-						<SharedField doc={index} path={['map', 'center', 'x']} label="map.center.x (px)" kind="number" required />
-						<SharedField doc={index} path={['map', 'center', 'y']} label="map.center.y (px)" kind="number" required />
+						<SharedField doc={index} path={['map', 'center', 'x']} label="map.center.x" kind="number" />
+						<SharedField doc={index} path={['map', 'center', 'y']} label="map.center.y" kind="number" />
+						<SharedField doc={index} path={['map', 'zoom']} label="map.zoom" kind="number" />
 					</div>
 				</div>
 			{/if}

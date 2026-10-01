@@ -335,6 +335,94 @@ final class LibraryTest extends TestCase
         self::assertSame([['title' => 'Cat Pope', 'city' => 'Wien']], self::decode($this->library()->events(false)->body));
     }
 
+    /** The world map (agents/MAP.md): a published toon `t`, a draft toon `d`, the sandbox; places of each + one of nobody */
+    private function seedWorldMap(): void
+    {
+        $this->seedToon();
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'], 'map' => ['center' => ['x' => 100, 'y' => 50]]]);
+        $this->doc('d', '_', 'index.json', ['id' => 'd', 'uri' => 'd', 'status' => 'draft', 'announce' => true]);
+        $this->doc('sandbox', '_', 'index.json', ['id' => 'sandbox', 'uri' => 'sandbox', 'status' => 'draft']);
+        $this->doc(Library::PLATFORM, '_', 'map.json', [
+            'width' => 2048, 'height' => 1046,
+            'layers' => [['id' => 'terrain', 'image' => 't/images/map/terrain.svg']],
+            'locations' => [
+                ['id' => 'home', 'name' => ['de' => 'Zuhause', 'en' => 'Home'], 'x' => 90, 'y' => 40, 'toons' => ['t'], 'chapter' => ['toon' => 't', 'number' => 1]],
+                ['id' => 'tower', 'name' => ['de' => 'Turm'], 'x' => 120, 'y' => 60, 'toons' => ['t'], 'hidden' => true, 'unlock' => ['toon' => 't', 'chapter' => 1, 'at' => 0.5]],
+                ['id' => 'stage', 'name' => ['de' => 'Bühne', 'en' => 'Stage'], 'x' => 500, 'y' => 500, 'toons' => ['d']],
+                ['id' => 'pond', 'name' => ['de' => 'Teich', 'en' => 'Pond'], 'x' => 700, 'y' => 600, 'toons' => ['sandbox']],
+                ['id' => 'nowhere', 'name' => ['de' => 'Nirgends'], 'x' => 1, 'y' => 1, 'toons' => []],
+            ],
+            'routes' => [
+                ['id' => 'way', 'name' => ['de' => 'Weg', 'en' => 'Way'], 'toons' => ['t'], 'style' => 'trail',
+                    'waypoints' => [['location' => 'home'], ['id' => 'bridge', 'x' => 105, 'y' => 45, 'name' => ['de' => 'Brücke']], ['location' => 'tower'], ['location' => 'gone']]],
+                ['id' => 'secret', 'name' => ['de' => 'Geheim'], 'toons' => ['d'], 'waypoints' => [['location' => 'stage'], ['location' => 'home']]],
+            ],
+        ]);
+    }
+
+    public function testWorldMapForReaders(): void
+    {
+        $this->seedWorldMap();
+        $answer = $this->library()->map('en', null, false);
+        $data = self::decode($answer->body);
+        self::assertSame([2048, 1046], [$data['width'], $data['height']]);
+        self::assertSame('t/images/map/terrain.svg', $data['layers'][0]['image']);
+        // published toons only: the draft (announced) toon's, the sandbox's and nobody's places stay out
+        self::assertSame(['home', 'tower'], array_column($data['locations'], 'id'));
+        self::assertSame(['Home', 'Turm'], array_column($data['locations'], 'name'), 'names resolved, missing en → de');
+        self::assertTrue($answer->fallback);
+        self::assertSame('en', $answer->locale);
+        self::assertTrue($data['locations'][1]['hidden'], 'hidden places are sent (the unlock state is client-side)');
+        self::assertSame(['toon' => 't', 'chapter' => 1, 'at' => 0.5], $data['locations'][1]['unlock']);
+        self::assertSame(['way'], array_column($data['routes'], 'id'));
+        self::assertSame('Brücke', $data['routes'][0]['waypoints'][1]['name'], 'free waypoint names resolved');
+        self::assertSame(['location' => 'gone'], $data['routes'][0]['waypoints'][3], 'unknown places stay (the reader skips them)');
+        self::assertArrayNotHasKey('view', $data);
+
+        $view = self::decode($this->library()->map('de', 't', false)->body)['view'];
+        self::assertSame(['center' => ['x' => 100, 'y' => 50], 'zoom' => 1], $view);
+        try {
+            $this->library()->map('de', 'd', false);
+            self::fail('a draft toon has no public map view');
+        } catch (ApiError $error) {
+            self::assertSame(404, $error->status);
+        }
+        // draft mode (creators): every toon
+        self::assertSame(['home', 'tower', 'stage', 'pond'], array_column(self::decode($this->library()->map('de', null, true)->body)['locations'], 'id'));
+    }
+
+    public function testWorldMapShowsDraftToonsWithTheSetting(): void
+    {
+        $this->showDrafts = true;
+        $this->setUp();
+        $this->seedWorldMap();
+        self::assertSame(['home', 'tower', 'stage', 'pond'], array_column(self::decode($this->library()->map('de', null, false)->body)['locations'], 'id'));
+    }
+
+    public function testWorldMapMissing404(): void
+    {
+        try {
+            $this->library()->map('de', null, false);
+            self::fail('404 without a world map');
+        } catch (ApiError $error) {
+            self::assertSame(404, $error->status);
+        }
+    }
+
+    /** Older viewer builds: the bundle's `locations` / `routes` / `toon.map` in the old shape, computed from the world map */
+    public function testToonBundleComputesTheOldMapFromTheWorld(): void
+    {
+        $this->seedWorldMap();
+        $data = self::decode($this->library()->toon('t', 'en', false)->body);
+        self::assertSame([
+            ['id' => 'home', 'label' => 'Home', 'toonId' => 't', 'type' => 'chapter', 'chapterNumber' => '1', 'image' => '', 'coordinates' => ['x' => 90, 'y' => 40]],
+            ['id' => 'tower', 'label' => 'Turm', 'toonId' => 't', 'type' => 'chapter', 'image' => '', 'coordinates' => ['x' => 120, 'y' => 60]],
+        ], $data['locations'], 'the old documents (locations:t:*) are no longer read once the world map exists');
+        self::assertSame([['id' => 'way', 'title' => 'Way', 'locations' => ['home', 'tower', 'gone']]], $data['routes']);
+        self::assertSame(['layers' => ['terrain' => 'images/map/terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 100, 'y' => 50]], $data['toon']['map']);
+        self::assertArrayNotHasKey('map', $data['entry']);
+    }
+
     public function testImportSourcesAndExportRoundTrip(): void
     {
         $root = $this->dir . '/static';

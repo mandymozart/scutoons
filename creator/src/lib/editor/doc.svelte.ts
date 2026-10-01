@@ -59,6 +59,7 @@ export function kindOfEntity(entity: string): DocKind {
 			return 'requests';
 		case 'locations':
 		case 'routes':
+		case 'map':
 			return 'map';
 		case 'events':
 			return 'events';

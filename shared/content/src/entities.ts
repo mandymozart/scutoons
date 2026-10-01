@@ -5,7 +5,8 @@
 //   season:<toon>:<n>:<locale>        chapter:<toon>:<n>:<locale>        scene:<toon>:<chapter>:<name>:<locale>
 //   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)
-//   characters  moods  asset-requests  people  roles  events           (platform-wide, language-neutral)
+//   characters  moods  asset-requests  people  roles  events  map      (platform-wide, language-neutral)
+//   (`locations:*` / `routes:*` are the old per-toon map, read-only since the world map `map`, agents/MAP.md)
 //
 // An "entity" is a key without its locale (`chapter:catpope:2`); the stored document of one language adds `:<locale>`.
 // Language-neutral entities are stored under the entity itself. JSON file names exist only in the import/export
@@ -28,7 +29,8 @@ export type EntityKind =
 	| 'asset-requests'
 	| 'people'
 	| 'roles'
-	| 'events';
+	| 'events'
+	| 'map';
 
 /** kind → [has toon, has number, has scene name, localized] */
 const SHAPES: Record<EntityKind, [boolean, boolean, boolean, boolean]> = {
@@ -46,7 +48,8 @@ const SHAPES: Record<EntityKind, [boolean, boolean, boolean, boolean]> = {
 	'asset-requests': [false, false, false, false],
 	people: [false, false, false, false],
 	roles: [false, false, false, false],
-	events: [false, false, false, false]
+	events: [false, false, false, false],
+	map: [false, false, false, false]
 };
 
 export interface EntityRef {
@@ -76,7 +79,9 @@ export const entities = {
 	assetRequests: 'asset-requests',
 	people: 'people',
 	roles: 'roles',
-	events: 'events'
+	events: 'events',
+	/** the SCUTOONS world map (agents/MAP.md) */
+	map: 'map'
 } as const;
 
 /** Whether an entity (or key) of this kind is stored per locale */
