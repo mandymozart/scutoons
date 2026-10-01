@@ -85,9 +85,10 @@ your code" still opens the QR scanner without any item).
 | awakening_vinyl | physical | media | – | play_audio | `3_catpope_vinyl` | LE 12" |
 | awakening_test_press | physical | media | – | play_audio | (no edition yet) | variants 1_of_2, 2_of_2 |
 | kangaroo_cat_hoodie | physical | wearable | torso | – | (no edition yet) | "Love For Women" |
-| scutoons_tshirt | virtual | wearable | torso | – | – | starter, worn by default, `wear` overlays ("Wardrobe") |
-| scutoons_swim_pants | virtual | wearable | legs | – | – | starter, worn by default, the cover rule's first choice |
-| scutoons_shorts | virtual | wearable | legs | – | – | starter **for now** (owner to decide: starter or found in a story) |
+| scutoons_tshirt | virtual | wearable | torso | – | – | starter, basic dress (`default_worn`), `wear` overlays ("Wardrobe") |
+| scutoons_swim_pants | virtual | wearable | legs | – | – | starter in the inventory, the cover rule's first choice (sensitive-content safety) |
+| scutoons_shorts | virtual | wearable | legs | – | – | starter, basic dress (owner may still move it to a story find) |
+| scutoons_sandals | virtual | wearable | feet | – | – | starter, basic dress |
 
 ## Collectables removed – items are the only concept (U, 2026-09-30)
 
@@ -620,12 +621,18 @@ cast computed from scenes would be empty there.
 Owner: "clothing becomes real, exchangeable items that overlay the character's A-pose."
 
 - **Default wearables** (starter items with a slot): `scutoons_tshirt` (torso), `scutoons_swim_pants` (legs),
-  `scutoons_shorts` (legs; a starter **for now** – owner: starter or found in a story). Every reader owns them; the T-shirt
-  and the swim pants are worn from the start on every body. Members: granted at signup (`Users::create` →
-  `InventoryService::grantStarterWearables`, worn by slot type), accounts older than the items get them lazily on
-  `GET /me/` / `GET|PUT /avatar/` (`AvatarService::ensureWardrobe`: only items the member owns none of – wearables are
-  never consumed, so no extra table) and put on where nothing of that type is worn. Guests: `giveGuestStarters` (once per
-  item id, as before) wears them the same way.
+  `scutoons_shorts` (legs), `scutoons_sandals` (feet). Every reader owns all four.
+- **The basic dress** (owner 2026-10-01: "T-shirt + short pants + sandals") = the items marked `"default_worn": true`
+  (T-shirt, shorts, sandals), put on when the wearables are handed out, per slot type, where nothing of that type is worn
+  (`basicDress` in `@scutoons/content`, `AvatarService::basicDress` / `wearBasicDress`). **Rule per body:** for each slot
+  type the `default_worn` item with an overlay for the body's character; if it has none, another starter of that type with
+  one – so **yellowmouse and Top Toy (no shorts overlay) wear the swim pants** and their base never looks wrong; if no
+  starter of the type has one, the `default_worn` item anyway (drawn as an icon: the T-shirt and sandals there). The body
+  is the one the reader has at that moment (signup / guests: the default body, Cat Pope). The **swim pants** stay a starter
+  in the inventory: the sensitive-content safety (cover rule below). Members: granted at signup (`Users::create` →
+  `grantStarterWearables` + `wearBasicDress`), accounts older than the items get them lazily on `GET /me/` /
+  `GET|PUT /avatar/` (`AvatarService::ensureWardrobe`: only items the member owns none of – wearables are never consumed,
+  so no extra table). Guests: `giveGuestStarters` (once per item id, as before) dresses the same way.
 - **Overlays** (`ItemDef.wear`, type + schema + `validateCatalog` in `@scutoons/content` `wardrobe.ts`):
   `{ "<character>": "<path>", "<character>/<slot instance>": "<path>" }` – a full-body image aligned to the character's
   A-pose (same 768 × 1152 canvas, transparent WebP). Lookup `<character>/<instance>` first, then `<character>`
@@ -661,17 +668,21 @@ body), 768 × 1152 transparent WebP aligned to that character's A-pose; icon `sc
 | `characters/catpope/wear/scutoons_swim_pants.webp` | 8 KB | swim − naked difference |
 | `characters/catpope/wear/scutoons_tshirt.webp` | 14 KB | the reference `catpope_apose-example-dressed.webp`, colour segmentation (low saturation) |
 | `characters/catpope/wear/scutoons_shorts.webp` | 16 KB | the same reference, colour segmentation (denim blue) |
+| `characters/catpope/wear/scutoons_sandals.webp` | 10 KB | the same reference: brown/cork below the ankles, each sandal moved + scaled onto the naked foot |
 | `characters/yellowmouse/wear/scutoons_swim_pants.webp` | 9 KB | swim − naked difference |
 | `characters/toptoy/wear/scutoons_swim_pants-legs-left.webp` | 16 KB | swim − naked difference, left half |
 | `characters/toptoy/wear/scutoons_swim_pants-legs-right.webp` | 14 KB | swim − naked difference, right half |
 | `scutoons/items/scutoons_tshirt.png` | 122 KB | the catpope overlay, trimmed, 512 px |
 | `scutoons/items/scutoons_swim_pants.png` | 116 KB | the catpope overlay, trimmed, 512 px |
 | `scutoons/items/scutoons_shorts.png` | 190 KB | the catpope overlay, trimmed, 512 px |
+| `scutoons/items/scutoons_sandals.png` | 55 KB | the catpope overlay, trimmed, 512 px |
 
 **Missing overlays (asset requests, the icon is drawn meanwhile – `missingWearOverlays(catalog, registry)` lists them):**
 `characters/yellowmouse/wear/scutoons_tshirt.webp`, `characters/yellowmouse/wear/scutoons_shorts.webp`,
 `characters/toptoy/wear/scutoons_tshirt-torso-left.webp`, `…-torso-right.webp`,
-`characters/toptoy/wear/scutoons_shorts-legs-left.webp`, `…-legs-right.webp` – plus every physical wearable (Dago hoodie /
+`characters/toptoy/wear/scutoons_shorts-legs-left.webp`, `…-legs-right.webp`,
+`characters/yellowmouse/wear/scutoons_sandals.webp`, `characters/toptoy/wear/scutoons_sandals-feet-left.webp`,
+`…-feet-right.webp` – plus every physical wearable (Dago hoodie /
 heavy T, kangaroo hoodie, scorpion amulet) on every body. They are not stored as `asset-requests` entries (that would
 change the release seed); add them in the creator's wanted images if the owner wants them listed there.
 
@@ -679,17 +690,24 @@ change the release seed); add them in the creator's wanted images if the owner w
 blurring the images before the difference, thin attachments like a tail drawn differently dropped); the Top Toy pants
 carry a 2–4 px fringe of the figure's own fur (invisible over the same body). T-shirt/shorts from the dressed reference:
 the upper body lines up with the naked A-pose within 1–3 px, the shirt fits; the reference's legs stand wider than the
-A-pose's, so the shorts hang a little wide over the thighs (reads as loose shorts); the sandals are not extracted.
+A-pose's, so the shorts hang a little wide over the thighs (reads as loose shorts). The sandals: the reference's feet
+stand wider, turned out and 20 px higher than the naked A-pose's, so each sandal (brown/cork mask below y 950, the holes
+between the straps filled – the reference's toes come along and cover the cat's claws) is moved and scaled onto the naked
+foot (width = foot + 24 px, sole on the sole); it reads as a foot in a sandal in a slight 3/4 view over a front-facing
+foot, the sole edge keeps a few ragged shadow pixels.
 Placeholders only – the owner's branded artwork replaces them.
 
-**Tests:** content `test/wardrobe.test.ts` (catalog vs registry, validation errors, overlay lookup, cover rule, base
-image), PHPUnit `WardrobeTest` (new account wears shirt + pants, lazy grant once, swap keeps the entry, cover rule, setting
-off/on, twins), admin-smoke "Wardrobe" (9 checks), `npm run check:wardrobe` (headless, 390 + 1440, guest + test user, 24
-checks: default look, shorts swap + Items lists, shorts off → pants back, item detail swap, setting off → naked, Top Toy
-twins, back to Cat Pope).
+**Tests:** content `test/wardrobe.test.ts` (catalog vs registry, validation errors, overlay lookup, the basic dress per
+body, cover rule, base image), PHPUnit `WardrobeTest` (new account wears the basic dress, basic dress per body, lazy grant
+once – the swim pants on Top Toy –, swap keeps the entry, cover rule, setting off/on, twins), api-smoke (a new account wears
+the basic dress, the swim pants wait), admin-smoke "Wardrobe" (9 checks), `npm run check:wardrobe` (headless, 390 + 1440,
+guest + test user, 24 checks: the basic dress, swim pants on → shorts back + Items lists, swim pants stay on while hidden,
+item detail swap, setting off → naked, Top Toy twins, back to Cat Pope). `npm run dev:test-user -- --reset` removes the
+default wearables so the next `/me/` hands them out and puts the basic dress on, like a signup.
 
 **Merge note (after the 2026-10-04 release):** no migration, no seed change. Deploy order: CDN first (`cdn/sync.py` the
 `characters/*/wear/` folders and `scutoons/items/` – run `cdn/tools/make_wear_overlays.py` on the owner's `cdn/root`
 first, the branch could not write there), then the API (items.json + services), then the viewer. Existing members get
-the three wearables on their next `/me/` (shirt + pants worn where those slots were free). The bodies picker no longer
+the four wearables on their next `/me/` with the basic dress (T-shirt, shorts, sandals – the swim pants on a body
+without a shorts overlay) worn where those slots were free. The bodies picker no longer
 offers "nackt" as a separate look.

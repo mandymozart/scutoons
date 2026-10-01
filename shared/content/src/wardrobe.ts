@@ -43,6 +43,31 @@ export function wearOverlay(item: Pick<ItemDef, 'wear'> | null | undefined, char
 	return typeof path === 'string' && path.trim() ? path.trim() : null;
 }
 
+/** The item has an overlay for some slot instance of this character (`<character>` or `<character>/<instance>`). */
+export function hasWearFor(item: Pick<ItemDef, 'wear'> | null | undefined, character: string | null | undefined): boolean {
+	if (!item?.wear || !character) return false;
+	return Object.keys(item.wear).some((k) => k === character || k.startsWith(`${character}/`));
+}
+
+/**
+ * The basic dress put on when the default wearables are handed out, for the body's character: per slot type of the
+ * given starter wearables, the `default_worn` one with an overlay for the character; else another of that type with an
+ * overlay (yellowmouse / Top Toy have no shorts overlay → the swim pants); else the `default_worn` one (drawn as an
+ * icon). Slot types without a `default_worn` item are left out (the swim pants alone are not put on). Same rule on the
+ * server (AvatarService::basicDress).
+ */
+export function basicDress<T extends Pick<ItemDef, 'id' | 'slot' | 'wear' | 'default_worn'>>(items: T[], character: string | null | undefined): T[] {
+	const out: T[] = [];
+	for (const slot of AVATAR_SLOTS) {
+		const ofType = items.filter((i) => i.slot === slot);
+		const preferred = ofType.filter((i) => i.default_worn === true);
+		if (!preferred.length) continue;
+		const pick = preferred.find((i) => hasWearFor(i, character)) ?? ofType.find((i) => hasWearFor(i, character)) ?? preferred[0];
+		out.push(pick);
+	}
+	return out;
+}
+
 /**
  * Fills the empty cover-slot instances of a body (SENSITIVE_COVER) with owned, unworn entries – in the order given
  * (the caller passes the inventory in catalog order, so the swim pants come first). Instances stay empty when nothing
@@ -136,6 +161,9 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 		if (ids.has(item.id)) add('error', [...path, 'id'], `item id "${item.id}" is used twice`);
 		ids.add(item.id);
 		if (item.slot != null && !slots.includes(item.slot)) add('error', [...path, 'slot'], `${item.id}: unknown slot "${item.slot}"`);
+		if (item.default_worn != null && (typeof item.default_worn !== 'boolean' || (item.default_worn && (item.starter !== true || !item.slot)))) {
+			add('error', [...path, 'default_worn'], `${item.id}: default_worn: true is only for starter items with a slot`);
+		}
 		if (item.wear == null) return;
 		if (!isObj(item.wear)) return add('error', [...path, 'wear'], `${item.id}: wear must be { "<character>[/<slot instance>]": "<path>" }`);
 		if (!item.slot) add('error', [...path, 'wear'], `${item.id}: only wearables (with a slot) can have overlays`);

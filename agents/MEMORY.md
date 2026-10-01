@@ -1290,3 +1290,7 @@ character, persona, look and mood and doubles as the VN test bed.
   `storage/files/batch` copied for admin-smoke, a throw-away fake `storage/keys/keypair.json` (not a real key) for the
   `/api/keys/keys.php` check; servers on 127.0.0.1:9770 (API), 9771 (scratch CDN), 9772 (viewer). Gotcha: other agents
   listen on `[::1]:9490/9491/9492` – `localhost` resolved there; bind and call `127.0.0.1` explicitly.
+- 2026-10-01 (later, owner): **the basic dress = T-shirt + shorts + sandals** (`default_worn`), `scutoons_sandals` (feet)
+  added, the swim pants stay a starter in the inventory as the sensitive-content safety. A body without a shorts overlay
+  (yellowmouse, Top Toy) gets the swim pants instead (`basicDress`). Sandals overlay: moved + scaled per foot from the
+  dressed reference (its feet stand wider and 20 px higher than the naked A-pose's).

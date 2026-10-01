@@ -21,9 +21,11 @@ Methods (quality notes in agents/ITEMS.md "Wardrobe"):
                  (S < 0.075, the shirt is neutral grey/white, the sphynx skin is S 0.10-0.20 at hue 8-17 deg), V > 0.3,
                  inside the torso band, largest component, holes filled, closed, feathered.
   shorts       = the same reference, hue 190-250 deg and S > 0.15 (denim blue), inside the hip band.
+  sandals      = the same reference, brown/cork (hue 5-45 deg, S > 0.22) below y 950, one blob per side, holes filled
+                 (the reference's toes come along), each moved + scaled onto the naked A-pose's foot (see sandals()).
   The reference's upper body lines up with catpope_apose-naked (checked as an anaglyph: head, shoulders, arms within
-  1-3 px), its legs don't (wider stance, sandals) - the shorts hang over the naked thighs, which are narrower than the
-  hems, so they read correctly; feet/sandals are not extracted.
+  1-3 px), its legs don't (wider stance, feet turned out and higher) - the shorts hang over the naked thighs, which are
+  narrower than the hems, so they read correctly; the sandals are re-placed per foot.
 
 Usage (from the repo root, with the cdn venv):
   cdn/.venv/Scripts/python cdn/tools/make_wear_overlays.py [--root <cdn root>] [--sheet <png>]
@@ -135,6 +137,37 @@ def reference_masks(root: Path) -> tuple[dict[str, np.ndarray], np.ndarray]:
     return {"scutoons_tshirt": shirt, "scutoons_shorts": shorts}, d
 
 
+def sandals(root: Path) -> Image.Image:
+    """The reference's sandals (straps, footbed, sole; brown/cork, below the ankles), each one moved and scaled onto
+    the naked A-pose's foot: the reference stands wider, its feet turned out and 20 px higher, so a plain cut would
+    float beside the feet. Per side: the sandal's box is scaled to the naked foot's width + 24 px, centred on the foot,
+    its sole on the foot's sole. The holes between the straps are filled, so the reference's own toes come along and
+    cover the cat's claws (reads as a foot in a sandal; the sole edge keeps a few ragged shadow pixels)."""
+    d = load(root, REFERENCE)
+    n = load(root, "catpope/catpope_apose-naked.webp")
+    h, s, v = hsv(d)
+    rows = np.arange(H)[:, None] * np.ones((1, W))
+    brown = (d[..., 3] > 128) & (h >= 5) & (h <= 45) & (s > 0.22) & (v < 0.85) & (rows > 950)
+    brown = ndimage.binary_closing(ndimage.binary_opening(brown, iterations=1), iterations=2)
+    out = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    for lo, hi in ((0, W // 2), (W // 2, W)):
+        part = np.zeros_like(brown); part[:, lo:hi] = brown[:, lo:hi]
+        part = clean(part, 800, keep_largest=1)
+        if not part.any():
+            continue
+        sandal = finish(part, d, dilate=1)
+        box = Image.fromarray((part * 255).astype(np.uint8)).getbbox()
+        sandal = sandal.crop(box)
+        foot = np.zeros((H, W), bool); foot[960:, lo:hi] = n[960:, lo:hi, 3] > 128
+        fx0, fy0, fx1, fy1 = Image.fromarray((foot * 255).astype(np.uint8)).getbbox()
+        scale = (fx1 - fx0 + 24) / sandal.width
+        size = (round(sandal.width * scale), round(sandal.height * scale))
+        sandal = sandal.convert("RGBa").resize(size, Image.Resampling.LANCZOS).convert("RGBA")
+        cx = (fx0 + fx1) // 2
+        out.alpha_composite(sandal, (cx - size[0] // 2, fy1 - size[1] + 2))
+    return out
+
+
 def icon_of(im: Image.Image) -> Image.Image:
     bbox = im.getchannel("A").point(lambda v: 255 if v > 6 else 0).getbbox()
     im = im.crop(bbox)
@@ -183,21 +216,25 @@ def main() -> None:
         made.setdefault("catpope", []).append(p)
         print(f"{p.relative_to(root)}  {int(m.sum())} px  {p.stat().st_size // 1024} KB")
 
+    p = save_webp(sandals(root), root / "characters" / "catpope" / "wear" / "scutoons_sandals.webp")
+    made.setdefault("catpope", []).append(p)
+    print(f"{p.relative_to(root)}  {p.stat().st_size // 1024} KB")
+
     # icons: the catpope overlays cut out (the garment alone)
     icons = root / "scutoons" / "items"
     icons.mkdir(parents=True, exist_ok=True)
-    for item in ("scutoons_tshirt", "scutoons_swim_pants", "scutoons_shorts"):
+    for item in ("scutoons_tshirt", "scutoons_swim_pants", "scutoons_shorts", "scutoons_sandals"):
         overlay = Image.open(root / "characters" / "catpope" / "wear" / f"{item}.webp").convert("RGBA")
         p = icons / f"{item}.png"
         icon_of(overlay).save(p, optimize=True, compress_level=9)
         print(f"{p.relative_to(root)}  {p.stat().st_size // 1024} KB")
 
     if args.sheet:
-        order = ["scutoons_swim_pants", "scutoons_shorts", "scutoons_tshirt"]
+        order = ["scutoons_swim_pants", "scutoons_shorts", "scutoons_sandals", "scutoons_tshirt"]
         tiles = []
         for character, files in made.items():
             base = Image.open(root / "characters" / character / f"{character}_apose-naked.webp").convert("RGBA")
-            combos = [["scutoons_swim_pants"], ["scutoons_swim_pants", "scutoons_tshirt"], ["scutoons_shorts", "scutoons_tshirt"]]
+            combos = [["scutoons_swim_pants"], ["scutoons_swim_pants", "scutoons_tshirt"], ["scutoons_shorts", "scutoons_sandals", "scutoons_tshirt"]]
             for combo in combos:
                 layers = [f for o in order if o in combo for f in files if f.stem.split("-")[0] == o]
                 if not layers:

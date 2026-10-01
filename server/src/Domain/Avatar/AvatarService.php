@@ -27,7 +27,9 @@ use Scutoons\Infrastructure\Database\Database;
  * one reads as the character's first non-sensitive look, and turning the setting on moves it there (hideSensitiveBody).
  *
  * Wardrobe (agents/ITEMS.md "Wardrobe"): the default wearables (starter items with a slot: SCUTOONS T-shirt, swim
- * pants, shorts) are granted and worn lazily for accounts older than them (ensureWardrobe). Putting an item on an
+ * pants, shorts, sandals) are granted at signup and lazily for accounts older than them (ensureWardrobe); the basic
+ * dress (`default_worn`: T-shirt, shorts, sandals – the swim pants instead of the shorts on a body without a shorts
+ * overlay) is put on where nothing of that slot type is worn (wearBasicDress). Putting an item on an
  * occupied instance swaps the old one back into the inventory (it stays an entry, just not worn). While "Hide
  * sensitive content" is on, every save refills the empty cover instances (SENSITIVE_COVER: `legs`) with an unworn
  * wearable of that type, in catalog order (the swim pants first) – `restored` in the answer; the same rule as
@@ -56,7 +58,57 @@ final class AvatarService
     {
         if (!$this->inventory->missingStarterWearables($userId)) return [];
         /** @var list<string> */
-        return $this->db->transaction(fn(): array => $this->inventory->grantStarterWearables($userId));
+        return $this->db->transaction(function () use ($userId): array {
+            $granted = $this->inventory->grantStarterWearables($userId);
+            $this->wearBasicDress($userId, $granted);
+            return $granted;
+        });
+    }
+
+    /**
+     * The basic dress for a character (basicDress in @scutoons/content): per slot type of the starter wearables, the
+     * `default_worn` one with an overlay for the character, else another of that type with one (the swim pants on a body
+     * without a shorts overlay), else the `default_worn` one; slot types without a `default_worn` item are left out.
+     * @return list<array<string, mixed>> catalog items
+     */
+    public function basicDress(?string $character): array
+    {
+        $starters = array_values(array_filter($this->catalog->starters(), fn(array $i) => is_string($i['slot'] ?? null)));
+        $has = fn(array $i) => $character !== null && is_array($i['wear'] ?? null)
+            && array_filter(array_keys($i['wear']), fn($k) => $k === $character || str_starts_with((string) $k, "$character/")) !== [];
+        $out = [];
+        foreach ($this->catalog->slots() as $slot) {
+            $ofType = array_values(array_filter($starters, fn(array $i) => $i['slot'] === $slot));
+            $preferred = array_values(array_filter($ofType, fn(array $i) => ($i['default_worn'] ?? false) === true));
+            if (!$preferred) continue;
+            $pick = null;
+            foreach ([...$preferred, ...$ofType] as $i) if ($has($i)) { $pick = $i; break; }
+            $out[] = $pick ?? $preferred[0];
+        }
+        return $out;
+    }
+
+    /**
+     * Puts the basic dress of the member's current body (chosen, else the default) on for the slot types of the items
+     * just granted, where nothing of that type is worn yet (an avatar_slots row by slot type: it lands on the first
+     * instance of that type of any body). No own transaction (signup, ensureWardrobe).
+     * @param list<string> $granted item ids
+     */
+    public function wearBasicDress(string $userId, array $granted): void
+    {
+        if (!$granted) return;
+        $types = array_unique(array_filter(array_map(fn(string $id) => $this->catalog->item($id)['slot'] ?? null, $granted), 'is_string'));
+        $body = $this->body($userId) ?? $this->unlocks->defaultBody($userId, $this->hidesSensitive($userId));
+        $worn = array_map(fn(array $w) => $w['type'], $this->stored($userId));
+        $now = $this->clock->utc();
+        foreach ($this->basicDress($body['character'] ?? null) as $item) {
+            if (!in_array($item['slot'], $types, true) || in_array($item['slot'], $worn, true)) continue;
+            $entry = $this->db->value('SELECT id FROM inventory WHERE user_id = ? AND item_id = ? AND qty > 0 ORDER BY acquired_at, id LIMIT 1', [$userId, $item['id']]);
+            if ($entry === null || $entry === false) continue;
+            $this->db->run('DELETE FROM avatar_slots WHERE user_id = ? AND slot = ?', [$userId, $item['slot']]);
+            $this->db->run('INSERT INTO avatar_slots (user_id, slot, entry_id, updated_at) VALUES (?, ?, ?, ?)', [$userId, $item['slot'], (string) $entry, $now]);
+            $worn[] = $item['slot'];
+        }
     }
 
     /**

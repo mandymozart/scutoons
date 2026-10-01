@@ -240,7 +240,7 @@ try {
 
     echo "\nCatalog and keys\n";
     $r = call('GET', "$api/catalog", null, $adminToken);
-    check($r['status'] === 200 && count($r['body']['catalog']['items']) === 12 && isset($r['body']['permissions']['types']['membership']) && count($r['body']['toons']) >= 1, 'catalog + editions + toons + permissions map', array_keys((array) $r['body']));
+    check($r['status'] === 200 && count($r['body']['catalog']['items']) === 13 && isset($r['body']['permissions']['types']['membership']) && count($r['body']['toons']) >= 1, 'catalog + editions + toons + permissions map', array_keys((array) $r['body']));
     $r = call('GET', "$api/keys", null, $adminToken);
     check(($r['status'] === 200 && is_string($r['body']['privateKey'] ?? null) && is_string($r['body']['publicKey'] ?? null)) || ($r['status'] === 404 && $r['body']['error'] === 'keys_missing'),
         'keys for client-side signing (admin only)', [$r['status'], array_keys((array) $r['body'])]);
@@ -510,7 +510,7 @@ try {
     $me = call('GET', "$userApi/me/", null, $memberToken)['body'] ?? [];
     $starter = [];
     foreach ($me['inventory'] ?? [] as $e) if (str_starts_with((string) $e['item_id'], 'scutoons_')) $starter[$e['item_id']][] = $e;
-    check(array_map('count', $starter) == ['scutoons_tshirt' => 1, 'scutoons_swim_pants' => 1, 'scutoons_shorts' => 1]
+    check(array_map('count', $starter) == ['scutoons_tshirt' => 1, 'scutoons_swim_pants' => 1, 'scutoons_shorts' => 1, 'scutoons_sandals' => 1]
         && $starter['scutoons_swim_pants'][0]['source'] === 'starter', 'GET /me/: an account older than the default wearables gets each once (source starter)', $starter);
     $pants = $starter['scutoons_swim_pants'][0]['id'] ?? '';
     $shorts = $starter['scutoons_shorts'][0]['id'] ?? '';

@@ -83,6 +83,12 @@ export interface ItemDef {
 	 * the slot anchor instead.
 	 */
 	wear?: Record<string, string> | null;
+	/**
+	 * Part of the basic dress (ITEMS.md "Wardrobe": T-shirt, shorts, sandals): a starter wearable that is put on when it
+	 * is handed out (signup, older accounts, guests). A body without an overlay for it wears another starter of the same
+	 * slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`.
+	 */
+	default_worn?: boolean;
 }
 
 export interface RecipePart {

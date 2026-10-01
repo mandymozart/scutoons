@@ -146,7 +146,7 @@ echo "Public\n";
 $r = call('GET', "$api/health/");
 check($r['status'] === 200 && $r['body']['db'] === 'ok', 'GET /health/', $r);
 $r = call('GET', "$api/items/");
-check($r['status'] === 200 && count($r['body']['items'] ?? []) === 12 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 12 items + recipe', $r['status']);
+check($r['status'] === 200 && count($r['body']['items'] ?? []) === 13 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 13 items + recipe', $r['status']);
 // the cucumber camera only scans cucumbers (owner 2026-09-30): crafting trades the starter camera's QR scan for it
 $skillsOf = fn(string $id) => array_column(array_values(array_filter($r['body']['items'] ?? [], fn($i) => $i['id'] === $id))[0]['skills'] ?? [], 'type');
 check($skillsOf('camera') === ['scan_qr'] && $skillsOf('cucumber_camera') === ['scan_object'], 'camera: scan_qr · cucumber_camera: scan_object only', [$skillsOf('camera'), $skillsOf('cucumber_camera')]);
@@ -206,6 +206,11 @@ $vinylEntry = entries($inv, 'awakening_vinyl')[0] ?? null;
 check($vinylEntry && $vinylEntry['code'] === $vinyl && $vinylEntry['source'] === 'qr' && is_int($vinylEntry['edition_number']), 'vinyl in inventory with code + edition_number', $vinylEntry);
 check(in_array($vinyl, array_column($me['body']['memberships'], 'code'), true), 'memberships list the vinyl code');
 check(array_keys((array) $me['body']['avatar']['slots']) === Catalog::slots(), 'avatar lists all slots');
+$slotsA = (array) $me['body']['avatar']['slots'];
+$basic = fn(string $item) => entries($inv, $item)[0]['id'] ?? 'missing';
+check([$slotsA['torso'], $slotsA['legs'], $slotsA['feet']] === [$basic('scutoons_tshirt'), $basic('scutoons_shorts'), $basic('scutoons_sandals')]
+    && qty($inv, 'scutoons_swim_pants') === 1 && !in_array($basic('scutoons_swim_pants'), $slotsA, true),
+    'new account wears the basic dress (T-shirt, shorts, sandals), the swim pants wait in the inventory (agents/ITEMS.md "Wardrobe")', $slotsA);
 
 // ── Claim with a choice ────────────────────────────────────────────────────────────────────────────────
 echo "\nClaim (dago code: choice needed)\n";

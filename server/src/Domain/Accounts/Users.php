@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Accounts;
 
 use RuntimeException;
+use Scutoons\Domain\Avatar\AvatarService;
 use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Inventory\InventoryService;
 use Scutoons\Domain\Roles\Roles;
@@ -24,6 +25,7 @@ final class Users
         private readonly Roles $roles,
         private readonly InventoryService $inventory,
         private readonly Catalog $catalog,
+        private readonly AvatarService $avatar,
     ) {
     }
 
@@ -52,10 +54,10 @@ final class Users
             [$id, $email, $locale, $now, $now, $now, $signupCode, $marketingOptIn ? 1 : 0, $marketingOptIn ? $now : null]);
         $this->roles->grant($id, Roles::MEMBER, 'signup');
         foreach ($this->catalog->starters() as $item) {
-            if (is_string($item['slot'] ?? null)) continue; // the default wearables: granted and worn below
+            if (is_string($item['slot'] ?? null)) continue; // the default wearables: granted below, the basic dress put on
             $this->inventory->add($id, (string) $item['id'], null, 1, 'starter');
         }
-        $this->inventory->grantStarterWearables($id);
+        $this->avatar->wearBasicDress($id, $this->inventory->grantStarterWearables($id));
         return $this->byId($id) ?? throw new RuntimeException('user not stored');
     }
 

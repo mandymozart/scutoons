@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
 	avatarBodies,
+	basicDress,
 	coverSensitive,
 	missingWearOverlays,
 	unlockedBodies,
@@ -25,7 +26,7 @@ const item = (id: string) => catalog.items.find((i) => i.id === id)!;
 test('wardrobe: the catalog validates against the registry', () => {
 	const problems = validateCatalog(catalog, registry);
 	assert.deepEqual(problems.filter((p) => p.level !== 'info'), []);
-	for (const id of ['scutoons_tshirt', 'scutoons_swim_pants', 'scutoons_shorts']) {
+	for (const id of ['scutoons_tshirt', 'scutoons_swim_pants', 'scutoons_shorts', 'scutoons_sandals']) {
 		assert.equal(item(id).starter, true, `${id} is a starter item`);
 		assert.equal(item(id).category, 'wearable');
 	}
@@ -60,6 +61,9 @@ test('wardrobe: overlays per body and slot instance, convention paths', () => {
 	assert.deepEqual(WEAR_ORDER.slice(0, 3), ['legs', 'feet', 'torso']);
 	const missing = missingWearOverlays({ items: catalog.items.filter((i) => i.id.startsWith('scutoons_')) }, registry).map((m) => `${m.item}@${m.character}/${m.instance}`);
 	assert.deepEqual(missing.sort(), [
+		'scutoons_sandals@toptoy/feet-left',
+		'scutoons_sandals@toptoy/feet-right',
+		'scutoons_sandals@yellowmouse/feet',
 		'scutoons_shorts@toptoy/legs-left',
 		'scutoons_shorts@toptoy/legs-right',
 		'scutoons_shorts@yellowmouse/legs',
@@ -67,6 +71,17 @@ test('wardrobe: overlays per body and slot instance, convention paths', () => {
 		'scutoons_tshirt@toptoy/torso-right',
 		'scutoons_tshirt@yellowmouse/torso'
 	]);
+});
+
+test('wardrobe: the basic dress per body (shorts where they have an overlay, else the swim pants)', () => {
+	const starters = catalog.items.filter((i) => i.starter && i.slot);
+	assert.deepEqual(basicDress(starters, 'catpope').map((i) => i.id), ['scutoons_tshirt', 'scutoons_shorts', 'scutoons_sandals']);
+	assert.deepEqual(basicDress(starters, 'yellowmouse').map((i) => i.id), ['scutoons_tshirt', 'scutoons_swim_pants', 'scutoons_sandals']);
+	assert.deepEqual(basicDress(starters, 'toptoy').map((i) => i.id), ['scutoons_tshirt', 'scutoons_swim_pants', 'scutoons_sandals']);
+	assert.equal(item('scutoons_swim_pants').default_worn, undefined, 'the swim pants are the safety, not the basic dress');
+	const bad = structuredClone(catalog);
+	bad.items.find((i) => i.id === 'camera')!.default_worn = true;
+	assert.ok(validateCatalog(bad, registry).some((p) => p.level === 'error' && p.message.includes('default_worn')));
 });
 
 test('wardrobe: the cover rule refills legs, swim pants first, never twice', () => {

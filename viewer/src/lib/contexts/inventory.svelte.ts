@@ -15,6 +15,7 @@ import {
 	DEFAULT_AVATAR_UNLOCKS,
 	SENSITIVE_COVER,
 	avatarBodies,
+	basicDress,
 	bodySlots as bodySlotsOf,
 	coverSensitive,
 	hidesSensitive,
@@ -196,17 +197,25 @@ export function createInventoryContext(session: SessionContext) {
 	function giveGuestStarters() {
 		if (!catalog) return;
 		let changed = false;
+		const grantedTypes = new Set<string>();
 		for (const item of catalog.items) {
 			if (item.starter && !guest.starters.includes(item.id)) {
 				guest.starters.push(item.id);
-				const entry = addGuestEntry(item.id, 1, 'starter');
-				// the default wearables are worn from the start when nothing of their slot type is (ITEMS.md "Wardrobe");
-				// stored by slot type, `remapAvatarSlots` puts it on the body's first free instance of that type
-				const wornTypes = Object.values(guest.avatar.slots).map((id) => (id == null ? null : itemsById[guest.entries.find((e) => String(e.id) === String(id))?.item_id ?? '']?.slot));
-				if (item.slot && !wornTypes.includes(item.slot)) {
-					guest.avatar = { ...guest.avatar, slots: { ...guest.avatar.slots, [item.slot]: entry.id } };
-				}
+				addGuestEntry(item.id, 1, 'starter');
+				if (item.slot) grantedTypes.add(item.slot);
 				changed = true;
+			}
+		}
+		// the basic dress (ITEMS.md "Wardrobe": T-shirt, shorts, sandals – the swim pants on a body without a shorts
+		// overlay) goes on for the slot types just handed out, where nothing of that type is worn; stored by slot type,
+		// `remapAvatarSlots` puts it on the body's first free instance of that type
+		if (grantedTypes.size) {
+			const character = guestBody?.character ?? DEFAULT_AVATAR_UNLOCKS[0]?.character ?? null;
+			const wornTypes = Object.values(guest.avatar.slots).map((id) => (id == null ? null : itemsById[guest.entries.find((e) => String(e.id) === String(id))?.item_id ?? '']?.slot));
+			for (const item of basicDress(catalog.items.filter((i) => i.starter && i.slot), character)) {
+				if (!item.slot || !grantedTypes.has(item.slot) || wornTypes.includes(item.slot)) continue;
+				const entry = guest.entries.find((e) => e.item_id === item.id);
+				if (entry) guest.avatar = { ...guest.avatar, slots: { ...guest.avatar.slots, [item.slot]: entry.id } };
 			}
 		}
 		if (changed) saveGuest();

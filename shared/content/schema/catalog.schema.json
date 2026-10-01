@@ -143,6 +143,10 @@
 						}
 					],
 					"description": "Wardrobe overlays of a wearable (ITEMS.md \"Wardrobe\"): `<character>` or `<character>/<slot instance id>` → CDN path of a full-body overlay aligned to that character's A-pose (768 × 1152, transparent WebP, convention `characters/<character>/wear/<item>[-<slot instance>].webp`). A body without an overlay draws the item's icon at the slot anchor instead."
+				},
+				"default_worn": {
+					"type": "boolean",
+					"description": "Part of the basic dress (ITEMS.md \"Wardrobe\": T-shirt, shorts, sandals): a starter wearable that is put on when it is handed out (signup, older accounts, guests). A body without an overlay for it wears another starter of the same slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`."
 				}
 			},
 			"required": [
