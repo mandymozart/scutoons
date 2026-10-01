@@ -59,7 +59,9 @@
 		"catalog_hint": "Items, editions, permissions",
 		"group_system": "System",
 		"settings": "Settings",
-		"settings_hint": "Scan and lookup limits"
+		"settings_hint": "Scan and lookup limits",
+		"homepage": "Homepage",
+		"homepage_hint": "Editions on the homepage"
 	},
 	"palette": {
 		"label": "Command palette",
@@ -423,7 +425,8 @@
 		"users": "Search matches part of an email; filter by role and newsletter opt-in. A user's page shows owned codes, sessions, roles and reader characters.",
 		"events": "Every scan, unlock and claim, newest first. Filter by event type, code, edition, toon and date.",
 		"content": "Per toon every file of the content store with its newest and its published version. Editing and publishing happen in the creator (“In the creator”).",
-		"settings": "Changes apply to the next request, no deploy needed. “Use default” goes back to the default value."
+		"settings": "Changes apply to the next request, no deploy needed. “Use default” goes back to the default value.",
+		"homepage": "Which editions the scutoons.com homepage shows, in this order (each with sizes, colours, price, \"Buy\" and its images as a slider). The colour decides the images. Live once saved (browser cache up to 1 minute)."
 	},
 	"entity": {
 		"chapter": "Chapter {number}",
@@ -438,5 +441,32 @@
 		"credits": "Credits",
 		"people": "People",
 		"roles": "Roles"
+	},
+	"homepage": {
+		"title": "Homepage",
+		"meta": "The limited editions on the homepage: product, colour, order.",
+		"section_featured": "Editions on the homepage",
+		"section_featured_hint": "Top to bottom as on the page. At most {max}.",
+		"empty": "No edition chosen: the homepage then shows no editions.",
+		"variant": "Colour",
+		"variant_default": "Default ({name})",
+		"sold_out": "sold out",
+		"up": "Move up",
+		"down": "Move down",
+		"remove": "Remove",
+		"add": "Add",
+		"add_product": "Product",
+		"choose": "– choose a product –",
+		"save": "Save",
+		"saving": "Saving …",
+		"saved": "Homepage saved.",
+		"nothing_changed": "Nothing changed.",
+		"unsaved": "Unsaved changes",
+		"reset": "Use the default",
+		"reset_done": "Back to the default.",
+		"state_default": "Default (never changed)",
+		"last_change": "Changed {at} by {by}",
+		"preview": "Open the homepage",
+		"unknown": "Not in the catalog: {product}"
 	}
 }
