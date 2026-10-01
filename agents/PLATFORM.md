@@ -373,6 +373,7 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 | creator (creator.scutoons.com) | **10000** | `npm run dev:creator` |
 | admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
 | shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |
+| embassy (embassy.scutoons.com) | **13000** | `npm run dev:embassy` (agents/EMBASSY.md) |
 
 Transition: until the server refactor is verified, the old repo `C:\Development\qr.scutoons.com` may still serve :9000
 and the refactored server runs on :9100 for the baseline comparison; after that the platform server owns :9000.

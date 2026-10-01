@@ -29,6 +29,7 @@ use Scutoons\Http\Controllers\Admin\VersionsController;
 use Scutoons\Http\Controllers\AuthController;
 use Scutoons\Http\Controllers\AvatarController;
 use Scutoons\Http\Controllers\CatalogController;
+use Scutoons\Http\Controllers\EmbassyController;
 use Scutoons\Http\Controllers\EntitiesController;
 use Scutoons\Http\Controllers\HealthController;
 use Scutoons\Http\Controllers\InventoryController;
@@ -128,6 +129,25 @@ return static function (App $app): void {
     // PUBLIC URLS (printed): legacy validation for old viewer builds, public key of the certificate signatures
     $app->any('/api/validate[/index.php]', ValidateController::class);
     $app->any('/api/keys/keys.php', KeysController::class);
+
+    // Embassy (embassy.scutoons.com): partner network, roles liaison / ambassador (checked in Domain\Embassy\Embassy)
+    $app->group('/api/embassy', function (RouteCollectorProxy $embassy): void {
+        $id = '{id:[0-9a-f-]{36}}';
+        $embassy->get('/me', [EmbassyController::class, 'me']);
+        $embassy->get('/team', [EmbassyController::class, 'team']);
+        $embassy->get('/today', [EmbassyController::class, 'today']);
+        $embassy->get('/orgs', [EmbassyController::class, 'list']);
+        $embassy->post('/orgs', [EmbassyController::class, 'create']);
+        $embassy->get("/orgs/$id", [EmbassyController::class, 'get']);
+        $embassy->put("/orgs/$id", [EmbassyController::class, 'update']);
+        $embassy->delete("/orgs/$id", [EmbassyController::class, 'delete']);
+        $embassy->post("/orgs/$id/people", [EmbassyController::class, 'addPerson']);
+        $embassy->put("/orgs/$id/leads/{track:[a-z]{1,16}}", [EmbassyController::class, 'lead']);
+        $embassy->post("/orgs/$id/activities", [EmbassyController::class, 'log']);
+        $embassy->put("/people/$id", [EmbassyController::class, 'updatePerson']);
+        $embassy->delete("/people/$id", [EmbassyController::class, 'deletePerson']);
+        $embassy->post('/import', [EmbassyController::class, 'import']);
+    });
 
     // ── Admin API: Session + RequireRole(admin) (docs/API.md "Admin API") ──────────────────────────────
     $app->group('/api/admin', function (RouteCollectorProxy $admin): void {

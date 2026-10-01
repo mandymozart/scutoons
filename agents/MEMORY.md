@@ -13,7 +13,7 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
 - `cdn/` — `root/` (gitignored, lives locally + on FTP), `sync.py` (interactive FTP push, "bidirectional" only
   in name), `download.py` (FTP pull), `server.py` (CORS static server on :8000). Env: `FTP_SERVER`,
   `FTP_USERNAME`, `FTP_PASSWORD`.
-- `template/episode1.json` — obsolete legacy format, unused.
+- `template/episode1.json` — obsolete legacy format, removed 2026-10-01 (owner; still in git history).
 - `workflows/generate-shots.md` (untracked) — FLORA script→stills workflow; screenplay source of truth is
   `de/screenplay.txt` in private repo `mandymozart/cat-pope-awakening`.
 - `issues/plans`, `issues/todo` — audio, VN, security, profiler plans.

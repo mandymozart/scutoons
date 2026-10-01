@@ -10,6 +10,7 @@ scutoons/
 ├── creator/            SvelteKit (static) → creator.scutoons.com   editor, role `creator`
 ├── admin/              SvelteKit (static) → admin.scutoons.com     role `admin`: codes, batches, stats, users, content
 ├── shop/               SvelteKit (static) → shop.scutoons.com      limited editions (products from the API)
+├── embassy/            SvelteKit (static) → embassy.scutoons.com   partner network: leads, calls, mails (roles liaison / ambassador)
 ├── server/             PHP, Slim 4 (Composer) → api.scutoons.com    the API of every app (+ legacy generate/ until admin parity)
 ├── qr/                 plain PHP → qr.scutoons.com                 printed URLs: QR landing ?c=, verify page; proxies the API
 ├── deploy/             targets.json (where each app goes), deploy.mjs, version.mjs – see deploy/README.md
@@ -34,6 +35,7 @@ npm run dev:viewer          # viewer   http://localhost:8000
 npm run dev:creator         # creator  http://localhost:10000
 npm run dev:admin           # admin    http://localhost:11000
 npm run dev:shop            # shop     http://localhost:12000
+npm run dev:embassy         # embassy  http://localhost:13000
 npm run dev:api             # API      http://localhost:9000   (= cd server && composer serve: 4 php -S workers + OPcache)
 npm run dev:qr              # qr app   http://localhost:9001   (= cd qr && composer serve; needs the API)
 npm run check               # svelte-check / tsc in every workspace
@@ -52,6 +54,7 @@ Local dev ports (agents/PLATFORM.md → "Local dev ports", final):
 | creator | 10000 | `npm run dev:creator` |
 | admin | 11000 | `npm run dev:admin` |
 | shop | 12000 | `npm run dev:shop` |
+| embassy | 13000 | `npm run dev:embassy` |
 
 Dev settings live in each app's `.env.development` (gitignored, see `.env.example`): `VITE_API_URL` (API base, e.g.
 `http://localhost:9000/api`), `VITE_CDN_URL` (default `http://localhost:8001` in dev). The creator also has
@@ -60,7 +63,7 @@ page) and `VITE_SHOP_URL` (menu, "Buy access", `/shop` redirect), the shop `VITE
 `VITE_CREATOR_URL` + `VITE_VIEWER_URL` (links; see `admin/README.md`).
 
 Every frontend origin must be in the API's `ALLOWED_ORIGINS` (`config.local.php`): `http://localhost:8000`,
-`http://localhost:10000`, `http://localhost:11000`, `http://localhost:12000`. Login mails are written to the server's `logs/mail.log`
+`http://localhost:10000`, `http://localhost:11000`, `http://localhost:12000`, `http://localhost:13000`. Login mails are written to the server's `logs/mail.log`
 locally. Sessions are per origin for now (localStorage `scutoons_session`), so the creator and the viewer each need
 their own sign-in.
 

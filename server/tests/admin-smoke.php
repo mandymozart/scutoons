@@ -220,7 +220,7 @@ try {
 
     echo "\nUsers and roles\n";
     $r = call('GET', "$api/roles", null, $adminToken);
-    check($r['status'] === 200 && array_column($r['body']['items'], 'name') === ['member', 'admin', 'creator'], 'roles', $r);
+    check($r['status'] === 200 && array_column($r['body']['items'], 'name') === ['member', 'admin', 'creator', 'liaison', 'ambassador'], 'roles', $r);
     $r = call('GET', "$api/users?q=" . rawurlencode("admin-smoke-$run") . '&sort=email', null, $adminToken);
     check($r['status'] === 200 && $r['body']['pagination']['total'] === 2 && $r['body']['items'][0]['email'] === $admin['email'] && $r['body']['items'][0]['roles'] === ['member', 'admin'], 'users list: q, sort, roles', $r['body']);
     $r = call('GET', "$api/users?role=admin&q=" . rawurlencode("admin-smoke-$run"), null, $adminToken);

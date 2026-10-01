@@ -1,5 +1,5 @@
 # Reusable: deploys ONE app as described in deploy/targets.json (the single source of truth for targets – host path,
-# protocol, build, include/exclude; docs deploy/README.md). Called by viewer.yml, shop.yml, creator.yml, admin.yml,
+# protocol, build, include/exclude; docs deploy/README.md). Called by viewer.yml, shop.yml, creator.yml, admin.yml, embassy.yml,
 # qr.yml, server.yml and deploy-all.yml – no target is written into any workflow.
 # Secrets and variables: GitHub environment `production` (list: .env.example). They reach deploy/deploy.mjs as JSON,
 # so adding a value to a target is a change in targets.json + the environment, not here.

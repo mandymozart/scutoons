@@ -1,0 +1,22 @@
+# Deploys the embassy (embassy.scutoons.com) on every push to main that touches it. Target (host path, build, include/exclude):
+# deploy/targets.json → "embassy"; the steps: .github/workflows/deploy-app.yml; docs: deploy/README.md.
+# HELD BACK until the embassy go-live (owner 2026-10-01: not part of the 2026-10-04 rollout; no subdomain on all-inkl
+# yet). Only a manual run is possible. At go-live: restore the push trigger (branches main; paths embassy/**, shared/**,
+# package.json, package-lock.json, .npmrc, deploy/**, the two workflow files) and add "embassy" to deploy/targets.json order.
+on:
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and list only, no upload
+        type: boolean
+        default: false
+
+name: 🚀 Deploy embassy (embassy.scutoons.com)
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app: embassy
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets: inherit
