@@ -196,7 +196,12 @@
 		"play": "Play",
 		"minigame_soon": "This minigame is coming soon.",
 		"avatar_body_error": "Couldn't change the body – please try again.",
-		"avatar_body_none": "No avatar body available yet."
+		"avatar_body_none": "No avatar body available yet.",
+		"worn": "worn",
+		"section_worn": "On your avatar",
+		"section_rest": "In your inventory",
+		"returned": "{name} is back in your inventory.",
+		"restored": "\"Hide sensitive content\" is on: {name} put on."
 	},
 	"claim": {
 		"title": "SCUTOONS item",

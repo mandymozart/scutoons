@@ -196,7 +196,12 @@
 		"play": "Abspielen",
 		"minigame_soon": "Dieses Minispiel kommt bald.",
 		"avatar_body_error": "Der Körper konnte nicht gewechselt werden – bitte nochmal versuchen.",
-		"avatar_body_none": "Noch kein Avatar-Körper verfügbar."
+		"avatar_body_none": "Noch kein Avatar-Körper verfügbar.",
+		"worn": "angezogen",
+		"section_worn": "Am Avatar",
+		"section_rest": "Im Inventar",
+		"returned": "{name} ist zurück im Inventar.",
+		"restored": "„Sensible Inhalte ausblenden“ ist an: {name} angezogen."
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",

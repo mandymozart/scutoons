@@ -22,6 +22,12 @@
 	);
 	const equipped = $derived(inventory.isEquipped(entry));
 	const total = $derived(inventory.editionTotal(entry.item_id));
+	// "Anziehen" swaps (ITEMS.md "Wardrobe"): what was on that slot goes back into the inventory, or – while "Hide
+	// sensitive content" is on – the swim pants come back on; the newest such note is shown under the buttons
+	const note = $derived([...inventory.notices].reverse().find((n) => n.kind === 'returned' || n.kind === 'restored'));
+	const noteText = $derived(
+		note ? (note.kind === 'returned' ? m['items.returned'] : m['items.restored'])({ name: inventory.nameOf({ item_id: note.item_id, variant: null }) }) : ''
+	);
 	let working = $state(false);
 
 	const sourceLabel = $derived(
@@ -75,6 +81,10 @@
 		{/if}
 		<dt>{m['items.source']()}</dt>
 		<dd>{sourceLabel}{entry.code ? ` · ${entry.code}` : ''}</dd>
+		{#if equipped}
+			<dt>{m['items.tab_avatar']()}</dt>
+			<dd data-testid="item-worn">{m['items.worn']()}</dd>
+		{/if}
 	</dl>
 
 	<div class="actions">
@@ -90,6 +100,7 @@
 			</button>
 		{/if}
 	</div>
+	{#if noteText}<p class="swap-note" role="status" data-testid="item-note">{noteText}</p>{/if}
 </div>
 
 <style>
@@ -134,6 +145,11 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.5rem;
+	}
+	.swap-note {
+		margin: 0;
+		font-size: 0.75rem;
+		line-height: 1.3;
 	}
 	.actions button {
 		flex: 1 1 auto;

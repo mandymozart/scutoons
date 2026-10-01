@@ -30,6 +30,18 @@
 	const entries = $derived(
 		[...inventory.entries].sort((a, b) => (a.acquired_at < b.acquired_at ? -1 : 1))
 	);
+	// worn items first ("Am Avatar"), the rest below ("Im Inventar"): a swap moves the old item into the lower list
+	// (ITEMS.md "Wardrobe"); combine mode keeps one list
+	const wornEntries = $derived(entries.filter((e) => inventory.isEquipped(e)));
+	const restEntries = $derived(entries.filter((e) => !inventory.isEquipped(e)));
+	const sections = $derived(
+		combineWith || wornEntries.length === 0
+			? [{ id: 'all', title: '', list: entries }]
+			: [
+					{ id: 'worn', title: m['items.section_worn'](), list: wornEntries },
+					{ id: 'rest', title: m['items.section_rest'](), list: restEntries }
+				]
+	);
 	// keep the detail sheet in sync with inventory updates (e.g. qty change, entry consumed)
 	$effect(() => {
 		if (selected && !inventory.entries.some((e) => String(e.id) === String(selected!.id))) selected = null;
@@ -154,8 +166,10 @@
 					<button class="btn-secondary" onclick={() => (combineWith = null)}>{m['common.cancel']()}</button>
 				</div>
 			{/if}
-			<section class="items">
-				{#each entries as entry (entry.id)}
+			{#each sections as section (section.id)}
+			{#if section.title}<h3 class="section-title">{section.title}</h3>{/if}
+			<section class="items" data-section={section.id}>
+				{#each section.list as entry (entry.id)}
 					<button
 						class="item"
 						class:source={combineWith && String(combineWith.id) === String(entry.id)}
@@ -171,6 +185,7 @@
 					</button>
 				{/each}
 			</section>
+			{/each}
 		{/if}
 	</div>
 </div>
@@ -304,6 +319,15 @@
 		flex: none;
 	}
 
+	.section-title {
+		margin: 0 0 0.5rem;
+		font-size: 0.75rem;
+		font-weight: 700;
+		color: var(--text-muted);
+	}
+	.items + .section-title {
+		margin-top: 1rem;
+	}
 	.items {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));

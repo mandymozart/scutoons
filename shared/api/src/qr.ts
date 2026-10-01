@@ -114,11 +114,12 @@ export function createQrApi(api: ApiClient) {
 		importItems: (items: { item_id: string; qty: number }[]) =>
 			api.post<InventoryResult>('/inventory/import/', { items }),
 
+		/** `restored` = slot instances the cover rule refilled ("Hide sensitive content", ITEMS.md "Wardrobe") */
 		putAvatar: (slots: Avatar['slots']) =>
-			api.put<{ status: string; avatar: Avatar }>('/avatar/', { slots }),
+			api.put<{ status: string; avatar: Avatar; restored?: string[] }>('/avatar/', { slots }),
 		/** the avatar body (must be unlocked and have an A-pose image: 422 locked / no_apose); null = the default */
 		putAvatarBody: (body: AvatarBodyRef | null) =>
-			api.put<{ status: string; avatar: Avatar }>('/avatar/', { body }),
+			api.put<{ status: string; avatar: Avatar; restored?: string[] }>('/avatar/', { body }),
 
 		fetchProgress: (toonId: string) =>
 			api.get<ProgressResult>(`/progress/${encodeURIComponent(toonId)}/`),

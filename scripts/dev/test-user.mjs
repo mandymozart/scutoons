@@ -157,11 +157,15 @@ async function main() {
 	if (unlock.status !== 200) fail(`Cat Pope unlock answered ${unlock.status}: ${unlock.text.slice(0, 200)}`);
 
 	if (flag('--reset')) {
-		// known state = a fresh signup: only the starter items (qty 1), no progress, no avatar choices, codes released
+		// known state = a fresh signup: only the starter items (qty 1), no progress, no avatar choices, codes released.
+		// The default wearables (starter items with a slot) are removed too: the next GET /me/ grants them again and puts
+		// them on, exactly like a signup (agents/ITEMS.md "Wardrobe")
+		const catalog = (await api('GET', '/items/')).json;
+		const wearables = (catalog?.items ?? []).filter((i) => i.starter && i.slot && /^[a-z0-9_]+$/.test(i.id)).map((i) => `'${i.id}'`);
 		const [released, inv, , prog, slots, body] = sql(
 			[
 				'UPDATE qr SET claimed_by = NULL, claimed_at = NULL WHERE claimed_by = :id',
-				"DELETE FROM inventory WHERE user_id = :id AND source <> 'starter'",
+				`DELETE FROM inventory WHERE user_id = :id AND (source <> 'starter'${wearables.length ? ` OR item_id IN (${wearables.join(', ')})` : ''})`,
 				"UPDATE inventory SET qty = 1 WHERE user_id = :id AND source = 'starter'",
 				'DELETE FROM progress WHERE user_id = :id',
 				'DELETE FROM avatar_slots WHERE user_id = :id',
