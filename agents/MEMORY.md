@@ -1374,3 +1374,20 @@ character, persona, look and mood and doubles as the VN test bed.
   `--badge-<name>` / `--badge-<name>-text` in tokens.css (the owner's palette, ratios in DESIGN.md); bold sparingly
   (regular caps 0.08em `--tracking-label`, bold caps only for section headings 0.12em `--tracking-label-bold`);
   `--control-height` is rem-only now (2rem + frame = 32 · 36 · 52px, below the old 44px floor on phones).
+
+## Brutalist tools, phase 2 (2026-10-01, branch `brutal-ui`)
+
+- Every creator / admin / embassy screen on the type scale: 129 px font sizes swept (≤ 11px → caption or the tool label,
+  12–18px → body, larger → title), glyph icons → Feather (`Icon`, icon-only buttons got `aria-label`), grey / tinted
+  fills → state rules (hover = 2px frame, selected = inverted, warn / error / note bars = a thick state rule), filled
+  status badges everywhere (`status-badges`, file-status, credits role tags, wanted-image notes = info). Legends are the
+  plain tool label (an inverted legend plate clashed with components colouring their own legends).
+- Touch minimum: one rule in tokens.css, `@media (pointer: coarse)` lifts `--control-height` to max(44px, …);
+  `all: unset` buttons (credits handles, role chips, wanted links) need `display: inline-flex` + `min-height`.
+- Checks: `npm run check:tools-css` (static, in `npm run check`), `npm run check:tools-ui` (pages at 1440 fine + 390
+  touch; desktop pass first – once touch emulation was on, Chrome keeps `pointer: coarse` for the tab). Measured on 34
+  screens × 2 widths: texts under caption 953 → 0 (comic lettering exempt), controls under 44px on touch 119 → 0.
+  `creator-cast-check` reads chips case-insensitively now (status chips are uppercase) and takes SCUTOONS_API /
+  SCUTOONS_CREATOR like the script check.
+- The script page's textarea is 1rem / 1.4 (was 13/20 px; DESIGN.md updated, the scroll math reads the computed line
+  height).

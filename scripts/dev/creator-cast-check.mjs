@@ -19,8 +19,9 @@ import { fileURLToPath } from 'node:url';
 import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const API = local('api', '/api');
-const CREATOR = local('creator');
+// SCUTOONS_API / SCUTOONS_CREATOR for other origins (like creator-script-check)
+const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
+const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
 const TOON = 'catpope';
 const KEYS = [`cast:${TOON}`, 'characters'];
 const NEW_NAME = 'Regression Figur';
@@ -192,7 +193,7 @@ try {
 
 	// 1. nothing changed: both buttons answer
 	let s = await state();
-	check(!s.dirty && /Published.*Published/.test(s.chips), 'starts clean, cast + characters published', JSON.stringify(s));
+	check(!s.dirty && /Published.*Published/i.test(s.chips), 'starts clean, cast + characters published', JSON.stringify(s));
 	check(s.saveDisabled === false && s.publishDisabled === false, 'Save draft and Publish are clickable', JSON.stringify(s));
 	let n = writes.length;
 	await click('[data-testid="save-draft"]');
@@ -221,7 +222,7 @@ try {
 	s = await state();
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/cast:${TOON}` && saved[0].status === 200, 'Save draft: PUT cast 200', JSON.stringify(saved));
-	check(!s.dirty && /Draft/.test(s.chips), 'the cast chip shows the draft', JSON.stringify(s));
+	check(!s.dirty && /Draft/i.test(s.chips), 'the cast chip shows the draft', JSON.stringify(s));
 
 	// 4. persona tick + order + inline character → Publish publishes both entities
 	const tick = await js(`(() => { const box = [...document.querySelectorAll('[data-testid="cast-personas-${first}"] input')].find((i) => !i.checked); if (!box) return null; box.dataset.check = '1'; return true; })()`);
@@ -240,7 +241,7 @@ try {
 	check(s.members.indexOf(newId) === s.members.length - 2 && s.members.indexOf(last) === s.members.length - 1, 'moving up reorders the cast', JSON.stringify(s.members));
 	n = writes.length;
 	await click('[data-testid="publish"]');
-	await until(`/Published.*Published/.test(${q('file-status')}.innerText) && !document.querySelector('.dirty-bar')`);
+	await until(`/Published.*Published/i.test(${q('file-status')}.innerText) && !document.querySelector('.dirty-bar')`);
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(
@@ -248,7 +249,7 @@ try {
 		'Publish saves and publishes cast + characters',
 		JSON.stringify(published)
 	);
-	check(!s.dirty && /Published.*Published/.test(s.chips.replace(/\n/g, ' ')), 'both chips read Published', JSON.stringify(s));
+	check(!s.dirty && /Published.*Published/i.test(s.chips.replace(/\n/g, ' ')), 'both chips read Published', JSON.stringify(s));
 
 	// 5. a reload shows the saved state
 	await send('Page.reload');

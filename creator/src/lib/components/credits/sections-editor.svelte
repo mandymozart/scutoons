@@ -131,6 +131,9 @@
 	}
 	.handle {
 		all: unset;
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--control-height);
 		cursor: grab;
 		color: var(--text-muted);
 		letter-spacing: -2px;
