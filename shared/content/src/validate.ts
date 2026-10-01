@@ -478,7 +478,22 @@ function checkToon(c: Collector, t: any, locale: string) {
 		for (const key of ['x', 'y'] as const) if (!isNum(t.map.center?.[key])) c.error(['map', 'center', key], `map.center.${key} must be a number (px)`);
 	}
 	if (t.download !== undefined) c.warn(['download'], 'download belongs to a season now (season.download) – the reader ignores it here');
+	if (t.announce !== undefined && typeof t.announce !== 'boolean') c.error(['announce'], 'announce must be true or false');
+	if (t.tile !== undefined) {
+		if (!isObj(t.tile)) c.error(['tile'], 'tile must be { image, color? }');
+		else {
+			const empty = (v: unknown) => v === undefined || v === null || v === '';
+			// an emptied tile (both fields cleared in the creator) shows nothing; a colour alone needs its image
+			if (empty(t.tile.image) && !empty(t.tile.color)) c.error(['tile', 'image'], 'tile.image is missing (an image on the CDN)');
+			else checkImagePath(c, t.tile.image, ['tile', 'image']);
+			if (!empty(t.tile.color) && (!isStr(t.tile.color) || !CSS_COLOR.test(t.tile.color.trim())))
+				c.error(['tile', 'color'], 'tile.color must be a CSS colour (a name like "blue" or #rgb / #rrggbb)');
+		}
+	}
 }
+
+/** A CSS colour as the registry writes them: a name (`blue`, `darkgreen`) or a hex colour */
+const CSS_COLOR = /^(?:[a-z]+|#[0-9a-f]{3}|#[0-9a-f]{6})$/i;
 
 /**
  * Suggestions from the chapter's VN usage (info, never errors): characters its scenes use that are not in `featuring`

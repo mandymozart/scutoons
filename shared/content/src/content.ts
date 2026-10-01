@@ -357,6 +357,21 @@ export interface Toon {
 	thumbnail: string;
 	cover: Cover;
 	map: Map;
+	/**
+	 * Show the toon publicly before it is published (owner 2026-10-01): the landing page's tile and the main menu list it
+	 * as "bald" / "soon" (not clickable, no dates, no chapters). Language-neutral.
+	 */
+	announce?: boolean;
+	/** The landing page's tile (language-neutral); without it the tile uses the toon's avatar */
+	tile?: ToonTile;
+}
+
+/** A toon's tile on the landing page: a square image on a colour */
+export interface ToonTile {
+	/** image path in the toon's CDN folder (`../characters/<id>/…` for a registry portrait), e.g. the star's neutral portrait */
+	image: string;
+	/** CSS colour behind the image; default: the colour of the toon's star in the character registry (`own_toon`) */
+	color?: string;
 }
 
 /**
@@ -373,6 +388,18 @@ export interface ToonIndex {
 	sourceLanguage?: Language;
 	/** Every language of the toon, the source first. Default: the `i18n` keys (source first). */
 	languages?: Language[];
+	/**
+	 * Library answer only (`/library/toons`), from the toon settings: the toon is not published but announced (`Toon.announce`)
+	 * – list it as "soon", never link it (its pages stay 404 publicly)
+	 */
+	announced?: boolean;
+	/** Library answer only: the landing page tile from the toon settings (`Toon.tile`) */
+	tile?: ToonTile;
+}
+
+/** A toon the reader lists (landing page, main menu): published, or announced before its release (`announced`) */
+export function isToonListed(toon: Pick<ToonIndex, 'status' | 'announced'>): boolean {
+	return toon.status === Status.PUBLISHED || toon.announced === true;
 }
 
 /** A season sequence item with its chapter file loaded; `status` is the season's (never the chapter file's). */
