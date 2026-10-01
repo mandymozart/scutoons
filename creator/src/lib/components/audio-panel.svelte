@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -67,7 +68,7 @@
 					<td><PropField {doc} path={['audio', 'music', 'tracks', i, 'path']} label="" required /></td>
 					<td class="row-tools">
 						<button type="button" class="ghost" onclick={() => play(track.path)}>{playingPath === track.path ? '■' : '▶'}</button>
-						<button type="button" class="ghost" onclick={() => removeFrom('tracks', i)}>✕</button>
+						<button type="button" class="ghost" onclick={() => removeFrom('tracks', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 					</td>
 				</tr>
 			{/each}
@@ -85,7 +86,7 @@
 					<td><PropField {doc} path={['audio', 'sampleLibrary', i, 'path']} label="" required /></td>
 					<td class="row-tools">
 						<button type="button" class="ghost" onclick={() => play(sample.path)}>{playingPath === sample.path ? '■' : '▶'}</button>
-						<button type="button" class="ghost" onclick={() => removeFrom('sampleLibrary', i)}>✕</button>
+						<button type="button" class="ghost" onclick={() => removeFrom('sampleLibrary', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 					</td>
 				</tr>
 			{/each}
@@ -98,11 +99,7 @@
 	.audio-panel {
 		max-width: 52rem;
 	}
-	h2 {
-		font-size: 14px;
-	}
 	h3 {
-		font-size: 12px;
 		margin-top: 1rem;
 	}
 	.grid {
@@ -120,7 +117,10 @@
 	}
 	th {
 		text-align: left;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 		border-bottom: 2px solid var(--ink);
 	}
 	td {

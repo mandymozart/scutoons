@@ -54,8 +54,11 @@
 		min-width: 0;
 	}
 	legend {
-		font-size: 11px;
-		font-weight: 700;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
+		font-weight: var(--font-weight-regular);
 		padding: 0;
 		margin-bottom: 0.15rem;
 	}
@@ -66,7 +69,7 @@
 		min-width: 0;
 	}
 	.lang {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		color: var(--text-muted);
 		display: flex;
 		gap: 0.3rem;
@@ -77,7 +80,7 @@
 		border-color: var(--warn);
 	}
 	.pill {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
 		background: var(--warn);
 		color: var(--ink);

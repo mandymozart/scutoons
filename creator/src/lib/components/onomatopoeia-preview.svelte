@@ -42,6 +42,6 @@
 		background-size: cover;
 		border: 1px solid var(--border-subtle);
 		/* the reader sizes onomatopoeia in rem; show them at the reader's base size */
-		font-size: 16px;
+		font-size: 16px; /* px-ok: comic lettering preview at the reader's base size, not UI text */
 	}
 </style>

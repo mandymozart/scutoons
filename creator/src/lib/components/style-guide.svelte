@@ -78,11 +78,9 @@
 
 <style>
 	.style-guide {
-		font-size: 12px;
 		line-height: 1.5;
 	}
 	h3 {
-		font-size: 12px;
 		margin: 1rem 0 0.25rem;
 		text-transform: uppercase;
 	}

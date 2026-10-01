@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import {
 		AUTHORED_VIEW,
@@ -219,12 +220,12 @@
 						</span>
 						<LocaleMapField value={entry.role} languages={langs} label={m['creator.cast_role']()} onchange={(v) => setRole(entry.character, v)} testid="cast-role-{entry.character}" />
 						<span class="order">
-							<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}>↑</button>
-							<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === entries.length - 1} aria-label={m['creator.credits_down']()}>↓</button>
+							<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>
+							<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === entries.length - 1} aria-label={m['creator.credits_down']()}><Icon name="arrow-down" /></button>
 							{#if entry.character === star}
-								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked">✕</button>
+								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked"><Icon name="x" /></button>
 							{:else}
-								<button type="button" class="ghost" onclick={() => remove(entry.character)} aria-label={m['creator.credits_remove']()}>✕</button>
+								<button type="button" class="ghost" onclick={() => remove(entry.character)} aria-label={m['creator.credits_remove']()}><Icon name="x" /></button>
 							{/if}
 						</span>
 					</li>
@@ -233,7 +234,7 @@
 				{/each}
 			</ol>
 			<div class="add">
-				<button type="button" class="secondary" onclick={() => (pickerOpen = true)} data-testid="cast-add">+ {m['creator.cast_add']()}</button>
+				<button type="button" class="secondary" onclick={() => (pickerOpen = true)} data-testid="cast-add"><Icon name="plus" /> {m['creator.cast_add']()}</button>
 				<span class="new">
 					<input type="text" bind:value={newName} placeholder={m['creator.characters_new_character']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), createInline())} data-testid="cast-new-name" />
 					<button type="button" class="ghost" onclick={createInline} disabled={!newName.trim()} data-testid="cast-new-create">{m['creator.characters_create']()}</button>
@@ -273,7 +274,6 @@
 		color: var(--ink);
 		border: 2px solid var(--border-muted);
 		padding: 0.25rem 0.6rem;
-		font-size: 12px;
 	}
 	.tab.active {
 		background: var(--ink);
@@ -320,7 +320,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.15rem;
-		font-size: 12px;
 	}
 	.personas {
 		display: flex;
@@ -329,21 +328,25 @@
 		gap: 0.2rem;
 	}
 	.personas-label {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 		color: var(--text-muted);
 	}
 	.chip {
 		display: inline-flex;
 		gap: 0.2rem;
 		align-items: center;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		border: 1px solid var(--border-muted);
 		padding: 0 0.3rem;
 		cursor: pointer;
 	}
+	/* a chosen persona = a pressed toggle: inverted */
 	.chip.on {
 		border-color: var(--ink);
-		background: var(--primary-cyan);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.chip.last {
 		cursor: default;
@@ -354,11 +357,11 @@
 	}
 	.star {
 		margin-left: 0.4rem;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		font-weight: 400;
 		padding: 0 0.4em;
-		border: 1px solid var(--ink);
-		background: var(--primary-cyan);
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
 		vertical-align: middle;
 	}
 
@@ -368,7 +371,6 @@
 	.bar-link {
 		color: var(--ink);
 		white-space: nowrap;
-		font-size: 12px;
 	}
 	.add {
 		display: flex;

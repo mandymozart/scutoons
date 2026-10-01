@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import {
 		AUTHORED_VIEW,
 		CHARACTER_IMAGE_VARIANTS,
@@ -177,7 +178,7 @@
 							{#if avatar}
 								<span class="derived" title={m['creator.characters_avatar_derived']()}>{avatar.path ? (status[avatar.path] === false ? 'avatar ✗' : 'avatar ✓') : 'avatar –'}</span>
 							{/if}
-							{#if request}<span class="req" title={request.note ?? ''}>✉ {m['creator.characters_requested_short']()}</span>{/if}
+							{#if request}<span class="req" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
 						</span>
 					</button>
 				{/each}
@@ -187,7 +188,7 @@
 	<p class="add-mood">
 		<input type="text" list="mood-vocabulary" bind:value={newMood} placeholder={m['creator.characters_new_mood']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), addMood())} data-testid="new-mood" />
 		<datalist id="mood-vocabulary">{#each sortedMoods(moods).filter((x) => !rowMoods.includes(x.id)) as x (x.id)}<option value={x.id}>{moodLabel(x.id, locale, moods)}</option>{/each}</datalist>
-		<button type="button" class="ghost" onclick={addMood} disabled={!MOOD_ID.test(newMood.trim().toLowerCase().replace(/\s+/g, '-'))}>+ {m['creator.characters_add_mood']()}</button>
+		<button type="button" class="ghost" onclick={addMood} disabled={!MOOD_ID.test(newMood.trim().toLowerCase().replace(/\s+/g, '-'))}><Icon name="plus" /> {m['creator.characters_add_mood']()}</button>
 	</p>
 </section>
 
@@ -213,7 +214,6 @@
 		gap: 0.5rem;
 		align-items: center;
 		margin-bottom: 0.4rem;
-		font-size: 12px;
 	}
 	.ok {
 		color: var(--ink);
@@ -229,7 +229,7 @@
 		flex-wrap: wrap;
 	}
 	.check {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		display: flex;
 		gap: 0.25rem;
 		align-items: center;
@@ -253,14 +253,13 @@
 		gap: 4px;
 	}
 	.mood {
-		font-size: 12px;
 		font-weight: 700;
 		display: flex;
 		gap: 0.3rem;
 		align-items: baseline;
 	}
 	.std {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
 	.cell {
@@ -273,7 +272,8 @@
 		padding: 0.25rem;
 		border: 1px solid var(--border-subtle);
 		background: var(--paper);
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.cell:focus-visible {
 		outline: 2px solid var(--ink);
@@ -283,7 +283,7 @@
 	}
 	.cell.state-missing {
 		border: 1px solid var(--error);
-		background: #fff0ee;
+		border-left: 0.5rem solid var(--state-error);
 		color: var(--error);
 	}
 	.cell.state-empty,
@@ -322,13 +322,13 @@
 	}
 	.derived {
 		margin-left: auto;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
 	.req {
-		font-size: 10px;
-		background: var(--primary-cyan);
-		color: var(--ink);
+		font-size: var(--type-caption-size);
+		background: var(--badge-info);
+		color: var(--badge-info-text);
 		padding: 0 0.25rem;
 	}
 	.add-mood {

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { entities, mediaRequests, NEUTRAL_LOCALE } from '@scutoons/content';
 	import { CoverArt } from '@scutoons/reader';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -127,7 +128,7 @@
 							<h4>{m['creator.cover_requests']()}</h4>
 							<ul>
 								{#each wanted as r (r.id)}
-									<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="req">✉ {r.note}</span>{/if}</li>
+									<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="req"><Icon name="mail" /> {r.note}</span>{/if}</li>
 								{/each}
 							</ul>
 						</div>
@@ -185,15 +186,12 @@
 		margin-top: 0.75rem;
 	}
 	h2 {
-		font-size: 14px;
 		margin: 0;
 	}
 	h3 {
-		font-size: 13px;
 		margin: 0;
 	}
 	h4 {
-		font-size: 12px;
 		margin: 0 0 0.4rem;
 	}
 	.cover-grid {
@@ -216,7 +214,7 @@
 		width: 124px;
 	}
 	.caption {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		color: var(--text-muted);
 	}
 	.wanted ul {
@@ -226,12 +224,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.2rem;
-		font-size: 12px;
 	}
 	.req {
-		background: var(--primary-cyan);
+		background: var(--badge-info);
+		color: var(--badge-info-text);
 		padding: 0 0.25rem;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.grid {
 		display: grid;
@@ -262,7 +261,7 @@
 		gap: 0.4rem;
 	}
 	.mini {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
 	}
 </style>

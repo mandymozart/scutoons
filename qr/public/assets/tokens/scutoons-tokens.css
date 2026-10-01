@@ -120,6 +120,14 @@
 	--easing: ease;
 }
 
+/* Touch screens: the 44px touch-target minimum for fields, list rows and buttons (owner 2026-10-01: sizes in rem,
+   the 44px floor only for coarse pointers – desktop stays rem-only). Everything that uses --control-height follows. */
+@media (pointer: coarse) {
+	:root {
+		--control-height: max(44px, calc(2rem + 2 * var(--border-width-regular)));
+	}
+}
+
 /* fonts.css: IBM Plex Mono (SIL OFL 1.1, ./fonts/IBMPlexMono-OFL.txt) */
 
 /* cyrillic-ext */

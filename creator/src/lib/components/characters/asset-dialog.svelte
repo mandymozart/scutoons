@@ -98,7 +98,6 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 1.25rem;
 		min-width: min(44rem, 88vw);
-		font-size: 12px;
 	}
 	@media (max-width: 700px) {
 		.asset {
@@ -112,7 +111,6 @@
 		align-items: flex-start;
 	}
 	h3 {
-		font-size: 13px;
 		margin: 0;
 	}
 	.row {
@@ -148,7 +146,7 @@
 		width: 100%;
 	}
 	.mini {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		align-self: flex-start;
 	}
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Badge, Button } from '@scutoons/ui';
+	import { Badge, Button, Icon } from '@scutoons/ui';
 	import {
 		ACTIVITY_KINDS,
 		CALL_OUTCOMES,
@@ -175,7 +175,7 @@
 			{#if org.tier}<Badge tone="accent">{org.tier}</Badge>{/if}
 			{#if org.do_not_contact}<Badge tone="error">{m['org.blocked']()}</Badge>{/if}
 			{#each org.tags as tag (tag)}<Badge>{tag}</Badge>{/each}
-			{#if org.territories.length}<span class="caption muted">⌖ {org.territories.join(' ')}</span>{/if}
+			{#if org.territories.length}<span class="caption muted"><Icon name="map-pin" /> {org.territories.join(' ')}</span>{/if}
 		</div>
 	</header>
 
@@ -190,11 +190,11 @@
 		</section>
 	{:else}
 		<ul class="contacts">
-			{#if org.phone}<li><a class="tel" href={telHref(org.phone)}>☎ {org.phone}</a></li>{/if}
-			{#if org.email}<li><a href={`mailto:${org.email}`}>✉ {org.email}</a></li>{/if}
-			{#if org.website}<li><a href={org.website} target="_blank" rel="noopener noreferrer">↗ {org.website.replace(/^https?:\/\//, '')}</a></li>{/if}
+			{#if org.phone}<li><a class="tel" href={telHref(org.phone)}><Icon name="phone" /> {org.phone}</a></li>{/if}
+			{#if org.email}<li><a href={`mailto:${org.email}`}><Icon name="mail" /> {org.email}</a></li>{/if}
+			{#if org.website}<li><a href={org.website} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {org.website.replace(/^https?:\/\//, '')}</a></li>{/if}
 			{#each org.links as link (link)}
-				<li><a href={link} target="_blank" rel="noopener noreferrer">↗ {link.replace(/^https?:\/\/(www\.)?/, '')}</a></li>
+				<li><a href={link} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {link.replace(/^https?:\/\/(www\.)?/, '')}</a></li>
 			{/each}
 		</ul>
 		{#if org.notes}<p class="notes">{org.notes}</p>{/if}
@@ -285,9 +285,9 @@
 			<li class="row">
 				<strong>{person.name || '–'}</strong>
 				{#if person.role}<span class="muted caption">{person.role}</span>{/if}
-				{#if person.phone}<a class="tel" href={telHref(person.phone)}>☎ {person.phone}</a>{/if}
-				{#if person.email}<a href={`mailto:${person.email}`}>✉ {person.email}</a>{/if}
-				{#if person.link}<a href={person.link} target="_blank" rel="noopener noreferrer">↗</a>{/if}
+				{#if person.phone}<a class="tel" href={telHref(person.phone)}><Icon name="phone" /> {person.phone}</a>{/if}
+				{#if person.email}<a href={`mailto:${person.email}`}><Icon name="mail" /> {person.email}</a>{/if}
+				{#if person.link}<a href={person.link} target="_blank" rel="noopener noreferrer"><Icon name="external-link" label={person.link} /></a>{/if}
 				{#if person.do_not_contact}<Badge tone="error">{m['org.blocked']()}</Badge>{/if}
 				<Button size="sm" variant="clear" onclick={() => (personForm = { ...person })}>{m['org.edit']()}</Button>
 				{#if isAmbassador}<Button size="sm" variant="clear" onclick={() => removePerson(person)}>{m['org.remove']()}</Button>{/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
-	import { ActionBar, Badge, Button, Section, Skeleton } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, Icon, Section, Skeleton } from '@scutoons/ui';
 	import type { AdminFeatured } from '@scutoons/api';
 	import { localized, pickVariant, type FeaturedProduct, type Product, type ProductCatalog } from '@scutoons/content';
 	import { admin, fetchProducts } from '$lib/api.ts';
@@ -154,9 +154,9 @@
 							<span class="name error">{m['homepage.unknown']({ product: item.product })}</span>
 						{/if}
 						<span class="tools">
-							<Button size="sm" variant="secondary" onclick={() => move(i, -1)} disabled={i === 0} aria-label={m['homepage.up']()} title={m['homepage.up']()}>↑</Button>
-							<Button size="sm" variant="secondary" onclick={() => move(i, 1)} disabled={i === draft.length - 1} aria-label={m['homepage.down']()} title={m['homepage.down']()}>↓</Button>
-							<Button size="sm" variant="secondary" onclick={() => (draft = draft.filter((_, j) => j !== i))} aria-label={m['homepage.remove']()} title={m['homepage.remove']()} data-testid="featured-remove">×</Button>
+							<Button size="sm" variant="secondary" onclick={() => move(i, -1)} disabled={i === 0} aria-label={m['homepage.up']()} title={m['homepage.up']()}><Icon name="arrow-up" /></Button>
+							<Button size="sm" variant="secondary" onclick={() => move(i, 1)} disabled={i === draft.length - 1} aria-label={m['homepage.down']()} title={m['homepage.down']()}><Icon name="arrow-down" /></Button>
+							<Button size="sm" variant="secondary" onclick={() => (draft = draft.filter((_, j) => j !== i))} aria-label={m['homepage.remove']()} title={m['homepage.remove']()} data-testid="featured-remove"><Icon name="x" /></Button>
 						</span>
 					</li>
 				{/each}

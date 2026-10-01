@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { ROLE_CATEGORIES, RoleCategory, pickText, type CreditRole, type LocaleText } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from './locale-map-field.svelte';
@@ -77,12 +78,12 @@
 </script>
 
 {#if !open}
-	<button type="button" class="ghost mini" onclick={start} data-testid="{testid}-open">+ {m['creator.credits_role']()}</button>
+	<button type="button" class="ghost mini" onclick={start} data-testid="{testid}-open"><Icon name="plus" /> {m['creator.credits_role']()}</button>
 {:else}
 	<div class="role-picker" data-testid={testid}>
 		<div class="row">
 			<input bind:this={input} type="search" placeholder={m['creator.credits_search_roles']()} bind:value={query} {onkeydown} data-testid="{testid}-input" />
-			<button type="button" class="ghost" onclick={() => (open = false)} aria-label="Close">✕</button>
+			<button type="button" class="ghost" onclick={() => (open = false)} aria-label="Close"><Icon name="x" /></button>
 		</div>
 		{#if !creating}
 			<div class="list">
@@ -99,7 +100,7 @@
 					<p class="hint">{m['creator.credits_no_roles']()}</p>
 				{/each}
 			</div>
-			<button type="button" class="secondary mini" onclick={startCreate} data-testid="{testid}-new">+ {m['creator.credits_new_custom_role']()}</button>
+			<button type="button" class="secondary mini" onclick={startCreate} data-testid="{testid}-new"><Icon name="plus" /> {m['creator.credits_new_custom_role']()}</button>
 		{:else}
 			<div class="create" data-testid="{testid}-create">
 				<LocaleMapField value={label} {languages} label={m['creator.credits_label']()} required onchange={(v) => (label = v)} testid="{testid}-label" />
@@ -152,13 +153,13 @@
 		align-items: center;
 	}
 	.cat {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
 		color: var(--text-muted);
 		min-width: 6.5rem;
 	}
 	.chip {
-		font-size: 12px;
 		padding: 0.1rem 0.4rem;
 		background: var(--paper);
 		color: var(--ink);
@@ -171,7 +172,7 @@
 		background: var(--surface-hover);
 	}
 	.tag {
-		font-size: 9px;
+		font-size: var(--type-caption-size);
 		margin-left: 0.3em;
 		color: var(--text-muted);
 	}
@@ -181,7 +182,7 @@
 		gap: 0.5rem;
 	}
 	.mini {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		padding: 0.1rem 0.4rem;
 	}
 </style>

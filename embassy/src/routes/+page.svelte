@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge } from '@scutoons/ui';
+	import { Badge, Icon } from '@scutoons/ui';
 	import type { CallOutcome, DueItem, TeamMember } from '@scutoons/api';
 	import { ApiError, embassy } from '$lib/api.ts';
 	import { getEmbassySession } from '$lib/session.svelte.ts';
@@ -118,19 +118,19 @@
 			{/if}
 			<ul class="contacts">
 				{#if item.org.phone}
-					<li><a class="tel" href={telHref(item.org.phone)}>☎ {item.org.phone}</a> <span class="muted caption">{item.org.name}</span></li>
+					<li><a class="tel" href={telHref(item.org.phone)}><Icon name="phone" /> {item.org.phone}</a> <span class="muted caption">{item.org.name}</span></li>
 				{/if}
 				{#each item.people as person (person.id)}
 					{#if person.phone || person.email}
 						<li>
-							{#if person.phone}<a class="tel" href={telHref(person.phone)}>☎ {person.phone}</a>{/if}
-							{#if person.email}<a href={`mailto:${person.email}`}>✉ {person.email}</a>{/if}
+							{#if person.phone}<a class="tel" href={telHref(person.phone)}><Icon name="phone" /> {person.phone}</a>{/if}
+							{#if person.email}<a href={`mailto:${person.email}`}><Icon name="mail" /> {person.email}</a>{/if}
 							<span class="muted caption">{person.name}{person.role ? ` · ${person.role}` : ''}</span>
 						</li>
 					{/if}
 				{/each}
 				{#if item.org.email}
-					<li><a href={`mailto:${item.org.email}`}>✉ {item.org.email}</a></li>
+					<li><a href={`mailto:${item.org.email}`}><Icon name="mail" /> {item.org.email}</a></li>
 				{/if}
 				{#if !item.org.phone && !item.org.email && !item.people.some((p) => p.phone || p.email)}
 					<li class="muted caption">{m['today.no_contact']()}</li>

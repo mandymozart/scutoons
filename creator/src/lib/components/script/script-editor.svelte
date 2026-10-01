@@ -380,10 +380,11 @@
 		overflow: auto;
 		border: 2px solid var(--ink);
 		padding: 0.4rem 0.5rem;
-		font-size: 11px;
 	}
 	.side h2 {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 		text-transform: uppercase;
 		margin: 0 0 0.3rem;
 	}
@@ -402,17 +403,18 @@
 		border: 0;
 		border-left: 3px solid transparent;
 		padding: 0.1rem 0.3rem;
-		font-size: 11px;
-		line-height: 1.35;
+		font-size: var(--type-caption-size);
 		color: var(--ink);
 		cursor: pointer;
 	}
 	li button:hover {
-		background: var(--surface-hover);
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	li button.current {
 		border-left-color: var(--ink);
-		background: var(--surface-hover);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	li.chapter button {
 		font-weight: 700;
@@ -451,9 +453,6 @@
 		gap: 0.5rem;
 		min-width: 0;
 	}
-	.meta {
-		font-size: 12px;
-	}
 	.meta-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -466,15 +465,15 @@
 		gap: 0.15rem;
 	}
 	.meta-grid span {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
 		color: var(--muted);
 	}
 	/* the screenplay: IBM Plex Mono, every space as typed, no wrapping (line n = row n), wide */
 	.text {
 		font-family: var(--font-mono);
-		font-size: 13px;
-		line-height: 20px;
+		line-height: var(--type-body-line);
 		tab-size: 4;
 		white-space: pre;
 		overflow: auto;
@@ -482,7 +481,7 @@
 		min-height: 420px;
 		height: calc(100vh - 260px);
 		box-sizing: border-box;
-		padding: 10px 14px;
+		padding: var(--space-05) var(--space-075);
 		border: 2px solid var(--ink);
 		background: var(--paper);
 		color: var(--ink);

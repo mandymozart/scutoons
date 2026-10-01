@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { ActionBar } from '@scutoons/ui';
+	import { ActionBar, Icon } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
@@ -261,7 +261,7 @@
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
 		{/if}
-		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)}>✕</button></div>{/if}
+		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button></div>{/if}
 		<main class="content">
 			{@render children()}
 		</main>
@@ -306,7 +306,6 @@
 	}
 	.bar {
 		padding: 0.3rem 0.75rem;
-		font-size: 12px;
 		display: flex;
 		gap: 0.5rem;
 		align-items: center;
@@ -317,14 +316,14 @@
 		color: var(--paper);
 	}
 	.warn-bar {
-		background: #fff8e6;
+		border-left: 0.5rem solid var(--state-warning);
 	}
 	.error-bar {
-		background: #fff0ee;
+		border-left: 0.5rem solid var(--state-error);
 		border-bottom-color: var(--error);
 	}
 	.note-bar {
-		background: #eafaff;
+		border-left: 0.5rem solid var(--primary-cyan);
 	}
 	.content {
 		padding: 1rem;

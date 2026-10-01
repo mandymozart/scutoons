@@ -196,6 +196,7 @@
 		gap: var(--space-05);
 		flex: none;
 		box-sizing: border-box;
+		min-height: var(--control-height);
 		padding: var(--space-05) var(--space-1);
 		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);
@@ -214,6 +215,7 @@
 	}
 	.more-toggle {
 		box-sizing: border-box;
+		min-height: var(--control-height);
 		padding: var(--space-05) var(--space-15);
 		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);

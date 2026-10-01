@@ -44,6 +44,7 @@
 		justify-content: center;
 		gap: var(--space-05);
 		box-sizing: border-box;
+		min-height: var(--control-height);
 		margin: 0;
 		padding: var(--space-1) var(--space-3);
 		border: var(--border-width-regular) solid transparent;

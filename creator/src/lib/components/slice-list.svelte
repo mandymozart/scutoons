@@ -114,7 +114,7 @@
 	{/each}
 </ol>
 {#if !slices.length}
-	<button type="button" class="secondary" onclick={() => add(-1)}>+ {m['creator.add_slice']()}</button>
+	<button type="button" class="secondary" onclick={() => add(-1)}><Icon name="plus" /> {m['creator.add_slice']()}</button>
 {/if}
 
 <style>

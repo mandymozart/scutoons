@@ -126,7 +126,7 @@
 	outline-offset: var(--focus-offset);
 }
 
-/* ── Groups: fieldset = 2px ink frame, legend = an inverted plate; details = a framed label ─────────────────────── */
+/* ── Groups: fieldset = 2px ink frame, legend = the tool label; details = a label row ─────────────────────── */
 :where(.sc-tool) :where(fieldset) {
 	margin: 0 0 var(--space-1);
 	padding: var(--space-1);
@@ -134,9 +134,7 @@
 	border-radius: var(--radius-none);
 }
 :where(.sc-tool) :where(legend) {
-	padding: var(--space-025) var(--space-05);
-	background: var(--ink);
-	color: var(--paper);
+	padding: 0 var(--space-025);
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
 	font-weight: var(--font-weight-regular);

@@ -380,7 +380,8 @@ sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every
 ### Creator: script page (owner 2026-10-01)
 
 `/<toon>/script` – "Drehbuch" / "Script" in the toon's sidebar between Credits and Toon settings (DATA.md "Script").
-- **One big text per language**: a plain `<textarea>` in IBM Plex Mono 13/20 px, `white-space: pre`, `wrap="off"` (line n
+- **One big text per language**: a plain `<textarea>` in IBM Plex Mono at the body size (1rem, line 1.4 – the tool
+  type scale; owner 2026-10-01, the earlier 13/20 px is superseded), `white-space: pre`, `wrap="off"` (line n
   = row n, horizontal scroll instead of wrapping), spellcheck off, as wide as the content column, `tab-size: 4`. Tab
   inserts 4 spaces (the format counts spaces), Shift+Tab removes up to 4 leading spaces, **Esc then Tab** leaves the
   text (keyboard users); edits go through the browser's own command so Ctrl+Z inside the text works.
@@ -467,6 +468,9 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 **Controls.**
 - **Sizes in rem** (owner 2026-10-01, no px): fields, nav entries and clickable rows are `--control-height` =
   2rem + the 2px frame (32 · 36 · 52px), as tall as a compact button.
+- **Touch minimum only on touch screens** (owner 2026-10-01): one rule in tokens.css, `@media (pointer: coarse)`
+  raises `--control-height` to max(44px, 2rem + frame); fields, list rows, nav entries and buttons use it as
+  `min-height`, so phones and tablets get ≥ 44px targets while a mouse desktop stays rem-only.
 - Inputs / selects / textareas: 2px ink frame, paper, 1rem, padding `space-025 space-05` (textarea `space-05`),
   placeholder `text-muted`; disabled = `border-muted` + `text-muted`; invalid = `state-error` frame.
 - **Buttons = the viewer's** (owner 2026-10-01, no new invention): primary = ink bg / paper text; secondary (the
@@ -478,7 +482,7 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 - **Active / selected = inverted** (ink bg, paper text) — only for **toggles, tabs and selected list items**: current
   sidebar entry, open tab, chosen segment, selected list item / table row, pressed / open toggle (Info, More), current
   page in the pager. Pager links and menu triggers otherwise look like secondary buttons. Hover on lists = a 2px ink frame inside the row.
-- Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = an inverted plate (tool label).
+- Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = the tool label.
   details/summary = a bold uppercase label row (`--control-height`).
 - **Icons:** Feather via `Icon` (see "Icons"): close (x), menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
   arrow-up/down for reorder, plus, info, search, sort arrows; icon-only controls carry `aria-label` + `title`.
@@ -492,6 +496,12 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   `--tool-sidebar-width` 12rem (admin 14rem with descriptions), Info / side panels `--tool-panel-width` 16rem.
 - ActionBars that don't fit move `start` + `secondary` into "More" (`breakpoint`); the primary actions stay. Filters
   that need more than one line leave the bar and sit above the list (`.toolbar`), the pager stays in the bar.
+
+**Check:** `npm run check:tools-css` (part of `npm run check`): no px font size and nothing under caption in the
+tools' CSS (creator, admin, embassy, `@scutoons/ui`, tools.css; a line with `px-ok` + the reason is exempt, e.g. the
+lettering preview). `npm run check:tools-ui` (dev servers + `npm run dev:test-user`; `SCUTOONS_CREATOR|ADMIN|EMBASSY`
+for other origins): every tool page at 1440 px (fine pointer) and 390 px (touch) – no visible text under the caption
+size (comic lettering exempt), and on touch no button / field / nav entry under 44 px.
 
 **Vocabulary** (`tools.css`): `.sc-label`, `.sc-heading`, `.sc-caption`, `.sc-chip` (`is-ink`, `is-live`, `is-off`),
 `.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted). Creator-wide button classes stay

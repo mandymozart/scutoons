@@ -342,6 +342,7 @@
 		justify-content: center;
 		gap: var(--space-025);
 		box-sizing: border-box;
+		min-height: var(--control-height);
 		padding: var(--space-05) var(--space-15);
 		line-height: var(--type-button-line);
 		background: var(--ink);

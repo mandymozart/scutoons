@@ -25,7 +25,7 @@
 		type RegistryCharacter,
 		type ToonCast
 	} from '@scutoons/content';
-	import { Tabs } from '@scutoons/ui';
+	import { Icon, Tabs } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
@@ -250,7 +250,7 @@
 
 <MetaPage toon="" title={m['creator.characters']()} {docs} {validate} wide help="characters">
 	{#snippet actions()}
-		<button type="button" class="secondary" onclick={startNew} data-testid="new-character">+ {m['creator.characters_new']()}</button>
+		<button type="button" class="secondary" onclick={startNew} data-testid="new-character"><Icon name="plus" /> {m['creator.characters_new']()}</button>
 	{/snippet}
 	<Tabs
 		tabs={[
@@ -282,7 +282,7 @@
 							<span class="new">
 								<input bind:this={nameInput} type="text" bind:value={newName} placeholder={m['creator.characters_name']()} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); create(); } else if (e.key === 'Escape') creating = false; }} data-testid="new-character-name" />
 								<button type="button" onclick={create} disabled={!newName.trim()} data-testid="new-character-create">{m['creator.characters_create']()}</button>
-								<button type="button" class="ghost" onclick={() => (creating = false)}>✕</button>
+								<button type="button" class="ghost" onclick={() => (creating = false)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 							</span>
 						{/if}
 						{#if registry.loading}
@@ -380,7 +380,8 @@
 		display: flex;
 		gap: 0.3rem;
 		align-items: center;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.new {
 		display: flex;
@@ -429,7 +430,6 @@
 		display: flex;
 		flex-direction: column;
 		min-width: 0;
-		font-size: 12px;
 	}
 	.text .hint {
 		white-space: nowrap;
@@ -443,7 +443,7 @@
 		margin-top: 0.15rem;
 	}
 	.chip {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		border: 1px solid var(--ink);
 		padding: 0 0.3rem;
 	}

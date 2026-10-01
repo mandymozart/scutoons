@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { tick } from 'svelte';
 	import { getAt, Language, peopleIndex, roleIndex, roleText, type CreditEntry, type LocaleText, type Path, type RoleCategory, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -129,7 +130,7 @@
 							<span class="chip" class:unknown={!role} class:custom={role?.custom}>
 								<button type="button" class="chip-label" onclick={() => (open = open === `${i}:${k}` ? null : `${i}:${k}`)} title={m['creator.credits_role_details']()}
 									>{roleText(r, role, lang)}</button
-								><button type="button" class="chip-x" aria-label={m['creator.credits_remove_role']()} onclick={() => change((l) => l[i].roles.splice(k, 1))}>×</button>
+								><button type="button" class="chip-x" aria-label={m['creator.credits_remove_role']()} onclick={() => change((l) => l[i].roles.splice(k, 1))}><Icon name="x" /></button>
 							</span>
 						{/each}
 						<RolePicker
@@ -142,7 +143,7 @@
 						/>
 					</span>
 					<button type="button" class="ghost remove" aria-label={m['creator.credits_remove_person']()} title={m['creator.credits_remove_person']()} onclick={() => change((l) => l.splice(i, 1))}
-						>✕</button
+						><Icon name="x" /></button
 					>
 				</div>
 				{#each entry.roles as r, k (k)}
@@ -220,10 +221,12 @@
 	}
 	.handle {
 		all: unset;
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--control-height);
 		cursor: grab;
 		padding: 0 0.25rem;
 		color: var(--text-muted);
-		font-size: 12px;
 		letter-spacing: -2px;
 	}
 	.handle:focus-visible {
@@ -232,9 +235,10 @@
 	}
 	.name {
 		all: unset;
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--control-height);
 		cursor: pointer;
-		font-weight: 700;
-		font-size: 13px;
 		min-width: 11em;
 	}
 	.name:hover {
@@ -250,30 +254,35 @@
 		gap: 0.25rem;
 		flex: 1;
 	}
+	/* a role = a filled tag (tokens.css --badge-*): neutral, a custom role = draft */
 	.chip {
 		display: inline-flex;
-		border: 1px solid var(--border-muted);
-		font-size: 12px;
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
 	}
 	.chip.custom {
-		border-style: dashed;
+		background: var(--badge-draft);
+		color: var(--badge-draft-text);
 	}
 	.chip-label,
 	.chip-x {
 		all: unset;
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--control-height);
 		cursor: pointer;
-		padding: 0 0.35rem;
+		padding: 0 var(--space-05);
 	}
 	.chip-x {
-		border-left: 1px solid var(--border-subtle);
-		color: var(--text-muted);
+		border-left: var(--border-width-hairline) solid currentColor;
 	}
 	.chip-label:hover,
 	.chip-x:hover {
-		background: var(--surface-hover);
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.remove {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		padding: 0 0.35rem;
 	}
 	.details {

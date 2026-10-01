@@ -107,9 +107,6 @@
 		gap: 0.75rem;
 		max-width: 56rem;
 	}
-	h2 {
-		font-size: 14px;
-	}
 	.grid {
 		display: grid;
 		gap: 0.5rem 0.75rem;
@@ -136,7 +133,10 @@
 		align-items: flex-start;
 	}
 	.status legend {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 		padding: 0 0.3rem;
 	}
 	.status-row {

@@ -175,7 +175,8 @@
 		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
 	}
 	.list a:hover {
-		background: var(--surface-hover);
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.title {
 		display: flex;

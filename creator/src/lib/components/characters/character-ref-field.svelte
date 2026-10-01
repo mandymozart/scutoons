@@ -134,7 +134,10 @@
 		min-width: 0;
 	}
 	.label {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.ref {
 		all: unset;
@@ -145,7 +148,6 @@
 		align-items: center;
 		border: 1px solid var(--border-subtle);
 		padding: 0.15rem 0.3rem;
-		font-size: 12px;
 		min-width: 0;
 	}
 	.ref:hover,
@@ -180,7 +182,7 @@
 	}
 	.warn {
 		align-self: flex-start;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		color: var(--error);
 	}
 </style>

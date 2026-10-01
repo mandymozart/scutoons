@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import {
 		APOSE_LOOKS,
 		APOSE_VIEW,
@@ -311,7 +312,7 @@
 				{/each}
 				<span class="add">
 					<input type="text" bind:value={newPersonaLabel} placeholder={m['creator.characters_persona_label_placeholder']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), newPersona())} data-testid="new-persona" />
-					<button type="button" class="ghost" onclick={newPersona} disabled={!newPersonaLabel.trim()} data-testid="add-persona">+ {m['creator.characters_add_persona']()}</button>
+					<button type="button" class="ghost" onclick={newPersona} disabled={!newPersonaLabel.trim()} data-testid="add-persona"><Icon name="plus" /> {m['creator.characters_add_persona']()}</button>
 				</span>
 			</nav>
 			{#if currentPersona}
@@ -356,14 +357,14 @@
 						{/each}
 						<span class="add">
 							<input type="text" bind:value={newLookLabel} placeholder={m['creator.characters_new_look']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), newLook())} data-testid="new-look" />
-							<button type="button" class="ghost" onclick={newLook} disabled={!newLookLabel.trim()}>+ {m['creator.characters_add_look']()}</button>
+							<button type="button" class="ghost" onclick={newLook} disabled={!newLookLabel.trim()}><Icon name="plus" /> {m['creator.characters_add_look']()}</button>
 						</span>
 					</nav>
 					{#if currentLook}
 						<div class="look-head">
 							<LocaleMapField value={currentLook.label} {languages} label={m['creator.characters_look_label']()} onchange={(v) => changePersona((p) => { const l = p.looks.find((x) => x.id === lookId); if (!l) return; const t = clean(v); if (t) l.label = t; else delete l.label; }, `look-${lookId}`)} />
 							<label class="check"><input type="radio" name="default-look-{character.id}-{personaId}" checked={!!currentLook.default} onchange={() => setDefaultLook(lookId)} /> {m['creator.characters_default_look']()}</label>
-							{#if lookIds.length > 1}<button type="button" class="ghost" onclick={() => removeLook(lookId)}>✕ {m['creator.characters_remove_look']()}</button>{/if}
+							{#if lookIds.length > 1}<button type="button" class="ghost" onclick={() => removeLook(lookId)}><Icon name="x" /> {m['creator.characters_remove_look']()}</button>{/if}
 						</div>
 						{#if !lookPortraitMoods(currentLook).length}
 							<p class="empty-note" data-testid="look-empty">{m['creator.characters_look_empty_note']({ look: lookLabel(currentPersona, lookId, source) })}</p>
@@ -391,7 +392,7 @@
 									<input type="text" value={t.image} onchange={(e) => changePersona((p) => p.transitions && (p.transitions[i].image = e.currentTarget.value.trim()))} />
 									<LocaleMapField value={t.label} {languages} label={m['creator.characters_look_label']()} onchange={(v) => changePersona((p) => { if (!p.transitions) return; const x = clean(v); if (x) p.transitions[i].label = x; else delete p.transitions[i].label; }, `transition-${i}`)} />
 								</div>
-								<button type="button" class="ghost" onclick={() => changePersona((p) => { p.transitions?.splice(i, 1); if (!p.transitions?.length) delete p.transitions; })}>✕</button>
+								<button type="button" class="ghost" onclick={() => changePersona((p) => { p.transitions?.splice(i, 1); if (!p.transitions?.length) delete p.transitions; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 							</div>
 						{:else}
 							<p class="hint">{m['creator.characters_no_transitions_short']()}</p>
@@ -405,7 +406,7 @@
 									const to = defaultLookId(currentPersona);
 									changePersona((p) => (p.transitions ??= []).push({ from, to, image: conventionTransitionPath(id, personaId, from, to) }));
 								}}
-								data-testid="add-transition">+ {m['creator.characters_add_transition']()}</button
+								data-testid="add-transition"><Icon name="plus" /> {m['creator.characters_add_transition']()}</button
 							>
 						{/if}
 					</div>
@@ -426,7 +427,7 @@
 				/>
 			{:else}
 				<p class="hint">{m['creator.characters_apose_none']()}</p>
-				<button type="button" class="secondary" onclick={startApose} data-testid="start-apose">+ {m['creator.characters_apose_start']()}</button>
+				<button type="button" class="secondary" onclick={startApose} data-testid="start-apose"><Icon name="plus" /> {m['creator.characters_apose_start']()}</button>
 			{/if}
 		</section>
 
@@ -439,7 +440,7 @@
 						<figcaption>
 							<strong>{pickText(a.label, source, languages) || a.id}</strong>
 							<input type="text" value={a.path} onchange={(e) => change((c) => c.artwork && (c.artwork[i].path = e.currentTarget.value.trim()))} />
-							<button type="button" class="ghost" onclick={() => change((c) => { c.artwork?.splice(i, 1); if (!c.artwork?.length) delete c.artwork; })}>✕</button>
+							<button type="button" class="ghost" onclick={() => change((c) => { c.artwork?.splice(i, 1); if (!c.artwork?.length) delete c.artwork; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 						</figcaption>
 					</figure>
 				{/each}
@@ -455,7 +456,7 @@
 						const aid = uniqueId(slugId(path.split('/').pop()?.replace(/\.[a-z]+$/i, '').replace(`${id}_`, '') ?? 'artwork'), (character.artwork ?? []).map((a) => a.id));
 						change((c) => (c.artwork ??= []).push({ id: aid, path }));
 						newArtwork = '';
-					}}>+ {m['creator.characters_add_artwork']()}</button
+					}}><Icon name="plus" /> {m['creator.characters_add_artwork']()}</button
 				>
 			</span>
 		</section>
@@ -482,17 +483,15 @@
 		gap: 1rem;
 	}
 	.type {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
 		color: var(--muted);
 	}
 	h2 {
 		margin: 0.1rem 0 0.2rem;
-		font-size: 18px;
 	}
 	h3 {
-		font-size: 13px;
 		margin: 0 0 0.4rem;
 	}
 	.relation {
@@ -501,7 +500,6 @@
 		gap: 0.4rem;
 		align-items: center;
 		margin: 0;
-		font-size: 12px;
 	}
 	.block {
 		border-top: 1px solid var(--border-subtle);
@@ -524,8 +522,11 @@
 		display: grid;
 	}
 	label {
-		font-size: 11px;
-		font-weight: 700;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
+		font-weight: var(--font-weight-regular);
 		display: flex;
 		flex-direction: column;
 		gap: 0.15rem;
@@ -569,7 +570,6 @@
 		color: var(--ink);
 		border: 2px solid var(--border-muted);
 		padding: 0.25rem 0.6rem;
-		font-size: 12px;
 	}
 	.tab.active {
 		background: var(--ink);
@@ -582,7 +582,8 @@
 	}
 	.tally {
 		margin-left: 0.35rem;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.tally.bad {
 		color: var(--error);
@@ -621,7 +622,6 @@
 		padding: 0.3rem 0.5rem;
 		border: 1px dashed var(--error);
 		color: var(--error);
-		font-size: 12px;
 	}
 	.transitions {
 		display: flex;
@@ -668,7 +668,8 @@
 		flex-direction: column;
 		gap: 0.2rem;
 		padding: 0.3rem;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.danger {
 		color: var(--error);

@@ -124,11 +124,13 @@
 		gap: 0.3rem;
 	}
 	.label {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 		color: var(--muted);
 	}
 	.mini {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
 		margin-left: auto;
 	}
@@ -142,13 +144,15 @@
 		padding-left: 0.4rem;
 	}
 	.loc {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		display: flex;
 		gap: 0.3rem;
 		align-items: center;
 	}
 	.pill {
-		font-size: 9px;
+		font-size: var(--type-caption-size);
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 		padding: 0 0.35em;
 		border: 1px solid currentColor;
 		text-transform: uppercase;
@@ -159,7 +163,7 @@
 		border-color: var(--ink);
 	}
 	.override {
-		background: #eafaff;
+		border-left: 0.5rem solid var(--primary-cyan);
 		border-color: var(--cyan);
 	}
 	.editor :global(input),

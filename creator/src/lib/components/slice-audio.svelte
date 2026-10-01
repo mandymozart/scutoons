@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
+	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, deleteAt, type Path } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
@@ -128,8 +130,8 @@
 	{#each samples as sample, i (i)}
 		<div class="sample" class:selected={i === selectedSample}>
 			<div class="row">
-				<button type="button" class="ghost" onclick={() => onselectsample?.(i)}>♪ {i + 1}</button>
-				<button type="button" class="ghost" onclick={() => removeSample(i)}>✕</button>
+				<button type="button" class="ghost" onclick={() => onselectsample?.(i)}><Icon name="music" /> {i + 1}</button>
+				<button type="button" class="ghost" onclick={() => removeSample(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 			</div>
 			<div class="grid g3">
 				<PropField {doc} path={[...samplesPath, i, 'id']} label="id" type="select" options={library} required />

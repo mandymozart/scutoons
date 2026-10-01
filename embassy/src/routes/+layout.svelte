@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button, ToastStack } from '@scutoons/ui';
+	import { Button, Icon, ToastStack } from '@scutoons/ui';
 	import { setEmbassySession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
@@ -42,10 +42,10 @@
 	const otherLocale = $derived(locales.find((l) => l !== getLocale()) ?? 'en');
 
 	const nav = $derived([
-		{ href: '/', label: m['nav.today'](), icon: '◷' },
-		{ href: '/leads', label: m['nav.leads'](), icon: '≡' },
-		{ href: '/orgs/new', label: m['nav.new'](), icon: '+' },
-		...(isAmbassador ? [{ href: '/import', label: m['nav.import'](), icon: '⇪' }] : [])
+		{ href: '/', label: m['nav.today'](), icon: 'clock' },
+		{ href: '/leads', label: m['nav.leads'](), icon: 'list' },
+		{ href: '/orgs/new', label: m['nav.new'](), icon: 'plus' },
+		...(isAmbassador ? [{ href: '/import', label: m['nav.import'](), icon: 'upload' }] : [])
 	]);
 	const isCurrent = (href: string) =>
 		href === '/' ? page.url.pathname === '/' : page.url.pathname === href || (href === '/leads' && page.url.pathname.startsWith('/orgs/') && page.url.pathname !== '/orgs/new');
@@ -82,7 +82,7 @@
 			<nav class="nav" aria-label={m['shell.navigation']()}>
 				{#each nav as item (item.href)}
 					<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-						<span class="icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>
+						<span class="icon"><Icon name={item.icon} /></span><span>{item.label}</span>
 					</a>
 				{/each}
 			</nav>
@@ -170,10 +170,11 @@
 	.nav a:hover {
 		border-color: var(--ink);
 	}
+	/* current = inverted (DESIGN.md "Brutalist tools"; cyan is for live states only) */
 	.nav a[aria-current='page'] {
-		background: var(--primary-cyan);
+		background: var(--ink);
+		color: var(--paper);
 		border-color: var(--ink);
-		font-weight: var(--font-weight-bold);
 	}
 	.account {
 		display: flex;
@@ -253,23 +254,9 @@
 	:global(:where(.embassy) h2) {
 		margin: var(--space-15) 0 var(--space-05);
 	}
+	/* fields, focus, checkboxes: tools.css (2px ink frame, --control-height, 3px focus outline) */
 	:global(:where(.embassy) :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea)) {
-		box-sizing: border-box;
 		width: 100%;
-		margin: 0;
-		padding: var(--space-05) var(--space-075);
-		border: var(--border-width-hairline) solid var(--border-subtle);
-		border-radius: 0;
-		background: var(--paper);
-		color: var(--ink);
-		font: inherit;
-	}
-	:global(:where(.embassy) :is(input, select, textarea):focus-visible) {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: -1px;
-	}
-	:global(:where(.embassy) input[type='checkbox']) {
-		accent-color: var(--ink);
 	}
 	:global(.embassy .muted) {
 		color: var(--text-muted);

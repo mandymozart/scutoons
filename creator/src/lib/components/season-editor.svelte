@@ -175,7 +175,6 @@
 		margin-bottom: 0;
 	}
 	h2 {
-		font-size: 14px;
 		margin: 0;
 	}
 	.grid {
@@ -198,7 +197,7 @@
 		color: var(--warn);
 	}
 	.mini {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
 	}
 	.chapters {
@@ -213,14 +212,17 @@
 	}
 	.chapters th {
 		border-bottom: 2px solid var(--ink);
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.chapter-row {
 		position: relative;
 		cursor: pointer;
 	}
 	.chapter-row:hover td {
-		background: var(--surface-hover);
+		text-decoration: underline;
 	}
 	.row-link {
 		color: var(--ink);
@@ -238,7 +240,8 @@
 	.nav-head {
 		margin: 0;
 		padding: 0.75rem 0.75rem 0.25rem;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
 		color: var(--muted);
 	}
@@ -257,7 +260,8 @@
 		text-decoration: none;
 	}
 	.nav-list a:hover {
-		background: var(--surface-hover);
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.nav-title {
 		min-width: 0;
@@ -271,7 +275,7 @@
 		flex: none;
 	}
 	.st {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
 		border: 1px solid var(--border-muted);
 	}

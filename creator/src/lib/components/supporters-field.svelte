@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import type { Supporter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -36,9 +37,9 @@
 				<SharedField {doc} path={['supporters', i, 'logo']} label="logo" kind="image" {toon} {known} testid="supporter-{i}-logo" />
 			</div>
 			<div class="actions">
-				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}>‹</button>
-				<button type="button" class="ghost" disabled={i === list.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}>›</button>
-				<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.supporter_remove']({ name: supporter.name || String(i + 1) })} title={m['creator.remove']()}>✕</button>
+				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
+				<button type="button" class="ghost" disabled={i === list.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
+				<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.supporter_remove']({ name: supporter.name || String(i + 1) })} title={m['creator.remove']()}><Icon name="x" /></button>
 			</div>
 		</li>
 	{:else}

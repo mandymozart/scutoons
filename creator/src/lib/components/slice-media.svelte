@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { fillSliceSize } from '$lib/editor/images.ts';
@@ -119,7 +120,7 @@
 					<span class="lbl">media</span>
 					<input type="text" value={source.media ?? ''} placeholder="(max-width: 600px)" onchange={(e) => setSource(i, 'media', e.currentTarget.value.trim())} />
 				</label>
-				<button class="ghost" aria-label={m['creator.video_source_remove']()} title={m['creator.video_source_remove']()} onclick={() => editSources((sources) => void sources.splice(i, 1))}>✕</button>
+				<button class="ghost" aria-label={m['creator.video_source_remove']()} title={m['creator.video_source_remove']()} onclick={() => editSources((sources) => void sources.splice(i, 1))}><Icon name="x" /></button>
 			</div>
 		{/each}
 		<button class="ghost add-source" title={m['creator.video_sources_hint']()} onclick={() => editSources((sources) => void sources.push({ src: '' }))} data-testid="video-source-add"
@@ -139,7 +140,7 @@
 					onerror={() => (videoState = 'missing')}
 				></video>
 				<span class="meta">
-					{#if videoState === 'missing'}<b class="bad">{m['creator.video_missing']()}</b>{:else if videoState === 'ok'}✓ CDN{/if}
+					{#if videoState === 'missing'}<b class="bad">{m['creator.video_missing']()}</b>{:else if videoState === 'ok'}<Icon name="check" /> CDN{/if}
 				</span>
 			</div>
 		{/if}

@@ -34,28 +34,31 @@
 </span>
 
 <style>
+	/* filled badges (tokens.css --badge-*, DESIGN.md "Brutalist tools"): published · coming soon · draft */
 	.status-badges {
 		display: inline-flex;
 		flex-wrap: wrap;
-		gap: 0.25rem;
+		gap: var(--space-025);
 	}
 	.st {
-		font-size: 10px;
-		line-height: 1.5;
-		padding: 0 0.4em;
-		border: 1px solid var(--border-muted);
+		padding: 0.1em 0.5em;
+		background: var(--badge-draft);
+		color: var(--badge-draft-text);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 		white-space: nowrap;
 	}
 	.st b {
-		font-weight: 700;
+		font-weight: inherit;
 	}
 	.st-published {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--badge-published);
+		color: var(--badge-published-text);
 	}
 	.st-coming-soon {
-		border-style: dashed;
-		border-color: var(--ink);
+		background: var(--badge-soon);
+		color: var(--badge-soon-text);
 	}
 </style>

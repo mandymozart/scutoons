@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { listVersions, publishVersion, restoreVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -72,7 +73,7 @@
 <div class="history" data-testid="history-panel">
 	<header>
 		<h2>{m['creator.history']()} · {fileLabel(doc.entity)}</h2>
-		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close">✕</button>{/if}
+		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close"><Icon name="x" /></button>{/if}
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}
 	{#each doc.locales as l (l)}
@@ -107,9 +108,6 @@
 </div>
 
 <style>
-	.history {
-		font-size: 11px;
-	}
 	header {
 		display: flex;
 		justify-content: space-between;
@@ -117,11 +115,12 @@
 		border-bottom: 2px solid var(--ink);
 	}
 	h2 {
-		font-size: 12px;
 		margin: 0.25rem 0;
 	}
 	h3 {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 		margin: 0.6rem 0 0.2rem;
 		text-transform: uppercase;
 	}
@@ -140,7 +139,7 @@
 	}
 	.tag {
 		margin-left: 0.4rem;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
 		border: 1px solid var(--ink);
 	}
@@ -154,7 +153,8 @@
 		align-items: center;
 	}
 	.acts button {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.error {
 		color: var(--error);
