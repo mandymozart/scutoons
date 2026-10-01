@@ -1268,3 +1268,28 @@ character, persona, look and mood and doubles as the VN test bed.
   wordmark, tiles from the API incl. colours / helmet / no sandbox / no dates, editions in the API order with price,
   pieces, struck sizes, buy link, slider per view + arrow, footer, menu) + the test user changing the list in the admin UI
   (remove, add, save) → the landing page → restore. 51/51.
+
+## Single sign-on (2026-10-01, branch `sso`)
+
+- **Owner:** one sign-in for every app (roles permitting); a signed-in account without the role sees "Dein Konto (x@y) hat
+  keinen Zugang zu dieser App." + "Mit anderem Konto anmelden" (= sign out everywhere → that app's sign-in); one shared
+  component. Built on `sso` (from `platform` a83b1cc), not merged – the owner merges after the 2026-10-04 release.
+  Design, role matrix, cutover + merge/rollback: PLATFORM.md "SSO — result"; API + security: server/docs/API.md "Single
+  sign-on"; browser side: `shared/auth/README.md`.
+- Cookie `scutoons_sid` (HttpOnly, SameSite=Lax, Path=/api, Secure except http on loopback, Domain=scutoons.com only for
+  hosts under `SESSION_COOKIE_DOMAIN`), set by `/auth/verify/` only for `ALLOWED_ORIGINS` requests; Bearer still works
+  and wins. CSRF = Origin check on cookie writes (`403 csrf_rejected`). `GET /auth/session/` answers 200 `{ user: null }`
+  when signed out (a 401 there was a red console line on every guest page view). Logout clears the cookie; `{ all: true }`.
+- `POST /auth/session/` (Bearer → cookie) moves tokens stored by older builds; the browser checks (`scripts/check-*`)
+  still inject `localStorage.scutoons_session` and keep working through that path. **Signing out in a check now means
+  deleting the cookie too** (`Network.deleteCookies` `scutoons_sid`, done in check-fonts); `localStorage.clear()` alone
+  leaves the browser signed in.
+- **Deploy order: api before the frontends** – the new apps send `credentials: 'include'`, which the old api's CORS
+  (no `Access-Control-Allow-Credentials`) makes the browser reject.
+- The creator stays `creator`-only (not `admin`): the content API checks `creator`; role checks were to stay unchanged.
+- Isolated test runs from a worktree: API `QR_ALLOWED_ORIGINS=… node server/bin/dev-serve.mjs --port=<p>` on a DB copy,
+  apps `VITE_API_URL=… npx vite dev --port <p> --strictPort`; `scripts/dev/creator-cast-check.mjs` takes
+  `SCUTOONS_API` / `SCUTOONS_CREATOR`. The local dev DB already holds data of the main checkout's uncommitted "neutral
+  toon settings" work (`announce` / `tile` in the index entry), so `check-landing` against committed `platform` code
+  reports "no announced toon" (not an SSO issue).
+- Check: `npm run check:sso` (15 checks; a throw-away member account via the promo-code signup, deleted afterwards).

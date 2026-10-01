@@ -64,8 +64,8 @@ page) and `VITE_SHOP_URL` (menu, "Buy access", `/shop` redirect), the shop `VITE
 
 Every frontend origin must be in the API's `ALLOWED_ORIGINS` (`config.local.php`): `http://localhost:8000`,
 `http://localhost:10000`, `http://localhost:11000`, `http://localhost:12000`, `http://localhost:13000`. Login mails are written to the server's `logs/mail.log`
-locally. Sessions are per origin for now (localStorage `scutoons_session`), so the creator and the viewer each need
-their own sign-in.
+locally. Single sign-on: the API keeps the session in an HttpOnly cookie on `localhost` (ports don't matter), so signing
+in on one app signs you in on all of them (`@scutoons/auth`, `npm run check:sso`).
 
 ## Deploy
 

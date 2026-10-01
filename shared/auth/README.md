@@ -19,7 +19,7 @@ the browser side. Svelte 5, styled with `@scutoons/tokens` (IBM Plex Mono, ink/p
 ## How the session works
 
 - **Sign-in**: `/auth/verify/` sets the cookie. The session checks `GET /auth/session/` (cookie only): works → the
-  token from the answer is dropped; refused (cookies blocked, an old API) → the token goes to localStorage
+  token from the answer is dropped; refused (cookies blocked in the browser) → the token goes to localStorage
   `scutoons_session` and is sent as Bearer (that app keeps working, without single sign-on).
 - **Start** (`init`): the cookie (`GET /auth/session/`) → signed in. Else a token stored by an older build (localStorage
   `scutoons_session`) is moved into the cookie once (`POST /auth/session/` with Bearer), checked, then deleted.

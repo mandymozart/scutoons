@@ -7,7 +7,8 @@ describes how the server implements it. Setup: [../README.md](../README.md); cod
 
 Email login (a port of osct `Auth/LoginMail/Mailer/Smtp/Progress`): a login request mails a 6-digit one-time code and a
 magic link; confirming either creates the account (first time, with the `member` role and the starter items) and returns
-a session token (Bearer). Tokens and codes are only stored as hashes. **New accounts only with a signup code** (a
+a session token (Bearer) – and, for the SCUTOONS apps, the same session as the HttpOnly cookie `scutoons_sid`: one
+sign-in for every app (see "Single sign-on"). Tokens and codes are only stored as hashes. **New accounts only with a signup code** (a
 SCUTOONS product or a promo code) – see "Signup rule".
 
 ## Hosts
@@ -29,9 +30,11 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET | `/products/` | – | shop catalog = `config/products.json` byte-for-byte (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`); any origin (`*`), cached 5 min; other methods 405 |
 | GET | `/products/featured/` | – | the landing page's editions (`[{ product, variant? }]`): the list chosen in the admin app (setting `featured_products`, `/admin/featured`), else `config/featured-products.json` byte-for-byte; same headers but `max-age=60` |
 | POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in? }` → `{ status:"sent", expires_at }` (always; new accounts only with a signup code) |
-| POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required` |
-| POST | `/auth/logout/` | Bearer | ends this session |
-| GET | `/me/` | Bearer | `{ user, access, memberships, inventory, avatar }` – `user: { id, email, created_at, roles, marketing_opt_in, hide_sensitive }`, `access: { permissions, unlocked, expires_at, codes, signup_code, access_token? }` (owned codes + the valid signup code) |
+| POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required`; from an `ALLOWED_ORIGINS` app also the session cookie |
+| POST | `/auth/logout/` | session | `{ all?: true }` → ends this session (= every app; `all`: every session of the account) and clears the cookie |
+| GET | `/auth/session/` | optional | `{ status, user \| null, via: "cookie" \| "bearer" \| null }` – who is signed in; renews the cookie |
+| POST | `/auth/session/` | Bearer | the same session as the cookie (an app moves its stored token once) → `{ status, user, via: "cookie" }` · `400 bearer_required` · `403 csrf_rejected` |
+| GET | `/me/` | session | `{ user, access, memberships, inventory, avatar }` – `user: { id, email, created_at, roles, marketing_opt_in, hide_sensitive }`, `access: { permissions, unlocked, expires_at, codes, signup_code, access_token? }` (owned codes + the valid signup code) |
 | PUT | `/me/` | Bearer | `{ marketing_opt_in?: bool, hide_sensitive?: bool }` (at least one) → `{ status, user, avatar }` · `400 invalid_body`. `hide_sensitive` = "Hide sensitive content" (default `true`, agents/ITEMS.md "Sensitive content"); turning it on while the avatar body is a sensitive A-pose look moves the body to the same character's first non-sensitive look (stored; `avatar` in the answer) |
 | GET/POST | `/access/` | optional | `{ code }` / `?c=` → device access: `type, expires_at, permissions, claimable, signup, claimed, claimed_by_me?, access_token?` (never the owner); per-IP limit; logs `access`; send `X-Device-Id` |
 | GET | `/code/?c=CODE` | optional | items/options/edition, `claimable`, `signup` of a code, `claimed_by_me` when signed in; per-IP limit (`&scan=1` from the qr app: logs a `scan`, own per-IP scan limit – see "Rate limits") |
@@ -50,7 +53,47 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
 
 Errors: `{ status:"error", error:"<code>", message }` (+ `options`, `missing`, `slot`, `retry_after`, `role` where
-noted); unknown paths `404 not_found` "Unknown endpoint.". CORS (Bearer header, no cookies): `ALLOWED_ORIGINS`.
+noted); unknown paths `404 not_found` "Unknown endpoint.". CORS: `ALLOWED_ORIGINS`, with credentials (the session
+cookie). "Bearer" / "session" in the table = the Bearer header or the session cookie.
+
+## Single sign-on (2026-10-01)
+
+One session for every app on `*.scutoons.com` (viewer, creator, admin, shop, embassy): signed in on one = signed in on
+all (as far as the account's roles allow, each app checks them – `@scutoons/auth` `APP_ROLES`), signed out on one =
+signed out on all. Code: `Http\SessionCookie`, `Http\Middleware\Session`, `Http\CurrentSession`, `AuthController`;
+browser side `shared/auth` (`@scutoons/auth`).
+
+- **The cookie**: `scutoons_sid=<session token>; Path=/api; Max-Age=<SESSION_TTL_DAYS>; HttpOnly; SameSite=Lax; Secure;
+  Domain=scutoons.com` – `Domain` only when the API host is `SESSION_COOKIE_DOMAIN` or below it (api.scutoons.com and,
+  during the transition, qr.scutoons.com/api); other hosts get a host-only cookie (localhost: cookies ignore ports, so
+  the dev apps on :8000…:13000 share it). `Secure` always except plain http on a loopback host. `Path=/api` keeps it
+  off page, asset and CDN requests of the subdomains. The value is a normal session token (one `sessions` row).
+- **Set** by `POST /auth/verify/` when the request's `Origin` is in `ALLOWED_ORIGINS` (a form on another site cannot
+  sign a browser into its account). The answer still carries `session_token` (old clients); the new apps check the
+  cookie with `GET /auth/session/` and then forget the token (they keep it in localStorage only if the browser refused
+  the cookie). `GET /auth/session/` renews the cookie's lifetime.
+- **Accepted** next to Bearer everywhere; the Bearer header wins when both are sent (old builds keep working unchanged).
+- **CSRF**: `SameSite=Lax` keeps the cookie off cross-site subrequests and cross-site POSTs, but all subdomains of
+  scutoons.com are *same-site*. So a cookie on `POST`/`PUT`/`DELETE`/`PATCH` counts only when the `Origin` header is one
+  of `ALLOWED_ORIGINS`; otherwise the request is anonymous (`user()` = null) and endpoints that need a user answer
+  `403 csrf_rejected` (logout too). Public endpoints that only look at the user optionally (`/access/`, the printed
+  `/validate/`) keep working for everybody. Reads (`GET`) are left to CORS: a foreign origin never gets
+  `Access-Control-Allow-Origin`, so the browser hides the answer. Bearer requests need no Origin (the token is not
+  ambient). The apps' requests are JSON with `X-Device-Id`, i.e. CORS-preflighted, which a foreign origin fails anyway.
+- **Logout** (`POST /auth/logout/`) deletes the session row and clears the cookie → every app is signed out (the open
+  ones notice on the next request or when their tab gets the focus). `{ all: true }` = every session of the account.
+- **Migration** (`POST /auth/session/` with Bearer, from an app Origin): a token an app stored before single sign-on
+  becomes the cookie (same session, no new row); the app checks `GET /auth/session/` and deletes its copy.
+- **qr app**: its proxy forwards only `scutoons_sid` of the browser's cookies (transition: apps on
+  `qr.scutoons.com/api`). The QR landing page itself needs no session – "Add to my account" goes to
+  `<viewer>/account?code=`, where the viewer has the shared session.
+- **Browsers**: first-party cookies (api. and the apps are the same site), so no third-party cookie blocking. Safari ITP
+  caps cookies that *JavaScript* writes to 7 days, not HttpOnly server cookies – but it also caps server cookies to 7
+  days when the API's IP address differs from the page's (CNAME/IP check, Safari 16.4+): keep api.scutoons.com on the
+  same host as the apps (all-inkl) or expect a weekly sign-in on Safari if the apps move to a CDN. Installed iOS
+  home-screen apps (PWA) have their own cookie jar: signed in once inside the PWA (the 6-digit code; a magic link from
+  the mail opens Safari, not the PWA). localStorage tokens were also wiped by ITP after 7 days without a visit – the
+  cookie is the better store.
 
 ## Admin API (`/api/admin/*`, role `admin`)
 
@@ -311,6 +354,9 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
   (fresh DB, part of `composer test`; `--report` against production).
 
 ## Security notes
+
+- Sessions: HttpOnly cookie for the apps (JavaScript never stores the token; it only sees it once in the verify answer),
+  CSRF by Origin for cookie writes, credentials-CORS only for `ALLOWED_ORIGINS` (never `*`) – "Single sign-on".
 
 - `/api/keys/keys.php` serves the public key only; the private keypair (`storage/keys/keypair.json`) goes to admins only
   (`/api/admin/keys`, legacy `generate/keys.php` with the token).

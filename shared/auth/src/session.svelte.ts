@@ -2,8 +2,8 @@
 //
 // The API keeps the session in the HttpOnly cookie `scutoons_sid` (every app on *.scutoons.com, locally every port of
 // localhost); JavaScript never stores the token. Apps call the API with `credentials: 'include'`.
-// Fallback: when the browser refuses the cookie (or an old API answers), the token from `/auth/verify/` goes to
-// localStorage `scutoons_session` as before and the client sends it as Bearer – the app keeps working, only per origin.
+// Fallback: when the browser refuses the cookie (blocked cookies, privacy settings), the token from `/auth/verify/` goes
+// to localStorage `scutoons_session` as before and the client sends it as Bearer – the app keeps working, per origin.
 // Migration: a token an app stored before single sign-on is moved into the cookie once (`POST /auth/session/`) and then
 // deleted from localStorage.
 //
@@ -151,7 +151,7 @@ export function createAuthSession(options: AuthSessionOptions) {
 				hint(false);
 				return;
 			}
-			mode = 'bearer'; // old API without /auth/session/, network: keep using the token
+			mode = 'bearer'; // network trouble or a refused move: keep using the token
 		}
 		await loadMe();
 	}

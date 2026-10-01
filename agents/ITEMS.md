@@ -117,14 +117,17 @@ like osct's Progress. Local dev: mail is written to a log file instead of sent.
 on `https://qr.scutoons.com/api` during the transition, `QR_HOST_SERVES_API`; agents/PLATFORM.md "Domain architecture".
 Production CORS adds creator, admin and shop origins; dev 8000/10000/11000/12000.)
 
-All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoons.com`, `https://www.scutoons.com`,
-`http://localhost:5173`, `http://localhost:5174`, `http://localhost:4173`. Errors: `{ "status": "error", "error": "<code>", "message": "…" }`.
+All JSON. Auth = `Authorization: Bearer <session_token>` **or** (single sign-on, 2026-10-01) the HttpOnly cookie
+`scutoons_sid` that `/auth/verify/` sets for the apps (Bearer wins when both come; server docs/API.md "Single sign-on").
+CORS: `ALLOWED_ORIGINS` (with `Access-Control-Allow-Credentials: true`). Errors: `{ "status": "error", "error": "<code>", "message": "…" }`.
 
 | Method | Path | Body / query | Response |
 |---|---|---|---|
 | POST | `/auth/request/` | `{ email, code?, locale? }` | `{ status: "sent" }` (always, no user enumeration) |
 | POST | `/auth/verify/` | `{ email, otp }` or `{ token }` | `{ status:"success", session_token, user:{ id, email, created_at }, claimed?: [code] }` |
-| POST | `/auth/logout/` | – | `{ status: "success" }` |
+| POST | `/auth/logout/` | `{ all?: true }` | `{ status: "success" }` – ends the session (the shared one: every app) and clears the cookie; `all` = every session of the account |
+| GET | `/auth/session/` | – | `{ status, user \| null, via: "cookie"\|"bearer"\|null }` – who is signed in; renews the cookie |
+| POST | `/auth/session/` | Bearer | `{ status, user, via: "cookie" }` + the cookie for that same session (an app's stored token moves into the cookie once) · 400 `bearer_required` · 403 `csrf_rejected` (Origin not an app) |
 | GET | `/me/` | – | `{ user, memberships:[{code,type,expires_at}], inventory:[Entry], avatar:{ slots:{ <slot>: entryId|null } } }` – `user.hide_sensitive` ("Sensitive content") |
 | PUT | `/me/` | `{ marketing_opt_in?, hide_sensitive? }` | `{ status, user, avatar }` – turning `hide_sensitive` on moves a worn sensitive body to the character's first non-sensitive look · 400 `invalid_body` |
 | GET | `/items/` | – | catalog (above) |
