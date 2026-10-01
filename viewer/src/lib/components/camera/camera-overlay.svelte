@@ -26,6 +26,10 @@
 	const mode: Mode = untrack(() => (request.object ? 'object' : 'qr'));
 	let status = $state<Status>('starting');
 	let video = $state<HTMLVideoElement>();
+	/** the rangefinder's ghost image (object cameras): the same stream, shifted inside the focus patch */
+	let ghost = $state<HTMLVideoElement>();
+	/** the focus patch in camera-overlay coordinates (CSS inset) – the ghost image is clipped to it */
+	let patchClip = $state('inset(50%)');
 	let canvas = $state<HTMLCanvasElement>();
 	/** the aiming square: the object camera classifies exactly the part of the frame under it */
 	let aim = $state<HTMLDivElement>();
@@ -86,6 +90,10 @@
 			if (!video) return;
 			video.srcObject = stream;
 			await video.play();
+			if (ghost) {
+				ghost.srcObject = stream;
+				ghost.play().catch(() => {});
+			}
 			status = 'running';
 		} catch (error: any) {
 			const name = error?.name;
@@ -185,6 +193,30 @@
 		return () => (signal.stopped = true);
 	});
 
+	function measurePatch() {
+		const host = aim?.closest('.camera')?.getBoundingClientRect();
+		const box = aim?.getBoundingClientRect();
+		if (!host || !box) return;
+		patchClip = `inset(${box.top - host.top}px ${host.right - box.right}px ${host.bottom - box.bottom}px ${box.left - host.left}px)`;
+	}
+
+	$effect(() => {
+		if (!aim) return;
+		measurePatch();
+		const observer = new ResizeObserver(measurePatch);
+		observer.observe(aim);
+		window.addEventListener('resize', measurePatch);
+		return () => (observer.disconnect(), window.removeEventListener('resize', measurePatch));
+	});
+
+	/**
+	 * Messsucher (owner 2026-10-02, design A + "sharp as focus"): the picture is soft and snaps sharp, and the ghost
+	 * image in the focus patch slides onto the real one, as the camera becomes sure it sees the object.
+	 */
+	const blur = $derived(mode === 'object' ? Math.round((1 - confidence) * 60) / 10 : 0);
+	const ghostShift = $derived(Math.round((1 - confidence) * 28));
+	const segments = $derived(Math.round(confidence * 5));
+
 	onMount(() => {
 		start();
 		const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onclose();
@@ -207,9 +239,15 @@
 	);
 </script>
 
-<div class="camera" class:with-notice={substanceCamera} role="dialog" aria-modal="true" aria-label={mode === 'qr' ? m['camera.title_qr']() : objectTitle}>
+<div class="camera" class:with-notice={substanceCamera} class:object={mode === 'object'} class:cucumber={cucumberCamera} role="dialog" aria-modal="true" aria-label={mode === 'qr' ? m['camera.title_qr']() : objectTitle}>
 	<!-- svelte-ignore a11y_media_has_caption -->
-	<video bind:this={video} playsinline muted autoplay class:hidden={status !== 'running'}></video>
+	<video bind:this={video} playsinline muted autoplay class:hidden={status !== 'running'} style:filter={blur ? `blur(${blur}px)` : null}></video>
+	{#if mode === 'object'}
+		<!-- svelte-ignore a11y_media_has_caption -->
+		<div class="ghost" style:clip-path={patchClip} aria-hidden="true" class:hidden={status !== 'running'}>
+			<video bind:this={ghost} playsinline muted autoplay style:transform="translateX({ghostShift}px)"></video>
+		</div>
+	{/if}
 	<canvas bind:this={canvas} hidden></canvas>
 
 	<header>
@@ -225,13 +263,11 @@
 	</header>
 
 	{#if status === 'running'}
+		<div class="frame-lines" aria-hidden="true"></div>
 		{#if mode === 'qr'}
 			<div class="viewfinder" aria-hidden="true"></div>
 		{:else}
-			<div class="meter" aria-hidden="true" data-testid="camera-meter">
-				<div class="fill" class:passing={confidence >= 1} style="width:{Math.round(confidence * 100)}%"></div>
-			</div>
-			<div class="viewfinder" bind:this={aim} aria-hidden="true"></div>
+			<div class="viewfinder patch" class:sharp={confidence >= 1} bind:this={aim} aria-hidden="true"></div>
 		{/if}
 		{#if known}
 			<div class="known" role="alert" data-testid="camera-known">
@@ -265,6 +301,9 @@
 	<footer>
 		{#if message}
 			<p class="toast">{message}</p>
+		{/if}
+		{#if mode === 'object' && modelState === 'ready'}
+			<p class="readout" aria-hidden="true" data-testid="camera-meter" data-level={segments}>{'▮'.repeat(segments)}{'▯'.repeat(5 - segments)}</p>
 		{/if}
 		{#if mode === 'object'}
 			{#if modelState === 'loading'}
@@ -382,33 +421,68 @@
 		background: white;
 		color: black;
 	}
+	.camera {
+		/* the camera's markings: the cucumber camera is green, every other camera white (owner 2026-10-02) */
+		--finder: white;
+	}
+	.camera.cucumber {
+		--finder: var(--acid-green);
+	}
+	video {
+		transition: filter 0.4s ease;
+	}
+	.ghost {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		pointer-events: none;
+		mix-blend-mode: screen;
+		opacity: 0.55;
+	}
+	.ghost.hidden {
+		visibility: hidden;
+	}
+	.ghost video {
+		transition: transform 0.4s ease;
+	}
+	/* bright-line frame of a rangefinder: four corners inset from the picture */
+	.frame-lines {
+		position: absolute;
+		z-index: 1;
+		inset: 5.5rem 1.25rem 4.5rem;
+		pointer-events: none;
+		--c: var(--finder);
+		background:
+			linear-gradient(var(--c), var(--c)) top left / 1.5rem 1px no-repeat,
+			linear-gradient(var(--c), var(--c)) top left / 1px 1.5rem no-repeat,
+			linear-gradient(var(--c), var(--c)) top right / 1.5rem 1px no-repeat,
+			linear-gradient(var(--c), var(--c)) top right / 1px 1.5rem no-repeat,
+			linear-gradient(var(--c), var(--c)) bottom left / 1.5rem 1px no-repeat,
+			linear-gradient(var(--c), var(--c)) bottom left / 1px 1.5rem no-repeat,
+			linear-gradient(var(--c), var(--c)) bottom right / 1.5rem 1px no-repeat,
+			linear-gradient(var(--c), var(--c)) bottom right / 1px 1.5rem no-repeat;
+	}
+	.with-notice .frame-lines {
+		top: 8rem;
+	}
 	.viewfinder {
 		position: relative;
-		z-index: 1;
+		z-index: 2;
 		margin: auto;
 		width: min(65vw, 18rem);
 		aspect-ratio: 1;
-		border: 2px solid white;
-		box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
-		filter: drop-shadow(0 0 8px var(--primary-color));
+		border: 1px solid var(--finder);
 	}
-	.meter {
-		position: absolute;
-		z-index: 1;
-		left: 1rem;
-		right: 1rem;
-		top: 4.5rem;
-		height: 0.5rem;
-		border: 2px solid white;
-		background: rgba(0, 0, 0, 0.4);
+	/* the focus patch: what the camera judges; turns solid when it is sure */
+	.viewfinder.patch.sharp {
+		border-width: 3px;
 	}
-	.with-notice .meter {
-		top: 7rem;
-	}
-	.meter .fill {
-		height: 100%;
-		background: var(--primary-color);
-		transition: width 0.3s linear;
+	.readout {
+		font-family: var(--font-mono, monospace);
+		color: var(--finder);
+		letter-spacing: 0.12em;
+		font-size: 1rem !important;
+		margin: 0 0 0.25rem !important;
 	}
 	.known {
 		position: absolute;
@@ -437,9 +511,6 @@
 		align-self: center;
 		background: white;
 		color: black;
-	}
-	.meter .fill.passing {
-		background: white;
 	}
 	.celebrate {
 		position: absolute;

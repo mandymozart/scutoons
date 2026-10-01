@@ -856,6 +856,11 @@ The Check It camera needs nothing extra on deploy (catalog + viewer): it is craf
 - **Recognition:** only the frame under the aiming square is classified; cucumber + zucchini count together
   (`scoreScan` / `scanPasses`).
 
+- **QR codes are unique (owner 2026-10-02, "important relation"):** one code, one account. A code registered to
+  another account can't be claimed (409 `already_claimed`, race-safe `UPDATE … WHERE claimed_by IS NULL`, api-smoke
+  checks it). Physical products are therefore the existing "exists only once" items; reading with someone else's code
+  is still allowed by the access model (device access, "Access model" above) unless the owner changes that.
+
 **Planned (not built – no such item exists yet):**
 - **Unique items:** some items exist **only once in the world**; if anybody else owns it, nobody else can get it
   (grant/craft/claim refuse, e.g. 409 `taken`). Needs a catalog flag (e.g. `unique: true`, or `max_world: <n>` for
