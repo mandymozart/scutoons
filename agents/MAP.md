@@ -1,6 +1,7 @@
 # MAP — one world map for all of SCUTOONS: data, events, the creator's map builder, location images, a sandbox story
 
-Written 2026-10-01 (branch `platform`), **concept only, nothing built**. Companion docs: [DATA.md](DATA.md) (entities, API),
+Written 2026-10-01 (branch `platform`) as a concept; **M0 + M1 + M2 built the same day on branch `map`** (owner decisions
+and what differs from the concept: [§8 Built](#8-built-m0--m1--m2-2026-10-01-branch-map)). Companion docs: [DATA.md](DATA.md) (entities, API),
 [DESIGN.md](DESIGN.md) (reader + creator UI, follow-up bar, VN layout), [ITEMS.md](ITEMS.md) (grant bridge, inventory
 notices), [PLAN.md](PLAN.md) (rules: small configuration, API-first, the creator as the only editor).
 
