@@ -1303,3 +1303,22 @@ character, persona, look and mood and doubles as the VN test bed.
   files and a drifting PLATFORM.md table. `.claude/launch.json` is gitignored: regenerate with `npm run dev:launch-json`.
 - Not covered (can't read JSON): `cdn/.htaccess` (production CDN, allows `http://localhost:8000`), the CI qr smoke in
   `.github/workflows/qr.yml` (own `php -S 127.0.0.1:9001`), server PHP smoke scripts' usage examples.
+
+## World map M0–M2 (2026-10-01, branch `map`, agents/MAP.md §8)
+
+- One world map entity `map` (`scutoons/_/map.json`), migrated by `shared/content/scripts/migrate-map.ts` (one-time; refuses a
+  second run). `/library/map?locale=&toon=` for the new reader; the bundle's old `locations` / `routes` / `toon.map` are
+  computed from it for older builds. World game state `scutoons` (`/api/progress/scutoons/` merges `map` as sets on the
+  server). Owner decisions: unlocks universe-wide, catpope's places unlock over time (screenplay → `unlock` points, 10 new
+  places, `garden` = Garten Eden end of ch. 5), card on click, sea = the toon's colour (default `#00ff00`), bidirectional
+  unlock (slice ↔ builder, stored once in the place's `unlock.slice` = the slice's image), no hand tool, start view set per
+  toon in the builder, Wanted images → Map places derived from the map.
+- Gotchas: a worktree agent runs its own stack on side ports (here API 19300 – workers 19500+ –, viewer 18300, creator 20300,
+  admin 21300, shop 22300, qr 19301; 18000/19000/20000 were taken by another agent) with `.env.development.local` files
+  (gitignored) and its own `server/config.local.php` + copies of `server/db/local.sqlite`, `server/storage/keys`,
+  `server/storage/files/batch` and `qr/config.local.php` (all gitignored; without keys/batches admin-smoke and public-urls
+  fail). `npm run dev:test-user` and `check:creator-cast` take `SCUTOONS_API` (+ `SCUTOONS_CREATOR`) for such a stack.
+  `entities-smoke` must not run against a dev API with `CONTENT_SHOW_DRAFTS=1` (it expects drafts hidden) – it publishes test
+  maps; it now deletes its own map versions. A Vite dev server's very first page load can miss the fonts (check-fonts flake
+  on a cold admin; a rerun passes). Global creator/viewer button styles make text white: set `color` on new buttons.
+- `platform` was NOT merged into `map` (the merge was refused by the agent's permission rules); the merge note is MAP.md §8.8.

@@ -20,7 +20,8 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | season (title, plot, sequence + status per locale, `download` = the music album, `supporters`) | DB `season:<toon>:<n>:<l>` | creator (season page) |
 | chapter (meta, slices, text boxes, audio, inline groups) | DB `chapter:<toon>:<n>:<l>` | creator |
 | VN scene (a chapter group stored on its own; messages, choices) | DB `scene:<toon>:<chapter>:<name>:<l>` | creator |
-| map texts (locations, routes) | DB `locations:<toon>:<l>`, `routes:<toon>:<l>` | import (no editor yet) |
+| the world map (places, routes, layers; names `{ de, en }`; unlock points) | DB `map` (platform-wide, language-neutral; agents/MAP.md §8) | creator (Universe → Map; a slice's "unlocks place" in the chapter editor) |
+| old per-toon map texts (locations, routes) | DB `locations:<toon>:<l>`, `routes:<toon>:<l>` – read-only since `map`, removed from the seed after one release | – |
 | cast per season | DB `cast:<toon>` | creator (cast page) |
 | characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts; A-pose looks may be `sensitive`, ITEMS.md "Sensitive content") | creator (characters) |
 | credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
@@ -48,7 +49,7 @@ every read is "one entity (+ its children) of one toon in one locale"; compositi
 toon:<toon>                              index entry            toon-settings:<toon>:<l>      settings
 season:<toon>:<n>:<l>                    chapter:<toon>:<n>:<l>  scene:<toon>:<chapter>:<name>:<l>
 locations:<toon>:<l>   routes:<toon>:<l>  cast:<toon>   credits:<toon>
-characters   moods   asset-requests   people   roles   events          (platform-wide)
+characters   moods   asset-requests   people   roles   events   map    (platform-wide)
 ```
 Segments are `:`-separated; numbers are digits without leading zeros – seasons from 1, **chapters (and their scenes)
 from 0** (2026-10-01: chapter 0 = a season's prologue, `chapter:catpope:0:<l>`, file `chapter0.json`, `ref.src`
@@ -135,7 +136,18 @@ en 2025-12-01 – a translation is released later), **`status`** (the library ga
   versions imported separately.
 
 **Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
-in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API).
+in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API). The map's
+discoveries are one **world** state for every toon under the reserved id `scutoons` (`/api/progress/scutoons/`, localStorage
+`scutoons_game_scutoons`): its `map` (places, routes, positions) merges as sets on the server and in the viewer
+(`mergeMapState`), the rest is last-write-wins (agents/MAP.md §2.4, §8.2).
+
+**The world map (2026-10-01, branch `map`, agents/MAP.md §8):** entity `map` (`WorldMap`: width, height, layers, places
+with `{ de, en }` names, toons, `hidden` + `unlock { toon, chapter, at, slice, scene }`, card `chapter`, image; routes with
+place / free waypoints and a style), seed `scutoons/_/map.json`, migrated by `shared/content/scripts/migrate-map.ts` from
+catpope's `locations.json` / `routes.json` (every value kept – `entities-compare.php` proves it). The toon entry's `map` is
+only the start view `{ center?, zoom? }` (set in the builder). The library computes the bundle's old `locations` / `routes` /
+`toon.map` from the world for older viewer builds; the new reader reads `GET /library/map?locale=&toon=` (places and routes
+of readable toons, names resolved, `view { center, zoom, color }` – the sea is the toon's colour).
 
 **Migration `2026-09-30-entity-keys`** (MySQL + SQLite, idempotent, dated after `content-versions`): creates
 `entity_versions` and copies every `content_versions` row with the **same id** (history, "v71" labels, drafts stay) and
@@ -152,7 +164,8 @@ the server's `Console\ContentFiles` (`import-content`, `export-content`). Legacy
 **Library** (public GETs, readers; `LibraryController`): `/api/library/toons` · `/library/toons/<toon>?locale=`
 (`ToonBundle`: entry, settings, every `SeasonOverview`, map) · `/seasons/<n>` · `/chapters/<n>` (scenes inlined) ·
 `/cast[?chapter=]` (registry reduced to the cast + `cast:<toon>`; resolve with `resolveCast`) · `/credits`
-(credits, referenced people, roles) · `/library/characters` (whole registry, avatar bodies) · `/api/events/`.
+(credits, referenced people, roles) · `/library/characters` (whole registry, avatar bodies) · `/library/map?locale=&toon=`
+(the world map, agents/MAP.md) · `/api/events/`.
 - Locale `?locale=`, per-document fallback to the source language (`Content-Language`, `X-Content-Fallback`).
 - Visibility on the server (the viewer's rules): `403 coming_soon { chapter }`, `403 not_public`, draft toon `404`;
   `CONTENT_SHOW_DRAFTS=1` locally. `?draft=1` (role creator) = newest versions, no gates, `private, no-store`.
