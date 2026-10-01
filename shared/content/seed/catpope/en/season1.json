@@ -17,6 +17,12 @@
 		{ "name": "Westbahnstudios", "logo": "images/supporters/westbahnstudios.svg" },
 		{ "name": "Künstlerhof Frohnau", "logo": "images/supporters/kuenstlerhof-frohnau.svg" }
 	],
+	"trailer": {
+		"loop": "videos/s1-trailer-loop.1280w.mp4",
+		"sources": [{ "src": "videos/s1-trailer-loop.1920w.mp4", "media": "(min-width: 1600px)" }],
+		"poster": "images/s1-trailer-poster.webp",
+		"chapter": 0
+	},
 	"credits": {
 		"artist": ["Mandy Mozart", "Thomas Dalby"],
 		"writer": "Mandy Mozart",

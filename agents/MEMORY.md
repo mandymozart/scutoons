@@ -1126,3 +1126,32 @@ character, persona, look and mood and doubles as the VN test bed.
   1600 px → 1080p, and the test user as a member (finished checkpoint reaches `/api/progress/catpope`, the member's
   previous server progress is PUT back). Chrome flags `--autoplay-policy=no-user-gesture-required --mute-audio`.
 - Open for the owner: chapter 0's `release` is set to the season's 2025-10-04 (not shown for published chapters).
+
+## Toon page desktop: trailer hero, 12-column grid, menu button, menu type (2026-10-01)
+
+- **Owner:** desktop design "A · Vollbild" (artifact AYHvMG81k7CQc1JrVf4n5R, `project/Main.dc.html` as visual reference)
+  from 1024 px; phone/tablet unchanged. Then: the credits colophon in the LEFT column (below the music button), not
+  centred under the grid. Spec + sizes: DESIGN.md "Toon page desktop".
+- **Data:** `Season.trailer { loop, sources?, poster, chapter? }` (type, schema, validation incl. "chapter not in the
+  sequence" warning, creator season page section "Trailer", library passthrough test). Desktop detection in the page
+  (`matchMedia('(min-width: 1024px)')`, read synchronously so the phone never renders the hero); the hero reads
+  `prefers-reduced-motion` synchronously too – reading it in `onMount` let the `<video>` render for one frame and start
+  the loop download (caught by check-toon-hero).
+- **Loop media** (cdn/root, not in git): `videos/s1-trailer-loop.{1280w,1920w}.mp4` = 12 pieces of 2 s at
+  `i × (D − 2) / 11` (D = 474.795 s) of `roar-little-kitty.1080p.mp4`, concat, no audio, H.264 high, CRF 26, preset slow,
+  faststart, 24.16 s, 3.8 MB / 8.0 MB; poster `images/s1-trailer-poster.webp` (1920 × 1012, frame at 1 s: the title over
+  the city, q82). Piece 2 (≈ 43 s) is black in the source – kept, the spec says evenly spread.
+- **Icons on the hero:** `html.on-hero` (hero bottom > 64 px) + global rules in `viewer/static/css/styles.css`
+  (scoped component classes keep their names, `html.on-hero .x` out-specifies `.x.svelte-…`).
+- **Menu:** `main-menu.svelte` menu button (z 1002, under the open slide-out 1003, so it never covers the language
+  buttons); the toggles moved one slot left. Menu type before → after (computed): toon names + "Anmelden" 16 px vs the
+  rest 24 / 14 px → all `--type-button-size` (24 px desktop, 14 px phone), line-height 1. Screenshots
+  `menu-before-*.png` / `menu-after-*.png` (scratchpad).
+- **Check:** `node scripts/check-toon-hero.mjs [--shots=<dir>]` – 1440×900, 1280×800, 1024×768 de + en and 1920×1080 en:
+  hero box, muted/loop/playsinline, plays, exactly one loop file in the network log (requests filtered by the current
+  document's `loaderId`), buttons + hrefs + inverted start button, icons white on / ink below, pause offscreen + in a
+  hidden tab (`visibilityState` overridden) and resume, grid columns, colophon inside the season column, 112 × 72
+  thumbnails, "Prolog" right-aligned; reduced motion = poster, no request; 390 / 768 no hero, no request, colophon at
+  the bottom; the menu button at 1440 / 390 on the toon page and the home page + one font size; the test user's
+  synced progress → "S1 K1 lesen" / "S1 K1 weiterlesen" + rule (previous server progress restored). Gotcha: a visit to
+  `/en/…` writes the locale cookie, so unprefixed German pages need the cookie set per page in headless checks.

@@ -81,6 +81,29 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   text, **the start button**, the chapter list, **the season's music** (a secondary button "Musik herunterladen" /
   "Download the music" → `/<toon>/download`, only when `season.download.music` is set), **the credits colophon**.
   Chapters are named only in the chapter list (never in the music or the colophon).
+- **Toon page desktop** (≥ 1024 px, owner 2026-10-01, reference: artboard "A · Vollbild" of
+  https://claude.ai/artifact/AYHvMG81k7CQc1JrVf4n5R; phones and tablets keep the single column above):
+  - **Hero** (`toon/hero.svelte`) = the first screen, `min(100vh, 900px)`, full-bleed: the season's trailer loop
+    (`Season.trailer`: muted, looping, `playsinline`; plays only while the hero is on screen and the tab visible; with
+    reduced motion the poster `<img>` only, no video download) under a flat `rgb(0 0 0 / 0.45)` scrim, no gradient.
+    Bottom left in paper: the season line in capitals ("STAFFEL 1 · DAS ERWACHEN", `hero.season`, 0.5833rem, 0.08em
+    tracking), the toon title (3.3333rem ≈ 80 px), the tagline (toon description, 0.8333rem), then the start button
+    **inverted** (paper bg, ink text, every state + its progress rule in paper) and "Trailer ansehen ▶" / "Watch the
+    trailer ▶" (2px paper outline) → the trailer chapter (`trailer.chapter`, default 0 = the prologue). Bottom right:
+    "Ton an" / "Sound on" (2px outline at 60 % white, small) → the same chapter; the loop itself is never unmuted.
+    Without a trailer the cover is the background and the trailer buttons are left out.
+  - While the hero is under the fixed top bar `html.on-hero` turns the logo and the round icon toggles white
+    (transparent, paper border, inverted icon; viewer `static/css/styles.css`), ink again below it.
+  - **Below:** a 12-column grid (max 75rem, gutters 1.3333rem, 2rem sides): cols 1–5 the season heading (1.3333rem),
+    the season text, "Musik herunterladen" (secondary), then the **credits colophon** (its own centred fine print within
+    the column, ≈ 13 px); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
+    112 × 72 (cover), title 0.75rem (+ the progress rule 5.3333rem / the coming-soon line in caption), "#n" / "Prolog"
+    right-aligned, coming soon at 50 %. Published rows show no date.
+- **Top-right icon group (all widths, all pages):** the menu button (round 2rem = 48 px at the desktop root, 3-line icon
+  `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and opens the same slide-out as the logo; on
+  toon pages inventory, map and chapter list follow to its left (3rem / 5.5rem / 8rem from the right). The slide-out's
+  entries all use the `button` type (`--type-button-size` / `--type-button-line`, rem-based; the toon names and
+  "Anmelden" were hard 16 px before).
 - **Start button** (`toon/start-button.svelte`, like Prime Video's "▶ S1 F1 wiedergeben" but reading): the primary
   button (ink / paper, square, `button` type) as a link to the chapter, a 16 px forward arrow (2px stroke, square caps,
   `currentColor`; not a play triangle – it navigates) + the label from paraglide `start.*`: de "S1 K1 lesen" /

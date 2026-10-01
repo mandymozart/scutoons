@@ -76,6 +76,12 @@ file, no density variants), thumbnail `images/s1c0-thumbnail.webp` (202 × 142 l
 statements changed (old rows keep their timestamps). The seed is idempotent per key: on a database where
 `season:catpope:1:*` already exists the new season version must be imported separately.
 
+**Season trailer (2026-10-01, owner):** `Season.trailer { loop, sources?, poster, chapter? }` – the toon page's
+desktop hero loop (DESIGN.md "Toon page desktop"), language-neutral like `download` (the creator's season page writes it
+to every locale; library passthrough tested in `LibraryTest`). catpope season 1: `videos/s1-trailer-loop.1280w.mp4` +
+`1920w` for `(min-width: 1600px)`, poster `images/s1-trailer-poster.webp`, chapter 0. Seed + store (new published
+`season:catpope:1:{de,en}`), the seed SQL's season statements carry it.
+
 **Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
 in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API).
 
