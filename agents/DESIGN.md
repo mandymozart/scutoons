@@ -346,7 +346,7 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   Every crumb is a link. The structure never changes between pages, only the depth (fixed 64 px; the middle crumbs
   shrink first, "Creator" and the current level stay whole; burger for the sidebar below 768 px).
 - **Left sidebar = the children of the current level:** home → toons; toon (and its cast / credits / settings) →
-  seasons + Cast + Credits + Toon settings; season → its chapters with the status per language; chapter → Meta,
+  seasons + Cast + Credits + Script + Toon settings; season → its chapters with the status per language; chapter → Meta,
   Audio, groups → slices (the chapter tree); draft preview → its groups. A leaf page shows its siblings with the
   current one marked. The **Universe** section (Characters, Moods, Wanted images) is pinned to the bottom of the
   sidebar on every page.
@@ -376,3 +376,25 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
 Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route crumbs from the root layout, `extra`
 crumbs + `sidebar` + `fill` registered by a page with `usePageNav`), root layout = `AppShell` with the top bar and
 sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every ActionBar.
+
+### Creator: script page (owner 2026-10-01)
+
+`/<toon>/script` – "Drehbuch" / "Script" in the toon's sidebar between Credits and Toon settings (DATA.md "Script").
+- **One big text per language**: a plain `<textarea>` in IBM Plex Mono 13/20 px, `white-space: pre`, `wrap="off"` (line n
+  = row n, horizontal scroll instead of wrapping), spellcheck off, as wide as the content column, `tab-size: 4`. Tab
+  inserts 4 spaces (the format counts spaces), Shift+Tab removes up to 4 leading spaces, **Esc then Tab** leaves the
+  text (keyboard users); edits go through the browser's own command so Ctrl+Z inside the text works.
+- **Language switch** above the text: one button per toon language, the source marked "· Quelle"/"· source", "•" when
+  unsaved. A missing translation shows "Start empty" / "Copy the de script" (no "create locale" bars: the page's
+  MetaPage has `translationsOptional`). A toon without a script opens with an empty, clean (not dirty) source text.
+- **Title page**: a collapsed block with the 6 meta fields (per language, text).
+- **Bottom bar**: the normal MetaPage ActionBar (Save draft, Publish, History with restore, undo/redo, problems, note).
+- **Outline** (left, sticky, own scroll): chapters (bold, "Kapitel 1 · DENIAL"), their scenes (number + heading, one
+  line, ellipsis) and songs (italic); a click puts the cursor at the line and scrolls it to the top; the item the cursor
+  is in is marked. Below it a collapsible **Format rules** panel (also in the Info panel): a summary of the screenplay
+  editor's Writing Guide + a link to its README.
+- **Performance** (1–2k lines): the textarea is the working copy; it is written into the doc 300 ms after the last
+  keystroke (and before save / publish / language switch / outline jump / blur), so a keystroke never copies,
+  stringifies, validates or parses the whole text. Measured on the 1834-line Cat Pope script: one frame per keystroke
+  (~17 ms round trip headless), no long tasks.
+- Check: `npm run check:creator-script` (SCUTOONS_API / SCUTOONS_CREATOR for other ports).

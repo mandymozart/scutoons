@@ -180,6 +180,28 @@ try {
     $r = call('GET', "$api/events/");
     check(in_array($r['status'], [200, 404], true) && ($r['status'] === 404 ? $r['body']['error'] === 'not_found' : is_array($r['body'])), 'events: the stored list (or 404 before the seed)', $r['status']);
 
+    echo "\nScript (the screenplay: creator only, never in the library)\n";
+    $scriptText = "    # 1. Kapitel\n\n    # GEHEIM\n\n1   INT. KÜCHE - NACHT\n\n                            PLF\n                MAMA!  \n\tTab\n";
+    $scriptKey = "$api/entities/script:$toon:de";
+    $before = call('GET', $lib);
+    store('script:de', ['text' => $scriptText, 'meta' => ['title' => 'Drehbuch', 'status' => 'ENTWURF']]);
+    $r = call('GET', $scriptKey);
+    check($r['status'] === 401, 'script without session → 401', $r['status']);
+    $r = call('GET', $scriptKey, null, $memberToken);
+    check($r['status'] === 403 && $r['body']['error'] === 'forbidden', 'script as member → 403', $r);
+    $r = call('PUT', $scriptKey, ['content' => ['text' => 'x']], $memberToken);
+    check($r['status'] === 403, 'members cannot write a script', $r['status']);
+    $r = call('GET', $scriptKey, null, $creatorToken);
+    check($r['status'] === 200 && ($r['body']['text'] ?? null) === $scriptText && ($r['body']['meta']['title'] ?? null) === 'Drehbuch', 'creator reads the published script, text exactly as saved', $r['raw']);
+    $r = call('GET', "$lib/script");
+    check($r['status'] === 404, 'no library endpoint for scripts', $r['status']);
+    $after = call('GET', $lib);
+    check($after['status'] === 200 && !str_contains($after['raw'], 'GEHEIM') && ($after['headers']['etag'] ?? 'a') === ($before['headers']['etag'] ?? 'b'),
+        'the toon bundle is unchanged by a script publish (no text, same ETag)', [$before['headers']['etag'] ?? null, $after['headers']['etag'] ?? null]);
+    $r = call('GET', "$lib?draft=1", null, $creatorToken);
+    check($r['status'] === 200 && !str_contains($r['raw'], 'GEHEIM'), 'not in the creator draft bundle either');
+    check(call('GET', "$api/entities/script:$toon", null, $creatorToken)['status'] === 400, 'a script key needs its locale (scripts are per toon and language)');
+
     echo "\nToon visibility\n";
     store('toon', ['id' => $toon, 'status' => 'draft', 'languages' => ['de', 'en']]);
     $r = call('GET', "$lib/chapters/1");

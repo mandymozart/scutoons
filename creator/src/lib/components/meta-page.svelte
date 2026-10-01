@@ -29,6 +29,7 @@
 		wide = false,
 		actions,
 		help,
+		translationsOptional = false,
 		children
 	}: {
 		/** the toon of the page ('' for platform-wide pages like Characters) */
@@ -45,6 +46,8 @@
 		actions?: Snippet;
 		/** the page's help in the ActionBar's Info panel */
 		help: HelpPage;
+		/** a missing translation is no problem (the script: the page offers to start one itself) – no "create" bars */
+		translationsOptional?: boolean;
 		children: Snippet;
 	} = $props();
 
@@ -196,7 +199,7 @@
 
 	const recoverables = $derived(docs.filter((d) => d.recoverable));
 	const missingLocales = $derived(
-		docs.flatMap((d) => (d.loading || d.data[d.primary] == null ? [] : d.locales.filter((l) => l !== d.primary && d.data[l] == null).map((l) => ({ doc: d, locale: l }))))
+		translationsOptional ? [] : docs.flatMap((d) => (d.loading || d.data[d.primary] == null ? [] : d.locales.filter((l) => l !== d.primary && d.data[l] == null).map((l) => ({ doc: d, locale: l }))))
 	);
 </script>
 

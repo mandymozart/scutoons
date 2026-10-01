@@ -335,6 +335,21 @@ final class LibraryTest extends TestCase
         self::assertSame('scene de v2', self::decode($after->body)['groups'][0]['label']);
     }
 
+    /** The screenplay (creator material) is never in a library answer and saving it changes no reader cache key */
+    public function testScriptsAreNeverInTheLibrary(): void
+    {
+        $this->seedToon();
+        $answers = fn(bool $draft) => [$this->library()->toon('t', 'de', $draft), $this->library()->chapter('t', 1, 'de', $draft), $this->library()->season('t', 1, 'de', $draft)];
+        $before = array_map(fn($a) => [$a->etag, $a->body], $answers(false));
+        $this->doc('t', 'de', 'script.json', ['text' => "    # 1. Kapitel\nGEHEIMES DREHBUCH\n", 'meta' => ['title' => 'Geheim']]);
+        $this->doc('t', 'en', 'script.json', ['text' => 'SECRET SCREENPLAY'], false);
+        self::assertSame($before, array_map(fn($a) => [$a->etag, $a->body], $answers(false)), 'same answers and cache keys after a script publish');
+        foreach ([...$answers(false), ...$answers(true)] as $answer) {
+            self::assertStringNotContainsString('GEHEIM', $answer->body);
+            self::assertStringNotContainsString('SECRET', $answer->body);
+        }
+    }
+
     public function testEvents(): void
     {
         try {

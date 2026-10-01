@@ -13,6 +13,7 @@ import {
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import { DEFAULT_SLICE, TOON_NEUTRAL_FIELDS } from './content.ts';
+import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 
 export type Level = 'error' | 'warning' | 'info';
@@ -509,6 +510,18 @@ function checkToonIndex(c: Collector, t: any) {
 	}
 }
 
+/** A toon's screenplay (`ToonScript`, entity `script:<toon>:<l>`): `{ text, meta? }`, the text is kept exactly as typed */
+function checkScript(c: Collector, s: any) {
+	if (!isObj(s)) return c.error([], 'script must be { text, meta? }');
+	if (!isStr(s.text)) c.error(['text'], 'text must be a string (the whole screenplay)');
+	if (s.meta === undefined) return;
+	if (!isObj(s.meta)) return c.error(['meta'], 'meta must be { title?, author?, status?, date?, basedOn?, basedOnFrom? }');
+	for (const [key, value] of Object.entries(s.meta)) {
+		if (!(SCRIPT_META_FIELDS as readonly string[]).includes(key)) c.warn(['meta', key], `meta.${key} is not a script field (${SCRIPT_META_FIELDS.join(', ')})`);
+		else if (value !== undefined && !isStr(value)) c.error(['meta', key], `meta.${key} must be text`);
+	}
+}
+
 /** A CSS colour as the registry writes them: a name (`blue`, `darkgreen`) or a hex colour */
 const CSS_COLOR = /^(?:[a-z]+|#[0-9a-f]{3}|#[0-9a-f]{6})$/i;
 
@@ -543,7 +556,9 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 	else if (kind === 'season') checkSeason(c, data, locale);
 	else if (kind === 'toon') checkToon(c, data, locale);
 	else if (kind === 'index') checkToonIndex(c, data);
-	checkMediaLocale(c, data);
+	else if (kind === 'script') checkScript(c, data);
+	// a screenplay is plain text, no media paths
+	if (kind !== 'script') checkMediaLocale(c, data);
 	return c.problems;
 }
 
@@ -592,6 +607,10 @@ export function validateLocales(kind: string, file: string, files: Record<string
 				const numbers = (file: any) => (file?.sequence ?? []).map((i: any) => Number(i?.number)).sort((a: number, b: number) => a - b).join(',');
 				if (numbers(source) !== numbers(data)) add('warning', locale, ['sequence'], `${locale} season lists chapters ${numbers(data) || '–'}, ${primary} lists ${numbers(source) || '–'}`);
 			}
+		} else if (kind === 'script') {
+			// a translation may be partial (it grows scene by scene); only an empty one is worth a note
+			if (textOf(source.text).trim() && !textOf(data.text).trim()) add('info', locale, ['text'], `the ${locale} script is empty`);
+			continue;
 		} else if (kind === 'group') {
 			const sa = source.slices ?? [];
 			const sb = data.slices ?? [];

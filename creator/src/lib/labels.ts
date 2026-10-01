@@ -20,7 +20,8 @@ export function fileLabel(key: string): string {
 		cast: m['creator.cast'](),
 		credits: m['creator.credits'](),
 		people: m['creator.credits_tab_people'](),
-		roles: m['creator.credits_tab_roles']()
+		roles: m['creator.credits_tab_roles'](),
+		script: m['creator.script']()
 	});
 }
 

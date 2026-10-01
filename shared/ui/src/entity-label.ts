@@ -22,6 +22,8 @@ export interface EntityLabels {
 	/** the map (locations, routes) */
 	map: string;
 	events: string;
+	/** the toon's screenplay (one per language, creator only) */
+	script: string;
 }
 
 export const ENTITY_LABELS: EntityLabels = {
@@ -38,7 +40,8 @@ export const ENTITY_LABELS: EntityLabels = {
 	people: 'People',
 	roles: 'Roles',
 	map: 'Map',
-	events: 'Events'
+	events: 'Events',
+	script: 'Script'
 };
 
 const NAMED: Record<string, keyof EntityLabels> = {
@@ -53,7 +56,8 @@ const NAMED: Record<string, keyof EntityLabels> = {
 	roles: 'roles',
 	locations: 'map',
 	routes: 'map',
-	events: 'events'
+	events: 'events',
+	script: 'script'
 };
 
 /** `chapter:catpope:2` → "Chapter 2", `season:catpope:1:de` → "Season 1", `scene:catpope:2:scene-14` → "Scene 14" … */
