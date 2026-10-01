@@ -176,6 +176,22 @@ async function basics(who, w) {
 	}
 	await shot(`${who}-${w}-3-pants-back`);
 	report(`${who} ${w}: shorts off while hidden → the swim pants come back on`, p3);
+
+	// the item detail ("Anziehen" / "Ausziehen") swaps the same way
+	const p3b = [];
+	await clickEl(tab(0));
+	await clickEl(`[...document.querySelectorAll('.inventory .item')].find((b) => b.querySelector('.name')?.textContent.trim() === ${JSON.stringify(nameOf('scutoons_shorts'))})`);
+	const detailBtn = `[...document.querySelectorAll('.item-detail .actions button')].find((b) => b.textContent.trim() === %s)`;
+	await clickEl(detailBtn.replace('%s', JSON.stringify(de.items.put_on)));
+	const n1 = await waitFor(`document.querySelector('[data-testid="item-note"]')?.textContent.trim()`);
+	if (n1 !== fill(de.items.returned, { name: nameOf('scutoons_swim_pants') })) p3b.push(`put on: note "${n1}"`);
+	if (!(await waitFor(`document.querySelector('[data-testid="item-worn"]')`))) p3b.push('the detail does not say "angezogen"');
+	await shot(`${who}-${w}-3b-detail`);
+	await clickEl(detailBtn.replace('%s', JSON.stringify(de.items.take_off)));
+	const n2 = await waitFor(`(() => { const t = document.querySelector('[data-testid="item-note"]')?.textContent.trim(); return t && t !== ${JSON.stringify(n1)} ? t : null; })()`);
+	if (n2 !== fill(de.items.restored, { name: nameOf('scutoons_swim_pants') })) p3b.push(`take off: note "${n2}"`);
+	report(`${who} ${w}: item detail – Anziehen swaps, Ausziehen brings the swim pants back`, p3b);
+	await clickEl(`document.querySelector('.item-detail .btn-back')`);
 }
 
 const widths = [390, 1440].filter((w) => !opt.only || String(opt.only) === String(w));
