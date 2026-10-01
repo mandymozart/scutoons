@@ -27,14 +27,38 @@
 		e?.stopPropagation();
 		menuOpen = !menuOpen;
 		if (menuOpen) {
-			// keyboard users land on the first entry (the first toon)
+			// keyboard users land on the first toon
 			await tick();
-			menuElement?.querySelector<HTMLElement>('.nav-btn')?.focus();
+			(menuElement?.querySelector<HTMLElement>('.nav--toons .nav-btn') ?? menuElement?.querySelector<HTMLElement>('.nav-btn'))?.focus();
 		}
 	}
 
 	function closeMenu() {
 		menuOpen = false;
+	}
+
+	// drag to close (owner 2026-10-01): a touch/pen swipe to the right follows the finger and closes past a threshold;
+	// there is no swipe to open (it would clash with the horizontal slide reader in chapters)
+	let drag = $state<{ x: number; y: number; dx: number; id: number; horizontal: boolean | null } | null>(null);
+	const CLOSE_AT = 80;
+
+	function dragStart(e: PointerEvent) {
+		if (!menuOpen || e.pointerType === 'mouse') return;
+		drag = { x: e.clientX, y: e.clientY, dx: 0, id: e.pointerId, horizontal: null };
+	}
+	function dragMove(e: PointerEvent) {
+		if (!drag || e.pointerId !== drag.id) return;
+		const dx = e.clientX - drag.x;
+		const dy = e.clientY - drag.y;
+		// decide once: a mostly horizontal gesture drags the menu, a vertical one scrolls it
+		if (drag.horizontal === null && Math.abs(dx) + Math.abs(dy) > 8) drag.horizontal = Math.abs(dx) > Math.abs(dy);
+		if (drag.horizontal) drag.dx = Math.max(0, dx);
+	}
+	function dragEnd(e: PointerEvent) {
+		if (!drag || e.pointerId !== drag.id) return;
+		dragMove(e);
+		if (drag.horizontal && drag.dx > CLOSE_AT) closeMenu();
+		drag = null;
 	}
 
 	onClickOutside(
@@ -82,23 +106,14 @@
 		bind:this={menuElement}
 		id="main-menu"
 		class={`menu ${menuOpen ? 'open' : 'closed'}`}
+		class:dragging={!!drag?.horizontal}
+		style:transform={drag?.horizontal && drag.dx > 0 ? `translateX(${drag.dx}px)` : undefined}
 		inert={!menuOpen}
+		onpointerdown={dragStart}
+		onpointermove={dragMove}
+		onpointerup={dragEnd}
+		onpointercancel={dragEnd}
 	>
-		<!-- the toons first -->
-		<nav class="nav nav--toons" aria-label={m['menu.toons']()}>
-			<ul class="nav-list">
-				{#each toons as toon}
-					<li class="nav-item">
-						<a class="nav-btn" href={localizeHref('/' + toon.id)} onclick={closeMenu}>
-							<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
-							<span class="name">
-								{toon.i18n[getLocale()].name}
-							</span>
-						</a>
-					</li>
-				{/each}
-			</ul>
-		</nav>
 		<div class="menu-header">
 			<nav class="nav nav--account" aria-label={m['account.my_account']()}>
 				<ul class="nav-list">
@@ -126,6 +141,21 @@
 				</ul>
 			</nav>
 		</div>
+		<!-- the toons, under account + language (owner 2026-10-01) -->
+		<nav class="nav nav--toons" aria-label={m['menu.toons']()}>
+			<ul class="nav-list">
+				{#each toons as toon}
+					<li class="nav-item">
+						<a class="nav-btn" href={localizeHref('/' + toon.id)} onclick={closeMenu}>
+							<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
+							<span class="name">
+								{toon.i18n[getLocale()].name}
+							</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</nav>
 		<nav class="nav nav--home">
 			<ul class="nav-list">
 				{#if !isValid}
@@ -319,5 +349,12 @@
 	}
 	.menu.open {
 		transform: translateX(0);
+	}
+	/* follows the finger while dragged to close; vertical scrolling inside the menu stays native */
+	.menu {
+		touch-action: pan-y;
+	}
+	.menu.dragging {
+		transition: none;
 	}
 </style>

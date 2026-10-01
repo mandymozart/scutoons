@@ -231,19 +231,20 @@ for (const [w, h] of [[1440, 900], [390, 844]]) for (const [l, path] of [['de', 
 	await shot(`menu-${w}-${l}${path.replace(/\//g, '-')}`);
 }
 
-// the slide-out: the toons first, no "SCUTOONS" entry; closed = inert; opens on the first toon, Escape → back to the
+// the slide-out: account + language, then the toons, no "SCUTOONS" entry; closed = inert; opens on the first toon, Escape → back to the
 // menu button; the logo is the link to the landing page (never opens the menu)
 const MENU_ORDER = `(() => {
 	const menu = document.getElementById('main-menu');
 	const entries = [...menu.querySelectorAll('.nav-btn')];
-	const first = entries[0];
+	// the toons sit under the account + language header (owner 2026-10-01); focus goes to the first toon
+	const first = menu.querySelector('.nav--toons .nav-btn');
 	const toggle = document.querySelector('[data-testid="menu-toggle"]');
 	const logo = document.querySelector('[data-testid="logo-link"]');
 	return {
 		open: menu.classList.contains('open'), inert: menu.inert,
 		controls: toggle?.getAttribute('aria-controls'), expanded: toggle?.getAttribute('aria-expanded'),
 		first: first ? { tag: first.tagName, href: first.getAttribute('href'), text: first.textContent.trim(), toon: !!first.closest('.nav--toons') } : null,
-		toonsFirst: !!menu.firstElementChild?.matches('.nav--toons'),
+		toonsFirst: !!menu.firstElementChild?.matches('.menu-header') && !!menu.firstElementChild?.nextElementSibling?.matches('.nav--toons'),
 		scutoonsEntry: entries.some((e) => e.textContent.trim().toUpperCase() === 'SCUTOONS'),
 		focusFirst: document.activeElement === first,
 		focusToggle: document.activeElement === toggle,
@@ -279,7 +280,7 @@ for (const [w, h] of [[1440, 900], [390, 844]]) for (const l of ['de', 'en']) {
 	await evaluate(`document.querySelector('[data-testid="logo-link"]').click(), true`);
 	const landed = await waitFor(`(() => { const path = location.pathname; return ${JSON.stringify(home)}.includes(path) ? { path, open: document.getElementById('main-menu').classList.contains('open') } : null; })()`, 6000);
 	if (!landed || landed.error || landed.open) p.push(`logo click → ${JSON.stringify(landed ?? (await evaluate('location.pathname')))}`);
-	report(`${w} ${l}: menu = toons first, no "SCUTOONS" entry, inert when closed, focus on the first toon, Escape → menu button; logo → the landing page`, p);
+	report(`${w} ${l}: menu = account/language, then toons, no "SCUTOONS" entry, inert when closed, focus on the first toon, Escape → menu button; logo → the landing page`, p);
 }
 
 // the record beside the music button (season.download.image): desktop left of the button in the season column, phone /
