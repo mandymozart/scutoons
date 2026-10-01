@@ -88,6 +88,18 @@ try {
     $r = call('OPTIONS', "$api/users/x/roles/creator", null, null, ['Origin: http://localhost:11000', 'Access-Control-Request-Method: DELETE']);
     check($r['status'] === 204 && ($r['headers']['access-control-allow-origin'] ?? '') === 'http://localhost:11000'
         && str_contains($r['headers']['access-control-allow-methods'] ?? '', 'DELETE'), 'CORS preflight from the admin app (DELETE allowed)', $r['headers']);
+    // single sign-on (docs/API.md): the session cookie works like the Bearer token, the admin role check is unchanged
+    $adminApp = ['Origin: http://localhost:11000'];
+    check(($r['headers']['access-control-allow-credentials'] ?? '') === 'true', 'CORS preflight allows credentials (session cookie)', $r['headers']);
+    $r = call('GET', "$api/roles", null, null, array_merge($adminApp, ["Cookie: scutoons_sid=$adminToken"]));
+    check($r['status'] === 200, 'admin with the session cookie → 200', $r);
+    $r = call('GET', "$api/codes", null, null, array_merge($adminApp, ["Cookie: scutoons_sid=$memberToken"]));
+    check($r['status'] === 403 && $r['body']['role'] === 'admin', 'member with the session cookie → 403 forbidden { role: admin }', $r);
+    $r = call('PUT', "$api/settings", ['scan_limit_per_hour' => 7], null, ['Origin: https://evil.example', "Cookie: scutoons_sid=$adminToken"]);
+    check($r['status'] === 403 && $r['body']['error'] === 'csrf_rejected', 'admin cookie from a foreign Origin → 403 csrf_rejected (nothing written)', $r);
+    $r = call('GET', "$api/settings", null, $adminToken);
+    $scan = array_values(array_filter($r['body']['items'] ?? [], fn($i) => $i['key'] === 'scan_limit_per_hour'))[0] ?? null;
+    check($scan !== null && $scan['value'] !== 7, 'the refused write changed nothing', $scan);
 
     echo "\nDashboard\n";
     $r = call('GET', "$api/dashboard?days=7", null, $adminToken);

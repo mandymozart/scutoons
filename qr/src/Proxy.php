@@ -11,7 +11,12 @@ namespace Qr;
  */
 final class Proxy
 {
-    /** Request headers never forwarded: hop-by-hop, the host, compression (the body must stay identical), cookies */
+    /**
+     * Request headers never forwarded: hop-by-hop, the host, compression (the body must stay identical), cookies – except
+     * the API's single sign-on cookie (SESSION_COOKIE), which goes along alone: during the transition the apps call
+     * the API through this proxy (qr.scutoons.com/api), and the cookie (Domain=scutoons.com, Path=/api) is theirs.
+     */
+    public const SESSION_COOKIE = 'scutoons_sid';
     private const DROP_REQUEST = ['host', 'connection', 'keep-alive', 'proxy-authorization', 'proxy-connection', 'te',
         'trailer', 'transfer-encoding', 'upgrade', 'content-length', 'accept-encoding', 'cookie', 'expect'];
     /** Response headers never passed back: hop-by-hop, lengths PHP computes itself, the API's server banner */
@@ -34,6 +39,8 @@ final class Proxy
             if (in_array($lower, self::DROP_REQUEST, true) || str_starts_with($lower, 'x-scutoons-')) continue;
             $headers[] = $name . ': ' . $value;
         }
+        $session = self::sessionCookie($requestHeaders);
+        if ($session !== null) $headers[] = 'Cookie: ' . self::SESSION_COOKIE . '=' . $session;
         $url = $this->config->apiUrl() . $path . ($query !== '' ? '?' . $query : '');
         $response = $this->http->request($method, $url, $headers, $body, max(1, $this->config->int('PROXY_TIMEOUT')));
         if ($response === null) {
@@ -44,6 +51,22 @@ final class Proxy
         $response['headers'] = array_values(array_filter($response['headers'],
             static fn(array $h): bool => !in_array(strtolower($h[0]), self::DROP_RESPONSE, true)));
         return $response;
+    }
+
+    /**
+     * The well-formed value of the single sign-on cookie in the request's Cookie header, or null
+     * @param array<string, string> $requestHeaders
+     */
+    public static function sessionCookie(array $requestHeaders): ?string
+    {
+        foreach ($requestHeaders as $name => $value) {
+            if (strtolower((string) $name) !== 'cookie') continue;
+            foreach (explode(';', $value) as $pair) {
+                [$key, $cookie] = array_pad(explode('=', trim($pair), 2), 2, '');
+                if ($key === self::SESSION_COOKIE && preg_match('/^[A-Za-z0-9_-]{20,128}$/', $cookie)) return $cookie;
+            }
+        }
+        return null;
     }
 
     /** @return array<string, string> the incoming request headers (Apache, FastCGI and php -S) */

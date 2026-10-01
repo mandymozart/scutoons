@@ -10,7 +10,7 @@ use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Ids;
 
 /**
- * Session tokens (Bearer). Only the SHA-256 of a token is stored. A session ends after SESSION_TTL_DAYS without use;
+ * Session tokens (Bearer header or the single sign-on cookie, Http\SessionCookie). Only the SHA-256 of a token is stored. A session ends after SESSION_TTL_DAYS without use;
  * last_used_at is refreshed at most hourly.
  */
 final class Sessions
@@ -56,6 +56,13 @@ final class Sessions
     {
         $this->db->run('DELETE FROM sessions WHERE token_hash = ?', [hash('sha256', $token)]);
         unset($this->cache[$token]);
+    }
+
+    /** Ends every session of an account ("sign out on all devices") */
+    public function endAll(string $userId): void
+    {
+        $this->db->run('DELETE FROM sessions WHERE user_id = ?', [$userId]);
+        $this->cache = [];
     }
 
     /** `Authorization: Bearer <token>` header value → the token, or null when missing/malformed */

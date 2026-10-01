@@ -12,7 +12,8 @@ use Scutoons\Http\CurrentSession;
 
 /**
  * Route guard: the signed-in user must have the role – no session → 401 unauthorized, without the role → 403
- * forbidden { role }. The user is passed on as the request attribute `user`.
+ * forbidden { role } (403 csrf_rejected for a session cookie from a foreign origin). The user is passed on as the request
+ * attribute `user`.
  */
 final class RequireRole implements MiddlewareInterface
 {
@@ -22,7 +23,9 @@ final class RequireRole implements MiddlewareInterface
 
     public function process(Request $request, Handler $handler): Response
     {
-        $user = $this->roles->require(CurrentSession::of($request)->user(), $this->role);
+        $session = CurrentSession::of($request);
+        $session->rejectCsrf();
+        $user = $this->roles->require($session->user(), $this->role);
         return $handler->handle($request->withAttribute('user', $user));
     }
 }
