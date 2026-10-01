@@ -30,7 +30,9 @@
 		trailerChapter === null ? undefined : sequence.find((i) => i.number === trailerChapter && isItemPublic(i, import.meta.env.DEV))
 	);
 	const trailerHref = $derived(trailerItem ? localizeHref(`/${toonId}/chapter/${trailerItem.number}`) : null);
-	const poster = $derived(asset(`${toonId}/${trailer?.poster || toon.cover?.square || ''}`));
+	// the hero sets the title itself, so the cover is the bare artwork here (no CoverArt lettering); no image → just ink
+	const posterPath = $derived(trailer?.poster || toon.cover?.square || '');
+	const poster = $derived(posterPath ? asset(`${toonId}/${posterPath}`) : undefined);
 
 	let hero = $state<HTMLElement | null>(null);
 	let video = $state<HTMLVideoElement | null>(null);
@@ -115,7 +117,7 @@
 			{/each}
 			<source src={asset(`${toonId}/${trailer.loop}`)} type="video/mp4" />
 		</video>
-	{:else}
+	{:else if poster}
 		<img class="hero-media" src={poster} alt="" />
 	{/if}
 	<div class="scrim"></div>

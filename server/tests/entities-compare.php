@@ -124,7 +124,7 @@ $index = file_json("$static/toons.json") ?? [];
 // the language-neutral toon settings live in the index entry (owner 2026-10-01, @scutoons/content TOON_NEUTRAL_FIELDS):
 // the list keeps only the `tile` of them (+ `announced` for an unpublished toon with `announce: true`); the bundle merges
 // them into the locale's settings and its `entry` is the index entry without them
-$neutral = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'];
+$neutral = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile', 'cover'];
 $withoutNeutral = function (array $t) use ($neutral): array {
     foreach ($neutral as $field) unset($t[$field]);
     return $t;

@@ -13,6 +13,7 @@ import {
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import { DEFAULT_SLICE, TOON_NEUTRAL_FIELDS } from './content.ts';
+import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -383,6 +384,14 @@ function checkImagePath(c: Collector, value: unknown, path: Path, required = fal
 	else if (!/\.(jpe?g|png|webp|gif|svg)$/i.test(value)) c.warn(path, `${path.join('.')} is not an image path (.jpg, .png, .webp, .gif, .svg)`);
 }
 
+/** `Cover` (toon entry, season): square / portrait image paths + `lettering` (the UI renders the title over text-free art) */
+function checkCover(c: Collector, cover: unknown) {
+	if (!isObj(cover)) return c.error(['cover'], 'cover must be { square?, portrait?, lettering? }');
+	for (const key of ['square', 'portrait']) checkImagePath(c, cover[key], ['cover', key]);
+	if (cover.lettering !== undefined && typeof cover.lettering !== 'boolean') c.error(['cover', 'lettering'], 'cover.lettering must be true or false');
+	if (cover.lettering === true && !cover.square && !cover.portrait) c.warn(['cover', 'lettering'], 'cover.lettering is on, but there is no cover image');
+}
+
 /** season1.json: meta (Season type) + the sequence (the chapters' visibility) */
 function checkSeason(c: Collector, s: any, locale: string) {
 	if (!isObj(s)) return c.error([], 'season file must be an object');
@@ -393,10 +402,7 @@ function checkSeason(c: Collector, s: any, locale: string) {
 	if (s.release !== undefined && (!isStr(s.release) || !DATE.test(s.release))) c.error(['release'], 'release must be a date YYYY-MM-DD');
 	checkLanguage(c, s.language, locale, false);
 	checkStringList(c, s.authors, ['authors']);
-	if (s.cover !== undefined) {
-		if (!isObj(s.cover)) c.error(['cover'], 'cover must be { square?, portrait? }');
-		else for (const key of ['square', 'portrait']) checkImagePath(c, s.cover[key], ['cover', key]);
-	}
+	if (s.cover !== undefined) checkCover(c, s.cover);
 	if (s.download !== undefined) {
 		if (!isObj(s.download)) c.error(['download'], 'download must be { music?, complete?, image? }');
 		else {
@@ -456,7 +462,7 @@ function checkSeason(c: Collector, s: any, locale: string) {
 
 /**
  * toon.json (`ToonSettings`, entity `toon-settings:<toon>:<l>`): the per-language settings (title, description, release,
- * status, cover). The language-neutral ones (`TOON_NEUTRAL_FIELDS`: map, tile, announce …) belong to the index entry
+ * status). The language-neutral ones (`TOON_NEUTRAL_FIELDS`: map, tile, announce, cover …) belong to the index entry
  * `toon:<toon>` – a copy here is a warning (the reader takes the entry's), so they don't creep back per language.
  */
 function checkToon(c: Collector, t: any, locale: string) {
@@ -467,11 +473,6 @@ function checkToon(c: Collector, t: any, locale: string) {
 	checkLanguage(c, t.language, locale, true);
 	if (!isStr(t.release) || !DATE.test(t.release)) c.error(['release'], 'release must be a date YYYY-MM-DD');
 	if (!values(Status).includes(t.status)) c.error(['status'], `status must be one of ${values(Status).join(', ')}`);
-	if (!isObj(t.cover)) c.error(['cover'], 'cover must be { square?, portrait? }');
-	else {
-		checkImagePath(c, t.cover.square, ['cover', 'square'], true);
-		checkImagePath(c, t.cover.portrait, ['cover', 'portrait']);
-	}
 	if (t.download !== undefined) c.warn(['download'], 'download belongs to a season now (season.download) – the reader ignores it here');
 	for (const field of TOON_NEUTRAL_FIELDS) {
 		if (t[field] !== undefined) c.warn([field], `${field} is the same in every language: it belongs to the toon entry (toon:${t.id || '<toon>'}) – the reader ignores it here`);
@@ -485,6 +486,7 @@ function checkToonIndex(c: Collector, t: any) {
 	if (t.authors !== undefined) checkStringList(c, t.authors, ['authors']);
 	if (t.chapters !== undefined && !Number.isInteger(t.chapters)) c.error(['chapters'], 'chapters must be an integer');
 	if (t.thumbnail !== undefined) checkImagePath(c, t.thumbnail, ['thumbnail']);
+	if (t.cover !== undefined) checkCover(c, t.cover);
 	if (t.map !== undefined) {
 		if (!isObj(t.map)) c.error(['map'], 'map must be { layers, width, height, center }');
 		else {
@@ -541,7 +543,13 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 	else if (kind === 'season') checkSeason(c, data, locale);
 	else if (kind === 'toon') checkToon(c, data, locale);
 	else if (kind === 'index') checkToonIndex(c, data);
+	checkMediaLocale(c, data);
 	return c.problems;
+}
+
+/** Media are language-independent (owner rule 2026-10-01): a media path with a locale segment is a warning, in every entity */
+function checkMediaLocale(c: Collector, data: unknown) {
+	for (const [path, value, locale] of mediaPathsWithLocale(data)) c.warn(path, mediaLocaleMessage(value, locale));
 }
 
 /** Walks every slice of a chapter/group file */
@@ -576,6 +584,9 @@ export function validateLocales(kind: string, file: string, files: Record<string
 				const tr = textOf(data[key]).trim();
 				if (src && !tr) add('warning', locale, [key], `missing ${locale} ${key}`);
 				else if (src && tr === src) add('info', locale, [key], `${locale} ${key} is the same as ${primary} (not translated?)`);
+			}
+			if (kind === 'season' && JSON.stringify(source.cover ?? null) !== JSON.stringify(data.cover ?? null)) {
+				add('warning', locale, ['cover'], `the cover differs between ${primary} and ${locale}: covers are the same in every language (the title is rendered by the UI, cover.lettering)`);
 			}
 			if (kind === 'season') {
 				const numbers = (file: any) => (file?.sequence ?? []).map((i: any) => Number(i?.number)).sort((a: number, b: number) => a - b).join(',');

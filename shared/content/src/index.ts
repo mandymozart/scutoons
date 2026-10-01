@@ -13,5 +13,6 @@ export * from './credits.ts';
 export * from './characters.ts';
 export * from './sensitive.ts';
 export * from './validate.ts';
+export * from './media.ts';
 export * from './entities.ts';
 export * from './progress.ts';

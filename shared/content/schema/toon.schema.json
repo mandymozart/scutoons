@@ -26,10 +26,6 @@
 				},
 				"description": {
 					"type": "string"
-				},
-				"cover": {
-					"$ref": "#/definitions/Cover",
-					"description": "per language (covers can carry lettering)"
 				}
 			},
 			"required": [
@@ -38,8 +34,7 @@
 				"language",
 				"release",
 				"status",
-				"description",
-				"cover"
+				"description"
 			],
 			"description": "The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings"
 		},
@@ -50,17 +45,6 @@
 				"draft",
 				"coming-soon"
 			]
-		},
-		"Cover": {
-			"type": "object",
-			"properties": {
-				"square": {
-					"type": "string"
-				},
-				"portrait": {
-					"type": "string"
-				}
-			}
 		}
 	}
 }
