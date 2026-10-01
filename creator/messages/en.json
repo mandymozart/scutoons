@@ -366,7 +366,7 @@
 		"media_image": "Image",
 		"media_video": "Video",
 		"video_missing": "video not found on the CDN",
-		"video_player_hint": "Video player: sound and controls, no loop / autoplay (e.g. a music video); the slice gets the video's aspect ratio",
+		"video_player_hint": "Video player: sound and controls, no loop / autoplay; the slice gets the video's aspect ratio",
 		"video_source_add": "Another resolution",
 		"video_source_remove": "Remove resolution",
 		"video_sources_hint": "Other files before video.src, e.g. 480p with media \"(max-width: 600px)\": the reader loads the first whose media matches",

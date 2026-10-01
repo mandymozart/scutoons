@@ -366,7 +366,7 @@
 		"media_image": "Bild",
 		"media_video": "Video",
 		"video_missing": "Video nicht auf dem CDN gefunden",
-		"video_player_hint": "Videoplayer: mit Ton und Steuerung, ohne Loop / Autoplay (z. B. ein Musikvideo); die Slice bekommt das Seitenverhältnis des Videos",
+		"video_player_hint": "Videoplayer: mit Ton und Steuerung, ohne Loop / Autoplay; die Slice bekommt das Seitenverhältnis des Videos",
 		"video_source_add": "Weitere Auflösung",
 		"video_source_remove": "Auflösung entfernen",
 		"video_sources_hint": "Weitere Dateien vor video.src, z. B. 480p mit media „(max-width: 600px)“: der Reader lädt die erste, deren media passt",
