@@ -2,7 +2,7 @@
 	import { setLocale, localizeHref, locales, getLocale } from '$lib/paraglide/runtime.js';
 	import { tick } from 'svelte';
 	import { m } from '$lib/paraglide/messages.js';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { asset, toonImage } from '$lib/utils/cdn.ts';
 	import { shopUrl } from '$lib/config.ts';
 	import type { ToonIndex } from '@scutoons/content';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
@@ -29,7 +29,7 @@
 		if (menuOpen) {
 			// keyboard users land on the first toon
 			await tick();
-			(menuElement?.querySelector<HTMLElement>('.nav--toons .nav-btn') ?? menuElement?.querySelector<HTMLElement>('.nav-btn'))?.focus();
+			(menuElement?.querySelector<HTMLElement>('.nav--toons a.nav-btn') ?? menuElement?.querySelector<HTMLElement>('.nav-btn'))?.focus();
 		}
 	}
 
@@ -152,12 +152,23 @@
 			<ul class="nav-list">
 				{#each toons as toon}
 					<li class="nav-item">
-						<a class="nav-btn" href={localizeHref('/' + toon.id)} onclick={closeMenu}>
-							<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
-							<span class="name">
-								{toon.i18n[getLocale()].name}
+						{#if toon.announced}
+							<!-- announced, not published (owner 2026-10-01): greyed, "bald" / "soon", no link; the tile image, not the avatar -->
+							<span class="nav-btn soon" aria-disabled="true" data-testid="menu-toon-soon" data-toon={toon.id}>
+								<img src={toonImage(toon)} alt="" />
+								<span class="name">
+									{toon.i18n[getLocale()]?.name ?? toon.id}
+									<span class="soon-label">{m['home.soon']()}</span>
+								</span>
 							</span>
-						</a>
+						{:else}
+							<a class="nav-btn" href={localizeHref('/' + toon.id)} onclick={closeMenu} data-toon={toon.id}>
+								<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
+								<span class="name">
+									{toon.i18n[getLocale()]?.name ?? toon.id}
+								</span>
+							</a>
+						{/if}
 					</li>
 				{/each}
 			</ul>
@@ -366,6 +377,22 @@
 
 	.nav--toons .nav-item .nav-btn {
 		border: 0;
+	}
+	/* an announced toon: greyed, not clickable */
+	.main-menu nav.nav--toons .nav-item .nav-btn.soon {
+		color: var(--text-muted);
+		cursor: default;
+	}
+	.main-menu nav.nav--toons .nav-item .nav-btn.soon img {
+		opacity: 0.5;
+	}
+	.main-menu nav.nav.nav--toons ul.nav-list li.nav-item .nav-btn.soon:hover {
+		text-decoration: none;
+	}
+	.soon-label {
+		margin-left: 0.5em;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 
 	.menu {

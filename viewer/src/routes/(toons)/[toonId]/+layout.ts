@@ -2,19 +2,20 @@ import type { Character, LoadedSequenceItem, MapLocation, MapRoute, Season, Toon
 import { getLocale } from '$lib/paraglide/runtime.js';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types.js';
-import { isItemListed, isItemPublic } from '@scutoons/content';
+import { isItemListed, isItemPublic, Status } from '@scutoons/content';
 import { ApiError, fetchCharacters, fetchToon } from '$lib/api.ts';
 
 export const load: LayoutLoad = async ({ params, parent }) => {
 	const lang = getLocale();
 	// Draft toons (the sandbox, unreleased toons) exist in dev only, like draft chapters (isItemPublic): in a production
 	// build the toon and every page below it (chapters, credits, download) is the normal 404. Published = its index entry
-	// (what the home page and menu list; the root layout keeps only published ones) and its settings. The API applies
-	// the same rule (CONTENT_SHOW_DRAFTS locally).
+	// (the root layout's list; announced toons are listed there too, as "soon", but never readable) and its settings. The
+	// API applies the same rule (CONTENT_SHOW_DRAFTS locally).
 	const gate = import.meta.env.DEV
 		? Promise.resolve()
 		: parent().then(({ toons }) => {
-				if (!(toons as ToonIndex[] | undefined)?.some((t) => t.id === params.toonId || t.uri === params.toonId)) error(404, 'Not found');
+				const listed = (toons as ToonIndex[] | undefined)?.find((t) => t.id === params.toonId || t.uri === params.toonId);
+				if (listed?.status !== Status.PUBLISHED) error(404, 'Not found');
 			});
 
 	// The toon page in one request (library: settings, every season with its chapter list, the map) + the characters
