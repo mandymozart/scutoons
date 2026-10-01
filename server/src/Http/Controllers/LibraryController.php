@@ -100,7 +100,7 @@ final class LibraryController
     private function draft(Request $request): bool
     {
         if (($request->getQueryParams()['draft'] ?? '') !== '1') return false;
-        $this->roles->require(CurrentSession::of($request)->user(), Roles::CREATOR);
+        $this->roles->requireContentEditor(CurrentSession::of($request)->user());
         return true;
     }
 

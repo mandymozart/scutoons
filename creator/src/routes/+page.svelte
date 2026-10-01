@@ -52,7 +52,7 @@
 			<span class="hint">{m['creator.toons']()}: {toons.length}</span>
 		{/snippet}
 		{#snippet secondary()}
-			<button class="secondary" onclick={() => session.logout()}>{m['creator.sign_out']()}</button>
+			<button class="secondary" data-testid="sign-out" onclick={() => session.logout()}>{m['creator.sign_out']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<a class="btn" href={VIEWER_URL}>{m['creator.open_reader']()}</a>

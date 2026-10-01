@@ -33,9 +33,10 @@ return [
     'APP_URL' => 'https://scutoons.com',
     // Item icons: <CDN_URL><icon path>. Local CDN: http://localhost:8001/
     'CDN_URL' => 'https://cdn.scutoons.com/',
-    // Browser origins that may call the API with a Bearer token (comma separated): viewer, creator, admin + dev ports
+    // Browser origins that may call the API with a Bearer token or the session cookie (comma separated): viewer, creator,
+    // admin, shop, embassy + dev ports. Also the CSRF check of the cookie (docs/API.md "Single sign-on")
     'ALLOWED_ORIGINS' => 'https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com,'
-        . 'http://localhost:8000,http://localhost:10000,http://localhost:11000,'
+        . 'http://localhost:8000,http://localhost:10000,http://localhost:11000,http://localhost:12000,http://localhost:13000,'
         . 'http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:4173',
 
     // ── Mail ───────────────────────────────────────────────────────────────────────────────────────────
@@ -64,6 +65,10 @@ return [
     'LOGIN_MAX_PER_EMAIL_HOUR' => '5',
     'LOGIN_MAX_PER_IP_HOUR' => '30',
     'SESSION_TTL_DAYS' => '365',
+    // Single sign-on cookie `scutoons_sid` (Http\SessionCookie): `Domain=` this when the API host is it or a subdomain
+    // (api.scutoons.com, qr.scutoons.com/api) – every app on *.scutoons.com shares the session; other hosts (localhost)
+    // get a host-only cookie. Empty = always host-only.
+    'SESSION_COOKIE_DOMAIN' => 'scutoons.com',
     'GRANT_MAX_PER_HOUR' => '120',
     'IMPORT_MAX_PER_HOUR' => '10',
     'IMPORT_MAX_QTY' => '99',

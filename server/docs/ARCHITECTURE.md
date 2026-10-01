@@ -11,12 +11,12 @@ plain 404 (except the legacy `generate/` SPA until the admin app retires it).
 | # | Middleware (`src/Http/Middleware/`) | What it does |
 |---|---|---|
 | 1 | `NormalizePath` | `/api/me/` = `/api/me` (routes are declared without the trailing slash) |
-| 2 | `Cors` | `/api/*` for `ALLOWED_ORIGINS` (Bearer, no cookies); `OPTIONS` ends here with 204; `/api/validate/` is open to `*`; `/api/toons/` and `/api/keys/keys.php` send none (as always) |
+| 2 | `Cors` | `/api/*` for `ALLOWED_ORIGINS` (Bearer or the session cookie: `Allow-Credentials`); `OPTIONS` ends here with 204; `/api/validate/` is open to `*`; `/api/toons/` and `/api/keys/keys.php` send none (as always) |
 | 3 | `ErrorHandler` | `ApiError` → `{ status:"error", error, message, …extra }`; unknown route/method → 404 `not_found` "Unknown endpoint."; anything else → logged, 500 `server_error` |
 | 4 | Slim routing | `config/routes.php` |
 | 5 | `DeviceId` | fills the domain's `RequestContext`: client IP, valid `X-Device-Id`, `Origin`; from the qr app (trusted proxy: `X-Scutoons-Proxy-Secret` = `QR_PROXY_SECRET`) the forwarded `X-Scutoons-Client-Ip` / `X-Scutoons-Device-Id` instead |
 | 6 | `JsonBody` | keeps the raw body; `JsonBody::of($request)` parses lazily (`400 invalid_json`), `JsonBody::object()` keeps `{}` |
-| 7 | `Session` | `Authorization: Bearer …` → `CurrentSession` attribute; the user is looked up only when asked for |
+| 7 | `Session` | `Authorization: Bearer …` or the cookie `scutoons_sid` (single sign-on, `Http\SessionCookie`; Bearer wins) → `CurrentSession` attribute; a cookie on POST/PUT/DELETE counts only with an `ALLOWED_ORIGINS` Origin (CSRF); the user is looked up only when asked for |
 | – | route middleware | `RequireRole(admin)` on `/api/admin/*` (401/403 `forbidden { role }`), `RateLimit` on `/api/access/` + `/api/code/` (per IP; qr-app scans in their own bucket; limits = runtime settings, docs/API.md "Rate limits"), `GenerateToken` on the legacy `generate/*.php` |
 
 CORS runs outside the error handler, so error responses carry the CORS headers too.

@@ -615,6 +615,64 @@ check(!is_array($r['body']) || !array_key_exists('privateKey', $r['body']), '/ap
 $r = call('GET', "$api/keys/keypair.json");
 check($r['status'] === 404 || $r['status'] === 403, '/api/keys/keypair.json not served', $r['status']);
 
+// ── Single sign-on: the session cookie (docs/API.md "Single sign-on") ────────────────────────────────────
+echo "\nSingle sign-on (session cookie)\n";
+$app = 'http://localhost:8000';   // an ALLOWED_ORIGINS app (default and local config)
+$cookieOf = fn(array $r): ?string => preg_match('/^scutoons_sid=([A-Za-z0-9_-]*);/', $r['headers']['set-cookie'] ?? '', $m) ? $m[1] : null;
+$r = call('POST', "$api/auth/request/", ['email' => $emailA, 'locale' => 'en'], null, ["Origin: $app"]);
+check($r['status'] === 200, 'SSO: auth/request from an app', $r);
+$v = call('POST', "$api/auth/verify/", ['email' => $emailA, 'otp' => otpFor($emailA)], null, ["Origin: $app"]);
+$sso = $cookieOf($v);
+$setCookie = $v['headers']['set-cookie'] ?? '';
+check($v['status'] === 200 && is_string($v['body']['session_token'] ?? null) && $sso === $v['body']['session_token'],
+    'SSO: verify sets the cookie (same token; the body keeps session_token for old clients)', $v['headers']);
+check(str_contains($setCookie, 'HttpOnly') && str_contains($setCookie, 'SameSite=Lax') && str_contains($setCookie, 'Path=/api') && str_contains($setCookie, 'Max-Age='),
+    'SSO: cookie is HttpOnly, SameSite=Lax, Path=/api, with a lifetime', $setCookie);
+check(($v['headers']['access-control-allow-credentials'] ?? '') === 'true', 'SSO: CORS allows credentials for the app', $v['headers']);
+$v2 = call('POST', "$api/auth/verify/", ['email' => 'nobody@example.com', 'otp' => '000000'], null, ["Origin: $app"]);
+check(!isset($v2['headers']['set-cookie']), 'SSO: no cookie for a failed verify', $v2['headers']);
+$v3 = call('POST', "$api/auth/request/", ['email' => $emailB, 'locale' => 'en']);
+$v3 = call('POST', "$api/auth/verify/", ['email' => $emailB, 'otp' => otpFor($emailB)]);
+check($v3['status'] === 200 && !isset($v3['headers']['set-cookie']), 'SSO: verify without an app Origin (old clients, other sites) sets no cookie', $v3['headers']);
+$ck = ["Cookie: scutoons_sid=$sso"];
+$r = call('GET', "$api/me/", null, null, array_merge($ck, ["Origin: $app"]));
+check($r['status'] === 200 && ($r['body']['user']['email'] ?? null) === $emailA, 'SSO: GET /me/ with the cookie only', $r);
+$r = call('GET', "$api/me/", null, $tokenA);
+check($r['status'] === 200 && ($r['body']['user']['email'] ?? null) === $emailA, 'SSO: the Bearer token still works', $r);
+$r = call('GET', "$api/me/", null, $tokenB, $ck);
+check($r['status'] === 200 && ($r['body']['user']['email'] ?? null) === $emailB, 'SSO: Bearer wins over the cookie', $r);
+$r = call('GET', "$api/auth/session/", null, null, array_merge($ck, ["Origin: $app"]));
+check($r['status'] === 200 && $r['body']['via'] === 'cookie' && $r['body']['user']['email'] === $emailA && $cookieOf($r) === $sso,
+    'SSO: GET /auth/session/ → user, via cookie, cookie renewed', $r);
+$r = call('GET', "$api/auth/session/");
+check($r['status'] === 200 && $r['body']['user'] === null, 'SSO: GET /auth/session/ signed out → user null', $r);
+$r = call('PUT', "$api/me/", ['marketing_opt_in' => false], null, array_merge($ck, ['Origin: https://evil.example']));
+check($r['status'] === 403 && ($r['body']['error'] ?? null) === 'csrf_rejected', 'SSO: CSRF – cookie + foreign Origin on PUT → 403 csrf_rejected', $r);
+$r = call('PUT', "$api/me/", ['marketing_opt_in' => false], null, $ck);
+check($r['status'] === 403 && ($r['body']['error'] ?? null) === 'csrf_rejected', 'SSO: CSRF – cookie without Origin on PUT → 403', $r);
+$r = call('POST', "$api/auth/logout/", null, null, array_merge($ck, ['Origin: https://evil.example']));
+check($r['status'] === 403, 'SSO: CSRF – logout from a foreign Origin refused', $r);
+$r = call('PUT', "$api/me/", ['marketing_opt_in' => false], null, array_merge($ck, ["Origin: $app"]));
+check($r['status'] === 200, 'SSO: cookie + app Origin on PUT → 200', $r);
+$r = call('GET', "$api/admin/roles", null, null, array_merge($ck, ["Origin: $app"]));
+check($r['status'] === 403 && ($r['body']['role'] ?? null) === 'admin', 'SSO: role checks unchanged (member cookie → 403 admin)', $r);
+$r = call('GET', "$api/validate/?c=$vinyl", null, null, array_merge($ck, ['Origin: https://qr.scutoons.com']));
+check($r['status'] === 200, 'SSO: printed /validate/ unaffected by the cookie', $r['status']);
+// exchange: an app's stored token → the same session in the cookie
+$r = call('POST', "$api/auth/session/", null, $tokenA, ["Origin: $app"]);
+check($r['status'] === 200 && $cookieOf($r) === $tokenA && $r['body']['via'] === 'cookie', 'SSO: POST /auth/session/ moves a stored Bearer token into the cookie', $r);
+$r = call('POST', "$api/auth/session/", null, null, array_merge($ck, ["Origin: $app"]));
+check($r['status'] === 400 && $r['body']['error'] === 'bearer_required', 'SSO: the exchange needs the Bearer token', $r);
+// logout with the cookie ends the shared session (every app) and clears the cookie
+$r = call('POST', "$api/auth/logout/", null, null, array_merge($ck, ["Origin: $app"]));
+check($r['status'] === 200 && $cookieOf($r) === '' && str_contains($r['headers']['set-cookie'] ?? '', 'Max-Age=0'), 'SSO: logout clears the cookie', $r['headers']);
+$r = call('GET', "$api/me/", null, null, array_merge($ck, ['Origin: http://localhost:11000']));
+check($r['status'] === 401, 'SSO: after logout the cookie works nowhere (→ 401 in every app)', $r['status']);
+$r = call('GET', "$api/auth/session/", null, null, array_merge($ck, ["Origin: $app"]));
+check($r['status'] === 200 && $r['body']['user'] === null, 'SSO: after logout GET /auth/session/ → user null', $r);
+$r = call('GET', "$api/me/", null, $tokenA);
+check($r['status'] === 200, 'SSO: other sessions of the account (other devices) stay signed in', $r['status']);
+
 // ── Logout ─────────────────────────────────────────────────────────────────────────────────────────────
 echo "\nLogout\n";
 $r = call('POST', "$api/auth/logout/", null, $tokenA);

@@ -8,11 +8,13 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface as Handler;
+use Scutoons\Http\AllowedOrigins;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
  * CORS for the API (/api/*): browsers on an ALLOWED_ORIGINS origin (+ the local dev ports on a dev server,
- * Settings::allowedOrigins) may call it with a Bearer token (no cookies).
+ * Settings::allowedOrigins) may call it with a Bearer token or with the single sign-on cookie
+ * (`credentials: 'include'` → `Access-Control-Allow-Credentials: true`, only ever with the exact origin, never with `*`).
  * A preflight (OPTIONS) ends here with 204. Error responses carry the headers too (this runs outside the ErrorHandler).
  *
  * Kept exactly as the plain-PHP server answered (contract): /api/toons/ and /api/keys/keys.php send no CORS headers;
@@ -47,6 +49,7 @@ final class Cors implements MiddlewareInterface
                 ->withHeader('Vary', 'Origin')
                 ->withHeader('Access-Control-Allow-Methods', str_starts_with($path, '/api/admin') || str_starts_with($path, '/api/embassy') ? self::ADMIN_METHODS : self::METHODS)
                 ->withHeader('Access-Control-Allow-Headers', self::HEADERS)
+                ->withHeader('Access-Control-Allow-Credentials', 'true')
                 ->withHeader('Access-Control-Max-Age', '86400');
         }
         return $response;
@@ -54,10 +57,7 @@ final class Cors implements MiddlewareInterface
 
     public function isAllowed(string $origin): bool
     {
-        foreach ($this->settings->allowedOrigins() as $allowed) {
-            if (strcasecmp(rtrim($allowed, '/'), $origin) === 0) return true;
-        }
-        return false;
+        return AllowedOrigins::allows($this->settings, $origin);
     }
 
     private static function applies(string $path): bool

@@ -11,25 +11,22 @@ import { API_URL } from '$lib/config.ts';
 
 export {
 	ApiError,
-	SESSION_STORAGE_KEY,
 	getDeviceId,
-	getSessionToken,
-	setSessionToken,
 	type AccessResult,
 	type InventoryResult,
 	type ProgressResult,
 	type VerifyResult
 } from '@scutoons/api';
 
-export const api = createApiClient({ baseUrl: API_URL, getToken: getSessionToken, getDeviceId });
+// credentials: the single sign-on cookie of every SCUTOONS app (@scutoons/auth); a token stored by older builds still
+// goes as Bearer until the session has moved it into the cookie
+export const api = createApiClient({ baseUrl: API_URL, getToken: getSessionToken, getDeviceId, credentials: 'include' });
+
+/** the account calls of the shared session (@scutoons/auth `createAuthSession`, contexts/session.svelte.ts) */
+export const authApi = createQrApi(api);
 
 export const {
-	authRequest,
-	authVerifyOtp,
-	authVerifyToken,
 	checkAccess,
-	authLogout,
-	fetchMe,
 	updateMe,
 	fetchCode,
 	claimCode,

@@ -177,6 +177,8 @@ async function setSession(value, origins) {
 	if (initId) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: initId });
 	const src = `try { if (${JSON.stringify(origins)}.includes(location.origin)) { ${value ? `localStorage.setItem('scutoons_session', ${JSON.stringify(value)})` : `localStorage.removeItem('scutoons_session')`}; } } catch {}`;
 	initId = (await send('Page.addScriptToEvaluateOnNewDocument', { source: src })).result.identifier;
+	// single sign-on: the session lives in the API's HttpOnly cookie once an app moved the token there – signed out = no cookie
+	if (!value) await send('Network.deleteCookies', { name: 'scutoons_sid', domain: new URL(api).hostname, path: '/api' });
 }
 
 // in the page: the fonts, and every element that shows text or is a form control

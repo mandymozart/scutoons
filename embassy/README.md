@@ -4,7 +4,7 @@ The partner network of Top Toy / SCUTOONS (plan and strategy: [`agents/EMBASSY.m
 organisations (venues, festivals, radios, record shops, agents, press …), their people, one lead per organisation ×
 track (live, vinyl, booking, promo) with stage / owner / next check date, and the history of mails, calls and notes.
 
-Static SvelteKit SPA like the admin: own login (email + one-time code), role gate `liaison` / `ambassador` (`admin`
+Static SvelteKit SPA like the admin: single sign-on (`@scutoons/auth` `AuthGate`, email + one-time code), role gate `liaison` / `ambassador` (`admin`
 counts as ambassador), phone first (navigation at the bottom below 768px). API: `/api/embassy/*` of the same server
 (api.scutoons.com, `server/docs/API.md` "Embassy").
 

@@ -33,6 +33,7 @@
 		"check:ports": "node scripts/dev/check-ports.mjs",
 		"check:fonts": "node scripts/check-fonts.mjs --session",
 		"check:locale": "node scripts/check-locale.mjs",
+		"check:sso": "node scripts/check-sso.mjs",
 		"build": "npm run build --workspaces --if-present",
 		"deploy:dry-run": "node deploy/deploy.mjs all --dry-run --list=summary"
 	}

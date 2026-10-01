@@ -24,7 +24,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `QR_URL` | `https://qr.scutoons.com` | the qr app: magic links of login requests without an Origin (it forwards `/?login=` to the viewer) |
 | `APP_URL` | `https://scutoons.com` | the viewer: old magic links are forwarded there; "Open SCUTOONS" in mails |
 | `CDN_URL` | `https://cdn.scutoons.com/` | item icons `<CDN_URL><icon>`; local `http://localhost:8001/` |
-| `ALLOWED_ORIGINS` | scutoons.com, www, creator, admin, shop + dev ports | comma separated; production sets it in the workflow (without localhost). On a local dev server (`php -S`) every port of `shared/dev-ports.json` is added automatically (`Settings::allowedOrigins`) |
+| `ALLOWED_ORIGINS` | scutoons.com, www, creator, admin, shop, embassy + dev ports | comma separated; production sets it in the workflow (without localhost). On a local dev server (`php -S`) every port of `shared/dev-ports.json` is added automatically (`Settings::allowedOrigins`). Also the CSRF list of the session cookie: only these origins may change things with it |
 | `MAIL_TRANSPORT` | `smtp` | `smtp` \| `log` (dev: `MAIL_LOG_PATH`) \| `mail` (PHP `mail()`) |
 | `MAIL_FROM`, `MAIL_FROM_NAME` | `no-reply@scutoons.com`, `SCUTOONS` | |
 | `MAIL_LOG_PATH` | `logs/mail.log` | for `log` |
@@ -33,7 +33,8 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `SCAN_MAX_PER_IP_HOUR` | 1000 | QR scans per client IP and hour (`/code/?scan=1` from the qr app, own bucket); 0 = no limit. Default of the runtime setting `scan_limit_per_hour` |
 | `LOGIN_TTL_MINUTES`, `LOGIN_MAX_ATTEMPTS` | 30, 5 | validity of link + code; wrong codes per mail |
 | `LOGIN_MAX_PER_EMAIL_HOUR`, `LOGIN_MAX_PER_IP_HOUR` | 5, 30 | login mails per hour |
-| `SESSION_TTL_DAYS` | 365 | sessions end after this long unused |
+| `SESSION_TTL_DAYS` | 365 | sessions end after this long unused; also the `Max-Age` of the session cookie (renewed by `GET /auth/session/`) |
+| `SESSION_COOKIE_DOMAIN` | `scutoons.com` | single sign-on cookie `scutoons_sid`: `Domain=` this when the API host is it or a subdomain (api., qr.), else host-only (localhost: every port shares it); empty = always host-only. `Secure` is automatic (only plain http on loopback goes without) |
 | `GRANT_MAX_PER_HOUR`, `IMPORT_MAX_PER_HOUR`, `IMPORT_MAX_QTY` | 120, 10, 99 | |
 | `PROGRESS_MAX_BYTES`, `CONTENT_MAX_BYTES` | 262144, 2097152 | |
 | `ADMIN_MAX_PAGE_SIZE` | 500 | largest `page_size` of the admin lists |

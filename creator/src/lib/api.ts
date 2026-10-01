@@ -5,16 +5,17 @@ import { API_URL } from '$lib/config.ts';
 
 export {
 	ApiError,
-	getSessionToken,
-	setSessionToken,
 	type ContentIndexEntity,
 	type ContentVersion,
 	type WrappedContent
 } from '@scutoons/api';
 
-export const api = createApiClient({ baseUrl: API_URL, getToken: getSessionToken, getDeviceId });
+// credentials: the single sign-on cookie (@scutoons/auth); a token stored by older builds still goes as Bearer until the
+// session has moved it into the cookie
+export const api = createApiClient({ baseUrl: API_URL, getToken: getSessionToken, getDeviceId, credentials: 'include' });
 
-export const { authRequest, authVerifyOtp, authVerifyToken, authLogout, fetchMe } = createQrApi(api);
+/** the account calls of the shared session (@scutoons/auth `createAuthSession`) */
+export const authApi = createQrApi(api);
 
 export const contentApi = createContentApi(api);
 export const { getDraft, getPublished, getVersion, putDraft, publishVersion, unpublish, restoreVersion, listVersions, contentIndex } = contentApi;

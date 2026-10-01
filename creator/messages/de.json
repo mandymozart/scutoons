@@ -3,10 +3,6 @@
 	"creator": {
 		"title": "SCUTOONS Creator",
 		"loading": "Lädt …",
-		"sign_in_title": "Anmeldung für Creator",
-		"sign_in_text": "Melde dich mit deiner E-Mail an, um den Creator-Editor zu öffnen.",
-		"no_access_title": "Kein Zugang",
-		"no_access_text": "Der Creator-Editor ist für SCUTOONS-Creator. Dein Konto ({email}) hat die Creator-Rolle noch nicht – bitte eine Admin, sie hinzuzufügen.",
 		"toons": "Toons",
 		"season": "Staffel {number}",
 		"chapters": "Kapitel",
@@ -503,20 +499,5 @@
 		"cover_preview_veil": "Im aktuellen Bild steckt der Titel noch: die Vorschau zeichnet ihn hinter dem gesetzten weich. Mit textfreiem Bild ist das nicht nötig.",
 		"cover_requests": "Gesuchte Bilder für diesen Toon",
 		"wanted_media": "Toon-Medien (Cover, Key Visuals …)"
-	},
-	"login": {
-		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",
-		"login_failed": "Das hat nicht geklappt. Prüfe den Code und versuche es nochmal.",
-		"login_intro": "Melde dich mit deiner E-Mail an. Wir schicken dir einen Einmal-Code, kein Passwort.",
-		"email": "E-Mail",
-		"email_placeholder": "du@beispiel.de",
-		"send_code": "Code senden",
-		"code_sent": "Wir haben einen Code an {email} geschickt. Gib ihn hier ein oder tippe auf den Link in der Mail.",
-		"otp_label": "Einmal-Code",
-		"logging_in": "Anmelden ...",
-		"verify": "Anmelden",
-		"change_email": "Andere E-Mail",
-		"resend": "Nochmal senden",
-		"no_account_hint": "Der Creator ist für bestehende Konten mit der Rolle „creator“. Neue Konten entstehen im Reader."
 	}
 }

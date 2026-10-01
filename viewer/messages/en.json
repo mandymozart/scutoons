@@ -35,7 +35,6 @@
 	},
 	"account": {
 		"my_account": "My Account",
-		"sign_out": "Sign Out",
 		"membership": "Full Membership",
 		"promo": "Promo",
 		"event": "Event",
@@ -60,18 +59,7 @@
 		"no_membership_message": "No membership found. Please scan a QR code to activate your account.",
 		"buy_access": "Buy Access",
 		"login_title": "Sign in",
-		"login_intro": "Sign in with your email. We send you a one-time code, no password.",
-		"email_placeholder": "you@example.com",
-		"send_code": "Send code",
-		"code_sent": "We sent a code to {email}. Enter it here or tap the link in the mail.",
-		"otp_label": "One-time code",
-		"verify": "Sign in",
-		"change_email": "Use another email",
-		"resend": "Send again",
-		"logging_in": "Signing in ...",
-		"login_failed": "That did not work. Check the code and try again.",
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",
-		"signed_in_as": "Signed in as",
 		"memberships": "Memberships",
 		"no_memberships": "No membership yet.",
 		"device_membership": "Membership on this device",
@@ -99,12 +87,8 @@
 		"creator_link": "Creator",
 		"creator_hint": "Edit toons and chapters.",
 		"signup_rule": "No account yet? You create one with a code from a SCUTOONS product (the QR code of a limited edition) or a promo code: scan it and choose \"Create account\" or \"Add to my account\".",
-		"code_sent_no_account": "If there is no account for this address yet, the mail explains how to create one (you need a code from a SCUTOONS product or a promo code).",
-		"signup_code_required": "There is no account for this email yet. An account needs a code from a SCUTOONS product or a promo code.",
 		"signup_title": "Create account",
-		"signup_intro": "Create your account with your email. We send you a one-time code, no password.",
-		"access_promo": "All chapters · through your promo code {code}",
-		"signup_code_taken": "This code is already in someone else's account, so it can't create a new one. You can still read with it."
+		"access_promo": "All chapters · through your promo code {code}"
 	},
 	"inventory": {
 		"empty": "Bee Wax, no pig in the pope (sic)!"

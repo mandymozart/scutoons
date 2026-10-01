@@ -127,7 +127,9 @@ final class EmbassyController
     /** @return array<string, mixed> the signed-in user with Embassy access (401 / 403 otherwise) */
     private function user(Request $request): array
     {
-        $user = CurrentSession::of($request)->user();
+        $session = CurrentSession::of($request);
+        $session->rejectCsrf();
+        $user = $session->user();
         $this->embassy->access($user);
         /** @var array<string, mixed> $user */
         return $user;

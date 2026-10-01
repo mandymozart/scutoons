@@ -91,6 +91,9 @@ return static function (App $app): void {
     $app->post('/api/auth/request', [AuthController::class, 'request']);
     $app->post('/api/auth/verify', [AuthController::class, 'verify']);
     $app->post('/api/auth/logout', [AuthController::class, 'logout']);
+    // Single sign-on (docs/API.md): who is signed in (cookie or Bearer) · move an app's stored Bearer token into the cookie
+    $app->get('/api/auth/session', [AuthController::class, 'session']);
+    $app->post('/api/auth/session', [AuthController::class, 'exchange']);
 
     $app->get('/api/me', [MeController::class, 'get']);
     $app->put('/api/me', [MeController::class, 'put']);

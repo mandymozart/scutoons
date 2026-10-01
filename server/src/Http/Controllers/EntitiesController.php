@@ -86,7 +86,9 @@ final class EntitiesController
     /** @return array<string, mixed> */
     private function creator(Request $request): array
     {
-        return $this->roles->require(CurrentSession::of($request)->user(), Roles::CREATOR);
+        $session = CurrentSession::of($request);
+        $session->rejectCsrf();
+        return $this->roles->requireContentEditor($session->user());
     }
 
     /** The request body decoded with objects (so `{}` stays an object) */

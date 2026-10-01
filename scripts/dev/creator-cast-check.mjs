@@ -19,8 +19,9 @@ import { fileURLToPath } from 'node:url';
 import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const API = local('api', '/api');
-const CREATOR = local('creator');
+// the owner's dev stack (ports from shared/dev-ports.json); SCUTOONS_API / SCUTOONS_CREATOR point it at other local servers
+const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
+const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
 const TOON = 'catpope';
 const KEYS = [`cast:${TOON}`, 'characters'];
 const NEW_NAME = 'Regression Figur';

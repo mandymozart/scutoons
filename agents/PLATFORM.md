@@ -25,7 +25,8 @@ scutoons/                         one git repo, npm workspaces (Node 22), Compos
 │   ├── ui/       @scutoons/ui        Svelte UI kit: Button, IconButton, Field, Panel, Sheet, Tabs, Toast, DataTable, …
 │   ├── content/  @scutoons/content   TS types + validation for toon/season/chapter/slice/dialog/audio/VN/items; JSON Schema export
 │   ├── reader/   @scutoons/reader    rendering: Slice, Dialogs, Onomatopoeia, group renderers, audio/VN actions
-│   └── api/      @scutoons/api       typed client: session, device id, access, items, inventory, content, admin
+│   ├── api/      @scutoons/api       typed client: session, device id, access, items, inventory, content, admin
+│   └── auth/     @scutoons/auth      single sign-on: session factory, login form, app gate, signed-in-as (SSO, 2026-10-01)
 ├── cdn/                          python tools (sync, download, icons, bubble detector), root/ gitignored
 └── agents/                       plans and memory (this folder)
 ```
@@ -258,9 +259,74 @@ still works); production needs `https://admin.scutoons.com` in `ALLOWED_ORIGINS`
 
 ## Cross-app auth
 
-Same endpoints, token per origin (localStorage `scutoons_session`) for now; `ALLOWED_ORIGINS` gains
-creator/admin origins (+ dev ports: viewer 8000, creator 10000, admin 11000). Later: one `HttpOnly` session cookie on
-`.scutoons.com` for single sign-on.
+~~Same endpoints, token per origin (localStorage `scutoons_session`) for now.~~ Single sign-on since branch `sso`
+(2026-10-01) – see "SSO — result" below.
+
+## SSO — result (branch `sso`, 2026-10-01)
+
+**Owner:** "once a member is logged in they will not need to log in again on any of the apps, depending on whether their
+roles allow it" · the notice says the account does not allow this, "switch account" = logout + that app's login · one
+shared component.
+
+**Mechanism:** the API sets an HttpOnly session cookie `scutoons_sid` on `/auth/verify/` (requests from an
+`ALLOWED_ORIGINS` app only): `Path=/api; HttpOnly; SameSite=Lax; Secure; Domain=scutoons.com` in production
+(`SESSION_COOKIE_DOMAIN`, only when the API host is under it), host-only on `localhost` (cookies ignore ports, so all dev
+apps share it); `Max-Age` = `SESSION_TTL_DAYS`, renewed by `GET /auth/session/`. Same token as the Bearer token (one
+`sessions` row); the API accepts the cookie **or** Bearer (Bearer wins), so old builds keep working. Apps call the API
+with `credentials: 'include'`; CORS answers allowed origins with `Access-Control-Allow-Credentials: true` (never `*`).
+CSRF: a cookie on POST/PUT/DELETE/PATCH counts only with an `Origin` in `ALLOWED_ORIGINS` (`403 csrf_rejected` where a
+user is needed; anonymous elsewhere, so the printed `/validate/` is untouched). Logout clears the cookie and ends the
+shared session = signed out in every app (`{ all: true }` = every device). Migration: an app that still has a token in
+localStorage moves it into the cookie once (`POST /auth/session/` with Bearer), checks it, deletes the copy. If the
+browser refuses the cookie, the app keeps the token in localStorage as before (works, just per origin).
+Why not a central login page / OAuth-style redirects: every app already has the same API and same site
+(`*.scutoons.com`); a first-party cookie on the API is the smallest change, needs no new host, no token passing in URLs.
+Details + security notes: server/docs/API.md "Single sign-on".
+
+**Shared component:** `shared/auth` = `@scutoons/auth` (README): `createAuthSession` (the session of every app),
+`LoginForm` (email → 6-digit code, resend, change email, errors, signup opt-in), `AuthGate` (loading → sign-in screen →
+"Dein Konto (x@y) hat keinen Zugang zu dieser App." + "Mit anderem Konto anmelden" → the app), `SignedInAs` (+ sign
+out), de/en texts (`authLabels`), the role matrix `APP_ROLES`. Used by viewer (account page, claim sheet), creator,
+admin, embassy (gate) and shop (signed-in display); the three app copies of `login-form.svelte` + session store and the
+viewer's login form are deleted. Apps keep their own routing (`/account?return=`, `?login=` magic links via
+`takeMagicToken`). Dependency direction: `tokens ← ui ← auth`, `api ← auth`.
+
+| App | Who gets in (`APP_ROLES`) |
+|---|---|
+| viewer | anyone (member features need membership, as before) |
+| shop | anyone (shows "signed in as" + sign out only) |
+| creator | `creator` or `admin` – admin **for now** (owner 2026-10-01). One rule on each side: server `Roles::CONTENT_EDITORS` (`/api/entities/*`, library `?draft=1`), client `APP_ROLES.creator`; narrowing later = change those two lists |
+| admin | `admin` |
+| embassy | `liaison`, `ambassador`, `admin` |
+
+**qr.scutoons.com:** needs no session itself ("Add to my account" → `<viewer>/account?code=`, the viewer has the shared
+session). Its `/api/*` proxy forwards only the `scutoons_sid` cookie, so single sign-on also works while
+`VITE_API_URL` still points at `qr.scutoons.com/api`.
+
+**Cutover notes (production):**
+- Nothing to configure: `SESSION_COOKIE_DOMAIN` defaults to `scutoons.com`; `ALLOWED_ORIGINS` in `deploy/targets.json`
+  already lists every app (scutoons.com, www, creator, admin, shop, embassy) – it is now also the CSRF list, so a new
+  app origin must be added there before its sign-in works.
+- HTTPS on every subdomain is required (`Secure` cookie): api., qr., and the apps (cutover checklist steps 5–7).
+- No DB migration (the `sessions` table is unchanged). **Deploy order matters: api first**, then qr, then the
+  frontends (as "Deploy all" does). The new frontends send `credentials: 'include'`, and a browser only reads such an
+  answer when it carries `Access-Control-Allow-Credentials: true` – the old api does not send it, so new frontends in
+  front of the old api fail on every signed-in request. Old frontends in front of the new api are fine.
+- Users signed in before: their apps move the stored token into the cookie on the next visit (no new sign-in). Two apps
+  with two different stored tokens: the first visit wins the cookie, the other app's token is dropped on its next visit
+  (the cookie session is used).
+- Safari/iOS: see API.md "Single sign-on" (first-party cookie; 7-day cap only if api. and the apps get different IPs,
+  e.g. apps on a CDN; installed PWAs have their own cookie jar).
+
+**Merge / rollback (owner):** `sso` is based on `platform` a83b1cc and additive: new endpoints (`/auth/session/`),
+the cookie next to Bearer, one new package. Merge `sso` into `platform` after the 2026-10-04 release (`git merge sso`;
+expected conflicts only where the apps' layouts changed meanwhile). Rollback = redeploy the previous api and/or
+frontends (Actions → the app's workflow on the earlier commit); nothing to undo in the data (no migration, sessions are
+the same rows, a cookie left in a browser is ignored by the old API):
+- roll back the frontends first (or together with the api): the old apps use localStorage tokens; the ones the new apps
+  had moved into the cookie are gone, so each app asks for one sign-in again. The new api serves old apps unchanged.
+- never the api alone: new frontends need its CORS credentials header (see the deploy order above).
+Check after merging: `npm run check:sso` (+ `composer test`).
 
 ## Deploy
 

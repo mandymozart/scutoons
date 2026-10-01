@@ -3,8 +3,8 @@
 The administration app for `admin.scutoons.com`, a standalone SvelteKit app (static SPA build). Access: accounts with
 the role `admin` (the server checks it on every `/api/admin/*` call). Replaces the legacy `generate/` SPA of the server.
 
-- **Sign-in** on this origin: email → one-time code (or the magic link `<admin origin>/?login=<token>`). Sessions are
-  per origin (localStorage `scutoons_session`).
+- **Sign-in**: single sign-on (`@scutoons/auth` `AuthGate`) – signed in on any SCUTOONS app = signed in here; else
+  email → one-time code (or the magic link `<admin origin>/?login=<token>`). Role `admin`.
 - **Sections** (navigation as data in `src/lib/navigation.ts`, also the command palette: Ctrl+K / `/`):
 
 | Route | What |

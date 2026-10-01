@@ -4,14 +4,14 @@
 	import { onMount } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { AppShell, Button, CommandPalette, ToastStack, type Command } from '@scutoons/ui';
+	import { AppShell, CommandPalette, ToastStack, type Command } from '@scutoons/ui';
+	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
-	import LoginForm from '$lib/components/login-form.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -21,29 +21,16 @@
 	let menuOpen = $state(false);
 	let paletteOpen = $state(false);
 
-	onMount(async () => {
-		// magic link from the login mail: `<admin origin>/?login=<token>`
-		const magicToken = page.url.searchParams.get('login');
-		if (magicToken) {
-			const url = new URL(page.url);
-			url.searchParams.delete('login');
-			goto(url.pathname + url.search, { replaceState: true });
-			if (!session.token) {
-				try {
-					await session.verifyToken(magicToken);
-				} catch (e) {
-					console.warn('Magic link login failed', e);
-				}
-			}
-		}
-		await session.init();
+	onMount(() => {
+		// magic link from the login mail: `<admin origin>/?login=<token>`; else the shared session (single sign-on)
+		const magic = takeMagicToken(page.url);
+		if (magic) goto(magic.cleaned, { replaceState: true });
+		void session.init(magic?.token);
 	});
 
 	afterNavigate(() => (menuOpen = false));
 
-	// role gate: `admin` (the server checks it again on every /admin call)
-	const waiting = $derived(!session.ready || (session.loading && !session.me));
-	const isAdmin = $derived(session.hasRole('admin'));
+	// role gate (AuthGate): `admin` – the server checks it again on every /admin call
 	const current = $derived(activeItem(page.url.pathname));
 
 	const otherLocale = $derived(locales.find((l) => l !== getLocale()) ?? 'en');
@@ -86,24 +73,7 @@
 </svelte:head>
 
 <div class="admin">
-	{#if waiting}
-		<p class="gate">{m['shell.loading']()}</p>
-	{:else if !session.isLoggedIn}
-		<section class="gate" data-testid="admin-sign-in">
-			<img class="logo" src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="200" />
-			<h1>{m['shell.sign_in_title']()}</h1>
-			<LoginForm />
-		</section>
-	{:else if !isAdmin}
-		<section class="gate" data-testid="admin-no-access">
-			<h1>{m['shell.no_access_title']()}</h1>
-			<p>{m['shell.no_access_text']({ email: session.user?.email ?? '' })}</p>
-			<p class="gate-actions">
-				<Button href={VIEWER_URL}>{m['shell.open_reader']()}</Button>
-				<Button variant="secondary" onclick={() => session.logout()}>{m['shell.sign_out']()}</Button>
-			</p>
-		</section>
-	{:else}
+	<AuthGate {session} app="admin" appName="Admin" locale={getLocale()} readerHref={VIEWER_URL}>
 		<AppShell
 			sidebarWidth="var(--admin-sidebar-width)"
 			sidebarId="admin-nav"
@@ -136,7 +106,7 @@
 						<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
 							{otherLocale.toUpperCase()}
 						</button>
-						<button type="button" class="plain" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
+						<button type="button" class="plain" data-testid="sign-out" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
 					</div>
 				</header>
 			{/snippet}
@@ -171,7 +141,7 @@
 			emptyLabel={m['palette.empty']()}
 			hint={m['palette.keys']()}
 		/>
-	{/if}
+	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['shell.dismiss']()} />
 </div>
 
@@ -196,25 +166,6 @@
 		background: var(--paper);
 		min-height: 100dvh;
 	}
-	.gate {
-		max-width: 32rem;
-		margin: 0 auto;
-		padding: 6rem 1rem 2rem;
-		font-size: 16px;
-	}
-	.gate h1 {
-		font-size: 1.25rem;
-	}
-	.gate .logo {
-		display: block;
-		margin-bottom: var(--space-1);
-	}
-	.gate-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
-	}
-
 	.topbar {
 		display: flex;
 		align-items: center;

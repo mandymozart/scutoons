@@ -341,6 +341,29 @@ foreach ($identical as [$method, $path, $body, $headers]) {
         'api' => [$direct['status'], relevantHeaders($direct), substr($direct['body'], 0, 120)],
     ]);
 }
+if ($fullApi) {
+    // Single sign-on during the transition (apps call qr.scutoons.com/api): the proxy forwards the session cookie
+    // scutoons_sid – and only it – so cookie sign-in works through qr too. A throw-away session row, removed again.
+    $user = $pdo->query('SELECT id, email FROM users ORDER BY created_at, id LIMIT 1')->fetch();
+    if ($user) {
+        $token = 'qrproxy' . bin2hex(random_bytes(16));
+        $sessionId = 'qr-proxy-test-' . bin2hex(random_bytes(6));
+        $now = gmdate('Y-m-d H:i:s');
+        $pdo->prepare('INSERT INTO sessions (id, user_id, token_hash, created_at, last_used_at) VALUES (?, ?, ?, ?, ?)')
+            ->execute([$sessionId, $user['id'], hash('sha256', $token), $now, $now]);
+        try {
+            $r = request('GET', $base . '/api/auth/session/', null, ["Cookie: theme=dark; scutoons_sid=$token", 'Origin: http://localhost:8000']);
+            check($r['status'] === 200 && (json_decode($r['body'], true)['user']['email'] ?? null) === $user['email'],
+                'proxy forwards the single sign-on cookie scutoons_sid (GET /api/auth/session/ → the user)', [$r['status'], substr($r['body'], 0, 160)]);
+            $r = request('GET', $base . '/api/auth/session/', null, ["Cookie: other=$token"]);
+            $answer = json_decode($r['body'], true);
+            check($r['status'] === 200 && is_array($answer) && array_key_exists('user', $answer) && $answer['user'] === null,
+                'proxy drops every other cookie', [$r['status'], substr($r['body'], 0, 120)]);
+        } finally {
+            $pdo->prepare('DELETE FROM sessions WHERE id = ?')->execute([$sessionId]);
+        }
+    }
+}
 if (!$fullApi) {
     foreach (['/api/health/', '/api/me/', '/api/items/', '/api/code/?c=' . $member['code']] as $path) {
         $r = request('GET', $base . $path);

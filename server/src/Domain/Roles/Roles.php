@@ -64,6 +64,34 @@ final class Roles
         return $user;
     }
 
+    /**
+     * Who may edit content – the creator app: /api/entities/* (read, save, versions, publish, unpublish, restore) and the
+     * library's ?draft=1. FOR NOW (owner 2026-10-01) `admin` counts too; to narrow it later, change only this list (and
+     * `APP_ROLES.creator` in shared/auth). docs/API.md "Roles".
+     */
+    public const CONTENT_EDITORS = [self::CREATOR, self::ADMIN];
+
+    /** @param array<string, mixed>|string $user a users row or a user id */
+    public function canEditContent(array|string $user): bool
+    {
+        foreach (self::CONTENT_EDITORS as $role) {
+            if ($this->has($user, $role)) return true;
+        }
+        return false;
+    }
+
+    /**
+     * The signed-in user when they may edit content: null → 401 unauthorized; otherwise → 403 forbidden { role: "creator" }
+     * @param array<string, mixed>|null $user
+     * @return array<string, mixed>
+     */
+    public function requireContentEditor(?array $user): array
+    {
+        if ($user === null) throw new ApiError(401, 'unauthorized', 'Not signed in.');
+        if (!$this->canEditContent($user)) throw new ApiError(403, 'forbidden', 'This needs the creator role.', ['role' => self::CREATOR]);
+        return $user;
+    }
+
     /** Gives a user a role; false when they had it already. Throws InvalidArgumentException for unknown roles. */
     public function grant(string $userId, string $role, ?string $grantedBy = null): bool
     {

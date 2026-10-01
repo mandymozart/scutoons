@@ -3,10 +3,6 @@
 	"creator": {
 		"title": "SCUTOONS Creator",
 		"loading": "Loading …",
-		"sign_in_title": "Creator sign-in",
-		"sign_in_text": "Sign in with your email to open the creator editor.",
-		"no_access_title": "No access",
-		"no_access_text": "The creator editor is for SCUTOONS creators. Your account ({email}) doesn't have the creator role yet – ask an admin to add it.",
 		"toons": "Toons",
 		"season": "Season {number}",
 		"chapters": "Chapters",
@@ -503,20 +499,5 @@
 		"cover_preview_veil": "The current image still has its title baked in: the preview softens it behind the rendered one. With text-free artwork that is not needed.",
 		"cover_requests": "Wanted images for this toon",
 		"wanted_media": "Toon media (covers, key visuals …)"
-	},
-	"login": {
-		"network_error": "Can't reach the SCUTOONS server. Try again later.",
-		"login_failed": "That did not work. Check the code and try again.",
-		"login_intro": "Sign in with your email. We send you a one-time code, no password.",
-		"email": "Email",
-		"email_placeholder": "you@example.com",
-		"send_code": "Send code",
-		"code_sent": "We sent a code to {email}. Enter it here or tap the link in the mail.",
-		"otp_label": "One-time code",
-		"logging_in": "Signing in ...",
-		"verify": "Sign in",
-		"change_email": "Use another email",
-		"resend": "Send again",
-		"no_account_hint": "The creator is for existing accounts with the creator role. New accounts are created in the reader."
 	}
 }

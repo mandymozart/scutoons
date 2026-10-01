@@ -3,12 +3,12 @@
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { isMembershipExpired } from '@scutoons/content';
-	import { localizeHref } from '$lib/paraglide/runtime.js';
+	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { formatDate } from '$lib/utils/date.ts';
 	import { CREATOR_URL } from '$lib/config.ts';
 	import accountIcon from '$lib/icons/account.svg';
-	import LoginForm from '$lib/components/account/login-form.svelte';
+	import { LoginForm, SignedInAs, authLabels, canUseApp } from '@scutoons/auth';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -77,16 +77,15 @@
 		<h1><img src={accountIcon} alt="Account" /> {m['account.my_account']()}</h1>
 	</header>
 
-	{#if !session.ready && session.token}
+	{#if session.pending}
 		<section><p>{m['common.loading']()}</p></section>
 	{:else if session.isLoggedIn && session.user}
 		<section>
+			<div class="signed-in">
+				<SignedInAs session={session.auth} locale={getLocale()} />
+			</div>
 			<table>
 				<tbody>
-					<tr>
-						<td>{m['account.signed_in_as']()}</td>
-						<td>{session.user.email}</td>
-					</tr>
 					{#if session.roles.length}
 						<tr>
 							<td>{m['account.roles']()}</td>
@@ -152,13 +151,12 @@
 			{#if hideError}
 				<p class="error" role="alert">{hideError}</p>
 			{/if}
-			{#if session.hasRole('creator')}
+			{#if canUseApp('creator', session.roles)}
 				<p class="creator-line">
 					<a class="btn btn-secondary" href={CREATOR_URL}>{m['account.creator_link']()}</a>
 					<small>{m['account.creator_hint']()}</small>
 				</p>
 			{/if}
-			<button class="btn btn-sign-out" onclick={() => session.logout()}>{m['account.sign_out']()}</button>
 		</section>
 
 		<section>
@@ -185,7 +183,12 @@
 		<section>
 			<h2>{m['account.login_title']()}</h2>
 			<p>{m['account.login_hint']()}</p>
-			<LoginForm onlogin={() => returnTo && goto(returnTo)} />
+			<LoginForm
+				{session}
+				locale={getLocale()}
+				sentHint={authLabels(getLocale()).codeSentNoAccount}
+				onlogin={() => returnTo && goto(returnTo)}
+			/>
 			<p class="signup-rule">{m['account.signup_rule']()}</p>
 		</section>
 	{/if}
@@ -241,6 +244,9 @@
 	}
 	section {
 		padding: 1rem;
+	}
+	.signed-in {
+		margin-bottom: 1rem;
 	}
 	h2 {
 		font-size: 1rem;

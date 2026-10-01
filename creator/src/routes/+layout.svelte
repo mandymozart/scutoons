@@ -4,37 +4,27 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { AppShell, Button } from '@scutoons/ui';
+	import { AppShell } from '@scutoons/ui';
+	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
 	import { entities } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { library } from '$lib/api.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
-	import LoginForm from '$lib/components/login-form.svelte';
 	import NavSidebar from '$lib/components/nav-sidebar.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
 	const session = setCreatorSession();
 
-	onMount(async () => {
-		// magic link from the login mail: `<creator origin>/?login=<token>`
-		const magicToken = page.url.searchParams.get('login');
-		if (magicToken) {
-			const url = new URL(page.url);
-			url.searchParams.delete('login');
-			goto(url.pathname + url.search, { replaceState: true });
-			if (!session.token) {
-				try {
-					await session.verifyToken(magicToken);
-				} catch (e) {
-					console.warn('Magic link login failed', e);
-				}
-			}
-		}
-		await session.init();
+	onMount(() => {
+		// magic link from the login mail: `<creator origin>/?login=<token>`; else the shared session (single sign-on)
+		const magic = takeMagicToken(page.url);
+		if (magic) goto(magic.cleaned, { replaceState: true });
+		void session.init(magic?.token);
 	});
 
 	// ── Navigation (agents/DESIGN.md "Creator navigation"): one top bar, sidebar = children of the current level ──
@@ -114,9 +104,8 @@
 		}
 	}
 
-	// role gate: `creator` (the server checks it again on every content write)
-	const waiting = $derived(!session.ready || (session.loading && !session.me));
-	const isCreator = $derived(session.hasRole('creator'));
+	// role gate (AuthGate): `creator` – the server checks it again on every content write
+	const isCreator = $derived(session.isLoggedIn && canUseApp('creator', session.roles));
 </script>
 
 <svelte:head>
@@ -126,24 +115,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="creator">
-	{#if waiting}
-		<p class="creator-gate">{m['creator.loading']()}</p>
-	{:else if !session.isLoggedIn}
-		<section class="creator-gate" data-testid="creator-sign-in">
-			<img class="logo" src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="200" />
-			<h1>{m['creator.sign_in_title']()}</h1>
-			<LoginForm />
-		</section>
-	{:else if !isCreator}
-		<section class="creator-gate" data-testid="creator-no-access">
-			<h1>{m['creator.no_access_title']()}</h1>
-			<p>{m['creator.no_access_text']({ email: session.user?.email ?? '' })}</p>
-			<p class="gate-actions">
-				<Button href={VIEWER_URL}>{m['creator.open_reader']()}</Button>
-				<Button variant="secondary" onclick={() => session.logout()}>{m['creator.sign_out']()}</Button>
-			</p>
-		</section>
-	{:else}
+	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- One stable frame for every page: top bar (breadcrumb of the full path), sidebar (children of the current
 		     level + Universe), content, and the page's ActionBar at the bottom (reserved by the shell) -->
 		<AppShell
@@ -199,7 +171,7 @@
 			{/snippet}
 			{@render children()}
 		</AppShell>
-	{/if}
+	</AuthGate>
 </div>
 
 <style>
@@ -334,25 +306,6 @@
 		border-left-color: var(--ink);
 		background: var(--surface-hover);
 		font-weight: 700;
-	}
-
-	.creator-gate {
-		max-width: 32rem;
-		margin: 0 auto;
-		padding: 6rem 1rem 2rem;
-		font-size: 16px;
-	}
-	.creator-gate h1 {
-		font-size: 1.25rem;
-	}
-	.creator-gate .logo {
-		display: block;
-		margin-bottom: var(--space-1);
-	}
-	.gate-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
 	}
 
 	/* Dense editor controls (@scutoons/ui components style themselves) */

@@ -3,8 +3,9 @@
 The editor for toon / season / chapter configs and VN scene files, a standalone SvelteKit app (static build) for
 `creator.scutoons.com`. Access: accounts with the role `creator` (the server checks it on every content call).
 
-- **Sign-in** on this origin: email → one-time code (or the magic link `<creator origin>/?login=<token>` from the mail).
-  Sessions are per origin (localStorage `scutoons_session`), so signing in to the viewer doesn't sign you in here.
+- **Sign-in**: single sign-on (`@scutoons/auth` `AuthGate`) – signed in on any SCUTOONS app = signed in here; else
+  email → one-time code (or the magic link `<creator origin>/?login=<token>` from the mail). Role `creator`; other
+  accounts see "no access" + "Switch account".
 - **Languages are per toon**: the toon page's "Languages" section sets the source language and the translations
   (`Language` enum). Stored as the toon's index entry (`sourceLanguage`, `languages`) in the content store file
   `<toon>/_/index.json` (draft/publish like the other files; before the first save: the viewer's `toons.json`). Every
