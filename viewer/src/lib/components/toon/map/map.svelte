@@ -1,165 +1,103 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { localizeHref } from '$lib/paraglide/runtime.js';
-	import { asset } from '$lib/utils/cdn.ts';
-	import type { MapLocation, MapCoordinates, MapRoute, Map, Toon } from '@scutoons/content';
-	import { onClickOutside } from 'runed';
-	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import Routes from './routes.svelte';
-	import Layers from './layers.svelte';
+	import { unlocksFromProgress, type ReaderMap } from '@scutoons/content';
+	import { fetchMap } from '$lib/api.ts';
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { m } from '$lib/paraglide/messages.js';
+	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
+	import { getGameContext } from '$lib/contexts/game.svelte.ts';
+	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import mapIcon from '$lib/icons/map.svg';
+	import MapOverlay from './map-overlay.svelte';
 
-	let {
-		zoom = 1,
-		coordinates = { x: 0, y: 0 },
-		locations = [],
-		routes = []
-	}: {
-		zoom?: number;
-		coordinates?: MapCoordinates;
-		locations: MapLocation[];
-		routes: MapRoute[];
-	} = $props();
-
+	/**
+	 * The world map in the toon pages (agents/MAP.md M1): the round toggle (key M) with a badge while something new is on
+	 * the map, and the overlay – mounted the first time it opens (the terrain SVG is 337 KB). The world's data
+	 * (`/library/map`, a few KB) loads when the browser is idle: the map's unlock points turn the reading progress into
+	 * discoveries (`unlocksFromProgress` → the world state, universe-wide) before the story events exist (M3).
+	 */
 	const nav = getNavigationContext();
-	const mapVisible = $derived(nav.isOpen('map'));
+	const game = getGameContext();
+	const world = getWorldContext();
+	const toon = $derived(page.params.toonId as string);
+	const open = $derived(nav.isOpen('map'));
 
-const toon = $derived(page.data?.toon as Toon | undefined);
-const map = $derived(toon?.map as Map | undefined);
+	let data = $state<ReaderMap | null>(null);
+	let failed = $state(false);
+	let mounted = $state(false);
+	let loading: Promise<void> | null = null;
+	let loadedFor = '';
 
-	let mapContainer = $state<HTMLDivElement | null>(null);
-	let mapElement = $state<HTMLDivElement>();
-	let centerOffsetX = $state(0);
-	let centerOffsetY = $state(0);
-
-	// Calculate offset to center the world at (map.center.x, map.center.y)
-	function recalculateCenterOffset() {
-		if (mapContainer && map) {
-			centerOffsetX = mapContainer.clientWidth / 2 - map.center.x;
-			centerOffsetY = mapContainer.clientHeight / 2 - map.center.y;
-		}
-	}
-
-	$effect(() => {
-		if (mapContainer && map) {
-			recalculateCenterOffset();
-			const resizeObserver = new ResizeObserver(() => {
-				recalculateCenterOffset();
+	function load(): Promise<void> {
+		const key = `${toon}:${getLocale()}`;
+		if (loading && loadedFor === key) return loading;
+		loadedFor = key;
+		failed = false;
+		loading = fetchMap(getLocale(), toon)
+			.then((answer) => {
+				if (loadedFor === key) data = answer;
+			})
+			.catch(() => {
+				if (loadedFor === key) failed = true;
 			});
-			resizeObserver.observe(mapContainer);
-			return () => resizeObserver.disconnect();
-		}
-	});
-
-	onClickOutside(
-		() => mapElement,
-		() => {
-			if (mapVisible) nav.closeOverlay();
-		}
-	);
-
-	$effect(() => {
-		function handleKeyDown(e: KeyboardEvent) {
-			if (e.key === 'Escape' && mapVisible) {
-				nav.closeOverlay();
-			} else if (e.key === 'm' || e.key === 'M') {
-				nav.toggleOverlay('map');
-			}
-		}
-
-		window.addEventListener('keydown', handleKeyDown);
-		return () => window.removeEventListener('keydown', handleKeyDown);
-	});
-
-	function toggleMap(e?: MouseEvent) {
-		e?.stopPropagation();
-		nav.toggleOverlay('map');
+		return loading;
 	}
 
-	function handleLocationClick(location: MapLocation) {
-		nav.closeOverlay();
-		goto(
-			localizeHref(
-				`/${location.toonId}/${location.type}/${location.chapterNumber}?label=${location.id}`
-			)
-		);
+	onMount(() => {
+		const idle = (globalThis as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+		if (idle) idle(() => load());
+		else setTimeout(load, 1500);
+	});
+	// another toon or language: the toon's view (and names) change
+	$effect(() => {
+		void toon;
+		if (loadedFor && loadedFor !== `${toon}:${getLocale()}`) load();
+	});
+	$effect(() => {
+		if (open) {
+			mounted = true;
+			load();
+		}
+	});
+
+	// reading progress → discoveries (set operations: nothing happens twice)
+	$effect(() => {
+		if (!data || !world || !game) return;
+		const ids = unlocksFromProgress(data.locations, toon, game.state.progress);
+		if (ids.some((id) => !world.map.places[id])) world.unlock(ids);
+	});
+
+	$effect(() => {
+		function onKey(e: KeyboardEvent) {
+			const target = e.target as HTMLElement | null;
+			if (target?.closest('input, textarea, select, [contenteditable]')) return;
+			if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey) nav.toggleOverlay('map');
+		}
+		window.addEventListener('keydown', onKey);
+		return () => window.removeEventListener('keydown', onKey);
+	});
+
+	function toggle(e: MouseEvent) {
+		e.stopPropagation();
+		nav.toggleOverlay('map');
 	}
 </script>
 
-<button class="map-toggle" onclick={toggleMap}><img src={mapIcon} alt="Map" /></button>
+<button
+	class="map-toggle"
+	onclick={toggle}
+	aria-label={open ? m['map.close']() : m['map.open']()}
+	aria-expanded={open}
+	title={world?.hasNew ? m['map.new_badge']() : m['map.title']()}
+	data-testid="map-toggle"
+>
+	<img src={mapIcon} alt="" />
+	{#if world?.hasNew}<span class="badge" data-testid="map-badge"></span>{/if}
+</button>
 
-{#if map}
-	<div class="map {mapVisible ? 'visible' : 'hidden'}" bind:this={mapElement}>
-		<img
-			class="frame frame--1"
-			src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)}
-			alt=""
-		/>
-		<img
-			class="frame frame--2"
-			src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)}
-			alt=""
-		/>
-		<img
-			class="frame frame--3"
-			src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)}
-			alt=""
-		/>
-		<img
-			class="frame frame--4"
-			src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)}
-			alt=""
-		/>
-
-		<div class="map-viewport" bind:this={mapContainer}>
-			<div
-				class="map-content"
-				style:transform="translate({centerOffsetX + coordinates.x}px, {centerOffsetY +
-					coordinates.y}px) scale({zoom})"
-				style:width="{map.width}px"
-				style:height="{map.height}px"
-			>
-				<!-- Background layer -->
-				<div class="layer layer-background"></div>
-
-				<!-- Custom layers -->
-				<Layers layers={map.layers} width={map.width} height={map.height} />
-
-				<!-- Routes layer -->
-				<div class="layer layer-routes">
-					<Routes width={map.width} height={map.height} {routes} {locations} />
-				</div>
-
-				<!-- Locations layer -->
-				<div class="layer layer-locations">
-					{#each locations as location}
-						<button
-							class="location"
-							style:left="{location.coordinates.x}px"
-							style:top="{location.coordinates.y}px"
-							onclick={() => handleLocationClick(location)}
-							title={location.label}
-						>
-						</button>
-					{/each}
-				</div>
-
-				<!-- Labels layer -->
-				<div class="layer layer-labels">
-					{#each locations as location}
-						<span
-							class="label"
-							style:left="{location.coordinates.x}px"
-							style:top="{location.coordinates.y - 25}px"
-						>
-							{location.label}
-						</span>
-					{/each}
-				</div>
-			</div>
-		</div>
-	</div>
+{#if mounted}
+	<MapOverlay {data} {failed} {open} {toon} onclose={() => nav.closeOverlay()} />
 {/if}
 
 <style>
@@ -176,7 +114,7 @@ const map = $derived(toon?.map as Map | undefined);
 		width: 2rem;
 		display: flex;
 		cursor: pointer;
-		transition: all 0.2s ease;
+		transition: background 0.2s ease;
 		align-items: center;
 		justify-content: center;
 		touch-action: manipulation;
@@ -187,217 +125,16 @@ const map = $derived(toon?.map as Map | undefined);
 			background: var(--primary-color);
 		}
 	}
-
-	.map {
-		position: fixed;
-		inset: 0;
-		top: 0;
-		left: 0;
-		right: 0;
-		bottom: 0;
-		z-index: 1000;
-		background: #00d1ff;
-		opacity: 0;
-		transform: translate(0, 100%) scale(1.1);
-		transition:
-			opacity 0.2s ease,
-			transform 0.4s
-				linear(
-					0,
-					0.03 1.1%,
-					0.125 2.4%,
-					0.906 9.8%,
-					1.046 12.3%,
-					1.11 15%,
-					1.116 16.3%,
-					1.11 17.8%,
-					1.014 25.8%,
-					0.987 31.2%,
-					1.001 47.2%,
-					1
-				);
-		border: 0 solid black;
-		.frame {
-			position: absolute;
-			pointer-events: none;
-			filter: drop-shadow(0px 0px 13px var(--primary-color));
-			z-index: 1;
-			transition: transform 2s
-				linear(
-					0,
-					0.03 1.1%,
-					0.125 2.4%,
-					0.906 9.8%,
-					1.046 12.3%,
-					1.11 15%,
-					1.116 16.3%,
-					1.11 17.8%,
-					1.014 25.8%,
-					0.987 31.2%,
-					1.001 47.2%,
-					1
-				);
-			&.frame--1 {
-				top: 0px;
-				right: 0px;
-				height: 105vw;
-				transform: rotate(90deg);
-				transform-origin: top;
-				filter: drop-shadow(0px 0px 13px var(--color-acid-purple));
-			}
-			&.frame--2 {
-				top: 0px;
-				right: -37px;
-				height: 100vh;
-				filter: drop-shadow(-10px 50px 33px var(--color-acid-purple));
-				transform: rotateY(180deg);
-				/* transform-origin: top; */
-			}
-			&.frame--3 {
-				bottom: 0px;
-				right: 0;
-				height: 105vw;
-				transform: rotate(-90deg);
-				transform-origin: bottom;
-				filter: drop-shadow(0px 0px 13px var(--color-acid-purple));
-			}
-			&.frame--4 {
-				top: 0px;
-				left: -33px;
-				height: 100vh;
-				filter: drop-shadow(0px 0px 13px var(--color-acid-purple));
-			}
-		}
-	}
-
-	.map-viewport {
-		width: 100%;
-		height: 100%;
-		overflow: hidden;
-		position: relative;
-	}
-
-	.map-content {
-		position: relative;
-		transform-origin: 0 0;
-	}
-
-	.layer {
+	/* something new on the map: a cyan dot with an ink border (no animation, agents/MAP.md §3.4) */
+	.badge {
 		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		pointer-events: none;
-	}
-
-	.layer-background {
-		background: var(--primary-color);
-	}
-
-	.location {
-		opacity: 0;
-		position: absolute;
-		transform: translate(-50%, -50%);
-		transition-delay: 5s;
-		transition: opacity 2s
-			linear(
-				0,
-				0.109 9.8%,
-				0.259 15.8%,
-				0.995 27.8%,
-				0.396 38.4%,
-				0.526 42.6%,
-				0.996 48%,
-				0.582 55%,
-				0.999 62%,
-				0.724 67.4%,
-				0.999 73.4%,
-				0.837 77.8%,
-				1 83.2%,
-				0.923 86.8%,
-				1 92%,
-				1
-			);
-		font-size: 20px;
-		line-height: 1;
-		padding: 0;
-		width: 1rem;
-		height: 1rem;
-		background: #f0fcff;
-		border: 2px solid black;
+		top: -3px;
+		right: -3px;
+		width: 10px;
+		height: 10px;
 		border-radius: 50%;
-		pointer-events: auto;
-		&:hover {
-			background: var(--primary-color);
-		}
-	}
-
-	.label {
-		opacity: 0;
-		position: absolute;
-		transform: translateX(-50%);
-		transition-delay: 4s;
-		transition: opacity 1s
-			linear(
-				0,
-				0.109 9.8%,
-				0.259 15.8%,
-				0.995 27.8%,
-				0.396 38.4%,
-				0.526 42.6%,
-				0.996 48%,
-				0.582 55%,
-				0.999 62%,
-				0.724 67.4%,
-				0.999 73.4%,
-				0.837 77.8%,
-				1 83.2%,
-				0.923 86.8%,
-				1 92%,
-				1
-			);
-
-		white-space: nowrap;
-		font-size: 0.75rem;
-		pointer-events: none;
-		text-shadow:
-			-1px -1px 0 white,
-			0 -1px 0 white,
-			1px -1px 0 white,
-			1px 0 0 white,
-			1px 1px 0 white,
-			0 1px 0 white,
-			-1px 1px 0 white,
-			-1px 0 0 white;
-	}
-
-	/* hidden, its scaled box (and the map content) still reaches ~5 % into the bottom of the viewport: let clicks through
-	   (it covered the follow-up bar's buttons) */
-	.map.hidden,
-	.map.hidden * {
-		pointer-events: none;
-	}
-	.map.visible {
-		opacity: 1;
-		transform: translate(0, 0) scale(1);
-		.frame--1 {
-			transform: rotate(90deg) translate(3px, -6px);
-		}
-		.frame--2 {
-			transform: translate(-13px, -8px);
-		}
-		.frame--3 {
-			transform: rotate(-90deg) translate(1px, 25px);
-		}
-		.frame--4 {
-			transform: translate(13px, 8px);
-		}
-		.location {
-			opacity: 1;
-		}
-		.label {
-			opacity: 1;
-		}
+		background: var(--primary-cyan, #00d1ff);
+		border: 2px solid var(--ink, #000);
+		box-sizing: content-box;
 	}
 </style>

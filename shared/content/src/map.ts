@@ -250,10 +250,15 @@ export function placeImageBox(image: MapImage, zoom: number, ratio = 1): { width
 
 /**
  * Which labels to show at a zoom without overlapping (agents/MAP.md M1 "labels by zoom"): `items` in priority order (the
- * first wins), positions in screen px, an approximate label box per item. Returns the ids to label.
+ * first wins), positions in screen px (`y` = the label's bottom), an approximate label box per item; labels never cover
+ * the obstacles (the markers). Returns the ids to label.
  */
-export function visibleLabels(items: readonly { id: string; x: number; y: number; width: number; height: number }[]): Set<string> {
-	const shown: { x0: number; y0: number; x1: number; y1: number }[] = [];
+export function visibleLabels(
+	items: readonly { id: string; x: number; y: number; width: number; height: number }[],
+	/** boxes no label may cover (the markers): `{ x, y }` = centre, `size` = width = height */
+	obstacles: readonly { x: number; y: number; size: number }[] = []
+): Set<string> {
+	const shown: { x0: number; y0: number; x1: number; y1: number }[] = obstacles.map((o) => ({ x0: o.x - o.size / 2, y0: o.y - o.size / 2, x1: o.x + o.size / 2, y1: o.y + o.size / 2 }));
 	const out = new Set<string>();
 	for (const it of items) {
 		const box = { x0: it.x - it.width / 2, y0: it.y - it.height, x1: it.x + it.width / 2, y1: it.y };
@@ -364,8 +369,11 @@ export function markPlacesSeen(state: MapState, ids: Iterable<string>, now: numb
 
 /** Visible on the reader's map: not hidden, or unlocked */
 export const isPlaceVisible = (place: Pick<MapPlace, 'id' | 'hidden'>, state: MapState): boolean => !place.hidden || !!state.places[place.id];
+/** A route of the map document or of the reader's answer */
+export type RouteLike = { id: string; hidden?: boolean; waypoints: readonly (Waypoint | ReaderWaypoint)[] };
+
 /** Up to which waypoint index a route is drawn (-1 = not at all) */
-export function routeRevealedTo(route: Pick<MapPath, 'id' | 'hidden' | 'waypoints'>, state: MapState): number {
+export function routeRevealedTo(route: RouteLike, state: MapState): number {
 	const last = (route.waypoints?.length ?? 0) - 1;
 	if (!route.hidden) return last;
 	const r = state.routes[route.id];
@@ -402,7 +410,7 @@ export function unlocksFromProgress(
  * (before the events, M3) up to its last waypoint whose place the reader can see. Invisible places on the way are skipped
  * when drawing (`drawnWaypoints`).
  */
-export function routeDrawnTo(route: Pick<MapPath, 'id' | 'hidden' | 'waypoints'>, state: MapState, visible: (placeId: string) => boolean): number {
+export function routeDrawnTo(route: RouteLike, state: MapState, visible: (placeId: string) => boolean): number {
 	const revealed = routeRevealedTo(route, state);
 	if (revealed >= 0 || !route.hidden) return revealed;
 	let last = -1;

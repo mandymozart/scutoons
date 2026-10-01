@@ -10,8 +10,6 @@
 
 	let { children, data, params } = $props();
 	let sequence = data.sequence || [];
-	let locations = data.locations;
-	let routes = data.routes;
 
 	const audio = setAudioContext(params.toonId);
 	const vn = setVisualNovelContext();
@@ -28,5 +26,5 @@
 {@render children()}
 
 <SequenceNavigation {sequence} {params} />
-<Map {locations} {routes} />
+<Map />
 <Inventory />

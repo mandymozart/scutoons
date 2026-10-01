@@ -12,6 +12,7 @@
 	import { setSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { setInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { setItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
+	import { setWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { initAnimatedFavicon } from '$lib/utils/favicon.ts';
 
 	let { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -21,6 +22,8 @@
 	const membership = setMembershipContext(session);
 	const inventory = setInventoryContext(session);
 	const itemsUi = setItemsUiContext();
+	// the map discoveries of the whole universe (agents/MAP.md §2.4), synced like progress for members
+	setWorldContext(session);
 
 	// the static build serves one fallback index.html (`<html lang="de">`): the document language follows the locale of
 	// the URL (`/en/…` prefix, else cookie / browser language), like the dev server's `%paraglide.lang%`

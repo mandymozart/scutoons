@@ -289,5 +289,26 @@
 		"footer": "SCUTOONS · Keine Werbung, kein Tracking.",
 		"events": "Termine",
 		"attributions": "Quellenangaben"
+	},
+	"map": {
+		"title": "Karte",
+		"open": "Karte öffnen",
+		"close": "Karte schließen",
+		"zoom_in": "Hineinzoomen",
+		"zoom_out": "Herauszoomen",
+		"recenter": "Zur Startansicht",
+		"places": "Orte ({count})",
+		"places_title": "Entdeckte Orte",
+		"places_empty": "Noch keine Orte entdeckt – lies weiter, um sie zu finden.",
+		"read_chapter": "Kapitel {number} lesen",
+		"read_prologue": "Prolog ansehen",
+		"you_are_here": "Du bist hier · {name}",
+		"new_place": "Neu",
+		"new_badge": "Neues auf der Karte",
+		"close_card": "Schließen",
+		"other_toon": "Aus einer anderen Geschichte",
+		"loading": "Karte wird geladen …",
+		"unavailable": "Die Karte ist gerade nicht verfügbar.",
+		"hint": "Ziehen zum Verschieben, Mausrad oder zwei Finger zum Zoomen"
 	}
 }
