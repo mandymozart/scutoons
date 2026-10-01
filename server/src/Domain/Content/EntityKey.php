@@ -13,6 +13,7 @@ use Scutoons\Domain\ApiError;
  *   season:<toon>:<n>:<l>                chapter:<toon>:<n>:<l>        scene:<toon>:<chapter>:<name>:<l>
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
+ *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
  *   characters  moods  asset-requests  people  roles  events           platform-wide, language-neutral
  *
  * Every toon-related text of every locale lives in these documents (per-locale documents or `{ de, en }` fields); UI
@@ -31,6 +32,7 @@ final class EntityKey
         'routes' => [true, false, false, true],
         'cast' => [true, false, false, false],
         'credits' => [true, false, false, false],
+        'script' => [true, false, false, true],
         'characters' => [false, false, false, false],
         'moods' => [false, false, false, false],
         'asset-requests' => [false, false, false, false],
@@ -38,6 +40,12 @@ final class EntityKey
         'roles' => [false, false, false, false],
         'events' => [false, false, false, false],
     ];
+    /**
+     * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only
+     * `/api/entities`, role creator) and the production seed (`import-content --sql`) leaves them out unless `--only`
+     * names them (agents/DATA.md "Script").
+     */
+    public const CREATOR_ONLY_KINDS = ['script'];
     public const TOON_PATTERN = '#^[a-z0-9_-]{1,64}$#';
     public const LOCALE_PATTERN = '#^[a-z]{2}$#';
     public const SCENE_PATTERN = '#^[a-z0-9_-]{1,64}$#';

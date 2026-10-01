@@ -191,6 +191,9 @@ try {
         foreach (glob("$seedRoot/catpope/*/{toon,season*,chapter*,locations,routes}.json", GLOB_BRACE) ?: [] as $f) $expected++;
         foreach (glob("$seedRoot/catpope/*/chapter*/*.json") ?: [] as $f) $expected++;
         foreach (['cast', 'credits'] as $name) if (is_file("$seedRoot/catpope/_/$name.json")) $expected++;
+        // the screenplays (creator only) are imported locally, never into the production seed (--sql)
+        $scripts = count(glob("$seedRoot/catpope/*/script.json") ?: []);
+        $expected += $scripts;
         check($code1 === 0 && count($rows) === $expected && $expected > 10, "import: $expected entities as versions", [$code1, count($rows), $expected, array_slice($out1, -2)]);
         check(count(array_filter($rows, fn($r) => $r['status'] === 'published' && $r['author'] === null)) === count($rows), 'import: all published, no author');
         check($code2 === 0 && str_contains(implode("\n", $out2), '0 imported') && (int) $pdo->query("SELECT COUNT(*) FROM entity_versions WHERE toon = 'catpope'")->fetchColumn() === $expected,
@@ -213,8 +216,14 @@ try {
             foreach ($rows as $row) if ($row['entity_key'] === $insertKey) $stored = json_decode($row['json'], true);
             if (json_decode($json, true) !== $stored) $roundTrip = false;
         }
-        check($sqlCode === 0 && count($inserts) === $expected && substr_count($sql, 'WHERE NOT EXISTS') === $expected && $roundTrip,
-            '--sql: guarded INSERT per entity, MySQL literals decode to the imported JSON', [$sqlCode, count($inserts), $expected, $roundTrip]);
+        check($sqlCode === 0 && count($inserts) === $expected - $scripts && substr_count($sql, 'WHERE NOT EXISTS') === $expected - $scripts && $roundTrip,
+            '--sql: guarded INSERT per entity, MySQL literals decode to the imported JSON', [$sqlCode, count($inserts), $expected, $scripts, $roundTrip]);
+        $scriptKeys = array_filter(array_column($rows, 'entity_key'), fn($k) => str_starts_with($k, 'script:catpope:'));
+        check($scripts === 0 || (count($scriptKeys) === $scripts && !str_contains($sql, "'script:catpope:")),
+            "--sql: the $scripts screenplays are imported locally but left out of the production seed", [$scriptKeys, $scripts]);
+        $sqlOut = [];
+        exec("$script --toon=catpope --only=script --sql 2>" . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null'), $sqlOut, $sqlCode);
+        check($sqlCode === 0 && substr_count(implode("\n", $sqlOut), 'WHERE NOT EXISTS') === $scripts, '--sql --only=script: the screenplays only when named', [$sqlCode, $scripts]);
         check((int) Db::value('SELECT COUNT(*) FROM entity_versions') === $before, '--sql writes nothing');
         $pdo = null;
         @unlink($copy);
