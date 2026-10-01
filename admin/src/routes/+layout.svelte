@@ -85,7 +85,7 @@
 	<title>{current ? `${current.title()} · ` : ''}{m['shell.title']()}</title>
 </svelte:head>
 
-<div class="admin">
+<div class="admin sc-tool">
 	{#if waiting}
 		<p class="gate">{m['shell.loading']()}</p>
 	{:else if !session.isLoggedIn}
@@ -143,7 +143,7 @@
 			{#snippet sidebar()}
 				<div class="sidebar">
 					{#each navigation as group (group.id)}
-						<p class="group">{group.title()}</p>
+						<p class="sc-nav-head">{group.title()}</p>
 						<ul>
 							{#each group.items as item (item.id)}
 								<li>
@@ -176,34 +176,22 @@
 </div>
 
 <style>
-	/* Dense desktop tool: the rem-based tokens (spacing, bar heights) stay at the 16px baseline instead of the reader's
-	   fluid 24px root on wide screens (the text itself is 14px, see .admin) */
-	:global(html) {
-		font-size: 16px;
-	}
-	/* Admin chrome: DESIGN.md Part 1 – IBM Plex Mono, ink/paper, square, 2px structural rules, cyan only as fill.
-	   Dense desktop tool: a fixed 14px base instead of the reader's fluid root size (like the creator). */
+	/* Admin chrome: DESIGN.md "Brutalist tools" – the reader's fluid root and type styles (tools.css via `sc-tool`:
+	   1rem text, caption the smallest), 2px ink frames, square, ≥ 44px controls, selected = inverted, cyan only "live".
+	   No px font sizes and no root override. */
 	.admin {
-		--topbar-height: 3.25rem;
+		--topbar-height: var(--tool-bar-height);
 		--action-bar-height: var(--topbar-height);
 		--split-view-top: calc(var(--topbar-height) + var(--space-1));
 		--split-view-bottom: calc(var(--action-bar-height) + var(--space-1));
-		--admin-sidebar-width: 15rem;
-		font-family: var(--font-mono);
-		font-size: 14px;
-		line-height: 1.4;
-		color: var(--ink);
-		background: var(--paper);
+		--admin-sidebar-width: 14rem;
+		--info-panel-width: var(--tool-panel-width);
 		min-height: 100dvh;
 	}
 	.gate {
 		max-width: 32rem;
 		margin: 0 auto;
 		padding: 6rem 1rem 2rem;
-		font-size: 16px;
-	}
-	.gate h1 {
-		font-size: 1.25rem;
 	}
 	.gate .logo {
 		display: block;
@@ -232,10 +220,12 @@
 		color: var(--ink);
 		text-decoration: none;
 		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	.brand img {
 		display: block;
-		height: 20px;
+		height: 1.25rem;
 		width: auto;
 	}
 	.palette-trigger {
@@ -244,40 +234,46 @@
 		justify-content: space-between;
 		gap: var(--space-1);
 		min-width: 14rem;
+		min-height: var(--control-height);
 		margin-left: var(--space-1);
-		padding: var(--space-025) var(--space-05);
-		border: var(--border-width-hairline) solid var(--border-muted);
+		padding: 0 var(--space-05);
+		border: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 		color: var(--text-muted);
 		font: inherit;
 		cursor: pointer;
 	}
 	.palette-trigger:hover {
-		border-color: var(--ink);
+		color: var(--ink);
 	}
 	kbd {
 		font: inherit;
 		font-size: var(--type-caption-size);
+		font-weight: var(--font-weight-bold);
 		padding: 0 0.3em;
-		border: var(--border-width-hairline) solid var(--border-subtle);
+		border: var(--border-width-regular) solid var(--ink);
+		color: var(--ink);
 	}
 	.account {
 		display: flex;
 		align-items: center;
-		gap: var(--space-075);
+		gap: var(--space-05);
 		margin-left: auto;
 		min-width: 0;
 	}
 	.email {
 		color: var(--text-muted);
+		font-size: var(--type-caption-size);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.plain,
 	.burger {
-		padding: var(--space-025) var(--space-05);
-		border: var(--border-width-hairline) solid transparent;
+		min-height: var(--control-height);
+		min-width: var(--control-height);
+		padding: 0 var(--space-05);
+		border: var(--border-width-regular) solid transparent;
 		background: none;
 		color: var(--ink);
 		font: inherit;
@@ -290,44 +286,44 @@
 	}
 	.burger {
 		display: none;
-		font-size: 1.25em;
 	}
 
-	/* the frame (top bar, sticky sidebar reaching the ActionBar, off-canvas < 768px) is @scutoons/ui AppShell */
+	/* the frame (top bar, sticky sidebar reaching the ActionBar, off-canvas < 768px) is @scutoons/ui AppShell;
+	   group heads = tools.css sc-nav-head */
 	.sidebar {
-		padding: var(--space-1) 0;
+		padding: 0 0 var(--space-1);
 	}
 	.sidebar ul {
-		margin: 0 0 var(--space-1);
+		margin: 0;
 		padding: 0;
 		list-style: none;
-	}
-	.group {
-		margin: 0;
-		padding: 0 var(--space-1) var(--space-025);
-		color: var(--text-muted);
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
 	}
 	.sidebar a {
 		display: grid;
 		grid-template-columns: 1.25rem 1fr;
 		column-gap: var(--space-05);
+		align-content: center;
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		padding: var(--space-05) var(--space-1);
 		color: var(--ink);
 		text-decoration: none;
-		border-left: 4px solid transparent;
 	}
 	.sidebar a:hover {
-		background: var(--surface-hover);
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
+	.sidebar a:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-focus));
+	}
+	/* current = inverted */
 	.sidebar a[aria-current='page'] {
-		border-left-color: var(--ink);
-		background: var(--surface-tint-cyan);
+		background: var(--ink);
+		color: var(--paper);
 	}
-	.sidebar a[aria-current='page'] .icon {
-		background: var(--primary-cyan);
+	.sidebar a[aria-current='page'] .description {
+		color: inherit;
 	}
 	.icon {
 		grid-row: span 2;
@@ -379,30 +375,17 @@
 			display: none;
 		}
 	}
+	@media (max-width: 1279px) {
+		.email {
+			display: none;
+		}
+	}
 
-	/* Admin-wide content styles (@scutoons/ui components style themselves) */
-	:global(:where(.admin) a) {
-		color: var(--ink);
-	}
-	:global(:where(.admin) h2) {
-		font-size: 1.1em;
-	}
-	:global(:where(.admin) :is(input:not([type='checkbox']):not([type='radio']), select, textarea)) {
-		box-sizing: border-box;
-		margin: 0;
-		padding: var(--space-05) var(--space-075);
-		border: var(--border-width-hairline) solid var(--border-subtle);
-		border-radius: 0;
-		background: var(--paper);
-		color: var(--ink);
-		font: inherit;
-	}
-	:global(:where(.admin) :is(input, select, textarea):focus-visible) {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: -1px;
-	}
-	:global(:where(.admin) input[type='checkbox']) {
-		accent-color: var(--ink);
+	/* Admin-wide content styles (fields, focus, headings, tables: tools.css; @scutoons/ui components style themselves) */
+	:global(:where(.admin) input:not([type='checkbox'], [type='radio'])),
+	:global(:where(.admin) select),
+	:global(:where(.admin) textarea) {
+		max-width: 100%;
 	}
 	:global(.admin .muted) {
 		color: var(--text-muted);
@@ -423,9 +406,15 @@
 		flex-direction: column;
 		gap: var(--space-025);
 	}
-	:global(.admin .toolbar .filter > span) {
+	/* filter labels: the tool label (caption, bold, uppercase, ink) */
+	:global(.admin .toolbar .filter > span),
+	:global(.admin .bar-filter > span) {
 		font-size: var(--type-caption-size);
-		color: var(--text-muted);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	/* compact filters in the bottom ActionBar: label left of the control, one line */
 	:global(.admin .bar-filter) {
@@ -434,27 +423,26 @@
 		gap: var(--space-05);
 		white-space: nowrap;
 	}
-	:global(.admin .bar-filter > span) {
-		color: var(--text-muted);
-		font-size: var(--type-caption-size);
-	}
-	:global(.admin .sc-action-bar :is(select, input:not([type='checkbox']))) {
-		padding: var(--space-025) var(--space-05);
-	}
 	:global(.admin .grid-2) {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
-		gap: var(--space-15);
+		gap: 0 var(--space-15);
 		align-items: start;
 	}
 	:global(.admin dl.facts) {
 		display: grid;
 		grid-template-columns: max-content minmax(0, 1fr);
-		gap: var(--space-025) var(--space-1);
+		gap: var(--space-05) var(--space-1);
+		align-items: baseline;
 		margin: 0;
 	}
+	/* fact names = the tool label */
 	:global(.admin dl.facts dt) {
-		color: var(--text-muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	:global(.admin dl.facts dd) {
 		margin: 0;
@@ -463,5 +451,15 @@
 	:global(.admin .error-box) {
 		padding: var(--space-075);
 		border: var(--border-width-regular) solid var(--state-error);
+		border-left-width: 0.5rem;
+	}
+	@media (max-width: 479px) {
+		:global(.admin dl.facts) {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0;
+		}
+		:global(.admin dl.facts dd) {
+			margin-bottom: var(--space-05);
+		}
 	}
 </style>

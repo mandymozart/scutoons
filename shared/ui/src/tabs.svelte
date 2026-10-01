@@ -86,8 +86,10 @@
 		margin-bottom: var(--space-1);
 	}
 	button {
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		margin: 0;
-		padding: 0.45em 1em;
+		padding: var(--space-025) var(--space-1);
 		background: var(--paper);
 		color: var(--ink);
 		border: var(--border-width-regular) solid var(--border-muted);
@@ -109,8 +111,9 @@
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
+	button:focus-visible,
 	.panel:focus-visible {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: 2px;
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
 	}
 </style>

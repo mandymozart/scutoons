@@ -394,15 +394,21 @@
 		gap: 0.4rem;
 	}
 	.raw textarea {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.err {
 		color: var(--error);
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.field label {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.trigger {
 		border-top: 1px dashed var(--border-muted);
@@ -414,7 +420,6 @@
 		gap: 0.3rem;
 	}
 	.add button {
-		font-size: 11px;
-		padding: 0.25em 0.6em;
+		padding: 0 var(--space-075);
 	}
 </style>

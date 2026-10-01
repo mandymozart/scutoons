@@ -77,6 +77,22 @@
 	--root-size: 16px;
 	--root-size-large: 24px;
 
+	/* ── Tools (creator, admin, embassy; tools.css, DESIGN.md "Brutalist tools") ── */
+	/* uppercase labels (section headings, field labels, table headers, chips) */
+	--tracking-label: 0.06em;
+	/* page title of a tool page (like the landing page's "TOONS"), the only size above 1rem */
+	--type-title-size: 1.5rem;
+	--type-title-line: 1.15;
+	/* every control / clickable row: ≥ 44px hit target (44 · 44 · 48 px at the fluid root) */
+	--control-height: max(44px, 2rem);
+	/* focus = a thick ink outline outside the 2px frame */
+	--border-width-focus: 3px;
+	--focus-offset: 2px;
+	/* the tool frame: top bar = bottom ActionBar height, sidebar, Info panel (rem: they grow with the text) */
+	--tool-bar-height: max(48px, 3rem);
+	--tool-sidebar-width: 12rem;
+	--tool-panel-width: 16rem;
+
 	/* ── Motion: utilitarian, nothing > ~0.3s for UI state ────────────────── */
 	--duration-fast: 0.1s;
 	--duration-base: 0.2s;
@@ -215,8 +231,8 @@
 
 /*
  * @scutoons/tokens: base element styles shared by every app (needs tokens.css + fonts.css).
- * Fluid root font size: 14px < 480px, 16px baseline, 24px ≥ 768px. Never hardcode px overrides that break it
- * (dense tools like the creator set their own size on their own root element instead).
+ * Fluid root font size: 14px < 480px, 16px baseline, 24px ≥ 768px. Never hardcode px overrides that break it – the
+ * tools (creator, admin, embassy) use it too (tools.css, DESIGN.md "Brutalist tools"; owner 2026-10-01).
  */
 html {
 	font-size: 16px;

@@ -172,7 +172,14 @@
 		padding: 0;
 		list-style: none;
 	}
+	/* big numbers: the title size, the only size above 1rem (DESIGN.md "Brutalist tools") */
+	.stats li {
+		display: flex;
+		align-items: baseline;
+		gap: var(--space-05);
+	}
 	.stats strong {
-		font-size: 1.3em;
+		font-size: var(--type-title-size);
+		line-height: var(--type-title-line);
 	}
 </style>

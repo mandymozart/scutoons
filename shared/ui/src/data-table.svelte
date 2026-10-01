@@ -7,7 +7,7 @@
 		align?: 'start' | 'end';
 		/** CSS width, e.g. `8rem` */
 		width?: string;
-		/** hide the column below 768px */
+		/** hide the column below 1600px (the tools' type is 24px from 768px, DESIGN.md "Brutalist tools") */
 		secondary?: boolean;
 	}
 
@@ -248,30 +248,36 @@
 	}
 	caption {
 		text-align: left;
-		padding: var(--space-05) var(--space-075);
+		padding: var(--space-075) var(--space-1);
 		color: var(--text-muted);
 		font-size: var(--type-caption-size);
 	}
+	/* DESIGN.md "Brutalist tools": roomy rows, ink rules (no grey lines), uppercase bold headers */
 	th,
 	td {
-		padding: var(--space-05) var(--space-075);
+		padding: var(--space-075) var(--space-1);
 		text-align: left;
 		vertical-align: top;
-		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+		border-bottom: var(--border-width-hairline) solid var(--ink);
 	}
 	th {
 		position: sticky;
 		top: 0;
 		background: var(--paper);
 		border-bottom: var(--border-width-regular) solid var(--ink);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 		white-space: nowrap;
+		vertical-align: middle;
 	}
 	.end {
 		text-align: right;
 	}
 	.select {
-		width: 1.5rem;
+		width: 1.25rem;
 	}
 	.sort {
 		display: inline-flex;
@@ -297,17 +303,24 @@
 	tr.clickable {
 		cursor: pointer;
 	}
-	tr.clickable:hover,
+	tr.clickable:hover {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
+	}
 	tr.checked {
 		background: var(--surface-hover);
 	}
+	/* selected = inverted */
 	tr.active {
-		background: var(--surface-tint-cyan);
-		box-shadow: inset var(--border-width-regular) 0 0 var(--primary-cyan);
+		background: var(--ink);
+		color: var(--paper);
+	}
+	tr.active :global(a) {
+		color: inherit;
 	}
 	tr:focus-visible {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: -2px;
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 	tr.empty td {
 		padding: var(--space-15) var(--space-075);
@@ -333,6 +346,8 @@
 		cursor: pointer;
 	}
 	input[type='checkbox'] {
+		width: 1.25rem;
+		height: 1.25rem;
 		margin: 0;
 		accent-color: var(--ink);
 	}
@@ -344,7 +359,8 @@
 		clip-path: inset(50%);
 		white-space: nowrap;
 	}
-	@media (max-width: 767px) {
+	/* the reader's type size (24px root from 768px) needs the room: secondary columns only from 1600px */
+	@media (max-width: 1599px) {
 		.secondary {
 			display: none;
 		}

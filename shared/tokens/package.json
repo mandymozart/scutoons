@@ -13,6 +13,7 @@
 		"./tokens.css": "./tokens.css",
 		"./fonts.css": "./fonts.css",
 		"./base.css": "./base.css",
+		"./tools.css": "./tools.css",
 		"./fonts/*": "./fonts/*"
 	},
 	"files": [

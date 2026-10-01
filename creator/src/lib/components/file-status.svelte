@@ -49,17 +49,24 @@
 <style>
 	.file-status {
 		display: inline-flex;
-		gap: 0.25rem;
+		gap: var(--space-05);
 		flex-wrap: wrap;
 	}
+	/* status chips (DESIGN.md "Brutalist tools"): published = live (cyan fill), changes = inverted */
 	.badge {
-		font-size: 10px;
 		padding: 0.1em 0.4em;
-		border: 1px solid var(--border-muted);
+		border: var(--border-width-regular) solid currentColor;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		border-color: var(--border-muted);
 		white-space: nowrap;
 	}
 	.badge.live {
 		border-color: var(--ink);
+		background: var(--cyan);
 	}
 	.badge.pending {
 		border-style: dashed;
@@ -68,6 +75,7 @@
 	.badge.dirty {
 		background: var(--ink);
 		color: var(--paper);
+		border-color: var(--ink);
 	}
 	.badge.missing {
 		color: var(--error);

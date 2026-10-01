@@ -1,7 +1,7 @@
 /*
  * @scutoons/tokens: base element styles shared by every app (needs tokens.css + fonts.css).
- * Fluid root font size: 14px < 480px, 16px baseline, 24px ≥ 768px. Never hardcode px overrides that break it
- * (dense tools like the creator set their own size on their own root element instead).
+ * Fluid root font size: 14px < 480px, 16px baseline, 24px ≥ 768px. Never hardcode px overrides that break it – the
+ * tools (creator, admin, embassy) use it too (tools.css, DESIGN.md "Brutalist tools"; owner 2026-10-01).
  */
 html {
 	font-size: 16px;

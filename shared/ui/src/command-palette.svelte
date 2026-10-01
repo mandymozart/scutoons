@@ -199,11 +199,16 @@
 		display: flex;
 		justify-content: space-between;
 		gap: var(--space-1);
+		min-height: var(--control-height);
+		box-sizing: border-box;
+		align-items: center;
 		padding: var(--space-05) var(--space-1);
 		cursor: pointer;
 	}
+	/* selected = inverted (cyan is for "live" states only) */
 	li.active {
-		background: var(--primary-cyan);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.group {
 		padding: var(--space-05) var(--space-1) var(--space-025);
@@ -218,7 +223,7 @@
 		white-space: nowrap;
 	}
 	li.active .hint {
-		color: var(--ink);
+		color: var(--paper);
 	}
 	.empty {
 		padding: var(--space-1);
@@ -227,7 +232,7 @@
 	.keys {
 		margin: 0;
 		padding: var(--space-05) var(--space-1);
-		border-top: var(--border-width-hairline) solid var(--border-subtle);
+		border-top: var(--border-width-regular) solid var(--ink);
 		color: var(--text-muted);
 		font-size: var(--type-caption-size);
 	}

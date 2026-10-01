@@ -39,9 +39,9 @@
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: var(--radius-none);
 	}
+	/* quiet = the inactive frame (no grey fill) */
 	.quiet {
-		background: var(--surface-panel);
-		border-color: transparent;
+		border-color: var(--border-muted);
 	}
 	header {
 		display: flex;
@@ -52,8 +52,11 @@
 	}
 	h2 {
 		margin: 0;
-		font-size: 1em;
+		font-size: var(--type-label-size);
+		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	.hint {
 		margin: var(--space-025) 0 0;

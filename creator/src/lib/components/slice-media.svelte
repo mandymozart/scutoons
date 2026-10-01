@@ -175,16 +175,19 @@
 	.kind,
 	.flags {
 		display: flex;
-		gap: 0.8rem;
-		font-size: 12px;
+		gap: var(--space-1);
 	}
 	.field {
 		display: flex;
 		flex-direction: column;
 	}
 	.lbl {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.source {
 		display: grid;
@@ -206,7 +209,8 @@
 		border: 1px solid var(--border-subtle);
 	}
 	.meta {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.bad {
 		color: var(--error);

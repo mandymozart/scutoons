@@ -48,13 +48,17 @@
 	.field {
 		display: flex;
 		flex-direction: column;
-		gap: var(--space-025);
-		margin: 0 0 var(--space-1);
+		gap: var(--space-05);
+		margin: 0 0 var(--space-15);
 	}
+	/* DESIGN.md "Brutalist tools": field label = caption size, bold, uppercase, ink */
 	label {
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-		color: var(--text-muted);
+		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.required {
 		color: var(--ink);
@@ -62,17 +66,18 @@
 	.field :global(:is(input:not([type='checkbox']):not([type='radio']), select, textarea)) {
 		box-sizing: border-box;
 		width: 100%;
+		min-height: var(--control-height);
 		margin: 0;
-		padding: var(--space-05) var(--space-075);
-		border: var(--border-width-hairline) solid var(--border-subtle);
+		padding: var(--space-025) var(--space-05);
+		border: var(--border-width-regular) solid var(--ink);
 		border-radius: var(--radius-none);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
 	}
 	.field :global(:is(input, select, textarea):focus-visible) {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: -1px;
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
 	}
 	.field-hint,
 	.field-error {

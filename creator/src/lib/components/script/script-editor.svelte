@@ -394,6 +394,7 @@
 	}
 	li button {
 		display: flex;
+		justify-content: flex-start;
 		gap: 0.4rem;
 		width: 100%;
 		text-align: left;

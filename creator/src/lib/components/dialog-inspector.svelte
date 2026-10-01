@@ -73,31 +73,27 @@
 	.inspector {
 		display: flex;
 		flex-direction: column;
-		gap: 0.6rem;
+		gap: var(--space-1);
 	}
 	.row {
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		gap: 0.5rem;
+		gap: var(--space-05);
 	}
 	h3 {
-		font-size: 12px;
 		margin: 0;
 	}
+	/* two fields per row: the reader's type size needs the width (DESIGN.md "Brutalist tools") */
 	.grid {
 		display: grid;
-		gap: 0.4rem 0.5rem;
+		gap: var(--space-075) var(--space-1);
 	}
-	.g4 {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-	}
+	.g4,
 	.g3 {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	summary {
-		cursor: pointer;
-		font-size: 11px;
-		margin-bottom: 0.3rem;
+		margin-bottom: var(--space-05);
 	}
 </style>

@@ -152,7 +152,7 @@
 <style>
 	/* the page gets the bottom padding wherever the bar is placed in the markup */
 	:global(body:has(.sc-action-bar)) {
-		padding-bottom: calc(var(--action-bar-height, 3.25rem) + var(--space-1));
+		padding-bottom: calc(var(--action-bar-height, var(--tool-bar-height)) + var(--space-1));
 	}
 	.sc-action-bar {
 		position: fixed;
@@ -165,7 +165,7 @@
 		justify-content: space-between;
 		gap: var(--space-1);
 		box-sizing: border-box;
-		height: var(--action-bar-height, 3.25rem);
+		height: var(--action-bar-height, var(--tool-bar-height));
 		padding: 0 var(--space-1);
 		background: var(--paper);
 		border-top: var(--border-width-regular) solid var(--ink);
@@ -191,25 +191,27 @@
 	}
 	.info-toggle {
 		flex: none;
-		padding: 0.45em 0.8em;
-		border: var(--border-width-regular) solid var(--border-muted);
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 var(--space-075);
+		border: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
 		white-space: nowrap;
 		cursor: pointer;
 	}
-	.info-toggle:hover {
-		border-color: var(--ink);
-	}
+	.info-toggle:hover,
 	.info-toggle[aria-expanded='true'] {
 		border-color: var(--ink);
 		background: var(--ink);
 		color: var(--paper);
 	}
 	.more-toggle {
-		padding: 0.45em 1em;
-		border: var(--border-width-regular) solid var(--border-muted);
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 var(--space-1);
+		border: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
@@ -217,7 +219,13 @@
 	}
 	.more-toggle:hover,
 	.more-toggle[aria-expanded='true'] {
-		border-color: var(--ink);
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.info-toggle:focus-visible,
+	.more-toggle:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
 	}
 	.more-panel {
 		position: absolute;

@@ -127,12 +127,18 @@
 	li {
 		display: flex;
 		align-items: stretch;
-		border-bottom: 1px solid var(--border-subtle);
-		border-left: 3px solid transparent;
+		border-bottom: var(--border-width-hairline) solid var(--ink);
 	}
+	/* selected = inverted (DESIGN.md "Brutalist tools") */
 	li.selected {
-		border-left-color: var(--ink);
-		background: var(--surface-hover);
+		background: var(--ink);
+		color: var(--paper);
+	}
+	li.selected .thumb,
+	li.selected .no,
+	li.selected .marks,
+	li.selected .tools button {
+		color: var(--paper);
 	}
 	li.over {
 		box-shadow: inset 0 3px 0 var(--cyan);
@@ -140,9 +146,10 @@
 	.thumb {
 		flex: 1;
 		display: flex;
-		gap: 0.4rem;
+		justify-content: flex-start;
+		gap: var(--space-05);
 		align-items: center;
-		padding: 0.2rem;
+		padding: var(--space-025) var(--space-05);
 		background: transparent;
 		color: var(--ink);
 		border: 0;
@@ -151,14 +158,17 @@
 		cursor: grab;
 	}
 	.no {
-		width: 1.6rem;
+		flex: none;
+		min-width: 1.5em;
 		text-align: right;
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
 	}
 	img {
-		width: 34px;
-		height: 54px;
+		flex: none;
+		width: 2.125rem;
+		height: 3.375rem;
 		object-fit: cover;
 		background: var(--surface-panel);
 	}
@@ -168,16 +178,18 @@
 		min-width: 0;
 	}
 	.name {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.marks {
 		display: flex;
-		gap: 0.3rem;
-		font-size: 10px;
-		color: var(--muted);
+		gap: var(--space-05);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
 	}
 	.tools {
 		display: flex;
@@ -190,7 +202,7 @@
 		opacity: 1;
 	}
 	.tools button {
-		font-size: 11px;
-		padding: 0 0.35em;
+		min-width: var(--control-height);
+		padding: 0;
 	}
 </style>

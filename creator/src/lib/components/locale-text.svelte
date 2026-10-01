@@ -80,20 +80,29 @@
 	.locale-text {
 		display: grid;
 		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-		gap: 0.5rem;
+		gap: var(--space-1);
 	}
 	.head {
 		display: flex;
-		gap: 0.3rem;
+		flex-wrap: wrap;
+		gap: var(--space-05);
 		align-items: center;
-		font-size: 11px;
-		margin-bottom: 0.15rem;
+		margin-bottom: var(--space-025);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.pill {
-		font-size: 9px;
-		padding: 0 0.35em;
-		border: 1px solid currentColor;
+		padding: 0.1em 0.4em;
+		border: var(--border-width-regular) solid currentColor;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	.source {
 		background: var(--ink);
@@ -106,23 +115,22 @@
 	.warn {
 		color: var(--warn);
 	}
+	/* state = the frame's colour + a thick left rule, no tinted fills */
 	.missing textarea,
 	.missing input {
 		border-color: var(--error);
-		background: #fff3f2;
+		border-left-width: 0.5em;
 	}
 	.long textarea,
 	.long input {
 		border-color: var(--warn);
-		background: #fffaf0;
+		border-left-width: 0.5em;
 	}
 	textarea {
 		resize: vertical;
 		min-height: 3em;
 	}
 	.mini {
-		font-size: 10px;
-		padding: 0 0.3em;
 		margin-left: auto;
 	}
 </style>

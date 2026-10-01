@@ -109,12 +109,15 @@
 		justify-content: space-between;
 		gap: var(--space-1);
 		padding: var(--space-075) var(--space-1);
-		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	h2 {
 		margin: 0;
-		font-size: 1em;
+		font-size: var(--type-label-size);
+		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	.close {
 		margin: 0 0 0 auto;
@@ -125,6 +128,8 @@
 		font: inherit;
 		font-size: 1.5em;
 		line-height: 1;
+		min-width: var(--control-height);
+		min-height: var(--control-height);
 		cursor: pointer;
 	}
 	.body {
@@ -143,6 +148,6 @@
 		gap: var(--space-05);
 		padding: var(--space-075) var(--space-1);
 		background: var(--paper);
-		border-top: var(--border-width-hairline) solid var(--border-subtle);
+		border-top: var(--border-width-regular) solid var(--ink);
 	}
 </style>

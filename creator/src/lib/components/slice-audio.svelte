@@ -164,9 +164,9 @@
 		gap: 0.4rem;
 	}
 	h4 {
-		font-size: 11px;
-		margin: 0.5rem 0 0;
+		margin: var(--space-1) 0 0;
 		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	.volume {
 		display: grid;
@@ -180,7 +180,8 @@
 		align-items: center;
 	}
 	.num {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 		color: var(--muted);
 	}
 	.sample {
@@ -201,14 +202,19 @@
 		gap: 0.3rem 0.4rem;
 	}
 	.g3 {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	.field label {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.warn {
 		color: var(--warn);
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 </style>
