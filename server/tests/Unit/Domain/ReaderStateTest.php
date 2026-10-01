@@ -99,6 +99,11 @@ final class ReaderStateTest extends TestCase
         $inventory->grant($id, ['item_id' => 'checkit_camera', 'source' => 'story', 'ref' => 'test:checkit']);
         foreach (['semaglutide', 'psilocybin', 'lsd'] as $item) self::assertSame(1, $inventory->grant($id, ['item_id' => $item, 'source' => 'scan']), $item);
         $this->error('cooldown', fn() => $inventory->grant($id, ['item_id' => 'psilocybin', 'source' => 'scan']));
+        // the Check It camera's recipe (owner 2026-10-01): camera + testo, like the testo camera
+        $inventory->add($id, 'camera', null, 1, 'starter');
+        $inventory->add($id, 'testo', null, 1, 'story');
+        $inventory->craft($id, 'checkit_camera');
+        self::assertSame(2, $inventory->count($id, 'checkit_camera'), 'one from the story grant, one crafted');
         // a story pickup (the sandbox's testo) is granted once per place
         self::assertSame(1, $inventory->grant($id, ['item_id' => 'testo', 'source' => 'story', 'ref' => 'sandbox:testo']));
         self::assertSame(0, $inventory->grant($id, ['item_id' => 'testo', 'source' => 'story', 'ref' => 'sandbox:testo']));

@@ -13,7 +13,10 @@
 		$props();
 
 	const inventory = getInventoryContext();
-	const recipe = $derived(inventory.recipesFor(first.item_id, second.item_id)[0]);
+	// the same two items can make more than one thing (camera + testo → testo camera or Check It camera): pick one
+	const recipes = $derived(inventory.recipesFor(first.item_id, second.item_id));
+	let pick = $state(0);
+	const recipe = $derived(recipes[Math.min(pick, Math.max(0, recipes.length - 1))]);
 	const ready = $derived(recipe ? inventory.canCraft(recipe) : false);
 	let error = $state<string | null>(null);
 	let crafting = $state(false);
@@ -32,6 +35,15 @@
 
 <div class="recipe">
 	{#if recipe}
+		{#if recipes.length > 1}
+			<div class="choices" role="group" aria-label={m['items.combine_choose']()}>
+				{#each recipes as r, i (r.id)}
+					<button class={i === pick ? '' : 'btn-secondary'} aria-pressed={i === pick} data-recipe={r.id} onclick={() => ((pick = i), (error = null))}>
+						→ {inventory.nameOf(part(r.output.item))}
+					</button>
+				{/each}
+			</div>
+		{/if}
 		<div class="equation">
 			{#each recipe.inputs as input, i}
 				{#if i > 0}<span class="op">+</span>{/if}
@@ -74,6 +86,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+	}
+	.choices {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+	.choices button {
+		flex: 1 1 auto;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.75rem;
 	}
 	.equation {
 		display: flex;

@@ -216,8 +216,22 @@ async function flow(who) {
 	// 6 – the Check It camera: the mandatory notice + the multi-label scan (a fake camera stream and fake model
 	// predictions through the DEV-only hook `__scutoonsFakePredictions`; MobileNet itself is not downloaded)
 	const p6 = [];
-	if (who === 'guest') await evaluate(`(() => { const s = JSON.parse(localStorage.getItem('scutoons_inventory')); s.entries.push({ id: 'local-check-checkit', item_id: 'checkit_camera', variant: null, qty: 1, source: 'story', code: null, edition_number: null, acquired_at: new Date().toISOString() }); localStorage.setItem('scutoons_inventory', JSON.stringify(s)); return true; })()`);
-	else await call('POST', '/inventory/grant/', { item_id: 'checkit_camera', source: 'story', ref: `check-testo:checkit:${Date.now()}` });
+	// the recipe (owner 2026-10-01): a fresh camera + testo (setup: the guest's device / the local DB + a story grant),
+	// combined in the inventory, the choice "→ Check It Kamera" (the same two items also make the testo camera)
+	if (who === 'guest') await evaluate(`(() => { const s = JSON.parse(localStorage.getItem('scutoons_inventory')); const at = new Date().toISOString(); s.entries.push({ id: 'local-check-camera', item_id: 'camera', variant: null, qty: 1, source: 'starter', code: null, edition_number: null, acquired_at: at }, { id: 'local-check-testo-2', item_id: 'testo', variant: null, qty: 1, source: 'story', code: null, edition_number: null, acquired_at: at }); localStorage.setItem('scutoons_inventory', JSON.stringify(s)); return true; })()`);
+	else {
+		const at = new Date().toISOString().slice(0, 19).replace('T', ' ');
+		sql("INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, acquired_at, updated_at) VALUES (:eid, :id, 'camera', NULL, 1, 'starter', NULL, NULL, :at, :at)", { eid: crypto.randomUUID(), id: me.user.id, at });
+		await call('POST', '/inventory/grant/', { item_id: 'testo', source: 'story', ref: `check-testo:checkit:${Date.now()}` });
+	}
+	await openInventory();
+	await clickEl(tile(nameOf('testo')));
+	await clickEl(`[...document.querySelectorAll('.item-detail .actions button')].find((b) => b.textContent.trim() === ${JSON.stringify(de.items.combine)})`);
+	await clickEl(tile(nameOf('camera')));
+	await clickEl(`document.querySelector('.recipe [data-recipe="checkit_camera"]')`);
+	await clickEl(`[...document.querySelectorAll('.recipe .actions button')].find((b) => b.textContent.trim() === ${JSON.stringify(de.items.craft)})`);
+	await sleep(800);
+	if ((await owned(who, 'checkit_camera')) !== 1) p6.push(`crafted Check It camera: ${await owned(who, 'checkit_camera')}`);
 	const before6 = await owned(who, 'semaglutide');
 	await openInventory();
 	await evaluate(`(() => {
@@ -240,7 +254,7 @@ async function flow(who) {
 	if ((await owned(who, 'semaglutide')) !== before6 + 1) p6.push(`semaglutide ${before6} → ${await owned(who, 'semaglutide')}`);
 	if (/analys|enthält|contains|safe|sicher/i.test(hitText ?? '')) p6.push('the hit text sounds like an analysis');
 	await evaluate(`(document.querySelector('.camera .close')?.click(), delete globalThis.__scutoonsFakePredictions, true)`);
-	report(`${who}: Check It camera – notice with the checkit! link on open, "Erkannt: Spritze → ${nameOf('semaglutide')}", granted`, p6);
+	report(`${who}: camera + testo → Check It camera (recipe choice); notice with the checkit! link on open, "Erkannt: Spritze → ${nameOf('semaglutide')}", granted`, p6);
 }
 
 await open(`${viewer}/de/sandbox`);

@@ -154,6 +154,7 @@
 		"source_craft": "Crafted",
 		"source_starter": "Starter item",
 		"combine_hint": "Pick a second item to combine with {name}.",
+		"combine_choose": "What should it become?",
 		"combine_none": "These two don't go together.",
 		"combine_missing": "You need more items for this.",
 		"craft": "Combine",

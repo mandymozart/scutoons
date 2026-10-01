@@ -154,6 +154,7 @@
 		"source_craft": "Selbst gebaut",
 		"source_starter": "Startgegenstand",
 		"combine_hint": "Wähle einen zweiten Gegenstand, um ihn mit {name} zu kombinieren.",
+		"combine_choose": "Was soll daraus werden?",
 		"combine_none": "Diese beiden passen nicht zusammen.",
 		"combine_missing": "Dafür brauchst du mehr Gegenstände.",
 		"craft": "Kombinieren",

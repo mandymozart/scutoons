@@ -226,8 +226,8 @@
       "toon": null,
       "name": { "de": "Check It Kamera", "en": "Check It camera" },
       "description": {
-        "de": "Eine Spiel-Kamera, die Dinge aus der echten Welt in Spielgegenstände verwandelt: Pillendosen und Tuben, Spritzen, Pilze, kleine Briefchen. Sie analysiert keine echten Substanzen.",
-        "en": "A game camera that turns things from the real world into game items: pill jars and tubes, syringes, mushrooms, little envelopes. It does not analyse real substances."
+        "de": "Eine Spiel-Kamera aus Kamera und Testo, die Dinge aus der echten Welt in Spielgegenstände verwandelt: Pillendosen und Tuben, Spritzen, Pilze, kleine Briefchen. Sie analysiert keine echten Substanzen.",
+        "en": "A game camera made of a camera and testo that turns things from the real world into game items: pill jars and tubes, syringes, mushrooms, little envelopes. It does not analyse real substances."
       },
       "kind": "virtual",
       "category": "tool",
@@ -471,6 +471,14 @@
         { "item": "testo", "qty": 1 }
       ],
       "output": { "item": "testo_camera", "qty": 1 }
+    },
+    {
+      "id": "checkit_camera",
+      "inputs": [
+        { "item": "camera", "qty": 1 },
+        { "item": "testo", "qty": 1 }
+      ],
+      "output": { "item": "checkit_camera", "qty": 1 }
     }
   ],
   "stats": {
