@@ -243,7 +243,16 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	if (s.video !== undefined) {
 		if (!isObj(s.video) || !isStr(s.video.src) || !s.video.src) c.error([...path, 'video', 'src'], 'video.src is missing (an .mp4 on the CDN)');
 		else if (!/\.(mp4|webm)$/i.test(s.video.src)) c.warn([...path, 'video', 'src'], 'video.src is not a video path (.mp4, .webm)');
-		for (const key of ['loop', 'autoplay'] as const) {
+		if (isObj(s.video) && s.video.sources !== undefined) {
+			if (!Array.isArray(s.video.sources)) c.error([...path, 'video', 'sources'], 'video.sources must be a list of { src, media? }');
+			else
+				s.video.sources.forEach((source: any, i: number) => {
+					if (!isObj(source) || !isStr(source.src) || !source.src) c.error([...path, 'video', 'sources', i, 'src'], 'source.src is missing (an .mp4 on the CDN)');
+					else if (!/\.(mp4|webm)$/i.test(source.src)) c.warn([...path, 'video', 'sources', i, 'src'], 'source.src is not a video path (.mp4, .webm)');
+					if (isObj(source) && source.media !== undefined && !isStr(source.media)) c.error([...path, 'video', 'sources', i, 'media'], 'source.media must be a media query string');
+				});
+		}
+		for (const key of ['loop', 'autoplay', 'player'] as const) {
 			if (isObj(s.video) && s.video[key] !== undefined && typeof s.video[key] !== 'boolean') c.error([...path, 'video', key], `video.${key} must be true or false`);
 		}
 	}

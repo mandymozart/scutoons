@@ -36,6 +36,27 @@ test('readingState: the last opened chapter decides', () => {
 	assert.deepEqual(readingState('t', [1, 2], [cp(1, undefined, true, '2026-01-01')]), { kind: 'next', chapter: 2 });
 });
 
+test('readingState: the prologue (chapter 0) first, then the chapters as before', () => {
+	// fresh visitor → the prologue
+	assert.deepEqual(readingState('t', [0, 1, 2], []), { kind: 'prologue', chapter: 0 });
+	// watched part of it → still the prologue
+	assert.deepEqual(readingState('t', [0, 1, 2], [cp(0, 0.4, false, '2026-01-01')]), { kind: 'prologue', chapter: 0 });
+	// watched to its end (ended / ≥ 95 % = position 1) → chapter 1
+	assert.deepEqual(readingState('t', [0, 1, 2], [cp(0, 1, true, '2026-01-01')]), { kind: 'start', chapter: 1 });
+	// a reader of chapter 1 who never watched it → the chapters' rules
+	assert.deepEqual(readingState('t', [0, 1, 2], [cp(1, 0.3, false, '2026-01-01')]), { kind: 'continue', chapter: 1, position: 0.3 });
+	assert.deepEqual(readingState('t', [0, 1, 2], [cp(1, 1, true, '2026-01-01')]), { kind: 'next', chapter: 2 });
+	// the prologue watched again after chapter 1 → chapter 1 is still the last opened chapter
+	assert.deepEqual(readingState('t', [0, 1, 2], [cp(1, 0.3, false, '2026-01-01'), cp(0, 1, true, '2026-01-02')]), { kind: 'continue', chapter: 1, position: 0.3 });
+	// everything finished → "again" from chapter 1, never the prologue
+	assert.deepEqual(readingState('t', [0, 1, 2], [cp(0, 1, true, '2026-01-01'), cp(1, 1, true, '2026-01-02'), cp(2, 1, true, '2026-01-03')]), { kind: 'again', chapter: 1 });
+	assert.deepEqual(readingState('t', [0, 1], [cp(1, 1, true, '2026-01-02')]), { kind: 'again', chapter: 1 });
+	// only a prologue is readable
+	assert.deepEqual(readingState('t', [0], [cp(0, 1, true, '2026-01-01')]), { kind: 'prologue', chapter: 0 });
+	// chapter 0 in the list progress like any chapter
+	assert.deepEqual(chapterProgress('t', 0, [cp(0, 0.5, false, '2026-01-01')]), { position: 0.5, finished: false });
+});
+
 test('advanceCheckpoint: positions only grow, a finished chapter opened again starts over', () => {
 	const uri = chapterCheckpointUri('t', 1);
 	const first = advanceCheckpoint(undefined, uri, 0.1, true, 'a')!;

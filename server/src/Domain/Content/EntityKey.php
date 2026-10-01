@@ -41,6 +41,9 @@ final class EntityKey
     public const TOON_PATTERN = '#^[a-z0-9_-]{1,64}$#';
     public const LOCALE_PATTERN = '#^[a-z]{2}$#';
     public const SCENE_PATTERN = '#^[a-z0-9_-]{1,64}$#';
+    /** season numbers start at 1; chapter numbers at 0 (chapter 0 = a season's prologue, e.g. a music video) */
+    public const SEASON_NUMBER_PATTERN = '#^[1-9][0-9]{0,5}$#';
+    public const CHAPTER_NUMBER_PATTERN = '#^(0|[1-9][0-9]{0,5})$#';
 
     public function __construct(
         public readonly string $kind,
@@ -67,7 +70,7 @@ final class EntityKey
         $scene = $hasScene ? array_shift($parts) : null;
         $locale = $localized ? array_shift($parts) : null;
         if ($toon !== null && (!preg_match(self::TOON_PATTERN, $toon) || $toon === 'scutoons')) throw $invalid;
-        if ($number !== null && !preg_match('#^[1-9][0-9]{0,5}$#', $number)) throw $invalid;
+        if ($number !== null && !preg_match($kind === 'season' ? self::SEASON_NUMBER_PATTERN : self::CHAPTER_NUMBER_PATTERN, $number)) throw $invalid;
         if ($scene !== null && !preg_match(self::SCENE_PATTERN, $scene)) throw $invalid;
         if ($locale !== null && !preg_match(self::LOCALE_PATTERN, $locale)) throw $invalid;
         return new self((string) $kind, $toon, $number === null ? null : (int) $number, $scene, $locale);
@@ -104,6 +107,6 @@ final class EntityKey
     /** A chapter's scene reference (`ref.src` of a group: `chapter<N>/<name>.json`, the content format) → its entity */
     public static function sceneOf(string $toon, string $src): ?string
     {
-        return preg_match('#^chapter([1-9][0-9]{0,5})/([a-z0-9_-]{1,64})\.json$#', $src, $m) === 1 ? "scene:$toon:$m[1]:$m[2]" : null;
+        return preg_match('#^chapter(0|[1-9][0-9]{0,5})/([a-z0-9_-]{1,64})\.json$#', $src, $m) === 1 ? "scene:$toon:$m[1]:$m[2]" : null;
     }
 }

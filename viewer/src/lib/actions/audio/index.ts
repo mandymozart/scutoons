@@ -1,5 +1,5 @@
 import type { AudioConfiguration } from '@scutoons/content';
-import type { SliceAudioPlayer } from '@scutoons/reader';
+import { SLICE_PLAYER_EVENT, type SliceAudioPlayer, type SlicePlayerDetail } from '@scutoons/reader';
 import type { Action } from 'svelte/action';
 import { getCurrentAudioContext } from '$lib/contexts/audio.svelte.ts';
 
@@ -81,10 +81,18 @@ export const audio: Action<HTMLElement, AudioConfiguration | null | undefined> =
 
 	setup(audioConfig);
 
+	// a player video slice (a music video) has its own sound: the chapter's music pauses while it plays
+	const onPlayer = (event: Event) => {
+		const detail = (event as CustomEvent<SlicePlayerDetail>).detail;
+		if (detail && detail.state !== 'time') audioContext?.holdForPlayer(detail.playing);
+	};
+	node.addEventListener(SLICE_PLAYER_EVENT, onPlayer);
+
 	return {
 		update: setup,
 		destroy: async () => {
 			destroyed = true;
+			node.removeEventListener(SLICE_PLAYER_EVENT, onPlayer);
 			if (audioContext) {
 				await audioContext.unload();
 			}

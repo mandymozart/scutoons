@@ -6,6 +6,17 @@ import type { Checkpoint } from './content.ts';
  * written while its slices are read (position) and when its last slice is reached (finished).
  */
 
+/**
+ * Chapter 0 of a season is its prologue (owner 2026-10-01: the music video "Roar Little Kitty" before chapter 1): a normal
+ * chapter in the sequence, listed as "Prolog" / "Prologue", offered by the start button until it was watched, and never
+ * the season's first chapter for "read again".
+ */
+export const PROLOGUE = 0;
+
+export function isPrologue(chapter: number | null | undefined): boolean {
+	return chapter === PROLOGUE;
+}
+
 /** The checkpoint uri of a chapter (chapter numbers are unique per toon) */
 export function chapterCheckpointUri(toon: string, chapter: number): string {
 	return `${toon}/chapter/${chapter}`;
@@ -35,23 +46,36 @@ export function chapterProgress(
 
 /**
  * The button's state:
- * - `start`    nothing of these chapters read yet → the first readable chapter
+ * - `prologue` nothing of the chapters read yet and the season's prologue (chapter 0) not watched to its end → chapter 0
+ * - `start`    nothing of these chapters read yet → the first readable chapter (never the prologue)
  * - `continue` the last opened chapter is not read to its end → that chapter, `position` = how far (0..1)
  * - `next`     the last opened chapter was read to its end → the next readable chapter; after the last one, the first
  *              readable chapter that was never finished
  * - `again`    every readable chapter was finished (and the last opened one too) → the first readable chapter
  */
 export type ReadingState =
+	| { kind: 'prologue'; chapter: number }
 	| { kind: 'start'; chapter: number }
 	| { kind: 'continue'; chapter: number; position: number }
 	| { kind: 'next'; chapter: number }
 	| { kind: 'again'; chapter: number };
 
 /**
- * @param readable the season's readable chapter numbers in reading order (published; "coming soon" / drafts never)
+ * @param readable the season's readable chapter numbers in reading order (published; "coming soon" / drafts never); a
+ *   prologue (chapter 0) among them is only ever offered first (`prologue`), the rules below apply to the others
  * @param checkpoints the toon's checkpoints (any order; others than these chapters are ignored)
  */
 export function readingState(toon: string, readable: number[], checkpoints: Checkpoint[] | null | undefined): ReadingState | null {
+	const chapters = readable.filter((n) => !isPrologue(n));
+	if (chapters.length === readable.length) return chaptersState(toon, chapters, checkpoints);
+	const state = chaptersState(toon, chapters, checkpoints);
+	if (state && state.kind !== 'start') return state;
+	// nothing of the chapters read: the prologue until it was watched to its end (or when it is all there is)
+	if (!state || !chapterProgress(toon, PROLOGUE, checkpoints)?.finished) return { kind: 'prologue', chapter: PROLOGUE };
+	return state;
+}
+
+function chaptersState(toon: string, readable: number[], checkpoints: Checkpoint[] | null | undefined): ReadingState | null {
 	if (!readable.length) return null;
 	const byChapter = new Map<number, Checkpoint>();
 	for (const cp of Array.isArray(checkpoints) ? checkpoints : []) {

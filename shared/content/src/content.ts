@@ -110,14 +110,34 @@ export interface MapRoute {
  */
 export const DEFAULT_SLICE = { width: 390, height: 625 } as const;
 
-/** A looping video instead of the slice image (muted, inline). The slice's `image` is its poster. */
-export interface SliceVideo {
-	/** CDN path of an H.264 MP4, relative to the toon's folder like `image` */
+/** One encoding of a slice video: a CDN path like `SliceVideo.src` + an optional media query (`<source media>`) */
+export interface SliceVideoSource {
 	src: string;
-	/** default true */
+	media?: string;
+}
+
+/**
+ * A video instead of the slice image. The slice's `image` is its poster. By default a muted, inline loop that plays while
+ * in view; with `player` a video to watch (a music video, a trailer).
+ */
+export interface SliceVideo {
+	/** CDN path of an H.264 MP4, relative to the toon's folder like `image`; with `sources` the default (the last source) */
+	src: string;
+	/**
+	 * Other encodings, tried before `src` in this order: the browser takes the first whose `media` query matches when the
+	 * video loads (e.g. 480p for `(max-width: 600px)`). No adaptive streaming (HLS) – one file per load.
+	 */
+	sources?: SliceVideoSource[];
+	/** default true (ignored with `player`) */
 	loop?: boolean;
-	/** default true: plays while the slice is in view (paused outside, poster only with reduced motion) */
+	/** default true: plays while the slice is in view (paused outside, poster only with reduced motion; ignored with `player`) */
 	autoplay?: boolean;
+	/**
+	 * A video player instead of the loop: sound, native controls (fullscreen through them), started by the reader, no
+	 * loop. The slice's `width` / `height` are the video's aspect ratio at the slice width (no 390 × 625 crop). While it
+	 * plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress.
+	 */
+	player?: boolean;
 }
 
 export interface Slice {

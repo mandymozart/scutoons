@@ -6,7 +6,8 @@
 
 	/**
 	 * The season's one start button (agents/DESIGN.md "Start button"): "S1 K1 lesen" / "S1 K4 weiterlesen" (+ how far,
-	 * as a thin bar) / the next chapter / "S1 K1 erneut lesen", from the reading progress (game context checkpoints:
+	 * as a thin bar) / the next chapter / "S1 K1 erneut lesen" – and "Prolog ansehen" (chapter 0) for a visitor who
+	 * read nothing yet and didn't watch the prologue to its end – from the reading progress (game context checkpoints:
 	 * localStorage, a member's `/api/progress/<toon>`). Only readable chapters are targets, never "coming soon".
 	 */
 	let { toonId, season, chapters }: { toonId: string; season: number; chapters: LoadedSequenceItem[] } = $props();
@@ -18,6 +19,7 @@
 	const label = $derived.by(() => {
 		if (!reading) return '';
 		const values = { season, chapter: reading.chapter };
+		if (reading.kind === 'prologue') return m['start.prologue']();
 		if (reading.kind === 'continue') return m['start.continue'](values);
 		if (reading.kind === 'again') return m['start.again'](values);
 		return m['start.read'](values);
@@ -31,7 +33,9 @@
 		<a
 			class="start-button"
 			href={localizeHref(`/${toonId}/chapter/${reading.chapter}`)}
-			title={m['start.title']({ season, chapter: reading.chapter, title: target.title ?? '' })}
+			title={reading.kind === 'prologue'
+				? m['start.prologue_title']({ season, title: target.title ?? '' })
+				: m['start.title']({ season, chapter: reading.chapter, title: target.title ?? '' })}
 			data-testid="start-button"
 			data-state={reading.kind}
 		>

@@ -27,6 +27,11 @@ export type AudioContext = {
 	startMusic: () => Promise<void>;
 	pauseMusic: () => void;
 	resumeMusic: () => void;
+	/**
+	 * A player video (`SliceVideo.player`) plays (true) or stopped (false): the music pauses while it plays and resumes
+	 * afterwards (also music that would have started meanwhile).
+	 */
+	holdForPlayer: (playing: boolean) => void;
 	updateMusicVolumes: (volumes: { id: string; volume: number }[], duration?: number) => void;
 	triggerSample: (sample: Sample) => void;
 	toggleMute: () => void;
@@ -73,9 +78,17 @@ export function setAudioContext(toonId: string): AudioContext {
 	let expectedTrackIds: string[] | null = null;
 	/** the last volume the slices asked for per track, applied when the music starts */
 	const requestedVolumes = new Map<string, number>();
+	/** a player video plays: the music waits */
+	let held = false;
+	/** the music was playing (or wanted to start) when the hold began */
+	let resumeAfterHold = false;
 
 	function startPlayer(player: NonNullable<ReturnType<AudioManager['getMusicPlayer']>>) {
 		if (player.isCurrentlyPlaying()) return;
+		if (held) {
+			resumeAfterHold = true;
+			return;
+		}
 		player.start();
 		state.isPlaying = true;
 		// volumes the slices in view asked for while the music was loading / waiting for a gesture
@@ -113,6 +126,8 @@ export function setAudioContext(toonId: string): AudioContext {
 
 		async unload() {
 			expectedTrackIds = null;
+			held = false;
+			resumeAfterHold = false;
 			requestedVolumes.clear();
 			if (!state.isInitialized) return;
 
@@ -159,6 +174,23 @@ export function setAudioContext(toonId: string): AudioContext {
 				player.resume();
 				state.isPlaying = true;
 			}
+		},
+
+		holdForPlayer(playing: boolean) {
+			if (playing === held) return;
+			held = playing;
+			const player = manager.getMusicPlayer();
+			if (playing) {
+				if (player?.isCurrentlyPlaying()) {
+					player.pause();
+					state.isPlaying = false;
+					resumeAfterHold = true;
+				}
+				return;
+			}
+			const resume = resumeAfterHold;
+			resumeAfterHold = false;
+			if (resume && player && !player.isCurrentlyPlaying()) startPlayer(player);
 		},
 
 		updateMusicVolumes(volumes: { id: string; volume: number }[], duration?: number) {

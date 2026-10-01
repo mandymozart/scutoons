@@ -135,21 +135,47 @@
 			"properties": {
 				"src": {
 					"type": "string",
-					"description": "CDN path of an H.264 MP4, relative to the toon's folder like `image`"
+					"description": "CDN path of an H.264 MP4, relative to the toon's folder like `image`; with `sources` the default (the last source)"
+				},
+				"sources": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/SliceVideoSource"
+					},
+					"description": "Other encodings, tried before `src` in this order: the browser takes the first whose `media` query matches when the video loads (e.g. 480p for `(max-width: 600px)`). No adaptive streaming (HLS) – one file per load."
 				},
 				"loop": {
 					"type": "boolean",
-					"description": "default true"
+					"description": "default true (ignored with `player`)"
 				},
 				"autoplay": {
 					"type": "boolean",
-					"description": "default true: plays while the slice is in view (paused outside, poster only with reduced motion)"
+					"description": "default true: plays while the slice is in view (paused outside, poster only with reduced motion; ignored with `player`)"
+				},
+				"player": {
+					"type": "boolean",
+					"description": "A video player instead of the loop: sound, native controls (fullscreen through them), started by the reader, no loop. The slice's `width` / `height` are the video's aspect ratio at the slice width (no 390 × 625 crop). While it plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress."
 				}
 			},
 			"required": [
 				"src"
 			],
-			"description": "A looping video instead of the slice image (muted, inline). The slice's `image` is its poster."
+			"description": "A video instead of the slice image. The slice's `image` is its poster. By default a muted, inline loop that plays while in view; with `player` a video to watch (a music video, a trailer)."
+		},
+		"SliceVideoSource": {
+			"type": "object",
+			"properties": {
+				"src": {
+					"type": "string"
+				},
+				"media": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"src"
+			],
+			"description": "One encoding of a slice video: a CDN path like `SliceVideo.src` + an optional media query (`<source media>`)"
 		},
 		"AudioEvents": {
 			"type": "object",

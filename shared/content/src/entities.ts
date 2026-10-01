@@ -102,9 +102,10 @@ export function parseEntityKey(key: string): EntityRef | null {
 	const ref: EntityRef = { kind };
 	if (hasToon) ref.toon = parts.shift();
 	if (hasNumber) {
-		const n = Number(parts.shift());
-		if (!Number.isInteger(n) || n < 1) return null;
-		ref.number = n;
+		// seasons start at 1, chapters at 0 (a season's prologue); digits only, no leading zeros (like the server)
+		const raw = parts.shift() ?? '';
+		if (!(kind === 'season' ? /^[1-9]\d{0,5}$/ : /^(0|[1-9]\d{0,5})$/).test(raw)) return null;
+		ref.number = Number(raw);
 	}
 	if (hasScene) ref.scene = parts.shift();
 	if (localized && parts.length) ref.locale = parts.shift();
@@ -119,7 +120,7 @@ export function entityOf(key: string): string {
 
 // ── Scene references (content format) ─────────────────────────────────────────────────────────────────────────
 
-const SCENE_REF = /^chapter([1-9]\d{0,5})\/([a-z0-9_-]{1,64})\.json$/;
+const SCENE_REF = /^chapter(0|[1-9]\d{0,5})\/([a-z0-9_-]{1,64})\.json$/;
 
 /**
  * A chapter group's scene reference `ref.src` (content format: `chapter<N>/<name>.json`) → the scene entity, null

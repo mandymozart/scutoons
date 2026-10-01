@@ -8,6 +8,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { trackReading, type ReadingSpot } from '$lib/reading/track-reading.ts';
+	import { chapterName } from '$lib/utils/chapter-name.ts';
 
 	let { data }: PageProps = $props();
 	
@@ -57,7 +58,7 @@
 	<div class="chapter-view chapter-gate" data-testid="chapter-gate">
 		{#if data.gate?.reason === 'coming-soon'}
 			<p class="gate-badge">{m['chapter.coming_soon']()}</p>
-			<h1>{m['common.chapter']({ number: data.gate.number })}{data.gate.title ? `: ${data.gate.title}` : ''}</h1>
+			<h1>{chapterName(data.gate.number)}{data.gate.title ? `: ${data.gate.title}` : ''}</h1>
 			{#if data.gate.release}
 				<p class="gate-release">{m['chapter.release']({ date: formatRelease(data.gate.release) })}</p>
 			{/if}

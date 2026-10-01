@@ -18,6 +18,7 @@
 		slice,
 		src,
 		videoSrc,
+		videoSources = [],
 		lang,
 		alt = 'Slice',
 		eager = false,
@@ -30,6 +31,8 @@
 		src: string;
 		/** absolute video URL when the slice has a `video` (the app resolves `slice.video.src`) */
 		videoSrc?: string;
+		/** `slice.video.sources` with absolute URLs (the app resolves them like `videoSrc`) */
+		videoSources?: { src: string; media?: string }[];
 		/** language of the dialog text (hyphenation) */
 		lang?: string;
 		alt?: string;
@@ -49,12 +52,14 @@
 	{#if slice.video && videoSrc}
 		<SliceVideo
 			src={videoSrc}
+			sources={videoSources}
 			poster={src}
 			{width}
 			{height}
 			{alt}
 			loop={slice.video.loop ?? true}
 			autoplay={slice.video.autoplay ?? true}
+			player={slice.video.player === true}
 			{eager}
 		/>
 	{:else}

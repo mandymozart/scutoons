@@ -1,6 +1,6 @@
 // Known image paths of a toon, collected from every entity the editor can reach (for the image path picker).
 import { library } from '$lib/api.ts';
-import type { Path } from '@scutoons/content';
+import { DEFAULT_SLICE, type Path } from '@scutoons/content';
 
 const cache = new Map<string, Promise<string[]>>();
 
@@ -68,7 +68,8 @@ export function readImageSize(url: string): Promise<{ width: number; height: num
 
 /**
  * Every slice carries the size of its image (owner 2026-09-30): read it from the CDN and write `width` / `height` when
- * they differ (a shared edit in every locale, undoable). A missing image keeps the current (standard) size.
+ * they differ (a shared edit in every locale, undoable). A missing image keeps the current (standard) size. A player
+ * video's poster may be larger (sharp behind the controls): its slice gets the poster's ratio at the slice width.
  */
 export async function fillSliceSize(
 	doc: { primary: string; get(locale: string, path: Path): any; setShared(path: Path, value: any, key?: string): void },
@@ -80,6 +81,10 @@ export async function fillSliceSize(
 	const size = await readImageSize(url(image));
 	const slice = doc.get(doc.primary, slicePath);
 	if (!size || !slice || slice.image !== image) return;
+	if (slice.video?.player === true && size.width !== DEFAULT_SLICE.width) {
+		size.height = Math.round((size.height * DEFAULT_SLICE.width) / size.width);
+		size.width = DEFAULT_SLICE.width;
+	}
 	if (slice.width !== size.width) doc.setShared([...slicePath, 'width'], size.width, 'slice-size');
 	if (slice.height !== size.height) doc.setShared([...slicePath, 'height'], size.height, 'slice-size');
 }

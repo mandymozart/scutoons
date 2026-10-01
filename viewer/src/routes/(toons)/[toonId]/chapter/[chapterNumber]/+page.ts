@@ -14,8 +14,9 @@ export const load: PageLoad = async ({ params, parent }) => {
 	// One request per chapter: the library answers the chapter with its VN scenes inlined (agents/DATA.md). Started
 	// before `parent()`, so it runs while the toon layout loads; the API applies the same visibility rules (403).
 	const locale = getLocale();
-	const number = Number(params.chapterNumber);
-	const chapterPromise: Promise<Chapter | ApiError> = Number.isInteger(number) && number > 0
+	// chapter numbers start at 0 (the season's prologue); digits only, like the API route
+	const number = /^\d{1,6}$/.test(params.chapterNumber) ? Number(params.chapterNumber) : NaN;
+	const chapterPromise: Promise<Chapter | ApiError> = Number.isInteger(number) && number >= 0
 		? fetchChapter(params.toonId, number, locale).catch((e) => (e instanceof ApiError ? e : new ApiError(0, 'network', String(e))))
 		: Promise.resolve(new ApiError(404, 'not_found', 'Not found'));
 

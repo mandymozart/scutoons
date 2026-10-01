@@ -15,6 +15,9 @@
 	const toonId = $derived(page.params.toonId);
 	const imageUrl = $derived(asset(`${toonId}/${slice.image}`));
 	const videoUrl = $derived(slice.video?.src ? asset(`${toonId}/${slice.video.src}`) : undefined);
+	const videoSources = $derived(
+		(slice.video?.sources ?? []).filter((s) => s?.src).map((s) => ({ src: asset(`${toonId}/${s.src}`), media: s.media }))
+	);
 	/** the first slices load right away, the rest lazily (agents/PERFORMANCE.md P2) */
 	const EAGER_SLICES = 2;
 	// chapter files are loaded per locale, so the UI locale is the language of the text
@@ -26,6 +29,7 @@
 	data-slice-index={sliceIndex}
 	src={imageUrl}
 	videoSrc={videoUrl}
+	{videoSources}
 	eager={sliceIndex < EAGER_SLICES}
 	{lang}
 	{@attach fromAction(sliceAudio, () => ({

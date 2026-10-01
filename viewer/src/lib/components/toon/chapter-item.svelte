@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { sanitizeNumber, isItemPublic, chapterProgress } from '@scutoons/content';
+	import { sanitizeNumber, isItemPublic, isPrologue, chapterProgress } from '@scutoons/content';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { LoadedSequenceItem } from '@scutoons/content';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import chapterIcon from '$lib/icons/chapter.svg';
+	import { m } from '$lib/paraglide/messages.js';
+	import { chapterName } from '$lib/utils/chapter-name.ts';
 
 	let {
 		chapter,
@@ -15,7 +17,8 @@
 	}: { chapter: LoadedSequenceItem; chapterNumber: number; toonId: string } = $props();
 
 	const nav = getNavigationContext();
-	const safeChapterNumber = sanitizeNumber(chapterNumber, 1, 1, 999);
+	// chapter 0 is the season's prologue
+	const safeChapterNumber = sanitizeNumber(chapterNumber, 1, 0, 999);
 	// `chapter.status` is the season's status of this locale (see the toon layout), never the chapter file's
 	const isPublic = isItemPublic(chapter, import.meta.env.DEV);
 	const status = chapter.status ?? 'published';
@@ -46,7 +49,7 @@
 		<img
 			class="chapter-thumbnail"
 			src={asset(`${toonId}/${chapter.thumbnail || 'images/default-thumbnail.jpg'}`)}
-			alt={`Kapitel ${chapter.number} Thumbnail`}
+			alt={`${chapterName(chapter.number)} Thumbnail`}
 			loading="lazy"
 		/>
 	</div>
@@ -66,15 +69,16 @@
 			>
 		{/if}
 	</div>
-	<div class="chapter-number">
-		{isPublic ? ' ' : ''}#{chapter.number}
+	<div class="chapter-number" data-testid="chapter-number">
+		{#if isPrologue(chapter.number)}{m['chapter.prologue']()}{:else}{isPublic ? ' ' : ''}#{chapter.number}{/if}
 	</div>
 </div>
 
 <style>
 	.chapter-item {
 		display: grid;
-		grid-template-columns: 6rem auto 3rem;
+		/* the number column: 3rem, wider only for a label ("Prolog") */
+		grid-template-columns: 6rem 1fr auto;
 		align-items: center;
 		gap: 1rem;
 		cursor: pointer;
@@ -122,6 +126,7 @@
 	}
 
 	.chapter-item .chapter-number {
+		min-width: 3rem;
 		justify-content: space-between;
 		display: flex;
 		align-items: center;
@@ -155,7 +160,7 @@
 		}
 
 		.chapter-item {
-			grid-template-columns: 5rem auto 3rem;
+			grid-template-columns: 5rem 1fr auto;
 			gap: 0.5rem;
 		}
 

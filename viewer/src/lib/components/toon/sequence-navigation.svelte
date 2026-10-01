@@ -9,6 +9,7 @@
 	import { onClickOutside } from 'runed';
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
 	import listIcon from '$lib/icons/list.svg';
+	import { chapterName } from '$lib/utils/chapter-name.ts';
 
 	let {
 		sequence,
@@ -102,11 +103,11 @@
 				onclick={() =>
 					navigate(localizeHref(`/${params.toonId}/${prevItem.type}/${prevItem.number}`))}
 				class="btn-clear btn-prev"
-				title={`${m['common.chapter']({ number: prevItem.number })}: ${prevItem.title}`}
+				title={`${chapterName(prevItem.number)}: ${prevItem.title}`}
 			>
 				<span class="nav-icon">←</span>
 				<div class="nav-meta">
-					<span class="nav-type">{m['common.chapter']({ number: prevItem.number })}</span>
+					<span class="nav-type">{chapterName(prevItem.number)}</span>
 					<span class="nav-title">{prevItem.title || ''}</span>
 				</div>
 			</button>
@@ -128,7 +129,7 @@
 				onclick={() =>
 					navigate(localizeHref(`/${params.toonId}/${nextItem.type}/${nextItem.number}`))}
 				class=" btn-clear btn-next"
-				title={`${m['common.chapter']({ number: nextItem.number })}: ${nextItem.title}`}
+				title={`${chapterName(nextItem.number)}: ${nextItem.title}`}
 			>
 				<div class="nav-image">
 					<img
@@ -137,7 +138,7 @@
 					/>
 				</div>
 				<div class="nav-meta">
-					<span class="nav-type">{m['common.chapter']({ number: nextItem.number })}</span>
+					<span class="nav-type">{chapterName(nextItem.number)}</span>
 					<span class="nav-title">{nextItem.title || ''}</span>
 				</div>
 				<span class="nav-icon">→</span>

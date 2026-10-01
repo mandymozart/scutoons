@@ -36,11 +36,11 @@ final class ContentFiles
             return $name === 'cast' || $name === 'credits' ? "$name:$dir" : null;
         }
         if ($dir === self::PLATFORM_DIR || !preg_match(EntityKey::TOON_PATTERN, $dir) || !preg_match(EntityKey::LOCALE_PATTERN, $localeDir)) return null;
-        if (preg_match('#^chapter([1-9][0-9]{0,5})/([a-z0-9_-]{1,64})\.json$#', $relative, $s)) return "scene:$dir:$s[1]:$s[2]:$localeDir";
+        if (preg_match('#^chapter(0|[1-9][0-9]{0,5})/([a-z0-9_-]{1,64})\.json$#', $relative, $s)) return "scene:$dir:$s[1]:$s[2]:$localeDir";
         if ($name === null) return null;
         if ($name === 'toon') return "toon-settings:$dir:$localeDir";
         if ($name === 'locations' || $name === 'routes') return "$name:$dir:$localeDir";
-        if (preg_match('#^(season|chapter)([1-9][0-9]{0,5})$#', $name, $n)) return "$n[1]:$dir:$n[2]:$localeDir";
+        if (preg_match('#^(season)([1-9][0-9]{0,5})$#', $name, $n) || preg_match('#^(chapter)(0|[1-9][0-9]{0,5})$#', $name, $n)) return "$n[1]:$dir:$n[2]:$localeDir";
         return null;
     }
 

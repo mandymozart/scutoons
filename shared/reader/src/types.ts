@@ -17,3 +17,18 @@ export interface PercentRect {
 	width: number;
 	height: number;
 }
+
+/**
+ * A player video slice (`SliceVideo.player`) tells its ancestors what it does with a bubbling DOM event on its `<video>`:
+ * the app pauses the chapter's music while it plays (`playing`) and records how far it was watched (`progress`, 0..1 of
+ * the video; `ended` at the end). `time` events come at most once per percent.
+ */
+export const SLICE_PLAYER_EVENT = 'sliceplayer';
+
+export interface SlicePlayerDetail {
+	state: 'play' | 'pause' | 'ended' | 'time';
+	/** the video is playing (play: true; pause / ended: false) */
+	playing: boolean;
+	/** currentTime / duration, 0..1 (1 when ended) */
+	progress: number;
+}

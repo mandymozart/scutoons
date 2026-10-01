@@ -113,7 +113,8 @@
 		"not_public": "Dieses Kapitel ist noch nicht veröffentlicht.",
 		"coming_soon": "Demnächst",
 		"release": "Erscheint am {date}",
-		"season_title": "Staffel {number}: {title}"
+		"season_title": "Staffel {number}: {title}",
+		"prologue": "Prolog"
 	},
 	"membership_blocker": {
 		"title": "Mitgliedschaft erforderlich",
@@ -229,7 +230,9 @@
 		"read": "S{season} K{chapter} lesen",
 		"continue": "S{season} K{chapter} weiterlesen",
 		"again": "S{season} K{chapter} erneut lesen",
-		"title": "Staffel {season}, Kapitel {chapter}: {title}"
+		"title": "Staffel {season}, Kapitel {chapter}: {title}",
+		"prologue": "Prolog ansehen",
+		"prologue_title": "Staffel {season}, Prolog: {title}"
 	},
 	"season": {
 		"download": "Musik herunterladen"

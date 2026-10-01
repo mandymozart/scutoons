@@ -153,7 +153,10 @@ try {
     echo "\nKeys and bodies\n";
     $ok = call('PUT', "$api/entities/scene:$toon:2:scene-14:de", ['content' => ['label' => 'scene-14']], $creatorToken);
     check($ok['status'] === 200, 'scene key scene:<toon>:2:scene-14:de', $ok);
-    foreach (["chapter:$toon:1", "chapter:$toon:0:de", "Chapter:$toon:1:de", "toon:scutoons", "unknown:$toon", "season:$toon:1:deu", 'characters:x'] as $bad) {
+    // chapter 0 is a season's prologue (a valid key); season 0 and leading zeros are not
+    $ok = call('PUT', "$api/entities/chapter:$toon:0:de", ['content' => ['title' => 'Prologue', 'number' => 0]], $creatorToken);
+    check($ok['status'] === 200, 'chapter key chapter:<toon>:0:de (prologue)', $ok);
+    foreach (["chapter:$toon:1", "chapter:$toon:00:de", "season:$toon:0:de", "Chapter:$toon:1:de", "toon:scutoons", "unknown:$toon", "season:$toon:1:deu", 'characters:x'] as $bad) {
         $r = call('PUT', "$api/entities/$bad", ['content' => ['x' => 1]], $creatorToken);
         check(in_array($r['status'], [400, 404], true), "PUT entities/$bad → 400|404", $r);
     }
