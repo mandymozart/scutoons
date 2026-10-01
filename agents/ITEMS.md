@@ -129,7 +129,7 @@ All JSON. Auth = `Authorization: Bearer <session_token>`. CORS: `https://scutoon
 | PUT | `/me/` | `{ marketing_opt_in?, hide_sensitive? }` | `{ status, user, avatar }` – turning `hide_sensitive` on moves a worn sensitive body to the character's first non-sensitive look · 400 `invalid_body` |
 | GET | `/items/` | – | catalog (above) |
 | GET | `/products/` | – | shop catalog, `config/products.json` as stored (`{ version:2, currency, checked_at, source, products:[Product] }`, `@scutoons/content` `ProductCatalog`); CORS `*`, cached 5 min (platform P2b) |
-| GET | `/products/featured/` | – | homepage featured products, `config/featured-products.json` as stored (`[{ product, variant? }]`) |
+| GET | `/products/featured/` | – | the landing page's editions `[{ product, variant? }]`: chosen in the admin app ("Startseite", `GET/PUT /admin/featured`, setting `featured_products`), default `config/featured-products.json` as stored; cached 1 min |
 | GET | `/library/toons[/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]]`, `/library/characters`, `/events/` | – (`?draft=1`: creator) | the reader's entities from the content store (agents/DATA.md §3, server docs/API.md "Library"): toons list, toon bundle, season overview, chapter with scenes inlined, cast, credits, events; `?locale=`, ETag, 403 `coming_soon`/`not_public` |
 | GET/PUT/POST | `/entities/<key>…` | creator | the content store by entity key (`chapter:catpope:2:de`, `characters` …): read, save draft, versions, publish, unpublish, restore – server docs/API.md "Entities" (replaced `/content/*`) |
 | GET | `/code/?c=CODE` | – | `{ code, type, claimed: bool, claimed_by_me?: bool, items:[{item_id, variant, qty}], options:[{item_id, variants:[…]}], edition:{ id, name, number?, count } }` — never an email |
@@ -457,6 +457,22 @@ value wins; without a row the config value is the default. Read once per request
 | `lookup_limit_per_hour` | `ACCESS_MAX_PER_IP_HOUR` = 120 | direct `/code/` + `/access/` lookups per IP and hour (bucket `lookup:<ip hash>`). 0 = no limit |
 
 Over a limit: `429 rate_limited { retry_after: 3600 }`; the qr app shows its rate-limited page (429). Range 0…1000000.
+
+### Featured editions on the landing page (2026-10-01, owner)
+
+Admin page **"Startseite" / "Homepage"** (`admin/src/routes/homepage`, nav group Data): which products of the shop
+catalog, in which colour (= which images), in which order the landing page shows. Stored in the same `settings` table
+under the key `featured_products` (JSON list, `updated_by` = `admin:<email>`; no new table, no migration). Without a row
+(or before the `settings` migration) the default is `server/config/featured-products.json` (dago_hoodie beige,
+dago_heavy_t white).
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/featured` | – | `{ status, items: [{ product, variant? }], default, stored, updated_at, updated_by, max: 12 }` |
+| PUT | `/admin/featured` | `{ items: [{ product, variant? }] \| null }` | `{ status, changed, …as GET }` · `400 invalid_featured\|unknown_product\|unknown_variant\|duplicate_featured` |
+
+The public `GET /products/featured/` returns the stored list (else the default file byte-for-byte), `max-age=60`.
+Contract: `admin-smoke` "Featured editions" (401/403, validation, store, public read, back to the default).
 
 ### Content (read-only overview, platform P2a)
 

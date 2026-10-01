@@ -231,6 +231,29 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   acid trio. Variants: `default`, `outline` (8-way white text-shadow), `thorns` (jittered echo + glow), `bubble`
   (white ellipse, 3px currentColor border). Effects: `shiver`, `pulse`, `wobble`.
 
+- **Landing page** (`routes/+page.svelte` + `+page.ts`, owner 2026-10-01, design "D · Brutal": artboards "(desktop)" /
+  "(phone)" of https://claude.ai/artifact/XSq3qwDDuf8qDmKSAhK64a; everything from the API, no hard-coded releases).
+  Top to bottom: the fixed animated logo (top left, the layout's) + the menu button as on every page; the big static
+  wordmark (`/SCUTOONS-logo.svg`, with the katakana, full width) + the slogan in bold, a 2px ink rule; **TOONS** (1.5rem
+  bold): square tiles, 2px ink frame, the image square on the tile colour (`toonTileColor`: settings `tile.color`, else
+  the star's registry colour – catpope blue, yellowmouse yellow, toptoy black), 2px ink rule under it, the name bold, a
+  caption line in `text-muted`. Published (`/library/toons` status published): the whole tile links to the toon page,
+  caption "Staffel 1 · Das Erwachen" (`home.season`: its newest season with a published chapter), the primary "Lesen →"
+  (16 px arrow, 2px stroke). Announced (`announced`): caption "bald" / "soon", no link, no date. Order: published first,
+  then announced, list order. ≥ 768 px three tiles in a row (gap 1.3333rem); phone: a published tile across the row (name
+  + caption left, "Lesen" right), the announced ones two by two. **LIMITED EDITIONS**: the intro line, "Digitaler
+  Download inklusive · weltweiter Versand" (caption, muted), then each featured edition (`/products/featured/`, chosen in
+  the admin's "Startseite") under a 2px ink rule: name (1.25rem bold), sizes and colours (sold out struck through, "(ausverkauft)"
+  for screen readers), price bold, "Limitiert auf N Stück" + the product's credits (caption, muted), "Kaufen" (primary,
+  the Bandcamp link; "Ausverkauft" disabled when every colour is sold out) and the existing Swiper slider
+  (`product-slides.svelte`: 1-up < 768 px, 3-up from 768 px). Desktop ≥ 1024 px: text left (17.5rem), slider right;
+  below: centred text, slider underneath. "Alle Editionen" (secondary, 2px `border-muted`) → the shop. Footer: 2px ink rule,
+  "SCUTOONS · Keine Werbung, kein Tracking." bold + "Termine · Quellenangaben" (`/events`, `/attributions` – there are no
+  Impressum / Datenschutz routes yet). Only finished things: no release dates, no chapter announcements. Strings:
+  paraglide `home.*`. Check: `node scripts/check-landing.mjs`.
+- **Menu, announced toons**: after the published toons, greyed (`text-muted`, image at 50 %), "<name> bald", a `<span>`
+  (`aria-disabled`), never a link; the image is the tile image, not the avatar (Mausboss' avatar shows the mouse).
+
 ### Iconography & logos
 
 12 single-path solid-black SVG icons in `viewer/src/lib/icons/` (account, chapter, headphones, inventory, list, map,
