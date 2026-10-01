@@ -179,8 +179,8 @@ test('wanted images: every place without an image, derived from the map (all 19 
 	const garden = wanted.find((r) => r.place === 'garden')!;
 	assert.equal(garden.path, 'catpope/images/map/places/garden.webp');
 	assert.equal(garden.size, '256 × 256');
-	assert.match(garden.prompt, /Garden of Eden/);
-	assert.match(wanted.find((r) => r.place === 'cathedral')!.prompt, /baroque cathedral/);
+	assert.match(garden.brief, /Garden of Eden/);
+	assert.match(wanted.find((r) => r.place === 'cathedral')!.brief, /baroque cathedral/);
 	assert.equal(placeImagePath({ id: 'x', toons: ['a', 'b'] }), 'scutoons/images/map/places/x.webp', 'a shared place goes to scutoons/');
 	assert.equal(mapImageRequests({ locations: [{ ...world.locations[0], image: { src: 'a.webp' } }] }).length, 0);
 	assert.match(mapImageRequestsText(wanted.slice(0, 1)), /images\/map\/places/);

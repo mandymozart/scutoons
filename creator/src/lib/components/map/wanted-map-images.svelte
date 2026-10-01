@@ -9,7 +9,7 @@
 	 * "Wanted images" → Map places (owner 2026-10-01): every place of the world map without an illustration, derived from
 	 * the map (its newest version) – never a hand-kept list, so it can't drift. Each with the target path
 	 * (`<toon>/images/map/places/<id>.webp`), the spec (256 × 256 transparent WebP ≤ 40 KB, ground point 50 / 90 %) and the
-	 * Luma prompt of agents/MAP.md §5. Read-only here; the image is set in the map builder.
+	 * brief of agents/MAP.md §5 (for an image generator or a designer). Read-only here; the image is set in the map builder.
 	 */
 	const doc = mapDoc();
 	onMount(() => doc.load());
@@ -45,7 +45,7 @@
 					<span class="hint">{r.size}</span>
 					<details>
 						<summary>{m['creator.wanted_map_prompt']()}</summary>
-						<pre>{r.prompt}</pre>
+						<pre>{r.brief}</pre>
 					</details>
 				</li>
 			{/each}

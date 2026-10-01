@@ -561,7 +561,7 @@ const NL = String.fromCharCode(10);
 export const PLACE_IMAGE_SPEC = '256 × 256 px transparent WebP, ≤ 40 KB (60 KB at most), ground point 50 % / 90 % (bottom centre), no text, no characters';
 export const PLACE_IMAGE_SIZE = '256 × 256';
 
-/** Descriptions of catpope's first places for the prompt (MAP.md §5.4); others use their name */
+/** Descriptions of catpope's first places for the brief (MAP.md §5.4); others use their names */
 const PLACE_DESCRIPTIONS: Record<string, string> = {
 	cathedral: 'a white baroque cathedral with two towers and cobalt-blue ornaments on the roofs, a small stone square in front',
 	apartment: 'a narrow five-storey old-town apartment house, pale plaster, one lit window, a tiny balcony with plants',
@@ -574,8 +574,8 @@ const PLACE_DESCRIPTIONS: Record<string, string> = {
 	graveyard: 'a small walled graveyard with crooked headstones, a cypress tree and a wrought-iron gate'
 };
 
-/** The Luma prompt of a place illustration (MAP.md §5.2; attach the style references listed there) */
-export function placeImagePrompt(place: Pick<MapPlace, 'id' | 'name'>): string {
+/** The brief of a place illustration, for an image generator or a designer (MAP.md §5.2; attach the style references listed there) */
+export function placeImageBrief(place: Pick<MapPlace, 'id' | 'name'>): string {
 	const description = PLACE_DESCRIPTIONS[place.id] ?? `${mapName(place.name, 'en')} (${mapName(place.name, MAP_SOURCE_LANGUAGE)})`;
 	return [
 		'Attached are images from the SCUTOONS universe as STYLE references only (rendering, lighting, materials, colour palette). Do not include the characters.',
@@ -601,7 +601,7 @@ export interface MapImageRequest {
 	path: string;
 	size: string;
 	spec: string;
-	prompt: string;
+	brief: string;
 }
 
 /**
@@ -611,13 +611,13 @@ export interface MapImageRequest {
 export function mapImageRequests(map: Pick<WorldMap, 'locations'> | null | undefined): MapImageRequest[] {
 	return (map?.locations ?? [])
 		.filter((p) => !p.image?.src)
-		.map((p) => ({ place: p.id, name: p.name, toon: p.toons?.length === 1 ? p.toons[0] : 'scutoons', path: placeImagePath(p), size: PLACE_IMAGE_SIZE, spec: PLACE_IMAGE_SPEC, prompt: placeImagePrompt(p) }));
+		.map((p) => ({ place: p.id, name: p.name, toon: p.toons?.length === 1 ? p.toons[0] : 'scutoons', path: placeImagePath(p), size: PLACE_IMAGE_SIZE, spec: PLACE_IMAGE_SPEC, brief: placeImageBrief(p) }));
 }
 
-/** Text for the image supplier: one block per place (name, path, spec, prompt) */
+/** Text for the image supplier: one block per place (name, path, spec, brief) */
 export function mapImageRequestsText(requests: MapImageRequest[]): string {
 	return requests
-		.map((r) => [`${mapName(r.name, MAP_SOURCE_LANGUAGE)} / ${mapName(r.name, 'en')} (${r.place})`, `  ${r.path}  ${r.size}`, `  ${r.spec}`, ...r.prompt.split(NL).map((l) => `  ${l}`)].join(NL))
+		.map((r) => [`${mapName(r.name, MAP_SOURCE_LANGUAGE)} / ${mapName(r.name, 'en')} (${r.place})`, `  ${r.path}  ${r.size}`, `  ${r.spec}`, ...r.brief.split(NL).map((l) => `  ${l}`)].join(NL))
 		.join(NL + NL);
 }
 

@@ -730,7 +730,7 @@ sensor → library; server farm, streamer studio, server room → monastery); sc
   `toon:<toon>` (`map: { center, zoom }`, language-neutral; saved / published with the map page); the phone frame then shows
   the reader's first screen there; "Go to the start view".
 - **Wanted images → Map places** (owner): `mapImageRequests(map)` derives the list (every place without `image`: name,
-  `<toon>/images/map/places/<id>.webp` – `scutoons/…` for a place of several toons –, 256 × 256 + spec, the §5.2 prompt with
+  `<toon>/images/map/places/<id>.webp` – `scutoons/…` for a place of several toons –, 256 × 256 + spec, the §5.2 brief (for an image generator or a designer) with
   the §5.4 description or the place's names). Shown below the character images in the creator's Wanted images (copy as
   text). Not stored as asset requests: it can't drift. After merging `platform` it can sit next to the new "Toon media"
   group.
