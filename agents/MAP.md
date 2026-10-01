@@ -764,7 +764,7 @@ M3 events (`MapEvent`, `runMapEvents`, slice triggers, toasts, follow-up bar tex
   chapter-link rule, "Orte", universe-wide in the sandbox), member (guest discoveries merge on sign-in), builder (add / name →
   id / drag a place, draw a route, save, place image on its ground point + previews, reader-view sea colours, Wanted images →
   Map places = every place without an image, Set start view, the bidirectional unlock). Restores the member's world state,
-  the published map and toon entry. 44 checks.
+  the published map and toon entry. 42 checks.
 - Unit: `shared/content/test/map.test.ts`, `LibraryTest` (world map, visibility, view + sea colour, the old bundle fields),
   `InventoryServiceTest::testWorldProgressMergesTheMapState`. Contract: `entities-smoke` (/library/map), `api-smoke` (the
   world-state merge incl. a stale write), `entities-compare` (§8.2).
