@@ -265,18 +265,12 @@ export function bezierPath(points: readonly Point[], tension = 0.3, bow = 0): st
 
 const round = (n: number) => Math.round(n * 100) / 100;
 
-/** How a route style is drawn (agents/MAP.md §4.4): stroke width in screen px, dash pattern, colours, Bézier tension/bow */
-export function routeStroke(style: MapPathStyle | undefined): { width: number; dash: string; color: string; outline?: string; tension: number; bow: number } {
-	switch (style) {
-		case 'trail':
-			return { width: 4, dash: '10 8', color: '#000', tension: 0.3, bow: 0 };
-		case 'flight':
-			return { width: 3, dash: '1 7', color: '#000', tension: 0.5, bow: 0.25 };
-		case 'sea':
-			return { width: 4, dash: '12 8', color: '#fff', outline: '#000', tension: 0.3, bow: 0 };
-		default:
-			return { width: 6, dash: '', color: '#000', tension: 0.3, bow: 0 };
-	}
+/**
+ * How a route is drawn: one look for every route (owner 2026-10-01: the mode of transport is not part of the story;
+ * a stored legacy `style` is ignored)
+ */
+export function routeStroke(_style?: MapPathStyle): { width: number; dash: string; color: string; outline?: string; tension: number; bow: number } {
+	return { width: 6, dash: '', color: '#000', tension: 0.3, bow: 0 };
 }
 
 /** The bounding box centre of points (null when none) */
@@ -552,7 +546,7 @@ export function migrateLegacyMap(input: {
 			const title = r?.title ?? r?.titel;
 			if (typeof title === 'string') name[l] = title;
 		}
-		map.routes.push({ id: route.id, name, toons: [toon], waypoints: (route.locations ?? []).map((location) => ({ location })), style: 'road' });
+		map.routes.push({ id: route.id, name, toons: [toon], waypoints: (route.locations ?? []).map((location) => ({ location })) });
 	}
 	return { map, view: { center: { x: toonMap.center.x, y: toonMap.center.y } } };
 }

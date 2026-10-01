@@ -75,7 +75,7 @@ test('migrateLegacyMap: names per locale, the en `titel` typo, unknown route pla
 	});
 	assert.deepEqual(map.layers, [{ id: 'terrain', image: 't/images/map.svg' }]);
 	assert.deepEqual(map.locations, [{ id: 'a', name: { de: 'Ah', en: 'Ay' }, x: 1, y: 2, toons: ['t'], chapter: { toon: 't', number: 2 } }]);
-	assert.deepEqual(map.routes, [{ id: 'r', name: { de: 'Weg', en: 'Way' }, toons: ['t'], waypoints: [{ location: 'a' }, { location: 'gone' }], style: 'road' }]);
+	assert.deepEqual(map.routes, [{ id: 'r', name: { de: 'Weg', en: 'Way' }, toons: ['t'], waypoints: [{ location: 'a' }, { location: 'gone' }] }]);
 	assert.deepEqual(view, { center: { x: 3, y: 4 } });
 	assert.deepEqual(
 		checkWorldMap(map).map((p) => `${p.level} ${p.path.join('.')}`),

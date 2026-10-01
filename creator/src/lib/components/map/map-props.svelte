@@ -3,7 +3,6 @@
 		DEFAULT_PLACE_ANCHOR,
 		DEFAULT_PLACE_IMAGE_SIZE,
 		MAP_SOURCE_LANGUAGE,
-		MAP_STYLES,
 		slugId,
 		chapterSlices,
 		placeImagePath,
@@ -70,12 +69,6 @@
 	const layer = $derived(layerIndex >= 0 ? map.layers[layerIndex] : null);
 	const toonName = (id: string) => toons.find((t) => t.id === id)?.name ?? id;
 	const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
-	const styleLabel: Record<string, () => string> = {
-		road: m['creator.map_style_road'],
-		trail: m['creator.map_style_trail'],
-		flight: m['creator.map_style_flight'],
-		sea: m['creator.map_style_sea']
-	};
 
 	// ── ids (editable until the first publish) ───────────────────────────────────────────────────────────────
 	function changePlaceId(value: string) {
@@ -424,12 +417,6 @@
 			<input type="text" value={route.id} disabled={locked} title={locked ? m['creator.map_id_locked']() : undefined} onchange={(e) => changeRouteId(e.currentTarget.value)} data-testid="route-id" />
 		</label>
 		<LocaleMapField value={route.name} {languages} label={m['creator.map_name']()} required testid="route-name" onchange={(v) => setRouteName(v, locked)} />
-		<label class="field">
-			<span>{m['creator.map_style']()}</span>
-			<select value={route.style ?? 'road'} onchange={(e) => editRoute(doc, route.id, (r) => (r.style = e.currentTarget.value as MapPath['style']))} data-testid="route-style">
-				{#each MAP_STYLES as s (s)}<option value={s}>{styleLabel[s]()}</option>{/each}
-			</select>
-		</label>
 		<fieldset>
 			<legend>{m['creator.map_toons']()}</legend>
 			<div class="chips">
