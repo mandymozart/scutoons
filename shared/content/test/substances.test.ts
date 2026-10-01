@@ -10,6 +10,8 @@ import {
 	endEffect,
 	isSubstance,
 	matchScan,
+	scanPasses,
+	scoreScan,
 	scanTargets,
 	statLevel,
 	statLevels,
@@ -133,3 +135,22 @@ test('Check It camera: the multi-label scan maps model labels to substances (gam
 	assert.ok(validateCatalog(bad).some((p) => p.message.includes('"camera" must be grantable by "scan"')));
 });
 
+
+test('scoreScan sums matching classes and ranks them; scanPasses: threshold or top-n with a minimum', () => {
+	const skill = { labels: ['cucumber', 'zucchini'], grants: 'cucumber' };
+	const rule = { threshold: 0.25, top: 3, min: 0.1 };
+	// the owner's floor test (2026-10-02)
+	const floor = scoreScan([{ className: 'slug', probability: 0.35 }, { className: 'quill, quill pen', probability: 0.14 }, { className: 'cucumber, cuke', probability: 0.13 }, { className: 'zucchini, courgette', probability: 0.05 }], skill);
+	assert.equal(floor?.rank, 3);
+	assert.ok(Math.abs((floor?.score ?? 0) - 0.18) < 1e-9);
+	assert.equal(scanPasses(floor, rule), true);
+	// far down the list and weak: no pass
+	const weak = scoreScan([{ className: 'slug', probability: 0.4 }, { className: 'quill', probability: 0.2 }, { className: 'eel', probability: 0.1 }, { className: 'nail', probability: 0.06 }, { className: 'cucumber, cuke', probability: 0.05 }], skill);
+	assert.equal(weak?.rank, 5);
+	assert.equal(scanPasses(weak, rule), false);
+	// top 3 but below the minimum: no pass
+	assert.equal(scanPasses(scoreScan([{ className: 'slug', probability: 0.5 }, { className: 'cucumber', probability: 0.06 }], skill), rule), false);
+	// strong alone: pass; nothing matching: null
+	assert.equal(scanPasses(scoreScan([{ className: 'cucumber', probability: 0.3 }], skill), rule), true);
+	assert.equal(scoreScan([{ className: 'slug', probability: 0.9 }], skill), null);
+});

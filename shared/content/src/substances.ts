@@ -151,3 +151,47 @@ export function matchScan(
 	}
 	return best;
 }
+
+/** A frame's score for one `scan_object` target: the summed probability of its matching classes, and its best rank. */
+export interface ScanScore {
+	target: ScanTarget;
+	label: string;
+	/** sum of the probabilities of every prediction that matches the target (cucumber + zucchini count together) */
+	score: number;
+	/** 1-based rank of the target's best matching prediction among all predictions */
+	rank: number;
+}
+
+/**
+ * The best scoring target of one frame (owner test 2026-10-02: a real cucumber on a floor came back as "slug 0.35 |
+ * quill 0.14 | cucumber 0.13" – the cucumber was there, but never alone above a fixed threshold). A frame passes when
+ * the summed score reaches `threshold`, or when the target is among the `top` predictions with at least `min`; the
+ * camera still needs several passing frames in a row before it grants anything.
+ */
+export function scoreScan(
+	predictions: { className: string; probability: number }[],
+	skill: Pick<ScanObjectSkill, 'labels' | 'grants' | 'name' | 'map'>
+): ScanScore | null {
+	const sorted = [...predictions].sort((a, b) => b.probability - a.probability);
+	let best: ScanScore | null = null;
+	for (const target of scanTargets(skill)) {
+		const wanted = target.labels.map((l) => l.toLowerCase());
+		let score = 0;
+		let rank = 0;
+		let label = '';
+		sorted.forEach((p, i) => {
+			const parts = p.className.toLowerCase().split(',').map((x) => x.trim());
+			const hit = wanted.find((w) => parts.some((part) => part === w || part.split(/\s+/).includes(w)));
+			if (!hit) return;
+			score += p.probability;
+			if (!rank) (rank = i + 1), (label = hit);
+		});
+		if (rank && (!best || score > best.score)) best = { target, label, score, rank };
+	}
+	return best;
+}
+
+/** Does a frame's score pass (see `scoreScan`)? */
+export function scanPasses(hit: ScanScore | null, rule: { threshold: number; top: number; min: number }): boolean {
+	return !!hit && (hit.score >= rule.threshold || (hit.rank <= rule.top && hit.score >= rule.min));
+}

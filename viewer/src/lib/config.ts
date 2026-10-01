@@ -22,8 +22,14 @@ export const API_URL: string = (
 /** Hosts whose QR codes carry SCUTOONS items (`https://qr.scutoons.com/?c=CODE`). */
 export const QR_HOSTS = ['qr.scutoons.com', `localhost:${ports.api}`, `127.0.0.1:${ports.api}`];
 
-/** Cucumber-camera detection tuning (ImageNet class probability, consecutive frames, frames per second). */
-export const SCAN_OBJECT_THRESHOLD = Number(import.meta.env.VITE_SCAN_OBJECT_THRESHOLD || 0.35);
+/**
+ * Object-camera tuning (`scoreScan` / `scanPasses` in @scutoons/content): a frame passes at a summed ImageNet probability
+ * of THRESHOLD, or when the object is among the TOP predictions with at least MIN; FRAMES passing frames in a row grant
+ * the item; FPS frames per second. Owner phone test 2026-10-02: a real cucumber scored 0.10–0.16 at rank 2–3.
+ */
+export const SCAN_OBJECT_THRESHOLD = Number(import.meta.env.VITE_SCAN_OBJECT_THRESHOLD || 0.25);
+export const SCAN_OBJECT_TOP = 3;
+export const SCAN_OBJECT_MIN = 0.1;
 export const SCAN_OBJECT_FRAMES = 3;
 export const SCAN_OBJECT_FPS = 2;
 

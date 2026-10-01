@@ -3,11 +3,11 @@
 	import type { CameraRequest } from '$lib/contexts/items-ui.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { SCAN_OBJECT_FPS, SCAN_OBJECT_FRAMES, SCAN_OBJECT_THRESHOLD } from '$lib/config.ts';
+	import { SCAN_OBJECT_FPS, SCAN_OBJECT_FRAMES, SCAN_OBJECT_MIN, SCAN_OBJECT_THRESHOLD, SCAN_OBJECT_TOP } from '$lib/config.ts';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 	import { decodeFrame, loadJsQR, parseScutoonsCode } from './qr.ts';
-	import { centerCrop, loadClassifier, type Classifier } from './object-detector.ts';
-	import { matchScan, scanTargets } from '@scutoons/content';
+	import { cropSquare, loadClassifier, squareUnder, type Classifier } from './object-detector.ts';
+	import { scanPasses, scanTargets, scoreScan } from '@scutoons/content';
 	import { localized } from '$lib/contexts/inventory.svelte.ts';
 
 	let {
@@ -26,6 +26,8 @@
 	let status = $state<Status>('starting');
 	let video = $state<HTMLVideoElement>();
 	let canvas = $state<HTMLCanvasElement>();
+	/** the aiming square: the object camera classifies exactly the part of the frame under it */
+	let aim = $state<HTMLDivElement>();
 	let stream: MediaStream | null = null;
 
 	let message = $state<string | null>(null);
@@ -33,6 +35,7 @@
 
 	// object detection
 	let modelState = $state<'idle' | 'loading' | 'ready' | 'failed'>('idle');
+	/** 0..1 of a passing frame (1 = this frame passes) – the meter */
 	let confidence = $state(0);
 	let streak = 0;
 	let cooldownUntil = $state(0);
@@ -40,7 +43,7 @@
 	let celebrate = $state(0);
 
 	const skill = $derived(request.object);
-	const threshold = $derived(skill?.threshold ?? SCAN_OBJECT_THRESHOLD);
+	const rule = $derived({ threshold: skill?.threshold ?? SCAN_OBJECT_THRESHOLD, top: SCAN_OBJECT_TOP, min: SCAN_OBJECT_MIN });
 	const cooldownLeft = $derived(Math.max(0, Math.ceil((cooldownUntil - now) / 1000)));
 	/** what the last hit was recognised as and which item it became (game text, never an analysis) */
 	let lastHit = $state<{ grants: string; object: string } | null>(null);
@@ -70,7 +73,7 @@
 		}
 		try {
 			stream = await navigator.mediaDevices.getUserMedia({
-				video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } },
+				video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
 				audio: false
 			});
 			if (!video) return;
@@ -130,14 +133,18 @@
 		}
 		while (!signal.stopped) {
 			now = Date.now();
-			if (status === 'running' && video && video.readyState >= 2) {
+			const square = status === 'running' && video && video.readyState >= 2 && aim ? squareUnder(video, aim) : null;
+			if (video && square) {
 				try {
-					const predictions = await classifier.classify(centerCrop(video));
-					if (import.meta.env.DEV) console.debug('scan_object', predictions.map((p) => `${p.className} ${p.probability.toFixed(2)}`).join(' | '));
-					const hit = matchScan(predictions, skill);
-					confidence = hit?.probability ?? 0;
-					streak = hit && hit.probability >= threshold ? streak + 1 : 0;
-					if (hit && streak >= SCAN_OBJECT_FRAMES && now >= cooldownUntil) {
+					// only the frame under the aiming square (owner phone test 2026-10-02: the square scored up to 0.45 where the
+					// whole frame and a 1.6× wider square stayed at 0.01–0.08)
+					const predictions = await classifier.classify(cropSquare(video, square), 10);
+					const hit = scoreScan(predictions, skill);
+					if (import.meta.env.DEV) console.debug('scan_object', hit ? `${hit.label} ${hit.score.toFixed(2)} #${hit.rank}` : '-', '|', predictions.slice(0, 5).map((p) => `${p.className} ${p.probability.toFixed(2)}`).join(' | '));
+					const passes = scanPasses(hit, rule);
+					confidence = passes ? 1 : Math.min(0.9, (hit?.score ?? 0) / rule.threshold);
+					streak = passes ? streak + 1 : 0;
+					if (hit && passes && streak >= SCAN_OBJECT_FRAMES && now >= cooldownUntil) {
 						streak = 0;
 						cooldownUntil = Date.now() + (skill.cooldown_s ?? 10) * 1000;
 						lastHit = { grants: hit.target.grants, object: localized(hit.target.name) || hit.label };
@@ -202,10 +209,10 @@
 		{#if mode === 'qr'}
 			<div class="viewfinder" aria-hidden="true"></div>
 		{:else}
-			<div class="meter" aria-hidden="true">
-				<div class="fill" style="width:{Math.round(confidence * 100)}%"></div>
-				<div class="mark" style="left:{threshold * 100}%"></div>
+			<div class="meter" aria-hidden="true" data-testid="camera-meter">
+				<div class="fill" class:passing={confidence >= 1} style="width:{Math.round(confidence * 100)}%"></div>
 			</div>
+			<div class="viewfinder" bind:this={aim} aria-hidden="true"></div>
 		{/if}
 		{#key celebrate}
 			{#if celebrate > 0 && skill && lastHit}
@@ -373,11 +380,7 @@
 		background: var(--primary-color);
 		transition: width 0.3s linear;
 	}
-	.meter .mark {
-		position: absolute;
-		top: -0.25rem;
-		bottom: -0.25rem;
-		width: 2px;
+	.meter .fill.passing {
 		background: white;
 	}
 	.celebrate {
