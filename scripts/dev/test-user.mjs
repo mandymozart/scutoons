@@ -18,12 +18,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const EMAIL = 'agent@scutoons.test';
 const ROLES = ['member', 'creator', 'admin'];
 const CHARACTER = 'catpope';
-const API = (process.env.SCUTOONS_API ?? 'http://localhost:9000/api').replace(/\/$/, '');
+const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
 const SESSION_FILE = resolve(ROOT, 'logs/dev/test-user.json');
 const MAIL_LOG = resolve(ROOT, 'server/logs/mail.log');
 const DB = process.env.QR_DB_SQLITE_PATH ?? resolve(ROOT, 'server/db/local.sqlite');

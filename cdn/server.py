@@ -1,5 +1,5 @@
-# Local CDN for development: serves cdn/root/ with CORS on http://localhost:<port> (default 8001, the fixed dev port;
-# see agents/PLATFORM.md "Local dev ports").
+# Local CDN for development: serves cdn/root/ with CORS on http://localhost:<port> (default: "cdn" in
+# shared/dev-ports.json, the single source of the local dev ports).
 #
 # Threaded (one thread per connection) and dual-stack: the old single-threaded HTTPServer hung whenever a browser
 # opened a connection without sending a request right away (Chrome preconnects / idle keep-alive sockets): the one
@@ -9,6 +9,7 @@
 # Answers single HTTP Range requests (`206 Partial Content`, `416` when unsatisfiable) so videos can seek (the
 # music-video player of the prologue); production hosting serves ranges natively.
 import email.utils
+import json
 import os
 import re
 import shutil
@@ -99,7 +100,11 @@ class Server6(Server):
 
 
 if __name__ == '__main__':
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 8001
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
+    else:
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'shared', 'dev-ports.json'), encoding='utf-8') as f:
+            port = int(json.load(f)['cdn'])
 
     # serve cdn/root/ (relative to this file, so the server can be started from any folder)
     os.chdir(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'root'))

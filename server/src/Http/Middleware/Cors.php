@@ -11,7 +11,8 @@ use Psr\Http\Server\RequestHandlerInterface as Handler;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
- * CORS for the API (/api/*): browsers on an ALLOWED_ORIGINS origin may call it with a Bearer token (no cookies).
+ * CORS for the API (/api/*): browsers on an ALLOWED_ORIGINS origin (+ the local dev ports on a dev server,
+ * Settings::allowedOrigins) may call it with a Bearer token (no cookies).
  * A preflight (OPTIONS) ends here with 204. Error responses carry the headers too (this runs outside the ErrorHandler).
  *
  * Kept exactly as the plain-PHP server answered (contract): /api/toons/ and /api/keys/keys.php send no CORS headers;
@@ -53,7 +54,7 @@ final class Cors implements MiddlewareInterface
 
     public function isAllowed(string $origin): bool
     {
-        foreach ($this->settings->list('ALLOWED_ORIGINS') as $allowed) {
+        foreach ($this->settings->allowedOrigins() as $allowed) {
             if (strcasecmp(rtrim($allowed, '/'), $origin) === 0) return true;
         }
         return false;

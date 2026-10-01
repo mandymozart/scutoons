@@ -1,0 +1,35 @@
+#!/usr/bin/env node
+// Writes .claude/launch.json (local, gitignored: the Claude desktop app's preview servers) from shared/dev-ports.json,
+// so its ports never drift from the single source of truth. The owner's stack still starts with `npm run dev`.
+//   npm run dev:launch-json
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { PORTS } from './ports.mjs';
+
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const venvPython = resolve(ROOT, 'cdn/.venv/Scripts/python.exe');
+const python = process.platform === 'win32' && existsSync(venvPython) ? venvPython.replace(/\\/g, '/') : 'python';
+
+/** service → [executable, args] (cwd = the repository root) */
+const COMMANDS = {
+	viewer: ['npm', ['run', 'dev', '-w', 'viewer']],
+	cdn: [python, ['cdn/server.py']],
+	api: ['node', ['server/bin/dev-serve.mjs']],
+	qr: ['php', ['scripts/dev/php-serve.php', 'qr', 'qr/public', 'qr/public/router.php']],
+	creator: ['npm', ['run', 'dev', '-w', 'creator']],
+	admin: ['npm', ['run', 'dev', '-w', 'admin']],
+	shop: ['npm', ['run', 'dev', '-w', 'shop']],
+	embassy: ['npm', ['run', 'dev', '-w', 'embassy']]
+};
+
+const configurations = Object.entries(PORTS).map(([name, port]) => {
+	if (!COMMANDS[name]) throw new Error(`shared/dev-ports.json: no command for "${name}" in scripts/dev/launch-json.mjs`);
+	const [runtimeExecutable, runtimeArgs] = COMMANDS[name];
+	return { name, runtimeExecutable, runtimeArgs, port };
+});
+
+const file = resolve(ROOT, '.claude/launch.json');
+mkdirSync(dirname(file), { recursive: true });
+writeFileSync(file, JSON.stringify({ version: '0.0.1', configurations }, null, 2) + '\n');
+console.log(`${file}: ${configurations.map((c) => `${c.name} ${c.port}`).join(', ')}`);

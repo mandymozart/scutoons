@@ -19,9 +19,10 @@ import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { local } from '../dev/ports.mjs';
 
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, v] = a.slice(2).split('='); return [k, v ?? true]; }));
-const base = String(opt.base || 'http://localhost:8000').replace(/\/$/, '');
+const base = String(opt.base || local('viewer')).replace(/\/$/, '');
 const toon = opt.toon || 'sandbox';
 const locale = opt.locale || 'de';
 const width = Number(opt.width || 375), height = Number(opt.height || 812);
@@ -149,7 +150,7 @@ let transitions = 0, steps = 0, leftSteps = 0;
 await send('Network.setCookie', { name: 'PARAGLIDE_LOCALE', value: locale, url: base });
 const prefix = '';
 // the scripts come from the library API (content from the DB, one request per chapter with the scenes inlined)
-const api = String(opt.api || 'http://localhost:9000/api').replace(/\/$/, '');
+const api = String(opt.api || local('api', '/api')).replace(/\/$/, '');
 const library = async (path) => {
 	// drafts (the sandbox) are served by the dev API (CONTENT_SHOW_DRAFTS); elsewhere pass a creator session in SCUTOONS_TOKEN
 	const token = process.env.SCUTOONS_TOKEN;

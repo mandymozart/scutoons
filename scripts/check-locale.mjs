@@ -23,11 +23,12 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { local } from './dev/ports.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
-const viewer = String(opt.viewer || 'http://localhost:8000').replace(/\/$/, '');
-const qr = String(opt.qr || 'http://localhost:9001').replace(/\/$/, '');
+const viewer = String(opt.viewer || local('viewer')).replace(/\/$/, '');
+const qr = String(opt.qr || local('qr')).replace(/\/$/, '');
 const width = Number(opt.width || 375), height = Number(opt.height || 812);
 const COOKIE = 'PARAGLIDE_LOCALE';
 const toon = 'catpope';

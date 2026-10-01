@@ -26,12 +26,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { local } from './dev/ports.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
-const viewer = String(opt.viewer || 'http://localhost:8000').replace(/\/$/, '');
-const adminApp = String(opt.admin || 'http://localhost:11000').replace(/\/$/, '');
-const api = String(opt.api || 'http://localhost:9000/api').replace(/\/$/, '');
+const viewer = String(opt.viewer || local('viewer')).replace(/\/$/, '');
+const adminApp = String(opt.admin || local('admin')).replace(/\/$/, '');
+const api = String(opt.api || local('api', '/api')).replace(/\/$/, '');
 const shots = opt.shots ? String(opt.shots) : null;
 if (shots) mkdirSync(shots, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -67,7 +68,7 @@ async function expectedEditions() {
 		return [{ id: p.id, variant: v.id, name: p.name, link: p.link, images: v.images.length, pieces: p.limited ?? p.edition_size, soldOutSizes: p.soldOutSizes }];
 	});
 }
-const shopUrl = (l) => `http://localhost:12000${l === 'en' ? '/en' : ''}`;
+const shopUrl = (l) => `${local('shop')}${l === 'en' ? '/en' : ''}`;
 
 // ── Chrome ──────────────────────────────────────────────────────────────────────────────────────────────────────────
 const CHROME = process.env.CHROME || ['C:/Program Files/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Google/Chrome/Application/chrome.exe', 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', '/usr/bin/google-chrome'].find((p) => existsSync(p));

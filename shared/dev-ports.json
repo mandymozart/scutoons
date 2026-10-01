@@ -1,0 +1,11 @@
+{
+	"$comment": "Local dev ports: the single source of truth. Read by the vite configs, the apps' dev URLs, scripts/dev/up.mjs, the API/qr/cdn dev servers, the API's local CORS and .claude/launch.json (npm run dev:launch-json). npm run check:ports guards it.",
+	"viewer": 8000,
+	"cdn": 8001,
+	"api": 9000,
+	"qr": 9001,
+	"creator": 10000,
+	"admin": 11000,
+	"shop": 12000,
+	"embassy": 13000
+}

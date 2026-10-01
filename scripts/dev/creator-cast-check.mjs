@@ -16,10 +16,11 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const API = 'http://localhost:9000/api';
-const CREATOR = 'http://localhost:10000';
+const API = local('api', '/api');
+const CREATOR = local('creator');
 const TOON = 'catpope';
 const KEYS = [`cast:${TOON}`, 'characters'];
 const NEW_NAME = 'Regression Figur';

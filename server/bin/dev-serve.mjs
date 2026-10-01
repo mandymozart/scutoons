@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Local dev server for the API with concurrency on Windows (agents/PERFORMANCE.md).
 //
-//   node server/bin/dev-serve.mjs [--port=9000] [--workers=4] [--no-opcache]
+//   node server/bin/dev-serve.mjs [--port=<api port>] [--workers=4] [--no-opcache]
+//   (default port: "api" in shared/dev-ports.json, the single source of truth)
 //   npm run dev:api            (root)      composer serve (server/)
 //
 // `php -S` handles one request at a time, and PHP_CLI_SERVER_WORKERS needs fork() ("forking is not supported on this
@@ -9,10 +10,11 @@
 // sends each request to the least busy worker, so parallel API calls (a chapter page fires 6+ at once) don't queue
 // behind each other. The workers run with OPcache on (validate_timestamps + revalidate_freq=0: edits apply at once),
 // which cuts the per-request bootstrap from ~60 ms to ~15 ms. The proxy keeps Host / headers / body as they are and
-// talks to the workers over [::1], so PHP still sees REMOTE_ADDR ::1 (as with a plain `php -S localhost:9000`).
+// talks to the workers over [::1], so PHP still sees REMOTE_ADDR ::1 (as with a plain `php -S localhost:<port>`).
 // It listens on both ::1 and 127.0.0.1: `localhost` then answers at once for every client (curl tries 127.0.0.1
 // first and waited ~200 ms for the IPv6 fallback when only ::1 listened).
 import { spawn, spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -23,7 +25,7 @@ const args = Object.fromEntries(
 		return [k, v ?? true];
 	})
 );
-const port = Number(args.port || process.env.PORT || 9000);
+const port = Number(args.port || process.env.PORT || JSON.parse(readFileSync(new URL('../../shared/dev-ports.json', import.meta.url), 'utf8')).api);
 const workers = Math.max(1, Number(args.workers || process.env.API_WORKERS || 4));
 const php = process.env.PHP_BINARY || 'php';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');

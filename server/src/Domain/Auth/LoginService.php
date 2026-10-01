@@ -125,7 +125,7 @@ final class LoginService
     {
         $origin = $this->context->origin();
         if ($origin === null) return null;
-        foreach ($this->settings->list('ALLOWED_ORIGINS') as $allowed) {
+        foreach ($this->settings->allowedOrigins() as $allowed) {
             if (strcasecmp(rtrim($allowed, '/'), $origin) === 0) return $origin;
         }
         return null;

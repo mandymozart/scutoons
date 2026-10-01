@@ -20,18 +20,19 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { local } from './dev/ports.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
 const opt = Object.fromEntries(args.filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
 const base = {
-	viewer: opt.viewer || 'http://localhost:8000',
-	creator: opt.creator || 'http://localhost:10000',
-	admin: opt.admin || 'http://localhost:11000',
-	shop: opt.shop || 'http://localhost:12000',
-	qr: opt.qr || 'http://localhost:9001'
+	viewer: opt.viewer || local('viewer'),
+	creator: opt.creator || local('creator'),
+	admin: opt.admin || local('admin'),
+	shop: opt.shop || local('shop'),
+	qr: opt.qr || local('qr')
 };
-const api = String(opt.api || 'http://localhost:9000').replace(/\/$/, '');
+const api = String(opt.api || local('api')).replace(/\/$/, '');
 const apps = String(opt.apps || 'viewer,creator,admin,shop,qr').split(',');
 const width = Number(opt.width || 390), height = Number(opt.height || 844);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

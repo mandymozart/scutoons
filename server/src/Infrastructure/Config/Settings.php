@@ -83,6 +83,39 @@ final class Settings
         return array_values(array_filter(array_map('trim', explode(',', $this->get($key))), fn(string $v) => $v !== ''));
     }
 
+    /**
+     * Browser origins that may call the API: ALLOWED_ORIGINS, plus on a local dev server (`php -S`, which production
+     * never runs) http://localhost:<port> and http://127.0.0.1:<port> for every port in shared/dev-ports.json (the
+     * single source of the local dev ports), so a new local app needs no config.local.php entry.
+     * @return list<string>
+     */
+    public function allowedOrigins(): array
+    {
+        $origins = $this->list('ALLOWED_ORIGINS');
+        if (!$this->isolated && PHP_SAPI === 'cli-server') {
+            $origins = [...$origins, ...self::devOrigins(dirname($this->root) . '/shared/dev-ports.json')];
+        }
+        return array_values(array_unique($origins));
+    }
+
+    /**
+     * The local origins of every port in a dev ports file (shared/dev-ports.json); none when it is missing
+     * (production has no shared/ folder).
+     * @return list<string>
+     */
+    public static function devOrigins(string $portsFile): array
+    {
+        $ports = is_file($portsFile) ? json_decode((string) file_get_contents($portsFile), true) : null;
+        if (!is_array($ports)) return [];
+        $origins = [];
+        foreach ($ports as $port) {
+            if (!is_int($port)) continue; // "$comment"
+            $origins[] = "http://localhost:$port";
+            $origins[] = "http://127.0.0.1:$port";
+        }
+        return $origins;
+    }
+
     /** A path setting; relative values are relative to the server folder */
     public function path(string $key): string
     {

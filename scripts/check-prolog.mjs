@@ -30,12 +30,13 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { local } from './dev/ports.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
-const viewer = String(opt.viewer || 'http://localhost:8000').replace(/\/$/, '');
-const api = String(opt.api || 'http://localhost:9000/api').replace(/\/$/, '');
-const cdn = String(opt.cdn || 'http://localhost:8001').replace(/\/$/, '');
+const viewer = String(opt.viewer || local('viewer')).replace(/\/$/, '');
+const api = String(opt.api || local('api', '/api')).replace(/\/$/, '');
+const cdn = String(opt.cdn || local('cdn')).replace(/\/$/, '');
 const shots = opt.shots ? String(opt.shots) : null;
 if (shots) mkdirSync(shots, { recursive: true });
 const toon = 'catpope';

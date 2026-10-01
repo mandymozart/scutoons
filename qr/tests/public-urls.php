@@ -28,6 +28,8 @@
  *
  *   php tests/public-urls.php http://localhost:9001 --api=http://localhost:9000 --out=new.txt && diff baseline.txt new.txt
  *
+ * Without a base / --api: the local dev qr app and API (shared/dev-ports.json, `composer test`).
+ *
  * Read-only apart from the `scan` events the landing page logs. Exit code 0 = all checks passed.
  * `composer test` in server/ runs it against fresh servers on a copy of the database (server/tests/run-contract.php).
  */
@@ -37,8 +39,9 @@ if (PHP_SAPI !== 'cli') {
 }
 
 $serverDir = dirname(__DIR__, 2) . '/server';
-$base = 'http://localhost:9001';
-$api = null;
+$devPorts = json_decode((string) @file_get_contents(dirname(__DIR__, 2) . '/shared/dev-ports.json'), true);
+$base = is_array($devPorts) ? 'http://localhost:' . $devPorts['qr'] : null;
+$api = is_array($devPorts) ? 'http://localhost:' . $devPorts['api'] : null;
 $dbFile = null;
 $outFile = null;
 $fullApi = true;
