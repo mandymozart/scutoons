@@ -63,6 +63,26 @@
       "variants": null
     },
     {
+      "id": "cucumber_cross",
+      "toon": "catpope",
+      "name": { "de": "Gurkenkreuz", "en": "Cucumber cross" },
+      "description": {
+        "de": "Zwei Gurken, über Kreuz gebunden. Taugt für einen Exorzismus.",
+        "en": "Two cucumbers, bound into a cross. Good for an exorcism."
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "catpope/items/cucumber_cross.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": null,
+      "skills": [],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
       "id": "dago_hoodie",
       "toon": "catpope",
       "name": { "de": "Cat Pope Dago Hoodie", "en": "Cat Pope Dago Hoodie" },
@@ -203,6 +223,11 @@
         { "item": "cucumber", "qty": 1 }
       ],
       "output": { "item": "cucumber_camera", "qty": 1 }
+    },
+    {
+      "id": "cucumber_cross",
+      "inputs": [{ "item": "cucumber", "qty": 2 }],
+      "output": { "item": "cucumber_cross", "qty": 1 }
     }
   ]
 }
