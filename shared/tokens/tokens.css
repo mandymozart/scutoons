@@ -75,9 +75,53 @@
 	--root-size: 16px;
 	--root-size-large: 24px;
 
+	/* ── Tools (creator, admin, embassy; tools.css, DESIGN.md "Brutalist tools") ── */
+	/* uppercase labels (owner 2026-10-01: bold sparingly; bold mono caps clump at small sizes):
+	   regular-weight caps (field labels, table headers, chips) · bold caps (section headings only) */
+	--tracking-label: 0.08em;
+	--tracking-label-bold: 0.12em;
+	/* page title of a tool page (like the landing page's "TOONS"), the only size above 1rem */
+	--type-title-size: 1.5rem;
+	--type-title-line: 1.15;
+	/* fields, nav entries, clickable rows: as tall as a compact button (2rem + its 2px frame; rem only, owner
+	   2026-10-01: 32 · 36 · 52 px at the fluid root) */
+	--control-height: calc(2rem + 2 * var(--border-width-regular));
+	/* focus = a thick ink outline outside the 2px frame */
+	--border-width-focus: 3px;
+	--focus-offset: 2px;
+	/* the tool frame: top bar = bottom ActionBar height, sidebar, Info panel (rem: they grow with the text) */
+	--tool-bar-height: max(48px, 3rem);
+	--tool-sidebar-width: 12rem;
+	--tool-panel-width: 16rem;
+
+	/* ── Badges (status chips, tags, counts): FILLED, white text where it reaches 4.5:1, else ink ──────── */
+	/* the one place for the badge colours (owner 2026-10-01; DESIGN.md "Brutalist tools" lists the ratios) */
+	--badge-published: #00d1ff; /* published, live, signed – ink 11.56:1 (white 1.82) */
+	--badge-published-text: var(--ink);
+	--badge-draft: #6b6b6b; /* draft, unclaimed, saved not published – white 5.33:1 */
+	--badge-draft-text: var(--paper);
+	--badge-soon: #b300ff; /* coming soon, announced – white 4.82:1 */
+	--badge-soon-text: var(--paper);
+	--badge-error: #ff1900; /* error, revoked, missing – ink 5.39:1 (white 3.90) */
+	--badge-error-text: var(--ink);
+	--badge-warning: #ff6600; /* warning, unsaved, too long – ink 7.15:1 (white 2.94) */
+	--badge-warning-text: var(--ink);
+	--badge-info: #0066cc; /* info – white 5.57:1 */
+	--badge-info-text: var(--paper);
+	--badge-neutral: #000000; /* neutral, claimed, source, tags – white 21:1 */
+	--badge-neutral-text: var(--paper);
+
 	/* ── Motion: utilitarian, nothing > ~0.3s for UI state ────────────────── */
 	--duration-fast: 0.1s;
 	--duration-base: 0.2s;
 	--duration-slow: 0.3s;
 	--easing: ease;
+}
+
+/* Touch screens: the 44px touch-target minimum for fields, list rows and buttons (owner 2026-10-01: sizes in rem,
+   the 44px floor only for coarse pointers – desktop stays rem-only). Everything that uses --control-height follows. */
+@media (pointer: coarse) {
+	:root {
+		--control-height: max(44px, calc(2rem + 2 * var(--border-width-regular)));
+	}
 }

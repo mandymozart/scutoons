@@ -42,9 +42,6 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-	h3 {
-		font-size: 13px;
-	}
 	.ref {
 		color: var(--muted);
 		font-weight: 400;
@@ -61,7 +58,7 @@
 	}
 	summary {
 		cursor: pointer;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		margin-bottom: 0.3rem;
 	}
 </style>

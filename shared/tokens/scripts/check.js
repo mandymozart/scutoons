@@ -23,7 +23,7 @@ const tokens = read('tokens.css');
 const defined = new Set([...tokens.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]));
 for (const name of required) if (!defined.has(name)) errors.push(`tokens.css: --${name} is missing`);
 
-for (const file of ['tokens.css', 'base.css', 'fonts.css']) {
+for (const file of ['tokens.css', 'base.css', 'fonts.css', 'tools.css']) {
 	for (const [, name] of read(file).matchAll(/var\(--([a-z0-9-]+)/g)) {
 		if (!defined.has(name)) errors.push(`${file}: var(--${name}) is not defined in tokens.css`);
 	}
@@ -41,7 +41,7 @@ for (const file of readdirSync(join(root, 'fonts'))) {
 }
 
 const index = read('index.css');
-for (const file of ['tokens.css', 'fonts.css', 'base.css']) {
+for (const file of ['tokens.css', 'fonts.css', 'base.css', 'tools.css']) {
 	if (!index.includes(`'./${file}'`)) errors.push(`index.css does not import ${file}`);
 }
 

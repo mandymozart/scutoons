@@ -63,8 +63,10 @@
 		display: inline-block;
 	}
 	.trigger {
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		margin: 0;
-		padding: 0.45em 1em;
+		padding: var(--space-025) var(--space-1);
 		background: var(--paper);
 		color: var(--ink);
 		border: var(--border-width-regular) solid var(--border-muted);
@@ -74,9 +76,12 @@
 		cursor: pointer;
 	}
 	.trigger:hover,
-	.trigger[aria-expanded='true'],
-	.trigger:focus-visible {
+	.trigger[aria-expanded='true'] {
 		border-color: var(--ink);
+	}
+	.trigger:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
 	}
 	.popup {
 		position: absolute;
@@ -100,8 +105,9 @@
 		display: block;
 		box-sizing: border-box;
 		width: 100%;
+		min-height: var(--control-height);
 		margin: 0;
-		padding: var(--space-05) var(--space-075);
+		padding: var(--space-05) var(--space-1);
 		background: transparent;
 		color: var(--ink);
 		border: 0;
@@ -114,7 +120,8 @@
 	}
 	.popup :global(:is(a, button):hover),
 	.popup :global(:is(a, button):focus-visible) {
-		background: var(--surface-hover);
+		background: var(--ink);
+		color: var(--paper);
 		outline: none;
 	}
 </style>

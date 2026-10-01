@@ -486,7 +486,6 @@
 	.tool,
 	.chip {
 		font: inherit;
-		font-size: 12px;
 		padding: 0.2rem 0.55rem;
 		border: 1px solid var(--border-muted);
 		background: var(--paper);
@@ -508,12 +507,10 @@
 		display: flex;
 		gap: 0.3rem;
 		align-items: center;
-		font-size: 12px;
 	}
 	.zoom .pct {
 		min-width: 3.5rem;
 		text-align: center;
-		font-size: 12px;
 	}
 	.stage {
 		position: relative;
@@ -528,13 +525,12 @@
 		padding: 0 0.75rem 1rem;
 	}
 	.validation h3 {
-		font-size: 12px;
 		margin: 0.5rem 0;
 	}
 	table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 	}
 	th,
 	td {
@@ -556,7 +552,7 @@
 		text-decoration: underline;
 	}
 	.hint {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
 	@media (max-width: 1100px) {
@@ -574,7 +570,7 @@
 	.map-nav .head {
 		margin: 0;
 		padding: 0.75rem 0.75rem 0.25rem;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		text-transform: uppercase;
 		color: var(--muted);
 	}
@@ -598,7 +594,6 @@
 		padding: 0.3rem 0.75rem;
 		border-left: 3px solid transparent;
 		cursor: pointer;
-		font-size: 12px;
 	}
 	.map-nav .item:hover {
 		background: var(--surface-hover);

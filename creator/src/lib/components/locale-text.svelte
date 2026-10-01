@@ -80,49 +80,64 @@
 	.locale-text {
 		display: grid;
 		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-		gap: 0.5rem;
+		gap: var(--space-1);
+	}
+	.head b {
+		font-weight: inherit;
 	}
 	.head {
 		display: flex;
-		gap: 0.3rem;
+		flex-wrap: wrap;
+		gap: var(--space-05);
 		align-items: center;
-		font-size: 11px;
-		margin-bottom: 0.15rem;
+		margin-bottom: var(--space-025);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.pill {
-		font-size: 9px;
-		padding: 0 0.35em;
-		border: 1px solid currentColor;
+		padding: 0.1em 0.4em;
+		border: 0;
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
+	/* filled chips (tokens.css --badge-*) */
 	.source {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
 	}
 	.miss {
-		color: var(--error);
+		background: var(--badge-error);
+		color: var(--badge-error-text);
 	}
 	.warn {
-		color: var(--warn);
+		background: var(--badge-warning);
+		color: var(--badge-warning-text);
 	}
+	/* state = the frame's colour + a thick left rule, no tinted fills */
 	.missing textarea,
 	.missing input {
 		border-color: var(--error);
-		background: #fff3f2;
+		border-left-width: 0.5em;
 	}
 	.long textarea,
 	.long input {
 		border-color: var(--warn);
-		background: #fffaf0;
+		border-left-width: 0.5em;
 	}
 	textarea {
 		resize: vertical;
 		min-height: 3em;
 	}
 	.mini {
-		font-size: 10px;
-		padding: 0 0.3em;
 		margin-left: auto;
 	}
 </style>

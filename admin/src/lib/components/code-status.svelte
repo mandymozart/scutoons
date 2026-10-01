@@ -14,7 +14,7 @@
 <span class="badges">
 	{#if revoked}<Badge tone="error">{m['codes.status_revoked']()}</Badge>{/if}
 	{#if expired}<Badge tone="warning">{m['codes.status_expired']()}</Badge>{/if}
-	{#if claimed}<Badge tone="ink">{m['codes.status_claimed']()}</Badge>{:else}<Badge>{m['codes.status_unclaimed']()}</Badge>{/if}
+	{#if claimed}<Badge tone="ink">{m['codes.status_claimed']()}</Badge>{:else}<Badge tone="draft">{m['codes.status_unclaimed']()}</Badge>{/if}
 	{#if signed}<Badge tone="accent">{m['codes.status_signed']()}</Badge>{/if}
 </span>
 

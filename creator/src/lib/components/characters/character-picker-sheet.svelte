@@ -251,7 +251,6 @@
 		max-width: 46rem;
 		min-width: 0;
 		overflow-x: hidden;
-		font-size: 12px;
 	}
 	.filters {
 		display: grid;
@@ -268,11 +267,11 @@
 		display: flex;
 		gap: 0.25rem;
 		align-items: center;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	h4 {
 		margin: 0.5rem 0 0.3rem;
-		font-size: 12px;
 	}
 	.cards {
 		display: grid;
@@ -312,7 +311,8 @@
 	}
 	.cell.selected {
 		border: 2px solid var(--ink);
-		background: var(--primary-cyan);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.img {
 		aspect-ratio: 1;
@@ -334,7 +334,7 @@
 		gap: 0.15rem;
 	}
 	.chip {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		border: 1px solid var(--ink);
 		padding: 0 0.25rem;
 	}
@@ -345,9 +345,11 @@
 		flex-wrap: wrap;
 	}
 	.note {
-		background: var(--primary-cyan);
+		background: var(--badge-info);
+		color: var(--badge-info-text);
 		padding: 0 0.3rem;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.tabs {
 		display: flex;
@@ -364,7 +366,6 @@
 		color: var(--ink);
 		border: 2px solid var(--border-muted);
 		padding: 0.2rem 0.5rem;
-		font-size: 12px;
 	}
 	.tab.active {
 		background: var(--ink);

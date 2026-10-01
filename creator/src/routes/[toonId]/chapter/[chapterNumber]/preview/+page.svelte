@@ -200,7 +200,9 @@
 	.group-label {
 		margin: 0;
 		padding: 0.4rem 1rem;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 		font-weight: 400;
 		color: var(--muted);
 		background: var(--surface-panel);
@@ -209,7 +211,8 @@
 	.nav-head {
 		margin: 0;
 		padding: 0.75rem 0.75rem 0.25rem;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
 		color: var(--muted);
 	}
@@ -229,11 +232,13 @@
 		border-left: 3px solid transparent;
 	}
 	.nav-list button:hover {
-		background: var(--surface-hover);
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.nav-list button.current {
 		border-left-color: var(--ink);
 		font-weight: 700;
-		background: var(--surface-hover);
+		background: var(--ink);
+		color: var(--paper);
 	}
 </style>

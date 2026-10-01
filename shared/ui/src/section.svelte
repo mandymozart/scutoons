@@ -35,7 +35,7 @@
 <style>
 	.section {
 		padding: var(--space-15) 0;
-		border-top: var(--border-width-hairline) solid var(--border-subtle);
+		border-top: var(--border-width-regular) solid var(--ink);
 	}
 	header {
 		display: flex;
@@ -52,8 +52,11 @@
 	}
 	h2 {
 		margin: 0;
-		font-size: 1em;
+		font-size: var(--type-label-size);
+		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-bold);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label-bold);
 	}
 	.hint {
 		margin: var(--space-025) 0 0;

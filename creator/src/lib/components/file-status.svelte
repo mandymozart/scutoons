@@ -49,28 +49,38 @@
 <style>
 	.file-status {
 		display: inline-flex;
-		gap: 0.25rem;
+		gap: var(--space-05);
 		flex-wrap: wrap;
 	}
+	/* status chips (DESIGN.md "Brutalist tools"), filled from tokens.css --badge-*: published · saved draft (grey) ·
+	   unsaved (warning) · missing (error); anything else neutral (black) */
 	.badge {
-		font-size: 10px;
 		padding: 0.1em 0.4em;
-		border: 1px solid var(--border-muted);
+		border: var(--border-width-regular) solid currentColor;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		border: 0;
+		background: var(--badge-neutral);
+		color: var(--badge-neutral-text);
 		white-space: nowrap;
 	}
 	.badge.live {
-		border-color: var(--ink);
+		background: var(--badge-published);
+		color: var(--badge-published-text);
 	}
 	.badge.pending {
-		border-style: dashed;
-		border-color: var(--ink);
+		background: var(--badge-draft);
+		color: var(--badge-draft-text);
 	}
 	.badge.dirty {
-		background: var(--ink);
-		color: var(--paper);
+		background: var(--badge-warning);
+		color: var(--badge-warning-text);
 	}
 	.badge.missing {
-		color: var(--error);
-		border-color: var(--error);
+		background: var(--badge-error);
+		color: var(--badge-error-text);
 	}
 </style>

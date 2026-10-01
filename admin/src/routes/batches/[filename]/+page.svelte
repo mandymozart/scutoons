@@ -245,7 +245,8 @@
 		font-weight: var(--font-weight-bold);
 	}
 	tr.current {
-		background: var(--surface-tint-cyan);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.err {
 		display: block;

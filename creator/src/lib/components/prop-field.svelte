@@ -114,31 +114,30 @@
 	.field {
 		display: flex;
 		flex-direction: column;
-		gap: 0.1rem;
+		gap: var(--space-025);
 		min-width: 0;
 	}
 	label {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.color {
 		display: flex;
-		gap: 0.25rem;
+		gap: var(--space-05);
 	}
 	.color input[type='color'] {
-		width: 2rem;
-		padding: 0;
-		border: 1px solid var(--border-subtle);
-		height: auto;
+		flex: none;
 	}
+	/* a per-locale override: ink text, a cyan rule (the "live" difference), no tinted fill */
 	.override {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 		color: var(--ink);
-		background: #eafaff;
-		border-left: 2px solid var(--cyan);
-		padding: 0.1em 0.3em;
-	}
-	.override button {
-		font-size: 10px;
+		border-left: 0.5em solid var(--cyan);
+		padding: var(--space-025) var(--space-05);
 	}
 </style>

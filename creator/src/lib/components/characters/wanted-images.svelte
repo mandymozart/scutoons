@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import {
 		characterIndex,
 		characterName,
@@ -112,7 +113,7 @@
 					<li>
 						<code>{w.path.split('/').pop()}</code>
 						<span class="hint">{moodLabel(w.mood, locale, moods)}</span>
-						{#if w.request}<span class="req" title={w.request.requested_by ?? ''}>✉ {w.request.note || m['creator.characters_requested_short']()}</span>{/if}
+						{#if w.request}<span class="req" title={w.request.requested_by ?? ''}><Icon name="mail" /> {w.request.note || m['creator.characters_requested_short']()}</span>{/if}
 					</li>
 				{/each}
 			</ul>
@@ -130,7 +131,7 @@
 						<li>
 							<code>{r.path}</code>
 							{#if r.size}<span class="hint">{r.size}</span>{/if}
-							{#if r.note}<span class="req" title={r.requested_by ?? ''}>✉ {r.note}</span>{/if}
+							{#if r.note}<span class="req" title={r.requested_by ?? ''}><Icon name="mail" /> {r.note}</span>{/if}
 						</li>
 					{/each}
 				</ul>
@@ -159,7 +160,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
-		font-size: 12px;
 	}
 	header {
 		display: flex;
@@ -176,7 +176,8 @@
 		display: flex;
 		gap: 0.25rem;
 		align-items: center;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.group {
 		border-top: 1px solid var(--border-subtle);
@@ -184,7 +185,6 @@
 	}
 	h4 {
 		margin: 0 0 0.3rem;
-		font-size: 12px;
 	}
 	ul {
 		list-style: none;
@@ -196,19 +196,18 @@
 	}
 	h5 {
 		margin: 0.6rem 0 0.25rem;
-		font-size: 12px;
 	}
 	details {
 		flex-basis: 100%;
 	}
 	summary {
 		cursor: pointer;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
 	pre {
 		white-space: pre-wrap;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		margin: 0.25rem 0 0;
 		padding: 0.4rem;
 		background: var(--surface-panel);
@@ -224,16 +223,20 @@
 	}
 	.link {
 		all: unset;
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--control-height);
 		cursor: pointer;
 		text-decoration: underline;
 	}
 	.req {
-		background: var(--primary-cyan);
+		background: var(--badge-info);
+		color: var(--badge-info-text);
 		padding: 0 0.25rem;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	textarea {
 		width: 100%;
-		font-size: 11px;
 	}
 </style>

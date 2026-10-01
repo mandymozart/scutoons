@@ -454,7 +454,7 @@
 		position: absolute;
 		left: -1px;
 		bottom: 100%;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		line-height: 1.2;
 		padding: 0 0.3em;
 		background: var(--ink);

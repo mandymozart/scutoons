@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { personUsage, replacePerson, type CreditPerson, type PeopleRegistry, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, newPerson, peopleOf, searchPeople } from '$lib/editor/credits.ts';
@@ -91,7 +92,7 @@
 			}}
 		>
 			<input type="text" placeholder={m['creator.credits_name']()} bind:value={newName} data-testid="new-person-name" />
-			<button type="submit" class="secondary" disabled={!newName.trim()} data-testid="new-person">+ {m['creator.credits_add_person']()}</button>
+			<button type="submit" class="secondary" disabled={!newName.trim()} data-testid="new-person"><Icon name="plus" /> {m['creator.credits_add_person']()}</button>
 		</form>
 		<p class="hint">{m['creator.credits_people_hint']({ count: all.filter((p) => !p.merged_into).length })}</p>
 	</div>
@@ -121,10 +122,10 @@
 					<div class="link">
 						<input type="text" value={link.label} placeholder="Instagram" oninput={(e) => change((p) => (p.links![j].label = e.currentTarget.value), `link-label-${j}`)} />
 						<input type="url" value={link.url} placeholder="https://…" oninput={(e) => change((p) => (p.links![j].url = e.currentTarget.value), `link-url-${j}`)} />
-						<button type="button" class="ghost" aria-label={m['creator.credits_remove']()} onclick={() => change((p) => (p.links!.splice(j, 1), p.links!.length || delete p.links))}>✕</button>
+						<button type="button" class="ghost" aria-label={m['creator.credits_remove']()} onclick={() => change((p) => (p.links!.splice(j, 1), p.links!.length || delete p.links))}><Icon name="x" /></button>
 					</div>
 				{/each}
-				<button type="button" class="ghost" onclick={() => change((p) => (p.links = [...(p.links ?? []), { label: '', url: '' }]))}>+ {m['creator.credits_link']()}</button>
+				<button type="button" class="ghost" onclick={() => change((p) => (p.links = [...(p.links ?? []), { label: '', url: '' }]))}><Icon name="plus" /> {m['creator.credits_link']()}</button>
 			</fieldset>
 			<LocaleMapField
 				value={person.bio}
@@ -181,11 +182,11 @@
 		width: 100%;
 		padding: 0.25rem 0.5rem;
 		cursor: pointer;
-		font-size: 13px;
 	}
 	.row:hover,
 	.row.active {
-		background: var(--surface-hover);
+		background: var(--ink);
+		color: var(--paper);
 	}
 	.row.active {
 		font-weight: 700;
@@ -204,12 +205,14 @@
 	}
 	.form h3 {
 		margin: 0;
-		font-size: 15px;
 	}
 	.form label {
 		display: flex;
 		flex-direction: column;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 		gap: 0.1rem;
 	}
 	fieldset {
@@ -219,8 +222,11 @@
 		gap: 0.25rem;
 	}
 	legend {
-		font-size: 11px;
-		font-weight: 700;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
+		font-weight: var(--font-weight-regular);
 	}
 	.link {
 		display: grid;

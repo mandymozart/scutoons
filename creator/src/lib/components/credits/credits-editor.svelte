@@ -11,7 +11,7 @@
 		type ToonLanguages
 	} from '@scutoons/content';
 	import { CreditsView } from '@scutoons/reader';
-	import { Tabs } from '@scutoons/ui';
+	import { Icon, Tabs } from '@scutoons/ui';
 	import { CDN_SERVER, VIEWER_URL } from '$lib/config.ts';
 	import { creditsDocs, creditsOf, peopleOf, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -76,7 +76,7 @@
 	{#if missing.length}
 		<section class="missing" data-testid="credits-missing">
 			<p>{m['creator.credits_missing']({ files: fileLabels(missing.map((d) => d.entity)) })}</p>
-			<button type="button" onclick={createMissing} data-testid="create-credits">+ {m['creator.credits_create']()}</button>
+			<button type="button" onclick={createMissing} data-testid="create-credits"><Icon name="plus" /> {m['creator.credits_create']()}</button>
 		</section>
 	{:else}
 		<div class="layout">
@@ -160,7 +160,7 @@
 		zoom: 0.6;
 	}
 	.mini {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		padding: 0.1rem 0.4rem;
 	}
 	.missing {

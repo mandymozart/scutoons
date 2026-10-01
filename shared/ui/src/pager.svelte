@@ -122,24 +122,30 @@
 	a,
 	.current,
 	.gap {
-		display: inline-block;
-		min-width: 1.8em;
-		padding: 0.2em 0.45em;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-width: var(--control-height);
+		min-height: var(--control-height);
+		padding: 0 var(--space-05);
 		text-align: center;
 		box-sizing: border-box;
 	}
 	a {
 		color: var(--ink);
-		border: var(--border-width-hairline) solid var(--border-muted);
+		border: var(--border-width-regular) solid var(--border-muted);
 		text-decoration: none;
 	}
-	a:hover,
-	a:focus-visible {
+	a:hover {
 		border-color: var(--ink);
+	}
+	a:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
 	}
 	.current {
 		background: var(--ink);
 		color: var(--paper);
-		border: var(--border-width-hairline) solid var(--ink);
+		border: var(--border-width-regular) solid var(--ink);
 	}
 </style>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import {
 		APOSE_VIEW,
 		aposeConventionPath,
@@ -96,7 +97,7 @@
 					<button type="button" class="missing" onclick={() => ((dialogLook = look.id), (dialogOpen = true))} data-testid="apose-{look.id}-missing">
 						<span>{m['creator.characters_missing_add']()}</span>
 						<code>{aposeConventionPath(character, look.id).split('/').pop()}</code>
-						{#if request}<span class="req" title={request.requested_by ?? ''}>✉ {request.note || m['creator.characters_requested_short']()}</span>{/if}
+						{#if request}<span class="req" title={request.requested_by ?? ''}><Icon name="mail" /> {request.note || m['creator.characters_requested_short']()}</span>{/if}
 					</button>
 				{/if}
 			</article>
@@ -136,7 +137,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.35rem;
-		font-size: 12px;
 	}
 	header {
 		display: flex;
@@ -163,8 +163,11 @@
 		object-fit: contain;
 	}
 	label {
-		font-size: 11px;
-		font-weight: 700;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
+		font-weight: var(--font-weight-regular);
 		display: flex;
 		flex-direction: column;
 		gap: 0.15rem;
@@ -177,11 +180,11 @@
 	}
 	.tech summary {
 		cursor: pointer;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	table {
 		border-collapse: collapse;
-		font-size: 11px;
 		margin-top: 0.3rem;
 	}
 	th {
@@ -207,7 +210,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: 0.3rem;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		text-align: center;
 		padding: 0.5rem;
 	}
@@ -215,8 +218,10 @@
 		outline: 2px solid var(--ink);
 	}
 	.req {
-		background: var(--primary-cyan);
+		background: var(--badge-info);
+		color: var(--badge-info-text);
 		padding: 0 0.25rem;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 </style>

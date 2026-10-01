@@ -1,0 +1,297 @@
+/*
+ * @scutoons/tokens: the brutalist tool base (agents/DESIGN.md "Brutalist tools", owner 2026-10-01).
+ * Opt-in: an app root with the class `sc-tool` (creator, admin, embassy). Without it nothing here applies, so the
+ * reader and the shop keep their own look.
+ *
+ * - Type = the reader's: the fluid root of base.css (14px < 480px, 16px, 24px ≥ 768px), body 1rem, the smallest text
+ *   is caption (0.75rem). No px font sizes, no app-level root override.
+ * - Hard ink on paper: 2px ink frames on fields, buttons, panels, tables; `border-muted` only for inactive controls.
+ * - Square, no shadows. Sizes in rem (`--control-height`). Focus = a 3px ink outline outside the frame.
+ * - Buttons are the viewer's: primary ink, secondary paper + 2px border-muted → ink on hover (no inversion).
+ * - Selected / active toggles, tabs, list items = inverted (ink bg, paper text). Badges are filled (--badge-*).
+ *
+ * Element rules use :where() (specificity 0): any component or app rule still wins. The utility classes (`sc-*`) are
+ * the vocabulary for components that need the type styles without their own rules.
+ */
+.sc-tool {
+	font-family: var(--font-mono);
+	font-size: var(--type-body-size);
+	line-height: var(--type-body-line);
+	color: var(--ink);
+	background: var(--paper);
+}
+
+/* ── Headings: one page title, then uppercase bold labels (no heading scale). `.sc-tool` (0,1,0) beats base.css's
+   h1–h6 rule; a component's own class still wins ── */
+.sc-tool :where(h1) {
+	margin: 0 0 var(--space-1);
+	font-size: var(--type-title-size);
+	line-height: var(--type-title-line);
+	font-weight: var(--font-weight-bold);
+}
+.sc-tool :where(h2, h3) {
+	margin: 0 0 var(--space-075);
+	font-size: var(--type-label-size);
+	line-height: var(--type-label-line);
+	font-weight: var(--font-weight-bold);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-label-bold);
+}
+.sc-tool :where(h4, h5, h6) {
+	margin: 0 0 var(--space-05);
+	font-size: var(--type-body-size);
+	font-weight: var(--font-weight-bold);
+}
+:where(.sc-tool) :where(a) {
+	color: var(--ink);
+	text-decoration-thickness: 2px;
+	text-underline-offset: 0.2em;
+}
+:where(.sc-tool) :where(hr) {
+	width: 100%;
+	margin: var(--space-1) 0;
+	border: 0;
+	border-top: var(--border-width-regular) solid var(--ink);
+}
+:where(.sc-tool) :where(code, kbd) {
+	font-size: inherit;
+}
+
+/* ── Fields: 2px ink frame, 1rem text, --control-height ─────────────────────────────────────────────────────────────────────── */
+:where(.sc-tool)
+	:where(
+		input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']),
+		select,
+		textarea
+	) {
+	box-sizing: border-box;
+	min-height: var(--control-height);
+	margin: 0;
+	padding: var(--space-025) var(--space-05);
+	border: var(--border-width-regular) solid var(--ink);
+	border-radius: var(--radius-none);
+	background: var(--paper);
+	color: var(--ink);
+	font: inherit;
+	font-size: var(--type-body-size);
+	line-height: var(--type-body-line);
+}
+:where(.sc-tool) :where(textarea) {
+	padding: var(--space-05);
+}
+:where(.sc-tool) :where(input, textarea)::placeholder {
+	color: var(--text-muted);
+	opacity: 1;
+}
+:where(.sc-tool) :where(input, select, textarea):disabled {
+	border-color: var(--border-muted);
+	color: var(--text-muted);
+	cursor: not-allowed;
+}
+:where(.sc-tool) :where([aria-invalid='true']) {
+	border-color: var(--state-error);
+}
+:where(.sc-tool) :where(input[type='checkbox'], input[type='radio']) {
+	width: 1.25rem;
+	height: 1.25rem;
+	margin: 0;
+	accent-color: var(--ink);
+}
+:where(.sc-tool) :where(input[type='color']) {
+	box-sizing: border-box;
+	width: var(--control-height);
+	min-height: var(--control-height);
+	padding: 0;
+	border: var(--border-width-regular) solid var(--ink);
+	border-radius: var(--radius-none);
+	background: var(--paper);
+}
+
+/* ── Buttons: shape and size only (colours are the app's / @scutoons/ui's) ──────────────────────────────────────── */
+:where(.sc-tool) :where(button) {
+	box-sizing: border-box;
+	min-height: var(--control-height);
+	border-radius: var(--radius-none);
+	font: inherit;
+	font-size: var(--type-button-size);
+	cursor: pointer;
+}
+:where(.sc-tool) :where(button:disabled) {
+	cursor: not-allowed;
+}
+
+/* ── Focus: one thick ink outline everywhere ─────────────────────────────────────────────────────────────────────── */
+:where(.sc-tool) :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+	outline: var(--border-width-focus) solid var(--ink);
+	outline-offset: var(--focus-offset);
+}
+
+/* ── Groups: fieldset = 2px ink frame, legend = the tool label; details = a label row ─────────────────────── */
+:where(.sc-tool) :where(fieldset) {
+	margin: 0 0 var(--space-1);
+	padding: var(--space-1);
+	border: var(--border-width-regular) solid var(--ink);
+	border-radius: var(--radius-none);
+}
+:where(.sc-tool) :where(legend) {
+	padding: 0 var(--space-025);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+	font-weight: var(--font-weight-regular);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-label);
+}
+:where(.sc-tool) :where(summary) {
+	display: flex;
+	align-items: center;
+	gap: var(--space-05);
+	min-height: var(--control-height);
+	font-weight: var(--font-weight-regular);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-label);
+	cursor: pointer;
+}
+
+/* ── Tables: roomy rows, uppercase bold headers on a 2px ink rule ────────────────────────────────────────────────── */
+:where(.sc-tool) :where(table) {
+	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
+}
+:where(.sc-tool) :where(th, td) {
+	padding: var(--space-075) var(--space-1);
+	text-align: left;
+	vertical-align: top;
+}
+:where(.sc-tool) :where(th) {
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+	font-weight: var(--font-weight-regular);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-label);
+	border-bottom: var(--border-width-regular) solid var(--ink);
+}
+:where(.sc-tool) :where(td) {
+	border-bottom: var(--border-width-hairline) solid var(--ink);
+}
+
+/* ── Vocabulary (utility classes) ────────────────────────────────────────────────────────────────────────────────── */
+/* field label, table header, sidebar group head: caption size, regular, uppercase (0.08em), ink */
+.sc-label {
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+	font-weight: var(--font-weight-regular);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-label);
+	color: var(--ink);
+}
+/* section heading: the one bold label (0.12em) */
+.sc-heading {
+	margin: 0;
+	font-size: var(--type-label-size);
+	line-height: var(--type-label-line);
+	font-weight: var(--font-weight-bold);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-label-bold);
+}
+/* meta text, hints */
+.sc-caption {
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+	color: var(--text-muted);
+}
+/* status chip / tag / count: FILLED (tokens.css --badge-*), caption bold uppercase. Default neutral;
+   .is-published (.is-live), .is-draft, .is-soon (.is-off), .is-error, .is-warning, .is-info; neutral = black */
+.sc-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--space-025);
+	box-sizing: border-box;
+	padding: 0.15em 0.5em;
+	border: 0;
+	border-radius: var(--radius-none);
+	background: var(--badge-neutral);
+	color: var(--badge-neutral-text);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+	font-weight: var(--font-weight-regular);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-label);
+	white-space: nowrap;
+}
+.sc-chip.is-published,
+.sc-chip.is-live {
+	background: var(--badge-published);
+	color: var(--badge-published-text);
+}
+.sc-chip.is-draft {
+	background: var(--badge-draft);
+	color: var(--badge-draft-text);
+}
+.sc-chip.is-soon,
+.sc-chip.is-off {
+	background: var(--badge-soon);
+	color: var(--badge-soon-text);
+}
+.sc-chip.is-error {
+	background: var(--badge-error);
+	color: var(--badge-error-text);
+}
+.sc-chip.is-warning {
+	background: var(--badge-warning);
+	color: var(--badge-warning-text);
+}
+.sc-chip.is-info {
+	background: var(--badge-info);
+	color: var(--badge-info-text);
+}
+/* sidebar / list navigation: a group head, then full-width entries; hover frames, current (aria-current / .is-current) inverts */
+.sc-nav-head {
+	margin: 0;
+	padding: var(--space-1) var(--space-1) var(--space-025);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+	font-weight: var(--font-weight-regular);
+	text-transform: uppercase;
+	letter-spacing: var(--tracking-label);
+	color: var(--ink);
+}
+.sc-nav-item {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: var(--space-05);
+	box-sizing: border-box;
+	width: 100%;
+	min-height: var(--control-height);
+	margin: 0;
+	padding: 0 var(--space-1);
+	border: 0;
+	border-radius: var(--radius-none);
+	background: transparent;
+	color: var(--ink);
+	font: inherit;
+	text-align: left;
+	text-decoration: none;
+	cursor: pointer;
+}
+.sc-nav-item:hover {
+	outline: var(--border-width-regular) solid var(--ink);
+	outline-offset: calc(-1 * var(--border-width-regular));
+}
+.sc-nav-item:focus-visible {
+	outline: var(--border-width-focus) solid var(--ink);
+	outline-offset: calc(-1 * var(--border-width-focus));
+}
+.sc-nav-item[aria-current='page'],
+.sc-nav-item[aria-current='true'],
+.sc-nav-item.is-current {
+	background: var(--ink);
+	color: var(--paper);
+}
+/* a framed block */
+.sc-frame {
+	box-sizing: border-box;
+	padding: var(--space-1);
+	border: var(--border-width-regular) solid var(--ink);
+	background: var(--paper);
+}

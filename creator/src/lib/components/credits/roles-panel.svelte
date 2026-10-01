@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { forEachEntryList, ROLE_CATEGORIES, RoleCategory, type CreditRole, type RoleVocabulary, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, newRole, rolesOf } from '$lib/editor/credits.ts';
@@ -65,13 +66,13 @@
 	<h3>{m['creator.credits_custom_roles']()} ({custom.length})</h3>
 	{@render table(custom, 'custom')}
 	<button type="button" class="ghost" onclick={() => edit<ToonCredits>(credits, (f) => (f.roles = [...(f.roles ?? []), newRole({ [languages[0]]: 'New role' }, RoleCategory.OTHER, allIds)]))}
-		>+ {m['creator.credits_new_custom_role']()}</button
+		><Icon name="plus" /> {m['creator.credits_new_custom_role']()}</button
 	>
 
 	<h3>{m['creator.credits_vocabulary']()} ({vocabulary.length})</h3>
 	{@render table(vocabulary, 'global')}
 	<button type="button" class="ghost" onclick={() => edit<RoleVocabulary>(roles, (f) => f.roles.push(newRole({ [languages[0]]: 'New role' }, RoleCategory.OTHER, allIds)))}
-		>+ {m['creator.credits_new_global_role']()}</button
+		><Icon name="plus" /> {m['creator.credits_new_global_role']()}</button
 	>
 </div>
 
@@ -83,12 +84,10 @@
 	}
 	h3 {
 		margin: 0.75rem 0 0;
-		font-size: 14px;
 	}
 	table {
 		border-collapse: collapse;
 		width: 100%;
-		font-size: 12px;
 	}
 	th,
 	td {
@@ -99,6 +98,7 @@
 	}
 	.warn {
 		color: var(--warn);
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 </style>

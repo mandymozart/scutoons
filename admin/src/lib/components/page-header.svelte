@@ -39,17 +39,19 @@
 	.text {
 		min-width: 0;
 	}
+	/* the entity type above the title: the tool label (DESIGN.md "Brutalist tools") */
 	.type {
-		margin: 0 0 var(--space-025);
-		color: var(--text-muted);
+		margin: 0 0 var(--space-05);
 		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
-		letter-spacing: 0.05em;
+		letter-spacing: var(--tracking-label);
 	}
 	h1 {
 		margin: 0;
-		font-size: 1.5em;
-		line-height: 1.2;
+		font-size: var(--type-title-size);
+		line-height: var(--type-title-line);
 		overflow-wrap: anywhere;
 	}
 	.meta {

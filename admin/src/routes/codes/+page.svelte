@@ -73,7 +73,7 @@
 		{ id: 'logins', label: m['codes.col_logins'](), sortable: true, align: 'end', secondary: true },
 		{ id: 'refused', label: m['codes.col_refused'](), sortable: true, align: 'end', secondary: true },
 		{ id: 'last_seen', label: m['codes.col_last_seen'](), sortable: true, secondary: true },
-		{ id: 'created_at', label: m['codes.created'](), sortable: true }
+		{ id: 'created_at', label: m['codes.created'](), sortable: true, secondary: true }
 	]);
 	const countFields = ['scans', 'devices', 'accesses', 'logins', 'refused', 'edition_number', 'last_seen', 'created_at'];
 
@@ -127,7 +127,7 @@
 
 <PageHeader type={m['nav.group_codes']()} title={m['codes.title']()} meta={result ? m['codes.count']({ count: number(result.pagination.total) }) : undefined} />
 
-{#snippet barStart()}
+{#snippet filters()}
 	<SearchField compact label={m['codes.search']()} placeholder={m['codes.search_placeholder']()} value={query.q} onsearch={(q) => nav({ q })} />
 	<label class="bar-filter">
 		<span>{m['common.edition']()}</span>
@@ -160,6 +160,10 @@
 	{#if query.q || Object.keys(query.filters).length}
 		<a class="reset" href="/codes">{m['common.reset_filters']()}</a>
 	{/if}
+{/snippet}
+
+<!-- the bar holds the pager; the filters sit above the table (the reader's type size needs the room) -->
+{#snippet barStart()}
 	{#if result}
 		<Pager
 			compact
@@ -185,6 +189,8 @@
 {#if error}
 	<p class="error-box" role="alert">{error}</p>
 {/if}
+
+<div class="toolbar codes-filters">{@render filters()}</div>
 
 <SplitView
 	open={!!open}

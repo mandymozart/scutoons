@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { fileLabel } from '$lib/labels.ts';
 	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -21,7 +22,7 @@
 <div class="problems" data-testid="problems-panel">
 	<header>
 		<h2>{m['creator.problems']()} · {counts.error} errors · {counts.warning} warnings</h2>
-		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close">✕</button>{/if}
+		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close"><Icon name="x" /></button>{/if}
 	</header>
 	<label class="toggle"><input type="checkbox" bind:checked={showInfo} /> show {counts.info} notes</label>
 	{#if !visible.length}
@@ -40,9 +41,6 @@
 </div>
 
 <style>
-	.problems {
-		font-size: 11px;
-	}
 	header {
 		display: flex;
 		justify-content: space-between;
@@ -50,7 +48,6 @@
 		border-bottom: 2px solid var(--ink);
 	}
 	h2 {
-		font-size: 12px;
 		margin: 0.25rem 0;
 	}
 	.toggle {
@@ -79,11 +76,12 @@
 		flex-direction: column;
 		text-align: left;
 		width: 100%;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.where {
 		color: var(--muted);
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		word-break: break-all;
 	}
 </style>

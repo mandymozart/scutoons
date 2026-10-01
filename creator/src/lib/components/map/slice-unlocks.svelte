@@ -96,11 +96,10 @@
 	}
 	h4 {
 		margin: 0;
-		font-size: 12px;
 	}
 	.hint {
 		margin: 0;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
 	ul {

@@ -5,7 +5,8 @@
 	/**
 	 * DESIGN.md Button. primary: ink bg, paper text · secondary: paper bg, 2px border-muted → ink on hover ·
 	 * clear: no chrome. Square, sentence case, never uppercase. `href` renders a link with the same look.
-	 * `size="sm"` is the dense variant for tools (creator, admin): inherits the surrounding font size.
+	 * `size="sm"` is the compact variant for bars (creator, admin): the same 1rem type, padding `space-05 space-15`.
+	 * Everywhere the viewer's concept (owner 2026-10-01): no hover inversion, disabled at 0.5 opacity.
 	 */
 	type Props = {
 		variant?: 'primary' | 'secondary' | 'clear';
@@ -43,6 +44,7 @@
 		justify-content: center;
 		gap: var(--space-05);
 		box-sizing: border-box;
+		min-height: var(--control-height);
 		margin: 0;
 		padding: var(--space-1) var(--space-3);
 		border: var(--border-width-regular) solid transparent;
@@ -86,21 +88,20 @@
 	}
 
 	.sm {
-		font-size: inherit;
-		padding: 0.45em 1em;
-		line-height: 1.2;
+		padding: var(--space-05) var(--space-15);
 	}
 	.sm.clear {
-		padding: 0.2em 0.4em;
+		padding: var(--space-05);
 	}
 
 	.sc-button:focus-visible {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: 2px;
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
 	}
 
 	.disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
+
 </style>

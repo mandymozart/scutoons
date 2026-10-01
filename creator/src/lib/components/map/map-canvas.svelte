@@ -434,7 +434,7 @@
 		top: -12px;
 		transform: translate(-50%, -100%);
 		white-space: nowrap;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		line-height: 1;
 		pointer-events: none;
 		text-shadow:
@@ -492,7 +492,7 @@
 		position: absolute;
 		top: -1.4rem;
 		left: 0;
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		background: var(--paper);
 		padding: 0 0.3rem;
 	}
@@ -505,7 +505,7 @@
 		background: var(--paper);
 		border: 2px solid var(--ink);
 		padding: 0.25rem 0.5rem;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		pointer-events: none;
 		max-width: 90%;
 	}

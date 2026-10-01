@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ToastStack } from '@scutoons/ui';
+	import { Icon, ToastStack } from '@scutoons/ui';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setEmbassySession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
@@ -29,10 +29,10 @@
 	const otherLocale = $derived(locales.find((l) => l !== getLocale()) ?? 'en');
 
 	const nav = $derived([
-		{ href: '/', label: m['nav.today'](), icon: '◷' },
-		{ href: '/leads', label: m['nav.leads'](), icon: '≡' },
-		{ href: '/orgs/new', label: m['nav.new'](), icon: '+' },
-		...(isAmbassador ? [{ href: '/import', label: m['nav.import'](), icon: '⇪' }] : [])
+		{ href: '/', label: m['nav.today'](), icon: 'clock' },
+		{ href: '/leads', label: m['nav.leads'](), icon: 'list' },
+		{ href: '/orgs/new', label: m['nav.new'](), icon: 'plus' },
+		...(isAmbassador ? [{ href: '/import', label: m['nav.import'](), icon: 'upload' }] : [])
 	]);
 	const isCurrent = (href: string) =>
 		href === '/' ? page.url.pathname === '/' : page.url.pathname === href || (href === '/leads' && page.url.pathname.startsWith('/orgs/') && page.url.pathname !== '/orgs/new');
@@ -42,7 +42,7 @@
 	<title>{m['shell.title']()}</title>
 </svelte:head>
 
-<div class="embassy">
+<div class="embassy sc-tool">
 	<AuthGate {session} app="embassy" appName="Embassy" locale={getLocale()} readerHref={VIEWER_URL}>
 		<header class="topbar">
 			<a class="brand" href="/">
@@ -52,7 +52,7 @@
 			<nav class="nav" aria-label={m['shell.navigation']()}>
 				{#each nav as item (item.href)}
 					<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
-						<span class="icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>
+						<span class="icon"><Icon name={item.icon} /></span><span>{item.label}</span>
 					</a>
 				{/each}
 			</nav>
@@ -75,18 +75,11 @@
 
 <style>
 	/* Embassy chrome: DESIGN.md Part 1 like the admin (IBM Plex Mono, ink/paper, square, 2px rules, cyan as fill),
-	   but phone first: the Today list is worked on the go, the navigation sits at the bottom below 768px. */
-	:global(html) {
-		font-size: 16px;
-	}
+	   but phone first: the Today list is worked on the go, the navigation sits at the bottom below 768px.
+	   DESIGN.md "Brutalist tools": the reader's fluid root and type styles (tools.css via `sc-tool`), no px font sizes. */
 	.embassy {
-		--topbar-height: 3.25rem;
-		--bottom-nav-height: 3.5rem;
-		font-family: var(--font-mono);
-		font-size: 15px;
-		line-height: 1.45;
-		color: var(--ink);
-		background: var(--paper);
+		--topbar-height: var(--tool-bar-height);
+		--bottom-nav-height: max(3.5rem, 56px);
 		min-height: 100dvh;
 	}
 	.topbar {
@@ -133,10 +126,11 @@
 	.nav a:hover {
 		border-color: var(--ink);
 	}
+	/* current = inverted (DESIGN.md "Brutalist tools"; cyan is for live states only) */
 	.nav a[aria-current='page'] {
-		background: var(--primary-cyan);
+		background: var(--ink);
+		color: var(--paper);
 		border-color: var(--ink);
-		font-weight: var(--font-weight-bold);
 	}
 	.account {
 		display: flex;
@@ -213,31 +207,12 @@
 	:global(:where(.embassy) a) {
 		color: var(--ink);
 	}
-	:global(:where(.embassy) h1) {
-		font-size: 1.3em;
-		margin: 0 0 var(--space-05);
-	}
 	:global(:where(.embassy) h2) {
-		font-size: 1.05em;
 		margin: var(--space-15) 0 var(--space-05);
 	}
+	/* fields, focus, checkboxes: tools.css (2px ink frame, --control-height, 3px focus outline) */
 	:global(:where(.embassy) :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea)) {
-		box-sizing: border-box;
 		width: 100%;
-		margin: 0;
-		padding: var(--space-05) var(--space-075);
-		border: var(--border-width-hairline) solid var(--border-subtle);
-		border-radius: 0;
-		background: var(--paper);
-		color: var(--ink);
-		font: inherit;
-	}
-	:global(:where(.embassy) :is(input, select, textarea):focus-visible) {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: -1px;
-	}
-	:global(:where(.embassy) input[type='checkbox']) {
-		accent-color: var(--ink);
 	}
 	:global(.embassy .muted) {
 		color: var(--text-muted);

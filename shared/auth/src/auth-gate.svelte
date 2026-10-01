@@ -81,7 +81,6 @@
 		margin: 0 auto;
 		padding: 6rem 1rem 2rem;
 		font-family: var(--font-mono);
-		font-size: 16px;
 		color: var(--ink);
 	}
 	.sc-auth-gate h1 {

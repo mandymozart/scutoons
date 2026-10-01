@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { ActionBar } from '@scutoons/ui';
+	import { ActionBar, Icon } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -554,16 +554,16 @@
 {#snippet tree()}
 	<!-- the chapter's children in the sidebar: meta, audio, groups → slices (Alt+ArrowDown opens the first child) -->
 	<div class="tree" data-testid="chapter-tree">
-		<button class="node" class:current={section === 'meta'} onclick={() => (section = 'meta')} data-testid="tree-meta">{m['creator.meta']()}</button>
-		<button class="node" class:current={section === 'audio'} onclick={() => (section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
-		<div class="node-head">{m['creator.groups']()}</div>
+		<button class="node sc-nav-item" class:is-current={section === 'meta'} onclick={() => (section = 'meta')} data-testid="tree-meta">{m['creator.meta']()}</button>
+		<button class="node sc-nav-item" class:is-current={section === 'audio'} onclick={() => (section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
+		<div class="sc-nav-head">{m['creator.groups']()}</div>
 		{#each groups as g, gi (gi)}
 			{@const open = gi === groupIndex && (section === 'group' || section === 'slice')}
 			<div class="group" class:open>
 				<div class="group-row">
 					<button
-						class="node"
-						class:current={section === 'group' && gi === groupIndex}
+						class="node sc-nav-item"
+						class:is-current={section === 'group' && gi === groupIndex}
 						onclick={() => selectGroup(gi)}
 						data-nav-child={section === 'meta' || section === 'audio' ? '' : undefined}
 						data-testid="group-{gi}"
@@ -572,9 +572,9 @@
 						<span class="hint">{g?.ref ? '' : `${g?.slices?.length ?? 0}${g?.events ? ' · VN' : ''}`}</span>
 					</button>
 					<span class="tools">
-						<button class="ghost" onclick={() => moveGroup(gi, -1)} disabled={gi === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}>↑</button>
-						<button class="ghost" onclick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}>↓</button>
-						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}>✕</button>
+						<button class="ghost" onclick={() => moveGroup(gi, -1)} disabled={gi === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="arrow-up" /></button>
+						<button class="ghost" onclick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="arrow-down" /></button>
+						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 					</span>
 				</div>
 				{#if open}
@@ -598,9 +598,21 @@
 <div class="editor" class:with-panel={panel !== null}>
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
+	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
+	{#snippet sliceNav(where: 'start' | 'end')}
+		{#if section === 'slice' && activeGroup?.slices?.length}
+			<span class="slice-nav in-{where}" role="group" aria-label={m['creator.slice_navigation']()}>
+				<button class="ghost" onclick={() => selectSlice(sliceIndex - 1)} disabled={sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid={where === 'end' ? 'prev-slice' : undefined}><Icon name="chevron-left" /></button>
+				<span>{m['creator.slice_of']({ index: sliceIndex + 1, count: activeGroup.slices.length })}</span>
+				<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid={where === 'end' ? 'next-slice' : undefined}><Icon name="chevron-right" /></button>
+			</span>
+		{/if}
+	{/snippet}
+	<!-- the reader's type size needs the room: below 2048px start + secondary sit in "More" (DESIGN.md "Brutalist tools") -->
 	<ActionBar
 		label={m['creator.page_actions']()}
 		moreLabel={m['creator.more']()}
+		breakpoint={2048}
 		{...infoBar()}
 		bind:infoOpen
 		infoTitle={fileLabel(chapter.entity)}
@@ -608,20 +620,14 @@
 		{#snippet info()}<PageHelp page="chapter" {section} seasonFile={season.entity} />{/snippet}
 		{#snippet start()}
 			<UpLink />
-			{#if section === 'slice' && activeGroup?.slices?.length}
-				<span class="slice-nav" role="group" aria-label={m['creator.slice_navigation']()}>
-					<button class="ghost" onclick={() => selectSlice(sliceIndex - 1)} disabled={sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid="prev-slice">‹</button>
-					<span class="hint">{m['creator.slice_of']({ index: sliceIndex + 1, count: activeGroup.slices.length })}</span>
-					<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid="next-slice">›</button>
-				</span>
-			{/if}
+			{@render sliceNav('start')}
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
 				{m['creator.problems']()} <b class:bad={errorCount > 0}>{errorCount}</b>/<span>{warningCount}</span>
 			</button>
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!activeDoc?.canUndo} onclick={() => activeDoc?.undo()} data-testid="undo">↶</button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo">↷</button>
+			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!activeDoc?.canUndo} onclick={() => activeDoc?.undo()} data-testid="undo"><Icon name="rotate-ccw" /></button>
+			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo"><Icon name="rotate-cw" /></button>
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each chapter.locales as l}
@@ -629,9 +635,11 @@
 				{/each}
 			</span>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
+			<input class="message in-start" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={saveMessage} />
 		{/snippet}
 		{#snippet end()}
-			<input class="message" type="text" placeholder="note (optional)" bind:value={saveMessage} />
+			{@render sliceNav('end')}
+			<input class="message in-end" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={saveMessage} />
 			<button onclick={() => saveAll()} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
@@ -673,12 +681,12 @@
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
 		{/if}
-		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)}>✕</button></div>{/if}
+		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><Icon name="x" /></button></div>{/if}
 		{#if castNotice}
 			<div class="bar note-bar" data-testid="cast-notice">
 				{castNotice}
 				<button class="secondary" onclick={undoCast} data-testid="cast-undo">{m['creator.undo']()}</button>
-				<button class="ghost" onclick={() => (castNotice = null)}>✕</button>
+				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><Icon name="x" /></button>
 			</div>
 		{/if}
 
@@ -736,8 +744,8 @@
 							</select>
 						</label>
 						<span class="seg" role="group" aria-label="tool">
-							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}>▭ text box</button>
-							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}>♪ sample area</button>
+							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}><Icon name="square" /> text box</button>
+							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}><Icon name="music" /> sample area</button>
 						</span>
 						<label class="inline" title="Geometry edits on the canvas and in the fields">geometry
 							<select bind:value={scope}>
@@ -786,7 +794,7 @@
 								</li>
 							{/each}
 						</ul>
-						<button class="secondary" onclick={() => addDialog()}>+ {m['creator.add_text_box']()}</button>
+						<button class="secondary" onclick={() => addDialog()}><Icon name="plus" /> {m['creator.add_text_box']()}</button>
 						{#if selection?.kind === 'dialog' && sliceDialogs[selection.index]}
 							<hr />
 							<DialogInspector
@@ -841,7 +849,8 @@
 </div>
 
 <style>
-	/* the AppShell runs in "fill" mode here: the editor is exactly the content area and scrolls its own columns */
+	/* DESIGN.md "Brutalist tools": the reader's type sizes, 2px ink frames, selected = inverted, ≥ 44px controls.
+	   The AppShell runs in "fill" mode here: the editor is exactly the content area and scrolls its own columns. */
 	.editor {
 		display: flex;
 		flex-direction: column;
@@ -851,24 +860,39 @@
 	.files {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.4rem;
+		gap: var(--space-05);
 		align-items: center;
-		padding: 0.35rem 0.75rem;
-		border-bottom: 1px solid var(--border-subtle);
+		padding: var(--space-05) var(--space-1);
+		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	.slice-nav {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.2rem;
+		gap: var(--space-025);
 		white-space: nowrap;
 	}
 	.message {
-		width: 11rem !important;
+		width: 10rem !important;
+	}
+	/* the phone bar holds only save / publish: slice nav and the note move into "More" */
+	@media (max-width: 767px) {
+		.in-end {
+			display: none !important;
+		}
+		.message.in-start {
+			width: 100% !important;
+		}
+	}
+	@media (min-width: 768px) {
+		.in-start {
+			display: none !important;
+		}
 	}
 	.preview {
-		font-size: 11px;
 		display: inline-flex;
-		gap: 0.3rem;
+		align-items: center;
+		gap: var(--space-05);
+		white-space: nowrap;
 	}
 	.preview a {
 		color: var(--ink);
@@ -876,27 +900,28 @@
 	.bad {
 		color: var(--error);
 	}
+	/* status bars: ink on paper with a thick state rule (no tinted fills); unsaved = inverted */
 	.bar {
-		padding: 0.3rem 0.75rem;
-		font-size: 12px;
 		display: flex;
-		gap: 0.5rem;
+		flex-wrap: wrap;
+		gap: var(--space-05);
 		align-items: center;
-		border-bottom: 1px solid var(--border-subtle);
+		padding: var(--space-05) var(--space-1);
+		border-bottom: var(--border-width-regular) solid var(--ink);
+		border-left: 0.5rem solid var(--ink);
 	}
 	.dirty-bar {
 		background: var(--ink);
 		color: var(--paper);
 	}
 	.warn-bar {
-		background: #fff8e6;
+		border-left-color: var(--warn);
 	}
 	.error-bar {
-		background: #fff0ee;
-		border-bottom-color: var(--error);
+		border-left-color: var(--error);
 	}
 	.note-bar {
-		background: #eafaff;
+		border-left-color: var(--cyan);
 	}
 	.columns {
 		flex: 1;
@@ -905,47 +930,22 @@
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.columns.has-inspector {
-		grid-template-columns: minmax(0, 1fr) 400px;
+		grid-template-columns: minmax(0, 1fr) 22rem;
 	}
-	/* narrower: the inspector goes below the canvas */
-	@media (max-width: 1150px) {
+	/* narrower: the inspector goes below the canvas (sidebar 12rem + inspector 22rem + a 390px slice need ≈ 1280px) */
+	@media (max-width: 1279px) {
 		.columns.has-inspector {
 			grid-template-columns: minmax(0, 1fr);
-			grid-template-rows: minmax(0, 1fr) minmax(0, 45%);
+			grid-template-rows: minmax(0, 1fr) minmax(0, 50%);
 		}
 		.columns.has-inspector .inspector {
 			border-left: 0;
-			border-top: 2px solid var(--ink);
+			border-top: var(--border-width-regular) solid var(--ink);
 		}
 	}
+	/* ── the chapter tree in the sidebar (entries: tools.css sc-nav-item / sc-nav-head) ── */
 	.tree {
-		padding: 0.25rem 0 0.4rem;
-	}
-	.node {
-		display: flex;
-		justify-content: space-between;
-		gap: 0.3rem;
-		width: 100%;
-		text-align: left;
-		background: transparent;
-		color: var(--ink);
-		border: 0;
-		border-left: 3px solid transparent;
-		padding: 0.35rem 0.6rem;
-	}
-	.node:hover {
-		background: var(--surface-hover);
-	}
-	.node.current {
-		border-left-color: var(--ink);
-		font-weight: 700;
-		background: var(--surface-hover);
-	}
-	.node-head {
-		padding: 0.6rem 0.6rem 0.2rem;
-		font-size: 10px;
-		text-transform: uppercase;
-		color: var(--muted);
+		padding: 0 0 var(--space-05);
 	}
 	.group-row {
 		display: flex;
@@ -953,9 +953,13 @@
 	.group-row .node {
 		flex: 1;
 		min-width: 0;
+		justify-content: space-between;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	.node .hint {
+		color: inherit;
 	}
 	.group-row .tools {
 		display: none;
@@ -965,90 +969,115 @@
 		display: flex;
 	}
 	.tools button {
-		padding: 0 0.3em;
+		min-width: var(--control-height);
+		padding: 0;
 	}
 	.group.open {
-		background: #fafafa;
-		border-top: 1px solid var(--border-subtle);
-		border-bottom: 1px solid var(--border-subtle);
+		border-top: var(--border-width-regular) solid var(--ink);
+		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	.tree-add {
 		display: flex;
 		flex-direction: column;
-		gap: 0.3rem;
-		padding: 0.6rem;
+		gap: var(--space-05);
+		padding: var(--space-1);
 	}
 	.main {
 		overflow: auto;
-		padding: 0.75rem 1rem 3rem;
+		padding: var(--space-1) var(--space-1) var(--space-3);
 		min-width: 0;
 	}
 	.canvas-tools {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.5rem 0.9rem;
+		gap: var(--space-05) var(--space-1);
 		align-items: center;
 		position: sticky;
-		top: -0.75rem;
+		top: calc(-1 * var(--space-1));
 		background: var(--paper);
 		z-index: 5;
-		padding: 0.3rem 0;
+		padding: var(--space-05) 0;
 	}
+	/* segmented control: one 2px ink frame, the chosen part inverted */
 	.seg {
 		display: inline-flex;
-		border: 1px solid var(--border-muted);
+		border: var(--border-width-regular) solid var(--ink);
 	}
 	.inline {
 		display: inline-flex !important;
-		gap: 0.3rem;
+		gap: var(--space-05);
 		align-items: center;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	.inline select {
 		width: auto;
+		font-weight: var(--font-weight-regular);
+		text-transform: none;
+		letter-spacing: normal;
 	}
 	.canvas-scroll {
 		overflow: auto;
-		padding: 1.2rem 0.5rem 2rem;
+		padding: var(--space-1) 0 var(--space-15);
 	}
 	.inspector {
 		overflow: auto;
-		border-left: 2px solid var(--ink);
-		padding: 0.5rem 0.75rem 3rem;
+		border-left: var(--border-width-regular) solid var(--ink);
+		padding: var(--space-1) var(--space-1) var(--space-3);
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: var(--space-1);
 	}
+	/* inspector tabs: a framed grid, the open tab inverted */
 	.tabs {
-		display: flex;
-		flex-wrap: wrap;
-		border-bottom: 2px solid var(--ink);
-		margin-bottom: 0.3rem;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+		border: var(--border-width-regular) solid var(--ink);
+	}
+	.tabs button {
+		justify-content: center;
 	}
 	.boxes {
 		list-style: none;
 		margin: 0;
 		padding: 0;
+		border: var(--border-width-regular) solid var(--ink);
 	}
+	.boxes li + li {
+		border-top: var(--border-width-hairline) solid var(--ink);
+	}
+	/* one line per box, ellipsis (block, not flex: a text node can't ellipsize in flex) */
 	.boxes button {
+		display: block;
 		width: 100%;
+		padding-block: 0;
+		line-height: calc(var(--control-height) - 2 * var(--border-width-regular));
 		text-align: left;
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
+	.boxes b {
+		font-weight: inherit;
+	}
+	.boxes button.active .hint {
+		color: inherit;
+	}
 	.row {
 		display: flex;
-		gap: 0.4rem;
+		flex-wrap: wrap;
+		gap: var(--space-05);
 	}
 	.sub {
-		font-size: 12px;
-		margin-top: 1rem;
+		margin-top: var(--space-15);
 	}
 	hr {
 		border: 0;
-		border-top: 2px solid var(--ink);
+		border-top: var(--border-width-regular) solid var(--ink);
 		width: 100%;
+		margin: var(--space-05) 0;
 	}
 	.side-panel {
 		position: fixed;
@@ -1056,16 +1085,16 @@
 		right: 0;
 		/* ends at the bottom ActionBar (its border and last lines are not hidden behind it) */
 		bottom: var(--action-bar-height);
-		width: min(24rem, 92vw);
+		width: min(var(--tool-panel-width), 92vw);
 		background: var(--paper);
-		border-left: 2px solid var(--ink);
+		border-left: var(--border-width-regular) solid var(--ink);
 		overflow: auto;
-		padding: 0.5rem 0.75rem 2rem;
+		padding: var(--space-1) var(--space-1) var(--space-3);
 		z-index: 20;
 		box-sizing: border-box;
 	}
 	.pad {
-		padding: 1rem;
+		padding: var(--space-1);
 	}
 	.error {
 		color: var(--error);

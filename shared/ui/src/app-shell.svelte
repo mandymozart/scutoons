@@ -24,7 +24,7 @@
 		aside,
 		children,
 		mode = 'page',
-		sidebarWidth = '15rem',
+		sidebarWidth = 'var(--tool-sidebar-width)',
 		asideWidth = '24rem',
 		sidebarLabel,
 		sidebarId,
@@ -107,7 +107,7 @@
 		padding-bottom: var(--sc-shell-bottom);
 	}
 	.sc-app-shell:has(:global(.sc-action-bar)) {
-		--sc-shell-bottom: var(--action-bar-height, 3.25rem);
+		--sc-shell-bottom: var(--action-bar-height, var(--tool-bar-height));
 	}
 	.sc-shell-top {
 		position: sticky;

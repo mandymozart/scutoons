@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { tick } from 'svelte';
 	import { CREDIT_SECTION_KINDS, sectionName, type CreditSection, type CreditSectionKind, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -74,8 +75,8 @@
 					<strong class="title">{sectionName(section, languages[0])}</strong>
 				{/if}
 				<span class="spacer"></span>
-				<button type="button" class="ghost mini" disabled={i === 0} onclick={() => moveSection(i, i - 1)} aria-label={m['creator.credits_up']()}>↑</button>
-				<button type="button" class="ghost mini" disabled={i === sections.length - 1} onclick={() => moveSection(i, i + 1)} aria-label={m['creator.credits_down']()}>↓</button>
+				<button type="button" class="ghost mini" disabled={i === 0} onclick={() => moveSection(i, i - 1)} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>
+				<button type="button" class="ghost mini" disabled={i === sections.length - 1} onclick={() => moveSection(i, i + 1)} aria-label={m['creator.credits_down']()}><Icon name="arrow-down" /></button>
 				<button type="button" class="ghost mini" onclick={() => remove(i, section)} data-testid="remove-section">{m['creator.credits_remove']()}</button>
 			</header>
 
@@ -105,7 +106,7 @@
 		<select bind:value={addKind} aria-label={m['creator.credits_section_kind']()} data-testid="add-section-kind">
 			{#each CREDIT_SECTION_KINDS as kind (kind)}<option value={kind}>{kindLabel(kind)}</option>{/each}
 		</select>
-		<button type="button" class="secondary" onclick={add} data-testid="add-section">+ {m['creator.credits_add_section']()}</button>
+		<button type="button" class="secondary" onclick={add} data-testid="add-section"><Icon name="plus" /> {m['creator.credits_add_section']()}</button>
 	</div>
 </div>
 
@@ -130,6 +131,9 @@
 	}
 	.handle {
 		all: unset;
+		display: inline-flex;
+		align-items: center;
+		min-height: var(--control-height);
 		cursor: grab;
 		color: var(--text-muted);
 		letter-spacing: -2px;
@@ -139,7 +143,8 @@
 		outline: 2px solid var(--ink);
 	}
 	.kind {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
 		background: var(--ink);
 		color: var(--paper);
@@ -152,12 +157,11 @@
 		flex: 1;
 	}
 	.mini {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		padding: 0.1rem 0.4rem;
 	}
 	h4 {
 		margin: 0.25rem 0 0;
-		font-size: 12px;
 	}
 	.row {
 		display: flex;
@@ -171,7 +175,8 @@
 	.date {
 		display: flex;
 		flex-direction: column;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.add {
 		display: flex;

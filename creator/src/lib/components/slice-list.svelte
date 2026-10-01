@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
 	import { fillSliceSize } from '$lib/editor/images.ts';
@@ -100,20 +101,20 @@
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">
 						{#if count(slice, 'dialog')}<span title="text boxes">T{count(slice, 'dialog')}</span>{/if}
-						{#if slice?.audio}<span title="audio">♪</span>{/if}
-						{#if count(slice, 'events')}<span title="events">⚡{count(slice, 'events')}</span>{/if}
+						{#if slice?.audio}<span title="audio"><Icon name="music" label="audio" /></span>{/if}
+						{#if count(slice, 'events')}<span title="events"><Icon name="zap" label="events" />{count(slice, 'events')}</span>{/if}
 					</span>
 				</span>
 			</button>
 			<span class="tools">
-				<button type="button" class="ghost" title={m['creator.add_slice']()} aria-label={m['creator.add_slice']()} onclick={() => add(index)}>+</button>
-				<button type="button" class="ghost" title={m['creator.remove']()} aria-label={m['creator.remove']()} onclick={() => remove(index)}>✕</button>
+				<button type="button" class="ghost" title={m['creator.add_slice']()} aria-label={m['creator.add_slice']()} onclick={() => add(index)}><Icon name="plus" /></button>
+				<button type="button" class="ghost" title={m['creator.remove']()} aria-label={m['creator.remove']()} onclick={() => remove(index)}><Icon name="x" /></button>
 			</span>
 		</li>
 	{/each}
 </ol>
 {#if !slices.length}
-	<button type="button" class="secondary" onclick={() => add(-1)}>+ {m['creator.add_slice']()}</button>
+	<button type="button" class="secondary" onclick={() => add(-1)}><Icon name="plus" /> {m['creator.add_slice']()}</button>
 {/if}
 
 <style>
@@ -127,12 +128,18 @@
 	li {
 		display: flex;
 		align-items: stretch;
-		border-bottom: 1px solid var(--border-subtle);
-		border-left: 3px solid transparent;
+		border-bottom: var(--border-width-hairline) solid var(--ink);
 	}
+	/* selected = inverted (DESIGN.md "Brutalist tools") */
 	li.selected {
-		border-left-color: var(--ink);
-		background: var(--surface-hover);
+		background: var(--ink);
+		color: var(--paper);
+	}
+	li.selected .thumb,
+	li.selected .no,
+	li.selected .marks,
+	li.selected .tools button {
+		color: var(--paper);
 	}
 	li.over {
 		box-shadow: inset 0 3px 0 var(--cyan);
@@ -140,9 +147,10 @@
 	.thumb {
 		flex: 1;
 		display: flex;
-		gap: 0.4rem;
+		justify-content: flex-start;
+		gap: var(--space-05);
 		align-items: center;
-		padding: 0.2rem;
+		padding: var(--space-025) var(--space-05);
 		background: transparent;
 		color: var(--ink);
 		border: 0;
@@ -151,14 +159,16 @@
 		cursor: grab;
 	}
 	.no {
-		width: 1.6rem;
+		flex: none;
+		min-width: 1.5em;
 		text-align: right;
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	img {
-		width: 34px;
-		height: 54px;
+		flex: none;
+		width: 2.125rem;
+		height: 3.375rem;
 		object-fit: cover;
 		background: var(--surface-panel);
 	}
@@ -168,16 +178,17 @@
 		min-width: 0;
 	}
 	.name {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 	.marks {
 		display: flex;
-		gap: 0.3rem;
-		font-size: 10px;
-		color: var(--muted);
+		gap: var(--space-05);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.tools {
 		display: flex;
@@ -190,7 +201,7 @@
 		opacity: 1;
 	}
 	.tools button {
-		font-size: 11px;
-		padding: 0 0.35em;
+		min-width: var(--control-height);
+		padding: 0;
 	}
 </style>

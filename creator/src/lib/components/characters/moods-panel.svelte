@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import { DEFAULT_MOOD, MOOD_ID, sortedMoods, type CharacterRegistry, type LocaleText, type MoodVocabulary } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, ensureMoods, moodsOf } from '$lib/editor/characters.ts';
@@ -58,8 +59,8 @@
 		{#each list as mood, i (mood.id)}
 			<li data-testid="mood-{mood.id}">
 				<span class="order">
-					<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}>↑</button>
-					<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === list.length - 1} aria-label={m['creator.credits_down']()}>↓</button>
+					<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>
+					<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === list.length - 1} aria-label={m['creator.credits_down']()}><Icon name="arrow-down" /></button>
 				</span>
 				<code>{mood.id}</code>
 				<LocaleMapField value={mood.label} {languages} label={m['creator.characters_look_label']()} required onchange={(v) => change((x) => { const t = x.moods.find((y) => y.id === mood.id); if (t) t.label = v; }, `mood-${mood.id}`)} />
@@ -75,14 +76,14 @@
 					title={mood.id === DEFAULT_MOOD ? m['creator.characters_neutral_required']() : ''}
 					onclick={() => {
 						if (confirm(m['creator.characters_remove_mood_confirm']({ mood: mood.id, count: usage.get(mood.id) ?? 0 }))) change((x) => (x.moods = x.moods.filter((y) => y.id !== mood.id)));
-					}}>✕</button
+					}} aria-label={m['creator.remove']()}><Icon name="x" /></button
 				>
 			</li>
 		{/each}
 	</ol>
 	<span class="add">
 		<input type="text" bind:value={name} placeholder={m['creator.characters_new_mood']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), add())} data-testid="moods-new" />
-		<button type="button" class="secondary" onclick={add} disabled={!MOOD_ID.test(name.trim().toLowerCase().replace(/\s+/g, '-'))}>+ {m['creator.characters_add_mood']()}</button>
+		<button type="button" class="secondary" onclick={add} disabled={!MOOD_ID.test(name.trim().toLowerCase().replace(/\s+/g, '-'))}><Icon name="plus" /> {m['creator.characters_add_mood']()}</button>
 	</span>
 </section>
 
@@ -116,7 +117,8 @@
 		display: flex;
 		gap: 0.25rem;
 		align-items: center;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.add {
 		display: flex;

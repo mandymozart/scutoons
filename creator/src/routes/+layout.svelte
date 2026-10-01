@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { AppShell } from '@scutoons/ui';
+	import { AppShell, Icon } from '@scutoons/ui';
 	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
 	import { entities } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
@@ -123,13 +123,13 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="creator">
+<div class="creator sc-tool">
 	<AuthGate {session} app="creator" appName="Creator" locale={getLocale()} readerHref={VIEWER_URL}>
 		<!-- One stable frame for every page: top bar (breadcrumb of the full path), sidebar (children of the current
 		     level + Universe), content, and the page's ActionBar at the bottom (reserved by the shell) -->
 		<AppShell
 			mode={nav.fill ? 'fill' : 'page'}
-			sidebarWidth="240px"
+			sidebarWidth="var(--tool-sidebar-width)"
 			sidebarLabel={m['creator.nav_label']()}
 			sidebarId="creator-nav"
 			collapsible
@@ -147,7 +147,7 @@
 						aria-controls="creator-nav"
 						onclick={() => (menuOpen = !menuOpen)}
 					>
-						<span aria-hidden="true">☰</span>
+						<Icon name="menu" />
 					</button>
 					<nav class="crumbs" aria-label="Breadcrumb">
 						<ol>
@@ -170,10 +170,10 @@
 					{/if}
 				</div>
 				<div class="universe">
-					<p class="head">{m['creator.universe']()}</p>
+					<p class="sc-nav-head">{m['creator.universe']()}</p>
 					<ul>
 						{#each universe as item (item.href)}
-							<li><a href={item.href} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
+							<li><a class="sc-nav-item" href={item.href} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
 						{/each}
 					</ul>
 				</div>
@@ -184,25 +184,20 @@
 </div>
 
 <style>
-	/* Editor chrome: design system Part 1 – IBM Plex Mono, ink/paper, square, 2px structural borders.
-	   Dense desktop tool: fixed px base instead of the reader's fluid root size. */
+	/* Editor chrome: DESIGN.md "Brutalist tools" – the reader's fluid root and type styles (tools.css via `sc-tool`),
+	   2px ink frames, square, ≥ 44px controls, selected = inverted. No px font sizes. */
 	.creator {
 		/* editor aliases of @scutoons/tokens (ink, paper, border-*, surface-* come from the tokens directly) */
 		--cyan: var(--primary-cyan);
 		--muted: var(--text-muted);
 		--error: var(--state-error);
 		--warn: var(--state-warning);
-		/* every creator page: the bottom ActionBar mirrors the 64px top bars (AppShell reserves this much) */
-		--action-bar-height: 64px;
-		/* the one top bar is 64px high: side panels and the Info panel start below it */
-		--top: 64px;
-		--info-panel-top: 64px;
-		--info-panel-width: 360px;
-		font-family: var(--font-mono);
-		font-size: 13px;
-		line-height: 1.4;
-		color: var(--ink);
-		background: var(--paper);
+		/* every creator page: the bottom ActionBar mirrors the top bar (AppShell reserves this much) */
+		--action-bar-height: var(--tool-bar-height);
+		/* the one top bar: side panels and the Info panel start below it */
+		--top: var(--tool-bar-height);
+		--info-panel-top: var(--tool-bar-height);
+		--info-panel-width: var(--tool-panel-width);
 		min-height: 100dvh;
 	}
 
@@ -210,11 +205,11 @@
 	.creator-bar {
 		display: flex;
 		align-items: center;
-		gap: 0.75rem;
+		gap: var(--space-075);
 		box-sizing: border-box;
 		height: var(--top);
-		padding: 0 1rem;
-		border-bottom: 2px solid var(--ink);
+		padding: 0 var(--space-1);
+		border-bottom: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 	}
 	.burger {
@@ -246,7 +241,6 @@
 	.crumbs li + li::before {
 		content: '/';
 		padding: 0 0.45rem;
-		color: var(--muted);
 	}
 	.crumbs a {
 		overflow: hidden;
@@ -254,7 +248,7 @@
 		color: var(--ink);
 	}
 	.crumbs a[aria-current='page'] {
-		font-weight: 700;
+		font-weight: var(--font-weight-bold);
 		text-decoration: none;
 	}
 	.who {
@@ -263,7 +257,7 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
 	@media (max-width: 1099px) {
@@ -273,7 +267,10 @@
 	}
 	@media (max-width: 767px) {
 		.burger {
-			display: inline-block;
+			display: inline-flex;
+			align-items: center;
+			justify-content: center;
+			min-width: var(--control-height);
 		}
 	}
 	:global(.creator .sc-shell-sidebar) {
@@ -287,116 +284,75 @@
 		position: sticky;
 		bottom: 0;
 		background: var(--paper);
-		border-top: 2px solid var(--ink);
-	}
-	.universe .head {
-		margin: 0;
-		padding: 0.6rem 0.75rem 0.25rem;
-		font-size: 10px;
-		text-transform: uppercase;
-		color: var(--muted);
+		border-top: var(--border-width-regular) solid var(--ink);
 	}
 	.universe ul {
 		list-style: none;
 		margin: 0;
-		padding: 0 0 0.4rem;
-	}
-	.universe a {
-		display: block;
-		padding: 0.3rem 0.75rem;
-		border-left: 3px solid transparent;
-		color: var(--ink);
-		text-decoration: none;
-	}
-	.universe a:hover {
-		background: var(--surface-hover);
-	}
-	.universe a[aria-current='page'] {
-		border-left-color: var(--ink);
-		background: var(--surface-hover);
-		font-weight: 700;
+		padding: 0 0 var(--space-05);
 	}
 
-	/* Dense editor controls (@scutoons/ui components style themselves) */
-	:global(:where(.creator) input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color'])),
-	:global(:where(.creator) select),
-	:global(:where(.creator) textarea) {
+	/* ── Creator-wide controls (fields, focus, headings: tools.css; @scutoons/ui components style themselves) ──
+	   The viewer's buttons (owner 2026-10-01): button = ink (primary) · .secondary = paper + 2px border-muted → ink on
+	   hover · .ghost = no frame until hover · .active (a toggle) = inverted · disabled 0.5. Compact padding
+	   space-05 space-15 (rem), the bars need it. */
+	:global(:where(.creator input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']))),
+	:global(:where(.creator select)),
+	:global(:where(.creator textarea)) {
 		width: 100%;
-		margin: 0;
-		padding: 0.3em 0.45em;
-		font: inherit;
-		font-size: 12px;
-		border: 1px solid var(--border-subtle);
-		border-radius: 0;
-		background: var(--paper);
+	}
+	:global(:where(.creator button)),
+	:global(:where(.creator .btn)) {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-025);
 		box-sizing: border-box;
-	}
-	:global(:where(.creator) input:focus),
-	:global(:where(.creator) select:focus),
-	:global(:where(.creator) textarea:focus) {
-		outline: 2px solid var(--ink);
-		outline-offset: -1px;
-	}
-	:global(:where(.creator) input[type='checkbox']),
-	:global(:where(.creator) input[type='radio']) {
-		width: auto;
-		margin: 0;
-	}
-	:global(:where(.creator) button),
-	:global(:where(.creator) .btn) {
-		font: inherit;
-		font-size: 12px;
-		padding: 0.45em 1em;
-		border-radius: 0;
-		line-height: 1.2;
+		min-height: var(--control-height);
+		padding: var(--space-05) var(--space-15);
+		line-height: var(--type-button-line);
 		background: var(--ink);
 		color: var(--paper);
-		border: 2px solid var(--ink);
+		border: var(--border-width-regular) solid var(--ink);
+		border-radius: 0;
 		cursor: pointer;
 		text-decoration: none;
-		display: inline-block;
 	}
-	:global(:where(.creator) button.secondary),
-	:global(:where(.creator) .btn.secondary) {
+	:global(:where(.creator button.secondary)),
+	:global(:where(.creator .btn.secondary)) {
 		background: var(--paper);
 		color: var(--ink);
 		border-color: var(--border-muted);
 	}
-	:global(:where(.creator) button.secondary:hover:not(:disabled)) {
-		background: var(--paper);
+	:global(:where(.creator button.secondary:hover:not(:disabled))),
+	:global(:where(.creator .btn.secondary:hover)) {
 		border-color: var(--ink);
 	}
-	:global(:where(.creator) button.ghost) {
+	:global(:where(.creator button.ghost)) {
 		background: transparent;
 		color: var(--ink);
 		border-color: transparent;
-		padding: 0.2em 0.4em;
+		padding: var(--space-05);
 	}
-	:global(:where(.creator) button.ghost:hover:not(:disabled)) {
-		background: var(--surface-hover);
+	:global(:where(.creator button.ghost:hover:not(:disabled))) {
+		border-color: var(--border-muted);
 	}
-	:global(:where(.creator) button.active),
-	:global(:where(.creator) button.active:hover:not(:disabled)) {
+	:global(:where(.creator button.active)),
+	:global(:where(.creator button.active:hover:not(:disabled))) {
 		background: var(--ink);
 		color: var(--paper);
 		border-color: var(--ink);
 	}
-	:global(:where(.creator) button:disabled) {
-		opacity: 0.4;
+	:global(:where(.creator button:disabled)) {
+		opacity: 0.5;
 		cursor: not-allowed;
 	}
-	:global(:where(.creator) h1),
-	:global(:where(.creator) h2),
-	:global(:where(.creator) h3) {
-		font-weight: 700;
-		margin: 0 0 0.5em;
-	}
-	:global(:where(.creator) label) {
+	:global(:where(.creator label)) {
 		display: block;
 	}
-	:global(:where(.creator) .hint) {
+	:global(:where(.creator .hint)) {
 		color: var(--muted);
-		font-size: 11px;
-		line-height: 1.35;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 </style>

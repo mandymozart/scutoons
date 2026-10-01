@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
+	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, deleteAt, type Path } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
@@ -128,8 +130,8 @@
 	{#each samples as sample, i (i)}
 		<div class="sample" class:selected={i === selectedSample}>
 			<div class="row">
-				<button type="button" class="ghost" onclick={() => onselectsample?.(i)}>♪ {i + 1}</button>
-				<button type="button" class="ghost" onclick={() => removeSample(i)}>✕</button>
+				<button type="button" class="ghost" onclick={() => onselectsample?.(i)}><Icon name="music" /> {i + 1}</button>
+				<button type="button" class="ghost" onclick={() => removeSample(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 			</div>
 			<div class="grid g3">
 				<PropField {doc} path={[...samplesPath, i, 'id']} label="id" type="select" options={library} required />
@@ -164,9 +166,9 @@
 		gap: 0.4rem;
 	}
 	h4 {
-		font-size: 11px;
-		margin: 0.5rem 0 0;
+		margin: var(--space-1) 0 0;
 		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	.volume {
 		display: grid;
@@ -180,7 +182,8 @@
 		align-items: center;
 	}
 	.num {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 		color: var(--muted);
 	}
 	.sample {
@@ -201,14 +204,19 @@
 		gap: 0.3rem 0.4rem;
 	}
 	.g3 {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	.field label {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.warn {
 		color: var(--warn);
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 </style>

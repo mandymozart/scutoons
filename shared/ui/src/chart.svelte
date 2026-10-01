@@ -230,7 +230,8 @@
 	.tick {
 		fill: var(--text-muted);
 		font-family: var(--font-mono);
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.bar {
 		stroke: var(--ink);

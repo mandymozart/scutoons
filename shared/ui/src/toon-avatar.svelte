@@ -54,7 +54,7 @@
 		background: var(--surface-hover);
 		color: var(--text-muted);
 		font-weight: var(--font-weight-bold);
-		font-size: calc(var(--toon-avatar-size) * 0.45);
+		font-size: max(var(--type-caption-size), calc(var(--toon-avatar-size) * 0.45));
 		line-height: 1;
 		user-select: none;
 	}

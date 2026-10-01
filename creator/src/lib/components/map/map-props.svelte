@@ -494,7 +494,6 @@
 		padding: 0.75rem;
 	}
 	h2 {
-		font-size: 14px;
 		margin: 0;
 		word-break: break-word;
 	}
@@ -510,7 +509,7 @@
 	}
 	.field span,
 	.lbl {
-		font-size: 10px;
+		font-size: var(--type-caption-size);
 		color: var(--muted);
 	}
 	.row {
@@ -534,7 +533,7 @@
 		min-width: 0;
 	}
 	legend {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		font-weight: 700;
 	}
 	.check {
@@ -549,7 +548,7 @@
 	}
 	.chip {
 		font: inherit;
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		padding: 0.1rem 0.45rem;
 		border: 1px solid var(--border-muted);
 		background: var(--paper);
@@ -562,7 +561,7 @@
 		color: var(--paper);
 	}
 	.hint {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		color: var(--muted);
 		margin: 0;
 	}
@@ -595,7 +594,7 @@
 		padding: 0.2rem;
 		border: 1px solid var(--border-subtle);
 		cursor: pointer;
-		font-size: 9px;
+		font-size: var(--type-caption-size);
 	}
 	.thumb.current {
 		border: 2px solid var(--ink);
@@ -670,7 +669,7 @@
 		position: absolute;
 		top: 2px;
 		left: 3px;
-		font-size: 9px;
+		font-size: var(--type-caption-size);
 	}
 	.waypoints {
 		margin: 0;

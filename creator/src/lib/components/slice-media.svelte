@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import {
 		DEFAULT_SLICE, FRAME_PRESETS, FRAME_RATIO_MAX, FRAME_RATIO_MIN, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, VIEWPORT_POSITIONS,
 		aspectRatioLabel, getAt, parseFrameRatio, viewportObjectFit, viewportObjectPosition,
@@ -261,7 +262,7 @@
 					onerror={() => (videoState = 'missing')}
 				></video>
 				<span class="meta">
-					{#if videoState === 'missing'}<b class="bad">{m['creator.video_missing']()}</b>{:else if videoState === 'ok'}✓ CDN{/if}
+					{#if videoState === 'missing'}<b class="bad">{m['creator.video_missing']()}</b>{:else if videoState === 'ok'}<Icon name="check" /> CDN{/if}
 				</span>
 			</div>
 		{/if}
@@ -381,8 +382,7 @@
 	.flags {
 		display: flex;
 		flex-wrap: wrap;
-		gap: 0.8rem;
-		font-size: 12px;
+		gap: var(--space-1);
 	}
 	.group {
 		border: 1px solid var(--border-subtle);
@@ -394,12 +394,16 @@
 		min-width: 0;
 	}
 	legend {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		padding: 0 0.25rem;
 	}
 	.lbl {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.files {
 		display: grid;
@@ -421,7 +425,8 @@
 		border: 1px solid var(--border-subtle);
 	}
 	.meta {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.bad {
 		color: var(--error);

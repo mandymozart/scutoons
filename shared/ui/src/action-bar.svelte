@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { clickOutside } from './click-outside.ts';
 	import InfoPanel from './info-panel.svelte';
+	import Icon from './icon.svelte';
 
 	/**
 	 * Fixed bottom action bar (PLATFORM.md "Admin UI patterns" → "Bottom action bar", owner rule for admin + creator):
@@ -97,7 +98,7 @@
 		onclick={() => setInfo(!infoOpen)}
 		data-testid="info-toggle"
 	>
-		<span aria-hidden="true">ⓘ</span> {infoLabels.toggle ?? 'Info'}
+		<Icon name="info" /> <span class="info-word">{infoLabels.toggle ?? 'Info'}</span>
 	</button>
 {/snippet}
 
@@ -152,7 +153,7 @@
 <style>
 	/* the page gets the bottom padding wherever the bar is placed in the markup */
 	:global(body:has(.sc-action-bar)) {
-		padding-bottom: calc(var(--action-bar-height, 3.25rem) + var(--space-1));
+		padding-bottom: calc(var(--action-bar-height, var(--tool-bar-height)) + var(--space-1));
 	}
 	.sc-action-bar {
 		position: fixed;
@@ -165,7 +166,7 @@
 		justify-content: space-between;
 		gap: var(--space-1);
 		box-sizing: border-box;
-		height: var(--action-bar-height, 3.25rem);
+		height: var(--action-bar-height, var(--tool-bar-height));
 		padding: 0 var(--space-1);
 		background: var(--paper);
 		border-top: var(--border-width-regular) solid var(--ink);
@@ -190,8 +191,13 @@
 		position: relative;
 	}
 	.info-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-05);
 		flex: none;
-		padding: 0.45em 0.8em;
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: var(--space-05) var(--space-1);
 		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);
 		color: var(--ink);
@@ -208,16 +214,44 @@
 		color: var(--paper);
 	}
 	.more-toggle {
-		padding: 0.45em 1em;
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: var(--space-05) var(--space-15);
 		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
 		cursor: pointer;
 	}
-	.more-toggle:hover,
-	.more-toggle[aria-expanded='true'] {
+	.more-toggle:hover {
 		border-color: var(--ink);
+	}
+	.more-toggle[aria-expanded='true'] {
+		background: var(--ink);
+		color: var(--paper);
+		border-color: var(--ink);
+	}
+	.info-toggle:focus-visible,
+	.more-toggle:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: var(--focus-offset);
+	}
+	/* phones: the bar keeps Info + More + the primary actions on one line (the label stays the accessible name) */
+	@media (max-width: 479px) {
+		.sc-action-bar :global(:is(button, a.sc-button)) {
+			padding-inline: var(--space-1);
+		}
+		.info-toggle {
+			padding-inline: var(--space-05);
+		}
+		.info-word {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
 	}
 	.more-panel {
 		position: absolute;

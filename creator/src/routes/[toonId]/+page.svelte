@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ActionBar, ToonAvatar } from '@scutoons/ui';
+	import { ActionBar, Icon, ToonAvatar } from '@scutoons/ui';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { m } from '$lib/paraglide/messages.js';
@@ -358,7 +358,7 @@
 									<li class="chip" data-testid="language-{l}">
 										{languageLabel(l)}
 										<button class="ghost" title={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}>★</button>
-										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}">✕</button>
+										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><Icon name="x" /></button>
 									</li>
 								{:else}
 									<li class="hint">{m['creator.no_target_languages']()}</li>
@@ -370,7 +370,7 @@
 										<option value="">{m['creator.add_language_label']()} …</option>
 										{#each addable as l}<option value={l}>{languageLabel(l)}</option>{/each}
 									</select>
-									<button class="secondary" disabled={!addLanguage} onclick={addTarget} data-testid="add-language">+ {m['creator.add_language']()}</button>
+									<button class="secondary" disabled={!addLanguage} onclick={addTarget} data-testid="add-language"><Icon name="plus" /> {m['creator.add_language']()}</button>
 								</span>
 							{/if}
 						</div>
@@ -395,7 +395,7 @@
 				<section class="season-missing" data-testid="season-missing">
 					<h2>{m['creator.season']({ number: 1 })}</h2>
 					<p>{m['creator.season_missing']()}</p>
-					<button disabled={busy || languagesChanged} onclick={createSeason} data-testid="create-season">+ {m['creator.create_season']()}</button>
+					<button disabled={busy || languagesChanged} onclick={createSeason} data-testid="create-season"><Icon name="plus" /> {m['creator.create_season']()}</button>
 				</section>
 			{:else}
 				<div class="season-head">
@@ -464,7 +464,7 @@
 			{#if error}<span class="error" data-testid="page-error">{error}</span>{:else if message}<span class="hint">{message}</span>{/if}
 		{/snippet}
 		{#snippet secondary()}
-			<button onclick={createChapter} disabled={busy || !season || season.loading || languagesChanged} data-testid="new-chapter">+ {m['creator.new_chapter']()}</button>
+			<button onclick={createChapter} disabled={busy || !season || season.loading || languagesChanged} data-testid="new-chapter"><Icon name="plus" /> {m['creator.new_chapter']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<button class="secondary" disabled={busy || !anyDirty} onclick={saveAll} data-testid="save-draft">{m['creator.save_draft']()}{anyDirty ? ' •' : ''}</button>
@@ -475,7 +475,8 @@
 
 <style>
 	.toon-title {
-		font-size: 16px;
+		font-size: var(--type-title-size);
+		line-height: var(--type-title-line);
 	}
 	.toon-title a,
 	.season-title a {
@@ -490,9 +491,6 @@
 	.toon-title a:hover span,
 	.season-title a:hover {
 		text-decoration: underline;
-	}
-	.season-title {
-		font-size: 14px;
 	}
 	.browser {
 		padding: 1.5rem 1rem;
@@ -521,14 +519,17 @@
 	}
 	.chapters th {
 		border-bottom: 2px solid var(--ink);
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.chapter-row {
 		position: relative;
 		cursor: pointer;
 	}
 	.chapter-row:hover td {
-		background: var(--surface-hover);
+		text-decoration: underline;
 	}
 	.row-link {
 		color: var(--ink);
@@ -566,7 +567,7 @@
 		gap: 0.35rem;
 	}
 	.field > span {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
 		font-weight: 700;
 	}
 	.chips {

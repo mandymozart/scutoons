@@ -94,7 +94,6 @@
 	}
 	h3 {
 		margin: 0;
-		font-size: 1em;
 	}
 	.events {
 		margin: 0;

@@ -27,9 +27,7 @@
 		padding: 1rem 1rem 3rem;
 	}
 	.guide h1 {
-		font-size: 16px;
-	}
-	.guide :global(.style-guide) {
-		font-size: 13px;
+		font-size: var(--type-title-size);
+		line-height: var(--type-title-line);
 	}
 </style>

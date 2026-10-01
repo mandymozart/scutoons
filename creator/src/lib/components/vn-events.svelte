@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, clone, type Path } from '@scutoons/content';
 	import { JumpToTargetType, OnomatopoeiaEffect, OnomatopoeiaVariant, Trigger, TriggerMode } from '@scutoons/content';
@@ -224,9 +225,9 @@
 				</select>
 				<span class="tools">
 					<button type="button" class="ghost" class:active={raw[i] || !known} title="raw JSON" onclick={() => (raw[i] = !raw[i])} disabled={!known}>{'{ }'}</button>
-					<button type="button" class="ghost" onclick={() => moveBy(i, -1)} disabled={i === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}>↑</button>
-					<button type="button" class="ghost" onclick={() => moveBy(i, 1)} disabled={i === events.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}>↓</button>
-					<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}>✕</button>
+					<button type="button" class="ghost" onclick={() => moveBy(i, -1)} disabled={i === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="arrow-up" /></button>
+					<button type="button" class="ghost" onclick={() => moveBy(i, 1)} disabled={i === events.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="arrow-down" /></button>
+					<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 				</span>
 			</header>
 
@@ -316,7 +317,7 @@
 								<PropField {doc} path={[...p, 'params', 'characters', ci, 'look']} label="look" type="select" options={looks.slice(1).map((l) => ({ value: l.id, label: l.label }))} placeholder={looks[0] ? `${looks[0].label} (default)` : 'default'} />
 							{/if}
 						{/if}
-						<button type="button" class="ghost" onclick={() => removeCharacter(i, ci)}>✕</button>
+						<button type="button" class="ghost" onclick={() => removeCharacter(i, ci)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 					</div>
 				{/each}
 				<button type="button" class="secondary" onclick={() => addCharacter(i)}>+ character</button>
@@ -394,15 +395,21 @@
 		gap: 0.4rem;
 	}
 	.raw textarea {
-		font-size: 11px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.err {
 		color: var(--error);
-		font-size: 10px;
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
 	}
 	.field label {
-		font-size: 10px;
-		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.trigger {
 		border-top: 1px dashed var(--border-muted);
@@ -414,7 +421,6 @@
 		gap: 0.3rem;
 	}
 	.add button {
-		font-size: 11px;
-		padding: 0.25em 0.6em;
+		padding: 0 var(--space-075);
 	}
 </style>

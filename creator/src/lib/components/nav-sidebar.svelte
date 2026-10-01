@@ -39,26 +39,26 @@
 </script>
 
 {#if toon}
-	<p class="head">{m['creator.seasons']()}</p>
+	<p class="sc-nav-head">{m['creator.seasons']()}</p>
 	<ul>
 		{#each seasons as n (n)}
-			<li><a href="/{toon}/season/{n}" data-nav-child={childAttr} aria-current={path.startsWith(`/${toon}/season/${n}`) ? 'page' : undefined}>{fileLabel(entities.season(toon, n))}</a></li>
+			<li><a class="sc-nav-item" href="/{toon}/season/{n}" data-nav-child={childAttr} aria-current={path.startsWith(`/${toon}/season/${n}`) ? 'page' : undefined}>{fileLabel(entities.season(toon, n))}</a></li>
 		{/each}
 	</ul>
-	<p class="head">{m['creator.meta']()}</p>
+	<p class="sc-nav-head">{m['creator.meta']()}</p>
 	<ul>
-		<li><a href="/{toon}/cast" data-nav-child={childAttr} aria-current={current(`/${toon}/cast`)}>{m['creator.cast']()}</a></li>
-		<li><a href="/{toon}/credits" data-nav-child={childAttr} aria-current={current(`/${toon}/credits`)}>{m['creator.credits']()}</a></li>
-		<li><a href="/{toon}/script" data-nav-child={childAttr} aria-current={current(`/${toon}/script`)} data-testid="nav-script">{m['creator.script']()}</a></li>
-		<li><a href="/{toon}/toon" data-nav-child={childAttr} aria-current={current(`/${toon}/toon`)} data-testid="nav-toon-settings">{fileLabel(entities.toonSettings(toon))}</a></li>
+		<li><a class="sc-nav-item" href="/{toon}/cast" data-nav-child={childAttr} aria-current={current(`/${toon}/cast`)}>{m['creator.cast']()}</a></li>
+		<li><a class="sc-nav-item" href="/{toon}/credits" data-nav-child={childAttr} aria-current={current(`/${toon}/credits`)}>{m['creator.credits']()}</a></li>
+		<li><a class="sc-nav-item" href="/{toon}/script" data-nav-child={childAttr} aria-current={current(`/${toon}/script`)} data-testid="nav-script">{m['creator.script']()}</a></li>
+		<li><a class="sc-nav-item" href="/{toon}/toon" data-nav-child={childAttr} aria-current={current(`/${toon}/toon`)} data-testid="nav-toon-settings">{fileLabel(entities.toonSettings(toon))}</a></li>
 	</ul>
 {:else}
-	<p class="head">{m['creator.toons']()}</p>
+	<p class="sc-nav-head">{m['creator.toons']()}</p>
 	<ul>
 		{#each toons as t (t.id)}
 			<li>
-				<a class="toon" href="/{t.id}" data-nav-child={childAttr} data-testid="nav-toon-{t.id}">
-					<ToonAvatar src={t.avatar ? asset(`${t.id}/${t.avatar}`) : null} name={name(t)} size="24px" />
+				<a class="sc-nav-item toon" href="/{t.id}" data-nav-child={childAttr} data-testid="nav-toon-{t.id}">
+					<ToonAvatar src={t.avatar ? asset(`${t.id}/${t.avatar}`) : null} name={name(t)} size="1.5rem" />
 					<span>{name(t)}</span>
 				</a>
 			</li>
@@ -67,34 +67,11 @@
 {/if}
 
 <style>
-	.head {
-		margin: 0;
-		padding: 0.75rem 0.75rem 0.25rem;
-		font-size: 10px;
-		text-transform: uppercase;
-		color: var(--muted);
-	}
+	/* the entries are the tool vocabulary (tools.css: sc-nav-head, sc-nav-item) */
 	ul {
 		list-style: none;
 		margin: 0;
 		padding: 0;
-	}
-	a {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		padding: 0.35rem 0.75rem;
-		border-left: 3px solid transparent;
-		color: var(--ink);
-		text-decoration: none;
-	}
-	a:hover {
-		background: var(--surface-hover);
-	}
-	a[aria-current='page'] {
-		border-left-color: var(--ink);
-		background: var(--surface-hover);
-		font-weight: 700;
 	}
 	.toon span {
 		min-width: 0;

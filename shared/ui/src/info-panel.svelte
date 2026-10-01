@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Icon from './icon.svelte';
 
 	/**
 	 * The one place for a page's help (owner 2026-09-30): explanations, conventions, glossaries and the style guide live
@@ -39,9 +40,9 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <aside class="sc-info-panel" {id} aria-label={title} {onkeydown} data-testid="info-panel">
 	<header>
-		<h2><span class="icon" aria-hidden="true">ⓘ</span> {title}</h2>
+		<h2><Icon name="info" /> {title}</h2>
 		{#if onclose}
-			<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={onclose}>×</button>
+			<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={onclose}><Icon name="x" /></button>
 		{/if}
 	</header>
 	<div class="body">
@@ -73,8 +74,8 @@
 		color: var(--ink);
 		border-left: var(--border-width-regular) solid var(--ink);
 		font-family: var(--font-mono);
-		font-size: 12px;
-		line-height: 1.5;
+		font-size: var(--type-body-size);
+		line-height: var(--type-body-line);
 	}
 	header {
 		display: flex;
@@ -86,14 +87,19 @@
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	h2 {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
 		margin: 0;
-		font-size: 13px;
+		font-size: var(--type-label-size);
+		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-bold);
-	}
-	.icon {
-		font-weight: normal;
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label-bold);
 	}
 	.close {
+		min-width: var(--control-height);
+		min-height: var(--control-height);
 		margin: 0 0 0 auto;
 		padding: 0 var(--space-025);
 		background: transparent;
@@ -114,10 +120,11 @@
 	}
 	/* help content: plain HTML from the app, styled here once */
 	.body :global(h3) {
-		margin: 1rem 0 0.25rem;
-		font-size: 12px;
+		margin: var(--space-15) 0 var(--space-05);
+		font-size: var(--type-label-size);
 		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
+		letter-spacing: var(--tracking-label-bold);
 	}
 	.body :global(h3:first-child) {
 		margin-top: 0;
@@ -143,19 +150,18 @@
 		margin: 0 0 0 0.75rem;
 	}
 	.body :global(code) {
-		background: var(--surface-panel);
-		padding: 0 0.2em;
+		font-weight: var(--font-weight-bold);
 		overflow-wrap: anywhere;
 	}
 	.body :global(kbd) {
 		padding: 0 0.3em;
-		border: 1px solid var(--border-muted);
+		border: var(--border-width-regular) solid var(--ink);
 		font: inherit;
 	}
 	.guide {
-		margin-top: 1rem;
+		margin-top: var(--space-15);
 		padding-top: var(--space-075);
-		border-top: var(--border-width-hairline) solid var(--border-subtle);
+		border-top: var(--border-width-regular) solid var(--ink);
 	}
 	.guide a {
 		color: var(--ink);

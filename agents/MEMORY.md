@@ -1506,3 +1506,42 @@ character, persona, look and mood and doubles as the VN test bed.
 - After the merge: the airport is `unlock: null` ("not unlockable yet", owner), the builder uses Feather `<Icon>`s, the map
   places are derived toon-media requests in Wanted images (`mapMediaRequests`, never stored). `npm install` after merging
   `platform` (feather-icons); a freshly (re)started Vite server can fail check-fonts once (dep re-optimisation) – rerun.
+
+## Brutalist tools, phase 1 (2026-10-01, branch `brutal-ui`)
+
+- Owner: tools use the reader's font sizes, "clear brutalism". Rules: DESIGN.md "Brutalist tools". Base:
+  `shared/tokens/tools.css` (opt-in class `sc-tool` on the creator / admin / embassy root; in `index.css`, inert
+  without the class), new tool tokens in tokens.css (`--control-height`, `--tool-bar-height`, `--tool-sidebar-width`,
+  `--tool-panel-width`, `--type-title-*`, `--tracking-label`, focus), @scutoons/ui frames / hit targets / focus /
+  inverted selection, DataTable `secondary` columns from 1600px. qr copy re-synced (`node qr/bin/sync-tokens.mjs`).
+- Removed root overrides: admin `html { 16px }` + `.admin { 14px }`, creator `.creator { 13px }`, embassy 16px/15px.
+  Done end to end: creator chapter editor + slice inspector (all four inspector tabs' px sizes), admin codes list
+  (filters moved above the table, pager stays in the bar) + code detail. Feather icons on both screens.
+- Gotchas: base.css's `h1–h6 { font-weight: 400 }` beats `:where()` rules → tools.css headings use `.sc-tool :where(h…)`.
+  Creator-wide button rules are zero-specificity (`:global(:where(.creator button…))`) and `inline-flex` (centered
+  vertically, content starts left: flex-row buttons that relied on `text-align` need `justify-content`).
+  Measured (headless, test user): before creator 1440 = text 10–13px on a 24px root, 128 controls < 44px; after = only
+  24px body / 18px caption, 0 controls < 44px; admin 14/12px → 24/18px.
+- Phase 2 left: ~129 px font sizes in 39 creator/embassy files (other screens), see the phase-2 plan in the report.
+- Owner review of phase 1 (2026-10-01): buttons = the viewer's (secondary `border-muted` → ink on hover, no hover
+  inversion, rem padding; compact `space-05 space-15`, phones `space-05 space-1` in the ActionBar); badges FILLED from
+  `--badge-<name>` / `--badge-<name>-text` in tokens.css (the owner's palette, ratios in DESIGN.md); bold sparingly
+  (regular caps 0.08em `--tracking-label`, bold caps only for section headings 0.12em `--tracking-label-bold`);
+  `--control-height` is rem-only now (2rem + frame = 32 · 36 · 52px, below the old 44px floor on phones).
+
+## Brutalist tools, phase 2 (2026-10-01, branch `brutal-ui`)
+
+- Every creator / admin / embassy screen on the type scale: 129 px font sizes swept (≤ 11px → caption or the tool label,
+  12–18px → body, larger → title), glyph icons → Feather (`Icon`, icon-only buttons got `aria-label`), grey / tinted
+  fills → state rules (hover = 2px frame, selected = inverted, warn / error / note bars = a thick state rule), filled
+  status badges everywhere (`status-badges`, file-status, credits role tags, wanted-image notes = info). Legends are the
+  plain tool label (an inverted legend plate clashed with components colouring their own legends).
+- Touch minimum: one rule in tokens.css, `@media (pointer: coarse)` lifts `--control-height` to max(44px, …);
+  `all: unset` buttons (credits handles, role chips, wanted links) need `display: inline-flex` + `min-height`.
+- Checks: `npm run check:tools-css` (static, in `npm run check`), `npm run check:tools-ui` (pages at 1440 fine + 390
+  touch; desktop pass first – once touch emulation was on, Chrome keeps `pointer: coarse` for the tab). Measured on 34
+  screens × 2 widths: texts under caption 953 → 0 (comic lettering exempt), controls under 44px on touch 119 → 0.
+  `creator-cast-check` reads chips case-insensitively now (status chips are uppercase) and takes SCUTOONS_API /
+  SCUTOONS_CREATOR like the script check.
+- The script page's textarea is 1rem / 1.4 (was 13/20 px; DESIGN.md updated, the scroll math reads the computed line
+  height).

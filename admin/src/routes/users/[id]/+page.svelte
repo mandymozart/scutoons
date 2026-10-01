@@ -221,7 +221,7 @@
 		gap: var(--space-05);
 	}
 	.unlocks .meta {
-		font-size: 0.85em;
+		font-size: var(--type-caption-size);
 		opacity: 0.7;
 	}
 	.unlock {
