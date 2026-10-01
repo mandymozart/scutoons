@@ -1,0 +1,30 @@
+{
+	"id": "toptoy",
+	"title": "Top Toy",
+	"authors": ["Mandy Mozart", "Bernhard Hammer", "Error Temporal"],
+	"chapters": 0,
+	"language": "en",
+	"release": "2026-09-29",
+	"status": "draft",
+	"description": "And now they left the wild for an adventure. Upon the gates of Hyper City they asked for the nearby tennis court and got distracted in the process. What a city! What a day! And it's not going to end anytime soon!",
+	"thumbnail": "images/s1c1-thumbnail.jpg",
+	"cover": {
+		"square": "images/1x/en/s1-cover-square.jpg",
+		"portrait": "images/1x/en/s1-cover-portrait.jpg"
+	},
+	"announce": true,
+	"tile": {
+		"image": "../characters/toptoy/toptoy_portrait-neutral.webp"
+	},
+	"map": {
+		"layers": {
+			"terrain": ""
+		},
+		"width": 0,
+		"height": 0,
+		"center": {
+			"x": 0,
+			"y": 0
+		}
+	}
+}
