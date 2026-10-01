@@ -105,8 +105,9 @@ export function endEffect(state: ReaderState, kind: string): ReaderState {
 }
 
 /**
- * The band of a testo level – the hook for future A-pose / portrait variants (no visual change yet). Direction-neutral:
- * the owner decides later what the bands look like.
+ * The band of a testo level – the hook for future A-pose / portrait variants (no visual change yet). Direction (owner
+ * 2026-10-01): more testo → the character reads more male, less testo → more female: `testo-low` = female-read,
+ * `testo-mid` = ambiguous, `testo-high` = male-read; the art variants follow that later.
  */
 export type TestoBand = 'testo-low' | 'testo-mid' | 'testo-high';
 export function testoBand(level: number): TestoBand {

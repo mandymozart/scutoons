@@ -723,7 +723,9 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   `CharacterPersona.testo`; validation 0–100; creator character page: a slider next to the colour + "✕" = unset, same
   for the persona). **No values are set in the content** (unset = undefined). `characterTesto(c, persona)` reads it,
   `testoBand(level)` → `testo-low | testo-mid | testo-high` (< 34 / < 67 / ≥ 67) is the hook for future A-pose / portrait
-  variants – **no visual change yet**; the owner decides the direction with the art.
+  variants – **no visual change yet**. **Direction (owner 2026-10-01): more testo → the character reads more male, less
+  testo → more female** (`testo-low` = female-read, `testo-mid` = ambiguous, `testo-high` = male-read); the art variants
+  follow that later.
 - **Character tendencies** (`RegistryCharacter.tendencies: string[]`, creator field "Neigungen"): story/workflow
   reference only, no runtime effect. Top Toy: `["psychedelics"]` (owner: "tends to take a lot of psychedelics";
   `migrate-characters.ts`, the characters seed, the characters statement of both seed SQL files).
