@@ -1180,3 +1180,25 @@ character, persona, look and mood and doubles as the VN test bed.
 - Flaky once each, green on the rerun (not touched here): check-fonts (51/52, the failing page not printed on the green
   run) and check-toon-hero's "plays again on the hero" at one desktop size.
 
+## Hero: "Ton an" toggles the loop's own sound in place (2026-10-01)
+
+- **Owner:** the desktop hero's "Ton an" / "Sound on" toggles the background loop's sound in place (it opened chapter 0);
+  only "Trailer ansehen ▶" navigates to the prologue (besides the start button); a click on the video / scrim does
+  nothing. Spec: DESIGN.md "Toon page desktop" → Hero.
+- **Loop audio:** the 24 s montage (12 × 2 s) gets ONE continuous excerpt of `Roar Little Kitty.mp4` (Proton Drive
+  `Projects/Cat Pope`), not cut-up music: **318.9 s – 343.06 s (5:18.9 – 5:43.1)** = the entry of the last full-energy
+  section (short-term loudness jumps from ≈ −22 to ≈ −12 LUFS at 5:19 and peaks ≈ −8 at 5:40; the loudest 24 s window of
+  the song by `ebur128` short-term mean). Length = the video's 24.16 s, `afade` in 0.5 s / out 1 s, two-pass `loudnorm`
+  I −16 / TP −1.5 (linear; result −16.4 LUFS integrated, peak −2.1 dBFS), AAC 128k 48 kHz stereo, muxed with
+  `-c:v copy -movflags +faststart` into `cdn/root/catpope/videos/s1-trailer-loop.{1280w,1920w}.mp4` (3.8 → 4.2 MB,
+  8.0 → 8.4 MB; the old files in the session scratchpad). **Upload** both with `cdn/sync.py`.
+- `hero.svelte`: `muted` state (true on every load, never remembered), the sound control is a `<button aria-pressed>`
+  with `data-icon="speaker"` / `"speaker-muted"`; one `update()` decides play/pause (in view + visible tab, with reduced
+  motion also only while the sound is on); the IntersectionObserver effect reads `muted` with `untrack` so a toggle
+  doesn't tear it down (that would pause/replay). Reduced motion: the click sets `started`, the video renders and its
+  effect plays it with sound (sticky user activation from the click). Messages: `hero.sound_off` new,
+  `hero.sound_on_title` removed.
+- check-toon-hero: at 1440 / 1280 de + en real CDP mouse clicks (a user gesture, unlike `el.click()` from
+  `Runtime.evaluate`): background click → URL + mute unchanged, no pointer; "Ton an" → unmuted + playing in place,
+  label/icon/aria-pressed, `webkitAudioDecodedByteCount` > 0; scroll away pauses, back resumes unmuted; "Ton aus" mutes;
+  reload → muted; "Trailer ansehen" → chapter 0. Reduced motion: "Ton an" plays with sound, "Ton aus" stops. 79/79.

@@ -86,13 +86,20 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
 - **Toon page desktop** (≥ 1024 px, owner 2026-10-01, reference: artboard "A · Vollbild" of
   https://claude.ai/artifact/AYHvMG81k7CQc1JrVf4n5R; phones and tablets keep the single column above):
   - **Hero** (`toon/hero.svelte`) = the first screen, `min(100vh, 900px)`, full-bleed: the season's trailer loop
-    (`Season.trailer`: muted, looping, `playsinline`; plays only while the hero is on screen and the tab visible; with
-    reduced motion the poster `<img>` only, no video download) under a flat `rgb(0 0 0 / 0.45)` scrim, no gradient.
+    (`Season.trailer`: muted on every load, looping, `playsinline`; plays only while the hero is on screen and the tab
+    visible, coming back resumes in the same mute state; with reduced motion the poster `<img>` only, no video download)
+    under a flat `rgb(0 0 0 / 0.45)` scrim, no gradient. The video and the scrim are not clickable (no link, no handler,
+    no pointer cursor). The loop carries its own soundtrack: one continuous 24 s excerpt of the song (no cut-up music
+    under the 12 × 2 s montage), 0.5 s fade in / 1 s fade out for a soft seam, AAC 128k, ≈ −16 LUFS.
     Bottom left in paper: the season line in capitals ("STAFFEL 1 · DAS ERWACHEN", `hero.season`, 0.5833rem, 0.08em
     tracking), the toon title (3.3333rem ≈ 80 px), the tagline (toon description, 0.8333rem), then the start button
     **inverted** (paper bg, ink text, every state + its progress rule in paper) and "Trailer ansehen ▶" / "Watch the
-    trailer ▶" (2px paper outline) → the trailer chapter (`trailer.chapter`, default 0 = the prologue). Bottom right:
-    "Ton an" / "Sound on" (2px outline at 60 % white, small) → the same chapter; the loop itself is never unmuted.
+    trailer ▶" (2px paper outline) → the trailer chapter (`trailer.chapter`, default 0 = the prologue); besides the start
+    button the only link on the hero.
+    Bottom right: the sound toggle (2px outline at 60 % white, small, a `<button>` with `aria-pressed`):
+    "Ton an" / "Sound on" + speaker icon unmutes the playing loop in place (the click is the user gesture), "Ton aus" /
+    "Sound off" + speaker-muted icon (outline full white) mutes it again; never navigates. Reduced motion: "Ton an" is
+    the explicit request – the loop then plays with sound, "Ton aus" stops it again.
     Without a trailer the cover is the background and the trailer buttons are left out.
   - While the hero is under the fixed top bar `html.on-hero` turns the logo and the round icon toggles white
     (transparent, paper border, inverted icon; viewer `static/css/styles.css`), ink again below it.
