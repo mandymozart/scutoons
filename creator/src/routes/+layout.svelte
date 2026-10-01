@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { AppShell, Button } from '@scutoons/ui';
+	import { AppShell, Button, Icon } from '@scutoons/ui';
 	import { entities } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
@@ -166,7 +166,7 @@
 						aria-controls="creator-nav"
 						onclick={() => (menuOpen = !menuOpen)}
 					>
-						<span aria-hidden="true">☰</span>
+						<Icon name="menu" />
 					</button>
 					<nav class="crumbs" aria-label="Breadcrumb">
 						<ol>

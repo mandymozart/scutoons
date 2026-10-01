@@ -410,3 +410,62 @@ sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every
 - The brand's own hand-drawn icons (viewer: chapter, map, inventory, account …) stay as they are.
 - **No "hand" tool for panning:** canvases pan with the middle mouse button or Space + drag (and two fingers on touch).
 
+
+## Brutalist tools (owner rule, 2026-10-01)
+
+> "The UI should use the font sizes I used in the reader even in all the admin tools (creator, admin, embassy, shop).
+> I don't like the tiny stuff; the font doesn't look good too small." · "I want clear brutalism, not something in
+> between. It makes it more playful, even if we lose some space."
+
+Applies to the creator, the admin and the embassy (opt-in class `sc-tool` on the app root → `@scutoons/tokens/tools.css`,
+inert without it). The shop already uses the reader's rem scale and keeps the reader's look.
+
+**Type = the reader's.**
+- The root is the reader's fluid root from base.css: **14px < 480px, 16px, 24px ≥ 768px**. No app sets `html { font-size }`
+  or a px base on its root (the admin's 16px/14px and the creator's 13px are gone).
+- Only the type styles: `body` / `button` / `label` 1rem (running text, table cells, inputs, sidebar entries, crumbs,
+  buttons); `caption` 0.75rem = **the smallest text** (field labels, table headers, chips, hints, meta);
+  `--type-title-size` 1.5rem bold = the one page title (h1) and big numbers. `nav-micro` is not used in tools.
+- **No px font sizes anywhere** (also not 0.6em-style shrinking); sizes come from `--type-*` tokens.
+- Headings: h1 = title; h2/h3 = `label-uppercase` (1rem, bold, uppercase, `--tracking-label` 0.06em). Field labels,
+  table headers, sidebar group heads = the **tool label**: caption, bold, uppercase, ink (`.sc-label`, `.sc-nav-head`).
+  Hints / meta = caption in `text-muted` (`.sc-caption`). Badges with data (codes, ids) stay in their case.
+
+**Frames, colour, shape.**
+- Structure = **2px ink** (`--border-width-regular` + `--ink`): fields, buttons, panels, sections, tables, top bar,
+  ActionBar, sidebar edge, tab groups, segmented controls. Table rows are split by 1px ink (`hairline`), never grey.
+- Hard ink / paper. `border-muted` only for **inactive** things (disabled controls, the quiet panel, an inactive tab).
+  No `surface-*` greys and no tinted fills for structure or state: a state is the frame's colour + a thick left rule
+  (0.5rem / 0.5em) in `state-error` / `state-warning` / cyan, the text stays ink. Unsaved = an inverted bar.
+- Square everything (`radius-none`; `radius-sm` only for avatars). **No shadows** (also no inset box-shadow tricks).
+- Cyan (`primary-cyan`) only for **live** states: "published" chips, the canvas selection, a signed / live badge,
+  per-locale overrides' rule. Never for the current nav entry or a selected row.
+
+**Controls.**
+- Every control and clickable row: **≥ 44px** (`--control-height` = max(44px, 2rem): 44 · 44 · 48px).
+- Inputs / selects / textareas: 2px ink frame, paper, 1rem, padding `space-025 space-05` (textarea `space-05`),
+  placeholder `text-muted`; disabled = `border-muted` + `text-muted`; invalid = `state-error` frame.
+- Buttons: primary = ink bg / paper text; secondary = paper + 2px **ink** frame (`--sc-button-secondary-border` in a
+  tool; the reader keeps `border-muted`); ghost = no frame until hover. **Hover inverts**; disabled = the inactive frame
+  (paper, `text-muted`, `border-muted`), no opacity. `Button size="sm"` = 1rem, padding `space-025 space-1`.
+- **Focus = a 3px ink outline** (`--border-width-focus`) 2px outside the frame (`--focus-offset`), everywhere.
+- **Active / selected = inverted** (ink bg, paper text): current sidebar entry, open tab, chosen segment, selected list
+  item / table row, pressed toggle, current page in the pager. Hover on lists = a 2px ink frame inside the row.
+- Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = an inverted plate (tool label).
+  details/summary = a bold uppercase label row ≥ 44px.
+- **Icons:** Feather via `Icon` (see "Icons"): close (x), menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
+  arrow-up/down for reorder, plus, info, search, sort arrows; icon-only controls carry `aria-label` + `title`.
+
+**Room.**
+- Tables are roomy: cells `space-075 space-1`. `DataTable` `secondary` columns show from **1600px** (they used to from
+  768px): at 1440 a list keeps its key columns, the rest is in the detail.
+- Generous padding: panels `space-1`, page content `space-15`, gaps between fields `space-1` (`space-15` after a
+  `Field`). Inspector forms use **two fields per row**.
+- The tool frame (tokens): top bar = ActionBar height `--tool-bar-height` max(48px, 3rem) (48 · 48 · 72px), sidebar
+  `--tool-sidebar-width` 12rem (admin 14rem with descriptions), Info / side panels `--tool-panel-width` 16rem.
+- ActionBars that don't fit move `start` + `secondary` into "More" (`breakpoint`); the primary actions stay. Filters
+  that need more than one line leave the bar and sit above the list (`.toolbar`), the pager stays in the bar.
+
+**Vocabulary** (`tools.css`): `.sc-label`, `.sc-heading`, `.sc-caption`, `.sc-chip` (`is-ink`, `is-live`, `is-off`),
+`.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted). Creator-wide button classes stay
+`.secondary`, `.ghost`, `.active` (creator layout).

@@ -2,6 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import { clickOutside } from './click-outside.ts';
 	import InfoPanel from './info-panel.svelte';
+	import Icon from './icon.svelte';
 
 	/**
 	 * Fixed bottom action bar (PLATFORM.md "Admin UI patterns" → "Bottom action bar", owner rule for admin + creator):
@@ -97,7 +98,7 @@
 		onclick={() => setInfo(!infoOpen)}
 		data-testid="info-toggle"
 	>
-		<span aria-hidden="true">ⓘ</span> {infoLabels.toggle ?? 'Info'}
+		<Icon name="info" /> {infoLabels.toggle ?? 'Info'}
 	</button>
 {/snippet}
 
@@ -190,6 +191,9 @@
 		position: relative;
 	}
 	.info-toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-05);
 		flex: none;
 		box-sizing: border-box;
 		min-height: var(--control-height);

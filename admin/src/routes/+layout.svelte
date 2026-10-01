@@ -4,7 +4,7 @@
 	import { onMount } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { AppShell, Button, CommandPalette, ToastStack, type Command } from '@scutoons/ui';
+	import { AppShell, Button, CommandPalette, Icon, ToastStack, type Command } from '@scutoons/ui';
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
@@ -122,21 +122,21 @@
 						aria-controls="admin-nav"
 						onclick={() => (menuOpen = !menuOpen)}
 					>
-						<span aria-hidden="true">☰</span><span class="sr-only">{m['shell.menu']()}</span>
+						<Icon name="menu" /><span class="sr-only">{m['shell.menu']()}</span>
 					</button>
 					<a class="brand" href="/">
 						<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
-						<span>{m['shell.admin']()}</span>
+						<span class="brand-name">{m['shell.admin']()}</span>
 					</a>
-					<button type="button" class="palette-trigger" onclick={() => (paletteOpen = true)}>
-						<span>{m['shell.search']()}</span><kbd>Ctrl K</kbd>
+					<button type="button" class="palette-trigger" aria-label={m['shell.search']()} title={m['shell.search']()} onclick={() => (paletteOpen = true)}>
+						<span class="search-label"><Icon name="search" /> <span class="wide-only">{m['shell.search']()}</span></span><kbd>Ctrl K</kbd>
 					</button>
 					<div class="account">
 						<span class="email" title={session.user?.email}>{session.user?.email}</span>
 						<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
 							{otherLocale.toUpperCase()}
 						</button>
-						<button type="button" class="plain" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
+						<button type="button" class="plain" onclick={() => session.logout()} aria-label={m['shell.sign_out']()} title={m['shell.sign_out']()}><Icon name="log-out" /><span class="wide-only">{m['shell.sign_out']()}</span></button>
 					</div>
 				</header>
 			{/snippet}
@@ -148,7 +148,7 @@
 							{#each group.items as item (item.id)}
 								<li>
 									<a href={item.href} aria-current={current?.id === item.id ? 'page' : undefined}>
-										<span class="icon" aria-hidden="true">{item.icon}</span>
+										<span class="icon"><Icon name={item.icon} /></span>
 										<span class="title">{item.title()}</span>
 										<span class="description">{item.description()}</span>
 									</a>
@@ -329,6 +329,31 @@
 		grid-row: span 2;
 		align-self: start;
 		text-align: center;
+		line-height: var(--type-body-line);
+	}
+	.plain {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-05);
+	}
+	@media (max-width: 767px) {
+		.wide-only {
+			display: none;
+		}
+	}
+	@media (max-width: 479px) {
+		.brand-name {
+			display: none;
+		}
+	}
+	.search-label {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-05);
+	}
+	.burger {
+		align-items: center;
+		justify-content: center;
 	}
 	.title {
 		font-weight: var(--font-weight-bold);

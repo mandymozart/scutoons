@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Icon from './icon.svelte';
 
 	/**
 	 * Modal sheet on the native <dialog> (focus trap, Escape, top layer). `side`: bottom sheet (mobile reader
@@ -57,7 +58,7 @@
 		<header>
 			{#if title}<h2>{title}</h2>{/if}
 			<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={() => dialog?.close()}>
-				×
+				<Icon name="x" />
 			</button>
 		</header>
 		<div class="body">

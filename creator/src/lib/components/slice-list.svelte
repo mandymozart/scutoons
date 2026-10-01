@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
 	import { fillSliceSize } from '$lib/editor/images.ts';
@@ -100,14 +101,14 @@
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">
 						{#if count(slice, 'dialog')}<span title="text boxes">T{count(slice, 'dialog')}</span>{/if}
-						{#if slice?.audio}<span title="audio">♪</span>{/if}
-						{#if count(slice, 'events')}<span title="events">⚡{count(slice, 'events')}</span>{/if}
+						{#if slice?.audio}<span title="audio"><Icon name="music" label="audio" /></span>{/if}
+						{#if count(slice, 'events')}<span title="events"><Icon name="zap" label="events" />{count(slice, 'events')}</span>{/if}
 					</span>
 				</span>
 			</button>
 			<span class="tools">
-				<button type="button" class="ghost" title={m['creator.add_slice']()} aria-label={m['creator.add_slice']()} onclick={() => add(index)}>+</button>
-				<button type="button" class="ghost" title={m['creator.remove']()} aria-label={m['creator.remove']()} onclick={() => remove(index)}>✕</button>
+				<button type="button" class="ghost" title={m['creator.add_slice']()} aria-label={m['creator.add_slice']()} onclick={() => add(index)}><Icon name="plus" /></button>
+				<button type="button" class="ghost" title={m['creator.remove']()} aria-label={m['creator.remove']()} onclick={() => remove(index)}><Icon name="x" /></button>
 			</span>
 		</li>
 	{/each}

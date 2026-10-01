@@ -73,7 +73,7 @@
 		{ id: 'logins', label: m['codes.col_logins'](), sortable: true, align: 'end', secondary: true },
 		{ id: 'refused', label: m['codes.col_refused'](), sortable: true, align: 'end', secondary: true },
 		{ id: 'last_seen', label: m['codes.col_last_seen'](), sortable: true, secondary: true },
-		{ id: 'created_at', label: m['codes.created'](), sortable: true }
+		{ id: 'created_at', label: m['codes.created'](), sortable: true, secondary: true }
 	]);
 	const countFields = ['scans', 'devices', 'accesses', 'logins', 'refused', 'edition_number', 'last_seen', 'created_at'];
 

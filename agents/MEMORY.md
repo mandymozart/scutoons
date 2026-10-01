@@ -1352,3 +1352,20 @@ character, persona, look and mood and doubles as the VN test bed.
   migration, no new dependency, no seed SQL change; production gets no script rows unless someone runs
   `import-content --sql --only=script` deliberately. Fresh worktrees need the gitignored `server/storage/keys/keypair.json`
   and `storage/files/batch/*` copied for the contract suites (admin-smoke batches, public-urls keys) – not a code issue.
+
+## Brutalist tools, phase 1 (2026-10-01, branch `brutal-ui`)
+
+- Owner: tools use the reader's font sizes, "clear brutalism". Rules: DESIGN.md "Brutalist tools". Base:
+  `shared/tokens/tools.css` (opt-in class `sc-tool` on the creator / admin / embassy root; in `index.css`, inert
+  without the class), new tool tokens in tokens.css (`--control-height`, `--tool-bar-height`, `--tool-sidebar-width`,
+  `--tool-panel-width`, `--type-title-*`, `--tracking-label`, focus), @scutoons/ui frames / hit targets / focus /
+  inverted selection, DataTable `secondary` columns from 1600px. qr copy re-synced (`node qr/bin/sync-tokens.mjs`).
+- Removed root overrides: admin `html { 16px }` + `.admin { 14px }`, creator `.creator { 13px }`, embassy 16px/15px.
+  Done end to end: creator chapter editor + slice inspector (all four inspector tabs' px sizes), admin codes list
+  (filters moved above the table, pager stays in the bar) + code detail. Feather icons on both screens.
+- Gotchas: base.css's `h1–h6 { font-weight: 400 }` beats `:where()` rules → tools.css headings use `.sc-tool :where(h…)`.
+  Creator-wide button rules are zero-specificity (`:global(:where(.creator button…))`) and `inline-flex` (centered
+  vertically, content starts left: flex-row buttons that relied on `text-align` need `justify-content`).
+  Measured (headless, test user): before creator 1440 = text 10–13px on a 24px root, 128 controls < 44px; after = only
+  24px body / 18px caption, 0 controls < 44px; admin 14/12px → 24/18px.
+- Phase 2 left: ~129 px font sizes in 39 creator/embassy files (other screens), see the phase-2 plan in the report.

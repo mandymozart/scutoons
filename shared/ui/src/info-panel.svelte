@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Icon from './icon.svelte';
 
 	/**
 	 * The one place for a page's help (owner 2026-09-30): explanations, conventions, glossaries and the style guide live
@@ -39,9 +40,9 @@
 <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <aside class="sc-info-panel" {id} aria-label={title} {onkeydown} data-testid="info-panel">
 	<header>
-		<h2><span class="icon" aria-hidden="true">ⓘ</span> {title}</h2>
+		<h2><Icon name="info" /> {title}</h2>
 		{#if onclose}
-			<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={onclose}>×</button>
+			<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={onclose}><Icon name="x" /></button>
 		{/if}
 	</header>
 	<div class="body">
@@ -86,15 +87,15 @@
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	h2 {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
 		margin: 0;
 		font-size: var(--type-label-size);
 		line-height: var(--type-label-line);
 		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-	}
-	.icon {
-		font-weight: normal;
 	}
 	.close {
 		min-width: var(--control-height);

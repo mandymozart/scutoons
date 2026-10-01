@@ -55,7 +55,7 @@
 	<title>{m['shell.title']()}</title>
 </svelte:head>
 
-<div class="embassy">
+<div class="embassy sc-tool">
 	{#if waiting}
 		<p class="gate">{m['shell.loading']()}</p>
 	{:else if !session.isLoggedIn}
@@ -105,28 +105,17 @@
 
 <style>
 	/* Embassy chrome: DESIGN.md Part 1 like the admin (IBM Plex Mono, ink/paper, square, 2px rules, cyan as fill),
-	   but phone first: the Today list is worked on the go, the navigation sits at the bottom below 768px. */
-	:global(html) {
-		font-size: 16px;
-	}
+	   but phone first: the Today list is worked on the go, the navigation sits at the bottom below 768px.
+	   DESIGN.md "Brutalist tools": the reader's fluid root and type styles (tools.css via `sc-tool`), no px font sizes. */
 	.embassy {
-		--topbar-height: 3.25rem;
-		--bottom-nav-height: 3.5rem;
-		font-family: var(--font-mono);
-		font-size: 15px;
-		line-height: 1.45;
-		color: var(--ink);
-		background: var(--paper);
+		--topbar-height: var(--tool-bar-height);
+		--bottom-nav-height: max(3.5rem, 56px);
 		min-height: 100dvh;
 	}
 	.gate {
 		max-width: 32rem;
 		margin: 0 auto;
 		padding: 5rem 1rem 2rem;
-		font-size: 16px;
-	}
-	.gate h1 {
-		font-size: 1.25rem;
 	}
 	.gate .logo {
 		display: block;
@@ -261,12 +250,7 @@
 	:global(:where(.embassy) a) {
 		color: var(--ink);
 	}
-	:global(:where(.embassy) h1) {
-		font-size: 1.3em;
-		margin: 0 0 var(--space-05);
-	}
 	:global(:where(.embassy) h2) {
-		font-size: 1.05em;
 		margin: var(--space-15) 0 var(--space-05);
 	}
 	:global(:where(.embassy) :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea)) {

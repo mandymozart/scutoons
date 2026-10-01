@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Toaster } from './toasts.svelte.ts';
+	import Icon from './icon.svelte';
 
 	/** Renders a toaster's toasts, fixed bottom-right. Errors are announced assertively. */
 	let { toaster, dismissLabel = 'Dismiss' }: { toaster: Toaster; dismissLabel?: string } = $props();
@@ -10,7 +11,7 @@
 		<div class="toast {toast.type}" role={toast.type === 'error' ? 'alert' : 'status'}>
 			<p>{toast.message}</p>
 			<button type="button" aria-label={dismissLabel} title={dismissLabel} onclick={() => toaster.dismiss(toast.id)}>
-				×
+				<Icon name="x" />
 			</button>
 		</div>
 	{/each}

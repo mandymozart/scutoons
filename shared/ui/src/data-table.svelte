@@ -31,6 +31,7 @@
 
 <script lang="ts" generics="T">
 	import type { Snippet } from 'svelte';
+	import Icon from './icon.svelte';
 
 	/**
 	 * Data table (admin UI pattern): sortable headers, bulk select + actions, keyboard-reachable rows, loading/empty
@@ -171,12 +172,12 @@
 								{@const next = nextSort(sort, column.id, defaultSortDir[column.id])}
 								{#if sortHref}
 									<a class="sort" href={sortHref(next)} data-sveltekit-noscroll data-sveltekit-keepfocus>
-										{column.label}<span class="arrow" aria-hidden="true">{dir === 'ascending' ? '↑' : dir === 'descending' ? '↓' : ''}</span>
+										{column.label}<span class="arrow" aria-hidden="true">{#if dir === 'ascending'}<Icon name="arrow-up" />{:else if dir === 'descending'}<Icon name="arrow-down" />{/if}</span>
 										{#if dir}<span class="sr-only">, {dir === 'ascending' ? labels.sortedAscending : labels.sortedDescending}</span>{/if}
 									</a>
 								{:else}
 									<button type="button" class="sort" onclick={() => onsort?.(next)}>
-										{column.label}<span class="arrow" aria-hidden="true">{dir === 'ascending' ? '↑' : dir === 'descending' ? '↓' : ''}</span>
+										{column.label}<span class="arrow" aria-hidden="true">{#if dir === 'ascending'}<Icon name="arrow-up" />{:else if dir === 'descending'}<Icon name="arrow-down" />{/if}</span>
 										{#if dir}<span class="sr-only">, {dir === 'ascending' ? labels.sortedAscending : labels.sortedDescending}</span>{/if}
 									</button>
 								{/if}

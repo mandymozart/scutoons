@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { ActionBar } from '@scutoons/ui';
+	import { ActionBar, Icon } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -564,9 +564,9 @@
 						<span class="hint">{g?.ref ? '' : `${g?.slices?.length ?? 0}${g?.events ? ' · VN' : ''}`}</span>
 					</button>
 					<span class="tools">
-						<button class="ghost" onclick={() => moveGroup(gi, -1)} disabled={gi === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}>↑</button>
-						<button class="ghost" onclick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}>↓</button>
-						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}>✕</button>
+						<button class="ghost" onclick={() => moveGroup(gi, -1)} disabled={gi === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="arrow-up" /></button>
+						<button class="ghost" onclick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="arrow-down" /></button>
+						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 					</span>
 				</div>
 				{#if open}
@@ -594,9 +594,9 @@
 	{#snippet sliceNav(where: 'start' | 'end')}
 		{#if section === 'slice' && activeGroup?.slices?.length}
 			<span class="slice-nav in-{where}" role="group" aria-label={m['creator.slice_navigation']()}>
-				<button class="ghost" onclick={() => selectSlice(sliceIndex - 1)} disabled={sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid={where === 'end' ? 'prev-slice' : undefined}>‹</button>
+				<button class="ghost" onclick={() => selectSlice(sliceIndex - 1)} disabled={sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid={where === 'end' ? 'prev-slice' : undefined}><Icon name="chevron-left" /></button>
 				<span>{m['creator.slice_of']({ index: sliceIndex + 1, count: activeGroup.slices.length })}</span>
-				<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid={where === 'end' ? 'next-slice' : undefined}>›</button>
+				<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid={where === 'end' ? 'next-slice' : undefined}><Icon name="chevron-right" /></button>
 			</span>
 		{/if}
 	{/snippet}
@@ -618,8 +618,8 @@
 			</button>
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!activeDoc?.canUndo} onclick={() => activeDoc?.undo()} data-testid="undo">↶</button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo">↷</button>
+			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!activeDoc?.canUndo} onclick={() => activeDoc?.undo()} data-testid="undo"><Icon name="rotate-ccw" /></button>
+			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo"><Icon name="rotate-cw" /></button>
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each chapter.locales as l}
@@ -673,12 +673,12 @@
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
 		{/if}
-		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)}>✕</button></div>{/if}
+		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><Icon name="x" /></button></div>{/if}
 		{#if castNotice}
 			<div class="bar note-bar" data-testid="cast-notice">
 				{castNotice}
 				<button class="secondary" onclick={undoCast} data-testid="cast-undo">{m['creator.undo']()}</button>
-				<button class="ghost" onclick={() => (castNotice = null)}>✕</button>
+				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><Icon name="x" /></button>
 			</div>
 		{/if}
 
@@ -736,8 +736,8 @@
 							</select>
 						</label>
 						<span class="seg" role="group" aria-label="tool">
-							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}>▭ text box</button>
-							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}>♪ sample area</button>
+							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}><Icon name="square" /> text box</button>
+							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}><Icon name="music" /> sample area</button>
 						</span>
 						<label class="inline" title="Geometry edits on the canvas and in the fields">geometry
 							<select bind:value={scope}>
@@ -785,7 +785,7 @@
 								</li>
 							{/each}
 						</ul>
-						<button class="secondary" onclick={() => addDialog()}>+ {m['creator.add_text_box']()}</button>
+						<button class="secondary" onclick={() => addDialog()}><Icon name="plus" /> {m['creator.add_text_box']()}</button>
 						{#if selection?.kind === 'dialog' && sliceDialogs[selection.index]}
 							<hr />
 							<DialogInspector

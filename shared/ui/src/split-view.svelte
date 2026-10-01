@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Sheet from './sheet.svelte';
+	import Icon from './icon.svelte';
 
 	/**
 	 * List + detail for fast triage. Wide screens (≥ `breakpoint` px): the detail is a pane next to the list (sticky,
@@ -60,7 +61,7 @@
 				{#if title}<h2>{title}</h2>{/if}
 				<div class="actions">
 					{#if actions}{@render actions()}{/if}
-					<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={onclose}>×</button>
+					<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={onclose}><Icon name="x" /></button>
 				</div>
 			</header>
 			<div class="body">{@render detail()}</div>
