@@ -1,29 +1,12 @@
 {
 	"id": "catpope",
 	"title": "Katzenpapst",
-	"authors": ["Mandy Mozart", "Thomas Dalby"],
-	"chapters": 5,
 	"language": "de",
 	"release": "2025-10-04",
 	"status": "published",
 	"description": "Geschichten von einer Katze in einer Welt voll Priestern, Influencer, und Verschwörungen.",
-	"thumbnail": "images/s1c1-thumbnail.jpg",
 	"cover": {
 		"square": "images/s1-cover-square.webp",
 		"portrait": "images/s1-cover-portrait.webp"
-	},
-	"tile": {
-		"image": "../characters/catpope/catpope_portrait-neutral.webp"
-	},
-	"map": {
-		"layers": {
-			"terrain": "images/map/map-layer-terrain.svg"
-		},
-		"width": 2048,
-		"height": 1046,
-		"center": {
-			"x": 1320,
-			"y": 440
-		}
 	}
 }

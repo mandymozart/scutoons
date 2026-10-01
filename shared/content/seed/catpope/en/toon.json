@@ -1,29 +1,12 @@
 {
 	"id": "catpope",
 	"title": "Cat Pope",
-	"authors": ["Mandy Mozart", "Thomas Dalby"],
-	"chapters": 5,
 	"language": "en",
 	"release": "2025-12-01",
 	"status": "published",
 	"description": "Stories of a cat in a world full of priests, influencers, and conspiracies.",
-	"thumbnail": "images/s1c1-thumbnail.jpg",
 	"cover": {
 		"square": "images/s1-cover-square.webp",
 		"portrait": "images/s1-cover-portrait.webp"
-	},
-	"tile": {
-		"image": "../characters/catpope/catpope_portrait-neutral.webp"
-	},
-	"map": {
-		"layers": {
-			"terrain": "images/map/map-layer-terrain.svg"
-		},
-		"width": 2048,
-		"height": 1046,
-		"center": {
-			"x": 1320,
-			"y": 440
-		}
 	}
 }

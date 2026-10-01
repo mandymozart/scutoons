@@ -15,6 +15,23 @@
         "name": "Cat Pope",
         "description": ""
       }
+    },
+    "authors": ["Mandy Mozart", "Thomas Dalby"],
+    "chapters": 5,
+    "thumbnail": "images/s1c1-thumbnail.jpg",
+    "tile": {
+      "image": "../characters/catpope/catpope_portrait-neutral.webp"
+    },
+    "map": {
+      "layers": {
+        "terrain": "images/map/map-layer-terrain.svg"
+      },
+      "width": 2048,
+      "height": 1046,
+      "center": {
+        "x": 1320,
+        "y": 440
+      }
     }
   },
   {
@@ -32,6 +49,24 @@
       "en": {
         "name": "Top Toy",
         "description": ""
+      }
+    },
+    "authors": ["Mandy Mozart", "Bernhard Hammer", "Error Temporal"],
+    "chapters": 0,
+    "thumbnail": "images/s1c1-thumbnail.jpg",
+    "announce": true,
+    "tile": {
+      "image": "../characters/toptoy/toptoy_portrait-neutral.webp"
+    },
+    "map": {
+      "layers": {
+        "terrain": ""
+      },
+      "width": 0,
+      "height": 0,
+      "center": {
+        "x": 0,
+        "y": 0
       }
     }
   },
@@ -51,6 +86,24 @@
         "name": "Yellow Mouse",
         "description": ""
       }
+    },
+    "authors": [],
+    "chapters": 0,
+    "thumbnail": "images/s1c1-thumbnail.jpg",
+    "announce": true,
+    "tile": {
+      "image": "../characters/yellowmouse/yellowmouse_helmet_portrait-neutral.webp"
+    },
+    "map": {
+      "layers": {
+        "terrain": ""
+      },
+      "width": 0,
+      "height": 0,
+      "center": {
+        "x": 0,
+        "y": 0
+      }
     }
   },
   {
@@ -68,6 +121,20 @@
       "en": {
         "name": "Sandbox",
         "description": "Test bed: every character, persona, look and mood (development and creator only)"
+      }
+    },
+    "authors": [],
+    "chapters": 7,
+    "thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+    "map": {
+      "layers": {
+        "terrain": "../catpope/images/map/map-layer-terrain.svg"
+      },
+      "width": 2048,
+      "height": 1046,
+      "center": {
+        "x": 1320,
+        "y": 440
       }
     }
   }
