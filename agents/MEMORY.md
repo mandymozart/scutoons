@@ -1127,6 +1127,45 @@ character, persona, look and mood and doubles as the VN test bed.
   previous server progress is PUT back). Chrome flags `--autoplay-policy=no-user-gesture-required --mute-audio`.
 - Open for the owner: chapter 0's `release` is set to the season's 2025-10-04 (not shown for published chapters).
 
+## Player autoplay + the follow-up bar (2026-10-01)
+
+- **Owner:** player videos autoplay (sound when allowed, else muted + "Ton an"); a follow-up bar at the end of a group /
+  chapter with a 5 s countdown; then "Nochmal" / "Replay" as the secondary and the members case as the conversion moment
+  (not signed in: "Anmelden →" + "Code einlösen" + a hint; signed in without a membership: "Code einlösen →" + "Wo
+  bekomme ich einen Code?"; no countdown in both; "Nochmal ansehen" only for members). Spec: DESIGN.md "Player video
+  slice" + "Follow-up bar".
+- **Autoplay:** `@scutoons/reader` `SliceVideo` `autoplayPlayer` (+ `soundOnLabel`), threaded through `Slice`; only the
+  viewer passes it (the creator preview stays still). `prefers-reduced-motion` is read synchronously now (an `onMount`
+  read let the autoplay start for a frame). Chrome keeps the sticky user activation across SvelteKit navigations, so
+  the hero's "Trailer ansehen" / the start button → the prologue plays with sound; a direct load gets `NotAllowedError`
+  → muted + the button. Headless: `--autoplay-policy=document-user-activation-required` = the normal rule; a CDP
+  `Input.dispatchMouseEvent` click counts as a gesture, `el.click()` from `Runtime.evaluate` doesn't.
+- **Done signals:** the bar observes the group's last `[data-slice-index]` itself (`sliceSeen` / `SEEN_THRESHOLDS`
+  exported from track-reading.ts, the tracker uses them too) and the `sliceplayer` events (`ended` / `play`); VN:
+  `vn.state.eventsDone` (`beginEvents()` on the runner's mount, `endOfEvents()` sets it, `clear()` resets). All sandbox
+  groups end with `jumpTo` → no bar there (they navigate themselves); check-next-bar drops sandbox chapter 2's final
+  jump via CDP Fetch to test a scene that just ends.
+- **`nextStep`** (`@scutoons/content` progress.ts, node tests): next group by `label` (a following group without a label
+  is skipped → the chapter's end), else the next chapter of the season's **whole** `Season.sequence` (drafts included;
+  the loaded list – which drops drafts in production – only adds `isPreview` / `release`): coming soon (with its date) /
+  a draft not public here → "Kapitel 2 erscheint bald" (never skips to "Kapitel 3 erscheint am …") / readable (preview or
+  member → `chapter`, else `members`) / nothing → the season's end. In dev chapter 2 (draft) is readable, so chapter 1's
+  end offers "Kapitel 2: Ärger".
+- **Login return:** `/account?return=<path>` (new, additive; same-origin paths only) → `goto` after the OTP login. The magic
+  link in the mail doesn't carry it (opens the root).
+- **Hidden map blocked clicks:** `.map.hidden` (opacity 0, `translate(0, 100%) scale(1.1)`) still covered the bottom ~5 %
+  of the viewport (the scale grows it upwards, the map content is translated) and swallowed clicks there – the bar's
+  buttons, before it anything at the very bottom. Now `pointer-events: none` on the hidden map and its subtree.
+- **Check:** `node scripts/check-next-bar.mjs [--shots=dir] [--only=390-de] [--once]` – 390 / 1440 × de / en, guest +
+  the test user: muted autoplay + "Ton an", in-app click → sound, every bar state (members not signed in / signed in
+  without access via a stripped `/me/` answer, chapter + countdown → navigates, cancel, replay video / group, scroll-up and
+  overlay stop it, next group → `?label=`, coming soon, season end via a trimmed toon answer, VN scene end), the login
+  round trip (OTP from `server/logs/mail.log`) back into chapter 1, `?code=promo_test` → member bar, reduced motion;
+  restores the test user's server progress. 88/88. check-prolog: the video now starts by itself (step 3 rewritten: the
+  music waits while it plays, starts after a pause, pauses again on play).
+- The test user can't be a signed-in non-member (`--reset` keeps its signup promo code, which grants `catalog`), hence the
+  `/me/` rewrite in the check.
+
 ## Toon page desktop: trailer hero, 12-column grid, menu button, menu type (2026-10-01)
 
 - **Owner:** desktop design "A · Vollbild" (artifact AYHvMG81k7CQc1JrVf4n5R, `project/Main.dc.html` as visual reference)

@@ -147,12 +147,47 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   read once the video ended or reached 95 % (`PLAYER_WATCHED`); the chapter list's bar shows the same.
 - **Player video slice** (`SliceVideo.player`, `@scutoons/reader` `slice-video.svelte`, owner 2026-10-01 for the music
   video "Roar Little Kitty"): instead of the muted in-view loop a video to watch – sound, native controls (fullscreen
-  through them), no loop, no autoplay, `playsinline`, `preload="metadata"`, the slice image as poster. The slice's
+  through them), no loop, `playsinline`, `preload="metadata"`, the slice image as poster. **Autoplay** (owner 2026-10-01,
+  the reader only: `autoplayPlayer`, the creator's preview stays still): once half of it is in view it starts by itself,
+  with sound when the browser allows it (a click earlier in the same document: the in-app way from the hero's "Trailer
+  ansehen ▶", the start button or the chapter list), otherwise muted with a centred "Ton an" / "Sound on" button (primary style, `player.sound_on`)
+  that unmutes and keeps playing (unmuting through the native controls hides it too); the `play()` rejection is handled
+  (`NotAllowedError` → muted, anything else → nothing; not even muted → the poster + the native play). Reduced motion: no
+  autoplay. The slice's
   `width` / `height` are the video's ratio at 390 px (390 × 206 for 1280 × 676 / 2048 × 1080), `object-fit: contain` on
   ink. While it plays the chapter's music pauses and comes back after a pause or the end (bubbling `sliceplayer` event →
   the viewer's audio action → `holdForPlayer`). `SliceVideo.sources [{ src, media? }]` = other encodings as `<source
   media>` before `src` (chapter 0: 480p for `(max-width: 600px)`, 720p for `(max-width: 1400px)`, 1080p as `src`); the
   browser picks once at load by viewport. No adaptive streaming: HLS (e.g. Bunny Stream) may come later.
+- **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group.
+  - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
+    track-reading.ts), or – a group ending with a player video – the video **ended** (playing it again hides the bar);
+    a VN group additionally needs its script run to the end without a jump (`vn.state.eventsDone`, set by `endOfEvents`)
+    and nothing waiting (no message waiting for its click, no choice open). A script that ends with `jumpTo` navigates
+    itself, the bar never shows there.
+  - **Look:** fixed at the bottom of the viewport, full width, `paper`, a 2px `ink` top rule, IBM Plex Mono, square,
+    content max(500px, 30rem) centred; z 110 (above the VN box's 100 – it only shows once the scene finished – under the
+    toggles and overlays ≥ 1000); a spacer keeps the last slice clear of it. An optional one-line text, then the
+    secondary as a text link (left) and the primary button (ink, "→", right, never wraps). At most 2 actions.
+  - **Rules** (`nextStep` in `@scutoons/content` progress.ts + tests, over the season's whole `sequence` – a draft is
+    never skipped –, `isItemPublic` for drafts in dev, the membership context):
+    | case | text | primary | secondary | countdown |
+    |---|---|---|---|---|
+    | more groups follow | – | "Weiter →" (`?label=` of the next group) | "↺ Nochmal" | yes |
+    | the next chapter readable (preview or member) | – | "Kapitel 2: Ärger →" (`chapterName` + title); from the prologue "S1 K1 lesen →" | "↺ Nochmal" | yes |
+    | the next chapter members-only, not signed in | "Kapitel 1 ist für Mitglieder: melde dich an oder löse deinen Code ein." | "Anmelden →" (`/account?return=<chapter>`, back there after the login) | "Code einlösen" (the QR camera = the claim flow) | no |
+    | … signed in, no membership | "Kapitel 1 ist für Mitglieder: löse deinen Code ein." | "Code einlösen →" (the QR camera) | "Wo bekomme ich einen Code?" (the shop, like the blocker's "buy access") | no |
+    | the next chapter coming soon | "Kapitel 3 erscheint am 1. Dezember 2025" (no date, or a draft not public here: "erscheint bald") | "Zur Übersicht →" | – | no |
+    | the season's end | "Staffel 1 geschafft" | "Zur Übersicht →" | "Musik herunterladen" (only with `season.download.music`) | no |
+    After a group ending with a player video the replay is "↺ Nochmal ansehen" (the video again in place); "↺ Nochmal"
+    scrolls to the top and starts the group again (a VN group runs its script again: the page's `{#key}` gets a replay
+    counter). A redeemed code / a login turns the members case into the countdown case by itself.
+  - **Countdown** (only next group / next chapter): a 2px rule under the primary fills in **5 s** + "Weiter in 4 s ·
+    Abbrechen" in caption type, then it navigates. Stops (the button stays): "Abbrechen", the end scrolled out of view, a
+    click anywhere outside the bar (the main menu, a toggle), Escape, an overlay (chapter list, map, inventory), the
+    camera or a claim sheet. A hidden tab pauses it (the time away doesn't count). Reduced motion: no countdown.
+  - Strings: paraglide `next_bar.*`. **Later idea (not built):** a per-group override `group.next` (e.g. a different
+    target or no bar after a cliffhanger) – only when the owner needs it (keep the configuration small).
 - **Credits colophon** (`@scutoons/reader` `CreditsColophon`, owner 2026-09-30, typography after the back of the vinyl
   cover; content = `credits:<toon>` as it is): `0.8125rem` (≈ 11.4 px on a phone), line-height 1.5, centred, max
   36em; section headings in capitals, bold, letter-spacing 0.08em, inside a 2px `ink` framed bar (square); names as
