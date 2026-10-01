@@ -1425,3 +1425,61 @@ character, persona, look and mood and doubles as the VN test bed.
   https://checkit.wien (verified as the official checkit! site of Suchthilfe Wien), DEV-only `__scutoonsFakePredictions`
   hook for the headless check. The global grant toast briefly covers the notice for ~3 s after a hit (toast position is
   global, left as is).
+
+## Media quality setting + full-viewport video placement (2026-10-01, branch `media-quality`)
+
+- **Owner:** media quality is a reader setting, not a responsive question: low / medium / high + Automatic, members on the
+  server, guests on the device; video now (480p / 720p / 1080p), audio and slice images (1x / 2x / 3x) later on the same
+  model; `SliceVideo.sources` (media queries) → quality variants; a "controls" flag; full-viewport placement (top /
+  centre / bottom × fit width / fit height); the creator's slice tab "Bild" → "Hintergrund" / "Background". Spec:
+  DESIGN.md "Media quality", "Video placement – full viewport", "Creator slice tab"; PLAN.md "RULE: one file per quality
+  level"; DATA.md "Media quality".
+- **No "full viewport" option existed** for slices or groups before (searched types, schema, reader, creator, all
+  branches' commit messages): the only full-height placement was the VN `full` view (the centre group). Built new as
+  `SliceVideo.viewport`.
+- **Automatic, measured:** headless Chrome with a fresh profile reports `navigator.connection` `4g` / `downlink` ≈ 1.4–1.6
+  Mbit/s even on localhost; CDP throttling (400 kbit/s, 400 ms) turns it into `3g` / 0.35–0.4 at once. So `downlink` only
+  ever lowers (< 1 Mbit/s → low) and a 4G-class connection is measured: 512 KB of the low file (`Range: bytes=0-524287`,
+  `cache: no-store`, ≤ 4 s, a reader cancels after 512 KB if the server ignores the range) → ≥ 7 Mbit/s high, ≥ 5
+  medium, else low; a failed / CORS-blocked probe → low. The probe needs CORS on the CDN (`cdn/server.py` sends `*` +
+  `Range`); production `cdn.scutoons.com` must answer `Access-Control-Allow-Origin` for it, else every Automatic reader
+  without the API gets low (check after the deploy: DevTools → the `Fetch` request for `….480p.mp4`).
+- **The media-quality module is imported with the chapter route**, so on an in-app navigation it is created (and reads
+  `navigator.connection`) when the chapter chunk loads – the throttled case decided "low by the API alone".
+- **Members:** `setting` waits (null) while a stored session token exists and `/me/` isn't loaded – the layout signs in
+  after the page mounted, and a member's video first loaded the device's 1080p, then 480p (caught by the check).
+- **Placement:** `.renderer--vertical` had `overflow-y: auto` (never scrolled – no height) which turned overflow-x into
+  auto and clipped the full-viewport box at the 500 px column → `display: flow-root`. The width is the measured
+  `documentElement.clientWidth` (100vw would include a desktop scrollbar and scroll sideways). Contain = the frame is the
+  video's own box (`min(100%, 100svh × ratio)`) so the controls and "Ton an" sit on the video, not in a bar.
+- **Data:** chapter 0 `src` 720p + variants; seed + the 2 chapter-0 statements of `content-seed.mysql.sql`. The worktree
+  ran on a copy of the owner's store (`server/db/local.sqlite`, gitignored), migrated (`2026-10-01-media-quality`) and
+  `import-content … --toon=catpope --only=chapter --update` (2 updated, 10 unchanged); the owner's own store is untouched
+  until the merge (merge note). Production: `shared/content/seed/2026-10-01-media-quality-chapter0.mysql.sql` (tested on a
+  copy of the store, SQLite dialect, twice: one published version per locale with variants, the old ones drafts).
+- **Check:** `node scripts/check-media-quality.mjs [--viewer] [--api] [--creator] [--shots=<dir>] [--only=…]` – each level
+  at 390 / 1440 → exactly its file (currentSrc + network), Automatic (API slow → low without a probe; 4G → measured; API
+  hidden like Safari → measured, throttled → low), a switch at 30 s keeps the position, the account page as a guest
+  (de 390 / en 1440, stored + kept after reload) and as the test user (server value wins over the device, `PUT /me/`,
+  restored), placement 3 × 2 at 390 × 844 and 1440 × 900 (box = viewport, no sideways scroll, geometry, object-position,
+  "Ton an" on the video; reduced motion = the poster placed the same), controls on / off (click toggles), the follow-up
+  bar after a full-viewport player (fixed at the bottom), the creator's "Hintergrund" tab. 46/46. check-prolog now sets
+  the guest's quality per run (375 low → 480p, 1280 medium → 720p, 1600 high → 1080p): 46/46.
+- **Follow-up (owner, same day): four fits, frames, a readable picker.** `fit` = contain ("Ganz sichtbar") / width ("An
+  Breite einpassen") / height ("An Höhe einpassen") / cover ("Füllen (beschnitten)") – the earlier two values were named
+  "fit width/height" for contain/cover, which was misleading; width/height resolve to contain or cover per box from the
+  two ratios (`viewportObjectFit`, unit-tested: a 16:9 video on a 390 × 844 phone = fit height → cropped sides, on a
+  2560 × 1080 screen = fit width → cropped top/bottom). Nothing stored used `viewport` yet, so no data migration. Frames in
+  the column: `SliceVideo.frame { ratio, fit, position }`, presets 5:8 / 6:13 (the s1c1 and s1c2 key visuals are both
+  exactly 390 × 845 = 6:13, measured with Pillow) / 9:16 / 1:1 / custom clamped to 4:1 … 1:4; the creator writes the
+  slice size from the ratio (`fillSliceSize` follows the frame), validation errors outside the limits and warns on a stale
+  height or frame + viewport. The creator picker went through three rounds the same day: a 4 × 3 grid of tiny icons
+  (unreadable for the owner) → picture tiles with sentences (too descriptive) → **basic**: one segmented row "Ganz ·
+  Breite · Höhe · Füllen", "Oben · Mitte · Unten" only when the position matters, short ratio labels, one small preview,
+  short size lines (`placement-picker.svelte`). The owner tried it in the preview and published chapter 0 with
+  `viewport { center, height }` **in the worktree's DB copy only** (not in the seed, not in the owner's store); the
+  regression checks then ran on a second fresh copy (API 18020 / viewer 18010 / creator 18030). Sizes in `em`: the creator's chrome is a fixed 13 px base while its
+  `html` root is the reader's fluid 24 px, so `rem` came out ~1.8× too big. check-media-quality: 12 full-viewport
+  combinations × 390 / 1440 × video / poster, 5 frames × 4 fits × 2 widths, the creator's ratio select + clamp + size
+  lines. Preview for the owner ran from the worktree on 21310 (viewer) / 21340 (creator; 21300 was another agent's) /
+  21320 (API) / 21330 (CDN).

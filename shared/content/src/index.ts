@@ -19,3 +19,4 @@ export * from './media.ts';
 export * from './entities.ts';
 export * from './progress.ts';
 export * from './script.ts';
+export * from './media-quality.ts';

@@ -4,6 +4,11 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- "Media quality" (agents/DESIGN.md "Media quality", branch `media-quality`, after the 2026-10-04 release): migration
+  `2026-10-01-media-quality` (`users.media_quality`, default `auto`); `GET /api/me/` `user.media_quality`;
+  `PUT /api/me/ { media_quality: auto|low|medium|high }` (alone or with the other settings; anything else → `400
+  invalid_body`). Contract: api-smoke "Media quality"; PHPUnit `MediaQualityTest`.
+
 - "Hide sensitive content" (agents/ITEMS.md "Sensitive content"): migration `2026-09-30-sensitive-content`
   (`users.hide_sensitive`, default 1); `GET /api/me/` `user.hide_sensitive`; `PUT /api/me/ { hide_sensitive }` (with or
   without `marketing_opt_in`, answer adds `avatar`) – turning it on moves a worn sensitive A-pose look to the character's

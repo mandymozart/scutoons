@@ -161,9 +161,67 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   autoplay. The slice's
   `width` / `height` are the video's ratio at 390 px (390 × 206 for 1280 × 676 / 2048 × 1080), `object-fit: contain` on
   ink. While it plays the chapter's music pauses and comes back after a pause or the end (bubbling `sliceplayer` event →
-  the viewer's audio action → `holdForPlayer`). `SliceVideo.sources [{ src, media? }]` = other encodings as `<source
-  media>` before `src` (chapter 0: 480p for `(max-width: 600px)`, 720p for `(max-width: 1400px)`, 1080p as `src`); the
-  browser picks once at load by viewport. No adaptive streaming: HLS (e.g. Bunny Stream) may come later.
+  the viewer's audio action → `holdForPlayer`). Which file plays is the reader's **media quality** (below), not the
+  viewport: `SliceVideo.variants { low, medium, high }` + `src` (chapter 0: 480p / 720p / 1080p, `src` = 720p); the
+  old `sources [{ src, media }]` is gone (a validation error). No adaptive streaming: HLS (e.g. Bunny Stream) may come
+  later. `SliceVideo.controls` (owner 2026-10-01, creator flag "controls" next to player / loop / autoplay): the
+  browser's basic controls, default on for a player and off for a loop; a player without them plays / pauses on a click
+  (and Space / Enter, it takes the focus).
+- **Media quality** (owner 2026-10-01; PLAN.md "RULE: one file per quality level"): a reader setting, not a responsive
+  question. Account page section **"Medienqualität" / "Media quality"** (`components/account/media-quality-setting.svelte`,
+  for guests and members, between the account block and the inventory): one row of four square radio buttons
+  "Automatisch · Niedrig · Mittel · Hoch" / "Automatic · Low · Medium · High" (2px `border-muted`, the chosen one ink
+  with paper text, `caption` size), under it in `text-muted` caption "Videos: Niedrig 480p, Mittel 720p, Hoch 1080p.
+  Automatisch wählt nach deiner Verbindung." + "Automatisch gerade: Mittel." (once known) + where it is stored ("In
+  deinem Konto gespeichert." / "Auf diesem Gerät gespeichert."). Members: `users.media_quality` via `PUT /me/` (the
+  account wins over the device; a stored session is awaited before the first video loads), also mirrored to the
+  device; guests: localStorage `scutoons_media_quality` (other tabs follow through the `storage` event). Default
+  **Automatic**: the Network Information API's slow signals (data saver, 2G/3G, < 1 Mbit/s) → low at once; otherwise –
+  and in Safari / Firefox, which have no such API – a measured download of the first video's low file (512 KB, ≤ 4 s,
+  `cache: no-store`): ≥ 7 Mbit/s high, ≥ 5 medium, else low; a failed / blocked probe → low. Decided once per page load,
+  never switched by itself mid-video. A changed setting while a video plays loads the other file at the same position,
+  playing / muted as before (check-media-quality "switch"). Model: `@scutoons/content` media-quality.ts
+  (`pickQualityVariant`: the level, else the nearest lower, else `src`) – the same levels and the same `{ src, variants }`
+  shape are meant for audio and slice images (1x / 2x / 3x) later; the season trailer's hero loop keeps its
+  `sources` + media query for now (desktop-only decoration, a later candidate).
+- **Video placement** (owner 2026-10-01; there was no "full viewport" slice option before – the VN "full" view is the
+  only other full-height placement). A video sits in a **box** and is placed in it with a **fit** + a **position**:
+  - **The box:** in the column the media's own ratio ("Original", the default) or a **frame** `SliceVideo.frame { ratio,
+    fit?, position? }`: "Normaler Slice" 5:8 (390 × 625), "Keyvisual" 6:13 (the key visuals are 390 × 845, measured),
+    "HD Hochformat" 9:16, "Quadrat" 1:1, "Eigenes" w:h (clamped 4:1 … 1:4); stored as `"9:16"` or `[w, h]`, the slice
+    stays 390 wide and its `height` follows (390 × 693 for 9:16), so the space is reserved before anything loads. Or
+    **full viewport** `SliceVideo.viewport { position, fit }`: the slice leaves the 500 px column and fills the viewport –
+    its whole width (measured `clientWidth`, no sideways scroll) and the screen's height (`100svh`), ink behind; a frame
+    doesn't apply there (the creator hides the ratio; validation warns when both are set).
+  - **Four fits** (`ViewportFit`, the same for frames and the viewport): **"Ganz sichtbar" / "Show all"** (`contain`,
+    default: the whole video, ink bars where needed) · **"An Breite einpassen" / "Fit width"** (`width`: as wide as the
+    box, a taller video cropped at the top/bottom, a flatter one with bars above/below) · **"An Höhe einpassen" / "Fit
+    height"** (`height`: as high as the box, a wider video cropped at the sides, a narrower one with bars left/right) ·
+    **"Füllen (beschnitten)" / "Fill (cropped)"** (`cover`: always fills, the overflow cropped). Width/height resolve to
+    contain or cover per box from the two ratios (`viewportObjectFit`; the media's ratio from the video's metadata, before
+    that from the poster).
+  - **Position** top / centre / bottom = which part stays when cropped at the top/bottom, or where the video sits with
+    bars above/below; **cropping at the sides always keeps the centre**.
+  - Drawing: full viewport + contain → the frame is the video's own box (`min(100%, 100svh × ratio)`) placed by the
+    position, so the native controls and "Ton an" stay on the video; cover → the video fills the box with
+    `object-position` 50 % 0 / 50 % / 50 % 100 %. In a frame the video always fills the box with `object-fit` contain /
+    cover + `object-position` (bars are the box's ink). Player and loop alike; the poster (and the reduced-motion `<img>`)
+    is placed the same way. Text boxes are in % of the column slice and don't follow a full-viewport video (validation
+    warning). The follow-up bar stays fixed at the viewport bottom (its spacer keeps the end reachable).
+- **Creator slice tab "Hintergrund" / "Background"** (owner 2026-10-01, was "Bild"): image or video (the radio stays);
+  a video has "Dateien je Qualität" = three rows **480p · Niedrig / 720p · Mittel / 1080p · Hoch** (path fields) with a
+  "Standard" radio = `video.src` (the first file entered becomes it; an older single file without a level shows as an
+  extra "Standard · ohne Stufe" row), the flags player / loop / autoplay / controls, then **"Platzierung"**
+  (`placement-picker.svelte`; owner 2026-10-01: "less descriptive, more simple UI, basic" – after a 4 × 3 icon grid and
+  then picture tiles with sentences): "In der Lesespalte" / "Bildschirmfüllend"; in the column the select
+  **"Seitenverhältnis"** with short labels "Original · 5:8 · Keyvisual · 9:16 · 1:1 · Eigenes" (Eigenes = two number
+  fields w : h, clamped to 4:1 … 1:4); then one segmented row **"Ganz · Breite · Höhe · Füllen"** (the chosen one
+  inverted, house buttons: grey outline, hover ink; the long explanation only as a tooltip) and **"Oben · Mitte · Unten"**
+  as a second row only when the position changes something (bars or a crop above/below on one of the screens), nothing
+  shown otherwise; one small preview of the poster placed: a phone, plus a desktop in full-viewport mode, or the frame.
+  No help sentences. The size line is short: "390 × 693" (frame), "Bildschirm · 1,89:1" (full viewport), else the image
+  size as before. Sizes in `em` of the creator's fixed 13 px base (its root `rem` is the reader's fluid one). "Original"
+  with a poster whose ratio differs from the video's (> 2 %) shows a warning (the slice would shift while loading). The creator's chapter preview plays `src`.
 - **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group.
   - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
     track-reading.ts), or – a group ending with a player video – the video **ended** (playing it again hides the bar);

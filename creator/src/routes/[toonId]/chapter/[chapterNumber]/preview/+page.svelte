@@ -113,7 +113,6 @@
 							{slice}
 							src={asset(`${toon}/${slice.image}`)}
 							videoSrc={slice.video?.src ? asset(`${toon}/${slice.video.src}`) : undefined}
-							videoSources={(slice.video?.sources ?? []).filter((v) => v?.src).map((v) => ({ src: asset(`${toon}/${v.src}`), media: v.media }))}
 							eager={g === 0 && s < 2}
 							lang={locale ?? undefined}
 						/>

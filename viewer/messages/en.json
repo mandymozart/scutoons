@@ -103,6 +103,18 @@
 	"player": {
 		"sound_on": "Sound on"
 	},
+	"media_quality": {
+		"title": "Media quality",
+		"auto": "Automatic",
+		"low": "Low",
+		"medium": "Medium",
+		"high": "High",
+		"hint": "Videos: low 480p, medium 720p, high 1080p. Automatic chooses by your connection.",
+		"auto_now": "Automatic right now: {level}.",
+		"saved_account": "Saved in your account.",
+		"saved_device": "Saved on this device.",
+		"failed": "Could not be saved. Please try again."
+	},
 	"next_bar": {
 		"label": "What's next",
 		"next": "Next",

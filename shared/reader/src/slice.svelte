@@ -18,7 +18,6 @@
 		slice,
 		src,
 		videoSrc,
-		videoSources = [],
 		lang,
 		alt = 'Slice',
 		eager = false,
@@ -31,10 +30,11 @@
 		slice: Slice;
 		/** absolute image URL (the app resolves `slice.image` against its CDN); the poster of a video slice */
 		src: string;
-		/** absolute video URL when the slice has a `video` (the app resolves `slice.video.src`) */
+		/**
+		 * absolute URL of the video file when the slice has a `video`: the app picks the file for the reader's media quality
+		 * (`pickQualityVariant(slice.video, level)`) and resolves it; undefined = not known yet (the poster meanwhile)
+		 */
 		videoSrc?: string;
-		/** `slice.video.sources` with absolute URLs (the app resolves them like `videoSrc`) */
-		videoSources?: { src: string; media?: string }[];
 		/** language of the dialog text (hyphenation) */
 		lang?: string;
 		alt?: string;
@@ -55,10 +55,9 @@
 
 <div {...rest} class="slice">
 	{@render before?.()}
-	{#if slice.video && videoSrc}
+	{#if slice.video}
 		<SliceVideo
 			src={videoSrc}
-			sources={videoSources}
 			poster={src}
 			{width}
 			{height}
@@ -66,6 +65,9 @@
 			loop={slice.video.loop ?? true}
 			autoplay={slice.video.autoplay ?? true}
 			player={slice.video.player === true}
+			controls={slice.video.controls}
+			viewport={slice.video.viewport}
+			frame={slice.video.frame}
 			{autoplayPlayer}
 			{soundOnLabel}
 			{eager}

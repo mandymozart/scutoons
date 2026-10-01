@@ -296,10 +296,22 @@ The default slice is **390 × 625 px** (webtoon standard, Naver), delivered at 1
 `width`/`height`; new slices in the creator default to 390 × 625 (overwritten by the real image size when an image path
 is set). Other heights are allowed, the width stays 390.
 
-## RULE: one resolution everywhere (2026-09-30, owner)
+## RULE: one file per quality level; readers choose (or Automatic) (2026-10-01, owner)
 
-No multiple image resolutions/densities anywhere in the apps (no 2x/3x, no srcset by density, no resolution toggles).
-Slices are 1x WebP 390 px wide; the reduced load matters more than retina sharpness for now.
+Replaces "one resolution everywhere" (2026-09-30). Media quality is a **reader setting, not a responsive question**:
+a medium comes in up to three levels – **low / medium / high** – one file each, and the reader picks the level on the
+account page ("Medienqualität": Automatisch / Niedrig / Mittel / Hoch; members on the server `users.media_quality`,
+guests on the device). "Automatic" = by the bandwidth (DESIGN.md "Media quality"). Never by viewport or pixel density: no
+`srcset`/`sizes`, no `<source media>`, no switching by screen width.
+- **Video (now):** low 480p / medium 720p / high 1080p, `SliceVideo { src, variants: { low, medium, high } }`; `src` = the
+  default file (fallback, older readers). A missing level falls back to the next lower one, then `src` – one file alone
+  stays valid.
+- **Slices (later):** 1x / 2x / 3x WebP (390 / 780 / 1170 px wide) as the same `{ src, variants }` shape on the slice
+  image (`IMAGE_QUALITY_DENSITIES`); until then slices stay one 1x WebP, 390 px wide. Text boxes are in % of the slice, so
+  they don't care. **Audio (later):** the same levels for music (e.g. 96 / 128 / 192 kbps).
+- **CDN / upload workflow:** every level is its own immutable file with the level in the name
+  (`videos/<name>.480p.mp4`, later `images/webtoon/<sXcY>/<sXcY>-slice-N.2x.webp`), encoded together from the master,
+  uploaded with `cdn/sync.py`; the creator's "Hintergrund" tab takes one path per level. A new version = new names.
 
 ## RULE: content is served by the API from the database (2026-09-30, owner)
 

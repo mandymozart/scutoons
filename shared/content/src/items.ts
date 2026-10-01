@@ -188,6 +188,8 @@ export interface User {
 	marketing_opt_in?: boolean;
 	/** "Hide sensitive content" (on by default; `PUT /me/ { hide_sensitive }`) – sensitive.ts, ITEMS.md "Sensitive content" */
 	hide_sensitive?: boolean;
+	/** "Media quality" (`auto` by default; `PUT /me/ { media_quality }`) – media-quality.ts */
+	media_quality?: 'auto' | 'low' | 'medium' | 'high';
 }
 
 /** `/me/ access`: permissions granted by the account's owned, non-expired codes (server permissions map) */

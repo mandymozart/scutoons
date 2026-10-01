@@ -12,9 +12,10 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE, TOON_NEUTRAL_FIELDS } from './content.ts';
+import { DEFAULT_SLICE, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
+import { isMediaQuality } from './media-quality.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -246,16 +247,46 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 		if (!isObj(s.video) || !isStr(s.video.src) || !s.video.src) c.error([...path, 'video', 'src'], 'video.src is missing (an .mp4 on the CDN)');
 		else if (!/\.(mp4|webm)$/i.test(s.video.src)) c.warn([...path, 'video', 'src'], 'video.src is not a video path (.mp4, .webm)');
 		if (isObj(s.video) && s.video.sources !== undefined) {
-			if (!Array.isArray(s.video.sources)) c.error([...path, 'video', 'sources'], 'video.sources must be a list of { src, media? }');
-			else
-				s.video.sources.forEach((source: any, i: number) => {
-					if (!isObj(source) || !isStr(source.src) || !source.src) c.error([...path, 'video', 'sources', i, 'src'], 'source.src is missing (an .mp4 on the CDN)');
-					else if (!/\.(mp4|webm)$/i.test(source.src)) c.warn([...path, 'video', 'sources', i, 'src'], 'source.src is not a video path (.mp4, .webm)');
-					if (isObj(source) && source.media !== undefined && !isStr(source.media)) c.error([...path, 'video', 'sources', i, 'media'], 'source.media must be a media query string');
-				});
+			c.error([...path, 'video', 'sources'], 'video.sources is replaced by video.variants { low, medium, high } (one file per quality level)');
 		}
-		for (const key of ['loop', 'autoplay', 'player'] as const) {
+		if (isObj(s.video) && s.video.variants !== undefined) {
+			const variants = s.video.variants;
+			if (!isObj(variants)) c.error([...path, 'video', 'variants'], 'video.variants must be { low?, medium?, high? } (480p / 720p / 1080p files)');
+			else
+				for (const [level, file] of Object.entries(variants)) {
+					const vp = [...path, 'video', 'variants', level];
+					if (!isMediaQuality(level)) c.error(vp, `unknown quality level "${level}" (low, medium, high)`);
+					else if (!isStr(file) || !file) c.error(vp, `video.variants.${level} is missing (an .mp4 on the CDN)`);
+					else if (!/\.(mp4|webm)$/i.test(file)) c.warn(vp, `video.variants.${level} is not a video path (.mp4, .webm)`);
+				}
+		}
+		for (const key of ['loop', 'autoplay', 'player', 'controls'] as const) {
 			if (isObj(s.video) && s.video[key] !== undefined && typeof s.video[key] !== 'boolean') c.error([...path, 'video', key], `video.${key} must be true or false`);
+		}
+		if (isObj(s.video) && s.video.viewport !== undefined) {
+			const vp = s.video.viewport;
+			if (!isObj(vp)) c.error([...path, 'video', 'viewport'], 'video.viewport must be { position?, fit? }');
+			else {
+				if (vp.position !== undefined && !['top', 'center', 'bottom'].includes(vp.position)) c.error([...path, 'video', 'viewport', 'position'], 'viewport.position must be top, center or bottom');
+				if (vp.fit !== undefined && !(VIEWPORT_FITS as readonly string[]).includes(vp.fit)) c.error([...path, 'video', 'viewport', 'fit'], 'viewport.fit must be contain (show all), width (fit width), height (fit height) or cover (fill, cropped)');
+				if (Array.isArray(s.dialog) && s.dialog.length) c.warn([...path, 'dialog'], 'text boxes are placed on the reading column; on a full-viewport video they do not follow the video');
+			}
+		}
+		if (isObj(s.video) && s.video.frame !== undefined) {
+			const fr = s.video.frame;
+			const fp = [...path, 'video', 'frame'];
+			if (!isObj(fr)) c.error(fp, 'video.frame must be { ratio, fit?, position? }');
+			else {
+				if (!parseFrameRatio(fr.ratio)) c.error([...fp, 'ratio'], 'frame.ratio must be "w:h" or [w, h] (e.g. "9:16")');
+				else if (!isFrameRatioAllowed(fr.ratio)) c.error([...fp, 'ratio'], 'frame.ratio must be between 4:1 and 1:4');
+				else {
+					const size = frameSliceSize(fr.ratio, isNum(s.width) && s.width > 0 ? s.width : DEFAULT_SLICE.width);
+					if (size && isNum(s.height) && Math.abs(s.height - size.height) > 1) c.warn([...path, 'height'], `the slice height ${s.height} doesn't follow the frame ${String(fr.ratio)} (${size.width} × ${size.height})`);
+				}
+				if (fr.fit !== undefined && !(VIEWPORT_FITS as readonly string[]).includes(fr.fit)) c.error([...fp, 'fit'], 'frame.fit must be contain, width, height or cover');
+				if (fr.position !== undefined && !['top', 'center', 'bottom'].includes(fr.position)) c.error([...fp, 'position'], 'frame.position must be top, center or bottom');
+				if (s.video.viewport !== undefined) c.warn(fp, 'a full-viewport video ignores the frame (the box is the viewport)');
+			}
 		}
 	}
 	if (s.dialog !== undefined) {

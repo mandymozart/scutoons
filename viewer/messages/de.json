@@ -103,6 +103,18 @@
 	"player": {
 		"sound_on": "Ton an"
 	},
+	"media_quality": {
+		"title": "Medienqualität",
+		"auto": "Automatisch",
+		"low": "Niedrig",
+		"medium": "Mittel",
+		"high": "Hoch",
+		"hint": "Videos: Niedrig 480p, Mittel 720p, Hoch 1080p. Automatisch wählt nach deiner Verbindung.",
+		"auto_now": "Automatisch gerade: {level}.",
+		"saved_account": "In deinem Konto gespeichert.",
+		"saved_device": "Auf diesem Gerät gespeichert.",
+		"failed": "Konnte nicht gespeichert werden. Bitte versuche es noch einmal."
+	},
 	"next_bar": {
 		"label": "Wie es weitergeht",
 		"next": "Weiter",

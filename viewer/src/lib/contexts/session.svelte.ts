@@ -1,7 +1,7 @@
 import { setContext, getContext } from 'svelte';
 import { createAuthSession, type AuthEvent } from '@scutoons/auth';
 import { authApi, updateMe } from '$lib/api.ts';
-import type { ServerMembership } from '@scutoons/content';
+import type { ServerMembership, User } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
 const SESSION_KEY = Symbol('session');
@@ -62,6 +62,13 @@ export function createSessionContext() {
 		return result.user;
 	}
 
+	/** Account page "Media quality": `PUT /me/ { media_quality }` (auto by default; lib/media-quality.svelte.ts) */
+	async function setMediaQuality(value: NonNullable<User['media_quality']>) {
+		const result = await updateMe({ media_quality: value });
+		if (auth.me) auth.patchMe({ user: { ...auth.me.user, ...result.user } });
+		return result.user;
+	}
+
 	function subscribe(listener: Listener) {
 		listeners.add(listener);
 		return () => listeners.delete(listener);
@@ -116,6 +123,7 @@ export function createSessionContext() {
 		logout: auth.logout,
 		/** Replace parts of `me` after inventory/avatar mutations without refetching. */
 		patchMe: auth.patchMe,
+		setMediaQuality,
 		subscribe
 	};
 	return context;

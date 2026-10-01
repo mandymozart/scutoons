@@ -2,6 +2,7 @@
 import { Renderer, Language, Status, type EventCategory, OnomatopoeiaVariant, OnomatopoeiaEffect, JumpToTargetType } from './enums.ts';
 import type { AudioEvents, AudioConfiguration } from './audio.ts';
 import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
+import type { QualityVariants } from './media-quality.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -110,10 +111,113 @@ export interface MapRoute {
  */
 export const DEFAULT_SLICE = { width: 390, height: 625 } as const;
 
-/** One encoding of a slice video: a CDN path like `SliceVideo.src` + an optional media query (`<source media>`) */
+/** One encoding of the season trailer's loop: a CDN path + an optional media query (`<source media>`) */
 export interface SliceVideoSource {
 	src: string;
 	media?: string;
+}
+
+/**
+ * Where a full-viewport slice video sits (`SliceVideo.viewport`, owner 2026-10-01). The slice then fills the whole
+ * viewport (its whole width, the screen's height) instead of the reading column, and the video – and its poster – is
+ * placed in that box (owner 2026-10-01, four fits):
+ * - `contain` "Ganz sichtbar" / "Show all" (the default): the whole video, as big as the box allows, ink bars where needed;
+ * - `width` "An Breite einpassen" / "Fit width": the video is as wide as the viewport; a taller video is cropped at the
+ *   top/bottom, a flatter one gets bars above/below;
+ * - `height` "An Höhe einpassen" / "Fit height": the video is as high as the viewport; a wider video is cropped at the
+ *   sides, a narrower one gets bars left/right;
+ * - `cover` "Füllen (beschnitten)" / "Fill (cropped)": always fills the viewport, the overflow is cropped.
+ * `position` = which part stays when the video is cropped vertically, or where it sits when there are bars above/below.
+ * Cropping at the sides always keeps the centre. `viewportObjectFit` turns width/height into contain or cover for a box.
+ */
+export interface SliceViewport {
+	/** default 'center' */
+	position?: 'top' | 'center' | 'bottom';
+	/** default 'contain' */
+	fit?: ViewportFit;
+}
+
+export const VIEWPORT_FITS = ['contain', 'width', 'height', 'cover'] as const;
+export type ViewportFit = (typeof VIEWPORT_FITS)[number];
+export const VIEWPORT_POSITIONS = ['top', 'center', 'bottom'] as const;
+
+/**
+ * How a full-viewport video is drawn in a box: `width` / `height` are `contain` or `cover` depending on the two ratios
+ * (fit width = contain when the video is flatter than the box, else cover; fit height the other way round).
+ */
+export function viewportObjectFit(fit: ViewportFit | undefined, videoRatio: number, boxRatio: number): 'contain' | 'cover' {
+	if (fit === 'cover') return 'cover';
+	if (fit === 'width') return videoRatio >= boxRatio ? 'contain' : 'cover';
+	if (fit === 'height') return videoRatio <= boxRatio ? 'contain' : 'cover';
+	return 'contain';
+}
+
+/** CSS object-position for a placement (horizontal cropping keeps the centre) */
+export function viewportObjectPosition(position: SliceViewport['position']): string {
+	return position === 'top' ? '50% 0%' : position === 'bottom' ? '50% 100%' : '50% 50%';
+}
+
+/**
+ * The box of a video slice in the reading column (`SliceVideo.frame`, owner 2026-10-01): a ratio instead of the
+ * media's own ("Original" = no `frame`). The slice is 390 px wide and `width` / `height` follow the ratio (390 × 693 for
+ * 9:16), so the reader reserves the space before anything loads; the media is placed in the box with `fit` / `position`
+ * like a full-viewport video (`SliceViewport`). Doesn't apply in full viewport (the box is the viewport there).
+ */
+export interface SliceFrame {
+	/** "w:h" (a preset like "9:16", or any) or [w, h]; between 4:1 and 1:4 */
+	ratio: string | [number, number];
+	/** default 'contain' */
+	fit?: ViewportFit;
+	/** default 'center' */
+	position?: 'top' | 'center' | 'bottom';
+}
+
+/** Frame presets of the creator (the key visual = the chapter key visuals, 390 × 845 = 6:13). */
+export const FRAME_PRESETS = [
+	{ id: 'slice', ratio: '5:8' },
+	{ id: 'keyvisual', ratio: '6:13' },
+	{ id: 'hd-portrait', ratio: '9:16' },
+	{ id: 'square', ratio: '1:1' }
+] as const;
+/** width / height limits of a frame: 4:1 (widest) … 1:4 (tallest) */
+export const FRAME_RATIO_MIN = 1 / 4;
+export const FRAME_RATIO_MAX = 4;
+
+/** [w, h] of a frame ratio ("9:16" or [9, 16]), null when it isn't one */
+export function parseFrameRatio(ratio: unknown): [number, number] | null {
+	let pair: unknown[] | null = null;
+	if (typeof ratio === 'string') pair = ratio.split(':').map((part) => Number(part.trim().replace(',', '.')));
+	else if (Array.isArray(ratio)) pair = ratio;
+	if (!pair || pair.length !== 2) return null;
+	const [w, h] = pair as number[];
+	return typeof w === 'number' && typeof h === 'number' && w > 0 && h > 0 && Number.isFinite(w) && Number.isFinite(h) ? [w, h] : null;
+}
+
+/** within 4:1 … 1:4 */
+export function isFrameRatioAllowed(ratio: unknown): boolean {
+	const pair = parseFrameRatio(ratio);
+	if (!pair) return false;
+	const r = pair[0] / pair[1];
+	return r >= FRAME_RATIO_MIN - 1e-9 && r <= FRAME_RATIO_MAX + 1e-9;
+}
+
+/** the slice size for a frame at the slice width (390 × round(390 · h / w)) */
+export function frameSliceSize(ratio: unknown, width: number = DEFAULT_SLICE.width): { width: number; height: number } | null {
+	const pair = parseFrameRatio(ratio);
+	return pair ? { width, height: Math.round((width * pair[1]) / pair[0]) } : null;
+}
+
+/** "16:9" for common ratios (±1 %), else "1,89:1" / "1.89:1" (decimal comma in German) */
+export function aspectRatioLabel(width: number, height: number, locale = 'en'): string {
+	if (!(width > 0) || !(height > 0)) return '–';
+	const r = width / height;
+	const common: [number, number][] = [[1, 1], [4, 3], [3, 2], [16, 10], [16, 9], [2, 1], [21, 9], [9, 16], [3, 4], [2, 3], [4, 5]];
+	const hit = common.find(([a, b]) => Math.abs(a / b - r) / r <= 0.01);
+	if (hit) return `${hit[0]}:${hit[1]}`;
+	const n = r >= 1 ? r : 1 / r;
+	const text = n.toFixed(2).replace(/\.?0+$/, '');
+	const local = locale.startsWith('de') ? text.replace('.', ',') : text;
+	return r >= 1 ? `${local}:1` : `1:${local}`;
 }
 
 /**
@@ -121,13 +225,16 @@ export interface SliceVideoSource {
  * in view; with `player` a video to watch (a music video, a trailer).
  */
 export interface SliceVideo {
-	/** CDN path of an H.264 MP4, relative to the toon's folder like `image`; with `sources` the default (the last source) */
+	/**
+	 * CDN path of an H.264 MP4, relative to the toon's folder like `image`: the default file – it plays when no variant
+	 * fits the reader's quality (`pickQualityVariant`) and in readers that don't know `variants`.
+	 */
 	src: string;
 	/**
-	 * Other encodings, tried before `src` in this order: the browser takes the first whose `media` query matches when the
-	 * video loads (e.g. 480p for `(max-width: 600px)`). No adaptive streaming (HLS) – one file per load.
+	 * One file per quality level (media-quality.ts): low = 480p, medium = 720p, high = 1080p. The reader takes its quality
+	 * setting's level, else the nearest lower one, else `src`. No adaptive streaming (HLS) – one file per load.
 	 */
-	sources?: SliceVideoSource[];
+	variants?: QualityVariants;
 	/** default true (ignored with `player`) */
 	loop?: boolean;
 	/** default true: plays while the slice is in view (paused outside, poster only with reduced motion; ignored with `player`) */
@@ -138,6 +245,12 @@ export interface SliceVideo {
 	 * plays the chapter's music is paused; watching it to its end (≥ 95 %) is the slice's reading progress.
 	 */
 	player?: boolean;
+	/** the browser's basic controls (play/pause, time, volume, fullscreen); default: on for a player, off for a loop */
+	controls?: boolean;
+	/** fills the viewport instead of the reading column, placed like this (`SliceViewport`); omitted = in the column */
+	viewport?: SliceViewport;
+	/** in the column: the box's ratio + how the video sits in it (`SliceFrame`); omitted = "Original" (the media's ratio) */
+	frame?: SliceFrame;
 }
 
 export interface Slice {
