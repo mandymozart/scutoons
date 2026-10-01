@@ -1,0 +1,11 @@
+// The Embassy's API wiring: @scutoons/api with this app's API base and session token (localStorage of this origin).
+import { createApiClient, createEmbassyApi, createQrApi, getDeviceId, getSessionToken } from '@scutoons/api';
+import { API_URL } from '$lib/config.ts';
+
+export { ApiError, getSessionToken, setSessionToken } from '@scutoons/api';
+
+export const api = createApiClient({ baseUrl: API_URL, getToken: getSessionToken, getDeviceId });
+
+export const { authRequest, authVerifyOtp, authVerifyToken, authLogout, fetchMe } = createQrApi(api);
+
+export const embassy = createEmbassyApi(api);

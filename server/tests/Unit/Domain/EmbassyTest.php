@@ -67,9 +67,9 @@ final class EmbassyTest extends TestCase
         $liaison = $this->member('liaison');
         $id = $this->embassy()->create(['name' => 'Dachstock', 'city' => 'Bern', 'country' => 'CH', 'phone' => '+41 1'], $liaison)['org']['id'];
 
-        // 2026-09-21 is the frozen "today"
+        // 2026-09-21 (a Monday) is the frozen "today"; + 6 days = Sunday → Monday
         $r = $this->embassy()->log($id, ['kind' => 'mail_out', 'track' => 'live', 'note' => 'EPK sent'], $liaison);
-        self::assertSame(['contacted', '2026-09-27'], [$r['lead']['stage'] ?? null, $r['lead']['next_at'] ?? null]);
+        self::assertSame(['contacted', '2026-09-28'], [$r['lead']['stage'] ?? null, $r['lead']['next_at'] ?? null]);
         self::assertNotNull($r['lead']['last_contact_at'] ?? null);
 
         $r = $this->embassy()->log($id, ['kind' => 'call', 'track' => 'live', 'outcome' => 'voicemail'], $liaison);
@@ -153,6 +153,11 @@ final class EmbassyTest extends TestCase
         self::assertSame([2, 1, 2, 1], [$report['created'], $report['merged'], $report['people_added'], $report['leads_added']]);
         $cashmere = $this->embassy()->list(['q' => 'cashmere'], $amb)['items'][0];
         self::assertSame(['community radio in Wedding', ['experimental'], null], [$cashmere['notes'], $cashmere['tags'], $cashmere['leads'][0]['owner_id']]);
+
+        // working an unowned lead takes it
+        $liaison = $this->member('liaison');
+        self::assertNull($this->embassy()->log($cashmere['id'], ['kind' => 'note', 'track' => 'promo', 'note' => 'x'], $liaison)['lead']['owner_id'] ?? null);
+        self::assertSame($liaison['id'], $this->embassy()->log($cashmere['id'], ['kind' => 'mail_out', 'track' => 'promo'], $liaison)['lead']['owner_id'] ?? null);
 
         // again: nothing new
         $again = $this->embassy()->import($data, $amb);

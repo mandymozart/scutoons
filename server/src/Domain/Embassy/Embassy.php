@@ -276,6 +276,7 @@ final class Embassy
      *   call call_back     → next = next_at (required)
      *   call declined      → stage no, no next date
      * `stage` / `next_at` in the body override the defaults. A note changes nothing unless they are given.
+     * Anything but a note on an unowned lead makes the user its owner.
      * @param array<string, mixed> $data kind, track?, person_id?, outcome?, note?, stage?, next_at?
      * @param array<string, mixed> $user
      * @return array{activity: array<string, mixed>, lead: array<string, mixed>|null}
@@ -311,8 +312,11 @@ final class Embassy
                 if (isset($data['stage']) && $data['stage'] !== '') $stage = $this->stage($data['stage']);
                 if ($explicitNext !== false) $next = $explicitNext;
                 $contact = in_array($kind, ['mail_out', 'mail_in', 'dm', 'meeting'], true) || ($kind === 'call' && $outcome !== 'no_answer');
-                $this->db->run('UPDATE embassy_leads SET stage = ?, next_at = ?, last_contact_at = ' . ($contact ? '?' : 'last_contact_at') . ', updated_at = ? WHERE id = ?',
-                    $contact ? [$stage, $next, $this->clock->utc(), $this->clock->utc(), $leadId] : [$stage, $next, $this->clock->utc(), $leadId]);
+                // whoever works an unowned lead takes it (it shows up on their Today list from now on)
+                $owner = $lead['owner_id'] ?? null;
+                if ($owner === null && $kind !== 'note') $owner = (string) $user['id'];
+                $this->db->run('UPDATE embassy_leads SET stage = ?, next_at = ?, owner_id = ?, last_contact_at = ' . ($contact ? '?' : 'last_contact_at') . ', updated_at = ? WHERE id = ?',
+                    $contact ? [$stage, $next, $owner, $this->clock->utc(), $this->clock->utc(), $leadId] : [$stage, $next, $owner, $this->clock->utc(), $leadId]);
             }
             $id = Ids::uuid7();
             $this->db->run('INSERT INTO embassy_activities (id, org_id, lead_id, person_id, kind, outcome, note, by_user_id, by_email, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -446,9 +450,12 @@ final class Embassy
         };
     }
 
+    /** Today + $days, moved off the weekend to Monday (follow-ups are calls in office hours) */
     private function inDays(int $days): string
     {
-        return (new DateTimeImmutable($this->todayDate()))->modify("+$days days")->format('Y-m-d');
+        $date = (new DateTimeImmutable($this->todayDate()))->modify("+$days days");
+        $weekday = (int) $date->format('N');
+        return ($weekday >= 6 ? $date->modify('+' . (8 - $weekday) . ' days') : $date)->format('Y-m-d');
     }
 
     /**

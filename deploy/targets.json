@@ -1,6 +1,6 @@
 {
   "$comment": "Where every app is deployed – the ONE place for it (agents/PLATFORM.md 'Hosting layout & deployment'). Read by deploy/deploy.mjs, used by every workflow via .github/actions/deploy. Docs: deploy/README.md.",
-  "order": ["api", "qr", "viewer", "shop", "creator", "admin"],
+  "order": ["api", "qr", "viewer", "shop", "creator", "admin", "embassy"],
   "protocols": {
     "ftp": {
       "$comment": "One all-inkl FTP account; its root is the deploy root. Credentials from these environment variables (GitHub environment 'production').",
@@ -44,7 +44,7 @@
             "SMTP_SECURE": "${SMTP_SECURE}",
             "SMTP_USER": "${SMTP_USER}",
             "SMTP_PASS": "${SMTP_PASS}",
-            "ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com"
+            "ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com"
           }
         }
       },
@@ -126,6 +126,20 @@
       "build": "npm run build -w admin",
       "output": "admin/build",
       "buildEnv": ["VITE_API_URL", "VITE_CDN_URL", "VITE_CREATOR_URL", "VITE_WWW_URL", "VITE_ADMIN_URL", "VITE_VIEWER_URL=${VITE_WWW_URL}"],
+      "include": ["**"],
+      "exclude": ["**/.DS_Store"],
+      "protect": [],
+      "version": "version.json"
+    },
+    "embassy": {
+      "description": "embassy/ → embassy.scutoons.com (static; the partner network, roles liaison / ambassador)",
+      "source": "embassy",
+      "setup": ["npm"],
+      "protocol": "ftp",
+      "remote": "embassy/dist/",
+      "build": "npm run build -w embassy",
+      "output": "embassy/build",
+      "buildEnv": ["VITE_API_URL", "VITE_VIEWER_URL=${VITE_WWW_URL}"],
       "include": ["**"],
       "exclude": ["**/.DS_Store"],
       "protect": [],

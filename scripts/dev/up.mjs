@@ -18,7 +18,8 @@ const SERVICES = [
 	{ name: 'qr', port: 9001, path: '/version.json', cmd: 'php -S localhost:9001 -t qr/public qr/public/router.php' },
 	{ name: 'creator', port: 10000, path: '/', cmd: 'npm run dev -w creator' },
 	{ name: 'admin', port: 11000, path: '/', cmd: 'npm run dev -w admin' },
-	{ name: 'shop', port: 12000, path: '/', cmd: 'npm run dev -w shop' }
+	{ name: 'shop', port: 12000, path: '/', cmd: 'npm run dev -w shop' },
+	{ name: 'embassy', port: 13000, path: '/', cmd: 'npm run dev -w embassy' }
 ];
 
 const args = process.argv.slice(2);

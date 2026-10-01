@@ -1,0 +1,335 @@
+<script lang="ts">
+	import '@scutoons/tokens';
+	import type { Snippet } from 'svelte';
+	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { Button, ToastStack } from '@scutoons/ui';
+	import { setEmbassySession } from '$lib/session.svelte.ts';
+	import { setToaster } from '$lib/toasts.ts';
+	import { VIEWER_URL } from '$lib/config.ts';
+	import { m } from '$lib/paraglide/messages.js';
+	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
+	import LoginForm from '$lib/components/login-form.svelte';
+
+	let { children }: { children: Snippet } = $props();
+
+	const session = setEmbassySession();
+	const toaster = setToaster();
+
+	onMount(async () => {
+		// magic link from the login mail: `<embassy origin>/?login=<token>`
+		const magicToken = page.url.searchParams.get('login');
+		if (magicToken) {
+			const url = new URL(page.url);
+			url.searchParams.delete('login');
+			goto(url.pathname + url.search, { replaceState: true });
+			if (!session.token) {
+				try {
+					await session.verifyToken(magicToken);
+				} catch (e) {
+					console.warn('Magic link login failed', e);
+				}
+			}
+		}
+		await session.init();
+	});
+
+	// role gate: liaison / ambassador / admin (the server checks it again on every /embassy call)
+	const waiting = $derived(!session.ready || (session.loading && !session.me));
+	const isAmbassador = $derived(session.hasRole('ambassador') || session.hasRole('admin'));
+	const hasAccess = $derived(isAmbassador || session.hasRole('liaison'));
+	const otherLocale = $derived(locales.find((l) => l !== getLocale()) ?? 'en');
+
+	const nav = $derived([
+		{ href: '/', label: m['nav.today'](), icon: '◷' },
+		{ href: '/leads', label: m['nav.leads'](), icon: '≡' },
+		{ href: '/orgs/new', label: m['nav.new'](), icon: '+' },
+		...(isAmbassador ? [{ href: '/import', label: m['nav.import'](), icon: '⇪' }] : [])
+	]);
+	const isCurrent = (href: string) =>
+		href === '/' ? page.url.pathname === '/' : page.url.pathname === href || (href === '/leads' && page.url.pathname.startsWith('/orgs/') && page.url.pathname !== '/orgs/new');
+</script>
+
+<svelte:head>
+	<title>{m['shell.title']()}</title>
+</svelte:head>
+
+<div class="embassy">
+	{#if waiting}
+		<p class="gate">{m['shell.loading']()}</p>
+	{:else if !session.isLoggedIn}
+		<section class="gate" data-testid="embassy-sign-in">
+			<img class="logo" src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="200" />
+			<h1>{m['shell.sign_in_title']()}</h1>
+			<LoginForm />
+		</section>
+	{:else if !hasAccess}
+		<section class="gate" data-testid="embassy-no-access">
+			<h1>{m['shell.no_access_title']()}</h1>
+			<p>{m['shell.no_access_text']({ email: session.user?.email ?? '' })}</p>
+			<p class="gate-actions">
+				<Button href={VIEWER_URL}>{m['shell.open_reader']()}</Button>
+				<Button variant="secondary" onclick={() => session.logout()}>{m['shell.sign_out']()}</Button>
+			</p>
+		</section>
+	{:else}
+		<header class="topbar">
+			<a class="brand" href="/">
+				<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
+				<span>{m['shell.embassy']()}</span>
+			</a>
+			<nav class="nav" aria-label={m['shell.navigation']()}>
+				{#each nav as item (item.href)}
+					<a href={item.href} aria-current={isCurrent(item.href) ? 'page' : undefined}>
+						<span class="icon" aria-hidden="true">{item.icon}</span><span>{item.label}</span>
+					</a>
+				{/each}
+			</nav>
+			<div class="account">
+				<span class="email" title={session.user?.email}>
+					{session.user?.email} · {isAmbassador ? m['shell.ambassador']() : m['shell.liaison']()}
+				</span>
+				<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
+					{otherLocale.toUpperCase()}
+				</button>
+				<button type="button" class="plain" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
+			</div>
+		</header>
+		<main>
+			{@render children()}
+		</main>
+	{/if}
+	<ToastStack {toaster} dismissLabel={m['shell.dismiss']()} />
+</div>
+
+<style>
+	/* Embassy chrome: DESIGN.md Part 1 like the admin (IBM Plex Mono, ink/paper, square, 2px rules, cyan as fill),
+	   but phone first: the Today list is worked on the go, the navigation sits at the bottom below 768px. */
+	:global(html) {
+		font-size: 16px;
+	}
+	.embassy {
+		--topbar-height: 3.25rem;
+		--bottom-nav-height: 3.5rem;
+		font-family: var(--font-mono);
+		font-size: 15px;
+		line-height: 1.45;
+		color: var(--ink);
+		background: var(--paper);
+		min-height: 100dvh;
+	}
+	.gate {
+		max-width: 32rem;
+		margin: 0 auto;
+		padding: 5rem 1rem 2rem;
+		font-size: 16px;
+	}
+	.gate h1 {
+		font-size: 1.25rem;
+	}
+	.gate .logo {
+		display: block;
+		margin-bottom: var(--space-1);
+	}
+	.gate-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-05);
+	}
+	.topbar {
+		position: sticky;
+		top: 0;
+		z-index: 10;
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		height: var(--topbar-height);
+		padding: 0 var(--space-1);
+		box-sizing: border-box;
+		background: var(--paper);
+		border-bottom: var(--border-width-regular) solid var(--ink);
+	}
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
+		color: var(--ink);
+		text-decoration: none;
+		font-weight: var(--font-weight-bold);
+		white-space: nowrap;
+	}
+	.brand img {
+		display: block;
+		height: 20px;
+		width: auto;
+	}
+	.nav {
+		display: flex;
+		gap: var(--space-025);
+		margin-left: var(--space-1);
+	}
+	.nav a {
+		display: flex;
+		align-items: center;
+		gap: var(--space-025);
+		padding: var(--space-025) var(--space-075);
+		color: var(--ink);
+		text-decoration: none;
+		border: var(--border-width-hairline) solid transparent;
+	}
+	.nav a:hover {
+		border-color: var(--ink);
+	}
+	.nav a[aria-current='page'] {
+		background: var(--primary-cyan);
+		border-color: var(--ink);
+		font-weight: var(--font-weight-bold);
+	}
+	.account {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
+		margin-left: auto;
+		min-width: 0;
+	}
+	.email {
+		color: var(--text-muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: var(--type-caption-size);
+	}
+	.plain {
+		padding: var(--space-025) var(--space-05);
+		border: var(--border-width-hairline) solid transparent;
+		background: none;
+		color: var(--ink);
+		font: inherit;
+		cursor: pointer;
+		white-space: nowrap;
+	}
+	.plain:hover {
+		border-color: var(--ink);
+	}
+	main {
+		max-width: 64rem;
+		margin: 0 auto;
+		padding: var(--space-15) var(--space-15) var(--space-3);
+		box-sizing: border-box;
+	}
+
+	@media (max-width: 767px) {
+		.email {
+			display: none;
+		}
+		.nav {
+			position: fixed;
+			left: 0;
+			right: 0;
+			bottom: 0;
+			z-index: 10;
+			margin: 0;
+			gap: 0;
+			height: var(--bottom-nav-height);
+			padding-bottom: env(safe-area-inset-bottom);
+			background: var(--paper);
+			border-top: var(--border-width-regular) solid var(--ink);
+		}
+		.nav a {
+			flex: 1;
+			flex-direction: column;
+			justify-content: center;
+			gap: 0;
+			padding: 0;
+			font-size: var(--type-caption-size);
+			border: none;
+		}
+		.nav a[aria-current='page'] {
+			border: none;
+		}
+		.nav .icon {
+			font-size: 1.25rem;
+			line-height: 1.2;
+		}
+		main {
+			padding: var(--space-1) var(--space-1) calc(var(--bottom-nav-height) + var(--space-3));
+		}
+	}
+
+	/* Embassy-wide content styles (@scutoons/ui components style themselves) */
+	:global(:where(.embassy) a) {
+		color: var(--ink);
+	}
+	:global(:where(.embassy) h1) {
+		font-size: 1.3em;
+		margin: 0 0 var(--space-05);
+	}
+	:global(:where(.embassy) h2) {
+		font-size: 1.05em;
+		margin: var(--space-15) 0 var(--space-05);
+	}
+	:global(:where(.embassy) :is(input:not([type='checkbox']):not([type='radio']):not([type='file']), select, textarea)) {
+		box-sizing: border-box;
+		width: 100%;
+		margin: 0;
+		padding: var(--space-05) var(--space-075);
+		border: var(--border-width-hairline) solid var(--border-subtle);
+		border-radius: 0;
+		background: var(--paper);
+		color: var(--ink);
+		font: inherit;
+	}
+	:global(:where(.embassy) :is(input, select, textarea):focus-visible) {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: -1px;
+	}
+	:global(:where(.embassy) input[type='checkbox']) {
+		accent-color: var(--ink);
+	}
+	:global(.embassy .muted) {
+		color: var(--text-muted);
+	}
+	:global(.embassy .caption) {
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+	}
+	:global(.embassy label.field) {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-025);
+		min-width: 0;
+	}
+	:global(.embassy label.field > span) {
+		font-size: var(--type-caption-size);
+		color: var(--text-muted);
+	}
+	:global(.embassy label.check) {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
+	}
+	:global(.embassy .form-grid) {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+		gap: var(--space-075) var(--space-1);
+	}
+	:global(.embassy .form-grid .wide) {
+		grid-column: 1 / -1;
+	}
+	:global(.embassy .row) {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-05);
+	}
+	:global(.embassy .card) {
+		padding: var(--space-1);
+		border: var(--border-width-regular) solid var(--ink);
+		background: var(--paper);
+	}
+	:global(.embassy .error-box) {
+		padding: var(--space-075);
+		border: var(--border-width-regular) solid var(--state-error);
+	}
+</style>

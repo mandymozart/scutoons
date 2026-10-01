@@ -200,8 +200,8 @@ endpoint list: `src/Http/Controllers/EmbassyController.php`. Migration `2026-10-
   ambassador (`403 forbidden { role: "ambassador" }`). No role → `403 forbidden { role: "liaison" }`.
 - One lead per organisation × track (`live`, `vinyl`, `booking`, `promo`): `stage` (`research`, `ready`, `contacted`,
   `in_conversation`, `won`, `not_now`, `no`, `dormant`), `owner_id`, `next_at` (YYYY-MM-DD, local date).
-- `POST /orgs/{id}/activities` with a `track` moves the lead on: `mail_out` → contacted + call in 6 days; `call`
-  `reached` / `mail_in` / `meeting` → in conversation + 10 days; `voicemail` / `no_answer` → 3 days; `call_back` needs
+- `POST /orgs/{id}/activities` with a `track` moves the lead on (and anything but a note makes the user owner of an unowned lead): `mail_out` → contacted + call in 6 days; `call`
+  `reached` / `mail_in` / `meeting` → in conversation + 10 days; `voicemail` / `no_answer` → 3 days (weekend dates move to Monday); `call_back` needs
   `next_at`; `declined` → stage `no`, no date. `stage` / `next_at` in the body override.
 - `GET /today?owner=me|all|none|<id>`: leads due today or earlier (not do-not-contact), with organisation, people and
   the last activity; `unscheduled` = leads in research/ready without a date.
