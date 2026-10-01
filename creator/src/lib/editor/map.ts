@@ -69,6 +69,23 @@ export function renamePlace(doc: ContentDoc, from: string, wanted: string, key?:
 export const routesThrough = (map: WorldMap | null, id: string) =>
 	(map?.routes ?? []).filter((r) => r.waypoints.some((w) => isPlaceWaypoint(w) && w.location === id)).map((r) => r.id);
 
+/**
+ * A slice unlocks a place (agents/MAP.md, owner 2026-10-01: edited from the map builder AND from the chapter's slice – one
+ * storage, the place's `unlock`): hidden, unlocked by that chapter's slice (its image) at the slice's reading point.
+ * `null` removes the slice's unlock (the place stays hidden; the builder can set another point).
+ */
+export function setSliceUnlock(doc: ContentDoc, placeId: string, unlock: { toon: string; chapter: number; slice: string; at: number } | null) {
+	editPlace(doc, placeId, (p) => {
+		if (!unlock) {
+			delete p.unlock;
+			return;
+		}
+		p.hidden = true;
+		const scene = p.unlock?.toon === unlock.toon && p.unlock.chapter === unlock.chapter ? p.unlock.scene : undefined;
+		p.unlock = { toon: unlock.toon, chapter: unlock.chapter, at: unlock.at, slice: unlock.slice, ...(scene !== undefined ? { scene } : {}) };
+	});
+}
+
 export function removePlace(doc: ContentDoc, id: string) {
 	editMap(doc, (map) => {
 		map.locations = map.locations.filter((p) => p.id !== id);

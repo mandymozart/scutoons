@@ -9,13 +9,15 @@
 		isPlaceWaypoint,
 		mapName,
 		toonLanguages,
+		toonTileColor,
+		type CharacterRegistry,
 		type Point,
 		type Problem,
 		type Waypoint,
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { getPublished } from '$lib/api.ts';
+	import { getPublished, library } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
@@ -52,7 +54,17 @@
 		routes: new Set((published?.routes ?? []).map((r) => r.id))
 	});
 
+	/** the reader view's sea = the filtered toon's colour (owner 2026-10-01: tile colour, else its star's); else the default neon green */
+	let registry = $state<CharacterRegistry | null>(null);
+	const NEUTRAL_SEA = '#00ff00';
+	const sea = $derived.by(() => {
+		if (!readerView || !toonFilter) return NEUTRAL_SEA;
+		const entry = nav.toons.find((t) => t.id === toonFilter);
+		return toonTileColor(registry, toonFilter, entry?.tile) ?? NEUTRAL_SEA;
+	});
+
 	onMount(async () => {
+		library.fetchRegistry({ draft: true }).then((r) => (registry = r)).catch(() => {});
 		await doc.load();
 		ensureMap(doc);
 	});
@@ -361,6 +373,7 @@
 					{readerView}
 					{phoneFrame}
 					{hiddenLayers}
+					{sea}
 					onselect={(s) => select(s)}
 					onaddplace={onAddPlace}
 					onmoveplace={onMovePlace}

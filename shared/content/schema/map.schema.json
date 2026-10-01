@@ -60,10 +60,6 @@
 				},
 				"maxZoom": {
 					"type": "number"
-				},
-				"builderHidden": {
-					"type": "boolean",
-					"description": "hidden in the builder only (the reader always draws it) – not stored when false"
 				}
 			},
 			"required": [
@@ -183,7 +179,11 @@
 				},
 				"at": {
 					"type": "number",
-					"description": "reading position in the chapter, 0..1 (default 0)"
+					"description": "reading position in the chapter, 0..1 (default 0) – the runtime rule; set from `slice` by the creator"
+				},
+				"slice": {
+					"type": "string",
+					"description": "the slice that unlocks it: its image path (the slice's identity – slices have no ids; the Figma pipeline keys slices by image too). Edited from both sides (map builder, the chapter editor's slice), `at` follows it (`sliceUnlockPoint`)."
 				},
 				"scene": {
 					"type": "number",

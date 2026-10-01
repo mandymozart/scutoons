@@ -5,6 +5,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
 	bezierPath,
+	chapterSlices,
+	placesUnlockedBy,
+	sliceUnlockPoint,
 	checkWorldMap,
 	emptyMapState,
 	isPlaceVisible,
@@ -163,4 +166,27 @@ test('checkWorldMap: ids, positions, waypoints, unlock points', () => {
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true }] }), ['warning locations.0.hidden'], 'hidden and nothing unlocks it');
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: { toon: 't', chapter: 1, at: 2 } }] }), ['error locations.0.unlock.at']);
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], image: { src: 'map/a.webp', anchor: { x: 50, y: 120 } } }] }), ['error locations.0.image.anchor']);
+});
+
+test('the unlocking slice: its reading point (the reader checkpoint rule) and the places it unlocks', () => {
+	const groups = [{ slices: [{ image: 'a.webp' }, { image: 'b.webp' }] }, { label: 'scene' }, { slices: [{ image: 'c.webp' }, { image: 'd.webp' }] }];
+	const slices = chapterSlices(groups);
+	assert.deepEqual(
+		slices.map((s) => [s.image, s.group, s.index, s.overall]),
+		[['a.webp', 0, 0, 0], ['b.webp', 0, 1, 1], ['c.webp', 2, 0, 2], ['d.webp', 2, 1, 3]]
+	);
+	assert.equal(sliceUnlockPoint(slices, 'a.webp'), 0.25);
+	assert.equal(sliceUnlockPoint(slices, 'c.webp'), 0.75);
+	assert.equal(sliceUnlockPoint(slices, 'd.webp'), 1, 'the last slice = the end');
+	assert.equal(sliceUnlockPoint(slices, 'x.webp'), null);
+	const many = chapterSlices([{ slices: Array.from({ length: 200 }, (_, i) => ({ image: `${i}.webp` })) }]);
+	assert.equal(sliceUnlockPoint(many, '198.webp'), 0.99, 'capped at 0.99 before the end, like the reader');
+	const map = {
+		locations: [
+			{ id: 'p', name: { de: 'P' }, x: 1, y: 1, toons: ['t'], hidden: true, unlock: { toon: 't', chapter: 1, slice: 'b.webp', at: 0.5 } },
+			{ id: 'q', name: { de: 'Q' }, x: 1, y: 1, toons: ['t'], hidden: true, unlock: { toon: 't', chapter: 2, slice: 'b.webp' } }
+		]
+	};
+	assert.deepEqual(placesUnlockedBy(map, 't', 1, 'b.webp').map((p) => p.id), ['p']);
+	assert.deepEqual(placesUnlockedBy(map, 't', 1, ''), []);
 });

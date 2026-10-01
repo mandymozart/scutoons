@@ -26,8 +26,6 @@ export interface MapLayer {
 	/** shown only from / up to this zoom (e.g. a street-detail layer for the city) */
 	minZoom?: number;
 	maxZoom?: number;
-	/** hidden in the builder only (the reader always draws it) – not stored when false */
-	builderHidden?: boolean;
 }
 
 export interface MapPlace {
@@ -58,10 +56,52 @@ export interface MapPlace {
 export interface PlaceUnlock {
 	toon: string;
 	chapter: number;
-	/** reading position in the chapter, 0..1 (default 0) */
+	/** reading position in the chapter, 0..1 (default 0) – the runtime rule; set from `slice` by the creator */
 	at?: number;
+	/**
+	 * the slice that unlocks it: its image path (the slice's identity – slices have no ids; the Figma pipeline keys slices by
+	 * image too). Edited from both sides (map builder, the chapter editor's slice), `at` follows it (`sliceUnlockPoint`).
+	 */
+	slice?: string;
 	/** the screenplay's scene number */
 	scene?: number;
+}
+
+/** A slice of a chapter in reading order: groups (scenes inlined) → slices */
+export interface ChapterSliceRef {
+	image: string;
+	/** index of the group in the chapter */
+	group: number;
+	/** index of the slice in its group */
+	index: number;
+	/** index among all slices of the chapter */
+	overall: number;
+}
+
+/** Every slice of a chapter in reading order (`groups` with their scenes inlined, as the reader gets them) */
+export function chapterSlices(groups: readonly { slices?: readonly { image?: string }[] }[] | null | undefined): ChapterSliceRef[] {
+	const out: ChapterSliceRef[] = [];
+	(groups ?? []).forEach((g, group) => (g?.slices ?? []).forEach((s, index) => out.push({ image: s?.image ?? '', group, index, overall: out.length })));
+	return out;
+}
+
+/**
+ * The reading position at which a slice counts as read (the reader's checkpoint: `(slices before + 1) / slices`, capped at
+ * 0.99 until the chapter's last slice = 1; viewer track-reading.ts), floored to 4 decimals. null when the chapter has no
+ * slice with that image.
+ */
+export function sliceUnlockPoint(slices: readonly ChapterSliceRef[], image: string): number | null {
+	const hit = slices.find((s) => s.image === image);
+	if (!hit || !image) return null;
+	const total = slices.length;
+	if (hit.overall === total - 1) return 1;
+	return Math.floor(Math.min(0.99, (hit.overall + 1) / total) * 10000) / 10000;
+}
+
+/** The places a slice unlocks (`unlock.slice` = the slice's image, in this toon's chapter) */
+export function placesUnlockedBy(map: Pick<WorldMap, 'locations'> | null | undefined, toon: string, chapter: number, image: string): MapPlace[] {
+	if (!image) return [];
+	return (map?.locations ?? []).filter((p) => p.unlock?.toon === toon && p.unlock.chapter === chapter && p.unlock.slice === image);
 }
 
 export interface MapImage {
@@ -137,8 +177,11 @@ export interface ReaderMap {
 	layers: MapLayer[];
 	locations: ReaderPlace[];
 	routes: ReaderPath[];
-	/** with `?toon=`: where the map opens for that toon (its start view, else the centre of its places) */
-	view?: { center: { x: number; y: number }; zoom: number };
+	/**
+	 * with `?toon=`: where the map opens for that toon (its start view, else the centre of its places) and `color` = the sea's
+	 * colour (owner 2026-10-01: the toon's colour – its tile colour, else its star's registry colour, `toonTileColor`)
+	 */
+	view?: { center: { x: number; y: number }; zoom: number; color?: string };
 }
 
 /** A name in a locale: the locale, else the source language, else any */
@@ -584,6 +627,7 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 			else {
 				if (u.at !== undefined && (!isNum(u.at) || u.at < 0 || u.at > 1)) add('error', [...path, 'unlock', 'at'], `${what}: unlock.at is a reading position 0..1`);
 				if (u.scene !== undefined && (!Number.isInteger(u.scene) || u.scene < 0)) add('error', [...path, 'unlock', 'scene'], `${what}: unlock.scene is a screenplay scene number`);
+				if (u.slice !== undefined && (typeof u.slice !== 'string' || !u.slice)) add('error', [...path, 'unlock', 'slice'], `${what}: unlock.slice is the slice's image path`);
 				if (Array.isArray(p.toons) && !p.toons.includes(u.toon)) add('warning', [...path, 'unlock'], `${what}: unlocked in ${u.toon}, which is not in its toons`);
 				if (!p.hidden) add('info', [...path, 'unlock'], `${what}: visible from the start – the unlock point does nothing`);
 			}

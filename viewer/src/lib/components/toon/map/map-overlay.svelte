@@ -154,7 +154,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="map {open ? 'visible' : 'hidden'}" role="dialog" aria-modal="true" aria-label={m['map.title']()} aria-hidden={!open} inert={!open} data-testid="map-overlay">
+<div class="map {open ? 'visible' : 'hidden'}" style:--map-sea={data?.view?.color ?? null} role="dialog" aria-modal="true" aria-label={m['map.title']()} aria-hidden={!open} inert={!open} data-testid="map-overlay">
 	<img class="frame frame--1" src={asset('catpope/images/vectors/vector-demon-saw-1.svg')} alt="" />
 	<img class="frame frame--2" src={asset('catpope/images/vectors/vector-demon-saw-1.svg')} alt="" />
 	<img class="frame frame--3" src={asset('catpope/images/vectors/vector-demon-saw-1.svg')} alt="" />
@@ -257,7 +257,8 @@
 		position: fixed;
 		inset: 0;
 		z-index: 1000;
-		background: #00d1ff;
+		/* the sea = the toon's colour (owner 2026-10-01: tile colour, else its star's; /library/map view.color); default cyan */
+		background: var(--map-sea, #00ff00);
 		opacity: 0;
 		transform: translate(0, 100%) scale(1.1);
 		transition:
@@ -397,7 +398,10 @@
 	}
 	/* new: the cyan halo until the place was on screen */
 	.new .marker {
-		box-shadow: 0 0 0 4px var(--primary-cyan, #00d1ff);
+		/* cyan with an ink ring: readable on every toon colour (the sea) */
+		box-shadow:
+			0 0 0 3px var(--primary-cyan, #00d1ff),
+			0 0 0 5px #000;
 	}
 	.labels {
 		position: absolute;
@@ -413,6 +417,7 @@
 		font-size: 0.75rem;
 		line-height: 1;
 		pointer-events: none;
+		/* a 2 px paper halo: ink text stays readable over land and over every toon colour (the sea) */
 		text-shadow:
 			-1px -1px 0 white,
 			0 -1px 0 white,
@@ -421,7 +426,11 @@
 			1px 1px 0 white,
 			0 1px 0 white,
 			-1px 1px 0 white,
-			-1px 0 0 white;
+			-1px 0 0 white,
+			-2px 0 0 white,
+			2px 0 0 white,
+			0 -2px 0 white,
+			0 2px 0 white;
 	}
 	.status {
 		position: absolute;

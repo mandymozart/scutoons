@@ -37,6 +37,7 @@
 		readerView,
 		phoneFrame,
 		hiddenLayers,
+		sea,
 		onselect,
 		onaddplace,
 		onmoveplace,
@@ -52,6 +53,8 @@
 		readerView: boolean;
 		phoneFrame: boolean;
 		hiddenLayers: Set<string>;
+		/** the sea's colour (the reader view: the filtered toon's colour) */
+		sea: string;
 		onselect: (selection: MapSelection) => void;
 		onaddplace: (at: Point) => void;
 		/** `done` = the drag ended (one undo step per drag) */
@@ -242,6 +245,7 @@
 
 <div
 	class="canvas tool-{tool}"
+	style:background={sea}
 	class:space
 	class:moving={view.moving}
 	bind:this={viewportEl}
@@ -428,7 +432,11 @@
 			-1px -1px 0 #fff,
 			1px -1px 0 #fff,
 			1px 1px 0 #fff,
-			-1px 1px 0 #fff;
+			-1px 1px 0 #fff,
+			-2px 0 0 #fff,
+			2px 0 0 #fff,
+			0 -2px 0 #fff,
+			0 2px 0 #fff;
 	}
 	.handle {
 		position: absolute;

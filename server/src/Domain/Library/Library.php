@@ -292,7 +292,7 @@ final class Library
      * only (the sandbox) – drafts with CONTENT_SHOW_DRAFTS, everything in draft mode; announced toons' places stay out
      * until the toon is published. Hidden places are sent (the unlock state is the reader's, client-side). `toon` adds
      * `view` = where the map opens for that toon (its start view in `toon:<toon>`, else the centre of its places; 404 when
-     * the toon is not visible).
+     * the toon is not visible) and `view.color` = the toon's colour for the sea (tile colour, else its star's colour).
      */
     public function map(?string $locale, ?string $toon, bool $draft): Answer
     {
@@ -300,7 +300,7 @@ final class Library
             throw new ApiError(400, 'invalid_toon', 'Invalid toon id.');
         }
         $locale ??= self::DEFAULT_SOURCE;
-        $snapshot = Snapshot::kinds($this->db, ['map', 'toon'], $draft);
+        $snapshot = Snapshot::kinds($this->db, ['map', 'toon', 'characters'], $draft);
         $ctx = new Context($snapshot, self::PLATFORM, null, self::DEFAULT_SOURCE, [self::DEFAULT_SOURCE], $draft, $draft || $this->showDrafts());
         return $this->answer("map:$locale:" . ($toon ?? '*'), $snapshot, function () use ($snapshot, $ctx, $locale, $toon, $draft): array {
             $world = $snapshot->doc('map');
@@ -361,6 +361,20 @@ final class Library
                         : self::centerOfPlaces($world, $toon),
                     'zoom' => is_numeric($view->zoom ?? null) && $view->zoom > 0 ? $view->zoom : 1,
                 ];
+                // the sea is the toon's colour (owner 2026-10-01): its landing tile colour, else its star's registry colour
+                // (@scutoons/content toonTileColor); none → the reader's default
+                $tile = $entry instanceof stdClass && ($entry->tile ?? null) instanceof stdClass ? $entry->tile : null;
+                $color = is_string($tile->color ?? null) && $tile->color !== '' ? $tile->color : null;
+                if ($color === null) {
+                    $registry = $snapshot->doc('characters');
+                    foreach ($registry instanceof stdClass && is_array($registry->characters ?? null) ? $registry->characters : [] as $c) {
+                        if ($c instanceof stdClass && ($c->own_toon ?? null) === $toon && is_string($c->color ?? null) && $c->color !== '') {
+                            $color = $c->color;
+                            break;
+                        }
+                    }
+                }
+                if ($color !== null) $answer['view']['color'] = $color;
             }
             return [$answer, $locale];
         }, $ctx);

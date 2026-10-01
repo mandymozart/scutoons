@@ -380,7 +380,12 @@ final class LibraryTest extends TestCase
         self::assertArrayNotHasKey('view', $data);
 
         $view = self::decode($this->library()->map('de', 't', false)->body)['view'];
-        self::assertSame(['center' => ['x' => 100, 'y' => 50], 'zoom' => 1], $view);
+        self::assertSame(['center' => ['x' => 100, 'y' => 50], 'zoom' => 1], $view, 'no colour without a tile colour or a star');
+        // the sea is the toon's colour: its star's registry colour, a tile colour wins (owner 2026-10-01)
+        $this->doc(Library::PLATFORM, '_', 'characters.json', ['characters' => [['id' => 'hero', 'own_toon' => 't', 'color' => 'blue']]]);
+        self::assertSame('blue', self::decode($this->library()->map('de', 't', false)->body)['view']['color']);
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'tile' => ['image' => 'a.webp', 'color' => '#dd5ba2']]);
+        self::assertSame('#dd5ba2', self::decode($this->library()->map('de', 't', false)->body)['view']['color']);
         try {
             $this->library()->map('de', 'd', false);
             self::fail('a draft toon has no public map view');

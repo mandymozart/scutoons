@@ -2,7 +2,8 @@
 // profile, no dependencies; Node 22 WebSocket), like scripts/check-next-bar.mjs.
 //
 // Reader (guest; 390 de and 1440 en):
-//   1. a fresh guest: the map opens (toggle), no place is visible (catpope's places unlock over time), the list is empty;
+//   1. a fresh guest: the map opens (toggle), its sea is the toon's colour, no place is visible (catpope's places unlock
+//      over time), the list is empty;
 //   2. reading progress (chapter 1 read, chapter 2 at 70 %) unlocks exactly the places whose unlock point was reached
 //      (computed here from /library/map), written to the world state `scutoons_game_scutoons`; the toggle shows the badge,
 //      the opened map shows the places with the halo, then marks them seen (badge gone);
@@ -51,6 +52,13 @@ const worldBefore = await (await fetch(`${api}/progress/scutoons/`, { headers: a
 const world = Object.fromEntries(await Promise.all(['de', 'en'].map(async (l) => [l, await (await fetch(`${api}/library/map?locale=${l}&toon=catpope`)).json()])));
 const bundle = Object.fromEntries(await Promise.all(['de', 'en'].map(async (l) => [l, await (await fetch(`${api}/library/toons/catpope?locale=${l}`)).json()])));
 const mapEntity = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();
+
+/** a #rrggbb / #rgb colour as the browser reports it */
+function rgb(hex) {
+	const h = hex.replace('#', '');
+	const full = h.length === 3 ? [...h].map((c) => c + c).join('') : h;
+	return `rgb(${parseInt(full.slice(0, 2), 16)}, ${parseInt(full.slice(2, 4), 16)}, ${parseInt(full.slice(4, 6), 16)})`;
+}
 
 /** the places a reader with these checkpoints has unlocked (@scutoons/content unlocksFromProgress) */
 function unlocked(places, checkpoints) {
@@ -179,6 +187,12 @@ async function reader(width, locale) {
 	await click('[data-testid="map-toggle"]');
 	let s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.scale ? s : null; })()`);
 	report('fresh guest: the map opens, no place visible yet (they unlock while reading)', s && s.places.length === 0 ? [] : [JSON.stringify(s && { open: s.open, places: s.places })]);
+	{
+		// the sea is the toon's colour (owner 2026-10-01: /library/map view.color = tile colour, else the star's)
+		const bg = await evaluate(`getComputedStyle(document.querySelector('[data-testid="map-overlay"]')).backgroundColor`);
+		const want = rgb(data.view?.color ?? '#00ff00');
+		report(`the sea is the toon's colour (${data.view?.color ?? 'default'})`, bg === want ? [] : [`${bg} ≠ ${want}`]);
+	}
 	await click('[data-testid="map-list-toggle"]');
 	const empty = await waitFor(`document.querySelector('[data-testid="map-list"] p')?.textContent ?? null`, 3000);
 	report('"Orte" says nothing was discovered yet', empty === msg.map.places_empty ? [] : [`"${empty}"`]);
@@ -355,6 +369,59 @@ async function builder() {
 		img && Math.abs(img.w - 48 * zoom) <= 2 && Math.abs(img.groundX) <= 2 && Math.abs(img.groundY) <= 2 && img.previews === 3 && img.anchor ? [] : [JSON.stringify(img)]);
 	await evaluate(`(() => { const side = document.querySelector('.side'); const f = document.querySelector('[data-testid="place-image"]'); side.scrollTop = f.offsetTop - 20; return true; })()`);
 	await shot('builder-3-image');
+
+	// 13. reader view: the sea is the filtered toon's colour (tile colour, else its star's registry colour), else neutral
+	const registry = await (await fetch(`${api}/library/characters`)).json();
+	const list = await (await fetch(`${api}/library/toons?draft=1`, { headers: auth })).json();
+	const colorOf = (t) => list.find((x) => x.id === t)?.tile?.color || registry.characters.find((c) => c.own_toon === t)?.color || null;
+	const seas = {};
+	await click('[data-testid="reader-view"]');
+	for (const t of ['catpope', 'toptoy', 'yellowmouse']) {
+		await click(`[data-testid="filter-${t}"]`);
+		await sleep(150);
+		seas[t] = await evaluate(`getComputedStyle(document.querySelector('[data-testid="map-canvas"]')).backgroundColor`);
+		await shot(`builder-4-sea-${t}`);
+	}
+	await click('[data-testid="filter-all"]');
+	const neutral = await evaluate(`getComputedStyle(document.querySelector('[data-testid="map-canvas"]')).backgroundColor`);
+	const wrong = Object.entries(seas).filter(([t, bg]) => colorOf(t) && bg !== (colorOf(t).startsWith('#') ? rgb(colorOf(t)) : bg)).map(([t, bg]) => `${t}: ${bg} ≠ ${colorOf(t)}`);
+	report(`reader view: the sea is the filtered toon's colour (${Object.keys(seas).map((t) => `${t} ${colorOf(t)}`).join(', ')}), neon green #00ff00 without a filter`, !wrong.length && neutral === rgb('#00ff00') ? [] : [...wrong, `neutral ${neutral}`]);
+
+	// 14. bidirectional unlock (owner 2026-10-01): the chapter's slice sets "unlocks: <place>", the builder shows it with a
+	//     link back – one storage, the place's unlock { toon, chapter, slice: <the slice's image>, at: <its reading point> }
+	await restoreMap(); // a clean map again (the builder's test place is not needed here)
+	const chapter = await (await fetch(`${api}/library/toons/catpope/chapters/1?draft=1`, { headers: auth })).json();
+	const slices = (chapter.groups ?? []).flatMap((g, gi) => (g.slices ?? []).map((s, si) => ({ image: s.image ?? '', group: gi, index: si })));
+	const target = slices.find((s) => s.group === 0 && s.index === 1) ?? slices[1];
+	const k = slices.indexOf(target);
+	const point = k === slices.length - 1 ? 1 : Math.floor(Math.min(0.99, (k + 1) / slices.length) * 10000) / 10000;
+	const placeToUnlock = original.locations.find((p) => !p.unlock)?.id ?? original.locations[0].id;
+	await open(`${creator}/catpope/chapter/1?group=${target.group + 1}&slice=${target.index + 1}`);
+	const tab = await waitFor(`document.querySelector('[data-testid="tab-map"]') ? true : null`, 15000);
+	if (!tab) {
+		report('chapter editor: the slice inspector has the "Karte" tab', ['no tab-map']);
+		return;
+	}
+	await click('[data-testid="tab-map"]');
+	await waitFor(`document.querySelector('[data-testid="slice-unlock-add"]') ? true : null`, 8000);
+	await evaluate(`(() => { const s = document.querySelector('[data-testid="slice-unlock-add"]'); s.value = ${JSON.stringify(placeToUnlock)}; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+	const listedHere = await waitFor(`document.querySelector('[data-testid="slice-unlock-${placeToUnlock}"]') ? true : null`, 3000);
+	report(`chapter editor, slice 2 of chapter 1: "unlocks: ${placeToUnlock}" is set from the slice`, listedHere ? [] : ['not listed']);
+	await shot('builder-5-slice-unlocks');
+	await click('[data-testid="save-draft"]');
+	let unlock = null;
+	for (let i = 0; i < 20 && !unlock; i++) {
+		const d = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();
+		unlock = d.content.locations.find((p) => p.id === placeToUnlock)?.unlock?.slice ? d.content.locations.find((p) => p.id === placeToUnlock) : null;
+		if (!unlock) await sleep(400);
+	}
+	report('saving the chapter page stores it in the world map (place: hidden, unlock { toon, chapter, slice image, reading point })',
+		unlock && unlock.hidden === true && unlock.unlock.toon === 'catpope' && unlock.unlock.chapter === 1 && unlock.unlock.slice === target.image && unlock.unlock.at === point ? [] : [JSON.stringify(unlock?.unlock), `want slice ${target.image} at ${point}`]);
+	await open(`${creator}/map?location=${placeToUnlock}`);
+	const where = await waitFor(`(() => { const p = document.querySelector('[data-testid="place-unlock-where"]'); const a = document.querySelector('[data-testid="place-unlock-open"]'); return p && a ? { text: p.textContent, href: a.getAttribute('href'), slice: document.querySelector('[data-testid="place-unlock-slice"]').value } : null; })()`, 10000);
+	report('the builder shows "Freigeschaltet in Kapitel 1, Slice 2" with a link to that slice, the slice picked',
+		where && where.text.includes('1') && where.href === `/catpope/chapter/1?group=${encodeURIComponent(chapter.groups[target.group]?.label ?? String(target.group + 1))}&slice=${target.index + 1}` && where.slice === target.image ? [] : [JSON.stringify(where)]);
+	await shot('builder-6-unlock-where');
 }
 
 try {

@@ -5,6 +5,9 @@
 		MAP_SOURCE_LANGUAGE,
 		MAP_STYLES,
 		slugId,
+		chapterSlices,
+		sliceUnlockPoint,
+		type ChapterSliceRef,
 		type LocaleText,
 		isPlaceWaypoint,
 		mapName,
@@ -16,6 +19,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { library } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		cdnFolder,
@@ -104,6 +108,46 @@
 		editRoute(doc, id, (r) => (r.name = name), 'route-name');
 		const next = name[MAP_SOURCE_LANGUAGE]?.trim();
 		if (!locked && next && autoId(id, before, 'weg') && slugId(next) && slugId(next) !== id) onselect({ kind: 'route', id: renameRoute(doc, id, next, 'route-name') });
+	}
+
+	// ── the unlocking slice (the same storage the chapter editor's slice edits) ───────────────────────────────────────
+	let unlockSlices = $state<ChapterSliceRef[]>([]);
+	let unlockGroups = $state<{ label?: string }[]>([]);
+	let slicesLoaded = $state(false);
+	const unlockKey = $derived(place?.unlock ? `${place.unlock.toon}:${place.unlock.chapter}` : '');
+	$effect(() => {
+		const key = unlockKey;
+		unlockSlices = [];
+		slicesLoaded = false;
+		if (!key) return;
+		const [toon, chapter] = [key.slice(0, key.lastIndexOf(':')), Number(key.slice(key.lastIndexOf(':') + 1))];
+		library
+			.fetchChapter(toon, chapter, undefined, { draft: true })
+			.then((c) => {
+				if (unlockKey !== key) return;
+				unlockGroups = (c.groups ?? []) as { label?: string }[];
+				unlockSlices = chapterSlices(c.groups as never);
+				slicesLoaded = true;
+			})
+			.catch(() => {
+				if (unlockKey === key) slicesLoaded = true;
+			});
+	});
+	const sliceLabel = (s: ChapterSliceRef) => `${s.overall + 1}. ${unlockGroups[s.group]?.label ?? `#${s.group + 1}`} · ${s.index + 1} · ${s.image.split('/').pop() || '–'}`;
+	/** the chapter editor's address of a slice (`?group=<label>&slice=<n>`) */
+	const sliceHref = (toon: string, chapter: number, s: ChapterSliceRef) =>
+		`/${toon}/chapter/${chapter}?group=${encodeURIComponent(unlockGroups[s.group]?.label ?? String(s.group + 1))}&slice=${s.index + 1}`;
+	function pickSlice(image: string) {
+		if (!place?.unlock) return;
+		const at = image ? sliceUnlockPoint(unlockSlices, image) : null;
+		editPlace(doc, place.id, (p) => {
+			if (!p.unlock) return;
+			if (!image) delete p.unlock.slice;
+			else {
+				p.unlock.slice = image;
+				if (at !== null) p.unlock.at = at;
+			}
+		});
 	}
 
 	// ── toons chips ──────────────────────────────────────────────────────────────────────────────────────────
@@ -248,6 +292,31 @@
 						<label class="field small"><span>{m['creator.map_unlock_scene']()}</span><input type="number" min="0" value={place.unlock.scene ?? ''} onchange={(e) => editPlace(doc, place.id, (p) => { if (!p.unlock) return; const v = num(e.currentTarget.value); if (v === undefined) delete p.unlock.scene; else p.unlock.scene = Math.round(v); })} /></label>
 					{/if}
 				</div>
+				{#if place.unlock}
+					{@const unlock = place.unlock}
+					<label class="field">
+						<span>{m['creator.map_unlock_slice']()}</span>
+						<select value={unlock.slice ?? ''} onchange={(e) => pickSlice(e.currentTarget.value)} data-testid="place-unlock-slice">
+							<option value="">{m['creator.map_unlock_no_slice']()}</option>
+							{#if unlock.slice && !unlockSlices.some((s) => s.image === unlock.slice)}<option value={unlock.slice}>{unlock.slice}</option>{/if}
+							{#each unlockSlices as s (s.overall)}<option value={s.image}>{sliceLabel(s)}</option>{/each}
+						</select>
+					</label>
+					{#if unlock.slice}
+						{@const ref = unlockSlices.find((s) => s.image === unlock.slice)}
+						{#if ref}
+							<p class="hint" data-testid="place-unlock-where">
+								{m['creator.map_unlock_in']({ chapter: unlock.chapter, slice: ref.index + 1 })} · <a href={sliceHref(unlock.toon, unlock.chapter, ref)} data-testid="place-unlock-open">{m['creator.map_open_slice']()}</a>
+							</p>
+							{@const point = sliceUnlockPoint(unlockSlices, unlock.slice)}
+							{#if point !== null && point !== (unlock.at ?? 0)}
+								<p class="hint warn">{m['creator.map_unlock_stale']({ now: Math.round(point * 100), at: Math.round((unlock.at ?? 0) * 100) })} <button type="button" class="ghost" onclick={() => pickSlice(unlock.slice ?? '')}>{m['creator.map_unlock_update']()}</button></p>
+							{/if}
+						{:else if slicesLoaded}
+							<p class="hint bad">{m['creator.map_unlock_missing']()}</p>
+						{/if}
+					{/if}
+				{/if}
 			</fieldset>
 		{/if}
 
