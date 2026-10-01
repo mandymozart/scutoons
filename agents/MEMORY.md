@@ -1268,3 +1268,43 @@ character, persona, look and mood and doubles as the VN test bed.
   wordmark, tiles from the API incl. colours / helmet / no sandbox / no dates, editions in the API order with price,
   pieces, struck sizes, buy link, slider per view + arrow, footer, menu) + the test user changing the list in the admin UI
   (remove, add, save) → the landing page → restore. 51/51.
+
+## Media quality setting + full-viewport video placement (2026-10-01, branch `media-quality`)
+
+- **Owner:** media quality is a reader setting, not a responsive question: low / medium / high + Automatic, members on the
+  server, guests on the device; video now (480p / 720p / 1080p), audio and slice images (1x / 2x / 3x) later on the same
+  model; `SliceVideo.sources` (media queries) → quality variants; a "controls" flag; full-viewport placement (top /
+  centre / bottom × fit width / fit height); the creator's slice tab "Bild" → "Hintergrund" / "Background". Spec:
+  DESIGN.md "Media quality", "Video placement – full viewport", "Creator slice tab"; PLAN.md "RULE: one file per quality
+  level"; DATA.md "Media quality".
+- **No "full viewport" option existed** for slices or groups before (searched types, schema, reader, creator, all
+  branches' commit messages): the only full-height placement was the VN `full` view (the centre group). Built new as
+  `SliceVideo.viewport`.
+- **Automatic, measured:** headless Chrome with a fresh profile reports `navigator.connection` `4g` / `downlink` ≈ 1.4–1.6
+  Mbit/s even on localhost; CDP throttling (400 kbit/s, 400 ms) turns it into `3g` / 0.35–0.4 at once. So `downlink` only
+  ever lowers (< 1 Mbit/s → low) and a 4G-class connection is measured: 512 KB of the low file (`Range: bytes=0-524287`,
+  `cache: no-store`, ≤ 4 s, a reader cancels after 512 KB if the server ignores the range) → ≥ 7 Mbit/s high, ≥ 5
+  medium, else low; a failed / CORS-blocked probe → low. The probe needs CORS on the CDN (`cdn/server.py` sends `*` +
+  `Range`); production `cdn.scutoons.com` must answer `Access-Control-Allow-Origin` for it, else every Automatic reader
+  without the API gets low (check after the deploy: DevTools → the `Fetch` request for `….480p.mp4`).
+- **The media-quality module is imported with the chapter route**, so on an in-app navigation it is created (and reads
+  `navigator.connection`) when the chapter chunk loads – the throttled case decided "low by the API alone".
+- **Members:** `setting` waits (null) while a stored session token exists and `/me/` isn't loaded – the layout signs in
+  after the page mounted, and a member's video first loaded the device's 1080p, then 480p (caught by the check).
+- **Placement:** `.renderer--vertical` had `overflow-y: auto` (never scrolled – no height) which turned overflow-x into
+  auto and clipped the full-viewport box at the 500 px column → `display: flow-root`. The width is the measured
+  `documentElement.clientWidth` (100vw would include a desktop scrollbar and scroll sideways). Contain = the frame is the
+  video's own box (`min(100%, 100svh × ratio)`) so the controls and "Ton an" sit on the video, not in a bar.
+- **Data:** chapter 0 `src` 720p + variants; seed + the 2 chapter-0 statements of `content-seed.mysql.sql`. The worktree
+  ran on a copy of the owner's store (`server/db/local.sqlite`, gitignored), migrated (`2026-10-01-media-quality`) and
+  `import-content … --toon=catpope --only=chapter --update` (2 updated, 10 unchanged); the owner's own store is untouched
+  until the merge (merge note). Production: `shared/content/seed/2026-10-01-media-quality-chapter0.mysql.sql` (tested on a
+  copy of the store, SQLite dialect, twice: one published version per locale with variants, the old ones drafts).
+- **Check:** `node scripts/check-media-quality.mjs [--viewer] [--api] [--creator] [--shots=<dir>] [--only=…]` – each level
+  at 390 / 1440 → exactly its file (currentSrc + network), Automatic (API slow → low without a probe; 4G → measured; API
+  hidden like Safari → measured, throttled → low), a switch at 30 s keeps the position, the account page as a guest
+  (de 390 / en 1440, stored + kept after reload) and as the test user (server value wins over the device, `PUT /me/`,
+  restored), placement 3 × 2 at 390 × 844 and 1440 × 900 (box = viewport, no sideways scroll, geometry, object-position,
+  "Ton an" on the video; reduced motion = the poster placed the same), controls on / off (click toggles), the follow-up
+  bar after a full-viewport player (fixed at the bottom), the creator's "Hintergrund" tab. 46/46. check-prolog now sets
+  the guest's quality per run (375 low → 480p, 1280 medium → 720p, 1600 high → 1080p): 46/46.

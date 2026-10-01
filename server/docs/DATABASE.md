@@ -46,6 +46,7 @@ locally (or the committed `shared/content/seed/content-seed.mysql.sql`), import 
 In phpMyAdmin, in this order (all idempotent): `2026-09-29-accounts-inventory.mysql.sql`,
 `2026-09-30-code-owner-guard.mysql.sql` (delimiter `$$`), `2026-09-30-revoke-events.mysql.sql`,
 `2026-09-30-roles-signup.mysql.sql`, `2026-09-30-content-versions.mysql.sql`, `2026-09-30-settings.mysql.sql`,
-`2026-09-30-sensitive-content.mysql.sql` (`users.hide_sensitive`, default 1); then the content seed and the
+`2026-09-30-sensitive-content.mysql.sql` (`users.hide_sensitive`, default 1), `2026-10-01-media-quality.mysql.sql`
+(`users.media_quality`, default `auto` – with the `media-quality` branch, after the release); then the content seed and the
 edition-number backfill above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

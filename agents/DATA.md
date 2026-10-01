@@ -29,7 +29,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | permissions map | server `config/permissions.json`, never served | file (private) |
 | UI chrome (buttons, labels, errors) | each app's paraglide `messages/{de,en}.json` | code |
 | codes, users, inventory, progress, avatar, settings | relational tables | admin / API |
-| member preferences ("Hide sensitive content") | column `users.hide_sensitive` (default on), `GET/PUT /me/` | reader account page |
+| member preferences ("Hide sensitive content", "Media quality") | columns `users.hide_sensitive` (default on), `users.media_quality` (default `auto`), `GET/PUT /me/`; a guest's media quality in localStorage | reader account page |
 | collectables | **removed** (merged into items; VN variables stay story logic, the VN → item grant bridge collects) | – |
 
 No app ships content files any more: `viewer/static/api/**` is gone, and so is every static fallback.
@@ -69,13 +69,27 @@ offers season 1's `download`. catpope migrated in the seed + the local store (ne
 
 **Prologue (2026-10-01, owner):** catpope season 1 starts with chapter 0 "Roar Little Kitty" (the music video, public:
 `isPreview: true`, published de + en, first in the season `sequence`, no chapter audio). Its one group holds one player
-video slice (`SliceVideo.player` + `sources`, DESIGN.md "Player video slice"): poster `images/webtoon/s1c0/s1c0-slice-1.webp`
+video slice (`SliceVideo.player` + `variants`, DESIGN.md "Player video slice"; until 2026-10-01 `sources` with media queries): poster `images/webtoon/s1c0/s1c0-slice-1.webp`
 (780 × 411, from the 1080p file at 11.2 s – twice the slice width so the poster stays sharp behind the controls; a single
 file, no density variants), thumbnail `images/s1c0-thumbnail.webp` (202 × 142 like the others), videos
 `videos/roar-little-kitty.{480p,720p,1080p}.mp4`. Seed + local store (new published `chapter:catpope:0:{de,en}`,
 `season:catpope:1:{de,en}`; backup `server/db/local.sqlite.bak-2026-10-01-prologue`), `content-seed.mysql.sql`: only those 4
 statements changed (old rows keep their timestamps). The seed is idempotent per key: on a database where
 `season:catpope:1:*` already exists the new season version must be imported separately.
+
+**Media quality (2026-10-01, owner, branch `media-quality`, merged after the release):** `SliceVideo.sources [{ src,
+media }]` is replaced by `SliceVideo.variants { low?, medium?, high? }` next to `src` (the default; DESIGN.md "Media
+quality", PLAN.md "RULE: one file per quality level"), plus `SliceVideo.controls` and `SliceVideo.viewport { position,
+fit }` (full-viewport placement). Chapter 0: `src` 720p, variants 480p / 720p / 1080p (`player: true` as before). Seed
+(`catpope/{de,en}/chapter0.json`) and `content-seed.mysql.sql` (only the 2 chapter-0 statements changed, timestamps
+kept). **The seed is guarded by `WHERE NOT EXISTS`**, so a database that already has `chapter:catpope:0:*` (production
+after the 2026-10-04 cutover, every local store) needs a new published version: locally `php bin/console import-content
+../shared/content/seed --toon=catpope --only=chapter --update` (2 updated, everything else unchanged – checked on a copy
+of the owner's store 2026-10-01); production: `shared/content/seed/2026-10-01-media-quality-chapter0.mysql.sql`
+(idempotent: inserts the new published version per locale and turns the old published one into a draft only when the
+published one still has `sources`). Member setting: column `users.media_quality` (migration `2026-10-01-media-quality`,
+MySQL + SQLite, idempotent, default `auto`), `GET /me/ user.media_quality`, `PUT /me/ { media_quality }`; the season
+trailer keeps its `sources` (desktop hero loop, a later candidate).
 
 **Season trailer (2026-10-01, owner):** `Season.trailer { loop, sources?, poster, chapter? }` – the toon page's
 desktop hero loop (DESIGN.md "Toon page desktop"), language-neutral like `download` (the creator's season page writes it
