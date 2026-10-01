@@ -238,7 +238,10 @@
 		"download": "Musik herunterladen"
 	},
 	"menu": {
-		"open": "Menü"
+		"open": "Menü",
+		"home": "SCUTOONS – Startseite",
+		"toons": "Toons",
+		"language": "Sprache"
 	},
 	"hero": {
 		"season": "Staffel {number} · {title}",

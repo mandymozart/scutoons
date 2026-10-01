@@ -158,7 +158,7 @@ await page('/catpope/chapter/1, cookie en → en', `/${toon}/chapter/1`, { cooki
 // 3. the menu switch: cookie, reload, internal navigation (links in the language, no flip, no redirect)
 {
 	const menu = (locale) => `(async () => {
-		document.querySelector('.main-menu-toggle button')?.click();
+		document.querySelector('[data-testid="menu-toggle"]')?.click();
 		await new Promise((r) => setTimeout(r, 300));
 		const b = [...document.querySelectorAll('.nav--language button')].find((e) => e.textContent.trim() === ${JSON.stringify(locale)});
 		if (!b) return 'no ${locale} button';

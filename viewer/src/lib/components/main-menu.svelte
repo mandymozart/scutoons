@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { setLocale, localizeHref, locales, getLocale } from '$lib/paraglide/runtime.js';
-	import { goto } from '$app/navigation';
+	import { tick } from 'svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { shopUrl } from '$lib/config.ts';
@@ -16,13 +16,21 @@
 	const membershipCtx = getMembershipContext();
 	const session = getSessionContext();
 	const isValid = $derived(membershipCtx.isValid);
+	// the shop is its own app (shop.scutoons.com)
+	const shopHref = $derived(shopUrl(getLocale()));
 
 	let menuOpen = $state(false);
 	let menuElement = $state<HTMLDivElement>();
+	let toggleElement = $state<HTMLButtonElement>();
 
-	function toggleMenu(e?: MouseEvent | KeyboardEvent) {
+	async function toggleMenu(e?: MouseEvent | KeyboardEvent) {
 		e?.stopPropagation();
 		menuOpen = !menuOpen;
+		if (menuOpen) {
+			// keyboard users land on the first entry (the first toon)
+			await tick();
+			menuElement?.querySelector<HTMLElement>('.nav-btn')?.focus();
+		}
 	}
 
 	function closeMenu() {
@@ -40,67 +48,78 @@
 		function handleKeyDown(e: KeyboardEvent) {
 			if (e.key === 'Escape' && menuOpen) {
 				closeMenu();
+				// back to the button that opened it
+				toggleElement?.focus();
 			}
 		}
 
 		window.addEventListener('keydown', handleKeyDown);
 		return () => window.removeEventListener('keydown', handleKeyDown);
 	});
-
-	// the shop is its own app (shop.scutoons.com)
-	const openShop = () => {
-		menuOpen = false;
-		window.location.href = shopUrl(getLocale());
-	};
-
-	const navigate = (
-		url: string | URL,
-		opts?: Parameters<typeof goto>[1]
-	): ReturnType<typeof goto> => {
-		menuOpen = false;
-		return goto(url, opts);
-	};
 </script>
 
-<!-- the same slide-out from the top-right icon group (all widths; the logo opens it too) -->
-<button class="menu-toggle" onclick={toggleMenu} aria-label={m['menu.open']()} aria-expanded={menuOpen} data-testid="menu-toggle">
+<!-- the slide-out opens only from the menu button (top-right icon group, all widths) -->
+<button
+	bind:this={toggleElement}
+	class="menu-toggle"
+	onclick={toggleMenu}
+	aria-label={m['menu.open']()}
+	aria-expanded={menuOpen}
+	aria-controls="main-menu"
+	data-testid="menu-toggle"
+>
 	<img src={menuIcon} alt="" />
 </button>
 
-<div class="main-menu-toggle logo">
-	<button class="btn-nav" onclick={toggleMenu}>
-		<img src="/SCUTOONS-logo-animated.svg" alt="SCUTOONS" />
-	</button>
-</div>
+<!-- the logo is the link to the landing page (localized); on the landing page itself it just stays there -->
+<a class="logo-link" href={localizeHref('/')} onclick={closeMenu} data-testid="logo-link">
+	<img src="/SCUTOONS-logo-animated.svg" alt={m['menu.home']()} />
+</a>
 
 <div class="main-menu">
-	<div bind:this={menuElement} class={`menu ${menuOpen ? 'open' : 'closed'}`}>
+	<!-- closed: off screen and inert (not focusable, hidden from assistive tech) -->
+	<div
+		bind:this={menuElement}
+		id="main-menu"
+		class={`menu ${menuOpen ? 'open' : 'closed'}`}
+		inert={!menuOpen}
+	>
+		<!-- the toons first -->
+		<nav class="nav nav--toons" aria-label={m['menu.toons']()}>
+			<ul class="nav-list">
+				{#each toons as toon}
+					<li class="nav-item">
+						<a class="nav-btn" href={localizeHref('/' + toon.id)} onclick={closeMenu}>
+							<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
+							<span class="name">
+								{toon.i18n[getLocale()].name}
+							</span>
+						</a>
+					</li>
+				{/each}
+			</ul>
+		</nav>
 		<div class="menu-header">
-			<nav class="nav nav--account">
+			<nav class="nav nav--account" aria-label={m['account.my_account']()}>
 				<ul class="nav-list">
 					<li class="nav-item">
-						{#if session.isLoggedIn}
-							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
-								<img src={accountIcon} alt={m['account.my_account']()} />
-								<span>{m['account.my_account']()}</span>
-							</button>
-						{:else}
-							<button class="nav-btn" onclick={() => navigate(localizeHref('/account'))}>
-								<img src={accountIcon} alt={m['account.login_title']()} />
-								<span>{m['account.login_title']()}</span>
-							</button>
-						{/if}
+						<a class="nav-btn" href={localizeHref('/account')} onclick={closeMenu}>
+							<img src={accountIcon} alt="" />
+							<span>{session.isLoggedIn ? m['account.my_account']() : m['account.login_title']()}</span>
+						</a>
 					</li>
 				</ul>
 			</nav>
-			<nav class="nav nav--language">
+			<nav class="nav nav--language" aria-label={m['menu.language']()}>
 				<ul class="nav-list">
 					{#each locales as locale}
 						<li class="nav-item">
 							<button
+								type="button"
 								class={`nav-btn ${getLocale() === locale ? 'active' : ''}`}
-								onclick={() => setLocale(locale)}
-								onkeydown={() => setLocale(locale)}>{locale}</button
+								aria-pressed={getLocale() === locale}
+								lang={locale}
+								onclick={() => setLocale(locale)}>{locale}</button
 							>
 						</li>
 					{/each}
@@ -109,40 +128,17 @@
 		</div>
 		<nav class="nav nav--home">
 			<ul class="nav-list">
-				<li class="nav-item">
-					<button class="nav-btn" onclick={() => navigate(localizeHref('/'))}>SCUTOONS</button>
-				</li>
 				{#if !isValid}
 					<li class="nav-item">
-						<button class="nav-btn" onclick={openShop}
-							>{m['account.buy_access']()}
-						</button>
+						<a class="nav-btn" href={shopHref} onclick={closeMenu}>{m['account.buy_access']()}</a>
 					</li>
 				{/if}
 				<li class="nav-item">
-					<button class="nav-btn" onclick={openShop}
-						>{m.limited_editions()}
-					</button>
+					<a class="nav-btn" href={shopHref} onclick={closeMenu}>{m.limited_editions()}</a>
 				</li>
 				<li class="nav-item">
-					<button class="nav-btn" onclick={() => navigate(localizeHref('/events'))}
-						>{m.events()}</button
-					>
+					<a class="nav-btn" href={localizeHref('/events')} onclick={closeMenu}>{m.events()}</a>
 				</li>
-			</ul>
-		</nav>
-		<nav class="nav nav--toons">
-			<ul class="nav-list">
-				{#each toons as toon}
-					<li class="nav-item">
-						<button class="nav-btn" onclick={() => navigate(localizeHref('/' + toon.id))}>
-							<img src={asset(`${toon.id}/${toon.avatar}`)} alt={toon.i18n[getLocale()].name} />
-							<span class="name">
-								{toon.i18n[getLocale()].name}
-							</span>
-						</button>
-					</li>
-				{/each}
 			</ul>
 		</nav>
 	</div>
@@ -184,20 +180,16 @@
 		width: 1rem;
 	}
 
-	.main-menu-toggle {
+	.logo-link {
 		position: fixed;
 		top: 0.5rem;
 		left: 0;
 		z-index: 1004;
-	}
-	.main-menu-toggle button {
-		background: none;
-		padding: 0;
-		margin: 0;
-		cursor: pointer;
+		display: block;
+		line-height: 0;
 		touch-action: manipulation;
 	}
-	.main-menu-toggle img {
+	.logo-link img {
 		height: 3rem;
 	}
 	.main-menu nav ul {
@@ -213,12 +205,19 @@
 		padding: 1rem;
 	}
 
+	.main-menu .nav-btn:focus-visible,
+	.logo-link:focus-visible,
+	.menu-toggle:focus-visible {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: 2px;
+	}
+
 	.main-menu .nav-item {
 		margin: 0;
 		padding: 0;
 	}
 
-	.main-menu .nav-item button {
+	.main-menu .nav-item .nav-btn {
 		display: flex;
 		flex: 1;
 		align-items: center;
@@ -237,33 +236,34 @@
 		cursor: pointer;
 	}
 
-	.main-menu nav ul li.nav-item button {
+	.main-menu nav ul li.nav-item .nav-btn {
+		box-sizing: border-box;
 		display: flex;
 		align-items: center;
 		gap: 0.25rem;
 		width: 100%;
 	}
 
-	.main-menu nav ul li.nav-item button.nav-btn {
+	.main-menu nav ul li.nav-item .nav-btn {
 		border: 2px solid #ccc;
 	}
 
-	.main-menu nav ul li.nav-item button.nav-btn:hover {
+	.main-menu nav ul li.nav-item .nav-btn:hover {
 		border-color: black;
 		text-decoration: none;
 	}
 
-	.main-menu nav.nav ul.nav-list li.nav-item button img {
+	.main-menu nav.nav ul.nav-list li.nav-item .nav-btn img {
 		width: 3rem;
 	}
 
 	/* labels next to an icon (account, the toons) read like every other menu item */
-	.main-menu nav.nav ul.nav-list li.nav-item button span {
+	.main-menu nav.nav ul.nav-list li.nav-item .nav-btn span {
 		font-size: inherit;
 		line-height: inherit;
 	}
 
-	.main-menu nav.nav.nav--toons ul.nav-list li.nav-item button:hover {
+	.main-menu nav.nav.nav--toons ul.nav-list li.nav-item .nav-btn:hover {
 		text-decoration: underline;
 	}
 
@@ -271,7 +271,7 @@
 		img {
 			width: 2rem;
 		}
-		& li.nav-item button.nav-btn {
+		& li.nav-item .nav-btn {
 			width: auto;
 			border: none;
 			padding: 0;
@@ -282,12 +282,16 @@
 		display: flex;
 		justify-content: space-between;
 	}
-	.nav.nav--account,
+	.nav.nav--account .nav-list {
+		display: flex;
+		flex-direction: row;
+	}
+	/* the language buttons are squares (the account link keeps its icon + label width) */
 	.nav.nav--language {
 		.nav-list {
 			display: flex;
 			flex-direction: row;
-			.nav-item button {
+			.nav-item .nav-btn {
 				display: flex;
 				width: 3rem;
 				justify-content: center;
@@ -298,7 +302,7 @@
 		}
 	}
 
-	.nav--toons .nav-item button {
+	.nav--toons .nav-item .nav-btn {
 		border: 0;
 	}
 

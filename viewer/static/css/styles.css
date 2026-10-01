@@ -100,7 +100,7 @@ button.btn-clear {
 
 /* The toon page's desktop hero (toon/hero.svelte sets html.on-hero while it is under the fixed top bar): the logo and
    the round icon toggles turn white over the dark video, back to ink below it. */
-html.on-hero .main-menu-toggle img {
+html.on-hero .logo-link img {
   filter: invert(1);
 }
 html.on-hero :is(.menu-toggle, .sequence-navigation-toggle, .map-toggle, .inventory-toggle) {

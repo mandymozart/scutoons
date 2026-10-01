@@ -56,9 +56,7 @@
 					{/if}
 				</div>
 				{#if desktop && season.download?.music}
-					<div class="season-download" data-testid="season-download">
-						<a class="btn btn-secondary" href={localizeHref(`/${params.toonId}/download`)}>{m['season.download']()}</a>
-					</div>
+					{@render music()}
 				{/if}
 				{#if desktop}
 					{@render colophon()}
@@ -69,10 +67,7 @@
 				<ChaptersList items={sequence} toonId={params.toonId} />
 			</div>
 			{#if !desktop && season.download?.music}
-				<!-- the season's music (members: the download page) -->
-				<div class="season-download" data-testid="season-download">
-					<a class="btn btn-secondary" href={localizeHref(`/${params.toonId}/download`)}>{m['season.download']()}</a>
-				</div>
+				{@render music()}
 			{/if}
 		{/if}
 	</section>
@@ -81,6 +76,23 @@
 		{@render colophon()}
 	{/if}
 </div>
+
+<!-- the season's music (members: the download page), with the record's cut-out beside the button when the season has one -->
+{#snippet music()}
+	<div class="season-download" class:with-image={!!season?.download?.image} data-testid="season-download">
+		{#if season?.download?.image}
+			<img
+				class="season-download-image"
+				src={asset(`${params.toonId}/${season.download.image}`)}
+				alt=""
+				loading="lazy"
+				decoding="async"
+				data-testid="season-download-image"
+			/>
+		{/if}
+		<a class="btn btn-secondary" href={localizeHref(`/${params.toonId}/download`)}>{m['season.download']()}</a>
+	</div>
+{/snippet}
 
 <!-- the credits as fine print (+ the season's supporters): at the bottom, on desktop in the season column -->
 {#snippet colophon()}
@@ -123,6 +135,20 @@
 	.season-download .btn {
 		display: inline-block;
 		text-decoration: none;
+	}
+	/* the record beside the centred button (phone / tablet): a smaller cut-out left of it */
+	.season-download.with-image {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		gap: var(--space-1);
+	}
+	.season-download-image {
+		display: block;
+		flex: none;
+		/* ≈ 77 px on a phone (14 px root), at most 96 px on a tablet (24 px root) */
+		width: min(5.5rem, 96px);
+		height: auto;
 	}
 	@media (max-width: 768px) {
 		.chapters-header,
@@ -178,6 +204,14 @@
 		.season-column .season-download .btn {
 			font-size: 0.6667rem;
 			padding: 0.5833rem 1.1667rem;
+		}
+		/* desktop: the record (≈ 150 px) left of the button, both on the column's left edge */
+		.season-column .season-download.with-image {
+			justify-content: flex-start;
+			gap: 0.8333rem;
+		}
+		.season-column .season-download-image {
+			width: 6.25rem;
 		}
 		.list-column {
 			grid-column: 7 / span 6;

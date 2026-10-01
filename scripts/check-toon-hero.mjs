@@ -13,7 +13,11 @@
 //     thumbnails 112 × 72, "Prolog" / "#n" right-aligned.
 // Phone / tablet (390 × 844, 768 × 1024): no hero, no loop request, the cover + start button in the season column as before.
 // All widths: the menu button (top right, "Menü" / "Menu") opens the slide-out (also on the home page), and every menu
-// entry has the same font size (the toons too).
+// entry has the same font size (the toons too). 1440 / 390, de + en: the toons are the first entries, no "SCUTOONS"
+// entry, the closed slide-out is inert, opening focuses the first toon, Escape closes it and focuses the menu button;
+// the logo is a link to the (localized) landing page and never opens the menu.
+// 390 / 768 / 1280 / 1440, de + en: the record cut-out (season.download.image, decorative, lazy) beside the music button
+// (desktop: 120-160 px, left of it in the season column; phone / tablet: smaller, the pair centred).
 // The test user (agent@scutoons.test) at 1440: the hero's start button follows the member's progress (synced state).
 //
 // usage: node scripts/check-toon-hero.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
@@ -103,7 +107,7 @@ const HERO = `(() => {
 		start: start ? { text: start.textContent.trim(), state: start.dataset.state, href: new URL(start.href).pathname, bg: getComputedStyle(start).backgroundColor } : null,
 		trailer: document.querySelector('[data-testid="hero-trailer"]') ? { text: document.querySelector('[data-testid="hero-trailer"]').textContent.trim(), href: new URL(document.querySelector('[data-testid="hero-trailer"]').href).pathname } : null,
 		sound: document.querySelector('[data-testid="hero-sound"]') ? { text: document.querySelector('[data-testid="hero-sound"]').textContent.trim(), href: new URL(document.querySelector('[data-testid="hero-sound"]').href).pathname } : null,
-		onHero: document.documentElement.classList.contains('on-hero'), logoFilter: img('.main-menu-toggle img'), iconFilter: img('.map-toggle img'), menuFilter: img('.menu-toggle img'),
+		onHero: document.documentElement.classList.contains('on-hero'), logoFilter: img('.logo-link img'), iconFilter: img('.map-toggle img'), menuFilter: img('.menu-toggle img'),
 		mobileHeader: !!document.querySelector('.toon-header') && getComputedStyle(document.querySelector('.toon-header')).display !== 'none',
 		mobileStart: !!document.querySelector('[data-testid="start-button"]'),
 		season: hero?.querySelector('.hero-season')?.textContent.trim(),
@@ -225,6 +229,101 @@ for (const [w, h] of [[1440, 900], [390, 844]]) for (const [l, path] of [['de', 
 	}
 	report(`${w} ${l} ${path}: the menu button opens the slide-out, every entry one size`, p, s?.sizes?.join(','));
 	await shot(`menu-${w}-${l}${path.replace(/\//g, '-')}`);
+}
+
+// the slide-out: the toons first, no "SCUTOONS" entry; closed = inert; opens on the first toon, Escape → back to the
+// menu button; the logo is the link to the landing page (never opens the menu)
+const MENU_ORDER = `(() => {
+	const menu = document.getElementById('main-menu');
+	const entries = [...menu.querySelectorAll('.nav-btn')];
+	const first = entries[0];
+	const toggle = document.querySelector('[data-testid="menu-toggle"]');
+	const logo = document.querySelector('[data-testid="logo-link"]');
+	return {
+		open: menu.classList.contains('open'), inert: menu.inert,
+		controls: toggle?.getAttribute('aria-controls'), expanded: toggle?.getAttribute('aria-expanded'),
+		first: first ? { tag: first.tagName, href: first.getAttribute('href'), text: first.textContent.trim(), toon: !!first.closest('.nav--toons') } : null,
+		toonsFirst: !!menu.firstElementChild?.matches('.nav--toons'),
+		scutoonsEntry: entries.some((e) => e.textContent.trim().toUpperCase() === 'SCUTOONS'),
+		focusFirst: document.activeElement === first,
+		focusToggle: document.activeElement === toggle,
+		logo: logo ? { tag: logo.tagName, href: logo.getAttribute('href'), alt: logo.querySelector('img')?.alt } : null
+	};
+})()`;
+for (const [w, h] of [[1440, 900], [390, 844]]) for (const l of ['de', 'en']) {
+	const prefix = l === 'en' ? '/en' : '';
+	const home = l === 'en' ? ['/en', '/en/'] : ['/'];
+	await size(w, h);
+	await open(`${viewer}${prefix}/${toon}`, l);
+	const closed = await waitFor(`(() => { const s = ${MENU_ORDER}; return s.logo ? s : null; })()`, 5000);
+	const p = [];
+	if (!closed || closed.error) p.push(`no menu / logo ${JSON.stringify(closed)}`);
+	else {
+		if (closed.open || !closed.inert || closed.expanded !== 'false' || closed.controls !== 'main-menu') p.push(`closed state ${JSON.stringify({ open: closed.open, inert: closed.inert, expanded: closed.expanded, controls: closed.controls })}`);
+		if (closed.logo.tag !== 'A' || !home.includes(closed.logo.href) || closed.logo.alt !== messages[l].menu.home) p.push(`logo ${JSON.stringify(closed.logo)}, expected a link to ${home.join(' / ')}`);
+	}
+	await evaluate(`document.querySelector('[data-testid="menu-toggle"]').click(), true`);
+	const s = await waitFor(`(() => { const s = ${MENU_ORDER}; return s.open && s.focusFirst ? s : null; })()`, 3000);
+	if (!s || s.error) p.push(`after opening: ${JSON.stringify(await evaluate(MENU_ORDER))}`);
+	else {
+		if (s.inert || s.expanded !== 'true') p.push(`open but inert ${s.inert} / aria-expanded ${s.expanded}`);
+		if (!s.toonsFirst || !s.first?.toon || s.first.tag !== 'A' || s.first.href !== `${prefix}/${toon}`) p.push(`first entry ${JSON.stringify(s.first)}, toons first ${s.toonsFirst}`);
+		if (s.scutoonsEntry) p.push('the "SCUTOONS" entry is still there');
+	}
+	await shot(`menu-order-${w}-${l}`);
+	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+	const esc = await waitFor(`(() => { const s = ${MENU_ORDER}; return !s.open && s.inert ? s : null; })()`, 3000);
+	if (!esc || esc.error || !esc.focusToggle) p.push(`Escape: ${JSON.stringify(esc && { open: esc.open, focusToggle: esc.focusToggle })}`);
+	// the logo goes to the landing page and never opens the menu
+	await evaluate(`document.querySelector('[data-testid="logo-link"]').click(), true`);
+	const landed = await waitFor(`(() => { const path = location.pathname; return ${JSON.stringify(home)}.includes(path) ? { path, open: document.getElementById('main-menu').classList.contains('open') } : null; })()`, 6000);
+	if (!landed || landed.error || landed.open) p.push(`logo click → ${JSON.stringify(landed ?? (await evaluate('location.pathname')))}`);
+	report(`${w} ${l}: menu = toons first, no "SCUTOONS" entry, inert when closed, focus on the first toon, Escape → menu button; logo → the landing page`, p);
+}
+
+// the record beside the music button (season.download.image): desktop left of the button in the season column, phone /
+// tablet a smaller one beside the centred button; decorative (alt ""), lazy
+const musicImage = bundles.de.seasons[0].season.download?.image;
+const MUSIC = `(async () => {
+	const wrap = document.querySelector('[data-testid="season-download"]');
+	if (!wrap) return null;
+	wrap.scrollIntoView({ block: 'center' });
+	const img = wrap.querySelector('[data-testid="season-download-image"]');
+	for (let i = 0; i < 40 && img && !(img.complete && img.naturalWidth); i++) await new Promise((r) => setTimeout(r, 100));
+	const box = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; };
+	const btn = wrap.querySelector('a.btn');
+	return {
+		img: img ? { ...box(img), src: img.currentSrc || img.src, alt: img.getAttribute('alt'), loading: img.loading, loaded: img.complete && img.naturalWidth > 0 } : null,
+		btn: box(btn), text: btn?.textContent.trim(), href: btn && new URL(btn.href).pathname,
+		inSeasonColumn: !!wrap.closest('.season-column'), viewport: document.documentElement.clientWidth
+	};
+})()`;
+if (!musicImage) report('season 1 has a download.image (is the content imported?)', ['no download.image in the library answer']);
+else for (const [w, h] of [[390, 844], [768, 1024], [1280, 800], [1440, 900]]) for (const l of ['de', 'en']) {
+	const prefix = l === 'en' ? '/en' : '';
+	await size(w, h);
+	await open(`${viewer}${prefix}/${toon}`, l);
+	const s = await waitFor(MUSIC, 8000);
+	const p = [];
+	if (!s || s.error || !s.img) p.push(`music block ${JSON.stringify(s)}`);
+	else {
+		if (!s.img.src.endsWith(`/${toon}/${musicImage}`) || s.img.alt !== '' || s.img.loading !== 'lazy' || !s.img.loaded) p.push(`image ${JSON.stringify(s.img)}`);
+		if (s.text !== messages[l].season.download || s.href !== `${prefix}/${toon}/download`) p.push(`button "${s.text}" → ${s.href}`);
+		if (s.img.x + s.img.w > s.btn.x + 1) p.push(`the record is not left of the button: ${JSON.stringify({ img: s.img, btn: s.btn })}`);
+		const mid = (b) => b.y + b.h / 2;
+		if (Math.abs(mid(s.img) - mid(s.btn)) > 3) p.push(`not vertically centred: record ${mid(s.img)}, button ${mid(s.btn)}`);
+		if (w >= 1024) {
+			if (!s.inSeasonColumn) p.push('not in the season column');
+			if (s.img.w < 120 || s.img.w > 160) p.push(`record ${s.img.w} px wide (120-160 on desktop)`);
+		} else {
+			if (s.img.w < 60 || s.img.w > 110) p.push(`record ${s.img.w} px wide (60-110 on phone / tablet)`);
+			const centre = (s.img.x + s.btn.x + s.btn.w) / 2;
+			if (Math.abs(centre - s.viewport / 2) > 4) p.push(`record + button not centred: ${centre} vs ${s.viewport / 2}`);
+		}
+	}
+	report(`${w} ${l}: the record (${musicImage}) beside "${messages[l].season.download}"`, p, JSON.stringify(s?.img));
+	await shot(`music-${w}-${l}`);
 }
 
 // the test user: the hero's start button follows the member's (synced) progress

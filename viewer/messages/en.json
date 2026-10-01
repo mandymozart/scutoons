@@ -238,7 +238,10 @@
 		"download": "Download the music"
 	},
 	"menu": {
-		"open": "Menu"
+		"open": "Menu",
+		"home": "SCUTOONS – Home",
+		"toons": "Toons",
+		"language": "Language"
 	},
 	"hero": {
 		"season": "Season {number} · {title}",
