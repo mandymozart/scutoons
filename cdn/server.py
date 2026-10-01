@@ -5,22 +5,79 @@
 # opened a connection without sending a request right away (Chrome preconnects / idle keep-alive sockets): the one
 # thread blocked on that socket and every other image request queued until the browser gave up
 # (agents/PERFORMANCE.md). It also listened on 127.0.0.1 only, while the apps' `localhost` resolves to ::1 first.
+#
+# Answers single HTTP Range requests (`206 Partial Content`, `416` when unsatisfiable) so videos can seek (the
+# music-video player of the prologue); production hosting serves ranges natively.
+import email.utils
 import os
+import re
+import shutil
 import socket
 import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 
+RANGE = re.compile(r'^bytes=(\d*)-(\d*)$')
+
+
 class CORSRequestHandler(SimpleHTTPRequestHandler):
     # idle sockets are closed after this many seconds instead of holding a thread forever
     timeout = 30
+    # bytes left to send of a 206 answer (None = the whole file)
+    _range_left = None
 
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Range')
+        self.send_header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges')
+        self.send_header('Accept-Ranges', 'bytes')
         SimpleHTTPRequestHandler.end_headers(self)
+
+    def send_head(self):
+        self._range_left = None
+        header = self.headers.get('Range')
+        path = self.translate_path(self.path)
+        if not header or os.path.isdir(path) or not os.path.isfile(path):
+            return super().send_head()
+        match = RANGE.match(header.strip())
+        if not match or (not match.group(1) and not match.group(2)):
+            return super().send_head()  # multiple / malformed ranges: the whole file
+        size = os.path.getsize(path)
+        if match.group(1):
+            start = int(match.group(1))
+            end = min(int(match.group(2)), size - 1) if match.group(2) else size - 1
+        else:  # suffix range: the last N bytes
+            start = max(0, size - int(match.group(2)))
+            end = size - 1
+        if start >= size or start > end:
+            self.send_response(416)
+            self.send_header('Content-Range', f'bytes */{size}')
+            self.send_header('Content-Length', '0')
+            self.end_headers()
+            return None
+        f = open(path, 'rb')
+        f.seek(start)
+        self._range_left = end - start + 1
+        self.send_response(206)
+        self.send_header('Content-Type', self.guess_type(path))
+        self.send_header('Content-Range', f'bytes {start}-{end}/{size}')
+        self.send_header('Content-Length', str(self._range_left))
+        self.send_header('Last-Modified', email.utils.formatdate(os.path.getmtime(path), usegmt=True))
+        self.end_headers()
+        return f
+
+    def copyfile(self, source, outputfile):
+        left = self._range_left
+        if left is None:
+            return shutil.copyfileobj(source, outputfile)
+        while left > 0:
+            chunk = source.read(min(64 * 1024, left))
+            if not chunk:
+                break
+            outputfile.write(chunk)
+            left -= len(chunk)
 
     def do_OPTIONS(self):
         self.send_response(200)
