@@ -372,6 +372,12 @@ const map = $derived(toon?.map as Map | undefined);
 			-1px 0 0 white;
 	}
 
+	/* hidden, its scaled box (and the map content) still reaches ~5 % into the bottom of the viewport: let clicks through
+	   (it covered the follow-up bar's buttons) */
+	.map.hidden,
+	.map.hidden * {
+		pointer-events: none;
+	}
 	.map.visible {
 		opacity: 1;
 		transform: translate(0, 0) scale(1);

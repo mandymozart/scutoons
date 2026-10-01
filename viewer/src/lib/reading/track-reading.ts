@@ -4,6 +4,17 @@ import { SLICE_PLAYER_EVENT, type SlicePlayerDetail } from '@scutoons/reader';
 /** A player video counts as watched from this far on (the credits at the end of a music video) */
 export const PLAYER_WATCHED = 0.95;
 
+/** A slice counts as read: at least half of it on screen, or – taller than the screen – its bottom edge is */
+export function sliceSeen(entry: IntersectionObserverEntry): boolean {
+	if (!entry.isIntersecting) return false;
+	const rect = entry.boundingClientRect;
+	const height = entry.rootBounds?.height ?? window.innerHeight;
+	return entry.intersectionRatio >= 0.5 || (rect.top < 0 && rect.bottom <= height);
+}
+
+/** The thresholds `sliceSeen` needs */
+export const SEEN_THRESHOLDS = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1];
+
 /** Where the shown group sits in its chapter (the chapter page shows one group at a time) */
 export interface ReadingSpot {
 	/** slices of the chapter's groups before this one */
@@ -53,10 +64,7 @@ export function trackReading(spot: ReadingSpot | null): Attachment<HTMLElement> 
 		const io = new IntersectionObserver(
 			(entries) => {
 				for (const entry of entries) {
-					if (!entry.isIntersecting) continue;
-					const rect = entry.boundingClientRect;
-					const height = entry.rootBounds?.height ?? window.innerHeight;
-					if (entry.intersectionRatio >= 0.5 || (rect.top < 0 && rect.bottom <= height)) {
+					if (sliceSeen(entry)) {
 						// a player video is read by watching it (onPlayer)
 						if ((entry.target as HTMLElement).querySelector('video[data-player]')) continue;
 						const index = Number((entry.target as HTMLElement).dataset.sliceIndex);
@@ -64,7 +72,7 @@ export function trackReading(spot: ReadingSpot | null): Attachment<HTMLElement> 
 					}
 				}
 			},
-			{ threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1] }
+			{ threshold: SEEN_THRESHOLDS }
 		);
 		const watched = new WeakSet<Element>();
 		function scan() {

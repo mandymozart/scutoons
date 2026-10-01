@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { isItemPublic, type LoadedSequenceItem, type Season, type Toon } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
@@ -8,10 +8,12 @@
 
 	/**
 	 * The toon page's first screen on desktop (≥ 1024 px, agents/DESIGN.md "Toon page desktop"): the season's trailer loop
-	 * (muted, looping, inline; only while the hero is on screen and the tab visible; the poster with reduced motion)
-	 * under a flat 45 % scrim, the season line, the toon title + tagline, the start button (inverted) and "Trailer
-	 * ansehen" → the trailer chapter (the prologue); "Ton an" bottom right opens it too (the loop itself stays muted).
-	 * While the hero is under the fixed top icons, `<html class="on-hero">` turns them (and the logo) white.
+	 * (muted by default, looping, inline; only while the hero is on screen and the tab visible; the poster with reduced
+	 * motion) under a flat 45 % scrim, the season line, the toon title + tagline, the start button (inverted) and "Trailer
+	 * ansehen" → the trailer chapter (the prologue). "Ton an" / "Ton aus" bottom right toggles the loop's own soundtrack in
+	 * place (no navigation; with reduced motion "Ton an" is the explicit request to play the loop with sound). The video
+	 * and the scrim are not clickable. While the hero is under the fixed top icons, `<html class="on-hero">` turns them
+	 * (and the logo) white.
 	 */
 	let {
 		toonId,
@@ -43,17 +45,37 @@
 		return () => query.removeEventListener('change', onChange);
 	});
 
-	// the loop plays only while the hero is on screen and the tab is visible
+	// always muted on load (no remembered unmute); the sound button toggles it
+	let muted = $state(true);
+	// reduced motion: the loop only after an explicit "Ton an" (then with sound)
+	let started = $state(false);
+	const showVideo = $derived(!!trailer && (!reducedMotion || started));
+	let inView = false;
+
+	// the loop plays only while the hero is on screen and the tab is visible (with reduced motion only while the sound is on)
+	function update() {
+		const el = video;
+		if (!el) return;
+		if (inView && document.visibilityState === 'visible' && (!reducedMotion || !muted)) el.play().catch(() => {});
+		else el.pause();
+	}
+
+	function toggleSound() {
+		muted = !muted;
+		if (!video) {
+			// reduced motion: render the video now, its effect starts it (the click is the user activation)
+			started = true;
+			return;
+		}
+		video.muted = muted;
+		update();
+	}
+
 	$effect(() => {
 		const el = video;
 		const node = hero;
 		if (!el || !node) return;
-		el.muted = true; // a property: the attribute alone doesn't count for autoplay everywhere
-		let inView = false;
-		const update = () => {
-			if (inView && document.visibilityState === 'visible') el.play().catch(() => {});
-			else el.pause();
-		};
+		el.muted = untrack(() => muted); // a property: the attribute alone doesn't count for autoplay everywhere
 		const io = new IntersectionObserver(([entry]) => {
 			inView = entry.isIntersecting;
 			update();
@@ -63,6 +85,7 @@
 		return () => {
 			io.disconnect();
 			document.removeEventListener('visibilitychange', update);
+			inView = false;
 			el.pause();
 		};
 	});
@@ -85,7 +108,7 @@
 </script>
 
 <section class="hero" bind:this={hero} data-testid="hero">
-	{#if trailer && !reducedMotion}
+	{#if trailer && showVideo}
 		<video bind:this={video} class="hero-media" {poster} muted loop playsinline preload="auto" aria-hidden="true" data-testid="hero-video">
 			{#each trailer.sources ?? [] as source (source.src)}
 				<source src={asset(`${toonId}/${source.src}`)} media={source.media || undefined} type="video/mp4" />
@@ -112,13 +135,25 @@
 		</div>
 	</div>
 
-	{#if trailerHref}
-		<a class="hero-sound" href={trailerHref} title={m['hero.sound_on_title']()} data-testid="hero-sound">
-			<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"
-				><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor" /><path d="M11 6l4 4M15 6l-4 4" stroke="currentColor" stroke-width="1.5" /></svg
-			>
-			{m['hero.sound_on']()}
-		</a>
+	{#if trailer}
+		<button type="button" class="hero-sound" aria-pressed={!muted} onclick={toggleSound} data-testid="hero-sound">
+			{#if muted}
+				<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" data-icon="speaker"
+					><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor" /><path
+						d="M11 5.5a3.5 3.5 0 0 1 0 5M12.5 3.5a6 6 0 0 1 0 9"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="1.5"
+					/></svg
+				>
+				{m['hero.sound_on']()}
+			{:else}
+				<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" data-icon="speaker-muted"
+					><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor" /><path d="M11 6l4 4M15 6l-4 4" stroke="currentColor" stroke-width="1.5" /></svg
+				>
+				{m['hero.sound_off']()}
+			{/if}
+		</button>
 	{/if}
 </section>
 
@@ -210,16 +245,23 @@
 		gap: 0.4167rem;
 		padding: 0.4167rem 0.6667rem;
 		border: var(--border-width-regular) solid rgb(255 255 255 / 0.6);
+		background: none;
 		color: var(--paper);
+		font: inherit;
 		font-size: 0.5833rem;
 		line-height: 1;
-		text-decoration: none;
+		cursor: pointer;
 		svg {
 			width: 1em;
 			height: 1em;
 		}
 	}
-	.hero-sound:hover {
+	.hero-sound:hover,
+	.hero-sound[aria-pressed='true'] {
 		border-color: var(--paper);
+	}
+	.hero-sound:focus-visible {
+		outline: var(--border-width-regular) solid var(--paper);
+		outline-offset: 2px;
 	}
 </style>

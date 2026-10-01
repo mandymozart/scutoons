@@ -1127,11 +1127,53 @@ character, persona, look and mood and doubles as the VN test bed.
   previous server progress is PUT back). Chrome flags `--autoplay-policy=no-user-gesture-required --mute-audio`.
 - Open for the owner: chapter 0's `release` is set to the season's 2025-10-04 (not shown for published chapters).
 
+## Player autoplay + the follow-up bar (2026-10-01)
+
+- **Owner:** player videos autoplay (sound when allowed, else muted + "Ton an"); a follow-up bar at the end of a group /
+  chapter with a 5 s countdown; then "Nochmal" / "Replay" as the secondary and the members case as the conversion moment
+  (not signed in: "Anmelden →" + "Code einlösen" + a hint; signed in without a membership: "Code einlösen →" + "Wo
+  bekomme ich einen Code?"; no countdown in both; "Nochmal ansehen" only for members). Spec: DESIGN.md "Player video
+  slice" + "Follow-up bar".
+- **Autoplay:** `@scutoons/reader` `SliceVideo` `autoplayPlayer` (+ `soundOnLabel`), threaded through `Slice`; only the
+  viewer passes it (the creator preview stays still). `prefers-reduced-motion` is read synchronously now (an `onMount`
+  read let the autoplay start for a frame). Chrome keeps the sticky user activation across SvelteKit navigations, so
+  the hero's "Trailer ansehen" / the start button → the prologue plays with sound; a direct load gets `NotAllowedError`
+  → muted + the button. Headless: `--autoplay-policy=document-user-activation-required` = the normal rule; a CDP
+  `Input.dispatchMouseEvent` click counts as a gesture, `el.click()` from `Runtime.evaluate` doesn't.
+- **Done signals:** the bar observes the group's last `[data-slice-index]` itself (`sliceSeen` / `SEEN_THRESHOLDS`
+  exported from track-reading.ts, the tracker uses them too) and the `sliceplayer` events (`ended` / `play`); VN:
+  `vn.state.eventsDone` (`beginEvents()` on the runner's mount, `endOfEvents()` sets it, `clear()` resets). All sandbox
+  groups end with `jumpTo` → no bar there (they navigate themselves); check-next-bar drops sandbox chapter 2's final
+  jump via CDP Fetch to test a scene that just ends.
+- **`nextStep`** (`@scutoons/content` progress.ts, node tests): next group by `label` (a following group without a label
+  is skipped → the chapter's end), else the next chapter of the season's **whole** `Season.sequence` (drafts included;
+  the loaded list – which drops drafts in production – only adds `isPreview` / `release`): coming soon (with its date) /
+  a draft not public here → "Kapitel 2 erscheint bald" (never skips to "Kapitel 3 erscheint am …") / readable (preview or
+  member → `chapter`, else `members`) / nothing → the season's end. In dev chapter 2 (draft) is readable, so chapter 1's
+  end offers "Kapitel 2: Ärger".
+- **Login return:** `/account?return=<path>` (new, additive; same-origin paths only) → `goto` after the OTP login. The magic
+  link in the mail doesn't carry it (opens the root).
+- **Hidden map blocked clicks:** `.map.hidden` (opacity 0, `translate(0, 100%) scale(1.1)`) still covered the bottom ~5 %
+  of the viewport (the scale grows it upwards, the map content is translated) and swallowed clicks there – the bar's
+  buttons, before it anything at the very bottom. Now `pointer-events: none` on the hidden map and its subtree.
+- **Check:** `node scripts/check-next-bar.mjs [--shots=dir] [--only=390-de] [--once]` – 390 / 1440 × de / en, guest +
+  the test user: muted autoplay + "Ton an", in-app click → sound, every bar state (members not signed in / signed in
+  without access via a stripped `/me/` answer, chapter + countdown → navigates, cancel, replay video / group, scroll-up and
+  overlay stop it, next group → `?label=`, coming soon, season end via a trimmed toon answer, VN scene end), the login
+  round trip (OTP from `server/logs/mail.log`) back into chapter 1, `?code=promo_test` → member bar, reduced motion;
+  restores the test user's server progress. 88/88. check-prolog: the video now starts by itself (step 3 rewritten: the
+  music waits while it plays, starts after a pause, pauses again on play).
+- The test user can't be a signed-in non-member (`--reset` keeps its signup promo code, which grants `catalog`), hence the
+  `/me/` rewrite in the check.
+
 ## Toon page desktop: trailer hero, 12-column grid, menu button, menu type (2026-10-01)
 
 - **Owner:** desktop design "A · Vollbild" (artifact AYHvMG81k7CQc1JrVf4n5R, `project/Main.dc.html` as visual reference)
   from 1024 px; phone/tablet unchanged. Then: the credits colophon in the LEFT column (below the music button), not
-  centred under the grid. Spec + sizes: DESIGN.md "Toon page desktop".
+  centred under the grid, filling the column's width (no 36em measure there). Spec + sizes: DESIGN.md "Toon page desktop".
+- creator-cast check: the owner's cast:catpope now has one member (Cat Pope; boy + crows removed by the owner's own
+  published version 10:36 UTC) – the reorder step assumed ≥ 2 members; it now creates the inline character first and
+  moves that one up (works for any cast size).
 - **Data:** `Season.trailer { loop, sources?, poster, chapter? }` (type, schema, validation incl. "chapter not in the
   sequence" warning, creator season page section "Trailer", library passthrough test). Desktop detection in the page
   (`matchMedia('(min-width: 1024px)')`, read synchronously so the phone never renders the hero); the hero reads
@@ -1155,3 +1197,47 @@ character, persona, look and mood and doubles as the VN test bed.
   the bottom; the menu button at 1440 / 390 on the toon page and the home page + one font size; the test user's
   synced progress → "S1 K1 lesen" / "S1 K1 weiterlesen" + rule (previous server progress restored). Gotcha: a visit to
   `/en/…` writes the locale cookie, so unprefixed German pages need the cookie set per page in headless checks.
+
+## Menu: toons first, logo → home; the record beside the music button (2026-10-01)
+
+- **Owner:** slide-out with the toons first, no "SCUTOONS" entry, the logo top left links to the landing page and the
+  menu opens only via the menu button (d657f8c); the vinyl cut-out next to "Musik herunterladen" (desktop ≈ 150 px left of
+  the button in the season column, phone / tablet a smaller one beside the centred button). Spec: DESIGN.md "Top-right
+  icon group", "Toon page", "Toon page desktop"; data: DATA.md "Music image".
+- `main-menu.svelte`: the logo is `a.logo-link` (was `.main-menu-toggle button`, which opened the menu; `html.on-hero`
+  rule in `static/css/styles.css` renamed). Entries are links now (toons, account, shop, events), so a middle click /
+  "open in new tab" works; the shop link is the plain `shopUrl(locale)` (was `window.location.href` in a handler). The
+  languages lost their `onkeydown={() => setLocale(locale)}`: any key – Tab included – switched the language while
+  tabbing through. The closed slide-out is `inert` (it was only translated off screen, so Tab walked through hidden
+  entries). Fixed in passing: the account entry was squeezed to the 3rem language-button width (its icon stuck out
+  left over the menu border) – the square sizing is for the language buttons only now.
+- Checks that clicked the logo to open the menu now click `[data-testid="menu-toggle"]` (check-fonts, check-locale).
+  check-toon-hero: + menu order / inert / focus / Escape / logo link at 1440 + 390 de/en, + the record at 390 / 768 /
+  1280 / 1440 de/en (src, `alt=""`, lazy, loaded, left of the button, centred vertically, width per layout).
+- Media (cdn/root, not in git, **upload**): `catpope/images/s1-music-vinyl.webp` (from `catpope/items/awakening_vinyl.png`,
+  the `awakening_vinyl` item icon; 19 KB instead of the 264 KB PNG).
+- Flaky once each, green on the rerun (not touched here): check-fonts (51/52, the failing page not printed on the green
+  run) and check-toon-hero's "plays again on the hero" at one desktop size.
+
+## Hero: "Ton an" toggles the loop's own sound in place (2026-10-01)
+
+- **Owner:** the desktop hero's "Ton an" / "Sound on" toggles the background loop's sound in place (it opened chapter 0);
+  only "Trailer ansehen ▶" navigates to the prologue (besides the start button); a click on the video / scrim does
+  nothing. Spec: DESIGN.md "Toon page desktop" → Hero.
+- **Loop audio:** the 24 s montage (12 × 2 s) gets ONE continuous excerpt of `Roar Little Kitty.mp4` (Proton Drive
+  `Projects/Cat Pope`), not cut-up music: **318.9 s – 343.06 s (5:18.9 – 5:43.1)** = the entry of the last full-energy
+  section (short-term loudness jumps from ≈ −22 to ≈ −12 LUFS at 5:19 and peaks ≈ −8 at 5:40; the loudest 24 s window of
+  the song by `ebur128` short-term mean). Length = the video's 24.16 s, `afade` in 0.5 s / out 1 s, two-pass `loudnorm`
+  I −16 / TP −1.5 (linear; result −16.4 LUFS integrated, peak −2.1 dBFS), AAC 128k 48 kHz stereo, muxed with
+  `-c:v copy -movflags +faststart` into `cdn/root/catpope/videos/s1-trailer-loop.{1280w,1920w}.mp4` (3.8 → 4.2 MB,
+  8.0 → 8.4 MB; the old files in the session scratchpad). **Upload** both with `cdn/sync.py`.
+- `hero.svelte`: `muted` state (true on every load, never remembered), the sound control is a `<button aria-pressed>`
+  with `data-icon="speaker"` / `"speaker-muted"`; one `update()` decides play/pause (in view + visible tab, with reduced
+  motion also only while the sound is on); the IntersectionObserver effect reads `muted` with `untrack` so a toggle
+  doesn't tear it down (that would pause/replay). Reduced motion: the click sets `started`, the video renders and its
+  effect plays it with sound (sticky user activation from the click). Messages: `hero.sound_off` new,
+  `hero.sound_on_title` removed.
+- check-toon-hero: at 1440 / 1280 de + en real CDP mouse clicks (a user gesture, unlike `el.click()` from
+  `Runtime.evaluate`): background click → URL + mute unchanged, no pointer; "Ton an" → unmuted + playing in place,
+  label/icon/aria-pressed, `webkitAudioDecodedByteCount` > 0; scroll away pauses, back resumes unmuted; "Ton aus" mutes;
+  reload → muted; "Trailer ansehen" → chapter 0. Reduced motion: "Ton an" plays with sound, "Ton aus" stops. 79/79.

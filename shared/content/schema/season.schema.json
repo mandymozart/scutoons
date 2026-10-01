@@ -86,6 +86,10 @@
 						"null"
 					],
 					"description": "everything of the season in one file, if there is one"
+				},
+				"image": {
+					"type": "string",
+					"description": "decorative image beside the reader's music button (e.g. the record's cut-out), path in the toon's CDN folder"
 				}
 			},
 			"description": "A season's downloads (the reader's `/<toon>/download` page, linked below the season's chapter list)"

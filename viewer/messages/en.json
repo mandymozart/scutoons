@@ -116,6 +116,27 @@
 		"season_title": "Season {number}: {title}",
 		"prologue": "Prologue"
 	},
+	"player": {
+		"sound_on": "Sound on"
+	},
+	"next_bar": {
+		"label": "What's next",
+		"next": "Next",
+		"chapter": "{chapter}: {title}",
+		"overview": "To the overview",
+		"replay": "Replay",
+		"replay_video": "Watch again",
+		"cancel": "Cancel",
+		"countdown": "Next in {seconds} s",
+		"coming_soon": "{chapter} comes out on {date}",
+		"coming_soon_undated": "{chapter} is coming soon",
+		"season_end": "Season {season} done",
+		"sign_in": "Sign in",
+		"redeem": "Redeem a code",
+		"members_hint": "{chapter} is for members: sign in or redeem your code.",
+		"members_hint_signed_in": "{chapter} is for members: redeem your code.",
+		"where_code": "Where do I get a code?"
+	},
 	"membership_blocker": {
 		"title": "Membership Required",
 		"description": "This content requires a valid SCUTOONS membership.",
@@ -238,12 +259,16 @@
 		"download": "Download the music"
 	},
 	"menu": {
-		"open": "Menu"
+		"close": "Close menu",
+		"open": "Menu",
+		"home": "SCUTOONS – Home",
+		"toons": "Toons",
+		"language": "Language"
 	},
 	"hero": {
 		"season": "Season {number} · {title}",
 		"trailer": "Watch the trailer",
 		"sound_on": "Sound on",
-		"sound_on_title": "Watch the prologue with sound"
+		"sound_off": "Sound off"
 	}
 }

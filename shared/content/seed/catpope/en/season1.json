@@ -10,7 +10,8 @@
 		"portrait": "images/s1-cover-portrait.webp"
 	},
 	"download": {
-		"music": "audio/CatPope-Awakening-Music.zip"
+		"music": "audio/CatPope-Awakening-Music.zip",
+		"image": "images/s1-music-vinyl.webp"
 	},
 	"supporters": [
 		{ "name": "SKE / austro mechana", "logo": "images/supporters/ske.svg" },

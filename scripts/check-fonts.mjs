@@ -86,7 +86,7 @@ async function pages() {
 		{ app: 'viewer', name: 'account (signed in)', path: '/account', auth: true },
 		{ app: 'viewer', name: 'account lab', path: '/account/lab', auth: true },
 		{ app: 'viewer', name: 'claim sheet (?code=)', path: `/${toon}?code=FONTCHK0`, wait: '[class*="claim"]' },
-		{ app: 'viewer', name: 'main menu', path: '/', open: click('.main-menu-toggle button'), wait: '.main-menu' },
+		{ app: 'viewer', name: 'main menu', path: '/', open: click('[data-testid="menu-toggle"]'), wait: '.main-menu .menu.open' },
 		{ app: 'viewer', name: '404 (unknown toon)', path: '/no-such-toon-fontcheck' },
 		{ app: 'viewer', name: '404 (unknown chapter)', path: `/${toon}/chapter/999` },
 		// creator

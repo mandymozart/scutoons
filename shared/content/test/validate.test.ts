@@ -63,3 +63,11 @@ test('season.trailer: { loop, poster, sources?, chapter? }', () => {
 	assert.deepEqual(problems('season', season({ sequence: [], trailer })), ['warning trailer.chapter']);
 	assert.deepEqual(problems('season', season({ sequence, trailer: 'videos/l.mp4' })), ['error trailer']);
 });
+
+test('season.download.image: an image path on the CDN (decorative, beside the music button)', () => {
+	const sequence = [{ type: 'chapter', number: 1, status: 'published' }];
+	const download = { music: 'audio/m.zip', image: 'images/s1-music-vinyl.webp' };
+	assert.deepEqual(problems('season', season({ sequence, download })), []);
+	assert.deepEqual(problems('season', season({ sequence, download: { ...download, image: 'audio/m.zip' } })), ['warning download.image']);
+	assert.deepEqual(problems('season', season({ sequence, download: { ...download, image: 3 } })), ['error download.image']);
+});

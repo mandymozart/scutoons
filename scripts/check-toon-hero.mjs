@@ -2,17 +2,27 @@
 // profile, no dependencies), like scripts/check-prolog.mjs.
 //
 // Desktop (1440 × 900, 1280 × 800, 1024 × 768, and 1920 × 1080 for the large loop), de + en, a fresh guest:
-//   - the hero is the first screen (≤ 900 px high), the trailer loop autoplays muted (never unmuted), `playsinline`,
-//     loops; the network loads exactly one loop file (1280w, 1920w from 1600 px) and nothing of the prologue video;
+//   - the hero is the first screen (≤ 900 px high), the trailer loop autoplays muted, `playsinline`, loops; the network
+//     loads exactly one loop file (1280w, 1920w from 1600 px) and nothing of the prologue video;
 //   - the loop pauses when the hero leaves the screen and when the tab is hidden, and plays again when it is back;
-//   - reduced motion: no video, the poster image, no loop request;
+//   - reduced motion: no video, the poster image, no loop request; "Ton an" then plays the loop with sound, "Ton aus"
+//     stops it again;
 //   - the season line, title, tagline; the start button (inverted, "Prolog ansehen" for a fresh guest) and
-//     "Trailer ansehen" + "Ton an" → /<toon>/chapter/0;
+//     "Trailer ansehen" → /<toon>/chapter/0; "Ton an" is a toggle button (aria-pressed false, speaker icon), no link;
+//   - 1440 / 1280 (real CDP mouse clicks): a click on the video / hero background does nothing (URL unchanged, still
+//     muted, no pointer cursor); "Ton an" unmutes the playing loop in place (URL unchanged, "Ton aus", speaker-muted
+//     icon, aria-pressed true, audio decoded); scrolled away it pauses, back on the hero it resumes still unmuted;
+//     "Ton aus" mutes again; a reload starts muted; "Trailer ansehen" opens /<toon>/chapter/0;
 //   - the logo + the round top icons are white over the hero (`html.on-hero`) and ink below it;
-//   - below: season (cols 1–5) left of the chapter list (cols 7–12), thumbnails 112 × 72, "Prolog" / "#n" right-aligned.
+//   - below: season + the credits colophon (as wide as the column) in cols 1–5 left of the chapter list (cols 7–12),
+//     thumbnails 112 × 72, "Prolog" / "#n" right-aligned.
 // Phone / tablet (390 × 844, 768 × 1024): no hero, no loop request, the cover + start button in the season column as before.
 // All widths: the menu button (top right, "Menü" / "Menu") opens the slide-out (also on the home page), and every menu
-// entry has the same font size (the toons too).
+// entry has the same font size (the toons too). 1440 / 390, de + en: the toons are the first entries, no "SCUTOONS"
+// entry, the closed slide-out is inert, opening focuses the first toon, Escape closes it and focuses the menu button;
+// the logo is a link to the (localized) landing page and never opens the menu.
+// 390 / 768 / 1280 / 1440, de + en: the record cut-out (season.download.image, decorative, lazy) beside the music button
+// (desktop: 120-160 px, left of it in the season column; phone / tablet: smaller, the pair centred).
 // The test user (agent@scutoons.test) at 1440: the hero's start button follows the member's progress (synced state).
 //
 // usage: node scripts/check-toon-hero.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
@@ -101,8 +111,9 @@ const HERO = `(() => {
 		season: hero?.querySelector('.hero-season')?.textContent.trim(), title: hero?.querySelector('h1')?.textContent.trim(), tagline: hero?.querySelector('.hero-tagline')?.textContent.trim(),
 		start: start ? { text: start.textContent.trim(), state: start.dataset.state, href: new URL(start.href).pathname, bg: getComputedStyle(start).backgroundColor } : null,
 		trailer: document.querySelector('[data-testid="hero-trailer"]') ? { text: document.querySelector('[data-testid="hero-trailer"]').textContent.trim(), href: new URL(document.querySelector('[data-testid="hero-trailer"]').href).pathname } : null,
-		sound: document.querySelector('[data-testid="hero-sound"]') ? { text: document.querySelector('[data-testid="hero-sound"]').textContent.trim(), href: new URL(document.querySelector('[data-testid="hero-sound"]').href).pathname } : null,
-		onHero: document.documentElement.classList.contains('on-hero'), logoFilter: img('.main-menu-toggle img'), iconFilter: img('.map-toggle img'), menuFilter: img('.menu-toggle img'),
+		sound: (() => { const b = document.querySelector('[data-testid="hero-sound"]'); return b ? { tag: b.tagName, text: b.textContent.trim(), pressed: b.getAttribute('aria-pressed'), icon: b.querySelector('svg')?.dataset.icon, href: b.getAttribute('href') } : null; })(),
+		path: location.pathname,
+		onHero: document.documentElement.classList.contains('on-hero'), logoFilter: img('.logo-link img'), iconFilter: img('.map-toggle img'), menuFilter: img('.menu-toggle img'),
 		mobileHeader: !!document.querySelector('.toon-header') && getComputedStyle(document.querySelector('.toon-header')).display !== 'none',
 		mobileStart: !!document.querySelector('[data-testid="start-button"]'),
 		season: hero?.querySelector('.hero-season')?.textContent.trim(),
@@ -144,9 +155,9 @@ async function desktop(width, height, locale) {
 		if (s.title !== toonTitle) p.push(`title "${s.title}"`);
 		if (!s.start || s.start.state !== 'prologue' || s.start.text !== msg.start.prologue || s.start.href !== `${prefix}/${toon}/chapter/0` || s.start.bg !== 'rgb(255, 255, 255)') p.push(`start button ${JSON.stringify(s.start)}`);
 		if (!s.trailer || !s.trailer.text.startsWith(msg.hero.trailer) || s.trailer.href !== `${prefix}/${toon}/chapter/0`) p.push(`trailer button ${JSON.stringify(s.trailer)}`);
-		if (!s.sound || !s.sound.text.endsWith(msg.hero.sound_on) || s.sound.href !== `${prefix}/${toon}/chapter/0`) p.push(`sound button ${JSON.stringify(s.sound)}`);
+		if (!s.sound || s.sound.tag !== 'BUTTON' || s.sound.text !== msg.hero.sound_on || s.sound.pressed !== 'false' || s.sound.icon !== 'speaker' || s.sound.href !== null) p.push(`sound button ${JSON.stringify(s.sound)}`);
 		if (s.mobileHeader || s.mobileStart) p.push('the phone header / start button is shown too');
-		report(`hero text + buttons ("${msg.start.prologue}" inverted, "${msg.hero.trailer}", "${msg.hero.sound_on}" → chapter 0)`, p);
+		report(`hero text + buttons ("${msg.start.prologue}" inverted, "${msg.hero.trailer}" → chapter 0, "${msg.hero.sound_on}" a toggle, muted)`, p);
 	}
 	{
 		const p = [];
@@ -162,9 +173,9 @@ async function desktop(width, height, locale) {
 		const q = [];
 		if (!g.seasonCol || !g.listCol || !(g.seasonCol.x < g.listCol.x) || g.seasonCol.x + g.seasonCol.w > g.listCol.x) q.push(`columns ${JSON.stringify({ season: g.seasonCol, list: g.listCol })}`);
 		if (!g.thumb || g.thumb.w !== 112 || g.thumb.h !== 72) q.push(`thumbnail ${JSON.stringify(g.thumb)}`);
-		if (!g.colophon || g.colophonAnywhere !== 1 || g.colophon.x < g.seasonCol.x - 1 || g.colophon.x + g.colophon.w > g.seasonCol.x + g.seasonCol.w + 1) q.push(`colophon ${JSON.stringify(g.colophon)} (${g.colophonAnywhere} on the page) not inside the season column ${JSON.stringify(g.seasonCol)}`);
+		if (!g.colophon || g.colophonAnywhere !== 1 || g.colophon.x < g.seasonCol.x - 1 || g.colophon.x + g.colophon.w > g.seasonCol.x + g.seasonCol.w + 1 || Math.abs(g.colophon.w - g.seasonCol.w) > 2) q.push(`colophon ${JSON.stringify(g.colophon)} (${g.colophonAnywhere} on the page) not inside the season column ${JSON.stringify(g.seasonCol)}`);
 		if (g.firstNumber !== msg.chapter.prologue || g.numberAlign === null || g.numberAlign > 2) q.push(`first row "${g.firstNumber}", right gap ${g.numberAlign}`);
-		report('below: season + credits colophon left (cols 1–5), list right (cols 7–12), thumbnails 112 × 72, "Prolog" right-aligned', q, JSON.stringify({ season: g.seasonCol, list: g.listCol }));
+		report('below: season + credits colophon left (cols 1–5, the colophon as wide as the column), list right (cols 7–12), thumbnails 112 × 72, "Prolog" right-aligned', q, JSON.stringify({ season: g.seasonCol, list: g.listCol }));
 		await shot(`hero-${width}-${locale}-2-below`);
 		await evaluate('window.scrollTo(0, 0), true');
 		const back = await waitFor(`(() => { const s = ${HERO}; return s.video && !s.video.paused && s.onHero ? s : null; })()`, 5000);
@@ -177,6 +188,90 @@ async function desktop(width, height, locale) {
 		const visible = await waitFor(`(() => { const s = ${HERO}; return s.video && !s.video.paused ? s : null; })()`, 3000);
 		if (!visible || visible.error) r.push('the loop does not resume in a visible tab');
 		report('plays again on the hero, pauses in a hidden tab, resumes when visible', r);
+	}
+	if (width === 1440 || width === 1280) await clicks(width, height, locale);
+}
+
+// a real mouse click (CDP input = a user gesture, so the browser lets the loop play with sound)
+async function clickAt(x, y) {
+	await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+	await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+	await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+}
+async function clickOn(sel) {
+	const b = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+	if (!b || b.error) return false;
+	await clickAt(b.x, b.y);
+	return true;
+}
+
+// the hero's click targets: the background does nothing, the sound button toggles in place, the trailer navigates
+async function clicks(width, height, locale) {
+	const prefix = locale === 'en' ? '/en' : '';
+	const msg = messages[locale];
+	const page = `${prefix}/${toon}`;
+	const playing = (cond) => `(() => { const s = ${HERO}; return s.video && !s.video.paused && s.onHero && (${cond}) ? s : null; })()`;
+	const state = `(() => { const s = ${HERO}; return { video: s.video, sound: s.sound, path: s.path }; })()`;
+	await evaluate('window.scrollTo(0, 0), true');
+	await waitFor(playing('true'), 5000);
+	{
+		// the background: a click in the empty upper middle of the hero (the scrim over the video)
+		const p = [];
+		const hit = await evaluate(`(() => { const x = innerWidth / 2, y = 300; const e = document.elementFromPoint(x, y); const v = document.querySelector('[data-testid="hero-video"]'); return { x, y, cls: String(e?.className), inHero: !!e?.closest('[data-testid="hero"]'), cursor: e ? getComputedStyle(e).cursor : null, videoCursor: v && getComputedStyle(v).cursor, link: !!e?.closest('a, button'), videoLink: !!v?.closest('a, button'), onclick: !!(v?.onclick || e?.onclick) }; })()`);
+		await clickAt(hit.x, hit.y);
+		await sleep(800);
+		const s = await evaluate(HERO);
+		if (!hit.inHero || hit.link || hit.videoLink || hit.onclick || hit.cursor === 'pointer' || hit.videoCursor === 'pointer') p.push(`background ${JSON.stringify(hit)}`);
+		if (s.path !== page) p.push(`a click on the video navigated to ${s.path}`);
+		if (!s.video?.muted || s.sound?.pressed !== 'false') p.push(`a click on the video changed the sound: ${JSON.stringify({ muted: s.video?.muted, pressed: s.sound?.pressed })}`);
+		report(`${width} ${locale}: a click on the video / hero background does nothing (no link, no pointer, URL + mute unchanged)`, p, JSON.stringify(hit));
+	}
+	{
+		const p = [];
+		await clickOn('[data-testid="hero-sound"]');
+		const on = await waitFor(playing(`!s.video.muted && s.sound?.pressed === 'true'`), 4000);
+		if (!on || on.error) p.push(`after "${msg.hero.sound_on}": ${JSON.stringify(await evaluate(state))}`);
+		else {
+			if (on.path !== page) p.push(`navigated to ${on.path}`);
+			if (on.sound.text !== msg.hero.sound_off || on.sound.icon !== 'speaker-muted') p.push(`sound button ${JSON.stringify(on.sound)}`);
+			if (on.video.volume === 0) p.push('volume 0');
+		}
+		await sleep(800);
+		const decoded = await evaluate(`document.querySelector('[data-testid="hero-video"]')?.webkitAudioDecodedByteCount ?? null`);
+		if (decoded !== null && !(decoded > 0)) p.push(`no audio decoded (${decoded} bytes)`);
+		await shot(`hero-${width}-${locale}-3-sound-on`);
+		report(`${width} ${locale}: "${msg.hero.sound_on}" unmutes the playing loop in place → "${msg.hero.sound_off}", speaker-muted icon, aria-pressed true, audio decoded`, p, `audio ${decoded} B`);
+	}
+	{
+		const p = [];
+		await evaluate(`window.scrollTo(0, document.querySelector('[data-testid="hero"]').offsetHeight + 40), true`);
+		const away = await waitFor(`(() => { const s = ${HERO}; return s.video && s.video.paused ? s : null; })()`, 5000);
+		if (!away || away.error) p.push('keeps playing scrolled away');
+		await evaluate('window.scrollTo(0, 0), true');
+		const back = await waitFor(playing(`!s.video.muted && s.sound?.pressed === 'true'`), 5000);
+		if (!back || back.error) p.push(`back on the hero: ${JSON.stringify(await evaluate(state))}`);
+		await clickOn('[data-testid="hero-sound"]');
+		const off = await waitFor(playing(`s.video.muted && s.sound?.pressed === 'false' && s.sound.icon === 'speaker'`), 4000);
+		if (!off || off.error) p.push(`after "${msg.hero.sound_off}": ${JSON.stringify(await evaluate(state))}`);
+		else if (off.path !== page || off.sound.text !== msg.hero.sound_on) p.push(`after "${msg.hero.sound_off}": ${off.path} "${off.sound.text}"`);
+		report(`${width} ${locale}: unmuted, scrolled away it pauses, back it resumes unmuted; "${msg.hero.sound_off}" mutes again (still playing, URL unchanged)`, p);
+	}
+	{
+		// unmute, then reload: always muted on load
+		const p = [];
+		await clickOn('[data-testid="hero-sound"]');
+		await waitFor(playing('!s.video.muted'), 4000);
+		await open(`${viewer}${page}`, locale);
+		const s = await waitFor(playing('true'), 10000);
+		if (!s || s.error || !s.video.muted || s.sound?.pressed !== 'false') p.push(`after a reload: ${JSON.stringify(s?.video ?? s)} ${JSON.stringify(s?.sound)}`);
+		report(`${width} ${locale}: a reload starts muted again (no remembered unmute)`, p);
+	}
+	{
+		const p = [];
+		await clickOn('[data-testid="hero-trailer"]');
+		const went = await waitFor(`location.pathname === ${JSON.stringify(`${prefix}/${toon}/chapter/0`)} ? location.pathname : null`, 8000);
+		if (!went || went.error) p.push(`"${msg.hero.trailer}" → ${await evaluate('location.pathname')}`);
+		report(`${width} ${locale}: "${msg.hero.trailer}" opens ${prefix}/${toon}/chapter/0`, p);
 	}
 }
 
@@ -192,6 +287,17 @@ await open(`${viewer}/${toon}`, 'de');
 	const s = await waitFor(`(() => { const s = ${HERO}; return s.hero ? s : null; })()`);
 	report('reduced motion: poster image, no video, no loop request', s && !s.video && s.posterImg && !videoUrls.length ? [] : [`video ${JSON.stringify(s?.video)}, poster ${s?.posterImg}, network ${videoUrls.join(', ')}`]);
 	await shot('hero-1440-reduced-motion');
+	// "Ton an" is the explicit request: the loop plays with sound (in place); "Ton aus" stops it again
+	const state = `(() => { const s = ${HERO}; return { video: s.video, sound: s.sound, path: s.path }; })()`;
+	const p = [];
+	await clickOn('[data-testid="hero-sound"]');
+	const on = await waitFor(`(() => { const s = ${HERO}; return s.video && !s.video.paused && !s.video.muted && s.sound?.pressed === 'true' ? s : null; })()`, 10000);
+	if (!on || on.error) p.push(`after "Ton an": ${JSON.stringify(await evaluate(state))}`);
+	else if (on.path !== `/${toon}`) p.push(`navigated to ${on.path}`);
+	await clickOn('[data-testid="hero-sound"]');
+	const off = await waitFor(`(() => { const s = ${HERO}; return s.video && s.video.paused && s.video.muted && s.sound?.pressed === 'false' ? s : null; })()`, 4000);
+	if (!off || off.error) p.push(`after "Ton aus": ${JSON.stringify(await evaluate(state))}`);
+	report('reduced motion: "Ton an" plays the loop with sound (in place), "Ton aus" stops it', p);
 }
 await send('Emulation.setEmulatedMedia', { features: [] });
 
@@ -224,6 +330,102 @@ for (const [w, h] of [[1440, 900], [390, 844]]) for (const [l, path] of [['de', 
 	}
 	report(`${w} ${l} ${path}: the menu button opens the slide-out, every entry one size`, p, s?.sizes?.join(','));
 	await shot(`menu-${w}-${l}${path.replace(/\//g, '-')}`);
+}
+
+// the slide-out: account + language, then the toons, no "SCUTOONS" entry; closed = inert; opens on the first toon, Escape → back to the
+// menu button; the logo is the link to the landing page (never opens the menu)
+const MENU_ORDER = `(() => {
+	const menu = document.getElementById('main-menu');
+	const entries = [...menu.querySelectorAll('.nav-btn')];
+	// the toons sit under the account + language header (owner 2026-10-01); focus goes to the first toon
+	const first = menu.querySelector('.nav--toons .nav-btn');
+	const toggle = document.querySelector('[data-testid="menu-toggle"]');
+	const logo = document.querySelector('[data-testid="logo-link"]');
+	return {
+		open: menu.classList.contains('open'), inert: menu.inert,
+		controls: toggle?.getAttribute('aria-controls'), expanded: toggle?.getAttribute('aria-expanded'),
+		first: first ? { tag: first.tagName, href: first.getAttribute('href'), text: first.textContent.trim(), toon: !!first.closest('.nav--toons') } : null,
+		toonsFirst: !!menu.firstElementChild?.matches('.menu-header') && !!menu.firstElementChild?.nextElementSibling?.matches('.nav--toons'),
+		scutoonsEntry: entries.some((e) => e.textContent.trim().toUpperCase() === 'SCUTOONS'),
+		focusFirst: document.activeElement === first,
+		focusToggle: document.activeElement === toggle,
+		logo: logo ? { tag: logo.tagName, href: logo.getAttribute('href'), alt: logo.querySelector('img')?.alt } : null
+	};
+})()`;
+for (const [w, h] of [[1440, 900], [390, 844]]) for (const l of ['de', 'en']) {
+	const prefix = l === 'en' ? '/en' : '';
+	const home = l === 'en' ? ['/en', '/en/'] : ['/'];
+	await size(w, h);
+	await open(`${viewer}${prefix}/${toon}`, l);
+	const closed = await waitFor(`(() => { const s = ${MENU_ORDER}; return s.logo ? s : null; })()`, 5000);
+	const p = [];
+	if (!closed || closed.error) p.push(`no menu / logo ${JSON.stringify(closed)}`);
+	else {
+		if (closed.open || !closed.inert || closed.expanded !== 'false' || closed.controls !== 'main-menu') p.push(`closed state ${JSON.stringify({ open: closed.open, inert: closed.inert, expanded: closed.expanded, controls: closed.controls })}`);
+		if (closed.logo.tag !== 'A' || !home.includes(closed.logo.href) || closed.logo.alt !== messages[l].menu.home) p.push(`logo ${JSON.stringify(closed.logo)}, expected a link to ${home.join(' / ')}`);
+	}
+	await evaluate(`document.querySelector('[data-testid="menu-toggle"]').click(), true`);
+	const s = await waitFor(`(() => { const s = ${MENU_ORDER}; return s.open && s.focusFirst ? s : null; })()`, 3000);
+	if (!s || s.error) p.push(`after opening: ${JSON.stringify(await evaluate(MENU_ORDER))}`);
+	else {
+		if (s.inert || s.expanded !== 'true') p.push(`open but inert ${s.inert} / aria-expanded ${s.expanded}`);
+		if (!s.toonsFirst || !s.first?.toon || s.first.tag !== 'A' || s.first.href !== `${prefix}/${toon}`) p.push(`first entry ${JSON.stringify(s.first)}, toons first ${s.toonsFirst}`);
+		if (s.scutoonsEntry) p.push('the "SCUTOONS" entry is still there');
+	}
+	await shot(`menu-order-${w}-${l}`);
+	await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+	await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+	const esc = await waitFor(`(() => { const s = ${MENU_ORDER}; return !s.open && s.inert ? s : null; })()`, 3000);
+	if (!esc || esc.error || !esc.focusToggle) p.push(`Escape: ${JSON.stringify(esc && { open: esc.open, focusToggle: esc.focusToggle })}`);
+	// the logo goes to the landing page and never opens the menu
+	await evaluate(`document.querySelector('[data-testid="logo-link"]').click(), true`);
+	const landed = await waitFor(`(() => { const path = location.pathname; return ${JSON.stringify(home)}.includes(path) ? { path, open: document.getElementById('main-menu').classList.contains('open') } : null; })()`, 6000);
+	if (!landed || landed.error || landed.open) p.push(`logo click → ${JSON.stringify(landed ?? (await evaluate('location.pathname')))}`);
+	report(`${w} ${l}: menu = account/language, then toons, no "SCUTOONS" entry, inert when closed, focus on the first toon, Escape → menu button; logo → the landing page`, p);
+}
+
+// the record beside the music button (season.download.image): desktop left of the button in the season column, phone /
+// tablet a smaller one beside the centred button; decorative (alt ""), lazy
+const musicImage = bundles.de.seasons[0].season.download?.image;
+const MUSIC = `(async () => {
+	const wrap = document.querySelector('[data-testid="season-download"]');
+	if (!wrap) return null;
+	wrap.scrollIntoView({ block: 'center' });
+	const img = wrap.querySelector('[data-testid="season-download-image"]');
+	for (let i = 0; i < 40 && img && !(img.complete && img.naturalWidth); i++) await new Promise((r) => setTimeout(r, 100));
+	const box = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; };
+	const btn = wrap.querySelector('a.btn');
+	return {
+		img: img ? { ...box(img), src: img.currentSrc || img.src, alt: img.getAttribute('alt'), loading: img.loading, loaded: img.complete && img.naturalWidth > 0 } : null,
+		btn: box(btn), text: btn?.textContent.trim(), href: btn && new URL(btn.href).pathname,
+		inSeasonColumn: !!wrap.closest('.season-column'), viewport: document.documentElement.clientWidth
+	};
+})()`;
+if (!musicImage) report('season 1 has a download.image (is the content imported?)', ['no download.image in the library answer']);
+else for (const [w, h] of [[390, 844], [768, 1024], [1280, 800], [1440, 900]]) for (const l of ['de', 'en']) {
+	const prefix = l === 'en' ? '/en' : '';
+	await size(w, h);
+	await open(`${viewer}${prefix}/${toon}`, l);
+	const s = await waitFor(MUSIC, 8000);
+	const p = [];
+	if (!s || s.error || !s.img) p.push(`music block ${JSON.stringify(s)}`);
+	else {
+		if (!s.img.src.endsWith(`/${toon}/${musicImage}`) || s.img.alt !== '' || s.img.loading !== 'lazy' || !s.img.loaded) p.push(`image ${JSON.stringify(s.img)}`);
+		if (s.text !== messages[l].season.download || s.href !== `${prefix}/${toon}/download`) p.push(`button "${s.text}" → ${s.href}`);
+		if (s.img.x + s.img.w > s.btn.x + 1) p.push(`the record is not left of the button: ${JSON.stringify({ img: s.img, btn: s.btn })}`);
+		const mid = (b) => b.y + b.h / 2;
+		if (Math.abs(mid(s.img) - mid(s.btn)) > 3) p.push(`not vertically centred: record ${mid(s.img)}, button ${mid(s.btn)}`);
+		if (w >= 1024) {
+			if (!s.inSeasonColumn) p.push('not in the season column');
+			if (s.img.w < 120 || s.img.w > 160) p.push(`record ${s.img.w} px wide (120-160 on desktop)`);
+		} else {
+			if (s.img.w < 60 || s.img.w > 110) p.push(`record ${s.img.w} px wide (60-110 on phone / tablet)`);
+			const centre = (s.img.x + s.btn.x + s.btn.w) / 2;
+			if (Math.abs(centre - s.viewport / 2) > 4) p.push(`record + button not centred: ${centre} vs ${s.viewport / 2}`);
+		}
+	}
+	report(`${w} ${l}: the record (${musicImage}) beside "${messages[l].season.download}"`, p, JSON.stringify(s?.img));
+	await shot(`music-${w}-${l}`);
 }
 
 // the test user: the hero's start button follows the member's (synced) progress

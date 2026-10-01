@@ -22,6 +22,8 @@
 		lang,
 		alt = 'Slice',
 		eager = false,
+		autoplayPlayer = false,
+		soundOnLabel,
 		before,
 		children,
 		...rest
@@ -38,6 +40,10 @@
 		alt?: string;
 		/** load right away (the first slices of a chapter), else lazily */
 		eager?: boolean;
+		/** a player video slice starts by itself once in view (the reader; `SliceVideo`) */
+		autoplayPlayer?: boolean;
+		/** the label of the player's "Sound on" button (the app's language) */
+		soundOnLabel?: string;
 		before?: Snippet;
 		children?: Snippet;
 	} & Omit<HTMLAttributes<HTMLDivElement>, 'children'> = $props();
@@ -60,6 +66,8 @@
 			loop={slice.video.loop ?? true}
 			autoplay={slice.video.autoplay ?? true}
 			player={slice.video.player === true}
+			{autoplayPlayer}
+			{soundOnLabel}
 			{eager}
 		/>
 	{:else}

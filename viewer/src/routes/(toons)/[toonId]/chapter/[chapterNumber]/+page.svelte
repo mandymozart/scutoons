@@ -1,5 +1,8 @@
 <script lang="ts">
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
+	import NextBar from '$lib/components/chapter/next-bar.svelte';
+	import { nextStep } from '@scutoons/content';
+	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audio } from '$lib/actions/audio/index.ts';
@@ -45,6 +48,33 @@
 		};
 	});
 
+	// what follows this group (the follow-up bar, agents/DESIGN.md "Follow-up bar")
+	const membership = getMembershipContext();
+	const step = $derived.by(() => {
+		const chapter = data.chapter;
+		if (!chapter || !group) return null;
+		// the season's whole sequence (drafts too: the next chapter is never skipped), with the loaded list's details
+		const listed = data.sequence ?? [];
+		const sequence = (data.season?.sequence ?? listed).map((item) => {
+			const loaded = listed.find((l) => l.number === Number(item.number));
+			return { number: Number(item.number), status: item.status, isPreview: loaded?.isPreview, release: loaded?.release };
+		});
+		return nextStep({
+			groups: chapter.groups,
+			group: chapter.groups.indexOf(group),
+			chapter: chapter.number,
+			sequence,
+			includeDrafts: import.meta.env.DEV,
+			member: membership.isValid
+		});
+	});
+	// "Nochmal": the group from its start (a VN group runs its script again)
+	let replays = $state(0);
+	function replay() {
+		window.scrollTo({ top: 0 });
+		replays++;
+	}
+
 	/** YYYY-MM-DD → a date in the reader's language (as written, no time zone shift) */
 	function formatRelease(release: string) {
 		const date = new Date(`${release}T00:00:00Z`);
@@ -70,9 +100,21 @@
 <MembershipBlocker isPreview={data.chapter.isPreview}>
 	<div class="chapter-view" use:audio={data.chapter.audio} {@attach trackReading(spot)}>
 		<!-- a new group (label) or another chapter starts the group from scratch (a VN group runs its events on mount) -->
-		{#key `${data.chapter.number}:${currentLabel}`}
+		{#key `${data.chapter.number}:${currentLabel}:${replays}`}
 			{#if group}
 				<Group {group} />
+				{#if step}
+					<NextBar
+						{step}
+						{group}
+						toonId={page.params.toonId ?? ''}
+						chapter={data.chapter.number}
+						season={data.season?.number ?? 1}
+						sequence={data.sequence ?? []}
+						download={!!data.season?.download?.music}
+						onreplay={replay}
+					/>
+				{/if}
 			{:else}
 				<p>Group not found for label: {currentLabel}</p>
 			{/if}

@@ -190,7 +190,7 @@ final class LibraryTest extends TestCase
     public function testSeasonDownloadAndSupportersPassThrough(): void
     {
         $this->seedToon();
-        $download = ['music' => 'audio/album.zip'];
+        $download = ['music' => 'audio/album.zip', 'image' => 'images/s1-music-vinyl.webp'];
         $supporters = [['name' => 'A', 'logo' => 'images/supporters/a.svg'], ['name' => 'B', 'url' => 'https://b.example']];
         $trailer = ['loop' => 'videos/l.1280w.mp4', 'sources' => [['src' => 'videos/l.1920w.mp4', 'media' => '(min-width: 1600px)']], 'poster' => 'images/p.webp', 'chapter' => 0];
         foreach (['de', 'en'] as $l) {

@@ -79,31 +79,49 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
 - **Toon page, top to bottom** (owner 2026-09-30): cover, toon title + description, "Staffel 1: <title>", the season
   text, **the start button**, the chapter list, **the season's music** (a secondary button "Musik herunterladen" /
-  "Download the music" → `/<toon>/download`, only when `season.download.music` is set), **the credits colophon**.
+  "Download the music" → `/<toon>/download`, only when `season.download.music` is set; with `season.download.image`
+  the record's cut-out sits left of it, decorative (`alt=""`), lazy, ≈ 77 px on a phone / ≤ 96 px on a tablet, the pair
+  centred; owner 2026-10-01), **the credits colophon**.
   Chapters are named only in the chapter list (never in the music or the colophon).
 - **Toon page desktop** (≥ 1024 px, owner 2026-10-01, reference: artboard "A · Vollbild" of
   https://claude.ai/artifact/AYHvMG81k7CQc1JrVf4n5R; phones and tablets keep the single column above):
   - **Hero** (`toon/hero.svelte`) = the first screen, `min(100vh, 900px)`, full-bleed: the season's trailer loop
-    (`Season.trailer`: muted, looping, `playsinline`; plays only while the hero is on screen and the tab visible; with
-    reduced motion the poster `<img>` only, no video download) under a flat `rgb(0 0 0 / 0.45)` scrim, no gradient.
+    (`Season.trailer`: muted on every load, looping, `playsinline`; plays only while the hero is on screen and the tab
+    visible, coming back resumes in the same mute state; with reduced motion the poster `<img>` only, no video download)
+    under a flat `rgb(0 0 0 / 0.45)` scrim, no gradient. The video and the scrim are not clickable (no link, no handler,
+    no pointer cursor). The loop carries its own soundtrack: one continuous 24 s excerpt of the song (no cut-up music
+    under the 12 × 2 s montage), 0.5 s fade in / 1 s fade out for a soft seam, AAC 128k, ≈ −16 LUFS.
     Bottom left in paper: the season line in capitals ("STAFFEL 1 · DAS ERWACHEN", `hero.season`, 0.5833rem, 0.08em
     tracking), the toon title (3.3333rem ≈ 80 px), the tagline (toon description, 0.8333rem), then the start button
     **inverted** (paper bg, ink text, every state + its progress rule in paper) and "Trailer ansehen ▶" / "Watch the
-    trailer ▶" (2px paper outline) → the trailer chapter (`trailer.chapter`, default 0 = the prologue). Bottom right:
-    "Ton an" / "Sound on" (2px outline at 60 % white, small) → the same chapter; the loop itself is never unmuted.
+    trailer ▶" (2px paper outline) → the trailer chapter (`trailer.chapter`, default 0 = the prologue); besides the start
+    button the only link on the hero.
+    Bottom right: the sound toggle (2px outline at 60 % white, small, a `<button>` with `aria-pressed`):
+    "Ton an" / "Sound on" + speaker icon unmutes the playing loop in place (the click is the user gesture), "Ton aus" /
+    "Sound off" + speaker-muted icon (outline full white) mutes it again; never navigates. Reduced motion: "Ton an" is
+    the explicit request – the loop then plays with sound, "Ton aus" stops it again.
     Without a trailer the cover is the background and the trailer buttons are left out.
   - While the hero is under the fixed top bar `html.on-hero` turns the logo and the round icon toggles white
     (transparent, paper border, inverted icon; viewer `static/css/styles.css`), ink again below it.
   - **Below:** a 12-column grid (max 75rem, gutters 1.3333rem, 2rem sides): cols 1–5 the season heading (1.3333rem),
-    the season text, "Musik herunterladen" (secondary), then the **credits colophon** (its own centred fine print within
-    the column, ≈ 13 px); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
+    the season text, "Musik herunterladen" (secondary; the record's cut-out `season.download.image` 6.25rem ≈ 150 px
+    wide left of it, both on the column's left edge, vertically centred), then the **credits colophon** (its own centred fine print, ≈ 13 px,
+    filling the column: no 36em measure, heading bars, text and the logo box span it; phones keep the measure); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
     112 × 72 (cover), title 0.75rem (+ the progress rule 5.3333rem / the coming-soon line in caption), "#n" / "Prolog"
     right-aligned, coming soon at 50 %. Published rows show no date.
 - **Top-right icon group (all widths, all pages):** the menu button (round 2rem = 48 px at the desktop root, 3-line icon
-  `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and opens the same slide-out as the logo; on
+  `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
   toon pages inventory, map and chapter list follow to its left (3rem / 5.5rem / 8rem from the right). The slide-out's
   entries all use the `button` type (`--type-button-size` / `--type-button-line`, rem-based; the toon names and
   "Anmelden" were hard 16 px before).
+- **The logo** (top left, all pages) is a link to the localized landing page (`/` · `/en/`, alt "SCUTOONS – Startseite" /
+  "SCUTOONS – Home"; owner 2026-10-01); it never opens the menu. On the landing page it just stays there.
+- **Slide-out order** (owner 2026-10-01): **the toons first** (avatar + name), then the account link + language
+  buttons, then "Zugang kaufen" (non-members), "Exklusive Editionen kaufen", "Veranstaltungen". No "SCUTOONS" entry (the
+  logo is the way home). Entries that go somewhere are links (`<a>`, the shop is its own app), the languages are
+  buttons (`aria-pressed`). Keyboard: the menu button has `aria-expanded` + `aria-controls="main-menu"`; the closed
+  slide-out is `inert` (off screen, not focusable); opening it focuses the first toon; Escape closes it and returns the
+  focus to the menu button; click outside closes it.
 - **Start button** (`toon/start-button.svelte`, like Prime Video's "▶ S1 F1 wiedergeben" but reading): the primary
   button (ink / paper, square, `button` type) as a link to the chapter, a 16 px forward arrow (2px stroke, square caps,
   `currentColor`; not a play triangle – it navigates) + the label from paraglide `start.*`: de "S1 K1 lesen" /
@@ -129,12 +147,47 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   read once the video ended or reached 95 % (`PLAYER_WATCHED`); the chapter list's bar shows the same.
 - **Player video slice** (`SliceVideo.player`, `@scutoons/reader` `slice-video.svelte`, owner 2026-10-01 for the music
   video "Roar Little Kitty"): instead of the muted in-view loop a video to watch – sound, native controls (fullscreen
-  through them), no loop, no autoplay, `playsinline`, `preload="metadata"`, the slice image as poster. The slice's
+  through them), no loop, `playsinline`, `preload="metadata"`, the slice image as poster. **Autoplay** (owner 2026-10-01,
+  the reader only: `autoplayPlayer`, the creator's preview stays still): once half of it is in view it starts by itself,
+  with sound when the browser allows it (a click earlier in the same document: the in-app way from the hero's "Trailer
+  ansehen ▶", the start button or the chapter list), otherwise muted with a centred "Ton an" / "Sound on" button (primary style, `player.sound_on`)
+  that unmutes and keeps playing (unmuting through the native controls hides it too); the `play()` rejection is handled
+  (`NotAllowedError` → muted, anything else → nothing; not even muted → the poster + the native play). Reduced motion: no
+  autoplay. The slice's
   `width` / `height` are the video's ratio at 390 px (390 × 206 for 1280 × 676 / 2048 × 1080), `object-fit: contain` on
   ink. While it plays the chapter's music pauses and comes back after a pause or the end (bubbling `sliceplayer` event →
   the viewer's audio action → `holdForPlayer`). `SliceVideo.sources [{ src, media? }]` = other encodings as `<source
   media>` before `src` (chapter 0: 480p for `(max-width: 600px)`, 720p for `(max-width: 1400px)`, 1080p as `src`); the
   browser picks once at load by viewport. No adaptive streaming: HLS (e.g. Bunny Stream) may come later.
+- **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group.
+  - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
+    track-reading.ts), or – a group ending with a player video – the video **ended** (playing it again hides the bar);
+    a VN group additionally needs its script run to the end without a jump (`vn.state.eventsDone`, set by `endOfEvents`)
+    and nothing waiting (no message waiting for its click, no choice open). A script that ends with `jumpTo` navigates
+    itself, the bar never shows there.
+  - **Look:** fixed at the bottom of the viewport, full width, `paper`, a 2px `ink` top rule, IBM Plex Mono, square,
+    content max(500px, 30rem) centred; z 110 (above the VN box's 100 – it only shows once the scene finished – under the
+    toggles and overlays ≥ 1000); a spacer keeps the last slice clear of it. An optional one-line text, then the
+    secondary as a text link (left) and the primary button (ink, "→", right, never wraps). At most 2 actions.
+  - **Rules** (`nextStep` in `@scutoons/content` progress.ts + tests, over the season's whole `sequence` – a draft is
+    never skipped –, `isItemPublic` for drafts in dev, the membership context):
+    | case | text | primary | secondary | countdown |
+    |---|---|---|---|---|
+    | more groups follow | – | "Weiter →" (`?label=` of the next group) | "↺ Nochmal" | yes |
+    | the next chapter readable (preview or member) | – | "Kapitel 2: Ärger →" (`chapterName` + title); from the prologue "S1 K1 lesen →" | "↺ Nochmal" | yes |
+    | the next chapter members-only, not signed in | "Kapitel 1 ist für Mitglieder: melde dich an oder löse deinen Code ein." | "Anmelden →" (`/account?return=<chapter>`, back there after the login) | "Code einlösen" (the QR camera = the claim flow) | no |
+    | … signed in, no membership | "Kapitel 1 ist für Mitglieder: löse deinen Code ein." | "Code einlösen →" (the QR camera) | "Wo bekomme ich einen Code?" (the shop, like the blocker's "buy access") | no |
+    | the next chapter coming soon | "Kapitel 3 erscheint am 1. Dezember 2025" (no date, or a draft not public here: "erscheint bald") | "Zur Übersicht →" | – | no |
+    | the season's end | "Staffel 1 geschafft" | "Zur Übersicht →" | "Musik herunterladen" (only with `season.download.music`) | no |
+    After a group ending with a player video the replay is "↺ Nochmal ansehen" (the video again in place); "↺ Nochmal"
+    scrolls to the top and starts the group again (a VN group runs its script again: the page's `{#key}` gets a replay
+    counter). A redeemed code / a login turns the members case into the countdown case by itself.
+  - **Countdown** (only next group / next chapter): a 2px rule under the primary fills in **5 s** + "Weiter in 4 s ·
+    Abbrechen" in caption type, then it navigates. Stops (the button stays): "Abbrechen", the end scrolled out of view, a
+    click anywhere outside the bar (the main menu, a toggle), Escape, an overlay (chapter list, map, inventory), the
+    camera or a claim sheet. A hidden tab pauses it (the time away doesn't count). Reduced motion: no countdown.
+  - Strings: paraglide `next_bar.*`. **Later idea (not built):** a per-group override `group.next` (e.g. a different
+    target or no bar after a cliffhanger) – only when the owner needs it (keep the configuration small).
 - **Credits colophon** (`@scutoons/reader` `CreditsColophon`, owner 2026-09-30, typography after the back of the vinyl
   cover; content = `credits:<toon>` as it is): `0.8125rem` (≈ 11.4 px on a phone), line-height 1.5, centred, max
   36em; section headings in capitals, bold, letter-spacing 0.08em, inside a 2px `ink` framed bar (square); names as

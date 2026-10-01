@@ -228,14 +228,15 @@ try {
 		await click('[data-testid="cast-personas-' + first + '"] input[data-check="1"]');
 		check((await state()).dirty, 'a persona tick marks the page dirty');
 	}
-	await click(`[data-testid="cast-member-${last}"] .order button`);
-	s = await state();
-	check(s.members.indexOf(last) === s.members.length - 2, 'moving up reorders the cast', JSON.stringify(s.members));
+	// the inline character first, then move it up one place (works for a cast of any size, also a single member)
 	await type('[data-testid="cast-new-name"]', NEW_NAME);
 	await click('[data-testid="cast-new-create"]');
 	s = await state();
 	const newId = s.members.find((m) => ![first, second, last].includes(m) && m.startsWith('regression'));
 	check(!!newId && /Characters\s+\S.*•/.test(s.chips), 'an inline new character joins the cast and marks the registry dirty', JSON.stringify(s));
+	await click(`[data-testid="cast-member-${newId}"] .order button`);
+	s = await state();
+	check(s.members.indexOf(newId) === s.members.length - 2 && s.members.indexOf(last) === s.members.length - 1, 'moving up reorders the cast', JSON.stringify(s.members));
 	n = writes.length;
 	await click('[data-testid="publish"]');
 	await until(`/Published.*Published/.test(${q('file-status')}.innerText) && !document.querySelector('.dirty-bar')`);
@@ -255,7 +256,7 @@ try {
 	s = await state();
 	const role = await js(`${q(`cast-role-${last}-de`)}?.value`);
 	const ticked = tick ? await js(`[...document.querySelectorAll('[data-testid="cast-personas-${first}"] input')].every((i) => i.checked)`) : true;
-	check(s.members.includes(newId) && s.members.indexOf(last) < s.members.indexOf(newId) && role === ROLE && ticked && !s.dirty, 'after a reload: role, persona, order and the new character are there', JSON.stringify({ s, role, ticked }));
+	check(s.members.includes(newId) && s.members.indexOf(newId) < s.members.indexOf(last) && role === ROLE && ticked && !s.dirty, 'after a reload: role, persona, order and the new character are there', JSON.stringify({ s, role, ticked }));
 	check(errors.length === 0, 'no page errors', errors.join(' | '));
 } catch (e) {
 	failed = true;

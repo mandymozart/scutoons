@@ -82,6 +82,13 @@ to every locale; library passthrough tested in `LibraryTest`). catpope season 1:
 `1920w` for `(min-width: 1600px)`, poster `images/s1-trailer-poster.webp`, chapter 0. Seed + store (new published
 `season:catpope:1:{de,en}`), the seed SQL's season statements carry it.
 
+**Music image (2026-10-01, owner):** `Season.download.image` (optional, image path in the toon's CDN folder) = the
+decorative record beside the toon page's music button (DESIGN.md "Toon page"); language-neutral, creator season page
+"Downloads" → `download.image` (image field). catpope season 1: `images/s1-music-vinyl.webp` (320 × 215, the
+`awakening_vinyl` item cut-out cropped to its content, WebP q85 – the "Awakening" LE vinyl is the album the season's
+music zip belongs to). Seed + store (new published `season:catpope:1:{de,en}`, backup
+`server/db/local.sqlite.bak-2026-10-01-music-image`), the seed SQL's 2 season statements carry it.
+
 **Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
 in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API).
 

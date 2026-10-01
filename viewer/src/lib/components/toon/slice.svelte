@@ -5,6 +5,7 @@
 	import { page } from '$app/state';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { m } from '$lib/paraglide/messages.js';
 	import { audioPlayer } from '$lib/actions/audio/index.ts';
 	import Samples from './audio/samples.svelte';
 	import Triggers from './vn/triggers.svelte';
@@ -31,6 +32,8 @@
 	videoSrc={videoUrl}
 	{videoSources}
 	eager={sliceIndex < EAGER_SLICES}
+	autoplayPlayer
+	soundOnLabel={m['player.sound_on']()}
 	{lang}
 	{@attach fromAction(sliceAudio, () => ({
 		events: slice.audio,

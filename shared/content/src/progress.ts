@@ -1,4 +1,6 @@
 import type { Checkpoint } from './content.ts';
+import { Status } from './enums.ts';
+import { isItemPublic } from './template.ts';
 
 /**
  * Reading progress → the toon page's start button (agents/DESIGN.md "Start button"). The progress itself is the viewer's
@@ -113,4 +115,52 @@ export function advanceCheckpoint(current: Checkpoint | undefined, uri: string, 
 
 function time(value: unknown): number {
 	return typeof value === 'number' ? value : Date.parse(String(value ?? '')) || 0;
+}
+
+/**
+ * What follows the end of the shown group (agents/DESIGN.md "Follow-up bar"):
+ * - `group`       more groups follow in this chapter → the next one (`?label=`)
+ * - `chapter`     the chapter's end, the next chapter is readable (published; drafts in dev) and the reader may read it
+ *                 (a preview chapter, or a member)
+ * - `members`     the next chapter is readable but needs a membership the reader lacks
+ * - `coming-soon` the next chapter is coming soon (`release` when known), or a draft (not public here, so not announced:
+ *                 no date) – the bar never skips a chapter number
+ * - `season-end`  nothing follows in the season
+ */
+export type NextStep =
+	| { kind: 'group'; label: string }
+	| { kind: 'chapter'; chapter: number }
+	| { kind: 'members'; chapter: number }
+	| { kind: 'coming-soon'; chapter: number; release?: string }
+	| { kind: 'season-end' };
+
+export interface NextStepInput {
+	/** the chapter's groups in order (a group is addressed by its `label`) */
+	groups: { label?: string | null }[];
+	/** index of the shown group */
+	group: number;
+	/** the shown chapter's number */
+	chapter: number;
+	/**
+	 * the season's chapters in reading order with the season's status per locale – the whole `Season.sequence`, drafts
+	 * included (they decide what comes next even where they aren't readable); `isPreview` / `release` from the loaded list
+	 */
+	sequence: { number: number; status?: string; isPreview?: boolean; release?: string | null }[];
+	/** drafts are readable (dev) */
+	includeDrafts?: boolean;
+	/** the reader has a membership (device code or account) */
+	member: boolean;
+}
+
+export function nextStep({ groups, group, chapter, sequence, includeDrafts = false, member }: NextStepInput): NextStep {
+	// a following group without a label can't be addressed (the chapter page shows `?label=` or the first group)
+	const following = groups[group + 1];
+	if (following?.label) return { kind: 'group', label: following.label };
+	const at = sequence.findIndex((item) => Number(item.number) === chapter);
+	const next = at >= 0 ? sequence[at + 1] : sequence.find((item) => Number(item.number) > chapter);
+	if (!next) return { kind: 'season-end' };
+	const number = Number(next.number);
+	if (next.status === Status.COMING_SOON) return { kind: 'coming-soon', chapter: number, ...(next.release ? { release: next.release } : {}) };
+	if (!isItemPublic(next, includeDrafts)) return { kind: 'coming-soon', chapter: number };
+	return next.isPreview || member ? { kind: 'chapter', chapter: number } : { kind: 'members', chapter: number };
 }
