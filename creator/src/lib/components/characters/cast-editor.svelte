@@ -197,7 +197,10 @@
 							{#if c}
 								<strong>{characterName(c, source)}{#if c.id === star} <span class="star" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</strong>
 								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{m['creator.characters_edit']()}</a>
+								<!-- a character with one persona has nothing to choose: no row (owner read "regular" as a flag) -->
+								{#if personaIds(c).length > 1}
 								<span class="personas" data-testid="cast-personas-{entry.character}">
+									<span class="personas-label">{m['creator.cast_personas']()}</span>
 									{#each personaIds(c) as p (p)}
 										{@const on = entry.personas.includes(p)}
 										{@const last = on && entry.personas.length === 1}
@@ -208,6 +211,7 @@
 										</label>
 									{/each}
 								</span>
+								{/if}
 							{:else}
 								<strong class="bad">{entry.character}</strong>
 								<span class="hint bad">{m['creator.characters_not_in_registry']()}</span>
@@ -321,7 +325,12 @@
 	.personas {
 		display: flex;
 		flex-wrap: wrap;
+		align-items: center;
 		gap: 0.2rem;
+	}
+	.personas-label {
+		font-size: 10px;
+		color: var(--text-muted);
 	}
 	.chip {
 		display: inline-flex;

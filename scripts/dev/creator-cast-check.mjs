@@ -203,7 +203,10 @@ try {
 
 	// 2. the only persona of an entry can't be unticked
 	const lone = await js(`[...document.querySelectorAll('[data-testid^="cast-personas-"]')].map((el) => [...el.querySelectorAll('input')]).find((l) => l.filter((i) => i.checked).length === 1)?.find((i) => i.checked)?.disabled`);
-	check(lone === true, 'the last ticked persona is disabled (no tick that changes nothing)');
+	check(lone === true || lone === undefined, 'the last ticked persona is disabled (no tick that changes nothing)');
+	// 2b. a character with only one persona shows no persona row (nothing to choose)
+	const single = await js(`(() => { const rows = [...document.querySelectorAll('[data-testid^="cast-personas-"]')]; return rows.every((el) => el.querySelectorAll('input').length > 1); })()`);
+	check(single === true, 'persona rows only for characters with more than one persona');
 
 	// 3. a role text → Save draft saves the cast
 	const [first, second] = s.members;
