@@ -31,7 +31,7 @@
 
 {#if session.isLoggedIn && session.user}
 	<div class="sc-signed-in" class:compact data-testid="signed-in-as">
-		<span class="who"><span class="label">{t.signedInAs}</span> <span class="email">{session.user.email}</span></span>
+		<span class="who" title="{t.signedInAs} {session.user.email}"><span class="label">{t.signedInAs}</span> <span class="email">{session.user.email}</span></span>
 		<Button variant={compact ? 'clear' : 'secondary'} size={compact ? 'sm' : 'md'} onclick={signOut} data-testid="sign-out">{t.signOut}</Button>
 	</div>
 {/if}
@@ -62,5 +62,17 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+	/* top bars: the address alone (the label stays for screen readers and in the tooltip) */
+	.compact .label {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+	.compact .email {
+		font-weight: 400;
 	}
 </style>

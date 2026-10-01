@@ -99,9 +99,10 @@ export function createAuthSession(options: AuthSessionOptions) {
 	}
 
 	/** Does the cookie carry a session right now? (without the stored token) */
-	async function cookieSession(): Promise<SessionResult | null> {
+	async function cookieSession(): Promise<(SessionResult & { user: User }) | null> {
 		try {
-			return await api.authSession();
+			const result = await api.authSession();
+			return result.user ? (result as SessionResult & { user: User }) : null;
 		} catch (e) {
 			if (unauthorized(e)) return null;
 			throw e;
@@ -171,7 +172,7 @@ export function createAuthSession(options: AuthSessionOptions) {
 		const now = Date.now();
 		if (now - lastCheck < 2000) return;
 		lastCheck = now;
-		let current: SessionResult | null;
+		let current: (SessionResult & { user: User }) | null;
 		try {
 			current = await cookieSession();
 		} catch {

@@ -63,7 +63,7 @@
 				<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
 					{otherLocale.toUpperCase()}
 				</button>
-				<button type="button" class="plain" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
+				<button type="button" class="plain" data-testid="sign-out" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
 			</div>
 		</header>
 		<main>

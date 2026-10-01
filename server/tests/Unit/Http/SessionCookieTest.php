@@ -110,7 +110,9 @@ final class SessionCookieTest extends TestCase
         self::assertSame([200, 'alice@example.com', 'cookie'], [$r->getStatusCode(), self::json($r)['user']['email'], self::json($r)['via']]);
         self::assertStringStartsWith("scutoons_sid=$a; ", $r->getHeaderLine('Set-Cookie'), 'the cookie lifetime starts again');
         self::assertSame('bearer', self::json($this->request('GET', 'http://localhost/api/auth/session/', ['Authorization' => "Bearer $b"]))['via']);
-        self::assertSame(401, $this->request('GET', 'http://localhost/api/auth/session/')->getStatusCode());
+        $r = $this->request('GET', 'http://localhost/api/auth/session/', [], null, ['scutoons_sid' => 'not-a-real-session-token-000']);
+        self::assertSame([200, null, null, false], [$r->getStatusCode(), self::json($r)['user'], self::json($r)['via'], $r->hasHeader('Set-Cookie')],
+            'signed out: user null (no console error for guests), no cookie renewal');
     }
 
     public function testCsrfOnlyAppOriginsMayChangeThingsWithTheCookie(): void

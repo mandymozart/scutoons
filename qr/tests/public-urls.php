@@ -353,7 +353,9 @@ if ($fullApi) {
             check($r['status'] === 200 && (json_decode($r['body'], true)['user']['email'] ?? null) === $user['email'],
                 'proxy forwards the single sign-on cookie scutoons_sid (GET /api/auth/session/ → the user)', [$r['status'], substr($r['body'], 0, 160)]);
             $r = request('GET', $base . '/api/auth/session/', null, ["Cookie: other=$token"]);
-            check($r['status'] === 401, 'proxy drops every other cookie', [$r['status']]);
+            $answer = json_decode($r['body'], true);
+            check($r['status'] === 200 && is_array($answer) && array_key_exists('user', $answer) && $answer['user'] === null,
+                'proxy drops every other cookie', [$r['status'], substr($r['body'], 0, 120)]);
         } finally {
             $pdo->prepare('DELETE FROM sessions WHERE id = ?')->execute([$sessionId]);
         }

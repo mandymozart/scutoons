@@ -645,7 +645,7 @@ $r = call('GET', "$api/auth/session/", null, null, array_merge($ck, ["Origin: $a
 check($r['status'] === 200 && $r['body']['via'] === 'cookie' && $r['body']['user']['email'] === $emailA && $cookieOf($r) === $sso,
     'SSO: GET /auth/session/ → user, via cookie, cookie renewed', $r);
 $r = call('GET', "$api/auth/session/");
-check($r['status'] === 401, 'SSO: GET /auth/session/ signed out → 401', $r['status']);
+check($r['status'] === 200 && $r['body']['user'] === null, 'SSO: GET /auth/session/ signed out → user null', $r);
 $r = call('PUT', "$api/me/", ['marketing_opt_in' => false], null, array_merge($ck, ['Origin: https://evil.example']));
 check($r['status'] === 403 && ($r['body']['error'] ?? null) === 'csrf_rejected', 'SSO: CSRF – cookie + foreign Origin on PUT → 403 csrf_rejected', $r);
 $r = call('PUT', "$api/me/", ['marketing_opt_in' => false], null, $ck);
@@ -668,6 +668,8 @@ $r = call('POST', "$api/auth/logout/", null, null, array_merge($ck, ["Origin: $a
 check($r['status'] === 200 && $cookieOf($r) === '' && str_contains($r['headers']['set-cookie'] ?? '', 'Max-Age=0'), 'SSO: logout clears the cookie', $r['headers']);
 $r = call('GET', "$api/me/", null, null, array_merge($ck, ['Origin: http://localhost:11000']));
 check($r['status'] === 401, 'SSO: after logout the cookie works nowhere (→ 401 in every app)', $r['status']);
+$r = call('GET', "$api/auth/session/", null, null, array_merge($ck, ["Origin: $app"]));
+check($r['status'] === 200 && $r['body']['user'] === null, 'SSO: after logout GET /auth/session/ → user null', $r);
 $r = call('GET', "$api/me/", null, $tokenA);
 check($r['status'] === 200, 'SSO: other sessions of the account (other devices) stay signed in', $r['status']);
 

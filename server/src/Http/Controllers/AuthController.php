@@ -22,7 +22,8 @@ use Scutoons\Infrastructure\Config\Settings;
  *                            + the single sign-on cookie when the request comes from an ALLOWED_ORIGINS app
  *   POST /api/auth/logout/   { all?: true } → { status: "success" } – ends this session (all: every session of the
  *                            account, "sign out on all devices") and clears the cookie
- *   GET  /api/auth/session/  → { status, user, via: "cookie"|"bearer" } (401 when signed out); renews the cookie
+ *   GET  /api/auth/session/  → { status, user, via: "cookie"|"bearer" } ({ user: null, via: null } when signed out);
+ *                            renews the cookie
  *   POST /api/auth/session/  Bearer → the same session as the cookie (one-time move of an app's stored token) → same answer
  * Single sign-on: docs/API.md "Single sign-on".
  */
@@ -72,11 +73,15 @@ final class AuthController
         return $response;
     }
 
-    /** GET /auth/session/: who is signed in (cookie or Bearer); the cookie's lifetime starts again */
+    /**
+     * GET /auth/session/: who is signed in (cookie or Bearer) – `user: null` when nobody is (200, so a guest's check is
+     * not an error in the browser console); the cookie's lifetime starts again
+     */
     public function session(Request $request, Response $response): Response
     {
         $session = CurrentSession::of($request);
-        $user = $session->requireUser();
+        $user = $session->user();
+        if ($user === null) return Json::response($response, 200, ['status' => 'success', 'user' => null, 'via' => null]);
         $response = $this->answer($response, $user, (string) $session->via());
         $token = $session->token();
         if ($session->via() === CurrentSession::VIA_COOKIE && $token !== null) {

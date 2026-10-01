@@ -14,11 +14,11 @@ export interface VerifyResult {
 	claim_error?: { code: string; error: string; message: string; options?: unknown };
 }
 
-/** `/auth/session/`: who is signed in, and how (single sign-on cookie or the Bearer token) */
+/** `/auth/session/`: who is signed in, and how (single sign-on cookie or the Bearer token); `user: null` = nobody */
 export interface SessionResult {
 	status: string;
-	user: User;
-	via: 'cookie' | 'bearer';
+	user: User | null;
+	via: 'cookie' | 'bearer' | null;
 }
 
 /** `/access/`: what a code grants to whoever holds it (device viewing access), never who owns it */
@@ -90,7 +90,7 @@ export function createQrApi(api: ApiClient) {
 		/** Ends the session (the shared one: every app is signed out) and clears the cookie; `all` = every device */
 		authLogout: (all = false) => api.post('/auth/logout/', all ? { all: true } : {}),
 
-		/** Single sign-on: the account of the session cookie alone (never the stored token) – 401 when there is none */
+		/** Single sign-on: the account of the session cookie alone (never the stored token) – `user: null` when there is none */
 		authSession: () => api.get<SessionResult>('/auth/session/', { auth: false }),
 
 		/** Single sign-on: the stored Bearer token of an app → the same session as the cookie (once, then drop it) */

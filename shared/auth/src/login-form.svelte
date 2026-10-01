@@ -171,19 +171,7 @@
 	.sc-login-form p {
 		margin: 0 0 var(--space-05);
 	}
-	.sc-login-form input[type='email'],
-	.sc-login-form input[type='text'] {
-		box-sizing: border-box;
-		width: 100%;
-		margin: 0;
-		padding: var(--space-05);
-		border: var(--border-width-regular) solid var(--ink);
-		border-radius: 0;
-		background: var(--paper);
-		color: var(--ink);
-		font: inherit;
-		font-family: var(--font-mono);
-	}
+	/* the inputs are styled by @scutoons/ui Field (DESIGN.md form field) */
 	.sc-login-form input[name='otp'] {
 		letter-spacing: 0.3em;
 	}

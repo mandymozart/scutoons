@@ -18,8 +18,9 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const API = 'http://localhost:9000/api';
-const CREATOR = 'http://localhost:10000';
+// the owner's dev stack; SCUTOONS_API / SCUTOONS_CREATOR point it at other local servers (an isolated test run)
+const API = (process.env.SCUTOONS_API ?? 'http://localhost:9000/api').replace(/\/$/, '');
+const CREATOR = (process.env.SCUTOONS_CREATOR ?? 'http://localhost:10000').replace(/\/$/, '');
 const TOON = 'catpope';
 const KEYS = [`cast:${TOON}`, 'characters'];
 const NEW_NAME = 'Regression Figur';
