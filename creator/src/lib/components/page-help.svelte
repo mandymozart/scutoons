@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'credits' | 'characters' | 'cast' | 'preview' | 'guide';
+	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'credits' | 'characters' | 'cast' | 'script' | 'preview' | 'guide';
 	export type ChapterSection = 'meta' | 'audio' | 'group' | 'slice';
 </script>
 
@@ -7,6 +7,7 @@
 	import { fileLabel } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import StyleGuide from './style-guide.svelte';
+	import ScriptRules from './script/script-rules.svelte';
 
 	/**
 	 * The help of every creator page, shown in the ActionBar's Info panel (@scutoons/ui `InfoPanel`, owner 2026-09-30):
@@ -120,6 +121,11 @@
 	{:else if page === 'cast'}
 		<p>{m['creator.cast_hint']()}</p>
 		<p>{m['creator.cast_star_hint']()}</p>
+		{@render saving()}
+	{:else if page === 'script'}
+		<p>{m['creator.help_script']()}</p>
+		<h3>{m['creator.script_rules']()}</h3>
+		<ScriptRules />
 		{@render saving()}
 	{:else if page === 'preview'}
 		<p>{m['creator.preview_hint']()}</p>

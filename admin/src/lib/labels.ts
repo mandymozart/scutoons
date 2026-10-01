@@ -70,6 +70,7 @@ export function fileLabel(key: string): string {
 		cast: m['entity.cast'](),
 		credits: m['entity.credits'](),
 		people: m['entity.people'](),
-		roles: m['entity.roles']()
+		roles: m['entity.roles'](),
+		script: m['entity.script']()
 	});
 }
