@@ -134,7 +134,8 @@
 			"toons": [
 				"catpope"
 			],
-			"hidden": true
+			"hidden": true,
+			"unlock": null
 		},
 		{
 			"id": "medival-street",

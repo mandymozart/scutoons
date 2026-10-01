@@ -611,7 +611,8 @@
 		"map_start_view_none": "{toon}: no start view (centre of the places)",
 		"wanted_map_places": "Map places",
 		"wanted_map_hint": "Every place of the world map without an image (derived from the map; the image is set in the map builder):",
-		"wanted_map_prompt": "Brief (for an image generator or a designer; attach the style references)"
+		"wanted_map_prompt": "Brief (for an image generator or a designer; attach the style references)",
+		"map_unlock_pending": "not unlockable yet"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

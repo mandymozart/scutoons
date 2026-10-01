@@ -18,6 +18,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
+	import { Icon } from '@scutoons/ui';
 	import { getPublished, library } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -331,7 +332,7 @@
 
 {#snippet mapNav()}
 	<div class="map-nav" data-testid="map-nav">
-		<p class="head">{m['creator.map_layers']()}</p>
+		<p class="head"><Icon name="layers" size="1.1em" /> {m['creator.map_layers']()}</p>
 		<ul>
 			{#each map?.layers ?? [] as l (l.id)}
 				<li class="item-row">
@@ -374,8 +375,9 @@
 		<div class="builder" data-testid="map-builder">
 			<div class="toolbar" role="toolbar" aria-label={m['creator.map']()}>
 				<div class="group" role="radiogroup">
-					{#each [['select', m['creator.map_tool_select'](), 'V'], ['place', m['creator.map_tool_place'](), 'P'], ['route', m['creator.map_tool_route'](), 'R']] as [id, label, key] (id)}
-						<button type="button" class="tool" class:on={tool === id} role="radio" aria-checked={tool === id} title="{label} ({key})" onclick={() => (tool = id as MapTool)} data-testid="tool-{id}">{label}</button>
+					<!-- icons for the tools (DESIGN.md "Icons": Feather, label + shortcut in the tooltip) -->
+					{#each [['select', m['creator.map_tool_select'](), 'V', 'mouse-pointer'], ['place', m['creator.map_tool_place'](), 'P', 'map-pin'], ['route', m['creator.map_tool_route'](), 'R', 'share-2']] as [id, label, key, icon] (id)}
+						<button type="button" class="tool icon" class:on={tool === id} role="radio" aria-checked={tool === id} aria-label="{label} ({key})" title="{label} ({key})" onclick={() => (tool = id as MapTool)} data-testid="tool-{id}"><Icon name={icon} /></button>
 					{/each}
 				</div>
 				<div class="group chips">
@@ -400,10 +402,10 @@
 					</div>
 				{/if}
 				<div class="group zoom">
-					<button type="button" class="ghost" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()}>−</button>
+					<button type="button" class="ghost" onclick={() => view.zoomAt(1 / 1.25)} aria-label={m['creator.map_zoom_out']()} title={m['creator.map_zoom_out']()}><Icon name="zoom-out" /></button>
 					<span class="pct" data-testid="zoom-pct">{zoomPercent} %</span>
-					<button type="button" class="ghost" onclick={() => view.zoomAt(1.25)} aria-label={m['creator.map_zoom_in']()}>+</button>
-					<button type="button" class="ghost" onclick={() => map && (map.locations.length ? view.fit(map.locations, 60, 3) : view.centerOn({ x: map.width / 2, y: map.height / 2 }, 0.5))}>{m['creator.map_fit']()}</button>
+					<button type="button" class="ghost" onclick={() => view.zoomAt(1.25)} aria-label={m['creator.map_zoom_in']()} title={m['creator.map_zoom_in']()}><Icon name="zoom-in" /></button>
+					<button type="button" class="ghost" onclick={() => map && (map.locations.length ? view.fit(map.locations, 60, 3) : view.centerOn({ x: map.width / 2, y: map.height / 2 }, 0.5))} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
 				</div>
 			</div>
 			<div class="stage">
@@ -490,6 +492,11 @@
 		background: var(--paper);
 		color: var(--ink);
 		cursor: pointer;
+	}
+	.tool.icon {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.2rem 0.4rem;
 	}
 	.tool.on,
 	.chip.on {

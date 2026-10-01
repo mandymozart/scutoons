@@ -111,7 +111,11 @@ if (existsSync(OUT) && !args.force) {
 	// the old files' chapter links were all "chapter 1" (a placeholder: the map jumped to chapter 1 with a bogus label);
 	// the card now links the chapter that introduces the place (airport: not in the script → no unlock, no link)
 	const airport = map.locations.find((p) => p.id === 'airport');
-	if (airport && !STORY.airport) delete airport.chapter;
+	if (airport && !STORY.airport) {
+		delete airport.chapter;
+		// owner 2026-10-01: "it does not unlock yet" – hidden and deliberately not unlockable for now
+		airport.unlock = null;
+	}
 
 	// toon start views: catpope (+ the sandbox's copy of it) keep their centre; toptoy / yellowmouse had an empty placeholder
 	// toons.json is edited in place (its hand-kept formatting stays; only the `map` blocks change)

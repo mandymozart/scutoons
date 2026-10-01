@@ -101,8 +101,15 @@
 					"description": "hidden until it is unlocked (by `unlock`, later by an event) – default: visible from the start"
 				},
 				"unlock": {
-					"$ref": "#/definitions/PlaceUnlock",
-					"description": "where the story reaches the place (owner 2026-10-01: places unlock over time) – read before the events exist (M3)"
+					"anyOf": [
+						{
+							"$ref": "#/definitions/PlaceUnlock"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "where the story reaches the place (owner 2026-10-01: places unlock over time) – read before the events exist (M3). `null` = deliberately \"not unlockable yet\" (owner 2026-10-01, the airport): hidden, and that is fine for now."
 				},
 				"chapter": {
 					"type": "object",

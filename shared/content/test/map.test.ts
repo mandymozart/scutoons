@@ -14,6 +14,7 @@ import {
 	legacyToonMap,
 	mapImageRequests,
 	mapImageRequestsText,
+	mapMediaRequests,
 	placeImagePath,
 	legacyToonMapSettings,
 	markPlacesSeen,
@@ -57,7 +58,8 @@ test('migration: every old catpope value survives in the seed world map (ids, co
 	});
 	assert.equal(legacyToonMapSettings(world, 'sandbox', toons.find((t: any) => t.id === 'sandbox').map).layers.terrain, '../catpope/images/map/map-layer-terrain.svg');
 	// owner 2026-10-01: garden is a place now (the route is complete), places unlock over time
-	assert.equal(checkWorldMap(world).filter((p) => p.level === 'error').length, 0);
+	assert.deepEqual(checkWorldMap(world), [], 'no problem left (the airport is "not unlockable yet": unlock null)');
+	assert.equal(world.locations.find((p) => p.id === 'airport')?.unlock, null);
 	assert.ok(world.locations.every((p) => p.hidden));
 	assert.deepEqual(world.locations.find((p) => p.id === 'garden')?.unlock, { toon: 'catpope', chapter: 5, at: 1, scene: 38 });
 });
@@ -167,6 +169,7 @@ test('checkWorldMap: ids, positions, waypoints, unlock points', () => {
 	assert.deepEqual(problems({ ...ok, routes: [{ id: 'r', name: { de: 'R' }, toons: ['t'], waypoints: [{ location: 'a' }] }] }), ['error routes.0.waypoints']);
 	assert.deepEqual(problems({ ...ok, routes: [{ id: 'r', name: { de: 'R' }, toons: ['t'], style: 'boat', waypoints: [{ location: 'a' }, { id: 'a', x: 1, y: 1 }] }] }), ['error routes.0.style', 'error routes.0.waypoints.1.id']);
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true }] }), ['warning locations.0.hidden'], 'hidden and nothing unlocks it');
+	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: null }] }), [], '"not unlockable yet" is a valid state');
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], hidden: true, unlock: { toon: 't', chapter: 1, at: 2 } }] }), ['error locations.0.unlock.at']);
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], image: { src: 'map/a.webp', anchor: { x: 50, y: 120 } } }] }), ['error locations.0.image.anchor']);
 });
@@ -184,6 +187,10 @@ test('wanted images: every place without an image, derived from the map (all 19 
 	assert.equal(placeImagePath({ id: 'x', toons: ['a', 'b'] }), 'scutoons/images/map/places/x.webp', 'a shared place goes to scutoons/');
 	assert.equal(mapImageRequests({ locations: [{ ...world.locations[0], image: { src: 'a.webp' } }] }).length, 0);
 	assert.match(mapImageRequestsText(wanted.slice(0, 1)), /images\/map\/places/);
+	const media = mapMediaRequests(world);
+	assert.equal(media.length, 19);
+	assert.ok(media.every((r) => r.view === 'media' && r.toon === 'catpope' && r.size === '256 × 256' && r.brief && r.status === 'open'));
+	assert.equal(media.find((r) => r.id === 'map-place:airport')?.path, 'catpope/images/map/places/airport.webp');
 });
 
 test('the unlocking slice: its reading point (the reader checkpoint rule) and the places it unlocks', () => {

@@ -21,6 +21,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { library } from '$lib/api.ts';
+	import { Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		cdnFolder,
@@ -109,6 +110,17 @@
 		editRoute(doc, id, (r) => (r.name = name), 'route-name');
 		const next = name[MAP_SOURCE_LANGUAGE]?.trim();
 		if (!locked && next && autoId(id, before, 'weg') && slugId(next) && slugId(next) !== id) onselect({ kind: 'route', id: renameRoute(doc, id, next, 'route-name') });
+	}
+
+	/** "not unlockable yet" (owner 2026-10-01, the airport): `unlock: null`, a valid hidden state */
+	const PENDING = '__pending';
+	function setUnlockToon(value: string) {
+		if (!place) return;
+		editPlace(doc, place.id, (p) => {
+			if (!value) delete p.unlock;
+			else if (value === PENDING) p.unlock = null;
+			else p.unlock = { ...(p.unlock ?? { chapter: 1 }), toon: value };
+		});
 	}
 
 	// ── the unlocking slice (the same storage the chapter editor's slice edits) ───────────────────────────────────────
@@ -287,8 +299,9 @@
 				<legend>{m['creator.map_unlock']()}</legend>
 				<p class="hint">{m['creator.map_unlock_hint']()}</p>
 				<div class="row">
-					<select value={place.unlock?.toon ?? ''} onchange={(e) => editPlace(doc, place.id, (p) => { const t = e.currentTarget.value; if (!t) delete p.unlock; else p.unlock = { ...(p.unlock ?? { chapter: 1 }), toon: t }; })} aria-label={m['creator.map_unlock']()}>
+					<select value={place.unlock === null ? PENDING : (place.unlock?.toon ?? '')} onchange={(e) => setUnlockToon(e.currentTarget.value)} aria-label={m['creator.map_unlock']()} data-testid="place-unlock-toon">
 						<option value="">{m['creator.map_unlock_none']()}</option>
+						<option value={PENDING}>{m['creator.map_unlock_pending']()}</option>
 						{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
 					</select>
 					{#if place.unlock}
@@ -442,9 +455,9 @@
 							</span>
 						{/if}
 						<span class="tools">
-							<button type="button" class="ghost" disabled={i === 0} aria-label={m['creator.map_move_up']()} onclick={() => moveWaypoint(i, -1)}>↑</button>
-							<button type="button" class="ghost" disabled={i === route.waypoints.length - 1} aria-label={m['creator.map_move_down']()} onclick={() => moveWaypoint(i, 1)}>↓</button>
-							<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}>✕</button>
+							<button type="button" class="ghost" disabled={i === 0} aria-label={m['creator.map_move_up']()} title={m['creator.map_move_up']()} onclick={() => moveWaypoint(i, -1)}><Icon name="arrow-up" /></button>
+							<button type="button" class="ghost" disabled={i === route.waypoints.length - 1} aria-label={m['creator.map_move_down']()} title={m['creator.map_move_down']()} onclick={() => moveWaypoint(i, 1)}><Icon name="arrow-down" /></button>
+							<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} title={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}><Icon name="x" /></button>
 						</span>
 					</li>
 				{/each}

@@ -3,6 +3,7 @@
 // state under the reserved id `scutoons`), the old per-toon answer shape for older viewer builds, the migration from
 // catpope's `locations.json` / `routes.json`, and the validation. Pure: no Svelte, no DOM.
 import type { LocaleText } from './credits.ts';
+import type { AssetRequest } from './characters.ts';
 import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
 
 // ── The entity `map` ────────────────────────────────────────────────────────────────────────────────────────────
@@ -42,8 +43,11 @@ export interface MapPlace {
 	toons: string[];
 	/** hidden until it is unlocked (by `unlock`, later by an event) – default: visible from the start */
 	hidden?: boolean;
-	/** where the story reaches the place (owner 2026-10-01: places unlock over time) – read before the events exist (M3) */
-	unlock?: PlaceUnlock;
+	/**
+	 * where the story reaches the place (owner 2026-10-01: places unlock over time) – read before the events exist (M3).
+	 * `null` = deliberately "not unlockable yet" (owner 2026-10-01, the airport): hidden, and that is fine for now.
+	 */
+	unlock?: PlaceUnlock | null;
 	/** the chapter the place's card links to */
 	chapter?: { toon: string; number: number };
 }
@@ -614,6 +618,33 @@ export function mapImageRequests(map: Pick<WorldMap, 'locations'> | null | undef
 		.map((p) => ({ place: p.id, name: p.name, toon: p.toons?.length === 1 ? p.toons[0] : 'scutoons', path: placeImagePath(p), size: PLACE_IMAGE_SIZE, spec: PLACE_IMAGE_SPEC, brief: placeImageBrief(p) }));
 }
 
+/** The prefix of the derived map-place requests' ids (never stored: `mapMediaRequests`) */
+export const MAP_PLACE_REQUEST_PREFIX = 'map-place:';
+
+/**
+ * The wanted place illustrations as toon-media asset requests (`view: 'media'`, `toon`, `size`; owner 2026-10-01): shown in
+ * the creator's "Wanted images" next to the stored media requests, derived from the map each time (never stored, so the
+ * list can't drift); `note` = "Map place: <name> · spec", `brief` = the full brief.
+ */
+export function mapMediaRequests(map: Pick<WorldMap, 'locations'> | null | undefined, locale = MAP_SOURCE_LANGUAGE): AssetRequest[] {
+	return mapImageRequests(map).map((r) => ({
+		id: `${MAP_PLACE_REQUEST_PREFIX}${r.place}`,
+		character: '',
+		persona: '',
+		look: '',
+		mood: '',
+		view: 'media',
+		path: r.path,
+		toon: r.toon,
+		size: r.size,
+		note: `${mapName(r.name, locale) || r.place} · ${r.spec}`,
+		brief: r.brief,
+		requested_by: null,
+		requested_at: '',
+		status: 'open'
+	}));
+}
+
 /** Text for the image supplier: one block per place (name, path, spec, brief) */
 export function mapImageRequestsText(requests: MapImageRequest[]): string {
 	return requests
@@ -689,7 +720,9 @@ export function checkWorldMap(map: any, options: MapValidateOptions = {}): MapPr
 		else if (!inside(p.x, p.y)) add('error', [...path, 'x'], `${what}: the position (${p.x}, ${p.y}) is outside the map`);
 		toonList(p.toons, [...path, 'toons'], what);
 		if (p.hidden !== undefined && typeof p.hidden !== 'boolean') add('error', [...path, 'hidden'], `${what}: hidden must be true or false`);
-		if (p.unlock !== undefined) {
+		if (p.unlock === null) {
+			// "not unlockable yet" (owner 2026-10-01): a valid state, nothing to report
+		} else if (p.unlock !== undefined) {
 			const u = p.unlock;
 			if (!isObj(u) || typeof u.toon !== 'string' || !Number.isInteger(u.chapter) || u.chapter < 0) add('error', [...path, 'unlock'], `${what}: unlock must be { toon, chapter, at?, scene? }`);
 			else {

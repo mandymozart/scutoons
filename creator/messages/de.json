@@ -611,7 +611,8 @@
 		"map_start_view_none": "{toon}: keine Startansicht (Mitte der Orte)",
 		"wanted_map_places": "Kartenorte",
 		"wanted_map_hint": "Jeder Ort der Weltkarte ohne Bild (aus der Karte abgeleitet; das Bild wird im Karten-Builder gesetzt):",
-		"wanted_map_prompt": "Brief (für Bildgenerator oder Designer:in, Stilreferenzen beilegen)"
+		"wanted_map_prompt": "Brief (für Bildgenerator oder Designer:in, Stilreferenzen beilegen)",
+		"map_unlock_pending": "noch nicht freischaltbar"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",
