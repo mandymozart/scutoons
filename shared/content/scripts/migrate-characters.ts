@@ -232,9 +232,10 @@ const NEW: RegistryCharacter[] = [
 	},
 	{
 		id: 'toptoy',
-		name: { de: 'Toptoy', en: 'Toptoy' },
+		name: { de: 'Top Toy', en: 'Top Toy' },
 		description: { de: 'Das Duo', en: 'The duo' },
-		color: 'black',
+		// the fuchsia pink of their horns (owner 2026-10-01; sampled from the portrait, a Molotow/Belton "fuchsia pink" tone)
+		color: '#dd5ba2',
 		own_toon: 'toptoy',
 		tags: ['duo'],
 		image: 'toptoy/avatar.webp',
