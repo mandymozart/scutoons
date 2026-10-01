@@ -295,6 +295,8 @@ export interface Season {
 	download?: Download;
 	/** who supported the season, in order: "Supported by" at the end of the reader's credits fine print */
 	supporters?: Supporter[];
+	/** the toon page's desktop hero: a muted background loop + the button to the trailer chapter (language-neutral) */
+	trailer?: SeasonTrailer;
 	/** @deprecated moved to `<toon>/_/credits.json` (the creator shows it read-only); the viewer never rendered it */
 	credits?: Credits;
 	sequence: SequenceItem[];
@@ -316,6 +318,21 @@ export interface Supporter {
 	logo?: string;
 	/** link of the logo / name */
 	url?: string;
+}
+
+/**
+ * The season's trailer on the toon page (owner 2026-10-01, desktop hero): a short muted montage looping behind the title,
+ * and "Trailer ansehen" / "Ton an" open the trailer chapter (the prologue) with sound. Language-neutral like `download`.
+ */
+export interface SeasonTrailer {
+	/** CDN path of the muted background loop (H.264 MP4, no audio track needed); the default after `sources` */
+	loop: string;
+	/** other encodings of the loop, tried first in this order (e.g. 1920 px for `(min-width: 1600px)`) */
+	sources?: SliceVideoSource[];
+	/** CDN path of the poster image (shown before the loop plays and with reduced motion) */
+	poster: string;
+	/** the chapter the trailer buttons open, default 0 (the prologue) */
+	chapter?: number;
 }
 
 /** A season's downloads (the reader's `/<toon>/download` page, linked below the season's chapter list) */

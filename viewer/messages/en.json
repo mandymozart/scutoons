@@ -236,5 +236,14 @@
 	},
 	"season": {
 		"download": "Download the music"
+	},
+	"menu": {
+		"open": "Menu"
+	},
+	"hero": {
+		"season": "Season {number} · {title}",
+		"trailer": "Watch the trailer",
+		"sound_on": "Sound on",
+		"sound_on_title": "Watch the prologue with sound"
 	}
 }

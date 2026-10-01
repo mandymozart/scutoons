@@ -192,12 +192,14 @@ final class LibraryTest extends TestCase
         $this->seedToon();
         $download = ['music' => 'audio/album.zip'];
         $supporters = [['name' => 'A', 'logo' => 'images/supporters/a.svg'], ['name' => 'B', 'url' => 'https://b.example']];
+        $trailer = ['loop' => 'videos/l.1280w.mp4', 'sources' => [['src' => 'videos/l.1920w.mp4', 'media' => '(min-width: 1600px)']], 'poster' => 'images/p.webp', 'chapter' => 0];
         foreach (['de', 'en'] as $l) {
-            $this->doc('t', $l, 'season1.json', ['title' => "S $l", 'download' => $download, 'supporters' => $supporters, 'sequence' => [['type' => 'chapter', 'number' => 1, 'status' => 'published']]]);
+            $this->doc('t', $l, 'season1.json', ['title' => "S $l", 'download' => $download, 'supporters' => $supporters, 'trailer' => $trailer, 'sequence' => [['type' => 'chapter', 'number' => 1, 'status' => 'published']]]);
         }
         $bundle = self::decode($this->library()->toon('t', 'en', false)->body);
         self::assertSame($download, $bundle['seasons'][0]['season']['download'], 'the season download (the music album) is passed through');
         self::assertSame($supporters, $bundle['seasons'][0]['season']['supporters'], 'the supporters are passed through in order');
+        self::assertSame($trailer, $bundle['seasons'][0]['season']['trailer'], 'the trailer (desktop hero loop) is passed through');
         $season = self::decode($this->library()->season('t', 1, 'de', false)->body);
         self::assertSame($supporters, $season['season']['supporters']);
     }

@@ -42,6 +42,10 @@
 					},
 					"description": "who supported the season, in order: \"Supported by\" at the end of the reader's credits fine print"
 				},
+				"trailer": {
+					"$ref": "#/definitions/SeasonTrailer",
+					"description": "the toon page's desktop hero: a muted background loop + the button to the trailer chapter (language-neutral)"
+				},
 				"credits": {
 					"$ref": "#/definitions/Credits",
 					"deprecated": "moved to `<toon>/_/credits.json` (the creator shows it read-only); the viewer never rendered it"
@@ -105,6 +109,50 @@
 				"name"
 			],
 			"description": "A supporter of a season (a logo row at the end of the credits fine print; without a logo its name as text)"
+		},
+		"SeasonTrailer": {
+			"type": "object",
+			"properties": {
+				"loop": {
+					"type": "string",
+					"description": "CDN path of the muted background loop (H.264 MP4, no audio track needed); the default after `sources`"
+				},
+				"sources": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/SliceVideoSource"
+					},
+					"description": "other encodings of the loop, tried first in this order (e.g. 1920 px for `(min-width: 1600px)`)"
+				},
+				"poster": {
+					"type": "string",
+					"description": "CDN path of the poster image (shown before the loop plays and with reduced motion)"
+				},
+				"chapter": {
+					"type": "number",
+					"description": "the chapter the trailer buttons open, default 0 (the prologue)"
+				}
+			},
+			"required": [
+				"loop",
+				"poster"
+			],
+			"description": "The season's trailer on the toon page (owner 2026-10-01, desktop hero): a short muted montage looping behind the title, and \"Trailer ansehen\" / \"Ton an\" open the trailer chapter (the prologue) with sound. Language-neutral like `download`."
+		},
+		"SliceVideoSource": {
+			"type": "object",
+			"properties": {
+				"src": {
+					"type": "string"
+				},
+				"media": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"src"
+			],
+			"description": "One encoding of a slice video: a CDN path like `SliceVideo.src` + an optional media query (`<source media>`)"
 		},
 		"Credits": {
 			"type": "object",

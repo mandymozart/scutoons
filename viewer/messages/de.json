@@ -236,5 +236,14 @@
 	},
 	"season": {
 		"download": "Musik herunterladen"
+	},
+	"menu": {
+		"open": "Menü"
+	},
+	"hero": {
+		"season": "Staffel {number} · {title}",
+		"trailer": "Trailer ansehen",
+		"sound_on": "Ton an",
+		"sound_on_title": "Den Prolog mit Ton ansehen"
 	}
 }

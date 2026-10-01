@@ -3,6 +3,8 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import ChaptersList from '$lib/components/toon/chapters-list.svelte';
 	import StartButton from '$lib/components/toon/start-button.svelte';
+	import Hero from '$lib/components/toon/hero.svelte';
+	import { onMount } from 'svelte';
 	import { CreditsColophon } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
@@ -14,6 +16,16 @@
 
 	const seasonNumber = $derived(season?.number ?? 1);
 
+	// the desktop layout (hero + 12-column grid) from 1024 px; phones and tablets keep the single column
+	const DESKTOP = '(min-width: 1024px)';
+	let desktop = $state(typeof window !== 'undefined' && window.matchMedia(DESKTOP).matches);
+	onMount(() => {
+		const query = window.matchMedia(DESKTOP);
+		const onChange = () => (desktop = query.matches);
+		query.addEventListener('change', onChange);
+		return () => query.removeEventListener('change', onChange);
+	});
+
 	$effect(()=>{
 		toon = data.toon
 		season = data.season
@@ -22,6 +34,10 @@
 </script>
 
 <div class="view toon-overview">
+	{#if desktop && season}
+		<!-- desktop (≥ 1024 px): the trailer hero is the first screen (agents/DESIGN.md "Toon page desktop") -->
+		<Hero toonId={params.toonId} {toon} {season} {seasonNumber} {sequence} />
+	{/if}
 	<div class="toon-header">
 		<img src={asset(`${params.toonId}/${toon.cover.square}`)} alt="Cover" class="Cover" />
 		<h1>{toon.title}</h1>
@@ -30,15 +46,29 @@
 
 	<section class="chapters-section">
 		{#if season}
-			<div class="chapters-header">
-				<h2>{m['chapter.season_title']({ number: seasonNumber, title: season.title })}</h2>
-				<p class="season-description">{season.description}</p>
-				<!-- one start button: first chapter / continue / next / again, from the reading progress -->
-				<StartButton toonId={params.toonId} season={seasonNumber} chapters={sequence} />
+			<div class="season-column">
+				<div class="chapters-header">
+					<h2>{m['chapter.season_title']({ number: seasonNumber, title: season.title })}</h2>
+					<p class="season-description">{season.description}</p>
+					{#if !desktop}
+						<!-- one start button: first chapter / continue / next / again, from the reading progress (desktop: in the hero) -->
+						<StartButton toonId={params.toonId} season={seasonNumber} chapters={sequence} />
+					{/if}
+				</div>
+				{#if desktop && season.download?.music}
+					<div class="season-download" data-testid="season-download">
+						<a class="btn btn-secondary" href={localizeHref(`/${params.toonId}/download`)}>{m['season.download']()}</a>
+					</div>
+				{/if}
+				{#if desktop}
+					{@render colophon()}
+				{/if}
 			</div>
 			<!-- Chapter List -->
-			<ChaptersList items={sequence} toonId={params.toonId} />
-			{#if season.download?.music}
+			<div class="list-column">
+				<ChaptersList items={sequence} toonId={params.toonId} />
+			</div>
+			{#if !desktop && season.download?.music}
 				<!-- the season's music (members: the download page) -->
 				<div class="season-download" data-testid="season-download">
 					<a class="btn btn-secondary" href={localizeHref(`/${params.toonId}/download`)}>{m['season.download']()}</a>
@@ -47,7 +77,13 @@
 		{/if}
 	</section>
 
-	<!-- the credits as fine print (+ the season's supporters) -->
+	{#if !desktop}
+		{@render colophon()}
+	{/if}
+</div>
+
+<!-- the credits as fine print (+ the season's supporters): at the bottom, on desktop in the season column -->
+{#snippet colophon()}
 	{#await data.credits then credits}
 		{#if credits.lead.length || credits.sections.length || season?.supporters?.length}
 			<section class="credits-section">
@@ -55,7 +91,7 @@
 			</section>
 		{/if}
 	{/await}
-</div>
+{/snippet}
 
 <style>
 	.toon-overview {
@@ -98,5 +134,108 @@
 
 	.credits-section {
 		margin: var(--space-3) auto;
+	}
+
+	/* ── desktop (≥ 1024 px, root 24 px): hero, then season (cols 1–5) | chapter list (cols 7–12) ── */
+	@media (min-width: 1024px) {
+		.toon-overview {
+			max-width: none;
+		}
+		.toon-header {
+			display: none;
+		}
+		.chapters-section {
+			display: grid;
+			grid-template-columns: repeat(12, minmax(0, 1fr));
+			column-gap: 1.3333rem;
+			padding: 3.3333rem 2rem 0;
+			max-width: 75rem;
+			margin: 0 auto;
+		}
+		.season-column {
+			grid-column: 1 / span 5;
+			display: flex;
+			flex-direction: column;
+			gap: 0.8333rem;
+		}
+		.chapters-header {
+			padding: 0;
+			margin: 0;
+		}
+		.chapters-header h2 {
+			margin: 0 0 0.8333rem;
+			font-size: 1.3333rem;
+		}
+		.season-description {
+			margin: 0;
+			font-size: 0.6667rem;
+			line-height: 1.6;
+		}
+		.season-column .season-download {
+			padding: 0.5rem 0 0;
+			text-align: left;
+		}
+		.season-column .season-download .btn {
+			font-size: 0.6667rem;
+			padding: 0.5833rem 1.1667rem;
+		}
+		.list-column {
+			grid-column: 7 / span 6;
+			border-top: var(--border-width-regular) solid var(--ink);
+		}
+		/* the chapter rows: thumbnail 112 × 72, title (+ progress rule / release), "#n" / "Prolog" right-aligned */
+		.list-column :global(.chapter-item) {
+			grid-template-columns: 112px minmax(0, 1fr) 2.6667rem;
+			gap: 0.8333rem;
+			padding: 0.5rem 0;
+			border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+		}
+		.list-column :global(.chapter-item .chapter-image img) {
+			width: 112px;
+			height: 72px;
+			object-fit: cover;
+		}
+		.list-column :global(.chapter-item .chapter-info) {
+			display: flex;
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 0.25rem;
+		}
+		.list-column :global(.chapter-item .chapter-title) {
+			font-size: 0.75rem;
+		}
+		.list-column :global(.chapter-item .chapter-release) {
+			font-size: 0.5rem;
+		}
+		.list-column :global(.chapter-item .chapter-release span) {
+			display: inline;
+			margin-right: 0.25rem;
+		}
+		.list-column :global(.chapter-item.published .chapter-release) {
+			display: none;
+		}
+		.list-column :global(.chapter-item .chapter-progress) {
+			width: 5.3333rem;
+			max-width: none;
+			margin-top: 0.25rem;
+		}
+		.list-column :global(.chapter-item .chapter-number) {
+			min-width: 0;
+			justify-content: flex-end;
+			font-size: 0.6667rem;
+		}
+		.list-column :global(.chapter-item .chapter-label) {
+			font-size: inherit;
+		}
+		/* the colophon in the season column: its own centred fine print, within the column width */
+		.season-column .credits-section {
+			margin: 1.3333rem 0 var(--space-3);
+		}
+		.season-column .credits-section :global(.colophon) {
+			margin: 0;
+			padding: 0;
+			/* fine print like on the phone (≈ 13 px at the 24 px root), not the 19.5 px the root scale would give */
+			font-size: 0.5417rem;
+		}
 	}
 </style>

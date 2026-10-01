@@ -10,7 +10,20 @@
 	 * read nothing yet and didn't watch the prologue to its end – from the reading progress (game context checkpoints:
 	 * localStorage, a member's `/api/progress/<toon>`). Only readable chapters are targets, never "coming soon".
 	 */
-	let { toonId, season, chapters }: { toonId: string; season: number; chapters: LoadedSequenceItem[] } = $props();
+	let {
+		toonId,
+		season,
+		chapters,
+		inverse = false,
+		testid = 'start-button'
+	}: {
+		toonId: string;
+		season: number;
+		chapters: LoadedSequenceItem[];
+		/** on a dark background (the desktop hero): paper button, ink text */
+		inverse?: boolean;
+		testid?: string;
+	} = $props();
 
 	const game = getGameContext();
 	const readable = $derived(chapters.filter((c) => isItemPublic(c, import.meta.env.DEV)));
@@ -29,14 +42,14 @@
 </script>
 
 {#if reading && target}
-	<div class="start">
+	<div class="start" class:inverse>
 		<a
 			class="start-button"
 			href={localizeHref(`/${toonId}/chapter/${reading.chapter}`)}
 			title={reading.kind === 'prologue'
 				? m['start.prologue_title']({ season, title: target.title ?? '' })
 				: m['start.title']({ season, chapter: reading.chapter, title: target.title ?? '' })}
-			data-testid="start-button"
+			data-testid={testid}
 			data-state={reading.kind}
 		>
 			{label}
@@ -46,7 +59,7 @@
 		</a>
 		{#if percent !== null}
 			<!-- the reading progress under the button, as wide as the button -->
-			<span class="start-progress" aria-hidden="true" data-testid="start-progress"><span style:width="{percent}%"></span></span>
+			<span class="start-progress" aria-hidden="true" data-testid={`${testid === 'start-button' ? 'start' : testid}-progress`}><span style:width="{percent}%"></span></span>
 		{/if}
 	</div>
 {/if}
@@ -92,5 +105,18 @@
 		display: block;
 		height: 100%;
 		background: var(--ink);
+	}
+	/* inverted for the dark hero: paper button, the read part of the rule in paper */
+	.inverse .start-button {
+		background: var(--paper);
+		color: var(--ink);
+		font-size: inherit;
+		padding: 0.75em 1.6em;
+	}
+	.inverse .start-progress {
+		background: rgb(255 255 255 / 0.35);
+	}
+	.inverse .start-progress span {
+		background: var(--paper);
 	}
 </style>

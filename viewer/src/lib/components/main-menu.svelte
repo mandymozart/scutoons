@@ -9,6 +9,7 @@
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { onClickOutside } from 'runed';
 	import accountIcon from '$lib/icons/account.svg';
+	import menuIcon from '$lib/icons/menu.svg';
 
 	let { toons }: { toons: ToonIndex[] } = $props();
 
@@ -60,6 +61,11 @@
 		return goto(url, opts);
 	};
 </script>
+
+<!-- the same slide-out from the top-right icon group (all widths; the logo opens it too) -->
+<button class="menu-toggle" onclick={toggleMenu} aria-label={m['menu.open']()} aria-expanded={menuOpen} data-testid="menu-toggle">
+	<img src={menuIcon} alt="" />
+</button>
 
 <div class="main-menu-toggle logo">
 	<button class="btn-nav" onclick={toggleMenu}>
@@ -151,6 +157,33 @@
 		transition: transform 0.3s ease;
 	}
 
+	/* the round icon toggles of the top-right group (list, map, inventory: toon/*.svelte), right-most */
+	.menu-toggle {
+		position: fixed;
+		top: 0.5rem;
+		right: 0.5rem;
+		/* under the open slide-out (1003), which then covers it */
+		z-index: 1002;
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: var(--paper);
+		border: var(--border-width-regular) solid var(--ink);
+		border-radius: var(--radius-full);
+		cursor: pointer;
+		touch-action: manipulation;
+		transition: all 0.2s ease;
+	}
+	.menu-toggle:hover {
+		background: var(--primary-cyan);
+	}
+	.menu-toggle img {
+		width: 1rem;
+	}
+
 	.main-menu-toggle {
 		position: fixed;
 		top: 0.5rem;
@@ -190,8 +223,6 @@
 		flex: 1;
 		align-items: center;
 		gap: 0.5rem;
-		font-size: 16px;
-		line-height: 16px;
 		height: 3rem;
 		padding: 0.25rem 0.5rem;
 		border: none;
@@ -200,7 +231,9 @@
 		background: transparent;
 		border-radius: 0;
 		font-family: var(--font-mono);
-		font-size: 1rem;
+		/* the button type of the design system: fluid root size (14 / 16 / 24 px), no px overrides */
+		font-size: var(--type-button-size);
+		line-height: var(--type-button-line);
 		cursor: pointer;
 	}
 
@@ -209,10 +242,6 @@
 		align-items: center;
 		gap: 0.25rem;
 		width: 100%;
-	}
-
-	.main-menu nav ul li.nav-item button span {
-		font-size: 10px;
 	}
 
 	.main-menu nav ul li.nav-item button.nav-btn {
@@ -228,9 +257,10 @@
 		width: 3rem;
 	}
 
+	/* labels next to an icon (account, the toons) read like every other menu item */
 	.main-menu nav.nav ul.nav-list li.nav-item button span {
-		font-size: 16px;
-		line-height: 16px;
+		font-size: inherit;
+		line-height: inherit;
 	}
 
 	.main-menu nav.nav.nav--toons ul.nav-list li.nav-item button:hover {

@@ -404,6 +404,26 @@ function checkSeason(c: Collector, s: any, locale: string) {
 			if (s.download.complete != null && !isStr(s.download.complete)) c.error(['download', 'complete'], 'download.complete must be a path or null');
 		}
 	}
+	if (s.trailer !== undefined) {
+		if (!isObj(s.trailer)) c.error(['trailer'], 'trailer must be { loop, poster, sources?, chapter? }');
+		else {
+			if (!isStr(s.trailer.loop) || !s.trailer.loop) c.error(['trailer', 'loop'], 'trailer.loop is missing (an .mp4 on the CDN)');
+			else if (!/\.(mp4|webm)$/i.test(s.trailer.loop)) c.warn(['trailer', 'loop'], 'trailer.loop is not a video path (.mp4, .webm)');
+			if (s.trailer.poster === undefined || s.trailer.poster === '') c.error(['trailer', 'poster'], 'trailer.poster is missing (an image on the CDN)');
+			else checkImagePath(c, s.trailer.poster, ['trailer', 'poster']);
+			if (s.trailer.sources !== undefined) {
+				if (!Array.isArray(s.trailer.sources)) c.error(['trailer', 'sources'], 'trailer.sources must be a list of { src, media? }');
+				else
+					s.trailer.sources.forEach((source: any, i: number) => {
+						if (!isObj(source) || !isStr(source.src) || !source.src) c.error(['trailer', 'sources', i, 'src'], 'source.src is missing (an .mp4 on the CDN)');
+						if (isObj(source) && source.media !== undefined && !isStr(source.media)) c.error(['trailer', 'sources', i, 'media'], 'source.media must be a media query string');
+					});
+			}
+			if (s.trailer.chapter !== undefined && (!Number.isInteger(s.trailer.chapter) || s.trailer.chapter < 0)) c.error(['trailer', 'chapter'], 'trailer.chapter must be a chapter number');
+			else if (Array.isArray(s.sequence) && !s.sequence.some((item: any) => item?.number === (s.trailer.chapter ?? 0)))
+				c.warn(['trailer', 'chapter'], `the trailer chapter ${s.trailer.chapter ?? 0} is not in the sequence`);
+		}
+	}
 	if (s.supporters !== undefined) {
 		if (!Array.isArray(s.supporters)) c.error(['supporters'], 'supporters must be a list of { name, logo?, url? }');
 		else

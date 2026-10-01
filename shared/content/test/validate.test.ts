@@ -52,3 +52,14 @@ test('slice video: sources [{ src, media? }] before src', () => {
 	]);
 	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', sources: 'videos/q.mp4' }), ['error groups.0.slices.0.video.sources']);
 });
+
+test('season.trailer: { loop, poster, sources?, chapter? }', () => {
+	const sequence = [{ type: 'chapter', number: 0, status: 'published' }, { type: 'chapter', number: 1, status: 'published' }];
+	const trailer = { loop: 'videos/s1-trailer-loop.1280w.mp4', sources: [{ src: 'videos/s1-trailer-loop.1920w.mp4', media: '(min-width: 1600px)' }], poster: 'images/s1-trailer-poster.webp' };
+	assert.deepEqual(problems('season', season({ sequence, trailer })), []);
+	assert.deepEqual(problems('season', season({ sequence, trailer: { ...trailer, chapter: 1 } })), []);
+	assert.deepEqual(problems('season', season({ sequence, trailer: { poster: 'images/p.webp', chapter: -1 } })), ['error trailer.loop', 'error trailer.chapter']);
+	assert.deepEqual(problems('season', season({ sequence, trailer: { loop: 'videos/l.mp4' } })), ['error trailer.poster']);
+	assert.deepEqual(problems('season', season({ sequence: [], trailer })), ['warning trailer.chapter']);
+	assert.deepEqual(problems('season', season({ sequence, trailer: 'videos/l.mp4' })), ['error trailer']);
+});

@@ -110,6 +110,18 @@
 			</div>
 		</section>
 
+		<!-- the toon page's desktop hero: a muted background loop + "Trailer ansehen" / "Ton an" → the trailer chapter -->
+		<section class="block" data-testid="season-trailer">
+			<h2 title={m['creator.trailer_hint']()}>{m['creator.trailer']()}</h2>
+			<div class="grid g2">
+				<SharedField doc={season} path={['trailer', 'loop']} label="trailer.loop" placeholder="videos/s1-trailer-loop.1280w.mp4" testid="trailer-loop" />
+				<SharedField doc={season} path={['trailer', 'poster']} label="trailer.poster" kind="image" {toon} known={images} testid="trailer-poster" />
+				<SharedField doc={season} path={['trailer', 'sources', 0, 'src']} label="trailer.sources[0].src" placeholder="videos/s1-trailer-loop.1920w.mp4" />
+				<SharedField doc={season} path={['trailer', 'sources', 0, 'media']} label="trailer.sources[0].media" placeholder="(min-width: 1600px)" />
+				<SharedField doc={season} path={['trailer', 'chapter']} label="trailer.chapter" kind="number" placeholder="0" />
+			</div>
+		</section>
+
 		<!-- who supported the season: "Supported by" logos at the end of the reader's credits fine print -->
 		<section class="block" data-testid="season-supporters">
 			<h2>{m['creator.supporters']()}</h2>

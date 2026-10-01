@@ -166,7 +166,7 @@ const map = $derived(toon?.map as Map | undefined);
 	.map-toggle {
 		position: fixed;
 		top: 0.5rem;
-		right: 3rem;
+		right: 5.5rem;
 		z-index: 1001;
 		background: white;
 		border: 2px solid black;

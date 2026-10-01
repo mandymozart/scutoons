@@ -179,7 +179,8 @@
 	.inventory-toggle {
 		position: fixed;
 		top: 0.5rem;
-		right: 0.5rem;
+		/* the menu button is right-most (main-menu.svelte) */
+		right: 3rem;
 		z-index: 1001;
 		background: var(--paper);
 		border: 2px solid black;

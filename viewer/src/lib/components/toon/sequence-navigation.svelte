@@ -157,7 +157,7 @@
 	.sequence-navigation-toggle {
 		position: fixed;
 		top: 0.5rem;
-		right: 5.5rem;
+		right: 8rem;
 		width: 2rem;
 		height: 2rem;
 		padding: 0;

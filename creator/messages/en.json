@@ -446,6 +446,8 @@
 		"history_by": "by {author}",
 		"history_import": "import",
 		"supporters": "Supporters",
+		"trailer": "Trailer (desktop hero)",
+		"trailer_hint": "A muted loop behind the toon page title (desktop); \"Watch the trailer\" and \"Sound on\" open the trailer chapter (default 0, the prologue). The same in every language.",
 		"supporters_empty": "No supporters yet.",
 		"supporter_add": "Add supporter",
 		"supporter_remove": "Remove {name}"
