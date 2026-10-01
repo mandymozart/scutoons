@@ -248,6 +248,6 @@
 		"season": "Staffel {number} · {title}",
 		"trailer": "Trailer ansehen",
 		"sound_on": "Ton an",
-		"sound_on_title": "Den Prolog mit Ton ansehen"
+		"sound_off": "Ton aus"
 	}
 }

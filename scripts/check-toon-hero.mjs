@@ -2,12 +2,17 @@
 // profile, no dependencies), like scripts/check-prolog.mjs.
 //
 // Desktop (1440 × 900, 1280 × 800, 1024 × 768, and 1920 × 1080 for the large loop), de + en, a fresh guest:
-//   - the hero is the first screen (≤ 900 px high), the trailer loop autoplays muted (never unmuted), `playsinline`,
-//     loops; the network loads exactly one loop file (1280w, 1920w from 1600 px) and nothing of the prologue video;
+//   - the hero is the first screen (≤ 900 px high), the trailer loop autoplays muted, `playsinline`, loops; the network
+//     loads exactly one loop file (1280w, 1920w from 1600 px) and nothing of the prologue video;
 //   - the loop pauses when the hero leaves the screen and when the tab is hidden, and plays again when it is back;
-//   - reduced motion: no video, the poster image, no loop request;
+//   - reduced motion: no video, the poster image, no loop request; "Ton an" then plays the loop with sound, "Ton aus"
+//     stops it again;
 //   - the season line, title, tagline; the start button (inverted, "Prolog ansehen" for a fresh guest) and
-//     "Trailer ansehen" + "Ton an" → /<toon>/chapter/0;
+//     "Trailer ansehen" → /<toon>/chapter/0; "Ton an" is a toggle button (aria-pressed false, speaker icon), no link;
+//   - 1440 / 1280 (real CDP mouse clicks): a click on the video / hero background does nothing (URL unchanged, still
+//     muted, no pointer cursor); "Ton an" unmutes the playing loop in place (URL unchanged, "Ton aus", speaker-muted
+//     icon, aria-pressed true, audio decoded); scrolled away it pauses, back on the hero it resumes still unmuted;
+//     "Ton aus" mutes again; a reload starts muted; "Trailer ansehen" opens /<toon>/chapter/0;
 //   - the logo + the round top icons are white over the hero (`html.on-hero`) and ink below it;
 //   - below: season + the credits colophon (as wide as the column) in cols 1–5 left of the chapter list (cols 7–12),
 //     thumbnails 112 × 72, "Prolog" / "#n" right-aligned.
@@ -106,7 +111,8 @@ const HERO = `(() => {
 		season: hero?.querySelector('.hero-season')?.textContent.trim(), title: hero?.querySelector('h1')?.textContent.trim(), tagline: hero?.querySelector('.hero-tagline')?.textContent.trim(),
 		start: start ? { text: start.textContent.trim(), state: start.dataset.state, href: new URL(start.href).pathname, bg: getComputedStyle(start).backgroundColor } : null,
 		trailer: document.querySelector('[data-testid="hero-trailer"]') ? { text: document.querySelector('[data-testid="hero-trailer"]').textContent.trim(), href: new URL(document.querySelector('[data-testid="hero-trailer"]').href).pathname } : null,
-		sound: document.querySelector('[data-testid="hero-sound"]') ? { text: document.querySelector('[data-testid="hero-sound"]').textContent.trim(), href: new URL(document.querySelector('[data-testid="hero-sound"]').href).pathname } : null,
+		sound: (() => { const b = document.querySelector('[data-testid="hero-sound"]'); return b ? { tag: b.tagName, text: b.textContent.trim(), pressed: b.getAttribute('aria-pressed'), icon: b.querySelector('svg')?.dataset.icon, href: b.getAttribute('href') } : null; })(),
+		path: location.pathname,
 		onHero: document.documentElement.classList.contains('on-hero'), logoFilter: img('.logo-link img'), iconFilter: img('.map-toggle img'), menuFilter: img('.menu-toggle img'),
 		mobileHeader: !!document.querySelector('.toon-header') && getComputedStyle(document.querySelector('.toon-header')).display !== 'none',
 		mobileStart: !!document.querySelector('[data-testid="start-button"]'),
@@ -149,9 +155,9 @@ async function desktop(width, height, locale) {
 		if (s.title !== toonTitle) p.push(`title "${s.title}"`);
 		if (!s.start || s.start.state !== 'prologue' || s.start.text !== msg.start.prologue || s.start.href !== `${prefix}/${toon}/chapter/0` || s.start.bg !== 'rgb(255, 255, 255)') p.push(`start button ${JSON.stringify(s.start)}`);
 		if (!s.trailer || !s.trailer.text.startsWith(msg.hero.trailer) || s.trailer.href !== `${prefix}/${toon}/chapter/0`) p.push(`trailer button ${JSON.stringify(s.trailer)}`);
-		if (!s.sound || !s.sound.text.endsWith(msg.hero.sound_on) || s.sound.href !== `${prefix}/${toon}/chapter/0`) p.push(`sound button ${JSON.stringify(s.sound)}`);
+		if (!s.sound || s.sound.tag !== 'BUTTON' || s.sound.text !== msg.hero.sound_on || s.sound.pressed !== 'false' || s.sound.icon !== 'speaker' || s.sound.href !== null) p.push(`sound button ${JSON.stringify(s.sound)}`);
 		if (s.mobileHeader || s.mobileStart) p.push('the phone header / start button is shown too');
-		report(`hero text + buttons ("${msg.start.prologue}" inverted, "${msg.hero.trailer}", "${msg.hero.sound_on}" → chapter 0)`, p);
+		report(`hero text + buttons ("${msg.start.prologue}" inverted, "${msg.hero.trailer}" → chapter 0, "${msg.hero.sound_on}" a toggle, muted)`, p);
 	}
 	{
 		const p = [];
@@ -183,6 +189,90 @@ async function desktop(width, height, locale) {
 		if (!visible || visible.error) r.push('the loop does not resume in a visible tab');
 		report('plays again on the hero, pauses in a hidden tab, resumes when visible', r);
 	}
+	if (width === 1440 || width === 1280) await clicks(width, height, locale);
+}
+
+// a real mouse click (CDP input = a user gesture, so the browser lets the loop play with sound)
+async function clickAt(x, y) {
+	await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+	await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+	await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+}
+async function clickOn(sel) {
+	const b = await evaluate(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e) return null; const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
+	if (!b || b.error) return false;
+	await clickAt(b.x, b.y);
+	return true;
+}
+
+// the hero's click targets: the background does nothing, the sound button toggles in place, the trailer navigates
+async function clicks(width, height, locale) {
+	const prefix = locale === 'en' ? '/en' : '';
+	const msg = messages[locale];
+	const page = `${prefix}/${toon}`;
+	const playing = (cond) => `(() => { const s = ${HERO}; return s.video && !s.video.paused && s.onHero && (${cond}) ? s : null; })()`;
+	const state = `(() => { const s = ${HERO}; return { video: s.video, sound: s.sound, path: s.path }; })()`;
+	await evaluate('window.scrollTo(0, 0), true');
+	await waitFor(playing('true'), 5000);
+	{
+		// the background: a click in the empty upper middle of the hero (the scrim over the video)
+		const p = [];
+		const hit = await evaluate(`(() => { const x = innerWidth / 2, y = 300; const e = document.elementFromPoint(x, y); const v = document.querySelector('[data-testid="hero-video"]'); return { x, y, cls: String(e?.className), inHero: !!e?.closest('[data-testid="hero"]'), cursor: e ? getComputedStyle(e).cursor : null, videoCursor: v && getComputedStyle(v).cursor, link: !!e?.closest('a, button'), videoLink: !!v?.closest('a, button'), onclick: !!(v?.onclick || e?.onclick) }; })()`);
+		await clickAt(hit.x, hit.y);
+		await sleep(800);
+		const s = await evaluate(HERO);
+		if (!hit.inHero || hit.link || hit.videoLink || hit.onclick || hit.cursor === 'pointer' || hit.videoCursor === 'pointer') p.push(`background ${JSON.stringify(hit)}`);
+		if (s.path !== page) p.push(`a click on the video navigated to ${s.path}`);
+		if (!s.video?.muted || s.sound?.pressed !== 'false') p.push(`a click on the video changed the sound: ${JSON.stringify({ muted: s.video?.muted, pressed: s.sound?.pressed })}`);
+		report(`${width} ${locale}: a click on the video / hero background does nothing (no link, no pointer, URL + mute unchanged)`, p, JSON.stringify(hit));
+	}
+	{
+		const p = [];
+		await clickOn('[data-testid="hero-sound"]');
+		const on = await waitFor(playing(`!s.video.muted && s.sound?.pressed === 'true'`), 4000);
+		if (!on || on.error) p.push(`after "${msg.hero.sound_on}": ${JSON.stringify(await evaluate(state))}`);
+		else {
+			if (on.path !== page) p.push(`navigated to ${on.path}`);
+			if (on.sound.text !== msg.hero.sound_off || on.sound.icon !== 'speaker-muted') p.push(`sound button ${JSON.stringify(on.sound)}`);
+			if (on.video.volume === 0) p.push('volume 0');
+		}
+		await sleep(800);
+		const decoded = await evaluate(`document.querySelector('[data-testid="hero-video"]')?.webkitAudioDecodedByteCount ?? null`);
+		if (decoded !== null && !(decoded > 0)) p.push(`no audio decoded (${decoded} bytes)`);
+		await shot(`hero-${width}-${locale}-3-sound-on`);
+		report(`${width} ${locale}: "${msg.hero.sound_on}" unmutes the playing loop in place → "${msg.hero.sound_off}", speaker-muted icon, aria-pressed true, audio decoded`, p, `audio ${decoded} B`);
+	}
+	{
+		const p = [];
+		await evaluate(`window.scrollTo(0, document.querySelector('[data-testid="hero"]').offsetHeight + 40), true`);
+		const away = await waitFor(`(() => { const s = ${HERO}; return s.video && s.video.paused ? s : null; })()`, 5000);
+		if (!away || away.error) p.push('keeps playing scrolled away');
+		await evaluate('window.scrollTo(0, 0), true');
+		const back = await waitFor(playing(`!s.video.muted && s.sound?.pressed === 'true'`), 5000);
+		if (!back || back.error) p.push(`back on the hero: ${JSON.stringify(await evaluate(state))}`);
+		await clickOn('[data-testid="hero-sound"]');
+		const off = await waitFor(playing(`s.video.muted && s.sound?.pressed === 'false' && s.sound.icon === 'speaker'`), 4000);
+		if (!off || off.error) p.push(`after "${msg.hero.sound_off}": ${JSON.stringify(await evaluate(state))}`);
+		else if (off.path !== page || off.sound.text !== msg.hero.sound_on) p.push(`after "${msg.hero.sound_off}": ${off.path} "${off.sound.text}"`);
+		report(`${width} ${locale}: unmuted, scrolled away it pauses, back it resumes unmuted; "${msg.hero.sound_off}" mutes again (still playing, URL unchanged)`, p);
+	}
+	{
+		// unmute, then reload: always muted on load
+		const p = [];
+		await clickOn('[data-testid="hero-sound"]');
+		await waitFor(playing('!s.video.muted'), 4000);
+		await open(`${viewer}${page}`, locale);
+		const s = await waitFor(playing('true'), 10000);
+		if (!s || s.error || !s.video.muted || s.sound?.pressed !== 'false') p.push(`after a reload: ${JSON.stringify(s?.video ?? s)} ${JSON.stringify(s?.sound)}`);
+		report(`${width} ${locale}: a reload starts muted again (no remembered unmute)`, p);
+	}
+	{
+		const p = [];
+		await clickOn('[data-testid="hero-trailer"]');
+		const went = await waitFor(`location.pathname === ${JSON.stringify(`${prefix}/${toon}/chapter/0`)} ? location.pathname : null`, 8000);
+		if (!went || went.error) p.push(`"${msg.hero.trailer}" → ${await evaluate('location.pathname')}`);
+		report(`${width} ${locale}: "${msg.hero.trailer}" opens ${prefix}/${toon}/chapter/0`, p);
+	}
 }
 
 for (const [w, h] of [[1440, 900], [1280, 800], [1024, 768]]) for (const l of ['de', 'en']) await desktop(w, h, l);
@@ -197,6 +287,17 @@ await open(`${viewer}/${toon}`, 'de');
 	const s = await waitFor(`(() => { const s = ${HERO}; return s.hero ? s : null; })()`);
 	report('reduced motion: poster image, no video, no loop request', s && !s.video && s.posterImg && !videoUrls.length ? [] : [`video ${JSON.stringify(s?.video)}, poster ${s?.posterImg}, network ${videoUrls.join(', ')}`]);
 	await shot('hero-1440-reduced-motion');
+	// "Ton an" is the explicit request: the loop plays with sound (in place); "Ton aus" stops it again
+	const state = `(() => { const s = ${HERO}; return { video: s.video, sound: s.sound, path: s.path }; })()`;
+	const p = [];
+	await clickOn('[data-testid="hero-sound"]');
+	const on = await waitFor(`(() => { const s = ${HERO}; return s.video && !s.video.paused && !s.video.muted && s.sound?.pressed === 'true' ? s : null; })()`, 10000);
+	if (!on || on.error) p.push(`after "Ton an": ${JSON.stringify(await evaluate(state))}`);
+	else if (on.path !== `/${toon}`) p.push(`navigated to ${on.path}`);
+	await clickOn('[data-testid="hero-sound"]');
+	const off = await waitFor(`(() => { const s = ${HERO}; return s.video && s.video.paused && s.video.muted && s.sound?.pressed === 'false' ? s : null; })()`, 4000);
+	if (!off || off.error) p.push(`after "Ton aus": ${JSON.stringify(await evaluate(state))}`);
+	report('reduced motion: "Ton an" plays the loop with sound (in place), "Ton aus" stops it', p);
 }
 await send('Emulation.setEmulatedMedia', { features: [] });
 

@@ -248,6 +248,6 @@
 		"season": "Season {number} · {title}",
 		"trailer": "Watch the trailer",
 		"sound_on": "Sound on",
-		"sound_on_title": "Watch the prologue with sound"
+		"sound_off": "Sound off"
 	}
 }
