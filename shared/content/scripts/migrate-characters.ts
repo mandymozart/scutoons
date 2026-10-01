@@ -188,6 +188,8 @@ const PERSONA_LABELS: Record<string, LocaleText | null> = {
 const UPDATES: Record<string, (c: RegistryCharacter) => void> = {
 	catpope: (c) => {
 		c.own_toon = 'catpope';
+		// middle shock blue (owner 2026-10-01; Molotow/Belton tone, approximated) instead of the legacy 'blue'
+		c.color = '#0066cc';
 		findPersona(c, REGULAR_PERSONA)!.looks[0].label = { de: 'päpstlich', en: 'papal' };
 		// the reader's avatar bodies (character level): swim pants and naked
 		c.apose = {
@@ -217,7 +219,8 @@ const NEW: RegistryCharacter[] = [
 			de: 'Die Anführerin der Biker-Gang – das war sie schon immer, das ist ihr wahres Ich.',
 			en: 'The head of the biker gang – she always has been; this is her true self.'
 		},
-		color: 'yellow',
+		// signal yellow (owner 2026-10-01; RAL 1003 Signalgelb)
+		color: '#f9a900',
 		own_toon: 'yellowmouse',
 		image: 'yellowmouse/avatar.webp',
 		// one persona, two looks: the kimono (default) and the biker helmet

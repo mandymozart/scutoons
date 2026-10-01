@@ -10,7 +10,7 @@
 				"de": "Zukünftiges Selbst",
 				"en": "Is future self"
 			},
-			"color": "blue",
+			"color": "#0066cc",
 			"image": "catpope/images/characters/catpope/catpope.svg",
 			"personas": [
 				{
@@ -596,7 +596,7 @@
 				"de": "Die Anführerin der Biker-Gang – das war sie schon immer, das ist ihr wahres Ich.",
 				"en": "The head of the biker gang – she always has been; this is her true self."
 			},
-			"color": "yellow",
+			"color": "#f9a900",
 			"own_toon": "yellowmouse",
 			"image": "yellowmouse/avatar.webp",
 			"personas": [

@@ -224,6 +224,18 @@
 			if (l) l.images[mood] ??= {};
 		});
 	}
+
+	/** any CSS colour (#hex or a name like 'lightblue') → #rrggbb for the native colour picker */
+	function toHex(color: string | undefined): string {
+		if (!color) return '#000000';
+		if (/^#[0-9a-f]{6}$/i.test(color)) return color.toLowerCase();
+		if (typeof document === 'undefined') return '#000000';
+		const ctx = document.createElement('canvas').getContext('2d');
+		if (!ctx) return '#000000';
+		ctx.fillStyle = '#000000';
+		ctx.fillStyle = color;
+		return /^#[0-9a-f]{6}$/i.test(ctx.fillStyle) ? ctx.fillStyle : '#000000';
+	}
 </script>
 
 {#if character}
@@ -257,7 +269,7 @@
 			<label>
 				{m['creator.characters_color']()}
 				<span class="inline">
-					<span class="swatch" style:background={character.color || 'transparent'}></span>
+					<input type="color" class="picker" value={toHex(character.color)} oninput={(e) => setField('color', e.currentTarget.value)} aria-label="{m['creator.characters_color']()} picker" data-testid="character-color-picker" />
 					<input type="text" value={character.color ?? ''} oninput={(e) => setField('color', e.currentTarget.value.trim())} data-testid="character-color" />
 				</span>
 			</label>
@@ -326,7 +338,7 @@
 						<label class="persona-color">
 							{m['creator.characters_persona_color']()}
 							<span class="inline">
-								<span class="swatch" style:background={currentPersona.color || character.color || 'transparent'}></span>
+								<input type="color" class="picker" value={toHex(currentPersona.color || character.color)} oninput={(e) => { const v = e.currentTarget.value; changePersona((p) => { p.color = v; }, 'color'); }} aria-label="{m['creator.characters_persona_color']()} picker" data-testid="persona-color-picker" />
 								<input type="text" value={currentPersona.color ?? ''} placeholder={character.color} oninput={(e) => changePersona((p) => { const v = e.currentTarget.value.trim(); if (v) p.color = v; else delete p.color; }, 'color')} data-testid="persona-color" />
 							</span>
 						</label>
@@ -533,12 +545,6 @@
 		align-items: center;
 		font-weight: 400;
 	}
-	.swatch {
-		width: 1.4rem;
-		height: 1.4rem;
-		border: 1px solid var(--ink);
-		flex: none;
-	}
 	.mini-img {
 		width: 1.8rem;
 		height: 1.8rem;
@@ -676,5 +682,15 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: 0.4rem;
+	}
+	/* the native colour picker as the swatch (square, the design's 2px rule) */
+	.picker {
+		width: 2rem;
+		height: 2rem;
+		padding: 0;
+		border: 2px solid var(--border-muted, #ccc);
+		background: transparent;
+		cursor: pointer;
+		flex: none;
 	}
 </style>
