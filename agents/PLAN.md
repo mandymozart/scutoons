@@ -374,3 +374,21 @@ featuring (data only, not shown in the reader); full view as centre group; multi
 content setting (default on); dark inventory; toon page = start button from reading progress + per-chapter progress bars,
 season music, credits colophon with supporters; IBM Plex Mono everywhere; `/en/` URLs fixed; `npm run dev` / `dev:test-user`.
 
+## After the 2026-10-04 release: branches to merge (state 2026-10-01 evening)
+
+All tested green on their own; none is in `platform` yet. Merge in this order, each time `npm run check` (incl.
+`check:tools-css`) + the full suite, sweeping new px font sizes to the tool tokens:
+1. `sso` – single sign-on (cookie on .scutoons.com, `@scutoons/auth`, roles; admins may use the creator "for now").
+   Deploy order: API before frontends (agents/PLATFORM.md "SSO — result").
+2. `wardrobe` – clothing overlays (basic dress tee/shorts/sandals, swim pants as safety), testo + substances, Check It
+   camera (game notice + checkit.wien link). Migration `2026-10-01-reader-state`; overlays/icons already in local
+   `cdn/root` (upload with `cdn/sync.py` at merge). Open: how readers obtain the Check It camera.
+3. `media-quality` – quality setting (low/medium/high/auto), video placement (4 fits, frame ratios, full viewport),
+   "Hintergrund" tab. Migration `2026-10-01-media-quality` + `shared/content/seed/2026-10-01-media-quality-chapter0.mysql.sql`;
+   `agents/MERGE-media-quality.md`.
+4. `map` – world map (M0–M2: entity, reader map, builder, unlocks, wanted map places). After merge: back up the store,
+   run `shared/content/scripts/migrate-map.ts`; production: the seed's `map` statement (MAP.md §8.8).
+5. `brutal-ui` – brutalist tools (phase 1+2); conflicts are style/markup regions only (its report lists them per branch).
+Preview servers that may still run from agent worktrees: 21310/21320/21330/21340 (media-quality). Remove merged
+worktrees afterwards (`cdn/root` inside a worktree can be a junction: `rmdir`, never a recursive delete).
+
