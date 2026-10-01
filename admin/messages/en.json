@@ -4,9 +4,6 @@
 		"title": "SCUTOONS Admin",
 		"admin": "Admin",
 		"loading": "Loading …",
-		"sign_in_title": "Admin sign-in",
-		"no_access_title": "No access",
-		"no_access_text": "The admin is for SCUTOONS admins. Your account ({email}) doesn't have the admin role.",
 		"open_reader": "Open the reader",
 		"sign_out": "Sign out",
 		"menu": "Menu",
@@ -20,21 +17,6 @@
 		"info": "Info",
 		"info_close": "Close",
 		"info_guide": "Full style guide (creator)"
-	},
-	"login": {
-		"network_error": "Can't reach the SCUTOONS server. Try again later.",
-		"login_failed": "That did not work. Check the code and try again.",
-		"login_intro": "Sign in with your email. We send you a one-time code, no password.",
-		"email": "Email",
-		"email_placeholder": "you@example.com",
-		"send_code": "Send code",
-		"code_sent": "We sent a code to {email}. Enter it here or tap the link in the mail.",
-		"otp_label": "One-time code",
-		"logging_in": "Signing in …",
-		"verify": "Sign in",
-		"change_email": "Use another email",
-		"resend": "Send again",
-		"no_account_hint": "The admin is for existing accounts with the admin role."
 	},
 	"nav": {
 		"group_overview": "Overview",

@@ -4,41 +4,28 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Button, ToastStack } from '@scutoons/ui';
+	import { ToastStack } from '@scutoons/ui';
+	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setEmbassySession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
-	import LoginForm from '$lib/components/login-form.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
 	const session = setEmbassySession();
 	const toaster = setToaster();
 
-	onMount(async () => {
-		// magic link from the login mail: `<embassy origin>/?login=<token>`
-		const magicToken = page.url.searchParams.get('login');
-		if (magicToken) {
-			const url = new URL(page.url);
-			url.searchParams.delete('login');
-			goto(url.pathname + url.search, { replaceState: true });
-			if (!session.token) {
-				try {
-					await session.verifyToken(magicToken);
-				} catch (e) {
-					console.warn('Magic link login failed', e);
-				}
-			}
-		}
-		await session.init();
+	onMount(() => {
+		// magic link from the login mail: `<embassy origin>/?login=<token>`; else the shared session (single sign-on)
+		const magic = takeMagicToken(page.url);
+		if (magic) goto(magic.cleaned, { replaceState: true });
+		void session.init(magic?.token);
 	});
 
-	// role gate: liaison / ambassador / admin (the server checks it again on every /embassy call)
-	const waiting = $derived(!session.ready || (session.loading && !session.me));
+	// role gate (AuthGate): liaison / ambassador / admin – the server checks it again on every /embassy call
 	const isAmbassador = $derived(session.hasRole('ambassador') || session.hasRole('admin'));
-	const hasAccess = $derived(isAmbassador || session.hasRole('liaison'));
 	const otherLocale = $derived(locales.find((l) => l !== getLocale()) ?? 'en');
 
 	const nav = $derived([
@@ -56,24 +43,7 @@
 </svelte:head>
 
 <div class="embassy">
-	{#if waiting}
-		<p class="gate">{m['shell.loading']()}</p>
-	{:else if !session.isLoggedIn}
-		<section class="gate" data-testid="embassy-sign-in">
-			<img class="logo" src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="200" />
-			<h1>{m['shell.sign_in_title']()}</h1>
-			<LoginForm />
-		</section>
-	{:else if !hasAccess}
-		<section class="gate" data-testid="embassy-no-access">
-			<h1>{m['shell.no_access_title']()}</h1>
-			<p>{m['shell.no_access_text']({ email: session.user?.email ?? '' })}</p>
-			<p class="gate-actions">
-				<Button href={VIEWER_URL}>{m['shell.open_reader']()}</Button>
-				<Button variant="secondary" onclick={() => session.logout()}>{m['shell.sign_out']()}</Button>
-			</p>
-		</section>
-	{:else}
+	<AuthGate {session} app="embassy" appName="Embassy" locale={getLocale()} readerHref={VIEWER_URL}>
 		<header class="topbar">
 			<a class="brand" href="/">
 				<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
@@ -99,7 +69,7 @@
 		<main>
 			{@render children()}
 		</main>
-	{/if}
+	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['shell.dismiss']()} />
 </div>
 
@@ -118,24 +88,6 @@
 		color: var(--ink);
 		background: var(--paper);
 		min-height: 100dvh;
-	}
-	.gate {
-		max-width: 32rem;
-		margin: 0 auto;
-		padding: 5rem 1rem 2rem;
-		font-size: 16px;
-	}
-	.gate h1 {
-		font-size: 1.25rem;
-	}
-	.gate .logo {
-		display: block;
-		margin-bottom: var(--space-1);
-	}
-	.gate-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
 	}
 	.topbar {
 		position: sticky;

@@ -1,113 +1,54 @@
 import { setContext, getContext } from 'svelte';
-import { ApiError, getSessionToken, setSessionToken } from '$lib/api.ts';
-import {
-	authLogout,
-	authRequest,
-	authVerifyOtp,
-	authVerifyToken,
-	fetchMe,
-	updateMe,
-	type VerifyResult
-} from '$lib/api.ts';
-import type { Me, ServerMembership, User } from '@scutoons/content';
+import { createAuthSession, type AuthEvent } from '@scutoons/auth';
+import { authApi, updateMe } from '$lib/api.ts';
+import type { ServerMembership } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
 
 const SESSION_KEY = Symbol('session');
 
-type Listener = (event: 'login' | 'logout' | 'me', session: SessionContext) => void;
+type Listener = (event: AuthEvent, session: SessionContext) => void;
 
 export type SessionContext = ReturnType<typeof createSessionContext>;
 
 let _current: SessionContext | undefined;
 
 /**
- * Email login against qr.scutoons.com. Token lives in localStorage `scutoons_session`,
- * `/me/` (user, memberships, inventory, avatar) is loaded on init and after login.
+ * Email login – the single sign-on session of every SCUTOONS app (@scutoons/auth): the API keeps it in an HttpOnly
+ * cookie, so an account signed in on the creator, admin, shop or embassy is signed in here too, and signing out here
+ * signs out everywhere. `/me/` (user, memberships, inventory, avatar) is loaded on init and after login.
  * Signup rule (ITEMS.md 2026-09-30): a new account needs a code from a SCUTOONS product or a promo code; without
  * one the server still answers "sent" but mails only an explanation. Roles (`member`, `creator`, `admin`) come
  * with `/me/ user.roles`.
  */
 export function createSessionContext() {
-	let token = $state<string | null>(null);
-	let me = $state<Me | null>(null);
-	let loading = $state(false);
-	let ready = $state(false);
-	let error = $state<string | null>(null);
-
 	const listeners = new Set<Listener>();
-	const emit = (event: 'login' | 'logout' | 'me') => {
-		for (const l of listeners) {
-			try {
-				l(event, context);
-			} catch (e) {
-				console.error(e);
+	const auth = createAuthSession({
+		api: authApi,
+		locale: getLocale,
+		onChange: (event) => {
+			for (const l of listeners) {
+				try {
+					l(event, context);
+				} catch (e) {
+					console.error(e);
+				}
 			}
 		}
-	};
+	});
 
-	const user = $derived<User | null>(me?.user ?? null);
-	const roles = $derived<string[]>(me?.user?.roles ?? []);
-	const memberships = $derived<ServerMembership[]>(me?.memberships ?? []);
+	const memberships = $derived<ServerMembership[]>(auth.me?.memberships ?? []);
 	/**
 	 * Access model 2026-09-30: which code type grants what is decided by the server's permissions map;
 	 * the viewer only checks the `catalog` permission (all chapters of all toons).
 	 */
-	const permissions = $derived<string[]>(me?.access?.permissions ?? []);
+	const permissions = $derived<string[]>(auth.me?.access?.permissions ?? []);
 	/** account access: the logged-in account owns a code granting `catalog` (device access: membership context) */
 	const hasAccess = $derived(permissions.includes('catalog'));
-
-	async function loadMe(): Promise<Me | null> {
-		if (!token) return null;
-		loading = true;
-		try {
-			me = await fetchMe();
-			error = null;
-			emit('me');
-			return me;
-		} catch (e) {
-			if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-				// expired / revoked session
-				dropSession();
-			} else {
-				error = e instanceof Error ? e.message : String(e);
-			}
-			return null;
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function init() {
-		token = getSessionToken();
-		if (token && !me) await loadMe();
-		ready = true;
-	}
-
-	/** `marketingOptIn` = "Send me news about new releases" (only used when the account is created) */
-	function requestLogin(
-		email: string,
-		code?: string | null,
-		marketingOptIn = false,
-		choice?: { item_id?: string | null; variant?: string | null }
-	) {
-		return authRequest(email.trim(), code, getLocale(), marketingOptIn, choice);
-	}
-
-	async function applyVerify(result: VerifyResult) {
-		token = result.session_token;
-		setSessionToken(token);
-		await loadMe();
-		emit('login');
-		return result;
-	}
-
-	const verifyOtp = async (email: string, otp: string, marketingOptIn?: boolean) =>
-		applyVerify(await authVerifyOtp(email.trim(), otp.trim(), marketingOptIn));
 
 	/** Account page toggle: `PUT /me/ { marketing_opt_in }` */
 	async function setMarketingOptIn(value: boolean) {
 		const result = await updateMe({ marketing_opt_in: value });
-		if (me) me = { ...me, user: { ...me.user, ...result.user } };
+		if (auth.me) auth.patchMe({ user: { ...auth.me.user, ...result.user } });
 		return result.user;
 	}
 
@@ -117,34 +58,8 @@ export function createSessionContext() {
 	 */
 	async function setHideSensitive(value: boolean) {
 		const result = await updateMe({ hide_sensitive: value });
-		if (me) me = { ...me, user: { ...me.user, ...result.user }, ...(result.avatar ? { avatar: result.avatar } : {}) };
+		if (auth.me) auth.patchMe({ user: { ...auth.me.user, ...result.user }, ...(result.avatar ? { avatar: result.avatar } : {}) });
 		return result.user;
-	}
-
-	const hasRole = (role: string) => roles.includes(role);
-
-	const verifyToken = async (magicToken: string) => applyVerify(await authVerifyToken(magicToken));
-
-	function dropSession() {
-		const wasLoggedIn = !!token;
-		token = null;
-		me = null;
-		setSessionToken(null);
-		if (wasLoggedIn) emit('logout');
-	}
-
-	async function logout() {
-		try {
-			if (token) await authLogout();
-		} catch {
-			/* session is dropped locally anyway */
-		}
-		dropSession();
-	}
-
-	/** Replace parts of `me` after inventory/avatar mutations without refetching. */
-	function patchMe(patch: Partial<Me>) {
-		if (me) me = { ...me, ...patch };
 	}
 
 	function subscribe(listener: Listener) {
@@ -153,21 +68,24 @@ export function createSessionContext() {
 	}
 
 	const context = {
-		get token() {
-			return token;
-		},
+		/** the shared session (for the @scutoons/auth components) */
+		auth,
 		get isLoggedIn() {
-			return !!token && !!me;
+			return auth.isLoggedIn;
+		},
+		/** still checking, and this browser was signed in before: show "loading" instead of "sign in" */
+		get pending() {
+			return auth.pending;
 		},
 		get me() {
-			return me;
+			return auth.me;
 		},
 		get user() {
-			return user;
+			return auth.user;
 		},
 		/** `/me/ user.roles`, e.g. `['member', 'creator']` */
 		get roles() {
-			return roles;
+			return auth.roles;
 		},
 		get memberships() {
 			return memberships;
@@ -178,26 +96,26 @@ export function createSessionContext() {
 		get hasAccess() {
 			return hasAccess;
 		},
-
 		get loading() {
-			return loading;
+			return auth.loading;
 		},
 		get ready() {
-			return ready;
+			return auth.ready;
 		},
 		get error() {
-			return error;
+			return auth.error;
 		},
-		init,
-		loadMe,
-		requestLogin,
-		verifyOtp,
-		verifyToken,
+		init: auth.init,
+		loadMe: auth.loadMe,
+		requestLogin: auth.requestLogin,
+		verifyOtp: auth.verifyOtp,
+		verifyToken: auth.verifyToken,
 		setMarketingOptIn,
 		setHideSensitive,
-		hasRole,
-		logout,
-		patchMe,
+		hasRole: auth.hasRole,
+		logout: auth.logout,
+		/** Replace parts of `me` after inventory/avatar mutations without refetching. */
+		patchMe: auth.patchMe,
 		subscribe
 	};
 	return context;

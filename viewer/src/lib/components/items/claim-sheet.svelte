@@ -7,7 +7,8 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import type { CodeInfo, CodeOption, ItemVariant } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import LoginForm from '$lib/components/account/login-form.svelte';
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { LoginForm } from '@scutoons/auth';
 	import ItemIcon from './item-icon.svelte';
 
 	/**
@@ -200,7 +201,7 @@
 			{:else}
 				<p class="note">{m['claim.promo_note']()}</p>
 				{#if phase === 'signup'}
-					<LoginForm {code} signup onlogin={afterSignup} />
+					<LoginForm {session} locale={getLocale()} {code} signup onlogin={afterSignup} />
 					<button class="btn-secondary" onclick={onclose}>{m['claim.continue_reading']()}</button>
 				{:else}
 					<div class="actions">
@@ -281,6 +282,8 @@
 				{/if}
 				{#if phase === 'login'}
 					<LoginForm
+						{session}
+						locale={getLocale()}
 						{code}
 						itemId={chosenItem}
 						variant={chosenVariant}

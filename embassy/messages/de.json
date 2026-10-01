@@ -4,9 +4,6 @@
 		"title": "SCUTOONS Embassy",
 		"embassy": "Embassy",
 		"loading": "Lädt …",
-		"sign_in_title": "Embassy-Anmeldung",
-		"no_access_title": "Kein Zugang",
-		"no_access_text": "Die Embassy ist für Liaisons und Ambassadors von SCUTOONS. Dein Konto ({email}) hat keine dieser Rollen – bitte eine:n Admin, sie dir zu geben.",
 		"open_reader": "Zum Reader",
 		"sign_out": "Abmelden",
 		"language": "Sprache wechseln",
@@ -14,21 +11,6 @@
 		"dismiss": "Schließen",
 		"liaison": "Liaison",
 		"ambassador": "Ambassador"
-	},
-	"login": {
-		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuch es später nochmal.",
-		"login_failed": "Das hat nicht geklappt. Prüf den Code und versuch es nochmal.",
-		"login_intro": "Melde dich mit deiner E-Mail an. Wir schicken dir einen Einmal-Code, kein Passwort.",
-		"email": "E-Mail",
-		"email_placeholder": "du@example.com",
-		"send_code": "Code senden",
-		"code_sent": "Wir haben einen Code an {email} geschickt. Gib ihn hier ein oder tipp auf den Link in der Mail.",
-		"otp_label": "Einmal-Code",
-		"logging_in": "Anmelden …",
-		"verify": "Anmelden",
-		"change_email": "Andere E-Mail",
-		"resend": "Nochmal senden",
-		"no_account_hint": "Die Embassy ist für bestehende Konten mit der Rolle Liaison oder Ambassador."
 	},
 	"nav": {
 		"today": "Heute",

@@ -1,0 +1,40 @@
+{
+	"name": "@scutoons/auth",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS single sign-on for every app: the session (cookie + one-time move of stored tokens), the login form (email → one-time code), the app gate (sign-in screen, role-denied notice with switch account), signed-in-as + sign out, de/en texts, the role matrix",
+	"sideEffects": [
+		"**/*.css",
+		"**/*.svelte"
+	],
+	"svelte": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"svelte": "./src/index.ts",
+			"default": "./src/index.ts"
+		}
+	},
+	"files": [
+		"src"
+	],
+	"scripts": {
+		"check": "svelte-check --tsconfig ./tsconfig.json --fail-on-warnings"
+	},
+	"dependencies": {
+		"@scutoons/api": "*",
+		"@scutoons/content": "*",
+		"@scutoons/tokens": "*",
+		"@scutoons/ui": "*"
+	},
+	"peerDependencies": {
+		"svelte": "^5.32.0"
+	},
+	"devDependencies": {
+		"svelte": "^5.55.0",
+		"svelte-check": "^4.1.0",
+		"typescript": "^5.9.3"
+	}
+}

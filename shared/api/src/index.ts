@@ -5,6 +5,7 @@ export {
 	createQrApi,
 	type QrApi,
 	type VerifyResult,
+	type SessionResult,
 	type AccessResult,
 	type InventoryResult,
 	type ProgressResult

@@ -31,6 +31,11 @@ export interface ApiClientOptions {
 	getToken?: () => string | null;
 	/** sent as `X-Device-Id` (the server stores only an HMAC of it, for code activity stats) */
 	getDeviceId?: () => string | null;
+	/**
+	 * `'include'` = send the single sign-on cookie `scutoons_sid` (HttpOnly, set by the API on `/auth/verify/`) with
+	 * every request – the session clients of the apps. Leave it out for public clients (simple requests, any origin).
+	 */
+	credentials?: RequestCredentials;
 	fetch?: typeof fetch;
 }
 
@@ -72,6 +77,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 				method,
 				headers,
 				body: body !== undefined ? JSON.stringify(body) : undefined,
+				credentials: options.credentials,
 				signal: opts.signal
 			});
 		} catch (error) {

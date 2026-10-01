@@ -23,7 +23,7 @@
 
 	const shouldShowContent = $derived(isPreview || membership.isValid);
 	// don't flash the blocker while a stored session is still loading /me/
-	const loading = $derived(!!session.token && !session.ready);
+	const loading = $derived(session.pending);
 
 	const handleScan = () => itemsUi.openCamera({ qr: true, object: null, entry: null });
 	const handleSignIn = () => goto(localizeHref('/account'));

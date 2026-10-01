@@ -35,7 +35,6 @@
 	},
 	"account": {
 		"my_account": "Mein Konto",
-		"sign_out": "Abmelden",
 		"membership": "Vollmitgliedschaft",
 		"promo": "Promo",
 		"event": "Veranstaltung",
@@ -60,18 +59,7 @@
 		"no_membership_message": "Keine Mitgliedschaft gefunden. Bitte scanne einen QR-Code, um dein Konto zu aktivieren.",
 		"buy_access": "Zugang kaufen",
 		"login_title": "Anmelden",
-		"login_intro": "Melde dich mit deiner E-Mail an. Wir schicken dir einen Einmal-Code, kein Passwort.",
-		"email_placeholder": "du@beispiel.de",
-		"send_code": "Code senden",
-		"code_sent": "Wir haben einen Code an {email} geschickt. Gib ihn hier ein oder tippe auf den Link in der Mail.",
-		"otp_label": "Einmal-Code",
-		"verify": "Anmelden",
-		"change_email": "Andere E-Mail",
-		"resend": "Nochmal senden",
-		"logging_in": "Anmelden ...",
-		"login_failed": "Das hat nicht geklappt. Prüfe den Code und versuche es nochmal.",
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",
-		"signed_in_as": "Angemeldet als",
 		"memberships": "Mitgliedschaften",
 		"no_memberships": "Noch keine Mitgliedschaft.",
 		"device_membership": "Mitgliedschaft auf diesem Gerät",
@@ -99,12 +87,8 @@
 		"creator_link": "Creator",
 		"creator_hint": "Toons und Kapitel bearbeiten.",
 		"signup_rule": "Noch kein Konto? Du erstellst eins mit einem Code von einem SCUTOONS-Produkt (dem QR-Code einer limitierten Edition) oder einem Promo-Code: Scanne ihn und wähle „Konto erstellen“ oder „Zu meinem Konto hinzufügen“.",
-		"code_sent_no_account": "Falls es für diese Adresse noch kein Konto gibt, erklärt die E-Mail, wie du eins erstellst (du brauchst einen Code von einem SCUTOONS-Produkt oder einen Promo-Code).",
-		"signup_code_required": "Für diese E-Mail gibt es noch kein Konto. Für ein Konto brauchst du einen Code von einem SCUTOONS-Produkt oder einen Promo-Code.",
 		"signup_title": "Konto erstellen",
-		"signup_intro": "Erstelle dein Konto mit deiner E-Mail. Wir schicken dir einen Einmal-Code, kein Passwort.",
-		"access_promo": "Alle Kapitel · über deinen Promo-Code {code}",
-		"signup_code_taken": "Dieser Code ist schon in einem anderen Konto, damit kann kein neues erstellt werden. Lesen kannst du trotzdem damit."
+		"access_promo": "Alle Kapitel · über deinen Promo-Code {code}"
 	},
 	"inventory": {
 		"empty": "Heiliges Bienenwax, nicht eine Katze im Sack!"

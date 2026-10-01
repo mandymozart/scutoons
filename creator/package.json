@@ -13,6 +13,7 @@
 	},
 	"dependencies": {
 		"@scutoons/api": "*",
+		"@scutoons/auth": "*",
 		"@scutoons/content": "*",
 		"@scutoons/reader": "*",
 		"@scutoons/tokens": "*",

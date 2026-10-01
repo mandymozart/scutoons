@@ -14,6 +14,13 @@ export interface VerifyResult {
 	claim_error?: { code: string; error: string; message: string; options?: unknown };
 }
 
+/** `/auth/session/`: who is signed in, and how (single sign-on cookie or the Bearer token) */
+export interface SessionResult {
+	status: string;
+	user: User;
+	via: 'cookie' | 'bearer';
+}
+
 /** `/access/`: what a code grants to whoever holds it (device viewing access), never who owns it */
 export interface AccessResult {
 	status: string;
@@ -80,7 +87,14 @@ export function createQrApi(api: ApiClient) {
 		/** Device access check for a code (no login needed; sends the session if there is one). 404 / 410 expired / 429 */
 		checkAccess: (code: string) => api.post<AccessResult>('/access/', { code }),
 
-		authLogout: () => api.post('/auth/logout/'),
+		/** Ends the session (the shared one: every app is signed out) and clears the cookie; `all` = every device */
+		authLogout: (all = false) => api.post('/auth/logout/', all ? { all: true } : {}),
+
+		/** Single sign-on: the account of the session cookie alone (never the stored token) – 401 when there is none */
+		authSession: () => api.get<SessionResult>('/auth/session/', { auth: false }),
+
+		/** Single sign-on: the stored Bearer token of an app → the same session as the cookie (once, then drop it) */
+		authExchange: () => api.post<SessionResult>('/auth/session/'),
 
 		fetchMe: () => api.get<Me>('/me/'),
 

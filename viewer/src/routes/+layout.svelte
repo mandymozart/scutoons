@@ -54,15 +54,8 @@
 			goto(url.pathname + url.search, { replaceState: true });
 		}
 
-		// magic link from the login mail
-		if (magicToken && !session.token) {
-			try {
-				await session.verifyToken(magicToken);
-			} catch (e) {
-				console.warn('Magic link login failed', e);
-			}
-		}
-		await session.init();
+		// magic link from the login mail, else the single sign-on session (any SCUTOONS app) or a stored token
+		await session.init(magicToken);
 
 		if (code) {
 			// the sheet grants device access via /access/ right away and offers "Add to my account"
