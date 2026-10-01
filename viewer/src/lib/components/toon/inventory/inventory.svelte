@@ -15,6 +15,7 @@
 	import ItemDetail from '$lib/components/items/item-detail.svelte';
 	import RecipePreview from '$lib/components/items/recipe-preview.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
+	import ReaderStats from '$lib/components/items/reader-stats.svelte';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -143,6 +144,8 @@
 				<a href={localizeHref('/account')}>{m['items.sign_in']()}</a>
 			</p>
 		{/if}
+
+		<ReaderStats />
 
 		{#if tab === 'avatar'}
 			<Avatar />

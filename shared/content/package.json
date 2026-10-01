@@ -19,7 +19,7 @@
 	"scripts": {
 		"schema": "node scripts/schema.js",
 		"check": "tsc --noEmit -p tsconfig.json && node scripts/schema.js --check && npm run test",
-		"test": "node --experimental-transform-types --no-warnings --test test/characters.test.ts test/progress.test.ts test/validate.test.ts test/wardrobe.test.ts"
+		"test": "node --experimental-transform-types --no-warnings --test test/characters.test.ts test/progress.test.ts test/validate.test.ts test/wardrobe.test.ts test/substances.test.ts"
 	},
 	"devDependencies": {
 		"ts-json-schema-generator": "^2.4.0",

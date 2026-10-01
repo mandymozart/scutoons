@@ -8,6 +8,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Avatar\AvatarService;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Inventory\InventoryService;
+use Scutoons\Domain\Reader\ReaderState;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
@@ -22,11 +23,12 @@ final class AccountService
         private readonly Permissions $permissions,
         private readonly InventoryService $inventory,
         private readonly AvatarService $avatar,
+        private readonly ReaderState $reader,
     ) {
     }
 
     /**
-     * GET /me/ → { user, access, memberships, inventory, avatar } (access incl. access_token when unlocked)
+     * GET /me/ → { user, access, memberships, inventory, avatar, stats, effects } (access incl. access_token when unlocked)
      * @param array<string, mixed> $user
      * @return array<string, mixed>
      */
@@ -48,6 +50,9 @@ final class AccountService
             ], $owned),
             'inventory' => $this->inventory->entries($userId),
             'avatar' => $this->avatar->toJson($userId),
+            // reader stats (decayed now) and running effects – agents/ITEMS.md "Substances"
+            'stats' => (object) $this->reader->stats($userId),
+            'effects' => $this->reader->effects($userId),
         ];
     }
 

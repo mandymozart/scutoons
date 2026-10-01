@@ -161,6 +161,27 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 		if (ids.has(item.id)) add('error', [...path, 'id'], `item id "${item.id}" is used twice`);
 		ids.add(item.id);
 		if (item.slot != null && !slots.includes(item.slot)) add('error', [...path, 'slot'], `${item.id}: unknown slot "${item.slot}"`);
+		// substances (ITEMS.md "Substances"): stat changes of known stats, a timed effect, the `apply` skill
+		const stats = isObj(catalog.stats) ? catalog.stats : {};
+		const applies = Array.isArray(item.skills) && item.skills.some((sk: any) => sk?.type === 'apply');
+		const substance = (Array.isArray(item.effects) && item.effects.length > 0) || item.effect != null;
+		if (item.effects != null) {
+			if (!Array.isArray(item.effects)) add('error', [...path, 'effects'], `${item.id}: effects must be a list of { stat, delta }`);
+			else item.effects.forEach((e: any, j: number) => {
+				if (!isObj(e) || typeof e.stat !== 'string' || !stats[e.stat]) add('error', [...path, 'effects', j], `${item.id}: unknown stat "${e?.stat}" (catalog.stats)`);
+				else if (typeof e.delta !== 'number' || !Number.isFinite(e.delta) || e.delta === 0) add('error', [...path, 'effects', j, 'delta'], `${item.id}: delta must be a number ≠ 0`);
+			});
+		}
+		if (item.effect != null && !(isObj(item.effect) && typeof item.effect.kind === 'string' && /^[a-z0-9][a-z0-9_-]*$/.test(item.effect.kind) && typeof item.effect.duration_min === 'number' && item.effect.duration_min > 0)) {
+			add('error', [...path, 'effect'], `${item.id}: effect must be { kind, duration_min > 0 }`);
+		}
+		if (substance !== applies) add('error', [...path, 'skills'], `${item.id}: ${substance ? 'a substance needs the "apply" skill' : 'the "apply" skill needs effects or an effect'}`);
+		for (const sk of Array.isArray(item.skills) ? item.skills : []) {
+			if (sk?.type !== 'scan_object') continue;
+			for (const g of [sk.grants, ...(Array.isArray(sk.map) ? sk.map.map((m: any) => m?.grants) : [])]) {
+				if (!catalog.items.some((x: any) => x?.id === g)) add('error', [...path, 'skills'], `${item.id}: scan_object grants an unknown item "${g}"`);
+			}
+		}
 		if (item.default_worn != null && (typeof item.default_worn !== 'boolean' || (item.default_worn && (item.starter !== true || !item.slot)))) {
 			add('error', [...path, 'default_worn'], `${item.id}: default_worn: true is only for starter items with a slot`);
 		}
@@ -192,7 +213,13 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 			}
 		}
 	});
-	for (const slot of SENSITIVE_COVER) {
+	for (const [id, def] of Object.entries(isObj(catalog.stats) ? catalog.stats : {})) {
+		const d = def as any;
+		if (!isObj(d) || typeof d.baseline !== 'number' || d.baseline < 0 || d.baseline > 100 || typeof d.half_life_days !== 'number' || d.half_life_days <= 0) {
+			add('error', ['stats', id], `stat "${id}" must be { label, baseline 0–100, half_life_days > 0 }`);
+		}
+	}
+		for (const slot of SENSITIVE_COVER) {
 		if (!catalog.items.some((it: any) => isObj(it) && it.starter === true && it.slot === slot)) {
 			add('warning', ['items'], `no starter item for the "${slot}" slot: "Hide sensitive content" can't keep the avatar covered`);
 		}

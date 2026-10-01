@@ -241,6 +241,8 @@ const NEW: RegistryCharacter[] = [
 		color: '#dd5ba2',
 		own_toon: 'toptoy',
 		tags: ['duo'],
+		// owner 2026-10-01: Top Toy tends to take a lot of psychedelics – story/workflow reference, no runtime effect
+		tendencies: ['psychedelics'],
 		image: 'toptoy/avatar.webp',
 		personas: [{ id: REGULAR_PERSONA, looks: [{ id: DEFAULT_LOOK, default: true, images: {} }] }],
 		// avatar bodies (delivered 2026-09-30; the swim file came as `toptop-apose-swim.png`), twin slots: TOPTOY_SLOTS

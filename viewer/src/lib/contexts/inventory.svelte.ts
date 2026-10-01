@@ -9,12 +9,19 @@ import {
 	importItems,
 	putAvatar,
 	putAvatarBody,
-	fetchRegistry
+	fetchRegistry,
+	useItem,
+	endEffect as endEffectApi
 } from '$lib/api.ts';
 import {
 	DEFAULT_AVATAR_UNLOCKS,
 	SENSITIVE_COVER,
+	activeEffects,
+	applySubstance,
 	avatarBodies,
+	endEffect as endEffectState,
+	isSubstance,
+	statLevels,
 	basicDress,
 	bodySlots as bodySlotsOf,
 	coverSensitive,
@@ -39,6 +46,7 @@ import type {
 	ItemDef,
 	ItemVariant,
 	Localized,
+	ReaderState,
 	Recipe
 } from '@scutoons/content';
 import { getLocale } from '$lib/paraglide/runtime.js';
@@ -48,6 +56,17 @@ const INVENTORY_KEY = Symbol('inventory');
 const GUEST_STORAGE_KEY = 'scutoons_inventory';
 /** The guest's avatar body { character, look } (per device; the old ids sphynx / sphynx_nude / mouse are mapped) */
 const GUEST_BODY_KEY = 'scutoons_avatar_body';
+/** The guest's reader stats + effects (ITEMS.md "Substances"), per device */
+const GUEST_READER_KEY = 'scutoons_reader';
+
+function readGuestReader(): ReaderState {
+	try {
+		const raw = JSON.parse(localStorage.getItem(GUEST_READER_KEY) ?? 'null');
+		return { stats: raw?.stats && typeof raw.stats === 'object' ? raw.stats : {}, effects: Array.isArray(raw?.effects) ? raw.effects : [] };
+	} catch {
+		return { stats: {}, effects: [] };
+	}
+}
 const LEGACY_BODIES: Record<string, AvatarBodyRef> = {
 	sphynx: { character: 'catpope', look: 'swim' },
 	sphynx_nude: { character: 'catpope', look: 'naked' },
@@ -85,7 +104,7 @@ export interface Notice {
 	item_id: string;
 	qty: number;
 	/** returned = a worn item came off by a swap (back in the inventory); restored = the cover rule put it back on */
-	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'restored';
+	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'restored' | 'used';
 	/** the inventory entry (returned / restored) */
 	entry?: EntryId;
 }
@@ -158,6 +177,15 @@ export function createInventoryContext(session: SessionContext) {
 			.sort((a, b) => a.i - b.i)
 			.map(({ e }) => ({ id: e.id, slot: itemsById[e.item_id]?.slot ?? null }))
 	);
+	// reader stats + effects (ITEMS.md "Substances"): members from /me/, guests per device; `now` ticks so levels decay
+	// and effects end on screen
+	let guestReader = $state<ReaderState>(typeof localStorage === 'undefined' ? { stats: {}, effects: [] } : readGuestReader());
+	let now = $state(Date.now());
+	if (typeof window !== 'undefined') setInterval(() => (now = Date.now()), 15_000);
+	const reader = $derived<ReaderState>(isAccount ? { stats: session.me?.stats ?? {}, effects: session.me?.effects ?? [] } : guestReader);
+	/** every catalog stat with its current level (members: the server's decayed level from /me/, re-decayed locally) */
+	const stats = $derived(statLevels(catalog, reader, now));
+	const effects = $derived(activeEffects(reader.effects, now));
 	/** worn items by slot instance of the current body (stored ones moved onto it: same id, else by type) */
 	const worn = $derived<Record<string, EntryId | null>>(remapAvatarSlots(avatar.slots ?? {}, slots, slotTypeOf));
 
@@ -522,6 +550,54 @@ export function createInventoryContext(session: SessionContext) {
 		if (slotId) await setSlot(slotId, null);
 	}
 
+	/**
+	 * "Benutzen" on a substance: one piece is used up, its stat changes / timed effect apply (members: the server,
+	 * atomically; guests: here). Game mechanics only.
+	 */
+	async function useSubstance(entry: Entry): Promise<{ ok: boolean; error?: string }> {
+		const def = item(entry.item_id);
+		if (!def || !isSubstance(def)) return { ok: false, error: 'not_usable' };
+		busy = true;
+		try {
+			if (isAccount) {
+				const result = await useItem(entry.item_id);
+				session.patchMe({ inventory: result.inventory, stats: result.stats ?? {}, effects: result.effects ?? [] });
+			} else {
+				if (count(entry.item_id) < 1) return { ok: false, error: 'missing' };
+				removeGuestItems(entry.item_id, 1);
+				saveGuest();
+				guestReader = applySubstance(guestReader, def, catalog?.stats ?? {}, Date.now());
+				saveGuestReader();
+			}
+			now = Date.now();
+			notify(entry.item_id, 1, 'used');
+			return { ok: true };
+		} catch (e) {
+			return { ok: false, error: e instanceof ApiError ? e.code : 'error' };
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** "Effekt beenden" */
+	async function endEffect(kind: string) {
+		if (isAccount) {
+			const result = await endEffectApi(kind);
+			session.patchMe({ effects: result.effects ?? [] });
+		} else {
+			guestReader = endEffectState(guestReader, kind);
+			saveGuestReader();
+		}
+	}
+
+	function saveGuestReader() {
+		try {
+			localStorage.setItem(GUEST_READER_KEY, JSON.stringify(guestReader));
+		} catch {
+			/* storage unavailable */
+		}
+	}
+
 	/** First login on this device: move guest items into the account (crafted items are split back into their inputs). */
 	async function importGuest() {
 		const totals: Record<string, number> = {};
@@ -619,6 +695,16 @@ export function createInventoryContext(session: SessionContext) {
 		get busy() {
 			return busy;
 		},
+		/** reader stats with their current levels ("Testo 62"), ITEMS.md "Substances" */
+		get stats() {
+			return stats;
+		},
+		/** running reader effects */
+		get effects() {
+			return effects;
+		},
+		useSubstance,
+		endEffect,
 		init,
 		loadCatalog,
 		item,

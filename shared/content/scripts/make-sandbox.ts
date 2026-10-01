@@ -70,6 +70,14 @@ const CUCUMBERS: Record<number, { x: number; y: number; width: number; height: n
 	8: { x: 78.46, y: 7.52, width: 8.72, height: 8.64 },
 	19: { x: 52.05, y: 15.68, width: 45.38, height: 16 }
 };
+/**
+ * A tube of testo to pick up (ITEMS.md "Substances"; owner 2026-10-01): the same click mechanism as the cucumbers – the
+ * first group showing the slice offers it once (`add testo 1` grants the item, source story, once per place). The slice
+ * art has no tube drawn in: the click area sits on the stone ledge right of the figure (sandbox only).
+ */
+const TESTOS: Record<number, { x: number; y: number; width: number; height: number }> = {
+	6: { x: 80, y: 83, width: 16, height: 9 }
+};
 
 // ── Lines (de = source, en) ─────────────────────────────────────────────────────────────────────────────────────
 
@@ -129,6 +137,7 @@ const LINES = {
 	goodbyeAll: { de: 'Tschüss!', en: 'Bye!' } as Text,
 	end: { de: 'Ende des Spaziergangs.', en: 'The end of the walk.' } as Text,
 	cucumber: { de: 'Eine Gurke!', en: 'A cucumber!' } as Text,
+	testo: { de: 'Eine Tube Testo!', en: 'A tube of testo!' } as Text,
 	collect: { de: 'Einsammeln', en: 'Collect' } as Text,
 	leave: { de: 'Liegen lassen', en: 'Leave it' } as Text
 };
@@ -156,11 +165,11 @@ const jump = (target: { type: 'chapter' | 'toon'; value: string; label?: string 
  * A cucumber to collect: a click on it (once) offers it – message + "Collect" (`add cucumber 1`, which also puts the
  * item into the inventory, with its "+1" notice) / "Leave it". Slice events, all with the same trigger.
  */
-const cucumberOffer = (rect: { x: number; y: number; width: number; height: number }): Draft[] => {
+const cucumberOffer = (rect: { x: number; y: number; width: number; height: number }, item: 'cucumber' | 'testo' = 'cucumber'): Draft[] => {
 	const trigger = { type: 'click', rect, once: true };
 	return [
-		{ type: 'showMessage', params: { text: LINES.cucumber }, trigger },
-		{ type: 'addChoice', params: { label: LINES.collect, onSelect: { add: { variable: 'cucumber', value: 1 } } }, trigger },
+		{ type: 'showMessage', params: { text: LINES[item] }, trigger },
+		{ type: 'addChoice', params: { label: LINES.collect, onSelect: { add: { variable: item, value: 1 } } }, trigger },
 		{ type: 'addChoice', params: { label: LINES.leave }, trigger },
 		{ type: 'showChoices', trigger }
 	];
@@ -197,6 +206,8 @@ export interface SandboxReport {
 	styleFails: number;
 	/** where the cucumbers are offered */
 	cucumbers: string[];
+	/** where the testo is offered */
+	testos: string[];
 	/** "Sonntagnachmittag": characters in the scene at once, of them on the portrait stage, look transitions */
 	sundayCast: number;
 	sundayStage: number;
@@ -253,12 +264,13 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		return t.label ? text((l) => t.label?.[l] || t.label?.de || `${from} → ${to}`) : text(() => `${from} → ${to}`);
 	};
 
-	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], sundayCast: 0, sundayStage: 0, sundayFull: [], sundayTransitions: 0, perEncounter: [] };
+	const report: SandboxReport = { chapters: 0, groups: 0, encounters: 0, moods: 0, mimics: 0, fails: 0, lookSwitches: 0, transitions: 0, styleFails: 0, cucumbers: [], testos: [], sundayCast: 0, sundayStage: 0, sundayFull: [], sundayTransitions: 0, perEncounter: [] };
 	const files: Record<string, unknown> = {};
 	const sequence: { type: 'chapter'; number: number; status: 'draft' }[] = [];
 	const met: Ref[] = [];
 	/** slices whose cucumber is already offered (a scene shared by several groups offers it in the first one) */
 	const cucumbersPlaced = new Set<number>();
+	const testosPlaced = new Set<number>();
 	let lineNo = 0;
 
 	encounters.forEach((enc, e) => {
@@ -493,7 +505,13 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 				cucumbersPlaced.add(n);
 				report.cucumbers.push(`chapter ${number} · ${label}: slice ${n}`);
 			}
-			slices.push({ image: slicePath(n), width: 390, height: 625, ...(cucumber ? { events: cucumberOffer(cucumber) } : {}) });
+			const testo = TESTOS[n] && !testosPlaced.has(n) ? TESTOS[n] : null;
+			if (testo) {
+				testosPlaced.add(n);
+				report.testos.push(`chapter ${number} · ${label}: slice ${n}`);
+			}
+			const events = [...(cucumber ? cucumberOffer(cucumber) : []), ...(testo ? cucumberOffer(testo, 'testo') : [])];
+			slices.push({ image: slicePath(n), width: 390, height: 625, ...(events.length ? { events } : {}) });
 		}
 		const group = { label, renderer: { type: 'vertical' }, slices, events };
 		for (const l of LOCALES) files[`${l}/chapter${number}/${label}.json`] = localize(group, l);
@@ -591,6 +609,7 @@ async function main() {
 			`${report.lookSwitches} look switches (${report.transitions} with a transition image), ${report.styleFails} styles Cat Pope lacks`
 	);
 	console.log(`cucumbers: ${report.cucumbers.join(', ') || 'none'}`);
+	console.log(`testo: ${report.testos.join(', ') || 'none'}`);
 	console.log(`Sonntagnachmittag (chapter ${report.chapters}): ${report.sundayCast} characters at once, ${report.sundayStage} on the portrait stage, full view: ${report.sundayFull.join(', ') || 'nobody'}, ${report.sundayTransitions} look transitions`);
 	for (const s of report.perEncounter) console.log(`  chapter ${s.chapter}  ${s.name.padEnd(28)} ${String(s.moods).padStart(3)} moods, ${s.fails} failed  [${s.groups.join(', ')}]`);
 	if (!entry) console.warn(`! shared/content/seed/toons.json has no "${SANDBOX_TOON}" entry (status draft) – the toon list comes from it`);

@@ -17,6 +17,16 @@
 	const def = $derived(inventory.item(entry.item_id));
 	const skills = $derived(def?.skills ?? []);
 	const usable = $derived(skills.length > 0);
+	// a substance (ITEMS.md "Substances"): "Benutzen" uses one piece up and applies it
+	const substance = $derived(skills.some((s) => s.type === 'apply'));
+	let useError = $state<string | null>(null);
+	async function useIt() {
+		useError = null;
+		working = true;
+		const result = await inventory.useSubstance(entry);
+		working = false;
+		if (!result.ok) useError = result.error ?? 'error';
+	}
 	const combinable = $derived(
 		(inventory.catalog?.recipes ?? []).some((r) => r.inputs.some((i) => i.item === entry.item_id))
 	);
@@ -89,7 +99,7 @@
 
 	<div class="actions">
 		{#if usable}
-			<button class="btn-secondary" onclick={() => ui.use(entry, skills)}>{m['items.use']()}</button>
+			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : ui.use(entry, skills))} data-testid="item-use">{m['items.use']()}</button>
 		{/if}
 		{#if combinable}
 			<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>
@@ -101,6 +111,7 @@
 		{/if}
 	</div>
 	{#if noteText}<p class="swap-note" role="status" data-testid="item-note">{noteText}</p>{/if}
+	{#if useError}<p class="swap-note" role="alert">{m['items.use_failed']()}</p>{/if}
 </div>
 
 <style>

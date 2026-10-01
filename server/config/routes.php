@@ -102,6 +102,8 @@ return static function (App $app): void {
     $app->post('/api/inventory/craft', [InventoryController::class, 'craft']);
     $app->post('/api/inventory/grant', [InventoryController::class, 'grant']);
     $app->post('/api/inventory/import', [InventoryController::class, 'import']);
+    $app->post('/api/inventory/use', [InventoryController::class, 'use']);
+    $app->post('/api/effects/end', [InventoryController::class, 'endEffect']);
 
     $app->get('/api/avatar', [AvatarController::class, 'get']);
     $app->put('/api/avatar', [AvatarController::class, 'put']);

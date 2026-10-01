@@ -37,6 +37,17 @@
 					"type": "string",
 					"description": "CSS color (VN avatar background, speaker accents)"
 				},
+				"testo": {
+					"type": "number",
+					"description": "Testo level 0–100 (owner 2026-10-01: no male/female – the more testo, the more of its read characteristics; the visual mapping comes later with the art, `testoBand`). none = not set."
+				},
+				"tendencies": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "story/workflow tendencies (`psychedelics` …), reference only, no runtime effect"
+				},
 				"own_toon": {
 					"type": "string",
 					"description": "the toon this character is the protagonist of (optional – most characters have none)"
@@ -230,6 +241,10 @@
 				"color": {
 					"type": "string",
 					"description": "the persona's own color (VN avatar background); none = the character's"
+				},
+				"testo": {
+					"type": "number",
+					"description": "the persona's own testo level 0–100 (none = the character's) – substances.ts"
 				},
 				"looks": {
 					"type": "array",

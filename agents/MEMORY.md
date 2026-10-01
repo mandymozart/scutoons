@@ -1294,3 +1294,20 @@ character, persona, look and mood and doubles as the VN test bed.
   added, the swim pants stay a starter in the inventory as the sensitive-content safety. A body without a shorts overlay
   (yellowmouse, Top Toy) gets the swim pants instead (`basicDress`). Sandals overlay: moved + scaled per foot from the
   dressed reference (its feet stand wider and 20 px higher than the naked A-pose's).
+
+## Substances, reader stats, testo (2026-10-01, branch `wardrobe`)
+
+- Owner: no male/female for anyone – an optional `testo` level 0–100 on characters/personas (no values set, no visual
+  effect yet; `testoBand` is the hook) and a reader testo stat; then "other drugs too" → one substances model: catalog
+  `stats` (testo, appetite: baseline 50, half-life 3 days), `substance` items with `effects` / `effect`,
+  `POST /inventory/use/`, `POST /effects/end/`, migration `2026-10-01-reader-state`. Details + merge note: ITEMS.md
+  "Substances".
+- No gender field existed anywhere (types, seed, creator, people) – nothing to remove.
+- `GET /me/ stats.<id>.updated_at` is "as of" (= now) on purpose: the first version sent the stored time with the already
+  decayed level and the viewer decayed it a second time (55 instead of 60 in the check).
+- `DELETE` is not in the reader API's CORS methods (only admin/embassy) → ending an effect is `POST /effects/end/`.
+- A story pickup is once per place via a rate_limits ref (`grantref:<user>:<item>`, never pruned): `test-user --reset`
+  now deletes those refs and the reader stats/effects, and gives back a starter camera a recipe consumed.
+- The testo camera can only react to ImageNet's `lotion` / `sunscreen` / `pill bottle` (MobileNet) – the honest limit is
+  in ITEMS.md; the multi-label "substance camera" is on hold (owner questions; the name "Check it" collides with checkit!).
+

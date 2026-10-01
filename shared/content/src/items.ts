@@ -1,4 +1,5 @@
 // Items, inventory, avatar — contract: agents/ITEMS.md (served by qr.scutoons.com /api)
+import type { StatDef, StatEffect, TimedEffect, ReaderState } from './substances.ts';
 
 export type Localized = Record<string, string>;
 
@@ -26,7 +27,7 @@ export const AVATAR_SLOTS: AvatarSlot[] = [
 ];
 
 export type ItemKind = 'physical' | 'virtual';
-export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media';
+export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance';
 export type GrantSource = 'story' | 'scan';
 export type EntrySource = 'qr' | 'story' | 'scan' | 'craft' | 'starter';
 
@@ -36,10 +37,17 @@ export interface ScanQrSkill {
 
 export interface ScanObjectSkill {
 	type: 'scan_object';
+	/** ImageNet class words that count as a hit (MobileNet on the device) */
 	labels: string[];
+	/** the item a hit grants */
 	grants: string;
 	cooldown_s?: number;
 	threshold?: number;
+	/**
+	 * More than one thing to find (a later multi-label camera, ITEMS.md "Substances"): recognised labels → the item
+	 * they grant, checked after `labels` → `grants`. Not used by any item yet.
+	 */
+	map?: { labels: string[]; grants: string }[];
 }
 
 export interface MinigameSkill {
@@ -52,7 +60,12 @@ export interface PlayAudioSkill {
 	src: string;
 }
 
-export type Skill = ScanQrSkill | ScanObjectSkill | MinigameSkill | PlayAudioSkill;
+/** "Benutzen" applies a substance: one piece is used up, its `effects` / `effect` hit the reader (substances.ts) */
+export interface ApplySkill {
+	type: 'apply';
+}
+
+export type Skill = ScanQrSkill | ScanObjectSkill | MinigameSkill | PlayAudioSkill | ApplySkill;
 
 export interface ItemVariant {
 	id: string;
@@ -89,6 +102,10 @@ export interface ItemDef {
 	 * slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`.
 	 */
 	default_worn?: boolean;
+	/** a substance's stat changes (`catalog.stats` ids), ITEMS.md "Substances" */
+	effects?: StatEffect[] | null;
+	/** a substance's temporary reader effect */
+	effect?: TimedEffect | null;
 }
 
 export interface RecipePart {
@@ -107,6 +124,8 @@ export interface Catalog {
 	slots: AvatarSlot[];
 	items: ItemDef[];
 	recipes: Recipe[];
+	/** the reader stats substances change (`testo`, `appetite`): baseline + half-life, ITEMS.md "Substances" */
+	stats?: Record<string, StatDef>;
 }
 
 export type EntryId = number | string;
@@ -193,6 +212,9 @@ export interface Me {
 	access_token?: string;
 	inventory: Entry[];
 	avatar: Avatar;
+	/** stored stat levels (decay with `statLevel`) and running effects – ITEMS.md "Substances" */
+	stats?: ReaderState['stats'];
+	effects?: ReaderState['effects'];
 }
 
 export interface CodeItem {

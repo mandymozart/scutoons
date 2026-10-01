@@ -114,6 +114,12 @@ export function createQrApi(api: ApiClient) {
 		importItems: (items: { item_id: string; qty: number }[]) =>
 			api.post<InventoryResult>('/inventory/import/', { items }),
 
+		/** apply one piece of a substance (ITEMS.md "Substances"): 422 missing / not_usable */
+		useItem: (item_id: string) =>
+			api.post<InventoryResult & { item_id: string; stats: Me['stats']; effects: Me['effects'] }>('/inventory/use/', { item_id }),
+		/** end a running reader effect ("Effekt beenden") */
+		endEffect: (kind: string) => api.post<{ status: string; ended: boolean; effects: Me['effects'] }>('/effects/end/', { kind }),
+
 		/** `restored` = slot instances the cover rule refilled ("Hide sensitive content", ITEMS.md "Wardrobe") */
 		putAvatar: (slots: Avatar['slots']) =>
 			api.put<{ status: string; avatar: Avatar; restored?: string[] }>('/avatar/', { slots }),

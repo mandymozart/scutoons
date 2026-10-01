@@ -161,6 +161,110 @@
       "variants": null
     },
     {
+      "id": "testo",
+      "toon": null,
+      "name": { "de": "Testo", "en": "Testo" },
+      "description": {
+        "de": "Eine Tube Testo – ein Spielgegenstand. Benutzen hebt deinen Testo-Wert, der mit der Zeit wieder zur Mitte sinkt. Lässt sich mit der Kamera kombinieren.",
+        "en": "A tube of testo – a game item. Using it raises your testo level, which drifts back to the middle over time. Can be combined with the camera."
+      },
+      "kind": "virtual",
+      "category": "substance",
+      "icon": "scutoons/items/testo.png",
+      "stackable": true,
+      "starter": false,
+      "grantable": ["story", "scan"],
+      "slot": null,
+      "skills": [{ "type": "apply" }],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "effects": [{ "stat": "testo", "delta": 20 }]
+    },
+    {
+      "id": "testo_camera",
+      "toon": null,
+      "name": { "de": "Testo-Kamera", "en": "Testo camera" },
+      "description": {
+        "de": "Eine Kamera mit Testo. Sie liest keine QR-Codes mehr, dafür erkennt sie Tuben und Fläschchen in der echten Welt – jeder Fund ist eine Tube Testo im Spiel.",
+        "en": "A camera with testo. It no longer reads QR codes, but it spots tubes and little bottles in the real world – every find is a tube of testo in the game."
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "scutoons/items/testo_camera.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": null,
+      "skills": [{ "type": "scan_object", "labels": ["lotion", "sunscreen", "pill bottle"], "grants": "testo", "cooldown_s": 10 }],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
+      "id": "psilocybin",
+      "toon": null,
+      "name": { "de": "Zauberpilz", "en": "Magic mushroom" },
+      "description": {
+        "de": "Ein Pilz aus dem Spiel. Benutzen lässt die Seiten eine Weile in Farben schwimmen – jederzeit beendbar.",
+        "en": "A mushroom from the game. Using it makes the pages swim in colours for a while – you can end it any time."
+      },
+      "kind": "virtual",
+      "category": "substance",
+      "icon": "scutoons/items/psilocybin.png",
+      "stackable": true,
+      "starter": false,
+      "grantable": ["story"],
+      "slot": null,
+      "skills": [{ "type": "apply" }],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "effect": { "kind": "psychedelic", "duration_min": 20 }
+    },
+    {
+      "id": "lsd",
+      "toon": null,
+      "name": { "de": "Bunte Pappe", "en": "Blotter" },
+      "description": {
+        "de": "Ein buntes Stück Pappe aus dem Spiel. Benutzen lässt die Seiten länger in Farben schwimmen – jederzeit beendbar.",
+        "en": "A colourful piece of blotter from the game. Using it makes the pages swim in colours for longer – you can end it any time."
+      },
+      "kind": "virtual",
+      "category": "substance",
+      "icon": "scutoons/items/lsd.png",
+      "stackable": true,
+      "starter": false,
+      "grantable": ["story"],
+      "slot": null,
+      "skills": [{ "type": "apply" }],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "effect": { "kind": "psychedelic", "duration_min": 45 }
+    },
+    {
+      "id": "semaglutide",
+      "toon": null,
+      "name": { "de": "Semaglutid-Pen", "en": "Semaglutide pen" },
+      "description": {
+        "de": "Ein Pen aus dem Spiel. Benutzen senkt deinen Appetit-Wert, der mit der Zeit wieder zur Mitte steigt. Noch ohne Folgen im Spiel.",
+        "en": "A pen from the game. Using it lowers your appetite level, which drifts back to the middle over time. No consequences in the game yet."
+      },
+      "kind": "virtual",
+      "category": "substance",
+      "icon": "scutoons/items/semaglutide.png",
+      "stackable": true,
+      "starter": false,
+      "grantable": ["story"],
+      "slot": null,
+      "skills": [{ "type": "apply" }],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "effects": [{ "stat": "appetite", "delta": -20 }]
+    },
+    {
       "id": "dago_hoodie",
       "toon": "catpope",
       "name": { "de": "Cat Pope Dago Hoodie", "en": "Cat Pope Dago Hoodie" },
@@ -301,6 +405,18 @@
         { "item": "cucumber", "qty": 1 }
       ],
       "output": { "item": "cucumber_camera", "qty": 1 }
+    },
+    {
+      "id": "testo_camera",
+      "inputs": [
+        { "item": "camera", "qty": 1 },
+        { "item": "testo", "qty": 1 }
+      ],
+      "output": { "item": "testo_camera", "qty": 1 }
     }
-  ]
+  ],
+  "stats": {
+    "testo": { "label": { "de": "Testo", "en": "Testo" }, "baseline": 50, "half_life_days": 3 },
+    "appetite": { "label": { "de": "Appetit", "en": "Appetite" }, "baseline": 50, "half_life_days": 3 }
+  }
 }

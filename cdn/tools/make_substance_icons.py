@@ -1,0 +1,117 @@
+"""Placeholder icons of the substance items (agents/ITEMS.md "Substances") in the house style of make_item_icons.py
+(thick ink outlines, paper/cyan accents, flat fills). Generic objects only – no real product look, no branding.
+
+Output: cdn/root/scutoons/items/{testo,testo_camera,psilocybin,lsd,semaglutide}.png (512 px, transparent, trimmed + fitted
+like every item icon). The owner replaces them later under the same names.
+
+Usage (from the repo root, with the cdn venv):
+  cdn/.venv/Scripts/python cdn/tools/make_substance_icons.py [--root <cdn root>]
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from make_item_icons import CYAN, INK, PAPER, fit, render_svg  # noqa: E402
+
+TUBE = "#e8ecef"
+TUBE_CAP = "#f2c230"
+MUSH = "#d8443a"
+STEM = "#f3e9d2"
+PEN = "#3b6fd6"
+
+
+def _tube(x: int, y: int, w: int, h: int, angle: float) -> str:
+    """A plain squeeze tube (body, crimped end, cap), rotated around its centre."""
+    cx, cy = x + w / 2, y + h / 2
+    return f"""<g transform="rotate({angle} {cx} {cy})">
+    <path d="M{x} {y + 30} L{x + w} {y + 30} L{x + w - 18} {y + h - 46} L{x + 18} {y + h - 46} Z" fill="{TUBE}" stroke="{INK}" stroke-width="18" stroke-linejoin="round"/>
+    <rect x="{x - 8}" y="{y}" width="{w + 16}" height="34" fill="{TUBE}" stroke="{INK}" stroke-width="18"/>
+    <path d="M{x + 14} {y + 17} H {x + w - 14}" stroke="{INK}" stroke-width="6" stroke-dasharray="10 10"/>
+    <rect x="{x + w / 2 - 34}" y="{y + h - 52}" width="68" height="52" fill="{TUBE_CAP}" stroke="{INK}" stroke-width="18"/>
+    <rect x="{x + 34}" y="{y + 90}" width="{w - 68}" height="{(h - 200) / 2}" fill="{CYAN}" stroke="{INK}" stroke-width="10"/>
+    <text x="{cx}" y="{y + 90 + (h - 200) / 4 + 14}" font-family="monospace" font-weight="700" font-size="42" text-anchor="middle" fill="{INK}">T</text>
+  </g>"""
+
+
+def testo_svg() -> str:
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  {_tube(176, 40, 160, 430, -24)}
+</svg>"""
+
+
+def testo_camera_svg() -> str:
+    # the starter camera (make_item_icons) with a tube strapped over it, like the cucumber camera's cucumber
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="150" y="146" width="130" height="58" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <rect x="40" y="186" width="432" height="232" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <rect x="352" y="160" width="62" height="26" fill="{INK}"/>
+  <rect x="70" y="214" width="56" height="30" fill="{CYAN}" stroke="{INK}" stroke-width="10"/>
+  <circle cx="256" cy="292" r="104" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <circle cx="256" cy="292" r="66" fill="{TUBE_CAP}" stroke="{INK}" stroke-width="14"/>
+  <circle cx="256" cy="292" r="26" fill="{INK}"/>
+  {_tube(330, 20, 110, 300, 38)}
+</svg>"""
+
+
+def psilocybin_svg() -> str:
+    dots = "".join(f'<circle cx="{x}" cy="{y}" r="{r}" fill="{PAPER}" stroke="{INK}" stroke-width="8"/>' for x, y, r in [(170, 170, 26), (256, 128, 22), (340, 176, 28), (214, 222, 16), (302, 230, 14)])
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <path d="M206 270 C 196 360, 186 420, 176 470 H 336 C 326 420, 316 360, 306 270 Z" fill="{STEM}" stroke="{INK}" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M56 286 C 56 120, 456 120, 456 286 Z" fill="{MUSH}" stroke="{INK}" stroke-width="18" stroke-linejoin="round"/>
+  {dots}
+</svg>"""
+
+
+def lsd_svg() -> str:
+    # a blotter square with a printed spiral (a generic pattern)
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <g transform="rotate(-12 256 256)">
+    <rect x="86" y="86" width="340" height="340" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+    <path d="M86 199 H 426 M86 312 H 426 M199 86 V 426 M312 86 V 426" stroke="{INK}" stroke-width="5" stroke-dasharray="12 10"/>
+    <path d="M256 256 m0 -18 a18 18 0 1 1 -18 18 a40 40 0 1 1 40 40 a64 64 0 1 1 -64 -64 a92 92 0 1 1 92 92" fill="none" stroke="{CYAN}" stroke-width="16" stroke-linecap="round"/>
+    <path d="M256 256 m0 -18 a18 18 0 1 1 -18 18 a40 40 0 1 1 40 40 a64 64 0 1 1 -64 -64 a92 92 0 1 1 92 92" fill="none" stroke="{MUSH}" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>"""
+
+
+def semaglutide_svg() -> str:
+    # a generic injection pen: body, window, dose dial, cap – no product look
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <g transform="rotate(-40 256 256)">
+    <rect x="40" y="206" width="300" height="100" rx="18" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+    <rect x="96" y="232" width="120" height="48" fill="{CYAN}" stroke="{INK}" stroke-width="10"/>
+    <path d="M120 232 V 280 M150 232 V 280 M180 232 V 280" stroke="{INK}" stroke-width="6"/>
+    <rect x="340" y="222" width="70" height="68" fill="{PEN}" stroke="{INK}" stroke-width="18"/>
+    <rect x="410" y="236" width="62" height="40" fill="{INK}"/>
+    <path d="M40 256 H 12" stroke="{INK}" stroke-width="14" stroke-linecap="round"/>
+  </g>
+</svg>"""
+
+
+ICONS = {
+    "testo": testo_svg,
+    "testo_camera": testo_camera_svg,
+    "psilocybin": psilocybin_svg,
+    "lsd": lsd_svg,
+    "semaglutide": semaglutide_svg,
+}
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--root", default=str(Path(__file__).resolve().parent.parent / "root"))
+    args = ap.parse_args()
+    out = Path(args.root) / "scutoons" / "items"
+    out.mkdir(parents=True, exist_ok=True)
+    for name, svg in ICONS.items():
+        p = out / f"{name}.png"
+        fit(render_svg(svg())).save(p, optimize=True, compress_level=9)
+        print(f"{p.relative_to(Path(args.root))}  {p.stat().st_size // 1024} KB")
+
+
+if __name__ == "__main__":
+    main()

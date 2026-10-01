@@ -675,7 +675,7 @@ body), 768 × 1152 transparent WebP aligned to that character's A-pose; icon `sc
 | `scutoons/items/scutoons_tshirt.png` | 122 KB | the catpope overlay, trimmed, 512 px |
 | `scutoons/items/scutoons_swim_pants.png` | 116 KB | the catpope overlay, trimmed, 512 px |
 | `scutoons/items/scutoons_shorts.png` | 190 KB | the catpope overlay, trimmed, 512 px |
-| `scutoons/items/scutoons_sandals.png` | 55 KB | the catpope overlay, trimmed, 512 px |
+| `scutoons/items/scutoons_sandals.png` | 96 KB | the catpope overlay, the pair side by side, 512 px |
 
 **Missing overlays (asset requests, the icon is drawn meanwhile – `missingWearOverlays(catalog, registry)` lists them):**
 `characters/yellowmouse/wear/scutoons_tshirt.webp`, `characters/yellowmouse/wear/scutoons_shorts.webp`,
@@ -711,3 +711,78 @@ first, the branch could not write there), then the API (items.json + services), 
 the four wearables on their next `/me/` with the basic dress (T-shirt, shorts, sandals – the swim pants on a body
 without a shorts overlay) worn where those slots were free. The bodies picker no longer
 offers "nackt" as a separate look.
+
+## Substances, reader stats, testo (2026-10-01, owner — built 2026-10-01 on branch `wardrobe`)
+
+Owner: "There is no male/female. Instead a testo value (a slider): the more testo, the more [gender-]read
+characteristics." Then: "other drugs too, taken at any time" → one small **substances** model, not a one-off. Game
+mechanics only: no dosing, no real-world use instructions, no claims about real effects in any text.
+
+- **No male/female anywhere.** There was no gender/sex field in the types, seed, creator or people (checked); none added.
+  Characters carry an optional `testo` level 0–100 (`RegistryCharacter.testo`, per-persona override
+  `CharacterPersona.testo`; validation 0–100; creator character page: a slider next to the colour + "✕" = unset, same
+  for the persona). **No values are set in the content** (unset = undefined). `characterTesto(c, persona)` reads it,
+  `testoBand(level)` → `testo-low | testo-mid | testo-high` (< 34 / < 67 / ≥ 67) is the hook for future A-pose / portrait
+  variants – **no visual change yet**; the owner decides the direction with the art.
+- **Character tendencies** (`RegistryCharacter.tendencies: string[]`, creator field "Neigungen"): story/workflow
+  reference only, no runtime effect. Top Toy: `["psychedelics"]` (owner: "tends to take a lot of psychedelics";
+  `migrate-characters.ts`, the characters seed, the characters statement of both seed SQL files).
+- **Reader stats** (`catalog.stats` in `server/config/items.json`): `testo` and `appetite` (a placeholder stat, no
+  gameplay yet), each `{ label, baseline: 50, half_life_days: 3 }`. **Neutral start 50.** **Decay:** the level drifts back
+  to the baseline, `level(t) = baseline + (stored − baseline) · 0.5^(days / half_life_days)` – computed lazily on read from
+  `{ level, updated_at }`, no cron (one constant per stat, in the catalog). Members: table `member_stats`; guests:
+  localStorage `scutoons_reader`. `GET /me/ stats` = `{ <stat>: { level, updated_at } }` = the level **as of** `updated_at`
+  (= now, decayed, 0.1 steps), so the reader keeps decaying it from there.
+- **Substance items** (`category: "substance"`, consumable, stackable, skill `{ "type": "apply" }` = "Benutzen"):
+  `effects: [{ stat, delta }]` (current level + delta, clamped 0–100) and/or `effect: { kind, duration_min }` (a timed
+  reader effect; a running one of the same kind is replaced). Validation: known stats, delta ≠ 0, duration > 0, a
+  substance needs `apply` and `apply` needs effects.
+
+  | id (placeholder names, owner may rename) | what | grantable |
+  |---|---|---|
+  | `testo` | testo +20 | story, scan |
+  | `psilocybin` ("Zauberpilz") | effect `psychedelic` 20 min | story |
+  | `lsd` ("Bunte Pappe") | effect `psychedelic` 45 min | story |
+  | `semaglutide` ("Semaglutid-Pen", generic name only) | appetite −20 | story |
+  | `testo_camera` (tool) | `scan_object` labels `lotion`, `sunscreen`, `pill bottle` → grants `testo`, cooldown 10 s | – |
+
+  Recipe `testo_camera` = `camera` + `testo` (like the cucumber camera: the starter camera's QR scan is traded for it).
+- **API:** `POST /inventory/use/ { item_id }` → `{ status, item_id, stats, effects, inventory }` – consumes one piece and
+  applies it in **one transaction** · `422 missing` (none owned), `not_usable`, `404 unknown_item`.
+  `POST /effects/end/ { kind }` → `{ status, ended, effects }` ("Effekt beenden"; a POST, so the reader CORS methods stay
+  GET/POST/PUT). `GET /me/` adds `stats` and `effects: [{ kind, until }]` (running only). Server:
+  `Domain\Reader\ReaderState`.
+- **Psychedelic effect (viewer):** `components/items/reader-effect.svelte` (toon layout): `html[data-effect=psychedelic]`
+  makes the slice images drift in hue and wobble gently (CSS); **off with `prefers-reduced-motion: reduce`**; a small bar
+  "Farbrausch · noch N min · Effekt beenden" ends it at once. Stat bars: `reader-stats.svelte` at the top of the inventory
+  ("Testo 62", plain brutalist bar, no gendered wording).
+- **Story pickup:** one `testo` in the sandbox, chapter 2 (the Top Toy encounter), slice 6: a click on the stone ledge
+  right of the figure (the art has no tube drawn in) → "Eine Tube Testo!" / "Einsammeln" (`add testo 1` → the VN item
+  bridge grants it, source story, once per place). `make-sandbox.ts` (`TESTOS`), the sandbox seed (dev only; not in the
+  production seed SQL).
+- **Testo camera detection – the limits, honestly:** the camera uses MobileNet v2 (ImageNet 1000 classes) on the device,
+  like the cucumber camera. ImageNet has no "testosterone" or "gel tube" class; the closest are `lotion`, `sunscreen` and
+  `pill bottle`, so the testo camera reacts to **tubes and small bottles in general** (hand cream, sunscreen, pill jars),
+  not to testo specifically, and only when the object fills the centre square (threshold 0.35, 3 frames). Game fiction:
+  "every find is a tube of testo in the game".
+- **Later multi-label "substance camera" (ON HOLD, owner questions open):** `ScanObjectSkill.map: [{ labels, grants }]`
+  is typed, validated and honoured by the server's scan grant (`Catalog::scanTools`), so a later camera can map packaging
+  labels → substance items in one table; **no such camera exists yet** (it could only recognise packaging, never analyse
+  a substance – a disclaimer would be needed; the working name collides with Vienna's drug-checking service checkit!).
+- **Icons** (placeholders in the house style, `cdn/tools/make_substance_icons.py` → `scutoons/items/`, to replace):
+  `testo.png` 41 KB (a squeeze tube), `testo_camera.png` 45 KB (the camera with a tube), `psilocybin.png` 29 KB (a
+  mushroom), `lsd.png` 84 KB (a blotter square with a spiral), `semaglutide.png` 33 KB (a generic pen, no product look).
+- **Tests:** content `test/substances.test.ts` (catalog, decay, apply + cap, effect expiry/replace/end, testo bands,
+  character validation), PHPUnit `ReaderStateTest` (decay math, apply + cap + decay with the frozen clock, semaglutide,
+  the timed effect's expiry + end, recipe + scan grant + cooldown, story pickup once), api-smoke "Substances" (13 checks),
+  `npm run check:testo` (`scripts/check-testo.mjs`, headless 390 px, guest + test user, 10 checks: sandbox pickup,
+  "Benutzen" 50 → 70, decay → 60, combine → testo camera (+ scan grant and cooldown for the member), psychedelic on the
+  slices / off with reduced motion / ended).
+- `npm run dev:test-user -- --reset` also clears the stats/effects and the story pickup refs and gives back a starter
+  camera a recipe used up.
+
+**Merge note (substances):** migration `server/migrations/{mysql,sqlite}/2026-10-01-reader-state.*.sql` (two new tables
+`member_stats`, `member_effects`, idempotent, after `2026-10-01-embassy`). The characters statement of
+`characters-seed.mysql.sql` / `content-seed.mysql.sql` carries Top Toy's `tendencies`; the seed skips an existing
+`characters` entity, so on production publish the registry once from the creator (or `import-content
+--only=characters --update`). CDN: `cdn/tools/make_substance_icons.py`, then `cdn/sync.py` (`scutoons/items/`).
