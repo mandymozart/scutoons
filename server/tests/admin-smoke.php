@@ -240,7 +240,7 @@ try {
 
     echo "\nCatalog and keys\n";
     $r = call('GET', "$api/catalog", null, $adminToken);
-    check($r['status'] === 200 && count($r['body']['catalog']['items']) === 9 && isset($r['body']['permissions']['types']['membership']) && count($r['body']['toons']) >= 1, 'catalog + editions + toons + permissions map', array_keys((array) $r['body']));
+    check($r['status'] === 200 && count($r['body']['catalog']['items']) === 10 && isset($r['body']['permissions']['types']['membership']) && count($r['body']['toons']) >= 1, 'catalog + editions + toons + permissions map', array_keys((array) $r['body']));
     $r = call('GET', "$api/keys", null, $adminToken);
     check(($r['status'] === 200 && is_string($r['body']['privateKey'] ?? null) && is_string($r['body']['publicKey'] ?? null)) || ($r['status'] === 404 && $r['body']['error'] === 'keys_missing'),
         'keys for client-side signing (admin only)', [$r['status'], array_keys((array) $r['body'])]);
