@@ -38,6 +38,14 @@
 						"$ref": "#/definitions/Language"
 					},
 					"description": "Every language of the toon, the source first. Default: the `i18n` keys (source first)."
+				},
+				"announced": {
+					"type": "boolean",
+					"description": "Library answer only (`/library/toons`), from the toon settings: the toon is not published but announced (`Toon.announce`) – list it as \"soon\", never link it (its pages stay 404 publicly)"
+				},
+				"tile": {
+					"$ref": "#/definitions/ToonTile",
+					"description": "Library answer only: the landing page tile from the toon settings (`Toon.tile`)"
 				}
 			},
 			"required": [
@@ -66,6 +74,23 @@
 				"kr",
 				"es"
 			]
+		},
+		"ToonTile": {
+			"type": "object",
+			"properties": {
+				"image": {
+					"type": "string",
+					"description": "image path in the toon's CDN folder (`../characters/<id>/…` for a registry portrait), e.g. the star's neutral portrait"
+				},
+				"color": {
+					"type": "string",
+					"description": "CSS colour behind the image; default: the colour of the toon's star in the character registry (`own_toon`)"
+				}
+			},
+			"required": [
+				"image"
+			],
+			"description": "A toon's tile on the landing page: a square image on a colour"
 		}
 	}
 }

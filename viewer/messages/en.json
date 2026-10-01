@@ -270,5 +270,24 @@
 		"trailer": "Watch the trailer",
 		"sound_on": "Sound on",
 		"sound_off": "Sound off"
+	},
+	"home": {
+		"toons": "TOONS",
+		"season": "Season {number} · {title}",
+		"read": "Read",
+		"soon": "soon",
+		"editions": "LIMITED EDITIONS",
+		"editions_intro": "SCUTOONS are exclusive limited editions, available with the purchase of a physical artefact.",
+		"editions_note": "Digital download included · worldwide shipping",
+		"sizes": "Sizes",
+		"colors": "Colours",
+		"sold_out": "sold out",
+		"limited": "Limited to {count} pieces",
+		"buy": "Buy",
+		"sold_out_all": "Sold out",
+		"all_editions": "All editions",
+		"footer": "SCUTOONS · No ads, no tracking.",
+		"events": "Events",
+		"attributions": "Attributions"
 	}
 }

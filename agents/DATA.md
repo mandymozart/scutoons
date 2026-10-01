@@ -24,7 +24,8 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | characters, personas, looks, mood labels, wanted images | DB `characters`, `moods`, `asset-requests` (`{ de, en }` texts; A-pose looks may be `sensitive`, ITEMS.md "Sensitive content") | creator (characters) |
 | credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
 | events | DB `events` (toon-bound entries) | import (no editor yet) |
-| items, recipes, editions, products, featured products (catalog texts) | server `config/*.json` via `/api/items/`, `/api/editions/`, `/api/products/` | file → **B2** (after this) |
+| items, recipes, editions, products (catalog texts) | server `config/*.json` via `/api/items/`, `/api/editions/`, `/api/products/` | file → **B2** (after this) |
+| the landing page's featured editions (order, colour) | table `settings`, key `featured_products` (default `config/featured-products.json`) via `/api/products/featured/` | admin ("Startseite") |
 | permissions map | server `config/permissions.json`, never served | file (private) |
 | UI chrome (buttons, labels, errors) | each app's paraglide `messages/{de,en}.json` | code |
 | codes, users, inventory, progress, avatar, settings | relational tables | admin / API |
@@ -88,6 +89,22 @@ decorative record beside the toon page's music button (DESIGN.md "Toon page"); l
 `awakening_vinyl` item cut-out cropped to its content, WebP q85 – the "Awakening" LE vinyl is the album the season's
 music zip belongs to). Seed + store (new published `season:catpope:1:{de,en}`, backup
 `server/db/local.sqlite.bak-2026-10-01-music-image`), the seed SQL's 2 season statements carry it.
+
+**Announced toons + the landing tile (2026-10-01, owner):** toon settings `announce?: boolean` and `tile?: { image,
+color? }` (`Toon` type, schema, validation, creator toon page section "Startseite": "Ankündigen" + `tile.image` /
+`tile.color`), language-neutral. `tile.image` is a path in the toon's CDN folder like the other settings images, a registry
+portrait as `../characters/<id>/<file>`; `tile.color` overrides the star's registry colour (`toonTileColor`). Library
+rule (`Library::toons`, `LibraryTest::testAnnouncedToonsAndTilesInTheList`): `/library/toons` = published entries + the
+unpublished ones whose settings (source locale, else any) say `announce: true`, marked `announced: true`; every entry
+carries its settings' `tile`. An announced toon's bundle/chapters stay 404, so no season, chapter or date leaks. Drafts
+only with `CONTENT_SHOW_DRAFTS` (local) or `?draft=1` (creator); the sandbox (`Library::DEV_ONLY_TOONS`) never publicly.
+Content: catpope tile = `../characters/catpope/catpope_portrait-neutral.webp` (blue from the registry); toptoy +
+yellowmouse `announce: true` with `toptoy_portrait-neutral.webp` (black) and `yellowmouse_helmet_portrait-neutral.webp`
+(yellow – Mausboss in her helmet, the mouse is not revealed). Top Toy is written in two words (toon entry names +
+registry name, owner 2026-10-01) and its entry has the duo `avatar.webp`. Seed (`toptoy/{de,en}/toon.json`,
+`yellowmouse/{de,en}/toon.json` new, from the owner's store versions), local store (new published versions; backups
+`server/db/local.sqlite.bak-2026-10-01-landing`, `…-top-toy`), seed SQL: 6 toon-settings statements (2 changed, 4 new),
+`toon:toptoy` and `characters` (also in `characters-seed.mysql.sql`); unchanged statements keep their timestamps.
 
 **Reading progress** is not content: it is the reader's game state per toon (`Checkpoint[]`, DESIGN.md "Start button"),
 in localStorage and for members in the relational `progress` table via `/api/progress/<toon>` (unchanged API).

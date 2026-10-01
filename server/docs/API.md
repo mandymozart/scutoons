@@ -27,7 +27,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET | `/items/` | – | catalog (`config/items.json`); any origin (`*`), cached 5 min |
 | GET | `/editions/` (`?toon=`), `/toons/` | – | public lists (`config/editions.json`, `config/toons.json`) |
 | GET | `/products/` | – | shop catalog = `config/products.json` byte-for-byte (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`); any origin (`*`), cached 5 min; other methods 405 |
-| GET | `/products/featured/` | – | homepage featured products = `config/featured-products.json` (`[{ product, variant? }]`); same headers |
+| GET | `/products/featured/` | – | the landing page's editions (`[{ product, variant? }]`): the list chosen in the admin app (setting `featured_products`, `/admin/featured`), else `config/featured-products.json` byte-for-byte; same headers but `max-age=60` |
 | POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in? }` → `{ status:"sent", expires_at }` (always; new accounts only with a signup code) |
 | POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required` |
 | POST | `/auth/logout/` | Bearer | ends this session |
@@ -77,6 +77,7 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET | `/catalog` · `/keys` | items, editions, toons, permissions map (read-only) · the ML-DSA-65 keypair for client-side signing |
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
 | GET/PUT | `/settings` | runtime settings (table `settings`): `GET` → `{ status, items: [{ key, value, default, min, max, stored, updated_at, updated_by }] }`; `PUT { key: int\|null, … }` (or `{ settings: {…} }`) → `{ status, changed, items }` – integer `min…max` (0…1000000), `null` = back to the config default; only changed values are written, `updated_by` = `admin:<email>` · `400 invalid_setting { key, min, max }\|unknown_setting { settings }\|invalid_settings`. Keys: `scan_limit_per_hour`, `lookup_limit_per_hour` (see "Rate limits") |
+| GET/PUT | `/featured` | the landing page's editions (`Domain\Catalog\FeaturedProducts`, stored as the setting `featured_products`): `GET` → `{ status, items, default, stored, updated_at, updated_by, max: 12 }`; `PUT { items: [{ product, variant? }] \| null }` → `{ status, changed, …same }` – products / variants of `config/products.json`, no duplicates, ≤ 12, the order is the page's; `null` = back to `config/featured-products.json` · `400 invalid_featured\|unknown_product { product, products }\|unknown_variant { product, variant, variants }\|duplicate_featured` |
 | GET | `/versions` | the deployed version of every app: `{ status, checked_at, api: { app, version, git_sha, built_at }, apps: [{ app, url, ok, http_status, version?, git_sha?, built_at?, shared?, error? }] }` – each app's `version.json` (`VERSION_URLS`) fetched in parallel, 4 s timeout (platform P3) |
 
 The legacy `generate/*.php` endpoints (static token `X-Generate-Token`) stay for the `generate/` SPA until the admin
@@ -283,7 +284,7 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 
 | GET | Answer |
 |---|---|
-| `/library/toons` | `ToonIndex[]`: every `toon:<toon>` entry with `status: published` (creation order) |
+| `/library/toons` | `ToonIndex[]`: every `toon:<toon>` entry with `status: published` + every unpublished one whose toon settings say `announce: true` (marked `announced: true`; its pages stay 404) (creation order); each with the settings' `tile` when set. Drafts only with `CONTENT_SHOW_DRAFTS` / `?draft=1`; the dev-only sandbox never publicly |
 | `/library/toons/<toon>?locale=` | `{ entry, toon, seasons: SeasonOverview[], locations, routes }` – the toon layout in one request |
 | `/library/toons/<toon>/seasons/<n>?locale=` | `SeasonOverview = { number, season, chapters: ChapterSummary[] }` – listed chapters (readable + coming-soon); a summary is the chapter file without `groups` / `audio` / `status` + the season's `type`, `number`, `status` |
 | `/library/toons/<toon>/chapters/<n>?locale=` | the chapter with every `ref` group replaced by its scene file (a missing scene keeps its `ref` group + `X-Content-Missing`) |

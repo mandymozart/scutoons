@@ -11,7 +11,8 @@
 		| 'events'
 		| 'content'
 		| 'catalog'
-		| 'settings';
+		| 'settings'
+		| 'homepage';
 </script>
 
 <script lang="ts">
@@ -107,5 +108,7 @@
 			<dt>{m['settings.lookup_limit_per_hour']()}</dt>
 			<dd>{m['settings.lookup_limit_per_hour_hint']()}</dd>
 		</dl>
+	{:else if page === 'homepage'}
+		<p>{m['help.homepage']()}</p>
 	{/if}
 </div>

@@ -270,5 +270,24 @@
 		"trailer": "Trailer ansehen",
 		"sound_on": "Ton an",
 		"sound_off": "Ton aus"
+	},
+	"home": {
+		"toons": "TOONS",
+		"season": "Staffel {number} · {title}",
+		"read": "Lesen",
+		"soon": "bald",
+		"editions": "LIMITED EDITIONS",
+		"editions_intro": "SCUTOONS sind exklusive Limited Editions, erhältlich mit dem Kauf eines physischen Artefakts.",
+		"editions_note": "Digitaler Download inklusive · weltweiter Versand",
+		"sizes": "Größen",
+		"colors": "Farben",
+		"sold_out": "ausverkauft",
+		"limited": "Limitiert auf {count} Stück",
+		"buy": "Kaufen",
+		"sold_out_all": "Ausverkauft",
+		"all_editions": "Alle Editionen",
+		"footer": "SCUTOONS · Keine Werbung, kein Tracking.",
+		"events": "Termine",
+		"attributions": "Quellenangaben"
 	}
 }

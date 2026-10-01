@@ -1,6 +1,7 @@
 // Admin API (agents/ITEMS.md → "Admin API"): `/admin/*`, session + role `admin`. Framework-agnostic like the rest
 // of the package; the app keeps list state in its URLs and passes the query through.
 import type { ApiClient } from './client.ts';
+import type { FeaturedProduct } from '@scutoons/content';
 
 /** URL-driven list query: `page` from 1, `page_size` (server clamps 1…500), `sort` = field | -field, `q`, filters */
 export type ListParams = Record<string, string | number | boolean | null | undefined>;
@@ -309,6 +310,23 @@ export interface AdminSettings {
 	changed?: string[];
 }
 
+/** The editions on the landing page (admin page "Startseite", `GET/PUT /admin/featured`): `[{ product, variant? }]` in order */
+export interface AdminFeatured {
+	status: 'success';
+	/** the effective list (the stored one, else the default) */
+	items: FeaturedProduct[];
+	/** server config/featured-products.json, used while nothing is stored */
+	default: FeaturedProduct[];
+	stored: boolean;
+	updated_at: string | null;
+	/** `admin:<email>` of the last change */
+	updated_by: string | null;
+	/** the most items the list may have */
+	max: number;
+	/** PUT only */
+	changed?: boolean;
+}
+
 /** `?a=1&b=x` from params (empty / null / undefined dropped) */
 export function toQuery(params: ListParams = {}): string {
 	const search = new URLSearchParams();
@@ -388,6 +406,10 @@ export function createAdminApi(api: ApiClient) {
 
 		settings: () => api.get<AdminSettings>('/admin/settings'),
 		/** key → whole number (min…max), or null = back to the default */
-		saveSettings: (values: Record<string, number | null>) => api.put<AdminSettings>('/admin/settings', values)
+		saveSettings: (values: Record<string, number | null>) => api.put<AdminSettings>('/admin/settings', values),
+
+		featured: () => api.get<AdminFeatured>('/admin/featured'),
+		/** the new ordered list, or null = back to the default */
+		saveFeatured: (items: FeaturedProduct[] | null) => api.put<AdminFeatured>('/admin/featured', { items })
 	};
 }

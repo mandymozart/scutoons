@@ -49,7 +49,8 @@ export const navigation: NavGroup[] = [
 		title: () => m['nav.group_data'](),
 		items: [
 			{ id: 'content', title: () => m['nav.content'](), description: () => m['nav.content_hint'](), href: '/content', icon: '¶', keywords: 'chapters toons versions publish' },
-			{ id: 'catalog', title: () => m['nav.catalog'](), description: () => m['nav.catalog_hint'](), href: '/catalog', icon: '◇', keywords: 'items editions permissions' }
+			{ id: 'catalog', title: () => m['nav.catalog'](), description: () => m['nav.catalog_hint'](), href: '/catalog', icon: '◇', keywords: 'items editions permissions' },
+			{ id: 'homepage', title: () => m['nav.homepage'](), description: () => m['nav.homepage_hint'](), href: '/homepage', icon: '⌂', keywords: 'startseite landing featured products editions slider shop' }
 		]
 	},
 	{

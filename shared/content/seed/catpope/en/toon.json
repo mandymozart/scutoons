@@ -12,6 +12,9 @@
 		"square": "images/s1-cover-square.webp",
 		"portrait": "images/s1-cover-portrait.webp"
 	},
+	"tile": {
+		"image": "../characters/catpope/catpope_portrait-neutral.webp"
+	},
 	"map": {
 		"layers": {
 			"terrain": "images/map/map-layer-terrain.svg"

@@ -761,6 +761,15 @@ export function toonStar(registry: CharacterRegistry | null | undefined, toon: s
 }
 
 /**
+ * The colour of a toon's landing tile: the toon settings' `tile.color`, else the colour of the toon's star (the registry
+ * character whose `own_toon` is the toon: catpope blue, yellowmouse yellow, toptoy black), else null.
+ */
+export function toonTileColor(registry: CharacterRegistry | null | undefined, toon: string, tile?: { color?: string } | null): string | null {
+	if (tile?.color) return tile.color;
+	return registry?.characters?.find((c) => c?.own_toon === toon)?.color ?? null;
+}
+
+/**
  * The star is in every season's cast (owner rule, agents/ITEMS.md "Cast & featuring"): adds `star` at the front of each
  * season in `seasons` (and of every season the cast already has) where it is missing, with its regular persona.
  * Mutates `cast`; returns true when it changed something. Casts are saved with it (creator) and served with it (library).

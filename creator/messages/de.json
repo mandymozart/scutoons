@@ -450,7 +450,12 @@
 		"trailer_hint": "Ein stummer Loop hinter dem Titel der Toon-Seite (Desktop); „Trailer ansehen“ und „Ton an“ öffnen das Trailer-Kapitel (Standard 0, der Prolog). In allen Sprachen gleich.",
 		"supporters_empty": "Noch keine Unterstützer.",
 		"supporter_add": "Unterstützer hinzufügen",
-		"supporter_remove": "{name} entfernen"
+		"supporter_remove": "{name} entfernen",
+		"landing": "Startseite",
+		"landing_hint": "Die Kachel des Toons auf scutoons.com. Gilt für alle Sprachen.",
+		"announce": "Ankündigen",
+		"announce_hint": "Vor der Veröffentlichung auf der Startseite und im Menü zeigen – als „bald“, ohne Link, ohne Kapitel und Daten.",
+		"tile_color_placeholder": "Farbe der Hauptfigur"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

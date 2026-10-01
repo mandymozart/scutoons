@@ -71,3 +71,33 @@ test('season.download.image: an image path on the CDN (decorative, beside the mu
 	assert.deepEqual(problems('season', season({ sequence, download: { ...download, image: 'audio/m.zip' } })), ['warning download.image']);
 	assert.deepEqual(problems('season', season({ sequence, download: { ...download, image: 3 } })), ['error download.image']);
 });
+
+test('toon settings: announce (boolean) and the landing tile { image, color? }', () => {
+	const toon = (extra: object) => ({
+		id: 't', title: 'T', description: 'D', language: 'de', authors: ['A'], chapters: 0, release: '2026-10-04', status: 'draft',
+		thumbnail: 'images/t.webp', cover: { square: 'images/c.webp' }, map: { layers: { terrain: 'images/m.webp' }, width: 1, height: 1, center: { x: 0, y: 0 } },
+		...extra
+	});
+	const tileProblems = (extra: object) => problems('toon', toon(extra)).filter((p) => /announce|tile/.test(p));
+	assert.deepEqual(tileProblems({}), []);
+	assert.deepEqual(tileProblems({ announce: true, tile: { image: '../characters/y/y_helmet_portrait-neutral.webp' } }), []);
+	assert.deepEqual(tileProblems({ announce: false, tile: { image: 'images/tile.webp', color: '#ff0' } }), []);
+	assert.deepEqual(tileProblems({ tile: { image: 'images/tile.webp', color: 'darkgreen' } }), []);
+	assert.deepEqual(tileProblems({ announce: 'yes' }), ['error announce']);
+	assert.deepEqual(tileProblems({ tile: { color: 'blue' } }), ['error tile.image']);
+	assert.deepEqual(tileProblems({ tile: {} }), [], 'an emptied tile shows nothing');
+	assert.deepEqual(tileProblems({ tile: { image: 'images/t.webp', color: 'url(x)' } }), ['error tile.color']);
+	assert.deepEqual(tileProblems({ tile: 'images/t.webp' }), ['error tile']);
+});
+
+test('isToonListed + toonTileColor: published or announced; the tile colour from the settings, else the star', async () => {
+	const { isToonListed, toonTileColor } = await import('../src/index.ts');
+	assert.equal(isToonListed({ status: 'published' as never }), true);
+	assert.equal(isToonListed({ status: 'draft' as never }), false);
+	assert.equal(isToonListed({ status: 'draft' as never, announced: true }), true);
+	const registry = { characters: [{ id: 'yellowmouse', own_toon: 'yellowmouse', color: 'yellow' }, { id: 'boy', color: 'red' }] } as never;
+	assert.equal(toonTileColor(registry, 'yellowmouse'), 'yellow');
+	assert.equal(toonTileColor(registry, 'yellowmouse', { color: '#000' }), '#000');
+	assert.equal(toonTileColor(registry, 'boy'), null);
+	assert.equal(toonTileColor(null, 'x'), null);
+});

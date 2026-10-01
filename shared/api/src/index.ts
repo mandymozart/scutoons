@@ -29,6 +29,7 @@ export {
 	type AdminContentEntity,
 	type AdminContentIndex,
 	type AdminEventRow,
+	type AdminFeatured,
 	type AdminKeys,
 	type AdminSetting,
 	type AdminSettings,

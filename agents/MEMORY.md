@@ -1219,6 +1219,7 @@ character, persona, look and mood and doubles as the VN test bed.
 - Flaky once each, green on the rerun (not touched here): check-fonts (51/52, the failing page not printed on the green
   run) and check-toon-hero's "plays again on the hero" at one desktop size.
 
+
 ## Hero: "Ton an" toggles the loop's own sound in place (2026-10-01)
 
 - **Owner:** the desktop hero's "Ton an" / "Sound on" toggles the background loop's sound in place (it opened chapter 0);
@@ -1241,3 +1242,29 @@ character, persona, look and mood and doubles as the VN test bed.
   `Runtime.evaluate`): background click → URL + mute unchanged, no pointer; "Ton an" → unmuted + playing in place,
   label/icon/aria-pressed, `webkitAudioDecodedByteCount` > 0; scroll away pauses, back resumes unmuted; "Ton aus" mutes;
   reload → muted; "Trailer ansehen" → chapter 0. Reduced motion: "Ton an" plays with sound, "Ton aus" stops. 79/79.
+
+## Landing page "D · Brutal", announced toons, featured editions in the admin (2026-10-01)
+
+- **Owner:** the landing page rebuilt after design "D · Brutal" (artifact XSq3qwDDuf8qDmKSAhK64a, `project/Brutal.dc.html`
+  + `BrutalPhone.dc.html` as visual reference; the draft left out the fixed animated logo by mistake – kept). Spec:
+  DESIGN.md "Landing page"; data: DATA.md "Announced toons + the landing tile"; API: ITEMS.md "Featured editions".
+- **Announce:** toon settings `announce` + `tile { image, color? }`; `/library/toons` lists announced unpublished toons
+  with `announced: true` (+ every entry's `tile`); the viewer's root layout keeps `isToonListed` (published or announced),
+  the toon layout's production gate wants `status: published` (an announced toon's pages stay 404 on the server too).
+  `Library::FORMAT` 1 → 2 (the toons answer changed shape; old cache entries are never read). The sandbox is excluded from
+  the public list explicitly (`Library::DEV_ONLY_TOONS`, also `ImportContentCommand::DEV_ONLY_TOONS`).
+- The local store had owner-made toon settings for toptoy (published, "Top Toy", texts) and yellowmouse (drafts) that the
+  seed lacked: the new seed files are those + `announce`/`tile` (the leftover `download` dropped). The store's
+  `toon:toptoy` keeps the owner's `sourceLanguage: en` (the seed says `de`) – not touched. Top Toy (coordinator/owner): the
+  index names and the registry name are "Top Toy", the entry got `avatar: "avatar.webp"` (the duo); published as the
+  test user through `/api/entities` (versions 436, 437). The sandbox's generated VN texts still say "Toptoy"
+  (`shared/content/scripts/make-sandbox.ts`, dev only).
+- **Featured editions:** admin page `/homepage` ("Startseite" / "Homepage", nav Data), `GET/PUT /api/admin/featured`,
+  stored as the runtime setting `featured_products` (table `settings`, existing migration → nothing new for the cutover).
+  The public `/products/featured/` now has `max-age=60` (was 300) so an admin change shows within a minute. While testing
+  a 4-item list (vinyl, hoodie, heavy T, amulet) was already stored as `agent@scutoons.test` at 13:14 UTC – not by this
+  task; check-landing restores whatever was stored before it.
+- **Check:** `node scripts/check-landing.mjs [--shots=<dir>] [--no-member]` – 390 / 768 / 1280 / 1440 de + en (logo,
+  wordmark, tiles from the API incl. colours / helmet / no sandbox / no dates, editions in the API order with price,
+  pieces, struck sizes, buy link, slider per view + arrow, footer, menu) + the test user changing the list in the admin UI
+  (remove, add, save) → the landing page → restore. 51/51.

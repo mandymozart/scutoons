@@ -75,7 +75,7 @@ final class AppTest extends TestCase
             self::assertSame(200, $r->getStatusCode(), $path);
             self::assertSame((string) file_get_contents("$root/config/$file"), (string) $r->getBody(), $path);
             self::assertSame('application/json; charset=utf-8', $r->getHeaderLine('Content-Type'));
-            self::assertSame(['*', 'public, max-age=300'], [$r->getHeaderLine('Access-Control-Allow-Origin'), $r->getHeaderLine('Cache-Control')]);
+            self::assertSame(['*', $path === 'products' ? 'public, max-age=300' : 'public, max-age=60'], [$r->getHeaderLine('Access-Control-Allow-Origin'), $r->getHeaderLine('Cache-Control')]);
         }
         self::assertSame('http://viewer.test', $this->request('GET', 'http://localhost/api/products', ['Origin' => 'http://viewer.test'])->getHeaderLine('Access-Control-Allow-Origin'));
         $r = $this->request('PUT', 'http://localhost/api/products/featured/');

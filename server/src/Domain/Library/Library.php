@@ -31,9 +31,11 @@ final class Library
     public const DRAFT = 'draft';
     public const COMING_SOON = 'coming-soon';
     public const DEFAULT_SOURCE = 'de';
+    /** Toons for development and the creator only (the sandbox): never in the public toons list, never in the production seed */
+    public const DEV_ONLY_TOONS = ['sandbox'];
     public const LOCALE_PATTERN = '#^[a-z]{2}$#';
     /** Bump when the shape of an answer changes: old cache entries are never read again */
-    private const FORMAT = 1;
+    private const FORMAT = 2;
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
     /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in scene refs → the registry character */
@@ -53,21 +55,51 @@ final class Library
 
     // ── Endpoints ─────────────────────────────────────────────────────────────────────────────────────────
 
-    /** GET /library/toons → ToonIndex[] (published entries; drafts too with CONTENT_SHOW_DRAFTS; all in draft mode) */
+    /**
+     * GET /library/toons → ToonIndex[]: published entries + announced ones (toon settings `announce: true`, marked
+     * `announced: true` – their pages stay 404, so no season or chapter of them is exposed); drafts too with
+     * CONTENT_SHOW_DRAFTS; all in draft mode. The dev-only toons (sandbox) are never listed publicly. Every entry carries
+     * the settings' landing `tile` when there is one.
+     */
     public function toons(bool $draft): Answer
     {
         $snapshot = Snapshot::toonIndex($this->db, $draft);
         return $this->answer('toons', $snapshot, function () use ($snapshot, $draft): array {
             $list = [];
             foreach ($snapshot->ordered() as $key) {
+                if (!str_starts_with($key, 'toon:')) continue;
                 $entry = $snapshot->doc($key);
                 if (!$entry instanceof stdClass) continue;
+                $toon = substr($key, strlen('toon:'));
+                $settings = $this->listSettings($snapshot, $toon, $entry);
                 $status = $entry->status ?? null;
-                $visible = $draft || $status === self::PUBLISHED || ($status === self::DRAFT && $this->showDrafts());
-                if ($visible) $list[] = $entry;
+                $announced = $status !== self::PUBLISHED && ($settings->announce ?? null) === true;
+                $public = $status === self::PUBLISHED || $announced;
+                $visible = $draft || ($status === self::DRAFT && $this->showDrafts())
+                    || ($public && !in_array($toon, self::DEV_ONLY_TOONS, true));
+                if (!$visible) continue;
+                $entry = clone $entry;
+                if ($announced) $entry->announced = true;
+                $tile = $settings->tile ?? null;
+                if ($tile instanceof stdClass) $entry->tile = $tile;
+                $list[] = $entry;
             }
             return [$list, null];
         });
+    }
+
+    /** The toon settings the list reads `announce` and `tile` from (language-neutral): the source language's, else any */
+    private function listSettings(Snapshot $snapshot, string $toon, stdClass $entry): ?stdClass
+    {
+        [$source] = self::languages($entry, []);
+        $keys = $snapshot->keys("toon-settings:$toon:");
+        $preferred = "toon-settings:$toon:$source";
+        if (in_array($preferred, $keys, true)) array_unshift($keys, $preferred);
+        foreach ($keys as $key) {
+            $settings = $snapshot->doc($key);
+            if ($settings instanceof stdClass) return $settings;
+        }
+        return null;
     }
 
     /** GET /library/toons/{toon}?locale= → { entry, toon, seasons: SeasonOverview[], locations, routes } */

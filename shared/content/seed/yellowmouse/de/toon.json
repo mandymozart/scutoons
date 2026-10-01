@@ -1,0 +1,30 @@
+{
+	"id": "yellowmouse",
+	"title": "Mausboss",
+	"authors": [],
+	"chapters": 0,
+	"language": "de",
+	"release": "2026-09-29",
+	"status": "draft",
+	"description": "",
+	"thumbnail": "images/s1c1-thumbnail.jpg",
+	"cover": {
+		"square": "images/1x/de/s1-cover-square.jpg",
+		"portrait": "images/1x/de/s1-cover-portrait.jpg"
+	},
+	"announce": true,
+	"tile": {
+		"image": "../characters/yellowmouse/yellowmouse_helmet_portrait-neutral.webp"
+	},
+	"map": {
+		"layers": {
+			"terrain": ""
+		},
+		"width": 0,
+		"height": 0,
+		"center": {
+			"x": 0,
+			"y": 0
+		}
+	}
+}

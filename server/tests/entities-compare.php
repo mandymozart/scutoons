@@ -121,7 +121,16 @@ echo "API $base · static $static\n\n";
 echo "Toons list\n";
 $index = file_json("$static/toons.json") ?? [];
 [$status, $toons] = get("$base/library/toons");
-compare('library/toons == toons.json (published + draft entries, same order)', array_values(array_filter($index, fn($t) => in_array($t['status'] ?? null, ['published', 'draft'], true))), $toons);
+// + from the toon settings (source language, else any): `announced` for an unpublished toon with `announce: true`, the `tile`
+$listed = array_map(function (array $t) use ($static): array {
+    $source = $t['sourceLanguage'] ?? ($t['languages'][0] ?? 'de');
+    $settings = file_json("$static/{$t['id']}/$source/toon.json");
+    foreach ($settings === null ? (glob("$static/{$t['id']}/*/toon.json") ?: []) : [] as $file) $settings ??= file_json($file);
+    if (($t['status'] ?? null) !== 'published' && ($settings['announce'] ?? null) === true) $t['announced'] = true;
+    if (is_array($settings['tile'] ?? null)) $t['tile'] = $settings['tile'];
+    return $t;
+}, array_values(array_filter($index, fn($t) => in_array($t['status'] ?? null, ['published', 'draft'], true))));
+compare('library/toons == toons.json (published + draft entries, same order) + announced/tile of the toon settings', $listed, $toons);
 
 echo "\nEvents\n";
 [$status, $events] = get("$base/events");

@@ -42,6 +42,14 @@
 				},
 				"map": {
 					"$ref": "#/definitions/Map"
+				},
+				"announce": {
+					"type": "boolean",
+					"description": "Show the toon publicly before it is published (owner 2026-10-01): the landing page's tile and the main menu list it as \"bald\" / \"soon\" (not clickable, no dates, no chapters). Language-neutral."
+				},
+				"tile": {
+					"$ref": "#/definitions/ToonTile",
+					"description": "The landing page's tile (language-neutral); without it the tile uses the toon's avatar"
 				}
 			},
 			"required": [
@@ -125,6 +133,23 @@
 				"x",
 				"y"
 			]
+		},
+		"ToonTile": {
+			"type": "object",
+			"properties": {
+				"image": {
+					"type": "string",
+					"description": "image path in the toon's CDN folder (`../characters/<id>/…` for a registry portrait), e.g. the star's neutral portrait"
+				},
+				"color": {
+					"type": "string",
+					"description": "CSS colour behind the image; default: the colour of the toon's star in the character registry (`own_toon`)"
+				}
+			},
+			"required": [
+				"image"
+			],
+			"description": "A toon's tile on the landing page: a square image on a colour"
 		}
 	}
 }

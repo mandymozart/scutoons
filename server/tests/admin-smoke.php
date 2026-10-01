@@ -301,6 +301,44 @@ try {
     for ($i = 0; $i < 5; $i++) $statuses[] = call('GET', "$qrBase/?c=$scanCode")['status'];
     check($r['status'] === 200 && $statuses === [200, 200, 200, 200, 200], 'scan_limit_per_hour = 0 → unlimited', $statuses);
 
+    // The landing page's editions (admin page "Startseite"): stored as the setting featured_products, the public
+    // /products/featured/ reads it; without a stored list the default file
+    echo "\nFeatured editions (landing page)\n";
+    $defaultFeaturedRaw = (string) file_get_contents(dirname(__DIR__) . '/config/featured-products.json');
+    $defaultFeatured = json_decode($defaultFeaturedRaw, true);
+    $r = call('GET', "$api/featured");
+    check($r['status'] === 401, 'featured without a session → 401', $r['status']);
+    $r = call('PUT', "$api/featured", ['items' => [['product' => 'scorpion_amulet']]], $memberToken);
+    check($r['status'] === 403 && $r['body']['error'] === 'forbidden', 'featured update by a member → 403', $r);
+    $r = call('GET', "$api/featured", null, $adminToken);
+    $featuredBefore = is_array($r['body']) ? $r['body'] : [];
+    check($r['status'] === 200 && is_array($featuredBefore['items'] ?? null) && ($featuredBefore['default'] ?? null) === $defaultFeatured
+        && array_key_exists('stored', $featuredBefore) && ($featuredBefore['max'] ?? null) === 12, 'GET featured: items, default (= config/featured-products.json), stored, max', $r['body']);
+    foreach ([
+        [['items' => [['product' => 'no_such_thing']]], 'unknown_product'],
+        [['items' => [['product' => 'dago_hoodie', 'variant' => 'pink']]], 'unknown_variant'],
+        [['items' => [['product' => 'dago_hoodie', 'variant' => 'beige'], ['product' => 'dago_hoodie', 'variant' => 'beige']]], 'duplicate_featured'],
+        [['items' => 'dago_hoodie'], 'invalid_featured'],
+        [['items' => array_fill(0, 13, ['product' => 'dago_hoodie'])], 'invalid_featured'],
+        [['nothing' => true], 'invalid_featured'],
+    ] as [$bad, $error]) {
+        $r = call('PUT', "$api/featured", $bad, $adminToken);
+        check($r['status'] === 400 && ($r['body']['error'] ?? null) === $error, 'PUT featured ' . substr((string) json_encode($bad), 0, 60) . " → 400 $error", $r);
+    }
+    $chosen = [['product' => 'awakening_vinyl'], ['product' => 'dago_heavy_t', 'variant' => 'white'], ['product' => 'dago_hoodie', 'variant' => 'beige']];
+    $r = call('PUT', "$api/featured", ['items' => $chosen], $adminToken);
+    check($r['status'] === 200 && $r['body']['changed'] === true && $r['body']['items'] === $chosen && $r['body']['stored'] === true
+        && $r['body']['updated_by'] === "admin:{$admin['email']}" && is_string($r['body']['updated_at']), 'PUT featured: a new order + product, stored by the admin', $r['body']);
+    $r = call('PUT', "$api/featured", ['items' => $chosen], $adminToken);
+    check($r['status'] === 200 && $r['body']['changed'] === false, 'the same list again → changed: false', $r['body']);
+    $public = call('GET', "$base/api/products/featured/");
+    check($public['status'] === 200 && $public['body'] === $chosen && ($public['headers']['cache-control'] ?? '') === 'public, max-age=60',
+        'public /products/featured/ = the stored list (1 min cache)', [$public['body'], $public['headers']['cache-control'] ?? null]);
+    $r = call('PUT', "$api/featured", ['items' => null], $adminToken);
+    $public = call('GET', "$base/api/products/featured/");
+    check($r['status'] === 200 && $r['body']['changed'] === true && $r['body']['stored'] === false && $r['body']['items'] === $defaultFeatured
+        && $public['raw'] === $defaultFeaturedRaw, 'items: null → back to the default file (byte-for-byte)', $r['body']);
+
     echo "\nAvatar bodies & character unlocks (default: catpope swim + naked, AVATAR_DEFAULT_UNLOCKS)\n";
     // The unlock rules read the published character registry of the content store; a database without one gets a
     // minimal registry for the suite (removed at the end)
@@ -465,6 +503,9 @@ try {
     // Back to the limits from before the suite, and no test rate-limit rows left
     if (isset($settingsBefore) && $settingsBefore) {
         call('PUT', "$api/settings", array_map(fn($s) => $s['stored'] ? $s['value'] : null, $settingsBefore), $adminToken);
+    }
+    if (isset($featuredBefore['stored'])) {
+        call('PUT', "$api/featured", ['items' => $featuredBefore['stored'] ? $featuredBefore['items'] : null], $adminToken);
     }
     if (isset($clearScanBuckets)) $clearScanBuckets();
     if (isset($scanCode) && is_string($scanCode)) {

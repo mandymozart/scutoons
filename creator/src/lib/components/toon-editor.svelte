@@ -56,6 +56,25 @@
 			</div>
 		</section>
 
+		<section class="block" data-testid="toon-landing">
+			<h2>{m['creator.landing']()}</h2>
+			<p class="hint">{m['creator.landing_hint']()}</p>
+			<label class="check">
+				<input
+					type="checkbox"
+					checked={file.get(file.primary, ['announce']) === true}
+					onchange={(e) => file.setShared(['announce'], e.currentTarget.checked ? true : undefined, 'announce')}
+					data-testid="toon-announce"
+				/>
+				<span>{m['creator.announce']()}</span>
+			</label>
+			<p class="hint">{m['creator.announce_hint']()}</p>
+			<div class="grid g3">
+				<SharedField doc={file} path={['tile', 'image']} label="tile.image" kind="image" {toon} known={images} />
+				<SharedField doc={file} path={['tile', 'color']} label="tile.color" placeholder={m['creator.tile_color_placeholder']()} testid="toon-tile-color" />
+			</div>
+		</section>
+
 		<section class="block" data-testid="toon-map">
 			<h2>{m['creator.map']()}</h2>
 			<SharedField doc={file} path={['map', 'layers', 'terrain']} label="map.layers.terrain" kind="image" {toon} known={images} required />
@@ -102,6 +121,14 @@
 	}
 	.warn {
 		color: var(--warn);
+	}
+	.hint {
+		margin: 0;
+	}
+	.check {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
 	}
 	.mini {
 		font-size: 10px;

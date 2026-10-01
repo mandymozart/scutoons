@@ -450,7 +450,12 @@
 		"trailer_hint": "A muted loop behind the toon page title (desktop); \"Watch the trailer\" and \"Sound on\" open the trailer chapter (default 0, the prologue). The same in every language.",
 		"supporters_empty": "No supporters yet.",
 		"supporter_add": "Add supporter",
-		"supporter_remove": "Remove {name}"
+		"supporter_remove": "Remove {name}",
+		"landing": "Homepage",
+		"landing_hint": "The toon’s tile on scutoons.com. The same in every language.",
+		"announce": "Announce",
+		"announce_hint": "Show it on the homepage and in the menu before it is published – as “soon”, no link, no chapters, no dates.",
+		"tile_color_placeholder": "the star’s colour"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

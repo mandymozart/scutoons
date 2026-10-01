@@ -26,11 +26,11 @@
     "languages": ["de", "en"],
     "i18n": {
       "de": {
-        "name": "Toptoy",
+        "name": "Top Toy",
         "description": ""
       },
       "en": {
-        "name": "Toptoy",
+        "name": "Top Toy",
         "description": ""
       }
     }
