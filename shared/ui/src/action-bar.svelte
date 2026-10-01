@@ -98,7 +98,7 @@
 		onclick={() => setInfo(!infoOpen)}
 		data-testid="info-toggle"
 	>
-		<Icon name="info" /> {infoLabels.toggle ?? 'Info'}
+		<Icon name="info" /> <span class="info-word">{infoLabels.toggle ?? 'Info'}</span>
 	</button>
 {/snippet}
 
@@ -196,16 +196,17 @@
 		gap: var(--space-05);
 		flex: none;
 		box-sizing: border-box;
-		min-height: var(--control-height);
-		padding: 0 var(--space-075);
-		border: var(--border-width-regular) solid var(--ink);
+		padding: var(--space-05) var(--space-1);
+		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
 		white-space: nowrap;
 		cursor: pointer;
 	}
-	.info-toggle:hover,
+	.info-toggle:hover {
+		border-color: var(--ink);
+	}
 	.info-toggle[aria-expanded='true'] {
 		border-color: var(--ink);
 		background: var(--ink);
@@ -213,23 +214,42 @@
 	}
 	.more-toggle {
 		box-sizing: border-box;
-		min-height: var(--control-height);
-		padding: 0 var(--space-1);
-		border: var(--border-width-regular) solid var(--ink);
+		padding: var(--space-05) var(--space-15);
+		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
 		cursor: pointer;
 	}
-	.more-toggle:hover,
+	.more-toggle:hover {
+		border-color: var(--ink);
+	}
 	.more-toggle[aria-expanded='true'] {
 		background: var(--ink);
 		color: var(--paper);
+		border-color: var(--ink);
 	}
 	.info-toggle:focus-visible,
 	.more-toggle:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: var(--focus-offset);
+	}
+	/* phones: the bar keeps Info + More + the primary actions on one line (the label stays the accessible name) */
+	@media (max-width: 479px) {
+		.sc-action-bar :global(:is(button, a.sc-button)) {
+			padding-inline: var(--space-1);
+		}
+		.info-toggle {
+			padding-inline: var(--space-05);
+		}
+		.info-word {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
 	}
 	.more-panel {
 		position: absolute;

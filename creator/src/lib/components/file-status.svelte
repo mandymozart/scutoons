@@ -52,7 +52,8 @@
 		gap: var(--space-05);
 		flex-wrap: wrap;
 	}
-	/* status chips (DESIGN.md "Brutalist tools"): published = live (cyan fill), changes = inverted */
+	/* status chips (DESIGN.md "Brutalist tools"), filled from tokens.css --badge-*: published · saved draft ·
+	   unsaved (warning) · missing (error); anything else neutral */
 	.badge {
 		padding: 0.1em 0.4em;
 		border: var(--border-width-regular) solid currentColor;
@@ -61,24 +62,25 @@
 		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
-		border-color: var(--border-muted);
+		border: 0;
+		background: var(--badge-neutral-bg);
+		color: var(--badge-neutral-fg);
 		white-space: nowrap;
 	}
 	.badge.live {
-		border-color: var(--ink);
-		background: var(--cyan);
+		background: var(--badge-published-bg);
+		color: var(--badge-published-fg);
 	}
 	.badge.pending {
-		border-style: dashed;
-		border-color: var(--ink);
+		background: var(--badge-draft-bg);
+		color: var(--badge-draft-fg);
 	}
 	.badge.dirty {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--badge-warning-bg);
+		color: var(--badge-warning-fg);
 	}
 	.badge.missing {
-		color: var(--error);
-		border-color: var(--error);
+		background: var(--badge-error-bg);
+		color: var(--badge-error-fg);
 	}
 </style>

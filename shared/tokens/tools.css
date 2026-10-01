@@ -6,15 +6,14 @@
  * - Type = the reader's: the fluid root of base.css (14px < 480px, 16px, 24px ≥ 768px), body 1rem, the smallest text
  *   is caption (0.75rem). No px font sizes, no app-level root override.
  * - Hard ink on paper: 2px ink frames on fields, buttons, panels, tables; `border-muted` only for inactive controls.
- * - Square, no shadows. Hit targets ≥ 44px (`--control-height`). Focus = a 3px ink outline outside the frame.
- * - Selected / active = inverted (ink bg, paper text). Cyan only for "live" states.
+ * - Square, no shadows. Sizes in rem (`--control-height`). Focus = a 3px ink outline outside the frame.
+ * - Buttons are the viewer's: primary ink, secondary paper + 2px border-muted → ink on hover (no inversion).
+ * - Selected / active toggles, tabs, list items = inverted (ink bg, paper text). Badges are filled (--badge-*).
  *
  * Element rules use :where() (specificity 0): any component or app rule still wins. The utility classes (`sc-*`) are
  * the vocabulary for components that need the type styles without their own rules.
  */
 .sc-tool {
-	/* @scutoons/ui Button: the secondary variant gets a full ink frame in the tools (DESIGN.md keeps border-muted in the reader) */
-	--sc-button-secondary-border: var(--ink);
 	font-family: var(--font-mono);
 	font-size: var(--type-body-size);
 	line-height: var(--type-body-line);
@@ -58,7 +57,7 @@
 	font-size: inherit;
 }
 
-/* ── Fields: 2px ink frame, 1rem text, ≥ 44px ─────────────────────────────────────────────────────────────────────── */
+/* ── Fields: 2px ink frame, 1rem text, --control-height ─────────────────────────────────────────────────────────────────────── */
 :where(.sc-tool)
 	:where(
 		input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']),
@@ -202,17 +201,18 @@
 	line-height: var(--type-caption-line);
 	color: var(--text-muted);
 }
-/* status chip: 2px ink frame, caption bold uppercase; .is-ink inverted, .is-live cyan fill, .is-off inactive */
+/* status chip / tag / count: FILLED (tokens.css --badge-*), caption bold uppercase. Default neutral;
+   .is-published (.is-live), .is-draft (.is-ink), .is-soon (.is-off), .is-error, .is-warning, .is-info */
 .sc-chip {
 	display: inline-flex;
 	align-items: center;
 	gap: var(--space-025);
 	box-sizing: border-box;
 	padding: 0.15em 0.5em;
-	border: var(--border-width-regular) solid var(--ink);
+	border: 0;
 	border-radius: var(--radius-none);
-	background: var(--paper);
-	color: var(--ink);
+	background: var(--badge-neutral-bg);
+	color: var(--badge-neutral-fg);
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
 	font-weight: var(--font-weight-bold);
@@ -220,16 +220,32 @@
 	letter-spacing: var(--tracking-label);
 	white-space: nowrap;
 }
-.sc-chip.is-ink {
-	background: var(--ink);
-	color: var(--paper);
-}
+.sc-chip.is-published,
 .sc-chip.is-live {
-	background: var(--primary-cyan);
+	background: var(--badge-published-bg);
+	color: var(--badge-published-fg);
 }
+.sc-chip.is-draft,
+.sc-chip.is-ink {
+	background: var(--badge-draft-bg);
+	color: var(--badge-draft-fg);
+}
+.sc-chip.is-soon,
 .sc-chip.is-off {
-	border-color: var(--border-muted);
-	color: var(--text-muted);
+	background: var(--badge-soon-bg);
+	color: var(--badge-soon-fg);
+}
+.sc-chip.is-error {
+	background: var(--badge-error-bg);
+	color: var(--badge-error-fg);
+}
+.sc-chip.is-warning {
+	background: var(--badge-warning-bg);
+	color: var(--badge-warning-fg);
+}
+.sc-chip.is-info {
+	background: var(--badge-info-bg);
+	color: var(--badge-info-fg);
 }
 /* sidebar / list navigation: a group head, then full-width entries; hover frames, current (aria-current / .is-current) inverts */
 .sc-nav-head {

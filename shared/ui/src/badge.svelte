@@ -3,15 +3,15 @@
 
 	/**
 	 * Status badge (claimed, revoked, draft, published, roles). Hairline border, caption size, square.
-	 * tone: neutral (2px ink frame) · ink (filled ink) · accent (cyan fill: "live" states only) · warning · error
-	 * (state-colored frame + thick left rule, ink text). Caption size, bold; no uppercase (badges carry ids and
-	 * codes, which are case-sensitive). DESIGN.md "Brutalist tools".
+	 * FILLED (owner 2026-10-01), colours from tokens.css `--badge-*`: tone neutral · published (alias accent: live,
+	 * signed) · draft (alias ink: claimed, source) · soon · info · warning · error. White text where it reaches 4.5:1,
+	 * else ink. Caption size, bold; no uppercase (badges carry ids and codes, which are case-sensitive).
 	 */
 	let {
 		tone = 'neutral',
 		children
 	}: {
-		tone?: 'neutral' | 'ink' | 'accent' | 'warning' | 'error';
+		tone?: 'neutral' | 'ink' | 'accent' | 'published' | 'draft' | 'soon' | 'info' | 'warning' | 'error';
 		children: Snippet;
 	} = $props();
 </script>
@@ -23,32 +23,40 @@
 		display: inline-block;
 		box-sizing: border-box;
 		padding: 0.15em 0.5em;
-		border: var(--border-width-regular) solid var(--ink);
+		border: 0;
 		border-radius: var(--radius-none);
-		background: var(--paper);
-		color: var(--ink);
+		background: var(--badge-neutral-bg);
+		color: var(--badge-neutral-fg);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		font-weight: var(--font-weight-bold);
 		white-space: nowrap;
 		vertical-align: middle;
 	}
-	.ink {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+	.ink,
+	.draft {
+		background: var(--badge-draft-bg);
+		color: var(--badge-draft-fg);
 	}
-	.accent {
-		background: var(--primary-cyan);
-		border-color: var(--ink);
+	.accent,
+	.published {
+		background: var(--badge-published-bg);
+		color: var(--badge-published-fg);
 	}
-	/* state colors on borders only: as text they are below 4.5:1 on paper */
+	.soon {
+		background: var(--badge-soon-bg);
+		color: var(--badge-soon-fg);
+	}
+	.info {
+		background: var(--badge-info-bg);
+		color: var(--badge-info-fg);
+	}
 	.warning {
-		border-color: var(--state-warning);
-		border-left-width: 0.5em;
+		background: var(--badge-warning-bg);
+		color: var(--badge-warning-fg);
 	}
 	.error {
-		border-color: var(--state-error);
-		border-left-width: 0.5em;
+		background: var(--badge-error-bg);
+		color: var(--badge-error-fg);
 	}
 </style>

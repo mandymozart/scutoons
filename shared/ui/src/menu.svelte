@@ -69,7 +69,7 @@
 		padding: var(--space-025) var(--space-1);
 		background: var(--paper);
 		color: var(--ink);
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--border-muted);
 		border-radius: var(--radius-none);
 		font: inherit;
 		line-height: 1.2;
@@ -77,8 +77,7 @@
 	}
 	.trigger:hover,
 	.trigger[aria-expanded='true'] {
-		background: var(--ink);
-		color: var(--paper);
+		border-color: var(--ink);
 	}
 	.trigger:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);

@@ -11,7 +11,7 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 
 | Export | Props / usage |
 |---|---|
-| `Button` | `variant` `primary` \| `secondary` \| `clear`, `size` `md` \| `sm` (tools: 1rem, less padding, ≥ 44px), `href` (renders `<a>`), `disabled`, any button/anchor attribute; children = label |
+| `Button` | `variant` `primary` \| `secondary` \| `clear`, `size` `md` \| `sm` (compact for bars: 1rem, padding `space-05 space-15`; the viewer's concept, secondary outline `border-muted` → ink on hover), `href` (renders `<a>`), `disabled`, any button/anchor attribute; children = label |
 | `IconButton` | `label` (required: aria-label + title), `icon` (image URL, 16px) or children, `pressed`; 2rem circle, cyan fill on hover/pressed |
 | `Field` | `label`, `hint`, `error`, `required`, `id`; `children({ id, describedby, invalid })` renders the app's input/select/textarea (styled inside `.field`) |
 | `Panel` | framed box: `title`, `hint`, `actions` snippet, `quiet` (surface-panel, no border) |

@@ -432,27 +432,48 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   Hints / meta = caption in `text-muted` (`.sc-caption`). Badges with data (codes, ids) stay in their case.
 
 **Frames, colour, shape.**
-- Structure = **2px ink** (`--border-width-regular` + `--ink`): fields, buttons, panels, sections, tables, top bar,
-  ActionBar, sidebar edge, tab groups, segmented controls. Table rows are split by 1px ink (`hairline`), never grey.
-- Hard ink / paper. `border-muted` only for **inactive** things (disabled controls, the quiet panel, an inactive tab).
+- Structure = **2px ink** (`--border-width-regular` + `--ink`): fields, panels, sections, tables, top bar,
+  ActionBar, sidebar edge, tab groups, segmented controls (buttons: the viewer's, see Controls). Table rows are split by 1px ink (`hairline`), never grey.
+- Hard ink / paper. `border-muted` only for **inactive** things (the secondary button at rest, the quiet panel, an
+  inactive tab).
   No `surface-*` greys and no tinted fills for structure or state: a state is the frame's colour + a thick left rule
   (0.5rem / 0.5em) in `state-error` / `state-warning` / cyan, the text stays ink. Unsaved = an inverted bar.
 - Square everything (`radius-none`; `radius-sm` only for avatars). **No shadows** (also no inset box-shadow tricks).
-- Cyan (`primary-cyan`) only for **live** states: "published" chips, the canvas selection, a signed / live badge,
-  per-locale overrides' rule. Never for the current nav entry or a selected row.
+- Cyan (`primary-cyan`) only for **live** states: the "published" badge, the canvas selection, per-locale overrides'
+  rule. Never for the current nav entry or a selected row.
+- **Badges are FILLED** (owner 2026-10-01): status chips, tags, counts = a solid fill, **paper text where it reaches
+  4.5:1, else ink**; caption size, bold (status words uppercase; ids / codes keep their case). The colours live in one
+  place, `shared/tokens/tokens.css` `--badge-<name>-bg|fg` (owner will refine them):
+
+  | Badge | Fill | Text | Contrast | Used for |
+  |---|---|---|---|---|
+  | `published` | `#00d1ff` (primary-cyan) | ink | 11.56:1 (paper 1.82) | published, live, signed |
+  | `draft` | `#000000` (ink) | paper | 21:1 | saved draft, claimed, source language |
+  | `soon` | `#6b6b6b` | paper | 5.33:1 | coming soon, announced |
+  | `error` | `#d01a08` | paper | 5.48:1 | error, revoked, missing |
+  | `warning` | `#b07a00` (state-warning) | ink | 5.63:1 (paper 3.73) | warning, unsaved, too long |
+  | `info` | `#0057d9` | paper | 6.24:1 | info |
+  | `neutral` | `#cccccc` (border-muted) | ink | 13.08:1 | unclaimed, tags, plain counts |
+
+  `@scutoons/ui` `Badge tone` = these names (`accent` = published, `ink` = draft kept as aliases); tools.css
+  `.sc-chip` + `.is-<name>`.
 
 **Controls.**
-- Every control and clickable row: **≥ 44px** (`--control-height` = max(44px, 2rem): 44 · 44 · 48px).
+- **Sizes in rem** (owner 2026-10-01, no px): fields, nav entries and clickable rows are `--control-height` =
+  2rem + the 2px frame (32 · 36 · 52px), as tall as a compact button.
 - Inputs / selects / textareas: 2px ink frame, paper, 1rem, padding `space-025 space-05` (textarea `space-05`),
   placeholder `text-muted`; disabled = `border-muted` + `text-muted`; invalid = `state-error` frame.
-- Buttons: primary = ink bg / paper text; secondary = paper + 2px **ink** frame (`--sc-button-secondary-border` in a
-  tool; the reader keeps `border-muted`); ghost = no frame until hover. **Hover inverts**; disabled = the inactive frame
-  (paper, `text-muted`, `border-muted`), no opacity. `Button size="sm"` = 1rem, padding `space-025 space-1`.
+- **Buttons = the viewer's** (owner 2026-10-01, no new invention): primary = ink bg / paper text; secondary (the
+  normal one) = paper + 2px `border-muted`, **on hover the outline turns ink**, no inversion on hover; ghost = no frame,
+  `border-muted` frame on hover; disabled = opacity 0.5. Padding as in the viewer `space-1 space-3`; compact
+  `space-05 space-15` where the bars need it (`Button size="sm"`, the creator's plain buttons). Square, 1rem.
+  On phones (< 480px) the ActionBar narrows its buttons to `space-05 space-1` and shows Info as its icon only.
 - **Focus = a 3px ink outline** (`--border-width-focus`) 2px outside the frame (`--focus-offset`), everywhere.
-- **Active / selected = inverted** (ink bg, paper text): current sidebar entry, open tab, chosen segment, selected list
-  item / table row, pressed toggle, current page in the pager. Hover on lists = a 2px ink frame inside the row.
+- **Active / selected = inverted** (ink bg, paper text) — only for **toggles, tabs and selected list items**: current
+  sidebar entry, open tab, chosen segment, selected list item / table row, pressed / open toggle (Info, More), current
+  page in the pager. Pager links and menu triggers otherwise look like secondary buttons. Hover on lists = a 2px ink frame inside the row.
 - Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = an inverted plate (tool label).
-  details/summary = a bold uppercase label row ≥ 44px.
+  details/summary = a bold uppercase label row (`--control-height`).
 - **Icons:** Feather via `Icon` (see "Icons"): close (x), menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
   arrow-up/down for reorder, plus, info, search, sort arrows; icon-only controls carry `aria-label` + `title`.
 

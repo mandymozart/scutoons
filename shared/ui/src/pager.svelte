@@ -133,12 +133,11 @@
 	}
 	a {
 		color: var(--ink);
-		border: var(--border-width-regular) solid var(--ink);
+		border: var(--border-width-regular) solid var(--border-muted);
 		text-decoration: none;
 	}
 	a:hover {
-		background: var(--ink);
-		color: var(--paper);
+		border-color: var(--ink);
 	}
 	a:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);

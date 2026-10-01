@@ -83,8 +83,9 @@
 	/* page title of a tool page (like the landing page's "TOONS"), the only size above 1rem */
 	--type-title-size: 1.5rem;
 	--type-title-line: 1.15;
-	/* every control / clickable row: ≥ 44px hit target (44 · 44 · 48 px at the fluid root) */
-	--control-height: max(44px, 2rem);
+	/* fields, nav entries, clickable rows: as tall as a compact button (2rem + its 2px frame; rem only, owner
+	   2026-10-01: 32 · 36 · 52 px at the fluid root) */
+	--control-height: calc(2rem + 2 * var(--border-width-regular));
 	/* focus = a thick ink outline outside the 2px frame */
 	--border-width-focus: 3px;
 	--focus-offset: 2px;
@@ -92,6 +93,23 @@
 	--tool-bar-height: max(48px, 3rem);
 	--tool-sidebar-width: 12rem;
 	--tool-panel-width: 16rem;
+
+	/* ── Badges (status chips, tags, counts): FILLED, white text where it reaches 4.5:1, else ink ──────── */
+	/* the one place for the badge colours (DESIGN.md "Brutalist tools" lists each pair's contrast) */
+	--badge-published-bg: var(--primary-cyan); /* live / published / signed: ink 11.56:1 */
+	--badge-published-fg: var(--ink);
+	--badge-draft-bg: var(--ink); /* draft / unpublished changes / source: paper 21:1 */
+	--badge-draft-fg: var(--paper);
+	--badge-soon-bg: #6b6b6b; /* coming soon / announced: paper 5.33:1 */
+	--badge-soon-fg: var(--paper);
+	--badge-error-bg: #d01a08; /* error / revoked / missing: paper 5.48:1 */
+	--badge-error-fg: var(--paper);
+	--badge-warning-bg: #b07a00; /* warning / unsaved / too long: ink 5.63:1 (paper only 3.73) */
+	--badge-warning-fg: var(--ink);
+	--badge-info-bg: #0057d9; /* info: paper 6.24:1 */
+	--badge-info-fg: var(--paper);
+	--badge-neutral-bg: #cccccc; /* neutral / unclaimed / tags: ink 13.08:1 */
+	--badge-neutral-fg: var(--ink);
 
 	/* ── Motion: utilitarian, nothing > ~0.3s for UI state ────────────────── */
 	--duration-fast: 0.1s;

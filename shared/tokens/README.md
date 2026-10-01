@@ -12,7 +12,7 @@ bundles the CSS and emits the font files.
 | `@scutoons/tokens/tokens.css` | `:root` custom properties |
 | `@scutoons/tokens/fonts.css` | `@font-face`: IBM Plex Mono 400/700 (+ italic 400/700), Bangers 400 (SIL OFL 1.1, `fonts/*-OFL.txt`) |
 | `@scutoons/tokens/base.css` | `html` / `body` / headings / `p`, fluid root font size (14px < 480px, 16px, 24px ≥ 768px); form controls (`button`, `input`, `select`, `textarea`) `font: inherit` and `code`/`kbd`/`samp`/`pre` in `--font-mono`, both with `:where()` (specificity 0) |
-| `@scutoons/tokens/tools.css` | the brutalist tool base (DESIGN.md "Brutalist tools"), **opt-in** with the class `sc-tool` on an app root (creator, admin, embassy): `:where()` element rules (specificity 0) for headings, links, fields (2px ink, ≥ 44px), buttons (shape/size), focus (3px ink outline), fieldset/legend, details/summary, tables; utility classes `sc-label`, `sc-heading`, `sc-caption`, `sc-chip` (`is-ink`, `is-live`, `is-off`), `sc-frame`. Inert without `sc-tool` (reader, shop) |
+| `@scutoons/tokens/tools.css` | the brutalist tool base (DESIGN.md "Brutalist tools"), **opt-in** with the class `sc-tool` on an app root (creator, admin, embassy): `:where()` element rules (specificity 0) for headings, links, fields (2px ink, `--control-height`), buttons (shape/size), focus (3px ink outline), fieldset/legend, details/summary, tables; utility classes `sc-label`, `sc-heading`, `sc-caption`, `sc-chip` (filled: `is-published|draft|soon|error|warning|info`, neutral default), `sc-frame`, `sc-nav-head`, `sc-nav-item`. Inert without `sc-tool` (reader, shop) |
 | `@scutoons/tokens/fonts/*` | the font files (e.g. for a copy on the server) |
 
 Tokens (see `tokens.css` for values and usage notes):
@@ -27,8 +27,10 @@ Tokens (see `tokens.css` for values and usage notes):
 - Type: `--font-mono`, `--font-lettering`, `--font-weight-regular|bold`, `--type-{body,button,label,caption,nav-micro}-{size,line}`,
   `--root-size-small|root-size|root-size-large`.
 - Motion: `--duration-fast|base|slow` (0.1–0.3s), `--easing`.
-- Tools: `--tracking-label`, `--type-title-size|line` (the tool page title, 1.5rem), `--control-height` (≥ 44px hit
-  target), `--border-width-focus` + `--focus-offset`, `--tool-bar-height`, `--tool-sidebar-width`, `--tool-panel-width`.
+- Tools: `--tracking-label`, `--type-title-size|line` (the tool page title, 1.5rem), `--control-height` (2rem + the frame; rem only),
+  `--border-width-focus` + `--focus-offset`, `--tool-bar-height`, `--tool-sidebar-width`, `--tool-panel-width`.
+- Badges (filled; the one place for their colours): `--badge-{published,draft,soon,error,warning,info,neutral}-{bg,fg}`
+  (contrast per pair in DESIGN.md "Brutalist tools").
 
 ## Example
 

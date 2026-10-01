@@ -5,8 +5,8 @@
 	/**
 	 * DESIGN.md Button. primary: ink bg, paper text · secondary: paper bg, 2px border-muted → ink on hover ·
 	 * clear: no chrome. Square, sentence case, never uppercase. `href` renders a link with the same look.
-	 * `size="sm"` is the tool variant (creator, admin): the same 1rem type, less padding, still a ≥ 44px hit target.
-	 * In a tool (`.sc-tool`, tools.css) the secondary frame is ink and hover inverts (DESIGN.md "Brutalist tools").
+	 * `size="sm"` is the compact variant for bars (creator, admin): the same 1rem type, padding `space-05 space-15`.
+	 * Everywhere the viewer's concept (owner 2026-10-01): no hover inversion, disabled at 0.5 opacity.
 	 */
 	type Props = {
 		variant?: 'primary' | 'secondary' | 'clear';
@@ -44,7 +44,6 @@
 		justify-content: center;
 		gap: var(--space-05);
 		box-sizing: border-box;
-		min-height: var(--control-height);
 		margin: 0;
 		padding: var(--space-1) var(--space-3);
 		border: var(--border-width-regular) solid transparent;
@@ -70,20 +69,11 @@
 	.secondary {
 		background: var(--paper);
 		color: var(--ink);
-		border-color: var(--sc-button-secondary-border, var(--border-muted));
+		border-color: var(--border-muted);
 	}
 	.secondary:hover:not(.disabled),
 	.secondary:focus-visible {
 		border-color: var(--ink);
-	}
-	/* tools: hover inverts (primary → paper, secondary → ink) */
-	:global(.sc-tool) .primary:hover:not(.disabled) {
-		background: var(--paper);
-		color: var(--ink);
-	}
-	:global(.sc-tool) .secondary:hover:not(.disabled) {
-		background: var(--ink);
-		color: var(--paper);
 	}
 
 	.clear {
@@ -97,11 +87,10 @@
 	}
 
 	.sm {
-		padding: var(--space-025) var(--space-1);
-		line-height: 1.2;
+		padding: var(--space-05) var(--space-15);
 	}
 	.sm.clear {
-		padding: var(--space-025) var(--space-05);
+		padding: var(--space-05);
 	}
 
 	.sc-button:focus-visible {
@@ -113,11 +102,5 @@
 		opacity: 0.5;
 		cursor: not-allowed;
 	}
-	/* tools: disabled = the inactive frame, no see-through ink */
-	:global(.sc-tool) .disabled {
-		opacity: 1;
-		background: var(--paper);
-		color: var(--text-muted);
-		border-color: var(--border-muted);
-	}
+
 </style>

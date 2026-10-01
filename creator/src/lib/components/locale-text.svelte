@@ -97,23 +97,27 @@
 	}
 	.pill {
 		padding: 0.1em 0.4em;
-		border: var(--border-width-regular) solid currentColor;
+		border: 0;
+		background: var(--badge-neutral-bg);
+		color: var(--badge-neutral-fg);
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		font-weight: var(--font-weight-bold);
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
+	/* filled chips (tokens.css --badge-*) */
 	.source {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
+		background: var(--badge-draft-bg);
+		color: var(--badge-draft-fg);
 	}
 	.miss {
-		color: var(--error);
+		background: var(--badge-error-bg);
+		color: var(--badge-error-fg);
 	}
 	.warn {
-		color: var(--warn);
+		background: var(--badge-warning-bg);
+		color: var(--badge-warning-fg);
 	}
 	/* state = the frame's colour + a thick left rule, no tinted fills */
 	.missing textarea,

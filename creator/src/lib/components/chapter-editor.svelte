@@ -1042,6 +1042,7 @@
 	.boxes button {
 		display: block;
 		width: 100%;
+		padding-block: 0;
 		line-height: calc(var(--control-height) - 2 * var(--border-width-regular));
 		text-align: left;
 		white-space: nowrap;

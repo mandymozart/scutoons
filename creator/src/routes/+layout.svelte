@@ -328,8 +328,9 @@
 	}
 
 	/* ── Creator-wide controls (fields, focus, headings: tools.css; @scutoons/ui components style themselves) ──
-	   button = ink (primary) · .secondary = 2px ink frame · .ghost = no frame until hover · .active = inverted.
-	   Hover inverts, disabled = the inactive frame. Every button ≥ 44px (tools.css). */
+	   The viewer's buttons (owner 2026-10-01): button = ink (primary) · .secondary = paper + 2px border-muted → ink on
+	   hover · .ghost = no frame until hover · .active (a toggle) = inverted · disabled 0.5. Compact padding
+	   space-05 space-15 (rem), the bars need it. */
 	:global(:where(.creator input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']))),
 	:global(:where(.creator select)),
 	:global(:where(.creator textarea)) {
@@ -342,9 +343,8 @@
 		justify-content: center;
 		gap: var(--space-025);
 		box-sizing: border-box;
-		min-height: var(--control-height);
-		padding: 0 var(--space-075);
-		line-height: 1.2;
+		padding: var(--space-05) var(--space-15);
+		line-height: var(--type-button-line);
 		background: var(--ink);
 		color: var(--paper);
 		border: var(--border-width-regular) solid var(--ink);
@@ -352,31 +352,24 @@
 		cursor: pointer;
 		text-decoration: none;
 	}
-	:global(:where(.creator button:hover:not(:disabled))),
-	:global(:where(.creator .btn:hover)) {
-		background: var(--paper);
-		color: var(--ink);
-	}
 	:global(:where(.creator button.secondary)),
 	:global(:where(.creator .btn.secondary)) {
 		background: var(--paper);
 		color: var(--ink);
-		border-color: var(--ink);
+		border-color: var(--border-muted);
 	}
 	:global(:where(.creator button.secondary:hover:not(:disabled))),
 	:global(:where(.creator .btn.secondary:hover)) {
-		background: var(--ink);
-		color: var(--paper);
+		border-color: var(--ink);
 	}
 	:global(:where(.creator button.ghost)) {
 		background: transparent;
 		color: var(--ink);
 		border-color: transparent;
-		padding: 0 var(--space-05);
+		padding: var(--space-05);
 	}
 	:global(:where(.creator button.ghost:hover:not(:disabled))) {
-		background: var(--paper);
-		border-color: var(--ink);
+		border-color: var(--border-muted);
 	}
 	:global(:where(.creator button.active)),
 	:global(:where(.creator button.active:hover:not(:disabled))) {
@@ -385,13 +378,8 @@
 		border-color: var(--ink);
 	}
 	:global(:where(.creator button:disabled)) {
-		background: var(--paper);
-		color: var(--text-muted);
-		border-color: var(--border-muted);
+		opacity: 0.5;
 		cursor: not-allowed;
-	}
-	:global(:where(.creator button.ghost:disabled)) {
-		border-color: transparent;
 	}
 	:global(:where(.creator label)) {
 		display: block;
