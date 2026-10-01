@@ -47,6 +47,8 @@ export function createVisualNovelContext() {
 	let suspended: { character: SceneCharacter | null; text: string; wait: boolean; resolver: () => void; acknowledged: boolean } | null = null;
 	let onomatopoeiaResolver: (() => void) | null = null;
 	let navigationTriggered = $state(false);
+	/** the group's script ran to its end without navigating (the follow-up bar waits for it, agents/DESIGN.md) */
+	let eventsDone = $state(false);
 
 	function setCharacters(data: Character[]) {
 		characters.clear();
@@ -198,9 +200,15 @@ export function createVisualNovelContext() {
 		});
 	}
 
+	/** A group's script starts (again): not done. */
+	function beginEvents(): void {
+		eventsDone = false;
+	}
+
 	/** The group's events are done: a message the reader already clicked away closes (the last click advances too). */
 	function endOfEvents(): void {
 		if (acknowledged && !choicesVisible) messageVisible = false;
+		eventsDone = true;
 	}
 
 	function addChoice(choice: VNChoice): void {
@@ -331,6 +339,7 @@ export function createVisualNovelContext() {
 		activeOnomatopoeia.length = 0;
 		onomatopoeiaQueue.length = 0;
 		navigationTriggered = false;
+		eventsDone = false;
 	}
 
 	return {
@@ -345,7 +354,8 @@ export function createVisualNovelContext() {
 				choicesVisible,
 				activeOnomatopoeia,
 				boxHeight,
-				lastSpoke
+				lastSpoke,
+				eventsDone
 			};
 		},
 		setCharacters,
@@ -361,6 +371,7 @@ export function createVisualNovelContext() {
 		setWaitResolver,
 		continueFromWait,
 		waitForContinue,
+		beginEvents,
 		endOfEvents,
 		addChoice,
 		showChoices,

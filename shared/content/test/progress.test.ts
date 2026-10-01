@@ -2,7 +2,7 @@
 //   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceCheckpoint, chapterCheckpointUri, chapterProgress, readingState, type Checkpoint } from '../src/index.ts';
+import { advanceCheckpoint, chapterCheckpointUri, chapterProgress, nextStep, readingState, type Checkpoint } from '../src/index.ts';
 
 const cp = (n: number, position: number | undefined, isComplete: boolean, t: string, toon = 't'): Checkpoint => ({
 	uri: chapterCheckpointUri(toon, n),
@@ -79,4 +79,33 @@ test('chapterProgress: never opened, in progress, finished and read again', () =
 	assert.deepEqual(chapterProgress('t', 2, [{ uri, isComplete: true, position: 1 } as Checkpoint]), { position: 1, finished: true });
 	assert.deepEqual(chapterProgress('t', 2, [{ uri, isComplete: true, position: 0.1 } as Checkpoint]), { position: 0.1, finished: true });
 	assert.equal(chapterProgress('t', 3, [{ uri, isComplete: true } as Checkpoint]), null);
+});
+
+test('nextStep: the follow-up bar after a group (agents/DESIGN.md "Follow-up bar")', () => {
+	const sequence = [
+		{ number: 0, status: 'published', isPreview: true },
+		{ number: 1, status: 'published' },
+		{ number: 2, status: 'draft' },
+		{ number: 3, status: 'coming-soon', release: '2025-12-01' }
+	];
+	const groups = [{ label: 'a' }, { label: 'b' }];
+	// more groups follow → the next group
+	assert.deepEqual(nextStep({ groups, group: 0, chapter: 1, sequence, member: false }), { kind: 'group', label: 'b' });
+	// a following group without a label can't be addressed → the chapter's end
+	assert.deepEqual(nextStep({ groups: [{ label: 'a' }, {}], group: 0, chapter: 0, sequence, member: true }), { kind: 'chapter', chapter: 1 });
+	// the prologue's end: chapter 1 for a member, the membership case for a guest
+	assert.deepEqual(nextStep({ groups: [{}], group: 0, chapter: 0, sequence, member: true }), { kind: 'chapter', chapter: 1 });
+	assert.deepEqual(nextStep({ groups: [{}], group: 0, chapter: 0, sequence, member: false }), { kind: 'members', chapter: 1 });
+	// a preview chapter needs no membership
+	assert.deepEqual(nextStep({ groups: [{}], group: 0, chapter: 0, sequence: [sequence[0], { number: 1, status: 'published', isPreview: true }], member: false }), { kind: 'chapter', chapter: 1 });
+	// a draft next: readable in dev only; in production it is coming (no date: not announced) – never skipped
+	assert.deepEqual(nextStep({ groups, group: 1, chapter: 1, sequence, member: true, includeDrafts: true }), { kind: 'chapter', chapter: 2 });
+	assert.deepEqual(nextStep({ groups, group: 1, chapter: 1, sequence, member: true }), { kind: 'coming-soon', chapter: 2 });
+	// coming soon (with its release date)
+	assert.deepEqual(nextStep({ groups, group: 1, chapter: 2, sequence, member: true }), { kind: 'coming-soon', chapter: 3, release: '2025-12-01' });
+	assert.deepEqual(nextStep({ groups, group: 1, chapter: 2, sequence: [{ number: 2 }, { number: 3, status: 'coming-soon' }], member: true }), { kind: 'coming-soon', chapter: 3 });
+	// the last chapter of the season
+	assert.deepEqual(nextStep({ groups, group: 1, chapter: 3, sequence, member: true }), { kind: 'season-end' });
+	// a chapter the sequence doesn't list (a draft in production): the next listed one after it
+	assert.deepEqual(nextStep({ groups: [{}], group: 0, chapter: 2, sequence: [sequence[0], sequence[1], sequence[3]], member: true }), { kind: 'coming-soon', chapter: 3, release: '2025-12-01' });
 });

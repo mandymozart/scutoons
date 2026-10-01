@@ -116,6 +116,27 @@
 		"season_title": "Staffel {number}: {title}",
 		"prologue": "Prolog"
 	},
+	"player": {
+		"sound_on": "Ton an"
+	},
+	"next_bar": {
+		"label": "Wie es weitergeht",
+		"next": "Weiter",
+		"chapter": "{chapter}: {title}",
+		"overview": "Zur Übersicht",
+		"replay": "Nochmal",
+		"replay_video": "Nochmal ansehen",
+		"cancel": "Abbrechen",
+		"countdown": "Weiter in {seconds} s",
+		"coming_soon": "{chapter} erscheint am {date}",
+		"coming_soon_undated": "{chapter} erscheint bald",
+		"season_end": "Staffel {season} geschafft",
+		"sign_in": "Anmelden",
+		"redeem": "Code einlösen",
+		"members_hint": "{chapter} ist für Mitglieder: melde dich an oder löse deinen Code ein.",
+		"members_hint_signed_in": "{chapter} ist für Mitglieder: löse deinen Code ein.",
+		"where_code": "Wo bekomme ich einen Code?"
+	},
 	"membership_blocker": {
 		"title": "Mitgliedschaft erforderlich",
 		"description": "Dieser Inhalt erfordert eine gültige SCUTOONS-Mitgliedschaft.",

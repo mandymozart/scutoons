@@ -10,10 +10,19 @@
 	import accountIcon from '$lib/icons/account.svg';
 	import LoginForm from '$lib/components/account/login-form.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
+	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 
 	const membershipCtx = getMembershipContext();
 	const session = getSessionContext();
 	const inventory = getInventoryContext();
+
+	// `?return=<path>` (the follow-up bar's "Anmelden" before a members-only chapter): back there after signing in;
+	// same-origin paths only
+	const returnTo = $derived.by(() => {
+		const value = page.url.searchParams.get('return');
+		return value && value.startsWith('/') && !value.startsWith('//') && !value.includes('\\') ? value : null;
+	});
 
 	const itemCount = $derived(inventory.entries.reduce((sum, e) => sum + e.qty, 0));
 
@@ -176,7 +185,7 @@
 		<section>
 			<h2>{m['account.login_title']()}</h2>
 			<p>{m['account.login_hint']()}</p>
-			<LoginForm />
+			<LoginForm onlogin={() => returnTo && goto(returnTo)} />
 			<p class="signup-rule">{m['account.signup_rule']()}</p>
 		</section>
 	{/if}

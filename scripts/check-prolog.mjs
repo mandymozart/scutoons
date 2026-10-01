@@ -4,12 +4,14 @@
 // Per width (375, 1280) and locale (de, en), as a guest without a membership, from a fresh browser:
 //   1. toon page: the start button offers the prologue ("Prolog ansehen" / "Watch the prologue" → /catpope/chapter/0),
 //      the chapter list's first row is labelled "Prolog" / "Prologue" (not "#0"), no progress bar yet;
-//   2. /catpope/chapter/0: no membership blocker, one player video (controls, sound, no loop / autoplay, playsinline,
+//   2. /catpope/chapter/0: no membership blocker, one player video (controls, sound, no loop / autoplay attribute, playsinline,
 //      preload=metadata, the poster), the slice box has the video's ratio (no 390 × 625 crop), and the browser loads the
 //      resolution for its width (`video.sources` media queries: 480p at 375, 720p at 1280, 1080p at 1600 – checked in
 //      the network log too);
-//   3. playing: sound (decoded audio bytes), the chapter's music pauses while it plays and resumes after a pause
-//      (chapter 0 has no audio of its own: the check injects chapter 1's music into the chapter-0 answer);
+//   3. it starts by itself once in view (this Chrome allows sound without a click; the muted start + "Ton an" under the
+//      normal policy is scripts/check-next-bar.mjs): sound (decoded audio bytes); the chapter's music waits while it plays,
+//      starts after a pause and pauses again when it plays (chapter 0 has no audio of its own: the check injects chapter
+//      1's music into the chapter-0 answer);
 //   4. seeking to 200 s works (the CDN answers ranges with 206; `video.seekable` covers the video);
 //   5. back on the toon page: still the prologue, the list's progress bar shows how far it was watched;
 //   6. watched to its end (`ended`) → the start button says "S1 K1 lesen" / "Read S1 C1" (→ chapter 1), full bar.
@@ -234,24 +236,29 @@ async function run(width, locale) {
 			const ratio = playerSlice.height / playerSlice.width;
 			if (!near(v.height, v.width * ratio, 2)) problems.push(`box ${v.width} × ${v.height}, expected the video's ratio (${playerSlice.width} × ${playerSlice.height})`);
 		}
-		report(`chapter 0 as a guest: no blocker, one player video (controls, sound, no loop/autoplay, playsinline, metadata), video ratio, ${wanted.replace(/^.*\//, '')}`, problems, v && !v.error ? `${Math.round(v.width)} × ${Math.round(v.height)}, ${v.src}` : '');
+		report(`chapter 0 as a guest: no blocker, one player video (controls, sound, no loop/autoplay attribute, playsinline, metadata), video ratio, ${wanted.replace(/^.*\//, '')}`, problems, v && !v.error ? `${Math.round(v.width)} × ${Math.round(v.height)}, ${v.src}` : '');
 	}
 	await shot(`prolog-${name}-2-chapter`);
 	if (!v || v.error) { injectMusic = false; return; }
 
-	// 3. the music runs, the player pauses it
-	const musicOn = await waitFor(`(() => { const s = ${VIDEO_STATE}; return s && s.music.length && s.music.every((m) => !m.paused) ? s : null; })()`, 25000);
+	// 3. it starts by itself with sound; the music waits while it plays, starts after a pause, pauses when it plays again
 	videoStatuses = [];
-	await evaluate(`document.querySelector('video[data-player]').play().then(() => true)`);
-	const playing = await waitFor(`(() => { const s = ${VIDEO_STATE}; return s && !s.paused && s.time > 1.5 && s.audioBytes > 0 ? s : null; })()`, 25000);
+	let playing = await waitFor(`(() => { const s = ${VIDEO_STATE}; return s && !s.paused && s.time > 1.5 && s.audioBytes > 0 ? s : null; })()`, 25000);
 	{
 		const problems = [];
-		if (!playing || playing.error) problems.push(`not playing with sound: ${JSON.stringify(await evaluate(VIDEO_STATE))}`);
-		report('plays with sound (decoded audio)', problems, playing ? `t=${playing.time.toFixed(1)} s, ${playing.audioBytes} audio bytes` : '');
+		if (!playing || playing.error) problems.push(`not playing by itself with sound: ${JSON.stringify(await evaluate(VIDEO_STATE))}`);
+		else if (playing.music.some((m) => !m.paused)) problems.push(`music while the video plays: ${JSON.stringify(playing.music)}`);
+		report('starts by itself with sound (decoded audio), no music meanwhile', problems, playing ? `t=${playing.time.toFixed(1)} s, ${playing.audioBytes} audio bytes` : '');
+	}
+	await evaluate(`document.querySelector('video[data-player]').pause(), true`);
+	const musicOn = await waitFor(`(() => { const s = ${VIDEO_STATE}; return s && s.paused && s.music.length && s.music.every((m) => !m.paused) ? s : null; })()`, 25000);
+	await evaluate(`document.querySelector('video[data-player]').play().then(() => true)`);
+	playing = await waitFor(`(() => { const s = ${VIDEO_STATE}; return s && !s.paused && s.music.length && s.music.every((m) => m.paused) ? s : null; })()`, 10000);
+	{
 		const problems2 = [];
-		if (!musicOn || musicOn.error) problems2.push('the injected chapter music never started');
-		else if (!playing || playing.music.some((m) => !m.paused)) problems2.push(`music while the video plays: ${JSON.stringify(playing?.music)}`);
-		report('the chapter music pauses while the video plays', problems2, playing ? JSON.stringify(playing.music) : '');
+		if (!musicOn || musicOn.error) problems2.push('the injected chapter music never started after a pause');
+		else if (!playing || playing.error) problems2.push(`music while the video plays: ${JSON.stringify((await evaluate(VIDEO_STATE))?.music)}`);
+		report('the chapter music starts after a pause and pauses while the video plays', problems2, playing ? JSON.stringify(playing.music) : '');
 	}
 	await shot(`prolog-${name}-3-playing`);
 

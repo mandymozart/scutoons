@@ -167,6 +167,7 @@
 
 	onMount(() => {
 		cancelled = false;
+		vn.beginEvents();
 		runEvents();
 	});
 	
