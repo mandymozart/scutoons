@@ -121,6 +121,13 @@ export function createSessionContext() {
 		return result.user;
 	}
 
+	/** Account page "Media quality": `PUT /me/ { media_quality }` (auto by default; lib/media-quality.svelte.ts) */
+	async function setMediaQuality(value: NonNullable<User['media_quality']>) {
+		const result = await updateMe({ media_quality: value });
+		if (me) me = { ...me, user: { ...me.user, ...result.user } };
+		return result.user;
+	}
+
 	const hasRole = (role: string) => roles.includes(role);
 
 	const verifyToken = async (magicToken: string) => applyVerify(await authVerifyToken(magicToken));
@@ -195,6 +202,7 @@ export function createSessionContext() {
 		verifyToken,
 		setMarketingOptIn,
 		setHideSensitive,
+		setMediaQuality,
 		hasRole,
 		logout,
 		patchMe,

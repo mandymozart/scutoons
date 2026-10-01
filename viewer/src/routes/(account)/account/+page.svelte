@@ -10,6 +10,7 @@
 	import accountIcon from '$lib/icons/account.svg';
 	import LoginForm from '$lib/components/account/login-form.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
+	import MediaQualitySetting from '$lib/components/account/media-quality-setting.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 
@@ -201,6 +202,10 @@
 			</p>
 		</section>
 	{/if}
+
+	<section>
+		<MediaQualitySetting />
+	</section>
 
 	<section>
 		<h2>{m['account.inventory']()}</h2>

@@ -762,7 +762,7 @@
 				<aside class="inspector">
 					<div class="tabs" role="tablist">
 						<button class="ghost" class:active={inspectorTab === 'text'} onclick={() => (inspectorTab = 'text')} data-testid="tab-text">{m['creator.text_boxes']()} ({sliceDialogs.length})</button>
-						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => (inspectorTab = 'slice')}>{m['creator.image']()}</button>
+						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => (inspectorTab = 'slice')} data-testid="tab-background">{m['creator.background']()}</button>
 						<button class="ghost" class:active={inspectorTab === 'audio'} onclick={() => (inspectorTab = 'audio')}>{m['creator.audio']()}</button>
 						<button class="ghost" class:active={inspectorTab === 'events'} onclick={() => (inspectorTab = 'events')}>Events ({activeSlice?.events?.length ?? 0})</button>
 					</div>

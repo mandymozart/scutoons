@@ -14,7 +14,9 @@
 </div>
 
 <style>
+	/* a block formatting context (was `overflow-y: auto`, which never scrolled here – the column has no height – but
+	   clipped the full-viewport video slices sideways: overflow-y auto turns overflow-x into auto) */
 	.renderer {
-		overflow-y: auto;
+		display: flow-root;
 	}
 </style>
