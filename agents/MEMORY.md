@@ -1324,3 +1324,31 @@ character, persona, look and mood and doubles as the VN test bed.
 - Audit side findings (not fixed): `viewer/static/favicon.svg` is still the Svelte logo (admin/creator/embassy use it); the
   catpope placeholder SVGs in `images/characters/*` carry German names; ch2 slice 1 has the German SFX "FLATTER FLATTER"
   baked in (clean art requested); toptoy's draft toon page has an empty map terrain `<img>` (`map.layers.terrain: ""`).
+
+## Toon script / Drehbuch (2026-10-01, branch `toon-script`)
+
+- **Owner:** "Per toon a place where I can put scripts … a huge text block which I can edit and that is versioned, like
+  the rest … scripts come per toon, not per chapter." Spec: DATA.md "Script" (entity `script:<toon>:<l>`), DESIGN.md
+  "Creator: script page".
+- Format source: `C:\Development\screenplay-editor` (README "Writing Guide", `lib/src/parse.js` + `utils/regex.js`). Its
+  `lib` is NOT used as a dependency (outside the repo, built with jspdf, German-only markers): `scriptOutline` in
+  `@scutoons/content` re-implements only the heading rules (+ `Chapter` / `Song` for translations).
+- Cat Pope screenplay: `C:\Development\cat-pope-agent\external-repos\cat-pope-awakening\{de,en}\screenplay.txt` + `config.json`
+  (repo last commit 2025-01-08; de complete 1834 lines, en partial 395 lines). LF, no tabs, 351 / 137 lines with
+  trailing spaces – they are part of the file and are kept. Re-import a newer version: `import-screenplay.ts` then
+  `import-content shared/content/seed --toon=catpope --only=script --update`.
+- Gotchas: `ContentDoc.publish()` publishes every stored locale (an unchanged one keeps its version – harmless); the
+  textarea → doc write is debounced, so `beforeSave` / blur flush it; scripts never reach `Library\Snapshot` (cache keys
+  unchanged by script saves).
+- Local store: `script:catpope:{de,en}` published (482, 483), backup `server/db/local.sqlite.bak-2026-10-01-script`.
+  The seed SQL is unchanged (scripts are creator-only, `--sql` skips them).
+- Check: `npm run check:creator-script` (27 checks: byte-identical load + file, outline 6 chapters / 39 scenes / 6 songs,
+  jump, typing ~17 ms/keystroke with no long tasks, edit → draft → publish → history → restore byte-identical → publish,
+  en switch, empty page for the sandbox, restores the published versions).
+- **Merge note (`toon-script` → `platform`)**: branched at bab74a3, `platform` merged in at 264baa6 (one conflict in
+  `shared/content/src/validate.ts`: both imports kept; `checkMediaLocale` skips `script`). Merge is a fast-forward-able
+  merge commit. Until it is merged, the owner's running API (old `EntityKey`) answers 400 for `script:` keys and
+  `export-content` on the local store would stop at the 2 script rows (unknown kind) – merge before exporting. No
+  migration, no new dependency, no seed SQL change; production gets no script rows unless someone runs
+  `import-content --sql --only=script` deliberately. Fresh worktrees need the gitignored `server/storage/keys/keypair.json`
+  and `storage/files/batch/*` copied for the contract suites (admin-smoke batches, public-urls keys) – not a code issue.
