@@ -125,21 +125,27 @@
 					</li>
 				</ul>
 			</nav>
-			<nav class="nav nav--language" aria-label={m['menu.language']()}>
-				<ul class="nav-list">
-					{#each locales as locale}
-						<li class="nav-item">
-							<button
-								type="button"
-								class={`nav-btn ${getLocale() === locale ? 'active' : ''}`}
-								aria-pressed={getLocale() === locale}
-								lang={locale}
-								onclick={() => setLocale(locale)}>{locale}</button
-							>
-						</li>
-					{/each}
-				</ul>
-			</nav>
+			<!-- language + a close button in the corner (for desktop / people who don't know swipe or click-outside) -->
+			<div class="menu-header-end">
+				<nav class="nav nav--language" aria-label={m['menu.language']()}>
+					<ul class="nav-list">
+						{#each locales as locale}
+							<li class="nav-item">
+								<button
+									type="button"
+									class={`nav-btn ${getLocale() === locale ? 'active' : ''}`}
+									aria-pressed={getLocale() === locale}
+									lang={locale}
+									onclick={() => setLocale(locale)}>{locale}</button
+								>
+							</li>
+						{/each}
+					</ul>
+				</nav>
+				<button type="button" class="menu-close" onclick={() => (closeMenu(), toggleElement?.focus())} aria-label={m['menu.close']()} data-testid="menu-close">
+					<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+				</button>
+			</div>
 		</div>
 		<!-- the toons, under account + language (owner 2026-10-01) -->
 		<nav class="nav nav--toons" aria-label={m['menu.toons']()}>
@@ -311,6 +317,32 @@
 	.menu-header {
 		display: flex;
 		justify-content: space-between;
+	}
+	.menu-header-end {
+		display: flex;
+		align-items: flex-start;
+	}
+	/* a grey cross, the size of a language button, in the top-right corner */
+	.menu-close {
+		box-sizing: border-box;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 3rem;
+		height: 3rem;
+		padding: 0;
+		background: transparent;
+		color: var(--text-muted);
+		border: 2px solid #ccc;
+		cursor: pointer;
+	}
+	.menu-close:hover {
+		color: black;
+		border-color: black;
+	}
+	.menu-close svg {
+		width: 1rem;
+		height: 1rem;
 	}
 	.nav.nav--account .nav-list {
 		display: flex;

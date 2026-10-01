@@ -238,6 +238,7 @@
 		"download": "Download the music"
 	},
 	"menu": {
+		"close": "Close menu",
 		"open": "Menu",
 		"home": "SCUTOONS – Home",
 		"toons": "Toons",
