@@ -16,6 +16,7 @@
 	import RecipePreview from '$lib/components/items/recipe-preview.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import ReaderStats from '$lib/components/items/reader-stats.svelte';
+	import { TESTO_STAT } from '@scutoons/content';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -31,17 +32,13 @@
 	const entries = $derived(
 		[...inventory.entries].sort((a, b) => (a.acquired_at < b.acquired_at ? -1 : 1))
 	);
-	// worn items first ("Am Avatar"), the rest below ("Im Inventar"): a swap moves the old item into the lower list
-	// (ITEMS.md "Wardrobe"); combine mode keeps one list
-	const wornEntries = $derived(entries.filter((e) => inventory.isEquipped(e)));
-	const restEntries = $derived(entries.filter((e) => !inventory.isEquipped(e)));
-	const sections = $derived(
-		combineWith || wornEntries.length === 0
-			? [{ id: 'all', title: '', list: entries }]
-			: [
-					{ id: 'worn', title: m['items.section_worn'](), list: wornEntries },
-					{ id: 'rest', title: m['items.section_rest'](), list: restEntries }
-				]
+	// worn items are not listed (owner 2026-10-01): they live in the Avatar tab's slot tiles; a stackable entry shows
+	// the pieces that are not worn (an entry is worn at most once). Taking an item off brings it back here.
+	const listed = $derived(
+		entries.flatMap((e) => {
+			const left = e.qty - (inventory.isEquipped(e) ? 1 : 0);
+			return left > 0 ? [{ entry: e, qty: left }] : [];
+		})
 	);
 	// keep the detail sheet in sync with inventory updates (e.g. qty change, entry consumed)
 	$effect(() => {
@@ -145,8 +142,6 @@
 			</p>
 		{/if}
 
-		<ReaderStats />
-
 		{#if tab === 'avatar'}
 			<Avatar />
 		{:else if combineWith && combineSecond}
@@ -160,35 +155,37 @@
 			<ItemDetail entry={selected} onback={() => (selected = null)} oncombine={(e) => (combineWith = e)} />
 		{:else if !inventory.catalog && inventory.entries.length === 0}
 			<p class="empty">{inventory.catalogError ? m['items.unavailable']() : m['items.loading']()}</p>
-		{:else if entries.length === 0}
-			<p class="empty">{m['inventory.empty']()}</p>
 		{:else}
+			<!-- the testo bar is part of the avatar (Avatar tab); appetite stays here -->
+			<ReaderStats exclude={[TESTO_STAT]} />
+			{#if listed.length === 0}
+				<p class="empty">{m['inventory.empty']()}</p>
+			{/if}
 			{#if combineWith}
 				<div class="combine-bar">
 					<span>{m['items.combine_hint']({ name: inventory.nameOf(combineWith) })}</span>
 					<button class="btn-secondary" onclick={() => (combineWith = null)}>{m['common.cancel']()}</button>
 				</div>
 			{/if}
-			{#each sections as section (section.id)}
-			{#if section.title}<h3 class="section-title">{section.title}</h3>{/if}
-			<section class="items" data-section={section.id}>
-				{#each section.list as entry (entry.id)}
-					<button
-						class="item"
-						class:source={combineWith && String(combineWith.id) === String(entry.id)}
-						class:equipped={inventory.isEquipped(entry)}
-						onclick={() => pick(entry)}
-						title={inventory.nameOf(entry)}
-					>
-						<ItemIcon srcs={iconsFor(entry)} name={inventory.nameOf(entry)} />
-						{#if entry.qty > 1}
-							<div class="count">{entry.qty}</div>
-						{/if}
-						<span class="name">{inventory.nameOf(entry)}</span>
-					</button>
-				{/each}
-			</section>
-			{/each}
+			{#if listed.length}
+				<section class="items" data-testid="inventory-items">
+					{#each listed as { entry, qty } (entry.id)}
+						<button
+							class="item"
+							class:source={combineWith && String(combineWith.id) === String(entry.id)}
+							onclick={() => pick(entry)}
+							title={inventory.nameOf(entry)}
+							data-item={entry.item_id}
+						>
+							<ItemIcon srcs={iconsFor(entry)} name={inventory.nameOf(entry)} />
+							{#if qty > 1}
+								<div class="count">{qty}</div>
+							{/if}
+							<span class="name">{inventory.nameOf(entry)}</span>
+						</button>
+					{/each}
+				</section>
+			{/if}
 		{/if}
 	</div>
 </div>
@@ -322,15 +319,6 @@
 		flex: none;
 	}
 
-	.section-title {
-		margin: 0 0 0.5rem;
-		font-size: 0.75rem;
-		font-weight: 700;
-		color: var(--text-muted);
-	}
-	.items + .section-title {
-		margin-top: 1rem;
-	}
 	.items {
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(5rem, 1fr));
@@ -357,16 +345,6 @@
 	.item.source {
 		border-color: var(--ink);
 		filter: drop-shadow(0 0 6px var(--primary-color));
-	}
-	.item.equipped::after {
-		content: '';
-		position: absolute;
-		top: 0.25rem;
-		right: 0.25rem;
-		width: 0.5rem;
-		height: 0.5rem;
-		background: var(--primary-color);
-		border: 1px solid black;
 	}
 	.name {
 		font-size: 0.625rem;

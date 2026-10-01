@@ -5,7 +5,7 @@
 //   1. the default look = Cat Pope in the basic dress: naked base + the T-shirt, shorts and sandals overlays (no naked
 //      frame: "Hide sensitive content" is on, the legs are covered by an overlay); the swim pants wait in the inventory;
 //   2. "Anziehen" on the swim pants (legs) → the swim pants overlay, the shorts back in the inventory (note + the Items
-//      tab's lower list);
+//      tab lists the shorts; worn items are not listed there – owner 2026-10-01: they live in the Avatar tab only);
 //   3. "Ausziehen" on the swim pants while hidden → they stay on (the cover rule, note); the item detail: shorts on → the
 //      swim pants back in the inventory, shorts off → the swim pants come back on;
 //   member only:
@@ -157,12 +157,13 @@ async function basics(who, w) {
 	await shot(`${who}-${w}-2-swim-pants`);
 	const shortsRow = await evaluate(`[...document.querySelectorAll('.picker li')].map((li) => li.textContent.replace(/\\s+/g, ' ').trim())`);
 	if (!shortsRow?.some?.((t) => t.includes(nameOf('scutoons_shorts')) && t.includes(de.items.put_on))) p2.push(`picker rows ${JSON.stringify(shortsRow)}`);
-	// the Items tab: the shorts in the lower list ("Im Inventar")
+	// the Items tab: the shorts are listed again; the worn swim pants, T-shirt and sandals are not (one plain list)
 	await clickEl(tab(0));
-	const lists = await waitFor(`(() => { const r = {}; for (const s of document.querySelectorAll('.inventory [data-section]')) r[s.dataset.section] = [...s.querySelectorAll('.item .name')].map((n) => n.textContent.trim()); return Object.keys(r).length ? r : null; })()`);
-	if (!lists?.rest?.includes(nameOf('scutoons_shorts')) || !lists?.worn?.includes(nameOf('scutoons_swim_pants'))) p2.push(`items tab ${JSON.stringify(lists)}`);
+	const lists = await waitFor(`(() => { const s = document.querySelector('.inventory [data-testid="inventory-items"]'); return s ? { items: [...s.querySelectorAll('.item')].map((b) => b.dataset.item), sections: document.querySelectorAll('.inventory [data-section], .inventory .section-title').length } : null; })()`);
+	const worn = ['scutoons_swim_pants', 'scutoons_tshirt', 'scutoons_sandals'];
+	if (!lists?.items?.includes('scutoons_shorts') || worn.some((id) => lists?.items?.includes(id)) || lists?.sections) p2.push(`items tab ${JSON.stringify(lists)}`);
 	await shot(`${who}-${w}-2-items`);
-	report(`${who} ${w}: swim pants on → the shorts back in the inventory`, p2, JSON.stringify(lists));
+	report(`${who} ${w}: swim pants on → the shorts back in the inventory (Items lists them, not the worn items)`, p2, JSON.stringify(lists));
 
 	const p3 = [];
 	await clickEl(tab(1));
@@ -202,7 +203,9 @@ await sleep(1500);
 await idle();
 for (const w of widths) {
 	await send('Emulation.setDeviceMetricsOverride', { width: w, height: w < 768 ? 844 : 900, deviceScaleFactor: 1, mobile: w < 768 });
-	// guest: a fresh device
+	// guest: a fresh device – also without the previous width's member session: the viewer moves the token into the
+	// API's single sign-on cookie, so the "guest" would otherwise still be the member (and dress the member's avatar)
+	await send('Network.clearBrowserCookies');
 	await open(`${viewer}/de`);
 	await evaluate(`(localStorage.clear(), true)`);
 	await basics('guest', w);

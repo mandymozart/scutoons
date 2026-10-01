@@ -62,6 +62,31 @@ final class ReaderStateTest extends TestCase
         self::assertSame([95.0, 30.0], [((array) $me['stats'])['testo']['level'], ((array) $me['stats'])['appetite']['level']]);
     }
 
+    public function testWeedRaisesAppetiteEatingLowersIt(): void
+    {
+        $id = (string) $this->user()['id'];
+        $inventory = $this->get(InventoryService::class);
+        $reader = $this->get(ReaderState::class);
+        $inventory->add($id, 'weed', null, 3, 'story');
+        $reader->use($id, ['item_id' => 'weed']);
+        self::assertSame(75.0, $reader->stats($id)['appetite']['level'], 'weed: +25');
+        self::assertSame([], $reader->effects($id), 'no reader effect');
+        $reader->use($id, ['item_id' => 'weed']);
+        $reader->use($id, ['item_id' => 'weed']);
+        self::assertSame(100.0, $reader->stats($id)['appetite']['level'], 'capped at 100');
+        $inventory->add($id, 'cucumber', null, 1, 'story');
+        $reader->use($id, ['item_id' => 'cucumber']);
+        self::assertSame(95.0, $reader->stats($id)['appetite']['level'], 'eat a cucumber: −5');
+        self::assertSame(0, $inventory->count($id, 'cucumber'), 'the cucumber is eaten');
+        $inventory->add($id, 'tuna_can', null, 4, 'story');
+        $reader->use($id, ['item_id' => 'tuna_can']);
+        self::assertSame(65.0, $reader->stats($id)['appetite']['level'], 'eat a can of tuna: −30');
+        for ($i = 0; $i < 3; $i++) $reader->use($id, ['item_id' => 'tuna_can']);
+        self::assertSame(0.0, $reader->stats($id)['appetite']['level'], 'floored at 0');
+        $this->clock->advance(3 * 86400);
+        self::assertSame(25.0, $reader->stats($id)['appetite']['level'], 'and it drifts back toward 50');
+    }
+
     public function testTimedEffectExpiresAndCanBeEnded(): void
     {
         $id = (string) $this->user()['id'];

@@ -220,8 +220,10 @@
 				"wearable",
 				"collectible",
 				"media",
-				"substance"
-			]
+				"substance",
+				"food"
+			],
+			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite"
 		},
 		"GrantSource": {
 			"type": "string",
@@ -364,7 +366,7 @@
 			"required": [
 				"type"
 			],
-			"description": "\"Benutzen\" applies a substance: one piece is used up, its `effects` / `effect` hit the reader (substances.ts)"
+			"description": "\"Benutzen\" applies a substance (\"Essen\" for `food`): one piece is used up, its `effects` / `effect` hit the reader (substances.ts)"
 		},
 		"ItemVariant": {
 			"type": "object",

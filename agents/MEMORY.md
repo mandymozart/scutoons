@@ -1545,3 +1545,21 @@ character, persona, look and mood and doubles as the VN test bed.
   SCUTOONS_CREATOR like the script check.
 - The script page's textarea is 1rem / 1.4 (was 13/20 px; DESIGN.md updated, the scroll math reads the computed line
   height).
+
+## Testo on the avatar, appetite food, worn items off the Items list (2026-10-01, branch `platform`)
+
+- Owner: "the testo is part of the avatar" → `reader-stats.svelte` takes `include` / `exclude`; the testo bar is in
+  `avatar.svelte` under the body picker (so also on the account page), the Items tab shows the other stats (appetite).
+- Owner: worn items are not listed in the Items tab (the "Am Avatar" / "Im Inventar" sections and their messages are
+  gone); a stackable entry shows qty minus the one worn piece. Items tiles carry `data-item`, the list
+  `data-testid="inventory-items"`.
+- Appetite: new `weed` (substance, appetite +25, no reader effect – kept simple), new category `food` (`apply` +
+  negative appetite delta, button "Essen"/"Eat", toast "Gegessen: …"): `cucumber` −5 (still a recipe ingredient),
+  new `tuna_can` −30. Catalog 20 → 22 items (api-smoke, admin-smoke). Icons: `make_substance_icons.py` now takes icon
+  names (`--root cdn/root weed tuna_can`). The coordinator's cucumber camera labels (+ cuke, zucchini, courgette) went
+  in with the same commit.
+- Gotchas: the dev DB's sandbox chapter 2 was older than the seed (no testo pickup → check:testo failed at step 1);
+  fixed with `php server/bin/console import-content ../shared/content/seed --toon=sandbox --update` (4 entities: ch. 2
+  de/en). check:wardrobe's "guest" runs after a member run were really the member: the viewer moves the token into the
+  API's SSO cookie, so `localStorage.clear()` is not a sign-out – the check now clears the browser cookies
+  (`Network.clearBrowserCookies`) before each guest run (member 1440 used to start in the swim pants).

@@ -19,6 +19,8 @@
 	const usable = $derived(skills.length > 0);
 	// a substance (ITEMS.md "Substances"): "Benutzen" uses one piece up and applies it
 	const substance = $derived(skills.some((s) => s.type === 'apply'));
+	// food (cucumber, tuna can) is eaten: "Essen" instead of "Benutzen", same mechanics (appetite down)
+	const useLabel = $derived(def?.category === 'food' ? m['items.eat']() : m['items.use']());
 	let useError = $state<string | null>(null);
 	async function useIt() {
 		useError = null;
@@ -99,7 +101,7 @@
 
 	<div class="actions">
 		{#if usable}
-			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : ui.use(entry, skills))} data-testid="item-use">{m['items.use']()}</button>
+			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : ui.use(entry, skills))} data-testid="item-use">{useLabel}</button>
 		{/if}
 		{#if combinable}
 			<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>

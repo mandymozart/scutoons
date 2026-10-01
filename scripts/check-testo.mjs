@@ -2,7 +2,9 @@
 // dependencies; Node 22 WebSocket), like scripts/check-wardrobe.mjs. At 390 px, as a guest (fresh device) and as the
 // test user (`npm run dev:test-user -- --reset` first):
 //   1. pick up the testo in the sandbox (chapter 2, slice 6: a click on the ledge → "Einsammeln");
-//   2. the stat bar shows "Testo 50"; "Benutzen" on the testo → 70, the tube is used up;
+//   2. the testo bar is in the Avatar tab (owner 2026-10-01: "the testo is part of the avatar"), appetite in the Items
+//      tab; it shows "Testo 50"; "Benutzen" on the testo → 70, the tube is used up;
+//   2b. "Essen" on a cucumber → appetite −5, the cucumber is eaten;
 //   3. the decay: the stored time moved back three days (guests: localStorage; the member: the local SQLite DB) → 60;
 //   4. testo + camera combined in the inventory → the testo camera; its scan grant (members: the API's scan grant with the
 //      tool, then the cooldown – the camera's on-device detection itself is not driven here);
@@ -97,7 +99,15 @@ async function clickEl(js) {
 }
 const tab = (i) => `document.querySelectorAll('.inventory .tabs button')[${i}]`;
 const tile = (name) => `[...document.querySelectorAll('.inventory .item')].find((b) => b.querySelector('.name')?.textContent.trim() === ${JSON.stringify(name)})`;
-const testoLevel = `Number(document.querySelector('[data-stat="testo"]')?.dataset.level ?? NaN)`;
+const testoLevel = `Number(document.querySelector('[data-testid="avatar-testo"] [data-stat="testo"]')?.dataset.level ?? NaN)`;
+const appetiteLevel = `Number(document.querySelector('.inventory [data-stat="appetite"]')?.dataset.level ?? NaN)`;
+/** the testo level as the Avatar tab shows it (waits for `want` when given) */
+async function testoNow(want) {
+	await clickEl(tab(1));
+	await waitFor(`document.querySelector('[data-testid="avatar-testo"] [data-stat="testo"]')`);
+	if (want !== undefined) await waitFor(`(() => { const l = ${testoLevel}; return l === ${want} ? l : null; })()`);
+	return evaluate(testoLevel);
+}
 async function openInventory() {
 	await open(`${viewer}/de/sandbox?inventory=open`);
 	await waitFor(tab(0));
@@ -147,18 +157,42 @@ async function flow(who) {
 	// 2
 	const p2 = [];
 	await openInventory();
-	const before = await evaluate(testoLevel);
+	const itemsTab = await evaluate(`[...document.querySelectorAll('.inventory [data-stat]')].map((s) => s.dataset.stat)`);
+	if (JSON.stringify(itemsTab) !== '["appetite"]') p2.push(`Items tab stat bars ${JSON.stringify(itemsTab)} (only appetite expected)`);
+	const before = await testoNow();
 	if (before !== 50) p2.push(`start level ${before} (50 expected)`);
-	const label = await evaluate(`document.querySelector('[data-stat="testo"] .label')?.textContent.trim()`);
+	const label = await evaluate(`document.querySelector('[data-testid="avatar-testo"] [data-stat="testo"] .label')?.textContent.trim()`);
 	if (label !== 'Testo 50') p2.push(`bar label "${label}"`);
+	const avatarTab = await evaluate(`[...document.querySelectorAll('.inventory [data-stat]')].map((s) => s.dataset.stat)`);
+	if (JSON.stringify(avatarTab) !== '["testo"]') p2.push(`Avatar tab stat bars ${JSON.stringify(avatarTab)} (only testo expected)`);
 	await shot(`testo-${who}-2-bar`);
+	await clickEl(tab(0));
 	await clickEl(tile(nameOf('testo')));
+	const useText = await evaluate(`document.querySelector('[data-testid="item-use"]')?.textContent.trim()`);
+	if (useText !== de.items.use) p2.push(`substance button "${useText}"`);
 	await clickEl(`document.querySelector('[data-testid="item-use"]')`);
-	const after = await waitFor(`(() => { const l = ${testoLevel}; return l === 70 ? l : null; })()`);
-	if (after !== 70) p2.push(`after "Benutzen": ${await evaluate(testoLevel)}`);
+	const after = await testoNow(70);
+	if (after !== 70) p2.push(`after "Benutzen": ${after}`);
 	if ((await owned(who, 'testo')) !== 0) p2.push('the tube was not used up');
 	await shot(`testo-${who}-2-used`);
-	report(`${who}: "Benutzen" raises testo 50 → 70, the tube is used up`, p2);
+	report(`${who}: the testo bar in the Avatar tab, appetite in Items; "Benutzen" raises testo 50 → 70, the tube is used up`, p2);
+
+	// 2b – eat a cucumber (setup: the guest's device / the API's story grant)
+	const p2b = [];
+	if (who === 'guest') await evaluate(`(() => { const s = JSON.parse(localStorage.getItem('scutoons_inventory')); s.entries.push({ id: 'local-check-cucumber', item_id: 'cucumber', variant: null, qty: 1, source: 'story', code: null, edition_number: null, acquired_at: new Date().toISOString() }); localStorage.setItem('scutoons_inventory', JSON.stringify(s)); return true; })()`);
+	else await call('POST', '/inventory/grant/', { item_id: 'cucumber', source: 'story', ref: `check-testo:cucumber:${Date.now()}` });
+	await openInventory();
+	const hungry = await evaluate(appetiteLevel);
+	await clickEl(tile(nameOf('cucumber')));
+	const eatText = await evaluate(`document.querySelector('[data-testid="item-use"]')?.textContent.trim()`);
+	if (eatText !== de.items.eat) p2b.push(`food button "${eatText}" ("${de.items.eat}" expected)`);
+	await clickEl(`document.querySelector('[data-testid="item-use"]')`);
+	await clickEl(`document.querySelector('.item-detail .btn-back')`);
+	const fed = await waitFor(`(() => { const l = ${appetiteLevel}; return l === ${hungry - 5} ? l : null; })()`);
+	if (!Number.isFinite(hungry) || fed !== hungry - 5) p2b.push(`appetite ${hungry} → ${await evaluate(appetiteLevel)} (−5 expected)`);
+	if ((await owned(who, 'cucumber')) !== 0) p2b.push('the cucumber was not eaten');
+	await shot(`testo-${who}-2b-eaten`);
+	report(`${who}: "Essen" on a cucumber → appetite ${hungry} → ${hungry - 5}, eaten`, p2b);
 
 	// 3
 	const p3 = [];
@@ -166,7 +200,7 @@ async function flow(who) {
 	if (who === 'guest') await evaluate(`(() => { const s = JSON.parse(localStorage.getItem('scutoons_reader')); s.stats.testo.updated_at = ${JSON.stringify(back.toISOString())}; localStorage.setItem('scutoons_reader', JSON.stringify(s)); return true; })()`);
 	else sql("UPDATE member_stats SET updated_at = :at WHERE user_id = :id AND stat = 'testo'", { at: back.toISOString().slice(0, 19).replace('T', ' '), id: me.user.id });
 	await openInventory();
-	const decayed = await evaluate(testoLevel);
+	const decayed = await testoNow();
 	if (decayed !== 60) p3.push(`three days later: ${decayed} (60 expected)`);
 	report(`${who}: three days later (half-life 3 days) the level is halfway back: 60`, p3);
 

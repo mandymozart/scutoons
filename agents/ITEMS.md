@@ -77,7 +77,7 @@ your code" still opens the QR scanner without any item).
 | id | kind | category | slot | skills | edition / product | notes |
 |---|---|---|---|---|---|---|
 | camera | virtual | tool | – | scan_qr | – | starter |
-| cucumber | virtual | consumable | – | – | – | stackable; grantable story, scan; VN `add cucumber` grants it |
+| cucumber | virtual | food | – | apply ("Essen") | – | stackable; grantable story, scan; VN `add cucumber` grants it; eaten: appetite −5 (still a recipe ingredient) |
 | cucumber_camera | virtual | tool | – | scan_object(cucumber) | – | from recipe; no QR scanning |
 | dago_hoodie | physical | wearable | torso | – | `1_catpope_dago` / `hoodie_*` | variants black, beige, grey |
 | dago_heavy_t | physical | wearable | torso | – | `1_catpope_dago` / `tshirt_*` | variants black, white |
@@ -646,7 +646,9 @@ Owner: "clothing becomes real, exchangeable items that overlay the character's A
   the icon-only items (old order back … face) above all overlays.
 - **Swap**: putting an item on an occupied instance takes the old one off; it stays an inventory entry (nothing is ever
   lost). The viewer says so ("SCUTOONS Badehose ist zurück im Inventar." – toast, a status line in the avatar view and
-  in the item detail), the Items tab lists worn items under "Am Avatar" and the rest under "Im Inventar".
+  in the item detail). **Worn items are not listed in the Items tab** (owner 2026-10-01; replaces the "Am Avatar" /
+  "Im Inventar" sections): they are seen and managed in the Avatar tab's slot tiles only; taking one off makes it appear
+  in Items again; a stackable entry with more pieces than are worn shows the rest (an entry is worn at most once).
 - **Sensitive rule** ("Hide sensitive content" on = members by default, guests always): the cover slots
   (`SENSITIVE_COVER = ['legs']`) are never left empty – every save (`PUT /avatar/` slots or body, `PUT /me/
   { hide_sensitive: true }`) refills each empty legs instance with the first unworn legs item in catalog order (swim
@@ -704,7 +706,7 @@ Placeholders only – the owner's branded artwork replaces them.
 body, cover rule, base image), PHPUnit `WardrobeTest` (new account wears the basic dress, basic dress per body, lazy grant
 once – the swim pants on Top Toy –, swap keeps the entry, cover rule, setting off/on, twins), api-smoke (a new account wears
 the basic dress, the swim pants wait), admin-smoke "Wardrobe" (9 checks), `npm run check:wardrobe` (headless, 390 + 1440,
-guest + test user, 24 checks: the basic dress, swim pants on → shorts back + Items lists, swim pants stay on while hidden,
+guest + test user, 24 checks: the basic dress, swim pants on → shorts back + the Items tab lists them and none of the worn items, swim pants stay on while hidden,
 item detail swap, setting off → naked, Top Toy twins, back to Cat Pope). `npm run dev:test-user -- --reset` removes the
 default wearables so the next `/me/` hands them out and puts the basic dress on, like a signup.
 
@@ -749,7 +751,15 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   | `psilocybin` ("Zauberpilz") | effect `psychedelic` 20 min | story |
   | `lsd` ("Bunte Pappe") | effect `psychedelic` 45 min | story |
   | `semaglutide` ("Semaglutid-Pen", generic name only) | appetite −20 | story |
+  | `weed` ("Gras" / "Weed") | appetite +25 (no reader effect: kept simple, owner may add a mild one later) | story, scan |
   | `testo_camera` (tool) | `scan_object` labels `lotion`, `sunscreen`, `pill bottle` → grants `testo`, cooldown 10 s | – |
+
+  **Food** (owner 2026-10-01: "some drugs like weed make you want to eat; both degrade"): `category: "food"`, the same
+  `apply` skill + `effects` with a negative appetite delta; the button says **"Essen" / "Eat"** instead of "Benutzen"
+  (`items.eat`), the toast "Gegessen: Gurke". `cucumber` −5 (eaten one at a time, still a recipe ingredient),
+  `tuna_can` ("Thunfischdose" / "Can of tuna", consumable, stackable, grantable story + scan) −30. Clamped 0–100 like
+  testo; both directions drift back to 50 (the existing decay). No item places them yet (story/scan grantable; no camera
+  maps them – ImageNet has no cannabis class).
 
   Recipe `testo_camera` = `camera` + `testo` (like the cucumber camera: the starter camera's QR scan is traded for it).
 - **API:** `POST /inventory/use/ { item_id }` → `{ status, item_id, stats, effects, inventory }` – consumes one piece and
@@ -759,8 +769,9 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   `Domain\Reader\ReaderState`.
 - **Psychedelic effect (viewer):** `components/items/reader-effect.svelte` (toon layout): `html[data-effect=psychedelic]`
   makes the slice images drift in hue and wobble gently (CSS); **off with `prefers-reduced-motion: reduce`**; a small bar
-  "Farbrausch · noch N min · Effekt beenden" ends it at once. Stat bars: `reader-stats.svelte` at the top of the inventory
-  ("Testo 62", plain brutalist bar, no gendered wording).
+  "Farbrausch · noch N min · Effekt beenden" ends it at once. Stat bars: `reader-stats.svelte` (`include` / `exclude`): **the testo bar sits in the Avatar
+  tab** under the body picker (owner 2026-10-01: "the testo is part of the avatar"; also on the account page's avatar),
+  **appetite in the Items tab** ("Testo 62", plain brutalist bar, no gendered wording).
 - **Story pickup:** one `testo` in the sandbox, chapter 2 (the Top Toy encounter), slice 6: a click on the stone ledge
   right of the figure (the art has no tube drawn in) → "Eine Tube Testo!" / "Einsammeln" (`add testo 1` → the VN item
   bridge grants it, source story, once per place). `make-sandbox.ts` (`TESTOS`), the sandbox seed (dev only; not in the
@@ -804,14 +815,19 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   active in a production build (`import.meta.env.DEV`).
 - **Icons** (placeholders in the house style, `cdn/tools/make_substance_icons.py` → `scutoons/items/`, to replace):
   `checkit_camera.png` 31 KB (the camera with a small test tube, no logo), `testo.png` 41 KB (a squeeze tube), `testo_camera.png` 45 KB (the camera with a tube), `psilocybin.png` 29 KB (a
-  mushroom), `lsd.png` 84 KB (a blotter square with a spiral), `semaglutide.png` 33 KB (a generic pen, no product look).
+  mushroom), `lsd.png` 84 KB (a blotter square with a spiral), `semaglutide.png` 33 KB (a generic pen, no product look), `weed.png` 52 KB (a zip bag with green buds),
+  `tuna_can.png` 60 KB (a generic flat tin with a ring pull and a fish outline, no brand). The tool takes icon names to
+  render only those (`… --root cdn/root weed tuna_can`).
 - **Tests:** content `test/substances.test.ts` (catalog, decay, apply + cap, effect expiry/replace/end, testo bands,
   character validation), PHPUnit `ReaderStateTest` (decay math, apply + cap + decay with the frozen clock, semaglutide,
-  the timed effect's expiry + end, recipe + scan grant + cooldown, story pickup once), api-smoke "Substances" (13 checks),
-  `npm run check:testo` (`scripts/check-testo.mjs`, headless 390 px, guest + test user, 10 checks: sandbox pickup,
-  "Benutzen" 50 → 70, decay → 60, combine → testo camera (+ scan grant and cooldown for the member), psychedelic on the
+  the timed effect's expiry + end, recipe + scan grant + cooldown, story pickup once, weed / cucumber / tuna can on the
+  appetite incl. cap, floor and decay), api-smoke "Substances" (16 checks: + weed 50 → 75, tuna −30, cucumber −5),
+  content "appetite" test (the same + food category, grantable),
+  `npm run check:testo` (`scripts/check-testo.mjs`, headless 390 px, guest + test user, 14 checks: sandbox pickup,
+  the testo bar in the Avatar tab and only appetite in Items, "Benutzen" 50 → 70, "Essen" on a cucumber → appetite −5,
+  decay → 60, combine → testo camera (+ scan grant and cooldown for the member), psychedelic on the
   slices / off with reduced motion / ended; camera + testo → the Check It camera through the recipe choice, its notice with the checkit! link on open and its hit
-  "Erkannt: Spritze → Semaglutid-Pen" + the grant, through the DEV hook – 12 checks). Content test "Check It camera"
+  "Erkannt: Spritze → Semaglutid-Pen" + the grant, through the DEV hook – 14 checks in all). Content test "Check It camera"
   (mapping, best match, the scan-grantable rule), PHPUnit + api-smoke (the map's scan grants + cooldown, no_tool).
 - `npm run dev:test-user -- --reset` also clears the stats/effects and the story pickup refs and gives back a starter
   camera a recipe used up.

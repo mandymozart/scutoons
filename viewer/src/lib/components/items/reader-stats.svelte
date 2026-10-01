@@ -3,14 +3,17 @@
 
 	/**
 	 * The reader's stats as plain brutalist bars ("Testo 62"), ITEMS.md "Substances": the current level (drifting back
-	 * to the stat's baseline over time), no gendered wording.
+	 * to the stat's baseline over time), no gendered wording. `include` / `exclude` pick the stats: the testo bar lives in
+	 * the Avatar tab (owner 2026-10-01: "the testo is part of the avatar"), the others (appetite) in the Items tab.
 	 */
+	let { include, exclude = [] }: { include?: string[]; exclude?: string[] } = $props();
 	const inventory = getInventoryContext();
+	const shown = $derived(inventory.stats.filter((s) => (!include || include.includes(s.id)) && !exclude.includes(s.id)));
 </script>
 
-{#if inventory.stats.length}
+{#if shown.length}
 	<div class="stats" data-testid="reader-stats">
-		{#each inventory.stats as s (s.id)}
+		{#each shown as s (s.id)}
 			<div class="stat" data-stat={s.id} data-level={s.level}>
 				<span class="label">{localized(s.def.label) || s.id} {s.level}</span>
 				<span class="bar" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow={s.level} aria-label={localized(s.def.label) || s.id}>

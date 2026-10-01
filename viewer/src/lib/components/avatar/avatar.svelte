@@ -6,6 +6,7 @@
 		WEAR_ORDER,
 		pickText,
 		wardrobeBase,
+		TESTO_STAT,
 		type AvatarBody,
 		type AvatarSlot,
 		type AvatarSlotInstance,
@@ -15,6 +16,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
+	import ReaderStats from '$lib/components/items/reader-stats.svelte';
 
 	/**
 	 * Reader avatar: a character's A-pose (CDN, 768 × 1152) with a tile per wear slot of that body in a column on each
@@ -164,6 +166,10 @@
 	</div>
 	{/if}
 	{#if bodyError}<p class="note" role="alert">{bodyError}</p>{/if}
+	<!-- "the testo is part of the avatar" (owner 2026-10-01): its bar sits with the body; appetite stays in Items -->
+	{#if inventory.stats.some((s) => s.id === TESTO_STAT)}
+		<div class="testo" data-testid="avatar-testo"><ReaderStats include={[TESTO_STAT]} /></div>
+	{/if}
 	{#if inventory.registryLoaded && !body}<p class="note">{m['items.avatar_body_none']()}</p>{/if}
 	<div class="stage" class:dense={multi}>
 		<div class="column">
@@ -392,6 +398,9 @@
 		margin: 0;
 		font-size: 0.75rem;
 		color: var(--text-muted);
+	}
+	.testo :global(.stats) {
+		margin: 0;
 	}
 	.note.swap {
 		color: var(--ink);

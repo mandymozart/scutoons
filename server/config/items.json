@@ -125,20 +125,21 @@
       "toon": "catpope",
       "name": { "de": "Gurke", "en": "Cucumber" },
       "description": {
-        "de": "Eine knackige grüne Gurke. Cat Pope schwört darauf. Lässt sich mit anderen Dingen kombinieren.",
-        "en": "A crunchy green cucumber. Cat Pope swears by it. Can be combined with other things."
+        "de": "Eine knackige grüne Gurke. Cat Pope schwört darauf. Essen senkt deinen Appetit-Wert ein wenig. Lässt sich mit anderen Dingen kombinieren.",
+        "en": "A crunchy green cucumber. Cat Pope swears by it. Eating it lowers your appetite level a little. Can be combined with other things."
       },
       "kind": "virtual",
-      "category": "consumable",
+      "category": "food",
       "icon": "catpope/items/cucumber_slice.png",
       "stackable": true,
       "starter": false,
       "grantable": ["story", "scan"],
       "slot": null,
-      "skills": [],
+      "skills": [{ "type": "apply" }],
       "edition_id": null,
       "product": null,
-      "variants": null
+      "variants": null,
+      "effects": [{ "stat": "appetite", "delta": -5 }]
     },
     {
       "id": "cucumber_camera",
@@ -155,7 +156,7 @@
       "starter": false,
       "grantable": [],
       "slot": null,
-      "skills": [{ "type": "scan_object", "labels": ["cucumber"], "grants": "cucumber", "cooldown_s": 10 }],
+      "skills": [{ "type": "scan_object", "labels": ["cucumber", "cuke", "zucchini", "courgette"], "grants": "cucumber", "cooldown_s": 10 }],
       "edition_id": null,
       "product": null,
       "variants": null
@@ -316,6 +317,48 @@
       "product": null,
       "variants": null,
       "effects": [{ "stat": "appetite", "delta": -20 }]
+    },
+    {
+      "id": "weed",
+      "toon": null,
+      "name": { "de": "Gras", "en": "Weed" },
+      "description": {
+        "de": "Ein Tütchen Gras aus dem Spiel. Benutzen hebt deinen Appetit-Wert, der mit der Zeit wieder zur Mitte sinkt.",
+        "en": "A little bag of weed from the game. Using it raises your appetite level, which drifts back to the middle over time."
+      },
+      "kind": "virtual",
+      "category": "substance",
+      "icon": "scutoons/items/weed.png",
+      "stackable": true,
+      "starter": false,
+      "grantable": ["story", "scan"],
+      "slot": null,
+      "skills": [{ "type": "apply" }],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "effects": [{ "stat": "appetite", "delta": 25 }]
+    },
+    {
+      "id": "tuna_can",
+      "toon": null,
+      "name": { "de": "Thunfischdose", "en": "Can of tuna" },
+      "description": {
+        "de": "Eine Dose Thunfisch. Essen senkt deinen Appetit-Wert deutlich – viel mehr als eine Gurke.",
+        "en": "A can of tuna. Eating it lowers your appetite level a lot – much more than a cucumber."
+      },
+      "kind": "virtual",
+      "category": "food",
+      "icon": "scutoons/items/tuna_can.png",
+      "stackable": true,
+      "starter": false,
+      "grantable": ["story", "scan"],
+      "slot": null,
+      "skills": [{ "type": "apply" }],
+      "edition_id": null,
+      "product": null,
+      "variants": null,
+      "effects": [{ "stat": "appetite", "delta": -30 }]
     },
     {
       "id": "dago_hoodie",

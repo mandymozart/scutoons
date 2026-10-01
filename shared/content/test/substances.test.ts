@@ -51,6 +51,30 @@ test('substances: decay toward the baseline (half-life), apply, cap', () => {
 	assert.deepEqual(statLevels(catalog, s, T0 + 3 * DAY).map((x) => `${x.id}:${x.level}`), ['testo:75', 'appetite:40']);
 });
 
+test('appetite: weed raises it, eating (cucumber −5, tuna can −30) lowers it, clamped 0–100', () => {
+	assert.equal(item('weed').category, 'substance');
+	assert.deepEqual(item('weed').effects, [{ stat: 'appetite', delta: 25 }]);
+	assert.equal(item('weed').effect ?? null, null, 'no reader effect: only the appetite');
+	for (const id of ['cucumber', 'tuna_can']) {
+		assert.equal(item(id).category, 'food', id);
+		assert.ok(isSubstance(item(id)) && item(id).skills.some((s) => s.type === 'apply'), id);
+	}
+	for (const id of ['weed', 'tuna_can']) assert.deepEqual(item(id).grantable, ['story', 'scan'], id);
+	assert.ok(catalog.recipes.some((r) => r.inputs.some((i) => i.item === 'cucumber')), 'the cucumber stays a recipe ingredient');
+	let s: ReaderState = { stats: {}, effects: [] };
+	s = applySubstance(s, item('weed'), stats, T0);
+	assert.equal(s.stats.appetite.level, 75);
+	s = applySubstance(applySubstance(s, item('weed'), stats, T0), item('weed'), stats, T0);
+	assert.equal(s.stats.appetite.level, 100, 'capped');
+	s = applySubstance(s, item('cucumber'), stats, T0);
+	assert.equal(s.stats.appetite.level, 95);
+	s = applySubstance(s, item('tuna_can'), stats, T0);
+	assert.equal(s.stats.appetite.level, 65);
+	for (let i = 0; i < 3; i++) s = applySubstance(s, item('tuna_can'), stats, T0);
+	assert.equal(s.stats.appetite.level, 0, 'floored at 0');
+	assert.equal(statLevel(stats.appetite, s.stats.appetite, T0 + 3 * DAY), 25, 'and it drifts back up (half-life)');
+});
+
 test('substances: a timed effect runs, expires, can be ended', () => {
 	let s = applySubstance({ stats: {}, effects: [] }, item('psilocybin'), stats, T0);
 	assert.equal(s.effects[0].kind, 'psychedelic');

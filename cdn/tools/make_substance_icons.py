@@ -1,11 +1,11 @@
 """Placeholder icons of the substance items (agents/ITEMS.md "Substances") in the house style of make_item_icons.py
 (thick ink outlines, paper/cyan accents, flat fills). Generic objects only – no real product look, no branding.
 
-Output: cdn/root/scutoons/items/{checkit_camera,testo,testo_camera,psilocybin,lsd,semaglutide}.png (512 px, transparent, trimmed + fitted
+Output: cdn/root/scutoons/items/{checkit_camera,testo,testo_camera,psilocybin,lsd,semaglutide,weed,tuna_can}.png (512 px, transparent, trimmed + fitted
 like every item icon). The owner replaces them later under the same names.
 
 Usage (from the repo root, with the cdn venv):
-  cdn/.venv/Scripts/python cdn/tools/make_substance_icons.py [--root <cdn root>]
+  cdn/.venv/Scripts/python cdn/tools/make_substance_icons.py [--root <cdn root>] [name ...]
 """
 
 from __future__ import annotations
@@ -22,6 +22,9 @@ TUBE_CAP = "#f2c230"
 MUSH = "#d8443a"
 STEM = "#f3e9d2"
 PEN = "#3b6fd6"
+BAG = "#eef3f6"
+BUD = "#5f9e3a"
+TIN = "#c9cfd4"
 
 
 def _tube(x: int, y: int, w: int, h: int, angle: float) -> str:
@@ -109,6 +112,32 @@ def checkit_camera_svg() -> str:
 </svg>"""
 
 
+def weed_svg() -> str:
+    # a small zip bag with a few green buds (a generic game object, no branding)
+    buds = "".join(f'<ellipse cx="{x}" cy="{y}" rx="{rx}" ry="{ry}" fill="{BUD}" stroke="{INK}" stroke-width="10"/>' for x, y, rx, ry in [(196, 330, 52, 40), (290, 352, 58, 42), (246, 280, 46, 36), (330, 292, 38, 30)])
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <g transform="rotate(-8 256 256)">
+    <rect x="96" y="96" width="320" height="360" fill="{BAG}" stroke="{INK}" stroke-width="18" stroke-linejoin="round"/>
+    <rect x="96" y="96" width="320" height="40" fill="{CYAN}" stroke="{INK}" stroke-width="18"/>
+    <path d="M120 170 H 392" stroke="{INK}" stroke-width="6" stroke-dasharray="14 10"/>
+    {buds}
+  </g>
+</svg>"""
+
+
+def tuna_can_svg() -> str:
+    # a generic flat tin with a ring pull and a fish outline on the label - no brand
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <path d="M56 214 V 330 A200 66 0 0 0 456 330 V 214" fill="{TIN}" stroke="{INK}" stroke-width="18" stroke-linejoin="round"/>
+  <path d="M56 236 V 308 A200 66 0 0 0 456 308 V 236 A200 66 0 0 1 56 236 Z" fill="{CYAN}" stroke="{INK}" stroke-width="10"/>
+  <path d="M200 326 C 234 298, 284 298, 310 326 C 284 354, 234 354, 200 326 Z M310 326 L 338 306 V 346 Z" fill="{PAPER}" stroke="{INK}" stroke-width="10" stroke-linejoin="round"/>
+  <ellipse cx="256" cy="214" rx="200" ry="66" fill="{TIN}" stroke="{INK}" stroke-width="18"/>
+  <ellipse cx="256" cy="214" rx="168" ry="50" fill="none" stroke="{INK}" stroke-width="6"/>
+  <ellipse cx="300" cy="196" rx="40" ry="18" fill="none" stroke="{INK}" stroke-width="12"/>
+  <path d="M262 204 L 236 214" stroke="{INK}" stroke-width="12" stroke-linecap="round"/>
+</svg>"""
+
+
 ICONS = {
     "checkit_camera": checkit_camera_svg,
     "testo": testo_svg,
@@ -116,16 +145,21 @@ ICONS = {
     "psilocybin": psilocybin_svg,
     "lsd": lsd_svg,
     "semaglutide": semaglutide_svg,
+    "weed": weed_svg,
+    "tuna_can": tuna_can_svg,
 }
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--root", default=str(Path(__file__).resolve().parent.parent / "root"))
+    ap.add_argument("names", nargs="*", help="only these icons (default: all)")
     args = ap.parse_args()
     out = Path(args.root) / "scutoons" / "items"
     out.mkdir(parents=True, exist_ok=True)
     for name, svg in ICONS.items():
+        if args.names and name not in args.names:
+            continue
         p = out / f"{name}.png"
         fit(render_svg(svg())).save(p, optimize=True, compress_level=9)
         print(f"{p.relative_to(Path(args.root))}  {p.stat().st_size // 1024} KB")

@@ -27,7 +27,8 @@ export const AVATAR_SLOTS: AvatarSlot[] = [
 ];
 
 export type ItemKind = 'physical' | 'virtual';
-export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance';
+/** `food` = eaten with the `apply` skill ("Essen" instead of "Benutzen"), e.g. the cucumber and the tuna can lower appetite */
+export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance' | 'food';
 export type GrantSource = 'story' | 'scan';
 export type EntrySource = 'qr' | 'story' | 'scan' | 'craft' | 'starter';
 
@@ -62,7 +63,7 @@ export interface PlayAudioSkill {
 	src: string;
 }
 
-/** "Benutzen" applies a substance: one piece is used up, its `effects` / `effect` hit the reader (substances.ts) */
+/** "Benutzen" applies a substance ("Essen" for `food`): one piece is used up, its `effects` / `effect` hit the reader (substances.ts) */
 export interface ApplySkill {
 	type: 'apply';
 }

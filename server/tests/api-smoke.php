@@ -146,7 +146,7 @@ echo "Public\n";
 $r = call('GET', "$api/health/");
 check($r['status'] === 200 && $r['body']['db'] === 'ok', 'GET /health/', $r);
 $r = call('GET', "$api/items/");
-check($r['status'] === 200 && count($r['body']['items'] ?? []) === 20 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 20 items + recipes', $r['status']);
+check($r['status'] === 200 && count($r['body']['items'] ?? []) === 22 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 22 items + recipes', $r['status']);
 // the cucumber camera only scans cucumbers (owner 2026-09-30): crafting trades the starter camera's QR scan for it
 $skillsOf = fn(string $id) => array_column(array_values(array_filter($r['body']['items'] ?? [], fn($i) => $i['id'] === $id))[0]['skills'] ?? [], 'type');
 check($skillsOf('camera') === ['scan_qr'] && $skillsOf('cucumber_camera') === ['scan_object'], 'camera: scan_qr · cucumber_camera: scan_object only', [$skillsOf('camera'), $skillsOf('cucumber_camera')]);
@@ -299,6 +299,16 @@ $ok = true;
 foreach (['semaglutide', 'psilocybin', 'lsd'] as $item) $ok = $ok && (call('POST', "$api/inventory/grant/", ['item_id' => $item, 'source' => 'scan'], $tokenB)['body']['granted'] ?? 0) === 1;
 $r = call('POST', "$api/inventory/grant/", ['item_id' => 'lsd', 'source' => 'scan'], $tokenB);
 check($ok && $r['status'] === 429 && $r['body']['error'] === 'cooldown', 'Check It camera: its map scan-grants semaglutide, psilocybin, lsd; the cooldown applies', $r);
+// appetite (owner 2026-10-01): weed raises it, eating lowers it (the semaglutide above was not used: appetite is 50)
+call('POST', "$api/inventory/grant/", ['item_id' => 'weed', 'source' => 'story', 'ref' => "smoke:$run:weed"], $tokenB);
+$r = call('POST', "$api/inventory/use/", ['item_id' => 'weed'], $tokenB);
+check($r['status'] === 200 && ($r['body']['stats']['appetite']['level'] ?? null) === 75 && qty($r['body']['inventory'], 'weed') === 0 && $r['body']['effects'] === [], 'use weed → appetite 50 → 75, no reader effect', $r);
+call('POST', "$api/inventory/grant/", ['item_id' => 'tuna_can', 'source' => 'story', 'ref' => "smoke:$run:tuna"], $tokenB);
+$r = call('POST', "$api/inventory/use/", ['item_id' => 'tuna_can'], $tokenB);
+check($r['status'] === 200 && abs(($r['body']['stats']['appetite']['level'] ?? 0) - 45) < 0.2 && qty($r['body']['inventory'], 'tuna_can') === 0, 'eat a can of tuna → appetite −30 (≈ 45), the can is used up', $r);
+call('POST', "$api/inventory/grant/", ['item_id' => 'cucumber', 'source' => 'story', 'ref' => "smoke:$run:cucumber-eat"], $tokenB);
+$r = call('POST', "$api/inventory/use/", ['item_id' => 'cucumber'], $tokenB);
+check($r['status'] === 200 && abs(($r['body']['stats']['appetite']['level'] ?? 0) - 40) < 0.2 && qty($r['body']['inventory'], 'cucumber') === 0, 'eat a cucumber → appetite −5 (≈ 40)', $r);
 
 // ── Avatar ─────────────────────────────────────────────────────────────────────────────────────────────
 echo "\nAvatar\n";
