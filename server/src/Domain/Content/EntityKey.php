@@ -9,10 +9,11 @@ use Scutoons\Domain\ApiError;
  * The key of a stored entity (agents/DATA.md §2 "Entity keys"): `<kind>[:<toon>][:<number>][:<scene>][:<locale>]`.
  *
  *   toon:<toon>                          the toon's index entry (list entry, status, languages, names)
- *   toon-settings:<toon>:<l>             the toon's settings (title, covers, map, downloads) per locale
+ *   toon-settings:<toon>:<l>             the toon's per-language settings (title, description, release, status); the language-neutral ones (map, tile, cover …) are in toon:<toon>
  *   season:<toon>:<n>:<l>                chapter:<toon>:<n>:<l>        scene:<toon>:<chapter>:<name>:<l>
  *   locations:<toon>:<l>  routes:<toon>:<l>                            the map
  *   cast:<toon>  credits:<toon>                                        language-neutral, per toon
+ *   script:<toon>:<l>                    the toon's screenplay per locale (creator material, CREATOR_ONLY_KINDS)
  *   characters  moods  asset-requests  people  roles  events  map      platform-wide, language-neutral
  *   (`map` = the SCUTOONS world map, agents/MAP.md; `locations:*` / `routes:*` are the old per-toon map, read-only)
  *
@@ -32,6 +33,7 @@ final class EntityKey
         'routes' => [true, false, false, true],
         'cast' => [true, false, false, false],
         'credits' => [true, false, false, false],
+        'script' => [true, false, false, true],
         'characters' => [false, false, false, false],
         'moods' => [false, false, false, false],
         'asset-requests' => [false, false, false, false],
@@ -40,6 +42,12 @@ final class EntityKey
         'events' => [false, false, false, false],
         'map' => [false, false, false, false],
     ];
+    /**
+     * Kinds that are working material of the creators, never content for readers: no library endpoint reads them (only
+     * `/api/entities`, role creator) and the production seed (`import-content --sql`) leaves them out unless `--only`
+     * names them (agents/DATA.md "Script").
+     */
+    public const CREATOR_ONLY_KINDS = ['script'];
     public const TOON_PATTERN = '#^[a-z0-9_-]{1,64}$#';
     public const LOCALE_PATTERN = '#^[a-z]{2}$#';
     public const SCENE_PATTERN = '#^[a-z0-9_-]{1,64}$#';

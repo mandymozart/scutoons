@@ -5,6 +5,7 @@
 //   season:<toon>:<n>:<locale>        chapter:<toon>:<n>:<locale>        scene:<toon>:<chapter>:<name>:<locale>
 //   locations:<toon>:<locale>         routes:<toon>:<locale>             (the map)
 //   cast:<toon>                       credits:<toon>                     (language-neutral, per toon)
+//   script:<toon>:<locale>            the toon's screenplay (creator only: no library endpoint, readers never get it)
 //   characters  moods  asset-requests  people  roles  events  map      (platform-wide, language-neutral)
 //   (`locations:*` / `routes:*` are the old per-toon map, read-only since the world map `map`, agents/MAP.md)
 //
@@ -24,6 +25,7 @@ export type EntityKind =
 	| 'routes'
 	| 'cast'
 	| 'credits'
+	| 'script'
 	| 'characters'
 	| 'moods'
 	| 'asset-requests'
@@ -43,6 +45,7 @@ const SHAPES: Record<EntityKind, [boolean, boolean, boolean, boolean]> = {
 	routes: [true, false, false, true],
 	cast: [true, false, false, false],
 	credits: [true, false, false, false],
+	script: [true, false, false, true],
 	characters: [false, false, false, false],
 	moods: [false, false, false, false],
 	'asset-requests': [false, false, false, false],
@@ -74,6 +77,7 @@ export const entities = {
 	routes: (toon: string) => `routes:${toon}`,
 	cast: (toon: string) => `cast:${toon}`,
 	credits: (toon: string) => `credits:${toon}`,
+	script: (toon: string) => `script:${toon}`,
 	characters: 'characters',
 	moods: 'moods',
 	assetRequests: 'asset-requests',

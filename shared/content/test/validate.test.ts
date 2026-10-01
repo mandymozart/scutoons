@@ -99,10 +99,10 @@ test('toon entry: announce (boolean) and the landing tile { image, color? }', ()
 });
 
 test('toon settings (per language): the neutral settings are warned about, they belong to the toon entry', () => {
-	const settings = { id: 't', title: 'T', description: 'D', language: 'de', release: '2026-10-04', status: 'draft', cover: { square: 'images/c.webp' } };
+	const settings = { id: 't', title: 'T', description: 'D', language: 'de', release: '2026-10-04', status: 'draft' };
 	assert.deepEqual(problems('toon', settings), []);
 	const neutral = {
-		authors: ['A'], chapters: 5, thumbnail: 'images/t.webp', announce: true, tile: { image: 'images/tile.webp' },
+		authors: ['A'], chapters: 5, thumbnail: 'images/t.webp', announce: true, tile: { image: 'images/tile.webp' }, cover: { square: 'images/c.webp' },
 		map: { layers: { terrain: 'images/m.svg' }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
 	};
 	assert.deepEqual(problems('toon', { ...settings, ...neutral }), [
@@ -111,8 +111,43 @@ test('toon settings (per language): the neutral settings are warned about, they 
 		'warning thumbnail',
 		'warning map',
 		'warning announce',
-		'warning tile'
+		'warning tile',
+		'warning cover'
 	]);
+});
+
+test('cover (toon entry, season): square / portrait images + lettering (boolean)', () => {
+	const entry = (cover: unknown) => problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, cover });
+	assert.deepEqual(entry({ square: 'images/s1-cover-square.webp', portrait: 'images/s1-cover-portrait.webp' }), []);
+	assert.deepEqual(entry({ square: 'images/s1-cover-square-textless.webp', lettering: true }), []);
+	assert.deepEqual(entry({ square: 'images/c.webp', lettering: 'yes' }), ['error cover.lettering']);
+	assert.deepEqual(entry({ lettering: true }), ['warning cover.lettering'], 'lettering without an image');
+	assert.deepEqual(entry('images/c.webp'), ['error cover']);
+	assert.deepEqual(problems('season', season({ cover: { square: 'images/c.webp', lettering: false } })), []);
+	assert.deepEqual(problems('season', season({ cover: { square: 'images/c.webp', lettering: 1 } })), ['error cover.lettering']);
+});
+
+test('media paths with a locale segment are warnings in every entity (media are language-independent)', async () => {
+	const { mediaLocaleSegment, validateLocales } = await import('../src/index.ts');
+	for (const [path, locale] of [
+		['images/1x/de/s1-cover-square.jpg', 'de'],
+		['de/s1.webp', 'de'],
+		['images/webtoon/en/S1C1 - Slice 1.jpg', 'en'],
+		['images/s1-cover_de.webp', 'de'],
+		['audio/intro-en.mp3', 'en'],
+		['videos/trailer.en-US.mp4', 'en-us'],
+		['images/EN/x.png', 'en']
+	] as const) assert.equal(mediaLocaleSegment(path), locale, path);
+	for (const path of ['images/s1-cover-square.webp', 'images/webtoon/s1c1/s1c1-slice-1.webp', 'images/dense.webp', 'audio/de.txt', 'de/notes.json', 'images/legend.svg', 'videos/s1-trailer-loop.1280w.mp4'])
+		assert.equal(mediaLocaleSegment(path), null, path);
+	const chapter = { title: 'C', groups: [{ slices: [{ image: 'images/webtoon/de/S1C1 - Slice 1.jpg' }] }] };
+	assert.ok(problems('chapter', chapter).includes('warning groups.0.slices.0.image'));
+	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, cover: { square: 'images/1x/en/s1-cover-square.jpg' } }), ['warning cover.square']);
+	assert.deepEqual(problems('season', season({ download: { image: 'images/vinyl-de.webp' } })), ['warning download.image']);
+	// a season's cover is the same in every language
+	const de = season({ cover: { square: 'images/a.webp' } });
+	const en = { ...season({ cover: { square: 'images/b.webp' } }), language: 'en', title: 'S en', description: 'D en' };
+	assert.deepEqual(validateLocales('season', 'x', { de, en }, 'de').map((p) => `${p.level} ${p.locale} ${p.path.join('.')}`), ['warning en cover']);
 });
 
 test('isToonListed + toonTileColor: published or announced; the tile colour from the settings, else the star', async () => {

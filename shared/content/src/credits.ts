@@ -10,6 +10,7 @@
 import { Language } from './enums.ts';
 import type { Path } from './paths.ts';
 import type { Level, Problem } from './validate.ts';
+import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 
 /** Text per locale: `{ de: "Kostüm", en: "Costume Design" }`. */
 export type LocaleText = Record<string, string>;
@@ -519,6 +520,7 @@ export function validatePeople(registry: unknown, languages: string[] = [], file
 		add('error', [], 'people file must be { people: [...] }');
 		return problems;
 	}
+	for (const [path, value, locale] of mediaPathsWithLocale(registry)) add('warning', path, mediaLocaleMessage(value, locale));
 	const ids = new Set<string>(registry.people.map((p: any) => p?.id).filter(isStr));
 	const seen = new Set<string>();
 	const names = new Map<string, string>();
@@ -599,6 +601,7 @@ export function validateCredits(credits: unknown, ctx: CreditsContext): Problem[
 		add('error', [], 'credits file must be { toon, roles?, sections: [...] }');
 		return problems;
 	}
+	for (const [path, value, locale] of mediaPathsWithLocale(credits)) add('warning', path, mediaLocaleMessage(value, locale));
 	const people = peopleIndex(ctx.people);
 	const globalIds = new Set((ctx.vocabulary?.roles ?? []).map((r) => r.id));
 	if (credits.roles !== undefined) checkRoles(add, credits.roles, ['roles'], ctx.languages, globalIds);

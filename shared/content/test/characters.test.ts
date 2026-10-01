@@ -397,3 +397,21 @@ test('featuring: suggested from the VN scenes, validated against the cast', () =
 	assert.equal(validateFile('chapter', { ...chapter, featuring: 'catpope' }, 'de', { file: 'x' }).some((p) => p.level === 'error' && p.path[0] === 'featuring'), true);
 	assert.deepEqual(featuredCharacters(['boy', 'nobody', 'catpope'], [{ name: 'catpope' }, { name: 'boy' }]).map((c) => c.name), ['boy', 'catpope']);
 });
+
+test('media requests (view "media"): toon media without a character – listed, validated, closed when the file exists', async () => {
+	const { mediaRequests, mediaRequestsText, validateAssetRequests, closeFulfilledRequests, wantedImages, MEDIA_VIEW } = await import('../src/index.ts');
+	const media = (id: string, toon: string, path: string, status: 'open' | 'done' = 'open') =>
+		({ id, character: '', persona: '', look: '', mood: '', view: MEDIA_VIEW, toon, path, size: '1080 × 1080', note: 'lettering-free', requested_at: 'x', status });
+	const requests = { requests: [media('a', 'catpope', 'catpope/images/a.webp'), media('b', 'toptoy', 'toptoy/images/b.webp'), media('c', 'catpope', 'catpope/images/c.webp', 'done')] };
+	const registry = { characters: [] } as never;
+	assert.deepEqual(mediaRequests(requests).map((r) => r.id), ['a', 'b']);
+	assert.deepEqual(mediaRequests(requests, { toon: 'catpope' }).map((r) => r.id), ['a']);
+	assert.deepEqual(mediaRequests(requests, { status: 'all' }).length, 3);
+	assert.match(mediaRequestsText(mediaRequests(requests)), /catpope · media\n {2}catpope\/images\/a\.webp {2}1080 × 1080 {2}– lettering-free/);
+	assert.deepEqual(validateAssetRequests(requests, registry).map((p) => p.level), ['info', 'info'], 'no "unknown character" warning');
+	assert.equal(validateAssetRequests({ requests: [{ ...media('d', '', ''), toon: '' }] }, registry).filter((p) => p.level !== 'info').length, 2);
+	assert.equal(wantedImages(registry, { requests }).length, 0, 'not a character cell');
+	assert.equal(closeFulfilledRequests(requests as never, registry, 'now'), 0);
+	assert.equal(closeFulfilledRequests(requests as never, registry, 'now', (p) => p === 'toptoy/images/b.webp'), 1);
+	assert.equal(requests.requests[1].status, 'done');
+});

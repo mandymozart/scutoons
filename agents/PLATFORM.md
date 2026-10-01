@@ -681,6 +681,11 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 **2. Private data → `api/storage/`** (before the first API deploy, so `/api/keys/keys.php` never 404s)
 - Upload `api/keys/keypair.json` (old qr folder) as `api/storage/keys/keypair.json`.
 - Copy the old `generate/files/*` into `api/storage/files/` (batch output; the verify page's signature fallback).
+- **Check the copy before going on** (codes and certificates in circulation must stay valid, owner 2026-10-01): per folder
+  (`batch/`, `certificates/`, `signatures/`, and any other subfolder of the old `generate/files/`) the file count and total
+  size on the server equal the local backup from step 0; `api/storage/keys/keypair.json` is byte-identical to the backup
+  (same size + SHA-256). After step 5, verify 3 real codes from different batches: `/verify.html` with the printed
+  UPPER CASE code, `/api/validate/?c=CODE`, and an admin certificate "Regenerate" that matches the printed one.
 
 **3. Database** (phpMyAdmin, same MySQL database)
 - Compare `server/migrations/mysql/*.sql` with the `schema_migrations` table and run the missing files in file-name order

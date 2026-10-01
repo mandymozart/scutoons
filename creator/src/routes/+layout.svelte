@@ -79,6 +79,7 @@
 		}
 		if (route === '/[toonId]/cast') out.push({ href: `/${toonId}/cast`, label: m['creator.cast']() });
 		if (route === '/[toonId]/credits') out.push({ href: `/${toonId}/credits`, label: m['creator.credits']() });
+		if (route === '/[toonId]/script') out.push({ href: `/${toonId}/script`, label: m['creator.script']() });
 		if (route === '/[toonId]/toon') out.push({ href: `/${toonId}/toon`, label: fileLabel(entities.toonSettings(toonId)) });
 		return out;
 	});

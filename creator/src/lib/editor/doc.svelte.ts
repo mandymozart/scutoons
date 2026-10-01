@@ -9,7 +9,7 @@ import { ApiError } from '$lib/api.ts';
 import { getDraft, publishVersion, putDraft, type ContentVersion } from '$lib/api.ts';
 import { clone, deepEqual, entityKeyFor, getAt, parseEntityKey, setAt, type Path } from '@scutoons/content';
 
-export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events';
+export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script';
 export type DocSource = 'store' | 'new' | 'missing';
 
 const HISTORY_LIMIT = 150;
@@ -63,6 +63,8 @@ export function kindOfEntity(entity: string): DocKind {
 			return 'map';
 		case 'events':
 			return 'events';
+		case 'script':
+			return 'script';
 		default:
 			return 'group';
 	}

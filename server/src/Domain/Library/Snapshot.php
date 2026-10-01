@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Library;
 
+use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Infrastructure\Database\Database;
 
 /**
@@ -60,9 +61,15 @@ final class Snapshot
         return self::where($db, "kind IN ($marks)", array_values($kinds), $draft);
     }
 
-    /** @param list<string> $params */
+    /**
+     * Creator-only kinds (the screenplays, EntityKey::CREATOR_ONLY_KINDS) are never part of a snapshot: no library
+     * answer can contain them, and saving a script doesn't change the fingerprint (the cache key) of a reader's answer.
+     * @param list<string> $params
+     */
     private static function where(Database $db, string $where, array $params, bool $draft): self
     {
+        $hidden = implode(', ', array_map(fn(string $kind) => "'$kind'", EntityKey::CREATOR_ONLY_KINDS));
+        $where = "($where) AND kind NOT IN ($hidden)";
         $rows = $draft
             ? $db->all("SELECT entity_key, MAX(id) AS id FROM entity_versions WHERE $where GROUP BY entity_key", $params)
             : $db->all("SELECT entity_key, id FROM entity_versions WHERE $where AND status = 'published' ORDER BY id", $params);

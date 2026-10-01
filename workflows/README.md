@@ -7,7 +7,7 @@ spec, the prompts and the steps. They are the manual/semi-automated precursors o
 | Folder | Workflow | What it does |
 |---|---|---|
 | `characters/` | [base-views.md](characters/base-views.md) | any 1 of the 4 base views (portrait, avatar, full, A-pose) → all 4, normalized, named, registered |
-| `items/` | [item-icons.md](items/item-icons.md) | virtual item icons (camera, cucumber, …) in the character render style (Luma) |
+| `items/` | [item-icons.md](items/item-icons.md) | virtual item icons (camera, cucumber, …) in the character render style (image generator or designer) |
 | `scenes/` | [generate-shots.md](scenes/generate-shots.md) | script scene → approved, character-consistent shot stills (FLORA) for the Figma collage |
 
 Conventions: artist-made content always wins over generated content and may replace it at any time; every workflow

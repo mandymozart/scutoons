@@ -35,6 +35,7 @@ import type { Path } from './paths.ts';
 import type { Level, Problem } from './validate.ts';
 import { AVATAR_SLOTS, type AvatarSlot } from './items.ts';
 import { isSensitive, type SensitiveFlag } from './sensitive.ts';
+import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -153,6 +154,13 @@ export const AUTHORED_VIEW: CharacterImageVariant = 'portrait';
 export const APOSE_VIEW = 'apose';
 /** The view of an asset request for a look transition (`persona.transitions`, path = the transition file). */
 export const TRANSITION_VIEW = 'transition';
+/**
+ * The view of an asset request for toon media that belongs to no character (a cover, a key visual, a thumbnail …;
+ * owner 2026-10-01, "Language-independent media"): `toon` names the toon, `path` is from the CDN root, `character`,
+ * `persona`, `look`, `mood` stay empty. Listed by `mediaRequests`, shown in the creator's "Wanted images" and on the page
+ * that uses the file (e.g. the toon settings' cover).
+ */
+export const MEDIA_VIEW = 'media';
 
 /**
  * Missing-image substitutes (owner, 2026-09-30): one on-brand "?" silhouette per base view, the very last fallback of
@@ -399,6 +407,10 @@ export interface AssetRequest {
 	view: string;
 	/** where the file should go (convention path, from the CDN root) */
 	path: string;
+	/** media requests (`view: 'media'`): the toon the file belongs to */
+	toon?: string;
+	/** media requests: the size wanted, e.g. "1080 × 1080" */
+	size?: string;
 	note?: string;
 	/** email / name of who asked */
 	requested_by?: string | null;
@@ -1065,6 +1077,30 @@ export function wantedImages(
 	return out;
 }
 
+/** Open media requests (`view: 'media'`: covers, key visuals … – no character), optionally of one toon or one path prefix */
+export function mediaRequests(requests: AssetRequests | null | undefined, options: { toon?: string; status?: 'open' | 'done' | 'all' } = {}): AssetRequest[] {
+	const status = options.status ?? 'open';
+	return (requests?.requests ?? []).filter(
+		(r) => r?.view === MEDIA_VIEW && (status === 'all' || r.status === status) && (!options.toon || r.toon === options.toon)
+	);
+}
+
+/** Media requests as text lines for the image supplier (grouped by toon) */
+export function mediaRequestsText(requests: AssetRequest[]): string {
+	const lines: string[] = [];
+	let group = '';
+	for (const r of requests) {
+		const head = `${r.toon ?? '–'} · media`;
+		if (head !== group) {
+			if (lines.length) lines.push('');
+			lines.push(head);
+			group = head;
+		}
+		lines.push(`  ${r.path}${r.size ? `  ${r.size}` : ''}${r.note ? `  – ${r.note}` : ''}`);
+	}
+	return lines.join('\n');
+}
+
 /** The file names per line, grouped by character / persona / look (a brief for the image supplier). */
 export function wantedImagesText(wanted: WantedImage[]): string {
 	const lines: string[] = [];
@@ -1097,6 +1133,15 @@ export function closeFulfilledRequests(requests: AssetRequests, registry: Charac
 	let closed = 0;
 	for (const r of requests.requests ?? []) {
 		if (r?.status !== 'open') continue;
+		if (r.view === MEDIA_VIEW) {
+			// toon media: done once the file exists (the page that uses it switches its path itself)
+			if (exists?.(r.path)) {
+				r.status = 'done';
+				r.done_at = now;
+				closed++;
+			}
+			continue;
+		}
 		const c = index.get(r.character);
 		const done =
 			r.view === APOSE_VIEW
@@ -1157,6 +1202,8 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 		add('error', [], 'characters file must be { characters: [...] }');
 		return problems;
 	}
+	// media are language-independent (owner rule 2026-10-01): a locale segment in an image path is a smell
+	for (const [path, value, locale] of mediaPathsWithLocale(registry)) add('warning', path, mediaLocaleMessage(value, locale));
 	const seen = new Set<string>();
 	registry.characters.forEach((c: any, i: number) => {
 		const path: Path = ['characters', i];
@@ -1341,6 +1388,12 @@ export function validateAssetRequests(requests: unknown, registry: CharacterRegi
 		if (ids.has(r.id)) add('error', [...path, 'id'], `request id "${r.id}" is used twice`);
 		ids.add(r.id);
 		if (r.status !== 'open' && r.status !== 'done') add('error', [...path, 'status'], `request ${r.id}: status must be open or done`);
+		if (r.view === MEDIA_VIEW) {
+			if (!isStr(r.toon) || !r.toon) add('warning', [...path, 'toon'], `request ${r.id}: a media request names its toon`);
+			if (!isStr(r.path) || !r.path) add('error', [...path, 'path'], `request ${r.id}: path is missing`);
+			if (r.status === 'open') add('info', path, `wanted: ${r.toon ?? '?'} · ${r.path}${r.size ? ` (${r.size})` : ''}${r.note ? ` – ${r.note}` : ''}`);
+			return;
+		}
 		const c = index.get(r.character);
 		if (registry && !c) add('warning', [...path, 'character'], `request ${r.id}: unknown character "${r.character}"`);
 		else if (c && r.view !== APOSE_VIEW && !findPersona(c, r.persona)) add('warning', [...path, 'persona'], `request ${r.id}: ${r.character} has no persona "${r.persona}"`);

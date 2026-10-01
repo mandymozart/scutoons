@@ -441,7 +441,8 @@
 		"cast": "Cast",
 		"credits": "Credits",
 		"people": "People",
-		"roles": "Roles"
+		"roles": "Roles",
+		"script": "Script"
 	},
 	"homepage": {
 		"title": "Homepage",

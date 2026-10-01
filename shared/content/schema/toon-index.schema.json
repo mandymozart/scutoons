@@ -30,6 +30,10 @@
 					"$ref": "#/definitions/ToonTile",
 					"description": "The landing page's tile (language-neutral); without it the tile uses the toon's avatar"
 				},
+				"cover": {
+					"$ref": "#/definitions/Cover",
+					"description": "language-neutral (in the toon entry, owner 2026-10-01): text-free artwork, the title is rendered by the UI (`Cover.lettering`)"
+				},
 				"id": {
 					"type": "string"
 				},
@@ -116,6 +120,22 @@
 				"image"
 			],
 			"description": "A toon's tile on the landing page: a square image on a colour"
+		},
+		"Cover": {
+			"type": "object",
+			"properties": {
+				"square": {
+					"type": "string"
+				},
+				"portrait": {
+					"type": "string"
+				},
+				"lettering": {
+					"type": "boolean",
+					"description": "the image is lettering-free: the UI renders the title over it (default false = shown as it is)"
+				}
+			},
+			"description": "A toon's / season's cover (language-neutral, owner 2026-10-01: media are shared by all languages). The artwork carries no text: with `lettering: true` the UI sets the toon's name + the season's title over it in the reader's language (`CoverLettering` in `@scutoons/reader`, agents/DATA.md \"Language-independent media\"). Without it the image is shown as it is – for artwork that still has its title baked in (catpope until the lettering-free cover is delivered)."
 		},
 		"Status": {
 			"type": "string",

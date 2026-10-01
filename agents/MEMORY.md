@@ -1304,6 +1304,55 @@ character, persona, look and mood and doubles as the VN test bed.
 - Not covered (can't read JSON): `cdn/.htaccess` (production CDN, allows `http://localhost:8000`), the CI qr smoke in
   `.github/workflows/qr.yml` (own `php -S 127.0.0.1:9001`), server PHP smoke scripts' usage examples.
 
+## Language-independent media: covers in the toon entry, rendered lettering, audit (2026-10-01)
+
+- **Owner rule** (PLAN.md RULES): media are shared by all languages, text only in text fields, baked lettering → text the UI
+  renders. Spec + audit table + media requests: DATA.md "Language-independent media".
+- `cover` is a language-neutral toon setting now (`TOON_NEUTRAL_FIELDS` / `Library::TOON_NEUTRAL_FIELDS`), `Cover.lettering`
+  turns on `CoverArt` (`@scutoons/reader`): toon name + season title in Bangers over text-free art. catpope keeps its baked
+  German cover with the flag off; toptoy/yellowmouse have no cover (their `images/1x/<l>/` paths never existed).
+- The creator's toon settings show the cover once ("Same in every language" → Cover) with a per-language preview incl. the
+  rendered title over today's image (a blur `veil` behind it); the open media requests of the toon are listed there and in
+  Wanted images → "Toon media". Asset requests with `view: "media"` + `toon` + `size` = toon media (no character).
+- Validation warns on media paths with a locale segment in every entity (`media.ts`); the seed has none left.
+- Store migrated as the test user (backup `server/db/local.sqlite.bak-2026-10-01-covers`); library answers compared before/
+  after (46 URLs): identical except toptoy/yellowmouse losing the dead cover. Seed SQL: only the 8 changed statements.
+- Gotcha: Python's text mode on this Windows box writes CRLF – edit files with `newline=''` (or the Edit tool), else
+  `schema.js --check` reports every schema with a multi-line JSDoc as out of date.
+- Season covers stay in the season documents (no neutral season entity; one creator field writes every locale); the
+  validation warns when they differ between languages.
+- Audit side findings (not fixed): `viewer/static/favicon.svg` is still the Svelte logo (admin/creator/embassy use it); the
+  catpope placeholder SVGs in `images/characters/*` carry German names; ch2 slice 1 has the German SFX "FLATTER FLATTER"
+  baked in (clean art requested); toptoy's draft toon page has an empty map terrain `<img>` (`map.layers.terrain: ""`).
+
+## Toon script / Drehbuch (2026-10-01, branch `toon-script`)
+
+- **Owner:** "Per toon a place where I can put scripts … a huge text block which I can edit and that is versioned, like
+  the rest … scripts come per toon, not per chapter." Spec: DATA.md "Script" (entity `script:<toon>:<l>`), DESIGN.md
+  "Creator: script page".
+- Format source: `C:\Development\screenplay-editor` (README "Writing Guide", `lib/src/parse.js` + `utils/regex.js`). Its
+  `lib` is NOT used as a dependency (outside the repo, built with jspdf, German-only markers): `scriptOutline` in
+  `@scutoons/content` re-implements only the heading rules (+ `Chapter` / `Song` for translations).
+- Cat Pope screenplay: `C:\Development\cat-pope-agent\external-repos\cat-pope-awakening\{de,en}\screenplay.txt` + `config.json`
+  (repo last commit 2025-01-08; de complete 1834 lines, en partial 395 lines). LF, no tabs, 351 / 137 lines with
+  trailing spaces – they are part of the file and are kept. Re-import a newer version: `import-screenplay.ts` then
+  `import-content shared/content/seed --toon=catpope --only=script --update`.
+- Gotchas: `ContentDoc.publish()` publishes every stored locale (an unchanged one keeps its version – harmless); the
+  textarea → doc write is debounced, so `beforeSave` / blur flush it; scripts never reach `Library\Snapshot` (cache keys
+  unchanged by script saves).
+- Local store: `script:catpope:{de,en}` published (482, 483), backup `server/db/local.sqlite.bak-2026-10-01-script`.
+  The seed SQL is unchanged (scripts are creator-only, `--sql` skips them).
+- Check: `npm run check:creator-script` (27 checks: byte-identical load + file, outline 6 chapters / 39 scenes / 6 songs,
+  jump, typing ~17 ms/keystroke with no long tasks, edit → draft → publish → history → restore byte-identical → publish,
+  en switch, empty page for the sandbox, restores the published versions).
+- **Merge note (`toon-script` → `platform`)**: branched at bab74a3, `platform` merged in at 264baa6 (one conflict in
+  `shared/content/src/validate.ts`: both imports kept; `checkMediaLocale` skips `script`). Merge is a fast-forward-able
+  merge commit. Until it is merged, the owner's running API (old `EntityKey`) answers 400 for `script:` keys and
+  `export-content` on the local store would stop at the 2 script rows (unknown kind) – merge before exporting. No
+  migration, no new dependency, no seed SQL change; production gets no script rows unless someone runs
+  `import-content --sql --only=script` deliberately. Fresh worktrees need the gitignored `server/storage/keys/keypair.json`
+  and `storage/files/batch/*` copied for the contract suites (admin-smoke batches, public-urls keys) – not a code issue.
+
 ## World map M0–M2 (2026-10-01, branch `map`, agents/MAP.md §8)
 
 - One world map entity `map` (`scutoons/_/map.json`), migrated by `shared/content/scripts/migrate-map.ts` (one-time; refuses a
@@ -1321,4 +1370,5 @@ character, persona, look and mood and doubles as the VN test bed.
   `entities-smoke` must not run against a dev API with `CONTENT_SHOW_DRAFTS=1` (it expects drafts hidden) – it publishes test
   maps; it now deletes its own map versions. A Vite dev server's very first page load can miss the fonts (check-fonts flake
   on a cold admin; a rerun passes). Global creator/viewer button styles make text white: set `color` on new buttons.
-- `platform` was NOT merged into `map` (the merge was refused by the agent's permission rules); the merge note is MAP.md §8.8.
+- `platform` merged into `map` on 2026-10-01 (started by the coordinator with the owner's OK; conflicts resolved: both sides
+  kept – covers / scripts / media requests + the world map); the merge note for `map` → `platform` is MAP.md §8.8.

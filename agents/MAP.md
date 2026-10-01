@@ -7,7 +7,7 @@ notices), [PLAN.md](PLAN.md) (rules: small configuration, API-first, the creator
 
 **Owner request (2026-10-01):** a map builder in the creator; map entries linked to VN events **and** to events in the
 scroll (webtoon) reader, e.g. "unlock location"; routes and waypoints; small transparent WebP illustrations per place
-(Luma or another generator), added in the builder; "for now the world map we have is the entire universe of SCUTOONS" →
+(an image generator or a designer), added in the builder; "for now the world map we have is the entire universe of SCUTOONS" →
 one world map for every toon; an example story in the sandbox with **all** characters that exercises every map
 feature; built on the existing Cat Pope map data.
 
@@ -421,7 +421,7 @@ To be written as `workflows/map/location-images.md` when built (house style like
 | Content | one place, no text, no signs with letters, no characters, no logos |
 | File | `cdn/root/map/locations/<place id>.webp` (PNG master next to it); a changed image gets a new name (`<id>.v2.webp`, PLATFORM.md CDN rule) |
 
-### 5.2 Prompt template (Luma; any image model that takes style references)
+### 5.2 Brief template (tool-agnostic: any image generator that takes style references, or a designer)
 
 Attach as **style** references: `cdn/root/characters/catpope/catpope_portrait-neutral.webp`,
 `cdn/root/characters/yellowmouse/yellowmouse_portrait-neutral.webp`, and – for architecture – one chapter slice

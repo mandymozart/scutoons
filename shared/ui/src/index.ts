@@ -2,6 +2,7 @@
 // Styled only with @scutoons/tokens custom properties: the app must import '@scutoons/tokens'.
 export { default as Button } from './button.svelte';
 export { default as IconButton } from './icon-button.svelte';
+export { default as Icon } from './icon.svelte';
 export { default as Field } from './field.svelte';
 export { default as Panel } from './panel.svelte';
 export { default as Section } from './section.svelte';

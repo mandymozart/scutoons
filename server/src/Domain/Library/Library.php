@@ -36,9 +36,10 @@ final class Library
     public const LOCALE_PATTERN = '#^[a-z]{2}$#';
     /**
      * Toon settings that are the same in every language (owner 2026-10-01): stored once in the toon's index entry
-     * `toon:<toon>`, merged into the bundle's per-language `toon` settings; @scutoons/content TOON_NEUTRAL_FIELDS
+     * `toon:<toon>`, merged into the bundle's per-language `toon` settings; @scutoons/content TOON_NEUTRAL_FIELDS.
+     * `cover` joined 2026-10-01 (media are language-independent; the UI renders the lettering, `cover.lettering`).
      */
-    public const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'];
+    public const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile', 'cover'];
     /** Bump when the shape of an answer changes: old cache entries are never read again */
     private const FORMAT = 3;
     private const CACHE_TTL = 604800;

@@ -48,14 +48,15 @@ final class ImportContentCommand extends Command
             ->addOption('only', null, InputOption::VALUE_REQUIRED, 'Only these entity kinds, comma separated (e.g. characters,moods,asset-requests,cast)')
             ->setHelp(<<<'HELP'
                 Reads the interchange layout (agents/DATA.md §4, Console\ContentFiles: toons.json, events.json,
-                <toon>/<locale>/{toon,season<N>,chapter<N>,locations,routes}.json, <toon>/<locale>/chapter<N>/<scene>.json,
+                <toon>/<locale>/{toon,season<N>,chapter<N>,locations,routes,script}.json, <toon>/<locale>/chapter<N>/<scene>.json,
                 <toon>/_/{cast,credits}.json, scutoons/_/{characters,moods,asset-requests,people,roles}.json) and stores every
                 entity as a published version (author NULL, message "import"), keyed by its entity key.
                 Idempotent: entities already in the store are skipped (the store is the source of truth once seeded);
                 --update adds a new published version where the file differs.
                 Production: bin/console import-content shared/content/seed --sql > content-seed.sql, then import that file in
                 phpMyAdmin after migrations/mysql/2026-09-30-entity-keys.mysql.sql. Each statement skips stored entities.
-                The dev-only sandbox toon (DEV_ONLY_TOONS) is left out of --sql unless named with --toon.
+                The dev-only sandbox toon (DEV_ONLY_TOONS) is left out of --sql unless named with --toon; the creator-only
+                screenplays (script:<toon>:<l>, EntityKey::CREATOR_ONLY_KINDS) unless named with --only=script.
                 HELP);
     }
 
@@ -111,6 +112,13 @@ final class ImportContentCommand extends Command
                 continue;
             }
             if ($onlyKinds !== [] && !in_array($key->kind, $onlyKinds, true)) continue;
+            if (!self::includesKind($key->kind, $onlyKinds, $sqlMode)) {
+                if (!isset($devOnlyReported["kind:$key->kind"])) {
+                    $report("  skipped   {$key->kind} (creator only, not in the production seed; --only={$key->kind} to include it)\n");
+                    $devOnlyReported["kind:$key->kind"] = true;
+                }
+                continue;
+            }
             try {
                 $json = $store->encode($read());
             } catch (ApiError $error) {
@@ -156,6 +164,17 @@ final class ImportContentCommand extends Command
     {
         if ($onlyToon !== null) return $toon === $onlyToon;
         return !($sqlMode && $toon !== null && in_array($toon, self::DEV_ONLY_TOONS, true));
+    }
+
+    /**
+     * Whether an entity kind is imported: creator-only kinds (EntityKey::CREATOR_ONLY_KINDS, the screenplays) stay out
+     * of the production seed (`--sql`) unless `--only` names them; a local import takes them like everything else.
+     * @param list<string> $onlyKinds
+     */
+    public static function includesKind(string $kind, array $onlyKinds, bool $sqlMode): bool
+    {
+        if (in_array($kind, $onlyKinds, true)) return true;
+        return !($sqlMode && in_array($kind, EntityKey::CREATOR_ONLY_KINDS, true));
     }
 
     /** A MySQL string literal (backslash escapes, as in mysqldump) */

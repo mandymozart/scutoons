@@ -10,8 +10,8 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 /** file name → root type. Content files: `<toon>/<locale>/{toon,season1,chapterN,<chapter>/scene-N}.json`;
  *  credits: `<toon>/_/credits.json`, `scutoons/_/people.json`, `scutoons/_/roles.json`;
- *  characters: `scutoons/_/characters.json`, `scutoons/_/moods.json`, `<toon>/_/cast.json`;
- *  the world map: `scutoons/_/map.json`. */
+ *  characters: `scutoons/_/characters.json`, `scutoons/_/moods.json`, `<toon>/_/cast.json`; the screenplay:
+ *  `<toon>/<locale>/script.json`; the world map: `scutoons/_/map.json`. */
 const SCHEMAS = {
 	chapter: 'Chapter',
 	season: 'Season',
@@ -26,6 +26,7 @@ const SCHEMAS = {
 	moods: 'MoodVocabulary',
 	'asset-requests': 'AssetRequests',
 	cast: 'ToonCast',
+	script: 'ToonScript',
 	map: 'WorldMap'
 };
 

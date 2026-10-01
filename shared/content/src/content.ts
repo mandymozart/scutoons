@@ -238,9 +238,17 @@ export interface ChapterWithId extends Chapter {
 	id: number;
 }
 
+/**
+ * A toon's / season's cover (language-neutral, owner 2026-10-01: media are shared by all languages). The artwork carries
+ * no text: with `lettering: true` the UI sets the toon's name + the season's title over it in the reader's language
+ * (`CoverLettering` in `@scutoons/reader`, agents/DATA.md "Language-independent media"). Without it the image is shown
+ * as it is – for artwork that still has its title baked in (catpope until the lettering-free cover is delivered).
+ */
 export interface Cover {
 	square?: string;
 	portrait?: string;
+	/** the image is lettering-free: the UI renders the title over it (default false = shown as it is) */
+	lettering?: boolean;
 }
 
 /** @deprecated moved to `<toon>/_/credits.json` (`ToonCredits`, credits.ts); the creator shows it read-only */
@@ -297,6 +305,7 @@ export interface Season {
 	number?: number;
 	release?: string;
 	description?: string;
+	/** language-neutral like `download` / `trailer` (the creator writes it to every locale); not shown by the reader yet */
 	cover?: Cover;
 	/** the season's downloads (the music album), shown below its chapter list */
 	download?: Download;
@@ -354,7 +363,7 @@ export interface Download {
 
 /**
  * A toon's settings as the reader gets them (`/library/toons/<toon>` → `toon`): the per-language document
- * `toon-settings:<toon>:<l>` (`ToonSettings`: title, description, language, release, status, cover) with the
+ * `toon-settings:<toon>:<l>` (`ToonSettings`: title, description, language, release, status) with the
  * language-neutral settings of the index entry `toon:<toon>` (`ToonNeutralSettings`) merged in by the library.
  */
 export interface Toon {
@@ -369,8 +378,8 @@ export interface Toon {
 	status: Status;
 	description: string;
 	thumbnail: string;
-	/** per language (covers can carry lettering) */
-	cover: Cover;
+	/** language-neutral (in the toon entry, owner 2026-10-01): text-free artwork, the title is rendered by the UI (`Cover.lettering`) */
+	cover?: Cover;
 	/** the old per-toon map (older viewer builds), filled by the library from the world map + the toon's start view */
 	map?: Map;
 	/**
@@ -385,9 +394,10 @@ export interface Toon {
 /**
  * The toon settings that are the same in every language (owner 2026-10-01): stored once in the toon's index entry
  * `toon:<toon>` (`ToonIndex`), never in the per-language `toon-settings:<toon>:<l>` (the validation warns there).
- * Text stays per language; `release`, `status` and `cover` too (see `Toon`).
+ * Text stays per language; `release` and `status` too (see `Toon`). `cover` moved here 2026-10-01 (media are shared by
+ * all languages; lettering is rendered by the UI, `Cover.lettering`).
  */
-export const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'] as const;
+export const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile', 'cover'] as const;
 export type ToonNeutralField = (typeof TOON_NEUTRAL_FIELDS)[number];
 
 /**

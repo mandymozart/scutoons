@@ -44,6 +44,14 @@
 					"type": "string",
 					"description": "where the file should go (convention path, from the CDN root)"
 				},
+				"toon": {
+					"type": "string",
+					"description": "media requests (`view: 'media'`): the toon the file belongs to"
+				},
+				"size": {
+					"type": "string",
+					"description": "media requests: the size wanted, e.g. \"1080 × 1080\""
+				},
 				"note": {
 					"type": "string"
 				},

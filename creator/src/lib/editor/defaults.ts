@@ -71,7 +71,7 @@ export function newSeason(locale: string, authors: string[] = [], number = 1): S
 
 /**
  * New per-language toon settings (title / description from the index entry; downloads are per season). The
- * language-neutral settings (authors, map, tile …) start empty in the index entry and are edited on the toon settings page.
+ * language-neutral settings (authors, map, tile, cover …) start empty in the index entry and are edited on the toon settings page.
  */
 export function newToon(id: string, locale: string, entry: ToonIndex | null | undefined): ToonSettings {
 	return {
@@ -80,8 +80,7 @@ export function newToon(id: string, locale: string, entry: ToonIndex | null | un
 		language: locale,
 		release: isoDate(),
 		status: Status.DRAFT,
-		description: entry?.i18n?.[locale]?.description ?? '',
-		cover: { square: `images/s1-cover-square.webp`, portrait: `images/s1-cover-portrait.webp` }
+		description: entry?.i18n?.[locale]?.description ?? ''
 	};
 }
 

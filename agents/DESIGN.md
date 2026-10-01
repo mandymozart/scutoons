@@ -83,6 +83,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   the record's cut-out sits left of it, decorative (`alt=""`), lazy, ≈ 77 px on a phone / ≤ 96 px on a tablet, the pair
   centred; owner 2026-10-01), **the credits colophon**.
   Chapters are named only in the chapter list (never in the music or the colophon).
+- **Cover lettering** (owner 2026-10-01, everything language-independent; `CoverArt` in `@scutoons/reader`): with
+  `cover.lettering` the cover art is text-free and the UI sets the toon's name (small) over the season's title (big, in
+  quotes) in the reader's language – comic lettering, not UI chrome: Bangers (`--font-lettering`), paper fill, heavy ink
+  outline + hard ink shadow, tilted −5°, sizes in `cqw` of the cover, upper part of the art. Without the flag the image is
+  shown as delivered (catpope's cover still has its German title baked in). DATA.md "Language-independent media".
 - **Toon page desktop** (≥ 1024 px, owner 2026-10-01, reference: artboard "A · Vollbild" of
   https://claude.ai/artifact/AYHvMG81k7CQc1JrVf4n5R; phones and tablets keep the single column above):
   - **Hero** (`toon/hero.svelte`) = the first screen, `min(100vh, 900px)`, full-bleed: the season's trailer loop
@@ -341,7 +346,7 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   Every crumb is a link. The structure never changes between pages, only the depth (fixed 64 px; the middle crumbs
   shrink first, "Creator" and the current level stay whole; burger for the sidebar below 768 px).
 - **Left sidebar = the children of the current level:** home → toons; toon (and its cast / credits / settings) →
-  seasons + Cast + Credits + Toon settings; season → its chapters with the status per language; chapter → Meta,
+  seasons + Cast + Credits + Script + Toon settings; season → its chapters with the status per language; chapter → Meta,
   Audio, groups → slices (the chapter tree); draft preview → its groups. A leaf page shows its siblings with the
   current one marked. The **Universe** section (Characters, Moods, Wanted images) is pinned to the bottom of the
   sidebar on every page.
@@ -371,3 +376,37 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
 Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route crumbs from the root layout, `extra`
 crumbs + `sidebar` + `fill` registered by a page with `usePageNav`), root layout = `AppShell` with the top bar and
 sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every ActionBar.
+
+### Creator: script page (owner 2026-10-01)
+
+`/<toon>/script` – "Drehbuch" / "Script" in the toon's sidebar between Credits and Toon settings (DATA.md "Script").
+- **One big text per language**: a plain `<textarea>` in IBM Plex Mono 13/20 px, `white-space: pre`, `wrap="off"` (line n
+  = row n, horizontal scroll instead of wrapping), spellcheck off, as wide as the content column, `tab-size: 4`. Tab
+  inserts 4 spaces (the format counts spaces), Shift+Tab removes up to 4 leading spaces, **Esc then Tab** leaves the
+  text (keyboard users); edits go through the browser's own command so Ctrl+Z inside the text works.
+- **Language switch** above the text: one button per toon language, the source marked "· Quelle"/"· source", "•" when
+  unsaved. A missing translation shows "Start empty" / "Copy the de script" (no "create locale" bars: the page's
+  MetaPage has `translationsOptional`). A toon without a script opens with an empty, clean (not dirty) source text.
+- **Title page**: a collapsed block with the 6 meta fields (per language, text).
+- **Bottom bar**: the normal MetaPage ActionBar (Save draft, Publish, History with restore, undo/redo, problems, note).
+- **Outline** (left, sticky, own scroll): chapters (bold, "Kapitel 1 · DENIAL"), their scenes (number + heading, one
+  line, ellipsis) and songs (italic); a click puts the cursor at the line and scrolls it to the top; the item the cursor
+  is in is marked. Below it a collapsible **Format rules** panel (also in the Info panel): a summary of the screenplay
+  editor's Writing Guide + a link to its README.
+- **Performance** (1–2k lines): the textarea is the working copy; it is written into the doc 300 ms after the last
+  keystroke (and before save / publish / language switch / outline jump / blur), so a keystroke never copies,
+  stringifies, validates or parses the whole text. Measured on the 1834-line Cat Pope script: one frame per keystroke
+  (~17 ms round trip headless), no long tasks.
+- Check: `npm run check:creator-script` (SCUTOONS_API / SCUTOONS_CREATOR for other ports).
+
+## Icons (owner rule, 2026-10-01)
+
+- **UI icons come from Feather** (`feather-icons`, MIT) through the shared component `Icon` in `@scutoons/ui`
+  (`<Icon name="zoom-in" />`, names: feathericons.com). No other icon sets, no inline copies; if a Feather icon is
+  missing, add the SVG to the shared library (`shared/ui`), never into an app.
+- **Icons where a word makes no sense** (map tools, zoom, close, drag handle, play/pause); **text where a word is clearer**.
+  An icon-only control always has an accessible name (`label` / `aria-label`) and a tooltip.
+- Brutalist defaults: stroke 2.5, square caps, `currentColor`, 1.25em (scales with the fluid root type).
+- The brand's own hand-drawn icons (viewer: chapter, map, inventory, account …) stay as they are.
+- **No "hand" tool for panning:** canvases pan with the middle mouse button or Space + drag (and two fingers on touch).
+

@@ -56,11 +56,11 @@ final class EntityStoreTest extends TestCase
     public function testKeyScheme(): void
     {
         foreach (['toon:catpope', 'toon-settings:catpope:de', 'season:catpope:1:en', 'chapter:catpope:12:de', 'chapter:catpope:0:de', 'scene:catpope:2:scene-14:de', 'scene:catpope:0:intro:en',
-            'locations:catpope:de', 'routes:catpope:en', 'cast:catpope', 'credits:catpope', 'characters', 'moods', 'asset-requests', 'people', 'roles', 'events'] as $key) {
+            'locations:catpope:de', 'routes:catpope:en', 'cast:catpope', 'credits:catpope', 'script:catpope:de', 'script:yellowmouse:en', 'characters', 'moods', 'asset-requests', 'people', 'roles', 'events'] as $key) {
             self::assertSame($key, (string) EntityKey::parse($key), $key);
         }
         // chapter 0 = a season's prologue; seasons start at 1; no leading zeros
-        foreach (['chapter:catpope:1', 'chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'nope', 'scene:catpope:2:de', 'season:catpope:1:deu', 'items', ''] as $key) {
+        foreach (['chapter:catpope:1', 'chapter:catpope:00:de', 'chapter:catpope:01:de', 'chapter:catpope::de', 'season:catpope:0:de', 'chapter:Cat:1:de', 'toon:scutoons', 'characters:x', 'nope', 'scene:catpope:2:de', 'season:catpope:1:deu', 'items', '', 'script:catpope', 'script:catpope:1:de', 'script:de'] as $key) {
             self::assertFalse(EntityKey::isValid($key), $key);
         }
         $key = EntityKey::parse('scene:catpope:2:scene-14:de');
@@ -79,12 +79,13 @@ final class EntityStoreTest extends TestCase
             ['catpope', 'de', 'chapter2.json', 'chapter:catpope:2:de'], ['catpope', 'en', 'chapter0.json', 'chapter:catpope:0:en'], ['catpope', 'de', 'chapter2/scene-14.json', 'scene:catpope:2:scene-14:de'],
             ['catpope', 'de', 'locations.json', 'locations:catpope:de'], ['catpope', '_', 'cast.json', 'cast:catpope'],
             ['catpope', '_', 'credits.json', 'credits:catpope'], ['scutoons', '_', 'characters.json', 'characters'], ['scutoons', '_', 'people.json', 'people'],
+            ['catpope', 'de', 'script.json', 'script:catpope:de'], ['catpope', 'en', 'script.json', 'script:catpope:en'],
         ];
         foreach ($cases as [$dir, $locale, $path, $key]) {
             self::assertSame($key, ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path");
             self::assertSame("$dir/$locale/$path", ContentFiles::pathOf(EntityKey::parse($key)), $key);
         }
-        foreach ([['catpope', 'de', 'characters.json'], ['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json']] as [$dir, $locale, $path]) {
+        foreach ([['catpope', '_', 'script.json'], ['scutoons', 'de', 'script.json'], ['catpope', 'de', 'scripts.json'],['catpope', 'de', 'characters.json'],['catpope', 'de', 'credits.json'], ['catpope', 'de', 'collectables.json'], ['catpope', '_', 'index.json'], ['scutoons', 'de', 'toon.json'], ['catpope', 'de', 'season0.json'], ['catpope', 'de', 'chapter01.json']] as [$dir, $locale, $path]) {
             self::assertNull(ContentFiles::keyOf($dir, $locale, $path), "$dir/$locale/$path is no entity");
         }
         self::assertSame('toons.json', ContentFiles::pathOf(EntityKey::parse('toon:catpope')));
@@ -99,6 +100,30 @@ final class EntityStoreTest extends TestCase
         self::assertTrue(ImportContentCommand::includesToon('catpope', null, true));
         self::assertTrue(ImportContentCommand::includesToon(null, null, true), 'platform-wide entities');
         self::assertFalse(ImportContentCommand::includesToon('catpope', 'sandbox', false));
+    }
+
+    /** Screenplays are creator material: out of the production seed unless named, imported locally like the rest */
+    public function testScriptsStayOutOfTheProductionSeed(): void
+    {
+        self::assertSame(['script'], EntityKey::CREATOR_ONLY_KINDS);
+        self::assertFalse(ImportContentCommand::includesKind('script', [], true));
+        self::assertTrue(ImportContentCommand::includesKind('script', ['script'], true));
+        self::assertTrue(ImportContentCommand::includesKind('script', [], false));
+        self::assertTrue(ImportContentCommand::includesKind('chapter', [], true));
+    }
+
+    /** A screenplay keeps its text exactly: indentation, trailing spaces, blank lines, tabs, umlauts */
+    public function testScriptTextIsStoredExactly(): void
+    {
+        $store = $this->get(EntityStore::class);
+        $user = $this->user();
+        $text = "    # 1. Kapitel\n\n    # DENIAL\n\n2   INT. SCHLAFZIMMER - NACHT\n\n                            ERZÄHLER:IN (V.O.)\n                EIN NEUER TAG!  \n\tTab\n\n\n";
+        $key = EntityKey::parse('script:smoke:de');
+        $saved = $store->save($user, $key, (object) ['content' => (object) ['text' => $text, 'meta' => (object) ['title' => 'Katzenpabst']]]);
+        self::assertSame(['script', 'smoke', 'de'], [$saved['version']['kind'], $saved['version']['toon'], $saved['version']['locale']]);
+        $store->publish('script:smoke:de', null);
+        $read = json_decode((string) $store->read('script:smoke:de', false, 0)['json']);
+        self::assertSame($text, $read->text);
     }
 
     /** The dated migration copies every content_versions row with the same id and a key from its path */

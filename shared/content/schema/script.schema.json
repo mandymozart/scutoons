@@ -1,0 +1,52 @@
+{
+	"$id": "https://scutoons.com/schema/script.schema.json",
+	"title": "ToonScript",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/ToonScript",
+	"definitions": {
+		"ToonScript": {
+			"type": "object",
+			"properties": {
+				"text": {
+					"type": "string",
+					"description": "the whole screenplay, plain text in the screenplay format (LF line ends)"
+				},
+				"meta": {
+					"$ref": "#/definitions/ScriptMeta"
+				}
+			},
+			"required": [
+				"text"
+			],
+			"description": "The screenplay of a toon in one language (the source language is the master, translations may be partial)"
+		},
+		"ScriptMeta": {
+			"type": "object",
+			"properties": {
+				"title": {
+					"type": "string"
+				},
+				"author": {
+					"type": "string"
+				},
+				"status": {
+					"type": "string",
+					"description": "e.g. \"ENTWURF\" / \"DRAFT\""
+				},
+				"date": {
+					"type": "string",
+					"description": "free text, e.g. \"November 2024\""
+				},
+				"basedOn": {
+					"type": "string",
+					"description": "e.g. \"Basiert auf Liedern\""
+				},
+				"basedOnFrom": {
+					"type": "string",
+					"description": "e.g. \"Mandy Mozart\""
+				}
+			},
+			"description": "Title-page facts of a screenplay (the screenplay editor's `config.json` → `meta`), text in the script's language"
+		}
+	}
+}

@@ -4,9 +4,5 @@
 	"language": "en",
 	"release": "2026-09-29",
 	"status": "draft",
-	"description": "",
-	"cover": {
-		"square": "images/1x/en/s1-cover-square.jpg",
-		"portrait": "images/1x/en/s1-cover-portrait.jpg"
-	}
+	"description": ""
 }

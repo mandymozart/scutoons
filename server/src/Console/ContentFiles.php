@@ -18,6 +18,7 @@ use Scutoons\Domain\Content\EntityKey;
  *   <toon>/<l>/season<N>.json, chapter<N>.json                       → season:<toon>:<N>:<l>, chapter:<toon>:<N>:<l>
  *   <toon>/<l>/chapter<N>/<name>.json  (a VN scene)                  → scene:<toon>:<N>:<name>:<l>
  *   <toon>/<l>/locations.json, routes.json                           → locations:<toon>:<l>, routes:<toon>:<l>
+ *   <toon>/<l>/script.json             (the screenplay)              → script:<toon>:<l>
  * Legacy per-locale characters.json / credits.json (replaced by the registry and the credits entities) are no entities.
  */
 final class ContentFiles
@@ -39,7 +40,7 @@ final class ContentFiles
         if (preg_match('#^chapter(0|[1-9][0-9]{0,5})/([a-z0-9_-]{1,64})\.json$#', $relative, $s)) return "scene:$dir:$s[1]:$s[2]:$localeDir";
         if ($name === null) return null;
         if ($name === 'toon') return "toon-settings:$dir:$localeDir";
-        if ($name === 'locations' || $name === 'routes') return "$name:$dir:$localeDir";
+        if ($name === 'locations' || $name === 'routes' || $name === 'script') return "$name:$dir:$localeDir";
         if (preg_match('#^(season)([1-9][0-9]{0,5})$#', $name, $n) || preg_match('#^(chapter)(0|[1-9][0-9]{0,5})$#', $name, $n)) return "$n[1]:$dir:$n[2]:$localeDir";
         return null;
     }
@@ -54,7 +55,7 @@ final class ContentFiles
             'toon-settings' => "$key->toon/$key->locale/toon.json",
             'season', 'chapter' => "$key->toon/$key->locale/$key->kind$key->number.json",
             'scene' => "$key->toon/$key->locale/chapter$key->number/$key->scene.json",
-            'locations', 'routes' => "$key->toon/$key->locale/$key->kind.json",
+            'locations', 'routes', 'script' => "$key->toon/$key->locale/$key->kind.json",
             default => self::PLATFORM_DIR . "/_/$key->kind.json",
         };
     }

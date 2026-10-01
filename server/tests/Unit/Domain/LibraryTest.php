@@ -212,15 +212,26 @@ final class LibraryTest extends TestCase
         self::assertSame([['id' => 'a', 'status' => 'draft', 'sourceLanguage' => 'de', 'announced' => true, 'tile' => ['image' => 'a.webp']]], $list);
     }
 
+    /** Older data: a toon entry without `cover` keeps each language's cover from its toon settings */
+    public function testCoverFromOlderToonSettings(): void
+    {
+        $this->seedToon();
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']]);
+        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'published', 'cover' => ['square' => 'images/en.webp']]);
+        $data = self::decode($this->library()->toon('t', 'en', false)->body);
+        self::assertSame(['square' => 'images/en.webp'], $data['toon']['cover']);
+    }
+
     /** The language-neutral settings (index entry) are merged into every locale's `toon`; `entry` stays the plain index entry */
     public function testToonBundleMergesTheNeutralSettings(): void
     {
         $this->seedToon();
         $map = ['layers' => ['terrain' => 'images/map/m.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]];
         $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'],
-            'authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc']]);
+            'authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc'],
+            'cover' => ['square' => 'images/s1-cover-square.webp', 'lettering' => true]]);
         // a stale per-language value loses against the index entry
-        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'published', 'map' => ['width' => 0]]);
+        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'published', 'map' => ['width' => 0], 'cover' => ['square' => 'images/1x/en/c.jpg']]);
         foreach (['de', 'en'] as $l) {
             $data = self::decode($this->library()->toon('t', $l, false)->body);
             self::assertSame("T $l", $data['toon']['title']);
@@ -229,6 +240,7 @@ final class LibraryTest extends TestCase
             self::assertSame(5, $data['toon']['chapters']);
             self::assertSame('th.webp', $data['toon']['thumbnail']);
             self::assertSame(['image' => 'tile.webp', 'color' => '#0066cc'], $data['toon']['tile']);
+            self::assertSame(['square' => 'images/s1-cover-square.webp', 'lettering' => true], $data['toon']['cover'], "$l: one cover for every language");
             self::assertSame(['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']], $data['entry'], 'entry without the settings');
         }
     }
@@ -321,6 +333,21 @@ final class LibraryTest extends TestCase
         $after = $this->library()->chapter('t', 1, 'de', false);
         self::assertNotSame($first->etag, $after->etag, 'a publish changes the key');
         self::assertSame('scene de v2', self::decode($after->body)['groups'][0]['label']);
+    }
+
+    /** The screenplay (creator material) is never in a library answer and saving it changes no reader cache key */
+    public function testScriptsAreNeverInTheLibrary(): void
+    {
+        $this->seedToon();
+        $answers = fn(bool $draft) => [$this->library()->toon('t', 'de', $draft), $this->library()->chapter('t', 1, 'de', $draft), $this->library()->season('t', 1, 'de', $draft)];
+        $before = array_map(fn($a) => [$a->etag, $a->body], $answers(false));
+        $this->doc('t', 'de', 'script.json', ['text' => "    # 1. Kapitel\nGEHEIMES DREHBUCH\n", 'meta' => ['title' => 'Geheim']]);
+        $this->doc('t', 'en', 'script.json', ['text' => 'SECRET SCREENPLAY'], false);
+        self::assertSame($before, array_map(fn($a) => [$a->etag, $a->body], $answers(false)), 'same answers and cache keys after a script publish');
+        foreach ([...$answers(false), ...$answers(true)] as $answer) {
+            self::assertStringNotContainsString('GEHEIM', $answer->body);
+            self::assertStringNotContainsString('SECRET', $answer->body);
+        }
     }
 
     public function testEvents(): void
