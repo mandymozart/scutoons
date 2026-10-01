@@ -107,6 +107,8 @@
 			<div class="grid g2">
 				<SharedField doc={season} path={['download', 'music']} label="download.music" placeholder="audio/….zip" />
 				<SharedField doc={season} path={['download', 'complete']} label="download.complete" kind="nullable" placeholder="null (none)" />
+				<!-- decorative image beside the reader's music button (the record's cut-out) -->
+				<SharedField doc={season} path={['download', 'image']} label="download.image" kind="image" {toon} known={images} testid="download-image" />
 			</div>
 		</section>
 

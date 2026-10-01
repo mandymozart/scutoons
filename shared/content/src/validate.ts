@@ -398,10 +398,11 @@ function checkSeason(c: Collector, s: any, locale: string) {
 		else for (const key of ['square', 'portrait']) checkImagePath(c, s.cover[key], ['cover', key]);
 	}
 	if (s.download !== undefined) {
-		if (!isObj(s.download)) c.error(['download'], 'download must be { music?, complete? }');
+		if (!isObj(s.download)) c.error(['download'], 'download must be { music?, complete?, image? }');
 		else {
 			if (s.download.music !== undefined && !isStr(s.download.music)) c.error(['download', 'music'], 'download.music must be a path');
 			if (s.download.complete != null && !isStr(s.download.complete)) c.error(['download', 'complete'], 'download.complete must be a path or null');
+			checkImagePath(c, s.download.image, ['download', 'image']);
 		}
 	}
 	if (s.trailer !== undefined) {

@@ -341,6 +341,8 @@ export interface Download {
 	music?: string;
 	/** everything of the season in one file, if there is one */
 	complete?: string | null;
+	/** decorative image beside the reader's music button (e.g. the record's cut-out), path in the toon's CDN folder */
+	image?: string;
 }
 
 export interface Toon {
