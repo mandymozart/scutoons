@@ -79,7 +79,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
 - **Toon page, top to bottom** (owner 2026-09-30): cover, toon title + description, "Staffel 1: <title>", the season
   text, **the start button**, the chapter list, **the season's music** (a secondary button "Musik herunterladen" /
-  "Download the music" → `/<toon>/download`, only when `season.download.music` is set), **the credits colophon**.
+  "Download the music" → `/<toon>/download`, only when `season.download.music` is set; with `season.download.image`
+  the record's cut-out sits left of it, decorative (`alt=""`), lazy, ≈ 77 px on a phone / ≤ 96 px on a tablet, the pair
+  centred; owner 2026-10-01), **the credits colophon**.
   Chapters are named only in the chapter list (never in the music or the colophon).
 - **Toon page desktop** (≥ 1024 px, owner 2026-10-01, reference: artboard "A · Vollbild" of
   https://claude.ai/artifact/AYHvMG81k7CQc1JrVf4n5R; phones and tablets keep the single column above):
@@ -95,15 +97,24 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   - While the hero is under the fixed top bar `html.on-hero` turns the logo and the round icon toggles white
     (transparent, paper border, inverted icon; viewer `static/css/styles.css`), ink again below it.
   - **Below:** a 12-column grid (max 75rem, gutters 1.3333rem, 2rem sides): cols 1–5 the season heading (1.3333rem),
-    the season text, "Musik herunterladen" (secondary), then the **credits colophon** (its own centred fine print, ≈ 13 px,
+    the season text, "Musik herunterladen" (secondary; the record's cut-out `season.download.image` 6.25rem ≈ 150 px
+    wide left of it, both on the column's left edge, vertically centred), then the **credits colophon** (its own centred fine print, ≈ 13 px,
     filling the column: no 36em measure, heading bars, text and the logo box span it; phones keep the measure); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
     112 × 72 (cover), title 0.75rem (+ the progress rule 5.3333rem / the coming-soon line in caption), "#n" / "Prolog"
     right-aligned, coming soon at 50 %. Published rows show no date.
 - **Top-right icon group (all widths, all pages):** the menu button (round 2rem = 48 px at the desktop root, 3-line icon
-  `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and opens the same slide-out as the logo; on
+  `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
   toon pages inventory, map and chapter list follow to its left (3rem / 5.5rem / 8rem from the right). The slide-out's
   entries all use the `button` type (`--type-button-size` / `--type-button-line`, rem-based; the toon names and
   "Anmelden" were hard 16 px before).
+- **The logo** (top left, all pages) is a link to the localized landing page (`/` · `/en/`, alt "SCUTOONS – Startseite" /
+  "SCUTOONS – Home"; owner 2026-10-01); it never opens the menu. On the landing page it just stays there.
+- **Slide-out order** (owner 2026-10-01): **the toons first** (avatar + name), then the account link + language
+  buttons, then "Zugang kaufen" (non-members), "Exklusive Editionen kaufen", "Veranstaltungen". No "SCUTOONS" entry (the
+  logo is the way home). Entries that go somewhere are links (`<a>`, the shop is its own app), the languages are
+  buttons (`aria-pressed`). Keyboard: the menu button has `aria-expanded` + `aria-controls="main-menu"`; the closed
+  slide-out is `inert` (off screen, not focusable); opening it focuses the first toon; Escape closes it and returns the
+  focus to the menu button; click outside closes it.
 - **Start button** (`toon/start-button.svelte`, like Prime Video's "▶ S1 F1 wiedergeben" but reading): the primary
   button (ink / paper, square, `button` type) as a link to the chapter, a 16 px forward arrow (2px stroke, square caps,
   `currentColor`; not a play triangle – it navigates) + the label from paraglide `start.*`: de "S1 K1 lesen" /

@@ -1158,3 +1158,25 @@ character, persona, look and mood and doubles as the VN test bed.
   the bottom; the menu button at 1440 / 390 on the toon page and the home page + one font size; the test user's
   synced progress → "S1 K1 lesen" / "S1 K1 weiterlesen" + rule (previous server progress restored). Gotcha: a visit to
   `/en/…` writes the locale cookie, so unprefixed German pages need the cookie set per page in headless checks.
+
+## Menu: toons first, logo → home; the record beside the music button (2026-10-01)
+
+- **Owner:** slide-out with the toons first, no "SCUTOONS" entry, the logo top left links to the landing page and the
+  menu opens only via the menu button (d657f8c); the vinyl cut-out next to "Musik herunterladen" (desktop ≈ 150 px left of
+  the button in the season column, phone / tablet a smaller one beside the centred button). Spec: DESIGN.md "Top-right
+  icon group", "Toon page", "Toon page desktop"; data: DATA.md "Music image".
+- `main-menu.svelte`: the logo is `a.logo-link` (was `.main-menu-toggle button`, which opened the menu; `html.on-hero`
+  rule in `static/css/styles.css` renamed). Entries are links now (toons, account, shop, events), so a middle click /
+  "open in new tab" works; the shop link is the plain `shopUrl(locale)` (was `window.location.href` in a handler). The
+  languages lost their `onkeydown={() => setLocale(locale)}`: any key – Tab included – switched the language while
+  tabbing through. The closed slide-out is `inert` (it was only translated off screen, so Tab walked through hidden
+  entries). Fixed in passing: the account entry was squeezed to the 3rem language-button width (its icon stuck out
+  left over the menu border) – the square sizing is for the language buttons only now.
+- Checks that clicked the logo to open the menu now click `[data-testid="menu-toggle"]` (check-fonts, check-locale).
+  check-toon-hero: + menu order / inert / focus / Escape / logo link at 1440 + 390 de/en, + the record at 390 / 768 /
+  1280 / 1440 de/en (src, `alt=""`, lazy, loaded, left of the button, centred vertically, width per layout).
+- Media (cdn/root, not in git, **upload**): `catpope/images/s1-music-vinyl.webp` (from `catpope/items/awakening_vinyl.png`,
+  the `awakening_vinyl` item icon; 19 KB instead of the 264 KB PNG).
+- Flaky once each, green on the rerun (not touched here): check-fonts (51/52, the failing page not printed on the green
+  run) and check-toon-hero's "plays again on the hero" at one desktop size.
+
