@@ -1,8 +1,6 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
-	import { coverLetteringOn, coverLines, entities, mediaRequests, NEUTRAL_LOCALE, type Cover } from '@scutoons/content';
-	import { CoverArt } from '@scutoons/reader';
-	import { asset } from '$lib/utils/cdn.ts';
+	import { entities, mediaRequests, NEUTRAL_LOCALE } from '@scutoons/content';
 	import { requestsDoc, requestsOf } from '$lib/editor/characters.ts';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
@@ -15,15 +13,13 @@
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
-	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/**
 	 * The toon's settings. Per language (entity toon-settings:<toon>, `ToonSettings`): title / description, plus release
 	 * and status (shared with per-language overrides). The same in every language (`TOON_NEUTRAL_FIELDS`: authors,
-	 * chapter count, thumbnail, the cover, the landing tile, announce, the map) live once in the toon's index entry
-	 * `toon:<toon>`, saved and published with the settings through the same bottom bar. The cover's preview shows it per
-	 * language as readers see it and with the rendered title (`CoverArt`, `cover.lettering`), plus the toon's open media
-	 * requests (wanted images: e.g. a lettering-free cover).
+	 * chapter count, thumbnail, the landing tile, announce, the map) live once in the toon's index entry `toon:<toon>`,
+	 * saved and published with the settings through the same bottom bar. Plus the toon's open media requests (wanted
+	 * images). Covers are per season (owner 2026-10-02; the season's cover editor) – the toon is shown with its avatar.
 	 */
 	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
 
@@ -31,19 +27,14 @@
 	const file = toonDoc(entities.toonSettings(toon), languages);
 	// svelte-ignore state_referenced_locally
 	const index = toonIndexDoc(toon);
-	// the season's title for the cover preview (season 1 = the toon page's season; read only, never saved here)
-	// svelte-ignore state_referenced_locally
-	const season = toonDoc(entities.season(toon, 1), languages);
 	const requests = requestsDoc();
 	let images = $state<string[]>([]);
 	const nav = getCreatorNav();
 
-	const cover = $derived(index.get(NEUTRAL_LOCALE, ['cover']) as Cover | undefined);
-	const letteringOn = $derived(coverLetteringOn(cover?.lettering));
 	const wanted = $derived(mediaRequests(requestsOf(requests), { toon }));
 
 	onMount(async () => {
-		await Promise.all([file.load(), index.load(), season.load().catch(() => {}), requests.load().catch(() => {})]);
+		await Promise.all([file.load(), index.load(), requests.load().catch(() => {})]);
 		images = await knownImages(toon, file.locales, [$state.snapshot(file.data), $state.snapshot(index.data)]);
 	});
 </script>
@@ -84,56 +75,16 @@
 					<SharedField doc={index} path={['thumbnail']} label="thumbnail" kind="image" {toon} known={images} />
 				</div>
 
-				<div class="sub" data-testid="toon-cover">
-					<h3>{m['creator.cover']()}</h3>
-					<p class="hint">{m['creator.cover_hint']()}</p>
-					<div class="grid g3">
-						<SharedField doc={index} path={['cover', 'square']} label="cover.square" kind="image" {toon} known={images} />
-						<SharedField doc={index} path={['cover', 'portrait']} label="cover.portrait" kind="image" {toon} known={images} />
-					</div>
-					<!-- the lettering is edited in the cover editor (/<toon>/cover): off, the default layout or an own layout -->
-					<p class="lettering-state" data-testid="toon-cover-lettering">
-						<span class="sc-label">{m['creator.cover_mode']()}</span>
-						<span>{!letteringOn ? m['creator.cover_mode_off']() : coverLines(cover?.lettering, 'square') ? m['creator.cover_mode_custom']() : m['creator.cover_mode_default']()}</span>
-						<a class="btn secondary" href="/{toon}/cover" data-testid="toon-cover-editor">{m['creator.cover_editor_open']()}</a>
-					</p>
-					<p class="hint">{m['creator.cover_lettering_hint']()}</p>
-					{#if cover?.square || cover?.portrait}
-						<!-- per language: what readers see, and the rendered title (the lettering model) to judge it -->
-						<div class="cover-preview" data-testid="cover-preview">
-							<h4>{m['creator.cover_preview']()}</h4>
-							{#each textLanguage.visible(file.present, file.primary) as l (l)}
-								{@const title = String(file.get(l, ['title']) ?? '')}
-								{@const subtitle = String(season.get(l, ['title']) ?? '')}
-								<div class="cover-grid" data-testid="cover-preview-{l}">
-									{#each (['square', 'portrait'] as const).filter((f) => cover?.[f]) as format (format)}
-										<div class="cover-cell {format}" data-testid="cover-shown-{l}-{format}">
-											<CoverArt src={asset(`${toon}/${cover?.[format]}`)} {format} lettering={cover?.lettering} {title} {subtitle} lang={l} />
-											<span class="caption">{m['creator.cover_preview_shown']({ locale: l })} · {format}</span>
-										</div>
-										{#if !letteringOn}
-											<div class="cover-cell {format}" data-testid="cover-rendered-{l}-{format}">
-												<CoverArt src={asset(`${toon}/${cover?.[format]}`)} {format} lettering {title} {subtitle} lang={l} veil />
-												<span class="caption">{m['creator.cover_preview_rendered']({ locale: l })} · {format}</span>
-											</div>
-										{/if}
-									{/each}
-								</div>
+				{#if wanted.length}
+					<div class="sub" data-testid="toon-media-requests">
+						<h3>{m['creator.cover_requests']()}</h3>
+						<ul class="wanted">
+							{#each wanted as r (r.id)}
+								<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="req"><Icon name="mail" /> {r.note}</span>{/if}</li>
 							{/each}
-							{#if !letteringOn}<p class="hint">{m['creator.cover_preview_veil']()}</p>{/if}
-						</div>
-					{/if}
-					{#if wanted.length}
-						<div class="wanted" data-testid="toon-media-requests">
-							<h4>{m['creator.cover_requests']()}</h4>
-							<ul>
-								{#each wanted as r (r.id)}
-									<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="req"><Icon name="mail" /> {r.note}</span>{/if}</li>
-								{/each}
-							</ul>
-						</div>
-					{/if}
-				</div>
+						</ul>
+					</div>
+				{/if}
 
 				<div class="sub" data-testid="toon-landing">
 					<h3>{m['creator.landing']()}</h3>
@@ -190,33 +141,7 @@
 	h3 {
 		margin: 0;
 	}
-	h4 {
-		margin: 0 0 0.4rem;
-	}
-	.cover-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-		align-items: flex-end;
-		margin-bottom: 0.75rem;
-	}
-	.cover-cell {
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-	}
-	/* one height: a square 220 px wide, a 9:16 portrait 124 px (a language's four previews fit one row) */
-	.cover-cell.square {
-		width: 220px;
-	}
-	.cover-cell.portrait {
-		width: 124px;
-	}
-	.caption {
-		font-size: var(--type-caption-size);
-		color: var(--text-muted);
-	}
-	.wanted ul {
+	.wanted {
 		margin: 0;
 		padding: 0;
 		list-style: none;
@@ -252,13 +177,6 @@
 		color: var(--warn);
 	}
 	.hint {
-		margin: 0;
-	}
-	.lettering-state {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--space-05) var(--space-1);
 		margin: 0;
 	}
 	.check {

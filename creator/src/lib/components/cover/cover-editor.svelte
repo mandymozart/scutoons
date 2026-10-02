@@ -8,10 +8,12 @@
 		COVER_COLOR_VALUES,
 		COVER_LIMITS,
 		COVER_TEXT_SOURCES,
+		clone,
 		coverLetteringOn,
 		coverLines,
 		coverLineText,
 		defaultCoverLines,
+		setAt,
 		type Cover,
 		type CoverFormat,
 		type CoverLettering,
@@ -23,13 +25,15 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import ImagePicker from '../image-picker.svelte';
 
 	/**
 	 * The cover editor (owner 2026-10-02, agents/DESIGN.md "Cover editor"): the text-free art with its lettering lines
 	 * drawn over it – drag to move, handles for width / size / angle, number fields, add / remove / reorder lines, the
 	 * text source per line – a preview language, and every language "as readers see it". One component for any doc
-	 * holding a `Cover` at `path` (the toon entry today; a season's cover would work the same). It writes only
-	 * `<path>.lettering` (`setShared`: the toon entry has one document, a season every locale).
+	 * holding a `Cover` at `path`: the season's (owner 2026-10-02: covers are per season, the toon is shown with its
+	 * avatar). It writes `<path>.lettering` and `<path>.square` to EVERY locale document of the doc (a cover is the same in
+	 * every language – the art is chosen once, the lettering's texts come from the text fields).
 	 * The square format only: the reader shows no portrait cover (owner 2026-10-02 "portrait I think we are not using").
 	 */
 	let {
@@ -39,7 +43,8 @@
 		languages,
 		source,
 		texts,
-		format = 'square'
+		format = 'square',
+		known = []
 	}: {
 		doc: ContentDoc;
 		/** where the `Cover` is in the doc */
@@ -51,6 +56,8 @@
 		/** the title texts of a language (toon settings + season, missing ones fall back to the source) */
 		texts: (locale: string) => CoverTexts;
 		format?: CoverFormat;
+		/** known image paths of the toon (the image picker's list) */
+		known?: string[];
 	} = $props();
 
 	const cover = $derived(doc.get(doc.primary, path) as Cover | undefined);
@@ -78,8 +85,13 @@
 	const round = (v: number) => Math.round(v * 10) / 10;
 	const clamp = (v: number, key: keyof typeof COVER_LIMITS) => Math.min(COVER_LIMITS[key].max, Math.max(COVER_LIMITS[key].min, v));
 
+	/** a cover field, written to every locale document (the cover is language-neutral) */
+	function writeCover(field: 'lettering' | CoverFormat, value: unknown, key: string) {
+		doc.structural((file) => setAt(file, [...path, field], value === undefined ? undefined : clone(value)), key);
+	}
+
 	function writeLettering(next: boolean | CoverLettering | undefined, key: string) {
-		doc.setShared([...path, 'lettering'], next, key);
+		writeCover('lettering', next, key);
 	}
 
 	/** the format's lines become `next` (other formats' layouts are kept) */
@@ -386,6 +398,14 @@
 		</aside>
 	</div>
 
+	<section class="art" data-testid="cover-art-field">
+		<h3 class="sc-heading">{m['creator.cover_art']()}</h3>
+		<p class="hint">{m['creator.cover_art_hint']()}</p>
+		<div class="art-field">
+			<ImagePicker {toon} label="cover.{format}" value={cover?.[format]} {known} onchange={(v) => writeCover(format, v || undefined, 'cover-art')} />
+		</div>
+	</section>
+
 	{#if image}
 		<section class="readers" data-testid="cover-readers">
 			<h3 class="sc-heading">{m['creator.cover_readers']()}</h3>
@@ -601,6 +621,17 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-05);
+	}
+	.art h3 {
+		margin: 0;
+	}
+	.art {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-05);
+	}
+	.art-field {
+		max-width: 36rem;
 	}
 	.readers h3 {
 		margin: 0 0 var(--space-05);

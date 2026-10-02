@@ -1,18 +1,18 @@
 #!/usr/bin/env node
-// Check of the creator's cover editor (`/<toon>/cover`, agents/DESIGN.md "Cover editor", agents/DATA.md "Cover lettering
-// layout"): headless Chrome (own throw-away profile, CDP, no dependencies) signed in as the local test user
+// Check of the creator's season cover editor (`/<toon>/season/<n>/cover`, agents/DESIGN.md "Creator: cover editor",
+// agents/DATA.md "Cover lettering layout"; owner 2026-10-02: covers are per season): headless Chrome (own throw-away profile, CDP, no dependencies) signed in as the local test user
 // (agent@scutoons.test, `npm run dev:test-user`) on the running dev stack (creator :10000, API :9000, CDN :8001 – or
 // SCUTOONS_API / SCUTOONS_CREATOR for servers on other ports).
 //
 //   npm run check:creator-cover [-- --shots=<dir>]
 //
-// On the sandbox toon (de, en, ko), with the text-free catpope art when the CDN has it: lettering off → no text on the
-// art; "Default" → the two default lines; the preview language switches the texts (de / en / ko titles from the text
+// On the sandbox toon's season 1 (de, en, ko), with the text-free catpope art when the CDN has it: the season editor
+// links to the cover editor; lettering off → no text on the art; "Default" → the two default lines; the preview language switches the texts (de / en / ko titles from the text
 // fields); dragging a line moves it and turns the default into an own layout; the corner handle makes it bigger, the
 // side handle narrower; a long translation shrinks into its box (every language "as readers see it"); an own line with a
 // text per language (Korean too); Save draft stores a valid layout (`validateFile`) with the texts NOT in the layout's
-// geometry. Afterwards toon:sandbox is as before (restored also on failure). Refuses to run while toon:sandbox has an
-// unpublished draft.
+// geometry, the same cover in every locale's season document; Publish → the reader's toon page shows it. Afterwards the
+// season documents are as before (restored also on failure). Refuses to run while one of them has an unpublished draft.
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -32,7 +32,8 @@ const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith(
 const shots = opt.shots ? String(opt.shots) : null;
 // the sandbox has three languages (de, en, ko); --toon=catpope e.g. for screenshots on the real toon (de, en)
 const TOON = String(opt.toon || 'sandbox');
-const KEY = `toon:${TOON}`;
+const SEASON = 1;
+const PAGE = `/${TOON}/season/${SEASON}/cover`;
 if (shots) mkdirSync(shots, { recursive: true });
 
 const results = [];
@@ -58,14 +59,22 @@ async function api(method, path, body) {
 	return json;
 }
 
-// ── baseline: the published toon entry, no pending draft ───────────────────────────────────────────────────
-const latest = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
-if (!latest.published || latest.published.id !== latest.version.id) {
-	console.error(`creator-cover-check: ${KEY} has an unpublished draft or none published; not touching it. Publish or restore it first.`);
-	process.exit(2);
+// ── baseline: the published season documents (every language), no pending draft ────────────────────────────
+const entry = await api('GET', `/entities/toon:${TOON}`);
+const LOCALES = entry.languages?.length ? entry.languages : ['de', 'en'];
+const KEYS = LOCALES.map((l) => `season:${TOON}:${SEASON}:${l}`);
+const baseline = {};
+const latestIds = {};
+for (const key of KEYS) {
+	const latest = await api('GET', `/entities/${key}?draft=1&wrap=1`);
+	if (!latest.published || latest.published.id !== latest.version.id) {
+		console.error(`creator-cover-check: ${key} has an unpublished draft or none published; not touching it. Publish or restore it first.`);
+		process.exit(2);
+	}
+	baseline[key] = latest.content;
+	latestIds[key] = latest.version.id;
 }
-const baseline = latest.content;
-const LOCALES = baseline.languages?.length ? baseline.languages : ['de', 'en'];
+const KEY = KEYS[0];
 const titles = {};
 for (const l of LOCALES) {
 	titles[l] = {
@@ -75,19 +84,21 @@ for (const l of LOCALES) {
 }
 // the text-free art when the CDN has it (owner 2026-10-02), else the toon's own cover
 const textless = (await fetch(`${CDN}/catpope/images/s1-cover-square-textless.webp`, { method: 'HEAD' }).catch(() => null))?.ok;
-const square = textless ? TEXTLESS : baseline.cover?.square;
+const square = textless ? TEXTLESS : baseline[KEY].cover?.square;
 check(!!square, `the art: ${square}${textless ? ' (text-free)' : ''}`);
-// start from a draft: the art, lettering off
-await api('PUT', `/entities/${KEY}`, { content: { ...baseline, cover: { square } }, base: latest.version.id, message: 'creator-cover-check: start' });
+// start from drafts: the art, lettering off, in every language
+for (const key of KEYS) await api('PUT', `/entities/${key}`, { content: { ...baseline[key], cover: { square } }, base: latestIds[key], message: 'creator-cover-check: start' });
 
 async function restore() {
-	const now = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
-	if (JSON.stringify(now.content) !== JSON.stringify(baseline)) {
-		const put = await api('PUT', `/entities/${KEY}`, { content: baseline, base: now.version.id, message: 'creator-cover-check: restore' });
-		await api('POST', `/entities/${KEY}/publish`, { version: put.version.id });
-	} else if (now.published?.id !== now.version.id) await api('POST', `/entities/${KEY}/publish`, { version: now.version.id });
-	const after = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
-	check(after.published?.id === after.version.id && JSON.stringify(after.content) === JSON.stringify(baseline), `restored ${KEY} (published content as before, no pending draft)`);
+	for (const key of KEYS) {
+		const now = await api('GET', `/entities/${key}?draft=1&wrap=1`);
+		if (JSON.stringify(now.content) !== JSON.stringify(baseline[key])) {
+			const put = await api('PUT', `/entities/${key}`, { content: baseline[key], base: now.version.id, message: 'creator-cover-check: restore' });
+			await api('POST', `/entities/${key}/publish`, { version: put.version.id });
+		} else if (now.published?.id !== now.version.id) await api('POST', `/entities/${key}/publish`, { version: now.version.id });
+		const after = await api('GET', `/entities/${key}?draft=1&wrap=1`);
+		check(after.published?.id === after.version.id && JSON.stringify(after.content) === JSON.stringify(baseline[key]), `restored ${key} (published content as before, no pending draft)`);
+	}
 }
 
 // ── headless Chrome over CDP ──────────────────────────────────────────────────────────────────────────────
@@ -197,14 +208,17 @@ try {
 	await send('Page.navigate', { url: `${CREATOR}/` });
 	await until('document.readyState === "complete"');
 	await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)}); localStorage.setItem('scutoons_creator_text_language', 'all')`);
-	// the toon settings link to the editor (the state of the lettering instead of the old checkbox)
+	// the toon settings have no cover any more (the toon is shown with its avatar)
 	await send('Page.navigate', { url: `${CREATOR}/${TOON}/toon` });
-	check(await until(`/Off|Aus/.test(${q('toon-cover-lettering')}?.innerText ?? '')`), 'toon settings: "Lettering: Off" + the link to the cover editor');
-	await shot('0-toon-settings');
-	await click('[data-testid="toon-cover-editor"]');
-	check(await until(`location.pathname === '/${TOON}/cover'`), 'the link opens /<toon>/cover');
+	check((await until(`!!${q('toon-neutral')}`)) && !(await js(`!!${q('toon-cover-lettering')} || !!document.querySelector('[data-testid^="field-cover"]')`)), 'toon settings: no cover');
+	// the season editor shows the cover's state and links to its editor
+	await send('Page.navigate', { url: `${CREATOR}/${TOON}/season/${SEASON}` });
+	check(await until(`/Off|Aus/.test(${q('season-cover-lettering')}?.innerText ?? '')`), 'season editor: "Lettering: Off" + the link to the cover editor');
+	await shot('0-season-editor');
+	await click('[data-testid="season-cover-editor"]');
+	check(await until(`location.pathname === '${PAGE}'`), `the link opens ${PAGE}`);
 	check(await until(`!!${q('cover-stage')} && ${q('cover-stage')}.querySelector('img')?.complete && ${q('cover-stage')}.querySelector('img')?.naturalWidth > 0`), 'the cover page shows the art');
-	check(await js(`!!document.querySelector('[data-testid="nav-cover"][aria-current="page"]')`), 'the sidebar marks "Cover"');
+	check(await js(`!!document.querySelector('a[href="${PAGE}"]') && !!document.querySelector('a[href="/${TOON}/season/${SEASON}"][aria-current="page"]')`), 'the crumbs end with "Cover", the sidebar marks the season');
 
 	// 1. off → no lettering; Default → the two default lines
 	check(await js(`${q('cover-mode-off')}.getAttribute('aria-pressed') === 'true' && !${q('cover-stage')}.querySelector('.line')`), 'lettering off: the art without text');
@@ -276,11 +290,13 @@ try {
 	await click('[data-testid="save-draft"]');
 	await until(`!document.querySelector('.dirty-bar')`);
 	const stored = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
+	const others = await Promise.all(KEYS.slice(1).map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));
+	check(others.every((o) => JSON.stringify(o.content.cover) === JSON.stringify(stored.content.cover)), `the same cover in every locale (${KEYS.length} season documents)`);
 	const layout = stored.content.cover?.lettering?.square;
 	check(Array.isArray(layout) && layout.length === 3 && layout[0].text === 'toon' && layout[1].text === 'season' && layout[2].text === 'custom', 'Save draft: cover.lettering.square = 3 lines (toon, season, own)', JSON.stringify(stored.content.cover));
 	check(JSON.stringify(layout?.[2]?.custom) === JSON.stringify(Object.fromEntries(LOCALES.filter((l) => LONG[l]).map((l) => [l, LONG[l]]))), 'the own line keeps its text per language');
 	check(!JSON.stringify(layout?.slice(0, 2)).includes(titles.de.season), 'the title lines carry no text (it comes from the text fields)');
-	const problems = validateFile('index', stored.content, 'de', { file: KEY });
+	const problems = validateFile('season', stored.content, LOCALES[0], { file: KEY });
 	check(!problems.some((p) => p.level === 'error' && p.path[0] === 'cover'), 'the stored layout validates', JSON.stringify(problems));
 	check(stored.content.cover.square === square, 'the art is the same one path for every language');
 
@@ -291,6 +307,8 @@ try {
 		await until(`/Published|Veröffentlicht/.test(${q('file-status')}?.innerText ?? '')`);
 		const live = await api('GET', `/entities/${KEY}`);
 		check(Array.isArray(live.cover?.lettering?.square), 'Publish: the layout is live');
+		const liveAll = await Promise.all(KEYS.map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));
+		check(liveAll.every((x) => x.published?.id === x.version.id), "Publish: every locale's season document is published");
 		await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
 		for (const l of LOCALES.filter((x) => x === 'de' || x === 'en')) {
 			await send('Page.navigate', { url: `${VIEWER}/${l}/${TOON}` });
@@ -302,7 +320,7 @@ try {
 			await shot(`7-reader-${l}`);
 		}
 		await send('Emulation.clearDeviceMetricsOverride');
-		await send('Page.navigate', { url: `${CREATOR}/${TOON}/cover` });
+		await send('Page.navigate', { url: `${CREATOR}${PAGE}` });
 		await until(`!!${q('cover-stage')}`);
 	} else console.log(`(the reader at ${VIEWER} is not running: its toon page is not checked)`);
 

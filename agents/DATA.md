@@ -316,7 +316,19 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
 "Everything should be language-independent": media are shared by every language, text lives only in text fields, lettering
 baked into an image is extracted into text and rendered by the UI in the reader's language.
 
-**Covers → the toon entry + rendered lettering.** `cover` joined `TOON_NEUTRAL_FIELDS` (type `Cover { square?, portrait?,
+**Covers are per SEASON (owner 2026-10-02: "It is per-season covers. Per toon I have no covers intended – I use the
+avatar").** `season.cover` (art + lettering layout) is the cover; the toon is represented by its avatar. `cover` left
+`TOON_NEUTRAL_FIELDS` / `ToonIndex` again (TS + `Library::TOON_NEUTRAL_FIELDS`, cache FORMAT 4); a `cover` in the toon entry
+or the toon settings is a warning ("belongs to the season"); `Toon.cover` stays as a deprecated read-only fallback for
+older per-language toon settings. Seasons have no neutral entity, so like `download` / `trailer` / `related_items` the
+creator's cover editor writes the cover to every locale's season document (the validation warns when locales differ).
+Reader: the toon page shows the cover of the season it presents (`season.cover`, else the old `toon.cover`); the desktop
+hero's fallback background is that season's cover art. Data: catpope's seasons already had `cover` (the baked images, no
+lettering) → only `toons.json` lost it (seed SQL: the `toon:catpope` statement, old timestamp); sandbox: `cover` moved from
+its toons.json entry into its 3 `season1.json` (`make-sandbox.ts` writes it there). The history of the 2026-10-01 toon-entry
+model below is kept for reference.
+
+**(2026-10-01, superseded) Covers → the toon entry + rendered lettering.** `cover` joined `TOON_NEUTRAL_FIELDS` (type `Cover { square?, portrait?,
 lettering? }`, `Toon.cover` optional now; schema `toon-index.schema.json`; a `cover` left in `toon-settings` is the usual
 "belongs to the toon entry" warning). The library merges it like the other neutral fields (the entry wins; older data
 without it in the entry keeps each language's cover – `LibraryTest::testCoverFromOlderToonSettings`).
@@ -351,7 +363,7 @@ without it in the entry keeps each language's cover – `LibraryTest::testCoverF
   statement equals it. Idempotent per key: a database that has these keys needs the new versions imported separately.
 
 **Cover lettering layout (2026-10-02, owner: "a season cover image editor view for multi-language support").** The
-boolean grew into a language-neutral layout, edited in the creator's cover editor (`/<toon>/cover`, DESIGN.md "Creator:
+boolean grew into a language-neutral layout, edited in the creator's cover editor (`/<toon>/season/<n>/cover`, DESIGN.md "Creator:
 cover editor"):
 - `Cover.lettering`: absent / `false` = the image as it is · `true` = **the default layout** (unchanged meaning; now drawn by
   the same line renderer, `defaultCoverLines`) · `{ square?: CoverLine[], portrait?: CoverLine[] }` = a layout per format
@@ -373,16 +385,16 @@ cover editor"):
 - **Square only in the UI:** the reader shows `cover.square` only (toon page; the desktop hero uses the bare art); nothing
   reads `cover.portrait` (owner 2026-10-02: "portrait I think we are not using"). The type keeps `portrait` optional and
   the layout per format; the editor edits `square`.
-- **Which cover:** the editor edits the cover the reader shows – the toon entry's (`toon:<toon>` → `cover`). `season.cover`
-  is still unused by the reader; `CoverEditor` takes any doc + path (`setShared`), so a season cover editor is the same
-  component on the season doc once seasons get their own cover (owner question below). The season editor keeps its two
-  path fields.
+- **Which cover:** the season's (`season.cover`, owner 2026-10-02). The editor is `/<toon>/season/<n>/cover`; it writes
+  `cover.lettering` and `cover.square` to every locale's season document (`ContentDoc.structural`). The season editor
+  shows the cover (thumbnail + lettering state) and links to it; its two path fields are gone. The toon settings have no
+  cover any more.
 - **catpope** stays as it is (lettering off, the baked German cover) until the owner switches it on with the text-free art
-  (`images/s1-cover-square-textless.webp`, delivered 2026-10-02, upload with `cdn/sync.py`): cover editor → "Art" → choose
+  (`images/s1-cover-square-textless.webp`, delivered 2026-10-02, upload with `cdn/sync.py`): Season 1 → "Open the cover
+  editor" → "Art" → choose
   it, "Default" (or an own layout), Save draft, Publish. The default layout sits where the hand lettering was (the toon's
   name at y 19 %, the season's title at y 31 %).
-- Open (owner): season vs toon cover (one cover per toon today; per season later = `season.cover` + the same editor on the
-  season page, and the reader choosing the current season's); text sources (toon / season / own text – "Staffel 1" is an
+- Open (owner): which season the toon page presents once there are several (today season 1); text sources (toon / season / own text – "Staffel 1" is an
   own text per language; no number source: keep the configuration small); palette colours only (6) or more.
 
 **Validation: locale segments in media paths.** `mediaLocaleSegment` / `mediaPathsWithLocale` (`@scutoons/content`

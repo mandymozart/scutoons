@@ -1703,11 +1703,11 @@ character, persona, look and mood and doubles as the VN test bed.
 - Owner (asked twice): "a season cover image editor view for multi-language support, because right now the cover needs to
   be uploaded individually". Built: `Cover.lettering` = `true` (the default layout) or `{ square?: lines, portrait?: lines }`
   (`@scutoons/content` `cover.ts`; validation `checkCoverLine`; schemas), `CoverArt` draws the lines and shrinks each into
-  its box per language, creator `/<toon>/cover` (`components/cover/cover-editor.svelte` + `cover-page.svelte`). Spec:
+  its box per language, creator `/<toon>/season/<n>/cover` (first `/<toon>/cover`, see the correction below) (`components/cover/cover-editor.svelte` + `cover-page.svelte`). Spec:
   DATA.md "Cover lettering layout", DESIGN.md "Creator: cover editor". Check: `npm run check:creator-cover` (36 checks:
   sandbox de / en / ko, drag, handles, an own line per language, save, publish → the reader's toon page at 390 px de / en,
   restore).
-- Decisions: the editor edits the toon entry's cover (the one the reader shows); square only (owner: portrait unused);
+- Decisions: first the toon entry's cover, corrected the same day to the season's (below); square only (owner: portrait unused);
   `true` keeps its meaning but is now drawn by the line renderer (`defaultCoverLines`, positions where the hand lettering
   sat on the catpope art: y 19 % / 31 %) – nothing in the seed used `true`, so readers see no change. catpope stays
   lettering-off until the owner switches it in the editor with `images/s1-cover-square-textless.webp` (delivered
@@ -1718,3 +1718,12 @@ character, persona, look and mood and doubles as the VN test bed.
   (headless = en): checks use `/de/<toon>`. `check-toon-hero` failed 2 checks once on a cold dev server, 79/79 on the rerun.
 - Open owner questions: season vs toon cover; text sources (toon / season / own text; no "season number" source – an own
   text per language covers "Staffel 1"); palette colours only.
+- **Correction the same day (owner): covers are per SEASON**, "per toon I have no covers intended – I use the avatar".
+  `cover` left the toon entry (TOON_NEUTRAL_FIELDS TS + PHP, library cache FORMAT 4; a toon `cover` is a warning), the
+  editor moved to `/<toon>/season/<n>/cover` (writes every locale's season document), the season editor links to it, the
+  toon settings lost the cover, the reader's toon page / hero use `season.cover` (old `toon.cover` as a fallback). Seed:
+  `toons.json` without `cover` (catpope's seasons already had it; sandbox's `season1.json` got it, `make-sandbox.ts`
+  regenerates identically), `content-seed.mysql.sql` = only the `toon:catpope` statement (old timestamp). Local store:
+  `import-content --update --only=toon,season` for catpope + sandbox (backup `server/db/local.sqlite.bak-2026-10-02-season-covers`
+  in the cover-editor worktree's DB copy; the owner's DB needs the same after the merge). Gotcha: long Python heredocs
+  in Git Bash broke on quotes – write the script to a file.

@@ -93,6 +93,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   quotes) in the reader's language – comic lettering, not UI chrome: Bangers (`--font-lettering`), paper fill, heavy ink
   outline + hard ink shadow, tilted −5°, sizes in `cqw` of the cover, upper part of the art. Without the flag the image is
   shown as delivered (catpope's cover still has its German title baked in). DATA.md "Language-independent media".
+  The cover is the season's (`season.cover`, owner 2026-10-02): the toon page shows the cover of the season it presents.
   Since 2026-10-02 the lettering can be **an own layout** from the creator's cover editor: lines with a text source (toon
   title, season title, own text per language), position / size / box width / angle / skew / alignment, palette colours;
   each line shrinks to its box in the reader's language (DATA.md "Cover lettering layout").
@@ -495,9 +496,9 @@ Translators switch back and forth to copy, adapt and review originals, and there
 
 ### Creator: cover editor (owner 2026-10-02)
 
-`/<toon>/cover` – "Cover" in the toon's sidebar (Meta: Cast, Credits, Script, **Cover**, Toon settings), in Ctrl K and the
-crumbs. Toon settings → Cover shows the state ("Lettering: Off / Default / Own layout") and "Open the cover editor"
-instead of the old checkbox; its per-language preview stays.
+`/<toon>/season/<n>/cover` – covers are per season (owner 2026-10-02; the toon is shown with its avatar). Crumbs
+"Creator / <toon> / Season n / Cover", Ctrl K "Season n · Cover"; the season editor's "Cover" section shows a thumbnail,
+the state ("Lettering: Off / Default / Own layout") and "Open the cover editor". The toon settings have no cover.
 - **Toolbar:** "Lettering" segmented Off · Default · Own layout; "Preview language" one segment per toon language (follows
   the top bar's i18n choice when it is a language). The hint line under it says what the mode does.
 - **Canvas** (left, the art as big as the screen height allows, ≤ 36rem): the reader's own `CoverArt` with editing boxes on
@@ -512,7 +513,8 @@ instead of the old checkbox; its per-language preview stays.
   row), Align (Feather align-left / center / right, segmented), Fill / Outline (palette selects with a swatch), up / down /
   Remove.
 - **As readers see it:** every toon language side by side (14rem each) – the check for long translations.
-- **Art (text-free):** the `cover.square` image field (image picker + known images), once for every language.
+- **Art (text-free):** the `cover.square` image picker (known images), once for every language – written to every
+  locale's season document like the lettering.
 - Square only (the reader shows no portrait cover). Tools rules: regular weight, rem sizes, `--control-height` controls,
   Feather icons, tooltips via `title`; the lettering itself is comic lettering (cqw, exempt).
 - Check: `npm run check:creator-cover` (SCUTOONS_API / SCUTOONS_CREATOR / SCUTOONS_VIEWER / SCUTOONS_CDN for other ports;

@@ -2,27 +2,24 @@
 	import { onMount } from 'svelte';
 	import { entities, type ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
+	import { toonDoc } from '$lib/editor/languages.ts';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import MetaPage from '../meta-page.svelte';
-	import SharedField from '../shared-field.svelte';
 	import CoverEditor from './cover-editor.svelte';
 
 	/**
-	 * `/<toon>/cover` – the cover editor page (owner 2026-10-02). Edits the cover the reader shows: the toon entry's
-	 * (`toon:<toon>` → `cover`, language-neutral), saved / published with the bottom bar. The titles come read-only from the
-	 * toon settings (`title`) and season 1 (`title`) – the toon page's season. Season covers (`season.cover`, not shown by
-	 * the reader) would use the same `CoverEditor` with the season doc (agents/DATA.md "Cover lettering layout").
+	 * `/<toon>/season/<n>/cover` – a season's cover editor (owner 2026-10-02: covers are per season; the toon is shown
+	 * with its avatar). Edits `season.cover` (art + lettering layout), written to every locale's season document and
+	 * saved / published with the bottom bar. The toon's title comes read-only from the toon settings; the season's title
+	 * from the season document itself (the same doc, so an unsaved title edit shows too).
 	 */
-	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
+	let { toon, number, languages }: { toon: string; number: number; languages: ToonLanguages } = $props();
 
 	// svelte-ignore state_referenced_locally
-	const index = toonIndexDoc(toon);
+	const season = toonDoc(entities.season(toon, number), languages);
 	// svelte-ignore state_referenced_locally
 	const settings = toonDoc(entities.toonSettings(toon), languages);
-	// svelte-ignore state_referenced_locally
-	const season = toonDoc(entities.season(toon, 1), languages);
 	let images = $state<string[]>([]);
 	const nav = getCreatorNav();
 
@@ -36,24 +33,19 @@
 	}
 
 	onMount(async () => {
-		await Promise.all([index.load(), settings.load().catch(() => {}), season.load().catch(() => {})]);
-		images = await knownImages(toon, settings.locales, [$state.snapshot(settings.data), $state.snapshot(index.data)]);
+		await Promise.all([season.load(), settings.load().catch(() => {})]);
+		images = await knownImages(toon, season.locales, [$state.snapshot(season.data)]);
 	});
 </script>
 
-<MetaPage {toon} title={m['creator.cover_editor']()} docs={[index]} help="cover" wide>
-	{#if index.present.length === 0}
-		<p class="warn">{m['creator.toon_entry_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
+<MetaPage {toon} title={m['creator.cover_editor']()} docs={[season]} help="cover" wide>
+	{#if season.loading}
+		<p>{m['creator.loading']()}</p>
+	{:else if season.present.length === 0}
+		<p class="warn">{m['creator.cover_no_season']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
 		<section class="block" data-testid="cover-page">
-			<CoverEditor doc={index} {toon} languages={[...languages.languages]} source={languages.source} {texts} />
-		</section>
-		<section class="block art" data-testid="cover-art-field">
-			<h2 class="sc-heading">{m['creator.cover_art']()}</h2>
-			<p class="hint">{m['creator.cover_art_hint']()}</p>
-			<div class="art-field">
-				<SharedField doc={index} path={['cover', 'square']} label="cover.square" kind="image" {toon} known={images} />
-			</div>
+			<CoverEditor doc={season} {toon} languages={[...season.present]} source={season.primary} {texts} known={images} />
 		</section>
 	{/if}
 </MetaPage>
@@ -64,15 +56,6 @@
 		flex-direction: column;
 		gap: var(--space-1);
 		margin-bottom: var(--space-3);
-	}
-	h2 {
-		margin: 0;
-	}
-	.hint {
-		margin: 0;
-	}
-	.art-field {
-		max-width: 36rem;
 	}
 	.warn {
 		color: var(--warn);
