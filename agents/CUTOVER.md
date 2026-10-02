@@ -238,7 +238,9 @@ manifest codes. Decide before the public release which set was printed (revoke t
   credits, characters with Top Toy's tendencies, map, toptoy/yellowmouse). **Not needed:** `credits-seed`,
   `characters-seed` (subsets), `2026-10-01-media-quality-chapter0.mysql.sql` (only acts on an old chapter 0 – harmless
   if run).
-- [ ] **3.4 A+O – Edition numbers.** A: `cd server; php bin/console backfill-edition-numbers --sql
+- [ ] **3.4 A+O – Edition numbers.** *(A part done 2026-10-02: `C:\Development\scutoons\cdn\logs\edition-numbers-2026-10-02.sql`
+  (gitignored), 300 UPDATEs from the one production manifest `BATCH-2026-06-16T1431-3_catpope_vinyl.json` – all
+  `3_catpope_vinyl`, only where `edition_number IS NULL`; after import expect `numbered` = 300. O: import it after 3.2.)* A: `cd server; php bin/console backfill-edition-numbers --sql
   --manifests=<backup>/generate/files/batch > ../logs/edition-numbers-2026-10-0X.sql` (no DB needed; A reports the
   statement count). O: *Import* that file into DB-T.
 - [ ] **3.5 O – Verify DB-T** (SQL tab; paste the results to the guide):
@@ -446,3 +448,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 0.1 complete: CHECKSUM TABLE qr = 3162238151 (Phase 7 reference).
 - 2026-10-02 — 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6 done; 2.3 partly (keypair pending); T1 done (6fcb82c). Next: keypair → 2.3 verify, then 3.1/3.2 on DB-T.
 - 2026-10-02 — keypair reference SHA-256 409c1983…7bbe recorded (dev key 11934cea… must never go to production); batch manifests for 3.4 are in the same ZIP (`qr.scutoons.com/generate/files/batch/`).
+- 2026-10-02 — 3.4 SQL generated (300 statements, vinyl batch only) → cdn/logs/edition-numbers-2026-10-02.sql.
