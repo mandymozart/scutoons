@@ -127,13 +127,14 @@ new platform no longer references them, the legacy system uses all-inkl → reco
 release, then prune via the admin's Unused list (never via a bulk dashboard delete).
 
 All commands in `C:\Development\scutoons\server` (PowerShell), after the merge.
-- [ ] **1.1 O – Relayout locally:** `php bin/console assets:relayout --delete-old` (exact options as the assets merge
+- [x] **1.1 O – Relayout locally:** *(done 2026-10-02 by the coordinator: assets merged into `platform` (b3be086, 67774da), 318 old files removed, `cdn/root` = 720 files / 806 MB, new layout only; full suite + browser checks green)* `php bin/console assets:relayout --delete-old` (exact options as the assets merge
   report states; `cdn/root` then holds only the new layout). Verify: A runs the validation's media checks /
   `assets:check-storage` comparison – 0 references to missing files.
-- [ ] **1.2 O – Write fence off:** in `server/config.local.php` the `BUNNY_WRITE_PREFIX` line commented out.
+- [x] **1.2 O – Write fence off:** *(n/a now: the main checkout's `server/config.local.php` has no `BUNNY_WRITE_PREFIX` line – the `.env` with the 7 keys moved to `C:\Development\scutoons`)* in `server/config.local.php` the `BUNNY_WRITE_PREFIX` line commented out.
 - [ ] **1.3 O – Read-only check:** `php bin/console assets:check-storage` → all keys "set", zone `scutoons`, pull zone
   6731366 origin = the storage zone.
-- [ ] **1.4 O – Plan (dry run):** `php bin/console assets:sync --source-root=../cdn/root --hash` → paste the summary
+- [ ] **1.4 O – Plan (dry run):** *(the zone is EMPTY now – the owner emptied it, D1 moot: expect ≈ 720 to upload / ≈ 806 MB, 0 different, 0 only on
+  the target)* `php bin/console assets:sync --source-root=../cdn/root --hash` → paste the summary
   (to upload / different / only on target) to the guide before applying.
 - [ ] **1.5 O – Apply:** `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
   --log=../cdn/logs/bunny-init-2026-10-0X.json` (verified uploads, retries, never deletes; long-running). This includes
@@ -145,7 +146,8 @@ All commands in `C:\Development\scutoons\server` (PowerShell), after the merge.
   `https://scutoons.b-cdn.net/…` on samples of the new layout (trailer 720p, prologue 480p, a chapter-2 slice, an item
   icon, a wear overlay, `model.json`, the album zip), size = local, `Access-Control-Allow-Origin` present with an
   `Origin: https://scutoons.com` request, `Range` → 206.
-- [ ] **1.8 O – Write fence back on:** uncomment `define('BUNNY_WRITE_PREFIX', '_test/');`.
+- [ ] **1.8 O – Write fence back on:** add `define('BUNNY_WRITE_PREFIX', '_test/');` to `C:\Development\scutoons\server\config.local.php`
+  (the main checkout's local server must not write to the production zone).
 - Rollback: none needed (no reader uses bunny yet; re-runnable; nothing deleted on the zone).
 
 ---
@@ -232,11 +234,11 @@ manifest codes. Decide before the public release which set was printed (revoke t
   14. `2026-10-02-mail-log.mysql.sql`
   15. `2026-10-02-ownership.mysql.sql` (after code-owner-guard)
   16. `2026-10-02-ownership-signup.mysql.sql`
+  17. `2026-10-02-assets.mysql.sql` (the asset registry; came with the assets merge – run after the 16)
   Hint: if phpMyAdmin's *Import* answers "Incorrect format parameter" (seen on content-versions), paste the file into
   the *SQL* tab with delimiter `;` instead.
-  Not to run: `migrations/mysql/legacy/*` (already in the old data), `schema/qr.mysql.sql`, the assets branch's
-  `2026-10-02-assets` (post-beta).
-- [ ] **3.3 O – Content seed:** *Import* `shared/content/seed/content-seed.mysql.sql` (48 entities: catpope chapters
+  Not to run: `migrations/mysql/legacy/*` (already in the old data), `schema/qr.mysql.sql`, –
+- [ ] **3.3 O – Content seed:** *(unblocked 2026-10-02: the file is regenerated with the new media paths – import THIS version)* *Import* `shared/content/seed/content-seed.mysql.sql` (48 entities: catpope chapters
   0–5, scenes, season 1 with related items, the record-player-repair pickups, trailer + chapter-0 quality variants,
   credits, characters with Top Toy's tendencies, map, toptoy/yellowmouse). **Not needed:** `credits-seed`,
   `characters-seed` (subsets), `2026-10-01-media-quality-chapter0.mysql.sql` (only acts on an old chapter 0 – harmless
@@ -455,3 +457,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 3.4 SQL generated (300 statements, vinyl batch only) → cdn/logs/edition-numbers-2026-10-02.sql.
 - 2026-10-02 — 3.1 + 3.2 done (16 migrations, 3 triggers). Next: 3.4 import + check 469 / 300 numbered / 381 signed / 35 registered; 2.3 keypair upload pending.
 - 2026-10-02 — 3.4 done; DB-T qr counts match (469 / 300 / 381 / 35). 3.3 waits for the assets merge (regenerated seed).
+- 2026-10-02 — assets merged (b3be086, 67774da), relayout done (1.1), .env in C:\Development\scutoons, bunny zone empty. Migration 17 `2026-10-02-assets` added to 3.2; 3.3 unblocked. Next: 3.3 seed, migration 17, then 1.3/1.4 from C:\Development\scutoons\server. Worktree scutoons-assets can be removed later.
