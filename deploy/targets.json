@@ -45,6 +45,13 @@
             "SMTP_SECURE": "${SMTP_SECURE}",
             "SMTP_USER": "${SMTP_USER}",
             "SMTP_PASS": "${SMTP_PASS}",
+            "BUNNY_STORAGE_ZONE": "${BUNNY_STORAGE_ZONE}",
+            "BUNNY_STORAGE_ENDPOINT": "${BUNNY_STORAGE_ENDPOINT}",
+            "BUNNY_STORAGE_PASSWORD": "${BUNNY_STORAGE_PASSWORD}",
+            "BUNNY_STORAGE_READONLY_PASSWORD": "${BUNNY_STORAGE_READONLY_PASSWORD}",
+            "BUNNY_PULLZONE_ID": "${BUNNY_PULLZONE_ID}",
+            "BUNNY_API_KEY": "${BUNNY_API_KEY}",
+            "CDN_PUBLIC_URL": "${CDN_PUBLIC_URL}",
             "ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com"
           }
         }

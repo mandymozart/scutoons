@@ -3,9 +3,16 @@
 Every setting has a default in `config/settings.php`. Per installation, a value comes from (first non-empty wins):
 
 1. the environment variable `QR_<KEY>` (e.g. `QR_DB_SQLITE_PATH` – `composer test` points the servers at a DB copy),
-2. the PHP constant `<KEY>` from `config.local.php` (local, gitignored) or `config.php` (production, written by the
+2. **only for the media storage keys** `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_STORAGE_PASSWORD`,
+   `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL` (`Settings::DOTENV_KEYS`): the plain environment variable
+   `<KEY>`, then the same key in the **repository-root `.env`** (gitignored; the owner's deploy checklist, `.env.example`).
+   Every other line of that file is ignored – it holds the PRODUCTION `DB_*`, `FTP_*`, `AUTH_SECRET`, `SMTP_*`, and a dev
+   server must never pick those up (`InfrastructureTest::testRootDotEnvOnlyFeedsTheStorageKeys`). The real environment
+   wins over the file; nothing from it is ever printed or logged. Production has no root `.env` (the deploy writes
+   `config.php`),
+3. the PHP constant `<KEY>` from `config.local.php` (local, gitignored) or `config.php` (production, written by the
    deploy workflow – never edit it on the server),
-3. the default.
+4. the default.
 
 Relative paths are relative to the server folder. Secrets never go into the repository.
 
@@ -53,9 +60,18 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |
 | `KEYPAIR_PATH` | `storage/keys/keypair.json` | ML-DSA-65 keypair (was `api/keys/keypair.json`) |
 | `LOG_PATH` | `logs/error.log` | PHP/API error log; empty = the host's log |
+| `ASSET_STORAGE` | `auto` | the media storage of the asset layer (agents/ASSETS.md): `auto` = the local folder `ASSET_LOCAL_ROOT` when it exists (every dev machine – credentials in the root `.env` never make a dev server write to the production zone), else `bunny` when configured; `local`, `bunny` |
+| `ASSET_LOCAL_ROOT` | `../cdn/root` | the local CDN folder (`cdn/server.py` serves it on :8001, `cdn/sync.py` uploads it by FTP) |
+| `CDN_PUBLIC_URL` | – (= `CDN_URL`) | the public media base (purge URLs, links in the asset manager), e.g. `https://cdn.scutoons.com` or `https://scutoons.b-cdn.net` (a missing `https://` is added); also from the root `.env` |
+| `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT` | –, – (= `storage.bunnycdn.com`) | the bunny.net storage zone: its name and its region hostname (zone → FTP & API Access → Hostname; with or without `https://`). Also from the root `.env`. `php bin/console assets:check-storage` checks them read-only |
+| `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD` | –, – | the zone's passwords (FTP & API Access): the read-only one for every list / read / check, the read/write one only for uploads, replace, delete (missing = the zone is read-only for the asset layer). Also from the root `.env`; never printed |
+| `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY` | –, – | the NUMERIC pull zone id (not its name; anything else is reported as invalid) + the account API key: purge after a replace, statistics (bandwidth), request logs (per-file traffic). Empty = those are off (uploads still work). Also from the root `.env` |
+| `BUNNY_WRITE_PREFIX` | – | only keys below it may be written / deleted on the zone (`_test/` while trying the driver against production); empty = all |
+| `ASSET_UPLOAD_MAX_BYTES` | 209715200 | largest upload through the API (also mind PHP's `upload_max_filesize` / `post_max_size` – uploads are a raw `PUT` body, which `post_max_size` doesn't limit); bigger files: `bin/console assets:upload` |
+| `FFMPEG_PATH`, `FFPROBE_PATH` | `ffmpeg`, `ffprobe` | the optimization jobs (`bin/console assets:jobs`: video renditions 480p / 720p / 1080p, posters) and probing (duration, size) |
 
 Production values come from the GitHub environment `production` (the full list with comments: root `.env.example`);
 `deploy/targets.json` → `api.generate["config.php"]` says which of them become constants in the generated `config.php`
-(`GENERATE_PASSWORD`, `DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `ALLOWED_ORIGINS`); quotes and
+(`GENERATE_PASSWORD`, `DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `BUNNY_*`, `CDN_PUBLIC_URL`, `ALLOWED_ORIGINS`; an unset value is left out); quotes and
 backslashes in values are escaped by the generator. The API's version: `composer.json` `version` + the
 deploy's `version.json` (git sha) → `GET /api/health/`.

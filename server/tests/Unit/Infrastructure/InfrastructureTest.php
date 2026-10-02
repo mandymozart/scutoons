@@ -23,6 +23,45 @@ final class InfrastructureTest extends TestCase
         self::assertSame(['a', 'b'], $settings->allowedOrigins(), 'no dev origins outside a local php -S server');
     }
 
+    public function testRootDotEnvOnlyFeedsTheStorageKeys(): void
+    {
+        // the repository-root .env is the owner's production checklist: only the bunny / CDN keys may come from it
+        $file = $this->dir . '/.env';
+        file_put_contents($file, implode("\n", [
+            '# production values',
+            'DB_HOST=db.production.example',
+            'DB_SQLITE_PATH=',
+            'AUTH_SECRET=production-secret-production-secret',
+            'SMTP_PASS="x"',
+            'export BUNNY_STORAGE_ZONE="scutoons"   # the zone',
+            "BUNNY_STORAGE_PASSWORD='pa#ss word'",
+            'BUNNY_STORAGE_ENDPOINT=storage.bunnycdn.com # Frankfurt',
+            'VITE_CDN_URL=https://cdn.scutoons.com',
+            'BUNNY_API_KEY=              # may stay empty',
+            'CDN_PUBLIC_URL=https://cdn.example',
+        ]));
+        $values = Settings::readDotEnv($file);
+        self::assertSame(['BUNNY_STORAGE_ZONE', 'BUNNY_STORAGE_PASSWORD', 'BUNNY_STORAGE_ENDPOINT', 'BUNNY_API_KEY', 'CDN_PUBLIC_URL'], array_keys($values));
+        self::assertSame(['scutoons', 'pa#ss word', 'storage.bunnycdn.com', '', 'https://cdn.example'], array_values($values));
+        self::assertSame([], Settings::readDotEnv($this->dir . '/missing.env'));
+
+        /** @var array<string, string> $defaults */
+        $defaults = require self::root() . '/config/settings.php';
+        $settings = new Settings(self::root(), $defaults, false, $values);
+        self::assertSame('localhost', $settings->get('DB_HOST'), 'never the production database');
+        self::assertSame('', $settings->get('AUTH_SECRET'));
+        self::assertSame('', $settings->get('SMTP_PASS'));
+        self::assertSame('scutoons', $settings->get('BUNNY_STORAGE_ZONE'));
+        self::assertSame('https://cdn.example', $settings->get('CDN_PUBLIC_URL'));
+        self::assertSame('', $settings->get('BUNNY_API_KEY'), 'empty falls back to the default');
+        putenv('BUNNY_STORAGE_ZONE=from-the-environment');
+        try {
+            self::assertSame('from-the-environment', $settings->get('BUNNY_STORAGE_ZONE'), 'the real environment wins over the file');
+        } finally {
+            putenv('BUNNY_STORAGE_ZONE');
+        }
+    }
+
     public function testDevOriginsComeFromTheDevPortsFile(): void
     {
         $origins = Settings::devOrigins(dirname(self::root()) . '/shared/dev-ports.json');

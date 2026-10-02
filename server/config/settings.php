@@ -124,6 +124,33 @@ return [
     // ML-DSA-65 keypair of the certificate signatures (was api/keys/keypair.json)
     'KEYPAIR_PATH' => 'storage/keys/keypair.json',
 
+    // ── Media assets (agents/ASSETS.md): the asset registry + its storage drivers ─────────────────────────
+    // Which storage the asset layer works on: auto (the local folder ASSET_LOCAL_ROOT when it exists – every dev
+    // machine –, else bunny when configured) | local | bunny
+    'ASSET_STORAGE' => 'auto',
+    // The local CDN folder (what `python cdn/server.py` serves and `cdn/sync.py` uploads): dev storage
+    'ASSET_LOCAL_ROOT' => '../cdn/root',
+    // The public media base readers load (purge URLs, links in the asset manager); empty = CDN_URL
+    'CDN_PUBLIC_URL' => '',
+    // bunny.net (all optional; these are also read from plain env vars and the repository-root .env –
+    // docs/CONFIGURATION.md). ENDPOINT = the zone's region hostname (default storage.bunnycdn.com); PASSWORD = the zone's
+    // read/write password (uploads, replace, delete), READONLY_PASSWORD = its read-only password (every list / read);
+    // PULLZONE_ID = the numeric pull zone id; BUNNY_API_KEY = the account API key (purge, statistics, request logs –
+    // empty switches those off)
+    'BUNNY_STORAGE_ZONE' => '',
+    'BUNNY_STORAGE_ENDPOINT' => '',
+    'BUNNY_STORAGE_PASSWORD' => '',
+    'BUNNY_STORAGE_READONLY_PASSWORD' => '',
+    'BUNNY_PULLZONE_ID' => '',
+    'BUNNY_API_KEY' => '',
+    // Only keys below this prefix may be written / deleted on the zone (e.g. "_test/" while trying the driver); '' = all
+    'BUNNY_WRITE_PREFIX' => '',
+    // Largest upload through the API in bytes (the PHP limits apply too); bigger files: bin/console assets:upload
+    'ASSET_UPLOAD_MAX_BYTES' => '209715200',
+    // Optimization jobs (bin/console assets:jobs): the ffmpeg / ffprobe executables
+    'FFMPEG_PATH' => 'ffmpeg',
+    'FFPROBE_PATH' => 'ffprobe',
+
     // ── Logs ───────────────────────────────────────────────────────────────────────────────────────────
     // Error log (logs/ is never served); empty = the host's log
     'LOG_PATH' => 'logs/error.log',

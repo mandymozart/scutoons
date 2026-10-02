@@ -9,6 +9,7 @@ declare(strict_types=1);
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Scutoons\Domain\RequestContext;
+use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\Cache\ApcuCache;
 use Scutoons\Infrastructure\Cache\Cache;
 use Scutoons\Infrastructure\Cache\FileCache;
@@ -37,6 +38,8 @@ return [
 
     Templates::class => static fn(ContainerInterface $c): Templates => new Templates($c->get(Settings::class)->root() . '/templates'),
     KeyStore::class => static fn(ContainerInterface $c): KeyStore => new KeyStore($c->get(Settings::class)->path('KEYPAIR_PATH')),
+    // media storages of the asset layer (agents/ASSETS.md): local CDN folder, bunny.net
+    AssetStorages::class => static fn(ContainerInterface $c): AssetStorages => new AssetStorages($c->get(Settings::class)),
     FileStore::class => static fn(ContainerInterface $c): FileStore => new FileStore($c->get(Settings::class)->path('FILES_PATH')),
 
     // Composed library answers (agents/DATA.md §3): APCu when the host has it, else files in CACHE_PATH
