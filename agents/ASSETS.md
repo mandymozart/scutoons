@@ -162,14 +162,20 @@ The folders ARE the toon hierarchy; videos and audio belong to their season / ch
 
 | Folder | What lives there |
 |---|---|
-| `scutoons/…` | the universe: `scutoons/items/` (cross-toon item icons), `scutoons/models/` (ML models), platform media |
+| `scutoons/…` | the universe: `scutoons/items/` (cross-toon item icons), `scutoons/models/<model>/` (SHARED base models, e.g. `mobilenet_v2_100_224/` – items and models belong together), platform media |
 | `characters/<id>/…` | the character registry (unchanged) |
-| `<toon>/` | toon level: `avatar.*`, and topic folders `items/`, `merch/`, `map/`, `characters/` (the toon's own drawings) |
+| `<toon>/` | toon level: `avatar.*`, and topic folders `items/` (item icons + a camera item's own recognition head `<item-id>.head.json`), `merch/`, `map/`, `characters/` (the toon's own drawings) |
 | `<toon>/s<n>/` | season: covers, trailer (+ poster), the album / music zip, `supporters/` |
 | `<toon>/s<n>/c<n>/` | chapter: slices, key visual, thumbnail, chapter videos, music, samples (`c0` = the prologue) |
 
 - **No kind folders** (`images/`, `images/webtoon/s1c2/`, `videos/`, `audio/`) where the season / chapter folder says it.
 - **File names keep their ordering prefix**: `s1c2-slice-14.webp`, `s1c1-instrumental-brass-morton.128.mp3`.
+- **Models follow the item hierarchy** (owner 2026-10-02: "items and models belong together"): the shared base model
+  stays universe-wide in `scutoons/models/<model>/` next to `scutoons/items/`; a camera-SPECIFIC recognition head lives
+  next to its item in the item's toon folder as `<toon>/items/<item-id>.head.json` (e.g. the onion camera's `onion-v1`,
+  planned on branch `items/onion-camera` at `models/onion-v1/head.json` → `toptoy/items/onion_camera.head.json`). The
+  scanner / picker treat `<name>.head.json` as a model file of that item (to build with the grouping: same slug as the
+  item's icon `<item-id>.png`, label `head`, kind document).
 - **Variants are suffixes, never folders**: `.480p` `.720p` `.1080p`, `.1280w`, `.poster`, density `.2x` `.3x` (1x = no
   suffix; the owner OKed density). The scanner already groups exactly these (see "Grouping").
 - A locale segment (`/de/`) is a smell (DATA.md "Language-independent media"); the plan keeps it where it exists, flagged.
@@ -182,7 +188,7 @@ The folders ARE the toon hierarchy; videos and audio belong to their season / ch
 
 `AssetLayout` maps every file of the storage: the name's `s<n>c<n>-` / `s<n>-` prefix places it; topic folders stay
 topics; otherwise the uses decide (one chapter → that chapter's folder, one season → the season; chapters → season via the
-seasons' `sequence`); `models/` → `scutoons/models/`; unused files without a place and the lettered masters are
+seasons' `sequence`); `models/` → `scutoons/models/` (shared base models; item-specific heads go to `<toon>/items/<item-id>.head.json`); unused files without a place and the lettered masters are
 listed for deletion (owner decisions below). It reports conflicts (two files → one
 path), the uses each move rewrites, and paths built in app code.
 
