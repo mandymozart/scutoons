@@ -64,7 +64,8 @@ fetches it from the QR API; it is not duplicated in the viewer.
 | `scan_qr` | – | opens camera, decodes QR; `qr.scutoons.com/?c=CODE` → claim flow for that code |
 | `scan_object` | `labels: ["cucumber"]`, `grants: "cucumber"`, `cooldown_s` | on-device image classification (TF.js MobileNet, ImageNet class "cucumber, cuke"); hit → grant item (source `scan`) |
 | `minigame` | `id` | launches a registered minigame component (registry in viewer, empty stubs ok) |
-| `play_audio` | `src` | e.g. the vinyl unlocks/plays a track |
+| ~~`play_audio`~~ | `src` | **replaced 2026-10-02** by albums + players ("Players, albums, related items"); still read gracefully (plays without a player), no catalog item uses it |
+| (implicit) play | item has `album` + `format` | "Abspielen" only with a player whose `plays` has the format; else "Zum Abspielen brauchst du einen Plattenspieler" + the album download |
 | (implicit) wear | item has `slot` | "Put on" / "Take off" on the avatar |
 
 A camera session has one mode: an item with `scan_object` opens straight in object detection (no QR decoding, no mode
@@ -82,8 +83,11 @@ your code" still opens the QR scanner without any item).
 | dago_hoodie | physical | wearable | torso | – | `1_catpope_dago` / `hoodie_*` | variants black, beige, grey |
 | dago_heavy_t | physical | wearable | torso | – | `1_catpope_dago` / `tshirt_*` | variants black, white |
 | scorpion_amulet | physical | wearable | neck | – | `2_catpope_beetles` | variant purple |
-| awakening_vinyl | physical | media | – | play_audio | `3_catpope_vinyl` | LE 12" |
-| awakening_test_press | physical | media | – | play_audio | (no edition yet) | variants 1_of_2, 2_of_2 |
+| awakening_vinyl | physical | media | – | – (album `awakening`, format `vinyl`) | `3_catpope_vinyl` | LE 12" |
+| awakening_test_press | physical | media | – | – (album `awakening`, format `vinyl`) | (no edition yet) | variants 1_of_2, 2_of_2 |
+| record_player | virtual | tool | – | – (`plays: ["vinyl"]`) | – | grantable story: chapter 2's last slice (the end of what season 1 has) |
+| tape_player | virtual | tool | – | – (`plays: ["tape"]`) | – | not obtainable yet (`grantable: []`) |
+| cd_player | virtual | tool | – | – (`plays: ["cd"]`) | – | not obtainable yet (`grantable: []`) |
 | kangaroo_cat_hoodie | physical | wearable | torso | – | (no edition yet) | "Love For Women" |
 | scutoons_tshirt | virtual | wearable | torso | – | – | starter, basic dress (`default_worn`), `wear` overlays ("Wardrobe") |
 | scutoons_swim_pants | virtual | wearable | legs | – | – | starter in the inventory, the cover rule's first choice (sensitive-content safety) |
@@ -1095,3 +1099,96 @@ often close to a release. They must never put a release at risk, and a finished 
 **First pack:** `items/onion-camera` (Top Toy's onion camera; agents/research/auto-flute-and-onion-camera.md) – not
 in the 2026-10-03/04 release.
 
+## Players, albums, related items (2026-10-02, owner — built 2026-10-02 on branch `platform`)
+
+Owner: "You cannot play audio [just by owning the record]. You need a record player first … Also tape player and CD
+player … perhaps a refactor of how the audio media is stored in relation to the item and how the item is related to the
+season. We need a similar relation for chapters … Related items are nice to upsell physical products on the season
+landing page [the season section of the toon page]."
+
+**Data model** (`@scutoons/content` `albums.ts`, types in `items.ts` / `content.ts`, schemas regenerated):
+- **Album** = the music, a language-neutral media entity in the **item catalog** (`server/config/items.json` →
+  `catalog.albums`, served by `GET /api/items/`): `{ id, toon, title: Localized, tracks: [{ id, title, src, duration? }],
+  download?: <zip>, cover?, access?: { download, listen } }`, paths from the CDN root like item icons.
+  *Why the catalog and not the content store:* the album only exists through the items that carry it (records, tapes,
+  CDs – owner-edited config like products / editions, not creator content); the reader needs album + carriers + players
+  in one answer for the playback rule (the viewer already loads the catalog); no new entity kind, import, library endpoint
+  or editor. When items / products move to DB tables (PLATFORM.md "Data") albums move with them.
+- **Media item** (a sound carrier): `album: <album id>` + `format: vinyl | tape | cd` (both or neither; validation).
+  `awakening_vinyl` and `awakening_test_press` carry `awakening` as `vinyl`; their `play_audio` skill is gone
+  (`legacyPlayAudio` still reads an old one: it plays without a player).
+- **Player**: `plays: MediaFormat[]` – `record_player` (vinyl), `tape_player` (tape), `cd_player` (cd); category tool,
+  not stackable, giftable (default), virtual, toon null. Icons `scutoons/items/{record,tape,cd}_player.png` (placeholders,
+  `cdn/tools/make_substance_icons.py record_player tape_player cd_player`).
+- **Access per album** (owner 2026-10-02: marketing = open download, retrieval = owners re-download what they bought;
+  "download and inline playing are different things"): `access.download` / `access.listen` = `everyone` (any visitor) |
+  `members` (reading access: a member or a device unlocked by a code – the rule of the chapters and the download page) |
+  `owners` (owns a media item carrying the album). Defaults `download: members` (= the toon page's music download as it
+  was), `listen: owners`; a player for the format is always needed to listen. *Per album, not per item:* one zip and one
+  track list, whichever carrier (vinyl or test press) someone owns – a per-item flag could give two answers for the same
+  file. Awakening: `{ download: members, listen: owners }`. Shown in the admin's Catalog page (Albums table); edited in
+  items.json (no catalog editor exists).
+- **Related items**: `related_items: string[]` (catalog item ids, ordered) on the **season** and the **chapter**,
+  language-neutral. Seasons have no neutral entity (DATA.md "Language-independent media": like `download`, `trailer`,
+  `cover`, `supporters`) → one creator field writes the same list to every locale, `validateLocales` warns when the
+  locales differ, `validateFile` checks ids against `ValidateContext.items` (catalog ids; unknown / duplicate = warning).
+  The library passes both through unchanged (season overview, chapter summaries) – no server change.
+
+**Helpers** (`albums.ts`): `albumOf`, `playersFor`, `carriersOf`, `ownsAlbum`, `albumAccess`, `albumDownload`,
+`mayListen`, `albumByDownload` (the season's music zip → its album), `mediaPlayback(catalog, item, { owned, member })`
+→ `play` (tracks, the player, the download) | `needs_player` (the catalog's players for the format, the download if
+allowed) | null, `playerAlbums(catalog, player, who)` → per album the carrier (owned first, else the one to buy), owned,
+listen, download; validation `validateAlbums` (inside `validateCatalog`) + `checkRelatedItems`.
+
+**What the reader sees** (viewer):
+- **Record (item detail)** with a record player: "Abspielen" / "Play" → the audio player plays the album's tracks in
+  order ("Spielt: Awakening · Instrumental (Brass Morton)", next track on end); "Album herunterladen" when
+  `access.download` allows it. Without one: "Zum Abspielen brauchst du einen Plattenspieler." / "You need a player to
+  play it: Record player." (the player's catalog name) + "Album herunterladen". No "Benutzen" any more.
+- **Record player (item detail)**: "Platten für diesen Spieler" – per album the carrier's icon, the album title, "In
+  deinem Inventar" or the carrier's name, then "Abspielen" (may listen) or "Kaufen" (the carrier's shop product link,
+  Bandcamp; "Ausverkauft" when sold out; the shop when it has no product).
+- **Getting the record player** (owner 2026-10-02: "at the very end of season 1"): a story pickup on the **last slice of
+  chapter 2** (`s1c2-slice-22`, group `scene-20`) – the last slice season 1 has today (chapters 3–5 have no slices yet):
+  three slice events with `trigger: { type: intersect, once: true }`: the message "Ein Plattenspieler – für dich! …" and
+  one choice "Mitnehmen" / "Take it" (`add record_player 1` → the VN item bridge grants it, source story, once per place;
+  guests keep it locally and import it at sign-in). Only one choice on purpose: separate intersect observers fire in no
+  fixed order, a second "Liegen lassen" choice came out first. **Move the events to chapter 5's last slice when it
+  exists.**
+- **Toon page** (the season section, owner: "season landing page" = `/<toon>`): "Zur Staffel" / "With this season"
+  below the music button (phone/tablet: after the chapter list; desktop: in the season column) – per related item the
+  icon, the name, the price + "Kaufen" (physical items with a product, the product's Bandcamp link like the landing
+  page's editions) or "Ausverkauft", "Hast du schon" when owned (`toon/related-items.svelte`,
+  `data-testid="season-related"`). catpope season 1: the vinyl only (owner).
+- **Music download stays** (owner): the toon page's music button + `/<toon>/download` unchanged; the download page now
+  follows the album's `access.download` when the zip is an album's download (`members` = the membership blocker as
+  before, `everyone` = open, `owners` = "Diesen Download gibt es nur für Besitzer der Platte.").
+- **Chapters**: `related_items` is stored and edited (creator chapter Meta); the reader shows nothing yet (candidate: the
+  chapter end beside the next-bar).
+
+**Creator**: "Verwandte Items" / "Related items" – the season editor's own section (after Downloads) and the chapter
+Meta (under Featuring): chips with the item icon + name (UI language; the id in the tooltip), reorder (chevrons), remove
+(x), "Item hinzufügen …" lists the rest of the catalog (`/api/items/`, loaded once), an id not in the catalog is marked
+"nicht im Katalog" (`related-items-field.svelte`). Regular weight, Feather icons, tooltips on icon buttons.
+**Admin**: Catalog → Items: `format · album` and `plays <format>` badges; an "Albums" table (tracks, carriers, download,
+access download / listen).
+
+**Seed / migration**: items.json (25 items: + 3 players, the album, the vinyl / test press relation); catpope
+`season1.json` de + en `related_items: ["awakening_vinyl"]`; catpope `chapter2.json` de + en: the pickup events on the
+last slice. `content-seed.mysql.sql`: only the 4 changed statements (`season:catpope:1:{de,en}`,
+`chapter:catpope:2:{de,en}`), old timestamps kept. Local store: `import-content … --toon=catpope --only=season,chapter
+--update` (backup `server/db/local.sqlite.bak-2026-10-02-related-items`; the stored versions equalled the seed before).
+
+**Tests**: content `test/albums.test.ts` (catalog: players, album, carriers; a record plays only with a record player –
+tape / CD players don't count; access download/listen for members / guests / owners, other flags; the old play_audio;
+validation errors; the chapter 2 pickup; related items of the seed, cross-locale, unknown ids, chapters); api-smoke
+(25 items; the vinyl's album + format, the record player's plays, `albums`); admin-smoke (25 items). Viewer verified in the
+browser (test user): the chapter 2 pickup grants the record player, the player lists Awakening with "Kaufen", with a vinyl
+"Abspielen" plays the track, without the player the note + download, the toon page block (390 / 1440), the download
+page; creator: the season section and the chapter field (add / remove).
+
+**Open owner decisions**: how the tape / CD player are obtained (`grantable: []`); the record player's place once
+chapter 5 exists; whether the test press joins the related items later; the track list of Awakening (one track today:
+"Instrumental (Brass Morton)", title a placeholder) and its `duration`s; whether the music button + record cut-out
+on the toon page should fold into the vinyl's related entry (kept separate now: the download is free for members, the
+related entry sells the vinyl); a viewer display for chapter related items.

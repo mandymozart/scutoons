@@ -1667,3 +1667,19 @@ character, persona, look and mood and doubles as the VN test bed.
 - Guard: `check:tools-css` now also fails on a bold `font-weight`, `<b>`, `<strong>` without `sc-emphasis` in the tools
   (`bold-ok` + reason exempts a line). Changing a token in tokens.css needs `node qr/bin/sync-tokens.mjs` (the tokens
   check compares qr's copy).
+
+## Players, albums, related items (2026-10-02, branch `platform`)
+
+- Owner: a record plays only with a record player (also tape / CD player); music belongs to an album; `related_items` on
+  season + chapter (toon page upsell). Built: agents/ITEMS.md "Players, albums, related items" (model, access flags,
+  reader / creator / admin, seed, tests, open decisions). Albums are in the item catalog (`items.json` `albums`), not the
+  content store. Catalog 22 → 25 items (api-smoke, admin-smoke).
+- Owner decisions the same day: the record player comes from the story at the end of season 1 (today: chapter 2's last
+  slice, chapters 3–5 have none – move it to chapter 5 later); related items catpope s1 = the vinyl only; the free music
+  download stays, `album.access` { download: members, listen: owners } (per album).
+- Gotchas: several `intersect` slice events with the same trigger fire in no fixed order (two `addChoice` came out
+  swapped) – the pickup has one choice only. The VN group of chapter 2 is chosen with `?label=scene-20`. Claiming a code
+  as the test user (`?code=`) writes `qr.email` too, and `npm run dev:test-user -- --reset` then fails (`UPDATE qr SET
+  claimed_at = NULL` – the column is NOT NULL in the dev DB): restore the code row from a backup before resetting (done
+  for `Qewa1jrr`). The Browser pane's 390 px emulation put the toon inventory off-screen for ref clicks; the desktop preset
+  + `?inventory=open` worked.

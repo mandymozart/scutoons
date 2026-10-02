@@ -569,6 +569,17 @@ DB. Rules:
   creator works for N languages (DESIGN.md "Creator: content language (i18n) + translate mode"); the sandbox toon has a
   partial `ko` translation (toon / season / chapter titles + descriptions, the dialogue still the German copy) to test it.
 
+### Players, albums, related items (2026-10-02)
+
+- **Albums** live in the item catalog (`server/config/items.json` → `albums`, `GET /api/items/`), not in the content
+  store: they exist through the media items that carry them (owner-edited config like products / editions); agents/ITEMS.md
+  "Players, albums, related items" has the model, the access flags (`download` / `listen` = everyone | members | owners)
+  and why.
+- **`related_items`** (catalog item ids, ordered) on `season:<toon>:<n>:<l>` and `chapter:<toon>:<n>:<l>`:
+  language-neutral but stored per locale like the season's `download` / `trailer` / `cover` (seasons have no neutral
+  entity; the creator writes one list to every locale, `validateLocales` warns on a difference). The library passes them
+  through unchanged.
+
 ### Credits (2026-09-29)
 
 Language-neutral content store files (locale `_`), types/validation/schemas in `@scutoons/content` `credits.ts`
@@ -824,6 +835,14 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
   (`php bin/console backfill-edition-numbers --sql` locally → run the output) and the content store
   (`shared/content/seed/content-seed.mysql.sql` = `php bin/console import-content shared/content/seed --sql`, every toon's
   content incl. characters + credits). server/docs/DATABASE.md, agents/DATA.md §4.
+
+- Content seed note (2026-10-02, players + related items): `content-seed.mysql.sql` carries `related_items` in
+  `season:catpope:1:{de,en}` and the record-player pickup in `chapter:catpope:2:{de,en}`. The statements skip stored keys
+  – a database that already has them needs those 4 entities imported separately (`import-content … --toon=catpope
+  --only=season,chapter --update` against it, or a one-off INSERT of the new published versions).
+- CDN (2026-10-02): upload the player icons `scutoons/items/{record_player,tape_player,cd_player}.png` (made by
+  `cdn/tools/make_substance_icons.py record_player tape_player cd_player` into `cdn/root`, then `cdn/sync.py`) before the
+  API serves the new catalog – otherwise the items show their initials.
 
 **4. Deploy into the new folders** (nothing points at them yet)
 - Merge `platform` into `main` (the push deploys the touched apps into the new folders).

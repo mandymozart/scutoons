@@ -83,6 +83,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   the record's cut-out sits left of it, decorative (`alt=""`), lazy, ≈ 77 px on a phone / ≤ 96 px on a tablet, the pair
   centred; owner 2026-10-01), **the credits colophon**.
   Chapters are named only in the chapter list (never in the music or the colophon).
+  **The season's related items** (2026-10-02, `season.related_items`, agents/ITEMS.md "Players, albums, related items")
+  sit right after the music: "Zur Staffel" / "With this season" (1rem heading), a list under a 2px ink rule, rows split by
+  1px `border-subtle` – the item icon (4rem, desktop 3rem), the name, a caption line (price, or "Hast du schon"), right
+  the secondary "Kaufen" (the product's Bandcamp link) or "Ausverkauft"; desktop: in the season column below the music
+  button, sizes on the 24 px root like it.
 - **Cover lettering** (owner 2026-10-01, everything language-independent; `CoverArt` in `@scutoons/reader`): with
   `cover.lettering` the cover art is text-free and the UI sets the toon's name (small) over the season's title (big, in
   quotes) in the reader's language – comic lettering, not UI chrome: Bangers (`--font-lettering`), paper fill, heavy ink

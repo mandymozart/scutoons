@@ -4,7 +4,8 @@
 // A media item (a record, a tape, a CD) says which album it carries and in which FORMAT (`album`, `format`); a PLAYER
 // item (record player, tape player, CD player) says which formats it plays (`plays`). Owning a record is not enough to
 // hear it in the app: the reader needs a player for its format – otherwise the item detail says which player is missing
-// and offers the album download (if the album has one). Paths are CDN-root paths like item icons.
+// and offers the album download (if the album has one and `access.download` lets this reader have it). Paths are
+// CDN-root paths like item icons.
 import type { Catalog, ItemDef, Localized, Skill } from './items.ts';
 import type { Problem } from './validate.ts';
 
