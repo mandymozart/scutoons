@@ -184,6 +184,9 @@
 					<a class="nav-btn" href={shopHref} onclick={closeMenu}>{m.limited_editions()}</a>
 				</li>
 				<li class="nav-item">
+					<a class="nav-btn" href={localizeHref('/stores')} onclick={closeMenu} data-testid="menu-stores">{m['menu.stores']()}</a>
+				</li>
+				<li class="nav-item">
 					<a class="nav-btn" href={localizeHref('/events')} onclick={closeMenu}>{m.events()}</a>
 				</li>
 			</ul>
