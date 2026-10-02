@@ -53,7 +53,7 @@
             "BUNNY_API_KEY": "${BUNNY_API_KEY}",
             "CDN_URL": "https://scutoons.b-cdn.net/",
             "CDN_PUBLIC_URL": "https://scutoons.b-cdn.net",
-            "ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com"
+            "ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://next.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com"
           }
         }
       },
