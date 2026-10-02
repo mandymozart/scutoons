@@ -7,7 +7,7 @@
 			email: string,
 			code?: string | null,
 			marketingOptIn?: boolean,
-			choice?: { item_id?: string | null; variant?: string | null }
+			choice?: { item_id?: string | null; variant?: string | null; dispute?: boolean }
 		): Promise<unknown>;
 		verifyOtp(email: string, otp: string, marketingOptIn?: boolean): Promise<VerifyResult>;
 	}
@@ -33,6 +33,7 @@
 		itemId = null,
 		variant = null,
 		signup = false,
+		dispute = false,
 		hint,
 		sentHint,
 		onlogin
@@ -45,6 +46,11 @@
 		itemId?: string | null;
 		variant?: string | null;
 		signup?: boolean;
+		/**
+		 * "This is mine" (agents/ITEMS.md "Ownership, claims, gifting"): `code` is registered to someone else; a new account
+		 * may be created to file an ownership claim – nothing is claimed
+		 */
+		dispute?: boolean;
 		/** below the email field */
 		hint?: string;
 		/** below the "code sent" line */
@@ -75,7 +81,7 @@
 		working = true;
 		error = null;
 		try {
-			await session.requestLogin(email, code, false, { item_id: itemId, variant });
+			await session.requestLogin(email, code, false, { item_id: itemId, variant, dispute });
 			step = 'otp';
 		} catch (e) {
 			error = describe(e);

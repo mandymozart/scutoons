@@ -327,6 +327,90 @@ export interface AdminFeatured {
 	changed?: boolean;
 }
 
+// ── Ownership claims + transfers (agents/ITEMS.md "Ownership, claims, gifting") ──────────────────────────
+
+/** An account as the ownership views show it (admin only); `email` null = the account was deleted */
+export interface AdminAccountRef {
+	id: string;
+	email: string | null;
+}
+
+export type ClaimStatus = 'open' | 'transferred' | 'rejected' | 'withdrawn';
+
+/** `GET /admin/claims` row */
+export interface AdminClaimRow {
+	id: string;
+	code: string;
+	status: ClaimStatus;
+	claimant: AdminAccountRef;
+	/** the owner when the claim was filed (null = registered by the old email-only form) */
+	owner: AdminAccountRef | null;
+	/** the code is in another account now than when the claim was filed */
+	owner_changed: boolean;
+	edition_id: string | null;
+	edition_number: number | null;
+	files: number;
+	/** the first 140 characters */
+	statement: string;
+	created_at: string;
+	decided_at: string | null;
+}
+
+export interface AdminClaimFile {
+	id: string;
+	name: string;
+	type: string;
+	size: number;
+	created_at: string;
+}
+
+export interface AdminClaim {
+	id: string;
+	code: string;
+	status: ClaimStatus;
+	statement: string;
+	claimant: AdminAccountRef | null;
+	owner: AdminAccountRef | null;
+	/** who decided */
+	admin: AdminAccountRef | null;
+	admin_note: string | null;
+	files: AdminClaimFile[];
+	created_at: string;
+	decided_at: string | null;
+}
+
+/** One ownership change of a code (`item_transfers`): a claim decided, a gift, an admin transfer */
+export interface OwnershipTransfer {
+	id: number;
+	kind: 'claim' | 'gift' | 'admin';
+	code: string | null;
+	item_id: string | null;
+	variant: string | null;
+	qty: number;
+	from: AdminAccountRef | null;
+	to: AdminAccountRef | null;
+	/** the admin (claim, admin) or the giver (gift) */
+	by: AdminAccountRef | null;
+	claim_id: string | null;
+	note: string | null;
+	created_at: string;
+}
+
+/** `GET /admin/claims/{id}` */
+export interface AdminClaimDetail {
+	status: 'success';
+	claim: AdminClaim;
+	/** the code detail (as `GET /admin/codes/{code}`), null when the code is gone */
+	code: Omit<AdminCodeDetail, 'status'> | null;
+	current_owner: AdminAccountRef | null;
+	/** registered by the old email-only form (no account) */
+	legacy_registration: boolean;
+	/** the server-side certificate check (`GET /api/certificates/{code}` without `status`), or `{ valid: false, reason, error }` */
+	certificate: { valid: boolean; reason: string | null; registered?: boolean | null; revoked?: boolean | null; certificate?: Record<string, any> | null; error?: string };
+	history: OwnershipTransfer[];
+	other_claims: AdminClaim[];
+}
+
 /** One registered email template (server `Domain\Mail\MailTemplates`), `GET /admin/emails/templates` */
 export interface AdminEmailTemplate {
 	id: 'login_code' | 'signup_without_code' | (string & {});
@@ -478,6 +562,26 @@ export function createAdminApi(api: ApiClient) {
 		listEmails: (params: ListParams = {}) => api.get<ListResult<AdminEmailLogRow>>(`/admin/emails/log${toQuery(params)}`),
 		emailRecipients: () => api.get<AdminEmailRecipients>('/admin/emails/recipients'),
 		/** the new list, or null = back to the default (MAIL_ADMIN_TO) */
-		saveEmailRecipients: (items: string[] | null) => api.put<AdminEmailRecipients>('/admin/emails/recipients', { items })
+		saveEmailRecipients: (items: string[] | null) => api.put<AdminEmailRecipients>('/admin/emails/recipients', { items }),
+
+		// ownership claims + transfers (agents/ITEMS.md "Ownership, claims, gifting")
+		/** filters status (open|transferred|rejected|withdrawn), code, user (claimant or owner id); q = code or claimant email; `open` = open claims in all */
+		listClaims: (params: ListParams = {}) => api.get<ListResult<AdminClaimRow> & { open: number }>(`/admin/claims${toQuery(params)}`),
+		getClaim: (id: string) => api.get<AdminClaimDetail>(`/admin/claims/${seg(id)}`),
+		/** move the code to the claimant (note required); mails both owners */
+		transferClaim: (id: string, note: string, choice: { item_id?: string; variant?: string } = {}) =>
+			api.post<AdminClaimDetail>(`/admin/claims/${seg(id)}/transfer`, { note, ...choice }),
+		/** keep it where it is (note required, stays internal); mails the claimant */
+		rejectClaim: (id: string, note: string) => api.post<AdminClaimDetail>(`/admin/claims/${seg(id)}/reject`, { note }),
+		/** an evidence file (image / PDF) – inline, admin only */
+		claimFile: (id: string, fileId: string) => api.fetchRaw(`/admin/claims/${seg(id)}/files/${seg(fileId)}`),
+		/** the ownership history of a code, newest first */
+		codeHistory: (code: string) => api.get<{ status: string; items: OwnershipTransfer[] }>(`/admin/codes/${seg(code)}/history`),
+		/** move a code to another account outside a claim: `to` = email or account id, note required */
+		transferCode: (code: string, input: { to: string; note: string; item_id?: string; variant?: string }) =>
+			api.post<{ status: string; code: string; from: AdminAccountRef | null; to: AdminAccountRef; entries: number; history: OwnershipTransfer[] }>(
+				`/admin/codes/${seg(code)}/transfer`,
+				input
+			)
 	};
 }

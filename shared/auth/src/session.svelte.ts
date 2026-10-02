@@ -18,7 +18,7 @@ export interface AuthApi {
 		code?: string | null,
 		locale?: string,
 		marketingOptIn?: boolean,
-		choice?: { item_id?: string | null; variant?: string | null }
+		choice?: { item_id?: string | null; variant?: string | null; dispute?: boolean }
 	): Promise<unknown>;
 	authVerifyOtp(email: string, otp: string, marketingOptIn?: boolean): Promise<VerifyResult>;
 	authVerifyToken(token: string): Promise<VerifyResult>;
@@ -254,7 +254,7 @@ export function createAuthSession(options: AuthSessionOptions) {
 			email: string,
 			code?: string | null,
 			marketingOptIn = false,
-			choice?: { item_id?: string | null; variant?: string | null }
+			choice?: { item_id?: string | null; variant?: string | null; dispute?: boolean }
 		) => api.authRequest(email.trim(), code, options.locale?.(), marketingOptIn, choice),
 		verifyOtp: async (email: string, otp: string, marketingOptIn?: boolean) =>
 			adopt(await api.authVerifyOtp(email.trim(), otp.trim(), marketingOptIn)),

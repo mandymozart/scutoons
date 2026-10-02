@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ApiError } from '$lib/api.ts';
-	import { fetchCode, type AccessResult, type VerifyResult } from '$lib/api.ts';
+	import { addClaimFile, fetchCode, fileClaim, type AccessResult, type VerifyResult } from '$lib/api.ts';
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
@@ -17,19 +17,24 @@
 	 * Promo codes (not claimable, `signup`): no item to collect — offers "Create account" instead (email → one-time
 	 * code → opt-in checkbox); the code is only the signup code, nobody owns it.
 	 * `auto` = the reader explicitly came to add it (`/account?code=`): go straight to sign-in / claim / signup.
+	 * Not registered yet → "Add to my account" is the main action, with "Register it now – otherwise someone else can".
+	 * Registered to someone else → reading still works, plus "This is mine": an ownership claim (statement + optional
+	 * proof files; a reader without an account signs up for it with `dispute`) – agents/ITEMS.md "Ownership, claims,
+	 * gifting". `dispute` = open straight in that form (the QR landing page's "File a claim" link: `?code=…&claim=1`).
 	 */
 	let {
 		code,
 		auto = false,
+		dispute = false,
 		onclose,
 		onopeninventory
-	}: { code: string; auto?: boolean; onclose: () => void; onopeninventory?: () => void } = $props();
+	}: { code: string; auto?: boolean; dispute?: boolean; onclose: () => void; onopeninventory?: () => void } = $props();
 
 	const inventory = getInventoryContext();
 	const session = getSessionContext();
 	const membership = getMembershipContext();
 
-	type Phase = 'loading' | 'ready' | 'login' | 'signup' | 'welcome' | 'done' | 'error';
+	type Phase = 'loading' | 'ready' | 'login' | 'signup' | 'welcome' | 'done' | 'error' | 'dispute_login' | 'dispute' | 'disputed';
 	let phase = $state<Phase>('loading');
 	let access = $state<AccessResult | null>(null);
 	let info = $state<CodeInfo | null>(null);
@@ -41,6 +46,11 @@
 	let claimedItem = $state<string | null>(null);
 	let working = $state(false);
 	let accountCreated = $state(false);
+	// "This is mine" (ownership claim)
+	let statement = $state('');
+	let proofFiles = $state<FileList | null>(null);
+	let disputeError = $state<string | null>(null);
+	let fileErrors = $state<string[]>([]);
 
 	const unlocksHere = $derived(!!access?.permissions?.includes('catalog') && membership.deviceValid);
 	const claimable = $derived(access ? access.claimable : (info?.claimable ?? true));
@@ -109,6 +119,10 @@
 			return;
 		}
 		phase = 'ready';
+		if (dispute && ownedByOther) {
+			startDispute();
+			return;
+		}
 		if (auto && signupOnly && !session.isLoggedIn) phase = 'signup';
 		else if (auto && claimable && !ownedByOther && canClaim) await claim();
 	}
@@ -152,6 +166,43 @@
 		}
 		phase = 'ready';
 		await claim();
+	}
+
+	function startDispute() {
+		disputeError = null;
+		phase = session.isLoggedIn ? 'dispute' : 'dispute_login';
+	}
+
+	async function sendDispute(event: SubmitEvent) {
+		event.preventDefault();
+		if (statement.trim().length < 10) {
+			disputeError = m['claim.dispute_short']();
+			return;
+		}
+		working = true;
+		disputeError = null;
+		fileErrors = [];
+		try {
+			const { claim: filed } = await fileClaim(code, statement.trim());
+			for (const file of Array.from(proofFiles ?? []).slice(0, 5)) {
+				try {
+					await addClaimFile(filed.id, file, file.name);
+				} catch {
+					fileErrors = [...fileErrors, m['claim.dispute_file_failed']({ name: file.name })];
+				}
+			}
+			phase = 'disputed';
+		} catch (e) {
+			if (e instanceof ApiError && e.code === 'claim_open') disputeError = m['claim.dispute_open']();
+			else if (e instanceof ApiError && e.code === 'statement_required') disputeError = m['claim.dispute_short']();
+			else if (e instanceof ApiError && e.code === 'already_yours') phase = 'done';
+			else if (e instanceof ApiError && e.code === 'not_registered') {
+				phase = 'ready';
+				claimError = null;
+			} else disputeError = m['claim.dispute_failed']();
+		} finally {
+			working = false;
+		}
 	}
 
 	async function afterSignup(result: VerifyResult) {
@@ -272,11 +323,39 @@
 				</div>
 			{/if}
 
-			{#if ownedByOther}
-				<p class="note">{m['claim.in_someones_account']()}</p>
+			{#if ownedByOther && phase === 'dispute_login'}
+				<p class="note">{m['claim.dispute_intro']()}</p>
+				<p class="note">{m['claim.dispute_login']()}</p>
+				<LoginForm {session} locale={getLocale()} {code} signup dispute onlogin={() => (phase = 'dispute')} />
+				<button class="btn-secondary" onclick={() => (phase = 'ready')}>{m['items.back']()}</button>
+			{:else if ownedByOther && phase === 'dispute'}
+				<form class="dispute" onsubmit={sendDispute} data-testid="claim-dispute">
+					<h3>{m['claim.dispute_title']()}</h3>
+					<p class="note">{m['claim.dispute_intro']()}</p>
+					<label class="field-label" for="claim-statement">{m['claim.dispute_statement']()}</label>
+					<textarea id="claim-statement" rows="4" maxlength="4000" bind:value={statement} aria-describedby="claim-statement-hint"></textarea>
+					<small id="claim-statement-hint">{m['claim.dispute_statement_hint']()}</small>
+					<label class="field-label" for="claim-files">{m['claim.dispute_files']()}</label>
+					<input id="claim-files" type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" bind:files={proofFiles} aria-describedby="claim-files-hint" />
+					<small id="claim-files-hint">{m['claim.dispute_files_hint']()}</small>
+					{#if disputeError}<p class="error" role="alert">{disputeError}</p>{/if}
+					<div class="actions">
+						<button type="button" class="btn-secondary" onclick={() => (phase = 'ready')}>{m['items.back']()}</button>
+						<button type="submit" class:disabled={working} disabled={working} data-testid="claim-dispute-send">{m['claim.dispute_send']()}</button>
+					</div>
+				</form>
+			{:else if ownedByOther && phase === 'disputed'}
+				<p class="unlocked" role="status" data-testid="claim-dispute-sent">{m['claim.dispute_sent']()}</p>
+				{#each fileErrors as fileError}<p class="error">{fileError}</p>{/each}
 				<button class="btn-secondary" onclick={onclose}>{m['items.close']()}</button>
+			{:else if ownedByOther}
+				<p class="note">{m['claim.in_someones_account']()}</p>
+				<div class="actions">
+					<button class="btn-secondary" onclick={onclose}>{unlocksHere ? m['claim.continue_reading']() : m['items.close']()}</button>
+					<button class="btn-secondary" onclick={startDispute} data-testid="claim-this-is-mine">{m['claim.this_is_mine']()}</button>
+				</div>
 			{:else if claimable}
-				<p class="note">{m['claim.add_to_account_hint']()}</p>
+				<p class="warn" data-testid="claim-register-now">{m['claim.register_now']()}</p>
 				{#if claimError}
 					<p class="error">{claimError}</p>
 				{/if}
@@ -442,6 +521,31 @@
 	.error {
 		border: 2px solid black;
 		padding: 0.5rem;
+	}
+	/* "Register it now – otherwise someone else can" (registration strategy, ITEMS.md "Ownership, claims, gifting") */
+	.warn {
+		border-left: 0.375rem solid black;
+		padding: 0.25rem 0.5rem;
+		font-weight: 700;
+	}
+	.dispute {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.field-label {
+		font-size: 0.75rem;
+		font-weight: 700;
+	}
+	.dispute textarea,
+	.dispute input[type='file'] {
+		width: 100%;
+		box-sizing: border-box;
+		font: inherit;
+		border: 2px solid black;
+		padding: 0.5rem;
+		background: white;
+		color: black;
 	}
 	.done {
 		display: flex;

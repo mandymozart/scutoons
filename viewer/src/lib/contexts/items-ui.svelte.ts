@@ -22,6 +22,7 @@ export function createItemsUiContext() {
 	let camera = $state<CameraRequest | null>(null);
 	let claimCode = $state<string | null>(null);
 	let claimAuto = $state(false);
+	let claimDispute = $state(false);
 	let minigame = $state<{ id: string; entry: Entry | null } | null>(null);
 	let audio = $state<{ src: string; entry: Entry | null } | null>(null);
 	let inventoryRequested = $state(false);
@@ -59,6 +60,10 @@ export function createItemsUiContext() {
 		get claimAuto() {
 			return claimAuto;
 		},
+		/** open the claim sheet straight in "This is mine" (ownership claim; the QR landing page's `?claim=1`) */
+		get claimDispute() {
+			return claimDispute;
+		},
 		get minigame() {
 			return minigame;
 		},
@@ -72,8 +77,9 @@ export function createItemsUiContext() {
 		use,
 		openCamera: (request: CameraRequest) => (camera = request),
 		closeCamera: () => (camera = null),
-		openClaim: (code: string, auto = false) => {
+		openClaim: (code: string, auto = false, dispute = false) => {
 			claimAuto = auto;
+			claimDispute = dispute;
 			claimCode = code;
 		},
 		closeClaim: () => (claimCode = null),

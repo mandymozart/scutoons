@@ -44,6 +44,32 @@ final class LoginServiceTest extends TestCase
         $this->expectApiError(410, 'already_used', fn() => $this->login->verify(['email' => 'new@example.com', 'otp' => $this->otp()]));
     }
 
+    /** "This is mine" (agents/ITEMS.md "Ownership, claims, gifting"): an account to file a claim, the code stays where it is */
+    public function testDisputeSignupWithSomeoneElsesCode(): void
+    {
+        $code = $this->code('membership', ['edition_id' => '3_catpope_vinyl']);
+        $owner = $this->user('owner@example.com');
+        $this->get(\Scutoons\Domain\Codes\CodeService::class)->claim($owner, $code, null, null);
+
+        // without dispute: refused as before (no one-time code mailed)
+        $this->login->request(['email' => 'buyer@example.com', 'code' => $code]);
+        self::assertStringContainsString('There is no account for it yet', $this->lastMail());
+        $this->login->request(['email' => 'buyer@example.com', 'code' => $code, 'dispute' => true]);
+        $mail = $this->lastMail();
+        self::assertStringContainsString('This creates your SCUTOONS account.', $mail);
+        self::assertStringNotContainsString('added to your inventory', $mail, 'nothing is claimed');
+        $result = $this->login->verify(['email' => 'buyer@example.com', 'otp' => $this->otp()]);
+        self::assertSame([true, true], [$result['created'], $result['dispute']]);
+        self::assertArrayNotHasKey('claimed', $result);
+        self::assertSame((string) $owner['id'], $this->db->value('SELECT claimed_by FROM qr WHERE code = ?', [$code]), 'the code stays with its owner');
+        self::assertSame($code, $this->db->value('SELECT signup_code FROM users WHERE email = ?', ['buyer@example.com']));
+
+        // dispute does not lift the other refusals
+        $revoked = $this->code('membership', ['revoked_at' => '2026-01-01 00:00:00']);
+        $this->login->request(['email' => 'other@example.com', 'code' => $revoked, 'dispute' => true]);
+        self::assertStringContainsString('There is no account for it yet', $this->lastMail());
+    }
+
     public function testNoAccountAndNoSignupCodeGetsAnExplanationOnly(): void
     {
         $sent = $this->login->request(['email' => 'nobody@example.com', 'locale' => 'en']);

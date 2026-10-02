@@ -183,6 +183,10 @@
 				"max": {
 					"type": "number",
 					"description": "Collection limit: at most this many per account (owner 2026-10-02); none = `MAX_PER_ACCOUNT` (99). Rarer items set less. The server refuses more (409 max_reached); a claimed physical product (QR code) is always added."
+				},
+				"giftable": {
+					"type": "boolean",
+					"description": "Can a reader gift it to another reader (ITEMS.md \"Ownership, claims, gifting\")? None = yes, except starters / the basic dress and membership / access-only items (`isGiftable`). The server decides (403 not_giftable)."
 				}
 			},
 			"required": [

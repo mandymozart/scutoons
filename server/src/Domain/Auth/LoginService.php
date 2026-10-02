@@ -18,6 +18,7 @@ use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Ids;
+use PDOException;
 
 /**
  * Email login: request → mail with a magic link and a 6-digit one-time code → verify (link token or email + code) →
@@ -27,6 +28,10 @@ use Scutoons\Support\Ids;
  * Signup rule (ITEMS.md "Roles, signup rule, promo codes"): a NEW account needs a signup code – a code whose type has
  * `"signup": true` (membership = a product, promo = a PR code). An address without an account and without such a code
  * still gets `{ status: "sent" }` (no user enumeration), but the mail only explains how to get an account.
+ *
+ * "This is mine" (agents/ITEMS.md "Ownership, claims, gifting"): `dispute: true` with a membership code that is
+ * registered to someone else lets a new account be created anyway – nothing is claimed, the reader then files an
+ * ownership claim. Only the "already registered" refusal is lifted (expired / revoked / no-signup codes still refuse).
  */
 final class LoginService
 {
@@ -46,7 +51,7 @@ final class LoginService
     }
 
     /**
-     * POST /auth/request { email, code?, item_id?, variant?, locale?, marketing_opt_in? } → { status: "sent", expires_at }
+     * POST /auth/request { email, code?, item_id?, variant?, locale?, marketing_opt_in?, dispute? } → { status: "sent", expires_at }
      * (same answer for new and known addresses, with or without a usable signup code)
      * @param array<string, mixed> $body
      * @return array<string, mixed>
@@ -58,6 +63,7 @@ final class LoginService
         $claimCode = CodeRules::normalize($body['code'] ?? null);
         $itemId = is_string($body['item_id'] ?? null) ? substr($body['item_id'], 0, 64) : null;
         $variant = is_string($body['variant'] ?? null) ? substr($body['variant'], 0, 64) : null;
+        $dispute = $claimCode !== null && Users::flag($body['dispute'] ?? false);
         $ipHash = $this->secrets->hmac($this->context->clientIp());
 
         // Housekeeping: requests are only needed while they can be confirmed and for the hourly limits
@@ -74,15 +80,27 @@ final class LoginService
         $otp = sprintf('%06d', random_int(0, 999999));
         $ttl = $this->settings->int('LOGIN_TTL_MINUTES') * 60;
         $hasAccount = $this->users->byEmail($email) !== null;
-        $canSignIn = $hasAccount || $this->codes->signupRefusal($claimCode, $email) === null;
+        $refusal = $hasAccount ? null : $this->codes->signupRefusal($claimCode, $email);
+        $canSignIn = $hasAccount || $refusal === null || ($dispute && $refusal === 'already_claimed');
         // Without an account and without a signup code the request is only recorded for the hourly limits: its
         // hashes belong to values nobody knows (no link or code is mailed), so it can never be confirmed.
-        $this->db->run(
-            'INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, claim_item_id, claim_variant, marketing_opt_in, ip_hash, attempts, created_at, expires_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)',
-            [$id, $email, hash('sha256', $canSignIn ? $token : Ids::token()), $canSignIn ? $this->otpHash($id, $otp) : str_repeat('0', 64),
-                $locale, $claimCode, $itemId, $variant, $optIn ? 1 : 0, $ipHash, $this->clock->utc(), $this->clock->utc($ttl)]
-        );
+        $values = [$id, $email, hash('sha256', $canSignIn ? $token : Ids::token()), $canSignIn ? $this->otpHash($id, $otp) : str_repeat('0', 64),
+            $locale, $claimCode, $itemId, $variant, $optIn ? 1 : 0, $ipHash, $this->clock->utc(), $this->clock->utc($ttl)];
+        if ($dispute) {
+            // the column of 2026-10-02-ownership-signup – only written for a dispute, so every other sign-in works before it ran
+            try {
+                $this->db->run(
+                    'INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, claim_item_id, claim_variant, marketing_opt_in, ip_hash, attempts, created_at, expires_at, dispute)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 1)', $values);
+            } catch (PDOException $error) {
+                error_log('[qr-api] dispute login request: ' . $error->getMessage());
+                throw new ApiError(503, 'not_available', 'Ownership claims are not available yet – try again later.');
+            }
+        } else {
+            $this->db->run(
+                'INSERT INTO login_requests (id, email, token_hash, code_hash, locale, claim_code, claim_item_id, claim_variant, marketing_opt_in, ip_hash, attempts, created_at, expires_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)', $values);
+        }
 
         if ($canSignIn) {
             // Only claimable codes (products) go into the inventory; a promo code is just the signup code
@@ -90,7 +108,7 @@ final class LoginService
             $claimable = $row !== null && $this->permissions->claimable((string) $row['type']);
             $template = MailTemplates::LOGIN_CODE;
             $vars = ['link' => $this->link($token, $claimCode), 'otp' => $otp, 'minutes' => $this->settings->int('LOGIN_TTL_MINUTES'),
-                'code' => $claimable ? $claimCode : null, 'signup' => !$hasAccount];
+                'code' => $claimable && !$dispute ? $claimCode : null, 'signup' => !$hasAccount];
         } else {
             $template = MailTemplates::SIGNUP_WITHOUT_CODE;
             $vars = ['url' => $this->viewerUrl(), 'code' => $claimCode];
@@ -187,9 +205,12 @@ final class LoginService
         $claimRow = $code !== null ? $this->codes->find($code) : null;
         // Only claimable codes (products) are claimed; promo codes are just signup codes
         $claimable = $code !== null && ($claimRow === null || $this->permissions->claimable((string) $claimRow['type']));
+        // "This is mine": the account is for filing an ownership claim – the code is not claimed (it is someone else's)
+        $dispute = (int) ($request['dispute'] ?? 0) === 1;
+        if ($dispute) $claimable = false;
 
         try {
-            [$user, $created, $session, $claimedNew] = $this->db->transaction(function () use ($request, $optIn, $code, $itemId, $variant, $claimable) {
+            [$user, $created, $session, $claimedNew] = $this->db->transaction(function () use ($request, $optIn, $code, $itemId, $variant, $claimable, $dispute) {
                 // Only one confirmation per request, also when link and code race
                 $used = $this->db->run('UPDATE login_requests SET used_at = ? WHERE id = ? AND used_at IS NULL', [$this->clock->utc(), $request['id']]);
                 if ($used->rowCount() !== 1) throw new ApiError(410, 'already_used', 'This link or code was used already.');
@@ -198,6 +219,7 @@ final class LoginService
 
                 // Signup rule: only with a code of a type with "signup": true (checked again – it may have changed)
                 $refusal = $this->codes->signupRefusal($code, (string) $request['email']);
+                if ($refusal === 'already_claimed' && $dispute) $refusal = null;
                 if ($refusal === 'already_claimed') {
                     throw new ApiError(409, 'already_claimed', 'This code is already in someone else\'s account, so it cannot create a new one. You can still read with it.');
                 }
@@ -216,7 +238,7 @@ final class LoginService
             throw $error;
         }
 
-        $response = ['status' => 'success', 'session_token' => $session, 'user' => null, 'created' => $created];
+        $response = ['status' => 'success', 'session_token' => $session, 'user' => null, 'created' => $created] + ($dispute ? ['dispute' => true] : []);
         if ($created) {
             $this->events->log('signup', (string) $code, (string) $user['id']);
             if ($claimable) {

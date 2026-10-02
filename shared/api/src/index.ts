@@ -8,7 +8,8 @@ export {
 	type SessionResult,
 	type AccessResult,
 	type InventoryResult,
-	type ProgressResult
+	type ProgressResult,
+	type GiftResult
 } from './qr.ts';
 export {
 	createContentApi,
@@ -24,7 +25,14 @@ export {
 	createAdminApi,
 	toQuery,
 	type AdminApi,
+	type AdminAccountRef,
 	type AdminCatalog,
+	type AdminClaim,
+	type AdminClaimDetail,
+	type AdminClaimFile,
+	type AdminClaimRow,
+	type ClaimStatus,
+	type OwnershipTransfer,
 	type AdminCodeDetail,
 	type AdminCodeRow,
 	type AdminContentEntity,

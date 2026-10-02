@@ -1,7 +1,7 @@
 // Typed endpoints of the SCUTOONS API: accounts, access, items, inventory, avatar, progress
 // (agents/ITEMS.md → HTTP API contract). `createQrApi(client)` binds them to one configured client.
 import type { ApiClient } from './client.ts';
-import type { Avatar, AvatarBodyRef, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, User } from '@scutoons/content';
+import type { Avatar, AvatarBodyRef, Catalog, CodeInfo, Edition, Entry, GrantSource, Me, OwnershipClaim, User } from '@scutoons/content';
 
 export interface VerifyResult {
 	status: string;
@@ -12,6 +12,8 @@ export interface VerifyResult {
 	/** only for claimable codes (a promo code is never owned) */
 	claimed?: string[];
 	claim_error?: { code: string; error: string; message: string; options?: unknown };
+	/** the request was a "This is mine" sign-in (`dispute`): nothing was claimed, file the ownership claim next */
+	dispute?: boolean;
 }
 
 /** `/auth/session/`: who is signed in, and how (single sign-on cookie or the Bearer token); `user: null` = nobody */
@@ -49,6 +51,11 @@ export interface ProgressResult {
 	updated_at: number | null;
 }
 
+/** `POST /inventory/gift/` (ITEMS.md "Ownership, claims, gifting") */
+export interface GiftResult extends InventoryResult {
+	gift: { item_id: string; variant: string | null; qty: number; code: string | null; to: string; transfer_id: number };
+}
+
 export type QrApi = ReturnType<typeof createQrApi>;
 
 export function createQrApi(api: ApiClient) {
@@ -62,7 +69,7 @@ export function createQrApi(api: ApiClient) {
 			code?: string | null,
 			locale?: string,
 			marketingOptIn = false,
-			choice?: { item_id?: string | null; variant?: string | null }
+			choice?: { item_id?: string | null; variant?: string | null; dispute?: boolean }
 		) =>
 			api.post<{ status: string }>('/auth/request/', {
 				email,
@@ -71,7 +78,9 @@ export function createQrApi(api: ApiClient) {
 				marketing_opt_in: marketingOptIn,
 				// the item picked for a code with options (a new account claims it in the same transaction)
 				item_id: choice?.item_id || undefined,
-				variant: choice?.variant || undefined
+				variant: choice?.variant || undefined,
+				// "This is mine": an account only to file an ownership claim on a code registered to someone else
+				dispute: choice?.dispute || undefined
 			}),
 
 		/**
@@ -133,6 +142,29 @@ export function createQrApi(api: ApiClient) {
 			api.post<InventoryResult & { item_id: string; stats: Me['stats']; effects: Me['effects'] }>('/inventory/use/', { item_id }),
 		/** end a running reader effect ("Effekt beenden") */
 		endEffect: (kind: string) => api.post<{ status: string; ended: boolean; effects: Me['effects'] }>('/effects/end/', { kind }),
+
+		/**
+		 * Gives an item to another reader (ITEMS.md "Ownership, claims, gifting"): an entry (a code-bound piece moves its
+		 * code) or `item_id` (+ variant), `qty` for stackables, `to` = their email. 404 recipient_not_found (no account) ·
+		 * 403 not_giftable · 409 worn / cooldown / max_reached · 400 self_gift / invalid_email · 429 daily_limit
+		 */
+		giftItem: (gift: { entry_id?: string | number; item_id?: string; variant?: string | null; qty?: number; to: string }) =>
+			api.post<GiftResult>('/inventory/gift/', gift),
+		/** marks the `received` notices of `/me/` as seen (all when no ids) */
+		markReceivedSeen: (ids?: number[]) => api.post<{ status: string; seen: number }>('/inventory/received/seen/', ids ? { ids } : {}),
+
+		/** "This is mine": a claim on a code registered to another account. 409 not_registered / already_yours / claim_open */
+		fileClaim: (code: string, statement: string) =>
+			api.post<{ status: string; claim: OwnershipClaim }>('/claims/', { code, statement }),
+		/** evidence for an open claim (JPEG, PNG, WebP or PDF; 413 file_too_large, 415 unsupported_type, 409 too_many_files) */
+		addClaimFile: (claimId: string, file: File | Blob, name?: string) =>
+			api.post<{ status: string; claim: OwnershipClaim }>(
+				`/claims/${encodeURIComponent(claimId)}/files?name=${encodeURIComponent(name ?? (file as File).name ?? 'file')}`,
+				file
+			),
+		myClaims: () => api.get<{ status: string; items: OwnershipClaim[] }>('/claims/'),
+		withdrawClaim: (claimId: string) =>
+			api.post<{ status: string; claim: OwnershipClaim }>(`/claims/${encodeURIComponent(claimId)}/withdraw`),
 
 		/** `restored` = slot instances the cover rule refilled ("Hide sensitive content", ITEMS.md "Wardrobe") */
 		putAvatar: (slots: Avatar['slots']) =>

@@ -45,10 +45,13 @@
 		// magic link from the login mail: `<origin>/?login=<token>[&c=<code>]`
 		const magicToken = params.get('login') || params.get('token') || null;
 		const code = params.get('code') || (magicToken ? params.get('c') : null) || null;
+		// `?code=…&claim=1` = "This is mine? File a claim" from the QR landing page (ITEMS.md "Ownership, claims, gifting")
+		const dispute = params.get('claim') === '1';
 
 		if (code || magicToken) {
 			const url = new URL(window.location.href);
 			url.searchParams.delete('code');
+			url.searchParams.delete('claim');
 			if (magicToken) url.searchParams.delete('c');
 			// already consumed by the toon inventory (child onMount runs first)
 			url.searchParams.delete('inventory');
@@ -62,7 +65,7 @@
 
 		if (code) {
 			// the sheet grants device access via /access/ right away and offers "Add to my account"
-			itemsUi.openClaim(code, addToAccount);
+			itemsUi.openClaim(code, addToAccount, dispute);
 		}
 	});
 </script>

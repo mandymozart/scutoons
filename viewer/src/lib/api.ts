@@ -38,7 +38,14 @@ export const {
 	useItem,
 	endEffect,
 	fetchProgress,
-	putProgress
+	putProgress,
+	// ownership + gifting (agents/ITEMS.md "Ownership, claims, gifting")
+	giftItem,
+	markReceivedSeen,
+	fileClaim,
+	addClaimFile,
+	myClaims,
+	withdrawClaim
 } = createQrApi(api);
 
 /** Public data: a client without session / device id headers, so the browser sends a simple request (no CORS preflight). */

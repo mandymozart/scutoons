@@ -5,6 +5,7 @@
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import CameraOverlay from '$lib/components/camera/camera-overlay.svelte';
 	import ClaimSheet from './claim-sheet.svelte';
@@ -16,6 +17,13 @@
 	const inventory = getInventoryContext();
 	const ui = getItemsUiContext();
 	const membership = getMembershipContext();
+	const session = getSessionContext();
+
+	// "X schenkt dir Y" / a code moved here after a claim (GET /me/ `received`, ITEMS.md "Ownership, claims, gifting")
+	$effect(() => {
+		const received = session.me?.received;
+		if (received?.length) inventory.announceReceived(received);
+	});
 
 	function openInventory() {
 		ui.closeClaim();
@@ -26,8 +34,12 @@
 		}
 	}
 
-	function noticeText(n: { item_id: string; qty: number; kind: string }) {
+	function noticeText(n: { item_id: string; qty: number; kind: string; email?: string | null }) {
 		const name = inventory.nameOf({ item_id: n.item_id, variant: null });
+		const many = n.qty > 1 ? `${n.qty} × ${name}` : name;
+		if (n.kind === 'gifted') return m['items.gift_done']({ email: n.email ?? '', name: many });
+		if (n.kind === 'gift_received') return m['items.gift_received']({ from: n.email ?? '', name: many });
+		if (n.kind === 'now_yours') return m['items.now_yours']({ name });
 		if (n.kind === 'craft') return m['items.crafted']({ name });
 		if (n.kind === 'claim') return m['items.claimed']({ name });
 		if (n.kind === 'returned') return m['items.returned']({ name });
@@ -50,7 +62,7 @@
 
 {#if ui.claimCode}
 	{#key ui.claimCode}
-		<ClaimSheet code={ui.claimCode} auto={ui.claimAuto} onclose={ui.closeClaim} onopeninventory={openInventory} />
+		<ClaimSheet code={ui.claimCode} auto={ui.claimAuto} dispute={ui.claimDispute} onclose={ui.closeClaim} onopeninventory={openInventory} />
 	{/key}
 {/if}
 

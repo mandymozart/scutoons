@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
-	import type { Entry } from '@scutoons/content';
+	import { isGiftable, type Entry } from '@scutoons/content';
+	import { Field } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
 
@@ -48,9 +49,38 @@
 			story: m['items.source_story'](),
 			scan: m['items.source_scan'](),
 			craft: m['items.source_craft'](),
-			starter: m['items.source_starter']()
+			starter: m['items.source_starter'](),
+			gift: m['items.source_gift']()
 		})[entry.source] ?? entry.source
 	);
+
+	// "Verschenken" (ITEMS.md "Ownership, claims, gifting"): members only, giftable items; a worn piece comes off first
+	// (a stackable keeps its worn piece back); the server checks everything again (cooldown, daily limit, recipient)
+	const giftable = $derived(inventory.isAccount && isGiftable(def));
+	const giftMax = $derived(Math.max(0, entry.qty - (equipped ? 1 : 0)));
+	let giving = $state(false);
+	let giftTo = $state('');
+	let giftQty = $state(1);
+	let giftError = $state<string | null>(null);
+	const GIFT_ERRORS = ['recipient_not_found', 'worn', 'cooldown', 'max_reached', 'daily_limit', 'self_gift', 'invalid_email', 'not_giftable'];
+	async function sendGift(event: SubmitEvent) {
+		event.preventDefault();
+		if (!giftTo.includes('@')) {
+			giftError = m['items.gift_error_invalid_email']();
+			return;
+		}
+		giftError = null;
+		working = true;
+		const result = await inventory.gift(entry, giftTo, Math.min(Math.max(1, giftQty), giftMax || 1));
+		working = false;
+		if (result.ok) {
+			giving = false;
+			onback();
+			return;
+		}
+		const code = GIFT_ERRORS.includes(result.error ?? '') ? result.error : 'failed';
+		giftError = (m as unknown as Record<string, () => string>)[`items.gift_error_${code}`]();
+	}
 
 	async function toggleWear() {
 		if (!def?.slot) return;
@@ -111,7 +141,36 @@
 				{equipped ? m['items.take_off']() : m['items.put_on']()}
 			</button>
 		{/if}
+		{#if giftable && !giving}
+			<button class="btn-secondary" onclick={() => ((giving = true), (giftError = null), (giftQty = 1))} data-testid="item-gift">{m['items.gift']()}</button>
+		{/if}
 	</div>
+	{#if giving}
+		<form class="gift" onsubmit={sendGift} data-testid="gift-form">
+			<h3>{m['items.gift_title']({ name: inventory.nameOf(entry) })}</h3>
+			{#if giftMax < 1}
+				<p class="swap-note" role="status">{m['items.gift_worn']()}</p>
+			{:else}
+				<Field label={m['items.gift_to']()} error={giftError}>
+					{#snippet children({ id, describedby, invalid })}
+						<input {id} type="email" name="gift_to" autocomplete="off" inputmode="email" required aria-describedby={describedby} aria-invalid={invalid} bind:value={giftTo} />
+					{/snippet}
+				</Field>
+				{#if giftMax > 1}
+					<Field label={m['items.gift_qty']()}>
+						{#snippet children({ id, describedby })}
+							<input {id} type="number" name="gift_qty" min="1" max={giftMax} aria-describedby={describedby} bind:value={giftQty} />
+						{/snippet}
+					</Field>
+				{/if}
+				<p class="gift-note">{m['items.gift_note']()}{entry.code ? ` ${m['items.gift_note_code']()}` : ''}</p>
+				<div class="actions">
+					<button type="button" class="btn-secondary" onclick={() => (giving = false)}>{m['items.gift_cancel']()}</button>
+					<button type="submit" class:disabled={working} disabled={working} data-testid="gift-confirm">{m['items.gift_confirm']()}</button>
+				</div>
+			{/if}
+		</form>
+	{/if}
 	{#if noteText}<p class="swap-note" role="status" data-testid="item-note">{noteText}</p>{/if}
 	{#if useError}<p class="swap-note" role="alert">{m['items.use_failed']()}</p>{/if}
 </div>
@@ -167,5 +226,25 @@
 	.actions button {
 		flex: 1 1 auto;
 		padding: 0.75rem 1rem;
+	}
+	.gift {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		border-top: 2px solid var(--ink, black);
+		padding-top: 0.75rem;
+	}
+	.gift h3 {
+		margin: 0;
+		font-size: 1rem;
+	}
+	.gift input {
+		width: 100%;
+		box-sizing: border-box;
+	}
+	.gift-note {
+		margin: 0;
+		font-size: 0.75rem;
+		line-height: 1.3;
 	}
 </style>

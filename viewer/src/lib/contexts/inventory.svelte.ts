@@ -11,7 +11,9 @@ import {
 	putAvatarBody,
 	fetchRegistry,
 	useItem,
-	endEffect as endEffectApi
+	endEffect as endEffectApi,
+	giftItem,
+	markReceivedSeen
 } from '$lib/api.ts';
 import {
 	DEFAULT_AVATAR_UNLOCKS,
@@ -45,6 +47,7 @@ import type {
 	EntryId,
 	GrantSource,
 	ItemDef,
+	ReceivedNotice,
 	ItemVariant,
 	Localized,
 	ReaderState,
@@ -105,9 +108,11 @@ export interface Notice {
 	item_id: string;
 	qty: number;
 	/** returned = a worn item came off by a swap (back in the inventory); restored = the cover rule put it back on */
-	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'restored' | 'used';
+	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'restored' | 'used' | 'gifted' | 'gift_received' | 'now_yours';
 	/** the inventory entry (returned / restored) */
 	entry?: EntryId;
+	/** gifted: the recipient's email · gift_received: the giver's email (ITEMS.md "Ownership, claims, gifting") */
+	email?: string | null;
 }
 
 export type InventoryContext = ReturnType<typeof createInventoryContext>;
@@ -370,10 +375,51 @@ export function createInventoryContext(session: SessionContext) {
 		return Object.values(worn).some((id) => id != null && String(id) === String(entry.id));
 	}
 
-	function notify(item_id: string, qty: number, kind: Notice['kind'], entry?: EntryId) {
-		const notice = { id: ++noticeSeq, item_id, qty, kind, entry };
+	function notify(item_id: string, qty: number, kind: Notice['kind'], entry?: EntryId, email?: string | null) {
+		const notice = { id: ++noticeSeq, item_id, qty, kind, entry, email };
 		notices = [...notices, notice];
-		setTimeout(() => (notices = notices.filter((n) => n.id !== notice.id)), 3500);
+		// a received gift stays a little longer ("X schenkt dir Y")
+		setTimeout(() => (notices = notices.filter((n) => n.id !== notice.id)), kind === 'gift_received' || kind === 'now_yours' ? 7000 : 3500);
+	}
+
+	/**
+	 * Gives an item to another reader (members only; ITEMS.md "Ownership, claims, gifting"). A code-bound piece moves
+	 * its code. `error` = the API's error code (recipient_not_found, worn, cooldown, max_reached, daily_limit, …).
+	 */
+	async function gift(entry: Entry, to: string, qty = 1): Promise<{ ok: boolean; error?: string }> {
+		if (!isAccount) return { ok: false, error: 'unauthorized' };
+		busy = true;
+		try {
+			const result = await giftItem({ entry_id: entry.id, qty, to: to.trim() });
+			applyInventory(result.inventory);
+			notify(entry.item_id, result.gift.qty, 'gifted', undefined, result.gift.to);
+			if (entry.code) await session.loadMe(); // the code (and its access) left the account
+			return { ok: true };
+		} catch (e) {
+			return { ok: false, error: e instanceof ApiError ? e.code : 'failed' };
+		} finally {
+			busy = false;
+		}
+	}
+
+	/** received notices already shown in this tab (the next /me/ may still list them until `seen` is stored) */
+	const announced = new Set<number>();
+	/**
+	 * Shows the `received` notices of `/me/` ("X schenkt dir Y", a code moved here after a claim) once and tells the
+	 * server they were seen. Called by the items host whenever /me/ changes.
+	 */
+	async function announceReceived(received: ReceivedNotice[] | undefined) {
+		const fresh = (received ?? []).filter((r) => !announced.has(r.id));
+		if (!fresh.length) return;
+		for (const r of fresh) {
+			announced.add(r.id);
+			if (r.item_id) notify(r.item_id, r.qty, r.kind === 'gift' ? 'gift_received' : 'now_yours', undefined, r.from);
+		}
+		try {
+			await markReceivedSeen(fresh.map((r) => r.id));
+		} catch (e) {
+			console.warn('Could not mark the received notices as seen', e);
+		}
 	}
 
 	function applyInventory(inventory: Entry[] | undefined) {
@@ -725,6 +771,8 @@ export function createInventoryContext(session: SessionContext) {
 		grant,
 		craft,
 		claim,
+		gift,
+		announceReceived,
 		equip,
 		unequip,
 		unequipEntry

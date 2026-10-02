@@ -11,6 +11,7 @@
 	import { LoginForm, SignedInAs, authLabels, canUseApp } from '@scutoons/auth';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import MediaQualitySetting from '$lib/components/account/media-quality-setting.svelte';
+	import MyClaims from '$lib/components/account/my-claims.svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 
@@ -180,6 +181,8 @@
 				</table>
 			{/if}
 		</section>
+
+		<MyClaims />
 	{:else}
 		<section>
 			<h2>{m['account.login_title']()}</h2>

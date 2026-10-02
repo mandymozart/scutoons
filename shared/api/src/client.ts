@@ -44,7 +44,8 @@ export interface ApiClient {
 	readonly baseUrl: string;
 	getToken(): string | null;
 	/**
-	 * JSON request. `path` like `/me/` (leading slash, trailing slash as in the contract).
+	 * JSON request. `path` like `/me/` (leading slash, trailing slash as in the contract). A `Blob` / `File` body is sent
+	 * raw with its own type (uploads); the answer is JSON either way.
 	 * Throws ApiError for non-2xx and for `{status:"error"}` bodies; network failures → ApiError(0, 'network').
 	 */
 	request<T = any>(method: Method, path: string, body?: unknown, opts?: RequestOptions): Promise<T>;
@@ -68,7 +69,9 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 		const headers: Record<string, string> = { Accept: accept };
 		const deviceId = options.getDeviceId?.();
 		if (deviceId) headers['X-Device-Id'] = deviceId;
-		if (body !== undefined) headers['Content-Type'] = 'application/json';
+		// a Blob / File is sent as it is (an upload, e.g. a claim's evidence file); everything else as JSON
+		const raw = typeof Blob !== 'undefined' && body instanceof Blob;
+		if (body !== undefined) headers['Content-Type'] = raw ? (body as Blob).type || 'application/octet-stream' : 'application/json';
 		const token = opts.auth === false ? null : getToken();
 		if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -76,7 +79,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
 			return await (options.fetch ?? fetch)(base() + path, {
 				method,
 				headers,
-				body: body !== undefined ? JSON.stringify(body) : undefined,
+				body: body === undefined ? undefined : raw ? (body as Blob) : JSON.stringify(body),
 				credentials: options.credentials,
 				signal: opts.signal
 			});

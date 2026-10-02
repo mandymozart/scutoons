@@ -30,7 +30,8 @@ export type ItemKind = 'physical' | 'virtual';
 /** `food` = eaten with the `apply` skill ("Essen" instead of "Benutzen"), e.g. the cucumber and the tuna can lower appetite */
 export type ItemCategory = 'tool' | 'consumable' | 'wearable' | 'collectible' | 'media' | 'substance' | 'food';
 export type GrantSource = 'story' | 'scan';
-export type EntrySource = 'qr' | 'story' | 'scan' | 'craft' | 'starter';
+/** `gift` = given by another reader (ITEMS.md "Ownership, claims, gifting"; a code-bound gift keeps its code) */
+export type EntrySource = 'qr' | 'story' | 'scan' | 'craft' | 'starter' | 'gift';
 
 export interface ScanQrSkill {
 	type: 'scan_qr';
@@ -116,6 +117,18 @@ export interface ItemDef {
 	 * less. The server refuses more (409 max_reached); a claimed physical product (QR code) is always added.
 	 */
 	max?: number;
+	/**
+	 * Can a reader gift it to another reader (ITEMS.md "Ownership, claims, gifting")? None = yes, except starters / the
+	 * basic dress and membership / access-only items (`isGiftable`). The server decides (403 not_giftable).
+	 */
+	giftable?: boolean;
+}
+
+/** Can this item be given to another reader? The same rule as the server's `Catalog::giftable`. */
+export function isGiftable(item: Pick<ItemDef, 'giftable' | 'starter' | 'default_worn' | 'category'> | null | undefined): boolean {
+	if (!item) return false;
+	if (typeof item.giftable === 'boolean') return item.giftable;
+	return !item.starter && !item.default_worn && !['membership', 'access'].includes(item.category as string);
 }
 
 /** Default collection limit per item and account (owner 2026-10-02). */
@@ -235,6 +248,34 @@ export interface Me {
 	/** stored stat levels (decay with `statLevel`) and running effects – ITEMS.md "Substances" */
 	stats?: ReaderState['stats'];
 	effects?: ReaderState['effects'];
+	/** what arrived and was not seen yet: gifts and codes an admin moved here (`POST /inventory/received/seen/`) */
+	received?: ReceivedNotice[];
+}
+
+/**
+ * "X schenkt dir Y" (ITEMS.md "Ownership, claims, gifting"): a gift (`from` = the giver's email) or a code that an admin
+ * moved into this account after a claim (`kind: claim | admin`, no previous owner shown)
+ */
+export interface ReceivedNotice {
+	id: number;
+	kind: 'gift' | 'claim' | 'admin';
+	item_id: string | null;
+	variant: string | null;
+	qty: number;
+	code: string | null;
+	from: string | null;
+	created_at: string;
+}
+
+/** An ownership claim as the claimant sees it ("This is mine", `GET /claims/`) – never who owns the code */
+export interface OwnershipClaim {
+	id: string;
+	code: string;
+	status: 'open' | 'transferred' | 'rejected' | 'withdrawn';
+	statement: string;
+	files: { id: string; name: string; type: string; size: number }[];
+	created_at: string;
+	decided_at: string | null;
 }
 
 export interface CodeItem {
