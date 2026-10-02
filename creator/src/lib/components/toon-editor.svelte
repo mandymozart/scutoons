@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
-	import { entities, mediaRequests, NEUTRAL_LOCALE } from '@scutoons/content';
+	import { coverLetteringOn, coverLines, entities, mediaRequests, NEUTRAL_LOCALE, type Cover } from '@scutoons/content';
 	import { CoverArt } from '@scutoons/reader';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { requestsDoc, requestsOf } from '$lib/editor/characters.ts';
@@ -38,7 +38,8 @@
 	let images = $state<string[]>([]);
 	const nav = getCreatorNav();
 
-	const cover = $derived(index.get(NEUTRAL_LOCALE, ['cover']) as { square?: string; portrait?: string; lettering?: boolean } | undefined);
+	const cover = $derived(index.get(NEUTRAL_LOCALE, ['cover']) as Cover | undefined);
+	const letteringOn = $derived(coverLetteringOn(cover?.lettering));
 	const wanted = $derived(mediaRequests(requestsOf(requests), { toon }));
 
 	onMount(async () => {
@@ -90,15 +91,12 @@
 						<SharedField doc={index} path={['cover', 'square']} label="cover.square" kind="image" {toon} known={images} />
 						<SharedField doc={index} path={['cover', 'portrait']} label="cover.portrait" kind="image" {toon} known={images} />
 					</div>
-					<label class="check">
-						<input
-							type="checkbox"
-							checked={cover?.lettering === true}
-							onchange={(e) => index.setShared(['cover', 'lettering'], e.currentTarget.checked ? true : undefined, 'cover.lettering')}
-							data-testid="toon-cover-lettering"
-						/>
-						<span>{m['creator.cover_lettering']()}</span>
-					</label>
+					<!-- the lettering is edited in the cover editor (/<toon>/cover): off, the default layout or an own layout -->
+					<p class="lettering-state" data-testid="toon-cover-lettering">
+						<span class="sc-label">{m['creator.cover_mode']()}</span>
+						<span>{!letteringOn ? m['creator.cover_mode_off']() : coverLines(cover?.lettering, 'square') ? m['creator.cover_mode_custom']() : m['creator.cover_mode_default']()}</span>
+						<a class="btn secondary" href="/{toon}/cover" data-testid="toon-cover-editor">{m['creator.cover_editor_open']()}</a>
+					</p>
 					<p class="hint">{m['creator.cover_lettering_hint']()}</p>
 					{#if cover?.square || cover?.portrait}
 						<!-- per language: what readers see, and the rendered title (the lettering model) to judge it -->
@@ -110,10 +108,10 @@
 								<div class="cover-grid" data-testid="cover-preview-{l}">
 									{#each (['square', 'portrait'] as const).filter((f) => cover?.[f]) as format (format)}
 										<div class="cover-cell {format}" data-testid="cover-shown-{l}-{format}">
-											<CoverArt src={asset(`${toon}/${cover?.[format]}`)} {format} lettering={cover?.lettering === true} {title} {subtitle} lang={l} />
+											<CoverArt src={asset(`${toon}/${cover?.[format]}`)} {format} lettering={cover?.lettering} {title} {subtitle} lang={l} />
 											<span class="caption">{m['creator.cover_preview_shown']({ locale: l })} · {format}</span>
 										</div>
-										{#if cover?.lettering !== true}
+										{#if !letteringOn}
 											<div class="cover-cell {format}" data-testid="cover-rendered-{l}-{format}">
 												<CoverArt src={asset(`${toon}/${cover?.[format]}`)} {format} lettering {title} {subtitle} lang={l} veil />
 												<span class="caption">{m['creator.cover_preview_rendered']({ locale: l })} · {format}</span>
@@ -122,7 +120,7 @@
 									{/each}
 								</div>
 							{/each}
-							{#if cover?.lettering !== true}<p class="hint">{m['creator.cover_preview_veil']()}</p>{/if}
+							{#if !letteringOn}<p class="hint">{m['creator.cover_preview_veil']()}</p>{/if}
 						</div>
 					{/if}
 					{#if wanted.length}
@@ -254,6 +252,13 @@
 		color: var(--warn);
 	}
 	.hint {
+		margin: 0;
+	}
+	.lettering-state {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-05) var(--space-1);
 		margin: 0;
 	}
 	.check {

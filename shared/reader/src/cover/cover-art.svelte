@@ -72,7 +72,8 @@
 		observer?.observe(box);
 		document.fonts?.ready.then(measure).catch(() => {});
 		return {
-			update: measure,
+			// after the flush that changed the text (an action's update can run before the text node is updated)
+			update: () => queueMicrotask(measure),
 			destroy: () => observer?.disconnect()
 		};
 	}

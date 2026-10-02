@@ -22,6 +22,7 @@
 		"dev:launch-json": "node scripts/dev/launch-json.mjs",
 		"check:creator-cast": "node scripts/dev/creator-cast-check.mjs",
 		"check:creator-script": "node scripts/dev/creator-script-check.mjs",
+		"check:creator-cover": "node --experimental-transform-types --no-warnings scripts/dev/creator-cover-check.mjs",
 		"dev:viewer": "npm run dev -w viewer",
 		"dev:creator": "npm run dev -w creator",
 		"dev:admin": "npm run dev -w admin",
