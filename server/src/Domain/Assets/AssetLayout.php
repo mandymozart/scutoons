@@ -68,12 +68,13 @@ final class AssetLayout
             [$new, $reason] = $this->target($key, $uses[$key] ?? [], $seasons);
             $code = null;
             foreach (self::CODE_REFERENCES as $prefix => $where) if (str_starts_with($key, $prefix)) $code = $where;
-            $items[] = ['from' => $key, 'to' => $new, 'reason' => $reason, 'moves' => $new !== $key, 'uses' => count($uses[$key] ?? []), 'code' => $code,
+            $action = $new === '' ? 'delete' : ($new !== $key ? 'move' : 'stay');
+            $items[] = ['from' => $key, 'to' => $new === '' ? null : $new, 'action' => $action, 'reason' => $reason, 'moves' => $action === 'move', 'uses' => count($uses[$key] ?? []), 'code' => $code,
                 'refs' => array_values(array_unique(array_map(fn(array $u) => $u['ref'] . ' (' . $u['state'] . ')', $uses[$key] ?? [])))];
-            $targets[$new][] = $key;
+            if ($new !== '') $targets[$new][] = $key;
         }
         $conflicts = array_filter($targets, fn(array $list) => count($list) > 1);
-        foreach ($items as &$item) $item['conflict'] = isset($conflicts[$item['to']]);
+        foreach ($items as &$item) $item['conflict'] = $item['to'] !== null && isset($conflicts[$item['to']]);
         unset($item);
         $reasons = [];
         foreach ($items as $item) $reasons[$item['reason']] = ($reasons[$item['reason']] ?? 0) + 1;
@@ -82,12 +83,13 @@ final class AssetLayout
         return ['items' => $items, 'summary' => [
             'files' => count($items),
             'moves' => count($moving),
-            'stay' => count($items) - count($moving),
+            'stay' => count(array_filter($items, fn($i) => $i['action'] === 'stay')),
+            'deletes' => count(array_filter($items, fn($i) => $i['action'] === 'delete')),
+            'delete_list' => array_values(array_map(fn($i) => $i['from'], array_filter($items, fn($i) => $i['action'] === 'delete'))),
             'uses_to_rewrite' => array_sum(array_map(fn($i) => $i['uses'], $moving)),
             'documents_to_touch' => count(array_unique(array_merge(...array_map(fn($i) => array_map(fn($r) => preg_replace('/ \(.*$/', '', $r), $i['refs']), array_values($moving)) ?: [[]]))),
             'conflicts' => count($conflicts),
             'unplaced' => $reasons['unplaced'] ?? 0,
-            'unplaced_unused' => count(array_filter($items, fn($i) => $i['reason'] === 'unplaced' && $i['uses'] === 0)),
             'code_changes' => array_values(array_unique(array_filter(array_map(fn($i) => $i['moves'] ? $i['code'] : null, $items)))),
             'by_reason' => $reasons,
         ]];
@@ -122,10 +124,8 @@ final class AssetLayout
         if ($rest === [] ) return [$key, 'unchanged: toon level'];
 
         // the delivered masters with baked-in lettering ("S1C1 - Slice 7.jpg", unused since the text extraction):
-        // kept, renamed to the slice convention, below the chapter's masters/<locale>/
-        if (preg_match('/^S(\d+)C(\d+) - Slice (\d+)\.(\w+)$/i', $name, $m)) {
-            return ["$toon/s{$m[1]}/c{$m[2]}/masters/" . ($locale !== '' ? "$locale/" : '') . "s{$m[1]}c{$m[2]}-slice-{$m[3]}." . strtolower($m[4]), 'chapter master (legacy)'];
-        }
+        // DELETED with the move (owner 2026-10-02: no masters/ folder) – unless something still uses one
+        if (preg_match('/^S(\d+)C(\d+) - Slice (\d+)\.(\w+)$/i', $name) && !$uses) return ['', 'delete: lettered master (owner)'];
         // the name says where it belongs: s1c2-… → season 1 chapter 2; s1-… → season 1
         if (preg_match('/^s(\d+)c(\d+)-/', $name, $m)) return ["$toon/s{$m[1]}/c{$m[2]}/$tail", 'chapter (from the name)'];
         if (preg_match('/^s(\d+)-/', $name, $m)) {
@@ -143,6 +143,8 @@ final class AssetLayout
             $topic = in_array('supporters', $dirs, true) ? 'supporters/' : (in_array('samples', $dirs, true) ? 'samples/' : '');
             return ["$toon/$place/$topic$tail", 'from its uses'];
         }
+        // no rule and nothing uses it: DELETED with the move (owner 2026-10-02: collectables, s1s*-thumbnails, vectors)
+        if (!$uses) return ['', 'delete: unused, no place (owner)'];
         return ["$toon/" . implode('/', array_values(array_diff($dirs, ['images', 'videos', 'audio', 'webtoon']))) . (array_diff($dirs, ['images', 'videos', 'audio', 'webtoon']) ? '/' : '') . $tail, 'unplaced'];
     }
 

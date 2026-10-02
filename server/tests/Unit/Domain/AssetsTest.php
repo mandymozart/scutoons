@@ -320,7 +320,6 @@ final class AssetsTest extends TestCase
             ['catpope/videos/roar-little-kitty.480p.mp4', $chapter0, 'catpope/s1/c0/roar-little-kitty.480p.mp4'],
             ['catpope/audio/CatPope-Awakening-Music.zip', $season1, 'catpope/s1/CatPope-Awakening-Music.zip'],
             ['catpope/images/supporters/ske.svg', $season1, 'catpope/s1/supporters/ske.svg'],
-            ['catpope/images/webtoon/de/S1C1 - Slice 7.jpg', [], 'catpope/s1/c1/masters/de/s1c1-slice-7.jpg'],
             ['catpope/items/vinyl.png', [], 'catpope/items/vinyl.png'],
             ['catpope/images/map/terrain.svg', [], 'catpope/map/terrain.svg'],
             ['catpope/avatar.webp', [], 'catpope/avatar.webp'],
@@ -329,9 +328,12 @@ final class AssetsTest extends TestCase
         ] as [$from, $uses, $to]) {
             self::assertSame($to, $layout->target($from, $uses, $seasons)[0], $from);
         }
-        self::assertSame('unplaced', $layout->target('catpope/images/vectors/a.svg', [], $seasons)[1]);
+        self::assertSame(['', 'delete: lettered master (owner)'], $layout->target('catpope/images/webtoon/de/S1C1 - Slice 7.jpg', [], $seasons));
+        self::assertSame(['', 'delete: unused, no place (owner)'], $layout->target('catpope/images/vectors/a.svg', [], $seasons));
+        self::assertSame('unplaced', $layout->target('catpope/images/vectors/a.svg', [$chapter0[0], ['source' => 'content', 'ref' => 'toon:catpope', 'state' => 'draft'], ['source' => 'content', 'ref' => 'season:catpope:2:de', 'state' => 'draft']], $seasons)[1], 'used in two seasons, no name rule');
         $plan = $layout->plan(['catpope/images/webtoon/s1c2/s1c2-slice-1.webp', 'catpope/images/s1c2-slice-1.webp', 'models/m/model.json']);
         self::assertSame(1, $plan['summary']['conflicts'], 'two files would land on one path');
+        self::assertSame(0, $plan['summary']['deletes']);
         self::assertSame(['viewer/src/lib/components/camera/object-detector.ts (MOBILENET_MODEL)'], $plan['summary']['code_changes']);
     }
 

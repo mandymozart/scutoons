@@ -182,8 +182,8 @@ The folders ARE the toon hierarchy; videos and audio belong to their season / ch
 
 `AssetLayout` maps every file of the storage: the name's `s<n>c<n>-` / `s<n>-` prefix places it; topic folders stay
 topics; otherwise the uses decide (one chapter → that chapter's folder, one season → the season; chapters → season via the
-seasons' `sequence`); the delivered lettered masters (`webtoon/de/S1C1 - Slice 7.jpg`, unused since the text extraction)
-→ `<toon>/s1/c1/masters/de/s1c1-slice-7.jpg`; `models/` → `scutoons/models/`. It reports conflicts (two files → one
+seasons' `sequence`); `models/` → `scutoons/models/`; unused files without a place and the lettered masters are
+listed for deletion (owner decisions below). It reports conflicts (two files → one
 path), the uses each move rewrites, and paths built in app code.
 
 **Result on the local cdn/root (824 files, 2026-10-02):** 318 move, 506 stay; **567 uses in 103 documents** would be
@@ -202,6 +202,22 @@ the new path: content as new drafts, the catalog files rewritten, then publish),
 and one release, the old paths are deleted through the orphan list. Order: (1) bunny initialisation with today's paths,
 (2) `assets:layout` re-run + owner review of the mapping, (3) a batch relink command (to build: applies the JSON mapping,
 one draft per document, `--publish`), (4) the viewer code change for the model path, (5) domain switch, (6) prune.
+
+### Owner decisions on the mapping (2026-10-02 – applied by the batch relink, not yet)
+
+- The folder convention is **approved** as proposed.
+- The **94 lettered masters** (`images/webtoon/de/S1C1 - Slice N.jpg`): **delete**, no `masters/` folder.
+- The **11 unused files without a place** (`images/collectables/cucumber.png`, `images/s1s{1..6}-thumbnail.jpg`,
+  `images/vectors/{vector-blood,vector-bloog-glot,vector-demon-saw-1,vector-frame-right}.svg`): **delete**.
+- `models/` → `scutoons/models/` together with the one-line viewer change (`MOBILENET_MODEL` in object-detector.ts) in
+  the same step as the move.
+- `scene:catpope:2:scene-19` (the stale draft): **leave it** – the owner cleans up when preparing chapter 2's final
+  release on production.
+- Deletions happen **with the move** (local cdn/root and bunny), after the owner reviews the final mapping run;
+  `assets:layout` lists them (`action: delete`, `summary.delete_list`). A file that is used is never planned for deletion.
+
+Mapping after these decisions (local cdn/root, 824 files): **213 move, 506 stay, 105 delete**; 567 uses in 103
+documents to rewrite; 0 conflicts.
 
 ### Backup (owner 2026-10-02)
 

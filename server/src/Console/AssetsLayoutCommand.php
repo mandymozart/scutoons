@@ -41,15 +41,14 @@ final class AssetsLayoutCommand extends Command
         $plan = $this->layout->plan($keys);
         $s = $plan['summary'];
         $output->writeln("DRY RUN – folder layout for {$storage->describe()}");
-        $output->writeln(sprintf('  %d files: %d move, %d stay; %d uses in %d documents to rewrite; %d conflicts; %d unplaced',
-            $s['files'], $s['moves'], $s['stay'], $s['uses_to_rewrite'], $s['documents_to_touch'], $s['conflicts'], $s['unplaced']));
-        if ($s['unplaced']) $output->writeln("  unplaced: {$s['unplaced_unused']} of them are used by nothing (legacy – candidates to delete, owner decision)");
+        $output->writeln(sprintf('  %d files: %d move, %d stay, %d delete; %d uses in %d documents to rewrite; %d conflicts; %d unplaced (used, no rule)',
+            $s['files'], $s['moves'], $s['stay'], $s['deletes'], $s['uses_to_rewrite'], $s['documents_to_touch'], $s['conflicts'], $s['unplaced']));
         foreach ($s['code_changes'] as $where) $output->writeln("  needs a code change: $where");
         $limit = (int) $input->getOption('list');
         foreach ($s['by_reason'] as $reason => $count) {
             $output->writeln(sprintf('  %-28s %4d', $reason, $count));
-            foreach (array_slice(array_filter($plan['items'], fn($i) => $i['reason'] === $reason && $i['moves']), 0, $limit) as $i) {
-                $output->writeln(sprintf('      %s → %s%s%s', $i['from'], $i['to'], $i['uses'] ? "  ({$i['uses']} uses)" : '', $i['conflict'] ? '  CONFLICT' : ''));
+            foreach (array_slice(array_filter($plan['items'], fn($i) => $i['reason'] === $reason && $i['action'] !== 'stay'), 0, $limit) as $i) {
+                $output->writeln(sprintf('      %s → %s%s%s', $i['from'], $i['to'] ?? 'DELETE', $i['uses'] ? "  ({$i['uses']} uses)" : '', $i['conflict'] ? '  CONFLICT' : ''));
             }
         }
         if (($file = (string) $input->getOption('json')) !== '') {
