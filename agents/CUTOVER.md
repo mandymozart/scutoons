@@ -338,7 +338,7 @@ into the new DB) or one of your own product codes.
 - [x] **6.7 O – shop.scutoons.com:** *(done 2026-10-02)* `/de/` and `/en/` list the products, Bandcamp links work.
 - [ ] **6.8 O – Ownership end to end (DB-T only):** *(2026-10-02, owner's vinyl #127 `LyBWEkur`: register to A, claim from B (dispute sign-up), admin transfer + the old-owner mail work; open: gift B → A, transfer back to A)* on a test code: register it to account A, file a claim from
   account B (with a photo), admin → Claims → transfer → both mails in Emails log; gift an item A → B (`gift_received`).
-- [ ] **6.9 O – Assets on production:** admin → Assets → **Rescan** (registers the bunny files as assets + the usage index;
+- [x] **6.9 O – Assets on production:** *(done 2026-10-03: first rescan failed – MariaDB insert id after UPDATE, fixed 50b0782; then 720 files, 659 uses, 10 missing; the creator's trailer picker lists the videos. Open: the 10 missing paths; the trailer tile shows no poster)* admin → Assets → **Rescan** (registers the bunny files as assets + the usage index;
   until then the creator's asset picker says "Nothing found"). Check the summary's `missing`, then pick a video in the
   creator (season → trailer). *(found 2026-10-02 by the owner in the creator)*
 - More owner tests before the switch: to be listed (owner 2026-10-02: "we still need to test some things").
