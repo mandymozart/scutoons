@@ -304,7 +304,7 @@ Decide before: **D6** admin notification recipients (who gets "new ownership cla
 `MAIL_ADMIN_TO`) · **D7** your sign-up code: a promo code created in the OLD `generate/` before 0.1 (it is copied
 into the new DB) or one of your own product codes.
 
-- [ ] **6.1 A+O – api.scutoons.com:** *(A done 2026-10-02: items 27; certificates valid for real membership / promo /
+- [x] **6.1 A+O – api.scutoons.com:** *(done 2026-10-02: relayout-paths SQL run, compare re-run – only the expected differences left; `/generate/` → 404 as 5.5)* *(A done 2026-10-02: items 27; certificates valid for real membership / promo /
   page codes (the keys match); stockists empty; `/?c=x` 404. entities-compare (locally: `php -d curl.cainfo=<ca-bundle>`):
   the expected differences are chapter 2 (draft, D9), the draft toons toptoy / yellowmouse and the dev-only sandbox; the real
   one: `map`, `characters`, `asset-requests` still had the pre-relayout paths (map + character images 404) → **O: run
