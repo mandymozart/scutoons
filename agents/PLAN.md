@@ -274,6 +274,15 @@ with a locale segment (`/de/`, `_en.` …) is a smell the validation warns about
 with the katakana), proper names that are the same in every language (the song title "Roar Little Kitty"), product design
 on merch photos. Audit + model: DATA.md "Language-independent media".
 
+## RULE: new items and recipes are packs, developed apart from the fundamentals (2026-10-02, owner)
+
+The owner: "start building the onion camera but we definitely are not committing this to this release; make sure we
+can patch it in later; develop a rule for how new items and recipes can be developed aside from the fundamentals."
+Full rule: agents/ITEMS.md "Developing items and recipes (packs)". In short: **fundamentals** (what items can do –
+skill types, inventory, ownership, cameras, UI) change only with a platform release; **packs** (new items, recipes,
+icons, texts, model weights) are built on their own branch `items/<pack>` in a separate worktree, never on the release
+branch, and are patched in later as data on top of released fundamentals.
+
 ## RULE: keep the configuration small (2026-09-30, owner)
 
 Model only what the product reads or the owner edits. Story context the owner explains (e.g. "she leads the biker

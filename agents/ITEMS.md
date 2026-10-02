@@ -1060,3 +1060,38 @@ cooldown, not giftable, max_reached, invalid qty, daily limit, worn, code-bound 
 migration), `OwnershipApiTest` (HTTP: claim flow incl. raw upload + admin download, gift + `/me/ received`),
 `LoginServiceTest` (dispute signup), `MailTest` (every template renders); api-smoke "Ownership claims + gifts",
 admin-smoke "Ownership claims + transfers"; qr `public-urls` (registered → file-claim link, free → register now).
+
+## Developing items and recipes (packs) (2026-10-02, owner – rule)
+
+**Why.** Items and recipes are where most new ideas land (cucumber cross, Check It camera, onion camera, auto flute …),
+often close to a release. They must never put a release at risk, and a finished idea must be easy to patch in later.
+
+**Two layers.**
+- **Fundamentals** = code that defines what items *can* do: skill types (`scan_qr`, `scan_object`, `apply`, `craft`,
+  `play_audio`/players …), the camera and its recognition plumbing, inventory, collection limits, ownership, gifting,
+  avatar slots, the item UI. They change only through the platform release flow (`platform` → `main`, full suite green).
+- **Content (a pack)** = data on top of released fundamentals: item definitions, recipes, variants, icons and
+  overlays, de/en texts, trained model weights for an existing model type, story grants in the seed.
+
+**Rules.**
+1. A new set of items/recipes is a **pack** with a short name, built on its own branch `items/<pack>` in a separate
+   git worktree (e.g. `C:\Development\scutoons-<pack>`), branched from `platform` (or `main` after a release). Never
+   on the branch that is being released.
+2. A pack only **adds**: new catalog entries (`server/config/items.json` items + recipes), CDN assets
+   (`cdn/root/<toon>/items/…`, `cdn/root/models/…`), texts, story grants (seed statements), tests. It never changes
+   the id or meaning of a released item – inventories reference ids forever; a rename is a new item plus a migration.
+3. If a pack needs something the fundamentals can't do yet (e.g. a camera with its own recognition model), **split
+   it**: the fundamental lands first as a generic, dormant capability (no live item uses it), released and tested on
+   its own; the pack follows and only switches it on with data. Both may be developed together on the pack branch,
+   but merge the fundamental first.
+4. **Patchable** means: merging the pack touches only catalog data, assets, texts and seed statements – no schema
+   migration, no edits to other packs. Its merge checklist: catalog-count tests updated (api-smoke / admin-smoke),
+   validation and content tests green, icons/models uploaded to the CDN, a browser check for its skill if it adds
+   behaviour, ITEMS.md section for the pack, cutover note.
+5. Unfinished packs stay unmerged. Nothing half-built ships in a release behind a flag.
+6. Owner decisions a pack needs (how an item is obtained, limits, giftable, texts) are listed at the top of its
+   ITEMS.md section and answered before the merge.
+
+**First pack:** `items/onion-camera` (Top Toy's onion camera; agents/research/auto-flute-and-onion-camera.md) – not
+in the 2026-10-03/04 release.
+
