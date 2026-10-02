@@ -237,7 +237,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
   17. `2026-10-02-assets.mysql.sql` (the asset registry; came with the assets merge – run after the 16)
   Hint: if phpMyAdmin's *Import* answers "Incorrect format parameter" (seen on content-versions), paste the file into
   the *SQL* tab with delimiter `;` instead.
-  Not to run: `migrations/mysql/legacy/*` (already in the old data), `schema/qr.mysql.sql`, –
+  Not to run: `migrations/mysql/legacy/*` (already in the old data), `schema/qr.mysql.sql`.
 - [ ] **3.3 O – Content seed:** *(unblocked 2026-10-02: the file is regenerated with the new media paths – import THIS version)* *Import* `shared/content/seed/content-seed.mysql.sql` (48 entities: catpope chapters
   0–5, scenes, season 1 with related items, the record-player-repair pickups, trailer + chapter-0 quality variants,
   credits, characters with Top Toy's tendencies, map, toptoy/yellowmouse). **Not needed:** `credits-seed`,
