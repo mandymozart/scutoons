@@ -23,7 +23,7 @@
 			.filter((iso): iso is string => !!iso)
 			.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
 			.at(-1);
-		const states = doc.locales.map((l) => `${lang(l) ? `${lang(l)}: ` : ''}${label(l)}`).join(' · ');
+		const states = doc.locales.map((l) => `${lang(l) ? `${lang(l)}: ` : ''}${label(l)}${unsaved(l)}`).join(' · ');
 		// owner 2026-10-02: the label is right there – the tooltip is only the state and when it changed
 		return `${states}${latest ? ` · ${m['creator.state_changed']({ date: date(latest) })}` : ''}`;
 	});
@@ -43,9 +43,13 @@
 	};
 	/** the language-neutral entities (credits, characters, cast …) carry no language */
 	const lang = (l: string) => (l === '_' ? '' : l);
+	/** the • of a language with unsaved edits, in words for the tooltip and screen readers */
+	function unsaved(l: string) {
+		return dirty.includes(l) && doc.source[l] !== 'new' ? ` (${m['creator.unsaved']()})` : '';
+	}
 	function title(l: string) {
 		const when = doc.source[l] === 'store' ? date(doc.changedAt[l]) : '';
-		return `${lang(l) ? `${lang(l)}: ` : ''}${label(l)}${when ? ` · ${m['creator.state_changed']({ date: when })}` : ''}`;
+		return `${lang(l) ? `${lang(l)}: ` : ''}${label(l)}${unsaved(l)}${when ? ` · ${m['creator.state_changed']({ date: when })}` : ''}`;
 	}
 </script>
 

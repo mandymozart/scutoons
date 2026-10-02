@@ -172,13 +172,15 @@ async function type(selector, text) {
 const state = () =>
 	js(`({
 		dirty: !!document.querySelector('.dirty-bar'),
-		chips: ${q('file-status')}?.innerText.replace(/\\s+/g, ' ').trim() ?? '',
+		chips: ${CHIPS},
 		notice: document.querySelector('.note-bar')?.innerText.replace('✕', '').trim() ?? '',
 		saveDisabled: ${q('save-draft')}?.disabled,
 		publishDisabled: ${q('publish')}?.disabled,
 		members: [...document.querySelectorAll('[data-testid^="cast-member-"]')].map((e) => e.dataset.testid.slice(12))
 	})`);
 const writesSince = (n) => writes.slice(n);
+/** the status chips' words: the colour chips carry them as their accessible name / tooltip (owner 2026-10-02) */
+const CHIPS = `[...(${q('file-status')}?.querySelectorAll('.file-status, .badge[aria-label]') ?? [])].map((e) => e.getAttribute('aria-label') ?? e.getAttribute('title') ?? e.dataset.scTitle ?? e.innerText).join(' ').replace(/\\s+/g, ' ').trim()`;
 const loaded = () => until(`!!${q('cast-editor')} && !!${q('file-status')} && document.querySelectorAll('[data-testid^="cast-member-"]').length > 0`);
 
 await send('Runtime.enable');
@@ -237,13 +239,13 @@ try {
 	await click('[data-testid="cast-new-create"]');
 	s = await state();
 	const newId = s.members.find((m) => ![first, second, last].includes(m) && m.startsWith('regression'));
-	check(!!newId && /Characters\s+\S.*•/.test(s.chips), 'an inline new character joins the cast and marks the registry dirty', JSON.stringify(s));
+	check(!!newId && /Characters\s+\S.*(Unsaved|Ungespeichert|•)/i.test(s.chips), 'an inline new character joins the cast and marks the registry dirty', JSON.stringify(s));
 	await click(`[data-testid="cast-member-${newId}"] .order button`);
 	s = await state();
 	check(s.members.indexOf(newId) === s.members.length - 2 && s.members.indexOf(last) === s.members.length - 1, 'moving up reorders the cast', JSON.stringify(s.members));
 	n = writes.length;
 	await click('[data-testid="publish"]');
-	await until(`/Published.*Published/i.test(${q('file-status')}.innerText) && !document.querySelector('.dirty-bar')`);
+	await until(`/Published.*Published/i.test(${CHIPS}) && !document.querySelector('.dirty-bar')`);
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(
