@@ -71,7 +71,7 @@ final class AssetsController
     {
         $this->editor($request);
         $result = $this->registry->list($request->getQueryParams());
-        return Json::response($response, 200, $result + ['cdn' => $this->storages->publicBase()]);
+        return Json::response($response, 200, $result + ['cdn' => $this->storages->primaryPublicBase()]);
     }
 
     public function lookup(Request $request, Response $response): Response
@@ -88,7 +88,7 @@ final class AssetsController
     public function get(Request $request, Response $response, array $args): Response
     {
         $this->editor($request);
-        return Json::response($response, 200, $this->registry->detail($args['id']) + ['cdn' => $this->storages->publicBase()]);
+        return Json::response($response, 200, $this->registry->detail($args['id']) + ['cdn' => $this->storages->primaryPublicBase()]);
     }
 
     /** @param array{id: string} $args */
@@ -218,7 +218,8 @@ final class AssetsController
             'local' => ['where' => $this->storages->local()->describe()],
             'bunny' => $bunny ? ['where' => $bunny->describe(), 'can_write' => $bunny->canWrite(), 'api_key' => $bunny->hasApiKey(), 'pull_zone' => $bunny->pullZoneId()] : null,
             'settings' => $this->storages->configured(),
-            'public_base' => $this->storages->publicBase(),
+            'public_base' => $this->storages->primaryPublicBase(),
+            'bunny_public_base' => $this->storages->publicBase(),
             'totals' => $totals,
             'bandwidth' => $stats,
             'bandwidth_error' => $statsError,

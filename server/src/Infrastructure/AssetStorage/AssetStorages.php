@@ -30,6 +30,12 @@ final class AssetStorages
         return $this->settings->get('CDN_PUBLIC_URL') ?: $this->settings->get('CDN_URL');
     }
 
+    /** The public base of the storage the asset layer works on – where its files are loaded from (thumbnails, previews) */
+    public function primaryPublicBase(): string
+    {
+        return $this->primaryName() === 'local' ? $this->settings->get('CDN_URL') : $this->publicBase();
+    }
+
     /** The storage the asset layer works on (ASSET_STORAGE) */
     public function primary(): AssetStorage
     {
@@ -61,7 +67,8 @@ final class AssetStorages
     {
         $root = $this->settings->path('ASSET_LOCAL_ROOT') ?: $this->settings->root() . '/../cdn/root';
         $real = realpath($root);
-        return $this->local ??= new LocalStorage($real !== false ? $real : $root, $this->publicBase());
+        // the local folder is what CDN_URL serves (dev: the CDN on :8001); bunny's public base is CDN_PUBLIC_URL
+        return $this->local ??= new LocalStorage($real !== false ? $real : $root, $this->settings->get('CDN_URL'));
     }
 
     public function bunnyConfig(): BunnyConfig

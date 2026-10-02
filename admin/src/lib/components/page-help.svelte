@@ -14,6 +14,7 @@
 		| 'settings'
 		| 'homepage'
 		| 'emails'
+		| 'assets'
 		| 'claims'
 		| 'claim';
 </script>
@@ -117,6 +118,20 @@
 		</dl>
 	{:else if page === 'homepage'}
 		<p>{m['help.homepage']()}</p>
+	{:else if page === 'assets'}
+		<p>{m['help.assets']()}</p>
+		<h3>{m['help.terms_title']()}</h3>
+		<dl>
+			<dt>{m['assets.term_asset']()}</dt>
+			<dd>{m['assets.term_asset_text']()}</dd>
+			<dt>{m['assets.term_version']()}</dt>
+			<dd>{m['assets.term_version_text']()}</dd>
+			<dt>{m['assets.term_rendition']()}</dt>
+			<dd>{m['assets.term_rendition_text']()}</dd>
+			<dt>{m['assets.term_usage']()}</dt>
+			<dd>{m['assets.term_usage_text']()}</dd>
+		</dl>
+		{@render lists()}
 	{:else if page === 'emails'}
 		<p>{m['help.emails']()}</p>
 		{@render lists()}

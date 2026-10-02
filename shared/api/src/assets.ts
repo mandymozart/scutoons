@@ -146,7 +146,10 @@ export interface AssetStorageStatus {
 	local: { where: string };
 	bunny: { where: string; can_write: boolean; api_key: boolean; pull_zone: string } | null;
 	settings: Record<string, AssetSettingStatus>;
+	/** where the asset layer's files are loaded from (the primary storage) */
 	public_base: string;
+	/** the bunny.net public base (CDN_PUBLIC_URL) */
+	bunny_public_base: string;
 	totals: { assets: number; files: number; bytes: number; kinds: Record<string, { assets: number; files: number; bytes: number }> };
 	bandwidth: { days: number; bandwidth: number; requests: number; cache_hit_rate: number; daily: { day: string; bytes: number }[] } | null;
 	bandwidth_error: string | null;
