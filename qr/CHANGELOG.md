@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Landing page (2026-10-02, agents/ITEMS.md "Ownership, claims, gifting"): an unregistered product code shows "Add to
+  my account" first with "Register it now – otherwise someone else can"; a registered one shows Read + "This is mine?
+  File a claim" (`redirect_to?code=…&claim=1`, the viewer's claim form). Never says whose it is.
+
 - verify.html (2026-10-02): checks through the API's `/api/certificates/*` (always proxied, also with
   `PROXY_FULL_API=0`) – authentic only when signed with the published SCUTOONS key AND matching the record of the code
   (before: any self-signed file passed). Case-insensitive code input, pasted QR/verify URLs, `?code=` checks right away,

@@ -292,10 +292,11 @@ refactor (both mails, de/en, with and without code / signup).
 sample, blocks, fineprint); 2. its keys in **both** locales of `texts.php`; 3. call `Mailer::send(...)` (to a person) or
 `Mailer::sendToAdmins(...)` (audience `admin`); catch `MailFailed` where the request must still succeed; 4. a render test
 in `server/tests/Unit/Domain/MailTest.php` (its "every template renders in every locale" test and the registry list
-assertion cover the new id). The admin page lists it without a frontend change. Planned ids (documented in
-`MailTemplates`, not registered until sent): `ownership_claim_received` (to the claimant), `ownership_claim_admin`
-(sendToAdmins), `ownership_transferred_from`, `ownership_transferred_to`, `ownership_transfer_offer` (the owner sends a
-code to another person's email). A new block type = a case in `MailRenderer` + the layout.
+assertion cover the new id). The admin page lists it without a frontend change. **Registered 2026-10-02** (agents/ITEMS.md
+"Ownership, claims, gifting"): `ownership_claim_received` (claimant), `ownership_claim_admin` (sendToAdmins, link
+`ADMIN_URL/claims/<id>`), `ownership_claim_rejected` (claimant), `ownership_transferred_from` / `ownership_transferred_to`
+(previous / new owner), `gift_received` (recipient). Still planned: `ownership_transfer_offer` (the owner sends a code to
+another person's email). A new block type = a case in `MailRenderer` + the layout.
 
 **Settings:** `MAIL_TRANSPORT`, `MAIL_FROM`, `MAIL_FROM_NAME`, `MAIL_LOG_PATH`, `SMTP_*` (unchanged); new
 `MAIL_ADMIN_TO`, `MAIL_ADMIN_LOCALE` (de), `MAIL_LOG_DAYS` (180). Production: run `2026-10-02-mail-log.mysql.sql` in
@@ -791,7 +792,8 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 
 **1. Folders** (KAS → FTP / file manager, in the root of the FTP account from `FTP_USERNAME`)
 - Create `viewer/dist/`, `admin/dist/`, `creator/dist/`, `shop/dist/`, `qr/public/`, `api/public/`,
-  `api/storage/keys/`, `api/storage/files/`.
+  `api/storage/keys/`, `api/storage/files/` (the API creates `api/storage/files/claims/` itself on the first ownership-claim
+  evidence upload – private like the rest of `storage/`, never served; include it in backups).
 
 **2. Private data → `api/storage/`** (before the first API deploy, so `/api/keys/keys.php` never 404s)
 - Upload `api/keys/keypair.json` (old qr folder) as `api/storage/keys/keypair.json`.
@@ -807,7 +809,10 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
   (`2026-09-29-accounts-inventory`, `2026-09-30-code-owner-guard`, `2026-09-30-content-versions`,
   `2026-09-30-entity-keys` (after content-versions: the content store by entity key, agents/DATA.md), `2026-09-30-member-characters`,
   `2026-09-30-revoke-events`, `2026-09-30-roles-signup`, `2026-09-30-sensitive-content` (`users.hide_sensitive`, "Hide
-  sensitive content", default on – agents/ITEMS.md), `2026-10-01-media-quality` (`users.media_quality`, the reader's
+  sensitive content", default on – agents/ITEMS.md), `2026-10-02-mail-log` (the sent-mail log), `2026-10-02-ownership`
+  (ownership claims, claim files, the transfer history – agents/ITEMS.md "Ownership, claims, gifting"; until it ran, gifts
+  and claims answer 503 and `/me/ received` is empty, everything else works), `2026-10-02-ownership-signup`
+  (`login_requests.dispute`: signing up to file a claim), `2026-10-01-media-quality` (`users.media_quality`, the reader's
   "Medienqualität", default `auto` – ships with the `media-quality` branch after the release: run it then), `2026-09-30-settings` – runtime settings table for the
   admin's Settings page; without it the API uses the config defaults: scans 1000/h, lookups 120/h), then the seeds if not done: edition numbers
   (`php bin/console backfill-edition-numbers --sql` locally → run the output) and the content store
@@ -851,6 +856,9 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 
 **9. Admin role + generate/**
 - Grant `admin` to the owner's account (legacy `generate/` → Users, or `php bin/console roles grant`).
+- Admin app → Emails → set the admin notification recipients (or `MAIL_ADMIN_TO`): new ownership claims are mailed
+  there – with none set, nobody is told about a claim (it still shows on the Claims page). `ADMIN_URL` (default
+  `https://admin.scutoons.com`) is the link in that mail.
 - When the admin app has parity: remove `generate/` and `GENERATE_PASSWORD` (separate change).
 
 **10. Later**

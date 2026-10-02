@@ -1608,3 +1608,21 @@ character, persona, look and mood and doubles as the VN test bed.
   on `window` has no `closest` → `CommandPalette`'s hotkey handler now checks `instanceof Element`. Pre-existing, not
   fixed: the embassy top bar overflows between 768 and ~1280px (brand + nav + account), the embassy Today page logs
   `Cannot read properties of undefined (reading 'user')` (`routes/+page.svelte` team filter).
+
+## Ownership, claims, gifting (2026-10-02, branch `platform`)
+
+- Owner: QR codes unique (one code = one owner, reading with someone else's code stays allowed), certificates signed to
+  the buyer by hand are the proof, a stolen registration is fixed by a claim + an admin transfer (evidence optional),
+  readers can gift items. Built end to end: agents/ITEMS.md "Ownership, claims, gifting" (decisions, data, API, rules,
+  mails, registration strategy); server docs/API.md "Ownership, claims, gifting".
+- Decisions taken: gifts only to existing accounts (404 `recipient_not_found`, no pending gifts – signup needs a code
+  anyway); `item_transfers` is its own table (code_events stays anonymous statistics); a reader without an account can
+  sign up to file a claim (`/auth/request/ dispute`, nothing claimed) – otherwise the typical victim (never registered,
+  so no account) could not claim at all; the admin note of a rejection stays internal.
+- Gotchas: the dev API runs the working tree – new tables broke `GET /me/` for everyone until the migration ran
+  (coordinator); read paths now tolerate the missing tables (`OwnershipTransfers::missingTable`), writes answer 503
+  `not_available`. Always back up `server/db/local.sqlite` and `php bin/console migrate` right after adding a migration.
+  The Bash tool's heredocs broke on some quote mixes (Python patch scripts in the scratchpad worked). Python on Windows
+  writes CRLF unless `newline=''` – git normalizes, but use `newline` to avoid noise. The shared Browser pane is used by
+  other agents too: open your own tab (`tabs_create`). `/auth/logout/` from a test tab ends the shared test-user cookie
+  session.

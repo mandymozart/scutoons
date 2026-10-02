@@ -29,12 +29,12 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET | `/editions/` (`?toon=`), `/toons/` | – | public lists (`config/editions.json`, `config/toons.json`) |
 | GET | `/products/` | – | shop catalog = `config/products.json` byte-for-byte (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`); any origin (`*`), cached 5 min; other methods 405 |
 | GET | `/products/featured/` | – | the landing page's editions (`[{ product, variant? }]`): the list chosen in the admin app (setting `featured_products`, `/admin/featured`), else `config/featured-products.json` byte-for-byte; same headers but `max-age=60` |
-| POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in? }` → `{ status:"sent", expires_at }` (always; new accounts only with a signup code) |
+| POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in?, dispute? }` → `{ status:"sent", expires_at }` (always; new accounts only with a signup code). `dispute: true` + a product code registered to someone else = an account to file an ownership claim (nothing claimed; `/auth/verify/` answers `dispute: true`; `503 not_available` before migration `2026-10-02-ownership-signup`) |
 | POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required`; from an `ALLOWED_ORIGINS` app also the session cookie |
 | POST | `/auth/logout/` | session | `{ all?: true }` → ends this session (= every app; `all`: every session of the account) and clears the cookie |
 | GET | `/auth/session/` | optional | `{ status, user \| null, via: "cookie" \| "bearer" \| null }` – who is signed in; renews the cookie |
 | POST | `/auth/session/` | Bearer | the same session as the cookie (an app moves its stored token once) → `{ status, user, via: "cookie" }` · `400 bearer_required` · `403 csrf_rejected` |
-| GET | `/me/` | session | `{ user, access, memberships, inventory, avatar }` – `user: { id, email, created_at, roles, marketing_opt_in, hide_sensitive, media_quality }`, `access: { permissions, unlocked, expires_at, codes, signup_code, access_token? }` (owned codes + the valid signup code) |
+| GET | `/me/` | session | `{ user, access, memberships, inventory, avatar, stats, effects, received }` – `received` = gifts / codes moved here not seen yet (`[{ id, kind: gift\|claim\|admin, item_id, variant, qty, code, from (the giver's email, gifts only), created_at }]`; `[]` before the ownership migration) – `user: { id, email, created_at, roles, marketing_opt_in, hide_sensitive, media_quality }`, `access: { permissions, unlocked, expires_at, codes, signup_code, access_token? }` (owned codes + the valid signup code) |
 | PUT | `/me/` | session | `{ marketing_opt_in?: bool, hide_sensitive?: bool, media_quality?: "auto"\|"low"\|"medium"\|"high" }` (at least one) → `{ status, user, avatar }` · `400 invalid_body`. `media_quality` = "Media quality" (default `auto`, agents/DESIGN.md "Media quality"; the reader picks the video file per level). `hide_sensitive` = "Hide sensitive content" (default `true`, agents/ITEMS.md "Sensitive content"); turning it on while the avatar body is a sensitive A-pose look moves the body to the same character's first non-sensitive look (stored; `avatar` in the answer) |
 | GET/POST | `/access/` | optional | `{ code }` / `?c=` → device access: `type, expires_at, permissions, claimable, signup, claimed, claimed_by_me?, access_token?` (never the owner); per-IP limit; logs `access`; send `X-Device-Id` |
 | GET | `/code/?c=CODE` | optional | items/options/edition, `claimable`, `signup` of a code, `claimed_by_me` when signed in; per-IP limit (`&scan=1` from the qr app: logs a `scan`, own per-IP scan limit – see "Rate limits") |
@@ -42,6 +42,12 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | POST | `/inventory/craft/` | Bearer | `{ recipe_id }` |
 | POST | `/inventory/grant/` | Bearer | `{ item_id, source:"story"\|"scan", ref? }` |
 | POST | `/inventory/import/` | Bearer | `{ items:[{ item_id, qty }] }` |
+| POST | `/inventory/gift/` | session | `{ entry_id \| item_id (+ variant), qty?, to: email }` → `{ status, gift: { item_id, variant, qty, code, to, transfer_id }, inventory }` – a code-bound piece moves its whole code · `400 invalid_email\|self_gift\|invalid_qty\|invalid_entry` · `403 not_giftable` · `404 recipient_not_found\|not_found` · `409 worn\|cooldown { retry_after }\|max_reached { max }` · `422 missing` · `429 daily_limit\|rate_limited` · `503 not_available` (see "Ownership, claims, gifting") |
+| POST | `/inventory/received/seen/` | session | `{ ids? }` → `{ status, seen }` – marks `/me/ received` notices seen (all without ids) |
+| POST | `/claims/` | session | `{ code, statement }` → `201 { status, claim }` – "This is mine" on a code registered to someone else · `400 statement_required\|invalid_code` · `404` · `409 not_registered\|already_yours\|claim_open { claim }` · `422 not_claimable` · `429 rate_limited` |
+| GET | `/claims/` | session | `{ status, items: [claim] }` my claims, newest first – `claim = { id, code, status: open\|transferred\|rejected\|withdrawn, statement, files: [{ id, name, type, size }], created_at, decided_at }` (never the owner) |
+| POST | `/claims/{id}/files?name=` | session | the raw file as the body (JPEG, PNG, WebP or PDF – checked by its first bytes) → `{ status, claim }` · `400 empty_file` · `409 claim_closed\|too_many_files` · `413 file_too_large` · `415 unsupported_type` |
+| POST | `/claims/{id}/withdraw` | session | → `{ status, claim }` · `409 claim_closed` |
 | GET/PUT | `/avatar/` | Bearer | GET → `{ status, avatar: { slots, body, unlocked } }`; PUT `{ slots?:{ <slot instance id>: entryId\|null }, body?: { character, look }\|null }` (at least one) – `body` must be unlocked and have an A-pose image (`422 locked\|no_apose`, `400 invalid_body`) and must not be a look marked `sensitive` while the member's `hide_sensitive` is on (`422 sensitive_hidden { character, look }`; a stored sensitive body then reads as the character's first non-sensitive look); `slots` are keyed by the **slot instances** of the current body (the A-pose look's `slots` in the registry, e.g. `torso-left`/`torso-right` on a duo; a body without slots = one per catalog type, id = type) and GET lists every instance (`null` = empty); `422 invalid_slot` (not an instance of this body, + `slots`) / `wrong_slot` (item type ≠ instance type, + `slot_type`); on a body switch worn items keep the same instance id, else move to the first free instance of their type, else come off; `unlocked` = `[{ character, looks, source }]` (defaults from `AVATAR_DEFAULT_UNLOCKS` first); `body: null` = the first unlocked default |
 | GET/PUT | `/progress/<toonId>/` | Bearer | `{ state, updated_at }` last write wins |
 | GET | `/library/toons`, `/library/toons/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]`, `/events/` | – / creator | the reader's entities composed from the content store – see "Library" |
@@ -109,6 +115,12 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET | `/codes/{code}` · `/codes/{code}/events` | detail (no email/owner id) · timeline |
 | POST | `/codes/{code}/revoke` `{ reason? }` · `/codes/{code}/unrevoke` | |
 | GET/PUT | `/codes/{code}/signature` | read / store the certificate signature |
+| GET | `/codes/{code}/history` | ownership history (table `item_transfers`), newest first: `{ items: [{ id, kind: claim\|gift\|admin, code, item_id, variant, qty, from, to, by, claim_id, note, created_at }] }` – accounts as `{ id, email }` (admin only) |
+| POST | `/codes/{code}/transfer` | `{ to: email \| account id, note, item_id?, variant? }` – move the code to another account outside a claim (kind `admin`); mails the previous and the new owner → `{ code, from, to, entries, history }` · `400 note_required\|invalid_recipient` · `404 not_found\|unknown_user` · `409 already_owner` · `422 not_claimable\|choose_item` |
+| GET | `/claims` | ownership claims, list: sort `created_at` (default `-created_at`), `decided_at`, `status`, `code`; filters `status` (open\|transferred\|rejected\|withdrawn), `code`, `user` (claimant or owner at filing); `q` = part of the code or the claimant's email → items `{ id, code, status, claimant, owner, owner_changed, edition_id, edition_number, files, statement (140 chars), created_at, decided_at }` + `open` (count) · `400 invalid_status` |
+| GET | `/claims/{id}` | `{ claim: { …, statement, claimant, owner, admin, admin_note, files }, code (= GET /codes/{code}), current_owner, legacy_registration, certificate (the certificate check of the code), history, other_claims }` |
+| POST | `/claims/{id}/transfer` · `/claims/{id}/reject` | `{ note }` (required; `item_id?`, `variant?` for a never-registered code with options) → the detail · transfer moves the code to the claimant (mails both owners), reject keeps it (mails the claimant; the note stays internal) · `400 note_required` · `409 claim_closed\|already_owner` |
+| GET | `/claims/{id}/files/{fileId}` | an evidence file, inline, `X-Content-Type-Options: nosniff`, sandbox CSP, `no-store` |
 | GET/POST | `/batches` | list · create `{ edition_id, count?, start_number?, force? }` (reserves codes, `409 batch_complete`) |
 | GET/PUT | `/batches/{filename}` · GET `/batches/{filename}/zip` | manifest · progress · ZIP |
 | GET/PUT | `/files/{type}/{filename}` | batch output (svgs, certificates, signatures, batch, zips) |
@@ -363,6 +375,23 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 - Compare: `tests/entities-compare.php` checks every answer against the interchange files of `shared/content/seed`
   (fresh DB, part of `composer test`; `--report` against production).
 
+## Ownership, claims, gifting (2026-10-02)
+
+Contract and rules: agents/ITEMS.md "Ownership, claims, gifting". Code: `Domain\Ownership\OwnershipTransfers` (the
+transfer core + history + admin transfer + `received` notices + the two ownership mails), `OwnershipClaims`,
+`Gifts`. Tables (migration `2026-10-02-ownership`): `ownership_claims`, `ownership_claim_files` (files under
+`FILES_PATH/claims/`, never served directly), `item_transfers`; `login_requests.dispute` (`2026-10-02-ownership-signup`).
+
+- **Transfer core** (`moveCode`, one transaction): the owner guard `qr_owner_immutable` forbids A → B in one UPDATE,
+  so the code goes A → NULL → B; every inventory row with that code moves (source `qr`, `gift` for gifts), the
+  previous owner's avatar slots wearing them are cleared, `qr.email` / `claimed_at` follow. A never-registered code
+  (or one registered by the old email form) is claimed for the new owner instead (its items are added). The previous
+  owner keeps reading with the code (device access is not ownership).
+- **Before the migrations ran** (production runs the code first): `GET /me/` (`received: []`), the code history and
+  the admin claims list keep working; gift / claim / transfer answer `503 not_available`; a `dispute` sign-in too.
+- Settings: `CLAIM_MAX_PER_DAY` (5), `CLAIM_FILES_MAX` (5), `CLAIM_FILE_MAX_BYTES` (5 MB), `GIFT_MAX_PER_DAY` (10),
+  `GIFT_LOOKUPS_PER_DAY` (30), `GIFT_COOLDOWN_HOURS` (24), `ADMIN_URL` (link in the admin mail).
+
 ## Emails (the email module, 2026-10-02)
 
 The API is the only sender of email (the qr app, the frontends and scripts send none; the Embassy only logs mails
@@ -370,7 +399,10 @@ people write themselves). Every mail goes through `Domain\Mail\Mailer::send($tem
 
 - **Registry** `Domain\Mail\MailTemplates` – template ids with audience, description, variables, sample values (the
   admin preview), the body as blocks (`p`, `button`, `code`, conditional with `if`) and the fine print. Registered:
-  `login_code` (sign-in link + one-time code), `signup_without_code` (no account and no usable signup code).
+  `login_code` (sign-in link + one-time code), `signup_without_code` (no account and no usable signup code), and the
+  ownership mails (agents/ITEMS.md "Ownership, claims, gifting"): `ownership_claim_received` (claimant),
+  `ownership_claim_admin` (admins), `ownership_claim_rejected` (claimant), `ownership_transferred_from` /
+  `ownership_transferred_to` (previous / new owner), `gift_received` (recipient).
 - **Texts** `templates/mail/texts.php` – `[locale][template id][key]`, de + en, `{var}` placeholders, `subject`
   required; `_layout.signature`. **HTML frame** `templates/mail/layout.html.php` (one layout for every mail).
   `MailRenderer` builds subject, text and HTML from the same blocks.

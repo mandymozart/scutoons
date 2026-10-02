@@ -4,6 +4,15 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Ownership, claims, gifting (agents/ITEMS.md, 2026-10-02): transfer core (A → NULL → B under the owner guard,
+  entries + avatar slots move), history `item_transfers`; reader `POST/GET /claims/`, `/claims/{id}/files`,
+  `/claims/{id}/withdraw`, `POST /inventory/gift/`, `/inventory/received/seen/`, `/me/ received`; `/auth/request/
+  dispute` (an account to file a claim); admin `/admin/claims*`, `/admin/codes/{code}/history|transfer`. Catalog
+  `giftable` (default: not starters / basic dress / membership or access items). Six mails (claim received / admin /
+  rejected, transferred from / to, gift received). Migrations `2026-10-02-ownership`, `2026-10-02-ownership-signup`
+  (read paths work before them, writes 503). Settings `ADMIN_URL`, `CLAIM_*`, `GIFT_*`. PHPUnit `OwnershipTest`,
+  `OwnershipApiTest`, `LoginServiceTest` (dispute); api-smoke + admin-smoke "Ownership".
+
 - Certificate verification (agents/ITEMS.md "Certificates", 2026-10-02): `GET /api/certificates/{code}` (or `?code=`)
   and `POST /api/certificates/verify` (an uploaded `SIGNATURE-<code>.json`) verify server-side against the PUBLISHED
   public key and the signature stored for the code (before, the verify page trusted the key embedded in the file);

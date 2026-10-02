@@ -105,7 +105,8 @@ unreferenced (left on the CDN).
 - If a code has no `code_items` rows but has an `edition_id`, the edition's catalog items are the **options**: the
   claimer picks one item + variant at claim time (the owner decides per product how codes are printed (U); e.g. the
   Dago edition covers hoodie and tee, so the buyer picks).
-- One code can be claimed by exactly one user; re-claim by the same user is idempotent.
+- One code can be claimed by exactly one user; re-claim by the same user is idempotent. Ownership moves between accounts only through the
+  transfer core ("Ownership, claims, gifting": a claim decided by an admin, an admin transfer, a gift).
 - `n` codes → one account (email) (U).
 
 ## Accounts (port of osct `server/api/src/{Auth,LoginMail,Mailer,Progress}.php`)
@@ -151,7 +152,7 @@ CORS: `ALLOWED_ORIGINS` (with `Access-Control-Allow-Credentials: true`). Errors:
 | GET | `/certificates/<CODE>` (or `?code=`) | – | certificate check of a code, server-side ("Certificates" below): `{ status, valid, reason, source:"code", code, registered, revoked, certificate }` – never the owner; CORS `*`; lookup limit |
 | POST | `/certificates/verify` | a `SIGNATURE-<code>.json` (or its inner `signature` object) | same shape, `source:"file"` · 400 `invalid_signature_file` |
 
-`Entry = { id, item_id, variant|null, qty, source:"qr"|"story"|"scan"|"craft"|"starter", code|null, edition_number|null, acquired_at }`
+`Entry = { id, item_id, variant|null, qty, source:"qr"|"story"|"scan"|"craft"|"starter"|"gift", code|null, edition_number|null, acquired_at }` (`gift`: "Ownership, claims, gifting")
 
 ## Viewer
 
@@ -934,3 +935,128 @@ records (the admin's "signature valid" badge had the same flaw). Now:
   `tests/Unit/fixtures/ml-dsa-65.json`, made by noble 0.5.4 with fixed seeds – test keys only), api-smoke
   "Certificates" (real stored signatures, UPPER CASE codes, tampered, foreign key, revoked), qr public-urls (verify page,
   proxied identical to the API).
+
+## Ownership, claims, gifting (2026-10-02, owner — built 2026-10-02 on branch `platform`)
+
+**Owner decisions (final):**
+- **QR codes are unique:** one code = one owner account; that ties the real world to the virtual one and is the
+  uniqueness guarantee. Never copies, never a second claim. **Reading with someone else's code is allowed and
+  encouraged** (sharing, a concert neighbour scanning it) – the access model is unchanged.
+- **Certificates** are pre-generated and **signed to the buyer by hand** at purchase ("Original buyer" empty on
+  purpose). As in the art world the certificate + the piece are the proof of ownership, even without our servers; our
+  signature ("Certificates") proves a document is authentic. Pieces can be passed on (resale, gift) – **the platform
+  records the ownership change**.
+- **The problem:** a buyer who never registers the code can lose it to someone faster. People file a **claim** with us;
+  admins move ownership between accounts. **Evidence is optional** (any receipt / photo / the certificate; no Bandcamp
+  receipt required).
+- **Registration strategy:** push registration at the moment of purchase / first scan (below).
+- **Mails:** claim filed → the claimant (received) + the admins (new claim); ownership moved → the previous and the new
+  owner.
+- **Gifting** in the reader inventory: readers give their digital items to other readers ("beautiful for game play").
+  No money, no marketplace (a second-hand market is a separate future topic, agents/research/second-hand-market.md).
+
+### Data (migrations `2026-10-02-ownership`, `2026-10-02-ownership-signup`; sqlite + mysql)
+
+- `ownership_claims` (id uuid, code, claimant_id, owner_id = owner when filed – NULL for an old email-form
+  registration, statement, status `open|transferred|rejected|withdrawn`, admin_id = who decided, admin_note (internal),
+  created_at, decided_at). One open claim per claimant + code (API check).
+- `ownership_claim_files` (id, claim_id, filename under `FILES_PATH/claims/<claim>-<id>.<jpg|png|webp|pdf>`, the uploaded
+  name, content_type – sniffed from the first bytes, never the client's word –, size, created_at). Admin-only download.
+- `item_transfers` – **the transfer log** of every ownership change: kind `claim|gift|admin`, code (NULL = a virtual
+  gift), item_id, variant, qty, from_user_id, to_user_id, by_user_id (the admin, or the giver), claim_id, note,
+  created_at, seen_at (the recipient's notice). Append-only, no foreign keys (the record outlives an account).
+  `code_events` was **not** extended (its admin views are anonymous statistics; the history needs accounts).
+- `login_requests.dispute` (signing up to file a claim, below).
+
+### Transfer core (`Domain\Ownership\OwnershipTransfers::moveCode`, one transaction)
+
+The DB guard `qr_owner_immutable` forbids A → B in one UPDATE, so the code goes **A → NULL → B**; then every inventory
+row with that code moves to B (the guard `inventory_code_owner_update` checks they follow the owner; source `qr`, or
+`gift`; `acquired_at` = now), A's avatar slots that wore them are cleared, `qr.email` / `claimed_at` follow. A code that
+was never registered to an account (free, or the old email form) is **claimed** for B instead (its items are added; a
+code with options needs the item choice → `422 choose_item`). A physical product is always added (collection limit
+rule). A keeps reading with the code on their devices (device access ≠ ownership). Everything is recorded in
+`item_transfers` with who acted.
+
+### Reader API (session; ITEMS "HTTP API contract" style)
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/claims/` | `{ code, statement }` (≥ 10 chars) | `201 { status, claim }` · `409 not_registered` (nobody owns it – just add it) `\|already_yours\|claim_open { claim }` · `422 not_claimable` · `429 rate_limited` (`CLAIM_MAX_PER_DAY` 5) · `400 statement_required` |
+| POST | `/claims/{id}/files?name=` | the raw file (JPEG, PNG, WebP, PDF) | `{ status, claim }` · `413 file_too_large` (5 MB) · `415 unsupported_type` · `409 too_many_files` (5) `\|claim_closed` |
+| GET | `/claims/` | – | `{ status, items: [claim] }` |
+| POST | `/claims/{id}/withdraw` | – | `{ status, claim }` · `409 claim_closed` |
+| POST | `/inventory/gift/` | `{ entry_id \| item_id (+ variant), qty?, to: email }` | `{ status, gift: { item_id, variant, qty, code, to, transfer_id }, inventory }` |
+| POST | `/inventory/received/seen/` | `{ ids? }` | `{ status, seen }` |
+| GET | `/me/` | – | + `received: [{ id, kind: gift\|claim\|admin, item_id, variant, qty, code, from, created_at }]` (unseen; `from` = the giver's email, gifts only) |
+| POST | `/auth/request/` | + `dispute: true` | with a product code registered to someone else: a **new account may be created to file the claim** (nothing claimed, `/auth/verify/` → `dispute: true`); expired / revoked / non-signup codes still refuse |
+
+`claim = { id, code, status, statement, files: [{ id, name, type, size }], created_at, decided_at }` – the claimant
+**never learns who owns the code**, and never sees the admin note.
+
+### Gift rules (`Domain\Ownership\Gifts`; agents/research/second-hand-market.md stage a)
+
+- **Giftable** = the catalog's `giftable`, default true **except** starters / the basic dress (`starter`,
+  `default_worn`) and membership / access-only items (`category` membership | access) – `Catalog::giftable` /
+  `isGiftable` (@scutoons/content). → `403 not_giftable`.
+- **Worn items must be taken off first** (`409 worn`); a stackable keeps its worn piece back.
+- **Re-gift cooldown** `GIFT_COOLDOWN_HOURS` (24): what arrived (gift, claim, admin move) in the window can't be passed
+  on (`409 cooldown { retry_after }`; a code: its last move into the account; other items: the pieces received).
+- **Daily limit** `GIFT_MAX_PER_DAY` (10 gifts / 24 h, `429 daily_limit`) and `GIFT_LOOKUPS_PER_DAY` (30 recipient
+  lookups / 24 h – unknown addresses count too, against probing which emails have an account; `429 rate_limited`).
+- **Recipient must have an account** – decision: **refuse** (`404 recipient_not_found`, "ask them to sign up first"),
+  no pending gifts: a new account needs a product or promo code anyway, so a pending gift would mostly never be
+  collected. The giver is told the recipient sees their email address.
+- **Recipient collection limit** (`409 max_reached { max }`), **no gifts to yourself** (`400 self_gift`), stackables
+  `qty` 1…owned, a code-bound piece qty 1.
+- **Code-bound items** (a physical product's twin) move **the whole code** (all its entries) through the transfer core,
+  kind `gift`.
+- Every gift is in `item_transfers`; the recipient gets the mail `gift_received` and a notice (`/me/ received` → the
+  viewer's toast "X schenkt dir Y"; entry source `gift`).
+
+### Admin API (`/api/admin`, role admin; server docs/API.md "Admin API")
+
+`GET /claims` (list: status, code, user, q; `open` count) · `GET /claims/{id}` (claim, the code detail, **current owner
+account – shown here on purpose for admins handling claims**, `legacy_registration`, the certificate check
+(`CertificateVerifier::byCode`), the code's history, other claims) · `POST /claims/{id}/transfer { note }` (required) ·
+`POST /claims/{id}/reject { note }` (required, internal) · `GET /claims/{id}/files/{fileId}` · `GET
+/codes/{code}/history` · `POST /codes/{code}/transfer { to: email | id, note, item_id?, variant? }` (outside a claim, kind
+`admin`). The codes list stays private (no owner, no emails).
+
+### Mails (the email module)
+
+`ownership_claim_received` (claimant), `ownership_claim_admin` (sendToAdmins, link `ADMIN_URL/claims/<id>`),
+`ownership_claim_rejected` (claimant; the note stays internal), `ownership_transferred_from` (previous owner: "you can
+still read with the code"), `ownership_transferred_to` (new owner: keep the certificate with the piece),
+`gift_received` (recipient). A failed mail never undoes a transfer (it is in the mail log).
+
+### Registration strategy
+
+- **QR landing page** (`qr/`): an unregistered product code shows **"Add to my account" first** with "Register it now –
+  otherwise someone else can"; a registered one shows **Read** + **"This is mine? File a claim"**
+  (`redirect_to?code=…&claim=1` → the viewer's claim form). It never says whose it is.
+- **Viewer claim sheet:** the same warning on an unregistered code; on someone else's code "You can still read with it"
+  + "This is mine" (statement, optional proof files; a reader without an account signs up for it with `dispute`).
+- **Verify page:** already says "Not registered yet – register it, otherwise someone else can" + link.
+- **Certificate template** (`admin/src/lib/qr/templates/cos.md`, future batches – existing certificates are not
+  regenerated): "Register this piece in your SCUTOONS account right away …". Note: the admin's certificate
+  "Regenerate" uses the current template, so a regenerated old certificate gets the line too (the signed data is
+  unchanged).
+- Ideas not built (owner's call): a registration card / sticker in the package ("scan me first"), the shop's order
+  mail linking `qr.scutoons.com/?c=CODE`, a reminder on the account page for codes scanned but not registered.
+
+### UI
+
+Viewer: claim sheet (above), item detail **"Verschenken" / "Give away"** (email, qty for stackables, a permanent-and-free
+note, code note), toasts for received gifts / codes moved here, account page **"Meine Ansprüche" / "My claims"**
+(status, add proof, withdraw). Admin: **Claims** page (codes group) + claim detail with transfer / reject, the code page's
+ownership history and "Transfer ownership".
+
+### Tests
+
+PHPUnit `OwnershipTest` (DB guard still refuses A → B, transfer moves entries + clears avatar slot, admin transfer of a
+free code, claim lifecycle with files + mails, reject / withdraw, claim limit, gift rules: stackable, notices + seen,
+cooldown, not giftable, max_reached, invalid qty, daily limit, worn, code-bound gift moves the code, works before the
+migration), `OwnershipApiTest` (HTTP: claim flow incl. raw upload + admin download, gift + `/me/ received`),
+`LoginServiceTest` (dispute signup), `MailTest` (every template renders); api-smoke "Ownership claims + gifts",
+admin-smoke "Ownership claims + transfers"; qr `public-urls` (registered → file-claim link, free → register now).
