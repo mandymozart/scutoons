@@ -501,15 +501,15 @@
       "toon": null,
       "name": { "de": "Plattenspieler", "en": "Record player" },
       "description": {
-        "de": "Ein Plattenspieler. Er spielt die Schallplatten in deinem Inventar ab – du bekommst ihn am Ende der ersten Staffel von Katzenpapst.",
-        "en": "A record player. It plays the records in your inventory – you get it at the end of the first season of Cat Pope."
+        "de": "Ein Plattenspieler. Er spielt die Schallplatten in deinem Inventar ab. Du bekommst ihn, wenn du einen kaputten Plattenspieler mit einem Reparatur-Gutschein reparieren lässt.",
+        "en": "A record player. It plays the records in your inventory. You get it by having a broken record player repaired with a repair coupon."
       },
       "kind": "virtual",
       "category": "tool",
       "icon": "scutoons/items/record_player.png",
       "stackable": false,
       "starter": false,
-      "grantable": ["story"],
+      "grantable": [],
       "slot": null,
       "skills": [],
       "plays": ["vinyl"],
@@ -558,6 +558,46 @@
       "edition_id": null,
       "product": null,
       "variants": null
+    },
+    {
+      "id": "broken_record_player",
+      "toon": null,
+      "name": { "de": "Kaputter Plattenspieler", "en": "Broken record player" },
+      "description": {
+        "de": "Ein alter Plattenspieler – kaputt, der Tonarm hängt schief. So spielt er nichts ab. Mit einem Reparatur-Gutschein lässt er sich reparieren.",
+        "en": "An old record player – broken, the tonearm hangs crooked. It won't play anything like this. A repair coupon gets it fixed."
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "scutoons/items/broken_record_player.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": ["story"],
+      "slot": null,
+      "skills": [],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
+      "id": "repair_coupon",
+      "toon": null,
+      "name": { "de": "Reparatur-Gutschein", "en": "Repair coupon" },
+      "description": {
+        "de": "Ein Gutschein der Stadt Wien: Damit lässt du etwas Kaputtes reparieren, statt es wegzuwerfen. Kombiniere ihn mit dem, was repariert werden soll. Er gilt einmal.",
+        "en": "A coupon from the city of Vienna: it gets something broken repaired instead of thrown away. Combine it with the thing to repair. It is good for one repair."
+      },
+      "kind": "virtual",
+      "category": "collectible",
+      "icon": "scutoons/items/repair_coupon.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": ["story"],
+      "slot": null,
+      "skills": [],
+      "edition_id": null,
+      "product": null,
+      "variants": null
     }
   ],
   "recipes": [
@@ -589,6 +629,14 @@
         { "item": "testo", "qty": 1 }
       ],
       "output": { "item": "checkit_camera", "qty": 1 }
+    },
+    {
+      "id": "record_player_repair",
+      "inputs": [
+        { "item": "broken_record_player", "qty": 1 },
+        { "item": "repair_coupon", "qty": 1 }
+      ],
+      "output": { "item": "record_player", "qty": 1 }
     }
   ],
   "albums": [

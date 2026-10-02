@@ -32,8 +32,9 @@ test('albums: the catalog has the players, the album and media items that point 
 		assert.equal(item(id).category, 'tool');
 		assert.equal(item(id).stackable, false);
 	}
-	// the record player comes from the story (the end of season 1); tape and CD player: not obtainable yet
-	assert.deepEqual(item('record_player').grantable, ['story']);
+	// the record player comes from a recipe (the broken one + a repair coupon, both story finds); tape and CD player:
+	// not obtainable yet
+	assert.deepEqual(item('record_player').grantable, []);
 	assert.deepEqual(item('tape_player').grantable, []);
 	assert.deepEqual(item('cd_player').grantable, []);
 	for (const id of ['awakening_vinyl', 'awakening_test_press']) {
@@ -118,14 +119,46 @@ test('albums: the old play_audio skill is still read (plays without a player)', 
 	if (playback?.kind === 'play') assert.equal(playback.tracks[0].src, 'catpope/audio/x.mp3');
 });
 
-test('albums: the record player is granted at the end of what season 1 has (chapter 2, last slice), once', () => {
+test('albums: the record player is repaired - broken record player + repair coupon, both consumed', () => {
+	const repairs = catalog.recipes.filter((r) => r.output.item === 'record_player');
+	assert.equal(repairs.length, 1);
+	assert.deepEqual(repairs[0].inputs.map((i) => `${i.item}×${i.qty}`).sort(), ['broken_record_player×1', 'repair_coupon×1']);
+	assert.equal(repairs[0].output.qty, 1);
+	for (const id of ['broken_record_player', 'repair_coupon']) {
+		assert.deepEqual(item(id).grantable, ['story'], id);
+		assert.equal(item(id).stackable, false, id);
+		assert.equal(item(id).kind, 'virtual', id);
+		assert.ok(item(id).name.de && item(id).name.en && item(id).description.de && item(id).description.en, id);
+		assert.match(item(id).icon, new RegExp(`^scutoons/items/${id}\.png$`));
+	}
+	// the broken one plays nothing
+	assert.equal(item('broken_record_player').plays, undefined);
+	assert.deepEqual(playersFor(catalog, 'vinyl').map((p) => p.id), ['record_player']);
+});
+
+const pickup = (events: any[], variable: string) => events.find((e: any) => e.params?.onSelect?.add?.variable === variable);
+
+test('albums: chapter 2 - the broken record player in the first scene, the repair coupon at the end, once', () => {
 	for (const l of ['de', 'en']) {
 		const chapter = json(`../seed/catpope/${l}/chapter2.json`);
+		// the first scene: the first group (a scene file) and its first slice
+		assert.equal(chapter.groups[0].ref?.src, 'chapter2/scene-14.json');
+		const scene = json(`../seed/catpope/${l}/chapter2/scene-14.json`);
+		const first = scene.slices[0].events ?? [];
+		const broken = pickup(first, 'broken_record_player');
+		assert.ok(broken, `${l}: the first slice adds broken_record_player`);
+		assert.equal(broken.params.onSelect.add.value, 1);
+		assert.equal(first.filter((e: any) => e.type === 'addChoice').length, 1, `${l}: one choice only (intersect order)`);
+		assert.ok(first.every((e: any) => e.trigger?.type === 'intersect' && e.trigger.once === true));
+		assert.deepEqual(validateFile('group', scene, l, { file: 'scene:catpope:2:scene-14' }).filter((p) => p.level === 'error'), []);
+
 		const last = chapter.groups.at(-1).slices.at(-1);
 		const events = last.events ?? [];
-		const grant = events.find((e: any) => e.params?.onSelect?.add?.variable === 'record_player');
-		assert.ok(grant, `${l}: a choice adds record_player`);
-		assert.equal(grant.params.onSelect.add.value, 1);
+		const coupon = pickup(events, 'repair_coupon');
+		assert.ok(coupon, `${l}: the last slice adds repair_coupon`);
+		assert.equal(coupon.params.onSelect.add.value, 1);
+		assert.equal(pickup(events, 'record_player'), undefined, `${l}: the record player is no longer handed out`);
+		assert.equal(events.filter((e: any) => e.type === 'addChoice').length, 1, `${l}: one choice only (intersect order)`);
 		assert.ok(events.every((e: any) => e.trigger?.type === 'intersect' && e.trigger.once === true));
 		assert.deepEqual(validateFile('chapter', chapter, l, { file: 'chapter:catpope:2' }).filter((p) => p.level === 'error'), []);
 	}

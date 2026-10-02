@@ -87,7 +87,7 @@
             {
               "type": "showMessage",
               "params": {
-                "text": "A record player – for you! It plays the records in your inventory."
+                "text": "A repair coupon from the city of Vienna – for you! Combine it with your broken record player to get it repaired."
               },
               "trigger": {
                 "type": "intersect",
@@ -100,7 +100,7 @@
                 "label": "Take it",
                 "onSelect": {
                   "add": {
-                    "variable": "record_player",
+                    "variable": "repair_coupon",
                     "value": 1
                   }
                 }

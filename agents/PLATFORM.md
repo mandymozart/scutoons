@@ -843,6 +843,12 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 - CDN (2026-10-02): upload the player icons `scutoons/items/{record_player,tape_player,cd_player}.png` (made by
   `cdn/tools/make_substance_icons.py record_player tape_player cd_player` into `cdn/root`, then `cdn/sync.py`) before the
   API serves the new catalog – otherwise the items show their initials.
+- Record player repair (2026-10-02): `content-seed.mysql.sql` now has the broken-record-player pickup in
+  `scene:catpope:2:scene-14:{de,en}` and the repair-coupon pickup (instead of the record player) in
+  `chapter:catpope:2:{de,en}` – a database that already has these 4 keys needs `import-content … --toon=catpope
+  --only=chapter,scene --update` against it. CDN: upload `scutoons/items/{broken_record_player,repair_coupon}.png`
+  (`cdn/tools/make_substance_icons.py broken_record_player repair_coupon`, then `cdn/sync.py`). agents/ITEMS.md "Record
+  player repair".
 
 **4. Deploy into the new folders** (nothing points at them yet)
 - Merge `platform` into `main` (the push deploys the touched apps into the new folders).

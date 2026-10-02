@@ -1683,3 +1683,17 @@ character, persona, look and mood and doubles as the VN test bed.
   claimed_at = NULL` – the column is NOT NULL in the dev DB): restore the code row from a backup before resetting (done
   for `Qewa1jrr`). The Browser pane's 390 px emulation put the toon inventory off-screen for ref clicks; the desktop preset
   + `?inventory=open` worked.
+
+## Record player repair (2026-10-02, branch `platform`)
+
+- Owner: a BROKEN record player is found in chapter 2's first scene, a Reparatur-Gutschein (repair coupon, "issued by
+  the city of Vienna") at the end of chapter 2 (later: the end of season 1); a recipe of the two makes the record player,
+  the broken one is consumed. Built as data only (owner-approved exception to the packs rule, replaces the direct grant
+  from earlier the same day): agents/ITEMS.md "Record player repair". Catalog 25 → 27 items, 5 recipes
+  (`record_player_repair`); `record_player` is no longer story-grantable.
+- Interpretation to confirm: the coupon is consumed too (every recipe input is consumed). Wording de/en in ITEMS.md.
+- The first scene of chapter 2 is the scene file `chapter2/scene-14.json` (its own entity `scene:catpope:2:scene-14:<l>`),
+  so the seed change is 4 statements (chapter 2 + scene-14, de/en) and the local import needs `--only=chapter,scene`.
+- Gotchas: guests cannot read chapter 2 locally without a code (draft) – the browser check ran as the test user only
+  (headless CDP script like check-testo, from the scratchpad); a guest's crafted record player is split back into the
+  broken player + coupon at sign-in (`importGuest`), both story-grantable, so nothing is lost.

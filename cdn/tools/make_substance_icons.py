@@ -4,7 +4,8 @@
 Output: cdn/root/scutoons/items/{checkit_camera,testo,testo_camera,psilocybin,lsd,semaglutide,weed,tuna_can}.png (512 px, transparent, trimmed + fitted
 like every item icon). The owner replaces them later under the same names.
 Also the players (agents/ITEMS.md "Players, albums, related items"): {record_player,tape_player,cd_player}.png - generic
-devices, no brand look.
+devices, no brand look; the broken record player (the record player with a crack and a hanging tonearm) and the repair
+coupon (a ticket with a wrench, no real logo or coat of arms) of the record player recipe.
 
 Usage (from the repo root, with the cdn venv):
   cdn/.venv/Scripts/python cdn/tools/make_substance_icons.py [--root <cdn root>] [name ...]
@@ -192,6 +193,47 @@ def cd_player_svg() -> str:
 </svg>"""
 
 
+CRACK = "#d8443a"
+
+
+def broken_record_player_svg() -> str:
+    # the record player with a cracked plinth and record, the tonearm knocked off and hanging over the edge
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <g transform="rotate(-6 256 266)">
+  <rect x="28" y="96" width="456" height="340" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <circle cx="214" cy="266" r="146" fill="{VINYL}" stroke="{INK}" stroke-width="18"/>
+  <circle cx="214" cy="266" r="112" fill="none" stroke="{SILVER}" stroke-width="4"/>
+  <circle cx="214" cy="266" r="84" fill="none" stroke="{SILVER}" stroke-width="4"/>
+  <circle cx="214" cy="266" r="44" fill="{CYAN}" stroke="{INK}" stroke-width="10"/>
+  <circle cx="214" cy="266" r="8" fill="{INK}"/>
+  <path d="M120 150 L 170 214 L 150 252 L 204 300 L 186 340 L 236 404" fill="none" stroke="{PAPER}" stroke-width="14" stroke-linejoin="miter"/>
+  <path d="M120 150 L 170 214 L 150 252 L 204 300 L 186 340 L 236 404" fill="none" stroke="{CRACK}" stroke-width="6" stroke-linejoin="miter"/>
+  <path d="M300 436 L 318 400 L 296 372 L 326 340" fill="none" stroke="{INK}" stroke-width="8"/>
+  <circle cx="420" cy="150" r="30" fill="{SILVER}" stroke="{INK}" stroke-width="14"/>
+  <path d="M420 150 L 440 300 L 400 470" fill="none" stroke="{INK}" stroke-width="16" stroke-linecap="square" stroke-linejoin="round"/>
+  <rect x="380" y="456" width="40" height="28" transform="rotate(-14 400 470)" fill="{INK}"/>
+  <rect x="332" y="388" width="56" height="22" fill="{SILVER}" stroke="{INK}" stroke-width="8"/>
+  </g>
+</svg>"""
+
+
+def repair_coupon_svg() -> str:
+    # a paper ticket with notched sides, a perforated stub and a wrench - a generic game coupon, no logo or coat of arms
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <g transform="rotate(-10 256 256)">
+    <path d="M36 136 H 476 V 220 A36 36 0 0 0 476 292 V 376 H 36 V 292 A36 36 0 0 0 36 220 Z" fill="{PAPER}" stroke="{INK}" stroke-width="18" stroke-linejoin="round"/>
+    <path d="M356 150 V 362" stroke="{INK}" stroke-width="8" stroke-dasharray="16 12"/>
+    <rect x="76" y="176" width="248" height="160" fill="{CYAN}" stroke="{INK}" stroke-width="10"/>
+    <g transform="rotate(-40 200 256)">
+      <rect x="126" y="242" width="150" height="28" fill="{SILVER}" stroke="{INK}" stroke-width="10"/>
+      <path d="M276 256 m-6 -36 a40 40 0 1 1 0 72 l 0 -20 l 22 0 l 0 -32 l -22 0 Z" fill="{SILVER}" stroke="{INK}" stroke-width="10" stroke-linejoin="round"/>
+      <path d="M126 256 m6 -36 a40 40 0 1 0 0 72 l 0 -20 l -22 0 l 0 -32 l 22 0 Z" fill="{SILVER}" stroke="{INK}" stroke-width="10" stroke-linejoin="round"/>
+    </g>
+    <path d="M384 200 H 448 M384 240 H 436 M384 280 H 448 M384 320 H 430" stroke="{INK}" stroke-width="10" stroke-linecap="round"/>
+  </g>
+</svg>"""
+
+
 ICONS = {
     "checkit_camera": checkit_camera_svg,
     "testo": testo_svg,
@@ -204,6 +246,8 @@ ICONS = {
     "record_player": record_player_svg,
     "tape_player": tape_player_svg,
     "cd_player": cd_player_svg,
+    "broken_record_player": broken_record_player_svg,
+    "repair_coupon": repair_coupon_svg,
 }
 
 

@@ -85,7 +85,9 @@ your code" still opens the QR scanner without any item).
 | scorpion_amulet | physical | wearable | neck | – | `2_catpope_beetles` | variant purple |
 | awakening_vinyl | physical | media | – | – (album `awakening`, format `vinyl`) | `3_catpope_vinyl` | LE 12" |
 | awakening_test_press | physical | media | – | – (album `awakening`, format `vinyl`) | (no edition yet) | variants 1_of_2, 2_of_2 |
-| record_player | virtual | tool | – | – (`plays: ["vinyl"]`) | – | grantable story: chapter 2's last slice (the end of what season 1 has) |
+| record_player | virtual | tool | – | – (`plays: ["vinyl"]`) | – | from the recipe `record_player_repair` (`grantable: []`) |
+| broken_record_player | virtual | tool | – | – (plays nothing) | – | grantable story: chapter 2's first scene; recipe input |
+| repair_coupon | virtual | collectible | – | – | – | grantable story: chapter 2's last slice; recipe input (spent) |
 | tape_player | virtual | tool | – | – (`plays: ["tape"]`) | – | not obtainable yet (`grantable: []`) |
 | cd_player | virtual | tool | – | – (`plays: ["cd"]`) | – | not obtainable yet (`grantable: []`) |
 | kangaroo_cat_hoodie | physical | wearable | torso | – | (no edition yet) | "Love For Women" |
@@ -1148,13 +1150,11 @@ listen, download; validation `validateAlbums` (inside `validateCatalog`) + `chec
 - **Record player (item detail)**: "Platten für diesen Spieler" – per album the carrier's icon, the album title, "In
   deinem Inventar" or the carrier's name, then "Abspielen" (may listen) or "Kaufen" (the carrier's shop product link,
   Bandcamp; "Ausverkauft" when sold out; the shop when it has no product).
-- **Getting the record player** (owner 2026-10-02: "at the very end of season 1"): a story pickup on the **last slice of
-  chapter 2** (`s1c2-slice-22`, group `scene-20`) – the last slice season 1 has today (chapters 3–5 have no slices yet):
-  three slice events with `trigger: { type: intersect, once: true }`: the message "Ein Plattenspieler – für dich! …" and
-  one choice "Mitnehmen" / "Take it" (`add record_player 1` → the VN item bridge grants it, source story, once per place;
-  guests keep it locally and import it at sign-in). Only one choice on purpose: separate intersect observers fire in no
-  fixed order, a second "Liegen lassen" choice came out first. **Move the events to chapter 5's last slice when it
-  exists.**
+- **Getting the record player** – repaired, not found (owner 2026-10-02, replaces the direct grant built earlier that
+  day): "We have a BROKEN record player which we find in chapter 2 in the first scene. You find a Reparatur-Gutschein –
+  a repair coupon issued by the city of Vienna – and this allows you to fix your record player at the end of chapter 2
+  (for now; later at the end of season 1). It's a recipe of two things that creates a record player. The broken one is
+  consumed." See "Record player repair" below.
 - **Toon page** (the season section, owner: "season landing page" = `/<toon>`): "Zur Staffel" / "With this season"
   below the music button (phone/tablet: after the chapter list; desktop: in the season column) – per related item the
   icon, the name, the price + "Kaufen" (physical items with a product, the product's Bandcamp link like the landing
@@ -1173,7 +1173,7 @@ Meta (under Featuring): chips with the item icon + name (UI language; the id in 
 **Admin**: Catalog → Items: `format · album` and `plays <format>` badges; an "Albums" table (tracks, carriers, download,
 access download / listen).
 
-**Seed / migration**: items.json (25 items: + 3 players, the album, the vinyl / test press relation); catpope
+**Seed / migration**: items.json (25 items, 27 with the repair: + 3 players, the album, the vinyl / test press relation); catpope
 `season1.json` de + en `related_items: ["awakening_vinyl"]`; catpope `chapter2.json` de + en: the pickup events on the
 last slice. `content-seed.mysql.sql`: only the 4 changed statements (`season:catpope:1:{de,en}`,
 `chapter:catpope:2:{de,en}`), old timestamps kept. Local store: `import-content … --toon=catpope --only=season,chapter
@@ -1187,8 +1187,61 @@ browser (test user): the chapter 2 pickup grants the record player, the player l
 "Abspielen" plays the track, without the player the note + download, the toon page block (390 / 1440), the download
 page; creator: the season section and the chapter field (add / remove).
 
-**Open owner decisions**: how the tape / CD player are obtained (`grantable: []`); the record player's place once
-chapter 5 exists; whether the test press joins the related items later; the track list of Awakening (one track today:
+**Open owner decisions**: how the tape / CD player are obtained (`grantable: []`); the repair coupon's place once
+chapter 5 exists (see "Record player repair"); whether the test press joins the related items later; the track list of Awakening (one track today:
 "Instrumental (Brass Morton)", title a placeholder) and its `duration`s; whether the music button + record cut-out
 on the toon page should fold into the vinyl's related entry (kept separate now: the download is free for members, the
 related entry sells the vinyl); a viewer display for chapter related items.
+
+### Record player repair (2026-10-02, owner — built 2026-10-02 on branch `platform`)
+
+Owner-approved exception to the packs rule for the 2026-10-03/04 release: it replaces the already-built chapter-2 pickup
+of the record player and is data only on existing fundamentals (two catalog items, one recipe, story grants in the seed,
+two placeholder icons) – no code change.
+
+**Open owner decisions** (answered with a default, the owner may change them):
+- **The coupon is consumed** – the owner said the broken player is consumed; a used coupon is spent, so the recipe
+  consumes both (every recipe input is consumed; keeping the coupon would need a new fundamental). It is "good for
+  one repair" in its description.
+- **Wording**: de "Ein alter Plattenspieler – kaputt. Mitnehmen?" / en "An old record player – broken. Take it?"
+  (first scene); de "Ein Reparatur-Gutschein der Stadt Wien – für dich! Kombiniere ihn mit deinem kaputten
+  Plattenspieler, dann wird er repariert." / en "A repair coupon from the city of Vienna – for you! Combine it with your
+  broken record player to get it repaired." (end); item names "Kaputter Plattenspieler" / "Broken record player",
+  "Reparatur-Gutschein" / "Repair coupon". The coupon is a game item: "from the city of Vienna" in the text, no real
+  logo, coat of arms or official claim (icon: a plain ticket with a wrench).
+- The coupon's place once chapter 5 exists (owner: "for now at the end of chapter 2; later at the end of season 1") –
+  move the events from `s1c2-slice-22` to chapter 5's last slice then.
+
+**Items** (`server/config/items.json`, both toon null like the record player, virtual, not stackable, giftable by
+default, `grantable: ["story"]`):
+- `broken_record_player` "Kaputter Plattenspieler" / "Broken record player" – category tool, no `plays` (plays
+  nothing), icon `scutoons/items/broken_record_player.png` (the record player with a cracked record and the tonearm
+  knocked off).
+- `repair_coupon` "Reparatur-Gutschein" / "Repair coupon" – category collectible, icon
+  `scutoons/items/repair_coupon.png` (a ticket with a wrench).
+- `record_player`: `grantable: []` now (only the recipe makes it), description: "… Du bekommst ihn, wenn du einen
+  kaputten Plattenspieler mit einem Reparatur-Gutschein reparieren lässt."
+
+**Recipe** `record_player_repair`: `broken_record_player ×1` + `repair_coupon ×1` → `record_player ×1`, both inputs
+consumed. Combining in the inventory (item → "Kombinieren" → the other one) as every recipe; a guest crafts locally and at
+sign-in the crafted record player is split back into its two story finds (`importGuest`), the account repairs again.
+
+**Story** (slice events, `trigger: { type: intersect, once: true }`, one choice only – intersect observers fire in no
+fixed order; the VN item bridge grants with source story and `ref` = the place, once per account; guests keep it
+locally and import it at sign-in):
+- **First scene of chapter 2** = the chapter's first group, the scene file `chapter2/scene-14.json`
+  (`scene:catpope:2:scene-14:{de,en}`), first slice `s1c2-slice-1`: "Ein alter Plattenspieler – kaputt. Mitnehmen?" +
+  "Mitnehmen" / "Take it" (`add broken_record_player 1`).
+- **End of chapter 2** = the last slice `s1c2-slice-22` (group `scene-20`): the record player pickup is replaced by the
+  coupon: "Ein Reparatur-Gutschein der Stadt Wien – für dich! …" + "Mitnehmen" (`add repair_coupon 1`).
+
+**Seed / migration**: `content-seed.mysql.sql`: only the 4 changed statements (`chapter:catpope:2:{de,en}`,
+`scene:catpope:2:scene-14:{de,en}`), old timestamps kept. Local store: `import-content ../shared/content/seed
+--toon=catpope --only=chapter,scene --update` (backup `server/db/local.sqlite.bak-2026-10-02-record-player-repair`).
+CDN: the two icons (`cdn/tools/make_substance_icons.py broken_record_player repair_coupon`, then `cdn/sync.py`).
+
+**Tests**: content `test/albums.test.ts` (the recipe: inputs, output, both story-grantable, not stackable, icons; the
+record player not grantable; chapter 2: the broken player on the first scene's first slice, the coupon on the last slice,
+no record player pickup, one choice each, validation); api-smoke (27 items; `record_player` story grant → 403
+`not_grantable`; grant both inputs → craft `record_player_repair` → record player 1, inputs 0; again → 422); admin-smoke
+(27 items).

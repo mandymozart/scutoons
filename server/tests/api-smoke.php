@@ -146,7 +146,7 @@ echo "Public\n";
 $r = call('GET', "$api/health/");
 check($r['status'] === 200 && $r['body']['db'] === 'ok', 'GET /health/', $r);
 $r = call('GET', "$api/items/");
-check($r['status'] === 200 && count($r['body']['items'] ?? []) === 25 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 25 items + recipes', $r['status']);
+check($r['status'] === 200 && count($r['body']['items'] ?? []) === 27 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 27 items + recipes', $r['status']);
 $byId = array_column($r['body']['items'] ?? [], null, 'id');
 check(($byId['awakening_vinyl']['album'] ?? null) === 'awakening' && ($byId['awakening_vinyl']['format'] ?? null) === 'vinyl'
     && ($byId['record_player']['plays'] ?? null) === ['vinyl'] && ($r['body']['albums'][0]['id'] ?? null) === 'awakening',
@@ -265,6 +265,17 @@ $r = call('POST', "$api/inventory/grant/", ['item_id' => 'cucumber', 'source' =>
 check($r['status'] === 200 && $r['body']['granted'] === 1, 'scan grant with cucumber camera → 1', $r);
 $r = call('POST', "$api/inventory/grant/", ['item_id' => 'cucumber', 'source' => 'scan'], $tokenA);
 check($r['status'] === 429 && $r['body']['error'] === 'cooldown', 'scan grant again at once → 429 cooldown', $r);
+// the record player is repaired, not found (owner 2026-10-02): broken record player + repair coupon, both consumed
+$r = call('POST', "$api/inventory/grant/", ['item_id' => 'record_player', 'source' => 'story', 'ref' => "smoke:$run:record-player"], $tokenA);
+check($r['status'] === 403 && $r['body']['error'] === 'not_grantable', 'grant record_player (story) → 403 not_grantable (it comes from the repair)', $r);
+call('POST', "$api/inventory/grant/", ['item_id' => 'broken_record_player', 'source' => 'story', 'ref' => "smoke:$run:broken-player"], $tokenA);
+call('POST', "$api/inventory/grant/", ['item_id' => 'repair_coupon', 'source' => 'story', 'ref' => "smoke:$run:repair-coupon"], $tokenA);
+$r = call('POST', "$api/inventory/craft/", ['recipe_id' => 'record_player_repair'], $tokenA);
+$inv = $r['body']['inventory'] ?? [];
+check($r['status'] === 200 && qty($inv, 'record_player') === 1 && qty($inv, 'broken_record_player') === 0 && qty($inv, 'repair_coupon') === 0,
+    'craft record_player_repair → record player, broken player + coupon consumed', $r);
+$r = call('POST', "$api/inventory/craft/", ['recipe_id' => 'record_player_repair'], $tokenA);
+check($r['status'] === 422 && $r['body']['error'] === 'missing_inputs', 'repair again → 422 missing_inputs', $r);
 
 // ── Substances (agents/ITEMS.md "Substances"): testo, the testo camera, a timed effect (user B) ─────────────
 echo "\nSubstances\n";

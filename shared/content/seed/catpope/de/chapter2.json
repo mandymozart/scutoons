@@ -87,7 +87,7 @@
 						{
 							"type": "showMessage",
 							"params": {
-								"text": "Ein Plattenspieler – für dich! Damit spielst du die Schallplatten in deinem Inventar ab."
+								"text": "Ein Reparatur-Gutschein der Stadt Wien – für dich! Kombiniere ihn mit deinem kaputten Plattenspieler, dann wird er repariert."
 							},
 							"trigger": {
 								"type": "intersect",
@@ -100,7 +100,7 @@
 								"label": "Mitnehmen",
 								"onSelect": {
 									"add": {
-										"variable": "record_player",
+										"variable": "repair_coupon",
 										"value": 1
 									}
 								}

@@ -8,7 +8,42 @@
     {
       "image": "images/webtoon/s1c2/s1c2-slice-1.webp",
       "width": 390,
-      "height": 625
+      "height": 625,
+      "events": [
+        {
+          "type": "showMessage",
+          "params": {
+            "text": "An old record player – broken. Take it?"
+          },
+          "trigger": {
+            "type": "intersect",
+            "once": true
+          }
+        },
+        {
+          "type": "addChoice",
+          "params": {
+            "label": "Take it",
+            "onSelect": {
+              "add": {
+                "variable": "broken_record_player",
+                "value": 1
+              }
+            }
+          },
+          "trigger": {
+            "type": "intersect",
+            "once": true
+          }
+        },
+        {
+          "type": "showChoices",
+          "trigger": {
+            "type": "intersect",
+            "once": true
+          }
+        }
+      ]
     },
     {
       "image": "images/webtoon/s1c2/s1c2-slice-2.webp",
