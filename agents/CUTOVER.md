@@ -336,7 +336,7 @@ into the new DB) or one of your own product codes.
 - [x] **6.6 O – creator.scutoons.com:** *(done 2026-10-02: sign-in, chapter 2 preview de/en. The preview does not play reader events, so the record player / coupon pickups are tested in the viewer once chapter 2 is released on 2026-10-04 – Phase 9.)* sign in → catpope → chapter 2 → preview de/en (broken record player on the first
   slice, the coupon on the last). **Do not publish yet** if 7.1 might rebuild the DB (edits would be lost).
 - [x] **6.7 O – shop.scutoons.com:** *(done 2026-10-02)* `/de/` and `/en/` list the products, Bandcamp links work.
-- [ ] **6.8 O – Ownership end to end (DB-T only):** on a test code: register it to account A, file a claim from
+- [ ] **6.8 O – Ownership end to end (DB-T only):** *(2026-10-02, owner's vinyl #127 `LyBWEkur`: register to A, claim from B (dispute sign-up), admin transfer + the old-owner mail work; open: gift B → A, transfer back to A)* on a test code: register it to account A, file a claim from
   account B (with a photo), admin → Claims → transfer → both mails in Emails log; gift an item A → B (`gift_received`).
 - Rollback: none needed (test hosts only).
 
@@ -446,6 +446,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   is also an admin recipient gets it in `ownership_claim_admin`; reword if the owner wants.
 - [ ] 10.15 Content source of truth is the DB now (owner 2026-10-02): local dev from `export-content` of production
   instead of the stale `shared/content/seed`; the seed becomes a starter set for empty databases (or goes).
+- [ ] 10.16 Mail Reply-To (owner 2026-10-02): the texts say "reply to this email" but mail comes from no-reply@ –
+  add a `MAIL_REPLY_TO` setting (Reply-To header in Infrastructure/Mail/Transport.php) = **hello@scutoons.com**.
+  Admin claim page: no raw data (owner).
 - [ ] 10.8 Public release.
 
 ---
