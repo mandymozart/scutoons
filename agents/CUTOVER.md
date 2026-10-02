@@ -185,7 +185,8 @@ which the new qr app proxies after the switch).
 > **WARNING:** the local dev key `server/storage/keys/keypair.json` is a DIFFERENT key (SHA-256 `11934cea…`) – never upload it
 > to production. After uploading, `/api/keys/keys.php` on api. must serve the same `publicKey` as the old qr site.
 
-- [ ] **2.3 O – Private data → `/web/api/storage/`** *(partly: `generate/files` copied; `keypair.json` still to upload)* (before the first api deploy): backup's `api/keys/keypair.json`
+- [ ] **2.3 O – Private data → `/web/api/storage/`** *(partly: `generate/files` copied; keypair extracted to the backup folder, SHA-256 409c1983… ✓; upload to
+`/web/api/storage/keys/` pending confirmation)* (before the first api deploy): backup's `api/keys/keypair.json`
   → `api/storage/keys/keypair.json`; backup's `generate/files/*` → `api/storage/files/` (same subfolders).
   Verify: file counts + sizes per subfolder = 0.2; keypair SHA-256 = 0.2. Rollback: delete the copies (old untouched).
 - [x] **2.4 O – New database DB-T.** *(done; `DB_HOST`/`DB_NAME` stored as secrets – fine, the workflow passes secrets and variables)* KAS → Databases → new database (MariaDB, utf8mb4). Name/user/password → GitHub
@@ -211,9 +212,9 @@ dev DB / the batch files only, not this import. Decide before: **D4** the duplic
 MEMORY "qr.scutoons.com backend") – **not blocking**: the import copies every code as it is; the backfill numbers only
 manifest codes. Decide before the public release which set was printed (revoke the other in the admin).
 
-- [ ] **3.1 O – Import the old data.** phpMyAdmin → DB-T → *Import* → the 0.1 file (`.sql.gz` is fine). Verify:
+- [x] **3.1 O – Import the old data.** *(done 2026-10-02)* phpMyAdmin → DB-T → *Import* → the 0.1 file (`.sql.gz` is fine). Verify:
   `SELECT COUNT(*) FROM qr;` = 0.1's number.
-- [ ] **3.2 O – Migrations, in this order** (`server/migrations/mysql/`, *Import* tab per file; all idempotent):
+- [x] **3.2 O – Migrations, in this order** *(done 2026-10-02: all 16; 3 triggers present)* (`server/migrations/mysql/`, *Import* tab per file; all idempotent):
   1. `2026-09-29-accounts-inventory.mysql.sql`
   2. `2026-09-30-code-owner-guard.mysql.sql` – **SQL tab, not Import:** paste the 3 `CREATE TRIGGER` lines, set the
      *Delimiter* field to `$$`, and replace the trailing `;` of each line with `$$`
@@ -231,6 +232,8 @@ manifest codes. Decide before the public release which set was printed (revoke t
   14. `2026-10-02-mail-log.mysql.sql`
   15. `2026-10-02-ownership.mysql.sql` (after code-owner-guard)
   16. `2026-10-02-ownership-signup.mysql.sql`
+  Hint: if phpMyAdmin's *Import* answers "Incorrect format parameter" (seen on content-versions), paste the file into
+  the *SQL* tab with delimiter `;` instead.
   Not to run: `migrations/mysql/legacy/*` (already in the old data), `schema/qr.mysql.sql`, the assets branch's
   `2026-10-02-assets` (post-beta).
 - [ ] **3.3 O – Content seed:** *Import* `shared/content/seed/content-seed.mysql.sql` (48 entities: catpope chapters
@@ -449,3 +452,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6 done; 2.3 partly (keypair pending); T1 done (6fcb82c). Next: keypair → 2.3 verify, then 3.1/3.2 on DB-T.
 - 2026-10-02 — keypair reference SHA-256 409c1983…7bbe recorded (dev key 11934cea… must never go to production); batch manifests for 3.4 are in the same ZIP (`qr.scutoons.com/generate/files/batch/`).
 - 2026-10-02 — 3.4 SQL generated (300 statements, vinyl batch only) → cdn/logs/edition-numbers-2026-10-02.sql.
+- 2026-10-02 — 3.1 + 3.2 done (16 migrations, 3 triggers). Next: 3.4 import + check 469 / 300 numbered / 381 signed / 35 registered; 2.3 keypair upload pending.
