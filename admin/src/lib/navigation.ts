@@ -1,6 +1,7 @@
 // Navigation as data (admin UI pattern from akin): groups → items { title, description, href, icon }. The shell and
 // the command palette both render from this list; titles/descriptions are paraglide messages (functions).
 import { m } from '$lib/paraglide/messages.js';
+import { openClaims } from '$lib/claims.svelte.ts';
 
 export interface NavItem {
 	id: string;
@@ -11,6 +12,8 @@ export interface NavItem {
 	icon: string;
 	/** extra words for the command palette */
 	keywords?: string;
+	/** a count shown as a badge beside the title (e.g. open claims); null / 0 = none */
+	count?: () => number | null;
 }
 
 export interface NavGroup {
@@ -33,7 +36,16 @@ export const navigation: NavGroup[] = [
 		items: [
 			{ id: 'codes', title: () => m['nav.codes'](), description: () => m['nav.codes_hint'](), href: '/codes', icon: 'hash', keywords: 'qr revoke csv' },
 			{ id: 'generate', title: () => m['nav.generate'](), description: () => m['nav.generate_hint'](), href: '/codes/new', icon: 'plus-square', keywords: 'new code certificate' },
-			{ id: 'batches', title: () => m['nav.batches'](), description: () => m['nav.batches_hint'](), href: '/batches', icon: 'layers', keywords: 'zip print sheet edition' }
+			{ id: 'batches', title: () => m['nav.batches'](), description: () => m['nav.batches_hint'](), href: '/batches', icon: 'layers', keywords: 'zip print sheet edition' },
+			{
+				id: 'claims',
+				title: () => m['nav.claims'](),
+				description: () => m['nav.claims_hint'](),
+				href: '/claims',
+				icon: 'flag',
+				keywords: 'claim ownership dispute transfer stolen anspruch besitz',
+				count: () => openClaims.count
+			}
 		]
 	},
 	{

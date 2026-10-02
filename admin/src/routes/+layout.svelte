@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import {
 		AppShell,
+		Badge,
 		CommandPalette,
 		Icon,
 		PaletteTrigger,
@@ -21,6 +22,7 @@
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
+	import { openClaims } from '$lib/claims.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
@@ -44,6 +46,11 @@
 	onMount(() => installTooltips());
 
 	afterNavigate(() => (menuOpen = false));
+
+	// the open-claims badge in the sidebar: once the admin is signed in (the claims pages update it after a decision)
+	$effect(() => {
+		if (session.user && session.hasRole('admin')) void openClaims.refresh();
+	});
 
 	// role gate (AuthGate): `admin` – the server checks it again on every /admin call
 	const current = $derived(activeItem(page.url.pathname));
@@ -135,7 +142,7 @@
 								<li>
 									<a href={item.href} aria-current={current?.id === item.id ? 'page' : undefined}>
 										<span class="icon"><Icon name={item.icon} /></span>
-										<span class="title">{item.title()}</span>
+										<span class="title">{item.title()}{#if item.count?.()}{' '}<Badge tone="warning">{item.count?.()}</Badge>{/if}</span>
 										<span class="description">{item.description()}</span>
 									</a>
 								</li>

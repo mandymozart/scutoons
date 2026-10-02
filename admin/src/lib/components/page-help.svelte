@@ -13,7 +13,9 @@
 		| 'catalog'
 		| 'settings'
 		| 'homepage'
-		| 'emails';
+		| 'emails'
+		| 'claims'
+		| 'claim';
 </script>
 
 <script lang="ts">
@@ -54,6 +56,10 @@
 			<dd>{m['codes.section_status_hint']()}</dd>
 			<dt>{m['codes.section_activity']()}</dt>
 			<dd>{m['codes.section_activity_hint']()}</dd>
+			<dt>{m['claims.section_history']()}</dt>
+			<dd>{m['claims.code_history_hint']()}</dd>
+			<dt>{m['claims.section_transfer_code']()}</dt>
+			<dd>{m['claims.help_transfer_code']()}</dd>
 			<dt>{m['codes.section_certificate']()}</dt>
 			<dd>{m['codes.section_certificate_hint']()}</dd>
 			<dt>{m['codes.section_raw']()}</dt>
@@ -114,5 +120,33 @@
 	{:else if page === 'emails'}
 		<p>{m['help.emails']()}</p>
 		{@render lists()}
+	{:else if page === 'claims'}
+		<p>{m['claims.help_list']()}</p>
+		<h3>{m['help.terms_title']()}</h3>
+		<dl>
+			<dt>{m['claims.status_open']()}</dt>
+			<dd>{m['claims.help_status_open']()}</dd>
+			<dt>{m['claims.status_transferred']()}</dt>
+			<dd>{m['claims.help_status_transferred']()}</dd>
+			<dt>{m['claims.status_rejected']()}</dt>
+			<dd>{m['claims.help_status_rejected']()}</dd>
+			<dt>{m['claims.status_withdrawn']()}</dt>
+			<dd>{m['claims.help_status_withdrawn']()}</dd>
+		</dl>
+		{@render lists()}
+	{:else if page === 'claim'}
+		<p>{m['claims.help_detail']()}</p>
+		<h3>{m['claims.help_decide_title']()}</h3>
+		<ol>
+			<li>{m['claims.help_decide_1']()}</li>
+			<li>{m['claims.help_decide_2']()}</li>
+			<li>{m['claims.help_decide_3']()}</li>
+		</ol>
+		<dl>
+			<dt>{m['claims.transfer']()}</dt>
+			<dd>{m['claims.help_transfer']()}</dd>
+			<dt>{m['claims.reject']()}</dt>
+			<dd>{m['claims.help_reject']()}</dd>
+		</dl>
 	{/if}
 </div>
