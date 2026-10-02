@@ -91,7 +91,7 @@
 				{#if kind === 'list'}
 					<ListField {value} onchange={(list) => write(l, list)} testid="{id}-{l}" />
 				{:else if kind === 'image'}
-					<ImagePicker {toon} label="{label}{perLocale ? ` · ${l}` : ''}" value={typeof value === 'string' ? value : undefined} {known} onchange={(v) => write(l, v || (required ? '' : undefined))} />
+					<ImagePicker {toon} label="{label}{perLocale ? ` · ${l}` : ''}" hideLabel value={typeof value === 'string' ? value : undefined} {known} onchange={(v) => write(l, v || (required ? '' : undefined))} />
 				{:else if kind === 'select'}
 					<select value={show(value)} onchange={(e) => write(l, parse(e.currentTarget.value))} data-testid="{id}-{l}">
 						{#if !required}<option value="">–</option>{/if}
