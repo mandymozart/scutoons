@@ -430,6 +430,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   workflow). The main user stays, used only by hand.
 - [ ] 10.10 Local MariaDB in Docker instead of SQLite for dev + tests (owner 2026-10-02, after the admin dashboard 500 on
   DB-T that SQLite never showed): same server version as all-inkl, the mysql migrations, CI runs the suite on it too.
+- [ ] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
+  500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
+  messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
 - [ ] 10.8 Public release.
 
 ---
