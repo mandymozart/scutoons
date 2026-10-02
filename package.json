@@ -40,6 +40,8 @@
 		"check:testo": "node scripts/check-testo.mjs",
 		"check:stores": "node scripts/check-stores.mjs",
 		"build": "npm run build --workspaces --if-present",
-		"deploy:dry-run": "node deploy/deploy.mjs all --dry-run --list=summary"
+		"deploy:dry-run": "node deploy/deploy.mjs all --dry-run --list=summary",
+		"deploy:status": "node deploy/status.mjs",
+		"deploy:changed": "node deploy/changed.mjs"
 	}
 }

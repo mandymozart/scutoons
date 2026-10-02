@@ -1,24 +1,17 @@
-# Deploys the viewer (scutoons.com) on every push to main that touches it. Target (host path, build, include/exclude):
-# deploy/targets.json → "viewer"; the steps: .github/workflows/deploy-app.yml; docs: deploy/README.md.
+# Manual deploy of the viewer (scutoons.com) only – Actions → this workflow → Run workflow. Pushes to main are deployed by
+# deploy.yml (one run, one FTP upload at a time); this button waits for a running deploy (same concurrency group).
+# Target: deploy/targets.json → "viewer"; the steps: .github/workflows/deploy-app.yml; docs: deploy/README.md.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'viewer/**'
-      - 'shared/**'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.npmrc'
-      - 'deploy/**'
-      - '.github/workflows/deploy-app.yml'
-      - '.github/workflows/viewer.yml'
   workflow_dispatch:
     inputs:
       dry-run:
         description: Build and list only, no upload
         type: boolean
         default: false
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 name: 🚀 Deploy viewer (scutoons.com)
 

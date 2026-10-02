@@ -24,7 +24,9 @@ the root [`.env.example`](../.env.example).
 
 | Key | Meaning |
 |---|---|
-| `order` | deploy order of `deploy-all` (api → qr → frontends) |
+| `order` | deploy order (api → qr → frontends); only these are deployed automatically |
+| `targets.<app>.status` | URL answering with the live `git_sha` (version.json / API health) – `deploy/changed.mjs`, `npm run deploy:status` |
+| `watch` | paths whose change needs a redeploy of the target (`dir/**` or a file) |
 | `protocols.<p>.credentials` | environment variable names of the host credentials (`ftp`: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`) |
 | `targets.<app>.source` | the app folder in the repo |
 | `setup` | what CI installs first: `npm` (npm ci), `php` (PHP 8.3 + Composer) |
@@ -64,11 +66,24 @@ node deploy/deploy.mjs api --dry-run            # every file of one app
 
 | Workflow | Runs on | Does |
 |---|---|---|
-| `deploy-app.yml` | called by the others | the steps for one target: Node, `--setup`, npm ci / PHP, `deploy.mjs --github`, upload, reminder |
-| `viewer.yml`, `shop.yml`, `creator.yml`, `admin.yml` | push to `main` touching the app, `shared/**`, the lockfile or `deploy/**`; manual (with dry run) | deploy that app |
-| `qr.yml` | push/PR touching `qr/**` (checks: `php -l`, offline smoke test); deploy from `main` | deploy qr |
-| `server.yml` | push/PR touching `server/**` (PHPUnit + PHPStan); deploy from `main` | deploy api |
-| `deploy-all.yml` | manual (optional dry run) or a tag `deploy-*` | lists the DB migrations (run summary + warning), then api → qr → frontends |
+| `deploy.yml` | push to `main`, a tag `deploy-*` (= all), manual (apps `changed` / `all` / `viewer,admin`; dry run) | **the** deploy: plan → API / qr tests if needed → the targets one at a time in `order` |
+| `deploy-app.yml` | called by the others | the steps for one target: Node, `--setup`, npm ci / PHP, `deploy.mjs --github`, upload (one retry after 60 s), reminder |
+| `viewer.yml`, `shop.yml`, `creator.yml`, `admin.yml`, `embassy.yml` | manual only (with dry run) | deploy that one app |
+| `deploy-all.yml` | manual (optional dry run) | lists the DB migrations, then api → qr → frontends one at a time (the cutover runbook's button) |
+| `qr.yml` | push to `platform` / PR touching `qr/**`; called by `deploy.yml` | checks: `php -l`, offline smoke test |
+| `server.yml` | push to `platform` / PR touching `server/**`; called by `deploy.yml` | PHPUnit + PHPStan |
+
+**One upload at a time.** all-inkl drops parallel FTP connections (ECONNRESET, 2026-10-02), so every deploying workflow
+shares the concurrency group `production-deploy` and `deploy.yml` runs its targets with `max-parallel: 1`. A run waiting
+in the group replaces an older waiting one – nothing is lost, because:
+
+**What gets deployed is decided by what is live**, not by the push: `deploy/changed.mjs` reads each target's live
+`git_sha` (`status` URL) and deploys it when files under its `watch` paths changed since that commit (or the commit is
+unknown). A failed, cancelled or skipped deploy is therefore picked up by the next run – or by a manual run of
+`deploy.yml` with apps `changed`.
+
+**What is live:** `npm run deploy:status` – every target's live commit next to `origin/main` (exit code 1 if one is
+behind or unreachable). `npm run deploy:changed` prints what the next run would deploy.
 
 All deploy jobs use the GitHub environment **`production`**. Secrets and variables reach `deploy.mjs` as JSON
 (`toJSON(secrets)`, `toJSON(vars)`), so a new value needs only `targets.json` + the environment, not a workflow edit.

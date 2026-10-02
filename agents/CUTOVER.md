@@ -284,12 +284,16 @@ secrets in `production` (step 10.1b – needed from the first deploy, since the 
   apps (environment `production`) – into `/web/` because of 2.1.
 - [ ] **5.3 O – GitHub → Actions → "Deploy all" → Run workflow with dry run** → read the plan, then **without dry run**
   (order api → qr → frontends). Every run prints the migrations reminder – already done in Phase 3.
-- [ ] **5.4 A – Verify** (PHP note: KAS runs PHP 8.5, CI builds/tests on 8.3 – if `/api/health/` or qr show errors or
+- [x] **5.4 A – Verify** *(done 2026-10-02: all six on `88e4d88`, `npm run deploy:status`)* (PHP note: KAS runs PHP 8.5, CI builds/tests on 8.3 – if `/api/health/` or qr show errors or
   deprecation output, set the subdomains to PHP 8.3 in KAS): `https://api.scutoons.com/api/health/` → `status ok`, `db ok`, `version 1.0.0`, `git_sha` =
   main's head; `https://{admin,shop,creator,next}.scutoons.com/version.json`, `https://qr-next.scutoons.com/version.json`.
 - [x] **5.5 – n/a (owner 2026-10-02: no legacy `generate/` on the new platform).** The old generate UI is excluded from the api deploy (`public/generate/**`); the verify page's `generate/get-signature.php` + signature-file routes are API routes and keep working. Former text: upload the backup's `generate/.htpasswd` to
   `/web/api/public/generate/.htpasswd`, set `AuthUserFile` in `/web/api/public/generate/.htaccess` to its absolute
   path (KAS shows `/www/htdocs/<account>/web/api/public/generate/.htpasswd`).
+- [x] **5.6 – One deploy pipeline** *(2026-10-02, after the ECONNRESET failures of parallel uploads)*: pushes to `main` run
+  only `deploy.yml` – it deploys the targets whose live `git_sha` is behind (per `watch` paths), one at a time, with one
+  FTP retry; per-app workflows and "Deploy all" are manual buttons in the same queue. Check with `npm run deploy:status`
+  (deploy/README.md "Workflows").
 - Rollback: Actions → the app's workflow on an earlier commit; nothing public points here yet.
 
 ---
@@ -365,7 +369,9 @@ or is **published** now (everyone on scutoons.com sees it a week before the publ
 - [ ] **8.3 O – scutoons.com + www.scutoons.com → `/web/viewer/dist/`** (SSL both). Repeat 6.5 on the real domain;
   scan a sticker with a phone end to end (qr → Continue → viewer → Add to my account). **Rollback: both targets back
   to the old viewer folder.**
-- [ ] **8.4 A – After-switch checks:** `/version.json` on every host, the printed-URL list of PLATFORM.md "RULE: printed
+- [ ] **8.4 A – After-switch checks:** first set `status` in `deploy/targets.json` to the real hosts (qr →
+  `https://qr.scutoons.com/version.json`, viewer → `https://scutoons.com/version.json`) so `deploy.yml` and
+  `npm run deploy:status` read the live commits there; `/version.json` on every host, the printed-URL list of PLATFORM.md "RULE: printed
   / public URLs" (status + target), `entities-compare --report` against the api.
 - [ ] **8.5 O – Late-delta check** (old DB, 30 min after 8.2 and again the next day):
   `SELECT code, email, claimed_at FROM qr WHERE claimed_at > '<T0>' OR created_at > '<T0>';` → expected empty (the

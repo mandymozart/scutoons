@@ -1,6 +1,8 @@
 # Reusable: deploys ONE app as described in deploy/targets.json (the single source of truth for targets – host path,
-# protocol, build, include/exclude; docs deploy/README.md). Called by viewer.yml, shop.yml, creator.yml, admin.yml, embassy.yml,
-# qr.yml, server.yml and deploy-all.yml – no target is written into any workflow.
+# protocol, build, include/exclude; docs deploy/README.md). Called by deploy.yml (pushes to main, one target at a time) and the
+# manual buttons viewer.yml, shop.yml, creator.yml, admin.yml, embassy.yml, deploy-all.yml – no target is written into any
+# workflow. All callers share the concurrency group `production-deploy`: only one FTP upload at a time (all-inkl drops
+# parallel connections, ECONNRESET – owner 2026-10-02).
 # Secrets and variables: GitHub environment `production` (list: .env.example). They reach deploy/deploy.mjs as JSON,
 # so adding a value to a target is a change in targets.json + the environment, not here.
 # To move an app to another host (bunny.net, Cloudflare): change its protocol in targets.json and add an upload step
@@ -61,7 +63,27 @@ jobs:
         run: node deploy/deploy.mjs "${{ inputs.app }}" --github --list=summary ${{ inputs.dry-run && '--dry-run' || '' }}
 
       - name: 📂 Upload via FTP
+        id: ftp
         if: steps.plan.outputs.protocol == 'ftp' && !inputs.dry-run
+        continue-on-error: true
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.6
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ${{ steps.plan.outputs.local_dir }}
+          server-dir: ${{ steps.plan.outputs.server_dir }}
+          exclude: ${{ steps.plan.outputs.exclude }}
+          log-level: standard
+
+      # all-inkl now and then resets a data connection; one more go after a minute (the action's sync state on the server
+      # means only what is still missing is uploaded)
+      - name: ⏳ Upload failed – wait 60 s
+        if: steps.ftp.outcome == 'failure'
+        run: echo "::warning title=${{ inputs.app }}::FTP upload failed, retrying in 60 s" && sleep 60
+
+      - name: 📂 Upload via FTP (retry)
+        if: steps.ftp.outcome == 'failure'
         uses: SamKirkland/FTP-Deploy-Action@v4.3.6
         with:
           server: ${{ secrets.FTP_SERVER }}

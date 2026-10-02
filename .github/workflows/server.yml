@@ -1,29 +1,21 @@
-# The API (server/ → api.scutoons.com, document root api/public/). qr.scutoons.com is the qr app (qr.yml).
-# Tests on every push / pull request that touches the server; deploys only from main.
-# Target: deploy/targets.json → "api"; the steps: .github/workflows/deploy-app.yml; docs: deploy/README.md,
-# server/docs/DEPLOY.md.
+# The API (server/ → api.scutoons.com, document root api/public/): unit tests + PHPStan. qr.scutoons.com is the qr app (qr.yml).
+# Runs on pushes to platform and pull requests that touch the server, and as the test step of the deploy
+# (deploy.yml calls it before the API goes out – deploying is deploy.yml's job).
+# Target: deploy/targets.json → "api"; docs: deploy/README.md, server/docs/DEPLOY.md.
 on:
   push:
     branches:
-      - main
       - platform
     paths:
       - 'server/**'
-      - 'deploy/**'
-      - '.github/workflows/deploy-app.yml'
       - '.github/workflows/server.yml'
   pull_request:
     paths:
       - 'server/**'
       - '.github/workflows/server.yml'
-  workflow_dispatch:
-    inputs:
-      dry-run:
-        description: Build and list only, no upload
-        type: boolean
-        default: false
+  workflow_call:
 
-name: 🚀 API (api.scutoons.com)
+name: 🧪 API (api.scutoons.com)
 
 env:
   SERVER_DIR: server
@@ -56,15 +48,3 @@ jobs:
 
       - name: 🔍 PHPStan
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
-
-  # Deploys to api/ on the host (deploy/targets.json → "api": composer install --no-dev in a staging copy, generated
-  # config.php from the production environment; api/storage/, db/, logs/ are never uploaded nor deleted).
-  # DB migrations are not run by the deploy – see the warning in the run and server/docs/DATABASE.md.
-  deploy:
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    uses: ./.github/workflows/deploy-app.yml
-    with:
-      app: api
-      dry-run: ${{ inputs.dry-run == true }}
-    secrets: inherit

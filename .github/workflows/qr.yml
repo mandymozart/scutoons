@@ -1,32 +1,24 @@
 # The qr app (qr.scutoons.com: QR landing page, verify page, proxies to the API; plain PHP, qr/).
-# Checks on every push / pull request that touches it; deploys only from main. Target: deploy/targets.json → "qr";
+# Checks on pushes to platform / pull requests that touch it, and as the test step of the deploy (deploy.yml). Target: deploy/targets.json → "qr";
 # the steps: .github/workflows/deploy-app.yml; docs: qr/README.md, deploy/README.md.
 # The printed-URL suite (qr/tests/public-urls.php) needs a database with codes – it runs locally with `composer test`
 # in server/ (agents/PLATFORM.md "RULE: printed / public URLs never change").
 on:
   push:
     branches:
-      - main
       - platform
     paths:
       - 'qr/**'
       - 'shared/tokens/**'
-      - 'deploy/**'
-      - '.github/workflows/deploy-app.yml'
       - '.github/workflows/qr.yml'
   pull_request:
     paths:
       - 'qr/**'
       - 'shared/tokens/**'
       - '.github/workflows/qr.yml'
-  workflow_dispatch:
-    inputs:
-      dry-run:
-        description: Build and list only, no upload
-        type: boolean
-        default: false
+  workflow_call:
 
-name: 🚀 qr app (qr.scutoons.com)
+name: 🧪 qr app (qr.scutoons.com)
 
 jobs:
   test:
@@ -69,12 +61,3 @@ jobs:
           check '/?c=not%20a%20code' 404
           check '/api/validate/?c=abcDEF12' 502
           check '/?login=token' 302
-
-  deploy:
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    uses: ./.github/workflows/deploy-app.yml
-    with:
-      app: qr
-      dry-run: ${{ inputs.dry-run == true }}
-    secrets: inherit

@@ -1,0 +1,94 @@
+# THE deploy (owner 2026-10-02: one run, one FTP connection at a time – parallel uploads from several workflows made
+# all-inkl drop connections, ECONNRESET). Every push to main runs it:
+#   1. plan   – deploy/changed.mjs asks every target what commit it is serving (status URL in deploy/targets.json) and
+#               picks the ones with changes under their `watch` paths since then. Compared with what is LIVE, so a
+#               failed or skipped run is simply caught by the next one.
+#   2. tests  – API (server.yml) and qr (qr.yml) checks, when those are in the plan
+#   3. deploy – the picked targets strictly one after another in deploy order (api → qr → viewer → shop → creator → admin),
+#               steps in deploy-app.yml (with one FTP retry).
+# By hand: Actions → "Deploy" → Run workflow: apps = changed (default) | all | a list like "viewer,admin"; optional dry run.
+# A tag `deploy-*` deploys all. Check what is live: `npm run deploy:status`. Docs: deploy/README.md.
+# DB migrations are NOT run – the plan lists the migration files when the API goes out; run new ones in phpMyAdmin first.
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'deploy-*'
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: 'changed | all | comma-separated targets (api, qr, viewer, shop, creator, admin, embassy)'
+        type: string
+        default: changed
+      dry-run:
+        description: Build and list only, no upload
+        type: boolean
+        default: false
+
+name: 🚀 Deploy
+
+# One deploy at a time. A newer run waiting here replaces an older waiting one – fine, it deploys everything not live yet.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: 🗺️ What is not live yet
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      apps: ${{ steps.changed.outputs.apps }}
+    steps:
+      - name: 🚚 Get the code (full history, to diff against the live commits)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 🔎 Compare live commits with this one
+        id: changed
+        run: node deploy/changed.mjs --github --apps "${{ startsWith(github.ref, 'refs/tags/deploy-') && 'all' || inputs.apps || 'changed' }}"
+
+      - name: ⚠️ DB migrations
+        if: contains(fromJSON(steps.changed.outputs.apps), 'api')
+        run: |
+          {
+            echo "### Database migrations"
+            echo "The deploy does **not** run migrations. Compare these files with the \`schema_migrations\` table"
+            echo "(phpMyAdmin) and run every missing one **before** the API goes live – server/docs/DATABASE.md."
+            echo
+            ls -1 server/migrations/mysql/*.sql | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "::warning title=DB migrations::The API is deployed; pending DB migrations are not run – check the run summary"
+
+  test-api:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.apps), 'api')
+    uses: ./.github/workflows/server.yml
+
+  test-qr:
+    needs: plan
+    if: contains(fromJSON(needs.plan.outputs.apps), 'qr')
+    uses: ./.github/workflows/qr.yml
+
+  deploy:
+    needs: [plan, test-api, test-qr]
+    # tests that were not needed are skipped; a failed test stops the whole deploy
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.apps != '[]' && needs.test-api.result != 'failure' && needs.test-qr.result != 'failure' }}
+    strategy:
+      # one target at a time, in deploy order; a failing target does not stop the next (the next run retries it)
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        app: ${{ fromJSON(needs.plan.outputs.apps) }}
+    uses: ./.github/workflows/deploy-app.yml
+    with:
+      app: ${{ matrix.app }}
+      dry-run: ${{ inputs.dry-run == true }}
+    secrets: inherit

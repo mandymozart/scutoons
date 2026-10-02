@@ -1,7 +1,7 @@
 # Deploys EVERY app in order: api → qr → the frontends (viewer, shop, creator, admin; embassy once it is in `order`), each as described in
 # deploy/targets.json (steps: .github/workflows/deploy-app.yml; docs: deploy/README.md).
-# Run it by hand (Actions → "Deploy all" → Run workflow; optionally as a dry run) or push a tag `deploy-*`
-# (e.g. deploy-2026-10-04). Use it for the cutover and whenever the apps must go out together (API contract change).
+# Run it by hand (Actions → "Deploy all" → Run workflow; optionally as a dry run). The same as deploy.yml with apps = all
+# (which a tag `deploy-*` triggers); kept for the cutover runbook. One target at a time (all-inkl FTP, owner 2026-10-02).
 # DB migrations are NOT run – the first job lists the migration files; run new ones in phpMyAdmin BEFORE the deploy.
 on:
   workflow_dispatch:
@@ -10,9 +10,10 @@ on:
         description: Build and list only, no upload
         type: boolean
         default: false
-  push:
-    tags:
-      - 'deploy-*'
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
 
 name: 🚀 Deploy all (api → qr → frontends)
 
@@ -59,7 +60,7 @@ jobs:
     needs: [migrations, qr]
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 1
       matrix:
         app: ${{ fromJSON(needs.migrations.outputs.frontends) }}
     uses: ./.github/workflows/deploy-app.yml
