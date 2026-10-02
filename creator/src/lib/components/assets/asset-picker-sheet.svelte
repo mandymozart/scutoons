@@ -232,7 +232,7 @@
 				<option value="">{m['creator.assets_all_kinds']()}</option>
 				{#each ASSET_KINDS as k (k)}<option value={k}>{m[`creator.assets_kind_${k}`]()}</option>{/each}
 			</select>
-			<label class="check"><input type="checkbox" bind:checked={unusedOnly} onchange={() => load(1)} /> {m['creator.assets_unused_only']()}</label>
+			<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {m['creator.assets_unused_only']()}</label>
 		</div>
 
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
