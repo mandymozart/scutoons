@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ActionBar, ToonAvatar } from '@scutoons/ui';
+	import { ActionBar, Badge, ToonAvatar } from '@scutoons/ui';
+	import { statusWord } from '$lib/components/status-badges.svelte';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { library } from '$lib/api.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
@@ -36,18 +37,16 @@
 						<a href="/{toon.id}" data-testid="toon-{toon.id}">
 							<ToonAvatar src={toon.avatar ? asset(`${toon.id}/${toon.avatar}`) : null} name={name(toon)} size="4rem" />
 							<span>{name(toon)}</span>
-							<span class="meta">{toon.id} · {toon.status}</span>
+							<!-- owner 2026-10-02: no id, the state as a filled label -->
+							<span class="meta"><Badge tone={toon.status === 'published' ? 'published' : toon.status === 'coming-soon' ? 'soon' : 'draft'}>{statusWord(toon.status)}</Badge></span>
 						</a>
 					</li>
 				{/each}
 			</ul>
 		</section>
 	</main>
-	<!-- Bottom action bar: toon count · open the reader (sign out: the search palette, owner 2026-10-02) -->
+	<!-- Bottom action bar: open the reader (no toon count, owner 2026-10-02; sign out: the search palette) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
-		{#snippet start()}
-			<span class="hint">{m['creator.toons']()}: {toons.length}</span>
-		{/snippet}
 		{#snippet end()}
 			<a class="btn" href={VIEWER_URL}>{m['creator.open_reader']()}</a>
 		{/snippet}
