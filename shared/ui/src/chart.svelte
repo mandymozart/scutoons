@@ -178,7 +178,7 @@
 				style:transform="translateX({tipLeft > 70 ? '-100%' : tipLeft < 30 ? '0' : '-50%'})"
 				role="status"
 			>
-				<strong>{formatLabel(labels[hover] ?? '')}</strong>
+				<span>{formatLabel(labels[hover] ?? '')}</span>
 				{#each shown as s (s.label)}
 					<span>{s.label}: {formatValue(s.values[hover] ?? 0)}</span>
 				{/each}

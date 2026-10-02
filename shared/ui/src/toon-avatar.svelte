@@ -53,7 +53,7 @@
 		justify-content: center;
 		background: var(--surface-hover);
 		color: var(--text-muted);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		font-size: max(var(--type-caption-size), calc(var(--toon-avatar-size) * 0.45));
 		line-height: 1;
 		user-select: none;

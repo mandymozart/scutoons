@@ -126,7 +126,7 @@
 		<li>
 			<a href={`/orgs/${org.id}`}>
 				<span class="title">
-					<strong>{org.name}</strong>
+					<span>{org.name}</span>
 					<span class="muted caption">{label('type', org.type)}{org.city || org.country ? ` · ${[org.city, org.country].filter(Boolean).join(', ')}` : ''}</span>
 					{#if org.tier}<Badge tone="accent">{org.tier}</Badge>{/if}
 					{#if org.do_not_contact}<Badge tone="error">{m['org.blocked']()}</Badge>{/if}
@@ -134,7 +134,7 @@
 				<span class="leads">
 					{#each shownLead(org) as lead (lead.id)}
 						<span class="lead caption">
-							<b>{label('track', lead.track)}</b> {label('stage', lead.stage)}{lead.next_at ? ` · ${m['leads.next']({ date: relativeDay(lead.next_at) })}` : ''}{lead.owner_email ? ` · ${lead.owner_email.split('@')[0]}` : ''}
+							<span>{label('track', lead.track)}</span> {label('stage', lead.stage)}{lead.next_at ? ` · ${m['leads.next']({ date: relativeDay(lead.next_at) })}` : ''}{lead.owner_email ? ` · ${lead.owner_email.split('@')[0]}` : ''}
 						</span>
 					{:else}
 						<span class="caption muted">{m['leads.no_leads']()}</span>

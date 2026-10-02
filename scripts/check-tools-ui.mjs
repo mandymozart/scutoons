@@ -2,7 +2,10 @@
 // The brutalist tools' regression check (agents/DESIGN.md "Brutalist tools", owner 2026-10-01).
 //
 //   node scripts/check-tools-ui.mjs --static      no px font size (and no font size under caption in em) in the tools'
-//                                                 CSS: creator, admin, embassy, @scutoons/ui (part of `npm run check`)
+//                                                 CSS: creator, admin, embassy, @scutoons/ui (part of `npm run check`);
+//                                                 no bold (owner 2026-10-02 "only use bold very rarely"): no bold
+//                                                 font-weight in their CSS, no <b>, <strong> only with class sc-emphasis
+//                                                 (a line carrying `bold-ok` + the reason is exempt: the page title h1)
 //   node scripts/check-tools-ui.mjs               + the pages in headless Chrome (dev servers from `npm run dev`, the
 //                                                 test user's session from `npm run dev:test-user`):
 //                                                 - 1440 px, fine pointer: no visible text under the caption size
@@ -36,25 +39,33 @@ function walk(p) {
 	);
 }
 const problems = [];
+const bolds = [];
+const BOLD_CSS = /font-weight:\s*(?:[6-9]00|bold|bolder|var\(--font-weight-bold\))/;
+const BOLD_TAG = /<b[\s>]|<strong(?![^>]*\bsc-emphasis\b)[\s>]/;
 for (const file of DIRS.flatMap(walk)) {
 	const text = readFileSync(file, 'utf8');
+	const name = relative(ROOT, file).replace(/\\/g, '/');
 	const style = file.endsWith('.css') ? text : (text.match(/<style[^>]*>[\s\S]*?<\/style>/g) ?? []).join('\n');
 	const offset = file.endsWith('.css') ? 0 : text.indexOf(style.slice(0, 40));
 	style.split('\n').forEach((line, i) => {
+		const lineNo = offset >= 0 ? text.slice(0, offset).split('\n').length + i : i + 1;
+		if (BOLD_CSS.test(line) && !/bold-ok/.test(line)) bolds.push(`${name}:${lineNo}: ${line.trim()}`);
 		if (/px-ok/.test(line)) return;
 		const px = line.match(/font-size:\s*([\d.]+)px/);
 		const em = line.match(/font-size:\s*(0?\.\d+|0)(em|rem)\b/);
-		if (px || (em && Number(em[1]) < 0.75)) {
-			const lineNo = offset >= 0 ? text.slice(0, offset).split('\n').length + i : i + 1;
-			problems.push(`${relative(ROOT, file).replace(/\\/g, '/')}:${lineNo}: ${line.trim()}`);
-		}
+		if (px || (em && Number(em[1]) < 0.75)) problems.push(`${name}:${lineNo}: ${line.trim()}`);
 	});
+	if (file.endsWith('.svelte')) {
+		// markup only (the style block blanked, line numbers kept)
+		text.replace(/<style[^>]*>[\s\S]*?<\/style>/g, (m) => m.replace(/[^\n]/g, ' ')).split('\n').forEach((line, i) => {
+			if (BOLD_TAG.test(line) && !/bold-ok/.test(line)) bolds.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
+		});
+	}
 }
-if (problems.length) {
-	console.error(`tools CSS: ${problems.length} font sizes outside the type scale (use --type-* tokens; DESIGN.md "Brutalist tools"):\n  ${problems.join('\n  ')}`);
-	process.exit(1);
-}
-console.log('tools CSS: no px font sizes, nothing under caption – ok');
+if (problems.length) console.error(`tools CSS: ${problems.length} font sizes outside the type scale (use --type-* tokens; DESIGN.md "Brutalist tools"):\n  ${problems.join('\n  ')}`);
+if (bolds.length) console.error(`tools: ${bolds.length} bold (owner 2026-10-02 "only use bold very rarely": regular weight; only the page title h1 and <strong class="sc-emphasis"> are bold; DESIGN.md "Brutalist tools"):\n  ${bolds.join('\n  ')}`);
+if (problems.length || bolds.length) process.exit(1);
+console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

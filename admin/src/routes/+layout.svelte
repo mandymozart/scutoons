@@ -326,7 +326,7 @@
 		color: var(--text-muted);
 	}
 	:global(.admin .mono-code) {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		letter-spacing: 0.02em;
 	}
 	:global(.admin .toolbar) {

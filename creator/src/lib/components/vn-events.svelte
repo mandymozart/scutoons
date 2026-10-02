@@ -367,7 +367,7 @@
 		width: auto;
 	}
 	.idx {
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	.tools {
 		margin-left: auto;

@@ -72,7 +72,7 @@
 						/>
 					</label>
 				{:else}
-					<strong class="title">{sectionName(section, languages[0])}</strong>
+					<span class="title">{sectionName(section, languages[0])}</span>
 				{/if}
 				<span class="spacer"></span>
 				<button type="button" class="ghost mini" disabled={i === 0} onclick={() => moveSection(i, i - 1)} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>

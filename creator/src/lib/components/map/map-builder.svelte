@@ -541,7 +541,7 @@
 	}
 	tr.error td:first-child {
 		color: var(--error);
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	tr.warning td:first-child {
 		color: var(--warn);
@@ -601,7 +601,7 @@
 	.map-nav .item[aria-current='page'] {
 		border-left-color: var(--ink);
 		background: var(--surface-hover);
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	.map-nav .item.dim {
 		opacity: 0.45;
@@ -629,7 +629,7 @@
 	}
 	.mark {
 		margin-left: auto;
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	.mark.bad {
 		color: var(--error);

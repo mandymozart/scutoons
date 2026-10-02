@@ -234,7 +234,7 @@
 		{#each recoverables as d (d.entity)}
 			<div class="bar warn-bar">
 				{fileLabel(d.entity)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
-				{#if d.recoverableIsStale}<b>{m['creator.recover_stale']()}</b>{/if}
+				{#if d.recoverableIsStale}<strong class="sc-emphasis">{m['creator.recover_stale']()}</strong>{/if}
 				<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
 				<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
 			</div>

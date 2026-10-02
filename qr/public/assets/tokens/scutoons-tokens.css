@@ -78,8 +78,8 @@
 	--root-size-large: 24px;
 
 	/* ── Tools (creator, admin, embassy; tools.css, DESIGN.md "Brutalist tools") ── */
-	/* uppercase labels (owner 2026-10-01: bold sparingly; bold mono caps clump at small sizes):
-	   regular-weight caps (field labels, table headers, chips) · bold caps (section headings only) */
+	/* uppercase labels (owner 2026-10-02: bold only very rarely; bold mono caps clump at small sizes):
+	   regular-weight caps (every label, heading, header, chip) · bold caps, if ever (the rare emphasis) */
 	--tracking-label: 0.08em;
 	--tracking-label-bold: 0.12em;
 	/* page title of a tool page (like the landing page's "TOONS"), the only size above 1rem */

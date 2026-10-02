@@ -85,13 +85,13 @@
 				{#each versions[l] as v (v.id)}
 					<li class:live={v.status === 'published'} class:current={v.id === doc.base[l]}>
 						<span class="what">
-							<b>{when(v.created_at)}</b>{#if v.id === doc.base[l]} <span class="tag">{m['creator.history_current']()}</span>{/if}
+							<span>{when(v.created_at)}</span>{#if v.id === doc.base[l]} <span class="tag">{m['creator.history_current']()}</span>{/if}
 							<br />{v.author_email ? m['creator.history_by']({ author: v.author_email }) : m['creator.history_import']()}
 							{#if v.message}<br /><i>{v.message}</i>{/if}
 						</span>
 						<span class="acts">
 							{#if v.status === 'published'}
-								<b>{m['creator.state_published']()}</b>
+								<span>{m['creator.state_published']()}</span>
 								<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>unpublish</button>
 							{:else}
 								<button class="ghost" disabled={busy} onclick={() => publish(l, v)}>{m['creator.publish']()}</button>

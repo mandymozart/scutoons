@@ -234,7 +234,7 @@
 	}
 	.nav-list button.current {
 		border-left-color: var(--ink);
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 		background: var(--ink);
 		color: var(--paper);
 	}

@@ -199,11 +199,11 @@
 
 	<Section title={m['codes.section_activity']()}>
 		<ul class="stats">
-			<li><strong>{number(detail.stats.scans)}</strong> {m['codes.col_scans']()}</li>
-			<li><strong>{number(detail.stats.devices)}</strong> {m['codes.col_devices']()}</li>
-			<li><strong>{number(detail.stats.accesses)}</strong> {m['codes.col_unlocks']()}</li>
-			<li><strong>{number(detail.stats.logins)}</strong> {m['codes.col_logins']()}</li>
-			<li><strong>{number(detail.stats.refused)}</strong> {m['codes.col_refused']()}</li>
+			<li><span class="value">{number(detail.stats.scans)}</span> {m['codes.col_scans']()}</li>
+			<li><span class="value">{number(detail.stats.devices)}</span> {m['codes.col_devices']()}</li>
+			<li><span class="value">{number(detail.stats.accesses)}</span> {m['codes.col_unlocks']()}</li>
+			<li><span class="value">{number(detail.stats.logins)}</span> {m['codes.col_logins']()}</li>
+			<li><span class="value">{number(detail.stats.refused)}</span> {m['codes.col_refused']()}</li>
 		</ul>
 		<DataTable
 			columns={eventColumns}
@@ -301,7 +301,7 @@
 		align-items: baseline;
 		gap: var(--space-05);
 	}
-	.stats strong {
+	.stats .value {
 		font-size: var(--type-title-size);
 		line-height: var(--type-title-line);
 	}

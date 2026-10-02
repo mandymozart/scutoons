@@ -21,26 +21,26 @@
 	background: var(--paper);
 }
 
-/* ── Headings: one page title, then uppercase bold labels (no heading scale). `.sc-tool` (0,1,0) beats base.css's
-   h1–h6 rule; a component's own class still wins ── */
+/* ── Headings: one bold page title, then regular uppercase labels (no heading scale; bold only rarely, owner
+   2026-10-02). `.sc-tool` (0,1,0) beats base.css's h1–h6 rule; a component's own class still wins ── */
 .sc-tool :where(h1) {
 	margin: 0 0 var(--space-1);
 	font-size: var(--type-title-size);
 	line-height: var(--type-title-line);
-	font-weight: var(--font-weight-bold);
+	font-weight: var(--font-weight-bold); /* bold-ok: the page's one title */
 }
 .sc-tool :where(h2, h3) {
 	margin: 0 0 var(--space-075);
 	font-size: var(--type-label-size);
 	line-height: var(--type-label-line);
-	font-weight: var(--font-weight-bold);
+	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
-	letter-spacing: var(--tracking-label-bold);
+	letter-spacing: var(--tracking-label);
 }
 .sc-tool :where(h4, h5, h6) {
 	margin: 0 0 var(--space-05);
 	font-size: var(--type-body-size);
-	font-weight: var(--font-weight-bold);
+	font-weight: var(--font-weight-regular);
 }
 :where(.sc-tool) :where(a) {
 	color: var(--ink);
@@ -141,6 +141,9 @@
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
 }
+:where(.sc-tool) :where(optgroup) {
+	font-weight: var(--font-weight-regular);
+}
 :where(.sc-tool) :where(summary) {
 	display: flex;
 	align-items: center;
@@ -152,7 +155,7 @@
 	cursor: pointer;
 }
 
-/* ── Tables: roomy rows, uppercase bold headers on a 2px ink rule ────────────────────────────────────────────────── */
+/* ── Tables: roomy rows, uppercase regular headers on a 2px ink rule ────────────────────────────────────────────────── */
 :where(.sc-tool) :where(table) {
 	border-collapse: collapse;
 	font-variant-numeric: tabular-nums;
@@ -184,14 +187,18 @@
 	letter-spacing: var(--tracking-label);
 	color: var(--ink);
 }
-/* section heading: the one bold label (0.12em) */
+/* section heading: 1rem regular uppercase (bold only rarely, owner 2026-10-02) */
 .sc-heading {
 	margin: 0;
 	font-size: var(--type-label-size);
 	line-height: var(--type-label-line);
-	font-weight: var(--font-weight-bold);
+	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
-	letter-spacing: var(--tracking-label-bold);
+	letter-spacing: var(--tracking-label);
+}
+/* the rare deliberate emphasis of a whole short phrase (e.g. a destructive / stale-data warning); nothing else is bold */
+.sc-emphasis {
+	font-weight: var(--font-weight-bold); /* bold-ok: the one emphasis */
 }
 /* meta text, hints */
 .sc-caption {
@@ -199,7 +206,7 @@
 	line-height: var(--type-caption-line);
 	color: var(--text-muted);
 }
-/* status chip / tag / count: FILLED (tokens.css --badge-*), caption bold uppercase. Default neutral;
+/* status chip / tag / count: FILLED (tokens.css --badge-*), caption regular uppercase. Default neutral;
    .is-published (.is-live), .is-draft, .is-soon (.is-off), .is-error, .is-warning, .is-info; neutral = black */
 .sc-chip {
 	display: inline-flex;

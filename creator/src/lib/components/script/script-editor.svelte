@@ -427,7 +427,9 @@
 		color: var(--paper);
 	}
 	li.chapter button {
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 		margin-top: 0.35rem;
 	}
 	li.song button {
@@ -455,7 +457,7 @@
 	.rules-panel summary,
 	.meta summary {
 		cursor: pointer;
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	.main {
 		display: flex;

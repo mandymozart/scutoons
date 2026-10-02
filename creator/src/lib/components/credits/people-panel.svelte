@@ -189,7 +189,7 @@
 		color: var(--paper);
 	}
 	.row.active {
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	.new {
 		display: flex;

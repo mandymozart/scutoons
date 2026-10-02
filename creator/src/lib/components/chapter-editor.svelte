@@ -653,7 +653,7 @@
 		{#each recoverables as d (d.entity)}
 			<div class="bar warn-bar">
 				{fileLabel(d.entity)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
-				{#if d.recoverableIsStale}<b>{m['creator.recover_stale']()}</b>{/if}
+				{#if d.recoverableIsStale}<strong class="sc-emphasis">{m['creator.recover_stale']()}</strong>{/if}
 				<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
 				<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
 			</div>
@@ -781,7 +781,7 @@
 							{#each sliceDialogs as d, di (di)}
 								<li>
 									<button class="ghost" class:active={selection?.kind === 'dialog' && selection.index === di} onclick={() => onCanvasSelect({ kind: 'dialog', index: di })} data-testid="dialog-{di}">
-										<b>{d.id ?? `#${di + 1}`}</b> <span class="hint">{d.variant ?? 'bubble'}</span> {String(Array.isArray(d.text) ? d.text[0] : d.text).slice(0, 40)}
+										<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{d.variant ?? 'bubble'}</span> {String(Array.isArray(d.text) ? d.text[0] : d.text).slice(0, 40)}
 									</button>
 								</li>
 							{/each}
@@ -1050,9 +1050,6 @@
 		white-space: nowrap;
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-	.boxes b {
-		font-weight: inherit;
 	}
 	.boxes button.active .hint {
 		color: inherit;

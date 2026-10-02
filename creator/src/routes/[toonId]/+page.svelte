@@ -555,7 +555,7 @@
 	}
 	.field > span {
 		font-size: var(--type-caption-size);
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	.chips {
 		display: flex;

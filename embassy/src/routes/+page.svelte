@@ -170,7 +170,7 @@
 		gap: var(--space-05);
 	}
 	.name {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		font-size: 1.1em;
 	}
 	.badges {
@@ -178,7 +178,7 @@
 	}
 	.late {
 		color: var(--state-error);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 	}
 	.last {
 		margin: 0 0 var(--space-05);
@@ -198,6 +198,6 @@
 		gap: var(--space-05);
 	}
 	.tel {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 	}
 </style>

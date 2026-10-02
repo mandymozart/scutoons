@@ -138,7 +138,7 @@
 <div class="sc-data-table" aria-busy={loading}>
 	{#if selectable && selected.length > 0}
 		<div class="bulk" role="region" aria-label={labels.selected(selected.length)}>
-			<strong>{labels.selected(selected.length)}</strong>
+			<span>{labels.selected(selected.length)}</span>
 			{#if bulk}{@render bulk(selected)}{/if}
 			<button type="button" class="link" onclick={() => (selected = [])}>{labels.clearSelection}</button>
 		</div>

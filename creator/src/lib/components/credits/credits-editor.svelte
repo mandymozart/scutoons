@@ -105,7 +105,7 @@
 			</div>
 			<aside class="preview" data-testid="credits-preview">
 				<header>
-					<strong>{m['creator.preview']()}</strong>
+					<span>{m['creator.preview']()}</span>
 					{#each langs as l (l)}
 						<button type="button" class="ghost mini" class:active={previewLocale === l} onclick={() => (previewLocale = l)} data-testid="preview-{l}">{l}</button>
 					{/each}

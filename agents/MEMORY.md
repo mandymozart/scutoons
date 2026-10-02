@@ -1652,3 +1652,18 @@ character, persona, look and mood and doubles as the VN test bed.
   asserting. `check:creator-cast` fails 4 chip-word assertions since the status chips show only the language (commit
   9847809, words in the tooltip) – the check needs updating, not the chips. Chapter-editor undo on the Meta section works
   on the active group's doc, not the chapter (pre-existing): "Copy original" on a chapter title can't be undone there.
+
+## Bold only very rarely in the tools (2026-10-02, branch `platform`)
+
+- Owner (2026-10-02, a standing rule that had been ignored): "only use bold very rarely". Rule: DESIGN.md "Brutalist
+  tools" → "Bold only very rarely": regular everywhere; bold only for the page's h1 and `<strong class="sc-emphasis">`
+  (rare whole-phrase emphasis). Hierarchy = size, uppercase + `--tracking-label`, spacing, ink / muted.
+- Done across creator, admin, embassy, `@scutoons/ui`, `@scutoons/auth`, tools.css: every bold `font-weight` → regular
+  (with it `--tracking-label-bold` → `--tracking-label` on the panel / section / sheet / split-view / info headings), every
+  `<b>` / `<strong>` → `<span>` or plain text (help + style guide), h2–h6 / `.sc-heading` regular in tools.css, `optgroup`
+  regular. Kept bold: tools.css `h1`, AuthGate's h1, the creator's stale-autosave warning (`sc-emphasis`, chapter editor +
+  MetaPage), `signed-in-as` `.email` (the reader's account page; tools use `.compact` = regular), the map canvas handle
+  glyph (`font: 700 9px` shorthand, a canvas marker; the check doesn't parse `font:` shorthands).
+- Guard: `check:tools-css` now also fails on a bold `font-weight`, `<b>`, `<strong>` without `sc-emphasis` in the tools
+  (`bold-ok` + reason exempts a line). Changing a token in tokens.css needs `node qr/bin/sync-tokens.mjs` (the tokens
+  check compares qr's copy).

@@ -69,7 +69,7 @@
 	{#if error}<p class="error-box">{error}</p>{/if}
 	{#if report}
 		<div class="card report" data-testid="import-report">
-			<p><strong>{summary(report)}</strong></p>
+			<p>{summary(report)}</p>
 			{#if report.errors.length}
 				<p class="muted caption">{m['import.errors']()}</p>
 				<ul class="caption">

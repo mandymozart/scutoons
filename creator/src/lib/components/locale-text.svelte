@@ -63,7 +63,7 @@
 		<div class="field">
 			<label class:missing={s.missing} class:long={s.long}>
 				<span class="head">
-					<b>{label} · {locale}</b>
+					<span>{label} · {locale}</span>
 					{#if locale === doc.primary}<span class="pill source">{m['creator.source']()}</span>{/if}
 					{#if s.missing}<span class="pill miss">{m['creator.missing']()}</span>{/if}
 					{#if s.long}<span class="pill warn">{Math.round(s.ratio * 100)}%</span>{/if}
@@ -102,9 +102,6 @@
 	}
 	.field {
 		min-width: 0;
-	}
-	.head b {
-		font-weight: inherit;
 	}
 	.head {
 		display: flex;

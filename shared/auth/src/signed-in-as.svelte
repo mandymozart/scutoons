@@ -52,7 +52,7 @@
 		color: var(--text-muted);
 	}
 	.email {
-		font-weight: 700;
+		font-weight: 700; /* bold-ok: the reader's account page; the tools use .compact (regular) */
 	}
 	.compact {
 		flex-wrap: nowrap;

@@ -156,7 +156,7 @@
 		<ul class="unlocks" data-testid="character-unlocks">
 			{#each user.characters ?? [] as u (u.character)}
 				<li>
-					<strong>{u.character}</strong>
+					<span>{u.character}</span>
 					{#each u.looks as look (look)}<Badge tone="neutral">{look}</Badge> {/each}
 					<span class="meta">{u.source}{u.ref ? ` · ${u.ref}` : ''}{u.unlocked_at ? ` · ${minute(u.unlocked_at)}` : ''}</span>
 					{#if u.source !== 'default'}

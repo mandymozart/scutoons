@@ -54,9 +54,9 @@
 		margin: 0;
 		font-size: var(--type-label-size);
 		line-height: var(--type-label-line);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label-bold);
+		letter-spacing: var(--tracking-label);
 	}
 	.hint {
 		margin: var(--space-025) 0 0;

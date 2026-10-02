@@ -98,7 +98,7 @@
 		{#each kpis as kpi (kpi.label)}
 			<li>
 				<span class="kpi-label">{kpi.label}</span>
-				<strong class="kpi-value">{kpi.value}</strong>
+				<span class="kpi-value">{kpi.value}</span>
 				{#if kpi.note}<span class="kpi-note">{kpi.note}</span>{/if}
 			</li>
 		{/each}

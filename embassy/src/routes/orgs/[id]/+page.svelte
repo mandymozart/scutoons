@@ -206,7 +206,7 @@
 	<div class="leads">
 		{#each detail.leads as lead (lead.id)}
 			<div class="card lead">
-				<strong>{label('track', lead.track)}</strong>
+				<span>{label('track', lead.track)}</span>
 				<label class="field">
 					<span>{m['org.stage']()}</span>
 					<select value={lead.stage} disabled={!mayWork(lead)} onchange={(e) => setLead(lead, { stage: e.currentTarget.value as Stage })}>
@@ -283,7 +283,7 @@
 	<ul class="people">
 		{#each detail.people as person (person.id)}
 			<li class="row">
-				<strong>{person.name || '–'}</strong>
+				<span>{person.name || '–'}</span>
 				{#if person.role}<span class="muted caption">{person.role}</span>{/if}
 				{#if person.phone}<a class="tel" href={telHref(person.phone)}><Icon name="phone" /> {person.phone}</a>{/if}
 				{#if person.email}<a href={`mailto:${person.email}`}><Icon name="mail" /> {person.email}</a>{/if}
@@ -321,7 +321,7 @@
 			<li>
 				<span class="caption muted">{dateTime(a.at)} · {a.by_email.split('@')[0]}</span>
 				<span>
-					<b>{label('kind', a.kind)}{a.outcome ? ` – ${label('outcome', a.outcome).replace(' …', '')}` : ''}</b>
+					<span>{label('kind', a.kind)}{a.outcome ? ` – ${label('outcome', a.outcome).replace(' …', '')}` : ''}</span>
 					{#if a.track}<span class="caption"> · {label('track', a.track)}</span>{/if}
 					{#if a.person_id}<span class="caption"> · {personName(a.person_id)}</span>{/if}
 				</span>
@@ -349,7 +349,7 @@
 		overflow-wrap: anywhere;
 	}
 	.tel {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 	}
 	.notes {
 		white-space: pre-line;

@@ -89,7 +89,7 @@
 
 <section class="wanted" data-testid="wanted-images">
 	<header>
-		<strong>{m['creator.characters_wanted_count']({ count: wanted.length + media.length })}</strong>
+		<span>{m['creator.characters_wanted_count']({ count: wanted.length + media.length })}</span>
 		<label class="check"><input type="checkbox" bind:checked={requestedOnly} /> {m['creator.characters_requested_only']()}</label>
 		<span class="actions">
 			<button type="button" class="secondary" onclick={() => copy('text')} disabled={!wanted.length && !media.length} data-testid="copy-wanted-text">{copied === 'text' ? '✓' : ''} {m['creator.characters_copy_list']()}</button>

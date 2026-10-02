@@ -177,7 +177,7 @@
 		gap: var(--space-05);
 	}
 	.subject {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 	}
 	.preview {
 		margin-top: var(--space-15);

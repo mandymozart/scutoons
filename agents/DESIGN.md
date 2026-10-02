@@ -475,7 +475,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
   MetaPage has `translationsOptional`). A toon without a script opens with an empty, clean (not dirty) source text.
 - **Title page**: a collapsed block with the 6 meta fields (per language, text).
 - **Bottom bar**: the normal MetaPage ActionBar (Save draft, Publish, History with restore, undo/redo, problems, note).
-- **Outline** (left, sticky, own scroll): chapters (bold, "Kapitel 1 · DENIAL"), their scenes (number + heading, one
+- **Outline** (left, sticky, own scroll): chapters (uppercase, "KAPITEL 1 · DENIAL"), their scenes (number + heading, one
   line, ellipsis) and songs (italic); a click puts the cursor at the line and scrolls it to the top; the item the cursor
   is in is marked. Below it a collapsible **Format rules** panel (also in the Info panel): a summary of the screenplay
   editor's Writing Guide + a link to its README.
@@ -511,13 +511,24 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   or a px base on its root (the admin's 16px/14px and the creator's 13px are gone).
 - Only the type styles: `body` / `button` / `label` 1rem (running text, table cells, inputs, sidebar entries, crumbs,
   buttons); `caption` 0.75rem = **the smallest text** (field labels, table headers, chips, hints, meta);
-  `--type-title-size` 1.5rem bold = the one page title (h1) and big numbers. `nav-micro` is not used in tools.
+  `--type-title-size` 1.5rem = the one page title (h1, bold) and big numbers (regular). `nav-micro` is not used in tools.
 - **No px font sizes anywhere** (also not 0.6em-style shrinking); sizes come from `--type-*` tokens.
-- **Bold sparingly** (owner 2026-10-01): brutalism here is mostly regular weight. Bold only for the page title (h1),
-  key numbers (stats, codes), section headings (h2/h3) and the current breadcrumb. Bold caps get
-  `--tracking-label-bold` 0.12em (bold mono caps clump at small sizes); every other uppercase label is regular weight
-  with `--tracking-label` 0.08em. Selected / current items are shown by inversion, not by bold.
-- Headings: h1 = title (bold); h2/h3 = 1rem bold uppercase, 0.12em (`.sc-heading`). Field labels, table headers,
+- **Bold only very rarely** (owner rule 2026-10-02: "only use bold very rarely"; it supersedes the 2026-10-01
+  "bold sparingly" list, which was not followed):
+  - **Default weight is regular** (`var(--font-weight-regular)`) everywhere: body, list / row titles, table cells and
+    headers, buttons, tabs, chips / badges, breadcrumbs (incl. the current crumb), field labels, panel / section
+    headings, dialog / sheet titles, counts, big numbers, codes, hints.
+  - **Bold is allowed only for** the page's single main title (h1) where the page has one, and a rare, deliberate
+    emphasis of a whole short phrase where meaning needs it (e.g. a destructive confirmation, a stale-data warning):
+    `<strong class="sc-emphasis">`. If unsure, regular.
+  - **Hierarchy comes from** size (the type scale tokens), uppercase + letter-spacing (`--tracking-label` 0.08em;
+    bold caps, if ever, get `--tracking-label-bold` 0.12em), spacing and ink / muted colour – not weight. Selected /
+    current items are shown by inversion, not by bold.
+  - Markup: no `<b>`; `<strong>` only as the emphasis above (plain text or a `<span>` otherwise). tools.css sets the
+    browser-bold defaults (h2–h6, th, legend, summary, optgroup) to regular; only `h1` is bold.
+  - Enforced by `npm run check:tools-css` (bold `font-weight`, `<b>`, `<strong>` without `sc-emphasis`; a line with
+    `bold-ok` + the reason is exempt).
+- Headings: h1 = title (bold); h2/h3 = 1rem regular uppercase, 0.08em (`.sc-heading`). Field labels, table headers,
   sidebar group heads, legends, summaries = the **tool label**: caption, regular, uppercase, 0.08em, ink
   (`.sc-label`, `.sc-nav-head`).
   Hints / meta = caption in `text-muted` (`.sc-caption`). Badges with data (codes, ids) stay in their case.
@@ -568,7 +579,7 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   sidebar entry, open tab, chosen segment, selected list item / table row, pressed / open toggle (Info, More), current
   page in the pager. Pager links and menu triggers otherwise look like secondary buttons. Hover on lists = a 2px ink frame inside the row.
 - Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = the tool label.
-  details/summary = a bold uppercase label row (`--control-height`).
+  details/summary = a regular uppercase label row (`--control-height`).
 - **Icons:** Feather via `Icon` (see "Icons"): close (x), menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
   arrow-up/down for reorder, plus, info, search, sort arrows; icon-only controls carry `aria-label` + `title`.
 
@@ -588,6 +599,6 @@ lettering preview). `npm run check:tools-ui` (dev servers + `npm run dev:test-us
 for other origins): every tool page at 1440 px (fine pointer) and 390 px (touch) – no visible text under the caption
 size (comic lettering exempt), and on touch no button / field / nav entry under 44 px.
 
-**Vocabulary** (`tools.css`): `.sc-label`, `.sc-heading`, `.sc-caption`, `.sc-chip` (`is-ink`, `is-live`, `is-off`),
+**Vocabulary** (`tools.css`): `.sc-label`, `.sc-heading`, `.sc-caption`, `.sc-emphasis`, `.sc-chip` (`is-ink`, `is-live`, `is-off`),
 `.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted). Creator-wide button classes stay
 `.secondary`, `.ghost`, `.active` (creator layout).

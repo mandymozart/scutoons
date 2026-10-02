@@ -170,7 +170,7 @@
 							{@const src = thumb(c)}
 							<button type="button" class="card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
 								<span class="img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
-								<strong>{characterName(c, locale)}</strong>
+								<span>{characterName(c, locale)}</span>
 								<span class="hint">{c.own_toon ? (toons.find((t) => t.id === c.own_toon)?.name ?? c.own_toon) : '–'}</span>
 								{#if personaIds(c).length > 1}
 									<span class="chips">{#each personaIds(c) as p (p)}<span class="chip">{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, locale) || p}</span>{/each}</span>
@@ -185,7 +185,7 @@
 		{:else}
 			<header class="step2">
 				<button type="button" class="ghost" onclick={() => (step = 1)} data-testid="picker-back">{m['creator.characters_picker_back']()}</button>
-				<strong>{characterName(character, locale)}</strong>
+				<span>{characterName(character, locale)}</span>
 				{#if !castIds.has(character.id) && season}<span class="note">{m['creator.characters_picker_will_add']({ season })}</span>{/if}
 			</header>
 			{#if mode === 'persona'}
@@ -195,7 +195,7 @@
 						{@const src = thumb(character, p)}
 						<button type="button" class="card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
 							<span class="img">{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
-							<strong>{characterName(character, locale, p)}</strong>
+							<span>{characterName(character, locale, p)}</span>
 							{#if castPersonas.includes(p)}<span class="hint">{m['creator.characters_in_cast']()}</span>{/if}
 						</button>
 					{/each}

@@ -86,7 +86,7 @@
 	.sc-auth-gate h1 {
 		margin: 0 0 var(--space-1);
 		font-size: 1.25rem;
-		font-weight: 700;
+		font-weight: 700; /* bold-ok: the page title (h1) */
 	}
 	.sc-auth-gate p {
 		margin: 0 0 var(--space-1);

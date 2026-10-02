@@ -262,7 +262,7 @@
 					onerror={() => (videoState = 'missing')}
 				></video>
 				<span class="meta">
-					{#if videoState === 'missing'}<b class="bad">{m['creator.video_missing']()}</b>{:else if videoState === 'ok'}<Icon name="check" /> CDN{/if}
+					{#if videoState === 'missing'}<span class="bad">{m['creator.video_missing']()}</span>{:else if videoState === 'ok'}<Icon name="check" /> CDN{/if}
 				</span>
 			</div>
 		{/if}

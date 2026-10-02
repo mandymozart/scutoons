@@ -64,7 +64,7 @@
 			{@const request = requestOf(look.id)}
 			<article class="look" data-testid="apose-{look.id}">
 				<header>
-					<strong>{pickText(look.label, locale, ['en', 'de']) || look.id}</strong>
+					<span>{pickText(look.label, locale, ['en', 'de']) || look.id}</span>
 					{#if look.default}<span class="hint">{m['creator.characters_default']()}</span>{/if}
 				</header>
 				{#if path}

@@ -104,7 +104,7 @@
 	{#if hint}<span class="hint">{hint}</span>{/if}
 	{#each overrides as l}
 		<span class="override">
-			{l}: <b>{display(doc.get(l, path)) || '–'}</b> ({m['creator.override']()})
+			{l}: <span>{display(doc.get(l, path)) || '–'}</span> ({m['creator.override']()})
 			<button type="button" class="ghost" onclick={() => doc.resetOverride(l, path)}>{m['creator.use_shared']()}</button>
 		</span>
 	{/each}

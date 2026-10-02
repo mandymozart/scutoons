@@ -250,12 +250,12 @@
 			<button type="button" class="ghost danger" onclick={remove} data-testid="remove-character">{m['creator.characters_remove']()}</button>
 		</header>
 		<p class="relation" data-testid="appears-in">
-			<strong>{m['creator.characters_appears_in']()}:</strong>
+			<span>{m['creator.characters_appears_in']()}:</span>
 			{#each appearsIn as t (t)}<a href="/{t}/cast">{toons.find((x) => x.id === t)?.name ?? t}</a>{:else}<span class="hint">{m['creator.characters_in_no_cast']()}</span>{/each}
 		</p>
 		<!-- Creator roadmap (agents/AUTOMATION.md "Creator roadmap"): recorded, not built yet -->
 		<p class="roadmap" data-testid="character-actions">
-			<strong>{m['creator.actions_title']()}:</strong>
+			<span>{m['creator.actions_title']()}:</span>
 			{#each [m['creator.action_base_views'](), m['creator.action_moods'](), m['creator.action_upload']()] as label (label)}
 				<button type="button" class="secondary" disabled title={m['creator.coming_soon']()}>{label} ({m['creator.coming_soon']()})</button>
 			{/each}
@@ -457,7 +457,7 @@
 					<figure data-testid="artwork-{a.id}">
 						<img src={asset(a.path)} alt={pickText(a.label, source, languages) || a.id} loading="lazy" />
 						<figcaption>
-							<strong>{pickText(a.label, source, languages) || a.id}</strong>
+							<span>{pickText(a.label, source, languages) || a.id}</span>
 							<input type="text" value={a.path} onchange={(e) => change((c) => c.artwork && (c.artwork[i].path = e.currentTarget.value.trim()))} />
 							<button type="button" class="ghost" onclick={() => change((c) => { c.artwork?.splice(i, 1); if (!c.artwork?.length) delete c.artwork; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
 						</figcaption>

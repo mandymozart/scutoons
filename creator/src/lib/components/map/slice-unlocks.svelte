@@ -63,7 +63,7 @@
 			<ul>
 				{#each unlocked as p (p.id)}
 					<li data-testid="slice-unlock-{p.id}">
-						<b>{name(p)}</b>
+						<span class="name">{name(p)}</span>
 						<a href="/map?location={encodeURIComponent(p.id)}" target="_blank" rel="noopener">{m['creator.slice_unlocks_on_map']()}</a>
 						<button type="button" class="ghost" aria-label={m['creator.slice_unlocks_remove']()} title={m['creator.slice_unlocks_remove']()} onclick={() => remove(p.id)}><Icon name="x" /></button>
 					</li>
@@ -115,7 +115,7 @@
 		gap: 0.5rem;
 		align-items: center;
 	}
-	li b {
+	li .name {
 		flex: 1;
 		min-width: 0;
 	}

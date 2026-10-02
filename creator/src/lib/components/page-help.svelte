@@ -47,9 +47,9 @@
 		{@render visibility()}
 		<h3>{m['creator.help_links_title']()}</h3>
 		<ul>
-			<li><b>{m['creator.credits_open']()}</b>: {m['creator.credits_open_hint']()}</li>
-			<li><b>{m['creator.cast']()}</b>: {m['creator.cast_open_hint']()}</li>
-			<li><b>{m['creator.characters']()}</b>: {m['creator.characters_home_hint']()}</li>
+			<li>{m['creator.credits_open']()}: {m['creator.credits_open_hint']()}</li>
+			<li>{m['creator.cast']()}: {m['creator.cast_open_hint']()}</li>
+			<li>{m['creator.characters']()}: {m['creator.characters_home_hint']()}</li>
 		</ul>
 		{@render saving()}
 	{:else if page === 'chapter'}
@@ -92,8 +92,8 @@
 		<p>{m['creator.credits_registry_hint']()}</p>
 		<h3>{m['creator.credits_tab_roles']()}</h3>
 		<ul>
-			<li><b>{m['creator.credits_custom_roles']()}</b>: {m['creator.credits_custom_roles_hint']()}</li>
-			<li><b>{m['creator.credits_vocabulary']()}</b>: {m['creator.credits_vocabulary_hint']()}</li>
+			<li>{m['creator.credits_custom_roles']()}: {m['creator.credits_custom_roles_hint']()}</li>
+			<li>{m['creator.credits_vocabulary']()}: {m['creator.credits_vocabulary_hint']()}</li>
 		</ul>
 		<p>{m['creator.credits_move_hint']()}</p>
 		{@render saving()}

@@ -69,7 +69,7 @@
 				onerror={() => (failed = true)}
 			/>
 			<span class="meta">
-				{#if failed}<b class="bad">not found on the CDN</b>{:else if size}{size.w} × {size.h} px{/if}
+				{#if failed}<span class="bad">not found on the CDN</span>{:else if size}{size.w} × {size.h} px{/if}
 				{#if showFormat && formatNote === 'off'}<span class="warn"> · not {DEFAULT_SLICE.width} px wide</span>{/if}
 			</span>
 		</div>

@@ -383,7 +383,7 @@
 		}
 	}
 	.crumbs a[aria-current='page'] {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-decoration: none;
 	}
 	.who {

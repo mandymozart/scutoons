@@ -299,7 +299,7 @@
 										<button type="button" class="item" class:active={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
 											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 											<span class="text">
-												<strong>{characterName(c, uiLocale)}</strong>
+												<span>{characterName(c, uiLocale)}</span>
 												<span class="hint">{c.id}{c.own_toon ? ` · ${c.own_toon}` : ''}{castsOf(c.id, casts).length ? ` · ${castsOf(c.id, casts).join(', ')}` : ''}</span>
 												{#if personaIds(c).length > 1}
 													<span class="chips">

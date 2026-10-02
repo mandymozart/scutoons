@@ -253,7 +253,7 @@
 		gap: 4px;
 	}
 	.mood {
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 		display: flex;
 		gap: 0.3rem;
 		align-items: baseline;

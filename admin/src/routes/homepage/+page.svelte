@@ -137,7 +137,7 @@
 						{#if product}
 							<img class="icon" src={icon(shown?.icon ?? product.icon)} alt="" loading="lazy" />
 							<span class="name">
-								<strong>{product.name}</strong>
+								<span>{product.name}</span>
 								<span class="muted">{product.id}</span>
 							</span>
 							<label class="variant">
@@ -233,7 +233,7 @@
 		color: var(--text-muted);
 	}
 	.unsaved {
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	.error {
 		color: var(--error, #c00);

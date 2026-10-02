@@ -242,7 +242,7 @@
 		width: 3.5rem;
 	}
 	.step.ok {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 	}
 	tr.current {
 		background: var(--ink);

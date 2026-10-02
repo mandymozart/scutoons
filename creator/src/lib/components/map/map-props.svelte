@@ -364,11 +364,11 @@
 			{/if}
 			{#if place.image?.src}
 				<p class="hint">
-					{#if imageState.missing}<b class="bad">{m['creator.map_image_missing']()}</b>{/if}
+					{#if imageState.missing}<span class="bad">{m['creator.map_image_missing']()}</span>{/if}
 					{#if natural}{natural.w} × {natural.h} px{/if}
 					{#if imageState.kb !== null} · {imageState.kb} KB{/if}
-					{#if imageState.kb !== null && imageState.kb > 60}<b class="warn"> · {m['creator.map_image_large']({ kb: imageState.kb })}</b>{/if}
-					{#if blurry}<b class="warn"> · {m['creator.map_image_blurry']({ px: size * 2 })}</b>{/if}
+					{#if imageState.kb !== null && imageState.kb > 60}<span class="warn"> · {m['creator.map_image_large']({ kb: imageState.kb })}</span>{/if}
+					{#if blurry}<span class="warn"> · {m['creator.map_image_blurry']({ px: size * 2 })}</span>{/if}
 				</p>
 				<label class="field small"><span>{m['creator.map_image_size']()}</span><input type="number" min="8" value={place.image.size ?? ''} placeholder={String(DEFAULT_PLACE_IMAGE_SIZE)} onchange={(e) => setImageField('size', num(e.currentTarget.value))} data-testid="place-image-size" /></label>
 				<span class="lbl">{m['creator.map_image_anchor']()} ({anchor.x} / {anchor.y} %)</span>
@@ -521,7 +521,7 @@
 	}
 	legend {
 		font-size: var(--type-caption-size);
-		font-weight: 700;
+		font-weight: var(--font-weight-regular);
 	}
 	.check {
 		display: flex;

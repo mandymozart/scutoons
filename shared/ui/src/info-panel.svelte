@@ -93,9 +93,9 @@
 		margin: 0;
 		font-size: var(--type-label-size);
 		line-height: var(--type-label-line);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label-bold);
+		letter-spacing: var(--tracking-label);
 	}
 	.close {
 		min-width: var(--control-height);
@@ -122,9 +122,9 @@
 	.body :global(h3) {
 		margin: var(--space-15) 0 var(--space-05);
 		font-size: var(--type-label-size);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		text-transform: uppercase;
-		letter-spacing: var(--tracking-label-bold);
+		letter-spacing: var(--tracking-label);
 	}
 	.body :global(h3:first-child) {
 		margin-top: 0;
@@ -144,13 +144,13 @@
 	}
 	.body :global(dt) {
 		margin-top: 0.4rem;
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 	}
 	.body :global(dd) {
 		margin: 0 0 0 0.75rem;
 	}
 	.body :global(code) {
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 		overflow-wrap: anywhere;
 	}
 	.body :global(kbd) {
@@ -165,6 +165,6 @@
 	}
 	.guide a {
 		color: var(--ink);
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
 	}
 </style>
