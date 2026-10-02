@@ -436,6 +436,10 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.12 Viewer: `/catpope/credits` and `/catpope/download` work but no page links to them (owner 2026-10-02) –
   **owner decision: link them (toon page / season slot / menu) or drop the routes.** Also: the QR camera never decoded on the owner's webcam (blurry
   image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
+- [ ] 10.13 Visibility rule (owner 2026-10-02): `draft` is seen by creators only, `coming-soon` is the only non-published
+  status the public sees. Production's public API follows it (season 1 lists chapters 0, 1, 2 = coming soon). Check
+  the signed-in creator's viewer list: it showed chapters 4 and 5 as "coming soon" while the creator marks them draft.
+  Later: drafts only for creators who are authors of that toon.
 - [ ] 10.8 Public release.
 
 ---
