@@ -12,12 +12,17 @@ use RuntimeException;
  *   certificates/  SCUTOONS-COA-<code>.pdf            certificates of authenticity
  *   signatures/    SIGNATURE-<code>.json              signatures (also in qr.signature)
  *   zips/          BATCH-….zip                        batch downloads
+ *   claims/        <claim id>-<file id>.<ext>          evidence of ownership claims (jpg, png, webp, pdf) – only through
+ *                                                    the claims methods below (never the admin files endpoint)
  * Only whitelisted folders and safe file names (no path separators, no leading dot).
  */
 final class FileStore
 {
     public const TYPES = ['certificates', 'svgs', 'signatures', 'batch', 'zips'];
     public const NAME_PATTERN = '/^[A-Za-z0-9_.-]{1,200}\.(pdf|svg|json|zip)$/';
+
+    public const CLAIMS = 'claims';
+    public const CLAIM_NAME_PATTERN = '/^[0-9a-f-]{36}-[0-9a-f]{8,36}\.(jpg|png|webp|pdf)$/';
 
     public function __construct(private readonly string $root)
     {
@@ -77,5 +82,33 @@ final class FileStore
         $files = array_map('basename', glob($dir . '/' . $pattern) ?: []);
         sort($files);
         return $files;
+    }
+
+    /** Absolute path of an ownership-claim evidence file (agents/ITEMS.md "Ownership, claims, gifting") */
+    public function claimPath(string $filename): string
+    {
+        if (preg_match(self::CLAIM_NAME_PATTERN, $filename) !== 1) throw new RuntimeException("Invalid claim file $filename");
+        return $this->root . '/' . self::CLAIMS . '/' . $filename;
+    }
+
+    public function writeClaim(string $filename, string $content): void
+    {
+        $dir = $this->root . '/' . self::CLAIMS;
+        if (!is_dir($dir) && !@mkdir($dir, 0770, true) && !is_dir($dir)) throw new RuntimeException("Could not create $dir");
+        if (file_put_contents($this->claimPath($filename), $content, LOCK_EX) === false) throw new RuntimeException("Could not write claims/$filename");
+    }
+
+    public function readClaim(string $filename): ?string
+    {
+        $path = $this->claimPath($filename);
+        if (!is_file($path)) return null;
+        $content = file_get_contents($path);
+        return $content === false ? null : $content;
+    }
+
+    public function deleteClaim(string $filename): void
+    {
+        $path = $this->claimPath($filename);
+        if (is_file($path)) @unlink($path);
     }
 }

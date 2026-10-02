@@ -23,17 +23,21 @@ use InvalidArgumentException;
  *
  * Adding a template: a const + a definition here, its texts in both locales of texts.php, a call to
  * Mailer::send() (or sendToAdmins() for audience admin), a render test in tests/Unit/Domain/MailTest.php.
- * Planned (not registered until they are sent – same pattern):
- *   ownership_claim_received   to the claimant: we got your ownership claim
- *   ownership_claim_admin      to the admins (sendToAdmins): a new ownership claim to review
- *   ownership_transferred_from to the previous owner: the code moved to another account
- *   ownership_transferred_to   to the new owner: the code is now in your account
+ * Ownership + gifting (agents/ITEMS.md "Ownership, claims, gifting"; Domain\Ownership): ownership_claim_received,
+ * ownership_claim_admin, ownership_claim_rejected, ownership_transferred_from, ownership_transferred_to, gift_received.
+ * Planned (not registered until it is sent – same pattern):
  *   ownership_transfer_offer   the owner sends a code to another person's email
  */
 final class MailTemplates
 {
     public const LOGIN_CODE = 'login_code';
     public const SIGNUP_WITHOUT_CODE = 'signup_without_code';
+    public const OWNERSHIP_CLAIM_RECEIVED = 'ownership_claim_received';
+    public const OWNERSHIP_CLAIM_ADMIN = 'ownership_claim_admin';
+    public const OWNERSHIP_CLAIM_REJECTED = 'ownership_claim_rejected';
+    public const OWNERSHIP_TRANSFERRED_FROM = 'ownership_transferred_from';
+    public const OWNERSHIP_TRANSFERRED_TO = 'ownership_transferred_to';
+    public const GIFT_RECEIVED = 'gift_received';
 
     public const LOCALES = ['de', 'en'];
     public const DEFAULT_LOCALE = 'en';
@@ -67,6 +71,81 @@ final class MailTemplates
                 ['button', 'button', 'url' => 'url'],
             ],
             'fineprint' => ['ignore'],
+        ],
+        self::OWNERSHIP_CLAIM_RECEIVED => [
+            'audience' => 'member',
+            'description' => 'Ownership claim filed ("This is mine", POST /claims/): to the claimant – we got it, an admin looks at it',
+            'vars' => ['code' => 'string', 'url' => 'url'],
+            'sample' => ['code' => 'Ab3dE6gH', 'url' => 'https://scutoons.com/account'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'next'],
+                ['p', 'proof'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => ['ignore'],
+        ],
+        self::OWNERSHIP_CLAIM_ADMIN => [
+            'audience' => 'admin',
+            'description' => 'Ownership claim filed: to the admin recipients – a new claim to review (admin app → Claims)',
+            'vars' => ['code' => 'string', 'claimant' => 'string', 'statement' => 'string', 'url' => 'url'],
+            'sample' => ['code' => 'Ab3dE6gH', 'claimant' => 'reader@example.com', 'statement' => 'I bought the hoodie at the Vienna show, the code was registered before I got home.', 'url' => 'https://admin.scutoons.com/claims/00000000-0000-0000-0000-000000000000'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'statement'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => ['files'],
+        ],
+        self::OWNERSHIP_CLAIM_REJECTED => [
+            'audience' => 'member',
+            'description' => 'Ownership claim rejected by an admin: to the claimant (the admin note stays internal)',
+            'vars' => ['code' => 'string', 'url' => 'url'],
+            'sample' => ['code' => 'Ab3dE6gH', 'url' => 'https://scutoons.com/account'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'more'],
+                ['p', 'read'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => [],
+        ],
+        self::OWNERSHIP_TRANSFERRED_FROM => [
+            'audience' => 'member',
+            'description' => 'A code moved to another account (an admin decided a claim, or an admin transfer): to the previous owner',
+            'vars' => ['code' => 'string', 'item' => 'string', 'url' => 'url'],
+            'sample' => ['code' => 'Ab3dE6gH', 'item' => 'Dago Hoodie #12', 'url' => 'https://scutoons.com/account'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'read'],
+                ['p', 'wrong'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => [],
+        ],
+        self::OWNERSHIP_TRANSFERRED_TO => [
+            'audience' => 'member',
+            'description' => 'A code moved into this account (claim decided for the claimant, or an admin transfer): to the new owner',
+            'vars' => ['code' => 'string', 'item' => 'string', 'url' => 'url'],
+            'sample' => ['code' => 'Ab3dE6gH', 'item' => 'Dago Hoodie #12', 'url' => 'https://scutoons.com/account'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'certificate'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => [],
+        ],
+        self::GIFT_RECEIVED => [
+            'audience' => 'member',
+            'description' => 'A reader gifted an item (POST /inventory/gift/): to the recipient',
+            'vars' => ['from' => 'string', 'item' => 'string', 'qty' => 'int', 'url' => 'url'],
+            'sample' => ['from' => 'friend@example.com', 'item' => 'Gurke', 'qty' => 3, 'url' => 'https://scutoons.com/account'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'where'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => ['free'],
         ],
     ];
 

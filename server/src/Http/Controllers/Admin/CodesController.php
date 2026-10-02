@@ -9,6 +9,8 @@ use Scutoons\Domain\Admin\CodeAdmin;
 use Scutoons\Domain\Admin\ListQuery;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Codes\CodeRules;
+use Scutoons\Domain\Ownership\OwnershipTransfers;
+use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Download;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
@@ -22,10 +24,12 @@ use Scutoons\Infrastructure\Config\Settings;
  *   GET  /codes/{code}/events         timeline (?limit=, newest first)
  *   POST /codes/{code}/revoke|unrevoke
  *   GET|PUT /codes/{code}/signature   read / store the certificate signature
+ *   GET  /codes/{code}/history        ownership history (transfers: claim, gift, admin – with accounts)
+ *   POST /codes/{code}/transfer       { to: email | user id, note, item_id?, variant? } – move it to another account
  */
 final class CodesController
 {
-    public function __construct(private readonly CodeAdmin $codes, private readonly Settings $settings)
+    public function __construct(private readonly CodeAdmin $codes, private readonly OwnershipTransfers $transfers, private readonly Settings $settings)
     {
     }
 
@@ -86,6 +90,26 @@ final class CodesController
         $code = self::code($args);
         $this->codes->saveSignature($code, $body['signature'] ?? null);
         return Json::response($response, 200, ['status' => 'success', 'code' => $code]);
+    }
+
+    /** @param array{code: string} $args */
+    public function history(Request $request, Response $response, array $args): Response
+    {
+        $code = self::code($args);
+        $this->codes->detail($code); // 404 for unknown codes
+        return Json::response($response, 200, ['status' => 'success', 'items' => $this->transfers->history($code)]);
+    }
+
+    /** @param array{code: string} $args */
+    public function transfer(Request $request, Response $response, array $args): Response
+    {
+        $body = JsonBody::of($request);
+        $admin = CurrentSession::of($request)->requireUser();
+        $code = self::code($args);
+        $this->codes->detail($code); // 404 for unknown codes
+        $moved = $this->transfers->adminTransfer($admin, $code, $body);
+        return Json::response($response, 200, ['status' => 'success', 'code' => $code, 'from' => $moved['from_account'], 'to' => $moved['to_account'],
+            'entries' => count($moved['entries']), 'history' => $this->transfers->history($code)]);
     }
 
     /** @param array{code: string} $args */

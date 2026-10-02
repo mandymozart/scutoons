@@ -700,6 +700,54 @@ check(Db::value('SELECT claimed_by FROM qr WHERE code = ?', [$dago]) !== $userB,
 check($refused(fn() => Db::run("INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, acquired_at, updated_at) VALUES (?, ?, 'dago_hoodie', 'black', 1, 'qr', ?, NULL, ?, ?)",
     [Db::uuid(), $userB, $dago, Db::now(), Db::now()])), 'DB: inventory row for a code owned by someone else is refused');
 
+// ── Ownership claims + gifts (agents/ITEMS.md "Ownership, claims, gifting") ─────────────────────────────
+echo "\nOwnership claims + gifts\n";
+$r = call('POST', "$api/claims/", ['code' => $dago, 'statement' => 'mine'], $tokenB);
+check($r['status'] === 400 && $r['body']['error'] === 'statement_required', 'claim without a real statement → 400 statement_required', $r);
+$r = call('POST', "$api/claims/", ['code' => $dago, 'statement' => 'Smoke test: I bought this hoodie at the show.'], $tokenA);
+check($r['status'] === 409 && $r['body']['error'] === 'already_yours', 'claim of my own code → 409 already_yours', $r);
+$r = call('POST', "$api/claims/", ['code' => $dago, 'statement' => 'Smoke test: I bought this hoodie at the show.'], $tokenB);
+check($r['status'] === 201 && $r['body']['claim']['status'] === 'open' && !array_key_exists('owner', $r['body']['claim']), 'B files a claim on A\'s code → 201 open, no owner shown', $r);
+$claimId = $r['body']['claim']['id'] ?? '';
+check(str_contains((string) mailFor($emailB), 'Your claim for'), 'the claimant gets the "claim received" mail');
+$r = call('POST', "$api/claims/", ['code' => $dago, 'statement' => 'Smoke test: again, it is mine.'], $tokenB);
+check($r['status'] === 409 && $r['body']['error'] === 'claim_open', 'second open claim → 409 claim_open', $r);
+$r = call('POST', "$api/claims/$claimId/files?name=receipt.png", "\x89PNG\r\n\x1A\n" . str_repeat("\0", 16), $tokenB);
+check($r['status'] === 200 && ($r['body']['claim']['files'][0]['type'] ?? '') === 'image/png', 'evidence file (raw body) → stored as image/png', $r);
+$r = call('POST', "$api/claims/$claimId/files?name=x.html", '<script>alert(1)</script>', $tokenB);
+check($r['status'] === 415 && $r['body']['error'] === 'unsupported_type', 'not a photo / PDF → 415', $r);
+$r = call('GET', "$api/claims/", null, $tokenB);
+check($r['status'] === 200 && array_column($r['body']['items'] ?? [], 'id') === [$claimId], 'GET /claims/ → my claim', $r);
+$r = call('POST', "$api/claims/$claimId/withdraw", null, $tokenB);
+check($r['status'] === 200 && $r['body']['claim']['status'] === 'withdrawn', 'withdraw → withdrawn', $r);
+$r = call('POST', "$api/claims/$claimId/withdraw", null, $tokenB);
+check($r['status'] === 409 && $r['body']['error'] === 'claim_closed', 'withdraw again → 409 claim_closed', $r);
+
+$r = call('POST', "$api/inventory/gift/", ['item_id' => 'scutoons_tshirt', 'to' => $emailA], $tokenB);
+check($r['status'] === 403 && $r['body']['error'] === 'not_giftable', 'gift a starter (the basic dress) → 403 not_giftable', $r);
+$r = call('POST', "$api/inventory/gift/", ['item_id' => 'cucumber', 'to' => $emailA], $tokenA);
+check($r['status'] === 400 && $r['body']['error'] === 'self_gift', 'gift to myself → 400 self_gift', $r);
+$r = call('POST', "$api/inventory/gift/", ['item_id' => 'cucumber', 'to' => "nobody-$run@example.com"], $tokenA);
+check($r['status'] === 404 && $r['body']['error'] === 'recipient_not_found', 'gift to an address without an account → 404 recipient_not_found', $r);
+$r = call('POST', "$api/inventory/gift/", ['item_id' => 'cucumber', 'to' => $emailB], $tokenA);
+check($r['status'] === 200 && $r['body']['gift']['qty'] === 1 && qty($r['body']['inventory'], 'cucumber') === 0, 'A gifts a cucumber to B', $r);
+check(str_contains((string) mailFor($emailB), "$emailA gave you a gift"), 'B gets the gift mail');
+$hoodieEntry = entries(call('GET', "$api/me/", null, $tokenA)['body']['inventory'] ?? [], 'dago_hoodie')[0]['id'] ?? null;
+$r = call('POST', "$api/inventory/gift/", ['entry_id' => $hoodieEntry, 'to' => $emailB], $tokenA);
+check($r['status'] === 409 && $r['body']['error'] === 'worn', 'gift the worn hoodie → 409 worn (take it off first)', $r);
+call('PUT', "$api/avatar/", ['slots' => ['torso' => null]], $tokenA);
+$r = call('POST', "$api/inventory/gift/", ['entry_id' => $hoodieEntry, 'to' => $emailB], $tokenA);
+check($r['status'] === 200 && $r['body']['gift']['code'] === $dago && Db::value('SELECT claimed_by FROM qr WHERE code = ?', [$dago]) === $userB,
+    'A gifts the Dago hoodie: the code moves to B', $r);
+$meB = call('GET', "$api/me/", null, $tokenB)['body'];
+check(entries($meB['inventory'] ?? [], 'dago_hoodie')[0]['source'] === 'gift'
+    && array_map(fn($n) => [$n['kind'], $n['item_id'], $n['from']], $meB['received'] ?? []) === [['gift', 'dago_hoodie', $emailA], ['gift', 'cucumber', $emailA]],
+    'B: hoodie (source gift) + two "received" notices from A', $meB['received'] ?? null);
+$r = call('POST', "$api/inventory/gift/", ['entry_id' => $hoodieEntry, 'to' => $emailA], $tokenB);
+check($r['status'] === 409 && $r['body']['error'] === 'cooldown', 'B passes it straight back → 409 cooldown (24 h)', $r);
+$r = call('POST', "$api/inventory/received/seen/", [], $tokenB);
+check($r['status'] === 200 && $r['body']['seen'] === 2 && call('GET', "$api/me/", null, $tokenB)['body']['received'] === [], 'received/seen → notices gone', $r);
+
 // ── Private key never served ───────────────────────────────────────────────────────────────────────────
 $r = call('GET', "$api/keys/keys.php");
 check(!is_array($r['body']) || !array_key_exists('privateKey', $r['body']), '/api/keys/keys.php has no private key');

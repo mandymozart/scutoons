@@ -8,6 +8,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Avatar\AvatarService;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Inventory\InventoryService;
+use Scutoons\Domain\Ownership\OwnershipTransfers;
 use Scutoons\Domain\Reader\ReaderState;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
@@ -24,11 +25,12 @@ final class AccountService
         private readonly InventoryService $inventory,
         private readonly AvatarService $avatar,
         private readonly ReaderState $reader,
+        private readonly OwnershipTransfers $transfers,
     ) {
     }
 
     /**
-     * GET /me/ → { user, access, memberships, inventory, avatar, stats, effects } (access incl. access_token when unlocked)
+     * GET /me/ → { user, access, memberships, inventory, avatar, stats, effects, received } (access incl. access_token when unlocked)
      * @param array<string, mixed> $user
      * @return array<string, mixed>
      */
@@ -53,6 +55,9 @@ final class AccountService
             // reader stats (decayed now) and running effects – agents/ITEMS.md "Substances"
             'stats' => (object) $this->reader->stats($userId),
             'effects' => $this->reader->effects($userId),
+            // what arrived and was not seen yet: gifts and codes an admin moved here (agents/ITEMS.md "Ownership, claims,
+            // gifting"); POST /inventory/received/seen/ marks them
+            'received' => $this->transfers->unseen($userId),
         ];
     }
 

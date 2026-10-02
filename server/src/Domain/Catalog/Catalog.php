@@ -95,6 +95,17 @@ final class Catalog
         return array_values(array_filter($this->items(), fn($item) => ($item['edition_id'] ?? null) === $editionId));
     }
 
+    /**
+     * Can a reader gift this item to another reader (agents/ITEMS.md "Ownership, claims, gifting")? The item's
+     * `giftable`, else true – except starters / the basic dress (everyone has them) and membership / access-only items.
+     * @param array<string, mixed> $item
+     */
+    public static function giftable(array $item): bool
+    {
+        if (is_bool($item['giftable'] ?? null)) return $item['giftable'];
+        return empty($item['starter']) && empty($item['default_worn']) && !in_array($item['category'] ?? null, ['membership', 'access'], true);
+    }
+
     /** @return list<array<string, mixed>> starter items (every new inventory gets one) */
     public function starters(): array
     {

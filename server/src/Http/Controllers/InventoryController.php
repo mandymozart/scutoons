@@ -9,6 +9,8 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Codes\CodeService;
 use Scutoons\Domain\Inventory\InventoryService;
+use Scutoons\Domain\Ownership\Gifts;
+use Scutoons\Domain\Ownership\OwnershipTransfers;
 use Scutoons\Domain\Reader\ReaderState;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
@@ -22,11 +24,33 @@ use Scutoons\Http\Middleware\JsonBody;
  *   POST /api/inventory/import/  { items: [{ item_id, qty }] } → { status, imported, skipped, inventory }
  *   POST /api/inventory/use/     { item_id } → { status, item_id, stats, effects, inventory } (a substance, ITEMS.md "Substances")
  *   POST /api/effects/end/       { kind } → { status, ended, effects } ("Effekt beenden")
+ *   POST /api/inventory/gift/    { entry_id | item_id (+ variant), qty?, to: email } → { status, gift, inventory } (ITEMS.md "Ownership, claims, gifting")
+ *   POST /api/inventory/received/seen/  { ids? } → { status, seen } (the notices of GET /me/ `received`)
  */
 final class InventoryController
 {
-    public function __construct(private readonly InventoryService $inventory, private readonly CodeService $codes, private readonly ReaderState $reader)
+    public function __construct(
+        private readonly InventoryService $inventory,
+        private readonly CodeService $codes,
+        private readonly ReaderState $reader,
+        private readonly Gifts $gifts,
+        private readonly OwnershipTransfers $transfers,
+    ) {
+    }
+
+    public function gift(Request $request, Response $response): Response
     {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        $gift = $this->gifts->gift($user, $body);
+        return Json::response($response, 200, ['status' => 'success', 'gift' => $gift, 'inventory' => $this->inventory->entries((string) $user['id'])]);
+    }
+
+    public function seen(Request $request, Response $response): Response
+    {
+        $body = JsonBody::of($request);
+        $user = CurrentSession::of($request)->requireUser();
+        return Json::response($response, 200, ['status' => 'success', 'seen' => $this->transfers->markSeen((string) $user['id'], $body['ids'] ?? null)]);
     }
 
     public function use(Request $request, Response $response): Response

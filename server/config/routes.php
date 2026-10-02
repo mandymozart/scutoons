@@ -19,6 +19,7 @@ use Scutoons\Domain\Secrets;
 use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
+use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
@@ -31,6 +32,7 @@ use Scutoons\Http\Controllers\AuthController;
 use Scutoons\Http\Controllers\AvatarController;
 use Scutoons\Http\Controllers\CatalogController;
 use Scutoons\Http\Controllers\CertificatesController;
+use Scutoons\Http\Controllers\ClaimsController;
 use Scutoons\Http\Controllers\EmbassyController;
 use Scutoons\Http\Controllers\EntitiesController;
 use Scutoons\Http\Controllers\HealthController;
@@ -109,6 +111,14 @@ return static function (App $app): void {
     $app->post('/api/inventory/import', [InventoryController::class, 'import']);
     $app->post('/api/inventory/use', [InventoryController::class, 'use']);
     $app->post('/api/effects/end', [InventoryController::class, 'endEffect']);
+    // Ownership + gifting (agents/ITEMS.md "Ownership, claims, gifting"): gift an item to another reader, the "you
+    // received" notices, ownership claims ("This is mine") with optional evidence files
+    $app->post('/api/inventory/gift', [InventoryController::class, 'gift']);
+    $app->post('/api/inventory/received/seen', [InventoryController::class, 'seen']);
+    $app->post('/api/claims', [ClaimsController::class, 'create']);
+    $app->get('/api/claims', [ClaimsController::class, 'list']);
+    $app->post('/api/claims/{id:[0-9a-f-]{36}}/files', [ClaimsController::class, 'addFile']);
+    $app->post('/api/claims/{id:[0-9a-f-]{36}}/withdraw', [ClaimsController::class, 'withdraw']);
 
     $app->get('/api/avatar', [AvatarController::class, 'get']);
     $app->put('/api/avatar', [AvatarController::class, 'put']);
@@ -186,8 +196,17 @@ return static function (App $app): void {
         $admin->get('/codes/{code}/events', [CodesController::class, 'events']);
         $admin->post('/codes/{code}/revoke', [CodesController::class, 'revoke']);
         $admin->post('/codes/{code}/unrevoke', [CodesController::class, 'unrevoke']);
+        $admin->get('/codes/{code}/history', [CodesController::class, 'history']);
+        $admin->post('/codes/{code}/transfer', [CodesController::class, 'transfer']);
         $admin->get('/codes/{code}/signature', [CodesController::class, 'signature']);
         $admin->put('/codes/{code}/signature', [CodesController::class, 'saveSignature']);
+
+        // ownership claims (agents/ITEMS.md "Ownership, claims, gifting")
+        $admin->get('/claims', [AdminClaimsController::class, 'list']);
+        $admin->get('/claims/{id:[0-9a-f-]{36}}', [AdminClaimsController::class, 'get']);
+        $admin->post('/claims/{id:[0-9a-f-]{36}}/transfer', [AdminClaimsController::class, 'transfer']);
+        $admin->post('/claims/{id:[0-9a-f-]{36}}/reject', [AdminClaimsController::class, 'reject']);
+        $admin->get('/claims/{id:[0-9a-f-]{36}}/files/{file:[0-9a-f-]{36}}', [AdminClaimsController::class, 'file']);
 
         $admin->get('/batches', [BatchesController::class, 'list']);
         $admin->post('/batches', [BatchesController::class, 'create']);

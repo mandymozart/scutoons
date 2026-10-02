@@ -589,7 +589,73 @@ try {
     check(((array) ($r['body']['avatar']['slots'] ?? []))['legs-right'] === $shorts, 'hidden: the right figure keeps its legs covered too', $r);
     $r = call('PUT', "$userApi/avatar/", ['body' => ['character' => 'catpope', 'look' => 'swim']], $memberToken);
     check($r['status'] === 200 && ($r['body']['avatar']['slots']['legs'] ?? null) === $pants, 'back to a single figure: one legs slot, the pants', $r);
+
+    // Ownership claims (agents/ITEMS.md "Ownership, claims, gifting"): a temporary vinyl code owned by the member, a
+    // throw-away claimant, the admin decides
+    echo "\nOwnership claims + transfers\n";
+    $ownCode = 'o' . substr(bin2hex(random_bytes(4)), 0, 7);
+    Db::run("INSERT INTO qr (id, code, redirect_to, type, email, created_at, claimed_at, edition_id, edition_number) VALUES (?, ?, 'https://scutoons.com/catpope', 'membership', '', ?, ?, '3_catpope_vinyl', 999)",
+        [Db::uuid(), $ownCode, qrNow(), qrNow()]);
+    $r = call('POST', "$userApi/inventory/claim/", ['code' => $ownCode], $memberToken);
+    check($r['status'] === 200 && $r['body']['claimed'] === 'new', 'the member registers the code', $r);
+    $claimant = Db::transaction(fn() => Users::create("admin-smoke-$run-claimant@example.com", 'de'));
+    $claimantToken = Auth::createSession($claimant['id']);
+    $r = call('POST', "$userApi/claims/", ['code' => $ownCode, 'statement' => 'Admin smoke: bought at the merch table.'], $claimantToken);
+    $ownClaim = $r['body']['claim']['id'] ?? '';
+    check($r['status'] === 201, 'a claimant files a claim', $r);
+    call('POST', "$userApi/claims/$ownClaim/files?name=receipt.pdf", "%PDF-1.4\n% smoke\n", $claimantToken);
+    $r = call('GET', "$api/claims?status=open&code=$ownCode", null, $memberToken);
+    check($r['status'] === 403, 'claims list as a member → 403', $r['status']);
+    $r = call('GET', "$api/claims?status=open&code=$ownCode", null, $adminToken);
+    check($r['status'] === 200 && $r['body']['pagination']['total'] === 1 && $r['body']['open'] >= 1
+        && $r['body']['items'][0]['owner']['email'] === $member['email'] && $r['body']['items'][0]['files'] === 1, 'list: filtered by code, owner + claimant shown, open count', $r['body']);
+    $r = call('GET', "$api/claims?status=bogus", null, $adminToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'invalid_status', 'unknown status → 400', $r);
+    $d = call('GET', "$api/claims/$ownClaim", null, $adminToken)['body'];
+    check(($d['current_owner']['email'] ?? null) === $member['email'] && ($d['code']['code']['code'] ?? null) === $ownCode && array_key_exists('valid', $d['certificate'] ?? [])
+        && ($d['claim']['files'][0]['type'] ?? null) === 'application/pdf', 'detail: code, current owner, certificate check, files', $d);
+    $f = call('GET', "$api/claims/$ownClaim/files/" . ($d['claim']['files'][0]['id'] ?? 'x'), null, $adminToken);
+    check($f['status'] === 200 && str_starts_with($f['raw'], '%PDF-') && ($f['headers']['x-content-type-options'] ?? '') === 'nosniff', 'evidence download (admin only, nosniff)', $f['status']);
+    $r = call('POST', "$api/claims/$ownClaim/transfer", [], $adminToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'note_required', 'transfer without a note → 400', $r);
+    $r = call('POST', "$api/claims/$ownClaim/transfer", ['note' => 'admin smoke: receipt ok'], $adminToken);
+    check($r['status'] === 200 && $r['body']['claim']['status'] === 'transferred' && ($r['body']['current_owner']['id'] ?? null) === $claimant['id']
+        && ($r['body']['history'][0]['kind'] ?? null) === 'claim', 'transfer → the claimant owns the code, history row', $r['body']);
+    check(Db::value('SELECT user_id FROM inventory WHERE code = ?', [$ownCode]) === $claimant['id'], 'the vinyl entry moved with the code');
+    $r = call('POST', "$api/claims/$ownClaim/reject", ['note' => 'x'], $adminToken);
+    check($r['status'] === 409 && $r['body']['error'] === 'claim_closed', 'deciding twice → 409 claim_closed', $r);
+    $r = call('POST', "$api/codes/$ownCode/transfer", ['to' => $member['email']], $adminToken);
+    check($r['status'] === 400 && $r['body']['error'] === 'note_required', 'direct transfer without a note → 400', $r);
+    $r = call('POST', "$api/codes/$ownCode/transfer", ['to' => $member['email'], 'note' => 'admin smoke: back'], $adminToken);
+    check($r['status'] === 200 && $r['body']['to']['email'] === $member['email'] && array_column($r['body']['history'], 'kind') === ['admin', 'claim'],
+        'direct transfer on the code page → back to the member', $r['body']);
+    $r = call('GET', "$api/codes/$ownCode/history", null, $adminToken);
+    check(count($r['body']['items'] ?? []) === 2 && $r['body']['items'][0]['by']['email'] === $admin['email'], 'history: who acted (the admin)', $r['body']);
+    $r = call('GET', "$api/codes?q=$ownCode", null, $adminToken);
+    check(!preg_match('/@/', $r['raw']), 'the codes list stays private (no emails)');
+    $r = call('POST', "$userApi/claims/", ['code' => $ownCode, 'statement' => 'Admin smoke: still mine, really.'], $claimantToken);
+    $second = $r['body']['claim']['id'] ?? '';
+    $r = call('POST', "$api/claims/$second/reject", ['note' => 'admin smoke: no'], $adminToken);
+    check($r['status'] === 200 && $r['body']['claim']['status'] === 'rejected' && $r['body']['claim']['admin_note'] === 'admin smoke: no', 'reject → rejected, the note kept for admins', $r['body']['claim'] ?? $r);
+    $mails = array_column(Db::all('SELECT template FROM mail_log WHERE recipient = ? ORDER BY id', [$claimant['email']]), 'template');
+    check($mails === ['ownership_claim_received', 'ownership_transferred_to', 'ownership_transferred_from', 'ownership_claim_received', 'ownership_claim_rejected'],
+        'mails to the claimant: received, now yours, moved away, received, rejected', $mails);
 } finally {
+    if (isset($ownCode)) {
+        foreach (Db::all('SELECT filename FROM ownership_claim_files f JOIN ownership_claims c ON c.id = f.claim_id WHERE c.code = ?', [$ownCode]) as $file) {
+            $files->deleteClaim((string) $file['filename']);
+        }
+        Db::run('DELETE FROM ownership_claim_files WHERE claim_id IN (SELECT id FROM ownership_claims WHERE code = ?)', [$ownCode]);
+        Db::run('DELETE FROM ownership_claims WHERE code = ?', [$ownCode]);
+        Db::run('DELETE FROM item_transfers WHERE code = ?', [$ownCode]);
+        Db::run('DELETE FROM inventory WHERE code = ?', [$ownCode]);
+        Db::run('DELETE FROM code_events WHERE code = ?', [$ownCode]);
+        Db::run('DELETE FROM qr WHERE code = ?', [$ownCode]);
+    }
+    if (isset($claimant['id'])) {
+        foreach (['avatar_slots', 'sessions', 'user_roles', 'inventory'] as $table) Db::run("DELETE FROM $table WHERE user_id = ?", [$claimant['id']]);
+        Db::run('DELETE FROM users WHERE id = ?', [$claimant['id']]);
+    }
     if (isset($wardrobeRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$wardrobeRegistryId]);
     if (isset($twinRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$twinRegistryId]);
     if (isset($sensitiveRegistryId)) Db::run('DELETE FROM entity_versions WHERE id = ?', [$sensitiveRegistryId]);

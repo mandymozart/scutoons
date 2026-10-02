@@ -31,6 +31,8 @@ return [
     // The qr app (magic links of login requests without an Origin; it forwards /?login= to the viewer) and the viewer
     'QR_URL' => 'https://qr.scutoons.com',
     'APP_URL' => 'https://scutoons.com',
+    // The admin app (links in the admin notification mails, e.g. a new ownership claim)
+    'ADMIN_URL' => 'https://admin.scutoons.com',
     // Item icons: <CDN_URL><icon path>. Local CDN: http://localhost:8001/
     'CDN_URL' => 'https://cdn.scutoons.com/',
     // Browser origins that may call the API with a Bearer token or the session cookie (comma separated): viewer, creator,
@@ -78,6 +80,15 @@ return [
     'GRANT_MAX_PER_HOUR' => '120',
     'IMPORT_MAX_PER_HOUR' => '10',
     'IMPORT_MAX_QTY' => '99',
+    // Ownership claims + gifting (agents/ITEMS.md "Ownership, claims, gifting"): claims a reader may file per 24 h, evidence
+    // files per claim and their size (bytes); gifts a reader may send per 24 h, recipient lookups per 24 h (unknown
+    // addresses count – against probing which emails have an account), the re-gift cooldown of a received item (hours)
+    'CLAIM_MAX_PER_DAY' => '5',
+    'CLAIM_FILES_MAX' => '5',
+    'CLAIM_FILE_MAX_BYTES' => '5242880',
+    'GIFT_MAX_PER_DAY' => '10',
+    'GIFT_LOOKUPS_PER_DAY' => '30',
+    'GIFT_COOLDOWN_HOURS' => '24',
     'PROGRESS_MAX_BYTES' => '262144',
     'CONTENT_MAX_BYTES' => '2097152',
     // Admin lists: largest page_size
