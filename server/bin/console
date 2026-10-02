@@ -23,6 +23,7 @@ if (PHP_SAPI !== 'cli') {
 require __DIR__ . '/../vendor/autoload.php';
 
 use Scutoons\Console\AssetsCheckStorageCommand;
+use Scutoons\Console\AssetsSyncCommand;
 use Scutoons\Console\BackfillEditionNumbersCommand;
 use Scutoons\Console\ExportContentCommand;
 use Scutoons\Console\ImportContentCommand;
@@ -34,7 +35,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class] as $command) {
+foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

@@ -21,6 +21,8 @@ use RuntimeException;
  *     DELETE …/{path}        a file → 200, 400 (a directory would go recursively – this driver never deletes directories)
  *   Core API     https://api.bunny.net, header AccessKey: <the account API key> (BUNNY_API_KEY, optional)
  *     POST /purge?url=<public url>&async=false        drop one URL from the edge caches
+ *     POST /pullzone/{id}/purgeCache                    drop the whole pull zone's cache
+ *     GET  /pullzone/{id}                               the pull zone (origin, hostnames) – read-only
  *     GET  /statistics?dateFrom&dateTo&pullZone        TotalBandwidthUsed, TotalRequestsServed, CacheHitRate, charts
  *   Logging API  https://logging.bunnycdn.com/{MM-DD-YY}/{pullZoneId}.log (API key) – raw per-request lines
  *     cache|status|timestamp|bytes|zone|ip|referer|url|edge|agent|id|country → per-file traffic
@@ -222,6 +224,14 @@ final class BunnyStorage implements AssetStorage
         $url = $this->publicUrl($key);
         if ($this->config->apiKey === '' || $url === '') return false;
         $response = $this->http->send('POST', self::API . '/purge?url=' . rawurlencode($url) . '&async=false', ['AccessKey' => $this->config->apiKey]);
+        return $response['status'] >= 200 && $response['status'] < 300;
+    }
+
+    /** Purges the whole pull zone cache (Core API POST /pullzone/{id}/purgeCache); false without API key / zone id */
+    public function purgeZone(): bool
+    {
+        if ($this->config->apiKey === '' || $this->config->pullZoneId === '') return false;
+        $response = $this->http->send('POST', self::API . '/pullzone/' . rawurlencode($this->config->pullZoneId) . '/purgeCache', ['AccessKey' => $this->config->apiKey, 'Content-Type' => 'application/json'], '{}');
         return $response['status'] >= 200 && $response['status'] < 300;
     }
 
