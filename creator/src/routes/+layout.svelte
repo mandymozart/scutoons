@@ -155,9 +155,10 @@
 					</a>
 					<nav class="crumbs" aria-label="Breadcrumb">
 						<ol>
-							{#each nav.crumbs as crumb, i (i)}
+							<!-- the root crumb ("Creator") is the brand next to the logo -->
+							{#each nav.crumbs.slice(1) as crumb, i (i)}
 								<li>
-									<a href={crumb.href} aria-current={i === nav.crumbs.length - 1 ? 'page' : undefined} data-testid="crumb-{i}">{crumb.label}</a>
+									<a href={crumb.href} aria-current={i === nav.crumbs.length - 2 ? 'page' : undefined} data-testid="crumb-{i + 1}">{crumb.label}</a>
 								</li>
 							{/each}
 						</ol>
