@@ -140,6 +140,8 @@
 								<span>{product.name}</span>
 								<span class="muted">{product.id}</span>
 							</span>
+							<!-- only when there is a choice (owner 2026-10-02: a one-variant product showed a pointless "Colour" select) -->
+							{#if product.variants.length > 1}
 							<label class="variant">
 								<span class="muted">{m['homepage.variant']()}</span>
 								<select value={item.variant ?? ''} onchange={(e) => setVariant(i, e.currentTarget.value)} data-testid="featured-variant">
@@ -149,6 +151,7 @@
 									{/each}
 								</select>
 							</label>
+							{/if}
 							{#if shown?.soldOut}<Badge>{m['homepage.sold_out']()}</Badge>{/if}
 						{:else}
 							<span class="name error">{m['homepage.unknown']({ product: item.product })}</span>

@@ -468,7 +468,7 @@
 		"events": "Jeder Scan, jedes Entsperren und jeder Claim, neueste zuerst. Filter nach Event-Typ, Code, Edition, Toon und Datum.",
 		"content": "Pro Toon jede Datei des Content-Stores mit neuester und veröffentlichter Version. Bearbeiten und Veröffentlichen passiert im Creator („Im Creator“).",
 		"settings": "Änderungen gelten ab der nächsten Anfrage, ohne Deploy. „Standard verwenden“ stellt den Standardwert wieder her.",
-		"homepage": "Welche Editionen die Startseite von scutoons.com zeigt, in dieser Reihenfolge (je mit Größen, Farben, Preis, „Kaufen“ und den Bildern als Slider). Die Farbe bestimmt die Bilder. Gilt ab dem Speichern (Browser-Cache bis 1 Minute).",
+		"homepage": "Welche Editionen die Startseite von scutoons.com zeigt, in dieser Reihenfolge (je mit Größen, Varianten, Preis, „Kaufen“ und den Bildern als Slider). Die Variante bestimmt die Bilder. Gilt ab dem Speichern (Browser-Cache bis 1 Minute).",
 		"emails": "Die API ist die einzige Stelle, die E-Mails verschickt. „Versandt“ listet jede Mail, die sie zu senden versucht hat, die neueste zuerst: Vorlage, Adresse, Sprache, versandt oder fehlgeschlagen (mit Fehler). Der Inhalt wird nie gezeigt – eine Anmelde-Mail enthält einen Einmal-Code. Einträge bleiben 180 Tage. „Vorlagen“ zeigt jede E-Mail auf Deutsch und Englisch mit Beispielwerten und wer die Admin-Benachrichtigungen bekommt. Die Texte stehen in templates/mail/texts.php des Servers; eine neue E-Mail kommt dort dazu (agents/PLATFORM.md „Emails“)."
 	},
 	"entity": {
@@ -489,11 +489,11 @@
 	},
 	"homepage": {
 		"title": "Startseite",
-		"meta": "Die Limited Editions auf der Startseite: Produkt, Farbe, Reihenfolge.",
+		"meta": "Die Limited Editions auf der Startseite: Produkt, Variante, Reihenfolge.",
 		"section_featured": "Editionen auf der Startseite",
 		"section_featured_hint": "Von oben nach unten wie auf der Seite. Höchstens {max}.",
 		"empty": "Keine Edition gewählt: die Startseite zeigt dann keine Editionen.",
-		"variant": "Farbe",
+		"variant": "Variante",
 		"variant_default": "Standard ({name})",
 		"sold_out": "ausverkauft",
 		"up": "Nach oben",

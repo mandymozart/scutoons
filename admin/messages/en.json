@@ -468,7 +468,7 @@
 		"events": "Every scan, unlock and claim, newest first. Filter by event type, code, edition, toon and date.",
 		"content": "Per toon every file of the content store with its newest and its published version. Editing and publishing happen in the creator (“In the creator”).",
 		"settings": "Changes apply to the next request, no deploy needed. “Use default” goes back to the default value.",
-		"homepage": "Which editions the scutoons.com homepage shows, in this order (each with sizes, colours, price, \"Buy\" and its images as a slider). The colour decides the images. Live once saved (browser cache up to 1 minute).",
+		"homepage": "Which editions the scutoons.com homepage shows, in this order (each with sizes, variants, price, \"Buy\" and its images as a slider). The variant decides the images. Live once saved (browser cache up to 1 minute).",
 		"emails": "The API is the only sender of email. “Sent mails” lists every mail it tried to send, newest first: template, address, language, sent or failed (with the error). It never shows the content – a sign-in mail carries a one-time code. Entries are kept 180 days. “Templates” shows every email in German and English with sample values, and who gets the admin notifications. Texts live in the server's templates/mail/texts.php; a new email is added there (agents/PLATFORM.md “Emails”)."
 	},
 	"entity": {
@@ -489,11 +489,11 @@
 	},
 	"homepage": {
 		"title": "Homepage",
-		"meta": "The limited editions on the homepage: product, colour, order.",
+		"meta": "The limited editions on the homepage: product, variant, order.",
 		"section_featured": "Editions on the homepage",
 		"section_featured_hint": "Top to bottom as on the page. At most {max}.",
 		"empty": "No edition chosen: the homepage then shows no editions.",
-		"variant": "Colour",
+		"variant": "Variant",
 		"variant_default": "Default ({name})",
 		"sold_out": "sold out",
 		"up": "Move up",
