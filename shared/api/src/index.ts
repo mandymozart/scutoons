@@ -97,3 +97,27 @@ export {
 	type Tier,
 	type Track
 } from './embassy.ts';
+export {
+	ASSET_KINDS,
+	createAssetsApi,
+	qualityVariants,
+	rootPath,
+	toonRelativePath,
+	type AssetDeleteCheck,
+	type AssetDetail,
+	type AssetJob,
+	type AssetKind,
+	type AssetList,
+	type AssetLookup,
+	type AssetMissing,
+	type AssetOrphan,
+	type AssetQuality,
+	type AssetRelinkResult,
+	type AssetRendition,
+	type AssetSettingStatus,
+	type AssetStorageStatus,
+	type AssetSummary,
+	type AssetUsage,
+	type AssetVersion,
+	type AssetsApi
+} from './assets.ts';

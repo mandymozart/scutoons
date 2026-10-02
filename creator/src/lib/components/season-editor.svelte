@@ -12,6 +12,9 @@
 	import SharedField from './shared-field.svelte';
 	import SupportersField from './supporters-field.svelte';
 	import RelatedItemsField from './related-items-field.svelte';
+	import { MEDIA_QUALITIES } from '@scutoons/content';
+	import { qualityVariants, rootPath, toonRelativePath } from '@scutoons/api';
+	import AssetPickerSheet, { type PickedAsset } from './assets/asset-picker-sheet.svelte';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import ChapterBadges from './chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
@@ -46,6 +49,16 @@
 		chapters = docs;
 		images = await knownImages(toon, season.locales, [$state.snapshot(season.data)]);
 	});
+
+	/** the trailer loop from a video asset: its 480p / 720p / 1080p files → variants, 720p the loop (agents/ASSETS.md) */
+	let choosingTrailer = $state(false);
+	function pickTrailer(picked: PickedAsset) {
+		const levels = qualityVariants(picked.asset.renditions.filter((r) => r.mime?.startsWith('video/')));
+		const variants = Object.fromEntries(MEDIA_QUALITIES.filter((l) => levels[l]).map((l) => [l, toonRelativePath(levels[l]!, toon)]));
+		const loop = (variants.medium || variants.high || variants.low || toonRelativePath(picked.path, toon)) as string;
+		season.setShared(['trailer', 'loop'], loop, 'trailer-asset');
+		season.setShared(['trailer', 'variants'], Object.keys(variants).length ? variants : undefined, 'trailer-asset');
+	}
 
 	// the season's children in the sidebar: its chapters with their status per language
 	usePageNav({ sidebar: chapterNav });
@@ -121,11 +134,22 @@
 		<!-- the toon page's desktop hero: a muted background loop + "Trailer ansehen" / "Ton an" → the trailer chapter -->
 		<section class="block" data-testid="season-trailer">
 			<h2 title={m['creator.trailer_hint']()}>{m['creator.trailer']()}</h2>
+			<button type="button" class="secondary choose" onclick={() => (choosingTrailer = true)} title={m['creator.assets_choose_video_hint']()} data-testid="trailer-choose">{m['creator.assets_choose_video']()}</button>
+			<AssetPickerSheet
+				bind:open={choosingTrailer}
+				{toon}
+				kind="video"
+				value={season.get(season.primary, ['trailer', 'loop']) ? rootPath(season.get(season.primary, ['trailer', 'loop']), toon) : ''}
+				title={m['creator.trailer']()}
+				onpick={pickTrailer}
+			/>
 			<div class="grid g2">
-				<SharedField doc={season} path={['trailer', 'loop']} label="trailer.loop" placeholder="videos/s1-trailer-loop.1280w.mp4" testid="trailer-loop" />
+				<SharedField doc={season} path={['trailer', 'loop']} label="trailer.loop" placeholder="videos/s1-trailer-loop.720p.mp4" testid="trailer-loop" />
 				<SharedField doc={season} path={['trailer', 'poster']} label="trailer.poster" kind="image" {toon} known={images} testid="trailer-poster" />
 				<!-- the bigger encoding as the "high" (1080p) quality variant – the reader's quality setting picks it, no media query -->
-				<SharedField doc={season} path={['trailer', 'variants', 'high']} label="trailer · 1080p" placeholder="videos/s1-trailer-loop.1920w.mp4" testid="trailer-high" />
+				<SharedField doc={season} path={['trailer', 'variants', 'low']} label="trailer · 480p" placeholder="videos/s1-trailer-loop.480p.mp4" testid="trailer-low" />
+				<SharedField doc={season} path={['trailer', 'variants', 'medium']} label="trailer · 720p" placeholder="videos/s1-trailer-loop.720p.mp4" testid="trailer-medium" />
+				<SharedField doc={season} path={['trailer', 'variants', 'high']} label="trailer · 1080p" placeholder="videos/s1-trailer-loop.1080p.mp4" testid="trailer-high" />
 				<SharedField doc={season} path={['trailer', 'chapter']} label="trailer.chapter" kind="number" placeholder="0" />
 			</div>
 		</section>
@@ -191,6 +215,9 @@
 	}
 	.warn {
 		color: var(--warn);
+	}
+	.choose {
+		align-self: flex-start;
 	}
 	.mini {
 		font-size: var(--type-caption-size);

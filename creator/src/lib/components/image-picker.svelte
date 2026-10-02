@@ -1,8 +1,14 @@
 <script lang="ts">
 	import { asset } from '$lib/utils/cdn.ts';
 	import { DEFAULT_SLICE } from '@scutoons/content';
+	import { rootPath, toonRelativePath } from '@scutoons/api';
+	import { m } from '$lib/paraglide/messages.js';
+	import AssetPickerSheet from './assets/asset-picker-sheet.svelte';
 
-	/** Image path (relative to the toon's CDN folder) with the known paths as suggestions and a live CDN preview. */
+	/**
+	 * Image path (relative to the toon's CDN folder) with the known paths as suggestions, a live CDN preview and the
+	 * asset picker ("Choose …", agents/ASSETS.md) – it writes the same stable path a typed one would be.
+	 */
 	let {
 		toon,
 		value,
@@ -23,14 +29,10 @@
 	} = $props();
 
 	let open = $state(false);
-	let filter = $state('');
 	let size = $state<{ w: number; h: number } | null>(null);
 	let failed = $state(false);
 
 	const listId = $derived(`images-${label}`);
-	const matches = $derived(
-		known.filter((p) => !filter || p.toLowerCase().includes(filter.toLowerCase())).slice(0, 120)
-	);
 	const formatNote = $derived.by(() => {
 		if (!size) return '';
 		// slices are 390 px wide (1x); the standard height is 625, other heights are fine
@@ -45,9 +47,10 @@
 </script>
 
 <div class="picker">
-	<label>
-		<span class="lbl" class:sr-only={hideLabel}>{label}</span>
+	<label for="{listId}-input" class="lbl" class:sr-only={hideLabel}>{label}</label>
+	<div class="row">
 		<input
+			id="{listId}-input"
 			type="text"
 			list={listId}
 			value={value ?? ''}
@@ -55,7 +58,8 @@
 			onchange={(e) => onchange(e.currentTarget.value.trim())}
 			data-testid="image-path"
 		/>
-	</label>
+		<button type="button" class="secondary browse" onclick={() => (open = true)} title={m['creator.assets_choose_hint']()} data-testid="image-choose">{m['creator.assets_choose']()}</button>
+	</div>
 	<datalist id={listId}>
 		{#each known as p}<option value={p}></option>{/each}
 	</datalist>
@@ -78,20 +82,14 @@
 		</div>
 	{/if}
 
-	<button type="button" class="ghost browse" aria-expanded={open} onclick={() => (open = !open)}>{known.length} known images</button>
-	{#if open}
-		<input type="search" placeholder="filter" bind:value={filter} />
-		<ul class="grid">
-			{#each matches as p (p)}
-				<li>
-					<button type="button" class="thumb" class:current={p === value} title={p} onclick={() => onchange(p)}>
-						<img src={asset(`${toon}/${p}`)} alt="" loading="lazy" />
-						<span>{p.split('/').pop()}</span>
-					</button>
-				</li>
-			{/each}
-		</ul>
-	{/if}
+	<AssetPickerSheet
+		bind:open
+		{toon}
+		kind="image"
+		value={value ? rootPath(value, toon) : ''}
+		title={label}
+		onpick={(picked) => onchange(toonRelativePath(picked.path, toon))}
+	/>
 </div>
 
 <style>
@@ -128,44 +126,17 @@
 	.warn {
 		color: var(--warn);
 	}
-	.browse {
-		align-self: flex-start;
-	}
-	.grid {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-		gap: 0.3rem;
-		max-height: 18rem;
-		overflow: auto;
-	}
-	.thumb {
+	.row {
 		display: flex;
-		flex-direction: column;
-		width: 100%;
-		padding: 2px;
-		background: var(--paper);
-		color: var(--ink);
-		border: var(--border-width-regular) solid var(--border-muted);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		text-align: left;
+		gap: 0.3rem;
+		min-width: 0;
 	}
-	.thumb.current {
-		border: 2px solid var(--ink);
+	.row input {
+		flex: 1;
+		min-width: 0;
 	}
-	.thumb img {
-		width: 100%;
-		aspect-ratio: 390 / 625;
-		object-fit: cover;
-		background: var(--surface-panel);
-	}
-	.thumb span {
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
+	.browse {
+		flex: none;
 	}
 	.sr-only {
 		position: absolute;

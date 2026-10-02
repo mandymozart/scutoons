@@ -12,6 +12,8 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import ImagePicker from './image-picker.svelte';
 	import PlacementPicker from './placement-picker.svelte';
+	import { qualityVariants, rootPath, toonRelativePath } from '@scutoons/api';
+	import AssetPickerSheet, { type PickedAsset } from './assets/asset-picker-sheet.svelte';
 
 	/**
 	 * The slice's background ("Hintergrund"): an image, or a video with the image as its poster. Width / height are read
@@ -125,6 +127,25 @@
 			if (!v.src || (old && v.src === old)) v.src = path || preferred(vs);
 		}, `slice-video-variant-${level}`);
 	}
+	/**
+	 * A video asset from the picker: its quality renditions (480p / 720p / 1080p) become the variants, medium the
+	 * default (agents/ASSETS.md "Video fields"); a picked single file without a level becomes the default only.
+	 */
+	let choosingVideo = $state(false);
+	function pickVideo(picked: PickedAsset) {
+		const levels = qualityVariants(picked.asset.renditions.filter((r) => r.mime?.startsWith('video/')));
+		editVideo((v) => {
+			const vs = Object.fromEntries(MEDIA_QUALITIES.filter((l) => levels[l]).map((l) => [l, toonRelativePath(levels[l]!, toon)]));
+			if (Object.keys(vs).length) {
+				v.variants = vs;
+				v.src = preferred(vs);
+			} else {
+				delete v.variants;
+				v.src = toonRelativePath(picked.path, toon);
+			}
+		}, 'slice-video-asset');
+	}
+
 	function setDefault(level: MediaQuality) {
 		const file = variants[level];
 		if (file) doc.setShared([...slicePath, 'video', 'src'], file, 'slice-video-default');
@@ -212,6 +233,8 @@
 	{#if video}
 		<fieldset class="group" data-testid="video-files">
 			<legend title={m['creator.video_files_hint']()}>{m['creator.video_files']()}</legend>
+			<button type="button" class="secondary choose-video" onclick={() => (choosingVideo = true)} title={m['creator.assets_choose_video_hint']()} data-testid="video-choose">{m['creator.assets_choose_video']()}</button>
+			<AssetPickerSheet bind:open={choosingVideo} {toon} kind="video" value={video.src ? rootPath(video.src, toon) : ''} title={m['creator.video_files']()} onpick={pickVideo} />
 			<div class="files">
 				<span></span><span></span><span class="lbl" title={m['creator.video_default_hint']()}>{m['creator.video_default']()}</span>
 				{#each MEDIA_QUALITIES as level (level)}
@@ -474,5 +497,9 @@
 		display: block;
 		width: 100%;
 		height: 100%;
+	}
+	.choose-video {
+		align-self: flex-start;
+		margin-bottom: 0.5rem;
 	}
 </style>
