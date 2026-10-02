@@ -136,13 +136,13 @@ All commands in `C:\Development\scutoons\server` (PowerShell), after the merge.
 - [x] **1.4 O – Plan (dry run):** *(done: 720 files / 805.9 MB to upload, 0 same / different / only on target)* *(the zone is EMPTY now – the owner emptied it, D1 moot: expect ≈ 720 to upload / ≈ 806 MB, 0 different, 0 only on
   the target)* `php bin/console assets:sync --source-root=../cdn/root --hash` → paste the summary
   (to upload / different / only on target) to the guide before applying.
-- [ ] **1.5 O – Apply:** `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
+- [x] **1.5 O – Apply:** *(done 2026-10-02, log `cdn/logs/bunny-init-2026-10-02.json`)* `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
   --log=../cdn/logs/bunny-init-2026-10-0X.json` (verified uploads, retries, never deletes; long-running). This includes
   the camera model (`models` → its new folder) – sync.py's `.json`/`.bin` gap does not apply here.
-- [ ] **1.6 O – CORS on the pull zone:** bunny dashboard → Pull Zones → `scutoons` → Headers → *Add CORS headers* ON,
+- [x] **1.6 O – CORS on the pull zone:** *(done: CORS on; extensions eot, ttf, woff, woff2, css, js, jpg, jpeg, png, webp, gif, mp3, mp4, mpeg, svg, webm, json, bin, zip, avif, pdf)* bunny dashboard → Pull Zones → `scutoons` → Headers → *Add CORS headers* ON,
   extension list incl. `mp4, mp3, json, bin, webp, png, jpg, jpeg, svg, zip` (the media-quality probe `fetch`es the 480p
   video with `Range`, the camera loads `model.json` + shards).
-- [ ] **1.7 O+A – Verify:** `assets:check-storage` → **0 missing, 0 different**. A: HEAD/GET through
+- [x] **1.7 O+A – Verify:** *(done: 720 paths on both, 0 only local / 0 only bunny / 0 different, 805.9 MB – catpope 305, characters 391, scutoons 22, toptoy 1, yellowmouse 1; samples model.json, trailer 720p, prologue 480p with Origin + Range → 206, right content-range/type, ACAO `*`)* `assets:check-storage` → **0 missing, 0 different**. A: HEAD/GET through
   `https://scutoons.b-cdn.net/…` on samples of the new layout (trailer 720p, prologue 480p, a chapter-2 slice, an item
   icon, a wear overlay, `model.json`, the album zip), size = local, `Access-Control-Allow-Origin` present with an
   `Origin: https://scutoons.com` request, `Range` → 206.
@@ -399,6 +399,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL`)
   as GitHub `production` secrets for the live asset manager (the merge adds them to `targets.json`); verify in admin →
   Assets → Storage (set / missing per key, no values).
+- [ ] 10.1c Fonts (IBM Plex Mono, Bangers + OFL licences) to `scutoons/fonts/` on the CDN; the apps keep their local
+  copies for the beta.
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
   into `production`/targets, `assets:scan`) – ASSETS.md.
 - [ ] 10.3 cdn.scutoons.com → bunny: custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL;
@@ -460,3 +462,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — assets merged (b3be086, 67774da), relayout done (1.1), .env in C:\Development\scutoons, bunny zone empty. Migration 17 `2026-10-02-assets` added to 3.2; 3.3 unblocked. Next: 3.3 seed, migration 17, then 1.3/1.4 from C:\Development\scutoons\server. Worktree scutoons-assets can be removed later.
 - 2026-10-02 — 3.3 + 3.5 done (48 entities, roles, users 0, editions NULL 169 + vinyl 300); migration 17 awaiting the owner's confirmation; 1.3 + 1.4 done. Owner running 1.5 (log cdn/logs/bunny-init-2026-10-02.json), then 1.6, 1.7.
 - 2026-10-02 — migration 17 ran on DB-T (3.2 complete). 1.5 bunny upload running.
+- 2026-10-02 — 1.5, 1.6, 1.7 done (bunny = cdn/root, CORS + Range verified). Open in Phase 1: 1.8. Next: 1.8, then Phase 5.
