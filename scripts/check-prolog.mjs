@@ -179,7 +179,7 @@ const VIDEO_STATE = `(() => {
 	const v = document.querySelector('video[data-player]');
 	if (!v) return null;
 	const box = v.getBoundingClientRect();
-	const music = (window.__media || []).filter((m) => m !== v && /\\/audio\\/music\\//.test(m.currentSrc || m.src));
+	const music = (window.__media || []).filter((m) => m !== v && /\\.(mp3|m4a|ogg|opus)(\\?|$)/i.test(m.currentSrc || m.src));
 	return { controls: v.controls, muted: v.muted, loop: v.loop, autoplay: v.autoplay, playsinline: v.hasAttribute('playsinline'),
 		preload: v.preload, poster: v.poster, src: v.currentSrc || v.querySelector('source')?.src, paused: v.paused, ended: v.ended,
 		time: v.currentTime, duration: v.duration, readyState: v.readyState, audioBytes: v.webkitAudioDecodedByteCount ?? null,
