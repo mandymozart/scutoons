@@ -30,3 +30,4 @@ export { default as ActionBar } from './action-bar.svelte';
 export { default as InfoPanel } from './info-panel.svelte';
 export { default as AppShell } from './app-shell.svelte';
 export { default as ToonAvatar } from './toon-avatar.svelte';
+export { installTooltips } from './tooltips.ts';

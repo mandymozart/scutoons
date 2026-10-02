@@ -13,7 +13,8 @@
 		linkCommands,
 		otherLocale as nextLocale,
 		signOutCommand,
-		type Command
+		type Command,
+		installTooltips,
 	} from '@scutoons/ui';
 	import { TRACKS, type OrgSummary } from '@scutoons/api';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
@@ -36,6 +37,9 @@
 		if (magic) goto(magic.cleaned, { replaceState: true });
 		void session.init(magic?.token);
 	});
+
+	// every `title` in the tool shows in the one SCUTOONS tooltip (tools.css .sc-tooltip)
+	onMount(() => installTooltips());
 
 	// role gate (AuthGate): liaison / ambassador / admin – the server checks it again on every /embassy call
 	const isAmbassador = $derived(session.hasRole('ambassador') || session.hasRole('admin'));

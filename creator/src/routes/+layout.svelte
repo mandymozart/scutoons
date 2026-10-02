@@ -13,7 +13,8 @@
 		linkCommands,
 		signOutCommand,
 		type Command,
-		type PaletteLink
+		type PaletteLink,
+		installTooltips,
 	} from '@scutoons/ui';
 	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
 	import { entities, parseEntityKey } from '@scutoons/content';
@@ -36,6 +37,9 @@
 		if (magic) goto(magic.cleaned, { replaceState: true });
 		void session.init(magic?.token);
 	});
+
+	// every `title` in the tool shows in the one SCUTOONS tooltip (tools.css .sc-tooltip)
+	onMount(() => installTooltips());
 
 	// ── Navigation (agents/DESIGN.md "Creator navigation"): one top bar, sidebar = children of the current level ──
 	const nav = setCreatorNav();

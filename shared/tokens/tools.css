@@ -295,3 +295,21 @@
 	border: var(--border-width-regular) solid var(--ink);
 	background: var(--paper);
 }
+
+/* One tooltip for every tool (owner 2026-10-02): @scutoons/ui installTooltips() shows every `title` in this box. */
+.sc-tooltip {
+	position: fixed;
+	z-index: 10000;
+	max-width: min(24rem, calc(100vw - 1rem));
+	padding: 0.25rem 0.5rem;
+	background: var(--ink);
+	color: var(--paper);
+	font-family: var(--font-mono);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+	font-weight: var(--font-weight-regular);
+	letter-spacing: normal;
+	text-transform: none;
+	white-space: pre-line;
+	pointer-events: none;
+}

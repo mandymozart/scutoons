@@ -14,7 +14,8 @@
 		linkCommands,
 		otherLocale as nextLocale,
 		signOutCommand,
-		type Command
+		type Command,
+		installTooltips,
 	} from '@scutoons/ui';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setAdminSession } from '$lib/session.svelte.ts';
@@ -38,6 +39,9 @@
 		if (magic) goto(magic.cleaned, { replaceState: true });
 		void session.init(magic?.token);
 	});
+
+	// every `title` in the tool shows in the one SCUTOONS tooltip (tools.css .sc-tooltip)
+	onMount(() => installTooltips());
 
 	afterNavigate(() => (menuOpen = false));
 

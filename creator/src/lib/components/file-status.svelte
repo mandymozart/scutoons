@@ -8,7 +8,7 @@
 	 * store's row ids and stay internal): "Published", "Draft · not published" (newer unpublished changes), "Not
 	 * published" (never published), "Missing", "not saved"; the title adds the date of the last change.
 	 * Owner 2026-10-02 ("we got color coding now … more white space"): the chip shows only the language, its colour is
-	 * the state; the words are a tooltip on hover and on keyboard focus (and the accessible name). `full` keeps the words.
+	 * the state; the words are a tooltip (the universal tool tooltip) on hover and on keyboard focus (and the accessible name). `full` keeps the words.
 	 */
 	let { doc, full = false, label: name }: { doc: ContentDoc; full?: boolean; label?: string } = $props();
 
@@ -44,7 +44,7 @@
 	tabindex={name && !full ? 0 : undefined}
 	role={name && !full ? 'img' : undefined}
 	aria-label={name && !full ? groupTip : undefined}
-	data-tip={name && !full ? groupTip : undefined}
+	title={name && !full ? groupTip : undefined}
 >
 	{#if name}<span class="name">{name}</span>{/if}
 	{#each doc.locales as l}
@@ -59,9 +59,8 @@
 			tabindex={full || name ? undefined : 0}
 			role={full || name ? undefined : 'img'}
 			aria-label={full || name ? undefined : title(l)}
-			data-tip={full || name ? undefined : title(l)}
 			aria-hidden={name && !full ? 'true' : undefined}
-			title={full ? title(l) : undefined}
+			title={name && !full ? undefined : title(l)}
 		>
 			{#if full}{lang(l) ? `${l} · ` : ''}{label(l)}{:else}{lang(l)}{/if}{dirty.includes(l) ? ' •' : ''}
 		</span>
@@ -118,28 +117,10 @@
 		padding: 0;
 		align-self: center;
 	}
-	/* the words as a tooltip: hover and keyboard focus */
-	[data-tip] {
-		position: relative;
-		cursor: default;
-	}
-	[data-tip]:focus-visible {
+	/* the words are the universal tool tooltip (@scutoons/ui installTooltips, on hover and keyboard focus) */
+	.file-status[tabindex]:focus-visible,
+	.badge[tabindex]:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: 1px;
-	}
-	[data-tip]:hover::after,
-	[data-tip]:focus-visible::after {
-		content: attr(data-tip);
-		position: absolute;
-		z-index: 40;
-		top: calc(100% + 0.25rem);
-		left: 0;
-		padding: 0.25rem 0.5rem;
-		background: var(--ink);
-		color: var(--paper);
-		text-transform: none;
-		letter-spacing: normal;
-		white-space: nowrap;
-		pointer-events: none;
 	}
 </style>
