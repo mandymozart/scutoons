@@ -415,6 +415,26 @@ people write themselves). Every mail goes through `Domain\Mail\Mailer::send($tem
   `Mailer::sendToAdmins($templateId, $vars)` in `MAIL_ADMIN_LOCALE`.
 - Admin app → **Emails** (`/emails` log, `/emails/templates` previews + recipients); admin API above.
 
+## Assets (the media asset layer, 2026-10-02 – agents/ASSETS.md)
+
+Content keeps referencing CDN paths; this API manages the registry over the storage (local `cdn/root` or the bunny.net
+zone). Content editors (creator, admin):
+
+| Method | Path | |
+|---|---|---|
+| GET | `/assets?q=&folder=&kind=&tag=&state=used\|unused&page=&page_size=&sort=` | `{ items: [asset summary], pagination, folders, cdn }` – current versions with their renditions and use counts |
+| GET | `/assets/lookup?path=` | `{ asset: detail \| null, rendition }` – the asset a CDN path belongs to |
+| GET / PUT | `/assets/{id}` | detail `{ asset, versions: [{ …, renditions }], usages, jobs }` · PUT `{ title?, tags? }` |
+| PUT | `/assets/upload?path=&title=&tags=` | raw body = the file → 201 detail + `uploaded`; 409 `exists`, 422 `invalid_path` / `invalid_type` / `content_mismatch` / `unsafe_svg` / `empty_file`, 413 `file_too_large` (`ASSET_UPLOAD_MAX_BYTES`) |
+| GET | `/assets/missing` · `/assets/orphans` | uses of unknown files · current files nothing uses |
+
+Admin (`/api/admin/assets/*`): `GET storage[?stats=1]` (drivers, settings status – never secrets –, totals, 30-day
+bandwidth), `POST scan`, `POST relink { from, to, publish? }`, `PUT {id}/file?path=&note=` (raw body: replace in place →
+`replaced, archived_as, purged, stale_renditions`), `POST {id}/rename { slug, publish? }`, `GET {id}/delete-check`,
+`DELETE {id}[?force=1]` (409 `in_use` + `usages` while referenced; `force` only when drafts are the only uses),
+`POST {id}/jobs { kind, params }`, `GET jobs`. Without the migration: 503 `not_available`. A creator save / publish /
+restore re-indexes the entity's uses.
+
 ## Security notes
 
 - Sessions: HttpOnly cookie for the apps (JavaScript never stores the token; it only sees it once in the verify answer),

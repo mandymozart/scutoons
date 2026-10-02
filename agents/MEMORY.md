@@ -1697,3 +1697,20 @@ character, persona, look and mood and doubles as the VN test bed.
 - Gotchas: guests cannot read chapter 2 locally without a code (draft) – the browser check ran as the test user only
   (headless CDP script like check-testo, from the scratchpad); a guest's crafted record player is split back into the
   broken player + coupon at sign-in (`importGuest`), both story-grantable, so nothing is lost.
+
+## Asset manager: registry, bunny.net, asset picker (2026-10-02, branch `assets`)
+
+- Owner: an asset selector like the character picker; an in-between layer over the CDN (bunny.net now, other systems
+  later) with versions, relinking, optimization, delete sanity checks, bandwidth. Built: agents/ASSETS.md (model, drivers,
+  operations, config, owner setup, decisions, open items). Content keeps the stable CDN paths – no `asset:` references.
+- bunny.net (owner's keys in the worktree's repo-root `.env`; the server reads only the 7 whitelisted keys from it, never
+  DB/FTP/AUTH/SMTP): zone `scutoons` = an older catpope snapshot (330 files); pull zone 6731366 on `scutoons.b-cdn.net`,
+  no real traffic yet. The initial upload (628 files, 663.6 MB) was planned (`assets:sync` dry run) but not run: the
+  permission system refused lifting `BUNNY_WRITE_PREFIX=_test/` – the owner runs it. Domain switch to cdn.scutoons.com
+  only when the new system is deployed (owner decision).
+- Gotchas: PHP curl on Windows has no CA bundle (`curl.cainfo` empty) → `CurlHttpClient` uses `CURLSSLOPT_NATIVE_CA`;
+  the Bash tool's heredocs swallow backslashes (`'\'` → `'\'`) – write Python/PHP patch scripts with the Write tool;
+  a snippet variable named like a `{#snippet}` (`music`) breaks svelte-check with odd "Snippet" type errors; the JsonBody
+  middleware now leaves non-JSON bodies > 1 MB as a stream (asset uploads); the Browser pane's custom viewport sizes
+  render tiny – use the desktop preset + DOM checks. Own dev ports for this worktree: API 9310, CDN 9311 (own copy of
+  cdn/root), viewer 8310, creator 10310, admin 11310.

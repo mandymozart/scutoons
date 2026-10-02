@@ -667,6 +667,10 @@ Rules now:
   (sync.py never deletes; a local file with the old name but other content would make sync.py ask to overwrite).
 - A separate CDN plan (bunny pull zone ↔ all-inkl origin, cache purge on sync, app builds on CDN) is written with the
   owner before any change.
+- **Asset manager (2026-10-02, agents/ASSETS.md):** the in-between layer – a registry of assets / versions / renditions /
+  uses over the storage drivers (local `cdn/root`, bunny.net Storage + pull zone purge / statistics); content keeps the
+  CDN paths. bunny.net state, the domain switch (`cdn.scutoons.com` → bunny when the new system is deployed) and the
+  owner's setup steps: agents/ASSETS.md "Connecting bunny.net".
 
 ## Phases (updated)
 
@@ -849,6 +853,15 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
   --only=chapter,scene --update` against it. CDN: upload `scutoons/items/{broken_record_player,repair_coupon}.png`
   (`cdn/tools/make_substance_icons.py broken_record_player repair_coupon`, then `cdn/sync.py`). agents/ITEMS.md "Record
   player repair".
+
+- Asset manager (2026-10-02, branch `assets`, agents/ASSETS.md): run `2026-10-02-assets.mysql.sql` (any time; without it
+  only the asset manager answers 503). GitHub environment `production`: the optional bunny.net keys (`.env.example`
+  "bunny.net (asset manager)" – `deploy/targets.json` writes them into the API's `config.php`). After the deploy: admin
+  → Assets → Rescan (registers the storage's files, indexes the uses). The bunny zone is reached at the interim
+  `https://scutoons.b-cdn.net` until the owner moves `cdn.scutoons.com` to bunny (custom hostname on pull zone 6731366 +
+  CNAME + SSL) – then `CDN_PUBLIC_URL` = `https://cdn.scutoons.com`; content keeps its CDN-relative paths, so nothing in
+  content changes; printed URLs stay valid. Before that switch: `php bin/console assets:sync --source-root=cdn/root
+  --apply --overwrite --purge-zone` (the initialisation, agents/ASSETS.md "Connecting bunny.net").
 
 **4. Deploy into the new folders** (nothing points at them yet)
 - Merge `platform` into `main` (the push deploys the touched apps into the new folders).

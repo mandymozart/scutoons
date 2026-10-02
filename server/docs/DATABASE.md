@@ -50,7 +50,8 @@ In phpMyAdmin, in this order (all idempotent): `2026-09-29-accounts-inventory.my
 (`users.media_quality`, default `auto` – with the `media-quality` branch, after the release), `2026-10-02-mail-log.mysql.sql`
 (the sent-mail log of the email module; without it mails are still sent, just not logged), `2026-10-02-ownership.mysql.sql`
 (ownership claims, claim files, transfer history – agents/ITEMS.md "Ownership, claims, gifting"; until it ran gifts and
-claims answer 503, everything else works), `2026-10-02-ownership-signup.mysql.sql` (`login_requests.dispute`: signing up
+claims answer 503, everything else works), `2026-10-02-assets.mysql.sql` (the media asset registry: assets, versions, renditions, usages, jobs –
+agents/ASSETS.md; without it only the asset manager answers 503), `2026-10-02-ownership-signup.mysql.sql` (`login_requests.dispute`: signing up
 to file a claim); then the content seed and the
 edition-number backfill above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).
