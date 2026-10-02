@@ -8,7 +8,14 @@ import { m } from '$lib/paraglide/messages.js';
 import { ApiError, fetchChapter } from '$lib/api.ts';
 
 /** Why a chapter's content is not shown: `draft` (not public), `coming-soon` (listed, not released yet). */
-export type ChapterGate = { reason: 'draft' | 'coming-soon'; number: number; title?: string; release?: string };
+export type ChapterGate = {
+	reason: 'draft' | 'coming-soon';
+	number: number;
+	title?: string;
+	release?: string;
+	/** coming soon: the key visual / its video as the episode's teaser (owner 2026-10-03) */
+	keyvisual?: { image?: string; video?: string };
+};
 
 export const load: PageLoad = async ({ params, parent }) => {
 	// One request per chapter: the library answers the chapter with its VN scenes inlined (agents/DATA.md). Started
@@ -27,7 +34,11 @@ export const load: PageLoad = async ({ params, parent }) => {
 	if (status === Status.COMING_SOON) {
 		// title / release from the chapter overview (the layout loaded coming-soon items for the list)
 		const item = sequence.find((i) => i.number === number);
-		const gate: ChapterGate = { reason: 'coming-soon', number, title: item?.title || undefined, release: item?.release || undefined };
+		// older chapters store the key visual as a plain image path
+		const raw = item?.keyvisual as { image?: string; video?: string } | string | undefined;
+		const kv = typeof raw === 'string' ? { image: raw } : raw;
+		const keyvisual = kv?.image || kv?.video ? kv : undefined;
+		const gate: ChapterGate = { reason: 'coming-soon', number, title: item?.title || undefined, release: item?.release || undefined, keyvisual };
 		return { chapter: null, gate };
 	}
 	// drafts (and chapters the season doesn't list) are readable in dev only, like the chapter overview

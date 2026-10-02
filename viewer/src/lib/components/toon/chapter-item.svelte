@@ -30,8 +30,15 @@
 	const percent = $derived(!progress ? 0 : progress.finished ? 100 : Math.max(1, Math.round(progress.position * 100)));
 	const shown = $derived(!!progress && (progress.finished || progress.position > 0));
 
+	// a coming-soon chapter with a key visual opens its page: the teaser (owner 2026-10-03)
+	const hasTeaser = $derived.by(() => {
+		const kv = chapter.keyvisual as { image?: string; video?: string } | string | undefined;
+		return chapter.status === 'coming-soon' && !!(typeof kv === 'string' ? kv : kv?.image || kv?.video);
+	});
+	const opens = $derived(isPublic || hasTeaser);
+
 	function handleClick() {
-		if (!isPublic) return;
+		if (!opens) return;
 		nav.closeOverlay();
 		goto(localizeHref(`/${toonId}/chapter/${safeChapterNumber}`));
 	}
@@ -42,7 +49,7 @@
 	onclick={handleClick}
 	onkeydown={handleClick}
 	role="link"
-	aria-disabled={!isPublic}
+	aria-disabled={!opens}
 	tabindex="0"
 >
 	<div class="chapter-image">

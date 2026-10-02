@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import NextBar from '$lib/components/chapter/next-bar.svelte';
+	import ChapterTeaser from '$lib/components/chapter/chapter-teaser.svelte';
 	import { nextStep, seasonMusic } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
@@ -102,6 +103,9 @@
 			<h1>{chapterName(data.gate.number)}{data.gate.title ? `: ${data.gate.title}` : ''}</h1>
 			{#if data.gate.release}
 				<p class="gate-release">{m['chapter.release']({ date: formatRelease(data.gate.release) })}</p>
+			{/if}
+			{#if data.gate.keyvisual}
+				<ChapterTeaser toonId={page.params.toonId ?? ''} keyvisual={data.gate.keyvisual} />
 			{/if}
 		{:else}
 			<p>{m['chapter.not_public']()}</p>
