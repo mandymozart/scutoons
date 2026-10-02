@@ -72,18 +72,7 @@
 		}
 	);
 
-	$effect(() => {
-		function handleKeyDown(e: KeyboardEvent) {
-			if (e.key === 'Escape' && active) {
-				nav.closeOverlay();
-			} else if (e.key === 'c' || e.key === 'C') {
-				nav.toggleOverlay('sequence');
-			}
-		}
-
-		window.addEventListener('keydown', handleKeyDown);
-		return () => window.removeEventListener('keydown', handleKeyDown);
-	});
+	// no keyboard shortcuts (owner 2026-10-02: "c" fired on Ctrl+C and while typing in fields; Escape not wanted either)
 
 	// Override parent navigation context to close menu when navigating
 	setContext('navigation', navigate);

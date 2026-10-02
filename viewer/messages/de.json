@@ -217,7 +217,7 @@
 		"source_gift": "Geschenk",
 		"gift": "Verschenken",
 		"gift_title": "{name} verschenken",
-		"gift_to": "Ihre E-Mail-Adresse",
+		"gift_to": "E-Mail-Adresse der Empfänger:in",
 		"gift_qty": "Wie viele",
 		"gift_confirm": "Verschenken",
 		"gift_cancel": "Abbrechen",

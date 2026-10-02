@@ -217,7 +217,7 @@
 		"source_gift": "Gift",
 		"gift": "Give away",
 		"gift_title": "Give {name} to another reader",
-		"gift_to": "Their email address",
+		"gift_to": "Recipient's email address",
 		"gift_qty": "How many",
 		"gift_confirm": "Give it",
 		"gift_cancel": "Cancel",
