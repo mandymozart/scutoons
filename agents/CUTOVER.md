@@ -44,7 +44,7 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 | KAS target dir `cdn.scutoons.com` (old CDN folder) | `/cdn.scutoons.com/` (per its FTP user; confirm) |
 | Old DB tables (expected: `qr` only, maybe `schema_migrations`) | |
 | Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | |
-| New root folder + FTP user | `/scutoons-next/`, user "github actions next" (2.1) |
+| New root folder + FTP user | `/web/`, user "github actions next" (2.1) |
 | Test hostnames (proposal `next.scutoons.com` = viewer, `qr-next.scutoons.com` = qr) | |
 | DB labels: **DB-T** (test build) / **DB-P** (switch-day build, only if needed – Phase 7) | |
 
@@ -159,28 +159,28 @@ which the new qr app proxies after the switch).
 - [ ] **2.1 O – New root folder + its own FTP user.** KAS today has 4 FTP users – main `w020b50e` (`/`, root),
   `cdn-sync` `f017c2d3` (`/cdn.scutoons.com/`), github actions `f017b642` (`/scutoons.com/`), github actions `f017b651`
   (`/qr.scutoons.com/`). **Leave all four untouched** until after the switch (old deploys, legacy, CDN sync).
-  KAS → FTP → *new FTP user* "github actions next", directory = a **new root folder `/scutoons-next/`** (D2; created
+  KAS → FTP → *new FTP user* "github actions next", directory = a **new root folder `/web/`** (D2 decided 2026-10-02; created
   with it), rights read/write/list/view. Its credentials **only** into GitHub → `production` secrets `FTP_SERVER`,
   `FTP_USERNAME`, `FTP_PASSWORD` (replace whatever is there) – not into the local `.env`, never the root user's login.
   Verify: WinSCP with the new user → an empty folder (you must not see `scutoons.com/` or `qr.scutoons.com/`).
   No deploy change needed (T3 n/a): `deploy/targets.json` remotes are relative (`api/`, `qr/`, `viewer/dist/`, …) and
-  `deploy.mjs` hands them to the FTP action as `server-dir` = relative to this user's login folder = `/scutoons-next/`.
-- [ ] **2.2 O – Folder layout inside `/scutoons-next/`** (create the empty folders; the deploys fill them):
+  `deploy.mjs` hands them to the FTP action as `server-dir` = relative to this user's login folder = `/web/`.
+- [ ] **2.2 O – Folder layout inside `/web/`** (create the empty folders; the deploys fill them):
 
   | Folder (from the KAS root) | Filled by | Domain at the test phase (2.6) | Domain after the switch (Phase 8) |
   |---|---|---|---|
-  | `/scutoons-next/api/` (docroot `api/public/`; private `api/storage/keys/`, `api/storage/files/`, `api/logs/`) | target `api` (server/) + 2.3 | `api.scutoons.com` (new) | same |
-  | `/scutoons-next/qr/` (docroot `qr/public/`) | target `qr` | `qr-next.scutoons.com` (test) | **`qr.scutoons.com`** |
-  | `/scutoons-next/viewer/dist/` | target `viewer` | `next.scutoons.com` (test) | **`scutoons.com` + `www.scutoons.com`** |
-  | `/scutoons-next/admin/dist/` | target `admin` | `admin.scutoons.com` (new) | same |
-  | `/scutoons-next/creator/dist/` | target `creator` | `creator.scutoons.com` | same |
-  | `/scutoons-next/shop/dist/` | target `shop` | `shop.scutoons.com` (new) | same |
-  | `/scutoons-next/embassy/dist/` | held back (D5) | – | later (10.6) |
+  | `/web/api/` (docroot `api/public/`; private `api/storage/keys/`, `api/storage/files/`, `api/logs/`) | target `api` (server/) + 2.3 | `api.scutoons.com` (new) | same |
+  | `/web/qr/` (docroot `qr/public/`) | target `qr` | `qr-next.scutoons.com` (test) | **`qr.scutoons.com`** |
+  | `/web/viewer/dist/` | target `viewer` | `next.scutoons.com` (test) | **`scutoons.com` + `www.scutoons.com`** |
+  | `/web/admin/dist/` | target `admin` | `admin.scutoons.com` (new) | same |
+  | `/web/creator/dist/` | target `creator` | `creator.scutoons.com` | same |
+  | `/web/shop/dist/` | target `shop` | `shop.scutoons.com` (new) | same |
+  | `/web/embassy/dist/` | held back (D5) | – | later (10.6) |
   | `/scutoons.com/` (old viewer, untouched) | – | `scutoons.com`, `www.` | **`legacy.scutoons.com`** |
   | `/qr.scutoons.com/` (old qr + generate/, untouched) | – | `qr.scutoons.com` | **`qr-legacy.scutoons.com`** |
   | `/cdn.scutoons.com/` (old FTP CDN, untouched) | – | `cdn.scutoons.com` | same (legacy only; new platform = `scutoons.b-cdn.net`) |
 
-- [ ] **2.3 O – Private data → `<NEW>/api/storage/`** (before the first api deploy): backup's `api/keys/keypair.json`
+- [ ] **2.3 O – Private data → `/web/api/storage/`** (before the first api deploy): backup's `api/keys/keypair.json`
   → `api/storage/keys/keypair.json`; backup's `generate/files/*` → `api/storage/files/` (same subfolders).
   Verify: file counts + sizes per subfolder = 0.2; keypair SHA-256 = 0.2. Rollback: delete the copies (old untouched).
 - [ ] **2.4 O – New database DB-T.** KAS → Databases → new database (MariaDB, utf8mb4). Name/user/password → GitHub
@@ -191,10 +191,10 @@ which the new qr app proxies after the switch).
   `VITE_CDN_URL=https://scutoons.b-cdn.net` (bunny interim URL – new platform only; the qr app's `CDN_URL` follows it), `VITE_WWW_URL=https://www.scutoons.com`, `VITE_CREATOR_URL`,
   `VITE_SHOP_URL`, `VITE_ADMIN_URL`; `GENERATE_PASSWORD` (old value, only for the legacy `generate/`).
   Verify: the summary at the end of `.env.example` (10 secrets, 12 variables) all present.
-- [ ] **2.6 O – Subdomains → `<NEW>/`** (KAS → Domains → Subdomain; SSL Let's Encrypt + "force HTTPS" on each):
-  new `api.` → `<NEW>/api/public/` · new `admin.` → `<NEW>/admin/dist/` · new `shop.` → `<NEW>/shop/dist/` ·
-  `creator.` → `<NEW>/creator/dist/` (if 0.5 shows it unused) · test `next.` → `<NEW>/viewer/dist/` · test `qr-next.`
-  → `<NEW>/qr/public/`. **Do not touch `scutoons.com`, `www.`, `qr.`, `cdn.` yet.**
+- [ ] **2.6 O – Subdomains → `/web/`** (KAS → Domains → Subdomain; SSL Let's Encrypt + "force HTTPS" on each):
+  new `api.` → `/web/api/public/` · new `admin.` → `/web/admin/dist/` · new `shop.` → `/web/shop/dist/` ·
+  `creator.` → `/web/creator/dist/` (if 0.5 shows it unused) · test `next.` → `/web/viewer/dist/` · test `qr-next.`
+  → `/web/qr/public/`. **Do not touch `scutoons.com`, `www.`, `qr.`, `cdn.` yet.**
   Rollback: delete the new subdomains.
 
 ---
@@ -257,7 +257,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
   and answering `n` to a "DIFFERS" prompt downloads the server's file over the local one.
 
 ---
-## Phase 5 — Deploy the new platform into `<NEW>/` (nothing points at it except the new/test hostnames)
+## Phase 5 — Deploy the new platform into `/web/` (nothing points at it except the new/test hostnames)
 
 Decide before: **D5** embassy stays held back for the beta (default yes: not in `targets.json` `order`, workflow manual).
 Preconditions: **2.1 done (FTP secrets = the subfolder user!)**, 0.4 done, T1 done.
@@ -266,14 +266,14 @@ Preconditions: **2.1 done (FTP secrets = the subfolder user!)**, 0.4 done, T1 do
   `viewer/dist/`, shop, creator, admin; protected `storage/**`, `db/**`, `logs/**`). Plus the full suite on the tree
   to release (PLAN.md "definition of done").
 - [ ] **5.2 O (with the coordinator) – Merge `platform` → `main` and push.** Every push to `main` deploys the touched
-  apps (environment `production`) – into `<NEW>/` because of 2.1.
+  apps (environment `production`) – into `/web/` because of 2.1.
 - [ ] **5.3 O – GitHub → Actions → "Deploy all" → Run workflow with dry run** → read the plan, then **without dry run**
   (order api → qr → frontends). Every run prints the migrations reminder – already done in Phase 3.
 - [ ] **5.4 A – Verify:** `https://api.scutoons.com/api/health/` → `status ok`, `db ok`, `version 1.0.0`, `git_sha` =
   main's head; `https://{admin,shop,creator,next}.scutoons.com/version.json`, `https://qr-next.scutoons.com/version.json`.
 - [ ] **5.5 O – Legacy `generate/` on the api** (only if you still want it): upload the backup's `generate/.htpasswd` to
-  `<NEW>/api/public/generate/.htpasswd`, set `AuthUserFile` in `<NEW>/api/public/generate/.htaccess` to its absolute
-  path (KAS shows `/www/htdocs/<account>/<NEW>/api/public/generate/.htpasswd`).
+  `/web/api/public/generate/.htpasswd`, set `AuthUserFile` in `/web/api/public/generate/.htaccess` to its absolute
+  path (KAS shows `/www/htdocs/<account>/web/api/public/generate/.htpasswd`).
 - Rollback: Actions → the app's workflow on an earlier commit; nothing public points here yet.
 
 ---
@@ -342,10 +342,10 @@ or is **published** now (everyone on scutoons.com sees it a week before the publ
 - [ ] **8.1 O – Keep the old system reachable first:** new subdomains `legacy.scutoons.com` → the old viewer folder,
   `qr-legacy.scutoons.com` → the old qr folder (SSL each). Verify both load. (The old viewer's API calls go to
   qr.scutoons.com – after 8.2 that is the new system; its sign-in features may fail on CORS – expected.)
-- [ ] **8.2 O – qr.scutoons.com → `<NEW>/qr/public/`** (SSL stays; re-issue if KAS asks). Repeat 6.2 on
+- [ ] **8.2 O – qr.scutoons.com → `/web/qr/public/`** (SSL stays; re-issue if KAS asks). Repeat 6.2 on
   `qr.scutoons.com` with real codes, incl. 3 printed certificates on `/verify.html`. **Rollback: target back to the old
   qr folder (instant).**
-- [ ] **8.3 O – scutoons.com + www.scutoons.com → `<NEW>/viewer/dist/`** (SSL both). Repeat 6.5 on the real domain;
+- [ ] **8.3 O – scutoons.com + www.scutoons.com → `/web/viewer/dist/`** (SSL both). Repeat 6.5 on the real domain;
   scan a sticker with a phone end to end (qr → Continue → viewer → Add to my account). **Rollback: both targets back
   to the old viewer folder.**
 - [ ] **8.4 A – After-switch checks:** `/version.json` on every host, the printed-URL list of PLATFORM.md "RULE: printed
@@ -370,7 +370,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   or `https://scutoons.com/account?code=<CODE>`), `https://shop.scutoons.com`, the feedback channel (D12), a short
   list of what to try: sign up, read chapters 0–2 de/en, avatar + wardrobe, camera (cucumber), record player repair
   (broken player in chapter 2 scene 1 + coupon at the end → combine), gift an item to another tester, media quality.
-- [ ] **9.3 O/A – Watch daily:** `<NEW>/api/logs/error.log` (FTP; paste excerpts to the guide), admin → Emails (failed
+- [ ] **9.3 O/A – Watch daily:** `/web/api/logs/error.log` (FTP; paste excerpts to the guide), admin → Emails (failed
   mails), Claims (open), Events (scans, sign-ups), Dashboard; KAS traffic of qr.; `/api/health/`.
 
 ---
@@ -402,7 +402,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 | # | Decision | Blocks | Default / recommendation |
 |---|---|---|---|
 | D1 | old-layout files on the bunny zone: keep or prune | Phase 1 (no) | keep until the public release, then prune via Unused |
-| D2 | subfolder name, test hostnames | 2.1, 2.6, T1 | `scutoons-next/`, `next.` + `qr-next.` |
+| D2 | root folder name; test hostnames | 2.1, 2.6, T1 | **decided: `/web/`** ("the house of the applications"); hostnames still proposed: `next.` + `qr-next.` |
 | D3 | `VITE_API_URL` directly api. | 2.5 | yes |
 | D4 | duplicate Dago/beetles code sets: which was printed | public release (not the beta) | decide in the beta week |
 | D5 | embassy stays held back | 5 | yes |
@@ -425,4 +425,5 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   GitHub `production` environment; relayout BEFORE the bunny upload, new platform on `https://scutoons.b-cdn.net`
   (Phase 1 rewritten, waits for the assets merge), Phase 4 n/a. Next: 0.2 (+ the 0.1 numbers).
 - 2026-10-02 — 0.3 done (legacy `/scutoons.com/` backed up). KAS FTP users recorded; 2.1 = new user "github actions next"
-  rooted in `/scutoons-next/` (T3 n/a), 2.2 folder layout + domain map, 10.9 FTP cleanup.
+  rooted in `/web/` (T3 n/a), 2.2 folder layout + domain map, 10.9 FTP cleanup.
+- 2026-10-02 — D2 decided: the new root folder is `/web/` (was proposed `/scutoons-next/`); test hostnames still proposed.
