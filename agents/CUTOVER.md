@@ -287,7 +287,7 @@ secrets in `production` (step 10.1b – needed from the first deploy, since the 
 - [ ] **5.4 A – Verify** (PHP note: KAS runs PHP 8.5, CI builds/tests on 8.3 – if `/api/health/` or qr show errors or
   deprecation output, set the subdomains to PHP 8.3 in KAS): `https://api.scutoons.com/api/health/` → `status ok`, `db ok`, `version 1.0.0`, `git_sha` =
   main's head; `https://{admin,shop,creator,next}.scutoons.com/version.json`, `https://qr-next.scutoons.com/version.json`.
-- [ ] **5.5 O – Legacy `generate/` on the api** (only if you still want it): upload the backup's `generate/.htpasswd` to
+- [x] **5.5 – n/a (owner 2026-10-02: no legacy `generate/` on the new platform).** The old generate UI is excluded from the api deploy (`public/generate/**`); the verify page's `generate/get-signature.php` + signature-file routes are API routes and keep working. Former text: upload the backup's `generate/.htpasswd` to
   `/web/api/public/generate/.htpasswd`, set `AuthUserFile` in `/web/api/public/generate/.htaccess` to its absolute
   path (KAS shows `/www/htdocs/<account>/web/api/public/generate/.htpasswd`).
 - Rollback: Actions → the app's workflow on an earlier commit; nothing public points here yet.

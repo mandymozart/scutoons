@@ -19,7 +19,7 @@
       "build": "composer install --no-dev --optimize-autoloader --no-interaction --no-progress --prefer-dist",
       "include": ["**"],
       "exclude": [
-        "vendor/**", "bin/**", "db/**", "logs/**", "storage/**", "tests/**", "tools/**", "docs/**", "migrations/**",
+        "vendor/**", "bin/**", "db/**", "logs/**", "storage/**", "tests/**", "tools/**", "docs/**", "migrations/**", "public/generate/**",
         ".github/**", ".phpunit.cache/**", ".phpstan.cache/**", "config.php", "config.local.php",
         "config.local.php.example", "phpunit.xml.dist", "phpstan.neon.dist", "README.md", "CHANGELOG.md",
         "**/.htpasswd", "**/.git*", "**/.DS_Store"
