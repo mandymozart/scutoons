@@ -30,7 +30,7 @@
 				},
 				"cover": {
 					"$ref": "#/definitions/Cover",
-					"description": "language-neutral like `download` / `trailer` (the creator writes it to every locale); not shown by the reader yet"
+					"description": "The season's cover (owner 2026-10-02: covers are per season; a toon is represented by its avatar): text-free art + the lettering layout, language-neutral like `download` / `trailer` (the creator's cover editor writes it to every locale). The toon page shows the cover of the season it presents."
 				},
 				"download": {
 					"$ref": "#/definitions/Download",

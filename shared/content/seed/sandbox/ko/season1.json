@@ -4,6 +4,9 @@
 	"number": 1,
 	"release": "2026-09-30",
 	"description": "테스트용: 모든 캐릭터, 페르소나, 룩, 기분을 비주얼 노벨로. 개발 환경과 크리에이터에서만 보입니다(초안).",
+	"cover": {
+		"square": "../catpope/images/s1-cover-square.webp"
+	},
 	"sequence": [
 		{
 			"type": "chapter",

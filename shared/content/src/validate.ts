@@ -570,7 +570,11 @@ function checkToon(c: Collector, t: any, locale: string) {
 	for (const field of TOON_NEUTRAL_FIELDS) {
 		if (t[field] !== undefined) c.warn([field], `${field} is the same in every language: it belongs to the toon entry (toon:${t.id || '<toon>'}) – the reader ignores it here`);
 	}
+	if (t.cover !== undefined) c.warn(['cover'], COVER_BELONGS_TO_SEASON);
 }
+
+/** covers are per season (owner 2026-10-02): a toon is represented by its avatar */
+const COVER_BELONGS_TO_SEASON = "the cover belongs to the season (season.cover, the season's cover editor in the creator) – a toon is shown with its avatar";
 
 /** The toon's index entry (`ToonIndex`, entity `toon:<toon>`): the language-neutral settings (`TOON_NEUTRAL_FIELDS`), all optional */
 function checkToonIndex(c: Collector, t: any) {
@@ -579,7 +583,7 @@ function checkToonIndex(c: Collector, t: any) {
 	if (t.authors !== undefined) checkStringList(c, t.authors, ['authors']);
 	if (t.chapters !== undefined && !Number.isInteger(t.chapters)) c.error(['chapters'], 'chapters must be an integer');
 	if (t.thumbnail !== undefined) checkImagePath(c, t.thumbnail, ['thumbnail']);
-	if (t.cover !== undefined) checkCover(c, t.cover, Array.isArray(t.languages) ? t.languages : undefined);
+	if (t.cover !== undefined) c.warn(['cover'], COVER_BELONGS_TO_SEASON);
 	if (t.map !== undefined) {
 		// the toon's start view on the world map (agents/MAP.md §2.2); the world's size and layers live in the entity `map`
 		if (!isObj(t.map)) c.error(['map'], 'map must be the start view { center?: { x, y }, zoom? }');

@@ -428,7 +428,11 @@ export interface Season {
 	number?: number;
 	release?: string;
 	description?: string;
-	/** language-neutral like `download` / `trailer` (the creator writes it to every locale); not shown by the reader yet */
+	/**
+	 * The season's cover (owner 2026-10-02: covers are per season; a toon is represented by its avatar): text-free art +
+	 * the lettering layout, language-neutral like `download` / `trailer` (the creator's cover editor writes it to every
+	 * locale). The toon page shows the cover of the season it presents.
+	 */
 	cover?: Cover;
 	/** the season's downloads (the music album), shown below its chapter list */
 	download?: Download;
@@ -512,7 +516,10 @@ export interface Toon {
 	status: Status;
 	description: string;
 	thumbnail: string;
-	/** language-neutral (in the toon entry, owner 2026-10-01): text-free artwork, the title is rendered by the UI (`Cover.lettering`) */
+	/**
+	 * @deprecated covers belong to the season (`Season.cover`, owner 2026-10-02); older per-language toon settings may still
+	 * carry one – the reader falls back to it when the season has none
+	 */
 	cover?: Cover;
 	/** the old per-toon map (older viewer builds), filled by the library from the world map + the toon's start view */
 	map?: Map;
@@ -528,10 +535,10 @@ export interface Toon {
 /**
  * The toon settings that are the same in every language (owner 2026-10-01): stored once in the toon's index entry
  * `toon:<toon>` (`ToonIndex`), never in the per-language `toon-settings:<toon>:<l>` (the validation warns there).
- * Text stays per language; `release` and `status` too (see `Toon`). `cover` moved here 2026-10-01 (media are shared by
- * all languages; lettering is rendered by the UI, `Cover.lettering`).
+ * Text stays per language; `release` and `status` too (see `Toon`). `cover` was here 2026-10-01 – 2026-10-02; covers
+ * belong to the season now (`Season.cover`).
  */
-export const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile', 'cover'] as const;
+export const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'] as const;
 export type ToonNeutralField = (typeof TOON_NEUTRAL_FIELDS)[number];
 
 /**
@@ -541,7 +548,7 @@ export type ToonNeutralField = (typeof TOON_NEUTRAL_FIELDS)[number];
 export type ToonNeutralSettings = Partial<Pick<Toon, Exclude<ToonNeutralField, 'map'>>> & { map?: ToonMapView };
 
 /** The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings */
-export type ToonSettings = Omit<Toon, ToonNeutralField>;
+export type ToonSettings = Omit<Toon, ToonNeutralField | 'cover'>;
 
 /** A toon's tile on the landing page: a square image on a colour */
 export interface ToonTile {

@@ -5,7 +5,8 @@ import assert from 'node:assert/strict';
 import { coverLetteringOn, coverLines, coverLineText, defaultCoverLines, estimateCoverFit, validateFile, type CoverLine } from '../src/index.ts';
 
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
-const entry = (cover: unknown, languages = ['de', 'en', 'ko']) => problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, languages, cover });
+// covers belong to the season (owner 2026-10-02)
+const entry = (cover: unknown) => problems('season', { title: 'S', description: 'D', language: 'de', number: 1, sequence: [], cover });
 const line = (extra: Partial<CoverLine> = {}): CoverLine => ({ text: 'season', x: 50, y: 30, size: 12, maxWidth: 84, ...extra });
 
 test('lettering: off, true (the default layout) and a layout per format', () => {
@@ -65,10 +66,7 @@ test('validation: true stays valid, layouts are checked line by line', () => {
 	assert.deepEqual(one({ ...line(), align: 'justify' }), ['error cover.lettering.square.0.align']);
 	// custom texts: per language; a toon language without it is a warning
 	assert.deepEqual(one(line({ text: 'custom', custom: { de: 'Staffel 1', en: 'Season 1', ko: '시즌 1' } })), []);
-	assert.deepEqual(one(line({ text: 'custom', custom: { de: 'Staffel 1', en: '' } })), ['warning cover.lettering.square.0.custom']);
+	assert.deepEqual(one(line({ text: 'custom', custom: { de: 'Staffel 1', en: '' } })), ['warning cover.lettering.square.0.custom'], 'an empty translation');
 	assert.deepEqual(one({ ...line(), text: 'custom', custom: 'Staffel 1' }), ['error cover.lettering.square.0.custom']);
 	assert.deepEqual(one(line({ custom: { de: 'x' } })), ['warning cover.lettering.square.0.custom'], 'custom on a title line is unused');
-	// seasons (written to every locale) accept the same layouts
-	const season = { title: 'S', description: 'D', language: 'de', number: 1, sequence: [], cover: { square: 'images/c.webp', lettering: { square: [line()] } } };
-	assert.deepEqual(problems('season', season), []);
 });

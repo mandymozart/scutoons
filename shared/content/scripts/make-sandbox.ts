@@ -558,7 +558,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		[PARTIAL]: { toon: '샌드박스', season: '고양이 교황의 산책', description: '테스트용: 모든 캐릭터, 페르소나, 룩, 기분을 비주얼 노벨로. 개발 환경과 크리에이터에서만 보입니다(초안).' }
 	};
 	for (const l of [...LOCALES, PARTIAL]) {
-		// the language-neutral settings (authors, chapters, thumbnail, map, cover) live in the toons.json entry (`neutralSettings`)
+		// the language-neutral settings (authors, chapters, thumbnail, map) live in the toons.json entry (`neutralSettings`)
 		files[`${l}/toon.json`] = {
 			id: SANDBOX_TOON,
 			title: meta[l].toon,
@@ -567,7 +567,8 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			status: 'draft',
 			description: meta[l].description
 		};
-		files[`${l}/season1.json`] = { title: meta[l].season, language: l, number: 1, release: RELEASE, description: meta[l].description, sequence };
+		// the season's cover (owner 2026-10-02: covers are per season), the same in every language
+		files[`${l}/season1.json`] = { title: meta[l].season, language: l, number: 1, release: RELEASE, description: meta[l].description, cover: { square: `${CATPOPE}images/s1-cover-square.webp` }, sequence };
 		files[`${l}/locations.json`] = [];
 		files[`${l}/routes.json`] = [];
 	}
@@ -585,7 +586,6 @@ export function neutralSettings(report: SandboxReport) {
 		authors: [],
 		chapters: report.chapters,
 		thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
-		cover: { square: `${CATPOPE}images/s1-cover-square.webp` },
 		map: { layers: { terrain: `${CATPOPE}images/map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
 	};
 }
