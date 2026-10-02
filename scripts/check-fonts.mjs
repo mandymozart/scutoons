@@ -116,7 +116,6 @@ async function pages() {
 		{ app: 'admin', name: 'batches', path: '/batches', auth: true },
 		...(batch ? [{ app: 'admin', name: 'batch (print sheet)', path: `/batches/${encodeURIComponent(batch)}`, auth: true }] : []),
 		{ app: 'admin', name: 'catalog', path: '/catalog', auth: true },
-		{ app: 'admin', name: 'content', path: '/content', auth: true },
 		{ app: 'admin', name: 'events', path: '/events', auth: true },
 		{ app: 'admin', name: 'settings', path: '/settings', auth: true },
 		{ app: 'admin', name: 'users', path: '/users', auth: true },

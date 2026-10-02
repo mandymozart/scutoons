@@ -6,6 +6,7 @@
 	import { page } from '$app/state';
 	import {
 		AppShell,
+		Badge,
 		CommandPalette,
 		Icon,
 		PaletteTrigger,
@@ -21,7 +22,8 @@
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
-	import { VIEWER_URL } from '$lib/config.ts';
+	import { openClaims } from '$lib/claims.svelte.ts';
+	import { CREATOR_URL, VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 
@@ -45,6 +47,11 @@
 
 	afterNavigate(() => (menuOpen = false));
 
+	// the open-claims badge in the sidebar: once the admin is signed in (the claims pages update it after a decision)
+	$effect(() => {
+		if (session.user && session.hasRole('admin')) void openClaims.refresh();
+	});
+
 	// role gate (AuthGate): `admin` – the server checks it again on every /admin call
 	const current = $derived(activeItem(page.url.pathname));
 
@@ -66,6 +73,8 @@
 			goto,
 			m['palette.actions']()
 		),
+		// the content lives in the creator (the admin's read-only Content page is gone, owner 2026-10-02)
+		{ id: 'open-creator', label: m['palette.open_creator'](), group: m['palette.actions'](), keywords: 'content chapters toons creator', run: () => void (location.href = CREATOR_URL) },
 		languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale }), group: m['palette.actions']() }),
 		signOutCommand({ label: m['shell.sign_out'](), run: () => session.logout(), group: m['palette.actions']() })
 	]);
@@ -128,7 +137,7 @@
 								<li>
 									<a href={item.href} aria-current={current?.id === item.id ? 'page' : undefined}>
 										<span class="icon"><Icon name={item.icon} /></span>
-										<span class="title">{item.title()}</span>
+										<span class="title">{item.title()}{#if item.count?.()}{' '}<Badge tone="warning">{item.count?.()}</Badge>{/if}</span>
 										<span class="description">{item.description()}</span>
 									</a>
 								</li>

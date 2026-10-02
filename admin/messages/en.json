@@ -65,7 +65,8 @@
 		"open_code": "Open code {code}",
 		"search_codes": "Codes containing “{q}”",
 		"search_users": "Users with “{q}” in the email",
-		"search_events": "Events of codes containing “{q}”"
+		"search_events": "Events of codes containing “{q}”",
+		"open_creator": "Open the creator"
 	},
 	"common": {
 		"all": "All",
