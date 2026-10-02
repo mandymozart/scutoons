@@ -36,7 +36,7 @@ final class Dashboard
         $to = gmdate('Y-m-d', $today);
 
         [$codeWhere, $codeParams] = self::editionCondition('q', $editionId);
-        $sums = implode(', ', array_map(fn(string $e) => "SUM(CASE WHEN e.event = '$e' THEN 1 ELSE 0 END) AS $e", self::EVENTS));
+        $sums = implode(', ', array_map(fn(string $e) => "SUM(CASE WHEN e.event = '$e' THEN 1 ELSE 0 END) AS `$e`", self::EVENTS));
         $eventWhere = 'e.created_at >= ?' . ($codeWhere !== '' ? " AND $codeWhere" : '');
         $eventParams = array_merge(["$from 00:00:00"], $codeParams);
 
