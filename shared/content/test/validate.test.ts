@@ -141,7 +141,7 @@ test('toon settings (per language): the neutral settings are warned about, they 
 	]);
 });
 
-test('cover (toon entry, season): square / portrait images + lettering (boolean)', () => {
+test('cover (toon entry, season): square / portrait images + lettering (boolean or a layout, cover.test.ts)', () => {
 	const entry = (cover: unknown) => problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, cover });
 	assert.deepEqual(entry({ square: 'images/s1-cover-square.webp', portrait: 'images/s1-cover-portrait.webp' }), []);
 	assert.deepEqual(entry({ square: 'images/s1-cover-square-textless.webp', lettering: true }), []);

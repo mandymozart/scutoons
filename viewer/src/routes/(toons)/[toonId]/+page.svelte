@@ -66,7 +66,7 @@
 				src={asset(`${params.toonId}/${toon.cover.square}`)}
 				alt="Cover"
 				class="Cover"
-				lettering={toon.cover.lettering === true}
+				lettering={toon.cover.lettering}
 				title={toon.title}
 				subtitle={season?.title ?? ''}
 				lang={toon.language}

@@ -4,6 +4,7 @@ import type { AudioEvents, AudioConfiguration } from './audio.ts';
 import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
 import type { QualityVariants } from './media-quality.ts';
 import type { ToonMapView } from './map.ts';
+import type { CoverLettering } from './cover.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -358,15 +359,19 @@ export interface ChapterWithId extends Chapter {
 
 /**
  * A toon's / season's cover (language-neutral, owner 2026-10-01: media are shared by all languages). The artwork carries
- * no text: with `lettering: true` the UI sets the toon's name + the season's title over it in the reader's language
- * (`CoverLettering` in `@scutoons/reader`, agents/DATA.md "Language-independent media"). Without it the image is shown
- * as it is – for artwork that still has its title baked in (catpope until the lettering-free cover is delivered).
+ * no text: with `lettering` the UI sets the title lines over it in the reader's language (`CoverArt` in
+ * `@scutoons/reader`, agents/DATA.md "Language-independent media"). Without it the image is shown as it is – for artwork
+ * that still has its title baked in (catpope until the lettering-free cover is delivered).
  */
 export interface Cover {
 	square?: string;
 	portrait?: string;
-	/** the image is lettering-free: the UI renders the title over it (default false = shown as it is) */
-	lettering?: boolean;
+	/**
+	 * the image is lettering-free: the UI renders the title over it (default false = shown as it is). `true` = the default
+	 * layout (the toon's name small, the season's title big in quotes); an object = a layout per format from the creator's
+	 * cover editor (`CoverLettering`, cover.ts) – texts from the text fields, never baked
+	 */
+	lettering?: boolean | CoverLettering;
 }
 
 /** @deprecated moved to `<toon>/_/credits.json` (`ToonCredits`, credits.ts); the creator shows it read-only */
