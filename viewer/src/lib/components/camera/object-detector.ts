@@ -1,6 +1,8 @@
 // On-device image classification for the `scan_object` skill (cucumber camera).
 // TF.js + MobileNet are lazy-loaded only when a scan_object skill is used.
 
+import { asset } from '$lib/utils/cdn.ts';
+
 export interface Prediction {
 	className: string;
 	probability: number;
@@ -11,6 +13,9 @@ export interface Classifier {
 	/** the model's picture fingerprint (MobileNet embedding, unit length) – "is this the same cucumber again?" */
 	embed(source: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement): Promise<Float32Array>;
 }
+
+/** MobileNet v2 (alpha 1.0, 224 px) on our CDN – see loadClassifier */
+export const MOBILENET_MODEL = 'models/mobilenet_v2_100_224/model.json';
 
 let classifierPromise: Promise<Classifier> | null = null;
 
@@ -27,7 +32,10 @@ export function loadClassifier(): Promise<Classifier> {
 		const tf = await import('@tensorflow/tfjs');
 		await tf.ready();
 		const mobilenet = await import('@tensorflow-models/mobilenet');
-		const model = await mobilenet.load({ version: 2, alpha: 1.0 });
+		// served from our CDN (owner phone test 2026-10-02: the tfhub.dev → Kaggle bucket chain failed in Brave – "cucumber
+		// detector could not be loaded" – and every load told Google the reader's IP). Files: cdn/root/models/ (14 MB,
+		// MobileNet v2 1.0 224 from tfhub.dev/google/imagenet/mobilenet_v2_100_224/classification/2, Apache-2.0).
+		const model = await mobilenet.load({ version: 2, alpha: 1.0, modelUrl: asset(MOBILENET_MODEL), inputRange: [0, 1] });
 		const classifier: Classifier = {
 			classify: (source, topk = 5) => model.classify(source, topk),
 			embed: async (source) => {
