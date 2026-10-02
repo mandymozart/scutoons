@@ -46,6 +46,7 @@
 
 <div
 	class={`chapter-item ${status}`}
+	class:teaser={hasTeaser}
 	onclick={handleClick}
 	onkeydown={handleClick}
 	role="link"
@@ -162,6 +163,14 @@
 	.chapter-item.coming-soon {
 		opacity: 0.5;
 		cursor: not-allowed;
+	}
+	/* a coming-soon chapter with a teaser opens it: greyed until hovered, a link pointer (owner 2026-10-03) */
+	.chapter-item.coming-soon.teaser {
+		cursor: pointer;
+	}
+	.chapter-item.coming-soon.teaser:hover,
+	.chapter-item.coming-soon.teaser:focus-visible {
+		opacity: 1;
 	}
 
 	.chapter-item.coming-soon .chapter-release .chapter-release-badge {
