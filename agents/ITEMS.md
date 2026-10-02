@@ -1200,7 +1200,7 @@ of the record player and is data only on existing fundamentals (two catalog item
 two placeholder icons) – no code change.
 
 **Open owner decisions** (answered with a default, the owner may change them):
-- **The coupon is consumed** – the owner said the broken player is consumed; a used coupon is spent, so the recipe
+- **The coupon is consumed** – CONFIRMED by the owner 2026-10-02 ("coupon is used up"). The broken player is consumed; a used coupon is spent, so the recipe
   consumes both (every recipe input is consumed; keeping the coupon would need a new fundamental). It is "good for
   one repair" in its description.
 - **Wording**: de "Ein alter Plattenspieler – kaputt. Mitnehmen?" / en "An old record player – broken. Take it?"
