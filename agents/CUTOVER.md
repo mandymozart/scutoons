@@ -335,7 +335,7 @@ into the new DB) or one of your own product codes.
   `/stores` → empty state, account page (My claims, media quality, hide sensitive content).
 - [ ] **6.6 O – creator.scutoons.com:** sign in → catpope → chapter 2 → preview de/en (broken record player on the first
   slice, the coupon on the last). **Do not publish yet** if 7.1 might rebuild the DB (edits would be lost).
-- [ ] **6.7 O – shop.scutoons.com:** `/de/` and `/en/` list the products, Bandcamp links work.
+- [x] **6.7 O – shop.scutoons.com:** *(done 2026-10-02)* `/de/` and `/en/` list the products, Bandcamp links work.
 - [ ] **6.8 O – Ownership end to end (DB-T only):** on a test code: register it to account A, file a claim from
   account B (with a photo), admin → Claims → transfer → both mails in Emails log; gift an item A → B (`gift_received`).
 - Rollback: none needed (test hosts only).
@@ -347,7 +347,7 @@ into the new DB) or one of your own product codes.
 Decide before: **D8** accept that test-phase data is thrown away if the old DB changed since T0 (recommended; the
 alternative is T4).
 
-- [ ] **7.1 O – Gate.** In the OLD DB: `CHECKSUM TABLE qr;` and the 0.1 count query (T0: 469 / 35 / 381, MAX(created_at)
+- [ ] **7.1 O – Gate.** *(owner 2026-10-02: DB-T stays the production DB – no rebuild; 7.2–7.5 drop. A late delta is handled by 8.5.)* In the OLD DB: `CHECKSUM TABLE qr;` and the 0.1 count query (T0: 469 / 35 / 381, MAX(created_at)
   2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46, checksum **3162238151**). **Identical to 0.1 → keep DB-T**
   (it is already the production DB; tick 7.2–7.5 as `[-]`). Different (a registration, a new code, a re-signature since
   T0) → 7.2.
@@ -434,7 +434,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
   messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
 - [ ] 10.12 Viewer: `/catpope/credits` and `/catpope/download` work but no page links to them (owner 2026-10-02) –
-  give them an entry (toon page / season slot / menu). Also: the QR camera never decoded on the owner's webcam (blurry
+  **owner decision: link them (toon page / season slot / menu) or drop the routes.** Also: the QR camera never decoded on the owner's webcam (blurry
   image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
 - [ ] 10.8 Public release.
 
