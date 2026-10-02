@@ -227,7 +227,7 @@
 	{:else}
 		<div class="files" data-testid="file-status">
 			{#each docs as d (d.entity)}
-				<span class="hint">{fileLabel(d.entity)}</span><FileStatus doc={d} />
+				<FileStatus doc={d} label={fileLabel(d.entity)} />
 			{/each}
 		</div>
 		{#if anyDirty}<div class="bar dirty-bar">{m['creator.unsaved']()}</div>{/if}

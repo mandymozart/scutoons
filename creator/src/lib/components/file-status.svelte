@@ -10,7 +10,11 @@
 	 * Owner 2026-10-02 ("we got color coding now … more white space"): the chip shows only the language, its colour is
 	 * the state; the words are a tooltip on hover and on keyboard focus (and the accessible name). `full` keeps the words.
 	 */
-	let { doc, full = false }: { doc: ContentDoc; full?: boolean } = $props();
+	let { doc, full = false, label: name }: { doc: ContentDoc; full?: boolean; label?: string } = $props();
+
+	/** with a `label` (owner 2026-10-02): the label and the chips are one hover / focus target, the tooltip lists every
+	 * language (easier to hit, one accessible name) */
+	const groupTip = $derived(name ? `${name} – ${doc.locales.map((l) => title(l)).join(' · ')}` : '');
 
 	const dirty = $derived(doc.dirtyLocales);
 
@@ -33,7 +37,16 @@
 	}
 </script>
 
-<span class="file-status">
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<span
+	class="file-status"
+	class:labelled={!!name}
+	tabindex={name && !full ? 0 : undefined}
+	role={name && !full ? 'img' : undefined}
+	aria-label={name && !full ? groupTip : undefined}
+	data-tip={name && !full ? groupTip : undefined}
+>
+	{#if name}<span class="name">{name}</span>{/if}
 	{#each doc.locales as l}
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<span
@@ -43,10 +56,11 @@
 			class:pending={doc.source[l] === 'store' && doc.base[l] !== doc.published[l]}
 			class:missing={doc.source[l] === 'missing'}
 			class:neutral={!lang(l)}
-			tabindex={full ? undefined : 0}
-			role={full ? undefined : 'img'}
-			aria-label={full ? undefined : title(l)}
-			data-tip={full ? undefined : title(l)}
+			tabindex={full || name ? undefined : 0}
+			role={full || name ? undefined : 'img'}
+			aria-label={full || name ? undefined : title(l)}
+			data-tip={full || name ? undefined : title(l)}
+			aria-hidden={name && !full ? 'true' : undefined}
 			title={full ? title(l) : undefined}
 		>
 			{#if full}{lang(l) ? `${l} · ` : ''}{label(l)}{:else}{lang(l)}{/if}{dirty.includes(l) ? ' •' : ''}
@@ -57,8 +71,13 @@
 <style>
 	.file-status {
 		display: inline-flex;
+		align-items: center;
 		gap: var(--space-05);
 		flex-wrap: wrap;
+	}
+	.file-status .name {
+		color: var(--text-muted);
+		font-size: var(--type-caption-size);
 	}
 	/* status chips (DESIGN.md "Brutalist tools"), filled from tokens.css --badge-*: published · saved draft (grey) ·
 	   unsaved (warning) · missing (error); anything else neutral (black) */
@@ -100,16 +119,16 @@
 		align-self: center;
 	}
 	/* the words as a tooltip: hover and keyboard focus */
-	.badge[data-tip] {
+	[data-tip] {
 		position: relative;
 		cursor: default;
 	}
-	.badge[data-tip]:focus-visible {
+	[data-tip]:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: 1px;
 	}
-	.badge[data-tip]:hover::after,
-	.badge[data-tip]:focus-visible::after {
+	[data-tip]:hover::after,
+	[data-tip]:focus-visible::after {
 		content: attr(data-tip);
 		position: absolute;
 		z-index: 40;

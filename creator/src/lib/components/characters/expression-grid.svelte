@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { Badge, Icon } from '@scutoons/ui';
 	import {
 		AUTHORED_VIEW,
 		CHARACTER_IMAGE_VARIANTS,
@@ -25,7 +25,7 @@
 
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /
-	 * ✗ not on the CDN, and a dashed "missing – add image" cell that opens the asset dialog (set the path, prefilled with
+	 * a red "not on the CDN" badge, and a dashed "missing – add image" cell that opens the asset dialog (set the path, prefilled with
 	 * the convention path `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (delivered as PNG; the characters import writes the WebP), or leave a
 	 * note = an asset request). The avatar is derived from the portrait (a small indicator); full is unused (only with
 	 * "all views"). Empty cells show faded what the reader shows instead (`resolveExpression`).
@@ -131,7 +131,7 @@
 	<div class="bar">
 		<span class="summary" data-testid="expression-summary">
 			{m['creator.characters_moods_count']({ count: portraitMoods.length })} ·
-			<b class:ok={hasNeutral} class:bad={!hasNeutral}>{hasNeutral ? `${DEFAULT_MOOD} ✓` : `${DEFAULT_MOOD} ✗`}</b>
+			<Badge tone={hasNeutral ? 'published' : 'warning'}>{DEFAULT_MOOD}</Badge>
 			· <span class="hint">{m['creator.characters_standard_set']({ done: standardDone, total: standard.length })}</span>
 		</span>
 		<span class="actions">
@@ -173,10 +173,10 @@
 							{/if}
 						</span>
 						<span class="label">
-							{#if state === 'found'}✓{:else if state === 'missing'}✗ {m['creator.characters_missing_file']()}{:else if state === 'available'}◌ {m['creator.characters_available']()}{:else if state === 'pending'}…{:else}{m['creator.characters_missing_add']()}{/if}
+							{#if state === 'found'}<Badge tone="published">{m['creator.characters_found']()}</Badge>{:else if state === 'missing'}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else if state === 'available'}◌ {m['creator.characters_available']()}{:else if state === 'pending'}…{:else}{m['creator.characters_missing_add']()}{/if}
 							{#if allViews}<span class="hint">{view}</span>{/if}
 							{#if avatar}
-								<span class="derived" title={m['creator.characters_avatar_derived']()}>{avatar.path ? (status[avatar.path] === false ? 'avatar ✗' : 'avatar ✓') : 'avatar –'}</span>
+								<span class="derived" title={m['creator.characters_avatar_derived']()}>avatar {#if !avatar.path}–{:else if status[avatar.path] === false}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else}✓{/if}</span>
 							{/if}
 							{#if request}<span class="req" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
 						</span>

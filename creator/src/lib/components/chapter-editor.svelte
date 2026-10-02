@@ -639,9 +639,9 @@
 		<p class="pad error">{chapter.error}</p>
 	{:else}
 		<div class="files" data-testid="file-status">
-			<span class="hint">{fileLabel(chapter.entity)}</span><FileStatus doc={chapter} />
-			{#if refSrc && refs[refSrc]}<span class="hint">{sceneLabel(toon, refSrc)}</span><FileStatus doc={refs[refSrc]} />{/if}
-			{#if !season.loading && (season.dirty || season.unpublished.length)}<span class="hint">{fileLabel(season.entity)}</span><FileStatus doc={season} />{/if}
+			<FileStatus doc={chapter} label={fileLabel(chapter.entity)} />
+			{#if refSrc && refs[refSrc]}<FileStatus doc={refs[refSrc]} label={sceneLabel(toon, refSrc)} />{/if}
+			{#if !season.loading && (season.dirty || season.unpublished.length)}<FileStatus doc={season} label={fileLabel(season.entity)} />{/if}
 		</div>
 		{#if anyDirty && !chapter.saving}<div class="bar dirty-bar">{m['creator.unsaved']()}{#if activeDoc?.dirty && section === 'slice'} · {activeDoc.dirtyLocales.join(', ')}{/if}</div>{/if}
 		{#each recoverables as d (d.entity)}

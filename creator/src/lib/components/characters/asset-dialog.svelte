@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Sheet } from '@scutoons/ui';
+	import { Badge, Sheet } from '@scutoons/ui';
 	import type { AssetRequest } from '@scutoons/content';
 	import { imageExists } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -70,7 +70,7 @@
 				<div class="col">
 					<input type="text" bind:value data-testid="asset-path" />
 					<span class="state" class:bad={status === 'missing'} data-testid="asset-status">
-						{status === 'found' ? `✓ ${m['creator.characters_found']()}` : status === 'missing' ? `✗ ${m['creator.characters_missing_file']()}` : status === 'checking' ? '…' : ''}
+						{#if status === 'found'}<Badge tone="published">{m['creator.characters_found']()}</Badge>{:else if status === 'missing'}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else if status === 'checking'}…{/if}
 					</span>
 					{#if value.trim() !== convention}
 						<button type="button" class="ghost mini" onclick={() => (value = convention)}>↺ {m['creator.characters_use_convention_one']()}</button>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { Badge, Icon } from '@scutoons/ui';
 	import {
 		APOSE_LOOKS,
 		APOSE_VIEW,
@@ -371,7 +371,7 @@
 							{@const n = lookPortraitMoods(l).length}
 							<button type="button" class="tab" class:active={l.id === lookId} class:empty-look={n === 0} onclick={() => (look = l.id)} data-testid="look-{l.id}">
 								{lookLabel(currentPersona, l.id, source)}{#if l.default && currentPersona.looks.length > 1}<span class="hint"> · {m['creator.characters_default']()}</span>{/if}
-								<span class="tally" class:bad={!n}>{n ? m['creator.characters_moods_count']({ count: n }) : `✗ ${m['creator.characters_no_images']()}`}</span>
+								{#if n}<span class="tally">{m['creator.characters_moods_count']({ count: n })}</span>{:else}<Badge tone="warning">{m['creator.characters_no_images']()}</Badge>{/if}
 							</button>
 						{/each}
 						<span class="add">
@@ -603,12 +603,6 @@
 		margin-left: 0.35rem;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
-	}
-	.tally.bad {
-		color: var(--error);
-	}
-	.tab.active .tally.bad {
-		color: #ff9b8f;
 	}
 	.add {
 		display: inline-flex;

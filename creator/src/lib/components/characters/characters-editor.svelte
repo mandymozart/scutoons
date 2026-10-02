@@ -25,7 +25,7 @@
 		type RegistryCharacter,
 		type ToonCast
 	} from '@scutoons/content';
-	import { Icon, Tabs } from '@scutoons/ui';
+	import { Badge, Icon, Tabs } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
@@ -309,7 +309,7 @@
 													</span>
 												{/if}
 											</span>
-											{#if issues.length}<span class="bad" title={issues.map((x) => `${x.persona} · ${x.look}: ${x.path ?? 'no neutral portrait'}`).join('\n')}>✗</span>{/if}
+											{#if issues.length}<span class="issue" title={issues.map((x) => `${x.persona} · ${x.look}: ${x.path ?? 'no neutral portrait'}`).join('\n')}><Badge tone="warning">{m['creator.characters_missing_images']()}</Badge></span>{/if}
 										</button>
 									</li>
 								{:else}
@@ -453,9 +453,8 @@
 	.chip.regular {
 		border-color: var(--border-muted);
 	}
-	.bad {
+	.issue {
 		margin-left: auto;
-		color: var(--error);
-		font-weight: 700;
+		align-self: center;
 	}
 </style>

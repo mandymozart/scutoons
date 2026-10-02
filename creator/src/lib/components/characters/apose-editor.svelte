@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { Badge, Icon } from '@scutoons/ui';
 	import {
 		APOSE_VIEW,
 		aposeConventionPath,
@@ -69,12 +69,12 @@
 				</header>
 				{#if path}
 					<div class="thumb" class:bad={state === false}>
-						{#if state === true}<img src={asset(path)} alt="A-pose {look.id}" loading="lazy" />{:else if state === false}<span>✗ {m['creator.characters_missing_file']()}</span>{:else}…{/if}
+						{#if state === true}<img src={asset(path)} alt="A-pose {look.id}" loading="lazy" />{:else if state === false}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else}…{/if}
 					</div>
 					<label>
 						{m['creator.characters_apose_path']()}
 						<input type="text" value={path} onchange={(e) => onchange(look.id, { ...look, path: e.currentTarget.value.trim() }, `apose-${look.id}-path`)} data-testid="apose-{look.id}-path" />
-						<span class="state" class:bad={state === false} data-testid="apose-{look.id}-state">{state === true ? `✓ ${m['creator.characters_found']()}` : state === false ? `✗ ${m['creator.characters_missing_file']()}` : '…'}</span>
+						<span class="state" data-testid="apose-{look.id}-state">{#if state === true}<Badge tone="published">{m['creator.characters_found']()}</Badge>{:else if state === false}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else}…{/if}</span>
 					</label>
 					<details class="tech">
 						<summary>{m['creator.characters_apose_anchors']()}</summary>
