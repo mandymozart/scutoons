@@ -146,7 +146,11 @@ echo "Public\n";
 $r = call('GET', "$api/health/");
 check($r['status'] === 200 && $r['body']['db'] === 'ok', 'GET /health/', $r);
 $r = call('GET', "$api/items/");
-check($r['status'] === 200 && count($r['body']['items'] ?? []) === 22 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 22 items + recipes', $r['status']);
+check($r['status'] === 200 && count($r['body']['items'] ?? []) === 25 && ($r['body']['recipes'][0]['id'] ?? '') === 'cucumber_camera', 'GET /items/ → 25 items + recipes', $r['status']);
+$byId = array_column($r['body']['items'] ?? [], null, 'id');
+check(($byId['awakening_vinyl']['album'] ?? null) === 'awakening' && ($byId['awakening_vinyl']['format'] ?? null) === 'vinyl'
+    && ($byId['record_player']['plays'] ?? null) === ['vinyl'] && ($r['body']['albums'][0]['id'] ?? null) === 'awakening',
+    'GET /items/ → the vinyl carries the album "awakening", the record player plays vinyl (players, albums)', $byId['awakening_vinyl'] ?? null);
 // the cucumber camera only scans cucumbers (owner 2026-09-30): crafting trades the starter camera's QR scan for it
 $skillsOf = fn(string $id) => array_column(array_values(array_filter($r['body']['items'] ?? [], fn($i) => $i['id'] === $id))[0]['skills'] ?? [], 'type');
 check($skillsOf('camera') === ['scan_qr'] && $skillsOf('cucumber_camera') === ['scan_object'], 'camera: scan_qr · cucumber_camera: scan_object only', [$skillsOf('camera'), $skillsOf('cucumber_camera')]);

@@ -345,6 +345,11 @@ export interface Chapter {
 	 * plain scroll chapters. The reader shows it on the chapter list item and at the chapter start.
 	 */
 	featuring?: string[];
+	/**
+	 * Items that go with this chapter (catalog item ids, in order; language-neutral – the creator writes the same list to
+	 * every locale), agents/ITEMS.md "Players, albums, related items". Stored + edited; the reader does not show it yet.
+	 */
+	related_items?: string[];
 }
 
 export interface ChapterWithId extends Chapter {
@@ -426,6 +431,12 @@ export interface Season {
 	supporters?: Supporter[];
 	/** the toon page's desktop hero: a muted background loop + the button to the trailer chapter (language-neutral) */
 	trailer?: SeasonTrailer;
+	/**
+	 * Items that go with this season (catalog item ids, in order; language-neutral like `download` – the creator writes
+	 * the same list to every locale): the toon page's "related" block (icon, name, and for physical items with a product
+	 * the link to buy it), agents/ITEMS.md "Players, albums, related items".
+	 */
+	related_items?: string[];
 	/** @deprecated moved to `<toon>/_/credits.json` (the creator shows it read-only); the viewer never rendered it */
 	credits?: Credits;
 	sequence: SequenceItem[];

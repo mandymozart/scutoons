@@ -17,6 +17,7 @@ import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import { isMediaQuality } from './media-quality.ts';
+import { checkRelatedItems } from './albums.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -65,6 +66,8 @@ export interface ValidateContext {
 	 * null = the season's sequence doesn't have the chapter; undefined = season not known (no check)
 	 */
 	seasonStatus?: string | null;
+	/** the item catalog's ids (`related_items` of seasons / chapters are checked against them; none = no check) */
+	items?: string[];
 }
 
 class Collector {
@@ -374,6 +377,7 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 			});
 		}
 	}
+	checkRelatedItems(ch.related_items, ctx.items, (level, path, message) => c.add(level, path, message));
 	if (ch.keyvisual !== undefined) {
 		if (isStr(ch.keyvisual)) c.error(['keyvisual'], 'keyvisual must be an object { image, video? } (string form is outdated)');
 		else if (!isObj(ch.keyvisual) || !isStr(ch.keyvisual.image)) c.error(['keyvisual', 'image'], 'keyvisual.image is missing');
@@ -426,7 +430,7 @@ function checkCover(c: Collector, cover: unknown) {
 }
 
 /** season1.json: meta (Season type) + the sequence (the chapters' visibility) */
-function checkSeason(c: Collector, s: any, locale: string) {
+function checkSeason(c: Collector, s: any, locale: string, ctx?: ValidateContext) {
 	if (!isObj(s)) return c.error([], 'season file must be an object');
 	if (!isStr(s.title) || !s.title.trim()) c.warn(['title'], 'title is empty');
 	if (s.description !== undefined && !isStr(s.description)) c.error(['description'], 'description must be a string');
@@ -464,6 +468,7 @@ function checkSeason(c: Collector, s: any, locale: string) {
 				c.warn(['trailer', 'chapter'], `the trailer chapter ${s.trailer.chapter ?? 0} is not in the sequence`);
 		}
 	}
+	checkRelatedItems(s.related_items, ctx?.items, (level, path, message) => c.add(level, path, message));
 	if (s.supporters !== undefined) {
 		if (!Array.isArray(s.supporters)) c.error(['supporters'], 'supporters must be a list of { name, logo?, url? }');
 		else
@@ -587,7 +592,7 @@ export function validateFile(kind: string, data: any, locale: string, ctx: Valid
 	}
 	if (kind === 'chapter') checkChapter(c, data, locale, ctx);
 	else if (kind === 'group') checkGroup(c, data, [], ctx);
-	else if (kind === 'season') checkSeason(c, data, locale);
+	else if (kind === 'season') checkSeason(c, data, locale, ctx);
 	else if (kind === 'toon') checkToon(c, data, locale);
 	else if (kind === 'index') checkToonIndex(c, data);
 	else if (kind === 'script') checkScript(c, data);
@@ -617,6 +622,10 @@ export function validateLocales(kind: string, file: string, files: Record<string
 	if (!source) return problems;
 	for (const [locale, data] of Object.entries(files)) {
 		if (locale === primary || !data) continue;
+		// related items are language-neutral (the creator writes one list to every locale)
+		if ((kind === 'chapter' || kind === 'season') && JSON.stringify(source.related_items ?? []) !== JSON.stringify(data.related_items ?? [])) {
+			add('warning', locale, ['related_items'], `related_items differ between ${primary} and ${locale}: they are the same in every language`);
+		}
 		if (kind === 'chapter') {
 			const a = source.groups ?? [];
 			const b = data.groups ?? [];

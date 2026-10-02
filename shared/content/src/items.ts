@@ -1,5 +1,6 @@
 // Items, inventory, avatar — contract: agents/ITEMS.md (served by qr.scutoons.com /api)
 import type { StatDef, StatEffect, TimedEffect, ReaderState } from './substances.ts';
+import type { Album, MediaFormat } from './albums.ts';
 
 export type Localized = Record<string, string>;
 
@@ -61,6 +62,10 @@ export interface MinigameSkill {
 	id: string;
 }
 
+/**
+ * @deprecated (2026-10-02) the music belongs to an album now: a media item has `album` + `format` and plays only with a
+ * player (`plays`), albums.ts. Still read gracefully (`legacyPlayAudio`): plays without a player.
+ */
 export interface PlayAudioSkill {
 	type: 'play_audio';
 	src: string;
@@ -122,6 +127,14 @@ export interface ItemDef {
 	 * basic dress and membership / access-only items (`isGiftable`). The server decides (403 not_giftable).
 	 */
 	giftable?: boolean;
+	/**
+	 * A media item's album (`catalog.albums` id) and its sound carrier (agents/ITEMS.md "Players, albums, related
+	 * items"): it plays in the app only for a reader who owns a player of that format.
+	 */
+	album?: string | null;
+	format?: MediaFormat | null;
+	/** A player: the formats it plays (`record_player` → `['vinyl']`) */
+	plays?: MediaFormat[] | null;
 }
 
 /** Can this item be given to another reader? The same rule as the server's `Catalog::giftable`. */
@@ -157,6 +170,8 @@ export interface Catalog {
 	recipes: Recipe[];
 	/** the reader stats substances change (`testo`, `appetite`): baseline + half-life, ITEMS.md "Substances" */
 	stats?: Record<string, StatDef>;
+	/** the music media items carry (albums.ts), language-neutral */
+	albums?: Album[];
 }
 
 export type EntryId = number | string;

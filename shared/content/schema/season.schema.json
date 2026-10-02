@@ -47,6 +47,13 @@
 					"$ref": "#/definitions/SeasonTrailer",
 					"description": "the toon page's desktop hero: a muted background loop + the button to the trailer chapter (language-neutral)"
 				},
+				"related_items": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Items that go with this season (catalog item ids, in order; language-neutral like `download` – the creator writes the same list to every locale): the toon page's \"related\" block (icon, name, and for physical items with a product the link to buy it), agents/ITEMS.md \"Players, albums, related items\"."
+				},
 				"credits": {
 					"$ref": "#/definitions/Credits",
 					"deprecated": "moved to `<toon>/_/credits.json` (the creator shows it read-only); the viewer never rendered it"

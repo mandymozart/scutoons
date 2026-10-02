@@ -434,8 +434,8 @@
       "toon": "catpope",
       "name": { "de": "Awakening – LE 12\" Vinyl", "en": "Awakening – LE 12\" vinyl" },
       "description": {
-        "de": "Die limitierte 12\"-Schallplatte zum Cat-Pope-Album „Awakening“. Im Inventar spielt sie die Musik ab.",
-        "en": "The limited edition 12\" record of the Cat Pope album \"Awakening\". In the inventory it plays the music."
+        "de": "Die limitierte 12\"-Schallplatte zum Cat-Pope-Album „Awakening“. Mit einem Plattenspieler im Inventar spielt sie die Musik ab.",
+        "en": "The limited edition 12\" record of the Cat Pope album \"Awakening\". With a record player in the inventory it plays the music."
       },
       "kind": "physical",
       "category": "media",
@@ -444,7 +444,9 @@
       "starter": false,
       "grantable": [],
       "slot": null,
-      "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.128.mp3" }],
+      "skills": [],
+      "album": "awakening",
+      "format": "vinyl",
       "edition_id": "3_catpope_vinyl",
       "product": "awakening_vinyl",
       "variants": null
@@ -464,7 +466,9 @@
       "starter": false,
       "grantable": [],
       "slot": null,
-      "skills": [{ "type": "play_audio", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.128.mp3" }],
+      "skills": [],
+      "album": "awakening",
+      "format": "vinyl",
       "edition_id": null,
       "product": "awakening_test_press",
       "variants": [
@@ -490,6 +494,69 @@
       "skills": [],
       "edition_id": null,
       "product": "kangaroo_cat_hoodie",
+      "variants": null
+    },
+    {
+      "id": "record_player",
+      "toon": null,
+      "name": { "de": "Plattenspieler", "en": "Record player" },
+      "description": {
+        "de": "Ein Plattenspieler. Er spielt Schallplatten aus deinem Inventar ab.",
+        "en": "A record player. It plays the records in your inventory."
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "scutoons/items/record_player.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": null,
+      "skills": [],
+      "plays": ["vinyl"],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
+      "id": "tape_player",
+      "toon": null,
+      "name": { "de": "Kassettenspieler", "en": "Tape player" },
+      "description": {
+        "de": "Ein Kassettenspieler. Er spielt Kassetten aus deinem Inventar ab.",
+        "en": "A tape player. It plays the tapes in your inventory."
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "scutoons/items/tape_player.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": null,
+      "skills": [],
+      "plays": ["tape"],
+      "edition_id": null,
+      "product": null,
+      "variants": null
+    },
+    {
+      "id": "cd_player",
+      "toon": null,
+      "name": { "de": "CD-Spieler", "en": "CD player" },
+      "description": {
+        "de": "Ein CD-Spieler. Er spielt CDs aus deinem Inventar ab.",
+        "en": "A CD player. It plays the CDs in your inventory."
+      },
+      "kind": "virtual",
+      "category": "tool",
+      "icon": "scutoons/items/cd_player.png",
+      "stackable": false,
+      "starter": false,
+      "grantable": [],
+      "slot": null,
+      "skills": [],
+      "plays": ["cd"],
+      "edition_id": null,
+      "product": null,
       "variants": null
     }
   ],
@@ -522,6 +589,18 @@
         { "item": "testo", "qty": 1 }
       ],
       "output": { "item": "checkit_camera", "qty": 1 }
+    }
+  ],
+  "albums": [
+    {
+      "id": "awakening",
+      "toon": "catpope",
+      "title": { "de": "Awakening", "en": "Awakening" },
+      "tracks": [
+        { "id": "brass_morton", "title": "Instrumental (Brass Morton)", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.128.mp3" }
+      ],
+      "download": "catpope/audio/CatPope-Awakening-Music.zip",
+      "cover": "catpope/images/s1-music-vinyl.webp"
     }
   ],
   "stats": {

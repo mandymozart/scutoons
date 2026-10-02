@@ -53,6 +53,13 @@
 						"type": "string"
 					},
 					"description": "Who appears in this chapter: registry character ids, a subset of the season's cast (`cast:<toon>`), in display order. Optional and editorial – suggested from the chapter's VN scenes (`chapterSceneCharacters`), set by hand for plain scroll chapters. The reader shows it on the chapter list item and at the chapter start."
+				},
+				"related_items": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Items that go with this chapter (catalog item ids, in order; language-neutral – the creator writes the same list to every locale), agents/ITEMS.md \"Players, albums, related items\". Stored + edited; the reader does not show it yet."
 				}
 			},
 			"required": [

@@ -34,6 +34,13 @@
 						"$ref": "#/definitions/StatDef"
 					},
 					"description": "the reader stats substances change (`testo`, `appetite`): baseline + half-life, ITEMS.md \"Substances\""
+				},
+				"albums": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Album"
+					},
+					"description": "the music media items carry (albums.ts), language-neutral"
 				}
 			},
 			"required": [
@@ -187,6 +194,37 @@
 				"giftable": {
 					"type": "boolean",
 					"description": "Can a reader gift it to another reader (ITEMS.md \"Ownership, claims, gifting\")? None = yes, except starters / the basic dress and membership / access-only items (`isGiftable`). The server decides (403 not_giftable)."
+				},
+				"album": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "A media item's album (`catalog.albums` id) and its sound carrier (agents/ITEMS.md \"Players, albums, related items\"): it plays in the app only for a reader who owns a player of that format."
+				},
+				"format": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/MediaFormat"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"plays": {
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/MediaFormat"
+							}
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "A player: the formats it plays (`record_player` → `['vinyl']`)"
 				}
 			},
 			"required": [
@@ -365,7 +403,8 @@
 			"required": [
 				"type",
 				"src"
-			]
+			],
+			"deprecated": "(2026-10-02) the music belongs to an album now: a media item has `album` + `format` and plays only with a\nplayer (`plays`), albums.ts. Still read gracefully (`legacyPlayAudio`): plays without a player."
 		},
 		"ApplySkill": {
 			"type": "object",
@@ -434,6 +473,14 @@
 			],
 			"description": "A temporary reader effect of a substance (e.g. `psychedelic`): active until now + duration."
 		},
+		"MediaFormat": {
+			"type": "string",
+			"enum": [
+				"vinyl",
+				"tape",
+				"cd"
+			]
+		},
 		"Recipe": {
 			"type": "object",
 			"properties": {
@@ -492,6 +539,78 @@
 				"half_life_days"
 			],
 			"description": "A reader stat (`catalog.stats.<id>`): where it rests and how fast it gets back there."
+		},
+		"Album": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable, snake_case (`awakening`)"
+				},
+				"toon": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "the toon it belongs to (null = cross-toon)"
+				},
+				"title": {
+					"$ref": "#/definitions/Localized"
+				},
+				"tracks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AlbumTrack"
+					}
+				},
+				"download": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "CDN-root path of the album download (a zip), if there is one – reachable without a player"
+				},
+				"cover": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "CDN-root path of a cover image, optional"
+				}
+			},
+			"required": [
+				"id",
+				"toon",
+				"title",
+				"tracks"
+			],
+			"description": "An album: the music a media item carries (language-neutral; only the title is text)"
+		},
+		"AlbumTrack": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable, unique within the album"
+				},
+				"title": {
+					"type": "string",
+					"description": "the song's name (proper names are the same in every language)"
+				},
+				"src": {
+					"type": "string",
+					"description": "CDN-root path of the streamable file (`<toon>/audio/music/<name>.128.mp3`)"
+				},
+				"duration": {
+					"type": "number",
+					"description": "seconds, optional"
+				}
+			},
+			"required": [
+				"id",
+				"title",
+				"src"
+			]
 		}
 	}
 }

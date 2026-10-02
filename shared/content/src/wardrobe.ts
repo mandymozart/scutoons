@@ -9,6 +9,7 @@ import { bodySlots } from './characters.ts';
 import type { AvatarSlot, Catalog, ItemDef } from './items.ts';
 import { AVATAR_SLOTS } from './items.ts';
 import type { Problem } from './validate.ts';
+import { validateAlbums } from './albums.ts';
 
 /**
  * Draw order of the overlays, bottom → top (legs under the shoes, the shirt over the waistband, the backpack over the
@@ -216,6 +217,8 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 			}
 		}
 	});
+	// albums, formats and players (albums.ts): a record plays only with a player for its format
+	validateAlbums(catalog, add);
 	for (const [id, def] of Object.entries(isObj(catalog.stats) ? catalog.stats : {})) {
 		const d = def as any;
 		if (!isObj(d) || typeof d.baseline !== 'number' || d.baseline < 0 || d.baseline > 100 || typeof d.half_life_days !== 'number' || d.half_life_days <= 0) {
