@@ -43,7 +43,7 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 | KAS target dir `creator.scutoons.com` (in use?) | |
 | KAS target dir `cdn.scutoons.com` (old CDN folder) | `/cdn.scutoons.com/` (per its FTP user; confirm) |
 | Old DB tables (expected: `qr` only, maybe `schema_migrations`) | |
-| Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | |
+| Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | **469 / 35 / 381**; MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per-edition counts + CHECKSUM: pending |
 | New root folder + FTP user | `/web/`, user "github actions next" (2.1) |
 | Test hostnames (proposal `next.scutoons.com` = viewer, `qr-next.scutoons.com` = qr) | |
 | DB labels: **DB-T** (test build) / **DB-P** (switch-day build, only if needed – Phase 7) | |
@@ -244,7 +244,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
   SHOW TRIGGERS;                                   -- qr_owner_immutable, inventory_code_owner_insert, inventory_code_owner_update
   SELECT COUNT(*) FROM users;                      -- 0
   ```
-  codes / registered / signed / per edition = 0.1 exactly; numbered = 3.4's statement count (minus codes not in the DB).
+  codes / registered / signed / per edition = 0.1 exactly (**469 / 35 / 381**, per edition: see "Current state"); numbered = 3.4's statement count (minus codes not in the DB).
 - Rollback: drop DB-T in KAS and start 3.1 again (the old DB is never touched).
 
 ---
@@ -322,7 +322,8 @@ into the new DB) or one of your own product codes.
 Decide before: **D8** accept that test-phase data is thrown away if the old DB changed since T0 (recommended; the
 alternative is T4).
 
-- [ ] **7.1 O – Gate.** In the OLD DB: `CHECKSUM TABLE qr;` and the 0.1 count query. **Identical to 0.1 → keep DB-T**
+- [ ] **7.1 O – Gate.** In the OLD DB: `CHECKSUM TABLE qr;` and the 0.1 count query (T0: 469 / 35 / 381, MAX(created_at)
+  2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46, checksum per "Current state"). **Identical to 0.1 → keep DB-T**
   (it is already the production DB; tick 7.2–7.5 as `[-]`). Different (a registration, a new code, a re-signature since
   T0) → 7.2.
 - [ ] **7.2 O – Fresh export** of the old DB at a quiet hour (as 0.1, new T0 values in "Current state").
@@ -428,3 +429,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   rooted in `/web/` (T3 n/a), 2.2 folder layout + domain map, 10.9 FTP cleanup.
 - 2026-10-02 — D2 decided: the new root folder is `/web/` (was proposed `/scutoons-next/`); test hostnames still proposed.
 - 2026-10-02 — 0.2 done. Open: the 0.1 numbers, the 0.2 hash/publicKey check. Next in parallel: 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6.
+- 2026-10-02 — 0.1 numbers: 469 codes / 35 registered / 381 signed, MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per-edition + CHECKSUM pending.
