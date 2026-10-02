@@ -362,7 +362,12 @@
 		"signup": "Konto anlegen",
 		"grants": "Gewährt",
 		"counts": "{items} Items · {editions} Editionen · {toons} Toons",
-		"raw_map": "Die ganze Tabelle"
+		"raw_map": "Die ganze Tabelle",
+		"albums": "Alben",
+		"album_tracks": "Titel",
+		"album_download": "Download",
+		"album_access": "Zugang",
+		"album_carriers": "Tonträger"
 	},
 	"content": {
 		"title": "Inhalte",

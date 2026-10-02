@@ -38,6 +38,7 @@
 	import { chapterSlices } from '@scutoons/content';
 	import MetaPanel from './meta-panel.svelte';
 	import FeaturingField from './featuring-field.svelte';
+	import RelatedItemsField from './related-items-field.svelte';
 	import GroupPanel from './group-panel.svelte';
 	import AudioPanel from './audio-panel.svelte';
 	import SliceAudio from './slice-audio.svelte';
@@ -699,6 +700,8 @@
 									addToCast={(id) => ensureCast(id, REGULAR_PERSONA)}
 								/>
 							{/if}
+							<!-- the chapter's related items (catalog ids, the same in every language); the reader does not show them yet -->
+							<RelatedItemsField doc={chapter} hint={m['creator.related_items_hint_chapter']()} testid="chapter-related-items" />
 						{/snippet}
 					</MetaPanel>
 				{:else if section === 'audio'}

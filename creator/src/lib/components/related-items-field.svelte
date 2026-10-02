@@ -1,0 +1,176 @@
+<script lang="ts" module>
+	import type { Catalog } from '@scutoons/content';
+	import { authApi } from '$lib/api.ts';
+
+	// the item catalog (`/api/items/`), loaded once per page load for every related-items field
+	let catalogPromise: Promise<Catalog | null> | null = null;
+	function loadCatalog(): Promise<Catalog | null> {
+		catalogPromise ??= authApi.fetchCatalog().catch((e) => {
+			console.warn('Item catalog unavailable', e);
+			catalogPromise = null;
+			return null;
+		});
+		return catalogPromise;
+	}
+</script>
+
+<script lang="ts">
+	import { onMount } from 'svelte';
+	import { Icon } from '@scutoons/ui';
+	import type { ItemDef } from '@scutoons/content';
+	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { asset } from '$lib/utils/cdn.ts';
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { m } from '$lib/paraglide/messages.js';
+
+	/**
+	 * `related_items` of a season or a chapter (agents/ITEMS.md "Players, albums, related items"): catalog item ids in
+	 * order, language-neutral – one list written to every locale (like the season's download / trailer and the chapter's
+	 * featuring). Chips with the item's icon and name, reorder, remove; "Add an item …" lists the rest of the catalog.
+	 */
+	let {
+		doc,
+		hint,
+		testid = 'related-items',
+		legend = true
+	}: { doc: ContentDoc; hint: string; testid?: string; /** false under a section heading that already names it */ legend?: boolean } = $props();
+
+	let catalog = $state<Catalog | null>(null);
+	let loading = $state(true);
+	onMount(() => {
+		loadCatalog().then((c) => {
+			catalog = c;
+			loading = false;
+		});
+	});
+
+	const locale = getLocale();
+	const list = $derived<string[]>(Array.isArray(doc.data[doc.primary]?.related_items) ? doc.data[doc.primary].related_items : []);
+	const byId = $derived(new Map((catalog?.items ?? []).map((i) => [i.id, i])));
+	const options = $derived((catalog?.items ?? []).filter((i) => !list.includes(i.id)));
+	const nameOf = (item: ItemDef | undefined, id: string) => (item ? (item.name[locale] ?? item.name.en ?? item.name.de ?? id) : id);
+
+	function set(next: string[]) {
+		doc.structural((file) => {
+			if (next.length) file.related_items = [...next];
+			else delete file.related_items;
+		}, 'related_items');
+	}
+	function add(id: string) {
+		if (!id || list.includes(id)) return;
+		set([...list, id]);
+	}
+	const remove = (id: string) => set(list.filter((x) => x !== id));
+	function move(from: number, by: number) {
+		const to = from + by;
+		if (to < 0 || to >= list.length) return;
+		const next = [...list];
+		next.splice(to, 0, ...next.splice(from, 1));
+		set(next);
+	}
+</script>
+
+<fieldset class="related" data-testid={testid}>
+	{#if legend}<legend>{m['creator.related_items']()}</legend>{/if}
+	<p class="hint">{hint}</p>
+	<ul class="chips">
+		{#each list as id, i (id)}
+			{@const item = byId.get(id)}
+			{@const name = nameOf(item, id)}
+			<li class="chip" class:bad={!loading && !item} data-testid="{testid}-{id}" title={id}>
+				<span class="icon">{#if item?.icon}<img src={asset(item.icon)} alt="" />{/if}</span>
+				<span class="name">{name}</span>
+				{#if !loading && !item}<span class="hint">{m['creator.related_items_unknown']()}</span>{/if}
+				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
+				<button type="button" class="ghost" disabled={i === list.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
+				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.related_items_remove']({ name })} title={m['creator.related_items_remove']({ name })}><Icon name="x" /></button>
+			</li>
+		{:else}
+			<li class="hint">{m['creator.related_items_empty']()}</li>
+		{/each}
+	</ul>
+	<select
+		aria-label={m['creator.related_items_add']()}
+		title={m['creator.related_items_add']()}
+		value=""
+		disabled={loading || !catalog}
+		onchange={(e) => {
+			add(e.currentTarget.value);
+			e.currentTarget.value = '';
+		}}
+		data-testid="{testid}-add"
+	>
+		<option value="">{loading ? m['creator.related_items_loading']() : m['creator.related_items_add']()}</option>
+		{#each options as item (item.id)}<option value={item.id}>{nameOf(item, item.id)} · {item.id}</option>{/each}
+	</select>
+</fieldset>
+
+<style>
+	.related {
+		border: var(--border-width-regular) solid var(--ink);
+		padding: 0.5rem 0.75rem;
+		margin: 0;
+		/* a fieldset is as wide as its content by default: let narrow columns wrap the chips and the hint */
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.related legend {
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
+		padding: 0 0.3rem;
+	}
+	.hint {
+		margin: 0;
+		color: var(--text-muted);
+		font-size: var(--type-caption-size);
+	}
+	.chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.4rem;
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.chip {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		padding: 0.15rem 0.1rem 0.15rem 0.2rem;
+		border: var(--border-width-regular) solid var(--ink);
+		white-space: nowrap;
+		max-width: 100%;
+		box-sizing: border-box;
+	}
+	.chip .name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.chip.bad {
+		border-color: var(--warn);
+	}
+	.icon {
+		flex: none;
+		width: 1.6rem;
+		height: 1.6rem;
+		display: inline-flex;
+	}
+	.icon img {
+		width: 100%;
+		height: 100%;
+		object-fit: contain;
+	}
+	.chip .ghost {
+		padding: 0.1em 0.3em;
+	}
+	select {
+		align-self: flex-start;
+		width: auto;
+		max-width: 100%;
+	}
+</style>

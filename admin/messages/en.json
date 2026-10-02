@@ -362,7 +362,12 @@
 		"signup": "Signup",
 		"grants": "Grants",
 		"counts": "{items} items · {editions} editions · {toons} toons",
-		"raw_map": "The whole map"
+		"raw_map": "The whole map",
+		"albums": "Albums",
+		"album_tracks": "Tracks",
+		"album_download": "Download",
+		"album_access": "Access",
+		"album_carriers": "Carriers"
 	},
 	"content": {
 		"title": "Content",

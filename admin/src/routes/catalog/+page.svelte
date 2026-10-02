@@ -94,6 +94,8 @@
 								{#if item.starter}<Badge>{m['catalog.starter']()}</Badge>{/if}
 								{#if item.stackable}<Badge>{m['catalog.stackable']()}</Badge>{/if}
 								{#each item.skills ?? [] as skill, i (i)}<Badge tone="accent">{skill.type}</Badge>{/each}
+								{#if item.format}<Badge>{item.format} · {item.album}</Badge>{/if}
+								{#each item.plays ?? [] as format (format)}<Badge tone="accent">plays {format}</Badge>{/each}
 							</span>
 						{:else}{text(item[column.id])}{/if}
 					{/snippet}
@@ -107,6 +109,38 @@
 								</li>
 							{/each}
 						</ul>
+					</Section>
+				{/if}
+				<!-- albums (agents/ITEMS.md "Players, albums, related items"): the music media items carry, and who may
+				     download / listen (access.download default members, access.listen default owners) – edited in
+				     server/config/items.json -->
+				{#if catalog!.catalog.albums?.length}
+					<Section title={m['catalog.albums']()}>
+						<DataTable
+							columns={[
+								{ id: 'id', label: 'id' },
+								{ id: 'title', label: m['catalog.name']() },
+								{ id: 'tracks', label: m['catalog.album_tracks'](), align: 'end' },
+								{ id: 'carriers', label: m['catalog.album_carriers']() },
+								{ id: 'download', label: m['catalog.album_download'](), secondary: true },
+								{ id: 'access', label: m['catalog.album_access']() }
+							]}
+							rows={catalog!.catalog.albums as Row[]}
+							rowKey={(a) => a.id}
+							labels={tableLabels()}
+						>
+							{#snippet cell(a, column)}
+								{#if column.id === 'title'}{text(a.title)}
+								{:else if column.id === 'tracks'}{(a.tracks ?? []).length}
+								{:else if column.id === 'carriers'}{catalog!.catalog.items.filter((i: Row) => i.album === a.id).map((i: Row) => `${i.id} (${i.format})`).join(', ') || '—'}
+								{:else if column.id === 'access'}
+									<span class="badges">
+										<Badge>download: {a.access?.download ?? 'members'}</Badge>
+										<Badge>listen: {a.access?.listen ?? 'owners'}</Badge>
+									</span>
+								{:else}{text(a[column.id])}{/if}
+							{/snippet}
+						</DataTable>
 					</Section>
 				{/if}
 			{:else if active === 'editions'}

@@ -655,7 +655,15 @@
 		"app_label": "Creator",
 		"resize_sidebar": "Seitenleiste breiter oder schmaler ziehen",
 		"text_language_source": "Original (Quellsprache)",
-		"text_language_source_short": "ORIG"
+		"text_language_source_short": "ORIG",
+		"related_items": "Verwandte Items",
+		"related_items_hint_season": "Items zur Staffel, in dieser Reihenfolge – die Toon-Seite zeigt sie (physische Produkte mit Kauf-Link). Gleich in jeder Sprache.",
+		"related_items_hint_chapter": "Items zum Kapitel, in dieser Reihenfolge. Gleich in jeder Sprache; der Reader zeigt sie noch nicht.",
+		"related_items_empty": "Noch keine Items.",
+		"related_items_add": "Item hinzufügen …",
+		"related_items_remove": "{name} entfernen",
+		"related_items_unknown": "nicht im Katalog",
+		"related_items_loading": "Katalog wird geladen …"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

@@ -11,6 +11,7 @@
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
 	import SupportersField from './supporters-field.svelte';
+	import RelatedItemsField from './related-items-field.svelte';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import ChapterBadges from './chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
@@ -109,6 +110,12 @@
 				<!-- decorative image beside the reader's music button (the record's cut-out) -->
 				<SharedField doc={season} path={['download', 'image']} label="download.image" kind="image" {toon} known={images} testid="download-image" />
 			</div>
+		</section>
+
+		<!-- the season's related items (catalog ids, the same in every language): the toon page's "related" block -->
+		<section class="block" data-testid="season-related">
+			<h2>{m['creator.related_items']()}</h2>
+			<RelatedItemsField doc={season} hint={m['creator.related_items_hint_season']()} legend={false} />
 		</section>
 
 		<!-- the toon page's desktop hero: a muted background loop + "Trailer ansehen" / "Ton an" → the trailer chapter -->
