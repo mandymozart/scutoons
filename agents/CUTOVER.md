@@ -465,6 +465,10 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.20 Asset picker: the selected tile turns black but its kind icon stays black (blank white box) – invert the icon
   too (owner screenshot 2026-10-03). The tile's size sums every file incl. the master (roar-little-kitty 491 MB) – show the
   default rendition's size or label the total.
+- [ ] 10.21 Asset picker rework (owner 2026-10-03: "we do have to fix the ui of the picker and its relation to the page
+  where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
+  opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
+  includes 10.20.
 - [ ] 10.8 Public release.
 
 ---
