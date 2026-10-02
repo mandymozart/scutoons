@@ -453,6 +453,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [x] 10.16 Mail Reply-To (owner 2026-10-02: a mistake, fixed before the beta): `MAIL_REPLY_TO` = hello@scutoons.com
   (Reply-To header; the texts say "reply to this email", mail comes from no-reply@).
 - [ ] 10.16b Admin claim page: no raw data (owner 2026-10-02) – part of 10.14.
+- [ ] 10.17 Deploys are not atomic: FTP replaces files one by one, so for a few seconds the API runs half old / half new
+  code (2026-10-02 23:49: "No entry or class found for Transport" during a deploy). Upload to a fresh folder and switch
+  (rename / symlink), or a maintenance flag during the upload.
 - [ ] 10.8 Public release.
 
 ---
