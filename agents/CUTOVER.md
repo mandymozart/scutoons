@@ -333,7 +333,7 @@ into the new DB) or one of your own product codes.
   works), chapter 1 de + `/en/catpope/chapter/1`, `?code=CODE` unlocks on the device, inventory (basic dress on the
   avatar, testo bar), the camera opens and loads the model, `/catpope/credits`, `/catpope/download`, `/shop` → shop,
   `/stores` → empty state, account page (My claims, media quality, hide sensitive content).
-- [ ] **6.6 O – creator.scutoons.com:** sign in → catpope → chapter 2 → preview de/en (broken record player on the first
+- [x] **6.6 O – creator.scutoons.com:** *(done 2026-10-02: sign-in, chapter 2 preview de/en. The preview does not play reader events, so the record player / coupon pickups are tested in the viewer once chapter 2 is released on 2026-10-04 – Phase 9.)* sign in → catpope → chapter 2 → preview de/en (broken record player on the first
   slice, the coupon on the last). **Do not publish yet** if 7.1 might rebuild the DB (edits would be lost).
 - [x] **6.7 O – shop.scutoons.com:** *(done 2026-10-02)* `/de/` and `/en/` list the products, Bandcamp links work.
 - [ ] **6.8 O – Ownership end to end (DB-T only):** on a test code: register it to account A, file a claim from
