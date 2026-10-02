@@ -17,6 +17,9 @@
 	 * on a fluid root size). The top bar's height is measured (`--sc-shell-top`), so a wrapping top bar is fine.
 	 *
 	 * `collapsible`: below 768px the sidebar becomes an off-canvas drawer (`sidebarOpen`, scrim → `onclose`).
+	 * `resizeKey`: from 768px on, the sidebar's right edge can be dragged wider (owner 2026-10-02: creator) – from its
+	 * normal width up to a third of the window; arrow keys on the handle, double-click resets; remembered per key in
+	 * localStorage (`sc-sidebar-width:<key>`).
 	 */
 	let {
 		topbar,
@@ -33,6 +36,8 @@
 		sidebarOpen = false,
 		onclose,
 		closeLabel = 'Close menu',
+		resizeKey,
+		resizeLabel = 'Resize sidebar',
 		class: className = ''
 	}: {
 		topbar?: Snippet;
@@ -51,10 +56,95 @@
 		sidebarOpen?: boolean;
 		onclose?: () => void;
 		closeLabel?: string;
+		/** makes the sidebar resizable on desktop; the width is remembered under this key */
+		resizeKey?: string;
+		resizeLabel?: string;
 		class?: string;
 	} = $props();
 
 	let topHeight = $state(0);
+
+	// ---------- resizable sidebar ----------
+	let sidebarEl = $state<HTMLElement>();
+	/** px set by dragging; null = the normal `sidebarWidth` */
+	let customWidth = $state<number | null>(null);
+	/** the normal width in px (the minimum) – measured before the first drag */
+	let baseWidth = 0;
+	const storageKey = $derived(resizeKey ? `sc-sidebar-width:${resizeKey}` : '');
+
+	$effect(() => {
+		if (!storageKey || !sidebarEl) return;
+		baseWidth = sidebarEl.offsetWidth; // measured before a saved width applies
+		try {
+			const saved = Number(localStorage.getItem(storageKey));
+			if (saved > 0) customWidth = saved;
+		} catch {
+			// storage blocked: the sidebar keeps its normal width
+		}
+	});
+
+	function measureBase() {
+		if (!baseWidth && sidebarEl && customWidth === null) baseWidth = sidebarEl.offsetWidth;
+		return baseWidth;
+	}
+
+	function clamp(px: number) {
+		return Math.round(Math.min(Math.max(px, measureBase()), window.innerWidth / 3));
+	}
+
+	function save() {
+		try {
+			if (customWidth === null) localStorage.removeItem(storageKey);
+			else localStorage.setItem(storageKey, String(customWidth));
+		} catch {
+			// not remembered
+		}
+	}
+
+	function startResize(event: PointerEvent) {
+		if (!sidebarEl) return;
+		event.preventDefault();
+		measureBase();
+		const left = sidebarEl.getBoundingClientRect().left;
+		const handle = event.currentTarget as HTMLElement;
+		handle.setPointerCapture(event.pointerId);
+		const move = (e: PointerEvent) => (customWidth = clamp(e.clientX - left));
+		const end = () => {
+			handle.removeEventListener('pointermove', move);
+			handle.removeEventListener('pointerup', end);
+			handle.removeEventListener('pointercancel', end);
+			document.documentElement.classList.remove('sc-resizing');
+			save();
+		};
+		document.documentElement.classList.add('sc-resizing');
+		handle.addEventListener('pointermove', move);
+		handle.addEventListener('pointerup', end);
+		handle.addEventListener('pointercancel', end);
+	}
+
+	function keyResize(event: KeyboardEvent) {
+		const step = event.shiftKey ? 64 : 16;
+		const current = customWidth ?? measureBase();
+		if (event.key === 'ArrowRight') customWidth = clamp(current + step);
+		else if (event.key === 'ArrowLeft') customWidth = clamp(current - step);
+		else if (event.key === 'Home') customWidth = null;
+		else return;
+		event.preventDefault();
+		save();
+	}
+
+	function resetWidth() {
+		customWidth = null;
+		save();
+	}
+
+	/** a remembered width wider than a third of a smaller window shrinks with it */
+	$effect(() => {
+		if (!resizeKey) return;
+		const fit = () => customWidth !== null && (customWidth = Math.min(customWidth, Math.round(window.innerWidth / 3)));
+		window.addEventListener('resize', fit);
+		return () => window.removeEventListener('resize', fit);
+	});
 </script>
 
 <div
@@ -63,7 +153,7 @@
 	class:has-aside={!!aside}
 	class:collapsible
 	style:--sc-shell-top="{topHeight}px"
-	style:--sc-shell-sidebar-width={sidebarWidth}
+	style:--sc-shell-sidebar-width={customWidth !== null ? `max(${customWidth}px, ${sidebarWidth})` : sidebarWidth}
 	style:--sc-shell-aside-width={asideWidth}
 >
 	{#if topbar}
@@ -76,10 +166,28 @@
 				id={sidebarId}
 				class="sc-shell-sidebar"
 				class:open={sidebarOpen}
+				bind:this={sidebarEl}
 				aria-label={sidebarLabel}
 			>
 				{@render sidebar()}
 			</svelte:element>
+			{#if resizeKey}
+				<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+				<div
+					class="sc-shell-resize"
+					role="separator"
+					aria-orientation="vertical"
+					aria-label={resizeLabel}
+					aria-controls={sidebarId}
+					aria-valuenow={customWidth ?? undefined}
+					tabindex="0"
+					title={resizeLabel}
+					onpointerdown={startResize}
+					onkeydown={keyResize}
+					ondblclick={resetWidth}
+				></div>
+			{/if}
 			{#if collapsible && sidebarOpen}
 				<button type="button" class="sc-shell-scrim" aria-label={closeLabel} onclick={() => onclose?.()}></button>
 			{/if}
@@ -117,6 +225,7 @@
 		background: var(--paper);
 	}
 	.sc-shell-frame {
+		position: relative;
 		flex: 1 0 auto;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
@@ -177,6 +286,27 @@
 		overflow: auto;
 	}
 
+	/* the drag handle sits on the sidebar's right border */
+	.sc-shell-resize {
+		position: absolute;
+		z-index: 15;
+		top: 0;
+		bottom: 0;
+		left: calc(var(--sc-shell-sidebar-width) - 0.375rem);
+		width: 0.75rem;
+		cursor: col-resize;
+		touch-action: none;
+	}
+	.sc-shell-resize:hover,
+	.sc-shell-resize:focus-visible {
+		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
+		outline: none;
+	}
+	:global(html.sc-resizing),
+	:global(html.sc-resizing *) {
+		cursor: col-resize !important;
+		user-select: none !important;
+	}
 	.sc-shell-scrim {
 		display: none;
 	}
@@ -186,6 +316,9 @@
 		}
 		.collapsible.has-sidebar.has-aside .sc-shell-frame {
 			grid-template-columns: minmax(0, 1fr) var(--sc-shell-aside-width);
+		}
+		.sc-shell-resize {
+			display: none;
 		}
 		.collapsible .sc-shell-sidebar {
 			position: fixed;
