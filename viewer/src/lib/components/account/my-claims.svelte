@@ -94,6 +94,15 @@
 {/if}
 
 <style>
+	/* the account page's section look (its styles are scoped to the page) */
+	section {
+		padding: 1rem;
+	}
+	h2 {
+		font-size: 1rem;
+		font-weight: 700;
+		margin: 0 0 0.75rem;
+	}
 	ul {
 		list-style: none;
 		margin: 0;
@@ -132,6 +141,10 @@
 		display: flex;
 		gap: 0.5rem;
 		flex-wrap: wrap;
+	}
+	.actions > * {
+		flex: 1 1 8rem;
+		text-align: center;
 	}
 	.file {
 		position: relative;
