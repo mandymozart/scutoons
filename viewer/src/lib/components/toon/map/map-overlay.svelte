@@ -371,8 +371,13 @@
 		position: absolute;
 		left: -0.5rem;
 		top: -0.5rem;
+		box-sizing: border-box;
 		width: 1rem;
 		height: 1rem;
+		/* a dot on the map, not a control: the global button min-height (one control height) would stretch it into an
+		   ellipse (owner 2026-10-02) control-ok */
+		min-width: 0;
+		min-height: 0;
 		padding: 0;
 		border-radius: 50%;
 		border: 2px solid #000;
