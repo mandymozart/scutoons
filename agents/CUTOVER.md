@@ -86,7 +86,7 @@ Decide before: nothing.
   ```
   Verify: the .gz opens (7-Zip), contains `CREATE TABLE \`qr\`` and `INSERT INTO \`qr\``. Rollback: n/a (read-only).
   If `SHOW TABLES` lists more than `qr` (+ `schema_migrations`): stop and tell the guide.
-- [x] **0.2 O – Back up the old qr folder** – done 2026-10-02 (hash / publicKey check result not reported yet). (FTP/WinSCP, the main FTP account).** Download into an offline folder:
+- [x] **0.2 O – Back up the old qr folder** – done 2026-10-02 (hash / publicKey check result not reported yet). FTP/WinSCP, the main FTP account. Download into an offline folder:
   `api/keys/keypair.json` (**CRITICAL – the private signing key; never upload anywhere public, never send by mail/chat**),
   the whole `generate/files/` (`batch/`, `certificates/`, `svgs/`, `signatures/`, …), `generate/.htpasswd`, `config.php`.
   Verify: per subfolder of `generate/files/` file count + total size = the server's (WinSCP "Properties");
