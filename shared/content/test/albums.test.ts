@@ -11,6 +11,7 @@ import {
 	mediaPlayback,
 	playerAlbums,
 	playersFor,
+	seasonMusic,
 	validateCatalog,
 	validateFile,
 	validateLocales,
@@ -201,4 +202,23 @@ test('related items: the seed season lists catalog items, the same in every lang
 	const ch = validateFile('chapter', { ...chapter, related_items: ['record_player', 'nope'] }, 'de', { file: 'c', items: itemIds }).filter((p) => p.path[0] === 'related_items');
 	assert.equal(ch.length, 1);
 	assert.match(ch[0].message, /"nope"/);
+});
+
+test('season music comes from the related items’ album; old seasons keep their download fields', () => {
+	const season = json('../seed/catpope/de/season1.json');
+	const music = seasonMusic(catalog, season, 'catpope');
+	assert.equal(music?.album?.id, 'awakening');
+	assert.equal(music?.carrier, 'awakening_vinyl');
+	assert.equal(music?.download, 'catpope/audio/CatPope-Awakening-Music.zip', 'the album’s zip = the season’s old download.music');
+	assert.equal(music?.image, 'catpope/images/s1-music-vinyl.webp', 'the album cover = the old download.image');
+	// without the season's own fields: the same answer (the season editor no longer writes them)
+	assert.deepEqual(seasonMusic(catalog, { related_items: season.related_items }, 'catpope'), music);
+	// an old season without related items: its download fields, the album found by the zip
+	const old = seasonMusic(catalog, { download: { music: 'audio/CatPope-Awakening-Music.zip', image: 'images/x.webp' } }, 'catpope');
+	assert.equal(old?.album?.id, 'awakening');
+	assert.equal(old?.carrier, undefined);
+	assert.equal(old?.image, 'catpope/images/s1-music-vinyl.webp');
+	assert.deepEqual(seasonMusic(catalog, { download: { music: 'audio/other.zip', image: 'images/x.webp' } }, 'catpope'), { album: undefined, download: 'catpope/audio/other.zip', image: 'catpope/images/x.webp' });
+	assert.equal(seasonMusic(catalog, { related_items: ['camera'] }, 'catpope'), null, 'no album, no music');
+	assert.equal(seasonMusic(catalog, null, 'catpope'), null);
 });

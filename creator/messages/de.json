@@ -691,7 +691,8 @@
 		"assets_unavailable": "Die Asset-Verwaltung ist auf diesem Server noch nicht eingerichtet.",
 		"assets_choose_video": "Video wählen …",
 		"assets_choose_video_hint": "Ein Video-Asset wählen: füllt 480p / 720p / 1080p aus seinen Dateien, 720p als Standard",
-		"assets_choose_file": "Datei wählen …"
+		"assets_choose_file": "Datei wählen …",
+		"season_music_from_album": "Die Musik der Staffel (Download, die Platte neben dem Musik-Knopf) kommt vom Album einer verwandten Platte im Item-Katalog – dessen Zip und Cover."
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

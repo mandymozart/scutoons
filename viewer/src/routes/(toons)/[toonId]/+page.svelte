@@ -5,7 +5,7 @@
 	import StartButton from '$lib/components/toon/start-button.svelte';
 	import Hero from '$lib/components/toon/hero.svelte';
 	import RelatedItems from '$lib/components/toon/related-items.svelte';
-	import { albumAccess, albumByDownload, ownsAlbum } from '@scutoons/content';
+	import { albumAccess, ownsAlbum, seasonMusic } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { onMount } from 'svelte';
 	import { CoverArt, CreditsColophon } from '@scutoons/reader';
@@ -16,20 +16,22 @@
 	let toon = $state(data.toon);
 	let season = $state(data.season);
 
-	// the season's music in its record's row (owner 2026-10-02): the album whose download is the season's zip, and the
-	// related item that carries it; without such an item the separate music block stays
+	// the season's music in its record's row (owner 2026-10-02): the album of the season's related items (its zip, its
+	// cover = the record) – older seasons: their own download fields (seasonMusic, agents/ASSETS.md "Albums and
+	// downloads"); without a carrying related item the separate music block stays
 	const inventory = getInventoryContext();
-	const musicAlbum = $derived(season?.download?.music ? albumByDownload(inventory.catalog, `${params.toonId}/${season.download.music}`) : undefined);
+	const seasonSound = $derived(seasonMusic(inventory.catalog, season, params.toonId));
+	const musicAlbum = $derived(seasonSound?.album);
 	const musicCarrier = $derived(
-		musicAlbum ? (season?.related_items ?? []).find((id) => inventory.item(id)?.album === musicAlbum.id) : undefined
+		seasonSound?.carrier ?? (musicAlbum ? (season?.related_items ?? []).find((id) => inventory.item(id)?.album === musicAlbum.id) : undefined)
 	);
 	/** the download button in that row: `everyone` / `members` (the download page gates members), `owners` only for owners */
 	const musicLink = $derived.by(() => {
-		if (!musicCarrier || !musicAlbum || !season?.download?.music) return null;
+		if (!musicCarrier || !musicAlbum || !seasonSound?.download) return null;
 		const owner = ownsAlbum(inventory.catalog, musicAlbum, inventory.entries.map((e) => e.item_id));
 		return {
 			item: musicCarrier,
-			image: season.download.image ? asset(`${params.toonId}/${season.download.image}`) : null,
+			image: seasonSound.image ? asset(seasonSound.image) : null,
 			href: albumAccess(musicAlbum).download === 'owners' && !owner ? null : localizeHref(`/${params.toonId}/download`)
 		};
 	});
@@ -87,7 +89,7 @@
 						<StartButton toonId={params.toonId} season={seasonNumber} chapters={sequence} />
 					{/if}
 				</div>
-				{#if desktop && season.download?.music && !musicLink}
+				{#if desktop && seasonSound?.download && !musicLink}
 					{@render music()}
 				{/if}
 				{#if desktop && season.related_items?.length}
@@ -103,7 +105,7 @@
 			</div>
 			<!-- the season's related items (season.related_items): icon, name, price + "Kaufen" for physical products; the
 			     season's music sits in its record's row (owner 2026-10-02) – the music block only without related items -->
-			{#if !desktop && season.download?.music && !musicLink}
+			{#if !desktop && seasonSound?.download && !musicLink}
 				{@render music()}
 			{/if}
 			{#if !desktop && season.related_items?.length}
@@ -119,11 +121,11 @@
 
 <!-- the season's music (members: the download page), with the record's cut-out beside the button when the season has one -->
 {#snippet music()}
-	<div class="season-download" class:with-image={!!season?.download?.image} data-testid="season-download">
-		{#if season?.download?.image}
+	<div class="season-download" class:with-image={!!seasonSound?.image} data-testid="season-download">
+		{#if seasonSound?.image}
 			<img
 				class="season-download-image"
-				src={asset(`${params.toonId}/${season.download.image}`)}
+				src={asset(seasonSound.image)}
 				alt=""
 				loading="lazy"
 				decoding="async"

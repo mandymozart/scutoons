@@ -691,7 +691,8 @@
 		"assets_unavailable": "The asset manager is not set up on this server yet.",
 		"assets_choose_video": "Choose video …",
 		"assets_choose_video_hint": "Pick a video asset: fills 480p / 720p / 1080p from its files, 720p as the default",
-		"assets_choose_file": "Choose file …"
+		"assets_choose_file": "Choose file …",
+		"season_music_from_album": "The season's music (download, the record beside the music button) comes from the album of a related record in the item catalog – its zip and its cover."
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

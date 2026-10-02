@@ -5,7 +5,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import type { PageProps } from './$types.js';
-	import { albumAccess, albumByDownload, albumDownload } from '@scutoons/content';
+	import { albumAccess, albumDownload, seasonMusic } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 
@@ -16,7 +16,9 @@
 	// `owners` (readers who own a record of the album: retrieval of what they bought)
 	const inventory = getInventoryContext();
 	const membership = getMembershipContext();
-	const album = $derived(albumByDownload(inventory.catalog, data.download?.music ? `${params.toonId}/${data.download.music}` : null));
+	// the music = the album of the season's related items (older seasons: season.download.music – seasonMusic)
+	const music = $derived(seasonMusic(inventory.catalog, data.season, params.toonId));
+	const album = $derived(music?.album);
 	const access = $derived(album ? albumAccess(album).download : 'members');
 	const allowed = $derived(
 		!!album && !!albumDownload(inventory.catalog, album, { owned: inventory.entries.map((e) => e.item_id), member: membership.isValid })
@@ -47,12 +49,12 @@
 		<div class="download-container">
 			<h1>Downloads {data.toon.title}</h1>
 
-			<!-- the season's downloads (season.download, agents/DATA.md) -->
-			{#if data.download?.music}
-				{@const musicUrl = data.download.music}
+			<!-- the season's music: its album's zip (agents/ASSETS.md "Albums and downloads") -->
+			{#if music?.download}
+				{@const musicUrl = music.download}
 				<div class="download-item">
 					<h2>Music</h2>
-					<button onclick={() => handleDownload(asset(`${params.toonId}/${musicUrl}`))}>
+					<button onclick={() => handleDownload(asset(musicUrl))}>
 						{m['season.download']()}
 					</button>
 				</div>

@@ -114,21 +114,13 @@
 			</div>
 		</section>
 
-		<!-- the season's downloads (the music album): the reader links them below the season's chapter list -->
-		<section class="block" data-testid="season-download">
-			<h2>{m['creator.downloads']()}</h2>
-			<div class="grid g2">
-				<SharedField doc={season} path={['download', 'music']} label="download.music" placeholder="audio/….zip" />
-				<SharedField doc={season} path={['download', 'complete']} label="download.complete" kind="nullable" placeholder="null (none)" />
-				<!-- decorative image beside the reader's music button (the record's cut-out) -->
-				<SharedField doc={season} path={['download', 'image']} label="download.image" kind="image" {toon} known={images} testid="download-image" />
-			</div>
-		</section>
-
 		<!-- the season's related items (catalog ids, the same in every language): the toon page's "related" block -->
 		<section class="block" data-testid="season-related">
 			<h2>{m['creator.related_items']()}</h2>
 			<RelatedItemsField doc={season} hint={m['creator.related_items_hint_season']()} legend={false} />
+			<!-- the season's music = the album of a related record (owner 2026-10-02): no own download fields any more;
+			     older seasons' download.music / download.image are still read by the reader (agents/ASSETS.md) -->
+			<p class="hint" data-testid="season-music-hint">{m['creator.season_music_from_album']()}</p>
 		</section>
 
 		<!-- the toon page's desktop hero: a muted background loop + "Trailer ansehen" / "Ton an" → the trailer chapter -->

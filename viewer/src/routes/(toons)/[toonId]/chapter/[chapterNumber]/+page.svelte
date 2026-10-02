@@ -1,7 +1,8 @@
 <script lang="ts">
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import NextBar from '$lib/components/chapter/next-bar.svelte';
-	import { nextStep } from '@scutoons/content';
+	import { nextStep, seasonMusic } from '@scutoons/content';
+	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
 	import { m } from '$lib/paraglide/messages.js';
@@ -15,6 +16,8 @@
 	import { chapterName } from '$lib/utils/chapter-name.ts';
 
 	let { data }: PageProps = $props();
+	// the next-bar's music link: the season's album (related items; older seasons: download.music)
+	const inventory = getInventoryContext();
 	
 	const currentLabel = $derived(page.url.searchParams.get('label') || null);
 	
@@ -119,7 +122,7 @@
 						chapter={data.chapter.number}
 						season={data.season?.number ?? 1}
 						sequence={data.sequence ?? []}
-						download={!!data.season?.download?.music}
+						download={!!seasonMusic(inventory.catalog, data.season, page.params.toonId ?? '')?.download}
 						onreplay={replay}
 					/>
 				{/if}

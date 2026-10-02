@@ -105,6 +105,48 @@ export function albumByDownload(catalog: Pick<Catalog, 'albums'> | null | undefi
 	return (catalog?.albums ?? []).find((a) => a.download === path);
 }
 
+/** What the toon page and `/<toon>/download` show for a season's music (agents/ASSETS.md "Albums and downloads") */
+export interface SeasonMusic {
+	/** the album (undefined: an old season whose zip is no album's download) */
+	album?: Album;
+	/** the related item that carries the album (the record), when the season lists one */
+	carrier?: string;
+	/** CDN-root path of the zip */
+	download: string | null;
+	/** CDN-root path of the decorative record image (the album's cover; older seasons: `download.image`) */
+	image: string | null;
+}
+
+/**
+ * The season's music, derived from its related items' album (owner 2026-10-02: the season's own `download.music` /
+ * `download.image` are redundant now that albums exist): the first related item that carries an album wins; a season
+ * without one falls back to its old `download` fields (paths in the toon's folder), so older content keeps working.
+ * null = the season has no music.
+ */
+export function seasonMusic(
+	catalog: Pick<Catalog, 'items' | 'albums'> | null | undefined,
+	season: { related_items?: string[]; download?: { music?: string; image?: string } | null } | null | undefined,
+	toon: string
+): SeasonMusic | null {
+	if (!season) return null;
+	const items = catalog?.items ?? [];
+	for (const id of season.related_items ?? []) {
+		const album = albumOf(catalog, items.find((i) => i.id === id));
+		if (album) {
+			return {
+				album,
+				carrier: id,
+				download: album.download ?? (season.download?.music ? `${toon}/${season.download.music}` : null),
+				image: album.cover ?? (season.download?.image ? `${toon}/${season.download.image}` : null)
+			};
+		}
+	}
+	const music = season.download?.music;
+	if (!music) return null;
+	const album = albumByDownload(catalog, `${toon}/${music}`);
+	return { album, download: `${toon}/${music}`, image: album?.cover ?? (season.download?.image ? `${toon}/${season.download.image}` : null) };
+}
+
 /** The album an item carries (`item.album`), or undefined */
 export function albumOf(catalog: Pick<Catalog, 'albums'> | null | undefined, item: Pick<ItemDef, 'album'> | null | undefined): Album | undefined {
 	if (!item?.album) return undefined;
