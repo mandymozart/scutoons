@@ -37,6 +37,9 @@ final class FakeBunny implements HttpClient
                 $this->purged[] = is_string($query['url'] ?? null) ? $query['url'] : '';
                 return self::answer(200, '');
             }
+            if ($method === 'GET' && preg_match('#^/pullzone/(\d+)$#', $path, $m)) {
+                return self::answer(200, (string) json_encode(['Id' => (int) $m[1], 'Name' => 'scutoons', 'OriginType' => 2, 'OriginUrl' => '', 'StorageZoneId' => 7, 'Hostnames' => [['Value' => 'scutoons.b-cdn.net']]]));
+            }
             if ($method === 'GET' && $path === '/statistics') {
                 return self::answer(200, (string) json_encode(['TotalBandwidthUsed' => 123456789, 'TotalRequestsServed' => 4321, 'CacheHitRate' => 97.5, 'BandwidthUsedChart' => []]));
             }

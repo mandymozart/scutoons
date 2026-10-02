@@ -93,6 +93,7 @@ final class AssetStorageTest extends TestCase
         self::assertSame(['https://cdn.example/catpope/videos/a%20b.720p.mp4'], $fake->purged);
         self::assertSame(123456789, $bunny->statistics('2026-09-01', '2026-10-01')['TotalBandwidthUsed'] ?? null);
         self::assertStringContainsString('a.720p.mp4', (string) $bunny->requestLog('2026-10-01'));
+        self::assertSame([42, 2, 'scutoons.b-cdn.net'], [($bunny->pullZone() ?? [])['Id'] ?? null, ($bunny->pullZone() ?? [])['OriginType'] ?? null, ($bunny->pullZone() ?? [])['Hostnames'][0]['Value'] ?? null]);
     }
 
     public function testBunnyWithoutApiKeyAndWriteGuard(): void
@@ -102,6 +103,7 @@ final class AssetStorageTest extends TestCase
         self::assertFalse($bunny->purge('x.png'), 'no API key: purge is off, not an error');
         self::assertNull($bunny->statistics('2026-09-01', '2026-10-01'));
         self::assertNull($bunny->requestLog('2026-10-01'));
+        self::assertNull($bunny->pullZone());
         $bunny->upload('_test/ok.txt', $this->file('ok'));
         self::assertStringStartsWith('https://uk.storage.bunnycdn.com/scutoons/_test/', $fake->requests[0]['url']);
         try {

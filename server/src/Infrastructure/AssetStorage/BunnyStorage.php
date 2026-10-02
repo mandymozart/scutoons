@@ -226,6 +226,20 @@ final class BunnyStorage implements AssetStorage
     }
 
     /**
+     * The pull zone's settings (Core API GET /pullzone/{id}, read-only): Name, OriginUrl, OriginType, StorageZoneId,
+     * Hostnames [{ Value, IsSystemHostname, HasCertificate }] … Null without an API key or a numeric pull zone id.
+     * @return array<string, mixed>|null
+     */
+    public function pullZone(): ?array
+    {
+        if ($this->config->apiKey === '' || $this->config->pullZoneId === '') return null;
+        $response = $this->http->send('GET', self::API . '/pullzone/' . rawurlencode($this->config->pullZoneId), ['AccessKey' => $this->config->apiKey, 'Accept' => 'application/json']);
+        if ($response['status'] !== 200) throw new RuntimeException("bunny.net pull zone {$this->config->pullZoneId} failed: HTTP {$response['status']}" . ($response['status'] === 401 ? ' – the account API key is wrong (account → API key)' : ''));
+        $data = json_decode($response['body'], true);
+        return is_array($data) ? $data : null;
+    }
+
+    /**
      * Pull-zone statistics (bandwidth, requests, cache hit rate) of a period; null without an API key.
      * @return array<string, mixed>|null
      */

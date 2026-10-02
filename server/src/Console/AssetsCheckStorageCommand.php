@@ -133,6 +133,23 @@ final class AssetsCheckStorageCommand extends Command
         $report['statistics'] = null;
         if ($bunny->hasApiKey()) {
             try {
+                $zone = $bunny->pullZone();
+                if ($zone !== null) {
+                    $hostnames = array_values(array_map(fn($h) => (string) ($h['Value'] ?? ''), array_filter((array) ($zone['Hostnames'] ?? []), 'is_array')));
+                    $report['pull_zone'] = [
+                        'id' => $zone['Id'] ?? null, 'name' => $zone['Name'] ?? null, 'origin_type' => $zone['OriginType'] ?? null,
+                        'origin_url' => $zone['OriginUrl'] ?? null, 'storage_zone_id' => $zone['StorageZoneId'] ?? null, 'hostnames' => $hostnames,
+                    ];
+                    $say(sprintf('Pull zone %s "%s": origin %s%s; hostnames %s; API key valid',
+                        (string) ($zone['Id'] ?? '?'), (string) ($zone['Name'] ?? '?'),
+                        (int) ($zone['OriginType'] ?? -1) === 2 || (int) ($zone['StorageZoneId'] ?? 0) > 0 ? 'storage zone #' . (string) ($zone['StorageZoneId'] ?? '?') : 'URL ' . (string) ($zone['OriginUrl'] ?? '?'),
+                        '', implode(', ', $hostnames)));
+                }
+            } catch (Throwable $error) {
+                $say('Pull zone: FAILED – ' . $error->getMessage());
+                $report['pull_zone'] = ['error' => $error->getMessage()];
+            }
+            try {
                 $stats = $bunny->statistics(gmdate('Y-m-d', time() - 30 * 86400), gmdate('Y-m-d'));
                 $report['statistics'] = $stats === null ? null : [
                     'bandwidth' => (int) ($stats['TotalBandwidthUsed'] ?? 0),
