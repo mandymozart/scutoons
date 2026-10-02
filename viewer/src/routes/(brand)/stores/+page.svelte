@@ -253,8 +253,9 @@
 	}
 	select {
 		width: 100%;
-		min-height: 2.75rem;
-		padding: 0.25rem 0.5rem;
+		box-sizing: border-box;
+		height: var(--control-height);
+		padding: 0 0.5rem;
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: var(--radius-none);
 		background: var(--paper);
