@@ -472,6 +472,10 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.22 Creator chapter tree: "Add group" + "Add separate scene" (cut off, owner 2026-10-03: "weird") – the second is a
   storage detail (a ref group = its own scene entity, from the old file layout). One "Add group"; the editor picks the
   storage.
+- [ ] 10.23 Asset jobs on production (owner 2026-10-03: "Optimize" stays queued): `assets:jobs` reads the queue from its
+  own DB – locally the dev DB, and production's MariaDB is not reachable from outside. The runner on the owner's machine
+  (ffmpeg) should take jobs through the API (admin token): list queued → download the source from bunny → transcode →
+  upload → mark done. Job #1 (video-renditions, 2026-10-02 22:45) can be dropped.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
