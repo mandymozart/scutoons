@@ -7,8 +7,10 @@
 	 * The saved state of an entity per locale as words (owner 2026-09-30: no version numbers anywhere – the ids are the
 	 * store's row ids and stay internal): "Published", "Draft · not published" (newer unpublished changes), "Not
 	 * published" (never published), "Missing", "not saved"; the title adds the date of the last change.
+	 * Owner 2026-10-02 ("we got color coding now … more white space"): the chip shows only the language, its colour is
+	 * the state; the words are a tooltip on hover and on keyboard focus (and the accessible name). `full` keeps the words.
 	 */
-	let { doc, compact = false }: { doc: ContentDoc; compact?: boolean } = $props();
+	let { doc, full = false }: { doc: ContentDoc; full?: boolean } = $props();
 
 	const dirty = $derived(doc.dirtyLocales);
 
@@ -31,17 +33,23 @@
 	}
 </script>
 
-<span class="file-status" class:compact>
+<span class="file-status">
 	{#each doc.locales as l}
+		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<span
 			class="badge"
 			class:dirty={dirty.includes(l)}
 			class:live={doc.source[l] === 'store' && doc.base[l] === doc.published[l]}
 			class:pending={doc.source[l] === 'store' && doc.base[l] !== doc.published[l]}
 			class:missing={doc.source[l] === 'missing'}
-			title={title(l)}
+			class:neutral={!lang(l)}
+			tabindex={full ? undefined : 0}
+			role={full ? undefined : 'img'}
+			aria-label={full ? undefined : title(l)}
+			data-tip={full ? undefined : title(l)}
+			title={full ? title(l) : undefined}
 		>
-			{#if compact}{lang(l) || label(l)}{:else}{lang(l) ? `${l} · ` : ''}{label(l)}{/if}{dirty.includes(l) ? ' •' : ''}
+			{#if full}{lang(l) ? `${l} · ` : ''}{label(l)}{:else}{lang(l)}{/if}{dirty.includes(l) ? ' •' : ''}
 		</span>
 	{/each}
 </span>
@@ -55,6 +63,7 @@
 	/* status chips (DESIGN.md "Brutalist tools"), filled from tokens.css --badge-*: published · saved draft (grey) ·
 	   unsaved (warning) · missing (error); anything else neutral (black) */
 	.badge {
+		display: inline-block;
 		padding: 0.1em 0.4em;
 		border: var(--border-width-regular) solid currentColor;
 		font-size: var(--type-caption-size);
@@ -82,5 +91,35 @@
 	.badge.missing {
 		background: var(--badge-error);
 		color: var(--badge-error-text);
+	}
+	/* a language-neutral entity: just the colour */
+	.badge.neutral:empty,
+	.badge.neutral {
+		min-width: 1em;
+		min-height: 1em;
+	}
+	/* the words as a tooltip: hover and keyboard focus */
+	.badge[data-tip] {
+		position: relative;
+		cursor: default;
+	}
+	.badge[data-tip]:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: 1px;
+	}
+	.badge[data-tip]:hover::after,
+	.badge[data-tip]:focus-visible::after {
+		content: attr(data-tip);
+		position: absolute;
+		z-index: 40;
+		top: calc(100% + 0.25rem);
+		left: 0;
+		padding: 0.25rem 0.5rem;
+		background: var(--ink);
+		color: var(--paper);
+		text-transform: none;
+		letter-spacing: normal;
+		white-space: nowrap;
+		pointer-events: none;
 	}
 </style>

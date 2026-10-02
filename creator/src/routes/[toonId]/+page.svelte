@@ -439,7 +439,7 @@
 								{/each}
 								<td>{doc?.data?.[doc.primary]?.release ?? ''}</td>
 								<td><StatusBadges {season} number={item.number} /></td>
-								<td>{#if doc}<FileStatus {doc} compact />{/if}</td>
+								<td>{#if doc}<FileStatus {doc} />{/if}</td>
 							</tr>
 						{/each}
 					</tbody>
