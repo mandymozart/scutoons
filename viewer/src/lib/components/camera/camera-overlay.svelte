@@ -288,7 +288,7 @@
 					<div class="icon">
 						<ItemIcon srcs={[inventory.item(lastHit.grants)?.icon ?? '']} name={inventory.nameOf({ item_id: lastHit.grants, variant: null })} />
 					</div>
-					<strong>{scanTargets(skill).length > 1 ? m['camera.recognised']({ object: lastHit.object, item: inventory.nameOf({ item_id: lastHit.grants, variant: null }) }) : m['camera.detected']()}</strong>
+					<strong>{scanTargets(skill).length > 1 ? m['camera.recognised']({ object: lastHit.object, item: inventory.nameOf({ item_id: lastHit.grants, variant: null }) }) : cucumberCamera ? m['camera.detected']() : `${inventory.nameOf({ item_id: lastHit.grants, variant: null })}!`}</strong>
 				</div>
 			{/if}
 		{/key}
