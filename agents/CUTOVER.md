@@ -86,7 +86,7 @@ Decide before: nothing.
   ```
   Verify: the .gz opens (7-Zip), contains `CREATE TABLE \`qr\`` and `INSERT INTO \`qr\``. Rollback: n/a (read-only).
   If `SHOW TABLES` lists more than `qr` (+ `schema_migrations`): stop and tell the guide.
-- [ ] **0.2 O – Back up the old qr folder (FTP/WinSCP, the main FTP account).** Download into an offline folder:
+- [x] **0.2 O – Back up the old qr folder** – done 2026-10-02 (hash / publicKey check result not reported yet). (FTP/WinSCP, the main FTP account).** Download into an offline folder:
   `api/keys/keypair.json` (**CRITICAL – the private signing key; never upload anywhere public, never send by mail/chat**),
   the whole `generate/files/` (`batch/`, `certificates/`, `svgs/`, `signatures/`, …), `generate/.htpasswd`, `config.php`.
   Verify: per subfolder of `generate/files/` file count + total size = the server's (WinSCP "Properties");
@@ -427,3 +427,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 0.3 done (legacy `/scutoons.com/` backed up). KAS FTP users recorded; 2.1 = new user "github actions next"
   rooted in `/web/` (T3 n/a), 2.2 folder layout + domain map, 10.9 FTP cleanup.
 - 2026-10-02 — D2 decided: the new root folder is `/web/` (was proposed `/scutoons-next/`); test hostnames still proposed.
+- 2026-10-02 — 0.2 done. Open: the 0.1 numbers, the 0.2 hash/publicKey check. Next in parallel: 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6.
