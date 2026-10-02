@@ -29,7 +29,7 @@
 	const lang = (l: string) => (l === '_' ? '' : l);
 	function title(l: string) {
 		const when = doc.source[l] === 'store' ? date(doc.changedAt[l]) : '';
-		return `${lang(l) || '·'}: ${label(l)}${when ? ` · ${m['creator.state_changed']({ date: when })}` : ''}`;
+		return `${lang(l) ? `${lang(l)}: ` : ''}${label(l)}${when ? ` · ${m['creator.state_changed']({ date: when })}` : ''}`;
 	}
 </script>
 
@@ -93,10 +93,11 @@
 		color: var(--badge-error-text);
 	}
 	/* a language-neutral entity: just the colour */
-	.badge.neutral:empty,
 	.badge.neutral {
-		min-width: 1em;
-		min-height: 1em;
+		width: 0.75rem;
+		height: 0.75rem;
+		padding: 0;
+		align-self: center;
 	}
 	/* the words as a tooltip: hover and keyboard focus */
 	.badge[data-tip] {
