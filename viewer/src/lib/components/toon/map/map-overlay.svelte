@@ -212,10 +212,10 @@
 
 	<div class="tools">
 		<button class="tool" onclick={() => (listOpen = !listOpen)} aria-expanded={listOpen} data-testid="map-list-toggle">{m['map.places']({ count: places.length })}</button>
-		<button class="tool round" onclick={() => view.zoomAt(1.5)} aria-label={m['map.zoom_in']()} data-testid="map-zoom-in">+</button>
-		<button class="tool round" onclick={() => view.zoomAt(1 / 1.5)} aria-label={m['map.zoom_out']()} data-testid="map-zoom-out">−</button>
+		<button class="tool round" onclick={() => view.zoomAt(1.5)} aria-label={m['map.zoom_in']()} data-testid="map-zoom-in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></button>
+		<button class="tool round" onclick={() => view.zoomAt(1 / 1.5)} aria-label={m['map.zoom_out']()} data-testid="map-zoom-out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg></button>
 		<button class="tool round" onclick={recenter} aria-label={m['map.recenter']()} title={m['map.recenter']()}>◎</button>
-		<button class="tool round" onclick={onclose} aria-label={m['map.close']()} data-testid="map-close">✕</button>
+		<button class="tool round" onclick={onclose} aria-label={m['map.close']()} data-testid="map-close"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
 	</div>
 
 	{#if listOpen}
@@ -239,7 +239,7 @@
 
 	{#if card}
 		<section class="card" aria-label={card.name} data-testid="map-card">
-			<button class="card-close" onclick={() => (selected = null)} aria-label={m['map.close_card']()}>✕</button>
+			<button class="card-close" onclick={() => (selected = null)} aria-label={m['map.close_card']()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
 			{#if card.image}<img class="card-image" src={asset(card.image.src)} alt="" />{/if}
 			<h2>{card.name}</h2>
 			{#if !own(card)}<p class="muted">{m['map.other_toon']()}</p>{/if}
@@ -462,11 +462,24 @@
 		touch-action: manipulation;
 	}
 	.tool.round {
+		display: inline-grid;
+		place-items: center;
 		width: 2rem;
 		padding: 0;
 		border-radius: 50%;
 		font-size: 1rem;
 		line-height: 1;
+	}
+	/* drawn icons: exactly centred (the font's + and − sat off-centre) */
+	.tool svg,
+	.card-close svg {
+		display: block;
+		width: 1rem;
+		height: 1rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 2;
+		stroke-linecap: square;
 	}
 	.tool:hover {
 		background: var(--primary-cyan, #00d1ff);
@@ -528,13 +541,17 @@
 		width: min(20rem, calc(100vw - 1.5rem));
 		padding: 0.75rem 2.5rem 0.75rem 0.75rem;
 	}
+	/* top right corner, level with the title (owner 2026-10-02) */
 	.card-close {
 		color: #000;
 		position: absolute;
-		top: 0.25rem;
-		right: 0.25rem;
-		width: 2rem;
-		height: 2rem;
+		top: 0;
+		right: 0;
+		display: grid;
+		place-items: center;
+		width: 2.5rem;
+		height: 2.5rem;
+		padding: 0;
 		border: 0;
 		background: transparent;
 		cursor: pointer;
