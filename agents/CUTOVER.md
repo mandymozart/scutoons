@@ -304,7 +304,12 @@ Decide before: **D6** admin notification recipients (who gets "new ownership cla
 `MAIL_ADMIN_TO`) · **D7** your sign-up code: a promo code created in the OLD `generate/` before 0.1 (it is copied
 into the new DB) or one of your own product codes.
 
-- [ ] **6.1 A+O – api.scutoons.com:** A checks `/api/items/` (27 items), `/api/keys/keys.php` (same `publicKey` as
+- [ ] **6.1 A+O – api.scutoons.com:** *(A done 2026-10-02: items 27; certificates valid for real membership / promo /
+  page codes (the keys match); stockists empty; `/?c=x` 404. entities-compare (locally: `php -d curl.cainfo=<ca-bundle>`):
+  the expected differences are chapter 2 (draft, D9), the draft toons toptoy / yellowmouse and the dev-only sandbox; the real
+  one: `map`, `characters`, `asset-requests` still had the pre-relayout paths (map + character images 404) → **O: run
+  `shared/content/seed/2026-10-02-relayout-paths.mysql.sql` in phpMyAdmin (SQL tab), then A re-runs the compare.** Not
+  cutover-related, open since before: `boy_full.svg`, `crows_portrait.svg` exist on no CDN.)* A checks `/api/items/` (27 items), `/api/keys/keys.php` (same `publicKey` as
   the old `qr.scutoons.com/api/keys/keys.php`), `/api/certificates/<CODE>` for 3 real codes from different batches,
   printed UPPER CASE → `valid: true`, `/api/stockists/` → empty list, `/?c=x` → 404, and
   `php server/tests/entities-compare.php https://api.scutoons.com --report` (library = seed). O: `/generate/` asks for
