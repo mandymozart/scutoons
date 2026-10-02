@@ -428,6 +428,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3), github actions
   `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
   workflow). The main user stays, used only by hand.
+- [ ] 10.10 Local MariaDB in Docker instead of SQLite for dev + tests (owner 2026-10-02, after the admin dashboard 500 on
+  DB-T that SQLite never showed): same server version as all-inkl, the mysql migrations, CI runs the suite on it too.
 - [ ] 10.8 Public release.
 
 ---
