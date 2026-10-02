@@ -46,6 +46,8 @@ return [
     'MAIL_TRANSPORT' => 'smtp',
     'MAIL_FROM' => 'no-reply@scutoons.com',
     'MAIL_FROM_NAME' => 'SCUTOONS',
+    // where replies go (Reply-To; the texts say "reply to this email") – empty = no Reply-To header
+    'MAIL_REPLY_TO' => 'hello@scutoons.com',
     'MAIL_LOG_PATH' => 'logs/mail.log',
     // The email module (agents/PLATFORM.md "Emails"): admin notification recipients (comma separated; the default of
     // the runtime setting mail_admin_recipients, admin app → Emails), their language, and how long the sent-mail log

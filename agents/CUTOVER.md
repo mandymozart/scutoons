@@ -446,9 +446,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   is also an admin recipient gets it in `ownership_claim_admin`; reword if the owner wants.
 - [ ] 10.15 Content source of truth is the DB now (owner 2026-10-02): local dev from `export-content` of production
   instead of the stale `shared/content/seed`; the seed becomes a starter set for empty databases (or goes).
-- [ ] 10.16 Mail Reply-To (owner 2026-10-02): the texts say "reply to this email" but mail comes from no-reply@ –
-  add a `MAIL_REPLY_TO` setting (Reply-To header in Infrastructure/Mail/Transport.php) = **hello@scutoons.com**.
-  Admin claim page: no raw data (owner).
+- [x] 10.16 Mail Reply-To (owner 2026-10-02: a mistake, fixed before the beta): `MAIL_REPLY_TO` = hello@scutoons.com
+  (Reply-To header; the texts say "reply to this email", mail comes from no-reply@).
+- [ ] 10.16b Admin claim page: no raw data (owner 2026-10-02) – part of 10.14.
 - [ ] 10.8 Public release.
 
 ---

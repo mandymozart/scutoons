@@ -63,8 +63,11 @@ class Transport
         $from = $this->settings->get('MAIL_FROM');
         $at = strrchr($from, '@');
         $domain = substr($at !== false ? $at : '@localhost', 1);
+        $replyTo = $this->settings->get('MAIL_REPLY_TO');
         $headers = implode("\r\n", [
             'From: ' . self::encodeHeader($this->settings->get('MAIL_FROM_NAME')) . " <$from>",
+            // replies ("reply to this email" in the texts) reach a read mailbox, not no-reply@
+            ...(filter_var($replyTo, FILTER_VALIDATE_EMAIL) ? ["Reply-To: <$replyTo>"] : []),
             'Date: ' . date(DATE_RFC2822),
             'Message-ID: <' . bin2hex(random_bytes(16)) . "@$domain>",
             'MIME-Version: 1.0',

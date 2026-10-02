@@ -35,6 +35,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `ALLOWED_ORIGINS` | scutoons.com, www, creator, admin, shop, embassy + dev ports | comma separated; production sets it in the workflow (without localhost). On a local dev server (`php -S`) every port of `shared/dev-ports.json` is added automatically (`Settings::allowedOrigins`). Also the CSRF list of the session cookie: only these origins may change things with it |
 | `MAIL_TRANSPORT` | `smtp` | `smtp` \| `log` (dev: `MAIL_LOG_PATH`) \| `mail` (PHP `mail()`) |
 | `MAIL_FROM`, `MAIL_FROM_NAME` | `no-reply@scutoons.com`, `SCUTOONS` | |
+| `MAIL_REPLY_TO` | `hello@scutoons.com` | Reply-To of every mail (the texts say "reply to this email"); empty = none |
 | `MAIL_LOG_PATH` | `logs/mail.log` | for `log` |
 | `MAIL_ADMIN_TO` | – | admin notification recipients (comma separated) – the default of the runtime setting `mail_admin_recipients` (admin app → Emails); empty = nobody |
 | `MAIL_ADMIN_LOCALE` | `de` | language of the admin notification mails |
