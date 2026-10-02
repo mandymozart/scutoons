@@ -42,6 +42,11 @@ if (shots) mkdirSync(shots, { recursive: true });
 const only = opt.only ? String(opt.only).split(',') : null;
 const step = (name) => !only || only.includes(name);
 const toon = 'catpope';
+
+// a video request's path in the toon's CDN folder (agents/ASSETS.md "Folder convention": videos live in their season /
+// chapter folder, no `videos/` folder any more) – compared with the content's toon-relative paths
+const isVideo = (url) => /\.(mp4|webm)(\?|#|$)/.test(url);
+const toonPath = (url) => url.replace(/[?#].*$/, '').replace(new RegExp(`^.*?/${toon}/`), '');
 const KEY = 'scutoons_media_quality';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const messages = Object.fromEntries(['de', 'en'].map((l) => [l, JSON.parse(readFileSync(join(root, `viewer/messages/${l}.json`), 'utf8'))]));
@@ -92,7 +97,7 @@ ws.addEventListener('message', async (e) => {
 	const m = JSON.parse(e.data), p = m.params;
 	if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); return; }
 	if (m.method?.startsWith('Network.')) lastNet = Date.now();
-	if (m.method === 'Network.requestWillBeSent' && p.request.url.includes('/videos/')) videoRequests.push({ url: p.request.url, range: p.request.headers?.Range ?? p.request.headers?.range ?? null, type: p.type });
+	if (m.method === 'Network.requestWillBeSent' && isVideo(p.request.url)) videoRequests.push({ url: p.request.url, range: p.request.headers?.Range ?? p.request.headers?.range ?? null, type: p.type });
 	if (m.method === 'Fetch.requestPaused') {
 		if (p.responseStatusCode === undefined || p.responseStatusCode !== 200 || !patchVideo) return send('Fetch.continueResponse', { requestId: p.requestId });
 		const body = await send('Fetch.getResponseBody', { requestId: p.requestId });
@@ -163,8 +168,8 @@ const VIDEO = `(() => {
 		vw: document.documentElement.clientWidth, vh: window.innerHeight, scrollWidth: document.documentElement.scrollWidth };
 })()`;
 /** the files the `<video>` requested (type Media), and the "Automatic" probe downloads (a fetch with a Range) */
-const fetched = () => [...new Set(videoRequests.filter((r) => r.type === 'Media').map((r) => r.url.replace(/^.*\/videos\//, 'videos/')))];
-const probes = () => videoRequests.filter((r) => r.type === 'Fetch').map((r) => r.url.replace(/^.*\/videos\//, 'videos/'));
+const fetched = () => [...new Set(videoRequests.filter((r) => r.type === 'Media').map((r) => toonPath(r.url)))];
+const probes = () => videoRequests.filter((r) => r.type === 'Fetch').map((r) => toonPath(r.url));
 async function chapterVideo(prefix = '') {
 	videoRequests = [];
 	await open(`${viewer}${prefix}/${toon}/chapter/0`);

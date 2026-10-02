@@ -163,7 +163,7 @@
 	}
 
 	// ── image ────────────────────────────────────────────────────────────────────────────────────────────────
-	/** the place illustrations' folder (owner 2026-10-01): `<toon>/images/map/places/` (`scutoons/…` for a shared place) */
+	/** the place illustrations' folder (owner 2026-10-01): `<toon>/map/places/` (`scutoons/…` for a shared place) */
 	let folder = $state('');
 	$effect(() => {
 		if (place) folder = placeImagePath(place).replace(/[^/]+$/, '');

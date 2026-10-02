@@ -512,8 +512,8 @@ async function builder() {
 	const wantedPlaces = await waitFor(`(() => { const l = [...document.querySelectorAll('[data-testid="wanted-media"] li[data-testid^="wanted-map-"]')].map((li) => li.dataset.testid.slice(11)); return l.length ? l : null; })()`, 10000);
 	const paths = await evaluate(`[...document.querySelectorAll('[data-testid="wanted-media"] li[data-testid^="wanted-map-"] code')].map((c) => c.textContent)`);
 	const briefs = await evaluate(`document.querySelectorAll('[data-testid="wanted-media"] li[data-testid^="wanted-map-"] details pre').length`);
-	report(`Wanted images (toon media) lists every map place without an image (${lacking.length} of ${current.locations.length}, the airport too) with its path <toon>/images/map/places/<id>.webp and the brief`,
-		briefs === lacking.length && lacking.includes('airport') && JSON.stringify(wantedPlaces) === JSON.stringify(lacking) && paths.every((p, i) => p === `catpope/images/map/places/${lacking[i]}.webp`) ? [] : [JSON.stringify({ shown: wantedPlaces?.length, want: lacking.length, first: paths?.[0] })]);
+	report(`Wanted images (toon media) lists every map place without an image (${lacking.length} of ${current.locations.length}, the airport too) with its path <toon>/map/places/<id>.webp and the brief`,
+		briefs === lacking.length && lacking.includes('airport') && JSON.stringify(wantedPlaces) === JSON.stringify(lacking) && paths.every((p, i) => p === `catpope/map/places/${lacking[i]}.webp`) ? [] : [JSON.stringify({ shown: wantedPlaces?.length, want: lacking.length, first: paths?.[0] })]);
 	await shot('builder-8-wanted-map');
 	await open(`${creator}/map`);
 	await waitFor(`document.querySelector('[data-testid="map-canvas"]') ? true : null`, 10000);

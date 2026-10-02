@@ -29,7 +29,7 @@ JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{ch
 ## Slices (owner 2026-09-30)
 
 - The standard slice is **390 × 625 px** (the Naver webtoon size, `DEFAULT_SLICE`), delivered and served at **1x only as
-  WebP**: `<toon>/images/webtoon/<sXcY>/<sXcY>-slice-N.webp` (one folder per chapter code, next to the delivered JPGs;
+  WebP**: `<toon>/s<n>/c<n>/<sXcY>-slice-N.webp` (the chapter's folder, agents/ASSETS.md "Folder convention";
   `cdn/tools/make_slice_webp.py` writes them, 390 px wide, never scaled up). Other heights are fine, the width stays 390.
 - Every slice carries `width` / `height` (px of the image): the reader reserves the space before the lazy image loads
   (no layout shift, the audio intersection triggers fire slice by slice). `validateFile` reports a missing size as an

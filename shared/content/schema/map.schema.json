@@ -52,7 +52,7 @@
 				},
 				"image": {
 					"type": "string",
-					"description": "CDN-root path, e.g. `catpope/images/map/map-layer-terrain.svg`"
+					"description": "CDN-root path, e.g. `catpope/map/map-layer-terrain.svg`"
 				},
 				"minZoom": {
 					"type": "number",

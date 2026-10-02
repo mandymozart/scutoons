@@ -243,7 +243,7 @@
 						id={`video-${level}`}
 						type="text"
 						value={variants[level] ?? ''}
-						placeholder={`videos/clip.${VIDEO_QUALITY_LABELS[level]}.mp4`}
+						placeholder={`s1/c1/clip.${VIDEO_QUALITY_LABELS[level]}.mp4`}
 						onchange={(e) => setVariant(level, e.currentTarget.value.trim())}
 						data-testid={`video-variant-${level}`}
 					/>

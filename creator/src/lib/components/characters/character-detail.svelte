@@ -309,7 +309,7 @@
 				{m['creator.characters_image']()}
 				<span class="inline">
 					{#if character.image}<img class="mini-img" src={asset(character.image)} alt="" />{/if}
-					<input type="text" value={character.image ?? ''} placeholder="catpope/images/characters/…" onchange={(e) => setField('image', e.currentTarget.value.trim())} />
+					<input type="text" value={character.image ?? ''} placeholder="catpope/characters/…" onchange={(e) => setField('image', e.currentTarget.value.trim())} />
 				</span>
 			</label>
 		</section>

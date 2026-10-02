@@ -114,7 +114,7 @@ export interface MapRoute {
 
 /**
  * The standard slice (owner 2026-09-30): 390 × 625 px, the Naver webtoon size. Slices are delivered and served at 1x as
- * one WebP (`images/webtoon/<sXcY>/<sXcY>-slice-N.webp`); other heights are fine, the width stays 390.
+ * one WebP (`s<n>/c<n>/<sXcY>-slice-N.webp`, agents/ASSETS.md "Folder convention"); other heights are fine, the width stays 390.
  */
 export const DEFAULT_SLICE = { width: 390, height: 625 } as const;
 

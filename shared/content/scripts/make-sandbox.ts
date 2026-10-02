@@ -67,7 +67,7 @@ const CATPOPE = '../catpope/';
 const SCENES: [number, number][] = [[1, 4], [5, 8], [9, 11], [12, 14], [15, 19], [20, 22]];
 /** the "Sonntagnachmittag" street: the alley with the lanterns and the cobblestones (scene 5) */
 const STREET: [number, number] = [15, 19];
-const slicePath = (n: number) => `${CATPOPE}images/webtoon/s1c2/s1c2-slice-${n}.webp`;
+const slicePath = (n: number) => `${CATPOPE}s1/c2/s1c2-slice-${n}.webp`;
 /**
  * Cucumbers in the art (slice number → the click area, % of the 390 × 625 slice, a tight box around it); the first group
  * of the encounter that shows the slice offers it (a slice click trigger, once).
@@ -544,7 +544,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 				release: RELEASE,
 				status: 'draft',
 				description: l === PARTIAL ? partial.description : description[l],
-				thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
+				thumbnail: `${CATPOPE}s1/c1/s1c1-thumbnail.jpg`,
 				isPreview: true,
 				groups: labels.map((label) => ({ ref: { src: `chapter${number}/${label}.json` } }))
 			};
@@ -584,9 +584,9 @@ export function neutralSettings(report: SandboxReport) {
 	return {
 		authors: [],
 		chapters: report.chapters,
-		thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
-		cover: { square: `${CATPOPE}images/s1-cover-square.webp` },
-		map: { layers: { terrain: `${CATPOPE}images/map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
+		thumbnail: `${CATPOPE}s1/c1/s1c1-thumbnail.jpg`,
+		cover: { square: `${CATPOPE}s1/s1-cover-square.webp` },
+		map: { layers: { terrain: `${CATPOPE}map/map-layer-terrain.svg` }, width: 2048, height: 1046, center: { x: 1320, y: 440 } }
 	};
 }
 

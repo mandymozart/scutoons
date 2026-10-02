@@ -232,7 +232,7 @@
 					<label class="field"><span class="sc-label">{m['assets.relink_from']()}</span>
 						<select bind:value={relinkFrom}>{#each current.renditions as r (r.id)}<option value={r.path}>{r.path}</option>{/each}</select>
 					</label>
-					<label class="field"><span class="sc-label">{m['assets.relink_to']()}</span><input type="text" bind:value={relinkTo} placeholder="catpope/videos/other.720p.mp4" /></label>
+					<label class="field"><span class="sc-label">{m['assets.relink_to']()}</span><input type="text" bind:value={relinkTo} placeholder="catpope/s1/c0/other.720p.mp4" /></label>
 				</div>
 				<Button size="sm" variant="secondary" disabled={!relinkTo.trim() || busy === 'relink'} onclick={relink}>{m['assets.relink']()}</Button>
 			</Section>

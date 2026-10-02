@@ -54,7 +54,7 @@
 			type="text"
 			list={listId}
 			value={value ?? ''}
-			placeholder="images/webtoon/s1c2/s1c2-slice-1.webp"
+			placeholder="s1/c2/s1c2-slice-1.webp"
 			onchange={(e) => onchange(e.currentTarget.value.trim())}
 			data-testid="image-path"
 		/>

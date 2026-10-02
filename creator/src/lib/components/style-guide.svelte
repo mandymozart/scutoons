@@ -14,7 +14,7 @@
 		<ul>
 			<li>One size in the whole app: the standard slice is {W} × {H} px (the webtoon standard, Naver), delivered and shown at 1x only, as WebP. There are no 2x / 3x exports.</li>
 			<li>Other heights are fine, the width stays {W}. The editor warns when an image is not {W} px wide.</li>
-			<li>Path on the CDN: <code>&lt;toon&gt;/images/webtoon/&lt;sXcY&gt;/&lt;sXcY&gt;-slice-N.webp</code>, one folder per chapter (e.g. <code>webtoon/s1c2/s1c2-slice-1.webp</code>). <code>cdn/tools/make_slice_webp.py</code> turns delivered JPGs into these.</li>
+			<li>Path on the CDN: <code>&lt;toon&gt;/s&lt;n&gt;/c&lt;n&gt;/&lt;sXcY&gt;-slice-N.webp</code>, the chapter's folder (e.g. <code>s1/c2/s1c2-slice-1.webp</code>); density variants as suffixes (<code>.2x</code>, <code>.3x</code>). <code>cdn/tools/make_slice_webp.py</code> turns delivered JPGs into these.</li>
 			<li>Every slice carries <code>width</code> / <code>height</code> (required – a missing size is an error). The editor reads them from the image when you set its path; new slices start at {W} × {H}.</li>
 			<li>Video slice (optional): <code>video.src</code> = an H.264 MP4 (≤ 3 MB, a new file name for every new version), muted, inline, looping while the slice is in view. The slice image is its poster (still required, with its size); with reduced motion only the poster shows. <code>loop</code> / <code>autoplay</code> default to on.</li>
 			<li>All positions are % of the slice, font sizes % of the slice width – they scale with the reading column (max 500 px).</li>

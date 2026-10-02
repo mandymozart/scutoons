@@ -6,7 +6,7 @@
 //
 // Files are chapter or group (VN scene) JSON files, e.g. viewer/static/api/catpope/de/chapter1.json; the toon is taken
 // from the path (…/api/<toon>/<locale>/…) unless --toon is given. Image paths are relative to <cdn>/<toon>/.
-//   --webp             a slice whose image isn't a WebP gets `images/webtoon/<sXcY>/<slug>.webp` when that file exists
+//   --webp             a slice whose image isn't a WebP gets `s<n>/c<n>/<slug>.webp` when that file exists
 //                      (slug = the file name in lower case, runs of other characters → "-": "S1C1 - Slice 7.jpg" →
 //                      "s1c1-slice-7"; written by cdn/tools/make_slice_webp.py). Only for files whose slices map 1:1.
 //   --default-missing  a slice whose image isn't on the local CDN copy gets DEFAULT_SLICE (390 × 625) instead of
@@ -63,11 +63,11 @@ export function imageSize(path: string): { width: number; height: number } | nul
 
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
-/** `images/webtoon/<sXcY>/<slug>.webp` of an image path, when its name starts with a chapter code. */
+/** `s<n>/c<n>/<slug>.webp` of an image path (the chapter's folder, agents/ASSETS.md), when its name starts with a chapter code. */
 export function webpSlicePath(image: string): string | null {
 	const s = slug(basename(image).replace(/\.[^.]+$/, ''));
-	const code = s.match(/^(s\d+c\d+)-/)?.[1];
-	return code ? `images/webtoon/${code}/${s}.webp` : null;
+	const code = s.match(/^s(\d+)c(\d+)-/);
+	return code ? `s${code[1]}/c${code[2]}/${s}.webp` : null;
 }
 
 let changed = 0;

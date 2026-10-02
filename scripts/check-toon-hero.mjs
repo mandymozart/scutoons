@@ -41,6 +41,11 @@ const api = String(opt.api || local('api', '/api')).replace(/\/$/, '');
 const shots = opt.shots ? String(opt.shots) : null;
 if (shots) mkdirSync(shots, { recursive: true });
 const toon = 'catpope';
+
+// a video request's path in the toon's CDN folder (agents/ASSETS.md "Folder convention": videos live in their season /
+// chapter folder, no `videos/` folder any more) – compared with the content's toon-relative paths
+const isVideo = (url) => /\.(mp4|webm)(\?|#|$)/.test(url);
+const toonPath = (url) => url.replace(/[?#].*$/, '').replace(new RegExp(`^.*?/${toon}/`), '');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const messages = Object.fromEntries(['de', 'en'].map((l) => [l, JSON.parse(readFileSync(join(root, `viewer/messages/${l}.json`), 'utf8'))]));
 const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k]));
@@ -76,7 +81,7 @@ ws.addEventListener('message', (e) => {
 	if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); return; }
 	if (m.method?.startsWith('Network.')) lastNet = Date.now();
 	// only the current document's requests (a request of the page before can still be logged after a navigation)
-	if (m.method === 'Network.requestWillBeSent' && /\/videos\//.test(p.request.url) && p.loaderId === loader) videoUrls.push(p.request.url.replace(/^.*\/videos\//, 'videos/'));
+	if (m.method === 'Network.requestWillBeSent' && isVideo(p.request.url) && p.loaderId === loader) videoUrls.push(toonPath(p.request.url));
 });
 const send = (method, params = {}) => new Promise((r) => { const i = ++seq; pending.set(i, r); ws.send(JSON.stringify({ id: i, method, params })); });
 const evaluate = async (expression) => { const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true }); return r.result?.exceptionDetails ? { error: r.result.exceptionDetails.exception?.description ?? r.result.exceptionDetails.text } : r.result?.result?.value; };
@@ -107,7 +112,7 @@ const HERO = `(() => {
 	const box = (sel) => { const e = document.querySelector(sel); if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; };
 	const start = document.querySelector('[data-testid="hero-start"]');
 	return {
-		hero: box('[data-testid="hero"]'), viewport: document.documentElement.clientWidth, video: v ? { muted: v.muted, defaultMuted: v.defaultMuted, loop: v.loop, playsinline: v.hasAttribute('playsinline'), paused: v.paused, time: v.currentTime, src: v.currentSrc.replace(/^.*\\/videos\\//, 'videos/'), volume: v.volume } : null,
+		hero: box('[data-testid="hero"]'), viewport: document.documentElement.clientWidth, video: v ? { muted: v.muted, defaultMuted: v.defaultMuted, loop: v.loop, playsinline: v.hasAttribute('playsinline'), paused: v.paused, time: v.currentTime, src: v.currentSrc.replace(/[?#].*$/, '').replace(/^.*?\\/${toon}\\//, ''), volume: v.volume } : null,
 		posterImg: !!hero?.querySelector('img.hero-media'),
 		season: hero?.querySelector('.hero-season')?.textContent.trim(), title: hero?.querySelector('h1')?.textContent.trim(), tagline: hero?.querySelector('.hero-tagline')?.textContent.trim(),
 		start: start ? { text: start.textContent.trim(), state: start.dataset.state, href: new URL(start.href).pathname, bg: getComputedStyle(start).backgroundColor } : null,

@@ -35,10 +35,10 @@
 			if (list === 'tracks') {
 				file.audio.music ??= { transitionDuration: 3000, tracks: [] };
 				file.audio.music.tracks ??= [];
-				file.audio.music.tracks.push({ id: `track${file.audio.music.tracks.length + 1}`, path: 'audio/music/' });
+				file.audio.music.tracks.push({ id: `track${file.audio.music.tracks.length + 1}`, path: '' });
 			} else {
 				file.audio.sampleLibrary ??= [];
-				file.audio.sampleLibrary.push({ id: `sample${file.audio.sampleLibrary.length + 1}`, path: 'audio/samples/' });
+				file.audio.sampleLibrary.push({ id: `sample${file.audio.sampleLibrary.length + 1}`, path: '' });
 			}
 		});
 	}

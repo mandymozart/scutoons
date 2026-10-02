@@ -214,7 +214,7 @@ test('season music comes from the related items’ album; old seasons keep their
 	// without the season's own fields: the same answer (the season editor no longer writes them)
 	assert.deepEqual(seasonMusic(catalog, { related_items: season.related_items }, 'catpope'), music);
 	// an old season without related items: its download fields, the album found by the zip
-	const old = seasonMusic(catalog, { download: { music: 'audio/CatPope-Awakening-Music.zip', image: 'images/x.webp' } }, 'catpope');
+	const old = seasonMusic(catalog, { download: { music: 's1/CatPope-Awakening-Music.zip', image: 'images/x.webp' } }, 'catpope');
 	assert.equal(old?.album?.id, 'awakening');
 	assert.equal(old?.carrier, undefined);
 	assert.equal(old?.image, 'catpope/s1/s1-music-vinyl.webp');

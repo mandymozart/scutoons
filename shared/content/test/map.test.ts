@@ -52,7 +52,7 @@ test('migration: every old catpope value survives in the seed world map (ids, co
 	// the toon's old map settings come back from the world + the start view
 	const toons = json('toons.json');
 	assert.deepEqual(legacyToonMapSettings(world, 'catpope', toons.find((t: any) => t.id === 'catpope').map), {
-		layers: { terrain: 'images/map/map-layer-terrain.svg' },
+		layers: { terrain: 'map/map-layer-terrain.svg' },
 		width: 2048,
 		height: 1046,
 		center: { x: 1320, y: 440 }
@@ -197,17 +197,17 @@ test('wanted images: every place without an image, derived from the map (all 20 
 	assert.equal(wanted.length, world.locations.filter((p) => !p.image?.src).length);
 	assert.equal(wanted.length, 20, 'every catpope place incl. Garten Eden (no image yet)');
 	const garden = wanted.find((r) => r.place === 'garden')!;
-	assert.equal(garden.path, 'catpope/images/map/places/garden.webp');
+	assert.equal(garden.path, 'catpope/map/places/garden.webp');
 	assert.equal(garden.size, '256 × 256');
 	assert.match(garden.brief, /Garden of Eden/);
 	assert.match(wanted.find((r) => r.place === 'cathedral')!.brief, /baroque cathedral/);
-	assert.equal(placeImagePath({ id: 'x', toons: ['a', 'b'] }), 'scutoons/images/map/places/x.webp', 'a shared place goes to scutoons/');
+	assert.equal(placeImagePath({ id: 'x', toons: ['a', 'b'] }), 'scutoons/map/places/x.webp', 'a shared place goes to scutoons/');
 	assert.equal(mapImageRequests({ locations: [{ ...world.locations[0], image: { src: 'a.webp' } }] }).length, 0);
-	assert.match(mapImageRequestsText(wanted.slice(0, 1)), /images\/map\/places/);
+	assert.match(mapImageRequestsText(wanted.slice(0, 1)), /catpope\/map\/places/);
 	const media = mapMediaRequests(world);
 	assert.equal(media.length, 20);
 	assert.ok(media.every((r) => r.view === 'media' && r.toon === 'catpope' && r.size === '256 × 256' && r.brief && r.status === 'open'));
-	assert.equal(media.find((r) => r.id === 'map-place:airport')?.path, 'catpope/images/map/places/airport.webp');
+	assert.equal(media.find((r) => r.id === 'map-place:airport')?.path, 'catpope/map/places/airport.webp');
 });
 
 test('the unlocking slice: its reading point (the reader checkpoint rule) and the places it unlocks', () => {

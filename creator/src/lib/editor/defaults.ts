@@ -34,8 +34,9 @@ export function newChapter(number: number, locale: string, author = 'Mandy Mozar
 		release: isoDate(release),
 		status: Status.DRAFT,
 		description: '',
-		thumbnail: `images/${slug}-thumbnail.jpg`,
-		keyvisual: { image: `images/${slug}-key-visual.jpg` },
+		// the chapter's folder (agents/ASSETS.md "Folder convention"): <toon>/s<season>/c<chapter>/
+		thumbnail: `${chapterFolder(number, season)}/${slug}-thumbnail.webp`,
+		keyvisual: { image: `${chapterFolder(number, season)}/${slug}-key-visual.webp` },
 		groups: [newGroup('scene-1')]
 	};
 }
@@ -64,7 +65,8 @@ export function newSeason(locale: string, authors: string[] = [], number = 1): S
 		number,
 		release: isoDate(),
 		description: '',
-		cover: { square: `images/s${number}-cover-square.webp`, portrait: `images/s${number}-cover-portrait.webp` },
+		// the season's folder (agents/ASSETS.md "Folder convention"): <toon>/s<season>/
+		cover: { square: `s${number}/s${number}-cover-square.webp`, portrait: `s${number}/s${number}-cover-portrait.webp` },
 		sequence: []
 	};
 }
@@ -88,9 +90,12 @@ export function newGroup(label: string): Group {
 	return { label, renderer: { type: Renderer.VERTICAL }, slices: [] };
 }
 
-/** Where the slices of a chapter live: `images/webtoon/<sXcY>/<sXcY>-slice-N.webp` (1x, 390 px wide). */
+/** A chapter's folder in the toon's CDN folder: `s<season>/c<chapter>` (agents/ASSETS.md "Folder convention") */
+export const chapterFolder = (chapter: number, season = 1) => `s${season}/c${chapter}`;
+
+/** Where the slices of a chapter live: `s<n>/c<n>/<sXcY>-slice-N.webp` (1x, 390 px wide; density variants `.2x` / `.3x`). */
 export const sliceImagePath = (chapter: number, index: number, season = 1) =>
-	`images/webtoon/${chapterSlug(chapter, season)}/${chapterSlug(chapter, season)}-slice-${index + 1}.webp`;
+	`${chapterFolder(chapter, season)}/${chapterSlug(chapter, season)}-slice-${index + 1}.webp`;
 
 /** A new slice: the standard size until the real image size is read from the CDN (`readImageSize`). */
 export function newSlice(chapter: number, index: number, season = 1): Slice {

@@ -46,12 +46,15 @@
 	tabindex="0"
 >
 	<div class="chapter-image">
-		<img
-			class="chapter-thumbnail"
-			src={asset(`${toonId}/${chapter.thumbnail || 'images/default-thumbnail.jpg'}`)}
-			alt={`${chapterName(chapter.number)} Thumbnail`}
-			loading="lazy"
-		/>
+		<!-- no thumbnail = the empty frame (the old fallback images/default-thumbnail.jpg never existed on the CDN) -->
+		{#if chapter.thumbnail}
+			<img
+				class="chapter-thumbnail"
+				src={asset(`${toonId}/${chapter.thumbnail}`)}
+				alt={`${chapterName(chapter.number)} Thumbnail`}
+				loading="lazy"
+			/>
+		{/if}
 	</div>
 	<div class="chapter-info">
 		<div class="chapter-title">

@@ -88,7 +88,7 @@
 				</p>
 			{:else}
 				<ImagePicker toon={doc.toon} label="keyvisual.image" value={ch?.keyvisual?.image} known={images} onchange={(v) => doc.setShared(['keyvisual', 'image'], v)} />
-				<PropField {doc} path={['keyvisual', 'video']} label="keyvisual.video" placeholder="videos/s1c2-key-visual.mp4" />
+				<PropField {doc} path={['keyvisual', 'video']} label="keyvisual.video" placeholder="s1/c2/s1c2-key-visual.mp4" />
 			{/if}
 		</div>
 	</div>

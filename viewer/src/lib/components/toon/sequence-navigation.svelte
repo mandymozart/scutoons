@@ -133,10 +133,9 @@
 				title={`${chapterName(nextItem.number)}: ${nextItem.title}`}
 			>
 				<div class="nav-image">
-					<img
-						src={asset(`${params.toonId}/${nextItem.thumbnail || 'images/default-thumbnail.jpg'}`)}
-						alt={`Next: ${nextItem.title || ''}`}
-					/>
+					{#if nextItem.thumbnail}
+						<img src={asset(`${params.toonId}/${nextItem.thumbnail}`)} alt={`Next: ${nextItem.title || ''}`} />
+					{/if}
 				</div>
 				<div class="nav-meta">
 					<span class="nav-type">{chapterName(nextItem.number)}</span>

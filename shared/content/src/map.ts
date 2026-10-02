@@ -595,10 +595,10 @@ export function placeImageBrief(place: Pick<MapPlace, 'id' | 'name'>): string {
 	].join(NL);
 }
 
-/** The CDN path a place's illustration should get: `<toon>/images/map/places/<id>.webp` (`scutoons/…` when it has no single toon) */
+/** The CDN path a place's illustration should get: `<toon>/map/places/<id>.webp` (`scutoons/…` when it has no single toon) */
 export function placeImagePath(place: Pick<MapPlace, 'id' | 'toons'>): string {
 	const folder = place.toons?.length === 1 ? place.toons[0] : 'scutoons';
-	return `${folder}/images/map/places/${place.id}.webp`;
+	return `${folder}/map/places/${place.id}.webp`;
 }
 
 export interface MapImageRequest {

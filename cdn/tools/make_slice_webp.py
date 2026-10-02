@@ -6,7 +6,7 @@ other heights are fine). This writes one WebP per source image:
     <out>/<slug>.webp     slug = the source name in lower case, runs of other characters -> "-"
                           ("S1C1 - Slice 7.jpg" -> "s1c1-slice-7.webp", "s1c2-slice-3.jpg" -> "s1c2-slice-3.webp")
 
-Always start from the highest-resolution source there is (chapter 1: `webtoon/de/*.jpg`, 799 x 1280).
+Always start from the highest-resolution source there is (the delivered masters, e.g. 799 x 1280).
 - Wider sources are scaled down to 390 px with Lanczos in sRGB (a linear-light resize was compared and thins dark
   line art and lettering, see PERFORMANCE.md "Slice sharpness"), then get a mild unsharp mask tuned for line art
   (radius 0.6, 60 %, threshold 2 - lifts the edges softened by the downscale, leaves flat areas and grain alone).
@@ -16,17 +16,15 @@ Always start from the highest-resolution source there is (chapter 1: `webtoon/de
   variable, the encode also uses `-sharp_yuv` (sharper colour edges in the 4:2:0 chroma); Pillow does not expose
   that option, so without cwebp the encode is Pillow's (a note is printed).
 The sources are left untouched. A WebP is (re)written only when it is missing or older than its source (`--force`
-rewrites). Location (owner 2026-09-30): one folder per chapter code, `cdn/root/<toon>/images/webtoon/<sXcY>/`, next to
-the delivered JPGs: `images/webtoon/s1c2/s1c2-slice-N.webp` (new names = cache-safe on the CDN; the configs point to
-them, with width / height from `shared/content/scripts/slice-sizes.ts`).
+rewrites). Location (agents/ASSETS.md "Folder convention", 2026-10-02): the chapter's folder
+`cdn/root/<toon>/s<n>/c<n>/`: `s1/c2/s1c2-slice-N.webp` (new names = cache-safe on the CDN; the configs point to them, with
+width / height from `shared/content/scripts/slice-sizes.ts`); density variants as suffixes (`.2x`, `.3x`).
 
 Usage (from the repo root):
   cdn/.venv/Scripts/python cdn/tools/make_slice_webp.py <source files or globs...> --out=<folder>
       [--width=390] [--quality=88] [--sharpen=0.6,60,2 | --sharpen=0] [--force] [--dry-run]
-  e.g. chapter 1: cdn/.venv/Scripts/python cdn/tools/make_slice_webp.py "cdn/root/catpope/images/webtoon/de/*.jpg"
-           --out=cdn/root/catpope/images/webtoon/s1c1 --force
-       chapter 2: cdn/.venv/Scripts/python cdn/tools/make_slice_webp.py "cdn/root/catpope/images/webtoon/s1c2/*.jpg"
-           --out=cdn/root/catpope/images/webtoon/s1c2 --force
+  e.g. chapter 2: cdn/.venv/Scripts/python cdn/tools/make_slice_webp.py "<delivered>/s1c2/*.jpg"
+           --out=cdn/root/catpope/s1/c2 --force
 Requirements: pillow (cdn/tools/requirements.txt); optional cwebp.
 """
 

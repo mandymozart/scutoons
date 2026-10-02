@@ -155,7 +155,7 @@ compare('events == events.json', file_json("$static/events.json"), $events);
  */
 $world = file_json("$seed/scutoons/_/map.json");
 $OLD_TOON_MAPS = [
-    'catpope' => ['layers' => ['terrain' => 'images/map/map-layer-terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]],
+    'catpope' => ['layers' => ['terrain' => 'map/map-layer-terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]],
     'sandbox' => ['layers' => ['terrain' => '../catpope/map/map-layer-terrain.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]],
 ];
 $compareOldMap = function (string $toon, string $locale, array $entry, array $oldLocations, array $oldRoutes, array $bundle) use ($world, $OLD_TOON_MAPS): void {

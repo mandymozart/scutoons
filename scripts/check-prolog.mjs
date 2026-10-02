@@ -41,6 +41,11 @@ const cdn = String(opt.cdn || local('cdn')).replace(/\/$/, '');
 const shots = opt.shots ? String(opt.shots) : null;
 if (shots) mkdirSync(shots, { recursive: true });
 const toon = 'catpope';
+
+// a video request's path in the toon's CDN folder (agents/ASSETS.md "Folder convention": videos live in their season /
+// chapter folder, no `videos/` folder any more) – compared with the content's toon-relative paths
+const isVideo = (url) => /\.(mp4|webm)(\?|#|$)/.test(url);
+const toonPath = (url) => url.replace(/[?#].*$/, '').replace(new RegExp(`^.*?/${toon}/`), '');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const messages = Object.fromEntries(['de', 'en'].map((l) => [l, JSON.parse(readFileSync(join(root, `viewer/messages/${l}.json`), 'utf8'))]));
 const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k]));
@@ -102,11 +107,11 @@ ws.addEventListener('message', async (e) => {
 	const m = JSON.parse(e.data), p = m.params;
 	if (m.id && pending.has(m.id)) { pending.get(m.id)(m); pending.delete(m.id); return; }
 	if (m.method?.startsWith('Network.')) lastNet = Date.now();
-	if (m.method === 'Network.responseReceived' && p.response.url.includes('/videos/')) videoStatuses.push(p.response.status);
-	if (m.method === 'Network.requestWillBeSent' && p.request.url.includes('/videos/')) videoUrls.push(p.request.url);
+	if (m.method === 'Network.responseReceived' && isVideo(p.response.url)) videoStatuses.push(p.response.status);
+	if (m.method === 'Network.requestWillBeSent' && isVideo(p.request.url)) videoUrls.push(p.request.url);
 	if (m.method === 'Fetch.requestPaused') {
 		const url = p.request.url;
-		if (url.includes('/videos/') && rangeCdn && p.responseStatusCode === undefined) {
+		if (isVideo(url) && rangeCdn && p.responseStatusCode === undefined) {
 			return send('Fetch.continueRequest', { requestId: p.requestId, url: url.replace(cdn, rangeCdn) });
 		}
 		if (url.includes(`/library/toons/${toon}/chapters/0`) && p.responseStatusCode !== undefined) {
@@ -126,7 +131,7 @@ const evaluate = async (expression) => { const r = await send('Runtime.evaluate'
 await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
 await send('Network.setCacheDisabled', { cacheDisabled: true });
 await send('Fetch.enable', { patterns: [
-	...(rangeCdn ? [{ urlPattern: `${cdn}/${toon}/videos/*`, requestStage: 'Request' }] : []),
+	...(rangeCdn ? [{ urlPattern: `${cdn}/${toon}/*.mp4*`, requestStage: 'Request' }] : []),
 	{ urlPattern: `*/library/toons/${toon}/chapters/0*`, requestStage: 'Response' }
 ] });
 // every media element that ever plays (the music's <audio> elements are not in the DOM)
@@ -233,7 +238,7 @@ async function run(width, locale) {
 			if (!v.controls || v.muted || v.loop || v.autoplay || !v.playsinline || v.preload !== 'metadata') problems.push(`attributes ${JSON.stringify({ controls: v.controls, muted: v.muted, loop: v.loop, autoplay: v.autoplay, playsinline: v.playsinline, preload: v.preload })}`);
 			if (!v.poster.endsWith(playerSlice.image)) problems.push(`poster ${v.poster}`);
 			if (!v.src?.endsWith(wanted)) problems.push(`loads ${v.src}, expected ${wanted} at ${width} px`);
-			const fetched = [...new Set(videoUrls.map((u) => u.replace(/^.*\/videos\//, 'videos/')))];
+			const fetched = [...new Set(videoUrls.map(toonPath))];
 			if (fetched.length !== 1 || fetched[0] !== wanted) problems.push(`network: ${fetched.join(', ') || 'no video request'}, expected only ${wanted}`);
 			const ratio = playerSlice.height / playerSlice.width;
 			if (!near(v.height, v.width * ratio, 2)) problems.push(`box ${v.width} × ${v.height}, expected the video's ratio (${playerSlice.width} × ${playerSlice.height})`);
@@ -329,7 +334,7 @@ if (!opt.only) {
 	await open(`${viewer}/en/${toon}/chapter/0`);
 	const v = await waitFor(`(() => { const s = ${VIDEO_STATE}; return s && s.readyState >= 1 ? s : null; })()`);
 	const wanted = expectedSource(1600);
-	const fetched = [...new Set(videoUrls.map((u) => u.replace(/^.*\/videos\//, 'videos/')))];
+	const fetched = [...new Set(videoUrls.map(toonPath))];
 	report(`1600 px loads ${wanted.replace(/^.*\//, '')}`, v && !v.error && v.src.endsWith(wanted) && fetched.length === 1 && fetched[0] === wanted ? [] : [`loads ${v?.src}, network ${fetched.join(', ')}`]);
 	await shot('prolog-1600-en-chapter');
 }

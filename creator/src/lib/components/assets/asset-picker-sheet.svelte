@@ -5,7 +5,7 @@
 	export interface PickedAsset {
 		asset: AssetSummary;
 		rendition: AssetRendition | null;
-		/** CDN-root path, e.g. catpope/videos/s1-trailer-loop.720p.mp4 */
+		/** CDN-root path, e.g. catpope/s1/s1-trailer-loop.720p.mp4 */
 		path: string;
 	}
 	export type AssetPickerKind = AssetKind | '';
@@ -185,16 +185,21 @@
 		cells[Math.min(cells.length - 1, Math.max(0, index + step))]?.focus();
 	}
 
-	// ── upload: a new file into the toon's folder ─────────────────────────────────────────────────────────────────────
-	const kindFolder = (k: AssetPickerKind, file: File) =>
-		k === 'video' || file.type.startsWith('video/') ? 'videos' : k === 'audio' || file.type.startsWith('audio/') ? 'audio' : k === 'archive' ? 'audio' : 'images';
+	// ── upload: a new file into its place in the toon hierarchy (agents/ASSETS.md "Folder convention") ─────────────────
+	/** "s1c2-slice-14.webp" → "s1/c2", "s1-cover.webp" → "s1", anything else → the toon's own folder (editable) */
+	const placeOf = (name: string) => {
+		const chapter = name.match(/^s(\d+)c(\d+)-/);
+		if (chapter) return `s${chapter[1]}/c${chapter[2]}/`;
+		const season = name.match(/^s(\d+)-/);
+		return season ? `s${season[1]}/` : '';
+	};
 	function chooseFile(event: Event) {
 		const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
 		uploadFile = file;
 		uploadError = '';
 		if (file) {
 			const clean = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-');
-			uploadPath = `${folder || toon || 'scutoons'}/${kindFolder(kind, file)}/${clean}`;
+			uploadPath = `${folder || toon || 'scutoons'}/${placeOf(clean)}${clean}`;
 		}
 	}
 	async function upload() {

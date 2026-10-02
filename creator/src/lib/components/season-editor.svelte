@@ -136,12 +136,12 @@
 				onpick={pickTrailer}
 			/>
 			<div class="grid g2">
-				<SharedField doc={season} path={['trailer', 'loop']} label="trailer.loop" placeholder="videos/s1-trailer-loop.720p.mp4" testid="trailer-loop" />
+				<SharedField doc={season} path={['trailer', 'loop']} label="trailer.loop" placeholder="s1/s1-trailer-loop.720p.mp4" testid="trailer-loop" />
 				<SharedField doc={season} path={['trailer', 'poster']} label="trailer.poster" kind="image" {toon} known={images} testid="trailer-poster" />
 				<!-- the bigger encoding as the "high" (1080p) quality variant – the reader's quality setting picks it, no media query -->
-				<SharedField doc={season} path={['trailer', 'variants', 'low']} label="trailer · 480p" placeholder="videos/s1-trailer-loop.480p.mp4" testid="trailer-low" />
-				<SharedField doc={season} path={['trailer', 'variants', 'medium']} label="trailer · 720p" placeholder="videos/s1-trailer-loop.720p.mp4" testid="trailer-medium" />
-				<SharedField doc={season} path={['trailer', 'variants', 'high']} label="trailer · 1080p" placeholder="videos/s1-trailer-loop.1080p.mp4" testid="trailer-high" />
+				<SharedField doc={season} path={['trailer', 'variants', 'low']} label="trailer · 480p" placeholder="s1/s1-trailer-loop.480p.mp4" testid="trailer-low" />
+				<SharedField doc={season} path={['trailer', 'variants', 'medium']} label="trailer · 720p" placeholder="s1/s1-trailer-loop.720p.mp4" testid="trailer-medium" />
+				<SharedField doc={season} path={['trailer', 'variants', 'high']} label="trailer · 1080p" placeholder="s1/s1-trailer-loop.1080p.mp4" testid="trailer-high" />
 				<SharedField doc={season} path={['trailer', 'chapter']} label="trailer.chapter" kind="number" placeholder="0" />
 			</div>
 		</section>
