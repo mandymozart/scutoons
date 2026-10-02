@@ -323,7 +323,7 @@ into the new DB) or one of your own product codes.
   the login mail arrives (check spam; SPF/DKIM). Then phpMyAdmin → DB-T → SQL:
   ```sql
   INSERT IGNORE INTO user_roles (user_id, role_id, granted_at, granted_by)
-    SELECT id, r.id, UTC_TIMESTAMP(), 'cli' FROM users JOIN roles r ON r.name IN ('admin','creator') WHERE users.email = '<your email>';
+    SELECT users.id, r.id, UTC_TIMESTAMP(), 'cli' FROM users JOIN roles r ON r.name IN ('admin','creator') WHERE users.email = '<your email>';
   ```
 - [ ] **6.4 O – admin.scutoons.com:** sign in (SSO: already signed in from 6.3) → Dashboard, Codes (search a real
   code), Events (the 6.2 scans with different IP hashes – one hash for all = `QR_PROXY_SECRET` differs), Claims (empty),
