@@ -216,7 +216,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
 
 - [x] **3.1 O – Import the old data.** *(done 2026-10-02)* phpMyAdmin → DB-T → *Import* → the 0.1 file (`.sql.gz` is fine). Verify:
   `SELECT COUNT(*) FROM qr;` = 0.1's number.
-- [x] **3.2 O – Migrations, in this order** *(done 2026-10-02: all 16; 3 triggers present)* (`server/migrations/mysql/`, *Import* tab per file; all idempotent):
+- [x] **3.2 O – Migrations, in this order** *(done 2026-10-02: all 17 incl. `2026-10-02-assets`; 3 triggers present)* (`server/migrations/mysql/`, *Import* tab per file; all idempotent):
   1. `2026-09-29-accounts-inventory.mysql.sql`
   2. `2026-09-30-code-owner-guard.mysql.sql` – **SQL tab, not Import:** paste the 3 `CREATE TRIGGER` lines, set the
      *Delimiter* field to `$$`, and replace the trailing `;` of each line with `$$`
@@ -459,3 +459,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 3.4 done; DB-T qr counts match (469 / 300 / 381 / 35). 3.3 waits for the assets merge (regenerated seed).
 - 2026-10-02 — assets merged (b3be086, 67774da), relayout done (1.1), .env in C:\Development\scutoons, bunny zone empty. Migration 17 `2026-10-02-assets` added to 3.2; 3.3 unblocked. Next: 3.3 seed, migration 17, then 1.3/1.4 from C:\Development\scutoons\server. Worktree scutoons-assets can be removed later.
 - 2026-10-02 — 3.3 + 3.5 done (48 entities, roles, users 0, editions NULL 169 + vinyl 300); migration 17 awaiting the owner's confirmation; 1.3 + 1.4 done. Owner running 1.5 (log cdn/logs/bunny-init-2026-10-02.json), then 1.6, 1.7.
+- 2026-10-02 — migration 17 ran on DB-T (3.2 complete). 1.5 bunny upload running.
