@@ -1709,7 +1709,7 @@ character, persona, look and mood and doubles as the VN test bed.
   permission system refused lifting `BUNNY_WRITE_PREFIX=_test/` – the owner runs it. Domain switch to cdn.scutoons.com
   only when the new system is deployed (owner decision).
 - Gotchas: PHP curl on Windows has no CA bundle (`curl.cainfo` empty) → `CurlHttpClient` uses `CURLSSLOPT_NATIVE_CA`;
-  the Bash tool's heredocs swallow backslashes (`'\'` → `'\'`) – write Python/PHP patch scripts with the Write tool;
+  the Bash tool's heredocs halve doubled backslashes (a PHP `'\\'` arrives as `'\'`) – write Python/PHP patch scripts with the Write tool;
   a snippet variable named like a `{#snippet}` (`music`) breaks svelte-check with odd "Snippet" type errors; the JsonBody
   middleware now leaves non-JSON bodies > 1 MB as a stream (asset uploads); the Browser pane's custom viewport sizes
   render tiny – use the desktop preset + DOM checks. Own dev ports for this worktree: API 9310, CDN 9311 (own copy of
