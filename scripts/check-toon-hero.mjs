@@ -135,7 +135,8 @@ async function desktop(width, height, locale) {
 	await open(`${viewer}${prefix}/${toon}`, locale);
 	let s = await waitFor(`(() => { const s = ${HERO}; return s.video && !s.video.paused && s.video.time > 0.3 ? s : null; })()`, 15000);
 	if (!s || s.error) s = await evaluate(HERO);
-	const wantLoop = width >= 1600 ? (trailer.sources?.[0]?.src ?? trailer.loop) : trailer.loop;
+	// the account's media quality picks the encoding (owner 2026-10-02: no resolution switching); the check's fresh guest = Automatic → the loop
+	const wantLoop = trailer.variants ? trailer.loop : width >= 1600 ? (trailer.sources?.[0]?.src ?? trailer.loop) : trailer.loop;
 	{
 		const p = [];
 		if (!s.hero) p.push('no hero');

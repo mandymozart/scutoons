@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { isItemPublic, type LoadedSequenceItem, type Season, type Toon } from '@scutoons/content';
+	import { isItemPublic, pickQualityVariant, type LoadedSequenceItem, type Season, type Toon } from '@scutoons/content';
+	import { mediaQuality } from '$lib/media-quality.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -36,6 +37,9 @@
 
 	let hero = $state<HTMLElement | null>(null);
 	let video = $state<HTMLVideoElement | null>(null);
+	/** the trailer has quality variants (else the older media-query sources) */
+	const trailerVariants = $derived(Object.values(trailer?.variants ?? {}).some((file) => !!file));
+
 	// read right away: a video rendered for one frame would already start downloading the loop
 	let reducedMotion = $state(typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
@@ -112,10 +116,15 @@
 <section class="hero" bind:this={hero} data-testid="hero">
 	{#if trailer && showVideo}
 		<video bind:this={video} class="hero-media" {poster} muted loop playsinline preload="auto" aria-hidden="true" data-testid="hero-video">
-			{#each trailer.sources ?? [] as source (source.src)}
-				<source src={asset(`${toonId}/${source.src}`)} media={source.media || undefined} type="video/mp4" />
-			{/each}
-			<source src={asset(`${toonId}/${trailer.loop}`)} type="video/mp4" />
+			{#if trailerVariants}
+				<!-- the reader's media quality picks the encoding (like slice videos); the loop while it is not known yet -->
+				<source src={asset(`${toonId}/${pickQualityVariant({ src: trailer.loop, variants: trailer.variants }, mediaQuality.level ?? 'low')}`)} type="video/mp4" />
+			{:else}
+				{#each trailer.sources ?? [] as source (source.src)}
+					<source src={asset(`${toonId}/${source.src}`)} media={source.media || undefined} type="video/mp4" />
+				{/each}
+				<source src={asset(`${toonId}/${trailer.loop}`)} type="video/mp4" />
+			{/if}
 		</video>
 	{:else if poster}
 		<img class="hero-media" src={poster} alt="" />

@@ -78,9 +78,9 @@ test('slice video frame: a ratio within 4:1 … 1:4, the slice height follows it
 	assert.deepEqual(framed({ ratio: '9:16' }, 693, { viewport: {} }), ['warning groups.0.slices.0.video.frame']);
 });
 
-test('season.trailer: { loop, poster, sources?, chapter? }', () => {
+test('season.trailer: { loop, poster, variants?, chapter? } (sources: older data)', () => {
 	const sequence = [{ type: 'chapter', number: 0, status: 'published' }, { type: 'chapter', number: 1, status: 'published' }];
-	const trailer = { loop: 'videos/s1-trailer-loop.1280w.mp4', sources: [{ src: 'videos/s1-trailer-loop.1920w.mp4', media: '(min-width: 1600px)' }], poster: 'images/s1-trailer-poster.webp' };
+	const trailer = { loop: 'videos/s1-trailer-loop.1280w.mp4', variants: { high: 'videos/s1-trailer-loop.1920w.mp4' }, poster: 'images/s1-trailer-poster.webp' };
 	assert.deepEqual(problems('season', season({ sequence, trailer })), []);
 	assert.deepEqual(problems('season', season({ sequence, trailer: { ...trailer, chapter: 1 } })), []);
 	assert.deepEqual(problems('season', season({ sequence, trailer: { poster: 'images/p.webp', chapter: -1 } })), ['error trailer.loop', 'error trailer.chapter']);
