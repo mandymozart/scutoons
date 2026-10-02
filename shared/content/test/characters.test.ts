@@ -43,7 +43,7 @@ const catpope: RegistryCharacter = {
 	id: 'catpope',
 	name: { de: 'Katzenpapst', en: 'Cat Pope' },
 	color: 'blue',
-	image: 'catpope/images/characters/catpope/catpope.svg',
+	image: 'catpope/characters/catpope/catpope.svg',
 	personas: [
 		{ id: 'regular', looks: [look('catpope', 'default', ['neutral', 'happy', 'sad'], { default: true })] },
 		{ id: 'human', label: { de: 'Mensch', en: 'Human' }, looks: [{ id: 'default', default: true, images: {} }] },

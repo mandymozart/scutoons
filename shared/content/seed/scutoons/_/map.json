@@ -4,7 +4,7 @@
 	"layers": [
 		{
 			"id": "terrain",
-			"image": "catpope/images/map/map-layer-terrain.svg"
+			"image": "catpope/map/map-layer-terrain.svg"
 		}
 	],
 	"locations": [
@@ -28,7 +28,7 @@
 				"toon": "catpope",
 				"chapter": 2,
 				"at": 0.9545,
-				"slice": "images/webtoon/s1c2/s1c2-slice-21.webp",
+				"slice": "s1/c2/s1c2-slice-21.webp",
 				"scene": 17
 			}
 		},
@@ -52,7 +52,7 @@
 				"toon": "catpope",
 				"chapter": 1,
 				"at": 0.0315,
-				"slice": "images/webtoon/s1c1/s1c1-slice-2.webp",
+				"slice": "s1/c1/s1c1-slice-2.webp",
 				"scene": 2
 			}
 		},
@@ -76,7 +76,7 @@
 				"toon": "catpope",
 				"chapter": 1,
 				"at": 0.7684,
-				"slice": "images/webtoon/s1c1/s1c1-slice-72.webp",
+				"slice": "s1/c1/s1c1-slice-72.webp",
 				"scene": 11
 			}
 		},
@@ -100,7 +100,7 @@
 				"toon": "catpope",
 				"chapter": 2,
 				"at": 0.909,
-				"slice": "images/webtoon/s1c2/s1c2-slice-20.webp",
+				"slice": "s1/c2/s1c2-slice-20.webp",
 				"scene": 12
 			}
 		},
@@ -124,7 +124,7 @@
 				"toon": "catpope",
 				"chapter": 2,
 				"at": 0.1363,
-				"slice": "images/webtoon/s1c2/s1c2-slice-3.webp",
+				"slice": "s1/c2/s1c2-slice-3.webp",
 				"scene": 13
 			}
 		},
@@ -148,7 +148,7 @@
 				"toon": "catpope",
 				"chapter": 2,
 				"at": 0.4545,
-				"slice": "images/webtoon/s1c2/s1c2-slice-10.webp",
+				"slice": "s1/c2/s1c2-slice-10.webp",
 				"scene": 14
 			}
 		},
@@ -186,7 +186,7 @@
 				"toon": "catpope",
 				"chapter": 2,
 				"at": 0.7272,
-				"slice": "images/webtoon/s1c2/s1c2-slice-16.webp",
+				"slice": "s1/c2/s1c2-slice-16.webp",
 				"scene": 15
 			}
 		},
@@ -210,7 +210,7 @@
 				"toon": "catpope",
 				"chapter": 2,
 				"at": 0.2727,
-				"slice": "images/webtoon/s1c2/s1c2-slice-6.webp",
+				"slice": "s1/c2/s1c2-slice-6.webp",
 				"scene": 16
 			}
 		},

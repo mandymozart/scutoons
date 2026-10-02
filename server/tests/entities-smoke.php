@@ -136,7 +136,7 @@ try {
     echo "\nWorld map (/library/map, agents/MAP.md)\n";
     // a world map with a place of this toon, a hidden one, one of an unknown (unlisted) toon; restored at the end
     $previousMap = $worldBefore['status'] === 200 ? ($worldBefore['body']['published']['id'] ?? null) : null;
-    $world = ['width' => 2048, 'height' => 1046, 'layers' => [['id' => 'terrain', 'image' => 'catpope/images/map/map-layer-terrain.svg']],
+    $world = ['width' => 2048, 'height' => 1046, 'layers' => [['id' => 'terrain', 'image' => 'catpope/map/map-layer-terrain.svg']],
         'locations' => [
             ['id' => "$toon-home", 'name' => ['de' => 'Zuhause', 'en' => 'Home'], 'x' => 100, 'y' => 200, 'toons' => [$toon], 'chapter' => ['toon' => $toon, 'number' => 1]],
             ['id' => "$toon-tower", 'name' => ['de' => 'Turm'], 'x' => 300, 'y' => 400, 'toons' => [$toon], 'hidden' => true, 'unlock' => ['toon' => $toon, 'chapter' => 1, 'at' => 0.5]],

@@ -5,7 +5,7 @@
   },
   "slices": [
     {
-      "image": "images/webtoon/s1c2/s1c2-slice-1.webp",
+      "image": "s1/c2/s1c2-slice-1.webp",
       "width": 390,
       "height": 625,
       "events": [
@@ -45,17 +45,17 @@
       ]
     },
     {
-      "image": "images/webtoon/s1c2/s1c2-slice-2.webp",
+      "image": "s1/c2/s1c2-slice-2.webp",
       "width": 390,
       "height": 625
     },
     {
-      "image": "images/webtoon/s1c2/s1c2-slice-3.webp",
+      "image": "s1/c2/s1c2-slice-3.webp",
       "width": 390,
       "height": 625
     },
     {
-      "image": "images/webtoon/s1c2/s1c2-slice-4.webp",
+      "image": "s1/c2/s1c2-slice-4.webp",
       "width": 390,
       "height": 625
     }

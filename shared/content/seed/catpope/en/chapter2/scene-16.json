@@ -6,17 +6,17 @@
   "interaction": "visual-novel",
   "slices": [
     {
-      "image": "images/webtoon/s1c2/s1c2-slice-9.webp",
+      "image": "s1/c2/s1c2-slice-9.webp",
       "width": 390,
       "height": 625
     },
     {
-      "image": "images/webtoon/s1c2/s1c2-slice-10.webp",
+      "image": "s1/c2/s1c2-slice-10.webp",
       "width": 390,
       "height": 625
     },
     {
-      "image": "images/webtoon/s1c2/s1c2-slice-11.webp",
+      "image": "s1/c2/s1c2-slice-11.webp",
       "width": 390,
       "height": 625
     }

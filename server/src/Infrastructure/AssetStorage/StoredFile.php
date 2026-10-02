@@ -5,7 +5,7 @@ namespace Scutoons\Infrastructure\AssetStorage;
 
 /**
  * One file on a media storage (agents/ASSETS.md "Storage drivers"). `key` is the path from the CDN root, the same
- * string content references (after the toon folder is prefixed): `catpope/videos/s1-trailer-loop.720p.mp4`.
+ * string content references (after the toon folder is prefixed): `catpope/s1/s1-trailer-loop.720p.mp4`.
  */
 final class StoredFile
 {

@@ -157,10 +157,10 @@
 <svelte:window onkeydown={onKeydown} />
 
 <div class="map {open ? 'visible' : 'hidden'}" style:--map-sea={data?.view?.color ?? null} role="dialog" aria-modal="true" aria-label={m['map.title']()} aria-hidden={!open} inert={!open} data-testid="map-overlay">
-	<img class="frame frame--1" src={asset('catpope/images/vectors/vector-demon-saw-1.svg')} alt="" />
-	<img class="frame frame--2" src={asset('catpope/images/vectors/vector-demon-saw-1.svg')} alt="" />
-	<img class="frame frame--3" src={asset('catpope/images/vectors/vector-demon-saw-1.svg')} alt="" />
-	<img class="frame frame--4" src={asset('catpope/images/vectors/vector-demon-saw-1.svg')} alt="" />
+	<img class="frame frame--1" src={asset('catpope/vectors/vector-demon-saw-1.svg')} alt="" />
+	<img class="frame frame--2" src={asset('catpope/vectors/vector-demon-saw-1.svg')} alt="" />
+	<img class="frame frame--3" src={asset('catpope/vectors/vector-demon-saw-1.svg')} alt="" />
+	<img class="frame frame--4" src={asset('catpope/vectors/vector-demon-saw-1.svg')} alt="" />
 
 	<div
 		class="viewport"

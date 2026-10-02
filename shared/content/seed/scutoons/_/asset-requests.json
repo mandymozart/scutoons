@@ -36,7 +36,7 @@
 			"mood": "",
 			"view": "media",
 			"toon": "catpope",
-			"path": "catpope/images/s1-cover-square-textless.webp",
+			"path": "catpope/s1/s1-cover-square-textless.webp",
 			"size": "1080 × 1080",
 			"note": "Season 1 cover without the lettering (\"KATZENPAPST\" / \"DAS ERWACHEN\"): the same artwork, the area above the head left clean – the title is set by the UI in every language (cover.lettering). Deliver PNG/JPG 1080², the WebP is encoded next to it; then switch cover.square to it and turn on lettering.",
 			"requested_by": "owner 2026-10-01 (language-independent media)",

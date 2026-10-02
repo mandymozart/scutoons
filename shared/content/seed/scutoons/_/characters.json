@@ -11,7 +11,7 @@
 				"en": "Is future self"
 			},
 			"color": "#0066cc",
-			"image": "catpope/images/characters/catpope/catpope.svg",
+			"image": "catpope/characters/catpope/catpope.svg",
 			"personas": [
 				{
 					"id": "regular",
@@ -115,7 +115,7 @@
 								"neutral": {
 									"avatar": "characters/catpope-human/catpope-human_avatar-neutral.webp",
 									"portrait": "characters/catpope-human/catpope-human_portrait-neutral.webp",
-									"full": "catpope/images/characters/plf/plf_full.svg"
+									"full": "catpope/characters/plf/plf_full.svg"
 								}
 							}
 						}
@@ -140,7 +140,7 @@
 								"neutral": {
 									"avatar": "characters/catpope-cat/catpope-cat_avatar-neutral.webp",
 									"portrait": "characters/catpope-cat/catpope-cat_portrait-neutral.webp",
-									"full": "catpope/images/characters/cat/cat_full.svg"
+									"full": "catpope/characters/cat/cat_full.svg"
 								}
 							}
 						}
@@ -163,9 +163,9 @@
 							"default": true,
 							"images": {
 								"neutral": {
-									"avatar": "catpope/images/characters/mountain-tiger/mountain-tiger_avatar.svg",
-									"portrait": "catpope/images/characters/mountain-tiger/mountain-tiger_portrait.svg",
-									"full": "catpope/images/characters/mountain-tiger/mountain-tiger_full.svg"
+									"avatar": "catpope/characters/mountain-tiger/mountain-tiger_avatar.svg",
+									"portrait": "catpope/characters/mountain-tiger/mountain-tiger_portrait.svg",
+									"full": "catpope/characters/mountain-tiger/mountain-tiger_full.svg"
 								}
 							}
 						}
@@ -535,7 +535,7 @@
 				"en": "See cat and is scared in front of church"
 			},
 			"color": "red",
-			"image": "catpope/images/characters/boy/boy.svg",
+			"image": "catpope/characters/boy/boy.svg",
 			"personas": [
 				{
 					"id": "regular",
@@ -545,8 +545,8 @@
 							"default": true,
 							"images": {
 								"neutral": {
-									"avatar": "catpope/images/characters/boy/boy_avatar.svg",
-									"portrait": "catpope/images/characters/boy/boy_portrait.svg",
+									"avatar": "catpope/characters/boy/boy_avatar.svg",
+									"portrait": "catpope/characters/boy/boy_portrait.svg",
 									"full": "catpope/images/characters/boy/boy_full.svg"
 								}
 							}
@@ -566,7 +566,7 @@
 				"en": "Are crows, can travel time and space, bringing a message from the future."
 			},
 			"color": "darkgreen",
-			"image": "catpope/images/characters/crows/crows.svg",
+			"image": "catpope/characters/crows/crows.svg",
 			"personas": [
 				{
 					"id": "regular",
@@ -576,9 +576,9 @@
 							"default": true,
 							"images": {
 								"neutral": {
-									"avatar": "catpope/images/characters/crows/crows_avatar.svg",
+									"avatar": "catpope/characters/crows/crows_avatar.svg",
 									"portrait": "catpope/images/characters/crows/crows_portrait.svg",
-									"full": "catpope/images/characters/crows/crows_full.svg"
+									"full": "catpope/characters/crows/crows_full.svg"
 								}
 							}
 						}

@@ -15,7 +15,7 @@ export interface Classifier {
 }
 
 /** MobileNet v2 (alpha 1.0, 224 px) on our CDN – see loadClassifier */
-export const MOBILENET_MODEL = 'models/mobilenet_v2_100_224/model.json';
+export const MOBILENET_MODEL = 'scutoons/models/mobilenet_v2_100_224/model.json';
 
 let classifierPromise: Promise<Classifier> | null = null;
 

@@ -59,15 +59,15 @@ test('albums: a record plays only with a record player, otherwise the download i
 	if (without?.kind !== 'needs_player') return;
 	assert.equal(without.format, 'vinyl');
 	assert.equal(without.players[0].id, 'record_player');
-	assert.equal(without.download, 'catpope/audio/CatPope-Awakening-Music.zip');
+	assert.equal(without.download, 'catpope/s1/CatPope-Awakening-Music.zip');
 	// a tape or CD player does not play vinyl
 	assert.equal(mediaPlayback(catalog, vinyl, member('awakening_vinyl', 'tape_player', 'cd_player'))?.kind, 'needs_player');
 	const withPlayer = mediaPlayback(catalog, vinyl, member('awakening_vinyl', 'record_player'));
 	assert.equal(withPlayer?.kind, 'play');
 	if (withPlayer?.kind === 'play') {
 		assert.equal(withPlayer.player?.id, 'record_player');
-		assert.equal(withPlayer.tracks[0].src, 'catpope/audio/music/s1c1-instrumental-brass-morton.128.mp3');
-		assert.equal(withPlayer.download, 'catpope/audio/CatPope-Awakening-Music.zip');
+		assert.equal(withPlayer.tracks[0].src, 'catpope/s1/c1/s1c1-instrumental-brass-morton.128.mp3');
+		assert.equal(withPlayer.download, 'catpope/s1/CatPope-Awakening-Music.zip');
 	}
 	// not media
 	assert.equal(mediaPlayback(catalog, item('camera'), member('record_player')), null);
@@ -77,7 +77,7 @@ test('albums: a record plays only with a record player, otherwise the download i
 test('albums: access – download for members (as before), listening for owners with a player', () => {
 	const album = albumOf(catalog, item('awakening_vinyl'))!;
 	assert.deepEqual(albumAccess(album), { download: 'members', listen: 'owners' });
-	assert.equal(albumByDownload(catalog, 'catpope/audio/CatPope-Awakening-Music.zip')?.id, 'awakening');
+	assert.equal(albumByDownload(catalog, 'catpope/s1/CatPope-Awakening-Music.zip')?.id, 'awakening');
 	// members (reading access) and owners get the download, a visitor without access does not
 	assert.equal(albumDownload(catalog, album, member()), album.download);
 	assert.equal(albumDownload(catalog, album, guest('awakening_test_press')), album.download, 'an owner of any carrier');
@@ -209,15 +209,15 @@ test('season music comes from the related items’ album; old seasons keep their
 	const music = seasonMusic(catalog, season, 'catpope');
 	assert.equal(music?.album?.id, 'awakening');
 	assert.equal(music?.carrier, 'awakening_vinyl');
-	assert.equal(music?.download, 'catpope/audio/CatPope-Awakening-Music.zip', 'the album’s zip = the season’s old download.music');
-	assert.equal(music?.image, 'catpope/images/s1-music-vinyl.webp', 'the album cover = the old download.image');
+	assert.equal(music?.download, 'catpope/s1/CatPope-Awakening-Music.zip', 'the album’s zip = the season’s old download.music');
+	assert.equal(music?.image, 'catpope/s1/s1-music-vinyl.webp', 'the album cover = the old download.image');
 	// without the season's own fields: the same answer (the season editor no longer writes them)
 	assert.deepEqual(seasonMusic(catalog, { related_items: season.related_items }, 'catpope'), music);
 	// an old season without related items: its download fields, the album found by the zip
 	const old = seasonMusic(catalog, { download: { music: 'audio/CatPope-Awakening-Music.zip', image: 'images/x.webp' } }, 'catpope');
 	assert.equal(old?.album?.id, 'awakening');
 	assert.equal(old?.carrier, undefined);
-	assert.equal(old?.image, 'catpope/images/s1-music-vinyl.webp');
+	assert.equal(old?.image, 'catpope/s1/s1-music-vinyl.webp');
 	assert.deepEqual(seasonMusic(catalog, { download: { music: 'audio/other.zip', image: 'images/x.webp' } }, 'catpope'), { album: undefined, download: 'catpope/audio/other.zip', image: 'catpope/images/x.webp' });
 	assert.equal(seasonMusic(catalog, { related_items: ['camera'] }, 'catpope'), null, 'no album, no music');
 	assert.equal(seasonMusic(catalog, null, 'catpope'), null);

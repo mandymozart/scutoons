@@ -57,7 +57,7 @@ test('migration: every old catpope value survives in the seed world map (ids, co
 		height: 1046,
 		center: { x: 1320, y: 440 }
 	});
-	assert.equal(legacyToonMapSettings(world, 'sandbox', toons.find((t: any) => t.id === 'sandbox').map).layers.terrain, '../catpope/images/map/map-layer-terrain.svg');
+	assert.equal(legacyToonMapSettings(world, 'sandbox', toons.find((t: any) => t.id === 'sandbox').map).layers.terrain, '../catpope/map/map-layer-terrain.svg');
 	// owner 2026-10-01: garden is a place now (the route is complete), places unlock over time
 	assert.deepEqual(checkWorldMap(world), [], 'no problem left (the airport is "not unlockable yet": unlock null)');
 	assert.equal(world.locations.find((p) => p.id === 'airport')?.unlock, null);

@@ -6,7 +6,7 @@
   "release": "2025-10-04",
   "status": "published",
   "description": "The prologue to season one.",
-  "thumbnail": "images/s1c0-thumbnail.webp",
+  "thumbnail": "s1/c0/s1c0-thumbnail.webp",
   "isPreview": true,
   "groups": [
     {
@@ -16,15 +16,15 @@
       },
       "slices": [
         {
-          "image": "images/webtoon/s1c0/s1c0-slice-1.webp",
+          "image": "s1/c0/s1c0-slice-1.webp",
           "width": 390,
           "height": 206,
           "video": {
-            "src": "videos/roar-little-kitty.720p.mp4",
+            "src": "s1/c0/roar-little-kitty.720p.mp4",
             "variants": {
-              "low": "videos/roar-little-kitty.480p.mp4",
-              "medium": "videos/roar-little-kitty.720p.mp4",
-              "high": "videos/roar-little-kitty.1080p.mp4"
+              "low": "s1/c0/roar-little-kitty.480p.mp4",
+              "medium": "s1/c0/roar-little-kitty.720p.mp4",
+              "high": "s1/c0/roar-little-kitty.1080p.mp4"
             },
             "player": true
           }

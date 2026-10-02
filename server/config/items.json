@@ -645,10 +645,10 @@
       "toon": "catpope",
       "title": { "de": "Awakening", "en": "Awakening" },
       "tracks": [
-        { "id": "brass_morton", "title": "Instrumental (Brass Morton)", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.128.mp3" }
+        { "id": "brass_morton", "title": "Instrumental (Brass Morton)", "src": "catpope/s1/c1/s1c1-instrumental-brass-morton.128.mp3" }
       ],
-      "download": "catpope/audio/CatPope-Awakening-Music.zip",
-      "cover": "catpope/images/s1-music-vinyl.webp",
+      "download": "catpope/s1/CatPope-Awakening-Music.zip",
+      "cover": "catpope/s1/s1-music-vinyl.webp",
       "access": { "download": "members", "listen": "owners" }
     }
   ],

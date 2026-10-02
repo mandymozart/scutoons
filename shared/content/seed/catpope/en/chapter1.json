@@ -6,10 +6,10 @@
   "release": "2025-10-04",
   "status": "published",
   "description": "The morning routine is interrupted",
-  "thumbnail": "images/s1c1-thumbnail.jpg",
+  "thumbnail": "s1/c1/s1c1-thumbnail.jpg",
   "keyvisual": {
-    "image": "images/s1c1-key-visual.webp",
-    "video": "videos/s1c1-key-visual.900w.mp4"
+    "image": "s1/c1/s1c1-key-visual.webp",
+    "video": "s1/c1/s1c1-key-visual.900w.mp4"
   },
   "audio": {
     "music": {
@@ -18,26 +18,26 @@
       "tracks": [
         {
           "id": "calmness",
-          "path": "audio/music/s1c1-instrumental-brass-morton.128.mp3"
+          "path": "s1/c1/s1c1-instrumental-brass-morton.128.mp3"
         },
         {
           "id": "tension",
-          "path": "audio/music/s1c2-instrumental.128.mp3"
+          "path": "s1/c2/s1c2-instrumental.128.mp3"
         }
       ]
     },
     "sampleLibrary": [
       {
         "id": "bells",
-        "path": "audio/samples/s1c1-bells.128.mp3"
+        "path": "s1/c1/s1c1-bells.128.mp3"
       },
       {
         "id": "choir_loud",
-        "path": "audio/samples/s1c1-choir-loud-loud-loud.128.mp3"
+        "path": "s1/c1/s1c1-choir-loud-loud-loud.128.mp3"
       },
       {
         "id": "choir_once",
-        "path": "audio/samples/s1c1-choir-once-it-means-nothing.128.mp3"
+        "path": "s1/c1/s1c1-choir-once-it-means-nothing.128.mp3"
       }
     ]
   },
@@ -53,11 +53,11 @@
       "interaction": "webtoon",
       "slices": [
         {
-          "image": "images/s1c1-key-visual.webp",
+          "image": "s1/c1/s1c1-key-visual.webp",
           "width": 390,
           "height": 845,
           "video": {
-            "src": "videos/s1c1-key-visual.900w.mp4"
+            "src": "s1/c1/s1c1-key-visual.900w.mp4"
           },
           "audio": {
             "music": {
@@ -75,12 +75,12 @@
           }
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-1.webp",
+          "image": "s1/c1/s1c1-slice-1.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-2.webp",
+          "image": "s1/c1/s1c1-slice-2.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -135,7 +135,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-3.webp",
+          "image": "s1/c1/s1c1-slice-3.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -172,12 +172,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-4.webp",
+          "image": "s1/c1/s1c1-slice-4.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-5.webp",
+          "image": "s1/c1/s1c1-slice-5.webp",
           "width": 390,
           "height": 625,
           "audio": {
@@ -213,7 +213,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-6.webp",
+          "image": "s1/c1/s1c1-slice-6.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -235,7 +235,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-7.webp",
+          "image": "s1/c1/s1c1-slice-7.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -273,12 +273,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-8.webp",
+          "image": "s1/c1/s1c1-slice-8.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-9.webp",
+          "image": "s1/c1/s1c1-slice-9.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -316,7 +316,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-10.webp",
+          "image": "s1/c1/s1c1-slice-10.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -338,12 +338,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-11.webp",
+          "image": "s1/c1/s1c1-slice-11.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-12.webp",
+          "image": "s1/c1/s1c1-slice-12.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -365,7 +365,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-13.webp",
+          "image": "s1/c1/s1c1-slice-13.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -387,12 +387,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-14.webp",
+          "image": "s1/c1/s1c1-slice-14.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-15.webp",
+          "image": "s1/c1/s1c1-slice-15.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -414,7 +414,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-16.webp",
+          "image": "s1/c1/s1c1-slice-16.webp",
           "width": 390,
           "height": 625,
           "audio": {
@@ -433,7 +433,7 @@
           }
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-17.webp",
+          "image": "s1/c1/s1c1-slice-17.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -455,7 +455,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-18.webp",
+          "image": "s1/c1/s1c1-slice-18.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -493,7 +493,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-19.webp",
+          "image": "s1/c1/s1c1-slice-19.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -515,7 +515,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-20.webp",
+          "image": "s1/c1/s1c1-slice-20.webp",
           "width": 390,
           "height": 625,
           "audio": {
@@ -547,7 +547,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-21.webp",
+          "image": "s1/c1/s1c1-slice-21.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -570,7 +570,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-22.webp",
+          "image": "s1/c1/s1c1-slice-22.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -607,7 +607,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-23.webp",
+          "image": "s1/c1/s1c1-slice-23.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -629,7 +629,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-24.webp",
+          "image": "s1/c1/s1c1-slice-24.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -651,7 +651,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-25.webp",
+          "image": "s1/c1/s1c1-slice-25.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -673,12 +673,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-26.webp",
+          "image": "s1/c1/s1c1-slice-26.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-27.webp",
+          "image": "s1/c1/s1c1-slice-27.webp",
           "width": 390,
           "height": 625,
           "audio": {
@@ -714,7 +714,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-28.webp",
+          "image": "s1/c1/s1c1-slice-28.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -736,12 +736,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-29.webp",
+          "image": "s1/c1/s1c1-slice-29.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-30.webp",
+          "image": "s1/c1/s1c1-slice-30.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -784,7 +784,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-31.webp",
+          "image": "s1/c1/s1c1-slice-31.webp",
           "width": 390,
           "height": 625,
           "audio": {
@@ -821,7 +821,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-32.webp",
+          "image": "s1/c1/s1c1-slice-32.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -843,7 +843,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-33.webp",
+          "image": "s1/c1/s1c1-slice-33.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -865,7 +865,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-34.webp",
+          "image": "s1/c1/s1c1-slice-34.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -903,7 +903,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-35.webp",
+          "image": "s1/c1/s1c1-slice-35.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -925,7 +925,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-36.webp",
+          "image": "s1/c1/s1c1-slice-36.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -962,7 +962,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-37.webp",
+          "image": "s1/c1/s1c1-slice-37.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -984,22 +984,22 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-38.webp",
+          "image": "s1/c1/s1c1-slice-38.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-39.webp",
+          "image": "s1/c1/s1c1-slice-39.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-40.webp",
+          "image": "s1/c1/s1c1-slice-40.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-41.webp",
+          "image": "s1/c1/s1c1-slice-41.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1021,7 +1021,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-42.webp",
+          "image": "s1/c1/s1c1-slice-42.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1104,7 +1104,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-43.webp",
+          "image": "s1/c1/s1c1-slice-43.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1144,7 +1144,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-44.webp",
+          "image": "s1/c1/s1c1-slice-44.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1166,7 +1166,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-45.webp",
+          "image": "s1/c1/s1c1-slice-45.webp",
           "width": 390,
           "height": 625,
           "audio": {
@@ -1184,7 +1184,7 @@
           }
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-46.webp",
+          "image": "s1/c1/s1c1-slice-46.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1207,12 +1207,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-47.webp",
+          "image": "s1/c1/s1c1-slice-47.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-48.webp",
+          "image": "s1/c1/s1c1-slice-48.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1234,7 +1234,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-49.webp",
+          "image": "s1/c1/s1c1-slice-49.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1256,12 +1256,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-50.webp",
+          "image": "s1/c1/s1c1-slice-50.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-51.webp",
+          "image": "s1/c1/s1c1-slice-51.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1283,12 +1283,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-52.webp",
+          "image": "s1/c1/s1c1-slice-52.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-53.webp",
+          "image": "s1/c1/s1c1-slice-53.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1311,22 +1311,22 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-54.webp",
+          "image": "s1/c1/s1c1-slice-54.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-55.webp",
+          "image": "s1/c1/s1c1-slice-55.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-56.webp",
+          "image": "s1/c1/s1c1-slice-56.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-57.webp",
+          "image": "s1/c1/s1c1-slice-57.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1348,7 +1348,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-58.webp",
+          "image": "s1/c1/s1c1-slice-58.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1370,7 +1370,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-59.webp",
+          "image": "s1/c1/s1c1-slice-59.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1407,7 +1407,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-60.webp",
+          "image": "s1/c1/s1c1-slice-60.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1444,12 +1444,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-61.webp",
+          "image": "s1/c1/s1c1-slice-61.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-62.webp",
+          "image": "s1/c1/s1c1-slice-62.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1474,7 +1474,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-63.webp",
+          "image": "s1/c1/s1c1-slice-63.webp",
           "width": 390,
           "height": 625,
           "audio": {
@@ -1497,62 +1497,62 @@
           }
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-64.webp",
+          "image": "s1/c1/s1c1-slice-64.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-65.webp",
+          "image": "s1/c1/s1c1-slice-65.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-66.webp",
+          "image": "s1/c1/s1c1-slice-66.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-67.webp",
+          "image": "s1/c1/s1c1-slice-67.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-68.webp",
+          "image": "s1/c1/s1c1-slice-68.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-69.webp",
+          "image": "s1/c1/s1c1-slice-69.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-70.webp",
+          "image": "s1/c1/s1c1-slice-70.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-71.webp",
+          "image": "s1/c1/s1c1-slice-71.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-72.webp",
+          "image": "s1/c1/s1c1-slice-72.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-73.webp",
+          "image": "s1/c1/s1c1-slice-73.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-74.webp",
+          "image": "s1/c1/s1c1-slice-74.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-75.webp",
+          "image": "s1/c1/s1c1-slice-75.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1574,12 +1574,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-76.webp",
+          "image": "s1/c1/s1c1-slice-76.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-77.webp",
+          "image": "s1/c1/s1c1-slice-77.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1601,17 +1601,17 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-78.webp",
+          "image": "s1/c1/s1c1-slice-78.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-79.webp",
+          "image": "s1/c1/s1c1-slice-79.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-80.webp",
+          "image": "s1/c1/s1c1-slice-80.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1634,12 +1634,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-81.webp",
+          "image": "s1/c1/s1c1-slice-81.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-82.webp",
+          "image": "s1/c1/s1c1-slice-82.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1661,12 +1661,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-83.webp",
+          "image": "s1/c1/s1c1-slice-83.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-84.webp",
+          "image": "s1/c1/s1c1-slice-84.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1688,7 +1688,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-85.webp",
+          "image": "s1/c1/s1c1-slice-85.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1710,12 +1710,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-86.webp",
+          "image": "s1/c1/s1c1-slice-86.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-87.webp",
+          "image": "s1/c1/s1c1-slice-87.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1737,7 +1737,7 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-88.webp",
+          "image": "s1/c1/s1c1-slice-88.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1759,12 +1759,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-89.webp",
+          "image": "s1/c1/s1c1-slice-89.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-90.webp",
+          "image": "s1/c1/s1c1-slice-90.webp",
           "width": 390,
           "height": 625,
           "audio": {
@@ -1782,12 +1782,12 @@
           }
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-91.webp",
+          "image": "s1/c1/s1c1-slice-91.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-92.webp",
+          "image": "s1/c1/s1c1-slice-92.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -1812,12 +1812,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-93.webp",
+          "image": "s1/c1/s1c1-slice-93.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c1/s1c1-slice-94.webp",
+          "image": "s1/c1/s1c1-slice-94.webp",
           "width": 390,
           "height": 625,
           "audio": {

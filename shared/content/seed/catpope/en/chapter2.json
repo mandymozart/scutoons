@@ -6,9 +6,9 @@
   "release": "2025-11-01",
   "status": "draft",
   "description": "The sermon is interrupted",
-  "thumbnail": "images/s1c2-thumbnail.jpg",
+  "thumbnail": "s1/c2/s1c2-thumbnail.jpg",
   "keyvisual": {
-    "image": "images/s1c2-key-visual.webp"
+    "image": "s1/c2/s1c2-key-visual.webp"
   },
   "featuring": [
     "catpope"
@@ -47,7 +47,7 @@
       "interaction": "webtoon",
       "slices": [
         {
-          "image": "images/webtoon/s1c2/s1c2-slice-20.webp",
+          "image": "s1/c2/s1c2-slice-20.webp",
           "width": 390,
           "height": 625,
           "dialog": [
@@ -75,12 +75,12 @@
           ]
         },
         {
-          "image": "images/webtoon/s1c2/s1c2-slice-21.webp",
+          "image": "s1/c2/s1c2-slice-21.webp",
           "width": 390,
           "height": 625
         },
         {
-          "image": "images/webtoon/s1c2/s1c2-slice-22.webp",
+          "image": "s1/c2/s1c2-slice-22.webp",
           "width": 390,
           "height": 625,
           "events": [

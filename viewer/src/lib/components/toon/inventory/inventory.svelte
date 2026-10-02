@@ -117,7 +117,7 @@
 </button>
 
 <div class="inventory {inventoryVisible ? 'visible' : 'hidden'}" bind:this={inventoryElement}>
-	<img class="frame" src={asset(`catpope/images/vectors/vector-demon-saw-1.svg`)} alt="" />
+	<img class="frame" src={asset(`catpope/vectors/vector-demon-saw-1.svg`)} alt="" />
 
 	<div class="tabs" role="tablist">
 		<button

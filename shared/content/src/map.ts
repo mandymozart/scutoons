@@ -22,7 +22,7 @@ export interface WorldMap {
 export interface MapLayer {
 	/** e.g. `terrain` */
 	id: string;
-	/** CDN-root path, e.g. `catpope/images/map/map-layer-terrain.svg` */
+	/** CDN-root path, e.g. `catpope/map/map-layer-terrain.svg` */
 	image: string;
 	/** shown only from / up to this zoom (e.g. a street-detail layer for the city) */
 	minZoom?: number;
