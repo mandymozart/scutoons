@@ -126,13 +126,19 @@ final class InventoryService
     /** Default collection limit: at most this many of one item per account (owner 2026-10-02). */
     public const MAX_PER_ACCOUNT = 99;
 
-    /** How many of an item an account may hold: the item's `max`, else MAX_PER_ACCOUNT. @param array<string, mixed> $item */
+    /**
+     * How many of an item an account may hold: the item's `max`, else MAX_PER_ACCOUNT.
+     * @param array<string, mixed> $item
+     */
     public static function maxOf(array $item): int
     {
         return max(1, (int) ($item['max'] ?? self::MAX_PER_ACCOUNT));
     }
 
-    /** How many more of an item fit (0 = the collection limit is reached). @param array<string, mixed> $item */
+    /**
+     * How many more of an item fit (0 = the collection limit is reached).
+     * @param array<string, mixed> $item
+     */
     public function room(string $userId, array $item): int
     {
         return max(0, self::maxOf($item) - $this->count($userId, (string) $item['id']));

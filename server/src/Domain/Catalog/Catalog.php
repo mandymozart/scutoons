@@ -103,7 +103,7 @@ final class Catalog
 
     /**
      * The tools whose scan_object skill grants this item and their smallest cooldown (seconds); null = no tool grants it.
-     * @return array{tools: list<string>, cooldown: int}|null
+     * @return array{tools: list<string>, cooldown: int, per_day: int}|null
      */
     public function scanTools(string $itemId): ?array
     {
