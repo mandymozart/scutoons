@@ -51,14 +51,15 @@ final class AssetLayout
     }
 
     /**
-     * The plan for these storage keys
+     * The plan for these storage keys ($extraUses: uses the index doesn't know, e.g. paths in app code)
      * @param list<string> $keys
+     * @param array<string, list<array<string, mixed>>> $extraUses
      * @return array{items: list<array<string, mixed>>, summary: array<string, mixed>}
      */
-    public function plan(array $keys): array
+    public function plan(array $keys, array $extraUses = []): array
     {
         $seasons = $this->chapterSeasons();
-        $uses = [];
+        $uses = $extraUses;
         foreach ($this->db->all('SELECT path, source, ref, state FROM asset_usages') as $u) $uses[(string) $u['path']][] = $u;
         $items = [];
         $targets = [];
@@ -133,8 +134,9 @@ final class AssetLayout
             return ["$toon/s{$m[1]}/$topic$tail", 'season (from the name)'];
         }
         // topic folders of the toon stay topic folders (items, merch, map, the toon's characters)
-        foreach (['items', 'merch', 'map', 'characters'] as $topic) {
+        foreach (['items', 'merch', 'map', 'characters', 'vectors'] as $topic) {
             $at = array_search($topic, $dirs, true);
+            if ($at !== false && $topic === 'vectors' && !$uses) return ['', 'delete: unused, no place (owner)'];
             if ($at !== false) return ["$toon/" . implode('/', array_slice($dirs, (int) $at)) . "/$tail", 'toon topic: ' . $topic];
         }
         // otherwise: the most specific place that uses it (chapter < season < toon)

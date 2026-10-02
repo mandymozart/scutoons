@@ -7,6 +7,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetImporter;
 use Scutoons\Domain\Assets\AssetJobs;
 use Scutoons\Domain\Assets\AssetLayout;
+use Scutoons\Domain\Assets\AssetRelayout;
 use Scutoons\Domain\Assets\AssetPaths;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetService;
@@ -330,11 +331,51 @@ final class AssetsTest extends TestCase
         }
         self::assertSame(['', 'delete: lettered master (owner)'], $layout->target('catpope/images/webtoon/de/S1C1 - Slice 7.jpg', [], $seasons));
         self::assertSame(['', 'delete: unused, no place (owner)'], $layout->target('catpope/images/vectors/a.svg', [], $seasons));
-        self::assertSame('unplaced', $layout->target('catpope/images/vectors/a.svg', [$chapter0[0], ['source' => 'content', 'ref' => 'toon:catpope', 'state' => 'draft'], ['source' => 'content', 'ref' => 'season:catpope:2:de', 'state' => 'draft']], $seasons)[1], 'used in two seasons, no name rule');
+        self::assertSame('unplaced', $layout->target('catpope/images/misc/a.svg', [$chapter0[0], ['source' => 'content', 'ref' => 'toon:catpope', 'state' => 'draft'], ['source' => 'content', 'ref' => 'season:catpope:2:de', 'state' => 'draft']], $seasons)[1], 'used in two seasons, no name rule');
         $plan = $layout->plan(['catpope/images/webtoon/s1c2/s1c2-slice-1.webp', 'catpope/images/s1c2-slice-1.webp', 'models/m/model.json']);
         self::assertSame(1, $plan['summary']['conflicts'], 'two files would land on one path');
         self::assertSame(0, $plan['summary']['deletes']);
         self::assertSame(['viewer/src/lib/components/camera/object-detector.ts (MOBILENET_MODEL)'], $plan['summary']['code_changes']);
+    }
+
+    public function testRelayoutCopiesAndRewrites(): void
+    {
+        $this->put('catpope/videos/s1-trailer-loop.720p.mp4', self::MP4 . 'loop');
+        $this->put('catpope/images/vectors/frame.svg', '<svg/>');
+        $repo = $this->dir . '/repo';
+        @mkdir("$repo/shared/content/seed/catpope/de", 0777, true);
+        @mkdir("$repo/viewer/src", 0777, true);
+        file_put_contents("$repo/shared/content/seed/catpope/de/season1.json", "{
+	\"trailer\": { \"loop\": \"videos/s1-trailer-loop.720p.mp4\" }
+}
+");
+        file_put_contents("$repo/viewer/src/frame.ts", "export const FRAME = 'catpope/images/vectors/frame.svg';
+");
+        $tracked = ['shared/content/seed/catpope/de/season1.json', 'viewer/src/frame.ts'];
+        $keys = ['catpope/videos/s1-trailer-loop.720p.mp4', 'catpope/images/vectors/frame.svg'];
+        $code = AssetRelayout::codeReferences($repo, $tracked, $keys);
+        self::assertSame(['catpope/images/vectors/frame.svg'], array_keys($code), 'code counts as a use');
+        $plan = $this->get(AssetLayout::class)->plan($keys, $code);
+        $relayout = new AssetRelayout($plan['items']);
+        self::assertEqualsCanonicalizing(['catpope/videos/s1-trailer-loop.720p.mp4' => 'catpope/s1/s1-trailer-loop.720p.mp4', 'catpope/images/vectors/frame.svg' => 'catpope/vectors/frame.svg'], $relayout->map());
+
+        $storage = $this->get(AssetStorages::class)->local();
+        self::assertSame(2, $relayout->copy($storage, false)['copied'], 'dry run counts, copies nothing');
+        self::assertFileDoesNotExist($this->dir . '/cdn/catpope/s1/s1-trailer-loop.720p.mp4');
+        $copy = $relayout->copy($storage, true);
+        self::assertSame([2, []], [$copy['copied'], $copy['failed']]);
+        self::assertFileExists($this->dir . '/cdn/catpope/videos/s1-trailer-loop.720p.mp4', 'copy, never move');
+        self::assertSame(2, $relayout->copy($storage, true)['identical']);
+
+        $rewrite = $relayout->rewrite($repo, $tracked, true);
+        self::assertStringContainsString('"loop": "s1/s1-trailer-loop.720p.mp4"', (string) file_get_contents("$repo/shared/content/seed/catpope/de/season1.json"), 'toon-relative stays toon-relative');
+        self::assertStringContainsString("'catpope/vectors/frame.svg'", (string) file_get_contents("$repo/viewer/src/frame.ts"));
+        self::assertCount(2, $rewrite['files']);
+
+        $deleted = $relayout->deleteOld($storage, true);
+        self::assertSame(2, $deleted['deleted']);
+        self::assertFileDoesNotExist($this->dir . '/cdn/catpope/videos/s1-trailer-loop.720p.mp4');
+        self::assertFileExists($this->dir . '/cdn/catpope/s1/s1-trailer-loop.720p.mp4');
     }
 
     public function testProbe(): void

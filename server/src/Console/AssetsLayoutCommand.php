@@ -38,7 +38,9 @@ final class AssetsLayoutCommand extends Command
         $storage = $this->storages->byName((string) ($input->getOption('storage') ?: $this->storages->primaryName()));
         $keys = [];
         foreach ($storage->list('') as $file) $keys[] = $file->key;
-        $plan = $this->layout->plan($keys);
+        $repo = (string) realpath(dirname(__DIR__, 3));
+        exec('git -C ' . escapeshellarg($repo) . ' ls-files', $tracked);
+        $plan = $this->layout->plan($keys, \Scutoons\Domain\Assets\AssetRelayout::codeReferences($repo, $tracked, $keys));
         $s = $plan['summary'];
         $output->writeln("DRY RUN – folder layout for {$storage->describe()}");
         $output->writeln(sprintf('  %d files: %d move, %d stay, %d delete; %d uses in %d documents to rewrite; %d conflicts; %d unplaced (used, no rule)',
