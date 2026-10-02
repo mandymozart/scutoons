@@ -43,7 +43,7 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 | KAS target dir `creator.scutoons.com` (in use?) | |
 | KAS target dir `cdn.scutoons.com` (old CDN folder) | `/cdn.scutoons.com/` (per its FTP user; confirm) |
 | Old DB tables (expected: `qr` only, maybe `schema_migrations`) | |
-| Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | **469 / 35 / 381**; MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per-edition counts + CHECKSUM: pending |
+| Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | **469 / 35 / 381**; MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per edition: NULL 169, `3_catpope_vinyl` 300 (sum 469); CHECKSUM: pending |
 | New root folder + FTP user | `/web/`, user "github actions next" (2.1) |
 | Test hostnames (proposal `next.scutoons.com` = viewer, `qr-next.scutoons.com` = qr) | |
 | DB labels: **DB-T** (test build) / **DB-P** (switch-day build, only if needed – Phase 7) | |
@@ -201,7 +201,8 @@ which the new qr app proxies after the switch).
 
 ## Phase 3 — Build the new database DB-T (old DB untouched)
 
-Decide before: **D4** the duplicate code sets (37 Dago codes signed #1–37 and 20 beetles codes in no batch manifest,
+Note (0.1 numbers): production has **no Dago or beetles codes** (only NULL 169 + vinyl 300), so D4 concerns the
+dev DB / the batch files only, not this import. Decide before: **D4** the duplicate code sets (37 Dago codes signed #1–37 and 20 beetles codes in no batch manifest,
 MEMORY "qr.scutoons.com backend") – **not blocking**: the import copies every code as it is; the backfill numbers only
 manifest codes. Decide before the public release which set was printed (revoke the other in the admin).
 
@@ -244,7 +245,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
   SHOW TRIGGERS;                                   -- qr_owner_immutable, inventory_code_owner_insert, inventory_code_owner_update
   SELECT COUNT(*) FROM users;                      -- 0
   ```
-  codes / registered / signed / per edition = 0.1 exactly (**469 / 35 / 381**, per edition: see "Current state"); numbered = 3.4's statement count (minus codes not in the DB).
+  codes / registered / signed / per edition = 0.1 exactly (**469 / 35 / 381**, per edition NULL 169 + `3_catpope_vinyl` 300); numbered = 3.4's statement count (minus codes not in the DB).
 - Rollback: drop DB-T in KAS and start 3.1 again (the old DB is never touched).
 
 ---
@@ -430,3 +431,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — D2 decided: the new root folder is `/web/` (was proposed `/scutoons-next/`); test hostnames still proposed.
 - 2026-10-02 — 0.2 done. Open: the 0.1 numbers, the 0.2 hash/publicKey check. Next in parallel: 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6.
 - 2026-10-02 — 0.1 numbers: 469 codes / 35 registered / 381 signed, MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per-edition + CHECKSUM pending.
+- 2026-10-02 — 0.1 per edition: NULL 169, 3_catpope_vinyl 300 (= 469). No dago/beetles codes in production. CHECKSUM pending.
