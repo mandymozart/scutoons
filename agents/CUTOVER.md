@@ -3,8 +3,9 @@
 Owner: Tilman. Guide: the cutover agent (updates the checkboxes, answers "next step", diagnoses errors read-only).
 Strategy (owner, 2026-10-02): **bunny first, then the new platform side by side** in a new FTP subfolder with a **new
 MySQL database**, tested on test hostnames, then the subdomains are switched one by one; the old system stays untouched
-and reachable at `legacy.scutoons.com` / `qr-legacy.scutoons.com` (= backup + rollback). Readers stay on
-`cdn.scutoons.com` (all-inkl) until after the beta.
+and reachable at `legacy.scutoons.com` / `qr-legacy.scutoons.com` (= backup + rollback). The new platform reads its
+media from bunny's interim `https://scutoons.b-cdn.net` (folder relayout first); the legacy system keeps
+`cdn.scutoons.com` (all-inkl) until the post-beta domain switch.
 
 This file replaces the scattered checklists **by reference** (they stay as background, this file wins on order):
 PLATFORM.md "Cutover checklist (all-inkl)" + "Emails" + "SSO — result", DATA.md §4, ITEMS.md merge/seed notes
@@ -23,7 +24,11 @@ Agents never run production-changing commands, never see or print credentials.
 | FTP user of the new subfolder | GitHub → `scutoons` → Settings → Environments → `production`: secrets `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` (replace the old values; keep the old ones in your password manager) | every deploy |
 | New MySQL DB (name / user / password) | `production`: variables `DB_HOST`, `DB_NAME`; secrets `DB_USER`, `DB_PASS` | api `config.php` |
 | `AUTH_SECRET`, `QR_PROXY_SECRET` (new random, ≥ 32 chars), `SMTP_*`, `GENERATE_PASSWORD` | `production` (list: root `.env.example`) | api, qr |
-| bunny keys (`BUNNY_*`, `CDN_PUBLIC_URL`) | repo-root `.env` of `C:\Development\scutoons-assets` (gitignored) – already there | assets:sync / check-storage (local) |
+| bunny keys (`BUNNY_*`, `CDN_PUBLIC_URL`) | **the only thing in a local repo-root `.env`** (gitignored): today `C:\Development\scutoons-assets\.env`, after the assets merge `C:\Development\scutoons\.env` (move the file) | asset manager / the one-time `assets:sync` (local) |
+
+**Owner rule (2026-10-02):** the new DB and the FTP subfolder credentials go **only** into the GitHub `production`
+environment (the deploy writes them into the api's `config.php` on the server) – never into a local file. The local
+repo-root `.env` holds the bunny keys and nothing else that is used.
 | old CDN FTP (cdn.scutoons.com) | `cdn/.env` (gitignored) – unchanged | `cdn/sync.py` |
 | old DB, old FTP | unchanged, your password manager | old system (legacy) |
 
@@ -50,7 +55,7 @@ Agents never run production-changing commands, never see or print credentials.
 | # | Task | Needed for | Estimate |
 |---|---|---|---|
 | T1 | **Required.** Add the viewer test origin `https://next.scutoons.com` to `ALLOWED_ORIGINS` in `deploy/targets.json` (api `config.php`; it is also the CSRF list) + deploy README note. Without it the viewer on the test host cannot sign in (CORS). Fallback without a code change: use `embassy.scutoons.com` as the viewer test host (already allowed; embassy is held back). | Phase 6 | 15 min + dry run |
-| T2 | Optional. `cdn/sync.py` skips `.json` / `.bin` → the camera model `models/mobilenet_v2_100_224/` never reaches cdn.scutoons.com. Add both to `SYNC_EXTENSIONS` – or upload that folder by hand (step 4.3). | Phase 4 | 10 min |
+| T2 | n/a since Phase 4 is dropped (kept for 10.3). `cdn/sync.py` skips `.json` / `.bin` → the camera model `models/mobilenet_v2_100_224/` never reaches cdn.scutoons.com. Add both to `SYNC_EXTENSIONS` – or upload that folder by hand (step 4.3). | Phase 4 | 10 min |
 | T3 | Only if the owner cannot get an FTP user rooted in the subfolder: a remote prefix in `deploy/targets.json` / `deploy.mjs` (e.g. `${FTP_ROOT}`). | Phase 5 | 30–60 min |
 | T4 | Only if the owner rejects "rebuild or keep" in Phase 7: a delta import (`bin/console legacy-delta --since=<T0> --sql` from an old-DB export: new codes INSERT IGNORE, new email registrations / re-signatures UPDATE where the new DB has no owner). Not recommended – the checksum gate in 7.1 makes it unnecessary. | Phase 7 | 2–3 h |
 
@@ -65,9 +70,12 @@ new schema exactly like an in-place upgrade), `content-seed.mysql.sql`, `backfil
 
 Decide before: nothing.
 
-- [ ] **0.0 O (optional, D7) – Promo codes first:** if you want to sign up (6.3) and invite testers with promo codes
-  made in the OLD `qr.scutoons.com/generate/`, create them now – the export in 0.1 carries them into the new DB.
-- [ ] **0.1 O – Export the OLD database.** phpMyAdmin → old DB → *Export* → *Custom* → all tables, structure + data,
+- [-] **0.0 O (optional, D7) – Promo codes first:** not done before 0.1. If D7 needs a promo code: make it in the
+  new admin / the api's legacy `generate/` (5.5) on DB-T, or in the old `generate/` now – then 7.1's checksum differs
+  and DB-P is rebuilt from a fresh export (it then carries the code).
+- [x] **0.1 O – Export the OLD database.** Done 2026-10-02: export stored in the owner's Proton Drive backups folder
+  (Scutoons/Backups); it contains **only the `qr` table** (confirmed – no accounts/inventories/progress to migrate).
+  Still to note in "Current state": the numbers of the query block below. phpMyAdmin → old DB → *Export* → *Custom* → all tables, structure + data,
   format SQL, compression gzip → save as `scutoons-db-old-2026-10-0X.sql.gz` in two places offline (disk + USB/cloud
   drive). Right after, in the old DB's *SQL* tab run and note the numbers in "Current state":
   ```sql
@@ -98,37 +106,47 @@ Decide before: nothing.
 - [ ] **0.7 O (optional) – Old CDN listing:** WinSCP/FileZilla on the CDN FTP folder → a recursive listing saved to
   `cdn/logs/remote-listing-2026-10-0X.txt` (the sync never deletes, so this is documentation only).
 
-Phase 1 can start in parallel (it only touches bunny; the upload takes a while).
+Phase 1 waits for the assets merge (see its preconditions); Phase 0, 2 and 3 do not depend on it.
 
 ---
 
-## Phase 1 — bunny.net initialisation (readers unaffected; they stay on cdn.scutoons.com)
+## Phase 1 — bunny.net initialisation in the NEW folder layout (owner decision 2026-10-02)
 
-Decide before: **D1** keep or delete the 134 files that exist only on bunny (old `images/1x|3x/**`, 6 old album mp3s,
-`videos/output.mp4`; 10 of them referenced nowhere). Recommendation: **keep** (sync never deletes, deleting in the
-dashboard is irreversible, they cost nothing). Emptying the zone is NOT needed.
+**Strategy change (owner):** the folder relayout happens **before** the bunny upload, and the new platform reads its
+media from bunny's interim URL **`https://scutoons.b-cdn.net`** from its first deploy (`VITE_CDN_URL` / `CDN_URL` in
+`deploy/targets.json`, comes with the assets merge). The legacy system keeps `cdn.scutoons.com` (all-inkl FTP CDN,
+untouched). The switch of the name `cdn.scutoons.com` to bunny stays post-beta (10.3).
 
-All commands in `C:\Development\scutoons-assets\server` (PowerShell). Source = the main checkout's media.
-- [ ] **1.1 O – Write fence off.** `server/config.local.php` line with `BUNNY_WRITE_PREFIX` must be commented out
-  (`//define('BUNNY_WRITE_PREFIX', …`). State 2026-10-02: **already commented out** – just confirm.
-- [ ] **1.2 O – Read-only check:** `php bin/console assets:check-storage` → all keys "set", zone `scutoons` listed,
-  pull zone 6731366 origin = storage zone. Expect ≈ 628 to upload, 2 different, 134 only on bunny.
-- [ ] **1.3 O – Plan (dry run):**
-  `php bin/console assets:sync --source-root=C:/Development/scutoons/cdn/root --hash`
-  Expect: ≈ 628 to upload (≈ 664 MB), 2 different (`catpope/audio/CatPope-Awakening-Music.zip`,
-  `catpope/images/s1c2-thumbnail.jpg`), 134 untouched. Anything else → tell the guide first.
-- [ ] **1.4 O – Apply:**
-  `php bin/console assets:sync --source-root=C:/Development/scutoons/cdn/root --hash --apply --overwrite --purge-zone --log=../cdn/logs/bunny-init-2026-10-0X.json`
-  (verified uploads, 3 retries, never deletes). Long-running – leave the window open.
-- [ ] **1.5 O – Verify:** `php bin/console assets:check-storage` → **0 missing, 0 different** (134 only-on-bunny is
-  fine). **A:** HEAD samples through the pull zone, size = local:
-  `https://scutoons.b-cdn.net/catpope/videos/s1-trailer-loop.720p.mp4`,
-  `…/catpope/videos/roar-little-kitty.480p.mp4`, `…/catpope/images/webtoon/s1c2/s1c2-slice-1.webp`,
-  `…/scutoons/items/repair_coupon.png`, `…/characters/catpope/wear/scutoons_tshirt.webp`,
-  `…/models/mobilenet_v2_100_224/model.json`, `…/catpope/audio/CatPope-Awakening-Music.zip`.
-- [ ] **1.6 O – Write fence back on:** uncomment `define('BUNNY_WRITE_PREFIX', '_test/');` in the worktree's
-  `server/config.local.php` (no dev server may write to the production zone).
-- Rollback: none needed (no reader uses bunny; uploads can be re-run; nothing was deleted).
+Preconditions (agent/coordinator): branch `assets` – relayout copy + reference rewrite (214 files, 552 references),
+hand edits, full suite green – **merged into `platform`**; the bunny `.env` moved to `C:\Development\scutoons\.env`;
+the seed SQL (`content-seed.mysql.sql`) regenerated with the new paths (Phase 3.3 imports that version); the new
+migration `2026-10-02-assets` added to the Phase 3.2 list (A updates 3.2 at the merge).
+
+Decide before: **D1** the zone's old-layout files (330 from the older snapshot + whatever the old layout leaves): the
+new platform no longer references them, the legacy system uses all-inkl → recommendation: keep until the public
+release, then prune via the admin's Unused list (never via a bulk dashboard delete).
+
+All commands in `C:\Development\scutoons\server` (PowerShell), after the merge.
+- [ ] **1.1 O – Relayout locally:** `php bin/console assets:relayout --delete-old` (exact options as the assets merge
+  report states; `cdn/root` then holds only the new layout). Verify: A runs the validation's media checks /
+  `assets:check-storage` comparison – 0 references to missing files.
+- [ ] **1.2 O – Write fence off:** in `server/config.local.php` the `BUNNY_WRITE_PREFIX` line commented out.
+- [ ] **1.3 O – Read-only check:** `php bin/console assets:check-storage` → all keys "set", zone `scutoons`, pull zone
+  6731366 origin = the storage zone.
+- [ ] **1.4 O – Plan (dry run):** `php bin/console assets:sync --source-root=../cdn/root --hash` → paste the summary
+  (to upload / different / only on target) to the guide before applying.
+- [ ] **1.5 O – Apply:** `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
+  --log=../cdn/logs/bunny-init-2026-10-0X.json` (verified uploads, retries, never deletes; long-running). This includes
+  the camera model (`models` → its new folder) – sync.py's `.json`/`.bin` gap does not apply here.
+- [ ] **1.6 O – CORS on the pull zone:** bunny dashboard → Pull Zones → `scutoons` → Headers → *Add CORS headers* ON,
+  extension list incl. `mp4, mp3, json, bin, webp, png, jpg, jpeg, svg, zip` (the media-quality probe `fetch`es the 480p
+  video with `Range`, the camera loads `model.json` + shards).
+- [ ] **1.7 O+A – Verify:** `assets:check-storage` → **0 missing, 0 different**. A: HEAD/GET through
+  `https://scutoons.b-cdn.net/…` on samples of the new layout (trailer 720p, prologue 480p, a chapter-2 slice, an item
+  icon, a wear overlay, `model.json`, the album zip), size = local, `Access-Control-Allow-Origin` present with an
+  `Origin: https://scutoons.com` request, `Range` → 206.
+- [ ] **1.8 O – Write fence back on:** uncomment `define('BUNNY_WRITE_PREFIX', '_test/');`.
+- Rollback: none needed (no reader uses bunny yet; re-runnable; nothing deleted on the zone).
 
 ---
 
@@ -152,7 +170,7 @@ which the new qr app proxies after the switch).
 - [ ] **2.5 O – GitHub environment `production`** (restricted to branch `main`): every entry of the root
   `.env.example` – `AUTH_SECRET`, `QR_PROXY_SECRET` new random strings ≥ 32 chars; `MAIL_FROM=no-reply@scutoons.com`,
   `SMTP_*` of that mailbox (exists, SPF/DKIM set); `VITE_API_URL=https://api.scutoons.com/api` (D3),
-  `VITE_CDN_URL=https://cdn.scutoons.com`, `VITE_WWW_URL=https://www.scutoons.com`, `VITE_CREATOR_URL`,
+  `VITE_CDN_URL=https://scutoons.b-cdn.net` (bunny interim URL – new platform only; the qr app's `CDN_URL` follows it), `VITE_WWW_URL=https://www.scutoons.com`, `VITE_CREATOR_URL`,
   `VITE_SHOP_URL`, `VITE_ADMIN_URL`; `GENERATE_PASSWORD` (old value, only for the legacy `generate/`).
   Verify: the summary at the end of `.env.example` (10 secrets, 12 variables) all present.
 - [ ] **2.6 O – Subdomains → `<NEW>/`** (KAS → Domains → Subdomain; SSL Let's Encrypt + "force HTTPS" on each):
@@ -213,30 +231,14 @@ manifest codes. Decide before the public release which set was printed (revoke t
 
 ---
 
-## Phase 4 — Media uploads to the LIVE CDN cdn.scutoons.com (additive; old readers unaffected)
+## Phase 4 — Uploads to the old FTP CDN cdn.scutoons.com — n/a (owner decision 2026-10-02)
 
-Readers (old and new builds) load media from cdn.scutoons.com (all-inkl) during the beta.
-Decide before: nothing.
-
-- [ ] **4.1 O – Sync** (`cd C:\Development\scutoons\cdn`, `.venv\Scripts\activate`, `python sync.py`): selection
-  `3` → toons `all` (catpope, characters, models, scutoons, toptoy, yellowmouse). On "Upload … [MISSING on remote]?"
-  answer `a` (all). On "**DIFFERS** … Upload local version?" answer **`y`** – **never `n`: `n` downloads the server's
-  file over your local one.** Expected uploads include: chapter 2 slices `catpope/images/webtoon/s1c2/*`, key visuals,
-  `s1-cover-*-textless.webp`, trailer `catpope/videos/s1-trailer-loop.{480p,720p,1080p}.mp4`, prologue
-  `roar-little-kitty.{480p,720p,1080p}.mp4`, music `.128/.320.mp3`, item icons `scutoons/items/*` (players,
-  broken record player, repair coupon, wear items, substances, tuna can, weed), `characters/**` (WebPs, avatars,
-  A-poses, `wear/` overlays), supporters SVGs. Log: `cdn/logs/sync_*`.
-- [ ] **4.2 O – Root config:** `python sync.py` → `1` (`.htaccess`, CORS for `*.scutoons.com` incl. `Range`) – only if
-  it differs.
-- [ ] **4.3 O – Camera model by hand** (sync.py skips `.json`/`.bin`; or T2 first): upload
-  `cdn/root/models/mobilenet_v2_100_224/` (model.json + 4 shards) to the CDN FTP folder `models/mobilenet_v2_100_224/`.
-- [ ] **4.4 A – Verify** (HEAD/GET, size = local): the sample list of 1.5 on `https://cdn.scutoons.com/…`, plus
-  `Origin: https://scutoons.com` → `Access-Control-Allow-Origin: https://scutoons.com` on `model.json` and a `Range:
-  bytes=0-524287` GET of `roar-little-kitty.480p.mp4` → 206 (media quality "Automatic").
-- Rollback: none needed (new names only; the two replaced files are the corrected versions).
+- [-] **4.x** Not needed: the new platform reads media from bunny (`https://scutoons.b-cdn.net`, Phase 1); the legacy
+  system keeps `cdn.scutoons.com` with what it already has. Do **not** run `cdn/sync.py` against the new layout (it would
+  upload the relayouted tree next to the old one). Note for later (10.3 backup target): `sync.py` skips `.json`/`.bin`,
+  and answering `n` to a "DIFFERS" prompt downloads the server's file over the local one.
 
 ---
-
 ## Phase 5 — Deploy the new platform into `<NEW>/` (nothing points at it except the new/test hostnames)
 
 Decide before: **D5** embassy stays held back for the beta (default yes: not in `targets.json` `order`, workflow manual).
@@ -361,7 +363,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
   into `production`/targets, `assets:scan`) – ASSETS.md.
 - [ ] 10.3 cdn.scutoons.com → bunny: custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL;
-  `CDN_PUBLIC_URL=https://cdn.scutoons.com`; a final `assets:sync` first (ASSETS.md "domain switch"). The old FTP CDN
+  `CDN_PUBLIC_URL` and `VITE_CDN_URL` → `https://cdn.scutoons.com` + redeploy (the legacy system loses the old FTP CDN
+  then – keep legacy hosts only until that point); a final `assets:sync` first (ASSETS.md "domain switch"). The old FTP CDN
   becomes the backup target.
 - [ ] 10.4 Folder restructure: `assets:layout` re-run + owner review, batch relink (to build), the model path code change,
   then prune (ASSETS.md "Migration plan").
@@ -377,7 +380,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 
 | # | Decision | Blocks | Default / recommendation |
 |---|---|---|---|
-| D1 | bunny-only files: keep or delete | Phase 1 (no) | keep |
+| D1 | old-layout files on the bunny zone: keep or prune | Phase 1 (no) | keep until the public release, then prune via Unused |
 | D2 | subfolder name, test hostnames | 2.1, 2.6, T1 | `scutoons-next/`, `next.` + `qr-next.` |
 | D3 | `VITE_API_URL` directly api. | 2.5 | yes |
 | D4 | duplicate Dago/beetles code sets: which was printed | public release (not the beta) | decide in the beta week |
@@ -397,3 +400,6 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 ## Progress log
 
 - 2026-10-02 — runbook written (side-by-side + new DB strategy). Next: 0.1.
+- 2026-10-02 — 0.1 done (export in the owner's Proton Drive backups; only the `qr` table). Owner: credentials only in the
+  GitHub `production` environment; relayout BEFORE the bunny upload, new platform on `https://scutoons.b-cdn.net`
+  (Phase 1 rewritten, waits for the assets merge), Phase 4 n/a. Next: 0.2 (+ the 0.1 numbers).
