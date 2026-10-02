@@ -325,7 +325,7 @@ into the new DB) or one of your own product codes.
   INSERT IGNORE INTO user_roles (user_id, role_id, granted_at, granted_by)
     SELECT users.id, r.id, UTC_TIMESTAMP(), 'cli' FROM users JOIN roles r ON r.name IN ('admin','creator') WHERE users.email = '<your email>';
   ```
-- [ ] **6.4 O – admin.scutoons.com:** sign in (SSO: already signed in from 6.3) → Dashboard, Codes (search a real
+- [x] **6.4 O – admin.scutoons.com:** *(done 2026-10-02: dashboard 500 = `REVOKE` reserved in MariaDB → fixed 93946ef; `settings` table was missing on DB-T although 3.2 lists it → created by hand; recipients set (D6): tilman@porschuetz.de, admin@scutoons.com)* sign in (SSO: already signed in from 6.3) → Dashboard, Codes (search a real
   code), Events (the 6.2 scans with different IP hashes – one hash for all = `QR_PROXY_SECRET` differs), Claims (empty),
   Catalog (27 items, Albums), **Emails → set the admin recipients (D6)**, templates render de/en, the log shows 6.3's
   `login_code` as sent; versions of every app.
