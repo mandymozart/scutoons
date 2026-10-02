@@ -101,12 +101,14 @@
 		gap: var(--space-05);
 		color: var(--ink);
 		text-decoration: none;
-		font-weight: var(--font-weight-bold);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 		white-space: nowrap;
 	}
 	.brand img {
 		display: block;
-		height: 20px;
+		height: 1.25rem;
 		width: auto;
 	}
 	.nav {

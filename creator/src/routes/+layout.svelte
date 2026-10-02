@@ -149,6 +149,10 @@
 					>
 						<Icon name="menu" />
 					</button>
+					<a class="brand" href="/" data-testid="creator-brand">
+						<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
+						<span class="brand-name">{m['creator.app_label']()}</span>
+					</a>
 					<nav class="crumbs" aria-label="Breadcrumb">
 						<ol>
 							{#each nav.crumbs as crumb, i (i)}
@@ -212,8 +216,29 @@
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		background: var(--paper);
 	}
+	.brand {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
+		color: var(--ink);
+		text-decoration: none;
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		white-space: nowrap;
+	}
+	.brand img {
+		display: block;
+		height: 1.25rem;
+		width: auto;
+	}
 	.burger {
 		display: none;
+	}
+	@media (max-width: 479px) {
+		.brand-name {
+			display: none;
+		}
 	}
 	.crumbs {
 		flex: 1;
