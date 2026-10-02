@@ -462,6 +462,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.19 Setup / installer for a fresh environment (owner 2026-10-03): one step that runs the migrations, the content
   seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
   only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.
+- [ ] 10.20 Asset picker: the selected tile turns black but its kind icon stays black (blank white box) – invert the icon
+  too (owner screenshot 2026-10-03). The tile's size sums every file incl. the master (roar-little-kitty 491 MB) – show the
+  default rendition's size or label the total.
 - [ ] 10.8 Public release.
 
 ---
