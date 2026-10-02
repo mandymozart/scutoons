@@ -156,7 +156,29 @@ interim `https://scutoons.b-cdn.net` (`CDN_PUBLIC_URL`). When it is deployed the
 Content keeps CDN-relative paths, so nothing in content changes at the switch. Production readers stay on
 cdn.scutoons.com (all-inkl) until then; `VITE_CDN_URL` / `CDN_URL` unchanged.
 
-## Folder convention (owner 2026-10-02 – the next phase; nothing moved yet)
+## Relayout DONE (2026-10-02, owner: "I want to risk it; I keep the old CDN until the switch")
+
+Run in the `assets` worktree after merging `platform` (c6a06bc): `assets:relayout --apply
+--source-root=C:/Development/scutoons/cdn/root` – **214 files copied** (712 MB, verified, 0 failed) next to the old
+ones in the dev CDN folder; **552 references in 99 tracked files** rewritten (seed JSON of every toon + `scutoons/_`,
+`server/config/items.json` (album tracks, zip, cover), code: the camera model `MOBILENET_MODEL` →
+`scutoons/models/…`, the inventory / map frame → `catpope/vectors/vector-demon-saw-1.svg`, tests); seed SQL patched
+(content-seed 24 + characters-seed 2 statements, timestamps kept); the worktree DB updated (89 entities). Then by hand:
+creator defaults (new chapters / seasons / slices in `s<n>/c<n>/`, `s<n>/`), the picker's upload suggestion from the file
+name (`s1c2-…` → `s1/c2/`), map place images `<toon>/map/places/`, `slice-sizes.ts`, `make_slice_webp.py`, make-sandbox,
+placeholders, the style guide, no fallback to the never-existing `images/default-thumbnail.jpg`, the video checks find
+videos by extension. Verified against a CDN with ONLY the new layout (hard-link copy without `<toon>/images|videos|audio/`
+and `models/`; its request log has no 404).
+**Still to do (coordinator / owner):** `assets:relayout --delete-old` after the merge into platform is green (removes the
+214 old paths + the deletions below from the dev folder), then the bunny sync of the new layout (CUTOVER Phase 1).
+The new platform uses `https://scutoons.b-cdn.net` (`deploy/targets.json`, owner decision for the beta); the legacy system
+keeps cdn.scutoons.com (all-inkl) until the domain moves to bunny. **Final delete list (104):** the 94 lettered masters
+`catpope/images/webtoon/de/S1C1 - Slice N.jpg`, `catpope/images/collectables/cucumber.png`,
+`catpope/images/s1s{1..6}-thumbnail.jpg`, `catpope/images/vectors/{vector-blood,vector-bloog-glot,vector-frame-right}.svg`.
+**Kept (correction):** `vector-demon-saw-1.svg` is used by the viewer's inventory and map overlay (app code – the usage
+index only covers content + catalog; the layout plan now counts exact paths in app code as uses) → `catpope/vectors/`.
+
+## Folder convention (owner 2026-10-02)
 
 The folders ARE the toon hierarchy; videos and audio belong to their season / chapter like images:
 

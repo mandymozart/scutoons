@@ -174,6 +174,8 @@ final class AssetRelayout
         $walk = function (mixed $node, string $base) use (&$walk, &$changes, &$conflicts, $rel): void {
             if (is_array($node)) {
                 if (isset($node['toon']) && is_string($node['toon']) && preg_match('/^[a-z0-9_-]{1,64}$/', $node['toon']) && !str_starts_with($rel, 'server/config/')) $base = $node['toon'];
+                // the toon index (seed toons.json): one entry per toon, its paths are relative to that toon's folder
+                if (str_ends_with($rel, 'seed/toons.json') && isset($node['id'], $node['uri']) && is_string($node['id']) && preg_match('/^[a-z0-9_-]{1,64}$/', $node['id'])) $base = $node['id'];
                 foreach ($node as $v) $walk($v, $base);
                 return;
             }

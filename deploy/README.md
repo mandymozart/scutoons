@@ -88,7 +88,7 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `DB_HOST`, `DB_NAME` | variable | api |
 | `MAIL_FROM` (a plain address), `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | variable | api |
 | `VITE_API_URL` | variable | viewer, shop, creator, admin builds (`https://qr.scutoons.com/api` until the cutover, then `https://api.scutoons.com/api`) |
-| `VITE_CDN_URL` | variable | viewer, shop, creator, admin builds; qr `CDN_URL` (item icons) |
+| `VITE_CDN_URL` | – | **fixed in `targets.json`** since 2026-10-02 (owner): the new platform loads media from bunny's interim `https://scutoons.b-cdn.net` (every build, the API's `CDN_URL` / `CDN_PUBLIC_URL`, qr's `CDN_URL`); the legacy system keeps cdn.scutoons.com until the domain moves to bunny – then change it here once (agents/ASSETS.md) |
 | `VITE_WWW_URL` | variable | shop, creator (reader link), admin (as `VITE_VIEWER_URL`) |
 | `VITE_CREATOR_URL` | variable | viewer, admin |
 | `VITE_SHOP_URL` | variable | viewer |

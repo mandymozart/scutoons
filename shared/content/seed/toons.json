@@ -18,10 +18,10 @@
     },
     "authors": ["Mandy Mozart", "Thomas Dalby"],
     "chapters": 5,
-    "thumbnail": "images/s1c1-thumbnail.jpg",
+    "thumbnail": "s1/c1/s1c1-thumbnail.jpg",
     "cover": {
-      "square": "images/s1-cover-square.webp",
-      "portrait": "images/s1-cover-portrait.webp"
+      "square": "s1/s1-cover-square.webp",
+      "portrait": "s1/s1-cover-portrait.webp"
     },
     "tile": {
       "image": "../characters/catpope/catpope_portrait-neutral.webp"
@@ -52,7 +52,7 @@
     },
     "authors": ["Mandy Mozart", "Bernhard Hammer", "Error Temporal"],
     "chapters": 0,
-    "thumbnail": "images/s1c1-thumbnail.jpg",
+    "thumbnail": "s1/c1/s1c1-thumbnail.jpg",
     "announce": true,
     "tile": {
       "image": "../characters/toptoy/toptoy_portrait-neutral.webp"
@@ -77,7 +77,7 @@
     },
     "authors": [],
     "chapters": 0,
-    "thumbnail": "images/s1c1-thumbnail.jpg",
+    "thumbnail": "s1/c1/s1c1-thumbnail.jpg",
     "announce": true,
     "tile": {
       "image": "../characters/yellowmouse/yellowmouse_helmet_portrait-neutral.webp"
@@ -106,9 +106,9 @@
     },
     "authors": [],
     "chapters": 7,
-    "thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+    "thumbnail": "../catpope/s1/c1/s1c1-thumbnail.jpg",
     "cover": {
-      "square": "../catpope/images/s1-cover-square.webp"
+      "square": "../catpope/s1/s1-cover-square.webp"
     },
     "map": {
       "center": {

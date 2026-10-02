@@ -104,6 +104,15 @@ Phase 1 can start in parallel (it only touches bunny; the upload takes a while).
 
 ## Phase 1 — bunny.net initialisation (readers unaffected; they stay on cdn.scutoons.com)
 
+> **Relayout (owner 2026-10-02, branch `assets`):** bunny is uploaded ONCE, in the NEW folder layout (agents/ASSETS.md
+> "Folder convention": `catpope/s1/…`, `catpope/s1/c2/…`, `scutoons/models/…`). Order: merge `assets` → green →
+> `php bin/console assets:relayout --delete-old --source-root=C:/Development/scutoons/cdn/root` (removes the 214 old
+> paths of moved files + the 104 approved deletions from the dev folder) → then 1.2–1.5 below; the numbers there are
+> from before the relayout – expect ≈ 506 identical-or-new + 214 relocated files to upload, nothing under
+> `<toon>/images|videos|audio/` or `models/`. The sample URLs of 1.5 become `…/catpope/s1/s1-trailer-loop.720p.mp4`,
+> `…/catpope/s1/c0/roar-little-kitty.480p.mp4`, `…/catpope/s1/c2/s1c2-slice-1.webp`, `…/scutoons/models/mobilenet_v2_100_224/model.json`,
+> `…/catpope/s1/CatPope-Awakening-Music.zip`.
+
 Decide before: **D1** keep or delete the 134 files that exist only on bunny (old `images/1x|3x/**`, 6 old album mp3s,
 `videos/output.mp4`; 10 of them referenced nowhere). Recommendation: **keep** (sync never deletes, deleting in the
 dashboard is irreversible, they cost nothing). Emptying the zone is NOT needed.
@@ -214,6 +223,11 @@ manifest codes. Decide before the public release which set was printed (revoke t
 ---
 
 ## Phase 4 — Media uploads to the LIVE CDN cdn.scutoons.com (additive; old readers unaffected)
+
+> **Not needed for the new platform (owner 2026-10-02):** the new platform loads its media from bunny's interim URL
+> `https://scutoons.b-cdn.net` from its first deploy (`deploy/targets.json` fixes `VITE_CDN_URL`, the API's `CDN_URL` / `CDN_PUBLIC_URL`,
+> qr's `CDN_URL`); the relayouted paths exist only there. cdn.scutoons.com (all-inkl) keeps serving the LEGACY system's
+> old paths unchanged until the domain moves to bunny. Run this phase only if the legacy system needs new files.
 
 Readers (old and new builds) load media from cdn.scutoons.com (all-inkl) during the beta.
 Decide before: nothing.
