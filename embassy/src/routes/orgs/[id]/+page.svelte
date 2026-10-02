@@ -23,6 +23,10 @@
 	import { dateTime, label, relativeDay, shortDate, telHref } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import OrgForm from '$lib/components/org-form.svelte';
+	import { isStockist } from '@scutoons/api';
+	import type { Product } from '@scutoons/content';
+	import { loadProducts, productIcon } from '$lib/products.ts';
+	import { VIEWER_URL } from '$lib/config.ts';
 
 	/** One organisation: facts, leads per track, logging a call/mail/note, people, history */
 	const session = getEmbassySession();
@@ -46,6 +50,13 @@
 
 	// person form
 	let personForm = $state<Partial<Person> | null>(null);
+
+	// stores: the products they carry (names + icons from the shop catalog)
+	let catalog = $state<Product[]>([]);
+	$effect(() => {
+		loadProducts().then((list) => (catalog = list));
+	});
+	const productOf = (id: string) => catalog.find((p) => p.id === id);
 
 	const fail = (e: unknown) => toaster.addToast({ type: 'error', message: e instanceof ApiError ? e.message : String(e) });
 
@@ -197,6 +208,44 @@
 				<li><a href={link} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {link.replace(/^https?:\/\/(www\.)?/, '')}</a></li>
 			{/each}
 		</ul>
+		{#if isStockist(org.type)}
+			{@const shown = org.listed && org.carries.length > 0}
+			<section class="card store" data-testid="store-summary">
+				<div class="row">
+					<Icon name="shopping-bag" />
+					<span class="sc-label">{m['store.title']()}</span>
+					{#if shown}
+						<Badge tone="published">{m['store.badge_listed']()}</Badge>
+					{:else}
+						<Badge tone="draft">{m['store.badge_hidden']()}</Badge>
+					{/if}
+					{#if org.independent}<Badge tone="info">{m['store.badge_independent']()}</Badge>{/if}
+				</div>
+				{#if org.listed && !org.carries.length}
+					<p class="caption warn">{m['store.listed_without_products']()}</p>
+				{/if}
+				{#if org.address || org.opening}
+					<p class="caption">{[org.address, org.opening].filter(Boolean).join(' · ')}</p>
+				{/if}
+				{#if org.carries.length}
+					<ul class="carried">
+						{#each org.carries as id (id)}
+							{@const product = productOf(id)}
+							{@const icon = productIcon(product)}
+							<li title={id}>
+								{#if icon}<img src={icon} alt="" width="32" height="32" loading="lazy" />{/if}
+								<span>{product?.name ?? id}</span>
+							</li>
+						{/each}
+					</ul>
+				{:else}
+					<p class="caption muted">{m['store.carries_none']()}</p>
+				{/if}
+				{#if shown}
+					<a class="caption" href={`${VIEWER_URL}/stores`} target="_blank" rel="noopener noreferrer"><Icon name="external-link" /> {m['store.public_page']()}</a>
+				{/if}
+			</section>
+		{/if}
 		{#if org.notes}<p class="notes">{org.notes}</p>{/if}
 		<p class="caption muted">{m['org.source']()}: {org.source || '–'}</p>
 		<Button size="sm" variant="secondary" onclick={() => (editing = true)}>{m['org.edit']()}</Button>
@@ -350,6 +399,38 @@
 	}
 	.tel {
 		font-weight: var(--font-weight-regular);
+	}
+	.store {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-05);
+		margin: 0 0 var(--space-075);
+		max-width: 44rem;
+	}
+	.store p {
+		margin: 0;
+	}
+	.store .warn {
+		padding-left: var(--space-05);
+		border-left: 0.5rem solid var(--state-warning);
+	}
+	.carried {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-05) var(--space-1);
+		margin: 0;
+		padding: 0;
+		list-style: none;
+	}
+	.carried li {
+		display: flex;
+		align-items: center;
+		gap: var(--space-05);
+	}
+	.carried img {
+		width: 2rem;
+		height: 2rem;
+		object-fit: contain;
 	}
 	.notes {
 		white-space: pre-line;

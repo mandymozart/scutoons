@@ -14,9 +14,12 @@ export const TRACKS: Track[] = ['live', 'vinyl', 'booking', 'promo'];
 export const STAGES: Stage[] = ['research', 'ready', 'contacted', 'in_conversation', 'won', 'not_now', 'no', 'dormant'];
 export const ORG_TYPES = [
 	'venue', 'festival', 'theatre', 'art_space', 'residency', 'radio', 'promoter', 'agency', 'distributor',
-	'record_shop', 'label', 'blog', 'magazine', 'podcast', 'journalist', 'playlist', 'newsletter', 'ad_channel', 'other'
+	'store', 'record_shop', 'label', 'blog', 'magazine', 'podcast', 'journalist', 'playlist', 'newsletter', 'ad_channel', 'other'
 ] as const;
 export type OrgType = (typeof ORG_TYPES)[number];
+/** Types that sell to readers: they carry products and can be listed on scutoons.com/stores (agents/EMBASSY.md "Stores") */
+export const STOCKIST_TYPES: OrgType[] = ['store', 'record_shop'];
+export const isStockist = (type: string | null | undefined): boolean => STOCKIST_TYPES.includes(type as OrgType);
 export const ACTIVITY_KINDS: ActivityKind[] = ['mail_out', 'mail_in', 'call', 'dm', 'meeting', 'note'];
 export const CALL_OUTCOMES: CallOutcome[] = ['reached', 'voicemail', 'no_answer', 'call_back', 'declined'];
 export const TIERS: Tier[] = ['A', 'B', 'C'];
@@ -41,6 +44,16 @@ export interface Org {
 	do_not_contact: boolean;
 	created_at: string;
 	updated_at: string;
+	/** stores (STOCKIST_TYPES): shown on the public "Where to buy" page (with at least one product) */
+	listed: boolean;
+	/** stores: a small / independent vendor – listed first */
+	independent: boolean;
+	/** stores: street + postcode (public) */
+	address: string;
+	/** stores: opening info as the store writes it (public) */
+	opening: string;
+	/** stores: product ids (`/products/`) it carries */
+	carries: string[];
 }
 
 export interface Person {
