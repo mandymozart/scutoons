@@ -65,6 +65,8 @@
         }
         .field-label { display: block; font-weight: 700; margin: 0 0 0.25rem; }
         .actions .caption { margin: -0.25rem 0 0.5rem; }
+        .warn { border-left: 0.375rem solid var(--ink); padding: 0.25rem 0.5rem; font-weight: 700; margin: 0 0 0.75rem; }
+        #registered { margin: 0 0 0.75rem; }
         .faq h2 { font-size: 1rem; font-weight: 700; margin: 0 0 0.5rem; }
         a { color: var(--ink); }
     </style>

@@ -185,7 +185,9 @@ foreach ($cases as $row) {
         if ($expired || $revoked) {
             check($r['status'] === 410 && $r['type'] === 'text/html', "$path ({$row['label']}) → 410 page", $r['status']);
         } elseif ($rules['claimable'] || $rules['signup']) {
-            $marker = $rules['claimable'] ? 'Add to my account' : 'Create account';
+            // registered membership codes: Read + "This is mine? File a claim" (claim=1); free ones: register first
+            $owned = $row['claimed_by'] !== null || (string) $row['email'] !== '';
+            $marker = !$rules['claimable'] ? 'Create account' : ($owned ? 'id="file-claim"' : 'Register it now');
             check($r['status'] === 200 && $r['type'] === 'text/html' && str_contains($r['body'], $marker)
                 && str_contains($r['body'], htmlspecialchars(continueUrl($row['redirect_to'], $code), ENT_QUOTES, 'UTF-8')),
                 "$path ({$row['label']}) → 200 page with Continue + $marker", [$r['status'], $r['type']]);

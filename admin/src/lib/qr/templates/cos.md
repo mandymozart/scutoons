@@ -17,6 +17,7 @@ The artwork’s code is {{code}} and guarantee absolute uniqueness!
 {{qr}}
 {{url}}
 The code can be entered at https://qr.scutoons.com and the complete webtoon and any furture releases of SCUTOONS can be accessed with this code. The issuer guarantees persistence of the code even if said domain will cease to exist.
+Register this piece in your SCUTOONS account right away: scan the QR code and choose "Add to my account" - until then anyone holding the code can register it.
 The artwork is a collaborative piece. The piece’s creators are mentioned here in the credits appendix or available online upon request of the webtoon release page.
 
 Signature, Date and Place of Purchase

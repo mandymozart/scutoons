@@ -8,9 +8,12 @@ namespace Qr;
  * URLs never change"). The QR landing page, rendered here on the server from the API's answers
  * (agents/ITEMS.md "Access model": viewing is device-level, owning needs an account):
  *
- *   /?c=CODE            claimable types (today membership): preview of the item(s) + Continue →
- *                       redirect_to?code=CODE (the viewer grants device access) and "Add to my account" →
- *                       <viewer origin>/account?code=CODE (sign in there, then claim). No email step here.
+ *   /?c=CODE            claimable types (today membership): preview of the item(s). Not registered yet: "Add to my
+ *                       account" first → <viewer origin>/account?code=CODE (sign in there, then claim) with "Register it
+ *                       now – otherwise someone else can", then Continue → redirect_to?code=CODE (the viewer grants
+ *                       device access). Registered to an account: Read (= Continue) + "This is mine? File a claim" →
+ *                       redirect_to?code=CODE&claim=1 (the viewer's claim form) – agents/ITEMS.md "Ownership, claims,
+ *                       gifting". Never says whose it is. No email step here.
  *                       Signup-only types (not claimable, "signup": true – today promo): "Promo code – no item to
  *                       collect" + Continue and "Create account" → <viewer origin>/account?code=CODE.
  *                       Other types (page, event, xr) redirect right away. Every lookup is a `scan` (API, &scan=1).
@@ -136,7 +139,10 @@ final class Landing
         } else {
             $hint = $t['membership_hint'];
         }
-        $body = $this->view->render('landing/code', compact('t', 'heading', 'hint', 'hintCaption', 'rows', 'description', 'continueUrl', 'accountUrl'));
+        // registered (an account or the old email form): read + "This is mine? File a claim"; else register first
+        $claimed = ($info['claimed'] ?? false) === true;
+        $claimUrl = $continueUrl . '&claim=1';
+        $body = $this->view->render('landing/code', compact('t', 'heading', 'hint', 'hintCaption', 'rows', 'description', 'continueUrl', 'accountUrl', 'claimed', 'claimUrl'));
         return $this->page(200, $fixedItems || $choices ? $t['found'] : $t['membership'], $body);
     }
 

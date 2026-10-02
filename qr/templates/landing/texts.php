@@ -31,6 +31,11 @@ return [
         'unavailable_hint' => 'Your code is fine – we just can\'t look it up right now.',
         'retry' => 'Try again',
         'rate_limited' => 'Too many codes checked – try again later.',
+        'register_now' => 'Register it now – otherwise someone else can.',
+        'registered' => 'This piece is registered to an account. Reading works anyway.',
+        'read' => 'Read',
+        'file_claim' => 'This is mine? File a claim',
+        'file_claim_hint' => 'Someone registered it before you? Tell us – we check it and move it into your account.',
     ],
     'de' => [
         'found' => 'Gegenstand gefunden',
@@ -62,5 +67,10 @@ return [
         'unavailable_hint' => 'Dein Code ist in Ordnung – wir können ihn gerade nur nicht nachschlagen.',
         'retry' => 'Nochmal versuchen',
         'rate_limited' => 'Zu viele Codes geprüft – versuch es später noch einmal.',
+        'register_now' => 'Registriere es jetzt – sonst kann es jemand anderes.',
+        'registered' => 'Dieses Stück ist in einem Konto registriert. Lesen geht trotzdem.',
+        'read' => 'Lesen',
+        'file_claim' => 'Gehört dir? Anspruch stellen',
+        'file_claim_hint' => 'Jemand hat es vor dir registriert? Sag es uns – wir prüfen das und verschieben es in dein Konto.',
     ],
 ];
