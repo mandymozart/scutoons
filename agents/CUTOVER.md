@@ -456,6 +456,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.17 Deploys are not atomic: FTP replaces files one by one, so for a few seconds the API runs half old / half new
   code (2026-10-02 23:49: "No entry or class found for Transport" during a deploy). Upload to a fresh folder and switch
   (rename / symlink), or a maintenance flag during the upload.
+- [ ] 10.18 Batches + code generation on real data (owner 2026-10-03): admin → Batches (and the generate side) still
+  read the static lists (editions / items / batch manifests from files); populate them from the database (catalog,
+  editions, codes) instead.
 - [ ] 10.8 Public release.
 
 ---
