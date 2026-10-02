@@ -12,6 +12,11 @@
 //   5. a click on a place opens its card (name; "Kapitel N lesen" only when that chapter is readable for this reader);
 //   6. "Orte" lists the visible places A–Z;
 //   7. universe-wide: in another toon (the sandbox) the unlocked catpope places are on the map as plain markers (no label);
+//   8. markers are round (bbox width = height) and screen-sized after zooming;
+// Reading (a fresh guest, 390 de): the places unlock as their slices are passed (`unlock.slice`, the reading tracker):
+//  R1. chapter 1 scrolled slice by slice: each place appears at its slice, not before;
+//  R2. chapter 2 group by group (?label=): after the first two groups only their places, then every place at its slice
+//      (the places without a slice yet come with the chapter's last slice: the chapter is finished);
 // Member (the test user, `npm run dev:test-user`):
 //   8. a guest's discoveries merge into the account's world state on sign-in (set merge, nothing lost on either side);
 //      the member's server state is restored afterwards.
@@ -22,7 +27,7 @@
 //      have no unpublished draft before the check, else it refuses to run – someone's work in progress is never touched).
 //
 // usage: node scripts/check-map.mjs [--viewer=http://localhost:8000] [--creator=http://localhost:10000]
-//        [--api=http://localhost:9000/api] [--shots=<dir>] [--only=reader|member|builder] [--verbose]
+//        [--api=http://localhost:9000/api] [--shots=<dir>] [--only=reader|reading|member|builder] [--verbose]
 // Exit code 1 on any failure.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -41,6 +46,7 @@ if (shots) mkdirSync(shots, { recursive: true });
 const only = opt.only ? String(opt.only) : null;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const messages = Object.fromEntries(['de', 'en'].map((l) => [l, JSON.parse(readFileSync(join(root, `viewer/messages/${l}.json`), 'utf8'))]));
+const creatorMessages = Object.fromEntries(['de', 'en'].map((l) => [l, JSON.parse(readFileSync(join(root, `creator/messages/${l}.json`), 'utf8'))]));
 const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k]));
 
 // ── the test user ───────────────────────────────────────────────────────────────────────────────────────────────────
@@ -60,13 +66,14 @@ function rgb(hex) {
 	return `rgb(${parseInt(full.slice(0, 2), 16)}, ${parseInt(full.slice(2, 4), 16)}, ${parseInt(full.slice(4, 6), 16)})`;
 }
 
-/** the places a reader with these checkpoints has unlocked (@scutoons/content unlocksFromProgress) */
+/** the places a reader with these checkpoints has unlocked (@scutoons/content unlocksFromProgress: a slice place only by
+ *  a finished chapter – else by seeing its slice –, a place without a slice from its point `at` on) */
 function unlocked(places, checkpoints) {
 	return places.filter((p) => {
 		const u = p.unlock;
 		if (!p.hidden || !u || u.toon !== 'catpope') return false;
 		const cp = checkpoints.find((c) => c.uri === `catpope/chapter/${u.chapter}`);
-		return !!cp && (cp.isComplete || (cp.position ?? 0) >= (u.at ?? 0));
+		return !!cp && (cp.isComplete || (!u.slice && (cp.position ?? 0) >= (u.at ?? 0)));
 	}).map((p) => p.id);
 }
 const now = new Date().toISOString();
@@ -244,6 +251,12 @@ async function reader(width, locale) {
 	const wheeled = await evaluate(MAP);
 	report('the wheel zooms out at the cursor', wheeled.scale < after.scale ? [] : [`scale ${after.scale} → ${wheeled.scale}`]);
 	await shot(`map-${width}-${locale}-3-zoomed`);
+	{
+		// 8. markers stay round and screen-sized at every zoom (owner screenshot 2026-10-01: tall ellipses)
+		const boxes = await evaluate(`[...document.querySelectorAll('[data-testid^="map-place-"]')].map((b) => { const r = b.getBoundingClientRect(); return [b.dataset.testid.slice(10), Math.round(r.width * 10) / 10, Math.round(r.height * 10) / 10]; })`);
+		const bad = boxes.filter(([, w, h]) => !w || Math.abs(w - h) > 1 || h > 24);
+		report(`markers are round (width = height, at most 24 px) at ${Math.round(wheeled.scale * 100)} % (${boxes.length})`, boxes.length && !bad.length ? [] : bad.length ? bad.map((b) => b.join(' ')) : ['no marker']);
+	}
 
 	// 5. card
 	const first = data.locations.find((p) => p.id === expected[0]);
@@ -268,6 +281,88 @@ async function reader(width, locale) {
 		s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.places.length ? s : null; })()`, 8000);
 		report('universe-wide: another toon (sandbox) shows the discovered places, as markers without labels', s && expected.every((id) => s.places.includes(id)) && s.labels.length === 0 ? [] : [JSON.stringify(s && { places: s.places, labels: s.labels.map((l) => l.text) })]);
 	} else report('universe-wide: the sandbox toon page', ['no map toggle on /sandbox']);
+}
+
+// ── reading: a passed slice unlocks its places ──────────────────────────────────────────────────────────────────────
+const worldPlaces = () => evaluate(`Object.keys(JSON.parse(localStorage.getItem('scutoons_game_scutoons') || 'null')?.map?.places ?? {})`);
+/**
+ * opens a chapter page and scrolls its slices one by one; returns the places that appeared per slice (1-based, in the
+ * group; the first slice is on screen when the page opens)
+ */
+async function readSlices(url) {
+	let known = new Set(await worldPlaces());
+	await open(url);
+	const count = await waitFor(`document.querySelectorAll('[data-slice-index]').length || null`, 15000);
+	await sleep(2500); // the map's unlock rules load when the browser is idle (toon/map/map.svelte)
+	const appeared = {};
+	for (let i = 0; i < (count ?? 0); i++) {
+		await evaluate(`(document.querySelectorAll('[data-slice-index]')[${i}].scrollIntoView({ block: 'end' }), true)`);
+		await sleep(150);
+		const now = await worldPlaces();
+		const fresh = now.filter((id) => !known.has(id));
+		if (fresh.length) appeared[i + 1] = fresh.sort();
+		known = new Set(now);
+	}
+	// the last slice: a finished chapter also unlocks its places without a slice (the progress rule, a debounced effect)
+	await sleep(800);
+	const late = (await worldPlaces()).filter((id) => !known.has(id));
+	if (late.length && count) appeared[count] = [...(appeared[count] ?? []), ...late].sort();
+	return { count, appeared };
+}
+async function reading() {
+	console.log('reading (fresh guest, 390 de)');
+	const data = world.de;
+	await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true });
+	await send('Network.clearBrowserCookies');
+	await setLocale('de', viewer);
+	await open(`${viewer}/catpope`);
+	await evaluate('localStorage.clear(), sessionStorage.clear(), true');
+	// a guest with reading access: a code redeemed on the device (no account), like check-next-bar.mjs
+	await open(`${viewer}/catpope/chapter/0?code=promo_test`);
+	const access = await waitFor(`JSON.parse(localStorage.getItem('scutoons_access') || 'null')?.permissions?.length ? true : null`, 10000);
+	report('a fresh guest (no discoveries) with a code redeemed on the device', access && !(await worldPlaces()).length ? [] : [`access ${access}`, JSON.stringify(await worldPlaces())]);
+	const chapterOf = async (n) => (await (await fetch(`${api}/library/toons/catpope/chapters/${n}?locale=de&draft=1`, { headers: auth })).json());
+	const slicePlaces = (n, image) => data.locations.filter((p) => p.hidden && p.unlock?.toon === 'catpope' && p.unlock.chapter === n && p.unlock.slice === image).map((p) => p.id).sort();
+	const want = (n, groups) => {
+		const out = {};
+		groups.forEach((g) => (g.slices ?? []).forEach((s, i) => { const ids = slicePlaces(n, s.image); if (ids.length) out[`${g.label}#${i + 1}`] = ids; }));
+		return out;
+	};
+	const describe = (o) => Object.entries(o).map(([k, v]) => `${v.join('+')} @ ${k}`).join(', ');
+	// R1. chapter 1 (one group)
+	const c1 = await chapterOf(1);
+	const r1 = await readSlices(`${viewer}/catpope/chapter/1`);
+	const got1 = Object.fromEntries(Object.entries(r1.appeared).map(([k, v]) => [`${c1.groups[0].label}#${k}`, v]));
+	const exp1 = want(1, c1.groups);
+	report(`chapter 1: ${Object.values(exp1).flat().length} places appear as their slices are passed (${describe(exp1)})`,
+		JSON.stringify(got1) === JSON.stringify(exp1) ? [] : [`got ${JSON.stringify(got1)}`, `want ${JSON.stringify(exp1)}`]);
+	// R2. chapter 2, group by group (its walk is a VN choice: a group not visited unlocks nothing)
+	const c2 = await chapterOf(2);
+	if (!c2.groups) { report('chapter 2 is readable here', [JSON.stringify(c2).slice(0, 120)]); return; }
+	const got2 = {};
+	for (const [gi, g] of c2.groups.entries()) {
+		const r = await readSlices(`${viewer}/catpope/chapter/2?label=${encodeURIComponent(g.label)}`);
+		for (const [k, v] of Object.entries(r.appeared)) got2[`${g.label}#${k}`] = v;
+		if (gi === 1) {
+			const sofar = (await worldPlaces()).filter((id) => data.locations.find((p) => p.id === id)?.unlock?.chapter === 2).sort();
+			const exp = Object.values(want(2, c2.groups.slice(0, 2))).flat().sort();
+			report(`chapter 2 after its first 2 groups: only their places (${exp.join(', ')})`, JSON.stringify(sofar) === JSON.stringify(exp) ? [] : [JSON.stringify(sofar)]);
+		}
+	}
+	const exp2 = want(2, c2.groups);
+	// the chapter's last slice finishes it: its places without a slice yet (their chapter position) come with it
+	const last = c2.groups.at(-1);
+	const lastKey = `${last.label}#${last.slices.length}`;
+	const noSlice = data.locations.filter((p) => p.hidden && p.unlock?.toon === 'catpope' && p.unlock.chapter === 2 && !p.unlock.slice).map((p) => p.id);
+	if (noSlice.length) exp2[lastKey] = [...(exp2[lastKey] ?? []), ...noSlice].sort();
+	report(`chapter 2: ${Object.values(exp2).flat().length} places appear as their slices are passed (${describe(exp2)})`,
+		JSON.stringify(got2) === JSON.stringify(exp2) ? [] : [`got ${JSON.stringify(got2)}`, `want ${JSON.stringify(exp2)}`]);
+	await open(`${viewer}/catpope`);
+	await click('[data-testid="map-toggle"]');
+	const s = await waitFor(`(() => { const s = ${MAP}; return s.open && s.places.length ? s : null; })()`, 10000);
+	const all = [...new Set([...Object.values(exp1).flat(), ...Object.values(exp2).flat()])].sort();
+	report(`the opened map shows those ${all.length} places`, s && JSON.stringify([...s.places].sort()) === JSON.stringify(all) ? [] : [JSON.stringify(s?.places)]);
+	await shot('map-reading-chapters-1-2');
 }
 
 // ── member: guest discoveries merge on sign-in ──────────────────────────────────────────────────────────────────────
@@ -323,6 +418,12 @@ async function builder() {
 	const ready = await waitFor(`document.querySelector('[data-testid="map-canvas"]') && document.querySelectorAll('[data-testid^="builder-place-"]').length ? true : null`, 15000);
 	report('the builder opens with the world\'s places', ready ? [] : ['no canvas / places']);
 	if (!ready) return;
+	{
+		// markers are round: the creator's global button min-height made them tall ellipses (owner screenshot 2026-10-01)
+		const boxes = await evaluate(`[...document.querySelectorAll('[data-testid^="builder-place-"]')].map((b) => { const r = b.getBoundingClientRect(); return [b.dataset.testid.slice(14), Math.round(r.width), Math.round(r.height)]; })`);
+		const bad = boxes.filter(([, w, h]) => !w || Math.abs(w - h) > 1);
+		report(`builder markers are round (width = height, ${boxes.length})`, boxes.length && !bad.length ? [] : bad.map((b) => b.join(' ')));
+	}
 	await shot('builder-1-open');
 
 	// 9. add a place, name it, drag it
@@ -471,6 +572,32 @@ async function builder() {
 	report('the builder shows "Freigeschaltet in Kapitel 1, Slice 2" with a link to that slice, the slice picked',
 		where && where.text.includes('1') && where.href === `/catpope/chapter/1?group=${encodeURIComponent(chapter.groups[target.group]?.label ?? String(target.group + 1))}&slice=${target.index + 1}` && where.slice === target.image ? [] : [JSON.stringify(where)]);
 	await shot('builder-6-unlock-where');
+
+	// 17. every place unlocked by a slice (catpope's screenplay places, 2026-10-01): the builder says "Kapitel N, Slice k"
+	//     and that slice's inspector lists the place (read only: nothing is saved)
+	await restoreMap();
+	const placed = original.locations.filter((p) => p.unlock?.slice);
+	const chapters = {};
+	const problems = [];
+	for (const p of placed) {
+		const n = p.unlock.chapter;
+		chapters[n] ??= await (await fetch(`${api}/library/toons/catpope/chapters/${n}?draft=1`, { headers: auth })).json();
+		const refs = (chapters[n].groups ?? []).flatMap((g, gi) => (g.slices ?? []).map((s, si) => ({ image: s.image, group: gi, index: si })));
+		const ref = refs.find((r) => r.image === p.unlock.slice);
+		if (!ref) { problems.push(`${p.id}: slice ${p.unlock.slice} not in chapter ${n}`); continue; }
+		const k = refs.indexOf(ref) + 1;
+		await open(`${creator}/map?location=${p.id}`);
+		const text = await waitFor(`document.querySelector('[data-testid="place-unlock-where"]')?.textContent.trim() || null`, 10000);
+		// k = the slice's number in the chapter's reading order (the slice picker's numbers); the UI language may be de or en
+		const wantText = ['de', 'en'].map((l) => fill(creatorMessages[l].creator.map_unlock_in, { chapter: n, slice: k }));
+		if (!wantText.some((w) => text?.startsWith(`${w} ·`))) problems.push(`${p.id}: builder "${text}" ≠ "${wantText[0]}"`);
+		await open(`${creator}/catpope/chapter/${n}?group=${ref.group + 1}&slice=${ref.index + 1}`);
+		if (await waitFor(`document.querySelector('[data-testid="tab-map"]') ? true : null`, 15000)) {
+			await click('[data-testid="tab-map"]');
+			if (!(await waitFor(`document.querySelector('[data-testid="slice-unlock-${p.id}"]') ? true : null`, 5000))) problems.push(`${p.id}: not listed in the inspector of chapter ${n} group ${ref.group + 1} slice ${ref.index + 1}`);
+		} else problems.push(`${p.id}: no Map tab`);
+	}
+	report(`every slice-unlocked place (${placed.length}): the builder says "Freigeschaltet in Kapitel N, Slice k", the slice's Map tab lists it`, placed.length ? problems : ['no place has a slice']);
 }
 
 try {
@@ -478,6 +605,7 @@ try {
 		await reader(390, 'de');
 		await reader(1440, 'en');
 	}
+	if (!only || only === 'reading') await reading();
 	if (!only || only === 'member') await member();
 	if (!only || only === 'builder') await builder();
 	const errors = consoleErrors.filter((e) => e && !/favicon|ResizeObserver loop/.test(e));

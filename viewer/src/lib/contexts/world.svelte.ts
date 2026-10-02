@@ -5,7 +5,8 @@
 // map merges as sets (`mergeMapState`): a discovery made on another device, or as a guest before signing in, is never
 // lost. The server merges the same way on every PUT, so a stale write still adds its discoveries.
 //
-// Who writes: today the reading progress (`unlocksFromProgress`, the map's `unlock` points); the story events
+// Who writes: today the reading – a seen slice (`sliceSeen`: the places whose `unlock.slice` is that slice's image) and
+// the chapter progress (`unlocksFromProgress`, for places whose chapter has no slices yet); the story events
 // (unlockLocation, revealRoute, travel, setPosition – MAP.md §3) call the same operations in M3.
 import { getContext, setContext } from 'svelte';
 import {
@@ -13,10 +14,12 @@ import {
 	emptyMapState,
 	markPlacesSeen,
 	mergeMapState,
+	placesForSlice,
 	normalizeMapState,
 	revealRoute,
 	setPosition,
 	unlockPlace,
+	type MapPlace,
 	type MapPosition,
 	type MapState
 } from '@scutoons/content';
@@ -151,6 +154,30 @@ export function createWorldContext(session: SessionContext | null) {
 		save();
 	}
 
+	// ── slice unlocks: the reading tracker reports every slice passed; the map's places (loaded when the browser is idle,
+	// `toon/map/map.svelte`) say which slice unlocks which place. Slices seen before they arrived wait here (this visit). ──
+
+	type UnlockRules = readonly Pick<MapPlace, 'id' | 'hidden' | 'unlock'>[];
+	let rules: UnlockRules | null = null;
+	const waiting: { toon: string; chapter: number; image: string }[] = [];
+
+	/** A slice of a toon's chapter was seen: unlock the places it unlocks; returns the ids that were new */
+	function sliceSeen(toon: string, chapter: number, image: string): string[] {
+		if (!image) return [];
+		if (!rules) {
+			waiting.push({ toon, chapter, image });
+			return [];
+		}
+		return unlock(placesForSlice(rules, toon, chapter, image));
+	}
+
+	/** The world's places (with their `unlock`), set once the map data is loaded */
+	function setUnlockRules(places: UnlockRules) {
+		rules = places;
+		const ids = waiting.splice(0).flatMap((s) => placesForSlice(places, s.toon, s.chapter, s.image));
+		if (ids.length) unlock(ids);
+	}
+
 	load();
 
 	return {
@@ -162,6 +189,8 @@ export function createWorldContext(session: SessionContext | null) {
 			return Object.values(state.map.places).some((p) => p.seen === undefined);
 		},
 		unlock,
+		sliceSeen,
+		setUnlockRules,
 		seen,
 		reveal,
 		position,

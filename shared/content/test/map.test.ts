@@ -26,6 +26,7 @@ import {
 	routePoints,
 	unlockPlace,
 	unlocksFromProgress,
+	placesForSlice,
 	visibleLabels,
 	type MapLocation,
 	type MapState,
@@ -126,6 +127,22 @@ test('unlocksFromProgress: a hidden place unlocks when its chapter is read up to
 	assert.deepEqual(unlocksFromProgress(places, 't', [cp(2, 1, true)]), ['end']);
 });
 
+test('slice unlocks: a place with an unlock slice unlocks when that slice is seen, not by the position', () => {
+	const places = [
+		{ id: 'tower', hidden: true, unlock: { toon: 't', chapter: 2, slice: 'images/s2-3.webp', at: 0.1364 } },
+		{ id: 'pool', hidden: true, unlock: { toon: 't', chapter: 2, slice: 'images/s2-6.webp', at: 0.2727 } },
+		{ id: 'station', hidden: true, unlock: { toon: 't', chapter: 2, at: 1 } },
+		{ id: 'shown', unlock: { toon: 't', chapter: 2, slice: 'images/s2-3.webp' } },
+		{ id: 'elsewhere', hidden: true, unlock: { toon: 't', chapter: 1, slice: 'images/s2-3.webp' } }
+	];
+	assert.deepEqual(placesForSlice(places, 't', 2, 'images/s2-3.webp'), ['tower'], 'hidden, this toon, this chapter, this image');
+	assert.deepEqual(placesForSlice(places, 't', 2, ''), []);
+	assert.deepEqual(placesForSlice(places, 'x', 2, 'images/s2-3.webp'), []);
+	const cp = (position: number, isComplete = false) => ({ uri: 't/chapter/2', position, isComplete });
+	assert.deepEqual(unlocksFromProgress(places, 't', [cp(0.9)]), [], 'a position past the point does not unlock a slice place (a VN choice can skip it)');
+	assert.deepEqual(unlocksFromProgress(places, 't', [cp(1, true)]), ['tower', 'pool', 'station'], 'a finished chapter unlocks them all');
+});
+
 test('visibility and the drawn part of a route', () => {
 	const s = emptyMapState();
 	const route = { id: 'season1', waypoints: [{ location: 'airport' }, { location: 'home' }, { location: 'street' }, { location: 'garden' }] };
@@ -174,11 +191,11 @@ test('checkWorldMap: ids, positions, waypoints, unlock points', () => {
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], image: { src: 'map/a.webp', anchor: { x: 50, y: 120 } } }] }), ['error locations.0.image.anchor']);
 });
 
-test('wanted images: every place without an image, derived from the map (all 19 of the seed)', () => {
+test('wanted images: every place without an image, derived from the map (all 20 of the seed)', () => {
 	const world: WorldMap = json('scutoons/_/map.json');
 	const wanted = mapImageRequests(world);
 	assert.equal(wanted.length, world.locations.filter((p) => !p.image?.src).length);
-	assert.equal(wanted.length, 19, 'every catpope place incl. Garten Eden (no image yet)');
+	assert.equal(wanted.length, 20, 'every catpope place incl. Garten Eden (no image yet)');
 	const garden = wanted.find((r) => r.place === 'garden')!;
 	assert.equal(garden.path, 'catpope/images/map/places/garden.webp');
 	assert.equal(garden.size, '256 × 256');
@@ -188,7 +205,7 @@ test('wanted images: every place without an image, derived from the map (all 19 
 	assert.equal(mapImageRequests({ locations: [{ ...world.locations[0], image: { src: 'a.webp' } }] }).length, 0);
 	assert.match(mapImageRequestsText(wanted.slice(0, 1)), /images\/map\/places/);
 	const media = mapMediaRequests(world);
-	assert.equal(media.length, 19);
+	assert.equal(media.length, 20);
 	assert.ok(media.every((r) => r.view === 'media' && r.toon === 'catpope' && r.size === '256 × 256' && r.brief && r.status === 'open'));
 	assert.equal(media.find((r) => r.id === 'map-place:airport')?.path, 'catpope/images/map/places/airport.webp');
 });

@@ -102,6 +102,15 @@ export function sliceUnlockPoint(slices: readonly ChapterSliceRef[], image: stri
 	return Math.floor(Math.min(0.99, (hit.overall + 1) / total) * 10000) / 10000;
 }
 
+/**
+ * The hidden places a seen slice unlocks (the reader: `unlock.slice` = the seen slice's image, in this toon's chapter) –
+ * the runtime side of the slice unlock; `placesUnlockedBy` is the editor's (every place, hidden or not).
+ */
+export function placesForSlice(places: readonly Pick<MapPlace, 'id' | 'hidden' | 'unlock'>[] | null | undefined, toon: string, chapter: number, image: string): string[] {
+	if (!image) return [];
+	return (places ?? []).filter((p) => p.hidden && p.unlock?.toon === toon && p.unlock.chapter === chapter && p.unlock.slice === image).map((p) => p.id);
+}
+
 /** The places a slice unlocks (`unlock.slice` = the slice's image, in this toon's chapter) */
 export function placesUnlockedBy(map: Pick<WorldMap, 'locations'> | null | undefined, toon: string, chapter: number, image: string): MapPlace[] {
 	if (!image) return [];
@@ -424,9 +433,12 @@ export function routeRevealedTo(route: RouteLike, state: MapState): number {
 export const isPlaceNew = (id: string, state: MapState): boolean => !!state.places[id] && state.places[id].seen === undefined;
 
 /**
- * The hidden places a toon's reading progress has reached (`unlock`: the chapter's checkpoint is finished, or its
- * position ≥ `at`). The reader writes them into the world state (`unlockPlace`), so they stay unlocked everywhere –
- * the progress-based rule until the story events exist (M3).
+ * The hidden places a toon's reading progress has reached. A place with an unlock **slice** unlocks when the reader sees
+ * that slice (`placesForSlice`, the reading tracker) – the reading position can jump over slices the reader never saw
+ * (a VN choice skips groups: chapter 2's "Auf Arbeit" skips the walk), so the position alone never unlocks it; only a
+ * finished chapter does (readers who finished it before the slice rule existed). A place without a slice (its chapter
+ * has no slices yet) unlocks from its chapter position `at` on, or when the chapter is finished. The reader writes them
+ * into the world state (`unlockPlace`), so they stay unlocked everywhere – until the story events exist (M3).
  */
 export function unlocksFromProgress(
 	places: readonly Pick<MapPlace, 'id' | 'hidden' | 'unlock'>[],
@@ -441,7 +453,7 @@ export function unlocksFromProgress(
 		const cp = list.find((c) => c?.uri === `${toon}/chapter/${u.chapter}`);
 		if (!cp) continue;
 		const position = typeof cp.position === 'number' && Number.isFinite(cp.position) ? cp.position : cp.isComplete ? 1 : 0;
-		if (cp.isComplete || position >= (u.at ?? 0)) out.push(p.id);
+		if (cp.isComplete || (!u.slice && position >= (u.at ?? 0))) out.push(p.id);
 	}
 	return out;
 }

@@ -317,7 +317,7 @@
 						{@const ref = unlockSlices.find((s) => s.image === unlock.slice)}
 						{#if ref}
 							<p class="hint" data-testid="place-unlock-where">
-								{m['creator.map_unlock_in']({ chapter: unlock.chapter, slice: ref.index + 1 })} · <a href={sliceHref(unlock.toon, unlock.chapter, ref)} data-testid="place-unlock-open">{m['creator.map_open_slice']()}</a>
+								{m['creator.map_unlock_in']({ chapter: unlock.chapter, slice: ref.overall + 1 })} · <a href={sliceHref(unlock.toon, unlock.chapter, ref)} data-testid="place-unlock-open">{m['creator.map_open_slice']()}</a>
 							</p>
 							{@const point = sliceUnlockPoint(unlockSlices, unlock.slice)}
 							{#if point !== null && point !== (unlock.at ?? 0)}

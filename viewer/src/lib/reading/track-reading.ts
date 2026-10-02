@@ -27,6 +27,12 @@ export interface ReadingSpot {
 	last: boolean;
 	/** called when the reader got further: 0..1, exactly 1 only at the chapter's end */
 	onRead: (position: number) => void;
+	/**
+	 * called once per slice of this group the reader passed (index in the group): a seen slice and every slice before it
+	 * (a fast fling can skip a slice's seen moment; reaching slice k means the ones above were scrolled past). The map's
+	 * slice unlocks (agents/MAP.md §8.5) listen here.
+	 */
+	onSlice?: (index: number) => void;
 }
 
 /**
@@ -40,10 +46,15 @@ export function trackReading(spot: ReadingSpot | null): Attachment<HTMLElement> 
 	return (node) => {
 		if (!spot || spot.total <= 0 || spot.count <= 0 || typeof IntersectionObserver === 'undefined') return;
 		let reported = -1;
+		let passed = -1;
 
 		/** slice `index` read up to `share` (0..1 of the slice) */
 		function read(index: number, share = 1) {
 			if (!spot) return;
+			if (share >= 1 && index > passed && spot.onSlice) {
+				for (let i = passed + 1; i <= index && i < spot.count; i++) spot.onSlice(i);
+				passed = index;
+			}
 			const end = spot.last && index >= spot.count - 1 && share >= 1;
 			const position = end ? 1 : Math.min(0.99, (spot.offset + index + share) / spot.total);
 			if (position <= reported) return;

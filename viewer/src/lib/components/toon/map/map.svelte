@@ -61,6 +61,11 @@
 		}
 	});
 
+	// the places' unlock slices for the reading tracker (a seen slice unlocks its places, world.sliceSeen)
+	$effect(() => {
+		if (data && world) world.setUnlockRules(data.locations);
+	});
+
 	// reading progress → discoveries (set operations: nothing happens twice)
 	$effect(() => {
 		if (!data || !world || !game) return;

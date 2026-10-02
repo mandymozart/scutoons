@@ -692,6 +692,40 @@ the real slice with the bidirectional editor). **en names of the new places tran
 Interiors are folded into their building (rooms → apartment; altar → cathedral; shaft / platform → station; shelf, wall
 sensor → library; server farm, streamer studio, server room → monastery); scene 1 (the prologue's dream) unlocks nothing.
 
+### 8.3a Every screenplay location, unlocked by its slice (2026-10-02, owner: "add all the locations already mentioned in the script and trigger them from the respective slice")
+
+The screenplay's 39 scenes (0–38) name 29 distinct headings; all are on the map now (20 places). `unlock.slice` = the slice's
+image (the slice where the place first appears in the webtoon), `at` its reading point; the reader unlocks a slice place when
+that slice is **passed** (the reading tracker `onSlice` → `world.sliceSeen`; a slice seen means every slice above it in the
+group was passed too), never by the chapter position alone (chapter 2's walk is a VN choice: "Auf Arbeit" skips groups) –
+only a finished chapter unlocks its slice places without the slice (readers who finished before the rule). Note: the
+webtoon's chapter 2 starts with the walk (screenplay scenes 11–16, "# 1. Kapitel" in the script), so those places moved to
+chapter 2 (card link too). The builder's "Slice k" = the slice's number in the chapter's reading order (the picker's).
+
+| Place | Script scene | Chapter | Unlock (slice / point) |
+|---|---|---|---|
+| `apartment` Apartment | 2 (+3, 5–10: rooms, the block) | 1 | `s1c1-slice-2` = slice 3 of 95 (scene 2 heading) |
+| `apartment-blocks` **new** Zwischen den Apartmentblocks / Between the apartment blocks (en: review) | 11 | 1 | `s1c1-slice-72` = slice 73 (PLF outside among the towers; best guess) |
+| `waterfall-tower` | 13 | 2 | `s1c2-slice-3` (group scene-14) |
+| `infinity-pool` | 16 | 2 | `s1c2-slice-6` (group scene-15) |
+| `crossroads` | 14 | 2 | `s1c2-slice-10` (group scene-16, concrete pillars; **guess**) |
+| `medival-street` | 15 | 2 | `s1c2-slice-16` (group scene-18, the alley) |
+| `church-square` | 12 | 2 | `s1c2-slice-20` ("den Platz vor der Kathedrale") |
+| `cathedral` | 17–20 | 2 | `s1c2-slice-21` (the church in view) |
+| `station` | 21–24 | 2 | point `at: 1` – no U-Bahn slices yet: **switch to a slice once they exist** |
+| `mountain-village`, `beyond-the-crossroads`, `mountain-path`, `forest-clearing`, `monastery`, `library` | 25–34 | 3 | points (unchanged) – **switch to a slice once chapter 3's slices exist** |
+| `crypt`, `graveyard`, `well` | 35–37 | 4 | points (unchanged) – same |
+| `garden` | 38 | 5 | `at: 1` (unchanged) – same |
+| `airport` | – | – | `unlock: null` (owner, unchanged) |
+
+Chapter 2 group scene-17 (slices 12–14: a concrete corner, figures in pink) is not matched to a place (owner to confirm).
+Merged into a place (same place at world scale): 3 Brutalistischer Wohnblock, 5 Schlafzimmer, 6/8 Küche, 7 Klo, 9 Badezimmer,
+10 Kleiderkammer → apartment; 18/19 Kathedrale (nah dem Altar) → cathedral; 21 U-Bahn Schacht, 22/24 U-Bahnsteig → station;
+27 Waldpfad → mountain-path; 29 Klosterbibliothek, 30 Bücherregal, 31 Wandsensor → library; 32 Kloster-Serverfarm, 33 Streamer
+Studio, 34 Serverraum → monastery; 35 Gruft (INT./EXT.) → crypt. Not places: 0 BOOK (the title page), 1 Verschiedene Orte (the
+dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). The builder's markers had become tall ellipses
+(the creator's global button `min-height`): reset on `.marker` / `.handle`; `check-map` asserts round markers (reader + builder).
+
 ### 8.4 Reader (M1)
 
 - `viewer/src/lib/components/toon/map/map.svelte` (toggle + badge, key M; `/library/map?locale=&toon=` loads when the

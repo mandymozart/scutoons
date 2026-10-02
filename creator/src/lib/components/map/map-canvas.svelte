@@ -402,6 +402,11 @@
 		top: -8px;
 		width: 16px;
 		height: 16px;
+		/* the creator's global button rule sets min-height: var(--control-height) (36–52px): without this reset the round
+		   marker became a tall ellipse (owner screenshot 2026-10-01) */
+		min-width: 0;
+		min-height: 0;
+		box-sizing: border-box;
 		padding: 0;
 		border-radius: 50%;
 		border: 2px solid var(--ink);
@@ -453,6 +458,9 @@
 		top: -10px;
 		width: 20px;
 		height: 20px;
+		min-width: 0;
+		min-height: 0;
+		box-sizing: border-box;
 		padding: 0;
 		border-radius: 50%;
 		border: 2px solid var(--ink);
