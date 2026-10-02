@@ -7,6 +7,8 @@
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
 	import ImagePicker from './image-picker.svelte';
+	import AssetPickerSheet from './assets/asset-picker-sheet.svelte';
+	import { rootPath, toonRelativePath } from '@scutoons/api';
 
 	/**
 	 * Chapter meta. Title/description per locale; the rest shared, with per-locale overrides shown.
@@ -20,6 +22,8 @@
 		images = [],
 		featuring
 	}: { doc: ContentDoc; season?: ContentDoc | null; number: number; images?: string[]; featuring?: Snippet } = $props();
+
+	let choosingKeyvisualVideo = $state(false);
 
 	const ch = $derived(doc.get(doc.primary, []));
 	const statusLocales = $derived(season && !season.loading ? season.locales : []);
@@ -89,6 +93,16 @@
 			{:else}
 				<ImagePicker toon={doc.toon} label="keyvisual.image" value={ch?.keyvisual?.image} known={images} onchange={(v) => doc.setShared(['keyvisual', 'image'], v)} />
 				<PropField {doc} path={['keyvisual', 'video']} label="keyvisual.video" placeholder="s1/c2/s1c2-key-visual.mp4" />
+				<!-- the key visual's video through the asset picker too (owner 2026-10-03: the mp4 could not be uploaded) -->
+				<button type="button" class="secondary" onclick={() => (choosingKeyvisualVideo = true)} title={m['creator.assets_choose_video_hint']()} data-testid="keyvisual-video-choose">{m['creator.assets_choose_video']()}</button>
+				<AssetPickerSheet
+					bind:open={choosingKeyvisualVideo}
+					toon={doc.toon}
+					kind="video"
+					value={ch?.keyvisual?.video ? rootPath(ch.keyvisual.video, doc.toon) : ''}
+					title="keyvisual.video"
+					onpick={(picked) => doc.setShared(['keyvisual', 'video'], toonRelativePath(picked.path, doc.toon))}
+				/>
 			{/if}
 		</div>
 	</div>
