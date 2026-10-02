@@ -141,6 +141,7 @@
 			<li
 				id="{uid}-option-{i}"
 				role="option"
+				data-command={command.id}
 				aria-selected={i === index}
 				class:active={i === index}
 				onclick={() => run(command)}

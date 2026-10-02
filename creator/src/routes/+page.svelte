@@ -35,7 +35,7 @@
 					<li>
 						<a href="/{toon.id}" data-testid="toon-{toon.id}">
 							<ToonAvatar src={toon.avatar ? asset(`${toon.id}/${toon.avatar}`) : null} name={name(toon)} size="4rem" />
-							<strong>{name(toon)}</strong>
+							<span>{name(toon)}</span>
 							<span class="meta">{toon.id} · {toon.status}</span>
 						</a>
 					</li>
@@ -43,13 +43,10 @@
 			</ul>
 		</section>
 	</main>
-	<!-- Bottom action bar: toon count · sign out · open the reader -->
+	<!-- Bottom action bar: toon count · open the reader (sign out: the search palette, owner 2026-10-02) -->
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
 			<span class="hint">{m['creator.toons']()}: {toons.length}</span>
-		{/snippet}
-		{#snippet secondary()}
-			<button class="secondary" data-testid="sign-out" onclick={() => session.logout()}>{m['creator.sign_out']()}</button>
 		{/snippet}
 		{#snippet end()}
 			<a class="btn" href={VIEWER_URL}>{m['creator.open_reader']()}</a>

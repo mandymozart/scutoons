@@ -149,11 +149,18 @@ const STATE = `(() => {
 		denied: t('[data-testid="auth-denied"]'),
 		signedInAs: t('[data-testid="signed-in-as"] .email'),
 		creatorBar: !!document.querySelector('[data-testid="creator-bar"]'),
-		topbarEmail: t('.topbar .email'),
 		storedToken: localStorage.getItem('scutoons_session')
 	};
 })()`;
 const state = () => evaluate(STATE);
+/** the signed-in account's email as the API sees it from this page (the tools show no email; owner 2026-10-02) */
+const meEmail = `fetch(${q(api)} + '/me/', { credentials: 'include' }).then((r) => (r.ok ? r.json() : null)).then((j) => j?.user?.email ?? null).catch(() => null)`;
+/** sign out the way the tools offer it: the search palette (Ctrl K) → "Sign out" */
+async function paletteSignOut() {
+	await evaluate(`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true, bubbles: true })), true`);
+	if (!(await waitFor(`document.querySelector('[data-command="logout"]') && true`))) return false;
+	return click('[data-command="logout"]');
+}
 /** Fill an input the Svelte way (bind:value listens to input events) */
 const fill = (selector, value) => evaluate(`(() => { const el = document.querySelector(${q(selector)}); if (!el) return false; const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(el, ${q(value)}); el.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
 const click = (selector) => evaluate(`(() => { const el = document.querySelector(${q(selector)}); if (!el) return false; el.click(); return true; })()`);
@@ -201,8 +208,8 @@ try {
 	// ── 2. the other apps open signed in ───────────────────────────────────────────────────────────────────────────
 	for (const [app, ok] of [
 		['creator', `document.querySelector('[data-testid="creator-bar"]') && true`],
-		['admin', `document.querySelector('.topbar .email')?.textContent.trim() === ${q(TEST_USER)}`],
-		['embassy', `document.querySelector('.topbar .email')?.textContent.includes(${q(TEST_USER)})`],
+		['admin', `(async () => !!document.querySelector('[data-testid="palette-trigger"]') && (await ${meEmail}) === ${q(TEST_USER)})()`],
+		['embassy', `(async () => !!document.querySelector('[data-testid="palette-trigger"]') && (await ${meEmail}) === ${q(TEST_USER)})()`],
 		['shop', `document.querySelector('[data-testid="signed-in-as"] .email')?.textContent.trim() === ${q(TEST_USER)}`]
 	]) {
 		await open(`${apps[app]}/`);
@@ -247,7 +254,7 @@ try {
 		if (!(await waitFor(`document.querySelector('[data-testid="creator-bar"]') && true`))) problems.push(`creator: ${JSON.stringify(await state())}`);
 		if (!(await waitFor(`document.querySelector('[data-testid^="toon-"]') && true`))) problems.push('no toons listed (the draft library refused the admin?)');
 		report('creator: an admin-only account (member + admin, no creator) gets in and sees the toons', problems);
-		await click('[data-testid="sign-out"]');
+		await paletteSignOut();
 		await waitFor(`document.querySelector('[data-testid="creator-sign-in"]') && true`);
 	}
 
@@ -255,7 +262,7 @@ try {
 	await open(`${apps.admin}/`);
 	{
 		const problems = await signIn(TEST_USER);
-		if (!(await waitFor(`document.querySelector('.topbar .email')?.textContent.trim() === ${q(TEST_USER)} || null`))) problems.push(`admin not signed in: ${JSON.stringify(await state())}`);
+		if (!(await waitFor(`(async () => document.querySelector('[data-testid="palette-trigger"]') && (await ${meEmail}) === ${q(TEST_USER)})() || null`))) problems.push(`admin not signed in: ${JSON.stringify(await state())}`);
 		await open(`${apps.creator}/`);
 		if (!(await waitFor(`document.querySelector('[data-testid="creator-bar"]') && true`))) problems.push(`creator not signed in: ${JSON.stringify(await state())}`);
 		report('admin: sign in there → the creator is signed in too', problems);
@@ -274,8 +281,7 @@ try {
 	}
 	{
 		const problems = [];
-		if (!(await waitFor(`document.querySelector('[data-testid="sign-out"]') && true`))) problems.push('no sign-out button in the creator');
-		await click('[data-testid="sign-out"]');
+		if (!(await paletteSignOut())) problems.push('no "sign out" in the creator\'s search palette');
 		if (!(await waitFor(`document.querySelector('[data-testid="creator-sign-in"]') && true`))) problems.push(`creator after sign-out: ${JSON.stringify(await state())}`);
 		for (const [app, gate] of [['viewer', 'login-form'], ['admin', 'admin-sign-in'], ['embassy', 'embassy-sign-in'], ['shop', null]]) {
 			await open(app === 'viewer' ? `${apps.viewer}/de/account` : `${apps[app]}/`);

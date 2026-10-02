@@ -6,7 +6,6 @@
 	import { page } from '$app/state';
 	import {
 		AppShell,
-		Badge,
 		CommandPalette,
 		Icon,
 		PaletteTrigger,
@@ -22,7 +21,6 @@
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
-	import { openClaims } from '$lib/claims.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
@@ -46,11 +44,6 @@
 	onMount(() => installTooltips());
 
 	afterNavigate(() => (menuOpen = false));
-
-	// the open-claims badge in the sidebar: once the admin is signed in (the claims pages update it after a decision)
-	$effect(() => {
-		if (session.user && session.hasRole('admin')) void openClaims.refresh();
-	});
 
 	// role gate (AuthGate): `admin` – the server checks it again on every /admin call
 	const current = $derived(activeItem(page.url.pathname));
@@ -124,13 +117,6 @@
 						<span class="brand-name">{m['shell.admin']()}</span>
 					</a>
 					<PaletteTrigger label={m['shell.search']()} onclick={() => (paletteOpen = true)} />
-					<div class="account">
-						<span class="email" title={session.user?.email}>{session.user?.email}</span>
-						<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
-							{otherLocale.toUpperCase()}
-						</button>
-						<button type="button" class="plain" data-testid="sign-out" onclick={() => session.logout()} aria-label={m['shell.sign_out']()} title={m['shell.sign_out']()}><Icon name="log-out" /><span class="wide-only">{m['shell.sign_out']()}</span></button>
-					</div>
 				</header>
 			{/snippet}
 			{#snippet sidebar()}
@@ -142,7 +128,7 @@
 								<li>
 									<a href={item.href} aria-current={current?.id === item.id ? 'page' : undefined}>
 										<span class="icon"><Icon name={item.icon} /></span>
-										<span class="title">{item.title()}{#if item.count?.()}{' '}<Badge tone="warning">{item.count?.()}</Badge>{/if}</span>
+										<span class="title">{item.title()}</span>
 										<span class="description">{item.description()}</span>
 									</a>
 								</li>
@@ -210,21 +196,6 @@
 	.topbar :global(.sc-palette-trigger) {
 		margin-left: var(--space-1);
 	}
-	.account {
-		display: flex;
-		align-items: center;
-		gap: var(--space-05);
-		margin-left: auto;
-		min-width: 0;
-	}
-	.email {
-		color: var(--text-muted);
-		font-size: var(--type-caption-size);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.plain,
 	.burger {
 		min-height: var(--control-height);
 		min-width: var(--control-height);
@@ -236,7 +207,6 @@
 		cursor: pointer;
 		white-space: nowrap;
 	}
-	.plain:hover,
 	.burger:hover {
 		border-color: var(--ink);
 	}
@@ -287,16 +257,6 @@
 		text-align: center;
 		line-height: var(--type-body-line);
 	}
-	.plain {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-05);
-	}
-	@media (max-width: 767px) {
-		.wide-only {
-			display: none;
-		}
-	}
 	@media (max-width: 479px) {
 		.brand-name {
 			display: none;
@@ -334,9 +294,6 @@
 		.topbar :global(.sc-palette-trigger) {
 			margin-left: 0;
 		}
-		.email {
-			display: none;
-		}
 		main {
 			padding: var(--space-1) var(--space-1) var(--space-3);
 		}
@@ -346,11 +303,6 @@
 			--admin-sidebar-width: 12rem;
 		}
 		.description {
-			display: none;
-		}
-	}
-	@media (max-width: 1279px) {
-		.email {
 			display: none;
 		}
 	}

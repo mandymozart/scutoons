@@ -124,15 +124,6 @@
 				{/each}
 			</nav>
 			<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
-			<div class="account">
-				<span class="email" title={session.user?.email}>
-					{session.user?.email} · {isAmbassador ? m['shell.ambassador']() : m['shell.liaison']()}
-				</span>
-				<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
-					{otherLocale.toUpperCase()}
-				</button>
-				<button type="button" class="plain" data-testid="sign-out" onclick={() => session.logout()}>{m['shell.sign_out']()}</button>
-			</div>
 		</header>
 		<main>
 			{@render children()}
@@ -211,32 +202,6 @@
 		color: var(--paper);
 		border-color: var(--ink);
 	}
-	.account {
-		display: flex;
-		align-items: center;
-		gap: var(--space-05);
-		margin-left: auto;
-		min-width: 0;
-	}
-	.email {
-		color: var(--text-muted);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		font-size: var(--type-caption-size);
-	}
-	.plain {
-		padding: var(--space-025) var(--space-05);
-		border: var(--border-width-hairline) solid transparent;
-		background: none;
-		color: var(--ink);
-		font: inherit;
-		cursor: pointer;
-		white-space: nowrap;
-	}
-	.plain:hover {
-		border-color: var(--ink);
-	}
 	main {
 		max-width: 64rem;
 		margin: 0 auto;
@@ -245,9 +210,6 @@
 	}
 
 	@media (max-width: 767px) {
-		.email {
-			display: none;
-		}
 		.nav {
 			position: fixed;
 			left: 0;
