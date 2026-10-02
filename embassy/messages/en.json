@@ -183,5 +183,23 @@
 		"no_answer": "no answer",
 		"call_back": "call back …",
 		"declined": "declined"
+	},
+	"palette": {
+		"search": "Search or jump to …",
+		"label": "Command palette",
+		"empty": "Nothing matches.",
+		"keys": "↑↓ move · Enter open · Esc close · Ctrl K or / anywhere",
+		"go_to": "Go to",
+		"actions": "Actions",
+		"language": "Switch language to {locale}",
+		"placeholder": "Type a section, an organisation or a city …",
+		"leads": "Leads",
+		"orgs": "Organisations",
+		"find": "Search",
+		"search_leads": "Leads matching “{q}”",
+		"track": "Leads in {track}",
+		"mine": "My leads",
+		"due": "Due leads",
+		"new_org": "New organisation"
 	}
 }

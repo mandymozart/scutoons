@@ -4,7 +4,18 @@
 	import { onMount } from 'svelte';
 	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { AppShell, CommandPalette, Icon, ToastStack, type Command } from '@scutoons/ui';
+	import {
+		AppShell,
+		CommandPalette,
+		Icon,
+		PaletteTrigger,
+		ToastStack,
+		languageCommand,
+		linkCommands,
+		otherLocale as nextLocale,
+		signOutCommand,
+		type Command
+	} from '@scutoons/ui';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
@@ -33,23 +44,26 @@
 	// role gate (AuthGate): `admin` – the server checks it again on every /admin call
 	const current = $derived(activeItem(page.url.pathname));
 
-	const otherLocale = $derived(locales.find((l) => l !== getLocale()) ?? 'en');
+	const otherLocale = $derived(nextLocale(locales, getLocale()));
 
 	const commands = $derived<Command[]>([
-		...navItems.map((item) => ({
-			id: `nav-${item.id}`,
-			label: item.title(),
-			hint: item.description(),
-			group: m['palette.go_to'](),
-			keywords: item.keywords,
-			run: () => goto(item.href)
-		})),
-		{ id: 'new-batch', label: m['palette.new_batch'](), group: m['palette.actions'](), keywords: 'batch edition', run: () => goto('/batches?new=1') },
-		{ id: 'generate', label: m['palette.generate'](), group: m['palette.actions'](), keywords: 'code qr', run: () => goto('/codes/new') },
-		{ id: 'revoked', label: m['palette.revoked_codes'](), group: m['palette.actions'](), run: () => goto('/codes?status=revoked') },
-		{ id: 'admins', label: m['palette.admins'](), group: m['palette.actions'](), run: () => goto('/users?role=admin') },
-		{ id: 'locale', label: m['palette.language']({ locale: otherLocale }), group: m['palette.actions'](), keywords: 'deutsch english language sprache', run: () => setLocale(otherLocale) },
-		{ id: 'logout', label: m['shell.sign_out'](), group: m['palette.actions'](), run: () => session.logout() }
+		...linkCommands(
+			navItems.map((item) => ({ id: `nav-${item.id}`, label: item.title(), hint: item.description(), keywords: item.keywords, href: item.href })),
+			goto,
+			m['palette.go_to']()
+		),
+		...linkCommands(
+			[
+				{ id: 'new-batch', label: m['palette.new_batch'](), keywords: 'batch edition', href: '/batches?new=1' },
+				{ id: 'generate', label: m['palette.generate'](), keywords: 'code qr', href: '/codes/new' },
+				{ id: 'revoked', label: m['palette.revoked_codes'](), href: '/codes?status=revoked' },
+				{ id: 'admins', label: m['palette.admins'](), href: '/users?role=admin' }
+			],
+			goto,
+			m['palette.actions']()
+		),
+		languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale }), group: m['palette.actions']() }),
+		signOutCommand({ label: m['shell.sign_out'](), run: () => session.logout(), group: m['palette.actions']() })
 	]);
 
 	function dynamicCommands(query: string): Command[] {
@@ -98,9 +112,7 @@
 						<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
 						<span class="brand-name">{m['shell.admin']()}</span>
 					</a>
-					<button type="button" class="palette-trigger" aria-label={m['shell.search']()} title={m['shell.search']()} onclick={() => (paletteOpen = true)}>
-						<span class="search-label"><Icon name="search" /> <span class="wide-only">{m['shell.search']()}</span></span><kbd>Ctrl K</kbd>
-					</button>
+					<PaletteTrigger label={m['shell.search']()} onclick={() => (paletteOpen = true)} />
 					<div class="account">
 						<span class="email" title={session.user?.email}>{session.user?.email}</span>
 						<button type="button" class="plain" onclick={() => setLocale(otherLocale)} title={m['shell.language']()}>
@@ -183,30 +195,9 @@
 		height: 1.25rem;
 		width: auto;
 	}
-	.palette-trigger {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: var(--space-1);
-		min-width: 14rem;
-		min-height: var(--control-height);
+	/* the palette trigger (@scutoons/ui PaletteTrigger) keeps a little more room after the brand */
+	.topbar :global(.sc-palette-trigger) {
 		margin-left: var(--space-1);
-		padding: 0 var(--space-05);
-		border: var(--border-width-regular) solid var(--ink);
-		background: var(--paper);
-		color: var(--text-muted);
-		font: inherit;
-		cursor: pointer;
-	}
-	.palette-trigger:hover {
-		color: var(--ink);
-	}
-	kbd {
-		font: inherit;
-		font-size: var(--type-caption-size);
-		padding: 0 0.3em;
-		border: var(--border-width-regular) solid var(--ink);
-		color: var(--ink);
 	}
 	.account {
 		display: flex;
@@ -300,11 +291,6 @@
 			display: none;
 		}
 	}
-	.search-label {
-		display: inline-flex;
-		align-items: center;
-		gap: var(--space-05);
-	}
 	.burger {
 		align-items: center;
 		justify-content: center;
@@ -334,11 +320,9 @@
 		.burger {
 			display: block;
 		}
-		.palette-trigger {
-			min-width: 0;
+		.topbar :global(.sc-palette-trigger) {
 			margin-left: 0;
 		}
-		.palette-trigger kbd,
 		.email {
 			display: none;
 		}

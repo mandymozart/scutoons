@@ -646,7 +646,8 @@
 		"wanted_map_hint": "Every place of the world map without an image (derived from the map; the image is set in the map builder):",
 		"wanted_map_prompt": "Brief (for an image generator or a designer; attach the style references)",
 		"map_unlock_pending": "not unlockable yet",
-		"app_label": "Creator"
+		"app_label": "Creator",
+		"resize_sidebar": "Drag to resize the sidebar"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",
@@ -662,5 +663,18 @@
 		"change_email": "Use another email",
 		"resend": "Send again",
 		"no_account_hint": "The creator is for existing accounts with the creator role. New accounts are created in the reader."
+	},
+	"palette": {
+		"search": "Search or jump to …",
+		"label": "Command palette",
+		"empty": "Nothing matches.",
+		"keys": "↑↓ move · Enter open · Esc close · Ctrl K or / anywhere",
+		"go_to": "Go to",
+		"actions": "Actions",
+		"language": "Switch language to {locale}",
+		"placeholder": "Type a toon, a chapter or a page …",
+		"toons": "Toons",
+		"home": "All toons",
+		"toon": "Toon page"
 	}
 }

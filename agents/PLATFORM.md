@@ -248,6 +248,12 @@ noble copy and use the published public key.
 - `@scutoons/api`: `createAdminApi`, `client.delete`, `client.fetchRaw`. `@scutoons/ui`: `ActionBar`, `DataTable`,
   `Pager`, `SearchField`, `readList`/`listHref`/`listParams`, `SplitView`, `CommandPalette`, `Skeleton`, `Chart`,
   `RecordInspector` (README entries).
+- Command palette in every tool (owner 2026-10-02): admin, creator and embassy share `CommandPalette` +
+  `PaletteTrigger` (top bar button: search icon, label, `Ctrl K`; icon only < 768px; `compact` = icon + kbd for the
+  crowded creator / embassy bars) + `linkCommands` / `languageCommand` / `signOutCommand` (@scutoons/ui). Creator: all
+  toons, universe pages, style guide, every toon's seasons / chapters ("Cat Pope · Chapter 3", numbers from the content
+  index, loaded on the first open) / script / cast / credits / settings, the current toon first. Embassy: sections,
+  lead views (mine, due, per track), every organisation (`orgs` limit 500, on the first open), "Leads matching …".
 - Bottom action bar (owner rule): `ActionBar` on every admin page (filters/search + pager in `start`, primary action
   right-most) and every creator page (editor: back to chapters, slice ‹ n/N ›, problems summary · undo/redo, preview,
   history, style guide · note, Save draft, Publish; toon page: new chapter, season save/publish; preview: locale +

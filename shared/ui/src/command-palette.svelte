@@ -72,7 +72,8 @@
 	$effect(() => {
 		if (!hotkeys) return;
 		const onKey = (event: KeyboardEvent) => {
-			const target = event.target as HTMLElement | null;
+			// the target can be the window itself (no `closest`)
+			const target = event.target instanceof Element ? event.target : null;
 			const typing = !!target?.closest('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
 			if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
 				event.preventDefault();

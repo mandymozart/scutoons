@@ -1592,3 +1592,19 @@ character, persona, look and mood and doubles as the VN test bed.
   same time (MEMORY "two contract runs"); the rerun was green.
 - Browser pane: with `resize_window` 1440×900 emulation, clicks by ref landed beside the target (scaled pane); typing
   into a textarea did nothing – `form_input` + clicks after resetting to the desktop preset worked.
+
+## Command palette in creator + embassy (2026-10-02, branch `platform`)
+
+- Owner: the admin's "search or jump to" palette also in the creator and the embassy. Shared in @scutoons/ui:
+  `PaletteTrigger` (`label`, `shortcut`, `compact`, `onclick`; `data-testid="palette-trigger"`) and
+  `palette-commands.ts` (`linkCommands`, `languageCommand`, `signOutCommand`, `otherLocale`); the admin uses them
+  (same look). Texts: `palette.*` in each app's messages. PLATFORM.md P2a "Decisions" has what each palette lists.
+- The full label (14rem+, ~430px at the 24px root) does not fit the creator bar (it pushed the breadcrumb out at
+  800px) nor the embassy bar → both use `compact` (icon + `Ctrl K`). Collapsed trigger is `--control-height` wide (44px
+  touch).
+- Lists load on the first palette open (creator: `contentIndex` per toon; embassy: `orgs({ sort: 'name', limit: 500
+  })`); a query typed before the response arrives only shows the static entries until it lands.
+- Gotchas: the Browser pane's key name `Return` does not fire `Enter` (use `Enter`); a synthetic `keydown` dispatched
+  on `window` has no `closest` → `CommandPalette`'s hotkey handler now checks `instanceof Element`. Pre-existing, not
+  fixed: the embassy top bar overflows between 768 and ~1280px (brand + nav + account), the embassy Today page logs
+  `Cannot read properties of undefined (reading 'user')` (`routes/+page.svelte` team filter).

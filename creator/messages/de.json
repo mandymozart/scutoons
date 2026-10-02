@@ -646,7 +646,8 @@
 		"wanted_map_hint": "Jeder Ort der Weltkarte ohne Bild (aus der Karte abgeleitet; das Bild wird im Karten-Builder gesetzt):",
 		"wanted_map_prompt": "Brief (für Bildgenerator oder Designer:in, Stilreferenzen beilegen)",
 		"map_unlock_pending": "noch nicht freischaltbar",
-		"app_label": "Creator"
+		"app_label": "Creator",
+		"resize_sidebar": "Seitenleiste breiter oder schmaler ziehen"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",
@@ -662,5 +663,18 @@
 		"change_email": "Andere E-Mail",
 		"resend": "Nochmal senden",
 		"no_account_hint": "Der Creator ist für bestehende Konten mit der Rolle „creator“. Neue Konten entstehen im Reader."
+	},
+	"palette": {
+		"search": "Suchen oder springen …",
+		"label": "Befehlspalette",
+		"empty": "Nichts gefunden.",
+		"keys": "↑↓ wählen · Enter öffnen · Esc schließen · Ctrl K oder / überall",
+		"go_to": "Gehe zu",
+		"actions": "Aktionen",
+		"language": "Sprache auf {locale} wechseln",
+		"placeholder": "Toon, Kapitel oder Seite eingeben …",
+		"toons": "Toons",
+		"home": "Alle Toons",
+		"toon": "Toon-Seite"
 	}
 }

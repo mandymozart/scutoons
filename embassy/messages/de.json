@@ -183,5 +183,23 @@
 		"no_answer": "nicht erreicht",
 		"call_back": "Rückruf …",
 		"declined": "abgesagt"
+	},
+	"palette": {
+		"search": "Suchen oder springen …",
+		"label": "Befehlspalette",
+		"empty": "Nichts gefunden.",
+		"keys": "↑↓ wählen · Enter öffnen · Esc schließen · Ctrl K oder / überall",
+		"go_to": "Gehe zu",
+		"actions": "Aktionen",
+		"language": "Sprache auf {locale} wechseln",
+		"placeholder": "Bereich, Organisation oder Stadt eingeben …",
+		"leads": "Leads",
+		"orgs": "Organisationen",
+		"find": "Suche",
+		"search_leads": "Leads mit „{q}“",
+		"track": "Leads in {track}",
+		"mine": "Meine Leads",
+		"due": "Fällige Leads",
+		"new_org": "Neue Organisation"
 	}
 }

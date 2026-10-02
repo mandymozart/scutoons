@@ -4,14 +4,24 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { AppShell, Icon } from '@scutoons/ui';
+	import {
+		AppShell,
+		CommandPalette,
+		Icon,
+		PaletteTrigger,
+		languageCommand,
+		linkCommands,
+		signOutCommand,
+		type Command,
+		type PaletteLink
+	} from '@scutoons/ui';
 	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
-	import { entities } from '@scutoons/content';
+	import { entities, parseEntityKey } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
-	import { library } from '$lib/api.ts';
+	import { contentIndex, library } from '$lib/api.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import NavSidebar from '$lib/components/nav-sidebar.svelte';
@@ -115,6 +125,60 @@
 
 	// role gate (AuthGate): `creator` – the server checks it again on every content write
 	const isCreator = $derived(session.isLoggedIn && canUseApp('creator', session.roles));
+
+	// ── Command palette (Ctrl/⌘K, `/`; @scutoons/ui CommandPalette like the admin): the universe pages, every toon with
+	// its pages, seasons and chapters ("Cat Pope · Chapter 3"), language, sign out ──
+	let paletteOpen = $state(false);
+	/** seasons + chapters per toon from the content index (like the sidebar's seasons), loaded on the first open */
+	let toonParts = $state<Record<string, { seasons: number[]; chapters: number[] }>>({});
+	const partsRequested = new Set<string>();
+	$effect(() => {
+		if (!paletteOpen) return;
+		for (const t of nav.toons) {
+			if (partsRequested.has(t.id)) continue;
+			partsRequested.add(t.id);
+			contentIndex(t.id)
+				.then((index) => {
+					const refs = index.entities.map((e) => parseEntityKey(e.key));
+					const numbers = (kind: string) => [...new Set(refs.filter((r) => r?.kind === kind && r.number !== undefined).map((r) => r!.number!))].sort((a, b) => a - b);
+					const seasons = numbers('season');
+					toonParts[t.id] = { seasons: seasons.length ? seasons : [1], chapters: numbers('chapter') };
+				})
+				.catch(() => partsRequested.delete(t.id));
+		}
+	});
+
+	const paletteCommands = $derived.by<Command[]>(() => {
+		const goTo = m['palette.go_to']();
+		const actions = m['palette.actions']();
+		const pages: PaletteLink[] = [
+			{ id: 'home', label: m['palette.home'](), href: '/', keywords: 'toons home start' },
+			...universe.map((item) => ({ id: `universe-${item.tab ?? 'characters'}`, label: item.label, hint: m['creator.universe'](), href: item.href })),
+			{ id: 'guide', label: m['creator.style_guide'](), href: '/guide', keywords: 'style guide design' }
+		];
+		// the toon being worked on comes first
+		const toons = [...nav.toons].sort((a, b) => Number(b.id === toonId) - Number(a.id === toonId));
+		const toonLinks = toons.flatMap((t): PaletteLink[] => {
+			const name = nav.toonName(t.id);
+			const parts = toonParts[t.id];
+			const entry = (id: string, label: string, href: string, keywords?: string): PaletteLink => ({ id: `${t.id}-${id}`, label: `${name} · ${label}`, href, keywords: `${t.id} ${keywords ?? ''}` });
+			return [
+				{ id: `${t.id}-toon`, label: name, hint: m['palette.toon'](), href: `/${t.id}`, keywords: t.id },
+				...(parts?.seasons ?? []).map((n) => entry(`season-${n}`, fileLabel(entities.season(t.id, n)), `/${t.id}/season/${n}`, 'season staffel')),
+				...(parts?.chapters ?? []).map((n) => entry(`chapter-${n}`, fileLabel(entities.chapter(t.id, n)), `/${t.id}/chapter/${n}`, 'chapter kapitel')),
+				entry('script', m['creator.script'](), `/${t.id}/script`, 'script drehbuch screenplay'),
+				entry('cast', m['creator.cast'](), `/${t.id}/cast`, 'cast besetzung'),
+				entry('credits', m['creator.credits'](), `/${t.id}/credits`, 'credits'),
+				entry('settings', fileLabel(entities.toonSettings(t.id)), `/${t.id}/toon`, 'settings einstellungen')
+			];
+		});
+		return [
+			...linkCommands(pages, goto, goTo),
+			...linkCommands(toonLinks, goto, m['palette.toons']()),
+			languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale: locale.toUpperCase() }), group: actions }),
+			signOutCommand({ label: m['creator.sign_out'](), run: () => session.logout(), group: actions })
+		];
+	});
 </script>
 
 <svelte:head>
@@ -130,6 +194,8 @@
 		<AppShell
 			mode={nav.fill ? 'fill' : 'page'}
 			sidebarWidth="var(--tool-sidebar-width)"
+			resizeKey="creator"
+			resizeLabel={m['creator.resize_sidebar']()}
 			sidebarLabel={m['creator.nav_label']()}
 			sidebarId="creator-nav"
 			collapsible
@@ -163,6 +229,7 @@
 							{/each}
 						</ol>
 					</nav>
+					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 					<span class="who">{session.user?.email ?? ''}</span>
 				</header>
 			{/snippet}
@@ -185,6 +252,14 @@
 			{/snippet}
 			{@render children()}
 		</AppShell>
+		<CommandPalette
+			bind:open={paletteOpen}
+			commands={paletteCommands}
+			label={m['palette.label']()}
+			placeholder={m['palette.placeholder']()}
+			emptyLabel={m['palette.empty']()}
+			hint={m['palette.keys']()}
+		/>
 	</AuthGate>
 </div>
 

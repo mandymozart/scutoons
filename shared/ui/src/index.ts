@@ -19,6 +19,8 @@ export { default as Pager } from './pager.svelte';
 export { default as SearchField } from './search-field.svelte';
 export { default as SplitView } from './split-view.svelte';
 export { default as CommandPalette, matchCommand, type Command } from './command-palette.svelte';
+export { default as PaletteTrigger } from './palette-trigger.svelte';
+export { linkCommands, languageCommand, signOutCommand, otherLocale, type PaletteLink } from './palette-commands.ts';
 export { default as Skeleton } from './skeleton.svelte';
 export { default as Chart, type ChartSeries } from './chart.svelte';
 export { default as RecordInspector } from './record-inspector.svelte';

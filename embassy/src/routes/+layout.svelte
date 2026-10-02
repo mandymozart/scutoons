@@ -4,10 +4,23 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { Icon, ToastStack } from '@scutoons/ui';
+	import {
+		CommandPalette,
+		Icon,
+		PaletteTrigger,
+		ToastStack,
+		languageCommand,
+		linkCommands,
+		otherLocale as nextLocale,
+		signOutCommand,
+		type Command
+	} from '@scutoons/ui';
+	import { TRACKS, type OrgSummary } from '@scutoons/api';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { setEmbassySession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
+	import { embassy } from '$lib/api.ts';
+	import { label } from '$lib/labels.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
@@ -26,7 +39,7 @@
 
 	// role gate (AuthGate): liaison / ambassador / admin – the server checks it again on every /embassy call
 	const isAmbassador = $derived(session.hasRole('ambassador') || session.hasRole('admin'));
-	const otherLocale = $derived(locales.find((l) => l !== getLocale()) ?? 'en');
+	const otherLocale = $derived(nextLocale(locales, getLocale()));
 
 	const nav = $derived([
 		{ href: '/', label: m['nav.today'](), icon: 'clock' },
@@ -34,6 +47,56 @@
 		{ href: '/orgs/new', label: m['nav.new'](), icon: 'plus' },
 		...(isAmbassador ? [{ href: '/import', label: m['nav.import'](), icon: 'upload' }] : [])
 	]);
+	// ── Command palette (Ctrl/⌘K, `/`; @scutoons/ui CommandPalette like the admin): the sections, lead views, every
+	// organisation (loaded on the first open, the API's 500 maximum), "leads matching …", language, sign out ──
+	let paletteOpen = $state(false);
+	let orgs = $state<OrgSummary[]>([]);
+	let orgsRequested = false;
+	$effect(() => {
+		if (!paletteOpen || orgsRequested) return;
+		orgsRequested = true;
+		embassy
+			.orgs({ sort: 'name', limit: 500 })
+			.then((result) => (orgs = result.items))
+			.catch(() => (orgsRequested = false));
+	});
+	const paletteCommands = $derived.by<Command[]>(() => {
+		const actions = m['palette.actions']();
+		return [
+			...linkCommands(
+				nav.map((item) => ({ id: `nav-${item.href}`, label: item.href === '/orgs/new' ? m['palette.new_org']() : item.label, href: item.href })),
+				goto,
+				m['palette.go_to']()
+			),
+			...linkCommands(
+				[
+					{ id: 'leads-mine', label: m['palette.mine'](), href: '/leads?owner=me' },
+					{ id: 'leads-due', label: m['palette.due'](), href: '/leads?due=1', keywords: 'overdue fällig' },
+					...TRACKS.map((track) => ({ id: `leads-${track}`, label: m['palette.track']({ track: label('track', track) }), href: `/leads?track=${track}` }))
+				],
+				goto,
+				m['palette.leads']()
+			),
+			...linkCommands(
+				orgs.map((org) => ({
+					id: `org-${org.id}`,
+					label: org.name,
+					hint: [label('type', org.type), org.city, org.country].filter(Boolean).join(' · '),
+					keywords: org.tags.join(' '),
+					href: `/orgs/${encodeURIComponent(org.id)}`
+				})),
+				goto,
+				m['palette.orgs']()
+			),
+			languageCommand({ locales, current: getLocale(), setLocale, label: (locale) => m['palette.language']({ locale: locale.toUpperCase() }), group: actions }),
+			signOutCommand({ label: m['shell.sign_out'](), run: () => session.logout(), group: actions })
+		];
+	});
+	function dynamicCommands(query: string): Command[] {
+		if (!query) return [];
+		return [{ id: 'search-leads', label: m['palette.search_leads']({ q: query }), group: m['palette.find'](), run: () => goto(`/leads?q=${encodeURIComponent(query)}`) }];
+	}
+
 	const isCurrent = (href: string) =>
 		href === '/' ? page.url.pathname === '/' : page.url.pathname === href || (href === '/leads' && page.url.pathname.startsWith('/orgs/') && page.url.pathname !== '/orgs/new');
 </script>
@@ -56,6 +119,7 @@
 					</a>
 				{/each}
 			</nav>
+			<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 			<div class="account">
 				<span class="email" title={session.user?.email}>
 					{session.user?.email} · {isAmbassador ? m['shell.ambassador']() : m['shell.liaison']()}
@@ -69,6 +133,15 @@
 		<main>
 			{@render children()}
 		</main>
+		<CommandPalette
+			bind:open={paletteOpen}
+			commands={paletteCommands}
+			dynamic={dynamicCommands}
+			label={m['palette.label']()}
+			placeholder={m['palette.placeholder']()}
+			emptyLabel={m['palette.empty']()}
+			hint={m['palette.keys']()}
+		/>
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['shell.dismiss']()} />
 </div>
