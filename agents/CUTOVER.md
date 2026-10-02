@@ -241,12 +241,13 @@ manifest codes. Decide before the public release which set was printed (revoke t
   credits, characters with Top Toy's tendencies, map, toptoy/yellowmouse). **Not needed:** `credits-seed`,
   `characters-seed` (subsets), `2026-10-01-media-quality-chapter0.mysql.sql` (only acts on an old chapter 0 – harmless
   if run).
-- [ ] **3.4 A+O – Edition numbers.** *(A part done 2026-10-02: `C:\Development\scutoons\cdn\logs\edition-numbers-2026-10-02.sql`
+- [x] **3.4 A+O – Edition numbers.** *(done 2026-10-02: imported, 300 numbered)* *(A part done 2026-10-02: `C:\Development\scutoons\cdn\logs\edition-numbers-2026-10-02.sql`
   (gitignored), 300 UPDATEs from the one production manifest `BATCH-2026-06-16T1431-3_catpope_vinyl.json` – all
   `3_catpope_vinyl`, only where `edition_number IS NULL`; after import expect `numbered` = 300. O: import it after 3.2.)* A: `cd server; php bin/console backfill-edition-numbers --sql
   --manifests=<backup>/generate/files/batch > ../logs/edition-numbers-2026-10-0X.sql` (no DB needed; A reports the
   statement count). O: *Import* that file into DB-T.
-- [ ] **3.5 O – Verify DB-T** (SQL tab; paste the results to the guide):
+- [ ] **3.5 O – Verify DB-T** *(qr counts ✓ 2026-10-02: 469 codes / 300 numbered / 381 signed / 35 registered; still open:
+  per edition, entity_versions after 3.3, roles, users = 0)* (SQL tab; paste the results to the guide):
   ```sql
   SELECT COUNT(*) AS codes, SUM(email <> '') AS registered, SUM(signature IS NOT NULL) AS signed, SUM(edition_number IS NOT NULL) AS numbered FROM qr;
   SELECT edition_id, COUNT(*) FROM qr GROUP BY edition_id;
@@ -453,3 +454,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — keypair reference SHA-256 409c1983…7bbe recorded (dev key 11934cea… must never go to production); batch manifests for 3.4 are in the same ZIP (`qr.scutoons.com/generate/files/batch/`).
 - 2026-10-02 — 3.4 SQL generated (300 statements, vinyl batch only) → cdn/logs/edition-numbers-2026-10-02.sql.
 - 2026-10-02 — 3.1 + 3.2 done (16 migrations, 3 triggers). Next: 3.4 import + check 469 / 300 numbered / 381 signed / 35 registered; 2.3 keypair upload pending.
+- 2026-10-02 — 3.4 done; DB-T qr counts match (469 / 300 / 381 / 35). 3.3 waits for the assets merge (regenerated seed).
