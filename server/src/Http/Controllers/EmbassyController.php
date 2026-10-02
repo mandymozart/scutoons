@@ -13,7 +13,7 @@ use Scutoons\Http\Middleware\JsonBody;
 /**
  * /api/embassy/* – the Embassy app (embassy.scutoons.com), roles liaison / ambassador (admin counts as ambassador).
  * Contract: server/docs/API.md "Embassy"; rules: Domain\Embassy\Embassy.
- *   GET    /embassy/me                          → { access, user, tracks, stages, types, kinds, outcomes, tiers }
+ *   GET    /embassy/me                          → { access, user, tracks, stages, types, stockist_types, kinds, outcomes, tiers }
  *   GET    /embassy/team                        → { items: [{ id, email, access }] }
  *   GET    /embassy/today?owner=me|all|none|<id> → { today, due: [{ lead, org, people, last_activity, overdue_days }], unscheduled }
  *   GET    /embassy/orgs?q&type&country&tier&track&stage&owner&due&sort&limit&offset → { items, total }
@@ -40,7 +40,7 @@ final class EmbassyController
         return $this->ok($response, [
             'access' => $this->embassy->access($user),
             'user' => ['id' => (string) $user['id'], 'email' => (string) $user['email']],
-            'tracks' => Embassy::TRACKS, 'stages' => Embassy::STAGES, 'types' => Embassy::TYPES,
+            'tracks' => Embassy::TRACKS, 'stages' => Embassy::STAGES, 'types' => Embassy::TYPES, 'stockist_types' => Embassy::STOCKIST_TYPES,
             'kinds' => Embassy::KINDS, 'outcomes' => Embassy::OUTCOMES, 'tiers' => Embassy::TIERS,
         ]);
     }

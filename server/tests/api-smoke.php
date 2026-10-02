@@ -519,6 +519,52 @@ check(str_contains($out, 'member, admin'), 'CLI roles.php list <email>', $out);
 $out = $cli('revoke ' . escapeshellarg($emailC) . ' admin');
 check(str_contains($out, 'Revoked admin') && !Roles::has($userC, 'admin'), 'CLI roles.php revoke', $out);
 
+// ── Stockists: the Embassy's listed stores on the public "Where to buy" list (agents/EMBASSY.md "Stores") ──────
+echo "
+Stockists
+";
+$cli('grant ' . escapeshellarg($emailC) . ' ambassador');
+$storeName = "Smoke Store $run";
+$r = call('POST', "$api/embassy/orgs/", ['name' => $storeName, 'type' => 'store', 'city' => 'Smokeville', 'country' => 'AT',
+    'email' => "private-$run@store.example", 'phone' => '+43 1 555', 'notes' => "smoke-note-$run", 'tags' => ["smoke-tag-$run"],
+    'address' => 'Teststraße 1', 'opening' => 'Mo–Fr 10–18', 'website' => 'store.example', 'listed' => true, 'independent' => true,
+    'carries' => ['awakening_vinyl'], 'people' => [['name' => "Smoke Person $run", 'email' => "person-$run@store.example"]],
+    'leads' => [['track' => 'vinyl', 'stage' => 'won']]], $tokenC);
+$storeId = (string) ($r['body']['org']['id'] ?? '');
+check($r['status'] === 201 && ($r['body']['org']['carries'] ?? null) === ['awakening_vinyl'] && ($r['body']['org']['listed'] ?? null) === true,
+    'POST /embassy/orgs/ type store, listed, carries the vinyl', $r);
+$r = call('POST', "$api/embassy/orgs/", ['name' => "Bad $run", 'type' => 'store', 'carries' => ['no_such_product']], $tokenC);
+check($r['status'] === 400 && ($r['body']['error'] ?? '') === 'invalid_product', 'carries an unknown product → 400 invalid_product', $r);
+$r = call('GET', "$api/stockists/", null, null, ['Origin: https://elsewhere.example']);
+$mine = array_values(array_filter($r['body']['stores'] ?? [], fn($s) => ($s['id'] ?? '') === $storeId));
+check($r['status'] === 200 && count($mine) === 1 && ($r['headers']['access-control-allow-origin'] ?? '') === '*'
+    && ($r['headers']['cache-control'] ?? '') === 'public, max-age=300' && isset($r['headers']['etag']),
+    'GET /stockists/ without a session → the listed store, CORS *, cached 5 min, ETag', $r['headers']);
+check(array_keys($mine[0] ?? []) === ['id', 'name', 'type', 'independent', 'city', 'country', 'address', 'website', 'opening', 'carries']
+    && ($mine[0]['website'] ?? '') === 'https://store.example' && ($mine[0]['independent'] ?? null) === true,
+    'GET /stockists/ → public fields only', $mine[0] ?? null);
+$raw = json_encode($r['body'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+check(!str_contains($raw, "private-$run") && !str_contains($raw, '+43 1 555') && !str_contains($raw, "smoke-note-$run")
+    && !str_contains($raw, "smoke-tag-$run") && !str_contains($raw, "Smoke Person $run") && !str_contains($raw, "person-$run"),
+    'GET /stockists/ never carries emails, phones, notes, tags, people', null);
+check(($r['body']['products']['awakening_vinyl'] ?? 0) >= 1 && in_array('AT', $r['body']['countries'] ?? [], true), 'GET /stockists/ → product counts + countries', $r['body']['products'] ?? null);
+$independentFirst = array_column($r['body']['stores'] ?? [], 'independent');
+check($independentFirst === array_values(array_merge(array_filter($independentFirst), array_filter($independentFirst, fn($v) => !$v))), 'GET /stockists/ → independent vendors first', $independentFirst);
+$r304 = call('GET', "$api/stockists/", null, null, ['If-None-Match: ' . ($r['headers']['etag'] ?? '')]);
+check($r304['status'] === 304, 'GET /stockists/ with If-None-Match → 304', $r304['status']);
+$r = call('GET', "$api/stockists/?product=dago_hoodie&country=AT");
+check($r['status'] === 200 && !in_array($storeId, array_column($r['body']['stores'] ?? [], 'id'), true), '?product= filters (the store has no hoodie)', $r['body']);
+$r = call('GET', "$api/stockists/?product=awakening_vinyl&country=at");
+check(in_array($storeId, array_column($r['body']['stores'] ?? [], 'id'), true), '?product=awakening_vinyl&country=at → the store', $r['body']);
+$r = call('GET', "$api/stockists/?country=Austria");
+check($r['status'] === 400 && ($r['body']['error'] ?? '') === 'invalid_country', '?country=Austria → 400', $r);
+call('PUT', "$api/embassy/orgs/$storeId", ['listed' => false], $tokenC);
+$r = call('GET', "$api/stockists/");
+check(!in_array($storeId, array_column($r['body']['stores'] ?? [], 'id'), true), 'unlisted → gone from /stockists/', null);
+$r = call('DELETE', "$api/embassy/orgs/$storeId", null, $tokenC);
+check($r['status'] === 200, 'DELETE the smoke store (ambassador)', $r);
+$cli('revoke ' . escapeshellarg($emailC) . ' ambassador');
+
 // ── Marketing opt-in on the account page ──────────────────────────────────────────────────────────────
 echo "\nMarketing opt-in\n";
 $r = call('PUT', "$api/me/", ['marketing_opt_in' => false]);

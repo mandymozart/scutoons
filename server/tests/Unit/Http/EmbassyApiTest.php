@@ -97,4 +97,37 @@ final class EmbassyApiTest extends TestCase
         self::assertSame(200, $this->request('DELETE', "/api/embassy/orgs/$id", $amb)->getStatusCode());
         self::assertSame(404, $this->request('GET', "/api/embassy/orgs/$id", $amb)->getStatusCode());
     }
+
+    public function testStockistsArePublicAndCarryNoPrivateFields(): void
+    {
+        $liaison = $this->auth('liaison');
+        $r = $this->request('POST', '/api/embassy/orgs', $liaison, ['name' => 'Testladen', 'type' => 'store', 'city' => 'Wien', 'country' => 'AT',
+            'email' => 'shop@testladen.example', 'phone' => '+43 1 000', 'notes' => 'pays late', 'tags' => ['secret-tag'], 'tier' => 'A',
+            'listed' => true, 'independent' => true, 'carries' => ['awakening_vinyl'], 'people' => [['name' => 'Inhaberin', 'email' => 'boss@testladen.example']],
+            'leads' => [['track' => 'vinyl', 'stage' => 'won']]]);
+        self::assertSame(201, $r->getStatusCode());
+        self::assertSame(['store', 'record_shop'], self::json($this->request('GET', '/api/embassy/me', $liaison))['stockist_types']);
+
+        // no session, any origin, cached
+        $r = $this->request('GET', '/api/stockists/', ['Origin' => 'https://elsewhere.example']);
+        self::assertSame([200, '*', 'public, max-age=300'], [$r->getStatusCode(), $r->getHeaderLine('Access-Control-Allow-Origin'), $r->getHeaderLine('Cache-Control')]);
+        $body = (string) $r->getBody();
+        $data = self::json($r);
+        self::assertSame(['Testladen'], array_column($data['stores'], 'name'));
+        self::assertSame(['awakening_vinyl' => 1], $data['products']);
+        self::assertSame(['AT'], $data['countries']);
+        foreach (['shop@testladen.example', '+43 1 000', 'pays late', 'secret-tag', 'Inhaberin', 'boss@', 'won', 'tier'] as $private) {
+            self::assertStringNotContainsString($private, $body);
+        }
+        $etag = $r->getHeaderLine('ETag');
+        self::assertSame(304, $this->request('GET', '/api/stockists', ['If-None-Match' => $etag])->getStatusCode());
+
+        self::assertSame([], self::json($this->request('GET', '/api/stockists?product=dago_hoodie'))['stores']);
+        // the product counts and countries cover every listed store, whatever the filter
+        $de = self::json($this->request('GET', '/api/stockists?country=de'));
+        self::assertSame([[], ['awakening_vinyl' => 1]], [$de['stores'], $de['products']]);
+        $r = $this->request('GET', '/api/stockists?country=Austria');
+        self::assertSame([400, 'invalid_country'], [$r->getStatusCode(), self::json($r)['error']]);
+        self::assertSame(404, $this->request('POST', '/api/stockists', [], [])->getStatusCode()); // read only
+    }
 }
