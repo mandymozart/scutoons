@@ -43,7 +43,7 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 | KAS target dir `creator.scutoons.com` (in use?) | |
 | KAS target dir `cdn.scutoons.com` (old CDN folder) | `/cdn.scutoons.com/` (per its FTP user; confirm) |
 | Old DB tables (expected: `qr` only, maybe `schema_migrations`) | |
-| Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | **469 / 35 / 381**; MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per edition: NULL 169, `3_catpope_vinyl` 300 (sum 469); CHECKSUM: pending |
+| Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | **469 / 35 / 381**; MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per edition: NULL 169, `3_catpope_vinyl` 300 (sum 469); `CHECKSUM TABLE qr` = **3162238151** |
 | New root folder + FTP user | `/web/`, user "github actions next" (2.1) |
 | Test hostnames (proposal `next.scutoons.com` = viewer, `qr-next.scutoons.com` = qr) | |
 | DB labels: **DB-T** (test build) / **DB-P** (switch-day build, only if needed – Phase 7) | |
@@ -75,7 +75,7 @@ Decide before: nothing.
   and DB-P is rebuilt from a fresh export (it then carries the code).
 - [x] **0.1 O – Export the OLD database.** Done 2026-10-02: export stored in the owner's Proton Drive backups folder
   (Scutoons/Backups); it contains **only the `qr` table** (confirmed – no accounts/inventories/progress to migrate).
-  Still to note in "Current state": the numbers of the query block below. phpMyAdmin → old DB → *Export* → *Custom* → all tables, structure + data,
+  Numbers recorded in "Current state" (469 / 35 / 381, checksum 3162238151). phpMyAdmin → old DB → *Export* → *Custom* → all tables, structure + data,
   format SQL, compression gzip → save as `scutoons-db-old-2026-10-0X.sql.gz` in two places offline (disk + USB/cloud
   drive). Right after, in the old DB's *SQL* tab run and note the numbers in "Current state":
   ```sql
@@ -324,7 +324,7 @@ Decide before: **D8** accept that test-phase data is thrown away if the old DB c
 alternative is T4).
 
 - [ ] **7.1 O – Gate.** In the OLD DB: `CHECKSUM TABLE qr;` and the 0.1 count query (T0: 469 / 35 / 381, MAX(created_at)
-  2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46, checksum per "Current state"). **Identical to 0.1 → keep DB-T**
+  2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46, checksum **3162238151**). **Identical to 0.1 → keep DB-T**
   (it is already the production DB; tick 7.2–7.5 as `[-]`). Different (a registration, a new code, a re-signature since
   T0) → 7.2.
 - [ ] **7.2 O – Fresh export** of the old DB at a quiet hour (as 0.1, new T0 values in "Current state").
@@ -432,3 +432,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 0.2 done. Open: the 0.1 numbers, the 0.2 hash/publicKey check. Next in parallel: 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6.
 - 2026-10-02 — 0.1 numbers: 469 codes / 35 registered / 381 signed, MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per-edition + CHECKSUM pending.
 - 2026-10-02 — 0.1 per edition: NULL 169, 3_catpope_vinyl 300 (= 469). No dago/beetles codes in production. CHECKSUM pending.
+- 2026-10-02 — 0.1 complete: CHECKSUM TABLE qr = 3162238151 (Phase 7 reference).
