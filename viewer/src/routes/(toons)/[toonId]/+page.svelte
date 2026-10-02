@@ -5,6 +5,8 @@
 	import StartButton from '$lib/components/toon/start-button.svelte';
 	import Hero from '$lib/components/toon/hero.svelte';
 	import RelatedItems from '$lib/components/toon/related-items.svelte';
+	import { albumAccess, albumByDownload, ownsAlbum } from '@scutoons/content';
+	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { onMount } from 'svelte';
 	import { CoverArt, CreditsColophon } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
@@ -13,6 +15,24 @@
 	let { data, params }: PageProps = $props();
 	let toon = $state(data.toon);
 	let season = $state(data.season);
+
+	// the season's music in its record's row (owner 2026-10-02): the album whose download is the season's zip, and the
+	// related item that carries it; without such an item the separate music block stays
+	const inventory = getInventoryContext();
+	const musicAlbum = $derived(season?.download?.music ? albumByDownload(inventory.catalog, `${params.toonId}/${season.download.music}`) : undefined);
+	const musicCarrier = $derived(
+		musicAlbum ? (season?.related_items ?? []).find((id) => inventory.item(id)?.album === musicAlbum.id) : undefined
+	);
+	/** the download button in that row: `everyone` / `members` (the download page gates members), `owners` only for owners */
+	const musicLink = $derived.by(() => {
+		if (!musicCarrier || !musicAlbum || !season?.download?.music) return null;
+		const owner = ownsAlbum(inventory.catalog, musicAlbum, inventory.entries.map((e) => e.item_id));
+		return {
+			item: musicCarrier,
+			image: season.download.image ? asset(`${params.toonId}/${season.download.image}`) : null,
+			href: albumAccess(musicAlbum).download === 'owners' && !owner ? null : localizeHref(`/${params.toonId}/download`)
+		};
+	});
 	let sequence = $state(data.sequence);
 
 	const seasonNumber = $derived(season?.number ?? 1);
@@ -67,11 +87,11 @@
 						<StartButton toonId={params.toonId} season={seasonNumber} chapters={sequence} />
 					{/if}
 				</div>
-				{#if desktop && season.download?.music}
+				{#if desktop && season.download?.music && !musicLink}
 					{@render music()}
 				{/if}
 				{#if desktop && season.related_items?.length}
-					<RelatedItems ids={season.related_items} />
+					<RelatedItems ids={season.related_items} music={musicLink} />
 				{/if}
 				{#if desktop}
 					{@render colophon()}
@@ -81,12 +101,13 @@
 			<div class="list-column">
 				<ChaptersList items={sequence} toonId={params.toonId} />
 			</div>
-			{#if !desktop && season.download?.music}
+			<!-- the season's related items (season.related_items): icon, name, price + "Kaufen" for physical products; the
+			     season's music sits in its record's row (owner 2026-10-02) – the music block only without related items -->
+			{#if !desktop && season.download?.music && !musicLink}
 				{@render music()}
 			{/if}
-			<!-- the season's related items (season.related_items): icon, name, price + "Kaufen" for physical products -->
 			{#if !desktop && season.related_items?.length}
-				<RelatedItems ids={season.related_items} />
+				<RelatedItems ids={season.related_items} music={musicLink} />
 			{/if}
 		{/if}
 	</section>

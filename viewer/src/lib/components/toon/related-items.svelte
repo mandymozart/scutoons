@@ -12,8 +12,18 @@
 	 * items"; owner 2026-10-02: "nice to upsell physical products on the season landing page"): icon + name from the item
 	 * catalog, and for a physical item with a shop product its price + "Kaufen" (the product's Bandcamp link, like the
 	 * landing page's editions) – or "Ausverkauft". Items the reader already owns say so. Unknown ids are skipped.
+	 * Owner 2026-10-02 (screenshot): no heading or rule; the season's music lives in the row of the record that carries
+	 * it – its big cut-out as the picture and "Download the music" as the action (an owner sees no "Buy").
 	 */
-	let { ids }: { ids: string[] } = $props();
+	let {
+		ids,
+		music = null
+	}: {
+		ids: string[];
+		/** the season's music in the row of `item` (the record carrying the album): its cut-out, and the download page
+		 * (null = this reader may not download it, e.g. `owners` only) */
+		music?: { item: string; image: string | null; href: string | null } | null;
+	} = $props();
 
 	const inventory = getInventoryContext();
 	const locale = getLocale();
@@ -24,30 +34,46 @@
 
 	const items = $derived(ids.map((id) => inventory.item(id)).filter((item) => !!item));
 	const owns = (id: string) => inventory.entries.some((e) => e.item_id === id);
+	const musicItem = $derived(music?.item);
 </script>
 
 {#if items.length}
 	<section class="related" aria-labelledby="season-related" data-testid="season-related">
-		<h3 id="season-related">{m['season.related']()}</h3>
+		<h3 id="season-related" class="sr-only">{m['season.related']()}</h3>
 		<ul>
 			{#each items as item (item.id)}
 				{@const product = item.kind === 'physical' ? productOf(products, item) : undefined}
 				{@const name = localized(item.name)}
-				<li data-item={item.id}>
-					<div class="thumb"><ItemIcon srcs={[item.icon]} {name} /></div>
+				{@const withMusic = musicItem === item.id && !!music}
+				{@const owned = owns(item.id)}
+				<li data-item={item.id} class:with-music={withMusic}>
+					<div class="thumb">
+						{#if withMusic && music?.image}
+							<img src={music.image} alt="" loading="lazy" decoding="async" data-testid="season-download-image" />
+						{:else}
+							<ItemIcon srcs={[item.icon]} {name} />
+						{/if}
+					</div>
 					<div class="info">
 						<span class="name">{name}</span>
-						{#if owns(item.id)}
+						{#if owned}
 							<span class="meta" data-testid="related-owned">{m['season.related_owned']()}</span>
 						{:else if product && !isSoldOut(product)}
 							<span class="meta">{formatPrice(variantPrice(product, pickVariant(product)), products?.currency ?? 'EUR', locale)}</span>
 						{/if}
 					</div>
-					{#if product && isSoldOut(product)}
-						<span class="meta sold-out">{m['season.sold_out']()}</span>
-					{:else if product}
-						<a class="btn btn-secondary" href={product.link} target="_blank" rel="noopener noreferrer" data-testid="related-buy">{m['season.buy']()}</a>
-					{/if}
+					<div class="actions">
+						{#if !owned}
+							{#if product && isSoldOut(product)}
+								<span class="meta sold-out">{m['season.sold_out']()}</span>
+							{:else if product}
+								<a class="btn btn-secondary" href={product.link} target="_blank" rel="noopener noreferrer" data-testid="related-buy">{m['season.buy']()}</a>
+							{/if}
+						{/if}
+						{#if withMusic && music?.href}
+							<a class="btn btn-secondary" href={music.href} data-testid="season-download">{m['season.download']()}</a>
+						{/if}
+					</div>
 				</li>
 			{/each}
 		</ul>
@@ -58,26 +84,64 @@
 	.related {
 		padding: var(--space-15) 2rem 0;
 	}
-	h3 {
-		margin: 0 0 0.5rem;
-		font-size: 1rem;
+	/* the heading stays for screen readers only (owner 2026-10-02: no visible heading or rule) */
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		padding: 0;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+		border: 0;
 	}
 	ul {
 		list-style: none;
 		margin: 0;
 		padding: 0;
-		border-top: var(--border-width-regular, 2px) solid var(--ink);
 	}
 	li {
 		display: flex;
 		align-items: center;
 		gap: var(--space-1, 0.75rem);
 		padding: 0.5rem 0;
-		border-bottom: var(--border-width-hairline, 1px) solid var(--border-subtle);
+	}
+	/* a thin line only between items (owner 2026-10-02: not under a single one) */
+	li + li {
+		border-top: var(--border-width-hairline, 1px) solid var(--border-subtle);
 	}
 	.thumb {
 		width: 4rem;
 		flex: none;
+	}
+	/* the record's cut-out, big like the old music block */
+	.with-music .thumb {
+		width: 8rem;
+	}
+	.thumb img {
+		display: block;
+		width: 100%;
+		height: auto;
+	}
+	.actions {
+		flex: none;
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 0.5rem;
+	}
+	/* picture + title on one line, the buttons below side by side – the season column is narrow on every screen */
+	li {
+		flex-wrap: wrap;
+	}
+	.actions {
+		flex: 1 1 100%;
+		flex-direction: row;
+	}
+	.actions > * {
+		flex: 1;
+		text-align: center;
 	}
 	.info {
 		flex: 1;
@@ -106,11 +170,6 @@
 		.related {
 			padding: 0.5rem 0 0;
 		}
-		h3 {
-			font-size: 0.6667rem;
-			text-transform: uppercase;
-			letter-spacing: 0.08em;
-		}
 		.name {
 			font-size: 0.6667rem;
 		}
@@ -119,6 +178,9 @@
 		}
 		.thumb {
 			width: 3rem;
+		}
+		.with-music .thumb {
+			width: 6rem;
 		}
 		.btn {
 			font-size: 0.6667rem;

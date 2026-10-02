@@ -385,17 +385,17 @@ for (const [w, h] of [[1440, 900], [390, 844]]) for (const l of ['de', 'en']) {
 	report(`${w} ${l}: menu = account/language, then toons, no "SCUTOONS" entry, inert when closed, focus on the first toon, Escape → menu button; logo → the landing page`, p);
 }
 
-// the record beside the music button (season.download.image): desktop left of the button in the season column, phone /
-// tablet a smaller one beside the centred button; decorative (alt ""), lazy
+// the season's music in its record's row (owner 2026-10-02): the record's cut-out (season.download.image) as the row's
+// picture, "Download the music" under it; desktop in the season column; decorative (alt ""), lazy
 const musicImage = bundles.de.seasons[0].season.download?.image;
 const MUSIC = `(async () => {
-	const wrap = document.querySelector('[data-testid="season-download"]');
-	if (!wrap) return null;
+	const btn = document.querySelector('[data-testid="season-download"]');
+	if (!btn) return null;
+	const wrap = btn.closest('li') ?? btn.parentElement;
 	wrap.scrollIntoView({ block: 'center' });
 	const img = wrap.querySelector('[data-testid="season-download-image"]');
 	for (let i = 0; i < 40 && img && !(img.complete && img.naturalWidth); i++) await new Promise((r) => setTimeout(r, 100));
 	const box = (e) => { if (!e) return null; const r = e.getBoundingClientRect(); return { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.width), h: Math.round(r.height) }; };
-	const btn = wrap.querySelector('a.btn');
 	return {
 		img: img ? { ...box(img), src: img.currentSrc || img.src, alt: img.getAttribute('alt'), loading: img.loading, loaded: img.complete && img.naturalWidth > 0 } : null,
 		btn: box(btn), text: btn?.textContent.trim(), href: btn && new URL(btn.href).pathname,
@@ -413,16 +413,12 @@ else for (const [w, h] of [[390, 844], [768, 1024], [1280, 800], [1440, 900]]) f
 	else {
 		if (!s.img.src.endsWith(`/${toon}/${musicImage}`) || s.img.alt !== '' || s.img.loading !== 'lazy' || !s.img.loaded) p.push(`image ${JSON.stringify(s.img)}`);
 		if (s.text !== messages[l].season.download || s.href !== `${prefix}/${toon}/download`) p.push(`button "${s.text}" → ${s.href}`);
-		if (s.img.x + s.img.w > s.btn.x + 1) p.push(`the record is not left of the button: ${JSON.stringify({ img: s.img, btn: s.btn })}`);
-		const mid = (b) => b.y + b.h / 2;
-		if (Math.abs(mid(s.img) - mid(s.btn)) > 3) p.push(`not vertically centred: record ${mid(s.img)}, button ${mid(s.btn)}`);
+		if (s.btn.y < s.img.y + s.img.h - 1) p.push(`the button is not below the record: ${JSON.stringify({ img: s.img, btn: s.btn })}`);
 		if (w >= 1024) {
 			if (!s.inSeasonColumn) p.push('not in the season column');
 			if (s.img.w < 120 || s.img.w > 160) p.push(`record ${s.img.w} px wide (120-160 on desktop)`);
 		} else {
-			if (s.img.w < 60 || s.img.w > 110) p.push(`record ${s.img.w} px wide (60-110 on phone / tablet)`);
-			const centre = (s.img.x + s.btn.x + s.btn.w) / 2;
-			if (Math.abs(centre - s.viewport / 2) > 4) p.push(`record + button not centred: ${centre} vs ${s.viewport / 2}`);
+			if (s.img.w < 96 || s.img.w > 200) p.push(`record ${s.img.w} px wide (96-200 on phone / tablet: the row's big picture)`);
 		}
 	}
 	report(`${w} ${l}: the record (${musicImage}) beside "${messages[l].season.download}"`, p, JSON.stringify(s?.img));
