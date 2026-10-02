@@ -412,7 +412,9 @@ $r = call('GET', "$qrBase/?c=$promo&lang=en");
 check($r['status'] === 200 && is_string($r['body']) && str_contains($r['body'], 'no item to collect') && str_contains($r['body'], '/account?code=' . $promo)
     && str_contains($r['body'], 'Create account') && !str_contains($r['body'], 'Add to my account'), 'landing page promo: no item, Continue + Create account', $r['status']);
 $r = call('GET', "$qrBase/?c=$vinyl&lang=en");
-check(is_string($r['body']) && str_contains($r['body'], 'Add to my account'), 'landing page membership: still Add to my account');
+// registered (user A owns the vinyl): Read + "This is mine? File a claim", no Add to my account (ITEMS.md "Ownership, claims, gifting")
+check(is_string($r['body']) && str_contains($r['body'], 'id="file-claim"') && str_contains($r['body'], "code=$vinyl&amp;claim=1")
+    && !str_contains($r['body'], 'Add to my account') && !str_contains($r['body'], $emailA), 'landing page, registered membership: Read + File a claim (never the owner)');
 
 $a2 = login($emailA);
 check($a2['created'] === false && ($a2['user']['email'] ?? null) === $emailA, 'existing account without a code → sign-in works');
