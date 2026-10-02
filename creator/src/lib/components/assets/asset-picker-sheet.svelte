@@ -43,6 +43,7 @@
 		toon = '',
 		kind = 'image',
 		value = '',
+		place = '',
 		title,
 		onpick
 	}: {
@@ -53,6 +54,8 @@
 		kind?: AssetPickerKind;
 		/** the field's current file (CDN-root path) – preselected */
 		value?: string;
+		/** where an upload goes by the content rules (CDN-root folder of the field's place, e.g. catpope/s1/c2/) */
+		place?: string;
 		title?: string;
 		onpick: (picked: PickedAsset) => void;
 	} = $props();
@@ -186,11 +189,11 @@
 	}
 
 	// ── upload: a new file into its place in the toon hierarchy (agents/ASSETS.md "Folder convention") ─────────────────
-	/** "s1c2-slice-14.webp" → "s1/c2", "s1-cover.webp" → "s1", anything else → the toon's own folder (editable) */
+	/** without a `place`: "s1c2-slice-14.webp" → "s1/c2", "s1-cover.webp" → "s1", anything else → the toon's own folder (editable) */
 	const placeOf = (name: string) => {
-		const chapter = name.match(/^s(\d+)c(\d+)-/);
+		const chapter = name.match(/^s(\d+)c(\d+)[-_]/);
 		if (chapter) return `s${chapter[1]}/c${chapter[2]}/`;
-		const season = name.match(/^s(\d+)-/);
+		const season = name.match(/^s(\d+)[-_]/);
 		return season ? `s${season[1]}/` : '';
 	};
 	function chooseFile(event: Event) {
@@ -199,7 +202,8 @@
 		uploadError = '';
 		if (file) {
 			const clean = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-');
-			uploadPath = `${folder || toon || 'scutoons'}/${placeOf(clean)}${clean}`;
+			// the field's place first (owner 2026-10-03: uploads go next to where they are used, by the content rules)
+			uploadPath = place ? `${place.replace(/\/?$/, '/')}${clean}` : `${folder || toon || 'scutoons'}/${placeOf(clean)}${clean}`;
 		}
 	}
 	async function upload() {

@@ -26,6 +26,8 @@
 	let choosingKeyvisualVideo = $state(false);
 
 	const ch = $derived(doc.get(doc.primary, []));
+	/** the chapter's folder by the content rules – uploads from its fields land there (catpope/s1/c2/) */
+	const place = $derived(`${doc.toon}/s${Number(season?.get(season.primary, ['number'])) || 1}/c${number}/`);
 	const statusLocales = $derived(season && !season.loading ? season.locales : []);
 	const syncChanges = $derived(chapterSyncChanges(doc, season, number));
 	const stringKeyvisual = $derived(doc.present.filter((l) => typeof doc.get(l, ['keyvisual']) === 'string'));
@@ -83,7 +85,7 @@
 	</div>
 
 	<div class="grid g2">
-		<ImagePicker toon={doc.toon} label="thumbnail" value={ch?.thumbnail} known={images} onchange={(v) => doc.setShared(['thumbnail'], v)} />
+		<ImagePicker toon={doc.toon} {place} label="thumbnail" value={ch?.thumbnail} known={images} onchange={(v) => doc.setShared(['thumbnail'], v)} />
 		<div>
 			{#if stringKeyvisual.length}
 				<p class="warn">
@@ -91,7 +93,7 @@
 					<button type="button" class="secondary" onclick={convertKeyvisual}>Convert</button>
 				</p>
 			{:else}
-				<ImagePicker toon={doc.toon} label="keyvisual.image" value={ch?.keyvisual?.image} known={images} onchange={(v) => doc.setShared(['keyvisual', 'image'], v)} />
+				<ImagePicker toon={doc.toon} {place} label="keyvisual.image" value={ch?.keyvisual?.image} known={images} onchange={(v) => doc.setShared(['keyvisual', 'image'], v)} />
 				<PropField {doc} path={['keyvisual', 'video']} label="keyvisual.video" placeholder="s1/c2/s1c2-key-visual.mp4" />
 				<!-- the key visual's video through the asset picker too (owner 2026-10-03: the mp4 could not be uploaded) -->
 				<button type="button" class="secondary" onclick={() => (choosingKeyvisualVideo = true)} title={m['creator.assets_choose_video_hint']()} data-testid="keyvisual-video-choose">{m['creator.assets_choose_video']()}</button>
@@ -100,6 +102,7 @@
 					toon={doc.toon}
 					kind="video"
 					value={ch?.keyvisual?.video ? rootPath(ch.keyvisual.video, doc.toon) : ''}
+					{place}
 					title="keyvisual.video"
 					onpick={(picked) => doc.setShared(['keyvisual', 'video'], toonRelativePath(picked.path, doc.toon))}
 				/>

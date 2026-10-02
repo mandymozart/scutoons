@@ -16,7 +16,8 @@
 		onchange,
 		label = 'image',
 		hideLabel = false,
-		showFormat = false
+		showFormat = false,
+		place = ''
 	}: {
 		toon: string;
 		value: string | undefined;
@@ -26,6 +27,8 @@
 		/** the label only for screen readers – when the surrounding field already shows it (owner 2026-10-02: "LOGO" twice) */
 		hideLabel?: boolean;
 		showFormat?: boolean;
+		/** where an upload goes (CDN-root folder, the asset picker's `place`) */
+		place?: string;
 	} = $props();
 
 	let open = $state(false);
@@ -87,6 +90,7 @@
 		{toon}
 		kind="image"
 		value={value ? rootPath(value, toon) : ''}
+		{place}
 		title={label}
 		onpick={(picked) => onchange(toonRelativePath(picked.path, toon))}
 	/>
