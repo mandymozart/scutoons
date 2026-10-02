@@ -319,7 +319,7 @@ into the new DB) or one of your own product codes.
   account; `/?c=CODE&skip=1` → redirect; unknown → 404 page; `/verify.html?code=<UPPER CASE>` → Authentic + fingerprint
   = the printed one; `/api/validate/?c=CODE` (JSON, `Access-Control-Allow-Origin: *`); `/api/keys/keys.php`.
   (Continue / Add-to-account links still go to the OLD viewer at scutoons.com during this test – expected.)
-- [ ] **6.3 O – Your account + roles.** `https://next.scutoons.com/account?code=<D7 code>` → sign up with your email →
+- [x] **6.3 O – Your account + roles.** *(done 2026-10-02: signed up with promo KbYfB3qp; SMTP_PASS secret was wrong → fixed, checked with `server/bin/smtp-login-test.php`)* `https://next.scutoons.com/account?code=<D7 code>` → sign up with your email →
   the login mail arrives (check spam; SPF/DKIM). Then phpMyAdmin → DB-T → SQL:
   ```sql
   INSERT IGNORE INTO user_roles (user_id, role_id, granted_at, granted_by)
