@@ -261,7 +261,8 @@ manifest codes. Decide before the public release which set was printed (revoke t
 ## Phase 5 — Deploy the new platform into `/web/` (nothing points at it except the new/test hostnames)
 
 Decide before: **D5** embassy stays held back for the beta (default yes: not in `targets.json` `order`, workflow manual).
-Preconditions: **2.1 done (FTP secrets = the subfolder user!)**, 0.4 done, T1 done.
+Preconditions: **2.1 done (FTP secrets = the subfolder user!)**, 0.4 done, T1 done. After the assets merge also: the 7 `BUNNY_*` / `CDN_PUBLIC_URL`
+secrets in `production` (step 10.1b – needed from the first deploy, since the merge ships the asset manager).
 
 - [ ] **5.1 A – Local dry run:** `npm run deploy:dry-run` (builds everything; plan: api → `api/`, qr → `qr/`, viewer →
   `viewer/dist/`, shop, creator, admin; protected `storage/**`, `db/**`, `logs/**`). Plus the full suite on the tree
