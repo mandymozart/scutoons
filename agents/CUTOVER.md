@@ -314,7 +314,7 @@ into the new DB) or one of your own product codes.
   printed UPPER CASE → `valid: true`, `/api/stockists/` → empty list, `/?c=x` → 404, and
   `php server/tests/entities-compare.php https://api.scutoons.com --report` (library = seed). O: `/generate/` asks for
   the password (if 5.5).
-- [ ] **6.2 O – qr-next.scutoons.com (printed URLs):** with real codes: membership `/?c=CODE` and `?c=CODE` (no slash)
+- [x] **6.2 O – qr-next.scutoons.com (printed URLs):** *(done 2026-10-02: all 9 cases; A: validate CORS + keys checked)* with real codes: membership `/?c=CODE` and `?c=CODE` (no slash)
   → item page with Continue + Add to my account; a registered one → Read + "This is mine? File a claim"; promo → Create
   account; `/?c=CODE&skip=1` → redirect; unknown → 404 page; `/verify.html?code=<UPPER CASE>` → Authentic + fingerprint
   = the printed one; `/api/validate/?c=CODE` (JSON, `Access-Control-Allow-Origin: *`); `/api/keys/keys.php`.
