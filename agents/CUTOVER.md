@@ -131,9 +131,9 @@ All commands in `C:\Development\scutoons\server` (PowerShell), after the merge.
   report states; `cdn/root` then holds only the new layout). Verify: A runs the validation's media checks /
   `assets:check-storage` comparison – 0 references to missing files.
 - [x] **1.2 O – Write fence off:** *(n/a now: the main checkout's `server/config.local.php` has no `BUNNY_WRITE_PREFIX` line – the `.env` with the 7 keys moved to `C:\Development\scutoons`)* in `server/config.local.php` the `BUNNY_WRITE_PREFIX` line commented out.
-- [ ] **1.3 O – Read-only check:** `php bin/console assets:check-storage` → all keys "set", zone `scutoons`, pull zone
+- [x] **1.3 O – Read-only check:** *(done: 7 keys set, zone empty, pull zone 6731366 origin = storage zone #1599226, API key valid)* `php bin/console assets:check-storage` → all keys "set", zone `scutoons`, pull zone
   6731366 origin = the storage zone.
-- [ ] **1.4 O – Plan (dry run):** *(the zone is EMPTY now – the owner emptied it, D1 moot: expect ≈ 720 to upload / ≈ 806 MB, 0 different, 0 only on
+- [x] **1.4 O – Plan (dry run):** *(done: 720 files / 805.9 MB to upload, 0 same / different / only on target)* *(the zone is EMPTY now – the owner emptied it, D1 moot: expect ≈ 720 to upload / ≈ 806 MB, 0 different, 0 only on
   the target)* `php bin/console assets:sync --source-root=../cdn/root --hash` → paste the summary
   (to upload / different / only on target) to the guide before applying.
 - [ ] **1.5 O – Apply:** `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
@@ -238,7 +238,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
   Hint: if phpMyAdmin's *Import* answers "Incorrect format parameter" (seen on content-versions), paste the file into
   the *SQL* tab with delimiter `;` instead.
   Not to run: `migrations/mysql/legacy/*` (already in the old data), `schema/qr.mysql.sql`.
-- [ ] **3.3 O – Content seed:** *(unblocked 2026-10-02: the file is regenerated with the new media paths – import THIS version)* *Import* `shared/content/seed/content-seed.mysql.sql` (48 entities: catpope chapters
+- [x] **3.3 O – Content seed:** *(done 2026-10-02: entity_versions = 48)* *(unblocked 2026-10-02: the file is regenerated with the new media paths – import THIS version)* *Import* `shared/content/seed/content-seed.mysql.sql` (48 entities: catpope chapters
   0–5, scenes, season 1 with related items, the record-player-repair pickups, trailer + chapter-0 quality variants,
   credits, characters with Top Toy's tendencies, map, toptoy/yellowmouse). **Not needed:** `credits-seed`,
   `characters-seed` (subsets), `2026-10-01-media-quality-chapter0.mysql.sql` (only acts on an old chapter 0 – harmless
@@ -248,7 +248,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
   `3_catpope_vinyl`, only where `edition_number IS NULL`; after import expect `numbered` = 300. O: import it after 3.2.)* A: `cd server; php bin/console backfill-edition-numbers --sql
   --manifests=<backup>/generate/files/batch > ../logs/edition-numbers-2026-10-0X.sql` (no DB needed; A reports the
   statement count). O: *Import* that file into DB-T.
-- [ ] **3.5 O – Verify DB-T** *(qr counts ✓ 2026-10-02: 469 codes / 300 numbered / 381 signed / 35 registered; still open:
+- [x] **3.5 O – Verify DB-T** *(done 2026-10-02: all checks as expected)* *(qr counts ✓ 2026-10-02: 469 codes / 300 numbered / 381 signed / 35 registered; still open:
   per edition, entity_versions after 3.3, roles, users = 0)* (SQL tab; paste the results to the guide):
   ```sql
   SELECT COUNT(*) AS codes, SUM(email <> '') AS registered, SUM(signature IS NOT NULL) AS signed, SUM(edition_number IS NOT NULL) AS numbered FROM qr;
@@ -458,3 +458,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 3.1 + 3.2 done (16 migrations, 3 triggers). Next: 3.4 import + check 469 / 300 numbered / 381 signed / 35 registered; 2.3 keypair upload pending.
 - 2026-10-02 — 3.4 done; DB-T qr counts match (469 / 300 / 381 / 35). 3.3 waits for the assets merge (regenerated seed).
 - 2026-10-02 — assets merged (b3be086, 67774da), relayout done (1.1), .env in C:\Development\scutoons, bunny zone empty. Migration 17 `2026-10-02-assets` added to 3.2; 3.3 unblocked. Next: 3.3 seed, migration 17, then 1.3/1.4 from C:\Development\scutoons\server. Worktree scutoons-assets can be removed later.
+- 2026-10-02 — 3.3 + 3.5 done (48 entities, roles, users 0, editions NULL 169 + vinyl 300); migration 17 awaiting the owner's confirmation; 1.3 + 1.4 done. Owner running 1.5 (log cdn/logs/bunny-init-2026-10-02.json), then 1.6, 1.7.
