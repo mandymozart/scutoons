@@ -51,8 +51,8 @@ export const {
 /** Public data: a client without session / device id headers, so the browser sends a simple request (no CORS preflight). */
 const publicApi = createApiClient({ baseUrl: API_URL });
 
-/** Shop data (homepage slides): API /products/ and /products/featured/. */
-export const { fetchProducts, fetchFeaturedProducts } = createProductsApi(publicApi);
+/** Shop data (homepage slides): API /products/ and /products/featured/; the stores carrying them: /stockists/ ("Where to buy"). */
+export const { fetchProducts, fetchFeaturedProducts, fetchStockists } = createProductsApi(publicApi);
 
 /** Item catalog + editions (public; the inventory loads them on every page). */
 export const { fetchCatalog, fetchEditions } = createQrApi(publicApi);

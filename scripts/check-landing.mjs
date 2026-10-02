@@ -12,7 +12,7 @@
 //   - LIMITED EDITIONS: intro + "Digitaler Download inklusive · weltweiter Versand", the featured editions in the API's
 //     order (/products/featured/ resolved against /products/) with sizes (sold out struck), colours, price, "Limitiert
 //     auf N Stück", "Kaufen" (the Bandcamp link), the slider (1 slide < 768 px, 3 from 768 px; the arrows move it);
-//     "Alle Editionen" → the shop; the footer links (Termine, Quellenangaben); no release date anywhere on the page;
+//     "Alle Editionen" → the shop; the footer links (Wo kaufen – only with a listed store –, Termine, Quellenangaben); no release date anywhere on the page;
 //   - the main menu: the published toons are links, the announced ones greyed "bald" without a link (the helmet image),
 //     no sandbox.
 // The test user (agent@scutoons.test, role admin), 1280 de: the admin app's "Startseite" page (localhost:11000/homepage)
@@ -59,6 +59,8 @@ for (const l of ['de', 'en']) {
 	}
 }
 const catalog = await getJson('/products/');
+// "Wo kaufen" in the footer only once a store is listed (agents/EMBASSY.md "Stores")
+const hasStores = ((await getJson('/stockists/').catch(() => ({ stores: [] }))).stores ?? []).length > 0;
 async function expectedEditions() {
 	const featured = await getJson('/products/featured/');
 	return featured.flatMap((f) => {
@@ -285,11 +287,11 @@ async function guest(width, height, locale) {
 		const p = [];
 		if (!s.footer || s.footer.claim !== msg.home.footer) p.push(`footer claim ${JSON.stringify(s.footer)}`);
 		const links = JSON.stringify(s.footer?.links ?? []);
-		if (links !== JSON.stringify([[msg.home.events, `${prefix}/events`], [msg.home.attributions, `${prefix}/attributions`]])) p.push(`footer links ${links}`);
+		if (links !== JSON.stringify([...(hasStores ? [[msg.home.stores, `${prefix}/stores`]] : []), [msg.home.events, `${prefix}/events`], [msg.home.attributions, `${prefix}/attributions`]])) p.push(`footer links ${links}`);
 		const dates = s.text.match(/\b\d{1,2}\.\s?\d{1,2}\.\s?(19|20)\d\d\b|\b(19|20)\d\d-\d\d-\d\d\b|\b(Januar|Februar|März|April|Mai|Juni|Juli|August|September|Oktober|November|Dezember|January|February|March|June|July|October|December)\s+\d/gi);
 		if (dates) p.push(`dates on the page: ${dates.join(', ')}`);
 		if (s.text.includes(msg.next_release)) p.push(`"${msg.next_release}" on the page`);
-		report(`footer (${msg.home.events} · ${msg.home.attributions}), no dates / release announcements on the page`, p);
+		report(`footer (${hasStores ? `${msg.home.stores} · ` : ''}${msg.home.events} · ${msg.home.attributions}), no dates / release announcements on the page`, p);
 	}
 	await evaluate('window.scrollTo(0, 0), true');
 	await shot(`landing-${width}-${locale}`);

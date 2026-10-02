@@ -15,6 +15,9 @@
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 	import { shopUrl } from '$lib/config.ts';
 	import { toonImage } from '$lib/utils/cdn.ts';
+	import { onMount } from 'svelte';
+	import type { StockistList } from '@scutoons/api';
+	import { loadStockists, storesFor, storesHref } from '$lib/stockists.ts';
 
 	/**
 	 * The landing page (owner 2026-10-01, design "D · Brutal", agents/DESIGN.md "Landing page"): the big logo + slogan,
@@ -32,6 +35,12 @@
 	]);
 	const name = (toon: ToonIndex) => toon.i18n[locale]?.name ?? toon.i18n[toon.sourceLanguage ?? 'de']?.name ?? toon.id;
 	const color = (toon: ToonIndex) => toonTileColor(data.registry, toon.id, toon.tile) ?? 'var(--ink)';
+
+	// "Läden vor Ort" under an edition that a listed store carries (agents/EMBASSY.md "Stores"); loaded after the page
+	let stockists = $state<StockistList | null>(null);
+	onMount(() => {
+		loadStockists().then((l) => (stockists = l));
+	});
 
 	const currency = $derived(data.catalog?.currency ?? 'EUR');
 	// API /products/featured/ → [{ product, variant }] resolved against the catalog (/products/); unknown ones are skipped
@@ -132,6 +141,9 @@
 					{:else}
 						<a class="buy sc-control" href={product.link} target="_blank" rel="noopener noreferrer">{m['home.buy']()}</a>
 					{/if}
+					{#if storesFor(stockists, product.id) > 0}
+						<a class="local" href={localizeHref(storesHref(product.id))} data-testid="edition-stores">{m['home.local_stores']()}</a>
+					{/if}
 				</div>
 				<div class="product-slides">
 					<ProductSlides images={variant.images} label={`${product.name} – ${localized(variant.name, locale)}`} />
@@ -144,6 +156,10 @@
 	<footer class="footer">
 		<span class="claim">{m['home.footer']()}</span>
 		<nav aria-label="SCUTOONS">
+			{#if stockists?.stores.length}
+				<a href={localizeHref('/stores')}>{m['home.stores']()}</a>
+				·
+			{/if}
 			<a href={localizeHref('/events')}>{m['home.events']()}</a>
 			·
 			<a href={localizeHref('/attributions')}>{m['home.attributions']()}</a>
@@ -333,6 +349,16 @@
 	}
 	.buy:hover {
 		background: var(--border-hover);
+	}
+	.local {
+		padding: 1rem 3rem;
+		border: var(--border-width-regular) solid var(--border-muted);
+		color: var(--ink);
+		text-decoration: none;
+		line-height: 1;
+	}
+	.local:hover {
+		border-color: var(--ink);
 	}
 	.buy.disabled {
 		opacity: 0.5;

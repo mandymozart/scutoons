@@ -4,6 +4,13 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Embassy stores + the public "Where to buy" list (agents/EMBASSY.md "Stores", 2026-10-02): organisation type `store`;
+  `store` + `record_shop` are stockists with `listed`, `independent`, `address`, `opening`, `carries` (product ids,
+  validated against config/products.json; migration `2026-10-02-embassy-stores`, additive). Public `GET /api/stockists/`
+  (`?product=`, `?country=`): listed stockists with public fields only, independent vendors first, cached 5 min + ETag,
+  CORS `*`, 600 / IP / hour; empty before the migration. `bin/console sample-stores` (local fake stores, SQLite only).
+  PHPUnit `EmbassyTest`, `EmbassyApiTest`; api-smoke "Stockists".
+
 - Ownership, claims, gifting (agents/ITEMS.md, 2026-10-02): transfer core (A → NULL → B under the owner guard,
   entries + avatar slots move), history `item_transfers`; reader `POST/GET /claims/`, `/claims/{id}/files`,
   `/claims/{id}/withdraw`, `POST /inventory/gift/`, `/inventory/received/seen/`, `/me/ received`; `/auth/request/

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { setLocale, localizeHref, locales, getLocale } from '$lib/paraglide/runtime.js';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { loadStockists } from '$lib/stockists.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset, toonImage } from '$lib/utils/cdn.ts';
 	import { shopUrl } from '$lib/config.ts';
@@ -18,6 +19,12 @@
 	const isValid = $derived(membershipCtx.isValid);
 	// the shop is its own app (shop.scutoons.com)
 	const shopHref = $derived(shopUrl(getLocale()));
+
+	// "Wo kaufen" only once a store is listed (agents/EMBASSY.md "Stores": no empty page in the menu before that)
+	let hasStores = $state(false);
+	onMount(() => {
+		loadStockists().then((l) => (hasStores = !!l?.stores.length));
+	});
 
 	let menuOpen = $state(false);
 	let menuElement = $state<HTMLDivElement>();
@@ -183,6 +190,11 @@
 				<li class="nav-item">
 					<a class="nav-btn sc-control" href={shopHref} onclick={closeMenu}>{m.limited_editions()}</a>
 				</li>
+				{#if hasStores}
+					<li class="nav-item">
+						<a class="nav-btn" href={localizeHref('/stores')} onclick={closeMenu} data-testid="menu-stores">{m['menu.stores']()}</a>
+					</li>
+				{/if}
 				<li class="nav-item">
 					<a class="nav-btn sc-control" href={localizeHref('/events')} onclick={closeMenu}>{m.events()}</a>
 				</li>

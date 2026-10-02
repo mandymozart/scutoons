@@ -12,6 +12,7 @@ declare(strict_types=1);
  *   php bin/console export-content <dir> [--toon=] [--draft] [--db=]   the store back into files (import/export format)
  *   php bin/console backfill-edition-numbers [--dry-run] [--sql] [--force] [--manifests=<dir>]
  *   php bin/console report-orphan-codes [--csv] [--manifests=<dir>]
+ *   php bin/console sample-stores [--remove]           fake stores for the local /stores page (SQLite dev DB only)
  *   php bin/console list                               all commands, `help <command>` for details
  */
 if (PHP_SAPI !== 'cli') {
@@ -27,12 +28,13 @@ use Scutoons\Console\ImportContentCommand;
 use Scutoons\Console\MigrateCommand;
 use Scutoons\Console\ReportOrphanCodesCommand;
 use Scutoons\Console\RolesCommand;
+use Scutoons\Console\SampleStoresCommand;
 use Scutoons\Kernel;
 use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class] as $command) {
+foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, SampleStoresCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

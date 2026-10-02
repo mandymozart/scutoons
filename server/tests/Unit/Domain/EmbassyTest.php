@@ -5,6 +5,7 @@ namespace Scutoons\Tests\Domain;
 
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Embassy\Embassy;
+use Scutoons\Domain\Embassy\Stockists;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Tests\TestCase;
 
@@ -172,6 +173,50 @@ final class EmbassyTest extends TestCase
         self::assertSame(403, $this->error(fn() => $this->embassy()->delete($id, $liaison))->status);
         $this->embassy()->delete($id, $this->member('ambassador'));
         self::assertSame(404, $this->error(fn() => $this->embassy()->get($id))->status);
+    }
+
+    public function testStoreFieldsAndTheStockistList(): void
+    {
+        $liaison = $this->member('liaison');
+        $store = $this->embassy()->create([
+            'name' => 'Testladen', 'type' => 'store', 'city' => 'Wien', 'country' => 'at', 'website' => 'testladen.example',
+            'email' => 'secret@testladen.example', 'phone' => '+43 1 000', 'notes' => 'internal', 'address' => ' Teststraße 1, 1010 Wien ',
+            'opening' => 'Mo–Fr 10–18', 'listed' => true, 'independent' => true, 'carries' => ['awakening_vinyl', 'dago_hoodie'],
+            'people' => [['name' => 'Owner', 'email' => 'owner@testladen.example']],
+        ], $liaison)['org'];
+        self::assertSame([true, true, 'Teststraße 1, 1010 Wien', 'Mo–Fr 10–18', ['awakening_vinyl', 'dago_hoodie']],
+            [$store['listed'], $store['independent'], $store['address'], $store['opening'], $store['carries']]);
+        self::assertSame('invalid_product', $this->error(fn() => $this->embassy()->update($store['id'], ['carries' => ['no_such_product']], $liaison))->errorCode);
+
+        // a chain (not independent), a record shop in Germany, an unlisted store, a listed venue, a store carrying nothing
+        $chain = $this->embassy()->create(['name' => 'Kettenmarkt', 'type' => 'store', 'city' => 'Graz', 'country' => 'AT', 'listed' => true, 'carries' => ['awakening_vinyl']], $liaison)['org'];
+        $records = $this->embassy()->create(['name' => 'Plattenkiste', 'type' => 'record_shop', 'city' => 'Berlin', 'country' => 'DE', 'listed' => true, 'independent' => true, 'carries' => ['awakening_vinyl'], 'website' => 'mailto:x@y.z'], $liaison)['org'];
+        $this->embassy()->create(['name' => 'Hidden', 'type' => 'store', 'city' => 'Linz', 'country' => 'AT', 'listed' => false, 'carries' => ['awakening_vinyl']], $liaison);
+        $this->embassy()->create(['name' => 'Club', 'type' => 'venue', 'city' => 'Linz', 'country' => 'AT', 'listed' => true, 'carries' => ['awakening_vinyl']], $liaison);
+        $this->embassy()->create(['name' => 'Empty', 'type' => 'store', 'city' => 'Linz', 'country' => 'AT', 'listed' => true], $liaison);
+
+        $stockists = $this->get(Stockists::class);
+        $all = $stockists->list();
+        // independent first (country, city, name), then the others
+        self::assertSame(['Testladen', 'Plattenkiste', 'Kettenmarkt'], array_column($all['stores'], 'name'));
+        self::assertSame(['awakening_vinyl' => 3, 'dago_hoodie' => 1], $all['products']);
+        self::assertSame(['AT', 'DE'], $all['countries']);
+        // public fields only
+        self::assertSame(['id', 'name', 'type', 'independent', 'city', 'country', 'address', 'website', 'opening', 'carries'], array_keys($all['stores'][0]));
+        self::assertSame('https://testladen.example', $all['stores'][0]['website']);
+        self::assertSame('', $all['stores'][1]['website'], 'only http(s) links are public');
+
+        self::assertSame([$store['id']], array_column($stockists->list(['product' => 'dago_hoodie'])['stores'], 'id'));
+        self::assertSame([$records['id']], array_column($stockists->list(['country' => 'de'])['stores'], 'id'));
+        self::assertSame(['Testladen', 'Kettenmarkt'], array_column($stockists->list(['country' => 'AT', 'product' => 'awakening_vinyl'])['stores'], 'name'));
+        self::assertSame([], $stockists->list(['product' => 'unknown_product'])['stores']);
+        self::assertSame('invalid_country', $this->error(fn() => $stockists->list(['country' => 'Austria']))->errorCode);
+
+        // unlisting removes a store; the import merges carries
+        $this->embassy()->update($chain['id'], ['listed' => false], $liaison);
+        self::assertSame(['Testladen', 'Plattenkiste'], array_column($stockists->list()['stores'], 'name'));
+        $this->embassy()->import(['organisations' => [['name' => 'Testladen', 'city' => 'Wien', 'carries' => ['scorpion_amulet']]]], $this->member('ambassador'));
+        self::assertSame(['awakening_vinyl', 'dago_hoodie', 'scorpion_amulet'], $this->embassy()->get($store['id'])['org']['carries']);
     }
 
     public function testNameKey(): void

@@ -19,7 +19,7 @@ export {
 	type ContentIndexEntity
 } from './content.ts';
 export { createLibraryApi, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
-export { createProductsApi, type ProductsApi } from './products.ts';
+export { createProductsApi, type ProductsApi, type Stockist, type StockistList } from './products.ts';
 export {
 	EVENT_NAMES,
 	createAdminApi,
@@ -74,6 +74,8 @@ export {
 	CALL_OUTCOMES,
 	ORG_TYPES,
 	STAGES,
+	STOCKIST_TYPES,
+	isStockist,
 	TIERS,
 	TRACKS,
 	createEmbassyApi,

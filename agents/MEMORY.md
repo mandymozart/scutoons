@@ -1720,3 +1720,19 @@ character, persona, look and mood and doubles as the VN test bed.
   `--browser-only` runs the browser part even when the static part fails.
 - Gotcha: heredocs sent through the agent Bash tool here turned `\` into `\` (even quoted 'EOF') – write scripts with a file tool,
   not a heredoc, when they contain backslashes.
+
+## Embassy stores + "Where to buy" (2026-10-02, branch `stores`)
+
+- Owner: an Embassy type STORE, every store carrying SCUTOONS products listed on a public viewer page, "encourage small
+  vendors at first". Built: agents/EMBASSY.md "Stores" (model, API, UI, tests, open decisions). `store` + `record_shop`
+  are stockists; store columns on `embassy_orgs` (migration `2026-10-02-embassy-stores`); public `GET /api/stockists/`
+  (`Domain\Embassy\Stockists`, public fields only, independent first); viewer `/stores`, "Läden vor Ort" next to
+  "Kaufen" (related row, landing editions), menu + footer link only when a store is listed.
+- Local fake data: `php server/bin/console sample-stores [--remove]` (SQLite only). `npm run check:stores` needs a listed
+  store (exit 2 otherwise).
+- Gotchas: in `related-items.svelte` `.btn { flex: none }` comes after `.actions > *`, so the buttons never grew – a third
+  button ran out of the 390 px column until `.actions` got `flex-wrap: wrap`. A worktree without `server/storage/keys` +
+  `storage/files` (gitignored) fails the certificate / batch contract checks – copy them from the main checkout. A
+  products map that may be empty must be encoded as an object (`(object)`), PHP's `[]` would be a JSON list. Bash heredocs
+  with mixed quotes broke again: write generator scripts as files.
+

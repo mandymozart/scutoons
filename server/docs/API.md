@@ -29,6 +29,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET | `/editions/` (`?toon=`), `/toons/` | – | public lists (`config/editions.json`, `config/toons.json`) |
 | GET | `/products/` | – | shop catalog = `config/products.json` byte-for-byte (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`); any origin (`*`), cached 5 min; other methods 405 |
 | GET | `/products/featured/` | – | the landing page's editions (`[{ product, variant? }]`): the list chosen in the admin app (setting `featured_products`, `/admin/featured`), else `config/featured-products.json` byte-for-byte; same headers but `max-age=60` |
+| GET | `/stockists/?product=&country=` | – | the public "Where to buy" list (scutoons.com/stores): the Embassy's listed stores (`store`, `record_shop`) carrying ≥ 1 product, public fields only → `{ stores: [{ id, name, type, independent, city, country, address, website, opening, carries: [product id] }], products: { <product id>: <stores> }, countries: [ISO] }` (independent first, then country, city, name; `products` / `countries` over all listed stores, unfiltered) · any origin (`*`), `max-age=300` + ETag (304), 600 requests / IP / hour · `400 invalid_country\|invalid_product` – see "Embassy" → "Stores" |
 | POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in?, dispute? }` → `{ status:"sent", expires_at }` (always; new accounts only with a signup code). `dispute: true` + a product code registered to someone else = an account to file an ownership claim (nothing claimed; `/auth/verify/` answers `dispute: true`; `503 not_available` before migration `2026-10-02-ownership-signup`) |
 | POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required`; from an `ALLOWED_ORIGINS` app also the session cookie |
 | POST | `/auth/logout/` | session | `{ all?: true }` → ends this session (= every app; `all`: every session of the account) and clears the cookie |
@@ -273,6 +274,18 @@ endpoint list: `src/Http/Controllers/EmbassyController.php`. Migration `2026-10-
 - Duplicates: same normalized name (`Embassy::nameKey`) and same city (or country): `POST /orgs` → `409 duplicate
   { id }` unless `force: true`; `POST /import` merges (fills empty fields, unites lists, adds new people and tracks,
   never overwrites). `dry_run: true` reports without writing.
+
+### Stores (2026-10-02, migration `2026-10-02-embassy-stores`)
+
+Organisation type `store` (new) and `record_shop` are **stockists** (`Embassy::STOCKIST_TYPES`): they sell to readers.
+Fields on `embassy_orgs` (in every organisation answer, edited with `POST/PUT /orgs`): `listed` (bool, "show on
+scutoons.com"), `independent` (bool, small / independent vendor – listed first), `address`, `opening` (free text ≤ 255),
+`carries` (product ids of `config/products.json`; unknown → `400 invalid_product { allowed }`; the import unites them).
+`GET /embassy/me` adds `stockist_types`. The public read is `GET /api/stockists/` (`Domain\Embassy\Stockists`,
+endpoint table above): only `listed` stockists with at least one product still in the catalog, only `id, name, type,
+independent, city, country, address, website (http(s) only), opening, carries` – never people, email, phone, notes, tags,
+tier, source, leads or activities. Before the migration ran it answers an empty list. Local fake data:
+`php bin/console sample-stores [--remove]` (SQLite only).
 
 ## Access tokens
 
