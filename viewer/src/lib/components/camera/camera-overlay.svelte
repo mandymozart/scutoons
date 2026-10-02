@@ -250,9 +250,13 @@
 	{/if}
 	<canvas bind:this={canvas} hidden></canvas>
 
+	<!-- 80s HUD (owner 2026-10-02, drafts 1 + 2): no bars, thin lines over the picture, 1rem mono everywhere -->
+	<div class="scanlines" aria-hidden="true"></div>
 	<header>
 		<h2>{mode === 'qr' ? m['camera.title_qr']() : objectTitle}</h2>
-		<button class="close" onclick={onclose} aria-label={m['items.close']()}>×</button>
+		<button class="close" onclick={onclose} aria-label={m['items.close']()}>
+			<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" /></svg>
+		</button>
 		{#if substanceCamera}
 			<!-- mandatory on every open (owner 2026-10-01): a game camera, and where real drug checking is -->
 			<p class="game-notice" data-testid="camera-notice">
@@ -264,6 +268,7 @@
 
 	{#if status === 'running'}
 		<div class="frame-lines" aria-hidden="true"></div>
+		<div class="ticks" aria-hidden="true"></div>
 		{#if mode === 'qr'}
 			<div class="viewfinder" aria-hidden="true"></div>
 		{:else}
@@ -303,7 +308,9 @@
 			<p class="toast">{message}</p>
 		{/if}
 		{#if mode === 'object' && modelState === 'ready'}
-			<p class="readout" aria-hidden="true" data-testid="camera-meter" data-level={segments}>{'▮'.repeat(segments)}{'▯'.repeat(5 - segments)}</p>
+			<div class="meter" aria-hidden="true" data-testid="camera-meter" data-level={segments}>
+				{#each [0, 1, 2, 3, 4] as i (i)}<span class:on={i < segments}></span>{/each}
+			</div>
 		{/if}
 		{#if mode === 'object'}
 			{#if modelState === 'loading'}
@@ -331,10 +338,19 @@
 		inset: 0;
 		z-index: 2000;
 		background: black;
-		color: white;
+		color: var(--finder);
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		font-family: var(--font-mono);
+		font-size: 1rem;
+		line-height: 1.4;
+		text-transform: uppercase;
+		letter-spacing: 0.06em;
+		/* readable on a bright picture, with a little phosphor glow */
+		text-shadow:
+			0 0 0.125rem rgb(0 0 0 / 0.9),
+			0 0 0.5rem color-mix(in srgb, var(--finder) 45%, transparent);
 	}
 	video {
 		position: absolute;
@@ -346,69 +362,83 @@
 	video.hidden {
 		visibility: hidden;
 	}
+	.scanlines {
+		position: absolute;
+		inset: 0;
+		z-index: 1;
+		pointer-events: none;
+		background: repeating-linear-gradient(to bottom, transparent 0 3px, rgb(0 0 0 / 0.16) 3px 4px);
+	}
 	header,
 	footer {
 		position: relative;
-		z-index: 1;
-		background: black;
-		padding: 0.75rem 1rem;
-	}
-	.game-notice {
-		flex-basis: 100%;
-		margin: 0.25rem 0 0;
-		font-size: 0.6875rem;
-		line-height: 1.3;
-		color: #d0d0d0;
-	}
-	.game-notice a {
-		color: white;
+		z-index: 3;
+		padding: 1rem 1.25rem;
 	}
 	header {
 		display: flex;
 		flex-wrap: wrap;
-		align-items: center;
+		align-items: flex-start;
 		justify-content: space-between;
 		gap: 1rem;
-		border-bottom: 2px solid white;
 	}
 	h2 {
 		margin: 0;
 		font-size: 1rem;
-		font-weight: 700;
+		font-weight: 400;
+		letter-spacing: inherit;
 	}
 	.close {
+		flex: none;
+		display: grid;
+		place-items: center;
 		width: 2rem;
 		height: 2rem;
 		padding: 0;
-		border-radius: 50%;
-		background: white;
-		color: black;
-		border: 2px solid black;
-		font-size: 1.25rem;
-		line-height: 1;
-		flex: none;
+		border: 1px solid var(--finder);
+		border-radius: 0;
+		background: transparent;
+		color: var(--finder);
+		box-shadow: 0 0 0.5rem color-mix(in srgb, var(--finder) 35%, transparent);
 	}
-	.close:hover {
-		background: var(--primary-color);
+	.close svg {
+		width: 1rem;
+		height: 1rem;
+		fill: none;
+		stroke: currentColor;
+		stroke-width: 1.25;
+	}
+	.close:hover,
+	.close:focus-visible {
+		background: color-mix(in srgb, var(--finder) 20%, transparent);
+		outline: none;
+	}
+	.game-notice {
+		flex-basis: 100%;
+		margin: 0;
+		font-size: 1rem;
+		text-transform: none;
+		letter-spacing: 0;
+	}
+	.game-notice a {
+		color: inherit;
 	}
 	footer {
 		margin-top: auto;
-		border-top: 2px solid white;
 	}
 	footer p {
-		margin: 0 0 0.5rem;
-		font-size: 0.75rem;
-		line-height: 1.3;
+		margin: 0;
+		font-size: 1rem;
 	}
 	.toast {
-		background: white;
-		color: black;
-		padding: 0.5rem;
-		font-size: 1rem !important;
+		margin-bottom: 0.5rem !important;
+		padding: 0.25rem 0.5rem;
+		border: 1px solid var(--finder);
+		background: rgb(0 0 0 / 0.45);
 	}
 	.center {
 		position: relative;
-		z-index: 1;
+		z-index: 3;
 		margin: auto;
 		padding: 1rem;
 		max-width: 24rem;
@@ -417,9 +447,15 @@
 	.error p {
 		margin: 0 0 1rem;
 	}
-	.error button {
-		background: white;
-		color: black;
+	.error button,
+	.known button {
+		border: 1px solid var(--finder);
+		background: transparent;
+		color: var(--finder);
+		font: inherit;
+		text-transform: inherit;
+		letter-spacing: inherit;
+		padding: 0.5rem 1rem;
 	}
 	.camera {
 		/* the camera's markings: the cucumber camera is green, every other camera white (owner 2026-10-02) */
@@ -449,7 +485,7 @@
 	.frame-lines {
 		position: absolute;
 		z-index: 1;
-		inset: 5.5rem 1.25rem 4.5rem;
+		inset: 4rem 1.25rem 6rem;
 		pointer-events: none;
 		--c: var(--finder);
 		background:
@@ -462,8 +498,23 @@
 			linear-gradient(var(--c), var(--c)) bottom right / 1.5rem 1px no-repeat,
 			linear-gradient(var(--c), var(--c)) bottom right / 1px 1.5rem no-repeat;
 	}
-	.with-notice .frame-lines {
-		top: 8rem;
+	.with-notice .frame-lines,
+	.with-notice .ticks {
+		top: 12rem;
+	}
+	/* range-finder ticks down both edges of the frame */
+	.ticks {
+		position: absolute;
+		z-index: 1;
+		inset: 6rem 1.25rem 8rem;
+		pointer-events: none;
+		--c: var(--finder);
+		background:
+			repeating-linear-gradient(to bottom, var(--c) 0 1px, transparent 1px 1.5rem) left / 0.375rem 100% no-repeat,
+			repeating-linear-gradient(to bottom, var(--c) 0 1px, transparent 1px 4.5rem) left / 0.75rem 100% no-repeat,
+			repeating-linear-gradient(to bottom, var(--c) 0 1px, transparent 1px 1.5rem) right / 0.375rem 100% no-repeat,
+			repeating-linear-gradient(to bottom, var(--c) 0 1px, transparent 1px 4.5rem) right / 0.75rem 100% no-repeat;
+		opacity: 0.8;
 	}
 	.viewfinder {
 		position: relative;
@@ -473,44 +524,71 @@
 		aspect-ratio: 1;
 		border: 1px solid var(--finder);
 	}
+	/* crosshair with an open centre */
+	.viewfinder.patch::before,
+	.viewfinder.patch::after {
+		content: '';
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		--c: var(--finder);
+	}
+	.viewfinder.patch::before {
+		width: 3rem;
+		height: 1px;
+		background: linear-gradient(to right, var(--c) 0 35%, transparent 35% 65%, var(--c) 65%);
+	}
+	.viewfinder.patch::after {
+		width: 1px;
+		height: 3rem;
+		background: linear-gradient(to bottom, var(--c) 0 35%, transparent 35% 65%, var(--c) 65%);
+	}
 	/* the focus patch: what the camera judges; turns solid when it is sure */
 	.viewfinder.patch.sharp {
 		border-width: 3px;
 	}
-	.readout {
-		font-family: var(--font-mono, monospace);
-		color: var(--finder);
-		letter-spacing: 0.12em;
-		font-size: 1rem !important;
-		margin: 0 0 0.25rem !important;
+	.meter {
+		display: flex;
+		gap: 0.375rem;
+		margin-bottom: 0.5rem;
+	}
+	.meter span {
+		width: 1.5rem;
+		height: 0.375rem;
+		border: 1px solid var(--finder);
+		box-shadow: 0 0 0.375rem color-mix(in srgb, var(--finder) 35%, transparent);
+	}
+	.meter span.on {
+		background: var(--finder);
 	}
 	.known {
 		position: absolute;
-		z-index: 3;
-		left: 1rem;
-		right: 1rem;
+		z-index: 4;
+		left: 1.25rem;
+		right: 1.25rem;
 		top: 50%;
 		transform: translateY(-50%);
-		background: black;
-		border: 2px solid white;
+		background: rgb(0 0 0 / 0.6);
+		border: 1px solid var(--finder);
 		padding: 1rem;
 		display: flex;
 		flex-direction: column;
-		gap: 0.75rem;
+		gap: 1rem;
 		text-align: center;
 	}
 	.known strong {
-		font-size: 1.25rem;
+		font-size: 1rem;
+		font-weight: 400;
 	}
 	.known p {
 		margin: 0;
-		font-size: 0.75rem;
-		line-height: 1.3;
+		font-size: 1rem;
+		text-transform: none;
+		letter-spacing: 0;
 	}
 	.known button {
 		align-self: center;
-		background: white;
-		color: black;
 	}
 	.celebrate {
 		position: absolute;
@@ -537,11 +615,11 @@
 	.celebrate strong {
 		position: relative;
 		margin-top: 0.5rem;
-		background: white;
-		color: black;
+		background: rgb(0 0 0 / 0.6);
+		color: var(--finder);
 		padding: 0.25rem 0.75rem;
-		text-transform: uppercase;
-		border: 2px solid black;
+		font-weight: 400;
+		border: 1px solid var(--finder);
 		animation: pop 0.3s ease forwards;
 	}
 	@keyframes burst {
