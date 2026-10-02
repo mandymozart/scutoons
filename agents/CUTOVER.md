@@ -180,6 +180,11 @@ which the new qr app proxies after the switch).
   | `/qr.scutoons.com/` (old qr + generate/, untouched) | – | `qr.scutoons.com` | **`qr-legacy.scutoons.com`** |
   | `/cdn.scutoons.com/` (old FTP CDN, untouched) | – | `cdn.scutoons.com` | same (legacy only; new platform = `scutoons.b-cdn.net`) |
 
+> **Keypair reference (0.2/2.3):** production `keypair.json` = backup ZIP `…\Scutoons\Backups\qr.scutoons.com.zip` →
+> `qr.scutoons.com/api/keys/keypair.json`, SHA-256 `409c19834377d1d9a6e82bd542fcc58a116c1a0a728aae8a0e26624df1e77bbe`.
+> **WARNING:** the local dev key `server/storage/keys/keypair.json` is a DIFFERENT key (SHA-256 `11934cea…`) – never upload it
+> to production. After uploading, `/api/keys/keys.php` on api. must serve the same `publicKey` as the old qr site.
+
 - [ ] **2.3 O – Private data → `/web/api/storage/`** *(partly: `generate/files` copied; `keypair.json` still to upload)* (before the first api deploy): backup's `api/keys/keypair.json`
   → `api/storage/keys/keypair.json`; backup's `generate/files/*` → `api/storage/files/` (same subfolders).
   Verify: file counts + sizes per subfolder = 0.2; keypair SHA-256 = 0.2. Rollback: delete the copies (old untouched).
@@ -440,3 +445,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 0.1 per edition: NULL 169, 3_catpope_vinyl 300 (= 469). No dago/beetles codes in production. CHECKSUM pending.
 - 2026-10-02 — 0.1 complete: CHECKSUM TABLE qr = 3162238151 (Phase 7 reference).
 - 2026-10-02 — 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6 done; 2.3 partly (keypair pending); T1 done (6fcb82c). Next: keypair → 2.3 verify, then 3.1/3.2 on DB-T.
+- 2026-10-02 — keypair reference SHA-256 409c1983…7bbe recorded (dev key 11934cea… must never go to production); batch manifests for 3.4 are in the same ZIP (`qr.scutoons.com/generate/files/batch/`).
