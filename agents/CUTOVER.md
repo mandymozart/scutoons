@@ -38,13 +38,13 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 
 | What | Value |
 |---|---|
-| KAS target dir `scutoons.com` / `www.` | |
-| KAS target dir `qr.scutoons.com` (old qr folder) | |
+| KAS target dir `scutoons.com` / `www.` | `/scutoons.com/` (per its FTP user; confirm in KAS → Domains) |
+| KAS target dir `qr.scutoons.com` (old qr folder) | `/qr.scutoons.com/` (per its FTP user; confirm) |
 | KAS target dir `creator.scutoons.com` (in use?) | |
-| KAS target dir `cdn.scutoons.com` (old CDN folder) | |
+| KAS target dir `cdn.scutoons.com` (old CDN folder) | `/cdn.scutoons.com/` (per its FTP user; confirm) |
 | Old DB tables (expected: `qr` only, maybe `schema_migrations`) | |
 | Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | |
-| New subfolder name (proposal `scutoons-next/`) | |
+| New root folder + FTP user | `/scutoons-next/`, user \"github actions next\" (2.1) |
 | Test hostnames (proposal `next.scutoons.com` = viewer, `qr-next.scutoons.com` = qr) | |
 | DB labels: **DB-T** (test build) / **DB-P** (switch-day build, only if needed – Phase 7) | |
 
@@ -56,7 +56,7 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 |---|---|---|---|
 | T1 | **Required.** Add the viewer test origin `https://next.scutoons.com` to `ALLOWED_ORIGINS` in `deploy/targets.json` (api `config.php`; it is also the CSRF list) + deploy README note. Without it the viewer on the test host cannot sign in (CORS). Fallback without a code change: use `embassy.scutoons.com` as the viewer test host (already allowed; embassy is held back). | Phase 6 | 15 min + dry run |
 | T2 | n/a since Phase 4 is dropped (kept for 10.3). `cdn/sync.py` skips `.json` / `.bin` → the camera model `models/mobilenet_v2_100_224/` never reaches cdn.scutoons.com. Add both to `SYNC_EXTENSIONS` – or upload that folder by hand (step 4.3). | Phase 4 | 10 min |
-| T3 | Only if the owner cannot get an FTP user rooted in the subfolder: a remote prefix in `deploy/targets.json` / `deploy.mjs` (e.g. `${FTP_ROOT}`). | Phase 5 | 30–60 min |
+| T3 | **n/a** – KAS creates subfolder-rooted FTP users (2.1). Was: only if the owner cannot get an FTP user rooted in the subfolder: a remote prefix in `deploy/targets.json` / `deploy.mjs` (e.g. `${FTP_ROOT}`). | Phase 5 | 30–60 min |
 | T4 | Only if the owner rejects "rebuild or keep" in Phase 7: a delta import (`bin/console legacy-delta --since=<T0> --sql` from an old-DB export: new codes INSERT IGNORE, new email registrations / re-signatures UPDATE where the new DB has no owner). Not recommended – the checksum gate in 7.1 makes it unnecessary. | Phase 7 | 2–3 h |
 
 What already exists (no build needed): the 16 idempotent migrations (they turn a copy of the old `qr` table into the
@@ -93,7 +93,7 @@ Decide before: nothing.
   `Get-FileHash keypair.json -Algorithm SHA256` noted (hash only, here in the log is fine); the `publicKey` inside the
   file equals the one served by `https://qr.scutoons.com/api/keys/keys.php` (you compare the first/last 20 characters –
   agents never open the keypair file).
-- [ ] **0.3 O – Back up the old viewer folder** (FTP download of the folder from "Current state"). Optional – it stays
+- [x] **0.3 O – Back up the old viewer folder** – done 2026-10-02 (`/scutoons.com/` → Proton Drive backups). (FTP download of the folder from "Current state"). Optional – it stays
   untouched anyway.
 - [ ] **0.4 O – Freeze the old system's deploys:** GitHub → `mandymozart/qr.scutoons.com` → Settings → Actions →
   *Disable actions* (its workflow deploys production on a push to any branch). Also: **no new batches / regenerations
@@ -156,12 +156,30 @@ Decide before: **D2** subfolder name + test hostnames (proposal above) · **D3**
 `https://api.scutoons.com/api` (recommended – api. exists from day one; the old viewer keeps using qr.scutoons.com/api,
 which the new qr app proxies after the switch).
 
-- [ ] **2.1 O – Subfolder + FTP user.** KAS → FTP → new folder `<NEW>/` (e.g. `scutoons-next/`) next to the old
-  folders, and a **new FTP user whose root is `<NEW>/`** (then `deploy/targets.json` needs no change). If KAS can't do
-  that → T3. Credentials → GitHub `production` secrets `FTP_SERVER` / `FTP_USERNAME` / `FTP_PASSWORD` (see table).
-  Verify: log in with WinSCP as the new user → you see an empty folder, not the old ones.
-- [ ] **2.2 O – Folders in `<NEW>/`:** `viewer/dist/`, `admin/dist/`, `creator/dist/`, `shop/dist/`, `qr/public/`,
-  `api/public/`, `api/storage/keys/`, `api/storage/files/`.
+- [ ] **2.1 O – New root folder + its own FTP user.** KAS today has 4 FTP users – main `w020b50e` (`/`, root),
+  `cdn-sync` `f017c2d3` (`/cdn.scutoons.com/`), github actions `f017b642` (`/scutoons.com/`), github actions `f017b651`
+  (`/qr.scutoons.com/`). **Leave all four untouched** until after the switch (old deploys, legacy, CDN sync).
+  KAS → FTP → *new FTP user* "github actions next", directory = a **new root folder `/scutoons-next/`** (D2; created
+  with it), rights read/write/list/view. Its credentials **only** into GitHub → `production` secrets `FTP_SERVER`,
+  `FTP_USERNAME`, `FTP_PASSWORD` (replace whatever is there) – not into the local `.env`, never the root user's login.
+  Verify: WinSCP with the new user → an empty folder (you must not see `scutoons.com/` or `qr.scutoons.com/`).
+  No deploy change needed (T3 n/a): `deploy/targets.json` remotes are relative (`api/`, `qr/`, `viewer/dist/`, …) and
+  `deploy.mjs` hands them to the FTP action as `server-dir` = relative to this user's login folder = `/scutoons-next/`.
+- [ ] **2.2 O – Folder layout inside `/scutoons-next/`** (create the empty folders; the deploys fill them):
+
+  | Folder (from the KAS root) | Filled by | Domain at the test phase (2.6) | Domain after the switch (Phase 8) |
+  |---|---|---|---|
+  | `/scutoons-next/api/` (docroot `api/public/`; private `api/storage/keys/`, `api/storage/files/`, `api/logs/`) | target `api` (server/) + 2.3 | `api.scutoons.com` (new) | same |
+  | `/scutoons-next/qr/` (docroot `qr/public/`) | target `qr` | `qr-next.scutoons.com` (test) | **`qr.scutoons.com`** |
+  | `/scutoons-next/viewer/dist/` | target `viewer` | `next.scutoons.com` (test) | **`scutoons.com` + `www.scutoons.com`** |
+  | `/scutoons-next/admin/dist/` | target `admin` | `admin.scutoons.com` (new) | same |
+  | `/scutoons-next/creator/dist/` | target `creator` | `creator.scutoons.com` | same |
+  | `/scutoons-next/shop/dist/` | target `shop` | `shop.scutoons.com` (new) | same |
+  | `/scutoons-next/embassy/dist/` | held back (D5) | – | later (10.6) |
+  | `/scutoons.com/` (old viewer, untouched) | – | `scutoons.com`, `www.` | **`legacy.scutoons.com`** |
+  | `/qr.scutoons.com/` (old qr + generate/, untouched) | – | `qr.scutoons.com` | **`qr-legacy.scutoons.com`** |
+  | `/cdn.scutoons.com/` (old FTP CDN, untouched) | – | `cdn.scutoons.com` | same (legacy only; new platform = `scutoons.b-cdn.net`) |
+
 - [ ] **2.3 O – Private data → `<NEW>/api/storage/`** (before the first api deploy): backup's `api/keys/keypair.json`
   → `api/storage/keys/keypair.json`; backup's `generate/files/*` → `api/storage/files/` (same subfolders).
   Verify: file counts + sizes per subfolder = 0.2; keypair SHA-256 = 0.2. Rollback: delete the copies (old untouched).
@@ -372,6 +390,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
 - [ ] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain, `order`, workflow trigger, roles, import.
 - [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
+- [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3), github actions
+  `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
+  workflow). The main user stays, used only by hand.
 - [ ] 10.8 Public release.
 
 ---
@@ -403,3 +424,5 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 0.1 done (export in the owner's Proton Drive backups; only the `qr` table). Owner: credentials only in the
   GitHub `production` environment; relayout BEFORE the bunny upload, new platform on `https://scutoons.b-cdn.net`
   (Phase 1 rewritten, waits for the assets merge), Phase 4 n/a. Next: 0.2 (+ the 0.1 numbers).
+- 2026-10-02 — 0.3 done (legacy `/scutoons.com/` backed up). KAS FTP users recorded; 2.1 = new user "github actions next"
+  rooted in `/scutoons-next/` (T3 n/a), 2.2 folder layout + domain map, 10.9 FTP cleanup.
