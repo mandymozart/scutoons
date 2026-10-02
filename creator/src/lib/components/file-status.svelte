@@ -14,7 +14,19 @@
 
 	/** with a `label` (owner 2026-10-02): the label and the chips are one hover / focus target, the tooltip lists every
 	 * language (easier to hit, one accessible name) */
-	const groupTip = $derived(name ? `${name} – ${doc.locales.map((l) => title(l)).join(' · ')}` : '');
+	const groupTip = $derived.by(() => {
+		if (!name) return '';
+		// owner 2026-10-02: one date – the last change of any language, not one per language
+		const latest = doc.locales
+			.filter((l) => doc.source[l] === 'store')
+			.map((l) => doc.changedAt[l])
+			.filter((iso): iso is string => !!iso)
+			.sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+			.at(-1);
+		const states = doc.locales.map((l) => `${lang(l) ? `${lang(l)}: ` : ''}${label(l)}`).join(' · ');
+		// owner 2026-10-02: the label is right there – the tooltip is only the state and when it changed
+		return `${states}${latest ? ` · ${m['creator.state_changed']({ date: date(latest) })}` : ''}`;
+	});
 
 	const dirty = $derived(doc.dirtyLocales);
 
@@ -43,7 +55,7 @@
 	class:labelled={!!name}
 	tabindex={name && !full ? 0 : undefined}
 	role={name && !full ? 'img' : undefined}
-	aria-label={name && !full ? groupTip : undefined}
+	aria-label={name && !full ? `${name} – ${groupTip}` : undefined}
 	title={name && !full ? groupTip : undefined}
 >
 	{#if name}<span class="name">{name}</span>{/if}

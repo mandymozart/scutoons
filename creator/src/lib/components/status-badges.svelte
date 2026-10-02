@@ -17,17 +17,25 @@
 
 	/**
 	 * A chapter's status per language as read-only badges (lists: toon page, season editor). The status is changed only
-	 * on the chapter page (meta panel); the season's sequence is its one source.
+	 * on the chapter page (meta panel); the season's sequence is its one source. Owner 2026-10-02: the colour is the
+	 * status – the chip shows only the language (a colour square for a one-language toon), the word is the tooltip.
 	 */
-	let { season, number, compact = false }: { season: ContentDoc; number: number; compact?: boolean } = $props();
+	let { season, number }: { season: ContentDoc; number: number } = $props();
 </script>
 
 <span class="status-badges" data-testid="status-badges-{number}">
 	{#each season.locales as l (l)}
 		{@const status = seasonStatusOf(season, l, number)}
 		{#if status}
-			<span class="st st-{status}" title={m['creator.status_badge_hint']({ locale: l, status: statusWord(status) })} data-testid="status-{number}-{l}">
-				{#if season.locales.length > 1}<b>{l}</b>{/if}{compact ? '' : ` ${statusWord(status)}`}
+			<span
+				class="st st-{status}"
+				class:square={season.locales.length < 2}
+				title={m['creator.status_badge_hint']({ locale: l, status: statusWord(status) })}
+				aria-label={m['creator.status_badge_hint']({ locale: l, status: statusWord(status) })}
+				data-testid="status-{number}-{l}"
+				data-status={status}
+			>
+				{#if season.locales.length > 1}{l}{/if}
 			</span>
 		{/if}
 	{/each}
@@ -50,8 +58,11 @@
 		letter-spacing: var(--tracking-label);
 		white-space: nowrap;
 	}
-	.st b {
-		font-weight: inherit;
+	.st.square {
+		width: 0.75rem;
+		height: 0.75rem;
+		padding: 0;
+		align-self: center;
 	}
 	.st-published {
 		background: var(--badge-published);
