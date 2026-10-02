@@ -19,8 +19,8 @@
 		{ "name": "Künstlerhof Frohnau", "logo": "images/supporters/kuenstlerhof-frohnau.svg" }
 	],
 	"trailer": {
-		"loop": "videos/s1-trailer-loop.1280w.mp4",
-		"variants": { "high": "videos/s1-trailer-loop.1920w.mp4" },
+		"loop": "videos/s1-trailer-loop.720p.mp4",
+		"variants": { "low": "videos/s1-trailer-loop.480p.mp4", "medium": "videos/s1-trailer-loop.720p.mp4", "high": "videos/s1-trailer-loop.1080p.mp4" },
 		"poster": "images/s1-trailer-poster.webp",
 		"chapter": 0
 	},
