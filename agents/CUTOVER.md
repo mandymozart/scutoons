@@ -469,7 +469,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
   opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
   includes 10.20.
-- [ ] 10.8 Public release.
+- [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
 
