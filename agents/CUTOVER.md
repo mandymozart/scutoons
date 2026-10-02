@@ -54,7 +54,7 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 
 | # | Task | Needed for | Estimate |
 |---|---|---|---|
-| T1 | **Required.** Add the viewer test origin `https://next.scutoons.com` to `ALLOWED_ORIGINS` in `deploy/targets.json` (api `config.php`; it is also the CSRF list) + deploy README note. Without it the viewer on the test host cannot sign in (CORS). Fallback without a code change: use `embassy.scutoons.com` as the viewer test host (already allowed; embassy is held back). | Phase 6 | 15 min + dry run |
+| T1 | **DONE (coordinator, commit 6fcb82c).** Was required. Add the viewer test origin `https://next.scutoons.com` to `ALLOWED_ORIGINS` in `deploy/targets.json` (api `config.php`; it is also the CSRF list) + deploy README note. Without it the viewer on the test host cannot sign in (CORS). Fallback without a code change: use `embassy.scutoons.com` as the viewer test host (already allowed; embassy is held back). | Phase 6 | 15 min + dry run |
 | T2 | n/a since Phase 4 is dropped (kept for 10.3). `cdn/sync.py` skips `.json` / `.bin` → the camera model `models/mobilenet_v2_100_224/` never reaches cdn.scutoons.com. Add both to `SYNC_EXTENSIONS` – or upload that folder by hand (step 4.3). | Phase 4 | 10 min |
 | T3 | **n/a** – KAS creates subfolder-rooted FTP users (2.1). Was: only if the owner cannot get an FTP user rooted in the subfolder: a remote prefix in `deploy/targets.json` / `deploy.mjs` (e.g. `${FTP_ROOT}`). | Phase 5 | 30–60 min |
 | T4 | Only if the owner rejects "rebuild or keep" in Phase 7: a delta import (`bin/console legacy-delta --since=<T0> --sql` from an old-DB export: new codes INSERT IGNORE, new email registrations / re-signatures UPDATE where the new DB has no owner). Not recommended – the checksum gate in 7.1 makes it unnecessary. | Phase 7 | 2–3 h |
@@ -95,10 +95,10 @@ Decide before: nothing.
   agents never open the keypair file).
 - [x] **0.3 O – Back up the old viewer folder** – done 2026-10-02 (`/scutoons.com/` → Proton Drive backups). (FTP download of the folder from "Current state"). Optional – it stays
   untouched anyway.
-- [ ] **0.4 O – Freeze the old system's deploys:** GitHub → `mandymozart/qr.scutoons.com` → Settings → Actions →
+- [x] **0.4 O – Freeze the old system's deploys:** *(done 2026-10-02)* GitHub → `mandymozart/qr.scutoons.com` → Settings → Actions →
   *Disable actions* (its workflow deploys production on a push to any branch). Also: **no new batches / regenerations
   in the old `generate/` from now on** (they would not reach the new DB – see 7.1).
-- [ ] **0.5 O – Record the KAS state** (KAS → Domains): the target directory of every (sub)domain → "Current state".
+- [x] **0.5 O – Record the KAS state** *(done 2026-10-02)* (KAS → Domains): the target directory of every (sub)domain → "Current state".
   Check that none of the new folder names below would collide with an existing folder.
 - [ ] **0.6 A – Local copies checked:** `cdn/root` = 824 files / 855,854,341 bytes, identical copy in
   `C:\Development\scutoons-assets\cdn\root` (checked 2026-10-02) = the media backup; `server/db/local.sqlite` copied
@@ -156,7 +156,7 @@ Decide before: **D2** subfolder name + test hostnames (proposal above) · **D3**
 `https://api.scutoons.com/api` (recommended – api. exists from day one; the old viewer keeps using qr.scutoons.com/api,
 which the new qr app proxies after the switch).
 
-- [ ] **2.1 O – New root folder + its own FTP user.** KAS today has 4 FTP users – main `w020b50e` (`/`, root),
+- [x] **2.1 O – New root folder + its own FTP user.** *(done: user rooted in `/web/`, FTP_* secrets set)* KAS today has 4 FTP users – main `w020b50e` (`/`, root),
   `cdn-sync` `f017c2d3` (`/cdn.scutoons.com/`), github actions `f017b642` (`/scutoons.com/`), github actions `f017b651`
   (`/qr.scutoons.com/`). **Leave all four untouched** until after the switch (old deploys, legacy, CDN sync).
   KAS → FTP → *new FTP user* "github actions next", directory = a **new root folder `/web/`** (D2 decided 2026-10-02; created
@@ -165,7 +165,7 @@ which the new qr app proxies after the switch).
   Verify: WinSCP with the new user → an empty folder (you must not see `scutoons.com/` or `qr.scutoons.com/`).
   No deploy change needed (T3 n/a): `deploy/targets.json` remotes are relative (`api/`, `qr/`, `viewer/dist/`, …) and
   `deploy.mjs` hands them to the FTP action as `server-dir` = relative to this user's login folder = `/web/`.
-- [ ] **2.2 O – Folder layout inside `/web/`** (create the empty folders; the deploys fill them):
+- [x] **2.2 O – Folder layout inside `/web/`** *(done)* (create the empty folders; the deploys fill them):
 
   | Folder (from the KAS root) | Filled by | Domain at the test phase (2.6) | Domain after the switch (Phase 8) |
   |---|---|---|---|
@@ -180,18 +180,18 @@ which the new qr app proxies after the switch).
   | `/qr.scutoons.com/` (old qr + generate/, untouched) | – | `qr.scutoons.com` | **`qr-legacy.scutoons.com`** |
   | `/cdn.scutoons.com/` (old FTP CDN, untouched) | – | `cdn.scutoons.com` | same (legacy only; new platform = `scutoons.b-cdn.net`) |
 
-- [ ] **2.3 O – Private data → `/web/api/storage/`** (before the first api deploy): backup's `api/keys/keypair.json`
+- [ ] **2.3 O – Private data → `/web/api/storage/`** *(partly: `generate/files` copied; `keypair.json` still to upload)* (before the first api deploy): backup's `api/keys/keypair.json`
   → `api/storage/keys/keypair.json`; backup's `generate/files/*` → `api/storage/files/` (same subfolders).
   Verify: file counts + sizes per subfolder = 0.2; keypair SHA-256 = 0.2. Rollback: delete the copies (old untouched).
-- [ ] **2.4 O – New database DB-T.** KAS → Databases → new database (MariaDB, utf8mb4). Name/user/password → GitHub
+- [x] **2.4 O – New database DB-T.** *(done; `DB_HOST`/`DB_NAME` stored as secrets – fine, the workflow passes secrets and variables)* KAS → Databases → new database (MariaDB, utf8mb4). Name/user/password → GitHub
   `production` (`DB_HOST`, `DB_NAME` variables; `DB_USER`, `DB_PASS` secrets).
-- [ ] **2.5 O – GitHub environment `production`** (restricted to branch `main`): every entry of the root
+- [x] **2.5 O – GitHub environment `production`** *(done: all keys `deploy/targets.json` references are present; `SMTP_HOST` = the main account's kasserver host, 465/ssl)* (restricted to branch `main`): every entry of the root
   `.env.example` – `AUTH_SECRET`, `QR_PROXY_SECRET` new random strings ≥ 32 chars; `MAIL_FROM=no-reply@scutoons.com`,
   `SMTP_*` of that mailbox (exists, SPF/DKIM set); `VITE_API_URL=https://api.scutoons.com/api` (D3),
   `VITE_CDN_URL=https://scutoons.b-cdn.net` (bunny interim URL – new platform only; the qr app's `CDN_URL` follows it), `VITE_WWW_URL=https://www.scutoons.com`, `VITE_CREATOR_URL`,
   `VITE_SHOP_URL`, `VITE_ADMIN_URL`; `GENERATE_PASSWORD` (old value, only for the legacy `generate/`).
   Verify: the summary at the end of `.env.example` (10 secrets, 12 variables) all present.
-- [ ] **2.6 O – Subdomains → `/web/`** (KAS → Domains → Subdomain; SSL Let's Encrypt + "force HTTPS" on each):
+- [x] **2.6 O – Subdomains → `/web/`** *(done: admin./api./creator./next./qr-next./shop. → `/web/…` with SSL, PHP 8.5; `embassy.` → `/web/embassy/dist/` exists, stays undeployed; qr./cdn./scutoons.com untouched)* (KAS → Domains → Subdomain; SSL Let's Encrypt + "force HTTPS" on each):
   new `api.` → `/web/api/public/` · new `admin.` → `/web/admin/dist/` · new `shop.` → `/web/shop/dist/` ·
   `creator.` → `/web/creator/dist/` (if 0.5 shows it unused) · test `next.` → `/web/viewer/dist/` · test `qr-next.`
   → `/web/qr/public/`. **Do not touch `scutoons.com`, `www.`, `qr.`, `cdn.` yet.**
@@ -270,7 +270,8 @@ Preconditions: **2.1 done (FTP secrets = the subfolder user!)**, 0.4 done, T1 do
   apps (environment `production`) – into `/web/` because of 2.1.
 - [ ] **5.3 O – GitHub → Actions → "Deploy all" → Run workflow with dry run** → read the plan, then **without dry run**
   (order api → qr → frontends). Every run prints the migrations reminder – already done in Phase 3.
-- [ ] **5.4 A – Verify:** `https://api.scutoons.com/api/health/` → `status ok`, `db ok`, `version 1.0.0`, `git_sha` =
+- [ ] **5.4 A – Verify** (PHP note: KAS runs PHP 8.5, CI builds/tests on 8.3 – if `/api/health/` or qr show errors or
+  deprecation output, set the subdomains to PHP 8.3 in KAS): `https://api.scutoons.com/api/health/` → `status ok`, `db ok`, `version 1.0.0`, `git_sha` =
   main's head; `https://{admin,shop,creator,next}.scutoons.com/version.json`, `https://qr-next.scutoons.com/version.json`.
 - [ ] **5.5 O – Legacy `generate/` on the api** (only if you still want it): upload the backup's `generate/.htpasswd` to
   `/web/api/public/generate/.htpasswd`, set `AuthUserFile` in `/web/api/public/generate/.htaccess` to its absolute
@@ -380,6 +381,10 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 ## Phase 10 — After the beta (towards the public release, ~a week later)
 
 - [ ] 10.1 Fix the beta's issues on `platform` → `main` (deploys automatically).
+- [ ] 10.1b Right after the assets merge: the 7 bunny keys (`BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`,
+  `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL`)
+  as GitHub `production` secrets for the live asset manager (the merge adds them to `targets.json`); verify in admin →
+  Assets → Storage (set / missing per key, no values).
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
   into `production`/targets, `assets:scan`) – ASSETS.md.
 - [ ] 10.3 cdn.scutoons.com → bunny: custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL;
@@ -433,3 +438,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 0.1 numbers: 469 codes / 35 registered / 381 signed, MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per-edition + CHECKSUM pending.
 - 2026-10-02 — 0.1 per edition: NULL 169, 3_catpope_vinyl 300 (= 469). No dago/beetles codes in production. CHECKSUM pending.
 - 2026-10-02 — 0.1 complete: CHECKSUM TABLE qr = 3162238151 (Phase 7 reference).
+- 2026-10-02 — 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6 done; 2.3 partly (keypair pending); T1 done (6fcb82c). Next: keypair → 2.3 verify, then 3.1/3.2 on DB-T.
