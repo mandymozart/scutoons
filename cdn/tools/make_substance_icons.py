@@ -3,6 +3,8 @@
 
 Output: cdn/root/scutoons/items/{checkit_camera,testo,testo_camera,psilocybin,lsd,semaglutide,weed,tuna_can}.png (512 px, transparent, trimmed + fitted
 like every item icon). The owner replaces them later under the same names.
+Also the players (agents/ITEMS.md "Players, albums, related items"): {record_player,tape_player,cd_player}.png - generic
+devices, no brand look.
 
 Usage (from the repo root, with the cdn venv):
   cdn/.venv/Scripts/python cdn/tools/make_substance_icons.py [--root <cdn root>] [name ...]
@@ -138,6 +140,58 @@ def tuna_can_svg() -> str:
 </svg>"""
 
 
+VINYL = "#1d1d1d"
+SILVER = "#d9dee2"
+
+
+def record_player_svg() -> str:
+    # a turntable: plinth, platter with a record (cyan label), tonearm on the right
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="28" y="96" width="456" height="340" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <circle cx="214" cy="266" r="146" fill="{VINYL}" stroke="{INK}" stroke-width="18"/>
+  <circle cx="214" cy="266" r="112" fill="none" stroke="{SILVER}" stroke-width="4"/>
+  <circle cx="214" cy="266" r="84" fill="none" stroke="{SILVER}" stroke-width="4"/>
+  <circle cx="214" cy="266" r="44" fill="{CYAN}" stroke="{INK}" stroke-width="10"/>
+  <circle cx="214" cy="266" r="8" fill="{INK}"/>
+  <circle cx="420" cy="150" r="30" fill="{SILVER}" stroke="{INK}" stroke-width="14"/>
+  <path d="M420 150 L 420 300 L 330 352" fill="none" stroke="{INK}" stroke-width="16" stroke-linecap="square" stroke-linejoin="round"/>
+  <rect x="304" y="338" width="40" height="28" transform="rotate(-30 324 352)" fill="{INK}"/>
+  <rect x="396" y="388" width="56" height="22" fill="{CYAN}" stroke="{INK}" stroke-width="8"/>
+</svg>"""
+
+
+def tape_player_svg() -> str:
+    # a portable tape player: body, a cassette window with two reels, buttons on top
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="96" y="70" width="60" height="36" fill="{SILVER}" stroke="{INK}" stroke-width="12"/>
+  <rect x="172" y="70" width="60" height="36" fill="{CYAN}" stroke="{INK}" stroke-width="12"/>
+  <rect x="248" y="70" width="60" height="36" fill="{SILVER}" stroke="{INK}" stroke-width="12"/>
+  <rect x="40" y="104" width="432" height="320" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <rect x="84" y="150" width="344" height="196" fill="{CYAN}" stroke="{INK}" stroke-width="14"/>
+  <rect x="134" y="196" width="244" height="92" fill="{PAPER}" stroke="{INK}" stroke-width="10"/>
+  <circle cx="190" cy="242" r="30" fill="{VINYL}" stroke="{INK}" stroke-width="8"/>
+  <circle cx="322" cy="242" r="30" fill="{VINYL}" stroke="{INK}" stroke-width="8"/>
+  <circle cx="190" cy="242" r="10" fill="{PAPER}"/>
+  <circle cx="322" cy="242" r="10" fill="{PAPER}"/>
+  <path d="M84 376 H 428" stroke="{INK}" stroke-width="10"/>
+</svg>"""
+
+
+def cd_player_svg() -> str:
+    # a portable CD player seen from above: a round body, the disc through the lid window, a few buttons
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect x="44" y="44" width="424" height="424" rx="96" fill="{PAPER}" stroke="{INK}" stroke-width="18"/>
+  <circle cx="256" cy="242" r="156" fill="{SILVER}" stroke="{INK}" stroke-width="14"/>
+  <path d="M256 242 m-120 0 a120 120 0 0 1 120 -120" fill="none" stroke="{CYAN}" stroke-width="22" stroke-linecap="round"/>
+  <path d="M256 242 m120 0 a120 120 0 0 1 -120 120" fill="none" stroke="{CYAN}" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="256" cy="242" r="38" fill="{PAPER}" stroke="{INK}" stroke-width="12"/>
+  <circle cx="256" cy="242" r="12" fill="{INK}"/>
+  <rect x="150" y="420" width="52" height="22" fill="{INK}"/>
+  <rect x="230" y="420" width="52" height="22" fill="{CYAN}" stroke="{INK}" stroke-width="6"/>
+  <rect x="310" y="420" width="52" height="22" fill="{INK}"/>
+</svg>"""
+
+
 ICONS = {
     "checkit_camera": checkit_camera_svg,
     "testo": testo_svg,
@@ -147,6 +201,9 @@ ICONS = {
     "semaglutide": semaglutide_svg,
     "weed": weed_svg,
     "tuna_can": tuna_can_svg,
+    "record_player": record_player_svg,
+    "tape_player": tape_player_svg,
+    "cd_player": cd_player_svg,
 }
 
 

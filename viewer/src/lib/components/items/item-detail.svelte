@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
 	import { getItemsUiContext } from '$lib/contexts/items-ui.svelte.ts';
-	import { isGiftable, type Entry } from '@scutoons/content';
+	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { isGiftable, isSoldOut, mediaPlayback, playerAlbums, type Album, type AlbumTrack, type Entry, type ProductCatalog } from '@scutoons/content';
+	import { loadProducts, productOf } from '$lib/products.ts';
+	import { shopUrl } from '$lib/config.ts';
+	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { asset } from '$lib/utils/cdn.ts';
 	import { Field } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from './item-icon.svelte';
@@ -17,7 +22,24 @@
 
 	const def = $derived(inventory.item(entry.item_id));
 	const skills = $derived(def?.skills ?? []);
-	const usable = $derived(skills.length > 0);
+	// the old play_audio skill is offered as "Abspielen" below (mediaPlayback), not as "Benutzen"
+	const usable = $derived(skills.some((s) => s.type !== 'play_audio'));
+
+	// Players, albums, related items (agents/ITEMS.md): a record plays only with a player for its format; without one the
+	// detail names the missing player and offers the album download (if this reader may have it, `album.access`). A
+	// player lists the records it plays: play the ones the reader may listen to, buy the others.
+	const membership = getMembershipContext();
+	const listener = $derived({ owned: inventory.entries.map((e) => e.item_id), member: membership.isValid });
+	const playback = $derived(mediaPlayback(inventory.catalog, def, listener));
+	const playerList = $derived(playerAlbums(inventory.catalog, def, listener));
+	let products = $state<ProductCatalog | null>(null);
+	$effect(() => {
+		if (playerList.some((row) => !row.listen)) loadProducts().then((c) => (products = c));
+	});
+	function play(album: Album, tracks: AlbumTrack[], from: Entry | null) {
+		ui.playAlbum({ tracks: tracks.map((t) => ({ src: t.src, title: t.title })), title: localized(album.title), entry: from });
+	}
+	const entryOf = (itemId: string) => inventory.entries.find((e) => e.item_id === itemId) ?? null;
 	// a substance (ITEMS.md "Substances"): "Benutzen" uses one piece up and applies it
 	const substance = $derived(skills.some((s) => s.type === 'apply'));
 	// food (cucumber, tuna can) is eaten: "Essen" instead of "Benutzen", same mechanics (appetite down)
@@ -133,6 +155,12 @@
 		{#if usable}
 			<button class="btn-secondary" class:disabled={working} disabled={working} onclick={() => (substance ? useIt() : ui.use(entry, skills))} data-testid="item-use">{useLabel}</button>
 		{/if}
+		{#if playback?.kind === 'play'}
+			<button class="btn-secondary" onclick={() => playback.kind === 'play' && play(playback.album, playback.tracks, entry)} data-testid="item-play">{m['items.play']()}</button>
+		{/if}
+		{#if playback?.download}
+			<a class="btn btn-secondary" href={asset(playback.download)} download target="_blank" rel="noopener" data-testid="item-download">{m['items.download_album']()}</a>
+		{/if}
 		{#if combinable}
 			<button class="btn-secondary" onclick={() => oncombine(entry)}>{m['items.combine']()}</button>
 		{/if}
@@ -145,6 +173,34 @@
 			<button class="btn-secondary" onclick={() => ((giving = true), (giftError = null), (giftQty = 1))} data-testid="item-gift">{m['items.gift']()}</button>
 		{/if}
 	</div>
+	{#if playback?.kind === 'needs_player' && playback.players.length}
+		<p class="swap-note" role="status" data-testid="item-needs-player">{m['items.needs_player']({ player: localized(playback.players[0].name) })}</p>
+	{/if}
+	{#if playerList.length}
+		<section class="player-albums" data-testid="player-albums">
+			<h3>{m['items.player_albums']()}</h3>
+			<ul>
+				{#each playerList as row (row.album.id)}
+					{@const product = productOf(products, row.carrier)}
+					{@const carrierName = localized(row.carrier.name)}
+					<li data-album={row.album.id} data-testid="player-album">
+						<div class="thumb"><ItemIcon srcs={[row.carrier.icon]} name={carrierName} /></div>
+						<div class="album-info">
+							<span>{localized(row.album.title)}</span>
+							<span class="album-meta">{row.owned ? m['items.player_owned']() : carrierName}</span>
+						</div>
+						{#if row.listen}
+							<button class="btn-secondary" onclick={() => play(row.album, row.album.tracks, entryOf(row.carrier.id))} data-testid="player-play">{m['items.play']()}</button>
+						{:else if product && isSoldOut(product)}
+							<span class="album-meta" data-testid="player-sold-out">{m['items.player_sold_out']()}</span>
+						{:else}
+							<a class="btn btn-secondary" href={product?.link ?? shopUrl(getLocale())} target="_blank" rel="noopener noreferrer" data-testid="player-buy">{m['items.player_buy']()}</a>
+						{/if}
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 	{#if giving}
 		<form class="gift" onsubmit={sendGift} data-testid="gift-form">
 			<h3>{m['items.gift_title']({ name: inventory.nameOf(entry) })}</h3>
@@ -226,6 +282,53 @@
 	.actions button {
 		flex: 1 1 auto;
 		padding: 0.75rem 1rem;
+	}
+	.actions a.btn {
+		flex: 1 1 auto;
+		padding: 0.75rem 1rem;
+		text-align: center;
+		text-decoration: none;
+	}
+	.player-albums {
+		border-top: 2px solid var(--ink, black);
+		padding-top: 0.75rem;
+	}
+	.player-albums h3 {
+		margin: 0 0 0.5rem;
+		font-size: 1rem;
+	}
+	.player-albums ul {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.player-albums li {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+	.player-albums .thumb {
+		width: 3rem;
+		flex: none;
+	}
+	.album-info {
+		flex: 1;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.album-meta {
+		font-size: 0.75rem;
+		color: var(--text-muted);
+	}
+	.player-albums a.btn,
+	.player-albums button {
+		flex: none;
+		padding: 0.5rem 0.75rem;
+		text-decoration: none;
 	}
 	.gift {
 		display: flex;

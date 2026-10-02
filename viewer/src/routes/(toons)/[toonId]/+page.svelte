@@ -4,6 +4,7 @@
 	import ChaptersList from '$lib/components/toon/chapters-list.svelte';
 	import StartButton from '$lib/components/toon/start-button.svelte';
 	import Hero from '$lib/components/toon/hero.svelte';
+	import RelatedItems from '$lib/components/toon/related-items.svelte';
 	import { onMount } from 'svelte';
 	import { CoverArt, CreditsColophon } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
@@ -69,6 +70,9 @@
 				{#if desktop && season.download?.music}
 					{@render music()}
 				{/if}
+				{#if desktop && season.related_items?.length}
+					<RelatedItems ids={season.related_items} />
+				{/if}
 				{#if desktop}
 					{@render colophon()}
 				{/if}
@@ -79,6 +83,10 @@
 			</div>
 			{#if !desktop && season.download?.music}
 				{@render music()}
+			{/if}
+			<!-- the season's related items (season.related_items): icon, name, price + "Kaufen" for physical products -->
+			{#if !desktop && season.related_items?.length}
+				<RelatedItems ids={season.related_items} />
 			{/if}
 		{/if}
 	</section>

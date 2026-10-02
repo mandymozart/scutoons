@@ -31,7 +31,8 @@
 		"alt_end": "Ende der Staffen"
 	},
 	"download": {
-		"read_webtoon": "Webtoon Lesen"
+		"read_webtoon": "Webtoon Lesen",
+		"owners_only": "Diesen Download gibt es nur für Besitzer der Platte."
 	},
 	"account": {
 		"my_account": "Mein Konto",
@@ -234,7 +235,14 @@
 		"gift_error_self_gift": "Das ist deine eigene Adresse.",
 		"gift_error_invalid_email": "Prüf die E-Mail-Adresse.",
 		"gift_error_not_giftable": "Das kann man nicht verschenken.",
-		"gift_error_failed": "Das hat nicht geklappt – bitte versuch es nochmal."
+		"gift_error_failed": "Das hat nicht geklappt – bitte versuch es nochmal.",
+		"needs_player": "Zum Abspielen brauchst du einen {player}.",
+		"download_album": "Album herunterladen",
+		"player_albums": "Platten für diesen Spieler",
+		"player_buy": "Kaufen",
+		"player_sold_out": "Ausverkauft",
+		"player_owned": "In deinem Inventar",
+		"now_playing": "Spielt: {title}"
 	},
 	"claim": {
 		"title": "SCUTOONS-Gegenstand",
@@ -322,7 +330,11 @@
 		"prologue_title": "Staffel {season}, Prolog: {title}"
 	},
 	"season": {
-		"download": "Musik herunterladen"
+		"download": "Musik herunterladen",
+		"related": "Zur Staffel",
+		"buy": "Kaufen",
+		"sold_out": "Ausverkauft",
+		"related_owned": "Hast du schon"
 	},
 	"menu": {
 		"close": "Menü schließen",

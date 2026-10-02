@@ -25,6 +25,16 @@
 		if (received?.length) inventory.announceReceived(received);
 	});
 
+	// the album's tracks in order: a new request starts at the first, the end of a track plays the next
+	let trackIndex = $state(0);
+	$effect(() => {
+		void ui.audio;
+		trackIndex = 0;
+	});
+	function nextTrack() {
+		if (ui.audio && trackIndex < ui.audio.tracks.length - 1) trackIndex += 1;
+	}
+
 	function openInventory() {
 		ui.closeClaim();
 		if (page.params.toonId) {
@@ -77,14 +87,20 @@
 {/if}
 
 {#if ui.audio}
-	<div class="audio-player">
+	{@const track = ui.audio.tracks[Math.min(trackIndex, ui.audio.tracks.length - 1)]}
+	<div class="audio-player" data-testid="audio-player">
 		{#if ui.audio.entry}
 			<div class="thumb">
 				<ItemIcon srcs={[inventory.iconOf(ui.audio.entry)]} name={inventory.nameOf(ui.audio.entry)} />
 			</div>
 		{/if}
-		<!-- svelte-ignore a11y_media_has_caption -->
-		<audio src={/^https?:/.test(ui.audio.src) ? ui.audio.src : asset(ui.audio.src)} controls autoplay></audio>
+		<div class="track">
+			{#if track.title || ui.audio.title}
+				<span class="track-title" data-testid="audio-title">{m['items.now_playing']({ title: [ui.audio.title, track.title].filter(Boolean).join(' · ') })}</span>
+			{/if}
+			<!-- svelte-ignore a11y_media_has_caption -->
+			<audio src={/^https?:/.test(track.src) ? track.src : asset(track.src)} controls autoplay onended={nextTrack}></audio>
+		</div>
 		<button class="close" onclick={ui.closeAudio} aria-label={m['items.close']()}>×</button>
 	</div>
 {/if}
@@ -141,9 +157,21 @@
 		border: 2px solid black;
 		padding: 0.25rem 0.5rem;
 	}
-	.audio-player audio {
+	.audio-player .track {
 		flex: 1;
 		min-width: 0;
+		display: flex;
+		flex-direction: column;
+	}
+	.audio-player audio {
+		width: 100%;
+		min-width: 0;
+	}
+	.track-title {
+		font-size: 0.75rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.thumb {
 		width: 2.5rem;

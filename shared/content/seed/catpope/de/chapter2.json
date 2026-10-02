@@ -111,16 +111,6 @@
 							}
 						},
 						{
-							"type": "addChoice",
-							"params": {
-								"label": "Liegen lassen"
-							},
-							"trigger": {
-								"type": "intersect",
-								"once": true
-							}
-						},
-						{
 							"type": "showChoices",
 							"trigger": {
 								"type": "intersect",

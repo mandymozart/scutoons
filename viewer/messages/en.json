@@ -31,7 +31,8 @@
 		"alt_end": "End of season"
 	},
 	"download": {
-		"read_webtoon": "Read Webtoon"
+		"read_webtoon": "Read Webtoon",
+		"owners_only": "This download is only for owners of the record."
 	},
 	"account": {
 		"my_account": "My Account",
@@ -234,7 +235,14 @@
 		"gift_error_self_gift": "That's your own address.",
 		"gift_error_invalid_email": "Check the email address.",
 		"gift_error_not_giftable": "This can't be given away.",
-		"gift_error_failed": "That didn't work – please try again."
+		"gift_error_failed": "That didn't work – please try again.",
+		"needs_player": "You need a player to play it: {player}.",
+		"download_album": "Download the album",
+		"player_albums": "Records for this player",
+		"player_buy": "Buy",
+		"player_sold_out": "Sold out",
+		"player_owned": "In your inventory",
+		"now_playing": "Playing: {title}"
 	},
 	"claim": {
 		"title": "SCUTOONS item",
@@ -322,7 +330,11 @@
 		"prologue_title": "Season {season}, prologue: {title}"
 	},
 	"season": {
-		"download": "Download the music"
+		"download": "Download the music",
+		"related": "With this season",
+		"buy": "Buy",
+		"sold_out": "Sold out",
+		"related_owned": "You own it"
 	},
 	"menu": {
 		"close": "Close menu",

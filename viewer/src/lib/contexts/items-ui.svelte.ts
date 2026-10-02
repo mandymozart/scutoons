@@ -1,5 +1,5 @@
 import { setContext, getContext } from 'svelte';
-import type { Entry, ScanObjectSkill, Skill } from '@scutoons/content';
+import { legacyPlayAudio, type Entry, type ScanObjectSkill, type Skill } from '@scutoons/content';
 
 const ITEMS_UI_KEY = Symbol('items-ui');
 
@@ -9,6 +9,15 @@ export interface CameraRequest {
 	/** object detection (the cucumber camera): the session only detects, no QR decoding */
 	object: ScanObjectSkill | null;
 	/** entry whose skill opened the camera (for the header) */
+	entry: Entry | null;
+}
+
+/** What the audio player plays: an album's tracks in order (one track for the old `play_audio` skill) */
+export interface AudioRequest {
+	tracks: { src: string; title: string }[];
+	/** the album's title in the reader's language */
+	title: string;
+	/** the media item it plays from (its icon in the player), if any */
 	entry: Entry | null;
 }
 
@@ -24,7 +33,7 @@ export function createItemsUiContext() {
 	let claimAuto = $state(false);
 	let claimDispute = $state(false);
 	let minigame = $state<{ id: string; entry: Entry | null } | null>(null);
-	let audio = $state<{ src: string; entry: Entry | null } | null>(null);
+	let audio = $state<AudioRequest | null>(null);
 	let inventoryRequested = $state(false);
 
 	/**
@@ -46,8 +55,9 @@ export function createItemsUiContext() {
 			minigame = { id: game.id, entry };
 			return;
 		}
-		const play = skills.find((s) => s.type === 'play_audio');
-		if (play && play.type === 'play_audio') audio = { src: play.src, entry };
+		// the old `play_audio` skill (before albums + players, 2026-10-02): plays without a player
+		const src = legacyPlayAudio(skills);
+		if (src) audio = { tracks: [{ src, title: '' }], title: '', entry };
 	}
 
 	return {
@@ -84,6 +94,8 @@ export function createItemsUiContext() {
 		},
 		closeClaim: () => (claimCode = null),
 		closeMinigame: () => (minigame = null),
+		/** plays an album's tracks (a media item with a player – agents/ITEMS.md "Players, albums, related items") */
+		playAlbum: (request: AudioRequest) => (audio = request.tracks.length ? request : null),
 		closeAudio: () => (audio = null),
 		requestInventory: (value = true) => (inventoryRequested = value)
 	};
