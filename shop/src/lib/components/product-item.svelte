@@ -171,7 +171,9 @@
 	.chip {
 		font: inherit;
 		font-size: 0.75rem;
-		padding: 0.25rem 0.5rem;
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 0.5rem;
 		background: #fff;
 		color: #000;
 		border: 2px solid #ccc;

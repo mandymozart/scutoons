@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { ROLE_CATEGORIES, RoleCategory, pickText, type CreditRole, type LocaleText } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from './locale-map-field.svelte';
@@ -83,7 +83,7 @@
 	<div class="role-picker" data-testid={testid}>
 		<div class="row">
 			<input bind:this={input} type="search" placeholder={m['creator.credits_search_roles']()} bind:value={query} {onkeydown} data-testid="{testid}-input" />
-			<button type="button" class="ghost" onclick={() => (open = false)} aria-label="Close"><Icon name="x" /></button>
+			<button type="button" class="ghost" onclick={() => (open = false)} aria-label="Close"><CloseIcon /></button>
 		</div>
 		{#if !creating}
 			<div class="list">
@@ -160,10 +160,10 @@
 		min-width: 6.5rem;
 	}
 	.chip {
-		padding: 0.1rem 0.4rem;
+		padding: 0 0.4rem;
 		background: var(--paper);
 		color: var(--ink);
-		border: 1px solid var(--border-muted);
+		border: var(--border-width-regular) solid var(--border-muted);
 	}
 	.chip:hover {
 		border-color: var(--ink);
@@ -183,6 +183,6 @@
 	}
 	.mini {
 		font-size: var(--type-caption-size);
-		padding: 0.1rem 0.4rem;
+		padding: 0 0.4rem;
 	}
 </style>

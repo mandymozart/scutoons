@@ -58,8 +58,11 @@
 		display: flex;
 	}
 	.switch button {
-		padding: 0.2em 0.8em;
-		border: var(--border-width-hairline) solid var(--ink);
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 var(--space-1);
+		border: var(--border-width-regular) solid var(--ink);
+		line-height: var(--type-button-line);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;

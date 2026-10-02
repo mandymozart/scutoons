@@ -180,8 +180,9 @@
 	input {
 		box-sizing: border-box;
 		width: 100%;
+		height: var(--control-height);
 		margin: 0;
-		padding: var(--space-075) var(--space-1);
+		padding: 0 var(--space-1);
 		border: 0;
 		border-bottom: var(--border-width-regular) solid var(--ink);
 		border-radius: 0;

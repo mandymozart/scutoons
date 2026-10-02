@@ -25,7 +25,7 @@
 		type RegistryCharacter,
 		type ToonCast
 	} from '@scutoons/content';
-	import { Badge, Icon, Tabs } from '@scutoons/ui';
+	import { Badge, CloseIcon, Icon, Tabs } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		addCharacter,
@@ -285,7 +285,7 @@
 							<span class="new">
 								<input bind:this={nameInput} type="text" bind:value={newName} placeholder={m['creator.characters_name']()} onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); create(); } else if (e.key === 'Escape') creating = false; }} data-testid="new-character-name" />
 								<button type="button" onclick={create} disabled={!newName.trim()} data-testid="new-character-create">{m['creator.characters_create']()}</button>
-								<button type="button" class="ghost" onclick={() => (creating = false)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
+								<button type="button" class="ghost" onclick={() => (creating = false)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 							</span>
 						{/if}
 						{#if registry.loading}
@@ -296,7 +296,7 @@
 									{@const issues = imageIssues(c)}
 									{@const src = thumb(c)}
 									<li>
-										<button type="button" class="item" class:active={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
+										<button type="button" class="item" data-control-exempt="two-line list row with avatar" class:active={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
 											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 											<span class="text">
 												<span>{characterName(c, uiLocale)}</span>

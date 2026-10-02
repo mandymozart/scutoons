@@ -119,9 +119,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     filling the column: no 36em measure, heading bars, text and the logo box span it; phones keep the measure); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
     112 × 72 (cover), title 0.75rem (+ the progress rule 5.3333rem / the coming-soon line in caption), "#n" / "Prolog"
     right-aligned, coming soon at 50 %. Published rows show no date.
-- **Top-right icon group (all widths, all pages):** the menu button (round 2rem = 48 px at the desktop root, 3-line icon
+- **Top-right icon group (all widths, all pages):** the menu button (round `--control-height` = 52 px at the desktop root, 44 px on touch – "One control height"; 3-line icon
   `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
-  toon pages inventory, map and chapter list follow to its left (3rem / 5.5rem / 8rem from the right). The slide-out's
+  toon pages inventory, map and chapter list follow to its left (each `--control-height` + 0.5rem further left). The slide-out's
   entries all use the `button` type (`--type-button-size` / `--type-button-line`, rem-based; the toon names and
   "Anmelden" were hard 16 px before).
 - **The logo** (top left, all pages) is a link to the localized landing page (`/` · `/en/`, alt "SCUTOONS – Startseite" /
@@ -496,6 +496,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
   (`<Icon name="zoom-in" />`, names: feathericons.com). No other icon sets, no inline copies; if a Feather icon is
   missing, add the SVG to the shared library (`shared/ui`), never into an app.
 - **Icons where a word makes no sense** (map tools, zoom, close, drag handle, play/pause); **text where a word is clearer**.
+  The close / remove cross is the exception to Feather: the one drawn `CloseIcon` (see "Close cross").
   An icon-only control always has an accessible name (`label` / `aria-label`) and a tooltip.
 - Brutalist defaults: stroke 2.5, square caps, `currentColor`, 1.25em (scales with the fluid root type).
 - The brand's own hand-drawn icons (viewer: chapter, map, inventory, account …) stay as they are.
@@ -572,20 +573,21 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 - **Touch minimum only on touch screens** (owner 2026-10-01): one rule in tokens.css, `@media (pointer: coarse)`
   raises `--control-height` to max(44px, 2rem + frame); fields, list rows, nav entries and buttons use it as
   `min-height`, so phones and tablets get ≥ 44px targets while a mouse desktop stays rem-only.
-- Inputs / selects / textareas: 2px ink frame, paper, 1rem, padding `space-025 space-05` (textarea `space-05`),
-  placeholder `text-muted`; disabled = `border-muted` + `text-muted`; invalid = `state-error` frame.
+- Inputs / selects / textareas: 2px ink frame, paper, 1rem, padding `0 space-05` (one control height, see below;
+  textarea `space-05`), placeholder `text-muted`; disabled = `border-muted` + `text-muted`; invalid = `state-error` frame.
 - **Buttons = the viewer's** (owner 2026-10-01, no new invention): primary = ink bg / paper text; secondary (the
   normal one) = paper + 2px `border-muted`, **on hover the outline turns ink**, no inversion on hover; ghost = no frame,
-  `border-muted` frame on hover; disabled = opacity 0.5. Padding as in the viewer `space-1 space-3`; compact
-  `space-05 space-15` where the bars need it (`Button size="sm"`, the creator's plain buttons). Square, 1rem.
-  On phones (< 480px) the ActionBar narrows its buttons to `space-05 space-1` and shows Info as its icon only.
+  `border-muted` frame on hover; disabled = opacity 0.5. Height = `--control-height` (see "One control height"), side
+  padding as in the viewer `space-3`; compact `space-15` where the bars need it (`Button size="sm"`, the creator's
+  plain buttons) – `sm` is narrower, never lower. Square, 1rem.
+  On phones (< 480px) the ActionBar narrows its buttons to `space-1` at the sides and shows Info as its icon only.
 - **Focus = a 3px ink outline** (`--border-width-focus`) 2px outside the frame (`--focus-offset`), everywhere.
 - **Active / selected = inverted** (ink bg, paper text) — only for **toggles, tabs and selected list items**: current
   sidebar entry, open tab, chosen segment, selected list item / table row, pressed / open toggle (Info, More), current
   page in the pager. Pager links and menu triggers otherwise look like secondary buttons. Hover on lists = a 2px ink frame inside the row.
 - Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = the tool label.
   details/summary = a regular uppercase label row (`--control-height`).
-- **Icons:** Feather via `Icon` (see "Icons"): close (x), menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
+- **Icons:** Feather via `Icon` (see "Icons"; the close cross is NOT Feather, see "Close cross"): menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
   arrow-up/down for reorder, plus, info, search, sort arrows; icon-only controls carry `aria-label` + `title`.
 
 **Room.**
@@ -602,8 +604,80 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 tools' CSS (creator, admin, embassy, `@scutoons/ui`, tools.css; a line with `px-ok` + the reason is exempt, e.g. the
 lettering preview). `npm run check:tools-ui` (dev servers + `npm run dev:test-user`; `SCUTOONS_CREATOR|ADMIN|EMBASSY`
 for other origins): every tool page at 1440 px (fine pointer) and 390 px (touch) – no visible text under the caption
-size (comic lettering exempt), and on touch no button / field / nav entry under 44 px.
+size (comic lettering exempt), and on touch no button / field / nav entry under 44 px; since 2026-10-02 also every
+single-line control exactly `--control-height` ("One control height" below).
 
 **Vocabulary** (`tools.css`): `.sc-label`, `.sc-heading`, `.sc-caption`, `.sc-emphasis`, `.sc-chip` (`is-ink`, `is-live`, `is-off`),
-`.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted). Creator-wide button classes stay
+`.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted), `.sc-chip-control`, `.sc-control`
+("One control height"). Creator-wide button classes stay
 `.secondary`, `.ghost`, `.active` (creator layout).
+
+## One control height (owner rule, 2026-10-02) – tools AND the viewer
+
+> Owner (2026-10-02, screenshot of the creator toon settings "Languages": the select "de · Deutsch", the chip
+> "en · English ★ ×", the select "Add a translation …" and "+ Add" – all different heights): "There is a general problem
+> across all apps and views: buttons, selects and input fields have varying heights. A general rule should apply for
+> those."
+
+- **Every single-line control is exactly `--control-height`** – in the creator, admin, embassy, shop, the auth forms
+  (`@scutoons/auth`) and the viewer: buttons (also link-buttons `.btn` / `Button href`, icon buttons, the round icon
+  toggles of the viewer's top bar, the palette trigger, the creator's i18n switch, tabs, menu triggers and entries,
+  segmented buttons, close crosses), selects, text / email / number / date / search / url / password inputs, and the
+  **interactive chips** that sit in a row with controls (a removable language, a tag / role / filter chip with ×).
+- `--control-height` (tokens.css) = **2rem + the two 2px frames** (32 · 36 · 52 px at the fluid root 14 · 16 · 24 px);
+  on a coarse pointer `max(44px, …)`. There is **no small variant** and no second token: `Button size="sm"` and the
+  creator's compact buttons only have less side padding.
+- How: `box-sizing: border-box`, the height from the token (`height` on fields, `min-height` on buttons so a label
+  that would wrap is a visible bug, not clipped text), **no vertical padding** (`padding: 0 <side>`), line-height
+  normalised (`--type-button-line` 1 on buttons), the content centred by the box (`<button>` does it natively; links,
+  labels and chips use `inline-flex` + `align-items: center`). The frame is the same 2px everywhere
+  (`--border-width-regular`; a primary button may draw it in its fill colour or leave it out – the height is the same).
+  Everything else keeps its look (colours, frames, weight regular, the viewer's 3rem side padding).
+- Vocabulary (tools.css, global, so the viewer can use them too): `.sc-chip-control` = an interactive chip (2px ink
+  frame, body type, its buttons span the chip's full height over the frame, no frame of their own until hover);
+  `.sc-control` = a custom single-line control (a framed label over an invisible native select, a link that is a
+  button) – zero specificity, it only adds the box. `.sc-chip` stays the **status badge** (caption, filled): badges are
+  not controls and keep the caption size.
+- Labels that don't fit a narrow column stay on one line with an ellipsis and the full text as the tooltip (the
+  chapter editor's "Add group" / "Add separate scene").
+- **Exempt** (not single-line controls): textareas and other multi-line fields, switches (`role="switch"`),
+  checkboxes / radios, cards and tiles that are buttons (slice thumbnails, picture cells, inventory items, avatar slots,
+  item choices, two-line character rows, the chapter navigation cards with kicker + title + picture, the menu's toon
+  rows with their 3rem avatar), map / canvas markers and handles, visual-novel dialogue choices (they may wrap), and
+  comic lettering. In markup an exempt control carries `data-control-exempt="<reason>"`; in CSS a line that sets a
+  height / vertical padding on a control selector carries `control-ok` + the reason.
+- **Check:** `npm run check:tools-css` (static, part of `npm run check`) fails on `height` / `min-height` / vertical
+  `padding` on a control selector (button, `.btn*`, select, input, `.sc-button`, `.sc-icon-button`,
+  `.sc-palette-trigger`, `.sc-control`, `.sc-chip-control`, `[role=button]`) in the CSS of every app that doesn't come
+  from `--control-height`. `npm run check:tools-ui` (headless Chrome, dev servers + test user) measures every visible
+  single-line control on every tool page **and the viewer's main pages** (home, toon page, chapter, account, inventory,
+  events, download) at 1440 px (fine pointer) and 390 px (touch) and fails when one differs from the computed
+  `--control-height` by more than 1px.
+
+## Close cross (owner rule, 2026-10-02) – every app
+
+> Owner (2026-10-02, screenshot of the reader map's place card "Kloster" with a × at the top right): "Same height as the
+> headline and same width. Crosses across the app for closing inside dialogs should be 2 px wide – that is the width of
+> the boxes' borders – or 1 px, to match the font width of IBM Plex Mono."
+
+- **One drawn icon** for every close / dismiss / remove cross – dialogs, sheets, drawers, cards, info panels, split-view
+  details, overlays (map, menu, camera HUD), toasts, notices, pickers, the × of interactive chips and the remove × of list
+  rows – in the viewer, creator, admin, embassy, shop and `@scutoons/auth`: **`CloseIcon`** from `@scutoons/ui` (the
+  viewer imports it from there too). Two straight lines corner to corner, **square** (width = height).
+- **Height = the headline's**: the cross is as high as the capitals of the headline (or text) it sits next to – the cap
+  height of IBM Plex Mono, 0.698 × that text's font-size. `size` = that font-size (default `--type-label-size` 1rem, the
+  sheet / panel / card titles), e.g. 1rem headline → a 0.698rem cross (11.2 · 16.75 px at the 16 · 24 px root).
+- **Stroke 2px** (`stroke={2}`, the default) = the boxes' 2px border (`--border-width-regular`); **1px** (`stroke={1}`)
+  only where the cross sits on thin-line UI – the camera HUD's 1px lines. The stroke stays 2 / 1 CSS px at every size
+  (`vector-effect: non-scaling-stroke`); ends are cut square by the icon box.
+- **No font glyphs** (× ✕ ✖ `&times;`) as a control's content and **no Feather `x`** (its stroke 2.5 and 24-grid inset
+  make a different, smaller cross).
+- **The clickable area is the control, not the icon**: `CloseButton` (`@scutoons/ui`: a frameless `--control-height`
+  square, ≥ 44px on touch, border-muted frame on hover, `label` → aria-label + title) or the app's own
+  `--control-height` button (creator `ghost` row buttons, the viewer's round 2px icon toggles, the camera HUD's framed
+  square, a `.sc-chip-control`). The icon is centred in it, and the control's centre sits on the headline line's centre
+  (header rows `align-items: center`; the map card positions its absolute close from the title line: card padding + half
+  the line − half the control).
+- Exempt: none so far. A real need for a glyph (e.g. "3 × item" counts, sizes "390 × 625") is text, not a cross.
+- **Check:** `npm run check:tools-css` (part of `npm run check`) fails on a × ✕ ✖ `&times;` glyph as the content of a
+  button / link / `Button`, and on `<Icon name="x">`, in the markup of every app (`close-ok` + the reason exempts a line).

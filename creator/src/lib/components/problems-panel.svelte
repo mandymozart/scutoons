@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 	import { fileLabel } from '$lib/labels.ts';
 	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -22,7 +22,7 @@
 <div class="problems" data-testid="problems-panel">
 	<header>
 		<h2>{m['creator.problems']()} · {counts.error} errors · {counts.warning} warnings</h2>
-		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close"><Icon name="x" /></button>{/if}
+		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close"><CloseIcon /></button>{/if}
 	</header>
 	<label class="toggle"><input type="checkbox" bind:checked={showInfo} /> show {counts.info} notes</label>
 	{#if !visible.length}

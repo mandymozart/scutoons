@@ -131,6 +131,7 @@
 	{@const entry = inventory.equippedEntry(slot.id)}
 	<button
 		class="tile"
+		data-control-exempt="avatar slot tile (picture + label)"
 		class:equipped={!!entry}
 		class:active={selectedId === slot.id}
 		onclick={() => (selectedId = selectedId === slot.id ? null : slot.id)}
@@ -153,6 +154,7 @@
 			{@const active = b.character === body?.character}
 			<button
 				class="body-choice"
+				data-control-exempt="square body picture"
 				class:active
 				aria-pressed={active}
 				title={b.name}
@@ -388,7 +390,7 @@
 		padding: 0.25rem;
 	}
 	.picker li button {
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 	}
 	.name {
 		font-size: 0.75rem;

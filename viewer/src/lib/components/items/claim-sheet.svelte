@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CloseIcon } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import { ApiError } from '$lib/api.ts';
 	import { addClaimFile, fetchCode, fileClaim, type AccessResult, type VerifyResult } from '$lib/api.ts';
@@ -217,7 +218,7 @@
 <div class="claim" role="dialog" aria-modal="true" aria-label={signupOnly ? m['claim.promo_title']() : m['claim.title']()}>
 	<header>
 		<h2>{signupOnly ? m['claim.promo_title']() : m['claim.title']()}</h2>
-		<button class="close" onclick={onclose} aria-label={m['items.close']()}>×</button>
+		<button class="close" onclick={onclose} aria-label={m['items.close']()}><CloseIcon size="1rem" /></button>
 	</header>
 
 	{#if phase === 'loading'}
@@ -292,6 +293,7 @@
 					<li>
 						<button
 							class="option"
+							data-control-exempt="item choice card (picture + text)"
 							class:selected={needsChoice && chosenItem === it.item_id}
 							disabled={!needsChoice || ownedByOther}
 							onclick={() => ((chosenItem = it.item_id), (chosenVariant = null))}
@@ -431,15 +433,16 @@
 		margin: 0;
 	}
 	.close {
-		width: 2rem;
-		height: 2rem;
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		border-radius: 50%;
 		background: white;
 		color: black;
 		border: 2px solid black;
-		font-size: 1.25rem;
-		line-height: 1;
+		display: inline-grid;
+		place-items: center;
 	}
 	.close:hover {
 		background: var(--primary-color);
@@ -492,7 +495,7 @@
 		gap: 0.5rem;
 	}
 	.variants button {
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 	}
 	.variants button.selected {
 		border-color: black;
@@ -505,7 +508,7 @@
 	}
 	.actions button {
 		flex: 1;
-		padding: 0.75rem 1rem;
+		padding: 0 1rem;
 	}
 	.unlocked {
 		background: black;

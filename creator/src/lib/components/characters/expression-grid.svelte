@@ -157,6 +157,7 @@
 						type="button"
 						role="gridcell"
 						class="cell state-{state}"
+						data-control-exempt="picture cell"
 						class:requested={!!request}
 						title={c.path || c.convention}
 						onclick={() => openDialog(mood, view)}

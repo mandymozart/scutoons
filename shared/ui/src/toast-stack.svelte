@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Toaster } from './toasts.svelte.ts';
-	import Icon from './icon.svelte';
+	import CloseButton from './close-button.svelte';
 
 	/** Renders a toaster's toasts, fixed bottom-right. Errors are announced assertively. */
 	let { toaster, dismissLabel = 'Dismiss' }: { toaster: Toaster; dismissLabel?: string } = $props();
@@ -10,9 +10,7 @@
 	{#each toaster.items as toast (toast.id)}
 		<div class="toast {toast.type}" role={toast.type === 'error' ? 'alert' : 'status'}>
 			<p>{toast.message}</p>
-			<button type="button" aria-label={dismissLabel} title={dismissLabel} onclick={() => toaster.dismiss(toast.id)}>
-				<Icon name="x" />
-			</button>
+			<CloseButton label={dismissLabel} size="var(--type-body-size, 1rem)" onclick={() => toaster.dismiss(toast.id)} />
 		</div>
 	{/each}
 </div>
@@ -55,15 +53,9 @@
 		margin: 0;
 		line-height: var(--type-body-line);
 	}
-	button {
-		margin: 0;
-		padding: 0 var(--space-025);
-		background: transparent;
-		border: 0;
-		color: var(--ink);
-		font: inherit;
-		font-size: 1.25em;
-		line-height: 1;
-		cursor: pointer;
+	/* the close cross level with the first line, the control's extra height hangs into the padding */
+	.toast :global(.sc-close-button) {
+		margin-block: calc((var(--type-body-line) * var(--type-body-size) - var(--control-height)) / 2);
+		margin-inline-end: calc(-1 * var(--space-05));
 	}
 </style>

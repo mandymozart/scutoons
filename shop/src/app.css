@@ -11,13 +11,23 @@ button,
 .btn {
 	background-color: var(--ink);
 	color: var(--paper);
-	padding: 1rem 3rem;
+	box-sizing: border-box;
+	min-height: var(--control-height);
+	padding: 0 3rem;
 	border: none;
 	text-align: center;
 	border-radius: 0;
 	font-family: var(--font-mono);
 	font-size: 1rem;
+	line-height: var(--type-button-line);
 	cursor: pointer;
+}
+
+/* one control height (owner 2026-10-02): a link that is a button centres its one line like a <button> */
+.btn {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 }
 
 button:hover,

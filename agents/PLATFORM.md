@@ -840,6 +840,12 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
   (`shared/content/seed/content-seed.mysql.sql` = `php bin/console import-content shared/content/seed --sql`, every toon's
   content incl. characters + credits). server/docs/DATABASE.md, agents/DATA.md §4.
 
+- Embassy stores (2026-10-02, branch `stores`): `2026-10-02-embassy-stores` (additive: `embassy_orgs.listed`,
+  `independent`, `address`, `opening`, `carries`) – run it right after `2026-10-01-embassy` (it needs that table; both
+  are idempotent and may run with the release or at the Embassy go-live). Until it ran, `GET /api/stockists/` answers an
+  empty list and the viewer simply shows no "Local stores" link and the empty "Where to buy" page; the Embassy app
+  (held back) must not be used before it ran. agents/EMBASSY.md "Stores".
+
 - Content seed note (2026-10-02, players + related items): `content-seed.mysql.sql` carries `related_items` in
   `season:catpope:1:{de,en}` and the record-player pickup in `chapter:catpope:2:{de,en}`. The statements skip stored keys
   – a database that already has them needs those 4 entities imported separately (`import-content … --toon=catpope

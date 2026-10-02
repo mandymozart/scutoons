@@ -18,7 +18,8 @@ ROOT_DIR = os.path.join(os.path.dirname(__file__), 'root')
 LOGS_DIR = os.path.join(os.path.dirname(__file__), 'logs')
 
 # File extensions to sync (for toon assets)
-SYNC_EXTENSIONS = {'.mp3', '.mp4', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.zip', '.avif', '.pdf', '.webm', '.mscz'}
+SYNC_EXTENSIONS = {'.mp3', '.mp4', '.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.zip', '.avif', '.pdf', '.webm', '.mscz',
+                   '.json', '.bin'}  # .json/.bin: the camera's image model (models/…/model.json + group*-shard*.bin, 2026-10-02)
 # Note: Root .htaccess (cdn/.htaccess) synced to FTP root via sync_root_files()
 
 def format_size(bytes):

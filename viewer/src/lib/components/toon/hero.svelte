@@ -138,7 +138,7 @@
 		<div class="hero-actions">
 			<StartButton {toonId} season={seasonNumber} chapters={sequence} inverse testid="hero-start" />
 			{#if trailerHref}
-				<a class="hero-trailer" href={trailerHref} data-testid="hero-trailer">
+				<a class="hero-trailer sc-control" href={trailerHref} data-testid="hero-trailer">
 					{m['hero.trailer']()}
 					<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 2v12l11-6z" fill="currentColor" /></svg>
 				</a>
@@ -233,7 +233,9 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5em;
-		padding: calc(0.75em - var(--border-width-regular)) calc(1.6em - var(--border-width-regular));
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 calc(1.6em - var(--border-width-regular));
 		border: var(--border-width-regular) solid var(--paper);
 		color: var(--paper);
 		line-height: var(--type-button-line);
@@ -254,7 +256,9 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.4167rem;
-		padding: 0.4167rem 0.6667rem;
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 0.6667rem;
 		border: var(--border-width-regular) solid rgb(255 255 255 / 0.6);
 		background: none;
 		color: var(--paper);

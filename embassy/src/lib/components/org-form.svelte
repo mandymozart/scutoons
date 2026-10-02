@@ -1,7 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { ORG_TYPES, TIERS, type Org, type OrgInput } from '@scutoons/api';
+	import { onMount } from 'svelte';
+	import { ORG_TYPES, TIERS, isStockist, type Org, type OrgInput } from '@scutoons/api';
+	import type { Product } from '@scutoons/content';
 	import { label, splitList } from '$lib/labels.ts';
+	import { loadProducts, productIcon } from '$lib/products.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/** The organisation's fields; `onsubmit` gets an OrgInput (lists split, country upper case) */
@@ -27,6 +30,23 @@
 	let source = $state(start?.source ?? '');
 	let notes = $state(start?.notes ?? '');
 	let doNotContact = $state(start?.do_not_contact ?? false);
+	// stores (agents/EMBASSY.md "Stores"): the public "Where to buy" fields, only for store / record shop
+	let listed = $state(start?.listed ?? false);
+	let independent = $state(start?.independent ?? false);
+	let address = $state(start?.address ?? '');
+	let opening = $state(start?.opening ?? '');
+	let carries = $state<string[]>([...(start?.carries ?? [])]);
+	let products = $state<Product[]>([]);
+	onMount(() => {
+		loadProducts().then((list) => (products = list));
+	});
+	const stockist = $derived(isStockist(type));
+	// ids the store carries that the catalog doesn't know (any more) stay visible, so they can be removed
+	const unknownCarries = $derived(products.length ? carries.filter((id) => !products.some((p) => p.id === id)) : []);
+
+	function toggleCarry(id: string, on: boolean) {
+		carries = on ? [...carries.filter((c) => c !== id), id] : carries.filter((c) => c !== id);
+	}
 
 	function submit(event: SubmitEvent) {
 		event.preventDefault();
@@ -44,7 +64,11 @@
 			links: links.split('\n').map((l) => l.trim()).filter(Boolean),
 			source: source.trim(),
 			notes: notes.trim(),
-			do_not_contact: doNotContact
+			do_not_contact: doNotContact,
+			// the store fields are kept as they are when the type is not a store (nothing public without the type)
+			...(stockist
+				? { listed, independent, address: address.trim(), opening: opening.trim(), carries: carries.filter((id) => !unknownCarries.includes(id)) }
+				: {})
 		});
 	}
 </script>
@@ -111,5 +135,90 @@
 		<input type="checkbox" bind:checked={doNotContact} />
 		{m['org.do_not_contact']()}
 	</label>
+	{#if stockist}
+		<fieldset class="wide store" data-testid="store-fields">
+			<legend>{m['store.title']()}</legend>
+			<p class="caption muted">{m['store.intro']()}</p>
+			<label class="check" title={m['store.listed_hint']()}>
+				<input type="checkbox" bind:checked={listed} data-testid="store-listed" />
+				{m['store.listed']()}
+			</label>
+			<label class="check" title={m['store.independent_hint']()}>
+				<input type="checkbox" bind:checked={independent} data-testid="store-independent" />
+				{m['store.independent']()}
+			</label>
+			<div class="pair">
+				<label class="field">
+					<span>{m['store.address']()}</span>
+					<input bind:value={address} maxlength="255" placeholder={m['store.address_placeholder']()} />
+				</label>
+				<label class="field">
+					<span>{m['store.opening']()}</span>
+					<input bind:value={opening} maxlength="255" placeholder={m['store.opening_placeholder']()} />
+				</label>
+			</div>
+			<div class="carries" role="group" aria-label={m['store.carries']()}>
+				<span class="caption muted">{m['store.carries']()}</span>
+				{#if !products.length}
+					<p class="caption muted">{m['shell.loading']()}</p>
+				{/if}
+				<ul>
+					{#each products as product (product.id)}
+						{@const icon = productIcon(product)}
+						<li>
+							<label class="check product" title={product.id}>
+								<input
+									type="checkbox"
+									checked={carries.includes(product.id)}
+									onchange={(e) => toggleCarry(product.id, e.currentTarget.checked)}
+									data-product={product.id}
+								/>
+								{#if icon}<img src={icon} alt="" width="40" height="40" loading="lazy" />{/if}
+								<span>{product.name}</span>
+							</label>
+						</li>
+					{/each}
+					{#each unknownCarries as id (id)}
+						<li class="caption">{m['store.unknown_product']({ id })}</li>
+					{/each}
+				</ul>
+			</div>
+		</fieldset>
+	{/if}
 	<div class="wide row">{@render actions()}</div>
 </form>
+
+<style>
+	.store {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-075);
+		margin: 0;
+	}
+	.store p {
+		margin: 0;
+	}
+	.pair {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+		gap: var(--space-075) var(--space-1);
+	}
+	.carries ul {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+		gap: var(--space-05) var(--space-1);
+		margin: var(--space-05) 0 0;
+		padding: 0;
+		list-style: none;
+	}
+	/* a long product name wraps; the checkbox keeps its size */
+	.product input {
+		flex: none;
+	}
+	.product img {
+		width: 2.5rem;
+		height: 2.5rem;
+		object-fit: contain;
+		flex: none;
+	}
+</style>

@@ -129,6 +129,7 @@
 				onclick={() =>
 					navigate(localizeHref(`/${params.toonId}/${nextItem.type}/${nextItem.number}`))}
 				class=" btn-clear btn-next"
+				data-control-exempt="chapter navigation card (two lines + image)"
 				title={`${chapterName(nextItem.number)}: ${nextItem.title}`}
 			>
 				<div class="nav-image">
@@ -157,9 +158,11 @@
 	.sequence-navigation-toggle {
 		position: fixed;
 		top: 0.5rem;
-		right: 8rem;
-		width: 2rem;
-		height: 2rem;
+		/* the 4th of the top-right group (main-menu.svelte): one control height (owner 2026-10-02) */
+		right: calc(0.5rem + 3 * (var(--control-height) + 0.5rem));
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		display: flex;
 		align-items: center;

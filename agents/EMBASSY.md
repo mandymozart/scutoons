@@ -203,7 +203,7 @@ own data, no per-seat fees. Phase 0 works either way.
   phone width 375 px, German).
 
 **To go live (owner):** subdomain `embassy.scutoons.com` on all-inkl → folder `embassy/dist/` (+ SSL); run
-`server/migrations/mysql/2026-10-01-embassy.mysql.sql` in phpMyAdmin; merge `embassy` after the release (the api
+`server/migrations/mysql/2026-10-01-embassy.mysql.sql` then `2026-10-02-embassy-stores.mysql.sql` in phpMyAdmin; merge `embassy` after the release (the api
 deploy adds the origin to `ALLOWED_ORIGINS`); grant roles in the admin app (Users); import the file on `/import`
 (dry run first). Local: nothing to add, the dev API allows every port of `shared/dev-ports.json` (PLATFORM.md "Local dev ports").
 
@@ -214,6 +214,68 @@ comment). The DB migration is additive and may run with the release or later.
 
 **Next (phase 2):** sending from the app (SMTP, shared mailbox), inbox sync, templates + call notes, member updates
 to opted-in members, daily reminder. Then phase 3 (AI enrichment, drafts, research runs).
+
+## Stores – "Where to buy" (2026-10-02, owner — built on branch `stores`)
+
+Owner: "In the embassy I need a type STORE. Any store that carries products from SCUTOONS needs to be mentioned. We need
+a public page on the main viewer which lists which stores carry which items, so people can buy from a local supplier of
+their choice. I want to encourage small vendors at first."
+
+**Model** (on `embassy_orgs`, migration `2026-10-02-embassy-stores`, sqlite + mysql, additive):
+- New organisation type **`store`**. `record_shop` stays. Both are **stockists** (`Embassy::STOCKIST_TYPES`,
+  `@scutoons/api` `STOCKIST_TYPES` / `isStockist`): they sell to readers over the counter, a record shop being a store
+  that specialises in records (the Vinyl track's targets, many came with the Top List import). Distributors and labels
+  sell to shops, not to readers, so they are not listed (open decision below).
+- Store fields, edited in the organisation form when the type is a stockist: `listed` ("Auf scutoons.com zeigen"),
+  `independent` (small / independent vendor, listed first), `address`, `opening` (free text as the store writes it),
+  `carries` = product ids of `server/config/products.json` (the shop catalog; unknown ids → `400 invalid_product`). Kept
+  on the row when the type changes, but only stockist types are public. The import unites `carries` like the tags.
+- No separate table: a store is an organisation like every other partner (people, leads in the Vinyl track, timeline);
+  the public page only reads the five store columns plus name / type / city / country / website.
+
+**Public read**: `GET /api/stockists/?product=&country=` (`Domain\Embassy\Stockists`, `StockistsController`; server
+docs/API.md "Embassy → Stores"): listed stockists with at least one product still in the catalog, public fields only
+(`id, name, type, independent, city, country, address, website (http(s) only), opening, carries`) – never people, email,
+phone, notes, tags, tier, source, leads or activities. Order: independent first, then country, city, name.
+`products` (product id → number of stores) and `countries` cover all listed stores (unfiltered), so one request answers
+"is it in a shop?" for every product. No session, any origin, `Cache-Control: public, max-age=300` + ETag (304), 600
+requests / IP / hour (`stockists:<ip hash>` bucket). Before the migration ran: an empty list, no error.
+
+**Embassy UI**: organisation form → "Laden / Store" fieldset (only for store / record shop): the two switches with
+tooltips, address, opening info, the products as checkboxes with their icons (`/products/`, CDN icons: the embassy build
+now gets `VITE_CDN_URL`); the organisation page shows a store box (LISTED / NOT LISTED, INDEPENDENT badges, a warning
+when listed without products, the products, a link to scutoons.com/stores).
+
+**Viewer** (scutoons.com): `/stores` (`/en/stores`), title "Wo kaufen" / "Where to buy": "Unabhängige Läden" first, then
+"Weitere Läden", each grouped by country (name from the browser, `Intl.DisplayNames`) and city; per store the name, type,
+"unabhängig" tag, address, opening info, the products (icon + catalog name) and the website. Filters product + country
+live in the URL (`?product=`, `?country=`). Empty states: no store at all → "Online kaufen" (the shop); no store for a
+product → "Online kaufen" (the product's Bandcamp link) + "Alle Läden zeigen". "Läden vor Ort" / "Local stores" next to
+"Kaufen" in the toon page's related row (`related-items.svelte`) and under the landing page's editions whenever a listed
+store carries that product; "Wo kaufen" in the main menu and the landing footer – both only once at least one store
+is listed (no empty page in the menu at the release). Texts in the messages (de/en).
+
+**Dev data**: `php server/bin/console sample-stores [--remove]` adds three clearly fake stores to the local SQLite DB
+("Testladen (Beispiel)" Wien, "Beispiel-Plattenladen" Berlin – both independent –, "Testkette Megastore (Beispiel)" Graz),
+source "dev sample". It refuses MySQL; nothing is in any production seed.
+
+**Tests**: PHPUnit `EmbassyTest::testStoreFieldsAndTheStockistList` (fields, validation, order, filters, unlisting,
+import merge, public keys only), `EmbassyApiTest::testStockistsArePublicAndCarryNoPrivateFields` (no session, CORS *,
+cache, 304, no private strings, filters, 400s); api-smoke "Stockists" (12 checks); `npm run check:stores` (headless,
+390 / 1440 × de / en: the list, independent first, filters, empty states, the "Local stores" links, menu); check-landing
+expects the new footer link; check-toon-hero still green (the related row's buttons now wrap).
+
+**Open owner decisions**:
+1. What counts as "small / independent"? Today a checkbox the liaison sets by judgement (no size field). A rule (no
+   chain, owner-run, under N branches) would make it consistent.
+2. Should non-independent stores be listed at all for now ("encourage small vendors at first" could also mean: only
+   small vendors in the beginning)? Today they are listed after the independent ones.
+3. Do stores apply themselves (a public "list my shop" form → a research lead in the Vinyl track), or does only the
+   Embassy add them? Not built.
+4. Distributors / labels / mail-order with a web shop: list them too (a third block "online")? Today no.
+5. A map view and "near me" (geolocation, coordinates per store) – later; today grouping by country and city.
+6. Per-store stock (sizes, variants, sold out) and a deep link per product in the store's web shop – today only "carries".
+7. Opening info is free text in the store's own words (not translated) – fine, or structured hours?
 
 ## Security note
 

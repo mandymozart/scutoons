@@ -14,6 +14,7 @@ declare(strict_types=1);
  *   php bin/console report-orphan-codes [--csv] [--manifests=<dir>]
  *   php bin/console assets:check-storage [--prefix=] [--hash] [--write-test] [--json]   bunny.net zone vs cdn/root (read-only)
  *   php bin/console assets:sync | assets:scan | assets:jobs   the media asset layer (agents/ASSETS.md)
+ *   php bin/console sample-stores [--remove]           fake stores for the local /stores page (SQLite dev DB only)
  *   php bin/console list                               all commands, `help <command>` for details
  */
 if (PHP_SAPI !== 'cli') {
@@ -35,12 +36,13 @@ use Scutoons\Console\ImportContentCommand;
 use Scutoons\Console\MigrateCommand;
 use Scutoons\Console\ReportOrphanCodesCommand;
 use Scutoons\Console\RolesCommand;
+use Scutoons\Console\SampleStoresCommand;
 use Scutoons\Kernel;
 use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class] as $command) {
+foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

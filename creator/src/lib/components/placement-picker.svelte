@@ -78,10 +78,10 @@
 		flex: 1;
 		min-width: 0;
 		margin-left: -2px;
-		padding: 0.35em 0.25em;
+		padding: 0 0.25em;
 		font: inherit;
 		font-size: 0.9em;
-		line-height: 1.2;
+		line-height: var(--type-button-line);
 		background: var(--paper);
 		color: var(--ink);
 		border: 2px solid var(--border-muted);

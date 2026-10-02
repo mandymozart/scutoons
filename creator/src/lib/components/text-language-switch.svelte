@@ -28,7 +28,7 @@
 	const title = $derived(`${m['creator.text_language']()}: ${m['creator.text_language_hint']()}`);
 </script>
 
-<label class="text-language" class:chosen={current !== ALL_TEXT_LANGUAGES && current !== SOURCE_TEXT_LANGUAGE} {title} data-testid="text-language">
+<label class="text-language sc-control" class:chosen={current !== ALL_TEXT_LANGUAGES && current !== SOURCE_TEXT_LANGUAGE} {title} data-testid="text-language">
 	<Icon name="globe" />
 	<span class="code" aria-hidden="true">{code}</span>
 	<select onchange={(e) => textLanguage.set(e.currentTarget.value)} aria-label={title} data-testid="text-language-select">
@@ -74,7 +74,7 @@
 		position: absolute;
 		inset: 0;
 		width: 100%;
-		height: 100%;
+		height: 100%; /* control-ok: the invisible native select covers the framed control */
 		min-height: 0;
 		margin: 0;
 		padding: 0;

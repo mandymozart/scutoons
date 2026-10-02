@@ -172,6 +172,7 @@
 					{#each listed as { entry, qty } (entry.id)}
 						<button
 							class="item"
+							data-control-exempt="inventory item card (picture + name)"
 							class:source={combineWith && String(combineWith.id) === String(entry.id)}
 							onclick={() => pick(entry)}
 							title={inventory.nameOf(entry)}
@@ -194,15 +195,16 @@
 	.inventory-toggle {
 		position: fixed;
 		top: 0.5rem;
-		/* the menu button is right-most (main-menu.svelte) */
-		right: 3rem;
+		/* the menu button is right-most (main-menu.svelte); one control height (owner 2026-10-02) */
+		right: calc(0.5rem + var(--control-height) + 0.5rem);
 		z-index: 1001;
 		background: var(--paper);
 		border: 2px solid black;
 		padding: 0;
 		border-radius: 50%;
-		height: 2rem;
-		width: 2rem;
+		box-sizing: border-box;
+		height: var(--control-height);
+		width: var(--control-height);
 		display: flex;
 		cursor: pointer;
 		transition: all 0.2s ease;
@@ -269,7 +271,7 @@
 	/* the switch uses the secondary (outlined) button look of the panel, like "Kombinieren" (owner 2026-09-30):
 	   inactive = muted outline, active = ink outline */
 	.tabs button {
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 		background: transparent;
 		color: var(--ink);
 		border: 2px solid var(--border-muted);
@@ -315,7 +317,7 @@
 		line-height: 1.3;
 	}
 	.combine-bar button {
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 		flex: none;
 	}
 

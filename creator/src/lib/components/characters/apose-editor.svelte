@@ -94,7 +94,7 @@
 						</table>
 					</details>
 				{:else}
-					<button type="button" class="missing" onclick={() => ((dialogLook = look.id), (dialogOpen = true))} data-testid="apose-{look.id}-missing">
+					<button type="button" class="missing" data-control-exempt="missing picture card" onclick={() => ((dialogLook = look.id), (dialogOpen = true))} data-testid="apose-{look.id}-missing">
 						<span>{m['creator.characters_missing_add']()}</span>
 						<code>{aposeConventionPath(character, look.id).split('/').pop()}</code>
 						{#if request}<span class="req" title={request.requested_by ?? ''}><Icon name="mail" /> {request.note || m['creator.characters_requested_short']()}</span>{/if}

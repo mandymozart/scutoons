@@ -334,14 +334,39 @@
 		"related": "With this season",
 		"buy": "Buy",
 		"sold_out": "Sold out",
-		"related_owned": "You own it"
+		"related_owned": "You own it",
+		"local_stores": "Local stores",
+		"local_stores_title": "Shops that carry it: {count}"
+	},
+	"stores": {
+		"title": "Where to buy",
+		"intro": "SCUTOONS editions in real shops – buy from a local store of your choice. Small and independent shops come first.",
+		"filter_product": "Product",
+		"filter_country": "Country",
+		"all_products": "All products",
+		"all_countries": "All countries",
+		"independent": "Independent shops",
+		"independent_note": "Small shops run by people, not chains. We list them first.",
+		"independent_tag": "independent",
+		"others": "More stores",
+		"all_stores": "Stores",
+		"type_store": "Store",
+		"type_record_shop": "Record shop",
+		"carries": "Carries",
+		"country_unknown": "Elsewhere",
+		"empty": "No shop carries SCUTOONS editions yet. For now you buy them online.",
+		"empty_product": "No shop carries {product} yet.",
+		"empty_filter": "No shop matches.",
+		"buy_online": "Buy online",
+		"show_all": "Show all shops"
 	},
 	"menu": {
 		"close": "Close menu",
 		"open": "Menu",
 		"home": "SCUTOONS – Home",
 		"toons": "Toons",
-		"language": "Language"
+		"language": "Language",
+		"stores": "Where to buy"
 	},
 	"hero": {
 		"season": "Season {number} · {title}",
@@ -366,7 +391,9 @@
 		"all_editions": "All editions",
 		"footer": "SCUTOONS · No ads, no tracking.",
 		"events": "Events",
-		"attributions": "Attributions"
+		"attributions": "Attributions",
+		"stores": "Where to buy",
+		"local_stores": "Local stores"
 	},
 	"map": {
 		"title": "Map",

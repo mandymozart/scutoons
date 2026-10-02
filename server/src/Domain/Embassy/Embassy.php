@@ -5,6 +5,7 @@ namespace Scutoons\Domain\Embassy;
 
 use DateTimeImmutable;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\Products;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
@@ -18,6 +19,10 @@ use Scutoons\Support\Ids;
  *
  * Access: role `ambassador` (or `admin`) = everything; role `liaison` = read everything, edit organisations and people,
  * work the leads that are theirs or unowned. Only ambassadors import, delete and assign leads to somebody else.
+ *
+ * Stores (agents/EMBASSY.md "Stores"): an organisation of a STOCKIST_TYPES type (`store`, `record_shop`) can carry
+ * SCUTOONS products (`carries` = product ids of config/products.json) and be `listed` on the public "Where to buy" page
+ * (Stockists, GET /api/stockists/) with `independent`, `address`, `opening` – the other fields stay internal.
  */
 final class Embassy
 {
@@ -28,8 +33,14 @@ final class Embassy
     public const STAGES = ['research', 'ready', 'contacted', 'in_conversation', 'won', 'not_now', 'no', 'dormant'];
     public const TYPES = [
         'venue', 'festival', 'theatre', 'art_space', 'residency', 'radio', 'promoter', 'agency', 'distributor',
-        'record_shop', 'label', 'blog', 'magazine', 'podcast', 'journalist', 'playlist', 'newsletter', 'ad_channel', 'other',
+        'store', 'record_shop', 'label', 'blog', 'magazine', 'podcast', 'journalist', 'playlist', 'newsletter', 'ad_channel', 'other',
     ];
+    /**
+     * Types that sell to readers and so can carry products and be listed on the public "Where to buy" page: a record shop
+     * is a store that specialises in records (the Vinyl track's targets, many came with the Top List import); both sell
+     * over the counter. Distributors and labels sell to shops, not to readers, so they are not stockists.
+     */
+    public const STOCKIST_TYPES = ['store', 'record_shop'];
     public const KINDS = ['mail_out', 'mail_in', 'call', 'dm', 'meeting', 'note'];
     public const OUTCOMES = ['reached', 'voicemail', 'no_answer', 'call_back', 'declined'];
     public const TIERS = ['A', 'B', 'C'];
@@ -39,12 +50,27 @@ final class Embassy
     public const RETRY_CALL = 3;
     public const QUIET_IN_CONVERSATION = 10;
 
-    private const ORG_TEXT = ['name' => 255, 'city' => 255, 'website' => 1024, 'email' => 255, 'phone' => 64, 'source' => 255, 'notes' => 20000];
+    private const ORG_TEXT = ['name' => 255, 'city' => 255, 'website' => 1024, 'email' => 255, 'phone' => 64, 'source' => 255, 'notes' => 20000,
+        'address' => 255, 'opening' => 255];
     private const PERSON_TEXT = ['name' => 255, 'role' => 255, 'email' => 255, 'phone' => 64, 'link' => 1024, 'language' => 16, 'notes' => 20000];
     private const MAX_IMPORT = 2000;
 
-    public function __construct(private readonly Database $db, private readonly Roles $roles, private readonly Clock $clock)
+    public function __construct(
+        private readonly Database $db,
+        private readonly Roles $roles,
+        private readonly Clock $clock,
+        private readonly Products $products,
+    ) {
+    }
+
+    /** @return list<string> the product ids a store may carry (config/products.json) */
+    public function productIds(): array
     {
+        $ids = [];
+        foreach ((array) ($this->products->catalog()['products'] ?? []) as $product) {
+            if (is_array($product) && is_string($product['id'] ?? null)) $ids[] = $product['id'];
+        }
+        return $ids;
     }
 
     // ── Access ────────────────────────────────────────────────────────────────────────────────────────────
@@ -548,6 +574,19 @@ final class Embassy
             $fields[$key] = json_encode($this->strings($data[$key] ?? [], $key === 'territories'), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
         if ($create || array_key_exists('do_not_contact', $data)) $fields['do_not_contact'] = ($data['do_not_contact'] ?? false) ? 1 : 0;
+        // stores (STOCKIST_TYPES): listed on the public page, small / independent vendor, the products they carry
+        foreach (['listed', 'independent'] as $key) {
+            if ($create || array_key_exists($key, $data)) $fields[$key] = ($data[$key] ?? false) ? 1 : 0;
+        }
+        if ($create || array_key_exists('carries', $data)) {
+            $carries = $this->strings($data['carries'] ?? [], false);
+            $known = $carries ? $this->productIds() : [];
+            $unknown = array_values(array_diff($carries, $known));
+            if ($unknown) {
+                throw new ApiError(400, 'invalid_product', 'Unknown product: ' . implode(', ', $unknown), ['field' => 'carries', 'allowed' => $known]);
+            }
+            $fields['carries'] = json_encode($carries, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
         return $fields;
     }
 
@@ -602,7 +641,7 @@ final class Embassy
     {
         $row = $this->db->one('SELECT * FROM embassy_orgs WHERE id = ?', [$id]) ?? [];
         $sets = [];
-        foreach (['city', 'country', 'website', 'email', 'phone', 'source', 'tier'] as $key) {
+        foreach (['city', 'country', 'website', 'email', 'phone', 'source', 'tier', 'address', 'opening'] as $key) {
             if (($row[$key] ?? '') === '' || $row[$key] === null) {
                 if (($fields[$key] ?? '') !== '' && $fields[$key] !== null) $sets[$key] = $fields[$key];
             }
@@ -611,8 +650,8 @@ final class Embassy
         if (($fields['notes'] ?? '') !== '' && !str_contains((string) $row['notes'], (string) $fields['notes'])) {
             $sets['notes'] = trim($row['notes'] . "\n\n" . $fields['notes']);
         }
-        foreach (['links', 'tags', 'territories'] as $key) {
-            $merged = array_values(array_unique([...self::decode($row[$key] ?? '[]'), ...self::decode($fields[$key] ?? '[]')]));
+        foreach (['links', 'tags', 'territories', 'carries'] as $key) {
+            $merged =array_values(array_unique([...self::decode($row[$key] ?? '[]'), ...self::decode($fields[$key] ?? '[]')]));
             if ($merged !== self::decode($row[$key] ?? '[]')) $sets[$key] = json_encode($merged, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
         }
         if (!$sets) return;
@@ -694,6 +733,9 @@ final class Embassy
             'links' => self::decode($r['links'] ?? '[]'), 'tags' => self::decode($r['tags'] ?? '[]'), 'territories' => self::decode($r['territories'] ?? '[]'),
             'tier' => $r['tier'] !== null && $r['tier'] !== '' ? (string) $r['tier'] : null, 'source' => (string) $r['source'], 'notes' => (string) $r['notes'],
             'do_not_contact' => (int) $r['do_not_contact'] === 1, 'created_at' => (string) $r['created_at'], 'updated_at' => (string) $r['updated_at'],
+            // stores (migration 2026-10-02-embassy-stores)
+            'listed' => (int) ($r['listed'] ?? 0) === 1, 'independent' => (int) ($r['independent'] ?? 0) === 1,
+            'address' => (string) ($r['address'] ?? ''), 'opening' => (string) ($r['opening'] ?? ''), 'carries' => self::decode($r['carries'] ?? '[]'),
         ];
     }
 

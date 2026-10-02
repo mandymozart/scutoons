@@ -174,7 +174,6 @@
 		text-align: center;
 	}
 	.season-download .btn {
-		display: inline-block;
 		text-decoration: none;
 	}
 	/* the record beside the centred button (phone / tablet): a smaller cut-out left of it */
@@ -244,7 +243,7 @@
 		}
 		.season-column .season-download .btn {
 			font-size: 0.6667rem;
-			padding: 0.5833rem 1.1667rem;
+			padding: 0 1.1667rem;
 		}
 		/* desktop: the record (≈ 150 px) left of the button, both on the column's left edge */
 		.season-column .season-download.with-image {

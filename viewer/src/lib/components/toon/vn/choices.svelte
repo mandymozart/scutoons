@@ -30,7 +30,7 @@
 
 <div class="vn-choices" class:visible>
 	{#each choices as choice}
-		<button class="vn-choice" onclick={() => handleSelect(choice)}>
+		<button class="vn-choice" data-control-exempt="dialogue choice (may wrap)" onclick={() => handleSelect(choice)}>
 			{choice.label}
 		</button>
 	{/each}
@@ -50,7 +50,7 @@
 	.vn-choice {
 		background: white;
 		color: black;
-		padding: 1rem 1.5rem;
+		padding: 1rem 1.5rem; /* control-ok: a dialogue choice may wrap */
 		border: 2px solid lightgrey;
 		cursor: pointer;
 		font-size: 1rem;

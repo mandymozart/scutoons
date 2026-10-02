@@ -1,6 +1,8 @@
 <script lang="ts">
+	import { CloseIcon } from '@scutoons/ui';
 	import { setLocale, localizeHref, locales, getLocale } from '$lib/paraglide/runtime.js';
-	import { tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
+	import { loadStockists } from '$lib/stockists.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset, toonImage } from '$lib/utils/cdn.ts';
 	import { shopUrl } from '$lib/config.ts';
@@ -18,6 +20,12 @@
 	const isValid = $derived(membershipCtx.isValid);
 	// the shop is its own app (shop.scutoons.com)
 	const shopHref = $derived(shopUrl(getLocale()));
+
+	// "Wo kaufen" only once a store is listed (agents/EMBASSY.md "Stores": no empty page in the menu before that)
+	let hasStores = $state(false);
+	onMount(() => {
+		loadStockists().then((l) => (hasStores = !!l?.stores.length));
+	});
 
 	let menuOpen = $state(false);
 	let menuElement = $state<HTMLDivElement>();
@@ -143,7 +151,7 @@
 					</ul>
 				</nav>
 				<button type="button" class="menu-close" onclick={() => (closeMenu(), toggleElement?.focus())} aria-label={m['menu.close']()} data-testid="menu-close">
-					<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+					<CloseIcon size="1rem" />
 				</button>
 			</div>
 		</div>
@@ -154,7 +162,7 @@
 					<li class="nav-item">
 						{#if toon.announced}
 							<!-- announced, not published (owner 2026-10-01): greyed, "bald" / "soon", no link; the tile image, not the avatar -->
-							<span class="nav-btn soon" aria-disabled="true" data-testid="menu-toon-soon" data-toon={toon.id}>
+							<span class="nav-btn soon" data-control-exempt="toon avatar row" aria-disabled="true" data-testid="menu-toon-soon" data-toon={toon.id}>
 								<img src={toonImage(toon)} alt="" />
 								<span class="name">
 									{toon.i18n[getLocale()]?.name ?? toon.id}
@@ -162,7 +170,7 @@
 								</span>
 							</span>
 						{:else}
-							<a class="nav-btn" href={localizeHref('/' + toon.id)} onclick={closeMenu} data-toon={toon.id}>
+							<a class="nav-btn" data-control-exempt="toon avatar row" href={localizeHref('/' + toon.id)} onclick={closeMenu} data-toon={toon.id}>
 								<img src={asset(`${toon.id}/${toon.avatar}`)} alt="" />
 								<span class="name">
 									{toon.i18n[getLocale()]?.name ?? toon.id}
@@ -177,14 +185,19 @@
 			<ul class="nav-list">
 				{#if !isValid}
 					<li class="nav-item">
-						<a class="nav-btn" href={shopHref} onclick={closeMenu}>{m['account.buy_access']()}</a>
+						<a class="nav-btn sc-control" href={shopHref} onclick={closeMenu}>{m['account.buy_access']()}</a>
 					</li>
 				{/if}
 				<li class="nav-item">
-					<a class="nav-btn" href={shopHref} onclick={closeMenu}>{m.limited_editions()}</a>
+					<a class="nav-btn sc-control" href={shopHref} onclick={closeMenu}>{m.limited_editions()}</a>
 				</li>
+				{#if hasStores}
+					<li class="nav-item">
+						<a class="nav-btn" href={localizeHref('/stores')} onclick={closeMenu} data-testid="menu-stores">{m['menu.stores']()}</a>
+					</li>
+				{/if}
 				<li class="nav-item">
-					<a class="nav-btn" href={localizeHref('/events')} onclick={closeMenu}>{m.events()}</a>
+					<a class="nav-btn sc-control" href={localizeHref('/events')} onclick={closeMenu}>{m.events()}</a>
 				</li>
 			</ul>
 		</nav>
@@ -200,15 +213,17 @@
 		transition: transform 0.3s ease;
 	}
 
-	/* the round icon toggles of the top-right group (list, map, inventory: toon/*.svelte), right-most */
+	/* the round icon toggles of the top-right group (list, map, inventory: toon/*.svelte), right-most. One control
+	   height (owner 2026-10-02): --control-height round, each next one --control-height + 0.5rem further left */
 	.menu-toggle {
 		position: fixed;
 		top: 0.5rem;
 		right: 0.5rem;
 		/* under the open slide-out (1003), which then covers it */
 		z-index: 1002;
-		width: 2rem;
-		height: 2rem;
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		display: flex;
 		align-items: center;
@@ -269,8 +284,8 @@
 		flex: 1;
 		align-items: center;
 		gap: 0.5rem;
-		height: 3rem;
-		padding: 0.25rem 0.5rem;
+		height: var(--control-height);
+		padding: 0 0.5rem;
 		border: none;
 		text-decoration: none;
 		color: black;
@@ -303,6 +318,10 @@
 	.main-menu nav.nav ul.nav-list li.nav-item .nav-btn img {
 		width: 3rem;
 	}
+	/* a toon = a row with its 3rem avatar, not a single-line control */
+	.main-menu nav.nav--toons ul.nav-list li.nav-item .nav-btn {
+		height: 3rem; /* control-ok: the avatar row */
+	}
 
 	/* labels next to an icon (account, the toons) read like every other menu item */
 	.main-menu nav.nav ul.nav-list li.nav-item .nav-btn span {
@@ -333,14 +352,14 @@
 		display: flex;
 		align-items: flex-start;
 	}
-	/* a grey cross, the size of a language button, in the top-right corner */
+	/* a grey cross, the size of a language button (--control-height), in the top-right corner */
 	.menu-close {
 		box-sizing: border-box;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		width: 3rem;
-		height: 3rem;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		background: transparent;
 		color: var(--text-muted);
@@ -350,10 +369,6 @@
 	.menu-close:hover {
 		color: black;
 		border-color: black;
-	}
-	.menu-close svg {
-		width: 1rem;
-		height: 1rem;
 	}
 	.nav.nav--account .nav-list {
 		display: flex;

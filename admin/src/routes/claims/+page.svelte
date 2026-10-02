@@ -3,7 +3,7 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, DataTable, Pager, SearchField, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
+	import { ActionBar, Badge, CloseIcon, DataTable, Pager, SearchField, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
 	import type { AdminClaimRow, ListResult } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { CLAIM_STATUSES, claimStatusLabel, claimTone, openClaims } from '$lib/claims.svelte.ts';
@@ -84,13 +84,13 @@
 	{#if query.filters.code}
 		<span class="bar-filter">
 			<span>{m['codes.col_code']()}</span>
-			<a class="chip" href={href({ code: null })} title={m['claims.remove_filter']()}>{query.filters.code} ×</a>
+			<a class="chip sc-chip-control" href={href({ code: null })} title={m['claims.remove_filter']()}>{query.filters.code} <CloseIcon size="var(--type-body-size)" /></a>
 		</span>
 	{/if}
 	{#if query.filters.user}
 		<span class="bar-filter">
 			<span>{m['claims.filter_user']()}</span>
-			<a class="chip" href={href({ user: null })} title={m['claims.remove_filter']()}>{userLabel} ×</a>
+			<a class="chip sc-chip-control" href={href({ user: null })} title={m['claims.remove_filter']()}>{userLabel} <CloseIcon size="var(--type-body-size)" /></a>
 		</span>
 	{/if}
 	{#if query.q || Object.keys(query.filters).length}
@@ -143,9 +143,10 @@
 {/if}
 
 <style>
+	/* a removable filter = an interactive chip (tools.css .sc-chip-control: one control height, 2px ink) */
 	.chip {
-		padding: var(--space-025) var(--space-05);
-		border: var(--border-width-regular) solid var(--ink);
+		gap: var(--space-05);
+		padding-right: var(--space-05);
 		text-decoration: none;
 	}
 	.nowrap {

@@ -20,7 +20,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { library } from '$lib/api.ts';
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		cdnFolder,
@@ -355,7 +355,7 @@
 				{#if folderFiles?.length}
 					<ul class="grid">
 						{#each folderFiles as f (f)}
-							<li><button type="button" class="thumb" class:current={f === place.image?.src} title={f} onclick={() => setImage(f)}><img src={asset(f)} alt="" loading="lazy" /><span>{f.split('/').pop()}</span></button></li>
+							<li><button type="button" class="thumb" data-control-exempt="image thumbnail card" class:current={f === place.image?.src} title={f} onclick={() => setImage(f)}><img src={asset(f)} alt="" loading="lazy" /><span>{f.split('/').pop()}</span></button></li>
 						{/each}
 					</ul>
 				{:else}
@@ -444,7 +444,7 @@
 						<span class="tools">
 							<button type="button" class="ghost" disabled={i === 0} aria-label={m['creator.map_move_up']()} title={m['creator.map_move_up']()} onclick={() => moveWaypoint(i, -1)}><Icon name="arrow-up" /></button>
 							<button type="button" class="ghost" disabled={i === route.waypoints.length - 1} aria-label={m['creator.map_move_down']()} title={m['creator.map_move_down']()} onclick={() => moveWaypoint(i, 1)}><Icon name="arrow-down" /></button>
-							<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} title={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}><Icon name="x" /></button>
+							<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} title={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}><CloseIcon /></button>
 						</span>
 					</li>
 				{/each}
@@ -536,14 +536,16 @@
 	.chip {
 		font: inherit;
 		font-size: var(--type-caption-size);
-		padding: 0.1rem 0.45rem;
-		border: 1px solid var(--border-muted);
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 0.45rem;
+		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);
 		color: var(--ink);
 		cursor: pointer;
 	}
 	.chip.on {
-		border: 1px solid var(--ink);
+		border-color: var(--ink);
 		background: var(--ink);
 		color: var(--paper);
 	}

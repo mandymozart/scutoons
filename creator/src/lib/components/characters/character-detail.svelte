@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Badge, Icon } from '@scutoons/ui';
+	import { Badge, CloseIcon, Icon } from '@scutoons/ui';
 	import {
 		APOSE_LOOKS,
 		APOSE_VIEW,
@@ -279,7 +279,7 @@
 				{m['creator.characters_testo']()} {character.testo ?? '–'}
 				<span class="inline">
 					<input type="range" min="0" max="100" step="1" value={character.testo ?? 50} oninput={(e) => setField('testo', Number(e.currentTarget.value))} data-testid="character-testo" />
-					<button type="button" class="ghost" disabled={character.testo === undefined} onclick={() => setField('testo', undefined)} title={m['creator.characters_testo_clear']()}>✕</button>
+					<button type="button" class="ghost" disabled={character.testo === undefined} onclick={() => setField('testo', undefined)} title={m['creator.characters_testo_clear']()} aria-label={m['creator.characters_testo_clear']()}><CloseIcon /></button>
 				</span>
 			</label>
 			<label>
@@ -359,7 +359,7 @@
 							{m['creator.characters_persona_testo']()} {currentPersona.testo ?? character.testo ?? '–'}
 							<span class="inline">
 								<input type="range" min="0" max="100" step="1" value={currentPersona.testo ?? character.testo ?? 50} oninput={(e) => { const v = Number(e.currentTarget.value); changePersona((p) => { p.testo = v; }, 'testo'); }} data-testid="persona-testo" />
-								<button type="button" class="ghost" disabled={currentPersona.testo === undefined} onclick={() => changePersona((p) => { delete p.testo; }, 'testo')} title={m['creator.characters_testo_clear']()}>✕</button>
+								<button type="button" class="ghost" disabled={currentPersona.testo === undefined} onclick={() => changePersona((p) => { delete p.testo; }, 'testo')} title={m['creator.characters_testo_clear']()} aria-label={m['creator.characters_testo_clear']()}><CloseIcon /></button>
 							</span>
 						</label>
 						<LocaleMapField value={currentPersona.description} {languages} label={m['creator.characters_description']()} multiline onchange={(v) => changePersona((p) => { const t = clean(v); if (t) p.description = t; else delete p.description; }, 'description')} />
@@ -383,7 +383,7 @@
 						<div class="look-head">
 							<LocaleMapField value={currentLook.label} {languages} label={m['creator.characters_look_label']()} onchange={(v) => changePersona((p) => { const l = p.looks.find((x) => x.id === lookId); if (!l) return; const t = clean(v); if (t) l.label = t; else delete l.label; }, `look-${lookId}`)} />
 							<label class="check"><input type="radio" name="default-look-{character.id}-{personaId}" checked={!!currentLook.default} onchange={() => setDefaultLook(lookId)} /> {m['creator.characters_default_look']()}</label>
-							{#if lookIds.length > 1}<button type="button" class="ghost" onclick={() => removeLook(lookId)}><Icon name="x" /> {m['creator.characters_remove_look']()}</button>{/if}
+							{#if lookIds.length > 1}<button type="button" class="ghost" onclick={() => removeLook(lookId)}><CloseIcon /> {m['creator.characters_remove_look']()}</button>{/if}
 						</div>
 						{#if !lookPortraitMoods(currentLook).length}
 							<p class="empty-note" data-testid="look-empty">{m['creator.characters_look_empty_note']({ look: lookLabel(currentPersona, lookId, source) })}</p>
@@ -411,7 +411,7 @@
 									<input type="text" value={t.image} onchange={(e) => changePersona((p) => p.transitions && (p.transitions[i].image = e.currentTarget.value.trim()))} />
 									<LocaleMapField value={t.label} {languages} label={m['creator.characters_look_label']()} onchange={(v) => changePersona((p) => { if (!p.transitions) return; const x = clean(v); if (x) p.transitions[i].label = x; else delete p.transitions[i].label; }, `transition-${i}`)} />
 								</div>
-								<button type="button" class="ghost" onclick={() => changePersona((p) => { p.transitions?.splice(i, 1); if (!p.transitions?.length) delete p.transitions; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
+								<button type="button" class="ghost" onclick={() => changePersona((p) => { p.transitions?.splice(i, 1); if (!p.transitions?.length) delete p.transitions; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 							</div>
 						{:else}
 							<p class="hint">{m['creator.characters_no_transitions_short']()}</p>
@@ -459,7 +459,7 @@
 						<figcaption>
 							<span>{pickText(a.label, source, languages) || a.id}</span>
 							<input type="text" value={a.path} onchange={(e) => change((c) => c.artwork && (c.artwork[i].path = e.currentTarget.value.trim()))} />
-							<button type="button" class="ghost" onclick={() => change((c) => { c.artwork?.splice(i, 1); if (!c.artwork?.length) delete c.artwork; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
+							<button type="button" class="ghost" onclick={() => change((c) => { c.artwork?.splice(i, 1); if (!c.artwork?.length) delete c.artwork; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 						</figcaption>
 					</figure>
 				{/each}
@@ -588,7 +588,7 @@
 		background: var(--paper);
 		color: var(--ink);
 		border: 2px solid var(--border-muted);
-		padding: 0.25rem 0.6rem;
+		padding: 0 0.6rem;
 	}
 	.tab.active {
 		background: var(--ink);

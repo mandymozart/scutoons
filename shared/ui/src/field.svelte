@@ -68,12 +68,19 @@
 		width: 100%;
 		min-height: var(--control-height);
 		margin: 0;
-		padding: var(--space-025) var(--space-05);
+		padding: 0 var(--space-05);
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: var(--radius-none);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
+	}
+	/* one control height (owner 2026-10-02): single-line fields exactly --control-height; textareas grow */
+	.field :global(:is(input:not([type='checkbox']):not([type='radio']), select:not([multiple]))) {
+		height: var(--control-height);
+	}
+	.field :global(textarea) {
+		padding: var(--space-05); /* control-ok: multi-line, exempt */
 	}
 	.field :global(:is(input, select, textarea):focus-visible) {
 		outline: var(--border-width-focus) solid var(--ink);

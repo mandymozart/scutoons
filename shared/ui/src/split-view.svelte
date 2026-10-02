@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Sheet from './sheet.svelte';
-	import Icon from './icon.svelte';
+	import CloseButton from './close-button.svelte';
 
 	/**
 	 * List + detail for fast triage. Wide screens (≥ `breakpoint` px): the detail is a pane next to the list (sticky,
@@ -61,7 +61,7 @@
 				{#if title}<h2>{title}</h2>{/if}
 				<div class="actions">
 					{#if actions}{@render actions()}{/if}
-					<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={onclose}><Icon name="x" /></button>
+					<CloseButton label={closeLabel} onclick={onclose} />
 				</div>
 			</header>
 			<div class="body">{@render detail()}</div>
@@ -119,18 +119,6 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-05);
-	}
-	.close {
-		padding: 0 var(--space-025);
-		border: 0;
-		background: none;
-		color: var(--ink);
-		font: inherit;
-		font-size: 1.5em;
-		line-height: 1;
-		min-width: var(--control-height);
-		min-height: var(--control-height);
-		cursor: pointer;
 	}
 	.body {
 		padding: var(--space-075);

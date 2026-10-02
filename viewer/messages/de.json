@@ -334,14 +334,39 @@
 		"related": "Zur Staffel",
 		"buy": "Kaufen",
 		"sold_out": "Ausverkauft",
-		"related_owned": "Hast du schon"
+		"related_owned": "Hast du schon",
+		"local_stores": "Läden vor Ort",
+		"local_stores_title": "Läden, die es führen: {count}"
+	},
+	"stores": {
+		"title": "Wo kaufen",
+		"intro": "SCUTOONS-Editionen in echten Läden – kauf bei einem Laden deiner Wahl in deiner Nähe. Kleine und unabhängige Läden stehen zuerst.",
+		"filter_product": "Produkt",
+		"filter_country": "Land",
+		"all_products": "Alle Produkte",
+		"all_countries": "Alle Länder",
+		"independent": "Unabhängige Läden",
+		"independent_note": "Kleine Läden von Menschen, keine Ketten. Wir zeigen sie zuerst.",
+		"independent_tag": "unabhängig",
+		"others": "Weitere Läden",
+		"all_stores": "Läden",
+		"type_store": "Laden",
+		"type_record_shop": "Plattenladen",
+		"carries": "Führt",
+		"country_unknown": "Anderswo",
+		"empty": "Noch führt kein Laden SCUTOONS-Editionen. Vorerst kaufst du sie online.",
+		"empty_product": "Noch führt kein Laden {product}.",
+		"empty_filter": "Kein Laden passt.",
+		"buy_online": "Online kaufen",
+		"show_all": "Alle Läden zeigen"
 	},
 	"menu": {
 		"close": "Menü schließen",
 		"open": "Menü",
 		"home": "SCUTOONS – Startseite",
 		"toons": "Toons",
-		"language": "Sprache"
+		"language": "Sprache",
+		"stores": "Wo kaufen"
 	},
 	"hero": {
 		"season": "Staffel {number} · {title}",
@@ -366,7 +391,9 @@
 		"all_editions": "Alle Editionen",
 		"footer": "SCUTOONS · Keine Werbung, kein Tracking.",
 		"events": "Termine",
-		"attributions": "Quellenangaben"
+		"attributions": "Quellenangaben",
+		"stores": "Wo kaufen",
+		"local_stores": "Läden vor Ort"
 	},
 	"map": {
 		"title": "Karte",

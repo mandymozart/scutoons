@@ -486,8 +486,10 @@
 	.tool,
 	.chip {
 		font: inherit;
-		padding: 0.2rem 0.55rem;
-		border: 1px solid var(--border-muted);
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 0.55rem;
+		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);
 		color: var(--ink);
 		cursor: pointer;
@@ -495,7 +497,7 @@
 	.tool.icon {
 		display: inline-flex;
 		align-items: center;
-		padding: 0.2rem 0.4rem;
+		padding: 0 0.4rem;
 	}
 	.tool.on,
 	.chip.on {
@@ -591,7 +593,8 @@
 		align-items: center;
 		gap: 0.4rem;
 		width: 100%;
-		padding: 0.3rem 0.75rem;
+		min-height: var(--control-height);
+		padding: 0 0.75rem;
 		border-left: 3px solid transparent;
 		cursor: pointer;
 	}

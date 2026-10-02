@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import Icon from './icon.svelte';
+	import CloseButton from './close-button.svelte';
 
 	/**
 	 * Modal sheet on the native <dialog> (focus trap, Escape, top layer). `side`: bottom sheet (mobile reader
@@ -57,9 +57,7 @@
 	<div class="frame">
 		<header>
 			{#if title}<h2>{title}</h2>{/if}
-			<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={() => dialog?.close()}>
-				<Icon name="x" />
-			</button>
+			<CloseButton class="close" label={closeLabel} onclick={() => dialog?.close()} />
 		</header>
 		<div class="body">
 			{@render children()}
@@ -120,18 +118,9 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
-	.close {
+	/* the close cross (CloseButton): right, level with the title */
+	header :global(.close) {
 		margin: 0 0 0 auto;
-		padding: 0 var(--space-025);
-		background: transparent;
-		border: 0;
-		color: var(--ink);
-		font: inherit;
-		font-size: 1.5em;
-		line-height: 1;
-		min-width: var(--control-height);
-		min-height: var(--control-height);
-		cursor: pointer;
 	}
 	.body {
 		padding: var(--space-1);

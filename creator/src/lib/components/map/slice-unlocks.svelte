@@ -4,7 +4,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { mapOf, setSliceUnlock } from '$lib/editor/map.ts';
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 
 	/**
 	 * The chapter editor's side of a place's unlock (owner 2026-10-01, bidirectional): "this slice unlocks: [Garten Eden]".
@@ -65,7 +65,7 @@
 					<li data-testid="slice-unlock-{p.id}">
 						<span class="name">{name(p)}</span>
 						<a href="/map?location={encodeURIComponent(p.id)}" target="_blank" rel="noopener">{m['creator.slice_unlocks_on_map']()}</a>
-						<button type="button" class="ghost" aria-label={m['creator.slice_unlocks_remove']()} title={m['creator.slice_unlocks_remove']()} onclick={() => remove(p.id)}><Icon name="x" /></button>
+						<button type="button" class="ghost" aria-label={m['creator.slice_unlocks_remove']()} title={m['creator.slice_unlocks_remove']()} onclick={() => remove(p.id)}><CloseIcon /></button>
 					</li>
 				{/each}
 			</ul>

@@ -109,14 +109,16 @@
 	.map-toggle {
 		position: fixed;
 		top: 0.5rem;
-		right: 5.5rem;
+		/* the 3rd of the top-right group (main-menu.svelte): one control height (owner 2026-10-02) */
+		right: calc(0.5rem + 2 * (var(--control-height) + 0.5rem));
 		z-index: 1001;
 		background: white;
 		border: 2px solid black;
 		padding: 0;
 		border-radius: 50%;
-		height: 2rem;
-		width: 2rem;
+		box-sizing: border-box;
+		height: var(--control-height);
+		width: var(--control-height);
 		display: flex;
 		cursor: pointer;
 		transition: background 0.2s ease;

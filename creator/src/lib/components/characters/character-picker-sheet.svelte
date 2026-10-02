@@ -168,7 +168,7 @@
 					<div class="cards">
 						{#each section.list as c (c.id)}
 							{@const src = thumb(c)}
-							<button type="button" class="card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
+							<button type="button" class="card" data-control-exempt="picture card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
 								<span class="img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 								<span>{characterName(c, locale)}</span>
 								<span class="hint">{c.own_toon ? (toons.find((t) => t.id === c.own_toon)?.name ?? c.own_toon) : '–'}</span>
@@ -193,7 +193,7 @@
 				<div class="cards" onkeydown={arrows} bind:this={grid}>
 					{#each personaIds(character) as p (p)}
 						{@const src = thumb(character, p)}
-						<button type="button" class="card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
+						<button type="button" class="card" data-control-exempt="picture card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
 							<span class="img">{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 							<span>{characterName(character, locale, p)}</span>
 							{#if castPersonas.includes(p)}<span class="hint">{m['creator.characters_in_cast']()}</span>{/if}
@@ -224,6 +224,7 @@
 						<button
 							type="button"
 							class="cell"
+							data-control-exempt="picture cell"
 							class:missing={!path}
 							class:selected={value?.character === character.id && (value?.persona || REGULAR_PERSONA) === currentPersona?.id && (value?.look || defaultLookId(currentPersona)) === lookId && (value?.mood || DEFAULT_MOOD) === mood}
 							data-cell
@@ -365,7 +366,7 @@
 		background: var(--paper);
 		color: var(--ink);
 		border: 2px solid var(--border-muted);
-		padding: 0.2rem 0.5rem;
+		padding: 0 0.5rem;
 	}
 	.tab.active {
 		background: var(--ink);

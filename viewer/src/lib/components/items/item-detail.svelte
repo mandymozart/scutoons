@@ -281,11 +281,11 @@
 	}
 	.actions button {
 		flex: 1 1 auto;
-		padding: 0.75rem 1rem;
+		padding: 0 1rem;
 	}
 	.actions a.btn {
 		flex: 1 1 auto;
-		padding: 0.75rem 1rem;
+		padding: 0 1rem;
 		text-align: center;
 		text-decoration: none;
 	}
@@ -327,7 +327,7 @@
 	.player-albums a.btn,
 	.player-albums button {
 		flex: none;
-		padding: 0.5rem 0.75rem;
+		padding: 0 0.75rem;
 		text-decoration: none;
 	}
 	.gift {

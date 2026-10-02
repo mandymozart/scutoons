@@ -57,7 +57,7 @@
 	font-size: inherit;
 }
 
-/* ── Fields: 2px ink frame, 1rem text, --control-height ─────────────────────────────────────────────────────────────────────── */
+/* ── Fields: 2px ink frame, 1rem text ─────────────────────────────────────────────────────────────────────────── */
 :where(.sc-tool)
 	:where(
 		input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']),
@@ -67,7 +67,7 @@
 	box-sizing: border-box;
 	min-height: var(--control-height);
 	margin: 0;
-	padding: var(--space-025) var(--space-05);
+	padding: 0 var(--space-05);
 	border: var(--border-width-regular) solid var(--ink);
 	border-radius: var(--radius-none);
 	background: var(--paper);
@@ -76,8 +76,14 @@
 	font-size: var(--type-body-size);
 	line-height: var(--type-body-line);
 }
+/* One control height (owner 2026-10-02, DESIGN.md "One control height"): every single-line field is exactly
+   --control-height (2rem + the 2px frame; ≥ 44px on touch), the text centred by the box, no vertical padding */
+:where(.sc-tool)
+	:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']), select:not([multiple], [size])) {
+	height: var(--control-height);
+}
 :where(.sc-tool) :where(textarea) {
-	padding: var(--space-05);
+	padding: var(--space-05); /* control-ok: multi-line, exempt */
 }
 :where(.sc-tool) :where(input, textarea)::placeholder {
 	color: var(--text-muted);
@@ -107,13 +113,16 @@
 	background: var(--paper);
 }
 
-/* ── Buttons: shape and size only (colours are the app's / @scutoons/ui's) ──────────────────────────────────────── */
+/* ── Buttons: shape and size only (colours are the app's / @scutoons/ui's). One control height: --control-height,
+   no vertical padding, line-height 1 – a single-line label is centred by the box ──────────────────────────────── */
 :where(.sc-tool) :where(button) {
 	box-sizing: border-box;
 	min-height: var(--control-height);
+	padding-block: 0;
 	border-radius: var(--radius-none);
 	font: inherit;
 	font-size: var(--type-button-size);
+	line-height: var(--type-button-line);
 	cursor: pointer;
 }
 :where(.sc-tool) :where(button:disabled) {
@@ -251,6 +260,58 @@
 	background: var(--badge-info);
 	color: var(--badge-info-text);
 }
+/* a custom single-line control (a framed label around an invisible native select, a link that is a button): one
+   control height (owner 2026-10-02). Zero specificity: the component's own rule still sets frame and colours. */
+:where(.sc-control) {
+	display: inline-flex;
+	align-items: center;
+	box-sizing: border-box;
+	min-height: var(--control-height);
+	padding-block: 0;
+	line-height: var(--type-button-line);
+}
+/* an interactive chip in a row of controls (a removable language, a tag with ×): a control, so exactly
+   --control-height, 2px ink frame, body type. Its buttons span the chip's full height (over the frame) and carry no
+   frame of their own until hover. Not a status badge – those are `.sc-chip` (caption, filled). */
+.sc-chip-control {
+	display: inline-flex;
+	align-items: center;
+	gap: 0;
+	box-sizing: border-box;
+	height: var(--control-height);
+	margin: 0;
+	padding: 0 0 0 var(--space-05);
+	border: var(--border-width-regular) solid var(--ink);
+	border-radius: var(--radius-none);
+	background: var(--paper);
+	color: var(--ink);
+	font-size: var(--type-body-size);
+	line-height: var(--type-button-line);
+	font-weight: var(--font-weight-regular);
+	white-space: nowrap;
+}
+.sc-chip-control :where(button) {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	min-width: var(--control-height);
+	height: var(--control-height);
+	min-height: var(--control-height);
+	margin: calc(-1 * var(--border-width-regular)) 0;
+	padding: 0 var(--space-05);
+	border: var(--border-width-regular) solid transparent;
+	background: transparent;
+	color: var(--ink);
+	line-height: var(--type-button-line);
+}
+.sc-chip-control :where(button:hover:not(:disabled)) {
+	border-color: var(--ink);
+}
+.sc-chip-control :where(button:last-child) {
+	margin-right: calc(-1 * var(--border-width-regular));
+}
+
 /* sidebar / list navigation: a group head, then full-width entries; hover frames, current (aria-current / .is-current) inverts */
 .sc-nav-head {
 	margin: 0;

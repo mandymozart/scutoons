@@ -46,6 +46,7 @@ use Scutoons\Http\Controllers\NotFoundController;
 use Scutoons\Http\Controllers\PageNotFoundController;
 use Scutoons\Http\Controllers\ProductsController;
 use Scutoons\Http\Controllers\ProgressController;
+use Scutoons\Http\Controllers\StockistsController;
 use Scutoons\Http\Controllers\ValidateController;
 use Scutoons\Http\Middleware\GenerateToken;
 use Scutoons\Http\Middleware\RateLimit;
@@ -80,6 +81,15 @@ return static function (App $app): void {
         3600,
         'Too many codes checked – try again later.',
     );
+    // The public "Where to buy" list: cached by browsers / proxies for 5 minutes, so a reader hits it rarely – the limit
+    // only stops scraping loops (per client IP and hour)
+    $stockistsLimit = new RateLimit(
+        $c->get(RateLimiter::class),
+        static fn(Request $request): string => 'stockists:' . $ipHash(),
+        600,
+        3600,
+        'Too many requests – try again later.',
+    );
 
     // ── Public API (agents/ITEMS.md) ───────────────────────────────────────────────────────────────────
     $app->get('/api/health', HealthController::class);
@@ -92,6 +102,8 @@ return static function (App $app): void {
     // Shop data (config/products.json, config/featured-products.json – was the viewer's static/api/*.json)
     $app->any('/api/products', [ProductsController::class, 'catalog']);
     $app->any('/api/products/featured', [ProductsController::class, 'featured']);
+    // Stores that carry SCUTOONS products (the Embassy's listed stores, public fields only – agents/EMBASSY.md "Stores")
+    $app->get('/api/stockists', [StockistsController::class, 'list'])->add($stockistsLimit);
 
     $app->post('/api/auth/request', [AuthController::class, 'request']);
     $app->post('/api/auth/verify', [AuthController::class, 'verify']);

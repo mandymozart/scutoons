@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ActionBar, Icon, ToonAvatar } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, ToonAvatar } from '@scutoons/ui';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { m } from '$lib/paraglide/messages.js';
@@ -356,10 +356,10 @@
 							<span>{m['creator.target_languages']()}</span>
 							<ul class="chips">
 								{#each targets as l (l)}
-									<li class="chip" data-testid="language-{l}">
+									<li class="sc-chip-control" data-testid="language-{l}">
 										{languageLabel(l)}
 										<button class="ghost" title={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}>★</button>
-										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><Icon name="x" /></button>
+										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
 									</li>
 								{:else}
 									<li class="hint">{m['creator.no_target_languages']()}</li>
@@ -564,14 +564,6 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-	}
-	.chip {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-		padding: 0.1rem 0.2rem 0.1rem 0.5rem;
-		border: 2px solid var(--ink);
-		white-space: nowrap;
 	}
 	.add-language {
 		display: flex;

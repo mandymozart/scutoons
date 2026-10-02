@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -68,7 +68,7 @@
 					<td><PropField {doc} path={['audio', 'music', 'tracks', i, 'path']} label="" required /></td>
 					<td class="row-tools">
 						<button type="button" class="ghost" onclick={() => play(track.path)}>{playingPath === track.path ? '■' : '▶'}</button>
-						<button type="button" class="ghost" onclick={() => removeFrom('tracks', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
+						<button type="button" class="ghost" onclick={() => removeFrom('tracks', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 					</td>
 				</tr>
 			{/each}
@@ -86,7 +86,7 @@
 					<td><PropField {doc} path={['audio', 'sampleLibrary', i, 'path']} label="" required /></td>
 					<td class="row-tools">
 						<button type="button" class="ghost" onclick={() => play(sample.path)}>{playingPath === sample.path ? '■' : '▶'}</button>
-						<button type="button" class="ghost" onclick={() => removeFrom('sampleLibrary', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
+						<button type="button" class="ghost" onclick={() => removeFrom('sampleLibrary', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 					</td>
 				</tr>
 			{/each}

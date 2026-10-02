@@ -2,8 +2,10 @@
 	import { onMount } from 'svelte';
 	import { isSoldOut, formatPrice, pickVariant, variantPrice, type ProductCatalog } from '@scutoons/content';
 	import { getInventoryContext, localized } from '$lib/contexts/inventory.svelte.ts';
+	import type { StockistList } from '@scutoons/api';
 	import { loadProducts, productOf } from '$lib/products.ts';
-	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { loadStockists, storesFor, storesHref } from '$lib/stockists.ts';
+	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 
@@ -14,6 +16,8 @@
 	 * landing page's editions) – or "Ausverkauft". Items the reader already owns say so. Unknown ids are skipped.
 	 * Owner 2026-10-02 (screenshot): no heading or rule; the season's music lives in the row of the record that carries
 	 * it – its big cut-out as the picture and "Download the music" as the action (an owner sees no "Buy").
+	 * Owner 2026-10-02 ("Where to buy"): next to "Buy" a product that a listed store carries offers "Läden vor Ort" /
+	 * "Local stores" → /stores?product=<id> (agents/EMBASSY.md "Stores"), also when sold out online.
 	 */
 	let {
 		ids,
@@ -28,8 +32,10 @@
 	const inventory = getInventoryContext();
 	const locale = getLocale();
 	let products = $state<ProductCatalog | null>(null);
+	let stockists = $state<StockistList | null>(null);
 	onMount(() => {
 		loadProducts().then((c) => (products = c));
+		loadStockists().then((l) => (stockists = l));
 	});
 
 	const items = $derived(ids.map((id) => inventory.item(id)).filter((item) => !!item));
@@ -68,6 +74,14 @@
 								<span class="meta sold-out">{m['season.sold_out']()}</span>
 							{:else if product}
 								<a class="btn btn-secondary" href={product.link} target="_blank" rel="noopener noreferrer" data-testid="related-buy">{m['season.buy']()}</a>
+							{/if}
+							{#if product && storesFor(stockists, product.id) > 0}
+								<a
+									class="btn btn-secondary"
+									href={localizeHref(storesHref(product.id))}
+									title={m['season.local_stores_title']({ count: storesFor(stockists, product.id) })}
+									data-testid="related-stores">{m['season.local_stores']()}</a
+								>
 							{/if}
 						{/if}
 						{#if withMusic && music?.href}
@@ -138,9 +152,11 @@
 	.actions {
 		flex: 1 1 100%;
 		flex-direction: row;
+		/* up to three buttons (Buy, Local stores, Download the music): they wrap instead of running out of the column */
+		flex-wrap: wrap;
 	}
 	.actions > * {
-		flex: 1;
+		flex: 1 1 auto;
 		text-align: center;
 	}
 	.info {
@@ -156,7 +172,6 @@
 	}
 	.btn {
 		flex: none;
-		display: inline-block;
 		text-decoration: none;
 	}
 	@media (max-width: 768px) {
@@ -184,7 +199,7 @@
 		}
 		.btn {
 			font-size: 0.6667rem;
-			padding: 0.5833rem 1.1667rem;
+			padding: 0 1.1667rem;
 		}
 	}
 </style>

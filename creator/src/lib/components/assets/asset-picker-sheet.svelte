@@ -26,7 +26,7 @@
 
 <script lang="ts">
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
-	import { Icon, Sheet } from '@scutoons/ui';
+	import { CloseButton, Icon, Sheet } from '@scutoons/ui';
 	import { assetsApi } from '$lib/api.ts';
 	import { asset as cdnAsset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -244,7 +244,7 @@
 						<span class="sc-caption path" title={c.path}>{c.slug}</span>
 						<span class="sc-caption">{meta(c)} · {c.usages ? m['creator.assets_used_n']({ count: c.usages }) : m['creator.assets_unused']()}</span>
 					</div>
-					<button type="button" class="ghost" onclick={() => (chosen = null)} title={m['creator.characters_picker_back']()} aria-label={m['creator.characters_picker_back']()}><Icon name="x" /></button>
+					<CloseButton label={m['creator.characters_picker_back']()} onclick={() => (chosen = null)} />
 				</div>
 				<p class="sc-label">{m['creator.assets_renditions']()}</p>
 				<ul class="files">

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { characterImage, characterIndex, characterName, suggestFeaturing, type CastEntry, type CharacterRegistry } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { imageExists, isKnownMissing } from '$lib/editor/characters.ts';
@@ -82,7 +82,7 @@
 	<ul class="chips">
 		{#each featuring as id, i (id)}
 			{@const src = avatar(id)}
-			<li class="chip" class:bad={!inCast(id)} data-testid="featuring-{id}">
+			<li class="chip sc-chip-control" class:bad={!inCast(id)} data-testid="featuring-{id}">
 				<span class="avatar" style:background={index.get(id)?.color || 'transparent'}>
 					{#if src}<img src={asset(src)} alt="" onerror={() => imageExists(src)} />{/if}
 				</span>
@@ -90,7 +90,7 @@
 				{#if !inCast(id)}<span class="hint">{m['creator.featuring_not_in_cast']()}</span>{/if}
 				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
 				<button type="button" class="ghost" disabled={i === featuring.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
-				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.featuring_remove']({ name: name(id) })} title={m['creator.featuring_remove']({ name: name(id) })}><Icon name="x" /></button>
+				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.featuring_remove']({ name: name(id) })} title={m['creator.featuring_remove']({ name: name(id) })}><CloseIcon /></button>
 			</li>
 		{:else}
 			<li class="hint">{m['creator.featuring_empty']()}</li>
@@ -150,12 +150,9 @@
 		list-style: none;
 	}
 	.chip {
-		display: inline-flex;
-		align-items: center;
+		/* an interactive chip (tools.css .sc-chip-control: one control height, 2px ink, its buttons full height) */
 		gap: 0.3rem;
-		padding: 0.15rem 0.1rem 0.15rem 0.2rem;
-		border: 2px solid var(--ink);
-		white-space: nowrap;
+		padding-left: 0.2rem;
 	}
 	.chip.bad {
 		border-color: var(--warn);
@@ -171,9 +168,6 @@
 		width: 100%;
 		height: 100%;
 		object-fit: cover;
-	}
-	.chip .ghost {
-		padding: 0.1em 0.3em;
 	}
 	.actions {
 		display: flex;

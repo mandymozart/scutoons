@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
 	import {
 		isItemPublic,
@@ -188,6 +189,7 @@
 							{/if}
 							<button
 								class="marker"
+								data-control-exempt="map marker on the picture"
 								aria-label={own(p) ? p.name : `${p.name} · ${m['map.other_toon']()}`}
 								onclick={() => select(p)}
 								onfocus={() => focusPlace(p)}
@@ -215,7 +217,7 @@
 		<button class="tool round" onclick={() => view.zoomAt(1.5)} aria-label={m['map.zoom_in']()} data-testid="map-zoom-in"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></button>
 		<button class="tool round" onclick={() => view.zoomAt(1 / 1.5)} aria-label={m['map.zoom_out']()} data-testid="map-zoom-out"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg></button>
 		<button class="tool round" onclick={recenter} aria-label={m['map.recenter']()} title={m['map.recenter']()}>◎</button>
-		<button class="tool round" onclick={onclose} aria-label={m['map.close']()} data-testid="map-close"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
+		<button class="tool round" onclick={onclose} aria-label={m['map.close']()} data-testid="map-close"><CloseIcon size="1rem" /></button>
 	</div>
 
 	{#if listOpen}
@@ -239,13 +241,13 @@
 
 	{#if card}
 		<section class="card" aria-label={card.name} data-testid="map-card">
-			<button class="card-close" onclick={() => (selected = null)} aria-label={m['map.close_card']()}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
+			<button class="card-close" onclick={() => (selected = null)} aria-label={m['map.close_card']()}><CloseIcon size="1rem" /></button>
 			{#if card.image}<img class="card-image" src={asset(card.image.src)} alt="" />{/if}
 			<h2>{card.name}</h2>
 			{#if !own(card)}<p class="muted">{m['map.other_toon']()}</p>{/if}
 			{#if here}<p>{m['map.you_are_here']({ name: toonTitle })}</p>{/if}
 			{#if cardChapter !== null}
-				<a class="read" href={localizeHref(`/${toon}/chapter/${cardChapter}`)} onclick={onclose} data-testid="map-card-chapter">
+				<a class="read sc-control" href={localizeHref(`/${toon}/chapter/${cardChapter}`)} onclick={onclose} data-testid="map-card-chapter">
 					{cardChapter === 0 ? m['map.read_prologue']() : m['map.read_chapter']({ number: cardChapter })}
 				</a>
 			{/if}
@@ -370,8 +372,13 @@
 		position: absolute;
 		left: -0.5rem;
 		top: -0.5rem;
+		box-sizing: border-box;
 		width: 1rem;
 		height: 1rem;
+		/* a dot on the map, not a control: the global button min-height (one control height) would stretch it into an
+		   ellipse (owner 2026-10-02) control-ok */
+		min-width: 0;
+		min-height: 0;
 		padding: 0;
 		border-radius: 50%;
 		border: 2px solid #000;
@@ -453,7 +460,8 @@
 	.tool {
 		font: inherit;
 		font-size: 0.75rem;
-		height: 2rem;
+		box-sizing: border-box;
+		height: var(--control-height);
 		padding: 0 0.75rem;
 		background: #fff;
 		color: #000;
@@ -464,15 +472,14 @@
 	.tool.round {
 		display: inline-grid;
 		place-items: center;
-		width: 2rem;
+		width: var(--control-height);
 		padding: 0;
 		border-radius: 50%;
 		font-size: 1rem;
 		line-height: 1;
 	}
 	/* drawn icons: exactly centred (the font's + and − sat off-centre) */
-	.tool svg,
-	.card-close svg {
+	.tool svg {
 		display: block;
 		width: 1rem;
 		height: 1rem;
@@ -517,10 +524,12 @@
 		box-sizing: border-box;
 		color: #000;
 		display: flex;
+		align-items: center;
 		gap: 0.5rem;
 		justify-content: space-between;
 		width: 100%;
-		padding: 0.35rem 0.25rem;
+		min-height: var(--control-height);
+		padding: 0 0.25rem;
 		cursor: pointer;
 		border-bottom: 1px solid var(--border-subtle, #ddd);
 	}
@@ -541,16 +550,21 @@
 		width: min(20rem, calc(100vw - 1.5rem));
 		padding: 0.75rem 2.5rem 0.75rem 0.75rem;
 	}
-	/* top right corner, level with the title (owner 2026-10-02) */
+	.card h2 {
+		line-height: 1.2;
+	}
+	/* top right corner, level with the title (owner 2026-10-02): the control's centre on the title line's centre
+	   (card padding 0.75rem + half the 1.2 line); the cross is the one CloseIcon, as high as the title's capitals */
 	.card-close {
 		color: #000;
 		position: absolute;
-		top: 0;
+		top: calc(0.75rem + 0.6rem - var(--control-height) / 2);
 		right: 0;
 		display: grid;
 		place-items: center;
-		width: 2.5rem;
-		height: 2.5rem;
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		border: 0;
 		background: transparent;
@@ -571,10 +585,13 @@
 		font-size: 0.75rem;
 	}
 	.read {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		background: #000;
 		color: #fff;
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 		text-decoration: none;
 	}
 	@media (prefers-reduced-motion: reduce) {

@@ -86,9 +86,9 @@
 	input {
 		box-sizing: border-box;
 		width: 100%;
-		min-height: var(--control-height);
+		height: var(--control-height);
 		margin: 0;
-		padding: var(--space-025) var(--space-05);
+		padding: 0 var(--space-05);
 		border: var(--border-width-regular) solid var(--ink);
 		border-radius: var(--radius-none);
 		background: var(--paper);
@@ -97,9 +97,6 @@
 	}
 	.compact {
 		min-width: 10rem;
-	}
-	.compact input {
-		padding: var(--space-025) var(--space-05);
 	}
 	.sr-only {
 		position: absolute;

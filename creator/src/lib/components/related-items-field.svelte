@@ -16,7 +16,7 @@
 
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ItemDef } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -77,13 +77,13 @@
 		{#each list as id, i (id)}
 			{@const item = byId.get(id)}
 			{@const name = nameOf(item, id)}
-			<li class="chip" class:bad={!loading && !item} data-testid="{testid}-{id}" title={id}>
+			<li class="chip sc-chip-control" class:bad={!loading && !item} data-testid="{testid}-{id}" title={id}>
 				<span class="icon">{#if item?.icon}<img src={asset(item.icon)} alt="" />{/if}</span>
 				<span class="name">{name}</span>
 				{#if !loading && !item}<span class="hint">{m['creator.related_items_unknown']()}</span>{/if}
 				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
 				<button type="button" class="ghost" disabled={i === list.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
-				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.related_items_remove']({ name })} title={m['creator.related_items_remove']({ name })}><Icon name="x" /></button>
+				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.related_items_remove']({ name })} title={m['creator.related_items_remove']({ name })}><CloseIcon /></button>
 			</li>
 		{:else}
 			<li class="hint">{m['creator.related_items_empty']()}</li>
@@ -137,12 +137,9 @@
 		list-style: none;
 	}
 	.chip {
-		display: inline-flex;
-		align-items: center;
+		/* an interactive chip (tools.css .sc-chip-control: one control height, 2px ink, its buttons full height) */
 		gap: 0.3rem;
-		padding: 0.15rem 0.1rem 0.15rem 0.2rem;
-		border: var(--border-width-regular) solid var(--ink);
-		white-space: nowrap;
+		padding-left: 0.2rem;
 		max-width: 100%;
 		box-sizing: border-box;
 	}
@@ -164,9 +161,6 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
-	}
-	.chip .ghost {
-		padding: 0.1em 0.3em;
 	}
 	select {
 		align-self: flex-start;

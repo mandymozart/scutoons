@@ -145,6 +145,7 @@ CORS: `ALLOWED_ORIGINS` (with `Access-Control-Allow-Credentials: true`). Errors:
 | GET | `/items/` | – | catalog (above) |
 | GET | `/products/` | – | shop catalog, `config/products.json` as stored (`{ version:2, currency, checked_at, source, products:[Product] }`, `@scutoons/content` `ProductCatalog`); CORS `*`, cached 5 min (platform P2b) |
 | GET | `/products/featured/` | – | the landing page's editions `[{ product, variant? }]`: chosen in the admin app ("Startseite", `GET/PUT /admin/featured`, setting `featured_products`), default `config/featured-products.json` as stored; cached 1 min |
+| GET | `/stockists/?product=&country=` | – | "Where to buy": the Embassy's listed stores carrying products (public fields only, independent first; `{ stores, products: { id: count }, countries }`), CORS `*`, cached 5 min + ETag, 600 / IP / hour – agents/EMBASSY.md "Stores" |
 | GET | `/library/toons[/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]]`, `/library/characters`, `/events/` | – (`?draft=1`: creator) | the reader's entities from the content store (agents/DATA.md §3, server docs/API.md "Library"): toons list, toon bundle, season overview, chapter with scenes inlined, cast, credits, events; `?locale=`, ETag, 403 `coming_soon`/`not_public` |
 | GET/PUT/POST | `/entities/<key>…` | creator | the content store by entity key (`chapter:catpope:2:de`, `characters` …): read, save draft, versions, publish, unpublish, restore – server docs/API.md "Entities" (replaced `/content/*`) |
 | GET | `/code/?c=CODE` | – | `{ code, type, claimed: bool, claimed_by_me?: bool, items:[{item_id, variant, qty}], options:[{item_id, variants:[…]}], edition:{ id, name, number?, count } }` — never an email |
@@ -1066,6 +1067,14 @@ cooldown, not giftable, max_reached, invalid qty, daily limit, worn, code-bound 
 migration), `OwnershipApiTest` (HTTP: claim flow incl. raw upload + admin download, gift + `/me/ received`),
 `LoginServiceTest` (dispute signup), `MailTest` (every template renders); api-smoke "Ownership claims + gifts",
 admin-smoke "Ownership claims + transfers"; qr `public-urls` (registered → file-claim link, free → register now).
+
+## Where to buy – stores carrying products (2026-10-02, owner — branch `stores`)
+
+Physical products (`config/products.json`) can also be bought in real shops: the Embassy's stores (type `store` /
+`record_shop`) carry product ids, and the listed ones appear on scutoons.com/stores, independent vendors first. Next to
+"Kaufen" (toon page related row, landing editions) a product a store carries offers "Läden vor Ort" →
+`/stores?product=<id>`. A store carries **products**, not items or editions: the product is what is sold (item + edition
+come with it). Model, API, UI, tests, open decisions: agents/EMBASSY.md "Stores".
 
 ## Developing items and recipes (packs) (2026-10-02, owner – rule)
 

@@ -1714,3 +1714,59 @@ character, persona, look and mood and doubles as the VN test bed.
   middleware now leaves non-JSON bodies > 1 MB as a stream (asset uploads); the Browser pane's custom viewport sizes
   render tiny – use the desktop preset + DOM checks. Own dev ports for this worktree: API 9310, CDN 9311 (own copy of
   cdn/root), viewer 8310, creator 10310, admin 11310.
+
+## One control height (2026-10-02, branch `platform`)
+
+- Owner (screenshot of the creator's Languages section: select, chip, select and "+ Add" all different heights):
+  "buttons, selects and input fields have varying heights. A general rule should apply". Rule: DESIGN.md "One control
+  height" – every single-line control in every app (tools, viewer, shop, auth) is exactly `--control-height`
+  (2rem + 2 × 2px; max(44px, …) on a coarse pointer), border-box, no vertical padding, line-height 1, centred. No small
+  variant (`Button size="sm"` = less side padding only). Interactive chips: `.sc-chip-control`; custom framed controls /
+  link-buttons: `.sc-control` (both global in tools.css). Status badges (`.sc-chip`) are not controls.
+- Done: tools.css (fields `height`, buttons `padding-block: 0`), @scutoons/ui (Button md/sm, IconButton, Tabs, Menu
+  trigger + entries, ActionBar Info / More, SearchField, Field, CommandPalette input, RecordInspector switch), creator
+  (layout buttons / ghost, Languages chips, credits role chips, featuring / related-items chips, pickers, map tools,
+  tabs, mini buttons, chapter-tree add buttons one line + ellipsis), admin filter chips, shop variant chips + global
+  button, viewer (static/css/styles.css button / .btn / fields; the top-right round toggles are `--control-height` and
+  placed `0.5rem + n × (--control-height + 0.5rem)` from the right; menu language / close / link-buttons, hero start /
+  trailer / sound, next bar, item / claim / recipe / inventory / map / camera buttons, home buy / all), the reader's
+  video "sound on".
+- Guard: `check:tools-css` (static: height / min-height / vertical padding on control selectors without the token;
+  `control-ok` exempts a CSS line) and `check:tools-ui` (measures every single-line control on the tool pages + 7 viewer
+  pages at 1440 / 390 touch, ±1px; `data-control-exempt="<reason>"` in markup exempts cards, tiles, markers, VN choices).
+  `--browser-only` runs the browser part even when the static part fails.
+- Gotcha: heredocs sent through the agent Bash tool here turned `\` into `\` (even quoted 'EOF') – write scripts with a file tool,
+  not a heredoc, when they contain backslashes.
+
+## Embassy stores + "Where to buy" (2026-10-02, branch `stores`)
+
+- Owner: an Embassy type STORE, every store carrying SCUTOONS products listed on a public viewer page, "encourage small
+  vendors at first". Built: agents/EMBASSY.md "Stores" (model, API, UI, tests, open decisions). `store` + `record_shop`
+  are stockists; store columns on `embassy_orgs` (migration `2026-10-02-embassy-stores`); public `GET /api/stockists/`
+  (`Domain\Embassy\Stockists`, public fields only, independent first); viewer `/stores`, "Läden vor Ort" next to
+  "Kaufen" (related row, landing editions), menu + footer link only when a store is listed.
+- Local fake data: `php server/bin/console sample-stores [--remove]` (SQLite only). `npm run check:stores` needs a listed
+  store (exit 2 otherwise).
+- Gotchas: in `related-items.svelte` `.btn { flex: none }` comes after `.actions > *`, so the buttons never grew – a third
+  button ran out of the 390 px column until `.actions` got `flex-wrap: wrap`. A worktree without `server/storage/keys` +
+  `storage/files` (gitignored) fails the certificate / batch contract checks – copy them from the main checkout. A
+  products map that may be empty must be encoded as an object (`(object)`), PHP's `[]` would be a JSON list. Bash heredocs
+  with mixed quotes broke again: write generator scripts as files.
+
+
+## Close cross (2026-10-02, branch `platform`)
+
+- Owner (screenshot of the map card "Kloster"): the close × as high as the headline, square, 2px like the box borders
+  (or 1px like Plex Mono's strokes). Rule: DESIGN.md "Close cross". One drawn icon `CloseIcon` + the control
+  `CloseButton` in `@scutoons/ui` (`shared/ui/src/close-icon.svelte`, `close-button.svelte`); the viewer imports them
+  from `@scutoons/ui` as well (it already took `Field` from there, through `@scutoons/auth`'s dependency).
+- Geometry: the svg box = 0.698 × `size` (IBM Plex Mono cap height), lines corner to corner, `vector-effect:
+  non-scaling-stroke` keeps 2 / 1 CSS px. Measured: 16.75 px at the 24 px root next to a 24 px title, 9.77 px at 14 px –
+  centre on the title's centre (Sheet, InfoPanel, map card).
+- Replaced: @scutoons/ui Sheet, InfoPanel, SplitView, ToastStack (CloseButton); every creator Feather `x` (pickers,
+  history / problems panels, notices, list / chip / row removes, 25 files) and the two "clear testo" ✕; admin filter
+  chips (claims, emails, events) and the homepage featured remove; viewer map close + place card, menu, claim sheet,
+  audio player, camera HUD (`stroke={1}`). The command palette, embassy, shop and auth had no cross of their own (they
+  use Sheet / SplitView / toasts).
+- Guard: `check:tools-css` flags × ✕ ✖ `&times;` as a button / link content and `<Icon name="x">` in every app's markup
+  (`close-ok` exempts a line).
