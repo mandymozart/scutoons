@@ -148,6 +148,8 @@ CORS: `ALLOWED_ORIGINS` (with `Access-Control-Allow-Credentials: true`). Errors:
 | PUT | `/avatar/` | `{ slots:{ <slot instance id>: entryId\|null }, body? }` | `{ status, avatar, restored }` · 422 invalid_slot/wrong_slot/not owned ("Slots per avatar body") · 422 `sensitive_hidden` ("Sensitive content") · `restored` = instances the cover rule refilled ("Wardrobe") |
 | GET/PUT | `/progress/<toonId>/` | `{ state, updated_at }` | last-write-wins by `updated_at` |
 | POST/GET | `/validate/` | unchanged input | unchanged shape **minus** `email` and `signature` (backwards compatible for old viewer) |
+| GET | `/certificates/<CODE>` (or `?code=`) | – | certificate check of a code, server-side ("Certificates" below): `{ status, valid, reason, source:"code", code, registered, revoked, certificate }` – never the owner; CORS `*`; lookup limit |
+| POST | `/certificates/verify` | a `SIGNATURE-<code>.json` (or its inner `signature` object) | same shape, `source:"file"` · 400 `invalid_signature_file` |
 
 `Entry = { id, item_id, variant|null, qty, source:"qr"|"story"|"scan"|"craft"|"starter", code|null, edition_number|null, acquired_at }`
 
@@ -882,3 +884,53 @@ The Check It camera needs nothing extra on deploy (catalog + viewer): it is craf
   "only N exist"), a server check across all accounts inside the grant transaction, and a decision on what happens when
   the owner's account is deleted (back into the world?) and whether it can be given away.
 - **Rarer items** set a lower `max` (built) – which items and how many is the owner's call per item.
+
+## Certificates (2026-10-02, owner)
+
+**What a certificate is (owner):** certificates (`SCUTOONS-COA-<code>.pdf`) are pre-generated in batches and **signed
+to a buyer by hand** at purchase – the "Original buyer" field (`receiver`) is left empty on purpose. The certificate
+plus the piece are the **proof of ownership, as in the art world, even if our servers were gone**; our ML-DSA-65
+signature lets anyone validate that the document is authentic, so it cannot be forged. Each certificate prints the
+code (UPPER CASE), the fingerprint (first 32 bytes of the signature, `ABCD:EF01:…`) and "Verify at
+https://qr.scutoons.com/verify.html with code: <CODE>".
+
+**Fix (2026-10-02, owner: "it just checked if the signature is a proper signature, not if it also matches an entry in
+the db"):** the old verify page verified a signature against the public key **embedded in the same JSON** → anyone
+could sign their own data with their own key, upload it and get "✅ Signature Valid"; it never compared with our
+records (the admin's "signature valid" badge had the same flaw). Now:
+
+- **Authentic = signed with OUR published key (`/api/keys/keys.php`, KEYPAIR_PATH) AND it is the signature we stored
+  for that code (`qr.signature`).** Verified **server-side** in plain PHP (`server/src/Infrastructure/Signing/MlDsa65.php`
+  + `Shake.php`, FIPS 204 verify, external/pure with empty context = what noble's `ml_dsa65.sign(msg, sk)` signs;
+  cross-checked against noble fixtures and all 421 stored signatures of the dev DB; ~50 ms per check). No PHP
+  extension/Composer package does ML-DSA (OpenSSL < 3.5 on the host).
+- Service `Domain/Certificates/CertificateVerifier`, controller `CertificatesController`:
+  `GET /api/certificates/{code}` (also `?code=`/`?c=`, a pasted QR or verify URL) and `POST /api/certificates/verify`
+  (the uploaded file). Per-IP lookup limit (`lookup_limit_per_hour`, shared with `/access/`), CORS `*`, the qr app
+  always proxies `/api/certificates/*` (also with `PROXY_FULL_API=0`).
+- **Answer** (200 for every verification result): `{ status:"success", valid, reason, source:"code"|"file", code,
+  registered, revoked, certificate }`. `certificate` = **our record's** signed data (only when the stored signature
+  itself is authentic): `{ code, type, product_name, edition_number, edition_count, creators, created_at, signed_at,
+  fingerprint, algorithm }`. `registered` = claimed by an account (or the old email form), `revoked` = admin revoked –
+  **never who owns it** (no email, no user id, no revoke reason). `code`/`registered`/`revoked` are null for an unknown code.
+- **Reasons** (`valid: false`): `unknown_code` · `ambiguous_code` (the printed UPPER CASE form matches several codes when
+  case is ignored) · `no_signature` · `key_mismatch` (not our key → not issued by SCUTOONS) · `bad_signature` (does
+  not verify against our key: tampered / forged) · `signature_mismatch` (signed by us but not the signature on record
+  for that code, e.g. an older re-signed file, or the stored one is for another code). A revoked code with an
+  authentic certificate is `valid: true, revoked: true` (the page shows "Revoked"). Errors: 400 `invalid_code` /
+  `invalid_signature_file` / `invalid_json`, 429, 503 `keys_missing`.
+- **Case:** exact match first, then a case-insensitive match **only when it is unique** (codes are case-sensitive
+  nanoids, certificates print UPPER CASE; the dev DB has no two codes that differ only in case).
+- **Verify page** (`qr/public/verify.html`): asks the API only (no client-side crypto any more), de/en (`?lang=` or the
+  browser language), `?code=` checks right away; states Authentic / Revoked / Not issued by SCUTOONS / Not authentic
+  / Does not match our records / Unknown code / …; shows the registration status ("Registered to an account" / "Not
+  registered yet – register it in your account, otherwise someone else can" + link `./?c=<code>`), the fingerprint to
+  compare with the printed one; for a file that is not ours but names a known code, what our record says. Output is
+  escaped (the old page put uploaded JSON into innerHTML). "Download Signature File" still loads
+  `generate/get-signature.php` (kept public for that and for old links).
+- **Admin** `crypto.ts` `verifySignature(signature, code?)` (async) verifies against the server keypair's public key
+  and the code; the certificate panel's badge uses it.
+- Tests: `tests/Unit/Infrastructure/MlDsa65Test.php`, `tests/Unit/Http/CertificatesApiTest.php` (fixtures
+  `tests/Unit/fixtures/ml-dsa-65.json`, made by noble 0.5.4 with fixed seeds – test keys only), api-smoke
+  "Certificates" (real stored signatures, UPPER CASE codes, tampered, foreign key, revoked), qr public-urls (verify page,
+  proxied identical to the API).

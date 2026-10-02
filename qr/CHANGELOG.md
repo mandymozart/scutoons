@@ -1,5 +1,12 @@
 # Changelog – qr (qr.scutoons.com)
 
+## Unreleased
+
+- verify.html (2026-10-02): checks through the API's `/api/certificates/*` (always proxied, also with
+  `PROXY_FULL_API=0`) – authentic only when signed with the published SCUTOONS key AND matching the record of the code
+  (before: any self-signed file passed). Case-insensitive code input, pasted QR/verify URLs, `?code=` checks right away,
+  de/en, registration status (registered / not yet + register link), revoked state, escaped output. URL unchanged.
+
 ## 1.0.0 – 2026-09-30
 
 - Self-hosted fonts (2026-09-30): landing page and verify.html use `assets/tokens/scutoons-tokens.css`, a generated

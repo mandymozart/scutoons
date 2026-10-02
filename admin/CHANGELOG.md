@@ -7,6 +7,9 @@ Versions: `package.json` `version`; every build writes `version.json` (deploy/RE
 - Emails (nav group System): `/emails` sent-mail log (filters, pager, URL-driven), `/emails/templates` every email
   rendered de/en with sample values + the admin notification recipients.
 
+- Certificate panel (2026-10-02): "signature valid" now verifies against the server's public key and the code, not
+  the key embedded in the stored signature (`verifySignature` is async).
+
 ## 0.1.0 – 2026-09-30
 
 - New app (P2a): login + role `admin`, dashboard, codes, batches (port of `generate/`), users & roles, events,

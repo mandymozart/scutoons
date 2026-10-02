@@ -465,6 +465,9 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 - Known issue to handle carefully (not changed yet): certificates print the code in upper case, but codes are
   case-sensitive nanoids — verify must accept the printed form (exact match first, then a case-insensitive match only
   when it is unique). Test with real certificate codes before changing anything.
+  **Done for the verify page 2026-10-02:** `/verify.html` checks through `GET /api/certificates/<CODE>` (exactly that
+  rule; tested with all signed dev-DB codes in UPPER CASE); `/verify.html?code=` keeps working (checks right away).
+  The landing page `?c=` is unchanged. Details: agents/ITEMS.md "Certificates".
 
 ## Local dev ports (2026-09-30, owner — final)
 
@@ -504,7 +507,7 @@ admin, e.g. `/creator.scutoons.com/`), so each app deploys independently by FTP 
 | Domain | App (repo folder) | Purpose | Runtime |
 |---|---|---|---|
 | `www.scutoons.com` / `scutoons.com` | `viewer/` | landing page, events, marketing pages **and the reader** (`/<toon>`, `/<toon>/chapter/<n>`, credits, download, account) — printed QR codes redirect here, so the reader stays on this domain | static build |
-| `qr.scutoons.com` | `server/` (public pages only) | the low-level public frontend: QR landing `?c=`, verify page, legacy `/api/validate/`, `/api/keys/keys.php` — **nothing else** | PHP (same server code, host-based routing) |
+| `qr.scutoons.com` | `server/` (public pages only) | the low-level public frontend: QR landing `?c=`, verify page, legacy `/api/validate/`, `/api/keys/keys.php`, the verify page's `/api/certificates/*` (2026-10-02) — **nothing else** | PHP (same server code, host-based routing) |
 | `api.scutoons.com` | `server/` | the backend for all apps: accounts, access, items, inventory, content, admin API, data | PHP |
 | `admin.scutoons.com` | `admin/` | administration: QR generation/batches (port of `generate/` to Svelte), codes, revoke, stats, users & roles, content, catalog, data migrations | static build |
 | `creator.scutoons.com` | `creator/` | the creator editor (role `creator`) | static build |
@@ -513,7 +516,7 @@ admin, e.g. `/creator.scutoons.com/`), so each app deploys independently by FTP 
 
 **Server host routing:** one codebase (`server/`), deployed once; `qr.` and `api.` both point to `server/public/`.
 The Slim app routes by host:
-- `qr.scutoons.com` → landing, verify, `/api/validate/`, `/api/keys/keys.php` (+ assets). Anything else → 404.
+- `qr.scutoons.com` → landing, verify, `/api/validate/`, `/api/keys/keys.php`, `/api/certificates/*` (2026-10-02) (+ assets). Anything else → 404.
 - `api.scutoons.com` → `/api/*` (the full API). No landing page.
 - **Transition:** until every frontend uses `api.scutoons.com`, the full `/api/*` also stays reachable on
   `qr.scutoons.com` (the released viewer calls `https://qr.scutoons.com/api/...`). Remove only after all apps are
@@ -727,7 +730,9 @@ flags mismatches (e.g. a frontend built against an older `@scutoons/api` than th
   status, body and headers (minus hop-by-hop, lengths, Date/Server/X-Powered-By) come back unchanged; PHP's default
   content type is suppressed. API unreachable → 502 `api_unavailable`. The verify page's
   `generate/get-signature.php` + `generate/files/signatures/SIGNATURE-*.json` are proxied too (they must stay in the API
-  when `generate/` retires); other `/generate/*` → 302 to `API_URL/generate/…`.
+  when `generate/` retires); other `/generate/*` → 302 to `API_URL/generate/…`. Since 2026-10-02 the verify page
+  checks through `/api/certificates/*` (always proxied, also with `PROXY_FULL_API=0`); get-signature.php is only its
+  "Download Signature File" button.
 - `/?login=` (old magic links) → `WWW_URL` (default `https://scutoons.com`, as `APP_URL` before). qr's `API_URL` in
   production is fixed to `https://api.scutoons.com` in `targets.json` (never from `VITE_API_URL`, which points at qr
   during the transition → loop).

@@ -1564,6 +1564,20 @@ character, persona, look and mood and doubles as the VN test bed.
   API's SSO cookie, so `localStorage.clear()` is not a sign-out – the check now clears the browser cookies
   (`Network.clearBrowserCookies`) before each guest run (member 1440 used to start in the swim pants).
 
+## Certificate verification fixed (2026-10-02, branch `platform`)
+
+- Owner: the verify page "just checked if the signature is a proper signature, not if it also matches an entry in the
+  db". Confirmed: `qr/public/verify.html` (and the admin badge, `admin/src/lib/qr/crypto.ts`) verified against the
+  public key embedded in the same JSON → a self-signed file passed. Fixed: `GET /api/certificates/{code}` +
+  `POST /api/certificates/verify` verify server-side against the published key AND the stored `qr.signature`
+  (agents/ITEMS.md "Certificates" has the contract, the reasons and the owner's note on what a certificate is).
+- PHP had no ML-DSA (no Composer lib, OpenSSL 3.0, no SHAKE in `hash()`): `server/src/Infrastructure/Signing/MlDsa65.php`
+  + `Shake.php` are a plain-PHP FIPS 204 verifier (~50 ms). noble's `ml_dsa65.sign(msg, sk)` = external ML-DSA with an
+  empty context (signs `0x00 0x00 ‖ msg`); all 421 stored dev-DB signatures verify, a 1-byte change fails.
+- Gotchas: a pasted URL can't go in the path segment (`%2F` → 404) → `?code=`; PHP hex literals ≥ 2^63 are floats
+  (Keccak round constants are built by the LFSR instead). PHPStan reports 3 errors in `InventoryService.php` (not from
+  this change, they come from commit 1edde25).
+
 ## Email module (2026-10-02, branch `platform`)
 
 - Owner: "a place to manage emails … refactor across apps". Inventory: only the API sent mail (the two sign-in mails of

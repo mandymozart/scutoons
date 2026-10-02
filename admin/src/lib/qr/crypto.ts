@@ -51,14 +51,18 @@ export function fingerprint(signature: CodeSignature): string {
 	return (signature.signature.slice(0, 64).match(/.{1,4}/g) ?? []).join(':').toUpperCase();
 }
 
-/** Verifies a stored signature against its own public key (shown on the code page) */
-export function verifySignature(signature: CodeSignature): boolean {
+/**
+ * Verifies a stored signature against the SERVER's public key (the keypair of GET /admin/keys = the key published at
+ * /api/keys/keys.php) – never against the key embedded in the signature JSON: anyone can sign data with their own key
+ * and embed that. With `code`, the signed data must also be for that code. (The public check is the API's
+ * GET /api/certificates/{code}, agents/ITEMS.md "Certificates".)
+ */
+export async function verifySignature(signature: CodeSignature, code?: string): Promise<boolean> {
 	try {
-		return ml_dsa65.verify(
-			hexToBytes(signature.signature),
-			new TextEncoder().encode(signature.signedData),
-			hexToBytes(signature.publicKey)
-		);
+		const { publicKey } = await loadKeypair();
+		if (signature.publicKey.toLowerCase() !== bytesToHex(publicKey)) return false;
+		if (code !== undefined && (JSON.parse(signature.signedData) as { code?: unknown }).code !== code) return false;
+		return ml_dsa65.verify(hexToBytes(signature.signature), new TextEncoder().encode(signature.signedData), publicKey);
 	} catch {
 		return false;
 	}

@@ -4,6 +4,13 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Certificate verification (agents/ITEMS.md "Certificates", 2026-10-02): `GET /api/certificates/{code}` (or `?code=`)
+  and `POST /api/certificates/verify` (an uploaded `SIGNATURE-<code>.json`) verify server-side against the PUBLISHED
+  public key and the signature stored for the code (before, the verify page trusted the key embedded in the file);
+  case-insensitive when unique; public status `registered` / `revoked`, never the owner; CORS `*`; per-IP lookup limit.
+  Plain-PHP ML-DSA-65 verifier (`Infrastructure/Signing/MlDsa65.php`, `Shake.php`). PHPUnit `MlDsa65Test`,
+  `CertificatesApiTest`; api-smoke "Certificates".
+
 - Email module (agents/PLATFORM.md "Emails"): `Domain\Mail` – registry `MailTemplates` (`login_code`,
   `signup_without_code`), texts per locale in `templates/mail/texts.php`, one HTML layout, `Mailer::send($id, $to,
   $locale, $vars)` / `sendToAdmins()`, sent-mail log (migration `2026-10-02-mail-log`, table `mail_log`), admin

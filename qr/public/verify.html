@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Verify QR - SCUTOONS</title>
-    <script src="assets/js/noble-post-quantum.min.js"></script>
     <!-- tokens + self-hosted IBM Plex Mono: qr's generated copy of @scutoons/tokens (qr/bin/sync-tokens.mjs) -->
     <link rel="stylesheet" href="assets/tokens/scutoons-tokens.css">
     <style>
@@ -50,6 +49,17 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .result.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .result.pending {
+            background: #f0f0f0;
+        }
+        .result a {
+            color: inherit;
+        }
         .signature-details {
             font-size: 1rem;
             word-break: break-all;
@@ -59,242 +69,279 @@
 </head>
 <body>
     <div class="verify-container">
-        <h1>🔐 Certificate Verification</h1>
-        <p>You want to know if your SCUTOONS QR code is authentic? Paste Code or Upload a Signature File</p>
+        <h1>🔐 <span data-t="title">Certificate Verification</span></h1>
+        <p data-t="intro">You want to know if your SCUTOONS certificate is authentic? Enter the code or upload the signature file.</p>
         <div>
             <p>
-                <strong>Algorithm:</strong> ML-DSA-65 (FIPS 204)<br>
-                <strong>Security Level:</strong> NIST Level 3 (192-bit security)<br>
+                <strong data-t="algorithm">Algorithm:</strong> ML-DSA-65 (FIPS 204)<br>
+                <strong data-t="level">Security Level:</strong> NIST Level 3 (192-bit security)<br>
             </p>
         </div>
 
         <div class="verify-form">
-            <h2>Verify Certificate Signature</h2>
-            
-            <h3 style="margin-top: 20px;">Option 1: Enter QR Code</h3>
-            <p>Enter the code from your certificate (e.g., yB56cs59):</p>
-            <input type="text" id="qrCodeInput" placeholder="Enter code...">
-            <button id="verifyCodeBtn">Verify by Code</button>
-            
-            <h3>Option 2: Upload Signature File</h3>
-            <p>Upload the SIGNATURE-*.json file:</p>
-            <input type="file" id="fileInput" accept=".json">
-            <button id="verifyFileBtn">Verify by File</button>
+            <h2 data-t="formTitle">Verify Certificate Signature</h2>
+
+            <h3 style="margin-top: 20px;" data-t="option1">Option 1: Enter Code</h3>
+            <p data-t="option1Hint">Enter the code from your certificate (e.g., YB56CS59) – upper or lower case does not matter:</p>
+            <input type="text" id="qrCodeInput" placeholder="Enter code..." autocomplete="off" autocapitalize="characters" spellcheck="false">
+            <button id="verifyCodeBtn" data-t="verifyCode">Verify by Code</button>
+
+            <h3 data-t="option2">Option 2: Upload Signature File</h3>
+            <p data-t="option2Hint">Upload the SIGNATURE-*.json file:</p>
+            <input type="file" id="fileInput" accept=".json,application/json">
+            <button id="verifyFileBtn" data-t="verifyFile">Verify by File</button>
         </div>
 
-        <div id="result"></div>
+        <div id="result" aria-live="polite"></div>
     </div>
 
     <script type="module">
-        import { verifySignature, importSignature } from './assets/js/verify-crypto.js';
+        // Verification happens on the SCUTOONS server (GET /api/certificates/{code}, POST /api/certificates/verify):
+        // the signature must verify against OUR published public key (/api/keys/keys.php – never the key a file brings
+        // along) AND be the signature on record for that code. agents/ITEMS.md "Certificates".
+        const TEXTS = {
+            en: {
+                title: 'Certificate Verification',
+                intro: 'You want to know if your SCUTOONS certificate is authentic? Enter the code or upload the signature file.',
+                algorithm: 'Algorithm:', level: 'Security Level:',
+                formTitle: 'Verify Certificate Signature',
+                option1: 'Option 1: Enter Code',
+                option1Hint: 'Enter the code from your certificate (e.g., YB56CS59) – upper or lower case does not matter:',
+                placeholder: 'Enter code...',
+                verifyCode: 'Verify by Code',
+                option2: 'Option 2: Upload Signature File',
+                option2Hint: 'Upload the SIGNATURE-*.json file:',
+                verifyFile: 'Verify by File',
+                enterCode: 'Please enter the code from your certificate.',
+                chooseFile: 'Please select a signature file.',
+                checking: 'Checking with SCUTOONS…',
+                authentic: '✅ Authentic',
+                authenticText: 'This certificate was issued by SCUTOONS and matches our records. The signature is valid and nothing has been changed.',
+                revoked: '⚠️ Revoked',
+                revokedText: 'This certificate was issued by SCUTOONS, but the code has been revoked. Please contact us before buying or selling this item.',
+                notIssued: '❌ Not issued by SCUTOONS',
+                notIssuedText: 'This signature was not made with the SCUTOONS key. The certificate is not genuine.',
+                tampered: '❌ Not authentic',
+                tamperedText: 'The signature does not match the certificate data – it was changed or not made by SCUTOONS.',
+                mismatch: '❌ Does not match our records',
+                mismatchText: 'This signature file is not the one on record for this code.',
+                unknown: '❌ Unknown code',
+                unknownText: 'We have no certificate with this code. Please check the code on your certificate.',
+                ambiguous: '❌ Code not unique',
+                ambiguousText: 'Several codes match when upper / lower case is ignored. Please upload the signature file instead.',
+                noSignature: '❌ No certificate on record',
+                noSignatureText: 'This code exists, but we have no certificate signature for it.',
+                recordBroken: '❌ Could not be verified',
+                recordBrokenText: 'Our record for this code could not be verified. Please contact us.',
+                unavailable: '❌ Verification unavailable',
+                unavailableText: 'The verification service did not answer. Please try again in a minute.',
+                tooMany: '❌ Too many checks',
+                tooManyText: 'Too many codes were checked from your connection. Please try again later.',
+                badFile: '❌ File Error',
+                badFileText: 'This is not a SCUTOONS signature file (SIGNATURE-*.json).',
+                details: 'Certificate Details:',
+                ourRecord: 'Our record for this code:',
+                code: 'Code:', product: 'Product:', edition: 'Edition:', creators: 'Creators:',
+                created: 'Created:', signed: 'Signed:', fingerprint: 'Fingerprint:',
+                fingerprintHint: 'Compare it with the fingerprint printed on your certificate.',
+                registered: 'Registered to an account.',
+                notRegistered: 'Not registered yet – register it in your account, otherwise someone else can.',
+                registerNow: 'Register now',
+                download: 'Download Signature File'
+            },
+            de: {
+                title: 'Zertifikat prüfen',
+                intro: 'Du willst wissen, ob dein SCUTOONS-Zertifikat echt ist? Gib den Code ein oder lade die Signaturdatei hoch.',
+                algorithm: 'Algorithmus:', level: 'Sicherheitsstufe:',
+                formTitle: 'Signatur des Zertifikats prüfen',
+                option1: 'Option 1: Code eingeben',
+                option1Hint: 'Gib den Code von deinem Zertifikat ein (z. B. YB56CS59) – Groß- und Kleinschreibung ist egal:',
+                placeholder: 'Code eingeben …',
+                verifyCode: 'Code prüfen',
+                option2: 'Option 2: Signaturdatei hochladen',
+                option2Hint: 'Lade die Datei SIGNATURE-*.json hoch:',
+                verifyFile: 'Datei prüfen',
+                enterCode: 'Bitte gib den Code von deinem Zertifikat ein.',
+                chooseFile: 'Bitte wähle eine Signaturdatei aus.',
+                checking: 'Wird bei SCUTOONS geprüft …',
+                authentic: '✅ Echt',
+                authenticText: 'Dieses Zertifikat wurde von SCUTOONS ausgestellt und stimmt mit unseren Daten überein. Die Signatur ist gültig, nichts wurde verändert.',
+                revoked: '⚠️ Gesperrt',
+                revokedText: 'Dieses Zertifikat wurde von SCUTOONS ausgestellt, der Code wurde aber gesperrt. Bitte melde dich bei uns, bevor du diesen Gegenstand kaufst oder verkaufst.',
+                notIssued: '❌ Nicht von SCUTOONS ausgestellt',
+                notIssuedText: 'Diese Signatur wurde nicht mit dem SCUTOONS-Schlüssel erstellt. Das Zertifikat ist nicht echt.',
+                tampered: '❌ Nicht echt',
+                tamperedText: 'Die Signatur passt nicht zu den Daten des Zertifikats – sie wurden verändert oder stammen nicht von SCUTOONS.',
+                mismatch: '❌ Stimmt nicht mit unseren Daten überein',
+                mismatchText: 'Diese Signaturdatei ist nicht die, die wir für diesen Code gespeichert haben.',
+                unknown: '❌ Unbekannter Code',
+                unknownText: 'Wir haben kein Zertifikat mit diesem Code. Bitte prüfe den Code auf deinem Zertifikat.',
+                ambiguous: '❌ Code nicht eindeutig',
+                ambiguousText: 'Ohne Groß-/Kleinschreibung passen mehrere Codes. Bitte lade stattdessen die Signaturdatei hoch.',
+                noSignature: '❌ Kein Zertifikat gespeichert',
+                noSignatureText: 'Diesen Code gibt es, aber wir haben keine Zertifikatssignatur dazu.',
+                recordBroken: '❌ Konnte nicht geprüft werden',
+                recordBrokenText: 'Unser Eintrag zu diesem Code konnte nicht geprüft werden. Bitte melde dich bei uns.',
+                unavailable: '❌ Prüfung nicht erreichbar',
+                unavailableText: 'Der Prüfdienst hat nicht geantwortet. Bitte versuche es in einer Minute noch einmal.',
+                tooMany: '❌ Zu viele Prüfungen',
+                tooManyText: 'Von deiner Verbindung wurden zu viele Codes geprüft. Bitte versuche es später noch einmal.',
+                badFile: '❌ Dateifehler',
+                badFileText: 'Das ist keine SCUTOONS-Signaturdatei (SIGNATURE-*.json).',
+                details: 'Details des Zertifikats:',
+                ourRecord: 'Unser Eintrag zu diesem Code:',
+                code: 'Code:', product: 'Produkt:', edition: 'Edition:', creators: 'Urheber:',
+                created: 'Erstellt:', signed: 'Signiert:', fingerprint: 'Fingerabdruck:',
+                fingerprintHint: 'Vergleiche ihn mit dem Fingerabdruck auf deinem Zertifikat.',
+                registered: 'In einem Konto registriert.',
+                notRegistered: 'Noch nicht registriert – registriere ihn in deinem Konto, sonst kann es jemand anderes tun.',
+                registerNow: 'Jetzt registrieren',
+                download: 'Signaturdatei herunterladen'
+            }
+        };
+
+        const params = new URLSearchParams(location.search);
+        const lang = ['de', 'en'].includes(params.get('lang')) ? params.get('lang')
+            : ((navigator.language || '').toLowerCase().startsWith('de') ? 'de' : 'en');
+        const t = TEXTS[lang];
+        document.documentElement.lang = lang;
+        document.title = `${t.title} - SCUTOONS`;
+        document.querySelectorAll('[data-t]').forEach((el) => { el.textContent = t[el.dataset.t]; });
 
         const qrCodeInput = document.getElementById('qrCodeInput');
         const verifyCodeBtn = document.getElementById('verifyCodeBtn');
         const fileInput = document.getElementById('fileInput');
         const verifyFileBtn = document.getElementById('verifyFileBtn');
         const resultDiv = document.getElementById('result');
-        
-        // Check if noble library is loaded
-        window.addEventListener('load', () => {
-            if (!window.noblePostQuantum || !window.noblePostQuantum.ml_dsa65) {
-                console.error('❌ noble-post-quantum library not loaded!');
-                resultDiv.innerHTML = '<div class="result invalid"><h3>❌ Library Error</h3><p>Post-quantum cryptography library failed to load. Please refresh the page.</p></div>';
-            } else {
-                console.log('✅ noble-post-quantum library loaded successfully');
+        qrCodeInput.placeholder = t.placeholder;
+
+        const escape = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+        const date = (value) => {
+            const d = value ? new Date(value) : null;
+            return d && !isNaN(d) ? d.toLocaleString(lang) : '';
+        };
+        const box = (kind, title, text, extra = '') =>
+            `<div class="result ${kind}"><h3>${escape(title)}</h3><p>${escape(text)}</p>${extra}</div>`;
+
+        // A typed code, a pasted QR URL (?c=) or verify URL (?code=) → the code (the server matches any case)
+        function codeFrom(input) {
+            const value = input.trim();
+            try {
+                if (value.includes('?') || value.includes('://')) {
+                    const url = new URL(value, location.href);
+                    return (url.searchParams.get('c') || url.searchParams.get('code') || '').replace(/\s+/g, '');
+                }
+            } catch { /* not a URL */ }
+            return value.replace(/\s+/g, '');
+        }
+
+        function details(cert) {
+            if (!cert) return '';
+            const edition = cert.edition_number != null
+                ? `${cert.edition_number}${cert.edition_count != null ? ' / ' + cert.edition_count : ''}` : '';
+            const row = (label, value) => value ? `<strong>${escape(label)}</strong> ${escape(value)}<br>` : '';
+            return `<div class="signature-details">
+                ${row(t.code, (cert.code || '').toUpperCase())}
+                ${row(t.product, cert.product_name)}
+                ${row(t.edition, edition)}
+                ${row(t.creators, cert.creators)}
+                ${row(t.created, date(cert.created_at))}
+                ${row(t.signed, date(cert.signed_at))}
+                ${row(t.algorithm, cert.algorithm)}
+                ${row(t.fingerprint, cert.fingerprint)}
+                <small>${escape(t.fingerprintHint)}</small>
+            </div>`;
+        }
+
+        function registration(data) {
+            if (data.registered == null || !data.code) return '';
+            if (data.registered) return `<p><strong>${escape(t.registered)}</strong></p>`;
+            return `<p><strong>${escape(t.notRegistered)}</strong> <a href="./?c=${encodeURIComponent(data.code)}">${escape(t.registerNow)}</a></p>`;
+        }
+
+        function render(data) {
+            if (data.valid && data.revoked) {
+                resultDiv.innerHTML = box('warning', t.revoked, t.revokedText, `<h4>${escape(t.details)}</h4>${details(data.certificate)}`);
+                return;
             }
-        });
-        
-        // Verify by uploading JSON file
+            if (data.valid) {
+                resultDiv.innerHTML = box('valid', t.authentic, t.authenticText,
+                    `${registration(data)}<h4>${escape(t.details)}</h4>${details(data.certificate)}
+                     <button id="downloadSigBtn" style="margin-top: 20px;">${escape(t.download)}</button>`);
+                document.getElementById('downloadSigBtn').addEventListener('click', () => download(data.code));
+                return;
+            }
+            const fromFile = data.source === 'file';
+            const [title, text] = {
+                key_mismatch: fromFile ? [t.notIssued, t.notIssuedText] : [t.recordBroken, t.recordBrokenText],
+                bad_signature: fromFile ? [t.tampered, t.tamperedText] : [t.recordBroken, t.recordBrokenText],
+                signature_mismatch: fromFile ? [t.mismatch, t.mismatchText] : [t.recordBroken, t.recordBrokenText],
+                unknown_code: [t.unknown, t.unknownText],
+                ambiguous_code: [t.ambiguous, t.ambiguousText],
+                no_signature: [t.noSignature, t.noSignatureText]
+            }[data.reason] ?? [t.recordBroken, t.recordBrokenText];
+            // A file that is not ours, for a code we know: show what our record says, so the two can be compared
+            const record = fromFile && data.certificate ? `<h4>${escape(t.ourRecord)}</h4>${details(data.certificate)}` : '';
+            resultDiv.innerHTML = box('invalid', title, text, record);
+        }
+
+        async function ask(url, options) {
+            resultDiv.innerHTML = box('pending', t.checking, '');
+            try {
+                const response = await fetch(url, { headers: { Accept: 'application/json' }, ...options });
+                const data = await response.json().catch(() => null);
+                if (response.status === 429) return void (resultDiv.innerHTML = box('invalid', t.tooMany, t.tooManyText));
+                if (response.status === 400 && data?.error === 'invalid_signature_file') return void (resultDiv.innerHTML = box('invalid', t.badFile, t.badFileText));
+                if (response.status === 400) return void (resultDiv.innerHTML = box('invalid', t.unknown, t.unknownText));
+                if (!response.ok || !data || typeof data.valid !== 'boolean') throw new Error(`HTTP ${response.status}`);
+                render(data);
+            } catch (error) {
+                console.error('Certificate verification failed:', error);
+                resultDiv.innerHTML = box('invalid', t.unavailable, t.unavailableText);
+            }
+        }
+
+        // The stored signature file of an authentic code (to keep alongside the certificate)
+        async function download(code) {
+            const response = await fetch(`generate/get-signature.php?code=${encodeURIComponent(code)}`);
+            const data = response.ok ? await response.json() : null;
+            if (!data?.success) return;
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SIGNATURE-${code}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function verifyCode() {
+            const code = codeFrom(qrCodeInput.value);
+            if (!code) return void (resultDiv.innerHTML = box('invalid', t.enterCode, ''));
+            ask(`api/certificates/${encodeURIComponent(code)}`);
+        }
+
+        verifyCodeBtn.addEventListener('click', verifyCode);
+        qrCodeInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') verifyCode(); });
+
         verifyFileBtn.addEventListener('click', async () => {
             const file = fileInput.files[0];
-            
-            if (!file) {
-                resultDiv.innerHTML = '<div class="result invalid">Please select a signature file.</div>';
-                return;
-            }
-            
-            resultDiv.innerHTML = '<div class="result" style="background: #f0f0f0;">Reading file...</div>';
-            
+            if (!file) return void (resultDiv.innerHTML = box('invalid', t.chooseFile, ''));
+            let body;
             try {
-                // Read the file
-                const text = await file.text();
-                const sigData = JSON.parse(text);
-                
-                console.log('Loaded signature from file:', sigData);
-                console.log('Verifying with:');
-                console.log('- Signature length:', sigData.signature.signature.length);
-                console.log('- Public key length:', sigData.signature.publicKey.length);
-                console.log('- Signed data:', sigData.signature.signedData);
-                
-                // Verify the signature
-                const isValid = await verifySignature(
-                    sigData.signature.signature,
-                    sigData.signature.publicKey,
-                    sigData.signature.signedData
-                );
-                
-                console.log('Verification result:', isValid);
-                
-                if (isValid) {
-                    const qrData = JSON.parse(sigData.signature.signedData);
-                    resultDiv.innerHTML = `
-                        <div class="result valid">
-                            <h3>✅ Signature Valid</h3>
-                            <p>This certificate is authentic and has not been tampered with.</p>
-                            
-                            <h4>Certificate Details:</h4>
-                            <div class="signature-details">
-                                <strong>QR Code:</strong> ${qrData.code}<br>
-                                <strong>Type:</strong> ${qrData.type}<br>
-                                <strong>URL:</strong> ${qrData.url}<br>
-                                <strong>Created:</strong> ${new Date(qrData.created_at).toLocaleString()}<br>
-                                <strong>Fingerprint:</strong> ${sigData.fingerprint}<br>
-                                <strong>Algorithm:</strong> ${sigData.signature.algorithm}<br>
-                                <strong>Signed:</strong> ${new Date(sigData.signature.timestamp).toLocaleString()}
-                            </div>
-                            
-                            <h4>Public Key:</h4>
-                            <div class="signature-details" style="max-height: 100px; overflow-y: auto;">
-                                ${sigData.signature.publicKey}
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `
-                        <div class="result invalid">
-                            <h3>❌ Invalid Signature</h3>
-                            <p>This signature could not be verified. The certificate may have been tampered with.</p>
-                            <p style="font-size: 12px; margin-top: 10px;">Check the browser console for detailed error information.</p>
-                        </div>
-                    `;
-                    console.error('Verification failed for file:', file.name);
-                    console.error('Signature data:', sigData);
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `
-                    <div class="result invalid">
-                        <h3>❌ File Error</h3>
-                        <p>Could not read or parse signature file.</p>
-                        <p style="font-size: 12px; margin-top: 10px;">Error: ${error.message}</p>
-                        <p style="font-size: 12px;">Make sure the file is a valid SIGNATURE-*.json file.</p>
-                    </div>
-                `;
-                console.error('File read error:', error);
+                body = JSON.stringify(JSON.parse(await file.text()));
+            } catch {
+                return void (resultDiv.innerHTML = box('invalid', t.badFile, t.badFileText));
             }
+            ask('api/certificates/verify', { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json' }, body });
         });
-        
-        // Verify by QR code (fetch signature from server)
-        verifyCodeBtn.addEventListener('click', async () => {
-            const code = qrCodeInput.value.trim();
-            
-            if (!code) {
-                resultDiv.innerHTML = '<div class="result invalid">Please enter a QR code.</div>';
-                return;
-            }
-            
-            resultDiv.innerHTML = '<div class="result" style="background: #f0f0f0;">Loading signature...</div>';
-            
-            try {
-                // Try to fetch signature from database first
-                let response = await fetch(`generate/get-signature.php?code=${code}`);
-                let sigData;
-                
-                if (response.ok) {
-                    const dbResult = await response.json();
-                    if (dbResult.success) {
-                        console.log('✅ Loaded signature from database');
-                        sigData = dbResult;
-                    } else {
-                        throw new Error('Database lookup failed');
-                    }
-                } else {
-                    // Fallback to file system
-                    console.log('Database not available, trying file system...');
-                    response = await fetch(`generate/files/signatures/SIGNATURE-${code}.json`);
-                    
-                    if (!response.ok) {
-                        throw new Error('Signature not found in database or files');
-                    }
-                    
-                    sigData = await response.json();
-                    console.log('✅ Loaded signature from file system');
-                }
-                
-                console.log('Loaded signature data:', sigData);
-                console.log('Verifying with:');
-                console.log('- Signature length:', sigData.signature.signature.length);
-                console.log('- Public key length:', sigData.signature.publicKey.length);
-                console.log('- Signed data:', sigData.signature.signedData);
-                
-                // Verify the signature
-                const isValid = await verifySignature(
-                    sigData.signature.signature,
-                    sigData.signature.publicKey,
-                    sigData.signature.signedData
-                );
-                
-                console.log('Verification result:', isValid);
-                
-                if (isValid) {
-                    const qrData = JSON.parse(sigData.signature.signedData);
-                    resultDiv.innerHTML = `
-                        <div class="result valid">
-                            <h3>✅ Signature Valid</h3>
-                            <p>This certificate is authentic and has not been tampered with.</p>
-                            
-                            <h4>Certificate Details:</h4>
-                            <div class="signature-details">
-                                <strong>QR Code:</strong> ${qrData.code}<br>
-                                <strong>Type:</strong> ${qrData.type}<br>
-                                <strong>URL:</strong> ${qrData.url}<br>
-                                <strong>Created:</strong> ${new Date(qrData.created_at).toLocaleString()}<br>
-                                <strong>Fingerprint:</strong> ${sigData.fingerprint}<br>
-                                <strong>Algorithm:</strong> ${sigData.signature.algorithm}<br>
-                                <strong>Signed:</strong> ${new Date(sigData.signature.timestamp).toLocaleString()}
-                            </div>
-                            
-                            <h4>Public Key:</h4>
-                            <div class="signature-details" style="max-height: 100px; overflow-y: auto;">
-                                ${sigData.signature.publicKey}
-                            </div>
-                            
-                            <button id="downloadSigBtn" style="margin-top: 20px;">Download Signature File</button>
-                        </div>
-                    `;
-                    
-                    // Add download functionality
-                    document.getElementById('downloadSigBtn').addEventListener('click', () => {
-                        const blob = new Blob([JSON.stringify(sigData, null, 2)], { type: 'application/json' });
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `SIGNATURE-${code}.json`;
-                        a.click();
-                        URL.revokeObjectURL(url);
-                    });
-                } else {
-                    resultDiv.innerHTML = `
-                        <div class="result invalid">
-                            <h3>❌ Invalid Signature</h3>
-                            <p>This signature could not be verified. The certificate may have been tampered with.</p>
-                            <p style="font-size: 12px; margin-top: 10px;">Check the browser console for detailed error information.</p>
-                        </div>
-                    `;
-                    console.error('Verification failed for code:', code);
-                    console.error('Signature data:', sigData);
-                }
-            } catch (error) {
-                resultDiv.innerHTML = `
-                    <div class="result invalid">
-                        <h3>❌ Verification Error</h3>
-                        <p>Could not find or verify signature for code: <strong>${code}</strong></p>
-                        <p style="font-size: 12px; margin-top: 10px;">Error: ${error.message}</p>
-                        <p style="font-size: 12px;">Make sure the QR code is correct and the certificate exists in the system.</p>
-                    </div>
-                `;
-                console.error('Verification error:', error);
-            }
-        });
+
+        // verify.html?code=<CODE> (or ?c=): check right away
+        const preset = params.get('code') || params.get('c');
+        if (preset) {
+            qrCodeInput.value = preset;
+            verifyCode();
+        }
     </script>
 </body>
 </html>

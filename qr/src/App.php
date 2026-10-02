@@ -8,8 +8,9 @@ namespace Qr;
  *
  *   /api/validate[/…], /api/keys/keys.php     PRINTED: always proxied to the API, byte for byte
  *   /api[/…]                                  proxied while PROXY_FULL_API is on (released viewers), else 404 JSON
+ *   /api/certificates[/…]                     the verify page's certificate check: always proxied to the API
  *   /generate/get-signature.php,
- *   /generate/files/signatures/SIGNATURE-*    PRINTED (verify page): proxied to the API
+ *   /generate/files/signatures/SIGNATURE-*    (old verify page, signature downloads): proxied to the API
  *   /generate[/…]                             the legacy admin SPA lives on the API: 302 to API_URL/generate/…
  *   /version.json                             (dev only – deploys write the static file) version of this app
  *   everything else                           the QR landing page (Landing)
@@ -63,10 +64,11 @@ final class App
         return $path === '/api/validate' || str_starts_with($path, '/api/validate/') || $path === '/api/keys/keys.php';
     }
 
-    /** What the verify page loads from its own origin */
+    /** What the verify page loads from its own origin (+ the old verify page's signature sources) */
     public static function isVerifyData(string $path): bool
     {
-        return $path === '/generate/get-signature.php' || (bool) preg_match('#^/generate/files/signatures/SIGNATURE-[A-Za-z0-9_-]{1,32}\.json$#', $path);
+        return $path === '/api/certificates' || str_starts_with($path, '/api/certificates/')
+            || $path === '/generate/get-signature.php' || (bool) preg_match('#^/generate/files/signatures/SIGNATURE-[A-Za-z0-9_-]{1,32}\.json$#', $path);
     }
 
     /** @return array<string, mixed> version.json of a local checkout (deploys write public/version.json instead) */

@@ -636,6 +636,9 @@ $r = call('GET', "$api/access/?c=$rv");
 check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: /access/ → 410 revoked', $r);
 $r = call('POST', "$api/validate/", ['code' => $rv]);
 check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: /validate/ → 410 revoked', $r);
+$r = call('GET', "$api/certificates/" . strtoupper($rv));
+check($r['status'] === 200 && $r['body']['revoked'] === true && $r['body']['registered'] === true && !str_contains((string) json_encode($r['body']), '@'),
+    'revoked: /certificates/ → revoked + registered flags, no owner', $r);
 $r = call('POST', "$api/inventory/claim/", ['code' => $rv], $tokenB);
 check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: claim → 410 revoked', $r);
 $me = call('GET', "$api/me/", null, $tokenA);
@@ -702,6 +705,39 @@ $r = call('GET', "$api/keys/keys.php");
 check(!is_array($r['body']) || !array_key_exists('privateKey', $r['body']), '/api/keys/keys.php has no private key');
 $r = call('GET', "$api/keys/keypair.json");
 check($r['status'] === 404 || $r['status'] === 403, '/api/keys/keypair.json not served', $r['status']);
+
+// ── Certificates: verified server-side against the published key + the signature on record (ITEMS.md) ─────
+echo "\nCertificates (/api/certificates/)\n";
+$published = call('GET', "$api/keys/keys.php")['body']['publicKey'] ?? '';
+$signedRows = Db::all("SELECT code, signature FROM qr WHERE signature IS NOT NULL AND signature <> '' ORDER BY created_at, code LIMIT 12");
+$ours = array_values(array_filter($signedRows, fn(array $row) => strtolower((string) (json_decode((string) $row['signature'], true)['publicKey'] ?? '')) === strtolower((string) $published)));
+check($signedRows === [] || $ours !== [], 'stored signatures carry the published public key', count($signedRows));
+foreach (array_slice($ours, 0, 8) as $row) {
+    $r = call('GET', "$api/certificates/" . rawurlencode(strtoupper((string) $row['code'])));
+    $expected = count(Db::all('SELECT code FROM qr WHERE LOWER(code) = LOWER(?)', [$row['code']])) > 1 ? 'ambiguous_code' : null;
+    check($r['status'] === 200 && ($expected === null ? ($r['body']['valid'] === true && $r['body']['code'] === $row['code']) : $r['body']['reason'] === $expected),
+        "certificate of {$row['code']} by its printed UPPER CASE code → " . ($expected ?? 'authentic'), $r);
+}
+if ($ours) {
+    $stored = json_decode((string) $ours[0]['signature'], true);
+    $r = call('POST', "$api/certificates/verify/", ['code' => $ours[0]['code'], 'signature' => $stored]);
+    check($r['status'] === 200 && $r['body']['valid'] === true && is_string($r['body']['certificate']['fingerprint'] ?? null), 'uploaded signature file = our record → authentic', $r);
+    check(!str_contains(json_encode($r['body']) ?: '', '@') && !array_key_exists('email', $r['body']), 'certificate answer has no owner data', $r['body']);
+    $tampered = $stored;
+    $tampered['signedData'] = (string) preg_replace('/"edition_number":(\d+)/', '"edition_number":9$1', $tampered['signedData'], 1, $count);
+    if ($count === 0) $tampered['signedData'] .= ' ';
+    $r = call('POST', "$api/certificates/verify/", ['signature' => $tampered]);
+    check($r['status'] === 200 && $r['body']['valid'] === false && $r['body']['reason'] === 'bad_signature', 'tampered signed data → bad_signature', $r);
+    $foreign = $stored;
+    $foreign['publicKey'] = str_repeat('ab', 1952);
+    $r = call('POST', "$api/certificates/verify/", ['signature' => $foreign]);
+    check($r['status'] === 200 && $r['body']['reason'] === 'key_mismatch', 'a file with another public key → key_mismatch', $r);
+}
+$r = call('GET', "$api/certificates/zzzzzzzz");
+check($r['status'] === 200 && $r['body']['valid'] === false && $r['body']['reason'] === 'unknown_code', 'unknown code → unknown_code', $r);
+$r = call('GET', "$api/certificates/$rv");
+check($r['status'] === 200 && $r['body']['revoked'] === false && $r['body']['registered'] === true && $r['body']['reason'] === 'no_signature',
+    'claimed, unrevoked, unsigned temp code: registered, not revoked, no_signature', $r);
 
 // ── Single sign-on: the session cookie (docs/API.md "Single sign-on") ────────────────────────────────────
 echo "\nSingle sign-on (session cookie)\n";

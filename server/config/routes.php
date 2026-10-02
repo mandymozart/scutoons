@@ -30,6 +30,7 @@ use Scutoons\Http\Controllers\Admin\VersionsController;
 use Scutoons\Http\Controllers\AuthController;
 use Scutoons\Http\Controllers\AvatarController;
 use Scutoons\Http\Controllers\CatalogController;
+use Scutoons\Http\Controllers\CertificatesController;
 use Scutoons\Http\Controllers\EmbassyController;
 use Scutoons\Http\Controllers\EntitiesController;
 use Scutoons\Http\Controllers\HealthController;
@@ -136,6 +137,10 @@ return static function (App $app): void {
     // PUBLIC URLS (printed): legacy validation for old viewer builds, public key of the certificate signatures
     $app->any('/api/validate[/index.php]', ValidateController::class);
     $app->any('/api/keys/keys.php', KeysController::class);
+    // Certificate verification (qr app /verify.html, third parties): checked server-side against the PUBLISHED key and
+    // the signature on record; public status only (registered / revoked), never the owner (agents/ITEMS.md "Certificates")
+    $app->post('/api/certificates/verify', [CertificatesController::class, 'byFile'])->add($lookupLimit);
+    $app->get('/api/certificates[/{code:[^/]{1,300}}]', [CertificatesController::class, 'byCode'])->add($lookupLimit); // or ?code=
 
     // Embassy (embassy.scutoons.com): partner network, roles liaison / ambassador (checked in Domain\Embassy\Embassy)
     $app->group('/api/embassy', function (RouteCollectorProxy $embassy): void {

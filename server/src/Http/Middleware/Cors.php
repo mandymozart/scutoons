@@ -18,7 +18,8 @@ use Scutoons\Infrastructure\Config\Settings;
  * A preflight (OPTIONS) ends here with 204. Error responses carry the headers too (this runs outside the ErrorHandler).
  *
  * Kept exactly as the plain-PHP server answered (contract): /api/toons/ and /api/keys/keys.php send no CORS headers;
- * /api/validate/ is open to every origin (`*`, legacy viewer builds); /api/items/ and /api/editions/ add `*` for
+ * /api/validate/ is open to every origin (`*`, legacy viewer builds), so is /api/certificates/* (anyone may verify a
+ * certificate); /api/items/ and /api/editions/ add `*` for
  * other origins in their controller. /api/admin/* and /api/embassy/* also allow DELETE.
  */
 final class Cors implements MiddlewareInterface
@@ -38,7 +39,7 @@ final class Cors implements MiddlewareInterface
 
         $response = $request->getMethod() === 'OPTIONS' ? $this->responses->createResponse(204) : $handler->handle($request);
 
-        if (self::isValidate($path)) {
+        if (self::isOpenToAll($path)) {
             $response = $response->withHeader('Access-Control-Allow-Origin', '*')
                 ->withHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
                 ->withHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -66,8 +67,8 @@ final class Cors implements MiddlewareInterface
         return !str_starts_with($path, '/api/toons') && !str_starts_with($path, '/api/keys/');
     }
 
-    private static function isValidate(string $path): bool
+    private static function isOpenToAll(string $path): bool
     {
-        return $path === '/api/validate' || str_starts_with($path, '/api/validate/');
+        return $path === '/api/validate' || str_starts_with($path, '/api/validate/') || str_starts_with($path, '/api/certificates/');
     }
 }

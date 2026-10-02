@@ -5,9 +5,10 @@
  * target:
  *
  *   /?c=<CODE> and ?c=<CODE> (with and without the leading slash), /?c=<CODE>&skip=1, /?login=<token>,
- *   /verify.html (+ what it loads: assets/js/noble-post-quantum.min.js, generate/get-signature.php?code=,
- *   generate/files/signatures/SIGNATURE-<code>.json), /api/validate/ (GET ?code= / ?c=, POST {code} / {c}) and its
- *   response shape, /api/keys/keys.php.
+ *   /verify.html (+ what it loads: /api/certificates/<CODE> and POST /api/certificates/verify – always proxied; the
+ *   old page's assets/js/noble-post-quantum.min.js, generate/get-signature.php?code=,
+ *   generate/files/signatures/SIGNATURE-<code>.json stay served), /api/validate/ (GET ?code= / ?c=, POST {code} / {c})
+ *   and its response shape, /api/keys/keys.php.
  *
  *   php tests/public-urls.php [qr base url] --api=<api base url> [--db=<sqlite file>] [--out=<file>]
  *       [--full-api=on|off] [--down=<qr base url>] [--limited=<qr base url>]
@@ -215,9 +216,21 @@ echo "\nVerify page\n";
 foreach (['/verify.html', '/verify.html?code=' . ($signed['code'] ?? 'x')] as $path) {
     $r = probe('GET', $path);
     $lines[count($lines) - 1] .= ' body sha1:' . sha1($r['body']);
-    check($r['status'] === 200 && $r['type'] === 'text/html' && str_contains($r['body'], 'generate/get-signature.php?code=')
-        && str_contains($r['body'], 'assets/js/noble-post-quantum.min.js'), "$path → 200, loads signature by code", $r['status']);
+    check($r['status'] === 200 && $r['type'] === 'text/html' && str_contains($r['body'], 'api/certificates/'),
+        "$path → 200, verifies through /api/certificates/", $r['status']);
 }
+if ($signed) {
+    // the printed form: UPPER CASE (codes are case-sensitive nanoids; the API matches case-insensitively when unique)
+    $upper = strtoupper($signed['code']);
+    $unique = (int) $pdo->query('SELECT COUNT(*) FROM qr WHERE LOWER(code) = ' . $pdo->quote(strtolower($signed['code'])))->fetchColumn() === 1;
+    $r = probe('GET', '/api/certificates/' . rawurlencode($upper));
+    $body = json_decode($r['body'], true);
+    check($r['status'] === 200 && ($unique ? ($body['valid'] ?? null) === true && ($body['code'] ?? null) === $signed['code']
+        : ($body['reason'] ?? null) === 'ambiguous_code') && is_bool($body['registered'] ?? null) && !str_contains($r['body'], '@'),
+        '/api/certificates/<UPPER CASE signed code> → ' . ($unique ? 'authentic' : 'ambiguous') . ', no owner data', [$r['status'], substr($r['body'], 0, 200)]);
+}
+$r = probe('GET', '/api/certificates/zzzzzzzz');
+check($r['status'] === 200 && (json_decode($r['body'], true)['reason'] ?? null) === 'unknown_code', '/api/certificates/<unknown> → unknown_code', [$r['status'], $r['body']]);
 $r = probe('GET', '/assets/js/noble-post-quantum.min.js');
 $lines[count($lines) - 1] .= ' body sha1:' . sha1($r['body']);
 check($r['status'] === 200 && str_contains($r['type'], 'javascript'), 'assets/js/noble-post-quantum.min.js (verify page library)', [$r['status'], $r['type']]);
@@ -317,6 +330,10 @@ $identical = [
     ['GET', '/api/keys/keys.php', null, []],
     ['GET', '/generate/get-signature.php?code=' . rawurlencode($signedCode), null, []],
     ['GET', '/generate/get-signature.php?code=zzzzzzzz', null, []],
+    ['GET', '/api/certificates/' . rawurlencode(strtoupper($signedCode)), null, ['Origin: https://example.org']],
+    ['GET', '/api/certificates/zzzzzzzz', null, []],
+    ['POST', '/api/certificates/verify', '{}', []],
+    ['OPTIONS', '/api/certificates/verify', null, ['Origin: https://example.org', 'Access-Control-Request-Method: POST']],
 ];
 if ($signatureFiles ?? []) $identical[] = ['GET', '/generate/files/signatures/' . basename($signatureFiles[0]), null, []];
 if ($fullApi) {

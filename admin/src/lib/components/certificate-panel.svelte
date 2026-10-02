@@ -54,7 +54,16 @@
 	const url = $derived(qrData?.url ?? qrUrl(code));
 	const svg = $derived(qrSvg(url));
 	const certType = $derived(qrData?.type ?? type);
-	const verified = $derived(result ? verifySignature(result.signature) : false);
+	// against the server's key (not the one embedded in the signature) and for this very code
+	let verified = $state(false);
+	$effect(() => {
+		const current = result;
+		verified = false;
+		if (!current) return;
+		verifySignature(current.signature, code).then((ok) => {
+			if (result === current) verified = ok;
+		});
+	});
 
 	function downloadSvg() {
 		saveText(svg, `qr-${code}.svg`, 'image/svg+xml');
