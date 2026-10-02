@@ -54,6 +54,7 @@ final class LoginServiceTest extends TestCase
         // without dispute: refused as before (no one-time code mailed)
         $this->login->request(['email' => 'buyer@example.com', 'code' => $code]);
         self::assertStringContainsString('There is no account for it yet', $this->lastMail());
+        $this->clock->advance(1); // verify takes the newest request (same frozen millisecond = random order)
         $this->login->request(['email' => 'buyer@example.com', 'code' => $code, 'dispute' => true]);
         $mail = $this->lastMail();
         self::assertStringContainsString('This creates your SCUTOONS account.', $mail);
