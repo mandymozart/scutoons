@@ -440,6 +440,12 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   status the public sees. Production's public API follows it (season 1 lists chapters 0, 1, 2 = coming soon). Check
   the signed-in creator's viewer list: it showed chapters 4 and 5 as "coming soon" while the creator marks them draft.
   Later: drafts only for creators who are authors of that toon.
+- [ ] 10.14 Admin claim page rework (owner 2026-10-02, during 6.8: "the ui in admin for claim needs rework") – details
+  from the owner; first guess: the two side-by-side note fields + the decision buttons hidden in the bottom bar.
+  Also: the viewer's claim form promises the current owner never reads the statement – true for owners, but an owner who
+  is also an admin recipient gets it in `ownership_claim_admin`; reword if the owner wants.
+- [ ] 10.15 Content source of truth is the DB now (owner 2026-10-02): local dev from `export-content` of production
+  instead of the stale `shared/content/seed`; the seed becomes a starter set for empty databases (or goes).
 - [ ] 10.8 Public release.
 
 ---
