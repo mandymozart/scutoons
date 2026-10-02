@@ -43,6 +43,13 @@ const HOST = 'catpope';
 const LOCALES = ['de', 'en'] as const;
 type Locale = (typeof LOCALES)[number];
 type Text = Record<Locale, string>;
+/**
+ * A partial translation (owner 2026-10-02, a third language to test the creator's text switch with): the source (`de`)
+ * files copied – like a fresh "create from the source" in the creator – with the toon, season and chapter titles and
+ * descriptions translated; the dialogue is still German (a translation in progress).
+ */
+const PARTIAL = 'ko' as const;
+type Partial = { title: string; description: string };
 const RELEASE = '2026-09-30';
 /** preferred encounter order (owner); characters not listed follow in registry order, then the host's own personas */
 const ORDER = ['yellowmouse', 'toptoy', 'boy', 'crows'];
@@ -372,6 +379,11 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 			scene(number, 'goodbye', SCENES[SCENES.length - 1], events);
 		}
 
+		const who = name(enc.character, REGULAR_PERSONA).en;
+		const ko: Partial = {
+			title: isHostChapter ? '고양이 교황, 자기 자신을 만나다' : `만남: ${who}`,
+			description: `샌드박스(VN 테스트): 룩 ${plans.length}개에서 기분 ${stats.moods}가지, 고양이 교황이 따라 합니다.`
+		};
 		const title: Text = isHostChapter
 			? { de: 'Katzenpapst trifft sich selbst', en: 'Cat Pope meets himself' }
 			: text((l) => (l === 'de' ? `Begegnung: ${name(enc.character, REGULAR_PERSONA)[l]}` : `Meeting ${name(enc.character, REGULAR_PERSONA)[l]}`));
@@ -380,7 +392,7 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 				? `Sandkasten (VN-Testfeld): ${stats.moods} Stimmungen in ${plans.length} ${plans.length === 1 ? 'Look' : 'Looks'}, Katzenpapst macht nach.`
 				: `Sandbox (VN test bed): ${stats.moods} moods in ${plans.length} ${plans.length === 1 ? 'look' : 'looks'}, Cat Pope mimics.`
 		);
-		chapter(number, title, description, labels);
+		chapter(number, title, description, labels, ko);
 		sequence.push({ type: 'chapter', number, status: 'draft' });
 		report.encounters++;
 		report.perEncounter.push(stats);
@@ -493,7 +505,10 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		report.sundayStage = stage.length;
 
 		scene(number, 'sunday', STREET, events);
-		chapter(number, L('Sonntagnachmittag', 'Sunday afternoon'), L('Sandkasten (Layout-Test): alle Figuren auf einer Straße – Plätze, Reihenfolge, Stimmungen, Looks.', 'Sandbox (layout test): every character on one street – slots, order, moods, looks.'), ['sunday']);
+		chapter(number, L('Sonntagnachmittag', 'Sunday afternoon'), L('Sandkasten (Layout-Test): alle Figuren auf einer Straße – Plätze, Reihenfolge, Stimmungen, Looks.', 'Sandbox (layout test): every character on one street – slots, order, moods, looks.'), ['sunday'], {
+			title: '일요일 오후',
+			description: '샌드박스(레이아웃 테스트): 모든 캐릭터가 한 거리에 – 자리, 순서, 기분, 룩.'
+		});
 		sequence.push({ type: 'chapter', number, status: 'draft' });
 	}
 
@@ -515,19 +530,20 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 		}
 		const group = { label, renderer: { type: 'vertical' }, slices, events };
 		for (const l of LOCALES) files[`${l}/chapter${number}/${label}.json`] = localize(group, l);
+		files[`${PARTIAL}/chapter${number}/${label}.json`] = localize(group, 'de');
 		report.groups++;
 	}
 
-	function chapter(number: number, title: Text, description: Text, labels: string[]) {
-		for (const l of LOCALES) {
+	function chapter(number: number, title: Text, description: Text, labels: string[], partial: Partial) {
+		for (const l of [...LOCALES, PARTIAL]) {
 			files[`${l}/chapter${number}.json`] = {
-				title: title[l],
+				title: l === PARTIAL ? partial.title : title[l],
 				author: 'SCUTOONS',
 				number,
 				language: l,
 				release: RELEASE,
 				status: 'draft',
-				description: description[l],
+				description: l === PARTIAL ? partial.description : description[l],
 				thumbnail: `${CATPOPE}images/s1c1-thumbnail.jpg`,
 				isPreview: true,
 				groups: labels.map((label) => ({ ref: { src: `chapter${number}/${label}.json` } }))
@@ -538,9 +554,10 @@ export function buildSandbox(registry: CharacterRegistry, vocabulary: MoodVocabu
 
 	const meta = {
 		de: { toon: 'Sandkasten', season: 'Katzenpapsts Spaziergang', description: 'Testfeld: alle Figuren, Personas, Looks und Stimmungen als Visual Novel. Nur in der Entwicklung und im Creator sichtbar (Entwurf).' },
-		en: { toon: 'Sandbox', season: "Cat Pope's walk", description: 'Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft).' }
+		en: { toon: 'Sandbox', season: "Cat Pope's walk", description: 'Test bed: every character, persona, look and mood as a visual novel. Visible in development and in the creator only (draft).' },
+		[PARTIAL]: { toon: '샌드박스', season: '고양이 교황의 산책', description: '테스트용: 모든 캐릭터, 페르소나, 룩, 기분을 비주얼 노벨로. 개발 환경과 크리에이터에서만 보입니다(초안).' }
 	};
-	for (const l of LOCALES) {
+	for (const l of [...LOCALES, PARTIAL]) {
 		// the language-neutral settings (authors, chapters, thumbnail, map, cover) live in the toons.json entry (`neutralSettings`)
 		files[`${l}/toon.json`] = {
 			id: SANDBOX_TOON,

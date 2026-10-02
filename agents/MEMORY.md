@@ -1626,3 +1626,29 @@ character, persona, look and mood and doubles as the VN test bed.
   writes CRLF unless `newline=''` – git normalizes, but use `newline` to avoid noise. The shared Browser pane is used by
   other agents too: open your own tab (`tabs_create`). `/auth/logout/` from a test tab ends the shared test-user cookie
   session.
+
+## Creator content language "i18n" + translate mode, Korean (2026-10-02, branch `platform`)
+
+- Owner: an easier way than every language side by side; translators switch back and forth; more languages coming.
+  Top-bar control (globe + "ALL"/"KO", native select invisibly over a compact frame) → `textLanguage` in
+  `creator/src/lib/editor/text-language.svelte.ts` (localStorage `scutoons_creator_text_language`, default all). The two
+  shared field components follow it: `locale-text.svelte` (per-locale files) and `credits/locale-map-field.svelte`
+  (`{ <locale>: text }` values); translate mode = `text-original.svelte` under the field. Rules: DESIGN.md "Creator:
+  content language (i18n) + translate mode". Owner rounds the same day: label "i18n" (not "Texts"), the original as a
+  muted caption line (no boxed panel), the control as compact as the palette trigger, no account / UI-language cluster in
+  the header (sign out + UI language stay in Ctrl K), chapter lists = a plain list (no table header, one title in the
+  chosen language, other languages in the tooltip) with word badges only when something is up (`chapter-badges.svelte`).
+- N languages: the editors already took their locales from the toon (`toonLanguages`); what assumed two: the toon
+  page's season subtitle (languages ran together without a separator), the chapter tables (one column per language),
+  the cover preview, the "language:" hint lines. `Language.KR = "kr"` (unused) → `KO = "ko"` (schemas regenerated);
+  the server and the library fallbacks were already generic. Paraglide UI languages unchanged (de/en).
+- Sandbox `ko`: `make-sandbox.ts` writes `ko/` = the `de` files + Korean toon / season / chapter titles and descriptions
+  (`PARTIAL`); `toons.json` sandbox `languages: ["de","en","ko"]` + `i18n.ko`; imported with `import-content … --toon=sandbox
+  --update` (DB backup `server/db/local.sqlite.bak-2026-10-02-textlang`). The sandbox isn't in content-seed.mysql.sql.
+  The viewer asks the API in de/en only, so `ko` is creator-only; a de/en toon asked in `ko` falls back (`X-Content-Fallback`).
+- Gotchas: a Svelte 5 `<select value={x}>` with `{#each}` options rendered "KO" (the last option) before the value
+  applied → `selected={…}` on the options. Python on Windows writes CRLF in text mode → `newline='\n'`. The Browser pane
+  was shared with the owner / other agents (the stored choice and the tab changed under me) – check state before
+  asserting. `check:creator-cast` fails 4 chip-word assertions since the status chips show only the language (commit
+  9847809, words in the tooltip) – the check needs updating, not the chips. Chapter-editor undo on the Meta section works
+  on the active group's doc, not the chapter (pre-existing): "Copy original" on a chapter title can't be undone there.

@@ -1,0 +1,44 @@
+{
+	"title": "고양이 교황의 산책",
+	"language": "ko",
+	"number": 1,
+	"release": "2026-09-30",
+	"description": "테스트용: 모든 캐릭터, 페르소나, 룩, 기분을 비주얼 노벨로. 개발 환경과 크리에이터에서만 보입니다(초안).",
+	"sequence": [
+		{
+			"type": "chapter",
+			"number": 1,
+			"status": "draft"
+		},
+		{
+			"type": "chapter",
+			"number": 2,
+			"status": "draft"
+		},
+		{
+			"type": "chapter",
+			"number": 3,
+			"status": "draft"
+		},
+		{
+			"type": "chapter",
+			"number": 4,
+			"status": "draft"
+		},
+		{
+			"type": "chapter",
+			"number": 5,
+			"status": "draft"
+		},
+		{
+			"type": "chapter",
+			"number": 6,
+			"status": "draft"
+		},
+		{
+			"type": "chapter",
+			"number": 7,
+			"status": "draft"
+		}
+	]
+}

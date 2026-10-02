@@ -45,6 +45,7 @@
 	import ProblemsPanel from './problems-panel.svelte';
 	import HistoryPanel from './history-panel.svelte';
 	import FileStatus from './file-status.svelte';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
@@ -146,7 +147,12 @@
 	let selection = $state<CanvasSelection | null>(null);
 	let inspectorTab = $state<'text' | 'slice' | 'audio' | 'events' | 'map'>('text');
 	// svelte-ignore state_referenced_locally
-	let displayLocale = $state<string>(languages.source);
+	let displayLocale = $state<string>(textLanguage.chosen(languages.languages) ?? languages.source);
+	// the canvas shows the top bar's TEXT language when one is chosen (the buttons above the canvas still switch it)
+	$effect(() => {
+		const chosen = textLanguage.chosen(languages.languages);
+		if (chosen) displayLocale = chosen;
+	});
 	let grid = $state(0.5);
 	let tool = $state<Tool>('text');
 	let scope = $state<Scope>('all');

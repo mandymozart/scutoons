@@ -9,11 +9,12 @@ export enum EventCategory {
 	HYBRID = "hybrid",
 }
 
+/** Content languages (a toon's `languages`); ISO 639-1. Korean is `ko` (2026-10-02, was the unused country code `kr`). */
 export enum Language {
   DE = "de",
   EN = "en",
   JP = "jp",
-  KR = "kr",
+  KO = "ko",
   ES = "es",
 }
 

@@ -1,0 +1,183 @@
+{
+	"label": "cat-default",
+	"renderer": {
+		"type": "vertical"
+	},
+	"slices": [
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-1.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-2.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-3.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-4.webp",
+			"width": 390,
+			"height": 625
+		}
+	],
+	"events": [
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Plötzlich steht da … Katzenpapst · Katze!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "cat",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "cat",
+				"text": "Miau. Ich bin du, nur ehrlicher.",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Freut mich! Zeig mal, was du draufhast.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "cat",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "cat",
+				"text": "Pass auf – neutral!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Neutral? Kann ich auch!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "happy",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "cat",
+				"text": "Tschüss, Katzenpapst!",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "cat"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Schöne Begegnung. Weiter!",
+				"wait": true
+			}
+		},
+		{
+			"type": "jumpTo",
+			"params": {
+				"target": {
+					"type": "chapter",
+					"value": "6",
+					"label": "mountaintiger-default"
+				},
+				"wait": true
+			}
+		}
+	]
+}

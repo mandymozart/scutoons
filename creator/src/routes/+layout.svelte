@@ -17,7 +17,7 @@
 		installTooltips,
 	} from '@scutoons/ui';
 	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
-	import { entities, parseEntityKey } from '@scutoons/content';
+	import { entities, parseEntityKey, toonLanguages } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { contentIndex, library } from '$lib/api.ts';
@@ -26,6 +26,7 @@
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import NavSidebar from '$lib/components/nav-sidebar.svelte';
+	import TextLanguageSwitch from '$lib/components/text-language-switch.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -58,6 +59,19 @@
 
 	const toonId = $derived((page.params.toonId as string | undefined) ?? null);
 	const toonName = (id: string) => nav.toonName(id);
+	/**
+	 * the TEXT language switch (content, not the UI language): a toon page offers the toon's languages (source first);
+	 * the universe pages every language of every toon; hidden while there is only one
+	 */
+	const textLanguages = $derived.by<{ languages: string[]; source: string | null }>(() => {
+		const toon = toonId ? nav.toons.find((t) => t.id === toonId || t.uri === toonId) : null;
+		if (toon) {
+			const l = toonLanguages(toon);
+			return { languages: l.languages as string[], source: l.source };
+		}
+		if (toonId) return { languages: [], source: null };
+		return { languages: [...new Set(nav.toons.flatMap((t) => toonLanguages(t).languages as string[]))], source: null };
+	});
 	/** the crumbs of the route: Creator / toon / season / chapter (the chapter editor adds group and slice) */
 	const base = $derived.by<Crumb[]>(() => {
 		const out: Crumb[] = [{ href: '/', label: 'Creator' }];
@@ -233,6 +247,9 @@
 							{/each}
 						</ol>
 					</nav>
+					{#if textLanguages.languages.length > 1}
+						<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
+					{/if}
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 					<span class="who">{session.user?.email ?? ''}</span>
 				</header>
@@ -351,6 +368,19 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		color: var(--ink);
+	}
+	/* phones: only the current page, truncated (the burger + the sidebar give the way up) */
+	@media (max-width: 479px) {
+		.crumbs li:not(:last-child) {
+			display: none;
+		}
+		.crumbs li:last-child {
+			flex: 0 1 auto;
+			min-width: 0;
+		}
+		.crumbs li:last-child::before {
+			content: none;
+		}
 	}
 	.crumbs a[aria-current='page'] {
 		font-weight: var(--font-weight-bold);

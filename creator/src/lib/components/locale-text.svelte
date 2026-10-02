@@ -3,10 +3,13 @@
 	import type { Path } from '@scutoons/content';
 	import { LENGTH_WARNING_RATIO, textOf } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import TextOriginal from './text-original.svelte';
 
 	/**
-	 * One text field in every locale, side by side (text is per locale, inline in each chapter file).
-	 * `string[]` values (paragraphs) are edited with a blank line between entries and stay arrays.
+	 * One text field in every locale, side by side (text is per locale, inline in each chapter file) – or only the
+	 * creator's chosen TEXT language (text-language.svelte.ts); a translation then shows the source above it
+	 * (translate mode: the source as a muted line under it). `string[]` values (paragraphs) are edited with a blank line between entries and stay arrays.
 	 */
 	let {
 		doc,
@@ -17,6 +20,16 @@
 	}: { doc: ContentDoc; path: Path; label?: string; rows?: number; multiline?: boolean } = $props();
 
 	const sourceText = $derived(textOf(doc.get(doc.primary, path)).trim());
+	/** the locales shown: all present ones, or the chosen text language */
+	const shown = $derived(textLanguage.visible(doc.present));
+	/** translate mode: the source shown read-only above the field */
+	const original = $derived(textLanguage.original(doc.present, doc.primary));
+
+	/** "Copy original": the source value into the translation (arrays stay arrays) */
+	function copyOriginal(locale: string) {
+		const value = doc.get(doc.primary, path);
+		doc.setLocal(locale, path, Array.isArray(value) ? [...value] : value, `text:${locale}:${path.join('.')}`);
+	}
 
 	function display(value: unknown) {
 		return Array.isArray(value) ? value.join('\n\n') : typeof value === 'string' ? value : '';
@@ -43,36 +56,41 @@
 	}
 </script>
 
-<div class="locale-text" style:--cols={doc.present.length}>
-	{#each doc.present as locale (locale)}
+<div class="locale-text" style:--cols={shown.length}>
+	{#each shown as locale (locale)}
 		{@const s = state(locale)}
 		{@const value = doc.get(locale, path)}
-		<label class:missing={s.missing} class:long={s.long}>
-			<span class="head">
-				<b>{label} · {locale}</b>
-				{#if locale === doc.primary}<span class="pill source">{m['creator.source']()}</span>{/if}
-				{#if s.missing}<span class="pill miss">{m['creator.missing']()}</span>{/if}
-				{#if s.long}<span class="pill warn">{Math.round(s.ratio * 100)}%</span>{/if}
-				{#if Array.isArray(value)}<button type="button" class="ghost mini" title="paragraphs (string[]) – click for one string" onclick={() => toggleArray(locale)}>[ ]</button>{/if}
-			</span>
-			{#if multiline}
-				<textarea
-					{rows}
-					lang={locale}
-					value={display(value)}
-					oninput={(e) => update(locale, e.currentTarget.value)}
-					data-testid="text-{locale}"
-				></textarea>
-			{:else}
-				<input
-					type="text"
-					lang={locale}
-					value={display(value)}
-					oninput={(e) => update(locale, e.currentTarget.value)}
-					data-testid="text-{locale}"
-				/>
+		<div class="field">
+			<label class:missing={s.missing} class:long={s.long}>
+				<span class="head">
+					<b>{label} · {locale}</b>
+					{#if locale === doc.primary}<span class="pill source">{m['creator.source']()}</span>{/if}
+					{#if s.missing}<span class="pill miss">{m['creator.missing']()}</span>{/if}
+					{#if s.long}<span class="pill warn">{Math.round(s.ratio * 100)}%</span>{/if}
+					{#if Array.isArray(value)}<button type="button" class="ghost mini" title="paragraphs (string[]) – click for one string" onclick={() => toggleArray(locale)}>[ ]</button>{/if}
+				</span>
+				{#if multiline}
+					<textarea
+						{rows}
+						lang={locale}
+						value={display(value)}
+						oninput={(e) => update(locale, e.currentTarget.value)}
+						data-testid="text-{locale}"
+					></textarea>
+				{:else}
+					<input
+						type="text"
+						lang={locale}
+						value={display(value)}
+						oninput={(e) => update(locale, e.currentTarget.value)}
+						data-testid="text-{locale}"
+					/>
+				{/if}
+			</label>
+			{#if original}
+				<TextOriginal locale={original} text={display(doc.get(original, path))} oncopy={() => copyOriginal(locale)} testid="original-{path.join('-')}" />
 			{/if}
-		</label>
+		</div>
 	{/each}
 </div>
 
@@ -81,6 +99,9 @@
 		display: grid;
 		grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
 		gap: var(--space-1);
+	}
+	.field {
+		min-width: 0;
 	}
 	.head b {
 		font-weight: inherit;

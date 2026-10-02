@@ -562,6 +562,12 @@ DB. Rules:
   (source first; optional, defaults via `toonLanguages()`: `languages` → `i18n` keys → `de`). The creator edits it as
   the language-neutral content store file `<toon>/_/index.json` (locale `_`), falling back to the static `toons.json`;
   when `toons.json` moves to the API, that store file is its per-toon source.
+- Content languages (2026-10-02): `Language` (ISO 639-1) = de, en, jp, **ko** (was the unused country code `kr`), es –
+  the enum is the list (schemas, `isLanguage`, the toon page's "Add a translation"); the server takes any 2-letter locale
+  and falls back source → other languages (`Context::pick`). The viewer's UI languages stay de/en (paraglide): it asks the
+  API in de/en, so a `ko` translation exists for the creator only until the viewer gets a content-language picker. The
+  creator works for N languages (DESIGN.md "Creator: content language (i18n) + translate mode"); the sandbox toon has a
+  partial `ko` translation (toon / season / chapter titles + descriptions, the dialogue still the German copy) to test it.
 
 ### Credits (2026-09-29)
 

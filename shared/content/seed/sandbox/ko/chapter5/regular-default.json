@@ -1,0 +1,256 @@
+{
+	"label": "regular-default",
+	"renderer": {
+		"type": "vertical"
+	},
+	"slices": [
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-15.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-16.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-17.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-18.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-19.webp",
+			"width": 390,
+			"height": 625,
+			"events": [
+				{
+					"type": "showMessage",
+					"params": {
+						"text": "Eine Gurke!"
+					},
+					"trigger": {
+						"type": "click",
+						"rect": {
+							"x": 52.05,
+							"y": 15.68,
+							"width": 45.38,
+							"height": 16
+						},
+						"once": true
+					}
+				},
+				{
+					"type": "addChoice",
+					"params": {
+						"label": "Einsammeln",
+						"onSelect": {
+							"add": {
+								"variable": "cucumber",
+								"value": 1
+							}
+						}
+					},
+					"trigger": {
+						"type": "click",
+						"rect": {
+							"x": 52.05,
+							"y": 15.68,
+							"width": 45.38,
+							"height": 16
+						},
+						"once": true
+					}
+				},
+				{
+					"type": "addChoice",
+					"params": {
+						"label": "Liegen lassen"
+					},
+					"trigger": {
+						"type": "click",
+						"rect": {
+							"x": 52.05,
+							"y": 15.68,
+							"width": 45.38,
+							"height": 16
+						},
+						"once": true
+					}
+				},
+				{
+					"type": "showChoices",
+					"trigger": {
+						"type": "click",
+						"rect": {
+							"x": 52.05,
+							"y": 15.68,
+							"width": 45.38,
+							"height": 16
+						},
+						"once": true
+					}
+				}
+			]
+		}
+	],
+	"events": [
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Unterwegs trifft Katzenpapst: Bill der Frosch.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Hallo! Ich bin Bill der Frosch.",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Na sieh mal einer an. Zeig her!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Pass auf – neutral!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Neutral? Kann ich auch!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "happy",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "billthefrog",
+				"persona": "regular",
+				"text": "Tschüss, Katzenpapst!",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "billthefrog",
+						"persona": "regular"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Schöne Begegnung. Weiter!",
+				"wait": true
+			}
+		},
+		{
+			"type": "jumpTo",
+			"params": {
+				"target": {
+					"type": "chapter",
+					"value": "6"
+				},
+				"wait": true
+			}
+		}
+	]
+}

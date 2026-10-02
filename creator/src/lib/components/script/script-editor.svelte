@@ -14,6 +14,7 @@
 		type ToonScript
 	} from '@scutoons/content';
 	import { toonDoc } from '$lib/editor/languages.ts';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import MetaPage from '../meta-page.svelte';
 	import ScriptRules from './script-rules.svelte';
@@ -33,7 +34,16 @@
 	const INDENT = '    ';
 
 	const requested = page.url.searchParams.get('lang');
-	let locale = $state<string>(requested && doc.locales.includes(requested) ? requested : doc.primary);
+	// svelte-ignore state_referenced_locally
+	let locale = $state<string>(requested && doc.locales.includes(requested) ? requested : (textLanguage.chosen(doc.locales) ?? doc.primary));
+	// the top bar's TEXT language (one script at a time: "all" leaves the choice to the buttons below)
+	let followed = textLanguage.value;
+	$effect(() => {
+		if (textLanguage.value === followed) return;
+		followed = textLanguage.value;
+		const chosen = textLanguage.chosen(doc.locales);
+		if (chosen) untrack(() => switchLocale(chosen));
+	});
 	let area = $state<HTMLTextAreaElement | undefined>();
 	/** the locale the textarea currently shows (the one a pending edit belongs to) */
 	let shown: string | null = null;

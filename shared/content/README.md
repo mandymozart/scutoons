@@ -129,7 +129,9 @@ $schema = json_decode(file_get_contents('…/shared/content/schema/chapter.schem
   (or is `sad` when his regular look lacks it), look changes use the registry transitions, Cat Pope tries each look.
   Then it imports it (`php server/bin/console import-content shared/content/seed --toon=sandbox --update`; `--no-import`
   skips that; the production seed `--sql` leaves the sandbox out). Re-run after adding characters, personas, looks,
-  moods or transitions. It is also the VN test bed.
+  moods or transitions. It is also the VN test bed. A third language `ko` (2026-10-02, for the creator's i18n switch):
+  the `de` files copied with Korean toon / season / chapter titles and descriptions (`PARTIAL` in the script; the
+  dialogue is still German, like a translation in progress); `toons.json` lists `ko` for the sandbox.
 - `npm run schema -w @scutoons/content` regenerates `schema/*.schema.json` (commit the result).
 - `npm run check -w @scutoons/content` = `tsc --noEmit` + fails when a committed schema is out of date + the unit tests (`npm test`).
 

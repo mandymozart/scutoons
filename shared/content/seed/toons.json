@@ -89,7 +89,7 @@
     "status": "draft",
     "avatar": "../catpope/avatar.webp",
     "sourceLanguage": "de",
-    "languages": ["de", "en"],
+    "languages": ["de", "en", "ko"],
     "i18n": {
       "de": {
         "name": "Sandkasten",
@@ -98,6 +98,10 @@
       "en": {
         "name": "Sandbox",
         "description": "Test bed: every character, persona, look and mood (development and creator only)"
+      },
+      "ko": {
+        "name": "샌드박스",
+        "description": "테스트용: 모든 캐릭터, 페르소나, 룩, 기분 (개발 환경과 크리에이터 전용)"
       }
     },
     "authors": [],

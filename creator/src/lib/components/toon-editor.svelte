@@ -15,6 +15,7 @@
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/**
 	 * The toon's settings. Per language (entity toon-settings:<toon>, `ToonSettings`): title / description, plus release
@@ -56,8 +57,9 @@
 			<LocaleText doc={file} path={['description']} label="description" rows={3} />
 			<p class="hint">
 				language:
-				{#each file.present as l}
+				{#each file.present as l, i}
 					{@const value = file.get(l, ['language'])}
+					{#if i > 0}·{/if}
 					<span class:warn={value !== l}>{l}: {value ?? '–'}</span>
 					{#if value !== l}<button type="button" class="ghost mini" onclick={() => file.setLocal(l, ['language'], l)}>= {l}</button>{/if}
 				{/each}
@@ -102,7 +104,7 @@
 						<!-- per language: what readers see, and the rendered title (the lettering model) to judge it -->
 						<div class="cover-preview" data-testid="cover-preview">
 							<h4>{m['creator.cover_preview']()}</h4>
-							{#each file.present as l (l)}
+							{#each textLanguage.visible(file.present) as l (l)}
 								{@const title = String(file.get(l, ['title']) ?? '')}
 								{@const subtitle = String(season.get(l, ['title']) ?? '')}
 								<div class="cover-grid" data-testid="cover-preview-{l}">

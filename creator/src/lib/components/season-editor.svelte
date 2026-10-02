@@ -6,14 +6,15 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { knownImages } from '$lib/editor/images.ts';
-	import { seasonChapterNumbers, seasonStatusOf, syncChapters } from '$lib/editor/visibility.ts';
+	import { seasonChapterNumbers, syncChapters } from '$lib/editor/visibility.ts';
 	import MetaPage from './meta-page.svelte';
 	import LocaleText from './locale-text.svelte';
 	import SharedField from './shared-field.svelte';
 	import SupportersField from './supporters-field.svelte';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
-	import StatusBadges, { statusWord } from './status-badges.svelte';
+	import ChapterBadges from './chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
+	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	/**
 	 * Season meta (the entity season:<toon>:<N>): title / plot per locale, language-neutral fields once (overrides per locale shown),
@@ -28,6 +29,8 @@
 	let images = $state<string[]>([]);
 
 	const numbers = $derived(seasonChapterNumbers(season));
+	/** titles in lists: one language – the i18n switch's, else the source; the others in the tooltip (owner 2026-10-02) */
+	const titleLocale = $derived(listLanguage(season.locales, season.primary));
 
 	onMount(async () => {
 		await season.load();
@@ -54,13 +57,8 @@
 		{#each numbers as n (n)}
 			<li>
 				<a href="/{toon}/chapter/{n}" data-nav-child data-testid="nav-chapter-{n}">
-					<span class="nav-title">{chapters[n]?.data?.[chapters[n].primary]?.title ?? fileLabel(entities.chapter(toon, n))}</span>
-					<span class="nav-status">
-						{#each season.locales as l (l)}
-							{@const status = seasonStatusOf(season, l, n)}
-							{#if status}<span class="st st-{status}" title="{l}: {statusWord(status)}">{l}</span>{/if}
-						{/each}
-					</span>
+					<span class="nav-title">{chapters[n]?.data?.[titleLocale]?.title || chapters[n]?.data?.[chapters[n].primary]?.title || fileLabel(entities.chapter(toon, n))}</span>
+					<span class="nav-status"><ChapterBadges {season} number={n} doc={chapters[n]} /></span>
 				</a>
 			</li>
 		{/each}
@@ -84,8 +82,9 @@
 			<LocaleText doc={season} path={['description']} label="description (plot)" rows={6} />
 			<p class="hint">
 				language:
-				{#each season.present as l}
+				{#each season.present as l, i}
 					{@const value = season.get(l, ['language'])}
+					{#if i > 0}·{/if}
 					<span class:warn={value !== undefined && value !== l}>{l}: {value ?? '–'}</span>
 					{#if value !== l}<button type="button" class="ghost mini" onclick={() => season.setLocal(l, ['language'], l)}>= {l}</button>{/if}
 				{/each}
@@ -132,34 +131,24 @@
 
 		<section class="block" data-testid="season-sequence">
 			<h2>{m['creator.chapters']()}</h2>
-			<table class="chapters">
-				<thead>
-					<tr>
-						<th>#</th>
-						{#each season.locales as l}<th>{l}{l === season.primary ? ` (${m['creator.source']()})` : ''}</th>{/each}
-						<th>{m['creator.status']()}</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each numbers as n (n)}
-						{@const doc = chapters[n]}
-						<!-- the whole row opens the chapter; the status is changed on the chapter page (meta) -->
-						<tr class="chapter-row">
-							<td>{n}</td>
-							{#each season.locales as l}
-								<td>
-									{#if l === season.primary}
-										<a class="row-link" href="/{toon}/chapter/{n}" title={m['creator.open_chapter_n']({ number: n })} data-testid="open-chapter-{n}"
-											>{doc?.data?.[l]?.title || fileLabel(entities.chapter(toon, n))}</a
-										>
-									{:else}{doc?.data?.[l]?.title ?? '–'}{/if}
-								</td>
-							{/each}
-							<td><StatusBadges {season} number={n} /></td>
-						</tr>
-					{/each}
-				</tbody>
-			</table>
+			<ol class="chapter-list" data-testid="chapter-list">
+				{#each numbers as n (n)}
+					{@const doc = chapters[n]}
+					{@const own = doc?.data?.[titleLocale]?.title}
+					<li class="chapter-row" data-testid="chapter-row-{n}">
+						<span class="num">{n}</span>
+						<a
+							class="row-link"
+							class:fallback={!own}
+							href="/{toon}/chapter/{n}"
+							title="{m['creator.open_chapter_n']({ number: n })}{season.locales.length > 1 ? `\n${otherTexts(season.locales, titleLocale, (l) => doc?.data?.[l]?.title)}` : ''}"
+							data-testid="open-chapter-{n}"
+							>{own || doc?.data?.[season.primary]?.title || fileLabel(entities.chapter(toon, n))}</a
+						>
+						<ChapterBadges {season} number={n} {doc} />
+					</li>
+				{/each}
+			</ol>
 		</section>
 	{/if}
 </MetaPage>
@@ -200,39 +189,44 @@
 		font-size: var(--type-caption-size);
 		padding: 0 0.3em;
 	}
-	.chapters {
-		width: 100%;
-		border-collapse: collapse;
-	}
-	.chapters th,
-	.chapters td {
-		text-align: left;
-		padding: 0.35rem 0.5rem;
-		border-bottom: 1px solid var(--border-subtle);
-	}
-	.chapters th {
-		border-bottom: 2px solid var(--ink);
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+	/* the chapters: a plain list (owner 2026-10-02: no spreadsheet) – number, title (the whole row is the link),
+	   badges only when something is up; rows split by 1px ink */
+	.chapter-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border-top: var(--border-width-regular) solid var(--ink);
 	}
 	.chapter-row {
 		position: relative;
-		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: var(--control-height);
+		padding: var(--space-05) 0;
+		border-bottom: var(--border-width-hairline) solid var(--ink);
 	}
-	.chapter-row:hover td {
-		text-decoration: underline;
+	.chapter-row .num {
+		flex: none;
+		min-width: 2em;
+		color: var(--text-muted);
 	}
 	.row-link {
+		flex: 1;
+		min-width: 0;
 		color: var(--ink);
-		font-weight: 700;
 		text-decoration: none;
+		overflow-wrap: anywhere;
 	}
+	/* the title link covers the row: a click anywhere in it opens the chapter */
 	.row-link::after {
 		content: '';
 		position: absolute;
 		inset: 0;
+	}
+	/* no title in the chosen language: the source's, muted */
+	.row-link.fallback {
+		color: var(--text-muted);
 	}
 	.chapter-row:hover .row-link {
 		text-decoration: underline;
@@ -273,19 +267,5 @@
 		display: inline-flex;
 		gap: 0.2rem;
 		flex: none;
-	}
-	.st {
-		font-size: var(--type-caption-size);
-		padding: 0 0.3em;
-		border: 1px solid var(--border-muted);
-	}
-	.st-published {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
-	}
-	.st-coming-soon {
-		border-style: dashed;
-		border-color: var(--ink);
 	}
 </style>

@@ -14,8 +14,9 @@
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import FileStatus from '$lib/components/file-status.svelte';
-	import StatusBadges from '$lib/components/status-badges.svelte';
+	import ChapterBadges from '$lib/components/chapter-badges.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
 	const nav = getCreatorNav();
@@ -23,7 +24,7 @@
 	const toonName = $derived(nav.toonName(toonId));
 
 	/** Native names for the language picker (codes = the `Language` enum). */
-	const LANGUAGE_NAMES: Record<string, string> = { de: 'Deutsch', en: 'English', es: 'Español', jp: '日本語', kr: '한국어' };
+	const LANGUAGE_NAMES: Record<string, string> = { de: 'Deutsch', en: 'English', es: 'Español', jp: '日本語', ko: '한국어' };
 	const ALL_LANGUAGES = Object.values(Language) as Language[];
 	const languageLabel = (l: string) => `${l} · ${LANGUAGE_NAMES[l] ?? l}`;
 
@@ -51,6 +52,9 @@
 
 	/** navigation avatar: the index entry's `avatar`, else the convention `<toon>/avatar.webp` */
 	const avatarSrc = $derived(asset(`${toonId}/${index?.data?.[NEUTRAL_LOCALE]?.avatar || 'avatar.webp'}`));
+
+	/** titles in lists: one language – the i18n switch's, else the source; the others in the tooltip (owner 2026-10-02) */
+	const titleLocale = $derived(season ? listLanguage(season.locales, season.primary) : '');
 
 	const sequence = $derived<SequenceItem[]>(season?.data?.[season.primary]?.sequence ?? []);
 	const pageDocs = $derived([index, season, toonFile].filter((d): d is ContentDoc => !!d));
@@ -398,52 +402,36 @@
 				<div class="season-head">
 					<div>
 						<h2 class="season-title">
-							<a href="/{toonId}/season/1" title={m['creator.open_season_editor']({ season: m['creator.season']({ number: 1 }) })} data-testid="season-title"
-								>{m['creator.season']({ number: 1 })}: {season.data[season.primary]?.title}</a
+							<a
+								href="/{toonId}/season/1"
+								title="{m['creator.open_season_editor']({ season: m['creator.season']({ number: 1 }) })}{season.locales.length > 1 ? `\n${otherTexts(season.locales, titleLocale, (l) => season?.data[l]?.title)}` : ''}"
+								data-testid="season-title"
+								>{m['creator.season']({ number: 1 })}: {season.data[titleLocale]?.title || season.data[season.primary]?.title}</a
 							>
 						</h2>
-						<p class="hint">
-							{#each season.locales.filter((l) => l !== season?.primary) as l}{l}: {season.data[l]?.title ?? '–'} {/each}
-						</p>
 					</div>
 					<FileStatus doc={season} />
 				</div>
 
 				<h3>{m['creator.chapters']()}</h3>
-				<table class="chapters">
-					<thead>
-						<tr>
-							<th>#</th>
-							{#each season.locales as l}<th>{l}{l === season.primary ? ` (${m['creator.source']()})` : ''}</th>{/each}
-							<th>release</th>
-							<th>{m['creator.status']()}</th>
-							<th>{m['creator.saved_state']()}</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each sequence as item (item.number)}
-							{@const doc = chapters[item.number]}
-							<!-- the whole row opens the chapter (the title link covers it) -->
-							<tr class="chapter-row" data-testid="chapter-row-{item.number}">
-								<td>{item.number}</td>
-								{#each season.locales as l}
-									<td>
-										{#if l === season.primary}
-											<a class="row-link" href="/{toonId}/chapter/{item.number}" title={m['creator.open_chapter_n']({ number: item.number })} data-testid="open-chapter-{item.number}"
-												>{doc?.data?.[l]?.title || fileLabel(entities.chapter(toonId, item.number))}</a
-											>
-										{:else}
-											{doc?.data?.[l]?.title ?? '–'}
-										{/if}
-									</td>
-								{/each}
-								<td>{doc?.data?.[doc.primary]?.release ?? ''}</td>
-								<td><StatusBadges {season} number={item.number} /></td>
-								<td>{#if doc}<FileStatus {doc} />{/if}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+				<ol class="chapter-list" data-testid="chapter-list">
+					{#each sequence as item (item.number)}
+						{@const doc = chapters[item.number]}
+						{@const own = doc?.data?.[titleLocale]?.title}
+						<li class="chapter-row" data-testid="chapter-row-{item.number}">
+							<span class="num">{item.number}</span>
+							<a
+								class="row-link"
+								class:fallback={!own}
+								href="/{toonId}/chapter/{item.number}"
+								title="{m['creator.open_chapter_n']({ number: item.number })}{season.locales.length > 1 ? `\n${otherTexts(season.locales, titleLocale, (l) => doc?.data?.[l]?.title)}` : ''}"
+								data-testid="open-chapter-{item.number}"
+								>{own || doc?.data?.[season.primary]?.title || fileLabel(entities.chapter(toonId, item.number))}</a
+							>
+							<ChapterBadges {season} number={item.number} {doc} />
+						</li>
+					{/each}
+				</ol>
 			{/if}
 			{#if season && !season.loading && !seasonMissing && orphans.length}
 				<p class="error" data-testid="orphans">{m['creator.orphans']({ numbers: orphans.join(', '), file: fileLabel(season.entity) })}</p>
@@ -502,40 +490,44 @@
 		gap: 1rem;
 		align-items: flex-start;
 	}
-	.chapters {
-		width: 100%;
-		border-collapse: collapse;
-	}
-	.chapters th,
-	.chapters td {
-		text-align: left;
-		padding: 0.35rem 0.5rem;
-		border-bottom: 1px solid var(--border-subtle);
-	}
-	.chapters th {
-		border-bottom: 2px solid var(--ink);
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		color: var(--ink);
+	/* the chapters: a plain list (owner 2026-10-02: no spreadsheet) – number, title (the whole row is the link),
+	   badges only when something is up; rows split by 1px ink */
+	.chapter-list {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		border-top: var(--border-width-regular) solid var(--ink);
 	}
 	.chapter-row {
 		position: relative;
-		cursor: pointer;
+		display: flex;
+		align-items: center;
+		gap: var(--space-1);
+		min-height: var(--control-height);
+		padding: var(--space-05) 0;
+		border-bottom: var(--border-width-hairline) solid var(--ink);
 	}
-	.chapter-row:hover td {
-		text-decoration: underline;
+	.chapter-row .num {
+		flex: none;
+		min-width: 2em;
+		color: var(--text-muted);
 	}
 	.row-link {
+		flex: 1;
+		min-width: 0;
 		color: var(--ink);
-		font-weight: 700;
 		text-decoration: none;
+		overflow-wrap: anywhere;
 	}
 	/* the title link covers the row: a click anywhere in it opens the chapter */
 	.row-link::after {
 		content: '';
 		position: absolute;
 		inset: 0;
+	}
+	/* no title in the chosen language: the source's, muted */
+	.row-link.fallback {
+		color: var(--text-muted);
 	}
 	.chapter-row:hover .row-link {
 		text-decoration: underline;

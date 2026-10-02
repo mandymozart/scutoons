@@ -1,0 +1,177 @@
+{
+	"label": "regular-default",
+	"renderer": {
+		"type": "vertical"
+	},
+	"slices": [
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-12.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-13.webp",
+			"width": 390,
+			"height": 625
+		},
+		{
+			"image": "../catpope/images/webtoon/s1c2/s1c2-slice-14.webp",
+			"width": 390,
+			"height": 625
+		}
+	],
+	"events": [
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"text": "Unterwegs trifft Katzenpapst: Krähen.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "crows",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "crows",
+				"persona": "regular",
+				"text": "Krah! Wir sind die Krähen. Wir sehen alles.",
+				"wait": true
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Freut mich! Zeig mal, was du draufhast.",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "crows",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "portrait"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "crows",
+				"persona": "regular",
+				"text": "Pass auf – neutral!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "neutral",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Neutral? Kann ich auch!",
+				"wait": true
+			}
+		},
+		{
+			"type": "joinScene",
+			"params": {
+				"characters": [
+					{
+						"character": "catpope",
+						"persona": "regular",
+						"look": "default",
+						"mood": "happy",
+						"variant": "avatar"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "crows",
+				"persona": "regular",
+				"text": "Tschüss, Katzenpapst!",
+				"wait": true
+			}
+		},
+		{
+			"type": "leaveScene",
+			"params": {
+				"characters": [
+					{
+						"character": "crows",
+						"persona": "regular"
+					}
+				]
+			}
+		},
+		{
+			"type": "showMessage",
+			"params": {
+				"character": "catpope",
+				"persona": "regular",
+				"text": "Schöne Begegnung. Weiter!",
+				"wait": true
+			}
+		},
+		{
+			"type": "jumpTo",
+			"params": {
+				"target": {
+					"type": "chapter",
+					"value": "5"
+				},
+				"wait": true
+			}
+		}
+	]
+}

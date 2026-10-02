@@ -169,9 +169,10 @@
 				"de",
 				"en",
 				"jp",
-				"kr",
+				"ko",
 				"es"
-			]
+			],
+			"description": "Content languages (a toon's `languages`); ISO 639-1. Korean is `ko` (2026-10-02, was the unused country code `kr`)."
 		},
 		"SeasonCreditSection": {
 			"type": "object",

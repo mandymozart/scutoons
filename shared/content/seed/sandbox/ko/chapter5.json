@@ -1,0 +1,18 @@
+{
+	"title": "만남: Bill the Frog",
+	"author": "SCUTOONS",
+	"number": 5,
+	"language": "ko",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "샌드박스(VN 테스트): 룩 1개에서 기분 1가지, 고양이 교황이 따라 합니다.",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"isPreview": true,
+	"groups": [
+		{
+			"ref": {
+				"src": "chapter5/regular-default.json"
+			}
+		}
+	]
+}

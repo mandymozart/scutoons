@@ -1,0 +1,23 @@
+{
+	"title": "만남: Yellow Mouse",
+	"author": "SCUTOONS",
+	"number": 1,
+	"language": "ko",
+	"release": "2026-09-30",
+	"status": "draft",
+	"description": "샌드박스(VN 테스트): 룩 2개에서 기분 35가지, 고양이 교황이 따라 합니다.",
+	"thumbnail": "../catpope/images/s1c1-thumbnail.jpg",
+	"isPreview": true,
+	"groups": [
+		{
+			"ref": {
+				"src": "chapter1/regular-default.json"
+			}
+		},
+		{
+			"ref": {
+				"src": "chapter1/regular-helmet.json"
+			}
+		}
+	]
+}

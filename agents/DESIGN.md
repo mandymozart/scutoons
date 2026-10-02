@@ -435,6 +435,33 @@ Implementation: `creator/src/lib/nav.svelte.ts` (`CreatorNav` context: route cru
 crumbs + `sidebar` + `fill` registered by a page with `usePageNav`), root layout = `AppShell` with the top bar and
 sidebar (`nav-sidebar.svelte` for the default levels), `up-link.svelte` in every ActionBar.
 
+### Creator: content language (i18n) + translate mode (owner 2026-10-02)
+
+Translators switch back and forth to copy, adapt and review originals, and there will be more languages than de/en.
+- **The switch** sits in the top bar, left of the search: a compact frame like the compact palette trigger – Feather
+  `globe` + the current choice ("ALL", "DE", "KO"; inverted while a language is chosen), a native select invisibly over
+  it (its own list: "All" + the toon's languages, the source marked "· source"). Tooltip / accessible name: "i18n:
+  Content language of the translatable fields … – not the interface language". The UI language stays in the Ctrl K
+  palette (with sign out). Offered: a toon page → the toon's languages (source first); the universe pages → every
+  language of every toon; hidden with one language. Remembered per browser (`localStorage`
+  `scutoons_creator_text_language`, try/catch), default **All** = every language side by side (as before); a language
+  the current toon doesn't have shows All.
+- **One language chosen:** every translatable field shows only that language (one column). Not the source → **translate
+  mode**: under the field one muted caption line "Original (DE): <source text>" + a small text link "Copy original"
+  (writes the source into the field; on touch the link gets the 44 px target on its own line).
+- Where: `LocaleText` (per-locale files: titles, descriptions, text boxes, VN messages / choices / onomatopoeia) and
+  `LocaleMapField` (`{ <locale>: text }` values: characters, moods, cast roles, credits, map names) – the two shared
+  field components (`creator/src/lib/editor/text-language.svelte.ts` + `components/text-original.svelte`). The chapter
+  canvas shows the chosen language, the script page opens / switches to it, the cover preview shows only it.
+- **Chapter lists** (toon page, season editor + its sidebar; owner 2026-10-02 "no spreadsheet vibe", "only show badges
+  when something is up"): a plain list, no header row – number (muted), the title in the chosen language (else the
+  source; a missing translation shows the source's title muted), the whole row a link; the other languages' titles in
+  the row's tooltip. Right-aligned filled badges with a word only when something is up (`chapter-badges.svelte`):
+  visibility draft / coming soon (season sequence), "Not published" (info), "not saved" (warning), "Missing" (error),
+  "· ko" when only some languages are concerned. Everything published: nothing.
+- **Header on phones** (< 480 px): only the current crumb (truncated), the i18n control and the search icon.
+- Language-neutral fields (`SharedField`: numbers, dates, paths with per-language overrides) don't follow the switch.
+
 ### Creator: script page (owner 2026-10-01)
 
 `/<toon>/script` – "Drehbuch" / "Script" in the toon's sidebar between Credits and Toon settings (DATA.md "Script").
