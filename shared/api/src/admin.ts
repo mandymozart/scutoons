@@ -327,6 +327,64 @@ export interface AdminFeatured {
 	changed?: boolean;
 }
 
+/** One registered email template (server `Domain\Mail\MailTemplates`), `GET /admin/emails/templates` */
+export interface AdminEmailTemplate {
+	id: 'login_code' | 'signup_without_code' | (string & {});
+	/** member = to a reader / account; admin = to the admin recipients */
+	audience: 'member' | 'admin' | (string & {});
+	description: string;
+	/** variable name → type (string, url, int, bool, ?string = optional) */
+	vars: Record<string, string>;
+	/** the values the preview uses */
+	sample: Record<string, unknown>;
+}
+
+export interface AdminEmailTemplates {
+	status: 'success';
+	locales: string[];
+	/** MAIL_TRANSPORT of the API: smtp | log | mail */
+	transport: string;
+	items: AdminEmailTemplate[];
+}
+
+/** A template rendered with its sample vars, `GET /admin/emails/templates/{id}/preview?locale=` */
+export interface AdminEmailPreview {
+	status: 'success';
+	id: string;
+	locale: string;
+	subject: string;
+	text: string;
+	html: string;
+}
+
+/** One row of the sent-mail log (table `mail_log`), `GET /admin/emails/log` */
+export interface AdminEmailLogRow {
+	id: number;
+	template: string;
+	recipient: string;
+	locale: string;
+	status: 'sent' | 'failed';
+	transport: string;
+	error: string | null;
+	created_at: string;
+}
+
+/** The admin notification addresses (setting `mail_admin_recipients`), `GET/PUT /admin/emails/recipients` */
+export interface AdminEmailRecipients {
+	status: 'success';
+	/** the effective list (stored, else the default) */
+	items: string[];
+	/** server MAIL_ADMIN_TO */
+	default: string[];
+	stored: boolean;
+	updated_at: string | null;
+	/** `admin:<email>` of the last change */
+	updated_by: string | null;
+	max: number;
+	/** PUT only */
+	changed?: boolean;
+}
+
 /** `?a=1&b=x` from params (empty / null / undefined dropped) */
 export function toQuery(params: ListParams = {}): string {
 	const search = new URLSearchParams();
@@ -410,6 +468,16 @@ export function createAdminApi(api: ApiClient) {
 
 		featured: () => api.get<AdminFeatured>('/admin/featured'),
 		/** the new ordered list, or null = back to the default */
-		saveFeatured: (items: FeaturedProduct[] | null) => api.put<AdminFeatured>('/admin/featured', { items })
+		saveFeatured: (items: FeaturedProduct[] | null) => api.put<AdminFeatured>('/admin/featured', { items }),
+
+		emailTemplates: () => api.get<AdminEmailTemplates>('/admin/emails/templates'),
+		/** a template rendered with its sample vars */
+		emailPreview: (id: string, locale: string) =>
+			api.get<AdminEmailPreview>(`/admin/emails/templates/${seg(id)}/preview${toQuery({ locale })}`),
+		/** the sent-mail log: filters template, status (sent|failed), recipient, from, to; q = part of the address */
+		listEmails: (params: ListParams = {}) => api.get<ListResult<AdminEmailLogRow>>(`/admin/emails/log${toQuery(params)}`),
+		emailRecipients: () => api.get<AdminEmailRecipients>('/admin/emails/recipients'),
+		/** the new list, or null = back to the default (MAIL_ADMIN_TO) */
+		saveEmailRecipients: (items: string[] | null) => api.put<AdminEmailRecipients>('/admin/emails/recipients', { items })
 	};
 }

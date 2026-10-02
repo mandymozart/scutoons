@@ -257,6 +257,44 @@ noble copy and use the published public key.
 the events type filter is a drop-up checklist in the bar; there is no page-size choice in the bar (URL `page_size`
 still works); production needs `https://admin.scutoons.com` in `ALLOWED_ORIGINS` (already in server.yml).
 
+## Emails (2026-10-02, owner: "a place to manage emails")
+
+**One sender:** the API (`server/`). Inventory 2026-10-02: the only mails were the two sign-in mails of
+`POST /auth/request/` (`LoginService` → the old `LoginMail` + `Infrastructure\Mail\Mailer`); the qr app, the viewer,
+creator, admin, shop, embassy (it only *logs* mails people write – `mail_out` / `mail_in` activities – and opens
+`mailto:`) and the scripts send none; the legacy `generate/` SPA sends none. So nothing had to move onto the API –
+every future mail (ownership claims etc.) is added to the module below, never sent by an app itself.
+
+| Where | What |
+|---|---|
+| `server/src/Domain/Mail/MailTemplates.php` | **the registry**: id consts + definition (audience `member` \| `admin`, description, vars with types, sample values, body blocks `p` / `button` / `code` with optional `if`, fine print) |
+| `server/templates/mail/texts.php` | **every text**: `[locale][template id][key]` (de + en, `subject` required, `{var}` placeholders), `_layout.signature` |
+| `server/templates/mail/layout.html.php` | the one HTML frame (ink on paper, mono, 2px frame, SCUTOONS header, fine print) |
+| `MailRenderer` | subject + plain text + HTML from the same blocks (pure; also the admin preview) |
+| `Mailer` | **the send API**: `send(string $templateId, string $to, string $locale, array $vars = []): int` (log id) – throws `MailFailed` (logged as failed) or `InvalidArgumentException` (unknown template / missing var = a bug); `sendToAdmins(string $templateId, array $vars = []): array{sent, failed}` (every admin recipient, in `MAIL_ADMIN_LOCALE`) |
+| `MailLog` | table `mail_log` (migration `2026-10-02-mail-log`, sqlite + mysql): id, template, recipient, locale, status `sent` \| `failed`, transport, error, created_at – never subject / text / vars (a login mail has a one-time code). Kept `MAIL_LOG_DAYS` (180, pruned on write). Missing table → mails still go out, unlogged |
+| `MailRecipients` | admin notification addresses: setting `mail_admin_recipients` in the `settings` table (like `featured_products`), default `MAIL_ADMIN_TO` (comma separated, empty) |
+| `server/src/Infrastructure/Mail/Transport.php` (+ `Smtp.php`) | delivery only (`MAIL_TRANSPORT` smtp \| log \| mail); the `log` format of `server/logs/mail.log` is unchanged (contract suites, `scripts/dev/test-user.mjs`, `check-next-bar.mjs` read one-time codes there) |
+| admin API | `GET /admin/emails/templates`, `GET /admin/emails/templates/{id}/preview?locale=`, `GET /admin/emails/log` (list), `GET/PUT /admin/emails/recipients` (ITEMS.md "Admin API" → Emails) |
+| admin app | **Emails** (nav group System): `/emails` = sent-mail log (URL-driven: `q`, `template`, `status`, `recipient`, `from`, `to`, sort, pager; a recipient → filter / find the account), `/emails/templates` = every template rendered de/en with its sample vars (HTML in a sandboxed iframe + plain text), `?locale=`, and the admin recipients editor |
+
+**Registered:** `login_code` (link + 6-digit code; vars `link`, `otp`, `minutes`, `code?`, `signup`), `signup_without_code`
+(no account, no usable signup code; vars `url`, `code?`). Subjects, texts and HTML are byte-identical to before the
+refactor (both mails, de/en, with and without code / signup).
+
+**Adding a mail (e.g. the ownership emails):** 1. a const + definition in `MailTemplates` (audience, description, vars,
+sample, blocks, fineprint); 2. its keys in **both** locales of `texts.php`; 3. call `Mailer::send(...)` (to a person) or
+`Mailer::sendToAdmins(...)` (audience `admin`); catch `MailFailed` where the request must still succeed; 4. a render test
+in `server/tests/Unit/Domain/MailTest.php` (its "every template renders in every locale" test and the registry list
+assertion cover the new id). The admin page lists it without a frontend change. Planned ids (documented in
+`MailTemplates`, not registered until sent): `ownership_claim_received` (to the claimant), `ownership_claim_admin`
+(sendToAdmins), `ownership_transferred_from`, `ownership_transferred_to`, `ownership_transfer_offer` (the owner sends a
+code to another person's email). A new block type = a case in `MailRenderer` + the layout.
+
+**Settings:** `MAIL_TRANSPORT`, `MAIL_FROM`, `MAIL_FROM_NAME`, `MAIL_LOG_PATH`, `SMTP_*` (unchanged); new
+`MAIL_ADMIN_TO`, `MAIL_ADMIN_LOCALE` (de), `MAIL_LOG_DAYS` (180). Production: run `2026-10-02-mail-log.mysql.sql` in
+phpMyAdmin (idempotent; until then nothing is logged), then set the admin recipients on the Emails page.
+
 ## Cross-app auth
 
 ~~Same endpoints, token per origin (localStorage `scutoons_session`) for now.~~ Single sign-on since branch `sso`

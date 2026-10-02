@@ -47,6 +47,7 @@ In phpMyAdmin, in this order (all idempotent): `2026-09-29-accounts-inventory.my
 `2026-09-30-code-owner-guard.mysql.sql` (delimiter `$$`), `2026-09-30-revoke-events.mysql.sql`,
 `2026-09-30-roles-signup.mysql.sql`, `2026-09-30-content-versions.mysql.sql`, `2026-09-30-settings.mysql.sql`,
 `2026-09-30-sensitive-content.mysql.sql` (`users.hide_sensitive`, default 1), `2026-10-01-media-quality.mysql.sql`
-(`users.media_quality`, default `auto` – with the `media-quality` branch, after the release); then the content seed and the
+(`users.media_quality`, default `auto` – with the `media-quality` branch, after the release), `2026-10-02-mail-log.mysql.sql`
+(the sent-mail log of the email module; without it mails are still sent, just not logged); then the content seed and the
 edition-number backfill above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

@@ -4,6 +4,14 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Email module (agents/PLATFORM.md "Emails"): `Domain\Mail` – registry `MailTemplates` (`login_code`,
+  `signup_without_code`), texts per locale in `templates/mail/texts.php`, one HTML layout, `Mailer::send($id, $to,
+  $locale, $vars)` / `sendToAdmins()`, sent-mail log (migration `2026-10-02-mail-log`, table `mail_log`), admin
+  recipients (setting `mail_admin_recipients`, default `MAIL_ADMIN_TO`); `Infrastructure\Mail\Mailer` → `Transport`,
+  `LoginMail` and the two mail templates removed. The sign-in mails are byte-identical; `logs/mail.log` format unchanged.
+  Admin API `/admin/emails/{templates,templates/{id}/preview,log,recipients}`. Settings `MAIL_ADMIN_TO`,
+  `MAIL_ADMIN_LOCALE`, `MAIL_LOG_DAYS`. Tests: PHPUnit `MailTest`, `EmailsApiTest`; admin-smoke "Emails".
+
 - "Media quality" (agents/DESIGN.md "Media quality", branch `media-quality`, after the 2026-10-04 release): migration
   `2026-10-01-media-quality` (`users.media_quality`, default `auto`); `GET /api/me/` `user.media_quality`;
   `PUT /api/me/ { media_quality: auto|low|medium|high }` (alone or with the other settings; anything else → `400

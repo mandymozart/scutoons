@@ -20,6 +20,7 @@ use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CodesController;
+use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
@@ -164,6 +165,12 @@ return static function (App $app): void {
         $admin->get('/versions', VersionsController::class);
         $admin->get('/settings', [SettingsController::class, 'get']);
         $admin->put('/settings', [SettingsController::class, 'put']);
+        // the email module (Domain\Mail): templates + previews, the sent-mail log, the admin notification recipients
+        $admin->get('/emails/templates', [EmailsController::class, 'templates']);
+        $admin->get('/emails/templates/{id}/preview', [EmailsController::class, 'preview']);
+        $admin->get('/emails/log', [EmailsController::class, 'log']);
+        $admin->get('/emails/recipients', [EmailsController::class, 'recipients']);
+        $admin->put('/emails/recipients', [EmailsController::class, 'saveRecipients']);
         // the editions on the landing page (stored as the setting `featured_products`; GET /api/products/featured/ reads it)
         $admin->get('/featured', [FeaturedController::class, 'get']);
         $admin->put('/featured', [FeaturedController::class, 'put']);

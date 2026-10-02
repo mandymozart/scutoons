@@ -9,14 +9,15 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Domain\Codes\CodeService;
 use Scutoons\Domain\Events\EventLog;
+use Scutoons\Domain\Mail\MailFailed;
+use Scutoons\Domain\Mail\Mailer;
+use Scutoons\Domain\Mail\MailTemplates;
 use Scutoons\Domain\RequestContext;
 use Scutoons\Domain\Secrets;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
-use Scutoons\Infrastructure\Mail\Mailer;
 use Scutoons\Support\Ids;
-use Throwable;
 
 /**
  * Email login: request → mail with a magic link and a 6-digit one-time code → verify (link token or email + code) →
@@ -40,7 +41,6 @@ final class LoginService
         private readonly CodeService $codes,
         private readonly Permissions $permissions,
         private readonly EventLog $events,
-        private readonly LoginMail $mail,
         private readonly Mailer $mailer,
     ) {
     }
@@ -54,7 +54,7 @@ final class LoginService
     public function request(array $body): array
     {
         $email = self::email($body['email'] ?? null);
-        $locale = $this->mail->locale($body['locale'] ?? null);
+        $locale = MailTemplates::locale($body['locale'] ?? null);
         $claimCode = CodeRules::normalize($body['code'] ?? null);
         $itemId = is_string($body['item_id'] ?? null) ? substr($body['item_id'], 0, 64) : null;
         $variant = is_string($body['variant'] ?? null) ? substr($body['variant'], 0, 64) : null;
@@ -88,15 +88,17 @@ final class LoginService
             // Only claimable codes (products) go into the inventory; a promo code is just the signup code
             $row = $claimCode !== null ? $this->codes->find($claimCode) : null;
             $claimable = $row !== null && $this->permissions->claimable((string) $row['type']);
-            $mail = $this->mail->compose($locale, $this->link($token, $claimCode), $otp, $claimable ? $claimCode : null, !$hasAccount);
+            $template = MailTemplates::LOGIN_CODE;
+            $vars = ['link' => $this->link($token, $claimCode), 'otp' => $otp, 'minutes' => $this->settings->int('LOGIN_TTL_MINUTES'),
+                'code' => $claimable ? $claimCode : null, 'signup' => !$hasAccount];
         } else {
-            $mail = $this->mail->composeNoAccount($locale, $this->viewerUrl(), $claimCode);
+            $template = MailTemplates::SIGNUP_WITHOUT_CODE;
+            $vars = ['url' => $this->viewerUrl(), 'code' => $claimCode];
         }
         try {
-            $this->mailer->send($email, $mail['subject'], $mail['text'], $mail['html']);
-        } catch (Throwable $error) {
+            $this->mailer->send($template, $email, $locale, $vars);
+        } catch (MailFailed) {
             $this->db->run('DELETE FROM login_requests WHERE id = ?', [$id]);
-            error_log('[qr-api] login mail failed: ' . $error->getMessage());
             throw new ApiError(502, 'mail_failed', 'The email could not be sent.');
         }
 

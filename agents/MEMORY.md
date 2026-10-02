@@ -1563,3 +1563,18 @@ character, persona, look and mood and doubles as the VN test bed.
   de/en). check:wardrobe's "guest" runs after a member run were really the member: the viewer moves the token into the
   API's SSO cookie, so `localStorage.clear()` is not a sign-out – the check now clears the browser cookies
   (`Network.clearBrowserCookies`) before each guest run (member 1440 used to start in the swim pants).
+
+## Email module (2026-10-02, branch `platform`)
+
+- Owner: "a place to manage emails … refactor across apps". Inventory: only the API sent mail (the two sign-in mails of
+  `/auth/request/`); qr, the frontends, embassy (logs activities + `mailto:` only), scripts and `generate/` send none.
+- Module `server/src/Domain/Mail/` (`MailTemplates` registry, `MailRenderer`, `Mailer::send($id, $to, $locale, $vars)` /
+  `sendToAdmins`, `MailLog`, `MailRecipients`, `MailFailed`); texts `server/templates/mail/texts.php` (locale → id → key),
+  one `layout.html.php`; delivery `Infrastructure\Mail\Transport` (ex `Mailer`). `LoginMail`, `login.html.php`,
+  `no-account.html.php` deleted. Sign-in mails byte-identical (scratch compare of 8 variants), `logs/mail.log` format
+  unchanged. Migration `2026-10-02-mail-log` (applied to the local dev DB). Admin page `/emails` + `/emails/templates`.
+  How to add the ownership emails: agents/PLATFORM.md "Emails".
+- Gotcha: the first `composer test` run had dozens of FAILs (401s, OTP not found) – another agent's contract run at the
+  same time (MEMORY "two contract runs"); the rerun was green.
+- Browser pane: with `resize_window` 1440×900 emulation, clicks by ref landed beside the target (scaled pane); typing
+  into a textarea did nothing – `form_input` + clicks after resetting to the desktop preset worked.

@@ -57,7 +57,8 @@ export const navigation: NavGroup[] = [
 		id: 'system',
 		title: () => m['nav.group_system'](),
 		items: [
-			{ id: 'settings', title: () => m['nav.settings'](), description: () => m['nav.settings_hint'](), href: '/settings', icon: 'settings', keywords: 'rate limit scans lookups event wifi config' }
+			{ id: 'settings', title: () => m['nav.settings'](), description: () => m['nav.settings_hint'](), href: '/settings', icon: 'settings', keywords: 'rate limit scans lookups event wifi config' },
+			{ id: 'emails', title: () => m['nav.emails'](), description: () => m['nav.emails_hint'](), href: '/emails', icon: 'mail', keywords: 'mail email log sent failed templates preview recipients smtp login code' }
 		]
 	}
 ];

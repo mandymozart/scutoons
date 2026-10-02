@@ -351,6 +351,46 @@ try {
     check($r['status'] === 200 && $r['body']['changed'] === true && $r['body']['stored'] === false && $r['body']['items'] === $defaultFeatured
         && $public['raw'] === $defaultFeaturedRaw, 'items: null → back to the default file (byte-for-byte)', $r['body']);
 
+    echo "\nEmails (the email module: templates, previews, sent-mail log, admin recipients)\n";
+    $r = call('GET', "$api/emails/templates");
+    check($r['status'] === 401, 'emails without a session → 401', $r['status']);
+    $r = call('GET', "$api/emails/log", null, $memberToken);
+    check($r['status'] === 403, 'email log for a member → 403', $r['status']);
+    $r = call('GET', "$api/emails/templates", null, $adminToken);
+    $ids = array_column((array) ($r['body']['items'] ?? []), 'id');
+    check($r['status'] === 200 && in_array('login_code', $ids, true) && in_array('signup_without_code', $ids, true) && ($r['body']['locales'] ?? null) === ['de', 'en'],
+        'GET emails/templates: login_code + signup_without_code, de + en', $r['body']);
+    foreach ($ids as $id) {
+        foreach (['de', 'en'] as $locale) {
+            $r = call('GET', "$api/emails/templates/$id/preview?locale=$locale", null, $adminToken);
+            check($r['status'] === 200 && is_string($r['body']['subject'] ?? null) && $r['body']['subject'] !== '' && str_starts_with((string) ($r['body']['html'] ?? ''), '<!doctype html>')
+                && str_ends_with((string) ($r['body']['text'] ?? ''), "– SCUTOONS\n"), "preview $id $locale: subject, text, html", $r['body']);
+        }
+    }
+    $r = call('GET', "$api/emails/templates/nope/preview", null, $adminToken);
+    check($r['status'] === 404, 'preview of an unknown template → 404', $r['status']);
+    $loginRequest = call('POST', "$base/api/auth/request/", ['email' => $member['email'], 'locale' => 'de']);
+    $r = call('GET', "$api/emails/log?recipient=" . rawurlencode($member['email']), null, $adminToken);
+    if ($loginRequest['status'] === 200) {
+        $entry = $r['body']['items'][0] ?? [];
+        check($r['status'] === 200 && ($entry['template'] ?? null) === 'login_code' && ($entry['status'] ?? null) === 'sent' && ($entry['locale'] ?? null) === 'de'
+            && ($entry['transport'] ?? null) === 'log', 'a login request is in the sent-mail log (login_code, sent, de)', $r['body']);
+    } else {
+        check($r['status'] === 200 && is_array($r['body']['items'] ?? null), 'GET emails/log (login request was rate limited: shape only)', $r['body']);
+    }
+    $r = call('GET', "$api/emails/log?status=bounced", null, $adminToken);
+    check($r['status'] === 400 && ($r['body']['error'] ?? null) === 'invalid_status', 'email log ?status=bounced → 400 invalid_status', $r);
+    $r = call('GET', "$api/emails/recipients", null, $adminToken);
+    $recipientsBefore = is_array($r['body']) ? $r['body'] : [];
+    check($r['status'] === 200 && is_array($recipientsBefore['items'] ?? null) && ($recipientsBefore['max'] ?? null) === 10, 'GET emails/recipients', $r['body']);
+    $r = call('PUT', "$api/emails/recipients", ['items' => ['no-address']], $adminToken);
+    check($r['status'] === 400 && ($r['body']['error'] ?? null) === 'invalid_recipients', 'PUT recipients with an invalid address → 400', $r);
+    $r = call('PUT', "$api/emails/recipients", ['items' => [strtoupper($admin['email'])]], $adminToken);
+    check($r['status'] === 200 && ($r['body']['items'] ?? null) === [$admin['email']] && ($r['body']['stored'] ?? null) === true
+        && ($r['body']['updated_by'] ?? null) === "admin:{$admin['email']}", 'PUT recipients: stored lower-cased, by the admin', $r['body']);
+    $r = call('PUT', "$api/emails/recipients", ['items' => ($recipientsBefore['stored'] ?? false) ? $recipientsBefore['items'] : null], $adminToken);
+    check($r['status'] === 200 && ($r['body']['items'] ?? null) === ($recipientsBefore['items'] ?? null), 'recipients restored', $r['body']);
+
     echo "\nAvatar bodies & character unlocks (default: catpope swim + naked, AVATAR_DEFAULT_UNLOCKS)\n";
     // The unlock rules read the published character registry of the content store; a database without one gets a
     // minimal registry for the suite (removed at the end)

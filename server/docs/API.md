@@ -5,7 +5,7 @@ The shared contract (concept, catalog format, every request/response) is `agents
 describes how the server implements it. Setup: [../README.md](../README.md); code structure:
 [ARCHITECTURE.md](ARCHITECTURE.md); settings: [CONFIGURATION.md](CONFIGURATION.md).
 
-Email login (a port of osct `Auth/LoginMail/Mailer/Smtp/Progress`): a login request mails a 6-digit one-time code and a
+Email login (a port of osct `Auth/LoginMail/Mailer/Smtp/Progress`; mails go through the email module, see "Emails" below): a login request mails a 6-digit one-time code and a
 magic link; confirming either creates the account (first time, with the `member` role and the starter items) and returns
 a session token (Bearer) – and, for the SCUTOONS apps, the same session as the HttpOnly cookie `scutoons_sid`: one
 sign-in for every app (see "Single sign-on"). Tokens and codes are only stored as hashes. **New accounts only with a signup code** (a
@@ -121,6 +121,10 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
 | GET/PUT | `/settings` | runtime settings (table `settings`): `GET` → `{ status, items: [{ key, value, default, min, max, stored, updated_at, updated_by }] }`; `PUT { key: int\|null, … }` (or `{ settings: {…} }`) → `{ status, changed, items }` – integer `min…max` (0…1000000), `null` = back to the config default; only changed values are written, `updated_by` = `admin:<email>` · `400 invalid_setting { key, min, max }\|unknown_setting { settings }\|invalid_settings`. Keys: `scan_limit_per_hour`, `lookup_limit_per_hour` (see "Rate limits") |
 | GET/PUT | `/featured` | the landing page's editions (`Domain\Catalog\FeaturedProducts`, stored as the setting `featured_products`): `GET` → `{ status, items, default, stored, updated_at, updated_by, max: 12 }`; `PUT { items: [{ product, variant? }] \| null }` → `{ status, changed, …same }` – products / variants of `config/products.json`, no duplicates, ≤ 12, the order is the page's; `null` = back to `config/featured-products.json` · `400 invalid_featured\|unknown_product { product, products }\|unknown_variant { product, variant, variants }\|duplicate_featured` |
+| GET | `/emails/templates` | the email module's registry: `{ status, locales: ["de","en"], transport, items: [{ id, audience: member\|admin, description, vars: { name: type }, sample }] }` |
+| GET | `/emails/templates/{id}/preview?locale=de\|en` | `{ status, id, locale, subject, text, html }` rendered with the template's sample vars · `404 not_found` · `400 invalid_locale` |
+| GET | `/emails/log` | the sent-mail log (table `mail_log`), list: sort `created_at` (default `-created_at`), `template`, `status`, `recipient`; filters `template`, `status` (`sent`\|`failed`), `recipient`, `from`, `to` (`YYYY-MM-DD`, UTC); `q` = part of the address → items `{ id, template, recipient, locale, status, transport, error, created_at }` · `400 invalid_template\|invalid_status\|invalid_date\|invalid_sort`. Recipient addresses are shown here (admin only, like `/users`) |
+| GET/PUT | `/emails/recipients` | admin notification addresses (setting `mail_admin_recipients`, default `MAIL_ADMIN_TO`): `GET` → `{ status, items, default, stored, updated_at, updated_by, max: 10 }`; `PUT { items: [email] \| null }` → `{ status, changed, …same }` (lower-cased, deduplicated; `[]` = nobody; `null` = back to the default) · `400 invalid_recipients` |
 | GET | `/versions` | the deployed version of every app: `{ status, checked_at, api: { app, version, git_sha, built_at }, apps: [{ app, url, ok, http_status, version?, git_sha?, built_at?, shared?, error? }] }` – each app's `version.json` (`VERSION_URLS`) fetched in parallel, 4 s timeout (platform P3) |
 
 The legacy `generate/*.php` endpoints (static token `X-Generate-Token`) stay for the `generate/` SPA until the admin
@@ -203,7 +207,7 @@ applies to the next request. `scan=1` without the proxy secret is an ordinary lo
   existing, not expired, not revoked. A claimable code (membership = a product) must also still be free (or registered
   to this email by the old form) – it is claimed in the same step. `CodeService::signupRefusal()` decides.
 - `POST /auth/request/` for an email **without** an account and **without** a usable signup code still answers
-  `{ status:"sent" }` (no user enumeration), but the mail (de/en, `LoginMail::composeNoAccount`, texts in
+  `{ status:"sent" }` (no user enumeration), but the mail (template `signup_without_code`, de/en, texts in
   `templates/mail/texts.php`) has no link and no one-time code: it says there is no account yet and how to get one.
   The request is stored only for the hourly limits (hashes of values nobody knows – it can never be confirmed).
 - `POST /auth/verify/` checks the rule again for a new account → `403 signup_code_required`, nothing created. Existing
@@ -358,6 +362,26 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
 - Errors: `400 invalid_toon|invalid_locale|invalid_chapter`, `404 not_found`, `403 coming_soon|not_public`.
 - Compare: `tests/entities-compare.php` checks every answer against the interchange files of `shared/content/seed`
   (fresh DB, part of `composer test`; `--report` against production).
+
+## Emails (the email module, 2026-10-02)
+
+The API is the only sender of email (the qr app, the frontends and scripts send none; the Embassy only logs mails
+people write themselves). Every mail goes through `Domain\Mail\Mailer::send($templateId, $to, $locale, $vars)`:
+
+- **Registry** `Domain\Mail\MailTemplates` – template ids with audience, description, variables, sample values (the
+  admin preview), the body as blocks (`p`, `button`, `code`, conditional with `if`) and the fine print. Registered:
+  `login_code` (sign-in link + one-time code), `signup_without_code` (no account and no usable signup code).
+- **Texts** `templates/mail/texts.php` – `[locale][template id][key]`, de + en, `{var}` placeholders, `subject`
+  required; `_layout.signature`. **HTML frame** `templates/mail/layout.html.php` (one layout for every mail).
+  `MailRenderer` builds subject, text and HTML from the same blocks.
+- **Transport** `Infrastructure\Mail\Transport` (`MAIL_TRANSPORT` = `smtp` | `log` → `MAIL_LOG_PATH` | `mail`); the log
+  file format is unchanged (the contract suites and `scripts/dev/test-user.mjs` read one-time codes there).
+- **Sent-mail log** table `mail_log` (`MailLog`): template, recipient, locale, `sent` | `failed`, transport, error,
+  time – never the subject, text or variables. Kept `MAIL_LOG_DAYS` (180). A failed send is logged and throws
+  `MailFailed` (the login request answers `502 mail_failed` as before).
+- **Admin recipients** `MailRecipients` (setting `mail_admin_recipients`, default `MAIL_ADMIN_TO`) for
+  `Mailer::sendToAdmins($templateId, $vars)` in `MAIL_ADMIN_LOCALE`.
+- Admin app → **Emails** (`/emails` log, `/emails/templates` previews + recipients); admin API above.
 
 ## Security notes
 

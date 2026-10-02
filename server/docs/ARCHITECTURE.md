@@ -31,7 +31,7 @@ CORS runs outside the error handler, so error responses carry the CORS headers t
   (IP, device id, origin) comes from `RequestContext`.
 - **`src/Infrastructure/*`** – `Settings` (env `QR_<KEY>` → constant `<KEY>` → `config/settings.php`), `Database`
   (lazy PDO, MySQL/SQLite, `transaction()` with `BEGIN IMMEDIATE` on SQLite / `FOR UPDATE` on MySQL),
-  `MigrationRunner`, `Mailer` + `Smtp`, `KeyStore` (ML-DSA-65 keypair), `FileStore` (batch output), `Templates`
+  `MigrationRunner`, `Mail\Transport` + `Smtp` (delivery only – mails are sent through `Domain\Mail\Mailer`, see API.md "Emails"), `KeyStore` (ML-DSA-65 keypair), `FileStore` (batch output), `Templates`
   (plain PHP templates in `templates/`), `Clock` (`SystemClock`, `FrozenClock` for tests).
 - **`config/`** – `settings.php` (every setting with its default), `container.php` (the few non-autowired services),
   `routes.php` (every URL), JSON data (`items.json`, `editions.json`, `toons.json`, `permissions.json` – the last is

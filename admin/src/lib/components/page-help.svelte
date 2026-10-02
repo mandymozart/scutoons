@@ -12,7 +12,8 @@
 		| 'content'
 		| 'catalog'
 		| 'settings'
-		| 'homepage';
+		| 'homepage'
+		| 'emails';
 </script>
 
 <script lang="ts">
@@ -110,5 +111,8 @@
 		</dl>
 	{:else if page === 'homepage'}
 		<p>{m['help.homepage']()}</p>
+	{:else if page === 'emails'}
+		<p>{m['help.emails']()}</p>
+		{@render lists()}
 	{/if}
 </div>

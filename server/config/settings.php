@@ -45,6 +45,12 @@ return [
     'MAIL_FROM' => 'no-reply@scutoons.com',
     'MAIL_FROM_NAME' => 'SCUTOONS',
     'MAIL_LOG_PATH' => 'logs/mail.log',
+    // The email module (agents/PLATFORM.md "Emails"): admin notification recipients (comma separated; the default of
+    // the runtime setting mail_admin_recipients, admin app → Emails), their language, and how long the sent-mail log
+    // (table mail_log, recipient addresses) is kept – 0 = forever
+    'MAIL_ADMIN_TO' => '',
+    'MAIL_ADMIN_LOCALE' => 'de',
+    'MAIL_LOG_DAYS' => '180',
     'SMTP_HOST' => '',
     'SMTP_PORT' => '587',
     // tls = STARTTLS (587), ssl = implicit TLS (465), none = plain (local test servers only)

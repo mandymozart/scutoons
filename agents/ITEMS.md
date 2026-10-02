@@ -113,7 +113,8 @@ unreferenced (left on the CDN).
 Lives in qr.scutoons.com (the only backend). Email-based login (U): request → mail with one-time code + magic link →
 verify → session token (Bearer, stored by the viewer in localStorage `scutoons_session`). Claiming a code during login
 ("email + code") attaches the code in the same step. Book progress (the viewer game state per toon) is stored per user
-like osct's Progress. Local dev: mail is written to a log file instead of sent.
+like osct's Progress. Local dev: mail is written to a log file instead of sent. (2026-10-02: every mail goes through
+the server's email module, agents/PLATFORM.md "Emails".)
 
 ## HTTP API contract (base `QR_API` = `http://localhost:9000/api` dev, `https://qr.scutoons.com/api` prod)
 
@@ -464,6 +465,18 @@ value wins; without a row the config value is the default. Read once per request
 | `lookup_limit_per_hour` | `ACCESS_MAX_PER_IP_HOUR` = 120 | direct `/code/` + `/access/` lookups per IP and hour (bucket `lookup:<ip hash>`). 0 = no limit |
 
 Over a limit: `429 rate_limited { retry_after: 3600 }`; the qr app shows its rate-limited page (429). Range 0…1000000.
+
+### Emails (2026-10-02, the email module – agents/PLATFORM.md "Emails")
+
+| Method | Path | Request | Response |
+|---|---|---|---|
+| GET | `/admin/emails/templates` | – | `{ status, locales: ["de","en"], transport, items: [{ id, audience: "member"\|"admin", description, vars: { name: type }, sample }] }` |
+| GET | `/admin/emails/templates/{id}/preview` | `?locale=de\|en` (default en) | `{ status, id, locale, subject, text, html }` rendered with the sample vars · `404 not_found` · `400 invalid_locale` |
+| GET | `/admin/emails/log` | list; sort `created_at` (default `-created_at`), `template`, `status`, `recipient`; filters `template`, `status` (`sent`\|`failed`), `recipient`, `from`, `to` (`YYYY-MM-DD`, UTC); `q` = part of the address | items `{ id, template, recipient, locale, status, transport, error, created_at }` · `400 invalid_template\|invalid_status\|invalid_date` |
+| GET | `/admin/emails/recipients` | – | `{ status, items, default (MAIL_ADMIN_TO), stored, updated_at, updated_by, max: 10 }` |
+| PUT | `/admin/emails/recipients` | `{ items: [email, …] \| null }` | `{ status, changed, …same }` – lower-cased, deduplicated, `[]` = nobody, `null` = back to the default · `400 invalid_recipients` |
+
+Privacy: the log shows recipient addresses (admin only, like the users endpoints), never a mail's content.
 
 ### Featured editions on the landing page (2026-10-01, owner)
 

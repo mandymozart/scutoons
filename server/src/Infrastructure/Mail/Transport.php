@@ -7,27 +7,36 @@ use RuntimeException;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
- * Sends one email (text + HTML). MAIL_TRANSPORT:
- * - `log`: appends the mail to MAIL_LOG_PATH – local development (the smoke test reads the one-time codes there)
+ * Delivers one rendered email (text + HTML). Nothing else calls this: every mail goes through the email module
+ * (Domain\Mail\Mailer: template → render → deliver here → mail_log). MAIL_TRANSPORT:
+ * - `log`: appends the mail to MAIL_LOG_PATH – local development (the smoke tests and scripts/dev/test-user.mjs read
+ *   the one-time codes there; keep the entry format: "=== <ISO time> ===", headers, To, Subject, blank line, text)
  * - `mail`: PHP mail() – quick tests on a host that has it set up
  * - `smtp`: the SMTP account in SMTP_* – production (Smtp, no library needed)
  */
-class Mailer
+class Transport
 {
     public function __construct(private readonly Settings $settings)
     {
     }
 
-    public function send(string $to, string $subject, string $text, string $html): void
+    /** The configured transport: log | mail | smtp */
+    public function name(): string
     {
-        $transport = $this->settings->get('MAIL_TRANSPORT');
+        return $this->settings->get('MAIL_TRANSPORT');
+    }
+
+    /** @throws RuntimeException when the mail could not be handed over */
+    public function deliver(string $to, string $subject, string $text, string $html): void
+    {
+        $transport = $this->name();
         $message = $this->message($subject, $text, $html);
         switch ($transport) {
             case 'log':
                 $path = $this->settings->path('MAIL_LOG_PATH') ?: sys_get_temp_dir() . '/scutoons-mail.log';
                 if (!is_dir(dirname($path))) @mkdir(dirname($path), 0770, true);
                 $entry = "=== " . gmdate('c') . " ===\r\n" . $message['headers'] . "\r\nTo: $to\r\nSubject: $subject\r\n\r\n$text\r\n\r\n";
-                if (file_put_contents($path, $entry, FILE_APPEND | LOCK_EX) === false) {
+                if (@file_put_contents($path, $entry, FILE_APPEND | LOCK_EX) === false) {
                     throw new RuntimeException("Mail log not writable: $path");
                 }
                 return;

@@ -59,8 +59,8 @@ public/            web root: index.php (front controller), router.php (php -S), 
                    assets/, generate/ (legacy admin SPA files)
 src/Http/          Controllers/ (thin), Middleware/, Json, Download, CurrentSession
 src/Domain/        services, no HTTP: Accounts, Auth, Codes, Access, Catalog, Inventory, Avatar, Progress,
-                   Content, Events, RateLimit, Roles, Admin; ApiError, RequestContext, Secrets
-src/Infrastructure/ Config (Settings), Database (PDO, MigrationRunner), Mail (Mailer, Smtp), Signing (KeyStore),
+                   Content, Events, RateLimit, Roles, Admin, Mail (the email module); ApiError, RequestContext, Secrets
+src/Infrastructure/ Config (Settings), Database (PDO, MigrationRunner), Mail (Transport, Smtp), Signing (KeyStore),
                    Storage (FileStore), Templates, Clock
 src/Console/       bin/console commands
 src/Kernel.php     builds the container and the Slim app (middleware order)
