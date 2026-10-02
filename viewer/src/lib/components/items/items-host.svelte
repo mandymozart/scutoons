@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CloseIcon } from '@scutoons/ui';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
@@ -101,7 +102,7 @@
 			<!-- svelte-ignore a11y_media_has_caption -->
 			<audio src={/^https?:/.test(track.src) ? track.src : asset(track.src)} controls autoplay onended={nextTrack}></audio>
 		</div>
-		<button class="close" onclick={ui.closeAudio} aria-label={m['items.close']()}>×</button>
+		<button class="close" onclick={ui.closeAudio} aria-label={m['items.close']()}><CloseIcon size="1rem" /></button>
 	</div>
 {/if}
 
@@ -186,8 +187,8 @@
 		background: white;
 		color: black;
 		border: 2px solid black;
-		font-size: 1.25rem;
-		line-height: 1;
+		display: inline-grid;
+		place-items: center;
 		flex: none;
 	}
 	.close:hover {

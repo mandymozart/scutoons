@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import Icon from './icon.svelte';
+	import CloseButton from './close-button.svelte';
 
 	/**
 	 * The one place for a page's help (owner 2026-09-30): explanations, conventions, glossaries and the style guide live
@@ -42,7 +43,7 @@
 	<header>
 		<h2><Icon name="info" /> {title}</h2>
 		{#if onclose}
-			<button type="button" class="close" aria-label={closeLabel} title={closeLabel} onclick={onclose}><Icon name="x" /></button>
+			<CloseButton class="close" label={closeLabel} onclick={onclose} />
 		{/if}
 	</header>
 	<div class="body">
@@ -97,18 +98,9 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
-	.close {
-		min-width: var(--control-height);
-		min-height: var(--control-height);
+	/* the close cross (CloseButton): right, level with the title */
+	header :global(.close) {
 		margin: 0 0 0 auto;
-		padding: 0 var(--space-025);
-		background: transparent;
-		border: 0;
-		color: var(--ink);
-		font: inherit;
-		font-size: 1.5em;
-		line-height: 1;
-		cursor: pointer;
 	}
 	.body {
 		flex: 1;

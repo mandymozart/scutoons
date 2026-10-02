@@ -20,7 +20,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { library } from '$lib/api.ts';
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
 		cdnFolder,
@@ -444,7 +444,7 @@
 						<span class="tools">
 							<button type="button" class="ghost" disabled={i === 0} aria-label={m['creator.map_move_up']()} title={m['creator.map_move_up']()} onclick={() => moveWaypoint(i, -1)}><Icon name="arrow-up" /></button>
 							<button type="button" class="ghost" disabled={i === route.waypoints.length - 1} aria-label={m['creator.map_move_down']()} title={m['creator.map_move_down']()} onclick={() => moveWaypoint(i, 1)}><Icon name="arrow-down" /></button>
-							<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} title={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}><Icon name="x" /></button>
+							<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} title={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}><CloseIcon /></button>
 						</span>
 					</li>
 				{/each}

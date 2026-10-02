@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { characterImage, characterIndex, characterName, suggestFeaturing, type CastEntry, type CharacterRegistry } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { imageExists, isKnownMissing } from '$lib/editor/characters.ts';
@@ -90,7 +90,7 @@
 				{#if !inCast(id)}<span class="hint">{m['creator.featuring_not_in_cast']()}</span>{/if}
 				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
 				<button type="button" class="ghost" disabled={i === featuring.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
-				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.featuring_remove']({ name: name(id) })} title={m['creator.featuring_remove']({ name: name(id) })}><Icon name="x" /></button>
+				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.featuring_remove']({ name: name(id) })} title={m['creator.featuring_remove']({ name: name(id) })}><CloseIcon /></button>
 			</li>
 		{:else}
 			<li class="hint">{m['creator.featuring_empty']()}</li>

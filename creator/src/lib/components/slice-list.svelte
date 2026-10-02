@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
 	import { fillSliceSize } from '$lib/editor/images.ts';
@@ -108,7 +108,7 @@
 			</button>
 			<span class="tools">
 				<button type="button" class="ghost" title={m['creator.add_slice']()} aria-label={m['creator.add_slice']()} onclick={() => add(index)}><Icon name="plus" /></button>
-				<button type="button" class="ghost" title={m['creator.remove']()} aria-label={m['creator.remove']()} onclick={() => remove(index)}><Icon name="x" /></button>
+				<button type="button" class="ghost" title={m['creator.remove']()} aria-label={m['creator.remove']()} onclick={() => remove(index)}><CloseIcon /></button>
 			</span>
 		</li>
 	{/each}

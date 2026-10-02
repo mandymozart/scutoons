@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CloseIcon } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import { ApiError } from '$lib/api.ts';
 	import { addClaimFile, fetchCode, fileClaim, type AccessResult, type VerifyResult } from '$lib/api.ts';
@@ -217,7 +218,7 @@
 <div class="claim" role="dialog" aria-modal="true" aria-label={signupOnly ? m['claim.promo_title']() : m['claim.title']()}>
 	<header>
 		<h2>{signupOnly ? m['claim.promo_title']() : m['claim.title']()}</h2>
-		<button class="close" onclick={onclose} aria-label={m['items.close']()}>×</button>
+		<button class="close" onclick={onclose} aria-label={m['items.close']()}><CloseIcon size="1rem" /></button>
 	</header>
 
 	{#if phase === 'loading'}
@@ -440,8 +441,8 @@
 		background: white;
 		color: black;
 		border: 2px solid black;
-		font-size: 1.25rem;
-		line-height: 1;
+		display: inline-grid;
+		place-items: center;
 	}
 	.close:hover {
 		background: var(--primary-color);

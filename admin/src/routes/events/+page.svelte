@@ -3,7 +3,7 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, DataTable, Pager, SearchField, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, DataTable, Pager, SearchField, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
 	import { EVENT_NAMES, type AdminEventRow, type ListResult } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { loadCatalog, type Edition } from '$lib/catalog.ts';
@@ -95,7 +95,7 @@
 	{#if query.filters.code}
 		<span class="bar-filter">
 			<span>{m['codes.col_code']()}</span>
-			<a class="chip sc-chip-control" href={href({ code: null })} title={m['events.remove_filter']()}>{query.filters.code} ×</a>
+			<a class="chip sc-chip-control" href={href({ code: null })} title={m['events.remove_filter']()}>{query.filters.code} <CloseIcon size="var(--type-body-size)" /></a>
 		</span>
 	{/if}
 	<details class="dropup bar-filter">
@@ -183,6 +183,7 @@
 
 	/* a removable filter = an interactive chip (tools.css .sc-chip-control: one control height, 2px ink) */
 	.chip {
+		gap: var(--space-05);
 		padding-right: var(--space-05);
 		text-decoration: none;
 	}

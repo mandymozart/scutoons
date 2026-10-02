@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 	import { tick } from 'svelte';
 	import { getAt, Language, peopleIndex, roleIndex, roleText, type CreditEntry, type LocaleText, type Path, type RoleCategory, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -130,7 +130,7 @@
 							<span class="chip" class:unknown={!role} class:custom={role?.custom}>
 								<button type="button" class="chip-label" onclick={() => (open = open === `${i}:${k}` ? null : `${i}:${k}`)} title={m['creator.credits_role_details']()}
 									>{roleText(r, role, lang)}</button
-								><button type="button" class="chip-x" aria-label={m['creator.credits_remove_role']()} onclick={() => change((l) => l[i].roles.splice(k, 1))}><Icon name="x" /></button>
+								><button type="button" class="chip-x" aria-label={m['creator.credits_remove_role']()} onclick={() => change((l) => l[i].roles.splice(k, 1))}><CloseIcon /></button>
 							</span>
 						{/each}
 						<RolePicker
@@ -143,7 +143,7 @@
 						/>
 					</span>
 					<button type="button" class="ghost remove" aria-label={m['creator.credits_remove_person']()} title={m['creator.credits_remove_person']()} onclick={() => change((l) => l.splice(i, 1))}
-						><Icon name="x" /></button
+						><CloseIcon /></button
 					>
 				</div>
 				{#each entry.roles as r, k (k)}

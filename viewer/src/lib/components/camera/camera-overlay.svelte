@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CloseIcon } from '@scutoons/ui';
 	import { onMount, untrack } from 'svelte';
 	import type { CameraRequest } from '$lib/contexts/items-ui.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
@@ -255,7 +256,8 @@
 	<header>
 		<h2>{mode === 'qr' ? m['camera.title_qr']() : objectTitle}</h2>
 		<button class="close" onclick={onclose} aria-label={m['items.close']()}>
-			<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" /></svg>
+			<!-- the one close cross (DESIGN.md "Close cross"), 1px like the HUD's thin lines -->
+			<CloseIcon size="1rem" stroke={1} />
 		</button>
 		{#if substanceCamera}
 			<!-- mandatory on every open (owner 2026-10-01): a game camera, and where real drug checking is -->
@@ -401,13 +403,6 @@
 		background: transparent;
 		color: var(--finder);
 		box-shadow: 0 0 0.5rem color-mix(in srgb, var(--finder) 35%, transparent);
-	}
-	.close svg {
-		width: 1rem;
-		height: 1rem;
-		fill: none;
-		stroke: currentColor;
-		stroke-width: 1.25;
 	}
 	.close:hover,
 	.close:focus-visible {

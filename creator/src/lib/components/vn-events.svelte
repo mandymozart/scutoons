@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, clone, type Path } from '@scutoons/content';
 	import { JumpToTargetType, OnomatopoeiaEffect, OnomatopoeiaVariant, Trigger, TriggerMode } from '@scutoons/content';
@@ -227,7 +227,7 @@
 					<button type="button" class="ghost" class:active={raw[i] || !known} title="raw JSON" onclick={() => (raw[i] = !raw[i])} disabled={!known}>{'{ }'}</button>
 					<button type="button" class="ghost" onclick={() => moveBy(i, -1)} disabled={i === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="arrow-up" /></button>
 					<button type="button" class="ghost" onclick={() => moveBy(i, 1)} disabled={i === events.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="arrow-down" /></button>
-					<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
+					<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 				</span>
 			</header>
 
@@ -317,7 +317,7 @@
 								<PropField {doc} path={[...p, 'params', 'characters', ci, 'look']} label="look" type="select" options={looks.slice(1).map((l) => ({ value: l.id, label: l.label }))} placeholder={looks[0] ? `${looks[0].label} (default)` : 'default'} />
 							{/if}
 						{/if}
-						<button type="button" class="ghost" onclick={() => removeCharacter(i, ci)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
+						<button type="button" class="ghost" onclick={() => removeCharacter(i, ci)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 					</div>
 				{/each}
 				<button type="button" class="secondary" onclick={() => addCharacter(i)}>+ character</button>

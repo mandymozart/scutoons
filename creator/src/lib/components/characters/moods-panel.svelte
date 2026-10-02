@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { DEFAULT_MOOD, MOOD_ID, sortedMoods, type CharacterRegistry, type LocaleText, type MoodVocabulary } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, ensureMoods, moodsOf } from '$lib/editor/characters.ts';
@@ -76,7 +76,7 @@
 					title={mood.id === DEFAULT_MOOD ? m['creator.characters_neutral_required']() : ''}
 					onclick={() => {
 						if (confirm(m['creator.characters_remove_mood_confirm']({ mood: mood.id, count: usage.get(mood.id) ?? 0 }))) change((x) => (x.moods = x.moods.filter((y) => y.id !== mood.id)));
-					}} aria-label={m['creator.remove']()}><Icon name="x" /></button
+					}} aria-label={m['creator.remove']()}><CloseIcon /></button
 				>
 			</li>
 		{/each}

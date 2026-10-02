@@ -4,7 +4,7 @@
 	import EmailsNav from '$lib/components/emails-nav.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, DataTable, Pager, SearchField, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
+	import { ActionBar, Badge, CloseIcon, DataTable, Pager, SearchField, Skeleton, listHref, listParams, readList, type Column } from '@scutoons/ui';
 	import type { AdminEmailLogRow, ListResult } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { errorText, number } from '$lib/format.ts';
@@ -87,7 +87,7 @@
 	{#if query.filters.recipient}
 		<span class="bar-filter">
 			<span>{m['emails.col_recipient']()}</span>
-			<a class="chip sc-chip-control" href={href({ recipient: null })} title={m['emails.remove_filter']()}>{query.filters.recipient} ×</a>
+			<a class="chip sc-chip-control" href={href({ recipient: null })} title={m['emails.remove_filter']()}>{query.filters.recipient} <CloseIcon size="var(--type-body-size)" /></a>
 		</span>
 	{/if}
 	{#if query.q || Object.keys(query.filters).length}
@@ -133,6 +133,7 @@
 <style>
 	/* a removable filter = an interactive chip (tools.css .sc-chip-control: one control height, 2px ink) */
 	.chip {
+		gap: var(--space-05);
 		padding-right: var(--space-05);
 		text-decoration: none;
 	}

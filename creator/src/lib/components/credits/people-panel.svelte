@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { personUsage, replacePerson, type CreditPerson, type PeopleRegistry, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, newPerson, peopleOf, searchPeople } from '$lib/editor/credits.ts';
@@ -122,7 +122,7 @@
 					<div class="link">
 						<input type="text" value={link.label} placeholder="Instagram" oninput={(e) => change((p) => (p.links![j].label = e.currentTarget.value), `link-label-${j}`)} />
 						<input type="url" value={link.url} placeholder="https://…" oninput={(e) => change((p) => (p.links![j].url = e.currentTarget.value), `link-url-${j}`)} />
-						<button type="button" class="ghost" aria-label={m['creator.credits_remove']()} onclick={() => change((p) => (p.links!.splice(j, 1), p.links!.length || delete p.links))}><Icon name="x" /></button>
+						<button type="button" class="ghost" aria-label={m['creator.credits_remove']()} onclick={() => change((p) => (p.links!.splice(j, 1), p.links!.length || delete p.links))}><CloseIcon /></button>
 					</div>
 				{/each}
 				<button type="button" class="ghost" onclick={() => change((p) => (p.links = [...(p.links ?? []), { label: '', url: '' }]))}><Icon name="plus" /> {m['creator.credits_link']()}</button>

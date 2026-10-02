@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { ActionBar, Icon } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -572,7 +572,7 @@
 					<span class="tools">
 						<button class="ghost" onclick={() => moveGroup(gi, -1)} disabled={gi === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="arrow-up" /></button>
 						<button class="ghost" onclick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="arrow-down" /></button>
-						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button>
+						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 					</span>
 				</div>
 				{#if open}
@@ -674,12 +674,12 @@
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
 		{/if}
-		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><Icon name="x" /></button></div>{/if}
+		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><CloseIcon /></button></div>{/if}
 		{#if castNotice}
 			<div class="bar note-bar" data-testid="cast-notice">
 				{castNotice}
 				<button class="secondary" onclick={undoCast} data-testid="cast-undo">{m['creator.undo']()}</button>
-				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><Icon name="x" /></button>
+				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><CloseIcon /></button>
 			</div>
 		{/if}
 

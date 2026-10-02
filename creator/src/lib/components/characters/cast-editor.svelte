@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import {
 		AUTHORED_VIEW,
@@ -223,9 +223,9 @@
 							<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>
 							<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === entries.length - 1} aria-label={m['creator.credits_down']()}><Icon name="arrow-down" /></button>
 							{#if entry.character === star}
-								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked"><Icon name="x" /></button>
+								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked"><CloseIcon /></button>
 							{:else}
-								<button type="button" class="ghost" onclick={() => remove(entry.character)} aria-label={m['creator.credits_remove']()}><Icon name="x" /></button>
+								<button type="button" class="ghost" onclick={() => remove(entry.character)} aria-label={m['creator.credits_remove']()}><CloseIcon /></button>
 							{/if}
 						</span>
 					</li>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 	import type { CreditPerson } from '@scutoons/content';
 	import { searchPeople } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -84,7 +84,7 @@
 			{onkeydown}
 			data-testid="{testid}-input"
 		/>
-		<button type="button" class="ghost" onclick={() => (open = false)} aria-label="Close"><Icon name="x" /></button>
+		<button type="button" class="ghost" onclick={() => (open = false)} aria-label="Close"><CloseIcon /></button>
 		<ul id="{uid}-list" role="listbox">
 			{#each options as option, i (option.person?.id ?? 'create')}
 				<li id="{uid}-{i}" role="option" aria-selected={i === active} class:active={i === active}>

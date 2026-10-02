@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { ActionBar, Icon } from '@scutoons/ui';
+	import { ActionBar, CloseIcon } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
@@ -254,7 +254,7 @@
 				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
 			</div>
 		{/if}
-		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><Icon name="x" /></button></div>{/if}
+		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button></div>{/if}
 		<main class="content">
 			{@render children()}
 		</main>

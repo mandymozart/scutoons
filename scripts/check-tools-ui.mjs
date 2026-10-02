@@ -11,7 +11,10 @@
 //                                                 input, .sc-button, .sc-icon-button, .sc-control, .sc-chip-control,
 //                                                 [role=button]) that bypasses --control-height, in the tools AND the
 //                                                 viewer / shop / shared CSS (a line carrying `control-ok` + the reason
-//                                                 is exempt; class-named buttons are left to the browser run)
+//                                                 is exempt; class-named buttons are left to the browser run);
+//                                                 close cross (owner 2026-10-02): no × ✕ ✖ glyph as a button's / link's
+//                                                 content and no Feather "x" in any app's markup – the one drawn
+//                                                 CloseIcon / CloseButton of @scutoons/ui (`close-ok` exempts a line)
 //   node scripts/check-tools-ui.mjs               + the pages in headless Chrome (dev servers from `npm run dev`, the
 //                                                 test user's session from `npm run dev:test-user`):
 //                                                 - 1440 px, fine pointer: no visible text under the caption size
@@ -120,6 +123,16 @@ for (const file of [...new Set(CONTROL_DIRS.flatMap(walk))]) {
 		scanControls(css, name, (at) => { const n = css.slice(0, at).split('\n').length; return { local: n, abs: text.slice(0, start).split('\n').length + n - 1 }; });
 	}
 }
+// close cross (owner 2026-10-02, DESIGN.md "Close cross"): every close / remove cross is the one drawn CloseIcon
+// (@scutoons/ui) – no font glyph (× ✕ ✖ &times;) as a control's content, no Feather "x" (a line with `close-ok` is exempt)
+const crosses = [];
+const GLYPH_CROSS = /<Icon\b[^>]*\bname=["']x["']|<(button|a|Button)\b[^>]*>\s*(×|✕|✖|&times;)|\s(×|✕|✖|&times;)\s*<\/(button|a|Button)>|>(×|✕|✖|&times;)<\/(button|a|Button)>/;
+for (const file of [...new Set(CONTROL_DIRS.flatMap(walk))].filter((f) => f.endsWith('.svelte'))) {
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	readFileSync(file, 'utf8').replace(/<style[^>]*>[\s\S]*?<\/style>/g, (m) => m.replace(/[^\n]/g, ' ')).split('\n').forEach((line, i) => {
+		if (GLYPH_CROSS.test(line) && !/close-ok/.test(line)) crosses.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
+	});
+}
 const BOLD_CSS = /font-weight:\s*(?:[6-9]00|bold|bolder|var\(--font-weight-bold\))/;
 const BOLD_TAG = /<b[\s>]|<strong(?![^>]*\bsc-emphasis\b)[\s>]/;
 for (const file of DIRS.flatMap(walk)) {
@@ -145,9 +158,11 @@ for (const file of DIRS.flatMap(walk)) {
 if (problems.length) console.error(`tools CSS: ${problems.length} font sizes outside the type scale (use --type-* tokens; DESIGN.md "Brutalist tools"):\n  ${problems.join('\n  ')}`);
 if (bolds.length) console.error(`tools: ${bolds.length} bold (owner 2026-10-02 "only use bold very rarely": regular weight; only the page title h1 and <strong class="sc-emphasis"> are bold; DESIGN.md "Brutalist tools"):\n  ${bolds.join('\n  ')}`);
 if (heights.length) console.error(`controls: ${heights.length} heights / vertical paddings that bypass --control-height (owner 2026-10-02: every single-line control is exactly --control-height; padding-block 0, the height from the token; DESIGN.md "One control height"; a line with \`control-ok\` + the reason is exempt):\n  ${heights.join('\n  ')}`);
-if ((problems.length || bolds.length || heights.length) && !flag('--browser-only')) process.exit(1);
+if (crosses.length) console.error(`close crosses: ${crosses.length} font glyphs / Feather "x" (owner 2026-10-02: one drawn cross, @scutoons/ui CloseIcon / CloseButton, as high as the headline, 2px – 1px on thin-line UI; DESIGN.md "Close cross"; a line with \`close-ok\` + the reason is exempt):\n  ${crosses.join('\n  ')}`);
+if ((problems.length || bolds.length || heights.length || crosses.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
+console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

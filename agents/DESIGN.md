@@ -496,6 +496,7 @@ Translators switch back and forth to copy, adapt and review originals, and there
   (`<Icon name="zoom-in" />`, names: feathericons.com). No other icon sets, no inline copies; if a Feather icon is
   missing, add the SVG to the shared library (`shared/ui`), never into an app.
 - **Icons where a word makes no sense** (map tools, zoom, close, drag handle, play/pause); **text where a word is clearer**.
+  The close / remove cross is the exception to Feather: the one drawn `CloseIcon` (see "Close cross").
   An icon-only control always has an accessible name (`label` / `aria-label`) and a tooltip.
 - Brutalist defaults: stroke 2.5, square caps, `currentColor`, 1.25em (scales with the fluid root type).
 - The brand's own hand-drawn icons (viewer: chapter, map, inventory, account …) stay as they are.
@@ -586,7 +587,7 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
   page in the pager. Pager links and menu triggers otherwise look like secondary buttons. Hover on lists = a 2px ink frame inside the row.
 - Checkboxes / radios 1.25rem, `accent-color: ink`. fieldset = 2px ink frame, legend = the tool label.
   details/summary = a regular uppercase label row (`--control-height`).
-- **Icons:** Feather via `Icon` (see "Icons"): close (x), menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
+- **Icons:** Feather via `Icon` (see "Icons"; the close cross is NOT Feather, see "Close cross"): menu, chevrons for prev/next, rotate-ccw/cw for undo/redo,
   arrow-up/down for reorder, plus, info, search, sort arrows; icon-only controls carry `aria-label` + `title`.
 
 **Room.**
@@ -652,3 +653,31 @@ single-line control exactly `--control-height` ("One control height" below).
   single-line control on every tool page **and the viewer's main pages** (home, toon page, chapter, account, inventory,
   events, download) at 1440 px (fine pointer) and 390 px (touch) and fails when one differs from the computed
   `--control-height` by more than 1px.
+
+## Close cross (owner rule, 2026-10-02) – every app
+
+> Owner (2026-10-02, screenshot of the reader map's place card "Kloster" with a × at the top right): "Same height as the
+> headline and same width. Crosses across the app for closing inside dialogs should be 2 px wide – that is the width of
+> the boxes' borders – or 1 px, to match the font width of IBM Plex Mono."
+
+- **One drawn icon** for every close / dismiss / remove cross – dialogs, sheets, drawers, cards, info panels, split-view
+  details, overlays (map, menu, camera HUD), toasts, notices, pickers, the × of interactive chips and the remove × of list
+  rows – in the viewer, creator, admin, embassy, shop and `@scutoons/auth`: **`CloseIcon`** from `@scutoons/ui` (the
+  viewer imports it from there too). Two straight lines corner to corner, **square** (width = height).
+- **Height = the headline's**: the cross is as high as the capitals of the headline (or text) it sits next to – the cap
+  height of IBM Plex Mono, 0.698 × that text's font-size. `size` = that font-size (default `--type-label-size` 1rem, the
+  sheet / panel / card titles), e.g. 1rem headline → a 0.698rem cross (11.2 · 16.75 px at the 16 · 24 px root).
+- **Stroke 2px** (`stroke={2}`, the default) = the boxes' 2px border (`--border-width-regular`); **1px** (`stroke={1}`)
+  only where the cross sits on thin-line UI – the camera HUD's 1px lines. The stroke stays 2 / 1 CSS px at every size
+  (`vector-effect: non-scaling-stroke`); ends are cut square by the icon box.
+- **No font glyphs** (× ✕ ✖ `&times;`) as a control's content and **no Feather `x`** (its stroke 2.5 and 24-grid inset
+  make a different, smaller cross).
+- **The clickable area is the control, not the icon**: `CloseButton` (`@scutoons/ui`: a frameless `--control-height`
+  square, ≥ 44px on touch, border-muted frame on hover, `label` → aria-label + title) or the app's own
+  `--control-height` button (creator `ghost` row buttons, the viewer's round 2px icon toggles, the camera HUD's framed
+  square, a `.sc-chip-control`). The icon is centred in it, and the control's centre sits on the headline line's centre
+  (header rows `align-items: center`; the map card positions its absolute close from the title line: card padding + half
+  the line − half the control).
+- Exempt: none so far. A real need for a glyph (e.g. "3 × item" counts, sizes "390 × 625") is text, not a cross.
+- **Check:** `npm run check:tools-css` (part of `npm run check`) fails on a × ✕ ✖ `&times;` glyph as the content of a
+  button / link / `Button`, and on `<Icon name="x">`, in the markup of every app (`close-ok` + the reason exempts a line).

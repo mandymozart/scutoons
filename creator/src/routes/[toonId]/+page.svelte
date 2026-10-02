@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { ActionBar, Icon, ToonAvatar } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon, ToonAvatar } from '@scutoons/ui';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { m } from '$lib/paraglide/messages.js';
@@ -359,7 +359,7 @@
 									<li class="sc-chip-control" data-testid="language-{l}">
 										{languageLabel(l)}
 										<button class="ghost" title={m['creator.make_source']({ locale: l })} onclick={() => setSource(l)}>★</button>
-										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><Icon name="x" /></button>
+										<button class="ghost" title={m['creator.remove_language']({ locale: l })} onclick={() => removeTarget(l)} data-testid="remove-language-{l}" aria-label={m['creator.remove_language']({ locale: l })}><CloseIcon /></button>
 									</li>
 								{:else}
 									<li class="hint">{m['creator.no_target_languages']()}</li>

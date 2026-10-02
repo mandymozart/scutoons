@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { CloseIcon } from '@scutoons/ui';
 	import { setLocale, localizeHref, locales, getLocale } from '$lib/paraglide/runtime.js';
 	import { onMount, tick } from 'svelte';
 	import { loadStockists } from '$lib/stockists.ts';
@@ -150,7 +151,7 @@
 					</ul>
 				</nav>
 				<button type="button" class="menu-close" onclick={() => (closeMenu(), toggleElement?.focus())} aria-label={m['menu.close']()} data-testid="menu-close">
-					<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 3l10 10M13 3L3 13" fill="none" stroke="currentColor" stroke-width="2" /></svg>
+					<CloseIcon size="1rem" />
 				</button>
 			</div>
 		</div>
@@ -368,10 +369,6 @@
 	.menu-close:hover {
 		color: black;
 		border-color: black;
-	}
-	.menu-close svg {
-		width: 1rem;
-		height: 1rem;
 	}
 	.nav.nav--account .nav-list {
 		display: flex;

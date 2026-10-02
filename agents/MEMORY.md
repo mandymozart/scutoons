@@ -1736,3 +1736,20 @@ character, persona, look and mood and doubles as the VN test bed.
   products map that may be empty must be encoded as an object (`(object)`), PHP's `[]` would be a JSON list. Bash heredocs
   with mixed quotes broke again: write generator scripts as files.
 
+
+## Close cross (2026-10-02, branch `platform`)
+
+- Owner (screenshot of the map card "Kloster"): the close × as high as the headline, square, 2px like the box borders
+  (or 1px like Plex Mono's strokes). Rule: DESIGN.md "Close cross". One drawn icon `CloseIcon` + the control
+  `CloseButton` in `@scutoons/ui` (`shared/ui/src/close-icon.svelte`, `close-button.svelte`); the viewer imports them
+  from `@scutoons/ui` as well (it already took `Field` from there, through `@scutoons/auth`'s dependency).
+- Geometry: the svg box = 0.698 × `size` (IBM Plex Mono cap height), lines corner to corner, `vector-effect:
+  non-scaling-stroke` keeps 2 / 1 CSS px. Measured: 16.75 px at the 24 px root next to a 24 px title, 9.77 px at 14 px –
+  centre on the title's centre (Sheet, InfoPanel, map card).
+- Replaced: @scutoons/ui Sheet, InfoPanel, SplitView, ToastStack (CloseButton); every creator Feather `x` (pickers,
+  history / problems panels, notices, list / chip / row removes, 25 files) and the two "clear testo" ✕; admin filter
+  chips (claims, emails, events) and the homepage featured remove; viewer map close + place card, menu, claim sheet,
+  audio player, camera HUD (`stroke={1}`). The command palette, embassy, shop and auth had no cross of their own (they
+  use Sheet / SplitView / toasts).
+- Guard: `check:tools-css` flags × ✕ ✖ `&times;` as a button / link content and `<Icon name="x">` in every app's markup
+  (`close-ok` exempts a line).

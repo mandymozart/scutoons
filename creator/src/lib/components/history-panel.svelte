@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon } from '@scutoons/ui';
 	import { listVersions, publishVersion, restoreVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -73,7 +73,7 @@
 <div class="history" data-testid="history-panel">
 	<header>
 		<h2>{m['creator.history']()} · {fileLabel(doc.entity)}</h2>
-		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close"><Icon name="x" /></button>{/if}
+		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close"><CloseIcon /></button>{/if}
 	</header>
 	{#if error}<p class="error">{error}</p>{/if}
 	{#each doc.locales as l (l)}

@@ -16,7 +16,7 @@
 
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ItemDef } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -83,7 +83,7 @@
 				{#if !loading && !item}<span class="hint">{m['creator.related_items_unknown']()}</span>{/if}
 				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
 				<button type="button" class="ghost" disabled={i === list.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
-				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.related_items_remove']({ name })} title={m['creator.related_items_remove']({ name })}><Icon name="x" /></button>
+				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.related_items_remove']({ name })} title={m['creator.related_items_remove']({ name })}><CloseIcon /></button>
 			</li>
 		{:else}
 			<li class="hint">{m['creator.related_items_empty']()}</li>
