@@ -211,6 +211,10 @@
 		padding: 0;
 		list-style: none;
 	}
+	/* a long product name wraps; the checkbox keeps its size */
+	.product input {
+		flex: none;
+	}
 	.product img {
 		width: 2.5rem;
 		height: 2.5rem;
