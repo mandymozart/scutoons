@@ -4,6 +4,10 @@ Versions: `package.json` `version`; every build writes `version.json` (deploy/RE
 
 ## Unreleased
 
+- Claims (2026-10-02, agents/ITEMS.md "Ownership, claims, gifting"): `/claims` list (open count in the sidebar) and
+  `/claims/[id]` (statement, claimant, owner at filing / now, certificate check, evidence, history; transfer / reject with
+  a required note); the code page shows the ownership history and "Transfer ownership".
+
 - Emails (nav group System): `/emails` sent-mail log (filters, pager, URL-driven), `/emails/templates` every email
   rendered de/en with sample values + the admin notification recipients.
 
