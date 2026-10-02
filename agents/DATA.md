@@ -320,7 +320,7 @@ baked into an image is extracted into text and rendered by the UI in the reader'
 lettering? }`, `Toon.cover` optional now; schema `toon-index.schema.json`; a `cover` left in `toon-settings` is the usual
 "belongs to the toon entry" warning). The library merges it like the other neutral fields (the entry wins; older data
 without it in the entry keeps each language's cover – `LibraryTest::testCoverFromOlderToonSettings`).
-- **Lettering model:** the artwork carries no text; `cover.lettering: true` = the UI sets the title over it: the toon's name
+- **Lettering model** (a layout since 2026-10-02, "Cover lettering layout" below): the artwork carries no text; `cover.lettering: true` = the UI sets the title over it: the toon's name
   (toon settings `title`) small on top, the season's title (season `title`) big in quotes beneath – `CoverArt` in
   `@scutoons/reader` (`cover/cover-art.svelte`): Bangers (`--font-lettering`), white fill, a heavy ink outline under the fill
   (`-webkit-text-stroke` + `paint-order`), a hard ink shadow, tilted −5° / skewed −4° like the hand-lettered catpope cover,
@@ -349,6 +349,41 @@ without it in the entry keeps each language's cover – `LibraryTest::testCoverF
   bundles, which lost only their non-existent `cover`. Seed SQL: only the 8 changed statements (`toon:catpope`, 6
   `toon-settings`, `asset-requests`; the old rows keep their timestamps), `characters-seed.mysql.sql`'s `asset-requests`
   statement equals it. Idempotent per key: a database that has these keys needs the new versions imported separately.
+
+**Cover lettering layout (2026-10-02, owner: "a season cover image editor view for multi-language support").** The
+boolean grew into a language-neutral layout, edited in the creator's cover editor (`/<toon>/cover`, DESIGN.md "Creator:
+cover editor"):
+- `Cover.lettering`: absent / `false` = the image as it is · `true` = **the default layout** (unchanged meaning; now drawn by
+  the same line renderer, `defaultCoverLines`) · `{ square?: CoverLine[], portrait?: CoverLine[] }` = a layout per format
+  (a format without lines → the default layout, `[]` → no lettering on that format). Types + helpers: `@scutoons/content`
+  `cover.ts` (`COVER_*`, `coverLetteringOn`, `coverLines`, `coverLineText`, `defaultCoverLines`, `estimateCoverFit`).
+- `CoverLine { text: 'toon' | 'season' | 'custom', custom?: { <locale>: text }, quotes?, x, y, size, maxWidth, rotate?, skew?,
+  align?, color?, outline? }`: x / y = the centre of the line's box in % of the cover's width / height; `size` = font size in
+  % of the cover's width (cqw); `maxWidth` = the box in % of the width; colours from the palette only (`COVER_COLORS`: paper,
+  ink, cyan, purple, green, red = the design system's tokens; default paper fill, ink outline + shadow). **No text is baked
+  into the layout:** `toon` = toon settings `title`, `season` = season `title` (per language), `custom` = the line's own text
+  per language (a missing translation shows the first text there is; the validation warns per toon language).
+- **Fit:** every line shrinks to its box in each language (`CoverArt` measures the real width; `estimateCoverFit` before
+  that, ≈ 0.5 em per character); below 35 % it wraps inside the box. Checked with de / en / ko (sandbox): long German
+  titles shrink, short ones keep their size.
+- **Validation** (`checkCover` / `checkCoverLine`): an unknown text source, numbers outside `COVER_LIMITS`, non-palette
+  colours, a bad `align` = errors; lines without the format's image, unknown formats, missing custom translations, `custom`
+  on a title line = warnings. `lettering: true` stays valid. Schemas regenerated (`toon-index`, `season`); the server stores
+  the object as it is (no PHP change).
+- **Square only in the UI:** the reader shows `cover.square` only (toon page; the desktop hero uses the bare art); nothing
+  reads `cover.portrait` (owner 2026-10-02: "portrait I think we are not using"). The type keeps `portrait` optional and
+  the layout per format; the editor edits `square`.
+- **Which cover:** the editor edits the cover the reader shows – the toon entry's (`toon:<toon>` → `cover`). `season.cover`
+  is still unused by the reader; `CoverEditor` takes any doc + path (`setShared`), so a season cover editor is the same
+  component on the season doc once seasons get their own cover (owner question below). The season editor keeps its two
+  path fields.
+- **catpope** stays as it is (lettering off, the baked German cover) until the owner switches it on with the text-free art
+  (`images/s1-cover-square-textless.webp`, delivered 2026-10-02, upload with `cdn/sync.py`): cover editor → "Art" → choose
+  it, "Default" (or an own layout), Save draft, Publish. The default layout sits where the hand lettering was (the toon's
+  name at y 19 %, the season's title at y 31 %).
+- Open (owner): season vs toon cover (one cover per toon today; per season later = `season.cover` + the same editor on the
+  season page, and the reader choosing the current season's); text sources (toon / season / own text – "Staffel 1" is an
+  own text per language; no number source: keep the configuration small); palette colours only (6) or more.
 
 **Validation: locale segments in media paths.** `mediaLocaleSegment` / `mediaPathsWithLocale` (`@scutoons/content`
 `media.ts`): any media path (image, video, audio extension) with a locale folder (`de/`, `en-US/` …) or a locale suffix

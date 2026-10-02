@@ -1697,3 +1697,24 @@ character, persona, look and mood and doubles as the VN test bed.
 - Gotchas: guests cannot read chapter 2 locally without a code (draft) – the browser check ran as the test user only
   (headless CDP script like check-testo, from the scratchpad); a guest's crafted record player is split back into the
   broken player + coupon at sign-in (`importGuest`), both story-grantable, so nothing is lost.
+
+## Cover editor: lettering layouts (2026-10-02, branch `cover-editor`)
+
+- Owner (asked twice): "a season cover image editor view for multi-language support, because right now the cover needs to
+  be uploaded individually". Built: `Cover.lettering` = `true` (the default layout) or `{ square?: lines, portrait?: lines }`
+  (`@scutoons/content` `cover.ts`; validation `checkCoverLine`; schemas), `CoverArt` draws the lines and shrinks each into
+  its box per language, creator `/<toon>/cover` (`components/cover/cover-editor.svelte` + `cover-page.svelte`). Spec:
+  DATA.md "Cover lettering layout", DESIGN.md "Creator: cover editor". Check: `npm run check:creator-cover` (36 checks:
+  sandbox de / en / ko, drag, handles, an own line per language, save, publish → the reader's toon page at 390 px de / en,
+  restore).
+- Decisions: the editor edits the toon entry's cover (the one the reader shows); square only (owner: portrait unused);
+  `true` keeps its meaning but is now drawn by the line renderer (`defaultCoverLines`, positions where the hand lettering
+  sat on the catpope art: y 19 % / 31 %) – nothing in the seed used `true`, so readers see no change. catpope stays
+  lettering-off until the owner switches it in the editor with `images/s1-cover-square-textless.webp` (delivered
+  2026-10-02 into the main checkout's `cdn/root`; not in git, upload with `cdn/sync.py`).
+- Gotchas: a Svelte 5 action's `update` can run before the text node of the same flush is updated → `CoverArt` measures
+  in a microtask (else a line keeps the previous text's fit). `textLanguage` is read once at load: a check sets
+  `scutoons_creator_text_language` before navigating. A viewer URL without a locale prefix follows the browser language
+  (headless = en): checks use `/de/<toon>`. `check-toon-hero` failed 2 checks once on a cold dev server, 79/79 on the rerun.
+- Open owner questions: season vs toon cover; text sources (toon / season / own text; no "season number" source – an own
+  text per language covers "Staffel 1"); palette colours only.

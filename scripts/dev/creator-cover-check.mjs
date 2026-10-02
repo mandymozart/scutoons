@@ -197,7 +197,12 @@ try {
 	await send('Page.navigate', { url: `${CREATOR}/` });
 	await until('document.readyState === "complete"');
 	await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)}); localStorage.setItem('scutoons_creator_text_language', 'all')`);
-	await send('Page.navigate', { url: `${CREATOR}/${TOON}/cover` });
+	// the toon settings link to the editor (the state of the lettering instead of the old checkbox)
+	await send('Page.navigate', { url: `${CREATOR}/${TOON}/toon` });
+	check(await until(`/Off|Aus/.test(${q('toon-cover-lettering')}?.innerText ?? '')`), 'toon settings: "Lettering: Off" + the link to the cover editor');
+	await shot('0-toon-settings');
+	await click('[data-testid="toon-cover-editor"]');
+	check(await until(`location.pathname === '/${TOON}/cover'`), 'the link opens /<toon>/cover');
 	check(await until(`!!${q('cover-stage')} && ${q('cover-stage')}.querySelector('img')?.complete && ${q('cover-stage')}.querySelector('img')?.naturalWidth > 0`), 'the cover page shows the art');
 	check(await js(`!!document.querySelector('[data-testid="nav-cover"][aria-current="page"]')`), 'the sidebar marks "Cover"');
 
