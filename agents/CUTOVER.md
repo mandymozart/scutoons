@@ -44,7 +44,7 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 | KAS target dir `cdn.scutoons.com` (old CDN folder) | `/cdn.scutoons.com/` (per its FTP user; confirm) |
 | Old DB tables (expected: `qr` only, maybe `schema_migrations`) | |
 | Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | |
-| New root folder + FTP user | `/scutoons-next/`, user \"github actions next\" (2.1) |
+| New root folder + FTP user | `/scutoons-next/`, user "github actions next" (2.1) |
 | Test hostnames (proposal `next.scutoons.com` = viewer, `qr-next.scutoons.com` = qr) | |
 | DB labels: **DB-T** (test build) / **DB-P** (switch-day build, only if needed – Phase 7) | |
 
