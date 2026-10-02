@@ -34,7 +34,9 @@ export function knownCommit(sha) {
 	}
 }
 
-/** Does a changed path fall under one of the target's `watch` patterns ("dir/**" or an exact file)? */
+/** Does a changed path fall under the target's `watch` patterns ("dir/**" or an exact file; "!…" excludes)? */
 export function watched(target, path) {
-	return (target.watch ?? []).some((pattern) => (pattern.endsWith('/**') ? path.startsWith(pattern.slice(0, -2)) : path === pattern));
+	const match = (pattern) => (pattern.endsWith('/**') ? path.startsWith(pattern.slice(0, -2)) : path === pattern);
+	const patterns = target.watch ?? [];
+	return patterns.some((p) => !p.startsWith('!') && match(p)) && !patterns.some((p) => p.startsWith('!') && match(p.slice(1)));
 }

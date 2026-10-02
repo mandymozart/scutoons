@@ -1,6 +1,6 @@
 {
   "$comment": "Where every app is deployed – the ONE place for it (agents/PLATFORM.md 'Hosting layout & deployment'). Read by deploy/deploy.mjs, used by every workflow via .github/actions/deploy. Docs: deploy/README.md.",
-  "$status_comment": "status = the URL answering with the live git_sha (version.json / API health); watch = the paths whose change needs a redeploy of that target. Both used by deploy/changed.mjs (what the Deploy workflow uploads) and npm run deploy:status. qr status moves to qr.scutoons.com and viewer to scutoons.com at the cutover switch (agents/CUTOVER.md).",
+  "$status_comment": "status = the URL answering with the live git_sha (version.json / API health); watch = the paths whose change needs a redeploy of that target (\"!…\" excludes: the content seed is DB data, no app bundles it). Both used by deploy/changed.mjs (what the Deploy workflow uploads) and npm run deploy:status. qr status moves to qr.scutoons.com and viewer to scutoons.com at the cutover switch (agents/CUTOVER.md).",
   "$order_comment": "embassy is held back until its go-live (no subdomain on all-inkl yet; owner 2026-10-01): add it to order then, see agents/EMBASSY.md",
   "order": ["api", "qr", "viewer", "shop", "creator", "admin"],
   "protocols": {
@@ -92,7 +92,7 @@
     "viewer": {
       "description": "viewer/ → scutoons.com, www.scutoons.com (static)",
       "status": "https://next.scutoons.com/version.json",
-      "watch": ["viewer/**", "shared/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
+      "watch": ["viewer/**", "shared/**", "!shared/content/seed/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
       "source": "viewer",
       "setup": ["npm"],
       "protocol": "ftp",
@@ -108,7 +108,7 @@
     "shop": {
       "description": "shop/ → shop.scutoons.com (static)",
       "status": "https://shop.scutoons.com/version.json",
-      "watch": ["shop/**", "shared/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
+      "watch": ["shop/**", "shared/**", "!shared/content/seed/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
       "source": "shop",
       "setup": ["npm"],
       "protocol": "ftp",
@@ -124,7 +124,7 @@
     "creator": {
       "description": "creator/ → creator.scutoons.com (static)",
       "status": "https://creator.scutoons.com/version.json",
-      "watch": ["creator/**", "shared/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
+      "watch": ["creator/**", "shared/**", "!shared/content/seed/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
       "source": "creator",
       "setup": ["npm"],
       "protocol": "ftp",
@@ -140,7 +140,7 @@
     "admin": {
       "description": "admin/ → admin.scutoons.com (static)",
       "status": "https://admin.scutoons.com/version.json",
-      "watch": ["admin/**", "shared/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
+      "watch": ["admin/**", "shared/**", "!shared/content/seed/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
       "source": "admin",
       "setup": ["npm"],
       "protocol": "ftp",
@@ -156,7 +156,7 @@
     "embassy": {
       "description": "embassy/ → embassy.scutoons.com (static; the partner network, roles liaison / ambassador)",
       "status": "https://embassy.scutoons.com/version.json",
-      "watch": ["embassy/**", "shared/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
+      "watch": ["embassy/**", "shared/**", "!shared/content/seed/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
       "source": "embassy",
       "setup": ["npm"],
       "protocol": "ftp",

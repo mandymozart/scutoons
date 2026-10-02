@@ -26,7 +26,7 @@ the root [`.env.example`](../.env.example).
 |---|---|
 | `order` | deploy order (api → qr → frontends); only these are deployed automatically |
 | `targets.<app>.status` | URL answering with the live `git_sha` (version.json / API health) – `deploy/changed.mjs`, `npm run deploy:status` |
-| `watch` | paths whose change needs a redeploy of the target (`dir/**` or a file) |
+| `watch` | paths whose change needs a redeploy of the target (`dir/**` or a file; `!pattern` excludes, e.g. the content seed) |
 | `protocols.<p>.credentials` | environment variable names of the host credentials (`ftp`: `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD`) |
 | `targets.<app>.source` | the app folder in the repo |
 | `setup` | what CI installs first: `npm` (npm ci), `php` (PHP 8.3 + Composer) |
