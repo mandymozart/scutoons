@@ -470,9 +470,14 @@ export interface Supporter {
  * and "Trailer ansehen" / "Ton an" open the trailer chapter (the prologue) with sound. Language-neutral like `download`.
  */
 export interface SeasonTrailer {
-	/** CDN path of the muted background loop (H.264 MP4, no audio track needed); the default after `sources` */
+	/** CDN path of the muted background loop (H.264 MP4, no audio track needed); the default file */
 	loop: string;
-	/** other encodings of the loop, tried first in this order (e.g. 1920 px for `(min-width: 1600px)`) */
+	/**
+	 * Other encodings of the loop per media quality, like slice videos (owner 2026-10-02: no media queries to type) –
+	 * the reader's quality setting picks one (`pickQualityVariant`), `loop` when none fits.
+	 */
+	variants?: QualityVariants;
+	/** @deprecated older data: encodings with a media query – still played when there are no `variants` */
 	sources?: SliceVideoSource[];
 	/** CDN path of the poster image (shown before the loop plays and with reduced motion) */
 	poster: string;

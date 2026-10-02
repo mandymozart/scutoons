@@ -124,8 +124,8 @@
 			<div class="grid g2">
 				<SharedField doc={season} path={['trailer', 'loop']} label="trailer.loop" placeholder="videos/s1-trailer-loop.1280w.mp4" testid="trailer-loop" />
 				<SharedField doc={season} path={['trailer', 'poster']} label="trailer.poster" kind="image" {toon} known={images} testid="trailer-poster" />
-				<SharedField doc={season} path={['trailer', 'sources', 0, 'src']} label="trailer.sources[0].src" placeholder="videos/s1-trailer-loop.1920w.mp4" />
-				<SharedField doc={season} path={['trailer', 'sources', 0, 'media']} label="trailer.sources[0].media" placeholder="(min-width: 1600px)" />
+				<!-- the bigger encoding as the "high" (1080p) quality variant – the reader's quality setting picks it, no media query -->
+				<SharedField doc={season} path={['trailer', 'variants', 'high']} label="trailer · 1080p" placeholder="videos/s1-trailer-loop.1920w.mp4" testid="trailer-high" />
 				<SharedField doc={season} path={['trailer', 'chapter']} label="trailer.chapter" kind="number" placeholder="0" />
 			</div>
 		</section>

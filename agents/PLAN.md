@@ -239,6 +239,12 @@ A chapter exists only as an entry in a season's `sequence` (per locale) plus its
 season: the creator creates season 1 first on a toon without one; stray chapter files get attached to a season or are
 flagged as errors by the validation. The season entry is also the single source of chapter visibility (status).
 
+## Release plan update (2026-10-02, owner – supersedes the date semantics below)
+
+**Sunday 2026-10-04 is a SOFT release: an internal group beta test.** The public release follows about a week later,
+after the beta's issues are fixed. Work the owner wants "before the release" (e.g. the asset manager on branch `assets`)
+targets the public release, and can land during the beta week.
+
 ## Release 2026-10-04 — `platform` + `anger` together (owner decision 2026-09-30)
 
 `anger` is fully contained in `platform` (checked: no commits on `anger` missing from `platform`; the old qr repo's

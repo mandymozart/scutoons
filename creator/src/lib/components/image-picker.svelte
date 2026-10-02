@@ -9,6 +9,7 @@
 		known = [],
 		onchange,
 		label = 'image',
+		hideLabel = false,
 		showFormat = false
 	}: {
 		toon: string;
@@ -16,6 +17,8 @@
 		known?: string[];
 		onchange: (path: string) => void;
 		label?: string;
+		/** the label only for screen readers – when the surrounding field already shows it (owner 2026-10-02: "LOGO" twice) */
+		hideLabel?: boolean;
 		showFormat?: boolean;
 	} = $props();
 
@@ -43,7 +46,7 @@
 
 <div class="picker">
 	<label>
-		<span class="lbl">{label}</span>
+		<span class="lbl" class:sr-only={hideLabel}>{label}</span>
 		<input
 			type="text"
 			list={listId}
@@ -162,6 +165,15 @@
 	.thumb span {
 		overflow: hidden;
 		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
+		overflow: hidden;
+		clip: rect(0 0 0 0);
 		white-space: nowrap;
 	}
 </style>

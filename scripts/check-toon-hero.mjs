@@ -135,7 +135,10 @@ async function desktop(width, height, locale) {
 	await open(`${viewer}${prefix}/${toon}`, locale);
 	let s = await waitFor(`(() => { const s = ${HERO}; return s.video && !s.video.paused && s.video.time > 0.3 ? s : null; })()`, 15000);
 	if (!s || s.error) s = await evaluate(HERO);
-	const wantLoop = width >= 1600 ? (trailer.sources?.[0]?.src ?? trailer.loop) : trailer.loop;
+	// the account's media quality picks the encoding (owner 2026-10-02: no resolution switching); the check's fresh guest = Automatic → the loop
+	const wantLoop = trailer.variants ? trailer.loop : width >= 1600 ? (trailer.sources?.[0]?.src ?? trailer.loop) : trailer.loop;
+	// with quality variants any one of the trailer's files is right (the reader's quality picks it)
+	const okLoop = (file) => file === wantLoop || Object.values(trailer.variants ?? {}).includes(file);
 	{
 		const p = [];
 		if (!s.hero) p.push('no hero');
@@ -144,10 +147,10 @@ async function desktop(width, height, locale) {
 		else {
 			if (!s.video.muted || !s.video.loop || !s.video.playsinline) p.push(`video ${JSON.stringify(s.video)}`);
 			if (s.video.paused) p.push('the loop does not play');
-			if (s.video.src !== wantLoop) p.push(`plays ${s.video.src}, expected ${wantLoop}`);
+			if (!okLoop(s.video.src)) p.push(`plays ${s.video.src}, expected ${wantLoop}`);
 		}
 		const files = [...new Set(videoUrls)];
-		if (files.length !== 1 || files[0] !== wantLoop) p.push(`network loaded ${files.join(', ') || 'no video'}, expected only ${wantLoop}`);
+		if (files.length !== 1 || !okLoop(files[0])) p.push(`network loaded ${files.join(', ') || 'no video'}, expected only ${wantLoop}`);
 		report('hero = first screen, the loop autoplays muted + loops, one loop file on the network', p, `${JSON.stringify(s.hero)} ${s.video?.src}, network ${[...new Set(videoUrls)].join(', ')}`);
 	}
 	{

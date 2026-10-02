@@ -496,12 +496,20 @@ function checkSeason(c: Collector, s: any, locale: string, ctx?: ValidateContext
 		}
 	}
 	if (s.trailer !== undefined) {
-		if (!isObj(s.trailer)) c.error(['trailer'], 'trailer must be { loop, poster, sources?, chapter? }');
+		if (!isObj(s.trailer)) c.error(['trailer'], 'trailer must be { loop, poster, variants?, chapter? }');
 		else {
 			if (!isStr(s.trailer.loop) || !s.trailer.loop) c.error(['trailer', 'loop'], 'trailer.loop is missing (an .mp4 on the CDN)');
 			else if (!/\.(mp4|webm)$/i.test(s.trailer.loop)) c.warn(['trailer', 'loop'], 'trailer.loop is not a video path (.mp4, .webm)');
 			if (s.trailer.poster === undefined || s.trailer.poster === '') c.error(['trailer', 'poster'], 'trailer.poster is missing (an image on the CDN)');
 			else checkImagePath(c, s.trailer.poster, ['trailer', 'poster']);
+			if (s.trailer.variants !== undefined) {
+				if (!isObj(s.trailer.variants)) c.error(['trailer', 'variants'], 'trailer.variants must be { low?, medium?, high? } video paths');
+				else
+					for (const [level, file] of Object.entries(s.trailer.variants)) {
+						if (!isMediaQuality(level)) c.error(['trailer', 'variants', level], `unknown quality "${level}" (low, medium, high)`);
+						else if (!isStr(file) || !/\.(mp4|webm)$/i.test(file)) c.error(['trailer', 'variants', level], 'a variant must be a video path (.mp4, .webm)');
+					}
+			}
 			if (s.trailer.sources !== undefined) {
 				if (!Array.isArray(s.trailer.sources)) c.error(['trailer', 'sources'], 'trailer.sources must be a list of { src, media? }');
 				else
