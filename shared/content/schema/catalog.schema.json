@@ -576,6 +576,10 @@
 						"null"
 					],
 					"description": "CDN-root path of a cover image, optional"
+				},
+				"access": {
+					"$ref": "#/definitions/AlbumAccess",
+					"description": "who may download / listen (per album: one zip and one track list, whichever of its media items someone owns)"
 				}
 			},
 			"required": [
@@ -610,6 +614,27 @@
 				"id",
 				"title",
 				"src"
+			]
+		},
+		"AlbumAccess": {
+			"type": "object",
+			"properties": {
+				"download": {
+					"$ref": "#/definitions/MediaAccess",
+					"description": "who gets the album download (`download`), default `members` (the toon page's music download as before)"
+				},
+				"listen": {
+					"$ref": "#/definitions/MediaAccess",
+					"description": "who may listen in the app, default `owners`; a player for the format is always needed"
+				}
+			}
+		},
+		"MediaAccess": {
+			"type": "string",
+			"enum": [
+				"everyone",
+				"members",
+				"owners"
 			]
 		}
 	}

@@ -82,7 +82,52 @@
         {
           "image": "images/webtoon/s1c2/s1c2-slice-22.webp",
           "width": 390,
-          "height": 625
+          "height": 625,
+          "events": [
+            {
+              "type": "showMessage",
+              "params": {
+                "text": "A record player – for you! It plays the records in your inventory."
+              },
+              "trigger": {
+                "type": "intersect",
+                "once": true
+              }
+            },
+            {
+              "type": "addChoice",
+              "params": {
+                "label": "Take it",
+                "onSelect": {
+                  "add": {
+                    "variable": "record_player",
+                    "value": 1
+                  }
+                }
+              },
+              "trigger": {
+                "type": "intersect",
+                "once": true
+              }
+            },
+            {
+              "type": "addChoice",
+              "params": {
+                "label": "Leave it"
+              },
+              "trigger": {
+                "type": "intersect",
+                "once": true
+              }
+            },
+            {
+              "type": "showChoices",
+              "trigger": {
+                "type": "intersect",
+                "once": true
+              }
+            }
+          ]
         }
       ]
     }

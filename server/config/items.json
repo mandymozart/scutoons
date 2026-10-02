@@ -501,15 +501,15 @@
       "toon": null,
       "name": { "de": "Plattenspieler", "en": "Record player" },
       "description": {
-        "de": "Ein Plattenspieler. Er spielt Schallplatten aus deinem Inventar ab.",
-        "en": "A record player. It plays the records in your inventory."
+        "de": "Ein Plattenspieler. Er spielt die Schallplatten in deinem Inventar ab – du bekommst ihn am Ende der ersten Staffel von Katzenpapst.",
+        "en": "A record player. It plays the records in your inventory – you get it at the end of the first season of Cat Pope."
       },
       "kind": "virtual",
       "category": "tool",
       "icon": "scutoons/items/record_player.png",
       "stackable": false,
       "starter": false,
-      "grantable": [],
+      "grantable": ["story"],
       "slot": null,
       "skills": [],
       "plays": ["vinyl"],
@@ -600,7 +600,8 @@
         { "id": "brass_morton", "title": "Instrumental (Brass Morton)", "src": "catpope/audio/music/s1c1-instrumental-brass-morton.128.mp3" }
       ],
       "download": "catpope/audio/CatPope-Awakening-Music.zip",
-      "cover": "catpope/images/s1-music-vinyl.webp"
+      "cover": "catpope/images/s1-music-vinyl.webp",
+      "access": { "download": "members", "listen": "owners" }
     }
   ],
   "stats": {
