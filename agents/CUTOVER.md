@@ -395,7 +395,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 ## Phase 10 — After the beta (towards the public release, ~a week later)
 
 - [ ] 10.1 Fix the beta's issues on `platform` → `main` (deploys automatically).
-- [ ] 10.1b Right after the assets merge: the 7 bunny keys (`BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`,
+- [x] 10.1b *(done 2026-10-02. Hint: setting secrets with `gh` gave 404 until gh was re-authorised – the fine-grained
+  token did not cover the `scutoons` repo.)* Right after the assets merge: the 7 bunny keys (`BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`,
   `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL`)
   as GitHub `production` secrets for the live asset manager (the merge adds them to `targets.json`); verify in admin →
   Assets → Storage (set / missing per key, no values).
@@ -463,3 +464,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 3.3 + 3.5 done (48 entities, roles, users 0, editions NULL 169 + vinyl 300); migration 17 awaiting the owner's confirmation; 1.3 + 1.4 done. Owner running 1.5 (log cdn/logs/bunny-init-2026-10-02.json), then 1.6, 1.7.
 - 2026-10-02 — migration 17 ran on DB-T (3.2 complete). 1.5 bunny upload running.
 - 2026-10-02 — 1.5, 1.6, 1.7 done (bunny = cdn/root, CORS + Range verified). Open in Phase 1: 1.8. Next: 1.8, then Phase 5.
+- 2026-10-02 — 10.1b done (7 bunny secrets in production). Awaiting confirmation: 2.3 keypair upload, 1.8 write prefix.
