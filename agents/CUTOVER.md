@@ -329,7 +329,7 @@ into the new DB) or one of your own product codes.
   code), Events (the 6.2 scans with different IP hashes – one hash for all = `QR_PROXY_SECRET` differs), Claims (empty),
   Catalog (27 items, Albums), **Emails → set the admin recipients (D6)**, templates render de/en, the log shows 6.3's
   `login_code` as sent; versions of every app.
-- [ ] **6.5 O – next.scutoons.com (viewer):** home, `/catpope`, chapter 0 (video plays; account → Medienqualität
+- [x] **6.5 O – next.scutoons.com (viewer):** *(done 2026-10-02: all but the QR camera on the owner's webcam – never worked there (blurry webcam), test on the phone in Phase 9; credits/download pages work but nothing links to them → 10.12)* home, `/catpope`, chapter 0 (video plays; account → Medienqualität
   works), chapter 1 de + `/en/catpope/chapter/1`, `?code=CODE` unlocks on the device, inventory (basic dress on the
   avatar, testo bar), the camera opens and loads the model, `/catpope/credits`, `/catpope/download`, `/shop` → shop,
   `/stores` → empty state, account page (My claims, media quality, hide sensitive content).
@@ -433,6 +433,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
   500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
   messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
+- [ ] 10.12 Viewer: `/catpope/credits` and `/catpope/download` work but no page links to them (owner 2026-10-02) –
+  give them an entry (toon page / season slot / menu). Also: the QR camera never decoded on the owner's webcam (blurry
+  image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
 - [ ] 10.8 Public release.
 
 ---
