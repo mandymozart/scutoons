@@ -94,7 +94,7 @@
 			}}
 			ondragend={() => (dragFrom = dragOver = null)}
 		>
-			<button type="button" class="thumb" onclick={() => onselect(index)} data-testid="slice-{index}">
+			<button type="button" class="thumb" data-control-exempt="slice thumbnail card" onclick={() => onselect(index)} data-testid="slice-{index}">
 				<span class="no">{index + 1}</span>
 				<img src={asset(`${doc.toon}/${slice?.image}`)} alt="" loading="lazy" draggable="false" />
 				<span class="info">

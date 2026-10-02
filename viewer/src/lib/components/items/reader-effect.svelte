@@ -45,7 +45,7 @@
 		font-size: 0.75rem;
 	}
 	.effect-bar button {
-		padding: 0.25rem 0.75rem;
+		padding: 0 0.75rem;
 	}
 	@media (prefers-reduced-motion: no-preference) {
 		:global(html[data-effect='psychedelic'] [data-slice-index] img) {

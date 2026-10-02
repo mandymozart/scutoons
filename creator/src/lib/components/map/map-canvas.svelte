@@ -294,6 +294,7 @@
 					{/if}
 					<button
 						class="marker"
+						data-control-exempt="map marker on the canvas"
 						data-handle
 						aria-label={mapName(p.name, locale) || p.id}
 						onpointerdown={(e) => startDrag(e, { kind: 'place', id: p.id })}
@@ -316,6 +317,7 @@
 					{@const s = view.toScreen(pt)}
 					<button
 						class="handle"
+						data-control-exempt="canvas resize handle"
 						class:free={!isPlaceWaypoint(w)}
 						data-handle
 						style:transform="translate({s.x}px, {s.y}px)"

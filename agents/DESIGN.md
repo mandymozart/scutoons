@@ -119,9 +119,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     filling the column: no 36em measure, heading bars, text and the logo box span it; phones keep the measure); cols 7–12 the chapter list under a 2px ink rule: rows with 1px `border-subtle`, thumbnail
     112 × 72 (cover), title 0.75rem (+ the progress rule 5.3333rem / the coming-soon line in caption), "#n" / "Prolog"
     right-aligned, coming soon at 50 %. Published rows show no date.
-- **Top-right icon group (all widths, all pages):** the menu button (round 2rem = 48 px at the desktop root, 3-line icon
+- **Top-right icon group (all widths, all pages):** the menu button (round `--control-height` = 52 px at the desktop root, 44 px on touch – "One control height"; 3-line icon
   `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
-  toon pages inventory, map and chapter list follow to its left (3rem / 5.5rem / 8rem from the right). The slide-out's
+  toon pages inventory, map and chapter list follow to its left (each `--control-height` + 0.5rem further left). The slide-out's
   entries all use the `button` type (`--type-button-size` / `--type-button-line`, rem-based; the toon names and
   "Anmelden" were hard 16 px before).
 - **The logo** (top left, all pages) is a link to the localized landing page (`/` · `/en/`, alt "SCUTOONS – Startseite" /
@@ -572,13 +572,14 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 - **Touch minimum only on touch screens** (owner 2026-10-01): one rule in tokens.css, `@media (pointer: coarse)`
   raises `--control-height` to max(44px, 2rem + frame); fields, list rows, nav entries and buttons use it as
   `min-height`, so phones and tablets get ≥ 44px targets while a mouse desktop stays rem-only.
-- Inputs / selects / textareas: 2px ink frame, paper, 1rem, padding `space-025 space-05` (textarea `space-05`),
-  placeholder `text-muted`; disabled = `border-muted` + `text-muted`; invalid = `state-error` frame.
+- Inputs / selects / textareas: 2px ink frame, paper, 1rem, padding `0 space-05` (one control height, see below;
+  textarea `space-05`), placeholder `text-muted`; disabled = `border-muted` + `text-muted`; invalid = `state-error` frame.
 - **Buttons = the viewer's** (owner 2026-10-01, no new invention): primary = ink bg / paper text; secondary (the
   normal one) = paper + 2px `border-muted`, **on hover the outline turns ink**, no inversion on hover; ghost = no frame,
-  `border-muted` frame on hover; disabled = opacity 0.5. Padding as in the viewer `space-1 space-3`; compact
-  `space-05 space-15` where the bars need it (`Button size="sm"`, the creator's plain buttons). Square, 1rem.
-  On phones (< 480px) the ActionBar narrows its buttons to `space-05 space-1` and shows Info as its icon only.
+  `border-muted` frame on hover; disabled = opacity 0.5. Height = `--control-height` (see "One control height"), side
+  padding as in the viewer `space-3`; compact `space-15` where the bars need it (`Button size="sm"`, the creator's
+  plain buttons) – `sm` is narrower, never lower. Square, 1rem.
+  On phones (< 480px) the ActionBar narrows its buttons to `space-1` at the sides and shows Info as its icon only.
 - **Focus = a 3px ink outline** (`--border-width-focus`) 2px outside the frame (`--focus-offset`), everywhere.
 - **Active / selected = inverted** (ink bg, paper text) — only for **toggles, tabs and selected list items**: current
   sidebar entry, open tab, chosen segment, selected list item / table row, pressed / open toggle (Info, More), current
@@ -602,8 +603,52 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 tools' CSS (creator, admin, embassy, `@scutoons/ui`, tools.css; a line with `px-ok` + the reason is exempt, e.g. the
 lettering preview). `npm run check:tools-ui` (dev servers + `npm run dev:test-user`; `SCUTOONS_CREATOR|ADMIN|EMBASSY`
 for other origins): every tool page at 1440 px (fine pointer) and 390 px (touch) – no visible text under the caption
-size (comic lettering exempt), and on touch no button / field / nav entry under 44 px.
+size (comic lettering exempt), and on touch no button / field / nav entry under 44 px; since 2026-10-02 also every
+single-line control exactly `--control-height` ("One control height" below).
 
 **Vocabulary** (`tools.css`): `.sc-label`, `.sc-heading`, `.sc-caption`, `.sc-emphasis`, `.sc-chip` (`is-ink`, `is-live`, `is-off`),
-`.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted). Creator-wide button classes stay
+`.sc-frame`, `.sc-nav-head`, `.sc-nav-item` (`aria-current` / `.is-current` inverted), `.sc-chip-control`, `.sc-control`
+("One control height"). Creator-wide button classes stay
 `.secondary`, `.ghost`, `.active` (creator layout).
+
+## One control height (owner rule, 2026-10-02) – tools AND the viewer
+
+> Owner (2026-10-02, screenshot of the creator toon settings "Languages": the select "de · Deutsch", the chip
+> "en · English ★ ×", the select "Add a translation …" and "+ Add" – all different heights): "There is a general problem
+> across all apps and views: buttons, selects and input fields have varying heights. A general rule should apply for
+> those."
+
+- **Every single-line control is exactly `--control-height`** – in the creator, admin, embassy, shop, the auth forms
+  (`@scutoons/auth`) and the viewer: buttons (also link-buttons `.btn` / `Button href`, icon buttons, the round icon
+  toggles of the viewer's top bar, the palette trigger, the creator's i18n switch, tabs, menu triggers and entries,
+  segmented buttons, close crosses), selects, text / email / number / date / search / url / password inputs, and the
+  **interactive chips** that sit in a row with controls (a removable language, a tag / role / filter chip with ×).
+- `--control-height` (tokens.css) = **2rem + the two 2px frames** (32 · 36 · 52 px at the fluid root 14 · 16 · 24 px);
+  on a coarse pointer `max(44px, …)`. There is **no small variant** and no second token: `Button size="sm"` and the
+  creator's compact buttons only have less side padding.
+- How: `box-sizing: border-box`, the height from the token (`height` on fields, `min-height` on buttons so a label
+  that would wrap is a visible bug, not clipped text), **no vertical padding** (`padding: 0 <side>`), line-height
+  normalised (`--type-button-line` 1 on buttons), the content centred by the box (`<button>` does it natively; links,
+  labels and chips use `inline-flex` + `align-items: center`). The frame is the same 2px everywhere
+  (`--border-width-regular`; a primary button may draw it in its fill colour or leave it out – the height is the same).
+  Everything else keeps its look (colours, frames, weight regular, the viewer's 3rem side padding).
+- Vocabulary (tools.css, global, so the viewer can use them too): `.sc-chip-control` = an interactive chip (2px ink
+  frame, body type, its buttons span the chip's full height over the frame, no frame of their own until hover);
+  `.sc-control` = a custom single-line control (a framed label over an invisible native select, a link that is a
+  button) – zero specificity, it only adds the box. `.sc-chip` stays the **status badge** (caption, filled): badges are
+  not controls and keep the caption size.
+- Labels that don't fit a narrow column stay on one line with an ellipsis and the full text as the tooltip (the
+  chapter editor's "Add group" / "Add separate scene").
+- **Exempt** (not single-line controls): textareas and other multi-line fields, switches (`role="switch"`),
+  checkboxes / radios, cards and tiles that are buttons (slice thumbnails, picture cells, inventory items, avatar slots,
+  item choices, two-line character rows, the chapter navigation cards with kicker + title + picture, the menu's toon
+  rows with their 3rem avatar), map / canvas markers and handles, visual-novel dialogue choices (they may wrap), and
+  comic lettering. In markup an exempt control carries `data-control-exempt="<reason>"`; in CSS a line that sets a
+  height / vertical padding on a control selector carries `control-ok` + the reason.
+- **Check:** `npm run check:tools-css` (static, part of `npm run check`) fails on `height` / `min-height` / vertical
+  `padding` on a control selector (button, `.btn*`, select, input, `.sc-button`, `.sc-icon-button`,
+  `.sc-palette-trigger`, `.sc-control`, `.sc-chip-control`, `[role=button]`) in the CSS of every app that doesn't come
+  from `--control-height`. `npm run check:tools-ui` (headless Chrome, dev servers + test user) measures every visible
+  single-line control on every tool page **and the viewer's main pages** (home, toon page, chapter, account, inventory,
+  events, download) at 1440 px (fine pointer) and 390 px (touch) and fails when one differs from the computed
+  `--control-height` by more than 1px.

@@ -139,10 +139,12 @@
 	}
 	.option {
 		all: unset;
-		display: block;
+		display: flex;
+		align-items: center;
 		width: 100%;
 		box-sizing: border-box;
-		padding: 0.3rem 0.5rem;
+		min-height: var(--control-height);
+		padding: 0 0.5rem;
 		cursor: pointer;
 	}
 	.add {

@@ -269,9 +269,12 @@
 		all: unset;
 		display: inline-flex;
 		align-items: center;
-		min-height: var(--control-height);
+		box-sizing: border-box;
+		height: var(--control-height);
 		cursor: pointer;
 		padding: 0 var(--space-05);
+		line-height: var(--type-button-line);
+		white-space: nowrap;
 	}
 	.chip-x {
 		border-left: var(--border-width-hairline) solid currentColor;

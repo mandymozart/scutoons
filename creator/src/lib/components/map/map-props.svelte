@@ -355,7 +355,7 @@
 				{#if folderFiles?.length}
 					<ul class="grid">
 						{#each folderFiles as f (f)}
-							<li><button type="button" class="thumb" class:current={f === place.image?.src} title={f} onclick={() => setImage(f)}><img src={asset(f)} alt="" loading="lazy" /><span>{f.split('/').pop()}</span></button></li>
+							<li><button type="button" class="thumb" data-control-exempt="image thumbnail card" class:current={f === place.image?.src} title={f} onclick={() => setImage(f)}><img src={asset(f)} alt="" loading="lazy" /><span>{f.split('/').pop()}</span></button></li>
 						{/each}
 					</ul>
 				{:else}
@@ -536,14 +536,16 @@
 	.chip {
 		font: inherit;
 		font-size: var(--type-caption-size);
-		padding: 0.1rem 0.45rem;
-		border: 1px solid var(--border-muted);
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 0.45rem;
+		border: var(--border-width-regular) solid var(--border-muted);
 		background: var(--paper);
 		color: var(--ink);
 		cursor: pointer;
 	}
 	.chip.on {
-		border: 1px solid var(--ink);
+		border-color: var(--ink);
 		background: var(--ink);
 		color: var(--paper);
 	}

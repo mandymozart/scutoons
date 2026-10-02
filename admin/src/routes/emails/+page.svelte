@@ -87,7 +87,7 @@
 	{#if query.filters.recipient}
 		<span class="bar-filter">
 			<span>{m['emails.col_recipient']()}</span>
-			<a class="chip" href={href({ recipient: null })} title={m['emails.remove_filter']()}>{query.filters.recipient} ×</a>
+			<a class="chip sc-chip-control" href={href({ recipient: null })} title={m['emails.remove_filter']()}>{query.filters.recipient} ×</a>
 		</span>
 	{/if}
 	{#if query.q || Object.keys(query.filters).length}
@@ -131,9 +131,9 @@
 {/if}
 
 <style>
+	/* a removable filter = an interactive chip (tools.css .sc-chip-control: one control height, 2px ink) */
 	.chip {
-		padding: var(--space-025) var(--space-05);
-		border: var(--border-width-hairline) solid var(--ink);
+		padding-right: var(--space-05);
 		text-decoration: none;
 	}
 	.filter-link {

@@ -392,10 +392,11 @@
 		flex: none;
 		display: grid;
 		place-items: center;
-		width: 2rem;
-		height: 2rem;
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
-		border: 1px solid var(--finder);
+		border: var(--border-width-regular) solid var(--finder);
 		border-radius: 0;
 		background: transparent;
 		color: var(--finder);
@@ -449,13 +450,13 @@
 	}
 	.error button,
 	.known button {
-		border: 1px solid var(--finder);
+		border: var(--border-width-regular) solid var(--finder);
 		background: transparent;
 		color: var(--finder);
 		font: inherit;
 		text-transform: inherit;
 		letter-spacing: inherit;
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 	}
 	.camera {
 		/* the camera's markings: the cucumber camera is green, every other camera white (owner 2026-10-02) */

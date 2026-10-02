@@ -156,7 +156,6 @@
 	}
 	.btn {
 		flex: none;
-		display: inline-block;
 		text-decoration: none;
 	}
 	@media (max-width: 768px) {
@@ -184,7 +183,7 @@
 		}
 		.btn {
 			font-size: 0.6667rem;
-			padding: 0.5833rem 1.1667rem;
+			padding: 0 1.1667rem;
 		}
 	}
 </style>

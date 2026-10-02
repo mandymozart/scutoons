@@ -128,9 +128,9 @@
 						<span class="line meta credits">{product.credits.join(' · ')}</span>
 					{/if}
 					{#if isSoldOut(product)}
-						<span class="buy disabled" aria-disabled="true">{m['home.sold_out_all']()}</span>
+						<span class="buy sc-control disabled" aria-disabled="true">{m['home.sold_out_all']()}</span>
 					{:else}
-						<a class="buy" href={product.link} target="_blank" rel="noopener noreferrer">{m['home.buy']()}</a>
+						<a class="buy sc-control" href={product.link} target="_blank" rel="noopener noreferrer">{m['home.buy']()}</a>
 					{/if}
 				</div>
 				<div class="product-slides">
@@ -138,7 +138,7 @@
 				</div>
 			</article>
 		{/each}
-		<a class="all" href={shopUrl(locale)}>{m['home.all_editions']()}</a>
+		<a class="all sc-control" href={shopUrl(locale)}>{m['home.all_editions']()}</a>
 	</section>
 
 	<footer class="footer">
@@ -319,8 +319,13 @@
 		color: var(--text-muted);
 	}
 	.buy {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		margin-top: 0.7143rem;
-		padding: 1rem 3rem;
+		padding: 0 3rem;
 		background: var(--ink);
 		color: var(--paper);
 		text-decoration: none;
@@ -337,9 +342,13 @@
 		min-width: 0;
 	}
 	.all {
-		display: block;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		margin-top: 2.8571rem;
-		padding: 1rem;
+		padding: 0 1rem;
 		border: var(--border-width-regular) solid var(--border-muted);
 		color: var(--ink);
 		text-decoration: none;
@@ -421,8 +430,8 @@
 			margin-top: 3rem;
 		}
 		.all {
-			display: inline-block;
-			padding: 0.9167rem 2.9167rem;
+			display: inline-flex;
+			padding: 0 2.9167rem;
 		}
 		.footer {
 			flex-direction: row;
@@ -447,7 +456,7 @@
 		}
 		.buy {
 			margin-top: 0.6667rem;
-			padding: 1rem 3rem;
+			padding: 0 3rem;
 		}
 	}
 </style>

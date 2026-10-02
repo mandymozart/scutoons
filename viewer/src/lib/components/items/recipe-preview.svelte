@@ -94,7 +94,7 @@
 	}
 	.choices button {
 		flex: 1 1 auto;
-		padding: 0.5rem 0.75rem;
+		padding: 0 0.75rem;
 		font-size: 0.75rem;
 	}
 	.equation {
@@ -136,6 +136,6 @@
 	}
 	.actions button {
 		flex: 1;
-		padding: 0.75rem 1rem;
+		padding: 0 1rem;
 	}
 </style>

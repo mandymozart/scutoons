@@ -3,7 +3,7 @@
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
 	/**
-	 * DESIGN.md IconButton: fixed 2rem circle, paper bg, 2px ink border, hover (and `pressed`) fill primary-cyan,
+	 * DESIGN.md IconButton: a --control-height circle (one control height, owner 2026-10-02), paper bg, 2px ink border, hover (and `pressed`) fill primary-cyan,
 	 * one 16px black icon. `label` is required (aria-label + title). Icon = `icon` (image URL) or `children`.
 	 */
 	type Props = {
@@ -38,8 +38,8 @@
 		align-items: center;
 		justify-content: center;
 		box-sizing: border-box;
-		width: 2rem;
-		height: 2rem;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		margin: 0;
 		background: var(--paper);

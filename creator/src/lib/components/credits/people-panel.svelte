@@ -178,9 +178,11 @@
 		all: unset;
 		box-sizing: border-box;
 		display: flex;
+		align-items: center;
 		justify-content: space-between;
 		width: 100%;
-		padding: 0.25rem 0.5rem;
+		min-height: var(--control-height);
+		padding: 0 0.5rem;
 		cursor: pointer;
 	}
 	.row:hover,

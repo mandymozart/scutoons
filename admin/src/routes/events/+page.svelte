@@ -95,7 +95,7 @@
 	{#if query.filters.code}
 		<span class="bar-filter">
 			<span>{m['codes.col_code']()}</span>
-			<a class="chip" href={href({ code: null })} title={m['events.remove_filter']()}>{query.filters.code} ×</a>
+			<a class="chip sc-chip-control" href={href({ code: null })} title={m['events.remove_filter']()}>{query.filters.code} ×</a>
 		</span>
 	{/if}
 	<details class="dropup bar-filter">
@@ -181,9 +181,9 @@
 		cursor: pointer;
 	}
 
+	/* a removable filter = an interactive chip (tools.css .sc-chip-control: one control height, 2px ink) */
 	.chip {
-		padding: var(--space-025) var(--space-05);
-		border: var(--border-width-hairline) solid var(--ink);
+		padding-right: var(--space-05);
 		text-decoration: none;
 	}
 	.filter-link {

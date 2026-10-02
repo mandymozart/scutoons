@@ -89,13 +89,13 @@
 		box-sizing: border-box;
 		min-height: var(--control-height);
 		margin: 0;
-		padding: var(--space-025) var(--space-1);
+		padding: 0 var(--space-1);
 		background: var(--paper);
 		color: var(--ink);
 		border: var(--border-width-regular) solid var(--border-muted);
 		border-radius: var(--radius-none);
 		font: inherit;
-		line-height: 1.2;
+		line-height: var(--type-button-line);
 		cursor: pointer;
 	}
 	button:hover:not(:disabled),

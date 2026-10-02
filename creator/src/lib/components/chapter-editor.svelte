@@ -587,8 +587,8 @@
 			</div>
 		{/each}
 		<div class="tree-add">
-			<button class="secondary" onclick={() => addGroup(false)}>{m['creator.add_group']()}</button>
-			<button class="secondary" onclick={() => addGroup(true)}>{m['creator.add_ref_group']()}</button>
+			<button class="secondary" title={m['creator.add_group']()} onclick={() => addGroup(false)}><span class="one-line">{m['creator.add_group']()}</span></button>
+			<button class="secondary" title={m['creator.add_ref_group']()} onclick={() => addGroup(true)}><span class="one-line">{m['creator.add_ref_group']()}</span></button>
 		</div>
 	</div>
 {/snippet}
@@ -976,6 +976,18 @@
 		flex-direction: column;
 		gap: var(--space-05);
 		padding: var(--space-1);
+	}
+	/* one control height (owner 2026-10-02): the narrow sidebar keeps the labels on one line, the full text in the tooltip */
+	.tree-add button {
+		justify-content: flex-start;
+		min-width: 0;
+		padding-inline: var(--space-05);
+	}
+	.one-line {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 	.main {
 		overflow: auto;

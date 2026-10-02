@@ -297,7 +297,7 @@
 	.opt-in input {
 		margin: 0.125rem 0 0;
 		width: 1.25rem;
-		height: 1.25rem;
+		height: 1.25rem; /* control-ok: a checkbox */
 		flex: none;
 		accent-color: black;
 	}
@@ -324,7 +324,7 @@
 		margin: 0 0 1rem;
 	}
 	.creator-line .btn {
-		padding: 0.75rem 1rem;
+		padding: 0 1rem;
 		text-decoration: none;
 	}
 	.error {
@@ -340,7 +340,7 @@
 		margin: 0;
 	}
 	.inventory-line .btn {
-		padding: 0.75rem 1rem;
+		padding: 0 1rem;
 		text-decoration: none;
 	}
 </style>

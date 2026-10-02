@@ -146,8 +146,9 @@
 		display: flex;
 		gap: 0.4rem;
 		align-items: center;
-		border: 1px solid var(--border-subtle);
-		padding: 0.15rem 0.3rem;
+		min-height: var(--control-height);
+		border: var(--border-width-regular) solid var(--ink);
+		padding: 0 0.3rem;
 		min-width: 0;
 	}
 	.ref:hover,

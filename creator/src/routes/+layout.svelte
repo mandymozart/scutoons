@@ -429,8 +429,9 @@
 
 	/* ── Creator-wide controls (fields, focus, headings: tools.css; @scutoons/ui components style themselves) ──
 	   The viewer's buttons (owner 2026-10-01): button = ink (primary) · .secondary = paper + 2px border-muted → ink on
-	   hover · .ghost = no frame until hover · .active (a toggle) = inverted · disabled 0.5. Compact padding
-	   space-05 space-15 (rem), the bars need it. */
+	   hover · .ghost = no frame until hover · .active (a toggle) = inverted · disabled 0.5. Compact side padding
+	   space-15 (rem), the bars need it; one control height (owner 2026-10-02): exactly --control-height, no vertical
+	   padding. */
 	:global(:where(.creator input:not([type='checkbox'], [type='radio'], [type='range'], [type='color']))),
 	:global(:where(.creator select)),
 	:global(:where(.creator textarea)) {
@@ -444,7 +445,7 @@
 		gap: var(--space-025);
 		box-sizing: border-box;
 		min-height: var(--control-height);
-		padding: var(--space-05) var(--space-15);
+		padding: 0 var(--space-15);
 		line-height: var(--type-button-line);
 		background: var(--ink);
 		color: var(--paper);
@@ -467,7 +468,7 @@
 		background: transparent;
 		color: var(--ink);
 		border-color: transparent;
-		padding: var(--space-05);
+		padding: 0 var(--space-05);
 	}
 	:global(:where(.creator button.ghost:hover:not(:disabled))) {
 		border-color: var(--border-muted);

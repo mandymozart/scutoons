@@ -44,7 +44,7 @@
 {#if reading && target}
 	<div class="start" class:inverse>
 		<a
-			class="start-button"
+			class="start-button sc-control"
 			href={localizeHref(`/${toonId}/chapter/${reading.chapter}`)}
 			title={reading.kind === 'prologue'
 				? m['start.prologue_title']({ season, title: target.title ?? '' })
@@ -79,7 +79,9 @@
 		align-items: center;
 		justify-content: center;
 		gap: var(--space-075);
-		padding: var(--space-1) var(--space-15);
+		box-sizing: border-box;
+		min-height: var(--control-height);
+		padding: 0 var(--space-15);
 		background: var(--ink);
 		color: var(--paper);
 		font-family: var(--font-mono);
@@ -111,7 +113,7 @@
 		background: var(--paper);
 		color: var(--ink);
 		font-size: inherit;
-		padding: 0.75em 1.6em;
+		padding: 0 1.6em;
 	}
 	.inverse .start-progress {
 		background: rgb(255 255 255 / 0.35);

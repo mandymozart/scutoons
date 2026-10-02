@@ -12,10 +12,13 @@ img {
   height: auto;
 }
 
+/* One control height (owner 2026-10-02, agents/DESIGN.md "One control height"): every single-line control – button,
+   .btn link, select, text-like input – is exactly --control-height (2rem + the 2px frame; ≥ 44px on touch), the same
+   2px frame, no vertical padding, the label centred. Textareas grow. */
 input, select, textarea {
   width: 100%;
-  padding: 1rem;
-  border: 1px solid #ddd;
+  padding: 0 1rem;
+  border: var(--border-width-regular) solid var(--border-muted);
   border-radius: 0;
   font-family: var(--font-mono);
   font-size: 1rem;
@@ -23,17 +26,37 @@ input, select, textarea {
   box-sizing: border-box;
 }
 
+input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']),
+select:not([multiple], [size]) {
+  height: var(--control-height);
+}
+
+textarea {
+  padding: 0.5rem 1rem; /* control-ok: multi-line, exempt */
+}
+
 button,
 .btn {
   background-color: var(--ink);
   color: var(--paper);
-  padding: 1rem 3rem;
+  box-sizing: border-box;
+  min-height: var(--control-height);
+  padding: 0 3rem;
   border: none;
 	text-align: center;
   border-radius: 0;
   font-family: var(--font-mono);
   font-size: 1rem;
+  line-height: var(--type-button-line);
   cursor: pointer;
+}
+
+/* a link or label that is a button: the box centres its one line like a <button> does */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 button:hover,

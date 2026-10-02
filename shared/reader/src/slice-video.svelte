@@ -458,8 +458,10 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
+		box-sizing: border-box;
+		min-height: var(--control-height, 2.25rem);
 		margin: 0;
-		padding: 0.5rem 0.75rem;
+		padding: 0 0.75rem;
 		border: 2px solid var(--paper, #fff);
 		border-radius: 0;
 		background: var(--ink, #000);

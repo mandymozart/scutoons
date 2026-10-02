@@ -148,7 +148,7 @@
 		text-transform: uppercase;
 		background: var(--ink);
 		color: var(--paper);
-		padding: 0.1rem 0.4rem;
+		padding: 0 0.4rem;
 	}
 	.num input {
 		width: 4rem;
@@ -158,7 +158,7 @@
 	}
 	.mini {
 		font-size: var(--type-caption-size);
-		padding: 0.1rem 0.4rem;
+		padding: 0 0.4rem;
 	}
 	h4 {
 		margin: 0.25rem 0 0;

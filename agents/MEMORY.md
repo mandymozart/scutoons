@@ -1697,3 +1697,26 @@ character, persona, look and mood and doubles as the VN test bed.
 - Gotchas: guests cannot read chapter 2 locally without a code (draft) – the browser check ran as the test user only
   (headless CDP script like check-testo, from the scratchpad); a guest's crafted record player is split back into the
   broken player + coupon at sign-in (`importGuest`), both story-grantable, so nothing is lost.
+
+## One control height (2026-10-02, branch `platform`)
+
+- Owner (screenshot of the creator's Languages section: select, chip, select and "+ Add" all different heights):
+  "buttons, selects and input fields have varying heights. A general rule should apply". Rule: DESIGN.md "One control
+  height" – every single-line control in every app (tools, viewer, shop, auth) is exactly `--control-height`
+  (2rem + 2 × 2px; max(44px, …) on a coarse pointer), border-box, no vertical padding, line-height 1, centred. No small
+  variant (`Button size="sm"` = less side padding only). Interactive chips: `.sc-chip-control`; custom framed controls /
+  link-buttons: `.sc-control` (both global in tools.css). Status badges (`.sc-chip`) are not controls.
+- Done: tools.css (fields `height`, buttons `padding-block: 0`), @scutoons/ui (Button md/sm, IconButton, Tabs, Menu
+  trigger + entries, ActionBar Info / More, SearchField, Field, CommandPalette input, RecordInspector switch), creator
+  (layout buttons / ghost, Languages chips, credits role chips, featuring / related-items chips, pickers, map tools,
+  tabs, mini buttons, chapter-tree add buttons one line + ellipsis), admin filter chips, shop variant chips + global
+  button, viewer (static/css/styles.css button / .btn / fields; the top-right round toggles are `--control-height` and
+  placed `0.5rem + n × (--control-height + 0.5rem)` from the right; menu language / close / link-buttons, hero start /
+  trailer / sound, next bar, item / claim / recipe / inventory / map / camera buttons, home buy / all), the reader's
+  video "sound on".
+- Guard: `check:tools-css` (static: height / min-height / vertical padding on control selectors without the token;
+  `control-ok` exempts a CSS line) and `check:tools-ui` (measures every single-line control on the tool pages + 7 viewer
+  pages at 1440 / 390 touch, ±1px; `data-control-exempt="<reason>"` in markup exempts cards, tiles, markers, VN choices).
+  `--browser-only` runs the browser part even when the static part fails.
+- Gotcha: heredocs sent through the agent Bash tool here turned `\` into `\` (even quoted 'EOF') – write scripts with a file tool,
+  not a heredoc, when they contain backslashes.

@@ -588,7 +588,7 @@
 		background: var(--paper);
 		color: var(--ink);
 		border: 2px solid var(--border-muted);
-		padding: 0.25rem 0.6rem;
+		padding: 0 0.6rem;
 	}
 	.tab.active {
 		background: var(--ink);

@@ -197,8 +197,9 @@
 		flex: none;
 		box-sizing: border-box;
 		min-height: var(--control-height);
-		padding: var(--space-05) var(--space-1);
+		padding: 0 var(--space-1);
 		border: var(--border-width-regular) solid var(--border-muted);
+		line-height: var(--type-button-line);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;
@@ -216,8 +217,9 @@
 	.more-toggle {
 		box-sizing: border-box;
 		min-height: var(--control-height);
-		padding: var(--space-05) var(--space-15);
+		padding: 0 var(--space-15);
 		border: var(--border-width-regular) solid var(--border-muted);
+		line-height: var(--type-button-line);
 		background: var(--paper);
 		color: var(--ink);
 		font: inherit;

@@ -195,7 +195,7 @@
 	.opt-in input {
 		flex: none;
 		width: 1.25rem;
-		height: 1.25rem;
+		height: 1.25rem; /* control-ok: a checkbox */
 		margin: 0;
 		accent-color: var(--ink);
 	}

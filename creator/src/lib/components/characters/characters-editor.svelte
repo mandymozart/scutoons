@@ -296,7 +296,7 @@
 									{@const issues = imageIssues(c)}
 									{@const src = thumb(c)}
 									<li>
-										<button type="button" class="item" class:active={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
+										<button type="button" class="item" data-control-exempt="two-line list row with avatar" class:active={c.id === selected} onclick={() => select(c.id)} data-testid="character-{c.id}">
 											<span class="avatar" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 											<span class="text">
 												<span>{characterName(c, uiLocale)}</span>

@@ -188,6 +188,7 @@
 							{/if}
 							<button
 								class="marker"
+								data-control-exempt="map marker on the picture"
 								aria-label={own(p) ? p.name : `${p.name} · ${m['map.other_toon']()}`}
 								onclick={() => select(p)}
 								onfocus={() => focusPlace(p)}
@@ -245,7 +246,7 @@
 			{#if !own(card)}<p class="muted">{m['map.other_toon']()}</p>{/if}
 			{#if here}<p>{m['map.you_are_here']({ name: toonTitle })}</p>{/if}
 			{#if cardChapter !== null}
-				<a class="read" href={localizeHref(`/${toon}/chapter/${cardChapter}`)} onclick={onclose} data-testid="map-card-chapter">
+				<a class="read sc-control" href={localizeHref(`/${toon}/chapter/${cardChapter}`)} onclick={onclose} data-testid="map-card-chapter">
 					{cardChapter === 0 ? m['map.read_prologue']() : m['map.read_chapter']({ number: cardChapter })}
 				</a>
 			{/if}
@@ -453,7 +454,8 @@
 	.tool {
 		font: inherit;
 		font-size: 0.75rem;
-		height: 2rem;
+		box-sizing: border-box;
+		height: var(--control-height);
 		padding: 0 0.75rem;
 		background: #fff;
 		color: #000;
@@ -464,7 +466,7 @@
 	.tool.round {
 		display: inline-grid;
 		place-items: center;
-		width: 2rem;
+		width: var(--control-height);
 		padding: 0;
 		border-radius: 50%;
 		font-size: 1rem;
@@ -517,10 +519,12 @@
 		box-sizing: border-box;
 		color: #000;
 		display: flex;
+		align-items: center;
 		gap: 0.5rem;
 		justify-content: space-between;
 		width: 100%;
-		padding: 0.35rem 0.25rem;
+		min-height: var(--control-height);
+		padding: 0 0.25rem;
 		cursor: pointer;
 		border-bottom: 1px solid var(--border-subtle, #ddd);
 	}
@@ -549,8 +553,9 @@
 		right: 0;
 		display: grid;
 		place-items: center;
-		width: 2.5rem;
-		height: 2.5rem;
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		border: 0;
 		background: transparent;
@@ -571,10 +576,13 @@
 		font-size: 0.75rem;
 	}
 	.read {
-		display: inline-block;
+		display: inline-flex;
+		align-items: center;
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		background: #000;
 		color: #fff;
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 		text-decoration: none;
 	}
 	@media (prefers-reduced-motion: reduce) {

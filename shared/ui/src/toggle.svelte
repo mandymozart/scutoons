@@ -54,7 +54,7 @@
 		position: relative;
 		box-sizing: border-box;
 		width: 2.5em;
-		height: 1.25em;
+		height: 1.25em; /* control-ok: a switch track (role=switch), not a single-line control */
 		margin: 0.1em 0 0;
 		padding: 0;
 		background: var(--paper);

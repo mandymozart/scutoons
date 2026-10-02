@@ -292,6 +292,7 @@
 					<li>
 						<button
 							class="option"
+							data-control-exempt="item choice card (picture + text)"
 							class:selected={needsChoice && chosenItem === it.item_id}
 							disabled={!needsChoice || ownedByOther}
 							onclick={() => ((chosenItem = it.item_id), (chosenVariant = null))}
@@ -431,8 +432,9 @@
 		margin: 0;
 	}
 	.close {
-		width: 2rem;
-		height: 2rem;
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		border-radius: 50%;
 		background: white;
@@ -492,7 +494,7 @@
 		gap: 0.5rem;
 	}
 	.variants button {
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 	}
 	.variants button.selected {
 		border-color: black;
@@ -505,7 +507,7 @@
 	}
 	.actions button {
 		flex: 1;
-		padding: 0.75rem 1rem;
+		padding: 0 1rem;
 	}
 	.unlocked {
 		background: black;

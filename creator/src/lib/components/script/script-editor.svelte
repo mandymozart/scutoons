@@ -405,6 +405,7 @@
 	}
 	li button {
 		display: flex;
+		align-items: center;
 		justify-content: flex-start;
 		gap: 0.4rem;
 		width: 100%;
@@ -412,7 +413,7 @@
 		background: none;
 		border: 0;
 		border-left: 3px solid transparent;
-		padding: 0.1rem 0.3rem;
+		padding: 0 0.3rem;
 		font-size: var(--type-caption-size);
 		color: var(--ink);
 		cursor: pointer;

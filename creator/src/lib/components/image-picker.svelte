@@ -84,7 +84,7 @@
 		<ul class="grid">
 			{#each matches as p (p)}
 				<li>
-					<button type="button" class="thumb" class:current={p === value} title={p} onclick={() => onchange(p)}>
+					<button type="button" class="thumb" data-control-exempt="image thumbnail card" class:current={p === value} title={p} onclick={() => onchange(p)}>
 						<img src={asset(`${toon}/${p}`)} alt="" loading="lazy" />
 						<span>{p.split('/').pop()}</span>
 					</button>

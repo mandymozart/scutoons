@@ -219,10 +219,11 @@
 		padding: 0;
 	}
 	.nav-list button {
-		display: block;
+		display: flex;
+		align-items: center;
 		width: 100%;
 		text-align: left;
-		padding: 0.35rem 0.75rem;
+		padding: 0 0.75rem;
 		background: transparent;
 		color: var(--ink);
 		border: 0;

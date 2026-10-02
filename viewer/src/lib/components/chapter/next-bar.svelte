@@ -287,7 +287,7 @@
 
 					<div class="primary-box">
 						{#if primaryHref}
-							<a class="primary" href={primaryHref} onclick={stop} data-testid="next-bar-primary">
+							<a class="primary sc-control" href={primaryHref} onclick={stop} data-testid="next-bar-primary">
 								{primaryLabel}
 								<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
 									<path d="M1 8h13M9 3l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
@@ -366,8 +366,10 @@
 		align-items: center;
 		justify-content: center;
 		gap: var(--space-075);
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		margin: 0;
-		padding: var(--space-1) var(--space-15);
+		padding: 0 var(--space-15);
 		border: 0;
 		border-radius: var(--radius-none);
 		background: var(--ink);
@@ -387,10 +389,14 @@
 	}
 	/* the secondary: a text link in the button type */
 	.secondary {
-		/* on the primary button's line (same padding), the countdown below it doesn't move it */
+		/* on the primary button's line (same height, one control height), the countdown below it doesn't move it */
 		align-self: flex-start;
+		display: inline-flex;
+		align-items: center;
+		box-sizing: border-box;
+		min-height: var(--control-height);
 		margin: 0;
-		padding: var(--space-1) 0;
+		padding: 0;
 		border: 0;
 		background: none;
 		color: var(--ink);

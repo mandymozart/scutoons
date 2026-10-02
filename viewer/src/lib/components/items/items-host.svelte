@@ -178,8 +178,9 @@
 		flex: none;
 	}
 	.close {
-		width: 2rem;
-		height: 2rem;
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
 		padding: 0;
 		border-radius: 50%;
 		background: white;
@@ -213,7 +214,7 @@
 		flex: 1;
 	}
 	.banner button {
-		padding: 0.5rem 1rem;
+		padding: 0 1rem;
 	}
 	.notices {
 		position: fixed;
