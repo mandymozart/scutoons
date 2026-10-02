@@ -137,10 +137,14 @@ items, merch, .128/.320 audio), characters 391, scutoons/items 17, models 5, top
 6 album mp3s, unsuffixed audio, `videos/output.mp4`). Pull zone 6731366 "scutoons" = OriginType 2 (the storage zone),
 hostname `scutoons.b-cdn.net` only, logging on, cache override 30 days; last 30 days ≈ no traffic (readers use
 cdn.scutoons.com / all-inkl). HEAD `scutoons.b-cdn.net/catpope/avatar.png` → 200, same size as the zone.
-Reference check of the 134 bunny-only files: **124 are still referenced** (current VN scenes 14–19 use
-`images/1x/de/s1c2-slice-*.jpg`, which exist only on bunny / all-inkl, not in cdn/root; `main`'s static chapter JSON and the
-content store's chapter 1 use the 1x/3x and unsuffixed audio), **10 unreferenced** (the 6 old album tracks,
-`images/1x/de/s1c2-slice-{15,21,22}.jpg`, `videos/output.mp4`).
+Reference check of the 134 bunny-only files (a text search over EVERY stored version, the working tree and branch
+`main`): 124 appear somewhere, 10 nowhere (the 6 old album tracks, `images/1x/de/s1c2-slice-{15,21,22}.jpg`,
+`videos/output.mp4`). **Correction (owner, 2026-10-02):** that count is history, not current use – the usage index
+(published + newest draft) shows `images/1x/de/s1c2-slice-16…20.jpg` only in the old, never-published draft entity
+`scene:catpope:2:scene-19:{de,en}`; the current chapter 2 (scenes 14–18 + 20) uses none of them; the other hits are
+`main`'s static viewer JSON (pre-content-store) and old versions. The 3x key visuals of chapters 3–5
+(`images/3x/s1c{3,4,5}-key-visual.jpg`) are referenced by published content but exist nowhere – the owner regenerates
+them in Figma.
 **The initial upload did not run:** the agent's permission system blocked lifting the local write fence – the owner runs
 step 3 with `--apply --overwrite --purge-zone` (after commenting out `BUNNY_WRITE_PREFIX` in the worktree's
 `server/config.local.php`), or grants it in a session.
@@ -151,6 +155,59 @@ interim `https://scutoons.b-cdn.net` (`CDN_PUBLIC_URL`). When it is deployed the
 `https://cdn.scutoons.com` and every stored / printed URL stays valid (PLAN.md RULE "printed / public URLs never change").
 Content keeps CDN-relative paths, so nothing in content changes at the switch. Production readers stay on
 cdn.scutoons.com (all-inkl) until then; `VITE_CDN_URL` / `CDN_URL` unchanged.
+
+## Folder convention (owner 2026-10-02 – the next phase; nothing moved yet)
+
+The folders ARE the toon hierarchy; videos and audio belong to their season / chapter like images:
+
+| Folder | What lives there |
+|---|---|
+| `scutoons/…` | the universe: `scutoons/items/` (cross-toon item icons), `scutoons/models/` (ML models), platform media |
+| `characters/<id>/…` | the character registry (unchanged) |
+| `<toon>/` | toon level: `avatar.*`, and topic folders `items/`, `merch/`, `map/`, `characters/` (the toon's own drawings) |
+| `<toon>/s<n>/` | season: covers, trailer (+ poster), the album / music zip, `supporters/` |
+| `<toon>/s<n>/c<n>/` | chapter: slices, key visual, thumbnail, chapter videos, music, samples (`c0` = the prologue) |
+
+- **No kind folders** (`images/`, `images/webtoon/s1c2/`, `videos/`, `audio/`) where the season / chapter folder says it.
+- **File names keep their ordering prefix**: `s1c2-slice-14.webp`, `s1c1-instrumental-brass-morton.128.mp3`.
+- **Variants are suffixes, never folders**: `.480p` `.720p` `.1080p`, `.1280w`, `.poster`, density `.2x` `.3x` (1x = no
+  suffix; the owner OKed density). The scanner already groups exactly these (see "Grouping").
+- A locale segment (`/de/`) is a smell (DATA.md "Language-independent media"); the plan keeps it where it exists, flagged.
+- **Uploads suggest the place** (next UI step): the picker knows its field – season fields → `<toon>/s<n>/`, chapter
+  fields → `<toon>/s<n>/c<n>/` with the `s<n>c<n>-` prefix, the kind from the field (trailer, slice, key visual …) –
+  and proposes `<toon>/s1/c2/s1c2-slice-<next>.webp`; the path stays editable. Until the migration, new files may
+  already go to the new places (both conventions coexist; the registry does not care).
+
+### Migration plan (dry run: `php bin/console assets:layout --json=../cdn/logs/layout-plan.json`)
+
+`AssetLayout` maps every file of the storage: the name's `s<n>c<n>-` / `s<n>-` prefix places it; topic folders stay
+topics; otherwise the uses decide (one chapter → that chapter's folder, one season → the season; chapters → season via the
+seasons' `sequence`); the delivered lettered masters (`webtoon/de/S1C1 - Slice 7.jpg`, unused since the text extraction)
+→ `<toon>/s1/c1/masters/de/s1c1-slice-7.jpg`; `models/` → `scutoons/models/`. It reports conflicts (two files → one
+path), the uses each move rewrites, and paths built in app code.
+
+**Result on the local cdn/root (824 files, 2026-10-02):** 318 move, 506 stay; **567 uses in 103 documents** would be
+rewritten; 0 conflicts. By rule: chapter (from the name) 161, chapter masters 94, season (from the name) 12, from the uses 7
+(the album zip → `catpope/s1/`, the 3 supporters → `catpope/s1/supporters/`, the prologue videos → `catpope/s1/c0/`),
+toon topics: characters 27 (`catpope/images/characters/…` → `catpope/characters/…`), map 1; unchanged: items 21,
+merch 73, `characters/` 391, `scutoons/` 17, toon level 4; universe: models 5 – **needs a code change**
+(`viewer/src/lib/components/camera/object-detector.ts` `MOBILENET_MODEL`). **11 unplaced, all unused** (owner: delete?):
+`images/collectables/cucumber.png` (collectables were removed), `images/s1s{1..6}-thumbnail.jpg`, 4 `images/vectors/*.svg`.
+Examples: `images/webtoon/s1c2/s1c2-slice-14.webp → s1/c2/s1c2-slice-14.webp`, `videos/s1-trailer-loop.720p.mp4 →
+s1/s1-trailer-loop.720p.mp4`, `images/3x/s1c3-key-visual.jpg → s1/c3/s1c3-key-visual.3x.jpg`.
+
+**How the move runs (later, timed with the bunny switch):** per file `rename`/`relink` (copy to the new path, every use →
+the new path: content as new drafts, the catalog files rewritten, then publish), on the bunny zone; the old paths stay on
+**cdn.scutoons.com (all-inkl)** until the domain moves to bunny, so readers on old builds keep working; after the switch
+and one release, the old paths are deleted through the orphan list. Order: (1) bunny initialisation with today's paths,
+(2) `assets:layout` re-run + owner review of the mapping, (3) a batch relink command (to build: applies the JSON mapping,
+one draft per document, `--publish`), (4) the viewer code change for the model path, (5) domain switch, (6) prune.
+
+### Backup (owner 2026-10-02)
+
+No second bunny zone (too expensive). The backup target, later, is the **old all-inkl FTP CDN** (cheap, no global reach
+needed): an `FtpStorage` driver behind the same `AssetStorage` interface (list / get / put; the cdn/sync.py logic) and a
+scheduled `assets:sync --from=bunny --to=ftp` (copies only, never deletes). Not needed now.
 
 ## API (server docs/API.md "Assets")
 
@@ -206,8 +263,8 @@ delete), admin Assets (library, detail, delete check, storage + bandwidth), view
 
 ## Open / next
 
-- Owner: run the bunny initialisation (above); decide the 10 unreferenced bunny-only files; the VN scene slices that exist
-  only on bunny / all-inkl (`images/1x/de/s1c2-slice-*.jpg`) should be copied into cdn/root (or the scenes retargeted).
+- Owner: run the bunny initialisation (above); decide the bunny-only files (the old `1x/de` slices are used only by the
+  never-published draft `scene:catpope:2:scene-19`; deleting that draft entity frees them).
 - Owner decision: trailer from the prologue film (see above).
 - Per-file bandwidth from the Logging API (aggregate the daily logs into a table; per asset in the detail).
 - Image renditions for slices (`IMAGE_QUALITY_DENSITIES` 1x/2x/3x as `{ src, variants }`) once the reader reads them – the

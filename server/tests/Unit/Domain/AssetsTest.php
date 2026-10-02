@@ -6,6 +6,7 @@ namespace Scutoons\Tests\Domain;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetImporter;
 use Scutoons\Domain\Assets\AssetJobs;
+use Scutoons\Domain\Assets\AssetLayout;
 use Scutoons\Domain\Assets\AssetPaths;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetService;
@@ -301,6 +302,37 @@ final class AssetsTest extends TestCase
             self::assertSame('invalid_kind', $error->errorCode);
         }
         self::assertSame('catpope/videos/x.720p.mp4', AssetJobs::outputPath('catpope/videos/x', '720p', 'mp4'));
+    }
+
+    public function testLayoutPlan(): void
+    {
+        $layout = $this->get(AssetLayout::class);
+        $seasons = ['catpope' => [0 => 1, 1 => 1, 2 => 1]];
+        $chapter0 = [['source' => 'content', 'ref' => 'chapter:catpope:0:de', 'state' => 'published']];
+        $season1 = [['source' => 'content', 'ref' => 'season:catpope:1:de', 'state' => 'published'], ['source' => 'catalog', 'ref' => 'items.json', 'state' => 'config']];
+        foreach ([
+            ['catpope/images/webtoon/s1c2/s1c2-slice-14.webp', [], 'catpope/s1/c2/s1c2-slice-14.webp'],
+            ['catpope/images/3x/s1c3-key-visual.jpg', [], 'catpope/s1/c3/s1c3-key-visual.3x.jpg'],
+            ['catpope/images/1x/s1c3-key-visual.jpg', [], 'catpope/s1/c3/s1c3-key-visual.jpg'],
+            ['catpope/images/1x/de/s1c2-slice-16.jpg', [], 'catpope/s1/c2/de/s1c2-slice-16.jpg'],
+            ['catpope/videos/s1-trailer-loop.720p.mp4', [], 'catpope/s1/s1-trailer-loop.720p.mp4'],
+            ['catpope/videos/s1c1-key-visual.900w.mp4', [], 'catpope/s1/c1/s1c1-key-visual.900w.mp4'],
+            ['catpope/videos/roar-little-kitty.480p.mp4', $chapter0, 'catpope/s1/c0/roar-little-kitty.480p.mp4'],
+            ['catpope/audio/CatPope-Awakening-Music.zip', $season1, 'catpope/s1/CatPope-Awakening-Music.zip'],
+            ['catpope/images/supporters/ske.svg', $season1, 'catpope/s1/supporters/ske.svg'],
+            ['catpope/images/webtoon/de/S1C1 - Slice 7.jpg', [], 'catpope/s1/c1/masters/de/s1c1-slice-7.jpg'],
+            ['catpope/items/vinyl.png', [], 'catpope/items/vinyl.png'],
+            ['catpope/images/map/terrain.svg', [], 'catpope/map/terrain.svg'],
+            ['catpope/avatar.webp', [], 'catpope/avatar.webp'],
+            ['characters/catpope/x.webp', [], 'characters/catpope/x.webp'],
+            ['models/m/model.json', [], 'scutoons/models/m/model.json'],
+        ] as [$from, $uses, $to]) {
+            self::assertSame($to, $layout->target($from, $uses, $seasons)[0], $from);
+        }
+        self::assertSame('unplaced', $layout->target('catpope/images/vectors/a.svg', [], $seasons)[1]);
+        $plan = $layout->plan(['catpope/images/webtoon/s1c2/s1c2-slice-1.webp', 'catpope/images/s1c2-slice-1.webp', 'models/m/model.json']);
+        self::assertSame(1, $plan['summary']['conflicts'], 'two files would land on one path');
+        self::assertSame(['viewer/src/lib/components/camera/object-detector.ts (MOBILENET_MODEL)'], $plan['summary']['code_changes']);
     }
 
     public function testProbe(): void
