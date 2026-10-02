@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
-	import { ALL_TEXT_LANGUAGES, textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { ALL_TEXT_LANGUAGES, SOURCE_TEXT_LANGUAGE, textLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/**
 	 * The creator's content-language switch in the top bar: globe + the current code ("ALL", "EN") in a compact frame
@@ -20,15 +20,19 @@
 		source?: string | null;
 	} = $props();
 
-	/** the remembered choice when this toon has it, else "all" */
-	const current = $derived(textLanguage.chosen(languages) ?? ALL_TEXT_LANGUAGES);
+	/** the remembered choice when this toon has it, else "source" (the default) or "all" */
+	const current = $derived(textLanguage.mode(languages));
+	const code = $derived(
+		current === ALL_TEXT_LANGUAGES ? m['creator.text_language_all']() : current === SOURCE_TEXT_LANGUAGE ? m['creator.text_language_source_short']() : current
+	);
 	const title = $derived(`${m['creator.text_language']()}: ${m['creator.text_language_hint']()}`);
 </script>
 
-<label class="text-language" class:chosen={current !== ALL_TEXT_LANGUAGES} {title} data-testid="text-language">
+<label class="text-language" class:chosen={current !== ALL_TEXT_LANGUAGES && current !== SOURCE_TEXT_LANGUAGE} {title} data-testid="text-language">
 	<Icon name="globe" />
-	<span class="code" aria-hidden="true">{current === ALL_TEXT_LANGUAGES ? m['creator.text_language_all']() : current}</span>
+	<span class="code" aria-hidden="true">{code}</span>
 	<select onchange={(e) => textLanguage.set(e.currentTarget.value)} aria-label={title} data-testid="text-language-select">
+		<option value={SOURCE_TEXT_LANGUAGE} selected={current === SOURCE_TEXT_LANGUAGE}>{m['creator.text_language_source']()}</option>
 		<option value={ALL_TEXT_LANGUAGES} selected={current === ALL_TEXT_LANGUAGES}>{m['creator.text_language_all']()}</option>
 		{#each languages as l (l)}
 			<option value={l} selected={current === l}>{l.toUpperCase()}{l === source ? ` · ${m['creator.source']()}` : ''}</option>

@@ -33,7 +33,7 @@
 	const anyText = $derived(Object.values(value ?? {}).some((t) => t?.trim()));
 
 	const sourceLanguage = $derived(source ?? languages[0] ?? '');
-	const shown = $derived(textLanguage.visible(languages));
+	const shown = $derived(textLanguage.visible(languages, sourceLanguage));
 	const original = $derived(textLanguage.original(languages, sourceLanguage));
 
 	function set(locale: string, text: string) {

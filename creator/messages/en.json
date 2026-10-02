@@ -653,7 +653,9 @@
 		"wanted_map_prompt": "Brief (for an image generator or a designer; attach the style references)",
 		"map_unlock_pending": "not unlockable yet",
 		"app_label": "Creator",
-		"resize_sidebar": "Drag to resize the sidebar"
+		"resize_sidebar": "Drag to resize the sidebar",
+		"text_language_source": "Original (source language)",
+		"text_language_source_short": "ORIG"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

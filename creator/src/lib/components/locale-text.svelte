@@ -21,7 +21,7 @@
 
 	const sourceText = $derived(textOf(doc.get(doc.primary, path)).trim());
 	/** the locales shown: all present ones, or the chosen text language */
-	const shown = $derived(textLanguage.visible(doc.present));
+	const shown = $derived(textLanguage.visible(doc.present, doc.primary));
 	/** translate mode: the source shown read-only above the field */
 	const original = $derived(textLanguage.original(doc.present, doc.primary));
 

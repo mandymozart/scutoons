@@ -104,7 +104,7 @@
 						<!-- per language: what readers see, and the rendered title (the lettering model) to judge it -->
 						<div class="cover-preview" data-testid="cover-preview">
 							<h4>{m['creator.cover_preview']()}</h4>
-							{#each textLanguage.visible(file.present) as l (l)}
+							{#each textLanguage.visible(file.present, file.primary) as l (l)}
 								{@const title = String(file.get(l, ['title']) ?? '')}
 								{@const subtitle = String(season.get(l, ['title']) ?? '')}
 								<div class="cover-grid" data-testid="cover-preview-{l}">
