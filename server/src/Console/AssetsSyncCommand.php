@@ -7,6 +7,7 @@ use Scutoons\Infrastructure\AssetStorage\AssetStorage;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
 use Scutoons\Infrastructure\AssetStorage\BunnyStorage;
 use Scutoons\Infrastructure\AssetStorage\LocalStorage;
+use Scutoons\Infrastructure\AssetStorage\StorageKey;
 use Scutoons\Infrastructure\AssetStorage\StoredFile;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -61,7 +62,7 @@ final class AssetsSyncCommand extends Command
             if (!$json) $output->writeln($line);
         };
 
-        $source = array_filter($this->index($from->list($prefix)), fn(StoredFile $f) => !self::junk($f->key));
+        $source = array_filter($this->index($from->list($prefix)), fn(StoredFile $f) => !StorageKey::junk($f->key));
         $target = $this->index($to->list($prefix));
         $upload = array_diff_key($source, $target);
         $differs = [];
@@ -139,14 +140,6 @@ final class AssetsSyncCommand extends Command
         $this->log($input, $plan + ['result' => $result]);
         $say(sprintf('Done: %d uploaded (%s), %d failed, %d s.', $done, AssetsCheckStorageCommand::bytes($bytes), count($failed), $result['seconds']));
         return $failed ? self::FAILURE : self::SUCCESS;
-    }
-
-    /** OS junk and half-written files are never synced */
-    public static function junk(string $key): bool
-    {
-        $name = strtolower(basename($key));
-        return in_array($name, ['thumbs.db', 'desktop.ini', '.ds_store'], true) || str_contains($name, '.uploading-')
-            || preg_match('#(^|/)\.#', $key) === 1;
     }
 
     /** @param array<string, mixed> $data */

@@ -21,6 +21,9 @@ final class JsonBody implements MiddlewareInterface
 
     public function process(Request $request, Handler $handler): Response
     {
+        // big binary uploads (media for the asset layer) stay a stream – the controller copies them to a temp file
+        $length = (int) $request->getHeaderLine('Content-Length');
+        if ($length > 1048576 && !str_contains(strtolower($request->getHeaderLine('Content-Type')), 'json')) return $handler->handle($request);
         return $handler->handle($request->withAttribute(self::ATTRIBUTE, (string) $request->getBody()));
     }
 

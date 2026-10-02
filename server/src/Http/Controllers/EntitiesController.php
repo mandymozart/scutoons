@@ -6,6 +6,7 @@ namespace Scutoons\Http\Controllers;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Roles\Roles;
@@ -25,7 +26,7 @@ use stdClass;
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages)
     {
     }
 
@@ -58,7 +59,9 @@ final class EntitiesController
     {
         $key = EntityKey::parse($args['key']);
         $user = $this->creator($request);
-        return Json::response($response, 200, $this->store->save($user, $key, $this->body($request)));
+        $result = $this->store->save($user, $key, $this->body($request));
+        $this->usages->reindexEntity((string) $key); // the asset usage index (agents/ASSETS.md); never fails the save
+        return Json::response($response, 200, $result);
     }
 
     /** @param array{key: string} $args */
@@ -75,12 +78,14 @@ final class EntitiesController
         $key = (string) EntityKey::parse($args['key']);
         $user = $this->creator($request);
         $body = JsonBody::raw($request) === '' ? new stdClass() : $this->body($request);
-        return Json::response($response, 200, match ($args['action']) {
+        $result = match ($args['action']) {
             'publish' => $this->store->publish($key, isset($body->version) ? (int) $body->version : null),
             'unpublish' => $this->store->unpublish($key),
             'restore' => $this->store->restore($user, $key, $body),
             default => throw new ApiError(404, 'not_found', 'Unknown endpoint.'),
-        });
+        };
+        $this->usages->reindexEntity($key);
+        return Json::response($response, 200, $result);
     }
 
     /** @return array<string, mixed> */

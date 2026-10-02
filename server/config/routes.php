@@ -18,6 +18,7 @@ use Scutoons\Domain\Roles\Roles;
 use Scutoons\Domain\Secrets;
 use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
+use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
@@ -133,6 +134,16 @@ return static function (App $app): void {
     $app->get('/api/entities/{key:[a-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
     $app->post('/api/entities/{key:[a-z0-9:_-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
 
+    // Asset manager (agents/ASSETS.md): the creator's asset picker – browse, look up, upload new files (content editors)
+    $asset = '{id:[0-9a-f-]{36}}';
+    $app->get('/api/assets', [AssetsController::class, 'list']);
+    $app->get('/api/assets/lookup', [AssetsController::class, 'lookup']);
+    $app->get('/api/assets/missing', [AssetsController::class, 'missing']);
+    $app->get('/api/assets/orphans', [AssetsController::class, 'orphans']);
+    $app->put('/api/assets/upload', [AssetsController::class, 'upload']);
+    $app->get("/api/assets/$asset", [AssetsController::class, 'get']);
+    $app->put("/api/assets/$asset", [AssetsController::class, 'update']);
+
     // Library: the reader's entities composed from the content store (agents/DATA.md, docs/API.md "Library")
     $app->get('/api/library/toons', [LibraryController::class, 'toons']);
     $app->get('/api/library/toons/{toon}', [LibraryController::class, 'toon']);
@@ -226,6 +237,18 @@ return static function (App $app): void {
         $admin->get('/roles', [UsersController::class, 'roles']);
 
         $admin->get('/content', [AdminContentController::class, 'index']);
+
+        // the asset manager's storage operations (agents/ASSETS.md "Operations")
+        $asset = '{id:[0-9a-f-]{36}}';
+        $admin->get('/assets/storage', [AssetsController::class, 'storage']);
+        $admin->get('/assets/jobs', [AssetsController::class, 'jobs']);
+        $admin->post('/assets/scan', [AssetsController::class, 'scan']);
+        $admin->post('/assets/relink', [AssetsController::class, 'relink']);
+        $admin->put("/assets/$asset/file", [AssetsController::class, 'replace']);
+        $admin->post("/assets/$asset/rename", [AssetsController::class, 'rename']);
+        $admin->get("/assets/$asset/delete-check", [AssetsController::class, 'deleteCheck']);
+        $admin->delete("/assets/$asset", [AssetsController::class, 'delete']);
+        $admin->post("/assets/$asset/jobs", [AssetsController::class, 'enqueue']);
     })->add(new RequireRole($c->get(Roles::class), Roles::ADMIN));
 
     // Everything else below /api/ is unknown (ErrorHandler → 404 not_found "Unknown endpoint.")

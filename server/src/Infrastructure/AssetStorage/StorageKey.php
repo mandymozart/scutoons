@@ -37,6 +37,14 @@ final class StorageKey
         }
     }
 
+    /** OS junk, dot files / dot folders and half-written uploads – never synced, never registered */
+    public static function junk(string $key): bool
+    {
+        $name = strtolower(self::basename($key));
+        return in_array($name, ['thumbs.db', 'desktop.ini', '.ds_store'], true) || str_contains($name, '.uploading-')
+            || preg_match('#(^|/)\.#', $key) === 1;
+    }
+
     /** "catpope/videos/a.mp4" → "a.mp4" */
     public static function basename(string $key): string
     {
