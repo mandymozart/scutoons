@@ -156,8 +156,10 @@
 	<footer class="footer">
 		<span class="claim">{m['home.footer']()}</span>
 		<nav aria-label="SCUTOONS">
-			<a href={localizeHref('/stores')}>{m['home.stores']()}</a>
-			·
+			{#if stockists?.stores.length}
+				<a href={localizeHref('/stores')}>{m['home.stores']()}</a>
+				·
+			{/if}
 			<a href={localizeHref('/events')}>{m['home.events']()}</a>
 			·
 			<a href={localizeHref('/attributions')}>{m['home.attributions']()}</a>
