@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Inventory;
 use RuntimeException;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\Catalog;
+use Scutoons\Domain\Catalog\ItemRespawn;
 use Scutoons\Domain\RateLimit\RateLimiter;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
@@ -25,6 +26,7 @@ final class InventoryService
         private readonly Catalog $catalog,
         private readonly RateLimiter $limits,
         private readonly Settings $settings,
+        private readonly ItemRespawn $respawn,
     ) {
     }
 
@@ -194,7 +196,10 @@ final class InventoryService
     }
 
     /**
-     * Grants a found item: { item_id, source: "story"|"scan", ref? } → 1 granted, 0 = repeated ref.
+     * Grants a found item: { item_id, source: "story"|"scan", ref?, respawn?, visit? } → 1 granted, 0 = repeated ref.
+     * `respawn` (a placed item that reappears, Catalog\ItemRespawn): the interval is checked against the item's range and
+     * the ref gets the current period (time bucket / `visit`), so the placement grants once per period – 422
+     * respawn_not_allowed / respawn_out_of_range, 400 invalid_respawn / visit_required / ref_required.
      * 403 not_grantable (source not in the item's `grantable`) / no_tool (scan without a tool that detects it),
      * 429 rate_limited (hourly limit) / cooldown (scan tool cooldown) / daily_limit (the camera's `per_day` scans of
      * this item in the last 24 h), 409 max_reached (the collection limit: `max`, default 99), 400 invalid_source,
@@ -211,6 +216,10 @@ final class InventoryService
             throw new ApiError(403, 'not_grantable', "This item cannot be granted by $source.");
         }
         $ref = is_string($body['ref'] ?? null) && $body['ref'] !== '' ? substr($body['ref'], 0, 191) : null;
+        if (($body['respawn'] ?? null) !== null) {
+            if ($ref === null || $source !== 'story') throw new ApiError(400, 'ref_required', 'A respawning story grant needs its ref.');
+            $ref = $this->respawn->periodRef($item, $ref, $body['respawn'], $body['visit'] ?? null);
+        }
 
         $granted = $this->db->transaction(function () use ($userId, $item, $source, $ref) {
             $refBucket = "grantref:$userId:{$item['id']}";

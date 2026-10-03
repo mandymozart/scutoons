@@ -784,7 +784,7 @@
 				},
 				"respawn": {
 					"$ref": "#/definitions/SliceItemRespawn",
-					"description": "pickup: none = once (one pickup per reader, then gone for good); else it is back and can be taken again (onions, cucumbers, tuna …) – once per visit / day / n hours (`SliceItemRespawn`), the catalog's limits still apply."
+					"description": "pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without one never reappears); `never` = once here even if the item could reappear; an interval = an override within the item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply."
 				}
 			},
 			"required": [
@@ -1199,12 +1199,31 @@
 		"SliceItemRespawn": {
 			"anyOf": [
 				{
+					"$ref": "#/definitions/RespawnInterval"
+				},
+				{
+					"type": "string",
+					"const": "never"
+				}
+			],
+			"description": "A placement's choice: `never` = once even if the item could reappear; none = the item's default"
+		},
+		"RespawnInterval": {
+			"anyOf": [
+				{
 					"type": "string",
 					"const": "visit"
 				},
 				{
-					"type": "string",
-					"const": "day"
+					"type": "object",
+					"properties": {
+						"minutes": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"minutes"
+					]
 				},
 				{
 					"type": "object",
@@ -1216,9 +1235,20 @@
 					"required": [
 						"hours"
 					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"days": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"days"
+					]
 				}
 			],
-			"description": "When a picked-up item is back (`SliceItem.respawn`): on every new `visit` of the page, every calendar `day` (the reader's local date), or every `{ hours: n }` (fixed n-hour periods). Once per period – the grant's ref carries the period, the server grants a ref once; the catalog's max counts stay authoritative."
+			"description": "Every visit of the page (a reload counts), or every n minutes / hours / days."
 		},
 		"VNSliceEvent": {
 			"anyOf": [

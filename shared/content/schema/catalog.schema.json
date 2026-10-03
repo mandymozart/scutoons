@@ -162,6 +162,17 @@
 					"type": "boolean",
 					"description": "Part of the basic dress (ITEMS.md \"Wardrobe\": T-shirt, shorts, sandals): a starter wearable that is put on when it is handed out (signup, older accounts, guests). A body without an overlay for it wears another starter of the same slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`."
 				},
+				"respawn": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/ItemRespawn"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "When a picked-up placement of this item is back on its slice (respawn.ts): a default interval and the range a placement may choose; none / null = it never reappears (a one-time find). Admin → Catalog can override it."
+				},
 				"effects": {
 					"anyOf": [
 						{
@@ -439,6 +450,66 @@
 				"id",
 				"name"
 			]
+		},
+		"ItemRespawn": {
+			"type": "object",
+			"properties": {
+				"default": {
+					"$ref": "#/definitions/RespawnInterval"
+				},
+				"min": {
+					"$ref": "#/definitions/RespawnInterval"
+				},
+				"max": {
+					"$ref": "#/definitions/RespawnInterval"
+				}
+			},
+			"required": [
+				"default"
+			],
+			"description": "An item's respawn rule (`ItemDef.respawn`; none / null = it never reappears, a one-time find). `min` / `max` = the shortest / longest interval a placement may choose (default: only `default`'s own length … any longer one)."
+		},
+		"RespawnInterval": {
+			"anyOf": [
+				{
+					"type": "string",
+					"const": "visit"
+				},
+				{
+					"type": "object",
+					"properties": {
+						"minutes": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"minutes"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"hours": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"hours"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"days": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"days"
+					]
+				}
+			],
+			"description": "Every visit of the page (a reload counts), or every n minutes / hours / days."
 		},
 		"StatEffect": {
 			"type": "object",

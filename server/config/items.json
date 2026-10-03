@@ -139,7 +139,8 @@
       "edition_id": null,
       "product": null,
       "variants": null,
-      "effects": [{ "stat": "appetite", "delta": -5 }]
+      "effects": [{ "stat": "appetite", "delta": -5 }],
+      "respawn": { "default": { "hours": 6 }, "min": { "hours": 1 }, "max": { "days": 7 } }
     },
     {
       "id": "cucumber_camera",
@@ -358,7 +359,8 @@
       "edition_id": null,
       "product": null,
       "variants": null,
-      "effects": [{ "stat": "appetite", "delta": -30 }]
+      "effects": [{ "stat": "appetite", "delta": -30 }],
+      "respawn": { "default": { "hours": 12 }, "min": { "hours": 1 }, "max": { "days": 7 } }
     },
     {
       "id": "dago_hoodie",

@@ -8,13 +8,14 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Catalog\Editions;
+use Scutoons\Domain\Catalog\ItemRespawn;
 use Scutoons\Domain\Catalog\Toons;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\Cors;
 
 /**
  * Public data, identical for everyone:
- *   GET /api/items/     the item catalog (config/items.json)
+ *   GET /api/items/     the item catalog (config/items.json + the admin's respawn overrides)
  *   GET /api/editions/  the editions (config/editions.json), ?toon= filters
  *   GET /api/toons/     the toons (config/toons.json) – no CORS, any method (as before)
  * items/editions: any origin may read them (`*` for origins outside ALLOWED_ORIGINS), cached 5 minutes.
@@ -26,13 +27,15 @@ final class CatalogController
         private readonly Editions $editions,
         private readonly Toons $toons,
         private readonly Cors $cors,
+        private readonly ItemRespawn $respawn,
     ) {
     }
 
     public function items(Request $request, Response $response): Response
     {
         self::requireGet($request);
-        return $this->public($request, $response, $this->catalog->data());
+        // with the admin's respawn overrides (Catalog\ItemRespawn)
+        return $this->public($request, $response, $this->respawn->apply($this->catalog->data()));
     }
 
     public function editions(Request $request, Response $response): Response

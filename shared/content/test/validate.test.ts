@@ -246,9 +246,22 @@ test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outl
 	]);
 	// placed item pickup mode
 	const item = (extra: object) => ({ items: [{ id: 'tuna_can-1', item: 'tuna_can', rect, action: 'pickup', ...extra }] });
-	for (const respawn of ['visit', 'day', { hours: 6 }]) assert.deepEqual(list(chapter(item({ respawn }))), [], JSON.stringify(respawn));
-	assert.deepEqual(list(chapter(item({ respawn: 'daily' }))), ['error groups.0.slices.0.items.0.respawn']);
-	assert.deepEqual(list(chapter(item({ respawn: { hours: 0.5 } }))), ['error groups.0.slices.0.items.0.respawn.hours']);
+	for (const respawn of ['never', 'visit', { minutes: 30 }, { hours: 6 }, { days: 2 }]) assert.deepEqual(list(chapter(item({ respawn }))), [], JSON.stringify(respawn));
+	for (const respawn of ['daily', { hours: 0.5 }, { hours: 1, days: 1 }, { weeks: 1 }]) {
+		assert.deepEqual(list(chapter(item({ respawn }))), ['error groups.0.slices.0.items.0.respawn'], JSON.stringify(respawn));
+	}
+	// against the catalog's rule: tuna every 1 … 24 h (default 4 h), weed never
+	const withRules = (respawn: unknown, id = 'tuna_can') =>
+		validateFile('chapter', chapter({ items: [{ id: 'x-1', item: id, rect, action: 'pickup', respawn }] }), 'de', {
+			file: 'x',
+			itemRespawn: { tuna_can: { default: { hours: 4 }, min: { hours: 1 }, max: { days: 1 } }, weed: null }
+		} as never).map((p) => `${p.level} ${p.path.join('.')}`).filter((p) => p.includes('items.0'));
+	assert.deepEqual(withRules({ hours: 2 }), []);
+	assert.deepEqual(withRules('never'), []);
+	assert.deepEqual(withRules({ minutes: 30 }), ['error groups.0.slices.0.items.0.respawn'], 'shorter than the item allows');
+	assert.deepEqual(withRules('visit'), ['error groups.0.slices.0.items.0.respawn'], 'every reload is shorter than 1 h');
+	assert.deepEqual(withRules({ days: 2 }), ['error groups.0.slices.0.items.0.respawn'], 'longer than the item allows');
+	assert.deepEqual(withRules({ hours: 2 }, 'weed'), ['error groups.0.slices.0.items.0.respawn'], 'the item never reappears');
 	// a placed item's tap events may reveal a text box on its slice
 	const tapEvents = (dialog: string) => ({ items: [{ id: 'x-1', item: 'x', rect, action: 'events', events: [{ type: 'showOnomatopeia', params: { dialog } }] }] });
 	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b1') })), []);

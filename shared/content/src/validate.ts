@@ -11,12 +11,13 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE, DIALOG_SHAPES, DIALOG_TAILS, RESPAWN_HOURS_MAX, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
+import { DEFAULT_SLICE, DIALOG_SHAPES, DIALOG_TAILS, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
 import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
+import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -67,6 +68,8 @@ export interface ValidateContext {
 	seasonStatus?: string | null;
 	/** the item catalog's ids (`related_items` of seasons / chapters are checked against them; none = no check) */
 	items?: string[];
+	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
+	itemRespawn?: Record<string, ItemRespawn | null>;
 }
 
 class Collector {
@@ -155,11 +158,9 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 	if (it.qty !== undefined && (!Number.isInteger(it.qty) || it.qty < 1)) c.error([...path, 'qty'], 'qty must be a whole number ≥ 1');
 	if (it.once !== undefined && typeof it.once !== 'boolean') c.error([...path, 'once'], 'once must be true/false');
 	if (it.respawn !== undefined) {
-		const r = it.respawn;
-		const hours = isObj(r) ? r.hours : undefined;
-		if (isObj(r)) {
-			if (!Number.isInteger(hours) || hours < 1 || hours > RESPAWN_HOURS_MAX) c.error([...path, 'respawn', 'hours'], `respawn.hours must be a whole number 1 … ${RESPAWN_HOURS_MAX}`);
-		} else if (r !== 'visit' && r !== 'day') c.error([...path, 'respawn'], 'respawn must be "visit", "day" or { "hours": n }');
+		const rule = ctx.itemRespawn && isStr(it.item) ? (ctx.itemRespawn[it.item] ?? null) : undefined;
+		const problem = placementRespawnProblem(it.respawn, rule);
+		if (problem) c.error([...path, 'respawn'], problem);
 		if (it.action !== 'pickup') c.info([...path, 'respawn'], 'respawn only matters for a pickup');
 	}
 	if (it.events !== undefined) {

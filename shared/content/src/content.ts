@@ -4,6 +4,7 @@ import type { AudioEvents, AudioConfiguration } from './audio.ts';
 import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
 import type { QualityVariants } from './media-quality.ts';
 import type { ToonMapView } from './map.ts';
+import type { SliceItemRespawn } from './respawn.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -278,14 +279,7 @@ export interface SliceVideo {
 /** What tapping a placed item does (`SliceItem.action`); the creator chooses it per placed item. */
 export const SLICE_ITEM_ACTIONS = ['none', 'pickup', 'events'] as const;
 export type SliceItemAction = (typeof SLICE_ITEM_ACTIONS)[number];
-/**
- * When a picked-up item is back (`SliceItem.respawn`): on every new `visit` of the page, every calendar `day` (the
- * reader's local date), or every `{ hours: n }` (fixed n-hour periods). Once per period – the grant's ref carries the
- * period, the server grants a ref once; the catalog's max counts stay authoritative.
- */
-export type SliceItemRespawn = 'visit' | 'day' | { hours: number };
-/** `{ hours }` limits: 1 hour … 1 year */
-export const RESPAWN_HOURS_MAX = 8760;
+
 
 /**
  * A catalog item (its cut-out icon) placed on a slice, like a text box: position, size, rotation. Language-neutral
@@ -322,8 +316,9 @@ export interface SliceItem {
 	/** events: only the first tap per page view runs them (default true, like a click trigger's `once`) */
 	once?: boolean;
 	/**
-	 * pickup: none = once (one pickup per reader, then gone for good); else it is back and can be taken again
-	 * (onions, cucumbers, tuna …) – once per visit / day / n hours (`SliceItemRespawn`), the catalog's limits still apply.
+	 * pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without
+	 * one never reappears); `never` = once here even if the item could reappear; an interval = an override within the
+	 * item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply.
 	 */
 	respawn?: SliceItemRespawn;
 }
