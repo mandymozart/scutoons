@@ -333,6 +333,12 @@ export interface Slice {
 	/** Size of the image in px (1x): the reader reserves the space before the lazy image loads. */
 	width: number;
 	height: number;
+	/**
+	 * The image per quality level (owner 2026-10-03, PLAN.md "Slices"): low = 1x (= `image`), medium = 2x, high = 3x
+	 * (390 / 780 / 1170 px wide WebP, `<name>.2x.webp`). The reader picks by its media quality (`pickQualityVariant`);
+	 * none = just `image`.
+	 */
+	imageVariants?: QualityVariants;
 	video?: SliceVideo;
 	// TODO: refactor at some point to use a unified entity system
 	// trigger: any[]; // placeholder for combined event system audio and vn

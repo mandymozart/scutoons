@@ -20,7 +20,12 @@
 		$props();
 
 	const toonId = $derived(page.params.toonId);
-	const imageUrl = $derived(asset(`${toonId}/${slice.image}`));
+	// the image for the reader's media quality (1x / 2x / 3x = low / medium / high); 1x until the level is known
+	const imageUrl = $derived.by(() => {
+		const hasImageVariants = Object.values(slice.imageVariants ?? {}).some((file) => !!file);
+		const level = hasImageVariants ? mediaQuality.level : null;
+		return asset(`${toonId}/${level ? pickQualityVariant({ src: slice.image, variants: slice.imageVariants }, level) : slice.image}`);
+	});
 	// the file for the reader's media quality (lib/media-quality.svelte.ts); a video without variants is just its `src`
 	const hasVariants = $derived(Object.values(slice.video?.variants ?? {}).some((file) => !!file));
 	const videoUrl = $derived.by(() => {
@@ -34,6 +39,10 @@
 	$effect(() => {
 		const video = slice.video;
 		if (video?.src && hasVariants && mediaQuality.needsMeasure) void mediaQuality.measure(asset(`${toonId}/${pickQualityVariant(video, 'low')}`));
+	});
+	// the same for an image with 2x / 3x: measured with its 1x file
+	$effect(() => {
+		if (slice.image && Object.values(slice.imageVariants ?? {}).some((file) => !!file) && mediaQuality.needsMeasure) void mediaQuality.measure(asset(`${toonId}/${slice.image}`));
 	});
 	/** the first slices load right away, the rest lazily (agents/PERFORMANCE.md P2) */
 	const EAGER_SLICES = 2;

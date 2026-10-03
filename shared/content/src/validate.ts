@@ -291,6 +291,13 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 		if (!isNum(s[key]) || s[key] <= 0) c.error([...path, key], `slice.${key} is missing (px of the image, the standard is ${DEFAULT_SLICE.width} × ${DEFAULT_SLICE.height})`);
 	}
 	if (isNum(s.width) && s.width > 0 && s.width !== DEFAULT_SLICE.width) c.warn([...path, 'width'], `slices are ${DEFAULT_SLICE.width} px wide (this one is ${s.width})`);
+	if (s.imageVariants !== undefined) {
+		if (!isObj(s.imageVariants)) c.error([...path, 'imageVariants'], 'imageVariants must be { low, medium, high } (1x / 2x / 3x paths)');
+		else for (const [level, file] of Object.entries(s.imageVariants)) {
+			if (!['low', 'medium', 'high'].includes(level)) c.error([...path, 'imageVariants', level], 'imageVariants levels are low / medium / high (1x / 2x / 3x)');
+			else if (!isStr(file) || !file) c.error([...path, 'imageVariants', level], 'an image variant is a CDN path');
+		}
+	}
 	if (s.video !== undefined) {
 		if (!isObj(s.video) || !isStr(s.video.src) || !s.video.src) c.error([...path, 'video', 'src'], 'video.src is missing (an .mp4 on the CDN)');
 		else if (!/\.(mp4|webm)$/i.test(s.video.src)) c.warn([...path, 'video', 'src'], 'video.src is not a video path (.mp4, .webm)');

@@ -9,7 +9,6 @@
 	import { fillSliceSize } from '$lib/editor/images.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import ImagePicker from './image-picker.svelte';
 	import PlacementPicker from './placement-picker.svelte';
 	import type { VariantMedia } from '$lib/editor/media-variants.ts';
 	import MediaVariantsSlot from './media-variants-slot.svelte';
@@ -25,13 +24,11 @@
 		doc,
 		slicePath,
 		toon,
-		known = [],
 		place = ''
 	}: {
 		doc: ContentDoc;
 		slicePath: Path;
 		toon: string;
-		known?: string[];
 		/** where an uploaded video goes by the content rules (the chapter's folder, catpope/s1/c2/) */
 		place?: string;
 	} = $props();
@@ -59,10 +56,23 @@
 		videoRatio = null;
 	});
 
-	function setImage(path: string) {
-		doc.setShared([...slicePath, 'image'], path);
-		fillSliceSize(doc, slicePath, url);
+	// ── the image per quality: one slot like the video (owner 2026-10-03) – 1x = `image` (the size is read from it), 2x / 3x
+	// in `imageVariants` ─────────────────────────────────────────────────────────────────────────────────────────────
+	const imageMedia = $derived<VariantMedia>({ src: slice?.image || undefined, variants: slice?.imageVariants ?? (slice?.image ? { low: slice.image } : undefined) });
+	function setImageMedia(next: VariantMedia) {
+		const image = next.variants?.low ?? next.src ?? '';
+		const extra = next.variants?.medium || next.variants?.high ? next.variants : undefined;
+		doc.structural((file) => {
+			const s = getAt(file, slicePath);
+			if (!s) return;
+			s.image = image;
+			if (extra) s.imageVariants = extra;
+			else delete s.imageVariants;
+		}, 'slice-image-files');
+		if (image) fillSliceSize(doc, slicePath, url);
 	}
+	/** the size line only when it is not the standard 390 × 625 (owner 2026-10-03) */
+	const offStandard = $derived(!!slice && (slice.width !== DEFAULT_SLICE.width || slice.height !== DEFAULT_SLICE.height));
 
 	function setMedia(kind: 'image' | 'video') {
 		if (kind === 'video' && !video) doc.setShared([...slicePath, 'video'], { src: '' }, 'slice-media');
@@ -302,13 +312,14 @@
 		</fieldset>
 	{/if}
 
-	<ImagePicker {toon} label={video ? m['creator.poster']() : 'image'} value={slice?.image} {known} showFormat onchange={setImage} />
+	<MediaVariantsSlot {toon} {place} kind="image" label={video ? m['creator.poster']() : m['creator.media_image']()} value={imageMedia} onchange={setImageMedia} testid="slice-image" />
 	{#each doc.overrides([...slicePath, 'image']) as l}
 		<p class="hint">
 			{l}: {doc.get(l, [...slicePath, 'image'])} ({m['creator.override']()})
 			<button class="ghost" onclick={() => doc.resetOverride(l, [...slicePath, 'image'])}>{m['creator.use_shared']()}</button>
 		</p>
 	{/each}
+	{#if video?.viewport || (video?.frame && frameRatio) || offStandard}
 	<p class="hint" data-testid="slice-size">
 		{#if video?.viewport}
 			{m['creator.slice_size_viewport']({ ratio: aspectRatioLabel(slice?.width ?? 0, slice?.height ?? 0, getLocale()) })}
@@ -318,6 +329,7 @@
 			{m['creator.slice_size']({ width: slice?.width ?? '–', height: slice?.height ?? '–', standard: `${DEFAULT_SLICE.width} × ${DEFAULT_SLICE.height}` })}
 		{/if}
 	</p>
+	{/if}
 </div>
 
 <style>

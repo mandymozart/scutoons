@@ -593,19 +593,6 @@
 		section = 'meta';
 	}
 
-	function moveSlice(by: number) {
-		const doc = activeDoc;
-		const to = sliceIndex + by;
-		const list = activeGroup?.slices ?? [];
-		if (!doc || to < 0 || to >= list.length) return;
-		doc.structural((file) => {
-			const slices = getAt(file, [...groupPath, 'slices']);
-			const [s] = slices.splice(sliceIndex, 1);
-			slices.splice(to, 0, s);
-		});
-		sliceIndex = to;
-	}
-
 	// ── Save / publish ──────────────────────────────────────────────────────────────────────────────────
 	async function saveAll(force = false) {
 		notice = null;
@@ -1026,11 +1013,7 @@
 							/>
 						{/if}
 					{:else if inspectorTab === 'slice'}
-						<SliceMedia doc={activeDoc} {slicePath} {toon} known={images} place="{toon}/s{Number(season.get(season.primary, ['number'])) || 1}/c{chapterNumber}/" />
-						<div class="row">
-							<button class="secondary" onclick={() => moveSlice(-1)} disabled={sliceIndex === 0}>{m['creator.move_up']()}</button>
-							<button class="secondary" onclick={() => moveSlice(1)} disabled={sliceIndex >= (activeGroup?.slices?.length ?? 0) - 1}>{m['creator.move_down']()}</button>
-						</div>
+						<SliceMedia doc={activeDoc} {slicePath} {toon} place="{toon}/s{Number(season.get(season.primary, ['number'])) || 1}/c{chapterNumber}/" />
 					{:else if inspectorTab === 'audio'}
 						<SliceAudio
 							doc={activeDoc}
