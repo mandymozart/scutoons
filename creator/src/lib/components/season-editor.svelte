@@ -21,14 +21,15 @@
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import ChapterBadges from './chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
-	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
+	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/**
 	 * Season meta (the entity season:<toon>:<N>), cleaned up like the chapter page (owner 2026-10-03): title and
-	 * description (per language), release + authors, the chapters with their visibility, the media as slots (cover →
+	 * description (per language), release + authors, the media as slots (cover →
 	 * the cover editor, the trailer with its quality levels, the poster), related items, supporters. Everything but title
 	 * and description is the same in every language (written to every locale document; said once, in the hint).
-	 * The season's number is its identity (the URL, the entity key) – not a field.
+	 * The season's number is its identity (the URL, the entity key) – not a field. The chapters and their visibility are in
+	 * the sidebar only (owner 2026-10-03: no second list on the page).
 	 */
 	let { toon, number, languages }: { toon: string; number: number; languages: ToonLanguages } = $props();
 
@@ -128,29 +129,6 @@
 				<SharedField doc={season} path={['authors']} label="authors" kind="list" splittable={false} testid="season-authors" />
 			</div>
 			{#if season.present.length > 1}<p class="hint">{m['creator.season_neutral_hint']()}</p>{/if}
-		</section>
-
-		<!-- the chapters and their visibility (read-only badges; the status is changed on the chapter page) -->
-		<section class="block" data-testid="season-sequence">
-			<h2 title={m['creator.status_where']()}>{m['creator.chapters']()}</h2>
-			<ol class="chapter-list" data-testid="chapter-list">
-				{#each numbers as n (n)}
-					{@const doc = chapters[n]}
-					{@const own = doc?.data?.[titleLocale]?.title}
-					<li class="chapter-row" data-testid="chapter-row-{n}">
-						<span class="num">{n}</span>
-						<a
-							class="row-link"
-							class:fallback={!own}
-							href="/{toon}/chapter/{n}"
-							title="{m['creator.open_chapter_n']({ number: n })}{season.locales.length > 1 ? `\n${otherTexts(season.locales, titleLocale, (l) => doc?.data?.[l]?.title)}` : ''}"
-							data-testid="open-chapter-{n}"
-							>{own || doc?.data?.[season.primary]?.title || fileLabel(entities.chapter(toon, n))}</a
-						>
-						<ChapterBadges {season} number={n} {doc} />
-					</li>
-				{/each}
-			</ol>
 		</section>
 
 		<!-- media as slots (owner 2026-10-03, like the chapter page): the preview is the button, paths only as tooltips -->
@@ -287,48 +265,6 @@
 		flex-direction: column;
 		gap: var(--space-025);
 		max-width: 24rem;
-	}
-	/* the chapters: a plain list (owner 2026-10-02: no spreadsheet) – number, title (the whole row is the link),
-	   badges only when something is up; rows split by 1px ink */
-	.chapter-list {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		border-top: var(--border-width-regular) solid var(--ink);
-	}
-	.chapter-row {
-		position: relative;
-		display: flex;
-		align-items: center;
-		gap: var(--space-1);
-		min-height: var(--control-height);
-		padding: var(--space-05) 0;
-		border-bottom: var(--border-width-hairline) solid var(--ink);
-	}
-	.chapter-row .num {
-		flex: none;
-		min-width: 2em;
-		color: var(--text-muted);
-	}
-	.row-link {
-		flex: 1;
-		min-width: 0;
-		color: var(--ink);
-		text-decoration: none;
-		overflow-wrap: anywhere;
-	}
-	/* the title link covers the row: a click anywhere in it opens the chapter */
-	.row-link::after {
-		content: '';
-		position: absolute;
-		inset: 0;
-	}
-	/* no title in the chosen language: the source's, muted */
-	.row-link.fallback {
-		color: var(--text-muted);
-	}
-	.chapter-row:hover .row-link {
-		text-decoration: underline;
 	}
 	.nav-head {
 		margin: 0;

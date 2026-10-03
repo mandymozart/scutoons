@@ -496,9 +496,10 @@ if (step('creator')) {
 		await evaluate(`document.querySelector('[data-testid="tab-background"]').click(), true`);
 		const PANEL = `(() => { const p = document.querySelector('[data-testid="slice-media"]'); if (!p) return null;
 			const val = (id) => p.querySelector('[data-testid="' + id + '"]');
-			return { low: val('video-variant-low')?.value, medium: val('video-variant-medium')?.value, high: val('video-variant-high')?.value,
-				def: ['low', 'medium', 'high'].find((l) => val('video-default-' + l)?.checked) ?? null,
-				labels: [...p.querySelectorAll('.files .level')].map((l) => l.textContent.replace(/\\s+/g, ' ').trim()),
+			// the resolution slot (media-variants-slot): one chip per level, its file in data-file, the default marked
+			return { low: val('video-file-low')?.dataset.file, medium: val('video-file-medium')?.dataset.file, high: val('video-file-high')?.dataset.file,
+				def: ['low', 'medium', 'high'].find((l) => val('video-file-' + l)?.dataset.default === 'true') ?? null,
+				labels: ['low', 'medium', 'high'].map((l) => val('video-file-' + l)?.textContent.replace(/\\s+/g, ' ').trim() ?? ''),
 				player: val('video-player')?.checked, controls: val('video-controls')?.checked,
 				column: val('video-in-column')?.checked, full: val('video-full-viewport')?.checked,
 				cells: p.querySelectorAll('[data-testid^="fit-"]:not([data-testid="fit-help"])').length, active: p.querySelector('[data-testid^="fit-"][aria-checked="true"]')?.dataset.testid ?? null,
@@ -517,12 +518,12 @@ if (step('creator')) {
 			if (!s.player) problems.push(`flags ${JSON.stringify(s)}`);
 		}
 		await shot('mq-creator-1-panel');
-		// full viewport → the picker (3 × 2) + the preview; "fit height, top"; controls off; another default
+		// full viewport → the picker (3 × 2) + the preview; "fit height, top"; controls off
 		await evaluate(`document.querySelector('[data-testid="video-full-viewport"]').click(), true`);
 		await waitFor(`document.querySelector('[data-testid="fit-cover"]') ? true : null`, 5000);
-		await evaluate(`document.querySelector('[data-testid="fit-cover"]').click(), (document.querySelector('[data-testid="video-controls"]').checked && document.querySelector('[data-testid="video-controls"]').click()), document.querySelector('[data-testid="video-default-high"]').click(), true`);
-		const s2 = await waitFor(`(() => { const s = ${PANEL}; return s && s.active === 'fit-cover' && !s.controls && s.def === 'high' ? s : null; })()`, 5000);
-		if (!s2 || s2.error) problems.push(`after full viewport + cover top + controls off + default 1080p: ${JSON.stringify(await evaluate(PANEL))}`);
+		await evaluate(`document.querySelector('[data-testid="fit-cover"]').click(), (document.querySelector('[data-testid="video-controls"]').checked && document.querySelector('[data-testid="video-controls"]').click()), true`);
+		const s2 = await waitFor(`(() => { const s = ${PANEL}; return s && s.active === 'fit-cover' && !s.controls ? s : null; })()`, 5000);
+		if (!s2 || s2.error) problems.push(`after full viewport + cover top + controls off: ${JSON.stringify(await evaluate(PANEL))}`);
 		else {
 			if (s2.cells !== 4 || !s2.full) problems.push(`fit tiles ${s2.cells}`);
 			// a landscape video filling a phone or a 16:10 desktop is cropped at the sides only: no position buttons
@@ -553,11 +554,11 @@ if (step('creator')) {
 		const clamped = await waitFor(`(() => { const t = ${SIZE}; return t && t.includes('390 × 1560') ? t : null; })()`, 5000);
 		if (!clamped || clamped.error) problems.push(`custom 1:5 → expected clamped to 1:4 (390 × 1560): "${await evaluate(SIZE)}"`);
 		await shot('mq-creator-5-custom-1-4');
-		// the 480p field emptied → the default stays (1080p), the level is gone
-		await evaluate(`(() => { const i = document.querySelector('[data-testid="video-variant-low"]'); i.value = ''; i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
-		const s3 = await waitFor(`(() => { const s = ${PANEL}; return s && s.low === '' ? s : null; })()`, 5000);
-		if (!s3 || s3.error || s3.def !== 'high') problems.push(`after emptying 480p: ${JSON.stringify(await evaluate(PANEL))}`);
-		report(`"${tab}" tab: 480p / 720p / 1080p fields (default 720p), player + controls, fit row Ganz/Breite/Höhe/Füllen + position row only where it matters, the small preview, the short size lines, frame 9:16 → 390 × 693, custom 1:5 clamped to 1:4, edits follow`, problems);
+		// the 720p chip's × → the level is gone, the default moves to the LOWER level first (480p, less data; owner 2026-10-03)
+		await evaluate(`document.querySelector('[data-testid="video-file-medium-clear"]').click(), true`);
+		const s3 = await waitFor(`(() => { const s = ${PANEL}; return s && s.medium === '' ? s : null; })()`, 5000);
+		if (!s3 || s3.error || s3.def !== 'low') problems.push(`after clearing 720p: ${JSON.stringify(await evaluate(PANEL))}`);
+		report(`"${tab}" tab: one resolution slot with 480p / 720p / 1080p chips (default 720p), player + controls, fit row Ganz/Breite/Höhe/Füllen + position row only where it matters, the small preview, the short size lines, frame 9:16 → 390 × 693, custom 1:5 clamped to 1:4, clearing 720p makes 480p the default`, problems);
 	}
 }
 

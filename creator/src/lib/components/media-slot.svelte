@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { rootPath, toonRelativePath } from '@scutoons/api';
-	import { CloseButton, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import AssetPickerSheet from './assets/asset-picker-sheet.svelte';
@@ -57,7 +57,8 @@
 			{/if}
 		</button>
 		{#if value}
-			<CloseButton label={m['creator.remove']()} onclick={() => onchange(undefined)} />
+			<!-- icon only → round (owner 2026-10-03) -->
+			<button type="button" class="sc-round" aria-label={m['creator.remove']()} title={m['creator.remove']()} onclick={() => onchange(undefined)}><CloseIcon /></button>
 		{/if}
 	</div>
 	{#if size}<span class="sc-caption">{size.w} × {size.h} px</span>{/if}

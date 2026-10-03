@@ -961,7 +961,7 @@
 							/>
 						{/if}
 					{:else if inspectorTab === 'slice'}
-						<SliceMedia doc={activeDoc} {slicePath} {toon} known={images} />
+						<SliceMedia doc={activeDoc} {slicePath} {toon} known={images} place="{toon}/s{Number(season.get(season.primary, ['number'])) || 1}/c{chapterNumber}/" />
 						<div class="row">
 							<button class="secondary" onclick={() => moveSlice(-1)} disabled={sliceIndex === 0}>{m['creator.move_up']()}</button>
 							<button class="secondary" onclick={() => moveSlice(1)} disabled={sliceIndex >= (activeGroup?.slices?.length ?? 0) - 1}>{m['creator.move_down']()}</button>

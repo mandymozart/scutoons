@@ -326,7 +326,7 @@ guests on the device). "Automatic" = by the bandwidth (DESIGN.md "Media quality"
   they don't care. **Audio (later):** the same levels for music (e.g. 96 / 128 / 192 kbps).
 - **CDN / upload workflow:** every level is its own immutable file with the level in the name
   (`videos/<name>.480p.mp4`, later `images/webtoon/<sXcY>/<sXcY>-slice-N.2x.webp`), encoded together from the master,
-  uploaded with `cdn/sync.py`; the creator's "Hintergrund" tab takes one path per level. A new version = new names.
+  uploaded with `cdn/sync.py`; the creator's "Hintergrund" tab has one resolution slot (an asset fills every level, a chip per level). A new version = new names.
 
 ## RULE: content is served by the API from the database (2026-09-30, owner)
 
