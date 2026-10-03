@@ -74,15 +74,6 @@
 	/** the size line only when it is not the standard 390 × 625 (owner 2026-10-03) */
 	const offStandard = $derived(!!slice && (slice.width !== DEFAULT_SLICE.width || slice.height !== DEFAULT_SLICE.height));
 
-	function setMedia(kind: 'image' | 'video') {
-		if (kind === 'video' && !video) doc.setShared([...slicePath, 'video'], { src: '' }, 'slice-media');
-		if (kind === 'image' && video)
-			doc.structural((file) => {
-				const s = getAt(file, slicePath);
-				if (s) delete s.video;
-			}, 'slice-media');
-	}
-
 	/** edits `video` of the shown slice (shared by every language) */
 	function editVideo(change: (v: any) => void, key: string) {
 		doc.structural((file) => {
@@ -125,12 +116,16 @@
 
 	// ── files per quality: one slot (the asset fills 480p / 720p / 1080p, a chip per level replaces / clears one) ─────
 	const videoMedia = $derived<VariantMedia>({ src: video?.src || undefined, variants: video?.variants });
+	/** the optional video: a file makes the slice a video slice (the image its poster), clearing it removes the video */
 	function setVideoMedia(next: VariantMedia) {
-		editVideo((v) => {
-			// cleared: the slice stays a video without a file yet ({ src: '' }, like a new one), its options kept
-			v.src = next.src ?? '';
-			if (next.variants) v.variants = next.variants;
-			else delete v.variants;
+		doc.structural((file) => {
+			const s = getAt(file, slicePath);
+			if (!s) return;
+			if (!next.src) return void delete s.video;
+			s.video ??= {};
+			s.video.src = next.src;
+			if (next.variants) s.video.variants = next.variants;
+			else delete s.video.variants;
 		}, 'slice-video-files');
 	}
 
@@ -208,22 +203,26 @@
 </script>
 
 <div class="media" data-testid="slice-media">
-	<div class="kind" role="radiogroup" aria-label={m['creator.media_type']()}>
-		<label><input type="radio" name="slice-media" checked={!video} onchange={() => setMedia('image')} /> {m['creator.media_image']()}</label>
-		<label><input type="radio" name="slice-media" checked={!!video} onchange={() => setMedia('video')} data-testid="media-video" /> {m['creator.media_video']()}</label>
-	</div>
+	<!-- the image always (a video's poster and fallback), a video optionally – not either / or (owner 2026-10-03) -->
+	<MediaVariantsSlot {toon} {place} kind="image" label={m['creator.media_image']()} value={imageMedia} onchange={setImageMedia} testid="slice-image" />
+	{#each doc.overrides([...slicePath, 'image']) as l}
+		<p class="hint">
+			{l}: {doc.get(l, [...slicePath, 'image'])} ({m['creator.override']()})
+			<button class="ghost" onclick={() => doc.resetOverride(l, [...slicePath, 'image'])}>{m['creator.use_shared']()}</button>
+		</p>
+	{/each}
 
-	{#if video}
-		<MediaVariantsSlot
+	<MediaVariantsSlot
 			{toon}
 			{place}
-			label={m['creator.video_files']()}
+			label={m['creator.media_video']()}
 			value={videoMedia}
 			poster={slice?.image}
 			onchange={setVideoMedia}
 			onmeta={(size) => (videoRatio = size && size.w > 0 ? size.w / size.h : null)}
 			testid="video-file"
 		/>
+	{#if video}
 		<div class="flags">
 			<label title={m['creator.video_player_hint']()}
 				><input type="checkbox" checked={video.player === true} onchange={(e) => setPlayer(e.currentTarget.checked)} data-testid="video-player" /> player</label
@@ -312,13 +311,6 @@
 		</fieldset>
 	{/if}
 
-	<MediaVariantsSlot {toon} {place} kind="image" label={video ? m['creator.poster']() : m['creator.media_image']()} value={imageMedia} onchange={setImageMedia} testid="slice-image" />
-	{#each doc.overrides([...slicePath, 'image']) as l}
-		<p class="hint">
-			{l}: {doc.get(l, [...slicePath, 'image'])} ({m['creator.override']()})
-			<button class="ghost" onclick={() => doc.resetOverride(l, [...slicePath, 'image'])}>{m['creator.use_shared']()}</button>
-		</p>
-	{/each}
 	{#if video?.viewport || (video?.frame && frameRatio) || offStandard}
 	<p class="hint" data-testid="slice-size">
 		{#if video?.viewport}

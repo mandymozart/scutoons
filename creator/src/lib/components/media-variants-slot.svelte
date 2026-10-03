@@ -80,6 +80,7 @@
 		<button
 			type="button"
 			class="slot"
+			class:image={kind === 'image'}
 			class:empty={!value.src}
 			onclick={() => choose(null)}
 			title={value.src ? `${value.src}\n${m['creator.variants_choose_hint']()}` : m['creator.variants_choose_hint']()}
@@ -165,6 +166,10 @@
 		border: var(--border-width-regular) solid var(--ink);
 		cursor: pointer;
 		overflow: hidden;
+	}
+	/* an image (a portrait slice) is a small preview, like the single media slot (owner 2026-10-03) */
+	.slot.image {
+		flex-basis: 6rem;
 	}
 	.slot.empty {
 		border-style: dashed;
