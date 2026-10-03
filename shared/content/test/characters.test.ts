@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+	parseConventionImageName,
 	castIndex,
 	chapterSceneCharacters,
 	ensureStar,
@@ -414,4 +415,15 @@ test('media requests (view "media"): toon media without a character – listed, 
 	assert.equal(closeFulfilledRequests(requests as never, registry, 'now'), 0);
 	assert.equal(closeFulfilledRequests(requests as never, registry, 'now', (p) => p === 'toptoy/images/b.webp'), 1);
 	assert.equal(requests.requests[1].status, 'done');
+});
+
+test('parseConventionImageName maps a delivered file onto its slot', () => {
+	assert.deepEqual(parseConventionImageName('boy_portrait-neutral.png', 'boy'), { view: 'portrait', mood: 'neutral', look: null });
+	assert.deepEqual(parseConventionImageName('Boy_Avatar-Neutral.PNG', 'boy'), { view: 'avatar', mood: 'neutral', look: null });
+	assert.deepEqual(parseConventionImageName('boy_helmet_full-very-happy.webp', 'boy'), { view: 'full', mood: 'very-happy', look: 'helmet' });
+	assert.deepEqual(parseConventionImageName('portrait-sad.png', 'boy'), { view: 'portrait', mood: 'sad', look: null });
+	assert.deepEqual(parseConventionImageName('catpope-human_portrait-neutral.png', 'catpope', 'human'), { view: 'portrait', mood: 'neutral', look: null });
+	assert.deepEqual(parseConventionImageName('crows_portrait-neutral.png', 'boy'), { view: 'portrait', mood: 'neutral', look: null, other: 'crows' });
+	assert.equal(parseConventionImageName('boy.png', 'boy'), null);
+	assert.equal(parseConventionImageName('boy_side-neutral.png', 'boy'), null);
 });

@@ -475,6 +475,29 @@ export function conventionImagePath(character: string, view: string, mood: strin
 	return `${CHARACTER_IMAGE_ROOT}/${name}/${name}${lookPart}_${view}-${mood}.webp`;
 }
 
+/**
+ * The slot a delivered file is for, by the convention name (owner 2026-10-03: "files with matching file names should be
+ * mapped onto slots"): `boy_portrait-neutral.png` → { view: portrait, mood: neutral }, `boy_helmet_full-happy.png` → look
+ * `helmet`. Case and the extension don't matter; the name may be left out (`portrait-neutral.png`). `look` is null when the
+ * name has none, `other` is set when the name is another character's / persona's; null = no view-mood in the name.
+ */
+export function parseConventionImageName(
+	file: string,
+	character: string,
+	persona: string = REGULAR_PERSONA
+): { view: CharacterImageVariant; mood: string; look: string | null; other?: string } | null {
+	const stem = file.split(/[\/]/).pop()!.toLowerCase().replace(/\.[a-z0-9]+$/, '');
+	const found = stem.match(new RegExp(`^(.*?)(?:^|_)(${CHARACTER_IMAGE_VARIANTS.join('|')})-([a-z][a-z0-9-]*)$`));
+	if (!found) return null;
+	const [, prefix, view, mood] = found;
+	const name = conventionName(character, persona).toLowerCase();
+	const slot = { view: view as CharacterImageVariant, mood, look: null as string | null };
+	if (!prefix) return slot;
+	if (prefix === name) return slot;
+	if (prefix.startsWith(`${name}_`) && prefix.length > name.length + 1) return { ...slot, look: prefix.slice(name.length + 1) };
+	return { ...slot, other: prefix };
+}
+
 /** `characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.webp` (delivered as PNG, see above) */
 export function conventionTransitionPath(character: string, persona: string, from: string, to: string): string {
 	const name = conventionName(character, persona);
