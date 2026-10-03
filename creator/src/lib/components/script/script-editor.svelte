@@ -455,21 +455,24 @@
 	.layout {
 		display: grid;
 		grid-template-columns: var(--outline-width, 260px) 0.75rem minmax(0, 1fr);
-		gap: 0 0.75rem;
+		gap: 0;
 		align-items: start;
 		/* flush with the sidebar divider and up to the status line: the divider runs the full height */
 		margin: -1rem 0 0 -1rem;
 	}
 	.side {
-		padding: 1rem 0 0 1rem;
+		padding: 1rem 0 0;
 	}
+	/* the content 1rem from the divider */
 	.main {
-		padding-top: 1rem;
+		/* the drag edge (0.75rem, its line on the left) + this = 1rem */
+		padding: 1rem 0 0 0.25rem;
 	}
 	.layout.folded {
 		grid-template-columns: 2.5rem 0.75rem minmax(0, 1fr);
 	}
 	.side h2 {
+		padding: 0 0.5rem 0 1rem;
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
@@ -494,14 +497,14 @@
 		align-self: stretch;
 		cursor: col-resize;
 		touch-action: none;
-		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-regular) 100% no-repeat;
+		background: linear-gradient(var(--ink), var(--ink)) left / var(--border-width-regular) 100% no-repeat;
 	}
 	.layout.folded .split {
 		cursor: default;
 	}
 	.split:hover,
 	.split:focus-visible {
-		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
+		background: linear-gradient(var(--ink), var(--ink)) left / var(--border-width-focus) 100% no-repeat;
 		outline: none;
 	}
 	.rules-link {
@@ -528,6 +531,8 @@
 	.outline-list {
 		max-height: var(--outline-height, calc(100vh - 220px));
 		overflow: auto;
+		/* thin, so the highlight reaches (almost) the divider */
+		scrollbar-width: thin;
 	}
 	.side h2 {
 		font-size: var(--type-caption-size);
@@ -550,8 +555,8 @@
 		text-align: left;
 		background: none;
 		border: 0;
-		border-left: 3px solid transparent;
-		padding: 0 0.3rem;
+		/* every entry's text on the same 1rem line; the highlight runs edge to edge (owner 2026-10-03) */
+		padding: 0 0.5rem 0 1rem;
 		font-size: var(--type-caption-size);
 		color: var(--ink);
 		cursor: pointer;
@@ -561,7 +566,6 @@
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	li button.current {
-		border-left-color: var(--ink);
 		background: var(--ink);
 		color: var(--paper);
 	}
@@ -574,9 +578,6 @@
 	li.song button {
 		font-style: italic;
 		margin-top: 0.35rem;
-	}
-	li.scene button {
-		padding-left: 16px;
 	}
 	.num {
 		min-width: 28px;
