@@ -305,10 +305,8 @@
 </div>
 
 <style>
-	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here */
-	.meta-page {
-		--top: 64px;
-	}
+	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here;
+	   --top (the top bar's height) comes from the layout */
 	.status-end {
 		margin-left: auto;
 		display: flex;
