@@ -243,6 +243,15 @@ Done (branch `components`):
   scaled resize, rotate angle, scale factor, text scale, item scale) out of slice-canvas (736 → 645); 10 unit tests with
   node's own runner (`npm run test -w creator`, part of `npm run check`) – no vitest dependency needed;
   check:creator-chapter drags a box (move onto the grid, the rotate handle in 15° steps, one undo step per drag).
+- Step 11 ✓ (the commit adding this line; platform merged before it, 19be881) – `lib/editor/doc-session.svelte.ts`
+  (save all / Save draft with the note dialog / publish / conflict / notice; `confirmPublish` = the one publish dialog,
+  naming the files and exactly the languages with something to publish, never the neutral `_`),
+  `lib/editor/editor-keys.ts` (Ctrl+S; Ctrl+Z / Shift+Z / Y only outside a field – 4.4.1, now also in the chapter
+  editor), `components/page/doc-notices.svelte` + tools.css `.sc-bar.is-dirty|warning|error|note` (the chapter editor's
+  bar look, now also on the meta pages). Used by meta-page (416 → 273) and chapter-editor; the toon page keeps its own
+  save flow (followers, language reload) but uses `confirmPublish`. Behaviour changes (intended): undo inside a chapter
+  field is the browser's; the chapter's publish dialog names only the languages with a draft (was: all). check:creator-
+  chapter: undo in a field, the publish dialog's languages (62 checks).
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

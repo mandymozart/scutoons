@@ -238,14 +238,14 @@ try {
 	edited[target[1] - 1] += EDIT;
 	text = await value();
 	check(text === edited.join('\n'), 'the edit is exactly one changed line');
-	check(await until('!!document.querySelector(".dirty-bar")'), 'the page is dirty after the debounce');
+	check(await until('!!document.querySelector(".sc-bar.is-dirty")'), 'the page is dirty after the debounce');
 
 	// 4. save draft, publish → the history has both versions
 	let n = writes.length;
 	await click('[data-testid="save-draft"]');
 	// Save draft asks for a note (askDialog): save without one
 	await answerDialog('button.secondary');
-	await until(`!document.querySelector('.dirty-bar') && !${q('save-draft')}.disabled`);
+	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.disabled`);
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/${KEYS[0]}` && saved[0].status === 200, 'Save draft: PUT script:catpope:de 200', JSON.stringify(saved));
 	const draft = await api('GET', `/entities/${KEYS[0]}?draft=1&wrap=1`);
@@ -270,7 +270,7 @@ try {
 	check(restored.content.text === source && JSON.stringify(restored.content) === JSON.stringify(baseline[KEYS[0]].content), 'restore: the stored draft is byte-identical to the original');
 	await click('[data-testid="publish"]');
 	await answerDialog('button[type="submit"]'); // Publish confirms in-page
-	await until(`!document.querySelector('[data-testid="file-status"] .sc-chip') && !document.querySelector('.dirty-bar')`);
+	await until(`!document.querySelector('[data-testid="file-status"] .sc-chip') && !document.querySelector('.sc-bar.is-dirty')`);
 	const live = await api('GET', `/entities/${KEYS[0]}`);
 	check(live.text === source, 'the original is published again');
 
@@ -285,7 +285,7 @@ try {
 	// 7. a toon without a script: an empty page, nothing dirty
 	await send('Page.navigate', { url: `${CREATOR}/sandbox/script` });
 	const empty = await until(`!!${area} && !!${q('file-status')}`);
-	check(empty && (await value()) === '' && !(await js('!!document.querySelector(".dirty-bar")')), 'a toon without a script: empty editor, not dirty');
+	check(empty && (await value()) === '' && !(await js('!!document.querySelector(".sc-bar.is-dirty")')), 'a toon without a script: empty editor, not dirty');
 	check(errors.length === 0, 'no page errors', errors.join(' | '));
 } catch (e) {
 	failed = true;

@@ -1,14 +1,16 @@
 <script lang="ts">
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
-	import { askDialog, confirmDialog } from '@scutoons/ui';
 	import { onMount, untrack } from 'svelte';
 	import { ActionBar, CloseIcon, Icon, Segmented } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
-	import { fileLabel, fileLabels, sceneLabel } from '$lib/labels.ts';
+	import { fileLabel, sceneLabel } from '$lib/labels.ts';
+	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
+	import { editorKeys, isField } from '$lib/editor/editor-keys.ts';
+	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { m } from '$lib/paraglide/messages.js';
-	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
+	import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
 	import { entities, getAt, deleteAt, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, characterName, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
@@ -212,18 +214,27 @@
 		panel = panel === next ? null : next;
 	}
 	let canvas = $state<SliceCanvas | null>(null);
-	let notice = $state<string | null>(null);
+	/** save / publish / conflict / the notice (lib/editor/doc-session.svelte.ts – the same as the meta pages') */
+	const session = new DocSession({
+		docs: () => allDocs,
+		beforeSave: () => {
+			// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
+			syncChapter(chapter, season, chapterNumber);
+			// a cast saved from here keeps the toon's star in every season
+			if (castTouched || cast.dirty) castWithStar(cast, registry, toon, [SEASON]);
+		},
+		afterSave: () => refreshImages(),
+		errorCount: () => errorCount
+	});
 	// geometry is the same in every language: tell once when loading made a language follow the source (saved with the next save)
 	const unifiedGeometry = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.geometryUnified), 0));
 	let unifiedShown = 0;
 	$effect(() => {
 		if (unifiedGeometry > unifiedShown) {
-			notice = m['creator.geometry_unified']({ n: unifiedGeometry });
+			session.notice = m['creator.geometry_unified']({ n: unifiedGeometry });
 			unifiedShown = unifiedGeometry;
 		}
 	});
-	let conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
-	let saveMessage = $state('');
 
 	const currentGroup = $derived(groups[groupIndex]);
 	const refSrc = $derived<string | null>(currentGroup?.ref?.src ?? null);
@@ -558,7 +569,7 @@
 		if (!doc) return;
 		const library = chapterData?.audio?.sampleLibrary ?? [];
 		if (!library.length) {
-			notice = 'The chapter has no sample library yet (Audio in the tree).';
+			session.notice = 'The chapter has no sample library yet (Audio in the tree).';
 			return;
 		}
 		doc.structural((file) => {
@@ -636,71 +647,6 @@
 		section = 'meta';
 	}
 
-	// ── Save / publish ──────────────────────────────────────────────────────────────────────────────────
-	async function saveAll(force = false) {
-		notice = null;
-		conflict = null;
-		// the chapter file's (deprecated) status mirrors the season, its old `published` flag goes
-		syncChapter(chapter, season, chapterNumber);
-		// a cast saved from here keeps the toon's star in every season
-		if (castTouched || cast.dirty) castWithStar(cast, registry, toon, [SEASON]);
-		for (const doc of allDocs) {
-			if (!doc.dirty) continue;
-			try {
-				await doc.save(saveMessage.trim() || undefined, force);
-			} catch (e) {
-				if (e instanceof SaveConflict) conflict = { doc, error: e };
-				else notice = `${fileLabel(doc.entity)}: ${e instanceof Error ? e.message : String(e)}`;
-				return false;
-			}
-		}
-		saveMessage = '';
-		notice = m['creator.saved']();
-		refreshImages();
-		return true;
-	}
-
-
-	/** "Save draft": without a note, ask for one – it can be skipped (owner 2026-10-03) */
-	async function saveDraft() {
-		if (!saveMessage.trim()) {
-			const note = await askDialog({
-				title: m['creator.note_title'](),
-				message: m['creator.note_message'](),
-				label: m['creator.note_label'](),
-				placeholder: m['creator.note_placeholder'](),
-				confirmLabel: m['creator.note_save'](),
-				skipLabel: m['creator.note_skip']()
-			});
-			if (note === null) return;
-			saveMessage = note;
-		}
-		await saveAll();
-	}
-
-	async function publishAll() {
-		syncChapter(chapter, season, chapterNumber);
-		const docs = allDocs.filter((d) => d.dirty || d.unpublished.length || d.stored.length);
-		const files = fileLabels(docs.map((d) => d.entity));
-		if (errorCount && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: errorCount }), confirmLabel: m['creator.publish']() }))) return;
-		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: files, locales: chapter.locales.join(', ') }), confirmLabel: m['creator.publish']() }))) return;
-		if (!(await saveAll())) return;
-		try {
-			for (const doc of allDocs) if (doc.stored.length && doc.unpublished.length) await doc.publish();
-			notice = m['creator.published']();
-		} catch (e) {
-			notice = e instanceof Error ? e.message : String(e);
-		}
-	}
-
-	async function resolveConflict(action: 'reload' | 'overwrite') {
-		if (!conflict) return;
-		const { doc } = conflict;
-		conflict = null;
-		if (action === 'reload') await doc.load();
-		else await saveAll(true);
-	}
-
 	const previewLabel = $derived(section === 'group' || section === 'slice' ? (activeGroup?.label ?? '') : '');
 	/** the creator's own draft preview (saved drafts rendered with @scutoons/reader), in a new tab */
 	const previewHref = (locale: string) =>
@@ -724,30 +670,12 @@
 		return () => clearTimeout(timer);
 	});
 
-	function isField(target: EventTarget | null) {
-		const el = target as HTMLElement | null;
-		return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable);
-	}
-
 	function onKeydown(event: KeyboardEvent) {
 		const mod = event.ctrlKey || event.metaKey;
 		const key = event.key.toLowerCase();
-		if (mod && key === 'z') {
-			event.preventDefault();
-			if (event.shiftKey) redoLast();
-			else undoLast();
-			return;
-		}
-		if (mod && key === 'y') {
-			event.preventDefault();
-			redoLast();
-			return;
-		}
-		if (mod && key === 's') {
-			event.preventDefault();
-			saveAll();
-			return;
-		}
+		// Ctrl+S saves (no note dialog); undo / redo only outside a field – in one, they are the browser's (owner
+		// 2026-10-03, COMPONENTS.md 4.4.1); lib/editor/editor-keys.ts
+		if (editorKeys(event, { save: () => session.saveAll(), undo: undoLast, redo: redoLast })) return;
 		if (isField(event.target) || section !== 'slice') return;
 		// one grid step (snap off: 1 px), Shift × 10
 		const step = (grid || 1) * (event.shiftKey ? 10 : 1);
@@ -765,10 +693,6 @@
 		}
 	}
 
-	const recoverables = $derived(allDocs.filter((d) => d.recoverable));
-	const missingLocales = $derived(
-		allDocs.flatMap((d) => d.locales.filter((l) => l !== d.primary && d.data[l] == null && !d.loading && d.data[d.primary]).map((l) => ({ doc: d, locale: l })))
-	);
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -877,15 +801,15 @@
 				{/each}
 			</span>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
-			<input class="message in-start" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={saveMessage} />
+			<input class="message in-start" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={session.message} />
 		{/snippet}
 		{#snippet end()}
 			{@render sliceNav('end')}
-			<input class="message in-end" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={saveMessage} />
-			<button onclick={saveDraft} disabled={!anyDirty || anySaving} data-testid="save-draft">
+			<input class="message in-end" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={session.message} />
+			<button onclick={() => session.saveDraft()} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
-			<button class="secondary" onclick={publishAll} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>
 		{/snippet}
 	</ActionBar>
 
@@ -902,33 +826,15 @@
 			{#if !season.loading && (season.dirty || season.unpublished.length)}<FileStatus doc={season} label={fileLabel(season.entity)} />{/if}
 		</div>
 		{/if}
-		{#if anyDirty && !chapter.saving}<div class="bar dirty-bar">{m['creator.unsaved']()}{#if activeDoc?.dirty && section === 'slice'} · {activeDoc.dirtyLocales.join(', ')}{/if}</div>{/if}
-		{#each recoverables as d (d.entity)}
-			<div class="bar warn-bar">
-				{fileLabel(d.entity)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
-				{#if d.recoverableIsStale}<strong class="sc-emphasis">{m['creator.recover_stale']()}</strong>{/if}
-				<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
-				<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
-			</div>
-		{/each}
-		{#each missingLocales as { doc, locale } (doc.entity + locale)}
-			<div class="bar warn-bar">
-				{fileLabel(doc.entity)}: {locale} {m['creator.missing']()}
-				<button class="secondary" onclick={() => doc.createLocale(locale, (f) => (f && doc.kind === 'chapter' ? { ...f, language: locale } : f))}>
-					{m['creator.create_locale']({ locale, source: doc.primary })}
-				</button>
-			</div>
-		{/each}
-		{#if conflict}
-			<div class="bar error-bar">
-				{m['creator.conflict']({ locale: conflict.error.locale, file: fileLabel(conflict.doc.entity) })}
-				<button class="secondary" onclick={() => resolveConflict('reload')}>{m['creator.reload']()}</button>
-				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
-			</div>
-		{/if}
-		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><CloseIcon /></button></div>{/if}
+		<DocNotices
+			{session}
+			docs={allDocs}
+			dirty={anyDirty && !chapter.saving}
+			dirtyDetail={activeDoc?.dirty && section === 'slice' ? activeDoc.dirtyLocales.join(', ') : undefined}
+			createLocale={(doc, locale) => doc.createLocale(locale, (f) => (f && doc.kind === 'chapter' ? { ...f, language: locale } : f))}
+		/>
 		{#if castNotice}
-			<div class="bar note-bar" data-testid="cast-notice">
+			<div class="sc-bar is-note" data-testid="cast-notice">
 				{castNotice}
 				<button class="secondary" onclick={undoCast} data-testid="cast-undo">{m['creator.undo']()}</button>
 				<button class="ghost" onclick={() => (castNotice = null)} aria-label={m['creator.info_close']()} title={m['creator.info_close']()}><CloseIcon /></button>
@@ -940,7 +846,7 @@
 			<main class="main" class:fit={section === 'slice' && !!activeSlice}>
 				{#if section === 'meta'}
 					{#if legacyTexts}
-						<div class="bar note-bar" data-testid="legacy-texts">
+						<div class="sc-bar is-note" data-testid="legacy-texts">
 							<span>{m['creator.legacy_texts']({ count: legacyTexts })}</span>
 							<button class="secondary" onclick={convertLegacyTexts} data-testid="convert-presets">{m['creator.legacy_texts_convert']()}</button>
 						</div>
@@ -1188,28 +1094,6 @@
 		color: var(--error);
 	}
 	/* status bars: ink on paper with a thick state rule (no tinted fills); unsaved = inverted */
-	.bar {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
-		align-items: center;
-		padding: var(--space-05) var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-		border-left: 0.5rem solid var(--ink);
-	}
-	.dirty-bar {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.warn-bar {
-		border-left-color: var(--warn);
-	}
-	.error-bar {
-		border-left-color: var(--error);
-	}
-	.note-bar {
-		border-left-color: var(--cyan);
-	}
 	.columns {
 		position: relative;
 		flex: 1;

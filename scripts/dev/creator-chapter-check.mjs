@@ -318,7 +318,15 @@ try {
 	check(await until(`document.activeElement?.dataset?.testid === 'text-de'`, 3000), 'add: the cursor is in the new text field');
 	await send('Input.insertText', { text: TEXT });
 	await sleep(300);
-	check(await until(`!!document.querySelector('.dirty-bar') && ${q('save-draft')}.textContent.includes('•')`, 3000), 'add: typing marks the page dirty');
+	check(await until(`!!document.querySelector('.sc-bar.is-dirty') && ${q('save-draft')}.textContent.includes('•')`, 3000), 'add: typing marks the page dirty');
+	// undo inside a field is the browser's (owner 2026-10-03, COMPONENTS.md 4.4.1): it undoes the typing, never the file
+	await sleep(1200);
+	await send('Input.insertText', { text: ' x' });
+	await sleep(300);
+	await press('z', 'ctrl');
+	await sleep(300);
+	const inField = await js(`({ value: ${q('text-de')}?.value ?? null, focus: document.activeElement?.dataset?.testid, boxes: document.querySelectorAll('[data-testid^="box-dialog-"]').length })`);
+	check(inField.value === TEXT && inField.focus === 'text-de' && inField.boxes === dialogsBefore + 1, 'undo in a field: Ctrl+Z undoes the typing there, the text box stays (the file is not undone)', JSON.stringify(inField));
 
 	// ── snap + nudge (outside a field: the list entry has the focus) ──────────────────────────────────────
 	await click(tid(`dialog-${added}`));
@@ -411,7 +419,7 @@ try {
 	const n = writes.length;
 	await click(tid('save-draft'));
 	await answerDialog('button.secondary'); // the note dialog: save without a note
-	await until(`!document.querySelector('.dirty-bar') && !${q('save-draft')}.textContent.includes('•')`);
+	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.textContent.includes('•')`);
 	const saved = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(saved.includes(`PUT /entities/${CHAPTER_KEYS[0]} 200`) && !saved.some((w) => /publish/.test(w)), 'Save draft: PUT the chapter (de) 200, nothing published', JSON.stringify(saved));
 	const draft = await api('GET', `/entities/${CHAPTER_KEYS[0]}?draft=1&wrap=1`);
@@ -421,6 +429,23 @@ try {
 		'the draft has the new text box; the published version stays',
 		JSON.stringify({ n: savedDialogs.length, published: draft.published })
 	);
+
+	// the publish confirm names what is published and in which language (4.4.3) – cancelled here
+	await click(tid('publish'));
+	const confirmText = (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) ? await js(`document.querySelector('dialog.sc-dialog[open] .message')?.textContent ?? ''`) : '';
+	await answerDialog('button.ghost');
+	const drafted = [];
+	for (const [i, key] of CHAPTER_KEYS.entries()) {
+		const e = await api('GET', `/entities/${key}?draft=1&wrap=1`);
+		if (e.published?.id !== e.version.id) drafted.push(LOCALES[i]);
+	}
+	const named = confirmText.match(/\(([^)]*)\)/)?.[1].split(/,\s*/) ?? [];
+	check(
+		/Chapter 1|Kapitel 1/.test(confirmText) && drafted.length > 0 && JSON.stringify([...named].sort()) === JSON.stringify([...drafted].sort()),
+		`Publish asks first, naming the file and exactly the languages with a draft (${drafted.join(', ')})`,
+		confirmText
+	);
+	check((await writesSince(n).filter((w) => /publish/.test(w.url)).length) === 0, 'cancelled: nothing published');
 
 	// ── VN events (step 8: one form per type): chapter 2's first scene – its group script, then a slice's events ──
 	// edits here are never saved (the page is left with them; nothing is written)

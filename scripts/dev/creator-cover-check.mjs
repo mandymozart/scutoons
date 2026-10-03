@@ -234,7 +234,7 @@ try {
 	check(await until(`${q('cover-stage')}.querySelectorAll('.line').length === 2`), 'Default: two lines over the art');
 	let lines = await stageLines();
 	check(lines[0]?.text === titles.de.toon && lines[1]?.text === `"${titles.de.season}"`, `de: "${lines[0]?.text}" over ${lines[1]?.text} (from the text fields)`, JSON.stringify(lines));
-	check(await until('!!document.querySelector(".dirty-bar")'), 'the page is dirty');
+	check(await until('!!document.querySelector(".sc-bar.is-dirty")'), 'the page is dirty');
 	await shot('2-default-de');
 
 	// 2. the preview language
@@ -299,7 +299,7 @@ try {
 	// 6. Save draft → a valid layout in the store, texts only in the custom line
 	await click('[data-testid="save-draft"]');
 	await answerDialog('button.secondary');
-	await until(`!document.querySelector('.dirty-bar')`);
+	await until(`!document.querySelector('.sc-bar.is-dirty')`);
 	const stored = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 	const others = await Promise.all(KEYS.slice(1).map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));
 	check(others.every((o) => JSON.stringify(o.content.cover) === JSON.stringify(stored.content.cover)), `the same cover in every locale (${KEYS.length} season documents)`);

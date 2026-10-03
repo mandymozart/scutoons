@@ -175,9 +175,9 @@ async function answerDialog(button) {
 }
 const state = () =>
 	js(`({
-		dirty: !!document.querySelector('.dirty-bar'),
+		dirty: !!document.querySelector('.sc-bar.is-dirty'),
 		chips: ${CHIPS},
-		notice: document.querySelector('.note-bar')?.innerText.replace('✕', '').trim() ?? '',
+		notice: document.querySelector('.sc-bar.is-note')?.innerText.replace('✕', '').trim() ?? '',
 		saveDisabled: ${q('save-draft')}?.disabled,
 		publishDisabled: ${q('publish')}?.disabled,
 		members: [...document.querySelectorAll('[data-testid^="cast-member-"]')].map((e) => e.dataset.testid.slice(12))
@@ -228,7 +228,7 @@ try {
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
 	await answerDialog('button.secondary'); // the note dialog: save without a note
-	await until(`!document.querySelector('.dirty-bar') && !${q('save-draft')}.disabled`);
+	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.disabled`);
 	s = await state();
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/cast:${TOON}` && saved[0].status === 200, 'Save draft: PUT cast 200', JSON.stringify(saved));
@@ -252,7 +252,7 @@ try {
 	n = writes.length;
 	await click('[data-testid="publish"]');
 	await answerDialog('button[type="submit"]'); // Publish confirms in-page
-	await until(`${CHIPS} === '' && !document.querySelector('.dirty-bar')`);
+	await until(`${CHIPS} === '' && !document.querySelector('.sc-bar.is-dirty')`);
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { confirmDialog } from '@scutoons/ui';
+	import { confirmPublish } from '$lib/editor/doc-session.svelte.ts';
 	import { onMount } from 'svelte';
 	import { ActionBar, CloseIcon, Icon, ToonAvatar } from '@scutoons/ui';
 	import { goto } from '$app/navigation';
@@ -318,8 +318,8 @@
 		const follow = [...new Set([...followers, ...followersSaved])];
 		const docs = [...pageDocs.filter((d) => d.dirty || d.unpublished.length), ...follow];
 		if (!docs.length) return;
-		const locales = [...new Set(docs.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].join(', ');
-		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: fileLabels(docs.map((d) => d.entity)), locales }), confirmLabel: m['creator.publish']() }))) return;
+		// the one publish dialog (lib/editor/doc-session.svelte.ts): the files and their languages
+		if (!(await confirmPublish(docs))) return;
 		if (!(await saveAll())) return;
 		busy = true;
 		try {

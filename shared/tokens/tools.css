@@ -631,6 +631,32 @@
 	object-fit: contain;
 }
 
+/* a page's message bars under its file status (COMPONENTS.md step 11; the creator's DocNotices – the chapter editor's
+   look, which the meta pages now share): ink on paper with a thick state rule, no tinted fills; .is-dirty unsaved
+   changes (inverted), .is-warning (an autosave, a missing language), .is-error (a save conflict), .is-note (a notice) */
+.sc-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-05);
+	padding: var(--space-05) var(--space-1);
+	border-bottom: var(--border-width-regular) solid var(--ink);
+	border-left: 0.5rem solid var(--ink);
+}
+.sc-bar.is-dirty {
+	background: var(--ink);
+	color: var(--paper);
+}
+.sc-bar.is-warning {
+	border-left-color: var(--state-warning);
+}
+.sc-bar.is-error {
+	border-left-color: var(--state-error);
+}
+.sc-bar.is-note {
+	border-left-color: var(--primary-cyan);
+}
+
 /* a framed block */
 .sc-frame {
 	box-sizing: border-box;

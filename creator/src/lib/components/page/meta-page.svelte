@@ -1,23 +1,26 @@
 <script lang="ts">
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
-	import { askDialog, confirmDialog } from '@scutoons/ui';
 	import type { Snippet } from 'svelte';
-	import { ActionBar, CloseIcon } from '@scutoons/ui';
+	import { ActionBar } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
-	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
-	import { NEUTRAL_LOCALE, validateFile, validateLocales, type Problem } from '@scutoons/content';
+	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
+	import { editorKeys } from '$lib/editor/editor-keys.ts';
+	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
+	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
 	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
-	import { fileLabel, fileLabels } from '$lib/labels.ts';
+	import { fileLabel } from '$lib/labels.ts';
 
 	/**
 	 * Editor shell for toon-level entities (season, toon settings): top bar with their versions, the bottom ActionBar
 	 * (problems · undo/redo · history · note + Save draft / Publish), autosave + recover, missing-locale bars, the
-	 * leave guard and Ctrl+S / Ctrl+Z. `docs` are validated, saved and published; `companions()` are files that follow
-	 * them (the chapter files whose status mirrors the season) – saved when dirty, published with the docs.
+	 * leave guard and Ctrl+S / Ctrl+Z (outside a field). `docs` are validated, saved and published; `companions()` are
+	 * files that follow them (the chapter files whose status mirrors the season) – saved when dirty, published with the
+	 * docs. Save / publish / conflict: lib/editor/doc-session.svelte.ts; the bars: DocNotices.
 	 */
 	let {
 		toon,
@@ -66,18 +69,13 @@
 	let historyPath = $state<string | null>(null);
 	const historyDoc = $derived(docs.find((d) => d.entity === historyPath) ?? main);
 	const loaded = $derived(docs.every((d) => !d.loading));
-	const anyDirty = $derived(docs.some((d) => d.dirty) || companions().some((d) => d.dirty));
-	const anySaving = $derived(docs.some((d) => d.saving));
+	const session = new DocSession({ docs: () => docs, companions: () => companions(), beforeSave: () => beforeSave(), errorCount: () => errorCount });
+	const anyDirty = $derived(session.anyDirty);
+	const anySaving = $derived(session.anySaving);
 	let panel = $state<'problems' | 'history' | null>(null);
 	function togglePanel(next: 'problems' | 'history') {
 		panel = panel === next ? null : next;
 	}
-	let notice = $state<string | null>(null);
-	let conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
-	let saveMessage = $state('');
-	/** companions saved on this page (published together with the docs) */
-	let savedCompanions: ContentDoc[] = [];
-
 	const problems = $derived.by<Problem[]>(() => {
 		const out: Problem[] = [];
 		if (validate) {
@@ -102,80 +100,6 @@
 	const errorCount = $derived(problems.filter((p) => p.level === 'error').length);
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning').length);
 
-	/** the button: never a silent no-op (owner 2026-09-30: "Save draft / Publish don't work" on a page without changes) */
-	async function saveClicked() {
-		beforeSave();
-		if (!anyDirty) {
-			notice = m['creator.nothing_to_save']();
-			return;
-		}
-		// without a note, ask for one – it can be skipped (owner 2026-10-03)
-		if (!saveMessage.trim()) {
-			const note = await askDialog({
-				title: m['creator.note_title'](),
-				message: m['creator.note_message'](),
-				label: m['creator.note_label'](),
-				placeholder: m['creator.note_placeholder'](),
-				confirmLabel: m['creator.note_save'](),
-				skipLabel: m['creator.note_skip']()
-			});
-			if (note === null) return;
-			saveMessage = note;
-		}
-		await saveAll();
-	}
-
-	async function saveAll(force = false) {
-		notice = null;
-		conflict = null;
-		beforeSave();
-		for (const doc of [...docs, ...companions()]) {
-			if (!doc.dirty) continue;
-			try {
-				await doc.save(saveMessage.trim() || undefined, force);
-				if (!docs.includes(doc) && !savedCompanions.includes(doc)) savedCompanions.push(doc);
-			} catch (e) {
-				if (e instanceof SaveConflict) conflict = { doc, error: e };
-				else notice = `${fileLabel(doc.entity)}: ${e instanceof Error ? e.message : String(e)}`;
-				return false;
-			}
-		}
-		saveMessage = '';
-		notice = m['creator.saved']();
-		return true;
-	}
-
-	async function publishAll() {
-		beforeSave();
-		const follow = [...new Set([...companions().filter((d) => d.dirty), ...savedCompanions])];
-		const files = [...docs.filter((d) => d.dirty || d.unpublished.length), ...follow];
-		if (!files.length) {
-			notice = m['creator.nothing_to_publish']();
-			return;
-		}
-		if (errorCount && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: errorCount }), confirmLabel: m['creator.publish']() }))) return;
-		// language-neutral entities (cast, characters …) have no locale to name
-		const locales = [...new Set(files.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].filter((l) => l !== NEUTRAL_LOCALE).join(', ');
-		const file = fileLabels(files.map((d) => d.entity));
-		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: locales ? m['creator.publish_confirm']({ file, locales }) : m['creator.publish_confirm_neutral']({ file }), confirmLabel: m['creator.publish']() }))) return;
-		if (!(await saveAll())) return;
-		try {
-			for (const doc of [...docs, ...savedCompanions]) if (doc.stored.length && doc.unpublished.length) await doc.publish();
-			savedCompanions = [];
-			notice = m['creator.published']();
-		} catch (e) {
-			notice = e instanceof Error ? e.message : String(e);
-		}
-	}
-
-	async function resolveConflict(action: 'reload' | 'overwrite') {
-		if (!conflict) return;
-		const { doc } = conflict;
-		conflict = null;
-		if (action === 'reload') await doc.load();
-		else await saveAll(true);
-	}
-
 	beforeNavigate((navigation) => {
 		if (!anyDirty) return;
 		if (navigation.type === 'leave') {
@@ -192,30 +116,8 @@
 		return () => clearTimeout(timer);
 	});
 
-	function onKeydown(event: KeyboardEvent) {
-		if (!(event.ctrlKey || event.metaKey)) return;
-		const key = event.key.toLowerCase();
-		if (key === 's') {
-			event.preventDefault();
-			saveClicked();
-		} else if (key === 'z' && !isField(event.target)) {
-			event.preventDefault();
-			if (event.shiftKey) redoDoc?.redo();
-			else undoDoc?.undo();
-		} else if (key === 'y' && !isField(event.target)) {
-			event.preventDefault();
-			redoDoc?.redo();
-		}
-	}
-	function isField(target: EventTarget | null) {
-		const el = target as HTMLElement | null;
-		return !!el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT');
-	}
-
-	const recoverables = $derived(docs.filter((d) => d.recoverable));
-	const missingLocales = $derived(
-		translationsOptional ? [] : docs.flatMap((d) => (d.loading || d.data[d.primary] == null ? [] : d.locales.filter((l) => l !== d.primary && d.data[l] == null).map((l) => ({ doc: d, locale: l }))))
-	);
+	/** Ctrl+S saves (with the note dialog); undo / redo outside a field (lib/editor/editor-keys.ts) */
+	const onKeydown = (event: KeyboardEvent) => editorKeys(event, { save: () => session.saveDraft(), undo: () => undoDoc?.undo(), redo: () => redoDoc?.redo() });
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -234,11 +136,11 @@
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
 		{/snippet}
 		{#snippet end()}
-			<input class="message" type="text" placeholder="note (optional)" bind:value={saveMessage} />
-			<button class:secondary={!anyDirty} onclick={saveClicked} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
+			<input class="message" type="text" placeholder="note (optional)" bind:value={session.message} />
+			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
-			<button class="secondary" onclick={publishAll} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>
 		{/snippet}
 	</ActionBar>
 
@@ -253,31 +155,7 @@
 			{#if status}<span class="status-end">{@render status()}</span>{/if}
 		</div>
 		{/if}
-		{#if anyDirty}<div class="bar dirty-bar">{m['creator.unsaved']()}</div>{/if}
-		{#each recoverables as d (d.entity)}
-			<div class="bar warn-bar">
-				{fileLabel(d.entity)}: {m['creator.recover_title']({ time: new Date(d.recoverable!.at).toLocaleString() })}
-				{#if d.recoverableIsStale}<strong class="sc-emphasis">{m['creator.recover_stale']()}</strong>{/if}
-				<button class="secondary" onclick={() => d.recover()}>{m['creator.recover']()}</button>
-				<button class="ghost" onclick={() => d.clearAutosave()}>{m['creator.discard']()}</button>
-			</div>
-		{/each}
-		{#each missingLocales as { doc, locale } (doc.entity + locale)}
-			<div class="bar warn-bar">
-				{fileLabel(doc.entity)}: {locale} {m['creator.missing']()}
-				<button class="secondary" onclick={() => doc.createLocale(locale, (f) => (f && typeof f === 'object' && 'language' in f ? { ...f, language: locale } : f))}>
-					{m['creator.create_locale']({ locale, source: doc.primary })}
-				</button>
-			</div>
-		{/each}
-		{#if conflict}
-			<div class="bar error-bar">
-				{m['creator.conflict']({ locale: conflict.error.locale, file: fileLabel(conflict.doc.entity) })}
-				<button class="secondary" onclick={() => resolveConflict('reload')}>{m['creator.reload']()}</button>
-				<button class="secondary" onclick={() => resolveConflict('overwrite')}>{m['creator.overwrite']()}</button>
-			</div>
-		{/if}
-		{#if notice}<div class="bar note-bar">{notice} <button class="ghost" onclick={() => (notice = null)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button></div>{/if}
+		<DocNotices {session} {docs} dirty={anyDirty} {translationsOptional} />
 		<main class="content">
 			{@render children()}
 		</main>
@@ -327,27 +205,6 @@
 	}
 	.bad {
 		color: var(--error);
-	}
-	.bar {
-		padding: 0.3rem 0.75rem;
-		display: flex;
-		gap: 0.5rem;
-		align-items: center;
-		border-bottom: 1px solid var(--border-subtle);
-	}
-	.dirty-bar {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.warn-bar {
-		border-left: 0.5rem solid var(--state-warning);
-	}
-	.error-bar {
-		border-left: 0.5rem solid var(--state-error);
-		border-bottom-color: var(--error);
-	}
-	.note-bar {
-		border-left: 0.5rem solid var(--primary-cyan);
 	}
 	.content {
 		padding: 1rem;
