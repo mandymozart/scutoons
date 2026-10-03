@@ -245,7 +245,8 @@ Two separate things:
 
 ### Permissions map
 
-The server's `config/permissions.json` (was qr `api/permissions.json`; the owner edits this file; no code change):
+Since 2026-10-04 the tables `catalog_permissions` + `catalog_code_types`, edited in the admin API (agents/CATALOG.md); the
+shape below is the seed `config/permissions.json` (was qr `api/permissions.json`) and what `Permissions::map()` builds:
 ```json
 {
   "version": 1,
@@ -491,17 +492,17 @@ Privacy: the log shows recipient addresses (admin only, like the users endpoints
 ### Featured editions on the landing page (2026-10-01, owner)
 
 Admin page **"Startseite" / "Homepage"** (`admin/src/routes/homepage`, nav group Data): which products of the shop
-catalog, in which colour (= which images), in which order the landing page shows. Stored in the same `settings` table
-under the key `featured_products` (JSON list, `updated_by` = `admin:<email>`; no new table, no migration). Without a row
-(or before the `settings` migration) the default is `server/config/featured-products.json` (dago_hoodie beige,
-dago_heavy_t white).
+catalog, in which colour (= which images), in which order the landing page shows. Since 2026-10-04 the table
+`catalog_featured` (agents/CATALOG.md; one `catalog_history` row per change); until then the setting `featured_products`,
+folded into the table by the migration 2026-10-04-catalog. The default (`null`) is the seed's list
+`server/config/featured-products.json` (dago_hoodie beige, dago_heavy_t white).
 
 | Method | Path | Request | Response |
 |---|---|---|---|
 | GET | `/admin/featured` | – | `{ status, items: [{ product, variant? }], default, stored, updated_at, updated_by, max: 12 }` |
 | PUT | `/admin/featured` | `{ items: [{ product, variant? }] \| null }` | `{ status, changed, …as GET }` · `400 invalid_featured\|unknown_product\|unknown_variant\|duplicate_featured` |
 
-The public `GET /products/featured/` returns the stored list (else the default file byte-for-byte), `max-age=60`.
+The public `GET /products/featured/` returns the list, `max-age=60`.
 Contract: `admin-smoke` "Featured editions" (401/403, validation, store, public read, back to the default).
 
 ### Content (read-only overview, platform P2a)

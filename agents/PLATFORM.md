@@ -15,7 +15,7 @@ scutoons/                         one git repo, npm workspaces (Node 22), Compos
 ├── server/              PHP 8.3, Slim 4    → qr.scutoons.com (+ later api.scutoons.com)
 │   ├── public/                   web root: front controller, QR landing page, verify page, assets
 │   ├── src/                      Http (controllers, middleware) · Domain · Infrastructure
-│   ├── config/                   settings, permissions.json, items.json, editions.json
+│   ├── config/                   settings, routes; the catalog SEED (*.json – the catalog is in DB tables, agents/CATALOG.md)
 │   ├── migrations/{mysql,sqlite}/
 │   ├── bin/console               migrate, roles, import-content, backfill, reports
 │   ├── templates/                landing page, mails

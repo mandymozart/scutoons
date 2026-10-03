@@ -52,6 +52,7 @@ composer serve                                    # http://localhost:9000  (bin/
 | `npm run dev:db test` (root) · `php -d extension=pdo_mysql vendor/bin/phpunit -c phpunit.mysql.xml` | PHPUnit on the local MariaDB container (docs/DATABASE.md "Local MariaDB") |
 | `php bin/console migrate [--status]` | apply pending migrations |
 | `php bin/console roles grant\|revoke\|list <email> [role]` | account roles (member, admin, creator) |
+| `php bin/console catalog:seed [--replace]` · `catalog:export-sql [--write]` | empty catalog tables ← `config/*.json` · the seed as the INSERTs of the `2026-10-04-catalog` migrations (agents/CATALOG.md) |
 | `php bin/console import-content shared/content/seed [--sql]` · `export-content <dir>` | content in/out of the store in the interchange format (`--sql` = production seed; agents/DATA.md) |
 | `php bin/console backfill-edition-numbers [--sql]` · `report-orphan-codes` | edition numbers from batch manifests |
 
@@ -68,7 +69,8 @@ src/Infrastructure/ Config (Settings), Database (PDO, MigrationRunner), Mail (Tr
 src/Console/       bin/console commands
 src/Kernel.php     builds the container and the Slim app (middleware order)
 config/            settings.php (defaults of every setting), container.php (DI), routes.php (every URL),
-                   items.json, editions.json, toons.json, permissions.json (server-only)
+                   the catalog seed: items.json, products.json, featured-products.json, editions.json, toons.json,
+                   permissions.json (the catalog is in the database – catalog:seed, agents/CATALOG.md)
 templates/         login mails
 migrations/        sqlite/, mysql/ (dated, recorded in schema_migrations), schema/ (base schema), mysql/legacy/
 bin/console        command line
