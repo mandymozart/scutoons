@@ -32,7 +32,7 @@ Established 2026-09-28 during the chapter-2 investigation. Verify file/line refs
 - All overlay rects (triggers, samples) are **% of the slice box**. Chapter column `max-width: 500px`.
 - **`Slice.dialog` (text box on slice) has a type but NO renderer** — never had one in any branch. Only usage:
   chapter 2 group `scene-20`, slice 23 (`rect {x:10,y:10,width:80}`, German text in both locale files).
-- `Slice.onomatopoeia` also typed but unrendered; onomatopoeia works only as VN event `showOnomatopeia`.
+- (2026-10-03) An onomatopoeia is a text box revealed by a `showOnomatopeia` event (`params.dialog` required); the old full-screen onomatopoeia, `Slice.onomatopoeia` and the `sfx` variant are gone (DESIGN.md Part 2).
 
 ## Images on CDN (catpope)
 
@@ -124,9 +124,9 @@ is still German). Slice 19 has a cucumber painted in, without any event. The own
   `static/fonts/*-OFL.txt`): **Bangers** (latin + latin-ext) = `font: 'lettering'` — it is the SFX / title font in
   chapter 1 ("TRILLERILLER", "GRRRR") and the baked "2. ÄRGER" in s1c2-slice-24; **IBM Plex Mono italic 400/700**
   added for narration. Chapter-1 caption/narration text itself is IBM Plex Mono (regular = speech boxes, italic =
-  narration, ~3.8 cqw, line-height ~1.35, padding ~1em) — so defaults are per variant: bubble/sfx → lettering +
+  narration, ~3.8 cqw, line-height ~1.35, padding ~1em) — so defaults are per variant: bubble → lettering +
   center, caption/narration → mono + left (DESIGN.md says default 'lettering'; deviated on purpose).
-- sfx = white fill + ink `-webkit-text-stroke` with `paint-order: stroke fill`, uppercase by default.
+- Outlined lettering (the old sfx look) = `stroke` on any text box: `-webkit-text-stroke` with `paint-order: stroke fill` (the `sfx` variant was removed 2026-10-03).
 - Auto-fit only runs when `rect.height` is set; steps `--fit` 1 → 0.8, then lets it overflow (no clipping).
 - Gotchas: `container-type` also makes `.slice` a stacking context + containing block for `position:fixed`
   descendants (none today) — text overflowing a slice's bottom is painted under the next slice. This is intended:

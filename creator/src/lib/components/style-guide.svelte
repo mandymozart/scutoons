@@ -34,9 +34,9 @@
 	{#if sections.includes('lettering')}
 		<h3>Lettering</h3>
 		<ul>
-			<li>lettering = Bangers (bubbles, SFX, titles) · mono = IBM Plex Mono (captions, narration).</li>
+			<li>lettering = Bangers (bubbles, onomatopoeia, titles) · mono = IBM Plex Mono (captions, narration).</li>
 			<li>Default size 4 (% of the slice width ≈ {Math.round(W * 0.04 * 10) / 10} px at {W}). Chapter 1 captions ≈ 3.8–4.1.</li>
-			<li>Ink on paper; accent colours only for SFX. No shadows, square boxes.</li>
+			<li>Ink on paper; accent colours only for onomatopoeia. No shadows, square boxes.</li>
 		</ul>
 	{/if}
 
@@ -44,13 +44,13 @@
 		<h3>Which variant?</h3>
 		<dl>
 			<dt>bubble</dt>
-			<dd>Someone speaks or thinks – the text sits inside a bubble drawn in the art. Centered, lettering.</dd>
+			<dd>Someone speaks or thinks – centered lettering, in a bubble drawn in the art or drawn by the box (<code>frame: true</code>, a tail).</dd>
 			<dt>caption</dt>
 			<dd>Place, time, a sign, a character's inner voice in a box: paper box, 2 px ink border, mono, left.</dd>
 			<dt>narration</dt>
 			<dd>The narrator's voice (screenplay prose): like caption, but italic. <code>frame: false</code> for bare text.</dd>
-			<dt>sfx</dt>
-			<dd>Sounds (GRRRR, ZISCH): outlined lettering, uppercase, may rotate. Short, loud, one or two words.</dd>
+			<dt>onomatopoeia</dt>
+			<dd>Sounds (GRRRR, ZISCH): a bubble without frame – lettering, uppercase, white with an ink outline, may rotate and scale – revealed by an onomatopoeia event with its effect. Short, loud, one or two words.</dd>
 		</dl>
 	{/if}
 

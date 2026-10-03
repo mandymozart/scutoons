@@ -19,7 +19,6 @@
 		editLocale = null,
 		characters = [],
 		choices,
-		background = '',
 		onremove
 	}: {
 		doc: ContentDoc;
@@ -29,7 +28,6 @@
 		editLocale?: string | null;
 		characters?: { name: string; label?: string }[];
 		choices?: CharacterChoices;
-		background?: string;
 		onremove?: () => void;
 	} = $props();
 
@@ -96,7 +94,7 @@
 		{:else if action === 'events'}
 			<PropField {doc} path={p('once')} label={m['creator.slice_item_once']()} type="bool" placeholder="true" />
 			<p class="hint">{m['creator.slice_item_hint_events']()}</p>
-			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} {background} />
+			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} />
 		{/if}
 	</div>
 {/if}

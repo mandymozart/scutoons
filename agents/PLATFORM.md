@@ -24,7 +24,7 @@ scutoons/                         one git repo, npm workspaces (Node 22), Compos
 │   ├── tokens/   @scutoons/tokens    design tokens (CSS custom properties), fonts, base CSS
 │   ├── ui/       @scutoons/ui        Svelte UI kit: Button, IconButton, Field, Panel, Sheet, Tabs, Toast, DataTable, …
 │   ├── content/  @scutoons/content   TS types + validation for toon/season/chapter/slice/dialog/audio/VN/items; JSON Schema export
-│   ├── reader/   @scutoons/reader    rendering: Slice, Dialogs, Onomatopoeia, group renderers, audio/VN actions
+│   ├── reader/   @scutoons/reader    rendering: Slice, Dialogs (+ onomatopoeia effects), placed items, group renderers, audio/VN actions
 │   ├── api/      @scutoons/api       typed client: session, device id, access, items, inventory, content, admin
 │   └── auth/     @scutoons/auth      single sign-on: session factory, login form, app gate, signed-in-as (SSO, 2026-10-01)
 ├── cdn/                          python tools (sync, download, icons, bubble detector), root/ gitignored
@@ -113,7 +113,7 @@ account page may link to `creator.scutoons.com` for creators, nothing more.
 | `package.json` (root) | private, npm workspaces `viewer`, `creator`, `admin`, `shared/*` (missing folders are fine for npm); scripts `dev:viewer`, `dev:creator`, `dev:admin`, `check` (all workspaces), `build` (all with a build script); one `package-lock.json` + `.npmrc` (`engine-strict`) at the root |
 | `shared/tokens` | `tokens.css` (DESIGN.md Part 1 + `--state-error/warning` + legacy `--primary-color`, `--color-acid-*`), `fonts.css` + `fonts/` (Plex Mono 400/700 + italic, Bangers, OFL texts), `base.css` (html/body/headings/p, fluid root size), `index.css`; check = node script |
 | `shared/content` | types `content`, `enums`, `audio`, `visual-novel`, `items`, `membership` (+ `isMembershipExpired`, ex `lib/auth`), `template.ts` (escape/sanitize, `isItemPublic(item, includeDrafts)`, `cdnUrl(base, path)`), `paths.ts`, `validate.ts` (ex creator); `schema/{chapter,season,toon,toon-index,group,catalog}.schema.json` via `npm run schema` (ts-json-schema-generator), check = tsc + schema up to date |
-| `shared/reader` | `Slice`, `Dialogs`, `Dialog`, `Onomatopoeia` (+ variants/effects), actions `sliceAudio` (player injected), `sliceEvents` (VN `run` injected; ex unused `vnEvents`), `getMusicStateForSlice`, `isWithinRect`, type `ActiveOnomatopoeia`; check = svelte-check --fail-on-warnings |
+| `shared/reader` | `Slice`, `Dialogs`, `Dialog` (+ the onomatopoeia effects in `src/effects`), `SliceItems`, actions `sliceAudio` (player injected), `sliceEvents` (VN `run` injected; ex unused `vnEvents`), `getMusicStateForSlice`, `isWithinRect`, type `ActiveOnomatopoeia`; check = svelte-check --fail-on-warnings |
 | `shared/api` | `createApiClient({ baseUrl, getToken, getDeviceId })`, `ApiError`, `createQrApi(client)`, `createContentApi({ client, staticBase })`, `getDeviceId`, `get/setSessionToken`; check = tsc |
 | `shared/ui` | `Button`, `IconButton`, `Field`, `Panel`, `Section`, `Sheet` (native dialog), `Tabs`, `Toggle`, `Badge`, `Menu` + `clickOutside`, `createToaster` + `ToastStack`; check = svelte-check --fail-on-warnings |
 | `viewer/` | consumes all five; app wiring in `lib/api.ts` (client + endpoints), `lib/config.ts` (`API_URL`, `CDN_SERVER`, `CREATOR_URL`), `lib/actions/audio/index.ts` (`audio` action + `audioPlayer()` adapter), `components/toon/slice.svelte` (thin wrapper around the reader Slice: CDN URL, locale, samples/triggers, audio attachment) |
@@ -127,8 +127,8 @@ account page may link to `creator.scutoons.com` for creators, nothing more.
   (buttons, inputs, utilities) and `animations.css` as they were. Apps need `server.fs.allow: ['../shared']`.
 - `check` compiles paraglide first (`scripts/paraglide.js` with the same `paraglide.config.js` as the vite plugin), so
   it works on a fresh clone / CI.
-- Shared components keep the old DOM/class names (`.slice`, `.dialog`, `.onomatopeia`) so output stays identical;
-  files are kebab-case like the apps. Reader onomatopoeia: `$inspect` dropped, props read via `$derived`.
+- Shared components keep the old DOM/class names (`.slice`, `.dialog`) so output stays identical;
+  files are kebab-case like the apps. (The full-screen reader onomatopoeia was removed 2026-10-03: onomatopoeia are text boxes.)
 - No viewer markup was swapped for `@scutoons/ui` yet: nothing was a visually 1:1 match (e.g. role tags use a 2px
   border, the kit's Badge a hairline); the creator's new login screen and preview use the kit.
 - The creator's static fallback files (`toons.json`, `characters.json`, store fallback) come from the viewer origin →

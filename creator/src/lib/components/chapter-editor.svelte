@@ -381,34 +381,32 @@
 		);
 
 	/**
-	 * "Create a text box for this" (onomatopoeia event `index` of the slice): a bare lettering box (white letters, ink
-	 * outline, uppercase) at the event's position with the event's text per language, revealed by the event.
+	 * "Create a text box for this" (onomatopoeia event `index` of the slice): a bare lettering box in the middle of the
+	 * slice (white letters, ink outline, uppercase, "BAM" to overwrite per language), revealed by the event.
 	 */
 	function createBoxForEvent(index: number) {
 		const doc = activeDoc;
 		if (!doc || sliceIndex < 0) return;
 		const imageNo = Number(String(activeSlice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
 		const id = nextDialogId(chapterNumber, (imageNo || sliceIndex + 1) - 1, sliceDialogs);
+		const boxIndex = sliceDialogs.length;
 		doc.structural((file) => {
 			const slice = getAt(file, slicePath);
 			const event = slice?.events?.[index];
 			if (!slice || event?.type !== 'showOnomatopeia') return;
-			const params = (event.params ??= {});
-			const x = typeof params.position?.x === 'number' ? params.position.x : 50;
-			const y = typeof params.position?.y === 'number' ? params.position.y : 50;
-			const box: Record<string, unknown> = {
-				...newDialog(id, { x: Math.max(0, x - 20), y: Math.max(0, y - 5), width: 40 }, 'bubble'),
-				text: params.text ?? '',
+			slice.dialog ??= [];
+			slice.dialog.push({
+				...newDialog(id, { x: 30, y: 45, width: 40 }, 'bubble'),
+				text: 'BAM',
 				size: 8,
 				uppercase: true,
 				color: '#ffffff',
 				stroke: '#000000'
-			};
-			if (typeof params.rotation === 'number') box.rotation = params.rotation;
-			slice.dialog ??= [];
-			slice.dialog.push(box);
-			params.dialog = id;
+			});
+			(event.params ??= {}).dialog = id;
 		});
+		// the new box is selected: its text and look are set in the text box inspector
+		onCanvasSelect({ kind: 'dialog', index: boxIndex });
 	}
 
 	/** places a catalog item in the middle of the slice (a quarter of its width; move / rotate / scale on the canvas) */
@@ -798,7 +796,7 @@
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} background={activeGroup?.slices?.[0]?.image ?? ''} dialogs={boxChoices(activeGroup?.slices)} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={boxChoices(activeGroup?.slices)} />
 						{:else}
 							<p class="hint">No VN script in this group.
 								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
@@ -921,7 +919,6 @@
 								editLocale={scope === 'locale' ? displayLocale : null}
 								{characters}
 								{choices}
-								background={activeSlice.image}
 								onremove={removeSelected}
 							/>
 						{/if}
@@ -946,7 +943,6 @@
 							sliceEvents
 							{characters}
 							{choices}
-							background={activeSlice.image}
 							dialogs={boxChoices([activeSlice])}
 							oncreatebox={createBoxForEvent}
 							selected={selection?.kind === 'event' ? selection.index : -1}
