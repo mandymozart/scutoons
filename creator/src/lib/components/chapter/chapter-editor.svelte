@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import { onMount, untrack } from 'svelte';
-	import { ActionBar, CloseIcon, Icon, Segmented } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, Icon } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -28,24 +28,17 @@
 	} from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
-	import { newDialog, newGroup, nextDialogId } from '$lib/editor/defaults.ts';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
-	import { Trigger, TriggerMode } from '@scutoons/content';
-	import SliceCanvas, { type CanvasSelection, type Tool } from '$lib/components/slice/slice-canvas.svelte';
-	import SliceList from '$lib/components/chapter/slice-list.svelte';
-	import DialogInspector from '$lib/components/text/dialog-inspector.svelte';
-	import TextPresetPicker from '$lib/components/text/text-preset-picker.svelte';
-	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
-	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
-	import { asset } from '$lib/utils/cdn.ts';
-	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
-	import ItemInspector from '$lib/components/items/item-inspector.svelte';
-	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
-	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
-	import SliceMedia from '$lib/components/slice/slice-media.svelte';
-	import SliceUnlocks from '$lib/components/slice/slice-unlocks.svelte';
+	import SliceCanvas from '$lib/components/slice/slice-canvas.svelte';
+	import { legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
+	import { itemCatalog } from '$lib/editor/catalog.svelte.ts';
+	import { ChapterView, type Section } from '$lib/editor/chapter-state.svelte.ts';
+	import * as edits from '$lib/editor/slice-edit.ts';
+	import ChapterTree from '$lib/components/chapter/chapter-tree.svelte';
+	import SliceToolbar from '$lib/components/slice/slice-toolbar.svelte';
+	import SliceInspector from '$lib/components/slice/slice-inspector.svelte';
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
 	import { chapterSlices } from '@scutoons/content';
 	import MetaPanel from '$lib/components/chapter/meta-panel.svelte';
@@ -53,7 +46,6 @@
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
 	import GroupPanel from '$lib/components/chapter/group-panel.svelte';
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
-	import SliceAudio from '$lib/components/slice/slice-audio.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
@@ -168,13 +160,12 @@
 		knownImages(toon, chapter.locales, allDocs.map((d) => $state.snapshot(d.data))).then((list) => (images = list));
 	}
 
-	// ── Selection / view state ──────────────────────────────────────────────────────────────────────────
-	type Section = 'meta' | 'audio' | 'group' | 'slice';
-	let section = $state<Section>('meta');
-	let groupIndex = $state(0);
-	let sliceIndex = $state(-1);
-	let selection = $state<CanvasSelection | null>(null);
-	let inspectorTab = $state<'text' | 'items' | 'slice' | 'audio' | 'events'>('text');
+	// ── Selection / view state: one object (lib/editor/chapter-state.svelte.ts) – the tree, the canvas, the inspector
+	// and the keyboard write it; opening a group loads its separate scene file
+	const view = new ChapterView((index) => {
+		const src = groups[index]?.ref?.src;
+		if (src) ensureRef(src);
+	});
 	// svelte-ignore state_referenced_locally
 	let displayLocale = $state<string>(textLanguage.chosen(languages.languages) ?? languages.source);
 	// the canvas shows the top bar's TEXT language when one is chosen (the buttons above the canvas still switch it)
@@ -182,33 +173,12 @@
 		const chosen = textLanguage.chosen(languages.languages);
 		if (chosen) displayLocale = chosen;
 	});
-	// snap to grid (owner 2026-10-03: one toggle for moving, resizing, scaling, rotating), remembered on this device
-	const SNAP_KEY = 'scutoons_creator_snap';
-	const GRID_KEY = 'scutoons_creator_grid';
-	/** px of the slice's 1x size; 30 = the default (owner 2026-10-03), 15 the slices' base grid (390 = 26 × 15) */
-	const GRID_SIZES = [5, 10, 15, 30];
-	function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
-		try {
-			const raw = localStorage.getItem(key);
-			const value = raw === null ? fallback : JSON.parse(raw);
-			return ok(value) ? value : fallback;
-		} catch {
-			return fallback;
-		}
-	}
-	let snap = $state(readPref(SNAP_KEY, true, (v) => typeof v === 'boolean'));
-	let gridSize = $state(readPref(GRID_KEY, 30, (v) => GRID_SIZES.includes(v as number)));
+	// snap + grid size are remembered on this device
 	$effect(() => {
-		try {
-			localStorage.setItem(SNAP_KEY, JSON.stringify(snap));
-			localStorage.setItem(GRID_KEY, JSON.stringify(gridSize));
-		} catch {
-			/* storage unavailable: the choice holds for this visit */
-		}
+		void view.snap;
+		void view.gridSize;
+		view.savePrefs();
 	});
-	/** the canvas snap step in px of the slice (0 = off) */
-	const grid = $derived(snap ? gridSize : 0);
-	let tool = $state<Tool>('text');
 	let panel = $state<'problems' | 'history' | null>(null);
 	function togglePanel(next: 'problems' | 'history') {
 		panel = panel === next ? null : next;
@@ -236,7 +206,7 @@
 		}
 	});
 
-	const currentGroup = $derived(groups[groupIndex]);
+	const currentGroup = $derived(groups[view.groupIndex]);
 	const refSrc = $derived<string | null>(currentGroup?.ref?.src ?? null);
 	const activeDoc = $derived<ContentDoc | null>(refSrc ? (refs[refSrc] ?? null) : chapter);
 	/**
@@ -255,66 +225,12 @@
 		undoneDoc = d;
 	}
 	const redoLast = () => redoDoc?.redo();
-	const groupPath = $derived<Path>(refSrc ? [] : ['groups', groupIndex]);
-	const slicePath = $derived<Path>([...groupPath, 'slices', sliceIndex]);
+	const groupPath = $derived<Path>(refSrc ? [] : ['groups', view.groupIndex]);
+	const slicePath = $derived<Path>([...groupPath, 'slices', view.sliceIndex]);
 	const activeGroup = $derived(activeDoc?.get(activeDoc.primary, groupPath));
-	const activeSlice = $derived(sliceIndex >= 0 ? activeDoc?.get(activeDoc.primary, slicePath) : null);
+	const activeSlice = $derived(view.sliceIndex >= 0 ? activeDoc?.get(activeDoc.primary, slicePath) : null);
 	const sliceDialogs = $derived<any[]>(activeSlice?.dialog ?? []);
 	const sliceItems = $derived<any[]>(activeSlice?.items ?? []);
-
-	/** the selected group's slices folded away: a second click on the open group (owner 2026-10-03) */
-	let collapsed = $state(false);
-	function toggleGroup(index: number) {
-		if (index === groupIndex && section === 'group' && !collapsed) {
-			collapsed = true;
-			return;
-		}
-		selectGroup(index);
-	}
-
-	function selectGroup(index: number) {
-		collapsed = false;
-		groupIndex = index;
-		sliceIndex = -1;
-		selection = null;
-		section = 'group';
-		const src = groups[index]?.ref?.src;
-		if (src) ensureRef(src);
-	}
-
-	function selectSlice(index: number) {
-		sliceIndex = index;
-		selection = null;
-		section = 'slice';
-	}
-
-	function onCanvasSelect(next: CanvasSelection | null) {
-		selection = next;
-		if (next?.kind === 'dialog') setTab('text');
-		else if (next?.kind === 'item') setTab('items');
-		else if (next?.kind === 'sample') setTab('audio');
-		else if (next?.kind === 'event') setTab('events');
-	}
-
-	// tool = tab = layer (owner 2026-10-03): a tool opens its tab, a tab picks its tool; the canvas only takes the pointer
-	// on that tab's layer (a full-slice event no longer covers the texts)
-	const TAB_TOOL: Partial<Record<typeof inspectorTab, Tool>> = { text: 'text', items: 'item', audio: 'sample', events: 'event' };
-	const TOOL_TAB: Record<Tool, typeof inspectorTab> = { text: 'text', item: 'items', sample: 'audio', event: 'events' };
-	function setTab(next: typeof inspectorTab) {
-		inspectorTab = next;
-		// a selection on another layer is let go (its handles would sit on a layer that no longer takes the pointer)
-		if (selection && LAYER[next] !== selection.kind) selection = null;
-		if (TAB_TOOL[next]) tool = TAB_TOOL[next]!;
-		if (next === 'items') loadCatalog();
-	}
-	function setTool(next: Tool) {
-		tool = next;
-		setTab(TOOL_TAB[next]);
-	}
-	const LAYER: Partial<Record<typeof inspectorTab, CanvasSelection['kind']>> = { text: 'dialog', items: 'item', audio: 'sample', events: 'event' };
-	const layer = $derived(LAYER[inspectorTab] ?? null);
-	/** the item tool's click on the canvas: where the picked item goes */
-	let itemSpot = $state<{ x: number; y: number } | null>(null);
 
 	// ── Navigation: the tree is the sidebar, group + slice are the deepest crumbs, the URL mirrors the selection ──
 	// (`?group=<label>&slice=<n>`, `?section=audio`; deep links and Alt+ArrowUp / crumbs work through the URL)
@@ -342,9 +258,9 @@
 		sidebar: tree,
 		fill: true,
 		extra: () => {
-			if (section !== 'group' && section !== 'slice') return [];
-			const out = [{ href: hrefFor({ section: 'group', group: groupIndex }), label: groupName(groups[groupIndex], groupIndex) }];
-			if (section === 'slice' && sliceIndex >= 0) out.push({ href: hrefFor({ section: 'slice', group: groupIndex, slice: sliceIndex }), label: m['creator.slice_n']({ number: sliceIndex + 1 }) });
+			if (view.section !== 'group' && view.section !== 'slice') return [];
+			const out = [{ href: hrefFor({ section: 'group', group: view.groupIndex }), label: groupName(groups[view.groupIndex], view.groupIndex) }];
+			if (view.section === 'slice' && view.sliceIndex >= 0) out.push({ href: hrefFor({ section: 'slice', group: view.groupIndex, slice: view.sliceIndex }), label: m['creator.slice_n']({ number: view.sliceIndex + 1 }) });
 			return out;
 		}
 	});
@@ -362,24 +278,24 @@
 				let gi = groups.findIndex((g, i) => groupKey(g, i) === wantGroup);
 				if (gi < 0 && /^\d+$/.test(wantGroup)) gi = Number(wantGroup) - 1;
 				if (gi >= 0 && gi < groups.length) {
-					if (gi !== groupIndex || (section !== 'group' && section !== 'slice')) selectGroup(gi);
+					if (gi !== view.groupIndex || (view.section !== 'group' && view.section !== 'slice')) view.selectGroup(gi);
 					if (wantSlice > 0) {
-						if (section !== 'slice' || sliceIndex !== wantSlice - 1) selectSlice(wantSlice - 1);
-					} else if (section === 'slice') {
-						selectGroup(gi);
+						if (view.section !== 'slice' || view.sliceIndex !== wantSlice - 1) view.selectSlice(wantSlice - 1);
+					} else if (view.section === 'slice') {
+						view.selectGroup(gi);
 					}
 				}
 			} else if (wantSection === 'audio') {
-				section = 'audio';
-			} else if (section !== 'meta') {
-				section = 'meta';
+				view.section = 'audio';
+			} else if (view.section !== 'meta') {
+				view.section = 'meta';
 			}
 			urlApplied = true;
 		});
 	});
 	$effect(() => {
 		// selection → URL (shareable; a crumb goes back to the same place)
-		const href = hrefFor({ section, group: groupIndex, slice: sliceIndex });
+		const href = hrefFor({ section: view.section, group: view.groupIndex, slice: view.sliceIndex });
 		if (!urlApplied) return;
 		untrack(() => {
 			// the address bar, not page.url: replaceState (shallow routing) leaves page.url at the last navigation, so
@@ -436,218 +352,74 @@
 	function gotoProblem(p: Problem) {
 		let path = p.path;
 		if (p.file === season.entity) {
-			section = 'meta';
+			view.section = 'meta';
 			return;
 		}
 		if (p.file !== chapter.entity) {
 			const gi = groups.findIndex((g) => g?.ref?.src === p.file);
 			if (gi < 0) return;
-			selectGroup(gi);
+			view.selectGroup(gi);
 		} else if (path[0] === 'groups' && typeof path[1] === 'number') {
-			selectGroup(path[1]);
+			view.selectGroup(path[1]);
 			path = path.slice(2);
 		} else {
-			section = path[0] === 'audio' ? 'audio' : 'meta';
+			view.section = path[0] === 'audio' ? 'audio' : 'meta';
 			return;
 		}
 		if (p.locale) displayLocale = p.locale;
 		if (path[0] === 'slices' && typeof path[1] === 'number') {
-			selectSlice(path[1]);
+			view.selectSlice(path[1]);
 			const rest = path.slice(2);
-			if (rest[0] === 'dialog' && typeof rest[1] === 'number') onCanvasSelect({ kind: 'dialog', index: rest[1] });
-			else if (rest[0] === 'items' && typeof rest[1] === 'number') onCanvasSelect({ kind: 'item', index: rest[1] });
-			else if (rest[0] === 'audio') inspectorTab = 'audio';
-			else if (rest[0] === 'events') inspectorTab = 'events';
-			else inspectorTab = 'slice';
+			if (rest[0] === 'dialog' && typeof rest[1] === 'number') view.select({ kind: 'dialog', index: rest[1] });
+			else if (rest[0] === 'items' && typeof rest[1] === 'number') view.select({ kind: 'item', index: rest[1] });
+			else if (rest[0] === 'audio') view.inspectorTab = 'audio';
+			else if (rest[0] === 'events') view.inspectorTab = 'events';
+			else view.inspectorTab = 'slice';
 		}
 	}
 
-	// ── Editing actions ─────────────────────────────────────────────────────────────────────────────────
-	const presetOf = (id: string) => TEXT_PRESETS.find((p) => p.id === id)!;
+	// ── Editing actions (lib/editor/slice-edit.ts) ────────────────────────────────────────────────────────────
 	/** the chapter's group labels: a jump's group and the random list (CUTOVER 10.27) */
 	const groupLabels = $derived(groups.map((g, gi) => groupName(g, gi)).filter(Boolean));
-	/** a text's preset in the list ("custom" when its look was changed) */
-	function presetLabel(d: Record<string, unknown>) {
-		const id = matchTextPreset(d);
-		return id ? m[`creator.preset_${id}`]() : m['creator.preset_custom']();
+	const sliceTarget = (): edits.SliceTarget | null =>
+		activeDoc && view.sliceIndex >= 0 ? { doc: activeDoc, slicePath, chapterNumber, sliceIndex: view.sliceIndex, slice: activeSlice } : null;
+	/** a new text with a preset's look (default speech; a drawn one keeps the drawn rect); the cursor goes to its text */
+	function addDialog(rect?: { x: number; y: number; width: number; height?: number }, preset?: TextPreset) {
+		view.pickingPreset = false;
+		const t = sliceTarget();
+		if (!t) return;
+		view.select(edits.addDialog(t, rect, preset));
+		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${t.doc.primary}"]`)?.focus());
 	}
-	/** "+ Add text" shows the presets (owner 2026-10-03) */
-	let pickingPreset = $state(false);
-	/** a new text with a preset's look (default speech; a drawn one keeps the drawn rect) */
-	function addDialog(rect?: { x: number; y: number; width: number; height?: number }, preset: TextPreset = presetOf('speech')) {
-		pickingPreset = false;
-		const doc = activeDoc;
-		if (!doc || sliceIndex < 0) return;
-		// ids follow the image number like chapter 1 (s1c1-<slice>-<n>), else the position in the group
-		const imageNo = Number(String(activeSlice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
-		const id = nextDialogId(chapterNumber, (imageNo || sliceIndex + 1) - 1, sliceDialogs);
-		doc.structural((file) => {
-			const slice = getAt(file, slicePath);
-			if (!slice) return;
-			slice.dialog ??= [];
-			const dialog = newDialog(id, { ...(rect ?? preset.rect) });
-			applyTextPreset(dialog as unknown as Record<string, unknown>, preset);
-			slice.dialog.push(dialog);
-		});
-		onCanvasSelect({ kind: 'dialog', index: sliceDialogs.length - 1 });
-		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${doc.primary}"]`)?.focus());
+	function createBoxForEvent(index: number, eventsPath?: Path) {
+		const t = sliceTarget();
+		if (t) view.select(edits.createBoxForEvent(t, index, eventsPath));
 	}
-
-	/** text boxes as choices for an onomatopoeia event (`params.dialog`): id + the start of the source text */
-	const boxChoices = (slices: any[] | undefined) =>
-		(slices ?? []).flatMap((sl: any) =>
-			(sl?.dialog ?? [])
-				.filter((d: any) => typeof d?.id === 'string' && d.id)
-				.map((d: any) => ({ id: d.id as string, label: `${d.id} · ${String(Array.isArray(d.text) ? d.text[0] : (d.text ?? '')).slice(0, 24)}` }))
-		);
-
-	/**
-	 * "Create a text box for this" (onomatopoeia event `index` of the slice's events, or of `eventsPath` = a placed item's
-	 * tap events, relative to the slice): a bare lettering box in the middle of the slice (white letters, ink outline,
-	 * uppercase, "BAM" to overwrite per language), revealed by the event.
-	 */
-	function createBoxForEvent(index: number, eventsPath: Path = ['events']) {
-		const doc = activeDoc;
-		if (!doc || sliceIndex < 0) return;
-		const imageNo = Number(String(activeSlice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
-		const id = nextDialogId(chapterNumber, (imageNo || sliceIndex + 1) - 1, sliceDialogs);
-		const boxIndex = sliceDialogs.length;
-		doc.structural((file) => {
-			const slice = getAt(file, slicePath);
-			const event = slice ? getAt(slice, eventsPath)?.[index] : undefined;
-			if (!slice || event?.type !== 'showOnomatopeia') return;
-			slice.dialog ??= [];
-			const ono = presetOf('onomatopoeia');
-			const dialog = { ...newDialog(id, { ...ono.rect }), text: 'BAM' };
-			applyTextPreset(dialog as unknown as Record<string, unknown>, ono);
-			slice.dialog.push(dialog);
-			(event.params ??= {}).dialog = id;
-		});
-		// the new box is selected: its text and look are set in the text box inspector
-		onCanvasSelect({ kind: 'dialog', index: boxIndex });
+	function addSliceItem(itemId: string) {
+		const spot = view.itemSpot;
+		view.itemSpot = null;
+		const t = sliceTarget();
+		if (t && itemId) view.select(edits.addSliceItem(t, itemId, spot));
 	}
-
-	let pickingItem = $state(false);
-
-	/** places a catalog item in the middle of the slice (a quarter of its width; move / rotate / scale on the canvas) */
-	function addSliceItem(itemId: string, spot = itemSpot) {
-		itemSpot = null;
-		const doc = activeDoc;
-		if (!doc || sliceIndex < 0 || !itemId) return;
-		const taken = new Set(sliceItems.map((it) => it?.id));
-		let n = 1;
-		while (taken.has(`${itemId}-${n}`)) n++;
-		doc.structural((file) => {
-			const slice = getAt(file, slicePath);
-			if (!slice) return;
-			slice.items ??= [];
-			slice.items.push({ id: `${itemId}-${n}`, item: itemId, rect: spot ? { x: Math.min(75, Math.max(0, spot.x)), y: Math.min(95, Math.max(0, spot.y)), width: 25 } : { x: 37.5, y: 40, width: 25 } });
-		});
-		onCanvasSelect({ kind: 'item', index: sliceItems.length - 1 });
-	}
-
-	/**
-	 * the ⚡ tool (owner 2026-10-03): a drawn area → a click event there; a plain click (no area) → a whole-slice event
-	 * that fires when the slice scrolls into view. A message to start with – its type, trigger and area change in Events.
-	 */
 	function addSliceEvent(rect: { x: number; y: number; width: number; height: number }) {
-		const doc = activeDoc;
-		if (!doc || sliceIndex < 0) return;
-		const area = rect.width > 0 && rect.height > 0;
-		const index = activeSlice?.events?.length ?? 0;
-		doc.structural((file) => {
-			const slice = getAt(file, slicePath);
-			if (!slice) return;
-			slice.events ??= [];
-			slice.events.push({ type: 'showMessage', params: { text: '', wait: true }, trigger: area ? { type: Trigger.CLICK, rect: { ...rect } } : { type: Trigger.INTERSECT } });
-		});
-		onCanvasSelect({ kind: 'event', index });
+		const t = sliceTarget();
+		if (t) view.select(edits.addSliceEvent(t, rect));
 	}
-
 	function addSampleArea(rect: { x: number; y: number; width: number; height: number }) {
-		const doc = activeDoc;
-		if (!doc) return;
-		const library = chapterData?.audio?.sampleLibrary ?? [];
-		if (!library.length) {
-			session.notice = 'The chapter has no sample library yet (Audio in the tree).';
-			return;
-		}
-		doc.structural((file) => {
-			const slice = getAt(file, slicePath);
-			if (!slice) return;
-			slice.audio ??= {};
-			slice.audio.audio ??= {};
-			slice.audio.audio.samples ??= [];
-			slice.audio.audio.samples.push({ id: library[0].id, trigger: { type: Trigger.CLICK, mode: TriggerMode.POLY, rect: { ...rect } }, volume: 0.6 });
-		});
-		onCanvasSelect({ kind: 'sample', index: (activeSlice?.audio?.audio?.samples?.length ?? 1) - 1 });
+		const t = sliceTarget();
+		if (!t) return;
+		const next = edits.addSampleArea(t, rect, chapterData?.audio?.sampleLibrary ?? []);
+		if (next) view.select(next);
+		else session.notice = 'The chapter has no sample library yet (Audio in the tree).';
 	}
-
 	function removeSelected() {
-		const doc = activeDoc;
-		if (!doc || !selection) return;
-		const { kind, index } = selection;
-		const listPath =
-			kind === 'dialog'
-				? [...slicePath, 'dialog']
-				: kind === 'item'
-					? [...slicePath, 'items']
-					: kind === 'sample'
-						? [...slicePath, 'audio', 'audio', 'samples']
-						: [...slicePath, 'events'];
-		doc.structural((file) => {
-			const list = getAt(file, listPath);
-			if (!Array.isArray(list)) return;
-			list.splice(index, 1);
-			if (!list.length) deleteAt(file, listPath, slicePath.length);
-		});
-		selection = null;
+		const t = sliceTarget();
+		if (!t || !view.selection) return;
+		edits.removeSelected(t, view.selection);
+		view.selection = null;
 	}
 
-	/** one "Add group" (owner 2026-10-03: "Add separate scene" was a storage detail); new groups live in the chapter */
-	function addGroup() {
-		const label = `scene-${groups.length + 1}`;
-		chapter.structural((file) => file.groups.push(newGroup(label)));
-		selectGroup(groups.length - 1);
-	}
-
-	// groups: multi-select + drag in the tree (owner 2026-10-03) – click opens one, Shift+click picks the range from the
-	// anchor, Ctrl / Cmd+click adds / removes one; dragging a picked group moves all picked ones (in their order)
-	let groupPicked = $state<number[]>([]);
-	let groupAnchor = $state<number | null>(null);
-	let groupDragging = $state<number[] | null>(null);
-	let groupOver = $state<number | null>(null);
-	function clickGroup(index: number, event: MouseEvent) {
-		const next = clickSelect(groupPicked, groupAnchor, index, event);
-		groupPicked = next.selected;
-		groupAnchor = next.anchor;
-		// a plain click opens / folds it; Shift / Ctrl only pick
-		if (!event.shiftKey && !event.ctrlKey && !event.metaKey) toggleGroup(index);
-	}
-	function dropGroups(target: number) {
-		const moving = groupDragging;
-		if (!moving?.length) return;
-		let map = new Map<number, number>();
-		chapter.structural((file) => {
-			if (!Array.isArray(file.groups)) return;
-			const result = moveMany(file.groups, moving, target);
-			map = result.map;
-			file.groups.splice(0, file.groups.length, ...result.list);
-		});
-		groupPicked = moving.map((i) => map.get(i) ?? i).sort((a, b) => a - b);
-		groupAnchor = map.get(groupAnchor ?? -1) ?? groupPicked[0];
-		groupIndex = map.get(groupIndex) ?? groupIndex;
-	}
-
-	function removeGroup(index: number) {
-		const g = groups[index];
-		if (!confirm(m['creator.remove_confirm']({ what: `group ${g?.label ?? g?.ref?.src ?? index + 1}` }))) return;
-		chapter.structural((file) => file.groups.splice(index, 1));
-		groupIndex = Math.max(0, index - 1);
-		section = 'meta';
-	}
-
-	const previewLabel = $derived(section === 'group' || section === 'slice' ? (activeGroup?.label ?? '') : '');
+	const previewLabel = $derived(view.section === 'group' || view.section === 'slice' ? (activeGroup?.label ?? '') : '');
 	/** the creator's own draft preview (saved drafts rendered with @scutoons/reader), in a new tab */
 	const previewHref = (locale: string) =>
 		`/${toon}/chapter/${chapterNumber}/preview?locale=${locale}${previewLabel ? `&label=${encodeURIComponent(previewLabel)}` : ''}`;
@@ -676,20 +448,20 @@
 		// Ctrl+S saves (no note dialog); undo / redo only outside a field – in one, they are the browser's (owner
 		// 2026-10-03, COMPONENTS.md 4.4.1); lib/editor/editor-keys.ts
 		if (editorKeys(event, { save: () => session.saveAll(), undo: undoLast, redo: redoLast })) return;
-		if (isField(event.target) || section !== 'slice') return;
+		if (isField(event.target) || view.section !== 'slice') return;
 		// one grid step (snap off: 1 px), Shift × 10
-		const step = (grid || 1) * (event.shiftKey ? 10 : 1);
+		const step = (view.grid || 1) * (event.shiftKey ? 10 : 1);
 		const arrows: Record<string, [number, number]> = { arrowleft: [-step, 0], arrowright: [step, 0], arrowup: [0, -step], arrowdown: [0, step] };
-		if (arrows[key] && selection) {
+		if (arrows[key] && view.selection) {
 			event.preventDefault();
 			canvas?.nudge(...arrows[key]);
 		} else if (((key === 'delete' || key === 'backspace') && !mod) || (mod && key === 'x')) {
 			// Delete / Backspace / Ctrl+X remove the selected text, item, sample area or event area
-			if (!selection) return;
+			if (!view.selection) return;
 			event.preventDefault();
 			removeSelected();
 		} else if (key === 'escape') {
-			selection = null;
+			view.selection = null;
 		}
 	}
 
@@ -698,72 +470,7 @@
 <svelte:window onkeydown={onKeydown} />
 
 {#snippet tree()}
-	<!-- the chapter's children in the sidebar: meta, audio, groups → slices (Alt+ArrowDown opens the first child) -->
-	<div class="tree" data-testid="chapter-tree">
-		<button class="node sc-nav-item" class:is-current={section === 'meta'} onclick={() => (section = 'meta')} data-testid="tree-meta">{m['creator.meta']()}</button>
-		<button class="node sc-nav-item" class:is-current={section === 'audio'} onclick={() => (section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
-		<div class="sc-nav-head">{m['creator.groups']()}</div>
-		{#each groups as g, gi (gi)}
-			{@const open = gi === groupIndex && (section === 'group' || section === 'slice') && !collapsed}
-			<div class="group" class:open>
-				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div
-					class="group-row"
-					class:picked={groupPicked.length > 1 && groupPicked.includes(gi)}
-					class:over={groupOver === gi && !groupDragging?.includes(gi)}
-					class:below={groupOver === gi && !!groupDragging?.length && gi > Math.min(...groupDragging)}
-					class:moving={groupDragging?.includes(gi)}
-					draggable="true"
-					ondragstart={(e) => {
-						groupDragging = groupPicked.includes(gi) ? [...groupPicked] : [gi];
-						if (!groupPicked.includes(gi)) groupPicked = [gi];
-						e.dataTransfer?.setData('text/plain', groupDragging.join(','));
-						if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-					}}
-					ondragover={(e) => {
-						if (!groupDragging) return;
-						e.preventDefault();
-						groupOver = gi;
-					}}
-					ondragleave={() => (groupOver = groupOver === gi ? null : groupOver)}
-					ondrop={(e) => {
-						if (!groupDragging) return;
-						e.preventDefault();
-						dropGroups(gi);
-						groupDragging = groupOver = null;
-					}}
-					ondragend={() => (groupDragging = groupOver = null)}
-				>
-					<button
-						class="node sc-nav-item"
-						class:is-current={section === 'group' && gi === groupIndex}
-						onclick={(e) => clickGroup(gi, e)}
-						aria-expanded={open}
-						data-nav-child={section === 'meta' || section === 'audio' ? '' : undefined}
-						data-testid="group-{gi}"
-					>
-						{groupName(g, gi)}
-						<span class="hint">{g?.ref ? '' : `${g?.slices?.length ?? 0}${g?.events ? ' · VN' : ''}`}</span>
-					</button>
-					<span class="tools">
-						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
-					</span>
-				</div>
-				{#if open}
-					{#if activeDoc && !activeDoc.loading}
-						<div class="slices" data-child-slices={section === 'group' ? '' : undefined}>
-							<SliceList doc={activeDoc} {groupPath} {chapterNumber} selected={section === 'slice' ? sliceIndex : -1} onselect={selectSlice} />
-						</div>
-					{:else}
-						<p class="hint pad">{m['creator.loading']()}</p>
-					{/if}
-				{/if}
-			</div>
-		{/each}
-		<div class="tree-add">
-			<button class="secondary" title={m['creator.add_group']()} onclick={addGroup}><span class="one-line">{m['creator.add_group']()}</span></button>
-		</div>
-	</div>
+	<ChapterTree {view} {chapter} {groups} {groupName} {activeDoc} {groupPath} {chapterNumber} />
 {/snippet}
 
 <div class="editor" class:with-panel={panel !== null} style:--panel-width={panelSize.css}>
@@ -771,11 +478,11 @@
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
 	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
 	{#snippet sliceNav(where: 'start' | 'end')}
-		{#if section === 'slice' && activeGroup?.slices?.length}
+		{#if view.section === 'slice' && activeGroup?.slices?.length}
 			<span class="slice-nav in-{where}" role="group" aria-label={m['creator.slice_navigation']()}>
-				<button class="ghost" onclick={() => selectSlice(sliceIndex - 1)} disabled={sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid={where === 'end' ? 'prev-slice' : undefined}><Icon name="chevron-left" /></button>
-				<span>{m['creator.slice_of']({ index: sliceIndex + 1, count: activeGroup.slices.length })}</span>
-				<button class="ghost" onclick={() => selectSlice(sliceIndex + 1)} disabled={sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid={where === 'end' ? 'next-slice' : undefined}><Icon name="chevron-right" /></button>
+				<button class="ghost" onclick={() => view.selectSlice(view.sliceIndex - 1)} disabled={view.sliceIndex <= 0} title={m['creator.prev_slice']()} aria-label={m['creator.prev_slice']()} data-testid={where === 'end' ? 'prev-slice' : undefined}><Icon name="chevron-left" /></button>
+				<span>{m['creator.slice_of']({ index: view.sliceIndex + 1, count: activeGroup.slices.length })}</span>
+				<button class="ghost" onclick={() => view.selectSlice(view.sliceIndex + 1)} disabled={view.sliceIndex >= activeGroup.slices.length - 1} title={m['creator.next_slice']()} aria-label={m['creator.next_slice']()} data-testid={where === 'end' ? 'next-slice' : undefined}><Icon name="chevron-right" /></button>
 			</span>
 		{/if}
 	{/snippet}
@@ -818,11 +525,11 @@
 	{:else if chapter.error}
 		<p class="pad error">{chapter.error}</p>
 	{:else}
-		{#if hasStatus(chapter) || (refSrc && refs[refSrc] && (section === 'group' || section === 'slice') && hasStatus(refs[refSrc])) || (!season.loading && (season.dirty || season.unpublished.length))}
+		{#if hasStatus(chapter) || (refSrc && refs[refSrc] && (view.section === 'group' || view.section === 'slice') && hasStatus(refs[refSrc])) || (!season.loading && (season.dirty || season.unpublished.length))}
 		<div class="files" data-testid="file-status">
 			<FileStatus doc={chapter} label={fileLabel(chapter.entity)} />
 			<!-- the scene's own status only while one of its parts is open (owner 2026-10-03: "scene-14" next to Meta confused) -->
-			{#if refSrc && refs[refSrc] && (section === 'group' || section === 'slice')}<FileStatus doc={refs[refSrc]} label={refLabel(refSrc) ?? sceneLabel(toon, refSrc)} />{/if}
+			{#if refSrc && refs[refSrc] && (view.section === 'group' || view.section === 'slice')}<FileStatus doc={refs[refSrc]} label={refLabel(refSrc) ?? sceneLabel(toon, refSrc)} />{/if}
 			{#if !season.loading && (season.dirty || season.unpublished.length)}<FileStatus doc={season} label={fileLabel(season.entity)} />{/if}
 		</div>
 		{/if}
@@ -830,7 +537,7 @@
 			{session}
 			docs={allDocs}
 			dirty={anyDirty && !chapter.saving}
-			dirtyDetail={activeDoc?.dirty && section === 'slice' ? activeDoc.dirtyLocales.join(', ') : undefined}
+			dirtyDetail={activeDoc?.dirty && view.section === 'slice' ? activeDoc.dirtyLocales.join(', ') : undefined}
 			createLocale={(doc, locale) => doc.createLocale(locale, (f) => (f && doc.kind === 'chapter' ? { ...f, language: locale } : f))}
 		/>
 		{#if castNotice}
@@ -841,10 +548,10 @@
 			</div>
 		{/if}
 
-		<div class="columns" class:has-inspector={section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
+		<div class="columns" class:has-inspector={view.section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
 			<!-- Main -->
-			<main class="main" class:fit={section === 'slice' && !!activeSlice}>
-				{#if section === 'meta'}
+			<main class="main" class:fit={view.section === 'slice' && !!activeSlice}>
+				{#if view.section === 'meta'}
 					{#if legacyTexts}
 						<div class="sc-bar is-note" data-testid="legacy-texts">
 							<span>{m['creator.legacy_texts']({ count: legacyTexts })}</span>
@@ -868,14 +575,14 @@
 							<RelatedItemsField doc={chapter} hint={m['creator.related_items_hint_chapter']()} testid="chapter-related-items" />
 						{/snippet}
 					</MetaPanel>
-				{:else if section === 'audio'}
+				{:else if view.section === 'audio'}
 					<AudioPanel doc={chapter} />
-				{:else if section === 'group'}
+				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={boxChoices(activeGroup?.slices)} {groupLabels} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={edits.boxChoices(activeGroup?.slices)} {groupLabels} />
 						{:else}
 							<p class="hint">No VN script in this group.
 								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
@@ -885,39 +592,20 @@
 					{:else}
 						<p>{m['creator.loading']()}</p>
 					{/if}
-				{:else if section === 'slice' && activeDoc && activeSlice}
-					<div class="canvas-tools">
-						<span class="sc-seg" role="group" aria-label={m['creator.canvas_snap']()}>
-							<button class="ghost" class:active={snap} aria-pressed={snap} onclick={() => (snap = !snap)} title={m['creator.canvas_snap_hint']()} data-testid="snap-toggle"><Icon name="grid" /> {m['creator.canvas_snap']()}</button>
-							<select bind:value={gridSize} disabled={!snap} aria-label={m['creator.canvas_grid_size']()} title={m['creator.canvas_grid_size']()} data-testid="grid-size">
-								{#each GRID_SIZES as g (g)}<option value={g}>{g} px</option>{/each}
-							</select>
-						</span>
-						<!-- icon-only tools (owner 2026-10-03), each tied to its inspector tab -->
-						<Segmented
-							label="tool"
-							value={tool}
-							onchange={setTool}
-							options={[
-								{ value: 'text', icon: 'type', title: m['creator.tool_text'](), testid: 'tool-text' },
-								{ value: 'item', icon: 'box', title: m['creator.tool_item'](), testid: 'tool-item' },
-								{ value: 'sample', icon: 'music', title: m['creator.tool_sample'](), testid: 'tool-sample' },
-								{ value: 'event', icon: 'zap', title: m['creator.tool_event'](), testid: 'tool-event' }
-							]}
-						/>
-					</div>
+				{:else if view.section === 'slice' && activeDoc && activeSlice}
+					<SliceToolbar {view} />
 					<div class="canvas-scroll">
 						<SliceCanvas
 							bind:this={canvas}
 							doc={activeDoc}
 							{slicePath}
 							locale={displayLocale}
-							{grid}
-							{tool}
-							{layer}
-							{selection}
-							onselect={onCanvasSelect}
-							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? ((itemSpot = { x: rect.x, y: rect.y }), (pickingItem = true)) : t === 'event' ? addSliceEvent(rect) : addSampleArea(rect))}
+							grid={view.grid}
+							tool={view.tool}
+							layer={view.layer}
+							selection={view.selection}
+							onselect={(next) => view.select(next)}
+							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? view.pickItem({ x: rect.x, y: rect.y }) : t === 'event' ? addSliceEvent(rect) : addSampleArea(rect))}
 						/>
 					</div>
 				{:else}
@@ -926,103 +614,31 @@
 			</main>
 
 			<!-- Inspector -->
-			{#if section === 'slice' && activeDoc && activeSlice}
+			{#if view.section === 'slice' && activeDoc && activeSlice}
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 				<div class="inspector-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={inspectorSize.start} onkeydown={inspectorSize.key} ondblclick={inspectorSize.reset}></div>
-				<aside class="inspector">
-					<div class="tabs" role="tablist">
-						<!-- one icon each (owner 2026-10-03), the same as the canvas tools; background + map are one "Slice" tab -->
-						<button class="ghost" class:active={inspectorTab === 'text'} onclick={() => setTab('text')} data-testid="tab-text"><Icon name="type" /> {m['creator.text_boxes']()} ({sliceDialogs.length})</button>
-						<button class="ghost" class:active={inspectorTab === 'items'} onclick={() => setTab('items')} data-testid="tab-items"><Icon name="box" /> {m['creator.slice_items']()} ({sliceItems.length})</button>
-						<button class="ghost" class:active={inspectorTab === 'audio'} onclick={() => setTab('audio')} data-testid="tab-audio"><Icon name="music" /> {m['creator.audio']()}</button>
-						<button class="ghost" class:active={inspectorTab === 'events'} onclick={() => setTab('events')} data-testid="tab-events"><Icon name="zap" /> Events ({activeSlice?.events?.length ?? 0})</button>
-						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => setTab('slice')} data-testid="tab-background"><Icon name="image" /> {m['creator.slice_tab']()}</button>
-					</div>
-
-					{#if inspectorTab === 'text'}
-						<ul class="boxes">
-							{#each sliceDialogs as d, di (di)}
-								<li>
-									<button class="ghost" class:active={selection?.kind === 'dialog' && selection.index === di} onclick={() => onCanvasSelect({ kind: 'dialog', index: di })} data-testid="dialog-{di}">
-										<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{presetLabel(d)}</span> {String(Array.isArray(d.text) ? d.text[0] : d.text).slice(0, 40)}
-									</button>
-								</li>
-							{/each}
-						</ul>
-						<button class="secondary" class:active={pickingPreset} aria-expanded={pickingPreset} onclick={() => (pickingPreset = !pickingPreset)} data-testid="add-text"><Icon name="plus" /> {m['creator.add_text_box']()}</button>
-						{#if pickingPreset}
-							<TextPresetPicker
-								image={activeSlice.image ? asset(`${toon}/${activeSlice.image}`) : ''}
-								ratio={activeSlice.width > 0 && activeSlice.height > 0 ? activeSlice.height / activeSlice.width : SLICE_RATIO}
-								lang={displayLocale}
-								onpick={(preset) => addDialog(undefined, preset)}
-							/>
-						{/if}
-						{#if selection?.kind === 'dialog' && sliceDialogs[selection.index]}
-							<hr />
-							<DialogInspector
-								doc={activeDoc}
-								path={[...slicePath, 'dialog', selection.index]}
-								onremove={removeSelected}
-							/>
-						{/if}
-					{:else if inspectorTab === 'items'}
-						<ul class="boxes">
-							{#each sliceItems as it, ii (ii)}
-								<li>
-									<button class="ghost" class:active={selection?.kind === 'item' && selection.index === ii} onclick={() => onCanvasSelect({ kind: 'item', index: ii })} data-testid="slice-item-{ii}">
-										<span>{itemName(itemCatalog.catalog?.items.find((x) => x.id === it?.item), it?.item ?? '?')}</span> <span class="hint">{it?.action === 'pickup' ? m['creator.slice_item_action_pickup']() : it?.action === 'events' ? m['creator.slice_item_action_events']() : ''}</span>
-									</button>
-								</li>
-							{:else}
-								<li class="hint">{m['creator.slice_items_empty']()}</li>
-							{/each}
-						</ul>
-						<button type="button" class="secondary" onclick={() => ((itemSpot = null), (pickingItem = true))} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
-						<ItemPickerSheet bind:open={pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
-						{#if selection?.kind === 'item' && sliceItems[selection.index]}
-							<hr />
-							<ItemInspector
-								doc={activeDoc}
-								path={[...slicePath, 'items', selection.index]}
-								{characters}
-								{choices}
-								dialogs={boxChoices([activeSlice])}
-								oncreatebox={(i) => selection && createBoxForEvent(i, ['items', selection.index, 'events'])}
-								onremove={removeSelected}
-							/>
-						{/if}
-					{:else if inspectorTab === 'slice'}
-						<SliceMedia doc={activeDoc} {slicePath} {toon} place="{toon}/s{Number(season.get(season.primary, ['number'])) || 1}/c{chapterNumber}/" />
-						<!-- the slice's map unlocks, in the same view (owner 2026-10-03) -->
-						<section class="slice-map" data-testid="slice-map">
-							<h3><Icon name="map-pin" /> {m['creator.map']()}</h3>
-							<SliceUnlocks mapDoc={worldMap} {toon} chapter={chapterNumber} image={activeSlice.image ?? ''} slices={chapterSlices(sceneGroups())} ontouch={() => (mapTouched = true)} />
-						</section>
-					{:else if inspectorTab === 'audio'}
-						<SliceAudio
-							doc={activeDoc}
-							{slicePath}
-							chapterAudio={chapterData?.audio}
-							selectedSample={selection?.kind === 'sample' ? selection.index : -1}
-							onselectsample={(i) => (selection = i >= 0 ? { kind: 'sample', index: i } : null)}
-						/>
-					{:else if inspectorTab === 'events'}
-						<VnEvents
-							doc={activeDoc}
-							eventsPath={[...slicePath, 'events']}
-							sliceEvents
-							points={scriptLabels(activeGroup?.events)}
-							{groupLabels}
-							{characters}
-							{choices}
-							dialogs={boxChoices([activeSlice])}
-							oncreatebox={createBoxForEvent}
-							selected={selection?.kind === 'event' ? selection.index : -1}
-							onselect={(i) => (selection = { kind: 'event', index: i })}
-						/>
-					{/if}
-				</aside>
+				<SliceInspector
+					{view}
+					doc={activeDoc}
+					slice={activeSlice}
+					{slicePath}
+					group={activeGroup}
+					{toon}
+					{chapterNumber}
+					seasonNumber={Number(season.get(season.primary, ['number'])) || 1}
+					locale={displayLocale}
+					{characters}
+					{choices}
+					{groupLabels}
+					chapterAudio={chapterData?.audio}
+					{worldMap}
+					chapterSlices={chapterSlices(sceneGroups())}
+					onmaptouch={() => (mapTouched = true)}
+					onaddtext={(preset) => addDialog(undefined, preset)}
+					onadditem={addSliceItem}
+					oncreatebox={createBoxForEvent}
+					onremove={removeSelected}
+				/>
 			{/if}
 		</div>
 	{/if}
@@ -1035,7 +651,7 @@
 			{#if panel === 'problems'}
 				<ProblemsPanel {problems} ongoto={gotoProblem} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && activeDoc}
-				<HistoryPanel doc={section === 'group' || section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
+				<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
 			{/if}
 		</aside>
 	{/if}
@@ -1129,93 +745,12 @@
 		.inspector-resize {
 			display: none;
 		}
-		.columns.has-inspector .inspector {
-			border-left: 0;
-			border-top: var(--border-width-regular) solid var(--ink);
-		}
-	}
-	/* ── the chapter tree in the sidebar (entries: tools.css sc-nav-item / sc-nav-head) ── */
-	.tree {
-		padding: 0 0 var(--space-05);
-	}
-	.group-row {
-		display: flex;
-	}
-	/* group drag (owner 2026-10-03): the drop line above / below the target, picked groups framed, the moving ones faint */
-	.group-row.over {
-		box-shadow: inset 0 3px 0 var(--cyan);
-	}
-	.group-row.over.below {
-		box-shadow: inset 0 -3px 0 var(--cyan);
-	}
-	.group-row.picked {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: calc(-1 * var(--border-width-regular));
-	}
-	.group-row.moving {
-		opacity: 0.5;
-	}
-	.group-row .node {
-		flex: 1;
-		min-width: 0;
-		justify-content: space-between;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.node .hint {
-		color: inherit;
-	}
-	.group-row .tools {
-		display: none;
-	}
-	.group-row:hover .tools,
-	.group.open .tools {
-		display: flex;
-	}
-	.tools button {
-		min-width: var(--control-height);
-		padding: 0;
-	}
-	.group.open {
-		border-top: var(--border-width-regular) solid var(--ink);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-	}
-	.tree-add {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-05);
-		padding: var(--space-1);
-	}
-	/* one control height (owner 2026-10-02): the narrow sidebar keeps the labels on one line, the full text in the tooltip */
-	.tree-add button {
-		justify-content: flex-start;
-		min-width: 0;
-		padding-inline: var(--space-05);
-	}
-	.one-line {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	.main {
 		overflow: auto;
 		padding: var(--space-1) var(--space-1) var(--space-3);
 		min-width: 0;
 	}
-	.canvas-tools {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05) var(--space-1);
-		align-items: center;
-		position: sticky;
-		top: calc(-1 * var(--space-1));
-		background: var(--paper);
-		z-index: 5;
-		padding: var(--space-05) 0;
-	}
-	/* segmented control: one 2px ink frame, the chosen part inverted */
 	.canvas-scroll {
 		overflow: auto;
 		padding: var(--space-1) 0 var(--space-15);
@@ -1233,60 +768,6 @@
 		padding-bottom: 0;
 		container-type: size;
 	}
-	.inspector {
-		overflow: auto;
-		border-left: var(--border-width-regular) solid var(--ink);
-		padding: var(--space-1) var(--space-1) var(--space-3);
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-	}
-	/* inspector tabs: a framed grid, the open tab inverted */
-	.tabs {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-		border: var(--border-width-regular) solid var(--ink);
-	}
-	.tabs button {
-		justify-content: center;
-		gap: 0.4rem;
-	}
-	.slice-map {
-		border-top: var(--border-width-regular) solid var(--ink);
-		padding-top: var(--space-1);
-	}
-	.slice-map h3 {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		margin: 0 0 var(--space-05);
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-	}
-	.boxes {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		border: var(--border-width-regular) solid var(--ink);
-	}
-	.boxes li + li {
-		border-top: var(--border-width-hairline) solid var(--ink);
-	}
-	/* one line per box, ellipsis (block, not flex: a text node can't ellipsize in flex) */
-	.boxes button {
-		display: block;
-		width: 100%;
-		padding-block: 0;
-		line-height: calc(var(--control-height) - 2 * var(--border-width-regular));
-		text-align: left;
-		white-space: nowrap;
-		overflow: hidden;
-		text-overflow: ellipsis;
-	}
-	.boxes button.active .hint {
-		color: inherit;
-	}
 	.row {
 		display: flex;
 		flex-wrap: wrap;
@@ -1294,12 +775,6 @@
 	}
 	.sub {
 		margin-top: var(--space-15);
-	}
-	hr {
-		border: 0;
-		border-top: var(--border-width-regular) solid var(--ink);
-		width: 100%;
-		margin: var(--space-05) 0;
 	}
 	.side-panel {
 		position: fixed;

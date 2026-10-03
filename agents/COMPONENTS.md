@@ -274,6 +274,14 @@ Done (branch `components`):
   save flow (followers, language reload) but uses `confirmPublish`. Behaviour changes (intended): undo inside a chapter
   field is the browser's; the chapter's publish dialog names only the languages with a draft (was: all). check:creator-
   chapter: undo in a field, the publish dialog's languages (62 checks).
+- Step 12 ✓ (the commit adding this line; platform merged before it, eb8e9ad – @scutoons/media) – chapter-editor 1345 →
+  820: the view state is one object (`lib/editor/chapter-state.svelte.ts` ChapterView: section / group / slice /
+  selection / tab / tool / fold / snap + grid / item spot / pickers; tool = tab = layer), the slice edits are
+  `lib/editor/slice-edit.ts`, the parts `chapter/chapter-tree.svelte` (with the group multi-select + drag),
+  `slice/slice-toolbar.svelte`, `slice/slice-inspector.svelte`. The shell keeps the documents, the URL ↔ selection
+  effects (run once there), problems, the keyboard (canvas nudge stays reachable through `canvas`) and the `{#key}`
+  remount. Before / after shots identical. Not reached: the 300-line target – the documents + problems (~250 lines) could
+  become a `chapter-docs.svelte.ts` next.
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,
