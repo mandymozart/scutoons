@@ -15,6 +15,7 @@
 	import { CDN_SERVER, VIEWER_URL } from '$lib/config.ts';
 	import { creditsDocs, creditsOf, peopleOf, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import MetaPage from '../meta-page.svelte';
 	import { fileLabels } from '$lib/labels.ts';
 	import SectionsEditor from './sections-editor.svelte';
@@ -33,7 +34,8 @@
 	const langs = $derived(languages.languages as string[]);
 	let tab = $state('sections');
 	// svelte-ignore state_referenced_locally
-	let previewLocale = $state<string>(languages.source);
+	// the preview language = the header's text language switch (owner 2026-10-03); source / all = the source
+	const previewLocale = $derived(textLanguage.chosen(langs) ?? languages.source);
 	let selectedPerson = $state<string | null>(null);
 	const loaded = $derived(docs.every((d) => !d.loading));
 	const missing = $derived(loaded ? docs.filter((d) => !d.present.length) : []);
@@ -106,9 +108,6 @@
 			<aside class="preview" data-testid="credits-preview">
 				<header>
 					<span>{m['creator.preview']()}</span>
-					{#each langs as l (l)}
-						<button type="button" class="ghost mini" class:active={previewLocale === l} onclick={() => (previewLocale = l)} data-testid="preview-{l}">{l}</button>
-					{/each}
 					<a class="hint" href="{VIEWER_URL}/{toon}/credits" target="_blank" rel="noreferrer">{m['creator.credits_live']()}</a>
 				</header>
 				<div class="frame" lang={previewLocale}>
@@ -158,10 +157,6 @@
 	/* the reader's page at a smaller scale (it is sized in rem of the reader's fluid root) */
 	.frame > :global(*) {
 		zoom: 0.6;
-	}
-	.mini {
-		font-size: var(--type-caption-size);
-		padding: 0 0.4rem;
 	}
 	.missing {
 		display: flex;

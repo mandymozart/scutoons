@@ -67,12 +67,8 @@
 	const lines = $derived<CoverLine[]>(mode === 'off' ? [] : (coverLines(lettering, format) ?? defaultCoverLines(format)));
 	const image = $derived(cover?.[format] ? asset(`${toon}/${cover[format]}`) : '');
 
-	// the preview language: the top bar's i18n choice when it is one of the toon's languages, else the source
-	let previewLang = $state('');
-	$effect(() => {
-		const chosen = textLanguage.chosen(languages);
-		untrack(() => (previewLang = chosen ?? (languages.includes(previewLang) ? previewLang : source)));
-	});
+	// the preview language = the header's text language switch (owner 2026-10-03: no own switch here); source / all = the source
+	const previewLang = $derived(textLanguage.chosen(languages) ?? source);
 	const previewTexts = $derived(texts(previewLang || source));
 
 	let selected = $state<number | null>(null);
@@ -268,14 +264,6 @@
 				<button type="button" class="ghost" class:active={mode === value} aria-pressed={mode === value} onclick={() => setMode(value as typeof mode)} data-testid="cover-mode-{value}">{label}</button>
 			{/each}
 		</span>
-		{#if languages.length > 1}
-			<span class="sc-label">{m['creator.cover_preview_language']()}</span>
-			<span class="seg" role="group" aria-label={m['creator.cover_preview_language']()}>
-				{#each languages as l (l)}
-					<button type="button" class="ghost" class:active={previewLang === l} aria-pressed={previewLang === l} onclick={() => (previewLang = l)} data-testid="cover-lang-{l}">{l.toUpperCase()}</button>
-				{/each}
-			</span>
-		{/if}
 	</div>
 	<p class="hint">{mode === 'off' ? m['creator.cover_mode_hint_off']() : mode === 'default' ? m['creator.cover_mode_hint_default']() : m['creator.cover_mode_hint_custom']()}</p>
 

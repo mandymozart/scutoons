@@ -239,7 +239,8 @@ try {
 
 	// 2. the preview language
 	for (const l of [...LOCALES.slice(1), LOCALES[0]]) {
-		await click(`[data-testid="cover-lang-${l}"]`);
+		// the header's text language switch decides the preview language
+		await js(`(() => { const s = document.querySelector('[data-testid="text-language-select"]'); s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
 		await until(`${q('cover-stage')}.querySelector('.line .text')?.textContent === ${JSON.stringify(titles[l].toon)}`, 3000);
 		lines = await stageLines();
 		check(lines[0]?.text === titles[l].toon && lines[1]?.text === `"${titles[l].season}"` && lines[0]?.lang === l, `preview ${l}: ${lines.map((x) => x.text).join(' / ')}`, JSON.stringify(lines));
