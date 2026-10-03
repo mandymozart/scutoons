@@ -121,7 +121,9 @@
 			color: inherit;
 			background: none;
 			border: 1px solid currentColor;
-			padding: 0.2rem 0.4rem;
+			box-sizing: border-box;
+			height: var(--control-height);
+			padding: 0 0.5rem;
 			cursor: pointer;
 		}
 	}
