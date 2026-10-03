@@ -23,7 +23,11 @@ final class MysqlTestDatabase
     /** @var array<string, int|null> table → AUTO_INCREMENT right after the migrations */
     private static array $autoIncrement = [];
 
-    /** @return array{host: string, port: string, name: string, user: string, pass: string}|null null = SQLite */
+    /**
+     * TEST_DB_SQL_MODE: the API's DB_SQL_MODE for this run (unset = its default, strict; `server` = the server's own
+     * mode – production's is not strict: `TEST_DB_SQL_MODE=server` runs the suite the way the host would behave alone)
+     * @return array{host: string, port: string, name: string, user: string, pass: string, sql_mode: string|null}|null null = SQLite
+     */
     public static function config(): ?array
     {
         if (strtolower((string) getenv('TEST_DB_DRIVER')) !== 'mysql') return null;
@@ -34,6 +38,7 @@ final class MysqlTestDatabase
             'name' => $env('TEST_DB_NAME', 'scutoons_test'),
             'user' => $env('TEST_DB_USER', 'scutoons'),
             'pass' => $env('TEST_DB_PASS', ''),
+            'sql_mode' => getenv('TEST_DB_SQL_MODE') !== false && getenv('TEST_DB_SQL_MODE') !== '' ? (string) getenv('TEST_DB_SQL_MODE') : null,
         ];
     }
 

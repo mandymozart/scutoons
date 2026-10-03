@@ -59,7 +59,7 @@ abstract class TestCase extends BaseTestCase
         $database = $mysql === null ? ['DB_SQLITE_PATH' => $this->dir . '/test.sqlite'] : [
             'DB_DRIVER' => 'mysql', 'DB_SQLITE_PATH' => '', 'DB_HOST' => $mysql['host'], 'DB_PORT' => $mysql['port'],
             'DB_NAME' => $mysql['name'], 'DB_USER' => $mysql['user'], 'DB_PASS' => $mysql['pass'],
-        ];
+        ] + ($mysql['sql_mode'] !== null ? ['DB_SQL_MODE' => $mysql['sql_mode']] : []);
         return $database + [
             'AUTH_SECRET' => str_repeat('unit-test-secret-', 3),
             'MAIL_TRANSPORT' => 'log',
