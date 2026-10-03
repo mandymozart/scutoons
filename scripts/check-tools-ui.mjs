@@ -160,6 +160,9 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 			// a restyled fold row (owner 2026-10-03, step 4: tools.css styles every summary; `fold-ok` + reason for a fold that is a control, e.g. a dropdown)
 			if (sel.split(/,(?![^(]*\))/).some((x) => /(^|[\s>])summary(\[|:(?!hover)|$)/.test(x.trim()) || /\]\s*>?\s*summary$/.test(x.trim())) && /(^|[;\s])(font-size|text-transform|letter-spacing|cursor|margin(-bottom)?)\s*:/.test(m[2]) && !/fold-ok/.test(css.slice(m.index, m.index + m[0].length)))
 				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local fold style: tools.css styles summary, or \`fold-ok\` + the reason)`);
+			// a local segmented control (owner 2026-10-03, step 6): @scutoons/ui Segmented / tools.css .sc-seg
+			if (sel.split(/,(?![^(]*\))/).some((x) => /\.(seg|segments|segmented)(?![\w-])[^\s>+~]*$/.test(x.trim())) && /display\s*:/.test(m[2]))
+				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local segmented control: @scutoons/ui Segmented / tools.css .sc-seg)`);
 			if (/\.g\d\b/.test(sel)) fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field-grid copy)`);
 			else if (/display:\s*grid/.test(m[2]) && sel.split(/,(?![^(]*\))/).some((x) => FIELD_GRID_CLASS.test(x.trim())))
 				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field grid: tools.css .sc-fields, or \`grid-ok\` + the reason)`);

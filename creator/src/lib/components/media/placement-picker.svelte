@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { VIEWPORT_FITS, VIEWPORT_POSITIONS, viewportObjectFit, type ViewportFit } from '@scutoons/content';
+	import { Segmented } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -35,32 +36,26 @@
 </script>
 
 <div class="placement-picker" data-testid="placement-picker">
-	<div class="row" role="radiogroup" aria-label={m['creator.video_fit']()}>
-		{#each VIEWPORT_FITS as f (f)}
-			<button
-				type="button"
-				class:active={fit === f}
-				role="radio"
-				aria-checked={fit === f}
-				title={m[`creator.video_fit_${f}_hint`]()}
-				onclick={() => onchange(f, position)}
-				data-testid={`fit-${f}`}>{m[`creator.video_fit_${f}`]()}</button
-			>
-		{/each}
-	</div>
+	<!-- one row each, the choices sharing its width -->
+	<Segmented
+		radio
+		grid
+		min="0px"
+		label={m['creator.video_fit']()}
+		value={fit}
+		onchange={(f) => onchange(f, position)}
+		options={VIEWPORT_FITS.map((f) => ({ value: f, label: m[`creator.video_fit_${f}`](), title: m[`creator.video_fit_${f}_hint`](), testid: `fit-${f}` }))}
+	/>
 	{#if positionMatters}
-		<div class="row" role="radiogroup" aria-label={m['creator.video_position']()}>
-			{#each VIEWPORT_POSITIONS as p (p)}
-				<button
-					type="button"
-					class:active={position === p}
-					role="radio"
-					aria-checked={position === p}
-					onclick={() => onchange(fit, p)}
-					data-testid={`position-${p}`}>{m[`creator.video_position_${p}`]()}</button
-				>
-			{/each}
-		</div>
+		<Segmented
+			radio
+			grid
+			min="0px"
+			label={m['creator.video_position']()}
+			value={position}
+			onchange={(p) => onchange(fit, p)}
+			options={VIEWPORT_POSITIONS.map((p) => ({ value: p, label: m[`creator.video_position_${p}`](), testid: `position-${p}` }))}
+		/>
 	{/if}
 </div>
 
@@ -69,36 +64,5 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.4em;
-	}
-	/* a segmented row: square house buttons, grey outline, hover ink, the chosen one inverted (em = the creator's 13 px) */
-	.row {
-		display: flex;
-	}
-	.row button {
-		flex: 1;
-		min-width: 0;
-		margin-left: -2px;
-		padding: 0 0.25em;
-		font: inherit;
-		font-size: 0.9em;
-		line-height: var(--type-button-line);
-		background: var(--paper);
-		color: var(--ink);
-		border: 2px solid var(--border-muted);
-		border-radius: 0;
-		cursor: pointer;
-	}
-	.row button:first-child {
-		margin-left: 0;
-	}
-	.row button:hover {
-		position: relative;
-		border-color: var(--ink);
-	}
-	.row button.active {
-		position: relative;
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
 	}
 </style>

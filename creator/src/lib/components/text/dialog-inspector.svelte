@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { Segmented } from '@scutoons/ui';
 	import { getAt, type Path } from '@scutoons/content';
 	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -42,11 +43,13 @@
 		</div>
 
 		<!-- the look: one of the presets (owner 2026-10-03); the fields below fine-tune it -->
-		<div class="seg presets" role="group" aria-label={m['creator.preset']()}>
-			{#each TEXT_PRESETS as t (t.id)}
-				<button type="button" class="ghost" class:active={preset === t.id} aria-pressed={preset === t.id} onclick={() => setPreset(t)} data-testid="dialog-preset-{t.id}">{m[`creator.preset_${t.id}`]()}</button>
-			{/each}
-		</div>
+		<Segmented
+			grid
+			label={m['creator.preset']()}
+			value={preset}
+			onchange={(id) => setPreset(TEXT_PRESETS.find((t) => t.id === id)!)}
+			options={TEXT_PRESETS.map((t) => ({ value: t.id, label: m[`creator.preset_${t.id}`](), testid: `dialog-preset-${t.id}` }))}
+		/>
 
 		<LocaleText {doc} path={p('text')} rows={4} />
 
@@ -103,12 +106,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-05);
-	}
-	/* the presets: one segmented control, the matching one inverted */
-	.presets {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
-		border: var(--border-width-regular) solid var(--ink);
 	}
 	.inspector {
 		display: flex;

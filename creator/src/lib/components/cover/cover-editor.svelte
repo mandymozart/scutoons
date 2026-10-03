@@ -2,7 +2,7 @@
 	import { moveAt } from '$lib/editor/move.ts';
 	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { tick, untrack } from 'svelte';
-	import { Icon } from '@scutoons/ui';
+	import { Icon, Segmented } from '@scutoons/ui';
 	import { CoverArt } from '@scutoons/reader';
 	import {
 		COVER_ALIGNS,
@@ -259,11 +259,16 @@
 <div class="cover-editor" data-testid="cover-editor">
 	<div class="toolbar">
 		<span class="sc-label">{m['creator.cover_mode']()}</span>
-		<span class="seg" role="group" aria-label={m['creator.cover_mode']()}>
-			{#each [['off', m['creator.cover_mode_off']()], ['default', m['creator.cover_mode_default']()], ['custom', m['creator.cover_mode_custom']()]] as [value, label] (value)}
-				<button type="button" class="ghost" class:active={mode === value} aria-pressed={mode === value} onclick={() => setMode(value as typeof mode)} data-testid="cover-mode-{value}">{label}</button>
-			{/each}
-		</span>
+		<Segmented
+			label={m['creator.cover_mode']()}
+			value={mode}
+			onchange={setMode}
+			options={[
+				{ value: 'off', label: m['creator.cover_mode_off'](), testid: 'cover-mode-off' },
+				{ value: 'default', label: m['creator.cover_mode_default'](), testid: 'cover-mode-default' },
+				{ value: 'custom', label: m['creator.cover_mode_custom'](), testid: 'cover-mode-custom' }
+			]}
+		/>
 	</div>
 	<p class="hint">{mode === 'off' ? m['creator.cover_mode_hint_off']() : mode === 'default' ? m['creator.cover_mode_hint_default']() : m['creator.cover_mode_hint_custom']()}</p>
 
@@ -419,13 +424,6 @@
 		gap: var(--space-05) var(--space-1);
 	}
 	/* segmented control: one 2px ink frame, the chosen part inverted */
-	.seg {
-		display: inline-flex;
-		border: var(--border-width-regular) solid var(--ink);
-	}
-	.seg button {
-		min-height: var(--control-height);
-	}
 	.hint {
 		margin: 0;
 	}

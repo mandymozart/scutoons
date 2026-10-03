@@ -216,6 +216,12 @@ Done (branch `components`):
   `gridArrows` replaces the copied `arrows()` in the asset + character pickers. Visible: the move buttons that had only
   an aria-label (cast, moods, credit sections) now show it as the tooltip too. vn-events / chapter tree / slice list
   reorder by drag (moveMany), unchanged.
+- Step 6 ✓ (the commit adding this line) – @scutoons/ui `Segmented` (options with label / icon / title / testid, `radio`,
+  `grid` + `min`) on tools.css `.sc-seg` (token `--seg-min`): chapter canvas tools, cover lettering mode, text presets,
+  onomatopoeia presets, video fit / position (radio), admin email language; the snap toggle + grid size share the
+  `.sc-seg` frame. Testids kept. Visible: video fit / position (was grey joined outlines) and the admin email language
+  (had dividers) look like the others now. `check:tools-css` flags a local `.seg/.segments`. Found: "+ event" on a slice
+  without events adds nothing visible (works on a slice that has events) – pre-existing, see step 8.
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

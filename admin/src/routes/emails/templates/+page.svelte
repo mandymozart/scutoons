@@ -4,7 +4,7 @@
 	import EmailsNav from '$lib/components/emails-nav.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, Field, Section, Skeleton } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, Field, Section, Segmented, Skeleton } from '@scutoons/ui';
 	import type { AdminEmailPreview, AdminEmailRecipients, AdminEmailTemplates } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { errorText, minute } from '$lib/format.ts';
@@ -88,11 +88,7 @@
 	{#snippet start()}
 		<span class="bar-filter">
 			<span>{m['emails.language']()}</span>
-			<span class="segments" role="group" aria-label={m['emails.language']()}>
-				{#each templates?.locales ?? ['de', 'en'] as l (l)}
-					<button type="button" class:is-current={l === locale} aria-pressed={l === locale} onclick={() => setLocale(l)}>{l.toUpperCase()}</button>
-				{/each}
-			</span>
+			<Segmented label={m['emails.language']()} value={locale} onchange={setLocale} options={(templates?.locales ?? ['de', 'en']).map((l) => ({ value: l, label: l.toUpperCase() }))} />
 		</span>
 		{#if changed}<span class="muted">{m['emails.unsaved']()}</span>{/if}
 	{/snippet}
@@ -224,30 +220,5 @@
 		gap: var(--space-05) var(--space-15);
 		margin: 0;
 		font-size: var(--type-caption-size);
-	}
-	.segments {
-		display: inline-flex;
-		border: var(--border-width-regular) solid var(--ink);
-	}
-	.segments button {
-		min-height: var(--control-height);
-		padding: 0 var(--space-1);
-		border: 0;
-		border-radius: var(--radius-none);
-		background: var(--paper);
-		color: var(--ink);
-		font: inherit;
-		cursor: pointer;
-	}
-	.segments button + button {
-		border-left: var(--border-width-regular) solid var(--ink);
-	}
-	.segments button.is-current {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.segments button:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
-		outline-offset: var(--focus-offset);
 	}
 </style>

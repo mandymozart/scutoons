@@ -44,6 +44,8 @@
 	/* the tools' field grid (tools.css .sc-fields): smallest column of data-cols="fill" / "fit" */
 	--fields-fill-min: 12rem;
 	--fields-fit-min: 18rem;
+	/* a segmented control's smallest column when it wraps (tools.css .sc-seg.is-grid) */
+	--seg-min: 7rem;
 
 	/* ── Radius (square is the brand signature) ────────────────────────────── */
 	--radius-none: 0;

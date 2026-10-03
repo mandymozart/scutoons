@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, Segmented } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, clone, type Path } from '@scutoons/content';
 	import { JumpToTargetType, OnomatopoeiaEffect, Trigger, TriggerMode } from '@scutoons/content';
@@ -530,11 +530,14 @@
 				</div>
 				<!-- how it comes in: one preset (owner 2026-10-03); every timing field under Advanced -->
 				{@const ono = matchOnoPreset(event.params)}
-				<div class="seg presets" role="group" aria-label={m['creator.ono_preset']()}>
-					{#each ONO_PRESETS as preset (preset.id)}
-						<button type="button" class="ghost" class:active={ono === preset.id} aria-pressed={ono === preset.id} onclick={() => setOnoPreset(i, preset)} data-testid="ono-preset-{preset.id}">{m[`creator.ono_preset_${preset.id}`]()}</button>
-					{/each}
-				</div>
+				<Segmented
+					grid
+					min="5.5rem"
+					label={m['creator.ono_preset']()}
+					value={ono}
+					onchange={(id) => setOnoPreset(i, ONO_PRESETS.find((p) => p.id === id)!)}
+					options={ONO_PRESETS.map((p) => ({ value: p.id, label: m[`creator.ono_preset_${p.id}`](), testid: `ono-preset-${p.id}` }))}
+				/>
 				<details class="advanced">
 					<summary>{m['creator.advanced']()}</summary>
 					{#if box}<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>{/if}
@@ -778,12 +781,6 @@
 	.trigger {
 		border-top: 1px dashed var(--border-muted);
 		padding-top: 0.3rem;
-	}
-	/* presets: one segmented control, the matching one inverted */
-	.presets {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
-		border: var(--border-width-regular) solid var(--ink);
 	}
 	.whole {
 		display: flex;
