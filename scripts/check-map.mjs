@@ -147,6 +147,11 @@ async function click(selector) {
 	await mouse('mouseReleased', p.x, p.y);
 	return true;
 }
+/** Save draft; the in-page note dialog that follows (askDialog) is skipped */
+async function saveDraft() {
+	await click('[data-testid="save-draft"]');
+	if (await waitFor(`document.querySelector('dialog.sc-dialog[open] button.secondary') ? true : null`, 3000)) await click('dialog.sc-dialog[open] button.secondary');
+}
 async function clickAt(x, y, clickCount = 1) { await mouse('mousePressed', x, y, { clickCount }); await mouse('mouseReleased', x, y, { clickCount }); }
 async function drag(from, to, steps = 8) {
 	await mouse('mousePressed', from.x, from.y);
@@ -457,7 +462,7 @@ async function builder() {
 	await shot('builder-2-route');
 
 	// 11. save draft → stored
-	await click('[data-testid="save-draft"]');
+	await saveDraft();
 	let stored = null;
 	for (let i = 0; i < 20; i++) {
 		stored = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();
@@ -527,7 +532,7 @@ async function builder() {
 	await click('[data-testid="start-view-set"]');
 	const shown = await waitFor(`document.querySelector('[data-testid="phone-frame-box"]') && document.querySelector('[data-testid="start-view"] .hint')?.textContent.includes('%') ? document.querySelector('[data-testid="start-view"] .hint').textContent : null`, 3000);
 	await shot('builder-7-start-view');
-	await click('[data-testid="save-draft"]');
+	await saveDraft();
 	let entry = null;
 	for (let i = 0; i < 20; i++) {
 		entry = await (await fetch(`${api}/entities/toon:catpope?draft=1&wrap=1`, { headers: auth })).json();
@@ -558,7 +563,7 @@ async function builder() {
 	const listedHere = await waitFor(`document.querySelector('[data-testid="slice-unlock-${placeToUnlock}"]') ? true : null`, 3000);
 	report(`chapter editor, slice 2 of chapter 1: "unlocks: ${placeToUnlock}" is set from the slice`, listedHere ? [] : ['not listed']);
 	await shot('builder-5-slice-unlocks');
-	await click('[data-testid="save-draft"]');
+	await saveDraft();
 	let unlock = null;
 	for (let i = 0; i < 20 && !unlock; i++) {
 		const d = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();
