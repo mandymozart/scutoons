@@ -208,3 +208,19 @@ export async function cdnSize(path: string): Promise<number | null> {
 		return null;
 	}
 }
+
+/**
+ * The id follows the source-language name until the first publish (agents/MAP.md §4.3), as long as it was never typed
+ * by hand (it still is the default `ort` / `weg` or the slug of the previous name)
+ */
+export const autoId = (id: string, previous: string | undefined, fallback: string) =>
+	[fallback, previous ? slugId(previous) : ''].some((base) => !!base && (id === base || (id.startsWith(`${base}-`) && /^[0-9]+$/.test(id.slice(base.length + 1)))));
+
+/** a number field's value: empty = not set */
+export const numberOrUnset = (v: string) => (v.trim() === '' ? undefined : Number(v));
+
+/** a toon in a place's / route's list: on → off, off → on */
+export function toggleToon(list: string[] | undefined, id: string): string[] {
+	const current = list ?? [];
+	return current.includes(id) ? current.filter((t) => t !== id) : [...current, id];
+}
