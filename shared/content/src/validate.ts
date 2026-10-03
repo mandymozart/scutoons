@@ -748,11 +748,6 @@ export function validateLocales(kind: string, file: string, files: Record<string
 			const other = getAt(data, path);
 			if (!other) return;
 			if (other.image !== slice.image) add('info', locale, [...path, 'image'], `${locale} uses another image (override)`);
-			const ia: any[] = slice.items ?? [];
-			const ib: any[] = other.items ?? [];
-			if (ia.map((it) => `${it?.id}:${it?.item}`).join(',') !== ib.map((it) => `${it?.id}:${it?.item}`).join(',')) {
-				add('warning', locale, [...path, 'items'], `${locale} places other items than ${primary} (${ib.length} / ${ia.length})`);
-			}
 			const da: any[] = slice.dialog ?? [];
 			const db: any[] = other.dialog ?? [];
 			if (da.length !== db.length) {

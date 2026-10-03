@@ -5,7 +5,6 @@
 		index: number;
 	}
 	export type Tool = 'text' | 'sample';
-	export type Scope = 'all' | 'locale';
 </script>
 
 <script lang="ts">
@@ -31,7 +30,6 @@
 		locale,
 		grid = 0,
 		tool = 'text',
-		scope = 'all',
 		selection = null,
 		onselect,
 		oncreate
@@ -43,8 +41,6 @@
 		/** snap step in % (0 = off) */
 		grid?: number;
 		tool?: Tool;
-		/** geometry edits: every locale (keeping per-locale differences) or only the shown locale */
-		scope?: Scope;
 		selection?: CanvasSelection | null;
 		onselect?: (selection: CanvasSelection | null) => void;
 		/** a rect was drawn on empty space */
@@ -63,7 +59,6 @@
 		path: Path;
 		rect: Rect;
 		label: string;
-		overridden: string[];
 		/** degrees (text boxes, placed items) */
 		rotation: number;
 		/** text boxes' uniform scale */
@@ -97,20 +92,20 @@
 		(slice?.dialog ?? []).forEach((d: any, i: number) => {
 			const path = [...slicePath, 'dialog', i, 'rect'];
 			const revealedBy = typeof d?.id === 'string' ? revealers.get(d.id) : undefined;
-			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, overridden: doc.overrides(path), rotation: num(d.rotation, 0), scale: num(d.scale, 1), revealedBy });
+			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, rotation: num(d.rotation, 0), scale: num(d.scale, 1), revealedBy });
 		});
 		(slice?.items ?? []).forEach((it: any, i: number) => {
 			const path = [...slicePath, 'items', i, 'rect'];
 			const def = itemCatalog.catalog?.items.find((x) => x.id === it?.item);
-			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, overridden: doc.overrides(path), rotation: num(it.rotation, 0), scale: 1 });
+			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, rotation: num(it.rotation, 0), scale: 1 });
 		});
 		(slice?.audio?.audio?.samples ?? []).forEach((s: any, i: number) => {
 			const path = [...slicePath, 'audio', 'audio', 'samples', i, 'trigger', 'rect'];
-			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, overridden: doc.overrides(path), rotation: 0, scale: 1 });
+			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, rotation: 0, scale: 1 });
 		});
 		(slice?.events ?? []).forEach((e: any, i: number) => {
 			const path = [...slicePath, 'events', i, 'trigger', 'rect'];
-			if (e?.trigger?.rect) out.push({ kind: 'event', index: i, path, rect: e.trigger.rect, label: `⚡ ${e.type} (${e.trigger.type})`, overridden: doc.overrides(path), rotation: 0, scale: 1 });
+			if (e?.trigger?.rect) out.push({ kind: 'event', index: i, path, rect: e.trigger.rect, label: `⚡ ${e.type} (${e.trigger.type})`, rotation: 0, scale: 1 });
 		});
 		return out;
 	});
@@ -207,7 +202,8 @@
 
 	/** locales an edit writes to */
 	function targets(): string[] {
-		return scope === 'locale' ? [locale] : doc.present;
+		// geometry is the same in every language
+		return doc.present;
 	}
 
 	function beginEdit(event: PointerEvent, item: Item, handle: Handle) {
@@ -509,7 +505,7 @@
 					data-testid="box-{item.kind}-{item.index}"
 					onpointerdown={(e) => beginEdit(e, item, 'move')}
 				>
-					<span class="tag">{item.label}{#if item.overridden.length}<em> · {item.overridden.join(',')}≠</em>{/if}</span>
+					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}
 						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.ono_hidden_until']({ event: item.revealedBy })}</span>
 					{/if}
@@ -647,10 +643,6 @@
 	.box:hover .tag,
 	.box.selected .tag {
 		opacity: 1;
-	}
-	.tag em {
-		font-style: normal;
-		color: var(--cyan);
 	}
 	.handle {
 		position: absolute;

@@ -8,14 +8,11 @@
 	let {
 		doc,
 		path,
-		editLocale = null,
 		onremove
 	}: {
 		doc: ContentDoc;
 		/** path of the dialog entry */
 		path: Path;
-		/** geometry scope: null = all locales, else only this locale */
-		editLocale?: string | null;
 		onremove?: () => void;
 	} = $props();
 
@@ -56,12 +53,11 @@
 		<LocaleText {doc} path={p('text')} rows={4} />
 
 		<div class="grid g4">
-			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required editLocale={editLocale} />
-			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required editLocale={editLocale} />
-			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required editLocale={editLocale} />
-			<PropField {doc} path={p('rect', 'height')} label="height %" type="number" placeholder="auto" editLocale={editLocale} />
+			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required />
+			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required />
+			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required />
+			<PropField {doc} path={p('rect', 'height')} label="height %" type="number" placeholder="auto" />
 		</div>
-		{#if editLocale}<p class="hint">Geometry: only {editLocale} (override).</p>{/if}
 
 		<div class="grid g3">
 			<PropField {doc} path={p('id')} label="id" placeholder="s1c2-3-1" />

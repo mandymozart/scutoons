@@ -18,7 +18,6 @@
 	let {
 		doc,
 		path,
-		editLocale = null,
 		characters = [],
 		choices,
 		dialogs = [],
@@ -28,8 +27,6 @@
 		doc: ContentDoc;
 		/** path of the placed item */
 		path: Path;
-		/** geometry scope: null = all locales, else only this locale */
-		editLocale?: string | null;
 		characters?: { name: string; label?: string }[];
 		choices?: CharacterChoices;
 		/** the slice's text boxes (an onomatopoeia tap event reveals one) */
@@ -99,12 +96,11 @@
 		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.setShared(p('item'), item.id)} />
 
 		<div class="grid">
-			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required {editLocale} />
-			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required {editLocale} />
-			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required {editLocale} />
+			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required />
+			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required />
+			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required />
 			<PropField {doc} path={p('rotation')} label="rotation °" type="number" step={1} placeholder="0" />
 		</div>
-		{#if editLocale}<p class="hint">Geometry: only {editLocale} (override).</p>{/if}
 
 		<PropField
 			{doc}

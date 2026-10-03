@@ -30,7 +30,7 @@
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
-	import SliceCanvas, { type CanvasSelection, type Scope, type Tool } from './slice-canvas.svelte';
+	import SliceCanvas, { type CanvasSelection, type Tool } from './slice-canvas.svelte';
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
 	import ItemInspector from './item-inspector.svelte';
@@ -160,13 +160,21 @@
 	});
 	let grid = $state(0.5);
 	let tool = $state<Tool>('text');
-	let scope = $state<Scope>('all');
 	let panel = $state<'problems' | 'history' | null>(null);
 	function togglePanel(next: 'problems' | 'history') {
 		panel = panel === next ? null : next;
 	}
 	let canvas = $state<SliceCanvas | null>(null);
 	let notice = $state<string | null>(null);
+	// geometry is the same in every language: tell once when loading made a language follow the source (saved with the next save)
+	const unifiedGeometry = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.geometryUnified), 0));
+	let unifiedShown = 0;
+	$effect(() => {
+		if (unifiedGeometry > unifiedShown) {
+			notice = m['creator.geometry_unified']({ n: unifiedGeometry });
+			unifiedShown = unifiedGeometry;
+		}
+	});
 	let conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
 	let saveMessage = $state('');
 
@@ -852,12 +860,6 @@
 							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}><Icon name="square" /> text box</button>
 							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}><Icon name="music" /> sample area</button>
 						</span>
-						<label class="inline" title="Geometry edits on the canvas and in the fields">geometry
-							<select bind:value={scope}>
-								<option value="all">all locales</option>
-								<option value="locale">only {displayLocale}</option>
-							</select>
-						</label>
 					</div>
 					<div class="canvas-scroll">
 						<SliceCanvas
@@ -867,7 +869,6 @@
 							locale={displayLocale}
 							{grid}
 							{tool}
-							{scope}
 							{selection}
 							onselect={onCanvasSelect}
 							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : addSampleArea(rect))}
@@ -906,7 +907,6 @@
 							<DialogInspector
 								doc={activeDoc}
 								path={[...slicePath, 'dialog', selection.index]}
-								editLocale={scope === 'locale' ? displayLocale : null}
 								onremove={removeSelected}
 							/>
 						{/if}
@@ -929,7 +929,6 @@
 							<ItemInspector
 								doc={activeDoc}
 								path={[...slicePath, 'items', selection.index]}
-								editLocale={scope === 'locale' ? displayLocale : null}
 								{characters}
 								{choices}
 								dialogs={boxChoices([activeSlice])}

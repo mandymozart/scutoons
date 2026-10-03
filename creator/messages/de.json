@@ -61,6 +61,7 @@
 		"add_group": "Gruppe hinzufügen",
 		"add_ref_group": "Eigene Szene hinzufügen",
 		"add_text_box": "Textbox hinzufügen",
+		"geometry_unified": "{n} Textboxen / Gegenstände hatten in einer anderen Sprache eine andere Position oder Größe – sie folgen jetzt der Quellsprache (die Geometrie ist in allen Sprachen gleich). Speichern, um das zu übernehmen.",
 		"slice_item_change": "Gegenstand wählen …",
 		"respawn_item_never": "Dieser Gegenstand taucht nie wieder auf (Katalog) – ein einmaliger Fund. Welche Gegenstände wiederkommen, legt Admin → Katalog fest.",
 		"respawn_item_default": "Wie beim Gegenstand ({every})",
