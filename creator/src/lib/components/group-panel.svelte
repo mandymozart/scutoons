@@ -15,7 +15,7 @@
 <section class="group-panel" data-testid="group-panel">
 	<!-- the label is the name; the scene's storage key is an internal ID (owner 2026-10-03) -->
 	<h3>Group {group?.label ?? ''}</h3>
-	<div class="grid g3">
+	<div class="sc-fields" data-cols="3" data-density="panel">
 		<PropField {doc} path={p('label')} label="label (?label=, jumpTo)" />
 		<PropField {doc} path={p('renderer', 'type')} label="renderer" type="select" options={Object.values(Renderer)} required />
 		{#if group?.interaction !== undefined}
@@ -26,7 +26,7 @@
 	{#if group?.renderer?.type === Renderer.HORIZONTAL}
 	<details open={Object.keys(params).length > 0}>
 		<summary>renderer params (swiper)</summary>
-		<div class="grid g4">
+		<div class="sc-fields" data-cols="4" data-density="panel">
 			<PropField {doc} path={p('renderer', 'params', 'autoPlay', 'enabled')} label="autoPlay" type="bool" placeholder="off" />
 			<PropField {doc} path={p('renderer', 'params', 'autoPlay', 'delay')} label="autoPlay delay ms" type="number" step={100} placeholder="3000" />
 			<PropField {doc} path={p('renderer', 'params', 'loop')} label="loop" type="bool" placeholder="false" />
@@ -44,16 +44,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-	}
-	.grid {
-		display: grid;
-		gap: 0.4rem 0.6rem;
-	}
-	.g3 {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
-	.g4 {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
 	}
 	summary {
 		cursor: pointer;

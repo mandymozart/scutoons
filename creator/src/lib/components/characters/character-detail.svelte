@@ -266,52 +266,54 @@
 			<LocaleMapField value={character.description} {languages} label={m['creator.characters_description']()} multiline testid="character-description" onchange={(v) => setField('description', clean(v))} />
 		</section>
 
-		<section class="block grid g3">
-			<label>
-				{m['creator.characters_color']()}
-				<span class="inline">
-					<input type="color" class="picker" value={toHex(character.color)} oninput={(e) => setField('color', e.currentTarget.value)} aria-label="{m['creator.characters_color']()} picker" data-testid="character-color-picker" />
-					<input type="text" value={character.color ?? ''} oninput={(e) => setField('color', e.currentTarget.value.trim())} data-testid="character-color" />
-				</span>
-			</label>
-			<!-- no male/female: a testo level 0–100 (owner 2026-10-01, ITEMS.md "Substances"); empty = not set -->
-			<label>
-				{m['creator.characters_testo']()} {character.testo ?? '–'}
-				<span class="inline">
-					<input type="range" min="0" max="100" step="1" value={character.testo ?? 50} oninput={(e) => setField('testo', Number(e.currentTarget.value))} data-testid="character-testo" />
-					<button type="button" class="ghost" disabled={character.testo === undefined} onclick={() => setField('testo', undefined)} title={m['creator.characters_testo_clear']()} aria-label={m['creator.characters_testo_clear']()}><CloseIcon /></button>
-				</span>
-			</label>
-			<label>
-				{m['creator.characters_own_toon']()}
-				<select value={character.own_toon ?? ''} onchange={(e) => setField('own_toon', e.currentTarget.value)} data-testid="character-own-toon">
-					<option value="">–</option>
-					{#each toons as t (t.id)}<option value={t.id}>{t.name} · {t.id}</option>{/each}
-				</select>
-			</label>
-			<label>
-				{m['creator.characters_voiced_by']()}
-				<select value={character.voiced_by ?? ''} onchange={(e) => setField('voiced_by', e.currentTarget.value)} data-testid="character-voiced-by">
-					<option value="">–</option>
-					{#each people.filter((p) => !p.merged_into).sort((a, b) => a.name.localeCompare(b.name)) as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
-					{#if character.voiced_by && !people.some((p) => p.id === character.voiced_by)}<option value={character.voiced_by}>{character.voiced_by} (?)</option>{/if}
-				</select>
-			</label>
-			<label>
-				{m['creator.characters_tags']()}
-				<input type="text" value={(character.tags ?? []).join(', ')} onchange={(e) => setField('tags', e.currentTarget.value.split(',').map((t) => t.trim()).filter(Boolean))} />
-			</label>
-			<label>
-				{m['creator.characters_tendencies']()}
-				<input type="text" value={(character.tendencies ?? []).join(', ')} placeholder="psychedelics" onchange={(e) => setField('tendencies', e.currentTarget.value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))} data-testid="character-tendencies" />
-			</label>
-			<label class="wide">
-				{m['creator.characters_image']()}
-				<span class="inline">
-					{#if character.image}<img class="mini-img" src={asset(character.image)} alt="" />{/if}
-					<input type="text" value={character.image ?? ''} placeholder="catpope/characters/…" onchange={(e) => setField('image', e.currentTarget.value.trim())} />
-				</span>
-			</label>
+		<section class="block">
+			<div class="sc-fields" data-cols="fill">
+				<label>
+					{m['creator.characters_color']()}
+					<span class="inline">
+						<input type="color" class="picker" value={toHex(character.color)} oninput={(e) => setField('color', e.currentTarget.value)} aria-label="{m['creator.characters_color']()} picker" data-testid="character-color-picker" />
+						<input type="text" value={character.color ?? ''} oninput={(e) => setField('color', e.currentTarget.value.trim())} data-testid="character-color" />
+					</span>
+				</label>
+				<!-- no male/female: a testo level 0–100 (owner 2026-10-01, ITEMS.md "Substances"); empty = not set -->
+				<label>
+					{m['creator.characters_testo']()} {character.testo ?? '–'}
+					<span class="inline">
+						<input type="range" min="0" max="100" step="1" value={character.testo ?? 50} oninput={(e) => setField('testo', Number(e.currentTarget.value))} data-testid="character-testo" />
+						<button type="button" class="ghost" disabled={character.testo === undefined} onclick={() => setField('testo', undefined)} title={m['creator.characters_testo_clear']()} aria-label={m['creator.characters_testo_clear']()}><CloseIcon /></button>
+					</span>
+				</label>
+				<label>
+					{m['creator.characters_own_toon']()}
+					<select value={character.own_toon ?? ''} onchange={(e) => setField('own_toon', e.currentTarget.value)} data-testid="character-own-toon">
+						<option value="">–</option>
+						{#each toons as t (t.id)}<option value={t.id}>{t.name} · {t.id}</option>{/each}
+					</select>
+				</label>
+				<label>
+					{m['creator.characters_voiced_by']()}
+					<select value={character.voiced_by ?? ''} onchange={(e) => setField('voiced_by', e.currentTarget.value)} data-testid="character-voiced-by">
+						<option value="">–</option>
+						{#each people.filter((p) => !p.merged_into).sort((a, b) => a.name.localeCompare(b.name)) as p (p.id)}<option value={p.id}>{p.name}</option>{/each}
+						{#if character.voiced_by && !people.some((p) => p.id === character.voiced_by)}<option value={character.voiced_by}>{character.voiced_by} (?)</option>{/if}
+					</select>
+				</label>
+				<label>
+					{m['creator.characters_tags']()}
+					<input type="text" value={(character.tags ?? []).join(', ')} onchange={(e) => setField('tags', e.currentTarget.value.split(',').map((t) => t.trim()).filter(Boolean))} />
+				</label>
+				<label>
+					{m['creator.characters_tendencies']()}
+					<input type="text" value={(character.tendencies ?? []).join(', ')} placeholder="psychedelics" onchange={(e) => setField('tendencies', e.currentTarget.value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))} data-testid="character-tendencies" />
+				</label>
+				<label class="wide">
+					{m['creator.characters_image']()}
+					<span class="inline">
+						{#if character.image}<img class="mini-img" src={asset(character.image)} alt="" />{/if}
+						<input type="text" value={character.image ?? ''} placeholder="catpope/characters/…" onchange={(e) => setField('image', e.currentTarget.value.trim())} />
+					</span>
+				</label>
+			</div>
 		</section>
 
 		<!-- Personas → looks → moods -->
@@ -330,9 +332,9 @@
 			{#if currentPersona}
 				<div class="persona" data-testid="persona-panel" data-persona={personaId}>
 					{#if personaId !== REGULAR_PERSONA}
-						<div class="grid g2">
+						<div class="sc-fields" data-cols="fit">
 							<LocaleMapField value={currentPersona.label} {languages} label={m['creator.characters_persona_label']()} required testid="persona-label-text" onchange={(v) => changePersona((p) => (p.label = v), 'label')} />
-							<div class="grid g3 intro">
+							<div class="sc-fields intro" data-cols="fill">
 								<label>
 									{m['creator.characters_introduced']()}
 									<select value={currentPersona.introduced?.toon ?? ''} onchange={(e) => changePersona((p) => { const x = setPoint(p.introduced, 'toon', e.currentTarget.value); if (x) p.introduced = x; else delete p.introduced; })}>
@@ -527,19 +529,6 @@
 		flex-direction: column;
 		gap: 0.6rem;
 	}
-	.grid {
-		display: grid;
-		gap: 0.5rem 0.75rem;
-	}
-	.g3 {
-		grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-	}
-	.g2 {
-		grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-	}
-	.block.grid {
-		display: grid;
-	}
 	label {
 		font-size: var(--type-caption-size);
 		text-transform: uppercase;
@@ -617,6 +606,14 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
+	}
+	/* the field grids' column widths (tools.css .sc-fields "fill" / "fit"): 1/8 rem under the defaults, so the wider page
+	   gap (1rem) still fits as many columns as before (12rem / 18rem + 0.75rem) */
+	.sc-fields[data-cols='fill'] {
+		--fields-min: 11.875rem;
+	}
+	.sc-fields[data-cols='fit'] {
+		--fields-min: 17.875rem;
 	}
 	.intro {
 		align-self: end;

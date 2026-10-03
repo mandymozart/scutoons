@@ -400,6 +400,41 @@
 	background: var(--ink);
 	color: var(--paper);
 }
+/* field grid: fields side by side (owner 2026-10-03, agents/COMPONENTS.md 4.4.2). The spacing follows the hierarchy
+   level, on the token scale only (row gap / column gap):
+     data-density="page"  (default) page forms – toon settings, character detail   --space-075 / --space-1
+     data-density="panel" inspector panels – text inspector, group panel             --space-05  / --space-075
+     data-density="dense" dense rows – VN events, slice audio                        --space-025 / --space-05
+   data-cols: 1 (default) | 2 | 3 | 4 equal columns; "fill" = as many columns of at least --fields-min (12rem) as fit;
+   "fit" = the same, stretched over the row (--fields-min 18rem). A genuinely special layout sets only its own
+   grid-template-columns (or align-items) locally – never a gap (check:tools-css). */
+.sc-fields {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: var(--space-075) var(--space-1);
+}
+.sc-fields[data-density='panel'] {
+	gap: var(--space-05) var(--space-075);
+}
+.sc-fields[data-density='dense'] {
+	gap: var(--space-025) var(--space-05);
+}
+.sc-fields[data-cols='2'] {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.sc-fields[data-cols='3'] {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.sc-fields[data-cols='4'] {
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.sc-fields[data-cols='fill'] {
+	grid-template-columns: repeat(auto-fill, minmax(var(--fields-min, 12rem), 1fr));
+}
+.sc-fields[data-cols='fit'] {
+	grid-template-columns: repeat(auto-fit, minmax(var(--fields-min, 18rem), 1fr));
+}
+
 /* a framed block */
 .sc-frame {
 	box-sizing: border-box;

@@ -133,7 +133,7 @@
 				<button type="button" class="ghost" onclick={() => onselectsample?.(i)}><Icon name="music" /> {i + 1}</button>
 				<button type="button" class="ghost" onclick={() => removeSample(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 			</div>
-			<div class="grid g3">
+			<div class="sc-fields" data-cols="2" data-density="dense">
 				<PropField {doc} path={[...samplesPath, i, 'id']} label="id" type="select" options={library} required />
 				<PropField {doc} path={[...samplesPath, i, 'volume']} label="volume" type="number" step={0.05} min={0} max={1} placeholder="1" />
 				<PropField {doc} path={[...samplesPath, i, 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
@@ -198,13 +198,6 @@
 		gap: 0.4rem;
 		justify-content: space-between;
 		flex-wrap: wrap;
-	}
-	.grid {
-		display: grid;
-		gap: 0.3rem 0.4rem;
-	}
-	.g3 {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	.field label {
 		font-size: var(--type-caption-size);

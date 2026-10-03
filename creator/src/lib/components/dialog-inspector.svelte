@@ -50,18 +50,19 @@
 
 		<LocaleText {doc} path={p('text')} rows={4} />
 
+		<!-- two fields per row (the reader's type size needs the width, DESIGN.md "Brutalist tools") -->
 		<!-- the fine-tuning, folded (owner 2026-10-03: "where we have presets … an advanced collapsible"); position and size
 		     are usually set on the canvas -->
 		<details class="advanced" data-testid="dialog-advanced">
 		<summary>{m['creator.advanced']()}</summary>
-		<div class="grid g4">
+		<div class="sc-fields" data-cols="2" data-density="panel">
 			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required />
 			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required />
 			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required />
 			<PropField {doc} path={p('rect', 'height')} label="height %" type="number" placeholder="auto" />
 		</div>
 
-		<div class="grid g3">
+		<div class="sc-fields" data-cols="2" data-density="panel">
 			<PropField {doc} path={p('id')} label="id" placeholder="s1c2-3-1" />
 			<PropField {doc} path={p('size')} label="size (% width)" type="number" placeholder="4" />
 			<PropField {doc} path={p('align')} label="align" type="select" options={['left', 'center', 'right']} placeholder={boxed ? 'left' : 'center'} />
@@ -87,7 +88,7 @@
 		{#if dialog.mask !== undefined}
 		<details open>
 			<summary>mask (deprecated – cover baked text; remove once the text-free art is in)</summary>
-			<div class="grid g3">
+			<div class="sc-fields" data-cols="2" data-density="panel">
 				<PropField {doc} path={p('mask')} label="mask" type="select" options={[{ value: true, label: 'true (#fff)' }, '#ffffff', '#000000']} placeholder="none" />
 				<PropField {doc} path={p('maskShape')} label="maskShape" type="select" options={['rect', 'ellipse']} placeholder="rect" />
 				<PropField {doc} path={p('pad')} label="pad (% width)" type="number" placeholder="0.5" />
@@ -131,15 +132,6 @@
 	}
 	h3 {
 		margin: 0;
-	}
-	/* two fields per row: the reader's type size needs the width (DESIGN.md "Brutalist tools") */
-	.grid {
-		display: grid;
-		gap: var(--space-075) var(--space-1);
-	}
-	.g4,
-	.g3 {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	summary {
 		margin-bottom: var(--space-05);

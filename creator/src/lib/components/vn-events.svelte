@@ -451,7 +451,7 @@
 			{#if !known}
 				<p class="hint">{m['creator.event_unknown']({ type: String(event?.type) })}</p>
 			{:else if event.type === 'showMessage'}
-				<div class="grid g3">
+				<div class="sc-fields" data-cols="3" data-density="dense">
 					{#if choices}
 						<CharacterRefField {doc} path={[...p, 'params']} kind="speaker" label="character" {choices} placeholder="narrator" />
 					{:else}
@@ -472,7 +472,7 @@
 							<select value={actionKind(action)} onchange={(e) => editActions(i, (list) => (list[ai] = newAction(e.currentTarget.value)))} aria-label={m['creator.vn_action']()}>
 								{#each ACTION_KINDS as k (k)}<option value={k}>{m[`creator.vn_action_${k}`]()}</option>{/each}
 							</select>
-							<div class="grid g3 action-fields">
+							<div class="sc-fields action-fields" data-cols="3" data-density="dense">
 								{#if action?.set}
 									<PropField {doc} path={[...ap, 'set', 'variable']} label="variable" required />
 									<PropField {doc} path={[...ap, 'set', 'value']} label="value" required />
@@ -491,23 +491,23 @@
 					<button type="button" class="secondary" onclick={() => editActions(i, (list) => list.push(newAction(list.length ? 'jumpTo' : 'set')))} data-testid="add-action-{i}">+ {m['creator.vn_action']()}</button>
 				</div>
 			{:else if event.type === 'jumpTo'}
-				<div class="grid g3">
+				<div class="sc-fields" data-cols="3" data-density="dense">
 					{@render targetFields([...p, 'params', 'target'], event.params?.target)}
 					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
 				</div>
 			{:else if event.type === 'label'}
 				<!-- a named point: a divert (event, choice, slice) continues here -->
-				<div class="grid g3">
+				<div class="sc-fields" data-cols="3" data-density="dense">
 					<PropField {doc} path={[...p, 'params', 'name']} label={m['creator.vn_point_name']()} required />
 				</div>
 				<p class="hint">{m['creator.vn_point_hint']()}</p>
 			{:else if event.type === 'divert'}
-				<div class="grid g3">
+				<div class="sc-fields" data-cols="3" data-density="dense">
 					<PropField {doc} path={[...p, 'params', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
 				</div>
 				{#if !pointNames.length}<p class="hint">{m['creator.vn_no_points']()}</p>{/if}
 			{:else if event.type === 'setVariable'}
-				<div class="grid g3">
+				<div class="sc-fields" data-cols="3" data-density="dense">
 					<PropField {doc} path={[...p, 'params', 'variable']} label="variable" required />
 					<PropField {doc} path={[...p, 'params', 'op']} label="op" type="select" options={[{ value: 'add', label: 'add (+)' }]} placeholder="set (=)" />
 					<PropField {doc} path={[...p, 'params', 'value']} label="value" type={event.params?.op === 'add' ? 'number' : 'text'} required />
@@ -515,7 +515,7 @@
 			{:else if event.type === 'showOnomatopeia'}
 				{@const box = event.params?.dialog}
 				<!-- an onomatopoeia is a text box this event reveals: the box gives the look, the event the timing -->
-				<div class="grid g3">
+				<div class="sc-fields" data-cols="3" data-density="dense">
 					<PropField
 						{doc}
 						path={[...p, 'params', 'dialog']}
@@ -538,7 +538,7 @@
 				<details class="advanced">
 					<summary>{m['creator.advanced']()}</summary>
 					{#if box}<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>{/if}
-					<div class="grid g3">
+					<div class="sc-fields" data-cols="3" data-density="dense">
 						<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
 						<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
 						<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
@@ -557,7 +557,7 @@
 			{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 				{#each characterRows(i) as row, ci (ci)}
 					{@const looks = looksOf(row)}
-					<div class="grid g4">
+					<div class="sc-fields cast-row" data-density="dense">
 						{#if choices}
 							<CharacterRefField {doc} path={[...p, 'params', 'characters', ci]} label="character" {choices} />
 						{:else}
@@ -582,7 +582,7 @@
 			<details class="advanced only-if" open={!!event.if}>
 				<summary>{m['creator.vn_only_if']()}{event.if?.variable ? ` · ${conditionWords(event.if)}` : ''}</summary>
 				{#if event.if}
-					<div class="grid g3">
+					<div class="sc-fields" data-cols="3" data-density="dense">
 						<PropField {doc} path={[...p, 'if', 'variable']} label="variable" required />
 						<PropField {doc} path={[...p, 'if', 'op']} label="op" type="select" options={VN_CONDITION_OPS.map((o) => ({ value: o, label: OP_WORDS[o] }))} required />
 						{#if event.if.op !== 'set' && event.if.op !== 'unset'}<PropField {doc} path={[...p, 'if', 'value']} label="value" required />{/if}
@@ -594,7 +594,7 @@
 			</details>
 
 			{#if sliceEvents}
-				<div class="grid g3 trigger">
+				<div class="sc-fields trigger" data-cols="3" data-density="dense">
 					<PropField {doc} path={[...p, 'trigger', 'type']} label={m['creator.trigger']()} type="select" options={TRIGGER_OPTIONS} required />
 					<PropField {doc} path={[...p, 'trigger', 'once']} label={m['creator.trigger_once']()} type="bool" placeholder="false" />
 					<!-- area or the whole slice (no rect) – click, hover and intersect all take either (owner 2026-10-03) -->
@@ -768,15 +768,11 @@
 		display: flex;
 		flex: none;
 	}
-	.grid {
-		display: grid;
-		gap: 0.3rem 0.4rem;
+	/* the field grids (tools.css .sc-fields): fields bottom-aligned; a cast row: character, slot, mood, remove */
+	.sc-fields {
 		align-items: end;
 	}
-	.g3 {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
-	.g4 {
+	.cast-row {
 		grid-template-columns: 2fr 1fr 1fr auto;
 	}
 	.trigger {

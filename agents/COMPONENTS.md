@@ -183,6 +183,14 @@ To tools.css: `.sc-fields[data-cols]`, `.sc-seg`, `.sc-bar.*`, `.sc-chip` everyw
 14. **Behaviour changes, each alone**: 15 `confirm()` → `confirmDialog` (`beforeNavigate` can't await: cancel, then
     `goto`); hand-built tabs → `Tabs` (`role="tab"`, arrow keys, testids); retire `image-picker`.
 
+Done (branch `components`):
+- Step 0 ✓ dc43ddc – `npm run check:creator-chapter` (44 checks, local stack only; `SCUTOONS_API` / `SCUTOONS_CREATOR` for
+  side ports). Found: Audio → Meta in the tree leaves `?section=audio` in the URL (logged as a note, not asserted).
+- Step 2 ✓ (the commit adding this line) – tools.css `.sc-fields[data-cols][data-density]` in the 6 places; local CSS gone
+  except column overrides (toon-editor 2 cols < 900px, vn-events cast row `2fr 1fr 1fr auto`, character-detail
+  `--fields-min`); `check:tools-css` flags new `.gN` copies / gaps on `.sc-fields`. Still local (not in the evidence
+  above, left for a follow-up): audio-panel, meta-panel, season-editor (`.grid.g2`), item-inspector (`.grid`).
+
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,
    contentEditable), Ctrl+Z / Ctrl+Y belong to the browser and undo the typing in that field. Outside a field (after a
