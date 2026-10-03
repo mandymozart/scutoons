@@ -30,7 +30,7 @@
 
 	/**
 	 * Visual-novel events: group scripts (`group.events`) or slice-triggered events (`slice.events`, with `trigger`).
-	 * Structured forms for the common types; raw JSON (per locale) for everything else.
+	 * Structured forms for every type the reader plays; no raw JSON (owner 2026-10-03) – another type is only named, to remove.
 	 */
 	let {
 		doc,
@@ -63,8 +63,6 @@
 	const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showOnomatopeia', 'joinScene', 'leaveScene'];
 
 	const events = $derived<any[]>(doc.get(doc.primary, eventsPath) ?? []);
-	let raw = $state<Record<number, boolean>>({});
-	let rawError = $state<Record<string, string>>({});
 
 	function template(type: string): any {
 		switch (type) {
@@ -173,21 +171,6 @@
 		doc.structural((file) => getAt(file, [...eventsPath, index, 'params', 'characters'])?.splice(ci, 1));
 	}
 
-	function rawValue(locale: string, index: number) {
-		return JSON.stringify(doc.get(locale, [...eventsPath, index]) ?? null, null, 2);
-	}
-
-	function setRaw(locale: string, index: number, text: string) {
-		const key = `${locale}:${index}`;
-		try {
-			const value = JSON.parse(text);
-			doc.setLocal(locale, [...eventsPath, index], value);
-			delete rawError[key];
-		} catch (e) {
-			rawError[key] = e instanceof Error ? e.message : String(e);
-		}
-	}
-
 	const charOptions = $derived(characters.map((c) => ({ value: c.name, label: c.label ? `${c.name} (${c.label})` : c.name })));
 	const vocabulary = $derived(choices?.moods ?? defaultMoodVocabulary());
 	const choiceIndex = $derived(characterIndex(choices?.registry));
@@ -227,26 +210,17 @@
 				<button type="button" class="ghost idx" onclick={() => onselect?.(i)}>{i + 1}</button>
 				<select value={event?.type} onchange={(e) => changeType(i, e.currentTarget.value)}>
 					{#each FORM_TYPES as t}<option value={t}>{t}</option>{/each}
-					{#if !known}<option value={event?.type}>{event?.type} (raw)</option>{/if}
+					{#if !known}<option value={event?.type}>{event?.type}</option>{/if}
 				</select>
 				<span class="tools">
-					<button type="button" class="ghost" class:active={raw[i] || !known} title="raw JSON" onclick={() => (raw[i] = !raw[i])} disabled={!known}>{'{ }'}</button>
 					<button type="button" class="ghost" onclick={() => moveBy(i, -1)} disabled={i === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="arrow-up" /></button>
 					<button type="button" class="ghost" onclick={() => moveBy(i, 1)} disabled={i === events.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="arrow-down" /></button>
 					<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 				</span>
 			</header>
 
-			{#if raw[i] || !known}
-				<div class="raw">
-					{#each doc.present as l (l)}
-						<label>
-							<span class="hint">{l}{l === doc.primary ? ' (source)' : ''}</span>
-							<textarea rows="6" value={rawValue(l, i)} onchange={(e) => setRaw(l, i, e.currentTarget.value)} spellcheck="false"></textarea>
-							{#if rawError[`${l}:${i}`]}<span class="err">{rawError[`${l}:${i}`]}</span>{/if}
-						</label>
-					{/each}
-				</div>
+			{#if !known}
+				<p class="hint">{m['creator.event_unknown']({ type: String(event?.type) })}</p>
 			{:else if event.type === 'showMessage'}
 				<div class="grid g3">
 					{#if choices}
@@ -403,20 +377,6 @@
 	}
 	.g4 {
 		grid-template-columns: 2fr 1fr 1fr auto;
-	}
-	.raw {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-		gap: 0.4rem;
-	}
-	.raw textarea {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
-	.err {
-		color: var(--error);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
 	}
 	.field label {
 		font-size: var(--type-caption-size);

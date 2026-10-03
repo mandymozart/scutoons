@@ -82,6 +82,17 @@
 	.field :global(:is(input:not([type='checkbox']):not([type='radio']), textarea):focus) {
 		border-color: var(--ink);
 	}
+	/* selects look like secondary buttons (owner 2026-10-03): 2px border-muted, ink on hover / focus, a chevron */
+	.field :global(select:not([multiple])) {
+		appearance: none;
+		border-color: var(--border-muted);
+		padding-right: calc(var(--space-05) + 1.25em);
+		background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='square'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right var(--space-05) center / 1em;
+		cursor: pointer;
+	}
+	.field :global(select:not([multiple]):is(:hover, :focus):not(:disabled)) {
+		border-color: var(--ink);
+	}
 	/* one control height (owner 2026-10-02): single-line fields exactly --control-height; textareas grow */
 	.field :global(:is(input:not([type='checkbox']):not([type='radio']), select:not([multiple]))) {
 		height: var(--control-height);

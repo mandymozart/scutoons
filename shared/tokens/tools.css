@@ -5,8 +5,9 @@
  *
  * - Type = the reader's: the fluid root of base.css (14px < 480px, 16px, 24px ≥ 768px), body 1rem, the smallest text
  *   is caption (0.75rem). No px font sizes, no app-level root override.
- * - Hard ink on paper: 2px ink frames on selects, panels, tables; text inputs / textareas a thin grey frame (1px
- *   border-muted) that turns ink on focus (owner 2026-10-03: tells fields apart from selects and buttons).
+ * - Hard ink on paper: 2px ink frames on panels, tables; text inputs / textareas a thin grey frame (1px border-muted)
+ *   that turns ink on focus; selects look like secondary buttons (2px border-muted → ink on hover, a Feather chevron)
+ *   (owner 2026-10-03: tells fields apart from selects and buttons).
  * - Square, no shadows. Sizes in rem (`--control-height`). Focus = a 3px ink outline outside the frame.
  * - Buttons are the viewer's: primary ink, secondary paper + 2px border-muted → ink on hover (no inversion).
  * - Selected / active toggles, tabs, list items = inverted (ink bg, paper text). Badges are filled (--badge-*).
@@ -85,6 +86,17 @@
 }
 :where(.sc-tool)
 	:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']), textarea):focus {
+	border-color: var(--ink);
+}
+/* selects look like secondary buttons (owner 2026-10-03): 2px border-muted, ink on hover / focus, a chevron */
+:where(.sc-tool) :where(select:not([multiple], [size])) {
+	appearance: none;
+	border-color: var(--border-muted);
+	padding-right: calc(var(--space-05) + 1.25em);
+	background: var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='square'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right var(--space-05) center / 1em;
+	cursor: pointer;
+}
+:where(.sc-tool) :where(select:not([multiple], [size])):is(:hover, :focus):not(:disabled) {
 	border-color: var(--ink);
 }
 /* One control height (owner 2026-10-02, DESIGN.md "One control height"): every single-line field is exactly

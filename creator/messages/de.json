@@ -62,6 +62,7 @@
 		"add_ref_group": "Eigene Szene hinzufügen",
 		"add_text_box": "Textbox hinzufügen",
 		"canvas_grid_size": "Raster (px des Slice in 1x; 16 = das Basisraster)",
+		"event_unknown": "„{type}“ spielt der Reader nicht ab – wähle oben einen Typ oder entferne das Event.",
 		"canvas_snap_hint": "Am Raster ausrichten: Verschieben, Größe und Skalieren in Rasterschritten, Drehen in 15°-Schritten (Shift schaltet um). Wird auf diesem Gerät gemerkt.",
 		"canvas_snap": "Raster",
 		"geometry_unified": "{n} Textboxen / Gegenstände hatten in einer anderen Sprache eine andere Position oder Größe – sie folgen jetzt der Quellsprache (die Geometrie ist in allen Sprachen gleich). Speichern, um das zu übernehmen.",

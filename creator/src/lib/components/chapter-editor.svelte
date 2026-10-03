@@ -57,6 +57,9 @@
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
 
 	const panelSize = panelWidth('sc-panel-width:chapter', 16); // normal = --tool-panel-width
+	// the slice inspector drags wider too (owner 2026-10-03): from its normal 22rem up to half the window
+	let columnsEl = $state<HTMLElement>();
+	const inspectorSize = panelWidth('sc-panel-width:slice-inspector', 22, () => columnsEl?.getBoundingClientRect().right ?? window.innerWidth);
 
 	// ── Documents ───────────────────────────────────────────────────────────────────────────────────────
 	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
@@ -830,7 +833,7 @@
 			</div>
 		{/if}
 
-		<div class="columns" class:has-inspector={section === 'slice'}>
+		<div class="columns" class:has-inspector={section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
 			<!-- Main -->
 			<main class="main">
 				{#if section === 'meta'}
@@ -902,6 +905,8 @@
 
 			<!-- Inspector -->
 			{#if section === 'slice' && activeDoc && activeSlice}
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+				<div class="inspector-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={inspectorSize.start} onkeydown={inspectorSize.key} ondblclick={inspectorSize.reset}></div>
 				<aside class="inspector">
 					<div class="tabs" role="tablist">
 						<button class="ghost" class:active={inspectorTab === 'text'} onclick={() => (inspectorTab = 'text')} data-testid="tab-text">{m['creator.text_boxes']()} ({sliceDialogs.length})</button>
@@ -1081,19 +1086,39 @@
 		border-left-color: var(--cyan);
 	}
 	.columns {
+		position: relative;
 		flex: 1;
 		min-height: 0;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr);
 	}
 	.columns.has-inspector {
-		grid-template-columns: minmax(0, 1fr) 22rem;
+		grid-template-columns: minmax(0, 1fr) var(--inspector-width, 22rem);
+	}
+	/* the inspector's left border drags it wider (lib/panel-width.svelte.ts) */
+	.inspector-resize {
+		position: absolute;
+		z-index: 5;
+		top: 0;
+		bottom: 0;
+		right: calc(var(--inspector-width, 22rem) - 0.375rem);
+		width: 0.75rem;
+		cursor: col-resize;
+		touch-action: none;
+	}
+	.inspector-resize:hover,
+	.inspector-resize:focus-visible {
+		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
+		outline: none;
 	}
 	/* narrower: the inspector goes below the canvas (sidebar 12rem + inspector 22rem + a 390px slice need ≈ 1280px) */
 	@media (max-width: 1279px) {
 		.columns.has-inspector {
 			grid-template-columns: minmax(0, 1fr);
 			grid-template-rows: minmax(0, 1fr) minmax(0, 50%);
+		}
+		.inspector-resize {
+			display: none;
 		}
 		.columns.has-inspector .inspector {
 			border-left: 0;
