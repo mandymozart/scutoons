@@ -540,6 +540,29 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   confirmation (the chapter number, in-page dialog); delete = removed from the season's sequence + the entity marked deleted,
   its versions kept (admin can restore; purging is a separate admin step). A published chapter is never deleted – at most
   hidden (draft / coming soon), so links and reading progress keep working.
+- [ ] 10.28 **SCUTOONS MCP server** – an agent with the rights of the signed-in creator (owner 2026-10-03: "very important
+  … i want to also connect other services that help me create more sophisticated assets"; first step right after the
+  release, branch `mcp`). Why MCP and not only an "Ask" panel: the API can do much more than the UI, any MCP client can use
+  it (Claude Code / Desktop today, claude.ai connector + the creator's own panel later), and other MCP servers (asset
+  generation, image / audio tools) combine with it in the same client – the agent makes an asset there and puts it into a
+  slice here.
+  - **Package** `tools/mcp` (`@scutoons/mcp`, TypeScript, official MCP TypeScript SDK; versions checked when building).
+    Calls the existing PHP API with the creator's token (`Authorization: Bearer`, like the creator) → the API's role
+    checks apply unchanged: the agent can do exactly what that creator can.
+  - **Tools** (step 1): `list_toons`, `list_chapters` / groups / points (`scriptLabels`), `read_entity` (draft or published,
+    one or all languages, with version ids), `save_draft` (content + base version → 409 on a newer edit; runs
+    `@scutoons/content` `validateFile` first and returns the problems), `validate`, `list_versions` / `restore_version`,
+    `search_assets` (+ upload later), characters / cast / moods, map places. **Publish** is a separate tool, off by default
+    (env flag), one explicit confirmation per call. Saves only ever create new draft versions (append-only, restorable).
+  - **Resources**: the format rules the agent reads first – VN events (label / divert / if / setVariable / choice actions /
+    anyOf, `vn-script.ts`), text presets, slice sizes and media variants, entity keys, the one-click and flow rules.
+  - **Transport**: stdio first (local: Claude Code / Desktop against local or production API, token from `.env` /
+    `npm run dev:test-user` locally). Remote (Streamable HTTP + sign-in, claude.ai connector, the creator's "Ask" panel via
+    the API's MCP connector) is step 2 – the shared hosting (FTP deploy) can't run a long-lived Node server: a small Node
+    host or a PHP implementation, owner decision then.
+  - **Checks**: a script like `check:stroll` that drives the tools against the local stack (read → patch → validate → save
+    draft → restore), never against production.
+  - **Example task**: "set up the chapter 2 stroll" (today `scripts/dev/stroll-chapter2.mjs`) as one request.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
