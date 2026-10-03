@@ -43,8 +43,13 @@ export interface Dialog {
 	uppercase?: boolean;
 	/** Text color, default ink (#000). */
 	color?: string;
-	/** Degrees. */
+	/** Degrees, around the box's centre. */
 	rotation?: number;
+	/**
+	 * Uniform scale of the whole box (frame, text, mask) around its centre, after `rect` and `size` are laid out.
+	 * Default 1. Lets an sfx / onomatopoeia grow or shrink without re-wrapping its text.
+	 */
+	scale?: number;
 	/** Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'. */
 	mask?: string | true;
 	/** Default 'rect'. */
@@ -60,7 +65,10 @@ export interface Onomatopoeia {
 	};
 	size?: number;
 	align?: 'left' | 'right' | 'center';
+	/** Degrees. */
 	rotation?: number;
+	/** Uniform scale around the anchor (`position`), on top of `size`. Default 1. */
+	scale?: number;
 	variant?: OnomatopoeiaVariant;
 	effect?: OnomatopoeiaEffect;
 	duration?: number,
@@ -260,6 +268,46 @@ export interface SliceVideo {
 	frame?: SliceFrame;
 }
 
+/** What tapping a placed item does (`SliceItem.action`); the creator chooses it per placed item. */
+export const SLICE_ITEM_ACTIONS = ['none', 'pickup', 'events'] as const;
+export type SliceItemAction = (typeof SLICE_ITEM_ACTIONS)[number];
+
+/**
+ * A catalog item (its cut-out icon) placed on a slice, like a text box: position, size, rotation. Language-neutral
+ * geometry (the same in every locale file, like the text boxes' rects).
+ *
+ * What a tap does is the creator's choice (`action`, default `none`):
+ * - `none`: just an image on the slice;
+ * - `pickup`: the reader takes it – the VN item bridge (`add <item> <qty>`: game variable + story grant with a ref per
+ *   place, so the catalog's rules apply: grantable, max count, one-time refs); a taken item is gone from the slice
+ *   for that reader (game state, synced with the account's progress);
+ * - `events`: runs `events` – the same VN events as a slice's / group's script (showMessage, addChoice → add item …),
+ *   like a click trigger whose area is the item.
+ */
+export interface SliceItem {
+	/** stable key of this placement (pickups are remembered by it); `<item>-<n>` */
+	id: string;
+	/** catalog item id (`ItemDef.id`) */
+	item: string;
+	/** % of the slice box, top-left origin; `height` omitted = the icon's own ratio */
+	rect: {
+		x: number;
+		y: number;
+		width: number;
+		height?: number;
+	};
+	/** degrees, around the centre */
+	rotation?: number;
+	/** default 'none' */
+	action?: SliceItemAction;
+	/** pickup: pieces, default 1 */
+	qty?: number;
+	/** events: run on tap (no trigger – the tap is the trigger) */
+	events?: VNEvent[];
+	/** events: only the first tap per page view runs them (default true, like a click trigger's `once`) */
+	once?: boolean;
+}
+
 export interface Slice {
 	/** CDN path of the slice image (1x WebP, 390 px wide) relative to the toon's folder; the poster of a video slice */
 	image: string;
@@ -273,6 +321,8 @@ export interface Slice {
 	// entities: Entity[]; // even more general but requires massive refactor
 	audio?: AudioEvents;
 	dialog?: Dialog[];
+	/** catalog items placed on the slice (drawn above the image, below the text boxes) */
+	items?: SliceItem[];
 	onomatopoeia?: Onomatopoeia[];
 	events?: Array<VNSliceEvent>;
 	_type?: string;

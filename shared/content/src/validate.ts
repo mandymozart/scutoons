@@ -12,7 +12,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
+import { DEFAULT_SLICE, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
 import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
@@ -124,10 +124,37 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.uppercase !== undefined && typeof d.uppercase !== 'boolean') c.error([...path, 'uppercase'], 'uppercase must be true/false');
 	if (d.color !== undefined && !isStr(d.color)) c.error([...path, 'color'], 'color must be a CSS color string');
 	if (d.rotation !== undefined && !isNum(d.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
+	checkScale(c, d.scale, [...path, 'scale']);
 	if (d.mask !== undefined && d.mask !== true && !isStr(d.mask)) c.error([...path, 'mask'], 'mask must be true or a CSS color');
 	if (d.maskShape !== undefined && !['rect', 'ellipse'].includes(d.maskShape)) c.error([...path, 'maskShape'], 'maskShape must be rect or ellipse');
 	if (d.pad !== undefined && !isNum(d.pad)) c.error([...path, 'pad'], 'pad must be a number');
 	if (d.frame === false && !['caption', 'narration'].includes(d.variant)) c.warn([...path, 'frame'], 'frame only affects caption / narration');
+}
+
+function checkScale(c: Collector, scale: unknown, path: Path) {
+	if (scale === undefined) return;
+	if (!isNum(scale) || (scale as number) <= 0) c.error(path, 'scale must be a positive number (1 = original size)');
+	else if ((scale as number) < 0.1 || (scale as number) > 10) c.warn(path, 'scale is outside 0.1 … 10');
+}
+
+/** A catalog item placed on a slice (`SliceItem`); its tap events are checked like a group's script. */
+function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext) {
+	if (!isObj(it)) return c.error(path, 'item entry must be an object');
+	if (!isStr(it.id) || !it.id) c.error([...path, 'id'], 'id is missing (pickups are remembered by it)');
+	if (!isStr(it.item) || !it.item) c.error([...path, 'item'], 'item is missing (a catalog item id)');
+	else if (ctx.items && !ctx.items.includes(it.item)) c.warn([...path, 'item'], `"${it.item}" is not in the item catalog`);
+	checkRect(c, it.rect, [...path, 'rect'], false);
+	if (it.rotation !== undefined && !isNum(it.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
+	if (it.action !== undefined && !(SLICE_ITEM_ACTIONS as readonly string[]).includes(it.action)) {
+		c.error([...path, 'action'], `action must be one of ${SLICE_ITEM_ACTIONS.join(', ')}`);
+	}
+	if (it.qty !== undefined && (!Number.isInteger(it.qty) || it.qty < 1)) c.error([...path, 'qty'], 'qty must be a whole number ≥ 1');
+	if (it.once !== undefined && typeof it.once !== 'boolean') c.error([...path, 'once'], 'once must be true/false');
+	if (it.events !== undefined) {
+		if (!Array.isArray(it.events)) c.error([...path, 'events'], 'events must be an array');
+		else it.events.forEach((e: any, i: number) => checkEvent(c, e, [...path, 'events', i], ctx, false));
+	}
+	if (it.action === 'events' && !(Array.isArray(it.events) && it.events.length)) c.warn([...path, 'events'], 'the tap runs events, but there are none');
 }
 
 function checkTrigger(c: Collector, trigger: any, path: Path, sample: boolean) {
@@ -233,6 +260,8 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				if (p.effect !== undefined && !values(OnomatopoeiaEffect).includes(p.effect)) c.error([...pp, 'effect'], `effect must be one of ${values(OnomatopoeiaEffect).join(', ')}`);
 				if (p.duration !== undefined && (!isNum(p.duration) || p.duration > 5000)) c.warn([...pp, 'duration'], 'duration is capped at 5000 ms by the reader');
 				if (p.delay !== undefined && (!isNum(p.delay) || p.delay > 5000)) c.warn([...pp, 'delay'], 'delay is capped at 5000 ms by the reader');
+				if (p.rotation !== undefined && !isNum(p.rotation)) c.error([...pp, 'rotation'], 'rotation must be a number (degrees)');
+				checkScale(c, p.scale, [...pp, 'scale']);
 			}
 			break;
 	}
@@ -296,6 +325,16 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	if (s.dialog !== undefined) {
 		if (!Array.isArray(s.dialog)) c.error([...path, 'dialog'], 'dialog must be an array');
 		else s.dialog.forEach((d: any, i: number) => checkDialog(c, d, [...path, 'dialog', i]));
+	}
+	if (s.items !== undefined) {
+		if (!Array.isArray(s.items)) c.error([...path, 'items'], 'items must be an array');
+		else {
+			s.items.forEach((it: any, i: number) => checkSliceItem(c, it, [...path, 'items', i], ctx));
+			const ids = s.items.map((it: any) => it?.id).filter(isStr);
+			ids.forEach((id: string, i: number) => {
+				if (ids.indexOf(id) !== i) c.error([...path, 'items'], `item id "${id}" is used twice on this slice`);
+			});
+		}
 	}
 	const audio = s.audio;
 	if (audio !== undefined) {
@@ -673,6 +712,11 @@ export function validateLocales(kind: string, file: string, files: Record<string
 			const other = getAt(data, path);
 			if (!other) return;
 			if (other.image !== slice.image) add('info', locale, [...path, 'image'], `${locale} uses another image (override)`);
+			const ia: any[] = slice.items ?? [];
+			const ib: any[] = other.items ?? [];
+			if (ia.map((it) => `${it?.id}:${it?.item}`).join(',') !== ib.map((it) => `${it?.id}:${it?.item}`).join(',')) {
+				add('warning', locale, [...path, 'items'], `${locale} places other items than ${primary} (${ib.length} / ${ia.length})`);
+			}
 			const da: any[] = slice.dialog ?? [];
 			const db: any[] = other.dialog ?? [];
 			if (da.length !== db.length) {
