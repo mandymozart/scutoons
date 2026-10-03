@@ -1,6 +1,5 @@
 {
   "version": 1,
-  "slots": ["head", "face", "neck", "torso", "hands", "legs", "feet", "back", "accessory"],
   "items": [
     {
       "id": "camera",
@@ -658,9 +657,5 @@
       "cover": "catpope/s1/s1-music-vinyl.webp",
       "access": { "download": "members", "listen": "owners" }
     }
-  ],
-  "stats": {
-    "testo": { "label": { "de": "Testo", "en": "Testo" }, "baseline": 50, "half_life_days": 3 },
-    "appetite": { "label": { "de": "Appetit", "en": "Appetite" }, "baseline": 50, "half_life_days": 3 }
-  }
+  ]
 }

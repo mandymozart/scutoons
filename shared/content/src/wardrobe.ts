@@ -10,6 +10,7 @@ import type { AvatarSlot, Catalog, ItemDef } from './items.ts';
 import { AVATAR_SLOTS } from './items.ts';
 import type { Problem } from './validate.ts';
 import { validateAlbums } from './albums.ts';
+import { READER_STATS } from './substances.ts';
 
 /**
  * Draw order of the overlays, bottom → top (legs under the shoes, the shirt over the waistband, the backpack over the
@@ -143,7 +144,8 @@ export function missingWearOverlays(catalog: Pick<Catalog, 'items'> | null | und
 const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
- * The item catalog (server `config/items.json`): ids, slots, starters and the wardrobe overlays (`wear`). With the
+ * The item catalog (served by GET /api/items/; seed: server `config/items.json` without slots / stats – those are code,
+ * AVATAR_SLOTS / READER_STATS, used when the catalog has none): ids, slots, starters and the wardrobe overlays (`wear`). With the
  * registry, `wear` keys are checked against the characters and their slot instances.
  */
 export function validateCatalog(catalog: unknown, registry?: CharacterRegistry | null, file = 'items.json'): Problem[] {
@@ -163,7 +165,7 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 		ids.add(item.id);
 		if (item.slot != null && !slots.includes(item.slot)) add('error', [...path, 'slot'], `${item.id}: unknown slot "${item.slot}"`);
 		// substances (ITEMS.md "Substances"): stat changes of known stats, a timed effect, the `apply` skill
-		const stats = isObj(catalog.stats) ? catalog.stats : {};
+		const stats = isObj(catalog.stats) ? catalog.stats : READER_STATS;
 		const applies = Array.isArray(item.skills) && item.skills.some((sk: any) => sk?.type === 'apply');
 		const substance = (Array.isArray(item.effects) && item.effects.length > 0) || item.effect != null;
 		if (item.effects != null) {

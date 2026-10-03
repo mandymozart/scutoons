@@ -13,6 +13,8 @@ use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetService;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Assets\MediaProbe;
+use Scutoons\Domain\Catalog\CatalogAdmin;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
@@ -28,19 +30,21 @@ final class AssetsTest extends TestCase
 
     protected function settings(): array
     {
-        $catalog = $this->dir . '/items.json';
-        file_put_contents($catalog, json_encode(['items' => [['id' => 'vinyl', 'icon' => 'catpope/items/vinyl.png']], 'albums' => [['id' => 'a', 'download' => 'catpope/audio/album.zip']]], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        foreach (['products', 'editions', 'toons', 'featured'] as $name) file_put_contents("{$this->dir}/$name.json", '{}');
         return [
             'ASSET_STORAGE' => 'local',
             'ASSET_LOCAL_ROOT' => $this->dir . '/cdn',
             'CDN_URL' => 'http://cdn.test/',
-            'ITEMS_PATH' => $catalog,
-            'PRODUCTS_PATH' => $this->dir . '/products.json',
-            'EDITIONS_PATH' => $this->dir . '/editions.json',
-            'TOONS_PATH' => $this->dir . '/toons.json',
-            'FEATURED_PRODUCTS_PATH' => $this->dir . '/featured.json',
         ] + parent::settings();
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // a small catalog instead of the seeded one: an item icon and an album download
+        foreach (CatalogStore::KINDS as $kind => $def) $this->db->run('DELETE FROM ' . $def['table']);
+        $store = $this->get(CatalogStore::class);
+        $store->save('items', 'vinyl', (object) ['id' => 'vinyl', 'name' => 'Vinyl', 'kind' => 'physical', 'category' => 'media', 'icon' => 'catpope/items/vinyl.png'], 'test');
+        $store->save('albums', 'a', (object) ['id' => 'a', 'title' => (object) ['en' => 'A'], 'tracks' => [], 'download' => 'catpope/audio/album.zip'], 'test');
     }
 
     private function put(string $key, string $bytes): void
@@ -181,8 +185,8 @@ final class AssetsTest extends TestCase
         self::assertContains(['catpope/images/s1-cover-square.jpg', 'chapter:catpope:1:de', '/groups/0/slices/1/image', 'draft'], $rows, 'only the draft uses the jpg');
         self::assertContains(['catpope/images/webtoon/s1c1/s1c1-slice-1.webp', 'map', '/locations/0/unlock/slice', 'published'], $rows, 'the map resolves against the location\'s toon');
         self::assertContains(['characters/catpope/catpope_portrait.webp', 'chapter:catpope:1:de', '/tile', 'published'], $rows);
-        self::assertContains(['catpope/items/vinyl.png', 'items.json', '/items/0/icon', 'config'], $rows);
-        self::assertContains(['catpope/audio/album.zip', 'items.json', '/albums/0/download', 'config'], $rows);
+        self::assertContains(['catpope/items/vinyl.png', 'item:vinyl', '/icon', 'config'], $rows);
+        self::assertContains(['catpope/audio/album.zip', 'album:a', '/download', 'config'], $rows);
 
         $missing = $this->get(AssetUsages::class)->missing();
         self::assertSame(['catpope/images/missing-poster.webp', 'catpope/vectors/vector-demon-saw-1.svg'], array_column($missing, 'path'), 'asset-requests are wishes, not usages; a file app code needs is reported missing');
@@ -349,7 +353,9 @@ final class AssetsTest extends TestCase
         self::assertSame(['catpope/items/vinyl.png' => 'catpope/items/awakening-vinyl.png'], $renamed['renamed']);
         self::assertFileExists($this->dir . '/cdn/catpope/items/awakening-vinyl.png');
         self::assertFileExists($this->dir . '/cdn/catpope/items/vinyl.png');
-        self::assertStringContainsString('"catpope/items/awakening-vinyl.png"', (string) file_get_contents($this->dir . '/items.json'));
+        self::assertSame('catpope/items/awakening-vinyl.png', $this->get(CatalogStore::class)->get('items', 'vinyl')['icon'] ?? null, 'the catalog row is relinked');
+        $history = $this->get(CatalogAdmin::class)->history('items', 'vinyl');
+        self::assertSame(['update', 'catpope/items/vinyl.png', 'catpope/items/awakening-vinyl.png'], [$history[0]['action'], $history[0]['before']->icon ?? null, $history[0]['after']->icon ?? null], 'with history');
         self::assertSame('catpope/items/awakening-vinyl', $registry->asset($icon)['slug'] ?? null);
         $this->get(AssetImporter::class)->import($this->get(AssetStorages::class)->local());
         self::assertNull($registry->bySlug('catpope/items/vinyl'), 'the old file stays attached to the archived version');
@@ -379,7 +385,7 @@ final class AssetsTest extends TestCase
         $layout = $this->get(AssetLayout::class);
         $seasons = ['catpope' => [0 => 1, 1 => 1, 2 => 1]];
         $chapter0 = [['source' => 'content', 'ref' => 'chapter:catpope:0:de', 'state' => 'published']];
-        $season1 = [['source' => 'content', 'ref' => 'season:catpope:1:de', 'state' => 'published'], ['source' => 'catalog', 'ref' => 'items.json', 'state' => 'config']];
+        $season1 = [['source' => 'content', 'ref' => 'season:catpope:1:de', 'state' => 'published'], ['source' => 'catalog', 'ref' => 'album:awakening', 'state' => 'config']];
         foreach ([
             ['catpope/images/webtoon/s1c2/s1c2-slice-14.webp', [], 'catpope/s1/c2/s1c2-slice-14.webp'],
             ['catpope/images/3x/s1c3-key-visual.jpg', [], 'catpope/s1/c3/s1c3-key-visual.3x.jpg'],

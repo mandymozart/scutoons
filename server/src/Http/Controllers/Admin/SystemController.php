@@ -36,7 +36,6 @@ final class SystemController
         private readonly Permissions $permissions,
         private readonly KeyStore $keys,
         private readonly Settings $settings,
-        private readonly ItemRespawn $respawn,
     ) {
     }
 
@@ -57,7 +56,7 @@ final class SystemController
     {
         return Json::response($response, 200, [
             'status' => 'success',
-            'catalog' => $this->respawn->apply($this->catalog->data()),
+            'catalog' => $this->catalog->data(),
             'editions' => $this->editions->all(),
             'toons' => $this->toons->all(),
             'permissions' => $this->permissions->map(),

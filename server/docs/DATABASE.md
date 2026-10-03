@@ -125,6 +125,8 @@ In phpMyAdmin, in this order (all idempotent): `2026-09-29-accounts-inventory.my
 claims answer 503, everything else works), `2026-10-02-assets.mysql.sql` (the media asset registry: assets, versions, renditions, usages, jobs –
 agents/ASSETS.md; without it only the asset manager answers 503), `2026-10-02-ownership-signup.mysql.sql` (`login_requests.dispute`: signing up
 to file a claim), `2026-10-03-code-case.mysql.sql` (codes case-sensitive: the code columns → `utf8mb4_bin`; safe before
-or after the deploy of the matching API); then the content seed and the
+or after the deploy of the matching API), `2026-10-04-catalog.mysql.sql` (the catalog moves from server/config/*.json into
+tables with today's data, history; folds and removes the settings `item_respawn` / `featured_products` – agents/CATALOG.md
+"Status"; safe in either order with the deploy: without the tables the API reads the files, read-only); then the content seed and the
 edition-number backfill above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

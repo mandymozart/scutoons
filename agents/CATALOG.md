@@ -48,3 +48,81 @@ Rules:
   picker sheet, media slot, media-variants slot, `toWebp` / `uploadOrReplace` and the `{ src, variants }` helpers; own
   de/en texts; creator call sites switched, creator copies deleted; creator and admin call `setupMedia({ assets, cdn,
   locale })` in their root layout (both render `DialogHost`). Ready for part 3 – COMPONENTS.md "Shared media components".
+- 2026-10-04: **Part 1 built** (branch `catalog/db`). Details below.
+
+### Part 1 – what is built
+
+**Tables** (migration `2026-10-04-catalog`, `server/migrations/{mysql,sqlite}/`; utf8mb4, `utf8mb4_bin` = case-sensitive
+ids): `catalog_items` (+ `toon`, `edition_id`), `catalog_recipes`, `catalog_albums` (+ `toon`), `catalog_products`
+(+ `toon`, `item_id`, `edition_id`), `catalog_editions` (+ `toon`), `catalog_featured` (+ `product_id`, `variant_id`; id
+`<product>[:<variant>]`), `catalog_permissions` (data = the description string), `catalog_code_types` (id `default` =
+the old `default`), `toons`, `catalog_meta` (the files' top-level fields: `items` `{ version }`, `products` `{ version,
+currency, checked_at, source }`, `permissions` `{ version }` – not in the original list, needed for byte-equal answers),
+`catalog_history` (kind, entry_id, action create/update/delete/reorder/replace, before_json / after_json, position,
+undo_of, note, changed_by, changed_at). Every row: `id`, `position`, `data` (LONGTEXT + JSON_VALID – not MySQL's JSON
+type, which reorders keys), `updated_at`, `updated_by`. Relations are real columns kept in step with `data`; integrity
+is checked by the API (no FOREIGN KEYs: undo / reorder / SQLite stay simple).
+- The migration carries **today's data** (one INSERT per table, each only while the table is empty → re-running never
+  brings back deleted entries), generated from the files: `php bin/console catalog:export-sql --write` (CatalogTest
+  checks the committed block = the generator's output). It **folds and deletes** the settings `item_respawn` (overrides →
+  the items' `respawn`) and `featured_products` (the stored list → `catalog_featured`, before the seed).
+- `migrations/schema/*` (the base schema of a fresh DB) is NOT changed: it has never had the later tables; a fresh
+  database gets the base schema and then every migration, this one included.
+- `php bin/console catalog:seed [--replace] [--db=]`: empty tables ← the files (a fresh DB is already seeded by the
+  migration; `--replace` resets a local DB to the files). `npm run dev` / `npm run dev:db` need nothing new (`migrate`).
+- Without the tables (deploy before the migration) the API reads the files, read-only (writes → `503 migration_pending`).
+
+**Loaders** (`server/src/Domain/Catalog/`): `CatalogStore` (rows per kind, the only reader of the tables), `Catalog`
+(`data()` = `{ version, slots, items, recipes, albums, stats }` as before), `Editions`, `Products` (catalogJson /
+featuredJson keep objects and key order), `FeaturedProducts`, `Toons`, `Access\Permissions::map()` – APIs unchanged,
+the ~25 consumers untouched. `ItemRespawn` reads the item rows (`apply()` is a no-op now); its admin update is an item
+update (history, note `respawn`); "file" in its admin view = the seed's rule, `reset` = back to it.
+**slots / stats are code:** `Domain\Avatar\AvatarSlots::ALL`, `Domain\Reader\ReaderStats::DEFINITIONS` =
+`@scutoons/content` `AVATAR_SLOTS`, `READER_STATS` (CatalogTest compares them); removed from `config/items.json`;
+`catalogFromSeed()` (content) adds them back for tests / scripts reading the seed file; `validateCatalog` falls back to
+them.
+
+**Admin API** (role admin; docs/API.md "Admin API → Catalog"): `GET /api/admin/catalog/<kind>`, `GET|PUT|DELETE
+/api/admin/catalog/<kind>/<id>` (`PUT { data }` creates 201 / updates 200; `422 invalid_catalog { problems }`, `409
+in_use { uses }`), `POST /api/admin/catalog/<kind>/reorder { ids }`, `GET /api/admin/catalog/history?kind=&id=&limit=`,
+`POST /api/admin/catalog/history/<n>/undo { force? }` (`409 changed_since`). Kinds: items, recipes, albums, products,
+editions, featured, permissions, code-types, toons, meta. The old `/catalog`, `/catalog/respawn`, `/featured` keep working.
+Validation = `CatalogValidator` (the essentials of validateCatalog / validateAlbums; wear-vs-registry stays client-side).
+**Toons:** `PUT /api/admin/catalog/toons/<id> { data: { id, name, redirectUrl } }` – the id must be a content toon id
+(`[a-z0-9_-]`); creating also stores a draft content index entry `toon:<id>` (names from `name`, de + en) when none
+exists, so the creator lists the toon and creates its settings on first open. The sandbox stays content-only (it never
+was a QR toon). A toon with content / catalog entries can't be deleted.
+
+**Assets:** the usage index reads the rows: source `catalog`, ref `<kind>:<id>` (`item:camera`, `product:dago_hoodie`,
+`album:awakening`), field = the pointer in `data`; every catalog write re-indexes; relink / rename update the rows through
+the admin path (validated, history; a refused one is reported as `manual`).
+
+**Tests:** `CatalogTest` (tables = files, seed / export, the folds on SQLite + MariaDB, fallback, constants vs TS,
+validation, history / undo, toons, respawn / featured), `CatalogApiTest` (public answers = files, admin CRUD, toons),
+AssetsTest / AppTest / contract suites adapted.
+
+### Production (owner)
+
+1. phpMyAdmin → database **d0487143** (select it first) → tab **SQL** → paste the whole
+   `server/migrations/mysql/2026-10-04-catalog.mysql.sql` → Go. Before or after the deploy of `catalog/db` (either order
+   is safe; running it twice changes nothing).
+2. Check (same SQL tab):
+   ```sql
+   SELECT 'items' k, COUNT(*) n FROM catalog_items UNION ALL SELECT 'recipes', COUNT(*) FROM catalog_recipes
+   UNION ALL SELECT 'albums', COUNT(*) FROM catalog_albums UNION ALL SELECT 'products', COUNT(*) FROM catalog_products
+   UNION ALL SELECT 'editions', COUNT(*) FROM catalog_editions UNION ALL SELECT 'featured', COUNT(*) FROM catalog_featured
+   UNION ALL SELECT 'permissions', COUNT(*) FROM catalog_permissions UNION ALL SELECT 'code_types', COUNT(*) FROM catalog_code_types
+   UNION ALL SELECT 'toons', COUNT(*) FROM toons UNION ALL SELECT 'meta', COUNT(*) FROM catalog_meta
+   UNION ALL SELECT 'old settings left', COUNT(*) FROM settings WHERE `key` IN ('item_respawn', 'featured_products');
+   ```
+   Expected: items 27, recipes 5, albums 1, products 6, editions 3, featured = the landing page's list (2 if none was
+   chosen in the admin), permissions 1, code_types 6, toons 3, meta 3, old settings left 0.
+3. After the deploy: `https://api.scutoons.com/api/admin/catalog/items` (signed in as admin) answers `"fallback": false`.
+
+### Open / decided differently
+
+- An empty featured list stored as the setting (`[]`) comes back as the default list (the table can't tell "never set"
+  from "chosen empty"); the admin can clear it again.
+- Undoing a toon's creation is refused while its starter content entry exists (`in_use`: a toon with content is never
+  deleted by the API).
+- Part 3 (admin UI) can use the endpoints above; `@scutoons/api` has no client functions for them yet.

@@ -10,7 +10,7 @@
 	/**
 	 * When picked-up placed items reappear (agents/ITEMS.md "Placed items" → "Respawn"), per catalog item: never (a
 	 * one-time find) or a default interval with the range a placement may choose (min … max). Units: every visit
-	 * (reload), minutes, hours, days. Stored over server config/items.json as the setting `item_respawn`.
+	 * (reload), minutes, hours, days. Stored as the item's `respawn` in the catalog table (agents/CATALOG.md).
 	 */
 	let { names }: { names: Record<string, string> } = $props();
 

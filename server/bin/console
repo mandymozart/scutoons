@@ -14,7 +14,9 @@ declare(strict_types=1);
  *   php bin/console report-orphan-codes [--csv] [--manifests=<dir>]
  *   php bin/console assets:check-storage [--prefix=] [--hash] [--write-test] [--json]   bunny.net zone vs cdn/root (read-only)
  *   php bin/console assets:sync | assets:scan | assets:jobs   the media asset layer (agents/ASSETS.md)
- *   php bin/console sample-stores [--remove]           fake stores for the local /stores page (SQLite dev DB only)
+ *   php bin/console catalog:seed [--replace]          empty catalog tables ← server/config/*.json (agents/CATALOG.md)
+ *   php bin/console catalog:export-sql [--write]      the catalog seed as INSERTs (migration 2026-10-04-catalog)
+ *   php bin/console sample-stores [--remove]          fake stores for the local /stores page (SQLite dev DB only)
  *   php bin/console list                               all commands, `help <command>` for details
  */
 if (PHP_SAPI !== 'cli') {
@@ -31,6 +33,8 @@ use Scutoons\Console\AssetsJobsCommand;
 use Scutoons\Console\AssetsScanCommand;
 use Scutoons\Console\AssetsSyncCommand;
 use Scutoons\Console\BackfillEditionNumbersCommand;
+use Scutoons\Console\CatalogExportSqlCommand;
+use Scutoons\Console\CatalogSeedCommand;
 use Scutoons\Console\ExportContentCommand;
 use Scutoons\Console\ImportContentCommand;
 use Scutoons\Console\MigrateCommand;
@@ -42,7 +46,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class] as $command) {
+foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, CatalogSeedCommand::class, CatalogExportSqlCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

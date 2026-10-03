@@ -101,7 +101,7 @@
 						{:else}{text(item[column.id])}{/if}
 					{/snippet}
 				</DataTable>
-				<!-- when picked-up placed items reappear (the one editable part of the catalog: setting item_respawn) -->
+				<!-- when picked-up placed items reappear (an update of the item in the catalog tables) -->
 				<Section title={m['catalog.respawn']()}>
 					<RespawnEditor names={Object.fromEntries(catalog!.catalog.items.map((i: Row) => [i.id, text(i.name)]))} />
 				</Section>
@@ -117,8 +117,8 @@
 					</Section>
 				{/if}
 				<!-- albums (agents/ITEMS.md "Players, albums, related items"): the music media items carry, and who may
-				     download / listen (access.download default members, access.listen default owners) – edited in
-				     server/config/items.json -->
+				     download / listen (access.download default members, access.listen default owners) – the catalog table
+				     catalog_albums (agents/CATALOG.md) -->
 				{#if catalog!.catalog.albums?.length}
 					<Section title={m['catalog.albums']()}>
 						<DataTable
