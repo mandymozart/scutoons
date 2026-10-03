@@ -24,7 +24,9 @@
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
 	import { openClaims } from '$lib/claims.svelte.ts';
-	import { CREATOR_URL, VIEWER_URL } from '$lib/config.ts';
+	import { setupMedia } from '@scutoons/media';
+	import { assets } from '$lib/api.ts';
+	import { CDN_SERVER, CREATOR_URL, VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 
@@ -32,6 +34,8 @@
 
 	const session = setAdminSession();
 	const toaster = setToaster();
+	// the shared media tooling (@scutoons/media: asset picker, media slots, uploads) uses this app's API, CDN and locale
+	setupMedia({ assets, cdn: CDN_SERVER, locale: getLocale });
 
 	let menuOpen = $state(false);
 	let paletteOpen = $state(false);
