@@ -165,7 +165,7 @@ To tools.css: `.sc-fields[data-cols]`, `.sc-seg`, `.sc-bar.*`, `.sc-chip` everyw
 0. **Safety net**: `scripts/dev/creator-chapter-check.mjs` (none covers the chapter editor) – tree, tabs, tools, add text,
    snap, prev/next, undo/redo, nudge / Delete / Escape, save draft.
 1. **Folder moves only** (`git mv` + `$lib` imports).
-2. **Field grid** → `.sc-fields` (gaps differ today – owner picks one; visual change, show first).
+2. **Field grid** → `.sc-fields` with a density by level (decided, see 4.4; visual change, show first).
 3. **Chips** → `.sc-chip`.
 4. **Folds**: drop local summary / `.advanced` CSS.
 5. **ReorderButtons** + `moveAt`; **gridArrows** in asset + character pickers.
@@ -175,13 +175,27 @@ To tools.css: `.sc-fields[data-cols]`, `.sc-seg`, `.sc-bar.*`, `.sc-chip` everyw
 9. **map-props split** (`scripts/check-map.mjs`); then character-detail, cover-editor, script-editor sections.
 10. **canvas-geometry.ts** + unit tests (creator needs vitest).
 11. **doc-session + doc-notices + editor-keys**, first in meta-page, then chapter-editor + toon route.
-    ⚠ Owner decisions: undo inside a text field (chapter: yes, meta-page: no)? contentEditable = field? one publish wording?
+    Owner decisions: see 4.4 (undo in a field, publish wording).
 12. **chapter-editor split**: state → `chapter-state.svelte.ts`, then `chapter-tree`, `slice-toolbar`, `slice-inspector`.
     ⚠ selection / tool / tab are written by canvas, tree, inspector and keyboard – one state object; `canvas?.nudge` must
     stay reachable from the shell's keyboard; URL sync effects run once in the shell; keep `{#key}` remount.
 13. **Resize unification** (`resizable()` in app-shell, sheet, panelWidth, script outline).
 14. **Behaviour changes, each alone**: 15 `confirm()` → `confirmDialog` (`beforeNavigate` can't await: cancel, then
     `goto`); hand-built tabs → `Tabs` (`role="tab"`, arrow keys, testids); retire `image-picker`.
+
+### 4.4 Owner decisions (2026-10-03)
+1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,
+   contentEditable), Ctrl+Z / Ctrl+Y belong to the browser and undo the typing in that field. Outside a field (after a
+   click out or Escape), they undo / redo the last change to the edited file (chapter, scene, toon settings, character …).
+   The chapter editor stops undoing the file from inside a field.
+2. **Field-grid spacing follows the hierarchy level**, on the token scale only (row gap / column gap):
+   - page form (toon-editor, character-detail): `--space-075` / `--space-1`
+   - inspector panel (dialog-inspector, group-panel): `--space-05` / `--space-075`
+   - dense rows (vn-events, slice-audio): `--space-025` / `--space-05`
+   One `.sc-fields` with a density attribute (e.g. `data-density="page|panel|dense"`) + `data-cols`; no local gaps.
+3. **Publish wording depends on context:** one shared confirm dialog (same structure and buttons everywhere), whose text
+   names exactly what is published and in which language, e.g. "Publish chapter 2 (de) – readers see it immediately." /
+   "Publish the toon settings for catpope (en)." No browser `confirm()`.
 
 Result: chapter-editor ~1400 → ~300 lines, largest creator component ~400, ~600 lines of duplicated CSS / logic gone, every
 recurring control in one named place.
