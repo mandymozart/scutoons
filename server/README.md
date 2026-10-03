@@ -33,10 +33,12 @@ composer serve                                    # http://localhost:9000  (bin/
   single-process `php -S` on the same port. Numbers: agents/PERFORMANCE.md.
 - Legacy admin SPA: http://localhost:9000/generate/ (password = `GENERATE_PASSWORD`)
 - Login mails land in `logs/mail.log` (`MAIL_TRANSPORT = log`).
+- Database: SQLite (`db/local.sqlite`) by default; `npm run dev:db` (root) switches the local stack to a MariaDB
+  container – the production engine – and `npm run dev:db sqlite` back (docs/DATABASE.md "Local MariaDB").
 - Local-only files (gitignored): `config.local.php`, `db/local.sqlite`, `storage/files/` (batch output),
   `storage/keys/keypair.json` (signing keys), `logs/`.
 - Dev ports: `../shared/dev-ports.json` (the single source; viewer 8000, CDN 8001, API 9000, qr 9001, creator 10000,
-  admin 11000, shop 12000, embassy 13000). On the dev server (`php -S`) CORS allows every port of that file
+  admin 11000, shop 12000, embassy 13000, MariaDB container 13306, Adminer 13380). On the dev server (`php -S`) CORS allows every port of that file
   automatically (`Settings::allowedOrigins`); `ALLOWED_ORIGINS` in `config.local.php` only needs extra origins.
 
 ## Everyday commands
@@ -47,6 +49,7 @@ composer serve                                    # http://localhost:9000  (bin/
 | `composer test` | PHPUnit **and** every HTTP contract suite against freshly started servers on a copy of the DB |
 | `composer test:unit` / `composer test:contract` | only one of the two |
 | `composer analyse` | PHPStan |
+| `npm run dev:db test` (root) · `php -d extension=pdo_mysql vendor/bin/phpunit -c phpunit.mysql.xml` | PHPUnit on the local MariaDB container (docs/DATABASE.md "Local MariaDB") |
 | `php bin/console migrate [--status]` | apply pending migrations |
 | `php bin/console roles grant\|revoke\|list <email> [role]` | account roles (member, admin, creator) |
 | `php bin/console import-content shared/content/seed [--sql]` · `export-content <dir>` | content in/out of the store in the interchange format (`--sql` = production seed; agents/DATA.md) |

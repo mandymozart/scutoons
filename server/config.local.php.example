@@ -15,7 +15,9 @@ define('QR_PROXY_SECRET', '');
 // SQLite (zero setup). A new file gets its tables with: php bin/console migrate
 // QR_DB_SQLITE_PATH (environment) points the server and the tests at a copy (composer test does that).
 define('DB_SQLITE_PATH', getenv('QR_DB_SQLITE_PATH') ?: __DIR__ . '/db/local.sqlite');
-// …or a local MySQL/MariaDB: leave DB_SQLITE_PATH out and define
+// …or the local MariaDB container (docker/compose.yml): nothing to change here – `npm run dev:db` switches the stack
+// (QR_DB_DRIVER=mysql + QR_DB_* for the API and the console win over this file), `npm run dev:db sqlite` back.
+// docs/DATABASE.md "Local MariaDB (Docker)". Any other MySQL/MariaDB: leave DB_SQLITE_PATH out and define
 // define('DB_HOST', 'localhost'); define('DB_NAME', 'scutoons'); define('DB_USER', 'root'); define('DB_PASS', 'root');
 
 // ── Local URLs (ports: shared/dev-ports.json, the single source of the local dev ports) ─────────────────
