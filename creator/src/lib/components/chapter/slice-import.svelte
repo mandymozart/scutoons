@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { ApiError, toonRelativePath } from '@scutoons/api';
+	import { toonRelativePath } from '@scutoons/api';
 	import { DEFAULT_SLICE, getAt, IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, type Path, type QualityVariants } from '@scutoons/content';
 	import { confirmDialog } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { chapterFolder, chapterSlug } from '$lib/editor/defaults.ts';
-	import { assetsApi } from '$lib/api.ts';
+	import { toWebp, uploadOrReplace } from '$lib/editor/media-upload.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
@@ -36,8 +36,6 @@
 	let problems = $state<string[]>([]);
 	let summary = $state('');
 
-	const WEBP_QUALITY = 0.88;
-
 	/** "….3x.jpg", "…@2x.png", "… 3x.webp" → the density named in a file name; else null */
 	const DENSITY_IN_NAME = /(?:^|[._@\- ])([123])x(?=[._\- ]|$)/i;
 	const stem = (name: string) => name.replace(/\.(jpe?g|png|webp)$/i, '');
@@ -63,36 +61,6 @@
 	/** the slice of the group showing `s1c<n>-slice-<N>` (also from an older folder: the same file name); -1 = none */
 	const findSlice = (slices: any[], name: string) =>
 		slices.findIndex((slice) => typeof slice?.image === 'string' && stem(slice.image.split('/').pop() ?? '').replace(DENSITY_IN_NAME, '') === name);
-
-	async function toWebp(bitmap: ImageBitmap, targetWidth: number): Promise<{ blob: Blob; width: number; height: number }> {
-		const width = Math.min(targetWidth, bitmap.width);
-		const height = Math.round((bitmap.height * width) / bitmap.width);
-		const canvas = document.createElement('canvas');
-		canvas.width = width;
-		canvas.height = height;
-		const ctx = canvas.getContext('2d');
-		if (!ctx) throw new Error('no canvas');
-		ctx.imageSmoothingEnabled = true;
-		ctx.imageSmoothingQuality = 'high';
-		ctx.drawImage(bitmap, 0, 0, width, height);
-		const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/webp', WEBP_QUALITY));
-		if (!blob) throw new Error('WebP encoding failed');
-		return { blob, width, height };
-	}
-
-	/** upload; a file already at the path gets the new bytes (a new version of its asset; the same bytes = nothing to do) */
-	async function put(blob: Blob, path: string): Promise<void> {
-		try {
-			await assetsApi.upload(blob, path);
-		} catch (e) {
-			if (!(e instanceof ApiError && e.code === 'exists')) throw e;
-			try {
-				await assetsApi.replaceAt(blob, path, 'slice import');
-			} catch (again) {
-				if (!(again instanceof ApiError && again.code === 'unchanged')) throw again;
-			}
-		}
-	}
 
 	type Imported = { image: string; width: number; height: number; imageVariants?: QualityVariants };
 
@@ -150,7 +118,7 @@
 				}
 				const variants: QualityVariants = {};
 				for (const file of encoded) {
-					await put(file.blob, pathOf(base, file.density));
+					await uploadOrReplace(file.blob, pathOf(base, file.density), 'slice import');
 					const level = MEDIA_QUALITIES.find((q) => IMAGE_QUALITY_DENSITIES[q] === file.density);
 					if (level) variants[level] = toonRelativePath(pathOf(base, file.density), doc.toon);
 				}

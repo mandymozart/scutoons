@@ -446,7 +446,10 @@ Admin (`/api/admin/assets/*`): `GET storage[?stats=1]` (drivers, settings status
 bandwidth), `POST scan`, `POST relink { from, to, publish? }`, `PUT {id}/file?path=&note=` (raw body: replace in place →
 `replaced, archived_as, purged, stale_renditions`), `POST {id}/rename { slug, publish? }`, `GET {id}/delete-check`,
 `DELETE {id}[?force=1]` (409 `in_use` + `usages` while referenced; `force` only when drafts are the only uses),
-`POST {id}/jobs { kind, params }`, `GET jobs`. Without the migration: 503 `not_available`. A creator save / publish /
+`POST {id}/jobs { kind, params }`, `GET jobs`, `GET unused` (cleanup list per asset on a freshly rebuilt index:
+`files[{ path, what: current|old|archive, size }]`, `all_unused`, `totals`), `POST cleanup { paths }` (re-checks every path
+against a fresh index; referenced ones are `skipped`, never deleted; an asset with every current file listed goes as a
+whole → `deleted, assets_deleted, bytes, skipped, failed`). Without the migration: 503 `not_available`. A creator save / publish /
 restore re-indexes the entity's uses.
 
 ## Security notes

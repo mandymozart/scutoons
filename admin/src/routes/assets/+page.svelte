@@ -5,8 +5,8 @@
 	import AssetDetail from './asset-detail.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, Icon, Pager, SearchField, Section, Sheet, Skeleton, Tabs, listHref, listParams, readList, type Column } from '@scutoons/ui';
-	import { ASSET_KINDS, type AssetKind, type AssetList, type AssetMissing, type AssetOrphan, type AssetStorageStatus, type AssetSummary } from '@scutoons/api';
+	import { ActionBar, Badge, Button, DataTable, Icon, Pager, SearchField, Section, Sheet, Skeleton, Tabs, confirmDialog, listHref, listParams, readList, type Column } from '@scutoons/ui';
+	import { ASSET_KINDS, type AssetKind, type AssetList, type AssetMissing, type AssetStorageStatus, type AssetSummary, type AssetUnused } from '@scutoons/api';
 	import { assets } from '$lib/api.ts';
 	import { bytes, errorText, number } from '$lib/format.ts';
 	import { pagerLabels, tableLabels } from '$lib/labels.ts';
@@ -26,7 +26,9 @@
 	let error = $state<string | null>(null);
 	let loading = $state(false);
 	let missing = $state<AssetMissing[] | null>(null);
-	let orphans = $state<AssetOrphan[] | null>(null);
+	let unused = $state<AssetUnused[] | null>(null);
+	let unusedTotals = $state<{ assets: number; files: number; bytes: number } | null>(null);
+	let selected = $state<string[]>([]);
 	let storage = $state<AssetStorageStatus | null>(null);
 	let busy = $state('');
 	let notice = $state('');
@@ -49,7 +51,11 @@
 	$effect(() => {
 		void reload;
 		if (view === 'missing') assets.missing().then((r) => (missing = r.items)).catch((e) => (error = errorText(e)));
-		if (view === 'unused') assets.orphans().then((r) => (orphans = r.items)).catch((e) => (error = errorText(e)));
+		if (view === 'unused')
+			assets
+				.unused()
+				.then((r) => ((unused = r.items), (unusedTotals = r.totals), (selected = selected.filter((id) => r.items.some((i) => i.id === id)))))
+				.catch((e) => (error = errorText(e)));
 		if (view === 'storage') assets.storage().then((r) => (storage = r)).catch((e) => (error = errorText(e)));
 	});
 
@@ -99,12 +105,49 @@
 		{ id: 'path', label: m['assets.col_path']() },
 		{ id: 'refs', label: m['assets.col_used_by']() }
 	]);
-	const orphanColumns = $derived<Column[]>([
+	const unusedColumns = $derived<Column[]>([
 		{ id: 'slug', label: m['assets.col_asset']() },
 		{ id: 'kind', label: m['assets.col_kind']() },
-		{ id: 'unused', label: m['assets.col_unused_files']() },
+		{ id: 'files', label: m['assets.col_what']() },
 		{ id: 'size', label: m['assets.col_size'](), align: 'end' }
 	]);
+	const whatLabel = (w: string) => (m as unknown as Record<string, () => string>)[`assets.what_${w}`]?.() ?? w;
+	const chosen = $derived((unused ?? []).filter((i) => selected.includes(i.id)));
+	const chosenFiles = $derived(chosen.reduce((n, i) => n + i.files.length, 0));
+	const chosenBytes = $derived(chosen.reduce((n, i) => n + i.size, 0));
+
+	/** deletes every listed file of the selected assets; the server re-checks each path against a fresh usage index */
+	async function cleanup() {
+		const items = chosen;
+		const files = items.flatMap((i) => i.files.map((f) => f.path));
+		if (!files.length) return;
+		const ok = await confirmDialog({
+			title: m['assets.cleanup_title']({ files: number(files.length) }),
+			message: m['assets.cleanup_message']({ size: bytes(chosenBytes) }),
+			confirmLabel: m['assets.cleanup_confirm']()
+		});
+		if (!ok) return;
+		busy = 'cleanup';
+		error = null;
+		notice = '';
+		try {
+			const r = await assets.cleanup(files);
+			const failed = Object.entries(r.failed);
+			notice = [
+				m['assets.cleanup_done']({ files: number(r.deleted.length), size: bytes(r.bytes), assets: number(r.assets_deleted) }),
+				r.skipped.length ? m['assets.cleanup_skipped']({ count: number(r.skipped.length) }) : ''
+			]
+				.filter(Boolean)
+				.join(' ');
+			if (failed.length) error = m['assets.cleanup_failed']({ count: number(failed.length), first: `${failed[0][0]}: ${failed[0][1]}` });
+			selected = [];
+			reload++;
+		} catch (e) {
+			error = errorText(e);
+		} finally {
+			busy = '';
+		}
+	}
 	const settingColumns = $derived<Column[]>([
 		{ id: 'name', label: m['assets.col_setting']() },
 		{ id: 'status', label: m['assets.col_status']() },
@@ -204,14 +247,20 @@
 			{/if}
 		{:else if active === 'unused'}
 			<p class="sc-caption">{m['assets.unused_hint']()}</p>
-			{#if !orphans}
+			{#if !unused}
 				<Skeleton variant="table" columns={4} label={m['shell.loading']()} />
 			{:else}
-				<DataTable columns={orphanColumns} rows={orphans} rowKey={(r) => r.id} emptyLabel={m['assets.unused_none']()} labels={tableLabels()}>
+				{#if unusedTotals && unusedTotals.files}<p data-testid="assets-unused-totals">{m['assets.unused_totals']({ assets: number(unusedTotals.assets), files: number(unusedTotals.files), size: bytes(unusedTotals.bytes) })}</p>{/if}
+				<DataTable columns={unusedColumns} rows={unused} rowKey={(r) => r.id} selectable bind:selected emptyLabel={m['assets.unused_none']()} labels={tableLabels()}>
+					{#snippet bulk()}
+						<Button size="sm" disabled={busy === 'cleanup'} onclick={cleanup} data-testid="assets-cleanup">{busy === 'cleanup' ? '…' : m['assets.cleanup_delete']({ files: number(chosenFiles), size: bytes(chosenBytes) })}</Button>
+					{/snippet}
 					{#snippet cell(r, column)}
-						{#if column.id === 'slug'}<a href={href({ asset: r.id })}>{r.slug}</a>{#if r.all_unused} <Badge tone="warning">{m['assets.all_unused']()}</Badge>{/if}
+						{#if column.id === 'slug'}<a href={href({ asset: r.id })}>{r.slug}</a>
 						{:else if column.id === 'kind'}{kindLabel(r.kind)}
-						{:else if column.id === 'unused'}{r.unused.map((p) => p.split('/').pop()).join(', ')}
+						{:else if column.id === 'files'}
+							{#if r.all_unused}<Badge tone="warning">{whatLabel('asset')}</Badge>{/if}
+							{#each r.files as f (f.path)}<span class="ref" title={f.path}>{f.path.split('/').pop()}{#if !r.all_unused || f.what !== 'current'} <Badge tone="neutral">{whatLabel(f.what)}</Badge>{/if}</span>{/each}
 						{:else}{bytes(r.size)}{/if}
 					{/snippet}
 				</DataTable>

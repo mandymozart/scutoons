@@ -14,7 +14,9 @@ use Throwable;
  *     (state `draft`) – history versions are not indexed (restoring an old version may bring back a deleted path;
  *     the delete check says so);
  *   - the catalog files (items.json incl. albums, products.json, editions.json, toons.json, featured-products.json):
- *     state `config`.
+ *     state `config`;
+ *   - app code (CODE_REFERENCES – paths the viewer builds itself, e.g. the camera's MobileNet model): source `code`,
+ *     state `config`, so they never show as unused and block a delete like the catalog does.
  * A reference is any string with a media extension. Content paths are relative to the document's toon folder (the
  * nearest enclosing `toon` field wins – map locations); a path that only exists from the CDN root (registry, catalog
  * style) resolves there. `asset-requests` (wanted images) are wishes, not usages. Rebuilt by `assets:scan`, refreshed
@@ -24,6 +26,14 @@ final class AssetUsages
 {
     public const SKIP_KINDS = ['asset-requests'];
     public const CATALOG_FILES = ['ITEMS_PATH', 'PRODUCTS_PATH', 'EDITIONS_PATH', 'TOONS_PATH', 'FEATURED_PRODUCTS_PATH'];
+    /**
+     * CDN paths (a trailing `/` = everything below) that app code references directly → the code file (repo-relative).
+     * Keep in step with the code: AssetsTest checks every entry still appears in its file.
+     */
+    public const CODE_REFERENCES = [
+        'scutoons/models/' => 'viewer/src/lib/components/camera/object-detector.ts',
+        'catpope/vectors/vector-demon-saw-1.svg' => 'viewer/src/lib/components/toon/map/map-overlay.svelte',
+    ];
 
     /** @var array<string, true>|null */
     private ?array $known = null;
@@ -53,7 +63,7 @@ final class AssetUsages
 
     /**
      * Rebuilds the whole index
-     * @return array{content: int, catalog: int, entities: int, missing: int}
+     * @return array{content: int, catalog: int, code: int, entities: int, missing: int}
      */
     public function rebuild(): array
     {
@@ -67,13 +77,29 @@ final class AssetUsages
             array_push($rows, ...$found);
         }
         $catalog = $this->catalogUsages();
-        $this->db->transaction(function () use ($rows, $catalog) {
+        $code = $this->codeUsages();
+        $this->db->transaction(function () use ($rows, $catalog, $code) {
             $this->db->run('DELETE FROM asset_usages');
-            foreach ([...$rows, ...$catalog] as $row) $this->insert($row);
+            foreach ([...$rows, ...$catalog, ...$code] as $row) $this->insert($row);
         });
         $known = $this->known();
-        $missing = count(array_filter([...$rows, ...$catalog], fn(array $r) => !isset($known[$r['path']])));
-        return ['content' => count($rows), 'catalog' => count($catalog), 'entities' => $entities, 'missing' => $missing];
+        $missing = count(array_filter([...$rows, ...$catalog, ...$code], fn(array $r) => !isset($known[$r['path']])));
+        return ['content' => count($rows), 'catalog' => count($catalog), 'code' => count($code), 'entities' => $entities, 'missing' => $missing];
+    }
+
+    /** @return list<array<string, mixed>> one row per known file below a CODE_REFERENCES prefix / per exact path */
+    private function codeUsages(): array
+    {
+        $rows = [];
+        foreach (self::CODE_REFERENCES as $reference => $file) {
+            $paths = str_ends_with($reference, '/')
+                ? array_values(array_filter(array_keys($this->known()), fn(string $p) => str_starts_with($p, $reference)))
+                : [$reference];
+            foreach ($paths as $path) {
+                $rows[] = ['path' => $path, 'source' => 'code', 'ref' => $file, 'field' => '', 'state' => 'config', 'version_id' => null, 'toon' => null, 'raw' => $reference];
+            }
+        }
+        return $rows;
     }
 
     /** Refreshes one entity's rows (after a creator save / publish / restore). Silent when the tables are missing. */
@@ -223,5 +249,57 @@ final class AssetUsages
             $result[] = ['id' => $row['id'], 'slug' => $row['slug'], 'kind' => $row['kind'], 'unused' => $row['unused'], 'all_unused' => count($row['unused']) === $row['files'], 'size' => $row['size']];
         }
         return $result;
+    }
+
+    /**
+     * What a cleanup may delete, per asset (the admin's Unused tab): files nothing references (content incl. drafts,
+     * catalog, app code) –
+     *   `current`  files of the current version (of a used asset never its source – the renditions come from it);
+     *   `old`      files of archived versions (left behind by a rename) that no current version has;
+     *   `archive`  the old bytes a replace kept under .versions/ (size unknown here).
+     * `all_unused`: no current file is referenced – the cleanup deletes the whole asset, its history included.
+     * Rebuild the index first (AssetService::unused does): a stale index would offer files that are used by now.
+     * @return list<array{id: string, slug: string, kind: string, all_unused: bool, files: list<array{path: string, what: string, size: int|null}>, size: int}>
+     */
+    public function unusedFiles(): array
+    {
+        $used = [];
+        foreach ($this->db->all('SELECT DISTINCT path FROM asset_usages') as $r) $used[(string) $r['path']] = true;
+        $current = [];
+        $assets = [];
+        foreach ($this->db->all("SELECT a.id, a.slug, a.kind, v.path AS source, r.path, r.size FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'current'
+                JOIN asset_renditions r ON r.version_id = v.id WHERE a.status = 'active' ORDER BY a.slug, r.path") as $r) {
+            $id = (string) $r['id'];
+            $path = (string) $r['path'];
+            $current[$path] = true;
+            $assets[$id] ??= ['id' => $id, 'slug' => (string) $r['slug'], 'kind' => (string) $r['kind'], 'source' => (string) $r['source'], 'used' => false, 'current' => [], 'old' => []];
+            if (isset($used[$path])) $assets[$id]['used'] = true;
+            else $assets[$id]['current'][$path] = ['path' => $path, 'what' => 'current', 'size' => (int) $r['size']];
+        }
+        foreach ($this->db->all("SELECT a.id, r.path, r.size FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'archived'
+                JOIN asset_renditions r ON r.version_id = v.id WHERE a.status = 'active' ORDER BY r.path") as $r) {
+            $path = (string) $r['path'];
+            if (isset($assets[(string) $r['id']]) && !isset($current[$path]) && !isset($used[$path])) {
+                $assets[(string) $r['id']]['old'][$path] = ['path' => $path, 'what' => 'old', 'size' => (int) $r['size']];
+            }
+        }
+        foreach ($this->db->all("SELECT a.id, v.path, v.size, v.archive_path FROM assets a JOIN asset_versions v ON v.asset_id = a.id AND v.status = 'archived'
+                WHERE a.status = 'active' ORDER BY v.number") as $v) {
+            $id = (string) $v['id'];
+            if (!isset($assets[$id])) continue;
+            $path = (string) $v['path'];
+            if (!isset($current[$path]) && !isset($used[$path])) $assets[$id]['old'][$path] ??= ['path' => $path, 'what' => 'old', 'size' => (int) $v['size']];
+            if ($v['archive_path']) $assets[$id]['old'][(string) $v['archive_path']] = ['path' => (string) $v['archive_path'], 'what' => 'archive', 'size' => null];
+        }
+        $out = [];
+        foreach ($assets as $a) {
+            $files = $a['current'];
+            if ($a['used']) unset($files[$a['source']]);
+            $files = [...array_values($files), ...array_values($a['old'])];
+            if (!$files) continue;
+            $out[] = ['id' => $a['id'], 'slug' => $a['slug'], 'kind' => $a['kind'], 'all_unused' => !$a['used'], 'files' => $files,
+                'size' => array_sum(array_map(fn(array $f) => (int) $f['size'], $files))];
+        }
+        return $out;
     }
 }

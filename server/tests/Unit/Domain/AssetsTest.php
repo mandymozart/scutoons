@@ -185,7 +185,7 @@ final class AssetsTest extends TestCase
         self::assertContains(['catpope/audio/album.zip', 'items.json', '/albums/0/download', 'config'], $rows);
 
         $missing = $this->get(AssetUsages::class)->missing();
-        self::assertSame(['catpope/images/missing-poster.webp'], array_column($missing, 'path'), 'asset-requests are wishes, not usages');
+        self::assertSame(['catpope/images/missing-poster.webp', 'catpope/vectors/vector-demon-saw-1.svg'], array_column($missing, 'path'), 'asset-requests are wishes, not usages; a file app code needs is reported missing');
         $orphans = array_column($this->get(AssetUsages::class)->orphans(), null, 'slug');
         self::assertTrue($orphans['catpope/videos/roar-little-kitty']['all_unused']);
         self::assertSame(['catpope/videos/s1-trailer-loop.1280w.mp4', 'catpope/videos/s1-trailer-loop.1920w.mp4'], $orphans['catpope/videos/s1-trailer-loop']['unused']);
@@ -220,6 +220,75 @@ final class AssetsTest extends TestCase
         self::assertFileDoesNotExist($this->dir . '/cdn/catpope/videos/roar-little-kitty.720p.mp4');
         self::assertSame('deleted', $registry->asset($rlk)['status'] ?? null);
         self::assertNull($registry->bySlug('catpope/videos/roar-little-kitty'));
+    }
+
+    public function testCleanupDeletesOnlyUnusedFiles(): void
+    {
+        $this->fixture();
+        $this->put('scutoons/models/mobilenet/model.json', '{}');
+        $this->scan();
+        $service = $this->get(AssetService::class);
+        $registry = $this->get(AssetRegistry::class);
+        $admin = $this->user('admin@example.com');
+        $trailer = $this->assetId('catpope/videos/s1-trailer-loop');
+        $trailerSource = (string) ($registry->currentVersion($trailer)['path'] ?? '');
+        // leftovers: a rename keeps the old file with the archived version, a replace keeps the old bytes under .versions/
+        $service->rename($admin, $this->assetId('catpope/items/vinyl'), 'catpope/items/awakening-vinyl', true);
+        $replaced = $service->replace($admin, $trailer, $this->local(self::MP4 . 'better 480p'), 'catpope/videos/s1-trailer-loop.480p.mp4');
+
+        $list = $service->unused();
+        $items = array_column($list['items'], null, 'slug');
+        $files = fn(string $slug) => array_column($items[$slug]['files'], 'what', 'path');
+        self::assertArrayNotHasKey('scutoons/models/mobilenet/model', $items, 'app code references the models');
+        self::assertTrue($items['catpope/videos/roar-little-kitty']['all_unused']);
+        self::assertCount(3, $files('catpope/videos/roar-little-kitty'));
+        $trailerFiles = $files('catpope/videos/s1-trailer-loop');
+        self::assertFalse($items['catpope/videos/s1-trailer-loop']['all_unused']);
+        self::assertArrayNotHasKey($trailerSource, $trailerFiles, 'the source of a used asset stays');
+        self::assertSame('archive', $trailerFiles[$replaced['archived_as']]);
+        self::assertSame(['catpope/items/vinyl.png' => 'old'], $files('catpope/items/awakening-vinyl'));
+        self::assertSame(count($list['items']), $list['totals']['assets']);
+
+        $rlk = $this->assetId('catpope/videos/roar-little-kitty');
+        // meanwhile a draft starts using the 1280w file → skipped, not deleted
+        $this->entity('chapter:catpope:2:de', ['groups' => [['slices' => [['image' => 'videos/s1-trailer-loop.1280w.mp4']]]]], false);
+        $chosen = [...array_keys($files('catpope/videos/roar-little-kitty')), ...array_keys($trailerFiles), 'catpope/items/vinyl.png', 'catpope/items/vinyl.png', 'catpope/items/awakening-vinyl.png', 'scutoons/models/mobilenet/model.json'];
+        $result = $service->cleanup($admin, $chosen);
+        self::assertSame(1, $result['assets_deleted']);
+        self::assertSame([], $result['failed']);
+        $skipped = array_column($result['skipped'], 'reason', 'path');
+        self::assertSame('in_use_or_unknown', $skipped['catpope/videos/s1-trailer-loop.1280w.mp4'] ?? null);
+        self::assertSame('in_use_or_unknown', $skipped['catpope/items/awakening-vinyl.png'] ?? null);
+        self::assertSame('in_use_or_unknown', $skipped['scutoons/models/mobilenet/model.json'] ?? null);
+        self::assertFileExists($this->dir . '/cdn/catpope/videos/s1-trailer-loop.1280w.mp4');
+        self::assertFileExists($this->dir . '/cdn/catpope/items/awakening-vinyl.png');
+        self::assertFileExists($this->dir . '/cdn/scutoons/models/mobilenet/model.json');
+        self::assertFileExists($this->dir . '/cdn/catpope/videos/s1-trailer-loop.720p.mp4');
+        self::assertFileDoesNotExist($this->dir . '/cdn/catpope/videos/roar-little-kitty.720p.mp4');
+        self::assertFileDoesNotExist($this->dir . '/cdn/catpope/items/vinyl.png');
+        self::assertFileDoesNotExist($this->dir . '/cdn/' . $replaced['archived_as']);
+        self::assertSame('deleted', $registry->asset($rlk)['status'] ?? null, 'all unused → the whole asset');
+
+        $after = array_column($service->unused()['items'], null, 'slug');
+        self::assertArrayNotHasKey('catpope/videos/roar-little-kitty', $after);
+        self::assertArrayNotHasKey('catpope/items/awakening-vinyl', $after);
+        self::assertNotContains('catpope/videos/s1-trailer-loop.1280w.mp4', array_column($after['catpope/videos/s1-trailer-loop']['files'] ?? [], 'path'), 'used now, so no longer offered');
+        self::assertFileExists($this->dir . '/cdn/' . $trailerSource);
+        $kept = array_column($registry->detail($trailer)['versions'][0]['renditions'], 'path');
+        self::assertContains($trailerSource, $kept);
+        self::assertContains('catpope/videos/s1-trailer-loop.1280w.mp4', $kept);
+        $gone = array_diff(array_keys($trailerFiles), ['catpope/videos/s1-trailer-loop.1280w.mp4'], [$replaced['archived_as']]);
+        self::assertSame([], array_values(array_intersect($gone, $kept)), 'deleted renditions leave the registry');
+        foreach ($gone as $path) self::assertFileDoesNotExist($this->dir . '/cdn/' . $path);
+    }
+
+    public function testCodeReferencesMatchTheCode(): void
+    {
+        $root = dirname(__DIR__, 4);
+        foreach (AssetUsages::CODE_REFERENCES as $reference => $file) {
+            self::assertFileExists("$root/$file");
+            self::assertStringContainsString($reference, (string) file_get_contents("$root/$file"), "$file no longer references $reference – update AssetUsages::CODE_REFERENCES");
+        }
     }
 
     public function testUploadReplaceRelinkRename(): void

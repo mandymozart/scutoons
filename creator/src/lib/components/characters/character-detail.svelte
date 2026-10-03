@@ -12,12 +12,15 @@
 		findPersona,
 		lookLabel,
 		lookPortraitMoods,
+		matchCharacterImageFile,
+		newLook as lookEntry,
 		personaIds,
 		pickText,
 		setLookImage,
 		slugId,
 		uniqueId,
 		type AssetRequests,
+		type CharacterFileSlot,
 		type AposeLook,
 		type CharacterRegistry,
 		type CreditPerson,
@@ -42,6 +45,7 @@
 		type ToonInfo
 	} from '$lib/editor/characters.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
+	import { toWebp, uploadOrReplace } from '$lib/editor/media-upload.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
@@ -50,7 +54,7 @@
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 
 	/**
-	 * One character: identity (name / description per language of its toons, color, own toon, voice, tags, artwork,
+	 * One character: identity (name / description per language of its toons, color, own toon, voice, tags,
 	 * A-pose), then its personas as tabs → the persona's looks as sub-tabs → the mood grid
 	 * of the look, plus the persona's transitions, and the character's wanted images.
 	 */
@@ -96,7 +100,6 @@
 	const requests = $derived(requestsOf(requestsDoc));
 	let newPersonaLabel = $state('');
 	let newLookLabel = $state('');
-	let newArtwork = $state('');
 
 	function change(fn: (c: RegistryCharacter) => void, key?: string) {
 		editCharacter(registry, id, fn, key ? `${id}:${key}` : undefined);
@@ -174,32 +177,145 @@
 			})
 		);
 	}
-	/** one A-pose look (character level); a path closes its open request */
-	function setAposeLook(target: string, next: AposeLook, key?: string) {
-		change((c) => {
-			const looks = c.apose?.looks;
-			const i = looks?.findIndex((l) => l.id === target) ?? -1;
-			if (looks && i >= 0) looks[i] = next;
-		}, key);
-		if (next.path && requests?.requests.some((r) => r.status === 'open' && r.character === id && r.view === APOSE_VIEW && r.look === target)) {
-			edit<AssetRequests>(requestsDoc, (f) =>
-				f.requests.forEach((r) => {
-					if (r.status === 'open' && r.character === id && r.view === APOSE_VIEW && r.look === target) {
-						r.status = 'done';
-						r.done_at = new Date().toISOString();
-					}
-				})
-			);
+	/** the A-pose looks shown: the stored ones plus the standard looks not stored yet (empty slots) */
+	const aposeLooks = $derived.by<AposeLook[]>(() => {
+		const stored = character?.apose?.looks ?? [];
+		const missing = APOSE_LOOKS.filter((l) => !stored.some((x) => x.id === l.id)).map((l) => ({ id: l.id, label: { ...l.label }, ...(l.sensitive ? { sensitive: true } : {}) }));
+		return [...stored, ...missing];
+	});
+	/** an A-pose look's file (the look is created when it isn't stored; swim is the default) */
+	function applyApose(c: RegistryCharacter, target: string, path: string) {
+		c.apose ??= { looks: [] };
+		let look = c.apose.looks.find((l) => l.id === target);
+		if (!look) {
+			const standard = APOSE_LOOKS.find((l) => l.id === target);
+			look = { id: target, label: standard ? { ...standard.label } : { [languages[0] ?? 'en']: target }, ...(standard?.sensitive ? { sensitive: true } : {}) };
+			c.apose.looks.push(look);
 		}
+		c.apose.looks.find((l) => l.id === target)!.path = path;
+		if (!c.apose.looks.some((l) => l.default)) (c.apose.looks.find((l) => l.id === APOSE_LOOKS[0].id) ?? c.apose.looks[0]).default = true;
 	}
-	function requestApose(target: string, note: string) {
-		const existing = requests?.requests.find((r) => r.status === 'open' && r.character === id && r.view === APOSE_VIEW && r.look === target);
-		if (existing) edit<AssetRequests>(requestsDoc, (f) => f.requests.forEach((r) => r.id === existing.id && (note.trim() ? (r.note = note.trim()) : delete r.note)));
-		else addAssetRequest(requestsDoc, { character: id, persona: REGULAR_PERSONA, look: target, mood: DEFAULT_MOOD, view: APOSE_VIEW }, note, session.user?.email ?? null);
+	/** an A-pose slot picked (a path closes its open request) or cleared (an unused standard look disappears again) */
+	function setAposePath(target: string, path: string | undefined) {
+		change((c) => {
+			if (path) return applyApose(c, target, path);
+			const looks = c.apose?.looks;
+			const look = looks?.find((l) => l.id === target);
+			if (!looks || !look) return;
+			delete look.path;
+			if (!look.slots?.length && APOSE_LOOKS.some((l) => l.id === target)) looks.splice(looks.indexOf(look), 1);
+			if (!looks.length) delete c.apose;
+			else if (!looks.some((l) => l.default)) looks[0].default = true;
+		}, `apose-${target}-path`);
+		if (path) closeRequests([{ kind: 'apose', look: target, path }]);
 	}
-	/** the standard A-pose looks (swim default, naked – marked sensitive) for a character without any */
-	function startApose() {
-		change((c) => (c.apose = { looks: APOSE_LOOKS.map((l, i) => ({ id: l.id, label: { ...l.label }, ...(i === 0 ? { default: true } : {}), ...(l.sensitive ? { sensitive: true } : {}) })) }));
+	/** closes the open requests the given files answer */
+	function closeRequests(slots: CharacterFileSlot[]) {
+		const answers = (r: AssetRequests['requests'][number]) =>
+			r.status === 'open' &&
+			r.character === id &&
+			slots.some((s) =>
+				s.kind === 'apose' ? r.view === APOSE_VIEW && r.look === s.look : s.kind === 'expression' && r.persona === s.persona && r.look === s.look && r.mood === s.mood && r.view === s.view
+			);
+		if (!requests?.requests.some(answers)) return;
+		edit<AssetRequests>(requestsDoc, (f) =>
+			f.requests.forEach((r) => {
+				if (answers(r)) {
+					r.status = 'done';
+					r.done_at = new Date().toISOString();
+				}
+			})
+		);
+	}
+
+	// ── import: every delivered file of the character onto its slot (owner 2026-10-03) ─────────────────────────────
+	let importInput = $state<HTMLInputElement>();
+	let importing = $state<{ done: number; total: number } | null>(null);
+	let importSummary = $state('');
+	let importProblems = $state<string[]>([]);
+	/** set after an import: previews of files with new bytes at the same path load again */
+	let bust = $state(0);
+
+	function problemOf(slot: Extract<CharacterFileSlot, { kind: 'unknown' }>): string {
+		if (slot.reason === 'other-character') return m['creator.characters_import_other']({ name: slot.name ?? '' });
+		if (slot.reason === 'unknown-persona') return m['creator.characters_import_unknown_persona']({ name: slot.name ?? '' });
+		if (slot.reason === 'unknown-look') return m['creator.characters_import_unknown_look']({ name: slot.name ?? '' });
+		return m['creator.characters_import_no_slot']({ example: `${id}_portrait-neutral.png, ${id}_apose-swim.png` });
+	}
+
+	/**
+	 * "Import images …": each file whose name says its slot (`matchCharacterImageFile`: expressions of any persona / look,
+	 * A-pose looks, transitions) goes there as WebP at its own size (no density variants) under the convention path; a
+	 * file already there gets the new bytes (a new version, the CDN purged). New looks and moods are added, answered
+	 * requests closed – one undo step. Names for another character, a persona the character lacks or a transition
+	 * between looks it lacks are reported, not guessed.
+	 */
+	async function importImages(event: Event) {
+		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
+		if (importInput) importInput.value = '';
+		if (!files.length || !character) return;
+		importProblems = [];
+		importSummary = '';
+		const counts = { uploaded: 0, replaced: 0, unchanged: 0 };
+		const done: Exclude<CharacterFileSlot, { kind: 'unknown' }>[] = [];
+		importing = { done: 0, total: files.length };
+		// transitions last, matched against the looks this import adds (`boy_helmet_portrait-…` + `boy_transition-helmet-to-…`)
+		const known = { id: character.id, personas: character.personas.map((p) => ({ ...p, looks: [...p.looks] })) };
+		const isTransition = (f: File) => /_transition-/i.test(f.name);
+		for (const file of [...files.filter((f) => !isTransition(f)), ...files.filter(isTransition)]) {
+			const slot = matchCharacterImageFile(file.name, known);
+			if (slot.kind === 'expression' && slot.newLook) known.personas.find((p) => p.id === slot.persona)?.looks.push(lookEntry(slot.look, undefined, false));
+			try {
+				if (slot.kind === 'unknown') throw new Error(problemOf(slot));
+				const bitmap = await createImageBitmap(file);
+				let blob: Blob;
+				try {
+					blob = (await toWebp(bitmap)).blob;
+				} finally {
+					bitmap.close();
+				}
+				counts[await uploadOrReplace(blob, slot.path, 'character import')]++;
+				done.push(slot);
+			} catch (e) {
+				importProblems = [...importProblems, `${file.name}: ${e instanceof Error ? e.message : String(e)}`];
+			}
+			importing = { done: importing.done + 1, total: files.length };
+		}
+		if (done.length) {
+			const newMoods = [...new Set(done.flatMap((s) => (s.kind === 'expression' && !moods.moods.some((x) => x.id === s.mood) ? [s.mood] : [])))];
+			if (newMoods.length) {
+				ensureMoods(moodsDoc);
+				edit<MoodVocabulary>(moodsDoc, (v) => {
+					for (const mood of newMoods) v.moods.push({ id: mood, label: Object.fromEntries(languages.map((l, i) => [l, i === 0 ? mood : ''])), order: Math.max(0, ...v.moods.map((x) => x.order ?? 0)) + 1 });
+				});
+			}
+			change((c) => {
+				for (const s of done) {
+					if (s.kind === 'apose') {
+						applyApose(c, s.look, s.path);
+						continue;
+					}
+					const p = c.personas.find((x) => x.id === s.persona);
+					if (!p) continue;
+					if (s.kind === 'expression') {
+						// (push, then read back: the edit works on reactive proxies – a pushed object is not the stored one)
+						if (!p.looks.some((x) => x.id === s.look)) p.looks.push(lookEntry(s.look, { [languages[0] ?? 'en']: s.look }, !p.looks.length));
+						setLookImage(p.looks.find((x) => x.id === s.look)!, s.mood, s.view, s.path);
+					} else {
+						const t = p.transitions?.find((x) => x.from === s.from && x.to === s.to);
+						if (t) t.image = s.path;
+						else {
+							p.transitions ??= [];
+							p.transitions.push({ from: s.from, to: s.to, image: s.path });
+						}
+					}
+				}
+			});
+			closeRequests(done);
+		}
+		importing = null;
+		importSummary = m['creator.characters_import_summary'](counts);
+		bust = Date.now();
 	}
 
 	/** a cell's path; setting one also closes the cell's open request */
@@ -306,18 +422,19 @@
 					{m['creator.characters_tendencies']()}
 					<input type="text" value={(character.tendencies ?? []).join(', ')} placeholder="psychedelics" onchange={(e) => setField('tendencies', e.currentTarget.value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))} data-testid="character-tendencies" />
 				</label>
-				<label class="wide">
-					{m['creator.characters_image']()}
-					<span class="inline">
-						{#if character.image}<img class="mini-img" src={asset(character.image)} alt="" />{/if}
-						<input type="text" value={character.image ?? ''} placeholder="catpope/characters/…" onchange={(e) => setField('image', e.currentTarget.value.trim())} />
-					</span>
-				</label>
 			</div>
 		</section>
 
 		<!-- Personas → looks → moods -->
 		<section class="block" data-testid="personas">
+			<div class="import">
+				<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.characters_import_hint']({ id })} data-testid="character-import">
+					{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
+				</button>
+				<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
+				{#if importSummary}<span class="sc-caption" role="status">{importSummary}</span>{/if}
+			</div>
+			{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
 			<nav class="tabs" aria-label={m['creator.characters_personas']()}>
 				{#each personas as p (p)}
 					<button type="button" class="tab" class:active={p === personaId} onclick={() => ((persona = p), (look = ''))} data-testid="persona-{p}">
@@ -391,7 +508,7 @@
 							<p class="empty-note" data-testid="look-empty">{m['creator.characters_look_empty_note']({ look: lookLabel(currentPersona, lookId, source) })}</p>
 						{/if}
 						{#key `${personaId}/${lookId}`}
-							<ExpressionGrid {character} persona={personaId} look={currentLook} {moods} {requests} locale={source} onset={setImage} onrequest={request} onaddmood={addMood} />
+							<ExpressionGrid {character} persona={personaId} look={currentLook} {moods} {requests} locale={source} onset={setImage} onrequest={request} onaddmood={addMood} {bust} />
 						{/key}
 					{/if}
 
@@ -425,7 +542,10 @@
 								onclick={() => {
 									const from = lookIds.find((l) => l !== defaultLookId(currentPersona)) ?? lookIds[0];
 									const to = defaultLookId(currentPersona);
-									changePersona((p) => (p.transitions ??= []).push({ from, to, image: conventionTransitionPath(id, personaId, from, to) }));
+									changePersona((p) => {
+										p.transitions ??= [];
+										p.transitions.push({ from, to, image: conventionTransitionPath(id, personaId, from, to) });
+									});
 								}}
 								data-testid="add-transition"><Icon name="plus" /> {m['creator.characters_add_transition']()}</button
 							>
@@ -437,49 +557,7 @@
 
 		<section class="block" data-testid="apose">
 			<h3>{m['creator.characters_apose']()}</h3>
-			{#if character.apose?.looks.length}
-				<AposeEditor
-					character={id}
-					looks={character.apose.looks}
-					requests={(requests?.requests ?? []).filter((r) => r.character === id && r.view === APOSE_VIEW)}
-					locale={source}
-					onchange={setAposeLook}
-					onrequest={requestApose}
-				/>
-			{:else}
-				<p class="hint">{m['creator.characters_apose_none']()}</p>
-				<button type="button" class="secondary" onclick={startApose} data-testid="start-apose"><Icon name="plus" /> {m['creator.characters_apose_start']()}</button>
-			{/if}
-		</section>
-
-		<section class="block" data-testid="artwork">
-			<h3>{m['creator.characters_artwork']()}</h3>
-			<div class="artwork">
-				{#each character.artwork ?? [] as a, i (a.id + i)}
-					<figure data-testid="artwork-{a.id}">
-						<img src={asset(a.path)} alt={pickText(a.label, source, languages) || a.id} loading="lazy" />
-						<figcaption>
-							<span>{pickText(a.label, source, languages) || a.id}</span>
-							<input type="text" value={a.path} onchange={(e) => change((c) => c.artwork && (c.artwork[i].path = e.currentTarget.value.trim()))} />
-							<button type="button" class="ghost" onclick={() => change((c) => { c.artwork?.splice(i, 1); if (!c.artwork?.length) delete c.artwork; })} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
-						</figcaption>
-					</figure>
-				{/each}
-			</div>
-			<span class="add">
-				<input type="text" bind:value={newArtwork} placeholder="characters/{character.id}/{character.id}_keyvisual.png" />
-				<button
-					type="button"
-					class="ghost"
-					disabled={!newArtwork.trim()}
-					onclick={() => {
-						const path = newArtwork.trim();
-						const aid = uniqueId(slugId(path.split('/').pop()?.replace(/\.[a-z]+$/i, '').replace(`${id}_`, '') ?? 'artwork'), (character.artwork ?? []).map((a) => a.id));
-						change((c) => (c.artwork ??= []).push({ id: aid, path }));
-						newArtwork = '';
-					}}><Icon name="plus" /> {m['creator.characters_add_artwork']()}</button
-				>
-			</span>
+			<AposeEditor character={id} looks={aposeLooks} locale={source} {bust} onchange={setAposePath} />
 		</section>
 
 		<section class="block">
@@ -545,21 +623,11 @@
 		gap: 0.3rem;
 		font-weight: 400;
 	}
-	.wide {
-		grid-column: 1 / -1;
-	}
 	.inline {
 		display: flex;
 		gap: 0.3rem;
 		align-items: center;
 		font-weight: 400;
-	}
-	.mini-img {
-		width: 1.8rem;
-		height: 1.8rem;
-		object-fit: contain;
-		flex: none;
-		background: var(--surface-hover);
 	}
 	.tabs {
 		display: flex;
@@ -656,30 +724,12 @@
 		flex-direction: column;
 		gap: 0.25rem;
 	}
-	.artwork {
+	.import {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.75rem;
-	}
-	figure {
-		margin: 0;
-		width: 12rem;
-		border: 1px solid var(--border-subtle);
-	}
-	figure img {
-		width: 100%;
-		aspect-ratio: 1;
-		object-fit: cover;
-		display: block;
-		background: var(--surface-hover);
-	}
-	figcaption {
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-		padding: 0.3rem;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
+		align-items: center;
+		margin-bottom: 1rem;
 	}
 	.danger {
 		color: var(--error);

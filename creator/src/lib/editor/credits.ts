@@ -73,7 +73,7 @@ export function newRole(label: LocaleText, category: CreditRole['category'], tak
 }
 
 /** Moves an item of a list (drag and drop, keyboard): `moveAt` (lib/editor/move.ts). */
-export { moveAt as move } from './move.ts';
+export { moveAt as move } from '$lib/editor/move.ts';
 
 /** People matching a query (name, aliases, id), best first; merged people are left out. */
 export function searchPeople(people: CreditPerson[], query: string, limit = 12): CreditPerson[] {
