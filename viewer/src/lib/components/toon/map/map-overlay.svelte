@@ -1,24 +1,14 @@
 <script lang="ts">
 	import { CloseIcon } from '@scutoons/ui';
 	import { page } from '$app/state';
-	import {
-		isItemPublic,
-		isPlaceNew,
-		isPlaceVisible,
-		placeImageBox,
-		routeDrawnTo,
-		visibleLabels,
-		type LoadedSequenceItem,
-		type ReaderMap,
-		type ReaderPlace,
-		type Toon
-	} from '@scutoons/content';
+	import { isPlaceNew, isPlaceVisible, placeImageBox, routeDrawnTo, visibleLabels, type LoadedSequenceItem, type ReaderMap, type ReaderPlace, type Toon } from '@scutoons/content';
 	import { MapRoutes, MapViewport, mapGestures, type DrawnRoute } from '@scutoons/reader';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
+	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
 	/**
 	 * The map overlay (agents/MAP.md M1, DESIGN.md): the SCUTOONS world with pan / pinch / wheel zoom (one transform for
@@ -110,7 +100,7 @@
 		const link = card?.chapter;
 		if (!link || link.toon !== toon) return null;
 		const item = sequence.find((s) => Number(s.number) === link.number);
-		if (!item || !isItemPublic(item, import.meta.env.DEV)) return null;
+		if (!item || !isReadable(item)) return null;
 		if (!item.isPreview && !membership?.isValid) return null;
 		return link.number;
 	});

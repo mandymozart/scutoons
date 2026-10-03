@@ -3,9 +3,10 @@ import type { PageLoad } from './$types.ts';
 import { getLocale } from '$lib/paraglide/runtime.js';
 import type { Chapter } from '@scutoons/content';
 
-import { isItemPublic, sequenceStatus, Status } from '@scutoons/content';
+import { sequenceStatus, Status } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { ApiError, fetchChapter } from '$lib/api.ts';
+import { draftPreview, isReadable, showDrafts } from '$lib/draft-preview.svelte.ts';
 
 /** Why a chapter's content is not shown: `draft` (not public), `coming-soon` (listed, not released yet). */
 export type ChapterGate = {
@@ -31,7 +32,8 @@ export const load: PageLoad = async ({ params, parent }) => {
 	// file's own `status` is not read. The URL itself always resolves (printed-URL rule) – only the content is gated.
 	const { season, sequence } = await parent();
 	const status = sequenceStatus(season, number);
-	if (status === Status.COMING_SOON) {
+	// a creator's draft preview reads coming-soon and draft chapters (the API checks the role)
+	if (status === Status.COMING_SOON && !draftPreview.on) {
 		// title / release from the chapter overview (the layout loaded coming-soon items for the list)
 		const item = sequence.find((i) => i.number === number);
 		// older chapters store the key visual as a plain image path
@@ -42,7 +44,7 @@ export const load: PageLoad = async ({ params, parent }) => {
 		return { chapter: null, gate };
 	}
 	// drafts (and chapters the season doesn't list) are readable in dev only, like the chapter overview
-	if (status === null ? !import.meta.env.DEV : !isItemPublic({ status }, import.meta.env.DEV)) {
+	if (status === null ? !showDrafts() : !isReadable({ status })) {
 		const gate: ChapterGate = { reason: 'draft', number };
 		return { chapter: null, gate };
 	}

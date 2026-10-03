@@ -1,8 +1,9 @@
 <script lang="ts">
-	import { isItemPublic, readingState, type LoadedSequenceItem } from '@scutoons/content';
+	import { readingState, type LoadedSequenceItem } from '@scutoons/content';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
+	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
 	/**
 	 * The season's one start button (agents/DESIGN.md "Start button"): "S1 K1 lesen" / "S1 K4 weiterlesen" (+ how far,
@@ -26,7 +27,7 @@
 	} = $props();
 
 	const game = getGameContext();
-	const readable = $derived(chapters.filter((c) => isItemPublic(c, import.meta.env.DEV)));
+	const readable = $derived(chapters.filter((c) => isReadable(c)));
 	const reading = $derived(readingState(toonId, readable.map((c) => c.number), game.state.progress));
 	const target = $derived(reading ? readable.find((c) => c.number === reading.chapter) : undefined);
 	const label = $derived.by(() => {

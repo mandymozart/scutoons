@@ -6,6 +6,9 @@
 	import type { LayoutData } from './$types.js';
 	import { onMount, type Snippet } from 'svelte';
 	import Header from '$lib/components/header.svelte';
+	import { draftPreview } from '$lib/draft-preview.svelte.ts';
+	import { m } from '$lib/paraglide/messages.js';
+	import { invalidateAll } from '$app/navigation';
 	import Loader from '$lib/components/loader.svelte';
 	import ItemsHost from '$lib/components/items/items-host.svelte';
 	import { setMembershipContext } from '$lib/contexts/membership.svelte.ts';
@@ -72,6 +75,13 @@
 
 <Loader visible={!!navigating.to} oncancel={() => goto(page.url.href, { noScroll: true })} />
 
+{#if draftPreview.on}
+	<!-- a creator's draft preview is on (account page): drafts and coming-soon chapters are readable here -->
+	<p class="draft-preview" data-testid="draft-preview-bar">
+		{m['account.draft_preview']()}
+		<button type="button" onclick={() => { draftPreview.set(false); invalidateAll(); }}>{m['account.draft_preview_off']()}</button>
+	</p>
+{/if}
 <Header {toons} />
 
 <div class="content">
@@ -87,4 +97,28 @@
 </div>
 
 <style>
+	.draft-preview {
+		position: sticky;
+		top: env(safe-area-inset-top, 0px);
+		z-index: 1000;
+		margin: 0;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		gap: 0.75rem;
+		padding: 0.25rem 1rem;
+		background: var(--ink);
+		color: var(--paper);
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+		button {
+			font: inherit;
+			color: inherit;
+			background: none;
+			border: 1px solid currentColor;
+			padding: 0 0.5rem;
+			cursor: pointer;
+		}
+	}
 </style>

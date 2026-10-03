@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { draftPreview } from '$lib/draft-preview.svelte.ts';
+	import { invalidateAll } from '$app/navigation';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
@@ -158,6 +160,14 @@
 					<a class="btn btn-secondary" href={CREATOR_URL}>{m['account.creator_link']()}</a>
 					<small>{m['account.creator_hint']()}</small>
 				</p>
+				<!-- creators: read draft and coming-soon chapters here too, for checking (this device only) -->
+				<label class="opt-in" data-testid="draft-preview">
+					<input type="checkbox" checked={draftPreview.on} onchange={(e) => { draftPreview.set(e.currentTarget.checked); invalidateAll(); }} />
+					<span>
+						{m['account.draft_preview']()}
+						<small>{m['account.draft_preview_hint']()}</small>
+					</span>
+				</label>
 			{/if}
 		</section>
 

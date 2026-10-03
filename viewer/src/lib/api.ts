@@ -1,5 +1,6 @@
 // The viewer's API wiring: @scutoons/api configured with this app's API base, static files and session token.
 import {
+	ApiError,
 	createApiClient,
 	createLibraryApi,
 	createProductsApi,
@@ -8,6 +9,7 @@ import {
 	getSessionToken
 } from '@scutoons/api';
 import { API_URL } from '$lib/config.ts';
+import { draftPreview } from '$lib/draft-preview.svelte.ts';
 
 export {
 	ApiError,
@@ -63,4 +65,25 @@ export const { fetchCatalog, fetchEditions } = createQrApi(publicApi);
  * requests (agents/PERFORMANCE.md).
  */
 export const library = createLibraryApi({ publicClient: publicApi, sessionClient: api, cacheMs: 60_000 });
-export const { fetchToons, fetchToon, fetchChapter, fetchCharacters, fetchRegistry, fetchCredits, fetchEvents, fetchMap } = library;
+export const { fetchCharacters, fetchRegistry, fetchCredits, fetchEvents, fetchMap } = library;
+
+/**
+ * Toons, a toon, a chapter – with a creator's draft preview on (lib/draft-preview.svelte.ts) as `?draft=1`. When the
+ * session no longer has the role (401 unauthorized / 403 forbidden), the preview switches off and the public answer is used.
+ */
+async function preview<T>(load: (draft: boolean) => Promise<T>): Promise<T> {
+	if (!draftPreview.on) return load(false);
+	try {
+		return await load(true);
+	} catch (e) {
+		if (e instanceof ApiError && (e.code === 'unauthorized' || e.code === 'forbidden')) {
+			draftPreview.set(false);
+			return load(false);
+		}
+		throw e;
+	}
+}
+export const fetchToons = () => preview((draft) => library.fetchToons({ draft }));
+export const fetchToon = (toon: string, locale?: string) => preview((draft) => library.fetchToon(toon, locale, { draft }));
+export const fetchChapter = (toon: string, number: number, locale?: string) =>
+	preview((draft) => library.fetchChapter(toon, number, locale, { draft }));

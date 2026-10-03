@@ -15,6 +15,7 @@
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
 	import { trackReading, type ReadingSpot } from '$lib/reading/track-reading.ts';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
+	import { showDrafts } from '$lib/draft-preview.svelte.ts';
 
 	let { data }: PageProps = $props();
 	// the next-bar's music link: the season's album (related items; older seasons: download.music)
@@ -76,7 +77,7 @@
 			group: chapter.groups.indexOf(group),
 			chapter: chapter.number,
 			sequence,
-			includeDrafts: import.meta.env.DEV,
+			includeDrafts: showDrafts(),
 			member: membership.isValid
 		});
 	});

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { isItemPublic, type LoadedSequenceItem } from '@scutoons/content';
+	import { type LoadedSequenceItem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.js';
@@ -10,6 +10,7 @@
 	import { getNavigationContext } from '$lib/contexts/navigation.svelte';
 	import listIcon from '$lib/icons/list.svg';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
+	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
 	let {
 		sequence,
@@ -23,7 +24,7 @@
 	} = $props();
 
 	// prev / next skip the listed but unreadable (coming-soon) chapters
-	const readable = $derived(sequence.filter((item) => isItemPublic(item, import.meta.env.DEV)));
+	const readable = $derived(sequence.filter((item) => isReadable(item)));
 
 	function getCurrentItem(): LoadedSequenceItem | undefined {
 		return readable.find((item) => {

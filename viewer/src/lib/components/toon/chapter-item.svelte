@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { sanitizeNumber, isItemPublic, isPrologue, chapterProgress } from '@scutoons/content';
+	import { sanitizeNumber, isPrologue, chapterProgress } from '@scutoons/content';
 	import { getGameContext } from '$lib/contexts/game.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { LoadedSequenceItem } from '@scutoons/content';
@@ -9,6 +9,7 @@
 	import chapterIcon from '$lib/icons/chapter.svg';
 	import { m } from '$lib/paraglide/messages.js';
 	import { chapterName } from '$lib/utils/chapter-name.ts';
+	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
 	let {
 		chapter,
@@ -20,7 +21,7 @@
 	// chapter 0 is the season's prologue
 	const safeChapterNumber = sanitizeNumber(chapterNumber, 1, 0, 999);
 	// `chapter.status` is the season's status of this locale (see the toon layout), never the chapter file's
-	const isPublic = isItemPublic(chapter, import.meta.env.DEV);
+	const isPublic = isReadable(chapter);
 	const status = chapter.status ?? 'published';
 
 	// how far this chapter was read (guests: this browser, members: synced), agents/DESIGN.md "Chapter list progress"

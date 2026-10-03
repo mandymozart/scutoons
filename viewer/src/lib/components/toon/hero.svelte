@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
-	import { isItemPublic, pickQualityVariant, type LoadedSequenceItem, type Season, type Toon } from '@scutoons/content';
+	import { pickQualityVariant, type LoadedSequenceItem, type Season, type Toon } from '@scutoons/content';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import StartButton from './start-button.svelte';
+	import { isReadable } from '$lib/draft-preview.svelte.ts';
 
 	/**
 	 * The toon page's first screen on desktop (≥ 1024 px, agents/DESIGN.md "Toon page desktop"): the season's trailer loop
@@ -28,7 +29,7 @@
 	const trailerChapter = $derived(trailer ? (trailer.chapter ?? 0) : null);
 	// the buttons only when the trailer chapter is readable (listed + published; drafts in dev)
 	const trailerItem = $derived(
-		trailerChapter === null ? undefined : sequence.find((i) => i.number === trailerChapter && isItemPublic(i, import.meta.env.DEV))
+		trailerChapter === null ? undefined : sequence.find((i) => i.number === trailerChapter && isReadable(i))
 	);
 	const trailerHref = $derived(trailerItem ? localizeHref(`/${toonId}/chapter/${trailerItem.number}`) : null);
 	// the hero sets the title itself, so the cover is the bare artwork here (no CoverArt lettering); no image → just ink
