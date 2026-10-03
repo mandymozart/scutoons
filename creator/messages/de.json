@@ -685,6 +685,7 @@
 		"related_items_unknown": "nicht im Katalog",
 		"related_items_loading": "Katalog wird geladen …",
 		"assets_choose": "Auswählen …",
+		"media_missing": "Nicht im CDN",
 		"assets_choose_hint": "Eine Datei aus der Asset-Verwaltung wählen oder hochladen",
 		"assets_picker_title": "Datei wählen",
 		"assets_search": "Name, Pfad, Tag suchen",

@@ -685,6 +685,7 @@
 		"related_items_unknown": "not in the catalog",
 		"related_items_loading": "Loading the catalog …",
 		"assets_choose": "Choose …",
+		"media_missing": "Not found on the CDN",
 		"assets_choose_hint": "Pick a file from the asset manager or upload one",
 		"assets_picker_title": "Choose a file",
 		"assets_search": "Search name, path, tag",

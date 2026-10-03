@@ -6,9 +6,7 @@
 	import { chapterSyncChanges, seasonStatusOf, setSeasonStatus, STATUSES, syncChapter } from '$lib/editor/visibility.ts';
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
-	import ImagePicker from './image-picker.svelte';
-	import AssetPickerSheet from './assets/asset-picker-sheet.svelte';
-	import { rootPath, toonRelativePath } from '@scutoons/api';
+	import MediaSlot from './media-slot.svelte';
 
 	/**
 	 * Chapter meta. Title/description per locale; the rest shared, with per-locale overrides shown.
@@ -22,8 +20,6 @@
 		images = [],
 		featuring
 	}: { doc: ContentDoc; season?: ContentDoc | null; number: number; images?: string[]; featuring?: Snippet } = $props();
-
-	let choosingKeyvisualVideo = $state(false);
 
 	const ch = $derived(doc.get(doc.primary, []));
 	/** the chapter's folder by the content rules – uploads from its fields land there (catpope/s1/c2/) */
@@ -45,10 +41,8 @@
 	<LocaleText {doc} path={['title']} label="title" multiline={false} />
 	<LocaleText {doc} path={['description']} label="description" rows={3} />
 
-	{@render featuring?.()}
-
-	<fieldset class="status" data-testid="chapter-status">
-		<legend>{m['creator.status']()}</legend>
+	<div class="status" data-testid="chapter-status">
+		<span class="sc-label">{m['creator.status']()}</span>
 		{#if !season || season.loading}
 			<p class="hint">{m['creator.loading']()}</p>
 		{:else}
@@ -76,38 +70,26 @@
 				</p>
 			{/if}
 		{/if}
-	</fieldset>
-
-	<div class="grid g3">
-		<PropField {doc} path={['release']} label="release" type="date" required />
-		<PropField {doc} path={['author']} label="author" required />
-		<PropField {doc} path={['number']} label="number" type="number" step={1} required />
 	</div>
 
 	<div class="grid g2">
-		<ImagePicker toon={doc.toon} {place} label="thumbnail" value={ch?.thumbnail} known={images} onchange={(v) => doc.setShared(['thumbnail'], v)} />
-		<div>
-			{#if stringKeyvisual.length}
-				<p class="warn">
-					keyvisual is a string in {stringKeyvisual.join(', ')} – the type expects <code>{'{ image, video? }'}</code>.
-					<button type="button" class="secondary" onclick={convertKeyvisual}>Convert</button>
-				</p>
-			{:else}
-				<ImagePicker toon={doc.toon} {place} label="keyvisual.image" value={ch?.keyvisual?.image} known={images} onchange={(v) => doc.setShared(['keyvisual', 'image'], v)} />
-				<PropField {doc} path={['keyvisual', 'video']} label="keyvisual.video" placeholder="s1/c2/s1c2-key-visual.mp4" />
-				<!-- the key visual's video through the asset picker too (owner 2026-10-03: the mp4 could not be uploaded) -->
-				<button type="button" class="secondary" onclick={() => (choosingKeyvisualVideo = true)} title={m['creator.assets_choose_video_hint']()} data-testid="keyvisual-video-choose">{m['creator.assets_choose_video']()}</button>
-				<AssetPickerSheet
-					bind:open={choosingKeyvisualVideo}
-					toon={doc.toon}
-					kind="video"
-					value={ch?.keyvisual?.video ? rootPath(ch.keyvisual.video, doc.toon) : ''}
-					{place}
-					title="keyvisual.video"
-					onpick={(picked) => doc.setShared(['keyvisual', 'video'], toonRelativePath(picked.path, doc.toon))}
-				/>
-			{/if}
-		</div>
+		<PropField {doc} path={['release']} label="release" type="date" required />
+		<PropField {doc} path={['author']} label="author" required />
+	</div>
+
+	<!-- the images as slots: the preview is the button, no path fields (owner 2026-10-03) -->
+	{#if stringKeyvisual.length}
+		<p class="warn">
+			keyvisual is a string in {stringKeyvisual.join(', ')} – the type expects <code>{'{ image, video? }'}</code>.
+			<button type="button" class="secondary" onclick={convertKeyvisual}>Convert</button>
+		</p>
+	{/if}
+	<div class="media">
+		<MediaSlot toon={doc.toon} {place} label="thumbnail" value={ch?.thumbnail} onchange={(v) => doc.setShared(['thumbnail'], v)} testid="slot-thumbnail" />
+		{#if !stringKeyvisual.length}
+			<MediaSlot toon={doc.toon} {place} label="keyvisual" value={ch?.keyvisual?.image} onchange={(v) => doc.setShared(['keyvisual', 'image'], v)} testid="slot-keyvisual" />
+			<MediaSlot toon={doc.toon} {place} kind="video" label="keyvisual video" value={ch?.keyvisual?.video} onchange={(v) => doc.setShared(['keyvisual', 'video'], v)} testid="slot-keyvisual-video" />
+		{/if}
 	</div>
 	{#each doc.present.filter((l) => l !== doc.primary) as l}
 		{#if doc.get(l, ['thumbnail']) !== ch?.thumbnail}
@@ -115,6 +97,8 @@
 				<button type="button" class="ghost" onclick={() => doc.resetOverride(l, ['thumbnail'])}>{m['creator.use_shared']()}</button></p>
 		{/if}
 	{/each}
+
+	{@render featuring?.()}
 </section>
 
 <style>
@@ -128,11 +112,13 @@
 		display: grid;
 		gap: 0.5rem 0.75rem;
 	}
-	.g3 {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
 	.g2 {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	.media {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 1rem;
 	}
 	.warn {
 		color: var(--warn);
@@ -141,20 +127,10 @@
 		color: var(--error);
 	}
 	.status {
-		border: 1px solid var(--border-muted);
-		padding: 0.5rem 0.75rem;
-		margin: 0;
 		display: flex;
 		flex-direction: column;
 		gap: 0.4rem;
 		align-items: flex-start;
-	}
-	.status legend {
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		color: var(--ink);
-		padding: 0 0.3rem;
 	}
 	.status-row {
 		display: flex;

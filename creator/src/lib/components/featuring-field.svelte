@@ -124,8 +124,8 @@
 
 <style>
 	.featuring {
-		border: 1px solid var(--border-muted);
-		padding: 0.5rem 0.75rem;
+		border: 0;
+		padding: 0;
 		margin: 0;
 		display: flex;
 		flex-direction: column;
@@ -136,7 +136,8 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 		color: var(--ink);
-		padding: 0 0.3rem;
+		padding: 0;
+		margin-bottom: 0.3rem;
 	}
 	.featuring .hint {
 		margin: 0;

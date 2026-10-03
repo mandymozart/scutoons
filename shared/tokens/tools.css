@@ -135,15 +135,18 @@
 	outline-offset: var(--focus-offset);
 }
 
-/* ── Groups: fieldset = 2px ink frame, legend = the tool label; details = a label row ─────────────────────── */
+/* ── Groups: fieldset = no frame (owner 2026-10-03: framed groups looked like a different form concept than the other
+   sections), legend = the tool label above the fields, like a field's label; details = a label row ─────────────── */
 :where(.sc-tool) :where(fieldset) {
 	margin: 0 0 var(--space-1);
-	padding: var(--space-1);
-	border: var(--border-width-regular) solid var(--ink);
+	padding: 0;
+	border: 0;
 	border-radius: var(--radius-none);
+	min-width: 0;
 }
 :where(.sc-tool) :where(legend) {
-	padding: 0 var(--space-025);
+	padding: 0;
+	margin-bottom: var(--space-025);
 	font-size: var(--type-caption-size);
 	line-height: var(--type-caption-line);
 	font-weight: var(--font-weight-regular);

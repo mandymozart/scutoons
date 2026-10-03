@@ -92,8 +92,8 @@
 
 <style>
 	.related {
-		border: var(--border-width-regular) solid var(--ink);
-		padding: 0.5rem 0.75rem;
+		border: 0;
+		padding: 0;
 		margin: 0;
 		/* a fieldset is as wide as its content by default: let narrow columns wrap the chips and the hint */
 		min-width: 0;
@@ -106,7 +106,8 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 		color: var(--ink);
-		padding: 0 0.3rem;
+		padding: 0;
+		margin-bottom: 0.3rem;
 	}
 	.hint {
 		margin: 0;
