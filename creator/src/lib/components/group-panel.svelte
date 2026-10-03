@@ -22,8 +22,10 @@
 			<PropField {doc} path={p('interaction')} label="interaction (untyped, kept)" />
 		{/if}
 	</div>
+	<!-- the swiper's settings only for a horizontal group (owner 2026-10-03) -->
+	{#if group?.renderer?.type === Renderer.HORIZONTAL}
 	<details open={Object.keys(params).length > 0}>
-		<summary>renderer params {group?.renderer?.type === Renderer.HORIZONTAL ? '(swiper)' : '(horizontal only)'}</summary>
+		<summary>renderer params (swiper)</summary>
 		<div class="grid g4">
 			<PropField {doc} path={p('renderer', 'params', 'autoPlay', 'enabled')} label="autoPlay" type="bool" placeholder="off" />
 			<PropField {doc} path={p('renderer', 'params', 'autoPlay', 'delay')} label="autoPlay delay ms" type="number" step={100} placeholder="3000" />
@@ -34,6 +36,7 @@
 			<PropField {doc} path={p('renderer', 'params', 'freeMode')} label="freeMode" type="bool" placeholder="false" />
 		</div>
 	</details>
+	{/if}
 </section>
 
 <style>

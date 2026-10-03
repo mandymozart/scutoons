@@ -510,6 +510,14 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   - **Blocker:** splitting groups breaks the reader's infinite scroll (owner 2026-10-03) – fix that first, or keep groups
     as they are and let a place point at a group + an optional slice (unlock precision) instead of splitting.
   - **Open decisions:** split vs. group + slice; rename groups to their places (labels are in jump links – only with OK).
+- [ ] 10.26 Delete a chapter safely (owner 2026-10-03: "how could i delete a chapter? … super dangerous"). Today nothing
+  can be deleted: the API has no delete for entities (versions are append-only), so no chapter is lost. Numbers are given
+  automatically (next free, never reused) and are the chapter's identity (entity `chapter:<toon>:<n>`, URL, release order;
+  shown big in the chapter's Meta since f345743). Proposed rules, enforced by the **server**, the creator only mirrors them:
+  only a chapter that was **never published** in any language (status draft) and is the **last of its season**; a typed
+  confirmation (the chapter number, in-page dialog); delete = removed from the season's sequence + the entity marked deleted,
+  its versions kept (admin can restore; purging is a separate admin step). A published chapter is never deleted – at most
+  hidden (draft / coming soon), so links and reading progress keep working.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
