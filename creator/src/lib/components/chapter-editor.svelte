@@ -10,7 +10,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
-	import { entities, getAt, deleteAt, sceneNameOfRef, sceneRef, type Path, type ToonLanguages } from '@scutoons/content';
+	import { entities, getAt, deleteAt, sceneNameOfRef, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, characterName, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
@@ -589,24 +589,10 @@
 		selection = null;
 	}
 
-	function addGroup(ref: boolean) {
+	/** one "Add group" (owner 2026-10-03: "Add separate scene" was a storage detail); new groups live in the chapter */
+	function addGroup() {
 		const label = `scene-${groups.length + 1}`;
-		if (ref) {
-			// the scene's name is its key (stored with the chapter: chapter<N>/<name>)
-			const name = prompt('Scene name', label)?.trim();
-			if (!name) return;
-			if (!/^[a-z0-9_-]+$/.test(name)) {
-				notice = 'A scene name uses a-z, 0-9, - and _ (e.g. scene-21).';
-				return;
-			}
-			const src = sceneRef(chapterNumber, name);
-			const doc = sceneDoc(toon, src, languages);
-			doc.create(() => newGroup(sceneNameOfRef(src) ?? name));
-			refs[src] = doc;
-			chapter.structural((file) => file.groups.push({ ref: { src } }));
-		} else {
-			chapter.structural((file) => file.groups.push(newGroup(label)));
-		}
+		chapter.structural((file) => file.groups.push(newGroup(label)));
 		selectGroup(groups.length - 1);
 	}
 
@@ -847,8 +833,7 @@
 			</div>
 		{/each}
 		<div class="tree-add">
-			<button class="secondary" title={m['creator.add_group']()} onclick={() => addGroup(false)}><span class="one-line">{m['creator.add_group']()}</span></button>
-			<button class="secondary" title={m['creator.add_ref_group']()} onclick={() => addGroup(true)}><span class="one-line">{m['creator.add_ref_group']()}</span></button>
+			<button class="secondary" title={m['creator.add_group']()} onclick={addGroup}><span class="one-line">{m['creator.add_group']()}</span></button>
 		</div>
 	</div>
 {/snippet}

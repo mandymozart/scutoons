@@ -59,7 +59,6 @@
 		"import_slices_hint": "Mehrere Bilder wählen: jedes wird ein eigener Slice (auf 390 px WebP skaliert, in den Ordner des Kapitels; die Nummer im Dateinamen bleibt die Slice-Nummer).",
 		"import_slices_progress": "Lade hoch {done} / {total} …",
 		"add_group": "Gruppe hinzufügen",
-		"add_ref_group": "Eigene Szene hinzufügen",
 		"add_text_box": "Text hinzufügen",
 		"tool_text": "Text – auf dem Slice ziehen, um einen zu zeichnen",
 		"tool_item": "Gegenstand – auf den Slice klicken, um einen zu platzieren",

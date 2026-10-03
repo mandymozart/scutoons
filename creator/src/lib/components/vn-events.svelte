@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, clone, type Path } from '@scutoons/content';
@@ -6,6 +7,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ONO_PRESETS, applyOnoPreset, matchOnoPreset, type OnoPreset } from '$lib/editor/event-presets.ts';
 	import PropField from './prop-field.svelte';
+	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 	import LocaleText from './locale-text.svelte';
 	import CharacterRefField, { type CharacterChoices } from './characters/character-ref-field.svelte';
 	import {
@@ -134,16 +136,70 @@
 		});
 	}
 
-	function moveBy(index: number, by: number) {
-		const to = index + by;
-		if (to < 0 || to >= events.length) return;
+	// ── one-liners (owner 2026-10-03): an event is a line (number, type, what it does) until opened; the selected one opens ──
+	let open = $state<number[]>([]);
+	$effect(() => {
+		if (selected >= 0 && !untrack(() => open).includes(selected)) open = [...untrack(() => open), selected];
+	});
+	const isOpen = (i: number) => open.includes(i);
+
+	// ── multi-select + drag (like the chapter tree): click = one (opens / folds it), Shift = range, Ctrl / Cmd = add / remove ──
+	let picked = $state<number[]>([]);
+	let anchor = $state<number | null>(null);
+	let dragging = $state<number[] | null>(null);
+	let dragOver = $state<number | null>(null);
+	function clickRow(index: number, event: MouseEvent) {
+		const next = clickSelect(picked, anchor, index, event);
+		picked = next.selected;
+		anchor = next.anchor;
+		if (event.shiftKey || event.ctrlKey || event.metaKey) return;
+		open = isOpen(index) ? open.filter((i) => i !== index) : [...open, index];
+		onselect?.(index);
+	}
+	function dropOn(target: number) {
+		const moving = dragging;
+		if (!moving?.length) return;
+		let map = new Map<number, number>();
 		doc.structural((file) => {
 			const list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) return;
-			const [item] = list.splice(index, 1);
-			list.splice(to, 0, item);
+			const result = moveMany(list, moving, target);
+			map = result.map;
+			list.splice(0, list.length, ...result.list);
 		});
+		const to = (i: number) => map.get(i) ?? i;
+		picked = moving.map(to).sort((a, b) => a - b);
+		open = open.map(to);
+		anchor = anchor === null ? null : to(anchor);
+		if (selected >= 0) onselect?.(to(selected));
 	}
+
+	/** the line's words: what the event does, from the source language */
+	function summary(event: any): string {
+		const p = event?.params ?? {};
+		const cut = (s: unknown, n = 48) => {
+			const t = String(Array.isArray(s) ? s[0] : (s ?? '')).replace(/\s+/g, ' ').trim();
+			return t.length > n ? `${t.slice(0, n)}…` : t;
+		};
+		switch (event?.type) {
+			case 'showMessage':
+				return `${p.character ? `${p.character}: ` : ''}${cut(p.text)}`;
+			case 'addChoice':
+				return `“${cut(p.label)}”`;
+			case 'jumpTo':
+				return `→ ${p.target?.type ?? ''} ${p.target?.value ?? ''}${p.target?.label ? ` · ${p.target.label}` : ''}`;
+			case 'showOnomatopeia': {
+				const preset = matchOnoPreset(p);
+				return [p.dialog, preset ? m[`creator.ono_preset_${preset}`]() : ''].filter(Boolean).join(' · ');
+			}
+			case 'joinScene':
+			case 'leaveScene':
+				return (p.characters ?? []).map((c: any) => c?.character).filter(Boolean).join(', ');
+			default:
+				return '';
+		}
+	}
+	const triggerWord = (event: any) => TRIGGER_OPTIONS.find((o) => o.value === event?.trigger?.type)?.label ?? '';
 
 	function changeType(index: number, type: string) {
 		if (!confirm(`Change event ${index + 1} to ${type}? Its parameters are replaced.`)) return;
@@ -234,20 +290,59 @@
 	{#each events as event, i (i)}
 		{@const p = [...eventsPath, i]}
 		{@const known = FORM_TYPES.includes(event?.type)}
-		<article class="event" class:selected={i === selected}>
-			<header>
-				<button type="button" class="ghost idx" onclick={() => onselect?.(i)}>{i + 1}</button>
-				<select value={event?.type} onchange={(e) => changeType(i, e.currentTarget.value)}>
-					{#each FORM_TYPES as t}<option value={t}>{t}</option>{/each}
-					{#if !known}<option value={event?.type}>{event?.type}</option>{/if}
-				</select>
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<article
+			class="event"
+			class:selected={i === selected}
+			class:open={isOpen(i)}
+			class:picked={picked.length > 1 && picked.includes(i)}
+			class:over={dragOver === i && !dragging?.includes(i)}
+			class:below={dragOver === i && !!dragging?.length && i > Math.min(...dragging)}
+			class:moving={dragging?.includes(i)}
+			ondragover={(e) => {
+				if (!dragging) return;
+				e.preventDefault();
+				dragOver = i;
+			}}
+			ondragleave={() => (dragOver = dragOver === i ? null : dragOver)}
+			ondrop={(e) => {
+				if (!dragging) return;
+				e.preventDefault();
+				dropOn(i);
+				dragging = dragOver = null;
+			}}
+			data-testid="event-{i}"
+		>
+			<header
+				draggable="true"
+				ondragstart={(e) => {
+					dragging = picked.includes(i) ? [...picked] : [i];
+					if (!picked.includes(i)) picked = [i];
+					e.dataTransfer?.setData('text/plain', dragging.join(','));
+					if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+				}}
+				ondragend={() => (dragging = dragOver = null)}
+			>
+				<button type="button" class="ghost line" onclick={(e) => clickRow(i, e)} aria-expanded={isOpen(i)} data-testid="event-line-{i}">
+					<Icon name="chevron-right" />
+					<span class="idx">{i + 1}</span>
+					<span class="type">{event?.type}</span>
+					<span class="sum">{summary(event)}</span>
+					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
+				</button>
 				<span class="tools">
-					<button type="button" class="ghost" onclick={() => moveBy(i, -1)} disabled={i === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="arrow-up" /></button>
-					<button type="button" class="ghost" onclick={() => moveBy(i, 1)} disabled={i === events.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="arrow-down" /></button>
 					<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 				</span>
 			</header>
 
+			{#if isOpen(i)}
+			<label class="type-field">
+				<span class="sc-label">type</span>
+				<select value={event?.type} onchange={(e) => changeType(i, e.currentTarget.value)}>
+					{#each FORM_TYPES as t}<option value={t}>{t}</option>{/each}
+					{#if !known}<option value={event?.type}>{event?.type}</option>{/if}
+				</select>
+			</label>
 			{#if !known}
 				<p class="hint">{m['creator.event_unknown']({ type: String(event?.type) })}</p>
 			{:else if event.type === 'showMessage'}
@@ -369,6 +464,7 @@
 					</label>
 				</div>
 			{/if}
+			{/if}
 		</article>
 	{/each}
 
@@ -395,16 +491,71 @@
 	.event.selected {
 		border: 2px solid var(--ink);
 	}
+	/* one line until opened: chevron, number, type, what it does (muted, cut), the trigger */
+	.line {
+		flex: 1;
+		min-width: 0;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		padding: 0 0.25rem;
+		text-align: left;
+	}
+	.line :global(svg) {
+		flex: none;
+		transition: transform var(--duration-base) var(--easing);
+	}
+	.event.open .line :global(svg) {
+		transform: rotate(90deg);
+	}
+	.line .idx {
+		flex: none;
+		min-width: 1.5em;
+	}
+	.line .type {
+		flex: none;
+	}
+	.line .sum,
+	.line .trig {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--text-muted);
+	}
+	.line .sum {
+		flex: 1;
+	}
+	.line .trig {
+		flex: none;
+		max-width: 40%;
+	}
+	.type-field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+		max-width: 16rem;
+	}
+	/* drag: the drop line above / below the target, picked ones framed, the moving ones faint */
+	.event.over {
+		box-shadow: inset 0 3px 0 var(--cyan);
+	}
+	.event.over.below {
+		box-shadow: inset 0 -3px 0 var(--cyan);
+	}
+	.event.picked {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
+	}
+	.event.moving {
+		opacity: 0.5;
+	}
+	header[draggable='true'] {
+		cursor: grab;
+	}
 	header {
 		display: flex;
 		gap: 0.4rem;
 		align-items: center;
-	}
-	/* the type select gives way, so the move / remove buttons stay inside a narrow inspector */
-	header select {
-		width: auto;
-		flex: 0 1 auto;
-		min-width: 0;
 	}
 	.idx {
 		font-weight: var(--font-weight-regular);
