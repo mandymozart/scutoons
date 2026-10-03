@@ -7,6 +7,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SliceImport from './slice-import.svelte';
+	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 
 	let {
 		doc,
@@ -24,18 +25,41 @@
 
 	const slices = $derived<any[]>(doc.get(doc.primary, [...groupPath, 'slices']) ?? []);
 
-	let dragFrom = $state<number | null>(null);
+	// multi-select (owner 2026-10-03): click = one, Shift+click = the range from the anchor, Ctrl / Cmd+click = add / remove;
+	// dragging a picked slice moves all picked ones (in their order)
+	let picked = $state<number[]>([]);
+	let anchor = $state<number | null>(null);
+	let dragging = $state<number[] | null>(null);
 	let dragOver = $state<number | null>(null);
+	// the shown slice changed elsewhere (canvas prev / next, a problem link): it alone is picked
+	$effect(() => {
+		if (selected >= 0 && !picked.includes(selected)) {
+			picked = [selected];
+			anchor = selected;
+		}
+	});
 
-	function move(from: number, to: number) {
-		if (from === to || from < 0) return;
+	function pick(index: number, event: MouseEvent) {
+		const next = clickSelect(picked, anchor, index, event);
+		picked = next.selected;
+		anchor = next.anchor;
+		if (picked.includes(index)) onselect(index);
+	}
+
+	function moveTo(target: number) {
+		const moving = dragging;
+		if (!moving?.length) return;
+		let map = new Map<number, number>();
 		doc.structural((file) => {
 			const list = getAt(file, [...groupPath, 'slices']);
-			if (!Array.isArray(list) || from >= list.length) return;
-			const [item] = list.splice(from, 1);
-			list.splice(Math.min(to, list.length), 0, item);
+			if (!Array.isArray(list)) return;
+			const result = moveMany(list, moving, target);
+			map = result.map;
+			list.splice(0, list.length, ...result.list);
 		});
-		onselect(to);
+		picked = moving.map((i) => map.get(i) ?? i).sort((a, b) => a - b);
+		anchor = map.get(anchor ?? -1) ?? picked[0];
+		onselect(map.get(selected) ?? picked[0]);
 	}
 
 	function add(after: number) {
@@ -77,11 +101,16 @@
 	{#each slices as slice, index (index)}
 		<li
 			class:selected={index === selected}
-			class:over={dragOver === index && dragFrom !== index}
+			class:picked={picked.includes(index) && index !== selected}
+			class:over={dragOver === index && !dragging?.includes(index)}
+			class:moving={dragging?.includes(index)}
+			class:below={dragOver === index && !!dragging?.length && index > Math.min(...dragging)}
 			draggable="true"
 			ondragstart={(e) => {
-				dragFrom = index;
-				e.dataTransfer?.setData('text/plain', String(index));
+				dragging = picked.includes(index) ? [...picked] : [index];
+				if (!picked.includes(index)) picked = [index];
+				e.dataTransfer?.setData('text/plain', dragging.join(','));
+				if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
 			}}
 			ondragover={(e) => {
 				e.preventDefault();
@@ -90,12 +119,12 @@
 			ondragleave={() => (dragOver = dragOver === index ? null : dragOver)}
 			ondrop={(e) => {
 				e.preventDefault();
-				if (dragFrom !== null) move(dragFrom, index);
-				dragFrom = dragOver = null;
+				moveTo(index);
+				dragging = dragOver = null;
 			}}
-			ondragend={() => (dragFrom = dragOver = null)}
+			ondragend={() => (dragging = dragOver = null)}
 		>
-			<button type="button" class="thumb" data-control-exempt="slice thumbnail card" onclick={() => onselect(index)} data-testid="slice-{index}">
+			<button type="button" class="thumb" data-control-exempt="slice thumbnail card" onclick={(e) => pick(index, e)} data-testid="slice-{index}">
 				<span class="no">{index + 1}</span>
 				<img src={asset(`${doc.toon}/${slice?.image}`)} alt="" loading="lazy" draggable="false" />
 				<span class="info">
@@ -143,8 +172,20 @@
 	li.selected .tools button {
 		color: var(--paper);
 	}
+	/* the drop line: above the target when moving up, below it when moving down (where the slices land) */
 	li.over {
 		box-shadow: inset 0 3px 0 var(--cyan);
+	}
+	li.over.below {
+		box-shadow: inset 0 -3px 0 var(--cyan);
+	}
+	/* picked with Shift / Ctrl besides the shown slice: framed */
+	li.picked {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
+	}
+	li.moving {
+		opacity: 0.5;
 	}
 	.thumb {
 		flex: 1;

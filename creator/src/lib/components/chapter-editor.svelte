@@ -35,6 +35,7 @@
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
 	import TextPresetPicker from './text-preset-picker.svelte';
+	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
@@ -227,6 +228,22 @@
 	const currentGroup = $derived(groups[groupIndex]);
 	const refSrc = $derived<string | null>(currentGroup?.ref?.src ?? null);
 	const activeDoc = $derived<ContentDoc | null>(refSrc ? (refs[refSrc] ?? null) : chapter);
+	/**
+	 * undo / redo act on the file edited last (owner 2026-10-03: moving groups edits the chapter while a scene file is
+	 * open) – the open group's file or the chapter; redo on the file that was undone last
+	 */
+	const undoDoc = $derived<ContentDoc | null>(
+		[activeDoc, chapter].filter((d): d is ContentDoc => !!d?.canUndo).sort((a, b) => b.lastEditAt - a.lastEditAt)[0] ?? null
+	);
+	let undoneDoc = $state<ContentDoc | null>(null);
+	const redoDoc = $derived<ContentDoc | null>(undoneDoc?.canRedo ? undoneDoc : activeDoc?.canRedo ? activeDoc : chapter.canRedo ? chapter : null);
+	function undoLast() {
+		const d = undoDoc;
+		if (!d) return;
+		d.undo();
+		undoneDoc = d;
+	}
+	const redoLast = () => redoDoc?.redo();
 	const groupPath = $derived<Path>(refSrc ? [] : ['groups', groupIndex]);
 	const slicePath = $derived<Path>([...groupPath, 'slices', sliceIndex]);
 	const activeGroup = $derived(activeDoc?.get(activeDoc.primary, groupPath));
@@ -593,14 +610,32 @@
 		selectGroup(groups.length - 1);
 	}
 
-	function moveGroup(index: number, by: number) {
-		const to = index + by;
-		if (to < 0 || to >= groups.length) return;
+	// groups: multi-select + drag in the tree (owner 2026-10-03) – click opens one, Shift+click picks the range from the
+	// anchor, Ctrl / Cmd+click adds / removes one; dragging a picked group moves all picked ones (in their order)
+	let groupPicked = $state<number[]>([]);
+	let groupAnchor = $state<number | null>(null);
+	let groupDragging = $state<number[] | null>(null);
+	let groupOver = $state<number | null>(null);
+	function clickGroup(index: number, event: MouseEvent) {
+		const next = clickSelect(groupPicked, groupAnchor, index, event);
+		groupPicked = next.selected;
+		groupAnchor = next.anchor;
+		// a plain click opens / folds it; Shift / Ctrl only pick
+		if (!event.shiftKey && !event.ctrlKey && !event.metaKey) toggleGroup(index);
+	}
+	function dropGroups(target: number) {
+		const moving = groupDragging;
+		if (!moving?.length) return;
+		let map = new Map<number, number>();
 		chapter.structural((file) => {
-			const [g] = file.groups.splice(index, 1);
-			file.groups.splice(to, 0, g);
+			if (!Array.isArray(file.groups)) return;
+			const result = moveMany(file.groups, moving, target);
+			map = result.map;
+			file.groups.splice(0, file.groups.length, ...result.list);
 		});
-		groupIndex = to;
+		groupPicked = moving.map((i) => map.get(i) ?? i).sort((a, b) => a - b);
+		groupAnchor = map.get(groupAnchor ?? -1) ?? groupPicked[0];
+		groupIndex = map.get(groupIndex) ?? groupIndex;
 	}
 
 	function removeGroup(index: number) {
@@ -709,13 +744,13 @@
 		const key = event.key.toLowerCase();
 		if (mod && key === 'z') {
 			event.preventDefault();
-			if (event.shiftKey) activeDoc?.redo();
-			else activeDoc?.undo();
+			if (event.shiftKey) redoLast();
+			else undoLast();
 			return;
 		}
 		if (mod && key === 'y') {
 			event.preventDefault();
-			activeDoc?.redo();
+			redoLast();
 			return;
 		}
 		if (mod && key === 's') {
@@ -757,11 +792,38 @@
 		{#each groups as g, gi (gi)}
 			{@const open = gi === groupIndex && (section === 'group' || section === 'slice') && !collapsed}
 			<div class="group" class:open>
-				<div class="group-row">
+				<!-- svelte-ignore a11y_no_static_element_interactions -->
+				<div
+					class="group-row"
+					class:picked={groupPicked.length > 1 && groupPicked.includes(gi)}
+					class:over={groupOver === gi && !groupDragging?.includes(gi)}
+					class:below={groupOver === gi && !!groupDragging?.length && gi > Math.min(...groupDragging)}
+					class:moving={groupDragging?.includes(gi)}
+					draggable="true"
+					ondragstart={(e) => {
+						groupDragging = groupPicked.includes(gi) ? [...groupPicked] : [gi];
+						if (!groupPicked.includes(gi)) groupPicked = [gi];
+						e.dataTransfer?.setData('text/plain', groupDragging.join(','));
+						if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
+					}}
+					ondragover={(e) => {
+						if (!groupDragging) return;
+						e.preventDefault();
+						groupOver = gi;
+					}}
+					ondragleave={() => (groupOver = groupOver === gi ? null : groupOver)}
+					ondrop={(e) => {
+						if (!groupDragging) return;
+						e.preventDefault();
+						dropGroups(gi);
+						groupDragging = groupOver = null;
+					}}
+					ondragend={() => (groupDragging = groupOver = null)}
+				>
 					<button
 						class="node sc-nav-item"
 						class:is-current={section === 'group' && gi === groupIndex}
-						onclick={() => toggleGroup(gi)}
+						onclick={(e) => clickGroup(gi, e)}
 						aria-expanded={open}
 						data-nav-child={section === 'meta' || section === 'audio' ? '' : undefined}
 						data-testid="group-{gi}"
@@ -770,8 +832,6 @@
 						<span class="hint">{g?.ref ? '' : `${g?.slices?.length ?? 0}${g?.events ? ' · VN' : ''}`}</span>
 					</button>
 					<span class="tools">
-						<button class="ghost" onclick={() => moveGroup(gi, -1)} disabled={gi === 0} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="arrow-up" /></button>
-						<button class="ghost" onclick={() => moveGroup(gi, 1)} disabled={gi === groups.length - 1} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="arrow-down" /></button>
 						<button class="ghost" onclick={() => removeGroup(gi)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
 					</span>
 				</div>
@@ -819,8 +879,8 @@
 			</button>
 		{/snippet}
 		{#snippet secondary()}
-			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!activeDoc?.canUndo} onclick={() => activeDoc?.undo()} data-testid="undo"><Icon name="rotate-ccw" /></button>
-			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!activeDoc?.canRedo} onclick={() => activeDoc?.redo()} data-testid="redo"><Icon name="rotate-cw" /></button>
+			<button class="ghost" title="{m['creator.undo']()} (Ctrl+Z)" aria-label={m['creator.undo']()} disabled={!undoDoc} onclick={undoLast} data-testid="undo"><Icon name="rotate-ccw" /></button>
+			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="redo"><Icon name="rotate-cw" /></button>
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each chapter.locales as l}
@@ -1201,6 +1261,20 @@
 	}
 	.group-row {
 		display: flex;
+	}
+	/* group drag (owner 2026-10-03): the drop line above / below the target, picked groups framed, the moving ones faint */
+	.group-row.over {
+		box-shadow: inset 0 3px 0 var(--cyan);
+	}
+	.group-row.over.below {
+		box-shadow: inset 0 -3px 0 var(--cyan);
+	}
+	.group-row.picked {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: calc(-1 * var(--border-width-regular));
+	}
+	.group-row.moving {
+		opacity: 0.5;
 	}
 	.group-row .node {
 		flex: 1;
