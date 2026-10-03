@@ -36,7 +36,8 @@ export const LENGTH_WARNING_RATIO = 1.3;
 
 const values = (e: object) => Object.values(e) as string[];
 const DIALOG_VARIANTS = ['bubble', 'caption', 'narration'];
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showOnomatopeia', 'jumpTo'];
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showOnomatopeia', 'jumpTo', 'label', 'divert', 'setVariable'];
+const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -190,6 +191,37 @@ function checkTarget(c: Collector, target: any, path: Path) {
 	if (!isObj(target)) return c.error(path, 'target is missing');
 	if (!values(JumpToTargetType).includes(target.type)) c.error([...path, 'type'], `target.type must be one of ${values(JumpToTargetType).join(', ')}`);
 	if (target.value === undefined || target.value === '') c.error([...path, 'value'], 'target.value is missing');
+	if (target.anyOf !== undefined) {
+		if (!Array.isArray(target.anyOf) || !target.anyOf.length || target.anyOf.some((l: unknown) => !isStr(l) || !l)) {
+			c.error([...path, 'anyOf'], 'anyOf must be a list of group labels (one of them is picked at random)');
+		}
+	}
+}
+
+/** "Only if" on an event: { variable, op, value? } */
+function checkCondition(c: Collector, cond: any, path: Path) {
+	if (!isObj(cond) || !isStr(cond.variable) || !cond.variable) return c.error([...path, 'variable'], 'the condition needs a variable');
+	if (!CONDITION_OPS.includes(cond.op)) return c.error([...path, 'op'], `the condition's op must be one of ${CONDITION_OPS.join(' ')}`);
+	if (cond.op !== 'set' && cond.op !== 'unset' && (cond.value === undefined || cond.value === '')) c.error([...path, 'value'], 'the condition needs a value to compare with');
+}
+
+/** a choice's action(s): set / add / jumpTo / divert, one or a list */
+function checkActions(c: Collector, onSelect: any, path: Path) {
+	if (onSelect === undefined) return;
+	const list = Array.isArray(onSelect) ? onSelect : [onSelect];
+	list.forEach((a: any, i: number) => {
+		const ap = Array.isArray(onSelect) ? [...path, i] : path;
+		if (!isObj(a)) return c.error(ap, 'an action must be an object');
+		if (isObj(a.jumpTo)) checkTarget(c, a.jumpTo.target, [...ap, 'jumpTo', 'target']);
+		else if (isObj(a.divert)) {
+			if (!isStr(a.divert.to) || !a.divert.to) c.error([...ap, 'divert', 'to'], 'divert needs the name of a point in the script');
+		} else if (isObj(a.set)) {
+			if (!isStr(a.set.variable) || !a.set.variable) c.error([...ap, 'set', 'variable'], 'set needs a variable');
+		} else if (isObj(a.add)) {
+			if (!isStr(a.add.variable) || !a.add.variable) c.error([...ap, 'add', 'variable'], 'add needs a variable');
+			if (!isNum(a.add.value)) c.error([...ap, 'add', 'value'], 'add needs a number');
+		} else c.error(ap, 'an action is set, add, jumpTo or divert');
+	});
 }
 
 /** Character / persona / look / mood of a VN character reference against the season's cast and the registry. */
@@ -247,7 +279,22 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			break;
 		case 'addChoice':
 			if (!isObj(p) || !isStr(p.label)) c.error([...pp, 'label'], 'addChoice needs params.label');
-			if (isObj(p?.onSelect?.jumpTo)) checkTarget(c, p.onSelect.jumpTo.target, [...pp, 'onSelect', 'jumpTo', 'target']);
+			if (isObj(p)) checkActions(c, p.onSelect, [...pp, 'onSelect']);
+			break;
+		case 'label':
+			if (!isObj(p) || !isStr(p.name) || !p.name) c.error([...pp, 'name'], 'a point needs a name');
+			else if (!/^[a-z0-9_-]+$/i.test(p.name)) c.warn([...pp, 'name'], 'a point name uses letters, digits, - and _');
+			break;
+		case 'divert':
+			if (!isObj(p) || !isStr(p.to) || !p.to) c.error([...pp, 'to'], 'divert needs the name of a point in the script');
+			break;
+		case 'setVariable':
+			if (!isObj(p) || !isStr(p.variable) || !p.variable) c.error([...pp, 'variable'], 'setVariable needs a variable');
+			else {
+				if (p.op !== undefined && p.op !== 'set' && p.op !== 'add') c.error([...pp, 'op'], 'op is set or add');
+				if (p.op === 'add' && !isNum(p.value)) c.error([...pp, 'value'], 'add needs a number');
+				if (p.op !== 'add' && (p.value === undefined || p.value === '')) c.error([...pp, 'value'], 'setVariable needs a value');
+			}
 			break;
 		case 'jumpTo':
 			if (!isObj(p)) c.error(pp, 'jumpTo needs params.target');
@@ -281,7 +328,37 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 			}
 			break;
 	}
+	if (e.if !== undefined) checkCondition(c, e.if, [...path, 'if']);
 	if (sliceEvent) checkTrigger(c, e.trigger, [...path, 'trigger'], false);
+}
+
+/**
+ * The named points of a group's script: unique, and every divert (event, choice action, slice event) goes to one that
+ * exists – slice events divert into their group's script.
+ */
+function checkScriptPoints(c: Collector, g: any, path: Path) {
+	const events: any[] = Array.isArray(g.events) ? g.events : [];
+	const names = new Map<string, number>();
+	events.forEach((e: any, i: number) => {
+		if (e?.type !== 'label' || !isStr(e.params?.name) || !e.params.name) return;
+		if (names.has(e.params.name)) c.error([...path, 'events', i, 'params', 'name'], `the point "${e.params.name}" is there twice`);
+		else names.set(e.params.name, i);
+	});
+	const check = (to: unknown, at: Path) => {
+		if (isStr(to) && to && !names.has(to)) c.error(at, `there is no point "${to}" in this group's script`);
+	};
+	const scan = (list: any[], at: Path) =>
+		list.forEach((e: any, i: number) => {
+			if (e?.type === 'divert') check(e.params?.to, [...at, i, 'params', 'to']);
+			if (e?.type === 'addChoice') {
+				const os = e.params?.onSelect;
+				(Array.isArray(os) ? os : os ? [os] : []).forEach((a: any, ai: number) => {
+					if (isObj(a?.divert)) check(a.divert.to, [...at, i, 'params', 'onSelect', ...(Array.isArray(os) ? [ai] : []), 'divert', 'to']);
+				});
+			}
+		});
+	scan(events, [...path, 'events']);
+	if (Array.isArray(g.slices)) g.slices.forEach((s: any, si: number) => Array.isArray(s?.events) && scan(s.events, [...path, 'slices', si, 'events']));
 }
 
 function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
@@ -480,6 +557,7 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 			checkDialogRefs(c, g.events, Array.isArray(g.slices) ? g.slices : [], [...path, 'events'], "the group's slices");
 		}
 	}
+	checkScriptPoints(c, g, path);
 	checkVnFlow(c, g, path);
 }
 

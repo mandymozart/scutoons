@@ -45,7 +45,7 @@ export interface Character {
 
 export interface VNChoice {
 	label: string;
-	onSelect?: VNVariableSetter | VNVariableAdder | VNJumpTo;
+	onSelect?: VNAction | VNAction[];
 }
 
 export interface Message {
@@ -115,6 +115,46 @@ export interface VNJumpTo {
 	};
 }
 
+/** continue the group's script at a named point (`label` event) – the story's own branch, no page change */
+export interface VNDivert {
+	divert: {
+		to: string;
+	};
+}
+
+/** what a choice does when picked – one action or several in order (e.g. add 15 minutes, then jump) */
+export type VNAction = VNVariableSetter | VNVariableAdder | VNJumpTo | VNDivert;
+
+/**
+ * "Only if" on any event (owner 2026-10-03): the event runs only when the reader's variable passes the test, else it is
+ * skipped. Numbers compare as numbers; `set` / `unset` ask whether the variable has a value at all.
+ */
+export type VNConditionOp = '==' | '!=' | '<' | '<=' | '>' | '>=' | 'set' | 'unset';
+export const VN_CONDITION_OPS: VNConditionOp[] = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
+export interface VNCondition {
+	variable: string;
+	op: VNConditionOp;
+	value?: string | number;
+}
+
+/** a named point in a group's script – a divert (event, choice action, slice trigger) continues here */
+export interface VNLabelEvent {
+	type: 'label';
+	params: { name: string };
+}
+
+/** continue at a named point of the same script */
+export interface VNDivertEvent {
+	type: 'divert';
+	params: { to: string };
+}
+
+/** set a variable, or add to it (numbers) */
+export interface VNSetVariableEvent {
+	type: 'setVariable';
+	params: { variable: string; value: string | number; op?: 'set' | 'add' };
+}
+
 export interface VNShowMessageEvent {
 	type: 'showMessage';
 	params: {
@@ -136,7 +176,7 @@ export interface VNAddChoiceEvent {
 	type: 'addChoice';
 	params: {
 		label: string;
-		onSelect?: VNVariableSetter | VNVariableAdder;
+		onSelect?: VNAction | VNAction[];
 	};
 }
 
@@ -194,7 +234,7 @@ export interface VNJumpToEvent {
 	};
 }
 
-export type VNEvent =
+export type VNEvent = (
 	| VNShowMessageEvent
 	| VNShowChoicesEvent
 	| VNAddChoiceEvent
@@ -202,7 +242,14 @@ export type VNEvent =
 	| VNLeaveSceneEvent
 	| VNHideMessageEvent
 	| VNShowOnomatopeiaEvent
-	| VNJumpToEvent;
+	| VNJumpToEvent
+	| VNLabelEvent
+	| VNDivertEvent
+	| VNSetVariableEvent
+) & {
+	/** "Only if": the event runs only when this holds (skipped otherwise) */
+	if?: VNCondition;
+};
 	
 // enhanced types for slice triggered
 export interface VNEventTrigger {

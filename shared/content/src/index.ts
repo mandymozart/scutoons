@@ -3,6 +3,7 @@ export * from './enums.ts';
 export * from './content.ts';
 export * from './audio.ts';
 export * from './visual-novel.ts';
+export * from './vn-script.ts';
 export * from './items.ts';
 export * from './respawn.ts';
 export * from './geometry.ts';

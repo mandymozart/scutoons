@@ -94,6 +94,11 @@ export interface JumpToTarget {
 	type: JumpToTargetType;
 	value: string;
 	label?: string;
+	/**
+	 * a random group of this chapter instead of `label` (owner 2026-10-03, the chapter 2 stroll): one of these labels, never
+	 * the group the reader is on (`pickJumpLabel`)
+	 */
+	anyOf?: string[];
 }
 
 /**
