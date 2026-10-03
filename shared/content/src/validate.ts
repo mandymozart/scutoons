@@ -12,7 +12,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
+import { DEFAULT_SLICE, DIALOG_TAILS, SLICE_ITEM_ACTIONS, SLICE_ITEM_PICKUP_MODES, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
 import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
@@ -123,12 +123,16 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.weight !== undefined && d.weight !== 400 && d.weight !== 700) c.error([...path, 'weight'], 'weight must be 400 or 700');
 	if (d.uppercase !== undefined && typeof d.uppercase !== 'boolean') c.error([...path, 'uppercase'], 'uppercase must be true/false');
 	if (d.color !== undefined && !isStr(d.color)) c.error([...path, 'color'], 'color must be a CSS color string');
+	if (d.stroke !== undefined && !isStr(d.stroke)) c.error([...path, 'stroke'], 'stroke must be a CSS color string');
+	if (d.strokeWidth !== undefined && (!isNum(d.strokeWidth) || d.strokeWidth < 0)) c.error([...path, 'strokeWidth'], 'strokeWidth must be a number ≥ 0 (em)');
+	if (d.tail !== undefined && !(DIALOG_TAILS as readonly string[]).includes(d.tail)) c.error([...path, 'tail'], `tail must be one of ${DIALOG_TAILS.join(', ')}`);
 	if (d.rotation !== undefined && !isNum(d.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
 	checkScale(c, d.scale, [...path, 'scale']);
 	if (d.mask !== undefined && d.mask !== true && !isStr(d.mask)) c.error([...path, 'mask'], 'mask must be true or a CSS color');
 	if (d.maskShape !== undefined && !['rect', 'ellipse'].includes(d.maskShape)) c.error([...path, 'maskShape'], 'maskShape must be rect or ellipse');
 	if (d.pad !== undefined && !isNum(d.pad)) c.error([...path, 'pad'], 'pad must be a number');
-	if (d.frame === false && !['caption', 'narration'].includes(d.variant)) c.warn([...path, 'frame'], 'frame only affects caption / narration');
+	if (d.frame !== undefined && !['caption', 'narration', 'bubble', undefined].includes(d.variant)) c.warn([...path, 'frame'], 'frame only affects caption / narration / bubble');
+	if (d.tail !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'tail'], 'tail only shows on a drawn bubble (variant bubble, frame true)');
 }
 
 function checkScale(c: Collector, scale: unknown, path: Path) {
@@ -150,6 +154,9 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 	}
 	if (it.qty !== undefined && (!Number.isInteger(it.qty) || it.qty < 1)) c.error([...path, 'qty'], 'qty must be a whole number ≥ 1');
 	if (it.once !== undefined && typeof it.once !== 'boolean') c.error([...path, 'once'], 'once must be true/false');
+	if (it.pickupMode !== undefined && !(SLICE_ITEM_PICKUP_MODES as readonly string[]).includes(it.pickupMode)) {
+		c.error([...path, 'pickupMode'], `pickupMode must be one of ${SLICE_ITEM_PICKUP_MODES.join(', ')}`);
+	}
 	if (it.events !== undefined) {
 		if (!Array.isArray(it.events)) c.error([...path, 'events'], 'events must be an array');
 		else it.events.forEach((e: any, i: number) => checkEvent(c, e, [...path, 'events', i], ctx, false));
@@ -262,6 +269,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				if (p.delay !== undefined && (!isNum(p.delay) || p.delay > 5000)) c.warn([...pp, 'delay'], 'delay is capped at 5000 ms by the reader');
 				if (p.rotation !== undefined && !isNum(p.rotation)) c.error([...pp, 'rotation'], 'rotation must be a number (degrees)');
 				checkScale(c, p.scale, [...pp, 'scale']);
+				if (p.dialog !== undefined && (!isStr(p.dialog) || !p.dialog)) c.error([...pp, 'dialog'], 'dialog must be the id of a text box');
 			}
 			break;
 	}
@@ -363,8 +371,24 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	}
 	if (s.events !== undefined) {
 		if (!Array.isArray(s.events)) c.error([...path, 'events'], 'events must be an array');
-		else s.events.forEach((e: any, i: number) => checkEvent(c, e, [...path, 'events', i], ctx, true));
+		else {
+			s.events.forEach((e: any, i: number) => checkEvent(c, e, [...path, 'events', i], ctx, true));
+			checkDialogRefs(c, s.events, [s], [...path, 'events'], 'this slice');
+		}
 	}
+}
+
+/** onomatopoeia events that reveal a text box (`params.dialog`): the box must be there (slice events: on the slice) */
+function checkDialogRefs(c: Collector, events: any[], slices: any[], path: Path, where: string) {
+	const ids = new Set(slices.flatMap((s) => (Array.isArray(s?.dialog) ? s.dialog.map((d: any) => d?.id) : [])).filter(isStr));
+	const seen = new Map<string, number>();
+	events.forEach((e: any, i: number) => {
+		const ref = e?.type === 'showOnomatopeia' ? e?.params?.dialog : undefined;
+		if (!isStr(ref) || !ref) return;
+		if (!ids.has(ref)) c.warn([...path, i, 'params', 'dialog'], `text box "${ref}" is not on ${where} – the event shows nothing`);
+		if (seen.has(ref)) c.info([...path, i, 'params', 'dialog'], `text box "${ref}" is revealed by event ${seen.get(ref)! + 1} already`);
+		else seen.set(ref, i);
+	});
 }
 
 export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContext) {
@@ -386,7 +410,10 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	}
 	if (g.events !== undefined) {
 		if (!Array.isArray(g.events)) c.error([...path, 'events'], 'events must be an array');
-		else g.events.forEach((e: any, i: number) => checkEvent(c, e, [...path, 'events', i], ctx, false));
+		else {
+			g.events.forEach((e: any, i: number) => checkEvent(c, e, [...path, 'events', i], ctx, false));
+			checkDialogRefs(c, g.events, Array.isArray(g.slices) ? g.slices : [], [...path, 'events'], "the group's slices");
+		}
 	}
 }
 

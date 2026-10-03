@@ -162,6 +162,14 @@ export interface VNHideMessageEvent {
 type OnomatopoeiaParams = Onomatopoeia & {
 	mode?: TriggerMode;
 	wait?: boolean;
+	/**
+	 * Id of a text box (`Dialog.id`) – on the event's slice, or for a group script on one of the group's slices. That box
+	 * stays hidden until the event fires, then appears with the event's effect / duration / delay / wait and stays; the box
+	 * gives the look (variant, font, colour, outline, rotation, scale, per-language text), the event the timing. `text`,
+	 * `position`, `size`, `align`, `rotation`, `scale` and `variant` of the event are then not used. Without it: the
+	 * event's own onomatopoeia, as before.
+	 */
+	dialog?: string;
 };
 
 export interface VNShowOnomatopeiaEvent {

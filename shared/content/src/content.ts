@@ -10,7 +10,15 @@ export interface KeyVisual {
 	video?: string;
 }
 
+/**
+ * `sfx` is the old onomatopoeia text box (owner 2026-10-03: no longer offered – an onomatopoeia event reveals a text box
+ * instead, `VNShowOnomatopeiaEvent` `params.dialog`); existing sfx boxes keep rendering as before.
+ */
 export type DialogVariant = 'bubble' | 'caption' | 'narration' | 'sfx';
+
+/** Where a drawn speech bubble's tail points (`Dialog.tail`). */
+export const DIALOG_TAILS = ['bottom-left', 'bottom', 'bottom-right', 'top-left', 'top', 'top-right', 'none'] as const;
+export type DialogTail = (typeof DIALOG_TAILS)[number];
 
 export type DialogFont = 'lettering' | 'mono';
 
@@ -29,8 +37,14 @@ export interface Dialog {
 	text: string | string[];
 	/** Default 'bubble'. */
 	variant?: DialogVariant;
-	/** caption / narration only: draw the paper box + ink border. Default true; false = bare text (use `mask`). */
+	/**
+	 * caption / narration: draw the paper box + ink border, default true (false = bare text, use `mask`).
+	 * bubble: draw a speech bubble (paper, ink outline, a tail), default false – the bubble shape of chapter 1/2 art is in
+	 * the image; the creator sets `true` for new bubbles on text-free art.
+	 */
 	frame?: boolean;
+	/** a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' */
+	tail?: DialogTail;
 	/** Font size in % of the slice width (rendered as cqw). Default 4. */
 	size?: number;
 	/** Default 'center' for bubble/sfx, 'left' for caption/narration. */
@@ -43,6 +57,13 @@ export interface Dialog {
 	uppercase?: boolean;
 	/** Text color, default ink (#000). */
 	color?: string;
+	/**
+	 * Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline
+	 * (the old `sfx` variant has its ink outline built in).
+	 */
+	stroke?: string;
+	/** outline width in em of the font size, default 0.14 */
+	strokeWidth?: number;
 	/** Degrees, around the box's centre. */
 	rotation?: number;
 	/**
@@ -271,6 +292,8 @@ export interface SliceVideo {
 /** What tapping a placed item does (`SliceItem.action`); the creator chooses it per placed item. */
 export const SLICE_ITEM_ACTIONS = ['none', 'pickup', 'events'] as const;
 export type SliceItemAction = (typeof SLICE_ITEM_ACTIONS)[number];
+export const SLICE_ITEM_PICKUP_MODES = ['once', 'respawn'] as const;
+export type SliceItemPickupMode = (typeof SLICE_ITEM_PICKUP_MODES)[number];
 
 /**
  * A catalog item (its cut-out icon) placed on a slice, like a text box: position, size, rotation. Language-neutral
@@ -306,6 +329,11 @@ export interface SliceItem {
 	events?: VNEvent[];
 	/** events: only the first tap per page view runs them (default true, like a click trigger's `once`) */
 	once?: boolean;
+	/**
+	 * pickup: `once` (default) = one pickup per reader, then gone for good; `respawn` = back on every new visit of the
+	 * page and can be taken again (onions, cucumbers, tuna …) – once per visit, the catalog's limits still apply.
+	 */
+	pickupMode?: SliceItemPickupMode;
 }
 
 export interface Slice {
