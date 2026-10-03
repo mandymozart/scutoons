@@ -8,6 +8,7 @@
 		entities,
 		isPlaceWaypoint,
 		mapName,
+		placeImagePath,
 		toonLanguages,
 		toonTileColor,
 		type CharacterRegistry,
@@ -26,6 +27,7 @@
 	import { addPlace, addRoute, cdnHas, editMap, editPlace, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { toWebp, uploadOrReplace } from '$lib/editor/media-upload.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from '$lib/components/map/map-canvas.svelte';
 	import MapProps from '$lib/components/map/map-props.svelte';
@@ -41,6 +43,64 @@
 	const view = new MapViewport();
 	const locale = $derived(getLocale());
 	const map = $derived(mapOf(doc));
+
+	// ── import: place illustrations by file name (owner 2026-10-03) ──────────────────────────────────────────────
+	let importInput = $state<HTMLInputElement>();
+	let importing = $state<{ done: number; total: number } | null>(null);
+	let importSummary = $state('');
+	let importProblems = $state<string[]>([]);
+	/** set after an import: previews of files with new bytes at the same path load again */
+	let bust = $state(0);
+	/** the longest side of a place illustration (PLACE_IMAGE_SPEC: 256 × 256) */
+	const PLACE_IMAGE_PX = 256;
+
+	/**
+	 * "Import images …": each file named after a place id (`old-church.png`, case and extension don't matter) becomes
+	 * that place's illustration – WebP, at most 256 px on the longest side, at the place's current WebP path or its
+	 * convention path (`<toon>/map/places/<id>.webp`); a file already there gets the new bytes (a new version, the CDN
+	 * purged). One undo step; names that are no place are reported.
+	 */
+	async function importImages(event: Event) {
+		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
+		if (importInput) importInput.value = '';
+		if (!files.length || !map) return;
+		importProblems = [];
+		importSummary = '';
+		const counts = { uploaded: 0, replaced: 0, unchanged: 0 };
+		const placed: { id: string; src: string }[] = [];
+		importing = { done: 0, total: files.length };
+		for (const file of files) {
+			const stem = file.name.toLowerCase().replace(/\.[a-z0-9]+$/, '');
+			const place = map.locations.find((p) => p.id.toLowerCase() === stem);
+			try {
+				if (!place) throw new Error(m['creator.map_import_no_place']({ name: stem }));
+				const bitmap = await createImageBitmap(file);
+				let blob: Blob;
+				try {
+					const scale = Math.min(1, PLACE_IMAGE_PX / Math.max(bitmap.width, bitmap.height));
+					blob = (await toWebp(bitmap, Math.round(bitmap.width * scale))).blob;
+				} finally {
+					bitmap.close();
+				}
+				const src = place.image?.src?.endsWith('.webp') ? place.image.src : placeImagePath(place);
+				counts[await uploadOrReplace(blob, src, 'map import')]++;
+				placed.push({ id: place.id, src });
+			} catch (e) {
+				importProblems = [...importProblems, `${file.name}: ${e instanceof Error ? e.message : String(e)}`];
+			}
+			importing = { done: importing.done + 1, total: files.length };
+		}
+		if (placed.length)
+			editMap(doc, (next) => {
+				for (const { id, src } of placed) {
+					const place = next.locations.find((p) => p.id === id);
+					if (place) place.image = { ...(place.image ?? {}), src };
+				}
+			});
+		importing = null;
+		importSummary = m['creator.characters_import_summary'](counts);
+		bust = Date.now();
+	}
 
 	let tool = $state<MapTool>('select');
 	let selection = $state<MapSelection>(null);
@@ -388,6 +448,13 @@
 					{/each}
 				</div>
 				<div class="group">
+					<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.map_import_hint']()} data-testid="map-import">
+						{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
+					</button>
+					<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
+					{#if importSummary}<span class="sc-caption" role="status">{importSummary}</span>{/if}
+				</div>
+				<div class="group">
 					<label class="check"><input type="checkbox" bind:checked={readerView} data-testid="reader-view" /> {m['creator.map_reader_view']()}</label>
 					<label class="check"><input type="checkbox" bind:checked={phoneFrame} data-testid="phone-frame" /> {m['creator.map_phone_frame']()}</label>
 				</div>
@@ -409,6 +476,7 @@
 					<button type="button" class="ghost" onclick={() => map && (map.locations.length ? view.fit(map.locations, 60, 3) : view.centerOn({ x: map.width / 2, y: map.height / 2 }, 0.5))} aria-label={m['creator.map_fit']()} title={m['creator.map_fit']()}><Icon name="maximize" /></button>
 				</div>
 			</div>
+			{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
 			<div class="stage">
 				<MapCanvas
 					bind:this={canvas}
@@ -432,7 +500,7 @@
 			</div>
 			<aside class="side">
 				{#if selection}
-					<MapProps {doc} {map} {selection} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
+					<MapProps {doc} {map} {selection} {bust} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
 				{:else}
 					<MapProps {doc} {map} selection={null} {toons} {languages} {publishedIds} onselect={(s) => select(s, true)} />
 					<section class="validation" data-testid="map-validation">

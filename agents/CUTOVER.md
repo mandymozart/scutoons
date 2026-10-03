@@ -540,6 +540,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   confirmation (the chapter number, in-page dialog); delete = removed from the season's sequence + the entity marked deleted,
   its versions kept (admin can restore; purging is a separate admin step). A published chapter is never deleted – at most
   hidden (draft / coming soon), so links and reading progress keep working.
+- [ ] 10.29 **Catalog into the database** (owner 2026-10-04: "lets just do it properly … we have to do them all now"): items, recipes,
+  albums, products, editions, featured, permissions / code types, toons (admin-created) → tables + history; slots / stats → code;
+  basic admin UI with the asset picker and bulk imports. Plan and status: agents/CATALOG.md.
 - [ ] 10.28 **SCUTOONS MCP server** – an agent with the rights of the signed-in creator (owner 2026-10-03: "very important
   … i want to also connect other services that help me create more sophisticated assets"; first step right after the
   release, branch `mcp`). Why MCP and not only an "Ask" panel: the API can do much more than the UI, any MCP client can use

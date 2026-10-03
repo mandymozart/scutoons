@@ -18,7 +18,8 @@
 		toons,
 		languages,
 		publishedIds,
-		onselect
+		onselect,
+		bust = 0
 	}: {
 		doc: ContentDoc;
 		map: WorldMap;
@@ -28,6 +29,8 @@
 		/** ids in the published map (fixed: events reference them) */
 		publishedIds: { places: Set<string>; routes: Set<string> };
 		onselect: (selection: MapSelection) => void;
+		/** set after an import (a timestamp): the place image's preview loads again */
+		bust?: number;
 	} = $props();
 
 	const place = $derived(selection?.kind === 'place' ? (map.locations.find((p) => p.id === selection.id) ?? null) : null);
@@ -38,7 +41,7 @@
 
 <div class="props" data-testid="map-props">
 	{#if place}
-		<PlaceProps {doc} {map} {place} {toons} {languages} locked={publishedIds.places.has(place.id)} {onselect} />
+		<PlaceProps {doc} {map} {place} {toons} {languages} locked={publishedIds.places.has(place.id)} {onselect} {bust} />
 	{:else if route}
 		<RouteProps {doc} {map} {route} {toons} {languages} locked={publishedIds.routes.has(route.id)} {onselect} />
 	{:else if layer}

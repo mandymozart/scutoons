@@ -22,7 +22,8 @@
 		toons,
 		languages,
 		locked,
-		onselect
+		onselect,
+		bust = 0
 	}: {
 		doc: ContentDoc;
 		map: WorldMap;
@@ -32,6 +33,8 @@
 		/** the id is in the published map (fixed: events reference it) */
 		locked: boolean;
 		onselect: (selection: MapSelection) => void;
+		/** set after an import: the image's preview loads again */
+		bust?: number;
 	} = $props();
 
 	const locale = $derived(getLocale());
@@ -177,7 +180,7 @@
 	</div>
 </fieldset>
 
-<PlaceImage {doc} {place} />
+<PlaceImage {doc} {place} {bust} />
 
 <fieldset>
 	<legend>{m['creator.map_used_in']()}</legend>
