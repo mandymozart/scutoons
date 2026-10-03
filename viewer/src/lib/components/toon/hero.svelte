@@ -137,7 +137,7 @@
 	<div class="hero-text">
 		<h1>{toon.title}</h1>
 		<!-- the season's description under the title (owner 2026-10-03: no "Staffel 1 · …" line, not the toon's text) -->
-		{#if season.description || toon.description}<ClampText text={season.description || toon.description} class="hero-tagline" />{/if}
+		{#if season.description || toon.description}<ClampText text={season.description || toon.description} lines={2} class="hero-tagline" />{/if}
 		<div class="hero-actions">
 			<StartButton {toonId} season={seasonNumber} chapters={sequence} inverse testid="hero-start" />
 			{#if trailerHref}
@@ -197,7 +197,8 @@
 		position: absolute;
 		left: 2rem;
 		bottom: 3rem;
-		width: min(31.6667rem, 60%);
+		/* 3/4 of the hero, so the season's description flows wide (owner 2026-10-03) */
+		width: 75%;
 		display: flex;
 		flex-direction: column;
 		gap: 0.8333rem;
@@ -215,7 +216,7 @@
 	.hero-text :global(.hero-tagline) {
 		font-size: 0.8333rem;
 		line-height: 1.5;
-		max-width: 26.6667rem;
+		max-width: none;
 	}
 	.hero-actions {
 		display: flex;
