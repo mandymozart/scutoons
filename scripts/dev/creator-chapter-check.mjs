@@ -19,6 +19,8 @@
 //   keys:    Escape lets the selection go; Delete removes the selected box
 //   slices:  next / previous slice (bar buttons) move the slice editor and the URL
 //   save:    Save draft (note dialog skipped) stores the chapter draft with the new text; the published version stays
+//   VN:      chapter 2's scene-14: each event type's line opens its form (+ "Only if"); "+ setVariable" adds one, open,
+//            the cursor in it; a slice event has its trigger (never saved)
 // Afterwards every entity the run changed is restored (content as before, published again if it was), also on failure.
 // Refuses to run while the chapter has an unpublished draft (someone's work in progress is never touched).
 import { execFileSync, spawn } from 'node:child_process';
@@ -38,6 +40,8 @@ const SLICE = 1; // the first story slice (0 is the key visual)
 const LOCALES = ['de', 'en'];
 const CHAPTER_KEYS = LOCALES.map((l) => `chapter:${TOON}:${CHAPTER}:${l}`);
 const TEXT = 'Regressionstext';
+/** a chapter-2 scene with a group script and slice events (catpope) */
+const VN_GROUP = 'scene-14';
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 for (const url of [API, CREATOR]) {
@@ -394,6 +398,45 @@ try {
 		'the draft has the new text box; the published version stays',
 		JSON.stringify({ n: savedDialogs.length, published: draft.published })
 	);
+
+	// ── VN events (step 8: one form per type): chapter 2's first scene – its group script, then a slice's events ──
+	// edits here are never saved (the page is left with them; nothing is written)
+	await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/2?group=${VN_GROUP}` });
+	check(await until(`!!${q('vn-events')} && !!${q('event-line-0')}`, 30000), `VN: the group script of ${VN_GROUP} lists its events`);
+	const typeIndex = await js(`(() => { const out = {}; document.querySelectorAll('[data-testid^="event-line-"]').forEach((b) => { const t = b.querySelector('.type')?.textContent; if (t && !(t in out)) out[t] = Number(b.dataset.testid.slice(11)); }); return out; })()`);
+	/** what each type's form shows once its line is opened */
+	const FORMS = {
+		showMessage: (i) => `!!document.querySelector('[data-testid="event-${i}"] textarea') && !!document.querySelector('[data-testid="event-${i}"] .sc-fields')`,
+		joinScene: (i) => `!!document.querySelector('[data-testid="event-${i}"] [data-testid="character-ref-open"]')`,
+		addChoice: (i) => `!!document.querySelector('[data-testid="choice-actions-${i}"]')`,
+		setVariable: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields input, [data-testid="event-${i}"] .sc-fields select').length >= 3`,
+		label: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields input')`,
+		divert: (i) => `!!document.querySelector('[data-testid="event-${i}"] .sc-fields select')`,
+		jumpTo: (i) => `document.querySelectorAll('[data-testid="event-${i}"] .sc-fields select').length >= 1`
+	};
+	for (const [type, ready] of Object.entries(FORMS)) {
+		const i = typeIndex[type];
+		if (i === undefined) continue;
+		await click(tid(`event-line-${i}`));
+		check(
+			(await until(`${q(`event-line-${i}`)}.getAttribute('aria-expanded') === 'true' && (${ready(i)}) && (!!${q(`add-condition-${i}`)} || !!document.querySelector('[data-testid="event-${i}"] details.only-if[open]'))`, 3000)) === true,
+			`VN: a ${type} line opens its form (+ "Only if")`
+		);
+		await click(tid(`event-line-${i}`));
+	}
+	const lines = await js(`document.querySelectorAll('[data-testid^="event-line-"]').length`);
+	await click(`[data-testid="vn-events"] .add button:last-child`); // + setVariable
+	check(
+		(await until(`document.querySelectorAll('[data-testid^="event-line-"]').length === ${lines + 1} && ${q(`event-line-${lines}`)}.getAttribute('aria-expanded') === 'true'`, 3000)) &&
+			(await js(`document.activeElement?.closest('[data-testid="event-${lines}"]') !== null && document.activeElement?.tagName === 'INPUT'`)),
+		'VN: "+ setVariable" adds an event, opened, the cursor in its first field'
+	);
+	await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/2?group=${VN_GROUP}&slice=1` });
+	await until(`!!${q('tab-events')}`, 30000);
+	await click(tid('tab-events'));
+	check(await until(`!!${q('event-line-0')} && !!${q('vn-events')}`, 5000), 'VN: the slice events tab lists the slice\'s events');
+	await click(tid('event-line-0'));
+	check(await until(`!!${q('event-whole-0')}`, 3000), 'VN: a slice event has its trigger (whole slice / area)');
 	check(errors.length === 0, 'no page errors', errors.join(' | '));
 } catch (e) {
 	failed = true;

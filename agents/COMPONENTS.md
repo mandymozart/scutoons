@@ -227,6 +227,11 @@ Done (branch `components`):
   `.is-selected`, `.is-missing`), `.sc-card-img` for the asset, character and item pickers (~170 lines of copied CSS
   gone). Visible: one card frame everywhere (2px border-muted; the item cards had a hairline ink frame, the character
   cards a 1px grey one), filters wrap instead of a fixed 4-column grid; the item picker got arrow keys too.
+- Step 8 ✓ (the commit adding this line; platform merged before it, 2b29ddc) – vn-events 812 → 387 lines: the list + row
+  chrome; `events/event-message`, `-choice`, `-flow` (jumpTo, label, divert, setVariable), `-onomatopoeia`, `-cast`
+  (join / leave), `-target` (a jump's target), `-condition` ("Only if"), `-trigger`; pure parts in
+  `lib/editor/vn-forms.ts`. tools.css `.sc-fields[data-align=start|end]` replaces the local align rules (also toon /
+  season editor). check:creator-chapter covers the VN forms (55 checks).
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

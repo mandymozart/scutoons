@@ -56,7 +56,7 @@
 					{#if value !== l}<button type="button" class="ghost mini" onclick={() => file.setLocal(l, ['language'], l)}>= {l}</button>{/if}
 				{/each}
 			</p>
-			<div class="sc-fields" data-cols="3">
+			<div class="sc-fields" data-cols="3" data-align="start">
 				<SharedField doc={file} path={['id']} label="id" required />
 				<SharedField doc={file} path={['status']} label="status" kind="select" options={STATUSES} required />
 				<SharedField doc={file} path={['release']} label="release" kind="date" required />
@@ -70,7 +70,7 @@
 				<p class="warn">{m['creator.toon_entry_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 			{:else}
 				<SharedField doc={index} path={['authors']} label="authors" kind="list" testid="toon-authors" />
-				<div class="sc-fields" data-cols="3">
+				<div class="sc-fields" data-cols="3" data-align="start">
 					<SharedField doc={index} path={['chapters']} label="chapters (count)" kind="number" />
 					<SharedField doc={index} path={['thumbnail']} label="thumbnail" kind="image" {toon} known={images} />
 				</div>
@@ -99,7 +99,7 @@
 						<span>{m['creator.announce']()}</span>
 					</label>
 					<p class="hint">{m['creator.announce_hint']()}</p>
-					<div class="sc-fields" data-cols="3">
+					<div class="sc-fields" data-cols="3" data-align="start">
 						<SharedField doc={index} path={['tile', 'image']} label="tile.image" kind="image" {toon} known={images} />
 						<SharedField doc={index} path={['tile', 'color']} label="tile.color" placeholder={m['creator.tile_color_placeholder']()} testid="toon-tile-color" />
 					</div>
@@ -108,7 +108,7 @@
 				<div class="sub" data-testid="toon-map">
 					<h3>{m['creator.map_start_view']()}</h3>
 					<p class="hint">{m['creator.map_start_view_hint']()} <a href="/map?toon={toon}">{m['creator.map_open_builder']()}</a></p>
-					<div class="sc-fields" data-cols="4">
+					<div class="sc-fields" data-cols="4" data-align="start">
 						<SharedField doc={index} path={['map', 'center', 'x']} label="map.center.x" kind="number" />
 						<SharedField doc={index} path={['map', 'center', 'y']} label="map.center.y" kind="number" />
 						<SharedField doc={index} path={['map', 'zoom']} label="map.zoom" kind="number" />
@@ -149,10 +149,7 @@
 		flex-direction: column;
 		gap: 0.2rem;
 	}
-	/* the field grids (tools.css .sc-fields): fields top-aligned, two columns below 900px */
-	.sc-fields {
-		align-items: start;
-	}
+	/* the field grids (tools.css .sc-fields): two columns below 900px */
 	@media (max-width: 900px) {
 		.sc-fields[data-cols] {
 			grid-template-columns: repeat(2, minmax(0, 1fr));

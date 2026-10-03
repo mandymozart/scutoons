@@ -1,42 +1,27 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { CloseIcon, Icon, Segmented } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { getAt, clone, type Path } from '@scutoons/content';
-	import { JumpToTargetType, OnomatopoeiaEffect, Trigger, TriggerMode } from '@scutoons/content';
+	import { characterImage, characterIndex, clone, getAt, resolveCharacterId, scriptLabels, Trigger, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { ONO_PRESETS, applyOnoPreset, matchOnoPreset, type OnoPreset } from '$lib/editor/event-presets.ts';
-	import PropField from '$lib/components/fields/prop-field.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
-	import { characterImage, actionsOf, scriptLabels, VN_CONDITION_OPS } from '@scutoons/content';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
-	import LocaleText from '$lib/components/fields/locale-text.svelte';
-	import CharacterRefField, { type CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
-	import {
-		REGULAR_PERSONA,
-		resolveCharacterId,
-		characterIndex,
-		defaultLookId,
-		defaultMoodVocabulary,
-		findLook,
-		findPersona,
-		lookLabel,
-		lookPortraitMoods,
-		moodLabel,
-		sortedMoods
-	} from '@scutoons/content';
-
-	/** the view of a joined character is its slot in the reader (DESIGN.md → "VN layout") */
-	const VIEW_SLOTS = [
-		{ value: 'avatar', label: 'Avatar (links)' },
-		{ value: 'portrait', label: 'Portrait (rechts)' },
-		{ value: 'full', label: 'Full (Mitte)' }
-	];
+	import { FORM_TYPES, castOptions, conditionWords, summary, template, triggerWord } from '$lib/editor/vn-forms.ts';
+	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
+	import EventMessage from '$lib/components/events/event-message.svelte';
+	import EventChoice from '$lib/components/events/event-choice.svelte';
+	import EventFlow from '$lib/components/events/event-flow.svelte';
+	import EventOnomatopoeia from '$lib/components/events/event-onomatopoeia.svelte';
+	import EventCast from '$lib/components/events/event-cast.svelte';
+	import EventCondition from '$lib/components/events/event-condition.svelte';
+	import EventTrigger from '$lib/components/events/event-trigger.svelte';
 
 	/**
 	 * Visual-novel events: group scripts (`group.events`) or slice-triggered events (`slice.events`, with `trigger`).
-	 * Structured forms for every type the reader plays; no raw JSON (owner 2026-10-03) – another type is only named, to remove.
+	 * The list and each row's chrome (one line until opened, multi-select + drag, the type, "Only if", the trigger); one
+	 * form component per type (events/event-*.svelte, COMPONENTS.md step 8). No raw JSON (owner 2026-10-03) – another
+	 * type is only named, to remove.
 	 */
 	let {
 		doc,
@@ -72,115 +57,15 @@
 		groupLabels?: string[];
 	} = $props();
 
-	const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showOnomatopeia', 'joinScene', 'leaveScene', 'label', 'divert', 'setVariable'];
-
 	const events = $derived<any[]>(doc.get(doc.primary, eventsPath) ?? []);
-
-	function template(type: string): any {
-		switch (type) {
-			case 'showMessage':
-				return { type, params: { text: '', wait: true } };
-			case 'addChoice':
-				return { type, params: { label: '' } };
-			case 'jumpTo':
-				return { type, params: { target: { type: 'chapter', value: '1' } } };
-			case 'showOnomatopeia':
-				// the text box is picked (or created) in the form
-				return { type, params: { effect: 'shiver' } };
-			case 'joinScene':
-			case 'leaveScene':
-				return { type, params: { characters: [{ character: characters[0]?.name ?? '', persona: 'regular', ...(type === 'joinScene' ? { variant: 'avatar' } : {}) }] } };
-			case 'label':
-				return { type, params: { name: `point-${scriptLabels(events).length + 1}` } };
-			case 'divert':
-				return { type, params: { to: pointNames[0] ?? '' } };
-			case 'setVariable':
-				return { type, params: { variable: '', value: '', op: 'set' } };
-			default:
-				return { type };
-		}
-	}
-
 	/** the points a divert can go to: the group's script (a slice event diverts into it) or this script */
 	const pointNames = $derived(groupPoints ?? scriptLabels(events));
-
-	// ── choice actions (a list, CUTOVER 10.27) ──
-	const ACTION_KINDS = ['set', 'add', 'jumpTo', 'divert'] as const;
-	const actionKind = (a: any) => (a?.set ? 'set' : a?.add ? 'add' : a?.jumpTo ? 'jumpTo' : a?.divert ? 'divert' : 'other');
-	const newAction = (kind: string): any =>
-		kind === 'set'
-			? { set: { variable: '', value: '' } }
-			: kind === 'add'
-				? { add: { variable: '', value: 1 } }
-				: kind === 'jumpTo'
-					? { jumpTo: { target: { type: 'chapter', value: '1' } } }
-					: { divert: { to: pointNames[0] ?? '' } };
-	/** the path of action `ai` (a single object is stored as it is, a list by index) */
-	const actionPath = (event: any, i: number, ai: number): Path => [...eventsPath, i, 'params', 'onSelect', ...(Array.isArray(event?.params?.onSelect) ? [ai] : [])];
-	function editActions(index: number, change: (list: any[]) => void) {
-		doc.structural((file) => {
-			const params = getAt(file, [...eventsPath, index, 'params']);
-			if (!params) return;
-			const list = actionsOf(params.onSelect).map((a: any) => clone(a));
-			change(list);
-			if (!list.length) delete params.onSelect;
-			else params.onSelect = list.length === 1 ? list[0] : list;
-		}, `${eventsPath.join('.')}.${index}.actions`);
-	}
-
-	// ── "Only if" ──
-	function setCondition(index: number, on: boolean) {
-		doc.structural((file) => {
-			const event = getAt(file, [...eventsPath, index]);
-			if (!event) return;
-			if (on) event.if = { variable: '', op: '==', value: '' };
-			else delete event.if;
-		}, `${eventsPath.join('.')}.${index}.if`);
-	}
-	const OP_WORDS: Record<string, string> = { '==': '=', '!=': '≠', '<': '<', '<=': '≤', '>': '>', '>=': '≥', set: 'is set', unset: 'is not set' };
-	const conditionWords = (c: any) => (c?.variable ? `${c.variable} ${OP_WORDS[c.op] ?? c.op}${c.op === 'set' || c.op === 'unset' ? '' : ` ${c.value ?? ''}`}` : '');
-
-	// ── a jump's random list ──
-	function toggleAnyOf(targetPath: Path, labelName: string, on: boolean) {
-		doc.structural((file) => {
-			const target = getAt(file, targetPath);
-			if (!target) return;
-			const list: string[] = Array.isArray(target.anyOf) ? target.anyOf.filter((l: string) => l !== labelName) : [];
-			if (on) list.push(labelName);
-			if (list.length) target.anyOf = groupLabels.filter((l) => list.includes(l)).concat(list.filter((l) => !groupLabels.includes(l)));
-			else delete target.anyOf;
-		}, `${targetPath.join('.')}.anyOf`);
-	}
-
-	/** an onomatopoeia's preset (effect + timing), the text and mode / wait stay */
-	function setOnoPreset(index: number, preset: OnoPreset) {
-		doc.structural((file) => {
-			const event = getAt(file, [...eventsPath, index]);
-			if (!event) return;
-			event.params ??= {};
-			applyOnoPreset(event.params, preset);
-		}, `${eventsPath.join('.')}.${index}.ono-preset`);
-	}
-	/** the trigger in words (owner 2026-10-03) */
-	const TRIGGER_OPTIONS = $derived([
-		{ value: Trigger.CLICK, label: m['creator.trigger_click']() },
-		{ value: Trigger.HOVER, label: m['creator.trigger_hover']() },
-		{ value: Trigger.INTERSECT, label: m['creator.trigger_intersect']() }
-	]);
-
-	/** whole slice = no `trigger.rect`; off = a centred area to drag on the slice */
-	function setWholeSlice(index: number, whole: boolean) {
-		doc.structural((file) => {
-			const trigger = getAt(file, [...eventsPath, index, 'trigger']);
-			if (!trigger) return;
-			if (whole) delete trigger.rect;
-			else trigger.rect = { x: 10, y: 30, width: 80, height: 40 };
-		}, `${eventsPath.join('.')}.${index}.area`);
-		onselect?.(index);
-	}
+	const charOptions = $derived(characters.map((c) => ({ value: c.name, label: c.label ? `${c.name} (${c.label})` : c.name })));
+	const cast = $derived(castOptions(choices));
+	const newEvent = (type: string) => template(type, { firstCharacter: characters[0]?.name, events, pointNames });
 
 	function add(type: string) {
-		const event = template(type);
+		const event = newEvent(type);
 		// a new slice event covers the whole slice (when scrolled into view); an area is drawn with the ⚡ tool or switched on below
 		if (sliceEvents) event.trigger = { type: Trigger.INTERSECT };
 		doc.structural((file) => {
@@ -226,6 +111,17 @@
 		});
 	}
 
+	function changeType(index: number, type: string) {
+		if (!confirm(`Change event ${index + 1} to ${type}? Its parameters are replaced.`)) return;
+		doc.structural((file) => {
+			const list = getAt(file, eventsPath);
+			if (!Array.isArray(list)) return;
+			const next = newEvent(type);
+			if (list[index]?.trigger) next.trigger = list[index].trigger;
+			list[index] = next;
+		});
+	}
+
 	// ── one-liners (owner 2026-10-03): an event is a line (number, type, what it does) until opened; the selected one opens ──
 	let open = $state<number[]>([]);
 	$effect(() => {
@@ -264,43 +160,6 @@
 		if (selected >= 0) onselect?.(to(selected));
 	}
 
-	/** the line's words: what the event does, from the source language */
-	function summary(event: any): string {
-		const p = event?.params ?? {};
-		const cut = (s: unknown, n = 48) => {
-			const t = String(Array.isArray(s) ? s[0] : (s ?? '')).replace(/\s+/g, ' ').trim();
-			return t.length > n ? `${t.slice(0, n)}…` : t;
-		};
-		switch (event?.type) {
-			case 'showMessage':
-				// the speaker is the small avatar in front of the line (speakerAvatar); the words in quotes
-				return p.text ? `“${cut(p.text)}”` : '';
-			case 'addChoice': {
-				const acts = actionsOf(p.onSelect).map((a: any) =>
-					a.set ? `${a.set.variable} = ${a.set.value}` : a.add ? `${a.add.variable} + ${a.add.value}` : a.divert ? `↪ ${a.divert.to}` : a.jumpTo ? `→ ${jumpWords(a.jumpTo.target)}` : ''
-				);
-				return `“${cut(p.label, 32)}”${acts.length ? ` ${acts.join(', ')}` : ''}`;
-			}
-			case 'jumpTo':
-				return `→ ${jumpWords(p.target)}`;
-			case 'label':
-				return `◆ ${p.name ?? ''}`;
-			case 'divert':
-				return `↪ ${p.to ?? ''}`;
-			case 'setVariable':
-				return `${p.variable ?? ''} ${p.op === 'add' ? '+' : '='} ${p.value ?? ''}`;
-			case 'showOnomatopeia': {
-				const preset = matchOnoPreset(p);
-				return [p.dialog, preset ? m[`creator.ono_preset_${preset}`]() : ''].filter(Boolean).join(' · ');
-			}
-			case 'joinScene':
-			case 'leaveScene':
-				// the avatars say who (people())
-				return '';
-			default:
-				return '';
-		}
-	}
 	/** the speaker's avatar (a tiny one in the line, owner 2026-10-03); none without a registry image */
 	const registryIndex = $derived(choices ? characterIndex(choices.registry) : null);
 	function avatarOf(raw: any): string {
@@ -315,76 +174,6 @@
 	function people(event: any): { id: string; src: string }[] {
 		const refs = event?.type === 'showMessage' ? (event.params?.character ? [event.params] : []) : event?.type === 'joinScene' || event?.type === 'leaveScene' ? (event.params?.characters ?? []) : [];
 		return refs.map((r: any) => ({ id: String(r?.character ?? r?.name ?? ''), src: avatarOf(r) })).filter((p: { id: string }) => p.id);
-	}
-	function jumpWords(t: any): string {
-		if (!t) return '';
-		if (t.anyOf?.length) return `${t.type} ${t.value} · ${m['creator.vn_random_one']({ list: t.anyOf.join(' / ') })}`;
-		return `${t.type ?? ''} ${t.value ?? ''}${t.label ? ` · ${t.label}` : ''}`;
-	}
-	const triggerWord = (event: any) => TRIGGER_OPTIONS.find((o) => o.value === event?.trigger?.type)?.label ?? '';
-
-	function changeType(index: number, type: string) {
-		if (!confirm(`Change event ${index + 1} to ${type}? Its parameters are replaced.`)) return;
-		doc.structural((file) => {
-			const list = getAt(file, eventsPath);
-			if (!Array.isArray(list)) return;
-			const next = template(type);
-			if (list[index]?.trigger) next.trigger = list[index].trigger;
-			list[index] = next;
-		});
-	}
-
-
-
-	function characterRows(index: number): any[] {
-		return getAt(events[index], ['params', 'characters']) ?? [];
-	}
-
-	/** a new row, empty, its picker focused (owner 2026-10-03: the button "did not work" – it copied the first character) */
-	async function addCharacter(index: number) {
-		let row = 0;
-		doc.structural((file) => {
-			const params = getAt(file, [...eventsPath, index, 'params']);
-			if (!params) return;
-			params.characters ??= [];
-			params.characters.push({ character: '', persona: 'regular', ...(getAt(file, [...eventsPath, index, 'type']) === 'joinScene' ? { variant: 'avatar' } : {}) });
-			row = params.characters.length - 1;
-		});
-		await tick();
-		document.querySelectorAll<HTMLElement>(`[data-testid="event-${index}"] [data-testid="character-ref-open"]`)[row]?.focus();
-	}
-
-	function removeCharacter(index: number, ci: number) {
-		doc.structural((file) => getAt(file, [...eventsPath, index, 'params', 'characters'])?.splice(ci, 1));
-	}
-
-	const charOptions = $derived(characters.map((c) => ({ value: c.name, label: c.label ? `${c.name} (${c.label})` : c.name })));
-	const vocabulary = $derived(choices?.moods ?? defaultMoodVocabulary());
-	const choiceIndex = $derived(characterIndex(choices?.registry));
-	/** the persona of a scene ref (registry) */
-	const personaOf = (row: any) => {
-		const r = resolveCharacterId(row?.character ?? row?.name ?? '', row?.persona);
-		return findPersona(choiceIndex.get(r.character), r.persona || REGULAR_PERSONA);
-	};
-	/** the looks of the ref's persona (the default first) */
-	function looksOf(row: any) {
-		const p = personaOf(row);
-		if (!p) return [];
-		const main = defaultLookId(p);
-		return [...p.looks].sort((a, b) => Number(b.id === main) - Number(a.id === main)).map((l) => ({ id: l.id, label: lookLabel(p, l.id, choices?.locale ?? 'en') }));
-	}
-	/** moods with an image for the ref's persona / look first, then the rest of the vocabulary (they fall back) */
-	function moodOptions(row: any) {
-		const p = personaOf(row);
-		const look = findLook(p, row?.look || defaultLookId(p));
-		const available = lookPortraitMoods(look);
-		const all = sortedMoods(vocabulary).map((x) => x.id);
-		const locale = choices?.locale ?? 'en';
-		return [
-			...all.filter((x) => available.includes(x)).map((x) => ({ value: x, label: moodLabel(x, locale, vocabulary) })),
-			...available.filter((x) => !all.includes(x)).map((x) => ({ value: x, label: x })),
-			...all.filter((x) => !available.includes(x)).map((x) => ({ value: x, label: `${moodLabel(x, locale, vocabulary)} (neutral fallback)` }))
-		];
 	}
 </script>
 
@@ -441,172 +230,33 @@
 			</header>
 
 			{#if isOpen(i)}
-			<label class="type-field">
-				<span class="sc-label">type</span>
-				<select value={event?.type} onchange={(e) => changeType(i, e.currentTarget.value)}>
-					{#each FORM_TYPES as t}<option value={t}>{t}</option>{/each}
-					{#if !known}<option value={event?.type}>{event?.type}</option>{/if}
-				</select>
-			</label>
-			{#if !known}
-				<p class="hint">{m['creator.event_unknown']({ type: String(event?.type) })}</p>
-			{:else if event.type === 'showMessage'}
-				<div class="sc-fields" data-cols="3" data-density="dense">
-					{#if choices}
-						<CharacterRefField {doc} path={[...p, 'params']} kind="speaker" label="character" {choices} placeholder="narrator" />
-					{:else}
-						<PropField {doc} path={[...p, 'params', 'character']} label="character" type="select" options={charOptions} placeholder="narrator" />
-					{/if}
-					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
-					<PropField {doc} path={[...p, 'params', 'mood']} label="mood" type="select" options={moodOptions(null)} placeholder="–" />
-				</div>
-				<LocaleText {doc} path={[...p, 'params', 'text']} rows={2} />
-			{:else if event.type === 'addChoice'}
-				<LocaleText {doc} path={[...p, 'params', 'label']} label="label" multiline={false} />
-				<!-- what the choice does, in order (CUTOVER 10.27): set / add a variable, jump to a group, continue at a point -->
-				<div class="actions" data-testid="choice-actions-{i}">
-					<span class="sc-label">{m['creator.vn_actions']()}</span>
-					{#each actionsOf(event.params?.onSelect) as any[] as action, ai (ai)}
-						{@const ap = actionPath(event, i, ai)}
-						<div class="action">
-							<select value={actionKind(action)} onchange={(e) => editActions(i, (list) => (list[ai] = newAction(e.currentTarget.value)))} aria-label={m['creator.vn_action']()}>
-								{#each ACTION_KINDS as k (k)}<option value={k}>{m[`creator.vn_action_${k}`]()}</option>{/each}
-							</select>
-							<div class="sc-fields action-fields" data-cols="3" data-density="dense">
-								{#if action?.set}
-									<PropField {doc} path={[...ap, 'set', 'variable']} label="variable" required />
-									<PropField {doc} path={[...ap, 'set', 'value']} label="value" required />
-								{:else if action?.add}
-									<PropField {doc} path={[...ap, 'add', 'variable']} label="variable" required />
-									<PropField {doc} path={[...ap, 'add', 'value']} label="value" type="number" step={1} required />
-								{:else if action?.jumpTo}
-									{@render targetFields([...ap, 'jumpTo', 'target'], action.jumpTo.target)}
-								{:else if action?.divert}
-									<PropField {doc} path={[...ap, 'divert', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
-								{/if}
-							</div>
-							<button type="button" class="ghost" onclick={() => editActions(i, (list) => list.splice(ai, 1))} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
-						</div>
-					{/each}
-					<button type="button" class="secondary" onclick={() => editActions(i, (list) => list.push(newAction(list.length ? 'jumpTo' : 'set')))} data-testid="add-action-{i}">+ {m['creator.vn_action']()}</button>
-				</div>
-			{:else if event.type === 'jumpTo'}
-				<div class="sc-fields" data-cols="3" data-density="dense">
-					{@render targetFields([...p, 'params', 'target'], event.params?.target)}
-					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
-				</div>
-			{:else if event.type === 'label'}
-				<!-- a named point: a divert (event, choice, slice) continues here -->
-				<div class="sc-fields" data-cols="3" data-density="dense">
-					<PropField {doc} path={[...p, 'params', 'name']} label={m['creator.vn_point_name']()} required />
-				</div>
-				<p class="hint">{m['creator.vn_point_hint']()}</p>
-			{:else if event.type === 'divert'}
-				<div class="sc-fields" data-cols="3" data-density="dense">
-					<PropField {doc} path={[...p, 'params', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
-				</div>
-				{#if !pointNames.length}<p class="hint">{m['creator.vn_no_points']()}</p>{/if}
-			{:else if event.type === 'setVariable'}
-				<div class="sc-fields" data-cols="3" data-density="dense">
-					<PropField {doc} path={[...p, 'params', 'variable']} label="variable" required />
-					<PropField {doc} path={[...p, 'params', 'op']} label="op" type="select" options={[{ value: 'add', label: 'add (+)' }]} placeholder="set (=)" />
-					<PropField {doc} path={[...p, 'params', 'value']} label="value" type={event.params?.op === 'add' ? 'number' : 'text'} required />
-				</div>
-			{:else if event.type === 'showOnomatopeia'}
-				{@const box = event.params?.dialog}
-				<!-- an onomatopoeia is a text box this event reveals: the box gives the look, the event the timing -->
-				<div class="sc-fields" data-cols="3" data-density="dense">
-					<PropField
-						{doc}
-						path={[...p, 'params', 'dialog']}
-						label={m['creator.ono_text_box']()}
-						type="select"
-						options={[...dialogs.map((d) => ({ value: d.id, label: d.label })), ...(box && !dialogs.some((d) => d.id === box) ? [{ value: box, label: `${box} (?)` }] : [])]}
-						placeholder={m['creator.ono_choose_box']()}
-					/>
-					{#if oncreatebox && !box}
-						<button type="button" class="secondary" onclick={() => oncreatebox(i)} data-testid="ono-create-box">{m['creator.ono_create_box']()}</button>
-					{/if}
-				</div>
-				<!-- how it comes in: one preset (owner 2026-10-03); every timing field under Advanced -->
-				{@const ono = matchOnoPreset(event.params)}
-				<Segmented
-					grid
-					min="5.5rem"
-					label={m['creator.ono_preset']()}
-					value={ono}
-					onchange={(id) => setOnoPreset(i, ONO_PRESETS.find((p) => p.id === id)!)}
-					options={ONO_PRESETS.map((p) => ({ value: p.id, label: m[`creator.ono_preset_${p.id}`](), testid: `ono-preset-${p.id}` }))}
-				/>
-				<details class="advanced">
-					<summary>{m['creator.advanced']()}</summary>
-					{#if box}<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>{/if}
-					<div class="sc-fields" data-cols="3" data-density="dense">
-						<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
-						<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
-						<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
-						<PropField {doc} path={[...p, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="poly" />
-						<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
-						<PropField
-							{doc}
-							path={[...p, 'params', 'stay']}
-							label={m['creator.ono_after']()}
-							type="select"
-							options={[{ value: false, label: m['creator.ono_disappears']() }]}
-							placeholder={m['creator.ono_stays']()}
-						/>
-					</div>
-				</details>
-			{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
-				{#each characterRows(i) as row, ci (ci)}
-					{@const looks = looksOf(row)}
-					<div class="sc-fields cast-row" data-density="dense">
-						{#if choices}
-							<CharacterRefField {doc} path={[...p, 'params', 'characters', ci]} label="character" {choices} />
-						{:else}
-							<PropField {doc} path={[...p, 'params', 'characters', ci, 'name']} label="character" type="select" options={charOptions} required />
-						{/if}
-						{#if event.type === 'joinScene'}
-							<PropField {doc} path={[...p, 'params', 'characters', ci, row?.position && !row?.variant ? 'position' : 'variant', ...(row?.position && !row?.variant ? ['variant'] : [])]} label="Slot / Ansicht" type="select" options={VIEW_SLOTS} placeholder="Avatar (links)" />
-							<PropField {doc} path={[...p, 'params', 'characters', ci, 'mood']} label="mood" type="select" options={moodOptions(row)} placeholder="neutral" />
-							{#if looks.length > 1 || row?.look}
-								<PropField {doc} path={[...p, 'params', 'characters', ci, 'look']} label="look" type="select" options={looks.slice(1).map((l) => ({ value: l.id, label: l.label }))} placeholder={looks[0] ? `${looks[0].label} (default)` : 'default'} />
-							{/if}
-						{/if}
-						<button type="button" class="ghost" onclick={() => removeCharacter(i, ci)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
-					</div>
-				{/each}
-				<button type="button" class="secondary" onclick={() => addCharacter(i)}>+ character</button>
-			{:else}
-				<p class="hint">No parameters.</p>
-			{/if}
-
-			<!-- "Only if" (CUTOVER 10.27): the event runs only when the reader's variable passes the test -->
-			<details class="advanced only-if" open={!!event.if}>
-				<summary>{m['creator.vn_only_if']()}{event.if?.variable ? ` · ${conditionWords(event.if)}` : ''}</summary>
-				{#if event.if}
-					<div class="sc-fields" data-cols="3" data-density="dense">
-						<PropField {doc} path={[...p, 'if', 'variable']} label="variable" required />
-						<PropField {doc} path={[...p, 'if', 'op']} label="op" type="select" options={VN_CONDITION_OPS.map((o) => ({ value: o, label: OP_WORDS[o] }))} required />
-						{#if event.if.op !== 'set' && event.if.op !== 'unset'}<PropField {doc} path={[...p, 'if', 'value']} label="value" required />{/if}
-					</div>
-					<button type="button" class="ghost" onclick={() => setCondition(i, false)}>{m['creator.vn_only_if_remove']()}</button>
+				<label class="type-field">
+					<span class="sc-label">type</span>
+					<select value={event?.type} onchange={(e) => changeType(i, e.currentTarget.value)}>
+						{#each FORM_TYPES as t}<option value={t}>{t}</option>{/each}
+						{#if !known}<option value={event?.type}>{event?.type}</option>{/if}
+					</select>
+				</label>
+				{#if !known}
+					<p class="hint">{m['creator.event_unknown']({ type: String(event?.type) })}</p>
+				{:else if event.type === 'showMessage'}
+					<EventMessage {doc} path={p} {choices} {charOptions} {cast} />
+				{:else if event.type === 'addChoice'}
+					<EventChoice {doc} path={p} {event} index={i} {pointNames} {groupLabels} />
+				{:else if event.type === 'jumpTo' || event.type === 'label' || event.type === 'divert' || event.type === 'setVariable'}
+					<EventFlow {doc} path={p} {event} {pointNames} {groupLabels} />
+				{:else if event.type === 'showOnomatopeia'}
+					<EventOnomatopoeia {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
+				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
+					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
 				{:else}
-					<button type="button" class="secondary" onclick={() => setCondition(i, true)} data-testid="add-condition-{i}">+ {m['creator.vn_only_if']()}</button>
+					<p class="hint">No parameters.</p>
 				{/if}
-			</details>
 
-			{#if sliceEvents}
-				<div class="sc-fields trigger" data-cols="3" data-density="dense">
-					<PropField {doc} path={[...p, 'trigger', 'type']} label={m['creator.trigger']()} type="select" options={TRIGGER_OPTIONS} required />
-					<PropField {doc} path={[...p, 'trigger', 'once']} label={m['creator.trigger_once']()} type="bool" placeholder="false" />
-					<!-- area or the whole slice (no rect) – click, hover and intersect all take either (owner 2026-10-03) -->
-					<label class="whole" title={m['creator.event_whole_slice_hint']()}>
-						<input type="checkbox" checked={!event.trigger?.rect} onchange={(e) => setWholeSlice(i, e.currentTarget.checked)} data-testid="event-whole-{i}" />
-						{m['creator.event_whole_slice']()}
-					</label>
-				</div>
-			{/if}
+				<EventCondition {doc} path={p} {event} index={i} />
+				{#if sliceEvents}
+					<EventTrigger {doc} path={p} {event} index={i} {onselect} />
+				{/if}
 			{/if}
 		</article>
 	{/each}
@@ -617,23 +267,6 @@
 		{/each}
 	</div>
 </section>
-
-<!-- a jump's target: chapter + group, or a random group of a list (never the current one) -->
-{#snippet targetFields(tp: Path, target: any)}
-	<PropField {doc} path={[...tp, 'type']} label="target type" type="select" options={Object.values(JumpToTargetType)} required />
-	<PropField {doc} path={[...tp, 'value']} label="value (chapter no.)" required />
-	{#if !target?.anyOf?.length}
-		<PropField {doc} path={[...tp, 'label']} label="label (group)" type={groupLabels.length ? 'select' : 'text'} options={groupLabels} placeholder={m['creator.vn_group_first']()} />
-	{/if}
-	{#if groupLabels.length}
-		<fieldset class="any-of">
-			<legend title={m['creator.vn_random_hint']()}>{m['creator.vn_random']()}</legend>
-			{#each groupLabels as gl (gl)}
-				<label><input type="checkbox" checked={target?.anyOf?.includes(gl) ?? false} onchange={(e) => toggleAnyOf(tp, gl, e.currentTarget.checked)} /> {gl}</label>
-			{/each}
-		</fieldset>
-	{/if}
-{/snippet}
 
 <style>
 	.vn-events {
@@ -707,34 +340,6 @@
 	.line .trig {
 		flex: 0 4 auto;
 	}
-	.actions {
-		display: flex;
-		flex-direction: column;
-		gap: 0.3rem;
-	}
-	.action {
-		display: grid;
-		grid-template-columns: 9rem minmax(0, 1fr) auto;
-		gap: 0.4rem;
-		align-items: end;
-		padding: 0.3rem 0;
-		border-top: 1px dashed var(--border-muted);
-	}
-	.action-fields {
-		min-width: 0;
-	}
-	.any-of {
-		grid-column: 1 / -1;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem 0.75rem;
-		margin: 0;
-	}
-	.any-of label {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.25rem;
-	}
 	.type-field {
 		display: flex;
 		flex-direction: column;
@@ -770,24 +375,6 @@
 		margin-left: auto;
 		display: flex;
 		flex: none;
-	}
-	/* the field grids (tools.css .sc-fields): fields bottom-aligned; a cast row: character, slot, mood, remove */
-	.sc-fields {
-		align-items: end;
-	}
-	.cast-row {
-		grid-template-columns: 2fr 1fr 1fr auto;
-	}
-	.trigger {
-		border-top: 1px dashed var(--border-muted);
-		padding-top: 0.3rem;
-	}
-	.whole {
-		display: flex;
-		align-items: center;
-		gap: 0.3rem;
-		align-self: end;
-		min-height: var(--control-height);
 	}
 	.add {
 		display: flex;

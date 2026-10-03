@@ -472,6 +472,7 @@
      data-density="page"  (default) page forms – toon settings, character detail   --space-075 / --space-1
      data-density="panel" inspector panels – text inspector, group panel             --space-05  / --space-075
      data-density="dense" dense rows – VN events, slice audio                        --space-025 / --space-05
+   data-align: start | end (fields of different heights: tops or inputs in line).
    data-cols: 1 (default) | 2 | 3 | 4 equal columns; "fill" = as many columns of at least --fields-fill-min (12rem) as fit;
    "fit" = the same, stretched over the row (--fields-fit-min, 18rem). A genuinely special layout sets only its own
    grid-template-columns (or align-items) locally – never a gap (check:tools-css). */
@@ -497,6 +498,12 @@
 }
 .sc-fields[data-cols='fill'] {
 	grid-template-columns: repeat(auto-fill, minmax(min(var(--fields-fill-min), 100%), 1fr));
+}
+.sc-fields[data-align='start'] {
+	align-items: start;
+}
+.sc-fields[data-align='end'] {
+	align-items: end;
 }
 .sc-fields[data-cols='fit'] {
 	grid-template-columns: repeat(auto-fit, minmax(min(var(--fields-fit-min), 100%), 1fr));
