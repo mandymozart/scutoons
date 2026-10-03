@@ -232,7 +232,8 @@ one-line description; burger < 768px) + the fixed bottom `ActionBar` on every pa
 single code (regenerate path) and of a batch code, QR SVG and the batch print sheet are **byte-identical** apart from
 jsPDF's `/CreationDate` and `/ID`; `signedData` has the legacy key order (single: … template fields as strings,
 `svg: null`; batch: numbers, `receiver: ""`); QR URL `https://qr.scutoons.com?c=<CODE>`, footer "Verify at
-https://qr.scutoons.com/verify.html with code: <UPPER CASE>". Admin signatures verify with the verify page's bundled
+https://qr.scutoons.com/verify.html with code: <UPPER CASE>" (since 2026-10-03 the exact code: codes are
+case-sensitive, matched exactly – see the RULE section). Admin signatures verify with the verify page's bundled
 noble copy and use the published public key.
 
 **Decisions**
@@ -475,6 +476,10 @@ they are** — in every refactor, on every host/docroot change, in both old and 
   **Done for the verify page 2026-10-02:** `/verify.html` checks through `GET /api/certificates/<CODE>` (exactly that
   rule; tested with all signed dev-DB codes in UPPER CASE); `/verify.html?code=` keeps working (checks right away).
   The landing page `?c=` is unchanged. Details: agents/ITEMS.md "Certificates".
+  **Superseded 2026-10-03 (owner: "make it case sensitive … there are never only-capital codes … stick to one rule"):**
+  codes are case-sensitive and matched exactly everywhere, also by `/api/certificates/` and the verify page – the
+  printed UPPER CASE form of older certificates is no longer accepted when typed (their QR and the signature file
+  still verify); new certificates print the exact code. Migration `2026-10-03-code-case` (server/docs/DATABASE.md).
 
 ## Local dev ports (2026-09-30, owner — final)
 
@@ -890,7 +895,7 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 - KAS → subdomain `qr` → target directory `/qr/public/` (SSL stays on; re-issue if KAS asks).
 - Check with real codes: a membership code `/?c=CODE` and `?c=CODE` (no slash) → item page with Continue + Add to my
   account; a promo code → Create account; a page code → redirect; `/?c=CODE&skip=1` → redirect; an unknown code → 404
-  page; `/verify.html` with a real certificate code (behaves as before – the known UPPER CASE issue of the RULE section is unchanged); `/api/validate/?c=CODE` (JSON,
+  page; `/verify.html` with a real certificate code (by its exact code – since 2026-10-03 codes are case-sensitive, see the RULE section); `/api/validate/?c=CODE` (JSON,
   `Access-Control-Allow-Origin: *`); `/api/keys/keys.php`; `/version.json`.
 - Admin (or `generate/` Stats): the scan shows up with a device/IP hash – if every scan has the same IP hash,
   `QR_PROXY_SECRET` differs between api and qr.

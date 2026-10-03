@@ -439,10 +439,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   migrate + the `*.mysql.sql` content seed + promo `devpromo` + switch + API restart + test user; `npm run dev:db sqlite`
   back (SQLite stays the default); `npm run dev:db test` / `phpunit -c phpunit.mysql.xml` = the unit suite on MariaDB;
   CI job `test-mariadb` in server.yml. Found on MariaDB: two signups at the same moment deadlocked in the basic dress
-  (fixed, test); `qr.code` is case-insensitive in production (utf8mb4_general_ci) – "ambiguous code" cannot happen
-  there; a flaky test fixture. **Open (owner):** run `SELECT VERSION(); SELECT @@sql_mode, @@character_set_server,
-  @@collation_server;` in phpMyAdmin and set `MARIADB_VERSION` / `MARIADB_SQL_MODE` / charset / collation in
-  `docker/compose.yml` to match.
+  (fixed, test); `qr.code` was case-insensitive in production (utf8mb4_general_ci) → 10.24; a flaky test fixture.
+  Production's values (owner, phpMyAdmin 2026-10-03: 10.11.14, sql_mode NO_ENGINE_SUBSTITUTION, latin1 server
+  defaults) are the container's defaults since branch `db-case`.
 - [ ] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
   500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
   messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
@@ -486,6 +485,13 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   own DB – locally the dev DB, and production's MariaDB is not reachable from outside. The runner on the owner's machine
   (ffmpeg) should take jobs through the API (admin token): list queued → download the source from bunny → transcode →
   upload → mark done. Job #1 (video-renditions, 2026-10-02 22:45) can be dropped.
+- [ ] 10.24 Codes case-sensitive + strict session sql_mode (owner 2026-10-03, branch `db-case`): **O – run
+  `server/migrations/mysql/2026-10-03-code-case.mysql.sql` in phpMyAdmin** (whole file at once; before or after the API
+  deploy, both orders are safe; idempotent). Every code lookup is exact, also `/api/certificates/` + the verify page
+  (no case-insensitive fallback; certificates printed before show UPPER CASE – typed that way they are unknown now, the
+  QR / signature file still verify); new certificates print the exact code. The API sets a strict session `sql_mode`
+  (`DB_SQL_MODE`, production's server mode is not strict). Optional check afterwards: the information_schema SQL in
+  server/docs/DATABASE.md "Matching production" (all utf8mb4; the code columns utf8mb4_bin).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

@@ -899,7 +899,7 @@ The Check It camera needs nothing extra on deploy (catalog + viewer): it is craf
 to a buyer by hand** at purchase – the "Original buyer" field (`receiver`) is left empty on purpose. The certificate
 plus the piece are the **proof of ownership, as in the art world, even if our servers were gone**; our ML-DSA-65
 signature lets anyone validate that the document is authentic, so it cannot be forged. Each certificate prints the
-code (UPPER CASE), the fingerprint (first 32 bytes of the signature, `ABCD:EF01:…`) and "Verify at
+code (UPPER CASE until 2026-10-03, since then exactly as it is – codes are case-sensitive), the fingerprint (first 32 bytes of the signature, `ABCD:EF01:…`) and "Verify at
 https://qr.scutoons.com/verify.html with code: <CODE>".
 
 **Fix (2026-10-02, owner: "it just checked if the signature is a proper signature, not if it also matches an entry in
@@ -921,14 +921,15 @@ records (the admin's "signature valid" badge had the same flaw). Now:
   itself is authentic): `{ code, type, product_name, edition_number, edition_count, creators, created_at, signed_at,
   fingerprint, algorithm }`. `registered` = claimed by an account (or the old email form), `revoked` = admin revoked –
   **never who owns it** (no email, no user id, no revoke reason). `code`/`registered`/`revoked` are null for an unknown code.
-- **Reasons** (`valid: false`): `unknown_code` · `ambiguous_code` (the printed UPPER CASE form matches several codes when
-  case is ignored) · `no_signature` · `key_mismatch` (not our key → not issued by SCUTOONS) · `bad_signature` (does
+- **Reasons** (`valid: false`): `unknown_code` (also a code typed in another case) · `no_signature` · `key_mismatch` (not our key → not issued by SCUTOONS) · `bad_signature` (does
   not verify against our key: tampered / forged) · `signature_mismatch` (signed by us but not the signature on record
   for that code, e.g. an older re-signed file, or the stored one is for another code). A revoked code with an
   authentic certificate is `valid: true, revoked: true` (the page shows "Revoked"). Errors: 400 `invalid_code` /
   `invalid_signature_file` / `invalid_json`, 429, 503 `keys_missing`.
-- **Case:** exact match first, then a case-insensitive match **only when it is unique** (codes are case-sensitive
-  nanoids, certificates print UPPER CASE; the dev DB has no two codes that differ only in case).
+- **Case (owner 2026-10-03: "make it case sensitive … stick to one rule"):** exact match only, like every other code
+  lookup – no case-insensitive fallback, no `ambiguous_code` any more. Certificates printed before 2026-10-03 show the
+  code in UPPER CASE: typing that form gives `unknown_code`; the QR on the certificate (exact code) and the signature
+  file upload still verify. New certificates print the exact code (admin `pdf.ts`, legacy `generate/` `pdf.js`).
 - **Verify page** (`qr/public/verify.html`): asks the API only (no client-side crypto any more), de/en (`?lang=` or the
   browser language), `?code=` checks right away; states Authentic / Revoked / Not issued by SCUTOONS / Not authentic
   / Does not match our records / Unknown code / …; shows the registration status ("Registered to an account" / "Not
@@ -940,7 +941,7 @@ records (the admin's "signature valid" badge had the same flaw). Now:
   and the code; the certificate panel's badge uses it.
 - Tests: `tests/Unit/Infrastructure/MlDsa65Test.php`, `tests/Unit/Http/CertificatesApiTest.php` (fixtures
   `tests/Unit/fixtures/ml-dsa-65.json`, made by noble 0.5.4 with fixed seeds – test keys only), api-smoke
-  "Certificates" (real stored signatures, UPPER CASE codes, tampered, foreign key, revoked), qr public-urls (verify page,
+  "Certificates" (real stored signatures by their exact code, tampered, foreign key, revoked), qr public-urls (verify page,
   proxied identical to the API).
 
 ## Ownership, claims, gifting (2026-10-02, owner — built 2026-10-02 on branch `platform`)
