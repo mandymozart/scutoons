@@ -169,12 +169,13 @@
 		const p = persona;
 		const t = tab;
 		try {
-			const url = new URL(page.url);
+			// the address bar, not page.url: replaceState (shallow routing) leaves page.url at the last navigation
+			const url = new URL(location.href);
 			for (const [key, value] of [['id', id], ['persona', p === REGULAR_PERSONA ? '' : p], ['tab', t === 'characters' ? '' : t]] as const) {
 				if (value) url.searchParams.set(key, value);
 				else url.searchParams.delete(key);
 			}
-			if (url.href !== page.url.href) replaceState(url, {});
+			if (url.href !== location.href) replaceState(url, {});
 		} catch {
 			/* before the router is ready */
 		}

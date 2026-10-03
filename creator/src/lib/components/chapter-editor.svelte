@@ -371,7 +371,9 @@
 		const href = hrefFor({ section, group: groupIndex, slice: sliceIndex });
 		if (!urlApplied) return;
 		untrack(() => {
-			if (href !== page.url.pathname + page.url.search) {
+			// the address bar, not page.url: replaceState (shallow routing) leaves page.url at the last navigation, so
+			// Audio → Meta compared with the stale URL and never cleared ?section=audio
+			if (href !== location.pathname + location.search) {
 				try {
 					replaceState(href, {});
 				} catch {

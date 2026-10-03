@@ -154,12 +154,13 @@
 		const s = selection;
 		const t = toonFilter;
 		try {
-			const url = new URL(page.url);
+			// the address bar, not page.url: replaceState (shallow routing) leaves page.url at the last navigation
+			const url = new URL(location.href);
 			for (const key of ['location', 'route', 'layer']) url.searchParams.delete(key);
 			if (s) url.searchParams.set(s.kind === 'place' ? 'location' : s.kind, s.id);
 			if (t) url.searchParams.set('toon', t);
 			else url.searchParams.delete('toon');
-			if (url.href !== page.url.href) replaceState(url, {});
+			if (url.href !== location.href) replaceState(url, {});
 		} catch {
 			/* before the router is ready */
 		}

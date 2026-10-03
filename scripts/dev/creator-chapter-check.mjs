@@ -258,10 +258,11 @@ try {
 	await click(tid('tree-audio'));
 	check((await js(`${q('tree-audio')}.classList.contains('is-current')`)) && (await search()) === '?section=audio', 'tree: Audio selects the audio section (?section=audio)');
 	await click(tid('tree-meta'));
-	check(await until(`${q('tree-meta')}.classList.contains('is-current') && !${q('tree-audio')}.classList.contains('is-current')`, 3000), 'tree: Meta selects the meta section');
-	// known (2026-10-03): from Audio back to Meta the URL keeps ?section=audio (the selection → URL effect compares with
-	// page.url, which replaceState leaves behind) – reported, not asserted here; the refactor must not change it silently
-	console.log(`note the URL after Audio → Meta: ${JSON.stringify(await search())}`);
+	check(
+		await until(`${q('tree-meta')}.classList.contains('is-current') && !${q('tree-audio')}.classList.contains('is-current') && location.search === ''`, 3000),
+		'tree: Meta selects the meta section and clears the URL (Audio → Meta used to keep ?section=audio)',
+		await search()
+	);
 	await click(tid(`group-${GROUP}`));
 	check(
 		(await until(`${q(`group-${GROUP}`)}.getAttribute('aria-expanded') === 'true' && !!${q('slice-list')}`)) && /[?&]group=/.test(await search()),
