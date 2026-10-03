@@ -171,7 +171,7 @@
 	// snap to grid (owner 2026-10-03: one toggle for moving, resizing, scaling, rotating), remembered on this device
 	const SNAP_KEY = 'scutoons_creator_snap';
 	const GRID_KEY = 'scutoons_creator_grid';
-	/** px of the slice's 1x size; 15 = the slices' base grid (390 = 26 × 15, owner 2026-10-03) */
+	/** px of the slice's 1x size; 30 = the default (owner 2026-10-03), 15 the slices' base grid (390 = 26 × 15) */
 	const GRID_SIZES = [5, 10, 15, 30];
 	function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
 		try {
@@ -183,7 +183,7 @@
 		}
 	}
 	let snap = $state(readPref(SNAP_KEY, true, (v) => typeof v === 'boolean'));
-	let gridSize = $state(readPref(GRID_KEY, 15, (v) => GRID_SIZES.includes(v as number)));
+	let gridSize = $state(readPref(GRID_KEY, 30, (v) => GRID_SIZES.includes(v as number)));
 	$effect(() => {
 		try {
 			localStorage.setItem(SNAP_KEY, JSON.stringify(snap));

@@ -26,13 +26,15 @@
 		narration: m['creator.preset_narration'],
 		speech: m['creator.preset_speech'],
 		onomatopoeia: m['creator.preset_onomatopoeia'],
-		story: m['creator.preset_story']
+		story: m['creator.preset_story'],
+		scene: m['creator.preset_scene']
 	};
 	const samples: Record<TextPresetId, () => string> = {
 		narration: m['creator.preset_narration_sample'],
 		speech: m['creator.preset_speech_sample'],
 		onomatopoeia: m['creator.preset_onomatopoeia_sample'],
-		story: m['creator.preset_story_sample']
+		story: m['creator.preset_story_sample'],
+		scene: m['creator.preset_scene_sample']
 	};
 	const sample = (p: TextPreset): Dialog[] => [{ ...p.style, rect: p.rect, text: samples[p.id]() }];
 </script>
