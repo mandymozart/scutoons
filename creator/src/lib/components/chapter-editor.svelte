@@ -35,7 +35,7 @@
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
 	import TextPresetPicker from './text-preset-picker.svelte';
-	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
+	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import ItemInspector from './item-inspector.svelte';
@@ -133,6 +133,17 @@
 		...(mapTouched || worldMap.dirty ? [worldMap] : [])
 	]);
 	const anyDirty = $derived(allDocs.some((d) => d.dirty));
+	/** the chapter's documents with slices (the chapter + its separate scenes) */
+	const sliceDocs = $derived<ContentDoc[]>([chapter, ...Object.values(refs)]);
+	/** texts that still have the old look (a mask over baked text, chapter 1) */
+	const legacyTexts = $derived(sliceDocs.reduce((n, d) => n + (d.loading ? 0 : legacyTextCount(d.data[d.primary])), 0));
+	/** one step (owner 2026-10-03): every masked text → its preset, in every language; save / publish as usual */
+	function convertLegacyTexts() {
+		for (const d of sliceDocs) {
+			const plan = legacyPlan($state.snapshot(d.data[d.primary]));
+			if (plan.length) d.structural((file) => applyLegacyPlan(file, plan), 'convert-presets');
+		}
+	}
 	const anySaving = $derived(allDocs.some((d) => d.saving));
 
 	async function ensureRef(src: string) {
@@ -849,6 +860,12 @@
 			<!-- Main -->
 			<main class="main">
 				{#if section === 'meta'}
+					{#if legacyTexts}
+						<div class="bar note-bar" data-testid="legacy-texts">
+							<span>{m['creator.legacy_texts']({ count: legacyTexts })}</span>
+							<button class="secondary" onclick={convertLegacyTexts} data-testid="convert-presets">{m['creator.legacy_texts_convert']()}</button>
+						</div>
+					{/if}
 					<MetaPanel doc={chapter} {season} number={chapterNumber} {images}>
 						{#snippet featuring()}
 							{#if !cast.loading && !registry.loading}

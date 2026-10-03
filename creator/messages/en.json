@@ -73,6 +73,8 @@
 		"preset_story_sample": "It was the night before the Feast of the Cat.",
 		"preset_scene": "Scene",
 		"preset_scene_sample": "19 EXT. POOL",
+		"legacy_texts": "{count} texts still have the old look (a mask over text in the art). Converting gives each its preset – scene headings → Scene, captions → Speech, narration → Narration, bare texts → Story – and removes the masks in every language. Save as a draft; publish once the text-free art is in.",
+		"legacy_texts_convert": "Convert to presets",
 		"text_box_frame": "box",
 		"canvas_grid_size": "Grid (px of the slice at 1x; 15 = the base grid, 30 = default)",
 		"event_unknown": "“{type}” is not played by the reader – choose a type above or remove the event.",

@@ -61,3 +61,55 @@ export function matchTextPreset(dialog: Record<string, unknown> | null | undefin
 	);
 	return found?.id ?? null;
 }
+
+/**
+ * Chapter 1's texts (owner 2026-10-03: convert them): the old look (variant + mask over baked text) → a preset. Decided on
+ * the source language's text, applied in every language. Scene headings ("2 INT. SCHLAFZIMMER - NACHT") → Scene; caption →
+ * Speech; narration → Narration; bare texts (speech-bubble variant, unframed) → Story. Position and words stay; the
+ * mask goes (the art is re-imported text-free).
+ */
+export function legacyPreset(dialog: Record<string, any>): TextPreset {
+	const id = (presetId: TextPresetId) => TEXT_PRESETS.find((p) => p.id === presetId)!;
+	const first = String(Array.isArray(dialog.text) ? dialog.text[0] : (dialog.text ?? '')).trim();
+	if (/^\d+\s+(INT|EXT|INT\.\/EXT)\b|^\d+\s+[A-ZÄÖÜ]{4,}/.test(first) && first === first.toUpperCase()) return id('scene');
+	const variant = dialog.variant ?? 'bubble';
+	if (variant === 'bubble' || dialog.frame === false) return id('story');
+	return variant === 'narration' ? id('narration') : id('speech');
+}
+
+/** the dialog arrays of a document (paths), e.g. groups.0.slices.3.dialog */
+function dialogPaths(node: unknown, path: (string | number)[] = [], out: (string | number)[][] = []) {
+	if (Array.isArray(node)) node.forEach((v, i) => dialogPaths(v, [...path, i], out));
+	else if (node && typeof node === 'object') {
+		for (const [k, v] of Object.entries(node)) {
+			if (k === 'dialog' && Array.isArray(v)) out.push([...path, k]);
+			else dialogPaths(v, [...path, k], out);
+		}
+	}
+	return out;
+}
+const at = (node: any, path: (string | number)[]) => path.reduce((n, k) => (n == null ? n : n[k]), node);
+
+/** texts that still use the old look (a mask) in a document */
+export function legacyTextCount(file: unknown): number {
+	return dialogPaths(file).reduce((n, p) => n + (at(file, p) as any[]).filter((d) => d && d.mask !== undefined).length, 0);
+}
+
+/** which masked text becomes which preset, decided on the source language's document (before anything changes) */
+export function legacyPlan(source: unknown): { path: (string | number)[]; preset: TextPreset }[] {
+	return dialogPaths(source).flatMap((p) =>
+		(at(source, p) as any[]).flatMap((d, i) => (d && d.mask !== undefined ? [{ path: [...p, i], preset: legacyPreset(d) }] : []))
+	);
+}
+
+/** applies the plan to one language's document: the preset's look, no mask */
+export function applyLegacyPlan(file: unknown, plan: ReturnType<typeof legacyPlan>) {
+	for (const { path, preset } of plan) {
+		const d = at(file, path);
+		if (!d || typeof d !== 'object') continue;
+		applyTextPreset(d, preset);
+		delete d.mask;
+		delete d.maskShape;
+		delete d.pad;
+	}
+}

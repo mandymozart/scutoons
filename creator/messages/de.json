@@ -73,6 +73,8 @@
 		"preset_story_sample": "Es war die Nacht vor dem Fest der Katze.",
 		"preset_scene": "Szene",
 		"preset_scene_sample": "19 EXT. POOL",
+		"legacy_texts": "{count} Texte haben noch das alte Aussehen (eine Maske über Text im Bild). Umwandeln gibt jedem seine Vorlage – Szenenköpfe → Szene, Captions → Rede, Erzählung → Erzählung, freie Texte → Geschichte – und entfernt die Masken in allen Sprachen. Als Entwurf speichern; veröffentlichen, sobald die Bilder ohne Text da sind.",
+		"legacy_texts_convert": "In Vorlagen umwandeln",
 		"text_box_frame": "Box",
 		"canvas_grid_size": "Raster (px des Slice in 1x; 15 = das Basisraster, 30 = Standard)",
 		"event_unknown": "„{type}“ spielt der Reader nicht ab – wähle oben einen Typ oder entferne das Event.",
