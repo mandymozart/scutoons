@@ -63,7 +63,7 @@
 	--type-body-size: 1rem;
 	--type-body-line: 1.4;
 	--type-button-size: 1rem;
-	--type-button-line: 1;
+	--type-button-line: 1.35; /* not 1: clipped labels (ellipsis) cut g, p, q (owner 2026-10-03) */
 	--type-label-size: 1rem;
 	--type-label-line: 1.2;
 	--type-caption-size: 0.75rem;
