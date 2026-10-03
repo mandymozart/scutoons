@@ -381,10 +381,11 @@
 		);
 
 	/**
-	 * "Create a text box for this" (onomatopoeia event `index` of the slice): a bare lettering box in the middle of the
-	 * slice (white letters, ink outline, uppercase, "BAM" to overwrite per language), revealed by the event.
+	 * "Create a text box for this" (onomatopoeia event `index` of the slice's events, or of `eventsPath` = a placed item's
+	 * tap events, relative to the slice): a bare lettering box in the middle of the slice (white letters, ink outline,
+	 * uppercase, "BAM" to overwrite per language), revealed by the event.
 	 */
-	function createBoxForEvent(index: number) {
+	function createBoxForEvent(index: number, eventsPath: Path = ['events']) {
 		const doc = activeDoc;
 		if (!doc || sliceIndex < 0) return;
 		const imageNo = Number(String(activeSlice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
@@ -392,7 +393,7 @@
 		const boxIndex = sliceDialogs.length;
 		doc.structural((file) => {
 			const slice = getAt(file, slicePath);
-			const event = slice?.events?.[index];
+			const event = slice ? getAt(slice, eventsPath)?.[index] : undefined;
 			if (!slice || event?.type !== 'showOnomatopeia') return;
 			slice.dialog ??= [];
 			slice.dialog.push({
@@ -919,6 +920,8 @@
 								editLocale={scope === 'locale' ? displayLocale : null}
 								{characters}
 								{choices}
+								dialogs={boxChoices([activeSlice])}
+								oncreatebox={(i) => selection && createBoxForEvent(i, ['items', selection.index, 'events'])}
 								onremove={removeSelected}
 							/>
 						{/if}

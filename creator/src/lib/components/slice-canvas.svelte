@@ -72,7 +72,7 @@
 		revealedBy?: string;
 	}
 
-	/** text box id → the onomatopoeia event that reveals it (`params.dialog`): the slice's events, then the group script */
+	/** text box id → the onomatopoeia event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
 	const revealers = $derived.by(() => {
 		const out = new Map<string, string>();
 		const add = (events: any, label: (i: number) => string) =>
@@ -81,6 +81,7 @@
 				if (typeof ref === 'string' && ref && !out.has(ref)) out.set(ref, label(i));
 			});
 		add(slice?.events, (i) => `⚡ ${i + 1}`);
+		(slice?.items ?? []).forEach((it: any, n: number) => add(it?.events, (i) => `◆ ${n + 1}.${i + 1}`));
 		const group = slicePath.length >= 2 ? doc.get(doc.primary, [...slicePath.slice(0, -2), 'events']) : null;
 		add(group, (i) => `script ${i + 1}`);
 		return out;

@@ -19,6 +19,8 @@
 		editLocale = null,
 		characters = [],
 		choices,
+		dialogs = [],
+		oncreatebox,
 		onremove
 	}: {
 		doc: ContentDoc;
@@ -28,6 +30,10 @@
 		editLocale?: string | null;
 		characters?: { name: string; label?: string }[];
 		choices?: CharacterChoices;
+		/** the slice's text boxes (an onomatopoeia tap event reveals one) */
+		dialogs?: { id: string; label: string }[];
+		/** "Create a text box for this" for tap event `index` */
+		oncreatebox?: (index: number) => void;
 		onremove?: () => void;
 	} = $props();
 
@@ -44,6 +50,15 @@
 		return list;
 	});
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
+
+	/** pickup again: none (once) · every visit · every day · every n hours (`SliceItemRespawn`) */
+	const respawnKind = $derived(
+		placed?.respawn === 'visit' || placed?.respawn === 'day' ? placed.respawn : placed?.respawn && typeof placed.respawn === 'object' ? 'hours' : 'once'
+	);
+	function setRespawn(kind: string) {
+		const next = kind === 'visit' || kind === 'day' ? kind : kind === 'hours' ? { hours: 24 } : undefined;
+		doc.setShared(p('respawn'), next);
+	}
 </script>
 
 {#if placed}
@@ -78,15 +93,21 @@
 
 		{#if action === 'pickup'}
 			<PropField {doc} path={p('qty')} label={m['creator.slice_item_qty']()} type="number" step={1} min={1} placeholder="1" />
-			<PropField
-				{doc}
-				path={p('pickupMode')}
-				label={m['creator.slice_item_pickup_mode']()}
-				type="select"
-				options={[{ value: 'respawn', label: m['creator.slice_item_pickup_respawn']() }]}
-				placeholder={m['creator.slice_item_pickup_once']()}
-			/>
-			{#if placed.pickupMode === 'respawn'}<p class="hint">{m['creator.slice_item_hint_respawn']()}</p>{/if}
+			<div class="grid">
+				<div class="field">
+					<label for="respawn-{path.join('-')}">{m['creator.slice_item_pickup_mode']()}</label>
+					<select id="respawn-{path.join('-')}" value={respawnKind} onchange={(e) => setRespawn(e.currentTarget.value)} data-testid="item-respawn">
+						<option value="once">{m['creator.slice_item_pickup_once']()}</option>
+						<option value="visit">{m['creator.slice_item_pickup_visit']()}</option>
+						<option value="day">{m['creator.slice_item_pickup_day']()}</option>
+						<option value="hours">{m['creator.slice_item_pickup_hours']()}</option>
+					</select>
+				</div>
+				{#if respawnKind === 'hours'}
+					<PropField {doc} path={p('respawn', 'hours')} label={m['creator.slice_item_pickup_hours_n']()} type="number" step={1} min={1} max={8760} required />
+				{/if}
+			</div>
+			{#if respawnKind !== 'once'}<p class="hint">{m['creator.slice_item_hint_respawn']()}</p>{/if}
 			<p class="hint">{m['creator.slice_item_hint_pickup']()}</p>
 			{#if def && !def.grantable?.includes('story')}
 				<p class="warn" data-testid="item-not-grantable">{m['creator.slice_item_not_grantable']()}</p>
@@ -94,7 +115,7 @@
 		{:else if action === 'events'}
 			<PropField {doc} path={p('once')} label={m['creator.slice_item_once']()} type="bool" placeholder="true" />
 			<p class="hint">{m['creator.slice_item_hint_events']()}</p>
-			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} />
+			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} {dialogs} {oncreatebox} />
 		{/if}
 	</div>
 {/if}
@@ -131,6 +152,21 @@
 		display: grid;
 		gap: var(--space-075) var(--space-1);
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	/* the respawn select (its own change handler) – laid out like a PropField */
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-025);
+		min-width: 0;
+	}
+	.field label {
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.hint {
 		margin: 0;

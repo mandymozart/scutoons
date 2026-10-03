@@ -24,6 +24,8 @@
 	const boxed = $derived(variant === 'caption' || variant === 'narration');
 	/** a drawn speech bubble (bubble + frame) */
 	const drawnBubble = $derived(variant === 'bubble' && dialog?.frame === true);
+	/** a wobbly (shout) bubble has no tail by default, an oval one bottom-left */
+	const defaultTail = $derived(dialog?.shape === 'wobbly' ? 'none' : 'bottom-left');
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
 
 	const VARIANTS = $derived([
@@ -87,7 +89,8 @@
 			{:else if variant === 'bubble'}
 				<PropField {doc} path={p('frame')} label={m['creator.bubble_frame']()} type="bool" placeholder="false" />
 				{#if drawnBubble}
-					<PropField {doc} path={p('tail')} label={m['creator.bubble_tail']()} type="select" options={DIALOG_TAILS.filter((t) => t !== 'bottom-left')} placeholder="bottom-left" />
+					<PropField {doc} path={p('shape')} label={m['creator.bubble_shape']()} type="select" options={[{ value: 'wobbly', label: m['creator.bubble_shape_wobbly']() }]} placeholder={m['creator.bubble_shape_oval']()} />
+					<PropField {doc} path={p('tail')} label={m['creator.bubble_tail']()} type="select" options={DIALOG_TAILS.filter((t) => t !== defaultTail)} placeholder={defaultTail} />
 				{/if}
 			{/if}
 		</div>

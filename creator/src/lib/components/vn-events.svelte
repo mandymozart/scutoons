@@ -312,6 +312,14 @@
 					<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
 					<PropField {doc} path={[...p, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="poly" />
 					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
+					<PropField
+						{doc}
+						path={[...p, 'params', 'stay']}
+						label={m['creator.ono_after']()}
+						type="select"
+						options={[{ value: false, label: m['creator.ono_disappears']() }]}
+						placeholder={m['creator.ono_stays']()}
+					/>
 				</div>
 			{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 				{#each characterRows(i) as row, ci (ci)}
