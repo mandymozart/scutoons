@@ -105,7 +105,12 @@ final class AvatarService
             if (!in_array($item['slot'], $types, true) || in_array($item['slot'], $worn, true)) continue;
             $entry = $this->db->value('SELECT id FROM inventory WHERE user_id = ? AND item_id = ? AND qty > 0 ORDER BY acquired_at, id LIMIT 1', [$userId, $item['id']]);
             if ($entry === null || $entry === false) continue;
-            $this->db->run('DELETE FROM avatar_slots WHERE user_id = ? AND slot = ?', [$userId, $item['slot']]);
+            // DELETE only a row that exists: on MariaDB/MySQL (InnoDB, REPEATABLE READ) a DELETE that matches nothing
+            // takes a gap lock, and two signups at the same moment (time-ordered user ids = the same gap) then
+            // deadlock on their INSERTs (1213, found by tests/claim-race.php signup on MariaDB). A plain read takes no lock.
+            if ($this->db->value('SELECT 1 FROM avatar_slots WHERE user_id = ? AND slot = ?', [$userId, $item['slot']]) !== null) {
+                $this->db->run('DELETE FROM avatar_slots WHERE user_id = ? AND slot = ?', [$userId, $item['slot']]);
+            }
             $this->db->run('INSERT INTO avatar_slots (user_id, slot, entry_id, updated_at) VALUES (?, ?, ?, ?)', [$userId, $item['slot'], (string) $entry, $now]);
             $worn[] = $item['slot'];
         }
