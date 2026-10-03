@@ -81,6 +81,22 @@ final class LoginServiceTest extends TestCase
         $this->expectApiError(400, 'invalid_otp', fn() => $this->login->verify(['email' => 'nobody@example.com', 'otp' => '123456']));
     }
 
+    /** owner 2026-10-03: an address the old system registered codes to signs up without typing one – the oldest is claimed */
+    public function testOldEmailRegistrationSignsUpWithoutACode(): void
+    {
+        $first = $this->code('membership', ['email' => 'Old@Example.com', 'created_at' => '2025-09-23 22:20:18']);
+        $second = $this->code('membership', ['email' => 'old@example.com', 'created_at' => '2025-09-23 22:20:21']);
+        $this->login->request(['email' => 'old@example.com', 'locale' => 'en']);
+        self::assertStringNotContainsString('There is no account for it yet', $this->lastMail());
+
+        $result = $this->login->verify(['email' => 'old@example.com', 'otp' => $this->otp()]);
+        self::assertTrue($result['created']);
+        self::assertSame([$first], $result['claimed']);
+        $owner = fn(string $code) => $this->db->value('SELECT claimed_by FROM qr WHERE code = ?', [$code]);
+        self::assertSame($result['user']['id'], $owner($first));
+        self::assertNull($owner($second), 'the other one stays registered to the address until it is scanned');
+    }
+
     public function testWrongCodesCountAndLockTheRequest(): void
     {
         $this->user('known@example.com');

@@ -75,6 +75,20 @@ final class CodeService
     }
 
     /**
+     * A code the old system registered to $email (the `email` column, not yet in an account) that can create its account –
+     * the address is the proof, so its owner signs up without typing a code (owner 2026-10-03). The oldest one; the
+     * others stay registered to the address and are added by scanning them (signupRefusal / claim accept the match).
+     */
+    public function legacySignupCode(string $email): ?string
+    {
+        $rows = $this->db->all('SELECT code FROM qr WHERE claimed_by IS NULL AND LOWER(TRIM(email)) = ? ORDER BY created_at, code LIMIT 20', [strtolower(trim($email))]);
+        foreach ($rows as $row) {
+            if ($this->signupRefusal((string) $row['code'], $email) === null) return (string) $row['code'];
+        }
+        return null;
+    }
+
+    /**
      * Can this code create a new account for $email? (ITEMS.md "Accounts only with a product or a PR code")
      * Existing, not expired, not revoked, type with `"signup": true`; a claimable code (a product) additionally must
      * still be free (or registered to this email by the old form) – it is claimed at signup.

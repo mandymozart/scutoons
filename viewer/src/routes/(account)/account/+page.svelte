@@ -23,6 +23,9 @@
 
 	// `?return=<path>` (the follow-up bar's "Anmelden" before a members-only chapter): back there after signing in;
 	// same-origin paths only
+	// `/account?code=…`: the code goes with the sign-up (owner 2026-10-03: an old email registration – the code is in
+	// the reader's name – could not sign up from here; the API links the code when the address matches)
+	const signupCode = $derived(page.url.searchParams.get('code') || null);
 	const returnTo = $derived.by(() => {
 		const value = page.url.searchParams.get('return');
 		return value && value.startsWith('/') && !value.startsWith('//') && !value.includes('\\') ? value : null;
@@ -200,6 +203,7 @@
 			<LoginForm
 				{session}
 				locale={getLocale()}
+				code={signupCode}
 				sentHint={authLabels(getLocale()).codeSentNoAccount}
 				onlogin={() => returnTo && goto(returnTo)}
 			/>

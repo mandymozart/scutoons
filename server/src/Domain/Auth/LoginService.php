@@ -80,7 +80,9 @@ final class LoginService
         $otp = sprintf('%06d', random_int(0, 999999));
         $ttl = $this->settings->int('LOGIN_TTL_MINUTES') * 60;
         $hasAccount = $this->users->byEmail($email) !== null;
-        $refusal = $hasAccount ? null : $this->codes->signupRefusal($claimCode, $email);
+        // no code, but the old system registered a code to this address: that code signs it up (and is claimed with it)
+        if (!$hasAccount && $claimCode === null) $claimCode = $this->codes->legacySignupCode($email);
+        $refusal =$hasAccount ? null : $this->codes->signupRefusal($claimCode, $email);
         $canSignIn = $hasAccount || $refusal === null || ($dispute && $refusal === 'already_claimed');
         // Without an account and without a signup code the request is only recorded for the hourly limits: its
         // hashes belong to values nobody knows (no link or code is mailed), so it can never be confirmed.
