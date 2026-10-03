@@ -154,14 +154,16 @@
 		const left = sidebarEl.getBoundingClientRect().left;
 		const handle = event.currentTarget as HTMLElement;
 		handle.setPointerCapture(event.pointerId);
+		// one direction per drag (owner 2026-10-03: unfolding and folding again in the same drag glitched): a drag that
+		// starts on the rail only opens the sidebar, a drag that starts open only folds it
+		const startedFolded = !!foldKey && folded;
+		const threshold = () => measureBase() * 0.6;
 		const move = (e: PointerEvent) => {
 			const x = e.clientX - left;
-			if (foldKey && folded) {
-				// the rail dragged open (owner 2026-10-03): unfold once it is pulled out a bit, then size it
-				if (x < 64) return;
-				setFolded(false);
-			} else if (foldKey && x < measureBase() * 0.6) {
-				// dragged well below the normal width: fold to the rail (foldable)
+			if (startedFolded) {
+				if (folded && x < threshold()) return; // still the rail
+				if (folded) setFolded(false);
+			} else if (foldKey && x < threshold()) {
 				setFolded(true);
 				end();
 				return;
