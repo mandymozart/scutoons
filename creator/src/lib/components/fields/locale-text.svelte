@@ -64,9 +64,9 @@
 			<label class:missing={s.missing} class:long={s.long}>
 				<span class="head">
 					<span>{label} · {locale}</span>
-					{#if locale === doc.primary}<span class="pill source">{m['creator.source']()}</span>{/if}
-					{#if s.missing}<span class="pill miss">{m['creator.missing']()}</span>{/if}
-					{#if s.long}<span class="pill warn">{Math.round(s.ratio * 100)}%</span>{/if}
+					{#if locale === doc.primary}<span class="sc-chip">{m['creator.source']()}</span>{/if}
+					{#if s.missing}<span class="sc-chip is-error">{m['creator.missing']()}</span>{/if}
+					{#if s.long}<span class="sc-chip is-warning">{Math.round(s.ratio * 100)}%</span>{/if}
 					{#if Array.isArray(value)}<button type="button" class="ghost mini" title="paragraphs (string[]) – click for one string" onclick={() => toggleArray(locale)}>[ ]</button>{/if}
 				</span>
 				{#if multiline}
@@ -115,30 +115,6 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 		color: var(--ink);
-	}
-	.pill {
-		padding: 0.1em 0.4em;
-		border: 0;
-		background: var(--badge-neutral);
-		color: var(--badge-neutral-text);
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-	}
-	/* filled chips (tokens.css --badge-*) */
-	.source {
-		background: var(--badge-neutral);
-		color: var(--badge-neutral-text);
-	}
-	.miss {
-		background: var(--badge-error);
-		color: var(--badge-error-text);
-	}
-	.warn {
-		background: var(--badge-warning);
-		color: var(--badge-warning-text);
 	}
 	/* state = the frame's colour + a thick left rule, no tinted fills */
 	.missing textarea,

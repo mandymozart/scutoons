@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { ActionBar, Badge, ToonAvatar } from '@scutoons/ui';
-	import { statusWord } from '$lib/components/status/status-badges.svelte';
+	import { statusWord } from '$lib/editor/status-word.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { library } from '$lib/api.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';

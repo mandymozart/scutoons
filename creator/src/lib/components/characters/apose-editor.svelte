@@ -97,7 +97,7 @@
 					<button type="button" class="missing" data-control-exempt="missing picture card" onclick={() => ((dialogLook = look.id), (dialogOpen = true))} data-testid="apose-{look.id}-missing">
 						<span>{m['creator.characters_missing_add']()}</span>
 						<code>{aposeConventionPath(character, look.id).split('/').pop()}</code>
-						{#if request}<span class="req" title={request.requested_by ?? ''}><Icon name="mail" /> {request.note || m['creator.characters_requested_short']()}</span>{/if}
+						{#if request}<span class="sc-mark" title={request.requested_by ?? ''}><Icon name="mail" /> {request.note || m['creator.characters_requested_short']()}</span>{/if}
 					</button>
 				{/if}
 			</article>
@@ -216,12 +216,5 @@
 	}
 	.missing:focus-visible {
 		outline: 2px solid var(--ink);
-	}
-	.req {
-		background: var(--badge-info);
-		color: var(--badge-info-text);
-		padding: 0 0.25rem;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
 	}
 </style>

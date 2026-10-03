@@ -304,6 +304,36 @@
 	background: var(--badge-info);
 	color: var(--badge-info-text);
 }
+/* colour only (the word is the tooltip / accessible name): a square */
+.sc-chip.is-dot {
+	width: 0.75rem;
+	height: 0.75rem;
+	padding: 0;
+	align-self: center;
+}
+/* a tag that names something (a persona, a rendition) rather than a state: a 1px frame, no fill; .is-quiet greys it */
+.sc-chip.is-tag {
+	background: transparent;
+	color: inherit;
+	box-shadow: inset 0 0 0 1px currentColor;
+}
+.sc-chip.is-quiet {
+	color: var(--text-muted);
+}
+/* a marked note in running text (an image request, a hint that something will happen): info fill, caption, sentence
+   case, wraps – not a chip (chips are short uppercase words) */
+.sc-mark {
+	padding: 0 var(--space-025);
+	background: var(--badge-info);
+	color: var(--badge-info-text);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+}
+/* a chip that shows its words on keyboard focus (the tool tooltip) */
+.sc-chip[tabindex]:focus-visible {
+	outline: var(--border-width-focus) solid var(--ink);
+	outline-offset: 1px;
+}
 /* a custom single-line control (a framed label around an invisible native select, a link that is a button): one
    control height (owner 2026-10-02). Zero specificity: the component's own rule still sets frame and colours. */
 :where(.sc-control) {
@@ -354,6 +384,36 @@
 }
 .sc-chip-control :where(button:last-child) {
 	margin-right: calc(-1 * var(--border-width-regular));
+}
+/* with a picture before the name (an avatar, an item icon): tighter on the left */
+.sc-chip-control.has-image {
+	gap: var(--space-025);
+	padding-left: var(--space-025);
+}
+/* something to look at (not in the cast, an unknown item) */
+.sc-chip-control.is-warning {
+	border-color: var(--state-warning);
+}
+/* a filled tag with buttons (a credit's role): ink; .is-draft = a one-off (custom) value */
+.sc-chip-control.is-filled {
+	padding-left: 0;
+	background: var(--badge-neutral);
+	color: var(--badge-neutral-text);
+	border-color: var(--badge-neutral);
+}
+.sc-chip-control.is-filled.is-draft {
+	background: var(--badge-draft);
+	color: var(--badge-draft-text);
+	border-color: var(--badge-draft);
+}
+.sc-chip-control.is-filled :where(button) {
+	color: inherit;
+}
+.sc-chip-control.is-filled :where(button:hover:not(:disabled)) {
+	border-color: var(--paper);
+}
+.sc-chip-control.is-error :where(button:first-child) {
+	color: var(--state-error);
 }
 
 /* sidebar / list navigation: a group head, then full-width entries; hover frames, current (aria-current / .is-current) inverts */

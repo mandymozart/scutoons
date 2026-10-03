@@ -153,6 +153,10 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 			const line = lineAt(at + m.index + m[1].search(/\S/));
 			// `grid-ok` anywhere in the rule (the comments are blanked in `plain`, same offsets in `css`)
 			if (/grid-ok/.test(css.slice(m.index, m.index + m[0].length))) continue;
+			// a local status chip / badge filled from --badge-* (owner 2026-10-03, COMPONENTS.md step 3): tools.css .sc-chip
+			// (.is-*), .sc-chip-control, .sc-mark – @scutoons/ui's own Badge is the one shared component
+			if (/background(-color)?:\s*var\(--badge-/.test(m[2]) && !/\.sc-/.test(sel) && !name.endsWith('shared/ui/src/badge.svelte'))
+				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local status chip: tools.css .sc-chip.is-* / .sc-chip-control / .sc-mark)`);
 			if (/\.g\d\b/.test(sel)) fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field-grid copy)`);
 			else if (/display:\s*grid/.test(m[2]) && sel.split(/,(?![^(]*\))/).some((x) => FIELD_GRID_CLASS.test(x.trim())))
 				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field grid: tools.css .sc-fields, or \`grid-ok\` + the reason)`);
@@ -190,12 +194,12 @@ if (problems.length) console.error(`tools CSS: ${problems.length} font sizes out
 if (bolds.length) console.error(`tools: ${bolds.length} bold (owner 2026-10-02 "only use bold very rarely": regular weight; only the page title h1 and <strong class="sc-emphasis"> are bold; DESIGN.md "Brutalist tools"):\n  ${bolds.join('\n  ')}`);
 if (heights.length) console.error(`controls: ${heights.length} heights / vertical paddings that bypass --control-height (owner 2026-10-02: every single-line control is exactly --control-height; padding-block 0, the height from the token; DESIGN.md "One control height"; a line with \`control-ok\` + the reason is exempt):\n  ${heights.join('\n  ')}`);
 if (crosses.length) console.error(`close crosses: ${crosses.length} font glyphs / Feather "x" (owner 2026-10-02: one drawn cross, @scutoons/ui CloseIcon / CloseButton, as high as the headline, 2px – 1px on thin-line UI; DESIGN.md "Close cross"; a line with \`close-ok\` + the reason is exempt):\n  ${crosses.join('\n  ')}`);
-if (fieldGrids.length) console.error(`field grids: ${fieldGrids.length} local copies (owner 2026-10-03: one tools.css .sc-fields with data-cols="1|2|3|4|fill|fit" and data-density="page|panel|dense", gaps by the hierarchy level; a special layout sets only its grid-template-columns; agents/COMPONENTS.md 4.4.2):\n  ${fieldGrids.join('\n  ')}`);
+if (fieldGrids.length) console.error(`field grids / chips: ${fieldGrids.length} local copies (owner 2026-10-03: one tools.css .sc-fields with data-cols="1|2|3|4|fill|fit" and data-density="page|panel|dense", gaps by the hierarchy level; a special layout sets only its grid-template-columns; agents/COMPONENTS.md 4.4.2):\n  ${fieldGrids.join('\n  ')}`);
 if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
-console.log('field grids: tools.css .sc-fields, no local .grid/.gN field grids or gaps – ok');
+console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local field grids, gaps or status chips – ok');
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

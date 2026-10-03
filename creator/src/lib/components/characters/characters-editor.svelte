@@ -305,7 +305,7 @@
 												{#if personaIds(c).length > 1}
 													<span class="chips">
 														{#each personaIds(c) as p (p)}
-															<span class="chip" class:regular={p === REGULAR_PERSONA}>{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, uiLocale) || p}</span>
+															<span class="sc-chip is-tag" class:is-quiet={p === REGULAR_PERSONA}>{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, uiLocale) || p}</span>
 														{/each}
 													</span>
 												{/if}
@@ -445,14 +445,6 @@
 		flex-wrap: wrap;
 		gap: 0.2rem;
 		margin-top: 0.15rem;
-	}
-	.chip {
-		font-size: var(--type-caption-size);
-		border: 1px solid var(--ink);
-		padding: 0 0.3rem;
-	}
-	.chip.regular {
-		border-color: var(--border-muted);
 	}
 	.issue {
 		margin-left: auto;

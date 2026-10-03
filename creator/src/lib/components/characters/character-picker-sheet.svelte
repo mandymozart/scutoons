@@ -173,7 +173,7 @@
 								<span>{characterName(c, locale)}</span>
 								<span class="hint">{c.own_toon ? (toons.find((t) => t.id === c.own_toon)?.name ?? c.own_toon) : '–'}</span>
 								{#if personaIds(c).length > 1}
-									<span class="chips">{#each personaIds(c) as p (p)}<span class="chip">{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, locale) || p}</span>{/each}</span>
+									<span class="chips">{#each personaIds(c) as p (p)}<span class="sc-chip is-tag">{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, locale) || p}</span>{/each}</span>
 								{/if}
 							</button>
 						{/each}
@@ -186,7 +186,7 @@
 			<header class="step2">
 				<button type="button" class="ghost" onclick={() => (step = 1)} data-testid="picker-back">{m['creator.characters_picker_back']()}</button>
 				<span>{characterName(character, locale)}</span>
-				{#if !castIds.has(character.id) && season}<span class="note">{m['creator.characters_picker_will_add']({ season })}</span>{/if}
+				{#if !castIds.has(character.id) && season}<span class="sc-mark">{m['creator.characters_picker_will_add']({ season })}</span>{/if}
 			</header>
 			{#if mode === 'persona'}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -334,23 +334,11 @@
 		flex-wrap: wrap;
 		gap: 0.15rem;
 	}
-	.chip {
-		font-size: var(--type-caption-size);
-		border: 1px solid var(--ink);
-		padding: 0 0.25rem;
-	}
 	.step2 {
 		display: flex;
 		gap: 0.6rem;
 		align-items: center;
 		flex-wrap: wrap;
-	}
-	.note {
-		background: var(--badge-info);
-		color: var(--badge-info-text);
-		padding: 0 0.3rem;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
 	}
 	.tabs {
 		display: flex;

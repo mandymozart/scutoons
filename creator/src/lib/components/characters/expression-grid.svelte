@@ -179,7 +179,7 @@
 							{#if avatar}
 								<span class="derived" title={m['creator.characters_avatar_derived']()}>avatar {#if !avatar.path}–{:else if status[avatar.path] === false}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else}✓{/if}</span>
 							{/if}
-							{#if request}<span class="req" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
+							{#if request}<span class="sc-mark" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
 						</span>
 					</button>
 				{/each}
@@ -325,12 +325,6 @@
 		margin-left: auto;
 		font-size: var(--type-caption-size);
 		color: var(--muted);
-	}
-	.req {
-		font-size: var(--type-caption-size);
-		background: var(--badge-info);
-		color: var(--badge-info-text);
-		padding: 0 0.25rem;
 	}
 	.add-mood {
 		display: flex;

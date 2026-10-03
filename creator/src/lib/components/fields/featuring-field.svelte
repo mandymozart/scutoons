@@ -82,7 +82,7 @@
 	<ul class="chips">
 		{#each featuring as id, i (id)}
 			{@const src = avatar(id)}
-			<li class="chip sc-chip-control" class:bad={!inCast(id)} data-testid="featuring-{id}">
+			<li class="sc-chip-control has-image" class:is-warning={!inCast(id)} data-testid="featuring-{id}">
 				<span class="avatar" style:background={index.get(id)?.color || 'transparent'}>
 					{#if src}<img src={asset(src)} alt="" onerror={() => imageExists(src)} />{/if}
 				</span>
@@ -149,14 +149,6 @@
 		margin: 0;
 		padding: 0;
 		list-style: none;
-	}
-	.chip {
-		/* an interactive chip (tools.css .sc-chip-control: one control height, 2px ink, its buttons full height) */
-		gap: 0.3rem;
-		padding-left: 0.2rem;
-	}
-	.chip.bad {
-		border-color: var(--warn);
 	}
 	.avatar {
 		width: 1.6rem;

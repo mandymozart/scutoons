@@ -196,7 +196,7 @@
 						<span class="avatar" style:background={c?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 						<span class="who">
 							{#if c}
-								<span>{characterName(c, source)}{#if c.id === star} <span class="star" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</span>
+								<span>{characterName(c, source)}{#if c.id === star} <span class="star sc-chip" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</span>
 								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{m['creator.characters_edit']()}</a>
 								<!-- a character with one persona has nothing to choose: no row (owner read "regular" as a flag) -->
 								{#if personaIds(c).length > 1}
@@ -357,11 +357,6 @@
 	}
 	.star {
 		margin-left: 0.4rem;
-		font-size: var(--type-caption-size);
-		font-weight: 400;
-		padding: 0 0.4em;
-		background: var(--badge-neutral);
-		color: var(--badge-neutral-text);
 		vertical-align: middle;
 	}
 

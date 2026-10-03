@@ -184,7 +184,7 @@ const state = () =>
 	})`);
 const writesSince = (n) => writes.slice(n);
 /** the status chips' words: the colour chips carry them as their accessible name / tooltip (owner 2026-10-02) */
-const CHIPS = `[...(${q('file-status')}?.querySelectorAll('.file-status, .badge[aria-label]') ?? [])].map((e) => e.getAttribute('aria-label') ?? e.getAttribute('title') ?? e.dataset.scTitle ?? e.innerText).join(' ').replace(/\\s+/g, ' ').trim()`;
+const CHIPS = `[...(${q('file-status')}?.querySelectorAll('.file-status, .sc-chip[aria-label]') ?? [])].map((e) => e.getAttribute('aria-label') ?? e.getAttribute('title') ?? e.dataset.scTitle ?? e.innerText).join(' ').replace(/\\s+/g, ' ').trim()`;
 // (the file status only shows what is not published – a clean page has none)
 const loaded = () => until(`!!${q('cast-editor')} && document.querySelectorAll('[data-testid^="cast-member-"]').length > 0`);
 

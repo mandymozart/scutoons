@@ -321,7 +321,7 @@
 					<span class="name">{fileName(a.path)}</span>
 					<span class="sc-caption meta">{a.width && a.height ? `${a.width}×${a.height}` : bytes(a.size)}{#if !a.usages} · {m['creator.assets_unused']()}{/if}</span>
 					{#if a.renditions.length > 1}
-						<span class="chips">{#each ordered(a.renditions).filter((r) => r.label !== 'original').slice(0, 5) as r (r.id)}<span class="chip">{r.label}</span>{/each}</span>
+						<span class="chips">{#each ordered(a.renditions).filter((r) => r.label !== 'original').slice(0, 5) as r (r.id)}<span class="sc-chip">{r.label}</span>{/each}</span>
 					{/if}
 				</button>
 			{:else}
@@ -445,13 +445,6 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.15rem;
-	}
-	.chip {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		background: var(--badge-neutral);
-		color: var(--badge-neutral-text);
-		padding: 0 0.3rem;
 	}
 	.detail {
 		display: flex;

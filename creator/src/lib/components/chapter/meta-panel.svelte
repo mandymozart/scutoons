@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { statusWord } from '$lib/components/status/status-badges.svelte';
+	import { statusWord } from '$lib/editor/status-word.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { chapterSyncChanges, seasonStatusOf, setSeasonStatus, STATUSES, syncChapter } from '$lib/editor/visibility.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';

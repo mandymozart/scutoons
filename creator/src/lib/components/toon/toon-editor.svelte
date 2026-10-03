@@ -80,7 +80,7 @@
 						<h3>{m['creator.cover_requests']()}</h3>
 						<ul class="wanted">
 							{#each wanted as r (r.id)}
-								<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="req"><Icon name="mail" /> {r.note}</span>{/if}</li>
+								<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="sc-mark"><Icon name="mail" /> {r.note}</span>{/if}</li>
 							{/each}
 						</ul>
 					</div>
@@ -148,13 +148,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.2rem;
-	}
-	.req {
-		background: var(--badge-info);
-		color: var(--badge-info-text);
-		padding: 0 0.25rem;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
 	}
 	/* the field grids (tools.css .sc-fields): fields top-aligned, two columns below 900px */
 	.sc-fields {

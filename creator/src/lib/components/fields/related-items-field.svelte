@@ -63,7 +63,7 @@
 		{#each list as id, i (id)}
 			{@const item = byId.get(id)}
 			{@const name = nameOf(item, id)}
-			<li class="chip sc-chip-control" class:bad={!loading && !item} data-testid="{testid}-{id}" title={id}>
+			<li class="sc-chip-control has-image" class:is-warning={!loading && !item} data-testid="{testid}-{id}" title={id}>
 				<span class="icon">{#if item?.icon}<img src={asset(item.icon)} alt="" />{/if}</span>
 				<span class="name">{name}</span>
 				{#if !loading && !item}<span class="hint">{m['creator.related_items_unknown']()}</span>{/if}
@@ -117,20 +117,14 @@
 		padding: 0;
 		list-style: none;
 	}
-	.chip {
-		/* an interactive chip (tools.css .sc-chip-control: one control height, 2px ink, its buttons full height) */
-		gap: 0.3rem;
-		padding-left: 0.2rem;
+	/* the chips are tools.css .sc-chip-control; a long name shortens */
+	.sc-chip-control {
 		max-width: 100%;
-		box-sizing: border-box;
 	}
-	.chip .name {
+	.name {
 		min-width: 0;
 		overflow: hidden;
 		text-overflow: ellipsis;
-	}
-	.chip.bad {
-		border-color: var(--warn);
 	}
 	.icon {
 		flex: none;

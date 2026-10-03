@@ -61,6 +61,18 @@
 	function unsaved(l: string) {
 		return dirty.includes(l) && doc.source[l] !== 'new' ? ` (${m['creator.unsaved']()})` : '';
 	}
+	/** the chip's colour = its state (tools.css .sc-chip): missing · unsaved · saved draft · published; a language-neutral
+	 * entity is just the colour (a square) */
+	function tone(l: string) {
+		const source = doc.source[l];
+		const state =
+			source === 'missing' ? 'is-error'
+			: dirty.includes(l) ? 'is-warning'
+			: source === 'store' && doc.base[l] !== doc.published[l] ? 'is-draft'
+			: source === 'store' ? 'is-published'
+			: '';
+		return lang(l) ? state : `${state} is-dot`;
+	}
 	function title(l: string) {
 		const when = doc.source[l] === 'store' ? date(doc.changedAt[l]) : '';
 		return `${lang(l) ? `${lang(l)}: ` : ''}${label(l)}${unsaved(l)}${when ? ` · ${m['creator.state_changed']({ date: when })}` : ''}`;
@@ -81,12 +93,7 @@
 	{#each shown as l}
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<span
-			class="badge"
-			class:dirty={dirty.includes(l)}
-			class:live={doc.source[l] === 'store' && doc.base[l] === doc.published[l]}
-			class:pending={doc.source[l] === 'store' && doc.base[l] !== doc.published[l]}
-			class:missing={doc.source[l] === 'missing'}
-			class:neutral={!lang(l)}
+			class="sc-chip {tone(l)}"
 			tabindex={full || name ? undefined : 0}
 			role={full || name ? undefined : 'img'}
 			aria-label={full || name ? undefined : title(l)}
@@ -110,48 +117,9 @@
 		color: var(--text-muted);
 		font-size: var(--type-caption-size);
 	}
-	/* status chips (DESIGN.md "Brutalist tools"), filled from tokens.css --badge-*: published · saved draft (grey) ·
-	   unsaved (warning) · missing (error); anything else neutral (black) */
-	.badge {
-		display: inline-block;
-		padding: 0.1em 0.4em;
-		border: var(--border-width-regular) solid currentColor;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		border: 0;
-		background: var(--badge-neutral);
-		color: var(--badge-neutral-text);
-		white-space: nowrap;
-	}
-	.badge.live {
-		background: var(--badge-published);
-		color: var(--badge-published-text);
-	}
-	.badge.pending {
-		background: var(--badge-draft);
-		color: var(--badge-draft-text);
-	}
-	.badge.dirty {
-		background: var(--badge-warning);
-		color: var(--badge-warning-text);
-	}
-	.badge.missing {
-		background: var(--badge-error);
-		color: var(--badge-error-text);
-	}
-	/* a language-neutral entity: just the colour */
-	.badge.neutral {
-		width: 0.75rem;
-		height: 0.75rem;
-		padding: 0;
-		align-self: center;
-	}
-	/* the words are the universal tool tooltip (@scutoons/ui installTooltips, on hover and keyboard focus) */
-	.file-status[tabindex]:focus-visible,
-	.badge[tabindex]:focus-visible {
+	/* the chips are tools.css .sc-chip; the words are the universal tool tooltip (@scutoons/ui installTooltips, on hover
+	   and keyboard focus) */
+	.file-status[tabindex]:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: 1px;
 	}

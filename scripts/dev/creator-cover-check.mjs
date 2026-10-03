@@ -273,7 +273,9 @@ try {
 	check(lines.every((x) => x.fits), `every line fits its box (fit ${lines.map((x) => x.fit.toFixed(2)).join(', ')})`, JSON.stringify(lines));
 	await shot('4-dragged');
 
-	// 5. an own line with a text per language (all languages shown: i18n "all", set before the page loaded)
+	// 5. an own line with a text per language: the header's switch back to all languages (step 2 left the last one picked)
+	await js(`(() => { const s = document.querySelector('[data-testid="text-language-select"]'); s.value = 'all'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+	await sleep(300);
 	await click('[data-testid="cover-add-line"]');
 	check(await until(`!!${q(`cover-custom-${LOCALES.at(-1)}`)}`), 'Add line: an own text, one field per language');
 	for (const l of LOCALES) {
@@ -314,7 +316,7 @@ try {
 	if (viewerUp) {
 		await click('[data-testid="publish"]');
 		await answerDialog('button[type=submit]');
-		await until(`!document.querySelector('[data-testid="file-status"] .badge')`);
+		await until(`!document.querySelector('[data-testid="file-status"] .sc-chip')`);
 		const live = await api('GET', `/entities/${KEY}`);
 		check(Array.isArray(live.cover?.lettering?.square), 'Publish: the layout is live');
 		const liveAll = await Promise.all(KEYS.map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));

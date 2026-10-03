@@ -195,6 +195,17 @@ Done (branch `components`):
   season-editor (page), item-inspector, cover lettering inspector, script meta (panel), admin respawn-editor +
   asset-detail, embassy forms (page); `check:tools-css` also flags a bare `.grid/.two/.pair/.form-grid/.meta-grid` field
   grid (`grid-ok` exempts thumbnail grids).
+- Check fixes (red at the branch start): check:creator-cast, check-map builder (in-page note / publish dialogs),
+  check:creator-cover (text-language switch).
+- Step 1 ✓ 39439d4 – folders `page/ status/ fields/ media/ chapter/ slice/ text/ items/ events/ toon/` (4.1, names kept:
+  meta-page stays meta-page until step 11); `panel-width` → `lib/editor/`; all imports `$lib/…`.
+- Step 3 ✓ (the commit adding this line) – status chips on tools.css `.sc-chip.is-*` (+ `.is-dot` colour square,
+  `.is-tag` outlined name, `.is-quiet`): file-status, persona tags, renditions, locale-text source/missing/long, cast
+  star; interactive chips `.sc-chip-control` (+ `.has-image`, `.is-warning`, `.is-filled`/`.is-draft`, `.is-error`):
+  featuring, related items, credit roles; marked notes (image requests, "will be added") `.sc-mark`. The unused
+  `status-badges` component is gone (`statusWord` → `lib/editor/status-word.ts`). Not chips, left alone: the toggle
+  buttons named `.chip` (cast personas, map toon filters, role picker) – controls; @scutoons/ui `Badge` stays the shared
+  component (admin; no uppercase for ids). `check:tools-css` flags a local `--badge-*` filled rule.
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,
