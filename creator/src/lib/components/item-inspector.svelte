@@ -97,7 +97,7 @@
 		</div>
 		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.setShared(p('item'), item.id)} />
 
-		<div class="grid">
+		<div class="sc-fields" data-cols="2" data-density="panel">
 			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required />
 			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required />
 			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required />
@@ -121,7 +121,7 @@
 			{#if rule === null}
 				<p class="hint" data-testid="item-respawn-never">{m['creator.respawn_item_never']()}</p>
 			{:else if rule}
-				<div class="grid">
+				<div class="sc-fields" data-cols="2" data-density="panel">
 					<div class="field">
 						<label for="respawn-{path.join('-')}">{m['creator.slice_item_pickup_mode']()}</label>
 						<select id="respawn-{path.join('-')}" value={choiceKind} onchange={(e) => setRespawnKind(e.currentTarget.value)} data-testid="item-respawn">
@@ -183,12 +183,6 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
-	}
-	/* two fields per row: the reader's type size needs the width (DESIGN.md "Brutalist tools") */
-	.grid {
-		display: grid;
-		gap: var(--space-075) var(--space-1);
-		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	/* the respawn select (its own change handler) – laid out like a PropField */
 	.field {

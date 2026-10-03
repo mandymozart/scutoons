@@ -235,7 +235,7 @@
 		gap: 0.25rem;
 		align-items: center;
 	}
-	.grid {
+	.grid { /* grid-ok: the expression thumbnails, not fields */
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
 		gap: 4px;

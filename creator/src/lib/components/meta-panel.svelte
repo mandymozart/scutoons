@@ -78,7 +78,7 @@
 		{/if}
 	</div>
 
-	<div class="grid g2">
+	<div class="sc-fields" data-cols="2">
 		<PropField {doc} path={['release']} label="release" type="date" required />
 		<PropField {doc} path={['author']} label="author" required />
 	</div>
@@ -122,13 +122,6 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		max-width: 56rem;
-	}
-	.grid {
-		display: grid;
-		gap: 0.5rem 0.75rem;
-	}
-	.g2 {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 	.media {
 		display: flex;

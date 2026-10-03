@@ -349,7 +349,7 @@
 						<input type="checkbox" checked={line.quotes === true} onchange={(e) => editLine(i, { quotes: e.currentTarget.checked || undefined }, 'cover-quotes')} />
 						<span>{m['creator.cover_quotes']()}</span>
 					</label>
-					<div class="grid">
+					<div class="sc-fields" data-cols="2" data-density="panel">
 						{#each [['x', m['creator.cover_x']()], ['y', m['creator.cover_y']()], ['size', m['creator.cover_size']()], ['maxWidth', m['creator.cover_width']()], ['rotate', m['creator.cover_rotate']()], ['skew', m['creator.cover_skew']()]] as [key, label] (key)}
 							{@const k = key as keyof typeof COVER_LIMITS}
 							<label class="field">
@@ -366,7 +366,7 @@
 							{/each}
 						</span>
 					</div>
-					<div class="grid">
+					<div class="sc-fields" data-cols="2" data-density="panel">
 						{#each [['color', m['creator.cover_color'](), 'paper'], ['outline', m['creator.cover_outline'](), 'ink']] as [key, label, fallback] (key)}
 							{@const k = key as 'color' | 'outline'}
 							<label class="field">
@@ -580,11 +580,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-05);
-	}
-	.grid {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--space-1);
 	}
 	.check {
 		display: flex !important;

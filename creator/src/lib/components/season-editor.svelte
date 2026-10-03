@@ -124,7 +124,7 @@
 					<button type="button" class="ghost" onclick={() => wrongLanguage.forEach((l) => season.setLocal(l, ['language'], l))}>{m['creator.season_language_fix']()}</button>
 				</p>
 			{/if}
-			<div class="grid g2">
+			<div class="sc-fields" data-cols="2">
 				<PropField doc={season} path={['release']} label="release" type="date" />
 				<SharedField doc={season} path={['authors']} label="authors" kind="list" splittable={false} testid="season-authors" />
 			</div>
@@ -207,16 +207,12 @@
 	.hint {
 		margin: 0;
 	}
-	.grid {
-		display: grid;
-		gap: 0.5rem 0.75rem;
+	/* the field grid (tools.css .sc-fields): top-aligned, one column below 600px */
+	.sc-fields {
 		align-items: start;
 	}
-	.g2 {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
 	@media (max-width: 600px) {
-		.g2 {
+		.sc-fields[data-cols] {
 			grid-template-columns: minmax(0, 1fr);
 		}
 	}

@@ -429,10 +429,10 @@
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .sc-fields[data-cols='fill'] {
-	grid-template-columns: repeat(auto-fill, minmax(var(--fields-fill-min), 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(min(var(--fields-fill-min), 100%), 1fr));
 }
 .sc-fields[data-cols='fit'] {
-	grid-template-columns: repeat(auto-fit, minmax(var(--fields-fit-min), 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(min(var(--fields-fit-min), 100%), 1fr));
 }
 
 /* a framed block */

@@ -563,7 +563,7 @@
 	.danger {
 		align-self: flex-start;
 	}
-	.grid {
+	.grid { /* grid-ok: the image folder thumbnails, not fields */
 		list-style: none;
 		margin: 0;
 		padding: 0;

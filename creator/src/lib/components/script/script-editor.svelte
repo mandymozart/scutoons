@@ -437,7 +437,7 @@
 						<summary title={m['creator.script_meta_edit']()}>
 							<span>{m['creator.script_meta']()}{script.meta?.title ? ` · ${script.meta.title}` : ''}</span>
 						</summary>
-						<div class="meta-grid">
+						<div class="sc-fields meta-grid" data-cols="fill" data-density="panel">
 							{#each SCRIPT_META_FIELDS as field (field)}
 								<label>
 									<span>{metaLabel[field]()}</span>
@@ -660,9 +660,7 @@
 		min-width: 0;
 	}
 	.meta-grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-		gap: 0.4rem 0.75rem;
+		--fields-fill-min: 220px;
 		padding-top: 0.4rem;
 	}
 	.meta-grid label {

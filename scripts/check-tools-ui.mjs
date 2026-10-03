@@ -136,14 +136,14 @@ for (const file of [...new Set(CONTROL_DIRS.flatMap(walk))].filter((f) => f.ends
 	});
 }
 // field grid (owner 2026-10-03, COMPONENTS.md 4.4.2): one tools.css `.sc-fields[data-cols][data-density]` – no local
-// `.g2/.g3/.g4` copies (selector or `class="grid gN"` markup) and no local gap on `.sc-fields` (the density sets it)
+// `.g2/.g3/.g4` copies (selector or `class="grid gN"` markup), no local field-grid class (`.grid`, `.two`, `.pair`,
+// `.form-grid`, `.meta-grid` with display: grid; a line with `grid-ok` + the reason is exempt, e.g. a thumbnail grid)
+// and no local gap on `.sc-fields` (the density sets it)
 const fieldGrids = [];
-// still to migrate (COMPONENTS.md 4.3: found after step 2) – remove a file from here when it moves to .sc-fields
-const FIELD_GRID_TODO = new Set(['creator/src/lib/components/audio-panel.svelte', 'creator/src/lib/components/meta-panel.svelte', 'creator/src/lib/components/season-editor.svelte']);
+const FIELD_GRID_CLASS = /\.(grid|two|pair|form-grid|meta-grid)(?![\w-])[^\s>+~,]*\s*\)?\s*$/;
 for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 	const text = readFileSync(file, 'utf8');
 	const name = relative(ROOT, file).replace(/\\/g, '/');
-	if (FIELD_GRID_TODO.has(name)) continue;
 	const lineAt = (i) => text.slice(0, i).split('\n').length;
 	const styles = file.endsWith('.css') ? [{ css: text, at: 0 }] : [...text.matchAll(/(<style[^>]*>)([\s\S]*?)<\/style>/g)].map((m) => ({ css: m[2], at: m.index + m[1].length }));
 	for (const { css, at } of styles) {
@@ -151,7 +151,11 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 		for (const m of plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
 			const sel = m[1].trim();
 			const line = lineAt(at + m.index + m[1].search(/\S/));
+			// `grid-ok` anywhere in the rule (the comments are blanked in `plain`, same offsets in `css`)
+			if (/grid-ok/.test(css.slice(m.index, m.index + m[0].length))) continue;
 			if (/\.g\d\b/.test(sel)) fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field-grid copy)`);
+			else if (/display:\s*grid/.test(m[2]) && sel.split(/,(?![^(]*\))/).some((x) => FIELD_GRID_CLASS.test(x.trim())))
+				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field grid: tools.css .sc-fields, or \`grid-ok\` + the reason)`);
 			else if (/\.sc-fields\b/.test(sel) && /(^|[;\s])(row-|column-)?gap\s*:/.test(m[2])) fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} { gap } (the density sets the gaps)`);
 		}
 	}
@@ -191,7 +195,7 @@ if ((problems.length || bolds.length || heights.length || crosses.length || fiel
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
-console.log(`field grids: tools.css .sc-fields, no local .g2/.g3/.g4 copies or gaps – ok (still to migrate: ${[...FIELD_GRID_TODO].map((f) => f.split('/').pop()).join(', ')})`);
+console.log('field grids: tools.css .sc-fields, no local .grid/.gN field grids or gaps – ok');
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

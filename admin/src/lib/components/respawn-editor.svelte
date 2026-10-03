@@ -130,7 +130,7 @@
 		<h3>{m['catalog.respawn']()} · {names[editing] ?? editing}</h3>
 		<label class="check"><input type="checkbox" bind:checked={can} data-testid="respawn-can" /> {m['catalog.respawn_can']()}</label>
 		{#if can}
-			<div class="grid">
+			<div class="sc-fields" data-cols="fit">
 				{@render field('default', m['catalog.respawn_default']())}
 				{@render field('min', m['catalog.respawn_min']())}
 				{@render field('max', m['catalog.respawn_max']())}
@@ -165,10 +165,8 @@
 	.editor h3 {
 		margin: 0;
 	}
-	.grid {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-		gap: var(--space-1);
+	.sc-fields {
+		--fields-fit-min: 14rem;
 	}
 	.field {
 		display: flex;

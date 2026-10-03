@@ -55,7 +55,7 @@
 	<h2>{m['creator.audio']()}</h2>
 
 	<h3>Music</h3>
-	<div class="grid g2">
+	<div class="sc-fields" data-cols="2">
 		<PropField {doc} path={['audio', 'music', 'transitionDuration']} label="transitionDuration (ms)" type="number" step={100} placeholder="3000" />
 		<PropField {doc} path={['audio', 'music', 'defaultTrack']} label="defaultTrack" type="select" options={tracks.map((t) => t.id)} placeholder="none" />
 	</div>
@@ -102,13 +102,8 @@
 	h3 {
 		margin-top: 1rem;
 	}
-	.grid {
-		display: grid;
-		gap: 0.5rem;
+	.sc-fields {
 		margin-bottom: 0.5rem;
-	}
-	.g2 {
-		grid-template-columns: 1fr 1fr;
 	}
 	table {
 		width: 100%;

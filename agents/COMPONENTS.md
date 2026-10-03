@@ -188,8 +188,13 @@ Done (branch `components`):
   side ports). Found: Audio → Meta in the tree leaves `?section=audio` in the URL (logged as a note, not asserted).
 - Step 2 ✓ (the commit adding this line) – tools.css `.sc-fields[data-cols][data-density]` in the 6 places; local CSS gone
   except column overrides (toon-editor 2 cols < 900px, vn-events cast row `2fr 1fr 1fr auto`, character-detail
-  `--fields-min`); `check:tools-css` flags new `.gN` copies / gaps on `.sc-fields`. Still local (not in the evidence
-  above, left for a follow-up): audio-panel, meta-panel, season-editor (`.grid.g2`), item-inspector (`.grid`).
+  `--fields-*-min`); `check:tools-css` flags new `.gN` copies / gaps on `.sc-fields`. 4c86e8a: the widths as tokens
+  (the tokens check had gone red). 0942160: content schemas regenerated (`npm run check` was red before the branch).
+- Fixes: 1fb604f URL ↔ selection compares with the address bar (replaceState leaves `page.url` behind) – chapter tree,
+  characters, map builder; checked. Field grids the analysis missed (the commit after 1fb604f): audio-panel, meta-panel,
+  season-editor (page), item-inspector, cover lettering inspector, script meta (panel), admin respawn-editor +
+  asset-detail, embassy forms (page); `check:tools-css` also flags a bare `.grid/.two/.pair/.form-grid/.meta-grid` field
+  grid (`grid-ok` exempts thumbnail grids).
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,
