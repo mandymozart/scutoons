@@ -69,7 +69,9 @@ editions.json, toons.json, featured-products.json). Content paths resolve agains
 enclosing `toon` field wins (map locations) – and fall back to the CDN root when only that exists (registry style).
 History versions are not indexed (the delete check says so: restoring an old version may bring a reference back). Rebuilt
 by `assets:scan`, refreshed per entity on every creator save / publish / restore (EntitiesController). Not indexed: paths
-built in app code (e.g. item icon fallbacks) – none of the registry's files is referenced only by code today.
+built in app code beyond `AssetUsages::CODE_REFERENCES` (source `code`, state `config`: `scutoons/models/` – the camera's
+MobileNet – and the map / inventory frame `catpope/vectors/vector-demon-saw-1.svg`; AssetsTest checks each entry still
+appears in its code file). Add a path there whenever app code builds a CDN path itself.
 
 ## Operations (`AssetService`, API + CLI)
 
@@ -81,6 +83,7 @@ built in app code (e.g. item icon fallbacks) – none of the registry's files is
 | rename | copies the current files to the new slug (markers / extensions kept), new version, relink; old files stay with the archived version until nothing uses them | admin |
 | delete | the delete check (uses by state); published / catalog uses block, draft-only uses need `force`; deletes all versions' files + purges; the row stays `deleted` for history | admin |
 | missing / orphans | uses whose file the registry doesn't know · current files nothing references | admin page, API |
+| cleanup | admin → Assets → Unused (owner 2026-10-03: "clean up the CDN"): per asset the files nothing references (index rebuilt first) – whole unused assets, unused renditions of used assets (never their source), files left behind by a rename, replace archives under `.versions/`; select rows → one in-page confirm → `POST /admin/assets/cleanup`, which rebuilds the index again and skips anything referenced by now | admin |
 | jobs | queued in the admin / CLI, run by `php bin/console assets:jobs` where ffmpeg is (the owner's machine): download the source, transcode, upload next to it, register | admin, CLI |
 
 Video renditions = the trailer-loop recipe: H.264 `-preset slow -crf 24 / 24 / 22` for 480p / 720p / 1080p, `yuv420p`,
@@ -273,7 +276,8 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
   480p / 720p / 1080p become `variants` low / medium / high, 720p the default (`src` / `trailer.loop`). The season trailer is
   one slot since 2026-10-03 (`media-variants-slot.svelte`, DESIGN.md "Creator: season page"): the preview picks the whole
   asset, chips per level replace / clear one file.
-- **Admin – Assets** (`/assets`, nav Data → Assets): Library (grid, filters in the bar, Rescan), Missing files, Unused,
+- **Admin – Assets** (`/assets`, nav Data → Assets): Library (grid, filters in the bar, Rescan), Missing files, Unused
+  (the cleanup: select assets, "Delete N files (size)", confirm),
   Storage (drivers, bunny settings status, totals per kind, 30-day bandwidth chart). The asset sheet: preview, files per
   version, uses (with links into the creator), title / tags, replace, rename, relink, optimize (jobs), delete behind the
   check.

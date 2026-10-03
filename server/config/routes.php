@@ -261,6 +261,8 @@ return static function (App $app): void {
         $admin->get('/assets/jobs', [AssetsController::class, 'jobs']);
         $admin->post('/assets/scan', [AssetsController::class, 'scan']);
         $admin->post('/assets/relink', [AssetsController::class, 'relink']);
+        $admin->get('/assets/unused', [AssetsController::class, 'unused']);
+        $admin->post('/assets/cleanup', [AssetsController::class, 'cleanup']);
         $admin->put("/assets/$asset/file", [AssetsController::class, 'replace']);
         $admin->post("/assets/$asset/rename", [AssetsController::class, 'rename']);
         $admin->get("/assets/$asset/delete-check", [AssetsController::class, 'deleteCheck']);

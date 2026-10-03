@@ -8,6 +8,7 @@
 		AppShell,
 		Badge,
 		CommandPalette,
+		DialogHost,
 		Icon,
 		PaletteTrigger,
 		ToastStack,
@@ -167,6 +168,7 @@
 		/>
 	</AuthGate>
 	<ToastStack {toaster} dismissLabel={m['shell.dismiss']()} />
+	<DialogHost cancelLabel={m['common.cancel']()} />
 </div>
 
 <style>

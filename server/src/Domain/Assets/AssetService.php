@@ -255,6 +255,110 @@ final class AssetService
     }
 
     /**
+     * The cleanup list (admin → Assets → Unused): AssetUsages::unusedFiles on a freshly rebuilt usage index, the sizes of
+     * the archived copies from the storage
+     * @return array<string, mixed>
+     */
+    public function unused(): array
+    {
+        $this->registry->requireAvailable();
+        $this->usages->rebuild();
+        $items = $this->usages->unusedFiles();
+        $storage = $this->storage();
+        foreach ($items as &$item) {
+            foreach ($item['files'] as &$file) {
+                if ($file['size'] !== null) continue;
+                try {
+                    $file['size'] = $storage->stat($file['path'])?->size;
+                } catch (Throwable) {
+                    // unknown size – the file is still listed
+                }
+                $item['size'] += (int) $file['size'];
+            }
+            unset($file);
+        }
+        unset($item);
+        $files = array_merge(...array_map(fn(array $i) => $i['files'], $items ?: [['files' => []]]));
+        return ['status' => 'success', 'items' => $items, 'totals' => ['assets' => count($items), 'files' => count($files), 'bytes' => array_sum(array_column($items, 'size'))]];
+    }
+
+    /**
+     * Deletes the given unused files (paths from `unused()`). The usage index is rebuilt first and every path checked
+     * against it again: a path that is referenced (or not a cleanup candidate) by now is skipped, never deleted. An asset
+     * whose every current file is listed AND unused goes as a whole (`delete`, history included); otherwise single
+     * files: an unused rendition, an archived version's leftover, an archived copy under .versions/. Storage errors are
+     * reported per file, the rest continues.
+     * @param array<string, mixed> $user
+     * @param list<string> $paths
+     * @return array<string, mixed>
+     */
+    public function cleanup(array $user, array $paths): array
+    {
+        $this->registry->requireAvailable();
+        $this->usages->rebuild();
+        $candidates = [];
+        $groups = [];
+        foreach ($this->usages->unusedFiles() as $item) {
+            $groups[$item['id']] = $item;
+            foreach ($item['files'] as $file) $candidates[$file['path']] = ['asset' => $item['id'], 'what' => $file['what'], 'size' => $file['size']];
+        }
+        $wanted = [];
+        $skipped = [];
+        foreach (array_unique($paths) as $path) {
+            $path = StorageKey::normalize((string) $path);
+            if (isset($candidates[$path])) $wanted[$candidates[$path]['asset']][] = $path;
+            else $skipped[] = ['path' => $path, 'reason' => 'in_use_or_unknown'];
+        }
+        $storage = $this->storage();
+        $deleted = [];
+        $failed = [];
+        $assets = 0;
+        $bytes = 0;
+        foreach ($wanted as $assetId => $chosen) {
+            $group = $groups[$assetId];
+            $current = array_column(array_filter($group['files'], fn(array $f) => $f['what'] === 'current'), 'path');
+            if ($group['all_unused'] && !array_diff($current, $chosen)) {
+                try {
+                    $result = $this->delete($user, (string) $assetId);
+                    $assets++;
+                    array_push($deleted, ...$result['deleted']);
+                    $bytes += $group['size'];
+                } catch (ApiError $error) {
+                    foreach ($chosen as $path) $failed[$path] = $error->getMessage();
+                }
+                continue;
+            }
+            $source = $this->registry->currentVersion((string) $assetId)['path'] ?? null;
+            foreach ($chosen as $path) {
+                $what = $candidates[$path]['what'];
+                if ($what === 'current' && $path === $source) {
+                    $skipped[] = ['path' => $path, 'reason' => 'source']; // only with the whole asset
+                    continue;
+                }
+                try {
+                    $stat = $storage->stat($path);
+                    if ($stat) {
+                        $storage->delete($path);
+                        $storage->purge($path);
+                    }
+                } catch (Throwable $error) {
+                    $failed[$path] = $error->getMessage();
+                    continue;
+                }
+                if ($what === 'archive') {
+                    $this->db->run('UPDATE asset_versions SET archive_path = NULL WHERE asset_id = ? AND archive_path = ?', [$assetId, $path]);
+                } else {
+                    $this->db->run('DELETE FROM asset_renditions WHERE asset_id = ? AND path = ?', [$assetId, $path]);
+                    if ($what === 'old') $this->db->run("UPDATE asset_versions SET status = 'purged' WHERE asset_id = ? AND status = 'archived' AND path = ?", [$assetId, $path]);
+                }
+                $deleted[] = $path;
+                $bytes += (int) ($candidates[$path]['size'] ?? $stat?->size);
+            }
+        }
+        return ['status' => 'success', 'deleted' => $deleted, 'assets_deleted' => $assets, 'bytes' => $bytes, 'skipped' => $skipped, 'failed' => $failed, 'by' => $user['id'] ?? null];
+    }
+
+    /**
      * Points every reference of $from at $to (the file must exist on the storage). Content: one new DRAFT version per
      * touched entity (author = $user; published content changes when the creator publishes – or right away with
      * $publish when the entity's newest version was the published one); catalog files are rewritten in place when the

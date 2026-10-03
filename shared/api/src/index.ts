@@ -114,6 +114,8 @@ export {
 	type AssetLookup,
 	type AssetMissing,
 	type AssetOrphan,
+	type AssetUnused,
+	type AssetCleanupResult,
 	type AssetQuality,
 	type AssetRelinkResult,
 	type AssetRendition,

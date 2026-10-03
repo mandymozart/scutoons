@@ -75,7 +75,7 @@ final class AssetsApiTest extends TestCase
         self::assertSame(401, $this->request('GET', '/api/assets')->getStatusCode());
         self::assertSame(403, $this->request('GET', '/api/assets', $member)->getStatusCode());
         self::assertSame(200, $this->request('GET', '/api/assets', $creator)->getStatusCode());
-        foreach ([['GET', '/api/admin/assets/storage'], ['POST', '/api/admin/assets/scan'], ['GET', '/api/admin/assets/jobs']] as [$method, $path]) {
+        foreach ([['GET', '/api/admin/assets/storage'], ['POST', '/api/admin/assets/scan'], ['GET', '/api/admin/assets/jobs'], ['GET', '/api/admin/assets/unused'], ['POST', '/api/admin/assets/cleanup']] as [$method, $path]) {
             self::assertSame(403, $this->request($method, $path, $creator)->getStatusCode(), $path);
         }
     }
@@ -149,5 +149,21 @@ final class AssetsApiTest extends TestCase
         $scan = self::json($this->request('POST', '/api/admin/assets/scan', $admin));
         self::assertSame(0, $scan['import']['assets_created']);
         self::assertSame(1, $scan['usages']['content']);
+    }
+
+    public function testUnusedAndCleanup(): void
+    {
+        $this->fixture();
+        $admin = $this->as('admin');
+        $json = $admin + ['Content-Type' => 'application/json'];
+        $unused = self::json($this->request('GET', '/api/admin/assets/unused', $admin));
+        self::assertSame(['catpope/videos/clip.480p.mp4'], array_column($unused['items'][0]['files'] ?? [], 'path'), 'the 720p is used');
+        self::assertSame(1, $unused['totals']['files']);
+        self::assertSame(422, $this->request('POST', '/api/admin/assets/cleanup', $json, '{"paths":[]}')->getStatusCode());
+        $result = self::json($this->request('POST', '/api/admin/assets/cleanup', $json, (string) json_encode(['paths' => ['catpope/videos/clip.480p.mp4', 'catpope/videos/clip.720p.mp4']])));
+        self::assertSame(['catpope/videos/clip.480p.mp4'], $result['deleted']);
+        self::assertSame([['path' => 'catpope/videos/clip.720p.mp4', 'reason' => 'in_use_or_unknown']], $result['skipped']);
+        self::assertFileDoesNotExist($this->dir . '/cdn/catpope/videos/clip.480p.mp4');
+        self::assertFileExists($this->dir . '/cdn/catpope/videos/clip.720p.mp4');
     }
 }
