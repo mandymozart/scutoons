@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { RESPAWN_UNITS, intervalMinutes, intervalParts, placementRespawnProblem, respawnRange, type Path, type RespawnInterval, type RespawnUnit } from '@scutoons/content';
+	import { RESPAWN_UNITS, intervalMinutes, isRespawnInterval, intervalParts, placementRespawnProblem, respawnRange, type Path, type RespawnInterval, type RespawnUnit } from '@scutoons/content';
 	import ItemPickerSheet from './item-picker-sheet.svelte';
 	import { intervalLabel } from '$lib/editor/respawn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -56,7 +56,9 @@
 		range ? RESPAWN_UNITS.filter((u) => Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u]) * UNIT_MINUTES[u] <= range.max) : []
 	);
 	const choice = $derived<RespawnInterval | 'never' | undefined>(placed?.respawn);
-	const choiceKind = $derived(choice === undefined ? 'default' : choice === 'never' || choice === 'visit' ? choice : intervalParts(choice).unit);
+	const choiceKind = $derived(
+		choice === undefined ? 'default' : choice === 'never' || choice === 'visit' ? choice : isRespawnInterval(choice) ? intervalParts(choice).unit : 'invalid'
+	);
 	const problem = $derived(rule === undefined ? null : placementRespawnProblem(choice, rule));
 	const bounds = (u: RespawnUnit) => ({
 		min: range ? Math.max(1, Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u])) : 1,
@@ -75,7 +77,7 @@
 		doc.setShared(p('respawn'), next);
 	}
 	function setRespawnCount(raw: string) {
-		if (choiceKind === 'default' || choiceKind === 'never' || choiceKind === 'visit') return;
+		if (choiceKind === 'default' || choiceKind === 'never' || choiceKind === 'visit' || choiceKind === 'invalid') return;
 		const n = Math.floor(Number(raw));
 		if (n >= 1) doc.setShared(p('respawn'), { [choiceKind]: n });
 	}
@@ -127,12 +129,12 @@
 							<option value="never">{m['creator.respawn_never']()}</option>
 							{#if range?.min === 0}<option value="visit">{intervalLabel('visit')}</option>{/if}
 							{#each units as u (u)}<option value={u}>{m[`creator.respawn_every_${u}_n`]()}</option>{/each}
-							{#if choiceKind !== 'default' && choiceKind !== 'never' && choiceKind !== 'visit' && !units.includes(choiceKind)}
-								<option value={choiceKind}>{choiceKind} (?)</option>
+							{#if choiceKind === 'invalid' || (choiceKind !== 'default' && choiceKind !== 'never' && choiceKind !== 'visit' && !units.includes(choiceKind))}
+								<option value={choiceKind}>{JSON.stringify(choice)} (?)</option>
 							{/if}
 						</select>
 					</div>
-					{#if choiceKind !== 'default' && choiceKind !== 'never' && choiceKind !== 'visit' && choice && typeof choice === 'object'}
+					{#if choiceKind !== 'default' && choiceKind !== 'never' && choiceKind !== 'visit' && choiceKind !== 'invalid' && choice && typeof choice === 'object'}
 						{@const b = bounds(choiceKind)}
 						<div class="field">
 							<label for="respawn-n-{path.join('-')}">{m[`creator.respawn_unit_${choiceKind}`]()} ({b.min} … {b.max})</label>

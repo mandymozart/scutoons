@@ -63,7 +63,9 @@
 	/** a placed item that stayed on the slice: why (the API's error code where it said one) */
 	function refusedText(reason: string | undefined, name: string) {
 		if (reason === 'max_reached') return m['items.pickup_max_reached']();
-		if (reason === 'not_grantable' || reason === 'unknown_item') return m['items.pickup_not_grantable']({ name });
+		if (reason === 'not_grantable' || reason === 'unknown_item' || reason?.startsWith('respawn_') || reason === 'invalid_respawn') {
+			return m['items.pickup_not_grantable']({ name });
+		}
 		if (reason === 'already_taken') return m['items.pickup_already_taken']({ name });
 		if (reason === 'rate_limited' || reason === 'cooldown' || reason === 'daily_limit') return m['items.pickup_rate_limited']();
 		return m['items.pickup_failed']({ name });
