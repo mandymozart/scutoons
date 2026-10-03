@@ -169,6 +169,10 @@ async function type(selector, text) {
 	await send('Input.insertText', { text });
 	await sleep(250);
 }
+/** an in-page dialog (confirmDialog / askDialog), when one opens: click its button */
+async function answerDialog(button) {
+	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click(`dialog.sc-dialog[open] ${button}`);
+}
 const state = () =>
 	js(`({
 		dirty: !!document.querySelector('.dirty-bar'),
@@ -181,7 +185,8 @@ const state = () =>
 const writesSince = (n) => writes.slice(n);
 /** the status chips' words: the colour chips carry them as their accessible name / tooltip (owner 2026-10-02) */
 const CHIPS = `[...(${q('file-status')}?.querySelectorAll('.file-status, .badge[aria-label]') ?? [])].map((e) => e.getAttribute('aria-label') ?? e.getAttribute('title') ?? e.dataset.scTitle ?? e.innerText).join(' ').replace(/\\s+/g, ' ').trim()`;
-const loaded = () => until(`!!${q('cast-editor')} && !!${q('file-status')} && document.querySelectorAll('[data-testid^="cast-member-"]').length > 0`);
+// (the file status only shows what is not published – a clean page has none)
+const loaded = () => until(`!!${q('cast-editor')} && document.querySelectorAll('[data-testid^="cast-member-"]').length > 0`);
 
 await send('Runtime.enable');
 await send('Network.enable');
@@ -222,6 +227,7 @@ try {
 	check(s.dirty && s.saveDisabled === false, 'a role text marks the page dirty', JSON.stringify(s));
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
+	await answerDialog('button.secondary'); // the note dialog: save without a note
 	await until(`!document.querySelector('.dirty-bar') && !${q('save-draft')}.disabled`);
 	s = await state();
 	const saved = writesSince(n);
@@ -245,6 +251,7 @@ try {
 	check(s.members.indexOf(newId) === s.members.length - 2 && s.members.indexOf(last) === s.members.length - 1, 'moving up reorders the cast', JSON.stringify(s.members));
 	n = writes.length;
 	await click('[data-testid="publish"]');
+	await answerDialog('button[type="submit"]'); // Publish confirms in-page
 	await until(`${CHIPS} === '' && !document.querySelector('.dirty-bar')`);
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
