@@ -366,7 +366,7 @@
 		flex-direction: column;
 		align-items: center;
 		gap: 0.75rem;
-		padding-top: 0.5rem;
+		padding-top: 1rem;
 		height: 100%;
 	}
 	.sc-shell-rail-label {
@@ -378,12 +378,10 @@
 		text-overflow: ellipsis;
 		max-height: calc(100% - 4rem);
 	}
+	/* its own row, 1rem from the top and the side, on the line of the sidebar's entries (owner 2026-10-03) */
 	.sc-shell-fold-in {
-		position: sticky;
-		z-index: 2;
-		top: 0.5rem;
-		float: right;
-		margin: 0.5rem 0.5rem 0 0;
+		display: flex;
+		margin: 1rem 0 0 1rem;
 	}
 	.folded .sc-shell-sidebar {
 		overflow: hidden;
