@@ -103,7 +103,8 @@ export function newSlice(chapter: number, index: number, season = 1): Slice {
 	return { image: sliceImagePath(chapter, index, season), width: DEFAULT_SLICE.width, height: DEFAULT_SLICE.height };
 }
 
-export function newDialog(id: string, rect: Dialog['rect'], variant: Dialog['variant'] = 'bubble'): Dialog {
+/** A new text box: a caption by default (owner 2026-10-03) */
+export function newDialog(id: string, rect: Dialog['rect'], variant: Dialog['variant'] = 'caption'): Dialog {
 	return { id, rect, text: '', variant, size: 4 };
 }
 
