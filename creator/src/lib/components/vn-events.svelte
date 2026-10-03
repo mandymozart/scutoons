@@ -287,13 +287,18 @@
 		return getAt(events[index], ['params', 'characters']) ?? [];
 	}
 
-	function addCharacter(index: number) {
+	/** a new row, empty, its picker focused (owner 2026-10-03: the button "did not work" – it copied the first character) */
+	async function addCharacter(index: number) {
+		let row = 0;
 		doc.structural((file) => {
 			const params = getAt(file, [...eventsPath, index, 'params']);
 			if (!params) return;
 			params.characters ??= [];
-			params.characters.push({ character: characters[0]?.name ?? '', persona: 'regular', variant: 'avatar' });
+			params.characters.push({ character: '', persona: 'regular', ...(getAt(file, [...eventsPath, index, 'type']) === 'joinScene' ? { variant: 'avatar' } : {}) });
+			row = params.characters.length - 1;
 		});
+		await tick();
+		document.querySelectorAll<HTMLElement>(`[data-testid="event-${index}"] [data-testid="character-ref-open"]`)[row]?.focus();
 	}
 
 	function removeCharacter(index: number, ci: number) {
@@ -371,7 +376,7 @@
 					<Icon name="chevron-right" />
 					<span class="idx">{i + 1}</span>
 					<span class="type">{event?.type}</span>
-					{#each people(event) as who (who.id)}
+					{#each people(event) as who, wi (wi)}
 						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
 					<span class="sum">{summary(event)}</span>
