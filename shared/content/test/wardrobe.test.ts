@@ -10,6 +10,7 @@ import {
 	missingWearOverlays,
 	unlockedBodies,
 	validateCatalog,
+	catalogFromSeed,
 	wardrobeBase,
 	wearConventionPath,
 	wearOverlay,
@@ -19,7 +20,7 @@ import {
 } from '../src/index.ts';
 
 const json = (rel: string) => JSON.parse(readFileSync(new URL(rel, import.meta.url), 'utf8'));
-const catalog: Catalog = json('../../../server/config/items.json');
+const catalog: Catalog = catalogFromSeed(json('../../../server/config/items.json'));
 const registry: CharacterRegistry = json('../seed/scutoons/_/characters.json');
 const item = (id: string) => catalog.items.find((i) => i.id === id)!;
 

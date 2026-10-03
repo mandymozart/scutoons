@@ -3,12 +3,14 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Catalog;
 
-use RuntimeException;
+use Scutoons\Domain\Avatar\AvatarSlots;
+use Scutoons\Domain\Reader\ReaderStats;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
- * The item catalog (config/items.json, agents/ITEMS.md "Item definition") – served as-is by GET /api/items/ – and
- * helpers over it. Editions (config/editions.json) are looked up through Editions.
+ * The item catalog (agents/ITEMS.md "Item definition"): the tables catalog_items / catalog_recipes / catalog_albums
+ * (CatalogStore, agents/CATALOG.md) + the slot types and reader stats from code (AvatarSlots, ReaderStats), served by
+ * GET /api/items/ in the shape config/items.json had – and helpers over it. Editions are looked up through Editions.
  */
 final class Catalog
 {
@@ -16,23 +18,37 @@ final class Catalog
     private ?array $data = null;
     /** @var array<string, array<string, mixed>>|null */
     private ?array $items = null;
+    /** the store's generation the data was read at (a write in the same request reads again) */
+    private int $generation = -1;
 
-    public function __construct(private readonly Settings $settings, private readonly Editions $editions)
+    public function __construct(private readonly Settings $settings, private readonly Editions $editions, private readonly CatalogStore $store)
     {
     }
 
+    /** The seed file (config/items.json) – the database is the catalog, the file only seeds empty databases */
     public function path(): string
     {
         return $this->settings->path('ITEMS_PATH');
     }
 
-    /** @return array<string, mixed> the whole catalog as served by GET /api/items/ */
+    /**
+     * @return array<string, mixed> the whole catalog as served by GET /api/items/: { version, slots, items, recipes,
+     *   albums, stats } (the order of the old file)
+     */
     public function data(): array
     {
-        if ($this->data === null) {
-            $data = json_decode((string) @file_get_contents($this->path()), true);
-            if (!is_array($data) || !isset($data['items'])) throw new RuntimeException('items.json is invalid');
-            $this->data = $data;
+        if ($this->data === null || $this->generation !== $this->store->generation()) {
+            $this->items = null;
+            $this->generation = $this->store->generation();
+            $meta = $this->store->get('meta', 'items');
+            $this->data = [
+                'version' => is_array($meta) ? ($meta['version'] ?? 1) : 1,
+                'slots' => AvatarSlots::ALL,
+                'items' => $this->store->list('items'),
+                'recipes' => $this->store->list('recipes'),
+                'albums' => $this->store->list('albums'),
+                'stats' => ReaderStats::DEFINITIONS,
+            ];
         }
         return $this->data;
     }
@@ -40,9 +56,10 @@ final class Catalog
     /** @return array<string, array<string, mixed>> id => item */
     public function items(): array
     {
+        $data = $this->data();
         if ($this->items === null) {
             $this->items = [];
-            foreach ($this->data()['items'] as $item) $this->items[$item['id']] = $item;
+            foreach ($data['items'] as $item) $this->items[$item['id']] = $item;
         }
         return $this->items;
     }
@@ -53,10 +70,10 @@ final class Catalog
         return $this->items()[$id] ?? null;
     }
 
-    /** @return list<string> */
+    /** @return list<string> the avatar slot types (code: AvatarSlots) */
     public function slots(): array
     {
-        return $this->data()['slots'] ?? [];
+        return AvatarSlots::ALL;
     }
 
     /** @return array<string, mixed>|null */

@@ -316,7 +316,7 @@ export interface AdminRespawn {
 	status: 'success';
 	items: {
 		id: string;
-		/** the rule in server config/items.json (null = never) */
+		/** the rule of the catalog seed (server config/items.json; null = never) */
 		file: ItemRespawn | null;
 		/** the admin's override (null = never; only meaningful with `overridden`) */
 		override: ItemRespawn | null;
@@ -570,7 +570,7 @@ export function createAdminApi(api: ApiClient) {
 		saveSettings: (values: Record<string, number | null>) => api.put<AdminSettings>('/admin/settings', values),
 
 		respawn: () => api.get<AdminRespawn>('/admin/catalog/respawn'),
-		/** an item's rule, null = never reappears, `reset` = back to config/items.json */
+		/** an item's rule (an update of the item, catalog_history), null = never reappears, `reset` = back to the seed's rule */
 		saveRespawn: (item: string, change: { respawn: ItemRespawn | null } | { reset: true }) =>
 			api.put<AdminRespawn>(`/admin/catalog/respawn/${seg(item)}`, change),
 

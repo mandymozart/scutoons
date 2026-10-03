@@ -13,6 +13,7 @@ import {
 	playersFor,
 	seasonMusic,
 	validateCatalog,
+	catalogFromSeed,
 	validateFile,
 	validateLocales,
 	type Catalog,
@@ -20,7 +21,7 @@ import {
 } from '../src/index.ts';
 
 const json = (rel: string) => JSON.parse(readFileSync(new URL(rel, import.meta.url), 'utf8'));
-const catalog: Catalog = json('../../../server/config/items.json');
+const catalog: Catalog = catalogFromSeed(json('../../../server/config/items.json'));
 const item = (id: string) => catalog.items.find((i) => i.id === id)!;
 const itemIds = catalog.items.map((i) => i.id);
 

@@ -67,13 +67,15 @@ final class AppTest extends TestCase
         self::assertFalse($this->request('GET', 'http://localhost/api/toons/', ['Origin' => 'http://viewer.test'])->hasHeader('Access-Control-Allow-Origin'));
     }
 
-    public function testProductsAreTheStoredFilesByteForByte(): void
+    public function testProductsAreTheSeedFilesFromTheDatabase(): void
     {
         $root = dirname(__DIR__, 3);
+        // the same documents as the files served before the catalog moved into the database (objects, key order, 1.0)
+        $canonical = fn(string $json) => (string) json_encode(json_decode($json), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         foreach (['products' => 'products.json', 'products/featured' => 'featured-products.json'] as $path => $file) {
             $r = $this->request('GET', "http://localhost/api/$path/", ['Origin' => 'https://evil.test']);
             self::assertSame(200, $r->getStatusCode(), $path);
-            self::assertSame((string) file_get_contents("$root/config/$file"), (string) $r->getBody(), $path);
+            self::assertSame($canonical((string) file_get_contents("$root/config/$file")), (string) $r->getBody(), $path);
             self::assertSame('application/json; charset=utf-8', $r->getHeaderLine('Content-Type'));
             self::assertSame(['*', $path === 'products' ? 'public, max-age=300' : 'public, max-age=60'], [$r->getHeaderLine('Access-Control-Allow-Origin'), $r->getHeaderLine('Cache-Control')]);
         }
