@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import type { Path } from '@scutoons/content';
+	import { RESPAWN_UNITS, intervalMinutes, intervalParts, placementRespawnProblem, respawnRange, type Path, type RespawnInterval, type RespawnUnit } from '@scutoons/content';
+	import ItemPickerSheet from './item-picker-sheet.svelte';
+	import { intervalLabel } from '$lib/editor/respawn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
@@ -44,20 +46,41 @@
 	const placed = $derived(doc.get(doc.primary, path));
 	const def = $derived(itemCatalog.catalog?.items.find((i) => i.id === placed?.item));
 	const action = $derived(placed?.action ?? 'none');
-	const itemOptions = $derived.by(() => {
-		const list = (itemCatalog.catalog?.items ?? []).map((i) => ({ value: i.id, label: `${itemName(i, i.id)} · ${i.id}` }));
-		if (placed?.item && !list.some((o) => o.value === placed.item)) list.unshift({ value: placed.item, label: placed.item });
-		return list;
-	});
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
+	let picking = $state(false);
 
-	/** pickup again: none (once) · every visit · every day · every n hours (`SliceItemRespawn`) */
-	const respawnKind = $derived(
-		placed?.respawn === 'visit' || placed?.respawn === 'day' ? placed.respawn : placed?.respawn && typeof placed.respawn === 'object' ? 'hours' : 'once'
+	// ── respawn: the item's rule (catalog, admin → Catalog) and this placement's override within its range ──
+	const UNIT_MINUTES: Record<RespawnUnit, number> = { minutes: 1, hours: 60, days: 1440 };
+	/** the item's rule: undefined = catalog not loaded, null = the item never reappears */
+	const rule = $derived(def ? (def.respawn ?? null) : undefined);
+	const range = $derived(rule ? respawnRange(rule) : null);
+	/** the units a placement can use within the range (n ≥ 1 whole) */
+	const units = $derived(
+		range ? RESPAWN_UNITS.filter((u) => Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u]) * UNIT_MINUTES[u] <= range.max) : []
 	);
-	function setRespawn(kind: string) {
-		const next = kind === 'visit' || kind === 'day' ? kind : kind === 'hours' ? { hours: 24 } : undefined;
+	const choice = $derived<RespawnInterval | 'never' | undefined>(placed?.respawn);
+	const choiceKind = $derived(choice === undefined ? 'default' : choice === 'never' || choice === 'visit' ? choice : intervalParts(choice).unit);
+	const problem = $derived(rule === undefined ? null : placementRespawnProblem(choice, rule));
+	const bounds = (u: RespawnUnit) => ({
+		min: range ? Math.max(1, Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u])) : 1,
+		max: range ? Math.floor(range.max / UNIT_MINUTES[u]) : 1
+	});
+	function setRespawnKind(kind: string) {
+		let next: RespawnInterval | 'never' | undefined;
+		if (kind === 'never' || kind === 'visit') next = kind;
+		else if ((RESPAWN_UNITS as readonly string[]).includes(kind)) {
+			const u = kind as RespawnUnit;
+			// the item's default in this unit when it fits, else the shortest the range allows
+			const d = rule ? (intervalMinutes(rule.default) ?? 0) : 0;
+			const n = Math.min(bounds(u).max, Math.max(bounds(u).min, Math.round(d / UNIT_MINUTES[u])));
+			next = { [u]: n } as RespawnInterval;
+		}
 		doc.setShared(p('respawn'), next);
+	}
+	function setRespawnCount(raw: string) {
+		if (choiceKind === 'default' || choiceKind === 'never' || choiceKind === 'visit') return;
+		const n = Math.floor(Number(raw));
+		if (n >= 1) doc.setShared(p('respawn'), { [choiceKind]: n });
 	}
 </script>
 
@@ -69,7 +92,11 @@
 			{#if onremove}<button class="secondary" onclick={onremove}>{m['creator.remove']()}</button>{/if}
 		</div>
 
-		<PropField {doc} path={p('item')} label="item" type="select" options={itemOptions} required />
+		<div class="row">
+			<code>{placed.item}</code>
+			<button type="button" class="secondary" onclick={() => (picking = true)} data-testid="item-change">{m['creator.slice_item_change']()}</button>
+		</div>
+		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.setShared(p('item'), item.id)} />
 
 		<div class="grid">
 			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required {editLocale} />
@@ -93,21 +120,33 @@
 
 		{#if action === 'pickup'}
 			<PropField {doc} path={p('qty')} label={m['creator.slice_item_qty']()} type="number" step={1} min={1} placeholder="1" />
-			<div class="grid">
-				<div class="field">
-					<label for="respawn-{path.join('-')}">{m['creator.slice_item_pickup_mode']()}</label>
-					<select id="respawn-{path.join('-')}" value={respawnKind} onchange={(e) => setRespawn(e.currentTarget.value)} data-testid="item-respawn">
-						<option value="once">{m['creator.slice_item_pickup_once']()}</option>
-						<option value="visit">{m['creator.slice_item_pickup_visit']()}</option>
-						<option value="day">{m['creator.slice_item_pickup_day']()}</option>
-						<option value="hours">{m['creator.slice_item_pickup_hours']()}</option>
-					</select>
+			{#if rule === null}
+				<p class="hint" data-testid="item-respawn-never">{m['creator.respawn_item_never']()}</p>
+			{:else if rule}
+				<div class="grid">
+					<div class="field">
+						<label for="respawn-{path.join('-')}">{m['creator.slice_item_pickup_mode']()}</label>
+						<select id="respawn-{path.join('-')}" value={choiceKind} onchange={(e) => setRespawnKind(e.currentTarget.value)} data-testid="item-respawn">
+							<option value="default">{m['creator.respawn_item_default']({ every: intervalLabel(rule.default) })}</option>
+							<option value="never">{m['creator.respawn_never']()}</option>
+							{#if range?.min === 0}<option value="visit">{intervalLabel('visit')}</option>{/if}
+							{#each units as u (u)}<option value={u}>{m[`creator.respawn_every_${u}_n`]()}</option>{/each}
+							{#if choiceKind !== 'default' && choiceKind !== 'never' && choiceKind !== 'visit' && !units.includes(choiceKind)}
+								<option value={choiceKind}>{choiceKind} (?)</option>
+							{/if}
+						</select>
+					</div>
+					{#if choiceKind !== 'default' && choiceKind !== 'never' && choiceKind !== 'visit' && choice && typeof choice === 'object'}
+						{@const b = bounds(choiceKind)}
+						<div class="field">
+							<label for="respawn-n-{path.join('-')}">{m[`creator.respawn_unit_${choiceKind}`]()} ({b.min} … {b.max})</label>
+							<input id="respawn-n-{path.join('-')}" type="number" step="1" min={b.min} max={b.max} value={intervalParts(choice).n} oninput={(e) => setRespawnCount(e.currentTarget.value)} data-testid="item-respawn-n" />
+						</div>
+					{/if}
 				</div>
-				{#if respawnKind === 'hours'}
-					<PropField {doc} path={p('respawn', 'hours')} label={m['creator.slice_item_pickup_hours_n']()} type="number" step={1} min={1} max={8760} required />
-				{/if}
-			</div>
-			{#if respawnKind !== 'once'}<p class="hint">{m['creator.slice_item_hint_respawn']()}</p>{/if}
+				<p class="hint">{m['creator.respawn_item_range']({ min: range && range.min === 0 ? intervalLabel('visit') : intervalLabel({ minutes: Math.max(1, range?.min ?? 1) }), max: intervalLabel({ minutes: range?.max ?? 1 }) })}</p>
+				{#if problem}<p class="warn" data-testid="item-respawn-problem">{problem}</p>{/if}
+			{/if}
 			<p class="hint">{m['creator.slice_item_hint_pickup']()}</p>
 			{#if def && !def.grantable?.includes('story')}
 				<p class="warn" data-testid="item-not-grantable">{m['creator.slice_item_not_grantable']()}</p>

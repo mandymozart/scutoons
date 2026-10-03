@@ -34,6 +34,7 @@
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
 	import ItemInspector from './item-inspector.svelte';
+	import ItemPickerSheet from './item-picker-sheet.svelte';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import SliceMedia from './slice-media.svelte';
 	import SliceUnlocks from './map/slice-unlocks.svelte';
@@ -312,7 +313,8 @@
 						moods: moodIds,
 						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined,
 						// placed items (and related items) are checked against the catalog once it is loaded
-						items: itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined
+						items: itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined,
+						itemRespawn: itemCatalog.catalog ? Object.fromEntries(itemCatalog.catalog.items.map((i) => [i.id, i.respawn ?? null])) : undefined
 					})
 				);
 			}
@@ -410,6 +412,8 @@
 		// the new box is selected: its text and look are set in the text box inspector
 		onCanvasSelect({ kind: 'dialog', index: boxIndex });
 	}
+
+	let pickingItem = $state(false);
 
 	/** places a catalog item in the middle of the slice (a quarter of its width; move / rotate / scale on the canvas) */
 	function addSliceItem(itemId: string) {
@@ -918,20 +922,8 @@
 								<li class="hint">{m['creator.slice_items_empty']()}</li>
 							{/each}
 						</ul>
-						<select
-							aria-label={m['creator.add_slice_item']()}
-							title={m['creator.add_slice_item']()}
-							value=""
-							disabled={!itemCatalog.catalog}
-							onchange={(e) => {
-								addSliceItem(e.currentTarget.value);
-								e.currentTarget.value = '';
-							}}
-							data-testid="add-slice-item"
-						>
-							<option value="">{m['creator.add_slice_item']()}</option>
-							{#each itemCatalog.catalog?.items ?? [] as item (item.id)}<option value={item.id}>{itemName(item, item.id)} · {item.id}</option>{/each}
-						</select>
+						<button type="button" class="secondary" onclick={() => (pickingItem = true)} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
+						<ItemPickerSheet bind:open={pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
 						{#if selection?.kind === 'item' && sliceItems[selection.index]}
 							<hr />
 							<ItemInspector
