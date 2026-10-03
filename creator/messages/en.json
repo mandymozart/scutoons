@@ -111,6 +111,7 @@
 		"preview_title": "Draft preview",
 		"preview_hint": "Newest drafts from the store, rendered like in the reader.",
 		"preview_back": "Back to the editor",
+		"preview_in_viewer": "Open in the viewer",
 		"preview_locale": "Language",
 		"preview_group": "Group",
 		"preview_vn_note": "Visual novel events are not played in the preview.",

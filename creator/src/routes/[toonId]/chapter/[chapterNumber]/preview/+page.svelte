@@ -8,6 +8,7 @@
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { VIEWER_URL } from '$lib/config.ts';
 	import { usePageNav } from '$lib/nav.svelte.ts';
 
 	/**
@@ -70,6 +71,8 @@
 
 	// the chapter's children in the sidebar: its groups (a click shows only that group)
 	usePageNav({ sidebar: groupNav });
+	// the viewer's own language prefix: de is its base (no prefix), en = /en/…
+	const viewerHref = $derived(`${VIEWER_URL}${locale && locale !== 'de' ? `/${locale}` : ''}/${toon}/chapter/${chapterNumber}?draft=1`);
 </script>
 
 {#snippet groupNav()}
@@ -139,6 +142,8 @@
 			</label>
 		{/snippet}
 		{#snippet end()}
+			<!-- the real reader (events, camera, inventory …) with the creator's draft preview on (viewer ?draft=1) -->
+			<a class="btn secondary" href={viewerHref} target="_blank" rel="noopener" data-testid="preview-in-viewer">{m['creator.preview_in_viewer']()}</a>
 			<a class="btn" href="/{toon}/chapter/{chapterNumber}">{m['creator.preview_back']()}</a>
 		{/snippet}
 	</ActionBar>

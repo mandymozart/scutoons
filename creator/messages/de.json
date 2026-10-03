@@ -111,6 +111,7 @@
 		"preview_title": "Entwurfsvorschau",
 		"preview_hint": "Neueste Entwürfe aus dem Store, gerendert wie im Reader.",
 		"preview_back": "Zurück zum Editor",
+		"preview_in_viewer": "Im Viewer öffnen",
 		"preview_locale": "Sprache",
 		"preview_group": "Gruppe",
 		"preview_vn_note": "Visual-Novel-Events werden in der Vorschau nicht abgespielt.",
