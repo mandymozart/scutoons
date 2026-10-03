@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { askDialog, confirmDialog } from '@scutoons/ui';
 	import type { Snippet } from 'svelte';
 	import { ActionBar, CloseIcon } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
@@ -102,6 +103,19 @@
 			notice = m['creator.nothing_to_save']();
 			return;
 		}
+		// without a note, ask for one – it can be skipped (owner 2026-10-03)
+		if (!saveMessage.trim()) {
+			const note = await askDialog({
+				title: m['creator.note_title'](),
+				message: m['creator.note_message'](),
+				label: m['creator.note_label'](),
+				placeholder: m['creator.note_placeholder'](),
+				confirmLabel: m['creator.note_save'](),
+				skipLabel: m['creator.note_skip']()
+			});
+			if (note === null) return;
+			saveMessage = note;
+		}
 		await saveAll();
 	}
 
@@ -133,11 +147,11 @@
 			notice = m['creator.nothing_to_publish']();
 			return;
 		}
-		if (errorCount && !confirm(`${errorCount} errors in the problem list. Publish anyway?`)) return;
+		if (errorCount && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: errorCount }), confirmLabel: m['creator.publish']() }))) return;
 		// language-neutral entities (cast, characters …) have no locale to name
 		const locales = [...new Set(files.flatMap((d) => [...d.dirtyLocales, ...d.unpublished]))].filter((l) => l !== NEUTRAL_LOCALE).join(', ');
 		const file = fileLabels(files.map((d) => d.entity));
-		if (!confirm(locales ? m['creator.publish_confirm']({ file, locales }) : m['creator.publish_confirm_neutral']({ file }))) return;
+		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: locales ? m['creator.publish_confirm']({ file, locales }) : m['creator.publish_confirm_neutral']({ file }), confirmLabel: m['creator.publish']() }))) return;
 		if (!(await saveAll())) return;
 		try {
 			for (const doc of [...docs, ...savedCompanions]) if (doc.stored.length && doc.unpublished.length) await doc.publish();

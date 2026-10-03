@@ -15,6 +15,7 @@
 		type Command,
 		type PaletteLink,
 		installTooltips,
+		DialogHost
 	} from '@scutoons/ui';
 	import { AuthGate, canUseApp, takeMagicToken } from '@scutoons/auth';
 	import { entities, parseEntityKey, toonLanguages } from '@scutoons/content';
@@ -288,6 +289,7 @@
 			emptyLabel={m['palette.empty']()}
 			hint={m['palette.keys']()}
 		/>
+		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 </div>
 

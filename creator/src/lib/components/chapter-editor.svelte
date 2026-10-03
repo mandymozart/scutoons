@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { askDialog, confirmDialog } from '@scutoons/ui';
 	import { onMount, untrack } from 'svelte';
 	import { ActionBar, CloseIcon, Icon } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
@@ -543,12 +544,30 @@
 		return true;
 	}
 
+
+	/** "Save draft": without a note, ask for one – it can be skipped (owner 2026-10-03) */
+	async function saveDraft() {
+		if (!saveMessage.trim()) {
+			const note = await askDialog({
+				title: m['creator.note_title'](),
+				message: m['creator.note_message'](),
+				label: m['creator.note_label'](),
+				placeholder: m['creator.note_placeholder'](),
+				confirmLabel: m['creator.note_save'](),
+				skipLabel: m['creator.note_skip']()
+			});
+			if (note === null) return;
+			saveMessage = note;
+		}
+		await saveAll();
+	}
+
 	async function publishAll() {
 		syncChapter(chapter, season, chapterNumber);
 		const docs = allDocs.filter((d) => d.dirty || d.unpublished.length || d.stored.length);
 		const files = fileLabels(docs.map((d) => d.entity));
-		if (errorCount && !confirm(`${errorCount} errors in the problem list. Publish anyway?`)) return;
-		if (!confirm(m['creator.publish_confirm']({ file: files, locales: chapter.locales.join(', ') }))) return;
+		if (errorCount && !(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_errors']({ count: errorCount }), confirmLabel: m['creator.publish']() }))) return;
+		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: files, locales: chapter.locales.join(', ') }), confirmLabel: m['creator.publish']() }))) return;
 		if (!(await saveAll())) return;
 		try {
 			for (const doc of allDocs) if (doc.stored.length && doc.unpublished.length) await doc.publish();
@@ -720,7 +739,7 @@
 		{#snippet end()}
 			{@render sliceNav('end')}
 			<input class="message in-end" type="text" placeholder="note (optional)" aria-label="note (optional)" bind:value={saveMessage} />
-			<button onclick={() => saveAll()} disabled={!anyDirty || anySaving} data-testid="save-draft">
+			<button onclick={saveDraft} disabled={!anyDirty || anySaving} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
 			<button class="secondary" onclick={publishAll} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>
@@ -734,7 +753,8 @@
 	{:else}
 		<div class="files" data-testid="file-status">
 			<FileStatus doc={chapter} label={fileLabel(chapter.entity)} />
-			{#if refSrc && refs[refSrc]}<FileStatus doc={refs[refSrc]} label={refLabel(refSrc) ?? sceneLabel(toon, refSrc)} />{/if}
+			<!-- the scene's own status only while one of its parts is open (owner 2026-10-03: "scene-14" next to Meta confused) -->
+			{#if refSrc && refs[refSrc] && (section === 'group' || section === 'slice')}<FileStatus doc={refs[refSrc]} label={refLabel(refSrc) ?? sceneLabel(toon, refSrc)} />{/if}
 			{#if !season.loading && (season.dirty || season.unpublished.length)}<FileStatus doc={season} label={fileLabel(season.entity)} />{/if}
 		</div>
 		{#if anyDirty && !chapter.saving}<div class="bar dirty-bar">{m['creator.unsaved']()}{#if activeDoc?.dirty && section === 'slice'} · {activeDoc.dirtyLocales.join(', ')}{/if}</div>{/if}
