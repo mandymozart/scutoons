@@ -4,6 +4,7 @@ export { default as Slice } from './slice.svelte';
 export { default as SliceVideo } from './slice-video.svelte';
 export { default as Dialogs } from './dialog/dialogs.svelte';
 export { default as Dialog } from './dialog/dialog.svelte';
+export { default as SliceItems, type SliceItemInfo, type ResolveSliceItem } from './items/slice-items.svelte';
 export { default as Onomatopoeia } from './onomatopoeia/onomatopoeia.svelte';
 export { sliceAudio, type SliceAudioConfig, type SliceAudioPlayer } from './actions/slice-audio.ts';
 export { sliceEvents, type SliceEventsConfig } from './actions/slice-events.ts';

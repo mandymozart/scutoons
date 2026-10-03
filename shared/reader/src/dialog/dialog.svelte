@@ -104,6 +104,7 @@
 	style:--size={dialog.size ?? 4}
 	style:--pad={dialog.pad ?? 0.5}
 	style:--rotation="{dialog.rotation ?? 0}deg"
+	style:--scale={dialog.scale ?? 1}
 	style:--dialog-color={dialog.color ?? null}
 	style:--dialog-weight={dialog.weight ?? null}
 >
@@ -136,7 +137,8 @@
 		position: absolute;
 		box-sizing: border-box;
 		isolation: isolate;
-		transform: rotate(var(--rotation));
+		/* around the centre: rotation, then a uniform scale of the laid-out box (text keeps its wrapping) */
+		transform: rotate(var(--rotation)) scale(var(--scale, 1));
 		pointer-events: none;
 		color: var(--dialog-color, var(--ink));
 		font-weight: var(--dialog-weight, 400);

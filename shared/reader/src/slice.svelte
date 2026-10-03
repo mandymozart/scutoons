@@ -1,8 +1,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
-	import { DEFAULT_SLICE, type Slice } from '@scutoons/content';
+	import { DEFAULT_SLICE, type Slice, type SliceItem } from '@scutoons/content';
 	import Dialogs from './dialog/dialogs.svelte';
+	import SliceItems, { type ResolveSliceItem } from './items/slice-items.svelte';
 	import SliceVideo from './slice-video.svelte';
 
 	/**
@@ -10,6 +11,9 @@
 	 * and renders its own interactive layers (samples, VN triggers) in `before` (below the image in paint order, like
 	 * in the reader) or `children` (after the text boxes). Other attributes (and `{@attach}`) go to the `.slice`
 	 * element, e.g. the app's audio action via `fromAction(sliceAudio, …)`.
+	 *
+	 * Placed items (`slice.items`) are drawn between the image and the text boxes once the app resolves their icons
+	 * (`itemInfo`); `itemHidden` / `onitemtap` are the app's (what the reader took, what a tap does).
 	 *
 	 * The image loads lazily (`eager` for the first slices) with `width` / `height` from the slice, so the box has its
 	 * final height before the image arrives: no layout shift, and the slices below don't all intersect at once.
@@ -23,6 +27,9 @@
 		eager = false,
 		autoplayPlayer = false,
 		soundOnLabel,
+		itemInfo,
+		itemHidden,
+		onitemtap,
 		before,
 		children,
 		...rest
@@ -44,6 +51,12 @@
 		autoplayPlayer?: boolean;
 		/** the label of the player's "Sound on" button (the app's language) */
 		soundOnLabel?: string;
+		/** a placed item's icon URL + name (from the app's item catalog); none = placed items are not drawn */
+		itemInfo?: ResolveSliceItem;
+		/** a placed item the reader already took (not drawn) */
+		itemHidden?: (item: SliceItem) => boolean;
+		/** a tap on a placed item whose `action` isn't `none` */
+		onitemtap?: (item: SliceItem, index: number) => void;
 		before?: Snippet;
 		children?: Snippet;
 	} & Omit<HTMLAttributes<HTMLDivElement>, 'children'> = $props();
@@ -83,6 +96,7 @@
 			fetchpriority={eager ? 'high' : 'auto'}
 		/>
 	{/if}
+	<SliceItems items={slice.items} resolve={itemInfo} hidden={itemHidden} ontap={onitemtap} />
 	<Dialogs dialogs={slice.dialog} {lang} />
 	{@render children?.()}
 </div>
