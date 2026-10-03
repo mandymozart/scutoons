@@ -433,10 +433,9 @@
 				<div class="main">
 					<div class="head">
 					<details class="meta" data-testid="script-meta">
-						<!-- clickable: the title page opens for editing (owner 2026-10-03: show that it can be edited) -->
+						<!-- clickable: the title page opens for editing; the fold's chevron shows it (no pencil, owner 2026-10-03) -->
 						<summary title={m['creator.script_meta_edit']()}>
 							<span>{m['creator.script_meta']()}{script.meta?.title ? ` · ${script.meta.title}` : ''}</span>
-							<Icon name="edit-2" label={m['creator.script_meta_edit']()} />
 						</summary>
 						<div class="meta-grid">
 							{#each SCRIPT_META_FIELDS as field (field)}
