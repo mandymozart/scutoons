@@ -390,7 +390,7 @@ cover editor"):
   shows the cover (thumbnail + lettering state) and links to it; its two path fields are gone. The toon settings have no
   cover any more.
 - **catpope** stays as it is (lettering off, the baked German cover) until the owner switches it on with the text-free art
-  (`images/s1-cover-square-textless.webp`, delivered 2026-10-02, upload with `cdn/sync.py`): Season 1 → "Open the cover
+  (`s1/s1-cover-square-textless.webp`, delivered 2026-10-02, upload with `cdn/sync.py`): Season 1 → "Open the cover
   editor" → "Art" → choose
   it, "Default" (or an own layout), Save draft, Publish. The default layout sits where the hand lettering was (the toon's
   name at y 19 %, the season's title at y 31 %).
@@ -409,7 +409,7 @@ Open (owner 2026-10-01):
 
 | id | path | size | why |
 |---|---|---|---|
-| `catpope-s1-cover-square-textless` | `catpope/images/s1-cover-square-textless.webp` | 1080 × 1080 | the cover without "KATZENPAPST" / "DAS ERWACHEN" → `cover.lettering` |
+| `catpope-s1-cover-square-textless` | `catpope/s1/s1-cover-square-textless.webp` | 1080 × 1080 | the cover without "KATZENPAPST" / "DAS ERWACHEN" → `cover.lettering` |
 | `catpope-s1-cover-portrait-textless` | `catpope/images/s1-cover-portrait-textless.webp` | 1080 × 1920 | the same, portrait |
 | `toptoy-s1-cover-square` / `-portrait` | `toptoy/images/s1-cover-{square,portrait}.webp` | 1080² / 1080 × 1920 | no cover exists (the old per-language paths never did) |
 | `yellowmouse-s1-cover-square` / `-portrait` | `yellowmouse/images/s1-cover-{square,portrait}.webp` | 1080² / 1080 × 1920 | the same; the mouse stays unrevealed |

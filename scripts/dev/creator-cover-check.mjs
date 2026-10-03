@@ -26,7 +26,7 @@ const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, ''
 const CREATOR = (process.env.SCUTOONS_CREATOR ?? local('creator')).replace(/\/$/, '');
 const CDN = (process.env.SCUTOONS_CDN ?? local('cdn')).replace(/\/$/, '');
 const VIEWER = (process.env.SCUTOONS_VIEWER ?? local('viewer')).replace(/\/$/, '');
-const TEXTLESS = '../catpope/images/s1-cover-square-textless.webp';
+const TEXTLESS = '../catpope/s1/s1-cover-square-textless.webp';
 const LONG = { de: 'Die unglaublich lange Geschichte vom Erwachen', en: 'Season one', ko: '시즌 1' };
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
 const shots = opt.shots ? String(opt.shots) : null;
@@ -83,7 +83,7 @@ for (const l of LOCALES) {
 	};
 }
 // the text-free art when the CDN has it (owner 2026-10-02), else the toon's own cover
-const textless = (await fetch(`${CDN}/catpope/images/s1-cover-square-textless.webp`, { method: 'HEAD' }).catch(() => null))?.ok;
+const textless = (await fetch(`${CDN}/catpope/s1/s1-cover-square-textless.webp`, { method: 'HEAD' }).catch(() => null))?.ok;
 const square = textless ? TEXTLESS : baseline[KEY].cover?.square;
 check(!!square, `the art: ${square}${textless ? ' (text-free)' : ''}`);
 // start from drafts: the art, lettering off, in every language
@@ -195,6 +195,13 @@ async function shot(name) {
 	const r = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
 	writeFileSync(join(shots, `${name}.png`), Buffer.from(r.result.data, 'base64'));
 }
+/** the in-page dialog (@scutoons/ui askDialog / confirmDialog): Save draft without a note asks for one (skip), Publish confirms */
+async function answerDialog(button) {
+	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) {
+		await js(`document.querySelector('dialog.sc-dialog[open] ${button}').click()`);
+		await sleep(250);
+	}
+}
 const num = (testid) => js(`Number(${q(testid)}?.value)`);
 /** the stage's lettering lines: text, and whether each fits its box */
 const stageLines = (root = q('cover-stage')) =>
@@ -288,6 +295,7 @@ try {
 
 	// 6. Save draft → a valid layout in the store, texts only in the custom line
 	await click('[data-testid="save-draft"]');
+	await answerDialog('button.secondary');
 	await until(`!document.querySelector('.dirty-bar')`);
 	const stored = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 	const others = await Promise.all(KEYS.slice(1).map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));
@@ -304,6 +312,7 @@ try {
 	const viewerUp = (await fetch(VIEWER).catch(() => null))?.ok;
 	if (viewerUp) {
 		await click('[data-testid="publish"]');
+		await answerDialog('button[type=submit]');
 		await until(`/Published|Veröffentlicht/.test(${q('file-status')}?.innerText ?? '')`);
 		const live = await api('GET', `/entities/${KEY}`);
 		check(Array.isArray(live.cover?.lettering?.square), 'Publish: the layout is live');

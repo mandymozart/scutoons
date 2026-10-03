@@ -25,7 +25,7 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import ImagePicker from '../image-picker.svelte';
+	import MediaSlot from '../media-slot.svelte';
 
 	/**
 	 * The cover editor (owner 2026-10-02, agents/DESIGN.md "Cover editor"): the text-free art with its lettering lines
@@ -44,7 +44,7 @@
 		source,
 		texts,
 		format = 'square',
-		known = []
+		place = ''
 	}: {
 		doc: ContentDoc;
 		/** where the `Cover` is in the doc */
@@ -56,8 +56,8 @@
 		/** the title texts of a language (toon settings + season, missing ones fall back to the source) */
 		texts: (locale: string) => CoverTexts;
 		format?: CoverFormat;
-		/** known image paths of the toon (the image picker's list) */
-		known?: string[];
+		/** where an uploaded art goes by the content rules (CDN-root folder of the season, e.g. catpope/s1/) */
+		place?: string;
 	} = $props();
 
 	const cover = $derived(doc.get(doc.primary, path) as Cover | undefined);
@@ -317,8 +317,12 @@
 		</div>
 
 		<aside class="inspector" data-testid="cover-inspector">
-			<p class="sc-label">{m['creator.cover_lines']()}</p>
+			<!-- the art as a slot (the preview is the button → the asset picker; the path only as the tooltip) -->
+			<div class="art" data-testid="cover-art-field" title={m['creator.cover_art_hint']()}>
+				<MediaSlot {toon} {place} label={m['creator.cover_art']()} value={cover?.[format]} onchange={(v) => writeCover(format, v, 'cover-art')} testid="cover-art-slot" />
+			</div>
 			{#if mode !== 'off'}
+				<p class="sc-label">{m['creator.cover_lines']()}</p>
 				<ul class="lines">
 					{#each lines as l, i (i)}
 						<li>
@@ -398,13 +402,6 @@
 		</aside>
 	</div>
 
-	<section class="art" data-testid="cover-art-field">
-		<h3 class="sc-heading">{m['creator.cover_art']()}</h3>
-		<p class="hint">{m['creator.cover_art_hint']()}</p>
-		<div class="art-field">
-			<ImagePicker {toon} label="cover.{format}" value={cover?.[format]} {known} onchange={(v) => writeCover(format, v || undefined, 'cover-art')} />
-		</div>
-	</section>
 
 	{#if image}
 		<section class="readers" data-testid="cover-readers">
@@ -622,16 +619,9 @@
 		flex-wrap: wrap;
 		gap: var(--space-05);
 	}
-	.art h3 {
-		margin: 0;
-	}
 	.art {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-05);
-	}
-	.art-field {
-		max-width: 36rem;
+		padding-bottom: var(--space-1);
+		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	.readers h3 {
 		margin: 0 0 var(--space-05);

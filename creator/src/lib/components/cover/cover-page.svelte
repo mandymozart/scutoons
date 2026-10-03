@@ -3,7 +3,6 @@
 	import { entities, type ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toonDoc } from '$lib/editor/languages.ts';
-	import { knownImages } from '$lib/editor/images.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import MetaPage from '../meta-page.svelte';
 	import CoverEditor from './cover-editor.svelte';
@@ -20,7 +19,6 @@
 	const season = toonDoc(entities.season(toon, number), languages);
 	// svelte-ignore state_referenced_locally
 	const settings = toonDoc(entities.toonSettings(toon), languages);
-	let images = $state<string[]>([]);
 	const nav = getCreatorNav();
 
 	/** a language's titles; a missing translation shows the source's (as the reader's API falls back) */
@@ -34,7 +32,6 @@
 
 	onMount(async () => {
 		await Promise.all([season.load(), settings.load().catch(() => {})]);
-		images = await knownImages(toon, season.locales, [$state.snapshot(season.data)]);
 	});
 </script>
 
@@ -45,7 +42,7 @@
 		<p class="warn">{m['creator.cover_no_season']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
 		<section class="block" data-testid="cover-page">
-			<CoverEditor doc={season} {toon} languages={[...season.present]} source={season.primary} {texts} known={images} />
+			<CoverEditor doc={season} {toon} languages={[...season.present]} source={season.primary} {texts} place="{toon}/s{number}/" />
 		</section>
 	{/if}
 </MetaPage>

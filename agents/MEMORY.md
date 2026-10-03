@@ -1783,7 +1783,7 @@ character, persona, look and mood and doubles as the VN test bed.
 - Decisions: first the toon entry's cover, corrected the same day to the season's (below); square only (owner: portrait unused);
   `true` keeps its meaning but is now drawn by the line renderer (`defaultCoverLines`, positions where the hand lettering
   sat on the catpope art: y 19 % / 31 %) – nothing in the seed used `true`, so readers see no change. catpope stays
-  lettering-off until the owner switches it in the editor with `images/s1-cover-square-textless.webp` (delivered
+  lettering-off until the owner switches it in the editor with `s1/s1-cover-square-textless.webp` (delivered
   2026-10-02 into the main checkout's `cdn/root`; not in git, upload with `cdn/sync.py`).
 - Gotchas: a Svelte 5 action's `update` can run before the text node of the same flush is updated → `CoverArt` measures
   in a microtask (else a line keeps the previous text's fit). `textLanguage` is read once at load: a check sets
