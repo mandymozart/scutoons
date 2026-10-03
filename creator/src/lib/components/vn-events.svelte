@@ -8,6 +8,9 @@
 	import { ONO_PRESETS, applyOnoPreset, matchOnoPreset, type OnoPreset } from '$lib/editor/event-presets.ts';
 	import PropField from './prop-field.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
+	import { characterImage } from '@scutoons/content';
+	import { isKnownMissing } from '$lib/editor/characters.ts';
+	import { asset } from '$lib/utils/cdn.ts';
 	import LocaleText from './locale-text.svelte';
 	import CharacterRefField, { type CharacterChoices } from './characters/character-ref-field.svelte';
 	import {
@@ -183,7 +186,8 @@
 		};
 		switch (event?.type) {
 			case 'showMessage':
-				return `${p.character ? `${p.character}: ` : ''}${cut(p.text)}`;
+				// the speaker is the small avatar in front of the line (speakerAvatar); the words in quotes
+				return p.text ? `“${cut(p.text)}”` : '';
 			case 'addChoice':
 				return `“${cut(p.label)}”`;
 			case 'jumpTo':
@@ -198,6 +202,15 @@
 			default:
 				return '';
 		}
+	}
+	/** the speaker's avatar (a tiny one in the line, owner 2026-10-03); none without a registry image */
+	const registryIndex = $derived(choices ? characterIndex(choices.registry) : null);
+	function speakerAvatar(event: any): string {
+		if (event?.type !== 'showMessage' || !registryIndex || !event.params?.character) return '';
+		const ref = resolveCharacterId(event.params.character, event.params.persona);
+		const character = registryIndex.get(ref.character);
+		const src = character ? characterImage(character, { persona: ref.persona }, 'avatar', { isMissing: isKnownMissing }) : '';
+		return src && !src.includes('missing') ? asset(src) : '';
 	}
 	const triggerWord = (event: any) => TRIGGER_OPTIONS.find((o) => o.value === event?.trigger?.type)?.label ?? '';
 
@@ -327,6 +340,7 @@
 					<Icon name="chevron-right" />
 					<span class="idx">{i + 1}</span>
 					<span class="type">{event?.type}</span>
+					{#if speakerAvatar(event)}<img class="avatar" src={speakerAvatar(event)} alt={event.params.character} title={event.params.character} />{:else if event?.type === 'showMessage' && event.params?.character}<span class="who">{event.params.character}</span>{/if}
 					<span class="sum">{summary(event)}</span>
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>
@@ -520,6 +534,17 @@
 	.line .type {
 		flex: none;
 	}
+	/* the speaker: a tiny avatar (its name when there is no image) */
+	.line .avatar {
+		flex: none;
+		width: 1.25em;
+		height: 1.25em;
+		object-fit: cover;
+		border-radius: var(--radius-full);
+	}
+	.line .who {
+		flex: none;
+	}
 	.line .sum,
 	.line .trig {
 		min-width: 0;
@@ -528,12 +553,13 @@
 		white-space: nowrap;
 		color: var(--text-muted);
 	}
+	/* the words keep their room; the trigger gives way first */
 	.line .sum {
-		flex: 1;
+		flex: 1 1 auto;
+		min-width: 3em;
 	}
 	.line .trig {
-		flex: none;
-		max-width: 40%;
+		flex: 0 4 auto;
 	}
 	.type-field {
 		display: flex;

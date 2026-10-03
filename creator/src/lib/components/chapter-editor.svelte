@@ -970,7 +970,6 @@
 							<p class="hint">No VN script in this group.
 								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
 						{/if}
-						<p class="hint">{m['creator.select_slice']()}</p>
 					{:else if activeDoc?.error}
 						<p class="error">{activeDoc.error}</p>
 					{:else}
