@@ -17,6 +17,28 @@ from commit 5ff43ad and drift.
 5. Proposal: domain folders + a `controls/` and `fields/` layer, editor state in `lib/editor/*.svelte.ts`, ~14 small
    independently mergeable steps, starting with a chapter-editor smoke check (none exists today).
 
+## Shared media components (`@scutoons/media`, shared/media – done 2026-10-04, CATALOG.md part 2)
+
+The creator's media tooling, used by the creator and (catalog editors) the admin. Exports: `AssetPickerSheet` (+ `bytes`,
+`PickedAsset`), `MediaSlot` (`toon=''` = CDN-root paths, `bust` reloads the preview), `MediaVariantsSlot`, `toWebp`,
+`uploadOrReplace`, the `{ src, variants }` helpers (`VariantMedia`, `mediaFromAsset`, `withVariant`, `defaultLevel` …),
+`MEDIA_LABELS` / `mediaLabels`.
+
+- **Own package, not @scutoons/ui**: ui stays app-free (no API client, no content types, every text a prop); the media
+  tooling needs `@scutoons/api` (assets API) and `@scutoons/content` (quality levels), like `@scutoons/auth` does.
+- **An app wires it once** in its root layout (a module setting, not a Svelte context: `uploadOrReplace` runs in event
+  handlers / importers where `getContext` does not work):
+  ```ts
+  import { setupMedia } from '@scutoons/media';
+  setupMedia({ assets: assetsApi /* createAssetsApi(api) */, cdn: CDN_SERVER /* or (path) => url */, locale: getLocale });
+  ```
+  plus `<DialogHost />` of @scutoons/ui (the picker's "Replace the file?" is a `confirmDialog`). Creator and admin do
+  both (`routes/+layout.svelte`).
+- **Texts**: the package's own de/en labels (`labels.ts`, the @scutoons/auth pattern) – no app messages needed;
+  `setupMedia({ labels: { … } })` overrides single texts. Buttons are @scutoons/ui `Button` (`size="sm"`), the rest
+  tools.css (`sc-label`, `sc-caption`, `sc-round`, `sc-chip-control`), so it looks the same in every tool.
+- `check:tools-css` covers `shared/media/src`; `npm run check` svelte-checks it with `--fail-on-warnings`.
+
 ## 1. Inventory
 
 Creator components > 400 lines (script / css lines):
@@ -116,7 +138,7 @@ chapter-editor undoes the document even with the cursor in a field, meta-page sk
 | Document session | meta-page vs chapter-editor vs routes/[toonId]/+page | `lib/editor/doc-session.svelte.ts` |
 | Notice bars | meta-page = chapter-editor (markup + CSS) | `page/doc-notices.svelte` |
 | Per-locale fields | `locale-text` (path) vs `locale-map-field` (value); `prop-field` vs `shared-field` | two families in `fields/`; check merging prop/shared-field |
-| Media | media-slot, media-variants-slot, image-picker (old) | slots in `media/`, retire image-picker |
+| Media | media-slot, media-variants-slot, image-picker (old) | slots in `@scutoons/media` (done 2026-10-04), retire image-picker |
 | `confirm()` | 15 calls (audio-panel, chapter-editor ×2, character-detail ×2, moods-panel, people-panel, sections-editor, history-panel, map-builder, map-props ×3, meta-page, slice-list) | `confirmDialog` (async – own step) |
 
 ## 4. Proposal
@@ -131,7 +153,7 @@ components/
   controls/    reorder-buttons NEW, combobox NEW, picker-sheet NEW
   fields/      prop-field, shared-field, list-field, locale-text, locale-map-field, text-original, featuring-field,
                related-items-field, supporters-field
-  media/       media-slot, media-variants-slot, placement-picker, asset-picker-sheet
+  media/       placement-picker (media-slot, media-variants-slot, asset-picker-sheet: @scutoons/media since 2026-10-04)
   chapter/     chapter-editor (shell < 300), chapter-tree NEW, meta-panel, audio-panel, group-panel, slice-list, slice-import
   slice/       slice-canvas, slice-toolbar NEW, slice-inspector NEW, slice-media, slice-audio, slice-unlocks
   text/        dialog-inspector, text-preset-picker, text-language-switch

@@ -3,7 +3,7 @@
 	import { DEFAULT_SLICE } from '@scutoons/content';
 	import { rootPath, toonRelativePath } from '@scutoons/api';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetPickerSheet from '$lib/components/media/asset-picker-sheet.svelte';
+	import { AssetPickerSheet } from '@scutoons/media';
 
 	/**
 	 * Image path (relative to the toon's CDN folder) with the known paths as suggestions, a live CDN preview and the

@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { rootPath, toonRelativePath } from '@scutoons/api';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import { asset } from '$lib/utils/cdn.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import AssetPickerSheet from '$lib/components/media/asset-picker-sheet.svelte';
+	import { mediaText, mediaUrl as asset } from './setup.ts';
+	import AssetPickerSheet from './asset-picker-sheet.svelte';
 
 	/**
 	 * One image or video of a page as a slot (owner 2026-10-03: "the text fields for the images are not needed, the
@@ -33,6 +32,7 @@
 		bust?: number;
 	} = $props();
 
+	const t = $derived(mediaText());
 	let open = $state(false);
 	let size = $state<{ w: number; h: number } | null>(null);
 	let failed = $state(false);
@@ -48,11 +48,11 @@
 <div class="media-slot" data-testid={testid}>
 	<span class="sc-label">{label}</span>
 	<div class="row">
-		<button type="button" class="slot" class:empty={!value} onclick={() => (open = true)} title={value ? `${value}\n${m['creator.assets_choose_hint']()}` : m['creator.assets_choose_hint']()} aria-label="{label}: {value ?? m['creator.assets_choose']()}">
+		<button type="button" class="slot" class:empty={!value} onclick={() => (open = true)} title={value ? `${value}\n${t.chooseHint}` : t.chooseHint} aria-label="{label}: {value ?? t.choose}">
 			{#if !value}
 				<Icon name="plus" />
 			{:else if failed}
-				<span class="bad">{m['creator.media_missing']()}</span>
+				<span class="bad">{t.missing}</span>
 			{:else if kind === 'video'}
 				<!-- svelte-ignore a11y_media_has_caption -->
 				<video {src} muted playsinline preload="metadata" onloadedmetadata={(e) => { const v = e.currentTarget as HTMLVideoElement; size = { w: v.videoWidth, h: v.videoHeight }; }} onerror={() => (failed = true)}></video>
@@ -62,7 +62,7 @@
 		</button>
 		{#if value}
 			<!-- icon only → round (owner 2026-10-03) -->
-			<button type="button" class="sc-round" aria-label={m['creator.remove']()} title={m['creator.remove']()} onclick={() => onchange(undefined)}><CloseIcon /></button>
+			<button type="button" class="sc-round" aria-label={t.remove} title={t.remove} onclick={() => onchange(undefined)}><CloseIcon /></button>
 		{/if}
 	</div>
 	{#if size}<span class="sc-caption">{size.w} × {size.h} px</span>{/if}

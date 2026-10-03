@@ -9,13 +9,11 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { seasonChapterNumbers, syncChapters } from '$lib/editor/visibility.ts';
-	import type { VariantMedia } from '$lib/editor/media-variants.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
 	import PropField from '$lib/components/fields/prop-field.svelte';
 	import SharedField from '$lib/components/fields/shared-field.svelte';
-	import MediaSlot from '$lib/components/media/media-slot.svelte';
-	import MediaVariantsSlot from '$lib/components/media/media-variants-slot.svelte';
+	import { MediaSlot, MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 	import SupportersField from '$lib/components/fields/supporters-field.svelte';
 	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';

@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import { gridArrows } from '$lib/editor/grid-keys.ts';
+	import { gridArrows } from '@scutoons/ui';
 	import { isKnownMissing, imageExists } from '$lib/editor/characters.ts';
 	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
 	import {

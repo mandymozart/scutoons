@@ -2,7 +2,7 @@
 // The brutalist tools' regression check (agents/DESIGN.md "Brutalist tools", owner 2026-10-01).
 //
 //   node scripts/check-tools-ui.mjs --static      no px font size (and no font size under caption in em) in the tools'
-//                                                 CSS: creator, admin, embassy, @scutoons/ui (part of `npm run check`);
+//                                                 CSS: creator, admin, embassy, @scutoons/ui + media (part of `npm run check`);
 //                                                 no bold (owner 2026-10-02 "only use bold very rarely"): no bold
 //                                                 font-weight in their CSS, no <b>, <strong> only with class sc-emphasis
 //                                                 (a line carrying `bold-ok` + the reason is exempt: the page title h1);
@@ -47,7 +47,7 @@ const opt = (n) => args.find((a) => a.startsWith(`--${n}=`))?.split('=')[1];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // ── static: the CSS of the tools ────────────────────────────────────────────────────────────────────────────────
-const DIRS = ['creator/src', 'admin/src', 'embassy/src', 'shared/ui/src', 'shared/auth/src', 'shared/tokens/tools.css'];
+const DIRS = ['creator/src', 'admin/src', 'embassy/src', 'shared/ui/src', 'shared/auth/src', 'shared/media/src', 'shared/tokens/tools.css'];
 function walk(p) {
 	const abs = join(ROOT, p);
 	if (!existsSync(abs)) return [];

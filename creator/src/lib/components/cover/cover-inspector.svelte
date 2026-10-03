@@ -3,7 +3,7 @@
 	import { COVER_ALIGNS, COVER_COLORS, COVER_COLOR_VALUES, COVER_LIMITS, COVER_TEXT_SOURCES, type CoverLine } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { alignLabel, colorLabel, sourceLabel } from '$lib/editor/cover-words.ts';
-	import MediaSlot from '$lib/components/media/media-slot.svelte';
+	import { MediaSlot } from '@scutoons/media';
 	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 
 	/**

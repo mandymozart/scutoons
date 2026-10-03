@@ -11,7 +11,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, editCharacter, ensureMoods } from '$lib/editor/characters.ts';
 	import { applyApose, closeRequests } from '$lib/editor/character-form.ts';
-	import { toWebp, uploadOrReplace } from '$lib/editor/media-upload.ts';
+	import { toWebp, uploadOrReplace } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**

@@ -21,7 +21,9 @@
 	import { entities, parseEntityKey, toonLanguages } from '@scutoons/content';
 	import { setCreatorSession } from '$lib/session.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
-	import { contentIndex, library } from '$lib/api.ts';
+	import { setupMedia } from '@scutoons/media';
+	import { assetsApi, contentIndex, library } from '$lib/api.ts';
+	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
@@ -32,6 +34,8 @@
 	let { children }: { children: Snippet } = $props();
 
 	const session = setCreatorSession();
+	// the shared media tooling (@scutoons/media: asset picker, media slots, uploads) uses this app's API, CDN and locale
+	setupMedia({ assets: assetsApi, cdn: asset, locale: getLocale });
 
 	onMount(() => {
 		// magic link from the login mail: `<creator origin>/?login=<token>`; else the shared session (single sign-on)

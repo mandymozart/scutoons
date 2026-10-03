@@ -1,6 +1,6 @@
 <script lang="ts">
 	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
-	import { gridArrows } from '$lib/editor/grid-keys.ts';
+	import { gridArrows } from '@scutoons/ui';
 	import type { ItemCategory, ItemDef } from '@scutoons/content';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';

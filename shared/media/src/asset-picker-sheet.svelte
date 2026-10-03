@@ -25,14 +25,10 @@
 </script>
 
 <script lang="ts">
-	import { gridArrows } from '$lib/editor/grid-keys.ts';
 	import { untrack } from 'svelte';
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
-	import { CloseButton, confirmDialog, Icon } from '@scutoons/ui';
-	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
-	import { assetsApi } from '$lib/api.ts';
-	import { asset as cdnAsset } from '$lib/utils/cdn.ts';
-	import { m } from '$lib/paraglide/messages.js';
+	import { Button, CloseButton, confirmDialog, gridArrows, Icon, Sheet } from '@scutoons/ui';
+	import { mediaAssets, mediaText, mediaUrl as cdnAsset } from './setup.ts';
 
 	/**
 	 * The asset picker (agents/ASSETS.md "Asset selector") – like the character picker: a searchable grid of the media
@@ -82,6 +78,8 @@
 	let uploadInput = $state<HTMLInputElement>();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let request = 0;
+	const assetsApi = mediaAssets();
+	const t = $derived(mediaText());
 
 	// every time it opens: the toon's folder, the field's kind, the current file preselected
 	$effect(() => {
@@ -125,7 +123,7 @@
 			}
 		} catch (e) {
 			if (mine !== request) return;
-			error = e instanceof ApiError && e.status === 503 ? m['creator.assets_unavailable']() : e instanceof Error ? e.message : String(e);
+			error = e instanceof ApiError && e.status === 503 ? t.unavailable : e instanceof Error ? e.message : String(e);
 		} finally {
 			if (mine === request) loading = false;
 		}
@@ -213,21 +211,22 @@
 				if (!(e instanceof ApiError && e.code === 'exists')) throw e;
 				// a new version at the same path (owner 2026-10-03: updating media meant renaming): replace in place, the old
 				// bytes stay as the asset's previous version
-				if (!(await confirmDialog({ title: m['creator.assets_replace_title'](), message: m['creator.assets_replace_message']({ path }), confirmLabel: m['creator.assets_replace']() }))) return;
+				if (!(await confirmDialog({ title: t.replaceTitle, message: t.replaceMessage(path), confirmLabel: t.replace }))) return;
 				uploaded = (await assetsApi.replaceAt(uploadFile, path)).replaced;
 			}
 			query = '';
 			await load(1, uploaded);
 			uploadFile = null;
 		} catch (e) {
-			uploadError = e instanceof ApiError && e.code === 'unchanged' ? m['creator.assets_replace_unchanged']() : e instanceof Error ? e.message : String(e);
+			uploadError = e instanceof ApiError && e.code === 'unchanged' ? t.replaceUnchanged : e instanceof Error ? e.message : String(e);
 		} finally {
 			uploading = false;
 		}
 	}
 </script>
 
-<PickerSheet bind:open title={title ?? m['creator.assets_picker_title']()} testid="asset-picker">
+<Sheet bind:open title={title ?? t.pickerTitle} side="right" closeLabel={t.close} resizeLabel={t.resize}>
+	<div class="picker" data-testid="asset-picker">
 		<!-- order (owner 2026-10-03): the selected asset · upload · the library (search, filters, grid) -->
 		{#if chosen}
 			{@const c = chosen}
@@ -239,52 +238,52 @@
 					<div class="detail-text">
 						<span class="name" title={c.slug}>{c.title}</span>
 						<span class="sc-caption path" title={c.path}>{c.slug}</span>
-						<span class="sc-caption">{meta(c)} · {c.usages ? m['creator.assets_used_n']({ count: c.usages }) : m['creator.assets_unused']()}</span>
+						<span class="sc-caption">{meta(c)} · {c.usages ? t.usedN(c.usages) : t.unused}</span>
 					</div>
-					<CloseButton label={m['creator.characters_picker_back']()} onclick={() => (chosen = null)} />
+					<CloseButton label={t.back} onclick={() => (chosen = null)} />
 				</div>
-				<p class="sc-label">{m['creator.assets_renditions']()}</p>
+				<p class="sc-label">{t.renditions}</p>
 				<ul class="files">
 					{#each ordered(c.renditions) as r (r.id)}
 						<li>
 							<button type="button" class="sc-card file" class:is-selected={r.path === value} disabled={!pickable(r)} data-file onclick={() => pick(c, r)} title={r.path} data-testid="asset-file-{r.label}">
-								<span class="label">{r.quality ? `${r.label} · ${m[`creator.video_quality_${r.quality}`]()}` : r.label}</span>
+								<span class="label">{r.quality ? `${r.label} · ${t.quality[r.quality]}` : r.label}</span>
 								<span class="sc-caption">{meta(r)}</span>
 							</button>
 						</li>
 					{/each}
 				</ul>
-				<button type="button" class="primary use" onclick={() => pick(c)} data-testid="asset-use">{m['creator.assets_use']()}</button>
+				<Button size="sm" class="use" onclick={() => pick(c)} data-testid="asset-use">{t.use}</Button>
 			</section>
 		{/if}
 
 		<!-- upload: a button (owner 2026-10-03: the fold-out was confusing); the path appears once a file is chosen -->
 		<div class="upload" data-testid="asset-upload">
-			<button type="button" class="secondary" disabled={uploading} onclick={() => uploadInput?.click()} data-testid="asset-upload-choose">{m['creator.assets_upload']()} …</button>
+			<Button size="sm" variant="secondary" disabled={uploading} onclick={() => uploadInput?.click()} data-testid="asset-upload-choose">{t.upload} …</Button>
 			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
 			{#if uploadFile}
-				<label class="sc-label" for="asset-upload-path">{m['creator.assets_upload_path']()}</label>
+				<label class="sc-label" for="asset-upload-path">{t.uploadPath}</label>
 				<input id="asset-upload-path" type="text" bind:value={uploadPath} data-testid="asset-upload-path" />
-				<button type="button" class="primary" disabled={uploading || !uploadPath} onclick={upload} data-testid="asset-upload-go">{uploading ? '…' : m['creator.assets_upload']()} · {bytes(uploadFile.size)}</button>
+				<Button size="sm" disabled={uploading || !uploadPath} onclick={upload} data-testid="asset-upload-go">{uploading ? '…' : t.upload} · {bytes(uploadFile.size)}</Button>
 			{/if}
 			{#if uploadError}<p class="error" role="alert">{uploadError}</p>{/if}
 		</div>
 
 		<div class="sc-picker-filters">
 			<!-- svelte-ignore a11y_autofocus -->
-			<input type="search" bind:value={query} oninput={refilter} placeholder={m['creator.assets_search']()} autofocus data-testid="asset-search" />
+			<input type="search" bind:value={query} oninput={refilter} placeholder={t.search} autofocus data-testid="asset-search" />
 			<!-- one-way (value + onchange): a two-way bind wrote "" back while the options were still loading, so the folder /
 			     kind of the field were lost on the next load (owner 2026-10-03) -->
-			<select value={folder} onchange={(e) => { folder = e.currentTarget.value; load(1); }} aria-label={m['creator.assets_folder']()} data-testid="asset-folder">
-				<option value="">{m['creator.assets_all_folders']()}</option>
+			<select value={folder} onchange={(e) => { folder = e.currentTarget.value; load(1); }} aria-label={t.folder} data-testid="asset-folder">
+				<option value="">{t.allFolders}</option>
 				{#if folder && !folders.some((f) => (f.folder ?? '') === folder)}<option value={folder}>{folder}</option>{/if}
 				{#each folders as f (f.folder ?? '')}<option value={f.folder ?? ''} selected={(f.folder ?? '') === folder}>{f.folder ?? '/'} ({f.assets})</option>{/each}
 			</select>
-			<select value={kindFilter} onchange={(e) => { kindFilter = e.currentTarget.value as AssetPickerKind; load(1); }} aria-label={m['creator.assets_kind']()} data-testid="asset-kind">
-				<option value="">{m['creator.assets_all_kinds']()}</option>
-				{#each ASSET_KINDS as k (k)}<option value={k} selected={k === kindFilter}>{m[`creator.assets_kind_${k}`]()}</option>{/each}
+			<select value={kindFilter} onchange={(e) => { kindFilter = e.currentTarget.value as AssetPickerKind; load(1); }} aria-label={t.kind} data-testid="asset-kind">
+				<option value="">{t.allKinds}</option>
+				{#each ASSET_KINDS as k (k)}<option value={k} selected={k === kindFilter}>{t.kinds[k]}</option>{/each}
 			</select>
-			<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {m['creator.assets_unused_only']()}</label>
+			<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {t.unusedOnly}</label>
 		</div>
 
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
@@ -308,23 +307,32 @@
 						{#if src}<img src={cdnAsset(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}
 					</span>
 					<span class="name">{fileName(a.path)}</span>
-					<span class="sc-caption meta">{a.width && a.height ? `${a.width}×${a.height}` : bytes(a.size)}{#if !a.usages} · {m['creator.assets_unused']()}{/if}</span>
+					<span class="sc-caption meta">{a.width && a.height ? `${a.width}×${a.height}` : bytes(a.size)}{#if !a.usages} · {t.unused}{/if}</span>
 					{#if a.renditions.length > 1}
 						<span class="chips">{#each ordered(a.renditions).filter((r) => r.label !== 'original').slice(0, 5) as r (r.id)}<span class="sc-chip">{r.label}</span>{/each}</span>
 					{/if}
 				</button>
 			{:else}
-				{#if !loading && !error}<p class="sc-caption">{m['creator.assets_none']()}</p>{/if}
+				{#if !loading && !error}<p class="sc-caption">{t.none}</p>{/if}
 			{/each}
 		</div>
 		{#if items.length < total}
-			<button type="button" class="secondary more" disabled={loading} onclick={() => load(page + 1)}>{m['creator.assets_more']()} ({items.length} / {total})</button>
+			<Button size="sm" variant="secondary" class="more" disabled={loading} onclick={() => load(page + 1)}>{t.more} ({items.length} / {total})</Button>
 		{/if}
 
-	
-</PickerSheet>
+	</div>
+</Sheet>
 
 <style>
+	.picker {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		width: 100%;
+		max-width: 100%;
+		min-width: 0;
+		overflow-x: hidden;
+	}
 	.check {
 		display: flex;
 		gap: 0.25rem;
@@ -387,8 +395,8 @@
 		grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
 		gap: 0.4rem;
 	}
-	.use,
-	.more {
+	.picker :global(.use),
+	.picker :global(.more) {
 		align-self: flex-start;
 	}
 	.upload {

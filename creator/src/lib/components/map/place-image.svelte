@@ -4,7 +4,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { cdnHas, cdnSize, editPlace, numberOrUnset } from '$lib/editor/map.ts';
-	import MediaSlot from '$lib/components/media/media-slot.svelte';
+	import { MediaSlot } from '@scutoons/media';
 
 	/**
 	 * A place's illustration (agents/MAP.md §4.3): a slot with the asset picker (owner 2026-10-03; uploads go to the place

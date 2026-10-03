@@ -10,8 +10,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PlacementPicker from '$lib/components/media/placement-picker.svelte';
-	import type { VariantMedia } from '$lib/editor/media-variants.ts';
-	import MediaVariantsSlot from '$lib/components/media/media-variants-slot.svelte';
+	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 
 	/**
 	 * The slice's background ("Hintergrund"): an image, or a video with the image as its poster. Width / height are read

@@ -6,7 +6,7 @@
 	import { chapterSyncChanges, seasonStatusOf, setSeasonStatus, STATUSES, syncChapter } from '$lib/editor/visibility.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
-	import MediaSlot from '$lib/components/media/media-slot.svelte';
+	import { MediaSlot } from '@scutoons/media';
 	import { fileLabel } from '$lib/labels.ts';
 	import { entities } from '@scutoons/content';
 

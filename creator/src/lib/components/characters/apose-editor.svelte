@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { aposeConventionPath, bodySlots, pickText, type AposeLook } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import MediaSlot from '$lib/components/media/media-slot.svelte';
+	import { MediaSlot } from '@scutoons/media';
 
 	/**
 	 * The character's A-pose looks (the reader's avatar body, character level) as image slots (owner 2026-10-03: "the

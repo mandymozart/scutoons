@@ -2,10 +2,9 @@
 	import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
 	import { rootPath, toonRelativePath } from '@scutoons/api';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import { asset } from '$lib/utils/cdn.ts';
-	import { m } from '$lib/paraglide/messages.js';
-	import { defaultLevel, mediaFromAsset, withVariant, type VariantMedia } from '$lib/editor/media-variants.ts';
-	import AssetPickerSheet, { type PickedAsset } from '$lib/components/media/asset-picker-sheet.svelte';
+	import { mediaText, mediaUrl as asset } from './setup.ts';
+	import { defaultLevel, mediaFromAsset, withVariant, type VariantMedia } from './media-variants.ts';
+	import AssetPickerSheet, { type PickedAsset } from './asset-picker-sheet.svelte';
 
 	/**
 	 * One medium with its quality levels as ONE slot (owner 2026-10-03: "simplify the multiple resolutions situation"):
@@ -41,6 +40,7 @@
 		testid?: string;
 	} = $props();
 
+	const t = $derived(mediaText());
 	const levelLabel = (level: MediaQuality) => (kind === 'image' ? `${IMAGE_QUALITY_DENSITIES[level]}x` : VIDEO_QUALITY_LABELS[level]);
 	const url = (path: string) => asset(`${toon}/${path}`);
 	const main = $derived(defaultLevel(value));
@@ -83,14 +83,14 @@
 			class:image={kind === 'image'}
 			class:empty={!value.src}
 			onclick={() => choose(null)}
-			title={value.src ? `${value.src}\n${m['creator.variants_choose_hint']()}` : m['creator.variants_choose_hint']()}
-			aria-label="{label}: {value.src ?? m['creator.assets_choose']()}"
+			title={value.src ? `${value.src}\n${t.variantsChooseHint}` : t.variantsChooseHint}
+			aria-label="{label}: {value.src ?? t.choose}"
 			data-testid={testid ? `${testid}-choose` : undefined}
 		>
 			{#if !value.src}
 				<Icon name="plus" />
 			{:else if failed}
-				<span class="bad">{m['creator.media_missing']()}</span>
+				<span class="bad">{t.missing}</span>
 			{:else if kind === 'video'}
 				<!-- svelte-ignore a11y_media_has_caption -->
 				<video src={url(value.src)} poster={poster ? url(poster) : undefined} muted playsinline preload="metadata" onloadedmetadata={(e) => { const v = e.currentTarget as HTMLVideoElement; size = { w: v.videoWidth, h: v.videoHeight }; onmeta?.(size); }} onerror={() => { failed = true; onmeta?.(null); }}></video>
@@ -100,31 +100,31 @@
 		</button>
 		{#if value.src}
 			<!-- icon only → round (owner 2026-10-03) -->
-			<button type="button" class="sc-round" aria-label={m['creator.remove']()} title={m['creator.remove']()} onclick={() => onchange({})} data-testid={testid ? `${testid}-clear` : undefined}><CloseIcon /></button>
+			<button type="button" class="sc-round" aria-label={t.remove} title={t.remove} onclick={() => onchange({})} data-testid={testid ? `${testid}-clear` : undefined}><CloseIcon /></button>
 		{/if}
 	</div>
 	{#if value.src}
 		<!-- the levels: which files exist; the default marked; each one replaceable / clearable on its own -->
-		<ul class="levels" aria-label={m['creator.video_files']()} title={m['creator.video_files_hint']()}>
+		<ul class="levels" aria-label={t.files} title={t.filesHint}>
 			{#each MEDIA_QUALITIES as level (level)}
 				{@const file = value.variants?.[level]}
 				<li class="level sc-chip-control" class:missing={!file} data-file={file ?? ''} data-default={main === level ? 'true' : undefined} data-testid={testid ? `${testid}-${level}` : undefined}>
 					<button
 						type="button"
 						onclick={() => choose(level)}
-						title={file ? `${file}\n${m['creator.variants_level_replace']()}` : m['creator.variants_level_missing']()}
-						aria-label="{levelLabel(level)}: {file ?? m['creator.variants_level_missing']()}"
+						title={file ? `${file}\n${t.levelReplace}` : t.levelMissing}
+						aria-label="{levelLabel(level)}: {file ?? t.levelMissing}"
 					>
-						{levelLabel(level)}{#if main === level}&nbsp;<span class="default">({m['creator.video_default']().toLowerCase()})</span>{/if}
+						{levelLabel(level)}{#if main === level}&nbsp;<span class="default">({t.defaultLevel.toLowerCase()})</span>{/if}
 					</button>
 					{#if file}
-						<button type="button" onclick={() => onchange(withVariant(value, level, undefined))} data-testid={testid ? `${testid}-${level}-clear` : undefined} aria-label={m['creator.variants_level_clear']({ level: levelLabel(level) })} title={m['creator.variants_level_clear']({ level: levelLabel(level) })}><CloseIcon /></button>
+						<button type="button" onclick={() => onchange(withVariant(value, level, undefined))} data-testid={testid ? `${testid}-${level}-clear` : undefined} aria-label={t.levelClear(levelLabel(level))} title={t.levelClear(levelLabel(level))}><CloseIcon /></button>
 					{/if}
 				</li>
 			{/each}
 		</ul>
 		{#if main === null}
-			<span class="sc-caption" title={value.src}>{m['creator.variants_single']()}</span>
+			<span class="sc-caption" title={value.src}>{t.single}</span>
 		{/if}
 		{#if size}<span class="sc-caption">{size.w} × {size.h} px</span>{/if}
 	{/if}

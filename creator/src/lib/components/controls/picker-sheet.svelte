@@ -4,10 +4,10 @@
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
-	 * The frame of the creator's picker sheets (asset, character, item; COMPONENTS.md step 7): the shared Sheet from the
+	 * The frame of the creator's picker sheets (character, item; COMPONENTS.md step 7 – the asset picker lives in @scutoons/media with the same vocabulary): the shared Sheet from the
 	 * right (drag wider, up to half the window), one column that never scrolls sideways. Inside, the pickers use the
 	 * tools.css vocabulary: `.sc-picker-filters` (search + selects), `.sc-cards` + `.sc-card` (+ `.sc-card-img`) with
-	 * `data-cell` and `onkeydown={gridArrows}` (lib/editor/grid-keys.ts).
+	 * `data-cell` and `onkeydown={gridArrows}` (@scutoons/ui).
 	 */
 	let { open = $bindable(false), title, testid, children }: { open?: boolean; title: string; testid: string; children: Snippet } = $props();
 </script>

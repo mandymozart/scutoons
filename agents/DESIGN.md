@@ -585,7 +585,7 @@ Owner: "clean this season view up, like we did on the chapter page" (chapter met
 - **Related items** (item selector drawer), **Supporters** (logo as a media slot → `<toon>/s<n>/supporters/`, name + url).
 
 **Media with quality levels = one slot** (owner 2026-10-03: "simplify the multiple resolutions situation"):
-`media-variants-slot.svelte` + the pure helpers `$lib/editor/media-variants.ts` work on the `{ src, variants }` shape
+`media-variants-slot.svelte` + the pure helpers `media-variants.ts` (both in `@scutoons/media`, shared/media/src, since 2026-10-04) work on the `{ src, variants }` shape
 (PLAN.md "one file per quality level"; the trailer maps `loop` → `src`). The preview is the button: picking an asset in
 the picker fills every level from its renditions (480p / 720p / 1080p, `mediaFromAsset`), the default = medium, else
 the LOWER one (low), else high (owner 2026-10-03: less data first). Under the preview one interactive chip per level (`.sc-chip-control`, `--control-height`): "480p ·
