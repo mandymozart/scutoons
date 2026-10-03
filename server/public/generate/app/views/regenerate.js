@@ -23,7 +23,7 @@ export default class RegenerateView {
 	async handleSubmit(e) {
 		e.preventDefault();
 		
-		const code = document.getElementById('existingCode').value.trim().toUpperCase();
+		const code = document.getElementById('existingCode').value.trim(); // exact: codes are case-sensitive
 		
 		if (!code) {
 			this.showMessage('Please enter a code', 'error');

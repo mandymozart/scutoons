@@ -44,6 +44,13 @@ final class AdminTest extends TestCase
         $claimed = $admin->list(ListQuery::from(['status' => 'claimed'], CodeAdmin::SORTABLE, 'code', CodeAdmin::FILTERS));
         self::assertSame([$b], array_column($claimed['items'], 'code'));
         self::assertCount(2, $admin->export(ListQuery::from(['edition_id' => '3_catpope_vinyl'], CodeAdmin::SORTABLE, 'code', CodeAdmin::FILTERS)));
+        // the search box ignores case on SQLite and MariaDB alike (codes themselves are case-sensitive: utf8mb4_bin)
+        $this->code('membership', ['code' => 'FindMe12']);
+        $this->code('membership', ['code' => 'findme12']);
+        $found = $admin->list(ListQuery::from(['q' => 'FINDME'], CodeAdmin::SORTABLE, 'code', CodeAdmin::FILTERS));
+        self::assertSame(['FindMe12', 'findme12'], array_column($found['items'], 'code'));
+        // a hand-made code that differs only in case from an existing one is another code
+        self::assertSame('FINDME12', $admin->create(['redirect_to' => 'https://scutoons.com/catpope', 'type' => 'promo', 'code' => 'FINDME12'])['code']);
     }
 
     public function testCreateRevokeSignatureTimeline(): void

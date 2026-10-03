@@ -236,8 +236,9 @@ final class OwnershipClaims
             array_push($params, $user, $user);
         }
         if ($query->q !== '') {
-            $conditions[] = "(c.code LIKE ? ESCAPE '!' OR u.email LIKE ? ESCAPE '!')";
-            array_push($params, Database::likeContains($query->q), Database::likeContains(strtolower($query->q)));
+            // the admin search box ignores case on every engine (a filter, not a lookup: codes match exactly everywhere else)
+            $conditions[] = "(LOWER(c.code) LIKE ? ESCAPE '!' OR u.email LIKE ? ESCAPE '!')";
+            array_push($params, Database::likeContains(strtolower($query->q)), Database::likeContains(strtolower($query->q)));
         }
         try {
             $this->db->value('SELECT 1 FROM ownership_claims LIMIT 1');

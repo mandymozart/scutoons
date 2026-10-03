@@ -82,7 +82,7 @@
             <h2 data-t="formTitle">Verify Certificate Signature</h2>
 
             <h3 style="margin-top: 20px;" data-t="option1">Option 1: Enter Code</h3>
-            <p data-t="option1Hint">Enter the code from your certificate (e.g., YB56CS59) – upper or lower case does not matter:</p>
+            <p data-t="option1Hint">Enter the code exactly as on your certificate (e.g., Yb56cS59) – upper and lower case matter:</p>
             <input type="text" id="qrCodeInput" placeholder="Enter code..." autocomplete="off" autocapitalize="characters" spellcheck="false">
             <button id="verifyCodeBtn" data-t="verifyCode">Verify by Code</button>
 
@@ -106,7 +106,7 @@
                 algorithm: 'Algorithm:', level: 'Security Level:',
                 formTitle: 'Verify Certificate Signature',
                 option1: 'Option 1: Enter Code',
-                option1Hint: 'Enter the code from your certificate (e.g., YB56CS59) – upper or lower case does not matter:',
+                option1Hint: 'Enter the code exactly as on your certificate (e.g., Yb56cS59) – upper and lower case matter:',
                 placeholder: 'Enter code...',
                 verifyCode: 'Verify by Code',
                 option2: 'Option 2: Upload Signature File',
@@ -127,8 +127,6 @@
                 mismatchText: 'This signature file is not the one on record for this code.',
                 unknown: '❌ Unknown code',
                 unknownText: 'We have no certificate with this code. Please check the code on your certificate.',
-                ambiguous: '❌ Code not unique',
-                ambiguousText: 'Several codes match when upper / lower case is ignored. Please upload the signature file instead.',
                 noSignature: '❌ No certificate on record',
                 noSignatureText: 'This code exists, but we have no certificate signature for it.',
                 recordBroken: '❌ Could not be verified',
@@ -155,7 +153,7 @@
                 algorithm: 'Algorithmus:', level: 'Sicherheitsstufe:',
                 formTitle: 'Signatur des Zertifikats prüfen',
                 option1: 'Option 1: Code eingeben',
-                option1Hint: 'Gib den Code von deinem Zertifikat ein (z. B. YB56CS59) – Groß- und Kleinschreibung ist egal:',
+                option1Hint: 'Gib den Code genau so ein, wie er auf deinem Zertifikat steht (z. B. Yb56cS59) – Groß- und Kleinschreibung zählt:',
                 placeholder: 'Code eingeben …',
                 verifyCode: 'Code prüfen',
                 option2: 'Option 2: Signaturdatei hochladen',
@@ -176,8 +174,6 @@
                 mismatchText: 'Diese Signaturdatei ist nicht die, die wir für diesen Code gespeichert haben.',
                 unknown: '❌ Unbekannter Code',
                 unknownText: 'Wir haben kein Zertifikat mit diesem Code. Bitte prüfe den Code auf deinem Zertifikat.',
-                ambiguous: '❌ Code nicht eindeutig',
-                ambiguousText: 'Ohne Groß-/Kleinschreibung passen mehrere Codes. Bitte lade stattdessen die Signaturdatei hoch.',
                 noSignature: '❌ Kein Zertifikat gespeichert',
                 noSignatureText: 'Diesen Code gibt es, aber wir haben keine Zertifikatssignatur dazu.',
                 recordBroken: '❌ Konnte nicht geprüft werden',
@@ -223,7 +219,7 @@
         const box = (kind, title, text, extra = '') =>
             `<div class="result ${kind}"><h3>${escape(title)}</h3><p>${escape(text)}</p>${extra}</div>`;
 
-        // A typed code, a pasted QR URL (?c=) or verify URL (?code=) → the code (the server matches any case)
+        // A typed code, a pasted QR URL (?c=) or verify URL (?code=) → the code (codes are case-sensitive: kept exactly as typed)
         function codeFrom(input) {
             const value = input.trim();
             try {
@@ -241,7 +237,7 @@
                 ? `${cert.edition_number}${cert.edition_count != null ? ' / ' + cert.edition_count : ''}` : '';
             const row = (label, value) => value ? `<strong>${escape(label)}</strong> ${escape(value)}<br>` : '';
             return `<div class="signature-details">
-                ${row(t.code, (cert.code || '').toUpperCase())}
+                ${row(t.code, cert.code || '')}
                 ${row(t.product, cert.product_name)}
                 ${row(t.edition, edition)}
                 ${row(t.creators, cert.creators)}
@@ -277,7 +273,6 @@
                 bad_signature: fromFile ? [t.tampered, t.tamperedText] : [t.recordBroken, t.recordBrokenText],
                 signature_mismatch: fromFile ? [t.mismatch, t.mismatchText] : [t.recordBroken, t.recordBrokenText],
                 unknown_code: [t.unknown, t.unknownText],
-                ambiguous_code: [t.ambiguous, t.ambiguousText],
                 no_signature: [t.noSignature, t.noSignatureText]
             }[data.reason] ?? [t.recordBroken, t.recordBrokenText];
             // A file that is not ours, for a code we know: show what our record says, so the two can be compared
