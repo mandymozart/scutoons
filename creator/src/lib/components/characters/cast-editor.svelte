@@ -40,9 +40,9 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import MetaPage from '../meta-page.svelte';
-	import LocaleMapField from '../credits/locale-map-field.svelte';
-	import CharacterPickerSheet from './character-picker-sheet.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
+	import CharacterPickerSheet from '$lib/components/characters/character-picker-sheet.svelte';
 
 	/**
 	 * The cast of a toon per season (entity `cast:<toon>`): registry characters with the personas that appear in that

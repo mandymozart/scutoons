@@ -3,8 +3,8 @@
 	import { getAt, type Path } from '@scutoons/content';
 	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import PropField from './prop-field.svelte';
-	import LocaleText from './locale-text.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
+	import LocaleText from '$lib/components/fields/locale-text.svelte';
 
 	let {
 		doc,

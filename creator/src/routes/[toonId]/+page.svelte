@@ -14,8 +14,8 @@
 	import { entities, Language, NEUTRAL_LOCALE, parseEntityKey, Status, toonLanguages, withToonLanguages } from '@scutoons/content';
 	import type { SequenceItem, ToonLanguages } from '@scutoons/content';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
-	import FileStatus from '$lib/components/file-status.svelte';
-	import ChapterBadges from '$lib/components/chapter-badges.svelte';
+	import FileStatus from '$lib/components/status/file-status.svelte';
+	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 

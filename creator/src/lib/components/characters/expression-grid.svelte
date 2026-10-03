@@ -21,7 +21,7 @@
 	import { imageExists, recheckImages, isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetDialog from './asset-dialog.svelte';
+	import AssetDialog from '$lib/components/characters/asset-dialog.svelte';
 
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /

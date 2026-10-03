@@ -50,10 +50,10 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { usePageNav } from '$lib/nav.svelte.ts';
-	import MetaPage from '../meta-page.svelte';
-	import CharacterDetail from './character-detail.svelte';
-	import MoodsPanel from './moods-panel.svelte';
-	import WantedImages from './wanted-images.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import CharacterDetail from '$lib/components/characters/character-detail.svelte';
+	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
+	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import { mapDoc, mapOf } from '$lib/editor/map.ts';
 
 	/**

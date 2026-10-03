@@ -25,7 +25,7 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import MediaSlot from '../media-slot.svelte';
+	import MediaSlot from '$lib/components/media/media-slot.svelte';
 
 	/**
 	 * The cover editor (owner 2026-10-02, agents/DESIGN.md "Cover editor"): the text-free art with its lettering lines

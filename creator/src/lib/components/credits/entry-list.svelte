@@ -5,9 +5,9 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, move, newPerson, newRole, peopleOf, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import PersonPicker from './person-picker.svelte';
-	import RolePicker from './role-picker.svelte';
-	import LocaleMapField from './locale-map-field.svelte';
+	import PersonPicker from '$lib/components/credits/person-picker.svelte';
+	import RolePicker from '$lib/components/credits/role-picker.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/**
 	 * An ordered list of `{ person, roles }` of a section (toon sections have two: lead + entries). Reorder by dragging a

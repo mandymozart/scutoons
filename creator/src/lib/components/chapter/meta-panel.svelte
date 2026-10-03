@@ -1,12 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { statusWord } from './status-badges.svelte';
+	import { statusWord } from '$lib/components/status/status-badges.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { chapterSyncChanges, seasonStatusOf, setSeasonStatus, STATUSES, syncChapter } from '$lib/editor/visibility.ts';
-	import PropField from './prop-field.svelte';
-	import LocaleText from './locale-text.svelte';
-	import MediaSlot from './media-slot.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
+	import LocaleText from '$lib/components/fields/locale-text.svelte';
+	import MediaSlot from '$lib/components/media/media-slot.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import { entities } from '@scutoons/content';
 

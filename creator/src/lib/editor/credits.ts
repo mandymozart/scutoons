@@ -16,8 +16,8 @@ import {
 	type RoleVocabulary,
 	type ToonCredits
 } from '@scutoons/content';
-import type { ContentDoc } from './doc.svelte.ts';
-import { neutralDoc } from './languages.ts';
+import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+import { neutralDoc } from '$lib/editor/languages.ts';
 
 const N = NEUTRAL_LOCALE;
 

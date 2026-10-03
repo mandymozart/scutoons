@@ -11,7 +11,7 @@
 	import { imageExists } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetDialog from './asset-dialog.svelte';
+	import AssetDialog from '$lib/components/characters/asset-dialog.svelte';
 
 	/**
 	 * The character's A-pose looks (the reader's avatar body, character level): read-only thumbnails with a path field

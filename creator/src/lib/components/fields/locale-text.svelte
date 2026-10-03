@@ -4,7 +4,7 @@
 	import { LENGTH_WARNING_RATIO, textOf } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import TextOriginal from './text-original.svelte';
+	import TextOriginal from '$lib/components/fields/text-original.svelte';
 
 	/**
 	 * One text field in every locale, side by side (text is per locale, inline in each chapter file) – or only the

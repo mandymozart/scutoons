@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { panelWidth } from '$lib/panel-width.svelte.ts';
+	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import { askDialog, confirmDialog } from '@scutoons/ui';
 	import type { Snippet } from 'svelte';
 	import { ActionBar, CloseIcon } from '@scutoons/ui';
@@ -7,10 +7,10 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
 	import { NEUTRAL_LOCALE, validateFile, validateLocales, type Problem } from '@scutoons/content';
-	import ProblemsPanel from './problems-panel.svelte';
-	import HistoryPanel from './history-panel.svelte';
-	import FileStatus, { hasStatus } from './file-status.svelte';
-	import PageHelp, { type HelpPage } from './page-help.svelte';
+	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import HistoryPanel from '$lib/components/page/history-panel.svelte';
+	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
+	import PageHelp, { type HelpPage } from '$lib/components/page/page-help.svelte';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 
 	/**

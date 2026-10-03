@@ -6,13 +6,13 @@
 	import { JumpToTargetType, OnomatopoeiaEffect, Trigger, TriggerMode } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { ONO_PRESETS, applyOnoPreset, matchOnoPreset, type OnoPreset } from '$lib/editor/event-presets.ts';
-	import PropField from './prop-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 	import { characterImage, actionsOf, scriptLabels, VN_CONDITION_OPS } from '@scutoons/content';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
-	import LocaleText from './locale-text.svelte';
-	import CharacterRefField, { type CharacterChoices } from './characters/character-ref-field.svelte';
+	import LocaleText from '$lib/components/fields/locale-text.svelte';
+	import CharacterRefField, { type CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import {
 		REGULAR_PERSONA,
 		resolveCharacterId,

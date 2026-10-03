@@ -2,7 +2,7 @@
 	import type { LocaleText } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import TextOriginal from '../text-original.svelte';
+	import TextOriginal from '$lib/components/fields/text-original.svelte';
 
 	/**
 	 * A `{ <locale>: text }` value (role label, song title, bio …): one input per toon language, missing ones flagged –

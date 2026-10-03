@@ -5,8 +5,8 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, move, newSection } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import EntryList from './entry-list.svelte';
-	import LocaleMapField from './locale-map-field.svelte';
+	import EntryList from '$lib/components/credits/entry-list.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/** The ordered sections of the credits: add / reorder / remove sections and edit their people. */
 	let {

@@ -3,7 +3,7 @@
 // its source from here.
 import { entities, NEUTRAL_LOCALE, sceneEntityOfRef, toonLanguages, type ToonIndex, type ToonLanguages } from '@scutoons/content';
 import { ApiError, getDraft } from '$lib/api.ts';
-import { ContentDoc } from './doc.svelte.ts';
+import { ContentDoc } from '$lib/editor/doc.svelte.ts';
 
 /** The newest index entry of a toon, or null when it has none yet. */
 export async function loadToonEntry(toon: string): Promise<ToonIndex | null> {

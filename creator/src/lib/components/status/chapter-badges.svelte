@@ -4,7 +4,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { seasonStatusOf } from '$lib/editor/visibility.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { statusWord } from './status-badges.svelte';
+	import { statusWord } from '$lib/components/status/status-badges.svelte';
 
 	/**
 	 * A chapter's row in a list (toon page, season editor) says only what is up (owner 2026-10-02: "only show badges when

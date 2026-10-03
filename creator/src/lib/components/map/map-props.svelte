@@ -35,8 +35,8 @@
 		renameRoute,
 		routesThrough
 	} from '$lib/editor/map.ts';
-	import LocaleMapField from '../credits/locale-map-field.svelte';
-	import type { MapSelection } from './map-canvas.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
+	import type { MapSelection } from '$lib/components/map/map-canvas.svelte';
 
 	/**
 	 * The builder's properties (agents/MAP.md §4.3–4.5): the selected place (id, names, position, image with size, ground

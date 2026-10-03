@@ -17,7 +17,7 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { Icon, confirmDialog } from '@scutoons/ui';
-	import MetaPage from '../meta-page.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
 
 	/**
 	 * The toon's screenplay (entity `script:<toon>:<l>`, agents/DESIGN.md "Creator: script page"): one big monospace text

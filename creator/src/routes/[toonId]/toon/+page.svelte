@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import ToonEditor from '$lib/components/toon-editor.svelte';
+	import ToonEditor from '$lib/components/toon/toon-editor.svelte';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { m } from '$lib/paraglide/messages.js';
 

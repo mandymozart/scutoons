@@ -5,7 +5,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { defaultLevel, mediaFromAsset, withVariant, type VariantMedia } from '$lib/editor/media-variants.ts';
-	import AssetPickerSheet, { type PickedAsset } from './assets/asset-picker-sheet.svelte';
+	import AssetPickerSheet, { type PickedAsset } from '$lib/components/media/asset-picker-sheet.svelte';
 
 	/**
 	 * One medium with its quality levels as ONE slot (owner 2026-10-03: "simplify the multiple resolutions situation"):

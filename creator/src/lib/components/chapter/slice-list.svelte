@@ -6,7 +6,7 @@
 	import { newSlice } from '$lib/editor/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import SliceImport from './slice-import.svelte';
+	import SliceImport from '$lib/components/chapter/slice-import.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 
 	let {

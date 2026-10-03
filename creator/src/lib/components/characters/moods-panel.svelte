@@ -4,7 +4,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, ensureMoods, moodsOf } from '$lib/editor/characters.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import LocaleMapField from '../credits/locale-map-field.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/**
 	 * The mood vocabulary (entity `moods`): open-ended – add, rename (label per language), reorder, mark as part of

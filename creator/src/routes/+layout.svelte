@@ -26,8 +26,8 @@
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
-	import NavSidebar from '$lib/components/nav-sidebar.svelte';
-	import TextLanguageSwitch from '$lib/components/text-language-switch.svelte';
+	import NavSidebar from '$lib/components/page/nav-sidebar.svelte';
+	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
 
 	let { children }: { children: Snippet } = $props();
 

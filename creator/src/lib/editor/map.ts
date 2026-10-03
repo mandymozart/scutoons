@@ -15,9 +15,9 @@ import {
 	type WorldMap
 } from '@scutoons/content';
 import { CDN_SERVER } from '$lib/config.ts';
-import type { ContentDoc } from './doc.svelte.ts';
-import { ensure, edit } from './characters.ts';
-import { neutralDoc } from './languages.ts';
+import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+import { ensure, edit } from '$lib/editor/characters.ts';
+import { neutralDoc } from '$lib/editor/languages.ts';
 
 const N = '_';
 

@@ -2,8 +2,8 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import ImagePicker from './image-picker.svelte';
-	import ListField from './list-field.svelte';
+	import ImagePicker from '$lib/components/media/image-picker.svelte';
+	import ListField from '$lib/components/fields/list-field.svelte';
 
 	/**
 	 * A language-neutral field (number, date, paths, names): edited once and written to every locale file

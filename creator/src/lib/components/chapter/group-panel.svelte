@@ -2,7 +2,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
 	import { Renderer } from '@scutoons/content';
-	import PropField from './prop-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
 
 	/** Group settings: label, renderer type + params. For ref groups the doc is the referenced scene. */
 	let { doc, groupPath, refSrc = null, toon = '' }: { doc: ContentDoc; groupPath: Path; refSrc?: string | null; toon?: string } = $props();

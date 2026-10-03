@@ -3,7 +3,7 @@
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetPickerSheet from './assets/asset-picker-sheet.svelte';
+	import AssetPickerSheet from '$lib/components/media/asset-picker-sheet.svelte';
 
 	/**
 	 * One image or video of a page as a slot (owner 2026-10-03: "the text fields for the images are not needed, the

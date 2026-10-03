@@ -26,9 +26,9 @@
 	import { addPlace, addRoute, cdnHas, editMap, editPlace, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import MetaPage from '../meta-page.svelte';
-	import MapCanvas, { type MapSelection, type MapTool } from './map-canvas.svelte';
-	import MapProps from './map-props.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import MapCanvas, { type MapSelection, type MapTool } from '$lib/components/map/map-canvas.svelte';
+	import MapProps from '$lib/components/map/map-props.svelte';
 
 	/**
 	 * Universe → Karte (agents/MAP.md §4): the builder of the one world map (entity `map`). Sidebar = layers, places

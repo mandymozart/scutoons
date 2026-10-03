@@ -7,7 +7,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
-	import ItemPickerSheet from './item-picker-sheet.svelte';
+	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 
 	/**
 	 * `related_items` of a season or a chapter (agents/ITEMS.md "Players, albums, related items"): catalog item ids in

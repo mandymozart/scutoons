@@ -8,10 +8,10 @@
 	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { STATUSES } from '$lib/editor/visibility.ts';
-	import MetaPage from './meta-page.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import { fileLabel } from '$lib/labels.ts';
-	import LocaleText from './locale-text.svelte';
-	import SharedField from './shared-field.svelte';
+	import LocaleText from '$lib/components/fields/locale-text.svelte';
+	import SharedField from '$lib/components/fields/shared-field.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 
 	/**

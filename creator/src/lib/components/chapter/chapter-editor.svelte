@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { panelWidth } from '$lib/panel-width.svelte.ts';
+	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import { askDialog, confirmDialog } from '@scutoons/ui';
 	import { onMount, untrack } from 'svelte';
 	import { ActionBar, CloseIcon, Icon } from '@scutoons/ui';
@@ -25,37 +25,37 @@
 		type ToonInfo
 	} from '$lib/editor/characters.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
-	import type { CharacterChoices } from './characters/character-ref-field.svelte';
+	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import { newDialog, newGroup, nextDialogId } from '$lib/editor/defaults.ts';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
-	import SliceCanvas, { type CanvasSelection, type Tool } from './slice-canvas.svelte';
-	import SliceList from './slice-list.svelte';
-	import DialogInspector from './dialog-inspector.svelte';
-	import TextPresetPicker from './text-preset-picker.svelte';
+	import SliceCanvas, { type CanvasSelection, type Tool } from '$lib/components/slice/slice-canvas.svelte';
+	import SliceList from '$lib/components/chapter/slice-list.svelte';
+	import DialogInspector from '$lib/components/text/dialog-inspector.svelte';
+	import TextPresetPicker from '$lib/components/text/text-preset-picker.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
 	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, legacyTextCount, legacyPlan, applyLegacyPlan, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
-	import ItemInspector from './item-inspector.svelte';
-	import ItemPickerSheet from './item-picker-sheet.svelte';
+	import ItemInspector from '$lib/components/items/item-inspector.svelte';
+	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
-	import SliceMedia from './slice-media.svelte';
-	import SliceUnlocks from './map/slice-unlocks.svelte';
+	import SliceMedia from '$lib/components/slice/slice-media.svelte';
+	import SliceUnlocks from '$lib/components/slice/slice-unlocks.svelte';
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
 	import { chapterSlices } from '@scutoons/content';
-	import MetaPanel from './meta-panel.svelte';
-	import FeaturingField from './featuring-field.svelte';
-	import RelatedItemsField from './related-items-field.svelte';
-	import GroupPanel from './group-panel.svelte';
-	import AudioPanel from './audio-panel.svelte';
-	import SliceAudio from './slice-audio.svelte';
-	import VnEvents from './vn-events.svelte';
-	import ProblemsPanel from './problems-panel.svelte';
-	import HistoryPanel from './history-panel.svelte';
-	import FileStatus, { hasStatus } from './file-status.svelte';
+	import MetaPanel from '$lib/components/chapter/meta-panel.svelte';
+	import FeaturingField from '$lib/components/fields/featuring-field.svelte';
+	import RelatedItemsField from '$lib/components/fields/related-items-field.svelte';
+	import GroupPanel from '$lib/components/chapter/group-panel.svelte';
+	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
+	import SliceAudio from '$lib/components/slice/slice-audio.svelte';
+	import VnEvents from '$lib/components/events/vn-events.svelte';
+	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
+	import HistoryPanel from '$lib/components/page/history-panel.svelte';
+	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */

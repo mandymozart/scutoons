@@ -4,7 +4,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, newPerson, peopleOf, searchPeople } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import LocaleMapField from './locale-map-field.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/**
 	 * The global people registry (entity `people`): search, add, edit, merge duplicates. Merging rewrites this

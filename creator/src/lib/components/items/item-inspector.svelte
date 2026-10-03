@@ -1,14 +1,14 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { RESPAWN_UNITS, intervalMinutes, isRespawnInterval, intervalParts, placementRespawnProblem, respawnRange, type Path, type RespawnInterval, type RespawnUnit } from '@scutoons/content';
-	import ItemPickerSheet from './item-picker-sheet.svelte';
+	import ItemPickerSheet from '$lib/components/items/item-picker-sheet.svelte';
 	import { intervalLabel } from '$lib/editor/respawn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
-	import PropField from './prop-field.svelte';
-	import VnEvents from './vn-events.svelte';
-	import type { CharacterChoices } from './characters/character-ref-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
+	import VnEvents from '$lib/components/events/vn-events.svelte';
+	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 
 	/**
 	 * A catalog item placed on a slice (`Slice.items`): which item, where (x / y / width, rotation – also with the

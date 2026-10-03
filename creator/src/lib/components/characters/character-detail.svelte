@@ -44,10 +44,10 @@
 	import { getCreatorSession } from '$lib/session.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import LocaleMapField from '../credits/locale-map-field.svelte';
-	import ExpressionGrid from './expression-grid.svelte';
-	import AposeEditor from './apose-editor.svelte';
-	import WantedImages from './wanted-images.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
+	import ExpressionGrid from '$lib/components/characters/expression-grid.svelte';
+	import AposeEditor from '$lib/components/characters/apose-editor.svelte';
+	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 
 	/**
 	 * One character: identity (name / description per language of its toons, color, own toon, voice, tags, artwork,

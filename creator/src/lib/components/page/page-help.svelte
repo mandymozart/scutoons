@@ -6,8 +6,8 @@
 <script lang="ts">
 	import { fileLabel } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import StyleGuide from './style-guide.svelte';
-	import ScriptRules from './script/script-rules.svelte';
+	import StyleGuide from '$lib/components/page/style-guide.svelte';
+	import ScriptRules from '$lib/components/script/script-rules.svelte';
 
 	/**
 	 * The help of every creator page, shown in the ActionBar's Info panel (@scutoons/ui `InfoPanel`, owner 2026-09-30):

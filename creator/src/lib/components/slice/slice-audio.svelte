@@ -4,7 +4,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, deleteAt, type Path } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
-	import PropField from './prop-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
 
 	/** Per-slice audio: music volumes (per chapter track) and samples with triggers (rects drawn on the canvas). */
 	let {

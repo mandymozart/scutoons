@@ -4,7 +4,7 @@
 	import { getAt } from '@scutoons/content';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import PropField from './prop-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
 
 	/** Chapter audio: music tracks (adaptive music player) and the sample library. Shared by all locales. */
 	let { doc }: { doc: ContentDoc } = $props();
