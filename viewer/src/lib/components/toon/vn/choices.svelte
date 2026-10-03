@@ -2,7 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { getGameContext } from '$lib/contexts/game.svelte';
-	import { executeVariableAction } from '$lib/visual-novel/variable-actions.ts';
+	import { runChoiceActions } from '$lib/visual-novel/variable-actions.ts';
 
 	const vn = getVisualNovelContext();
 	const game = getGameContext();
@@ -11,11 +11,9 @@
 	const visible = $derived(vn.state.choicesVisible && choices.length > 0);
 
 	function handleSelect(choice: typeof choices[0]) {
-		let jumpTo: string | null = null;
-
-		if (choice.onSelect) {
-			jumpTo = executeVariableAction(choice.onSelect, game);
-		}
+		// the choice's actions in order: variables, then a jump (navigates) or a divert (the script continues there)
+		const { jumpTo, divert } = runChoiceActions(choice.onSelect, game, vn.scriptLabel);
+		if (divert) vn.setPendingDivert(divert);
 
 		if (jumpTo) {
 			console.log(`🎯 Choice selected, navigating to: ${jumpTo}`);

@@ -1,8 +1,11 @@
-import type { JumpToTarget } from '@scutoons/content';
+import { pickJumpLabel, type JumpToTarget } from '@scutoons/content';
 
-export function buildJumpToUrl(target: JumpToTarget, toonId: string): string | null {
+/**
+ * The URL of a jump. `anyOf` (CUTOVER 10.27, the chapter 2 stroll): a random one of these group labels, never
+ * `currentLabel` (the group the reader is on).
+ */
+export function buildJumpToUrl(target: JumpToTarget, toonId: string, currentLabel: string | null = null): string | null {
 	let url: string;
-	console.log('Building jumpTo URL for target', target, 'and toonId', toonId);
 	switch (target.type) {
 		case 'chapter':
 			url = `/${toonId}/chapter/${target.value}`;
@@ -23,8 +26,9 @@ export function buildJumpToUrl(target: JumpToTarget, toonId: string): string | n
 			return null;
 	}
 	
-	if (target.label) {
-		url += `?label=${target.label}`;
+	const label = target.anyOf?.length ? pickJumpLabel(target.anyOf, currentLabel) : target.label;
+	if (label) {
+		url += `?label=${encodeURIComponent(label)}`;
 	}
 	
 	return url;

@@ -1,191 +1,45 @@
-import type { VNEvent } from '@scutoons/content';
+import { labelIndex, type VNEvent } from '@scutoons/content';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
-import { buildJumpToUrl } from './jump-to.ts';
+import { runScript } from './runner.ts';
 
+/**
+ * Runs the events of a slice trigger or a placed item's tap (they share the box with the group's script) on the one VN
+ * runner (runner.ts). A `divert` here continues in the page's group script at that named point (CUTOVER 10.27: slice
+ * triggers start the story at a point). Returns the URL to navigate to (the caller navigates), or null.
+ */
 export class EventProcessor {
-	private events: VNEvent[];
-	private game: GameContext;
-	private vn: VisualNovelContext;
-	private currentIndex: number = 0;
-
-	constructor(events: VNEvent[] | undefined, game: GameContext, vn: VisualNovelContext) {
-		this.events = events || [];
-		this.game = game;
-		this.vn = vn;
-	}
+	constructor(
+		private events: VNEvent[] | undefined,
+		private game: GameContext,
+		private vn: VisualNovelContext
+	) {}
 
 	async run(): Promise<string | null> {
-		console.log(`🎬 Processing ${this.events.length} VN events`);
-		// slice triggers share the box with the group's script: park its waiting message, bring it back when done (a
-		// click fires every event of the trigger one after another, so the check runs after the click's task)
+		const own = this.events ?? [];
+		// one divert: the group's script from that point; anything else: these events
+		const divert = own.length === 1 && own[0]?.type === 'divert' ? own[0].params?.to : null;
+		const script = divert ? this.vn.script : own;
+		const start = divert ? labelIndex(script, divert) : 0;
+		if (divert && start < 0) {
+			console.warn(`VN: no point "${divert}" in the group's script`);
+			return null;
+		}
+		let url: string | null = null;
+		// park the group's waiting message, bring it back when done (a click fires every event of the trigger one after
+		// another, so the check runs after the click's task)
 		this.vn.interrupt();
 		try {
-			return await this.runEvents();
+			const result = await runScript(script, start, {
+				vn: this.vn,
+				game: this.game,
+				navigate: (to) => (url = to),
+				currentLabel: () => this.vn.scriptLabel
+			});
+			if (result === 'done') this.vn.endOfEvents();
 		} finally {
 			setTimeout(() => this.vn.resumeIfIdle(), 0);
 		}
-	}
-
-	private async runEvents(): Promise<string | null> {
-		while (this.currentIndex < this.events.length) {
-			const event = this.events[this.currentIndex];
-			console.log(
-				`Event ${this.currentIndex + 1}/${this.events.length}: ${event.type}`,
-				event.params
-			);
-
-			const result = await this.processEvent(event);
-
-			if (result?.jumpTo) {
-				console.log(`⏭️ Jumping to: ${result.jumpTo}`);
-				return result.jumpTo;
-			}
-
-			this.currentIndex++;
-		}
-
-		this.vn.endOfEvents();
-		console.log('✅ All VN events processed');
-		return null;
-	}
-
-	private async processEvent(event: VNEvent): Promise<{ jumpTo?: string } | void> {
-		switch (event.type) {
-			case 'showMessage':
-				return await this.handleShowMessage(event);
-
-			case 'hideMessage':
-				return this.handleHideMessage(event);
-
-			case 'showChoices':
-				return await this.handleShowChoices(event);
-
-			case 'addChoice':
-				return this.handleAddChoice(event);
-
-			case 'joinScene':
-				return this.handleJoinScene(event);
-
-			case 'leaveScene':
-				return this.handleLeaveScene(event);
-
-			case 'showOnomatopeia':
-				return this.handleShowOnomatopoeia(event);
-
-			case 'jumpTo':
-				return this.handleJumpTo(event);
-
-			default:
-				console.warn(`Unknown event type: ${(event as any).type}`);
-		}
-	}
-
-	private interpolateVariables(text: string): string {
-		return text.replace(/{(\w+)}/g, (match, varName) => {
-			const value = this.game.getVariable(varName);
-			if (value === undefined) {
-				console.warn(`Variable "${varName}" not found in game state`);
-				return match;
-			}
-			return String(value);
-		});
-	}
-
-	private async handleShowMessage(event: VNEvent & { type: 'showMessage' }): Promise<void> {
-		const { text, character: characterName, persona, wait = false } = event.params;
-
-		let charRef = null;
-		if (characterName) {
-			const inScene = this.vn.findInScene(characterName, persona);
-			if (!inScene) {
-				console.error(
-					`Character "${characterName}" is not in the scene. Add them with joinScene first.`
-				);
-				return;
-			}
-			charRef = inScene;
-		}
-
-		const interpolatedText = this.interpolateVariables(text);
-		this.vn.showMessage(charRef, interpolatedText, wait);
-
-		if (wait) {
-			return new Promise<void>((resolve) => {
-				this.vn.setWaitResolver(resolve);
-			});
-		}
-	}
-
-	private handleHideMessage(event: VNEvent & { type: 'hideMessage' }): void {
-		this.vn.hideMessage();
-	}
-
-	private async handleShowChoices(event: VNEvent & { type: 'showChoices' }): Promise<{ jumpTo?: string } | void> {
-		this.vn.showChoices();
-
-		return new Promise((resolve) => {
-			const checkChoices = () => {
-				if (this.vn.state.pendingChoices.length === 0) {
-					const jumpTo = this.vn.getPendingJumpTo();
-					if (jumpTo) {
-						console.log(`🔀 Choice triggered jumpTo: ${jumpTo}`);
-						resolve({ jumpTo });
-					} else {
-						resolve();
-					}
-				} else {
-					setTimeout(checkChoices, 50);
-				}
-			};
-			checkChoices();
-		});
-	}
-
-	private handleAddChoice(event: VNEvent & { type: 'addChoice' }): void {
-		const { label, onSelect } = event.params;
-		const interpolatedLabel = this.interpolateVariables(label);
-		this.vn.addChoice({ label: interpolatedLabel, onSelect });
-	}
-
-	private handleJoinScene(event: VNEvent & { type: 'joinScene' }): void {
-		// refs are normalized by the context (new and old form, old ids, view default avatar)
-		this.vn.joinScene(event.params.characters);
-	}
-
-	private handleLeaveScene(event: VNEvent & { type: 'leaveScene' }): void {
-		const { characters } = event.params;
-		this.vn.leaveScene(characters);
-	}
-
-	private async handleShowOnomatopoeia(
-		event: VNEvent & { type: 'showOnomatopeia' }
-	): Promise<void> {
-		const { wait = false } = event.params;
-
-		if (!this.vn.showOnomatopeia(event.params)) return;
-
-		if (wait) {
-			return new Promise<void>((resolve) => {
-				this.vn.setOnomatopoeiaResolver(resolve);
-			});
-		}
-	}
-
-	private async handleJumpTo(event: VNEvent & { type: 'jumpTo' }): Promise<{ jumpTo: string } | void> {
-		const { target, wait = false } = event.params;
-		
-		const destinationUri = buildJumpToUrl(target, this.game.state.toonId);
-		
-		if (!destinationUri) {
-			console.warn('Invalid jumpTo target', target);
-			return;
-		}
-		
-		// one click per message: the click on the last message is the one that jumps (no extra click)
-		if (wait) await this.vn.waitForContinue();
-
-		console.log(`🔗 Returning jumpTo: ${destinationUri}`);
-		return { jumpTo: destinationUri };
+		return url;
 	}
 }

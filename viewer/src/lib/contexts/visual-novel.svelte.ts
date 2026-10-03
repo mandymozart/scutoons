@@ -1,5 +1,5 @@
 import { setContext, getContext } from 'svelte';
-import type { Character, VNChoice, Message, VNCharacterRef, SceneCharacter } from '@scutoons/content';
+import type { Character, VNChoice, VNEvent, Message, VNCharacterRef, SceneCharacter } from '@scutoons/content';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, legacyTransition, normalizeSceneRef } from '@scutoons/content';
 import type { OnomatopoeiaParams } from '@scutoons/content';
 import type { TriggerMode } from '@scutoons/content';
@@ -56,6 +56,13 @@ export function createVisualNovelContext() {
 	let navigationTriggered = $state(false);
 	/** the group's script ran to its end without navigating (the follow-up bar waits for it, agents/DESIGN.md) */
 	let eventsDone = $state(false);
+	/**
+	 * The page's group script and its label (CUTOVER 10.27): a slice event of type divert runs the script from a named
+	 * point; a random jump never picks the group the reader is on. A choice's divert waits here for the script.
+	 */
+	let script: VNEvent[] = [];
+	let scriptLabel: string | null = null;
+	let pendingDivert: string | null = null;
 
 	function setCharacters(data: Character[]) {
 		characters.clear();
@@ -259,6 +266,20 @@ export function createVisualNovelContext() {
 		suspended = null;
 	}
 
+	function setScript(events: VNEvent[] | undefined, label: string | null): void {
+		script = events ?? [];
+		scriptLabel = label;
+	}
+	function setPendingDivert(to: string | null): void {
+		pendingDivert = to;
+	}
+	/** the divert a picked choice asked for (once) */
+	function takePendingDivert(): string | null {
+		const to = pendingDivert;
+		pendingDivert = null;
+		return to;
+	}
+
 	function setNavigationTriggered(): void {
 		navigationTriggered = true;
 	}
@@ -383,6 +404,7 @@ export function createVisualNovelContext() {
 		for (const key of Object.keys(revealedDialogs)) delete revealedDialogs[key];
 		navigationTriggered = false;
 		eventsDone = false;
+		pendingDivert = null;
 	}
 
 	return {
@@ -424,6 +446,15 @@ export function createVisualNovelContext() {
 		resumeIfIdle,
 		setNavigationTriggered,
 		getPendingJumpTo,
+		setScript,
+		get script() {
+			return script;
+		},
+		get scriptLabel() {
+			return scriptLabel;
+		},
+		setPendingDivert,
+		takePendingDivert,
 		isNavigationTriggered,
 		showOnomatopeia,
 		registerDialogRefs,

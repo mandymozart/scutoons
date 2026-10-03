@@ -1,6 +1,6 @@
 import type { GameContext } from '$lib/contexts/game.svelte';
 import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
-import type { VNVariableSetter, VNVariableAdder, VNJumpTo, RespawnInterval } from '@scutoons/content';
+import { actionsOf, type VNAction, type VNVariableSetter, type VNVariableAdder, type VNJumpTo, type RespawnInterval } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
 type VariableAction = VNVariableSetter | VNVariableAdder | VNJumpTo;
@@ -33,7 +33,7 @@ export function grantStoryItem(
 	return inventory.grant(variable, 'story', qty, storyRef(variable, place), options);
 }
 
-export function executeVariableAction(action: VariableAction, gameContext: GameContext): string | null {
+export function executeVariableAction(action: VariableAction, gameContext: GameContext, currentLabel: string | null = null): string | null {
 	if ('set' in action) {
 		const previous = Number(gameContext.getVariable(action.set.variable)) || 0;
 		gameContext.setVariable(action.set.variable, action.set.value);
@@ -51,7 +51,7 @@ export function executeVariableAction(action: VariableAction, gameContext: GameC
 		grantStoryItem(action.add.variable, action.add.value);
 		return null;
 	} else if ('jumpTo' in action) {
-		const destination = buildJumpToUrl(action.jumpTo.target, gameContext.state.toonId);
+		const destination = buildJumpToUrl(action.jumpTo.target, gameContext.state.toonId, currentLabel);
 		if (destination) {
 			console.log(`Choice selected, will jump to: ${destination}`);
 			return destination;
@@ -61,4 +61,25 @@ export function executeVariableAction(action: VariableAction, gameContext: GameC
 		}
 	}
 	return null;
+}
+
+/**
+ * A picked choice's actions in order (CUTOVER 10.27: one action or a list, e.g. add 15 minutes, then jump): variables are
+ * written, the first jump wins (the page changes – later actions don't run), a divert is handed back to the script.
+ */
+export function runChoiceActions(
+	onSelect: VNAction | VNAction[] | undefined,
+	gameContext: GameContext,
+	currentLabel: string | null
+): { jumpTo: string | null; divert: string | null } {
+	let divert: string | null = null;
+	for (const action of actionsOf(onSelect)) {
+		if ('divert' in action) {
+			divert = action.divert.to;
+			continue;
+		}
+		const jumpTo = executeVariableAction(action, gameContext, currentLabel);
+		if (jumpTo) return { jumpTo, divert: null };
+	}
+	return { jumpTo: null, divert };
 }
