@@ -154,6 +154,7 @@ return static function (App $app): void {
     $app->get('/api/assets/missing', [AssetsController::class, 'missing']);
     $app->get('/api/assets/orphans', [AssetsController::class, 'orphans']);
     $app->put('/api/assets/upload', [AssetsController::class, 'upload']);
+    $app->put('/api/assets/replace', [AssetsController::class, 'replaceAt']);
     $app->get("/api/assets/$asset", [AssetsController::class, 'get']);
     $app->put("/api/assets/$asset", [AssetsController::class, 'update']);
 

@@ -185,6 +185,12 @@ export function createAssetsApi(api: ApiClient) {
 				`/assets/upload/${toQuery({ path, title: meta.title, tags: meta.tags?.join(',') })}`,
 				file
 			),
+		/** new bytes for a file that is there (content editors): the old ones archived as a version, the CDN purged; 409 `unchanged` */
+		replaceAt: (file: Blob, path: string, note?: string) =>
+			api.put<AssetDetail & { replaced: string; archived_as: string; purged: boolean; stale_renditions: string[] }>(
+				`/assets/replace/${toQuery({ path, note })}`,
+				file
+			),
 		missing: () => api.get<{ status: 'success'; items: AssetMissing[] }>('/assets/missing/'),
 		orphans: () => api.get<{ status: 'success'; items: AssetOrphan[] }>('/assets/orphans/'),
 

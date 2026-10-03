@@ -114,6 +114,28 @@ final class AssetsController
         return Json::response($response, 201, $result);
     }
 
+    /**
+     * New bytes for a file that is already there (owner 2026-10-03: "creators should be able to replace slice images" –
+     * updating media meant renaming): the asset's `replace` by path – the old bytes are archived as a version, the CDN
+     * purged. 404 when no asset has that file, 409 `unchanged` when the bytes are the same.
+     */
+    public function replaceAt(Request $request, Response $response): Response
+    {
+        $user = $this->editor($request);
+        $query = $request->getQueryParams();
+        $path = (string) ($query['path'] ?? '');
+        if (!StorageKey::valid($path)) throw new ApiError(400, 'invalid_path', 'path is required.');
+        $path = StorageKey::normalize($path);
+        $found = $this->registry->byPath($path) ?? throw new ApiError(404, 'not_found', 'No asset has that file.');
+        $file = $this->bodyToFile($request);
+        try {
+            $result = $this->service->replace($user, (string) $found['asset']['id'], $file, $path, isset($query['note']) && is_string($query['note']) ? mb_substr($query['note'], 0, 200) : null);
+        } finally {
+            @unlink($file);
+        }
+        return Json::response($response, 200, $result);
+    }
+
     public function missing(Request $request, Response $response): Response
     {
         $this->editor($request);

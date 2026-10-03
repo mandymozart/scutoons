@@ -27,7 +27,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
-	import { CloseButton, Icon, Sheet } from '@scutoons/ui';
+	import { CloseButton, confirmDialog, Icon, Sheet } from '@scutoons/ui';
 	import { assetsApi } from '$lib/api.ts';
 	import { asset as cdnAsset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -214,13 +214,23 @@
 		if (!uploadFile || !uploadPath) return;
 		uploading = true;
 		uploadError = '';
+		const path = uploadPath.trim();
 		try {
-			const result = await assetsApi.upload(uploadFile, uploadPath.trim());
+			let uploaded: string;
+			try {
+				uploaded = (await assetsApi.upload(uploadFile, path)).uploaded;
+			} catch (e) {
+				if (!(e instanceof ApiError && e.code === 'exists')) throw e;
+				// a new version at the same path (owner 2026-10-03: updating media meant renaming): replace in place, the old
+				// bytes stay as the asset's previous version
+				if (!(await confirmDialog({ title: m['creator.assets_replace_title'](), message: m['creator.assets_replace_message']({ path }), confirmLabel: m['creator.assets_replace']() }))) return;
+				uploaded = (await assetsApi.replaceAt(uploadFile, path)).replaced;
+			}
 			query = '';
-			await load(1, result.uploaded);
+			await load(1, uploaded);
 			uploadFile = null;
 		} catch (e) {
-			uploadError = e instanceof ApiError && e.code === 'exists' ? m['creator.assets_upload_exists']() : e instanceof Error ? e.message : String(e);
+			uploadError = e instanceof ApiError && e.code === 'unchanged' ? m['creator.assets_replace_unchanged']() : e instanceof Error ? e.message : String(e);
 		} finally {
 			uploading = false;
 		}

@@ -76,7 +76,7 @@ built in app code (e.g. item icon fallbacks) – none of the registry's files is
 | Operation | What happens | Who |
 |---|---|---|
 | upload | a NEW path (409 `exists` otherwise); becomes a rendition of the asset with the same slug or a new asset; magic bytes must match the extension; SVG without script / handlers; ≤ `ASSET_UPLOAD_MAX_BYTES` (raw PUT body, streamed to disk) | content editors (the picker), CLI `assets:jobs --upload` |
-| replace | new bytes at the same path: old bytes copied to `.versions/<asset>/<n>/<file>`, new version, renditions move along (the source's derived files reported stale), CDN purge | admin |
+| replace | new bytes at the same path: old bytes copied to `.versions/<asset>/<n>/<file>`, new version, renditions move along (the source's derived files reported stale), CDN purge | admin (by id); content editors by path: `PUT /assets/replace?path=` (owner 2026-10-03 – the picker asks "Replace?" when an upload's path exists, the slice import updates slices it already has) |
 | relink | every use of path A → existing path B: content gets a new **draft** per entity (`publish: true` publishes when the newest version was the published one), catalog files are rewritten when the server may write them (else listed as manual) | admin |
 | rename | copies the current files to the new slug (markers / extensions kept), new version, relink; old files stay with the archived version until nothing uses them | admin |
 | delete | the delete check (uses by state); published / catalog uses block, draft-only uses need `force`; deletes all versions' files + purges; the row stays `deleted` for history | admin |

@@ -105,6 +105,17 @@ final class AssetsApiTest extends TestCase
         self::assertSame(409, $this->request('PUT', '/api/assets/upload?path=catpope/images/new.png', $creator + ['Content-Type' => 'image/png'], $png)->getStatusCode());
         self::assertSame(422, $this->request('PUT', '/api/assets/upload?path=catpope/images/empty.png', $creator + ['Content-Type' => 'image/png'], '')->getStatusCode());
 
+        // a creator replaces a file in place: a new version, the old bytes archived; same bytes / unknown path refused
+        $png2 = $png . 'v2';
+        $replaced = $this->request('PUT', '/api/assets/replace?path=catpope/images/new.png', $creator + ['Content-Type' => 'image/png'], $png2);
+        self::assertSame(200, $replaced->getStatusCode(), (string) $replaced->getBody());
+        self::assertSame('catpope/images/new.png', self::json($replaced)['replaced']);
+        self::assertSame($png2, file_get_contents($this->dir . '/cdn/catpope/images/new.png'));
+        self::assertFileExists($this->dir . '/cdn/' . self::json($replaced)['archived_as']);
+        self::assertSame(409, $this->request('PUT', '/api/assets/replace?path=catpope/images/new.png', $creator + ['Content-Type' => 'image/png'], $png2)->getStatusCode());
+        self::assertSame(404, $this->request('PUT', '/api/assets/replace?path=catpope/images/nope.png', $creator + ['Content-Type' => 'image/png'], $png2)->getStatusCode());
+        self::assertSame(403, $this->request('PUT', '/api/assets/replace?path=catpope/images/new.png', $this->as('member') + ['Content-Type' => 'image/png'], $png2)->getStatusCode());
+
         $id = (string) $item['id'];
         $meta = self::json($this->request('PUT', "/api/assets/$id", $creator + ['Content-Type' => 'application/json'], '{"title":"The clip","tags":["prologue"]}'));
         self::assertSame(['The clip', ['prologue']], [$meta['asset']['title'], $meta['asset']['tags']]);
