@@ -23,6 +23,11 @@ export { createProductsApi, type ProductsApi, type Stockist, type StockistList }
 export {
 	EVENT_NAMES,
 	createAdminApi,
+	CATALOG_KINDS,
+	type CatalogKind,
+	type CatalogEntry,
+	type CatalogHistoryEntry,
+	type CatalogProblem,
 	toQuery,
 	type AdminApi,
 	type AdminAccountRef,

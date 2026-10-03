@@ -503,6 +503,41 @@ const seg = encodeURIComponent;
 
 export type AdminApi = ReturnType<typeof createAdminApi>;
 
+/** The catalog kinds the admin edits (`/admin/catalog/<kind>`, server docs/API.md "Catalog", agents/CATALOG.md) */
+export const CATALOG_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'permissions', 'code-types', 'toons', 'meta'] as const;
+export type CatalogKind = (typeof CATALOG_KINDS)[number];
+
+/** One stored catalog entry: its definition (`data`, the shape of the old config file's entry) and order */
+export interface CatalogEntry<T = Record<string, any>> {
+	id: string;
+	position: number;
+	data: T;
+	updated_at: string;
+	updated_by: string | null;
+}
+
+export interface CatalogHistoryEntry {
+	id: number;
+	kind: CatalogKind;
+	/** '' = the whole kind (reorder / replace) */
+	entry_id: string;
+	action: 'create' | 'update' | 'delete' | 'reorder' | 'replace';
+	before: unknown;
+	after: unknown;
+	position: number | null;
+	undo_of: number | null;
+	note: string | null;
+	by: string | null;
+	at: string;
+}
+
+/** A 422 `invalid_catalog` answer's problems (also on 409 `in_use`: `uses`) */
+export interface CatalogProblem {
+	path?: (string | number)[];
+	message: string;
+	[key: string]: unknown;
+}
+
 export function createAdminApi(api: ApiClient) {
 	return {
 		dashboard: (params: { days?: number; edition_id?: string | null } = {}) =>
@@ -573,6 +608,29 @@ export function createAdminApi(api: ApiClient) {
 		/** an item's rule (an update of the item, catalog_history), null = never reappears, `reset` = back to the seed's rule */
 		saveRespawn: (item: string, change: { respawn: ItemRespawn | null } | { reset: true }) =>
 			api.put<AdminRespawn>(`/admin/catalog/respawn/${seg(item)}`, change),
+
+		// the catalog in the database (CUTOVER 10.29): list / get / put (create 201 or update) / delete / reorder per kind,
+		// every write validated (422 invalid_catalog { problems }) and recorded in the history (undo)
+		catalogList: <T = Record<string, any>>(kind: CatalogKind) =>
+			api.get<{ status: 'success'; kind: CatalogKind; items: CatalogEntry<T>[]; fallback: boolean }>(`/admin/catalog/${seg(kind)}`),
+		catalogGet: <T = Record<string, any>>(kind: CatalogKind, id: string) =>
+			api.get<{ status: 'success'; entry: CatalogEntry<T> }>(`/admin/catalog/${seg(kind)}/${seg(id)}`),
+		catalogPut: <T = Record<string, any>>(kind: CatalogKind, id: string, data: T, note?: string) =>
+			api.put<{ status: 'success'; created: boolean; changed: boolean; entry: CatalogEntry<T>; history_id: number | null }>(
+				`/admin/catalog/${seg(kind)}/${seg(id)}`,
+				{ data, ...(note ? { note } : {}) }
+			),
+		catalogDelete: (kind: CatalogKind, id: string) =>
+			api.delete<{ status: 'success'; deleted: boolean; history_id: number | null }>(`/admin/catalog/${seg(kind)}/${seg(id)}`),
+		catalogReorder: (kind: CatalogKind, ids: string[]) =>
+			api.post<{ status: 'success'; changed: boolean; ids: string[]; history_id: number | null }>(`/admin/catalog/${seg(kind)}/reorder`, { ids }),
+		catalogHistory: (params: { kind?: CatalogKind; id?: string; limit?: number } = {}) =>
+			api.get<{ status: 'success'; items: CatalogHistoryEntry[] }>(`/admin/catalog/history${toQuery(params)}`),
+		catalogUndo: (historyId: number, force = false) =>
+			api.post<{ status: 'success'; undone: boolean; history_id: number | null; entry?: CatalogEntry; ids?: string[] }>(
+				`/admin/catalog/history/${historyId}/undo`,
+				force ? { force: true } : {}
+			),
 
 		featured: () => api.get<AdminFeatured>('/admin/featured'),
 		/** the new ordered list, or null = back to the default */
