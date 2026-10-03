@@ -471,7 +471,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   includes 10.20.
 - [ ] 10.22 Creator chapter tree: "Add group" + "Add separate scene" (cut off, owner 2026-10-03: "weird") – the second is a
   storage detail (a ref group = its own scene entity, from the old file layout). One "Add group"; the editor picks the
-  storage.
+  storage. Scene keys (`chapter2/scene-14`) are internal IDs only, never shown as names (owner 2026-10-03: "legacy from
+  files – in the db we don't care about ids that way"); the label is the name (done for the tree / crumbs: 3109fd8).
 - [ ] 10.23 Asset jobs on production (owner 2026-10-03: "Optimize" stays queued): `assets:jobs` reads the queue from its
   own DB – locally the dev DB, and production's MariaDB is not reachable from outside. The runner on the owner's machine
   (ffmpeg) should take jobs through the API (admin token): list queued → download the source from bunny → transcode →
