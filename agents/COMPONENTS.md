@@ -282,6 +282,12 @@ Done (branch `components`):
   effects (run once there), problems, the keyboard (canvas nudge stays reachable through `canvas`) and the `{#key}`
   remount. Before / after shots identical. Not reached: the 300-line target – the documents + problems (~250 lines) could
   become a `chapter-docs.svelte.ts` next.
+- Step 13 ✓ (the commit adding this line) – @scutoons/ui `resizable()` (resizable.svelte.ts: edge left / right, anchor,
+  min / max / normal, keys 16 / 64 px, Home + double-click reset, remembered per key, `filter` for the app shell's fold
+  to a rail) in the AppShell sidebar, the Sheet's right drawer, the creator's `panelWidth` (side panels, slice
+  inspector) and the script outline. Checked by hand (drag + reset of all four) and in check:creator-chapter (the
+  inspector edge). `ResizeEdge.svelte` not made: the four edges differ in markup / position; one function is the
+  shared part.
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

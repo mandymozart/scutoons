@@ -35,5 +35,6 @@ export { default as AppShell } from './app-shell.svelte';
 export { default as ToonAvatar } from './toon-avatar.svelte';
 export { installTooltips } from './tooltips.ts';
 export { gridArrows, gridStep } from './grid-keys.ts';
+export { resizable, type Resizable, type ResizableOptions } from './resizable.svelte.ts';
 export { default as DialogHost } from './dialog-host.svelte';
 export { confirmDialog, askDialog } from './dialogs.svelte.ts';

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resizable } from './resizable.svelte.ts';
 	import { untrack, type Snippet } from 'svelte';
 	import Icon from './icon.svelte';
 
@@ -110,100 +111,62 @@
 
 	let topHeight = $state(0);
 
-	// ---------- resizable sidebar ----------
+	// ---------- resizable sidebar (resizable.svelte.ts) ----------
 	let sidebarEl = $state<HTMLElement>();
-	/** px set by dragging; null = the normal `sidebarWidth` */
-	let customWidth = $state<number | null>(null);
 	/** the normal width in px (the minimum) – measured before the first drag */
 	let baseWidth = 0;
 	const storageKey = $derived(resizeKey ? `sc-sidebar-width:${resizeKey}` : '');
+	function measureBase() {
+		if (!baseWidth && sidebarEl && size.width === null && !folded) baseWidth = sidebarEl.offsetWidth;
+		return baseWidth || 240;
+	}
+	// one direction per drag (owner 2026-10-03: unfolding and folding again in the same drag glitched): a drag that
+	// starts on the rail only opens the sidebar, a drag that starts open only folds it
+	let startedFolded = false;
+	const threshold = () => measureBase() * 0.6;
+	const size = resizable({
+		storageKey: () => storageKey,
+		edge: 'right',
+		anchor: () => sidebarEl?.getBoundingClientRect().left ?? 0,
+		min: measureBase,
+		max: () => window.innerWidth / 3,
+		filter: (x) => {
+			if (startedFolded) {
+				if (folded && x < threshold()) return 'skip'; // still the rail
+				if (folded) setFolded(false);
+			} else if (foldKey && x < threshold()) {
+				setFolded(true);
+				return 'end';
+			}
+		},
+		onstart: () => {
+			measureBase();
+			startedFolded = !!foldKey && folded;
+			document.documentElement.classList.add('sc-resizing');
+		},
+		onend: () => document.documentElement.classList.remove('sc-resizing')
+	});
+	/** px set by dragging; null = the normal `sidebarWidth` */
+	const customWidth = $derived(size.width);
 
 	$effect(() => {
 		if (!storageKey || !sidebarEl) return;
 		// measured before a saved width applies, never the rail; untracked: folding must not re-run this restore
 		if (!untrack(() => folded)) baseWidth = sidebarEl.offsetWidth;
-		try {
-			const saved = Number(localStorage.getItem(storageKey));
-			if (saved > 0) customWidth = saved;
-		} catch {
-			// storage blocked: the sidebar keeps its normal width
-		}
+		size.restore();
 	});
-
-	function measureBase() {
-		if (!baseWidth && sidebarEl && customWidth === null && !folded) baseWidth = sidebarEl.offsetWidth;
-		return baseWidth || 240;
-	}
-
-	function clamp(px: number) {
-		return Math.round(Math.min(Math.max(px, measureBase()), window.innerWidth / 3));
-	}
-
-	function save() {
-		try {
-			if (customWidth === null) localStorage.removeItem(storageKey);
-			else localStorage.setItem(storageKey, String(customWidth));
-		} catch {
-			// not remembered
-		}
-	}
 
 	function startResize(event: PointerEvent) {
 		if (!sidebarEl) return;
-		event.preventDefault();
-		measureBase();
-		const left = sidebarEl.getBoundingClientRect().left;
-		const handle = event.currentTarget as HTMLElement;
-		handle.setPointerCapture(event.pointerId);
-		// one direction per drag (owner 2026-10-03: unfolding and folding again in the same drag glitched): a drag that
-		// starts on the rail only opens the sidebar, a drag that starts open only folds it
-		const startedFolded = !!foldKey && folded;
-		const threshold = () => measureBase() * 0.6;
-		const move = (e: PointerEvent) => {
-			const x = e.clientX - left;
-			if (startedFolded) {
-				if (folded && x < threshold()) return; // still the rail
-				if (folded) setFolded(false);
-			} else if (foldKey && x < threshold()) {
-				setFolded(true);
-				end();
-				return;
-			}
-			customWidth = clamp(x);
-		};
-		const end = () => {
-			handle.removeEventListener('pointermove', move);
-			handle.removeEventListener('pointerup', end);
-			handle.removeEventListener('pointercancel', end);
-			document.documentElement.classList.remove('sc-resizing');
-			save();
-		};
-		document.documentElement.classList.add('sc-resizing');
-		handle.addEventListener('pointermove', move);
-		handle.addEventListener('pointerup', end);
-		handle.addEventListener('pointercancel', end);
+		size.start(event);
 	}
-
-	function keyResize(event: KeyboardEvent) {
-		const step = event.shiftKey ? 64 : 16;
-		const current = customWidth ?? measureBase();
-		if (event.key === 'ArrowRight') customWidth = clamp(current + step);
-		else if (event.key === 'ArrowLeft') customWidth = clamp(current - step);
-		else if (event.key === 'Home') customWidth = null;
-		else return;
-		event.preventDefault();
-		save();
-	}
-
-	function resetWidth() {
-		customWidth = null;
-		save();
-	}
+	const keyResize = size.key;
+	const resetWidth = size.reset;
 
 	/** a remembered width wider than a third of a smaller window shrinks with it */
 	$effect(() => {
 		if (!resizeKey) return;
-		const fit = () => customWidth !== null && (customWidth = Math.min(customWidth, Math.round(window.innerWidth / 3)));
+		const fit = () => size.width !== null && (size.width = Math.min(size.width, Math.round(window.innerWidth / 3)));
 		window.addEventListener('resize', fit);
 		return () => window.removeEventListener('resize', fit);
 	});

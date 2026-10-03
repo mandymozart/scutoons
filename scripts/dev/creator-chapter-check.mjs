@@ -376,6 +376,15 @@ try {
 	const back = await boxAt(added);
 	check(near(back.x, m0.x) && !(await js(`${q(`box-dialog-${added}`)}.style.transform.includes('rotate')`)), 'undo: one step per drag (rotate, then move) brings it back');
 
+	// the inspector's edge drags it wider, a double-click resets it (@scutoons/ui resizable, step 13)
+	const inspectorWidth = () => js(`Math.round(document.querySelector('.inspector').getBoundingClientRect().width)`);
+	const w0 = await inspectorWidth();
+	await dragFrom('.inspector-resize', -100, 0);
+	const w1 = await inspectorWidth();
+	await js(`document.querySelector('.inspector-resize').dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))`);
+	await sleep(300);
+	check(w1 > w0 && (await inspectorWidth()) === w0, `resize: the inspector drags wider (${w0} → ${w1} px), a double-click resets it`);
+
 	// ── undo / redo outside a field ─────────────────────────────────────────────────────────────────────
 	await click(tid(`dialog-${added}`));
 	await press('z', 'ctrl');

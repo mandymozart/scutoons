@@ -15,7 +15,7 @@
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { Icon, confirmDialog } from '@scutoons/ui';
+	import { Icon, confirmDialog, resizable } from '@scutoons/ui';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import ScriptOutline from '$lib/components/script/script-outline.svelte';
 	import ScriptTitlePage from '$lib/components/script/script-meta.svelte';
@@ -52,9 +52,18 @@
 	let area = $state<HTMLTextAreaElement | undefined>();
 
 	// ── layout (owner 2026-10-03): a drag edge between the index and the text; the text ends 1rem above the footer ──
-	const OUTLINE_KEY = 'sc-script-outline-width';
 	let layoutEl = $state<HTMLElement>();
-	let outlineWidth = $state<number | null>(null);
+	/** the outline's width: its right edge drags it (160 px … half the page; @scutoons/ui resizable) */
+	const outlineSize = resizable({
+		storageKey: 'sc-script-outline-width',
+		edge: 'right',
+		anchor: () => layoutEl?.getBoundingClientRect().left ?? 0,
+		min: () => 160,
+		max: () => (layoutEl?.clientWidth ?? 800) / 2,
+		normal: () => 260
+	});
+	outlineSize.restore();
+	const outlineWidth = $derived(outlineSize.width);
 	let textHeight = $state<number | null>(null);
 	let outlineHeight = $state<number | null>(null);
 	/** the outline folded to a narrow strip (owner 2026-10-03) */
@@ -76,48 +85,6 @@
 		queueMicrotask(fitHeight);
 	}
 	let outlineList = $state<HTMLElement>();
-	try {
-		const saved = Number(typeof localStorage !== 'undefined' ? localStorage.getItem(OUTLINE_KEY) : 0);
-		if (saved > 0) outlineWidth = saved;
-	} catch {
-		// not remembered
-	}
-	const clampOutline = (px: number) => Math.round(Math.min(Math.max(px, 160), Math.max(160, (layoutEl?.clientWidth ?? 800) / 2)));
-	function rememberOutline() {
-		try {
-			if (outlineWidth === null) localStorage.removeItem(OUTLINE_KEY);
-			else localStorage.setItem(OUTLINE_KEY, String(outlineWidth));
-		} catch {
-			// not remembered
-		}
-	}
-	function startOutlineResize(event: PointerEvent) {
-		if (!layoutEl) return;
-		event.preventDefault();
-		const left = layoutEl.getBoundingClientRect().left;
-		const handle = event.currentTarget as HTMLElement;
-		handle.setPointerCapture(event.pointerId);
-		const move = (e: PointerEvent) => (outlineWidth = clampOutline(e.clientX - left));
-		const end = () => {
-			handle.removeEventListener('pointermove', move);
-			handle.removeEventListener('pointerup', end);
-			handle.removeEventListener('pointercancel', end);
-			rememberOutline();
-		};
-		handle.addEventListener('pointermove', move);
-		handle.addEventListener('pointerup', end);
-		handle.addEventListener('pointercancel', end);
-	}
-	function keyOutlineResize(event: KeyboardEvent) {
-		const step = event.shiftKey ? 64 : 16;
-		const current = outlineWidth ?? 260;
-		if (event.key === 'ArrowRight') outlineWidth = clampOutline(current + step);
-		else if (event.key === 'ArrowLeft') outlineWidth = clampOutline(current - step);
-		else if (event.key === 'Home') outlineWidth = null;
-		else return;
-		event.preventDefault();
-		rememberOutline();
-	}
 	/** the text (and the index) reach down to 1rem above the bottom action bar – never under it */
 	function fitHeight() {
 		if (!area) return;
@@ -378,9 +345,9 @@
 					aria-label={m['creator.resize_panel']()}
 					tabindex="0"
 					title={m['creator.resize_panel']()}
-					onpointerdown={(e) => !outlineFolded && startOutlineResize(e)}
-					onkeydown={keyOutlineResize}
-					ondblclick={() => ((outlineWidth = null), rememberOutline())}
+					onpointerdown={(e) => !outlineFolded && layoutEl && outlineSize.start(e)}
+					onkeydown={outlineSize.key}
+					ondblclick={outlineSize.reset}
 				></div>
 
 				<div class="main">
