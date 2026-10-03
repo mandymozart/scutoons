@@ -203,7 +203,14 @@
 	// svelte-ignore state_referenced_locally
 	const chapterHref = `/${toon}/chapter/${chapterNumber}`;
 	const groupKey = (g: any, i: number) => g?.label ?? (g?.ref?.src ? sceneNameOfRef(g.ref.src) : null) ?? String(i + 1);
-	const groupName = (g: any, i: number) => (g?.ref?.src ? sceneLabel(toon, g.ref.src) : (g?.label ?? `${m['creator.groups']()} ${i + 1}`));
+	/** a separate scene's own label (stored in the scene; owner 2026-10-03: renamed scene-13 still showed "Scene 14") */
+	const refLabel = (src: string): string | undefined => {
+		const doc = refs[src];
+		const label = doc && !doc.loading ? doc.get(doc.primary, ['label']) : undefined;
+		return typeof label === 'string' && label.trim() ? label : undefined;
+	};
+	const groupName = (g: any, i: number) =>
+		g?.ref?.src ? (refLabel(g.ref.src) ?? sceneLabel(toon, g.ref.src)) : (g?.label ?? `${m['creator.groups']()} ${i + 1}`);
 	function hrefFor(next: { section: Section; group?: number; slice?: number }) {
 		const params = new URLSearchParams();
 		if (next.section === 'audio') params.set('section', 'audio');
@@ -647,7 +654,7 @@
 	{:else}
 		<div class="files" data-testid="file-status">
 			<FileStatus doc={chapter} label={fileLabel(chapter.entity)} />
-			{#if refSrc && refs[refSrc]}<FileStatus doc={refs[refSrc]} label={sceneLabel(toon, refSrc)} />{/if}
+			{#if refSrc && refs[refSrc]}<FileStatus doc={refs[refSrc]} label={refLabel(refSrc) ?? sceneLabel(toon, refSrc)} />{/if}
 			{#if !season.loading && (season.dirty || season.unpublished.length)}<FileStatus doc={season} label={fileLabel(season.entity)} />{/if}
 		</div>
 		{#if anyDirty && !chapter.saving}<div class="bar dirty-bar">{m['creator.unsaved']()}{#if activeDoc?.dirty && section === 'slice'} · {activeDoc.dirtyLocales.join(', ')}{/if}</div>{/if}
