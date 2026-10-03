@@ -16,6 +16,10 @@ use Scutoons\Support\Ids;
 /**
  * Unit tests of the domain services: a fresh SQLite database per test (a copy of a migrated template), a frozen
  * clock, isolated settings (no config.local.php, no QR_* environment), mails into a temp log, files into a temp dir.
+ *
+ * On MariaDB/MySQL instead (TEST_DB_DRIVER=mysql + TEST_DB_HOST/PORT/NAME/USER/PASS, set by phpunit.mysql.xml – the
+ * local container of `npm run dev:db`, or the CI service): the test database is emptied and migrated once per run
+ * (the mysql migrations), and every test starts from that state again (MysqlTestDatabase::reset).
  */
 abstract class TestCase extends BaseTestCase
 {
@@ -31,7 +35,9 @@ abstract class TestCase extends BaseTestCase
     {
         $this->dir = str_replace('\\', '/', sys_get_temp_dir()) . '/scutoons-unit-' . bin2hex(random_bytes(6));
         mkdir($this->dir . '/files', 0777, true);
-        copy(self::template(), $this->dir . '/test.sqlite');
+        $mysql = MysqlTestDatabase::config();
+        if ($mysql !== null) MysqlTestDatabase::reset(self::root());
+        else copy(self::template(), $this->dir . '/test.sqlite');
         $this->container = Kernel::container(Settings::fixed(self::root(), $this->settings()));
         $this->clock = new FrozenClock(self::NOW);
         $this->container->set(Clock::class, $this->clock);
@@ -49,8 +55,12 @@ abstract class TestCase extends BaseTestCase
     /** @return array<string, string> */
     protected function settings(): array
     {
-        return [
-            'DB_SQLITE_PATH' => $this->dir . '/test.sqlite',
+        $mysql = MysqlTestDatabase::config();
+        $database = $mysql === null ? ['DB_SQLITE_PATH' => $this->dir . '/test.sqlite'] : [
+            'DB_DRIVER' => 'mysql', 'DB_SQLITE_PATH' => '', 'DB_HOST' => $mysql['host'], 'DB_PORT' => $mysql['port'],
+            'DB_NAME' => $mysql['name'], 'DB_USER' => $mysql['user'], 'DB_PASS' => $mysql['pass'],
+        ];
+        return $database + [
             'AUTH_SECRET' => str_repeat('unit-test-secret-', 3),
             'MAIL_TRANSPORT' => 'log',
             'MAIL_LOG_PATH' => $this->dir . '/mail.log',

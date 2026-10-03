@@ -10,6 +10,9 @@ declare(strict_types=1);
  */
 return [
     // ── Database: SQLite when DB_SQLITE_PATH is set (local), else MySQL/MariaDB (production) ──────────────
+    // '' = by DB_SQLITE_PATH | mysql = MySQL/MariaDB even when DB_SQLITE_PATH is set (the local MariaDB container:
+    // npm run dev:db sets QR_DB_DRIVER=mysql + QR_DB_* for the API and the console – docs/DATABASE.md)
+    'DB_DRIVER' => '',
     'DB_SQLITE_PATH' => '',
     'DB_HOST' => 'localhost',
     'DB_PORT' => '',

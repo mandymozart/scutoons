@@ -1,0 +1,56 @@
+# Local MariaDB for development and tests – the same engine as production (all-inkl). Local dev values only.
+# Docs: server/docs/DATABASE.md "Local MariaDB (Docker)". Normally driven by `npm run dev:db` (scripts/dev/db.mjs),
+# which passes the port from shared/dev-ports.json. By hand (repository root):
+#
+#   docker compose -f docker/compose.yml up -d --wait          start (data survives in the volume scutoons_mariadb)
+#   docker compose -f docker/compose.yml stop                  stop
+#   docker compose -f docker/compose.yml down -v               remove container AND data (npm run dev:db -- reset)
+#   docker compose -f docker/compose.yml --profile tools up -d adminer   Adminer (web UI) on the "adminer" dev port
+#
+# Match production: set MARIADB_VERSION / MARIADB_SQL_MODE / MARIADB_CHARSET / MARIADB_COLLATION to what phpMyAdmin
+# shows for `SELECT VERSION(); SELECT @@sql_mode, @@character_set_server, @@collation_server;` (environment variables,
+# or edit the defaults below), then `npm run dev:db -- reset`. The project directory is docker/, so the repository-root
+# .env (production values) is never read for the variables here.
+name: scutoons
+
+services:
+  mariadb:
+    image: mariadb:${MARIADB_VERSION:-10.11}
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: scutoons-root
+      MARIADB_DATABASE: scutoons
+      MARIADB_USER: scutoons
+      MARIADB_PASSWORD: scutoons
+    command:
+      - --character-set-server=${MARIADB_CHARSET:-utf8mb4}
+      - --collation-server=${MARIADB_COLLATION:-utf8mb4_general_ci}
+      - --sql-mode=${MARIADB_SQL_MODE:-STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION}
+      # like a Linux host: table names are case-sensitive
+      - --lower-case-table-names=0
+    ports:
+      # only this machine; the port is "mariadb" in shared/dev-ports.json (npm run check:ports guards the default)
+      - "127.0.0.1:${SCUTOONS_DB_PORT:-13306}:3306"
+    volumes:
+      - mariadb:/var/lib/mysql
+      # first start only: the test database scutoons_test (vendor/bin/phpunit -c phpunit.mysql.xml)
+      - ./mariadb/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 2s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+
+  adminer:
+    image: adminer:latest
+    profiles: [tools]
+    depends_on: [mariadb]
+    environment:
+      ADMINER_DEFAULT_SERVER: mariadb
+    ports:
+      # "adminer" in shared/dev-ports.json; sign in as scutoons / scutoons (server: mariadb)
+      - "127.0.0.1:${SCUTOONS_ADMINER_PORT:-13380}:8080"
+
+volumes:
+  mariadb:
