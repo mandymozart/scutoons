@@ -2,14 +2,14 @@
 	import { onMount } from 'svelte';
 	import { OnomatopoeiaEffect, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
 	import type { DialogPlay } from '../types.ts';
-	import EffectNone from '../onomatopoeia/effects/effect-none.svelte';
-	import EffectShiver from '../onomatopoeia/effects/effect-shiver.svelte';
-	import EffectPulse from '../onomatopoeia/effects/effect-pulse.svelte';
-	import EffectWobble from '../onomatopoeia/effects/effect-wobble.svelte';
+	import EffectNone from '../effects/effect-none.svelte';
+	import EffectShiver from '../effects/effect-shiver.svelte';
+	import EffectPulse from '../effects/effect-pulse.svelte';
+	import EffectWobble from '../effects/effect-wobble.svelte';
 
 	/**
 	 * One text box. `play` = an onomatopoeia event is revealing it right now (`params.dialog`): the box appears with the
-	 * event's effect / delay / duration (the same effect components as the event's own onomatopoeia) and stays.
+	 * event's effect / delay / duration and stays.
 	 */
 	let { dialog, play }: { dialog: Dialog; play?: DialogPlay | null } = $props();
 
@@ -32,7 +32,7 @@
 	/** a drawn speech bubble: only with `frame: true` (the bubbles of chapter 1/2 are in the art) */
 	const bubble = $derived(variant === 'bubble' && dialog.frame === true);
 	const tail = $derived(bubble ? (dialog.tail ?? 'bottom-left') : 'none');
-	const stroked = $derived(variant !== 'sfx' && !!dialog.stroke);
+	const stroked = $derived(!!dialog.stroke);
 	const font: DialogFont = $derived(dialog.font ?? (boxed ? 'mono' : 'lettering'));
 	const align = $derived(dialog.align ?? (boxed ? 'left' : 'center'));
 	const valign = $derived(dialog.valign ?? 'middle');
@@ -118,7 +118,7 @@
 	class:framed
 	class:bubble
 	class:stroked
-	class:uppercase={dialog.uppercase ?? variant === 'sfx'}
+	class:uppercase={dialog.uppercase ?? false}
 	data-id={dialog.id}
 	style:left="{dialog.rect.x}%"
 	style:top="{dialog.rect.y}%"
@@ -135,7 +135,7 @@
 >
 	{#if play && Effect}
 		{#key play.key}
-			<Effect fill duration={play.duration} delay={play.delay} onComplete={play.onComplete}>
+			<Effect duration={play.duration} delay={play.delay} onComplete={play.onComplete}>
 				{@render body()}
 			</Effect>
 		{/key}
@@ -308,11 +308,4 @@
 		paint-order: stroke fill;
 	}
 
-	/* sfx: outlined lettering like the chapter-1 onomatopoeia (white fill, ink outline) */
-	.dialog--sfx {
-		color: var(--dialog-color, var(--paper));
-		-webkit-text-stroke: 0.14em var(--ink);
-		paint-order: stroke fill;
-		line-height: 1;
-	}
 </style>
