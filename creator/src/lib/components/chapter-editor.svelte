@@ -171,7 +171,7 @@
 	let groupIndex = $state(0);
 	let sliceIndex = $state(-1);
 	let selection = $state<CanvasSelection | null>(null);
-	let inspectorTab = $state<'text' | 'items' | 'slice' | 'audio' | 'events' | 'map'>('text');
+	let inspectorTab = $state<'text' | 'items' | 'slice' | 'audio' | 'events'>('text');
 	// svelte-ignore state_referenced_locally
 	let displayLocale = $state<string>(textLanguage.chosen(languages.languages) ?? languages.source);
 	// the canvas shows the top bar's TEXT language when one is chosen (the buttons above the canvas still switch it)
@@ -970,12 +970,12 @@
 				<div class="inspector-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={inspectorSize.start} onkeydown={inspectorSize.key} ondblclick={inspectorSize.reset}></div>
 				<aside class="inspector">
 					<div class="tabs" role="tablist">
-						<button class="ghost" class:active={inspectorTab === 'text'} onclick={() => setTab('text')} data-testid="tab-text">{m['creator.text_boxes']()} ({sliceDialogs.length})</button>
-						<button class="ghost" class:active={inspectorTab === 'items'} onclick={() => setTab('items')} data-testid="tab-items">{m['creator.slice_items']()} ({sliceItems.length})</button>
-						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => setTab('slice')} data-testid="tab-background">{m['creator.background']()}</button>
-						<button class="ghost" class:active={inspectorTab === 'audio'} onclick={() => setTab('audio')}>{m['creator.audio']()}</button>
-						<button class="ghost" class:active={inspectorTab === 'events'} onclick={() => setTab('events')}>Events ({activeSlice?.events?.length ?? 0})</button>
-						<button class="ghost" class:active={inspectorTab === 'map'} onclick={() => setTab('map')} data-testid="tab-map">{m['creator.map']()}</button>
+						<!-- one icon each (owner 2026-10-03), the same as the canvas tools; background + map are one "Slice" tab -->
+						<button class="ghost" class:active={inspectorTab === 'text'} onclick={() => setTab('text')} data-testid="tab-text"><Icon name="type" /> {m['creator.text_boxes']()} ({sliceDialogs.length})</button>
+						<button class="ghost" class:active={inspectorTab === 'items'} onclick={() => setTab('items')} data-testid="tab-items"><Icon name="box" /> {m['creator.slice_items']()} ({sliceItems.length})</button>
+						<button class="ghost" class:active={inspectorTab === 'audio'} onclick={() => setTab('audio')} data-testid="tab-audio"><Icon name="music" /> {m['creator.audio']()}</button>
+						<button class="ghost" class:active={inspectorTab === 'events'} onclick={() => setTab('events')} data-testid="tab-events"><Icon name="zap" /> Events ({activeSlice?.events?.length ?? 0})</button>
+						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => setTab('slice')} data-testid="tab-background"><Icon name="image" /> {m['creator.slice_tab']()}</button>
 					</div>
 
 					{#if inspectorTab === 'text'}
@@ -1033,6 +1033,11 @@
 						{/if}
 					{:else if inspectorTab === 'slice'}
 						<SliceMedia doc={activeDoc} {slicePath} {toon} place="{toon}/s{Number(season.get(season.primary, ['number'])) || 1}/c{chapterNumber}/" />
+						<!-- the slice's map unlocks, in the same view (owner 2026-10-03) -->
+						<section class="slice-map" data-testid="slice-map">
+							<h3><Icon name="map-pin" /> {m['creator.map']()}</h3>
+							<SliceUnlocks mapDoc={worldMap} {toon} chapter={chapterNumber} image={activeSlice.image ?? ''} slices={chapterSlices(sceneGroups())} ontouch={() => (mapTouched = true)} />
+						</section>
 					{:else if inspectorTab === 'audio'}
 						<SliceAudio
 							doc={activeDoc}
@@ -1053,8 +1058,6 @@
 							selected={selection?.kind === 'event' ? selection.index : -1}
 							onselect={(i) => (selection = { kind: 'event', index: i })}
 						/>
-					{:else if inspectorTab === 'map'}
-						<SliceUnlocks mapDoc={worldMap} {toon} chapter={chapterNumber} image={activeSlice.image ?? ''} slices={chapterSlices(sceneGroups())} ontouch={() => (mapTouched = true)} />
 					{/if}
 				</aside>
 			{/if}
@@ -1299,6 +1302,20 @@
 	}
 	.tabs button {
 		justify-content: center;
+		gap: 0.4rem;
+	}
+	.slice-map {
+		border-top: var(--border-width-regular) solid var(--ink);
+		padding-top: var(--space-1);
+	}
+	.slice-map h3 {
+		display: flex;
+		align-items: center;
+		gap: 0.4rem;
+		margin: 0 0 var(--space-05);
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
 	}
 	.boxes {
 		list-style: none;

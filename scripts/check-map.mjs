@@ -547,12 +547,12 @@ async function builder() {
 	const point = k === slices.length - 1 ? 1 : Math.floor(Math.min(0.99, (k + 1) / slices.length) * 10000) / 10000;
 	const placeToUnlock = original.locations.find((p) => !p.unlock)?.id ?? original.locations[0].id;
 	await open(`${creator}/catpope/chapter/1?group=${target.group + 1}&slice=${target.index + 1}`);
-	const tab = await waitFor(`document.querySelector('[data-testid="tab-map"]') ? true : null`, 15000);
+	const tab = await waitFor(`document.querySelector('[data-testid="tab-background"]') ? true : null`, 15000);
 	if (!tab) {
-		report('chapter editor: the slice inspector has the "Karte" tab', ['no tab-map']);
+		report('chapter editor: the slice inspector has the "Slice" tab (background + map)', ['no tab-background']);
 		return;
 	}
-	await click('[data-testid="tab-map"]');
+	await click('[data-testid="tab-background"]');
 	await waitFor(`document.querySelector('[data-testid="slice-unlock-add"]') ? true : null`, 8000);
 	await evaluate(`(() => { const s = document.querySelector('[data-testid="slice-unlock-add"]'); s.value = ${JSON.stringify(placeToUnlock)}; s.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
 	const listedHere = await waitFor(`document.querySelector('[data-testid="slice-unlock-${placeToUnlock}"]') ? true : null`, 3000);
@@ -592,12 +592,12 @@ async function builder() {
 		const wantText = ['de', 'en'].map((l) => fill(creatorMessages[l].creator.map_unlock_in, { chapter: n, slice: k }));
 		if (!wantText.some((w) => text?.startsWith(`${w} ·`))) problems.push(`${p.id}: builder "${text}" ≠ "${wantText[0]}"`);
 		await open(`${creator}/catpope/chapter/${n}?group=${ref.group + 1}&slice=${ref.index + 1}`);
-		if (await waitFor(`document.querySelector('[data-testid="tab-map"]') ? true : null`, 15000)) {
-			await click('[data-testid="tab-map"]');
+		if (await waitFor(`document.querySelector('[data-testid="tab-background"]') ? true : null`, 15000)) {
+			await click('[data-testid="tab-background"]');
 			if (!(await waitFor(`document.querySelector('[data-testid="slice-unlock-${p.id}"]') ? true : null`, 5000))) problems.push(`${p.id}: not listed in the inspector of chapter ${n} group ${ref.group + 1} slice ${ref.index + 1}`);
-		} else problems.push(`${p.id}: no Map tab`);
+		} else problems.push(`${p.id}: no Slice tab`);
 	}
-	report(`every slice-unlocked place (${placed.length}): the builder says "Freigeschaltet in Kapitel N, Slice k", the slice's Map tab lists it`, placed.length ? problems : ['no place has a slice']);
+	report(`every slice-unlocked place (${placed.length}): the builder says "Freigeschaltet in Kapitel N, Slice k", the slice's Slice tab lists it`, placed.length ? problems : ['no place has a slice']);
 }
 
 try {
