@@ -6,7 +6,8 @@
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { getGameContext } from '$lib/contexts/game.svelte';
 
-	let { event }: { event: VNSliceEvent } = $props();
+	/** the slice events sharing this trigger: one run per click / hover / intersect, in their order */
+	let { events }: { events: VNSliceEvent[] } = $props();
 
 	const vn = getVisualNovelContext();
 	const game = getGameContext();
@@ -17,8 +18,8 @@
 	 * stroll end's choices were added four times while the last slice scrolled in and out) */
 	let running = false;
 
-	const once = event.trigger?.once ?? true;
-	const rect = event.trigger?.rect;
+	const once = $derived(events[0].trigger?.once ?? true);
+	const rect = $derived(events[0].trigger?.rect);
 
 	function isWithinRect(e: MouseEvent, element: HTMLElement): boolean {
 		if (!rect) return true;
@@ -36,8 +37,7 @@
 		if (!triggerElement?.parentElement) return;
 		if (!isWithinRect(e, triggerElement.parentElement)) return;
 
-		const { trigger, ...vnEvent } = event;
-		const processor = new EventProcessor([vnEvent as VNEvent], game, vn);
+		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn);
 		running = true;
 		// marked before the run (it can wait for the reader a long time)
 		if (once) triggered = true;
