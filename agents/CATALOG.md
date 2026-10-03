@@ -44,3 +44,7 @@ Rules:
 ## Status
 
 - 2026-10-04: plan written; parts 1 and 2 started.
+- 2026-10-04: **part 2 done** (branch `shared/media`): new package `@scutoons/media` (shared/media) with the asset
+  picker sheet, media slot, media-variants slot, `toWebp` / `uploadOrReplace` and the `{ src, variants }` helpers; own
+  de/en texts; creator call sites switched, creator copies deleted; creator and admin call `setupMedia({ assets, cdn,
+  locale })` in their root layout (both render `DialogHost`). Ready for part 3 – COMPONENTS.md "Shared media components".

@@ -267,7 +267,7 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
 
 ## UI
 
-- **Creator – the asset picker** (`creator/src/lib/components/assets/asset-picker-sheet.svelte`, like the character
+- **Creator – the asset picker** (`@scutoons/media` `AssetPickerSheet`, `shared/media/src/asset-picker-sheet.svelte` since 2026-10-04, like the character
   picker): search, folder (the toon first), kind, unused-only; a grid of thumbnails with ONE line of name (no overlap –
   the owner's screenshot of the old "130 known images" grid), size / dimensions / "unused"; the chosen asset's files
   (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
