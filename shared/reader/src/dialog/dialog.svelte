@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { OnomatopoeiaEffect, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
 	import type { DialogPlay } from '../types.ts';
+	import { wobblyPath } from './wobbly.ts';
 	import EffectNone from '../effects/effect-none.svelte';
 	import EffectShiver from '../effects/effect-shiver.svelte';
 	import EffectPulse from '../effects/effect-pulse.svelte';
@@ -31,7 +32,9 @@
 	const framed = $derived(boxed && dialog.frame !== false);
 	/** a drawn speech bubble: only with `frame: true` (the bubbles of chapter 1/2 are in the art) */
 	const bubble = $derived(variant === 'bubble' && dialog.frame === true);
-	const tail = $derived(bubble ? (dialog.tail ?? 'bottom-left') : 'none');
+	/** the drawn bubble's outline: an oval (speech) or a wobbly edge (shouting, singing) */
+	const shape = $derived(bubble ? (dialog.shape ?? 'oval') : null);
+	const tail = $derived(bubble ? (dialog.tail ?? (shape === 'wobbly' ? 'none' : 'bottom-left')) : 'none');
 	const stroked = $derived(!!dialog.stroke);
 	const font: DialogFont = $derived(dialog.font ?? (boxed ? 'mono' : 'lettering'));
 	const align = $derived(dialog.align ?? (boxed ? 'left' : 'center'));
@@ -43,6 +46,9 @@
 	let root: HTMLDivElement | null = $state(null);
 	let box: HTMLDivElement | null = $state(null);
 	let content: HTMLDivElement | null = $state(null);
+	/** the box's laid-out size (px): the wobbly outline is drawn for it */
+	let boxSize = $state<{ w: number; h: number } | null>(null);
+	const wobbly = $derived(shape === 'wobbly' && boxSize ? { d: wobblyPath(boxSize.w, boxSize.h, dialog.id ?? lines.join(' ')) } : null);
 
 	function overflows(): boolean {
 		if (!box || !content) return false;
@@ -74,11 +80,14 @@
 			}
 		}
 		fittedSize = sizeOf(content);
+		if (shape === 'wobbly' && (boxSize?.w !== box.offsetWidth || boxSize?.h !== box.offsetHeight)) {
+			boxSize = { w: box.offsetWidth, h: box.offsetHeight };
+		}
 	}
 
 	// re-fit whenever the text or geometry changes (e.g. locale switch)
 	$effect(() => {
-		void [lines, dialog.size, dialog.rect.width, dialog.rect.height, font, variant, framed, bubble, box];
+		void [lines, dialog.size, dialog.rect.width, dialog.rect.height, font, variant, framed, bubble, shape, box];
 		fit();
 	});
 
@@ -117,6 +126,7 @@
 	class:has-height={hasHeight}
 	class:framed
 	class:bubble
+	class:wobbly={shape === 'wobbly'}
 	class:stroked
 	class:uppercase={dialog.uppercase ?? false}
 	data-id={dialog.id}
@@ -158,6 +168,11 @@
 		class="box"
 		style:justify-content={valign === 'top' ? 'flex-start' : valign === 'bottom' ? 'flex-end' : 'center'}
 	>
+		{#if wobbly}
+			<svg class="outline" viewBox="0 0 {boxSize?.w} {boxSize?.h}" preserveAspectRatio="none" aria-hidden="true">
+				<path d={wobbly.d} />
+			</svg>
+		{/if}
 		{#if tail !== 'none'}
 			<svg class="tail tail--{tail}" viewBox="0 0 16 14" preserveAspectRatio="none" aria-hidden="true">
 				<path d={tail.endsWith('left') ? 'M3 0 L0 14 L13 0' : tail.endsWith('right') ? 'M3 0 L16 14 L13 0' : 'M2 0 L8 14 L14 0'} />
@@ -260,6 +275,43 @@
 
 	.has-height.bubble .box {
 		height: 100%;
+	}
+
+	/* wobbly (shout / song): no oval – the trembling outline is an SVG drawn for the box's size */
+	.bubble.wobbly .box {
+		border: 0;
+		border-radius: 0;
+		background: none;
+		padding: 0.8em 1.1em;
+	}
+
+	.outline {
+		position: absolute;
+		inset: 0;
+		width: 100%;
+		height: 100%;
+		z-index: -1;
+		overflow: visible;
+	}
+
+	.outline path {
+		fill: var(--paper);
+		stroke: var(--ink);
+		stroke-width: 2.5px;
+		vector-effect: non-scaling-stroke;
+		stroke-linejoin: round;
+	}
+
+	/* the tail starts inside the wobbly edge, so its paper covers the outline where it joins */
+	.wobbly .tail {
+		top: calc(100% - 7px);
+	}
+
+	.wobbly .tail--top-left,
+	.wobbly .tail--top,
+	.wobbly .tail--top-right {
+		top: auto;
+		bottom: calc(100% - 7px);
 	}
 
 	.tail {
