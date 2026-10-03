@@ -89,7 +89,8 @@
 		height: var(--control-height);
 		margin: 0;
 		padding: 0 var(--space-05);
-		border: var(--border-width-regular) solid var(--ink);
+		/* a thin grey frame, ink while focused (owner 2026-10-03, like every text input) */
+		border: var(--border-width-hairline) solid var(--border-muted);
 		border-radius: var(--radius-none);
 		background: var(--paper);
 		color: var(--ink);
@@ -105,6 +106,9 @@
 		overflow: hidden;
 		clip-path: inset(50%);
 		white-space: nowrap;
+	}
+	input:focus {
+		border-color: var(--ink);
 	}
 	input:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);

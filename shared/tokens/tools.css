@@ -5,7 +5,8 @@
  *
  * - Type = the reader's: the fluid root of base.css (14px < 480px, 16px, 24px ≥ 768px), body 1rem, the smallest text
  *   is caption (0.75rem). No px font sizes, no app-level root override.
- * - Hard ink on paper: 2px ink frames on fields, buttons, panels, tables; `border-muted` only for inactive controls.
+ * - Hard ink on paper: 2px ink frames on selects, panels, tables; text inputs / textareas a thin grey frame (1px
+ *   border-muted) that turns ink on focus (owner 2026-10-03: tells fields apart from selects and buttons).
  * - Square, no shadows. Sizes in rem (`--control-height`). Focus = a 3px ink outline outside the frame.
  * - Buttons are the viewer's: primary ink, secondary paper + 2px border-muted → ink on hover (no inversion).
  * - Selected / active toggles, tabs, list items = inverted (ink bg, paper text). Badges are filled (--badge-*).
@@ -57,7 +58,7 @@
 	font-size: inherit;
 }
 
-/* ── Fields: 2px ink frame, 1rem text ─────────────────────────────────────────────────────────────────────────── */
+/* ── Fields: 2px ink frame (inputs / textareas: thin grey, below), 1rem text ─────────────────────────────────────────────────────────────────────────── */
 :where(.sc-tool)
 	:where(
 		input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']),
@@ -75,6 +76,16 @@
 	font: inherit;
 	font-size: var(--type-body-size);
 	line-height: var(--type-body-line);
+}
+/* text inputs and textareas: a thin grey frame, ink while focused (owner 2026-10-03: clearer what is a field and what
+   is a select or a button) */
+:where(.sc-tool)
+	:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']), textarea) {
+	border: var(--border-width-hairline) solid var(--border-muted);
+}
+:where(.sc-tool)
+	:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='color'], [type='file'], [type='hidden']), textarea):focus {
+	border-color: var(--ink);
 }
 /* One control height (owner 2026-10-02, DESIGN.md "One control height"): every single-line field is exactly
    --control-height (2rem + the 2px frame; ≥ 44px on touch), the text centred by the box, no vertical padding */

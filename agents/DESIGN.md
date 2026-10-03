@@ -664,7 +664,8 @@ inert without it). The shop already uses the reader's rem scale and keeps the re
 - **Touch minimum only on touch screens** (owner 2026-10-01): one rule in tokens.css, `@media (pointer: coarse)`
   raises `--control-height` to max(44px, 2rem + frame); fields, list rows, nav entries and buttons use it as
   `min-height`, so phones and tablets get ≥ 44px targets while a mouse desktop stays rem-only.
-- Inputs / selects / textareas: 2px ink frame, paper, 1rem, padding `0 space-05` (one control height, see below;
+- Inputs / selects / textareas: paper, 1rem; **text inputs and textareas a thin grey frame** (1px `border-muted`, ink
+  on focus – owner 2026-10-03: tells fields apart from selects and buttons), selects a 2px ink frame; padding `0 space-05` (one control height, see below;
   textarea `space-05`), placeholder `text-muted`; disabled = `border-muted` + `text-muted`; invalid = `state-error` frame.
 - **Buttons = the viewer's** (owner 2026-10-01, no new invention): primary = ink bg / paper text; secondary (the
   normal one) = paper + 2px `border-muted`, **on hover the outline turns ink**, no inversion on hover; ghost = no frame,

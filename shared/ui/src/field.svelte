@@ -75,6 +75,13 @@
 		color: var(--ink);
 		font: inherit;
 	}
+	/* text inputs and textareas: a thin grey frame, ink while focused (owner 2026-10-03; selects keep the ink frame) */
+	.field :global(:is(input:not([type='checkbox']):not([type='radio']), textarea)) {
+		border: var(--border-width-hairline) solid var(--border-muted);
+	}
+	.field :global(:is(input:not([type='checkbox']):not([type='radio']), textarea):focus) {
+		border-color: var(--ink);
+	}
 	/* one control height (owner 2026-10-02): single-line fields exactly --control-height; textareas grow */
 	.field :global(:is(input:not([type='checkbox']):not([type='radio']), select:not([multiple]))) {
 		height: var(--control-height);
