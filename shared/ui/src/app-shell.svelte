@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack, type Snippet } from 'svelte';
+	import Icon from './icon.svelte';
 
 	/**
 	 * Page frame of the tools (admin, creator): top bar + optional sidebar (left) + content + optional aside (right),
@@ -21,7 +22,7 @@
 	 * normal width up to a third of the window; arrow keys on the handle, double-click resets; remembered per key in
 	 * localStorage (`sc-sidebar-width:<key>`).
 	 * `foldable` (with `resizeKey`, owner 2026-10-03 "version A"): from 768px on the sidebar folds to a 2.5rem rail –
-	 * the « button at its top, dragging the edge narrower than the normal width, or Ctrl + \; the rail shows » and
+	 * the fold button (Feather chevrons-left) at its top right, dragging the edge narrower than the normal width, or Ctrl + \; the rail shows chevrons-right and
 	 * `railLabel` (the current place) written vertically. Remembered per key (`sc-sidebar-folded:<key>`).
 	 */
 	let {
@@ -234,12 +235,12 @@
 				{#if foldKey && folded}
 					<!-- the rail: unfold + where the user is -->
 					<div class="sc-shell-rail">
-						<button type="button" class="sc-shell-fold sc-round" onclick={() => setFolded(false)} aria-label={unfoldLabel} aria-expanded="false" aria-controls={sidebarId} title="{unfoldLabel} (Ctrl + \)">»</button>
+						<button type="button" class="sc-shell-fold sc-round" onclick={() => setFolded(false)} aria-label={unfoldLabel} aria-expanded="false" aria-controls={sidebarId} title="{unfoldLabel} (Ctrl + \)"><Icon name="chevrons-right" /></button>
 						{#if railLabel}<span class="sc-shell-rail-label">{railLabel}</span>{/if}
 					</div>
 				{:else}
 					{#if foldKey}
-						<button type="button" class="sc-shell-fold sc-shell-fold-in sc-round" onclick={() => setFolded(true)} aria-label={foldLabel} aria-expanded="true" aria-controls={sidebarId} title="{foldLabel} (Ctrl + \)">«</button>
+						<button type="button" class="sc-shell-fold sc-shell-fold-in sc-round" onclick={() => setFolded(true)} aria-label={foldLabel} aria-expanded="true" aria-controls={sidebarId} title="{foldLabel} (Ctrl + \)"><Icon name="chevrons-left" /></button>
 					{/if}
 					{@render sidebar()}
 				{/if}
@@ -380,10 +381,10 @@
 		text-overflow: ellipsis;
 		max-height: calc(100% - 4rem);
 	}
-	/* its own row, 1rem from the top and the side, on the line of the sidebar's entries (owner 2026-10-03) */
+	/* its own row, 1rem from the top, at the right (owner 2026-10-03: like the script outline's fold button) */
 	.sc-shell-fold-in {
 		display: flex;
-		margin: 1rem 0 0 1rem;
+		margin: 1rem 0.5rem 0 auto;
 	}
 	.folded .sc-shell-sidebar {
 		overflow: hidden;

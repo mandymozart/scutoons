@@ -8,7 +8,7 @@
 //
 // Checks on Katzenpapst: the German script loads byte-identical to its seed (and to the screenplay file, when
 // SCREENPLAY_DE or the default path exists); the outline lists chapters / scenes / songs and jumps (cursor + scroll);
-// typing stays fast on the ~1800-line text (median keystroke round trip, no long tasks); an edited line → Save draft
+// read-only until "Edit script" is confirmed; typing stays fast on the ~1800-line text (median keystroke round trip, no long tasks); an edited line → Save draft
 // (PUT) → Publish; the history lists both versions; restoring the original gives the identical text again (published
 // again); the language switch shows the English script. Afterwards the published versions are as before (restored also
 // on failure). Refuses to run while a script has an unpublished draft (someone's work in progress is never published).
@@ -170,6 +170,12 @@ async function click(selector) {
 	await sleep(250);
 }
 const area = q('script-text');
+/** an in-page dialog (confirmDialog / askDialog), when one opens: click its button */
+async function answerDialog(button) {
+	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click(`dialog.sc-dialog[open] ${button}`);
+}
+/** the header's text-language switch (the only language switch) */
+const setLanguage = (l) => js(`(() => { const s = ${q('text-language-select')}; s.value = ${JSON.stringify(l)}; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
 const value = () => js(`${area}?.value ?? null`);
 const writesSince = (n) => writes.slice(n);
 const historyButton = `[...document.querySelectorAll('button')].find((b) => ['History', 'Verlauf'].includes(b.textContent.trim()))`;
@@ -207,6 +213,12 @@ try {
 	const currentItem = await js(`document.querySelector('[data-testid="script-outline-item"].current')?.dataset.line`);
 	check(Number(currentItem) === target[1], 'the outline marks the scene the cursor is in');
 
+	// read-only until confirmed (owner 2026-10-03): typing asks first, "Edit script" + the dialog's confirm unlocks
+	check(await js(`${area}.readOnly`), 'the script is read-only until confirmed');
+	await click('[data-testid="script-edit"]');
+	await click('dialog.sc-dialog[open] button[type="submit"]');
+	check(await until(`!${area}.readOnly`), 'confirming "Edit script" makes it editable');
+
 	// 3. performance on the big text: keystrokes at the end of a line
 	await js(`(() => { window.__long = 0; new PerformanceObserver((l) => { window.__long += l.getEntries().filter((e) => e.duration > 50).length; }).observe({ type: 'longtask' }); })()`);
 	await js(`(() => { const el = ${area}; const end = el.value.indexOf('\\n', el.selectionStart); el.setSelectionRange(end, end); })()`);
@@ -231,6 +243,8 @@ try {
 	// 4. save draft, publish → the history has both versions
 	let n = writes.length;
 	await click('[data-testid="save-draft"]');
+	// Save draft asks for a note (askDialog): save without one
+	await answerDialog('button.secondary');
 	await until(`!document.querySelector('.dirty-bar') && !${q('save-draft')}.disabled`);
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/${KEYS[0]}` && saved[0].status === 200, 'Save draft: PUT script:catpope:de 200', JSON.stringify(saved));
@@ -238,6 +252,7 @@ try {
 	check(draft.content.text === edited.join('\n') && draft.published.id === baseline[KEYS[0]].id, 'the draft is stored exactly, the original stays published');
 	n = writes.length;
 	await click('[data-testid="publish"]');
+	await answerDialog('button[type="submit"]'); // Publish confirms in-page
 	await until(`/Published|Veröffentlicht/.test(${q('file-status')}.innerText)`);
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	const en = await api('GET', `/entities/${KEYS[1]}?draft=1&wrap=1`);
@@ -254,16 +269,17 @@ try {
 	const restored = await api('GET', `/entities/${KEYS[0]}?draft=1&wrap=1`);
 	check(restored.content.text === source && JSON.stringify(restored.content) === JSON.stringify(baseline[KEYS[0]].content), 'restore: the stored draft is byte-identical to the original');
 	await click('[data-testid="publish"]');
+	await answerDialog('button[type="submit"]'); // Publish confirms in-page
 	await until(`/Published|Veröffentlicht/.test(${q('file-status')}.innerText) && !document.querySelector('.dirty-bar')`);
 	const live = await api('GET', `/entities/${KEYS[0]}`);
 	check(live.text === source, 'the original is published again');
 
 	// 6. the language switch
-	await click('[data-testid="script-locale-en"]');
+	await setLanguage('en');
 	check(await until(`${area}.value === ${JSON.stringify(seed.en.text)}`), `en: the English script (${seed.en.text.split('\n').length - 1} lines)`);
 	const enOutline = await js(`document.querySelectorAll('[data-testid="script-outline-item"]').length`);
 	check(enOutline > 5, `en outline (${enOutline} items, "Chapter" / "Song" markers)`);
-	await click('[data-testid="script-locale-de"]');
+	await setLanguage('de');
 	check(await until(`${area}.value === ${JSON.stringify(source)}`), 'back to de');
 
 	// 7. a toon without a script: an empty page, nothing dirty

@@ -16,7 +16,7 @@
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { Icon } from '@scutoons/ui';
+	import { Icon, confirmDialog } from '@scutoons/ui';
 	import MetaPage from '../meta-page.svelte';
 
 	/**
@@ -229,8 +229,35 @@
 		});
 	}
 
+	/** read-only until the user confirms they mean to edit (owner 2026-10-03); per visit, not remembered */
+	let editing = $state(false);
+	let asking = false;
+	async function requestEdit() {
+		if (editing || asking) return;
+		asking = true;
+		editing = await confirmDialog({
+			title: m['creator.script_edit_title'](),
+			message: m['creator.script_edit_confirm'](),
+			confirmLabel: m['creator.script_edit']()
+		});
+		asking = false;
+		if (editing) area?.focus({ preventScroll: true });
+	}
+	/** typing into the read-only text asks first (navigation, selection and copy keys pass) */
+	function isEditKey(event: KeyboardEvent): boolean {
+		if (event.ctrlKey || event.metaKey) return ['v', 'x', 'z', 'y'].includes(event.key.toLowerCase());
+		return event.key.length === 1 || ['Enter', 'Backspace', 'Delete'].includes(event.key);
+	}
+
 	/** Tab indents with spaces (the format counts spaces); Esc, then Tab leaves the text (keyboard users) */
 	function onKeydown(event: KeyboardEvent) {
+		if (!editing) {
+			if (isEditKey(event)) {
+				event.preventDefault();
+				requestEdit();
+			}
+			return;
+		}
 		if (event.key === 'Escape') {
 			escaped = true;
 			return;
@@ -356,12 +383,14 @@
 			<div class="layout" class:folded={outlineFolded} bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
 				<aside class="side">
 					{#if outlineFolded}
-						<button type="button" class="fold sc-round" onclick={() => foldOutline(false)} aria-label={m['creator.script_outline_show']()} title={m['creator.script_outline_show']()} aria-expanded="false" data-testid="script-outline-unfold">»</button>
+						<button type="button" class="fold sc-round" onclick={() => foldOutline(false)} aria-label={m['creator.script_outline_show']()} title={m['creator.script_outline_show']()} aria-expanded="false" data-testid="script-outline-unfold"><Icon name="chevrons-right" /></button>
+						<!-- folded: written vertically, like the main sidebar's rail (owner 2026-10-03) -->
+						<span class="rail-label">{m['creator.script_outline']()}</span>
 					{:else}
 					<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
 						<h2>
 							<span>{m['creator.script_outline']()}</span>
-							<button type="button" class="fold sc-round" onclick={() => foldOutline(true)} aria-label={m['creator.script_outline_fold']()} title={m['creator.script_outline_fold']()} aria-expanded="true" data-testid="script-outline-fold">«</button>
+							<button type="button" class="fold sc-round" onclick={() => foldOutline(true)} aria-label={m['creator.script_outline_fold']()} title={m['creator.script_outline_fold']()} aria-expanded="true" data-testid="script-outline-fold"><Icon name="chevrons-left" /></button>
 						</h2>
 						{#if !outline.length}
 							<p class="hint">{m['creator.script_outline_empty']()}</p>
@@ -402,6 +431,7 @@
 				></div>
 
 				<div class="main">
+					<div class="head">
 					<details class="meta" data-testid="script-meta">
 						<!-- clickable: the title page opens for editing (owner 2026-10-03: show that it can be edited) -->
 						<summary title={m['creator.script_meta_edit']()}>
@@ -415,6 +445,8 @@
 									<input
 										type="text"
 										value={script.meta?.[field] ?? ''}
+										readonly={!editing}
+										onkeydown={(e) => !editing && isEditKey(e) && (e.preventDefault(), requestEdit())}
 										oninput={(e) => setMeta(field, e.currentTarget.value)}
 										data-testid="script-meta-{field}"
 									/>
@@ -422,9 +454,16 @@
 							{/each}
 						</div>
 					</details>
+					{#if !editing}
+						<button type="button" class="edit-script secondary" onclick={requestEdit} data-testid="script-edit">
+							<Icon name="lock" />{m['creator.script_edit']()}
+						</button>
+					{/if}
+					</div>
 					<textarea
 						bind:this={area}
 						class="text"
+						readonly={!editing}
 						lang={locale}
 						wrap="off"
 						spellcheck="false"
@@ -457,8 +496,9 @@
 		grid-template-columns: var(--outline-width, 260px) 0.75rem minmax(0, 1fr);
 		gap: 0;
 		align-items: start;
-		/* flush with the sidebar divider and up to the status line: the divider runs the full height */
-		margin: -1rem 0 0 -1rem;
+		/* flush with the sidebar divider, up to the status line and down to the action bar: the divider runs the full
+		   height; only the text keeps its 1rem above the bar (fitHeight) */
+		margin: -1rem 0 -1rem -1rem;
 	}
 	.side {
 		padding: 1rem 0 0;
@@ -480,8 +520,33 @@
 	}
 	.layout.folded .side {
 		display: flex;
-		justify-content: center;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.75rem;
 		padding: 1rem 0 0;
+	}
+	/* like the app shell's rail label */
+	.rail-label {
+		writing-mode: vertical-rl;
+		transform: rotate(180deg);
+		color: var(--muted);
+		white-space: nowrap;
+	}
+	/* the title page row; "Edit script" at its right while the script is read-only */
+	.head {
+		display: flex;
+		align-items: flex-start;
+		gap: 1rem;
+	}
+	.head .meta {
+		flex: 1;
+		min-width: 0;
+	}
+	.edit-script {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+		flex: none;
 	}
 	.meta summary {
 		display: flex;
