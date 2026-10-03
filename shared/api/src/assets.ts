@@ -48,7 +48,7 @@ export interface AssetSummary {
 export interface AssetUsage {
 	path: string;
 	source: 'content' | 'catalog' | 'code';
-	/** entity key (content) or catalog file */
+	/** entity key (content), catalog entry `<kind>:<id>` (item:camera, product:dago_hoodie …) or code file */
 	ref: string;
 	/** JSON pointer in the document */
 	field: string;
