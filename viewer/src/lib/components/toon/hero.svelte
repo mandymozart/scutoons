@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ClampText from '$lib/components/clamp-text.svelte';
 	import { onMount, untrack } from 'svelte';
 	import { pickQualityVariant, type LoadedSequenceItem, type Season, type Toon } from '@scutoons/content';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
@@ -134,9 +135,9 @@
 	<div class="scrim"></div>
 
 	<div class="hero-text">
-		<p class="hero-season">{m['hero.season']({ number: seasonNumber, title: season.title })}</p>
 		<h1>{toon.title}</h1>
-		{#if toon.description}<p class="hero-tagline">{toon.description}</p>{/if}
+		<!-- the season's description under the title (owner 2026-10-03: no "Staffel 1 · …" line, not the toon's text) -->
+		{#if season.description || toon.description}<ClampText text={season.description || toon.description} class="hero-tagline" />{/if}
 		<div class="hero-actions">
 			<StartButton {toonId} season={seasonNumber} chapters={sequence} inverse testid="hero-start" />
 			{#if trailerHref}
@@ -201,22 +202,17 @@
 		flex-direction: column;
 		gap: 0.8333rem;
 	}
-	.hero-text p,
+	.hero-text :global(p),
 	.hero-text h1 {
 		margin: 0;
 		color: inherit;
-	}
-	.hero-season {
-		font-size: 0.5833rem;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
 	}
 	h1 {
 		font-size: 3.3333rem;
 		line-height: 1;
 		font-weight: var(--font-weight-regular);
 	}
-	.hero-tagline {
+	.hero-text :global(.hero-tagline) {
 		font-size: 0.8333rem;
 		line-height: 1.5;
 		max-width: 26.6667rem;

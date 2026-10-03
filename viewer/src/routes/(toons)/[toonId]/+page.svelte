@@ -9,6 +9,7 @@
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { onMount } from 'svelte';
 	import { CoverArt, CreditsColophon } from '@scutoons/reader';
+	import ClampText from '$lib/components/clamp-text.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { localizeHref } from '$lib/paraglide/runtime.js';
 
@@ -57,23 +58,6 @@
 		sequence = data.sequence
 	})
 
-	// the season description: 3 lines, then "…" – a tap opens it (only when it is longer)
-	let descriptionEl = $state<HTMLElement>();
-	let descriptionOpen = $state(false);
-	let descriptionLong = $state(false);
-	$effect(() => {
-		const el = descriptionEl;
-		void season?.description;
-		if (!el) return;
-		const measure = () => {
-			if (descriptionOpen) return;
-			descriptionLong = el.scrollHeight > el.clientHeight + 1;
-		};
-		measure();
-		const observer = new ResizeObserver(measure);
-		observer.observe(el);
-		return () => observer.disconnect();
-	});
 </script>
 
 <div class="view toon-overview">
@@ -94,8 +78,8 @@
 				lang={toon.language}
 			/>
 		{/if}
-		<h1>{toon.title}</h1>
-		<p class="description">{toon.description}</p>
+		<!-- the cover shows the title; title and toon description only for screen readers (owner 2026-10-03) -->
+		<h1 class="sr-only">{toon.title}</h1>
 	</div>
 
 	<section class="chapters-section">
@@ -114,20 +98,9 @@
 							lang={toon.language}
 						/>
 					{/if}
-					<h2>{m['chapter.season_title']({ number: seasonNumber, title: season.title })}</h2>
-					<!-- longer than 3 lines: clamped with "…", a tap / click opens and closes it (owner 2026-10-03); a button only then -->
-					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-					<p
-						class="season-description"
-						class:clamped={!descriptionOpen}
-						class:long={descriptionLong}
-						bind:this={descriptionEl}
-						role={descriptionLong ? 'button' : undefined}
-						tabindex={descriptionLong ? 0 : undefined}
-						aria-expanded={descriptionLong ? descriptionOpen : undefined}
-						onclick={() => descriptionLong && (descriptionOpen = !descriptionOpen)}
-						onkeydown={(e) => descriptionLong && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), (descriptionOpen = !descriptionOpen))}
-					>{season.description}</p>
+					<h2 class:sr-only={!desktop}>{m['chapter.season_title']({ number: seasonNumber, title: season.title })}</h2>
+					<!-- longer than 3 lines: clamped with "…", a tap / click opens and closes it (owner 2026-10-03) -->
+					<ClampText text={season.description ?? ''} class="season-description" />
 					{#if !desktop}
 						<!-- one start button: first chapter / continue / next / again, from the reading progress (desktop: in the hero) -->
 						<StartButton toonId={params.toonId} season={seasonNumber} chapters={sequence} />
@@ -145,6 +118,10 @@
 			</div>
 			<!-- Chapter List -->
 			<div class="list-column">
+				{#if !desktop}
+					<!-- mobile: the season as a label above its chapters (owner 2026-10-03) -->
+					<p class="season-label">{m['hero.season']({ number: seasonNumber, title: season.title })}</p>
+				{/if}
 				<ChaptersList items={sequence} toonId={params.toonId} />
 			</div>
 			<!-- the season's related items (season.related_items): icon, name, price + "Kaufen" for physical products; the
@@ -210,17 +187,24 @@
 		margin-bottom: 2rem;
 		padding: 0 2rem;
 	}
-	.season-description.clamped {
-		display: -webkit-box;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 3;
-		line-clamp: 3;
+	.season-label {
+		margin: 0;
+		padding: 0 2rem 0.5rem;
+		font-size: 0.75rem;
+		text-transform: uppercase;
+		letter-spacing: 0.05em;
+	}
+	.sr-only {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		margin: -1px;
 		overflow: hidden;
+		clip: rect(0 0 0 0);
+		white-space: nowrap;
+		border: 0;
 	}
-	.season-description.long {
-		cursor: pointer;
-	}
-	.chapters-header :global(.season-cover) {
+		.chapters-header :global(.season-cover) {
 		display: block;
 		width: 100%;
 		margin: 0 0 0.8333rem;
@@ -291,7 +275,7 @@
 			margin: 0 0 0.8333rem;
 			font-size: 1.3333rem;
 		}
-		.season-description {
+		.chapters-header :global(.season-description) {
 			margin: 0;
 			font-size: 0.6667rem;
 			line-height: 1.6;
