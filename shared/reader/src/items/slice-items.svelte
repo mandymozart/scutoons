@@ -113,4 +113,28 @@
 		height: 100%;
 		object-fit: contain;
 	}
+
+	/* a slight hint that it can be tapped (owner 2026-10-03): a slow glow that comes and goes; still with reduced motion */
+	.tappable img {
+		animation: tap-hint 3.2s ease-in-out infinite;
+	}
+
+	@keyframes tap-hint {
+		0%,
+		100% {
+			filter: drop-shadow(0 0 0 rgba(255, 255, 255, 0));
+			transform: scale(1);
+		}
+		50% {
+			filter: drop-shadow(0 0 0.12em rgba(0, 0, 0, 0.35)) drop-shadow(0 0 0.45em rgba(255, 255, 255, 0.95));
+			transform: scale(1.03);
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.tappable img {
+			animation: none;
+			filter: drop-shadow(0 0 0.12em rgba(0, 0, 0, 0.3)) drop-shadow(0 0 0.35em rgba(255, 255, 255, 0.85));
+		}
+	}
 </style>

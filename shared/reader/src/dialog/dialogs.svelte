@@ -1,15 +1,31 @@
 <script lang="ts">
 	import type { Dialog as DialogModel } from '@scutoons/content';
 	import Dialog from './dialog.svelte';
+	import type { DialogPlay } from '../types.ts';
 
-	/** `lang` = language of the text (chapter files are per locale): drives hyphenation. */
-	let { dialogs, lang }: { dialogs?: DialogModel[]; lang?: string } = $props();
+	/**
+	 * `lang` = language of the text (chapter files are per locale): drives hyphenation. `hidden` = boxes an onomatopoeia
+	 * event reveals later (not drawn yet), `play` = a box being revealed right now (the event's effect).
+	 */
+	let {
+		dialogs,
+		lang,
+		hidden,
+		play
+	}: {
+		dialogs?: DialogModel[];
+		lang?: string;
+		hidden?: (dialog: DialogModel) => boolean;
+		play?: (dialog: DialogModel) => DialogPlay | null | undefined;
+	} = $props();
 </script>
 
 {#if dialogs?.length}
 	<div class="dialogs" {lang}>
 		{#each dialogs as dialog, index (dialog.id ?? index)}
-			<Dialog {dialog} />
+			{#if !hidden?.(dialog)}
+				<Dialog {dialog} play={play?.(dialog)} />
+			{/if}
 		{/each}
 	</div>
 {/if}

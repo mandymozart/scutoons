@@ -1,8 +1,25 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { Dialog, DialogFont, DialogVariant } from '@scutoons/content';
+	import { OnomatopoeiaEffect, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
+	import type { DialogPlay } from '../types.ts';
+	import EffectNone from '../onomatopoeia/effects/effect-none.svelte';
+	import EffectShiver from '../onomatopoeia/effects/effect-shiver.svelte';
+	import EffectPulse from '../onomatopoeia/effects/effect-pulse.svelte';
+	import EffectWobble from '../onomatopoeia/effects/effect-wobble.svelte';
 
-	let { dialog }: { dialog: Dialog } = $props();
+	/**
+	 * One text box. `play` = an onomatopoeia event is revealing it right now (`params.dialog`): the box appears with the
+	 * event's effect / delay / duration (the same effect components as the event's own onomatopoeia) and stays.
+	 */
+	let { dialog, play }: { dialog: Dialog; play?: DialogPlay | null } = $props();
+
+	const EFFECTS = {
+		[OnomatopoeiaEffect.NONE]: EffectNone,
+		[OnomatopoeiaEffect.SHIVER]: EffectShiver,
+		[OnomatopoeiaEffect.PULSE]: EffectPulse,
+		[OnomatopoeiaEffect.WOBBLE]: EffectWobble
+	};
+	const Effect = $derived(play ? (EFFECTS[play.effect ?? OnomatopoeiaEffect.NONE] ?? EffectNone) : null);
 
 	/** Smallest scale the auto-fit pass may shrink the font to before it lets the text overflow. */
 	const MIN_FIT = 0.8;
@@ -12,6 +29,10 @@
 	const boxed = $derived(variant === 'caption' || variant === 'narration');
 	/** caption / narration draw their paper box + ink border unless `frame: false` */
 	const framed = $derived(boxed && dialog.frame !== false);
+	/** a drawn speech bubble: only with `frame: true` (the bubbles of chapter 1/2 are in the art) */
+	const bubble = $derived(variant === 'bubble' && dialog.frame === true);
+	const tail = $derived(bubble ? (dialog.tail ?? 'bottom-left') : 'none');
+	const stroked = $derived(variant !== 'sfx' && !!dialog.stroke);
 	const font: DialogFont = $derived(dialog.font ?? (boxed ? 'mono' : 'lettering'));
 	const align = $derived(dialog.align ?? (boxed ? 'left' : 'center'));
 	const valign = $derived(dialog.valign ?? 'middle');
@@ -57,7 +78,7 @@
 
 	// re-fit whenever the text or geometry changes (e.g. locale switch)
 	$effect(() => {
-		void [lines, dialog.size, dialog.rect.width, dialog.rect.height, font, variant, framed];
+		void [lines, dialog.size, dialog.rect.width, dialog.rect.height, font, variant, framed, bubble, box];
 		fit();
 	});
 
@@ -95,6 +116,8 @@
 	class="dialog dialog--{variant} font-{font}"
 	class:has-height={hasHeight}
 	class:framed
+	class:bubble
+	class:stroked
 	class:uppercase={dialog.uppercase ?? variant === 'sfx'}
 	data-id={dialog.id}
 	style:left="{dialog.rect.x}%"
@@ -107,7 +130,21 @@
 	style:--scale={dialog.scale ?? 1}
 	style:--dialog-color={dialog.color ?? null}
 	style:--dialog-weight={dialog.weight ?? null}
+	style:--dialog-stroke={stroked ? dialog.stroke : null}
+	style:--dialog-stroke-width={stroked && dialog.strokeWidth !== undefined ? `${dialog.strokeWidth}em` : null}
 >
+	{#if play && Effect}
+		{#key play.key}
+			<Effect fill duration={play.duration} delay={play.delay} onComplete={play.onComplete}>
+				{@render body()}
+			</Effect>
+		{/key}
+	{:else}
+		{@render body()}
+	{/if}
+</div>
+
+{#snippet body()}
 	{#if maskColor}
 		<div
 			class="mask"
@@ -121,13 +158,18 @@
 		class="box"
 		style:justify-content={valign === 'top' ? 'flex-start' : valign === 'bottom' ? 'flex-end' : 'center'}
 	>
+		{#if tail !== 'none'}
+			<svg class="tail tail--{tail}" viewBox="0 0 16 14" preserveAspectRatio="none" aria-hidden="true">
+				<path d={tail.endsWith('left') ? 'M3 0 L0 14 L13 0' : tail.endsWith('right') ? 'M3 0 L16 14 L13 0' : 'M2 0 L8 14 L14 0'} />
+			</svg>
+		{/if}
 		<div bind:this={content} class="content" style:text-align={align}>
 			{#each lines as line, index (index)}
 				<span class="line">{line}</span>
 			{/each}
 		</div>
 	</div>
-</div>
+{/snippet}
 
 <style>
 	.dialog {
@@ -205,6 +247,65 @@
 
 	.dialog--narration {
 		font-style: italic;
+	}
+
+	/* bubble + frame: a drawn speech bubble (paper ellipse, ink outline, a tail) for text-free art */
+	.bubble .box {
+		position: relative;
+		background: var(--paper);
+		border: 2px solid var(--ink);
+		border-radius: 50%;
+		padding: 0.9em 1.3em;
+	}
+
+	.has-height.bubble .box {
+		height: 100%;
+	}
+
+	.tail {
+		position: absolute;
+		width: 1.1em;
+		height: 1em;
+		overflow: visible;
+		/* over the outline: the tail's paper covers the border where it joins */
+		top: calc(100% - 2px);
+	}
+
+	.tail path {
+		fill: var(--paper);
+		stroke: var(--ink);
+		stroke-width: 2px;
+		vector-effect: non-scaling-stroke;
+		stroke-linejoin: miter;
+	}
+
+	.tail--bottom-left,
+	.tail--top-left {
+		left: 22%;
+	}
+
+	.tail--bottom,
+	.tail--top {
+		left: calc(50% - 0.55em);
+	}
+
+	.tail--bottom-right,
+	.tail--top-right {
+		right: 22%;
+	}
+
+	.tail--top-left,
+	.tail--top,
+	.tail--top-right {
+		top: auto;
+		bottom: calc(100% - 2px);
+		transform: scaleY(-1);
+	}
+
+	/* an outline around the letters (e.g. an onomatopoeia: white letters, ink outline) */
+	.stroked {
+		-webkit-text-stroke: var(--dialog-stroke-width, 0.14em) var(--dialog-stroke);
+		paint-order: stroke fill;
 	}
 
 	/* sfx: outlined lettering like the chapter-1 onomatopoeia (white fill, ink outline) */

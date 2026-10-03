@@ -4,6 +4,8 @@
 	import { DEFAULT_SLICE, type Slice, type SliceItem } from '@scutoons/content';
 	import Dialogs from './dialog/dialogs.svelte';
 	import SliceItems, { type ResolveSliceItem } from './items/slice-items.svelte';
+	import type { DialogPlay } from './types.ts';
+	import type { Dialog as DialogModel } from '@scutoons/content';
 	import SliceVideo from './slice-video.svelte';
 
 	/**
@@ -30,6 +32,8 @@
 		itemInfo,
 		itemHidden,
 		onitemtap,
+		dialogHidden,
+		dialogPlay,
 		before,
 		children,
 		...rest
@@ -57,6 +61,10 @@
 		itemHidden?: (item: SliceItem) => boolean;
 		/** a tap on a placed item whose `action` isn't `none` */
 		onitemtap?: (item: SliceItem, index: number) => void;
+		/** a text box an onomatopoeia event reveals later (not drawn yet) */
+		dialogHidden?: (dialog: DialogModel) => boolean;
+		/** a text box being revealed by an onomatopoeia event right now */
+		dialogPlay?: (dialog: DialogModel) => DialogPlay | null | undefined;
 		before?: Snippet;
 		children?: Snippet;
 	} & Omit<HTMLAttributes<HTMLDivElement>, 'children'> = $props();
@@ -97,7 +105,7 @@
 		/>
 	{/if}
 	<SliceItems items={slice.items} resolve={itemInfo} hidden={itemHidden} ontap={onitemtap} />
-	<Dialogs dialogs={slice.dialog} {lang} />
+	<Dialogs dialogs={slice.dialog} {lang} hidden={dialogHidden} play={dialogPlay} />
 	{@render children?.()}
 </div>
 
