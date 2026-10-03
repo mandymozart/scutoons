@@ -32,6 +32,8 @@
 	import SliceCanvas, { type CanvasSelection, type Scope, type Tool } from './slice-canvas.svelte';
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
+	import ItemInspector from './item-inspector.svelte';
+	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import SliceMedia from './slice-media.svelte';
 	import SliceUnlocks from './map/slice-unlocks.svelte';
 	import { mapDoc as worldMapDoc } from '$lib/editor/map.ts';
@@ -146,7 +148,7 @@
 	let groupIndex = $state(0);
 	let sliceIndex = $state(-1);
 	let selection = $state<CanvasSelection | null>(null);
-	let inspectorTab = $state<'text' | 'slice' | 'audio' | 'events' | 'map'>('text');
+	let inspectorTab = $state<'text' | 'items' | 'slice' | 'audio' | 'events' | 'map'>('text');
 	// svelte-ignore state_referenced_locally
 	let displayLocale = $state<string>(textLanguage.chosen(languages.languages) ?? languages.source);
 	// the canvas shows the top bar's TEXT language when one is chosen (the buttons above the canvas still switch it)
@@ -174,6 +176,7 @@
 	const activeGroup = $derived(activeDoc?.get(activeDoc.primary, groupPath));
 	const activeSlice = $derived(sliceIndex >= 0 ? activeDoc?.get(activeDoc.primary, slicePath) : null);
 	const sliceDialogs = $derived<any[]>(activeSlice?.dialog ?? []);
+	const sliceItems = $derived<any[]>(activeSlice?.items ?? []);
 
 	function selectGroup(index: number) {
 		groupIndex = index;
@@ -193,6 +196,7 @@
 	function onCanvasSelect(next: CanvasSelection | null) {
 		selection = next;
 		if (next?.kind === 'dialog') inspectorTab = 'text';
+		else if (next?.kind === 'item') inspectorTab = 'items';
 		else if (next?.kind === 'sample') inspectorTab = 'audio';
 		else if (next?.kind === 'event') inspectorTab = 'events';
 	}
@@ -287,7 +291,9 @@
 						cast: hasCast ? castIndex(castOf(cast), SEASON) : undefined,
 						expressions,
 						moods: moodIds,
-						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined
+						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined,
+						// placed items (and related items) are checked against the catalog once it is loaded
+						items: itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined
 					})
 				);
 			}
@@ -324,6 +330,7 @@
 			selectSlice(path[1]);
 			const rest = path.slice(2);
 			if (rest[0] === 'dialog' && typeof rest[1] === 'number') onCanvasSelect({ kind: 'dialog', index: rest[1] });
+			else if (rest[0] === 'items' && typeof rest[1] === 'number') onCanvasSelect({ kind: 'item', index: rest[1] });
 			else if (rest[0] === 'audio') inspectorTab = 'audio';
 			else if (rest[0] === 'events') inspectorTab = 'events';
 			else inspectorTab = 'slice';
@@ -345,6 +352,22 @@
 		});
 		onCanvasSelect({ kind: 'dialog', index: sliceDialogs.length - 1 });
 		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${doc.primary}"]`)?.focus());
+	}
+
+	/** places a catalog item in the middle of the slice (a quarter of its width; move / rotate / scale on the canvas) */
+	function addSliceItem(itemId: string) {
+		const doc = activeDoc;
+		if (!doc || sliceIndex < 0 || !itemId) return;
+		const taken = new Set(sliceItems.map((it) => it?.id));
+		let n = 1;
+		while (taken.has(`${itemId}-${n}`)) n++;
+		doc.structural((file) => {
+			const slice = getAt(file, slicePath);
+			if (!slice) return;
+			slice.items ??= [];
+			slice.items.push({ id: `${itemId}-${n}`, item: itemId, rect: { x: 37.5, y: 40, width: 25 } });
+		});
+		onCanvasSelect({ kind: 'item', index: sliceItems.length - 1 });
 	}
 
 	function addSampleArea(rect: { x: number; y: number; width: number; height: number }) {
@@ -371,7 +394,13 @@
 		if (!doc || !selection) return;
 		const { kind, index } = selection;
 		const listPath =
-			kind === 'dialog' ? [...slicePath, 'dialog'] : kind === 'sample' ? [...slicePath, 'audio', 'audio', 'samples'] : [...slicePath, 'events'];
+			kind === 'dialog'
+				? [...slicePath, 'dialog']
+				: kind === 'item'
+					? [...slicePath, 'items']
+					: kind === 'sample'
+						? [...slicePath, 'audio', 'audio', 'samples']
+						: [...slicePath, 'events'];
 		doc.structural((file) => {
 			const list = getAt(file, listPath);
 			if (!Array.isArray(list)) return;
@@ -773,6 +802,7 @@
 				<aside class="inspector">
 					<div class="tabs" role="tablist">
 						<button class="ghost" class:active={inspectorTab === 'text'} onclick={() => (inspectorTab = 'text')} data-testid="tab-text">{m['creator.text_boxes']()} ({sliceDialogs.length})</button>
+						<button class="ghost" class:active={inspectorTab === 'items'} onclick={() => { inspectorTab = 'items'; loadCatalog(); }} data-testid="tab-items">{m['creator.slice_items']()} ({sliceItems.length})</button>
 						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => (inspectorTab = 'slice')} data-testid="tab-background">{m['creator.background']()}</button>
 						<button class="ghost" class:active={inspectorTab === 'audio'} onclick={() => (inspectorTab = 'audio')}>{m['creator.audio']()}</button>
 						<button class="ghost" class:active={inspectorTab === 'events'} onclick={() => (inspectorTab = 'events')}>Events ({activeSlice?.events?.length ?? 0})</button>
@@ -796,6 +826,44 @@
 								doc={activeDoc}
 								path={[...slicePath, 'dialog', selection.index]}
 								editLocale={scope === 'locale' ? displayLocale : null}
+								onremove={removeSelected}
+							/>
+						{/if}
+					{:else if inspectorTab === 'items'}
+						<ul class="boxes">
+							{#each sliceItems as it, ii (ii)}
+								<li>
+									<button class="ghost" class:active={selection?.kind === 'item' && selection.index === ii} onclick={() => onCanvasSelect({ kind: 'item', index: ii })} data-testid="slice-item-{ii}">
+										<span>{itemName(itemCatalog.catalog?.items.find((x) => x.id === it?.item), it?.item ?? '?')}</span> <span class="hint">{it?.action === 'pickup' ? m['creator.slice_item_action_pickup']() : it?.action === 'events' ? m['creator.slice_item_action_events']() : ''}</span>
+									</button>
+								</li>
+							{:else}
+								<li class="hint">{m['creator.slice_items_empty']()}</li>
+							{/each}
+						</ul>
+						<select
+							aria-label={m['creator.add_slice_item']()}
+							title={m['creator.add_slice_item']()}
+							value=""
+							disabled={!itemCatalog.catalog}
+							onchange={(e) => {
+								addSliceItem(e.currentTarget.value);
+								e.currentTarget.value = '';
+							}}
+							data-testid="add-slice-item"
+						>
+							<option value="">{m['creator.add_slice_item']()}</option>
+							{#each itemCatalog.catalog?.items ?? [] as item (item.id)}<option value={item.id}>{itemName(item, item.id)} · {item.id}</option>{/each}
+						</select>
+						{#if selection?.kind === 'item' && sliceItems[selection.index]}
+							<hr />
+							<ItemInspector
+								doc={activeDoc}
+								path={[...slicePath, 'items', selection.index]}
+								editLocale={scope === 'locale' ? displayLocale : null}
+								{characters}
+								{choices}
+								background={activeSlice.image}
 								onremove={removeSelected}
 							/>
 						{/if}

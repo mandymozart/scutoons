@@ -292,6 +292,7 @@
 						<PropField {doc} path={[...p, 'params', 'size']} label="size (rem)" type="number" placeholder="2" />
 						<PropField {doc} path={[...p, 'params', 'align']} label="align" type="select" options={['left', 'center', 'right']} placeholder="center" />
 						<PropField {doc} path={[...p, 'params', 'rotation']} label="rotation °" type="number" step={1} placeholder="0" />
+						<PropField {doc} path={[...p, 'params', 'scale']} label="scale" type="number" step={0.05} min={0.1} max={10} placeholder="1" />
 						<PropField {doc} path={[...p, 'params', 'variant']} label="variant" type="select" options={Object.values(OnomatopoeiaVariant)} placeholder="default" />
 						<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
 						<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />

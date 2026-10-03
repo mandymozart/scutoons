@@ -52,6 +52,7 @@
 			<PropField {doc} path={p('weight')} label="weight" type="select" options={[400, 700]} placeholder="400" />
 			<PropField {doc} path={p('uppercase')} label="uppercase" type="bool" placeholder={variant === 'sfx' ? 'true (sfx)' : 'false'} />
 			<PropField {doc} path={p('rotation')} label="rotation °" type="number" step={1} placeholder="0" />
+			<PropField {doc} path={p('scale')} label="scale" type="number" step={0.05} min={0.1} max={10} placeholder="1" />
 			<PropField {doc} path={p('color')} label="color" type="color" placeholder={variant === 'sfx' ? '#ffffff' : '#000000'} />
 			{#if boxed}
 				<PropField {doc} path={p('frame')} label="frame" type="bool" placeholder="true" />

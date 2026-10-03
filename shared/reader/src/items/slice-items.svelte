@@ -41,6 +41,7 @@
 						type="button"
 						class="slice-item tappable"
 						data-item={item.item}
+						data-index={index}
 						style:left="{item.rect.x}%"
 						style:top="{item.rect.y}%"
 						style:width="{item.rect.width}%"
@@ -55,6 +56,7 @@
 					<img
 						class="slice-item"
 						data-item={item.item}
+						data-index={index}
 						src={info.src}
 						alt={info.label}
 						draggable="false"
