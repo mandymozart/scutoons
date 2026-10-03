@@ -1,0 +1,25 @@
+{
+	"name": "@scutoons/mcp",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"description": "SCUTOONS MCP server (stdio): an agent with the signed-in creator's rights over the content API – drafts only, publish off by default",
+	"bin": {
+		"scutoons-mcp": "./bin/scutoons-mcp.mjs"
+	},
+	"scripts": {
+		"start": "node bin/scutoons-mcp.mjs",
+		"check": "tsc --noEmit -p tsconfig.json"
+	},
+	"dependencies": {
+		"@modelcontextprotocol/server": "^2.3.0",
+		"@scutoons/api": "*",
+		"@scutoons/content": "*",
+		"zod": "^4.2.0"
+	},
+	"devDependencies": {
+		"@modelcontextprotocol/client": "^2.3.0",
+		"@types/node": "^22",
+		"typescript": "^5.9.3"
+	}
+}

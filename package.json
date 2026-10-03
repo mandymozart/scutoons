@@ -10,7 +10,8 @@
 		"admin",
 		"shop",
 		"embassy",
-		"shared/*"
+		"shared/*",
+		"tools/*"
 	],
 	"engines": {
 		"node": ">=22"
@@ -24,6 +25,7 @@
 		"check:creator-cast": "node scripts/dev/creator-cast-check.mjs",
 		"check:creator-script": "node scripts/dev/creator-script-check.mjs",
 		"check:stroll": "node scripts/dev/stroll-check.mjs",
+		"check:mcp": "node scripts/dev/mcp-check.mjs",
 		"check:creator-cover": "node --experimental-transform-types --no-warnings scripts/dev/creator-cover-check.mjs",
 		"dev:viewer": "npm run dev -w viewer",
 		"dev:creator": "npm run dev -w creator",

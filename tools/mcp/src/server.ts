@@ -1,0 +1,495 @@
+// The SCUTOONS MCP server (CUTOVER 10.28): tools over the existing content API with the creator's token – the API's role
+// checks are the only authority, this server adds the creator's validator in front of every save. Saves only ever add
+// draft versions (append-only, restorable); publishing is a separate tool that exists only with SCUTOONS_MCP_PUBLISH=1.
+import { McpServer } from '@modelcontextprotocol/server';
+import * as z from 'zod';
+import { ApiError, createApiClient, createAssetsApi, createContentApi, type ContentIndexEntity, type WrappedContent } from '@scutoons/api';
+import {
+	castIndex,
+	clone,
+	defaultMoodVocabulary,
+	entityKeyFor,
+	entityOf,
+	expressionIndex,
+	getAt,
+	isLocalizedEntity,
+	parseEntityKey,
+	sceneEntityOfRef,
+	scriptLabels,
+	validateCast,
+	validateFile,
+	validateLocales,
+	type CharacterRegistry,
+	type MoodVocabulary,
+	type Path,
+	type Problem,
+	type ToonCast,
+	type WorldMap
+} from '@scutoons/content';
+import type { Config } from './config.ts';
+import { RULES } from './resources.ts';
+
+type Json = any;
+type Result = { content: { type: 'text'; text: string }[]; isError?: boolean };
+
+const text = (value: unknown): Result => ({
+	content: [{ type: 'text', text: typeof value === 'string' ? value : JSON.stringify(value, null, 1) }]
+});
+const fail = (message: string): Result => ({ ...text(message), isError: true });
+
+/** An API error as the agent should read it (409 = someone saved a newer version) */
+function apiMessage(error: unknown): string {
+	if (!(error instanceof ApiError)) return error instanceof Error ? error.message : String(error);
+	if (error.status === 409)
+		return `409 conflict: ${error.message} – a newer version was saved since your base. Read the draft again (read_entity), reapply your change and save with the new version id as base.`;
+	if (error.status === 401) return '401: the token is not (or no longer) signed in – get a fresh creator session token';
+	if (error.status === 403) return `403: this account may not do that (${error.message}) – the API's role checks decide`;
+	if (error.status === 0) return `network error: the API is not reachable (${error.message})`;
+	return `${error.status} ${error.code}: ${error.message}`;
+}
+
+/** Wraps a tool body: API errors become tool errors the agent can act on */
+const guard =
+	<A>(fn: (args: A) => Promise<Result>) =>
+	async (args: A): Promise<Result> => {
+		try {
+			return await fn(args);
+		} catch (error) {
+			return fail(apiMessage(error));
+		}
+	};
+
+// ── patch operations ─────────────────────────────────────────────────────────────────────────────────────────────────
+
+const pathSchema = z.array(z.union([z.string(), z.number().int()])).describe('JSON path, e.g. ["groups", 5, "events", 0]');
+const opSchema = z.object({
+	op: z.enum(['set', 'insert', 'remove']).describe('set = replace / create the value at path; insert = into the array at path (last element = index, or "-" for the end); remove = delete the key / array element'),
+	path: pathSchema,
+	value: z.unknown().optional().describe('set / insert: the JSON value')
+});
+type Op = z.infer<typeof opSchema>;
+
+export function applyOps(doc: Json, ops: Op[]): Json {
+	const out = clone(doc) ?? {};
+	ops.forEach((o, i) => {
+		const where = `op ${i + 1} (${o.op} ${JSON.stringify(o.path)})`;
+		if (!o.path.length) throw new Error(`${where}: empty path`);
+		const parent = getAt(out, o.path.slice(0, -1));
+		const last = o.path[o.path.length - 1];
+		if (o.op === 'insert') {
+			if (!Array.isArray(parent)) throw new Error(`${where}: no array at ${JSON.stringify(o.path.slice(0, -1))}`);
+			const index = last === '-' ? parent.length : Number(last);
+			if (!Number.isInteger(index) || index < 0 || index > parent.length) throw new Error(`${where}: index out of range (0…${parent.length})`);
+			if (o.value === undefined) throw new Error(`${where}: value is missing`);
+			parent.splice(index, 0, o.value);
+		} else if (o.op === 'remove') {
+			if (parent === null || typeof parent !== 'object' || !(String(last) in parent)) throw new Error(`${where}: nothing there`);
+			if (Array.isArray(parent)) parent.splice(Number(last), 1);
+			else delete parent[last];
+		} else {
+			if (o.value === undefined) throw new Error(`${where}: value is missing`);
+			if (parent === null || typeof parent !== 'object') throw new Error(`${where}: no object / array at ${JSON.stringify(o.path.slice(0, -1))}`);
+			if (Array.isArray(parent) && !(typeof last === 'number' && last >= 0 && last <= parent.length)) throw new Error(`${where}: index out of range (0…${parent.length})`);
+			parent[last] = o.value;
+		}
+	});
+	return out;
+}
+
+// ── server ───────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+export function createScutoonsServer(config: Config): McpServer {
+	const client = createApiClient({ baseUrl: config.api, getToken: () => config.token });
+	const content = createContentApi(client);
+	const assets = createAssetsApi(client);
+
+	const server = new McpServer(
+		{ name: 'scutoons', version: '0.1.0' },
+		{
+			instructions: [
+				`SCUTOONS content (${config.local ? 'LOCAL dev API' : config.api}). You have the rights of the signed-in creator.`,
+				'Read scutoons://rules/workflow first, then the rules for what you touch.',
+				'Saves create new DRAFT versions only (append-only, restorable with restore_version); readers see published versions.',
+				config.publish ? 'publish_entity is enabled: publish only when the owner asked for it, with confirm: true.' : 'Publishing is disabled on this server.'
+			].join(' ')
+		}
+	);
+
+	// ── helpers ──
+
+	/** null when nothing is stored (404) */
+	async function load(key: string, source: 'draft' | 'published' = 'draft'): Promise<WrappedContent<Json> | null> {
+		try {
+			return source === 'draft' ? await content.getDraft(key) : await content.getPublished(key);
+		} catch (error) {
+			if (error instanceof ApiError && error.status === 404) return null;
+			throw error;
+		}
+	}
+	const data = async <T>(key: string): Promise<T | null> => ((await load(key)) as WrappedContent<T> | null)?.content ?? null;
+
+	async function toonIndex(toon: string): Promise<{ languages: string[]; sourceLanguage: string; [field: string]: Json }> {
+		const index = await data<Json>(`toon:${toon}`);
+		if (!index) throw new Error(`unknown toon "${toon}" (list_toons)`);
+		const languages: string[] = Array.isArray(index.languages) && index.languages.length ? index.languages : ['de'];
+		return { ...index, languages, sourceLanguage: index.sourceLanguage ?? languages[0] };
+	}
+
+	/** The stored keys of an entity or key: one key, or every locale of a localized entity */
+	async function keysOf(keyOrEntity: string, locale?: string): Promise<{ entity: string; keys: string[]; primary: string | null }> {
+		const ref = parseEntityKey(keyOrEntity);
+		if (!ref) throw new Error(`"${keyOrEntity}" is no entity key (scutoons://rules/entity-keys)`);
+		const entity = entityOf(keyOrEntity);
+		if (!isLocalizedEntity(entity)) return { entity, keys: [entity], primary: null };
+		const index = await toonIndex(ref.toon!);
+		if (ref.locale) return { entity, keys: [keyOrEntity], primary: index.sourceLanguage };
+		const locales = !locale || locale === 'all' ? index.languages : [locale];
+		return { entity, keys: locales.map((l) => entityKeyFor(entity, l)), primary: index.sourceLanguage };
+	}
+
+	const versionMeta = (w: WrappedContent<Json>) => ({
+		id: w.version.id,
+		status: w.version.status,
+		created_at: w.version.created_at,
+		author: w.version.author_email ?? w.version.author,
+		message: w.version.message,
+		published: w.published?.id ?? null
+	});
+
+	/** The creator's checks for one stored document (chapter-editor / meta-page / script-editor) */
+	async function validateDoc(key: string, doc: Json): Promise<{ problems: Problem[]; validated: boolean }> {
+		const ref = parseEntityKey(key)!;
+		const locale = ref.locale ?? '_';
+		const file = entityOf(key);
+		if (ref.kind === 'cast') {
+			const [registry, index] = await Promise.all([data<CharacterRegistry>('characters'), toonIndex(ref.toon!)]);
+			return { problems: validateCast(doc, { registry, languages: index.languages, file }), validated: true };
+		}
+		const kind = ({ chapter: 'chapter', scene: 'group', season: 'season', 'toon-settings': 'toon', toon: 'index', script: 'script', map: 'map' } as Record<string, string>)[ref.kind];
+		if (!kind) return { problems: [], validated: false };
+		const ctx: Parameters<typeof validateFile>[3] = { file };
+		if (kind === 'chapter' || kind === 'group') {
+			const [cast, registry, moods, chapter] = await Promise.all([
+				data<ToonCast>(`cast:${ref.toon}`),
+				data<CharacterRegistry>('characters'),
+				data<MoodVocabulary>('moods'),
+				kind === 'group' ? data<Json>(entityKeyFor(`chapter:${ref.toon}:${ref.number}`, ref.locale)) : Promise.resolve(doc)
+			]);
+			// like the creator's chapter editor: the cast of season 1, the registry's looks, the mood vocabulary
+			if (cast) ctx.cast = castIndex(cast, 1);
+			if (registry) ctx.expressions = expressionIndex(registry);
+			ctx.moods = (moods ?? defaultMoodVocabulary()).moods.map((m) => m.id);
+			ctx.audio = chapter?.audio;
+		}
+		return { problems: validateFile(kind, doc, locale, ctx), validated: true };
+	}
+
+	const summary = (problems: Problem[]) => ({
+		errors: problems.filter((p) => p.level === 'error').length,
+		warnings: problems.filter((p) => p.level === 'warning').length,
+		problems: problems.map((p) => ({ level: p.level, locale: p.locale, path: p.path, message: p.message }))
+	});
+
+	// ── resources ──
+
+	for (const rule of RULES) {
+		server.registerResource(rule.name, rule.uri, { title: rule.title, description: rule.description, mimeType: 'text/markdown' }, async (uri) => ({
+			contents: [{ uri: uri.href, mimeType: 'text/markdown', text: rule.text() }]
+		}));
+	}
+
+	// ── tools: reading ──
+
+	const read = { readOnlyHint: true, openWorldHint: false };
+
+	server.registerTool(
+		'list_toons',
+		{
+			description: 'Every toon with its names, languages (the first source language is the primary), status and how many documents it has.',
+			inputSchema: z.object({}),
+			annotations: read
+		},
+		guard(async () => {
+			const all = await client.get<{ entities: ContentIndexEntity[] }>('/entities');
+			const toons = all.entities.filter((e) => e.kind === 'toon');
+			const out = [];
+			for (const t of toons) {
+				const index = await data<Json>(t.key);
+				out.push({
+					id: t.toon,
+					names: Object.fromEntries(Object.entries(index?.i18n ?? {}).map(([l, v]: [string, any]) => [l, v?.name])),
+					languages: index?.languages,
+					sourceLanguage: index?.sourceLanguage,
+					status: index?.status,
+					documents: all.entities.filter((e) => e.toon === t.toon).length
+				});
+			}
+			return text(out);
+		})
+	);
+
+	server.registerTool(
+		'list_chapters',
+		{
+			description:
+				'The chapters of a toon (seasons, chapter numbers, titles, status) with their groups: index, label, the scene entity of a referenced group, slice count and the script points (label names a divert can go to). A jumpTo targets a group by its label. Without `chapter` every chapter is listed.',
+			inputSchema: z.object({
+				toon: z.string(),
+				chapter: z.number().int().min(0).optional().describe('only this chapter'),
+				locale: z.string().optional().describe('language of titles / labels (default: the toon\'s source language)')
+			}),
+			annotations: read
+		},
+		guard(async ({ toon, chapter, locale }) => {
+			const index = await toonIndex(toon);
+			const lang = locale ?? index.sourceLanguage;
+			const stored = (await content.contentIndex(toon)).entities;
+			const numbers = (kind: string) =>
+				[...new Set(stored.map((e) => parseEntityKey(e.key)).filter((r) => r?.kind === kind).map((r) => r!.number!))].sort((a, b) => a - b);
+			const chapters = [];
+			for (const n of numbers('chapter')) {
+				if (chapter !== undefined && n !== chapter) continue;
+				const key = entityKeyFor(`chapter:${toon}:${n}`, lang);
+				const doc = await load(key);
+				if (!doc) {
+					chapters.push({ number: n, key, missing: true });
+					continue;
+				}
+				const groups = [];
+				for (const [i, g] of ((doc.content?.groups ?? []) as Json[]).entries()) {
+					const scene = g?.ref?.src ? sceneEntityOfRef(toon, g.ref.src) : null;
+					const body = scene ? await data<Json>(entityKeyFor(scene, lang)) : g;
+					groups.push({
+						index: i,
+						label: body?.label ?? g?.label ?? null,
+						...(scene ? { scene } : {}),
+						slices: Array.isArray(body?.slices) ? body.slices.length : 0,
+						events: Array.isArray(body?.events) ? body.events.length : 0,
+						points: scriptLabels(body?.events)
+					});
+				}
+				chapters.push({ number: n, key, title: doc.content?.title, status: doc.content?.status, version: versionMeta(doc), groups });
+			}
+			return text({ toon, locale: lang, languages: index.languages, seasons: numbers('season'), chapters });
+		})
+	);
+
+	server.registerTool(
+		'read_entity',
+		{
+			description:
+				'Reads a stored document by entity key (scutoons://rules/entity-keys). An entity without locale (`chapter:catpope:2`) returns every language; a full key one. Each result has `version.id` – pass it as `base` to save_draft. `source`: draft = the newest version (draft or published), published = what readers see, or one old version by id. `path` returns only that part of the content.',
+			inputSchema: z.object({
+				key: z.string().describe('entity (`scene:catpope:2:scene-14`) or stored key (`…:de`)'),
+				source: z.enum(['draft', 'published']).optional().describe('default draft'),
+				version: z.number().int().optional().describe('one stored version by id (overrides source; needs a full key)'),
+				locale: z.string().optional().describe('one language of a localized entity, or "all" (default)'),
+				path: pathSchema.optional()
+			}),
+			annotations: read
+		},
+		guard(async ({ key, source, version, locale, path }) => {
+			const { keys } = await keysOf(key, locale);
+			const out = [];
+			for (const k of keys) {
+				const w = version !== undefined ? await content.getVersion<Json>(k, version) : await load(k, source ?? 'draft');
+				if (!w) out.push({ key: k, missing: true });
+				else out.push({ key: k, version: versionMeta(w), content: path ? getAt(w.content, path) : w.content });
+			}
+			return text(out.length === 1 ? out[0] : out);
+		})
+	);
+
+	server.registerTool(
+		'read_characters',
+		{
+			description:
+				'The characters a scene can use: the toon\'s cast (character → personas, season 1 like the creator), the registry\'s looks and the moods each look has a portrait for, and the mood vocabulary. joinScene / showMessage reference these ids.',
+			inputSchema: z.object({ toon: z.string() }),
+			annotations: read
+		},
+		guard(async ({ toon }) => {
+			const [cast, registry, moods] = await Promise.all([data<ToonCast>(`cast:${toon}`), data<CharacterRegistry>('characters'), data<MoodVocabulary>('moods')]);
+			const casted = cast ? castIndex(cast, 1) : null;
+			const expressions = registry ? expressionIndex(registry) : {};
+			const names = Object.fromEntries((registry?.characters ?? []).map((c) => [c.id, c.name]));
+			const ids = casted ? Object.keys(casted) : Object.keys(expressions);
+			return text({
+				cast: casted ? 'season 1' : 'no cast stored – every registry character',
+				characters: ids.map((id) => ({ id, name: names[id], personas: casted?.[id], looks: expressions[id] ?? null })),
+				moods: (moods ?? defaultMoodVocabulary()).moods.map((m) => ({ id: m.id, label: m.label }))
+			});
+		})
+	);
+
+	server.registerTool(
+		'read_map_places',
+		{
+			description: 'Places of the SCUTOONS world map (entity `map`): id, name, position, which toons use it, hidden / unlock rule, linked chapter.',
+			inputSchema: z.object({ toon: z.string().optional().describe('only places this toon uses') }),
+			annotations: read
+		},
+		guard(async ({ toon }) => {
+			const map = await data<WorldMap>('map');
+			if (!map) return text('no world map stored');
+			const places = (map.locations ?? []).filter((p) => !toon || p.toons?.includes(toon));
+			return text(places.map(({ id, name, x, y, toons, hidden, unlock, chapter }) => ({ id, name, x, y, toons, hidden, unlock, chapter })));
+		})
+	);
+
+	server.registerTool(
+		'search_assets',
+		{
+			description: 'Finds media in the asset manager (images, video, audio). `path` is what content stores (CDN root; in a toon\'s documents relative to the toon folder, e.g. "s1/c2/x.webp" for "catpope/s1/c2/x.webp"). Renditions = quality variants.',
+			inputSchema: z.object({
+				q: z.string().optional().describe('search text (slug, title, tags, path)'),
+				folder: z.string().optional(),
+				kind: z.enum(['image', 'video', 'audio', 'archive', 'document', 'other']).optional(),
+				page: z.number().int().min(1).optional(),
+				page_size: z.number().int().min(1).max(100).optional().describe('default 30')
+			}),
+			annotations: read
+		},
+		guard(async ({ q, folder, kind, page, page_size }) => {
+			const r = await assets.list({ q, folder, kind, page, page_size: page_size ?? 30, sort: 'slug' });
+			return text({
+				total: r.pagination.total,
+				page: r.pagination.page,
+				items: r.items.map((a) => ({
+					id: a.id,
+					slug: a.slug,
+					kind: a.kind,
+					title: a.title,
+					tags: a.tags,
+					path: a.path,
+					width: a.width,
+					height: a.height,
+					duration: a.duration,
+					usages: a.usages,
+					renditions: a.renditions.map((x) => ({ label: x.label, quality: x.quality, path: x.path, width: x.width, height: x.height }))
+				}))
+			});
+		})
+	);
+
+	server.registerTool(
+		'list_versions',
+		{
+			description: 'The version history of a stored key (newest first): id, draft / published, author, message. Every save is its own version.',
+			inputSchema: z.object({ key: z.string().describe('stored key (with locale for localized kinds)'), limit: z.number().int().min(1).max(200).optional() }),
+			annotations: read
+		},
+		guard(async ({ key, limit }) => {
+			const versions = (await content.listVersions(key)).versions.slice(0, limit ?? 20);
+			return text(versions.map((v) => ({ id: v.id, status: v.status, created_at: v.created_at, author: v.author_email ?? v.author, message: v.message, size: v.size })));
+		})
+	);
+
+	// ── tools: checking and writing ──
+
+	server.registerTool(
+		'validate',
+		{
+			description:
+				'Runs the creator\'s checks (shared/content validate.ts: structure, VN events, script points, flow, media) on a document. Without `content` / `ops` the stored draft is checked; an entity without locale checks every language and compares them (structure, missing translations).',
+			inputSchema: z.object({
+				key: z.string(),
+				content: z.unknown().optional().describe('check this content instead of the stored draft (needs a full key)'),
+				ops: z.array(opSchema).optional().describe('check the stored draft with these changes applied (needs a full key)')
+			}),
+			annotations: read
+		},
+		guard(async ({ key, content: given, ops }) => {
+			const { entity, keys, primary } = await keysOf(key);
+			if ((given !== undefined || ops) && keys.length !== 1) return fail('content / ops need a full key (with locale)');
+			const docs: Record<string, Json> = {};
+			const problems: Problem[] = [];
+			let validated = true;
+			for (const k of keys) {
+				let doc = given !== undefined ? given : await data<Json>(k);
+				if (ops) doc = applyOps(doc, ops);
+				docs[parseEntityKey(k)?.locale ?? '_'] = doc;
+				if (doc == null) {
+					problems.push({ level: 'warning', file: entity, locale: parseEntityKey(k)?.locale ?? null, path: [], message: `nothing stored at ${k}` });
+					continue;
+				}
+				const r = await validateDoc(k, doc);
+				validated &&= r.validated;
+				problems.push(...r.problems);
+			}
+			const kind = parseEntityKey(entity)!.kind;
+			if (keys.length > 1 && primary) problems.push(...validateLocales(kind === 'scene' ? 'group' : kind, entity, docs, primary));
+			return text(validated ? summary(problems) : { note: `no checks for ${kind} documents (stored as they are)`, ...summary(problems) });
+		})
+	);
+
+	server.registerTool(
+		'save_draft',
+		{
+			description:
+				'Saves a NEW draft version of one stored key (append-only: nothing is overwritten, every older version stays restorable; readers keep seeing the published version). Give `ops` (changes applied to the version `base`) or the full `content`. `base` = the version id you read (read_entity) – a newer save in between → 409 conflict. The creator\'s checks run first: errors refuse the save (unless allow_errors), warnings are returned.',
+			inputSchema: z.object({
+				key: z.string().describe('stored key, with locale for localized kinds (`chapter:catpope:2:de`)'),
+				base: z.number().int().nullable().describe('the version id the change starts from (null = nothing stored yet)'),
+				ops: z.array(opSchema).optional(),
+				content: z.unknown().optional().describe('the whole document (instead of ops)'),
+				message: z.string().max(255).optional().describe('what changed (shown in the version history)'),
+				allow_errors: z.boolean().optional().describe('save even with validation errors (default false)')
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
+		},
+		guard(async ({ key, base, ops, content: given, message, allow_errors }) => {
+			const ref = parseEntityKey(key);
+			if (!ref) return fail(`"${key}" is no entity key`);
+			if (isLocalizedEntity(key) && !ref.locale) return fail(`${key} is stored per language – save one locale (${key}:<locale>)`);
+			if ((given === undefined) === !ops) return fail('give either ops or content');
+			let doc = given;
+			if (ops) {
+				if (base === null) return fail('ops need a base version');
+				const w = await content.getVersion<Json>(key, base);
+				doc = applyOps(w.content, ops);
+			}
+			const checked = await validateDoc(key, doc);
+			const s = summary(checked.problems);
+			if (s.errors && !allow_errors) return { ...text({ saved: false, reason: 'validation errors – fix them (or allow_errors: true)', ...s }), isError: true };
+			const r = await content.putDraft(key, doc, base, message ? `${message} (agent)` : 'agent edit');
+			return text({ saved: !r.unchanged, unchanged: r.unchanged, version: r.version.id, status: r.version.status, ...s });
+		})
+	);
+
+	server.registerTool(
+		'restore_version',
+		{
+			description: 'Brings an older version back: its content is saved as a NEW draft version (append-only; the versions in between stay). Use list_versions to find the id.',
+			inputSchema: z.object({ key: z.string(), version: z.number().int(), message: z.string().max(255).optional() }),
+			annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false }
+		},
+		guard(async ({ key, version, message }) => {
+			const r = await content.restoreVersion(key, version, message);
+			return text({ restored: version, version: r.version.id, status: r.version.status });
+		})
+	);
+
+	if (config.publish) {
+		server.registerTool(
+			'publish_entity',
+			{
+				description:
+					'PUBLISHES a version: readers see it right away. Only when the owner explicitly asked for this publish; every call needs confirm: true. Default: the newest version.',
+				inputSchema: z.object({
+					key: z.string().describe('stored key'),
+					version: z.number().int().optional(),
+					confirm: z.literal(true).describe('must be true – the owner asked for this publish')
+				}),
+				annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }
+			},
+			guard(async ({ key, version, confirm }) => {
+				if (confirm !== true) return fail('publishing needs confirm: true');
+				const r = await content.publishVersion(key, version);
+				return text({ published: r.version.id, key });
+			})
+		);
+	}
+
+	return server;
+}
