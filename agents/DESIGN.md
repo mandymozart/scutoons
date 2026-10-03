@@ -340,6 +340,9 @@ images and only the words change.
 
 - The bubble **shape** belongs to the art (exported from Figma `art` frame). The viewer renders only the words.
 - Geometry in **% of the slice box** (same convention as triggers/samples) → resolution-independent.
+- **Geometry is the same in every language** (owner 2026-10-03): position, size, rotation and scale of text boxes and
+  placed items; only the text is per language. The creator has no per-language geometry; on load it makes a language
+  that differs follow the source (`unifyGeometry`, a notice, saved with the next save). Chapter 1 en had 5 wider boxes.
 - Font size in **% of slice width** rendered as `cqw` (`.slice { container-type: inline-size }`) → lettering scales
   exactly like the art at any column width (≤ 500px).
 - It is comic lettering, not UI chrome: the UI tokens above do not apply, except `ink`/`paper` as default colors.
@@ -386,6 +389,10 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
   new default box is a caption. Now `bubble` + `frame: true` draws a speech bubble: paper ellipse, 2px ink outline, a
   tail (`tail`: bottom-left (default) · bottom · bottom-right · top-left · top · top-right · none). `frame` stays off by
   default for bubbles, so published chapters render exactly as before; the creator sets it when a box becomes a bubble.
+  `shape` (round 3, owner: "loud and intense stuff such as screaming and singing"): `oval` (default, speech) or `wobbly`
+  ("Schrei / Shout") – a roughly rectangular box whose ink outline trembles on all four sides, drawn as an SVG for the
+  box's laid-out size (`dialog/wobbly.ts`, deterministic per box id: the same bumps on every render); its tail defaults
+  to none.
 - **Outline** (`stroke` colour, `strokeWidth` em, default 0.14): letters with an outline on any variant – the onomatopoeia
   look (white letters, ink outline) without a variant of its own.
 - **No `sfx` variant** (removed 2026-10-03, never used in content): an onomatopoeia is a bubble without frame,
@@ -399,6 +406,8 @@ A `showOnomatopeia` event reveals a text box: `params` = `{ dialog, effect?, dur
 with the event's `effect` / `delay` / `duration` (`@scutoons/reader` `src/effects`, filling the box) and **stays**;
 `wait` (a tap continues) and `mode` (mono = one at a time, queued) as before; a missing box still completes after its
 time. The box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing.
+`stay` (default true): after its effect the box stays, or – `false`, "the box disappears again" – is hidden again after
+`delay` + `duration`. A placed item's tap events may reveal boxes on its slice too (hidden in advance like the others).
 Creator: the event's "Text box" select (the slice's / group's boxes) or "Create a text box for this" (a lettering box,
 white, ink outline, uppercase, "BAM"); the canvas marks a revealed box "hidden until ⚡ n" / "script n".
 

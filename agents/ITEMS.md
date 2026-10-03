@@ -1263,7 +1263,8 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
 - Data: `Slice.items?: SliceItem[]` (`@scutoons/content`): `{ id, item, rect: { x, y, width, height? }, rotation?,
   action?: 'none' | 'pickup' | 'events', qty?, events?: VNEvent[], once? }`. `id` = `<item>-<n>` (stable, pickups are
   remembered by it); `rect` in % of the slice like text boxes, no `height` = the icon's own ratio; language-neutral
-  (written to every locale; `validateLocales` warns when the locales differ).
+  (geometry is the same in every language – the creator writes every locale and makes a differing one follow the
+  source on load, `unifyGeometry`).
 - Rendering: `@scutoons/reader` `SliceItems` (inside `Slice`, between the image and the text boxes): the catalog icon,
   rotated around its centre; only `action` ≠ `none` makes it a button. The app resolves the icon (`itemInfo`).
 - Tap (`viewer/src/lib/visual-novel/slice-items.ts`): `none` = art only (default); `pickup` = the VN item bridge
@@ -1272,17 +1273,35 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   (grantable story, max count, the server's once-per-ref); on success the game state gets `picked:<slice image>#<id>`
   (synced with a member's progress) and the item is gone from the slice for that reader; on a refusal it stays.
   `events` = the placement's VN events run like a click trigger's (`EventProcessor`), `once` per page view by default.
-- Creator: slice inspector tab "Items": place an item (catalog select), item / x / y / width / rotation, "On tap"
-  (nothing · pick up + pieces · run events with the VN event editor). On the canvas: move, a round rotate handle above
-  the box (Shift = 15° steps) and a round scale handle off the bottom-right corner (width around the centre).
+- Creator: slice inspector tab "Items": "Place an item …" / "Choose the item …" open the item drawer
+  (`ItemPickerSheet`), x / y / width / rotation, "On tap" (nothing · pick up + pieces + respawn · run events with the VN
+  event editor, whose onomatopoeia events pick or create the text box they reveal). On the canvas: move, a round rotate
+  handle above the box and a round scale handle off the bottom-right corner (width around the centre); the Snap toggle
+  (grid 0.5 / 1 / 2.5 / 5 %, remembered per device) snaps moving, resizing, scaling and rotating (15°, Shift switches).
 - **Round 2 (2026-10-03, owner):**
-  - `pickupMode`: `once` (default, as above) or `respawn` ("again on every visit": onions, cucumbers, tuna, drugs). A
-    respawning pickup uses the ref `…#<placement id>@<visit>` – a visit = one stay on the page path (another page in
-    between or a reload starts a new one). The server grants a ref once (`rate_limits` grantref, permanent), so within a
-    visit it's once; across visits the catalog's max count, the 120 grants / hour limit and the scan-only cooldowns stay
-    authoritative. No server change: any client could already send fresh refs, so this opens nothing new.
+  - (replaced in round 3 by "Respawn" below)
   - A refused pickup shows a reader notice (items host, kind `refused`): max reached "Du hast schon genug davon." /
     "You already have enough of these.", not grantable, already taken (the server granted 0 for this ref, e.g. taken on
     another device), rate limited / cooldown, failed (offline). `inventory.grant` now reports `granted` and can stay quiet
     on 0 (`quietWhenNone`).
   - A slight hint on tappable placed items (`action` ≠ none): a slow glow (3.2 s) – static with reduced motion.
+- **Respawn (round 3, owner 2026-10-03: "per item when they reappear, if they do … both: item, and an override within
+  the range the item allows")** – `@scutoons/content` respawn.ts, server `Domain\Catalog\ItemRespawn`:
+  - Interval = `"visit"` (every visit / reload) or `{ minutes | hours | days: n }`.
+  - ITEM (catalog, `ItemDef.respawn`): `{ default, min?, max? }` – the default interval and the range a placement may
+    choose (no `min` = the default is the shortest); none / null = it never reappears (a one-time find). Set in
+    server config/items.json (cucumber: 6 h, 1 h … 7 d; tuna can: 12 h, 1 h … 7 d; every other item: never) and
+    overridable in admin → Catalog → Respawn (setting `item_respawn`, JSON map item id → rule | null; GET
+    `/admin/catalog/respawn`, PUT `/admin/catalog/respawn/<item>` `{ respawn }` | `{ reset: true }`); `/api/items/` and
+    the admin catalog serve the effective rule.
+  - PLACEMENT (`SliceItem.respawn`): none = the item's default; `"never"` = once here; an interval = an override within
+    the item's range. The creator shows the item's default and offers only what the range allows; validation flags an
+    out-of-range or never-reappearing choice (`placementRespawnProblem`, with the catalog in `ValidateContext.itemRespawn`).
+  - Enforcement: the grant sends `respawn` (the placement's interval) + `visit` (the visit id for "visit"); the server
+    checks it against the item's range (422 `respawn_out_of_range` / `respawn_not_allowed`, 400 `invalid_respawn` /
+    `visit_required` / `ref_required`) and appends the period itself: `@m<minutes>:<floor(now / interval)>` from its clock,
+    or `@v:<visit id>`. A ref is granted once (`rate_limits` grantref, permanent) → one piece per period; max counts and
+    120 grants / hour stay authoritative. A client can't go below the item's minimum; it could choose any interval
+    within the range (the server doesn't read the placement), which the range bounds.
+  - The reader remembers the period (`picked:<slice image>#<id>` = the period key for timed intervals, in memory for
+    visits; 1 = taken for good when it never reappears). A visit = one stay on the page path; a reload starts a new one.
