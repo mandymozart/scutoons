@@ -231,7 +231,14 @@ Done (branch `components`):
   chrome; `events/event-message`, `-choice`, `-flow` (jumpTo, label, divert, setVariable), `-onomatopoeia`, `-cast`
   (join / leave), `-target` (a jump's target), `-condition` ("Only if"), `-trigger`; pure parts in
   `lib/editor/vn-forms.ts`. tools.css `.sc-fields[data-align=start|end]` replaces the local align rules (also toon /
-  season editor). check:creator-chapter covers the VN forms (55 checks).
+  season editor). check:creator-chapter covers the VN forms (55 checks). 797109b: fix found on the way – "+ event" on a
+  slice without events showed nothing (the new list was pushed to outside the state proxy).
+- Step 9 ✓ 9065aee map-props 703 → 121 (place-props, place-image, route-props, layer-props, map-toons-chips) · accaf56
+  character-detail 757 → 300 (character-identity, -import, -persona, -look, -transitions; lib/editor/character-form.ts) ·
+  08ba861 cover-editor 624 → 235 (cover-lettering-canvas, cover-inspector, cover-previews; the alignment control got its
+  frame back – step 6 had dropped it) · (the commit adding this line) script-editor 701 → 528 (script-outline,
+  script-meta; the text + its doc sync + the layout stay – the outline resize is step 13). Before / after shots identical
+  except the route waypoint buttons (their compact padding back) and the cover alignment.
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

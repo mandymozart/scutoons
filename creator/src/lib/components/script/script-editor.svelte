@@ -4,7 +4,6 @@
 	import {
 		entities,
 		scriptOutline,
-		SCRIPT_META_FIELDS,
 		validateFile,
 		validateLocales,
 		type Problem,
@@ -18,6 +17,9 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { Icon, confirmDialog } from '@scutoons/ui';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import ScriptOutline from '$lib/components/script/script-outline.svelte';
+	import ScriptTitlePage from '$lib/components/script/script-meta.svelte';
+	import { isEditKey } from '$lib/editor/script-edit.ts';
 
 	/**
 	 * The toon's screenplay (entity `script:<toon>:<l>`, agents/DESIGN.md "Creator: script page"): one big monospace text
@@ -25,6 +27,8 @@
 	 * restore). Big texts stay fast: the textarea is the working copy and is written into the doc only after a short
 	 * pause (and before every save / language switch / outline jump), so a keystroke never copies, stringifies or parses
 	 * the whole script. The outline is parsed from the doc (screenplay editor rules, `scriptOutline`).
+	 * Parts (COMPONENTS.md step 9): ScriptOutline (the index, folds to a rail), ScriptMeta (the title page); the text, its
+	 * sync with the doc and the layout stay here.
 	 */
 	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
 
@@ -243,11 +247,6 @@
 		asking = false;
 		if (editing) area?.focus({ preventScroll: true });
 	}
-	/** typing into the read-only text asks first (navigation, selection and copy keys pass) */
-	function isEditKey(event: KeyboardEvent): boolean {
-		if (event.ctrlKey || event.metaKey) return ['v', 'x', 'z', 'y'].includes(event.key.toLowerCase());
-		return event.key.length === 1 || ['Enter', 'Backspace', 'Delete'].includes(event.key);
-	}
 
 	/** Tab indents with spaces (the format counts spaces); Esc, then Tab leaves the text (keyboard users) */
 	function onKeydown(event: KeyboardEvent) {
@@ -339,20 +338,6 @@
 		return out;
 	}
 
-	const metaLabel: Record<keyof ScriptMeta, () => string> = {
-		title: () => m['creator.script_meta_title'](),
-		author: () => m['creator.script_meta_author'](),
-		status: () => m['creator.script_meta_status'](),
-		date: () => m['creator.script_meta_date'](),
-		basedOn: () => m['creator.script_meta_basedOn'](),
-		basedOnFrom: () => m['creator.script_meta_basedOnFrom']()
-	};
-
-	function itemLabel(item: ScriptOutlineItem): string {
-		if (item.kind === 'scene') return item.heading;
-		const head = item.kind === 'chapter' ? m['creator.entity_chapter']({ number: item.number }) : m['creator.script_song']({ number: item.number });
-		return item.title ? `${head} · ${item.title}` : head;
-	}
 </script>
 
 <MetaPage {toon} title={m['creator.script']()} docs={[doc]} {validate} wide help="script" translationsOptional beforeSave={flush}>
@@ -382,39 +367,7 @@
 		{:else}
 			<div class="layout" class:folded={outlineFolded} bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
 				<aside class="side">
-					{#if outlineFolded}
-						<button type="button" class="fold sc-round" onclick={() => foldOutline(false)} aria-label={m['creator.script_outline_show']()} title={m['creator.script_outline_show']()} aria-expanded="false" data-testid="script-outline-unfold"><Icon name="chevrons-right" /></button>
-						<!-- folded: written vertically, like the main sidebar's rail (owner 2026-10-03) -->
-						<span class="rail-label">{m['creator.script_outline']()}</span>
-					{:else}
-					<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
-						<h2>
-							<span>{m['creator.script_outline']()}</span>
-							<button type="button" class="fold sc-round" onclick={() => foldOutline(true)} aria-label={m['creator.script_outline_fold']()} title={m['creator.script_outline_fold']()} aria-expanded="true" data-testid="script-outline-fold"><Icon name="chevrons-left" /></button>
-						</h2>
-						{#if !outline.length}
-							<p class="hint">{m['creator.script_outline_empty']()}</p>
-						{:else}
-							<ol bind:this={outlineList} class="outline-list">
-								{#each outline as item (item.line)}
-									<li class={item.kind}>
-										<button
-											type="button"
-											class:current={item === current}
-											onclick={() => jump(item.line)}
-											title="{itemLabel(item)} ({item.line})"
-											data-line={item.line}
-											data-testid="script-outline-item"
-										>
-											{#if item.kind === 'scene'}<span class="num">{item.number}</span>{/if}
-											<span class="label">{itemLabel(item)}</span>
-										</button>
-									</li>
-								{/each}
-							</ol>
-						{/if}
-					</section>
-					{/if}
+					<ScriptOutline {outline} {current} folded={outlineFolded} bind:list={outlineList} onfold={foldOutline} onjump={jump} />
 				</aside>
 				<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -432,27 +385,7 @@
 
 				<div class="main">
 					<div class="head">
-					<details class="meta" data-testid="script-meta">
-						<!-- clickable: the title page opens for editing; the fold's chevron shows it (no pencil, owner 2026-10-03) -->
-						<summary title={m['creator.script_meta_edit']()}>
-							<span>{m['creator.script_meta']()}{script.meta?.title ? ` · ${script.meta.title}` : ''}</span>
-						</summary>
-						<div class="sc-fields meta-grid" data-cols="fill" data-density="panel">
-							{#each SCRIPT_META_FIELDS as field (field)}
-								<label>
-									<span>{metaLabel[field]()}</span>
-									<input
-										type="text"
-										value={script.meta?.[field] ?? ''}
-										readonly={!editing}
-										onkeydown={(e) => !editing && isEditKey(e) && (e.preventDefault(), requestEdit())}
-										oninput={(e) => setMeta(field, e.currentTarget.value)}
-										data-testid="script-meta-{field}"
-									/>
-								</label>
-							{/each}
-						</div>
-					</details>
+					<ScriptTitlePage meta={script.meta} {editing} onset={setMeta} onrequestedit={requestEdit} />
 					{#if !editing}
 						<button type="button" class="edit-script secondary" onclick={requestEdit} data-testid="script-edit">
 							<Icon name="lock" />{m['creator.script_edit']()}
@@ -510,13 +443,6 @@
 	.layout.folded {
 		grid-template-columns: 2.5rem 0.75rem minmax(0, 1fr);
 	}
-	.side h2 {
-		padding: 0 0.5rem 0 1rem;
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.5rem;
-	}
 	.layout.folded .side {
 		display: flex;
 		flex-direction: column;
@@ -524,31 +450,17 @@
 		gap: 0.75rem;
 		padding: 1rem 0 0;
 	}
-	/* like the app shell's rail label */
-	.rail-label {
-		writing-mode: vertical-rl;
-		transform: rotate(180deg);
-		color: var(--muted);
-		white-space: nowrap;
-	}
 	/* the title page row; "Edit script" at its right while the script is read-only */
 	.head {
 		display: flex;
 		align-items: flex-start;
 		gap: 1rem;
 	}
-	.head .meta {
-		flex: 1;
-		min-width: 0;
-	}
 	.edit-script {
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
 		flex: none;
-	}
-	.meta summary:hover span {
-		text-decoration: underline;
 	}
 	/* the divider right of the outline, also its drag edge */
 	.split {
@@ -575,9 +487,6 @@
 		.side {
 			position: static !important;
 		}
-		.outline-list {
-			max-height: 240px !important;
-		}
 		.split {
 			display: none;
 		}
@@ -586,87 +495,11 @@
 		position: sticky;
 		top: 0.5rem;
 	}
-	.outline-list {
-		max-height: var(--outline-height, calc(100vh - 220px));
-		overflow: auto;
-		/* thin, so the highlight reaches (almost) the divider */
-		scrollbar-width: thin;
-	}
-	.side h2 {
-		font-size: var(--type-caption-size);
-		letter-spacing: var(--tracking-label);
-		color: var(--ink);
-		text-transform: uppercase;
-		margin: 0 0 0.3rem;
-	}
-	ol {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-	}
-	li button {
-		display: flex;
-		align-items: center;
-		justify-content: flex-start;
-		gap: 0.4rem;
-		width: 100%;
-		text-align: left;
-		background: none;
-		border: 0;
-		/* every entry's text on the same 1rem line; the highlight runs edge to edge (owner 2026-10-03) */
-		padding: 0 0.5rem 0 1rem;
-		font-size: var(--type-caption-size);
-		color: var(--ink);
-		cursor: pointer;
-	}
-	li button:hover {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: calc(-1 * var(--border-width-regular));
-	}
-	li button.current {
-		background: var(--ink);
-		color: var(--paper);
-	}
-	li.chapter button {
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		margin-top: 0.35rem;
-	}
-	li.song button {
-		font-style: italic;
-		margin-top: 0.35rem;
-	}
-	.num {
-		min-width: 28px;
-		color: var(--muted);
-	}
-	.label {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
 	.main {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
 		min-width: 0;
-	}
-	.meta-grid {
-		--fields-fill-min: 220px;
-		padding-top: 0.4rem;
-	}
-	.meta-grid label {
-		display: flex;
-		flex-direction: column;
-		gap: 0.15rem;
-	}
-	.meta-grid span {
-		font-size: var(--type-caption-size);
-		letter-spacing: var(--tracking-label);
-		text-transform: uppercase;
-		color: var(--muted);
 	}
 	/* the screenplay: IBM Plex Mono, every space as typed, no wrapping (line n = row n), wide */
 	.text {
