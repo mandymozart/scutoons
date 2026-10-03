@@ -222,16 +222,25 @@ final class LibraryTest extends TestCase
         self::assertSame(['square' => 'images/en.webp'], $data['toon']['cover']);
     }
 
+    /** Covers belong to the season (owner 2026-10-02): a cover left in the toon entry is not merged into the toon */
+    public function testToonEntryCoverIsNotMerged(): void
+    {
+        $this->seedToon();
+        $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'],
+            'cover' => ['square' => 'images/s1-cover-square.webp', 'lettering' => true]]);
+        $data = self::decode($this->library()->toon('t', 'de', false)->body);
+        self::assertArrayNotHasKey('cover', $data['toon']);
+    }
+
     /** The language-neutral settings (index entry) are merged into every locale's `toon`; `entry` stays the plain index entry */
     public function testToonBundleMergesTheNeutralSettings(): void
     {
         $this->seedToon();
         $map = ['layers' => ['terrain' => 'images/map/m.svg'], 'width' => 2048, 'height' => 1046, 'center' => ['x' => 1320, 'y' => 440]];
         $this->doc('t', '_', 'index.json', ['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en'],
-            'authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc'],
-            'cover' => ['square' => 'images/s1-cover-square.webp', 'lettering' => true]]);
+            'authors' => ['A'], 'chapters' => 5, 'thumbnail' => 'th.webp', 'map' => $map, 'tile' => ['image' => 'tile.webp', 'color' => '#0066cc']]);
         // a stale per-language value loses against the index entry
-        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'published', 'map' => ['width' => 0], 'cover' => ['square' => 'images/1x/en/c.jpg']]);
+        $this->doc('t', 'en', 'toon.json', ['id' => 't', 'title' => 'T en', 'status' => 'published', 'map' => ['width' => 0]]);
         foreach (['de', 'en'] as $l) {
             $data = self::decode($this->library()->toon('t', $l, false)->body);
             self::assertSame("T $l", $data['toon']['title']);
@@ -240,7 +249,6 @@ final class LibraryTest extends TestCase
             self::assertSame(5, $data['toon']['chapters']);
             self::assertSame('th.webp', $data['toon']['thumbnail']);
             self::assertSame(['image' => 'tile.webp', 'color' => '#0066cc'], $data['toon']['tile']);
-            self::assertSame(['square' => 'images/s1-cover-square.webp', 'lettering' => true], $data['toon']['cover'], "$l: one cover for every language");
             self::assertSame(['id' => 't', 'uri' => 't', 'status' => 'published', 'sourceLanguage' => 'de', 'languages' => ['de', 'en']], $data['entry'], 'entry without the settings');
         }
     }

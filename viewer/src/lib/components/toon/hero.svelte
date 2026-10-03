@@ -32,8 +32,9 @@
 		trailerChapter === null ? undefined : sequence.find((i) => i.number === trailerChapter && isReadable(i))
 	);
 	const trailerHref = $derived(trailerItem ? localizeHref(`/${toonId}/chapter/${trailerItem.number}`) : null);
-	// the hero sets the title itself, so the cover is the bare artwork here (no CoverArt lettering); no image → just ink
-	const posterPath = $derived(trailer?.poster || toon.cover?.square || '');
+	// the hero sets the title itself, so the season's cover is the bare artwork here (no CoverArt lettering; older data:
+	// the toon's cover); no image → just ink
+	const posterPath = $derived(trailer?.poster || season.cover?.square || toon.cover?.square || '');
 	const poster = $derived(posterPath ? asset(`${toonId}/${posterPath}`) : undefined);
 
 	let hero = $state<HTMLElement | null>(null);

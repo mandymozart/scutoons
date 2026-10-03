@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { entities } from '@scutoons/content';
+	import { coverLetteringOn, coverLines, entities, type Cover } from '@scutoons/content';
+	import { CoverArt } from '@scutoons/reader';
+	import { asset } from '$lib/utils/cdn.ts';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -33,6 +35,7 @@
 	let images = $state<string[]>([]);
 
 	const numbers = $derived(seasonChapterNumbers(season));
+	const cover = $derived(season.get(season.primary, ['cover']) as Cover | undefined);
 	/** titles in lists: one language – the i18n switch's, else the source; the others in the tooltip (owner 2026-10-02) */
 	const titleLocale = $derived(listLanguage(season.locales, season.primary));
 
@@ -108,9 +111,23 @@
 				<SharedField doc={season} path={['release']} label="release" kind="date" />
 				<SharedField doc={season} path={['authors']} label="authors" kind="list" testid="season-authors" />
 			</div>
-			<div class="grid g2">
-				<SharedField doc={season} path={['cover', 'square']} label="cover.square" kind="image" {toon} known={images} />
-				<SharedField doc={season} path={['cover', 'portrait']} label="cover.portrait" kind="image" {toon} known={images} />
+		</section>
+
+		<!-- the season's cover (owner 2026-10-02: covers are per season): art + lettering in the cover editor -->
+		<section class="block" data-testid="season-cover">
+			<h2>{m['creator.season_cover']()}</h2>
+			<p class="hint">{m['creator.cover_season_hint']()}</p>
+			<div class="cover-row">
+				{#if cover?.square}
+					<div class="cover-thumb">
+						<CoverArt src={asset(`${toon}/${cover.square}`)} lettering={cover.lettering} title={nav.toonName(toon)} subtitle={String(season.get(season.primary, ['title']) ?? '')} lang={season.primary} />
+					</div>
+				{/if}
+				<p class="cover-state" data-testid="season-cover-lettering">
+					<span class="sc-label">{m['creator.cover_mode']()}</span>
+					<span>{!coverLetteringOn(cover?.lettering) ? m['creator.cover_mode_off']() : coverLines(cover?.lettering, 'square') ? m['creator.cover_mode_custom']() : m['creator.cover_mode_default']()}</span>
+					<a class="btn secondary" href="/{toon}/season/{number}/cover" data-testid="season-cover-editor">{m['creator.cover_editor_open']()}</a>
+				</p>
 			</div>
 		</section>
 
@@ -298,5 +315,21 @@
 		gap: 0.2rem;
 		flex: none;
 		margin-left: auto;
+	}
+	.cover-row {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-1) var(--space-15);
+	}
+	.cover-thumb {
+		width: 12rem;
+	}
+	.cover-state {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-05) var(--space-1);
+		margin: 0;
 	}
 </style>

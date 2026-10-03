@@ -37,11 +37,12 @@ final class Library
     /**
      * Toon settings that are the same in every language (owner 2026-10-01): stored once in the toon's index entry
      * `toon:<toon>`, merged into the bundle's per-language `toon` settings; @scutoons/content TOON_NEUTRAL_FIELDS.
-     * `cover` joined 2026-10-01 (media are language-independent; the UI renders the lettering, `cover.lettering`).
+     * `cover` was one 2026-10-01 – 2026-10-02; covers belong to the season now (`season.cover`, owner: a toon is shown with
+     * its avatar). An older per-language toon `cover` still passes through (the reader's fallback).
      */
-    public const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile', 'cover'];
+    public const TOON_NEUTRAL_FIELDS = ['authors', 'chapters', 'thumbnail', 'map', 'announce', 'tile'];
     /** Bump when the shape of an answer changes: old cache entries are never read again */
-    private const FORMAT = 3;
+    private const FORMAT = 4;
     private const CACHE_TTL = 604800;
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
     /** @scutoons/content LEGACY_CHARACTER_IDS: old character ids in scene refs → the registry character */

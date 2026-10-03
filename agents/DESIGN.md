@@ -93,6 +93,10 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   quotes) in the reader's language – comic lettering, not UI chrome: Bangers (`--font-lettering`), paper fill, heavy ink
   outline + hard ink shadow, tilted −5°, sizes in `cqw` of the cover, upper part of the art. Without the flag the image is
   shown as delivered (catpope's cover still has its German title baked in). DATA.md "Language-independent media".
+  The cover is the season's (`season.cover`, owner 2026-10-02): the toon page shows the cover of the season it presents.
+  Since 2026-10-02 the lettering can be **an own layout** from the creator's cover editor: lines with a text source (toon
+  title, season title, own text per language), position / size / box width / angle / skew / alignment, palette colours;
+  each line shrinks to its box in the reader's language (DATA.md "Cover lettering layout").
 - **Toon page desktop** (≥ 1024 px, owner 2026-10-01, reference: artboard "A · Vollbild" of
   https://claude.ai/artifact/AYHvMG81k7CQc1JrVf4n5R; phones and tablets keep the single column above):
   - **Hero** (`toon/hero.svelte`) = the first screen, `min(100vh, 900px)`, full-bleed: the season's trailer loop
@@ -510,6 +514,32 @@ Translators switch back and forth to copy, adapt and review originals, and there
   stringifies, validates or parses the whole text. Measured on the 1834-line Cat Pope script: one frame per keystroke
   (~17 ms round trip headless), no long tasks.
 - Check: `npm run check:creator-script` (SCUTOONS_API / SCUTOONS_CREATOR for other ports).
+
+### Creator: cover editor (owner 2026-10-02)
+
+`/<toon>/season/<n>/cover` – covers are per season (owner 2026-10-02; the toon is shown with its avatar). Crumbs
+"Creator / <toon> / Season n / Cover", Ctrl K "Season n · Cover"; the season editor's "Cover" section shows a thumbnail,
+the state ("Lettering: Off / Default / Own layout") and "Open the cover editor". The toon settings have no cover.
+- **Toolbar:** "Lettering" segmented Off · Default · Own layout; "Preview language" one segment per toon language (follows
+  the top bar's i18n choice when it is a language). The hint line under it says what the mode does.
+- **Canvas** (left, the art as big as the screen height allows, ≤ 36rem): the reader's own `CoverArt` with editing boxes on
+  top in the same geometry (dashed white / ink frame; selected = cyan frame, the live-selection colour). Drag a box to
+  move it (snaps to the vertical centre ±1.5 %, a cyan guide; Alt = free); the selected box has three handles: side =
+  width (symmetric), corner = size (scales with the distance from the centre), the round one above = angle (Shift: 5°
+  steps). Arrow keys nudge 0.5 % (Shift 5 %), Delete removes, Esc deselects. Touching a line of the Default layout makes it
+  an own layout (the default's lines copied first). Undo / redo / autosave / Save draft / Publish = the MetaPage bar.
+- **Inspector** (right): the "Lines" list (source label + the text in the preview language, the selected row inverted),
+  "Add line" (an own text at 60 %), then the selected line: Text (Toon title / Season title / Own text; own text = one
+  field per language, following the i18n switch), "In quotes", X / Y / Size / Width / Angle / Skew (number fields, two per
+  row), Align (Feather align-left / center / right, segmented), Fill / Outline (palette selects with a swatch), up / down /
+  Remove.
+- **As readers see it:** every toon language side by side (14rem each) – the check for long translations.
+- **Art (text-free):** the `cover.square` image picker (known images), once for every language – written to every
+  locale's season document like the lettering.
+- Square only (the reader shows no portrait cover). Tools rules: regular weight, rem sizes, `--control-height` controls,
+  Feather icons, tooltips via `title`; the lettering itself is comic lettering (cqw, exempt).
+- Check: `npm run check:creator-cover` (SCUTOONS_API / SCUTOONS_CREATOR / SCUTOONS_VIEWER / SCUTOONS_CDN for other ports;
+  `-- --toon=catpope`, `-- --shots=<dir>`).
 
 ## Icons (owner rule, 2026-10-01)
 
