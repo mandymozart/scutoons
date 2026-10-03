@@ -270,7 +270,9 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
   (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
   editable, 409 when taken). Every image field (`image-picker.svelte`: the path input stays for typing) opens it via
   "Choose …". **Video fields** (slice video "Hintergrund", the season trailer) have "Choose video …": the asset's
-  480p / 720p / 1080p become `variants` low / medium / high, 720p the default (`src` / `trailer.loop`).
+  480p / 720p / 1080p become `variants` low / medium / high, 720p the default (`src` / `trailer.loop`). The season trailer is
+  one slot since 2026-10-03 (`media-variants-slot.svelte`, DESIGN.md "Creator: season page"): the preview picks the whole
+  asset, chips per level replace / clear one file.
 - **Admin – Assets** (`/assets`, nav Data → Assets): Library (grid, filters in the bar, Rescan), Missing files, Unused,
   Storage (drivers, bunny settings status, totals per kind, 30-day bandwidth chart). The asset sheet: preview, files per
   version, uses (with links into the creator), title / tags, replace, rename, relink, optimize (jobs), delete behind the

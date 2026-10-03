@@ -1770,3 +1770,33 @@ character, persona, look and mood and doubles as the VN test bed.
   use Sheet / SplitView / toasts).
 - Guard: `check:tools-css` flags × ✕ ✖ `&times;` as a button / link content and `<Icon name="x">` in every app's markup
   (`close-ok` exempts a line).
+
+## Cover editor: lettering layouts (2026-10-02, branch `cover-editor`)
+
+- Owner (asked twice): "a season cover image editor view for multi-language support, because right now the cover needs to
+  be uploaded individually". Built: `Cover.lettering` = `true` (the default layout) or `{ square?: lines, portrait?: lines }`
+  (`@scutoons/content` `cover.ts`; validation `checkCoverLine`; schemas), `CoverArt` draws the lines and shrinks each into
+  its box per language, creator `/<toon>/season/<n>/cover` (first `/<toon>/cover`, see the correction below) (`components/cover/cover-editor.svelte` + `cover-page.svelte`). Spec:
+  DATA.md "Cover lettering layout", DESIGN.md "Creator: cover editor". Check: `npm run check:creator-cover` (36 checks:
+  sandbox de / en / ko, drag, handles, an own line per language, save, publish → the reader's toon page at 390 px de / en,
+  restore).
+- Decisions: first the toon entry's cover, corrected the same day to the season's (below); square only (owner: portrait unused);
+  `true` keeps its meaning but is now drawn by the line renderer (`defaultCoverLines`, positions where the hand lettering
+  sat on the catpope art: y 19 % / 31 %) – nothing in the seed used `true`, so readers see no change. catpope stays
+  lettering-off until the owner switches it in the editor with `s1/s1-cover-square-textless.webp` (delivered
+  2026-10-02 into the main checkout's `cdn/root`; not in git, upload with `cdn/sync.py`).
+- Gotchas: a Svelte 5 action's `update` can run before the text node of the same flush is updated → `CoverArt` measures
+  in a microtask (else a line keeps the previous text's fit). `textLanguage` is read once at load: a check sets
+  `scutoons_creator_text_language` before navigating. A viewer URL without a locale prefix follows the browser language
+  (headless = en): checks use `/de/<toon>`. `check-toon-hero` failed 2 checks once on a cold dev server, 79/79 on the rerun.
+- Open owner questions: season vs toon cover; text sources (toon / season / own text; no "season number" source – an own
+  text per language covers "Staffel 1"); palette colours only.
+- **Correction the same day (owner): covers are per SEASON**, "per toon I have no covers intended – I use the avatar".
+  `cover` left the toon entry (TOON_NEUTRAL_FIELDS TS + PHP, library cache FORMAT 4; a toon `cover` is a warning), the
+  editor moved to `/<toon>/season/<n>/cover` (writes every locale's season document), the season editor links to it, the
+  toon settings lost the cover, the reader's toon page / hero use `season.cover` (old `toon.cover` as a fallback). Seed:
+  `toons.json` without `cover` (catpope's seasons already had it; sandbox's `season1.json` got it, `make-sandbox.ts`
+  regenerates identically), `content-seed.mysql.sql` = only the `toon:catpope` statement (old timestamp). Local store:
+  `import-content --update --only=toon,season` for catpope + sandbox (backup `server/db/local.sqlite.bak-2026-10-02-season-covers`
+  in the cover-editor worktree's DB copy; the owner's DB needs the same after the merge). Gotcha: long Python heredocs
+  in Git Bash broke on quotes – write the script to a file.

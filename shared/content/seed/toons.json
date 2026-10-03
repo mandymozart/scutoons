@@ -19,10 +19,6 @@
     "authors": ["Mandy Mozart", "Thomas Dalby"],
     "chapters": 5,
     "thumbnail": "s1/c1/s1c1-thumbnail.jpg",
-    "cover": {
-      "square": "s1/s1-cover-square.webp",
-      "portrait": "s1/s1-cover-portrait.webp"
-    },
     "tile": {
       "image": "../characters/catpope/catpope_portrait-neutral.webp"
     },
@@ -107,9 +103,6 @@
     "authors": [],
     "chapters": 7,
     "thumbnail": "../catpope/s1/c1/s1c1-thumbnail.jpg",
-    "cover": {
-      "square": "../catpope/s1/s1-cover-square.webp"
-    },
     "map": {
       "center": {
         "x": 1320,

@@ -38,6 +38,8 @@
 	let sequence = $state(data.sequence);
 
 	const seasonNumber = $derived(season?.number ?? 1);
+	// the cover of the season this page presents (owner 2026-10-02: covers are per season); older data: the toon's
+	const cover = $derived(season?.cover?.square ? season.cover : toon.cover);
 
 	// the desktop layout (hero + 12-column grid) from 1024 px; phones and tablets keep the single column
 	const DESKTOP = '(min-width: 1024px)';
@@ -62,13 +64,13 @@
 		<Hero toonId={params.toonId} {toon} {season} {seasonNumber} {sequence} />
 	{/if}
 	<div class="toon-header">
-		{#if toon.cover?.square}
-			<!-- one cover for every language; with cover.lettering the title is set over the text-free art in the reader's language -->
+		{#if cover?.square}
+			<!-- the season's cover, one for every language; with cover.lettering the title is set over the text-free art in the reader's language -->
 			<CoverArt
-				src={asset(`${params.toonId}/${toon.cover.square}`)}
+				src={asset(`${params.toonId}/${cover.square}`)}
 				alt="Cover"
 				class="Cover"
-				lettering={toon.cover.lettering === true}
+				lettering={cover.lettering}
 				title={toon.title}
 				subtitle={season?.title ?? ''}
 				lang={toon.language}

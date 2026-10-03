@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'credits' | 'characters' | 'cast' | 'script' | 'preview' | 'guide' | 'map';
+	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'cast' | 'script' | 'preview' | 'guide' | 'map';
 	export type ChapterSection = 'meta' | 'audio' | 'group' | 'slice';
 </script>
 
@@ -83,6 +83,10 @@
 	{:else if page === 'toon-file'}
 		<h3>{m['creator.in_the_reader']()}</h3>
 		<p>{m['creator.reader_uses_toon']()}</p>
+		{@render saving()}
+	{:else if page === 'cover'}
+		<p>{m['creator.cover_help']()}</p>
+		<p>{m['creator.cover_mode_hint_custom']()}</p>
 		{@render saving()}
 	{:else if page === 'credits'}
 		<p>{m['creator.help_credits']()}</p>

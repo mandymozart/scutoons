@@ -141,13 +141,15 @@ test('toon settings (per language): the neutral settings are warned about, they 
 	]);
 });
 
-test('cover (toon entry, season): square / portrait images + lettering (boolean)', () => {
-	const entry = (cover: unknown) => problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, cover });
+test('cover (season; owner 2026-10-02: not the toon): square / portrait images + lettering (boolean or a layout, cover.test.ts)', () => {
+	const entry = (cover: unknown) => problems('season', season({ cover }));
 	assert.deepEqual(entry({ square: 'images/s1-cover-square.webp', portrait: 'images/s1-cover-portrait.webp' }), []);
 	assert.deepEqual(entry({ square: 'images/s1-cover-square-textless.webp', lettering: true }), []);
 	assert.deepEqual(entry({ square: 'images/c.webp', lettering: 'yes' }), ['error cover.lettering']);
 	assert.deepEqual(entry({ lettering: true }), ['warning cover.lettering'], 'lettering without an image');
 	assert.deepEqual(entry('images/c.webp'), ['error cover']);
+	// a cover left in the toon entry is a warning: it belongs to the season, the toon is shown with its avatar
+	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, cover: { square: 'images/c.webp' } }), ['warning cover']);
 	assert.deepEqual(problems('season', season({ cover: { square: 'images/c.webp', lettering: false } })), []);
 	assert.deepEqual(problems('season', season({ cover: { square: 'images/c.webp', lettering: 1 } })), ['error cover.lettering']);
 });
@@ -167,7 +169,7 @@ test('media paths with a locale segment are warnings in every entity (media are 
 		assert.equal(mediaLocaleSegment(path), null, path);
 	const chapter = { title: 'C', groups: [{ slices: [{ image: 'images/webtoon/de/S1C1 - Slice 1.jpg' }] }] };
 	assert.ok(problems('chapter', chapter).includes('warning groups.0.slices.0.image'));
-	assert.deepEqual(problems('index', { id: 't', uri: 't', status: 'draft', avatar: 'a.webp', i18n: {}, cover: { square: 'images/1x/en/s1-cover-square.jpg' } }), ['warning cover.square']);
+	assert.deepEqual(problems('season', season({ cover: { square: 'images/1x/en/s1-cover-square.jpg' } })), ['warning cover.square']);
 	assert.deepEqual(problems('season', season({ download: { image: 'images/vinyl-de.webp' } })), ['warning download.image']);
 	// a season's cover is the same in every language
 	const de = season({ cover: { square: 'images/a.webp' } });

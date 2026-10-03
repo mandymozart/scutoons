@@ -4,12 +4,13 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SharedField from './shared-field.svelte';
+	import MediaSlot from './media-slot.svelte';
 
 	/**
 	 * The season's supporters (`supporters: [{ name, logo?, url? }]`, in order), the same in every language: the reader
 	 * shows them as "Supported by" logos at the end of the credits fine print (agents/DESIGN.md "Credits colophon").
 	 */
-	let { doc, toon, known = [] }: { doc: ContentDoc; toon: string; known?: string[] } = $props();
+	let { doc, toon, place = '' }: { doc: ContentDoc; toon: string; /** where logo uploads go (catpope/s1/supporters/) */ place?: string } = $props();
 
 	const list = $derived<Supporter[]>(Array.isArray(doc.get(doc.primary, ['supporters'])) ? doc.get(doc.primary, ['supporters']) : []);
 
@@ -32,9 +33,12 @@
 	{#each list as supporter, i (i)}
 		<li class="supporter" data-testid="supporter-{i}">
 			<div class="fields">
-				<SharedField {doc} path={['supporters', i, 'name']} label="name" required testid="supporter-{i}-name" />
-				<SharedField {doc} path={['supporters', i, 'url']} label="url" placeholder="https://…" testid="supporter-{i}-url" />
-				<SharedField {doc} path={['supporters', i, 'logo']} label="logo" kind="image" {toon} {known} testid="supporter-{i}-logo" />
+				<!-- the logo as a slot (the preview is the button), name and link are never translated -->
+				<MediaSlot {toon} {place} label="logo" value={supporter.logo} onchange={(v) => change((l) => { if (v) l[i].logo = v; else delete l[i].logo; })} testid="supporter-{i}-logo" />
+				<div class="texts">
+					<SharedField {doc} path={['supporters', i, 'name']} label="name" required splittable={false} testid="supporter-{i}-name" />
+					<SharedField {doc} path={['supporters', i, 'url']} label="url" placeholder="https://…" splittable={false} testid="supporter-{i}-url" />
+				</div>
 			</div>
 			<div class="actions">
 				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
@@ -62,20 +66,22 @@
 		gap: 0.5rem;
 		align-items: flex-start;
 		padding-bottom: 0.75rem;
-		border-bottom: 1px solid var(--border-subtle);
+		border-bottom: var(--border-width-hairline) solid var(--ink);
 	}
 	.fields {
 		flex: 1;
 		min-width: 0;
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
+		display: flex;
+		flex-wrap: wrap;
 		gap: 0.75rem;
-		align-items: start;
+		align-items: flex-start;
 	}
-	@media (max-width: 900px) {
-		.fields {
-			grid-template-columns: minmax(0, 1fr);
-		}
+	.texts {
+		flex: 1 1 16rem;
+		min-width: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
 	}
 	.actions {
 		display: flex;

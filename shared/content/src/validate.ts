@@ -18,6 +18,7 @@ import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
 import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
+import { COVER_ALIGNS, COVER_COLORS, COVER_FORMATS, COVER_LIMITS, COVER_TEXT_SOURCES, coverLetteringOn } from './cover.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -496,12 +497,58 @@ function checkImagePath(c: Collector, value: unknown, path: Path, required = fal
 	else if (!/\.(jpe?g|png|webp|gif|svg)$/i.test(value)) c.warn(path, `${path.join('.')} is not an image path (.jpg, .png, .webp, .gif, .svg)`);
 }
 
-/** `Cover` (toon entry, season): square / portrait image paths + `lettering` (the UI renders the title over text-free art) */
-function checkCover(c: Collector, cover: unknown) {
+/**
+ * `Cover` (toon entry, season): square / portrait image paths + `lettering` (the UI renders the title over text-free art):
+ * true / false, or a layout per format (`CoverLettering`, cover.ts). `languages` (the toon entry's) → a custom line's
+ * missing translations are warnings.
+ */
+function checkCover(c: Collector, cover: unknown, languages?: readonly string[]) {
 	if (!isObj(cover)) return c.error(['cover'], 'cover must be { square?, portrait?, lettering? }');
 	for (const key of ['square', 'portrait']) checkImagePath(c, cover[key], ['cover', key]);
-	if (cover.lettering !== undefined && typeof cover.lettering !== 'boolean') c.error(['cover', 'lettering'], 'cover.lettering must be true or false');
-	if (cover.lettering === true && !cover.square && !cover.portrait) c.warn(['cover', 'lettering'], 'cover.lettering is on, but there is no cover image');
+	const lettering = cover.lettering;
+	if (lettering !== undefined && typeof lettering !== 'boolean' && !coverLetteringOn(lettering))
+		return c.error(['cover', 'lettering'], 'cover.lettering must be true, false or a layout { square?: lines, portrait?: lines }');
+	if (coverLetteringOn(lettering) && !cover.square && !cover.portrait) c.warn(['cover', 'lettering'], 'cover.lettering is on, but there is no cover image');
+	if (!isObj(lettering)) return;
+	for (const key of Object.keys(lettering)) {
+		const path = ['cover', 'lettering', key];
+		if (!(COVER_FORMATS as readonly string[]).includes(key)) {
+			c.warn(path, `cover.lettering.${key} is unknown – the formats are ${COVER_FORMATS.join(' and ')}`);
+			continue;
+		}
+		const lines = lettering[key];
+		if (!Array.isArray(lines)) {
+			c.error(path, `cover.lettering.${key} must be a list of lines`);
+			continue;
+		}
+		if (lines.length && !cover[key]) c.warn(path, `cover.lettering.${key} has lines, but there is no ${key} image`);
+		lines.forEach((line: unknown, i: number) => checkCoverLine(c, line, [...path, i], languages));
+	}
+}
+
+/** one line of a cover layout: its text source + geometry (numbers in their limits) + palette colours */
+function checkCoverLine(c: Collector, line: unknown, path: Path, languages?: readonly string[]) {
+	if (!isObj(line)) return c.error(path, 'a cover line must be { text, x, y, size, maxWidth, … }');
+	if (!(COVER_TEXT_SOURCES as readonly string[]).includes(line.text)) c.error([...path, 'text'], `text must be one of ${COVER_TEXT_SOURCES.join(', ')} (the text comes from a text field, never from the image)`);
+	if (line.text === 'custom') {
+		if (!isObj(line.custom) || Object.values(line.custom).some((v) => !isStr(v))) c.error([...path, 'custom'], 'custom must be the text per language { de: "…", en: "…" }');
+		else {
+			const missing = (languages?.length ? languages : Object.keys(line.custom)).filter((l) => !isStr(line.custom[l]) || !line.custom[l].trim());
+			if (missing.length) c.warn([...path, 'custom'], `the custom text is empty in ${missing.join(', ')}`);
+		}
+	} else if (line.custom !== undefined) c.warn([...path, 'custom'], `custom is only used with text "custom" (this line shows the ${line.text} title)`);
+	for (const key of ['x', 'y', 'size', 'maxWidth', 'rotate', 'skew'] as const) {
+		const value = line[key];
+		const required = key !== 'rotate' && key !== 'skew';
+		if (value === undefined && !required) continue;
+		const { min, max } = COVER_LIMITS[key];
+		if (!isNum(value)) c.error([...path, key], `${key} must be a number`);
+		else if (value < min || value > max) c.error([...path, key], `${key} must be between ${min} and ${max}`);
+	}
+	if (line.quotes !== undefined && typeof line.quotes !== 'boolean') c.error([...path, 'quotes'], 'quotes must be true or false');
+	if (line.align !== undefined && !(COVER_ALIGNS as readonly string[]).includes(line.align)) c.error([...path, 'align'], `align must be one of ${COVER_ALIGNS.join(', ')}`);
+	for (const key of ['color', 'outline'] as const)
+		if (line[key] !== undefined && !(COVER_COLORS as readonly string[]).includes(line[key])) c.error([...path, key], `${key} must be a palette colour: ${COVER_COLORS.join(', ')}`);
 }
 
 /** season1.json: meta (Season type) + the sequence (the chapters' visibility) */
@@ -598,7 +645,11 @@ function checkToon(c: Collector, t: any, locale: string) {
 	for (const field of TOON_NEUTRAL_FIELDS) {
 		if (t[field] !== undefined) c.warn([field], `${field} is the same in every language: it belongs to the toon entry (toon:${t.id || '<toon>'}) – the reader ignores it here`);
 	}
+	if (t.cover !== undefined) c.warn(['cover'], COVER_BELONGS_TO_SEASON);
 }
+
+/** covers are per season (owner 2026-10-02): a toon is represented by its avatar */
+const COVER_BELONGS_TO_SEASON = "the cover belongs to the season (season.cover, the season's cover editor in the creator) – a toon is shown with its avatar";
 
 /** The toon's index entry (`ToonIndex`, entity `toon:<toon>`): the language-neutral settings (`TOON_NEUTRAL_FIELDS`), all optional */
 function checkToonIndex(c: Collector, t: any) {
@@ -607,7 +658,7 @@ function checkToonIndex(c: Collector, t: any) {
 	if (t.authors !== undefined) checkStringList(c, t.authors, ['authors']);
 	if (t.chapters !== undefined && !Number.isInteger(t.chapters)) c.error(['chapters'], 'chapters must be an integer');
 	if (t.thumbnail !== undefined) checkImagePath(c, t.thumbnail, ['thumbnail']);
-	if (t.cover !== undefined) checkCover(c, t.cover);
+	if (t.cover !== undefined) c.warn(['cover'], COVER_BELONGS_TO_SEASON);
 	if (t.map !== undefined) {
 		// the toon's start view on the world map (agents/MAP.md §2.2); the world's size and layers live in the entity `map`
 		if (!isObj(t.map)) c.error(['map'], 'map must be the start view { center?: { x, y }, zoom? }');

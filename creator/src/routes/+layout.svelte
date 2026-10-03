@@ -91,6 +91,7 @@
 		// every chapter belongs to a season; the editor works on season 1 for now
 		const season = page.params.seasonNumber ?? (page.params.chapterNumber ? '1' : null);
 		if (season) out.push({ href: `/${toonId}/season/${season}`, label: fileLabel(entities.season(toonId, Number(season))) });
+		if (route === '/[toonId]/season/[seasonNumber]/cover') out.push({ href: `/${toonId}/season/${season}/cover`, label: m['creator.cover_editor']() });
 		if (page.params.chapterNumber) {
 			const n = page.params.chapterNumber;
 			out.push({ href: `/${toonId}/chapter/${n}`, label: fileLabel(entities.chapter(toonId, Number(n))) });
@@ -183,7 +184,10 @@
 			const entry = (id: string, label: string, href: string, keywords?: string): PaletteLink => ({ id: `${t.id}-${id}`, label: `${name} · ${label}`, href, keywords: `${t.id} ${keywords ?? ''}` });
 			return [
 				{ id: `${t.id}-toon`, label: name, hint: m['palette.toon'](), href: `/${t.id}`, keywords: t.id },
-				...(parts?.seasons ?? []).map((n) => entry(`season-${n}`, fileLabel(entities.season(t.id, n)), `/${t.id}/season/${n}`, 'season staffel')),
+				...(parts?.seasons ?? []).flatMap((n) => [
+					entry(`season-${n}`, fileLabel(entities.season(t.id, n)), `/${t.id}/season/${n}`, 'season staffel'),
+					entry(`season-${n}-cover`, `${fileLabel(entities.season(t.id, n))} · ${m['creator.cover_editor']()}`, `/${t.id}/season/${n}/cover`, 'cover lettering schriftzug titel season staffel')
+				]),
 				...(parts?.chapters ?? []).map((n) => entry(`chapter-${n}`, fileLabel(entities.chapter(t.id, n)), `/${t.id}/chapter/${n}`, 'chapter kapitel')),
 				entry('script', m['creator.script'](), `/${t.id}/script`, 'script drehbuch screenplay'),
 				entry('cast', m['creator.cast'](), `/${t.id}/cast`, 'cast besetzung'),

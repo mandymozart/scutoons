@@ -30,7 +30,7 @@
 				},
 				"cover": {
 					"$ref": "#/definitions/Cover",
-					"description": "language-neutral like `download` / `trailer` (the creator writes it to every locale); not shown by the reader yet"
+					"description": "The season's cover (owner 2026-10-02: covers are per season; a toon is represented by its avatar): text-free art + the lettering layout, language-neutral like `download` / `trailer` (the creator's cover editor writes it to every locale). The toon page shows the cover of the season it presents."
 				},
 				"download": {
 					"$ref": "#/definitions/Download",
@@ -80,11 +80,130 @@
 					"type": "string"
 				},
 				"lettering": {
-					"type": "boolean",
-					"description": "the image is lettering-free: the UI renders the title over it (default false = shown as it is)"
+					"anyOf": [
+						{
+							"type": "boolean"
+						},
+						{
+							"$ref": "#/definitions/CoverLettering"
+						}
+					],
+					"description": "the image is lettering-free: the UI renders the title over it (default false = shown as it is). `true` = the default layout (the toon's name small, the season's title big in quotes); an object = a layout per format from the creator's cover editor (`CoverLettering`, cover.ts) – texts from the text fields, never baked"
 				}
 			},
-			"description": "A toon's / season's cover (language-neutral, owner 2026-10-01: media are shared by all languages). The artwork carries no text: with `lettering: true` the UI sets the toon's name + the season's title over it in the reader's language (`CoverLettering` in `@scutoons/reader`, agents/DATA.md \"Language-independent media\"). Without it the image is shown as it is – for artwork that still has its title baked in (catpope until the lettering-free cover is delivered)."
+			"description": "A toon's / season's cover (language-neutral, owner 2026-10-01: media are shared by all languages). The artwork carries no text: with `lettering` the UI sets the title lines over it in the reader's language (`CoverArt` in `@scutoons/reader`, agents/DATA.md \"Language-independent media\"). Without it the image is shown as it is – for artwork that still has its title baked in (catpope until the lettering-free cover is delivered)."
+		},
+		"CoverLettering": {
+			"type": "object",
+			"properties": {
+				"square": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CoverLine"
+					}
+				},
+				"portrait": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CoverLine"
+					}
+				}
+			},
+			"description": "a layout per format; a format without lines uses the default layout"
+		},
+		"CoverLine": {
+			"type": "object",
+			"properties": {
+				"text": {
+					"$ref": "#/definitions/CoverTextSource",
+					"description": "the text: the toon's title, the season's title, or `custom`"
+				},
+				"custom": {
+					"$ref": "#/definitions/Localized",
+					"description": "the line's own text per language (only with `text: 'custom'`), e.g. { de: \"Staffel 1\", en: \"Season 1\" }"
+				},
+				"quotes": {
+					"type": "boolean",
+					"description": "set the text in quotes (\"…\")"
+				},
+				"x": {
+					"type": "number",
+					"description": "the centre of the line's box in % of the cover's width"
+				},
+				"y": {
+					"type": "number",
+					"description": "the centre of the line's box in % of the cover's height"
+				},
+				"size": {
+					"type": "number",
+					"description": "font size in % of the cover's width (the lettering scales with the art)"
+				},
+				"maxWidth": {
+					"type": "number",
+					"description": "the line's box width in % of the cover's width: a longer text (a translation) shrinks to fit it"
+				},
+				"rotate": {
+					"type": "number",
+					"description": "degrees, negative = tilted up to the right like the hand-lettered catpope cover"
+				},
+				"skew": {
+					"type": "number",
+					"description": "horizontal skew in degrees"
+				},
+				"align": {
+					"$ref": "#/definitions/CoverAlign",
+					"description": "the text inside its box (default center)"
+				},
+				"color": {
+					"$ref": "#/definitions/CoverColor",
+					"description": "fill colour (default paper)"
+				},
+				"outline": {
+					"$ref": "#/definitions/CoverColor",
+					"description": "outline + hard shadow colour (default ink)"
+				}
+			},
+			"required": [
+				"text",
+				"x",
+				"y",
+				"size",
+				"maxWidth"
+			],
+			"description": "One line of lettering. Geometry is language-neutral; the text comes from a text field (never baked)."
+		},
+		"CoverTextSource": {
+			"type": "string",
+			"enum": [
+				"toon",
+				"season",
+				"custom"
+			]
+		},
+		"Localized": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			}
+		},
+		"CoverAlign": {
+			"type": "string",
+			"enum": [
+				"left",
+				"center",
+				"right"
+			]
+		},
+		"CoverColor": {
+			"type": "string",
+			"enum": [
+				"paper",
+				"ink",
+				"cyan",
+				"purple",
+				"green",
+				"red"
+			]
 		},
 		"Download": {
 			"type": "object",
