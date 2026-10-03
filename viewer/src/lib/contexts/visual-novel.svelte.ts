@@ -27,6 +27,13 @@ export function createVisualNovelContext() {
 	const isProcessingEvents = $state(false);
 	const activeOnomatopoeia = $state<VNActiveOnomatopoeia[]>([]);
 	const onomatopoeiaQueue = $state<VNActiveOnomatopoeia[]>([]);
+	/**
+	 * Text boxes that onomatopoeia events reveal (`params.dialog`, agents/DESIGN.md "Onomatopoeia → text box"): the ids a
+	 * group script refers to (hidden until revealed; slice events are known by their slice) and the ids already revealed
+	 * on this page view (they stay).
+	 */
+	const dialogRefs = $state<Record<string, true>>({});
+	const revealedDialogs = $state<Record<string, true>>({});
 
 	let messageVisible = $state(false);
 	const message = $state<Message>({
@@ -267,13 +274,14 @@ export function createVisualNovelContext() {
 
 
 	function showOnomatopeia(
-		params: Onomatopoeia & { wait?: boolean; mode?: TriggerMode }
+		params: Onomatopoeia & { wait?: boolean; mode?: TriggerMode; dialog?: string }
 	): void {
 		const id = `ono-${Date.now()}-${Math.random()}`;
-		const { wait = false, mode = 'poly' as TriggerMode, ...data } = params;
+		const { wait = false, mode = 'poly' as TriggerMode, dialog, ...data } = params;
 
 		const item: VNActiveOnomatopoeia = {
 			...data,
+			...(typeof dialog === 'string' && dialog ? { dialog } : {}),
 			id,
 			wait,
 			mode,
@@ -284,8 +292,37 @@ export function createVisualNovelContext() {
 		if (mode === 'mono' && hasActiveMono) {
 			onomatopoeiaQueue.push(item);
 		} else {
-			activeOnomatopoeia.push(item);
+			activate(item);
 		}
+	}
+
+	/**
+	 * On screen: the event's own onomatopoeia (vn/onomatopeias), or – with `dialog` – its text box on the slice, which is
+	 * revealed for good. The slice plays the box's effect and calls `onComplete`; a box that isn't on the page (another
+	 * group, a typo) still completes after its time, so a `wait` / mono queue never hangs.
+	 */
+	function activate(item: VNActiveOnomatopoeia): void {
+		activeOnomatopoeia.push(item);
+		if (!item.dialog) return;
+		revealedDialogs[item.dialog] = true;
+		const time = (item.delay ?? 0) + (item.duration ?? 2000);
+		setTimeout(() => handleOnomatopoeiaComplete(item.id), Math.min(Math.max(time, 0), 10_000) + 1500);
+	}
+
+	/** a group script's text box refs (hidden until an event reveals them) */
+	function registerDialogRefs(ids: string[]): void {
+		for (const id of ids) dialogRefs[id] = true;
+	}
+
+	/** a text box waits for its onomatopoeia event (`sliceRefs` = the refs of its own slice's events) */
+	function dialogHidden(id: string | undefined, sliceRefs?: ReadonlySet<string>): boolean {
+		if (!id || revealedDialogs[id]) return false;
+		return !!dialogRefs[id] || !!sliceRefs?.has(id);
+	}
+
+	/** the onomatopoeia event revealing this text box right now */
+	function dialogPlaying(id: string | undefined): VNActiveOnomatopoeia | undefined {
+		return id ? activeOnomatopoeia.find((o) => o.dialog === id) : undefined;
 	}
 
 	function handleOnomatopoeiaComplete(id: string): void {
@@ -297,7 +334,7 @@ export function createVisualNovelContext() {
 			if (item.mode === 'mono' && onomatopoeiaQueue.length > 0) {
 				const next = onomatopoeiaQueue.shift();
 				if (next) {
-					activeOnomatopoeia.push(next);
+					activate(next);
 				}
 			}
 
@@ -338,6 +375,8 @@ export function createVisualNovelContext() {
 		choicesVisible = false;
 		activeOnomatopoeia.length = 0;
 		onomatopoeiaQueue.length = 0;
+		for (const key of Object.keys(dialogRefs)) delete dialogRefs[key];
+		for (const key of Object.keys(revealedDialogs)) delete revealedDialogs[key];
 		navigationTriggered = false;
 		eventsDone = false;
 	}
@@ -383,6 +422,9 @@ export function createVisualNovelContext() {
 		getPendingJumpTo,
 		isNavigationTriggered,
 		showOnomatopeia,
+		registerDialogRefs,
+		dialogHidden,
+		dialogPlaying,
 		setOnomatopoeiaResolver,
 		continueFromOnomatopoeia,
 		clear

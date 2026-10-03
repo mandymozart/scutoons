@@ -381,6 +381,27 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
   `lang` set from the chapter language (German compounds).
 - Variants: `bubble` — plain text inside the art's bubble; `caption` — `paper` box, 2px `ink` border, square
   (on-brand panel caption); `narration` — like caption, italic; `sfx` — hands off to onomatopoeia styling.
+- **Drawn bubble (owner 2026-10-03, "bubble is currently caption").** Why it looked like a caption: `bubble` only ever
+  drew the words (the shape is in chapter 1/2 art), so on text-free art there was no bubble at all, and the creator's
+  new default box is a caption. Now `bubble` + `frame: true` draws a speech bubble: paper ellipse, 2px ink outline, a
+  tail (`tail`: bottom-left (default) · bottom · bottom-right · top-left · top · top-right · none). `frame` stays off by
+  default for bubbles, so published chapters render exactly as before; the creator sets it when a box becomes a bubble.
+- **Outline** (`stroke` colour, `strokeWidth` em, default 0.14): letters with an outline on any variant – the onomatopoeia
+  look (white letters, ink outline) without a variant of its own.
+- **`sfx` is no longer offered** (owner 2026-10-03): old sfx boxes keep rendering; the inspector shows "onomatopoeia (old)"
+  with "convert to a text box with an outline" (bubble without frame, uppercase, white, ink outline).
+
+### Onomatopoeia → text box (owner 2026-10-03, option B)
+
+A `showOnomatopeia` event may name a text box: `params.dialog: "<text box id>"` – on its slice (slice events) or on one
+of the group's slices (a group script). The box is hidden until the event fires, then appears with the event's
+`effect` / `delay` / `duration` (the onomatopoeia effect components, filling the box) and **stays**; `wait` and `mode`
+work as before (a missing box still completes after its time). The box gives the look (variant, font, colour, outline,
+rotation, scale, text per language), the event the timing. The event's own `text` / position / size … are kept in the
+data (older viewer builds still draw the old onomatopoeia) but not used. Events without `params.dialog` are unchanged.
+Creator: the event's "Text box" select (the slice's / group's boxes) or "Create a text box for this"; the canvas marks a
+revealed box "hidden until ⚡ n" / "script n".
+
 - Overflow guard: if translated text exceeds the box, shrink font down to 80% via a `fit` pass
   (ResizeObserver), then allow overflow; the exporter report lists boxes where `en` is > 130% of `de` length.
 

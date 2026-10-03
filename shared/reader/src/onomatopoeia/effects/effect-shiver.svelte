@@ -6,12 +6,15 @@
 		duration = 1000,
 		delay = 0,
 		onComplete,
-		children
+		children,
+		fill = false
 	}: {
 		duration?: number;
 		delay?: number;
 		onComplete: () => void;
 		children: Snippet;
+		/** fill the parent (a text box revealed by an onomatopoeia event) instead of sizing to the content */
+		fill?: boolean;
 	} = $props();
 
 	// initial value only: a delayed effect becomes visible in onMount
@@ -35,7 +38,7 @@
 	});
 </script>
 
-<div class="effect-shiver" class:visible class:playing style="--duration: {duration}ms">
+<div class="effect-shiver" class:fill class:visible class:playing style="--duration: {duration}ms">
 	{@render children()}
 </div>
 
@@ -77,5 +80,11 @@
 		80% {
 			transform: translateX(2px) rotate(1deg);
 		}
+	}
+
+	.fill {
+		display: block;
+		width: 100%;
+		height: 100%;
 	}
 </style>

@@ -68,7 +68,23 @@
 		rotation: number;
 		/** text boxes' uniform scale */
 		scale: number;
+		/** a text box an onomatopoeia event reveals: which one ("⚡ 2" on the slice, "script 3" in the group's script) */
+		revealedBy?: string;
 	}
+
+	/** text box id → the onomatopoeia event that reveals it (`params.dialog`): the slice's events, then the group script */
+	const revealers = $derived.by(() => {
+		const out = new Map<string, string>();
+		const add = (events: any, label: (i: number) => string) =>
+			(Array.isArray(events) ? events : []).forEach((e: any, i: number) => {
+				const ref = e?.type === 'showOnomatopeia' ? e?.params?.dialog : undefined;
+				if (typeof ref === 'string' && ref && !out.has(ref)) out.set(ref, label(i));
+			});
+		add(slice?.events, (i) => `⚡ ${i + 1}`);
+		const group = slicePath.length >= 2 ? doc.get(doc.primary, [...slicePath.slice(0, -2), 'events']) : null;
+		add(group, (i) => `script ${i + 1}`);
+		return out;
+	});
 
 	/** text boxes and placed items can be rotated and scaled on the canvas */
 	const transformable = (item: Item) => item.kind === 'dialog' || item.kind === 'item';
@@ -79,7 +95,8 @@
 		const out: Item[] = [];
 		(slice?.dialog ?? []).forEach((d: any, i: number) => {
 			const path = [...slicePath, 'dialog', i, 'rect'];
-			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, overridden: doc.overrides(path), rotation: num(d.rotation, 0), scale: num(d.scale, 1) });
+			const revealedBy = typeof d?.id === 'string' ? revealers.get(d.id) : undefined;
+			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, overridden: doc.overrides(path), rotation: num(d.rotation, 0), scale: num(d.scale, 1), revealedBy });
 		});
 		(slice?.items ?? []).forEach((it: any, i: number) => {
 			const path = [...slicePath, 'items', i, 'rect'];
@@ -492,6 +509,9 @@
 					onpointerdown={(e) => beginEdit(e, item, 'move')}
 				>
 					<span class="tag">{item.label}{#if item.overridden.length}<em> · {item.overridden.join(',')}≠</em>{/if}</span>
+					{#if item.revealedBy}
+						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.ono_hidden_until']({ event: item.revealedBy })}</span>
+					{/if}
 					{#if selected}
 						{#each handlesOf(item) as h}
 							<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -613,6 +633,15 @@
 		white-space: nowrap;
 		pointer-events: none;
 		opacity: 0;
+	}
+	/* a text box an onomatopoeia event reveals: always marked, under the box */
+	.tag.hidden-until {
+		bottom: auto;
+		top: 100%;
+		opacity: 1;
+		background: var(--paper);
+		color: var(--ink);
+		border: 1px dashed var(--ink);
 	}
 	.box:hover .tag,
 	.box.selected .tag {

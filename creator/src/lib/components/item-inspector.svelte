@@ -80,6 +80,15 @@
 
 		{#if action === 'pickup'}
 			<PropField {doc} path={p('qty')} label={m['creator.slice_item_qty']()} type="number" step={1} min={1} placeholder="1" />
+			<PropField
+				{doc}
+				path={p('pickupMode')}
+				label={m['creator.slice_item_pickup_mode']()}
+				type="select"
+				options={[{ value: 'respawn', label: m['creator.slice_item_pickup_respawn']() }]}
+				placeholder={m['creator.slice_item_pickup_once']()}
+			/>
+			{#if placed.pickupMode === 'respawn'}<p class="hint">{m['creator.slice_item_hint_respawn']()}</p>{/if}
 			<p class="hint">{m['creator.slice_item_hint_pickup']()}</p>
 			{#if def && !def.grantable?.includes('story')}
 				<p class="warn" data-testid="item-not-grantable">{m['creator.slice_item_not_grantable']()}</p>

@@ -45,8 +45,9 @@
 		}
 	}
 
-	function noticeText(n: { item_id: string; qty: number; kind: string; email?: string | null }) {
+	function noticeText(n: { item_id: string; qty: number; kind: string; email?: string | null; reason?: string }) {
 		const name = inventory.nameOf({ item_id: n.item_id, variant: null });
+		if (n.kind === 'refused') return refusedText(n.reason, name);
 		const many = n.qty > 1 ? `${n.qty} × ${name}` : name;
 		if (n.kind === 'gifted') return m['items.gift_done']({ email: n.email ?? '', name: many });
 		if (n.kind === 'gift_received') return m['items.gift_received']({ from: n.email ?? '', name: many });
@@ -57,6 +58,15 @@
 		if (n.kind === 'used') return (inventory.item(n.item_id)?.category === 'food' ? m['items.eaten'] : m['items.used'])({ name });
 		if (n.kind === 'restored') return m['items.restored']({ name });
 		return m['items.granted']({ qty: n.qty, name });
+	}
+
+	/** a placed item that stayed on the slice: why (the API's error code where it said one) */
+	function refusedText(reason: string | undefined, name: string) {
+		if (reason === 'max_reached') return m['items.pickup_max_reached']();
+		if (reason === 'not_grantable' || reason === 'unknown_item') return m['items.pickup_not_grantable']({ name });
+		if (reason === 'already_taken') return m['items.pickup_already_taken']({ name });
+		if (reason === 'rate_limited' || reason === 'cooldown' || reason === 'daily_limit') return m['items.pickup_rate_limited']();
+		return m['items.pickup_failed']({ name });
 	}
 </script>
 

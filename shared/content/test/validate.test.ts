@@ -214,3 +214,34 @@ test('slice items: placed catalog items with an action chosen by the creator; te
 	assert.deepEqual(sliceProblems({ events: [ono({ rotation: 15, scale: 2 })] }), []);
 	assert.deepEqual(sliceProblems({ events: [ono({ rotation: 'x', scale: -1 })] }), ['error groups.0.slices.0.events.0.params.rotation', 'error groups.0.slices.0.events.0.params.scale']);
 });
+
+test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {
+	const rect = { x: 10, y: 10, width: 30 };
+	const box = (extra: object = {}) => ({ id: 'b1', rect, text: 'BAM', ...extra });
+	const ono = (params: object) => ({ type: 'showOnomatopeia', params: { text: 'BAM', ...params }, trigger: { type: 'intersect' } });
+	const chapter = (slice: object, events?: object[]) => ({
+		title: 'P',
+		number: 2,
+		groups: [{ label: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...slice }], ...(events ? { events } : {}) }]
+	});
+	const list = (data: object) => problems('chapter', data).filter((p) => p.includes('groups.0.'));
+	// a slice event revealing a box on its slice; old events without a ref unchanged
+	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'b1', effect: 'shiver' }), ono({})] })), []);
+	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'nope' })] })), ['warning groups.0.slices.0.events.0.params.dialog']);
+	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 3 })] })), ['error groups.0.slices.0.events.0.params.dialog']);
+	// a group script may reveal a box on any of the group's slices
+	const groupEvent = { type: 'showOnomatopeia', params: { text: 'BAM', dialog: 'b1' } };
+	assert.deepEqual(list(chapter({ dialog: [box()] }, [groupEvent])), []);
+	assert.deepEqual(list(chapter({}, [groupEvent])), ['warning groups.0.events.0.params.dialog']);
+	// bubble: frame (a drawn bubble) + tail; outline
+	assert.deepEqual(list(chapter({ dialog: [box({ variant: 'bubble', frame: true, tail: 'bottom-right', stroke: '#000', strokeWidth: 0.1, color: '#fff' })] })), []);
+	assert.deepEqual(list(chapter({ dialog: [box({ tail: 'left', stroke: 3 })] })), [
+		'error groups.0.slices.0.dialog.0.stroke',
+		'error groups.0.slices.0.dialog.0.tail',
+		'info groups.0.slices.0.dialog.0.tail'
+	]);
+	// placed item pickup mode
+	const item = (extra: object) => ({ items: [{ id: 'tuna_can-1', item: 'tuna_can', rect, action: 'pickup', ...extra }] });
+	assert.deepEqual(list(chapter(item({ pickupMode: 'respawn' }))), []);
+	assert.deepEqual(list(chapter(item({ pickupMode: 'daily' }))), ['error groups.0.slices.0.items.0.pickupMode']);
+});
