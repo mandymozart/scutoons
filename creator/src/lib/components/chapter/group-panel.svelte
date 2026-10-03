@@ -45,9 +45,4 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-	summary {
-		cursor: pointer;
-		font-size: var(--type-caption-size);
-		margin-bottom: 0.3rem;
-	}
 </style>

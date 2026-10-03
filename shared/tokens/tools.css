@@ -160,6 +160,8 @@
 
 /* ── Groups: fieldset = no frame (owner 2026-10-03: framed groups looked like a different form concept than the other
    sections), legend = the tool label above the fields, like a field's label; details = a label row ─────────────── */
+/* a fold's row is a label like a legend (caption, uppercase); open, the content starts --space-05 below it
+   (owner 2026-10-03: one fold style – no component restyles its summary) */
 :where(.sc-tool) :where(fieldset) {
 	margin: 0 0 var(--space-1);
 	padding: 0;
@@ -184,6 +186,8 @@
 	align-items: center;
 	gap: var(--space-05);
 	min-height: var(--control-height);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
 	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
@@ -206,6 +210,9 @@
 }
 :where(.sc-tool) :where(details[open] > summary)::before {
 	transform: rotate(90deg);
+}
+:where(.sc-tool) :where(details[open] > summary) {
+	margin-bottom: var(--space-05);
 }
 
 /* ── Tables: roomy rows, uppercase regular headers on a 2px ink rule ────────────────────────────────────────────────── */

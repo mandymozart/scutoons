@@ -785,15 +785,6 @@
 		grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
 		border: var(--border-width-regular) solid var(--ink);
 	}
-	.advanced summary {
-		cursor: pointer;
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-	}
-	.advanced[open] summary {
-		margin-bottom: var(--space-05);
-	}
 	.whole {
 		display: flex;
 		align-items: center;

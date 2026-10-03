@@ -547,12 +547,6 @@
 		gap: 0.5rem;
 		flex: none;
 	}
-	.meta summary {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-		cursor: pointer;
-	}
 	.meta summary:hover span {
 		text-decoration: underline;
 	}

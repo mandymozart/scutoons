@@ -157,6 +157,9 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 			// (.is-*), .sc-chip-control, .sc-mark – @scutoons/ui's own Badge is the one shared component
 			if (/background(-color)?:\s*var\(--badge-/.test(m[2]) && !/\.sc-/.test(sel) && !name.endsWith('shared/ui/src/badge.svelte'))
 				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local status chip: tools.css .sc-chip.is-* / .sc-chip-control / .sc-mark)`);
+			// a restyled fold row (owner 2026-10-03, step 4: tools.css styles every summary; `fold-ok` + reason for a fold that is a control, e.g. a dropdown)
+			if (sel.split(/,(?![^(]*\))/).some((x) => /(^|[\s>])summary(\[|:(?!hover)|$)/.test(x.trim()) || /\]\s*>?\s*summary$/.test(x.trim())) && /(^|[;\s])(font-size|text-transform|letter-spacing|cursor|margin(-bottom)?)\s*:/.test(m[2]) && !/fold-ok/.test(css.slice(m.index, m.index + m[0].length)))
+				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local fold style: tools.css styles summary, or \`fold-ok\` + the reason)`);
 			if (/\.g\d\b/.test(sel)) fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field-grid copy)`);
 			else if (/display:\s*grid/.test(m[2]) && sel.split(/,(?![^(]*\))/).some((x) => FIELD_GRID_CLASS.test(x.trim())))
 				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field grid: tools.css .sc-fields, or \`grid-ok\` + the reason)`);

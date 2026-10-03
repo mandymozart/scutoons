@@ -200,11 +200,6 @@
 	details {
 		flex-basis: 100%;
 	}
-	summary {
-		cursor: pointer;
-		font-size: var(--type-caption-size);
-		color: var(--muted);
-	}
 	pre {
 		white-space: pre-wrap;
 		font-size: var(--type-caption-size);

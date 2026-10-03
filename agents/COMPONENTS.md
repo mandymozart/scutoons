@@ -206,6 +206,10 @@ Done (branch `components`):
   `status-badges` component is gone (`statusWord` → `lib/editor/status-word.ts`). Not chips, left alone: the toggle
   buttons named `.chip` (cast personas, map toon filters, role picker) – controls; @scutoons/ui `Badge` stays the shared
   component (admin; no uppercase for ids). `check:tools-css` flags a local `--badge-*` filled rule.
+- Step 4 ✓ (the commit adding this line) – one fold row in tools.css: caption size (like a legend) + `--space-05` under an
+  open summary; local summary CSS gone (dialog-inspector, vn-events, group-panel, apose-editor, wanted-images,
+  script meta). Visible: the script's title-page fold row is caption size now. `check:tools-css` flags a restyled
+  summary (`fold-ok` for admin's events dropdown, a control).
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

@@ -99,15 +99,6 @@
 {/if}
 
 <style>
-	.advanced summary {
-		cursor: pointer;
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-	}
-	.advanced[open] > summary {
-		margin-bottom: var(--space-05);
-	}
 	.advanced[open] {
 		display: flex;
 		flex-direction: column;
@@ -132,8 +123,5 @@
 	}
 	h3 {
 		margin: 0;
-	}
-	summary {
-		margin-bottom: var(--space-05);
 	}
 </style>
