@@ -97,27 +97,31 @@
 </div>
 
 <style>
+	/* a small label bottom left: clear of the fixed header buttons, below the menus that slide in (owner 2026-10-03:
+	   the bar at the top looked broken on mobile) */
 	.draft-preview {
-		position: sticky;
-		top: env(safe-area-inset-top, 0px);
-		z-index: 1000;
+		position: fixed;
+		left: 0.5rem;
+		bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+		z-index: 900;
 		margin: 0;
 		display: flex;
-		justify-content: center;
 		align-items: center;
-		gap: 0.75rem;
-		padding: 0.25rem 1rem;
+		gap: 0.5rem;
+		padding: 0.25rem 0.25rem 0.25rem 0.5rem;
 		background: var(--ink);
 		color: var(--paper);
-		font-size: 0.75rem;
+		font-size: 0.6667rem;
+		line-height: 1;
 		text-transform: uppercase;
 		letter-spacing: 0.05em;
+		white-space: nowrap;
 		button {
 			font: inherit;
 			color: inherit;
 			background: none;
 			border: 1px solid currentColor;
-			padding: 0 0.5rem;
+			padding: 0.2rem 0.4rem;
 			cursor: pointer;
 		}
 	}
