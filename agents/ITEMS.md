@@ -1291,7 +1291,7 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   - Interval = `"visit"` (every visit / reload) or `{ minutes | hours | days: n }`.
   - ITEM (catalog, `ItemDef.respawn`): `{ default, min?, max? }` – the default interval and the range a placement may
     choose (no `min` = the default is the shortest); none / null = it never reappears (a one-time find). Set in
-    server config/items.json (cucumber: 6 h, 1 h … 7 d; tuna can: 12 h, 1 h … 7 d; every other item: never) and
+    server config/items.json (cucumber 6 h and tuna can 12 h (1 h … 7 d), weed 12 h (1 h … 7 d), testo 1 d (6 h … 7 d), psilocybin and lsd 3 d (1 … 14 d), semaglutide 7 d (1 … 30 d); every other item: never – there is no onion item in the catalog yet) and
     overridable in admin → Catalog → Respawn (setting `item_respawn`, JSON map item id → rule | null; GET
     `/admin/catalog/respawn`, PUT `/admin/catalog/respawn/<item>` `{ respawn }` | `{ reset: true }`); `/api/items/` and
     the admin catalog serve the effective rule.
