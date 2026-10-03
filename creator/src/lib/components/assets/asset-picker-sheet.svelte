@@ -25,6 +25,7 @@
 </script>
 
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
 	import { CloseButton, Icon, Sheet } from '@scutoons/ui';
 	import { assetsApi } from '$lib/api.ts';
@@ -76,6 +77,7 @@
 	let uploadFile = $state<File | null>(null);
 	let uploading = $state(false);
 	let uploadError = $state('');
+	let uploadInput = $state<HTMLInputElement>();
 	let timer: ReturnType<typeof setTimeout> | undefined;
 	let request = 0;
 
@@ -89,7 +91,9 @@
 		chosen = null;
 		uploadFile = null;
 		uploadError = '';
-		void load(1, value);
+		// untracked: load() reads the search and the filters – tracked, every keystroke re-ran this reset (search and
+		// "unused only" looked dead, owner 2026-10-03)
+		untrack(() => void load(1, value));
 	});
 
 	async function load(next = 1, select = '') {
@@ -225,22 +229,7 @@
 
 <Sheet bind:open title={title ?? m['creator.assets_picker_title']()} side="right" closeLabel={m['creator.characters_close']()}>
 	<div class="picker" data-testid="asset-picker">
-		<div class="filters">
-			<!-- svelte-ignore a11y_autofocus -->
-			<input type="search" bind:value={query} oninput={refilter} placeholder={m['creator.assets_search']()} autofocus data-testid="asset-search" />
-			<select bind:value={folder} onchange={() => load(1)} aria-label={m['creator.assets_folder']()} data-testid="asset-folder">
-				<option value="">{m['creator.assets_all_folders']()}</option>
-				{#each folders as f (f.folder ?? '')}<option value={f.folder ?? ''}>{f.folder ?? '/'} ({f.assets})</option>{/each}
-			</select>
-			<select bind:value={kindFilter} onchange={() => load(1)} aria-label={m['creator.assets_kind']()} data-testid="asset-kind">
-				<option value="">{m['creator.assets_all_kinds']()}</option>
-				{#each ASSET_KINDS as k (k)}<option value={k}>{m[`creator.assets_kind_${k}`]()}</option>{/each}
-			</select>
-			<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {m['creator.assets_unused_only']()}</label>
-		</div>
-
-		{#if error}<p class="error" role="alert">{error}</p>{/if}
-
+		<!-- order (owner 2026-10-03): the selected asset · upload · the library (search, filters, grid) -->
 		{#if chosen}
 			{@const c = chosen}
 			<section class="detail" data-testid="asset-detail" aria-label={c.title}>
@@ -269,6 +258,37 @@
 				<button type="button" class="primary use" onclick={() => pick(c)} data-testid="asset-use">{m['creator.assets_use']()}</button>
 			</section>
 		{/if}
+
+		<!-- upload: a button (owner 2026-10-03: the fold-out was confusing); the path appears once a file is chosen -->
+		<div class="upload" data-testid="asset-upload">
+			<button type="button" class="secondary" disabled={uploading} onclick={() => uploadInput?.click()} data-testid="asset-upload-choose">{m['creator.assets_upload']()} …</button>
+			<input bind:this={uploadInput} type="file" hidden accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
+			{#if uploadFile}
+				<label class="sc-label" for="asset-upload-path">{m['creator.assets_upload_path']()}</label>
+				<input id="asset-upload-path" type="text" bind:value={uploadPath} data-testid="asset-upload-path" />
+				<button type="button" class="primary" disabled={uploading || !uploadPath} onclick={upload} data-testid="asset-upload-go">{uploading ? '…' : m['creator.assets_upload']()} · {bytes(uploadFile.size)}</button>
+			{/if}
+			{#if uploadError}<p class="error" role="alert">{uploadError}</p>{/if}
+		</div>
+
+		<div class="filters">
+			<!-- svelte-ignore a11y_autofocus -->
+			<input type="search" bind:value={query} oninput={refilter} placeholder={m['creator.assets_search']()} autofocus data-testid="asset-search" />
+			<!-- one-way (value + onchange): a two-way bind wrote "" back while the options were still loading, so the folder /
+			     kind of the field were lost on the next load (owner 2026-10-03) -->
+			<select value={folder} onchange={(e) => { folder = e.currentTarget.value; load(1); }} aria-label={m['creator.assets_folder']()} data-testid="asset-folder">
+				<option value="">{m['creator.assets_all_folders']()}</option>
+				{#if folder && !folders.some((f) => (f.folder ?? '') === folder)}<option value={folder}>{folder}</option>{/if}
+				{#each folders as f (f.folder ?? '')}<option value={f.folder ?? ''} selected={(f.folder ?? '') === folder}>{f.folder ?? '/'} ({f.assets})</option>{/each}
+			</select>
+			<select value={kindFilter} onchange={(e) => { kindFilter = e.currentTarget.value as AssetPickerKind; load(1); }} aria-label={m['creator.assets_kind']()} data-testid="asset-kind">
+				<option value="">{m['creator.assets_all_kinds']()}</option>
+				{#each ASSET_KINDS as k (k)}<option value={k} selected={k === kindFilter}>{m[`creator.assets_kind_${k}`]()}</option>{/each}
+			</select>
+			<label class="check"><input type="checkbox" checked={unusedOnly} onchange={(e) => { unusedOnly = e.currentTarget.checked; load(1); }} /> {m['creator.assets_unused_only']()}</label>
+		</div>
+
+		{#if error}<p class="error" role="alert">{error}</p>{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="cards" onkeydown={arrows} bind:this={grid} aria-busy={loading}>
@@ -302,16 +322,6 @@
 			<button type="button" class="secondary more" disabled={loading} onclick={() => load(page + 1)}>{m['creator.assets_more']()} ({items.length} / {total})</button>
 		{/if}
 
-		<details class="upload" data-testid="asset-upload">
-			<summary>{m['creator.assets_upload']()}</summary>
-			<input type="file" accept={kind === 'image' ? 'image/*' : kind === 'video' ? 'video/mp4,video/webm' : kind === 'audio' ? 'audio/*' : kind === 'archive' ? '.zip' : undefined} onchange={chooseFile} data-testid="asset-upload-file" />
-			{#if uploadFile}
-				<label class="sc-label" for="asset-upload-path">{m['creator.assets_upload_path']()}</label>
-				<input id="asset-upload-path" type="text" bind:value={uploadPath} data-testid="asset-upload-path" />
-				<button type="button" class="primary" disabled={uploading || !uploadPath} onclick={upload} data-testid="asset-upload-go">{uploading ? '…' : m['creator.assets_upload']()} · {bytes(uploadFile.size)}</button>
-			{/if}
-			{#if uploadError}<p class="error" role="alert">{uploadError}</p>{/if}
-		</details>
 	</div>
 </Sheet>
 
@@ -468,12 +478,10 @@
 	.upload {
 		display: flex;
 		flex-direction: column;
+		align-items: flex-start;
 		gap: 0.5rem;
-		border-top: var(--border-width-regular) solid var(--ink);
-		padding-top: 0.5rem;
-	}
-	.upload[open] {
-		display: flex;
+		border-bottom: var(--border-width-regular) solid var(--ink);
+		padding-bottom: 0.75rem;
 	}
 	.upload input[type='text'] {
 		width: 100%;
