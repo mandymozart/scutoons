@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 
 	/**
 	 * Page frame of the tools (admin, creator): top bar + optional sidebar (left) + content + optional aside (right),
@@ -119,7 +119,8 @@
 
 	$effect(() => {
 		if (!storageKey || !sidebarEl) return;
-		baseWidth = sidebarEl.offsetWidth; // measured before a saved width applies
+		// measured before a saved width applies, never the rail; untracked: folding must not re-run this restore
+		if (!untrack(() => folded)) baseWidth = sidebarEl.offsetWidth;
 		try {
 			const saved = Number(localStorage.getItem(storageKey));
 			if (saved > 0) customWidth = saved;
@@ -129,8 +130,8 @@
 	});
 
 	function measureBase() {
-		if (!baseWidth && sidebarEl && customWidth === null) baseWidth = sidebarEl.offsetWidth;
-		return baseWidth;
+		if (!baseWidth && sidebarEl && customWidth === null && !folded) baseWidth = sidebarEl.offsetWidth;
+		return baseWidth || 240;
 	}
 
 	function clamp(px: number) {
@@ -154,13 +155,18 @@
 		const handle = event.currentTarget as HTMLElement;
 		handle.setPointerCapture(event.pointerId);
 		const move = (e: PointerEvent) => {
-			// dragged well below the normal width: fold to the rail (foldable)
-			if (foldKey && e.clientX - left < measureBase() * 0.6) {
+			const x = e.clientX - left;
+			if (foldKey && folded) {
+				// the rail dragged open (owner 2026-10-03): unfold once it is pulled out a bit, then size it
+				if (x < 64) return;
+				setFolded(false);
+			} else if (foldKey && x < measureBase() * 0.6) {
+				// dragged well below the normal width: fold to the rail (foldable)
 				setFolded(true);
 				end();
 				return;
 			}
-			customWidth = clamp(e.clientX - left);
+			customWidth = clamp(x);
 		};
 		const end = () => {
 			handle.removeEventListener('pointermove', move);
@@ -236,7 +242,7 @@
 					{@render sidebar()}
 				{/if}
 			</svelte:element>
-			{#if resizeKey && !(folded && foldKey)}
+			{#if resizeKey}
 				<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 				<div

@@ -17,7 +17,6 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import MetaPage from '../meta-page.svelte';
-	import ScriptRules from './script-rules.svelte';
 
 	/**
 	 * The toon's screenplay (entity `script:<toon>:<l>`, agents/DESIGN.md "Creator: script page"): one big monospace text
@@ -36,15 +35,83 @@
 	const requested = page.url.searchParams.get('lang');
 	// svelte-ignore state_referenced_locally
 	let locale = $state<string>(requested && doc.locales.includes(requested) ? requested : (textLanguage.chosen(doc.locales) ?? doc.primary));
-	// the top bar's TEXT language (one script at a time: "all" leaves the choice to the buttons below)
+	// the top bar's TEXT language decides which one is shown (one script at a time)
 	let followed = textLanguage.value;
 	$effect(() => {
 		if (textLanguage.value === followed) return;
 		followed = textLanguage.value;
-		const chosen = textLanguage.chosen(doc.locales);
-		if (chosen) untrack(() => switchLocale(chosen));
+		// a language from the header; "source" / "all" = the script's source language (one script at a time)
+		const chosen = textLanguage.chosen(doc.locales) ?? doc.primary;
+		untrack(() => switchLocale(chosen));
 	});
 	let area = $state<HTMLTextAreaElement | undefined>();
+
+	// ── layout (owner 2026-10-03): a drag edge between the index and the text; the text ends 1rem above the footer ──
+	const OUTLINE_KEY = 'sc-script-outline-width';
+	let layoutEl = $state<HTMLElement>();
+	let outlineWidth = $state<number | null>(null);
+	let textHeight = $state<number | null>(null);
+	try {
+		const saved = Number(typeof localStorage !== 'undefined' ? localStorage.getItem(OUTLINE_KEY) : 0);
+		if (saved > 0) outlineWidth = saved;
+	} catch {
+		// not remembered
+	}
+	const clampOutline = (px: number) => Math.round(Math.min(Math.max(px, 160), Math.max(160, (layoutEl?.clientWidth ?? 800) / 2)));
+	function rememberOutline() {
+		try {
+			if (outlineWidth === null) localStorage.removeItem(OUTLINE_KEY);
+			else localStorage.setItem(OUTLINE_KEY, String(outlineWidth));
+		} catch {
+			// not remembered
+		}
+	}
+	function startOutlineResize(event: PointerEvent) {
+		if (!layoutEl) return;
+		event.preventDefault();
+		const left = layoutEl.getBoundingClientRect().left;
+		const handle = event.currentTarget as HTMLElement;
+		handle.setPointerCapture(event.pointerId);
+		const move = (e: PointerEvent) => (outlineWidth = clampOutline(e.clientX - left));
+		const end = () => {
+			handle.removeEventListener('pointermove', move);
+			handle.removeEventListener('pointerup', end);
+			handle.removeEventListener('pointercancel', end);
+			rememberOutline();
+		};
+		handle.addEventListener('pointermove', move);
+		handle.addEventListener('pointerup', end);
+		handle.addEventListener('pointercancel', end);
+	}
+	function keyOutlineResize(event: KeyboardEvent) {
+		const step = event.shiftKey ? 64 : 16;
+		const current = outlineWidth ?? 260;
+		if (event.key === 'ArrowRight') outlineWidth = clampOutline(current + step);
+		else if (event.key === 'ArrowLeft') outlineWidth = clampOutline(current - step);
+		else if (event.key === 'Home') outlineWidth = null;
+		else return;
+		event.preventDefault();
+		rememberOutline();
+	}
+	/** the text (and the index) reach down to 1rem above the bottom action bar – never under it */
+	function fitHeight() {
+		if (!area) return;
+		const bar = document.querySelector<HTMLElement>('.sc-action-bar');
+		const barHeight = bar ? bar.getBoundingClientRect().height : 0;
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+		textHeight = Math.max(240, Math.floor(window.innerHeight - area.getBoundingClientRect().top - barHeight - rem));
+	}
+	$effect(() => {
+		if (!area) return;
+		fitHeight();
+		const observer = new ResizeObserver(() => fitHeight());
+		observer.observe(document.documentElement);
+		window.addEventListener('resize', fitHeight);
+		return () => {
+			observer.disconnect();
+			window.removeEventListener('resize', fitHeight);
+		};
+	});
 	/** the locale the textarea currently shows (the one a pending edit belongs to) */
 	let shown: string | null = null;
 	let timer: ReturnType<typeof setTimeout> | null = null;
@@ -241,20 +308,8 @@
 <MetaPage {toon} title={m['creator.script']()} docs={[doc]} {validate} wide help="script" translationsOptional beforeSave={flush}>
 	<div class="script-page" data-testid="script-editor">
 		<header class="top">
-			<div class="locales" role="group" aria-label={m['creator.languages']()}>
-				{#each doc.locales as l (l)}
-					<button
-						type="button"
-						class="ghost"
-						class:active={l === locale}
-						aria-pressed={l === locale}
-						onclick={() => switchLocale(l)}
-						data-testid="script-locale-{l}"
-					>
-						{l}{l === doc.primary ? ` · ${m['creator.script_source']()}` : ''}{doc.dirtyLocales.includes(l) ? ' •' : ''}
-					</button>
-				{/each}
-			</div>
+			<!-- the language comes from the header's text language switch (owner 2026-10-03: no own switch here) -->
+			<a class="rules-link" href="/guide#script-format" target="_blank" rel="noopener" data-testid="script-rules-link">{m['creator.script_rules']()}</a>
 			{#if script}
 				<span class="hint" data-testid="script-stats">
 					{m['creator.script_lines']({ lines: lineCount })} · {m['creator.script_position']({ line: cursor.line, column: cursor.column })}
@@ -275,7 +330,7 @@
 				</p>
 			</section>
 		{:else}
-			<div class="layout">
+			<div class="layout" bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined}>
 				<aside class="side">
 					<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
 						<h2>{m['creator.script_outline']()}</h2>
@@ -301,11 +356,20 @@
 							</ol>
 						{/if}
 					</section>
-					<details class="rules-panel" data-testid="script-rules-panel">
-						<summary>{m['creator.script_rules']()}</summary>
-						<ScriptRules />
-					</details>
 				</aside>
+				<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
+				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+				<div
+					class="split"
+					role="separator"
+					aria-orientation="vertical"
+					aria-label={m['creator.resize_panel']()}
+					tabindex="0"
+					title={m['creator.resize_panel']()}
+					onpointerdown={startOutlineResize}
+					onkeydown={keyOutlineResize}
+					ondblclick={() => ((outlineWidth = null), rememberOutline())}
+				></div>
 
 				<div class="main">
 					<details class="meta" data-testid="script-meta">
@@ -360,19 +424,25 @@
 		align-items: center;
 		justify-content: space-between;
 	}
-	.locales {
-		display: flex;
-		gap: 0.25rem;
-	}
-	.locales button.active {
-		background: var(--ink);
-		color: var(--paper);
-	}
 	.layout {
 		display: grid;
-		grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
-		gap: 1rem;
+		grid-template-columns: var(--outline-width, 260px) 0.75rem minmax(0, 1fr);
+		gap: 0 0.25rem;
 		align-items: start;
+	}
+	.split {
+		align-self: stretch;
+		cursor: col-resize;
+		touch-action: none;
+	}
+	.split:hover,
+	.split:focus-visible {
+		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
+		outline: none;
+	}
+	.rules-link {
+		margin-left: auto;
+		color: var(--ink);
 	}
 	@media (max-width: 900px) {
 		.layout {
@@ -382,14 +452,15 @@
 			position: static !important;
 			max-height: 240px !important;
 		}
+		.split {
+			display: none;
+		}
 	}
 	.side {
 		position: sticky;
 		top: 0.5rem;
-		max-height: calc(100vh - 220px);
+		max-height: var(--script-height, calc(100vh - 220px));
 		overflow: auto;
-		border: 2px solid var(--ink);
-		padding: 0.4rem 0.5rem;
 	}
 	.side h2 {
 		font-size: var(--type-caption-size);
@@ -450,16 +521,6 @@
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
-	.rules-panel {
-		margin-top: 0.6rem;
-		border-top: 2px solid var(--ink);
-		padding-top: 0.3rem;
-	}
-	.rules-panel summary,
-	.meta summary {
-		cursor: pointer;
-		font-weight: var(--font-weight-regular);
-	}
 	.main {
 		display: flex;
 		flex-direction: column;
@@ -491,14 +552,13 @@
 		white-space: pre;
 		overflow: auto;
 		width: 100%;
-		min-height: 420px;
-		height: calc(100vh - 260px);
+		height: var(--script-height, calc(100vh - 260px));
 		box-sizing: border-box;
 		padding: var(--space-05) var(--space-075);
 		border: 2px solid var(--ink);
 		background: var(--paper);
 		color: var(--ink);
-		resize: vertical;
+		resize: none;
 	}
 	.missing {
 		border: 2px dashed var(--ink);
