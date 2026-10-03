@@ -4,7 +4,7 @@
 		kind: ItemKind;
 		index: number;
 	}
-	export type Tool = 'text' | 'sample';
+	export type Tool = 'text' | 'sample' | 'item';
 </script>
 
 <script lang="ts">
@@ -30,6 +30,7 @@
 		locale,
 		grid = 0,
 		tool = 'text',
+		layer = null,
 		selection = null,
 		onselect,
 		oncreate
@@ -41,6 +42,11 @@
 		/** snap step in px of the slice's 1x size (0 = off; owner 2026-10-03: the slices' 15 px base grid) */
 		grid?: number;
 		tool?: Tool;
+		/**
+		 * the layer the inspector's tab is on (owner 2026-10-03: full-slice events covered everything): only its boxes take
+		 * the pointer, the others show faintly; null = every layer
+		 */
+		layer?: ItemKind | null;
 		selection?: CanvasSelection | null;
 		onselect?: (selection: CanvasSelection | null) => void;
 		/** a rect was drawn on empty space */
@@ -109,6 +115,21 @@
 		});
 		return out;
 	});
+
+	/** drawing order: the big areas (events, samples) under items under texts, larger first; the selected one last (on top) */
+	const KIND_ORDER: Record<ItemKind, number> = { event: 0, sample: 1, item: 2, dialog: 3 };
+	const ordered = $derived(
+		[...items].sort((a, b) => {
+			const sel = (i: Item) => (selection?.kind === i.kind && selection?.index === i.index ? 1 : 0);
+			const area = (i: Item) => i.rect.width * (i.rect.height ?? 10);
+			return sel(a) - sel(b) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || area(b) - area(a);
+		})
+	);
+	/** a pointer on the canvas takes the keyboard from a field (Delete / Ctrl+X / arrows then act on the selection) */
+	function releaseField() {
+		const el = document.activeElement as HTMLElement | null;
+		if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable)) el.blur();
+	}
 
 	let canvas = $state<HTMLDivElement | null>(null);
 	let overlay = $state<HTMLDivElement | null>(null);
@@ -211,6 +232,7 @@
 	}
 
 	function beginEdit(event: PointerEvent, item: Item, handle: Handle) {
+		releaseField();
 		event.stopPropagation();
 		event.preventDefault();
 		onselect?.({ kind: item.kind, index: item.index });
@@ -243,6 +265,7 @@
 
 	function beginDraw(event: PointerEvent) {
 		if (event.button !== 0) return;
+		releaseField();
 		onselect?.(null);
 		const p = toPercent(event);
 		const x = snapX(p.x);
@@ -436,6 +459,9 @@
 		if (drag.mode === 'draw' && drag.draw && drag.draw.width >= 2 && drag.draw.height >= 1) {
 			const r = drag.draw;
 			oncreate?.(tool, { x: round2(r.x), y: round2(r.y), width: round2(r.width), height: round2(r.height) });
+		} else if (drag.mode === 'draw' && tool === 'item' && !drag.moved) {
+			// the item tool: a click is enough – the item goes there (a quarter of the slice wide, its icon's ratio)
+			oncreate?.(tool, { x: round2(drag.start.x), y: round2(drag.start.y), width: 0, height: 0 });
 		}
 		drag = null;
 		checkpointed = false;
@@ -509,12 +535,13 @@
 					{#each gridLines.y as l (l.v)}<line x1="0" y1={l.v} x2="100" y2={l.v} class:major={l.major} />{/each}
 				</svg>
 			{/if}
-			{#each items as item (item.kind + item.index)}
+			{#each ordered as item (item.kind + item.index)}
 				{@const selected = selection?.kind === item.kind && selection?.index === item.index}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div
 					class="box kind-{item.kind}"
 					class:selected
+					class:inactive={layer !== null && item.kind !== layer}
 					style:left="{item.rect.x}%"
 					style:top="{item.rect.y}%"
 					style:width="{item.rect.width}%"
@@ -545,7 +572,7 @@
 			{/each}
 			{#if drag?.mode === 'draw' && drag.draw && drag.moved}
 				<div
-					class="box ghost kind-{tool === 'sample' ? 'sample' : 'dialog'}"
+					class="box ghost kind-{tool === 'sample' ? 'sample' : tool === 'item' ? 'item' : 'dialog'}"
 					style:left="{drag.draw.x}%"
 					style:top="{drag.draw.y}%"
 					style:width="{drag.draw.width}%"
@@ -610,6 +637,11 @@
 	}
 	.grid line.major {
 		stroke: rgba(0, 209, 255, 0.7);
+	}
+	/* another layer than the inspector's tab: visible, but it lets the pointer through */
+	.box.inactive {
+		pointer-events: none;
+		opacity: 0.3;
 	}
 	.box {
 		position: absolute;

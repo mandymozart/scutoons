@@ -262,11 +262,31 @@
 
 	function onCanvasSelect(next: CanvasSelection | null) {
 		selection = next;
-		if (next?.kind === 'dialog') inspectorTab = 'text';
-		else if (next?.kind === 'item') inspectorTab = 'items';
-		else if (next?.kind === 'sample') inspectorTab = 'audio';
-		else if (next?.kind === 'event') inspectorTab = 'events';
+		if (next?.kind === 'dialog') setTab('text');
+		else if (next?.kind === 'item') setTab('items');
+		else if (next?.kind === 'sample') setTab('audio');
+		else if (next?.kind === 'event') setTab('events');
 	}
+
+	// tool = tab = layer (owner 2026-10-03): a tool opens its tab, a tab picks its tool; the canvas only takes the pointer
+	// on that tab's layer (a full-slice event no longer covers the texts)
+	const TAB_TOOL: Partial<Record<typeof inspectorTab, Tool>> = { text: 'text', items: 'item', audio: 'sample' };
+	const TOOL_TAB: Record<Tool, typeof inspectorTab> = { text: 'text', item: 'items', sample: 'audio' };
+	function setTab(next: typeof inspectorTab) {
+		inspectorTab = next;
+		// a selection on another layer is let go (its handles would sit on a layer that no longer takes the pointer)
+		if (selection && LAYER[next] !== selection.kind) selection = null;
+		if (TAB_TOOL[next]) tool = TAB_TOOL[next]!;
+		if (next === 'items') loadCatalog();
+	}
+	function setTool(next: Tool) {
+		tool = next;
+		setTab(TOOL_TAB[next]);
+	}
+	const LAYER: Partial<Record<typeof inspectorTab, CanvasSelection['kind']>> = { text: 'dialog', items: 'item', audio: 'sample', events: 'event' };
+	const layer = $derived(LAYER[inspectorTab] ?? null);
+	/** the item tool's click on the canvas: where the picked item goes */
+	let itemSpot = $state<{ x: number; y: number } | null>(null);
 
 	// ── Navigation: the tree is the sidebar, group + slice are the deepest crumbs, the URL mirrors the selection ──
 	// (`?group=<label>&slice=<n>`, `?section=audio`; deep links and Alt+ArrowUp / crumbs work through the URL)
@@ -478,7 +498,8 @@
 	let pickingItem = $state(false);
 
 	/** places a catalog item in the middle of the slice (a quarter of its width; move / rotate / scale on the canvas) */
-	function addSliceItem(itemId: string) {
+	function addSliceItem(itemId: string, spot = itemSpot) {
+		itemSpot = null;
 		const doc = activeDoc;
 		if (!doc || sliceIndex < 0 || !itemId) return;
 		const taken = new Set(sliceItems.map((it) => it?.id));
@@ -488,7 +509,7 @@
 			const slice = getAt(file, slicePath);
 			if (!slice) return;
 			slice.items ??= [];
-			slice.items.push({ id: `${itemId}-${n}`, item: itemId, rect: { x: 37.5, y: 40, width: 25 } });
+			slice.items.push({ id: `${itemId}-${n}`, item: itemId, rect: spot ? { x: Math.min(75, Math.max(0, spot.x)), y: Math.min(95, Math.max(0, spot.y)), width: 25 } : { x: 37.5, y: 40, width: 25 } });
 		});
 		onCanvasSelect({ kind: 'item', index: sliceItems.length - 1 });
 	}
@@ -704,7 +725,9 @@
 		if (arrows[key] && selection) {
 			event.preventDefault();
 			canvas?.nudge(...arrows[key]);
-		} else if ((key === 'delete' || key === 'backspace') && selection) {
+		} else if (((key === 'delete' || key === 'backspace') && !mod) || (mod && key === 'x')) {
+			// Delete / Backspace / Ctrl+X remove the selected text, item, sample area or event area
+			if (!selection) return;
 			event.preventDefault();
 			removeSelected();
 		} else if (key === 'escape') {
@@ -909,9 +932,11 @@
 								{#each GRID_SIZES as g (g)}<option value={g}>{g} px</option>{/each}
 							</select>
 						</span>
+						<!-- icon-only tools (owner 2026-10-03), each tied to its inspector tab -->
 						<span class="seg" role="group" aria-label="tool">
-							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}><Icon name="type" /> text</button>
-							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}><Icon name="music" /> sample area</button>
+							<button class="ghost" class:active={tool === 'text'} aria-pressed={tool === 'text'} onclick={() => setTool('text')} title={m['creator.tool_text']()} aria-label={m['creator.tool_text']()} data-testid="tool-text"><Icon name="type" /></button>
+							<button class="ghost" class:active={tool === 'item'} aria-pressed={tool === 'item'} onclick={() => setTool('item')} title={m['creator.tool_item']()} aria-label={m['creator.tool_item']()} data-testid="tool-item"><Icon name="box" /></button>
+							<button class="ghost" class:active={tool === 'sample'} aria-pressed={tool === 'sample'} onclick={() => setTool('sample')} title={m['creator.tool_sample']()} aria-label={m['creator.tool_sample']()} data-testid="tool-sample"><Icon name="music" /></button>
 						</span>
 					</div>
 					<div class="canvas-scroll">
@@ -922,9 +947,10 @@
 							locale={displayLocale}
 							{grid}
 							{tool}
+							{layer}
 							{selection}
 							onselect={onCanvasSelect}
-							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : addSampleArea(rect))}
+							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? ((itemSpot = { x: rect.x, y: rect.y }), (pickingItem = true)) : addSampleArea(rect))}
 						/>
 					</div>
 				{:else}
@@ -938,12 +964,12 @@
 				<div class="inspector-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={inspectorSize.start} onkeydown={inspectorSize.key} ondblclick={inspectorSize.reset}></div>
 				<aside class="inspector">
 					<div class="tabs" role="tablist">
-						<button class="ghost" class:active={inspectorTab === 'text'} onclick={() => (inspectorTab = 'text')} data-testid="tab-text">{m['creator.text_boxes']()} ({sliceDialogs.length})</button>
-						<button class="ghost" class:active={inspectorTab === 'items'} onclick={() => { inspectorTab = 'items'; loadCatalog(); }} data-testid="tab-items">{m['creator.slice_items']()} ({sliceItems.length})</button>
-						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => (inspectorTab = 'slice')} data-testid="tab-background">{m['creator.background']()}</button>
-						<button class="ghost" class:active={inspectorTab === 'audio'} onclick={() => (inspectorTab = 'audio')}>{m['creator.audio']()}</button>
-						<button class="ghost" class:active={inspectorTab === 'events'} onclick={() => (inspectorTab = 'events')}>Events ({activeSlice?.events?.length ?? 0})</button>
-						<button class="ghost" class:active={inspectorTab === 'map'} onclick={() => (inspectorTab = 'map')} data-testid="tab-map">{m['creator.map']()}</button>
+						<button class="ghost" class:active={inspectorTab === 'text'} onclick={() => setTab('text')} data-testid="tab-text">{m['creator.text_boxes']()} ({sliceDialogs.length})</button>
+						<button class="ghost" class:active={inspectorTab === 'items'} onclick={() => setTab('items')} data-testid="tab-items">{m['creator.slice_items']()} ({sliceItems.length})</button>
+						<button class="ghost" class:active={inspectorTab === 'slice'} onclick={() => setTab('slice')} data-testid="tab-background">{m['creator.background']()}</button>
+						<button class="ghost" class:active={inspectorTab === 'audio'} onclick={() => setTab('audio')}>{m['creator.audio']()}</button>
+						<button class="ghost" class:active={inspectorTab === 'events'} onclick={() => setTab('events')}>Events ({activeSlice?.events?.length ?? 0})</button>
+						<button class="ghost" class:active={inspectorTab === 'map'} onclick={() => setTab('map')} data-testid="tab-map">{m['creator.map']()}</button>
 					</div>
 
 					{#if inspectorTab === 'text'}
@@ -985,7 +1011,7 @@
 								<li class="hint">{m['creator.slice_items_empty']()}</li>
 							{/each}
 						</ul>
-						<button type="button" class="secondary" onclick={() => (pickingItem = true)} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
+						<button type="button" class="secondary" onclick={() => ((itemSpot = null), (pickingItem = true))} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
 						<ItemPickerSheet bind:open={pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
 						{#if selection?.kind === 'item' && sliceItems[selection.index]}
 							<hr />
