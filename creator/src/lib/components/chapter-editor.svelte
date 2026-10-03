@@ -158,7 +158,31 @@
 		const chosen = textLanguage.chosen(languages.languages);
 		if (chosen) displayLocale = chosen;
 	});
-	let grid = $state(0.5);
+	// snap to grid (owner 2026-10-03: one toggle for moving, resizing, scaling, rotating), remembered on this device
+	const SNAP_KEY = 'scutoons_creator_snap';
+	const GRID_KEY = 'scutoons_creator_grid';
+	const GRID_SIZES = [0.5, 1, 2.5, 5];
+	function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
+		try {
+			const raw = localStorage.getItem(key);
+			const value = raw === null ? fallback : JSON.parse(raw);
+			return ok(value) ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+	let snap = $state(readPref(SNAP_KEY, true, (v) => typeof v === 'boolean'));
+	let gridSize = $state(readPref(GRID_KEY, 1, (v) => GRID_SIZES.includes(v as number)));
+	$effect(() => {
+		try {
+			localStorage.setItem(SNAP_KEY, JSON.stringify(snap));
+			localStorage.setItem(GRID_KEY, JSON.stringify(gridSize));
+		} catch {
+			/* storage unavailable: the choice holds for this visit */
+		}
+	});
+	/** the canvas snap step in % of the slice (0 = off) */
+	const grid = $derived(snap ? gridSize : 0);
 	let tool = $state<Tool>('text');
 	let panel = $state<'problems' | 'history' | null>(null);
 	function togglePanel(next: 'problems' | 'history') {
@@ -847,15 +871,12 @@
 								<button class="ghost" class:active={displayLocale === l} onclick={() => (displayLocale = l)} data-testid="show-{l}">{l}</button>
 							{/each}
 						</span>
-						<label class="inline">grid
-							<select bind:value={grid}>
-								<option value={0}>off</option>
-								<option value={0.5}>0.5%</option>
-								<option value={1}>1%</option>
-								<option value={2.5}>2.5%</option>
-								<option value={5}>5%</option>
+						<span class="seg" role="group" aria-label={m['creator.canvas_snap']()}>
+							<button class="ghost" class:active={snap} aria-pressed={snap} onclick={() => (snap = !snap)} title={m['creator.canvas_snap_hint']()} data-testid="snap-toggle"><Icon name="grid" /> {m['creator.canvas_snap']()}</button>
+							<select bind:value={gridSize} disabled={!snap} aria-label={m['creator.canvas_grid_size']()} title={m['creator.canvas_grid_size']()} data-testid="grid-size">
+								{#each GRID_SIZES as g (g)}<option value={g}>{g}%</option>{/each}
 							</select>
-						</label>
+						</span>
 						<span class="seg" role="group" aria-label="tool">
 							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}><Icon name="square" /> text box</button>
 							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}><Icon name="music" /> sample area</button>
@@ -1148,20 +1169,9 @@
 		display: inline-flex;
 		border: var(--border-width-regular) solid var(--ink);
 	}
-	.inline {
-		display: inline-flex !important;
-		gap: var(--space-05);
-		align-items: center;
-		font-size: var(--type-caption-size);
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-	}
-	.inline select {
+	/* the grid size next to the snap toggle */
+	.seg select {
 		width: auto;
-		font-weight: var(--font-weight-regular);
-		text-transform: none;
-		letter-spacing: normal;
 	}
 	.canvas-scroll {
 		overflow: auto;
