@@ -113,6 +113,45 @@ final class InfrastructureTest extends TestCase
         self::assertSame($expected, $actual, 'the same columns per table');
     }
 
+    /**
+     * MariaDB/MySQL only: every text column is utf8mb4, although the test database's default is latin1 like
+     * production's server (character_set_server = latin1): a CREATE TABLE without its own charset would be latin1.
+     */
+    public function testEveryTextColumnIsUtf8mb4(): void
+    {
+        if ($this->db->isSqlite()) self::markTestSkipped('MariaDB/MySQL charsets (run with phpunit.mysql.xml)');
+        $rows = $this->db->all("SELECT CONCAT(TABLE_NAME, '.', COLUMN_NAME, ' ', CHARACTER_SET_NAME) AS c FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE() AND CHARACTER_SET_NAME IS NOT NULL AND CHARACTER_SET_NAME <> 'utf8mb4'");
+        self::assertSame([], array_column($rows, 'c'));
+        $tables = $this->db->all("SELECT TABLE_NAME AS t FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE' AND TABLE_COLLATION NOT LIKE 'utf8mb4%'");
+        self::assertSame([], array_column($tables, 't'));
+    }
+
+    /**
+     * MariaDB/MySQL only: the API sets its session sql_mode (DB_SQL_MODE, strict by default) whatever the server's
+     * default is (production: NO_ENGINE_SUBSTITUTION) – a too long value fails instead of being cut silently.
+     * DB_SQL_MODE=server keeps the server's mode.
+     */
+    public function testTheSessionSqlModeIsStrictByDefault(): void
+    {
+        if ($this->db->isSqlite()) self::markTestSkipped('MariaDB/MySQL sql_mode (run with phpunit.mysql.xml)');
+        $connect = fn(array $override): Database => \Scutoons\Kernel::container(Settings::fixed(self::root(), $override + $this->settings()))->get(Database::class);
+        $strict = $connect(['DB_SQL_MODE' => 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION']);
+        self::assertStringContainsString('STRICT_TRANS_TABLES', (string) $strict->value('SELECT @@SESSION.sql_mode'));
+        try {
+            $strict->run("INSERT INTO code_events (code, event, created_at) VALUES ('ninechars', 'scan', '2026-01-01 00:00:00')");
+            self::fail('a 9-character code went into VARCHAR(8)');
+        } catch (\PDOException $e) {
+            self::assertStringContainsString('1406', $e->getMessage(), 'Data too long');
+        }
+        $server = $connect(['DB_SQL_MODE' => 'server']);
+        self::assertSame($server->value('SELECT @@GLOBAL.sql_mode'), $server->value('SELECT @@SESSION.sql_mode'));
+        $defaults = require self::root() . '/config/settings.php';
+        self::assertStringContainsString('STRICT_TRANS_TABLES', $defaults['DB_SQL_MODE'], 'strict is the default');
+        $strict->close();
+        $server->close();
+    }
+
     public function testFileStoreWhitelist(): void
     {
         $files = new FileStore($this->dir . '/files');

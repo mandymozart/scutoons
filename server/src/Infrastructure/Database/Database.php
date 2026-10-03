@@ -26,10 +26,19 @@ final class Database
         return new self(static fn(): PDO => new PDO('sqlite:' . $path));
     }
 
-    public static function mysql(string $host, string $name, string $user, string $password, string $port = ''): self
+    /**
+     * @param string $sqlMode the session sql_mode set right after connecting ('' = keep the server's). The API passes
+     *                        DB_SQL_MODE (strict by default): production's server default is NO_ENGINE_SUBSTITUTION,
+     *                        which silently truncates / coerces bad values instead of failing like SQLite tests expect.
+     */
+    public static function mysql(string $host, string $name, string $user, string $password, string $port = '', string $sqlMode = ''): self
     {
         $dsn = 'mysql:host=' . $host . ($port !== '' ? ';port=' . $port : '') . ';dbname=' . $name . ';charset=utf8mb4';
-        return new self(static fn(): PDO => new PDO($dsn, $user, $password, [PDO::ATTR_EMULATE_PREPARES => false]));
+        return new self(static function () use ($dsn, $user, $password, $sqlMode): PDO {
+            $pdo = new PDO($dsn, $user, $password, [PDO::ATTR_EMULATE_PREPARES => false]);
+            if ($sqlMode !== '') $pdo->prepare('SET SESSION sql_mode = ?')->execute([$sqlMode]);
+            return $pdo;
+        });
     }
 
     public function pdo(): PDO

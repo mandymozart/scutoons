@@ -16,8 +16,9 @@ use Scutoons\Infrastructure\Signing\MlDsa65;
  * file brings along) AND it is the signature we stored for that code (qr.signature). Checked here, server-side. The
  * answer carries the code's public status (registered to an account yes/no, revoked yes/no) – never who owns it.
  *
- * Reasons (valid = false): unknown_code · ambiguous_code (the printed UPPER CASE form matches several codes) ·
- * no_signature · key_mismatch (not signed with our key: not issued by SCUTOONS) · bad_signature (the signature does not
+ * Codes are case-sensitive and matched exactly (owner 2026-10-03), like everywhere else.
+ *
+ * Reasons (valid = false): unknown_code (also a code in the wrong case) · no_signature · key_mismatch (not signed with our key: not issued by SCUTOONS) · bad_signature (the signature does not
  * verify: tampered) · signature_mismatch (signed by us, but not the signature on record for that code).
  */
 final class CertificateVerifier
@@ -27,7 +28,7 @@ final class CertificateVerifier
     }
 
     /**
-     * Verify the certificate of a code as we stored it (the code as typed: any case, or a pasted QR / verify URL)
+     * Verify the certificate of a code as we stored it (the code exactly as written, or a pasted QR / verify URL)
      * @return array<string, mixed>
      */
     public function byCode(mixed $input): array
@@ -74,7 +75,7 @@ final class CertificateVerifier
 
     /**
      * A typed / printed code: trimmed, inner spaces dropped, a pasted QR URL (?c=) or verify URL (?code=) reduced to
-     * the code. Case is kept (resolve() matches case-insensitively when the exact form is unknown).
+     * the code. Case is kept: codes are case-sensitive and matched exactly.
      */
     public static function normalizeCode(mixed $input): ?string
     {
@@ -99,17 +100,14 @@ final class CertificateVerifier
     }
 
     /**
-     * Exact match first; else a case-insensitive match only when it is unique (certificates print the code in UPPER
-     * CASE, codes are case-sensitive nanoids – agents/PLATFORM.md "RULE: printed / public URLs never change").
+     * The code's row – exact match only: codes are case-sensitive (owner 2026-10-03: one rule everywhere, no
+     * case-insensitive lookup). qr.code is utf8mb4_bin on MariaDB (migration 2026-10-03-code-case), BINARY on SQLite.
      * @return array{0: array<string, mixed>|null, 1: string|null}
      */
     private function resolve(string $code): array
     {
         $row = $this->db->one('SELECT * FROM qr WHERE code = ?', [$code]);
-        if ($row !== null) return [$row, null];
-        $rows = $this->db->all('SELECT * FROM qr WHERE LOWER(code) = LOWER(?) LIMIT 2', [$code]);
-        if (count($rows) === 1) return [$rows[0], null];
-        return [null, $rows ? 'ambiguous_code' : 'unknown_code'];
+        return $row !== null ? [$row, null] : [null, 'unknown_code'];
     }
 
     /**

@@ -19,6 +19,10 @@ return [
     'DB_NAME' => '',
     'DB_USER' => '',
     'DB_PASS' => '',
+    // The session sql_mode the API sets on every MySQL/MariaDB connection, so behaviour does not depend on the host's
+    // default (production: NO_ENGINE_SUBSTITUTION = not strict: a too long value is cut, a bad one coerced, silently).
+    // Strict = such a write fails with an error instead. `server` = keep the server's mode.
+    'DB_SQL_MODE' => 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION',
 
     // ── Secrets ────────────────────────────────────────────────────────────────────────────────────────
     // Long random string (>= 32 chars): login codes, IP/device hashes, access tokens. openssl rand -hex 32

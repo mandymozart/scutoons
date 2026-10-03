@@ -114,8 +114,9 @@ final class CodeAdmin
         $conditions = [];
         $params = [];
         if ($query->q !== '') {
-            $conditions[] = "q.code LIKE ? ESCAPE '!'";
-            $params[] = Database::likeContains($query->q);
+            // the admin search box ignores case on every engine (a filter, not a lookup: codes match exactly everywhere else)
+            $conditions[] = "LOWER(q.code) LIKE ? ESCAPE '!'";
+            $params[] = Database::likeContains(strtolower($query->q));
         }
         if (($edition = $query->filter('edition_id')) !== null) {
             if ($edition === 'none') {

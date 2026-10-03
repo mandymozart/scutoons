@@ -78,7 +78,7 @@ final class CertificatesApiTest extends TestCase
         return (array) json_decode((string) $r->getBody(), true);
     }
 
-    public function testAuthenticByCodeAnyCaseAndPastedUrl(): void
+    public function testAuthenticByExactCodeAndPastedUrl(): void
     {
         $this->signedCode();
         $body = $this->lookup('AbCdEf12');
@@ -89,11 +89,16 @@ final class CertificatesApiTest extends TestCase
             'fingerprint' => CertificateVerifier::fingerprint($this->f['a']['signature']), 'algorithm' => 'ML-DSA-65',
         ], $body['certificate']);
         self::assertMatchesRegularExpression('/^([0-9A-F]{4}:){15}[0-9A-F]{4}$/', $body['certificate']['fingerprint']);
-        foreach (['ABCDEF12', 'abcdef12', ' ABCD EF12 ', 'https://qr.scutoons.com?c=ABCDEF12', 'https://qr.scutoons.com/verify.html?code=abcdef12'] as $typed) {
+        foreach ([' AbCd Ef12 ', 'https://qr.scutoons.com?c=AbCdEf12', 'https://qr.scutoons.com/verify.html?code=AbCdEf12'] as $typed) {
             $body = $this->lookup($typed);
             self::assertSame([true, 'AbCdEf12'], [$body['valid'], $body['code']], $typed);
         }
-        $r = $this->request('GET', 'http://localhost/api/certificates/ABCDEF12', null, ['Origin' => 'https://anywhere.test']);
+        // codes are case-sensitive: another case is another (here: unknown) code – no case-insensitive fallback
+        foreach (['ABCDEF12', 'abcdef12', 'https://qr.scutoons.com?c=ABCDEF12'] as $typed) {
+            $body = $this->lookup($typed);
+            self::assertSame([false, 'unknown_code', null], [$body['valid'], $body['reason'], $body['code']], $typed);
+        }
+        $r = $this->request('GET', 'http://localhost/api/certificates/AbCdEf12', null, ['Origin' => 'https://anywhere.test']);
         self::assertSame('*', $r->getHeaderLine('Access-Control-Allow-Origin'));
         self::assertStringNotContainsString('email', (string) $r->getBody());
     }
@@ -103,7 +108,7 @@ final class CertificatesApiTest extends TestCase
         $code = $this->signedCode(['email' => 'legacy@example.com']);
         $user = $this->user('owner@example.com');
         $this->db->run('UPDATE qr SET claimed_by = ?, revoked_at = ?, revoked_reason = ? WHERE code = ?', [$user['id'], '2026-09-01 00:00:00', 'stolen', $code]);
-        $r = $this->request('GET', 'http://localhost/api/certificates/ABCDEF12');
+        $r = $this->request('GET', 'http://localhost/api/certificates/AbCdEf12');
         $body = (array) json_decode((string) $r->getBody(), true);
         self::assertSame([true, true, true], [$body['valid'], $body['registered'], $body['revoked']]);
         foreach (['owner@example.com', 'legacy@example.com', (string) $user['id'], 'stolen', 'claimed_by', 'email'] as $secret) {
@@ -111,28 +116,17 @@ final class CertificatesApiTest extends TestCase
         }
     }
 
-    public function testUnknownAmbiguousAndUnsignedCodes(): void
+    public function testUnknownCaseTwinsAndUnsignedCodes(): void
     {
         self::assertSame([false, 'unknown_code', null, null, null, null], array_values(array_intersect_key($this->lookup('Nope1234'),
             array_flip(['valid', 'reason', 'code', 'registered', 'revoked', 'certificate']))));
+        // codes that differ only in case are two codes (qr.code is case-sensitive on SQLite and on MariaDB), each found exactly
         $this->code('membership', ['code' => 'twinCode']);
-        if ($this->db->isSqlite()) {
-            $this->code('membership', ['code' => 'TwinCode']);
-            self::assertTrue($this->lookup('twinCode')['code'] === 'twinCode', 'exact match first');
-            self::assertSame([false, 'ambiguous_code'], [$this->lookup('TWINCODE')['valid'], $this->lookup('TWINCODE')['reason']]);
-        } else {
-            // production (MariaDB): qr.code is utf8mb4_general_ci, so the unique key refuses a case twin and the lookup
-            // is case-insensitive – "ambiguous" cannot happen there
-            try {
-                $this->code('membership', ['code' => 'TwinCode']);
-                self::fail('MariaDB took a code that differs only in case');
-            } catch (\PDOException $e) {
-                self::assertSame('23000', $e->getCode());
-            }
-            self::assertSame('twinCode', $this->lookup('TWINCODE')['code']);
-        }
+        $this->code('membership', ['code' => 'TwinCode']);
+        self::assertSame(['twinCode', 'TwinCode'], [$this->lookup('twinCode')['code'], $this->lookup('TwinCode')['code']]);
+        self::assertSame('unknown_code', $this->lookup('TWINCODE')['reason']);
         $this->code('membership', ['code' => 'Unsign01']);
-        $body = $this->lookup('UNSIGN01');
+        $body = $this->lookup('Unsign01');
         self::assertSame([false, 'no_signature', 'Unsign01', false, null], [$body['valid'], $body['reason'], $body['code'], $body['registered'], $body['certificate']]);
         self::assertSame([400, 'invalid_code'], [$this->request('GET', 'http://localhost/api/certificates/a%20b%3Cc')->getStatusCode(),
             json_decode((string) $this->request('GET', 'http://localhost/api/certificates/a%20b%3Cc')->getBody(), true)['error']]);

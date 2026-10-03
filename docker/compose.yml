@@ -15,7 +15,7 @@ name: scutoons
 
 services:
   mariadb:
-    image: mariadb:${MARIADB_VERSION:-10.11}
+    image: mariadb:${MARIADB_VERSION:-10.11.14}
     restart: unless-stopped
     environment:
       MARIADB_ROOT_PASSWORD: scutoons-root
@@ -23,9 +23,12 @@ services:
       MARIADB_USER: scutoons
       MARIADB_PASSWORD: scutoons
     command:
-      - --character-set-server=${MARIADB_CHARSET:-utf8mb4}
-      - --collation-server=${MARIADB_COLLATION:-utf8mb4_general_ci}
-      - --sql-mode=${MARIADB_SQL_MODE:-STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION}
+      # production (all-inkl, phpMyAdmin 2026-10-03): 10.11.14-MariaDB-0ubuntu0.24.04.1, sql_mode NO_ENGINE_SUBSTITUTION
+      # (not strict – the API sets a strict session sql_mode itself, DB_SQL_MODE), server charset latin1 /
+      # latin1_swedish_ci (every table declares utf8mb4 explicitly; InfrastructureTest checks it)
+      - --character-set-server=${MARIADB_CHARSET:-latin1}
+      - --collation-server=${MARIADB_COLLATION:-latin1_swedish_ci}
+      - --sql-mode=${MARIADB_SQL_MODE:-NO_ENGINE_SUBSTITUTION}
       # like a Linux host: table names are case-sensitive
       - --lower-case-table-names=0
     ports:

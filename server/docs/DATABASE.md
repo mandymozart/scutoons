@@ -67,18 +67,36 @@ of that database, migrates it with `migrations/mysql` once per run and restores 
 are skipped on SQLite. CI runs both (`.github/workflows/server.yml`, jobs `test` and `test-mariadb`; the latter starts
 the same `docker/compose.yml`).
 
-**Matching production:** run in phpMyAdmin (SQL tab) on the production database:
+**Matching production:** the container's defaults are production's (phpMyAdmin, 2026-10-03:
+`10.11.14-MariaDB-0ubuntu0.24.04.1-log`, `@@sql_mode = NO_ENGINE_SUBSTITUTION`, `@@character_set_server = latin1`,
+`@@collation_server = latin1_swedish_ci`): `MARIADB_VERSION` 10.11.14, `MARIADB_SQL_MODE` `NO_ENGINE_SUBSTITUTION`,
+`MARIADB_CHARSET` / `MARIADB_COLLATION` latin1 / latin1_swedish_ci (override them as environment variables, then
+`npm run dev:db reset`). The local databases get the default latin1 too, so a table that does not declare its charset
+would end up latin1 like in production: every `CREATE TABLE` in `migrations/mysql/` declares
+`DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci` (`ADD COLUMN`s inherit it), and
+`InfrastructureTest::testEveryTextColumnIsUtf8mb4` checks every column on MariaDB. To re-read production:
 
 ```sql
 SELECT VERSION();
 SELECT @@sql_mode, @@character_set_server, @@collation_server;
+-- the database default and every text column's charset + collation (expect utf8mb4 everywhere;
+-- utf8mb4_bin for the code columns after 2026-10-03-code-case, utf8mb4_general_ci for the rest)
+SELECT DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE();
+SELECT TABLE_NAME, COLUMN_NAME, CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = DATABASE() AND CHARACTER_SET_NAME IS NOT NULL ORDER BY TABLE_NAME, ORDINAL_POSITION;
 ```
 
-and set what it shows as environment variables before `npm run dev:db reset` (or change the defaults in
-`docker/compose.yml` and commit them): `MARIADB_VERSION` (image tag, e.g. `10.11` or `10.11.9`; default `10.11`),
-`MARIADB_SQL_MODE` (default `STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION`,
-MariaDB 10.11's own default), `MARIADB_CHARSET` / `MARIADB_COLLATION` (default `utf8mb4` / `utf8mb4_general_ci`, what the
-production `qr` table uses). `npm run dev:db version` shows the container's values for comparison.
+**Session sql_mode (`DB_SQL_MODE`):** production's server mode is not strict, so MariaDB would silently cut a too long
+value (a 9-character code into `VARCHAR(8)`) or coerce a bad one. The API therefore sets its own session mode on every
+connection: `DB_SQL_MODE`, default `STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION` – such a
+write fails instead, the same on every host. `DB_SQL_MODE=server` keeps the server's mode. The tests run with the
+default; `TEST_DB_SQL_MODE=server npm run dev:db test` runs them with the server's (non-strict) mode. Migrations in
+phpMyAdmin run under the server's mode (they only create / alter tables).
+
+**Codes are case-sensitive** (owner 2026-10-03): every column holding a code is `utf8mb4_bin` (migration
+`2026-10-03-code-case`; SQLite compares BINARY anyway) and every lookup is an exact `code = ?` – there is no
+case-insensitive lookup anywhere (also not for certificates / the verify page). Only the admin lists' search box
+(`q`) ignores case (`LOWER(code) LIKE`), the same on SQLite and MariaDB.
 
 ## Console (`php bin/console …`, local or on a host with a shell)
 
@@ -106,6 +124,7 @@ In phpMyAdmin, in this order (all idempotent): `2026-09-29-accounts-inventory.my
 (ownership claims, claim files, transfer history – agents/ITEMS.md "Ownership, claims, gifting"; until it ran gifts and
 claims answer 503, everything else works), `2026-10-02-assets.mysql.sql` (the media asset registry: assets, versions, renditions, usages, jobs –
 agents/ASSETS.md; without it only the asset manager answers 503), `2026-10-02-ownership-signup.mysql.sql` (`login_requests.dispute`: signing up
-to file a claim); then the content seed and the
+to file a claim), `2026-10-03-code-case.mysql.sql` (codes case-sensitive: the code columns → `utf8mb4_bin`; safe before
+or after the deploy of the matching API); then the content seed and the
 edition-number backfill above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

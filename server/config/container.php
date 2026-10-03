@@ -34,7 +34,9 @@ return [
         $settings = $c->get(Settings::class);
         $sqlite = $settings->path('DB_SQLITE_PATH');
         if ($sqlite !== '' && $settings->get('DB_DRIVER') !== 'mysql') return Database::sqlite($sqlite);
-        return Database::mysql($settings->get('DB_HOST'), $settings->get('DB_NAME'), $settings->get('DB_USER'), $settings->get('DB_PASS'), $settings->get('DB_PORT'));
+        $sqlMode = $settings->get('DB_SQL_MODE');
+        return Database::mysql($settings->get('DB_HOST'), $settings->get('DB_NAME'), $settings->get('DB_USER'), $settings->get('DB_PASS'), $settings->get('DB_PORT'),
+            strtolower($sqlMode) === 'server' ? '' : $sqlMode);
     },
 
     Templates::class => static fn(ContainerInterface $c): Templates => new Templates($c->get(Settings::class)->root() . '/templates'),

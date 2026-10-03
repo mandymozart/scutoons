@@ -26,6 +26,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `DB_DRIVER` | – | `mysql` = MySQL/MariaDB even when `DB_SQLITE_PATH` is set (the local MariaDB container: `npm run dev:db` passes `QR_DB_DRIVER=mysql` + `QR_DB_*` to the API and the console – docs/DATABASE.md "Local MariaDB"); empty = by `DB_SQLITE_PATH` |
 | `DB_SQLITE_PATH` | – | set → SQLite (local, tests); empty → MySQL/MariaDB with the next keys |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` | localhost, –, –, –, – | production |
+| `DB_SQL_MODE` | `STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION` | the session `sql_mode` set on every MySQL/MariaDB connection – strict, whatever the host's default (production's is `NO_ENGINE_SUBSTITUTION`: too long values would be cut silently); `server` = keep the server's mode (docs/DATABASE.md) |
 | `AUTH_SECRET` | – | **required**, ≥ 32 chars: HMAC of login codes, IP/device hashes, access tokens. Rotating it invalidates open login mails and access tokens |
 | `GENERATE_PASSWORD` | – | legacy `generate/` SPA password (its token = HMAC of it); empty = the SPA is locked |
 | `QR_PROXY_SECRET` | – | shared with the qr app (qr.scutoons.com): only requests carrying it in `X-Scutoons-Proxy-Secret` may forward the client IP (`X-Scutoons-Client-Ip`) and device id (`X-Scutoons-Device-Id`), and only they can log landing-page scans (`/api/code/?scan=1`). Empty = trust nobody |

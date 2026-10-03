@@ -29,7 +29,7 @@ SET time_zone = "+00:00";
 
 CREATE TABLE `qr` (
   `id` uuid NOT NULL DEFAULT uuid(),
-  `code` varchar(8) NOT NULL COMMENT 'qr code',
+  `code` varchar(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL COMMENT 'qr code',
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `expires_at` timestamp NULL DEFAULT NULL,
   `claimed_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS `login_requests` (
   `token_hash` CHAR(64) NOT NULL,
   `code_hash` CHAR(64) NOT NULL,
   `locale` VARCHAR(8) NOT NULL DEFAULT 'en',
-  `claim_code` VARCHAR(8) NULL DEFAULT NULL,
+  `claim_code` VARCHAR(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `claim_item_id` VARCHAR(64) NULL DEFAULT NULL,
   `claim_variant` VARCHAR(64) NULL DEFAULT NULL,
   `ip_hash` CHAR(64) NOT NULL,
@@ -119,7 +119,7 @@ CREATE TABLE IF NOT EXISTS `sessions` (
 -- What a code contains. No rows + qr.edition_id set = the edition's catalog items are options (picked at claim time)
 CREATE TABLE IF NOT EXISTS `code_items` (
   `id` INT NOT NULL AUTO_INCREMENT,
-  `code` VARCHAR(8) NOT NULL,
+  `code` VARCHAR(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `item_id` VARCHAR(64) NOT NULL,
   `variant` VARCHAR(64) NULL DEFAULT NULL,
   `qty` INT NOT NULL DEFAULT 1,
@@ -136,7 +136,7 @@ CREATE TABLE IF NOT EXISTS `inventory` (
   `variant` VARCHAR(64) NULL DEFAULT NULL,
   `qty` INT NOT NULL DEFAULT 1,
   `source` VARCHAR(16) NOT NULL,
-  `code` VARCHAR(8) NULL DEFAULT NULL,
+  `code` VARCHAR(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
   `edition_number` INT NULL DEFAULT NULL,
   `acquired_at` DATETIME NOT NULL,
   `updated_at` DATETIME NOT NULL,
@@ -185,7 +185,7 @@ CREATE TRIGGER IF NOT EXISTS `inventory_code_owner_update` BEFORE UPDATE ON `inv
 -- Revoke + activity statistics (migrations/mysql/2026-09-30-revoke-events.mysql.sql)
 CREATE TABLE IF NOT EXISTS `code_events` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
-  `code` VARCHAR(8) NOT NULL,
+  `code` VARCHAR(8) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
   `event` VARCHAR(16) NOT NULL COMMENT 'scan | access | claim | claim_refused | login | revoke | unrevoke',
   `device_hash` CHAR(64) NULL DEFAULT NULL,
   `user_id` CHAR(36) NULL DEFAULT NULL,

@@ -699,7 +699,7 @@ $r = call('GET', "$api/access/?c=$rv");
 check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: /access/ → 410 revoked', $r);
 $r = call('POST', "$api/validate/", ['code' => $rv]);
 check($r['status'] === 410 && $r['body']['error'] === 'revoked', 'revoked: /validate/ → 410 revoked', $r);
-$r = call('GET', "$api/certificates/" . strtoupper($rv));
+$r = call('GET', "$api/certificates/$rv");
 check($r['status'] === 200 && $r['body']['revoked'] === true && $r['body']['registered'] === true && !str_contains((string) json_encode($r['body']), '@'),
     'revoked: /certificates/ → revoked + registered flags, no owner', $r);
 $r = call('POST', "$api/inventory/claim/", ['code' => $rv], $tokenB);
@@ -824,10 +824,9 @@ $signedRows = Db::all("SELECT code, signature FROM qr WHERE signature IS NOT NUL
 $ours = array_values(array_filter($signedRows, fn(array $row) => strtolower((string) (json_decode((string) $row['signature'], true)['publicKey'] ?? '')) === strtolower((string) $published)));
 check($signedRows === [] || $ours !== [], 'stored signatures carry the published public key', count($signedRows));
 foreach (array_slice($ours, 0, 8) as $row) {
-    $r = call('GET', "$api/certificates/" . rawurlencode(strtoupper((string) $row['code'])));
-    $expected = count(Db::all('SELECT code FROM qr WHERE LOWER(code) = LOWER(?)', [$row['code']])) > 1 ? 'ambiguous_code' : null;
-    check($r['status'] === 200 && ($expected === null ? ($r['body']['valid'] === true && $r['body']['code'] === $row['code']) : $r['body']['reason'] === $expected),
-        "certificate of {$row['code']} by its printed UPPER CASE code → " . ($expected ?? 'authentic'), $r);
+    // codes are case-sensitive, matched exactly (owner 2026-10-03)
+    $r = call('GET', "$api/certificates/" . rawurlencode((string) $row['code']));
+    check($r['status'] === 200 && $r['body']['valid'] === true && $r['body']['code'] === $row['code'], "certificate of {$row['code']} by its exact code → authentic", $r);
 }
 if ($ours) {
     $stored = json_decode((string) $ours[0]['signature'], true);

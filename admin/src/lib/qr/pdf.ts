@@ -81,8 +81,9 @@ async function renderTemplateToPdf(doc: jsPDF, rendered: string, svg: string, qr
 		yBottom -= 3;
 		doc.text('This certificate is protected by post-quantum cryptography (ML-DSA-65/Dilithium).', margin, yBottom);
 		yBottom -= 4;
-		// PRINTED: verify URL + the code in upper case (agents/PLATFORM.md printed-URL rule)
-		doc.text('Verify at ' + QR_DOMAIN + '/verify.html with code: ' + qrData.code.toUpperCase(), margin, yBottom);
+		// PRINTED: verify URL + the code exactly as it is – codes are case-sensitive, verified by exact match only
+		// (owner 2026-10-03; certificates printed before printed it in UPPER CASE – agents/PLATFORM.md printed-URL rule)
+		doc.text('Verify at ' + QR_DOMAIN + '/verify.html with code: ' + qrData.code, margin, yBottom);
 		yBottom -= 4;
 		doc.text(`Fingerprint: ${qrData.fingerprint}`, margin, yBottom);
 		yBottom -= 4;

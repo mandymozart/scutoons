@@ -27,8 +27,9 @@ final class EventsAdmin
         $conditions = [];
         $params = [];
         if ($query->q !== '') {
-            $conditions[] = "e.code LIKE ? ESCAPE '!'";
-            $params[] = Database::likeContains($query->q);
+            // the admin search box ignores case on every engine (a filter, not a lookup: codes match exactly everywhere else)
+            $conditions[] = "LOWER(e.code) LIKE ? ESCAPE '!'";
+            $params[] = Database::likeContains(strtolower($query->q));
         }
         foreach (['code' => 'e.code', 'toon' => 'e.toon'] as $name => $column) {
             if (($value = $query->filter($name)) !== null) {

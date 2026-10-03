@@ -28,6 +28,29 @@ final class CodeServiceTest extends TestCase
         self::assertNull(CodeRules::normalize(['x']));
     }
 
+    /**
+     * Codes are case-sensitive, matched exactly everywhere (owner 2026-10-03; on MariaDB the code columns are
+     * utf8mb4_bin since migration 2026-10-03-code-case – before it, general_ci matched any case and refused case twins)
+     */
+    public function testCodesAreCaseSensitiveEverywhere(): void
+    {
+        $user = $this->user();
+        $lower = $this->code('membership', ['code' => 'caseCode', 'edition_id' => '3_catpope_vinyl']);
+        $upper = $this->code('membership', ['code' => 'CaseCode', 'edition_id' => '3_catpope_vinyl']);
+        self::assertSame([$lower, $upper], [$this->codes->find($lower)['code'] ?? null, $this->codes->find($upper)['code'] ?? null], 'case twins are two codes');
+        self::assertNull($this->codes->find('CASECODE'));
+        $this->assertApiError(404, 'not_found', fn() => $this->codes->valid('casecode'));
+        $this->assertApiError(404, 'not_found', fn() => $this->codes->access('CASECODE', null, null));
+        $this->assertApiError(404, 'not_found', fn() => $this->codes->claim($user, 'CASECODE', null, null));
+        self::assertTrue($this->codes->claim($user, $upper, null, null));
+        self::assertNull($this->codes->find($lower)['claimed_by'] ?? null, 'only the exact code is claimed');
+        $this->codes->logScan($lower);
+        self::assertSame([1, 0], [(int) $this->db->value("SELECT COUNT(*) FROM code_events WHERE code = ? AND event = 'claim'", [$upper]),
+            (int) $this->db->value("SELECT COUNT(*) FROM code_events WHERE code = ? AND event = 'claim'", [$lower])]);
+        self::assertSame(1, (int) $this->db->value('SELECT COUNT(*) FROM inventory WHERE code = ?', [$upper]));
+        self::assertSame(0, (int) $this->db->value('SELECT COUNT(*) FROM inventory WHERE code = ?', [strtolower($upper)]));
+    }
+
     public function testExpiredAndRevoked(): void
     {
         self::assertTrue(CodeRules::isExpired(['expires_at' => '2000-01-01 00:00:00'], self::NOW));

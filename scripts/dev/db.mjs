@@ -133,9 +133,10 @@ async function apiOn(db) {
 
 async function up() {
 	containerUp();
+	// database default latin1 like production's server default: every table must declare utf8mb4 itself
 	rootSql(
 		[MARIADB.name, MARIADB.testName]
-			.map((name) => `CREATE DATABASE IF NOT EXISTS \`${name}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; GRANT ALL PRIVILEGES ON \`${name}\`.* TO '${MARIADB.user}'@'%';`)
+			.map((name) => `CREATE DATABASE IF NOT EXISTS \`${name}\`; ALTER DATABASE \`${name}\` CHARACTER SET latin1 COLLATE latin1_swedish_ci; GRANT ALL PRIVILEGES ON \`${name}\`.* TO '${MARIADB.user}'@'%';`)
 			.join(' ')
 	);
 	console.log('\nMigrations (php bin/console migrate) …');
@@ -191,7 +192,7 @@ switch (command) {
 		break;
 	case 'test': {
 		containerUp();
-		rootSql(`CREATE DATABASE IF NOT EXISTS \`${MARIADB.testName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; GRANT ALL PRIVILEGES ON \`${MARIADB.testName}\`.* TO '${MARIADB.user}'@'%';`);
+		rootSql(`CREATE DATABASE IF NOT EXISTS \`${MARIADB.testName}\`; ALTER DATABASE \`${MARIADB.testName}\` CHARACTER SET latin1 COLLATE latin1_swedish_ci; GRANT ALL PRIVILEGES ON \`${MARIADB.testName}\`.* TO '${MARIADB.user}'@'%';`);
 		const env = { ...process.env, TEST_DB_PORT: String(PORTS.mariadb) };
 		process.exit(run('php', [...phpMysqlArgs(), 'vendor/bin/phpunit', '-c', 'phpunit.mysql.xml', ...rest], { cwd: SERVER, env }));
 		break;

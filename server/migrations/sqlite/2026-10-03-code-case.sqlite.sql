@@ -1,0 +1,2 @@
+-- Codes are case-sensitive (migrations/mysql/2026-10-03-code-case.mysql.sql gives the MariaDB code columns the binary
+-- collation utf8mb4_bin). Nothing to do on SQLite: TEXT compares BINARY (case-sensitive) already.

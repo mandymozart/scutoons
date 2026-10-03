@@ -222,14 +222,18 @@ foreach (['/verify.html', '/verify.html?code=' . ($signed['code'] ?? 'x')] as $p
         "$path → 200, verifies through /api/certificates/", $r['status']);
 }
 if ($signed) {
-    // the printed form: UPPER CASE (codes are case-sensitive nanoids; the API matches case-insensitively when unique)
-    $upper = strtoupper($signed['code']);
-    $unique = (int) $pdo->query('SELECT COUNT(*) FROM qr WHERE LOWER(code) = ' . $pdo->quote(strtolower($signed['code'])))->fetchColumn() === 1;
-    $r = probe('GET', '/api/certificates/' . rawurlencode($upper));
+    // codes are case-sensitive and matched exactly (owner 2026-10-03): the exact code verifies, another case is unknown
+    $r = probe('GET', '/api/certificates/' . rawurlencode($signed['code']));
     $body = json_decode($r['body'], true);
-    check($r['status'] === 200 && ($unique ? ($body['valid'] ?? null) === true && ($body['code'] ?? null) === $signed['code']
-        : ($body['reason'] ?? null) === 'ambiguous_code') && is_bool($body['registered'] ?? null) && !str_contains($r['body'], '@'),
-        '/api/certificates/<UPPER CASE signed code> → ' . ($unique ? 'authentic' : 'ambiguous') . ', no owner data', [$r['status'], substr($r['body'], 0, 200)]);
+    check($r['status'] === 200 && ($body['valid'] ?? null) === true && ($body['code'] ?? null) === $signed['code']
+        && is_bool($body['registered'] ?? null) && !str_contains($r['body'], '@'),
+        '/api/certificates/<signed code> → authentic, no owner data', [$r['status'], substr($r['body'], 0, 200)]);
+    $other = strtoupper($signed['code']) !== $signed['code'] ? strtoupper($signed['code']) : strtolower($signed['code']);
+    if ($other !== $signed['code'] && (int) $pdo->query('SELECT COUNT(*) FROM qr WHERE code = ' . $pdo->quote($other))->fetchColumn() === 0) {
+        $r = probe('GET', '/api/certificates/' . rawurlencode($other));
+        check($r['status'] === 200 && (json_decode($r['body'], true)['reason'] ?? null) === 'unknown_code',
+            '/api/certificates/<signed code in another case> → unknown_code (no case-insensitive match)', [$r['status'], substr($r['body'], 0, 200)]);
+    }
 }
 $r = probe('GET', '/api/certificates/zzzzzzzz');
 check($r['status'] === 200 && (json_decode($r['body'], true)['reason'] ?? null) === 'unknown_code', '/api/certificates/<unknown> → unknown_code', [$r['status'], $r['body']]);
@@ -332,7 +336,7 @@ $identical = [
     ['GET', '/api/keys/keys.php', null, []],
     ['GET', '/generate/get-signature.php?code=' . rawurlencode($signedCode), null, []],
     ['GET', '/generate/get-signature.php?code=zzzzzzzz', null, []],
-    ['GET', '/api/certificates/' . rawurlencode(strtoupper($signedCode)), null, ['Origin: https://example.org']],
+    ['GET', '/api/certificates/' . rawurlencode($signedCode), null, ['Origin: https://example.org']],
     ['GET', '/api/certificates/zzzzzzzz', null, []],
     ['POST', '/api/certificates/verify', '{}', []],
     ['OPTIONS', '/api/certificates/verify', null, ['Origin: https://example.org', 'Access-Control-Request-Method: POST']],
