@@ -1,6 +1,8 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import type { Path } from '@scutoons/content';
+	import { RESPAWN_UNITS, intervalMinutes, isRespawnInterval, intervalParts, placementRespawnProblem, respawnRange, type Path, type RespawnInterval, type RespawnUnit } from '@scutoons/content';
+	import ItemPickerSheet from './item-picker-sheet.svelte';
+	import { intervalLabel } from '$lib/editor/respawn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
@@ -16,20 +18,21 @@
 	let {
 		doc,
 		path,
-		editLocale = null,
 		characters = [],
 		choices,
-		background = '',
+		dialogs = [],
+		oncreatebox,
 		onremove
 	}: {
 		doc: ContentDoc;
 		/** path of the placed item */
 		path: Path;
-		/** geometry scope: null = all locales, else only this locale */
-		editLocale?: string | null;
 		characters?: { name: string; label?: string }[];
 		choices?: CharacterChoices;
-		background?: string;
+		/** the slice's text boxes (an onomatopoeia tap event reveals one) */
+		dialogs?: { id: string; label: string }[];
+		/** "Create a text box for this" for tap event `index` */
+		oncreatebox?: (index: number) => void;
 		onremove?: () => void;
 	} = $props();
 
@@ -40,12 +43,44 @@
 	const placed = $derived(doc.get(doc.primary, path));
 	const def = $derived(itemCatalog.catalog?.items.find((i) => i.id === placed?.item));
 	const action = $derived(placed?.action ?? 'none');
-	const itemOptions = $derived.by(() => {
-		const list = (itemCatalog.catalog?.items ?? []).map((i) => ({ value: i.id, label: `${itemName(i, i.id)} · ${i.id}` }));
-		if (placed?.item && !list.some((o) => o.value === placed.item)) list.unshift({ value: placed.item, label: placed.item });
-		return list;
-	});
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
+	let picking = $state(false);
+
+	// ── respawn: the item's rule (catalog, admin → Catalog) and this placement's override within its range ──
+	const UNIT_MINUTES: Record<RespawnUnit, number> = { minutes: 1, hours: 60, days: 1440 };
+	/** the item's rule: undefined = catalog not loaded, null = the item never reappears */
+	const rule = $derived(def ? (def.respawn ?? null) : undefined);
+	const range = $derived(rule ? respawnRange(rule) : null);
+	/** the units a placement can use within the range (n ≥ 1 whole) */
+	const units = $derived(
+		range ? RESPAWN_UNITS.filter((u) => Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u]) * UNIT_MINUTES[u] <= range.max) : []
+	);
+	const choice = $derived<RespawnInterval | 'never' | undefined>(placed?.respawn);
+	const choiceKind = $derived(
+		choice === undefined ? 'default' : choice === 'never' || choice === 'visit' ? choice : isRespawnInterval(choice) ? intervalParts(choice).unit : 'invalid'
+	);
+	const problem = $derived(rule === undefined ? null : placementRespawnProblem(choice, rule));
+	const bounds = (u: RespawnUnit) => ({
+		min: range ? Math.max(1, Math.ceil(Math.max(range.min, 1) / UNIT_MINUTES[u])) : 1,
+		max: range ? Math.floor(range.max / UNIT_MINUTES[u]) : 1
+	});
+	function setRespawnKind(kind: string) {
+		let next: RespawnInterval | 'never' | undefined;
+		if (kind === 'never' || kind === 'visit') next = kind;
+		else if ((RESPAWN_UNITS as readonly string[]).includes(kind)) {
+			const u = kind as RespawnUnit;
+			// the item's default in this unit when it fits, else the shortest the range allows
+			const d = rule ? (intervalMinutes(rule.default) ?? 0) : 0;
+			const n = Math.min(bounds(u).max, Math.max(bounds(u).min, Math.round(d / UNIT_MINUTES[u])));
+			next = { [u]: n } as RespawnInterval;
+		}
+		doc.setShared(p('respawn'), next);
+	}
+	function setRespawnCount(raw: string) {
+		if (choiceKind === 'default' || choiceKind === 'never' || choiceKind === 'visit' || choiceKind === 'invalid') return;
+		const n = Math.floor(Number(raw));
+		if (n >= 1) doc.setShared(p('respawn'), { [choiceKind]: n });
+	}
 </script>
 
 {#if placed}
@@ -56,15 +91,18 @@
 			{#if onremove}<button class="secondary" onclick={onremove}>{m['creator.remove']()}</button>{/if}
 		</div>
 
-		<PropField {doc} path={p('item')} label="item" type="select" options={itemOptions} required />
+		<div class="row">
+			<code>{placed.item}</code>
+			<button type="button" class="secondary" onclick={() => (picking = true)} data-testid="item-change">{m['creator.slice_item_change']()}</button>
+		</div>
+		<ItemPickerSheet bind:open={picking} title={m['creator.slice_item_change']()} onpick={(item) => doc.setShared(p('item'), item.id)} />
 
 		<div class="grid">
-			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required {editLocale} />
-			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required {editLocale} />
-			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required {editLocale} />
+			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required />
+			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required />
+			<PropField {doc} path={p('rect', 'width')} label="width %" type="number" required />
 			<PropField {doc} path={p('rotation')} label="rotation °" type="number" step={1} placeholder="0" />
 		</div>
-		{#if editLocale}<p class="hint">Geometry: only {editLocale} (override).</p>{/if}
 
 		<PropField
 			{doc}
@@ -80,15 +118,33 @@
 
 		{#if action === 'pickup'}
 			<PropField {doc} path={p('qty')} label={m['creator.slice_item_qty']()} type="number" step={1} min={1} placeholder="1" />
-			<PropField
-				{doc}
-				path={p('pickupMode')}
-				label={m['creator.slice_item_pickup_mode']()}
-				type="select"
-				options={[{ value: 'respawn', label: m['creator.slice_item_pickup_respawn']() }]}
-				placeholder={m['creator.slice_item_pickup_once']()}
-			/>
-			{#if placed.pickupMode === 'respawn'}<p class="hint">{m['creator.slice_item_hint_respawn']()}</p>{/if}
+			{#if rule === null}
+				<p class="hint" data-testid="item-respawn-never">{m['creator.respawn_item_never']()}</p>
+			{:else if rule}
+				<div class="grid">
+					<div class="field">
+						<label for="respawn-{path.join('-')}">{m['creator.slice_item_pickup_mode']()}</label>
+						<select id="respawn-{path.join('-')}" value={choiceKind} onchange={(e) => setRespawnKind(e.currentTarget.value)} data-testid="item-respawn">
+							<option value="default">{m['creator.respawn_item_default']({ every: intervalLabel(rule.default) })}</option>
+							<option value="never">{m['creator.respawn_never']()}</option>
+							{#if range?.min === 0}<option value="visit">{intervalLabel('visit')}</option>{/if}
+							{#each units as u (u)}<option value={u}>{m[`creator.respawn_every_${u}_n`]()}</option>{/each}
+							{#if choiceKind === 'invalid' || (choiceKind !== 'default' && choiceKind !== 'never' && choiceKind !== 'visit' && !units.includes(choiceKind))}
+								<option value={choiceKind}>{JSON.stringify(choice)} (?)</option>
+							{/if}
+						</select>
+					</div>
+					{#if choiceKind !== 'default' && choiceKind !== 'never' && choiceKind !== 'visit' && choiceKind !== 'invalid' && choice && typeof choice === 'object'}
+						{@const b = bounds(choiceKind)}
+						<div class="field">
+							<label for="respawn-n-{path.join('-')}">{m[`creator.respawn_unit_${choiceKind}`]()} ({b.min} … {b.max})</label>
+							<input id="respawn-n-{path.join('-')}" type="number" step="1" min={b.min} max={b.max} value={intervalParts(choice).n} oninput={(e) => setRespawnCount(e.currentTarget.value)} data-testid="item-respawn-n" />
+						</div>
+					{/if}
+				</div>
+				<p class="hint">{m['creator.respawn_item_range']({ min: range && range.min === 0 ? intervalLabel('visit') : intervalLabel({ minutes: Math.max(1, range?.min ?? 1) }), max: intervalLabel({ minutes: range?.max ?? 1 }) })}</p>
+				{#if problem}<p class="warn" data-testid="item-respawn-problem">{problem}</p>{/if}
+			{/if}
 			<p class="hint">{m['creator.slice_item_hint_pickup']()}</p>
 			{#if def && !def.grantable?.includes('story')}
 				<p class="warn" data-testid="item-not-grantable">{m['creator.slice_item_not_grantable']()}</p>
@@ -96,7 +152,7 @@
 		{:else if action === 'events'}
 			<PropField {doc} path={p('once')} label={m['creator.slice_item_once']()} type="bool" placeholder="true" />
 			<p class="hint">{m['creator.slice_item_hint_events']()}</p>
-			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} {background} />
+			<VnEvents {doc} eventsPath={p('events')} {characters} {choices} {dialogs} {oncreatebox} />
 		{/if}
 	</div>
 {/if}
@@ -133,6 +189,21 @@
 		display: grid;
 		gap: var(--space-075) var(--space-1);
 		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+	/* the respawn select (its own change handler) – laid out like a PropField */
+	.field {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-025);
+		min-width: 0;
+	}
+	.field label {
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		font-weight: var(--font-weight-regular);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 	.hint {
 		margin: 0;

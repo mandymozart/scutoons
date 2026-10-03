@@ -1,5 +1,5 @@
-import type { JumpToTarget, Onomatopoeia } from './content.ts';
-import type { Trigger, TriggerMode } from './enums.ts';
+import type { JumpToTarget } from './content.ts';
+import type { OnomatopoeiaEffect, Trigger, TriggerMode } from './enums.ts';
 
 /**
  * One mood of a character in its three views (framings). "View" is the term in the UI (never "variant", which would be
@@ -159,22 +159,31 @@ export interface VNHideMessageEvent {
 	params?: {};
 }
 
-type OnomatopoeiaParams = Onomatopoeia & {
+/**
+ * An onomatopoeia = a text box revealed by this event (owner 2026-10-03, option B): `dialog` is the id of a text box
+ * (`Dialog.id`) on the event's slice, or for a group script on one of the group's slices. The box stays hidden until the
+ * event fires, then appears with `effect` / `delay` / `duration` and stays; the box gives the look (variant, font,
+ * colour, outline, rotation, scale, text per language), the event the timing.
+ */
+export interface OnomatopoeiaParams {
+	dialog: string;
+	/** default 'none' */
+	effect?: OnomatopoeiaEffect;
+	/** ms the effect plays, default 2000 (max 5000) */
+	duration?: number;
+	/** ms before the box appears, default 0 (max 5000) */
+	delay?: number;
+	/** `mono` = one at a time (queued), `poly` = together; default poly */
 	mode?: TriggerMode;
+	/** the script waits for a tap before it continues */
 	wait?: boolean;
-	/**
-	 * Id of a text box (`Dialog.id`) – on the event's slice, or for a group script on one of the group's slices. That box
-	 * stays hidden until the event fires, then appears with the event's effect / duration / delay / wait and stays; the box
-	 * gives the look (variant, font, colour, outline, rotation, scale, per-language text), the event the timing. `text`,
-	 * `position`, `size`, `align`, `rotation`, `scale` and `variant` of the event are then not used. Without it: the
-	 * event's own onomatopoeia, as before.
-	 */
-	dialog?: string;
-};
+	/** after its effect the box stays (default true) or disappears again (`false`, after `delay` + `duration`) */
+	stay?: boolean;
+}
 
 export interface VNShowOnomatopeiaEvent {
 	type: 'showOnomatopeia';
-	params: OnomatopoeiaParams; // shares config with webtoon layout for convenience
+	params: OnomatopoeiaParams;
 }
 
 export interface VNJumpToEvent {

@@ -4,6 +4,8 @@ export * from './content.ts';
 export * from './audio.ts';
 export * from './visual-novel.ts';
 export * from './items.ts';
+export * from './respawn.ts';
+export * from './geometry.ts';
 export * from './albums.ts';
 export * from './membership.ts';
 export * from './products.ts';

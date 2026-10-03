@@ -2,11 +2,10 @@
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, clone, type Path } from '@scutoons/content';
-	import { JumpToTargetType, OnomatopoeiaEffect, OnomatopoeiaVariant, Trigger, TriggerMode } from '@scutoons/content';
+	import { JumpToTargetType, OnomatopoeiaEffect, Trigger, TriggerMode } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
-	import OnomatopoeiaPreview from './onomatopoeia-preview.svelte';
 	import CharacterRefField, { type CharacterChoices } from './characters/character-ref-field.svelte';
 	import {
 		REGULAR_PERSONA,
@@ -39,7 +38,6 @@
 		sliceEvents = false,
 		characters = [],
 		choices,
-		background = '',
 		selected = -1,
 		onselect,
 		dialogs = [],
@@ -51,8 +49,6 @@
 		characters?: { name: string; label?: string }[];
 		/** the toon's cast + registry: character fields become a cast select with "Add from registry…" / "New character…" */
 		choices?: CharacterChoices;
-		/** slice image for the onomatopoeia preview */
-		background?: string;
 		selected?: number;
 		onselect?: (index: number) => void;
 		/**
@@ -79,7 +75,8 @@
 			case 'jumpTo':
 				return { type, params: { target: { type: 'chapter', value: '1' } } };
 			case 'showOnomatopeia':
-				return { type, params: { text: 'BAM', position: { x: 50, y: 50 }, size: 3, effect: 'shiver', mode: 'poly' } };
+				// the text box is picked (or created) in the form
+				return { type, params: { effect: 'shiver' } };
 			case 'joinScene':
 			case 'leaveScene':
 				return { type, params: { characters: [{ character: characters[0]?.name ?? '', persona: 'regular', ...(type === 'joinScene' ? { variant: 'avatar' } : {}) }] } };
@@ -294,7 +291,7 @@
 				</div>
 			{:else if event.type === 'showOnomatopeia'}
 				{@const box = event.params?.dialog}
-				<!-- Option B (owner 2026-10-03): the event reveals a text box – the box gives the look, the event the timing -->
+				<!-- an onomatopoeia is a text box this event reveals: the box gives the look, the event the timing -->
 				<div class="grid g3">
 					<PropField
 						{doc}
@@ -302,41 +299,28 @@
 						label={m['creator.ono_text_box']()}
 						type="select"
 						options={[...dialogs.map((d) => ({ value: d.id, label: d.label })), ...(box && !dialogs.some((d) => d.id === box) ? [{ value: box, label: `${box} (?)` }] : [])]}
-						placeholder={m['creator.ono_own']()}
+						placeholder={m['creator.ono_choose_box']()}
 					/>
 					{#if oncreatebox && !box}
 						<button type="button" class="secondary" onclick={() => oncreatebox(i)} data-testid="ono-create-box">{m['creator.ono_create_box']()}</button>
 					{/if}
 				</div>
-				{#if box}
-					<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>
-					<div class="grid g3">
-						<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
-						<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
-						<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
-						<PropField {doc} path={[...p, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="mono" />
-						<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
-					</div>
-				{:else}
-				<LocaleText {doc} path={[...p, 'params', 'text']} rows={1} />
-				<div class="ono">
-					<div class="grid g3">
-						<PropField {doc} path={[...p, 'params', 'position', 'x']} label="x %" type="number" placeholder="50" />
-						<PropField {doc} path={[...p, 'params', 'position', 'y']} label="y %" type="number" placeholder="50" />
-						<PropField {doc} path={[...p, 'params', 'size']} label="size (rem)" type="number" placeholder="2" />
-						<PropField {doc} path={[...p, 'params', 'align']} label="align" type="select" options={['left', 'center', 'right']} placeholder="center" />
-						<PropField {doc} path={[...p, 'params', 'rotation']} label="rotation °" type="number" step={1} placeholder="0" />
-						<PropField {doc} path={[...p, 'params', 'scale']} label="scale" type="number" step={0.05} min={0.1} max={10} placeholder="1" />
-						<PropField {doc} path={[...p, 'params', 'variant']} label="variant" type="select" options={Object.values(OnomatopoeiaVariant)} placeholder="default" />
-						<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
-						<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
-						<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
-						<PropField {doc} path={[...p, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="mono" />
-						<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
-					</div>
-					<OnomatopoeiaPreview params={event.params ?? {}} {background} toon={doc.toon} />
+				{#if box}<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>{/if}
+				<div class="grid g3">
+					<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
+					<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
+					<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
+					<PropField {doc} path={[...p, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="poly" />
+					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
+					<PropField
+						{doc}
+						path={[...p, 'params', 'stay']}
+						label={m['creator.ono_after']()}
+						type="select"
+						options={[{ value: false, label: m['creator.ono_disappears']() }]}
+						placeholder={m['creator.ono_stays']()}
+					/>
 				</div>
-				{/if}
 			{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 				{#each characterRows(i) as row, ci (ci)}
 					{@const looks = looksOf(row)}
@@ -419,11 +403,6 @@
 	}
 	.g4 {
 		grid-template-columns: 2fr 1fr 1fr auto;
-	}
-	.ono {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		gap: 0.5rem;
 	}
 	.raw {
 		display: grid;

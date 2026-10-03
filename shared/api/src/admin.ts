@@ -1,7 +1,7 @@
 // Admin API (agents/ITEMS.md → "Admin API"): `/admin/*`, session + role `admin`. Framework-agnostic like the rest
 // of the package; the app keeps list state in its URLs and passes the query through.
 import type { ApiClient } from './client.ts';
-import type { FeaturedProduct } from '@scutoons/content';
+import type { FeaturedProduct, ItemRespawn } from '@scutoons/content';
 
 /** URL-driven list query: `page` from 1, `page_size` (server clamps 1…500), `sort` = field | -field, `q`, filters */
 export type ListParams = Record<string, string | number | boolean | null | undefined>;
@@ -311,6 +311,25 @@ export interface AdminSettings {
 }
 
 /** The editions on the landing page (admin page "Startseite", `GET/PUT /admin/featured`): `[{ product, variant? }]` in order */
+/** When picked-up placed items reappear, per item (`GET /admin/catalog/respawn`, agents/ITEMS.md "Placed items" → "Respawn") */
+export interface AdminRespawn {
+	status: 'success';
+	items: {
+		id: string;
+		/** the rule in server config/items.json (null = never) */
+		file: ItemRespawn | null;
+		/** the admin's override (null = never; only meaningful with `overridden`) */
+		override: ItemRespawn | null;
+		overridden: boolean;
+		/** what applies (null = never reappears) */
+		effective: ItemRespawn | null;
+	}[];
+	updated_at: string | null;
+	updated_by: string | null;
+	/** PUT only */
+	changed?: boolean;
+}
+
 export interface AdminFeatured {
 	status: 'success';
 	/** the effective list (the stored one, else the default) */
@@ -549,6 +568,11 @@ export function createAdminApi(api: ApiClient) {
 		settings: () => api.get<AdminSettings>('/admin/settings'),
 		/** key → whole number (min…max), or null = back to the default */
 		saveSettings: (values: Record<string, number | null>) => api.put<AdminSettings>('/admin/settings', values),
+
+		respawn: () => api.get<AdminRespawn>('/admin/catalog/respawn'),
+		/** an item's rule, null = never reappears, `reset` = back to config/items.json */
+		saveRespawn: (item: string, change: { respawn: ItemRespawn | null } | { reset: true }) =>
+			api.put<AdminRespawn>(`/admin/catalog/respawn/${seg(item)}`, change),
 
 		featured: () => api.get<AdminFeatured>('/admin/featured'),
 		/** the new ordered list, or null = back to the default */

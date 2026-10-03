@@ -366,7 +366,7 @@ Open (owner 2026-10-01):
 | `catpope-s1-cover-portrait-textless` | `catpope/images/s1-cover-portrait-textless.webp` | 1080 × 1920 | the same, portrait |
 | `toptoy-s1-cover-square` / `-portrait` | `toptoy/images/s1-cover-{square,portrait}.webp` | 1080² / 1080 × 1920 | no cover exists (the old per-language paths never did) |
 | `yellowmouse-s1-cover-square` / `-portrait` | `yellowmouse/images/s1-cover-{square,portrait}.webp` | 1080² / 1080 × 1920 | the same; the mouse stays unrevealed |
-| `catpope-s1c2-slice-1-textless` | `catpope/images/webtoon/s1c2/s1c2-slice-1-textless.jpg` | 390 × 625 | chapter 2 slice 1 without the baked SFX "FLATTER FLATTER" → a `sfx` text box |
+| `catpope-s1c2-slice-1-textless` | `catpope/images/webtoon/s1c2/s1c2-slice-1-textless.jpg` | 390 × 625 | chapter 2 slice 1 without the baked SFX "FLATTER FLATTER" → an onomatopoeia text box (outlined lettering, revealed by an onomatopoeia event) |
 
 New files get new names (PLATFORM.md "CDN": a changed file gets a new name).
 
@@ -378,7 +378,7 @@ Every file referenced by the seed (+ the apps' static images) was looked at. Sli
 |---|---|---|---|---|
 | `catpope/images/s1-cover-square.webp`, `s1-cover-portrait.webp` (+ unused `.jpg` twins) | "KATZENPAPST", "DAS ERWACHEN" | de | `toon:catpope` + `season:catpope:1:*` `cover`, sandbox cover | **new artwork** (requested); lettering via `cover.lettering` |
 | `toptoy/images/1x/{de,en}/s1-cover-*.jpg`, `yellowmouse/…` | – (never existed) | de/en paths | were `toon-settings` covers | removed; **new artwork** (requested), lettering-free |
-| `catpope/images/webtoon/s1c2/s1c2-slice-1.webp` (+ `.jpg`) | SFX "FLATTER FLATTER" (in no text field) | de | chapter 2, slice 1 | **extract** to a `dialog` `sfx` box; clean art requested. Slices 2–22 are text-free |
+| `catpope/images/webtoon/s1c2/s1c2-slice-1.webp` (+ `.jpg`) | SFX "FLATTER FLATTER" (in no text field) | de | chapter 2, slice 1 | **extract** to an onomatopoeia text box (`dialog` + a `showOnomatopeia` event); clean art requested. Slices 2–22 are text-free |
 | `catpope/images/webtoon/s1c1/*` (source `webtoon/de/S1C1 - Slice N.jpg`) | speech, captions | de | chapter 1 | **extracted** already (`dialog` + `mask`, MEMORY "Chapter 1 text extraction"); text-free art later (PLAN goal 5) |
 | `catpope/images/characters/{catpope,boy,crows,mountain-tiger,cat,plf}/*.svg` | placeholder names ("Katzenpapst", "Junge", "Krähen", "Gebirgs Tiger", "Katze"/"Cat", "PLF", "Character Placeholder") | de (en) | `characters` registry (old `image` / view paths of these characters) | **new artwork** via the characters' own wanted images; until then the on-brand "?" substitutes are a better fallback than named placeholders (owner decision) |
 | `catpope/images/s1-trailer-poster.webp`, `images/s1c0-thumbnail.webp`, `images/webtoon/s1c0/s1c0-slice-1.webp`, `videos/s1-trailer-loop.*`, `videos/roar-little-kitty.*` | "ROAR LITTLE KITTY" (title card) | en (song title) | season `trailer`, chapter 0 thumbnail + player slice | **keep** – the song's name, the same in every language; a clean poster/thumbnail frame is optional |

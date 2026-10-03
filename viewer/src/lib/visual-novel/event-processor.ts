@@ -163,7 +163,7 @@ export class EventProcessor {
 	): Promise<void> {
 		const { wait = false } = event.params;
 
-		this.vn.showOnomatopeia(event.params);
+		if (!this.vn.showOnomatopeia(event.params)) return;
 
 		if (wait) {
 			return new Promise<void>((resolve) => {

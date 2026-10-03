@@ -295,9 +295,9 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   - No mood text anywhere (the art shows the mood).
   - One click per message, the last one included: the click on the last message also jumps (`jumpTo` with `wait`), and
     a group's box closes after its last message is clicked away.
-- **Onomatopoeia** — bold uppercase mono, size (rem) / align / rotation per placement, color from `primary-cyan` or the
-  acid trio. Variants: `default`, `outline` (8-way white text-shadow), `thorns` (jittered echo + glow), `bubble`
-  (white ellipse, 3px currentColor border). Effects: `shiver`, `pulse`, `wobble`.
+- **Onomatopoeia** — a text box on the slice that a `showOnomatopeia` event reveals with an effect (`shiver`, `pulse`,
+  `wobble`, none); see Part 2 "Onomatopoeia = a text box". (The old full-screen onomatopoeia with its own text, size and
+  variants `default` / `outline` / `thorns` / `bubble` was removed on 2026-10-03 – never used in content.)
 
 - **Landing page** (`routes/+page.svelte` + `+page.ts`, owner 2026-10-01, design "D · Brutal": artboards "(desktop)" /
   "(phone)" of https://claude.ai/artifact/XSq3qwDDuf8qDmKSAhK64a; everything from the API, no hard-coded releases).
@@ -340,6 +340,9 @@ images and only the words change.
 
 - The bubble **shape** belongs to the art (exported from Figma `art` frame). The viewer renders only the words.
 - Geometry in **% of the slice box** (same convention as triggers/samples) → resolution-independent.
+- **Geometry is the same in every language** (owner 2026-10-03): position, size, rotation and scale of text boxes and
+  placed items; only the text is per language. The creator has no per-language geometry; on load it makes a language
+  that differs follow the source (`unifyGeometry`, a notice, saved with the next save). Chapter 1 en had 5 wider boxes.
 - Font size in **% of slice width** rendered as `cqw` (`.slice { container-type: inline-size }`) → lettering scales
   exactly like the art at any column width (≤ 500px).
 - It is comic lettering, not UI chrome: the UI tokens above do not apply, except `ink`/`paper` as default colors.
@@ -347,7 +350,7 @@ images and only the words change.
 ### Schema (`viewer/src/lib/models/content.ts`)
 
 ```ts
-export type DialogVariant = 'bubble' | 'caption' | 'narration' | 'sfx';
+export type DialogVariant = 'bubble' | 'caption' | 'narration';
 
 export interface Dialog {
   id?: string;                 // stable key = Figma node id → i18n/s1c2.json
@@ -357,9 +360,9 @@ export interface Dialog {
   frame?: boolean;             // caption/narration: paper box + 2px ink border, default true; false = bare text
                                // on the art (pair with `mask` to cover baked text)
   size?: number;               // font size, % of slice width (Figma px / frame width * 100); default 4
-  align?: 'left' | 'center' | 'right';        // default: bubble/sfx 'center', caption/narration 'left'
+  align?: 'left' | 'center' | 'right';        // default: bubble 'center', caption/narration 'left'
   valign?: 'top' | 'middle' | 'bottom';        // default 'middle' (needs height)
-  font?: 'lettering' | 'mono';                 // default: bubble/sfx 'lettering' (Bangers, OFL), caption/narration 'mono' (IBM Plex Mono)
+  font?: 'lettering' | 'mono';                 // default: bubble 'lettering' (Bangers, OFL), caption/narration 'mono' (IBM Plex Mono)
   weight?: 400 | 700;
   uppercase?: boolean;
   color?: string;              // default ink
@@ -380,27 +383,33 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
   `font-size: calc(var(--size) * 1cqw)`, `line-height: 1.15`, `overflow-wrap: anywhere`, `hyphens: auto` with
   `lang` set from the chapter language (German compounds).
 - Variants: `bubble` — plain text inside the art's bubble; `caption` — `paper` box, 2px `ink` border, square
-  (on-brand panel caption); `narration` — like caption, italic; `sfx` — hands off to onomatopoeia styling.
+  (on-brand panel caption); `narration` — like caption, italic.
 - **Drawn bubble (owner 2026-10-03, "bubble is currently caption").** Why it looked like a caption: `bubble` only ever
   drew the words (the shape is in chapter 1/2 art), so on text-free art there was no bubble at all, and the creator's
   new default box is a caption. Now `bubble` + `frame: true` draws a speech bubble: paper ellipse, 2px ink outline, a
   tail (`tail`: bottom-left (default) · bottom · bottom-right · top-left · top · top-right · none). `frame` stays off by
   default for bubbles, so published chapters render exactly as before; the creator sets it when a box becomes a bubble.
+  `shape` (round 3, owner: "loud and intense stuff such as screaming and singing"): `oval` (default, speech) or `wobbly`
+  ("Schrei / Shout") – a roughly rectangular box whose ink outline trembles on all four sides, drawn as an SVG for the
+  box's laid-out size (`dialog/wobbly.ts`, deterministic per box id: the same bumps on every render); its tail defaults
+  to none.
 - **Outline** (`stroke` colour, `strokeWidth` em, default 0.14): letters with an outline on any variant – the onomatopoeia
   look (white letters, ink outline) without a variant of its own.
-- **`sfx` is no longer offered** (owner 2026-10-03): old sfx boxes keep rendering; the inspector shows "onomatopoeia (old)"
-  with "convert to a text box with an outline" (bubble without frame, uppercase, white, ink outline).
+- **No `sfx` variant** (removed 2026-10-03, never used in content): an onomatopoeia is a bubble without frame,
+  uppercase, white letters with an ink outline, revealed by an onomatopoeia event.
 
-### Onomatopoeia → text box (owner 2026-10-03, option B)
+### Onomatopoeia = a text box (owner 2026-10-03, option B; legacy removed the same day)
 
-A `showOnomatopeia` event may name a text box: `params.dialog: "<text box id>"` – on its slice (slice events) or on one
-of the group's slices (a group script). The box is hidden until the event fires, then appears with the event's
-`effect` / `delay` / `duration` (the onomatopoeia effect components, filling the box) and **stays**; `wait` and `mode`
-work as before (a missing box still completes after its time). The box gives the look (variant, font, colour, outline,
-rotation, scale, text per language), the event the timing. The event's own `text` / position / size … are kept in the
-data (older viewer builds still draw the old onomatopoeia) but not used. Events without `params.dialog` are unchanged.
-Creator: the event's "Text box" select (the slice's / group's boxes) or "Create a text box for this"; the canvas marks a
-revealed box "hidden until ⚡ n" / "script n".
+A `showOnomatopeia` event reveals a text box: `params` = `{ dialog, effect?, duration?, delay?, mode?, wait? }`,
+`dialog` (required – an event without it is a validation error and shows nothing) = the id of a text box on its slice
+(slice events) or on one of the group's slices (a group script). The box is hidden until the event fires, then appears
+with the event's `effect` / `delay` / `duration` (`@scutoons/reader` `src/effects`, filling the box) and **stays**;
+`wait` (a tap continues) and `mode` (mono = one at a time, queued) as before; a missing box still completes after its
+time. The box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing.
+`stay` (default true): after its effect the box stays, or – `false`, "the box disappears again" – is hidden again after
+`delay` + `duration`. A placed item's tap events may reveal boxes on its slice too (hidden in advance like the others).
+Creator: the event's "Text box" select (the slice's / group's boxes) or "Create a text box for this" (a lettering box,
+white, ink outline, uppercase, "BAM"); the canvas marks a revealed box "hidden until ⚡ n" / "script n".
 
 - Overflow guard: if translated text exceeds the box, shrink font down to 80% via a `fit` pass
   (ResizeObserver), then allow overflow; the exporter report lists boxes where `en` is > 130% of `de` length.
@@ -416,7 +425,7 @@ revealed box "hidden until ⚡ n" / "script n".
 | `textCase: UPPER` | `uppercase: true` |
 | `fontWeight` | `weight` |
 | solid fill | `color` (omit if `#000000`) |
-| layer name `#caption` / `#narration` / `#sfx` | `variant` |
+| layer name `#caption` / `#narration` | `variant` |
 | node id | `id` → `i18n/s1c2.json` key |
 | `characters` (split on `\n`) | `text` (de source; `en` from i18n file) |
 

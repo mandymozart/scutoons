@@ -8,7 +8,7 @@
 	import { buildJumpToUrl } from '$lib/visual-novel/jump-to.ts';
 	import { interpolateVariables } from '$lib/visual-novel/utils.ts';
 	import Characters from '../vn/characters.svelte';
-	import Onomatopeias from '../vn/onomatopeias.svelte';
+	import OnomatopoeiaWait from '../vn/onomatopoeia-wait.svelte';
 	import MessageBox from '../vn/message.svelte';
 
 	let { group }: { group: Group } = $props();
@@ -88,7 +88,7 @@
 	async function handleShowOnomatopoeia(event: VNEvent & { type: 'showOnomatopeia' }): Promise<void> {
 		const { wait = false } = event.params;
 
-		vn.showOnomatopeia(event.params);
+		if (!vn.showOnomatopeia(event.params)) return;
 
 		if (wait) {
 			return new Promise<void>((resolve) => {
@@ -186,7 +186,7 @@
 </script>
 
 <Characters />
-<Onomatopeias />
+<OnomatopoeiaWait />
 <MessageBox />
 
 <style>

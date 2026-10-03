@@ -12,8 +12,9 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import RespawnEditor from '$lib/components/respawn-editor.svelte';
 
-	/** Read-only view of the server's catalog config: items (+ recipes), editions, toons, the permissions map. */
+	/** The server's catalog config: items (+ recipes), editions, toons, the permissions map – read-only except the items' respawn (RespawnEditor). */
 	let catalog = $state<AdminCatalog | null>(null);
 	let error = $state<string | null>(null);
 
@@ -100,6 +101,10 @@
 						{:else}{text(item[column.id])}{/if}
 					{/snippet}
 				</DataTable>
+				<!-- when picked-up placed items reappear (the one editable part of the catalog: setting item_respawn) -->
+				<Section title={m['catalog.respawn']()}>
+					<RespawnEditor names={Object.fromEntries(catalog!.catalog.items.map((i: Row) => [i.id, text(i.name)]))} />
+				</Section>
 				{#if catalog!.catalog.recipes?.length}
 					<Section title={m['catalog.recipes']()}>
 						<ul class="recipes">

@@ -30,10 +30,11 @@
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
-	import SliceCanvas, { type CanvasSelection, type Scope, type Tool } from './slice-canvas.svelte';
+	import SliceCanvas, { type CanvasSelection, type Tool } from './slice-canvas.svelte';
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
 	import ItemInspector from './item-inspector.svelte';
+	import ItemPickerSheet from './item-picker-sheet.svelte';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import SliceMedia from './slice-media.svelte';
 	import SliceUnlocks from './map/slice-unlocks.svelte';
@@ -157,15 +158,47 @@
 		const chosen = textLanguage.chosen(languages.languages);
 		if (chosen) displayLocale = chosen;
 	});
-	let grid = $state(0.5);
+	// snap to grid (owner 2026-10-03: one toggle for moving, resizing, scaling, rotating), remembered on this device
+	const SNAP_KEY = 'scutoons_creator_snap';
+	const GRID_KEY = 'scutoons_creator_grid';
+	const GRID_SIZES = [0.5, 1, 2.5, 5];
+	function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
+		try {
+			const raw = localStorage.getItem(key);
+			const value = raw === null ? fallback : JSON.parse(raw);
+			return ok(value) ? value : fallback;
+		} catch {
+			return fallback;
+		}
+	}
+	let snap = $state(readPref(SNAP_KEY, true, (v) => typeof v === 'boolean'));
+	let gridSize = $state(readPref(GRID_KEY, 1, (v) => GRID_SIZES.includes(v as number)));
+	$effect(() => {
+		try {
+			localStorage.setItem(SNAP_KEY, JSON.stringify(snap));
+			localStorage.setItem(GRID_KEY, JSON.stringify(gridSize));
+		} catch {
+			/* storage unavailable: the choice holds for this visit */
+		}
+	});
+	/** the canvas snap step in % of the slice (0 = off) */
+	const grid = $derived(snap ? gridSize : 0);
 	let tool = $state<Tool>('text');
-	let scope = $state<Scope>('all');
 	let panel = $state<'problems' | 'history' | null>(null);
 	function togglePanel(next: 'problems' | 'history') {
 		panel = panel === next ? null : next;
 	}
 	let canvas = $state<SliceCanvas | null>(null);
 	let notice = $state<string | null>(null);
+	// geometry is the same in every language: tell once when loading made a language follow the source (saved with the next save)
+	const unifiedGeometry = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.geometryUnified), 0));
+	let unifiedShown = 0;
+	$effect(() => {
+		if (unifiedGeometry > unifiedShown) {
+			notice = m['creator.geometry_unified']({ n: unifiedGeometry });
+			unifiedShown = unifiedGeometry;
+		}
+	});
 	let conflict = $state<{ doc: ContentDoc; error: SaveConflict } | null>(null);
 	let saveMessage = $state('');
 
@@ -312,7 +345,8 @@
 						moods: moodIds,
 						seasonStatus: doc === chapter ? seasonStatusOf(season, l, chapterNumber) : undefined,
 						// placed items (and related items) are checked against the catalog once it is loaded
-						items: itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined
+						items: itemCatalog.catalog ? itemCatalog.catalog.items.map((i) => i.id) : undefined,
+						itemRespawn: itemCatalog.catalog ? Object.fromEntries(itemCatalog.catalog.items.map((i) => [i.id, i.respawn ?? null])) : undefined
 					})
 				);
 			}
@@ -382,35 +416,36 @@
 		);
 
 	/**
-	 * "Create a text box for this" (onomatopoeia event `index` of the slice): a bare lettering box (white letters, ink
-	 * outline, uppercase) at the event's position with the event's text per language, revealed by the event.
+	 * "Create a text box for this" (onomatopoeia event `index` of the slice's events, or of `eventsPath` = a placed item's
+	 * tap events, relative to the slice): a bare lettering box in the middle of the slice (white letters, ink outline,
+	 * uppercase, "BAM" to overwrite per language), revealed by the event.
 	 */
-	function createBoxForEvent(index: number) {
+	function createBoxForEvent(index: number, eventsPath: Path = ['events']) {
 		const doc = activeDoc;
 		if (!doc || sliceIndex < 0) return;
 		const imageNo = Number(String(activeSlice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
 		const id = nextDialogId(chapterNumber, (imageNo || sliceIndex + 1) - 1, sliceDialogs);
+		const boxIndex = sliceDialogs.length;
 		doc.structural((file) => {
 			const slice = getAt(file, slicePath);
-			const event = slice?.events?.[index];
+			const event = slice ? getAt(slice, eventsPath)?.[index] : undefined;
 			if (!slice || event?.type !== 'showOnomatopeia') return;
-			const params = (event.params ??= {});
-			const x = typeof params.position?.x === 'number' ? params.position.x : 50;
-			const y = typeof params.position?.y === 'number' ? params.position.y : 50;
-			const box: Record<string, unknown> = {
-				...newDialog(id, { x: Math.max(0, x - 20), y: Math.max(0, y - 5), width: 40 }, 'bubble'),
-				text: params.text ?? '',
+			slice.dialog ??= [];
+			slice.dialog.push({
+				...newDialog(id, { x: 30, y: 45, width: 40 }, 'bubble'),
+				text: 'BAM',
 				size: 8,
 				uppercase: true,
 				color: '#ffffff',
 				stroke: '#000000'
-			};
-			if (typeof params.rotation === 'number') box.rotation = params.rotation;
-			slice.dialog ??= [];
-			slice.dialog.push(box);
-			params.dialog = id;
+			});
+			(event.params ??= {}).dialog = id;
 		});
+		// the new box is selected: its text and look are set in the text box inspector
+		onCanvasSelect({ kind: 'dialog', index: boxIndex });
 	}
+
+	let pickingItem = $state(false);
 
 	/** places a catalog item in the middle of the slice (a quarter of its width; move / rotate / scale on the canvas) */
 	function addSliceItem(itemId: string) {
@@ -818,7 +853,7 @@
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} background={activeGroup?.slices?.[0]?.image ?? ''} dialogs={boxChoices(activeGroup?.slices)} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={boxChoices(activeGroup?.slices)} />
 						{:else}
 							<p class="hint">No VN script in this group.
 								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
@@ -836,25 +871,16 @@
 								<button class="ghost" class:active={displayLocale === l} onclick={() => (displayLocale = l)} data-testid="show-{l}">{l}</button>
 							{/each}
 						</span>
-						<label class="inline">grid
-							<select bind:value={grid}>
-								<option value={0}>off</option>
-								<option value={0.5}>0.5%</option>
-								<option value={1}>1%</option>
-								<option value={2.5}>2.5%</option>
-								<option value={5}>5%</option>
+						<span class="seg" role="group" aria-label={m['creator.canvas_snap']()}>
+							<button class="ghost" class:active={snap} aria-pressed={snap} onclick={() => (snap = !snap)} title={m['creator.canvas_snap_hint']()} data-testid="snap-toggle"><Icon name="grid" /> {m['creator.canvas_snap']()}</button>
+							<select bind:value={gridSize} disabled={!snap} aria-label={m['creator.canvas_grid_size']()} title={m['creator.canvas_grid_size']()} data-testid="grid-size">
+								{#each GRID_SIZES as g (g)}<option value={g}>{g}%</option>{/each}
 							</select>
-						</label>
+						</span>
 						<span class="seg" role="group" aria-label="tool">
 							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}><Icon name="square" /> text box</button>
 							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}><Icon name="music" /> sample area</button>
 						</span>
-						<label class="inline" title="Geometry edits on the canvas and in the fields">geometry
-							<select bind:value={scope}>
-								<option value="all">all locales</option>
-								<option value="locale">only {displayLocale}</option>
-							</select>
-						</label>
 					</div>
 					<div class="canvas-scroll">
 						<SliceCanvas
@@ -864,7 +890,6 @@
 							locale={displayLocale}
 							{grid}
 							{tool}
-							{scope}
 							{selection}
 							onselect={onCanvasSelect}
 							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : addSampleArea(rect))}
@@ -903,7 +928,6 @@
 							<DialogInspector
 								doc={activeDoc}
 								path={[...slicePath, 'dialog', selection.index]}
-								editLocale={scope === 'locale' ? displayLocale : null}
 								onremove={removeSelected}
 							/>
 						{/if}
@@ -919,29 +943,17 @@
 								<li class="hint">{m['creator.slice_items_empty']()}</li>
 							{/each}
 						</ul>
-						<select
-							aria-label={m['creator.add_slice_item']()}
-							title={m['creator.add_slice_item']()}
-							value=""
-							disabled={!itemCatalog.catalog}
-							onchange={(e) => {
-								addSliceItem(e.currentTarget.value);
-								e.currentTarget.value = '';
-							}}
-							data-testid="add-slice-item"
-						>
-							<option value="">{m['creator.add_slice_item']()}</option>
-							{#each itemCatalog.catalog?.items ?? [] as item (item.id)}<option value={item.id}>{itemName(item, item.id)} · {item.id}</option>{/each}
-						</select>
+						<button type="button" class="secondary" onclick={() => (pickingItem = true)} data-testid="add-slice-item"><Icon name="plus" /> {m['creator.add_slice_item']()}</button>
+						<ItemPickerSheet bind:open={pickingItem} title={m['creator.add_slice_item']()} onpick={(item) => addSliceItem(item.id)} />
 						{#if selection?.kind === 'item' && sliceItems[selection.index]}
 							<hr />
 							<ItemInspector
 								doc={activeDoc}
 								path={[...slicePath, 'items', selection.index]}
-								editLocale={scope === 'locale' ? displayLocale : null}
 								{characters}
 								{choices}
-								background={activeSlice.image}
+								dialogs={boxChoices([activeSlice])}
+								oncreatebox={(i) => selection && createBoxForEvent(i, ['items', selection.index, 'events'])}
 								onremove={removeSelected}
 							/>
 						{/if}
@@ -966,7 +978,6 @@
 							sliceEvents
 							{characters}
 							{choices}
-							background={activeSlice.image}
 							dialogs={boxChoices([activeSlice])}
 							oncreatebox={createBoxForEvent}
 							selected={selection?.kind === 'event' ? selection.index : -1}
@@ -1158,20 +1169,9 @@
 		display: inline-flex;
 		border: var(--border-width-regular) solid var(--ink);
 	}
-	.inline {
-		display: inline-flex !important;
-		gap: var(--space-05);
-		align-items: center;
-		font-size: var(--type-caption-size);
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-	}
-	.inline select {
+	/* the grid size next to the snap toggle */
+	.seg select {
 		width: auto;
-		font-weight: var(--font-weight-regular);
-		text-transform: none;
-		letter-spacing: normal;
 	}
 	.canvas-scroll {
 		overflow: auto;

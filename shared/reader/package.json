@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"private": true,
 	"type": "module",
-	"description": "SCUTOONS reader rendering shared by viewer and creator: Slice, Dialogs, Onomatopoeia, pure slice actions",
+	"description": "SCUTOONS reader rendering shared by viewer and creator: Slice, Dialogs (text boxes, revealed onomatopoeia), placed items, pure slice actions",
 	"sideEffects": [
 		"**/*.css",
 		"**/*.svelte"

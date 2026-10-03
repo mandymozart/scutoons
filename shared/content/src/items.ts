@@ -1,6 +1,7 @@
 // Items, inventory, avatar — contract: agents/ITEMS.md (served by qr.scutoons.com /api)
 import type { StatDef, StatEffect, TimedEffect, ReaderState } from './substances.ts';
 import type { Album, MediaFormat } from './albums.ts';
+import type { ItemRespawn } from './respawn.ts';
 
 export type Localized = Record<string, string>;
 
@@ -113,6 +114,11 @@ export interface ItemDef {
 	 * slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`.
 	 */
 	default_worn?: boolean;
+	/**
+	 * When a picked-up placement of this item is back on its slice (respawn.ts): a default interval and the range a
+	 * placement may choose; none / null = it never reappears (a one-time find). Admin → Catalog can override it.
+	 */
+	respawn?: ItemRespawn | null;
 	/** a substance's stat changes (`catalog.stats` ids), ITEMS.md "Substances" */
 	effects?: StatEffect[] | null;
 	/** a substance's temporary reader effect */

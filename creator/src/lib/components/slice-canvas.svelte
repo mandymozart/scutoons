@@ -5,7 +5,6 @@
 		index: number;
 	}
 	export type Tool = 'text' | 'sample';
-	export type Scope = 'all' | 'locale';
 </script>
 
 <script lang="ts">
@@ -31,7 +30,6 @@
 		locale,
 		grid = 0,
 		tool = 'text',
-		scope = 'all',
 		selection = null,
 		onselect,
 		oncreate
@@ -43,8 +41,6 @@
 		/** snap step in % (0 = off) */
 		grid?: number;
 		tool?: Tool;
-		/** geometry edits: every locale (keeping per-locale differences) or only the shown locale */
-		scope?: Scope;
 		selection?: CanvasSelection | null;
 		onselect?: (selection: CanvasSelection | null) => void;
 		/** a rect was drawn on empty space */
@@ -63,7 +59,6 @@
 		path: Path;
 		rect: Rect;
 		label: string;
-		overridden: string[];
 		/** degrees (text boxes, placed items) */
 		rotation: number;
 		/** text boxes' uniform scale */
@@ -72,7 +67,7 @@
 		revealedBy?: string;
 	}
 
-	/** text box id → the onomatopoeia event that reveals it (`params.dialog`): the slice's events, then the group script */
+	/** text box id → the onomatopoeia event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
 	const revealers = $derived.by(() => {
 		const out = new Map<string, string>();
 		const add = (events: any, label: (i: number) => string) =>
@@ -81,6 +76,7 @@
 				if (typeof ref === 'string' && ref && !out.has(ref)) out.set(ref, label(i));
 			});
 		add(slice?.events, (i) => `⚡ ${i + 1}`);
+		(slice?.items ?? []).forEach((it: any, n: number) => add(it?.events, (i) => `◆ ${n + 1}.${i + 1}`));
 		const group = slicePath.length >= 2 ? doc.get(doc.primary, [...slicePath.slice(0, -2), 'events']) : null;
 		add(group, (i) => `script ${i + 1}`);
 		return out;
@@ -96,20 +92,20 @@
 		(slice?.dialog ?? []).forEach((d: any, i: number) => {
 			const path = [...slicePath, 'dialog', i, 'rect'];
 			const revealedBy = typeof d?.id === 'string' ? revealers.get(d.id) : undefined;
-			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, overridden: doc.overrides(path), rotation: num(d.rotation, 0), scale: num(d.scale, 1), revealedBy });
+			if (d?.rect) out.push({ kind: 'dialog', index: i, path, rect: d.rect, label: d.id ?? `#${i + 1}`, rotation: num(d.rotation, 0), scale: num(d.scale, 1), revealedBy });
 		});
 		(slice?.items ?? []).forEach((it: any, i: number) => {
 			const path = [...slicePath, 'items', i, 'rect'];
 			const def = itemCatalog.catalog?.items.find((x) => x.id === it?.item);
-			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, overridden: doc.overrides(path), rotation: num(it.rotation, 0), scale: 1 });
+			if (it?.rect) out.push({ kind: 'item', index: i, path, rect: it.rect, label: `◆ ${itemName(def, it.item ?? '?')}`, rotation: num(it.rotation, 0), scale: 1 });
 		});
 		(slice?.audio?.audio?.samples ?? []).forEach((s: any, i: number) => {
 			const path = [...slicePath, 'audio', 'audio', 'samples', i, 'trigger', 'rect'];
-			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, overridden: doc.overrides(path), rotation: 0, scale: 1 });
+			if (s?.trigger?.rect) out.push({ kind: 'sample', index: i, path, rect: s.trigger.rect, label: `♪ ${s.id} (${s.trigger.type})`, rotation: 0, scale: 1 });
 		});
 		(slice?.events ?? []).forEach((e: any, i: number) => {
 			const path = [...slicePath, 'events', i, 'trigger', 'rect'];
-			if (e?.trigger?.rect) out.push({ kind: 'event', index: i, path, rect: e.trigger.rect, label: `⚡ ${e.type} (${e.trigger.type})`, overridden: doc.overrides(path), rotation: 0, scale: 1 });
+			if (e?.trigger?.rect) out.push({ kind: 'event', index: i, path, rect: e.trigger.rect, label: `⚡ ${e.type} (${e.trigger.type})`, rotation: 0, scale: 1 });
 		});
 		return out;
 	});
@@ -206,7 +202,8 @@
 
 	/** locales an edit writes to */
 	function targets(): string[] {
-		return scope === 'locale' ? [locale] : doc.present;
+		// geometry is the same in every language
+		return doc.present;
 	}
 
 	function beginEdit(event: PointerEvent, item: Item, handle: Handle) {
@@ -280,7 +277,8 @@
 
 	/**
 	 * Resize of a rotated / scaled box: the pointer delta in the box's own frame (un-rotated, un-scaled), the dragged
-	 * edges follow it and the opposite edges stay where they are on screen (the box turns around its centre). No grid snap.
+	 * edges follow it and the opposite edges stay where they are on screen (the box turns around its centre). With snap
+	 * on, the new width / height are whole grid steps.
 	 */
 	function transformedDeltas(handle: Handle, dx: number, dy: number, s: Required<Rect>, item: Item, px: { width: number; height: number }) {
 		const W = px.width / 100;
@@ -300,6 +298,15 @@
 		if (handle.includes('w')) l = Math.min(r - min, l + lx);
 		if (handle.includes('s')) b = Math.max(t + H, b + ly);
 		if (handle.includes('n')) t = Math.min(b - H, t + ly);
+		if (grid > 0) {
+			// whole grid steps for the new size: the dragged edge moves to fit (the opposite edge stays)
+			const sw = Math.max(W, snap((r - l) / W) * W);
+			const sh = Math.max(H, snap((b - t) / H) * H);
+			if (handle.includes('e')) r = l + sw;
+			else if (handle.includes('w')) l = r - sw;
+			if (handle.includes('s')) b = t + sh;
+			else if (handle.includes('n')) t = b - sh;
+		}
 		const nw = r - l;
 		const nh = b - t;
 		// the new centre: the old one + the local offset, scaled and rotated back to the slice
@@ -317,7 +324,7 @@
 	/** the entry a rect belongs to (text box / placed item) in one locale */
 	const entryOf = (l: string, item: Item) => doc.get(l, item.path.slice(0, -1));
 
-	/** rotate handle: the angle from the centre to the pointer (0° = straight up); Shift snaps to 15° */
+	/** rotate handle: the angle from the centre to the pointer (0° = straight up); with snap in 15° steps, Shift switches */
 	function rotateTo(event: PointerEvent, d: Drag) {
 		const p = toPercent(event);
 		const W = d.px.width / 100;
@@ -325,7 +332,8 @@
 		const cx = (d.shown.x + d.shown.width / 2) * W;
 		const cy = (d.shown.y + d.shown.height / 2) * H;
 		let deg = Math.atan2(p.y * H - cy, p.x * W - cx) / RAD + 90;
-		deg = event.shiftKey ? Math.round(deg / 15) * 15 : Math.round(deg);
+		const steps = grid > 0 !== event.shiftKey;
+		deg = steps ? Math.round(deg / 15) * 15 : Math.round(deg);
 		deg = ((((deg + 180) % 360) + 360) % 360) - 180;
 		for (const l of Object.keys(d.startRects)) {
 			const entry = entryOf(l, d.item!);
@@ -353,13 +361,14 @@
 			if (item.kind === 'dialog') {
 				const entry = entryOf(l, item);
 				if (!entry) continue;
-				const next = round2(Math.min(10, Math.max(0.1, item.scale * f)));
+				const raw = Math.min(10, Math.max(0.1, item.scale * f));
+				const next = round2(grid > 0 ? Math.max(0.1, Math.round(raw / 0.05) * 0.05) : raw);
 				if (next === 1) delete entry.scale;
 				else entry.scale = next;
 			} else {
 				const rect = doc.get(l, item.path);
 				if (!rect) continue;
-				const width = Math.max(1, start.width * f);
+				const width = Math.max(1, grid > 0 ? snap(start.width * f) : start.width * f);
 				const height = (start.height ?? d.shown.height) * (width / start.width);
 				rect.x = round2(start.x + start.width / 2 - width / 2);
 				rect.y = round2(start.y + (start.height ?? d.shown.height) / 2 - height / 2);
@@ -484,7 +493,8 @@
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
 		>
-			{#if gridLines.length}
+			<!-- the grid shows faintly while something is dragged with snap on -->
+			{#if gridLines.length && drag?.moved}
 				<svg class="grid" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
 					{#each gridLines as v}
 						<line x1={v} y1="0" x2={v} y2="100" class:major={v % 10 === 0} />
@@ -508,7 +518,7 @@
 					data-testid="box-{item.kind}-{item.index}"
 					onpointerdown={(e) => beginEdit(e, item, 'move')}
 				>
-					<span class="tag">{item.label}{#if item.overridden.length}<em> · {item.overridden.join(',')}≠</em>{/if}</span>
+					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}
 						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.ono_hidden_until']({ event: item.revealedBy })}</span>
 					{/if}
@@ -646,10 +656,6 @@
 	.box:hover .tag,
 	.box.selected .tag {
 		opacity: 1;
-	}
-	.tag em {
-		font-style: normal;
-		color: var(--cyan);
 	}
 	.handle {
 		position: absolute;

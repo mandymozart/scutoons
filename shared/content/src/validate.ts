@@ -4,7 +4,6 @@ import {
 	JumpToTargetType,
 	Language,
 	OnomatopoeiaEffect,
-	OnomatopoeiaVariant,
 	Renderer,
 	Status,
 	Trigger,
@@ -12,12 +11,13 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE, DIALOG_TAILS, SLICE_ITEM_ACTIONS, SLICE_ITEM_PICKUP_MODES, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
+import { DEFAULT_SLICE, DIALOG_SHAPES, DIALOG_TAILS, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
 import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import { isMediaQuality } from './media-quality.ts';
 import { checkRelatedItems } from './albums.ts';
+import { placementRespawnProblem, type ItemRespawn } from './respawn.ts';
 
 export type Level = 'error' | 'warning' | 'info';
 
@@ -34,7 +34,7 @@ export interface Problem {
 export const LENGTH_WARNING_RATIO = 1.3;
 
 const values = (e: object) => Object.values(e) as string[];
-const DIALOG_VARIANTS = ['bubble', 'caption', 'narration', 'sfx'];
+const DIALOG_VARIANTS = ['bubble', 'caption', 'narration'];
 const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showOnomatopeia', 'jumpTo'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -68,6 +68,8 @@ export interface ValidateContext {
 	seasonStatus?: string | null;
 	/** the item catalog's ids (`related_items` of seasons / chapters are checked against them; none = no check) */
 	items?: string[];
+	/** the catalog's respawn rules by item id (null = never reappears): placed items' `respawn` is checked against them */
+	itemRespawn?: Record<string, ItemRespawn | null>;
 }
 
 class Collector {
@@ -126,12 +128,13 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.stroke !== undefined && !isStr(d.stroke)) c.error([...path, 'stroke'], 'stroke must be a CSS color string');
 	if (d.strokeWidth !== undefined && (!isNum(d.strokeWidth) || d.strokeWidth < 0)) c.error([...path, 'strokeWidth'], 'strokeWidth must be a number ≥ 0 (em)');
 	if (d.tail !== undefined && !(DIALOG_TAILS as readonly string[]).includes(d.tail)) c.error([...path, 'tail'], `tail must be one of ${DIALOG_TAILS.join(', ')}`);
+	if (d.shape !== undefined && !(DIALOG_SHAPES as readonly string[]).includes(d.shape)) c.error([...path, 'shape'], `shape must be one of ${DIALOG_SHAPES.join(', ')}`);
+	if (d.shape !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'shape'], 'shape only shows on a drawn bubble (variant bubble, frame true)');
 	if (d.rotation !== undefined && !isNum(d.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
 	checkScale(c, d.scale, [...path, 'scale']);
 	if (d.mask !== undefined && d.mask !== true && !isStr(d.mask)) c.error([...path, 'mask'], 'mask must be true or a CSS color');
 	if (d.maskShape !== undefined && !['rect', 'ellipse'].includes(d.maskShape)) c.error([...path, 'maskShape'], 'maskShape must be rect or ellipse');
 	if (d.pad !== undefined && !isNum(d.pad)) c.error([...path, 'pad'], 'pad must be a number');
-	if (d.frame !== undefined && !['caption', 'narration', 'bubble', undefined].includes(d.variant)) c.warn([...path, 'frame'], 'frame only affects caption / narration / bubble');
 	if (d.tail !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'tail'], 'tail only shows on a drawn bubble (variant bubble, frame true)');
 }
 
@@ -154,8 +157,11 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 	}
 	if (it.qty !== undefined && (!Number.isInteger(it.qty) || it.qty < 1)) c.error([...path, 'qty'], 'qty must be a whole number ≥ 1');
 	if (it.once !== undefined && typeof it.once !== 'boolean') c.error([...path, 'once'], 'once must be true/false');
-	if (it.pickupMode !== undefined && !(SLICE_ITEM_PICKUP_MODES as readonly string[]).includes(it.pickupMode)) {
-		c.error([...path, 'pickupMode'], `pickupMode must be one of ${SLICE_ITEM_PICKUP_MODES.join(', ')}`);
+	if (it.respawn !== undefined) {
+		const rule = ctx.itemRespawn && isStr(it.item) ? (ctx.itemRespawn[it.item] ?? null) : undefined;
+		const problem = placementRespawnProblem(it.respawn, rule);
+		if (problem) c.error([...path, 'respawn'], problem);
+		if (it.action !== 'pickup') c.info([...path, 'respawn'], 'respawn only matters for a pickup');
 	}
 	if (it.events !== undefined) {
 		if (!Array.isArray(it.events)) c.error([...path, 'events'], 'events must be an array');
@@ -261,15 +267,15 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				});
 			break;
 		case 'showOnomatopeia':
-			if (!isObj(p) || !(isStr(p.text) || Array.isArray(p.text))) c.error([...pp, 'text'], 'showOnomatopeia needs params.text');
+			// an onomatopoeia is a text box this event reveals (owner 2026-10-03)
+			if (!isObj(p) || !isStr(p.dialog) || !p.dialog) c.error([...pp, 'dialog'], 'showOnomatopeia needs params.dialog (the id of the text box it reveals)');
 			if (isObj(p)) {
-				if (p.variant !== undefined && !values(OnomatopoeiaVariant).includes(p.variant)) c.error([...pp, 'variant'], `variant must be one of ${values(OnomatopoeiaVariant).join(', ')}`);
 				if (p.effect !== undefined && !values(OnomatopoeiaEffect).includes(p.effect)) c.error([...pp, 'effect'], `effect must be one of ${values(OnomatopoeiaEffect).join(', ')}`);
 				if (p.duration !== undefined && (!isNum(p.duration) || p.duration > 5000)) c.warn([...pp, 'duration'], 'duration is capped at 5000 ms by the reader');
 				if (p.delay !== undefined && (!isNum(p.delay) || p.delay > 5000)) c.warn([...pp, 'delay'], 'delay is capped at 5000 ms by the reader');
-				if (p.rotation !== undefined && !isNum(p.rotation)) c.error([...pp, 'rotation'], 'rotation must be a number (degrees)');
-				checkScale(c, p.scale, [...pp, 'scale']);
-				if (p.dialog !== undefined && (!isStr(p.dialog) || !p.dialog)) c.error([...pp, 'dialog'], 'dialog must be the id of a text box');
+				if (p.mode !== undefined && !values(TriggerMode).includes(p.mode)) c.error([...pp, 'mode'], 'mode must be mono or poly');
+				if (p.wait !== undefined && typeof p.wait !== 'boolean') c.error([...pp, 'wait'], 'wait must be true/false');
+				if (p.stay !== undefined && typeof p.stay !== 'boolean') c.error([...pp, 'stay'], 'stay must be true/false');
 			}
 			break;
 	}
@@ -337,7 +343,10 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	if (s.items !== undefined) {
 		if (!Array.isArray(s.items)) c.error([...path, 'items'], 'items must be an array');
 		else {
-			s.items.forEach((it: any, i: number) => checkSliceItem(c, it, [...path, 'items', i], ctx));
+			s.items.forEach((it: any, i: number) => {
+				checkSliceItem(c, it, [...path, 'items', i], ctx);
+				if (Array.isArray(it?.events)) checkDialogRefs(c, it.events, [s], [...path, 'items', i, 'events'], 'this slice');
+			});
 			const ids = s.items.map((it: any) => it?.id).filter(isStr);
 			ids.forEach((id: string, i: number) => {
 				if (ids.indexOf(id) !== i) c.error([...path, 'items'], `item id "${id}" is used twice on this slice`);
@@ -739,11 +748,6 @@ export function validateLocales(kind: string, file: string, files: Record<string
 			const other = getAt(data, path);
 			if (!other) return;
 			if (other.image !== slice.image) add('info', locale, [...path, 'image'], `${locale} uses another image (override)`);
-			const ia: any[] = slice.items ?? [];
-			const ib: any[] = other.items ?? [];
-			if (ia.map((it) => `${it?.id}:${it?.item}`).join(',') !== ib.map((it) => `${it?.id}:${it?.item}`).join(',')) {
-				add('warning', locale, [...path, 'items'], `${locale} places other items than ${primary} (${ib.length} / ${ia.length})`);
-			}
 			const da: any[] = slice.dialog ?? [];
 			const db: any[] = other.dialog ?? [];
 			if (da.length !== db.length) {

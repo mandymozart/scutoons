@@ -260,12 +260,6 @@
 					},
 					"description": "catalog items placed on the slice (drawn above the image, below the text boxes)"
 				},
-				"onomatopoeia": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/Onomatopoeia"
-					}
-				},
 				"events": {
 					"type": "array",
 					"items": {
@@ -601,9 +595,13 @@
 					"type": "boolean",
 					"description": "caption / narration: draw the paper box + ink border, default true (false = bare text, use `mask`). bubble: draw a speech bubble (paper, ink outline, a tail), default false – the bubble shape of chapter 1/2 art is in the image; the creator sets `true` for new bubbles on text-free art."
 				},
+				"shape": {
+					"$ref": "#/definitions/DialogShape",
+					"description": "a drawn bubble's outline (bubble with `frame: true`), default 'oval'"
+				},
 				"tail": {
 					"$ref": "#/definitions/DialogTail",
-					"description": "a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left'"
+					"description": "a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for an oval, 'none' for a wobbly one"
 				},
 				"size": {
 					"type": "number",
@@ -616,7 +614,7 @@
 						"center",
 						"right"
 					],
-					"description": "Default 'center' for bubble/sfx, 'left' for caption/narration."
+					"description": "Default 'center' for bubble, 'left' for caption/narration."
 				},
 				"valign": {
 					"type": "string",
@@ -629,7 +627,7 @@
 				},
 				"font": {
 					"$ref": "#/definitions/DialogFont",
-					"description": "Default 'lettering' for bubble/sfx, 'mono' for caption/narration (matches chapter 1)."
+					"description": "Default 'lettering' for bubble, 'mono' for caption/narration (matches chapter 1)."
 				},
 				"weight": {
 					"type": "number",
@@ -647,7 +645,7 @@
 				},
 				"stroke": {
 					"type": "string",
-					"description": "Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline (the old `sfx` variant has its ink outline built in)."
+					"description": "Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline."
 				},
 				"strokeWidth": {
 					"type": "number",
@@ -659,7 +657,7 @@
 				},
 				"scale": {
 					"type": "number",
-					"description": "Uniform scale of the whole box (frame, text, mask) around its centre, after `rect` and `size` are laid out. Default 1. Lets an sfx / onomatopoeia grow or shrink without re-wrapping its text."
+					"description": "Uniform scale of the whole box (frame, text, mask) around its centre, after `rect` and `size` are laid out. Default 1. Lets an onomatopoeia grow or shrink without re-wrapping its text."
 				},
 				"mask": {
 					"anyOf": [
@@ -697,10 +695,16 @@
 			"enum": [
 				"bubble",
 				"caption",
-				"narration",
-				"sfx"
+				"narration"
 			],
-			"description": "`sfx` is the old onomatopoeia text box (owner 2026-10-03: no longer offered – an onomatopoeia event reveals a text box instead, `VNShowOnomatopeiaEvent` `params.dialog`); existing sfx boxes keep rendering as before."
+			"description": "An onomatopoeia is a text box too (e.g. white letters with an ink outline) that a `showOnomatopeia` event reveals (`VNShowOnomatopeiaEvent` `params.dialog`)."
+		},
+		"DialogShape": {
+			"type": "string",
+			"enum": [
+				"oval",
+				"wobbly"
+			]
 		},
 		"DialogTail": {
 			"type": "string",
@@ -778,9 +782,9 @@
 					"type": "boolean",
 					"description": "events: only the first tap per page view runs them (default true, like a click trigger's `once`)"
 				},
-				"pickupMode": {
-					"$ref": "#/definitions/SliceItemPickupMode",
-					"description": "pickup: `once` (default) = one pickup per reader, then gone for good; `respawn` = back on every new visit of the page and can be taken again (onions, cucumbers, tuna …) – once per visit, the catalog's limits still apply."
+				"respawn": {
+					"$ref": "#/definitions/SliceItemRespawn",
+					"description": "pickup: when it is back after being taken (respawn.ts). None = the item's default (catalog `respawn`; an item without one never reappears); `never` = once here even if the item could reappear; an interval = an override within the item's range (every visit, every n minutes / hours / days). Once per period; the catalog's limits still apply."
 				}
 			},
 			"required": [
@@ -1084,77 +1088,7 @@
 					"const": "showOnomatopeia"
 				},
 				"params": {
-					"type": "object",
-					"properties": {
-						"mode": {
-							"$ref": "#/definitions/TriggerMode"
-						},
-						"wait": {
-							"type": "boolean"
-						},
-						"dialog": {
-							"type": "string",
-							"description": "Id of a text box (`Dialog.id`) – on the event's slice, or for a group script on one of the group's slices. That box stays hidden until the event fires, then appears with the event's effect / duration / delay / wait and stays; the box gives the look (variant, font, colour, outline, rotation, scale, per-language text), the event the timing. `text`, `position`, `size`, `align`, `rotation`, `scale` and `variant` of the event are then not used. Without it: the event's own onomatopoeia, as before."
-						},
-						"position": {
-							"type": "object",
-							"properties": {
-								"x": {
-									"type": "number"
-								},
-								"y": {
-									"type": "number"
-								}
-							}
-						},
-						"size": {
-							"type": "number"
-						},
-						"align": {
-							"type": "string",
-							"enum": [
-								"left",
-								"right",
-								"center"
-							]
-						},
-						"rotation": {
-							"type": "number",
-							"description": "Degrees."
-						},
-						"scale": {
-							"type": "number",
-							"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
-						},
-						"variant": {
-							"$ref": "#/definitions/OnomatopoeiaVariant"
-						},
-						"effect": {
-							"$ref": "#/definitions/OnomatopoeiaEffect"
-						},
-						"duration": {
-							"type": "number"
-						},
-						"delay": {
-							"type": "number"
-						},
-						"text": {
-							"anyOf": [
-								{
-									"type": "string"
-								},
-								{
-									"type": "array",
-									"items": {
-										"type": "string"
-									}
-								}
-							]
-						}
-					},
-					"required": [
-						"text"
-					]
+					"$ref": "#/definitions/OnomatopoeiaParams"
 				}
 			},
 			"required": [
@@ -1162,14 +1096,41 @@
 				"params"
 			]
 		},
-		"OnomatopoeiaVariant": {
-			"type": "string",
-			"enum": [
-				"default",
-				"outline",
-				"bubble",
-				"thorns"
-			]
+		"OnomatopoeiaParams": {
+			"type": "object",
+			"properties": {
+				"dialog": {
+					"type": "string"
+				},
+				"effect": {
+					"$ref": "#/definitions/OnomatopoeiaEffect",
+					"description": "default 'none'"
+				},
+				"duration": {
+					"type": "number",
+					"description": "ms the effect plays, default 2000 (max 5000)"
+				},
+				"delay": {
+					"type": "number",
+					"description": "ms before the box appears, default 0 (max 5000)"
+				},
+				"mode": {
+					"$ref": "#/definitions/TriggerMode",
+					"description": "`mono` = one at a time (queued), `poly` = together; default poly"
+				},
+				"wait": {
+					"type": "boolean",
+					"description": "the script waits for a tap before it continues"
+				},
+				"stay": {
+					"type": "boolean",
+					"description": "after its effect the box stays (default true) or disappears again (`false`, after `delay` + `duration`)"
+				}
+			},
+			"required": [
+				"dialog"
+			],
+			"description": "An onomatopoeia = a text box revealed by this event (owner 2026-10-03, option B): `dialog` is the id of a text box (`Dialog.id`) on the event's slice, or for a group script on one of the group's slices. The box stays hidden until the event fires, then appears with `effect` / `delay` / `duration` and stays; the box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing."
 		},
 		"OnomatopoeiaEffect": {
 			"type": "string",
@@ -1235,75 +1196,59 @@
 				"xr"
 			]
 		},
-		"SliceItemPickupMode": {
-			"type": "string",
-			"enum": [
-				"once",
-				"respawn"
-			]
+		"SliceItemRespawn": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/RespawnInterval"
+				},
+				{
+					"type": "string",
+					"const": "never"
+				}
+			],
+			"description": "A placement's choice: `never` = once even if the item could reappear; none = the item's default"
 		},
-		"Onomatopoeia": {
-			"type": "object",
-			"properties": {
-				"position": {
+		"RespawnInterval": {
+			"anyOf": [
+				{
+					"type": "string",
+					"const": "visit"
+				},
+				{
 					"type": "object",
 					"properties": {
-						"x": {
-							"type": "number"
-						},
-						"y": {
+						"minutes": {
 							"type": "number"
 						}
-					}
-				},
-				"size": {
-					"type": "number"
-				},
-				"align": {
-					"type": "string",
-					"enum": [
-						"left",
-						"right",
-						"center"
+					},
+					"required": [
+						"minutes"
 					]
 				},
-				"rotation": {
-					"type": "number",
-					"description": "Degrees."
-				},
-				"scale": {
-					"type": "number",
-					"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
-				},
-				"variant": {
-					"$ref": "#/definitions/OnomatopoeiaVariant"
-				},
-				"effect": {
-					"$ref": "#/definitions/OnomatopoeiaEffect"
-				},
-				"duration": {
-					"type": "number"
-				},
-				"delay": {
-					"type": "number"
-				},
-				"text": {
-					"anyOf": [
-						{
-							"type": "string"
-						},
-						{
-							"type": "array",
-							"items": {
-								"type": "string"
-							}
+				{
+					"type": "object",
+					"properties": {
+						"hours": {
+							"type": "number"
 						}
+					},
+					"required": [
+						"hours"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"days": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"days"
 					]
 				}
-			},
-			"required": [
-				"text"
-			]
+			],
+			"description": "Every visit of the page (a reload counts), or every n minutes / hours / days."
 		},
 		"VNSliceEvent": {
 			"anyOf": [
@@ -1496,77 +1441,7 @@
 							"const": "showOnomatopeia"
 						},
 						"params": {
-							"type": "object",
-							"properties": {
-								"mode": {
-									"$ref": "#/definitions/TriggerMode"
-								},
-								"wait": {
-									"type": "boolean"
-								},
-								"dialog": {
-									"type": "string",
-									"description": "Id of a text box (`Dialog.id`) – on the event's slice, or for a group script on one of the group's slices. That box stays hidden until the event fires, then appears with the event's effect / duration / delay / wait and stays; the box gives the look (variant, font, colour, outline, rotation, scale, per-language text), the event the timing. `text`, `position`, `size`, `align`, `rotation`, `scale` and `variant` of the event are then not used. Without it: the event's own onomatopoeia, as before."
-								},
-								"position": {
-									"type": "object",
-									"properties": {
-										"x": {
-											"type": "number"
-										},
-										"y": {
-											"type": "number"
-										}
-									}
-								},
-								"size": {
-									"type": "number"
-								},
-								"align": {
-									"type": "string",
-									"enum": [
-										"left",
-										"right",
-										"center"
-									]
-								},
-								"rotation": {
-									"type": "number",
-									"description": "Degrees."
-								},
-								"scale": {
-									"type": "number",
-									"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
-								},
-								"variant": {
-									"$ref": "#/definitions/OnomatopoeiaVariant"
-								},
-								"effect": {
-									"$ref": "#/definitions/OnomatopoeiaEffect"
-								},
-								"duration": {
-									"type": "number"
-								},
-								"delay": {
-									"type": "number"
-								},
-								"text": {
-									"anyOf": [
-										{
-											"type": "string"
-										},
-										{
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									]
-								}
-							},
-							"required": [
-								"text"
-							]
+							"$ref": "#/definitions/OnomatopoeiaParams"
 						}
 					},
 					"required": [

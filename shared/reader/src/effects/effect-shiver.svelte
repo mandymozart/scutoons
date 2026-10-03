@@ -1,3 +1,4 @@
+<!-- An onomatopoeia event's effect on the text box it reveals (Dialog `play`): delay, then the effect for `duration`. -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';
@@ -6,15 +7,12 @@
 		duration = 1000,
 		delay = 0,
 		onComplete,
-		children,
-		fill = false
+		children
 	}: {
 		duration?: number;
 		delay?: number;
 		onComplete: () => void;
 		children: Snippet;
-		/** fill the parent (a text box revealed by an onomatopoeia event) instead of sizing to the content */
-		fill?: boolean;
 	} = $props();
 
 	// initial value only: a delayed effect becomes visible in onMount
@@ -38,13 +36,16 @@
 	});
 </script>
 
-<div class="effect-shiver" class:fill class:visible class:playing style="--duration: {duration}ms">
+<div class="effect-shiver" class:visible class:playing style="--duration: {duration}ms">
 	{@render children()}
 </div>
 
 <style>
+	/* fills the text box it reveals */
 	.effect-shiver {
-		display: inline-block;
+		display: block;
+		width: 100%;
+		height: 100%;
 		visibility: hidden;
 		opacity: 0;
 		transition: 
@@ -82,9 +83,4 @@
 		}
 	}
 
-	.fill {
-		display: block;
-		width: 100%;
-		height: 100%;
-	}
 </style>

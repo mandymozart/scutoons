@@ -1,7 +1,7 @@
 import { setContext, getContext } from 'svelte';
 import type { Character, VNChoice, Message, VNCharacterRef, SceneCharacter } from '@scutoons/content';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, legacyTransition, normalizeSceneRef } from '@scutoons/content';
-import type { Onomatopoeia } from '@scutoons/content';
+import type { OnomatopoeiaParams } from '@scutoons/content';
 import type { TriggerMode } from '@scutoons/content';
 import type { ActiveOnomatopoeia } from '@scutoons/reader';
 
@@ -13,7 +13,7 @@ const TRANSITION_MS = 800;
 /** A character in a scene is identified by id + persona (Cat Pope may meet Cat Pope · Biker). */
 export const sceneKey = (ref: Pick<SceneCharacter, 'name' | 'persona'>) => `${ref.name}:${ref.persona || REGULAR_PERSONA}`;
 
-/** An onomatopoeia on screen (rendered by `@scutoons/reader`'s `Onomatopoeia`). */
+/** An onomatopoeia event playing: its text box is drawn by its slice (`dialogPlaying`). */
 export type VNActiveOnomatopoeia = ActiveOnomatopoeia;
 
 export type VisualNovelContext = ReturnType<typeof createVisualNovelContext>;
@@ -273,15 +273,17 @@ export function createVisualNovelContext() {
 	}
 
 
-	function showOnomatopeia(
-		params: Onomatopoeia & { wait?: boolean; mode?: TriggerMode; dialog?: string }
-	): void {
+	/** Reveals the event's text box (`params.dialog`); an event without one shows nothing (the validation flags it). */
+	function showOnomatopeia(params: OnomatopoeiaParams): boolean {
+		if (typeof params?.dialog !== 'string' || !params.dialog) {
+			console.warn('showOnomatopeia without params.dialog – nothing to reveal');
+			return false;
+		}
 		const id = `ono-${Date.now()}-${Math.random()}`;
-		const { wait = false, mode = 'poly' as TriggerMode, dialog, ...data } = params;
+		const { wait = false, mode = 'poly' as TriggerMode, ...data } = params;
 
 		const item: VNActiveOnomatopoeia = {
 			...data,
-			...(typeof dialog === 'string' && dialog ? { dialog } : {}),
 			id,
 			wait,
 			mode,
@@ -294,16 +296,16 @@ export function createVisualNovelContext() {
 		} else {
 			activate(item);
 		}
+		return true;
 	}
 
 	/**
-	 * On screen: the event's own onomatopoeia (vn/onomatopeias), or – with `dialog` – its text box on the slice, which is
-	 * revealed for good. The slice plays the box's effect and calls `onComplete`; a box that isn't on the page (another
-	 * group, a typo) still completes after its time, so a `wait` / mono queue never hangs.
+	 * Plays: the event's text box on its slice is revealed for good. The slice plays the box's effect and calls
+	 * `onComplete`; a box that isn't on the page (another group, a typo) still completes after its time, so a `wait` /
+	 * mono queue never hangs.
 	 */
 	function activate(item: VNActiveOnomatopoeia): void {
 		activeOnomatopoeia.push(item);
-		if (!item.dialog) return;
 		revealedDialogs[item.dialog] = true;
 		const time = (item.delay ?? 0) + (item.duration ?? 2000);
 		setTimeout(() => handleOnomatopoeiaComplete(item.id), Math.min(Math.max(time, 0), 10_000) + 1500);
@@ -330,6 +332,8 @@ export function createVisualNovelContext() {
 		if (index !== -1) {
 			const item = activeOnomatopoeia[index];
 			activeOnomatopoeia.splice(index, 1);
+			// `stay: false`: the box disappears again after its effect (hidden like before the event)
+			if (item.stay === false) delete revealedDialogs[item.dialog];
 
 			if (item.mode === 'mono' && onomatopoeiaQueue.length > 0) {
 				const next = onomatopoeiaQueue.shift();

@@ -24,6 +24,7 @@ use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
+use Scutoons\Http\Controllers\Admin\RespawnController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
 use Scutoons\Http\Controllers\Admin\SystemController;
@@ -199,6 +200,9 @@ return static function (App $app): void {
         $admin->get('/dashboard', [SystemController::class, 'dashboard']);
         $admin->get('/events', [SystemController::class, 'events']);
         $admin->get('/catalog', [SystemController::class, 'catalog']);
+        // when picked-up placed items reappear, per item (stored as the setting `item_respawn` over config/items.json)
+        $admin->get('/catalog/respawn', [RespawnController::class, 'get']);
+        $admin->put('/catalog/respawn/{item}', [RespawnController::class, 'put']);
         $admin->get('/keys', [SystemController::class, 'keys']);
         $admin->get('/versions', VersionsController::class);
         $admin->get('/settings', [SettingsController::class, 'get']);
