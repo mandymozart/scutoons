@@ -378,6 +378,7 @@ export interface Dialog {
   font?: 'lettering' | 'mono';                 // default: bubble 'lettering' (Bangers, OFL), caption/narration 'mono' (IBM Plex Mono)
   weight?: 400 | 700;
   uppercase?: boolean;
+  letterSpacing?: number;      // em of the font size (owner 2026-10-03); default the font's own
   color?: string;              // default ink
   rotation?: number;           // degrees
   mask?: string | true;        // DEPRECATED (owner 2026-10-03): re-import the art text-free, keep the dialog data.

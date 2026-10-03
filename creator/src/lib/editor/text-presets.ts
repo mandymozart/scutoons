@@ -45,7 +45,7 @@ export const TEXT_PRESETS: TextPreset[] = [
 ];
 
 /** the look fields a preset sets or clears (the text's words, id, position and size stay) */
-const LOOK_FIELDS = ['variant', 'frame', 'shape', 'tail', 'font', 'align', 'valign', 'size', 'weight', 'uppercase', 'color', 'stroke', 'strokeWidth', 'rotation', 'scale'] as const;
+const LOOK_FIELDS = ['variant', 'frame', 'shape', 'tail', 'font', 'align', 'valign', 'size', 'weight', 'uppercase', 'color', 'stroke', 'strokeWidth', 'letterSpacing', 'rotation', 'scale'] as const;
 
 /** applies a preset's look to a text (in place) */
 export function applyTextPreset(dialog: Record<string, unknown>, preset: TextPreset) {

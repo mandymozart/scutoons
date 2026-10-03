@@ -64,6 +64,7 @@
 		"tool_text": "Text – drag on the slice to draw one",
 		"tool_item": "Item – click on the slice to place one",
 		"tool_sample": "Sample area – drag on the slice to draw one",
+		"text_letter_spacing": "letter spacing (em)",
 		"slice_tab": "Slice",
 		"tool_event": "Event – drag an area on the slice for a tap event, click for one on the whole slice",
 		"event_whole_slice": "Whole slice",

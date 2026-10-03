@@ -64,6 +64,7 @@
 		"tool_text": "Text – auf dem Slice ziehen, um einen zu zeichnen",
 		"tool_item": "Gegenstand – auf den Slice klicken, um einen zu platzieren",
 		"tool_sample": "Sample-Bereich – auf dem Slice ziehen, um einen zu zeichnen",
+		"text_letter_spacing": "Laufweite (em)",
 		"slice_tab": "Slice",
 		"tool_event": "Event – auf dem Slice einen Bereich ziehen (Tipp-Event) oder klicken (ganzer Slice)",
 		"event_whole_slice": "Ganzer Slice",

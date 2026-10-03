@@ -65,6 +65,7 @@
 			<PropField {doc} path={p('font')} label="font" type="select" options={['lettering', 'mono']} placeholder={boxed ? 'mono' : 'lettering'} />
 			<PropField {doc} path={p('weight')} label="weight" type="select" options={[400, 700]} placeholder="400" />
 			<PropField {doc} path={p('uppercase')} label="uppercase" type="bool" placeholder="false" />
+			<PropField {doc} path={p('letterSpacing')} label={m['creator.text_letter_spacing']()} type="number" step={0.01} min={-0.5} max={2} placeholder={(dialog.font ?? (boxed ? 'mono' : 'lettering')) === 'lettering' ? '0.03' : '0'} />
 			<PropField {doc} path={p('rotation')} label="rotation °" type="number" step={1} placeholder="0" />
 			<PropField {doc} path={p('scale')} label="scale" type="number" step={0.05} min={0.1} max={10} placeholder="1" />
 			<PropField {doc} path={p('color')} label="color" type="color" placeholder="#000000" />

@@ -70,6 +70,8 @@ export interface Dialog {
 	stroke?: string;
 	/** outline width in em of the font size, default 0.14 */
 	strokeWidth?: number;
+	/** letter spacing in em of the font size (owner 2026-10-03), e.g. 0.05; default the font's own (0) */
+	letterSpacing?: number;
 	/** Degrees, around the box's centre. */
 	rotation?: number;
 	/**
