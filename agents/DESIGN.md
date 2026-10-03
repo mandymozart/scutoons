@@ -125,7 +125,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     right-aligned, coming soon at 50 %. Published rows show no date.
 - **Top-right icon group (all widths, all pages):** the menu button (round `--control-height` = 52 px at the desktop root, 44 px on touch – "One control height"; 3-line icon
   `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
-  toon pages inventory, map and chapter list follow to its left (each `--control-height` + 0.5rem further left). The slide-out's
+  toon pages inventory, **avatar**, map and chapter list follow to its left (each `--control-height` + 0.5rem further
+  left; five buttons + the logo fit at 320 px). Avatar has its own button (owner 2026-10-03: "inventory should be
+  inventory"; `icons/avatar.svg`, overlay `avatar` in the navigation context) but opens the same inventory slide-out on
+  its Avatar tab; the slide-out's two tabs carry the same icons (+ label; icon-only under 480 px, the label stays for
+  screen readers) and switch the overlay, so the top buttons and tabs always agree. The menu slide-out's
   entries all use the `button` type (`--type-button-size` / `--type-button-line`, rem-based; the toon names and
   "Anmelden" were hard 16 px before).
 - **The logo** (top left, all pages) is a link to the localized landing page (`/` · `/en/`, alt "SCUTOONS – Startseite" /

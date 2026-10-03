@@ -2,7 +2,8 @@ import { setContext, getContext } from 'svelte';
 
 const NAVIGATION_KEY = Symbol('navigation');
 
-type OverlayType = 'sequence' | 'map' | 'inventory' | null;
+// 'avatar' is the inventory slide-out on its Avatar tab (its own top button, owner 2026-10-03)
+type OverlayType = 'sequence' | 'map' | 'inventory' | 'avatar' | null;
 
 export type NavigationContext = ReturnType<typeof createNavigationContext>;
 
