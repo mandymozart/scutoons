@@ -10,7 +10,7 @@
 // Checks: with nothing changed both buttons answer with a notice (never a silent no-op); the last persona of an
 // entry can't be unticked (no tick that changes nothing); a role text, a persona tick, the order and an inline new
 // character mark the page dirty; Save draft saves `cast:catpope` (PUT 200, chip "Draft"); Publish publishes both
-// `cast:catpope` and `characters` (chips "Published"); a reload shows the saved state.
+// `cast:catpope` and `characters` (no chips once published); a reload shows the saved state.
 // Afterwards the published versions are restored (the original content saved + published again), also on failure.
 // Refuses to run while either entity has an unpublished draft (someone's work in progress is never published here).
 import { execFileSync, spawn } from 'node:child_process';
@@ -197,7 +197,7 @@ try {
 
 	// 1. nothing changed: both buttons answer
 	let s = await state();
-	check(!s.dirty && /Published.*Published/i.test(s.chips), 'starts clean, cast + characters published', JSON.stringify(s));
+	check(!s.dirty && s.chips === '', 'starts clean, cast + characters published (no chips: only what is not published shows)', JSON.stringify(s));
 	check(s.saveDisabled === false && s.publishDisabled === false, 'Save draft and Publish are clickable', JSON.stringify(s));
 	let n = writes.length;
 	await click('[data-testid="save-draft"]');
@@ -245,7 +245,7 @@ try {
 	check(s.members.indexOf(newId) === s.members.length - 2 && s.members.indexOf(last) === s.members.length - 1, 'moving up reorders the cast', JSON.stringify(s.members));
 	n = writes.length;
 	await click('[data-testid="publish"]');
-	await until(`/Published.*Published/i.test(${CHIPS}) && !document.querySelector('.dirty-bar')`);
+	await until(`${CHIPS} === '' && !document.querySelector('.dirty-bar')`);
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(
@@ -253,7 +253,7 @@ try {
 		'Publish saves and publishes cast + characters',
 		JSON.stringify(published)
 	);
-	check(!s.dirty && /Published.*Published/i.test(s.chips.replace(/\n/g, ' ')), 'both chips read Published', JSON.stringify(s));
+	check(!s.dirty && s.chips === '', 'both published: no chips left', JSON.stringify(s));
 
 	// 5. a reload shows the saved state
 	await send('Page.reload');

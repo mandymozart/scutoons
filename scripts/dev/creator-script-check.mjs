@@ -253,7 +253,7 @@ try {
 	n = writes.length;
 	await click('[data-testid="publish"]');
 	await answerDialog('button[type="submit"]'); // Publish confirms in-page
-	await until(`/Published|Veröffentlicht/.test(${q('file-status')}.innerText)`);
+	await until(`!document.querySelector('[data-testid="file-status"] .badge')`);
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	const en = await api('GET', `/entities/${KEYS[1]}?draft=1&wrap=1`);
 	check(published.includes(`POST /entities/${KEYS[0]}/publish 200`) && en.version.id === baseline[KEYS[1]].id && en.published.id === baseline[KEYS[1]].id,
@@ -270,7 +270,7 @@ try {
 	check(restored.content.text === source && JSON.stringify(restored.content) === JSON.stringify(baseline[KEYS[0]].content), 'restore: the stored draft is byte-identical to the original');
 	await click('[data-testid="publish"]');
 	await answerDialog('button[type="submit"]'); // Publish confirms in-page
-	await until(`/Published|Veröffentlicht/.test(${q('file-status')}.innerText) && !document.querySelector('.dirty-bar')`);
+	await until(`!document.querySelector('[data-testid="file-status"] .badge') && !document.querySelector('.dirty-bar')`);
 	const live = await api('GET', `/entities/${KEYS[0]}`);
 	check(live.text === source, 'the original is published again');
 

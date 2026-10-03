@@ -9,7 +9,7 @@
 	import { NEUTRAL_LOCALE, validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import ProblemsPanel from './problems-panel.svelte';
 	import HistoryPanel from './history-panel.svelte';
-	import FileStatus from './file-status.svelte';
+	import FileStatus, { hasStatus } from './file-status.svelte';
 	import PageHelp, { type HelpPage } from './page-help.svelte';
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 
@@ -245,12 +245,14 @@
 	{#if !loaded}
 		<p class="pad">{m['creator.loading']()}</p>
 	{:else}
+		{#if docs.some(hasStatus) || status}
 		<div class="files" data-testid="file-status">
 			{#each docs as d (d.entity)}
 				<FileStatus doc={d} label={fileLabel(d.entity)} />
 			{/each}
 			{#if status}<span class="status-end">{@render status()}</span>{/if}
 		</div>
+		{/if}
 		{#if anyDirty}<div class="bar dirty-bar">{m['creator.unsaved']()}</div>{/if}
 		{#each recoverables as d (d.entity)}
 			<div class="bar warn-bar">

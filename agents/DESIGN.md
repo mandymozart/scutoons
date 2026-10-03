@@ -341,7 +341,7 @@ in (not `currentColor`). Logos: `viewer/static/SCUTOONS-logo.svg` (wordmark), `S
 **Texts and presets (owner 2026-10-03):** the creator says "text", not "text box" – a text's look is one of five presets
 (`creator/src/lib/editor/text-presets.ts`, only existing Dialog fields): **Narration** (box, italic mono, left, middle),
 **Speech** (box, mono, left, middle), **Onomatopoeia** (no box, Bangers 15 %, white fill, 0.1 em ink outline, −7°),
-**Story** (no box, mono, left, top; 10 % from both sides = x 10 / width 80, height 20 %). **Scene** (no box, italic upper-case mono, left, middle: "19 EXT. POOL"). "+ Add text" shows them previewed
+**Story** (no box, mono, left, top; 10 % from both sides = x 10 / width 80, height 20 %). **Scene** (box, italic upper-case mono, left, middle: "19 EXT. POOL"). "+ Add text" shows them previewed
 on the current slice; the inspector switches the look (words, position and size stay) and fine-tunes it. The old variant
 choice (speech bubble / caption) and the drawn-bubble setting are gone from the creator; their data still renders.
 Position is x + width (right = 100 − x − width, never stored).

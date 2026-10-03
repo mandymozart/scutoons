@@ -26,7 +26,8 @@
 <span class="status-badges" data-testid="status-badges-{number}">
 	{#each season.locales as l (l)}
 		{@const status = seasonStatusOf(season, l, number)}
-		{#if status}
+		<!-- owner 2026-10-03: only what is not published (draft, coming soon); published shows nothing -->
+		{#if status && status !== Status.PUBLISHED}
 			<span
 				class="st st-{status}"
 				class:square={season.locales.length < 2}

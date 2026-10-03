@@ -314,7 +314,7 @@ try {
 	if (viewerUp) {
 		await click('[data-testid="publish"]');
 		await answerDialog('button[type=submit]');
-		await until(`/Published|Veröffentlicht/.test(${q('file-status')}?.innerText ?? '')`);
+		await until(`!document.querySelector('[data-testid="file-status"] .badge')`);
 		const live = await api('GET', `/entities/${KEY}`);
 		check(Array.isArray(live.cover?.lettering?.square), 'Publish: the layout is live');
 		const liveAll = await Promise.all(KEYS.map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));

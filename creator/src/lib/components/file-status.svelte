@@ -1,5 +1,14 @@
-<script lang="ts">
+<script lang="ts" module>
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+
+	/** a language is live: published as it is, no unsaved edits */
+	export const isLive = (doc: ContentDoc, l: string) =>
+		doc.source[l] === 'store' && doc.base[l] === doc.published[l] && !doc.dirtyLocales.includes(l);
+	/** the file has something to show (not every language live) – the status row only then (owner 2026-10-03) */
+	export const hasStatus = (doc: ContentDoc) => !doc.loading && doc.locales.some((l) => !isLive(doc, l));
+</script>
+
+<script lang="ts">
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 
@@ -29,6 +38,11 @@
 	});
 
 	const dirty = $derived(doc.dirtyLocales);
+	/**
+	 * owner 2026-10-03: the chips are only for what is NOT published – a language that is live and has no unsaved edits
+	 * shows nothing; a fully published file shows nothing at all (label included). `full` lists every language.
+	 */
+	const shown = $derived(full ? doc.locales : doc.locales.filter((l) => !isLive(doc, l)));
 
 	function label(l: string) {
 		const source = doc.source[l];
@@ -53,6 +67,7 @@
 	}
 </script>
 
+{#if shown.length}
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <span
 	class="file-status"
@@ -63,7 +78,7 @@
 	title={name && !full ? groupTip : undefined}
 >
 	{#if name}<span class="name">{name}</span>{/if}
-	{#each doc.locales as l}
+	{#each shown as l}
 		<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 		<span
 			class="badge"
@@ -82,6 +97,7 @@
 		</span>
 	{/each}
 </span>
+{/if}
 
 <style>
 	.file-status {

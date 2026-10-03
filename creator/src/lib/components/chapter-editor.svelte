@@ -54,7 +54,7 @@
 	import VnEvents from './vn-events.svelte';
 	import ProblemsPanel from './problems-panel.svelte';
 	import HistoryPanel from './history-panel.svelte';
-	import FileStatus from './file-status.svelte';
+	import FileStatus, { hasStatus } from './file-status.svelte';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
@@ -845,12 +845,14 @@
 	{:else if chapter.error}
 		<p class="pad error">{chapter.error}</p>
 	{:else}
+		{#if hasStatus(chapter) || (refSrc && refs[refSrc] && (section === 'group' || section === 'slice') && hasStatus(refs[refSrc])) || (!season.loading && (season.dirty || season.unpublished.length))}
 		<div class="files" data-testid="file-status">
 			<FileStatus doc={chapter} label={fileLabel(chapter.entity)} />
 			<!-- the scene's own status only while one of its parts is open (owner 2026-10-03: "scene-14" next to Meta confused) -->
 			{#if refSrc && refs[refSrc] && (section === 'group' || section === 'slice')}<FileStatus doc={refs[refSrc]} label={refLabel(refSrc) ?? sceneLabel(toon, refSrc)} />{/if}
 			{#if !season.loading && (season.dirty || season.unpublished.length)}<FileStatus doc={season} label={fileLabel(season.entity)} />{/if}
 		</div>
+		{/if}
 		{#if anyDirty && !chapter.saving}<div class="bar dirty-bar">{m['creator.unsaved']()}{#if activeDoc?.dirty && section === 'slice'} · {activeDoc.dirtyLocales.join(', ')}{/if}</div>{/if}
 		{#each recoverables as d (d.entity)}
 			<div class="bar warn-bar">
