@@ -332,7 +332,7 @@
 	}
 	.nav-head {
 		margin: 0;
-		padding: 0.75rem 0.75rem 0.25rem;
+		padding: 1rem 1rem 0.25rem; /* the sidebar's 1rem line (owner 2026-10-03) */
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
@@ -350,7 +350,8 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.25rem 0.4rem;
-		padding: 0.35rem 0.75rem;
+		/* text on the sidebar's 1rem line (the 3px marker inside it) */
+		padding: 0.35rem 1rem 0.35rem calc(1rem - 3px);
 		border-left: 3px solid transparent;
 		color: var(--ink);
 		text-decoration: none;

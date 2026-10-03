@@ -223,7 +223,7 @@
 	}
 	.nav-head {
 		margin: 0;
-		padding: 0.75rem 0.75rem 0.25rem;
+		padding: 1rem 1rem 0.25rem; /* the sidebar's 1rem line (owner 2026-10-03) */
 		font-size: var(--type-caption-size);
 		letter-spacing: var(--tracking-label);
 		text-transform: uppercase;
