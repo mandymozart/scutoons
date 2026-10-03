@@ -26,7 +26,7 @@
 		<ul>
 			<li>Export the art without words. Bubble <i>shapes</i> stay in the art; the words are live text boxes.</li>
 			<li>Every language shares the same images – only the text changes. The toon's source language (toon page → Languages) is the source, the others are translations.</li>
-			<li>Legacy art with baked text (chapter 1): cover it with <code>mask</code> (+ <code>pad</code>, <code>maskShape</code>).</li>
+			<li><code>mask</code> (+ <code>pad</code>, <code>maskShape</code>) is deprecated: art with baked text (chapter 1) is re-imported text-free; the text boxes stay.</li>
 			<li>Leave room: translations often run ~10–30 % longer (German → English). Boxes over 130 % of the source length get a warning.</li>
 		</ul>
 	{/if}

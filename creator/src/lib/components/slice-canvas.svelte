@@ -38,7 +38,7 @@
 		slicePath: Path;
 		/** the locale shown (text + its geometry) */
 		locale: string;
-		/** snap step in % (0 = off) */
+		/** snap step in px of the slice's 1x size (0 = off; owner 2026-10-03: the 16 px Figma base grid = 1rem) */
 		grid?: number;
 		tool?: Tool;
 		selection?: CanvasSelection | null;
@@ -198,7 +198,11 @@
 		return { x: ((event.clientX - box.left) / box.width) * 100, y: ((event.clientY - box.top) / box.height) * 100 };
 	}
 
-	const snap = (value: number) => (grid > 0 ? Math.round(value / grid) * grid : value);
+	/** the grid step in % of the slice: across (x, widths) and down (y, heights) */
+	const stepX = $derived(grid > 0 ? (grid / sliceWidth) * 100 : 0);
+	const stepY = $derived(grid > 0 ? (grid / (sliceWidth * sliceRatio)) * 100 : 0);
+	const snapX = (value: number) => (stepX > 0 ? Math.round(value / stepX) * stepX : value);
+	const snapY = (value: number) => (stepY > 0 ? Math.round(value / stepY) * stepY : value);
 
 	/** locales an edit writes to */
 	function targets(): string[] {
@@ -241,8 +245,8 @@
 		if (event.button !== 0) return;
 		onselect?.(null);
 		const p = toPercent(event);
-		const x = snap(p.x);
-		const y = snap(p.y);
+		const x = snapX(p.x);
+		const y = snapY(p.y);
 		drag = { mode: 'draw', handle: 'se', start: { x, y }, startRects: {}, shown: { x, y, width: 0, height: 0 }, draw: { x, y, width: 0, height: 0 }, moved: false, px: overlaySize() };
 		capture(event);
 	}
@@ -251,17 +255,17 @@
 	function deltas(handle: Handle, dx: number, dy: number, s: Required<Rect>) {
 		let ddx = 0, ddy = 0, dw = 0, dh = 0;
 		if (handle === 'move') {
-			ddx = snap(s.x + dx) - s.x;
-			ddy = snap(s.y + dy) - s.y;
+			ddx = snapX(s.x + dx) - s.x;
+			ddy = snapY(s.y + dy) - s.y;
 		} else {
-			if (handle.includes('e')) dw = Math.max(1 - s.width, snap(s.x + s.width + dx) - (s.x + s.width));
+			if (handle.includes('e')) dw = Math.max(1 - s.width, snapX(s.x + s.width + dx) - (s.x + s.width));
 			if (handle.includes('w')) {
-				ddx = Math.min(s.width - 1, snap(s.x + dx) - s.x);
+				ddx = Math.min(s.width - 1, snapX(s.x + dx) - s.x);
 				dw = -ddx;
 			}
-			if (handle.includes('s')) dh = Math.max(1 - s.height, snap(s.y + s.height + dy) - (s.y + s.height));
+			if (handle.includes('s')) dh = Math.max(1 - s.height, snapY(s.y + s.height + dy) - (s.y + s.height));
 			if (handle.includes('n')) {
-				ddy = Math.min(s.height - 1, snap(s.y + dy) - s.y);
+				ddy = Math.min(s.height - 1, snapY(s.y + dy) - s.y);
 				dh = -ddy;
 			}
 		}
@@ -300,8 +304,8 @@
 		if (handle.includes('n')) t = Math.min(b - H, t + ly);
 		if (grid > 0) {
 			// whole grid steps for the new size: the dragged edge moves to fit (the opposite edge stays)
-			const sw = Math.max(W, snap((r - l) / W) * W);
-			const sh = Math.max(H, snap((b - t) / H) * H);
+			const sw = Math.max(W, snapX((r - l) / W) * W);
+			const sh = Math.max(H, snapY((b - t) / H) * H);
 			if (handle.includes('e')) r = l + sw;
 			else if (handle.includes('w')) l = r - sw;
 			if (handle.includes('s')) b = t + sh;
@@ -368,7 +372,7 @@
 			} else {
 				const rect = doc.get(l, item.path);
 				if (!rect) continue;
-				const width = Math.max(1, grid > 0 ? snap(start.width * f) : start.width * f);
+				const width = Math.max(1, snapX(start.width * f));
 				const height = (start.height ?? d.shown.height) * (width / start.width);
 				rect.x = round2(start.x + start.width / 2 - width / 2);
 				rect.y = round2(start.y + (start.height ?? d.shown.height) / 2 - height / 2);
@@ -388,8 +392,8 @@
 		if (!drag.moved && Math.abs(dx) < 0.3 && Math.abs(dy) < 0.3) return;
 		drag.moved = true;
 		if (drag.mode === 'draw') {
-			const x2 = snap(p.x);
-			const y2 = snap(p.y);
+			const x2 = snapX(p.x);
+			const y2 = snapY(p.y);
 			drag.draw = {
 				x: Math.min(drag.start.x, x2),
 				y: Math.min(drag.start.y, y2),
@@ -439,25 +443,30 @@
 
 	// ── Keyboard nudging (the page forwards keys when the canvas has the selection) ───────────────────
 
-	export function nudge(dx: number, dy: number) {
+	/** moves the selection by px of the slice's 1x size (with snap: onto the grid) */
+	export function nudge(dxPx: number, dyPx: number) {
+		const dx = (dxPx / sliceWidth) * 100;
+		const dy = (dyPx / (sliceWidth * sliceRatio)) * 100;
 		const item = items.find((i) => i.kind === selection?.kind && i.index === selection?.index);
 		if (!item) return false;
 		doc.checkpoint(`nudge:${item.path.join('.')}`);
 		for (const l of targets()) {
 			const rect = doc.get(l, item.path);
 			if (!rect) continue;
-			rect.x = round2(grid > 0 && dx ? snap(rect.x + dx) : rect.x + dx);
-			rect.y = round2(grid > 0 && dy ? snap(rect.y + dy) : rect.y + dy);
+			rect.x = round2(dx ? snapX(rect.x + dx) : rect.x);
+			rect.y = round2(dy ? snapY(rect.y + dy) : rect.y);
 		}
 		return true;
 	}
 
+	/** the grid's lines in % (every 4th step a stronger one) */
 	const gridLines = $derived.by(() => {
-		if (!grid) return [];
-		const step = grid >= 2.5 ? grid : 5;
-		const lines: number[] = [];
-		for (let v = step; v < 100; v += step) lines.push(round2(v));
-		return lines;
+		const lines = (step: number) => {
+			const out: { v: number; major: boolean }[] = [];
+			if (step > 0) for (let n = 1; n * step < 100; n++) out.push({ v: round2(n * step), major: n % 4 === 0 });
+			return out;
+		};
+		return { x: lines(stepX), y: lines(stepY) };
 	});
 </script>
 
@@ -493,13 +502,11 @@
 			onpointerup={onPointerUp}
 			onpointercancel={onPointerUp}
 		>
-			<!-- the grid shows faintly while something is dragged with snap on -->
-			{#if gridLines.length && drag?.moved}
-				<svg class="grid" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-					{#each gridLines as v}
-						<line x1={v} y1="0" x2={v} y2="100" class:major={v % 10 === 0} />
-						<line x1="0" y1={v} x2="100" y2={v} class:major={v % 10 === 0} />
-					{/each}
+			<!-- the grid shows while snap is on (owner 2026-10-03), stronger while something is dragged -->
+			{#if gridLines.x.length}
+				<svg class="grid" class:dragging={drag?.moved} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+					{#each gridLines.x as l (l.v)}<line x1={l.v} y1="0" x2={l.v} y2="100" class:major={l.major} />{/each}
+					{#each gridLines.y as l (l.v)}<line x1="0" y1={l.v} x2="100" y2={l.v} class:major={l.major} />{/each}
 				</svg>
 			{/if}
 			{#each items as item (item.kind + item.index)}
@@ -589,6 +596,12 @@
 		width: 100%;
 		height: 100%;
 		pointer-events: none;
+	}
+	.grid {
+		opacity: 0.5;
+	}
+	.grid.dragging {
+		opacity: 1;
 	}
 	.grid line {
 		stroke: rgba(0, 209, 255, 0.35);

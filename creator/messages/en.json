@@ -61,7 +61,7 @@
 		"add_group": "Add group",
 		"add_ref_group": "Add separate scene",
 		"add_text_box": "Add text box",
-		"canvas_grid_size": "Grid (% of the slice)",
+		"canvas_grid_size": "Grid (px of the slice at 1x; 16 = the base grid)",
 		"canvas_snap_hint": "Snap to the grid: moving, resizing and scaling in grid steps, rotating in 15° steps (Shift switches). Remembered on this device.",
 		"canvas_snap": "Snap",
 		"geometry_unified": "{n} text boxes / items had another position or size in another language – they now follow the source language (geometry is the same in every language). Save to keep it.",

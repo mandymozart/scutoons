@@ -164,7 +164,8 @@
 	// snap to grid (owner 2026-10-03: one toggle for moving, resizing, scaling, rotating), remembered on this device
 	const SNAP_KEY = 'scutoons_creator_snap';
 	const GRID_KEY = 'scutoons_creator_grid';
-	const GRID_SIZES = [0.5, 1, 2.5, 5];
+	/** px of the slice's 1x size; 16 = the Figma base grid (1rem, owner 2026-10-03) */
+	const GRID_SIZES = [4, 8, 16, 32];
 	function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
 		try {
 			const raw = localStorage.getItem(key);
@@ -175,7 +176,7 @@
 		}
 	}
 	let snap = $state(readPref(SNAP_KEY, true, (v) => typeof v === 'boolean'));
-	let gridSize = $state(readPref(GRID_KEY, 1, (v) => GRID_SIZES.includes(v as number)));
+	let gridSize = $state(readPref(GRID_KEY, 16, (v) => GRID_SIZES.includes(v as number)));
 	$effect(() => {
 		try {
 			localStorage.setItem(SNAP_KEY, JSON.stringify(snap));
@@ -184,7 +185,7 @@
 			/* storage unavailable: the choice holds for this visit */
 		}
 	});
-	/** the canvas snap step in % of the slice (0 = off) */
+	/** the canvas snap step in px of the slice (0 = off) */
 	const grid = $derived(snap ? gridSize : 0);
 	let tool = $state<Tool>('text');
 	let panel = $state<'problems' | 'history' | null>(null);
@@ -671,7 +672,8 @@
 			return;
 		}
 		if (isField(event.target) || section !== 'slice') return;
-		const step = (grid || 0.1) * (event.shiftKey ? 10 : 1);
+		// one grid step (snap off: 1 px), Shift × 10
+		const step = (grid || 1) * (event.shiftKey ? 10 : 1);
 		const arrows: Record<string, [number, number]> = { arrowleft: [-step, 0], arrowright: [step, 0], arrowup: [0, -step], arrowdown: [0, step] };
 		if (arrows[key] && selection) {
 			event.preventDefault();
@@ -869,15 +871,10 @@
 					{/if}
 				{:else if section === 'slice' && activeDoc && activeSlice}
 					<div class="canvas-tools">
-						<span class="seg" role="group" aria-label="locale">
-							{#each activeDoc.present as l}
-								<button class="ghost" class:active={displayLocale === l} onclick={() => (displayLocale = l)} data-testid="show-{l}">{l}</button>
-							{/each}
-						</span>
 						<span class="seg" role="group" aria-label={m['creator.canvas_snap']()}>
 							<button class="ghost" class:active={snap} aria-pressed={snap} onclick={() => (snap = !snap)} title={m['creator.canvas_snap_hint']()} data-testid="snap-toggle"><Icon name="grid" /> {m['creator.canvas_snap']()}</button>
 							<select bind:value={gridSize} disabled={!snap} aria-label={m['creator.canvas_grid_size']()} title={m['creator.canvas_grid_size']()} data-testid="grid-size">
-								{#each GRID_SIZES as g (g)}<option value={g}>{g}%</option>{/each}
+								{#each GRID_SIZES as g (g)}<option value={g}>{g} px</option>{/each}
 							</select>
 						</span>
 						<span class="seg" role="group" aria-label="tool">

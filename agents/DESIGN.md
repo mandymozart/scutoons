@@ -372,8 +372,8 @@ export interface Dialog {
   uppercase?: boolean;
   color?: string;              // default ink
   rotation?: number;           // degrees
-  mask?: string | true;        // fill the rect (+ `pad`) with a color before drawing text, to cover text that is
-                               // baked into legacy art (chapter 1). true = '#ffffff'. Omit for text-free art.
+  mask?: string | true;        // DEPRECATED (owner 2026-10-03): re-import the art text-free, keep the dialog data.
+                               // Fills the rect (+ `pad`) to cover text baked into legacy art (chapter 1). true = '#ffffff'.
   maskShape?: 'rect' | 'ellipse';  // default 'rect'; ellipse for round bubbles
   pad?: number;                // extra mask padding in % of slice width, default 0.5
 }

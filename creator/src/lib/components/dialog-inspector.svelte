@@ -91,14 +91,17 @@
 			{/if}
 		</div>
 
-		<details open={dialog.mask !== undefined}>
-			<summary>mask (cover baked text)</summary>
+		<!-- deprecated (owner 2026-10-03): the art is re-imported without baked text; only shown where a box still has a mask -->
+		{#if dialog.mask !== undefined}
+		<details open>
+			<summary>mask (deprecated – cover baked text; remove once the text-free art is in)</summary>
 			<div class="grid g3">
 				<PropField {doc} path={p('mask')} label="mask" type="select" options={[{ value: true, label: 'true (#fff)' }, '#ffffff', '#000000']} placeholder="none" />
 				<PropField {doc} path={p('maskShape')} label="maskShape" type="select" options={['rect', 'ellipse']} placeholder="rect" />
 				<PropField {doc} path={p('pad')} label="pad (% width)" type="number" placeholder="0.5" />
 			</div>
 		</details>
+		{/if}
 	</div>
 {/if}
 

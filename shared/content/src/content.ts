@@ -77,11 +77,14 @@ export interface Dialog {
 	 * Default 1. Lets an onomatopoeia grow or shrink without re-wrapping its text.
 	 */
 	scale?: number;
-	/** Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'. */
+	/**
+	 * Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'.
+	 * @deprecated owner 2026-10-03: the chapter's art is re-imported text-free; the dialog data stays. Still drawn for old data.
+	 */
 	mask?: string | true;
-	/** Default 'rect'. */
+	/** Default 'rect'. @deprecated with `mask` */
 	maskShape?: 'rect' | 'ellipse';
-	/** Extra mask padding in % of slice width. Default 0.5. */
+	/** Extra mask padding in % of slice width. Default 0.5. @deprecated with `mask` */
 	pad?: number;
 }
 
