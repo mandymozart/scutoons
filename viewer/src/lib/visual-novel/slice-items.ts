@@ -1,4 +1,5 @@
-import type { Slice, SliceItem, SliceItemRespawn, VNEvent } from '@scutoons/content';
+import { effectiveRespawn, respawnPeriod, type RespawnInterval, type Slice, type SliceItem, type VNEvent } from '@scutoons/content';
+import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { EventProcessor } from './event-processor.ts';
@@ -9,12 +10,12 @@ import { grantStoryItem } from './variable-actions.ts';
  * choice per placement (`action`):
  * - `pickup`: the VN item bridge, like a choice's `add <item> <qty>` – the story grant (source story, a ref per place,
  *   so the catalog's rules apply: grantable, max count, the server's once-per-ref) and the game variable.
- *   No `respawn`: the ref is the place; a taken item is remembered in the game state (`picked:<slice image>#<id>` = 1,
- *   synced with a member's progress) and is gone for that reader for good.
- *   `respawn` (`visit` / `day` / `{ hours }`): the ref is the place + the current period (`@v:<visit id>`,
- *   `@d:<YYYY-MM-DD>`, `@h<n>:<period no.>`), so the server grants it once per period; it is back in the next period
- *   and can be taken again. Taken in a visit is remembered in memory, in a day / n hours in the game state (the period
- *   key). Farming is bounded by the server: the item's max count, 120 grants / hour, and a repeated ref grants nothing.
+ *   Whether it reappears (respawn.ts): the item's rule (catalog `respawn`), the placement may override within its range
+ *   or say `never`. Once (no respawn): the ref is the place; a taken item is remembered in the game state
+ *   (`picked:<slice image>#<id>` = 1, synced with a member's progress) and is gone for good.
+ *   Respawning: the grant sends the interval (+ the visit id); the server checks it against the item's range and adds
+ *   the period (its time bucket / the visit) to the ref, so it grants once per period. Here the period (the same
+ *   bucket from the reader's clock, or the visit) is remembered – in memory for a visit, in the game state otherwise.
  * - `events`: the placement's VN events, run like a click trigger's (`EventProcessor`), once per page view by default.
  */
 
@@ -31,36 +32,30 @@ export function visitId(): string {
 	return visit.id;
 }
 
-/** the reader's local calendar date, YYYY-MM-DD */
-function today(now = new Date()): string {
-	const pad = (n: number) => String(n).padStart(2, '0');
-	return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-}
-
-/** the current period of a respawning item (null = once): part of the grant ref and of the "taken" memory */
-export function periodOf(respawn: SliceItemRespawn | undefined, now = Date.now()): string | null {
-	if (respawn === 'visit') return `v:${visitId()}`;
-	if (respawn === 'day') return `d:${today(new Date(now))}`;
-	const hours = typeof respawn === 'object' && respawn ? Math.floor(Number(respawn.hours)) : 0;
-	if (hours >= 1) return `h${hours}:${Math.floor(now / (hours * 3_600_000))}`;
-	return null;
+/** the interval this placement reappears with (null = once), from the catalog's rule and the placement's choice */
+export function placementRespawn(item: SliceItem): RespawnInterval | null {
+	const rule = getCurrentInventory()?.item(item.item)?.respawn;
+	return effectiveRespawn(item.respawn, rule);
 }
 
 /** respawning placements taken on the current visit (`<period>:<slice image>#<id>`) */
 const takenThisVisit = new Set<string>();
 
-/** taken by this reader: for good (no respawn) or in the current period */
+/** taken by this reader: for good (once) or in the current period */
 export function isTaken(slice: Pick<Slice, 'image'>, item: SliceItem, game: GameContext | undefined): boolean {
-	const period = periodOf(item.respawn);
+	const interval = placementRespawn(item);
 	const stored = game?.getVariable(pickedKey(slice, item));
-	if (period === null) return !!stored;
-	if (item.respawn === 'visit') return takenThisVisit.has(`${period}:${slice.image}#${item.id}`);
+	if (interval === null) return !!stored;
+	const period = respawnPeriod(interval, Date.now(), visitId());
+	if (interval === 'visit') return takenThisVisit.has(`${period}:${slice.image}#${item.id}`);
 	return stored === period;
 }
 
-function remember(slice: Pick<Slice, 'image'>, item: SliceItem, period: string | null, game: GameContext) {
-	if (item.respawn === 'visit') takenThisVisit.add(`${period}:${slice.image}#${item.id}`);
-	else game.setVariable(pickedKey(slice, item), period ?? 1);
+function remember(slice: Pick<Slice, 'image'>, item: SliceItem, interval: RespawnInterval | null, game: GameContext) {
+	if (interval === null) return game.setVariable(pickedKey(slice, item), 1);
+	const period = respawnPeriod(interval, Date.now(), visitId());
+	if (interval === 'visit') takenThisVisit.add(`${period}:${slice.image}#${item.id}`);
+	else game.setVariable(pickedKey(slice, item), period);
 }
 
 const pending = new Set<string>();
@@ -74,25 +69,28 @@ export interface PickupResult {
 
 /** Takes a placed item. A refusal leaves it on the slice (the caller tells the reader why). */
 export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceItem, game: GameContext): Promise<PickupResult> {
-	const period = periodOf(item.respawn);
-	const place = `${slice.image}#${item.id}${period ? `@${period}` : ''}`;
-	if (isTaken(slice, item, game) || pending.has(place)) return { ok: false };
-	pending.add(place);
+	const interval = placementRespawn(item);
+	const place = `${slice.image}#${item.id}`;
+	const key = interval === null ? place : `${place}@${respawnPeriod(interval, Date.now(), visitId())}`;
+	if (isTaken(slice, item, game) || pending.has(key)) return { ok: false };
+	pending.add(key);
 	try {
 		const qty = Math.max(1, Math.floor(Number(item.qty) || 1));
-		const result = await grantStoryItem(item.item, qty, place, { quietWhenNone: true });
+		const respawn = interval === null ? undefined : { respawn: interval, ...(interval === 'visit' ? { visit: visitId() } : {}) };
+		// guests have no server: their period is the local key (the grant ref isn't checked anywhere)
+		const result = await grantStoryItem(item.item, qty, place, { quietWhenNone: true, respawn });
 		if (!result) return { ok: false, error: 'not_grantable' }; // not in the catalog (yet)
 		if (!result.ok) return { ok: false, error: result.error ?? 'failed' };
 		if (result.granted === 0) {
 			// the server had this ref already (taken on another device in this period): gone here too, nothing new
-			remember(slice, item, period, game);
+			remember(slice, item, interval, game);
 			return { ok: false, error: 'already_taken' };
 		}
 		game.addVariable(item.item, result.granted ?? qty);
-		remember(slice, item, period, game);
+		remember(slice, item, interval, game);
 		return { ok: true };
 	} finally {
-		pending.delete(place);
+		pending.delete(key);
 	}
 }
 
