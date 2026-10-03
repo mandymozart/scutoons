@@ -18,6 +18,9 @@ export type DialogVariant = 'bubble' | 'caption' | 'narration';
 
 /** Where a drawn speech bubble's tail points (`Dialog.tail`). */
 export const DIALOG_TAILS = ['bottom-left', 'bottom', 'bottom-right', 'top-left', 'top', 'top-right', 'none'] as const;
+/** A drawn bubble's outline (`Dialog.shape`): `oval` = speech, `wobbly` = shouting / singing (a trembling, hand-cut edge). */
+export const DIALOG_SHAPES = ['oval', 'wobbly'] as const;
+export type DialogShape = (typeof DIALOG_SHAPES)[number];
 export type DialogTail = (typeof DIALOG_TAILS)[number];
 
 export type DialogFont = 'lettering' | 'mono';
@@ -43,7 +46,9 @@ export interface Dialog {
 	 * the image; the creator sets `true` for new bubbles on text-free art.
 	 */
 	frame?: boolean;
-	/** a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' */
+	/** a drawn bubble's outline (bubble with `frame: true`), default 'oval' */
+	shape?: DialogShape;
+	/** a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for an oval, 'none' for a wobbly one */
 	tail?: DialogTail;
 	/** Font size in % of the slice width (rendered as cqw). Default 4. */
 	size?: number;
@@ -273,8 +278,14 @@ export interface SliceVideo {
 /** What tapping a placed item does (`SliceItem.action`); the creator chooses it per placed item. */
 export const SLICE_ITEM_ACTIONS = ['none', 'pickup', 'events'] as const;
 export type SliceItemAction = (typeof SLICE_ITEM_ACTIONS)[number];
-export const SLICE_ITEM_PICKUP_MODES = ['once', 'respawn'] as const;
-export type SliceItemPickupMode = (typeof SLICE_ITEM_PICKUP_MODES)[number];
+/**
+ * When a picked-up item is back (`SliceItem.respawn`): on every new `visit` of the page, every calendar `day` (the
+ * reader's local date), or every `{ hours: n }` (fixed n-hour periods). Once per period – the grant's ref carries the
+ * period, the server grants a ref once; the catalog's max counts stay authoritative.
+ */
+export type SliceItemRespawn = 'visit' | 'day' | { hours: number };
+/** `{ hours }` limits: 1 hour … 1 year */
+export const RESPAWN_HOURS_MAX = 8760;
 
 /**
  * A catalog item (its cut-out icon) placed on a slice, like a text box: position, size, rotation. Language-neutral
@@ -311,10 +322,10 @@ export interface SliceItem {
 	/** events: only the first tap per page view runs them (default true, like a click trigger's `once`) */
 	once?: boolean;
 	/**
-	 * pickup: `once` (default) = one pickup per reader, then gone for good; `respawn` = back on every new visit of the
-	 * page and can be taken again (onions, cucumbers, tuna …) – once per visit, the catalog's limits still apply.
+	 * pickup: none = once (one pickup per reader, then gone for good); else it is back and can be taken again
+	 * (onions, cucumbers, tuna …) – once per visit / day / n hours (`SliceItemRespawn`), the catalog's limits still apply.
 	 */
-	pickupMode?: SliceItemPickupMode;
+	respawn?: SliceItemRespawn;
 }
 
 export interface Slice {

@@ -246,6 +246,16 @@ test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outl
 	]);
 	// placed item pickup mode
 	const item = (extra: object) => ({ items: [{ id: 'tuna_can-1', item: 'tuna_can', rect, action: 'pickup', ...extra }] });
-	assert.deepEqual(list(chapter(item({ pickupMode: 'respawn' }))), []);
-	assert.deepEqual(list(chapter(item({ pickupMode: 'daily' }))), ['error groups.0.slices.0.items.0.pickupMode']);
+	for (const respawn of ['visit', 'day', { hours: 6 }]) assert.deepEqual(list(chapter(item({ respawn }))), [], JSON.stringify(respawn));
+	assert.deepEqual(list(chapter(item({ respawn: 'daily' }))), ['error groups.0.slices.0.items.0.respawn']);
+	assert.deepEqual(list(chapter(item({ respawn: { hours: 0.5 } }))), ['error groups.0.slices.0.items.0.respawn.hours']);
+	// a placed item's tap events may reveal a text box on its slice
+	const tapEvents = (dialog: string) => ({ items: [{ id: 'x-1', item: 'x', rect, action: 'events', events: [{ type: 'showOnomatopeia', params: { dialog } }] }] });
+	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b1') })), []);
+	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b2') })), ['warning groups.0.slices.0.items.0.events.0.params.dialog']);
+	// the box stays or disappears again; the wobbly (shout) bubble
+	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'b1', stay: false })] })), []);
+	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'b1', stay: 'no' })] })), ['error groups.0.slices.0.events.0.params.stay']);
+	assert.deepEqual(list(chapter({ dialog: [box({ variant: 'bubble', frame: true, shape: 'wobbly' })] })), []);
+	assert.deepEqual(list(chapter({ dialog: [box({ variant: 'bubble', frame: true, shape: 'star' })] })), ['error groups.0.slices.0.dialog.0.shape']);
 });

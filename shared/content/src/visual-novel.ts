@@ -177,6 +177,8 @@ export interface OnomatopoeiaParams {
 	mode?: TriggerMode;
 	/** the script waits for a tap before it continues */
 	wait?: boolean;
+	/** after its effect the box stays (default true) or disappears again (`false`, after `delay` + `duration`) */
+	stay?: boolean;
 }
 
 export interface VNShowOnomatopeiaEvent {

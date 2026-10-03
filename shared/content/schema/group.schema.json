@@ -447,9 +447,13 @@
 					"type": "boolean",
 					"description": "caption / narration: draw the paper box + ink border, default true (false = bare text, use `mask`). bubble: draw a speech bubble (paper, ink outline, a tail), default false – the bubble shape of chapter 1/2 art is in the image; the creator sets `true` for new bubbles on text-free art."
 				},
+				"shape": {
+					"$ref": "#/definitions/DialogShape",
+					"description": "a drawn bubble's outline (bubble with `frame: true`), default 'oval'"
+				},
 				"tail": {
 					"$ref": "#/definitions/DialogTail",
-					"description": "a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left'"
+					"description": "a drawn bubble's tail (bubble with `frame: true`), default 'bottom-left' for an oval, 'none' for a wobbly one"
 				},
 				"size": {
 					"type": "number",
@@ -547,6 +551,13 @@
 			],
 			"description": "An onomatopoeia is a text box too (e.g. white letters with an ink outline) that a `showOnomatopeia` event reveals (`VNShowOnomatopeiaEvent` `params.dialog`)."
 		},
+		"DialogShape": {
+			"type": "string",
+			"enum": [
+				"oval",
+				"wobbly"
+			]
+		},
 		"DialogTail": {
 			"type": "string",
 			"enum": [
@@ -623,9 +634,9 @@
 					"type": "boolean",
 					"description": "events: only the first tap per page view runs them (default true, like a click trigger's `once`)"
 				},
-				"pickupMode": {
-					"$ref": "#/definitions/SliceItemPickupMode",
-					"description": "pickup: `once` (default) = one pickup per reader, then gone for good; `respawn` = back on every new visit of the page and can be taken again (onions, cucumbers, tuna …) – once per visit, the catalog's limits still apply."
+				"respawn": {
+					"$ref": "#/definitions/SliceItemRespawn",
+					"description": "pickup: none = once (one pickup per reader, then gone for good); else it is back and can be taken again (onions, cucumbers, tuna …) – once per visit / day / n hours (`SliceItemRespawn`), the catalog's limits still apply."
 				}
 			},
 			"required": [
@@ -962,6 +973,10 @@
 				"wait": {
 					"type": "boolean",
 					"description": "the script waits for a tap before it continues"
+				},
+				"stay": {
+					"type": "boolean",
+					"description": "after its effect the box stays (default true) or disappears again (`false`, after `delay` + `duration`)"
 				}
 			},
 			"required": [
@@ -1033,12 +1048,29 @@
 				"xr"
 			]
 		},
-		"SliceItemPickupMode": {
-			"type": "string",
-			"enum": [
-				"once",
-				"respawn"
-			]
+		"SliceItemRespawn": {
+			"anyOf": [
+				{
+					"type": "string",
+					"const": "visit"
+				},
+				{
+					"type": "string",
+					"const": "day"
+				},
+				{
+					"type": "object",
+					"properties": {
+						"hours": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"hours"
+					]
+				}
+			],
+			"description": "When a picked-up item is back (`SliceItem.respawn`): on every new `visit` of the page, every calendar `day` (the reader's local date), or every `{ hours: n }` (fixed n-hour periods). Once per period – the grant's ref carries the period, the server grants a ref once; the catalog's max counts stay authoritative."
 		},
 		"VNSliceEvent": {
 			"anyOf": [

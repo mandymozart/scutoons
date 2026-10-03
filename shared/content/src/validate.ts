@@ -11,7 +11,7 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
-import { DEFAULT_SLICE, DIALOG_TAILS, SLICE_ITEM_ACTIONS, SLICE_ITEM_PICKUP_MODES, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
+import { DEFAULT_SLICE, DIALOG_SHAPES, DIALOG_TAILS, RESPAWN_HOURS_MAX, SLICE_ITEM_ACTIONS, TOON_NEUTRAL_FIELDS, VIEWPORT_FITS, frameSliceSize, isFrameRatioAllowed, parseFrameRatio } from './content.ts';
 import { checkWorldMap } from './map.ts';
 import { SCRIPT_META_FIELDS } from './script.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
@@ -125,6 +125,8 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.stroke !== undefined && !isStr(d.stroke)) c.error([...path, 'stroke'], 'stroke must be a CSS color string');
 	if (d.strokeWidth !== undefined && (!isNum(d.strokeWidth) || d.strokeWidth < 0)) c.error([...path, 'strokeWidth'], 'strokeWidth must be a number ≥ 0 (em)');
 	if (d.tail !== undefined && !(DIALOG_TAILS as readonly string[]).includes(d.tail)) c.error([...path, 'tail'], `tail must be one of ${DIALOG_TAILS.join(', ')}`);
+	if (d.shape !== undefined && !(DIALOG_SHAPES as readonly string[]).includes(d.shape)) c.error([...path, 'shape'], `shape must be one of ${DIALOG_SHAPES.join(', ')}`);
+	if (d.shape !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'shape'], 'shape only shows on a drawn bubble (variant bubble, frame true)');
 	if (d.rotation !== undefined && !isNum(d.rotation)) c.error([...path, 'rotation'], 'rotation must be a number (degrees)');
 	checkScale(c, d.scale, [...path, 'scale']);
 	if (d.mask !== undefined && d.mask !== true && !isStr(d.mask)) c.error([...path, 'mask'], 'mask must be true or a CSS color');
@@ -152,8 +154,13 @@ function checkSliceItem(c: Collector, it: any, path: Path, ctx: ValidateContext)
 	}
 	if (it.qty !== undefined && (!Number.isInteger(it.qty) || it.qty < 1)) c.error([...path, 'qty'], 'qty must be a whole number ≥ 1');
 	if (it.once !== undefined && typeof it.once !== 'boolean') c.error([...path, 'once'], 'once must be true/false');
-	if (it.pickupMode !== undefined && !(SLICE_ITEM_PICKUP_MODES as readonly string[]).includes(it.pickupMode)) {
-		c.error([...path, 'pickupMode'], `pickupMode must be one of ${SLICE_ITEM_PICKUP_MODES.join(', ')}`);
+	if (it.respawn !== undefined) {
+		const r = it.respawn;
+		const hours = isObj(r) ? r.hours : undefined;
+		if (isObj(r)) {
+			if (!Number.isInteger(hours) || hours < 1 || hours > RESPAWN_HOURS_MAX) c.error([...path, 'respawn', 'hours'], `respawn.hours must be a whole number 1 … ${RESPAWN_HOURS_MAX}`);
+		} else if (r !== 'visit' && r !== 'day') c.error([...path, 'respawn'], 'respawn must be "visit", "day" or { "hours": n }');
+		if (it.action !== 'pickup') c.info([...path, 'respawn'], 'respawn only matters for a pickup');
 	}
 	if (it.events !== undefined) {
 		if (!Array.isArray(it.events)) c.error([...path, 'events'], 'events must be an array');
@@ -267,6 +274,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				if (p.delay !== undefined && (!isNum(p.delay) || p.delay > 5000)) c.warn([...pp, 'delay'], 'delay is capped at 5000 ms by the reader');
 				if (p.mode !== undefined && !values(TriggerMode).includes(p.mode)) c.error([...pp, 'mode'], 'mode must be mono or poly');
 				if (p.wait !== undefined && typeof p.wait !== 'boolean') c.error([...pp, 'wait'], 'wait must be true/false');
+				if (p.stay !== undefined && typeof p.stay !== 'boolean') c.error([...pp, 'stay'], 'stay must be true/false');
 			}
 			break;
 	}
@@ -334,7 +342,10 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	if (s.items !== undefined) {
 		if (!Array.isArray(s.items)) c.error([...path, 'items'], 'items must be an array');
 		else {
-			s.items.forEach((it: any, i: number) => checkSliceItem(c, it, [...path, 'items', i], ctx));
+			s.items.forEach((it: any, i: number) => {
+				checkSliceItem(c, it, [...path, 'items', i], ctx);
+				if (Array.isArray(it?.events)) checkDialogRefs(c, it.events, [s], [...path, 'items', i, 'events'], 'this slice');
+			});
 			const ids = s.items.map((it: any) => it?.id).filter(isStr);
 			ids.forEach((id: string, i: number) => {
 				if (ids.indexOf(id) !== i) c.error([...path, 'items'], `item id "${id}" is used twice on this slice`);
