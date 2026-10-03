@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Sheet } from '@scutoons/ui';
+	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
+	import { gridArrows } from '$lib/editor/grid-keys.ts';
 	import type { ItemCategory, ItemDef } from '@scutoons/content';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -47,9 +48,8 @@
 	}
 </script>
 
-<Sheet bind:open title={title ?? m['creator.items_picker_title']()} side="right" closeLabel={m['creator.characters_close']()} resizeLabel={m['creator.resize_panel']()}>
-	<div class="picker" data-testid="item-picker-sheet">
-		<div class="filters">
+<PickerSheet bind:open title={title ?? m['creator.items_picker_title']()} testid="item-picker-sheet">
+		<div class="sc-picker-filters">
 			<!-- svelte-ignore a11y_autofocus -->
 			<input type="search" bind:value={query} placeholder={m['creator.items_search']()} autofocus data-testid="item-search" />
 			<select value={category} onchange={(e) => (category = e.currentTarget.value as ItemCategory | '')} aria-label={m['creator.items_category']()}>
@@ -60,11 +60,12 @@
 		{#if !itemCatalog.loaded}
 			<p class="hint">{m['creator.related_items_loading']()}</p>
 		{:else}
-			<div class="cards">
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="sc-cards" onkeydown={gridArrows}>
 				{#each shown as item (item.id)}
 					{@const taken = exclude.includes(item.id)}
-					<button type="button" class="card" data-control-exempt="picture card" disabled={taken} onclick={() => pick(item)} title={item.id} data-testid="item-card-{item.id}">
-						<span class="img">{#if item.icon}<img src={asset(item.icon)} alt="" loading="lazy" />{/if}</span>
+					<button type="button" class="sc-card" data-control-exempt="picture card" data-cell disabled={taken} onclick={() => pick(item)} title={item.id} data-testid="item-card-{item.id}">
+						<span class="sc-card-img">{#if item.icon}<img src={asset(item.icon)} alt="" loading="lazy" />{/if}</span>
 						<span class="name">{itemName(item, item.id)}</span>
 						<span class="hint">{taken ? m['creator.items_taken']() : item.category}</span>
 					</button>
@@ -73,58 +74,9 @@
 				{/each}
 			</div>
 		{/if}
-	</div>
-</Sheet>
+</PickerSheet>
 
 <style>
-	.picker {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		min-width: 0;
-	}
-	.filters {
-		display: grid;
-		grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-		gap: 0.5rem;
-	}
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
-		gap: 0.4rem;
-	}
-	.card {
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.25rem;
-		padding: 0.4rem;
-		text-align: left;
-		background: var(--paper);
-		color: var(--ink);
-		border: var(--border-width-hairline) solid var(--ink);
-		cursor: pointer;
-	}
-	.card:hover:not(:disabled),
-	.card:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
-		outline-offset: -2px;
-	}
-	.card:disabled {
-		opacity: 0.45;
-		cursor: default;
-	}
-	.img {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: 100%;
-		aspect-ratio: 1;
-	}
-	.img img {
-		max-width: 80%;
-		max-height: 80%;
-	}
 	.name {
 		overflow: hidden;
 		text-overflow: ellipsis;

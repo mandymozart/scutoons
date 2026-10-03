@@ -28,7 +28,8 @@
 	import { gridArrows } from '$lib/editor/grid-keys.ts';
 	import { untrack } from 'svelte';
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
-	import { CloseButton, confirmDialog, Icon, Sheet } from '@scutoons/ui';
+	import { CloseButton, confirmDialog, Icon } from '@scutoons/ui';
+	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
 	import { assetsApi } from '$lib/api.ts';
 	import { asset as cdnAsset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -226,14 +227,13 @@
 	}
 </script>
 
-<Sheet bind:open title={title ?? m['creator.assets_picker_title']()} side="right" closeLabel={m['creator.characters_close']()} resizeLabel={m['creator.resize_panel']()}>
-	<div class="picker" data-testid="asset-picker">
+<PickerSheet bind:open title={title ?? m['creator.assets_picker_title']()} testid="asset-picker">
 		<!-- order (owner 2026-10-03): the selected asset · upload · the library (search, filters, grid) -->
 		{#if chosen}
 			{@const c = chosen}
 			<section class="detail" data-testid="asset-detail" aria-label={c.title}>
 				<div class="detail-head">
-					<span class="img large">
+					<span class="sc-card-img large">
 						{#if thumb(c)}<img src={cdnAsset(thumb(c))} alt="" />{:else}<Icon name={icon(c.kind)} size="2.5em" />{/if}
 					</span>
 					<div class="detail-text">
@@ -247,7 +247,7 @@
 				<ul class="files">
 					{#each ordered(c.renditions) as r (r.id)}
 						<li>
-							<button type="button" class="file" class:current={r.path === value} disabled={!pickable(r)} data-file onclick={() => pick(c, r)} title={r.path} data-testid="asset-file-{r.label}">
+							<button type="button" class="sc-card file" class:is-selected={r.path === value} disabled={!pickable(r)} data-file onclick={() => pick(c, r)} title={r.path} data-testid="asset-file-{r.label}">
 								<span class="label">{r.quality ? `${r.label} · ${m[`creator.video_quality_${r.quality}`]()}` : r.label}</span>
 								<span class="sc-caption">{meta(r)}</span>
 							</button>
@@ -270,7 +270,7 @@
 			{#if uploadError}<p class="error" role="alert">{uploadError}</p>{/if}
 		</div>
 
-		<div class="filters">
+		<div class="sc-picker-filters">
 			<!-- svelte-ignore a11y_autofocus -->
 			<input type="search" bind:value={query} oninput={refilter} placeholder={m['creator.assets_search']()} autofocus data-testid="asset-search" />
 			<!-- one-way (value + onchange): a two-way bind wrote "" back while the options were still loading, so the folder /
@@ -290,21 +290,21 @@
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="cards" onkeydown={gridArrows} bind:this={grid} aria-busy={loading}>
+		<div class="sc-cards" onkeydown={gridArrows} bind:this={grid} aria-busy={loading}>
 			{#each items as a (a.id)}
 				{@const src = thumb(a)}
 				<button
 					type="button"
-					class="card"
-					class:selected={chosen?.id === a.id}
-					class:current={a.renditions.some((r) => r.path === value)}
+					class="sc-card"
+					class:is-selected={chosen?.id === a.id}
+					class:is-current={a.renditions.some((r) => r.path === value)}
 					data-cell
 					onclick={() => choose(a)}
 					ondblclick={() => pick(a)}
 					title={`${a.slug}\n${meta(a)}`}
 					data-testid="asset-card"
 				>
-					<span class="img">
+					<span class="sc-card-img">
 						{#if src}<img src={cdnAsset(src)} alt="" loading="lazy" />{:else}<Icon name={icon(a.kind)} size="2em" />{/if}
 					</span>
 					<span class="name">{fileName(a.path)}</span>
@@ -321,30 +321,10 @@
 			<button type="button" class="secondary more" disabled={loading} onclick={() => load(page + 1)}>{m['creator.assets_more']()} ({items.length} / {total})</button>
 		{/if}
 
-	</div>
-</Sheet>
+	
+</PickerSheet>
 
 <style>
-	.picker {
-		display: flex;
-		flex-direction: column;
-		gap: 0.75rem;
-		width: 100%;
-		max-width: 100%;
-		min-width: 0;
-		overflow-x: hidden;
-	}
-	.filters {
-		display: grid;
-		grid-template-columns: 2fr 1fr 1fr auto;
-		gap: 0.5rem;
-		align-items: center;
-	}
-	@media (max-width: 700px) {
-		.filters {
-			grid-template-columns: 1fr 1fr;
-		}
-	}
 	.check {
 		display: flex;
 		gap: 0.25rem;
@@ -357,68 +337,12 @@
 		border-left: 0.5rem solid var(--state-error);
 		padding-left: 0.5rem;
 	}
-	/* the grid: fixed cells, one line of name – nothing overlaps (owner screenshot 2026-10-02) */
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
-		gap: 0.5rem;
-	}
-	.card,
-	.file {
-		all: unset;
-		box-sizing: border-box;
-		min-width: 0;
-		cursor: pointer;
-		display: flex;
-		flex-direction: column;
-		gap: 0.25rem;
-		padding: 0.35rem;
-		border: var(--border-width-regular) solid var(--border-muted);
-		background: var(--paper);
-		color: var(--ink);
-	}
-	.card:hover,
-	.file:hover:not(:disabled) {
-		border-color: var(--ink);
-	}
-	.card:focus-visible,
-	.file:focus-visible {
-		outline: var(--border-width-focus) solid var(--ink);
-		outline-offset: var(--focus-offset);
-	}
-	.card.current {
-		border-left: 0.5rem solid var(--primary-cyan);
-	}
-	.card.selected,
-	.file.current {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
-	}
-	.card.selected .sc-caption,
-	.file.current .sc-caption {
-		color: inherit;
-	}
-	.file:disabled {
-		opacity: 0.5;
-		cursor: not-allowed;
-	}
-	.img {
-		aspect-ratio: 1;
-		width: 100%;
+	/* the cards are tools.css .sc-card (the picker sheets' vocabulary); here the picture has a hairline frame */
+	.sc-card-img {
 		background: var(--paper);
 		border: 1px solid var(--ink);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		overflow: hidden;
 	}
-	.img img {
-		max-width: 100%;
-		max-height: 100%;
-		object-fit: contain;
-	}
-	.img.large {
+	.sc-card-img.large {
 		width: 6rem;
 		flex: none;
 	}

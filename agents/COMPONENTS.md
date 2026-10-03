@@ -222,6 +222,11 @@ Done (branch `components`):
   `.sc-seg` frame. Testids kept. Visible: video fit / position (was grey joined outlines) and the admin email language
   (had dividers) look like the others now. `check:tools-css` flags a local `.seg/.segments`. Found: "+ event" on a slice
   without events adds nothing visible (works on a slice that has events) – pre-existing, see step 8.
+- Step 7 ✓ (the commit adding this line) – `controls/picker-sheet.svelte` (Sheet from the right + the column) and the
+  tools.css vocabulary `.sc-picker-filters`, `.sc-cards` (token `--cards-min`), `.sc-card` (`.is-current`,
+  `.is-selected`, `.is-missing`), `.sc-card-img` for the asset, character and item pickers (~170 lines of copied CSS
+  gone). Visible: one card frame everywhere (2px border-muted; the item cards had a hairline ink frame, the character
+  cards a 1px grey one), filters wrap instead of a fixed 4-column grid; the item picker got arrow keys too.
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

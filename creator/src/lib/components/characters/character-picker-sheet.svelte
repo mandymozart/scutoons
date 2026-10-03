@@ -11,7 +11,7 @@
 <script lang="ts">
 	import { gridArrows } from '$lib/editor/grid-keys.ts';
 	import { isKnownMissing, imageExists } from '$lib/editor/characters.ts';
-	import { Sheet } from '@scutoons/ui';
+	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
 	import {
 		AUTHORED_VIEW,
 		DEFAULT_MOOD,
@@ -138,10 +138,9 @@
 	const thumb = (c: RegistryCharacter, p?: string) => characterImage(c, { persona: p }, AUTHORED_VIEW, { isMissing: isKnownMissing });
 </script>
 
-<Sheet bind:open title={m['creator.characters_picker_title']()} side="right" closeLabel={m['creator.characters_close']()} resizeLabel={m['creator.resize_panel']()}>
-	<div class="picker" data-testid="character-picker-sheet">
+<PickerSheet bind:open title={m['creator.characters_picker_title']()} testid="character-picker-sheet">
 		{#if step === 1 || !character}
-			<div class="filters">
+			<div class="sc-picker-filters">
 				<!-- svelte-ignore a11y_autofocus -->
 				<input type="search" bind:value={query} placeholder={m['creator.characters_search']()} autofocus data-testid="picker-search" />
 				<select bind:value={toonFilter} aria-label={m['creator.characters_own_toon']()}>
@@ -154,11 +153,11 @@
 			<div onkeydown={gridArrows} bind:this={grid}>
 				{#each sections as section (section.id)}
 					{#if section.title}<h4>{section.title}</h4>{/if}
-					<div class="cards">
+					<div class="sc-cards">
 						{#each section.list as c (c.id)}
 							{@const src = thumb(c)}
-							<button type="button" class="card" data-control-exempt="picture card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
-								<span class="img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
+							<button type="button" class="sc-card" data-control-exempt="picture card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
+								<span class="sc-card-img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 								<span>{characterName(c, locale)}</span>
 								<span class="hint">{c.own_toon ? (toons.find((t) => t.id === c.own_toon)?.name ?? c.own_toon) : '–'}</span>
 								{#if personaIds(c).length > 1}
@@ -179,11 +178,11 @@
 			</header>
 			{#if mode === 'persona'}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="cards" onkeydown={gridArrows} bind:this={grid}>
+				<div class="sc-cards" onkeydown={gridArrows} bind:this={grid}>
 					{#each personaIds(character) as p (p)}
 						{@const src = thumb(character, p)}
-						<button type="button" class="card" data-control-exempt="picture card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
-							<span class="img">{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
+						<button type="button" class="sc-card" data-control-exempt="picture card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
+							<span class="sc-card-img">{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 							<span>{characterName(character, locale, p)}</span>
 							{#if castPersonas.includes(p)}<span class="hint">{m['creator.characters_in_cast']()}</span>{/if}
 						</button>
@@ -207,52 +206,30 @@
 				{/if}
 				<label class="check"><input type="checkbox" bind:checked={allMoods} /> {m['creator.characters_picker_all_moods']()}</label>
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="moods" onkeydown={gridArrows} bind:this={grid}>
+				<div class="sc-cards" style:--cards-min="6.5rem" onkeydown={gridArrows} bind:this={grid}>
 					{#each rowMoods as mood (mood)}
 						{@const path = lookImage(currentLook, mood, AUTHORED_VIEW)}
 						<button
 							type="button"
-							class="cell"
+							class="sc-card"
 							data-control-exempt="picture cell"
-							class:missing={!path}
-							class:selected={value?.character === character.id && (value?.persona || REGULAR_PERSONA) === currentPersona?.id && (value?.look || defaultLookId(currentPersona)) === lookId && (value?.mood || DEFAULT_MOOD) === mood}
+							class:is-missing={!path}
+							class:is-selected={value?.character === character.id && (value?.persona || REGULAR_PERSONA) === currentPersona?.id && (value?.look || defaultLookId(currentPersona)) === lookId && (value?.mood || DEFAULT_MOOD) === mood}
 							data-cell
 							onclick={() => pick({ character: character.id, persona: currentPersona?.id ?? REGULAR_PERSONA, look: lookId, mood })}
 							title={path || m['creator.characters_missing_add']()}
 							data-testid="picker-mood-{mood}"
 						>
-							<span class="img">{#if path}<img src={asset(path)} alt="" loading="lazy" />{:else}<span class="hint">{m['creator.characters_missing_short']()}</span>{/if}</span>
+							<span class="sc-card-img">{#if path}<img src={asset(path)} alt="" loading="lazy" />{:else}<span class="hint">{m['creator.characters_missing_short']()}</span>{/if}</span>
 							<span>{moodLabel(mood, locale, moods)}</span>
 						</button>
 					{/each}
 				</div>
 			{/if}
 		{/if}
-	</div>
-</Sheet>
+</PickerSheet>
 
 <style>
-	.picker {
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-		/* fill the sheet, never wider: the lists wrap into rows instead of scrolling sideways */
-		width: 100%;
-		max-width: 100%;
-		min-width: 0;
-		overflow-x: hidden;
-	}
-	.filters {
-		display: grid;
-		grid-template-columns: 2fr 1fr 1fr auto;
-		gap: 0.3rem;
-		align-items: center;
-	}
-	@media (max-width: 700px) {
-		.filters {
-			grid-template-columns: 1fr 1fr;
-		}
-	}
 	.check {
 		display: flex;
 		gap: 0.25rem;
@@ -262,61 +239,6 @@
 	}
 	h4 {
 		margin: 0.5rem 0 0.3rem;
-	}
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
-		gap: 0.4rem;
-	}
-	.moods {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
-		gap: 0.3rem;
-	}
-	.card,
-	.cell {
-		all: unset;
-		box-sizing: border-box;
-		min-width: 0;
-		overflow-wrap: anywhere;
-		cursor: pointer;
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-		padding: 0.3rem;
-		border: 1px solid var(--border-subtle);
-		background: var(--paper);
-	}
-	.card:hover,
-	.cell:hover {
-		border-color: var(--ink);
-	}
-	.card:focus-visible,
-	.cell:focus-visible {
-		outline: 2px solid var(--ink);
-	}
-	.cell.missing {
-		border-style: dashed;
-		border-color: var(--ink);
-	}
-	.cell.selected {
-		border: 2px solid var(--ink);
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.img {
-		aspect-ratio: 1;
-		width: 100%;
-		background: var(--surface-hover);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		overflow: hidden;
-	}
-	.img img {
-		max-width: 100%;
-		max-height: 100%;
-		object-fit: contain;
 	}
 	.chips {
 		display: flex;

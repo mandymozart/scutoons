@@ -538,6 +538,92 @@
 	width: auto;
 }
 
+/* picker sheets (owner 2026-10-03, COMPONENTS.md step 7; the creator's PickerSheet): a filter row (search wider than
+   the selects, wraps on a phone), a grid of picture cards (--cards-min wide at least; set it on the grid for
+   smaller cells), the card = a framed button: hover ink, the current value marked on the left, the chosen one
+   inverted, a missing picture dashed */
+.sc-picker-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-05);
+}
+.sc-picker-filters > :where(input[type='search']) {
+	flex: 2 1 12rem;
+	width: auto;
+	min-width: 0;
+}
+.sc-picker-filters > :where(select) {
+	flex: 1 1 8rem;
+	width: auto;
+	min-width: 0;
+}
+.sc-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(var(--cards-min), 100%), 1fr));
+	gap: var(--space-05);
+}
+.sc-card {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: flex-start;
+	gap: var(--space-025);
+	min-width: 0;
+	min-height: 0;
+	margin: 0;
+	padding: 0.35rem;
+	border: var(--border-width-regular) solid var(--border-muted);
+	border-radius: var(--radius-none);
+	background: var(--paper);
+	color: var(--ink);
+	font: inherit;
+	text-align: left;
+	overflow-wrap: anywhere;
+	cursor: pointer;
+}
+.sc-card:hover:not(:disabled) {
+	border-color: var(--ink);
+}
+.sc-card:focus-visible {
+	outline: var(--border-width-focus) solid var(--ink);
+	outline-offset: var(--focus-offset);
+}
+.sc-card.is-current {
+	border-left: 0.5rem solid var(--primary-cyan);
+}
+.sc-card.is-selected {
+	background: var(--ink);
+	color: var(--paper);
+	border-color: var(--ink);
+}
+.sc-card.is-selected .sc-caption {
+	color: inherit;
+}
+.sc-card.is-missing {
+	border-style: dashed;
+	border-color: var(--ink);
+}
+.sc-card:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.sc-card-img {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	aspect-ratio: 1;
+	overflow: hidden;
+	background: var(--surface-hover);
+}
+.sc-card-img img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
 /* a framed block */
 .sc-frame {
 	box-sizing: border-box;

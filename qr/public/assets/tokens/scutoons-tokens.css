@@ -48,6 +48,8 @@
 	--fields-fit-min: 18rem;
 	/* a segmented control's smallest column when it wraps (tools.css .sc-seg.is-grid) */
 	--seg-min: 7rem;
+	/* a picker sheet's smallest card (tools.css .sc-cards) */
+	--cards-min: 8.5rem;
 
 	/* ── Radius (square is the brand signature) ────────────────────────────── */
 	--radius-none: 0;
