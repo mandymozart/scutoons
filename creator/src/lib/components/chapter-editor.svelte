@@ -178,7 +178,18 @@
 	const sliceDialogs = $derived<any[]>(activeSlice?.dialog ?? []);
 	const sliceItems = $derived<any[]>(activeSlice?.items ?? []);
 
+	/** the selected group's slices folded away: a second click on the open group (owner 2026-10-03) */
+	let collapsed = $state(false);
+	function toggleGroup(index: number) {
+		if (index === groupIndex && section === 'group' && !collapsed) {
+			collapsed = true;
+			return;
+		}
+		selectGroup(index);
+	}
+
 	function selectGroup(index: number) {
+		collapsed = false;
 		groupIndex = index;
 		sliceIndex = -1;
 		selection = null;
@@ -592,13 +603,14 @@
 		<button class="node sc-nav-item" class:is-current={section === 'audio'} onclick={() => (section = 'audio')} data-testid="tree-audio">{m['creator.audio']()}</button>
 		<div class="sc-nav-head">{m['creator.groups']()}</div>
 		{#each groups as g, gi (gi)}
-			{@const open = gi === groupIndex && (section === 'group' || section === 'slice')}
+			{@const open = gi === groupIndex && (section === 'group' || section === 'slice') && !collapsed}
 			<div class="group" class:open>
 				<div class="group-row">
 					<button
 						class="node sc-nav-item"
 						class:is-current={section === 'group' && gi === groupIndex}
-						onclick={() => selectGroup(gi)}
+						onclick={() => toggleGroup(gi)}
+						aria-expanded={open}
 						data-nav-child={section === 'meta' || section === 'audio' ? '' : undefined}
 						data-testid="group-{gi}"
 					>
