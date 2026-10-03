@@ -8,22 +8,24 @@ type VariableAction = VNVariableSetter | VNVariableAdder | VNJumpTo;
 /**
  * The grant's `ref` = the place of the find (page without locale prefix + `?label=`): the server grants a ref once per
  * account, so each find counts once – replaying the same scene grants nothing, another find (another group) does.
+ * `place` narrows it to one spot of the page (a placed item on a slice: `<slice image>#<placement id>`).
  */
-function storyRef(variable: string): string {
-	if (typeof location === 'undefined') return `vn:${variable}`;
+function storyRef(variable: string, place?: string): string {
+	const at = place ? `#${place}` : '';
+	if (typeof location === 'undefined') return `vn:${variable}${at}`;
 	const path = location.pathname.replace(/^\/(de|en)(?=\/)/, '');
 	const label = new URLSearchParams(location.search).get('label');
-	return `vn:${variable}:${path}${label ? `?label=${label}` : ''}`;
+	return `vn:${variable}:${path}${label ? `?label=${label}` : ''}${at}`;
 }
 
 /**
  * A VN variable whose name is a catalog item id (e.g. `cucumber`) also grants that item (source "story").
- * The game variable itself is kept for text interpolation.
+ * The game variable itself is kept for text interpolation. Resolves to the inventory's answer (null = no such item).
  */
-function grantStoryItem(variable: string, qty: number) {
+export function grantStoryItem(variable: string, qty: number, place?: string): Promise<{ ok: boolean; error?: string }> | null {
 	const inventory = getCurrentInventory();
-	if (!inventory?.item(variable) || qty <= 0) return;
-	inventory.grant(variable, 'story', qty, storyRef(variable));
+	if (!inventory?.item(variable) || qty <= 0) return null;
+	return inventory.grant(variable, 'story', qty, storyRef(variable, place));
 }
 
 export function executeVariableAction(action: VariableAction, gameContext: GameContext): string | null {

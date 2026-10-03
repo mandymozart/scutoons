@@ -1,23 +1,8 @@
-<script lang="ts" module>
-	import type { Catalog } from '@scutoons/content';
-	import { authApi } from '$lib/api.ts';
-
-	// the item catalog (`/api/items/`), loaded once per page load for every related-items field
-	let catalogPromise: Promise<Catalog | null> | null = null;
-	function loadCatalog(): Promise<Catalog | null> {
-		catalogPromise ??= authApi.fetchCatalog().catch((e) => {
-			console.warn('Item catalog unavailable', e);
-			catalogPromise = null;
-			return null;
-		});
-		return catalogPromise;
-	}
-</script>
-
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import type { ItemDef } from '@scutoons/content';
+	import type { Catalog, ItemDef } from '@scutoons/content';
+	import { loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';

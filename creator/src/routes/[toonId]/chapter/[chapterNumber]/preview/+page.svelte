@@ -2,7 +2,8 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { toonLanguages, type Chapter, type ToonLanguages } from '@scutoons/content';
-	import { Slice } from '@scutoons/reader';
+	import { Slice, type ResolveSliceItem } from '@scutoons/reader';
+	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
 	import { ActionBar, Badge, Tabs } from '@scutoons/ui';
 	import { library } from '$lib/api.ts';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
@@ -31,6 +32,15 @@
 		return (languages.languages as string[]).includes(wanted) ? wanted : languages.source;
 	});
 	const label = $derived(page.url.searchParams.get('label'));
+
+	// placed items (Slice.items) are drawn with their catalog icons; taps do nothing here (the viewer plays them)
+	$effect(() => {
+		loadCatalog();
+	});
+	const itemInfo: ResolveSliceItem = (it) => {
+		const def = itemCatalog.catalog?.items.find((x) => x.id === it.item);
+		return def?.icon ? { src: asset(def.icon), label: itemName(def, it.item) } : null;
+	};
 
 	let chapter = $state<Chapter | null>(null);
 	let fromDraft = $state(false);
@@ -116,6 +126,7 @@
 							videoSrc={slice.video?.src ? asset(`${toon}/${slice.video.src}`) : undefined}
 							eager={g === 0 && s < 2}
 							lang={locale ?? undefined}
+							{itemInfo}
 						/>
 				{/each}
 			{/each}

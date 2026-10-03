@@ -105,6 +105,13 @@
 						"$ref": "#/definitions/Dialog"
 					}
 				},
+				"items": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/SliceItem"
+					},
+					"description": "catalog items placed on the slice (drawn above the image, below the text boxes)"
+				},
 				"onomatopoeia": {
 					"type": "array",
 					"items": {
@@ -488,7 +495,11 @@
 				},
 				"rotation": {
 					"type": "number",
-					"description": "Degrees."
+					"description": "Degrees, around the box's centre."
+				},
+				"scale": {
+					"type": "number",
+					"description": "Uniform scale of the whole box (frame, text, mask) around its centre, after `rect` and `size` are laid out. Default 1. Lets an sfx / onomatopoeia grow or shrink without re-wrapping its text."
 				},
 				"mask": {
 					"anyOf": [
@@ -537,6 +548,512 @@
 				"mono"
 			]
 		},
+		"SliceItem": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable key of this placement (pickups are remembered by it); `<item>-<n>`"
+				},
+				"item": {
+					"type": "string",
+					"description": "catalog item id (`ItemDef.id`)"
+				},
+				"rect": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						},
+						"width": {
+							"type": "number"
+						},
+						"height": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y",
+						"width"
+					],
+					"description": "% of the slice box, top-left origin; `height` omitted = the icon's own ratio"
+				},
+				"rotation": {
+					"type": "number",
+					"description": "degrees, around the centre"
+				},
+				"action": {
+					"$ref": "#/definitions/SliceItemAction",
+					"description": "default 'none'"
+				},
+				"qty": {
+					"type": "number",
+					"description": "pickup: pieces, default 1"
+				},
+				"events": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/VNEvent"
+					},
+					"description": "events: run on tap (no trigger – the tap is the trigger)"
+				},
+				"once": {
+					"type": "boolean",
+					"description": "events: only the first tap per page view runs them (default true, like a click trigger's `once`)"
+				}
+			},
+			"required": [
+				"id",
+				"item",
+				"rect"
+			],
+			"description": "A catalog item (its cut-out icon) placed on a slice, like a text box: position, size, rotation. Language-neutral geometry (the same in every locale file, like the text boxes' rects).\n\nWhat a tap does is the creator's choice (`action`, default `none`):\n- `none`: just an image on the slice;\n- `pickup`: the reader takes it – the VN item bridge (`add <item> <qty>`: game variable + story grant with a ref per   place, so the catalog's rules apply: grantable, max count, one-time refs); a taken item is gone from the slice   for that reader (game state, synced with the account's progress);\n- `events`: runs `events` – the same VN events as a slice's / group's script (showMessage, addChoice → add item …),   like a click trigger whose area is the item."
+		},
+		"SliceItemAction": {
+			"type": "string",
+			"enum": [
+				"none",
+				"pickup",
+				"events"
+			]
+		},
+		"VNEvent": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/VNShowMessageEvent"
+				},
+				{
+					"$ref": "#/definitions/VNShowChoicesEvent"
+				},
+				{
+					"$ref": "#/definitions/VNAddChoiceEvent"
+				},
+				{
+					"$ref": "#/definitions/VNJoinSceneEvent"
+				},
+				{
+					"$ref": "#/definitions/VNLeaveSceneEvent"
+				},
+				{
+					"$ref": "#/definitions/VNHideMessageEvent"
+				},
+				{
+					"$ref": "#/definitions/VNShowOnomatopeiaEvent"
+				},
+				{
+					"$ref": "#/definitions/VNJumpToEvent"
+				}
+			]
+		},
+		"VNShowMessageEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "showMessage"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"text": {
+							"type": "string"
+						},
+						"character": {
+							"type": "string",
+							"description": "the speaking character's id"
+						},
+						"persona": {
+							"type": "string",
+							"description": "the speaker's persona (none = regular)"
+						},
+						"wait": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"text",
+						"character"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNShowChoicesEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "showChoices"
+				},
+				"params": {
+					"type": "object"
+				}
+			},
+			"required": [
+				"type"
+			]
+		},
+		"VNAddChoiceEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "addChoice"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"label": {
+							"type": "string"
+						},
+						"onSelect": {
+							"anyOf": [
+								{
+									"$ref": "#/definitions/VNVariableSetter"
+								},
+								{
+									"$ref": "#/definitions/VNVariableAdder"
+								}
+							]
+						}
+					},
+					"required": [
+						"label"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNVariableSetter": {
+			"type": "object",
+			"properties": {
+				"set": {
+					"type": "object",
+					"properties": {
+						"variable": {
+							"type": "string"
+						},
+						"value": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"variable",
+						"value"
+					]
+				}
+			},
+			"required": [
+				"set"
+			]
+		},
+		"VNVariableAdder": {
+			"type": "object",
+			"properties": {
+				"add": {
+					"type": "object",
+					"properties": {
+						"variable": {
+							"type": "string"
+						},
+						"value": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"variable",
+						"value"
+					]
+				}
+			},
+			"required": [
+				"add"
+			]
+		},
+		"VNJoinSceneEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "joinScene"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"characters": {
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/VNCharacterRef"
+							}
+						}
+					},
+					"required": [
+						"characters"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNCharacterRef": {
+			"type": "object",
+			"properties": {
+				"character": {
+					"type": "string",
+					"description": "the character id"
+				},
+				"persona": {
+					"type": "string",
+					"description": "a persona of the character (none = `regular`)"
+				},
+				"look": {
+					"type": "string",
+					"description": "a look of the persona (e.g. `helmet`); none = its default look"
+				},
+				"mood": {
+					"type": "string"
+				},
+				"variant": {
+					"$ref": "#/definitions/CharacterView",
+					"description": "the view (avatar / portrait / full)"
+				},
+				"name": {
+					"type": "string",
+					"deprecated": "old form: the character id"
+				},
+				"position": {
+					"type": "object",
+					"properties": {
+						"variant": {
+							"$ref": "#/definitions/CharacterView"
+						}
+					},
+					"required": [
+						"variant"
+					],
+					"deprecated": "old form: the view"
+				}
+			},
+			"description": "A character reference in a VN event (joinScene / leaveScene), as authored: `{ character, persona, look?, mood?, variant? }` (`variant` = the view). The old form `{ name, position: { variant } }` and old character ids (plf, cat, mountain-tiger → catpope personas) still resolve (`normalizeSceneRef` in characters.ts). The same character may be in a scene with several personas (Cat Pope meets Cat Pope · Biker)."
+		},
+		"CharacterView": {
+			"type": "string",
+			"enum": [
+				"avatar",
+				"full",
+				"portrait"
+			],
+			"description": "A view (framing) of a character in a scene."
+		},
+		"VNLeaveSceneEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "leaveScene"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"characters": {
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/VNCharacterRef"
+							}
+						}
+					},
+					"required": [
+						"characters"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"VNHideMessageEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "hideMessage"
+				},
+				"params": {
+					"type": "object"
+				}
+			},
+			"required": [
+				"type"
+			]
+		},
+		"VNShowOnomatopeiaEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "showOnomatopeia"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"mode": {
+							"$ref": "#/definitions/TriggerMode"
+						},
+						"wait": {
+							"type": "boolean"
+						},
+						"position": {
+							"type": "object",
+							"properties": {
+								"x": {
+									"type": "number"
+								},
+								"y": {
+									"type": "number"
+								}
+							}
+						},
+						"size": {
+							"type": "number"
+						},
+						"align": {
+							"type": "string",
+							"enum": [
+								"left",
+								"right",
+								"center"
+							]
+						},
+						"rotation": {
+							"type": "number",
+							"description": "Degrees."
+						},
+						"scale": {
+							"type": "number",
+							"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
+						},
+						"variant": {
+							"$ref": "#/definitions/OnomatopoeiaVariant"
+						},
+						"effect": {
+							"$ref": "#/definitions/OnomatopoeiaEffect"
+						},
+						"duration": {
+							"type": "number"
+						},
+						"delay": {
+							"type": "number"
+						},
+						"text": {
+							"anyOf": [
+								{
+									"type": "string"
+								},
+								{
+									"type": "array",
+									"items": {
+										"type": "string"
+									}
+								}
+							]
+						}
+					},
+					"required": [
+						"text"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"OnomatopoeiaVariant": {
+			"type": "string",
+			"enum": [
+				"default",
+				"outline",
+				"bubble",
+				"thorns"
+			]
+		},
+		"OnomatopoeiaEffect": {
+			"type": "string",
+			"enum": [
+				"none",
+				"shiver",
+				"pulse",
+				"wobble"
+			]
+		},
+		"VNJumpToEvent": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "jumpTo"
+				},
+				"params": {
+					"type": "object",
+					"properties": {
+						"target": {
+							"$ref": "#/definitions/JumpToTarget"
+						},
+						"wait": {
+							"type": "boolean"
+						}
+					},
+					"required": [
+						"target"
+					]
+				}
+			},
+			"required": [
+				"type",
+				"params"
+			]
+		},
+		"JumpToTarget": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/JumpToTargetType"
+				},
+				"value": {
+					"type": "string"
+				},
+				"label": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"value"
+			]
+		},
+		"JumpToTargetType": {
+			"type": "string",
+			"enum": [
+				"chapter",
+				"season",
+				"toon",
+				"product",
+				"xr"
+			]
+		},
 		"Onomatopoeia": {
 			"type": "object",
 			"properties": {
@@ -563,7 +1080,12 @@
 					]
 				},
 				"rotation": {
-					"type": "number"
+					"type": "number",
+					"description": "Degrees."
+				},
+				"scale": {
+					"type": "number",
+					"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
 				},
 				"variant": {
 					"$ref": "#/definitions/OnomatopoeiaVariant"
@@ -593,24 +1115,6 @@
 			},
 			"required": [
 				"text"
-			]
-		},
-		"OnomatopoeiaVariant": {
-			"type": "string",
-			"enum": [
-				"default",
-				"outline",
-				"bubble",
-				"thorns"
-			]
-		},
-		"OnomatopoeiaEffect": {
-			"type": "string",
-			"enum": [
-				"none",
-				"shiver",
-				"pulse",
-				"wobble"
 			]
 		},
 		"VNSliceEvent": {
@@ -835,7 +1339,12 @@
 									]
 								},
 								"rotation": {
-									"type": "number"
+									"type": "number",
+									"description": "Degrees."
+								},
+								"scale": {
+									"type": "number",
+									"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
 								},
 								"variant": {
 									"$ref": "#/definitions/OnomatopoeiaVariant"
@@ -942,416 +1451,6 @@
 			},
 			"required": [
 				"type"
-			]
-		},
-		"VNVariableSetter": {
-			"type": "object",
-			"properties": {
-				"set": {
-					"type": "object",
-					"properties": {
-						"variable": {
-							"type": "string"
-						},
-						"value": {
-							"type": "string"
-						}
-					},
-					"required": [
-						"variable",
-						"value"
-					]
-				}
-			},
-			"required": [
-				"set"
-			]
-		},
-		"VNVariableAdder": {
-			"type": "object",
-			"properties": {
-				"add": {
-					"type": "object",
-					"properties": {
-						"variable": {
-							"type": "string"
-						},
-						"value": {
-							"type": "number"
-						}
-					},
-					"required": [
-						"variable",
-						"value"
-					]
-				}
-			},
-			"required": [
-				"add"
-			]
-		},
-		"VNCharacterRef": {
-			"type": "object",
-			"properties": {
-				"character": {
-					"type": "string",
-					"description": "the character id"
-				},
-				"persona": {
-					"type": "string",
-					"description": "a persona of the character (none = `regular`)"
-				},
-				"look": {
-					"type": "string",
-					"description": "a look of the persona (e.g. `helmet`); none = its default look"
-				},
-				"mood": {
-					"type": "string"
-				},
-				"variant": {
-					"$ref": "#/definitions/CharacterView",
-					"description": "the view (avatar / portrait / full)"
-				},
-				"name": {
-					"type": "string",
-					"deprecated": "old form: the character id"
-				},
-				"position": {
-					"type": "object",
-					"properties": {
-						"variant": {
-							"$ref": "#/definitions/CharacterView"
-						}
-					},
-					"required": [
-						"variant"
-					],
-					"deprecated": "old form: the view"
-				}
-			},
-			"description": "A character reference in a VN event (joinScene / leaveScene), as authored: `{ character, persona, look?, mood?, variant? }` (`variant` = the view). The old form `{ name, position: { variant } }` and old character ids (plf, cat, mountain-tiger → catpope personas) still resolve (`normalizeSceneRef` in characters.ts). The same character may be in a scene with several personas (Cat Pope meets Cat Pope · Biker)."
-		},
-		"CharacterView": {
-			"type": "string",
-			"enum": [
-				"avatar",
-				"full",
-				"portrait"
-			],
-			"description": "A view (framing) of a character in a scene."
-		},
-		"JumpToTarget": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"$ref": "#/definitions/JumpToTargetType"
-				},
-				"value": {
-					"type": "string"
-				},
-				"label": {
-					"type": "string"
-				}
-			},
-			"required": [
-				"type",
-				"value"
-			]
-		},
-		"JumpToTargetType": {
-			"type": "string",
-			"enum": [
-				"chapter",
-				"season",
-				"toon",
-				"product",
-				"xr"
-			]
-		},
-		"VNEvent": {
-			"anyOf": [
-				{
-					"$ref": "#/definitions/VNShowMessageEvent"
-				},
-				{
-					"$ref": "#/definitions/VNShowChoicesEvent"
-				},
-				{
-					"$ref": "#/definitions/VNAddChoiceEvent"
-				},
-				{
-					"$ref": "#/definitions/VNJoinSceneEvent"
-				},
-				{
-					"$ref": "#/definitions/VNLeaveSceneEvent"
-				},
-				{
-					"$ref": "#/definitions/VNHideMessageEvent"
-				},
-				{
-					"$ref": "#/definitions/VNShowOnomatopeiaEvent"
-				},
-				{
-					"$ref": "#/definitions/VNJumpToEvent"
-				}
-			]
-		},
-		"VNShowMessageEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "showMessage"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"text": {
-							"type": "string"
-						},
-						"character": {
-							"type": "string",
-							"description": "the speaking character's id"
-						},
-						"persona": {
-							"type": "string",
-							"description": "the speaker's persona (none = regular)"
-						},
-						"wait": {
-							"type": "boolean"
-						}
-					},
-					"required": [
-						"text",
-						"character"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
-		"VNShowChoicesEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "showChoices"
-				},
-				"params": {
-					"type": "object"
-				}
-			},
-			"required": [
-				"type"
-			]
-		},
-		"VNAddChoiceEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "addChoice"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"label": {
-							"type": "string"
-						},
-						"onSelect": {
-							"anyOf": [
-								{
-									"$ref": "#/definitions/VNVariableSetter"
-								},
-								{
-									"$ref": "#/definitions/VNVariableAdder"
-								}
-							]
-						}
-					},
-					"required": [
-						"label"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
-		"VNJoinSceneEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "joinScene"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"characters": {
-							"type": "array",
-							"items": {
-								"$ref": "#/definitions/VNCharacterRef"
-							}
-						}
-					},
-					"required": [
-						"characters"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
-		"VNLeaveSceneEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "leaveScene"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"characters": {
-							"type": "array",
-							"items": {
-								"$ref": "#/definitions/VNCharacterRef"
-							}
-						}
-					},
-					"required": [
-						"characters"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
-		"VNHideMessageEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "hideMessage"
-				},
-				"params": {
-					"type": "object"
-				}
-			},
-			"required": [
-				"type"
-			]
-		},
-		"VNShowOnomatopeiaEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "showOnomatopeia"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"mode": {
-							"$ref": "#/definitions/TriggerMode"
-						},
-						"wait": {
-							"type": "boolean"
-						},
-						"position": {
-							"type": "object",
-							"properties": {
-								"x": {
-									"type": "number"
-								},
-								"y": {
-									"type": "number"
-								}
-							}
-						},
-						"size": {
-							"type": "number"
-						},
-						"align": {
-							"type": "string",
-							"enum": [
-								"left",
-								"right",
-								"center"
-							]
-						},
-						"rotation": {
-							"type": "number"
-						},
-						"variant": {
-							"$ref": "#/definitions/OnomatopoeiaVariant"
-						},
-						"effect": {
-							"$ref": "#/definitions/OnomatopoeiaEffect"
-						},
-						"duration": {
-							"type": "number"
-						},
-						"delay": {
-							"type": "number"
-						},
-						"text": {
-							"anyOf": [
-								{
-									"type": "string"
-								},
-								{
-									"type": "array",
-									"items": {
-										"type": "string"
-									}
-								}
-							]
-						}
-					},
-					"required": [
-						"text"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
-		"VNJumpToEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "jumpTo"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"target": {
-							"$ref": "#/definitions/JumpToTarget"
-						},
-						"wait": {
-							"type": "boolean"
-						}
-					},
-					"required": [
-						"target"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
 			]
 		},
 		"RefLink": {
