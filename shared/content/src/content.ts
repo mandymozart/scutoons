@@ -1,5 +1,5 @@
 // TODO: merge content and visual novel since both basically became one.
-import { Renderer, Language, Status, type EventCategory, OnomatopoeiaVariant, OnomatopoeiaEffect, JumpToTargetType } from './enums.ts';
+import { Renderer, Language, Status, type EventCategory, JumpToTargetType } from './enums.ts';
 import type { AudioEvents, AudioConfiguration } from './audio.ts';
 import type { VNEvent, VNSliceEvent } from './visual-novel.ts';
 import type { QualityVariants } from './media-quality.ts';
@@ -11,10 +11,10 @@ export interface KeyVisual {
 }
 
 /**
- * `sfx` is the old onomatopoeia text box (owner 2026-10-03: no longer offered – an onomatopoeia event reveals a text box
- * instead, `VNShowOnomatopeiaEvent` `params.dialog`); existing sfx boxes keep rendering as before.
+ * An onomatopoeia is a text box too (e.g. white letters with an ink outline) that a `showOnomatopeia` event reveals
+ * (`VNShowOnomatopeiaEvent` `params.dialog`).
  */
-export type DialogVariant = 'bubble' | 'caption' | 'narration' | 'sfx';
+export type DialogVariant = 'bubble' | 'caption' | 'narration';
 
 /** Where a drawn speech bubble's tail points (`Dialog.tail`). */
 export const DIALOG_TAILS = ['bottom-left', 'bottom', 'bottom-right', 'top-left', 'top', 'top-right', 'none'] as const;
@@ -47,19 +47,18 @@ export interface Dialog {
 	tail?: DialogTail;
 	/** Font size in % of the slice width (rendered as cqw). Default 4. */
 	size?: number;
-	/** Default 'center' for bubble/sfx, 'left' for caption/narration. */
+	/** Default 'center' for bubble, 'left' for caption/narration. */
 	align?: 'left' | 'center' | 'right';
 	/** Default 'middle' (only has an effect with `rect.height`). */
 	valign?: 'top' | 'middle' | 'bottom';
-	/** Default 'lettering' for bubble/sfx, 'mono' for caption/narration (matches chapter 1). */
+	/** Default 'lettering' for bubble, 'mono' for caption/narration (matches chapter 1). */
 	font?: DialogFont;
 	weight?: 400 | 700;
 	uppercase?: boolean;
 	/** Text color, default ink (#000). */
 	color?: string;
 	/**
-	 * Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline
-	 * (the old `sfx` variant has its ink outline built in).
+	 * Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline.
 	 */
 	stroke?: string;
 	/** outline width in em of the font size, default 0.14 */
@@ -68,7 +67,7 @@ export interface Dialog {
 	rotation?: number;
 	/**
 	 * Uniform scale of the whole box (frame, text, mask) around its centre, after `rect` and `size` are laid out.
-	 * Default 1. Lets an sfx / onomatopoeia grow or shrink without re-wrapping its text.
+	 * Default 1. Lets an onomatopoeia grow or shrink without re-wrapping its text.
 	 */
 	scale?: number;
 	/** Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'. */
@@ -77,24 +76,6 @@ export interface Dialog {
 	maskShape?: 'rect' | 'ellipse';
 	/** Extra mask padding in % of slice width. Default 0.5. */
 	pad?: number;
-}
-
-export interface Onomatopoeia {
-	position?: {
-		x?: number;
-		y?: number;
-	};
-	size?: number;
-	align?: 'left' | 'right' | 'center';
-	/** Degrees. */
-	rotation?: number;
-	/** Uniform scale around the anchor (`position`), on top of `size`. Default 1. */
-	scale?: number;
-	variant?: OnomatopoeiaVariant;
-	effect?: OnomatopoeiaEffect;
-	duration?: number,
-	delay?: number,
-	text: string | string[];
 }
 
 export interface JumpToTarget {
@@ -345,13 +326,12 @@ export interface Slice {
 	video?: SliceVideo;
 	// TODO: refactor at some point to use a unified entity system
 	// trigger: any[]; // placeholder for combined event system audio and vn
-	// layers: any[]; // placeholder for combined dialog, onomatopoeia and image layers
+	// layers: any[]; // placeholder for combined dialog and image layers
 	// entities: Entity[]; // even more general but requires massive refactor
 	audio?: AudioEvents;
 	dialog?: Dialog[];
 	/** catalog items placed on the slice (drawn above the image, below the text boxes) */
 	items?: SliceItem[];
-	onomatopoeia?: Onomatopoeia[];
 	events?: Array<VNSliceEvent>;
 	_type?: string;
 	_label?: string;

@@ -112,12 +112,6 @@
 					},
 					"description": "catalog items placed on the slice (drawn above the image, below the text boxes)"
 				},
-				"onomatopoeia": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/Onomatopoeia"
-					}
-				},
 				"events": {
 					"type": "array",
 					"items": {
@@ -468,7 +462,7 @@
 						"center",
 						"right"
 					],
-					"description": "Default 'center' for bubble/sfx, 'left' for caption/narration."
+					"description": "Default 'center' for bubble, 'left' for caption/narration."
 				},
 				"valign": {
 					"type": "string",
@@ -481,7 +475,7 @@
 				},
 				"font": {
 					"$ref": "#/definitions/DialogFont",
-					"description": "Default 'lettering' for bubble/sfx, 'mono' for caption/narration (matches chapter 1)."
+					"description": "Default 'lettering' for bubble, 'mono' for caption/narration (matches chapter 1)."
 				},
 				"weight": {
 					"type": "number",
@@ -499,7 +493,7 @@
 				},
 				"stroke": {
 					"type": "string",
-					"description": "Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline (the old `sfx` variant has its ink outline built in)."
+					"description": "Outline of the letters (a CSS colour), e.g. white letters with an ink outline for an onomatopoeia; none = no outline."
 				},
 				"strokeWidth": {
 					"type": "number",
@@ -511,7 +505,7 @@
 				},
 				"scale": {
 					"type": "number",
-					"description": "Uniform scale of the whole box (frame, text, mask) around its centre, after `rect` and `size` are laid out. Default 1. Lets an sfx / onomatopoeia grow or shrink without re-wrapping its text."
+					"description": "Uniform scale of the whole box (frame, text, mask) around its centre, after `rect` and `size` are laid out. Default 1. Lets an onomatopoeia grow or shrink without re-wrapping its text."
 				},
 				"mask": {
 					"anyOf": [
@@ -549,10 +543,9 @@
 			"enum": [
 				"bubble",
 				"caption",
-				"narration",
-				"sfx"
+				"narration"
 			],
-			"description": "`sfx` is the old onomatopoeia text box (owner 2026-10-03: no longer offered – an onomatopoeia event reveals a text box instead, `VNShowOnomatopeiaEvent` `params.dialog`); existing sfx boxes keep rendering as before."
+			"description": "An onomatopoeia is a text box too (e.g. white letters with an ink outline) that a `showOnomatopeia` event reveals (`VNShowOnomatopeiaEvent` `params.dialog`)."
 		},
 		"DialogTail": {
 			"type": "string",
@@ -936,77 +929,7 @@
 					"const": "showOnomatopeia"
 				},
 				"params": {
-					"type": "object",
-					"properties": {
-						"mode": {
-							"$ref": "#/definitions/TriggerMode"
-						},
-						"wait": {
-							"type": "boolean"
-						},
-						"dialog": {
-							"type": "string",
-							"description": "Id of a text box (`Dialog.id`) – on the event's slice, or for a group script on one of the group's slices. That box stays hidden until the event fires, then appears with the event's effect / duration / delay / wait and stays; the box gives the look (variant, font, colour, outline, rotation, scale, per-language text), the event the timing. `text`, `position`, `size`, `align`, `rotation`, `scale` and `variant` of the event are then not used. Without it: the event's own onomatopoeia, as before."
-						},
-						"position": {
-							"type": "object",
-							"properties": {
-								"x": {
-									"type": "number"
-								},
-								"y": {
-									"type": "number"
-								}
-							}
-						},
-						"size": {
-							"type": "number"
-						},
-						"align": {
-							"type": "string",
-							"enum": [
-								"left",
-								"right",
-								"center"
-							]
-						},
-						"rotation": {
-							"type": "number",
-							"description": "Degrees."
-						},
-						"scale": {
-							"type": "number",
-							"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
-						},
-						"variant": {
-							"$ref": "#/definitions/OnomatopoeiaVariant"
-						},
-						"effect": {
-							"$ref": "#/definitions/OnomatopoeiaEffect"
-						},
-						"duration": {
-							"type": "number"
-						},
-						"delay": {
-							"type": "number"
-						},
-						"text": {
-							"anyOf": [
-								{
-									"type": "string"
-								},
-								{
-									"type": "array",
-									"items": {
-										"type": "string"
-									}
-								}
-							]
-						}
-					},
-					"required": [
-						"text"
-					]
+					"$ref": "#/definitions/OnomatopoeiaParams"
 				}
 			},
 			"required": [
@@ -1014,14 +937,37 @@
 				"params"
 			]
 		},
-		"OnomatopoeiaVariant": {
-			"type": "string",
-			"enum": [
-				"default",
-				"outline",
-				"bubble",
-				"thorns"
-			]
+		"OnomatopoeiaParams": {
+			"type": "object",
+			"properties": {
+				"dialog": {
+					"type": "string"
+				},
+				"effect": {
+					"$ref": "#/definitions/OnomatopoeiaEffect",
+					"description": "default 'none'"
+				},
+				"duration": {
+					"type": "number",
+					"description": "ms the effect plays, default 2000 (max 5000)"
+				},
+				"delay": {
+					"type": "number",
+					"description": "ms before the box appears, default 0 (max 5000)"
+				},
+				"mode": {
+					"$ref": "#/definitions/TriggerMode",
+					"description": "`mono` = one at a time (queued), `poly` = together; default poly"
+				},
+				"wait": {
+					"type": "boolean",
+					"description": "the script waits for a tap before it continues"
+				}
+			},
+			"required": [
+				"dialog"
+			],
+			"description": "An onomatopoeia = a text box revealed by this event (owner 2026-10-03, option B): `dialog` is the id of a text box (`Dialog.id`) on the event's slice, or for a group script on one of the group's slices. The box stays hidden until the event fires, then appears with `effect` / `delay` / `duration` and stays; the box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing."
 		},
 		"OnomatopoeiaEffect": {
 			"type": "string",
@@ -1092,69 +1038,6 @@
 			"enum": [
 				"once",
 				"respawn"
-			]
-		},
-		"Onomatopoeia": {
-			"type": "object",
-			"properties": {
-				"position": {
-					"type": "object",
-					"properties": {
-						"x": {
-							"type": "number"
-						},
-						"y": {
-							"type": "number"
-						}
-					}
-				},
-				"size": {
-					"type": "number"
-				},
-				"align": {
-					"type": "string",
-					"enum": [
-						"left",
-						"right",
-						"center"
-					]
-				},
-				"rotation": {
-					"type": "number",
-					"description": "Degrees."
-				},
-				"scale": {
-					"type": "number",
-					"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
-				},
-				"variant": {
-					"$ref": "#/definitions/OnomatopoeiaVariant"
-				},
-				"effect": {
-					"$ref": "#/definitions/OnomatopoeiaEffect"
-				},
-				"duration": {
-					"type": "number"
-				},
-				"delay": {
-					"type": "number"
-				},
-				"text": {
-					"anyOf": [
-						{
-							"type": "string"
-						},
-						{
-							"type": "array",
-							"items": {
-								"type": "string"
-							}
-						}
-					]
-				}
-			},
-			"required": [
-				"text"
 			]
 		},
 		"VNSliceEvent": {
@@ -1348,77 +1231,7 @@
 							"const": "showOnomatopeia"
 						},
 						"params": {
-							"type": "object",
-							"properties": {
-								"mode": {
-									"$ref": "#/definitions/TriggerMode"
-								},
-								"wait": {
-									"type": "boolean"
-								},
-								"dialog": {
-									"type": "string",
-									"description": "Id of a text box (`Dialog.id`) – on the event's slice, or for a group script on one of the group's slices. That box stays hidden until the event fires, then appears with the event's effect / duration / delay / wait and stays; the box gives the look (variant, font, colour, outline, rotation, scale, per-language text), the event the timing. `text`, `position`, `size`, `align`, `rotation`, `scale` and `variant` of the event are then not used. Without it: the event's own onomatopoeia, as before."
-								},
-								"position": {
-									"type": "object",
-									"properties": {
-										"x": {
-											"type": "number"
-										},
-										"y": {
-											"type": "number"
-										}
-									}
-								},
-								"size": {
-									"type": "number"
-								},
-								"align": {
-									"type": "string",
-									"enum": [
-										"left",
-										"right",
-										"center"
-									]
-								},
-								"rotation": {
-									"type": "number",
-									"description": "Degrees."
-								},
-								"scale": {
-									"type": "number",
-									"description": "Uniform scale around the anchor (`position`), on top of `size`. Default 1."
-								},
-								"variant": {
-									"$ref": "#/definitions/OnomatopoeiaVariant"
-								},
-								"effect": {
-									"$ref": "#/definitions/OnomatopoeiaEffect"
-								},
-								"duration": {
-									"type": "number"
-								},
-								"delay": {
-									"type": "number"
-								},
-								"text": {
-									"anyOf": [
-										{
-											"type": "string"
-										},
-										{
-											"type": "array",
-											"items": {
-												"type": "string"
-											}
-										}
-									]
-								}
-							},
-							"required": [
-								"text"
-							]
+							"$ref": "#/definitions/OnomatopoeiaParams"
 						}
 					},
 					"required": [

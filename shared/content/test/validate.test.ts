@@ -207,30 +207,34 @@ test('slice items: placed catalog items with an action chosen by the creator; te
 	assert.deepEqual(sliceProblems({ items: [{ id: 'a', item: 'x', rect }, { id: 'a', item: 'y', rect }] }), ['error groups.0.slices.0.items']);
 	const withCatalog = validateFile('chapter', chapter({ items: [{ id: 'a', item: 'nope', rect }] }), 'de', { file: 'x', items: ['repair_coupon'] } as never);
 	assert.deepEqual(withCatalog.map((p) => `${p.level} ${p.path.join('.')}`).filter((p) => p.includes('slices.0.')), ['warning groups.0.slices.0.items.0.item']);
-	// scale: text boxes and the onomatopoeia event
-	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', variant: 'sfx', rotation: 10, scale: 1.5 }] }), []);
+	// scale + rotation of text boxes; sfx is no variant any more
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', rotation: 10, scale: 1.5 }] }), []);
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', scale: 0 }] }), ['error groups.0.slices.0.dialog.0.scale']);
-	const ono = (params: object) => ({ type: 'showOnomatopeia', params: { text: 'BAM', ...params }, trigger: { type: 'intersect' } });
-	assert.deepEqual(sliceProblems({ events: [ono({ rotation: 15, scale: 2 })] }), []);
-	assert.deepEqual(sliceProblems({ events: [ono({ rotation: 'x', scale: -1 })] }), ['error groups.0.slices.0.events.0.params.rotation', 'error groups.0.slices.0.events.0.params.scale']);
+	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', variant: 'sfx' }] }), ['error groups.0.slices.0.dialog.0.variant']);
 });
 
 test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {
 	const rect = { x: 10, y: 10, width: 30 };
 	const box = (extra: object = {}) => ({ id: 'b1', rect, text: 'BAM', ...extra });
-	const ono = (params: object) => ({ type: 'showOnomatopeia', params: { text: 'BAM', ...params }, trigger: { type: 'intersect' } });
+	const ono = (params: object) => ({ type: 'showOnomatopeia', params, trigger: { type: 'intersect' } });
 	const chapter = (slice: object, events?: object[]) => ({
 		title: 'P',
 		number: 2,
 		groups: [{ label: 'g', renderer: { type: 'vertical' }, slices: [{ image: 's1/c2/a.webp', width: 390, height: 625, ...slice }], ...(events ? { events } : {}) }]
 	});
 	const list = (data: object) => problems('chapter', data).filter((p) => p.includes('groups.0.'));
-	// a slice event revealing a box on its slice; old events without a ref unchanged
-	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'b1', effect: 'shiver' }), ono({})] })), []);
+	// a slice event revealing a box on its slice; an event without a box is an error (no own onomatopoeia any more)
+	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'b1', effect: 'shiver', duration: 1500, delay: 200, mode: 'mono', wait: true })] })), []);
+	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({})] })), ['error groups.0.slices.0.events.0.params.dialog']);
+	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'b1', effect: 'boom', mode: 'x', wait: 1 })] })), [
+		'error groups.0.slices.0.events.0.params.effect',
+		'error groups.0.slices.0.events.0.params.mode',
+		'error groups.0.slices.0.events.0.params.wait'
+	]);
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'nope' })] })), ['warning groups.0.slices.0.events.0.params.dialog']);
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 3 })] })), ['error groups.0.slices.0.events.0.params.dialog']);
 	// a group script may reveal a box on any of the group's slices
-	const groupEvent = { type: 'showOnomatopeia', params: { text: 'BAM', dialog: 'b1' } };
+	const groupEvent = { type: 'showOnomatopeia', params: { dialog: 'b1' } };
 	assert.deepEqual(list(chapter({ dialog: [box()] }, [groupEvent])), []);
 	assert.deepEqual(list(chapter({}, [groupEvent])), ['warning groups.0.events.0.params.dialog']);
 	// bubble: frame (a drawn bubble) + tail; outline

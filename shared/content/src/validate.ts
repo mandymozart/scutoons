@@ -4,7 +4,6 @@ import {
 	JumpToTargetType,
 	Language,
 	OnomatopoeiaEffect,
-	OnomatopoeiaVariant,
 	Renderer,
 	Status,
 	Trigger,
@@ -34,7 +33,7 @@ export interface Problem {
 export const LENGTH_WARNING_RATIO = 1.3;
 
 const values = (e: object) => Object.values(e) as string[];
-const DIALOG_VARIANTS = ['bubble', 'caption', 'narration', 'sfx'];
+const DIALOG_VARIANTS = ['bubble', 'caption', 'narration'];
 const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showOnomatopeia', 'jumpTo'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -131,7 +130,6 @@ function checkDialog(c: Collector, d: any, path: Path) {
 	if (d.mask !== undefined && d.mask !== true && !isStr(d.mask)) c.error([...path, 'mask'], 'mask must be true or a CSS color');
 	if (d.maskShape !== undefined && !['rect', 'ellipse'].includes(d.maskShape)) c.error([...path, 'maskShape'], 'maskShape must be rect or ellipse');
 	if (d.pad !== undefined && !isNum(d.pad)) c.error([...path, 'pad'], 'pad must be a number');
-	if (d.frame !== undefined && !['caption', 'narration', 'bubble', undefined].includes(d.variant)) c.warn([...path, 'frame'], 'frame only affects caption / narration / bubble');
 	if (d.tail !== undefined && !((d.variant ?? 'bubble') === 'bubble' && d.frame === true)) c.info([...path, 'tail'], 'tail only shows on a drawn bubble (variant bubble, frame true)');
 }
 
@@ -261,15 +259,14 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				});
 			break;
 		case 'showOnomatopeia':
-			if (!isObj(p) || !(isStr(p.text) || Array.isArray(p.text))) c.error([...pp, 'text'], 'showOnomatopeia needs params.text');
+			// an onomatopoeia is a text box this event reveals (owner 2026-10-03)
+			if (!isObj(p) || !isStr(p.dialog) || !p.dialog) c.error([...pp, 'dialog'], 'showOnomatopeia needs params.dialog (the id of the text box it reveals)');
 			if (isObj(p)) {
-				if (p.variant !== undefined && !values(OnomatopoeiaVariant).includes(p.variant)) c.error([...pp, 'variant'], `variant must be one of ${values(OnomatopoeiaVariant).join(', ')}`);
 				if (p.effect !== undefined && !values(OnomatopoeiaEffect).includes(p.effect)) c.error([...pp, 'effect'], `effect must be one of ${values(OnomatopoeiaEffect).join(', ')}`);
 				if (p.duration !== undefined && (!isNum(p.duration) || p.duration > 5000)) c.warn([...pp, 'duration'], 'duration is capped at 5000 ms by the reader');
 				if (p.delay !== undefined && (!isNum(p.delay) || p.delay > 5000)) c.warn([...pp, 'delay'], 'delay is capped at 5000 ms by the reader');
-				if (p.rotation !== undefined && !isNum(p.rotation)) c.error([...pp, 'rotation'], 'rotation must be a number (degrees)');
-				checkScale(c, p.scale, [...pp, 'scale']);
-				if (p.dialog !== undefined && (!isStr(p.dialog) || !p.dialog)) c.error([...pp, 'dialog'], 'dialog must be the id of a text box');
+				if (p.mode !== undefined && !values(TriggerMode).includes(p.mode)) c.error([...pp, 'mode'], 'mode must be mono or poly');
+				if (p.wait !== undefined && typeof p.wait !== 'boolean') c.error([...pp, 'wait'], 'wait must be true/false');
 			}
 			break;
 	}

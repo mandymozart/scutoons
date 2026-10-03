@@ -35,13 +35,6 @@ export enum TriggerMode {
 	POLY = "poly",
 }
 
-export enum OnomatopoeiaVariant {
-	DEFAULT = "default",
-	PULSE = "outline",
-	WOBBLE = "bubble",
-	THORNS = "thorns"
-}
-
 export enum OnomatopoeiaEffect {
 	NONE = "none",
 	SHIVER = "shiver",
