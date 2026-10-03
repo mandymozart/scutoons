@@ -27,6 +27,7 @@ export {
 	type AdminApi,
 	type AdminAccountRef,
 	type AdminCatalog,
+	type AdminRespawn,
 	type AdminClaim,
 	type AdminClaimDetail,
 	type AdminClaimFile,
