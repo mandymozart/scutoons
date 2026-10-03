@@ -110,19 +110,13 @@
 		menuOpen = false;
 	});
 	const universe = $derived([
-		// the toon's screenplay, from every page of the toon (owner 2026-10-03: "crucial for collaborative creation")
-		...(toonId ? [{ href: `/${toonId}/script`, label: m['creator.script'](), tab: 'script' as string | null }] : []),
 		{ href: '/characters', label: m['creator.characters'](), tab: null as string | null },
 		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
 		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' },
 		{ href: '/map', label: m['creator.map'](), tab: 'map' }
 	]);
 	const universeCurrent = (tab: string | null) =>
-		tab === 'script'
-			? page.route.id === '/[toonId]/script'
-				? 'page'
-				: undefined
-			: tab === 'map'
+		tab === 'map'
 			? page.route.id === '/map'
 				? 'page'
 				: undefined
@@ -272,14 +266,24 @@
 						<NavSidebar toons={nav.toons} toon={toonId} />
 					{/if}
 				</div>
-				<div class="universe">
-					<p class="sc-nav-head">{m['creator.universe']()}</p>
-					<ul>
-						{#each universe as item (item.href)}
-							<li><a class="sc-nav-item" href={item.href} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
-						{/each}
-					</ul>
-				</div>
+				<!-- inside a toon: its script on every page of it ("crucial for collaborative creation"); Universe only on the
+				     dashboard (owner 2026-10-03) -->
+				{#if toonId}
+					<div class="universe">
+						<ul>
+							<li><a class="sc-nav-item" href="/{toonId}/script" aria-current={page.route.id === '/[toonId]/script' ? 'page' : undefined} data-testid="nav-script">{m['creator.script']()}</a></li>
+						</ul>
+					</div>
+				{:else if page.route.id === '/'}
+					<div class="universe">
+						<p class="sc-nav-head">{m['creator.universe']()}</p>
+						<ul>
+							{#each universe as item (item.href)}
+								<li><a class="sc-nav-item" href={item.href} aria-current={universeCurrent(item.tab)} data-testid="nav-universe-{item.tab ?? 'characters'}">{item.label}</a></li>
+							{/each}
+						</ul>
+					</div>
+				{/if}
 			{/snippet}
 			{@render children()}
 		</AppShell>
@@ -422,8 +426,9 @@
 		display: flex;
 		flex-direction: column;
 	}
+	/* Universe follows right below the page's own entries (owner 2026-10-03: pushed to the bottom it looked absent) */
 	.nav-children {
-		flex: 1 0 auto;
+		flex: none;
 	}
 	.universe {
 		position: sticky;

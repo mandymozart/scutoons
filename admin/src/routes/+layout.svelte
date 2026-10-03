@@ -105,6 +105,12 @@
 			sidebarWidth="var(--admin-sidebar-width)"
 			sidebarId="admin-nav"
 			sidebarLabel={m['shell.navigation']()}
+			resizeKey="admin"
+			resizeLabel={m['shell.resize_sidebar']()}
+			foldable
+			railLabel={current?.title() ?? ''}
+			foldLabel={m['shell.fold_sidebar']()}
+			unfoldLabel={m['shell.unfold_sidebar']()}
 			collapsible
 			sidebarOpen={menuOpen}
 			onclose={() => (menuOpen = false)}
