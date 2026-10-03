@@ -20,6 +20,7 @@
 		known = [],
 		placeholder = '',
 		required = false,
+		splittable = true,
 		testid = ''
 	}: {
 		doc: ContentDoc;
@@ -32,6 +33,8 @@
 		placeholder?: string;
 		/** required keys are never removed (empty number → 0, empty text → '') */
 		required?: boolean;
+		/** false: no "per language" switch (a value that is never translated); existing overrides still show */
+		splittable?: boolean;
 		testid?: string;
 	} = $props();
 
@@ -69,7 +72,7 @@
 <div class="shared-field" class:per-locale={perLocale} data-testid={id}>
 	<div class="head">
 		<span class="label">{label}</span>
-		{#if doc.present.length > 1}
+		{#if doc.present.length > 1 && (splittable || perLocale)}
 			{#if perLocale}
 				<button type="button" class="ghost mini" onclick={sameForAll} title={m['creator.same_for_all_hint']({ locale: doc.primary })} data-testid="{id}-same">{m['creator.same_for_all']()}</button>
 			{:else}

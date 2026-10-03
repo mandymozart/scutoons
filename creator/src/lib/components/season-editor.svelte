@@ -1,30 +1,34 @@
 <script lang="ts">
-	import { coverLetteringOn, coverLines, entities, type Cover } from '@scutoons/content';
+	import { coverLetteringOn, coverLines, entities, type Cover, type SeasonTrailer } from '@scutoons/content';
 	import { CoverArt } from '@scutoons/reader';
+	import { Icon } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { onMount } from 'svelte';
 	import type { ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { toonDoc } from '$lib/editor/languages.ts';
-	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonChapterNumbers, syncChapters } from '$lib/editor/visibility.ts';
+	import type { VariantMedia } from '$lib/editor/media-variants.ts';
 	import MetaPage from './meta-page.svelte';
 	import LocaleText from './locale-text.svelte';
+	import PropField from './prop-field.svelte';
 	import SharedField from './shared-field.svelte';
+	import MediaSlot from './media-slot.svelte';
+	import MediaVariantsSlot from './media-variants-slot.svelte';
 	import SupportersField from './supporters-field.svelte';
 	import RelatedItemsField from './related-items-field.svelte';
-	import { MEDIA_QUALITIES } from '@scutoons/content';
-	import { qualityVariants, rootPath, toonRelativePath } from '@scutoons/api';
-	import AssetPickerSheet, { type PickedAsset } from './assets/asset-picker-sheet.svelte';
 	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
 	import ChapterBadges from './chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	/**
-	 * Season meta (the entity season:<toon>:<N>): title / plot per locale, language-neutral fields once (overrides per locale shown),
-	 * covers – and the chapter sequence with the status per locale (the chapters' visibility), all one doc.
+	 * Season meta (the entity season:<toon>:<N>), cleaned up like the chapter page (owner 2026-10-03): title and
+	 * description (per language), release + authors, the chapters with their visibility, the media as slots (cover →
+	 * the cover editor, the trailer with its quality levels, the poster), related items, supporters. Everything but title
+	 * and description is the same in every language (written to every locale document; said once, in the hint).
+	 * The season's number is its identity (the URL, the entity key) – not a field.
 	 */
 	let { toon, number, languages }: { toon: string; number: number; languages: ToonLanguages } = $props();
 
@@ -32,12 +36,18 @@
 	// svelte-ignore state_referenced_locally
 	const season = toonDoc(entities.season(toon, number), languages);
 	let chapters = $state<Record<number, ContentDoc>>({});
-	let images = $state<string[]>([]);
 
 	const numbers = $derived(seasonChapterNumbers(season));
 	const cover = $derived(season.get(season.primary, ['cover']) as Cover | undefined);
+	const trailer = $derived(season.get(season.primary, ['trailer']) as Partial<SeasonTrailer> | undefined);
+	/** the season's folder by the content rules – uploads from its fields land there (catpope/s1/) */
+	// svelte-ignore state_referenced_locally
+	const place = `${toon}/s${number}/`;
 	/** titles in lists: one language – the i18n switch's, else the source; the others in the tooltip (owner 2026-10-02) */
 	const titleLocale = $derived(listLanguage(season.locales, season.primary));
+	/** documents whose `language` field is not their own language (a copy-paste slip): one warning, one fix */
+	const wrongLanguage = $derived(season.present.filter((l) => season.get(l, ['language']) !== l));
+	const chapterTitle = (n: number) => chapters[n]?.data?.[titleLocale]?.title || chapters[n]?.data?.[chapters[n].primary]?.title || fileLabel(entities.chapter(toon, n));
 
 	onMount(async () => {
 		await season.load();
@@ -50,17 +60,27 @@
 			})
 		);
 		chapters = docs;
-		images = await knownImages(toon, season.locales, [$state.snapshot(season.data)]);
 	});
 
-	/** the trailer loop from a video asset: its 480p / 720p / 1080p files → variants, 720p the loop (agents/ASSETS.md) */
-	let choosingTrailer = $state(false);
-	function pickTrailer(picked: PickedAsset) {
-		const levels = qualityVariants(picked.asset.renditions.filter((r) => r.mime?.startsWith('video/')));
-		const variants = Object.fromEntries(MEDIA_QUALITIES.filter((l) => levels[l]).map((l) => [l, toonRelativePath(levels[l]!, toon)]));
-		const loop = (variants.medium || variants.high || variants.low || toonRelativePath(picked.path, toon)) as string;
-		season.setShared(['trailer', 'loop'], loop, 'trailer-asset');
-		season.setShared(['trailer', 'variants'], Object.keys(variants).length ? variants : undefined, 'trailer-asset');
+	/**
+	 * The trailer, the same in every locale document. `loop` is the default file of the quality variants
+	 * (agents/ASSETS.md); without a loop and a poster the whole trailer goes (the hero then shows the cover).
+	 */
+	function writeTrailer(change: Partial<SeasonTrailer>, key: string) {
+		season.structural((file) => {
+			const next: Record<string, unknown> = { ...(file.trailer ?? {}), ...change };
+			for (const k of Object.keys(next)) if (next[k] === undefined) delete next[k];
+			if (!next.loop && !next.poster) delete file.trailer;
+			else {
+				const { loop, variants, poster, chapter, ...rest } = next;
+				file.trailer = Object.fromEntries(Object.entries({ loop, variants, poster, chapter, ...rest }).filter(([, v]) => v !== undefined));
+			}
+		}, key);
+	}
+	const trailerMedia = $derived<VariantMedia>({ src: trailer?.loop, variants: trailer?.variants });
+	function setTrailerMedia(next: VariantMedia) {
+		// the old media-query encodings (`sources`) are replaced by the levels as soon as the trailer is chosen again
+		writeTrailer({ loop: next.src, variants: next.variants, sources: undefined }, 'trailer-media');
 	}
 
 	// the season's children in the sidebar: its chapters with their status per language
@@ -74,7 +94,7 @@
 		{#each numbers as n (n)}
 			<li>
 				<a href="/{toon}/chapter/{n}" data-nav-child data-testid="nav-chapter-{n}">
-					<span class="nav-title">{chapters[n]?.data?.[titleLocale]?.title || chapters[n]?.data?.[chapters[n].primary]?.title || fileLabel(entities.chapter(toon, n))}</span>
+					<span class="nav-title">{chapterTitle(n)}</span>
 					<span class="nav-status"><ChapterBadges {season} number={n} doc={chapters[n]} /></span>
 				</a>
 			</li>
@@ -96,81 +116,23 @@
 		<section class="block" data-testid="season-meta">
 			<h2>{m['creator.meta']()}</h2>
 			<LocaleText doc={season} path={['title']} label="title" multiline={false} />
-			<LocaleText doc={season} path={['description']} label="description (plot)" rows={6} />
-			<p class="hint">
-				language:
-				{#each season.present as l, i}
-					{@const value = season.get(l, ['language'])}
-					{#if i > 0}·{/if}
-					<span class:warn={value !== undefined && value !== l}>{l}: {value ?? '–'}</span>
-					{#if value !== l}<button type="button" class="ghost mini" onclick={() => season.setLocal(l, ['language'], l)}>= {l}</button>{/if}
-				{/each}
-			</p>
-			<div class="grid g3">
-				<SharedField doc={season} path={['number']} label="number" kind="number" />
-				<SharedField doc={season} path={['release']} label="release" kind="date" />
-				<SharedField doc={season} path={['authors']} label="authors" kind="list" testid="season-authors" />
-			</div>
-		</section>
-
-		<!-- the season's cover (owner 2026-10-02: covers are per season): art + lettering in the cover editor -->
-		<section class="block" data-testid="season-cover">
-			<h2>{m['creator.season_cover']()}</h2>
-			<p class="hint">{m['creator.cover_season_hint']()}</p>
-			<div class="cover-row">
-				{#if cover?.square}
-					<div class="cover-thumb">
-						<CoverArt src={asset(`${toon}/${cover.square}`)} lettering={cover.lettering} title={nav.toonName(toon)} subtitle={String(season.get(season.primary, ['title']) ?? '')} lang={season.primary} />
-					</div>
-				{/if}
-				<p class="cover-state" data-testid="season-cover-lettering">
-					<span class="sc-label">{m['creator.cover_mode']()}</span>
-					<span>{!coverLetteringOn(cover?.lettering) ? m['creator.cover_mode_off']() : coverLines(cover?.lettering, 'square') ? m['creator.cover_mode_custom']() : m['creator.cover_mode_default']()}</span>
-					<a class="btn secondary" href="/{toon}/season/{number}/cover" data-testid="season-cover-editor">{m['creator.cover_editor_open']()}</a>
+			<LocaleText doc={season} path={['description']} label="description" rows={6} />
+			{#if wrongLanguage.length}
+				<p class="warn" data-testid="season-language">
+					{m['creator.season_language_mismatch']({ locales: wrongLanguage.join(', ') })}
+					<button type="button" class="ghost" onclick={() => wrongLanguage.forEach((l) => season.setLocal(l, ['language'], l))}>{m['creator.season_language_fix']()}</button>
 				</p>
-			</div>
-		</section>
-
-		<!-- the season's related items (catalog ids, the same in every language): the toon page's "related" block -->
-		<section class="block" data-testid="season-related">
-			<h2>{m['creator.related_items']()}</h2>
-			<RelatedItemsField doc={season} hint={m['creator.related_items_hint_season']()} legend={false} />
-			<!-- the season's music = the album of a related record (owner 2026-10-02): no own download fields any more;
-			     older seasons' download.music / download.image are still read by the reader (agents/ASSETS.md) -->
-			<p class="hint" data-testid="season-music-hint">{m['creator.season_music_from_album']()}</p>
-		</section>
-
-		<!-- the toon page's desktop hero: a muted background loop + "Trailer ansehen" / "Ton an" → the trailer chapter -->
-		<section class="block" data-testid="season-trailer">
-			<h2 title={m['creator.trailer_hint']()}>{m['creator.trailer']()}</h2>
-			<button type="button" class="secondary choose" onclick={() => (choosingTrailer = true)} title={m['creator.assets_choose_video_hint']()} data-testid="trailer-choose">{m['creator.assets_choose_video']()}</button>
-			<AssetPickerSheet
-				bind:open={choosingTrailer}
-				{toon}
-				kind="video"
-				value={season.get(season.primary, ['trailer', 'loop']) ? rootPath(season.get(season.primary, ['trailer', 'loop']), toon) : ''}
-				title={m['creator.trailer']()}
-				onpick={pickTrailer}
-			/>
+			{/if}
 			<div class="grid g2">
-				<SharedField doc={season} path={['trailer', 'loop']} label="trailer.loop" placeholder="s1/s1-trailer-loop.720p.mp4" testid="trailer-loop" />
-				<SharedField doc={season} path={['trailer', 'poster']} label="trailer.poster" kind="image" {toon} known={images} testid="trailer-poster" />
-				<!-- the bigger encoding as the "high" (1080p) quality variant – the reader's quality setting picks it, no media query -->
-				<SharedField doc={season} path={['trailer', 'variants', 'low']} label="trailer · 480p" placeholder="s1/s1-trailer-loop.480p.mp4" testid="trailer-low" />
-				<SharedField doc={season} path={['trailer', 'variants', 'medium']} label="trailer · 720p" placeholder="s1/s1-trailer-loop.720p.mp4" testid="trailer-medium" />
-				<SharedField doc={season} path={['trailer', 'variants', 'high']} label="trailer · 1080p" placeholder="s1/s1-trailer-loop.1080p.mp4" testid="trailer-high" />
-				<SharedField doc={season} path={['trailer', 'chapter']} label="trailer.chapter" kind="number" placeholder="0" />
+				<PropField doc={season} path={['release']} label="release" type="date" />
+				<SharedField doc={season} path={['authors']} label="authors" kind="list" splittable={false} testid="season-authors" />
 			</div>
+			{#if season.present.length > 1}<p class="hint">{m['creator.season_neutral_hint']()}</p>{/if}
 		</section>
 
-		<!-- who supported the season: "Supported by" logos at the end of the reader's credits fine print -->
-		<section class="block" data-testid="season-supporters">
-			<h2>{m['creator.supporters']()}</h2>
-			<SupportersField doc={season} {toon} known={images} />
-		</section>
-
+		<!-- the chapters and their visibility (read-only badges; the status is changed on the chapter page) -->
 		<section class="block" data-testid="season-sequence">
-			<h2>{m['creator.chapters']()}</h2>
+			<h2 title={m['creator.status_where']()}>{m['creator.chapters']()}</h2>
 			<ol class="chapter-list" data-testid="chapter-list">
 				{#each numbers as n (n)}
 					{@const doc = chapters[n]}
@@ -190,6 +152,63 @@
 				{/each}
 			</ol>
 		</section>
+
+		<!-- media as slots (owner 2026-10-03, like the chapter page): the preview is the button, paths only as tooltips -->
+		<section class="block" data-testid="season-media">
+			<h2 title={m['creator.trailer_hint']()}>{m['creator.season_media']()}</h2>
+			<div class="media">
+				<!-- the cover (owner 2026-10-02: covers are per season): art + lettering live in the cover editor -->
+				<div class="cover-slot" data-testid="season-cover">
+					<span class="sc-label">{m['creator.season_cover']()}</span>
+					<a
+						class="cover-link"
+						class:empty={!cover?.square}
+						href="/{toon}/season/{number}/cover"
+						title="{cover?.square ? `${cover.square}\n` : ''}{m['creator.cover_open_hint']()}"
+						aria-label="{m['creator.season_cover']()}: {m['creator.cover_editor_open']()}"
+						data-testid="season-cover-editor"
+					>
+						{#if cover?.square}
+							<CoverArt src={asset(`${toon}/${cover.square}`)} lettering={cover.lettering} title={nav.toonName(toon)} subtitle={String(season.get(season.primary, ['title']) ?? '')} lang={season.primary} />
+						{:else}
+							<Icon name="plus" />
+						{/if}
+					</a>
+					<span class="sc-caption" data-testid="season-cover-lettering">
+						{m['creator.cover_mode']()}: {!coverLetteringOn(cover?.lettering) ? m['creator.cover_mode_off']() : coverLines(cover?.lettering, 'square') ? m['creator.cover_mode_custom']() : m['creator.cover_mode_default']()}
+					</span>
+				</div>
+
+				<!-- the toon page's desktop hero: a muted background loop + "Trailer ansehen" / "Ton an" → the trailer chapter -->
+				<MediaVariantsSlot {toon} {place} label={m['creator.trailer_loop']()} value={trailerMedia} poster={trailer?.poster} onchange={setTrailerMedia} testid="trailer-video" />
+				<MediaSlot {toon} {place} label={m['creator.trailer_poster']()} value={trailer?.poster} onchange={(v) => writeTrailer({ poster: v }, 'trailer-poster')} testid="trailer-poster" />
+			</div>
+			{#if trailer?.loop || trailer?.poster}
+				<label class="trailer-chapter" title={m['creator.trailer_chapter_hint']()}>
+					<span class="sc-label">{m['creator.trailer_chapter']()}</span>
+					<select value={String(trailer?.chapter ?? 0)} onchange={(e) => writeTrailer({ chapter: Number(e.currentTarget.value) }, 'trailer-chapter')} data-testid="trailer-chapter">
+						{#each numbers.includes(trailer?.chapter ?? 0) ? numbers : [trailer?.chapter ?? 0, ...numbers] as n (n)}
+							<option value={String(n)}>{n} · {chapterTitle(n)}</option>
+						{/each}
+					</select>
+				</label>
+			{/if}
+		</section>
+
+		<!-- the season's related items (catalog ids, the same in every language): the toon page's "related" block -->
+		<section class="block" data-testid="season-related">
+			<h2>{m['creator.related_items']()}</h2>
+			<RelatedItemsField doc={season} hint={m['creator.related_items_hint_season']()} legend={false} />
+			<!-- the season's music = the album of a related record (owner 2026-10-02): no own download fields any more;
+			     older seasons' download.music / download.image are still read by the reader (agents/ASSETS.md) -->
+			<p class="hint" data-testid="season-music-hint">{m['creator.season_music_from_album']()}</p>
+		</section>
+
+		<!-- who supported the season: "Supported by" logos at the end of the reader's credits fine print -->
+		<section class="block" data-testid="season-supporters">
+			<h2>{m['creator.supporters']()}</h2>
+			<SupportersField doc={season} {toon} place="{place}supporters/" />
+		</section>
 	{/if}
 </MetaPage>
 
@@ -198,6 +217,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
+		max-width: 56rem;
 		margin-bottom: 2rem;
 	}
 	.block:last-child {
@@ -206,31 +226,67 @@
 	h2 {
 		margin: 0;
 	}
+	.hint {
+		margin: 0;
+	}
 	.grid {
 		display: grid;
-		gap: 0.75rem;
+		gap: 0.5rem 0.75rem;
 		align-items: start;
 	}
 	.g2 {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
-	.g3 {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
-	@media (max-width: 900px) {
-		.g3 {
-			grid-template-columns: repeat(2, minmax(0, 1fr));
+	@media (max-width: 600px) {
+		.g2 {
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 	.warn {
+		margin: 0;
 		color: var(--warn);
 	}
-	.choose {
-		align-self: flex-start;
+	.media {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: flex-start;
+		gap: 0.75rem 1.5rem;
 	}
-	.mini {
-		font-size: var(--type-caption-size);
-		padding: 0 0.3em;
+	.cover-slot {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+	/* the cover's preview is the link into the cover editor (like a media slot: the preview is the control) */
+	.cover-link {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		box-sizing: border-box;
+		width: 10rem;
+		aspect-ratio: 1;
+		border: var(--border-width-regular) solid var(--ink);
+		background: var(--paper);
+		color: var(--ink);
+		overflow: hidden;
+	}
+	.cover-link.empty {
+		border-style: dashed;
+		color: var(--muted);
+	}
+	.cover-link:hover,
+	.cover-link:focus-visible {
+		outline: var(--border-width-focus) solid var(--ink);
+		outline-offset: 2px;
+	}
+	.cover-link :global(.cover-art) {
+		width: 100%;
+	}
+	.trailer-chapter {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-025);
+		max-width: 24rem;
 	}
 	/* the chapters: a plain list (owner 2026-10-02: no spreadsheet) – number, title (the whole row is the link),
 	   badges only when something is up; rows split by 1px ink */
@@ -315,21 +371,5 @@
 		gap: 0.2rem;
 		flex: none;
 		margin-left: auto;
-	}
-	.cover-row {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--space-1) var(--space-15);
-	}
-	.cover-thumb {
-		width: 12rem;
-	}
-	.cover-state {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: var(--space-05) var(--space-1);
-		margin: 0;
 	}
 </style>
