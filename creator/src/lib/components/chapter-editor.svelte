@@ -10,7 +10,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { ContentDoc, SaveConflict } from '$lib/editor/doc.svelte.ts';
 	import { sceneDoc, toonDoc } from '$lib/editor/languages.ts';
-	import { entities, getAt, deleteAt, sceneNameOfRef, type Path, type ToonLanguages } from '@scutoons/content';
+	import { entities, getAt, deleteAt, sceneNameOfRef, scriptLabels, type Path, type ToonLanguages } from '@scutoons/content';
 	import { castEntries, castIndex, chapterSceneCharacters, characterIndex, characterName, expressionIndex, featuringSuggestions, REGULAR_PERSONA, toonStar, validateCast } from '@scutoons/content';
 	import {
 		addToSeasonCast,
@@ -451,6 +451,8 @@
 
 	// ── Editing actions ─────────────────────────────────────────────────────────────────────────────────
 	const presetOf = (id: string) => TEXT_PRESETS.find((p) => p.id === id)!;
+	/** the chapter's group labels: a jump's group and the random list (CUTOVER 10.27) */
+	const groupLabels = $derived(groups.map((g, gi) => groupName(g, gi)).filter(Boolean));
 	/** a text's preset in the list ("custom" when its look was changed) */
 	function presetLabel(d: Record<string, unknown>) {
 		const id = matchTextPreset(d);
@@ -965,7 +967,7 @@
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={boxChoices(activeGroup?.slices)} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} dialogs={boxChoices(activeGroup?.slices)} {groupLabels} />
 						{:else}
 							<p class="hint">No VN script in this group.
 								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
@@ -1097,6 +1099,8 @@
 							doc={activeDoc}
 							eventsPath={[...slicePath, 'events']}
 							sliceEvents
+							points={scriptLabels(activeGroup?.events)}
+							{groupLabels}
 							{characters}
 							{choices}
 							dialogs={boxChoices([activeSlice])}

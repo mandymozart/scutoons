@@ -8,7 +8,7 @@
 	import { ONO_PRESETS, applyOnoPreset, matchOnoPreset, type OnoPreset } from '$lib/editor/event-presets.ts';
 	import PropField from './prop-field.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
-	import { characterImage } from '@scutoons/content';
+	import { characterImage, actionsOf, scriptLabels, VN_CONDITION_OPS } from '@scutoons/content';
 	import { isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import LocaleText from './locale-text.svelte';
@@ -47,7 +47,9 @@
 		selected = -1,
 		onselect,
 		dialogs = [],
-		oncreatebox
+		oncreatebox,
+		points: groupPoints,
+		groupLabels = []
 	}: {
 		doc: ContentDoc;
 		eventsPath: Path;
@@ -64,9 +66,13 @@
 		dialogs?: { id: string; label: string }[];
 		/** "Create a text box for this": a new text box on the slice, revealed by event `index` */
 		oncreatebox?: (index: number) => void;
+		/** the named points of the group's script (slice events divert into it); a group script uses its own */
+		points?: string[];
+		/** the chapter's group labels (a jump's group, the random list) */
+		groupLabels?: string[];
 	} = $props();
 
-	const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showOnomatopeia', 'joinScene', 'leaveScene'];
+	const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showOnomatopeia', 'joinScene', 'leaveScene', 'label', 'divert', 'setVariable'];
 
 	const events = $derived<any[]>(doc.get(doc.primary, eventsPath) ?? []);
 
@@ -84,9 +90,66 @@
 			case 'joinScene':
 			case 'leaveScene':
 				return { type, params: { characters: [{ character: characters[0]?.name ?? '', persona: 'regular', ...(type === 'joinScene' ? { variant: 'avatar' } : {}) }] } };
+			case 'label':
+				return { type, params: { name: `point-${scriptLabels(events).length + 1}` } };
+			case 'divert':
+				return { type, params: { to: pointNames[0] ?? '' } };
+			case 'setVariable':
+				return { type, params: { variable: '', value: '', op: 'set' } };
 			default:
 				return { type };
 		}
+	}
+
+	/** the points a divert can go to: the group's script (a slice event diverts into it) or this script */
+	const pointNames = $derived(groupPoints ?? scriptLabels(events));
+
+	// ── choice actions (a list, CUTOVER 10.27) ──
+	const ACTION_KINDS = ['set', 'add', 'jumpTo', 'divert'] as const;
+	const actionKind = (a: any) => (a?.set ? 'set' : a?.add ? 'add' : a?.jumpTo ? 'jumpTo' : a?.divert ? 'divert' : 'other');
+	const newAction = (kind: string): any =>
+		kind === 'set'
+			? { set: { variable: '', value: '' } }
+			: kind === 'add'
+				? { add: { variable: '', value: 1 } }
+				: kind === 'jumpTo'
+					? { jumpTo: { target: { type: 'chapter', value: '1' } } }
+					: { divert: { to: pointNames[0] ?? '' } };
+	/** the path of action `ai` (a single object is stored as it is, a list by index) */
+	const actionPath = (event: any, i: number, ai: number): Path => [...eventsPath, i, 'params', 'onSelect', ...(Array.isArray(event?.params?.onSelect) ? [ai] : [])];
+	function editActions(index: number, change: (list: any[]) => void) {
+		doc.structural((file) => {
+			const params = getAt(file, [...eventsPath, index, 'params']);
+			if (!params) return;
+			const list = actionsOf(params.onSelect).map((a: any) => clone(a));
+			change(list);
+			if (!list.length) delete params.onSelect;
+			else params.onSelect = list.length === 1 ? list[0] : list;
+		}, `${eventsPath.join('.')}.${index}.actions`);
+	}
+
+	// ── "Only if" ──
+	function setCondition(index: number, on: boolean) {
+		doc.structural((file) => {
+			const event = getAt(file, [...eventsPath, index]);
+			if (!event) return;
+			if (on) event.if = { variable: '', op: '==', value: '' };
+			else delete event.if;
+		}, `${eventsPath.join('.')}.${index}.if`);
+	}
+	const OP_WORDS: Record<string, string> = { '==': '=', '!=': '≠', '<': '<', '<=': '≤', '>': '>', '>=': '≥', set: 'is set', unset: 'is not set' };
+	const conditionWords = (c: any) => (c?.variable ? `${c.variable} ${OP_WORDS[c.op] ?? c.op}${c.op === 'set' || c.op === 'unset' ? '' : ` ${c.value ?? ''}`}` : '');
+
+	// ── a jump's random list ──
+	function toggleAnyOf(targetPath: Path, labelName: string, on: boolean) {
+		doc.structural((file) => {
+			const target = getAt(file, targetPath);
+			if (!target) return;
+			const list: string[] = Array.isArray(target.anyOf) ? target.anyOf.filter((l: string) => l !== labelName) : [];
+			if (on) list.push(labelName);
+			if (list.length) target.anyOf = groupLabels.filter((l) => list.includes(l)).concat(list.filter((l) => !groupLabels.includes(l)));
+			else delete target.anyOf;
+		}, `${targetPath.join('.')}.anyOf`);
 	}
 
 	/** an onomatopoeia's preset (effect + timing), the text and mode / wait stay */
@@ -212,10 +275,20 @@
 			case 'showMessage':
 				// the speaker is the small avatar in front of the line (speakerAvatar); the words in quotes
 				return p.text ? `“${cut(p.text)}”` : '';
-			case 'addChoice':
-				return `“${cut(p.label)}”`;
+			case 'addChoice': {
+				const acts = actionsOf(p.onSelect).map((a: any) =>
+					a.set ? `${a.set.variable} = ${a.set.value}` : a.add ? `${a.add.variable} + ${a.add.value}` : a.divert ? `↪ ${a.divert.to}` : a.jumpTo ? `→ ${jumpWords(a.jumpTo.target)}` : ''
+				);
+				return `“${cut(p.label, 32)}”${acts.length ? ` ${acts.join(', ')}` : ''}`;
+			}
 			case 'jumpTo':
-				return `→ ${p.target?.type ?? ''} ${p.target?.value ?? ''}${p.target?.label ? ` · ${p.target.label}` : ''}`;
+				return `→ ${jumpWords(p.target)}`;
+			case 'label':
+				return `◆ ${p.name ?? ''}`;
+			case 'divert':
+				return `↪ ${p.to ?? ''}`;
+			case 'setVariable':
+				return `${p.variable ?? ''} ${p.op === 'add' ? '+' : '='} ${p.value ?? ''}`;
 			case 'showOnomatopeia': {
 				const preset = matchOnoPreset(p);
 				return [p.dialog, preset ? m[`creator.ono_preset_${preset}`]() : ''].filter(Boolean).join(' · ');
@@ -243,6 +316,11 @@
 		const refs = event?.type === 'showMessage' ? (event.params?.character ? [event.params] : []) : event?.type === 'joinScene' || event?.type === 'leaveScene' ? (event.params?.characters ?? []) : [];
 		return refs.map((r: any) => ({ id: String(r?.character ?? r?.name ?? ''), src: avatarOf(r) })).filter((p: { id: string }) => p.id);
 	}
+	function jumpWords(t: any): string {
+		if (!t) return '';
+		if (t.anyOf?.length) return `${t.type} ${t.value} · ${m['creator.vn_random_one']({ list: t.anyOf.join(' / ') })}`;
+		return `${t.type ?? ''} ${t.value ?? ''}${t.label ? ` · ${t.label}` : ''}`;
+	}
 	const triggerWord = (event: any) => TRIGGER_OPTIONS.find((o) => o.value === event?.trigger?.type)?.label ?? '';
 
 	function changeType(index: number, type: string) {
@@ -256,32 +334,7 @@
 		});
 	}
 
-	function onSelectKind(event: any): string {
-		const s = event?.params?.onSelect;
-		if (!s) return 'none';
-		if (s.set) return 'set';
-		if (s.add) return 'add';
-		if (s.jumpTo) return 'jumpTo';
-		return 'other';
-	}
 
-	function setOnSelect(index: number, kind: string) {
-		const path = [...eventsPath, index, 'params', 'onSelect'];
-		const value =
-			kind === 'set'
-				? { set: { variable: '', value: '' } }
-				: kind === 'add'
-					? { add: { variable: '', value: 1 } }
-					: kind === 'jumpTo'
-						? { jumpTo: { target: { type: 'chapter', value: '1' } } }
-						: undefined;
-		doc.structural((file) => {
-			const params = getAt(file, path.slice(0, -1));
-			if (!params) return;
-			if (value === undefined) delete params.onSelect;
-			else params.onSelect = clone(value);
-		});
-	}
 
 	function characterRows(index: number): any[] {
 		return getAt(events[index], ['params', 'characters']) ?? [];
@@ -379,7 +432,7 @@
 					{#each people(event) as who, wi (wi)}
 						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
-					<span class="sum">{summary(event)}</span>
+					<span class="sum">{event?.if?.variable ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event)}</span>
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>
 				<span class="tools">
@@ -410,34 +463,54 @@
 				<LocaleText {doc} path={[...p, 'params', 'text']} rows={2} />
 			{:else if event.type === 'addChoice'}
 				<LocaleText {doc} path={[...p, 'params', 'label']} label="label" multiline={false} />
-				<div class="grid g3">
-					<div class="field">
-						<label for="os-{i}">onSelect</label>
-						<select id="os-{i}" value={onSelectKind(event)} onchange={(e) => setOnSelect(i, e.currentTarget.value)}>
-							<option value="none">none</option>
-							<option value="set">set variable</option>
-							<option value="add">add to variable</option>
-							<option value="jumpTo">jumpTo</option>
-						</select>
-					</div>
-					{#if onSelectKind(event) === 'set'}
-						<PropField {doc} path={[...p, 'params', 'onSelect', 'set', 'variable']} label="variable" required />
-						<PropField {doc} path={[...p, 'params', 'onSelect', 'set', 'value']} label="value" required />
-					{:else if onSelectKind(event) === 'add'}
-						<PropField {doc} path={[...p, 'params', 'onSelect', 'add', 'variable']} label="variable" required />
-						<PropField {doc} path={[...p, 'params', 'onSelect', 'add', 'value']} label="value" type="number" step={1} required />
-					{:else if onSelectKind(event) === 'jumpTo'}
-						<PropField {doc} path={[...p, 'params', 'onSelect', 'jumpTo', 'target', 'type']} label="target type" type="select" options={Object.values(JumpToTargetType)} required />
-						<PropField {doc} path={[...p, 'params', 'onSelect', 'jumpTo', 'target', 'value']} label="value (chapter no.)" required />
-						<PropField {doc} path={[...p, 'params', 'onSelect', 'jumpTo', 'target', 'label']} label="label (group)" />
-					{/if}
+				<!-- what the choice does, in order (CUTOVER 10.27): set / add a variable, jump to a group, continue at a point -->
+				<div class="actions" data-testid="choice-actions-{i}">
+					<span class="sc-label">{m['creator.vn_actions']()}</span>
+					{#each actionsOf(event.params?.onSelect) as any[] as action, ai (ai)}
+						{@const ap = actionPath(event, i, ai)}
+						<div class="action">
+							<select value={actionKind(action)} onchange={(e) => editActions(i, (list) => (list[ai] = newAction(e.currentTarget.value)))} aria-label={m['creator.vn_action']()}>
+								{#each ACTION_KINDS as k (k)}<option value={k}>{m[`creator.vn_action_${k}`]()}</option>{/each}
+							</select>
+							<div class="grid g3 action-fields">
+								{#if action?.set}
+									<PropField {doc} path={[...ap, 'set', 'variable']} label="variable" required />
+									<PropField {doc} path={[...ap, 'set', 'value']} label="value" required />
+								{:else if action?.add}
+									<PropField {doc} path={[...ap, 'add', 'variable']} label="variable" required />
+									<PropField {doc} path={[...ap, 'add', 'value']} label="value" type="number" step={1} required />
+								{:else if action?.jumpTo}
+									{@render targetFields([...ap, 'jumpTo', 'target'], action.jumpTo.target)}
+								{:else if action?.divert}
+									<PropField {doc} path={[...ap, 'divert', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
+								{/if}
+							</div>
+							<button type="button" class="ghost" onclick={() => editActions(i, (list) => list.splice(ai, 1))} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
+						</div>
+					{/each}
+					<button type="button" class="secondary" onclick={() => editActions(i, (list) => list.push(newAction(list.length ? 'jumpTo' : 'set')))} data-testid="add-action-{i}">+ {m['creator.vn_action']()}</button>
 				</div>
 			{:else if event.type === 'jumpTo'}
 				<div class="grid g3">
-					<PropField {doc} path={[...p, 'params', 'target', 'type']} label="target type" type="select" options={Object.values(JumpToTargetType)} required />
-					<PropField {doc} path={[...p, 'params', 'target', 'value']} label="value (chapter no.)" required />
-					<PropField {doc} path={[...p, 'params', 'target', 'label']} label="label (group)" />
+					{@render targetFields([...p, 'params', 'target'], event.params?.target)}
 					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
+				</div>
+			{:else if event.type === 'label'}
+				<!-- a named point: a divert (event, choice, slice) continues here -->
+				<div class="grid g3">
+					<PropField {doc} path={[...p, 'params', 'name']} label={m['creator.vn_point_name']()} required />
+				</div>
+				<p class="hint">{m['creator.vn_point_hint']()}</p>
+			{:else if event.type === 'divert'}
+				<div class="grid g3">
+					<PropField {doc} path={[...p, 'params', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
+				</div>
+				{#if !pointNames.length}<p class="hint">{m['creator.vn_no_points']()}</p>{/if}
+			{:else if event.type === 'setVariable'}
+				<div class="grid g3">
+					<PropField {doc} path={[...p, 'params', 'variable']} label="variable" required />
+					<PropField {doc} path={[...p, 'params', 'op']} label="op" type="select" options={[{ value: 'add', label: 'add (+)' }]} placeholder="set (=)" />
+					<PropField {doc} path={[...p, 'params', 'value']} label="value" type={event.params?.op === 'add' ? 'number' : 'text'} required />
 				</div>
 			{:else if event.type === 'showOnomatopeia'}
 				{@const box = event.params?.dialog}
@@ -505,6 +578,21 @@
 				<p class="hint">No parameters.</p>
 			{/if}
 
+			<!-- "Only if" (CUTOVER 10.27): the event runs only when the reader's variable passes the test -->
+			<details class="advanced only-if" open={!!event.if}>
+				<summary>{m['creator.vn_only_if']()}{event.if?.variable ? ` · ${conditionWords(event.if)}` : ''}</summary>
+				{#if event.if}
+					<div class="grid g3">
+						<PropField {doc} path={[...p, 'if', 'variable']} label="variable" required />
+						<PropField {doc} path={[...p, 'if', 'op']} label="op" type="select" options={VN_CONDITION_OPS.map((o) => ({ value: o, label: OP_WORDS[o] }))} required />
+						{#if event.if.op !== 'set' && event.if.op !== 'unset'}<PropField {doc} path={[...p, 'if', 'value']} label="value" required />{/if}
+					</div>
+					<button type="button" class="ghost" onclick={() => setCondition(i, false)}>{m['creator.vn_only_if_remove']()}</button>
+				{:else}
+					<button type="button" class="secondary" onclick={() => setCondition(i, true)} data-testid="add-condition-{i}">+ {m['creator.vn_only_if']()}</button>
+				{/if}
+			</details>
+
 			{#if sliceEvents}
 				<div class="grid g3 trigger">
 					<PropField {doc} path={[...p, 'trigger', 'type']} label={m['creator.trigger']()} type="select" options={TRIGGER_OPTIONS} required />
@@ -526,6 +614,23 @@
 		{/each}
 	</div>
 </section>
+
+<!-- a jump's target: chapter + group, or a random group of a list (never the current one) -->
+{#snippet targetFields(tp: Path, target: any)}
+	<PropField {doc} path={[...tp, 'type']} label="target type" type="select" options={Object.values(JumpToTargetType)} required />
+	<PropField {doc} path={[...tp, 'value']} label="value (chapter no.)" required />
+	{#if !target?.anyOf?.length}
+		<PropField {doc} path={[...tp, 'label']} label="label (group)" type={groupLabels.length ? 'select' : 'text'} options={groupLabels} placeholder={m['creator.vn_group_first']()} />
+	{/if}
+	{#if groupLabels.length}
+		<fieldset class="any-of">
+			<legend title={m['creator.vn_random_hint']()}>{m['creator.vn_random']()}</legend>
+			{#each groupLabels as gl (gl)}
+				<label><input type="checkbox" checked={target?.anyOf?.includes(gl) ?? false} onchange={(e) => toggleAnyOf(tp, gl, e.currentTarget.checked)} /> {gl}</label>
+			{/each}
+		</fieldset>
+	{/if}
+{/snippet}
 
 <style>
 	.vn-events {
@@ -599,6 +704,34 @@
 	.line .trig {
 		flex: 0 4 auto;
 	}
+	.actions {
+		display: flex;
+		flex-direction: column;
+		gap: 0.3rem;
+	}
+	.action {
+		display: grid;
+		grid-template-columns: 9rem minmax(0, 1fr) auto;
+		gap: 0.4rem;
+		align-items: end;
+		padding: 0.3rem 0;
+		border-top: 1px dashed var(--border-muted);
+	}
+	.action-fields {
+		min-width: 0;
+	}
+	.any-of {
+		grid-column: 1 / -1;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.25rem 0.75rem;
+		margin: 0;
+	}
+	.any-of label {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
 	.type-field {
 		display: flex;
 		flex-direction: column;
@@ -645,14 +778,6 @@
 	}
 	.g4 {
 		grid-template-columns: 2fr 1fr 1fr auto;
-	}
-	.field label {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		color: var(--ink);
 	}
 	.trigger {
 		border-top: 1px dashed var(--border-muted);
