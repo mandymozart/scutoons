@@ -99,12 +99,12 @@ async function clickEl(js) {
 }
 const tab = (i) => `document.querySelectorAll('.inventory .tabs button')[${i}]`;
 const tile = (name) => `[...document.querySelectorAll('.inventory .item')].find((b) => b.querySelector('.name')?.textContent.trim() === ${JSON.stringify(name)})`;
-const testoLevel = `Number(document.querySelector('[data-testid="avatar-testo"] [data-stat="testo"]')?.dataset.level ?? NaN)`;
+const testoLevel = `Number(document.querySelector('.inventory .tab-stats [data-stat="testo"]')?.dataset.level ?? NaN)`;
 const appetiteLevel = `Number(document.querySelector('.inventory [data-stat="appetite"]')?.dataset.level ?? NaN)`;
 /** the testo level as the Avatar tab shows it (waits for `want` when given) */
 async function testoNow(want) {
 	await clickEl(tab(1));
-	await waitFor(`document.querySelector('[data-testid="avatar-testo"] [data-stat="testo"]')`);
+	await waitFor(`document.querySelector('.inventory .tab-stats [data-stat="testo"]')`);
 	if (want !== undefined) await waitFor(`(() => { const l = ${testoLevel}; return l === ${want} ? l : null; })()`);
 	return evaluate(testoLevel);
 }
@@ -158,13 +158,14 @@ async function flow(who) {
 	const p2 = [];
 	await openInventory();
 	const itemsTab = await evaluate(`[...document.querySelectorAll('.inventory [data-stat]')].map((s) => s.dataset.stat)`);
-	if (JSON.stringify(itemsTab) !== '["appetite"]') p2.push(`Items tab stat bars ${JSON.stringify(itemsTab)} (only appetite expected)`);
+	// testo + appetite sit small in the tab row, on both tabs (owner 2026-10-03)
+	if (JSON.stringify(itemsTab) !== '["testo","appetite"]') p2.push(`Items tab stat bars ${JSON.stringify(itemsTab)} (testo + appetite expected)`);
 	const before = await testoNow();
 	if (before !== 50) p2.push(`start level ${before} (50 expected)`);
-	const label = await evaluate(`document.querySelector('[data-testid="avatar-testo"] [data-stat="testo"] .label')?.textContent.trim()`);
+	const label = await evaluate(`document.querySelector('.inventory .tab-stats [data-stat="testo"] .label')?.textContent.trim()`);
 	if (label !== 'Testo 50') p2.push(`bar label "${label}"`);
 	const avatarTab = await evaluate(`[...document.querySelectorAll('.inventory [data-stat]')].map((s) => s.dataset.stat)`);
-	if (JSON.stringify(avatarTab) !== '["testo"]') p2.push(`Avatar tab stat bars ${JSON.stringify(avatarTab)} (only testo expected)`);
+	if (JSON.stringify(avatarTab) !== '["testo","appetite"]') p2.push(`Avatar tab stat bars ${JSON.stringify(avatarTab)} (testo + appetite expected)`);
 	await shot(`testo-${who}-2-bar`);
 	await clickEl(tab(0));
 	await clickEl(tile(nameOf('testo')));

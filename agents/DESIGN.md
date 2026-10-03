@@ -180,8 +180,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   question. Account page section **"Medienqualität" / "Media quality"** (`components/account/media-quality-setting.svelte`,
   for guests and members, between the account block and the inventory): one row of four square radio buttons
   "Automatisch · Niedrig · Mittel · Hoch" / "Automatic · Low · Medium · High" (2px `border-muted`, the chosen one ink
-  with paper text, `caption` size), under it in `text-muted` caption "Videos: Niedrig 480p, Mittel 720p, Hoch 1080p.
-  Automatisch wählt nach deiner Verbindung." + "Automatisch gerade: Mittel." (once known) + where it is stored ("In
+  with paper text, `caption` size), under it in `text-muted` caption "Bilder und Videos gibt es in drei Größen.
+  Automatisch wählt nach deiner Verbindung." + "Automatisch gerade: Mittel." (once known) + the data of a chapter at the
+  active level, not resolutions (owner 2026-10-03): "Ein Kapitel mit rund 100 Bildern und zwei kurzen Videos lädt bei
+  Mittel etwa 25 MB." (≈ 10 / 25 / 50 MB, measured on catpope s1: 108 slices, two ~30 s videos; Automatic not yet
+  resolved → "etwa 10 MB (Niedrig) bis 50 MB (Hoch)") + where it is stored ("In
   deinem Konto gespeichert." / "Auf diesem Gerät gespeichert."). Members: `users.media_quality` via `PUT /me/` (the
   account wins over the device; a stored session is awaited before the first video loads), also mirrored to the
   device; guests: localStorage `scutoons_media_quality` (other tabs follow through the `storage` event). Default

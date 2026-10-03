@@ -16,7 +16,6 @@
 	import RecipePreview from '$lib/components/items/recipe-preview.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import ReaderStats from '$lib/components/items/reader-stats.svelte';
-	import { TESTO_STAT } from '@scutoons/content';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
@@ -132,6 +131,8 @@
 			class:active={tab === 'avatar'}
 			onclick={() => ((tab = 'avatar'), reset())}>{m['items.tab_avatar']()}</button
 		>
+		<!-- the reader's stats (appetite, testo) small at the right of the tab row, seen on both tabs (owner 2026-10-03) -->
+		<div class="tab-stats"><ReaderStats compact /></div>
 	</div>
 
 	<div class="sheet">
@@ -156,8 +157,6 @@
 		{:else if !inventory.catalog && inventory.entries.length === 0}
 			<p class="empty">{inventory.catalogError ? m['items.unavailable']() : m['items.loading']()}</p>
 		{:else}
-			<!-- the testo bar is part of the avatar (Avatar tab); appetite stays here -->
-			<ReaderStats exclude={[TESTO_STAT]} />
 			{#if listed.length === 0}
 				<p class="empty">{m['inventory.empty']()}</p>
 			{/if}
@@ -264,9 +263,17 @@
 		position: relative;
 		z-index: 1;
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 		padding: 1rem;
 		background: black;
+	}
+	/* the stats wrap below the tabs (still right) only where they don't fit beside them (≈ 320 px phones) */
+	.tab-stats {
+		margin-left: auto;
+		align-self: center;
+		flex-shrink: 0;
+		color: var(--ink);
 	}
 	/* the switch uses the secondary (outlined) button look of the panel, like "Kombinieren" (owner 2026-09-30):
 	   inactive = muted outline, active = ink outline */

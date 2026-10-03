@@ -792,9 +792,10 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   `Domain\Reader\ReaderState`.
 - **Psychedelic effect (viewer):** `components/items/reader-effect.svelte` (toon layout): `html[data-effect=psychedelic]`
   makes the slice images drift in hue and wobble gently (CSS); **off with `prefers-reduced-motion: reduce`**; a small bar
-  "Farbrausch · noch N min · Effekt beenden" ends it at once. Stat bars: `reader-stats.svelte` (`include` / `exclude`): **the testo bar sits in the Avatar
-  tab** under the body picker (owner 2026-10-01: "the testo is part of the avatar"; also on the account page's avatar),
-  **appetite in the Items tab** ("Testo 62", plain brutalist bar, no gendered wording).
+  "Farbrausch · noch N min · Effekt beenden" ends it at once. Stat bars: `reader-stats.svelte` (`include` / `exclude`, `compact`): **testo and
+  appetite sit small at the right of the inventory's tab row** (seen on both tabs; on ≈ 320 px phones they wrap below
+  the tabs, still right) and **at the right of the account page's "Avatar" heading** (owner 2026-10-03: "less massive",
+  replaces 2026-10-01's big testo bar under the body picker): "Testo 62" + a thin 2.5rem bar, no gendered wording.
 - **Story pickup:** one `testo` in the sandbox, chapter 2 (the Top Toy encounter), slice 6: a click on the stone ledge
   right of the figure (the art has no tube drawn in) → "Eine Tube Testo!" / "Einsammeln" (`add testo 1` → the VN item
   bridge grants it, source story, once per place). `make-sandbox.ts` (`TESTOS`), the sandbox seed (dev only; not in the
@@ -847,7 +848,7 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   appetite incl. cap, floor and decay), api-smoke "Substances" (16 checks: + weed 50 → 75, tuna −30, cucumber −5),
   content "appetite" test (the same + food category, grantable),
   `npm run check:testo` (`scripts/check-testo.mjs`, headless 390 px, guest + test user, 14 checks: sandbox pickup,
-  the testo bar in the Avatar tab and only appetite in Items, "Benutzen" 50 → 70, "Essen" on a cucumber → appetite −5,
+  testo + appetite in the tab row on both tabs, "Benutzen" 50 → 70, "Essen" on a cucumber → appetite −5,
   decay → 60, combine → testo camera (+ scan grant and cooldown for the member), psychedelic on the
   slices / off with reduced motion / ended; camera + testo → the Check It camera through the recipe choice, its notice with the checkit! link on open and its hit
   "Erkannt: Spritze → Semaglutid-Pen" + the grant, through the DEV hook – 14 checks in all). Content test "Check It camera"
