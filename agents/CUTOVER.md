@@ -510,6 +510,28 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   - **Blocker:** splitting groups breaks the reader's infinite scroll (owner 2026-10-03) – fix that first, or keep groups
     as they are and let a place point at a group + an optional slice (unlock precision) instead of splitting.
   - **Open decisions:** split vs. group + slice; rename groups to their places (labels are in jump links – only with OK).
+- [x] 10.27 VN story logic – **built 2026-10-03 for the release** (owner: "we have to build it now. it is part of the release").
+  Concept: jumpTo = navigation (groups are pages, by design); the story's own flow lives in the group's script. Done:
+  one runner (`viewer/src/lib/visual-novel/runner.ts`, group script + slice / item triggers); `label` (named point) +
+  `divert` (event, choice action, a slice event diverting into its group's script); `if` ("Only if") on any event;
+  `setVariable` (set / add); choice actions as a list; `jumpTo.target.anyOf` (a random group, never the current one);
+  `{var:clock}`; validation (points unique, diverts hit a point, VN flow per group); creator forms. Chapter 2 stroll:
+  `scripts/dev/stroll-chapter2.mjs` (local), `npm run check:stroll` (headless play-through, 15 checks). Still open from the
+  research: `once` choices + fallback, visit counts. Original notes:
+- [ ] (history) 10.27 VN story logic, ink's ideas in our JSON events (owner 2026-10-03, **after 10.25**; research into inkle's ink).
+  **Owner decision 2026-10-03: adopt some of the concepts below – which ones is still open (pick before starting).**
+  Not ink itself: ink is a text script (our authors use the creator's forms), its localisation is one file per language
+  or line-ID tooling (breaks our per-field de source / en override), and knots would be a second address system next to
+  group labels. Today: variables are written (`set`/`add`, `{var}` in text, item grants) but nothing reads them – no
+  conditions; a choice has one action; the only branch is leaving the group (a choice without jump continues with the same
+  lines). Steps, all shared (structural) fields so translation and 10.25 stay untouched:
+  1. One runner: `toon/interactions/visual-novel.svelte` and `visual-novel/event-processor.ts` both run events (the
+     README calls the second deprecated, slice triggers + placed items still use it) – one shared step function first.
+  2. `addChoice.params.if: { variable, op: '=='|'!='|'>='|'<', value }` – schema, `checkEvent` in validate.ts, an
+     "Only if" fold under Advanced in `vn-events.svelte`, the runner skips the choice when false. Then on `showMessage`.
+  3. `once` choices (+ a fallback choice) and `onSelect` as a list (set a flag *and* jump).
+  4. In-group labels + `jumpTo {type:'label'}` (branch for a few lines, rejoin – ink's gathers; guard against loops).
+  5. Visit counts per group / label (`seen:scene-15`) next to the variables.
 - [ ] 10.26 Delete a chapter safely (owner 2026-10-03: "how could i delete a chapter? … super dangerous"). Today nothing
   can be deleted: the API has no delete for entities (versions are append-only), so no chapter is lost. Numbers are given
   automatically (next free, never reused) and are the chapter's identity (entity `chapter:<toon>:<n>`, URL, release order;

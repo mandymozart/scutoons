@@ -66,7 +66,8 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 				case 'setVariable': {
 					const { variable, value, op } = event.params;
 					if (op === 'add') executeVariableAction({ add: { variable, value: Number(value) || 0 } }, game);
-					else executeVariableAction({ set: { variable, value: String(value) } }, game);
+					// a number stays a number (the clock adds to it); text stays text
+					else executeVariableAction({ set: { variable, value: (typeof value === 'number' ? value : String(value)) as string } }, game);
 					break;
 				}
 

@@ -20,6 +20,7 @@ export class EventProcessor {
 		// one divert: the group's script from that point; anything else: these events
 		const divert = own.length === 1 && own[0]?.type === 'divert' ? own[0].params?.to : null;
 		const script = divert ? this.vn.script : own;
+		console.log(`VN trigger: ${own.map((e) => e?.type).join(', ')}${divert ? ` → point "${divert}" (${script.length} events in the script)` : ''}`);
 		const start = divert ? labelIndex(script, divert) : 0;
 		if (divert && start < 0) {
 			console.warn(`VN: no point "${divert}" in the group's script`);

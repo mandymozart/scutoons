@@ -140,7 +140,8 @@ export function createGameContext(toonId: string) {
 
 	function addVariable(key: string, amount: number): void {
 		const current = state.variables[key];
-		const currentNum = typeof current === 'number' ? current : 0;
+		// a number written as text ("330", set from a choice or a setVariable) counts as that number
+		const currentNum = typeof current === 'number' ? current : Number.isFinite(Number(current)) && current !== '' ? Number(current) : 0;
 		state.variables[key] = currentNum + amount;
 		saveState();
 	}
