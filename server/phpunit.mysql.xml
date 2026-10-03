@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The unit suite on MariaDB/MySQL (the production engine) instead of SQLite – tests/Unit/MysqlTestDatabase.php.
+     Local: the container of `npm run dev:db` (docker/compose.yml), then
+         npm run dev:db test                                        (root; adds pdo_mysql when php.ini lacks it)
+         php -d extension=pdo_mysql vendor/bin/phpunit -c phpunit.mysql.xml   (server/)
+     The test database scutoons_test is emptied and migrated on every run. CI (.github/workflows/server.yml) uses a
+     MariaDB service container with the same values; real environment variables win over these defaults. -->
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         cacheDirectory=".phpunit.cache"
+         colors="true"
+         failOnWarning="true"
+         failOnRisky="true"
+         beStrictAboutOutputDuringTests="true">
+    <php>
+        <env name="TEST_DB_DRIVER" value="mysql"/>
+        <env name="TEST_DB_HOST" value="127.0.0.1"/>
+        <env name="TEST_DB_PORT" value="13306"/>
+        <env name="TEST_DB_NAME" value="scutoons_test"/>
+        <env name="TEST_DB_USER" value="scutoons"/>
+        <env name="TEST_DB_PASS" value="scutoons"/>
+    </php>
+    <testsuites>
+        <testsuite name="unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>src</directory>
+        </include>
+    </source>
+</phpunit>

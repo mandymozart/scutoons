@@ -20,10 +20,13 @@ const COMMANDS = {
 	creator: ['npm', ['run', 'dev', '-w', 'creator']],
 	admin: ['npm', ['run', 'dev', '-w', 'admin']],
 	shop: ['npm', ['run', 'dev', '-w', 'shop']],
-	embassy: ['npm', ['run', 'dev', '-w', 'embassy']]
+	embassy: ['npm', ['run', 'dev', '-w', 'embassy']],
+	// docker/compose.yml (foreground `up`, so the preview server owns it); mariadb is no web page – not listed
+	adminer: ['docker', ['compose', '-f', 'docker/compose.yml', '--profile', 'tools', 'up', 'adminer']]
 };
+const NOT_WEB = new Set(['mariadb']);
 
-const configurations = Object.entries(PORTS).map(([name, port]) => {
+const configurations = Object.entries(PORTS).filter(([name]) => !NOT_WEB.has(name)).map(([name, port]) => {
 	if (!COMMANDS[name]) throw new Error(`shared/dev-ports.json: no command for "${name}" in scripts/dev/launch-json.mjs`);
 	const [runtimeExecutable, runtimeArgs] = COMMANDS[name];
 	return { name, runtimeExecutable, runtimeArgs, port };

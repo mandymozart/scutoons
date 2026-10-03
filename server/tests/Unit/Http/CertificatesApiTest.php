@@ -116,12 +116,24 @@ final class CertificatesApiTest extends TestCase
         self::assertSame([false, 'unknown_code', null, null, null, null], array_values(array_intersect_key($this->lookup('Nope1234'),
             array_flip(['valid', 'reason', 'code', 'registered', 'revoked', 'certificate']))));
         $this->code('membership', ['code' => 'twinCode']);
-        $this->code('membership', ['code' => 'TwinCode']);
-        self::assertTrue($this->lookup('twinCode')['code'] === 'twinCode', 'exact match first');
-        self::assertSame([false, 'ambiguous_code'], [$this->lookup('TWINCODE')['valid'], $this->lookup('TWINCODE')['reason']]);
-        $this->code('membership', ['code' => 'Unsigned1']);
-        $body = $this->lookup('UNSIGNED1');
-        self::assertSame([false, 'no_signature', 'Unsigned1', false, null], [$body['valid'], $body['reason'], $body['code'], $body['registered'], $body['certificate']]);
+        if ($this->db->isSqlite()) {
+            $this->code('membership', ['code' => 'TwinCode']);
+            self::assertTrue($this->lookup('twinCode')['code'] === 'twinCode', 'exact match first');
+            self::assertSame([false, 'ambiguous_code'], [$this->lookup('TWINCODE')['valid'], $this->lookup('TWINCODE')['reason']]);
+        } else {
+            // production (MariaDB): qr.code is utf8mb4_general_ci, so the unique key refuses a case twin and the lookup
+            // is case-insensitive – "ambiguous" cannot happen there
+            try {
+                $this->code('membership', ['code' => 'TwinCode']);
+                self::fail('MariaDB took a code that differs only in case');
+            } catch (\PDOException $e) {
+                self::assertSame('23000', $e->getCode());
+            }
+            self::assertSame('twinCode', $this->lookup('TWINCODE')['code']);
+        }
+        $this->code('membership', ['code' => 'Unsign01']);
+        $body = $this->lookup('UNSIGN01');
+        self::assertSame([false, 'no_signature', 'Unsign01', false, null], [$body['valid'], $body['reason'], $body['code'], $body['registered'], $body['certificate']]);
         self::assertSame([400, 'invalid_code'], [$this->request('GET', 'http://localhost/api/certificates/a%20b%3Cc')->getStatusCode(),
             json_decode((string) $this->request('GET', 'http://localhost/api/certificates/a%20b%3Cc')->getBody(), true)['error']]);
     }

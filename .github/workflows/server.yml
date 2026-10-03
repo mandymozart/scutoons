@@ -1,4 +1,4 @@
-# The API (server/ → api.scutoons.com, document root api/public/): unit tests + PHPStan. qr.scutoons.com is the qr app (qr.yml).
+# The API (server/ → api.scutoons.com, document root api/public/): unit tests (SQLite + MariaDB) + PHPStan. qr.scutoons.com is the qr app (qr.yml).
 # Runs on pushes to platform and pull requests that touch the server, and as the test step of the deploy
 # (deploy.yml calls it before the API goes out – deploying is deploy.yml's job).
 # Target: deploy/targets.json → "api"; docs: deploy/README.md, server/docs/DEPLOY.md.
@@ -48,3 +48,37 @@ jobs:
 
       - name: 🔍 PHPStan
         run: vendor/bin/phpstan analyse --no-progress --memory-limit=1G
+
+  # The same suite on MariaDB, the production engine (SQLite above stays the fast default). The container comes from
+  # docker/compose.yml – the same image, sql_mode, charset and collation as `npm run dev:db` locally (a `services:`
+  # container cannot take the server options); phpunit.mysql.xml points at it (127.0.0.1:13306, scutoons_test).
+  test-mariadb:
+    name: 🧪 Unit tests on MariaDB
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ${{ env.SERVER_DIR }}
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: 🐬 MariaDB (docker/compose.yml)
+        working-directory: .
+        run: |
+          docker compose -f docker/compose.yml up -d --wait mariadb
+          docker compose -f docker/compose.yml exec -T mariadb mariadb -uroot -pscutoons-root -e "SELECT VERSION(); SELECT @@sql_mode, @@character_set_server, @@collation_server;"
+
+      - name: 🐘 PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_sqlite, pdo_mysql, mbstring, zip, curl
+          coverage: none
+          tools: composer:v2
+
+      - name: 📦 Composer install (with dev tools)
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: 🧪 PHPUnit on MariaDB
+        run: vendor/bin/phpunit -c phpunit.mysql.xml

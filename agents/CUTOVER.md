@@ -432,8 +432,17 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3), github actions
   `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
   workflow). The main user stays, used only by hand.
-- [ ] 10.10 Local MariaDB in Docker instead of SQLite for dev + tests (owner 2026-10-02, after the admin dashboard 500 on
+- [x] 10.10 Local MariaDB in Docker instead of SQLite for dev + tests (owner 2026-10-02, after the admin dashboard 500 on
   DB-T that SQLite never showed): same server version as all-inkl, the mysql migrations, CI runs the suite on it too.
+  *(done 2026-10-03, branch `dev-mariadb`; server/docs/DATABASE.md "Local MariaDB")* `docker/compose.yml` (MariaDB
+  10.11, port 13306, volume, healthcheck; Adminer 13380 behind a profile); `npm run dev:db` = container + databases +
+  migrate + the `*.mysql.sql` content seed + promo `devpromo` + switch + API restart + test user; `npm run dev:db sqlite`
+  back (SQLite stays the default); `npm run dev:db test` / `phpunit -c phpunit.mysql.xml` = the unit suite on MariaDB;
+  CI job `test-mariadb` in server.yml. Found on MariaDB: two signups at the same moment deadlocked in the basic dress
+  (fixed, test); `qr.code` is case-insensitive in production (utf8mb4_general_ci) – "ambiguous code" cannot happen
+  there; a flaky test fixture. **Open (owner):** run `SELECT VERSION(); SELECT @@sql_mode, @@character_set_server,
+  @@collation_server;` in phpMyAdmin and set `MARIADB_VERSION` / `MARIADB_SQL_MODE` / charset / collation in
+  `docker/compose.yml` to match.
 - [ ] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
   500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
   messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
@@ -525,3 +534,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — migration 17 ran on DB-T (3.2 complete). 1.5 bunny upload running.
 - 2026-10-02 — 1.5, 1.6, 1.7 done (bunny = cdn/root, CORS + Range verified). Open in Phase 1: 1.8. Next: 1.8, then Phase 5.
 - 2026-10-02 — 10.1b done (7 bunny secrets in production). Awaiting confirmation: 2.3 keypair upload, 1.8 write prefix.
+- 2026-10-03 — 10.10 done on branch `dev-mariadb` (local MariaDB in Docker, tests + CI on it). Open: production's version / sql_mode / collation from phpMyAdmin → `docker/compose.yml`.

@@ -28,11 +28,12 @@ return [
     RequestContext::class => DI\create(RequestContext::class),
     ResponseFactoryInterface::class => DI\get(ResponseFactory::class),
 
-    // SQLite when DB_SQLITE_PATH is set (local development, tests), else MySQL/MariaDB (production)
+    // SQLite when DB_SQLITE_PATH is set (local development, tests), else MySQL/MariaDB (production). DB_DRIVER=mysql
+    // forces MySQL/MariaDB even with a DB_SQLITE_PATH (the local MariaDB container: npm run dev:db, QR_DB_DRIVER)
     Database::class => static function (ContainerInterface $c): Database {
         $settings = $c->get(Settings::class);
         $sqlite = $settings->path('DB_SQLITE_PATH');
-        if ($sqlite !== '') return Database::sqlite($sqlite);
+        if ($sqlite !== '' && $settings->get('DB_DRIVER') !== 'mysql') return Database::sqlite($sqlite);
         return Database::mysql($settings->get('DB_HOST'), $settings->get('DB_NAME'), $settings->get('DB_USER'), $settings->get('DB_PASS'), $settings->get('DB_PORT'));
     },
 

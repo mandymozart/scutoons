@@ -146,4 +146,33 @@ final class WardrobeTest extends TestCase
         [$worn, $restored] = AvatarService::cover(['legs-left' => 'a', 'legs-right' => null, 'torso-left' => null], $inst, [['id' => 'a', 'slot' => 'legs'], ['id' => 't', 'slot' => 'torso']]);
         self::assertSame([[], null, null], [$restored, $worn['legs-right'], $worn['torso-left']], 'one pair of pants only covers one figure, the torso is never refilled');
     }
+
+    /**
+     * MariaDB/MySQL only: two signups in flight at the same moment (two connections, both transactions open) must not
+     * block each other. The basic dress used to DELETE a not-yet-existing avatar_slots row first – on InnoDB that takes
+     * a gap lock, the other signup's INSERT waits for it, and with both doing so it is a deadlock (1213; 3 of 8 parallel
+     * signups failed in tests/claim-race.php). SQLite serializes writers anyway.
+     */
+    public function testTwoSignupsAtOnceDoNotBlockEachOther(): void
+    {
+        if ($this->db->isSqlite()) self::markTestSkipped('InnoDB locking (run with phpunit.mysql.xml)');
+        $this->registry();
+        $second = \Scutoons\Kernel::container(\Scutoons\Infrastructure\Config\Settings::fixed(self::root(), $this->settings()));
+        $second->set(\Scutoons\Infrastructure\Clock\Clock::class, $this->clock);
+        $db2 = $second->get(\Scutoons\Infrastructure\Database\Database::class);
+        $db2->exec('SET SESSION innodb_lock_wait_timeout = 1');
+        $users = $this->get(\Scutoons\Domain\Accounts\Users::class);
+        $this->db->pdo()->beginTransaction();
+        $db2->pdo()->beginTransaction();
+        try {
+            $first = $users->create('first@example.com', 'en');
+            $other = $second->get(\Scutoons\Domain\Accounts\Users::class)->create('second@example.com', 'en');
+            self::assertNotSame($first['id'], $other['id']);
+            self::assertSame(3, (int) $db2->value('SELECT COUNT(*) FROM avatar_slots WHERE user_id = ?', [$other['id']]), 'the basic dress is on');
+        } finally {
+            $db2->pdo()->rollBack();
+            $this->db->pdo()->rollBack();
+            $db2->close();
+        }
+    }
 }

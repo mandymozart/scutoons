@@ -74,7 +74,7 @@ final class InfrastructureTest extends TestCase
     {
         $runner = new MigrationRunner($this->db, self::root() . '/migrations');
         self::assertSame([], array_keys(array_filter($runner->status(), fn($applied) => $applied === null)), 'the template is fully migrated');
-        self::assertContains('2026-09-29-accounts-inventory.sqlite.sql', $runner->files());
+        self::assertContains('2026-09-29-accounts-inventory.' . $this->db->driver() . '.sql', $runner->files());
         self::assertSame([], $runner->migrate(static fn() => null), 're-running applies nothing');
 
         $fresh = $this->dir . '/fresh.sqlite';
@@ -83,6 +83,34 @@ final class InfrastructureTest extends TestCase
         self::assertSame($freshRunner->files(), $freshRunner->migrate(static fn() => null), 'every migration runs on the base schema');
         self::assertTrue($freshRunner->tableExists('content_versions'));
         self::assertTrue($freshRunner->tableExists('settings'));
+    }
+
+    /**
+     * MariaDB/MySQL only: the mysql migrations build the same tables and columns as the sqlite ones. A table or column
+     * that only one driver gets (a migration that silently creates nothing on MariaDB) fails here instead of in production.
+     */
+    public function testMysqlAndSqliteMigrationsBuildTheSameSchema(): void
+    {
+        if ($this->db->isSqlite()) self::markTestSkipped('compares against MariaDB/MySQL (run with phpunit.mysql.xml)');
+        $sqlite = Database::sqlite($this->dir . '/schema.sqlite');
+        (new MigrationRunner($sqlite, self::root() . '/migrations'))->migrate(static fn() => null);
+        $expected = [];
+        foreach ($sqlite->all("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name") as $table) {
+            $columns = array_map(fn(array $c) => strtolower((string) $c['name']), $sqlite->all("PRAGMA table_info({$table['name']})"));
+            sort($columns);
+            $expected[(string) $table['name']] = $columns;
+        }
+        $sqlite->close();
+        $actual = [];
+        // production's legacy column (migrations/mysql/legacy, the old generate/ templates), never read by the API
+        $mysqlOnly = ['qr.template_data'];
+        foreach ($this->db->all('SELECT TABLE_NAME AS t, COLUMN_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, COLUMN_NAME') as $row) {
+            if (in_array("{$row['t']}.{$row['c']}", $mysqlOnly, true)) continue;
+            $actual[(string) $row['t']][] = strtolower((string) $row['c']);
+        }
+        ksort($actual);
+        self::assertSame(array_keys($expected), array_keys($actual), 'the same tables');
+        self::assertSame($expected, $actual, 'the same columns per table');
     }
 
     public function testFileStoreWhitelist(): void

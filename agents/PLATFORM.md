@@ -489,6 +489,8 @@ for every port in the file, so a new app needs no `config.local.php` entry. `npm
 `npm run check`) fails when a vite config, the dev start-up code or package/composer scripts hard-code a port, when an
 `.env.example` / `config.local.php.example` URL doesn't match the file, or when this table drifts from it.
 New service: add it to the file, then to `up.mjs` + `launch-json.mjs` (both refuse an unknown name) and this table.
+The docker services (`docker/compose.yml`: mariadb, adminer) take the port from the file through `npm run dev:db` /
+`up.mjs`; the compose file's defaults and `server/phpunit.mysql.xml` must match it (`check:ports` checks).
 
 | App | Port | Start |
 |---|---|---|
@@ -500,6 +502,8 @@ New service: add it to the file, then to `up.mjs` + `launch-json.mjs` (both refu
 | admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
 | shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |
 | embassy (embassy.scutoons.com) | **13000** | `npm run dev:embassy` (agents/EMBASSY.md) |
+| mariadb (Docker, the production engine; optional) | **13306** | `npm run dev:db` – switches the stack from SQLite to it (server/docs/DATABASE.md "Local MariaDB") |
+| adminer (Docker, web UI of the MariaDB; optional) | **13380** | `npm run dev:db adminer` |
 
 `ALLOWED_ORIGINS` (dev): nothing to list for the ports above (automatic on the dev server, see above); a local
 `config.local.php` only lists extra origins (the old 5173/5174/5175/4173 until nothing uses them). Production lists its

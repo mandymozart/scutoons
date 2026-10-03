@@ -23,6 +23,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 
 | Key | Default | Notes |
 |---|---|---|
+| `DB_DRIVER` | – | `mysql` = MySQL/MariaDB even when `DB_SQLITE_PATH` is set (the local MariaDB container: `npm run dev:db` passes `QR_DB_DRIVER=mysql` + `QR_DB_*` to the API and the console – docs/DATABASE.md "Local MariaDB"); empty = by `DB_SQLITE_PATH` |
 | `DB_SQLITE_PATH` | – | set → SQLite (local, tests); empty → MySQL/MariaDB with the next keys |
 | `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` | localhost, –, –, –, – | production |
 | `AUTH_SECRET` | – | **required**, ≥ 32 chars: HMAC of login codes, IP/device hashes, access tokens. Rotating it invalidates open login mails and access tokens |
