@@ -33,8 +33,6 @@ export interface Character {
 	name: string;
 	label: string;
 	color: string;
-	/** the legacy single image (last fallback) */
-	image: string;
 	description?: string;
 	collection?: string;
 	/** mood → view → path: the regular persona's default look (what readers without persona support show) */

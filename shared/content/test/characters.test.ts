@@ -44,7 +44,6 @@ const catpope: RegistryCharacter = {
 	id: 'catpope',
 	name: { de: 'Katzenpapst', en: 'Cat Pope' },
 	color: 'blue',
-	image: 'catpope/characters/catpope/catpope.svg',
 	personas: [
 		{ id: 'regular', looks: [look('catpope', 'default', ['neutral', 'happy', 'sad'], { default: true })] },
 		{ id: 'human', label: { de: 'Mensch', en: 'Human' }, looks: [{ id: 'default', default: true, images: {} }] },
@@ -62,7 +61,6 @@ const mouse: RegistryCharacter = {
 	id: 'yellowmouse',
 	name: { de: 'Mausboss', en: 'Yellow Mouse' },
 	color: 'yellow',
-	image: 'yellowmouse/avatar.webp',
 	personas: [
 		{
 			id: 'regular',
@@ -78,7 +76,6 @@ const empty: RegistryCharacter = {
 	id: 'toptoy',
 	name: { en: 'Toptoy' },
 	color: 'black',
-	image: 'toptoy/avatar.webp',
 	personas: [{ id: 'regular', looks: [{ id: 'default', default: true, images: {} }] }]
 };
 const B = (look: string, view: string, mood: string) => png('catpope-biker', look, view, mood);
@@ -115,14 +112,10 @@ test('6. regular persona + default look + neutral', () => {
 	assert.equal(characterImage(catpope, { persona: 'human', mood: 'dizzy' }, 'portrait'), png('catpope', 'default', 'portrait', 'neutral'));
 });
 
-test('7. the legacy image', () => {
-	assert.equal(characterImage(empty, { mood: 'happy' }, 'portrait'), 'toptoy/avatar.webp');
-	assert.equal(characterImage({ ...empty, image: undefined }, { mood: 'happy' }, 'portrait', { substitute: '' }), '');
-});
-
-test('8. the missing-image substitute (after the legacy image, or when the resolved file is known to be missing)', () => {
-	assert.equal(characterImage({ ...empty, image: undefined }, { mood: 'happy' }, 'portrait'), 'characters/_missing/missing_portrait.png');
-	assert.equal(characterImage({ ...empty, image: undefined }, {}, 'avatar'), 'characters/_missing/missing_avatar.png');
+test('7. the missing-image substitute (when nothing is set, or the resolved file is known to be missing)', () => {
+	assert.equal(characterImage(empty, { mood: 'happy' }, 'portrait', { substitute: '' }), '');
+	assert.equal(characterImage(empty, { mood: 'happy' }, 'portrait'), 'characters/_missing/missing_portrait.png');
+	assert.equal(characterImage(empty, {}, 'avatar'), 'characters/_missing/missing_avatar.png');
 	// a known-missing file (e.g. crows_portrait.svg) → the substitute of the requested view
 	const missing = new Set([png('catpope', 'default', 'portrait', 'happy')]);
 	assert.equal(characterImage(catpope, { mood: 'happy' }, 'portrait', { isMissing: (p) => missing.has(p) }), 'characters/_missing/missing_portrait.png');
@@ -131,7 +124,7 @@ test('8. the missing-image substitute (after the legacy image, or when the resol
 	assert.equal(missingImagePath('whatever'), 'characters/_missing/missing_portrait.png');
 	assert.ok(isMissingImagePath('/characters/_missing/missing_full.png'));
 	// the legacy (characters.json) form: from the CDN root with a leading /
-	assert.equal(legacyCharacterImage({ name: 'x', label: 'X', image: '', color: '' } as Character, {}, 'full'), '/characters/_missing/missing_full.png');
+	assert.equal(legacyCharacterImage({ name: 'x', label: 'X', color: '' } as Character, {}, 'full'), '/characters/_missing/missing_full.png');
 });
 
 test('views: a missing view shows the same mood’s portrait before any mood step', () => {
@@ -167,7 +160,6 @@ test('an old characters.json without personas still resolves (static fallback)',
 		name: 'plf',
 		label: 'PLF',
 		color: 'lightblue',
-		image: 'images/characters/plf/plf.svg',
 		images: { neutral: { avatar: 'images/characters/plf/plf_avatar-neutral.png', portrait: 'images/characters/plf/plf_portrait-neutral.png' } }
 	};
 	assert.equal(legacyCharacterImage(old, { mood: 'happy' }, 'avatar'), 'images/characters/plf/plf_avatar-neutral.png');

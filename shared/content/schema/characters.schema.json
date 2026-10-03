@@ -63,10 +63,6 @@
 					},
 					"description": "search words"
 				},
-				"image": {
-					"type": "string",
-					"description": "legacy single image (the last fallback; placeholder e.g. `<toon>/avatar.webp`)"
-				},
 				"artwork": {
 					"type": "array",
 					"items": {

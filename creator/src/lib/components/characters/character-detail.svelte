@@ -305,13 +305,6 @@
 				{m['creator.characters_tendencies']()}
 				<input type="text" value={(character.tendencies ?? []).join(', ')} placeholder="psychedelics" onchange={(e) => setField('tendencies', e.currentTarget.value.split(',').map((t) => t.trim().toLowerCase()).filter(Boolean))} data-testid="character-tendencies" />
 			</label>
-			<label class="wide">
-				{m['creator.characters_image']()}
-				<span class="inline">
-					{#if character.image}<img class="mini-img" src={asset(character.image)} alt="" />{/if}
-					<input type="text" value={character.image ?? ''} placeholder="catpope/characters/…" onchange={(e) => setField('image', e.currentTarget.value.trim())} />
-				</span>
-			</label>
 		</section>
 
 		<!-- Personas → looks → moods -->
@@ -564,13 +557,6 @@
 		gap: 0.3rem;
 		align-items: center;
 		font-weight: 400;
-	}
-	.mini-img {
-		width: 1.8rem;
-		height: 1.8rem;
-		object-fit: contain;
-		flex: none;
-		background: var(--surface-hover);
 	}
 	.tabs {
 		display: flex;
