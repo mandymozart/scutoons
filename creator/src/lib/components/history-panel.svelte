@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDialog } from '@scutoons/ui';
 	import { CloseIcon } from '@scutoons/ui';
 	import { listVersions, publishVersion, restoreVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -53,8 +54,8 @@
 		act(() => restoreVersion(doc.key(locale), v.id));
 	}
 
-	function publish(locale: string, v: ContentVersion) {
-		if (!confirm(m['creator.publish_confirm']({ file: `${fileLabel(doc.entity)} (${when(v.created_at)})`, locales: locale }))) return;
+	async function publish(locale: string, v: ContentVersion) {
+		if (!(await confirmDialog({ title: m['creator.publish_title'](), message: m['creator.publish_confirm']({ file: `${fileLabel(doc.entity)} (${when(v.created_at)})`, locales: locale }), confirmLabel: m['creator.publish']() }))) return;
 		act(() => publishVersion(doc.key(locale), v.id));
 	}
 

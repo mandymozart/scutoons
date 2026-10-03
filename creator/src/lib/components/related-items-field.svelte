@@ -7,11 +7,12 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
+	import ItemPickerSheet from './item-picker-sheet.svelte';
 
 	/**
 	 * `related_items` of a season or a chapter (agents/ITEMS.md "Players, albums, related items"): catalog item ids in
 	 * order, language-neutral – one list written to every locale (like the season's download / trailer and the chapter's
-	 * featuring). Chips with the item's icon and name, reorder, remove; "Add an item …" lists the rest of the catalog.
+	 * featuring). Chips with the item's icon and name, reorder, remove; "Add an item …" opens the item selector.
 	 */
 	let {
 		doc,
@@ -21,6 +22,7 @@
 	}: { doc: ContentDoc; hint: string; testid?: string; /** false under a section heading that already names it */ legend?: boolean } = $props();
 
 	let catalog = $state<Catalog | null>(null);
+	let choosing = $state(false);
 	let loading = $state(true);
 	onMount(() => {
 		loadCatalog().then((c) => {
@@ -32,7 +34,6 @@
 	const locale = getLocale();
 	const list = $derived<string[]>(Array.isArray(doc.data[doc.primary]?.related_items) ? doc.data[doc.primary].related_items : []);
 	const byId = $derived(new Map((catalog?.items ?? []).map((i) => [i.id, i])));
-	const options = $derived((catalog?.items ?? []).filter((i) => !list.includes(i.id)));
 	const nameOf = (item: ItemDef | undefined, id: string) => (item ? (item.name[locale] ?? item.name.en ?? item.name.de ?? id) : id);
 
 	function set(next: string[]) {
@@ -74,23 +75,17 @@
 			<li class="hint">{m['creator.related_items_empty']()}</li>
 		{/each}
 	</ul>
-	<select
-		aria-label={m['creator.related_items_add']()}
-		title={m['creator.related_items_add']()}
-		value=""
-		disabled={loading || !catalog}
-		onchange={(e) => {
-			add(e.currentTarget.value);
-			e.currentTarget.value = '';
-		}}
-		data-testid="{testid}-add"
-	>
-		<option value="">{loading ? m['creator.related_items_loading']() : m['creator.related_items_add']()}</option>
-		{#each options as item (item.id)}<option value={item.id}>{nameOf(item, item.id)} · {item.id}</option>{/each}
-	</select>
+	<!-- the item selector as a drawer like the asset manager / character selector (owner 2026-10-03) -->
+	<button type="button" class="secondary add" disabled={loading || !catalog} onclick={() => (choosing = true)} data-testid="{testid}-add">
+		{loading ? m['creator.related_items_loading']() : m['creator.related_items_add']()}
+	</button>
+	<ItemPickerSheet bind:open={choosing} title={m['creator.related_items_add']()} exclude={list} onpick={(item) => add(item.id)} />
 </fieldset>
 
 <style>
+	.add {
+		align-self: flex-start;
+	}
 	.related {
 		border: 0;
 		padding: 0;
@@ -147,10 +142,5 @@
 		width: 100%;
 		height: 100%;
 		object-fit: contain;
-	}
-	select {
-		align-self: flex-start;
-		width: auto;
-		max-width: 100%;
 	}
 </style>

@@ -227,7 +227,7 @@
 	}
 </script>
 
-<Sheet bind:open title={title ?? m['creator.assets_picker_title']()} side="right" closeLabel={m['creator.characters_close']()}>
+<Sheet bind:open title={title ?? m['creator.assets_picker_title']()} side="right" closeLabel={m['creator.characters_close']()} resizeLabel={m['creator.resize_panel']()}>
 	<div class="picker" data-testid="asset-picker">
 		<!-- order (owner 2026-10-03): the selected asset · upload · the library (search, filters, grid) -->
 		{#if chosen}
@@ -331,7 +331,7 @@
 		flex-direction: column;
 		gap: 0.75rem;
 		width: 100%;
-		max-width: 46rem;
+		max-width: 100%;
 		min-width: 0;
 		overflow-x: hidden;
 	}
