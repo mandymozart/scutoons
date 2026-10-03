@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { panelWidth } from '$lib/panel-width.svelte.ts';
 	import { askDialog, confirmDialog } from '@scutoons/ui';
 	import { onMount, untrack } from 'svelte';
 	import { ActionBar, CloseIcon, Icon } from '@scutoons/ui';
@@ -54,6 +55,8 @@
 
 	/** `languages`: the toon's source + languages (ToonIndex, loaded by the page) – every file is edited in these */
 	let { toon, chapterNumber, languages }: { toon: string; chapterNumber: number; languages: ToonLanguages } = $props();
+
+	const panelSize = panelWidth('sc-panel-width:chapter', 16); // normal = --tool-panel-width
 
 	// ── Documents ───────────────────────────────────────────────────────────────────────────────────────
 	// the page re-creates this component per chapter and toon languages ({#key}), so the initial props are the right ones
@@ -734,7 +737,7 @@
 	</div>
 {/snippet}
 
-<div class="editor" class:with-panel={panel !== null}>
+<div class="editor" class:with-panel={panel !== null} style:--panel-width={panelSize.css}>
 
 	<!-- Bottom action bar (PLATFORM.md "Bottom action bar"): navigation + validation summary · tools · save / publish -->
 	<!-- prev / next slice: in the bar's end from 768px (always at hand), in "More" on phones (the end holds only save) -->
@@ -992,6 +995,9 @@
 	{/if}
 
 	{#if panel}
+			<!-- a focusable separator is a widget (WAI-ARIA window splitter): drag the panel wider (owner 2026-10-03) -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
 		<aside class="side-panel">
 			{#if panel === 'problems'}
 				<ProblemsPanel {problems} ongoto={gotoProblem} onclose={() => (panel = null)} />
@@ -1237,7 +1243,7 @@
 		right: 0;
 		/* ends at the bottom ActionBar (its border and last lines are not hidden behind it) */
 		bottom: var(--action-bar-height);
-		width: min(var(--tool-panel-width), 92vw);
+		width: var(--panel-width);
 		background: var(--paper);
 		border-left: var(--border-width-regular) solid var(--ink);
 		overflow: auto;
@@ -1250,5 +1256,26 @@
 	}
 	.error {
 		color: var(--error);
+	}
+	/* the side panel's left edge drags it wider (lib/panel-width.svelte.ts) */
+	.panel-resize {
+		position: fixed;
+		z-index: 21;
+		top: var(--top);
+		bottom: var(--action-bar-height);
+		right: calc(var(--panel-width) - 0.375rem);
+		width: 0.75rem;
+		cursor: col-resize;
+		touch-action: none;
+	}
+	.panel-resize:hover,
+	.panel-resize:focus-visible {
+		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
+		outline: none;
+	}
+	@media (max-width: 767px) {
+		.panel-resize {
+			display: none;
+		}
 	}
 </style>

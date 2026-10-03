@@ -16,6 +16,7 @@
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import { Icon } from '@scutoons/ui';
 	import MetaPage from '../meta-page.svelte';
 
 	/**
@@ -52,6 +53,24 @@
 	let outlineWidth = $state<number | null>(null);
 	let textHeight = $state<number | null>(null);
 	let outlineHeight = $state<number | null>(null);
+	/** the outline folded to a narrow strip (owner 2026-10-03) */
+	const FOLD_KEY = 'sc-script-outline-folded';
+	let outlineFolded = $state(false);
+	try {
+		outlineFolded = typeof localStorage !== 'undefined' && localStorage.getItem(FOLD_KEY) === '1';
+	} catch {
+		// not remembered
+	}
+	function foldOutline(value: boolean) {
+		outlineFolded = value;
+		try {
+			if (value) localStorage.setItem(FOLD_KEY, '1');
+			else localStorage.removeItem(FOLD_KEY);
+		} catch {
+			// not remembered
+		}
+		queueMicrotask(fitHeight);
+	}
 	let outlineList = $state<HTMLElement>();
 	try {
 		const saved = Number(typeof localStorage !== 'undefined' ? localStorage.getItem(OUTLINE_KEY) : 0);
@@ -334,10 +353,16 @@
 				</p>
 			</section>
 		{:else}
-			<div class="layout" bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
+			<div class="layout" class:folded={outlineFolded} bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
 				<aside class="side">
+					{#if outlineFolded}
+						<button type="button" class="fold" onclick={() => foldOutline(false)} aria-label={m['creator.script_outline_show']()} title={m['creator.script_outline_show']()} aria-expanded="false" data-testid="script-outline-unfold">»</button>
+					{:else}
 					<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
-						<h2>{m['creator.script_outline']()}</h2>
+						<h2>
+							<span>{m['creator.script_outline']()}</span>
+							<button type="button" class="fold" onclick={() => foldOutline(true)} aria-label={m['creator.script_outline_fold']()} title={m['creator.script_outline_fold']()} aria-expanded="true" data-testid="script-outline-fold">«</button>
+						</h2>
 						{#if !outline.length}
 							<p class="hint">{m['creator.script_outline_empty']()}</p>
 						{:else}
@@ -360,6 +385,7 @@
 							</ol>
 						{/if}
 					</section>
+					{/if}
 				</aside>
 				<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
@@ -370,14 +396,18 @@
 					aria-label={m['creator.resize_panel']()}
 					tabindex="0"
 					title={m['creator.resize_panel']()}
-					onpointerdown={startOutlineResize}
+					onpointerdown={(e) => !outlineFolded && startOutlineResize(e)}
 					onkeydown={keyOutlineResize}
 					ondblclick={() => ((outlineWidth = null), rememberOutline())}
 				></div>
 
 				<div class="main">
 					<details class="meta" data-testid="script-meta">
-						<summary>{m['creator.script_meta']()}{script.meta?.title ? ` · ${script.meta.title}` : ''}</summary>
+						<!-- clickable: the title page opens for editing (owner 2026-10-03: show that it can be edited) -->
+						<summary title={m['creator.script_meta_edit']()}>
+							<span>{m['creator.script_meta']()}{script.meta?.title ? ` · ${script.meta.title}` : ''}</span>
+							<Icon name="edit-2" label={m['creator.script_meta_edit']()} />
+						</summary>
 						<div class="meta-grid">
 							{#each SCRIPT_META_FIELDS as field (field)}
 								<label>
@@ -421,16 +451,63 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
+	/* the outline starts at the sidebar's divider (no page padding before it) and has a divider on its right */
 	.layout {
 		display: grid;
 		grid-template-columns: var(--outline-width, 260px) 0.75rem minmax(0, 1fr);
-		gap: 0 0.25rem;
+		gap: 0 0.75rem;
 		align-items: start;
+		margin-left: -1rem;
 	}
+	.layout.folded {
+		grid-template-columns: 2.5rem 0.75rem minmax(0, 1fr);
+	}
+	.side h2 {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+	}
+	.fold {
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
+		padding: 0;
+		background: var(--paper);
+		color: var(--ink);
+		border: var(--border-width-regular) solid var(--ink);
+		font: inherit;
+		cursor: pointer;
+		flex: none;
+	}
+	.fold:hover,
+	.fold:focus-visible {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.layout.folded .side {
+		display: flex;
+		justify-content: center;
+		padding-top: 0.25rem;
+	}
+	.meta summary {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+	}
+	.meta summary:hover span {
+		text-decoration: underline;
+	}
+	/* the divider right of the outline, also its drag edge */
 	.split {
 		align-self: stretch;
 		cursor: col-resize;
 		touch-action: none;
+		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-regular) 100% no-repeat;
+	}
+	.layout.folded .split {
+		cursor: default;
 	}
 	.split:hover,
 	.split:focus-visible {

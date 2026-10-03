@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { panelWidth } from '$lib/panel-width.svelte.ts';
 	import { askDialog, confirmDialog } from '@scutoons/ui';
 	import type { Snippet } from 'svelte';
 	import { ActionBar, CloseIcon } from '@scutoons/ui';
@@ -55,6 +56,8 @@
 		/** right end of the file status line (e.g. the script's line / column) – no row of its own */
 		status?: Snippet;
 	} = $props();
+
+	const panelSize = panelWidth('sc-panel-width:meta');
 
 	const main = $derived(docs[0]);
 	/** undo/redo act on the most recently edited doc */
@@ -217,7 +220,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="meta-page" class:with-panel={panel !== null} class:wide class:fill>
+<div class="meta-page" class:with-panel={panel !== null} class:wide class:fill style:--panel-width={panelSize.css}>
 	<ActionBar label={m['creator.page_actions']()} moreLabel={m['creator.more']()}>
 		{#snippet start()}
 			<button class="ghost" class:active={panel === 'problems'} onclick={() => togglePanel('problems')} data-testid="problems-toggle">
@@ -279,6 +282,9 @@
 	{/if}
 
 	{#if panel}
+			<!-- a focusable separator is a widget (WAI-ARIA window splitter): drag the panel wider (owner 2026-10-03) -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
 		<aside class="side-panel">
 			{#if panel === 'problems'}
 				<ProblemsPanel {problems} onclose={() => (panel = null)} />
@@ -368,14 +374,14 @@
 		margin: 0 0 0.5rem;
 	}
 	.with-panel .content {
-		margin-right: min(24rem, 92vw);
+		margin-right: var(--panel-width);
 	}
 	.side-panel {
 		position: fixed;
 		top: var(--top);
 		right: 0;
 		bottom: var(--action-bar-height);
-		width: min(24rem, 92vw);
+		width: var(--panel-width);
 		background: var(--paper);
 		border-left: 2px solid var(--ink);
 		overflow: auto;
@@ -385,5 +391,26 @@
 	}
 	.pad {
 		padding: 1rem;
+	}
+	/* the side panel's left edge drags it wider (lib/panel-width.svelte.ts) */
+	.panel-resize {
+		position: fixed;
+		z-index: 21;
+		top: var(--top);
+		bottom: var(--action-bar-height);
+		right: calc(var(--panel-width) - 0.375rem);
+		width: 0.75rem;
+		cursor: col-resize;
+		touch-action: none;
+	}
+	.panel-resize:hover,
+	.panel-resize:focus-visible {
+		background: linear-gradient(var(--ink), var(--ink)) center / var(--border-width-focus) 100% no-repeat;
+		outline: none;
+	}
+	@media (max-width: 767px) {
+		.panel-resize {
+			display: none;
+		}
 	}
 </style>
