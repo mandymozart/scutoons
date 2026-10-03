@@ -73,9 +73,10 @@
 	}
 
 	// text boxes revealed by onomatopoeia events (params.dialog): hidden until then, then they play the event's effect
+	// the slice's events and its placed items' tap events
 	const sliceRefs = $derived(
 		new Set(
-			(slice.events ?? []).flatMap((e) =>
+			[...(slice.events ?? []), ...(slice.items ?? []).flatMap((it) => it.events ?? [])].flatMap((e) =>
 				e.type === 'showOnomatopeia' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []
 			)
 		)

@@ -332,6 +332,8 @@ export function createVisualNovelContext() {
 		if (index !== -1) {
 			const item = activeOnomatopoeia[index];
 			activeOnomatopoeia.splice(index, 1);
+			// `stay: false`: the box disappears again after its effect (hidden like before the event)
+			if (item.stay === false) delete revealedDialogs[item.dialog];
 
 			if (item.mode === 'mono' && onomatopoeiaQueue.length > 0) {
 				const next = onomatopoeiaQueue.shift();
