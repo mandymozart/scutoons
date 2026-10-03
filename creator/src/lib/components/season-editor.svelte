@@ -270,10 +270,13 @@
 		margin: 0;
 		padding: 0;
 	}
+	/* narrow sidebar: the badges drop to their own line instead of squeezing the title to "Är…" (owner 2026-10-03) */
 	.nav-list a {
 		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
 		justify-content: space-between;
-		gap: 0.4rem;
+		gap: 0.25rem 0.4rem;
 		padding: 0.35rem 0.75rem;
 		border-left: 3px solid transparent;
 		color: var(--ink);
@@ -284,7 +287,8 @@
 		outline-offset: calc(-1 * var(--border-width-regular));
 	}
 	.nav-title {
-		min-width: 0;
+		flex: 1 1 auto;
+		min-width: min(8rem, 100%);
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
@@ -293,5 +297,6 @@
 		display: inline-flex;
 		gap: 0.2rem;
 		flex: none;
+		margin-left: auto;
 	}
 </style>
