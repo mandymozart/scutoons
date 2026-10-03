@@ -500,6 +500,12 @@
 		padding: 0 0.25rem;
 		text-align: left;
 	}
+	/* the whole line is the handle (open / drag): no ghost hover frame (owner 2026-10-03) */
+	.line,
+	.line:hover {
+		border-color: transparent;
+		background: none;
+	}
 	.line :global(svg) {
 		flex: none;
 		transition: transform var(--duration-base) var(--easing);
