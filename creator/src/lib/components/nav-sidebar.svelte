@@ -49,6 +49,7 @@
 	<ul>
 		<li><a class="sc-nav-item" href="/{toon}/cast" data-nav-child={childAttr} aria-current={current(`/${toon}/cast`)}>{m['creator.cast']()}</a></li>
 		<li><a class="sc-nav-item" href="/{toon}/credits" data-nav-child={childAttr} aria-current={current(`/${toon}/credits`)}>{m['creator.credits']()}</a></li>
+		<li><a class="sc-nav-item" href="/{toon}/script" data-nav-child={childAttr} aria-current={current(`/${toon}/script`)} data-testid="nav-script">{m['creator.script']()}</a></li>
 		<li><a class="sc-nav-item" href="/{toon}/toon" data-nav-child={childAttr} aria-current={current(`/${toon}/toon`)} data-testid="nav-toon-settings">{fileLabel(entities.toonSettings(toon))}</a></li>
 	</ul>
 {:else}

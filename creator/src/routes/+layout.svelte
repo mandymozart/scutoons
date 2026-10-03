@@ -266,15 +266,8 @@
 						<NavSidebar toons={nav.toons} toon={toonId} />
 					{/if}
 				</div>
-				<!-- inside a toon: its script on every page of it ("crucial for collaborative creation"); Universe only on the
-				     dashboard (owner 2026-10-03) -->
-				{#if toonId}
-					<div class="universe">
-						<ul>
-							<li><a class="sc-nav-item" href="/{toonId}/script" aria-current={page.route.id === '/[toonId]/script' ? 'page' : undefined} data-testid="nav-script">{m['creator.script']()}</a></li>
-						</ul>
-					</div>
-				{:else if page.route.id === '/'}
+				<!-- Universe only on the dashboard (owner 2026-10-03) -->
+				{#if page.route.id === '/'}
 					<div class="universe">
 						<p class="sc-nav-head">{m['creator.universe']()}</p>
 						<ul>
