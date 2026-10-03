@@ -56,6 +56,24 @@
 		season = data.season
 		sequence = data.sequence
 	})
+
+	// the season description: 3 lines, then "…" – a tap opens it (only when it is longer)
+	let descriptionEl = $state<HTMLElement>();
+	let descriptionOpen = $state(false);
+	let descriptionLong = $state(false);
+	$effect(() => {
+		const el = descriptionEl;
+		void season?.description;
+		if (!el) return;
+		const measure = () => {
+			if (descriptionOpen) return;
+			descriptionLong = el.scrollHeight > el.clientHeight + 1;
+		};
+		measure();
+		const observer = new ResizeObserver(measure);
+		observer.observe(el);
+		return () => observer.disconnect();
+	});
 </script>
 
 <div class="view toon-overview">
@@ -84,8 +102,32 @@
 		{#if season}
 			<div class="season-column">
 				<div class="chapters-header">
+					{#if desktop && cover?.square}
+						<!-- desktop: the season's cover at the column's width above its heading (owner 2026-10-03; mobile shows it at the top) -->
+						<CoverArt
+							src={asset(`${params.toonId}/${cover.square}`)}
+							alt="Cover"
+							class="season-cover"
+							lettering={cover.lettering}
+							title={toon.title}
+							subtitle={season?.title ?? ''}
+							lang={toon.language}
+						/>
+					{/if}
 					<h2>{m['chapter.season_title']({ number: seasonNumber, title: season.title })}</h2>
-					<p class="season-description">{season.description}</p>
+					<!-- longer than 3 lines: clamped with "…", a tap / click opens and closes it (owner 2026-10-03); a button only then -->
+					<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+					<p
+						class="season-description"
+						class:clamped={!descriptionOpen}
+						class:long={descriptionLong}
+						bind:this={descriptionEl}
+						role={descriptionLong ? 'button' : undefined}
+						tabindex={descriptionLong ? 0 : undefined}
+						aria-expanded={descriptionLong ? descriptionOpen : undefined}
+						onclick={() => descriptionLong && (descriptionOpen = !descriptionOpen)}
+						onkeydown={(e) => descriptionLong && (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), (descriptionOpen = !descriptionOpen))}
+					>{season.description}</p>
 					{#if !desktop}
 						<!-- one start button: first chapter / continue / next / again, from the reading progress (desktop: in the hero) -->
 						<StartButton toonId={params.toonId} season={seasonNumber} chapters={sequence} />
@@ -167,6 +209,21 @@
 	.chapters-header {
 		margin-bottom: 2rem;
 		padding: 0 2rem;
+	}
+	.season-description.clamped {
+		display: -webkit-box;
+		-webkit-box-orient: vertical;
+		-webkit-line-clamp: 3;
+		line-clamp: 3;
+		overflow: hidden;
+	}
+	.season-description.long {
+		cursor: pointer;
+	}
+	.chapters-header :global(.season-cover) {
+		display: block;
+		width: 100%;
+		margin: 0 0 0.8333rem;
 	}
 	.chapters-header :global(.start) {
 		margin-top: var(--space-1);
