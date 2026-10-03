@@ -108,7 +108,9 @@ export interface Notice {
 	item_id: string;
 	qty: number;
 	/** returned = a worn item came off by a swap (back in the inventory); restored = the cover rule put it back on */
-	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'restored' | 'used' | 'gifted' | 'gift_received' | 'now_yours';
+	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'restored' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused';
+	/** refused: why the item could not be taken (the API's error code, or max_reached / not_grantable / failed …) */
+	reason?: string;
 	/** the inventory entry (returned / restored) */
 	entry?: EntryId;
 	/** gifted: the recipient's email · gift_received: the giver's email (ITEMS.md "Ownership, claims, gifting") */
@@ -375,8 +377,8 @@ export function createInventoryContext(session: SessionContext) {
 		return Object.values(worn).some((id) => id != null && String(id) === String(entry.id));
 	}
 
-	function notify(item_id: string, qty: number, kind: Notice['kind'], entry?: EntryId, email?: string | null) {
-		const notice = { id: ++noticeSeq, item_id, qty, kind, entry, email };
+	function notify(item_id: string, qty: number, kind: Notice['kind'], entry?: EntryId, email?: string | null, reason?: string) {
+		const notice = { id: ++noticeSeq, item_id, qty, kind, entry, email, reason };
 		notices = [...notices, notice];
 		// a received gift stays a little longer ("X schenkt dir Y")
 		setTimeout(() => (notices = notices.filter((n) => n.id !== notice.id)), kind === 'gift_received' || kind === 'now_yours' ? 7000 : 3500);
@@ -430,16 +432,28 @@ export function createInventoryContext(session: SessionContext) {
 
 	/**
 	 * Grant an item from a client-side source (story, scan). Silently ignored if not grantable. `error` = the API's
-	 * error code when the server refused (e.g. `daily_limit`, `cooldown`), `failed` otherwise.
+	 * error code when the server refused (e.g. `daily_limit`, `cooldown`), `failed` otherwise. `granted` = pieces the
+	 * server added (members; 0 = this `ref` was granted before) – with `quietWhenNone` there is no "+1" notice then.
 	 */
-	async function grant(item_id: string, source: GrantSource, qty = 1, ref?: string): Promise<{ ok: boolean; error?: string }> {
+	async function grant(
+		item_id: string,
+		source: GrantSource,
+		qty = 1,
+		ref?: string,
+		options: { quietWhenNone?: boolean } = {}
+	): Promise<{ ok: boolean; error?: string; granted?: number }> {
 		const def = item(item_id);
 		if (!def || !def.grantable?.includes(source) || qty <= 0) return { ok: false, error: 'not_grantable' };
 		if (count(item_id) >= maxOf(def)) return { ok: false, error: 'max_reached' };
+		let granted = qty;
 		if (isAccount) {
 			try {
 				let result;
-				for (let i = 0; i < Math.min(qty, 10); i++) result = await grantItem(item_id, source, ref);
+				granted = 0;
+				for (let i = 0; i < Math.min(qty, 10); i++) {
+					result = await grantItem(item_id, source, ref);
+					granted += Number((result as { granted?: number } | undefined)?.granted ?? 1);
+				}
 				applyInventory(result?.inventory);
 			} catch (e: any) {
 				console.warn('Grant failed', e);
@@ -449,8 +463,13 @@ export function createInventoryContext(session: SessionContext) {
 			addGuestEntry(item_id, qty, source);
 			saveGuest();
 		}
-		notify(item_id, qty, 'grant');
-		return { ok: true };
+		if (granted > 0 || !options.quietWhenNone) notify(item_id, granted > 0 ? granted : qty, 'grant');
+		return { ok: true, granted };
+	}
+
+	/** Tells the reader an item could not be taken (a placed item's pickup) and why (`reason` = an error code). */
+	function refused(item_id: string, reason: string) {
+		notify(item_id, 0, 'refused', undefined, null, reason);
 	}
 
 	async function craft(recipe: Recipe): Promise<{ ok: boolean; error?: string }> {
@@ -769,6 +788,7 @@ export function createInventoryContext(session: SessionContext) {
 		equippedEntry,
 		isEquipped,
 		grant,
+		refused,
 		craft,
 		claim,
 		gift,

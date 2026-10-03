@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { fromAction } from 'svelte/attachments';
-	import { pickQualityVariant, type Slice as SliceModel, type SliceItem } from '@scutoons/content';
-	import { Slice, sliceAudio, type ResolveSliceItem } from '@scutoons/reader';
+	import { pickQualityVariant, sanitizeNumber, type Dialog, type Slice as SliceModel, type SliceItem } from '@scutoons/content';
+	import { Slice, sliceAudio, type DialogPlay, type ResolveSliceItem } from '@scutoons/reader';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
-	import { pickedKey, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
+	import { isTaken, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -48,13 +48,21 @@
 		const def = inventory?.item(item.item);
 		return def?.icon ? { src: asset(def.icon), label: inventory!.nameOf({ item_id: item.item, variant: null }) } : null;
 	};
-	const itemHidden = (item: SliceItem) => (item.action === 'pickup' ? !!game?.getVariable(pickedKey(slice, item)) : false);
+	/** bumped after a pickup: a respawning item's "taken on this visit" isn't reactive state */
+	let taken = $state(0);
+	const itemHidden = (item: SliceItem) => {
+		void taken;
+		return item.action === 'pickup' ? isTaken(slice, item, game) : false;
+	};
 	/** placements whose events already ran on this page view (`once`, default true) */
 	const ran = new Set<string>();
 	async function onItemTap(item: SliceItem) {
 		if (!game) return;
 		if (item.action === 'pickup') {
-			await pickUpSliceItem(slice, item, game);
+			const result = await pickUpSliceItem(slice, item, game);
+			taken++;
+			// tell the reader why it stayed (or that it was theirs already); a tap while one is pending says nothing
+			if (!result.ok && result.error) getCurrentInventory()?.refused(item.item, result.error);
 		} else if (item.action === 'events' && vn) {
 			const once = item.once ?? true;
 			if (once && ran.has(item.id)) return;
@@ -63,6 +71,28 @@
 			if (destination) goto(destination);
 		}
 	}
+
+	// text boxes revealed by onomatopoeia events (params.dialog): hidden until then, then they play the event's effect
+	const sliceRefs = $derived(
+		new Set(
+			(slice.events ?? []).flatMap((e) =>
+				e.type === 'showOnomatopeia' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []
+			)
+		)
+	);
+	const dialogHidden = (dialog: Dialog) => !!vn?.dialogHidden(dialog.id, sliceRefs);
+	const dialogPlay = (dialog: Dialog): DialogPlay | null => {
+		const active = vn?.dialogPlaying(dialog.id);
+		if (!active) return null;
+		return {
+			key: active.id,
+			effect: active.effect,
+			// the same limits as the event's own onomatopoeia (@scutoons/reader Onomatopoeia)
+			duration: sanitizeNumber(active.duration ?? 2000, 2000, 0, 5000),
+			delay: sanitizeNumber(active.delay ?? 0, 0, 0, 5000),
+			onComplete: active.onComplete
+		};
+	};
 </script>
 
 <Slice
@@ -77,6 +107,8 @@
 	{itemInfo}
 	{itemHidden}
 	onitemtap={onItemTap}
+	{dialogHidden}
+	{dialogPlay}
 	{@attach fromAction(sliceAudio, () => ({
 		events: slice.audio,
 		index: sliceIndex,

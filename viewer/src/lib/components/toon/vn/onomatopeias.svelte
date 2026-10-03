@@ -23,7 +23,10 @@
 	tabindex="0"
 >
 	{#each vn.state.activeOnomatopoeia as onomatopoeia (onomatopoeia.id)}
-		<Onomatopoeia {onomatopoeia} />
+		<!-- an event that reveals a text box (params.dialog) is drawn by its slice -->
+		{#if !onomatopoeia.dialog}
+			<Onomatopoeia {onomatopoeia} />
+		{/if}
 	{/each}
 </div>
 

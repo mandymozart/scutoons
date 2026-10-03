@@ -79,6 +79,12 @@
 		vn.leaveScene(characters);
 	}
 
+	// text boxes the group script reveals (showOnomatopeia params.dialog) stay hidden until then; registered before the
+	// slices render (this component comes first in group.svelte)
+	const dialogRefs = () =>
+		(group.events ?? []).flatMap((e) => (e.type === 'showOnomatopeia' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []));
+	vn.registerDialogRefs(dialogRefs());
+
 	async function handleShowOnomatopoeia(event: VNEvent & { type: 'showOnomatopeia' }): Promise<void> {
 		const { wait = false } = event.params;
 
@@ -167,6 +173,8 @@
 
 	onMount(() => {
 		cancelled = false;
+		// again after mount: the previous page's group may have cleared the context in between
+		vn.registerDialogRefs(dialogRefs());
 		vn.beginEvents();
 		runEvents();
 	});
