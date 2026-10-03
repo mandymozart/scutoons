@@ -51,6 +51,8 @@
 	let layoutEl = $state<HTMLElement>();
 	let outlineWidth = $state<number | null>(null);
 	let textHeight = $state<number | null>(null);
+	let outlineHeight = $state<number | null>(null);
+	let outlineList = $state<HTMLElement>();
 	try {
 		const saved = Number(typeof localStorage !== 'undefined' ? localStorage.getItem(OUTLINE_KEY) : 0);
 		if (saved > 0) outlineWidth = saved;
@@ -100,6 +102,8 @@
 		const barHeight = bar ? bar.getBoundingClientRect().height : 0;
 		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 		textHeight = Math.max(240, Math.floor(window.innerHeight - area.getBoundingClientRect().top - barHeight - rem));
+		// the outline's list scrolls down to the bar exactly (owner 2026-10-03); its heading stays above it
+		if (outlineList) outlineHeight = Math.max(120, Math.floor(window.innerHeight - outlineList.getBoundingClientRect().top - barHeight));
 	}
 	$effect(() => {
 		if (!area) return;
@@ -306,16 +310,16 @@
 </script>
 
 <MetaPage {toon} title={m['creator.script']()} docs={[doc]} {validate} wide help="script" translationsOptional beforeSave={flush}>
+	<!-- format rules + line / column in the file status line (owner 2026-10-03: no row of their own) -->
+	{#snippet status()}
+		<a class="rules-link" href="/guide#script-format" target="_blank" rel="noopener" data-testid="script-rules-link">{m['creator.script_rules']()}</a>
+		{#if script}
+			<span class="hint" data-testid="script-stats">
+				{m['creator.script_lines']({ lines: lineCount })} · {m['creator.script_position']({ line: cursor.line, column: cursor.column })}
+			</span>
+		{/if}
+	{/snippet}
 	<div class="script-page" data-testid="script-editor">
-		<header class="top">
-			<!-- the language comes from the header's text language switch (owner 2026-10-03: no own switch here) -->
-			<a class="rules-link" href="/guide#script-format" target="_blank" rel="noopener" data-testid="script-rules-link">{m['creator.script_rules']()}</a>
-			{#if script}
-				<span class="hint" data-testid="script-stats">
-					{m['creator.script_lines']({ lines: lineCount })} · {m['creator.script_position']({ line: cursor.line, column: cursor.column })}
-				</span>
-			{/if}
-		</header>
 
 		{#if !script}
 			<section class="missing" data-testid="script-missing">
@@ -330,14 +334,14 @@
 				</p>
 			</section>
 		{:else}
-			<div class="layout" bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined}>
+			<div class="layout" bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
 				<aside class="side">
 					<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
 						<h2>{m['creator.script_outline']()}</h2>
 						{#if !outline.length}
 							<p class="hint">{m['creator.script_outline_empty']()}</p>
 						{:else}
-							<ol>
+							<ol bind:this={outlineList} class="outline-list">
 								{#each outline as item (item.line)}
 									<li class={item.kind}>
 										<button
@@ -417,13 +421,6 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-	.top {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.75rem;
-		align-items: center;
-		justify-content: space-between;
-	}
 	.layout {
 		display: grid;
 		grid-template-columns: var(--outline-width, 260px) 0.75rem minmax(0, 1fr);
@@ -441,7 +438,6 @@
 		outline: none;
 	}
 	.rules-link {
-		margin-left: auto;
 		color: var(--ink);
 	}
 	@media (max-width: 900px) {
@@ -450,6 +446,8 @@
 		}
 		.side {
 			position: static !important;
+		}
+		.outline-list {
 			max-height: 240px !important;
 		}
 		.split {
@@ -459,7 +457,9 @@
 	.side {
 		position: sticky;
 		top: 0.5rem;
-		max-height: var(--script-height, calc(100vh - 220px));
+	}
+	.outline-list {
+		max-height: var(--outline-height, calc(100vh - 220px));
 		overflow: auto;
 	}
 	.side h2 {

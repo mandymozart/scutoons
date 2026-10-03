@@ -30,7 +30,8 @@
 		actions,
 		help,
 		translationsOptional = false,
-		children
+		children,
+		status
 	}: {
 		/** the toon of the page ('' for platform-wide pages like Characters) */
 		toon: string;
@@ -51,6 +52,8 @@
 		/** a missing translation is no problem (the script: the page offers to start one itself) – no "create" bars */
 		translationsOptional?: boolean;
 		children: Snippet;
+		/** right end of the file status line (e.g. the script's line / column) – no row of its own */
+		status?: Snippet;
 	} = $props();
 
 	const main = $derived(docs[0]);
@@ -243,6 +246,7 @@
 			{#each docs as d (d.entity)}
 				<FileStatus doc={d} label={fileLabel(d.entity)} />
 			{/each}
+			{#if status}<span class="status-end">{@render status()}</span>{/if}
 		</div>
 		{#if anyDirty}<div class="bar dirty-bar">{m['creator.unsaved']()}</div>{/if}
 		{#each recoverables as d (d.entity)}
@@ -296,6 +300,13 @@
 	/* the ActionBar space is reserved by the app's AppShell (@scutoons/ui), not here */
 	.meta-page {
 		--top: 64px;
+	}
+	.status-end {
+		margin-left: auto;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: 0.75rem;
 	}
 	.files {
 		display: flex;
