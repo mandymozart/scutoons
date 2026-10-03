@@ -9,8 +9,9 @@
 //   npm run dev:db status          container, selected database, what the API runs on
 //   npm run dev:db stop            stop the container (data stays in the volume; `npm run dev` starts it again)
 //   npm run dev:db reset           delete the container AND its data, then `up` again (fresh database)
-//   npm run dev:db test [args]     the PHPUnit suite on MariaDB (server/phpunit.mysql.xml, database scutoons_test)
-//   npm run dev:db console <args>  php bin/console on the MariaDB dev database, e.g. console migrate --status
+//   npm run dev:db test            the PHPUnit suite on MariaDB (server/phpunit.mysql.xml, database scutoons_test);
+//                                  options after `--`: npm run dev:db -- test --filter Wardrobe
+//   npm run dev:db -- console <args>  php bin/console on the MariaDB dev database, e.g. -- console migrate --status
 //   npm run dev:db sql             a mariadb shell in the container (database scutoons)
 //   npm run dev:db adminer         Adminer (web UI) on the "adminer" dev port
 //   npm run dev:db version         server version, sql_mode, charset, collation (compare with production)

@@ -45,8 +45,8 @@ From the repository root (PowerShell or any shell):
 | `npm run dev:db status` | selected database, container state, what the running API uses |
 | `npm run dev:db stop` | stop the container – the data stays in the volume `scutoons_mariadb` |
 | `npm run dev:db reset` | delete the container **and its data**, then `up` again (fresh database) |
-| `npm run dev:db test [phpunit args]` | the PHPUnit suite on MariaDB (see below) |
-| `npm run dev:db console <args>` | `php bin/console` on the MariaDB dev database, e.g. `npm run dev:db console migrate --status` |
+| `npm run dev:db test` | the PHPUnit suite on MariaDB (see below); with PHPUnit options after `--`: `npm run dev:db -- test --filter Wardrobe` |
+| `npm run dev:db -- console <args>` | `php bin/console` on the MariaDB dev database, e.g. `npm run dev:db -- console migrate --status` (the `--` keeps npm from taking the options) |
 | `npm run dev:db sql` | a `mariadb` shell in the container (database `scutoons`) |
 | `npm run dev:db adminer` | Adminer on http://localhost:13380 (server `mariadb`, user `scutoons`, password `scutoons`) |
 | `npm run dev:db version` | `VERSION()`, `sql_mode`, charset, collation of the container |
@@ -57,7 +57,7 @@ environment wins over it. PHP never reads the file: `server/bin/dev-serve.mjs` (
 environment variable wins over `config.local.php`; `DB_DRIVER=mysql` wins over `DB_SQLITE_PATH` – CONFIGURATION.md),
 and `-d extension=pdo_mysql` when `php.ini` does not load it (PHP for Windows ships `php_pdo_mysql.dll`, the line is
 commented out by default; enabling it in `php.ini` once is fine too). A `php bin/console …` typed by hand still uses
-SQLite – use `npm run dev:db console …`. The contract suites (`composer test:contract`) stay on a SQLite copy.
+SQLite – use `npm run dev:db -- console …`. The contract suites (`composer test:contract`) stay on a SQLite copy.
 
 **Tests on MariaDB:** `npm run dev:db test` (root), or in `server/`:
 `php -d extension=pdo_mysql vendor/bin/phpunit -c phpunit.mysql.xml`. `phpunit.mysql.xml` sets `TEST_DB_DRIVER=mysql`
