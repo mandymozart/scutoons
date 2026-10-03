@@ -34,6 +34,10 @@
 	import SliceCanvas, { type CanvasSelection, type Tool } from './slice-canvas.svelte';
 	import SliceList from './slice-list.svelte';
 	import DialogInspector from './dialog-inspector.svelte';
+	import TextPresetPicker from './text-preset-picker.svelte';
+	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
+	import { asset } from '$lib/utils/cdn.ts';
+	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import ItemInspector from './item-inspector.svelte';
 	import ItemPickerSheet from './item-picker-sheet.svelte';
 	import { itemCatalog, itemName, loadCatalog } from '$lib/editor/catalog.svelte.ts';
@@ -167,8 +171,8 @@
 	// snap to grid (owner 2026-10-03: one toggle for moving, resizing, scaling, rotating), remembered on this device
 	const SNAP_KEY = 'scutoons_creator_snap';
 	const GRID_KEY = 'scutoons_creator_grid';
-	/** px of the slice's 1x size; 16 = the Figma base grid (1rem, owner 2026-10-03) */
-	const GRID_SIZES = [4, 8, 16, 32];
+	/** px of the slice's 1x size; 15 = the slices' base grid (390 = 26 × 15, owner 2026-10-03) */
+	const GRID_SIZES = [5, 10, 15, 30];
 	function readPref<T>(key: string, fallback: T, ok: (value: unknown) => boolean): T {
 		try {
 			const raw = localStorage.getItem(key);
@@ -179,7 +183,7 @@
 		}
 	}
 	let snap = $state(readPref(SNAP_KEY, true, (v) => typeof v === 'boolean'));
-	let gridSize = $state(readPref(GRID_KEY, 16, (v) => GRID_SIZES.includes(v as number)));
+	let gridSize = $state(readPref(GRID_KEY, 15, (v) => GRID_SIZES.includes(v as number)));
 	$effect(() => {
 		try {
 			localStorage.setItem(SNAP_KEY, JSON.stringify(snap));
@@ -398,7 +402,17 @@
 	}
 
 	// ── Editing actions ─────────────────────────────────────────────────────────────────────────────────
-	function addDialog(rect = { x: 10, y: 10, width: 80, height: 12 }) {
+	const presetOf = (id: string) => TEXT_PRESETS.find((p) => p.id === id)!;
+	/** a text's preset in the list ("custom" when its look was changed) */
+	function presetLabel(d: Record<string, unknown>) {
+		const id = matchTextPreset(d);
+		return id ? m[`creator.preset_${id}`]() : m['creator.preset_custom']();
+	}
+	/** "+ Add text" shows the presets (owner 2026-10-03) */
+	let pickingPreset = $state(false);
+	/** a new text with a preset's look (default speech; a drawn one keeps the drawn rect) */
+	function addDialog(rect?: { x: number; y: number; width: number; height?: number }, preset: TextPreset = presetOf('speech')) {
+		pickingPreset = false;
 		const doc = activeDoc;
 		if (!doc || sliceIndex < 0) return;
 		// ids follow the image number like chapter 1 (s1c1-<slice>-<n>), else the position in the group
@@ -408,7 +422,9 @@
 			const slice = getAt(file, slicePath);
 			if (!slice) return;
 			slice.dialog ??= [];
-			slice.dialog.push(newDialog(id, { ...rect }));
+			const dialog = newDialog(id, { ...(rect ?? preset.rect) });
+			applyTextPreset(dialog as unknown as Record<string, unknown>, preset);
+			slice.dialog.push(dialog);
 		});
 		onCanvasSelect({ kind: 'dialog', index: sliceDialogs.length - 1 });
 		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${doc.primary}"]`)?.focus());
@@ -438,14 +454,10 @@
 			const event = slice ? getAt(slice, eventsPath)?.[index] : undefined;
 			if (!slice || event?.type !== 'showOnomatopeia') return;
 			slice.dialog ??= [];
-			slice.dialog.push({
-				...newDialog(id, { x: 30, y: 45, width: 40 }, 'bubble'),
-				text: 'BAM',
-				size: 8,
-				uppercase: true,
-				color: '#ffffff',
-				stroke: '#000000'
-			});
+			const ono = presetOf('onomatopoeia');
+			const dialog = { ...newDialog(id, { ...ono.rect }), text: 'BAM' };
+			applyTextPreset(dialog as unknown as Record<string, unknown>, ono);
+			slice.dialog.push(dialog);
 			(event.params ??= {}).dialog = id;
 		});
 		// the new box is selected: its text and look are set in the text box inspector
@@ -881,7 +893,7 @@
 							</select>
 						</span>
 						<span class="seg" role="group" aria-label="tool">
-							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}><Icon name="square" /> text box</button>
+							<button class="ghost" class:active={tool === 'text'} onclick={() => (tool = 'text')}><Icon name="type" /> text</button>
 							<button class="ghost" class:active={tool === 'sample'} onclick={() => (tool = 'sample')}><Icon name="music" /> sample area</button>
 						</span>
 					</div>
@@ -922,12 +934,20 @@
 							{#each sliceDialogs as d, di (di)}
 								<li>
 									<button class="ghost" class:active={selection?.kind === 'dialog' && selection.index === di} onclick={() => onCanvasSelect({ kind: 'dialog', index: di })} data-testid="dialog-{di}">
-										<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{d.variant ?? 'bubble'}</span> {String(Array.isArray(d.text) ? d.text[0] : d.text).slice(0, 40)}
+										<span>{d.id ?? `#${di + 1}`}</span> <span class="hint">{presetLabel(d)}</span> {String(Array.isArray(d.text) ? d.text[0] : d.text).slice(0, 40)}
 									</button>
 								</li>
 							{/each}
 						</ul>
-						<button class="secondary" onclick={() => addDialog()}><Icon name="plus" /> {m['creator.add_text_box']()}</button>
+						<button class="secondary" class:active={pickingPreset} aria-expanded={pickingPreset} onclick={() => (pickingPreset = !pickingPreset)} data-testid="add-text"><Icon name="plus" /> {m['creator.add_text_box']()}</button>
+						{#if pickingPreset}
+							<TextPresetPicker
+								image={activeSlice.image ? asset(`${toon}/${activeSlice.image}`) : ''}
+								ratio={activeSlice.width > 0 && activeSlice.height > 0 ? activeSlice.height / activeSlice.width : SLICE_RATIO}
+								lang={displayLocale}
+								onpick={(preset) => addDialog(undefined, preset)}
+							/>
+						{/if}
 						{#if selection?.kind === 'dialog' && sliceDialogs[selection.index]}
 							<hr />
 							<DialogInspector

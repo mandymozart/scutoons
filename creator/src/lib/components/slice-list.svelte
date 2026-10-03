@@ -101,7 +101,7 @@
 				<span class="info">
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">
-						{#if count(slice, 'dialog')}<span title="text boxes">T{count(slice, 'dialog')}</span>{/if}
+						{#if count(slice, 'dialog')}<span title="texts">T{count(slice, 'dialog')}</span>{/if}
 						{#if slice?.audio}<span title="audio"><Icon name="music" label="audio" /></span>{/if}
 						{#if count(slice, 'events')}<span title="events"><Icon name="zap" label="events" />{count(slice, 'events')}</span>{/if}
 					</span>

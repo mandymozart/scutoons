@@ -38,7 +38,7 @@
 		slicePath: Path;
 		/** the locale shown (text + its geometry) */
 		locale: string;
-		/** snap step in px of the slice's 1x size (0 = off; owner 2026-10-03: the 16 px Figma base grid = 1rem) */
+		/** snap step in px of the slice's 1x size (0 = off; owner 2026-10-03: the slices' 15 px base grid) */
 		grid?: number;
 		tool?: Tool;
 		selection?: CanvasSelection | null;

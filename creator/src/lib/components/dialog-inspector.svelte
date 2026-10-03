@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { DIALOG_TAILS, getAt, type Path } from '@scutoons/content';
+	import { getAt, type Path } from '@scutoons/content';
+	import { TEXT_PRESETS, applyTextPreset, matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
@@ -19,26 +20,16 @@
 	const dialog = $derived(doc.get(doc.primary, path));
 	const variant = $derived(dialog?.variant ?? 'bubble');
 	const boxed = $derived(variant === 'caption' || variant === 'narration');
-	/** a drawn speech bubble (bubble + frame) */
-	const drawnBubble = $derived(variant === 'bubble' && dialog?.frame === true);
-	/** a wobbly (shout) bubble has no tail by default, an oval one bottom-left */
-	const defaultTail = $derived(dialog?.shape === 'wobbly' ? 'none' : 'bottom-left');
 	const p = (...keys: (string | number)[]) => [...path, ...keys];
+	/** the preset the look matches (none = changed by hand) */
+	const preset = $derived(matchTextPreset(dialog));
 
-	const VARIANTS = $derived([
-		{ value: 'bubble', label: m['creator.variant_bubble']() },
-		{ value: 'caption', label: m['creator.variant_caption']() },
-		{ value: 'narration', label: m['creator.variant_narration']() }
-	]);
-
-	/** the variant, in every locale; a bubble on text-free art gets its drawn shape (frame) right away */
-	function setVariant(next: string) {
+	/** a preset's look, in every locale (words, id, position and size stay; owner 2026-10-03) */
+	function setPreset(next: TextPreset) {
 		doc.structural((file) => {
 			const d = getAt(file, path);
-			if (!d) return;
-			d.variant = next;
-			if (next === 'bubble' && d.frame === undefined) d.frame = true;
-		}, `${path.join('.')}.variant`);
+			if (d) applyTextPreset(d, next);
+		}, `${path.join('.')}.preset`);
 	}
 
 </script>
@@ -48,6 +39,13 @@
 		<div class="row head">
 			<h3>{m['creator.text_boxes']()} · {dialog.id ?? '–'}</h3>
 			{#if onremove}<button class="secondary" onclick={onremove}>{m['creator.remove']()}</button>{/if}
+		</div>
+
+		<!-- the look: one of the presets (owner 2026-10-03); the fields below fine-tune it -->
+		<div class="seg presets" role="group" aria-label={m['creator.preset']()}>
+			{#each TEXT_PRESETS as t (t.id)}
+				<button type="button" class="ghost" class:active={preset === t.id} aria-pressed={preset === t.id} onclick={() => setPreset(t)} data-testid="dialog-preset-{t.id}">{m[`creator.preset_${t.id}`]()}</button>
+			{/each}
 		</div>
 
 		<LocaleText {doc} path={p('text')} rows={4} />
@@ -61,12 +59,6 @@
 
 		<div class="grid g3">
 			<PropField {doc} path={p('id')} label="id" placeholder="s1c2-3-1" />
-			<div class="field">
-				<label for="variant-{path.join('-')}">variant</label>
-				<select id="variant-{path.join('-')}" value={dialog.variant ?? 'bubble'} onchange={(e) => setVariant(e.currentTarget.value)} data-testid="dialog-variant">
-					{#each VARIANTS as v (v.value)}<option value={v.value}>{v.label}</option>{/each}
-				</select>
-			</div>
 			<PropField {doc} path={p('size')} label="size (% width)" type="number" placeholder="4" />
 			<PropField {doc} path={p('align')} label="align" type="select" options={['left', 'center', 'right']} placeholder={boxed ? 'left' : 'center'} />
 			<PropField {doc} path={p('valign')} label="valign" type="select" options={['top', 'middle', 'bottom']} placeholder="middle" />
@@ -81,13 +73,7 @@
 				<PropField {doc} path={p('strokeWidth')} label={m['creator.text_outline_width']()} type="number" step={0.02} min={0} placeholder="0.14" />
 			{/if}
 			{#if boxed}
-				<PropField {doc} path={p('frame')} label="frame" type="bool" placeholder="true" />
-			{:else if variant === 'bubble'}
-				<PropField {doc} path={p('frame')} label={m['creator.bubble_frame']()} type="bool" placeholder="false" />
-				{#if drawnBubble}
-					<PropField {doc} path={p('shape')} label={m['creator.bubble_shape']()} type="select" options={[{ value: 'wobbly', label: m['creator.bubble_shape_wobbly']() }]} placeholder={m['creator.bubble_shape_oval']()} />
-					<PropField {doc} path={p('tail')} label={m['creator.bubble_tail']()} type="select" options={DIALOG_TAILS.filter((t) => t !== defaultTail)} placeholder={defaultTail} />
-				{/if}
+				<PropField {doc} path={p('frame')} label={m['creator.text_box_frame']()} type="bool" placeholder="true" />
 			{/if}
 		</div>
 
@@ -106,6 +92,12 @@
 {/if}
 
 <style>
+	/* the presets: one segmented control, the matching one inverted */
+	.presets {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr));
+		border: var(--border-width-regular) solid var(--ink);
+	}
 	.inspector {
 		display: flex;
 		flex-direction: column;
@@ -131,20 +123,5 @@
 	}
 	summary {
 		margin-bottom: var(--space-05);
-	}
-	/* the variant select (its own change handler) – laid out like a PropField */
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-025);
-		min-width: 0;
-	}
-	.field label {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		font-weight: var(--font-weight-regular);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-		color: var(--ink);
 	}
 </style>
