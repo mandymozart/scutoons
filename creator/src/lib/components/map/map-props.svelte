@@ -23,7 +23,6 @@
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import {
-		cdnFolder,
 		cdnHas,
 		cdnSize,
 		editMap,
@@ -36,6 +35,7 @@
 		routesThrough
 	} from '$lib/editor/map.ts';
 	import LocaleMapField from '../credits/locale-map-field.svelte';
+	import MediaSlot from '../media-slot.svelte';
 	import type { MapSelection } from './map-canvas.svelte';
 
 	/**
@@ -50,7 +50,8 @@
 		toons,
 		languages,
 		publishedIds,
-		onselect
+		onselect,
+		bust = 0
 	}: {
 		doc: ContentDoc;
 		map: WorldMap;
@@ -60,6 +61,8 @@
 		/** ids in the published map (fixed: events reference them) */
 		publishedIds: { places: Set<string>; routes: Set<string> };
 		onselect: (selection: MapSelection) => void;
+		/** set after an import (a timestamp): the place image's preview loads again */
+		bust?: number;
 	} = $props();
 
 	const locale = $derived(getLocale());
@@ -163,17 +166,6 @@
 	}
 
 	// ── image ────────────────────────────────────────────────────────────────────────────────────────────────
-	/** the place illustrations' folder (owner 2026-10-01): `<toon>/map/places/` (`scutoons/…` for a shared place) */
-	let folder = $state('');
-	$effect(() => {
-		if (place) folder = placeImagePath(place).replace(/[^/]+$/, '');
-	});
-	let folderFiles = $state<string[] | null>(null);
-	let browsing = $state(false);
-	async function browse() {
-		browsing = !browsing;
-		if (browsing) folderFiles = await cdnFolder(folder);
-	}
 	let natural = $state<{ w: number; h: number } | null>(null);
 	let imageState = $state<{ missing: boolean; kb: number | null }>({ missing: false, kb: null });
 	$effect(() => {
@@ -188,7 +180,7 @@
 			if (place?.image?.src === src) imageState = { ...imageState, kb: bytes === null ? null : Math.round(bytes / 1024) };
 		});
 	});
-	function setImage(src: string) {
+	function setImage(src: string | undefined) {
 		if (!place) return;
 		editPlace(doc, place.id, (p) => {
 			if (!src) delete p.image;
@@ -346,27 +338,14 @@
 
 		<fieldset data-testid="place-image">
 			<legend>{m['creator.map_image']()}</legend>
-			<input type="text" value={place.image?.src ?? ''} placeholder={placeImagePath(place)} onchange={(e) => setImage(e.currentTarget.value.trim())} aria-label={m['creator.map_image']()} data-testid="place-image-path" />
-			<div class="row">
-				<label class="field"><span>{m['creator.map_image_folder']()}</span><input type="text" bind:value={folder} /></label>
-				<button type="button" class="ghost" onclick={browse} aria-expanded={browsing}>{folderFiles ? m['creator.map_image_browse']({ count: folderFiles.length }) : '…'}</button>
-			</div>
-			{#if browsing}
-				{#if folderFiles?.length}
-					<ul class="grid">
-						{#each folderFiles as f (f)}
-							<li><button type="button" class="thumb" data-control-exempt="image thumbnail card" class:current={f === place.image?.src} title={f} onclick={() => setImage(f)}><img src={asset(f)} alt="" loading="lazy" /><span>{f.split('/').pop()}</span></button></li>
-						{/each}
-					</ul>
-				{:else}
-					<p class="hint">{m['creator.map_image_none']()}</p>
-				{/if}
-			{/if}
+			<!-- a slot with the asset picker (owner 2026-10-03); uploads go to the place illustrations' folder (`<toon>/map/places/`) -->
+			<span title={place.image?.src || placeImagePath(place)}>
+				<MediaSlot toon="" value={place.image?.src || undefined} label={place.image?.src ? (place.image.src.split('/').pop() ?? '') : placeImagePath(place).split('/').pop() ?? ''} place={placeImagePath(place).replace(/[^/]+$/, '')} {bust} onchange={setImage} testid="place-image-slot" />
+			</span>
 			{#if place.image?.src}
 				<p class="hint">
 					{#if imageState.missing}<span class="bad">{m['creator.map_image_missing']()}</span>{/if}
-					{#if natural}{natural.w} × {natural.h} px{/if}
-					{#if imageState.kb !== null} · {imageState.kb} KB{/if}
+					{#if imageState.kb !== null}{imageState.kb} KB{/if}
 					{#if imageState.kb !== null && imageState.kb > 60}<span class="warn"> · {m['creator.map_image_large']({ kb: imageState.kb })}</span>{/if}
 					{#if blurry}<span class="warn"> · {m['creator.map_image_blurry']({ px: size * 2 })}</span>{/if}
 				</p>
@@ -385,20 +364,19 @@
 					onpointerup={() => (anchorDrag = false)}
 					data-testid="place-anchor"
 				>
-					<img src={asset(place.image.src)} alt="" draggable="false" onload={(e) => { const img = e.currentTarget as HTMLImageElement; natural = { w: img.naturalWidth, h: img.naturalHeight }; }} />
+					<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" draggable="false" onload={(e) => { const img = e.currentTarget as HTMLImageElement; natural = { w: img.naturalWidth, h: img.naturalHeight }; }} />
 					<span class="cross" style:left="{anchor.x}%" style:top="{anchor.y}%"></span>
 				</div>
 				<span class="lbl">{m['creator.map_image_previews']()}</span>
 				<div class="previews">
 					{#each [0.5, 1, 2] as z (z)}
 						<div class="preview" style:height="{size * z * 1.1 + 12}px">
-							<img src={asset(place.image.src)} alt="" style:width="{size * z}px" style:left="calc(50% - {size * z * (anchor.x / 100)}px)" style:bottom="{6 + size * z * ((100 - anchor.y) / 100) * (natural ? natural.h / natural.w : 1)}px" />
+							<img src={asset(place.image.src) + (bust ? `?v=${bust}` : '')} alt="" style:width="{size * z}px" style:left="calc(50% - {size * z * (anchor.x / 100)}px)" style:bottom="{6 + size * z * ((100 - anchor.y) / 100) * (natural ? natural.h / natural.w : 1)}px" />
 							<span class="dot"></span>
 							<span class="z">{z * 100} %</span>
 						</div>
 					{/each}
 				</div>
-				<button type="button" class="ghost" onclick={() => setImage('')}>{m['creator.map_image_remove']()}</button>
 			{/if}
 		</fieldset>
 
@@ -562,42 +540,6 @@
 	}
 	.danger {
 		align-self: flex-start;
-	}
-	.grid {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(4.5rem, 1fr));
-		gap: 0.25rem;
-		max-height: 14rem;
-		overflow: auto;
-	}
-	.thumb {
-		all: unset;
-		box-sizing: border-box;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		width: 100%;
-		padding: 0.2rem;
-		border: 1px solid var(--border-subtle);
-		cursor: pointer;
-		font-size: var(--type-caption-size);
-	}
-	.thumb.current {
-		border: 2px solid var(--ink);
-	}
-	.thumb img {
-		width: 100%;
-		height: 3rem;
-		object-fit: contain;
-	}
-	.thumb span {
-		max-width: 100%;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
 	}
 	.checker {
 		background-color: #fff;
