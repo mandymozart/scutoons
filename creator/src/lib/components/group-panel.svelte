@@ -3,7 +3,6 @@
 	import type { Path } from '@scutoons/content';
 	import { Renderer } from '@scutoons/content';
 	import PropField from './prop-field.svelte';
-	import { sceneLabel } from '$lib/labels.ts';
 
 	/** Group settings: label, renderer type + params. For ref groups the doc is the referenced scene. */
 	let { doc, groupPath, refSrc = null, toon = '' }: { doc: ContentDoc; groupPath: Path; refSrc?: string | null; toon?: string } = $props();
@@ -14,7 +13,8 @@
 </script>
 
 <section class="group-panel" data-testid="group-panel">
-	<h3>Group {group?.label ?? ''}{#if refSrc}<span class="ref"> · {sceneLabel(toon, refSrc)}</span>{/if}</h3>
+	<!-- the label is the name; the scene's storage key is an internal ID (owner 2026-10-03) -->
+	<h3>Group {group?.label ?? ''}</h3>
 	<div class="grid g3">
 		<PropField {doc} path={p('label')} label="label (?label=, jumpTo)" />
 		<PropField {doc} path={p('renderer', 'type')} label="renderer" type="select" options={Object.values(Renderer)} required />
@@ -41,10 +41,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-	}
-	.ref {
-		color: var(--muted);
-		font-weight: 400;
 	}
 	.grid {
 		display: grid;
