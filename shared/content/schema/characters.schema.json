@@ -63,12 +63,6 @@
 					},
 					"description": "search words"
 				},
-				"artwork": {
-					"type": "array",
-					"items": {
-						"$ref": "#/definitions/CharacterArtwork"
-					}
-				},
 				"apose": {
 					"$ref": "#/definitions/CharacterApose",
 					"description": "the reader's avatar body (character level – the persona doesn't matter)"
@@ -95,27 +89,6 @@
 				"type": "string"
 			},
 			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
-		},
-		"CharacterArtwork": {
-			"type": "object",
-			"properties": {
-				"id": {
-					"type": "string",
-					"description": "`^[a-z0-9][a-z0-9-]*$`, unique per character"
-				},
-				"path": {
-					"type": "string",
-					"description": "CDN path from the CDN root"
-				},
-				"label": {
-					"$ref": "#/definitions/LocaleText"
-				}
-			},
-			"required": [
-				"id",
-				"path"
-			],
-			"description": "Character artwork that is not an expression (key visuals, reference images …)."
 		},
 		"CharacterApose": {
 			"type": "object",

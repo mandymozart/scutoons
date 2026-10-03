@@ -17,22 +17,26 @@
 		label,
 		place = '',
 		onchange,
-		testid
+		testid,
+		bust = 0
 	}: {
+		/** the toon folder ('' = paths from the CDN root, e.g. the character registry's) */
 		toon: string;
-		/** toon-relative path, e.g. s1/c2/s1c2-key-visual.webp */
+		/** toon-relative path, e.g. s1/c2/s1c2-key-visual.webp (from the CDN root without a toon) */
 		value: string | undefined;
 		kind?: 'image' | 'video';
 		label: string;
 		place?: string;
 		onchange: (path: string | undefined) => void;
 		testid?: string;
+		/** set after the file got new bytes at the same path (a timestamp): the preview loads again */
+		bust?: number;
 	} = $props();
 
 	let open = $state(false);
 	let size = $state<{ w: number; h: number } | null>(null);
 	let failed = $state(false);
-	const src = $derived(value ? asset(`${toon}/${value}`) : '');
+	const src = $derived(value ? asset(toon ? `${toon}/${value}` : value) + (bust ? `?v=${bust}` : '') : '');
 
 	$effect(() => {
 		void value;

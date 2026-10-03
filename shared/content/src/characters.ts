@@ -9,7 +9,7 @@
 //   <toon>/_/cast.json              ToonCast          – per season: which characters, with which personas
 //
 // Hierarchy (owner, 2026-09-30): Character → Persona → Look → Mood × View.
-//   Character – the being. Identity-level: name, description, color, voiced_by, tags, artwork, the A-pose.
+//   Character – the being. Identity-level: name, description, color, voiced_by, tags, the A-pose.
 //   Persona   – a different identity or role of the same being (Cat Pope's `human`, `cat`, `biker`). Nested in the
 //               character; every character has the persona `regular`. Changes who they are in the story.
 //   Look      – the appearance right now: outfit, gear, accessories; can change within a scene (helmet on/off), one
@@ -346,15 +346,6 @@ export const APOSE_LOOKS: { id: string; label: LocaleText; sensitive?: boolean }
 	{ id: 'naked', label: { de: 'nackt', en: 'naked' }, sensitive: true }
 ];
 
-/** Character artwork that is not an expression (key visuals, reference images …). */
-export interface CharacterArtwork {
-	/** `^[a-z0-9][a-z0-9-]*$`, unique per character */
-	id: string;
-	/** CDN path from the CDN root */
-	path: string;
-	label?: LocaleText;
-}
-
 /** One character of the registry. Image values are CDN paths from the CDN root (`catpope/images/characters/…`). */
 export interface RegistryCharacter {
 	/** stable id, referenced by casts and by VN events – `^[a-z0-9][a-z0-9-]*$` */
@@ -377,7 +368,6 @@ export interface RegistryCharacter {
 	voiced_by?: string;
 	/** search words */
 	tags?: string[];
-	artwork?: CharacterArtwork[];
 	/** the reader's avatar body (character level – the persona doesn't matter) */
 	apose?: CharacterApose;
 	/** `regular` first */
@@ -473,27 +463,68 @@ export function conventionImagePath(character: string, view: string, mood: strin
 	return `${CHARACTER_IMAGE_ROOT}/${name}/${name}${lookPart}_${view}-${mood}.webp`;
 }
 
+/** Where a delivered file goes (`matchCharacterImageFile`). */
+export type CharacterFileSlot =
+	| { kind: 'expression'; persona: string; look: string; newLook: boolean; view: CharacterImageVariant; mood: string; path: string }
+	| { kind: 'apose'; look: string; path: string }
+	| { kind: 'transition'; persona: string; from: string; to: string; path: string }
+	| { kind: 'unknown'; reason: 'no-slot' | 'other-character' | 'unknown-persona' | 'unknown-look'; name?: string };
+
 /**
- * The slot a delivered file is for, by the convention name (owner 2026-10-03: "files with matching file names should be
- * mapped onto slots"): `boy_portrait-neutral.png` → { view: portrait, mood: neutral }, `boy_helmet_full-happy.png` → look
- * `helmet`. Case and the extension don't matter; the name may be left out (`portrait-neutral.png`). `look` is null when the
- * name has none, `other` is set when the name is another character's / persona's; null = no view-mood in the name.
+ * The slot of a character a delivered file is for, by the convention name (owner 2026-10-03: "the import should work
+ * for the entire character set – re-uploading replaces what is there"); case and extension don't matter:
+ *   `boy_portrait-neutral.png`, `boy_helmet_full-happy.png`, `catpope-biker_avatar-sad.png` → an expression of that
+ *     persona / look (no look part = the `default` look, else the persona's default look; a look the persona lacks is
+ *     `newLook`; the name may be left out for the regular persona: `portrait-neutral.png`)
+ *   `boy_apose-swim.png` → an A-pose look (character level)
+ *   `boy_transition-helmet-to-default.png`, `catpope-biker_transition-…` → a transition (both looks must exist)
+ * `path` is where the WebP goes (the convention path). Anything else: `unknown` with the reason.
  */
-export function parseConventionImageName(
-	file: string,
-	character: string,
-	persona: string = REGULAR_PERSONA
-): { view: CharacterImageVariant; mood: string; look: string | null; other?: string } | null {
+export function matchCharacterImageFile(file: string, character: Pick<RegistryCharacter, 'id' | 'personas'>): CharacterFileSlot {
 	const stem = file.split(/[\/]/).pop()!.toLowerCase().replace(/\.[a-z0-9]+$/, '');
-	const found = stem.match(new RegExp(`^(.*?)(?:^|_)(${CHARACTER_IMAGE_VARIANTS.join('|')})-([a-z][a-z0-9-]*)$`));
-	if (!found) return null;
-	const [, prefix, view, mood] = found;
-	const name = conventionName(character, persona).toLowerCase();
-	const slot = { view: view as CharacterImageVariant, mood, look: null as string | null };
-	if (!prefix) return slot;
-	if (prefix === name) return slot;
-	if (prefix.startsWith(`${name}_`) && prefix.length > name.length + 1) return { ...slot, look: prefix.slice(name.length + 1) };
-	return { ...slot, other: prefix };
+	const id = character.id.toLowerCase();
+	const personas = [...(character.personas ?? [])].filter((p) => p?.id).sort((a, b) => conventionName(id, b.id).length - conventionName(id, a.id).length);
+	/** the persona whose convention name starts the prefix, and what follows it */
+	const personaOf = (prefix: string): { persona: CharacterPersona; rest: string } | CharacterFileSlot => {
+		for (const p of personas) {
+			const name = conventionName(id, p.id).toLowerCase();
+			if (prefix === name) return { persona: p, rest: '' };
+			if (prefix.startsWith(`${name}_`)) return { persona: p, rest: prefix.slice(name.length + 1) };
+		}
+		if (prefix.startsWith(`${id}-`)) return { kind: 'unknown', reason: 'unknown-persona', name: prefix.slice(id.length + 1).split('_')[0] };
+		return { kind: 'unknown', reason: 'other-character', name: prefix.split(/[_-]/)[0] };
+	};
+	const apose = stem.match(/^(.+)_apose-([a-z0-9][a-z0-9-]*)$/);
+	if (apose) {
+		if (apose[1] !== id) return { kind: 'unknown', reason: 'other-character', name: apose[1] };
+		return { kind: 'apose', look: apose[2], path: aposeConventionPath(character.id, apose[2]) };
+	}
+	const transition = stem.match(/^(.+)_transition-([a-z0-9][a-z0-9-]*?)-to-([a-z0-9][a-z0-9-]*)$/);
+	if (transition) {
+		const found = personaOf(transition[1]);
+		if ('kind' in found) return found;
+		if (found.rest) return { kind: 'unknown', reason: 'no-slot' };
+		const [, , from, to] = transition;
+		const missing = [from, to].find((l) => !findLook(found.persona, l));
+		if (missing) return { kind: 'unknown', reason: 'unknown-look', name: missing };
+		return { kind: 'transition', persona: found.persona.id, from, to, path: conventionTransitionPath(character.id, found.persona.id, from, to) };
+	}
+	const expression = stem.match(new RegExp(`^(?:(.*)_)?(${CHARACTER_IMAGE_VARIANTS.join('|')})-([a-z][a-z0-9-]*)$`));
+	if (!expression) return { kind: 'unknown', reason: 'no-slot' };
+	const [, prefix = '', view, mood] = expression;
+	const found = prefix ? personaOf(prefix) : personas.find((p) => p.id === REGULAR_PERSONA) ? { persona: findPersona(character, REGULAR_PERSONA)!, rest: '' } : null;
+	if (!found) return { kind: 'unknown', reason: 'unknown-persona', name: REGULAR_PERSONA };
+	if ('kind' in found) return found;
+	const look = found.rest || (findLook(found.persona, DEFAULT_LOOK) ? DEFAULT_LOOK : defaultLookId(found.persona));
+	return {
+		kind: 'expression',
+		persona: found.persona.id,
+		look,
+		newLook: !findLook(found.persona, look),
+		view: view as CharacterImageVariant,
+		mood,
+		path: conventionImagePath(character.id, view, mood, look, found.persona.id)
+	};
 }
 
 /** `characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.webp` (delivered as PNG, see above) */
@@ -1254,21 +1285,6 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 		if (c.own_toon !== undefined && (!isStr(c.own_toon) || (ctx.toons && !ctx.toons.includes(c.own_toon)))) add('warning', [...path, 'own_toon'], `${who}: unknown own toon "${c.own_toon}"`);
 		if (c.voiced_by !== undefined && (!isStr(c.voiced_by) || (ctx.people && !ctx.people.includes(c.voiced_by)))) add('error', [...path, 'voiced_by'], `${who}: voiced by an unknown person "${c.voiced_by}"`);
 		if (c.tags !== undefined && !(Array.isArray(c.tags) && c.tags.every(isStr))) add('error', [...path, 'tags'], `${who}: tags must be a list of texts`);
-		if (c.artwork !== undefined) {
-			if (!Array.isArray(c.artwork)) add('error', [...path, 'artwork'], `${who}: artwork must be a list`);
-			else {
-				const ids = new Set<string>();
-				c.artwork.forEach((a: any, j: number) => {
-					const ap: Path = [...path, 'artwork', j];
-					if (!isObj(a)) return add('error', ap, `${who}: artwork ${j + 1} must be { id, path, label? }`);
-					if (!isStr(a.id) || !CHARACTER_ID.test(a.id)) add('error', [...ap, 'id'], `${who}: artwork ${j + 1}: id must match ${CHARACTER_ID.source}`);
-					else if (ids.has(a.id)) add('error', [...ap, 'id'], `${who}: artwork id "${a.id}" is used twice`);
-					else ids.add(a.id);
-					if (!isStr(a.path) || !IMAGE_PATH.test(a.path)) add('warning', [...ap, 'path'], `${who}: artwork ${a.id ?? j + 1} must be a CDN image path`);
-					checkText(add, a.label, [...ap, 'label'], `${who}: artwork ${a.id ?? j + 1} label`, languages);
-				});
-			}
-		}
 
 		// the A-pose (avatar body): its own looks, one default, image + anchors
 		if (c.apose !== undefined) {

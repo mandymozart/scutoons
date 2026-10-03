@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Badge, Icon } from '@scutoons/ui';
 	import {
 		AUTHORED_VIEW,
@@ -11,7 +12,6 @@
 		lookMoods,
 		lookPortraitMoods,
 		moodLabel,
-		parseConventionImageName,
 		sortedMoods,
 		type AssetRequest,
 		type AssetRequests,
@@ -20,7 +20,6 @@
 		type RegistryCharacter
 	} from '@scutoons/content';
 	import { imageExists, recheckImages, isKnownMissing } from '$lib/editor/characters.ts';
-	import { toWebp, uploadOrReplace } from '$lib/editor/media-upload.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import AssetDialog from './asset-dialog.svelte';
@@ -41,7 +40,8 @@
 		locale,
 		onset,
 		onrequest,
-		onaddmood
+		onaddmood,
+		bust = 0
 	}: {
 		character: RegistryCharacter;
 		persona: string;
@@ -54,6 +54,8 @@
 		onrequest: (mood: string, view: string, note: string) => void;
 		/** a mood for this look (added to the vocabulary when it is new) */
 		onaddmood: (mood: string, label: string) => void;
+		/** set after an import (a timestamp): previews and the CDN check load again */
+		bust?: number;
 	} = $props();
 
 	/** CDN check per path: true found, false missing, undefined pending */
@@ -125,56 +127,11 @@
 		status = {};
 		round++;
 	}
-	// ── import: delivered files onto their slots by the convention name (owner 2026-10-03) ─────────────────────────────
-	let importInput = $state<HTMLInputElement>();
-	let importing = $state<{ done: number; total: number } | null>(null);
-	let importSummary = $state('');
-	let importProblems = $state<string[]>([]);
 	/** after an import the same paths may hold new bytes: the previews load them again */
-	let bust = $state(0);
 	const src = (path: string) => asset(path) + (bust ? `?v=${bust}` : '');
-
-	/**
-	 * "Import images …": each file whose name says its slot (`<character>[-<persona>][_<look>]_<view>-<mood>`, e.g.
-	 * `boy_portrait-neutral.png`) goes to this look's slot as WebP at its own size (no density variants) under the
-	 * convention path; a file already there gets the new bytes (a new version, the CDN purged). A new mood is added to the
-	 * vocabulary. Names for another character / persona / look are reported, not guessed.
-	 */
-	async function importImages(event: Event) {
-		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
-		if (importInput) importInput.value = '';
-		if (!files.length) return;
-		importProblems = [];
-		importSummary = '';
-		const counts = { uploaded: 0, replaced: 0, unchanged: 0 };
-		importing = { done: 0, total: files.length };
-		for (const file of files) {
-			const slot = parseConventionImageName(file.name, character.id, persona);
-			try {
-				if (!slot) throw new Error(m['creator.characters_import_no_slot']({ example: conventionImagePath(character.id, AUTHORED_VIEW, DEFAULT_MOOD, look.id, persona).split('/').pop()!.replace(/\.webp$/, '.png') }));
-				if (slot.other) throw new Error(m['creator.characters_import_other']({ name: slot.other }));
-				if (slot.look && slot.look !== look.id) throw new Error(m['creator.characters_import_other_look']({ look: slot.look }));
-				const bitmap = await createImageBitmap(file);
-				let blob: Blob;
-				try {
-					blob = (await toWebp(bitmap)).blob;
-				} finally {
-					bitmap.close();
-				}
-				const path = conventionImagePath(character.id, slot.view, slot.mood, look.id, persona);
-				counts[await uploadOrReplace(blob, path, 'character import')]++;
-				if (!moods.moods.some((x) => x.id === slot.mood)) onaddmood(slot.mood, slot.mood);
-				onset(slot.mood, slot.view, path);
-			} catch (e) {
-				importProblems = [...importProblems, `${file.name}: ${e instanceof Error ? e.message : String(e)}`];
-			}
-			importing = { done: importing.done + 1, total: files.length };
-		}
-		importing = null;
-		importSummary = m['creator.characters_import_summary'](counts);
-		bust = Date.now();
-		recheck();
-	}
+	$effect(() => {
+		if (bust) untrack(recheck);
+	});
 
 	const stateOf = (c: ReturnType<typeof cell>) =>
 		c.path ? (status[c.path] === true ? 'found' : status[c.path] === false ? 'missing' : 'pending') : status[c.convention] === true ? 'available' : 'empty';
@@ -191,14 +148,8 @@
 			<label class="check"><input type="checkbox" bind:checked={showStandard} data-testid="show-standard" /> {m['creator.characters_show_standard']()}</label>
 			<label class="check"><input type="checkbox" bind:checked={allViews} data-testid="all-views" /> {m['creator.characters_all_views']()}</label>
 			<button type="button" class="ghost" onclick={recheck}>{m['creator.characters_recheck']()}</button>
-			<button type="button" class="secondary" disabled={!!importing} onclick={() => importInput?.click()} title={m['creator.characters_import_hint']()} data-testid="character-import">
-				{importing ? m['creator.import_slices_progress']({ done: importing.done, total: importing.total }) : m['creator.characters_import']()}
-			</button>
-			<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} />
 		</span>
 	</div>
-	{#if importSummary}<p class="sc-caption" role="status">{importSummary}</p>{/if}
-	{#each importProblems as problem}<p class="error" role="alert">{problem}</p>{/each}
 	<div class="grid" class:all={allViews} role="grid">
 		{#each rowMoods as mood (mood)}
 			<div class="mood-row" role="row" data-mood={mood}>

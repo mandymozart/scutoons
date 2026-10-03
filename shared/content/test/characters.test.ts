@@ -3,7 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-	parseConventionImageName,
+	matchCharacterImageFile,
 	castIndex,
 	chapterSceneCharacters,
 	ensureStar,
@@ -409,13 +409,27 @@ test('media requests (view "media"): toon media without a character – listed, 
 	assert.equal(requests.requests[1].status, 'done');
 });
 
-test('parseConventionImageName maps a delivered file onto its slot', () => {
-	assert.deepEqual(parseConventionImageName('boy_portrait-neutral.png', 'boy'), { view: 'portrait', mood: 'neutral', look: null });
-	assert.deepEqual(parseConventionImageName('Boy_Avatar-Neutral.PNG', 'boy'), { view: 'avatar', mood: 'neutral', look: null });
-	assert.deepEqual(parseConventionImageName('boy_helmet_full-very-happy.webp', 'boy'), { view: 'full', mood: 'very-happy', look: 'helmet' });
-	assert.deepEqual(parseConventionImageName('portrait-sad.png', 'boy'), { view: 'portrait', mood: 'sad', look: null });
-	assert.deepEqual(parseConventionImageName('catpope-human_portrait-neutral.png', 'catpope', 'human'), { view: 'portrait', mood: 'neutral', look: null });
-	assert.deepEqual(parseConventionImageName('crows_portrait-neutral.png', 'boy'), { view: 'portrait', mood: 'neutral', look: null, other: 'crows' });
-	assert.equal(parseConventionImageName('boy.png', 'boy'), null);
-	assert.equal(parseConventionImageName('boy_side-neutral.png', 'boy'), null);
+test('matchCharacterImageFile maps a delivered file onto its slot of the whole character', () => {
+	const boy = {
+		id: 'boy',
+		personas: [
+			{ id: 'regular', looks: [{ id: 'default', default: true, images: {} }, { id: 'helmet', images: {} }] },
+			{ id: 'biker', looks: [{ id: 'jacket', default: true, images: {} }] }
+		]
+	} as never;
+	const match = (file: string) => matchCharacterImageFile(file, boy);
+	assert.deepEqual(match('boy_portrait-neutral.png'), { kind: 'expression', persona: 'regular', look: 'default', newLook: false, view: 'portrait', mood: 'neutral', path: 'characters/boy/boy_portrait-neutral.webp' });
+	assert.deepEqual(match('Boy_Avatar-Neutral.PNG'), { kind: 'expression', persona: 'regular', look: 'default', newLook: false, view: 'avatar', mood: 'neutral', path: 'characters/boy/boy_avatar-neutral.webp' });
+	assert.equal((match('portrait-sad.png') as { mood: string }).mood, 'sad');
+	assert.deepEqual(match('boy_helmet_full-very-happy.webp'), { kind: 'expression', persona: 'regular', look: 'helmet', newLook: false, view: 'full', mood: 'very-happy', path: 'characters/boy/boy_helmet_full-very-happy.webp' });
+	assert.deepEqual(match('boy_cap_portrait-neutral.png'), { kind: 'expression', persona: 'regular', look: 'cap', newLook: true, view: 'portrait', mood: 'neutral', path: 'characters/boy/boy_cap_portrait-neutral.webp' });
+	// a persona: its folder, its default look when the name has none
+	assert.deepEqual(match('boy-biker_portrait-sad.png'), { kind: 'expression', persona: 'biker', look: 'jacket', newLook: false, view: 'portrait', mood: 'sad', path: 'characters/boy-biker/boy-biker_jacket_portrait-sad.webp' });
+	assert.deepEqual(match('boy_apose-swim.png'), { kind: 'apose', look: 'swim', path: 'characters/boy/boy_apose-swim.webp' });
+	assert.deepEqual(match('boy_transition-helmet-to-default.png'), { kind: 'transition', persona: 'regular', from: 'helmet', to: 'default', path: 'characters/boy/boy_transition-helmet-to-default.webp' });
+	assert.deepEqual(match('boy_transition-cap-to-default.png'), { kind: 'unknown', reason: 'unknown-look', name: 'cap' });
+	assert.deepEqual(match('boy-pirate_portrait-neutral.png'), { kind: 'unknown', reason: 'unknown-persona', name: 'pirate' });
+	assert.deepEqual(match('crows_portrait-neutral.png'), { kind: 'unknown', reason: 'other-character', name: 'crows' });
+	assert.deepEqual(match('IMG_1234.png'), { kind: 'unknown', reason: 'no-slot' });
+	assert.deepEqual(match('boy_side-neutral.png'), { kind: 'unknown', reason: 'no-slot' });
 });
