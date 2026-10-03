@@ -27,7 +27,7 @@
 	import { addPlace, addRoute, cdnHas, editMap, editPlace, editRoute, ensureMap, insertWaypoint, mapDoc, mapOf } from '$lib/editor/map.ts';
 	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { toWebp, uploadOrReplace } from '$lib/editor/media-upload.ts';
+	import { toWebp, uploadOrReplace } from '@scutoons/media';
 	import MetaPage from '../meta-page.svelte';
 	import MapCanvas, { type MapSelection, type MapTool } from './map-canvas.svelte';
 	import MapProps from './map-props.svelte';

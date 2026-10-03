@@ -45,7 +45,7 @@
 		type ToonInfo
 	} from '$lib/editor/characters.ts';
 	import { getCreatorSession } from '$lib/session.svelte.ts';
-	import { toWebp, uploadOrReplace } from '$lib/editor/media-upload.ts';
+	import { toWebp, uploadOrReplace } from '@scutoons/media';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import LocaleMapField from '../credits/locale-map-field.svelte';

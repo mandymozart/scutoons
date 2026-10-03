@@ -4,7 +4,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SharedField from './shared-field.svelte';
-	import MediaSlot from './media-slot.svelte';
+	import { MediaSlot } from '@scutoons/media';
 
 	/**
 	 * The season's supporters (`supporters: [{ name, logo?, url? }]`, in order), the same in every language: the reader

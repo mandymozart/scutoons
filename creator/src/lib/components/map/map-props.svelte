@@ -35,7 +35,7 @@
 		routesThrough
 	} from '$lib/editor/map.ts';
 	import LocaleMapField from '../credits/locale-map-field.svelte';
-	import MediaSlot from '../media-slot.svelte';
+	import { MediaSlot } from '@scutoons/media';
 	import type { MapSelection } from './map-canvas.svelte';
 
 	/**

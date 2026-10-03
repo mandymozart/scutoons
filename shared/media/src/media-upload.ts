@@ -1,6 +1,7 @@
-// Browser-side media for the importers (slice import, character images): WebP encoding and "upload, else a new version".
+// Browser-side media for the importers (slice import, character images, map places): WebP encoding and "upload, else a
+// new version". The assets API is the app's (setupMedia).
 import { ApiError } from '@scutoons/api';
-import { assetsApi } from '$lib/api.ts';
+import { mediaAssets } from './setup.ts';
 
 const WEBP_QUALITY = 0.88;
 
@@ -27,12 +28,12 @@ export async function toWebp(bitmap: ImageBitmap, maxWidth = bitmap.width): Prom
  */
 export async function uploadOrReplace(blob: Blob, path: string, note?: string): Promise<'uploaded' | 'replaced' | 'unchanged'> {
 	try {
-		await assetsApi.upload(blob, path);
+		await mediaAssets().upload(blob, path);
 		return 'uploaded';
 	} catch (e) {
 		if (!(e instanceof ApiError && e.code === 'exists')) throw e;
 		try {
-			await assetsApi.replaceAt(blob, path, note);
+			await mediaAssets().replaceAt(blob, path, note);
 			return 'replaced';
 		} catch (again) {
 			if (again instanceof ApiError && again.code === 'unchanged') return 'unchanged';

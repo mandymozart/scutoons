@@ -4,7 +4,7 @@
 	import { confirmDialog } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { chapterFolder, chapterSlug } from '$lib/editor/defaults.ts';
-	import { toWebp, uploadOrReplace } from '$lib/editor/media-upload.ts';
+	import { toWebp, uploadOrReplace } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
