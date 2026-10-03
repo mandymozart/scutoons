@@ -188,6 +188,24 @@
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
 	cursor: pointer;
+	list-style: none;
+}
+/* every fold shows that it folds (owner 2026-10-03: "i often oversee them"): a Feather chevron before the label, turned
+   down while open – one rule for the whole tool (summary is flex, so the browser's own marker is gone) */
+:where(.sc-tool) :where(summary)::-webkit-details-marker {
+	display: none;
+}
+:where(.sc-tool) :where(summary)::before {
+	content: '';
+	flex: none;
+	width: 1em;
+	height: 1em;
+	background: currentColor;
+	mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.5' stroke-linecap='square'%3E%3Cpolyline points='9 6 15 12 9 18'/%3E%3C/svg%3E") center / contain no-repeat;
+	transition: transform var(--duration-base) var(--easing);
+}
+:where(.sc-tool) :where(details[open] > summary)::before {
+	transform: rotate(90deg);
 }
 
 /* ── Tables: roomy rows, uppercase regular headers on a 2px ink rule ────────────────────────────────────────────────── */

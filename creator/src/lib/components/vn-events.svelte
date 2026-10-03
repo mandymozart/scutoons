@@ -4,6 +4,7 @@
 	import { getAt, clone, type Path } from '@scutoons/content';
 	import { JumpToTargetType, OnomatopoeiaEffect, Trigger, TriggerMode } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import { ONO_PRESETS, applyOnoPreset, matchOnoPreset, type OnoPreset } from '$lib/editor/event-presets.ts';
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
 	import CharacterRefField, { type CharacterChoices } from './characters/character-ref-field.svelte';
@@ -82,6 +83,22 @@
 				return { type };
 		}
 	}
+
+	/** an onomatopoeia's preset (effect + timing), the text and mode / wait stay */
+	function setOnoPreset(index: number, preset: OnoPreset) {
+		doc.structural((file) => {
+			const event = getAt(file, [...eventsPath, index]);
+			if (!event) return;
+			event.params ??= {};
+			applyOnoPreset(event.params, preset);
+		}, `${eventsPath.join('.')}.${index}.ono-preset`);
+	}
+	/** the trigger in words (owner 2026-10-03) */
+	const TRIGGER_OPTIONS = $derived([
+		{ value: Trigger.CLICK, label: m['creator.trigger_click']() },
+		{ value: Trigger.HOVER, label: m['creator.trigger_hover']() },
+		{ value: Trigger.INTERSECT, label: m['creator.trigger_intersect']() }
+	]);
 
 	/** whole slice = no `trigger.rect`; off = a centred area to drag on the slice */
 	function setWholeSlice(index: number, whole: boolean) {
@@ -291,22 +308,32 @@
 						<button type="button" class="secondary" onclick={() => oncreatebox(i)} data-testid="ono-create-box">{m['creator.ono_create_box']()}</button>
 					{/if}
 				</div>
-				{#if box}<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>{/if}
-				<div class="grid g3">
-					<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
-					<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
-					<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
-					<PropField {doc} path={[...p, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="poly" />
-					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
-					<PropField
-						{doc}
-						path={[...p, 'params', 'stay']}
-						label={m['creator.ono_after']()}
-						type="select"
-						options={[{ value: false, label: m['creator.ono_disappears']() }]}
-						placeholder={m['creator.ono_stays']()}
-					/>
+				<!-- how it comes in: one preset (owner 2026-10-03); every timing field under Advanced -->
+				{@const ono = matchOnoPreset(event.params)}
+				<div class="seg presets" role="group" aria-label={m['creator.ono_preset']()}>
+					{#each ONO_PRESETS as preset (preset.id)}
+						<button type="button" class="ghost" class:active={ono === preset.id} aria-pressed={ono === preset.id} onclick={() => setOnoPreset(i, preset)} data-testid="ono-preset-{preset.id}">{m[`creator.ono_preset_${preset.id}`]()}</button>
+					{/each}
 				</div>
+				<details class="advanced">
+					<summary>{m['creator.advanced']()}</summary>
+					{#if box}<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>{/if}
+					<div class="grid g3">
+						<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
+						<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
+						<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
+						<PropField {doc} path={[...p, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="poly" />
+						<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
+						<PropField
+							{doc}
+							path={[...p, 'params', 'stay']}
+							label={m['creator.ono_after']()}
+							type="select"
+							options={[{ value: false, label: m['creator.ono_disappears']() }]}
+							placeholder={m['creator.ono_stays']()}
+						/>
+					</div>
+				</details>
 			{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 				{#each characterRows(i) as row, ci (ci)}
 					{@const looks = looksOf(row)}
@@ -333,8 +360,8 @@
 
 			{#if sliceEvents}
 				<div class="grid g3 trigger">
-					<PropField {doc} path={[...p, 'trigger', 'type']} label="trigger" type="select" options={Object.values(Trigger)} required />
-					<PropField {doc} path={[...p, 'trigger', 'once']} label="once" type="bool" placeholder="false" />
+					<PropField {doc} path={[...p, 'trigger', 'type']} label={m['creator.trigger']()} type="select" options={TRIGGER_OPTIONS} required />
+					<PropField {doc} path={[...p, 'trigger', 'once']} label={m['creator.trigger_once']()} type="bool" placeholder="false" />
 					<!-- area or the whole slice (no rect) – click, hover and intersect all take either (owner 2026-10-03) -->
 					<label class="whole" title={m['creator.event_whole_slice_hint']()}>
 						<input type="checkbox" checked={!event.trigger?.rect} onchange={(e) => setWholeSlice(i, e.currentTarget.checked)} data-testid="event-whole-{i}" />
@@ -373,8 +400,11 @@
 		gap: 0.4rem;
 		align-items: center;
 	}
+	/* the type select gives way, so the move / remove buttons stay inside a narrow inspector */
 	header select {
 		width: auto;
+		flex: 0 1 auto;
+		min-width: 0;
 	}
 	.idx {
 		font-weight: var(--font-weight-regular);
@@ -382,6 +412,7 @@
 	.tools {
 		margin-left: auto;
 		display: flex;
+		flex: none;
 	}
 	.grid {
 		display: grid;
@@ -405,6 +436,21 @@
 	.trigger {
 		border-top: 1px dashed var(--border-muted);
 		padding-top: 0.3rem;
+	}
+	/* presets: one segmented control, the matching one inverted */
+	.presets {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr));
+		border: var(--border-width-regular) solid var(--ink);
+	}
+	.advanced summary {
+		cursor: pointer;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+	}
+	.advanced[open] summary {
+		margin-bottom: var(--space-05);
 	}
 	.whole {
 		display: flex;

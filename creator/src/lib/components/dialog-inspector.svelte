@@ -50,6 +50,10 @@
 
 		<LocaleText {doc} path={p('text')} rows={4} />
 
+		<!-- the fine-tuning, folded (owner 2026-10-03: "where we have presets … an advanced collapsible"); position and size
+		     are usually set on the canvas -->
+		<details class="advanced" data-testid="dialog-advanced">
+		<summary>{m['creator.advanced']()}</summary>
 		<div class="grid g4">
 			<PropField {doc} path={p('rect', 'x')} label="x %" type="number" required />
 			<PropField {doc} path={p('rect', 'y')} label="y %" type="number" required />
@@ -77,6 +81,7 @@
 				<PropField {doc} path={p('frame')} label={m['creator.text_box_frame']()} type="bool" placeholder="true" />
 			{/if}
 		</div>
+		</details>
 
 		<!-- deprecated (owner 2026-10-03): the art is re-imported without baked text; only shown where a box still has a mask -->
 		{#if dialog.mask !== undefined}
@@ -93,6 +98,20 @@
 {/if}
 
 <style>
+	.advanced summary {
+		cursor: pointer;
+		font-size: var(--type-caption-size);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+	}
+	.advanced[open] > summary {
+		margin-bottom: var(--space-05);
+	}
+	.advanced[open] {
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-05);
+	}
 	/* the presets: one segmented control, the matching one inverted */
 	.presets {
 		display: grid;
