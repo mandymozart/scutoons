@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Guards shared/dev-ports.json as the single source of the local dev ports (part of the root `npm run check`):
 // - the apps' vite configs and the dev start-up code read it instead of hard-coding a port,
-// - the local URLs in the .env / config examples and the PLATFORM.md table match it.
+// - the local URLs in the .env / config examples, the docker/compose.yml defaults, server/phpunit.mysql.xml and the
+//   PLATFORM.md table match it.
 //   npm run check:ports
 import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -21,6 +22,8 @@ const CODE = [
 	...APPS.map((app) => `${app}/src/lib/config.ts`),
 	'scripts/dev/up.mjs',
 	'scripts/dev/launch-json.mjs',
+	'scripts/dev/db.mjs',
+	'scripts/dev/db-env.mjs',
 	'server/bin/dev-serve.mjs',
 	'server/composer.json',
 	'qr/composer.json',
@@ -56,7 +59,17 @@ for (const path of EXAMPLES) {
 	}
 }
 
-// 3. the readable table in agents/PLATFORM.md "Local dev ports"
+// 3. docker/compose.yml: the default host ports (used when the file is run by hand) are the file's
+const composeFile = read('docker/compose.yml');
+for (const [service, variable] of [['mariadb', 'SCUTOONS_DB_PORT'], ['adminer', 'SCUTOONS_ADMINER_PORT']]) {
+	const m = composeFile.match(new RegExp(`\\$\\{${variable}:-(\\d+)\\}`));
+	if (!m) errors.push(`docker/compose.yml: no \${${variable}:-<port>} for ${service}`);
+	else if (Number(m[1]) !== PORTS[service]) errors.push(`docker/compose.yml: ${variable} defaults to ${m[1]}, shared/dev-ports.json says ${service} ${PORTS[service]}`);
+}
+const phpunitPort = read('server/phpunit.mysql.xml').match(/name="TEST_DB_PORT" value="(\d+)"/);
+if (!phpunitPort || Number(phpunitPort[1]) !== PORTS.mariadb) errors.push(`server/phpunit.mysql.xml: TEST_DB_PORT should be ${PORTS.mariadb} (mariadb)`);
+
+// 4. the readable table in agents/PLATFORM.md "Local dev ports"
 const platform = read('agents/PLATFORM.md');
 const table = platform.slice(platform.indexOf('## Local dev ports')).split('\n## ')[0];
 const rows = [...table.matchAll(/^\| (\w+)[^|]*\| \*\*(\d+)\*\* \|/gm)].map((m) => [m[1].toLowerCase(), Number(m[2])]);

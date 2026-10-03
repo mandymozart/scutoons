@@ -13,11 +13,15 @@
 // talks to the workers over [::1], so PHP still sees REMOTE_ADDR ::1 (as with a plain `php -S localhost:<port>`).
 // It listens on both ::1 and 127.0.0.1: `localhost` then answers at once for every client (curl tries 127.0.0.1
 // first and waited ~200 ms for the IPv6 fallback when only ::1 listened).
+// Database: the one scripts/dev/db-env.mjs selects – SQLite (config.local.php) by default, the MariaDB container after
+// `npm run dev:db` (the workers get QR_DB_DRIVER=mysql + QR_DB_*, and pdo_mysql when php.ini lacks it). What this
+// server runs on is written to logs/dev/api-server-<port>.json (pid, db), so `npm run dev:db` can restart it after a switch.
 import { spawn, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { phpDbEnv, phpMysqlArgs, selectedDb, ROOT as REPO_ROOT } from '../../scripts/dev/db-env.mjs';
 
 const args = Object.fromEntries(
 	process.argv.slice(2).map((a) => {
@@ -35,10 +39,14 @@ const opcache = args['no-opcache']
 	? []
 	: [...(loaded ? [] : ['-d', 'zend_extension=opcache']), '-d', 'opcache.enable_cli=1', '-d', 'opcache.validate_timestamps=1', '-d', 'opcache.revalidate_freq=0'];
 
+const db = selectedDb();
+const dbArgs = db === 'mariadb' ? phpMysqlArgs(php) : [];
+const env = { ...process.env, ...phpDbEnv(db) };
+
 const pool = [];
 for (let i = 0; i < workers; i++) {
 	const workerPort = port + 200 + i;
-	const child = spawn(php, [...opcache, '-S', `[::1]:${workerPort}`, '-t', 'public', 'public/router.php'], { cwd: root, stdio: ['ignore', 'inherit', 'pipe'] });
+	const child = spawn(php, [...opcache, ...dbArgs, '-S', `[::1]:${workerPort}`, '-t', 'public', 'public/router.php'], { cwd: root, env, stdio: ['ignore', 'inherit', 'pipe'] });
 	// php -S logs every request on stderr; keep errors/warnings and the start line, drop the access lines
 	child.stderr.setEncoding('utf8');
 	child.stderr.on('data', (chunk) => {
@@ -102,7 +110,14 @@ const servers = ['::1', '127.0.0.1'].map((host) => {
 	server.listen(port, host);
 	return server;
 });
-console.log(`API dev server on http://localhost:${port} -> ${workers} php -S workers (${pool.map((w) => w.port).join(', ')}), OPcache ${opcache.length ? 'on' : 'off'}`);
+console.log(`API dev server on http://localhost:${port} -> ${workers} php -S workers (${pool.map((w) => w.port).join(', ')}), OPcache ${opcache.length ? 'on' : 'off'}, database ${db === 'mariadb' ? 'MariaDB container' : 'SQLite'}`);
+const stateFile = join(REPO_ROOT, `logs/dev/api-server-${port}.json`);
+try {
+	mkdirSync(dirname(stateFile), { recursive: true });
+	writeFileSync(stateFile, JSON.stringify({ pid: process.pid, port, db, started: new Date().toISOString() }, null, '\t') + '\n');
+} catch {
+	/* only a hint for npm run dev:db */
+}
 
 let stopping = false;
 function shutdown(code = 0) {
@@ -110,6 +125,11 @@ function shutdown(code = 0) {
 	stopping = true;
 	for (const w of pool) w.child.kill();
 	for (const s of servers) s.close();
+	try {
+		if (JSON.parse(readFileSync(stateFile, 'utf8')).pid === process.pid) rmSync(stateFile);
+	} catch {
+		/* gone already */
+	}
 	setTimeout(() => process.exit(code), 200);
 }
 process.on('SIGINT', () => shutdown(0));

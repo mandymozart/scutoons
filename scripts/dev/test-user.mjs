@@ -13,12 +13,14 @@
 //   3. roles creator + admin via `php server/bin/console roles grant` (member comes with the signup)
 //   4. Cat Pope (every A-pose look) via the admin API PUT /api/admin/users/<id>/characters/catpope
 // Session: logs/dev/test-user.json { email, token, created } (gitignored). Refuses anything but a localhost API.
-// --reset is local-only maintenance on the SQLite dev DB (there is no API to empty an inventory).
+// --reset is local-only maintenance on the dev DB (there is no API to empty an inventory).
+// Database: the one the local stack uses (scripts/dev/db-env.mjs) – SQLite, or the MariaDB container after npm run dev:db.
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { phpDbEnv, phpMysqlArgs, selectedDb } from './db-env.mjs';
 import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -29,6 +31,7 @@ const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, ''
 const SESSION_FILE = resolve(ROOT, 'logs/dev/test-user.json');
 const MAIL_LOG = resolve(ROOT, 'server/logs/mail.log');
 const DB = process.env.QR_DB_SQLITE_PATH ?? resolve(ROOT, 'server/db/local.sqlite');
+const MYSQL = selectedDb() === 'mariadb';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 const args = process.argv.slice(2);
@@ -67,11 +70,14 @@ async function api(method, path, body, token) {
 	return { status: res.status, json, text };
 }
 
-/** Run SQL on the local dev DB through PHP's PDO (no sqlite3 CLI needed). */
+/** Run SQL on the local dev DB through PHP's PDO (no sqlite3 / mariadb CLI needed). Keep the SQL portable. */
 function sql(statements, params = {}) {
-	const php = `$d=new PDO('sqlite:'.getenv('TU_DB'));$d->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$p=json_decode(getenv('TU_PARAMS'),true);$out=[];foreach(json_decode(getenv('TU_SQL'),true) as $s){$st=$d->prepare($s);$st->execute(array_intersect_key($p,array_flip(array_map(fn($m)=>substr($m,1),(preg_match_all('/:\\w+/',$s,$m)?$m[0]:[])))));$out[]=$st->columnCount()?$st->fetchAll(PDO::FETCH_ASSOC):$st->rowCount();}echo json_encode($out);`;
-	const out = execFileSync('php', ['-r', php], {
-		env: { ...process.env, TU_DB: DB, TU_SQL: JSON.stringify(statements), TU_PARAMS: JSON.stringify(params) },
+	const connect = MYSQL
+		? `$d=new PDO('mysql:host='.getenv('QR_DB_HOST').';port='.getenv('QR_DB_PORT').';dbname='.getenv('QR_DB_NAME').';charset=utf8mb4',getenv('QR_DB_USER'),getenv('QR_DB_PASS'));`
+		: `$d=new PDO('sqlite:'.getenv('TU_DB'));`;
+	const php = `${connect}$d->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$p=json_decode(getenv('TU_PARAMS'),true);$out=[];foreach(json_decode(getenv('TU_SQL'),true) as $s){$st=$d->prepare($s);$st->execute(array_intersect_key($p,array_flip(array_map(fn($m)=>substr($m,1),(preg_match_all('/:\\w+/',$s,$m)?$m[0]:[])))));$out[]=$st->columnCount()?$st->fetchAll(PDO::FETCH_ASSOC):$st->rowCount();}echo json_encode($out);`;
+	const out = execFileSync('php', [...(MYSQL ? phpMysqlArgs() : []), '-r', php], {
+		env: { ...process.env, ...phpDbEnv(), TU_DB: DB, TU_SQL: JSON.stringify(statements), TU_PARAMS: JSON.stringify(params) },
 		encoding: 'utf8'
 	});
 	return JSON.parse(out);
@@ -102,9 +108,9 @@ function otpFromMailLog(since) {
 
 function signupCode() {
 	const [rows] = sql([
-		`SELECT code FROM qr WHERE type = 'promo' AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > datetime('now'))
+		`SELECT code FROM qr WHERE type = 'promo' AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > :now)
 		 ORDER BY (code = 'promo_test') DESC, created_at LIMIT 1`
-	]);
+	], { now: new Date().toISOString().slice(0, 19).replace('T', ' ') });
 	return rows[0]?.code ?? null;
 }
 
@@ -147,7 +153,7 @@ async function main() {
 	// roles (member comes with the signup): the documented CLI
 	for (const role of ROLES) {
 		if (user.roles.includes(role)) continue;
-		execFileSync('php', ['bin/console', 'roles', 'grant', EMAIL, role], { cwd: resolve(ROOT, 'server'), stdio: 'inherit' });
+		execFileSync('php', [...(MYSQL ? phpMysqlArgs() : []), 'bin/console', 'roles', 'grant', EMAIL, role], { cwd: resolve(ROOT, 'server'), env: { ...process.env, ...phpDbEnv() }, stdio: 'inherit' });
 	}
 
 	// Cat Pope with every A-pose look: admin API
@@ -177,16 +183,20 @@ async function main() {
 		);
 		// reader stats + effects (agents/ITEMS.md "Substances", tables of 2026-10-01-reader-state when migrated), the
 		// starter items a recipe used up (the camera in the cucumber / testo camera) – back like a fresh signup
-		const [tables] = sql(["SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('member_stats', 'member_effects')"]);
+		const [tables] = sql([
+			MYSQL
+				? "SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('member_stats', 'member_effects')"
+				: "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('member_stats', 'member_effects')"
+		]);
 		const clear = tables.map((t) => `DELETE FROM ${t.name} WHERE user_id = :id`);
 		// story pickups are granted once per place (a ref per user + item): a fresh reader can pick them up again
-		clear.push("DELETE FROM rate_limits WHERE bucket LIKE 'grantref:' || :id || ':%'");
+		clear.push('DELETE FROM rate_limits WHERE bucket LIKE :grantref');
 		const [owned] = sql(['SELECT DISTINCT item_id FROM inventory WHERE user_id = :id'], { id: user.id });
 		const have = new Set(owned.map((r) => r.item_id));
 		const missing = (catalog?.items ?? []).filter((i) => i.starter && !i.slot && !have.has(i.id) && /^[a-z0-9_]+$/.test(i.id));
 		const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
 		const restore = missing.map((i) => `INSERT INTO inventory (id, user_id, item_id, variant, qty, source, code, edition_number, acquired_at, updated_at) VALUES ('${randomUUID()}', :id, '${i.id}', NULL, 1, 'starter', NULL, NULL, '${now}', '${now}')`);
-		if (clear.length + restore.length) sql([...clear, ...restore], { id: user.id });
+		if (clear.length + restore.length) sql([...clear, ...restore], { id: user.id, grantref: `grantref:${user.id}:%` });
 		const pref = await api('PUT', '/me/', { hide_sensitive: true }, token);
 		if (pref.status !== 200) fail(`PUT /me/ answered ${pref.status}`);
 		console.log(`reset: ${inv} inventory rows, ${prog} progress rows, ${slots + body} avatar rows removed, ${released} codes released; hide_sensitive on`);
