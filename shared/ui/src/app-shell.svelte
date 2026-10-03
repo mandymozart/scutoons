@@ -20,6 +20,9 @@
 	 * `resizeKey`: from 768px on, the sidebar's right edge can be dragged wider (owner 2026-10-02: creator) – from its
 	 * normal width up to a third of the window; arrow keys on the handle, double-click resets; remembered per key in
 	 * localStorage (`sc-sidebar-width:<key>`).
+	 * `foldable` (with `resizeKey`, owner 2026-10-03 "version A"): from 768px on the sidebar folds to a 2.5rem rail –
+	 * the « button at its top, dragging the edge narrower than the normal width, or Ctrl + \; the rail shows » and
+	 * `railLabel` (the current place) written vertically. Remembered per key (`sc-sidebar-folded:<key>`).
 	 */
 	let {
 		topbar,
@@ -38,6 +41,10 @@
 		closeLabel = 'Close menu',
 		resizeKey,
 		resizeLabel = 'Resize sidebar',
+		foldable = false,
+		railLabel = '',
+		foldLabel = 'Fold the sidebar',
+		unfoldLabel = 'Show the sidebar',
 		class: className = ''
 	}: {
 		topbar?: Snippet;
@@ -59,8 +66,46 @@
 		/** makes the sidebar resizable on desktop; the width is remembered under this key */
 		resizeKey?: string;
 		resizeLabel?: string;
+		/** the sidebar can fold to a rail (desktop) */
+		foldable?: boolean;
+		/** shown vertically on the rail: where the user is */
+		railLabel?: string;
+		foldLabel?: string;
+		unfoldLabel?: string;
 		class?: string;
 	} = $props();
+
+	// ---------- foldable sidebar (a rail) ----------
+	let folded = $state(false);
+	const foldKey = $derived(foldable && resizeKey ? `sc-sidebar-folded:${resizeKey}` : '');
+	$effect(() => {
+		if (!foldKey) return;
+		try {
+			folded = localStorage.getItem(foldKey) === '1';
+		} catch {
+			// not remembered
+		}
+	});
+	function setFolded(value: boolean) {
+		folded = value;
+		try {
+			if (value) localStorage.setItem(foldKey, '1');
+			else localStorage.removeItem(foldKey);
+		} catch {
+			// not remembered
+		}
+	}
+	$effect(() => {
+		if (!foldKey) return;
+		const key = (e: KeyboardEvent) => {
+			if ((e.ctrlKey || e.metaKey) && e.key === '\\') {
+				e.preventDefault();
+				setFolded(!folded);
+			}
+		};
+		window.addEventListener('keydown', key);
+		return () => window.removeEventListener('keydown', key);
+	});
 
 	let topHeight = $state(0);
 
@@ -108,7 +153,15 @@
 		const left = sidebarEl.getBoundingClientRect().left;
 		const handle = event.currentTarget as HTMLElement;
 		handle.setPointerCapture(event.pointerId);
-		const move = (e: PointerEvent) => (customWidth = clamp(e.clientX - left));
+		const move = (e: PointerEvent) => {
+			// dragged well below the normal width: fold to the rail (foldable)
+			if (foldKey && e.clientX - left < measureBase() * 0.6) {
+				setFolded(true);
+				end();
+				return;
+			}
+			customWidth = clamp(e.clientX - left);
+		};
 		const end = () => {
 			handle.removeEventListener('pointermove', move);
 			handle.removeEventListener('pointerup', end);
@@ -153,7 +206,8 @@
 	class:has-aside={!!aside}
 	class:collapsible
 	style:--sc-shell-top="{topHeight}px"
-	style:--sc-shell-sidebar-width={customWidth !== null ? `max(${customWidth}px, ${sidebarWidth})` : sidebarWidth}
+	class:folded={folded && !!foldKey}
+	style:--sc-shell-sidebar-width={folded && foldKey ? 'var(--sc-shell-rail-width)' : customWidth !== null ? `max(${customWidth}px, ${sidebarWidth})` : sidebarWidth}
 	style:--sc-shell-aside-width={asideWidth}
 >
 	{#if topbar}
@@ -169,9 +223,20 @@
 				bind:this={sidebarEl}
 				aria-label={sidebarLabel}
 			>
-				{@render sidebar()}
+				{#if foldKey && folded}
+					<!-- the rail: unfold + where the user is -->
+					<div class="sc-shell-rail">
+						<button type="button" class="sc-shell-fold" onclick={() => setFolded(false)} aria-label={unfoldLabel} aria-expanded="false" aria-controls={sidebarId} title="{unfoldLabel} (Ctrl + \)">»</button>
+						{#if railLabel}<span class="sc-shell-rail-label">{railLabel}</span>{/if}
+					</div>
+				{:else}
+					{#if foldKey}
+						<button type="button" class="sc-shell-fold sc-shell-fold-in" onclick={() => setFolded(true)} aria-label={foldLabel} aria-expanded="true" aria-controls={sidebarId} title="{foldLabel} (Ctrl + \)">«</button>
+					{/if}
+					{@render sidebar()}
+				{/if}
 			</svelte:element>
-			{#if resizeKey}
+			{#if resizeKey && !(folded && foldKey)}
 				<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
 				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
 				<div
@@ -286,6 +351,54 @@
 		overflow: auto;
 	}
 
+	/* the folded sidebar: a rail (foldable) */
+	.sc-app-shell {
+		--sc-shell-rail-width: 2.5rem;
+	}
+	.sc-shell-rail {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.75rem;
+		padding-top: 0.5rem;
+		height: 100%;
+	}
+	.sc-shell-rail-label {
+		writing-mode: vertical-rl;
+		transform: rotate(180deg);
+		color: var(--muted);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		max-height: calc(100% - 4rem);
+	}
+	.sc-shell-fold {
+		box-sizing: border-box;
+		width: var(--control-height);
+		height: var(--control-height);
+		padding: 0;
+		font: inherit;
+		color: var(--ink);
+		background: var(--paper);
+		border: var(--border-width-regular) solid var(--ink);
+		cursor: pointer;
+	}
+	.sc-shell-fold:hover,
+	.sc-shell-fold:focus-visible {
+		background: var(--ink);
+		color: var(--paper);
+	}
+	.sc-shell-fold-in {
+		position: sticky;
+		z-index: 2;
+		top: 0.5rem;
+		float: right;
+		margin: 0.5rem 0.5rem 0 0;
+	}
+	.folded .sc-shell-sidebar {
+		overflow: hidden;
+	}
+
 	/* the drag handle sits on the sidebar's right border */
 	.sc-shell-resize {
 		position: absolute;
@@ -317,7 +430,8 @@
 		.collapsible.has-sidebar.has-aside .sc-shell-frame {
 			grid-template-columns: minmax(0, 1fr) var(--sc-shell-aside-width);
 		}
-		.sc-shell-resize {
+		.sc-shell-resize,
+		.sc-shell-fold {
 			display: none;
 		}
 		.collapsible .sc-shell-sidebar {

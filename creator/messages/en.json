@@ -672,6 +672,8 @@
 		"map_unlock_pending": "not unlockable yet",
 		"app_label": "Creator",
 		"resize_sidebar": "Drag to resize the sidebar",
+		"fold_sidebar": "Fold the sidebar",
+		"unfold_sidebar": "Show the sidebar",
 		"text_language_source": "Original (source language)",
 		"text_language_source_short": "ORIG",
 		"related_items": "Related items",

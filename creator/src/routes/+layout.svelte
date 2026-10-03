@@ -220,6 +220,10 @@
 			sidebarWidth="var(--tool-sidebar-width)"
 			resizeKey="creator"
 			resizeLabel={m['creator.resize_sidebar']()}
+			foldable
+			railLabel={nav.crumbs.slice(-2).map((c) => c.label).join(' · ')}
+			foldLabel={m['creator.fold_sidebar']()}
+			unfoldLabel={m['creator.unfold_sidebar']()}
 			sidebarLabel={m['creator.nav_label']()}
 			sidebarId="creator-nav"
 			collapsible

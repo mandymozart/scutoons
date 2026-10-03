@@ -672,6 +672,8 @@
 		"map_unlock_pending": "noch nicht freischaltbar",
 		"app_label": "Creator",
 		"resize_sidebar": "Seitenleiste breiter oder schmaler ziehen",
+		"fold_sidebar": "Seitenleiste einklappen",
+		"unfold_sidebar": "Seitenleiste zeigen",
 		"text_language_source": "Original (Quellsprache)",
 		"text_language_source_short": "ORIG",
 		"related_items": "Verwandte Items",
