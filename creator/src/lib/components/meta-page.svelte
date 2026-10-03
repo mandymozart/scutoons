@@ -383,9 +383,9 @@
 		bottom: var(--action-bar-height);
 		width: var(--panel-width);
 		background: var(--paper);
-		border-left: 2px solid var(--ink);
+		border-left: var(--border-width-regular) solid var(--ink);
 		overflow: auto;
-		padding: 0.5rem 0.75rem 2rem;
+		padding: var(--space-1) var(--space-1) var(--space-3);
 		z-index: 20;
 		box-sizing: border-box;
 	}
