@@ -73,7 +73,10 @@
 			if (!Array.isArray(list)) {
 				const parent = getAt(file, eventsPath.slice(0, -1));
 				if (!parent) return;
-				list = parent[eventsPath[eventsPath.length - 1]] = [];
+				// read it back through the state proxy: the plain [] of the assignment is not the reactive list (a slice
+				// without events showed nothing after "+ event")
+				parent[eventsPath[eventsPath.length - 1]] = [];
+				list = parent[eventsPath[eventsPath.length - 1]];
 			}
 			list.push(clone(event));
 		});

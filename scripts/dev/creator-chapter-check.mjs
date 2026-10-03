@@ -97,6 +97,8 @@ for (const key of CHAPTER_KEYS) baseline[key] = await api('GET', `/entities/${ke
 const slice = baseline[CHAPTER_KEYS[0]].content.groups[GROUP].slices[SLICE];
 const sliceWidth = slice.width > 0 ? slice.width : 390;
 const dialogsBefore = (slice.dialog ?? []).length;
+const baselineGroupKey = baseline[CHAPTER_KEYS[0]].content.groups[GROUP].label ?? String(GROUP + 1);
+if ((slice.events ?? []).length) console.log(`note: slice ${SLICE + 1} has events – the empty-slice event check is weaker`);
 
 /** every entity whose newest version changed during the run gets its old content back (published again if it was) */
 async function restore() {
@@ -431,6 +433,13 @@ try {
 			(await js(`document.activeElement?.closest('[data-testid="event-${lines}"]') !== null && document.activeElement?.tagName === 'INPUT'`)),
 		'VN: "+ setVariable" adds an event, opened, the cursor in its first field'
 	);
+	// a slice without events: "+ event" shows the new one (it used to land outside the reactive list)
+	await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/${CHAPTER}?group=${encodeURIComponent(baselineGroupKey)}&slice=${SLICE + 1}` });
+	await until(`!!${q('tab-events')}`, 30000);
+	await click(tid('tab-events'));
+	await until(`!!${q('vn-events')}`, 5000);
+	await click(`[data-testid="vn-events"] .add button:last-child`);
+	check(await until(`!!${q('event-line-0')} && ${q('tab-events')}.textContent.includes('(1)')`, 3000), 'VN: "+ event" on a slice without events shows the new event');
 	await send('Page.navigate', { url: `${CREATOR}/${TOON}/chapter/2?group=${VN_GROUP}&slice=1` });
 	await until(`!!${q('tab-events')}`, 30000);
 	await click(tid('tab-events'));
