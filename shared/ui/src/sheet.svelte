@@ -6,12 +6,16 @@
 	 * Modal sheet on the native <dialog> (focus trap, Escape, top layer). `side`: bottom sheet (mobile reader
 	 * pattern), right drawer (detail / triage view) or centered dialog. Square, 2px ink border, no shadow.
 	 * Closes on Escape, backdrop click and the close button; `onclose` fires after every close.
+	 * `side="right"`: the left edge drags the drawer wider – from its normal width up to half the window (owner 2026-10-03:
+	 * the pickers overlap the page anyway); arrow keys on the edge, double-click resets; remembered for all right
+	 * drawers (`sc-sheet-width`).
 	 */
 	let {
 		open = $bindable(false),
 		title,
 		side = 'center',
 		closeLabel = 'Close',
+		resizeLabel = 'Resize',
 		onclose,
 		footer,
 		children
@@ -21,6 +25,8 @@
 		side?: 'bottom' | 'right' | 'center';
 		/** translated label of the close button */
 		closeLabel?: string;
+		/** translated label of the drag edge (side="right") */
+		resizeLabel?: string;
 		onclose?: () => void;
 		/** sticky action bar at the bottom */
 		footer?: Snippet;
@@ -28,6 +34,61 @@
 	} = $props();
 
 	let dialog: HTMLDialogElement | null = $state(null);
+
+	// ---------- resizable right drawer ----------
+	const WIDTH_KEY = 'sc-sheet-width';
+	/** px set by dragging; null = the normal width */
+	let width = $state<number | null>(null);
+	let baseWidth = 0;
+	$effect(() => {
+		if (side !== 'right') return;
+		try {
+			const saved = Number(localStorage.getItem(WIDTH_KEY));
+			if (saved > 0) width = saved;
+		} catch {
+			// not remembered
+		}
+	});
+	function measureBase() {
+		if (!baseWidth && dialog && width === null) baseWidth = dialog.offsetWidth;
+		return baseWidth || 512;
+	}
+	const clamp = (px: number) => Math.round(Math.min(Math.max(px, measureBase()), Math.max(measureBase(), window.innerWidth / 2)));
+	function remember() {
+		try {
+			if (width === null) localStorage.removeItem(WIDTH_KEY);
+			else localStorage.setItem(WIDTH_KEY, String(width));
+		} catch {
+			// not remembered
+		}
+	}
+	function startResize(event: PointerEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		measureBase();
+		const handle = event.currentTarget as HTMLElement;
+		handle.setPointerCapture(event.pointerId);
+		const move = (e: PointerEvent) => (width = clamp(window.innerWidth - e.clientX));
+		const end = () => {
+			handle.removeEventListener('pointermove', move);
+			handle.removeEventListener('pointerup', end);
+			handle.removeEventListener('pointercancel', end);
+			remember();
+		};
+		handle.addEventListener('pointermove', move);
+		handle.addEventListener('pointerup', end);
+		handle.addEventListener('pointercancel', end);
+	}
+	function keyResize(event: KeyboardEvent) {
+		const step = event.shiftKey ? 64 : 16;
+		const current = width ?? measureBase();
+		if (event.key === 'ArrowLeft') width = clamp(current + step);
+		else if (event.key === 'ArrowRight') width = clamp(current - step);
+		else if (event.key === 'Home') width = null;
+		else return;
+		event.preventDefault();
+		remember();
+	}
 
 	$effect(() => {
 		if (!dialog) return;
@@ -50,11 +111,28 @@
 <dialog
 	bind:this={dialog}
 	class="sc-sheet side-{side}"
+	style:width={side === 'right' && width !== null ? `${width}px` : undefined}
+	style:max-width={side === 'right' && width !== null ? 'none' : undefined}
 	aria-label={title}
 	onclose={handleClose}
 	onclick={onBackdrop}
 >
 	<div class="frame">
+		{#if side === 'right'}
+			<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
+			<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
+			<div
+				class="resize"
+				role="separator"
+				aria-orientation="vertical"
+				aria-label={resizeLabel}
+				tabindex="0"
+				title={resizeLabel}
+				onpointerdown={startResize}
+				onkeydown={keyResize}
+				ondblclick={() => ((width = null), remember())}
+			></div>
+		{/if}
 		<header>
 			{#if title}<h2>{title}</h2>{/if}
 			<CloseButton class="close" label={closeLabel} onclick={() => dialog?.close()} />
@@ -96,7 +174,28 @@
 		margin: 0 0 0 auto;
 		border-width: 0 0 0 var(--border-width-regular);
 	}
+	.resize {
+		position: absolute;
+		z-index: 5;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		width: 0.75rem;
+		cursor: col-resize;
+		touch-action: none;
+	}
+	.resize:hover,
+	.resize:focus-visible {
+		background: linear-gradient(var(--ink), var(--ink)) left / var(--border-width-focus) 100% no-repeat;
+		outline: none;
+	}
+	@media (max-width: 767px) {
+		.resize {
+			display: none;
+		}
+	}
 	.frame {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		max-height: inherit;

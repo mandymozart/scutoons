@@ -149,7 +149,7 @@
 	const thumb = (c: RegistryCharacter, p?: string) => characterImage(c, { persona: p }, AUTHORED_VIEW, { isMissing: isKnownMissing });
 </script>
 
-<Sheet bind:open title={m['creator.characters_picker_title']()} side="right" closeLabel={m['creator.characters_close']()}>
+<Sheet bind:open title={m['creator.characters_picker_title']()} side="right" closeLabel={m['creator.characters_close']()} resizeLabel={m['creator.resize_panel']()}>
 	<div class="picker" data-testid="character-picker-sheet">
 		{#if step === 1 || !character}
 			<div class="filters">
@@ -249,7 +249,7 @@
 		gap: 0.6rem;
 		/* fill the sheet, never wider: the lists wrap into rows instead of scrolling sideways */
 		width: 100%;
-		max-width: 46rem;
+		max-width: 100%;
 		min-width: 0;
 		overflow-x: hidden;
 	}
