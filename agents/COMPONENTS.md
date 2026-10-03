@@ -239,6 +239,10 @@ Done (branch `components`):
   frame back – step 6 had dropped it) · (the commit adding this line) script-editor 701 → 528 (script-outline,
   script-meta; the text + its doc sync + the layout stay – the outline resize is step 13). Before / after shots identical
   except the route waypoint buttons (their compact padding back) and the cover alignment.
+- Step 10 ✓ (the commit adding this line) – `lib/editor/canvas-geometry.ts` (grid steps, move / resize deltas, rotated +
+  scaled resize, rotate angle, scale factor, text scale, item scale) out of slice-canvas (736 → 645); 10 unit tests with
+  node's own runner (`npm run test -w creator`, part of `npm run check`) – no vitest dependency needed;
+  check:creator-chapter drags a box (move onto the grid, the rotate handle in 15° steps, one undo step per drag).
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

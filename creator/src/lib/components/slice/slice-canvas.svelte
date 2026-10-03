@@ -16,13 +16,7 @@
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-
-	interface Rect {
-		x: number;
-		y: number;
-		width: number;
-		height?: number;
-	}
+	import { deltas, dialogScale, gridSteps, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
 	let {
 		doc,
@@ -193,7 +187,6 @@
 
 	// ── Pointer interaction ────────────────────────────────────────────────────────────────────────────
 
-	type Handle = 'move' | 'n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw' | 'rotate' | 'scale';
 	const HANDLES: Handle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 	/** handles per kind: placed items keep their icon's ratio (move, rotate, scale), text boxes get all */
 	const handlesOf = (item: Item): Handle[] => (item.kind === 'item' ? [] : HANDLES);
@@ -219,11 +212,12 @@
 		return { x: ((event.clientX - box.left) / box.width) * 100, y: ((event.clientY - box.top) / box.height) * 100 };
 	}
 
-	/** the grid step in % of the slice: across (x, widths) and down (y, heights) */
-	const stepX = $derived(grid > 0 ? (grid / sliceWidth) * 100 : 0);
-	const stepY = $derived(grid > 0 ? (grid / (sliceWidth * sliceRatio)) * 100 : 0);
-	const snapX = (value: number) => (stepX > 0 ? Math.round(value / stepX) * stepX : value);
-	const snapY = (value: number) => (stepY > 0 ? Math.round(value / stepY) * stepY : value);
+	/** the grid in % of the slice (lib/editor/canvas-geometry.ts) */
+	const steps = $derived(gridSteps(grid, sliceWidth, sliceRatio));
+	const stepX = $derived(steps.stepX);
+	const stepY = $derived(steps.stepY);
+	const snapX = (value: number) => steps.snapX(value);
+	const snapY = (value: number) => steps.snapY(value);
 
 	/** locales an edit writes to */
 	function targets(): string[] {
@@ -274,78 +268,9 @@
 		capture(event);
 	}
 
-	/** new geometry of the shown rect for a pointer delta (snapped), as offsets to apply to every target */
-	function deltas(handle: Handle, dx: number, dy: number, s: Required<Rect>) {
-		let ddx = 0, ddy = 0, dw = 0, dh = 0;
-		if (handle === 'move') {
-			ddx = snapX(s.x + dx) - s.x;
-			ddy = snapY(s.y + dy) - s.y;
-		} else {
-			if (handle.includes('e')) dw = Math.max(1 - s.width, snapX(s.x + s.width + dx) - (s.x + s.width));
-			if (handle.includes('w')) {
-				ddx = Math.min(s.width - 1, snapX(s.x + dx) - s.x);
-				dw = -ddx;
-			}
-			if (handle.includes('s')) dh = Math.max(1 - s.height, snapY(s.y + s.height + dy) - (s.y + s.height));
-			if (handle.includes('n')) {
-				ddy = Math.min(s.height - 1, snapY(s.y + dy) - s.y);
-				dh = -ddy;
-			}
-		}
-		return { ddx, ddy, dw, dh };
-	}
-
 	function overlaySize() {
 		const box = overlay?.getBoundingClientRect();
 		return { width: box?.width || 1, height: box?.height || 1 };
-	}
-
-	const RAD = Math.PI / 180;
-
-	/**
-	 * Resize of a rotated / scaled box: the pointer delta in the box's own frame (un-rotated, un-scaled), the dragged
-	 * edges follow it and the opposite edges stay where they are on screen (the box turns around its centre). With snap
-	 * on, the new width / height are whole grid steps.
-	 */
-	function transformedDeltas(handle: Handle, dx: number, dy: number, s: Required<Rect>, item: Item, px: { width: number; height: number }) {
-		const W = px.width / 100;
-		const H = px.height / 100;
-		const a = item.rotation * RAD;
-		const k = item.scale || 1;
-		// pointer delta (px) → local frame
-		const sx = dx * W;
-		const sy = dy * H;
-		const lx = (Math.cos(a) * sx + Math.sin(a) * sy) / k;
-		const ly = (-Math.sin(a) * sx + Math.cos(a) * sy) / k;
-		const w = s.width * W;
-		const h = s.height * H;
-		let l = -w / 2, r = w / 2, t = -h / 2, b = h / 2;
-		const min = W; // 1 % of the slice width
-		if (handle.includes('e')) r = Math.max(l + min, r + lx);
-		if (handle.includes('w')) l = Math.min(r - min, l + lx);
-		if (handle.includes('s')) b = Math.max(t + H, b + ly);
-		if (handle.includes('n')) t = Math.min(b - H, t + ly);
-		if (grid > 0) {
-			// whole grid steps for the new size: the dragged edge moves to fit (the opposite edge stays)
-			const sw = Math.max(W, snapX((r - l) / W) * W);
-			const sh = Math.max(H, snapY((b - t) / H) * H);
-			if (handle.includes('e')) r = l + sw;
-			else if (handle.includes('w')) l = r - sw;
-			if (handle.includes('s')) b = t + sh;
-			else if (handle.includes('n')) t = b - sh;
-		}
-		const nw = r - l;
-		const nh = b - t;
-		// the new centre: the old one + the local offset, scaled and rotated back to the slice
-		const ox = ((l + r) / 2) * k;
-		const oy = ((t + b) / 2) * k;
-		const cx = s.x * W + w / 2 + Math.cos(a) * ox - Math.sin(a) * oy;
-		const cy = s.y * H + h / 2 + Math.sin(a) * ox + Math.cos(a) * oy;
-		const nx = (cx - nw / 2) / W;
-		const ny = (cy - nh / 2) / H;
-		const horizontal = /[ew]/.test(handle);
-		const vertical = /[ns]/.test(handle);
-		return { ddx: nx - s.x, ddy: ny - s.y, dw: horizontal ? nw / W - s.width : 0, dh: vertical ? nh / H - s.height : 0 };
 	}
 
 	/** the entry a rect belongs to (text box / placed item) in one locale */
@@ -353,15 +278,7 @@
 
 	/** rotate handle: the angle from the centre to the pointer (0° = straight up); with snap in 15° steps, Shift switches */
 	function rotateTo(event: PointerEvent, d: Drag) {
-		const p = toPercent(event);
-		const W = d.px.width / 100;
-		const H = d.px.height / 100;
-		const cx = (d.shown.x + d.shown.width / 2) * W;
-		const cy = (d.shown.y + d.shown.height / 2) * H;
-		let deg = Math.atan2(p.y * H - cy, p.x * W - cx) / RAD + 90;
-		const steps = grid > 0 !== event.shiftKey;
-		deg = steps ? Math.round(deg / 15) * 15 : Math.round(deg);
-		deg = ((((deg + 180) % 360) + 360) % 360) - 180;
+		const deg = rotationAngle(toPercent(event), d.shown, d.px, grid > 0 !== event.shiftKey);
 		for (const l of Object.keys(d.startRects)) {
 			const entry = entryOf(l, d.item!);
 			if (!entry) continue;
@@ -375,32 +292,24 @@
 	 * keeps its wrapping); placed items: their width (and height), around the centre.
 	 */
 	function scaleTo(event: PointerEvent, d: Drag) {
-		const p = toPercent(event);
-		const W = d.px.width / 100;
-		const H = d.px.height / 100;
-		const cx = (d.shown.x + d.shown.width / 2) * W;
-		const cy = (d.shown.y + d.shown.height / 2) * H;
-		const d0 = Math.hypot(d.start.x * W - cx, d.start.y * H - cy);
-		if (d0 < 2) return;
-		const f = Math.hypot(p.x * W - cx, p.y * H - cy) / d0;
+		const f = scaleFactor(d.start, toPercent(event), d.shown, d.px);
+		if (f === null) return;
 		const item = d.item!;
 		for (const [l, start] of Object.entries(d.startRects)) {
 			if (item.kind === 'dialog') {
 				const entry = entryOf(l, item);
 				if (!entry) continue;
-				const raw = Math.min(10, Math.max(0.1, item.scale * f));
-				const next = round2(grid > 0 ? Math.max(0.1, Math.round(raw / 0.05) * 0.05) : raw);
+				const next = dialogScale(item.scale, f, grid > 0);
 				if (next === 1) delete entry.scale;
 				else entry.scale = next;
 			} else {
 				const rect = doc.get(l, item.path);
 				if (!rect) continue;
-				const width = Math.max(1, snapX(start.width * f));
-				const height = (start.height ?? d.shown.height) * (width / start.width);
-				rect.x = round2(start.x + start.width / 2 - width / 2);
-				rect.y = round2(start.y + (start.height ?? d.shown.height) / 2 - height / 2);
-				rect.width = round2(width);
-				if (start.height !== undefined) rect.height = round2(height);
+				const next = scaledRect(start, d.shown.height, f, snapX);
+				rect.x = next.x;
+				rect.y = next.y;
+				rect.width = next.width;
+				if (next.height !== undefined) rect.height = next.height;
 			}
 		}
 	}
@@ -434,8 +343,8 @@
 		if (drag.handle === 'scale') return scaleTo(event, drag);
 		const turned = drag.handle !== 'move' && (drag.item!.rotation !== 0 || drag.item!.scale !== 1);
 		const { ddx, ddy, dw, dh } = turned
-			? transformedDeltas(drag.handle, dx, dy, drag.shown, drag.item!, drag.px)
-			: deltas(drag.handle, dx, dy, drag.shown);
+			? transformedDeltas(drag.handle, dx, dy, drag.shown, drag.item!, drag.px, grid > 0 ? steps : null)
+			: deltas(drag.handle, dx, dy, drag.shown, steps);
 		for (const [l, start] of Object.entries(drag.startRects)) {
 			const rect = doc.get(l, drag.item!.path);
 			if (!rect) continue;

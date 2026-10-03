@@ -347,6 +347,27 @@ try {
 	await click(tid('snap-toggle'));
 	check((await js(`${q('snap-toggle')}.getAttribute('aria-pressed') === 'true'`)) === true, 'snap: the toggle switches it on again');
 
+	// ── drag on the canvas (lib/editor/canvas-geometry.ts): move onto the grid, the rotate handle (15° steps with snap) ──
+	const dragFrom = async (selector, ddx, ddy) => {
+		const [x, y] = await js(`(() => { const r = document.querySelector(${JSON.stringify(selector)}).getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+		await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+		for (let i = 1; i <= 5; i++) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + (ddx * i) / 5, y: y + (ddy * i) / 5, button: 'left', buttons: 1 });
+		await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + ddx, y: y + ddy, button: 'left', clickCount: 1 });
+		await sleep(250);
+	};
+	await click(tid(`dialog-${added}`));
+	const m0 = await boxAt(added);
+	await dragFrom(`[data-testid="box-dialog-${added}"]`, 60, 0);
+	const m1 = await boxAt(added);
+	check(m1.x > m0.x && onGrid(m1.x), 'drag: the box moves with the pointer, onto the grid', JSON.stringify({ m0, m1 }));
+	await dragFrom('[data-testid="handle-rotate"]', 80, 40);
+	const turn = await js(`(() => { const t = ${q(`box-dialog-${added}`)}.style.transform; const m = t.match(/rotate\\((-?[\\d.]+)deg\\)/); return m ? Number(m[1]) : 0; })()`);
+	check(turn !== 0 && turn % 15 === 0, `drag: the rotate handle turns the box in 15° steps (${turn}°)`);
+	await barClick('undo');
+	await barClick('undo');
+	const back = await boxAt(added);
+	check(near(back.x, m0.x) && !(await js(`${q(`box-dialog-${added}`)}.style.transform.includes('rotate')`)), 'undo: one step per drag (rotate, then move) brings it back');
+
 	// ── undo / redo outside a field ─────────────────────────────────────────────────────────────────────
 	await click(tid(`dialog-${added}`));
 	await press('z', 'ctrl');
