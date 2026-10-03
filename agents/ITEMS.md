@@ -1275,3 +1275,14 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
 - Creator: slice inspector tab "Items": place an item (catalog select), item / x / y / width / rotation, "On tap"
   (nothing · pick up + pieces · run events with the VN event editor). On the canvas: move, a round rotate handle above
   the box (Shift = 15° steps) and a round scale handle off the bottom-right corner (width around the centre).
+- **Round 2 (2026-10-03, owner):**
+  - `pickupMode`: `once` (default, as above) or `respawn` ("again on every visit": onions, cucumbers, tuna, drugs). A
+    respawning pickup uses the ref `…#<placement id>@<visit>` – a visit = one stay on the page path (another page in
+    between or a reload starts a new one). The server grants a ref once (`rate_limits` grantref, permanent), so within a
+    visit it's once; across visits the catalog's max count, the 120 grants / hour limit and the scan-only cooldowns stay
+    authoritative. No server change: any client could already send fresh refs, so this opens nothing new.
+  - A refused pickup shows a reader notice (items host, kind `refused`): max reached "Du hast schon genug davon." /
+    "You already have enough of these.", not grantable, already taken (the server granted 0 for this ref, e.g. taken on
+    another device), rate limited / cooldown, failed (offline). `inventory.grant` now reports `granted` and can stay quiet
+    on 0 (`quietWhenNone`).
+  - A slight hint on tappable placed items (`action` ≠ none): a slow glow (3.2 s) – static with reduced motion.
