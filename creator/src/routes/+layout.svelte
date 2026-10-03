@@ -110,13 +110,19 @@
 		menuOpen = false;
 	});
 	const universe = $derived([
+		// the toon's screenplay, from every page of the toon (owner 2026-10-03: "crucial for collaborative creation")
+		...(toonId ? [{ href: `/${toonId}/script`, label: m['creator.script'](), tab: 'script' as string | null }] : []),
 		{ href: '/characters', label: m['creator.characters'](), tab: null as string | null },
 		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
 		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' },
 		{ href: '/map', label: m['creator.map'](), tab: 'map' }
 	]);
 	const universeCurrent = (tab: string | null) =>
-		tab === 'map'
+		tab === 'script'
+			? page.route.id === '/[toonId]/script'
+				? 'page'
+				: undefined
+			: tab === 'map'
 			? page.route.id === '/map'
 				? 'page'
 				: undefined

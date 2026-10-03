@@ -6,6 +6,7 @@
 	import { newSlice } from '$lib/editor/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
+	import SliceImport from './slice-import.svelte';
 
 	let {
 		doc,
@@ -116,6 +117,7 @@
 {#if !slices.length}
 	<button type="button" class="secondary" onclick={() => add(-1)}><Icon name="plus" /> {m['creator.add_slice']()}</button>
 {/if}
+<SliceImport {doc} {groupPath} {chapterNumber} {onselect} />
 
 <style>
 	.slices {
