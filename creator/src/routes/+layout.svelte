@@ -234,7 +234,7 @@
 				<header class="creator-bar" data-testid="creator-bar">
 					<button
 						type="button"
-						class="burger"
+						class="burger sc-round"
 						aria-label={m['creator.nav_menu']()}
 						aria-expanded={menuOpen}
 						aria-controls="creator-nav"

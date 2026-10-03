@@ -384,3 +384,31 @@
 	white-space: pre-line;
 	pointer-events: none;
 }
+
+/* ── Icon-only buttons are round (owner 2026-10-03: "if there is only an icon – like in the viewer – it is round",
+   also in header menus): a --control-height circle, ink ring, inverted on hover / focus / pressed ─────────────── */
+:where(.sc-tool) .sc-round {
+	box-sizing: border-box;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: var(--control-height);
+	min-width: var(--control-height);
+	height: var(--control-height);
+	min-height: var(--control-height);
+	padding: 0;
+	border: var(--border-width-regular) solid var(--ink);
+	border-radius: 50%;
+	background: var(--paper);
+	color: var(--ink);
+	line-height: 1;
+	cursor: pointer;
+}
+:where(.sc-tool) .sc-round:hover,
+:where(.sc-tool) .sc-round:focus-visible,
+:where(.sc-tool) .sc-round[aria-pressed='true'],
+:where(.sc-tool) .sc-round[aria-expanded='true'][data-menu] {
+	background: var(--ink);
+	color: var(--paper);
+}

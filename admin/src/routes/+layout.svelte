@@ -120,7 +120,7 @@
 				<header class="topbar">
 					<button
 						type="button"
-						class="burger"
+						class="burger sc-round"
 						aria-expanded={menuOpen}
 						aria-controls="admin-nav"
 						onclick={() => (menuOpen = !menuOpen)}
@@ -212,20 +212,6 @@
 		margin-left: var(--space-1);
 	}
 	.burger {
-		min-height: var(--control-height);
-		min-width: var(--control-height);
-		padding: 0 var(--space-05);
-		border: var(--border-width-regular) solid transparent;
-		background: none;
-		color: var(--ink);
-		font: inherit;
-		cursor: pointer;
-		white-space: nowrap;
-	}
-	.burger:hover {
-		border-color: var(--ink);
-	}
-	.burger {
 		display: none;
 	}
 
@@ -304,7 +290,7 @@
 
 	@media (max-width: 767px) {
 		.burger {
-			display: block;
+			display: inline-flex;
 		}
 		.topbar :global(.sc-palette-trigger) {
 			margin-left: 0;

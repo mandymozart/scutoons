@@ -232,12 +232,12 @@
 				{#if foldKey && folded}
 					<!-- the rail: unfold + where the user is -->
 					<div class="sc-shell-rail">
-						<button type="button" class="sc-shell-fold" onclick={() => setFolded(false)} aria-label={unfoldLabel} aria-expanded="false" aria-controls={sidebarId} title="{unfoldLabel} (Ctrl + \)">»</button>
+						<button type="button" class="sc-shell-fold sc-round" onclick={() => setFolded(false)} aria-label={unfoldLabel} aria-expanded="false" aria-controls={sidebarId} title="{unfoldLabel} (Ctrl + \)">»</button>
 						{#if railLabel}<span class="sc-shell-rail-label">{railLabel}</span>{/if}
 					</div>
 				{:else}
 					{#if foldKey}
-						<button type="button" class="sc-shell-fold sc-shell-fold-in" onclick={() => setFolded(true)} aria-label={foldLabel} aria-expanded="true" aria-controls={sidebarId} title="{foldLabel} (Ctrl + \)">«</button>
+						<button type="button" class="sc-shell-fold sc-shell-fold-in sc-round" onclick={() => setFolded(true)} aria-label={foldLabel} aria-expanded="true" aria-controls={sidebarId} title="{foldLabel} (Ctrl + \)">«</button>
 					{/if}
 					{@render sidebar()}
 				{/if}
@@ -377,22 +377,6 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 		max-height: calc(100% - 4rem);
-	}
-	.sc-shell-fold {
-		box-sizing: border-box;
-		width: var(--control-height);
-		height: var(--control-height);
-		padding: 0;
-		font: inherit;
-		color: var(--ink);
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
-		cursor: pointer;
-	}
-	.sc-shell-fold:hover,
-	.sc-shell-fold:focus-visible {
-		background: var(--ink);
-		color: var(--paper);
 	}
 	.sc-shell-fold-in {
 		position: sticky;

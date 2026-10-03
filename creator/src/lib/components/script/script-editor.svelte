@@ -356,12 +356,12 @@
 			<div class="layout" class:folded={outlineFolded} bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
 				<aside class="side">
 					{#if outlineFolded}
-						<button type="button" class="fold" onclick={() => foldOutline(false)} aria-label={m['creator.script_outline_show']()} title={m['creator.script_outline_show']()} aria-expanded="false" data-testid="script-outline-unfold">»</button>
+						<button type="button" class="fold sc-round" onclick={() => foldOutline(false)} aria-label={m['creator.script_outline_show']()} title={m['creator.script_outline_show']()} aria-expanded="false" data-testid="script-outline-unfold">»</button>
 					{:else}
 					<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
 						<h2>
 							<span>{m['creator.script_outline']()}</span>
-							<button type="button" class="fold" onclick={() => foldOutline(true)} aria-label={m['creator.script_outline_fold']()} title={m['creator.script_outline_fold']()} aria-expanded="true" data-testid="script-outline-fold">«</button>
+							<button type="button" class="fold sc-round" onclick={() => foldOutline(true)} aria-label={m['creator.script_outline_fold']()} title={m['creator.script_outline_fold']()} aria-expanded="true" data-testid="script-outline-fold">«</button>
 						</h2>
 						{#if !outline.length}
 							<p class="hint">{m['creator.script_outline_empty']()}</p>
@@ -457,7 +457,14 @@
 		grid-template-columns: var(--outline-width, 260px) 0.75rem minmax(0, 1fr);
 		gap: 0 0.75rem;
 		align-items: start;
-		margin-left: -1rem;
+		/* flush with the sidebar divider and up to the status line: the divider runs the full height */
+		margin: -1rem 0 0 -1rem;
+	}
+	.side {
+		padding: 1rem 0 0 1rem;
+	}
+	.main {
+		padding-top: 1rem;
 	}
 	.layout.folded {
 		grid-template-columns: 2.5rem 0.75rem minmax(0, 1fr);
@@ -468,27 +475,10 @@
 		justify-content: space-between;
 		gap: 0.5rem;
 	}
-	.fold {
-		box-sizing: border-box;
-		width: var(--control-height);
-		height: var(--control-height);
-		padding: 0;
-		background: var(--paper);
-		color: var(--ink);
-		border: var(--border-width-regular) solid var(--ink);
-		font: inherit;
-		cursor: pointer;
-		flex: none;
-	}
-	.fold:hover,
-	.fold:focus-visible {
-		background: var(--ink);
-		color: var(--paper);
-	}
 	.layout.folded .side {
 		display: flex;
 		justify-content: center;
-		padding-top: 0.25rem;
+		padding: 1rem 0 0;
 	}
 	.meta summary {
 		display: flex;
