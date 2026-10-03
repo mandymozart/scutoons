@@ -73,6 +73,14 @@ async function reachEnd() {
 	await sleep(800);
 	const n = await js(`document.querySelectorAll('.slice').length`);
 	for (let i = 0; i < n; i++) {
+		// the reader answers what the story asks on the way (the page doesn't scroll meanwhile): the record player
+		// in scene-14 → the first choice, a waited message → its click
+		for (let k = 0; k < 6; k++) {
+			const asks = await js(`(() => { const t = document.querySelector('.vn-message .text')?.innerText ?? ''; const c = document.querySelectorAll('.vn-choice').length; return /\d:\d\d/.test(t) ? null : c ? 'choice' : document.querySelector('.vn-message.visible .continue-overlay') ? 'click' : null; })()`);
+			if (!asks) break;
+			await js(asks === 'choice' ? `document.querySelectorAll('.vn-choice')[0].click(), true` : `document.querySelector('.continue-overlay').click(), true`);
+			await sleep(400);
+		}
 		await js(`document.querySelectorAll('.slice')[${i}].scrollIntoView({ block: 'center' }), true`);
 		await sleep(500);
 	}
@@ -80,6 +88,36 @@ async function reachEnd() {
 }
 
 // a known start: arriving in scene-20 ends any stroll (7:00, not strolling) – the next stroll starts at 5:30
+await send('Page.navigate', { url: `${VIEWER}/catpope/chapter/2?label=scene-20` });
+await until(`document.querySelectorAll('.slice').length > 0`);
+await sleep(1500);
+// scene-14's own story first (owner 2026-10-03: the intro's choices leaked into the stroll end): intro → the mouse asks →
+// the first choice ("Yes") continues at the point "friends" (Cat Pope joins) → the record player (slice 1 diverts to its
+// point) → the stroll end with exactly its two choices
+await send('Page.navigate', { url: `${VIEWER}/catpope/chapter/2?label=scene-14` });
+// slice 1 is in view at once: its trigger diverts to "record-player" and parks the intro until it is answered
+const record = await until(`(() => { const c = [...document.querySelectorAll('.vn-choice')].map((b) => b.innerText.trim()); return c.length ? c : null; })()`, 15000);
+check(record?.length === 1, `slice 1 → the record player (point "record-player"): ${JSON.stringify(record)}`);
+const frozen = await js(`(() => { const y = scrollY; scrollBy(0, 400); const moved = scrollY !== y; return { overflow: document.documentElement.style.overflow, moved }; })()`);
+check(frozen.overflow === 'hidden', `the page is frozen while the question is open (overflow ${frozen.overflow})`);
+await js(`document.querySelectorAll('.vn-choice')[0].click(), true`);
+// the intro comes back, one click
+const intro = await until(`document.querySelector('.vn-message.visible .continue-overlay') ? document.querySelector('.vn-message .text')?.innerText.trim() : null`, 8000);
+check(!!intro, `the intro comes back after the record player: ${intro}`);
+await js(`document.querySelector('.continue-overlay')?.click(), true`);
+await sleep(400);
+// the mouse asks (a waited message, then its two choices)
+await js(`document.querySelector('.vn-message.visible .continue-overlay')?.click(), true`);
+const asked = await until(`(() => { const c = document.querySelectorAll('.vn-choice'); return c.length ? { text: document.querySelector('.vn-message .text')?.innerText.trim(), n: c.length } : null; })()`, 8000);
+check(asked?.n === 2, `the mouse asks, 2 choices (${asked?.text ?? '–'})`);
+const before = await js(`document.querySelectorAll('.character-portrait, .character-full').length`);
+await js(`document.querySelectorAll('.vn-choice')[0].click(), true`);
+const after = await until(`(() => { const n = document.querySelectorAll('.character-portrait, .character-full').length; return n > ${before} ? n : null; })()`, 5000);
+check(!!after, `Yes → continues at "friends": Cat Pope joins (${before} → ${after ?? before} on stage)`);
+const end14 = await reachEnd();
+check(end14?.choices.length === 2, `scene-14 stroll end has only its 2 choices: ${JSON.stringify(end14?.choices)}`);
+
+// back to a known stroll start for the walk below
 await send('Page.navigate', { url: `${VIEWER}/catpope/chapter/2?label=scene-20` });
 await until(`document.querySelectorAll('.slice').length > 0`);
 await sleep(1500);

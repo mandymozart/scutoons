@@ -229,6 +229,12 @@ export function createVisualNovelContext() {
 		pendingChoices.push(choice);
 	}
 
+	/** choices a script added but never showed (its run ended): gone, so they can't join a later question (CUTOVER 10.27) */
+	function dropUnshownChoices(count: number): void {
+		if (choicesVisible || count <= 0) return;
+		pendingChoices.splice(Math.max(0, pendingChoices.length - count), count);
+	}
+
 	function showChoices(): void {
 		choicesVisible = true;
 	}
@@ -439,6 +445,7 @@ export function createVisualNovelContext() {
 		beginEvents,
 		endOfEvents,
 		addChoice,
+		dropUnshownChoices,
 		showChoices,
 		hideChoices,
 		clearChoices,

@@ -523,6 +523,10 @@ function checkVnFlow(c: Collector, g: any, path: Path) {
 		} else if (e.type === 'showMessage') {
 			const id = idOf(p);
 			if (id && !onStage.has(id)) c.warn([...ep, 'params', 'character'], `${id} speaks without being in the scene – add a joinScene before`);
+		} else if ((e.type === 'divert' || e.type === 'jumpTo') && !isObj(e.if)) {
+			// the script leaves here (another point / page): choices added before are never shown
+			for (const cp of choices) c.warn(cp, 'addChoice is never shown – add a showChoices after it');
+			choices = [];
 		} else if (e.type === 'addChoice') {
 			choices.push(ep);
 		} else if (e.type === 'showChoices') {

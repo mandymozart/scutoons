@@ -26,6 +26,9 @@ export class EventProcessor {
 			console.warn(`VN: no point "${divert}" in the group's script`);
 			return null;
 		}
+		// a question is open (another trigger's or the script's choices): this trigger waits until it is answered, so two
+		// questions never merge (owner 2026-10-03: "Take it" showed next to the stroll end's choices)
+		while (this.vn.state.choicesVisible || this.vn.state.pendingChoices.length) await new Promise((r) => setTimeout(r, 100));
 		let url: string | null = null;
 		// park the group's waiting message, bring it back when done (a click fires every event of the trigger one after
 		// another, so the check runs after the click's task)

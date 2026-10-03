@@ -13,6 +13,9 @@
 
 	let triggerElement: HTMLDivElement | null = $state(null);
 	let triggered = $state(false);
+	/** a run that still waits (a message, choices): the trigger doesn't start another one meanwhile (owner 2026-10-03: the
+	 * stroll end's choices were added four times while the last slice scrolled in and out) */
+	let running = false;
 
 	const once = event.trigger?.once ?? true;
 	const rect = event.trigger?.rect;
@@ -29,19 +32,22 @@
 
 	async function handleClick(e: MouseEvent) {
 		if (once && triggered) return;
+		if (running) return;
 		if (!triggerElement?.parentElement) return;
 		if (!isWithinRect(e, triggerElement.parentElement)) return;
 
 		const { trigger, ...vnEvent } = event;
 		const processor = new EventProcessor([vnEvent as VNEvent], game, vn);
-		const result = await processor.run();
+		running = true;
+		// marked before the run (it can wait for the reader a long time)
+		if (once) triggered = true;
+		const result = await processor.run().finally(() => (running = false));
 
 		if (result) {
 			console.log('🎯 Click trigger navigation:', result);
 			goto(result);
 		}
 
-		if (once) triggered = true;
 	}
 
 	onMount(() => {

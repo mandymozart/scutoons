@@ -312,4 +312,6 @@ test('VN flow in a group: enter before speaking, choices added then shown (owner
 	assert.deepEqual(flow(group([add, add, { type: 'showChoices' }])), []);
 	assert.deepEqual(flow(group([{ type: 'showChoices' }])), ['warning events.0']);
 	assert.deepEqual(flow(group([add])), ['warning events.0']);
+	// a divert / jump leaves before they are shown (the stroll end's showChoices further down doesn't count)
+	assert.deepEqual(flow(group([add, { type: 'divert', params: { to: 'x' } }, { type: 'label', params: { name: 'x' } }, add, { type: 'showChoices' }])), ['warning events.0']);
 });

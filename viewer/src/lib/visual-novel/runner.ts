@@ -35,6 +35,8 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 	const get = (name: string) => game.getVariable(name);
 	let i = Math.max(0, start);
 	let jumpsWithoutWait = 0;
+	/** choices this run added that no showChoices has shown yet (dropped when the run ends) */
+	let unshown = 0;
 
 	/** continue at a named point (false: there is none – the run goes on after the divert) */
 	const divertTo = (to: string): boolean => {
@@ -95,9 +97,11 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 
 				case 'addChoice':
 					vn.addChoice({ label: interpolateVariables(event.params.label, game), onSelect: event.params.onSelect });
+					unshown++;
 					break;
 
 				case 'showChoices': {
+					unshown = 0;
 					vn.showChoices();
 					jumpsWithoutWait = 0;
 					await new Promise<void>((resolve) => {
@@ -149,6 +153,10 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 		}
 	} catch (error) {
 		console.error(error);
+	}
+	if (unshown) {
+		console.warn(`VN: ${unshown} choice(s) added but never shown – add a showChoices`);
+		vn.dropUnshownChoices(unshown);
 	}
 	return cancelled() ? 'cancelled' : 'done';
 }
