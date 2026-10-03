@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
+	import { tick, untrack } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, clone, type Path } from '@scutoons/content';
@@ -129,7 +129,31 @@
 			}
 			list.push(clone(event));
 		});
-		onselect?.(events.length - 1);
+		const index = events.length - 1;
+		open = [...open, index];
+		picked = [index];
+		anchor = index;
+		onselect?.(index);
+		void focusMain(index, type);
+	}
+
+	/**
+	 * A new event opens with the cursor where the work is (owner 2026-10-03): the message text, the choice label, the
+	 * character to join / leave (its picker), else the first field after the type.
+	 */
+	async function focusMain(index: number, type: string) {
+		await tick();
+		const root = document.querySelector<HTMLElement>(`[data-testid="event-${index}"]`);
+		if (!root) return;
+		const first = (selector: string) => root.querySelector<HTMLElement>(selector);
+		const target =
+			(type === 'showMessage' && first('textarea')) ||
+			((type === 'joinScene' || type === 'leaveScene') && first('[data-testid="character-ref-open"]')) ||
+			[...root.querySelectorAll<HTMLElement>('input:not([type="checkbox"]), textarea, select, button[data-testid]')].find(
+				(el) => !el.closest('.type-field') && !el.closest('header')
+			);
+		target?.focus();
+		root.scrollIntoView({ block: 'nearest' });
 	}
 
 	function remove(index: number) {
@@ -198,19 +222,26 @@
 			}
 			case 'joinScene':
 			case 'leaveScene':
-				return (p.characters ?? []).map((c: any) => c?.character).filter(Boolean).join(', ');
+				// the avatars say who (people())
+				return '';
 			default:
 				return '';
 		}
 	}
 	/** the speaker's avatar (a tiny one in the line, owner 2026-10-03); none without a registry image */
 	const registryIndex = $derived(choices ? characterIndex(choices.registry) : null);
-	function speakerAvatar(event: any): string {
-		if (event?.type !== 'showMessage' || !registryIndex || !event.params?.character) return '';
-		const ref = resolveCharacterId(event.params.character, event.params.persona);
+	function avatarOf(raw: any): string {
+		const id = raw?.character ?? raw?.name;
+		if (!registryIndex || !id) return '';
+		const ref = resolveCharacterId(id, raw.persona);
 		const character = registryIndex.get(ref.character);
-		const src = character ? characterImage(character, { persona: ref.persona }, 'avatar', { isMissing: isKnownMissing }) : '';
+		const src = character ? characterImage(character, { persona: ref.persona, look: raw.look, mood: raw.mood }, 'avatar', { isMissing: isKnownMissing }) : '';
 		return src && !src.includes('missing') ? asset(src) : '';
+	}
+	/** who the line is about: the speaker (showMessage) or everyone joining / leaving – avatar, else the name (owner 2026-10-03) */
+	function people(event: any): { id: string; src: string }[] {
+		const refs = event?.type === 'showMessage' ? (event.params?.character ? [event.params] : []) : event?.type === 'joinScene' || event?.type === 'leaveScene' ? (event.params?.characters ?? []) : [];
+		return refs.map((r: any) => ({ id: String(r?.character ?? r?.name ?? ''), src: avatarOf(r) })).filter((p: { id: string }) => p.id);
 	}
 	const triggerWord = (event: any) => TRIGGER_OPTIONS.find((o) => o.value === event?.trigger?.type)?.label ?? '';
 
@@ -340,7 +371,9 @@
 					<Icon name="chevron-right" />
 					<span class="idx">{i + 1}</span>
 					<span class="type">{event?.type}</span>
-					{#if speakerAvatar(event)}<img class="avatar" src={speakerAvatar(event)} alt={event.params.character} title={event.params.character} />{:else if event?.type === 'showMessage' && event.params?.character}<span class="who">{event.params.character}</span>{/if}
+					{#each people(event) as who (who.id)}
+						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
+					{/each}
 					<span class="sum">{summary(event)}</span>
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>
