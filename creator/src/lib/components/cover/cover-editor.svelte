@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { moveAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { tick, untrack } from 'svelte';
 	import { Icon } from '@scutoons/ui';
 	import { CoverArt } from '@scutoons/reader';
@@ -129,11 +131,9 @@
 		selected = next.length ? Math.min(index, next.length - 1) : null;
 	}
 
-	function moveLine(index: number, by: number) {
+	function moveLine(index: number, to: number) {
 		const next = $state.snapshot(lines) as CoverLine[];
-		const to = index + by;
-		if (to < 0 || to >= next.length) return;
-		[next[index], next[to]] = [next[to], next[index]];
+		if (!moveAt(next, index, to)) return;
 		writeLines(next, 'cover-order');
 		selected = to;
 	}
@@ -381,8 +381,7 @@
 						{/each}
 					</div>
 					<div class="line-actions">
-						<button type="button" class="secondary" disabled={i === 0} title={m['creator.cover_line_up']()} aria-label={m['creator.cover_line_up']()} onclick={() => moveLine(i, -1)}><Icon name="arrow-up" /></button>
-						<button type="button" class="secondary" disabled={i === lines.length - 1} title={m['creator.cover_line_down']()} aria-label={m['creator.cover_line_down']()} onclick={() => moveLine(i, 1)}><Icon name="arrow-down" /></button>
+						<ReorderButtons index={i} count={lines.length} onmove={moveLine} variant="secondary" labels={{ up: m['creator.cover_line_up'](), down: m['creator.cover_line_down']() }} />
 						<button type="button" class="secondary" title={m['creator.cover_remove_line']()} onclick={() => (mode === 'default' ? (writeLines(defaultCoverLines(format), 'cover-mode'), removeLine(i)) : removeLine(i))} data-testid="cover-remove-line"><Icon name="trash-2" /> {m['creator.cover_remove_line']()}</button>
 					</div>
 				</div>

@@ -9,6 +9,7 @@
 </script>
 
 <script lang="ts">
+	import { gridArrows } from '$lib/editor/grid-keys.ts';
 	import { isKnownMissing, imageExists } from '$lib/editor/characters.ts';
 	import { Sheet } from '@scutoons/ui';
 	import {
@@ -134,18 +135,6 @@
 	}
 
 	/** arrow keys move the focus within a grid of [data-cell] buttons */
-	function arrows(event: KeyboardEvent) {
-		const keys: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -100, ArrowDown: 100 };
-		if (!(event.key in keys)) return;
-		const container = event.currentTarget as HTMLElement;
-		const cells = [...container.querySelectorAll<HTMLElement>('[data-cell]')];
-		const index = cells.indexOf(document.activeElement as HTMLElement);
-		if (index < 0) return;
-		event.preventDefault();
-		const columns = Math.max(1, getComputedStyle(cells[index].parentElement!).gridTemplateColumns.split(' ').length);
-		const step = keys[event.key] === -100 ? -columns : keys[event.key] === 100 ? columns : keys[event.key];
-		cells[Math.min(cells.length - 1, Math.max(0, index + step))]?.focus();
-	}
 	const thumb = (c: RegistryCharacter, p?: string) => characterImage(c, { persona: p }, AUTHORED_VIEW, { isMissing: isKnownMissing });
 </script>
 
@@ -162,7 +151,7 @@
 				<label class="check"><input type="checkbox" bind:checked={missingOnly} /> {m['creator.characters_has_missing']()}</label>
 			</div>
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div onkeydown={arrows} bind:this={grid}>
+			<div onkeydown={gridArrows} bind:this={grid}>
 				{#each sections as section (section.id)}
 					{#if section.title}<h4>{section.title}</h4>{/if}
 					<div class="cards">
@@ -190,7 +179,7 @@
 			</header>
 			{#if mode === 'persona'}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="cards" onkeydown={arrows} bind:this={grid}>
+				<div class="cards" onkeydown={gridArrows} bind:this={grid}>
 					{#each personaIds(character) as p (p)}
 						{@const src = thumb(character, p)}
 						<button type="button" class="card" data-control-exempt="picture card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
@@ -218,7 +207,7 @@
 				{/if}
 				<label class="check"><input type="checkbox" bind:checked={allMoods} /> {m['creator.characters_picker_all_moods']()}</label>
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="moods" onkeydown={arrows} bind:this={grid}>
+				<div class="moods" onkeydown={gridArrows} bind:this={grid}>
 					{#each rowMoods as mood (mood)}
 						{@const path = lookImage(currentLook, mood, AUTHORED_VIEW)}
 						<button

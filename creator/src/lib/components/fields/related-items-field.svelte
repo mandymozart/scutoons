@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { movedAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { onMount } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { Catalog, ItemDef } from '@scutoons/content';
@@ -47,12 +49,9 @@
 		set([...list, id]);
 	}
 	const remove = (id: string) => set(list.filter((x) => x !== id));
-	function move(from: number, by: number) {
-		const to = from + by;
-		if (to < 0 || to >= list.length) return;
-		const next = [...list];
-		next.splice(to, 0, ...next.splice(from, 1));
-		set(next);
+	function move(from: number, to: number) {
+		const next = movedAt(list, from, to);
+		if (next) set(next);
 	}
 </script>
 
@@ -67,8 +66,7 @@
 				<span class="icon">{#if item?.icon}<img src={asset(item.icon)} alt="" />{/if}</span>
 				<span class="name">{name}</span>
 				{#if !loading && !item}<span class="hint">{m['creator.related_items_unknown']()}</span>{/if}
-				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
-				<button type="button" class="ghost" disabled={i === list.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
+				<ReorderButtons index={i} count={list.length} onmove={move} axis="horizontal" />
 				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.related_items_remove']({ name })} title={m['creator.related_items_remove']({ name })}><CloseIcon /></button>
 			</li>
 		{:else}

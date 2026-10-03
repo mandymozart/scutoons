@@ -210,6 +210,12 @@ Done (branch `components`):
   open summary; local summary CSS gone (dialog-inspector, vn-events, group-panel, apose-editor, wanted-images,
   script meta). Visible: the script's title-page fold row is caption size now. `check:tools-css` flags a restyled
   summary (`fold-ok` for admin's events dropdown, a control).
+- Step 5 ✓ (the commit adding this line) – `controls/reorder-buttons.svelte` (vertical arrows / horizontal chevrons,
+  `down={false}`, own labels) + `lib/editor/move.ts` `moveAt` / `movedAt` in cast, moods, cover lines, credit sections,
+  featuring, related items, supporters, list field, route waypoints (credits' `move` is `moveAt`); `lib/editor/grid-keys.ts`
+  `gridArrows` replaces the copied `arrows()` in the asset + character pickers. Visible: the move buttons that had only
+  an aria-label (cast, moods, credit sections) now show it as the tooltip too. vn-events / chapter tree / slice list
+  reorder by drag (moveMany), unchanged.
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

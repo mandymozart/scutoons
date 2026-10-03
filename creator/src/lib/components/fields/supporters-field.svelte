@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { moveAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { Supporter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -22,10 +24,9 @@
 	}
 	const add = () => change((l) => l.push({ name: '' }));
 	const remove = (i: number) => change((l) => l.splice(i, 1));
-	function move(i: number, by: number) {
-		const to = i + by;
+	function move(from: number, to: number) {
 		if (to < 0 || to >= list.length) return;
-		change((l) => l.splice(to, 0, ...l.splice(i, 1)));
+		change((l) => moveAt(l, from, to));
 	}
 </script>
 
@@ -41,8 +42,7 @@
 				</div>
 			</div>
 			<div class="actions">
-				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
-				<button type="button" class="ghost" disabled={i === list.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
+				<ReorderButtons index={i} count={list.length} onmove={move} axis="horizontal" />
 				<button type="button" class="ghost" onclick={() => remove(i)} aria-label={m['creator.supporter_remove']({ name: supporter.name || String(i + 1) })} title={m['creator.remove']()}><CloseIcon /></button>
 			</div>
 		</li>

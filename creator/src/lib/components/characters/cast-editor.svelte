@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { moveAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import {
@@ -91,11 +93,7 @@
 	const list = (f: ToonCast) => (f.seasons[String(season)] ??= []);
 	function move(from: number, to: number) {
 		if (to < 0 || to >= entries.length || from === to) return;
-		change((f) => {
-			const l = list(f);
-			const [item] = l.splice(from, 1);
-			l.splice(to, 0, item);
-		});
+		change((f) => moveAt(list(f), from, to));
 	}
 	function togglePersona(character: string, persona: string, on: boolean) {
 		change((f) => {
@@ -220,8 +218,7 @@
 						</span>
 						<LocaleMapField value={entry.role} languages={langs} label={m['creator.cast_role']()} onchange={(v) => setRole(entry.character, v)} testid="cast-role-{entry.character}" />
 						<span class="order">
-							<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>
-							<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === entries.length - 1} aria-label={m['creator.credits_down']()}><Icon name="arrow-down" /></button>
+							<ReorderButtons index={i} count={entries.length} onmove={move} labels={{ up: m['creator.credits_up'](), down: m['creator.credits_down']() }} />
 							{#if entry.character === star}
 								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked"><CloseIcon /></button>
 							{:else}

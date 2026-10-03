@@ -25,6 +25,7 @@
 </script>
 
 <script lang="ts">
+	import { gridArrows } from '$lib/editor/grid-keys.ts';
 	import { untrack } from 'svelte';
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
 	import { CloseButton, confirmDialog, Icon, Sheet } from '@scutoons/ui';
@@ -180,18 +181,6 @@
 		queueMicrotask(() => document.querySelector<HTMLElement>('[data-testid="asset-detail"] [data-file]')?.focus());
 	}
 
-	function arrows(event: KeyboardEvent) {
-		const keys: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -100, ArrowDown: 100 };
-		if (!(event.key in keys)) return;
-		const cells = [...(event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('[data-cell]')];
-		const index = cells.indexOf(document.activeElement as HTMLElement);
-		if (index < 0) return;
-		event.preventDefault();
-		const columns = Math.max(1, getComputedStyle(cells[index].parentElement!).gridTemplateColumns.split(' ').length);
-		const step = keys[event.key] === -100 ? -columns : keys[event.key] === 100 ? columns : keys[event.key];
-		cells[Math.min(cells.length - 1, Math.max(0, index + step))]?.focus();
-	}
-
 	// ── upload: a new file into its place in the toon hierarchy (agents/ASSETS.md "Folder convention") ─────────────────
 	/** without a `place`: "s1c2-slice-14.webp" → "s1/c2", "s1-cover.webp" → "s1", anything else → the toon's own folder (editable) */
 	const placeOf = (name: string) => {
@@ -301,7 +290,7 @@
 		{#if error}<p class="error" role="alert">{error}</p>{/if}
 
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
-		<div class="cards" onkeydown={arrows} bind:this={grid} aria-busy={loading}>
+		<div class="cards" onkeydown={gridArrows} bind:this={grid} aria-busy={loading}>
 			{#each items as a (a.id)}
 				{@const src = thumb(a)}
 				<button

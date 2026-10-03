@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { movedAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { characterImage, characterIndex, characterName, suggestFeaturing, type CastEntry, type CharacterRegistry } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -59,13 +61,9 @@
 	function remove(id: string) {
 		set(featuring.filter((x) => x !== id));
 	}
-	function move(from: number, by: number) {
-		const to = from + by;
-		if (to < 0 || to >= featuring.length) return;
-		const list = [...featuring];
-		const [item] = list.splice(from, 1);
-		list.splice(to, 0, item);
-		set(list);
+	function move(from: number, to: number) {
+		const list = movedAt(featuring, from, to);
+		if (list) set(list);
 	}
 	function suggest() {
 		const suggested = suggestFeaturing(sceneGroups(), star);
@@ -88,8 +86,7 @@
 				</span>
 				<span class="name">{name(id)}</span>
 				{#if !inCast(id)}<span class="hint">{m['creator.featuring_not_in_cast']()}</span>{/if}
-				<button type="button" class="ghost" disabled={i === 0} onclick={() => move(i, -1)} aria-label={m['creator.move_up']()} title={m['creator.move_up']()}><Icon name="chevron-left" /></button>
-				<button type="button" class="ghost" disabled={i === featuring.length - 1} onclick={() => move(i, 1)} aria-label={m['creator.move_down']()} title={m['creator.move_down']()}><Icon name="chevron-right" /></button>
+				<ReorderButtons index={i} count={featuring.length} onmove={move} axis="horizontal" />
 				<button type="button" class="ghost" onclick={() => remove(id)} aria-label={m['creator.featuring_remove']({ name: name(id) })} title={m['creator.featuring_remove']({ name: name(id) })}><CloseIcon /></button>
 			</li>
 		{:else}

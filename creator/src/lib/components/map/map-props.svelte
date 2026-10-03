@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { moveAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import {
 		DEFAULT_PLACE_ANCHOR,
 		DEFAULT_PLACE_IMAGE_SIZE,
@@ -235,13 +237,9 @@
 		removeRoute(doc, route.id);
 		onselect(null);
 	}
-	function moveWaypoint(i: number, by: number) {
+	function moveWaypoint(from: number, to: number) {
 		if (!route) return;
-		editRoute(doc, route.id, (r) => {
-			const j = i + by;
-			if (j < 0 || j >= r.waypoints.length) return;
-			[r.waypoints[i], r.waypoints[j]] = [r.waypoints[j], r.waypoints[i]];
-		});
+		editRoute(doc, route.id, (r) => void moveAt(r.waypoints, from, to));
 	}
 	function removeWaypoint(i: number) {
 		if (!route) return;
@@ -442,8 +440,7 @@
 							</span>
 						{/if}
 						<span class="tools">
-							<button type="button" class="ghost" disabled={i === 0} aria-label={m['creator.map_move_up']()} title={m['creator.map_move_up']()} onclick={() => moveWaypoint(i, -1)}><Icon name="arrow-up" /></button>
-							<button type="button" class="ghost" disabled={i === route.waypoints.length - 1} aria-label={m['creator.map_move_down']()} title={m['creator.map_move_down']()} onclick={() => moveWaypoint(i, 1)}><Icon name="arrow-down" /></button>
+							<ReorderButtons index={i} count={route.waypoints.length} onmove={moveWaypoint} labels={{ up: m['creator.map_move_up'](), down: m['creator.map_move_down']() }} />
 							<button type="button" class="ghost" aria-label={m['creator.map_remove_waypoint']()} title={m['creator.map_remove_waypoint']()} onclick={() => removeWaypoint(i)}><CloseIcon /></button>
 						</span>
 					</li>

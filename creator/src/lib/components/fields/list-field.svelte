@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { movedAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
@@ -21,13 +23,9 @@
 	function remove(index: number) {
 		onchange(list.filter((_, i) => i !== index));
 	}
-	function move(index: number, by: number) {
-		const to = index + by;
-		if (to < 0 || to >= list.length) return;
-		const next = [...list];
-		const [item] = next.splice(index, 1);
-		next.splice(to, 0, item);
-		onchange(next);
+	function move(from: number, to: number) {
+		const next = movedAt(list, from, to);
+		if (next) onchange(next);
 	}
 	function add() {
 		const text = draft.trim();
@@ -41,7 +39,7 @@
 	{#each list as item, i (i)}
 		<li>
 			<input type="text" value={item} oninput={(e) => set(i, e.currentTarget.value)} aria-label="{placeholder} {i + 1}" />
-			<button type="button" class="ghost" onclick={() => move(i, -1)} disabled={i === 0} title={m['creator.move_up']()} aria-label={m['creator.move_up']()}><Icon name="arrow-up" /></button>
+			<ReorderButtons index={i} count={list.length} onmove={move} down={false} />
 			<button type="button" class="ghost" onclick={() => remove(i)} title={m['creator.remove']()} aria-label={m['creator.remove']()}><CloseIcon /></button>
 		</li>
 	{/each}

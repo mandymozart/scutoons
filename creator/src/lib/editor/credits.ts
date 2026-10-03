@@ -72,12 +72,8 @@ export function newRole(label: LocaleText, category: CreditRole['category'], tak
 	return { id: uniqueId(base, taken), category, label };
 }
 
-/** Moves an item of a list (drag and drop, keyboard). */
-export function move<T>(list: T[], from: number, to: number) {
-	if (from === to || from < 0 || to < 0 || from >= list.length || to >= list.length) return;
-	const [item] = list.splice(from, 1);
-	list.splice(to, 0, item);
-}
+/** Moves an item of a list (drag and drop, keyboard): `moveAt` (lib/editor/move.ts). */
+export { moveAt as move } from './move.ts';
 
 /** People matching a query (name, aliases, id), best first; merged people are left out. */
 export function searchPeople(people: CreditPerson[], query: string, limit = 12): CreditPerson[] {
