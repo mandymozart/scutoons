@@ -420,7 +420,7 @@
 						{@const doc = chapters[item.number]}
 						{@const own = doc?.data?.[titleLocale]?.title}
 						<li class="chapter-row" data-testid="chapter-row-{item.number}">
-							<span class="num">{item.number}</span>
+							<span class="num" title={m['creator.chapter_number_hint']({ path: `/${toonId}/chapter/${item.number}` })}>#{item.number}</span>
 							<a
 								class="row-link"
 								class:fallback={!own}
@@ -508,10 +508,12 @@
 		padding: var(--space-05) 0;
 		border-bottom: var(--border-width-hairline) solid var(--ink);
 	}
+	/* the chapter's number = its URL and release order (owner 2026-10-03): in ink, not muted */
 	.chapter-row .num {
 		flex: none;
-		min-width: 2em;
-		color: var(--text-muted);
+		min-width: 2.5em;
+		color: var(--ink);
+		font-variant-numeric: tabular-nums;
 	}
 	.row-link {
 		flex: 1;

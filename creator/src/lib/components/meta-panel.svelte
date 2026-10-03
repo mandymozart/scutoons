@@ -7,6 +7,8 @@
 	import PropField from './prop-field.svelte';
 	import LocaleText from './locale-text.svelte';
 	import MediaSlot from './media-slot.svelte';
+	import { fileLabel } from '$lib/labels.ts';
+	import { entities } from '@scutoons/content';
 
 	/**
 	 * Chapter meta. Title/description per locale; the rest shared, with per-locale overrides shown.
@@ -36,7 +38,11 @@
 </script>
 
 <section class="meta-panel" data-testid="meta-panel">
-	<h2>{m['creator.meta']()}</h2>
+	<!-- the chapter's number, prominent (owner 2026-10-03): it is its identity – URL, release order – and never changes -->
+	<header class="chapter-head" data-testid="chapter-number">
+		<h2>{fileLabel(entities.chapter(doc.toon, number))}</h2>
+		<p class="hint">{m['creator.chapter_number_hint']({ path: `/${doc.toon}/chapter/${number}` })}</p>
+	</header>
 
 	<LocaleText {doc} path={['title']} label="title" multiline={false} />
 	<LocaleText {doc} path={['description']} label="description" rows={3} />
@@ -102,6 +108,15 @@
 </section>
 
 <style>
+	.chapter-head h2 {
+		margin: 0;
+		font-size: var(--type-title-size, 1.5rem);
+		text-transform: none;
+		letter-spacing: normal;
+	}
+	.chapter-head .hint {
+		margin: 0.25rem 0 0;
+	}
 	.meta-panel {
 		display: flex;
 		flex-direction: column;

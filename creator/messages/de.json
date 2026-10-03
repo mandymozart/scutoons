@@ -562,6 +562,7 @@
 		"open_toon_settings": "Toon-Einstellungen von {name}",
 		"open_season_editor": "{season} bearbeiten",
 		"open_chapter_n": "Kapitel {number} öffnen",
+		"chapter_number_hint": "Kapitelnummer = seine Adresse {path} und sein Platz in der Veröffentlichungsreihenfolge. Wird beim Anlegen vergeben und ändert sich nie.",
 		"featuring": "Mit",
 		"featuring_hint": "Wer in diesem Kapitel vorkommt (aus der Staffel-Besetzung) – im Reader in der Kapitelliste und am Kapitelanfang.",
 		"featuring_suggest": "Aus den Szenen vorschlagen",

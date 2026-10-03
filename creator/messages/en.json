@@ -562,6 +562,7 @@
 		"open_toon_settings": "Toon settings of {name}",
 		"open_season_editor": "Edit {season}",
 		"open_chapter_n": "Open chapter {number}",
+		"chapter_number_hint": "Chapter number = its address {path} and its place in the release order. Given when the chapter is created; it never changes.",
 		"featuring": "Featuring",
 		"featuring_hint": "Who appears in this chapter (from the season cast) – shown in the reader on the chapter list and at the chapter start.",
 		"featuring_suggest": "Suggest from the scenes",
