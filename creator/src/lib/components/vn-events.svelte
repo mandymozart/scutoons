@@ -41,7 +41,9 @@
 		choices,
 		background = '',
 		selected = -1,
-		onselect
+		onselect,
+		dialogs = [],
+		oncreatebox
 	}: {
 		doc: ContentDoc;
 		eventsPath: Path;
@@ -53,6 +55,13 @@
 		background?: string;
 		selected?: number;
 		onselect?: (index: number) => void;
+		/**
+		 * text boxes an onomatopoeia event may reveal (`params.dialog`): the slice's boxes (slice events) or the boxes of
+		 * the group's slices (a group script)
+		 */
+		dialogs?: { id: string; label: string }[];
+		/** "Create a text box for this": a new text box on the slice, revealed by event `index` */
+		oncreatebox?: (index: number) => void;
 	} = $props();
 
 	const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showOnomatopeia', 'joinScene', 'leaveScene'];
@@ -284,6 +293,31 @@
 					<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
 				</div>
 			{:else if event.type === 'showOnomatopeia'}
+				{@const box = event.params?.dialog}
+				<!-- Option B (owner 2026-10-03): the event reveals a text box – the box gives the look, the event the timing -->
+				<div class="grid g3">
+					<PropField
+						{doc}
+						path={[...p, 'params', 'dialog']}
+						label={m['creator.ono_text_box']()}
+						type="select"
+						options={[...dialogs.map((d) => ({ value: d.id, label: d.label })), ...(box && !dialogs.some((d) => d.id === box) ? [{ value: box, label: `${box} (?)` }] : [])]}
+						placeholder={m['creator.ono_own']()}
+					/>
+					{#if oncreatebox && !box}
+						<button type="button" class="secondary" onclick={() => oncreatebox(i)} data-testid="ono-create-box">{m['creator.ono_create_box']()}</button>
+					{/if}
+				</div>
+				{#if box}
+					<p class="hint">{m['creator.ono_box_hint']({ id: box })}</p>
+					<div class="grid g3">
+						<PropField {doc} path={[...p, 'params', 'effect']} label="effect" type="select" options={Object.values(OnomatopoeiaEffect)} placeholder="none" />
+						<PropField {doc} path={[...p, 'params', 'duration']} label="duration ms" type="number" step={100} placeholder="2000" />
+						<PropField {doc} path={[...p, 'params', 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
+						<PropField {doc} path={[...p, 'params', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="mono" />
+						<PropField {doc} path={[...p, 'params', 'wait']} label="wait (tap)" type="bool" placeholder="false" />
+					</div>
+				{:else}
 				<LocaleText {doc} path={[...p, 'params', 'text']} rows={1} />
 				<div class="ono">
 					<div class="grid g3">
@@ -302,6 +336,7 @@
 					</div>
 					<OnomatopoeiaPreview params={event.params ?? {}} {background} toon={doc.toon} />
 				</div>
+				{/if}
 			{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 				{#each characterRows(i) as row, ci (ci)}
 					{@const looks = looksOf(row)}

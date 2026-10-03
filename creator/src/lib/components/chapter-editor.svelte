@@ -372,6 +372,45 @@
 		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>(`[data-testid="text-${doc.primary}"]`)?.focus());
 	}
 
+	/** text boxes as choices for an onomatopoeia event (`params.dialog`): id + the start of the source text */
+	const boxChoices = (slices: any[] | undefined) =>
+		(slices ?? []).flatMap((sl: any) =>
+			(sl?.dialog ?? [])
+				.filter((d: any) => typeof d?.id === 'string' && d.id)
+				.map((d: any) => ({ id: d.id as string, label: `${d.id} · ${String(Array.isArray(d.text) ? d.text[0] : (d.text ?? '')).slice(0, 24)}` }))
+		);
+
+	/**
+	 * "Create a text box for this" (onomatopoeia event `index` of the slice): a bare lettering box (white letters, ink
+	 * outline, uppercase) at the event's position with the event's text per language, revealed by the event.
+	 */
+	function createBoxForEvent(index: number) {
+		const doc = activeDoc;
+		if (!doc || sliceIndex < 0) return;
+		const imageNo = Number(String(activeSlice?.image ?? '').match(/(\d+)\.\w+$/)?.[1]);
+		const id = nextDialogId(chapterNumber, (imageNo || sliceIndex + 1) - 1, sliceDialogs);
+		doc.structural((file) => {
+			const slice = getAt(file, slicePath);
+			const event = slice?.events?.[index];
+			if (!slice || event?.type !== 'showOnomatopeia') return;
+			const params = (event.params ??= {});
+			const x = typeof params.position?.x === 'number' ? params.position.x : 50;
+			const y = typeof params.position?.y === 'number' ? params.position.y : 50;
+			const box: Record<string, unknown> = {
+				...newDialog(id, { x: Math.max(0, x - 20), y: Math.max(0, y - 5), width: 40 }, 'bubble'),
+				text: params.text ?? '',
+				size: 8,
+				uppercase: true,
+				color: '#ffffff',
+				stroke: '#000000'
+			};
+			if (typeof params.rotation === 'number') box.rotation = params.rotation;
+			slice.dialog ??= [];
+			slice.dialog.push(box);
+			params.dialog = id;
+		});
+	}
+
 	/** places a catalog item in the middle of the slice (a quarter of its width; move / rotate / scale on the canvas) */
 	function addSliceItem(itemId: string) {
 		const doc = activeDoc;
@@ -759,7 +798,7 @@
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
 						<h3 class="sub">{m['creator.vn']()} (group.events)</h3>
 						{#if activeGroup?.events}
-							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} background={activeGroup?.slices?.[0]?.image ?? ''} />
+							<VnEvents doc={activeDoc} eventsPath={[...groupPath, 'events']} {characters} {choices} background={activeGroup?.slices?.[0]?.image ?? ''} dialogs={boxChoices(activeGroup?.slices)} />
 						{:else}
 							<p class="hint">No VN script in this group.
 								<button class="secondary" onclick={() => activeDoc?.structural((f) => { const g = getAt(f, groupPath); if (g) g.events = []; })}>+ VN script</button></p>
@@ -908,6 +947,8 @@
 							{characters}
 							{choices}
 							background={activeSlice.image}
+							dialogs={boxChoices([activeSlice])}
+							oncreatebox={createBoxForEvent}
 							selected={selection?.kind === 'event' ? selection.index : -1}
 							onselect={(i) => (selection = { kind: 'event', index: i })}
 						/>
