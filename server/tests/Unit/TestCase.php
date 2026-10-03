@@ -103,7 +103,7 @@ abstract class TestCase extends BaseTestCase
     {
         $code = $fields['code'] ?? 'c' . substr(bin2hex(random_bytes(4)), 0, 7);
         $this->db->run('INSERT INTO qr (id, code, redirect_to, type, email, created_at, claimed_at, expires_at, edition_id, edition_number, revoked_at, signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', [
-            Ids::uuid(), $code, $fields['redirect_to'] ?? 'https://scutoons.com/catpope', $type, $fields['email'] ?? '', $this->clock->local(), $this->clock->local(),
+            Ids::uuid(), $code, $fields['redirect_to'] ?? 'https://scutoons.com/catpope', $type, $fields['email'] ?? '', $fields['created_at'] ?? $this->clock->local(), $this->clock->local(),
             $fields['expires_at'] ?? null, $fields['edition_id'] ?? null, $fields['edition_number'] ?? null, $fields['revoked_at'] ?? null, $fields['signature'] ?? null,
         ]);
         return (string) $code;
