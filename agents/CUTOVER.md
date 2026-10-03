@@ -492,6 +492,24 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   QR / signature file still verify); new certificates print the exact code. The API sets a strict session `sql_mode`
   (`DB_SQL_MODE`, production's server mode is not strict). Optional check afterwards: the information_schema SQL in
   server/docs/DATABASE.md "Matching production" (all utf8mb4; the code columns utf8mb4_bin).
+- [ ] 10.25 Map places ↔ story: where a place lives (owner 2026-10-03, "lets investigate … isn't group the better place?" –
+  **decide first, after the open UI fixes**). Findings 2026-10-03:
+  - **Unlock today:** on the place (world map `place.unlock` = toon, chapter, `slice` = the slice's image path, `at`).
+    The viewer unlocks it when the reader *sees* that slice (`world.svelte.ts` `sliceSeen` → `placesForSlice`); a place
+    whose chapter has no slices yet unlocks from the chapter position `at` / a finished chapter (`unlocksFromProgress`).
+    The position never unlocks a slice place (VN choices skip groups). The slice inspector's "Unlocks place" box is the same
+    setting from the slice's side – its wording confuses ("the slice represents the place").
+  - **Jump today:** VN `jumpTo` = chapter + optional group label (`/catpope/chapter/2?label=scene-15`), the next bar too –
+    groups are the jump unit. The map card links only `place.chapter` (opens the chapter at its start, not at the place).
+  - **Idea:** the place on the **group** ("this scene is: Cathedral"): unlocks when the reader enters the group, the card
+    jumps to `chapter/N?label=<group>`, one setting shown from both sides (map builder: "Chapter 2 · scene-15"); chapter +
+    position stays the fallback for chapters without groups (3–5).
+  - **Doesn't line up yet:** chapter 1 is one group of 95 slices with two places (apartment slice 2, apartment-blocks
+    slice 72); chapter 2 `scene-20` holds church-square (slice 20) + cathedral (21); `scene-17` has none. Group labels are
+    not the screenplay scene numbers (places say scene 13–17, groups are scene-14 … scene-20).
+  - **Blocker:** splitting groups breaks the reader's infinite scroll (owner 2026-10-03) – fix that first, or keep groups
+    as they are and let a place point at a group + an optional slice (unlock precision) instead of splitting.
+  - **Open decisions:** split vs. group + slice; rename groups to their places (labels are in jump links – only with OK).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
