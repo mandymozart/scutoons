@@ -1,15 +1,9 @@
 <script lang="ts">
+	import { tick } from 'svelte';
+	import { Segmented } from '@scutoons/ui';
 	import { moveAt } from '$lib/editor/move.ts';
-	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
-	import { tick, untrack } from 'svelte';
-	import { Icon, Segmented } from '@scutoons/ui';
-	import { CoverArt } from '@scutoons/reader';
 	import {
-		COVER_ALIGNS,
-		COVER_COLORS,
-		COVER_COLOR_VALUES,
 		COVER_LIMITS,
-		COVER_TEXT_SOURCES,
 		clone,
 		coverLetteringOn,
 		coverLines,
@@ -27,7 +21,9 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import MediaSlot from '$lib/components/media/media-slot.svelte';
+	import CoverLetteringCanvas from '$lib/components/cover/cover-lettering-canvas.svelte';
+	import CoverInspector from '$lib/components/cover/cover-inspector.svelte';
+	import CoverPreviews from '$lib/components/cover/cover-previews.svelte';
 
 	/**
 	 * The cover editor (owner 2026-10-02, agents/DESIGN.md "Cover editor"): the text-free art with its lettering lines
@@ -37,6 +33,8 @@
 	 * avatar). It writes `<path>.lettering` and `<path>.square` to EVERY locale document of the doc (a cover is the same in
 	 * every language – the art is chosen once, the lettering's texts come from the text fields).
 	 * The square format only: the reader shows no portrait cover (owner 2026-10-02 "portrait I think we are not using").
+	 * Parts (COMPONENTS.md step 9): CoverLetteringCanvas (drag / handles / keys), CoverInspector (art, lines, the line's
+	 * properties), CoverPreviews; the writing stays here.
 	 */
 	let {
 		doc,
@@ -158,101 +156,9 @@
 		editLine(index, { [key]: round(clamp(n, key)) }, `cover-${key}-${index}`);
 	}
 
-	// ── canvas: drag to move, handles for width / size / angle ──────────────────────────────────────────────────
-	let stage = $state<HTMLDivElement | null>(null);
-	/** the lines' rendered heights in % of the cover's width (cqw), measured from the reader's own DOM */
-	let heights = $state<number[]>([]);
-	let guide = $state(false);
-
-	async function measure() {
-		await tick();
-		if (!stage) return;
-		const width = stage.clientWidth || 1;
-		heights = lines.map((_, i) => {
-			const text = stage!.querySelector<HTMLElement>(`[data-line="${i}"] .text`);
-			return text ? (text.offsetHeight / width) * 100 : 0;
-		});
-	}
-	$effect(() => {
-		void JSON.stringify(lines);
-		void previewTexts.toon;
-		void previewTexts.season;
-		void previewLang;
-		measure();
-		document.fonts?.ready.then(measure).catch(() => {});
-	});
-
-	type Drag = { kind: 'move' | 'width' | 'size' | 'rotate'; index: number; startX: number; startY: number; start: CoverLine; cx: number; cy: number; startDist: number };
-	let drag: Drag | null = null;
-
-	function startDrag(event: PointerEvent, index: number, kind: Drag['kind']) {
-		if (event.button !== 0 || !stage) return;
-		event.preventDefault();
-		event.stopPropagation();
-		// the default layout becomes the format's own as soon as it is touched
-		if (mode === 'default') writeLines(defaultCoverLines(format), 'cover-mode');
-		selected = index;
-		const rect = stage.getBoundingClientRect();
-		const start = $state.snapshot(lines[index]) as CoverLine;
-		const cx = rect.left + (start.x / 100) * rect.width;
-		const cy = rect.top + (start.y / 100) * rect.height;
-		drag = { kind, index, startX: event.clientX, startY: event.clientY, start, cx, cy, startDist: Math.hypot(event.clientX - cx, event.clientY - cy) || 1 };
-		(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
-		(event.currentTarget as HTMLElement).closest<HTMLElement>('.box')?.focus({ preventScroll: true });
-	}
-
-	function onDrag(event: PointerEvent) {
-		if (!drag || !stage) return;
-		const rect = stage.getBoundingClientRect();
-		const { kind, index, start } = drag;
-		const key = `cover-drag-${kind}-${index}`;
-		if (kind === 'move') {
-			let x = clamp(start.x + ((event.clientX - drag.startX) / rect.width) * 100, 'x');
-			const y = clamp(start.y + ((event.clientY - drag.startY) / rect.height) * 100, 'y');
-			// snap to the centre line (Alt: free)
-			guide = !event.altKey && Math.abs(x - 50) < 1.5;
-			if (guide) x = 50;
-			editLine(index, { x: round(x), y: round(y) }, key);
-		} else if (kind === 'width') {
-			const half = Math.abs(event.clientX - drag.cx);
-			editLine(index, { maxWidth: round(clamp(((half * 2) / rect.width) * 100, 'maxWidth')) }, key);
-		} else if (kind === 'size') {
-			const dist = Math.hypot(event.clientX - drag.cx, event.clientY - drag.cy);
-			editLine(index, { size: round(clamp(start.size * (dist / drag.startDist), 'size')) }, key);
-		} else {
-			// the handle sits above the line: straight up = 0°; Shift snaps to 5°
-			let angle = (Math.atan2(event.clientY - drag.cy, event.clientX - drag.cx) * 180) / Math.PI + 90;
-			if (angle > 180) angle -= 360;
-			angle = event.shiftKey ? Math.round(angle / 5) * 5 : Math.round(angle);
-			editLine(index, { rotate: clamp(angle, 'rotate') }, key);
-		}
-	}
-
-	function endDrag() {
-		drag = null;
-		guide = false;
-	}
-
-	function onKey(event: KeyboardEvent, index: number) {
-		const step = event.shiftKey ? 5 : 0.5;
-		const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
-		if (moves[event.key]) {
-			event.preventDefault();
-			if (mode === 'default') writeLines(defaultCoverLines(format), 'cover-mode');
-			const [dx, dy] = moves[event.key];
-			const current = lines[index];
-			editLine(index, { x: round(clamp(current.x + dx, 'x')), y: round(clamp(current.y + dy, 'y')) }, `cover-nudge-${index}`);
-		} else if ((event.key === 'Delete' || event.key === 'Backspace') && mode === 'custom') {
-			event.preventDefault();
-			removeLine(index);
-		} else if (event.key === 'Escape') selected = null;
-	}
-
-	const sourceLabel = (text: CoverLine['text']) =>
-		text === 'toon' ? m['creator.cover_text_toon']() : text === 'season' ? m['creator.cover_text_season']() : m['creator.cover_text_custom']();
 	const lineLabel = (l: CoverLine) => coverLineText(l, previewTexts, previewLang) || m['creator.cover_text_empty']();
-	const colorLabel = (c: string) => (m as unknown as Record<string, () => string>)[`creator.cover_color_${c}`]?.() ?? c;
-	const alignLabel = (a: string) => (m as unknown as Record<string, () => string>)[`creator.cover_align_${a}`]?.() ?? a;
+	/** the default layout becomes the format's own (touched on the canvas, a line added / removed) */
+	const ownLayout = () => writeLines(defaultCoverLines(format), 'cover-mode');
 	const customLanguages = $derived(textLanguage.visible(languages, source));
 </script>
 
@@ -273,141 +179,29 @@
 	<p class="hint">{mode === 'off' ? m['creator.cover_mode_hint_off']() : mode === 'default' ? m['creator.cover_mode_hint_default']() : m['creator.cover_mode_hint_custom']()}</p>
 
 	<div class="work">
-		<div class="canvas">
-			{#if image}
-				<!-- the reader's own CoverArt, the editing boxes on top (same geometry: % of the cover, cqw) -->
-				<div class="stage {format}" bind:this={stage} data-testid="cover-stage" role="presentation" onpointermove={onDrag} onpointerup={endDrag} onpointercancel={endDrag} onpointerdown={() => (selected = null)}>
-					<CoverArt src={image} {format} lettering={mode === 'off' ? false : { [format]: lines }} title={previewTexts.toon} subtitle={previewTexts.season} lang={previewLang} />
-					<div class="boxes">
-						{#if guide}<div class="guide" aria-hidden="true"></div>{/if}
-						{#each lines as l, i (i)}
-							{@const height = Math.max(heights[i] || l.size, 2)}
-							<div
-								class="box"
-								class:selected={selected === i}
-								style="left: {l.x}%; top: {l.y}%; width: {l.maxWidth}%; height: {height}cqw; transform: translate(-50%, -50%) rotate({l.rotate ?? 0}deg) skewX({l.skew ?? 0}deg)"
-								role="button"
-								tabindex="0"
-								aria-label="{sourceLabel(l.text)}: {lineLabel(l)}"
-								title="{sourceLabel(l.text)}: {lineLabel(l)}"
-								onpointerdown={(e) => startDrag(e, i, 'move')}
-								onkeydown={(e) => onKey(e, i)}
-								onfocus={() => (selected = i)}
-								data-testid="cover-box-{i}"
-							>
-								{#if selected === i}
-									<span class="handle width" role="presentation" title={m['creator.cover_handle_width']()} onpointerdown={(e) => startDrag(e, i, 'width')} data-testid="cover-handle-width"></span>
-									<span class="handle size" role="presentation" title={m['creator.cover_handle_size']()} onpointerdown={(e) => startDrag(e, i, 'size')} data-testid="cover-handle-size"></span>
-									<span class="handle rotate" role="presentation" title={m['creator.cover_handle_rotate']()} onpointerdown={(e) => startDrag(e, i, 'rotate')} data-testid="cover-handle-rotate"></span>
-								{/if}
-							</div>
-						{/each}
-					</div>
-				</div>
-			{:else}
-				<p class="hint empty">{m['creator.cover_no_art']()}</p>
-			{/if}
-		</div>
-
-		<aside class="inspector" data-testid="cover-inspector">
-			<!-- the art as a slot (the preview is the button → the asset picker; the path only as the tooltip) -->
-			<div class="art" data-testid="cover-art-field" title={m['creator.cover_art_hint']()}>
-				<MediaSlot {toon} {place} label={m['creator.cover_art']()} value={cover?.[format]} onchange={(v) => writeCover(format, v, 'cover-art')} testid="cover-art-slot" />
-			</div>
-			{#if mode !== 'off'}
-				<p class="sc-label">{m['creator.cover_lines']()}</p>
-				<ul class="lines">
-					{#each lines as l, i (i)}
-						<li>
-							<button type="button" class="ghost row" class:active={selected === i} onclick={() => (selected = i)} data-testid="cover-line-{i}">
-								<span class="src">{sourceLabel(l.text)}</span>
-								<span class="txt">{lineLabel(l)}</span>
-							</button>
-						</li>
-					{/each}
-				</ul>
-				<button type="button" class="secondary" onclick={() => (mode === 'default' ? (writeLines(defaultCoverLines(format), 'cover-mode'), addLine()) : addLine())} data-testid="cover-add-line"><Icon name="plus" /> {m['creator.cover_add_line']()}</button>
-			{/if}
-
-			{#if line && selected !== null}
-				{@const i = selected}
-				<div class="props" data-testid="cover-props">
-					<label class="field">
-						<span class="sc-label">{m['creator.cover_text']()}</span>
-						<select value={line.text} onchange={(e) => setText(i, e.currentTarget.value as CoverLine['text'])} data-testid="cover-text-source">
-							{#each COVER_TEXT_SOURCES as s (s)}<option value={s} selected={line.text === s}>{sourceLabel(s)}</option>{/each}
-						</select>
-					</label>
-					{#if line.text === 'custom'}
-						<div class="custom" data-testid="cover-custom-text">
-							{#each customLanguages as l (l)}
-								<label class="field">
-									<span class="sc-label">{l}</span>
-									<input type="text" value={line.custom?.[l] ?? ''} lang={l} oninput={(e) => setCustom(i, l, e.currentTarget.value)} data-testid="cover-custom-{l}" />
-								</label>
-							{/each}
-						</div>
-					{:else}
-						<p class="hint">{m['creator.cover_text_hint']()}</p>
-					{/if}
-					<label class="check">
-						<input type="checkbox" checked={line.quotes === true} onchange={(e) => editLine(i, { quotes: e.currentTarget.checked || undefined }, 'cover-quotes')} />
-						<span>{m['creator.cover_quotes']()}</span>
-					</label>
-					<div class="sc-fields" data-cols="2" data-density="panel">
-						{#each [['x', m['creator.cover_x']()], ['y', m['creator.cover_y']()], ['size', m['creator.cover_size']()], ['maxWidth', m['creator.cover_width']()], ['rotate', m['creator.cover_rotate']()], ['skew', m['creator.cover_skew']()]] as [key, label] (key)}
-							{@const k = key as keyof typeof COVER_LIMITS}
-							<label class="field">
-								<span class="sc-label">{label}</span>
-								<input type="number" step="0.5" min={COVER_LIMITS[k].min} max={COVER_LIMITS[k].max} value={line[k] ?? 0} onchange={(e) => setNumber(i, k, e.currentTarget.value)} data-testid="cover-{key}" />
-							</label>
-						{/each}
-					</div>
-					<div class="field">
-						<span class="sc-label">{m['creator.cover_align']()}</span>
-						<span class="seg" role="group" aria-label={m['creator.cover_align']()}>
-							{#each COVER_ALIGNS as a (a)}
-								<button type="button" class="ghost" class:active={(line.align ?? 'center') === a} aria-pressed={(line.align ?? 'center') === a} title={alignLabel(a)} aria-label={alignLabel(a)} onclick={() => editLine(i, { align: a === 'center' ? undefined : a }, 'cover-align')}><Icon name="align-{a}" /></button>
-							{/each}
-						</span>
-					</div>
-					<div class="sc-fields" data-cols="2" data-density="panel">
-						{#each [['color', m['creator.cover_color'](), 'paper'], ['outline', m['creator.cover_outline'](), 'ink']] as [key, label, fallback] (key)}
-							{@const k = key as 'color' | 'outline'}
-							<label class="field">
-								<span class="sc-label">{label}</span>
-								<span class="color">
-									<span class="swatch" style="background: {COVER_COLOR_VALUES[line[k] ?? (fallback as 'paper')]}"></span>
-									<select onchange={(e) => editLine(i, { [k]: e.currentTarget.value === fallback ? undefined : e.currentTarget.value }, `cover-${k}`)} data-testid="cover-{key}">
-										{#each COVER_COLORS as c (c)}<option value={c} selected={(line[k] ?? fallback) === c}>{colorLabel(c)}</option>{/each}
-									</select>
-								</span>
-							</label>
-						{/each}
-					</div>
-					<div class="line-actions">
-						<ReorderButtons index={i} count={lines.length} onmove={moveLine} variant="secondary" labels={{ up: m['creator.cover_line_up'](), down: m['creator.cover_line_down']() }} />
-						<button type="button" class="secondary" title={m['creator.cover_remove_line']()} onclick={() => (mode === 'default' ? (writeLines(defaultCoverLines(format), 'cover-mode'), removeLine(i)) : removeLine(i))} data-testid="cover-remove-line"><Icon name="trash-2" /> {m['creator.cover_remove_line']()}</button>
-					</div>
-				</div>
-			{/if}
-		</aside>
+		<CoverLetteringCanvas {image} {format} {lines} {mode} texts={previewTexts} lang={previewLang} bind:selected {lineLabel} onedit={editLine} onown={ownLayout} onremove={removeLine} />
+		<CoverInspector
+			{toon}
+			{place}
+			art={cover?.[format]}
+			{mode}
+			{lines}
+			bind:selected
+			{customLanguages}
+			{lineLabel}
+			onart={(v) => writeCover(format, v, 'cover-art')}
+			onadd={() => (mode === 'default' ? (ownLayout(), addLine()) : addLine())}
+			onedit={editLine}
+			onnumber={setNumber}
+			ontext={setText}
+			oncustom={setCustom}
+			onmove={moveLine}
+			onremove={(i) => (mode === 'default' ? (ownLayout(), removeLine(i)) : removeLine(i))}
+		/>
 	</div>
 
-
 	{#if image}
-		<section class="readers" data-testid="cover-readers">
-			<h3 class="sc-heading">{m['creator.cover_readers']()}</h3>
-			<div class="reader-grid">
-				{#each languages as l (l)}
-					{@const t = texts(l)}
-					<figure class="reader" data-testid="cover-reader-{l}">
-						<CoverArt src={image} {format} lettering={mode === 'off' ? false : { [format]: lines }} title={t.toon} subtitle={t.season} lang={l} />
-						<figcaption class="hint">{l.toUpperCase()}{l === source ? ` · ${m['creator.source']()}` : ''}</figcaption>
-					</figure>
-				{/each}
-			</div>
-		</section>
+		<CoverPreviews {image} {format} {lines} off={mode === 'off'} {languages} {source} {texts} />
 	{/if}
 </div>
 
@@ -423,7 +217,6 @@
 		align-items: center;
 		gap: var(--space-05) var(--space-1);
 	}
-	/* segmented control: one 2px ink frame, the chosen part inverted */
 	.hint {
 		margin: 0;
 	}
@@ -438,184 +231,5 @@
 		.work {
 			grid-template-columns: minmax(0, 1fr);
 		}
-	}
-	.canvas {
-		min-width: 0;
-	}
-	.stage {
-		position: relative;
-		border: var(--border-width-regular) solid var(--ink);
-		touch-action: none;
-		user-select: none;
-	}
-	.boxes {
-		position: absolute;
-		inset: 0;
-		container-type: inline-size;
-	}
-	.box {
-		position: absolute;
-		box-sizing: border-box;
-		border: var(--border-width-regular) dashed rgb(255 255 255 / 0.7);
-		outline: var(--border-width-hairline) dashed rgb(0 0 0 / 0.6);
-		cursor: move;
-	}
-	.box:hover {
-		border-style: solid;
-	}
-	.box.selected,
-	.box:focus-visible {
-		border: var(--border-width-regular) solid var(--primary-cyan);
-		outline: var(--border-width-hairline) solid var(--ink);
-	}
-	.guide {
-		position: absolute;
-		left: 50%;
-		top: 0;
-		bottom: 0;
-		border-left: var(--border-width-hairline) solid var(--primary-cyan);
-		pointer-events: none;
-	}
-	.handle {
-		position: absolute;
-		width: 0.75rem;
-		height: 0.75rem;
-		background: var(--paper);
-		border: var(--border-width-regular) solid var(--ink);
-		box-sizing: border-box;
-	}
-	.handle.width {
-		right: -0.4rem;
-		top: 50%;
-		transform: translateY(-50%);
-		cursor: ew-resize;
-	}
-	.handle.size {
-		right: -0.4rem;
-		bottom: -0.4rem;
-		cursor: nwse-resize;
-		background: var(--ink);
-	}
-	.handle.rotate {
-		left: 50%;
-		top: -1.5rem;
-		transform: translateX(-50%);
-		border-radius: var(--radius-full);
-		cursor: grab;
-	}
-	@media (pointer: coarse) {
-		.handle {
-			width: 1.5rem;
-			height: 1.5rem;
-		}
-		.handle.width,
-		.handle.size {
-			right: -0.75rem;
-		}
-		.handle.size {
-			bottom: -0.75rem;
-		}
-		.handle.rotate {
-			top: -2.25rem;
-		}
-	}
-	.empty {
-		border: var(--border-width-regular) dashed var(--border-muted);
-		padding: var(--space-3) var(--space-1);
-		text-align: center;
-	}
-	.inspector {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-		min-width: 0;
-	}
-	.inspector > .sc-label {
-		margin: 0;
-	}
-	.lines {
-		list-style: none;
-		margin: 0;
-		padding: 0;
-		border: var(--border-width-regular) solid var(--ink);
-	}
-	.lines li + li {
-		border-top: var(--border-width-hairline) solid var(--ink);
-	}
-	.row {
-		width: 100%;
-		justify-content: flex-start;
-		gap: var(--space-05);
-		text-align: left;
-	}
-	.row .src {
-		flex: none;
-		font-size: var(--type-caption-size);
-		text-transform: uppercase;
-		letter-spacing: var(--tracking-label);
-	}
-	.row .txt {
-		min-width: 0;
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.props {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-		border-top: var(--border-width-regular) solid var(--ink);
-		padding-top: var(--space-1);
-	}
-	.field {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-025);
-		min-width: 0;
-	}
-	.custom {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-05);
-	}
-	.check {
-		display: flex !important;
-		align-items: center;
-		gap: var(--space-05);
-	}
-	.color {
-		display: flex;
-		align-items: stretch;
-		gap: var(--space-05);
-	}
-	.swatch {
-		flex: none;
-		width: var(--control-height);
-		border: var(--border-width-regular) solid var(--ink);
-		box-sizing: border-box;
-	}
-	.line-actions {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-05);
-	}
-	.art {
-		padding-bottom: var(--space-1);
-		border-bottom: var(--border-width-regular) solid var(--ink);
-	}
-	.readers h3 {
-		margin: 0 0 var(--space-05);
-	}
-	.reader-grid {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--space-1);
-	}
-	.reader {
-		margin: 0;
-		width: 14rem;
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-025);
 	}
 </style>
