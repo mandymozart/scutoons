@@ -83,9 +83,21 @@
 		}
 	}
 
+	/** whole slice = no `trigger.rect`; off = a centred area to drag on the slice */
+	function setWholeSlice(index: number, whole: boolean) {
+		doc.structural((file) => {
+			const trigger = getAt(file, [...eventsPath, index, 'trigger']);
+			if (!trigger) return;
+			if (whole) delete trigger.rect;
+			else trigger.rect = { x: 10, y: 30, width: 80, height: 40 };
+		}, `${eventsPath.join('.')}.${index}.area`);
+		onselect?.(index);
+	}
+
 	function add(type: string) {
 		const event = template(type);
-		if (sliceEvents) event.trigger = { type: Trigger.CLICK, rect: { x: 0, y: 0, width: 100, height: 100 } };
+		// a new slice event covers the whole slice (when scrolled into view); an area is drawn with the ⚡ tool or switched on below
+		if (sliceEvents) event.trigger = { type: Trigger.INTERSECT };
 		doc.structural((file) => {
 			let list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) {
@@ -323,7 +335,11 @@
 				<div class="grid g3 trigger">
 					<PropField {doc} path={[...p, 'trigger', 'type']} label="trigger" type="select" options={Object.values(Trigger)} required />
 					<PropField {doc} path={[...p, 'trigger', 'once']} label="once" type="bool" placeholder="false" />
-					<span class="hint">{event.trigger?.rect ? 'area: drag it on the slice' : 'no area'}</span>
+					<!-- area or the whole slice (no rect) – click, hover and intersect all take either (owner 2026-10-03) -->
+					<label class="whole" title={m['creator.event_whole_slice_hint']()}>
+						<input type="checkbox" checked={!event.trigger?.rect} onchange={(e) => setWholeSlice(i, e.currentTarget.checked)} data-testid="event-whole-{i}" />
+						{m['creator.event_whole_slice']()}
+					</label>
 				</div>
 			{/if}
 		</article>
@@ -389,6 +405,13 @@
 	.trigger {
 		border-top: 1px dashed var(--border-muted);
 		padding-top: 0.3rem;
+	}
+	.whole {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
+		align-self: end;
+		min-height: var(--control-height);
 	}
 	.add {
 		display: flex;

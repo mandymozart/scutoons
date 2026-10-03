@@ -4,7 +4,7 @@
 		kind: ItemKind;
 		index: number;
 	}
-	export type Tool = 'text' | 'sample' | 'item';
+	export type Tool = 'text' | 'sample' | 'item' | 'event';
 </script>
 
 <script lang="ts">
@@ -459,8 +459,8 @@
 		if (drag.mode === 'draw' && drag.draw && drag.draw.width >= 2 && drag.draw.height >= 1) {
 			const r = drag.draw;
 			oncreate?.(tool, { x: round2(r.x), y: round2(r.y), width: round2(r.width), height: round2(r.height) });
-		} else if (drag.mode === 'draw' && tool === 'item' && !drag.moved) {
-			// the item tool: a click is enough – the item goes there (a quarter of the slice wide, its icon's ratio)
+		} else if (drag.mode === 'draw' && (tool === 'item' || tool === 'event') && !drag.moved) {
+			// a click is enough: the item tool places the item there; the event tool makes a whole-slice event (no area)
 			oncreate?.(tool, { x: round2(drag.start.x), y: round2(drag.start.y), width: 0, height: 0 });
 		}
 		drag = null;
@@ -496,8 +496,8 @@
 	});
 </script>
 
-<!-- one resolution in the whole app (owner 2026-09-30): the slice at its 1x size, scaled down to fit the column -->
-<div class="canvas-wrap" style:max-width="{sliceWidth}px">
+<!-- one resolution in the whole app (owner 2026-09-30): the slice at its 1x size, scaled down to fit the column (its width and, in the slice editor, its height) -->
+<div class="canvas-wrap" style:max-width="min({sliceWidth}px, calc(100cqh * {1 / sliceRatio}))">
 	<div
 		class="slice creator-canvas"
 		bind:this={canvas}
@@ -572,7 +572,7 @@
 			{/each}
 			{#if drag?.mode === 'draw' && drag.draw && drag.moved}
 				<div
-					class="box ghost kind-{tool === 'sample' ? 'sample' : tool === 'item' ? 'item' : 'dialog'}"
+					class="box ghost kind-{tool === 'sample' ? 'sample' : tool === 'item' ? 'item' : tool === 'event' ? 'event' : 'dialog'}"
 					style:left="{drag.draw.x}%"
 					style:top="{drag.draw.y}%"
 					style:width="{drag.draw.width}%"

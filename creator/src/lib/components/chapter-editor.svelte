@@ -270,8 +270,8 @@
 
 	// tool = tab = layer (owner 2026-10-03): a tool opens its tab, a tab picks its tool; the canvas only takes the pointer
 	// on that tab's layer (a full-slice event no longer covers the texts)
-	const TAB_TOOL: Partial<Record<typeof inspectorTab, Tool>> = { text: 'text', items: 'item', audio: 'sample' };
-	const TOOL_TAB: Record<Tool, typeof inspectorTab> = { text: 'text', item: 'items', sample: 'audio' };
+	const TAB_TOOL: Partial<Record<typeof inspectorTab, Tool>> = { text: 'text', items: 'item', audio: 'sample', events: 'event' };
+	const TOOL_TAB: Record<Tool, typeof inspectorTab> = { text: 'text', item: 'items', sample: 'audio', event: 'events' };
 	function setTab(next: typeof inspectorTab) {
 		inspectorTab = next;
 		// a selection on another layer is let go (its handles would sit on a layer that no longer takes the pointer)
@@ -512,6 +512,24 @@
 			slice.items.push({ id: `${itemId}-${n}`, item: itemId, rect: spot ? { x: Math.min(75, Math.max(0, spot.x)), y: Math.min(95, Math.max(0, spot.y)), width: 25 } : { x: 37.5, y: 40, width: 25 } });
 		});
 		onCanvasSelect({ kind: 'item', index: sliceItems.length - 1 });
+	}
+
+	/**
+	 * the ⚡ tool (owner 2026-10-03): a drawn area → a click event there; a plain click (no area) → a whole-slice event
+	 * that fires when the slice scrolls into view. A message to start with – its type, trigger and area change in Events.
+	 */
+	function addSliceEvent(rect: { x: number; y: number; width: number; height: number }) {
+		const doc = activeDoc;
+		if (!doc || sliceIndex < 0) return;
+		const area = rect.width > 0 && rect.height > 0;
+		const index = activeSlice?.events?.length ?? 0;
+		doc.structural((file) => {
+			const slice = getAt(file, slicePath);
+			if (!slice) return;
+			slice.events ??= [];
+			slice.events.push({ type: 'showMessage', params: { text: '', wait: true }, trigger: area ? { type: Trigger.CLICK, rect: { ...rect } } : { type: Trigger.INTERSECT } });
+		});
+		onCanvasSelect({ kind: 'event', index });
 	}
 
 	function addSampleArea(rect: { x: number; y: number; width: number; height: number }) {
@@ -868,7 +886,7 @@
 
 		<div class="columns" class:has-inspector={section === 'slice'} bind:this={columnsEl} style:--inspector-width={inspectorSize.css}>
 			<!-- Main -->
-			<main class="main">
+			<main class="main" class:fit={section === 'slice' && !!activeSlice}>
 				{#if section === 'meta'}
 					{#if legacyTexts}
 						<div class="bar note-bar" data-testid="legacy-texts">
@@ -924,6 +942,7 @@
 							<button class="ghost" class:active={tool === 'text'} aria-pressed={tool === 'text'} onclick={() => setTool('text')} title={m['creator.tool_text']()} aria-label={m['creator.tool_text']()} data-testid="tool-text"><Icon name="type" /></button>
 							<button class="ghost" class:active={tool === 'item'} aria-pressed={tool === 'item'} onclick={() => setTool('item')} title={m['creator.tool_item']()} aria-label={m['creator.tool_item']()} data-testid="tool-item"><Icon name="box" /></button>
 							<button class="ghost" class:active={tool === 'sample'} aria-pressed={tool === 'sample'} onclick={() => setTool('sample')} title={m['creator.tool_sample']()} aria-label={m['creator.tool_sample']()} data-testid="tool-sample"><Icon name="music" /></button>
+							<button class="ghost" class:active={tool === 'event'} aria-pressed={tool === 'event'} onclick={() => setTool('event')} title={m['creator.tool_event']()} aria-label={m['creator.tool_event']()} data-testid="tool-event"><Icon name="zap" /></button>
 						</span>
 					</div>
 					<div class="canvas-scroll">
@@ -937,7 +956,7 @@
 							{layer}
 							{selection}
 							onselect={onCanvasSelect}
-							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? ((itemSpot = { x: rect.x, y: rect.y }), (pickingItem = true)) : addSampleArea(rect))}
+							oncreate={(t, rect) => (t === 'text' ? addDialog(rect) : t === 'item' ? ((itemSpot = { x: rect.x, y: rect.y }), (pickingItem = true)) : t === 'event' ? addSliceEvent(rect) : addSampleArea(rect))}
 						/>
 					</div>
 				{:else}
@@ -1250,6 +1269,19 @@
 	.canvas-scroll {
 		overflow: auto;
 		padding: var(--space-1) 0 var(--space-15);
+	}
+	/* the slice editor: tools on top, the slice fits the rest of the column's height – no scrolling unless the slice is
+	   taller than the column even at its smallest (owner 2026-10-03) */
+	.main.fit {
+		display: flex;
+		flex-direction: column;
+		padding-bottom: var(--space-1);
+	}
+	.main.fit .canvas-scroll {
+		flex: 1;
+		min-height: 12rem;
+		padding-bottom: 0;
+		container-type: size;
 	}
 	.inspector {
 		overflow: auto;
