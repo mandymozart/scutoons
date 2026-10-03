@@ -41,6 +41,9 @@
 	--space-1: 1rem;
 	--space-15: 1.5rem;
 	--space-3: 3rem;
+	/* the tools' field grid (tools.css .sc-fields): smallest column of data-cols="fill" / "fit" */
+	--fields-fill-min: 12rem;
+	--fields-fit-min: 18rem;
 
 	/* ── Radius (square is the brand signature) ────────────────────────────── */
 	--radius-none: 0;

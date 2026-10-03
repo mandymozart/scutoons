@@ -610,10 +610,10 @@
 	/* the field grids' column widths (tools.css .sc-fields "fill" / "fit"): 1/8 rem under the defaults, so the wider page
 	   gap (1rem) still fits as many columns as before (12rem / 18rem + 0.75rem) */
 	.sc-fields[data-cols='fill'] {
-		--fields-min: 11.875rem;
+		--fields-fill-min: 11.875rem;
 	}
 	.sc-fields[data-cols='fit'] {
-		--fields-min: 17.875rem;
+		--fields-fit-min: 17.875rem;
 	}
 	.intro {
 		align-self: end;

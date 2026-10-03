@@ -405,8 +405,8 @@
      data-density="page"  (default) page forms – toon settings, character detail   --space-075 / --space-1
      data-density="panel" inspector panels – text inspector, group panel             --space-05  / --space-075
      data-density="dense" dense rows – VN events, slice audio                        --space-025 / --space-05
-   data-cols: 1 (default) | 2 | 3 | 4 equal columns; "fill" = as many columns of at least --fields-min (12rem) as fit;
-   "fit" = the same, stretched over the row (--fields-min 18rem). A genuinely special layout sets only its own
+   data-cols: 1 (default) | 2 | 3 | 4 equal columns; "fill" = as many columns of at least --fields-fill-min (12rem) as fit;
+   "fit" = the same, stretched over the row (--fields-fit-min, 18rem). A genuinely special layout sets only its own
    grid-template-columns (or align-items) locally – never a gap (check:tools-css). */
 .sc-fields {
 	display: grid;
@@ -429,10 +429,10 @@
 	grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .sc-fields[data-cols='fill'] {
-	grid-template-columns: repeat(auto-fill, minmax(var(--fields-min, 12rem), 1fr));
+	grid-template-columns: repeat(auto-fill, minmax(var(--fields-fill-min), 1fr));
 }
 .sc-fields[data-cols='fit'] {
-	grid-template-columns: repeat(auto-fit, minmax(var(--fields-min, 18rem), 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(var(--fields-fit-min), 1fr));
 }
 
 /* a framed block */
