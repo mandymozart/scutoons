@@ -241,6 +241,10 @@
 				"height": {
 					"type": "number"
 				},
+				"imageVariants": {
+					"$ref": "#/definitions/QualityVariants",
+					"description": "The image per quality level (owner 2026-10-03, PLAN.md \"Slices\"): low = 1x (= `image`), medium = 2x, high = 3x (390 / 780 / 1170 px wide WebP, `<name>.2x.webp`). The reader picks by its media quality (`pickQualityVariant`); none = just `image`."
+				},
 				"video": {
 					"$ref": "#/definitions/SliceVideo"
 				},
@@ -278,6 +282,21 @@
 				"width",
 				"height"
 			]
+		},
+		"QualityVariants": {
+			"type": "object",
+			"properties": {
+				"low": {
+					"type": "string"
+				},
+				"medium": {
+					"type": "string"
+				},
+				"high": {
+					"type": "string"
+				}
+			},
+			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
 		},
 		"SliceVideo": {
 			"type": "object",
@@ -319,21 +338,6 @@
 				"src"
 			],
 			"description": "A video instead of the slice image. The slice's `image` is its poster. By default a muted, inline loop that plays while in view; with `player` a video to watch (a music video, a trailer)."
-		},
-		"QualityVariants": {
-			"type": "object",
-			"properties": {
-				"low": {
-					"type": "string"
-				},
-				"medium": {
-					"type": "string"
-				},
-				"high": {
-					"type": "string"
-				}
-			},
-			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
 		},
 		"SliceViewport": {
 			"type": "object",
@@ -651,6 +655,10 @@
 					"type": "number",
 					"description": "outline width in em of the font size, default 0.14"
 				},
+				"letterSpacing": {
+					"type": "number",
+					"description": "letter spacing in em of the font size (owner 2026-10-03), e.g. 0.05; default the font's own (0)"
+				},
 				"rotation": {
 					"type": "number",
 					"description": "Degrees, around the box's centre."
@@ -669,7 +677,8 @@
 							"const": true
 						}
 					],
-					"description": "Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'."
+					"description": "Fill rect (+ pad) before drawing the text, to cover text baked into legacy art. true = '#ffffff'.",
+					"deprecated": "owner 2026-10-03: the chapter's art is re-imported text-free; the dialog data stays. Still drawn for old data."
 				},
 				"maskShape": {
 					"type": "string",
@@ -677,11 +686,13 @@
 						"rect",
 						"ellipse"
 					],
-					"description": "Default 'rect'."
+					"description": "Default 'rect'.",
+					"deprecated": "with `mask`"
 				},
 				"pad": {
 					"type": "number",
-					"description": "Extra mask padding in % of slice width. Default 0.5."
+					"description": "Extra mask padding in % of slice width. Default 0.5.",
+					"deprecated": "with `mask`"
 				}
 			},
 			"required": [
@@ -805,115 +816,388 @@
 		"VNEvent": {
 			"anyOf": [
 				{
-					"$ref": "#/definitions/VNShowMessageEvent"
-				},
-				{
-					"$ref": "#/definitions/VNShowChoicesEvent"
-				},
-				{
-					"$ref": "#/definitions/VNAddChoiceEvent"
-				},
-				{
-					"$ref": "#/definitions/VNJoinSceneEvent"
-				},
-				{
-					"$ref": "#/definitions/VNLeaveSceneEvent"
-				},
-				{
-					"$ref": "#/definitions/VNHideMessageEvent"
-				},
-				{
-					"$ref": "#/definitions/VNShowOnomatopeiaEvent"
-				},
-				{
-					"$ref": "#/definitions/VNJumpToEvent"
-				}
-			]
-		},
-		"VNShowMessageEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "showMessage"
-				},
-				"params": {
 					"type": "object",
 					"properties": {
-						"text": {
-							"type": "string"
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
-						"character": {
+						"type": {
 							"type": "string",
-							"description": "the speaking character's id"
+							"const": "showMessage"
 						},
-						"persona": {
-							"type": "string",
-							"description": "the speaker's persona (none = regular)"
-						},
-						"wait": {
-							"type": "boolean"
-						}
-					},
-					"required": [
-						"text",
-						"character"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
-		"VNShowChoicesEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "showChoices"
-				},
-				"params": {
-					"type": "object"
-				}
-			},
-			"required": [
-				"type"
-			]
-		},
-		"VNAddChoiceEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "addChoice"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"label": {
-							"type": "string"
-						},
-						"onSelect": {
-							"anyOf": [
-								{
-									"$ref": "#/definitions/VNVariableSetter"
+						"params": {
+							"type": "object",
+							"properties": {
+								"text": {
+									"type": "string"
 								},
-								{
-									"$ref": "#/definitions/VNVariableAdder"
+								"character": {
+									"type": "string",
+									"description": "the speaking character's id"
+								},
+								"persona": {
+									"type": "string",
+									"description": "the speaker's persona (none = regular)"
+								},
+								"wait": {
+									"type": "boolean"
 								}
+							},
+							"required": [
+								"text",
+								"character"
 							]
 						}
 					},
 					"required": [
-						"label"
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "showChoices"
+						},
+						"params": {
+							"type": "object"
+						}
+					},
+					"required": [
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "addChoice"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"label": {
+									"type": "string"
+								},
+								"onSelect": {
+									"anyOf": [
+										{
+											"$ref": "#/definitions/VNAction"
+										},
+										{
+											"type": "array",
+											"items": {
+												"$ref": "#/definitions/VNAction"
+											}
+										}
+									]
+								}
+							},
+							"required": [
+								"label"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "joinScene"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"characters": {
+									"type": "array",
+									"items": {
+										"$ref": "#/definitions/VNCharacterRef"
+									}
+								}
+							},
+							"required": [
+								"characters"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "leaveScene"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"characters": {
+									"type": "array",
+									"items": {
+										"$ref": "#/definitions/VNCharacterRef"
+									}
+								}
+							},
+							"required": [
+								"characters"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "hideMessage"
+						},
+						"params": {
+							"type": "object"
+						}
+					},
+					"required": [
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "showOnomatopeia"
+						},
+						"params": {
+							"$ref": "#/definitions/OnomatopoeiaParams"
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "jumpTo"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"target": {
+									"$ref": "#/definitions/JumpToTarget"
+								},
+								"wait": {
+									"type": "boolean"
+								}
+							},
+							"required": [
+								"target"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "label"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"name"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "divert"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"to": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"to"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "setVariable"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"variable": {
+									"type": "string"
+								},
+								"value": {
+									"type": [
+										"string",
+										"number"
+									]
+								},
+								"op": {
+									"type": "string",
+									"enum": [
+										"set",
+										"add"
+									]
+								}
+							},
+							"required": [
+								"variable",
+								"value"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"type"
+					]
+				}
+			]
+		},
+		"VNCondition": {
+			"type": "object",
+			"properties": {
+				"variable": {
+					"type": "string"
+				},
+				"op": {
+					"$ref": "#/definitions/VNConditionOp"
+				},
+				"value": {
+					"type": [
+						"string",
+						"number"
 					]
 				}
 			},
 			"required": [
-				"type",
-				"params"
+				"variable",
+				"op"
 			]
+		},
+		"VNConditionOp": {
+			"type": "string",
+			"enum": [
+				"==",
+				"!=",
+				"<",
+				"<=",
+				">",
+				">=",
+				"set",
+				"unset"
+			],
+			"description": "\"Only if\" on any event (owner 2026-10-03): the event runs only when the reader's variable passes the test, else it is skipped. Numbers compare as numbers; `set` / `unset` ask whether the variable has a value at all."
+		},
+		"VNAction": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/VNVariableSetter"
+				},
+				{
+					"$ref": "#/definitions/VNVariableAdder"
+				},
+				{
+					"$ref": "#/definitions/VNJumpTo"
+				},
+				{
+					"$ref": "#/definitions/VNDivert"
+				}
+			],
+			"description": "what a choice does when picked – one action or several in order (e.g. add 15 minutes, then jump)"
 		},
 		"VNVariableSetter": {
 			"type": "object",
@@ -961,32 +1245,79 @@
 				"add"
 			]
 		},
-		"VNJoinSceneEvent": {
+		"VNJumpTo": {
 			"type": "object",
 			"properties": {
-				"type": {
-					"type": "string",
-					"const": "joinScene"
-				},
-				"params": {
+				"jumpTo": {
 					"type": "object",
 					"properties": {
-						"characters": {
-							"type": "array",
-							"items": {
-								"$ref": "#/definitions/VNCharacterRef"
-							}
+						"target": {
+							"$ref": "#/definitions/JumpToTarget"
 						}
 					},
 					"required": [
-						"characters"
+						"target"
 					]
 				}
 			},
 			"required": [
-				"type",
-				"params"
+				"jumpTo"
 			]
+		},
+		"JumpToTarget": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"$ref": "#/definitions/JumpToTargetType"
+				},
+				"value": {
+					"type": "string"
+				},
+				"label": {
+					"type": "string"
+				},
+				"anyOf": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "a random group of this chapter instead of `label` (owner 2026-10-03, the chapter 2 stroll): one of these labels, never the group the reader is on (`pickJumpLabel`)"
+				}
+			},
+			"required": [
+				"type",
+				"value"
+			]
+		},
+		"JumpToTargetType": {
+			"type": "string",
+			"enum": [
+				"chapter",
+				"season",
+				"toon",
+				"product",
+				"xr"
+			]
+		},
+		"VNDivert": {
+			"type": "object",
+			"properties": {
+				"divert": {
+					"type": "object",
+					"properties": {
+						"to": {
+							"type": "string"
+						}
+					},
+					"required": [
+						"to"
+					]
+				}
+			},
+			"required": [
+				"divert"
+			],
+			"description": "continue the group's script at a named point (`label` event) – the story's own branch, no page change"
 		},
 		"VNCharacterRef": {
 			"type": "object",
@@ -1038,64 +1369,6 @@
 			],
 			"description": "A view (framing) of a character in a scene."
 		},
-		"VNLeaveSceneEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "leaveScene"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"characters": {
-							"type": "array",
-							"items": {
-								"$ref": "#/definitions/VNCharacterRef"
-							}
-						}
-					},
-					"required": [
-						"characters"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
-		"VNHideMessageEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "hideMessage"
-				},
-				"params": {
-					"type": "object"
-				}
-			},
-			"required": [
-				"type"
-			]
-		},
-		"VNShowOnomatopeiaEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "showOnomatopeia"
-				},
-				"params": {
-					"$ref": "#/definitions/OnomatopoeiaParams"
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
 		"OnomatopoeiaParams": {
 			"type": "object",
 			"properties": {
@@ -1139,61 +1412,6 @@
 				"shiver",
 				"pulse",
 				"wobble"
-			]
-		},
-		"VNJumpToEvent": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"type": "string",
-					"const": "jumpTo"
-				},
-				"params": {
-					"type": "object",
-					"properties": {
-						"target": {
-							"$ref": "#/definitions/JumpToTarget"
-						},
-						"wait": {
-							"type": "boolean"
-						}
-					},
-					"required": [
-						"target"
-					]
-				}
-			},
-			"required": [
-				"type",
-				"params"
-			]
-		},
-		"JumpToTarget": {
-			"type": "object",
-			"properties": {
-				"type": {
-					"$ref": "#/definitions/JumpToTargetType"
-				},
-				"value": {
-					"type": "string"
-				},
-				"label": {
-					"type": "string"
-				}
-			},
-			"required": [
-				"type",
-				"value"
-			]
-		},
-		"JumpToTargetType": {
-			"type": "string",
-			"enum": [
-				"chapter",
-				"season",
-				"toon",
-				"product",
-				"xr"
 			]
 		},
 		"SliceItemRespawn": {
@@ -1258,6 +1476,10 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
 						"type": {
 							"type": "string",
 							"const": "showMessage"
@@ -1298,6 +1520,10 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
 						"type": {
 							"type": "string",
 							"const": "showChoices"
@@ -1317,6 +1543,10 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
 						"type": {
 							"type": "string",
 							"const": "addChoice"
@@ -1330,10 +1560,13 @@
 								"onSelect": {
 									"anyOf": [
 										{
-											"$ref": "#/definitions/VNVariableSetter"
+											"$ref": "#/definitions/VNAction"
 										},
 										{
-											"$ref": "#/definitions/VNVariableAdder"
+											"type": "array",
+											"items": {
+												"$ref": "#/definitions/VNAction"
+											}
 										}
 									]
 								}
@@ -1354,6 +1587,10 @@
 					"properties": {
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
 							"type": "string",
@@ -1386,6 +1623,10 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
 						"type": {
 							"type": "string",
 							"const": "leaveScene"
@@ -1417,6 +1658,10 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
 						"type": {
 							"type": "string",
 							"const": "hideMessage"
@@ -1435,6 +1680,10 @@
 					"properties": {
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
 						},
 						"type": {
 							"type": "string",
@@ -1456,6 +1705,10 @@
 						"trigger": {
 							"$ref": "#/definitions/VNEventTrigger"
 						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
 						"type": {
 							"type": "string",
 							"const": "jumpTo"
@@ -1472,6 +1725,116 @@
 							},
 							"required": [
 								"target"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "label"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"name": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"name"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "divert"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"to": {
+									"type": "string"
+								}
+							},
+							"required": [
+								"to"
+							]
+						}
+					},
+					"required": [
+						"params",
+						"trigger",
+						"type"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"trigger": {
+							"$ref": "#/definitions/VNEventTrigger"
+						},
+						"if": {
+							"$ref": "#/definitions/VNCondition",
+							"description": "\"Only if\": the event runs only when this holds (skipped otherwise)"
+						},
+						"type": {
+							"type": "string",
+							"const": "setVariable"
+						},
+						"params": {
+							"type": "object",
+							"properties": {
+								"variable": {
+									"type": "string"
+								},
+								"value": {
+									"type": [
+										"string",
+										"number"
+									]
+								},
+								"op": {
+									"type": "string",
+									"enum": [
+										"set",
+										"add"
+									]
+								}
+							},
+							"required": [
+								"variable",
+								"value"
 							]
 						}
 					},
