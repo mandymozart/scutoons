@@ -1254,3 +1254,24 @@ record player not grantable; chapter 2: the broken player on the first scene's f
 no record player pickup, one choice each, validation); api-smoke (27 items; `record_player` story grant → 403
 `not_grantable`; grant both inputs → craft `record_player_repair` → record player 1, inputs 0; again → 422); admin-smoke
 (27 items).
+
+## Placed items (2026-10-03, owner — branch `slice-items`)
+
+> "Add items to the slice – like we did with samples and text boxes. Scaling is possible." · correction: what a tap does
+> is the editor's decision per placed item, not prebaked.
+
+- Data: `Slice.items?: SliceItem[]` (`@scutoons/content`): `{ id, item, rect: { x, y, width, height? }, rotation?,
+  action?: 'none' | 'pickup' | 'events', qty?, events?: VNEvent[], once? }`. `id` = `<item>-<n>` (stable, pickups are
+  remembered by it); `rect` in % of the slice like text boxes, no `height` = the icon's own ratio; language-neutral
+  (written to every locale; `validateLocales` warns when the locales differ).
+- Rendering: `@scutoons/reader` `SliceItems` (inside `Slice`, between the image and the text boxes): the catalog icon,
+  rotated around its centre; only `action` ≠ `none` makes it a button. The app resolves the icon (`itemInfo`).
+- Tap (`viewer/src/lib/visual-novel/slice-items.ts`): `none` = art only (default); `pickup` = the VN item bridge
+  (`grantStoryItem` in variable-actions.ts → `inventory.grant(item, 'story', qty, ref)` with the ref
+  `vn:<item>:<page>#<slice image>#<placement id>`, then `add <item> <qty>` on the game variable) – the catalog's rules apply
+  (grantable story, max count, the server's once-per-ref); on success the game state gets `picked:<slice image>#<id>`
+  (synced with a member's progress) and the item is gone from the slice for that reader; on a refusal it stays.
+  `events` = the placement's VN events run like a click trigger's (`EventProcessor`), `once` per page view by default.
+- Creator: slice inspector tab "Items": place an item (catalog select), item / x / y / width / rotation, "On tap"
+  (nothing · pick up + pieces · run events with the VN event editor). On the canvas: move, a round rotate handle above
+  the box (Shift = 15° steps) and a round scale handle off the bottom-right corner (width around the centre).
