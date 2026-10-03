@@ -83,47 +83,32 @@
 	</div>
 
 	<section class="chapters-section">
-		{#if season}
-			<div class="season-column">
-				<div class="chapters-header">
-					{#if desktop && cover?.square}
-						<!-- desktop: the season's cover at the column's width above its heading (owner 2026-10-03; mobile shows it at the top) -->
-						<CoverArt
-							src={asset(`${params.toonId}/${cover.square}`)}
-							alt="Cover"
-							class="season-cover"
-							lettering={cover.lettering}
-							title={toon.title}
-							subtitle={season?.title ?? ''}
-							lang={toon.language}
-						/>
-					{/if}
-					<h2 class:sr-only={!desktop}>{m['chapter.season_title']({ number: seasonNumber, title: season.title })}</h2>
-					<!-- longer than 3 lines: clamped with "…", a tap / click opens and closes it (owner 2026-10-03) -->
-					<ClampText text={season.description ?? ''} class="season-description" />
-					{#if !desktop}
-						<!-- one start button: first chapter / continue / next / again, from the reading progress (desktop: in the hero) -->
-						<StartButton toonId={params.toonId} season={seasonNumber} chapters={sequence} />
-					{/if}
-				</div>
-				{#if desktop && seasonSound?.download && !musicLink}
-					{@render music()}
-				{/if}
-				{#if desktop && season.related_items?.length}
-					<RelatedItems ids={season.related_items} music={musicLink} />
-				{/if}
-				{#if desktop}
-					{@render colophon()}
-				{/if}
+		{#if season && !desktop}
+			<div class="chapters-header">
+				<!-- longer than 3 lines: clamped with "…", a tap / click opens and closes it (owner 2026-10-03) -->
+				<ClampText text={season.description ?? ''} class="season-description" />
+				<!-- one start button: first chapter / continue / next / again, from the reading progress (desktop: in the hero) -->
+				<StartButton toonId={params.toonId} season={seasonNumber} chapters={sequence} />
 			</div>
-			<!-- Chapter List -->
+		{/if}
+		{#if season}
+			<!-- Chapter List: left on desktop, the season's heading above it (owner 2026-10-03) -->
 			<div class="list-column">
-				{#if !desktop}
-					<!-- mobile: the season as a label above its chapters (owner 2026-10-03) -->
-					<p class="season-label">{m['hero.season']({ number: seasonNumber, title: season.title })}</p>
-				{/if}
+				<h2 class="list-heading">{m['chapter.season_title']({ number: seasonNumber, title: season.title })}</h2>
 				<ChaptersList items={sequence} toonId={params.toonId} />
 			</div>
+			{#if desktop}
+				<!-- desktop: cover, title and description are in the hero – this column only has music, related items, credits -->
+				<div class="season-column">
+					{#if seasonSound?.download && !musicLink}
+						{@render music()}
+					{/if}
+					{#if season.related_items?.length}
+						<RelatedItems ids={season.related_items} music={musicLink} />
+					{/if}
+					{@render colophon()}
+				</div>
+			{/if}
 			<!-- the season's related items (season.related_items): icon, name, price + "Kaufen" for physical products; the
 			     season's music sits in its record's row (owner 2026-10-02) – the music block only without related items -->
 			{#if !desktop && seasonSound?.download && !musicLink}
@@ -187,13 +172,6 @@
 		margin-bottom: 2rem;
 		padding: 0 2rem;
 	}
-	.season-label {
-		margin: 0;
-		padding: 0 2rem 0.5rem;
-		font-size: 0.75rem;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-	}
 	.sr-only {
 		position: absolute;
 		width: 1px;
@@ -203,11 +181,6 @@
 		clip: rect(0 0 0 0);
 		white-space: nowrap;
 		border: 0;
-	}
-		.chapters-header :global(.season-cover) {
-		display: block;
-		width: 100%;
-		margin: 0 0 0.8333rem;
 	}
 	.chapters-header :global(.start) {
 		margin-top: var(--space-1);
@@ -245,7 +218,64 @@
 		margin: var(--space-3) auto;
 	}
 
-	/* ── desktop (≥ 1024 px, root 24 px): hero, then season (cols 1–5) | chapter list (cols 7–12) ── */
+	/* the chapter list (all widths, owner 2026-10-03): the season's heading over a rule, rows with the thumbnail,
+	   title (+ progress rule / release), "#n" / "Prolog" right-aligned, hairlines between */
+	.list-heading {
+		margin: 0;
+		padding-bottom: 0.5rem;
+		font-size: 1.25rem;
+		font-weight: normal;
+		border-bottom: var(--border-width-regular) solid var(--ink);
+	}
+	.list-column :global(.chapters-list) {
+		padding: 0;
+	}
+	.list-column :global(.chapter-item) {
+		grid-template-columns: 5.5rem minmax(0, 1fr) auto;
+		gap: 1rem;
+		padding: 0.5rem 0;
+		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+	}
+	.list-column :global(.chapter-item .chapter-image img) {
+		display: block;
+		width: 5.5rem;
+		height: 3.5rem;
+		object-fit: cover;
+	}
+	.list-column :global(.chapter-item .chapter-info) {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 0.25rem;
+	}
+	.list-column :global(.chapter-item .chapter-title) {
+		font-size: 1rem;
+	}
+	.list-column :global(.chapter-item .chapter-release) {
+		font-size: 0.75rem;
+	}
+	.list-column :global(.chapter-item .chapter-release span) {
+		display: inline;
+		margin-right: 0.25rem;
+	}
+	.list-column :global(.chapter-item.published .chapter-release) {
+		display: none;
+	}
+	.list-column :global(.chapter-item .chapter-progress) {
+		width: 7rem;
+		max-width: none;
+		margin-top: 0.25rem;
+	}
+	.list-column :global(.chapter-item .chapter-number) {
+		min-width: 0;
+		justify-content: flex-end;
+		font-size: 0.875rem;
+	}
+	.list-column :global(.chapter-item .chapter-label) {
+		font-size: inherit;
+	}
+
+	/* ── desktop (≥ 1024 px, root 24 px): hero, then chapter list (cols 1–6) | season column (cols 8–12) ── */
 	@media (min-width: 1024px) {
 		.toon-overview {
 			max-width: none;
@@ -262,23 +292,10 @@
 			margin: 0 auto;
 		}
 		.season-column {
-			grid-column: 1 / span 5;
+			grid-column: 8 / span 5;
 			display: flex;
 			flex-direction: column;
 			gap: 0.8333rem;
-		}
-		.chapters-header {
-			padding: 0;
-			margin: 0;
-		}
-		.chapters-header h2 {
-			margin: 0 0 0.8333rem;
-			font-size: 1.3333rem;
-		}
-		.chapters-header :global(.season-description) {
-			margin: 0;
-			font-size: 0.6667rem;
-			line-height: 1.6;
 		}
 		.season-column .season-download {
 			padding: 0.5rem 0 0;
@@ -297,26 +314,20 @@
 			width: 6.25rem;
 		}
 		.list-column {
-			grid-column: 7 / span 6;
-			border-top: var(--border-width-regular) solid var(--ink);
+			grid-column: 1 / span 6;
 		}
-		/* the chapter rows: thumbnail 112 × 72, title (+ progress rule / release), "#n" / "Prolog" right-aligned */
+		.list-heading {
+			font-size: 1.3333rem;
+			padding-bottom: 0.5rem;
+		}
 		.list-column :global(.chapter-item) {
 			grid-template-columns: 112px minmax(0, 1fr) 2.6667rem;
 			gap: 0.8333rem;
 			padding: 0.5rem 0;
-			border-bottom: var(--border-width-hairline) solid var(--border-subtle);
 		}
 		.list-column :global(.chapter-item .chapter-image img) {
 			width: 112px;
 			height: 72px;
-			object-fit: cover;
-		}
-		.list-column :global(.chapter-item .chapter-info) {
-			display: flex;
-			flex-direction: column;
-			align-items: flex-start;
-			gap: 0.25rem;
 		}
 		.list-column :global(.chapter-item .chapter-title) {
 			font-size: 0.75rem;
@@ -324,25 +335,11 @@
 		.list-column :global(.chapter-item .chapter-release) {
 			font-size: 0.5rem;
 		}
-		.list-column :global(.chapter-item .chapter-release span) {
-			display: inline;
-			margin-right: 0.25rem;
-		}
-		.list-column :global(.chapter-item.published .chapter-release) {
-			display: none;
-		}
 		.list-column :global(.chapter-item .chapter-progress) {
 			width: 5.3333rem;
-			max-width: none;
-			margin-top: 0.25rem;
 		}
 		.list-column :global(.chapter-item .chapter-number) {
-			min-width: 0;
-			justify-content: flex-end;
 			font-size: 0.6667rem;
-		}
-		.list-column :global(.chapter-item .chapter-label) {
-			font-size: inherit;
 		}
 		/* the colophon in the season column: its own centred fine print, within the column width */
 		.season-column .credits-section {
