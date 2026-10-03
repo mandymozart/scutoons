@@ -288,3 +288,28 @@ test('geometry is the same in every language: unifyGeometry copies the source lo
 	assert.deepEqual(en.items[0], { id: 'x-1', item: 'x', rect: { x: 1, y: 1, width: 10 } });
 	assert.equal(unifyGeometry('chapter', files, 'de'), 0, 'nothing left to do');
 });
+
+test('VN flow in a group: enter before speaking, choices added then shown (owner 2026-10-03)', () => {
+	const group = (events: object[], slices: object[] = []) => ({ label: 'g', renderer: { type: 'vertical' }, slices, events });
+	const flow = (g: object) => problems('group', g).filter((p) => /^warning (events|slices\.\d+\.events)/.test(p));
+	const msg = (character: string) => ({ type: 'showMessage', params: { text: 'Hi', character } });
+	const join = (character: string) => ({ type: 'joinScene', params: { characters: [{ character, persona: 'regular', variant: 'avatar' }] } });
+	const leave = (character: string) => ({ type: 'leaveScene', params: { characters: [{ character }] } });
+	// the narrator (no character) never needs to enter
+	assert.deepEqual(flow(group([{ type: 'showMessage', params: { text: 'Once upon a time' } }])), []);
+	assert.deepEqual(flow(group([join('catpope'), msg('catpope'), leave('catpope')])), []);
+	assert.deepEqual(flow(group([msg('catpope')])), ['warning events.0.params.character']);
+	assert.deepEqual(flow(group([join('catpope'), leave('catpope'), msg('catpope')])), ['warning events.2.params.character']);
+	// joining again updates the character on stage (another look / view) – no problem
+	assert.deepEqual(flow(group([join('catpope'), join('catpope'), msg('catpope')])), []);
+	assert.deepEqual(flow(group([leave('boy')])), ['warning events.0.params.characters.0']);
+	// slice events continue the group's scene, in reading order
+	const slice = (events: object[]) => ({ image: 'a.webp', width: 390, height: 625, events: events.map((e) => ({ ...e, trigger: { type: 'intersect' } })) });
+	assert.deepEqual(flow(group([join('catpope')], [slice([msg('catpope')])])), []);
+	assert.deepEqual(flow(group([], [slice([msg('catpope')]), slice([join('catpope')])])), ['warning slices.0.events.0.params.character']);
+	// choices
+	const add = { type: 'addChoice', params: { label: 'A' } };
+	assert.deepEqual(flow(group([add, add, { type: 'showChoices' }])), []);
+	assert.deepEqual(flow(group([{ type: 'showChoices' }])), ['warning events.0']);
+	assert.deepEqual(flow(group([add])), ['warning events.0']);
+});

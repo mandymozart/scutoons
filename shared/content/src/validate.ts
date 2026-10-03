@@ -409,6 +409,53 @@ function checkDialogRefs(c: Collector, events: any[], slices: any[], path: Path,
 	});
 }
 
+/**
+ * The VN's logic in a group (owner 2026-10-03: "people need to enter before they can speak"): the scene starts empty and
+ * is cleared when the group ends (viewer visual-novel.svelte.ts `clear`), so per group – the group's script first, then
+ * the slices' events in reading order – a speaker must have joined and not left, nobody leaves without being there (joining
+ * again updates the character on stage), and choices are added before they are shown and shown once added. Warnings: the reader still plays it.
+ */
+function checkVnFlow(c: Collector, g: any, path: Path) {
+	const flow: { e: any; path: Path }[] = [];
+	if (Array.isArray(g.events)) g.events.forEach((e: any, i: number) => flow.push({ e, path: [...path, 'events', i] }));
+	if (Array.isArray(g.slices))
+		g.slices.forEach((s: any, si: number) =>
+			(Array.isArray(s?.events) ? s.events : []).forEach((e: any, i: number) => flow.push({ e, path: [...path, 'slices', si, 'events', i] }))
+		);
+	if (!flow.length) return;
+	const idOf = (ref: any) => {
+		const raw = isObj(ref) ? (ref.character ?? ref.name) : undefined;
+		return isStr(raw) && raw ? resolveCharacterId(raw, isStr(ref.persona) ? ref.persona : undefined).character : '';
+	};
+	const onStage = new Set<string>();
+	let choices: Path[] = [];
+	for (const { e, path: ep } of flow) {
+		if (!isObj(e)) continue;
+		const p = isObj(e.params) ? e.params : {};
+		if (e.type === 'joinScene' || e.type === 'leaveScene') {
+			(Array.isArray(p.characters) ? p.characters : []).forEach((ch: any, i: number) => {
+				const id = idOf(ch);
+				if (!id) return;
+				// joining again is fine: the reader updates the character on stage (another look / view)
+				if (e.type === 'joinScene') onStage.add(id);
+				else {
+					if (!onStage.has(id)) c.warn([...ep, 'params', 'characters', i], `${id} leaves the scene without having joined it`);
+					onStage.delete(id);
+				}
+			});
+		} else if (e.type === 'showMessage') {
+			const id = idOf(p);
+			if (id && !onStage.has(id)) c.warn([...ep, 'params', 'character'], `${id} speaks without being in the scene – add a joinScene before`);
+		} else if (e.type === 'addChoice') {
+			choices.push(ep);
+		} else if (e.type === 'showChoices') {
+			if (!choices.length) c.warn(ep, 'showChoices without an addChoice before it (nothing to choose)');
+			choices = [];
+		}
+	}
+	for (const ep of choices) c.warn(ep, 'addChoice is never shown – add a showChoices after it');
+}
+
 export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContext) {
 	if (!isObj(g)) return c.error(path, 'group must be an object');
 	if (g.ref) {
@@ -433,6 +480,7 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 			checkDialogRefs(c, g.events, Array.isArray(g.slices) ? g.slices : [], [...path, 'events'], "the group's slices");
 		}
 	}
+	checkVnFlow(c, g, path);
 }
 
 function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContext) {
