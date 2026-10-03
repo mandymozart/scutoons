@@ -218,9 +218,10 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     is placed the same way. Text boxes are in % of the column slice and don't follow a full-viewport video (validation
     warning). The follow-up bar stays fixed at the viewport bottom (its spacer keeps the end reachable).
 - **Creator slice tab "Hintergrund" / "Background"** (owner 2026-10-01, was "Bild"): image or video (the radio stays);
-  a video has "Dateien je Qualität" = three rows **480p · Niedrig / 720p · Mittel / 1080p · Hoch** (path fields) with a
-  "Standard" radio = `video.src` (the first file entered becomes it; an older single file without a level shows as an
-  extra "Standard · ohne Stufe" row), the flags player / loop / autoplay / controls, then **"Platzierung"**
+  a video has "Dateien je Qualität" = **one resolution slot** (`media-variants-slot.svelte`, since 2026-10-03 – see
+  "Creator: season page": the preview picks the whole asset, chips 480p · 720p (default) · 1080p replace / clear one
+  level, the default = `video.src` follows the levels, uploads go to the chapter's folder; the earlier path fields and the
+  "Standard" radio are gone), the flags player / loop / autoplay / controls, then **"Platzierung"**
   (`placement-picker.svelte`; owner 2026-10-01: "less descriptive, more simple UI, basic" – after a 4 × 3 icon grid and
   then picture tiles with sentences): "In der Lesespalte" / "Bildschirmfüllend"; in the column the select
   **"Seitenverhältnis"** with short labels "Original · 5:8 · Keyvisual · 9:16 · 1:1 · Eigenes" (Eigenes = two number
@@ -560,7 +561,7 @@ Owner: "clean this season view up, like we did on the chapter page" (chapter met
   in one row; one caption says once that everything but title and description is the same in every language (the
   language-neutral fields have no "per language" switch any more; an existing override still shows with "use shared").
   No number field: the season's number is its identity (URL, entity key), like the chapter's.
-- **Chapters:** the sequence with the read-only visibility badges (the status is changed on the chapter page).
+- No chapters list (owner 2026-10-03): the sidebar lists the season's chapters with their visibility badges.
 - **Cover and trailer:** media as slots, paths only as tooltips: the **cover** preview (`CoverArt` with its lettering) is
   the link into the cover editor (an empty dashed square when there is none) with "Lettering: …" under it; the **trailer
   loop** as one `media-variants-slot.svelte`; the **poster** as a `media-slot.svelte`; "Opens chapter" = a select of the
@@ -571,12 +572,14 @@ Owner: "clean this season view up, like we did on the chapter page" (chapter met
 `media-variants-slot.svelte` + the pure helpers `$lib/editor/media-variants.ts` work on the `{ src, variants }` shape
 (PLAN.md "one file per quality level"; the trailer maps `loop` → `src`). The preview is the button: picking an asset in
 the picker fills every level from its renditions (480p / 720p / 1080p, `mediaFromAsset`), the default = medium, else
-high, else low. Under the preview one interactive chip per level (`.sc-chip-control`, `--control-height`): "480p ·
-720p (default) · 1080p", a missing level dashed / muted; a chip opens the picker on that file's asset (its files listed)
+the LOWER one (low), else high (owner 2026-10-03: less data first). Under the preview one interactive chip per level (`.sc-chip-control`, `--control-height`): "480p ·
+720p (default) · 1080p", a missing level dashed / muted (the file in `data-file`, the default `data-default` for checks); a chip opens the picker on that file's asset (its files listed)
 and replaces only that level, its × clears only that level; the default follows the levels (`withVariant`); an older
-single file without levels stays the default ("One file for every quality"). × beside the preview clears the medium. The
+single file without levels stays the default ("One file for every quality"). The round × beside the preview (`.sc-round`,
+icon only → round) clears the medium. The
 data model is unchanged (`trailer.loop` / `variants` / `poster`; re-choosing drops the deprecated `sources`). `kind="image"`
-labels the levels 1x / 2x / 3x for the later slice images; the slice video ("Hintergrund") can switch to it next.
+labels the levels 1x / 2x / 3x for the later slice images. Used by the season trailer and the slice video ("Hintergrund";
+`check-media-quality.mjs` step `creator`).
 
 ## Icons (owner rule, 2026-10-01)
 

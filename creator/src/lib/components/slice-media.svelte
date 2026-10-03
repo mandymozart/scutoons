@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
 	import {
-		DEFAULT_SLICE, FRAME_PRESETS, FRAME_RATIO_MAX, FRAME_RATIO_MIN, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, VIEWPORT_POSITIONS,
+		DEFAULT_SLICE, FRAME_PRESETS, FRAME_RATIO_MAX, FRAME_RATIO_MIN, VIEWPORT_POSITIONS,
 		aspectRatioLabel, getAt, parseFrameRatio, viewportObjectFit, viewportObjectPosition,
-		type MediaQuality, type Path, type SliceVideo, type ViewportFit
+		type Path, type SliceVideo, type ViewportFit
 	} from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -12,31 +11,38 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import ImagePicker from './image-picker.svelte';
 	import PlacementPicker from './placement-picker.svelte';
-	import { qualityVariants, rootPath, toonRelativePath } from '@scutoons/api';
-	import AssetPickerSheet, { type PickedAsset } from './assets/asset-picker-sheet.svelte';
+	import type { VariantMedia } from '$lib/editor/media-variants.ts';
+	import MediaVariantsSlot from './media-variants-slot.svelte';
 
 	/**
 	 * The slice's background ("Hintergrund"): an image, or a video with the image as its poster. Width / height are read
 	 * from the image on the CDN whenever its path is set (every slice carries its size; the standard is 390 × 625).
-	 * A video has one file per quality level (480p / 720p / 1080p = `video.variants`, one of them the default `video.src`),
-	 * the flags player / loop / autoplay / controls and its placement (in the column or full viewport, agents/DESIGN.md
+	 * A video has one file per quality level (480p / 720p / 1080p = `video.variants`, one of them the default `video.src`)
+	 * – one resolution slot (`media-variants-slot.svelte`, owner 2026-10-03, like the season trailer) – the flags player / loop / autoplay / controls and its placement (in the column or full viewport, agents/DESIGN.md
 	 * "Video placement").
 	 */
-	let { doc, slicePath, toon, known = [] }: { doc: ContentDoc; slicePath: Path; toon: string; known?: string[] } = $props();
+	let {
+		doc,
+		slicePath,
+		toon,
+		known = [],
+		place = ''
+	}: {
+		doc: ContentDoc;
+		slicePath: Path;
+		toon: string;
+		known?: string[];
+		/** where an uploaded video goes by the content rules (the chapter's folder, catpope/s1/c2/) */
+		place?: string;
+	} = $props();
 
 	const slice = $derived<any>(doc.get(doc.primary, slicePath));
 	const video = $derived<Partial<SliceVideo> | undefined>(slice?.video);
 	const url = (path: string) => asset(`${toon}/${path}`);
 
-	let videoState = $state<'pending' | 'ok' | 'missing' | null>(null);
-
 	// a slice without a size (older data) gets it as soon as it is opened
 	$effect(() => {
 		if (slice?.image && (!(slice.width > 0) || !(slice.height > 0))) fillSliceSize(doc, slicePath, url);
-	});
-
-	$effect(() => {
-		videoState = video?.src ? 'pending' : null;
 	});
 
 	// the poster's own ratio (the previews of fit width / height, the "Original" warning)
@@ -107,48 +113,15 @@
 		}, 'slice-video-controls');
 	}
 
-	// ── files per quality ────────────────────────────────────────────────────────────────────────────────────────────
-	const variants = $derived<Partial<Record<MediaQuality, string>>>(video?.variants ?? {});
-	/** the default file is one of the levels (else it is an extra row "default, no level": older single-file videos) */
-	const defaultLevel = $derived(MEDIA_QUALITIES.find((level) => !!video?.src && variants[level] === video.src) ?? null);
-	const legacySrc = $derived(!!video?.src && !defaultLevel);
-	/** the default when the old one goes: medium, else high, else low */
-	const preferred = (vs: Partial<Record<MediaQuality, string>>) => vs.medium || vs.high || vs.low || '';
-
-	function setVariant(level: MediaQuality, path: string) {
+	// ── files per quality: one slot (the asset fills 480p / 720p / 1080p, a chip per level replaces / clears one) ─────
+	const videoMedia = $derived<VariantMedia>({ src: video?.src || undefined, variants: video?.variants });
+	function setVideoMedia(next: VariantMedia) {
 		editVideo((v) => {
-			const vs: Partial<Record<MediaQuality, string>> = { ...(v.variants ?? {}) };
-			const old = vs[level];
-			if (path) vs[level] = path;
-			else delete vs[level];
-			if (Object.keys(vs).length) v.variants = Object.fromEntries(MEDIA_QUALITIES.filter((l) => vs[l]).map((l) => [l, vs[l]]));
+			// cleared: the slice stays a video without a file yet ({ src: '' }, like a new one), its options kept
+			v.src = next.src ?? '';
+			if (next.variants) v.variants = next.variants;
 			else delete v.variants;
-			// the first file becomes the default; the default row follows its file
-			if (!v.src || (old && v.src === old)) v.src = path || preferred(vs);
-		}, `slice-video-variant-${level}`);
-	}
-	/**
-	 * A video asset from the picker: its quality renditions (480p / 720p / 1080p) become the variants, medium the
-	 * default (agents/ASSETS.md "Video fields"); a picked single file without a level becomes the default only.
-	 */
-	let choosingVideo = $state(false);
-	function pickVideo(picked: PickedAsset) {
-		const levels = qualityVariants(picked.asset.renditions.filter((r) => r.mime?.startsWith('video/')));
-		editVideo((v) => {
-			const vs = Object.fromEntries(MEDIA_QUALITIES.filter((l) => levels[l]).map((l) => [l, toonRelativePath(levels[l]!, toon)]));
-			if (Object.keys(vs).length) {
-				v.variants = vs;
-				v.src = preferred(vs);
-			} else {
-				delete v.variants;
-				v.src = toonRelativePath(picked.path, toon);
-			}
-		}, 'slice-video-asset');
-	}
-
-	function setDefault(level: MediaQuality) {
-		const file = variants[level];
-		if (file) doc.setShared([...slicePath, 'video', 'src'], file, 'slice-video-default');
+		}, 'slice-video-files');
 	}
 
 	// ── placement: full viewport, or a frame in the column ───────────────────────────────────────────────────────────
@@ -231,64 +204,16 @@
 	</div>
 
 	{#if video}
-		<fieldset class="group" data-testid="video-files">
-			<legend title={m['creator.video_files_hint']()}>{m['creator.video_files']()}</legend>
-			<button type="button" class="secondary choose-video" onclick={() => (choosingVideo = true)} title={m['creator.assets_choose_video_hint']()} data-testid="video-choose">{m['creator.assets_choose_video']()}</button>
-			<AssetPickerSheet bind:open={choosingVideo} {toon} kind="video" value={video.src ? rootPath(video.src, toon) : ''} title={m['creator.video_files']()} onpick={pickVideo} />
-			<div class="files">
-				<span></span><span></span><span class="lbl" title={m['creator.video_default_hint']()}>{m['creator.video_default']()}</span>
-				{#each MEDIA_QUALITIES as level (level)}
-					<label class="lbl level" for={`video-${level}`}>{VIDEO_QUALITY_LABELS[level]} <small>{m[`creator.video_quality_${level}`]()}</small></label>
-					<input
-						id={`video-${level}`}
-						type="text"
-						value={variants[level] ?? ''}
-						placeholder={`s1/c1/clip.${VIDEO_QUALITY_LABELS[level]}.mp4`}
-						onchange={(e) => setVariant(level, e.currentTarget.value.trim())}
-						data-testid={`video-variant-${level}`}
-					/>
-					<input
-						type="radio"
-						name="video-default"
-						checked={defaultLevel === level}
-						disabled={!variants[level]}
-						onchange={() => setDefault(level)}
-						aria-label={`${m['creator.video_default']()} ${VIDEO_QUALITY_LABELS[level]}`}
-						title={m['creator.video_default_hint']()}
-						data-testid={`video-default-${level}`}
-					/>
-				{/each}
-				{#if legacySrc}
-					<label class="lbl level" for="video-src">{m['creator.video_default']()} <small>{m['creator.video_default_legacy']()}</small></label>
-					<input
-						id="video-src"
-						type="text"
-						value={video.src ?? ''}
-						onchange={(e) => doc.setShared([...slicePath, 'video', 'src'], e.currentTarget.value.trim())}
-						data-testid="video-path"
-					/>
-					<input type="radio" name="video-default" checked disabled aria-label={m['creator.video_default']()} />
-				{/if}
-			</div>
-		</fieldset>
-		{#if video.src}
-			<div class="preview">
-				<!-- svelte-ignore a11y_media_has_caption -->
-				<video
-					src={url(video.src)}
-					muted
-					loop
-					autoplay
-					playsinline
-					preload="metadata"
-					onloadedmetadata={(e) => { videoState = 'ok'; const v = e.currentTarget; if (v.videoWidth > 0) videoRatio = v.videoWidth / v.videoHeight; }}
-					onerror={() => (videoState = 'missing')}
-				></video>
-				<span class="meta">
-					{#if videoState === 'missing'}<span class="bad">{m['creator.video_missing']()}</span>{:else if videoState === 'ok'}<Icon name="check" /> CDN{/if}
-				</span>
-			</div>
-		{/if}
+		<MediaVariantsSlot
+			{toon}
+			{place}
+			label={m['creator.video_files']()}
+			value={videoMedia}
+			poster={slice?.image}
+			onchange={setVideoMedia}
+			onmeta={(size) => (videoRatio = size && size.w > 0 ? size.w / size.h : null)}
+			testid="video-file"
+		/>
 		<div class="flags">
 			<label title={m['creator.video_player_hint']()}
 				><input type="checkbox" checked={video.player === true} onchange={(e) => setPlayer(e.currentTarget.checked)} data-testid="video-player" /> player</label
@@ -428,32 +353,6 @@
 		letter-spacing: var(--tracking-label);
 		color: var(--ink);
 	}
-	.files {
-		display: grid;
-		grid-template-columns: auto 1fr auto;
-		gap: 0.3rem 0.4rem;
-		align-items: center;
-	}
-	.level small {
-		display: block;
-	}
-	.preview {
-		display: flex;
-		gap: 0.5rem;
-		align-items: flex-start;
-	}
-	.preview video {
-		width: 64px;
-		height: auto;
-		border: 1px solid var(--border-subtle);
-	}
-	.meta {
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
-	.bad {
-		color: var(--error);
-	}
 	.ratio select {
 		max-width: 100%;
 	}
@@ -497,9 +396,5 @@
 		display: block;
 		width: 100%;
 		height: 100%;
-	}
-	.choose-video {
-		align-self: flex-start;
-		margin-bottom: 0.5rem;
 	}
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
 	import { rootPath, toonRelativePath } from '@scutoons/api';
-	import { CloseButton, CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { defaultLevel, mediaFromAsset, withVariant, type VariantMedia } from '$lib/editor/media-variants.ts';
@@ -23,6 +23,7 @@
 		place = '',
 		poster,
 		onchange,
+		onmeta,
 		testid
 	}: {
 		toon: string;
@@ -35,6 +36,8 @@
 		/** a poster (toon-relative) shown in the video preview until it loads */
 		poster?: string;
 		onchange: (next: VariantMedia) => void;
+		/** the default file's state: its size once loaded, `null` when it is missing on the CDN */
+		onmeta?: (size: { w: number; h: number } | null) => void;
 		testid?: string;
 	} = $props();
 
@@ -89,13 +92,14 @@
 				<span class="bad">{m['creator.media_missing']()}</span>
 			{:else if kind === 'video'}
 				<!-- svelte-ignore a11y_media_has_caption -->
-				<video src={url(value.src)} poster={poster ? url(poster) : undefined} muted playsinline preload="metadata" onloadedmetadata={(e) => { const v = e.currentTarget as HTMLVideoElement; size = { w: v.videoWidth, h: v.videoHeight }; }} onerror={() => (failed = true)}></video>
+				<video src={url(value.src)} poster={poster ? url(poster) : undefined} muted playsinline preload="metadata" onloadedmetadata={(e) => { const v = e.currentTarget as HTMLVideoElement; size = { w: v.videoWidth, h: v.videoHeight }; onmeta?.(size); }} onerror={() => { failed = true; onmeta?.(null); }}></video>
 			{:else}
-				<img src={url(value.src)} alt="" onload={(e) => { const img = e.currentTarget as HTMLImageElement; size = { w: img.naturalWidth, h: img.naturalHeight }; }} onerror={() => (failed = true)} />
+				<img src={url(value.src)} alt="" onload={(e) => { const img = e.currentTarget as HTMLImageElement; size = { w: img.naturalWidth, h: img.naturalHeight }; onmeta?.(size); }} onerror={() => { failed = true; onmeta?.(null); }} />
 			{/if}
 		</button>
 		{#if value.src}
-			<CloseButton label={m['creator.remove']()} onclick={() => onchange({})} />
+			<!-- icon only → round (owner 2026-10-03) -->
+			<button type="button" class="sc-round" aria-label={m['creator.remove']()} title={m['creator.remove']()} onclick={() => onchange({})} data-testid={testid ? `${testid}-clear` : undefined}><CloseIcon /></button>
 		{/if}
 	</div>
 	{#if value.src}
@@ -103,7 +107,7 @@
 		<ul class="levels" aria-label={m['creator.video_files']()} title={m['creator.video_files_hint']()}>
 			{#each MEDIA_QUALITIES as level (level)}
 				{@const file = value.variants?.[level]}
-				<li class="level sc-chip-control" class:missing={!file} data-testid={testid ? `${testid}-${level}` : undefined}>
+				<li class="level sc-chip-control" class:missing={!file} data-file={file ?? ''} data-default={main === level ? 'true' : undefined} data-testid={testid ? `${testid}-${level}` : undefined}>
 					<button
 						type="button"
 						onclick={() => choose(level)}
@@ -113,7 +117,7 @@
 						{levelLabel(level)}{#if main === level}&nbsp;<span class="default">({m['creator.video_default']().toLowerCase()})</span>{/if}
 					</button>
 					{#if file}
-						<button type="button" onclick={() => onchange(withVariant(value, level, undefined))} aria-label={m['creator.variants_level_clear']({ level: levelLabel(level) })} title={m['creator.variants_level_clear']({ level: levelLabel(level) })}><CloseIcon /></button>
+						<button type="button" onclick={() => onchange(withVariant(value, level, undefined))} data-testid={testid ? `${testid}-${level}-clear` : undefined} aria-label={m['creator.variants_level_clear']({ level: levelLabel(level) })} title={m['creator.variants_level_clear']({ level: levelLabel(level) })}><CloseIcon /></button>
 					{/if}
 				</li>
 			{/each}
@@ -143,6 +147,7 @@
 	}
 	.row {
 		display: flex;
+		min-width: 0;
 		align-items: flex-start;
 		gap: 0.3rem;
 	}
@@ -152,7 +157,8 @@
 		align-items: center;
 		justify-content: center;
 		box-sizing: border-box;
-		width: 14rem;
+		flex: 0 1 14rem;
+		min-width: 0;
 		min-height: 5rem;
 		padding: 0;
 		background: var(--paper);

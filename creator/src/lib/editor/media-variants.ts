@@ -12,9 +12,12 @@ export interface VariantMedia {
 	variants?: QualityVariants;
 }
 
-/** the default file of a set of variants: medium, else high, else low (the reader's fallback order starts at medium) */
+/**
+ * The default file of a set of variants: medium, else the LOWER one (less data), else high (owner 2026-10-03:
+ * "when 720p is cleared the new default is the lower one first").
+ */
 export function preferredVariant(variants: QualityVariants | undefined): string | undefined {
-	return variants?.medium || variants?.high || variants?.low || undefined;
+	return variants?.medium || variants?.low || variants?.high || undefined;
 }
 
 /** the variants in level order, empty levels left out; nothing left → undefined (the key is removed) */
@@ -35,7 +38,7 @@ export function mediaFromAsset(renditions: AssetRendition[], pickedPath: string,
 
 /**
  * One level replaced (path) or cleared (undefined). The default follows the levels: while it is one of them (or there
- * is none) it is the preferred level afterwards (medium, else high, else low); a default that is no level (an older
+ * is none) it is the preferred level afterwards (medium, else low, else high); a default that is no level (an older
  * single file) stays.
  */
 export function withVariant(media: VariantMedia, level: MediaQuality, path: string | undefined): VariantMedia {
