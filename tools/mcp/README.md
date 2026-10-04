@@ -19,7 +19,6 @@ stdio only (step 1). Node ≥ 22, run from this repository (the shared packages 
 | `validate` | the creator's checks (`@scutoons/content` validate.ts), one language or all + cross-language |
 | `save_draft` | a new draft version: `ops` (set / insert / remove at a path) or the whole `content`, on a `base` version |
 | `list_versions` / `restore_version` | history; restoring saves the old content as a new draft |
-| `publish_entity` | only with `SCUTOONS_MCP_PUBLISH=1`, and every call needs `confirm: true` |
 
 Resources `scutoons://rules/*` (workflow, entity keys, VN events, flow rules, text presets, slices) are generated from
 the source files when the server starts, so they follow the code.
@@ -31,8 +30,8 @@ the source files when the server starts, so they follow the code.
 - **Validated.** `save_draft` runs the same checks as the creator first and refuses errors (`allow_errors: true`
   overrides); warnings come back with the result.
 - **Conflicts.** `base` = the version the edit started from; a newer save in between → 409, nothing is saved.
-- **Publish is off** unless the server is started with `SCUTOONS_MCP_PUBLISH=1`, and even then one explicit
-  `confirm: true` per call.
+- **No publishing.** There is no publish tool (owner 2026-10-04): agents build, the creator reviews the drafts and
+  publishes them in the creator app.
 - The token is the creator's session: whatever the API lets that account do. Use your own creator account, never a
   shared one; stop the session by signing out (or let it expire).
 
@@ -80,8 +79,6 @@ Claude Desktop (`claude_desktop_config.json`, Settings → Developer → Edit co
 	}
 }
 ```
-
-Add `"SCUTOONS_MCP_PUBLISH": "1"` only for a session that should be able to publish.
 
 ## Example
 

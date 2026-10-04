@@ -8,7 +8,7 @@ try {
 	const config = loadConfig();
 	const server = createScutoonsServer(config);
 	await server.connect(new StdioServerTransport());
-	console.error(`scutoons-mcp: ${config.api} (token: ${config.tokenSource}, publish ${config.publish ? 'ON' : 'off'})`);
+	console.error(`scutoons-mcp: ${config.api} (token: ${config.tokenSource})`);
 } catch (error) {
 	console.error(`scutoons-mcp: ${error instanceof Error ? error.message : error}`);
 	process.exit(1);

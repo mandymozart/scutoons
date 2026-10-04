@@ -567,24 +567,32 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
     `@modelcontextprotocol/server` 2.3 – the split packages that replace `@modelcontextprotocol/sdk`; zod 4). Runs from
     the repo with Node's type stripping (`bin/scutoons-mcp.mjs` → `src/main.ts`, nothing built). Config: `SCUTOONS_API`
     (default local), `SCUTOONS_TOKEN` (locally falls back to `logs/dev/test-user.json`, never for a remote API),
-    `SCUTOONS_MCP_PUBLISH=1`. Tools: `list_toons`, `list_chapters` (groups: label, scene entity, slices, `scriptLabels`
+    no publishing (removed 2026-10-04, see below). Tools: `list_toons`, `list_chapters` (groups: label, scene entity, slices, `scriptLabels`
     points), `read_entity` (draft / published / version id, one or every locale, `path` for a part), `read_characters`
     (cast season 1 like the creator, looks, moods), `read_map_places`, `search_assets`, `validate` (validateFile with the
     chapter editor's context + validateLocales; validateCast for cast), `save_draft` (`ops` set / insert / remove on the
     `base` version, or whole `content`; errors refuse the save unless `allow_errors`; message gets "(agent)"; 409 explained),
-    `list_versions`, `restore_version`, `publish_entity` (only with the env flag, `confirm: true` literal). Resources
+    `list_versions`, `restore_version`. Resources
     `scutoons://rules/{workflow,entity-keys,vn-events,flow,text-presets,slices}` generated at start from the source (doc
-    comments, README section, types, TEXT_PRESETS, constants). `npm run check:mcp` (`scripts/dev/mcp-check.mjs`, 25 checks,
-    local only: catpope scene-14 de read → broken divert refused → save → 409 → versions → restore, original back; publish
-    switch without publishing). `npm run check` runs the package's tsc. README: Claude Code / Desktop, local + production.
+    comments, README section, types, TEXT_PRESETS, constants). `npm run check:mcp` (`scripts/dev/mcp-check.mjs`, 23 checks,
+    local only: catpope scene-14 de read → broken divert refused → save → 409 → versions → restore, original back; no
+    publish tool). `npm run check` runs the package's tsc. README: Claude Code / Desktop, local + production.
     Not validated yet: season status of a chapter and placed items against the catalog (the creator passes both).
-  - **Open decisions for step 2** (remote): (1) host – the FTP shared hosting can't keep a Node process: a small Node host
-    (which? cost), or MCP Streamable HTTP in PHP inside the API (then the validator runs where? a PHP port or none);
-    (2) auth – personal access tokens (a creator page "Tokens", scoped, revocable, separate from the browser session) or
-    OAuth for the claude.ai connector (the MCP auth spec), today the agent uses the copied `scutoons_sid`; (3) the
-    creator's "Ask" panel: the API's MCP connector via the Claude API (who pays, which model, per-creator limits);
-    (4) asset upload tool (`assets.upload`: a URL / file from another MCP server → a CDN path) – size limits, which folders;
-    (5) whether publish should ever be allowed remotely.
+  - **Step 2 decisions (owner 2026-10-04)**:
+    - **Agents never publish.** Their job is to build everything the creator has access to; the creator reviews the drafts
+      and publishes in the creator app. The publish tool is removed (step 1 too); remote: no publish at all.
+    - **Host: inside the PHP API** (MCP Streamable HTTP, stateless JSON answers – works on the shared hosting). Open: the
+      validator is TypeScript (`@scutoons/content` validate.ts) – a PHP port of the checks save_draft needs, or saves
+      without them there (the creator still shows the problems). Candidate library: the official PHP MCP SDK (`mcp/sdk`).
+    - **Auth: OAuth 2.1 (MCP authorization spec)** – recommended and safer: the creator signs in and consents in the browser,
+      the client gets short-lived, scoped tokens (no `publish` scope exists), one grant per client, revocable in the
+      creator ("Connected apps"); the claude.ai connector signs in this way. Personal access tokens (scoped, expiring,
+      revocable, never the browser session) only as a fallback for local Claude Code / Desktop, if at all.
+    - **"Ask" panel: the owner pays** (SCUTOONS, personal business). Every AI call is logged: creator, service (Claude
+      API, image / audio services …), model, input / output tokens (or units), cost – an admin overview by creator and
+      service per day / month. Model: open (default the current Sonnet; Opus for bigger jobs?), limits per creator: open.
+    - **Asset upload tool**: explained to the owner (an agent puts a file – e.g. an image made by another AI service – into
+      the asset manager at a CDN path, so a slice can use it); decision open.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

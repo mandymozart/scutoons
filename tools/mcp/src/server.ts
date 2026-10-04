@@ -1,6 +1,6 @@
 // The SCUTOONS MCP server (CUTOVER 10.28): tools over the existing content API with the creator's token – the API's role
 // checks are the only authority, this server adds the creator's validator in front of every save. Saves only ever add
-// draft versions (append-only, restorable); publishing is a separate tool that exists only with SCUTOONS_MCP_PUBLISH=1.
+// draft versions (append-only, restorable); there is no publish tool – agents build, the creator publishes (owner 2026-10-04).
 import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
 import { ApiError, createApiClient, createAssetsApi, createContentApi, type ContentIndexEntity, type WrappedContent } from '@scutoons/api';
@@ -110,7 +110,7 @@ export function createScutoonsServer(config: Config): McpServer {
 				`SCUTOONS content (${config.local ? 'LOCAL dev API' : config.api}). You have the rights of the signed-in creator.`,
 				'Read scutoons://rules/workflow first, then the rules for what you touch.',
 				'Saves create new DRAFT versions only (append-only, restorable with restore_version); readers see published versions.',
-				config.publish ? 'publish_entity is enabled: publish only when the owner asked for it, with confirm: true.' : 'Publishing is disabled on this server.'
+				'You cannot publish: the creator reviews the drafts and publishes them in the creator app.'
 			].join(' ')
 		}
 	);
@@ -469,27 +469,6 @@ export function createScutoonsServer(config: Config): McpServer {
 			return text({ restored: version, version: r.version.id, status: r.version.status });
 		})
 	);
-
-	if (config.publish) {
-		server.registerTool(
-			'publish_entity',
-			{
-				description:
-					'PUBLISHES a version: readers see it right away. Only when the owner explicitly asked for this publish; every call needs confirm: true. Default: the newest version.',
-				inputSchema: z.object({
-					key: z.string().describe('stored key'),
-					version: z.number().int().optional(),
-					confirm: z.literal(true).describe('must be true – the owner asked for this publish')
-				}),
-				annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }
-			},
-			guard(async ({ key, version, confirm }) => {
-				if (confirm !== true) return fail('publishing needs confirm: true');
-				const r = await content.publishVersion(key, version);
-				return text({ published: r.version.id, key });
-			})
-		);
-	}
 
 	return server;
 }
