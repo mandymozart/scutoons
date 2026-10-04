@@ -347,3 +347,10 @@ Largest now: chapter-editor 814, map-builder 722, slice-canvas 645, the toon rou
 Open: `chapter-docs.svelte.ts` (chapter-editor's documents + problems), map-builder / toon route splits, a
 `ResizeEdge` component (one `resizable()` instead), the toggle buttons named `.chip`, embassy's two `confirm()`.
 `check:tools-css` now guards the vocabulary (field grids, chips, folds, segmented controls, hand-built tabs).
+
+2026-10-04 – chapter audio on slots (owner: "audio assets still use hard-coded urls"): the creator's Audio section
+(`chapter/audio-panel.svelte`) shows music tracks and the sample library as `FileSlot`s with the asset picker instead of
+path text fields. `FileSlot` got `toon` (toon-relative paths like MediaSlot; '' = CDN-root, the catalog's), `hideLabel`,
+`player` (false: the row's own ▶) and `clearable` (false: the row's × removes it). Uploads go to the chapter folder
+(`<toon>/s<n>/c<n>/`). The picker's "Use" keeps the field's current file when it is one of the asset's renditions, and
+for audio otherwise takes the 128k (medium) stream – the reader plays exactly the path, audio has no quality variants yet.

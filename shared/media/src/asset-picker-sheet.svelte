@@ -169,8 +169,18 @@
 	/** a field that takes one file: the rendition matching the kind (an image field never gets the mp4) */
 	const pickable = (r: AssetRendition) => !kind || (kind === 'image' ? !!r.mime?.startsWith('image/') : kind === 'video' ? !!r.mime?.startsWith('video/') : true);
 
+	/**
+	 * "Use" without a file: the field's current file when it is one of this asset's, else for audio the medium stream
+	 * (128k – the reader plays exactly the path, audio has no quality variants yet; the source is the 320k), else the source.
+	 */
 	function pick(a: AssetSummary, rendition: AssetRendition | null = null) {
-		const r = rendition ?? a.renditions.find((x) => x.path === a.path && pickable(x)) ?? a.renditions.find(pickable) ?? null;
+		const r =
+			rendition ??
+			a.renditions.find((x) => x.path === value && pickable(x)) ??
+			(a.kind === 'audio' ? a.renditions.find((x) => x.quality === 'medium') : undefined) ??
+			a.renditions.find((x) => x.path === a.path && pickable(x)) ??
+			a.renditions.find(pickable) ??
+			null;
 		onpick({ asset: a, rendition: r, path: r?.path ?? a.path });
 		open = false;
 	}

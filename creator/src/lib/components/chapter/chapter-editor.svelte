@@ -593,7 +593,7 @@
 						{/snippet}
 					</MetaPanel>
 				{:else if view.section === 'audio'}
-					<AudioPanel doc={chapter} />
+					<AudioPanel doc={chapter} {season} number={chapterNumber} />
 				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
