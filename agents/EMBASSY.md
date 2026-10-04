@@ -305,6 +305,19 @@ and products** (no new "pitch" record yet). The agent only **drafts**: a person 
   past"): `GET /embassy/orgs?quiet=1` (or `quiet=<days>`, default 90) = leads with a reply, meeting or reached call
   and then nothing for 90 days, no date ahead, not "no", not opted out. Leads checkbox "answered before, quiet now",
   palette entry, and the agent's `search_orgs` `quiet`.
+- **Pace + weekly portion** (owner 2026-10-05: "consumable portions per day or per week … I need to outsource this and
+  I want liaisons to stay on their own pace"; migration `2026-10-05-embassy-pace`): every liaison / ambassador sets
+  contacts per week (preset 10; 5/10/15/20 or any 1–100) and a reminder (Mondays – preset, every working day, none) in
+  an **onboarding** on their first visit, changeable on Today any time. **Today (mine)** = this week's portion: "X of Y"
+  bar, today's slice first (what was left this morning spread over the working days left), then later this week, what
+  doesn't fit waits for next week. Order: due calls → answered before, quiet now → first contacts (research/ready,
+  never contacted). Each card says why it's there (`hint`) and has an Ask button (prepare the call / draft a mail);
+  "Go through my week" asks the agent for one line per contact (AI only on request). Every **4 weeks** one question "is
+  your pace right? less · fine · more" (−5 / 0 / +5). Ambassadors / admins see a **team table** on Today → everyone
+  (pace, done per week over 4 weeks, contacts, last check-in). Leads a liaison adds are theirs. **Reminder mail** (to
+  the team member only, from no-reply@): the week's portion (daily: today's slice), sent by the **cron URL**
+  `/api/embassy/cron?key=EMBASSY_CRON_KEY` (all-inkl KAS → Tools → Cronjobs, daily 07:00), which also reads the
+  inbox; once per week / day, never with nothing to do. Agent tool `my_portion`.
 - **Not yet:** templates per track × language (the agent follows the strategy instead), a "who should hear about this
   release" list across leads, member updates, the legal opinion on automated follow-ups (see "Legal" above – nothing
   here sends on its own).

@@ -91,6 +91,36 @@ export function createEmbassyServer(config: Config): McpServer {
 	);
 
 	server.registerTool(
+		'my_portion',
+		{
+			description:
+				"The signed-in person's portion this week at their own pace (contacts per week): how many they did, how many are left, today's slice first (today_count), then the rest of the week; each item with its group (due call, answered before / quiet now, first contact), a hint (why) and the last log entry. What doesn't fit waits for next week – never push them past their pace.",
+			inputSchema: z.object({}),
+			annotations: read
+		},
+		guard(async () => {
+			const p = await embassy.portion('me');
+			return text({
+				today: p.today,
+				week: p.week,
+				today_count: p.today_count,
+				waiting_next_week: p.more,
+				items: p.items.map((i) => ({
+					group: i.group,
+					hint: i.hint,
+					org_id: i.org.id,
+					org: i.org.name,
+					city: i.org.city,
+					track: i.lead.track,
+					stage: i.lead.stage,
+					people: i.people.map((x) => ({ id: x.id, name: x.name, role: x.role, phone: x.phone, email: x.email })),
+					last: i.last_activity ? entry(i.last_activity) : null
+				}))
+			});
+		})
+	);
+
+	server.registerTool(
 		'search_orgs',
 		{
 			description:

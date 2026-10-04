@@ -37,6 +37,10 @@ return [
     // may write the AI usage log (POST /api/agent-usage, docs/API.md "Agent usage"). Empty = not configured (503).
     // Same value as in the Ask service's environment. openssl rand -hex 32
     'AGENT_SERVICE_KEY' => '',
+    // Key of the Embassy cron URL (GET|POST /api/embassy/cron?key=… – inbox sync + reminder mails; the host's cron job
+    // calls it daily, docs/API.md "Embassy" → "Pace"). Also accepted as the HTTP Basic password. Empty = the URL answers
+    // 404 (off). openssl rand -hex 32
+    'EMBASSY_CRON_KEY' => '',
 
     // ── URLs ───────────────────────────────────────────────────────────────────────────────────────────
     // The qr app (magic links of login requests without an Origin; it forwards /?login= to the viewer) and the viewer
@@ -46,6 +50,8 @@ return [
     'ADMIN_URL' => 'https://admin.scutoons.com',
     // The creator app (links in the review mails, Domain\Content\Reviews)
     'CREATOR_URL' => 'https://creator.scutoons.com',
+    // The Embassy app (the Today link in the reminder mails, Domain\Embassy\EmbassyReminders). Local: http://localhost:13000
+    'EMBASSY_URL' => 'https://embassy.scutoons.com',
     // Item icons: <CDN_URL><icon path>. Local CDN: http://localhost:8001/
     'CDN_URL' => 'https://cdn.scutoons.com/',
     // Browser origins that may call the API with a Bearer token or the session cookie (comma separated): viewer, creator,

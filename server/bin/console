@@ -18,6 +18,7 @@ declare(strict_types=1);
  *   php bin/console catalog:export-sql [--write]      the catalog seed as INSERTs (migration 2026-10-04-catalog)
  *   php bin/console sample-stores [--remove]          fake stores for the local /stores page (SQLite dev DB only)
  *   php bin/console embassy:inbox                     read the Embassy mailbox (IMAP), log the replies (cron)
+ *   php bin/console embassy:cron                      inbox sync + reminder mails to the team (= GET /api/embassy/cron)
  *   php bin/console list                               all commands, `help <command>` for details
  */
 if (PHP_SAPI !== 'cli') {
@@ -37,6 +38,7 @@ use Scutoons\Console\BackfillEditionNumbersCommand;
 use Scutoons\Console\CatalogExportSqlCommand;
 use Scutoons\Console\CatalogSeedCommand;
 use Scutoons\Console\ContentCheckCommand;
+use Scutoons\Console\EmbassyCronCommand;
 use Scutoons\Console\EmbassyInboxCommand;
 use Scutoons\Console\ExportContentCommand;
 use Scutoons\Console\ImportContentCommand;
@@ -49,7 +51,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, CatalogSeedCommand::class, CatalogExportSqlCommand::class, ContentCheckCommand::class, EmbassyInboxCommand::class] as $command) {
+foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, CatalogSeedCommand::class, CatalogExportSqlCommand::class, ContentCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

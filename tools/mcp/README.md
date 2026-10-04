@@ -94,7 +94,7 @@ the tools (`APPS` in ask.ts):
 | app | role (API `/me/`) | tools |
 | --- | --- | --- |
 | `creator` | creator | the tools above (`src/server.ts`) |
-| `embassy` | liaison / ambassador / admin | `src/embassy.ts`: `today`, `search_orgs`, `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `draft_mail` (a card in the panel – the person sends it from the app, the agent never sends), `check_inbox` |
+| `embassy` | liaison / ambassador / admin | `src/embassy.ts`: `today`, `my_portion` (the week at their own pace), `search_orgs` (`quiet`: answered before, quiet now), `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `draft_mail` (a card in the panel – the person sends it from the app, the agent never sends), `check_inbox` |
 | `admin` | admin | the tools above that only read + `agent_usage` (`src/admin.ts`) |
 
 It runs Claude (Sonnet 5.5) with the app's tools in-process (the person's session; the API's role checks decide),

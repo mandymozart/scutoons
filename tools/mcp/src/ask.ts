@@ -95,6 +95,8 @@ const EMBASSY_SYSTEM = [
 	'- Nothing follows up on its own (owner 2026-10-04): you help the person write mails and prepare calls. Follow-ups',
 	'  are mostly phone calls: when a mail went out about a week ago with no answer, suggest the call (the number, what',
 	'  to say, which mail to refer to) rather than another mail.',
+	"- People work at their own pace (contacts per week): my_portion is their week – today's slice first. Help them",
+	'  through it; never pile more on them than their pace.',
 	'- Contacts who answered before and went quiet are worth a call: search_orgs with quiet (e.g. 90 days) finds them;',
 	'  read the log first and suggest a reason to call (a new release, a show in their city, a thank-you).',
 	'',

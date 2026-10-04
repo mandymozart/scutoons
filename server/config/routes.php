@@ -216,6 +216,12 @@ return static function (App $app): void {
         $embassy->put("/people/$id", [EmbassyController::class, 'updatePerson']);
         $embassy->delete("/people/$id", [EmbassyController::class, 'deletePerson']);
         $embassy->post('/import', [EmbassyController::class, 'import']);
+        // pace + the weekly portion (owner 2026-10-05), reminders from the host's cron (no session: a key)
+        $embassy->put('/pace', [EmbassyController::class, 'setPace']);
+        $embassy->post('/pace/checkin', [EmbassyController::class, 'checkin']);
+        $embassy->get('/portion', [EmbassyController::class, 'portion']);
+        $embassy->get('/team/pace', [EmbassyController::class, 'teamPace']);
+        $embassy->map(['GET', 'POST'], '/cron', [EmbassyController::class, 'cron']);
     });
 
     // ── Admin API: Session + RequireRole(admin) (docs/API.md "Admin API") ──────────────────────────────

@@ -261,5 +261,72 @@
 		"blocked": "Opted out – no mail.",
 		"empty": "Subject and text first.",
 		"no_recipient": "No address to write to – or everyone here opted out."
+	},
+	"welcome": {
+		"title": "Welcome to Embassy",
+		"intro": "You keep in touch with the people who make the music travel: stages, record shops, bookers and press. Every week you get a small portion – the agent helps you write mails and prepare calls. Nothing is ever sent without you.",
+		"contacts": "Your contacts – the ones you add yourself, and the ones an ambassador gives you (you can also take unowned ones).",
+		"portion": "Your weekly portion – calls that are due first, then people who answered before and went quiet, then first contacts.",
+		"pace": "Your pace – how many contacts a week feels right. Change it any time; every 4 weeks we ask if it still fits.",
+		"start": "Start with this week"
+	},
+	"pace": {
+		"per_week": "Contacts per week",
+		"other": "other",
+		"time": "About {hours} hours a week (a mail or a short call each).",
+		"reminder": "Reminder",
+		"weekly": "Mondays",
+		"daily": "every working day",
+		"off": "none",
+		"this_week": "This week",
+		"done": "{done} of {pace}",
+		"label": "pace",
+		"unit": "/ week",
+		"saved": "Saved.",
+		"checkin": "{weeks} weeks at {pace} contacts a week – is your pace right?",
+		"less": "less",
+		"fine": "fine",
+		"more": "more",
+		"checkin_thanks": "Thanks – your pace is now {pace} a week."
+	},
+	"portion": {
+		"today": "For today",
+		"later": "Later this week",
+		"due": "Calls due",
+		"quiet": "Answered before, quiet now",
+		"first": "First contacts",
+		"more": "{count} more wait for next week.",
+		"take": "Take them now",
+		"done_week": "Your portion for this week is done. Thank you!",
+		"none_owned": "No contacts of yours yet – add one, or take unowned ones.",
+		"add": "Add a contact",
+		"unowned": "Unowned leads",
+		"ask": "Go through my week",
+		"ask_text": "Go through my portion this week ({count} contacts) and suggest for each what to say or write – short, one line each. Today is {date}.",
+		"prepare": "Ask: prepare this",
+		"prepare_text": "Help me with {org} ({track}): {hint}. Read the log first and suggest what to say on the phone or draft a mail."
+	},
+	"hint": {
+		"mail_no_answer": "mail sent {days} days ago, no answer – refer to “{subject}”",
+		"mail_no_answer_plain": "mail sent {days} days ago, no answer",
+		"voicemail": "voicemail {days} days ago – try again",
+		"call_back": "asked to call back on {date}",
+		"answered_then_quiet": "answered on {date}, nothing since",
+		"no_contact_yet": "no contact yet",
+		"due": "due",
+		"no_answer": "no answer {days} days ago – try again",
+		"replied": "they replied {days} days ago (“{subject}”) – answer",
+		"replied_plain": "they replied {days} days ago – answer",
+		"due_since": "due since {date}"
+	},
+	"team": {
+		"title": "Team pace",
+		"person": "Person",
+		"pace": "Pace",
+		"weeks": "Last 4 weeks",
+		"owned": "Contacts",
+		"checkin": "Last check-in",
+		"not_onboarded": "not started",
+		"none": "–"
 	}
 }

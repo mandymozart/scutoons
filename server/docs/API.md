@@ -313,7 +313,7 @@ endpoint list: `src/Http/Controllers/EmbassyController.php`. Migration `2026-10-
 - Activities (in `GET /orgs/{id}`, `/today`, the log answers): `{ id, org_id, lead_id, track, person_id, kind, outcome,
   note, by_email, at, subject, mail_from, mail_to, message_id }` – the last four only for mails sent from the app / read
   back from the inbox (else `null`). `GET /me` adds `mail: { from, inbox }` (the sender address; `inbox` = the sync is
-  configured).
+  configured) and `pace` (see "Pace": `null` = not onboarded yet, or the migration is missing).
 
 ### Mail (2026-10-04, migration `2026-10-04-ask-embassy-mail`)
 
@@ -369,6 +369,83 @@ not logged twice). The first run reads the last 30 days; at most 200 mails per r
 |---|---|---|
 | GET | `/embassy/inbox` | `{ status, configured, synced_at, error }` (`synced_at` ISO UTC of the last attempt, `error` its error or null) |
 | POST | `/embassy/inbox/sync` | `{ force? }` → `{ status, configured: true, synced_at, matched, skipped, new_activities, error, throttled }` – runs unless the last run is younger than 2 minutes (then `throttled: true`, counts 0); `force: true` skips that for ambassadors / admins. Not configured (no `EMBASSY_IMAP_HOST`) → `{ status, configured: false }`. A mailbox error is answered in `error` (200) and stored. `503 not_available` before the migration |
+
+### Pace (2026-10-05, migration `2026-10-05-embassy-pace`)
+
+The Embassy work is done by part-time liaisons at their own pace (owner 2026-10-05). Each person sets how many contacts a
+week they take on and a reminder mail **to themselves**; every 4 weeks the app asks whether the pace is right.
+Ambassadors / admins see everyone's pace, answers and numbers. Nothing here ever mails a contact. Code:
+`Domain\Embassy\EmbassyPace` (pace, portion, team), `Domain\Embassy\EmbassyReminders` (cron + mails). Tables
+`embassy_pace` (one row per person: `per_week`, `reminder`, `onboarded_at`, `asked_at`, `reminded_at`) and
+`embassy_checkins` (every answer with the pace before / after). Before the migration: `GET /me` says `pace: null`, every
+endpoint below answers `503 not_available`, the cron URL runs only the inbox sync (`reminders: null`).
+
+`pace` = `{ per_week, reminder, onboarded_at, asked_at, checkin_due }` – `per_week` 1–100 (preset 10), `reminder`
+`weekly` (Monday mail, the preset) | `daily` (every working day Mon–Fri) | `off`, times ISO UTC, `checkin_due` = now ≥
+(`asked_at` ?? `onboarded_at`) + 28 days. `null` = not onboarded: the app shows the onboarding.
+
+| Method | Path | Body → answer |
+|---|---|---|
+| PUT | `/embassy/pace` | `{ per_week?, reminder? }` → `{ status, pace }` – the first call is the onboarding (`onboarded_at` = `asked_at` = now; missing values = 10 / `weekly`), later calls change what is given. `per_week` a whole number 1–100 (`400 invalid_pace { field, min, max }`), `reminder` (`400 invalid_reminder { field, allowed }`) |
+| POST | `/embassy/pace/checkin` | `{ answer: less \| fine \| more }` → `{ status, pace }` – per week −5 / 0 / +5 (floor 1, cap 100), `asked_at` = now, the answer stored in `embassy_checkins`. `400 invalid_answer`, `409 not_onboarded` |
+| GET | `/embassy/portion?owner=me\|<user id>` | the person's weekly portion (below). Somebody else's only for ambassadors / admins (`403 forbidden { role }`; unknown user `404`) |
+| GET | `/embassy/team/pace` | ambassadors / admins (`403 forbidden` otherwise) → `{ status, items: [{ user: { id, email, access }, pace \| null, owned, weeks: [{ start, done }] (the last 4 weeks, oldest first, this week last), last_checkin: { at, answer, per_week_before, per_week_after } \| null }] }` – everyone with an Embassy role, by email |
+| GET, POST | `/embassy/cron?key=…` | the host's daily job (no session) → `{ status, inbox, reminders }` (below) |
+
+**The weekly portion** (`GET /embassy/portion`):
+
+```
+{ status, today: "YYYY-MM-DD",
+  week: { start: "YYYY-MM-DD" (Monday), end (Sunday), pace, done, left },
+  today_count, today_done,
+  items: [{ group: "due" | "quiet" | "first", hint: { kind, … }, lead, org, people, last_activity }],
+  more: { due, quiet, first },
+  owned }
+```
+
+- The week is Monday–Sunday in the API's time zone (like `next_at`). `pace` = the person's `per_week` (10 when not
+  onboarded). `done` = distinct organisations the person contacted this week (`mail_out`, `call` of any outcome, `dm`,
+  `meeting` logged by them – mails sent from the app count; notes and replies don't). `left` = max(0, pace − done).
+- `items`: at most `left`, **one per organisation** (an organisation with several leads shows once, with its most urgent
+  lead), never a do-not-contact organisation, only the person's own leads, in this order: (1) `due` – next date today or
+  earlier, oldest first; (2) `quiet` – "answered before, quiet now" (the `quiet` list filter, 90 days); (3) `first` –
+  stage research / ready, never contacted (no mail_out / call / dm / meeting on the lead), no date ahead; tier A first.
+  `lead`, `org`, `people` (those that may be contacted), `last_activity` = the same shape as `GET /today`'s items.
+  `more` = what did not fit this week, per group (counted once per organisation).
+- `today_count` = how many of `items` (from the top) are today's slice: what was left this morning (pace − done before
+  today), spread over the working days left incl. today (Mon–Fri; ceil), minus what was done today (`today_done`) –
+  so the slice shrinks as the person works and does not refill the same day. Saturday / Sunday: everything left. Capped
+  at the number of items.
+- `owned` = all leads the person owns (0 → the app says "add your first contacts, or take unowned ones").
+- `hint` – why the item is on the list, for the app to say in de / en (the reminder mail renders the same):
+
+| `kind` | fields | when |
+|---|---|---|
+| `due` | `date` (the next date) | due, no more specific reason (no activity yet, a reached call, a meeting, a DM, a note) |
+| `mail_no_answer` | `days`, `subject?` | the last entry is our mail (`subject` when sent from the app) |
+| `voicemail` | `days` | the last entry is a call → voicemail |
+| `no_answer` | `days` | the last entry is a call → no answer |
+| `call_back` | `date` | the last entry is a call → call back on `date` |
+| `replied` | `days`, `subject?` | the last entry is their reply |
+| `answered_then_quiet` | `date`, `days` | group `quiet`: their last reply / meeting / reached call |
+| `no_contact_yet` | – | group `first` |
+
+`days` = whole days from that entry's local date to today.
+
+**Reminders + cron.** `GET|POST /api/embassy/cron?key=<EMBASSY_CRON_KEY>` – or the key as the HTTP Basic password (the
+host's cron calls a URL and cannot set headers; compared in constant time). `EMBASSY_CRON_KEY` empty → `404` (off);
+missing / wrong key → `403 forbidden`. All-inkl: KAS → Tools → Cronjobs → URL
+`https://api.scutoons.com/api/embassy/cron?key=…`, daily at 07:00. Locally: `php bin/console embassy:cron` (same job).
+It runs (a) the inbox sync (`inbox` = like `POST /inbox/sync`, no throttle; `null` when no IMAP host is configured) and
+(b) the due reminder mails: `reminders: { sent, skipped, failed }` (`null` before the migration).
+
+- `weekly`: on Monday – or the first run of the week when Monday's was missed; `daily`: Mon–Fri; `off`: never. At most
+  one mail per local day (daily) / week (weekly) (`reminded_at`; a failed send is tried on the next run). Only people
+  who still have an Embassy role. No mail when the portion has no items and no check-in is due (`skipped`).
+- The mail: template `embassy_portion` (admin app → Emails; from `MAIL_FROM`, in the account's language de / en, a
+  `mail_log` row): "This week: X of Y contacts done", the items as "• organisation · person – hint" (weekly: the week's
+  items; daily: today's slice), "+N more if you have time", the check-in line when due, a button to the Today page
+  (`EMBASSY_URL`), and how to change the reminder (on Today).
 
 ### Stores (2026-10-02, migration `2026-10-02-embassy-stores`)
 

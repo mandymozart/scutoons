@@ -100,10 +100,12 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `AGENT_SERVICE_KEY` | secret | api `config.php` – the same value as the Ask service's `SCUTOONS_SERVICE_KEY` on bunny (lets it write the AI usage log; unset = the service keeps its own file; tools/mcp/README.md) |
 | `SMTP_USER`, `SMTP_PASS` | secret | api |
 | `EMBASSY_SMTP_USER`, `EMBASSY_SMTP_PASS` | secret | api – the hello@scutoons.com mailbox Embassy mails go out from (unset = the `SMTP_*` account); IMAP uses the same login unless `EMBASSY_IMAP_USER` / `EMBASSY_IMAP_PASS` are set (agents/EMBASSY.md "Ask + mail") |
+| `EMBASSY_CRON_KEY` | secret | api – key of the Embassy cron URL (inbox sync + the team's reminder mails). Unset = the URL answers 404. All-inkl: KAS → Tools → Cronjobs → URL `https://api.scutoons.com/api/embassy/cron?key=<the key>`, daily at 07:00 (server/docs/API.md "Embassy" → "Pace") |
 | `GENERATE_PASSWORD` | secret | api – only until the admin app replaces `generate/` |
 | `DB_HOST`, `DB_NAME` | variable | api |
 | `MAIL_FROM` (a plain address), `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | variable | api |
 | `EMBASSY_MAIL_FROM`, `EMBASSY_MAIL_FROM_NAME`, `EMBASSY_IMAP_HOST`, `EMBASSY_IMAP_PORT`, `EMBASSY_IMAP_FOLDER`, `EMBASSY_IMAP_SENT` | variable | api – defaults hello@scutoons.com, "Top Toy · SCUTOONS", –, 993, INBOX, – (no IMAP host = no reply sync; `EMBASSY_IMAP_SENT` e.g. `Sent` keeps a copy of each sent mail in the mailbox) |
+| `EMBASSY_URL` | variable | api – the Embassy app, linked from the reminder mails (default https://embassy.scutoons.com) |
 | `VITE_API_URL` | variable | viewer, shop, creator, admin builds (`https://qr.scutoons.com/api` until the cutover, then `https://api.scutoons.com/api`) |
 | `VITE_CDN_URL` | – | **fixed in `targets.json`** since 2026-10-02 (owner): the new platform loads media from bunny's interim `https://scutoons.b-cdn.net` (every build, the API's `CDN_URL` / `CDN_PUBLIC_URL`, qr's `CDN_URL`); the legacy system keeps cdn.scutoons.com until the domain moves to bunny – then change it here once (agents/ASSETS.md) |
 | `VITE_WWW_URL` | variable | shop, creator (reader link), admin (as `VITE_VIEWER_URL`) |

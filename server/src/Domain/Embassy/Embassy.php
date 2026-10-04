@@ -159,17 +159,12 @@ final class Embassy
             $leadWhere[] = 'l.next_at IS NOT NULL AND l.next_at <= ?';
             $leadParams[] = $this->todayDate();
         }
-        // "answered before, quiet now" (owner 2026-10-04: keep track of dormant contacts that were responsive in the past):
-        // the lead (or the organisation, for entries without a track) had a reply, a meeting or a reached call, nothing
-        // happened for `quiet` days and no date is ahead – the people worth a call again. Not: "no", opted out.
+        // "answered before, quiet now" (quietCondition()), not opted out
         $quiet = (string) ($filters['quiet'] ?? '');
         if ($quiet !== '' && $quiet !== '0') {
-            $days = $quiet === '1' || $quiet === 'true' ? self::QUIET_DAYS : max(1, min(3650, (int) $quiet));
-            $mine = '(a.lead_id = l.id OR (a.lead_id IS NULL AND a.org_id = l.org_id))';
-            $leadWhere[] = "l.stage <> 'no' AND (l.next_at IS NULL OR l.next_at <= ?)"
-                . " AND EXISTS (SELECT 1 FROM embassy_activities a WHERE $mine AND (a.kind IN ('mail_in', 'meeting') OR (a.kind = 'call' AND a.outcome = 'reached')))"
-                . " AND NOT EXISTS (SELECT 1 FROM embassy_activities a WHERE $mine AND a.at >= ?)";
-            array_push($leadParams, $this->todayDate(), $this->clock->utc(-$days * 86400));
+            [$sql, $quietParams] = $this->quietCondition($quiet === '1' || $quiet === 'true' ? self::QUIET_DAYS : max(1, min(3650, (int) $quiet)));
+            $leadWhere[] = $sql;
+            array_push($leadParams, ...$quietParams);
             $where[] = 'o.do_not_contact = 0';
         }
         if ($leadWhere) {
@@ -476,16 +471,42 @@ final class Embassy
             WHERE l.next_at IS NOT NULL AND l.next_at <= ? AND o.do_not_contact = 0$ownerSql ORDER BY l.next_at, o.name_key LIMIT 300", [$today, ...$params]);
         $due = [];
         foreach ($rows as $row) {
-            $lead = $this->lead((string) $row['id']);
-            $org = $this->org($this->db->one('SELECT * FROM embassy_orgs WHERE id = ?', [$lead['org_id']]) ?? []);
-            $people = array_map(fn(array $p) => $this->person($p),
-                $this->db->all('SELECT * FROM embassy_people WHERE org_id = ? AND do_not_contact = 0 ORDER BY created_at, name', [$lead['org_id']]));
-            $last = $this->db->one("SELECT a.*, l.track FROM embassy_activities a LEFT JOIN embassy_leads l ON l.id = a.lead_id WHERE a.lead_id = ? ORDER BY a.at DESC, a.id DESC LIMIT 1", [$lead['id']]);
-            $due[] = ['lead' => $lead, 'org' => $org, 'people' => $people, 'last_activity' => $last !== null ? $this->activity($last) : null,
-                'overdue_days' => (int) (new DateTimeImmutable($today))->diff(new DateTimeImmutable((string) $lead['next_at']))->days];
+            $item = $this->item((string) $row['id']);
+            $due[] = $item + ['overdue_days' => (int) (new DateTimeImmutable($today))->diff(new DateTimeImmutable((string) $item['lead']['next_at']))->days];
         }
         $unscheduled = (int) $this->db->value("SELECT COUNT(*) FROM embassy_leads l WHERE l.next_at IS NULL AND l.stage IN ('research', 'ready')$ownerSql", $params);
         return ['today' => $today, 'due' => $due, 'unscheduled' => $unscheduled];
+    }
+
+    /**
+     * One lead as a work item (the Today list, the weekly portion – EmbassyPace): the lead, its organisation, the
+     * people that may be contacted and the lead's last activity
+     * @return array{lead: array<string, mixed>, org: array<string, mixed>, people: list<array<string, mixed>>, last_activity: array<string, mixed>|null}
+     */
+    public function item(string $leadId): array
+    {
+        $lead = $this->lead($leadId);
+        $org = $this->org($this->db->one('SELECT * FROM embassy_orgs WHERE id = ?', [$lead['org_id']]) ?? []);
+        $people = array_map(fn(array $p) => $this->person($p),
+            $this->db->all('SELECT * FROM embassy_people WHERE org_id = ? AND do_not_contact = 0 ORDER BY created_at, name', [$lead['org_id']]));
+        $last = $this->db->one('SELECT a.*, l.track FROM embassy_activities a LEFT JOIN embassy_leads l ON l.id = a.lead_id WHERE a.lead_id = ? ORDER BY a.at DESC, a.id DESC LIMIT 1', [$leadId]);
+        return ['lead' => $lead, 'org' => $org, 'people' => $people, 'last_activity' => $last !== null ? $this->activity($last) : null];
+    }
+
+    /**
+     * "Answered before, quiet now" (owner 2026-10-04: keep track of dormant contacts that were responsive in the past) as
+     * a condition on the lead `l`: the lead (or the organisation, for entries without a track) had a reply, a meeting or
+     * a reached call, nothing happened for $days days and no date is ahead – the people worth a call again. Not: "no".
+     * (The organisation's do-not-contact is the caller's part.) List filter `quiet`, the weekly portion's `quiet` group.
+     * @return array{0: string, 1: list<string>} SQL + its parameters
+     */
+    public function quietCondition(int $days): array
+    {
+        $mine = '(a.lead_id = l.id OR (a.lead_id IS NULL AND a.org_id = l.org_id))';
+        return ["l.stage <> 'no' AND (l.next_at IS NULL OR l.next_at <= ?)"
+            . " AND EXISTS (SELECT 1 FROM embassy_activities a WHERE $mine AND (a.kind IN ('mail_in', 'meeting') OR (a.kind = 'call' AND a.outcome = 'reached')))"
+            . " AND NOT EXISTS (SELECT 1 FROM embassy_activities a WHERE $mine AND a.at >= ?)",
+            [$this->todayDate(), $this->clock->utc(-$days * 86400)]];
     }
 
     // ── Import ────────────────────────────────────────────────────────────────────────────────────────────
@@ -556,7 +577,8 @@ final class Embassy
 
     // ── Internals ─────────────────────────────────────────────────────────────────────────────────────────
 
-    private function todayDate(): string
+    /** Today's date in the API's time zone (YYYY-MM-DD) – next_at dates are local dates */
+    public function todayDate(): string
     {
         return substr($this->clock->local(), 0, 10);
     }

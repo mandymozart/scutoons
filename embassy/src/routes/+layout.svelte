@@ -23,6 +23,8 @@
 	import { setToaster } from '$lib/toasts.ts';
 	import { agentChats, embassy } from '$lib/api.ts';
 	import { askPage, changed } from '$lib/ask-page.svelte.ts';
+	import { loadPace, pace } from '$lib/pace.svelte.ts';
+	import Onboarding from '$lib/components/onboarding.svelte';
 	import { label } from '$lib/labels.ts';
 	import { ASK_URL, VIEWER_URL } from '$lib/config.ts';
 	import MailDraft, { type Draft } from '$lib/components/mail-draft.svelte';
@@ -39,6 +41,11 @@
 		const magic = takeMagicToken(page.url);
 		if (magic) goto(magic.cleaned, { replaceState: true });
 		void session.init(magic?.token);
+	});
+
+	// the person's pace: not onboarded yet → the onboarding instead of the page (owner 2026-10-05)
+	$effect(() => {
+		if (session.user?.id) loadPace();
 	});
 
 	// every `title` in the tool shows in the one SCUTOONS tooltip (tools.css .sc-tooltip)
@@ -156,7 +163,11 @@
 			<button type="button" class="sc-round" class:is-active={ask.open} title={m['ask.open']()} aria-label={m['ask.open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 		</header>
 		<main>
-			{@render children()}
+			{#if pace.loaded && pace.available && !pace.value}
+				<Onboarding />
+			{:else}
+				{@render children()}
+			{/if}
 		</main>
 		<CommandPalette
 			bind:open={paletteOpen}
