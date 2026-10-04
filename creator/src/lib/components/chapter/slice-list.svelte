@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DEFAULT_SLICE, getAt, type Path } from '@scutoons/content';
@@ -84,9 +85,9 @@
 		onselect(at);
 	}
 
-	function remove(index: number) {
+	async function remove(index: number) {
 		const s = slices[index];
-		if (!confirm(m['creator.remove_confirm']({ what: `slice ${index + 1} (${s?.image ?? ''})` }))) return;
+		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `slice ${index + 1} (${s?.image ?? ''})` })))) return;
 		doc.structural((file) => {
 			const list = getAt(file, [...groupPath, 'slices']);
 			if (Array.isArray(list)) list.splice(index, 1);

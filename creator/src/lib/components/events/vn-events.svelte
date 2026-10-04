@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { tick, untrack } from 'svelte';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, confirmDialog } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { characterImage, characterIndex, clone, getAt, resolveCharacterId, scriptLabels, Trigger, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -114,8 +114,8 @@
 		});
 	}
 
-	function changeType(index: number, type: string) {
-		if (!confirm(`Change event ${index + 1} to ${type}? Its parameters are replaced.`)) return;
+	async function changeType(index: number, type: string) {
+		if (!(await confirmDialog({ title: m['creator.change_type_title'](), message: m['creator.change_type_confirm']({ index: index + 1, type }), confirmLabel: m['creator.change_type_label']() }))) return;
 		doc.structural((file) => {
 			const list = getAt(file, eventsPath);
 			if (!Array.isArray(list)) return;

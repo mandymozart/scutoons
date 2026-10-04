@@ -319,6 +319,17 @@ try {
 	await send('Input.insertText', { text: TEXT });
 	await sleep(300);
 	check(await until(`!!document.querySelector('.sc-bar.is-dirty') && ${q('save-draft')}.textContent.includes('•')`, 3000), 'add: typing marks the page dirty');
+	// leaving with unsaved changes asks in-page (step 14: no browser confirm()); "Cancel" stays
+	const toonLink = await js(`!!document.querySelector('a[href="/${TOON}"]')`);
+	if (toonLink) {
+		await js(`document.querySelector('a[href="/${TOON}"]').click()`);
+		const asked = await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000);
+		const askedText = asked ? await js(`document.querySelector('dialog.sc-dialog[open]').innerText`) : '';
+		await answerDialog('button.ghost');
+		await sleep(400);
+		check(asked && (await js(`location.pathname`)) === `/${TOON}/chapter/${CHAPTER}`, 'leaving with unsaved changes asks in-page; Cancel stays on the chapter', askedText);
+	} else check(false, 'leaving: a link to the toon page', 'no a[href="/catpope"]');
+	await js(`${q('text-de')}.focus()`);
 	// undo inside a field is the browser's (owner 2026-10-03, COMPONENTS.md 4.4.1): it undoes the typing, never the file
 	await sleep(1200);
 	await send('Input.insertText', { text: ' x' });

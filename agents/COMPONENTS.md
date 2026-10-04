@@ -288,6 +288,14 @@ Done (branch `components`):
   inspector) and the script outline. Checked by hand (drag + reset of all four) and in check:creator-chapter (the
   inspector edge). `ResizeEdge.svelte` not made: the four edges differ in markup / position; one function is the
   shared part.
+- Step 14a ✓ (the commit adding this line) – every creator / admin `confirm()` → `confirmDialog` (one structure: title,
+  the question, the action's own word). `lib/editor/ask.ts`: `confirmRemove`, `confirmDelete`, `leaveGuard(dirty)` (holds
+  the navigation, asks in-page, then `goto`s the same address; closing the tab keeps the browser's question) in the
+  chapter editor + meta pages; restore in the history is one question (unsaved changes + new draft) instead of two;
+  unpublish, merge people, change event type, the shared-place move in the map (the drag waits for the answer); admin:
+  own admin role, revoke code, leaving a running batch. Not converted: embassy's two (remove person, delete org) – the
+  app has no `DialogHost` yet and is being developed on branch `embassy` (merged after the 2026-10-04 release); do it there. Checks: check:creator-chapter
+  asks on leave (64), creator-script-check answers the restore dialog.
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

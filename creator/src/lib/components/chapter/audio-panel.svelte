@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon } from '@scutoons/ui';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt } from '@scutoons/content';
@@ -43,10 +44,10 @@
 		});
 	}
 
-	function removeFrom(list: 'tracks' | 'sampleLibrary', index: number) {
+	async function removeFrom(list: 'tracks' | 'sampleLibrary', index: number) {
 		const path = list === 'tracks' ? ['audio', 'music', 'tracks'] : ['audio', 'sampleLibrary'];
 		const item = getAt(doc.data[doc.primary], [...path, index]);
-		if (!confirm(m['creator.remove_confirm']({ what: item?.id ?? '' }))) return;
+		if (!(await confirmRemove(m['creator.remove_confirm']({ what: item?.id ?? '' })))) return;
 		doc.structural((file) => getAt(file, path)?.splice(index, 1));
 	}
 </script>

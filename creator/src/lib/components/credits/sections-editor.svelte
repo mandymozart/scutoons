@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
 	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { Icon } from '@scutoons/ui';
 	import { tick } from 'svelte';
@@ -37,9 +38,9 @@
 	function add() {
 		change((f) => f.sections.push(newSection(addKind, f, languages)));
 	}
-	function remove(i: number, section: CreditSection) {
+	async function remove(i: number, section: CreditSection) {
 		const count = section.entries.length + (section.kind === 'toon' ? section.lead.length : 0);
-		if (count && !confirm(m['creator.credits_remove_section_confirm']({ name: sectionName(section, languages[0]), count }))) return;
+		if (count && !(await confirmRemove(m['creator.credits_remove_section_confirm']({ name: sectionName(section, languages[0]), count })))) return;
 		change((f) => f.sections.splice(i, 1));
 	}
 </script>

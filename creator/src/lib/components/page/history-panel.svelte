@@ -48,9 +48,10 @@
 		}
 	}
 
-	function restore(locale: string, v: ContentVersion) {
-		if (doc.dirtyLocales.includes(locale) && !confirm(m['creator.leave_confirm']())) return;
-		if (!confirm(m['creator.restore_confirm_when']({ when: when(v.created_at), locale }))) return;
+	async function restore(locale: string, v: ContentVersion) {
+		// one question: unsaved changes in that language are lost, and the version becomes a new draft
+		const message = `${doc.dirtyLocales.includes(locale) ? `${m['creator.leave_confirm']()} ` : ''}${m['creator.restore_confirm_when']({ when: when(v.created_at), locale })}`;
+		if (!(await confirmDialog({ title: m['creator.restore_title'](), message, confirmLabel: m['creator.restore']() }))) return;
 		act(() => restoreVersion(doc.key(locale), v.id));
 	}
 
@@ -59,8 +60,8 @@
 		act(() => publishVersion(doc.key(locale), v.id));
 	}
 
-	function unpublish(locale: string) {
-		if (!confirm(`Unpublish ${fileLabel(doc.entity)} (${locale})? Readers see nothing until a version is published again.`)) return;
+	async function unpublish(locale: string) {
+		if (!(await confirmDialog({ title: m['creator.unpublish_title'](), message: m['creator.unpublish_confirm']({ file: fileLabel(doc.entity), locale }), confirmLabel: m['creator.unpublish_label']() }))) return;
 		act(() => unpublishEntity(doc.key(locale)));
 	}
 

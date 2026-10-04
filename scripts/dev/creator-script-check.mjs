@@ -265,6 +265,7 @@ try {
 
 	// 5. restore the original → identical text, published again
 	await click(`[data-testid="restore-de-${baseline[KEYS[0]].id}"]`);
+	await answerDialog('button[type="submit"]'); // Restore confirms in-page (one question)
 	check(await until(`${area}.value === ${JSON.stringify(source)}`), 'restore: the editor shows the original text again');
 	const restored = await api('GET', `/entities/${KEYS[0]}?draft=1&wrap=1`);
 	check(restored.content.text === source && JSON.stringify(restored.content) === JSON.stringify(baseline[KEYS[0]].content), 'restore: the stored draft is byte-identical to the original');

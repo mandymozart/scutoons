@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import type { Snippet } from 'svelte';
 	import { ActionBar } from '@scutoons/ui';
@@ -100,14 +101,8 @@
 	const errorCount = $derived(problems.filter((p) => p.level === 'error').length);
 	const warningCount = $derived(problems.filter((p) => p.level === 'warning').length);
 
-	beforeNavigate((navigation) => {
-		if (!anyDirty) return;
-		if (navigation.type === 'leave') {
-			navigation.cancel();
-			return;
-		}
-		if (!confirm(m['creator.leave_confirm']())) navigation.cancel();
-	});
+	// unsaved changes: leaving asks in-page (lib/editor/ask.ts)
+	beforeNavigate(leaveGuard(() => anyDirty));
 
 	$effect(() => {
 		const list = docs;

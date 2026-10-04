@@ -19,7 +19,7 @@
 		type WorldMap
 	} from '@scutoons/content';
 	import { MapViewport } from '@scutoons/reader';
-	import { Icon } from '@scutoons/ui';
+	import { Icon, confirmDialog } from '@scutoons/ui';
 	import { getPublished, library } from '$lib/api.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -272,18 +272,28 @@
 			p.y = at.y;
 		}, `drag:${id}`);
 	}
-	let sharedConfirm = { key: '', at: 0, ok: false };
+	let sharedConfirm = { key: '', at: 0, ok: false, asking: false, last: null as Point | null };
 	function onMoveWaypoint(route: string, index: number, at: Point) {
 		const r = map?.routes.find((x) => x.id === route);
 		const w = r?.waypoints[index];
 		if (!w) return;
 		if (isPlaceWaypoint(w)) {
-			// a place waypoint moves the place (shared with other routes): ask once per drag
+			// a place waypoint moves the place (shared with other routes): ask once per drag – in-page (owner 2026-10-03),
+			// so the drag pauses while the question is open; "Move" puts the place where it was dragged to, and the same
+			// waypoint then moves without asking for a moment (1.5 s since the last move)
 			const key = `${route}:${index}`;
 			const now = Date.now();
+			sharedConfirm.last = at;
+			if (sharedConfirm.asking) return;
 			if (sharedConfirm.key !== key || now - sharedConfirm.at > 1500) {
 				const place = map?.locations.find((p) => p.id === w.location);
-				sharedConfirm = { key, at: now, ok: !!place && confirm(m['creator.map_move_shared_place']({ name: mapName(place.name, locale) || w.location })) };
+				if (!place) return;
+				sharedConfirm = { key, at: now, ok: false, asking: true, last: at };
+				confirmDialog({ title: m['creator.move_place_title'](), message: m['creator.map_move_shared_place']({ name: mapName(place.name, locale) || w.location }), confirmLabel: m['creator.move_place_label']() }).then((ok) => {
+					sharedConfirm = { ...sharedConfirm, ok, asking: false, at: Date.now() };
+					if (ok && sharedConfirm.last) onMovePlace(w.location, sharedConfirm.last);
+				});
+				return;
 			}
 			sharedConfirm.at = now;
 			if (sharedConfirm.ok) onMovePlace(w.location, at);

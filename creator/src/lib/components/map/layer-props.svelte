@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDelete } from '$lib/editor/ask.ts';
 	import type { MapLayer, WorldMap } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
@@ -21,8 +22,8 @@
 			if (map.layers[i]) change(map.layers[i]);
 		}, key);
 	}
-	function remove() {
-		if (!confirm(m['creator.map_delete_confirm']({ name: layer.id }))) return;
+	async function remove() {
+		if (!(await confirmDelete(m['creator.map_delete_confirm']({ name: layer.id })))) return;
 		const i = index;
 		editMap(doc, (map) => map.layers.splice(i, 1));
 		onselect(null);

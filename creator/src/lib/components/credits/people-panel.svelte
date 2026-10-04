@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDialog } from '@scutoons/ui';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { personUsage, replacePerson, type CreditPerson, type PeopleRegistry, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -48,12 +49,12 @@
 		newName = '';
 	}
 
-	function merge() {
+	async function merge() {
 		const from = person;
 		const to = all.find((p) => p.id === mergeTarget);
 		if (!from || !to || from.id === to.id) return;
 		const refs = usage.get(from.id) ?? 0;
-		if (!confirm(m['creator.credits_merge_confirm']({ from: from.name, to: to.name, count: refs }))) return;
+		if (!(await confirmDialog({ title: m['creator.merge_title'](), message: m['creator.credits_merge_confirm']({ from: from.name, to: to.name, count: refs }), confirmLabel: m['creator.merge_label']() }))) return;
 		edit<ToonCredits>(credits, (file) => void replacePerson(file, from.id, to.id));
 		edit<PeopleRegistry>(people, (file) => {
 			const target = file.people.find((p) => p.id === to.id)!;

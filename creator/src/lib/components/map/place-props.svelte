@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { MAP_SOURCE_LANGUAGE, chapterSlices, mapName, sliceUnlockPoint, slugId, type ChapterSliceRef, type LocaleText, type MapPlace, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
@@ -101,9 +102,9 @@
 	}
 
 	const usedBy = $derived(routesThrough(map, place.id));
-	function remove() {
+	async function remove() {
 		if (usedBy.length) return;
-		if (!confirm(m['creator.map_delete_confirm']({ name: mapName(place.name, locale) || place.id }))) return;
+		if (!(await confirmDelete(m['creator.map_delete_confirm']({ name: mapName(place.name, locale) || place.id })))) return;
 		removePlace(doc, place.id);
 		onselect(null);
 	}

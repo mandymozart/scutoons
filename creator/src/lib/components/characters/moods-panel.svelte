@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { moveAt } from '$lib/editor/move.ts';
 	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
@@ -72,8 +73,8 @@
 					class="ghost"
 					disabled={mood.id === DEFAULT_MOOD}
 					title={mood.id === DEFAULT_MOOD ? m['creator.characters_neutral_required']() : ''}
-					onclick={() => {
-						if (confirm(m['creator.characters_remove_mood_confirm']({ mood: mood.id, count: usage.get(mood.id) ?? 0 }))) change((x) => (x.moods = x.moods.filter((y) => y.id !== mood.id)));
+					onclick={async () => {
+						if (await confirmRemove(m['creator.characters_remove_mood_confirm']({ mood: mood.id, count: usage.get(mood.id) ?? 0 }))) change((x) => (x.moods = x.moods.filter((y) => y.id !== mood.id)));
 					}} aria-label={m['creator.remove']()}><CloseIcon /></button
 				>
 			</li>

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon } from '@scutoons/ui';
 	import type { Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -59,9 +60,9 @@
 		anchor = map.get(anchor ?? -1) ?? picked[0];
 		view.groupIndex = map.get(view.groupIndex) ?? view.groupIndex;
 	}
-	function removeGroup(index: number) {
+	async function removeGroup(index: number) {
 		const g = groups[index];
-		if (!confirm(m['creator.remove_confirm']({ what: `group ${g?.label ?? g?.ref?.src ?? index + 1}` }))) return;
+		if (!(await confirmRemove(m['creator.remove_confirm']({ what: `group ${g?.label ?? g?.ref?.src ?? index + 1}` })))) return;
 		chapter.structural((file) => file.groups.splice(index, 1));
 		view.groupIndex = Math.max(0, index - 1);
 		view.section = 'meta';

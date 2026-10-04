@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import { onMount, untrack } from 'svelte';
 	import { ActionBar, CloseIcon, Icon } from '@scutoons/ui';
@@ -425,15 +426,8 @@
 		`/${toon}/chapter/${chapterNumber}/preview?locale=${locale}${previewLabel ? `&label=${encodeURIComponent(previewLabel)}` : ''}`;
 
 	// ── Guards, autosave, keyboard ──────────────────────────────────────────────────────────────────────
-	beforeNavigate((navigation) => {
-		if (!anyDirty) return;
-		if (navigation.type === 'leave') {
-			navigation.cancel();
-			return;
-		}
-		// preview links open in a new tab; everything else asks
-		if (!confirm(m['creator.leave_confirm']())) navigation.cancel();
-	});
+	// unsaved changes: leaving asks in-page (preview links open in a new tab); lib/editor/ask.ts
+	beforeNavigate(leaveGuard(() => anyDirty));
 
 	$effect(() => {
 		const docs = allDocs;

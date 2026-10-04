@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { CloseIcon } from '@scutoons/ui';
 	import { lookLabel, lookPortraitMoods, setLookImage, type AssetRequests, type CharacterFileSlot, type CharacterPersona, type MoodVocabulary, type RegistryCharacter } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -58,8 +59,8 @@
 			})
 		);
 	}
-	function remove() {
-		if (lookIds.length < 2 || !confirm(m['creator.characters_remove_look_confirm']({ look: lookId }))) return;
+	async function remove() {
+		if (lookIds.length < 2 || !(await confirmRemove(m['creator.characters_remove_look_confirm']({ look: lookId })))) return;
 		const target = lookId;
 		change((p) => {
 			p.looks = p.looks.filter((l) => l.id !== target);

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
 	import { Badge, Icon } from '@scutoons/ui';
 	import {
 		REGULAR_PERSONA,
@@ -79,10 +80,10 @@
 	function change(fn: (c: RegistryCharacter) => void, key?: string) {
 		editCharacter(registry, id, fn, key ? `${id}:${key}` : undefined);
 	}
-	function remove() {
+	async function remove() {
 		if (!character) return;
 		const used = appearsIn.length ? m['creator.characters_remove_used']({ toons: appearsIn.join(', ') }) : '';
-		if (!confirm(`${m['creator.characters_remove_confirm']({ name: characterName(character, source) })} ${used}`.trim())) return;
+		if (!(await confirmRemove(`${m['creator.characters_remove_confirm']({ name: characterName(character, source) })} ${used}`.trim()))) return;
 		edit<CharacterRegistry>(registry, (f) => (f.characters = f.characters.filter((c) => c.id !== id)));
 		onselect('');
 	}
@@ -92,8 +93,8 @@
 		look = '';
 		newPersonaLabel = '';
 	}
-	function removePersona() {
-		if (personaId === REGULAR_PERSONA || !confirm(m['creator.characters_remove_persona_confirm']({ persona: characterName(character, source, personaId) }))) return;
+	async function removePersona() {
+		if (personaId === REGULAR_PERSONA || !(await confirmRemove(m['creator.characters_remove_persona_confirm']({ persona: characterName(character, source, personaId) })))) return;
 		change((c) => (c.personas = c.personas.filter((p) => p.id !== personaId)));
 		persona = REGULAR_PERSONA;
 	}

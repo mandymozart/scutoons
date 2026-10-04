@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { confirmDelete } from '$lib/editor/ask.ts';
 	import { CloseIcon } from '@scutoons/ui';
 	import { MAP_SOURCE_LANGUAGE, isPlaceWaypoint, mapName, slugId, type LocaleText, type MapPath, type WorldMap } from '@scutoons/content';
 	import { getLocale } from '$lib/paraglide/runtime.js';
@@ -46,8 +47,8 @@
 		const next = name[MAP_SOURCE_LANGUAGE]?.trim();
 		if (!locked && next && autoId(id, before, 'weg') && slugId(next) && slugId(next) !== id) onselect({ kind: 'route', id: renameRoute(doc, id, next, 'route-name') });
 	}
-	function remove() {
-		if (!confirm(m['creator.map_delete_confirm']({ name: mapName(route.name, locale) || route.id }))) return;
+	async function remove() {
+		if (!(await confirmDelete(m['creator.map_delete_confirm']({ name: mapName(route.name, locale) || route.id })))) return;
 		removeRoute(doc, route.id);
 		onselect(null);
 	}
