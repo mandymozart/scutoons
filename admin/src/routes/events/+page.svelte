@@ -146,7 +146,10 @@
 {/if}
 
 <style>
+	/* fold-ok: a dropdown's trigger (a control), not a fold row */
 	.dropup summary {
+		font-size: var(--type-body-size);
+		line-height: var(--type-body-line);
 		cursor: pointer;
 		padding: var(--space-025) var(--space-05);
 		border: var(--border-width-hairline) solid var(--border-subtle);

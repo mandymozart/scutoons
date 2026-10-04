@@ -13,6 +13,8 @@ use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetService;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Assets\MediaProbe;
+use Scutoons\Domain\Catalog\CatalogAdmin;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
@@ -28,19 +30,21 @@ final class AssetsTest extends TestCase
 
     protected function settings(): array
     {
-        $catalog = $this->dir . '/items.json';
-        file_put_contents($catalog, json_encode(['items' => [['id' => 'vinyl', 'icon' => 'catpope/items/vinyl.png']], 'albums' => [['id' => 'a', 'download' => 'catpope/audio/album.zip']]], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        foreach (['products', 'editions', 'toons', 'featured'] as $name) file_put_contents("{$this->dir}/$name.json", '{}');
         return [
             'ASSET_STORAGE' => 'local',
             'ASSET_LOCAL_ROOT' => $this->dir . '/cdn',
             'CDN_URL' => 'http://cdn.test/',
-            'ITEMS_PATH' => $catalog,
-            'PRODUCTS_PATH' => $this->dir . '/products.json',
-            'EDITIONS_PATH' => $this->dir . '/editions.json',
-            'TOONS_PATH' => $this->dir . '/toons.json',
-            'FEATURED_PRODUCTS_PATH' => $this->dir . '/featured.json',
         ] + parent::settings();
+    }
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // a small catalog instead of the seeded one: an item icon and an album download
+        foreach (CatalogStore::KINDS as $kind => $def) $this->db->run('DELETE FROM ' . $def['table']);
+        $store = $this->get(CatalogStore::class);
+        $store->save('items', 'vinyl', (object) ['id' => 'vinyl', 'name' => 'Vinyl', 'kind' => 'physical', 'category' => 'media', 'icon' => 'catpope/items/vinyl.png'], 'test');
+        $store->save('albums', 'a', (object) ['id' => 'a', 'title' => (object) ['en' => 'A'], 'tracks' => [], 'download' => 'catpope/audio/album.zip'], 'test');
     }
 
     private function put(string $key, string $bytes): void
@@ -181,11 +185,11 @@ final class AssetsTest extends TestCase
         self::assertContains(['catpope/images/s1-cover-square.jpg', 'chapter:catpope:1:de', '/groups/0/slices/1/image', 'draft'], $rows, 'only the draft uses the jpg');
         self::assertContains(['catpope/images/webtoon/s1c1/s1c1-slice-1.webp', 'map', '/locations/0/unlock/slice', 'published'], $rows, 'the map resolves against the location\'s toon');
         self::assertContains(['characters/catpope/catpope_portrait.webp', 'chapter:catpope:1:de', '/tile', 'published'], $rows);
-        self::assertContains(['catpope/items/vinyl.png', 'items.json', '/items/0/icon', 'config'], $rows);
-        self::assertContains(['catpope/audio/album.zip', 'items.json', '/albums/0/download', 'config'], $rows);
+        self::assertContains(['catpope/items/vinyl.png', 'item:vinyl', '/icon', 'config'], $rows);
+        self::assertContains(['catpope/audio/album.zip', 'album:a', '/download', 'config'], $rows);
 
         $missing = $this->get(AssetUsages::class)->missing();
-        self::assertSame(['catpope/images/missing-poster.webp'], array_column($missing, 'path'), 'asset-requests are wishes, not usages');
+        self::assertSame(['catpope/images/missing-poster.webp', 'catpope/vectors/vector-demon-saw-1.svg'], array_column($missing, 'path'), 'asset-requests are wishes, not usages; a file app code needs is reported missing');
         $orphans = array_column($this->get(AssetUsages::class)->orphans(), null, 'slug');
         self::assertTrue($orphans['catpope/videos/roar-little-kitty']['all_unused']);
         self::assertSame(['catpope/videos/s1-trailer-loop.1280w.mp4', 'catpope/videos/s1-trailer-loop.1920w.mp4'], $orphans['catpope/videos/s1-trailer-loop']['unused']);
@@ -220,6 +224,75 @@ final class AssetsTest extends TestCase
         self::assertFileDoesNotExist($this->dir . '/cdn/catpope/videos/roar-little-kitty.720p.mp4');
         self::assertSame('deleted', $registry->asset($rlk)['status'] ?? null);
         self::assertNull($registry->bySlug('catpope/videos/roar-little-kitty'));
+    }
+
+    public function testCleanupDeletesOnlyUnusedFiles(): void
+    {
+        $this->fixture();
+        $this->put('scutoons/models/mobilenet/model.json', '{}');
+        $this->scan();
+        $service = $this->get(AssetService::class);
+        $registry = $this->get(AssetRegistry::class);
+        $admin = $this->user('admin@example.com');
+        $trailer = $this->assetId('catpope/videos/s1-trailer-loop');
+        $trailerSource = (string) ($registry->currentVersion($trailer)['path'] ?? '');
+        // leftovers: a rename keeps the old file with the archived version, a replace keeps the old bytes under .versions/
+        $service->rename($admin, $this->assetId('catpope/items/vinyl'), 'catpope/items/awakening-vinyl', true);
+        $replaced = $service->replace($admin, $trailer, $this->local(self::MP4 . 'better 480p'), 'catpope/videos/s1-trailer-loop.480p.mp4');
+
+        $list = $service->unused();
+        $items = array_column($list['items'], null, 'slug');
+        $files = fn(string $slug) => array_column($items[$slug]['files'], 'what', 'path');
+        self::assertArrayNotHasKey('scutoons/models/mobilenet/model', $items, 'app code references the models');
+        self::assertTrue($items['catpope/videos/roar-little-kitty']['all_unused']);
+        self::assertCount(3, $files('catpope/videos/roar-little-kitty'));
+        $trailerFiles = $files('catpope/videos/s1-trailer-loop');
+        self::assertFalse($items['catpope/videos/s1-trailer-loop']['all_unused']);
+        self::assertArrayNotHasKey($trailerSource, $trailerFiles, 'the source of a used asset stays');
+        self::assertSame('archive', $trailerFiles[$replaced['archived_as']]);
+        self::assertSame(['catpope/items/vinyl.png' => 'old'], $files('catpope/items/awakening-vinyl'));
+        self::assertSame(count($list['items']), $list['totals']['assets']);
+
+        $rlk = $this->assetId('catpope/videos/roar-little-kitty');
+        // meanwhile a draft starts using the 1280w file → skipped, not deleted
+        $this->entity('chapter:catpope:2:de', ['groups' => [['slices' => [['image' => 'videos/s1-trailer-loop.1280w.mp4']]]]], false);
+        $chosen = [...array_keys($files('catpope/videos/roar-little-kitty')), ...array_keys($trailerFiles), 'catpope/items/vinyl.png', 'catpope/items/vinyl.png', 'catpope/items/awakening-vinyl.png', 'scutoons/models/mobilenet/model.json'];
+        $result = $service->cleanup($admin, $chosen);
+        self::assertSame(1, $result['assets_deleted']);
+        self::assertSame([], $result['failed']);
+        $skipped = array_column($result['skipped'], 'reason', 'path');
+        self::assertSame('in_use_or_unknown', $skipped['catpope/videos/s1-trailer-loop.1280w.mp4'] ?? null);
+        self::assertSame('in_use_or_unknown', $skipped['catpope/items/awakening-vinyl.png'] ?? null);
+        self::assertSame('in_use_or_unknown', $skipped['scutoons/models/mobilenet/model.json'] ?? null);
+        self::assertFileExists($this->dir . '/cdn/catpope/videos/s1-trailer-loop.1280w.mp4');
+        self::assertFileExists($this->dir . '/cdn/catpope/items/awakening-vinyl.png');
+        self::assertFileExists($this->dir . '/cdn/scutoons/models/mobilenet/model.json');
+        self::assertFileExists($this->dir . '/cdn/catpope/videos/s1-trailer-loop.720p.mp4');
+        self::assertFileDoesNotExist($this->dir . '/cdn/catpope/videos/roar-little-kitty.720p.mp4');
+        self::assertFileDoesNotExist($this->dir . '/cdn/catpope/items/vinyl.png');
+        self::assertFileDoesNotExist($this->dir . '/cdn/' . $replaced['archived_as']);
+        self::assertSame('deleted', $registry->asset($rlk)['status'] ?? null, 'all unused → the whole asset');
+
+        $after = array_column($service->unused()['items'], null, 'slug');
+        self::assertArrayNotHasKey('catpope/videos/roar-little-kitty', $after);
+        self::assertArrayNotHasKey('catpope/items/awakening-vinyl', $after);
+        self::assertNotContains('catpope/videos/s1-trailer-loop.1280w.mp4', array_column($after['catpope/videos/s1-trailer-loop']['files'] ?? [], 'path'), 'used now, so no longer offered');
+        self::assertFileExists($this->dir . '/cdn/' . $trailerSource);
+        $kept = array_column($registry->detail($trailer)['versions'][0]['renditions'], 'path');
+        self::assertContains($trailerSource, $kept);
+        self::assertContains('catpope/videos/s1-trailer-loop.1280w.mp4', $kept);
+        $gone = array_diff(array_keys($trailerFiles), ['catpope/videos/s1-trailer-loop.1280w.mp4'], [$replaced['archived_as']]);
+        self::assertSame([], array_values(array_intersect($gone, $kept)), 'deleted renditions leave the registry');
+        foreach ($gone as $path) self::assertFileDoesNotExist($this->dir . '/cdn/' . $path);
+    }
+
+    public function testCodeReferencesMatchTheCode(): void
+    {
+        $root = dirname(__DIR__, 4);
+        foreach (AssetUsages::CODE_REFERENCES as $reference => $file) {
+            self::assertFileExists("$root/$file");
+            self::assertStringContainsString($reference, (string) file_get_contents("$root/$file"), "$file no longer references $reference – update AssetUsages::CODE_REFERENCES");
+        }
     }
 
     public function testUploadReplaceRelinkRename(): void
@@ -280,7 +353,9 @@ final class AssetsTest extends TestCase
         self::assertSame(['catpope/items/vinyl.png' => 'catpope/items/awakening-vinyl.png'], $renamed['renamed']);
         self::assertFileExists($this->dir . '/cdn/catpope/items/awakening-vinyl.png');
         self::assertFileExists($this->dir . '/cdn/catpope/items/vinyl.png');
-        self::assertStringContainsString('"catpope/items/awakening-vinyl.png"', (string) file_get_contents($this->dir . '/items.json'));
+        self::assertSame('catpope/items/awakening-vinyl.png', $this->get(CatalogStore::class)->get('items', 'vinyl')['icon'] ?? null, 'the catalog row is relinked');
+        $history = $this->get(CatalogAdmin::class)->history('items', 'vinyl');
+        self::assertSame(['update', 'catpope/items/vinyl.png', 'catpope/items/awakening-vinyl.png'], [$history[0]['action'], $history[0]['before']->icon ?? null, $history[0]['after']->icon ?? null], 'with history');
         self::assertSame('catpope/items/awakening-vinyl', $registry->asset($icon)['slug'] ?? null);
         $this->get(AssetImporter::class)->import($this->get(AssetStorages::class)->local());
         self::assertNull($registry->bySlug('catpope/items/vinyl'), 'the old file stays attached to the archived version');
@@ -310,7 +385,7 @@ final class AssetsTest extends TestCase
         $layout = $this->get(AssetLayout::class);
         $seasons = ['catpope' => [0 => 1, 1 => 1, 2 => 1]];
         $chapter0 = [['source' => 'content', 'ref' => 'chapter:catpope:0:de', 'state' => 'published']];
-        $season1 = [['source' => 'content', 'ref' => 'season:catpope:1:de', 'state' => 'published'], ['source' => 'catalog', 'ref' => 'items.json', 'state' => 'config']];
+        $season1 = [['source' => 'content', 'ref' => 'season:catpope:1:de', 'state' => 'published'], ['source' => 'catalog', 'ref' => 'album:awakening', 'state' => 'config']];
         foreach ([
             ['catpope/images/webtoon/s1c2/s1c2-slice-14.webp', [], 'catpope/s1/c2/s1c2-slice-14.webp'],
             ['catpope/images/3x/s1c3-key-visual.jpg', [], 'catpope/s1/c3/s1c3-key-visual.3x.jpg'],

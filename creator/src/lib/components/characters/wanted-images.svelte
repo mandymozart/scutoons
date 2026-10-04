@@ -113,7 +113,7 @@
 					<li>
 						<code>{w.path.split('/').pop()}</code>
 						<span class="hint">{moodLabel(w.mood, locale, moods)}</span>
-						{#if w.request}<span class="req" title={w.request.requested_by ?? ''}><Icon name="mail" /> {w.request.note || m['creator.characters_requested_short']()}</span>{/if}
+						{#if w.request}<span class="sc-mark" title={w.request.requested_by ?? ''}><Icon name="mail" /> {w.request.note || m['creator.characters_requested_short']()}</span>{/if}
 					</li>
 				{/each}
 			</ul>
@@ -131,7 +131,7 @@
 						<li>
 							<code>{r.path}</code>
 							{#if r.size}<span class="hint">{r.size}</span>{/if}
-							{#if r.note}<span class="req" title={r.requested_by ?? ''}><Icon name="mail" /> {r.note}</span>{/if}
+							{#if r.note}<span class="sc-mark" title={r.requested_by ?? ''}><Icon name="mail" /> {r.note}</span>{/if}
 						</li>
 					{/each}
 				</ul>
@@ -200,11 +200,6 @@
 	details {
 		flex-basis: 100%;
 	}
-	summary {
-		cursor: pointer;
-		font-size: var(--type-caption-size);
-		color: var(--muted);
-	}
 	pre {
 		white-space: pre-wrap;
 		font-size: var(--type-caption-size);
@@ -228,13 +223,6 @@
 		min-height: var(--control-height);
 		cursor: pointer;
 		text-decoration: underline;
-	}
-	.req {
-		background: var(--badge-info);
-		color: var(--badge-info-text);
-		padding: 0 0.25rem;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
 	}
 	textarea {
 		width: 100%;

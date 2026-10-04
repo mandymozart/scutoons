@@ -154,14 +154,15 @@ check(($byId['awakening_vinyl']['album'] ?? null) === 'awakening' && ($byId['awa
 // the cucumber camera only scans cucumbers (owner 2026-09-30): crafting trades the starter camera's QR scan for it
 $skillsOf = fn(string $id) => array_column(array_values(array_filter($r['body']['items'] ?? [], fn($i) => $i['id'] === $id))[0]['skills'] ?? [], 'type');
 check($skillsOf('camera') === ['scan_qr'] && $skillsOf('cucumber_camera') === ['scan_object'], 'camera: scan_qr · cucumber_camera: scan_object only', [$skillsOf('camera'), $skillsOf('cucumber_camera')]);
-// Shop data: the stored files byte-for-byte (config/products.json, config/featured-products.json = the default while
-// nothing is chosen in the admin app – run-contract.php starts without stored settings), public + cached
+// Shop data: the documents of the seed files (config/products.json, config/featured-products.json – the catalog tables
+// carry them since 2026-10-04; same objects, key order, 1.0), public + cached
 foreach (['products' => 'config/products.json', 'products/featured' => 'config/featured-products.json'] as $path => $file) {
     $raw = @file_get_contents("$api/$path/", false, stream_context_create(['http' => ['header' => "Origin: https://evil.example\r\n", 'ignore_errors' => true]]));
     $head = strtolower(implode("\n", $http_response_header ?? []));
-    check($raw !== false && $raw === file_get_contents(dirname(__DIR__) . "/$file") && str_contains($head, ' 200')
+    $canonical = fn(string $json) => (string) json_encode(json_decode($json), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
+    check($raw !== false && $raw === $canonical((string) file_get_contents(dirname(__DIR__) . "/$file")) && str_contains($head, ' 200')
         && str_contains($head, 'access-control-allow-origin: *') && str_contains($head, 'cache-control: public, max-age=' . ($path === 'products' ? 300 : 60))
-        && str_contains($head, 'content-type: application/json'), "GET /$path/ → $file byte-for-byte, CORS *, cached", $head);
+        && str_contains($head, 'content-type: application/json'), "GET /$path/ → $file (the same document), CORS *, cached", $head);
 }
 $r = call('GET', "$api/products/", null, null, ['Origin: http://localhost:5173']);
 check(($r['body']['version'] ?? null) === 2 && count($r['body']['products'] ?? []) > 0

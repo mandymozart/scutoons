@@ -313,8 +313,8 @@ try {
     for ($i = 0; $i < 5; $i++) $statuses[] = call('GET', "$qrBase/?c=$scanCode")['status'];
     check($r['status'] === 200 && $statuses === [200, 200, 200, 200, 200], 'scan_limit_per_hour = 0 → unlimited', $statuses);
 
-    // The landing page's editions (admin page "Startseite"): stored as the setting featured_products, the public
-    // /products/featured/ reads it; without a stored list the default file
+    // The landing page's editions (admin page "Startseite"): the table catalog_featured, the public
+    // /products/featured/ reads it; the default = the seed file config/featured-products.json
     echo "\nFeatured editions (landing page)\n";
     $defaultFeaturedRaw = (string) file_get_contents(dirname(__DIR__) . '/config/featured-products.json');
     $defaultFeatured = json_decode($defaultFeaturedRaw, true);
@@ -349,7 +349,7 @@ try {
     $r = call('PUT', "$api/featured", ['items' => null], $adminToken);
     $public = call('GET', "$base/api/products/featured/");
     check($r['status'] === 200 && $r['body']['changed'] === true && $r['body']['stored'] === false && $r['body']['items'] === $defaultFeatured
-        && $public['raw'] === $defaultFeaturedRaw, 'items: null → back to the default file (byte-for-byte)', $r['body']);
+        && json_decode((string) $public['raw'], true) === $defaultFeatured, 'items: null → back to the default (the seed file list)', $r['body']);
 
     echo "\nEmails (the email module: templates, previews, sent-mail log, admin recipients)\n";
     $r = call('GET', "$api/emails/templates");

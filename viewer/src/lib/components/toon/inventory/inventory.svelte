@@ -11,20 +11,21 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { onClickOutside } from 'runed';
 	import inventoryIcon from '$lib/icons/inventory.svg';
+	import avatarIcon from '$lib/icons/avatar.svg';
 	import ItemIcon from '$lib/components/items/item-icon.svelte';
 	import ItemDetail from '$lib/components/items/item-detail.svelte';
 	import RecipePreview from '$lib/components/items/recipe-preview.svelte';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
 	import ReaderStats from '$lib/components/items/reader-stats.svelte';
-	import { TESTO_STAT } from '@scutoons/content';
 
 	const nav = getNavigationContext();
 	const inventory = getInventoryContext();
 	const ui = getItemsUiContext();
-	const inventoryVisible = $derived(nav.isOpen('inventory'));
+	// one slide-out, two top buttons (owner 2026-10-03): "inventory" opens it on Items, "avatar" on the Avatar tab
+	const inventoryVisible = $derived(nav.isOpen('inventory') || nav.isOpen('avatar'));
+	const tab = $derived<'items' | 'avatar'>(nav.isOpen('avatar') ? 'avatar' : 'items');
 
 	let inventoryElement = $state<HTMLDivElement>();
-	let tab = $state<'items' | 'avatar'>('items');
 	let selected = $state<Entry | null>(null);
 	let combineWith = $state<Entry | null>(null);
 	let combineSecond = $state<Entry | null>(null);
@@ -106,14 +107,23 @@
 		}
 	});
 
-	function toggleInventory(e?: MouseEvent) {
-		e?.stopPropagation();
-		nav.toggleOverlay('inventory');
+	function toggle(e: MouseEvent, overlay: 'inventory' | 'avatar') {
+		e.stopPropagation();
+		reset();
+		nav.toggleOverlay(overlay);
+	}
+
+	function showTab(overlay: 'inventory' | 'avatar') {
+		reset();
+		nav.openOverlay(overlay);
 	}
 </script>
 
-<button class="inventory-toggle" onclick={toggleInventory}>
-	<img src={inventoryIcon} alt="Inventory" />
+<button class="top-toggle inventory-toggle" onclick={(e) => toggle(e, 'inventory')} aria-label={m['items.tab_items']()} aria-pressed={nav.isOpen('inventory')}>
+	<img src={inventoryIcon} alt="" />
+</button>
+<button class="top-toggle avatar-toggle" onclick={(e) => toggle(e, 'avatar')} aria-label={m['items.tab_avatar']()} aria-pressed={nav.isOpen('avatar')} data-testid="avatar-toggle">
+	<img src={avatarIcon} alt="" />
 </button>
 
 <div class="inventory {inventoryVisible ? 'visible' : 'hidden'}" bind:this={inventoryElement}>
@@ -124,14 +134,16 @@
 			role="tab"
 			aria-selected={tab === 'items'}
 			class:active={tab === 'items'}
-			onclick={() => ((tab = 'items'), reset())}>{m['items.tab_items']()}</button
+			onclick={() => showTab('inventory')}><img src={inventoryIcon} alt="" /><span class="tab-label">{m['items.tab_items']()}</span></button
 		>
 		<button
 			role="tab"
 			aria-selected={tab === 'avatar'}
 			class:active={tab === 'avatar'}
-			onclick={() => ((tab = 'avatar'), reset())}>{m['items.tab_avatar']()}</button
+			onclick={() => showTab('avatar')}><img src={avatarIcon} alt="" /><span class="tab-label">{m['items.tab_avatar']()}</span></button
 		>
+		<!-- the reader's stats (appetite, testo) small at the right of the tab row, seen on both tabs (owner 2026-10-03) -->
+		<div class="tab-stats"><ReaderStats compact /></div>
 	</div>
 
 	<div class="sheet">
@@ -156,8 +168,6 @@
 		{:else if !inventory.catalog && inventory.entries.length === 0}
 			<p class="empty">{inventory.catalogError ? m['items.unavailable']() : m['items.loading']()}</p>
 		{:else}
-			<!-- the testo bar is part of the avatar (Avatar tab); appetite stays here -->
-			<ReaderStats exclude={[TESTO_STAT]} />
 			{#if listed.length === 0}
 				<p class="empty">{m['inventory.empty']()}</p>
 			{/if}
@@ -192,10 +202,11 @@
 </div>
 
 <style>
-	.inventory-toggle {
+	/* the menu button is right-most (main-menu.svelte), then inventory, avatar, map, chapters; one control height
+	   (owner 2026-10-02) */
+	.top-toggle {
 		position: fixed;
 		top: 0.5rem;
-		/* the menu button is right-most (main-menu.svelte); one control height (owner 2026-10-02) */
 		right: calc(0.5rem + var(--control-height) + 0.5rem);
 		z-index: 1001;
 		background: var(--paper);
@@ -212,10 +223,13 @@
 		justify-content: center;
 		touch-action: manipulation;
 	}
-	.inventory-toggle img {
+	.avatar-toggle {
+		right: calc(0.5rem + 2 * (var(--control-height) + 0.5rem));
+	}
+	.top-toggle img {
 		width: 1rem;
 	}
-	.inventory-toggle:hover {
+	.top-toggle:hover {
 		background: var(--primary-color);
 	}
 
@@ -264,13 +278,24 @@
 		position: relative;
 		z-index: 1;
 		display: flex;
+		flex-wrap: wrap;
 		gap: 0.5rem;
 		padding: 1rem;
 		background: black;
 	}
+	/* the stats wrap below the tabs (still right) only where they don't fit beside them (≈ 320 px phones) */
+	.tab-stats {
+		margin-left: auto;
+		align-self: center;
+		flex-shrink: 0;
+		color: var(--ink);
+	}
 	/* the switch uses the secondary (outlined) button look of the panel, like "Kombinieren" (owner 2026-09-30):
 	   inactive = muted outline, active = ink outline */
 	.tabs button {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
 		padding: 0 1rem;
 		background: transparent;
 		color: var(--ink);
@@ -281,6 +306,27 @@
 	.tabs button.active {
 		background: transparent;
 		border-color: var(--ink);
+	}
+	/* the top buttons' icons, white on the dark panel */
+	.tabs img {
+		width: 1rem;
+		filter: invert(1);
+	}
+	/* phones: icon-only tabs (the label stays for screen readers), so the stats fit beside them */
+	@media (max-width: 479px) {
+		.tabs button {
+			width: var(--control-height);
+			justify-content: center;
+			padding: 0;
+		}
+		.tab-label {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
 	}
 
 	.sheet {

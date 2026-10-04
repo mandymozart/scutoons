@@ -1,12 +1,14 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { Icon } from '@scutoons/ui';
 	import { tick } from 'svelte';
 	import { CREDIT_SECTION_KINDS, sectionName, type CreditSection, type CreditSectionKind, type ToonCredits } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, move, newSection } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import EntryList from './entry-list.svelte';
-	import LocaleMapField from './locale-map-field.svelte';
+	import EntryList from '$lib/components/credits/entry-list.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/** The ordered sections of the credits: add / reorder / remove sections and edit their people. */
 	let {
@@ -36,9 +38,9 @@
 	function add() {
 		change((f) => f.sections.push(newSection(addKind, f, languages)));
 	}
-	function remove(i: number, section: CreditSection) {
+	async function remove(i: number, section: CreditSection) {
 		const count = section.entries.length + (section.kind === 'toon' ? section.lead.length : 0);
-		if (count && !confirm(m['creator.credits_remove_section_confirm']({ name: sectionName(section, languages[0]), count }))) return;
+		if (count && !(await confirmRemove(m['creator.credits_remove_section_confirm']({ name: sectionName(section, languages[0]), count })))) return;
 		change((f) => f.sections.splice(i, 1));
 	}
 </script>
@@ -75,8 +77,7 @@
 					<span class="title">{sectionName(section, languages[0])}</span>
 				{/if}
 				<span class="spacer"></span>
-				<button type="button" class="ghost mini" disabled={i === 0} onclick={() => moveSection(i, i - 1)} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>
-				<button type="button" class="ghost mini" disabled={i === sections.length - 1} onclick={() => moveSection(i, i + 1)} aria-label={m['creator.credits_down']()}><Icon name="arrow-down" /></button>
+				<ReorderButtons index={i} count={sections.length} onmove={(from, to) => moveSection(from, to)} variant="ghost mini" labels={{ up: m['creator.credits_up'](), down: m['creator.credits_down']() }} />
 				<button type="button" class="ghost mini" onclick={() => remove(i, section)} data-testid="remove-section">{m['creator.credits_remove']()}</button>
 			</header>
 

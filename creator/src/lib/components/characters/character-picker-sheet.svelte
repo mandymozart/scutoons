@@ -9,8 +9,9 @@
 </script>
 
 <script lang="ts">
+	import { gridArrows, Tabs } from '@scutoons/ui';
 	import { isKnownMissing, imageExists } from '$lib/editor/characters.ts';
-	import { Sheet } from '@scutoons/ui';
+	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
 	import {
 		AUTHORED_VIEW,
 		DEFAULT_MOOD,
@@ -134,25 +135,12 @@
 	}
 
 	/** arrow keys move the focus within a grid of [data-cell] buttons */
-	function arrows(event: KeyboardEvent) {
-		const keys: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -100, ArrowDown: 100 };
-		if (!(event.key in keys)) return;
-		const container = event.currentTarget as HTMLElement;
-		const cells = [...container.querySelectorAll<HTMLElement>('[data-cell]')];
-		const index = cells.indexOf(document.activeElement as HTMLElement);
-		if (index < 0) return;
-		event.preventDefault();
-		const columns = Math.max(1, getComputedStyle(cells[index].parentElement!).gridTemplateColumns.split(' ').length);
-		const step = keys[event.key] === -100 ? -columns : keys[event.key] === 100 ? columns : keys[event.key];
-		cells[Math.min(cells.length - 1, Math.max(0, index + step))]?.focus();
-	}
 	const thumb = (c: RegistryCharacter, p?: string) => characterImage(c, { persona: p }, AUTHORED_VIEW, { isMissing: isKnownMissing });
 </script>
 
-<Sheet bind:open title={m['creator.characters_picker_title']()} side="right" closeLabel={m['creator.characters_close']()} resizeLabel={m['creator.resize_panel']()}>
-	<div class="picker" data-testid="character-picker-sheet">
+<PickerSheet bind:open title={m['creator.characters_picker_title']()} testid="character-picker-sheet">
 		{#if step === 1 || !character}
-			<div class="filters">
+			<div class="sc-picker-filters">
 				<!-- svelte-ignore a11y_autofocus -->
 				<input type="search" bind:value={query} placeholder={m['creator.characters_search']()} autofocus data-testid="picker-search" />
 				<select bind:value={toonFilter} aria-label={m['creator.characters_own_toon']()}>
@@ -162,18 +150,18 @@
 				<label class="check"><input type="checkbox" bind:checked={missingOnly} /> {m['creator.characters_has_missing']()}</label>
 			</div>
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div onkeydown={arrows} bind:this={grid}>
+			<div onkeydown={gridArrows} bind:this={grid}>
 				{#each sections as section (section.id)}
 					{#if section.title}<h4>{section.title}</h4>{/if}
-					<div class="cards">
+					<div class="sc-cards">
 						{#each section.list as c (c.id)}
 							{@const src = thumb(c)}
-							<button type="button" class="card" data-control-exempt="picture card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
-								<span class="img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
+							<button type="button" class="sc-card" data-control-exempt="picture card" data-cell onclick={() => choose(c.id)} data-testid="picker-character-{c.id}">
+								<span class="sc-card-img" style:background={c.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 								<span>{characterName(c, locale)}</span>
 								<span class="hint">{c.own_toon ? (toons.find((t) => t.id === c.own_toon)?.name ?? c.own_toon) : '–'}</span>
 								{#if personaIds(c).length > 1}
-									<span class="chips">{#each personaIds(c) as p (p)}<span class="chip">{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, locale) || p}</span>{/each}</span>
+									<span class="chips">{#each personaIds(c) as p (p)}<span class="sc-chip is-tag">{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, locale) || p}</span>{/each}</span>
 								{/if}
 							</button>
 						{/each}
@@ -186,84 +174,65 @@
 			<header class="step2">
 				<button type="button" class="ghost" onclick={() => (step = 1)} data-testid="picker-back">{m['creator.characters_picker_back']()}</button>
 				<span>{characterName(character, locale)}</span>
-				{#if !castIds.has(character.id) && season}<span class="note">{m['creator.characters_picker_will_add']({ season })}</span>{/if}
+				{#if !castIds.has(character.id) && season}<span class="sc-mark">{m['creator.characters_picker_will_add']({ season })}</span>{/if}
 			</header>
 			{#if mode === 'persona'}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="cards" onkeydown={arrows} bind:this={grid}>
+				<div class="sc-cards" onkeydown={gridArrows} bind:this={grid}>
 					{#each personaIds(character) as p (p)}
 						{@const src = thumb(character, p)}
-						<button type="button" class="card" data-control-exempt="picture card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
-							<span class="img">{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
+						<button type="button" class="sc-card" data-control-exempt="picture card" data-cell onclick={() => pick({ character: character.id, persona: p })} data-testid="picker-persona-{p}">
+							<span class="sc-card-img">{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" loading="lazy" />{/if}</span>
 							<span>{characterName(character, locale, p)}</span>
 							{#if castPersonas.includes(p)}<span class="hint">{m['creator.characters_in_cast']()}</span>{/if}
 						</button>
 					{/each}
 				</div>
 			{:else}
-				<nav class="tabs">
-					{#each personaIds(character) as p (p)}
-						<button type="button" class="tab" class:active={p === currentPersona?.id} onclick={() => ((persona = p), (look = ''))} data-testid="picker-persona-{p}">
-							{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, locale) || p}
-							{#if season && !castPersonas.includes(p)}<span class="hint"> +</span>{/if}
-						</button>
-					{/each}
-				</nav>
+				<Tabs
+					variant="ruled"
+					label={m['creator.characters_personas']()}
+					value={currentPersona?.id}
+					onchange={(p) => ((persona = p), (look = ''))}
+					tabs={personaIds(character).map((p) => ({ id: p, label: p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, locale) || p, testid: `picker-persona-${p}` }))}
+				>
+					{#snippet tab(t)}{t.label}{#if season && !castPersonas.includes(t.id)}<span class="hint"> +</span>{/if}{/snippet}
+				</Tabs>
 				{#if currentPersona && currentPersona.looks.length > 1}
-					<nav class="tabs sub">
-						{#each currentPersona.looks as l (l.id)}
-							<button type="button" class="tab" class:active={l.id === lookId} onclick={() => (look = l.id)} data-testid="picker-look-{l.id}">{lookLabel(currentPersona, l.id, locale)}</button>
-						{/each}
-					</nav>
+					<Tabs
+						variant="sub"
+						label={m['creator.characters_looks']()}
+						value={lookId}
+						onchange={(l) => (look = l)}
+						tabs={currentPersona.looks.map((l) => ({ id: l.id, label: lookLabel(currentPersona, l.id, locale), testid: `picker-look-${l.id}` }))}
+					/>
 				{/if}
 				<label class="check"><input type="checkbox" bind:checked={allMoods} /> {m['creator.characters_picker_all_moods']()}</label>
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
-				<div class="moods" onkeydown={arrows} bind:this={grid}>
+				<div class="sc-cards" style:--cards-min="6.5rem" onkeydown={gridArrows} bind:this={grid}>
 					{#each rowMoods as mood (mood)}
 						{@const path = lookImage(currentLook, mood, AUTHORED_VIEW)}
 						<button
 							type="button"
-							class="cell"
+							class="sc-card"
 							data-control-exempt="picture cell"
-							class:missing={!path}
-							class:selected={value?.character === character.id && (value?.persona || REGULAR_PERSONA) === currentPersona?.id && (value?.look || defaultLookId(currentPersona)) === lookId && (value?.mood || DEFAULT_MOOD) === mood}
+							class:is-missing={!path}
+							class:is-selected={value?.character === character.id && (value?.persona || REGULAR_PERSONA) === currentPersona?.id && (value?.look || defaultLookId(currentPersona)) === lookId && (value?.mood || DEFAULT_MOOD) === mood}
 							data-cell
 							onclick={() => pick({ character: character.id, persona: currentPersona?.id ?? REGULAR_PERSONA, look: lookId, mood })}
 							title={path || m['creator.characters_missing_add']()}
 							data-testid="picker-mood-{mood}"
 						>
-							<span class="img">{#if path}<img src={asset(path)} alt="" loading="lazy" />{:else}<span class="hint">{m['creator.characters_missing_short']()}</span>{/if}</span>
+							<span class="sc-card-img">{#if path}<img src={asset(path)} alt="" loading="lazy" />{:else}<span class="hint">{m['creator.characters_missing_short']()}</span>{/if}</span>
 							<span>{moodLabel(mood, locale, moods)}</span>
 						</button>
 					{/each}
 				</div>
 			{/if}
 		{/if}
-	</div>
-</Sheet>
+</PickerSheet>
 
 <style>
-	.picker {
-		display: flex;
-		flex-direction: column;
-		gap: 0.6rem;
-		/* fill the sheet, never wider: the lists wrap into rows instead of scrolling sideways */
-		width: 100%;
-		max-width: 100%;
-		min-width: 0;
-		overflow-x: hidden;
-	}
-	.filters {
-		display: grid;
-		grid-template-columns: 2fr 1fr 1fr auto;
-		gap: 0.3rem;
-		align-items: center;
-	}
-	@media (max-width: 700px) {
-		.filters {
-			grid-template-columns: 1fr 1fr;
-		}
-	}
 	.check {
 		display: flex;
 		gap: 0.25rem;
@@ -274,103 +243,15 @@
 	h4 {
 		margin: 0.5rem 0 0.3rem;
 	}
-	.cards {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
-		gap: 0.4rem;
-	}
-	.moods {
-		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
-		gap: 0.3rem;
-	}
-	.card,
-	.cell {
-		all: unset;
-		box-sizing: border-box;
-		min-width: 0;
-		overflow-wrap: anywhere;
-		cursor: pointer;
-		display: flex;
-		flex-direction: column;
-		gap: 0.2rem;
-		padding: 0.3rem;
-		border: 1px solid var(--border-subtle);
-		background: var(--paper);
-	}
-	.card:hover,
-	.cell:hover {
-		border-color: var(--ink);
-	}
-	.card:focus-visible,
-	.cell:focus-visible {
-		outline: 2px solid var(--ink);
-	}
-	.cell.missing {
-		border-style: dashed;
-		border-color: var(--ink);
-	}
-	.cell.selected {
-		border: 2px solid var(--ink);
-		background: var(--ink);
-		color: var(--paper);
-	}
-	.img {
-		aspect-ratio: 1;
-		width: 100%;
-		background: var(--surface-hover);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		overflow: hidden;
-	}
-	.img img {
-		max-width: 100%;
-		max-height: 100%;
-		object-fit: contain;
-	}
 	.chips {
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.15rem;
-	}
-	.chip {
-		font-size: var(--type-caption-size);
-		border: 1px solid var(--ink);
-		padding: 0 0.25rem;
 	}
 	.step2 {
 		display: flex;
 		gap: 0.6rem;
 		align-items: center;
 		flex-wrap: wrap;
-	}
-	.note {
-		background: var(--badge-info);
-		color: var(--badge-info-text);
-		padding: 0 0.3rem;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
-	.tabs {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		border-bottom: 2px solid var(--ink);
-		padding-bottom: 0.25rem;
-	}
-	.tabs.sub {
-		border-bottom-width: 1px;
-	}
-	.tab {
-		background: var(--paper);
-		color: var(--ink);
-		border: 2px solid var(--border-muted);
-		padding: 0 0.5rem;
-	}
-	.tab.active {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
 	}
 </style>

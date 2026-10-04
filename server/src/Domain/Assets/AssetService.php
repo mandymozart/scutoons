@@ -5,6 +5,8 @@ namespace Scutoons\Domain\Assets;
 
 use RuntimeException;
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\CatalogAdmin;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Infrastructure\AssetStorage\AssetStorage;
@@ -21,7 +23,7 @@ use Throwable;
  * registry, the storage and the references consistent:
  *   upload   a new file (new asset, or a new rendition of an existing one) – never overwrites (409 exists)
  *   replace  new bytes at the SAME path (new version; the old bytes are kept under .versions/; CDN purge)
- *   relink   point every reference of one path at another (content: new draft versions; catalog: the JSON file)
+ *   relink   point every reference of one path at another (content: new draft versions; catalog: the rows, with history)
  *   rename   copy an asset's files to a new name + relink (the old files stay until nothing references them)
  *   delete   refuses while anything references the asset (the sanity check), else removes its files
  */
@@ -38,6 +40,8 @@ final class AssetService
         private readonly EntityStore $entities,
         private readonly Database $db,
         private readonly Settings $settings,
+        private readonly CatalogStore $catalogStore,
+        private readonly CatalogAdmin $catalogAdmin,
     ) {
     }
 
@@ -255,10 +259,114 @@ final class AssetService
     }
 
     /**
+     * The cleanup list (admin → Assets → Unused): AssetUsages::unusedFiles on a freshly rebuilt usage index, the sizes of
+     * the archived copies from the storage
+     * @return array<string, mixed>
+     */
+    public function unused(): array
+    {
+        $this->registry->requireAvailable();
+        $this->usages->rebuild();
+        $items = $this->usages->unusedFiles();
+        $storage = $this->storage();
+        foreach ($items as &$item) {
+            foreach ($item['files'] as &$file) {
+                if ($file['size'] !== null) continue;
+                try {
+                    $file['size'] = $storage->stat($file['path'])?->size;
+                } catch (Throwable) {
+                    // unknown size – the file is still listed
+                }
+                $item['size'] += (int) $file['size'];
+            }
+            unset($file);
+        }
+        unset($item);
+        $files = array_merge(...array_map(fn(array $i) => $i['files'], $items ?: [['files' => []]]));
+        return ['status' => 'success', 'items' => $items, 'totals' => ['assets' => count($items), 'files' => count($files), 'bytes' => array_sum(array_column($items, 'size'))]];
+    }
+
+    /**
+     * Deletes the given unused files (paths from `unused()`). The usage index is rebuilt first and every path checked
+     * against it again: a path that is referenced (or not a cleanup candidate) by now is skipped, never deleted. An asset
+     * whose every current file is listed AND unused goes as a whole (`delete`, history included); otherwise single
+     * files: an unused rendition, an archived version's leftover, an archived copy under .versions/. Storage errors are
+     * reported per file, the rest continues.
+     * @param array<string, mixed> $user
+     * @param list<string> $paths
+     * @return array<string, mixed>
+     */
+    public function cleanup(array $user, array $paths): array
+    {
+        $this->registry->requireAvailable();
+        $this->usages->rebuild();
+        $candidates = [];
+        $groups = [];
+        foreach ($this->usages->unusedFiles() as $item) {
+            $groups[$item['id']] = $item;
+            foreach ($item['files'] as $file) $candidates[$file['path']] = ['asset' => $item['id'], 'what' => $file['what'], 'size' => $file['size']];
+        }
+        $wanted = [];
+        $skipped = [];
+        foreach (array_unique($paths) as $path) {
+            $path = StorageKey::normalize((string) $path);
+            if (isset($candidates[$path])) $wanted[$candidates[$path]['asset']][] = $path;
+            else $skipped[] = ['path' => $path, 'reason' => 'in_use_or_unknown'];
+        }
+        $storage = $this->storage();
+        $deleted = [];
+        $failed = [];
+        $assets = 0;
+        $bytes = 0;
+        foreach ($wanted as $assetId => $chosen) {
+            $group = $groups[$assetId];
+            $current = array_column(array_filter($group['files'], fn(array $f) => $f['what'] === 'current'), 'path');
+            if ($group['all_unused'] && !array_diff($current, $chosen)) {
+                try {
+                    $result = $this->delete($user, (string) $assetId);
+                    $assets++;
+                    array_push($deleted, ...$result['deleted']);
+                    $bytes += $group['size'];
+                } catch (ApiError $error) {
+                    foreach ($chosen as $path) $failed[$path] = $error->getMessage();
+                }
+                continue;
+            }
+            $source = $this->registry->currentVersion((string) $assetId)['path'] ?? null;
+            foreach ($chosen as $path) {
+                $what = $candidates[$path]['what'];
+                if ($what === 'current' && $path === $source) {
+                    $skipped[] = ['path' => $path, 'reason' => 'source']; // only with the whole asset
+                    continue;
+                }
+                try {
+                    $stat = $storage->stat($path);
+                    if ($stat) {
+                        $storage->delete($path);
+                        $storage->purge($path);
+                    }
+                } catch (Throwable $error) {
+                    $failed[$path] = $error->getMessage();
+                    continue;
+                }
+                if ($what === 'archive') {
+                    $this->db->run('UPDATE asset_versions SET archive_path = NULL WHERE asset_id = ? AND archive_path = ?', [$assetId, $path]);
+                } else {
+                    $this->db->run('DELETE FROM asset_renditions WHERE asset_id = ? AND path = ?', [$assetId, $path]);
+                    if ($what === 'old') $this->db->run("UPDATE asset_versions SET status = 'purged' WHERE asset_id = ? AND status = 'archived' AND path = ?", [$assetId, $path]);
+                }
+                $deleted[] = $path;
+                $bytes += (int) ($candidates[$path]['size'] ?? $stat?->size);
+            }
+        }
+        return ['status' => 'success', 'deleted' => $deleted, 'assets_deleted' => $assets, 'bytes' => $bytes, 'skipped' => $skipped, 'failed' => $failed, 'by' => $user['id'] ?? null];
+    }
+
+    /**
      * Points every reference of $from at $to (the file must exist on the storage). Content: one new DRAFT version per
      * touched entity (author = $user; published content changes when the creator publishes – or right away with
-     * $publish when the entity's newest version was the published one); catalog files are rewritten in place when the
-     * server may write them (else listed as `manual`).
+     * $publish when the entity's newest version was the published one); catalog entries are updated (validated,
+     * catalog_history); one that cannot be is listed as `manual`.
      * @param array<string, mixed> $user
      * @return array<string, mixed>
      */
@@ -291,7 +399,7 @@ final class AssetService
                 if ($source === 'content') {
                     $content[] = $this->rewriteEntity($user, $ref, $list, $map, $publish);
                 } else {
-                    $result = $this->rewriteCatalog($ref, $list, $map);
+                    $result = $this->rewriteCatalog($user, $ref, $list, $map);
                     if ($result['written']) $catalog[] = $result;
                     else $manual[] = $result;
                 }
@@ -357,30 +465,36 @@ final class AssetService
     }
 
     /**
+     * Rewrites the references of one catalog entry (ref `<kind label>:<id>`) – an update of the row, validated and
+     * recorded in catalog_history like an admin edit (inside the relink's transaction)
+     * @param array<string, mixed> $user
      * @param list<array<string, mixed>> $usages
      * @param array<string, string> $map
      * @return array{ref: string, written: bool, replacements: int, reason: string}
      */
-    private function rewriteCatalog(string $file, array $usages, array $map): array
+    private function rewriteCatalog(array $user, string $ref, array $usages, array $map): array
     {
-        $path = null;
-        foreach (AssetUsages::CATALOG_FILES as $setting) {
-            $candidate = $this->settings->path($setting);
-            if ($candidate !== '' && basename($candidate) === $file) $path = $candidate;
-        }
-        if ($path === null || !is_file($path)) return ['ref' => $file, 'written' => false, 'replacements' => 0, 'reason' => 'unknown catalog file'];
-        $text = (string) file_get_contents($path);
+        $entry = AssetUsages::catalogEntry($ref);
+        $row = $entry !== null ? $this->catalogStore->row($entry[0], $entry[1]) : null;
+        if ($entry === null || $row === null) return ['ref' => $ref, 'written' => false, 'replacements' => 0, 'reason' => 'unknown catalog entry (rebuild the usage index: assets:scan)'];
+        $doc = json_decode($row['data']);
         $count = 0;
+        $seen = [];
         foreach ($usages as $u) {
-            $raw = (string) $u['raw'];
-            $new = AssetPaths::relativeTo($map[$u['path']], '', $raw);
-            $text = str_replace((string) json_encode($raw, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), (string) json_encode($new, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), $text, $n);
-            $count += $n;
+            if (isset($seen[$u['field']])) continue;
+            $seen[$u['field']] = true;
+            $new = AssetPaths::relativeTo($map[$u['path']], '', (string) $u['raw']);
+            $doc = self::setPointer($doc, (string) $u['field'], (string) $u['raw'], $new, $count);
         }
-        if (!is_writable($path)) return ['ref' => $file, 'written' => false, 'replacements' => 0, 'reason' => 'the file is not writable here – change it in the repository (server/config) and deploy'];
-        if (json_decode($text) === null) return ['ref' => $file, 'written' => false, 'replacements' => 0, 'reason' => 'the rewrite would break the JSON'];
-        file_put_contents($path, $text);
-        return ['ref' => $file, 'written' => true, 'replacements' => $count, 'reason' => 'server/config changed – commit it (production: deploy)'];
+        if ($count === 0) return ['ref' => $ref, 'written' => false, 'replacements' => 0, 'reason' => 'the entry no longer has these references'];
+        $by = 'admin:' . (string) ($user['email'] ?? $user['id'] ?? '');
+        try {
+            // validates before it writes: a refusal leaves nothing half-done
+            $this->catalogAdmin->putIn($entry[0], $entry[1], $doc, $by, 'asset relink: ' . implode(', ', array_map(fn($a, $b) => "$a → $b", array_keys($map), $map)));
+        } catch (ApiError $error) {
+            return ['ref' => $ref, 'written' => false, 'replacements' => 0, 'reason' => $error->getMessage()];
+        }
+        return ['ref' => $ref, 'written' => true, 'replacements' => $count, 'reason' => 'catalog entry updated (catalog_history)'];
     }
 
     /**

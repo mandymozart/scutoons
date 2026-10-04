@@ -2,7 +2,7 @@
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { ROLE_CATEGORIES, RoleCategory, pickText, type CreditRole, type LocaleText } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import LocaleMapField from './locale-map-field.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/**
 	 * "+ Role": searchable role list grouped by category (the shared vocabulary + the toon's custom roles), and a form

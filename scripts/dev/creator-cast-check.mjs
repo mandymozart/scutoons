@@ -169,19 +169,24 @@ async function type(selector, text) {
 	await send('Input.insertText', { text });
 	await sleep(250);
 }
+/** an in-page dialog (confirmDialog / askDialog), when one opens: click its button */
+async function answerDialog(button) {
+	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click(`dialog.sc-dialog[open] ${button}`);
+}
 const state = () =>
 	js(`({
-		dirty: !!document.querySelector('.dirty-bar'),
+		dirty: !!document.querySelector('.sc-bar.is-dirty'),
 		chips: ${CHIPS},
-		notice: document.querySelector('.note-bar')?.innerText.replace('✕', '').trim() ?? '',
+		notice: document.querySelector('.sc-bar.is-note')?.innerText.replace('✕', '').trim() ?? '',
 		saveDisabled: ${q('save-draft')}?.disabled,
 		publishDisabled: ${q('publish')}?.disabled,
 		members: [...document.querySelectorAll('[data-testid^="cast-member-"]')].map((e) => e.dataset.testid.slice(12))
 	})`);
 const writesSince = (n) => writes.slice(n);
 /** the status chips' words: the colour chips carry them as their accessible name / tooltip (owner 2026-10-02) */
-const CHIPS = `[...(${q('file-status')}?.querySelectorAll('.file-status, .badge[aria-label]') ?? [])].map((e) => e.getAttribute('aria-label') ?? e.getAttribute('title') ?? e.dataset.scTitle ?? e.innerText).join(' ').replace(/\\s+/g, ' ').trim()`;
-const loaded = () => until(`!!${q('cast-editor')} && !!${q('file-status')} && document.querySelectorAll('[data-testid^="cast-member-"]').length > 0`);
+const CHIPS = `[...(${q('file-status')}?.querySelectorAll('.file-status, .sc-chip[aria-label]') ?? [])].map((e) => e.getAttribute('aria-label') ?? e.getAttribute('title') ?? e.dataset.scTitle ?? e.innerText).join(' ').replace(/\\s+/g, ' ').trim()`;
+// (the file status only shows what is not published – a clean page has none)
+const loaded = () => until(`!!${q('cast-editor')} && document.querySelectorAll('[data-testid^="cast-member-"]').length > 0`);
 
 await send('Runtime.enable');
 await send('Network.enable');
@@ -222,7 +227,8 @@ try {
 	check(s.dirty && s.saveDisabled === false, 'a role text marks the page dirty', JSON.stringify(s));
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
-	await until(`!document.querySelector('.dirty-bar') && !${q('save-draft')}.disabled`);
+	await answerDialog('button.secondary'); // the note dialog: save without a note
+	await until(`!document.querySelector('.sc-bar.is-dirty') && !${q('save-draft')}.disabled`);
 	s = await state();
 	const saved = writesSince(n);
 	check(saved.length === 1 && saved[0].method === 'PUT' && saved[0].url === `/entities/cast:${TOON}` && saved[0].status === 200, 'Save draft: PUT cast 200', JSON.stringify(saved));
@@ -245,7 +251,8 @@ try {
 	check(s.members.indexOf(newId) === s.members.length - 2 && s.members.indexOf(last) === s.members.length - 1, 'moving up reorders the cast', JSON.stringify(s.members));
 	n = writes.length;
 	await click('[data-testid="publish"]');
-	await until(`${CHIPS} === '' && !document.querySelector('.dirty-bar')`);
+	await answerDialog('button[type="submit"]'); // Publish confirms in-page
+	await until(`${CHIPS} === '' && !document.querySelector('.sc-bar.is-dirty')`);
 	s = await state();
 	const published = writesSince(n).map((w) => `${w.method} ${w.url} ${w.status}`);
 	check(

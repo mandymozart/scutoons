@@ -34,8 +34,9 @@ CORS runs outside the error handler, so error responses carry the CORS headers t
   `MigrationRunner`, `Mail\Transport` + `Smtp` (delivery only – mails are sent through `Domain\Mail\Mailer`, see API.md "Emails"), `KeyStore` (ML-DSA-65 keypair), `FileStore` (batch output), `Templates`
   (plain PHP templates in `templates/`), `Clock` (`SystemClock`, `FrozenClock` for tests).
 - **`config/`** – `settings.php` (every setting with its default), `container.php` (the few non-autowired services),
-  `routes.php` (every URL), JSON data (`items.json`, `editions.json`, `toons.json`, `permissions.json` – the last is
-  server-only).
+  `routes.php` (every URL), the catalog seed (`items.json`, `products.json`, `featured-products.json`, `editions.json`,
+  `toons.json`, `permissions.json`) – the catalog itself is in database tables since 2026-10-04 (`Domain\Catalog\CatalogStore`,
+  agents/CATALOG.md).
 
 ### Time formats (kept from the plain-PHP server)
 

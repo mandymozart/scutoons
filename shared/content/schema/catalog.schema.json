@@ -566,6 +566,10 @@
 				},
 				"output": {
 					"$ref": "#/definitions/RecipePart"
+				},
+				"image": {
+					"type": "string",
+					"description": "the recipe's own picture (CDN path, `<toon>/items/recipes/<id>.webp`; owner 2026-10-04) – none = the output item's"
 				}
 			},
 			"required": [

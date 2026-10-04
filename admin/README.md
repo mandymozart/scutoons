@@ -17,7 +17,7 @@ the role `admin` (the server checks it on every `/api/admin/*` call). Replaces t
 | `/batches/<file>` | The batch pipeline per code: sign → db → svg → pdf → sig, pause/abort, resumable after a reload |
 | `/users`, `/users/<id>` | Accounts (search, role and opt-in filters), detail with owned codes and role toggles |
 | `/events` | Activity log with filters (event types, code, edition, toon, date range) |
-| `/catalog` | Items (+ recipes), editions, toons, the permissions map – read-only |
+| `/catalog/<kind>` | The catalog in the database (agents/CATALOG.md part 3): items, recipes, albums, products, editions, toons, permissions, code types, meta – list in order, form, history with undo; items: bulk "Import images …" (`/catalog` = items) |
 | `/content` | The content store per toon/file/locale: newest and published version, links into the creator – read-only |
 
 Lists keep their state in the URL (`?page=&page_size=&sort=&q=&<filter>=`, admin API convention).

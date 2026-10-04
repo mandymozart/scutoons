@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Field } from '@scutoons/ui';
+	import { Button, confirmDialog, Field } from '@scutoons/ui';
 	import { admin } from '$lib/api.ts';
 	import { errorText } from '$lib/format.ts';
 	import { getToaster } from '$lib/toasts.ts';
@@ -30,7 +30,7 @@
 
 	async function submit(event: SubmitEvent) {
 		event.preventDefault();
-		if (!revoked && !confirm(m['codes.revoke_confirm']({ code }))) return;
+		if (!revoked && !(await confirmDialog({ title: m['codes.revoke_title'](), message: m['codes.revoke_confirm']({ code }), confirmLabel: m['codes.revoke']() }))) return;
 		working = true;
 		try {
 			const result = revoked ? await admin.unrevokeCode(code) : await admin.revokeCode(code, reason.trim());

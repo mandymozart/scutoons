@@ -148,7 +148,7 @@
 		position: fixed;
 		top: 0.5rem;
 		/* the 4th of the top-right group (main-menu.svelte): one control height (owner 2026-10-02) */
-		right: calc(0.5rem + 3 * (var(--control-height) + 0.5rem));
+		right: calc(0.5rem + 4 * (var(--control-height) + 0.5rem));
 		box-sizing: border-box;
 		width: var(--control-height);
 		height: var(--control-height);

@@ -12,6 +12,7 @@
 	import accountIcon from '$lib/icons/account.svg';
 	import { LoginForm, SignedInAs, authLabels, canUseApp } from '@scutoons/auth';
 	import Avatar from '$lib/components/avatar/avatar.svelte';
+	import ReaderStats from '$lib/components/items/reader-stats.svelte';
 	import MediaQualitySetting from '$lib/components/account/media-quality-setting.svelte';
 	import MyClaims from '$lib/components/account/my-claims.svelte';
 	import { page } from '$app/state';
@@ -238,7 +239,11 @@
 	</section>
 
 	<section>
-		<h2>{m['account.avatar']()}</h2>
+		<!-- the reader's stats (testo, appetite) small at the right, as in the inventory's tab row (owner 2026-10-03) -->
+		<div class="avatar-head">
+			<h2>{m['account.avatar']()}</h2>
+			<ReaderStats compact />
+		</div>
 		<Avatar />
 	</section>
 
@@ -263,6 +268,17 @@
 		grid-template-columns: auto 1fr;
 		align-items: center;
 		gap: 1rem;
+	}
+	.avatar-head {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1rem;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0.75rem;
+	}
+	.avatar-head h2 {
+		margin-bottom: 0;
 	}
 	section {
 		padding: 1rem;

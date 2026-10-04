@@ -147,6 +147,11 @@ async function click(selector) {
 	await mouse('mouseReleased', p.x, p.y);
 	return true;
 }
+/** Save draft; the in-page note dialog that follows (askDialog) is skipped */
+async function saveDraft() {
+	await click('[data-testid="save-draft"]');
+	if (await waitFor(`document.querySelector('dialog.sc-dialog[open] button.secondary') ? true : null`, 3000)) await click('dialog.sc-dialog[open] button.secondary');
+}
 async function clickAt(x, y, clickCount = 1) { await mouse('mousePressed', x, y, { clickCount }); await mouse('mouseReleased', x, y, { clickCount }); }
 async function drag(from, to, steps = 8) {
 	await mouse('mousePressed', from.x, from.y);
@@ -457,7 +462,7 @@ async function builder() {
 	await shot('builder-2-route');
 
 	// 11. save draft → stored
-	await click('[data-testid="save-draft"]');
+	await saveDraft();
 	let stored = null;
 	for (let i = 0; i < 20; i++) {
 		stored = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();
@@ -473,9 +478,16 @@ async function builder() {
 	// 12. a place image (any image of the CDN): it stands on the place's point (ground point 50 / 90 %), size + previews
 	await click('[data-testid="tool-select"]');
 	await evaluate(`(document.querySelector('[data-testid="nav-place-${placeId}"]')?.click(), true)`);
-	await waitFor(`document.querySelector('[data-testid="place-image-path"]') ? true : null`, 3000);
-	const image = 'characters/catpope/catpope_avatar-neutral.webp';
-	await evaluate(`(() => { const i = document.querySelector('[data-testid="place-image-path"]'); i.value = ${JSON.stringify(image)}; i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+	// the image is a slot with the asset picker (platform 04eb9e5): search the file, pick it, "Use"
+	await waitFor(`document.querySelector('[data-testid="place-image-slot"] button') ? true : null`, 3000);
+	await evaluate(`(document.querySelector('[data-testid="place-image-slot"] button').click(), true)`);
+	await waitFor(`document.querySelector('[data-testid="asset-search"]') ? true : null`, 8000);
+	await evaluate(`(() => { const i = document.querySelector('[data-testid="asset-search"]'); i.value = 'catpope_avatar-neutral'; i.dispatchEvent(new Event('input', { bubbles: true })); return true; })()`);
+	await waitFor(`document.querySelector('[data-testid="asset-card"]') ? true : null`, 8000);
+	await sleep(800);
+	await evaluate(`(document.querySelector('[data-testid="asset-card"]').click(), true)`);
+	await waitFor(`document.querySelector('[data-testid="asset-use"]') ? true : null`, 3000);
+	await evaluate(`(document.querySelector('[data-testid="asset-use"]').click(), true)`);
 	const img = await waitFor(`(() => {
 		const marker = document.querySelector('[data-testid="builder-place-${placeId}"]'); const im = marker?.parentElement.querySelector('.place-image');
 		if (!im || !im.complete || !im.naturalWidth) return null;
@@ -527,7 +539,7 @@ async function builder() {
 	await click('[data-testid="start-view-set"]');
 	const shown = await waitFor(`document.querySelector('[data-testid="phone-frame-box"]') && document.querySelector('[data-testid="start-view"] .hint')?.textContent.includes('%') ? document.querySelector('[data-testid="start-view"] .hint').textContent : null`, 3000);
 	await shot('builder-7-start-view');
-	await click('[data-testid="save-draft"]');
+	await saveDraft();
 	let entry = null;
 	for (let i = 0; i < 20; i++) {
 		entry = await (await fetch(`${api}/entities/toon:catpope?draft=1&wrap=1`, { headers: auth })).json();
@@ -558,7 +570,7 @@ async function builder() {
 	const listedHere = await waitFor(`document.querySelector('[data-testid="slice-unlock-${placeToUnlock}"]') ? true : null`, 3000);
 	report(`chapter editor, slice 2 of chapter 1: "unlocks: ${placeToUnlock}" is set from the slice`, listedHere ? [] : ['not listed']);
 	await shot('builder-5-slice-unlocks');
-	await click('[data-testid="save-draft"]');
+	await saveDraft();
 	let unlock = null;
 	for (let i = 0; i < 20 && !unlock; i++) {
 		const d = await (await fetch(`${api}/entities/map?draft=1&wrap=1`, { headers: auth })).json();

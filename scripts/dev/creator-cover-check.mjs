@@ -234,7 +234,7 @@ try {
 	check(await until(`${q('cover-stage')}.querySelectorAll('.line').length === 2`), 'Default: two lines over the art');
 	let lines = await stageLines();
 	check(lines[0]?.text === titles.de.toon && lines[1]?.text === `"${titles.de.season}"`, `de: "${lines[0]?.text}" over ${lines[1]?.text} (from the text fields)`, JSON.stringify(lines));
-	check(await until('!!document.querySelector(".dirty-bar")'), 'the page is dirty');
+	check(await until('!!document.querySelector(".sc-bar.is-dirty")'), 'the page is dirty');
 	await shot('2-default-de');
 
 	// 2. the preview language
@@ -273,7 +273,9 @@ try {
 	check(lines.every((x) => x.fits), `every line fits its box (fit ${lines.map((x) => x.fit.toFixed(2)).join(', ')})`, JSON.stringify(lines));
 	await shot('4-dragged');
 
-	// 5. an own line with a text per language (all languages shown: i18n "all", set before the page loaded)
+	// 5. an own line with a text per language: the header's switch back to all languages (step 2 left the last one picked)
+	await js(`(() => { const s = document.querySelector('[data-testid="text-language-select"]'); s.value = 'all'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+	await sleep(300);
 	await click('[data-testid="cover-add-line"]');
 	check(await until(`!!${q(`cover-custom-${LOCALES.at(-1)}`)}`), 'Add line: an own text, one field per language');
 	for (const l of LOCALES) {
@@ -297,7 +299,7 @@ try {
 	// 6. Save draft → a valid layout in the store, texts only in the custom line
 	await click('[data-testid="save-draft"]');
 	await answerDialog('button.secondary');
-	await until(`!document.querySelector('.dirty-bar')`);
+	await until(`!document.querySelector('.sc-bar.is-dirty')`);
 	const stored = await api('GET', `/entities/${KEY}?draft=1&wrap=1`);
 	const others = await Promise.all(KEYS.slice(1).map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));
 	check(others.every((o) => JSON.stringify(o.content.cover) === JSON.stringify(stored.content.cover)), `the same cover in every locale (${KEYS.length} season documents)`);
@@ -314,7 +316,7 @@ try {
 	if (viewerUp) {
 		await click('[data-testid="publish"]');
 		await answerDialog('button[type=submit]');
-		await until(`!document.querySelector('[data-testid="file-status"] .badge')`);
+		await until(`!document.querySelector('[data-testid="file-status"] .sc-chip')`);
 		const live = await api('GET', `/entities/${KEY}`);
 		check(Array.isArray(live.cover?.lettering?.square), 'Publish: the layout is live');
 		const liveAll = await Promise.all(KEYS.map((k) => api('GET', `/entities/${k}?draft=1&wrap=1`)));

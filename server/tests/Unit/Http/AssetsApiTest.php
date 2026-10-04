@@ -75,7 +75,7 @@ final class AssetsApiTest extends TestCase
         self::assertSame(401, $this->request('GET', '/api/assets')->getStatusCode());
         self::assertSame(403, $this->request('GET', '/api/assets', $member)->getStatusCode());
         self::assertSame(200, $this->request('GET', '/api/assets', $creator)->getStatusCode());
-        foreach ([['GET', '/api/admin/assets/storage'], ['POST', '/api/admin/assets/scan'], ['GET', '/api/admin/assets/jobs']] as [$method, $path]) {
+        foreach ([['GET', '/api/admin/assets/storage'], ['POST', '/api/admin/assets/scan'], ['GET', '/api/admin/assets/jobs'], ['GET', '/api/admin/assets/unused'], ['POST', '/api/admin/assets/cleanup']] as [$method, $path]) {
             self::assertSame(403, $this->request($method, $path, $creator)->getStatusCode(), $path);
         }
     }
@@ -104,6 +104,17 @@ final class AssetsApiTest extends TestCase
         self::assertFileExists($this->dir . '/cdn/catpope/images/new.png');
         self::assertSame(409, $this->request('PUT', '/api/assets/upload?path=catpope/images/new.png', $creator + ['Content-Type' => 'image/png'], $png)->getStatusCode());
         self::assertSame(422, $this->request('PUT', '/api/assets/upload?path=catpope/images/empty.png', $creator + ['Content-Type' => 'image/png'], '')->getStatusCode());
+
+        // a creator replaces a file in place: a new version, the old bytes archived; same bytes / unknown path refused
+        $png2 = $png . 'v2';
+        $replaced = $this->request('PUT', '/api/assets/replace?path=catpope/images/new.png', $creator + ['Content-Type' => 'image/png'], $png2);
+        self::assertSame(200, $replaced->getStatusCode(), (string) $replaced->getBody());
+        self::assertSame('catpope/images/new.png', self::json($replaced)['replaced']);
+        self::assertSame($png2, file_get_contents($this->dir . '/cdn/catpope/images/new.png'));
+        self::assertFileExists($this->dir . '/cdn/' . self::json($replaced)['archived_as']);
+        self::assertSame(409, $this->request('PUT', '/api/assets/replace?path=catpope/images/new.png', $creator + ['Content-Type' => 'image/png'], $png2)->getStatusCode());
+        self::assertSame(404, $this->request('PUT', '/api/assets/replace?path=catpope/images/nope.png', $creator + ['Content-Type' => 'image/png'], $png2)->getStatusCode());
+        self::assertSame(403, $this->request('PUT', '/api/assets/replace?path=catpope/images/new.png', $this->as('member') + ['Content-Type' => 'image/png'], $png2)->getStatusCode());
 
         $id = (string) $item['id'];
         $meta = self::json($this->request('PUT', "/api/assets/$id", $creator + ['Content-Type' => 'application/json'], '{"title":"The clip","tags":["prologue"]}'));
@@ -138,5 +149,21 @@ final class AssetsApiTest extends TestCase
         $scan = self::json($this->request('POST', '/api/admin/assets/scan', $admin));
         self::assertSame(0, $scan['import']['assets_created']);
         self::assertSame(1, $scan['usages']['content']);
+    }
+
+    public function testUnusedAndCleanup(): void
+    {
+        $this->fixture();
+        $admin = $this->as('admin');
+        $json = $admin + ['Content-Type' => 'application/json'];
+        $unused = self::json($this->request('GET', '/api/admin/assets/unused', $admin));
+        self::assertSame(['catpope/videos/clip.480p.mp4'], array_column($unused['items'][0]['files'] ?? [], 'path'), 'the 720p is used');
+        self::assertSame(1, $unused['totals']['files']);
+        self::assertSame(422, $this->request('POST', '/api/admin/assets/cleanup', $json, '{"paths":[]}')->getStatusCode());
+        $result = self::json($this->request('POST', '/api/admin/assets/cleanup', $json, (string) json_encode(['paths' => ['catpope/videos/clip.480p.mp4', 'catpope/videos/clip.720p.mp4']])));
+        self::assertSame(['catpope/videos/clip.480p.mp4'], $result['deleted']);
+        self::assertSame([['path' => 'catpope/videos/clip.720p.mp4', 'reason' => 'in_use_or_unknown']], $result['skipped']);
+        self::assertFileDoesNotExist($this->dir . '/cdn/catpope/videos/clip.480p.mp4');
+        self::assertFileExists($this->dir . '/cdn/catpope/videos/clip.720p.mp4');
     }
 }

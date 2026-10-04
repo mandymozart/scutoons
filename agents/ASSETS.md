@@ -40,7 +40,7 @@ way we could even migrate in the future or run various systems behind it. Long-t
 | `assets` | one logical medium | `id` (uuid7), `slug` (the path without marker + extension, unique: `catpope/videos/s1-trailer-loop`), `kind` image / video / audio / archive / document / other, `folder` (top-level CDN folder = toon id, `characters`, `scutoons` …), `title`, `tags` (JSON), `status` active / deleted, created/updated/by |
 | `asset_versions` | one upload of it | `number`, `path` (the version's source file), `storage`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `status` current / archived / purged, `archive_path` (old bytes after an in-place replace), `note`, created/by |
 | `asset_renditions` | every file of a version (incl. the source) | `label` (original, 480p, 720p, 1080p, 1280w, 2x, 3x, webp, 128k, poster), `quality` (MediaQuality low / medium / high), `path`, `size`, `sha256`, `mime`, `width`, `height`, `duration`, `bitrate`, `origin` imported / uploaded / generated |
-| `asset_usages` | the usage index | `path` (CDN-root), `source` content / catalog, `ref` (entity key or catalog file), `field` (JSON pointer), `state` published / draft / config, `version_id`, `toon` (the folder it resolved against), `raw` (the string as written) |
+| `asset_usages` | the usage index | `path` (CDN-root), `source` content / catalog / code, `ref` (entity key; catalog entry `<kind>:<id>` – `item:camera`, `product:dago_hoodie` – since the catalog is in tables, 2026-10-04 agents/CATALOG.md; code file), `field` (JSON pointer), `state` published / draft / config, `version_id`, `toon` (the folder it resolved against), `raw` (the string as written) |
 | `asset_jobs` | optimization jobs | `kind` video-renditions / image-webp / poster, `status` queued / running / done / failed, `params`, `log` |
 
 Without the migration the asset endpoints answer 503 `not_available`; nothing else changes (the content save hook is
@@ -69,18 +69,21 @@ editions.json, toons.json, featured-products.json). Content paths resolve agains
 enclosing `toon` field wins (map locations) – and fall back to the CDN root when only that exists (registry style).
 History versions are not indexed (the delete check says so: restoring an old version may bring a reference back). Rebuilt
 by `assets:scan`, refreshed per entity on every creator save / publish / restore (EntitiesController). Not indexed: paths
-built in app code (e.g. item icon fallbacks) – none of the registry's files is referenced only by code today.
+built in app code beyond `AssetUsages::CODE_REFERENCES` (source `code`, state `config`: `scutoons/models/` – the camera's
+MobileNet – and the map / inventory frame `catpope/vectors/vector-demon-saw-1.svg`; AssetsTest checks each entry still
+appears in its code file). Add a path there whenever app code builds a CDN path itself.
 
 ## Operations (`AssetService`, API + CLI)
 
 | Operation | What happens | Who |
 |---|---|---|
 | upload | a NEW path (409 `exists` otherwise); becomes a rendition of the asset with the same slug or a new asset; magic bytes must match the extension; SVG without script / handlers; ≤ `ASSET_UPLOAD_MAX_BYTES` (raw PUT body, streamed to disk) | content editors (the picker), CLI `assets:jobs --upload` |
-| replace | new bytes at the same path: old bytes copied to `.versions/<asset>/<n>/<file>`, new version, renditions move along (the source's derived files reported stale), CDN purge | admin |
-| relink | every use of path A → existing path B: content gets a new **draft** per entity (`publish: true` publishes when the newest version was the published one), catalog files are rewritten when the server may write them (else listed as manual) | admin |
+| replace | new bytes at the same path: old bytes copied to `.versions/<asset>/<n>/<file>`, new version, renditions move along (the source's derived files reported stale), CDN purge | admin (by id); content editors by path: `PUT /assets/replace?path=` (owner 2026-10-03 – the picker asks "Replace?" when an upload's path exists, the slice import updates slices it already has) |
+| relink | every use of path A → existing path B: content gets a new **draft** per entity (`publish: true` publishes when the newest version was the published one), catalog entries are updated in their table (validated, catalog_history; a refused one is listed as manual) | admin |
 | rename | copies the current files to the new slug (markers / extensions kept), new version, relink; old files stay with the archived version until nothing uses them | admin |
 | delete | the delete check (uses by state); published / catalog uses block, draft-only uses need `force`; deletes all versions' files + purges; the row stays `deleted` for history | admin |
 | missing / orphans | uses whose file the registry doesn't know · current files nothing references | admin page, API |
+| cleanup | admin → Assets → Unused (owner 2026-10-03: "clean up the CDN"): per asset the files nothing references (index rebuilt first) – whole unused assets, unused renditions of used assets (never their source), files left behind by a rename, replace archives under `.versions/`; select rows → one in-page confirm → `POST /admin/assets/cleanup`, which rebuilds the index again and skips anything referenced by now | admin |
 | jobs | queued in the admin / CLI, run by `php bin/console assets:jobs` where ffmpeg is (the owner's machine): download the source, transcode, upload next to it, register | admin, CLI |
 
 Video renditions = the trailer-loop recipe: H.264 `-preset slow -crf 24 / 24 / 22` for 480p / 720p / 1080p, `yuv420p`,
@@ -264,16 +267,17 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
 
 ## UI
 
-- **Creator – the asset picker** (`creator/src/lib/components/assets/asset-picker-sheet.svelte`, like the character
+- **Creator – the asset picker** (`@scutoons/media` `AssetPickerSheet`, `shared/media/src/asset-picker-sheet.svelte` since 2026-10-04, like the character
   picker): search, folder (the toon first), kind, unused-only; a grid of thumbnails with ONE line of name (no overlap –
   the owner's screenshot of the old "130 known images" grid), size / dimensions / "unused"; the chosen asset's files
   (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
-  editable, 409 when taken). Every image field (`image-picker.svelte`: the path input stays for typing) opens it via
+  editable, 409 when taken). Every image field (a `MediaSlot` from @scutoons/media; the old path input `image-picker.svelte` is gone since COMPONENTS.md step 14c) opens it via
   "Choose …". **Video fields** (slice video "Hintergrund", the season trailer) have "Choose video …": the asset's
   480p / 720p / 1080p become `variants` low / medium / high, 720p the default (`src` / `trailer.loop`). The season trailer is
   one slot since 2026-10-03 (`media-variants-slot.svelte`, DESIGN.md "Creator: season page"): the preview picks the whole
   asset, chips per level replace / clear one file.
-- **Admin – Assets** (`/assets`, nav Data → Assets): Library (grid, filters in the bar, Rescan), Missing files, Unused,
+- **Admin – Assets** (`/assets`, nav Data → Assets): Library (grid, filters in the bar, Rescan), Missing files, Unused
+  (the cleanup: select assets, "Delete N files (size)", confirm),
   Storage (drivers, bunny settings status, totals per kind, 30-day bandwidth chart). The asset sheet: preview, files per
   version, uses (with links into the creator), title / tags, replace, rename, relink, optimize (jobs), delete behind the
   check.

@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { confirmRemove } from '$lib/editor/ask.ts';
+	import { moveAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { DEFAULT_MOOD, MOOD_ID, sortedMoods, type CharacterRegistry, type LocaleText, type MoodVocabulary } from '@scutoons/content';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { edit, ensureMoods, moodsOf } from '$lib/editor/characters.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import LocaleMapField from '../credits/locale-map-field.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/**
 	 * The mood vocabulary (entity `moods`): open-ended – add, rename (label per language), reorder, mark as part of
@@ -40,10 +43,7 @@
 	}
 	function move(from: number, to: number) {
 		if (to < 0 || to >= list.length) return;
-		reorder((sorted) => {
-			const [item] = sorted.splice(from, 1);
-			sorted.splice(to, 0, item);
-		});
+		reorder((sorted) => moveAt(sorted, from, to));
 	}
 	function add() {
 		const id = name.trim().toLowerCase().replace(/\s+/g, '-');
@@ -59,8 +59,7 @@
 		{#each list as mood, i (mood.id)}
 			<li data-testid="mood-{mood.id}">
 				<span class="order">
-					<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>
-					<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === list.length - 1} aria-label={m['creator.credits_down']()}><Icon name="arrow-down" /></button>
+					<ReorderButtons index={i} count={list.length} onmove={move} labels={{ up: m['creator.credits_up'](), down: m['creator.credits_down']() }} />
 				</span>
 				<code>{mood.id}</code>
 				<LocaleMapField value={mood.label} {languages} label={m['creator.characters_look_label']()} required onchange={(v) => change((x) => { const t = x.moods.find((y) => y.id === mood.id); if (t) t.label = v; }, `mood-${mood.id}`)} />
@@ -74,8 +73,8 @@
 					class="ghost"
 					disabled={mood.id === DEFAULT_MOOD}
 					title={mood.id === DEFAULT_MOOD ? m['creator.characters_neutral_required']() : ''}
-					onclick={() => {
-						if (confirm(m['creator.characters_remove_mood_confirm']({ mood: mood.id, count: usage.get(mood.id) ?? 0 }))) change((x) => (x.moods = x.moods.filter((y) => y.id !== mood.id)));
+					onclick={async () => {
+						if (await confirmRemove(m['creator.characters_remove_mood_confirm']({ mood: mood.id, count: usage.get(mood.id) ?? 0 }))) change((x) => (x.moods = x.moods.filter((y) => y.id !== mood.id)));
 					}} aria-label={m['creator.remove']()}><CloseIcon /></button
 				>
 			</li>

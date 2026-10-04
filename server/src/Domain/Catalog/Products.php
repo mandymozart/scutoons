@@ -3,41 +3,49 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Catalog;
 
-use RuntimeException;
 use Scutoons\Infrastructure\Config\Settings;
+use stdClass;
 
 /**
- * The shop catalog (config/products.json, version 2: `{ version, currency, checked_at, source, products:[…] }`) and
- * the products featured on the homepage (config/featured-products.json: `[{ product, variant? }]`). Types:
- * @scutoons/content `ProductCatalog` / `FeaturedProduct`. Served byte-for-byte as stored (was the viewer's
- * static/api/products.json and featured-products.json), so the files stay the single source.
+ * The shop catalog (table catalog_products + the meta entry `products`: `{ version, currency, checked_at, source,
+ * products:[…] }`, the shape of the old config/products.json) and the products featured on the homepage (table
+ * catalog_featured: `[{ product, variant? }]`). Types: @scutoons/content `ProductCatalog` / `FeaturedProduct`. Served
+ * in the files' shape (objects stay objects, the stored key order) – agents/CATALOG.md.
  */
 final class Products
 {
-    public function __construct(private readonly Settings $settings)
+    private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
+
+    public function __construct(private readonly Settings $settings, private readonly CatalogStore $store)
     {
     }
 
+    /** The seed file (config/products.json) */
     public function catalogPath(): string
     {
         return $this->settings->path('PRODUCTS_PATH');
     }
 
+    /** The seed file (config/featured-products.json) */
     public function featuredPath(): string
     {
         return $this->settings->path('FEATURED_PRODUCTS_PATH');
     }
 
-    /** The raw JSON of config/products.json (checked to be a catalog with a `products` list) */
+    /** The JSON of the shop catalog (GET /api/products/) */
     public function catalogJson(): string
     {
-        return self::read($this->catalogPath(), fn(mixed $data) => is_array($data) && is_array($data['products'] ?? null));
+        $meta = $this->store->row('meta', 'products');
+        $catalog = $meta !== null ? json_decode($meta['data']) : null;
+        if (!$catalog instanceof stdClass) $catalog = (object) ['version' => 2];
+        $catalog->products = array_map(fn(array $r) => json_decode($r['data']), $this->store->rows('products'));
+        return (string) json_encode($catalog, self::JSON_FLAGS);
     }
 
-    /** The raw JSON of config/featured-products.json (checked to be a list) */
+    /** The JSON of the featured list (GET /api/products/featured/) */
     public function featuredJson(): string
     {
-        return self::read($this->featuredPath(), fn(mixed $data) => is_array($data) && array_is_list($data));
+        return (string) json_encode(array_map(fn(array $r) => json_decode($r['data']), $this->store->rows('featured')), self::JSON_FLAGS);
     }
 
     /** @return array<string, mixed> the decoded catalog */
@@ -50,16 +58,13 @@ final class Products
     public function featured(): array
     {
         /** @var list<array<string, mixed>> */
-        return (array) json_decode($this->featuredJson(), true);
+        return array_values(array_filter($this->store->list('featured'), 'is_array'));
     }
 
-    /** @param callable(mixed): bool $valid */
-    private static function read(string $path, callable $valid): string
+    /** @return array<string, mixed>|null one product */
+    public function product(string $id): ?array
     {
-        $raw = @file_get_contents($path);
-        if ($raw === false || !$valid(json_decode($raw, true))) {
-            throw new RuntimeException(basename($path) . ' is missing or invalid');
-        }
-        return $raw;
+        $product = $this->store->get('products', $id);
+        return is_array($product) ? $product : null;
     }
 }

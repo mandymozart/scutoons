@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { MEDIA_QUALITY_SETTINGS, type MediaQualitySetting } from '@scutoons/content';
+	import { MEDIA_QUALITY_SETTINGS, type MediaQuality, type MediaQualitySetting } from '@scutoons/content';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -13,6 +13,12 @@
 	let failed = $state(false);
 	const current = $derived(mediaQuality.setting ?? 'auto');
 	const label = (value: MediaQualitySetting) => m[`media_quality.${value}`]();
+	/**
+	 * Rough data of one chapter (108 slices + two ~30 s videos), measured on catpope s1 (2026-10-03): slice WebP q85
+	 * 1x ≈ 26 KB, 2x ≈ 3×, 3x ≈ 5.6×; video 480p ≈ 0.95, 720p ≈ 1.8–3.3, 1080p ≈ 4.4 Mbit/s → ≈ 10 / 25 / 50 MB.
+	 */
+	const CHAPTER_MB: Record<MediaQuality, number> = { low: 10, medium: 25, high: 50 };
+	const level = $derived(current === 'auto' ? mediaQuality.auto : current);
 
 	async function choose(value: MediaQualitySetting) {
 		if (value === current) return;
@@ -41,6 +47,8 @@
 	<small>
 		{m['media_quality.hint']()}
 		{#if current === 'auto' && mediaQuality.auto}{m['media_quality.auto_now']({ level: label(mediaQuality.auto) })}{/if}
+		{#if level}{m['media_quality.estimate']({ size: `${CHAPTER_MB[level]} MB`, level: label(level) })}
+		{:else}{m['media_quality.estimate_range']({ low: `${CHAPTER_MB.low} MB`, high: `${CHAPTER_MB.high} MB` })}{/if}
 		{session.isLoggedIn ? m['media_quality.saved_account']() : m['media_quality.saved_device']()}
 	</small>
 	{#if failed}

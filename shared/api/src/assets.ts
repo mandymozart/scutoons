@@ -47,8 +47,8 @@ export interface AssetSummary {
 
 export interface AssetUsage {
 	path: string;
-	source: 'content' | 'catalog';
-	/** entity key (content) or catalog file */
+	source: 'content' | 'catalog' | 'code';
+	/** entity key (content), catalog entry `<kind>:<id>` (item:camera, product:dago_hoodie …) or code file */
 	ref: string;
 	/** JSON pointer in the document */
 	field: string;
@@ -169,6 +169,28 @@ export interface AssetOrphan {
 	size: number;
 }
 
+/** One asset's files a cleanup may delete (admin → Assets → Unused; the index is rebuilt before the list) */
+export interface AssetUnused {
+	id: string;
+	slug: string;
+	kind: AssetKind;
+	/** no current file is referenced: the cleanup deletes the whole asset, its history included */
+	all_unused: boolean;
+	/** `current` an unreferenced file of the current version · `old` left behind by a rename · `archive` old bytes a replace kept */
+	files: { path: string; what: 'current' | 'old' | 'archive'; size: number | null }[];
+	size: number;
+}
+
+export interface AssetCleanupResult {
+	status: 'success';
+	deleted: string[];
+	assets_deleted: number;
+	bytes: number;
+	/** referenced by now (or not a cleanup candidate) – never deleted */
+	skipped: { path: string; reason: string }[];
+	failed: Record<string, string>;
+}
+
 export type AssetsApi = ReturnType<typeof createAssetsApi>;
 
 const enc = (value: string) => encodeURIComponent(value);
@@ -185,6 +207,12 @@ export function createAssetsApi(api: ApiClient) {
 				`/assets/upload/${toQuery({ path, title: meta.title, tags: meta.tags?.join(',') })}`,
 				file
 			),
+		/** new bytes for a file that is there (content editors): the old ones archived as a version, the CDN purged; 409 `unchanged` */
+		replaceAt: (file: Blob, path: string, note?: string) =>
+			api.put<AssetDetail & { replaced: string; archived_as: string; purged: boolean; stale_renditions: string[] }>(
+				`/assets/replace/${toQuery({ path, note })}`,
+				file
+			),
 		missing: () => api.get<{ status: 'success'; items: AssetMissing[] }>('/assets/missing/'),
 		orphans: () => api.get<{ status: 'success'; items: AssetOrphan[] }>('/assets/orphans/'),
 
@@ -198,6 +226,9 @@ export function createAssetsApi(api: ApiClient) {
 			),
 		rename: (id: string, slug: string, publish = false) => api.post<AssetDetail & { renamed: Record<string, string>; relink: AssetRelinkResult }>(`/admin/assets/${enc(id)}/rename/`, { slug, publish }),
 		relink: (from: string, to: string, publish = false) => api.post<AssetRelinkResult>('/admin/assets/relink/', { from, to, publish }),
+		unused: () => api.get<{ status: 'success'; items: AssetUnused[]; totals: { assets: number; files: number; bytes: number } }>('/admin/assets/unused/'),
+		/** deletes these unused files; the server checks every path against a fresh usage index first */
+		cleanup: (paths: string[]) => api.post<AssetCleanupResult>('/admin/assets/cleanup/', { paths }),
 		deleteCheck: (id: string) => api.get<AssetDeleteCheck>(`/admin/assets/${enc(id)}/delete-check/`),
 		remove: (id: string, force = false) => api.delete<{ status: 'success'; deleted: string[] }>(`/admin/assets/${enc(id)}/${toQuery({ force: force ? 1 : undefined })}`),
 		enqueue: (id: string, kind: string, params: Record<string, unknown> = {}) => api.post<{ status: 'success'; job: AssetJob }>(`/admin/assets/${enc(id)}/jobs/`, { kind, params }),

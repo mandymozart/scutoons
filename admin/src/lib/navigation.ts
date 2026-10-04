@@ -61,7 +61,7 @@ export const navigation: NavGroup[] = [
 		title: () => m['nav.group_data'](),
 		items: [
 			{ id: 'assets', title: () => m['nav.assets'](), description: () => m['nav.assets_hint'](), href: '/assets', icon: 'image', keywords: 'media cdn files images videos bunny upload storage bandwidth' },
-			{ id: 'catalog', title: () => m['nav.catalog'](), description: () => m['nav.catalog_hint'](), href: '/catalog', icon: 'package', keywords: 'items editions permissions' },
+			{ id: 'catalog', title: () => m['nav.catalog'](), description: () => m['nav.catalog_hint'](), href: '/catalog', icon: 'package', keywords: 'items recipes albums products editions toons permissions code types meta katalog rezepte alben produkte editionen berechtigungen' },
 			{ id: 'homepage', title: () => m['nav.homepage'](), description: () => m['nav.homepage_hint'](), href: '/homepage', icon: 'home', keywords: 'startseite landing featured products editions slider shop' }
 		]
 	},

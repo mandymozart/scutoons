@@ -3,27 +3,46 @@
 		id: string;
 		label: string;
 		disabled?: boolean;
+		/** an Icon name before the label */
+		icon?: string;
+		/** shown as "(n)" after the label */
+		count?: number;
+		testid?: string;
+		title?: string;
+		/** a dashed error frame (e.g. a look without images) */
+		warning?: boolean;
 	}
 </script>
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import Icon from './icon.svelte';
 
 	/**
-	 * Tabs (WAI-ARIA tablist, arrow keys / Home / End). `children(activeId)` renders the active panel.
+	 * Tabs (WAI-ARIA tablist, arrow keys / Home / End). `children(activeId)` renders the active panel; without it the
+	 * page renders the panel itself. `tab(tab, active)` replaces a tab's content (icon + label + count by default);
+	 * `after` sits in the row behind the tabs, outside the tab list (e.g. "+ add").
+	 * variant: `buttons` (default), `ruled` (a 2px rule under the row, the creator's pages), `sub` (a 1px rule, the
+	 * level below), `grid` (a framed grid of equal tabs, `--tabs-min` wide: the slice inspector).
 	 */
 	let {
 		tabs,
 		value = $bindable(),
 		label,
+		variant = 'buttons',
 		onchange,
+		tab,
+		after,
 		children
 	}: {
 		tabs: Tab[];
 		value?: string;
 		/** accessible name of the tab list */
 		label?: string;
+		variant?: 'buttons' | 'ruled' | 'sub' | 'grid';
 		onchange?: (id: string) => void;
+		tab?: Snippet<[Tab, boolean]>;
+		after?: Snippet;
 		children?: Snippet<[string]>;
 	} = $props();
 
@@ -51,25 +70,31 @@
 	}
 </script>
 
-<div class="sc-tabs">
-	<div class="list" role="tablist" aria-label={label}>
-		{#each tabs as tab, index (tab.id)}
-			<button
-				bind:this={buttons[index]}
-				type="button"
-				role="tab"
-				id="{uid}-tab-{tab.id}"
-				aria-selected={active === tab.id}
-				aria-controls="{uid}-panel"
-				tabindex={active === tab.id ? 0 : -1}
-				disabled={tab.disabled}
-				class:active={active === tab.id}
-				onclick={() => select(tab.id)}
-				onkeydown={(event) => onKeydown(event, index)}
-			>
-				{tab.label}
-			</button>
-		{/each}
+<div class="sc-tabs" data-variant={variant} class:has-panel={!!children}>
+	<div class="row">
+		<div class="list" role="tablist" aria-label={label}>
+			{#each tabs as t, index (t.id)}
+				<button
+					bind:this={buttons[index]}
+					type="button"
+					role="tab"
+					id="{uid}-tab-{t.id}"
+					aria-selected={active === t.id}
+					aria-controls={children ? `${uid}-panel` : undefined}
+					tabindex={active === t.id ? 0 : -1}
+					disabled={t.disabled}
+					title={t.title}
+					class:active={active === t.id}
+					class:warning={t.warning}
+					data-testid={t.testid}
+					onclick={() => select(t.id)}
+					onkeydown={(event) => onKeydown(event, index)}
+				>
+					{#if tab}{@render tab(t, active === t.id)}{:else}{#if t.icon}<Icon name={t.icon} />{/if}{t.label}{#if t.count !== undefined}{' '}({t.count}){/if}{/if}
+				</button>
+			{/each}
+		</div>
+		{@render after?.()}
 	</div>
 	{#if children}
 		<div class="panel" role="tabpanel" id="{uid}-panel" aria-labelledby="{uid}-tab-{active}" tabindex="0">
@@ -79,14 +104,25 @@
 </div>
 
 <style>
+	.row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-025);
+		align-items: center;
+	}
+	.has-panel > .row {
+		margin-bottom: var(--space-1);
+	}
 	.list {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--space-05);
-		margin-bottom: var(--space-1);
 	}
 	button {
 		box-sizing: border-box;
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-025);
 		min-height: var(--control-height);
 		margin: 0;
 		padding: 0 var(--space-1);
@@ -107,6 +143,10 @@
 		color: var(--paper);
 		border-color: var(--ink);
 	}
+	button.warning:not(.active) {
+		border-style: dashed;
+		border-color: var(--state-error);
+	}
 	button:disabled {
 		opacity: 0.5;
 		cursor: not-allowed;
@@ -115,5 +155,49 @@
 	.panel:focus-visible {
 		outline: var(--border-width-focus) solid var(--ink);
 		outline-offset: var(--focus-offset);
+	}
+
+	/* ruled / sub: compact tabs on a rule (the creator's pages and the level below) */
+	[data-variant='ruled'] > .row,
+	[data-variant='sub'] > .row {
+		border-bottom: var(--border-width-regular) solid var(--ink);
+		padding-bottom: var(--space-025);
+	}
+	[data-variant='sub'] > .row {
+		border-bottom-width: var(--border-width-hairline);
+	}
+	[data-variant='ruled'] .list,
+	[data-variant='sub'] .list {
+		gap: var(--space-025);
+	}
+	[data-variant='ruled'] button,
+	[data-variant='sub'] button {
+		padding: 0 var(--space-05);
+	}
+
+	/* grid: equal tabs in one frame, the open one inverted */
+	[data-variant='grid'] > .row,
+	[data-variant='grid'] .list {
+		display: block;
+	}
+	[data-variant='grid'] .list {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(var(--tabs-min, 9rem), 1fr));
+		gap: 0;
+		border: var(--border-width-regular) solid var(--ink);
+	}
+	[data-variant='grid'] button {
+		justify-content: center;
+		gap: var(--space-05);
+		padding: 0 var(--space-05);
+		background: transparent;
+		border-color: transparent;
+	}
+	[data-variant='grid'] button:hover:not(:disabled):not(.active) {
+		border-color: var(--border-muted);
+	}
+	[data-variant='grid'] button.active {
+		background: var(--ink);
+		border-color: var(--ink);
 	}
 </style>

@@ -35,8 +35,8 @@ import {
 } from '@scutoons/content';
 import { library } from '$lib/api.ts';
 import { asset } from '$lib/utils/cdn.ts';
-import type { ContentDoc } from './doc.svelte.ts';
-import { loadToonEntry, neutralDoc } from './languages.ts';
+import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+import { loadToonEntry, neutralDoc } from '$lib/editor/languages.ts';
 
 const N = NEUTRAL_LOCALE;
 

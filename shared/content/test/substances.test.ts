@@ -17,13 +17,15 @@ import {
 	statLevels,
 	testoBand,
 	validateCatalog,
+	catalogFromSeed,
 	validateCharacters,
 	type Catalog,
 	type ReaderState,
 	type RegistryCharacter
 } from '../src/index.ts';
 
-const catalog: Catalog = JSON.parse(readFileSync(new URL('../../../server/config/items.json', import.meta.url), 'utf8'));
+// the server's seed file + the code parts it no longer carries (slots, stats) = the served shape
+const catalog: Catalog = catalogFromSeed(JSON.parse(readFileSync(new URL('../../../server/config/items.json', import.meta.url), 'utf8')));
 const item = (id: string) => catalog.items.find((i) => i.id === id)!;
 const stats = catalog.stats!;
 const T0 = Date.parse('2026-10-01T12:00:00Z');

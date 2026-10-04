@@ -110,7 +110,7 @@
 		position: fixed;
 		top: 0.5rem;
 		/* the 3rd of the top-right group (main-menu.svelte): one control height (owner 2026-10-02) */
-		right: calc(0.5rem + 2 * (var(--control-height) + 0.5rem));
+		right: calc(0.5rem + 3 * (var(--control-height) + 0.5rem));
 		z-index: 1001;
 		background: white;
 		border: 2px solid black;

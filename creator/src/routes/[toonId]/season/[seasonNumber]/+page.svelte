@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import SeasonEditor from '$lib/components/season-editor.svelte';
+	import SeasonEditor from '$lib/components/toon/season-editor.svelte';
 	import { loadToonLanguages } from '$lib/editor/languages.ts';
 	import { m } from '$lib/paraglide/messages.js';
 

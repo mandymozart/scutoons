@@ -20,6 +20,7 @@ use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
+use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
 use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
@@ -100,7 +101,7 @@ return static function (App $app): void {
     $app->any('/api/toons[/index.php]', [CatalogController::class, 'toons']);
     $app->get('/api/{folder:items|editions|toons}/{file:items|editions|toons}.json', [CatalogController::class, 'file']);
 
-    // Shop data (config/products.json, config/featured-products.json – was the viewer's static/api/*.json)
+    // Shop data (tables catalog_products / catalog_featured – was config/products.json, featured-products.json)
     $app->any('/api/products', [ProductsController::class, 'catalog']);
     $app->any('/api/products/featured', [ProductsController::class, 'featured']);
     // Stores that carry SCUTOONS products (the Embassy's listed stores, public fields only – agents/EMBASSY.md "Stores")
@@ -154,6 +155,7 @@ return static function (App $app): void {
     $app->get('/api/assets/missing', [AssetsController::class, 'missing']);
     $app->get('/api/assets/orphans', [AssetsController::class, 'orphans']);
     $app->put('/api/assets/upload', [AssetsController::class, 'upload']);
+    $app->put('/api/assets/replace', [AssetsController::class, 'replaceAt']);
     $app->get("/api/assets/$asset", [AssetsController::class, 'get']);
     $app->put("/api/assets/$asset", [AssetsController::class, 'update']);
 
@@ -200,9 +202,19 @@ return static function (App $app): void {
         $admin->get('/dashboard', [SystemController::class, 'dashboard']);
         $admin->get('/events', [SystemController::class, 'events']);
         $admin->get('/catalog', [SystemController::class, 'catalog']);
-        // when picked-up placed items reappear, per item (stored as the setting `item_respawn` over config/items.json)
+        // when picked-up placed items reappear, per item (an update of the item's `respawn` in catalog_items)
         $admin->get('/catalog/respawn', [RespawnController::class, 'get']);
         $admin->put('/catalog/respawn/{item}', [RespawnController::class, 'put']);
+        // the catalog tables (agents/CATALOG.md): per kind list / get / put / delete / reorder, history + undo
+        $kind = '{kind:items|recipes|albums|products|editions|featured|permissions|code-types|toons|meta}';
+        $entry = '{id:[A-Za-z0-9][A-Za-z0-9_:.-]{0,190}}';
+        $admin->get('/catalog/history', [CatalogAdminController::class, 'history']);
+        $admin->post('/catalog/history/{id:[0-9]{1,18}}/undo', [CatalogAdminController::class, 'undo']);
+        $admin->get("/catalog/$kind", [CatalogAdminController::class, 'list']);
+        $admin->post("/catalog/$kind/reorder", [CatalogAdminController::class, 'reorder']);
+        $admin->get("/catalog/$kind/$entry", [CatalogAdminController::class, 'get']);
+        $admin->put("/catalog/$kind/$entry", [CatalogAdminController::class, 'put']);
+        $admin->delete("/catalog/$kind/$entry", [CatalogAdminController::class, 'delete']);
         $admin->get('/keys', [SystemController::class, 'keys']);
         $admin->get('/versions', VersionsController::class);
         $admin->get('/settings', [SettingsController::class, 'get']);
@@ -213,7 +225,7 @@ return static function (App $app): void {
         $admin->get('/emails/log', [EmailsController::class, 'log']);
         $admin->get('/emails/recipients', [EmailsController::class, 'recipients']);
         $admin->put('/emails/recipients', [EmailsController::class, 'saveRecipients']);
-        // the editions on the landing page (stored as the setting `featured_products`; GET /api/products/featured/ reads it)
+        // the editions on the landing page (table catalog_featured; GET /api/products/featured/ reads it)
         $admin->get('/featured', [FeaturedController::class, 'get']);
         $admin->put('/featured', [FeaturedController::class, 'put']);
 
@@ -260,6 +272,8 @@ return static function (App $app): void {
         $admin->get('/assets/jobs', [AssetsController::class, 'jobs']);
         $admin->post('/assets/scan', [AssetsController::class, 'scan']);
         $admin->post('/assets/relink', [AssetsController::class, 'relink']);
+        $admin->get('/assets/unused', [AssetsController::class, 'unused']);
+        $admin->post('/assets/cleanup', [AssetsController::class, 'cleanup']);
         $admin->put("/assets/$asset/file", [AssetsController::class, 'replace']);
         $admin->post("/assets/$asset/rename", [AssetsController::class, 'rename']);
         $admin->get("/assets/$asset/delete-check", [AssetsController::class, 'deleteCheck']);

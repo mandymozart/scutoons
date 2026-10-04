@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { m } from '$lib/paraglide/messages.js';
-	import StyleGuide from '$lib/components/style-guide.svelte';
+	import StyleGuide from '$lib/components/page/style-guide.svelte';
 	import ScriptRules from '$lib/components/script/script-rules.svelte';
 	import { onMount, tick } from 'svelte';
 

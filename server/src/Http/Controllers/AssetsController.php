@@ -33,6 +33,7 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  *   POST /api/admin/assets/{id}/rename                 { slug, publish? }
  *   POST /api/admin/assets/relink                      { from, to, publish? }
  *   GET  /api/admin/assets/{id}/delete-check · DELETE /api/admin/assets/{id}?force=1
+ *   GET  /api/admin/assets/unused · POST /api/admin/assets/cleanup { paths }   unused files (fresh index) · delete them
  *   POST /api/admin/assets/{id}/jobs                   { kind } → queued job · GET /api/admin/assets/jobs
  *   POST /api/admin/assets/scan                        import the storage + rebuild usages
  *   GET  /api/admin/assets/storage                     drivers, settings status (never secrets), bandwidth
@@ -114,6 +115,28 @@ final class AssetsController
         return Json::response($response, 201, $result);
     }
 
+    /**
+     * New bytes for a file that is already there (owner 2026-10-03: "creators should be able to replace slice images" –
+     * updating media meant renaming): the asset's `replace` by path – the old bytes are archived as a version, the CDN
+     * purged. 404 when no asset has that file, 409 `unchanged` when the bytes are the same.
+     */
+    public function replaceAt(Request $request, Response $response): Response
+    {
+        $user = $this->editor($request);
+        $query = $request->getQueryParams();
+        $path = (string) ($query['path'] ?? '');
+        if (!StorageKey::valid($path)) throw new ApiError(400, 'invalid_path', 'path is required.');
+        $path = StorageKey::normalize($path);
+        $found = $this->registry->byPath($path) ?? throw new ApiError(404, 'not_found', 'No asset has that file.');
+        $file = $this->bodyToFile($request);
+        try {
+            $result = $this->service->replace($user, (string) $found['asset']['id'], $file, $path, isset($query['note']) && is_string($query['note']) ? mb_substr($query['note'], 0, 200) : null);
+        } finally {
+            @unlink($file);
+        }
+        return Json::response($response, 200, $result);
+    }
+
     public function missing(Request $request, Response $response): Response
     {
         $this->editor($request);
@@ -170,6 +193,22 @@ final class AssetsController
     {
         $user = $this->admin($request);
         return Json::response($response, 200, $this->service->delete($user, $args['id'], ($request->getQueryParams()['force'] ?? '') === '1'));
+    }
+
+    public function unused(Request $request, Response $response): Response
+    {
+        $this->admin($request);
+        return Json::response($response, 200, $this->service->unused());
+    }
+
+    public function cleanup(Request $request, Response $response): Response
+    {
+        $user = $this->admin($request);
+        $paths = JsonBody::of($request)['paths'] ?? null;
+        if (!is_array($paths) || !$paths || count($paths) > 5000 || array_filter($paths, fn($p) => !is_string($p))) {
+            throw new ApiError(422, 'invalid_paths', 'paths must be a non-empty list of CDN paths.');
+        }
+        return Json::response($response, 200, $this->service->cleanup($user, array_values($paths)));
     }
 
     /** @param array{id: string} $args */

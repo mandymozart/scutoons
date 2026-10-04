@@ -25,10 +25,10 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/health/` | – | `{ status, db, version, git_sha, built_at }` (`composer.json` version, deploy's `version.json`; locally `git_sha: "dev"`) |
-| GET | `/items/` | – | catalog (`config/items.json`); any origin (`*`), cached 5 min |
-| GET | `/editions/` (`?toon=`), `/toons/` | – | public lists (`config/editions.json`, `config/toons.json`) |
-| GET | `/products/` | – | shop catalog = `config/products.json` byte-for-byte (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`); any origin (`*`), cached 5 min; other methods 405 |
-| GET | `/products/featured/` | – | the landing page's editions (`[{ product, variant? }]`): the list chosen in the admin app (setting `featured_products`, `/admin/featured`), else `config/featured-products.json` byte-for-byte; same headers but `max-age=60` |
+| GET | `/items/` | – | item catalog `{ version, slots, items, recipes, albums, stats }` (tables `catalog_items` / `_recipes` / `_albums`; `slots` / `stats` from code – see "Catalog"); any origin (`*`), cached 5 min |
+| GET | `/editions/` (`?toon=`), `/toons/` | – | public lists (tables `catalog_editions`, `toons`) |
+| GET | `/products/` | – | shop catalog (`{ version:2, currency, checked_at, source, products:[…] }`, type `ProductCatalog` in `@scutoons/content`; table `catalog_products` + meta `products`, the shape of the old `config/products.json`); any origin (`*`), cached 5 min; other methods 405 |
+| GET | `/products/featured/` | – | the landing page's editions (`[{ product, variant? }]`, table `catalog_featured`, chosen in the admin app: `/admin/featured`); same headers but `max-age=60` |
 | GET | `/stockists/?product=&country=` | – | the public "Where to buy" list (scutoons.com/stores): the Embassy's listed stores (`store`, `record_shop`) carrying ≥ 1 product, public fields only → `{ stores: [{ id, name, type, independent, city, country, address, website, opening, carries: [product id] }], products: { <product id>: <stores> }, countries: [ISO] }` (independent first, then country, city, name; `products` / `countries` over all listed stores, unfiltered) · any origin (`*`), `max-age=300` + ETag (304), 600 requests / IP / hour · `400 invalid_country\|invalid_product` – see "Embassy" → "Stores" |
 | POST | `/auth/request/` | – | `{ email, code?, item_id?, variant?, locale?, marketing_opt_in?, dispute? }` → `{ status:"sent", expires_at }` (always; new accounts only with a signup code). `dispute: true` + a product code registered to someone else = an account to file an ownership claim (nothing claimed; `/auth/verify/` answers `dispute: true`; `503 not_available` before migration `2026-10-02-ownership-signup`) |
 | POST | `/auth/verify/` | – | `{ email, otp }` or `{ token }` (+ `marketing_opt_in?`) → session + claims the request's code if claimable · `403 signup_code_required`; from an `ALLOWED_ORIGINS` app also the session cookie |
@@ -130,11 +130,11 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | PUT | `/users/{id}/characters/{character}` | unlock an avatar-body character `{ looks?, source?: default\|code\|item\|story\|admin (admin), ref? (admin:<email>) }` → `{ changed, characters }` · `400 unknown_character\|invalid_look\|invalid_source\|invalid_body` · 404 |
 | DELETE | `/users/{id}/characters/{character}[/looks/{look}]` | revoke the character (with its looks) or one look → `{ changed, characters }`; a worn body that is no longer unlocked is reset; defaults can't be revoked per account |
 | GET | `/events` | activity log (filters code, event list, edition_id, toon, from, to) |
-| GET | `/catalog` · `/keys` | items (with the effective respawn rules), editions, toons, permissions map (read-only) · the ML-DSA-65 keypair for client-side signing |
-| GET/PUT | `/catalog/respawn` · `/catalog/respawn/<item>` | when picked-up placed items reappear, per item (`Domain\Catalog\ItemRespawn`, setting `item_respawn` over `config/items.json`): `GET` → `{ status, items: [{ id, file, override, overridden, effective }], updated_at, updated_by }`; `PUT { respawn: { default, min?, max? } \| null }` (null = never) or `{ reset: true }` → `{ status, changed, …same }` · `400 invalid_respawn { problems }`, `404 unknown_item` |
+| GET | `/catalog` · `/keys` | items, editions, toons, permissions map in one answer (read-only; editing: "Catalog" below) · the ML-DSA-65 keypair for client-side signing |
+| GET/PUT | `/catalog/respawn` · `/catalog/respawn/<item>` | when picked-up placed items reappear, per item (`Domain\Catalog\ItemRespawn`; an update of the item's `respawn`, recorded in `catalog_history` with note `respawn`): `GET` → `{ status, items: [{ id, file (the seed's rule), override, overridden, effective }], updated_at, updated_by }`; `PUT { respawn: { default, min?, max? } \| null }` (null = never) or `{ reset: true }` (= the seed's rule) → `{ status, changed, …same }` · `400 invalid_respawn { problems }`, `404 unknown_item` |
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
 | GET/PUT | `/settings` | runtime settings (table `settings`): `GET` → `{ status, items: [{ key, value, default, min, max, stored, updated_at, updated_by }] }`; `PUT { key: int\|null, … }` (or `{ settings: {…} }`) → `{ status, changed, items }` – integer `min…max` (0…1000000), `null` = back to the config default; only changed values are written, `updated_by` = `admin:<email>` · `400 invalid_setting { key, min, max }\|unknown_setting { settings }\|invalid_settings`. Keys: `scan_limit_per_hour`, `lookup_limit_per_hour` (see "Rate limits") |
-| GET/PUT | `/featured` | the landing page's editions (`Domain\Catalog\FeaturedProducts`, stored as the setting `featured_products`): `GET` → `{ status, items, default, stored, updated_at, updated_by, max: 12 }`; `PUT { items: [{ product, variant? }] \| null }` → `{ status, changed, …same }` – products / variants of `config/products.json`, no duplicates, ≤ 12, the order is the page's; `null` = back to `config/featured-products.json` · `400 invalid_featured\|unknown_product { product, products }\|unknown_variant { product, variant, variants }\|duplicate_featured` |
+| GET/PUT | `/featured` | the landing page's editions (`Domain\Catalog\FeaturedProducts`, table `catalog_featured`; one `catalog_history` row `replace` per change): `GET` → `{ status, items, default, stored, updated_at, updated_by, max: 12 }`; `PUT { items: [{ product, variant? }] \| null }` → `{ status, changed, …same }` – products / variants of the shop catalog, no duplicates, ≤ 12, the order is the page's; `null` = back to the seed's list (`config/featured-products.json`) · `400 invalid_featured\|unknown_product { product, products }\|unknown_variant { product, variant, variants }\|duplicate_featured` |
 | GET | `/emails/templates` | the email module's registry: `{ status, locales: ["de","en"], transport, items: [{ id, audience: member\|admin, description, vars: { name: type }, sample }] }` |
 | GET | `/emails/templates/{id}/preview?locale=de\|en` | `{ status, id, locale, subject, text, html }` rendered with the template's sample vars · `404 not_found` · `400 invalid_locale` |
 | GET | `/emails/log` | the sent-mail log (table `mail_log`), list: sort `created_at` (default `-created_at`), `template`, `status`, `recipient`; filters `template`, `status` (`sent`\|`failed`), `recipient`, `from`, `to` (`YYYY-MM-DD`, UTC); `q` = part of the address → items `{ id, template, recipient, locale, status, transport, error, created_at }` · `400 invalid_template\|invalid_status\|invalid_date\|invalid_sort`. Recipient addresses are shown here (admin only, like `/users`) |
@@ -143,6 +143,32 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 
 The legacy `generate/*.php` endpoints (static token `X-Generate-Token`) stay for the `generate/` SPA until the admin
 app has parity; they call the same services.
+
+### Catalog (2026-10-04, migration `2026-10-04-catalog` – agents/CATALOG.md)
+
+The catalog lives in database tables, one row per entry with its definition as JSON in the shape of the old
+`server/config/*.json` files (`data`), its order (`position`) and lookup columns (`toon`, `item_id`, `edition_id`,
+`product_id`, `variant_id`). The files stay as the seed of empty / local databases (`php bin/console catalog:seed`).
+`slots` and `stats` are code (`Domain\Avatar\AvatarSlots`, `Domain\Reader\ReaderStats` = `@scutoons/content`
+`AVATAR_SLOTS`, `READER_STATS`) and are still served in `GET /api/items/`.
+
+`<kind>` = `items` · `recipes` · `albums` · `products` · `editions` · `featured` (`{ product, variant? }`, id
+`<product>[:<variant>]`) · `permissions` (data = the description string) · `code-types` (`{ claimable, signup,
+grants }`; id `default` = types not listed) · `toons` (`{ id, name, redirectUrl }`) · `meta` (`items` `{ version }`,
+`products` `{ version, currency, checked_at, source }`, `permissions` `{ version }`).
+
+| Method | Path | What |
+|---|---|---|
+| GET | `/catalog/<kind>` | `{ status, kind, items: [{ id, position, data, updated_at, updated_by }], fallback }` in order (`fallback: true` = the tables are missing, read from the seed files) |
+| GET | `/catalog/<kind>/<id>` | `{ status, entry }` · `404 not_found` |
+| PUT | `/catalog/<kind>/<id>` | `{ data, note? }` → create (201) or update (200) `{ status, created, changed, entry, history_id }` – validated (`Domain\Catalog\CatalogValidator`: id pattern, `data.id` = the id, required fields, slots / stats, item ↔ product ↔ edition, recipe items, scan_object grants, respawn rules, album ↔ format, featured product / variant (≤ 12), code type grants ↔ permissions, toon id / redirectUrl) · `422 invalid_catalog { problems, kind, id }` · `400 missing_data` · `503 migration_pending`. Objects stay objects (`{}`). A new toon also gets its content index entry `toon:<id>` (draft) when the creator has none – it then shows in the creator's toon list |
+| DELETE | `/catalog/<kind>/<id>` | `{ status, deleted, history_id }` · `409 in_use { uses }` while anything refers to it (recipes, products, featured, scan grants, items' edition / product / album, code types' grants, codes / inventory rows, a toon's content; meta never) |
+| POST | `/catalog/<kind>/reorder` | `{ ids: [...] }` – those first, the rest after them in their order → `{ status, changed, ids, history_id }` · `400 invalid_order` |
+| GET | `/catalog/history?kind=&id=&limit=50` | `{ status, items: [{ id, kind, entry_id, action: create\|update\|delete\|reorder\|replace, before, after, position, undo_of, note, by, at }] }` newest first (≤ 500); `entry_id` `''` = the whole kind (reorder / replace) |
+| POST | `/catalog/history/<n>/undo` | `{ force? }` – the entry (or the kind's order / list) goes back to that change's `before`; recorded as a change itself (`undo_of`, so an undo can be undone) → `{ status, undone, history_id, entry? / ids? }` · `409 changed_since { current }` (changed again since – undo the later changes first, or `force`) · the same validation / `in_use` checks as a write · `404 not_found` |
+
+Writes refresh the asset usage index (source `catalog`, ref `<kind>:<id>` with the singular kind: `item:camera`,
+`product:dago_hoodie`, `album:awakening` …); an asset relink / rename updates the rows (validated, with history).
 
 ## Access model: viewing vs. owning
 
@@ -187,7 +213,8 @@ applies to the next request. `scan=1` without the proxy secret is an ordinary lo
 
 ## Permissions map – how to change what a code type unlocks
 
-`config/permissions.json` (server-only, never served over HTTP):
+The tables `catalog_permissions` + `catalog_code_types` (server-only, never served to readers; since 2026-10-04 –
+until then `config/permissions.json`, now the seed). `Domain\Access\Permissions::map()` builds the old file's shape:
 
 ```json
 {
@@ -209,9 +236,10 @@ applies to the next request. `scan=1` without the proxy secret is an ordinary lo
   account can be created with a code of this type (see "Signup rule").
 - Types not listed use `default`. The viewer checks `catalog` today; ids like `toon:catpope` or `chapter:catpope:2` can
   be added later without code changes on this server.
-- To change it: edit the file (valid JSON!) and deploy. No migration. A broken file makes the code endpoints answer 500,
-  so validate the JSON first (`composer test` proves an override map is applied). `PERMISSIONS_PATH` points to another
-  file (staging, tests). The admin API shows it read-only (`/api/admin/catalog`).
+- To change it: the admin API (`PUT /api/admin/catalog/permissions/<id>` with the description, `PUT
+  /api/admin/catalog/code-types/<type>` with `{ claimable, signup, grants }` – grants must be known permissions; a
+  permission still granted or a type with codes can't be deleted; every change in `catalog_history`, undoable). No
+  deploy, no migration. Tests may point `Permissions::useFile()` at a map file instead of the tables.
 
 ## Signup rule, promo codes
 
@@ -446,7 +474,10 @@ Admin (`/api/admin/assets/*`): `GET storage[?stats=1]` (drivers, settings status
 bandwidth), `POST scan`, `POST relink { from, to, publish? }`, `PUT {id}/file?path=&note=` (raw body: replace in place →
 `replaced, archived_as, purged, stale_renditions`), `POST {id}/rename { slug, publish? }`, `GET {id}/delete-check`,
 `DELETE {id}[?force=1]` (409 `in_use` + `usages` while referenced; `force` only when drafts are the only uses),
-`POST {id}/jobs { kind, params }`, `GET jobs`. Without the migration: 503 `not_available`. A creator save / publish /
+`POST {id}/jobs { kind, params }`, `GET jobs`, `GET unused` (cleanup list per asset on a freshly rebuilt index:
+`files[{ path, what: current|old|archive, size }]`, `all_unused`, `totals`), `POST cleanup { paths }` (re-checks every path
+against a fresh index; referenced ones are `skipped`, never deleted; an asset with every current file listed goes as a
+whole → `deleted, assets_deleted, bytes, skipped, failed`). Without the migration: 503 `not_available`. A creator save / publish /
 restore re-indexes the entity's uses.
 
 ## Security notes
@@ -457,7 +488,7 @@ restore re-indexes the entity's uses.
 - `/api/keys/keys.php` serves the public key only; the private keypair (`storage/keys/keypair.json`) goes to admins only
   (`/api/admin/keys`, legacy `generate/keys.php` with the token).
 - `/api/validate/`, `/api/code/`, `/api/access/` never return who claimed a code.
-- `config/permissions.json` is server-only; clients only see the resulting `permissions`.
+- The permissions map (tables `catalog_permissions` / `catalog_code_types`) is server-only (admin API only); clients only see the resulting `permissions`.
 - A code is bound to one account (`qr.claimed_by`); codes claimed with the old email-only form can be taken over only
   by an account with that email.
 - Grants are limited to the item's `grantable` sources; scan grants need a detecting tool and respect its cooldown.

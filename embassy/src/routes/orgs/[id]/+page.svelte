@@ -288,7 +288,7 @@
 	{/if}
 
 	<h2>{m['org.log_title']()}</h2>
-	<form class="card form-grid" onsubmit={log} data-testid="log-form">
+	<form class="card sc-fields" data-cols="fit" onsubmit={log} data-testid="log-form">
 		<label class="field">
 			<span>{m['org.kind']()}</span>
 			<select bind:value={kind}>
@@ -344,7 +344,7 @@
 		{/each}
 	</ul>
 	{#if personForm}
-		<form class="card form-grid" onsubmit={savePerson}>
+		<form class="card sc-fields" data-cols="fit" onsubmit={savePerson}>
 			<label class="field"><span>{m['org.person_name']()}</span><input bind:value={personForm.name} /></label>
 			<label class="field"><span>{m['org.person_role']()}</span><input bind:value={personForm.role} /></label>
 			<label class="field"><span>{m['org.person_phone']()}</span><input type="tel" bind:value={personForm.phone} /></label>

@@ -5,9 +5,9 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, move, newPerson, newRole, peopleOf, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import PersonPicker from './person-picker.svelte';
-	import RolePicker from './role-picker.svelte';
-	import LocaleMapField from './locale-map-field.svelte';
+	import PersonPicker from '$lib/components/credits/person-picker.svelte';
+	import RolePicker from '$lib/components/credits/role-picker.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/**
 	 * An ordered list of `{ person, roles }` of a section (toon sections have two: lead + entries). Reorder by dragging a
@@ -127,10 +127,10 @@
 					<span class="chips">
 						{#each entry.roles as r, k (k)}
 							{@const role = roleMap.get(r.role)}
-							<span class="chip" class:unknown={!role} class:custom={role?.custom}>
-								<button type="button" class="chip-label" onclick={() => (open = open === `${i}:${k}` ? null : `${i}:${k}`)} title={m['creator.credits_role_details']()}
+							<span class="sc-chip-control is-filled" class:is-error={!role} class:is-draft={role?.custom}>
+								<button type="button" onclick={() => (open = open === `${i}:${k}` ? null : `${i}:${k}`)} title={m['creator.credits_role_details']()}
 									>{roleText(r, role, lang)}</button
-								><button type="button" class="chip-x" aria-label={m['creator.credits_remove_role']()} onclick={() => change((l) => l[i].roles.splice(k, 1))}><CloseIcon /></button>
+								><button type="button" aria-label={m['creator.credits_remove_role']()} onclick={() => change((l) => l[i].roles.splice(k, 1))}><CloseIcon /></button>
 							</span>
 						{/each}
 						<RolePicker
@@ -244,8 +244,7 @@
 	.name:hover {
 		text-decoration: underline;
 	}
-	.bad,
-	.unknown .chip-label {
+	.bad {
 		color: var(--error);
 	}
 	.chips {
@@ -254,36 +253,7 @@
 		gap: 0.25rem;
 		flex: 1;
 	}
-	/* a role = a filled tag (tokens.css --badge-*): neutral, a custom role = draft */
-	.chip {
-		display: inline-flex;
-		background: var(--badge-neutral);
-		color: var(--badge-neutral-text);
-	}
-	.chip.custom {
-		background: var(--badge-draft);
-		color: var(--badge-draft-text);
-	}
-	.chip-label,
-	.chip-x {
-		all: unset;
-		display: inline-flex;
-		align-items: center;
-		box-sizing: border-box;
-		height: var(--control-height);
-		cursor: pointer;
-		padding: 0 var(--space-05);
-		line-height: var(--type-button-line);
-		white-space: nowrap;
-	}
-	.chip-x {
-		border-left: var(--border-width-hairline) solid currentColor;
-	}
-	.chip-label:hover,
-	.chip-x:hover {
-		outline: var(--border-width-regular) solid var(--ink);
-		outline-offset: calc(-1 * var(--border-width-regular));
-	}
+	/* a role = a filled chip with buttons (tools.css .sc-chip-control.is-filled; a custom role .is-draft, unknown .is-error) */
 	.remove {
 		font-size: var(--type-caption-size);
 		padding: 0 0.35rem;

@@ -35,7 +35,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import CharacterPickerSheet, { type PickedCharacter } from './character-picker-sheet.svelte';
+	import CharacterPickerSheet, { type PickedCharacter } from '$lib/components/characters/character-picker-sheet.svelte';
 
 	/**
 	 * A VN character reference: shows who (thumbnail, "Cat Pope · Biker · with helmet · happy") and opens the visual

@@ -277,12 +277,11 @@
 		align-items: center;
 		gap: var(--space-05);
 	}
-	:global(.embassy .form-grid) {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
-		gap: var(--space-075) var(--space-1);
+	/* the forms: tools.css .sc-fields data-cols="fit", 14rem columns */
+	:global(.embassy .sc-fields) {
+		--fields-fit-min: 14rem;
 	}
-	:global(.embassy .form-grid .wide) {
+	:global(.embassy .sc-fields .wide) {
 		grid-column: 1 / -1;
 	}
 	:global(.embassy .row) {

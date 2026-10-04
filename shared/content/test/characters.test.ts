@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+	matchCharacterImageFile,
 	castIndex,
 	chapterSceneCharacters,
 	ensureStar,
@@ -43,7 +44,6 @@ const catpope: RegistryCharacter = {
 	id: 'catpope',
 	name: { de: 'Katzenpapst', en: 'Cat Pope' },
 	color: 'blue',
-	image: 'catpope/characters/catpope/catpope.svg',
 	personas: [
 		{ id: 'regular', looks: [look('catpope', 'default', ['neutral', 'happy', 'sad'], { default: true })] },
 		{ id: 'human', label: { de: 'Mensch', en: 'Human' }, looks: [{ id: 'default', default: true, images: {} }] },
@@ -61,7 +61,6 @@ const mouse: RegistryCharacter = {
 	id: 'yellowmouse',
 	name: { de: 'Mausboss', en: 'Yellow Mouse' },
 	color: 'yellow',
-	image: 'yellowmouse/avatar.webp',
 	personas: [
 		{
 			id: 'regular',
@@ -77,7 +76,6 @@ const empty: RegistryCharacter = {
 	id: 'toptoy',
 	name: { en: 'Toptoy' },
 	color: 'black',
-	image: 'toptoy/avatar.webp',
 	personas: [{ id: 'regular', looks: [{ id: 'default', default: true, images: {} }] }]
 };
 const B = (look: string, view: string, mood: string) => png('catpope-biker', look, view, mood);
@@ -114,14 +112,10 @@ test('6. regular persona + default look + neutral', () => {
 	assert.equal(characterImage(catpope, { persona: 'human', mood: 'dizzy' }, 'portrait'), png('catpope', 'default', 'portrait', 'neutral'));
 });
 
-test('7. the legacy image', () => {
-	assert.equal(characterImage(empty, { mood: 'happy' }, 'portrait'), 'toptoy/avatar.webp');
-	assert.equal(characterImage({ ...empty, image: undefined }, { mood: 'happy' }, 'portrait', { substitute: '' }), '');
-});
-
-test('8. the missing-image substitute (after the legacy image, or when the resolved file is known to be missing)', () => {
-	assert.equal(characterImage({ ...empty, image: undefined }, { mood: 'happy' }, 'portrait'), 'characters/_missing/missing_portrait.png');
-	assert.equal(characterImage({ ...empty, image: undefined }, {}, 'avatar'), 'characters/_missing/missing_avatar.png');
+test('7. the missing-image substitute (when nothing is set, or the resolved file is known to be missing)', () => {
+	assert.equal(characterImage(empty, { mood: 'happy' }, 'portrait', { substitute: '' }), '');
+	assert.equal(characterImage(empty, { mood: 'happy' }, 'portrait'), 'characters/_missing/missing_portrait.png');
+	assert.equal(characterImage(empty, {}, 'avatar'), 'characters/_missing/missing_avatar.png');
 	// a known-missing file (e.g. crows_portrait.svg) → the substitute of the requested view
 	const missing = new Set([png('catpope', 'default', 'portrait', 'happy')]);
 	assert.equal(characterImage(catpope, { mood: 'happy' }, 'portrait', { isMissing: (p) => missing.has(p) }), 'characters/_missing/missing_portrait.png');
@@ -130,7 +124,7 @@ test('8. the missing-image substitute (after the legacy image, or when the resol
 	assert.equal(missingImagePath('whatever'), 'characters/_missing/missing_portrait.png');
 	assert.ok(isMissingImagePath('/characters/_missing/missing_full.png'));
 	// the legacy (characters.json) form: from the CDN root with a leading /
-	assert.equal(legacyCharacterImage({ name: 'x', label: 'X', image: '', color: '' } as Character, {}, 'full'), '/characters/_missing/missing_full.png');
+	assert.equal(legacyCharacterImage({ name: 'x', label: 'X', color: '' } as Character, {}, 'full'), '/characters/_missing/missing_full.png');
 });
 
 test('views: a missing view shows the same mood’s portrait before any mood step', () => {
@@ -166,7 +160,6 @@ test('an old characters.json without personas still resolves (static fallback)',
 		name: 'plf',
 		label: 'PLF',
 		color: 'lightblue',
-		image: 'images/characters/plf/plf.svg',
 		images: { neutral: { avatar: 'images/characters/plf/plf_avatar-neutral.png', portrait: 'images/characters/plf/plf_portrait-neutral.png' } }
 	};
 	assert.equal(legacyCharacterImage(old, { mood: 'happy' }, 'avatar'), 'images/characters/plf/plf_avatar-neutral.png');
@@ -414,4 +407,29 @@ test('media requests (view "media"): toon media without a character – listed, 
 	assert.equal(closeFulfilledRequests(requests as never, registry, 'now'), 0);
 	assert.equal(closeFulfilledRequests(requests as never, registry, 'now', (p) => p === 'toptoy/images/b.webp'), 1);
 	assert.equal(requests.requests[1].status, 'done');
+});
+
+test('matchCharacterImageFile maps a delivered file onto its slot of the whole character', () => {
+	const boy = {
+		id: 'boy',
+		personas: [
+			{ id: 'regular', looks: [{ id: 'default', default: true, images: {} }, { id: 'helmet', images: {} }] },
+			{ id: 'biker', looks: [{ id: 'jacket', default: true, images: {} }] }
+		]
+	} as never;
+	const match = (file: string) => matchCharacterImageFile(file, boy);
+	assert.deepEqual(match('boy_portrait-neutral.png'), { kind: 'expression', persona: 'regular', look: 'default', newLook: false, view: 'portrait', mood: 'neutral', path: 'characters/boy/boy_portrait-neutral.webp' });
+	assert.deepEqual(match('Boy_Avatar-Neutral.PNG'), { kind: 'expression', persona: 'regular', look: 'default', newLook: false, view: 'avatar', mood: 'neutral', path: 'characters/boy/boy_avatar-neutral.webp' });
+	assert.equal((match('portrait-sad.png') as { mood: string }).mood, 'sad');
+	assert.deepEqual(match('boy_helmet_full-very-happy.webp'), { kind: 'expression', persona: 'regular', look: 'helmet', newLook: false, view: 'full', mood: 'very-happy', path: 'characters/boy/boy_helmet_full-very-happy.webp' });
+	assert.deepEqual(match('boy_cap_portrait-neutral.png'), { kind: 'expression', persona: 'regular', look: 'cap', newLook: true, view: 'portrait', mood: 'neutral', path: 'characters/boy/boy_cap_portrait-neutral.webp' });
+	// a persona: its folder, its default look when the name has none
+	assert.deepEqual(match('boy-biker_portrait-sad.png'), { kind: 'expression', persona: 'biker', look: 'jacket', newLook: false, view: 'portrait', mood: 'sad', path: 'characters/boy-biker/boy-biker_jacket_portrait-sad.webp' });
+	assert.deepEqual(match('boy_apose-swim.png'), { kind: 'apose', look: 'swim', path: 'characters/boy/boy_apose-swim.webp' });
+	assert.deepEqual(match('boy_transition-helmet-to-default.png'), { kind: 'transition', persona: 'regular', from: 'helmet', to: 'default', path: 'characters/boy/boy_transition-helmet-to-default.webp' });
+	assert.deepEqual(match('boy_transition-cap-to-default.png'), { kind: 'unknown', reason: 'unknown-look', name: 'cap' });
+	assert.deepEqual(match('boy-pirate_portrait-neutral.png'), { kind: 'unknown', reason: 'unknown-persona', name: 'pirate' });
+	assert.deepEqual(match('crows_portrait-neutral.png'), { kind: 'unknown', reason: 'other-character', name: 'crows' });
+	assert.deepEqual(match('IMG_1234.png'), { kind: 'unknown', reason: 'no-slot' });
+	assert.deepEqual(match('boy_side-neutral.png'), { kind: 'unknown', reason: 'no-slot' });
 });

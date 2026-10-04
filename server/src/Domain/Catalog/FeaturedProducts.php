@@ -5,73 +5,72 @@ namespace Scutoons\Domain\Catalog;
 
 use PDOException;
 use Scutoons\Domain\ApiError;
-use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
 
 /**
  * The editions featured on the landing page (owner 2026-10-01: chosen in the admin app, page "Startseite"): an ordered list
- * `[{ product, variant? }]` of the shop catalog (config/products.json). Stored as the runtime setting `featured_products`
- * (table `settings`, like the rate limits: JSON value, updated_at, updated_by = `admin:<email>`); without a row – or
- * before the `settings` migration – the default is config/featured-products.json (dago_hoodie beige, dago_heavy_t white).
- *   GET  /api/products/featured/  the effective list (public)
+ * `[{ product, variant? }]` of the shop catalog – the table catalog_featured (agents/CATALOG.md; until 2026-10-04 the
+ * runtime setting `featured_products` over config/featured-products.json – the migration 2026-10-04-catalog moved it
+ * into the table). The "default" is the seed's list (config/featured-products.json).
+ *   GET  /api/products/featured/  the list (public)
  *   GET  /api/admin/featured      { items, default, stored, updated_at, updated_by }
- *   PUT  /api/admin/featured      { items: [...] | null } (null = back to the default)
+ *   PUT  /api/admin/featured      { items: [...] | null } (null = back to the default) – one catalog_history row
  */
 final class FeaturedProducts
 {
+    /** the retired setting (migration 2026-10-04-catalog) */
     public const SETTING = 'featured_products';
     public const MAX_ITEMS = 12;
-    private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 
-    public function __construct(private readonly Database $db, private readonly Products $products, private readonly Clock $clock)
+    public function __construct(private readonly Database $db, private readonly Products $products, private readonly CatalogSeed $seed, private readonly CatalogAdmin $admin)
     {
     }
 
-    /** The public answer: the stored list as JSON, else the default file byte-for-byte */
+    /** The public answer */
     public function json(): string
     {
-        $stored = $this->stored();
-        return $stored === null ? $this->products->featuredJson() : (string) json_encode($stored['items'], self::JSON_FLAGS);
+        return $this->products->featuredJson();
     }
 
     /**
-     * The admin view: the effective list, the default, whether a list is stored and its last change
+     * The admin view: the list, the default, whether it differs from the default and its last change
      * @return array{items: list<array<string, mixed>>, default: list<array<string, mixed>>, stored: bool, updated_at: ?string, updated_by: ?string, max: int}
      */
     public function state(): array
     {
-        $stored = $this->stored();
-        $default = $this->products->featured();
+        $items = $this->products->featured();
+        $default = $this->defaults();
+        try {
+            $last = $this->db->one("SELECT changed_at, changed_by FROM catalog_history WHERE kind = 'featured' ORDER BY id DESC LIMIT 1");
+        } catch (PDOException) {
+            $last = null; // before the migration
+        }
         return [
-            'items' => $stored['items'] ?? $default,
+            'items' => $items,
             'default' => $default,
-            'stored' => $stored !== null,
-            'updated_at' => $stored !== null ? Time::iso($stored['updated_at']) : null,
-            'updated_by' => $stored['updated_by'] ?? null,
+            'stored' => $items !== $default,
+            'updated_at' => Time::iso($last['changed_at'] ?? null),
+            'updated_by' => isset($last['changed_by']) ? (string) $last['changed_by'] : null,
             'max' => self::MAX_ITEMS,
         ];
     }
 
     /**
      * Replaces the list (validated against the catalog: known product, known variant, no duplicates, at most MAX_ITEMS),
-     * or – null – goes back to the default (row removed). Returns whether anything changed.
+     * or – null – goes back to the default. Returns whether anything changed.
      * @param mixed $items list of { product, variant? } or null
      */
     public function update(mixed $items, string $by): bool
     {
-        $stored = $this->stored();
-        if ($items === null) {
-            if ($stored === null) return false;
-            $this->db->run('DELETE FROM settings WHERE `key` = ?', [self::SETTING]);
-            return true;
-        }
-        $clean = $this->validate($items);
-        if ($stored !== null && $stored['items'] === $clean) return false;
-        $params = [(string) json_encode($clean, self::JSON_FLAGS), $this->clock->utc(), substr($by, 0, 255), self::SETTING];
-        if ($stored !== null) $this->db->run('UPDATE settings SET `value` = ?, updated_at = ?, updated_by = ? WHERE `key` = ?', $params);
-        else $this->db->run('INSERT INTO settings (`value`, updated_at, updated_by, `key`) VALUES (?, ?, ?, ?)', $params);
-        return true;
+        $clean = $items === null ? $this->defaults() : $this->validate($items);
+        return $this->admin->replace('featured', array_map(fn(array $i) => (object) $i, $clean), $by)['changed'];
+    }
+
+    /** @return list<array<string, mixed>> the seed's list */
+    private function defaults(): array
+    {
+        return array_values(array_filter(array_map(fn(array $r) => json_decode($r['data'], true), $this->seed->rows()['featured']), 'is_array'));
     }
 
     /**
@@ -113,24 +112,5 @@ final class FeaturedProducts
             $clean[] = $variant !== null && $variant !== '' ? ['product' => $product, 'variant' => $variant] : ['product' => $product];
         }
         return $clean;
-    }
-
-    /** @return array{items: list<array<string, mixed>>, updated_at: string, updated_by: ?string}|null */
-    private function stored(): ?array
-    {
-        try {
-            $row = $this->db->one('SELECT `value`, updated_at, updated_by FROM settings WHERE `key` = ?', [self::SETTING]);
-        } catch (PDOException) {
-            return null; // no settings table yet (migration pending): the default
-        }
-        if ($row === null) return null;
-        $items = json_decode((string) $row['value'], true);
-        if (!is_array($items) || !array_is_list($items)) return null;
-        /** @var list<array<string, mixed>> $items */
-        return [
-            'items' => $items,
-            'updated_at' => (string) $row['updated_at'],
-            'updated_by' => $row['updated_by'] !== null ? (string) $row['updated_by'] : null,
-        ];
     }
 }

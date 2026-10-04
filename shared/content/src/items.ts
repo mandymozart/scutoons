@@ -16,6 +16,10 @@ export type AvatarSlot =
 	| 'back'
 	| 'accessory';
 
+/**
+ * The slot types of the avatar model (code, not catalog data – owner 2026-10-04: "slots are merely enums for an avatar
+ * model"); the server serves the same as `slots` in GET /api/items/ (Domain\Avatar\AvatarSlots, kept equal by its tests).
+ */
 export const AVATAR_SLOTS: AvatarSlot[] = [
 	'head',
 	'face',
@@ -167,6 +171,8 @@ export interface Recipe {
 	id: string;
 	inputs: RecipePart[];
 	output: RecipePart;
+	/** the recipe's own picture (CDN path, `<toon>/items/recipes/<id>.webp`; owner 2026-10-04) – none = the output item's */
+	image?: string;
 }
 
 export interface Catalog {

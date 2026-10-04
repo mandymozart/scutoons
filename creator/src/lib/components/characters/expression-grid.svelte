@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { Badge, Icon } from '@scutoons/ui';
 	import {
 		AUTHORED_VIEW,
@@ -21,7 +22,7 @@
 	import { imageExists, recheckImages, isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetDialog from './asset-dialog.svelte';
+	import AssetDialog from '$lib/components/characters/asset-dialog.svelte';
 
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /
@@ -39,7 +40,8 @@
 		locale,
 		onset,
 		onrequest,
-		onaddmood
+		onaddmood,
+		bust = 0
 	}: {
 		character: RegistryCharacter;
 		persona: string;
@@ -52,6 +54,8 @@
 		onrequest: (mood: string, view: string, note: string) => void;
 		/** a mood for this look (added to the vocabulary when it is new) */
 		onaddmood: (mood: string, label: string) => void;
+		/** set after an import (a timestamp): previews and the CDN check load again */
+		bust?: number;
 	} = $props();
 
 	/** CDN check per path: true found, false missing, undefined pending */
@@ -123,6 +127,12 @@
 		status = {};
 		round++;
 	}
+	/** after an import the same paths may hold new bytes: the previews load them again */
+	const src = (path: string) => asset(path) + (bust ? `?v=${bust}` : '');
+	$effect(() => {
+		if (bust) untrack(recheck);
+	});
+
 	const stateOf = (c: ReturnType<typeof cell>) =>
 		c.path ? (status[c.path] === true ? 'found' : status[c.path] === false ? 'missing' : 'pending') : status[c.convention] === true ? 'available' : 'empty';
 </script>
@@ -166,9 +176,9 @@
 					>
 						<span class="thumb">
 							{#if state === 'found'}
-								<img src={asset(c.path)} alt="{mood} {view}" loading="lazy" />
+								<img src={src(c.path)} alt="{mood} {view}" loading="lazy" />
 							{:else if state === 'available'}
-								<img class="faded" src={asset(c.convention)} alt="" loading="lazy" />
+								<img class="faded" src={src(c.convention)} alt="" loading="lazy" />
 							{:else if c.fallback && status[c.fallback] === true}
 								<img class="faded" src={asset(c.fallback)} alt="" loading="lazy" />
 							{/if}
@@ -179,7 +189,7 @@
 							{#if avatar}
 								<span class="derived" title={m['creator.characters_avatar_derived']()}>avatar {#if !avatar.path}–{:else if status[avatar.path] === false}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else}✓{/if}</span>
 							{/if}
-							{#if request}<span class="req" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
+							{#if request}<span class="sc-mark" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
 						</span>
 					</button>
 				{/each}
@@ -235,7 +245,7 @@
 		gap: 0.25rem;
 		align-items: center;
 	}
-	.grid {
+	.grid { /* grid-ok: the expression thumbnails, not fields */
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
 		gap: 4px;
@@ -325,12 +335,6 @@
 		margin-left: auto;
 		font-size: var(--type-caption-size);
 		color: var(--muted);
-	}
-	.req {
-		font-size: var(--type-caption-size);
-		background: var(--badge-info);
-		color: var(--badge-info-text);
-		padding: 0 0.25rem;
 	}
 	.add-mood {
 		display: flex;

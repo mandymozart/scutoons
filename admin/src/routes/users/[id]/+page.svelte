@@ -2,7 +2,7 @@
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, Field, RecordInspector, Section, Skeleton, Toggle, type Column } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, confirmDialog, DataTable, Field, RecordInspector, Section, Skeleton, Toggle, type Column } from '@scutoons/ui';
 	import type { AdminUserDetail, RoleInfo } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { day, errorText, minute } from '$lib/format.ts';
@@ -37,7 +37,7 @@
 
 	async function setRole(role: string, on: boolean) {
 		if (!user) return;
-		if (!on && role === 'admin' && isSelf && !confirm(m['users.revoke_own_admin']())) {
+		if (!on && role === 'admin' && isSelf && !(await confirmDialog({ title: m['users.revoke_own_admin_title'](), message: m['users.revoke_own_admin'](), confirmLabel: m['users.revoke_own_admin_label']() }))) {
 			user = { ...user };
 			return;
 		}

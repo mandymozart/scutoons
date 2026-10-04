@@ -16,11 +16,11 @@
 	import { creditsDocs, creditsOf, peopleOf, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
-	import MetaPage from '../meta-page.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import { fileLabels } from '$lib/labels.ts';
-	import SectionsEditor from './sections-editor.svelte';
-	import PeoplePanel from './people-panel.svelte';
-	import RolesPanel from './roles-panel.svelte';
+	import SectionsEditor from '$lib/components/credits/sections-editor.svelte';
+	import PeoplePanel from '$lib/components/credits/people-panel.svelte';
+	import RolesPanel from '$lib/components/credits/roles-panel.svelte';
 
 	/**
 	 * Credits page of a toon: sections of its credits (entity `credits:<toon>`), the global people registry and role

@@ -50,10 +50,10 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { usePageNav } from '$lib/nav.svelte.ts';
-	import MetaPage from '../meta-page.svelte';
-	import CharacterDetail from './character-detail.svelte';
-	import MoodsPanel from './moods-panel.svelte';
-	import WantedImages from './wanted-images.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import CharacterDetail from '$lib/components/characters/character-detail.svelte';
+	import MoodsPanel from '$lib/components/characters/moods-panel.svelte';
+	import WantedImages from '$lib/components/characters/wanted-images.svelte';
 	import { mapDoc, mapOf } from '$lib/editor/map.ts';
 
 	/**
@@ -169,12 +169,13 @@
 		const p = persona;
 		const t = tab;
 		try {
-			const url = new URL(page.url);
+			// the address bar, not page.url: replaceState (shallow routing) leaves page.url at the last navigation
+			const url = new URL(location.href);
 			for (const [key, value] of [['id', id], ['persona', p === REGULAR_PERSONA ? '' : p], ['tab', t === 'characters' ? '' : t]] as const) {
 				if (value) url.searchParams.set(key, value);
 				else url.searchParams.delete(key);
 			}
-			if (url.href !== page.url.href) replaceState(url, {});
+			if (url.href !== location.href) replaceState(url, {});
 		} catch {
 			/* before the router is ready */
 		}
@@ -304,7 +305,7 @@
 												{#if personaIds(c).length > 1}
 													<span class="chips">
 														{#each personaIds(c) as p (p)}
-															<span class="chip" class:regular={p === REGULAR_PERSONA}>{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, uiLocale) || p}</span>
+															<span class="sc-chip is-tag" class:is-quiet={p === REGULAR_PERSONA}>{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(c, p)?.label, uiLocale) || p}</span>
 														{/each}
 													</span>
 												{/if}
@@ -444,14 +445,6 @@
 		flex-wrap: wrap;
 		gap: 0.2rem;
 		margin-top: 0.15rem;
-	}
-	.chip {
-		font-size: var(--type-caption-size);
-		border: 1px solid var(--ink);
-		padding: 0 0.3rem;
-	}
-	.chip.regular {
-		border-color: var(--border-muted);
 	}
 	.issue {
 		margin-left: auto;

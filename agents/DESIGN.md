@@ -125,7 +125,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     right-aligned, coming soon at 50 %. Published rows show no date.
 - **Top-right icon group (all widths, all pages):** the menu button (round `--control-height` = 52 px at the desktop root, 44 px on touch – "One control height"; 3-line icon
   `icons/menu.svg`, `aria-label` "Menü" / "Menu") is the right-most icon and the **only** way to open the slide-out; on
-  toon pages inventory, map and chapter list follow to its left (each `--control-height` + 0.5rem further left). The slide-out's
+  toon pages inventory, **avatar**, map and chapter list follow to its left (each `--control-height` + 0.5rem further
+  left; five buttons + the logo fit at 320 px). Avatar has its own button (owner 2026-10-03: "inventory should be
+  inventory"; `icons/avatar.svg`, overlay `avatar` in the navigation context) but opens the same inventory slide-out on
+  its Avatar tab; the slide-out's two tabs carry the same icons (+ label; icon-only under 480 px, the label stays for
+  screen readers) and switch the overlay, so the top buttons and tabs always agree. The menu slide-out's
   entries all use the `button` type (`--type-button-size` / `--type-button-line`, rem-based; the toon names and
   "Anmelden" were hard 16 px before).
 - **The logo** (top left, all pages) is a link to the localized landing page (`/` · `/en/`, alt "SCUTOONS – Startseite" /
@@ -180,8 +184,11 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   question. Account page section **"Medienqualität" / "Media quality"** (`components/account/media-quality-setting.svelte`,
   for guests and members, between the account block and the inventory): one row of four square radio buttons
   "Automatisch · Niedrig · Mittel · Hoch" / "Automatic · Low · Medium · High" (2px `border-muted`, the chosen one ink
-  with paper text, `caption` size), under it in `text-muted` caption "Videos: Niedrig 480p, Mittel 720p, Hoch 1080p.
-  Automatisch wählt nach deiner Verbindung." + "Automatisch gerade: Mittel." (once known) + where it is stored ("In
+  with paper text, `caption` size), under it in `text-muted` caption "Bilder und Videos gibt es in drei Größen.
+  Automatisch wählt nach deiner Verbindung." + "Automatisch gerade: Mittel." (once known) + the data of a chapter at the
+  active level, not resolutions (owner 2026-10-03): "Ein Kapitel mit rund 100 Bildern und zwei kurzen Videos lädt bei
+  Mittel etwa 25 MB." (≈ 10 / 25 / 50 MB, measured on catpope s1: 108 slices, two ~30 s videos; Automatic not yet
+  resolved → "etwa 10 MB (Niedrig) bis 50 MB (Hoch)") + where it is stored ("In
   deinem Konto gespeichert." / "Auf diesem Gerät gespeichert."). Members: `users.media_quality` via `PUT /me/` (the
   account wins over the device; a stored session is awaited before the first video loads), also mirrored to the
   device; guests: localStorage `scutoons_media_quality` (other tabs follow through the `storage` event). Default
@@ -578,7 +585,7 @@ Owner: "clean this season view up, like we did on the chapter page" (chapter met
 - **Related items** (item selector drawer), **Supporters** (logo as a media slot → `<toon>/s<n>/supporters/`, name + url).
 
 **Media with quality levels = one slot** (owner 2026-10-03: "simplify the multiple resolutions situation"):
-`media-variants-slot.svelte` + the pure helpers `$lib/editor/media-variants.ts` work on the `{ src, variants }` shape
+`media-variants-slot.svelte` + the pure helpers `media-variants.ts` (both in `@scutoons/media`, shared/media/src, since 2026-10-04) work on the `{ src, variants }` shape
 (PLAN.md "one file per quality level"; the trailer maps `loop` → `src`). The preview is the button: picking an asset in
 the picker fills every level from its renditions (480p / 720p / 1080p, `mediaFromAsset`), the default = medium, else
 the LOWER one (low), else high (owner 2026-10-03: less data first). Under the preview one interactive chip per level (`.sc-chip-control`, `--control-height`): "480p ·
