@@ -259,6 +259,14 @@ on every validated root type (`AcceptedWarnings`, `@scutoons/content` accepted.t
 with array items by their `id` where they have one, and an FNV hash of message + value – a changed value brings the
 warning back. Accepting is an ordinary edit (unsaved, undoable, saved/published with the page); readers ignore the field.
 Errors can't be accepted. Creator side: `lib/editor/accepted.ts` (panel + the bar's warning count).
+**Admin catalog (2026-10-04):** the catalog tabs items / recipes / albums have the same panel ("Problems e/w" in the bar,
+a right drawer; `admin/src/lib/catalog/problems.ts`, `catalog-problems.svelte`): `validateCatalog` over the stored
+entries + the open form, the wear overlays against the published character registry (`GET /library/characters`).
+A warning is stored in the catalog entry it is about (`accepted_warnings` in its `data`; `catalogWarningPlace` in
+accepted.ts: kind + id + the path inside the entry), one about a whole list ("no player plays …") in the meta entry
+`items`. ✓ on the open entry goes into its form (unsaved, Save keeps it); on any other entry it is saved at once (one
+history row, note "warning accepted", undo takes it back). The server never serves the field (`CatalogStore::reader`:
+/api/items/, /api/products/ …) and refuses a malformed list (422).
 
 ## 6. PWA concept (design only)
 

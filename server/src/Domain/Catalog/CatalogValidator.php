@@ -57,6 +57,12 @@ final class CatalogValidator
         if (!self::isObject($data)) return [...$p, 'data must be a JSON object'];
         /** @var array<string, mixed> $data */
         if (CatalogStore::KINDS[$kind]['data_id'] && ($data['id'] ?? null) !== $id) $p[] = "data.id must be \"$id\"";
+        if (array_key_exists(CatalogStore::ACCEPTED_WARNINGS, $data)) {
+            $accepted = $data[CatalogStore::ACCEPTED_WARNINGS];
+            if (!is_array($accepted) || !array_is_list($accepted) || $accepted === [] || array_filter($accepted, fn($k) => !is_string($k) || $k === '' || strlen($k) > 500) !== []) {
+                $p[] = 'accepted_warnings must be a list of warning keys (left out when empty)';
+            }
+        }
         $add = match ($kind) {
             'items' => $this->item($id, $data),
             'recipes' => $this->recipe($data),

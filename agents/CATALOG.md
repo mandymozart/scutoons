@@ -192,3 +192,11 @@ uses (3 recipes, a scan grant, 44 inventory entries); a test item: picture uploa
 WebP, 1 unknown reported; a second run: 1 replaced, 1 unchanged, 1 unknown variant), then deleted; a test toon created
 (422 for a bad redirect URL first) and listed in the creator; saving every kind unchanged = "Nothing changed" (the forms
 don't alter data on load); code type save confirmation.
+
+### Accepted warnings (branch `catalog-accept`, 2026-10-04)
+
+"Problems e/w" in the bar of items / recipes / albums opens the creator's Problems panel for the catalog (DATA.md §5):
+`validateCatalog` over the lists + the open form, wear overlays against the published character registry. ✓ "Looks
+fine" stores `accepted_warnings` in the entry's `data` (a list-wide warning in meta `items`): the open entry → its form
+(unsaved); another entry → saved at once (history note "warning accepted", undo). Readers never get the field
+(`CatalogStore::reader`); a malformed list is a 422. No migration (the field lives in `data`).

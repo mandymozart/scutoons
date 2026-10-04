@@ -2,6 +2,7 @@
 import type { StatDef, StatEffect, TimedEffect, ReaderState } from './substances.ts';
 import type { Album, MediaFormat } from './albums.ts';
 import type { ItemRespawn } from './respawn.ts';
+import type { AcceptedWarnings } from './accepted.ts';
 
 export type Localized = Record<string, string>;
 
@@ -89,7 +90,7 @@ export interface ItemVariant {
 	icon?: string | null;
 }
 
-export interface ItemDef {
+export interface ItemDef extends AcceptedWarnings {
 	id: string;
 	toon: string | null;
 	name: Localized;
@@ -175,7 +176,9 @@ export interface Recipe {
 	image?: string;
 }
 
-export interface Catalog {
+/** The item catalog. `accepted_warnings` (here and on items / albums) are the admin's accepted catalog warnings
+ *  (catalogWarningPlace): stored with the entries – a list-wide one in the meta entry `items` – never served to readers. */
+export interface Catalog extends AcceptedWarnings {
 	version: number;
 	slots: AvatarSlot[];
 	items: ItemDef[];

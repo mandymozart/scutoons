@@ -36,16 +36,16 @@ final class Products
     public function catalogJson(): string
     {
         $meta = $this->store->row('meta', 'products');
-        $catalog = $meta !== null ? json_decode($meta['data']) : null;
+        $catalog = $meta !== null ? CatalogStore::reader($meta['data'], false) : null;
         if (!$catalog instanceof stdClass) $catalog = (object) ['version' => 2];
-        $catalog->products = array_map(fn(array $r) => json_decode($r['data']), $this->store->rows('products'));
+        $catalog->products = array_map(fn(array $r) => CatalogStore::reader($r['data'], false), $this->store->rows('products'));
         return (string) json_encode($catalog, self::JSON_FLAGS);
     }
 
     /** The JSON of the featured list (GET /api/products/featured/) */
     public function featuredJson(): string
     {
-        return (string) json_encode(array_map(fn(array $r) => json_decode($r['data']), $this->store->rows('featured')), self::JSON_FLAGS);
+        return (string) json_encode(array_map(fn(array $r) => CatalogStore::reader($r['data'], false), $this->store->rows('featured')), self::JSON_FLAGS);
     }
 
     /** @return array<string, mixed> the decoded catalog */

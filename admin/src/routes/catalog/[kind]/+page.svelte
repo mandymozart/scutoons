@@ -4,7 +4,8 @@
 	import { page } from '$app/state';
 	import { Button, CloseIcon, Tabs } from '@scutoons/ui';
 	import type { CatalogEntry, CatalogKind } from '@scutoons/api';
-	import { admin } from '$lib/api.ts';
+	import { admin, library } from '$lib/api.ts';
+	import type { CharacterRegistry } from '@scutoons/content';
 	import { invalidateCatalog } from '$lib/catalog.ts';
 	import { importItemImages, importRecipeImages, type ImportReport } from '$lib/catalog/import.ts';
 	import { EDITED_KINDS, KINDS, type CatalogFormProps, type CatalogLists, type EditedKind } from '$lib/catalog/kinds.ts';
@@ -53,6 +54,12 @@
 		lists[k] = result.items;
 		fallback = result.fallback;
 	}
+
+	// the published characters, for the wear overlays' problems (not loaded = not checked; never blocks the page)
+	let registry = $state<CharacterRegistry | null>(null);
+	$effect(() => {
+		library.fetchRegistry().then((r) => (registry = r), () => (registry = null));
+	});
 
 	// every kind once (the forms' selects need the others: items, editions, products, albums, toons, permissions)
 	$effect(() => {
@@ -113,7 +120,7 @@
 			</div>
 		{/if}
 		{#key kind}
-			<CatalogEditor {def} {lists} {fallback} {refresh} reload={editorReload} form={FORMS[kind]} barActions={kind === 'items' || kind === 'recipes' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
+			<CatalogEditor {def} {lists} {registry} {fallback} {refresh} reload={editorReload} form={FORMS[kind]} barActions={kind === 'items' || kind === 'recipes' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
 		{/key}
 	{/snippet}
 </Tabs>

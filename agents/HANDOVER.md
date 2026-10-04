@@ -49,7 +49,7 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()`.
 - Right-docked page panels (Problems, History, help) sit left of the Ask panel (`--ask-inset`); with both open the
   sidebar folds to its rail. Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
-  can't. Admin catalog warnings: not yet (separate branch).
+  can't. The admin catalog has the same panel (items / recipes / albums; stored in the entry, DATA.md §5).
 - Media fields are slots (preview = button, empty dashed slot), not path text fields; multi-resolution media =
   one slot with resolution chips (default 720p → 480p → 1080p).
 - Show design drafts (on the real page, mobile + desktop) before building bigger UI.
