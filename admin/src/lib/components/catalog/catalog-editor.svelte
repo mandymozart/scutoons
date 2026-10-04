@@ -280,7 +280,7 @@
 					{:else if column.id === 'avatar'}
 						<ToonAvatar src={toonAvatarUrl(entry.id)} name={String(entry.data?.name ?? entry.id)} />
 					{:else if c?.image}
-						{@const path = c.image(entry.data)}
+						{@const path = c.image(entry.data, lists)}
 						{#if path}<img class="thumb" src={mediaUrl(path)} alt="" loading="lazy" />{/if}
 					{:else if c?.text}
 						{c.text(entry.data, lists, entry)}

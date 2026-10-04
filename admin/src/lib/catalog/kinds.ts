@@ -33,7 +33,7 @@ export interface ListColumn {
 	/** the cell as text */
 	text?: (data: any, lists: CatalogLists, entry: CatalogEntry) => string;
 	/** the cell as a picture (CDN-root path) */
-	image?: (data: any) => string | null | undefined;
+	image?: (data: any, lists: CatalogLists) => string | null | undefined;
 }
 
 export interface KindDef {
@@ -118,6 +118,8 @@ export const KINDS: Record<EditedKind, KindDef> = {
 		label: () => m['catalog.recipes'](),
 		singular: () => m['catalog.recipe'](),
 		columns: [
+			// its own picture, else the output item's – what readers see (owner 2026-10-04: "easier to find")
+			{ id: 'image', label: () => '', image: (d, lists) => d.image || lists.items?.find((i) => i.id === d.output?.item)?.data?.icon },
 			{ id: 'id', label: () => 'id', text: (_d, _l, e) => e.id },
 			{
 				id: 'recipe',
