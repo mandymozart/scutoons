@@ -415,7 +415,7 @@
 				"type",
 				"src"
 			],
-			"deprecated": "(2026-10-02) the music belongs to an album now: a media item has `album` + `format` and plays only with a\r\nplayer (`plays`), albums.ts. Still read gracefully (`legacyPlayAudio`): plays without a player."
+			"deprecated": "(2026-10-02) the music belongs to an album now: a media item has `album` + `format` and plays only with a\nplayer (`plays`), albums.ts. Still read gracefully (`legacyPlayAudio`): plays without a player."
 		},
 		"ApplySkill": {
 			"type": "object",

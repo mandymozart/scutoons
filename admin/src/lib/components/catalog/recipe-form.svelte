@@ -34,7 +34,7 @@
 
 <div class="group">
 	<MediaSlot toon="" value={data.image ?? undefined} label={m['catalog.picture']()} place="{outputToon}/items/recipes/" {bust} onchange={(path) => { if (path) data.image = path; else delete data.image; bust = Date.now(); }} testid="recipe-image" />
-	{#if err('image')}<p class="error">{err('image')}</p>{/if}
+	{#if err('image')}<p class="sc-error">{err('image')}</p>{/if}
 </div>
 
 <fieldset class="group">
