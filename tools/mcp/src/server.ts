@@ -571,6 +571,23 @@ export function createScutoonsServer(config: Config): McpServer {
 		})
 	);
 
+	server.registerTool(
+		'submit_for_review',
+		{
+			description:
+				'Hands saved drafts to the toon\'s reviewers (review before publish): each item pinned to a version (default: the newest), an optional note; the reviewers get a mail and publish or send back. For creators who need a review (publishing answers 403 review_required for them). Only when the creator asks for it. 409 no_reviewer = nobody reviews that toon – an admin has to add one.',
+			inputSchema: z.object({
+				items: z.array(z.object({ key: z.string().describe('stored key'), version: z.number().int().optional() })).min(1),
+				note: z.string().max(1000).optional()
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: true }
+		},
+		guard(async ({ items, note }) => {
+			const r = await client.post<{ reviews: Json[]; reviewers: string[] }>('/reviews', { items, note });
+			return text({ submitted: r.reviews?.length ?? items.length, reviewers: r.reviewers });
+		})
+	);
+
 	if (config.publish) {
 		server.registerTool(
 			'publish_entity',

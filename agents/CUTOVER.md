@@ -580,7 +580,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
     manager, 409 when the path is taken), `validate` (validateFile with the chapter editor's context + validateLocales;
     validateCast for cast), `save_draft` (`ops` set / insert / remove on the `base` version, or whole `content`; errors
     refuse the save unless `allow_errors`; message gets "(agent)"; 409 explained), `list_versions`, `restore_version`,
-    `publish_entity` (only with the env flag, `confirm: true` per call). Resources
+    `submit_for_review`, `publish_entity` (only with the env flag, `confirm: true` per call). Resources
     `scutoons://rules/{workflow,entity-keys,vn-events,flow,text-presets,slices}` generated at start from the source.
     `npm run check:mcp` (`scripts/dev/mcp-check.mjs`, 31 checks, local only, restores what it changes). README: Claude
     Code / Desktop, local + production. Not validated yet: season status of a chapter and placed items against the
@@ -654,8 +654,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       submit: author, time, languages, note, "newer drafts" hint, Send back / Publish with a note to the author) and "Your
       submissions" (in review / sent back with the reviewer's note) – both only when not empty. Mails name the toon
       ("Cat Pope", not the id) and link to the dashboard (owner: no further action needed than the list).
-    - **Open:** `mcp` branch: a `submit_for_review` tool (`POST /api/reviews`); `publish_entity` now gets
-      `403 review_required` for `needs_review` tokens.
+    - **Agents (2026-10-04, branch `ask-deploy`):** the MCP tool `submit_for_review` (`POST /api/reviews`, items pinned to a
+      version + note); `publish_entity` answers `403 review_required` for `needs_review` accounts – the agent submits instead.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

@@ -20,6 +20,7 @@ stdio only (step 1). Node ≥ 22, run from this repository (the shared packages 
 | `validate` | the creator's checks (`@scutoons/content` validate.ts), one language or all + cross-language |
 | `save_draft` | a new draft version: `ops` (set / insert / remove at a path) or the whole `content`, on a `base` version |
 | `list_versions` / `restore_version` | history; restoring saves the old content as a new draft |
+| `submit_for_review` | hands drafts to the toon's reviewers (for accounts that need a review before publishing) |
 | `publish_entity` | only with `SCUTOONS_MCP_PUBLISH=1`, and every call needs `confirm: true` |
 
 Resources `scutoons://rules/*` (workflow, entity keys, VN events, flow rules, text presets, slices) are generated from

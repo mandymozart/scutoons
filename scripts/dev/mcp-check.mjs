@@ -71,7 +71,7 @@ let original = null; // { id, content }
 let restored = false;
 try {
 	const tools = (await client.listTools()).tools.map((t) => t.name);
-	const expected = ['list_toons', 'list_chapters', 'read_entity', 'read_characters', 'read_map_places', 'search_assets', 'upload_asset', 'list_entities', 'search_content', 'list_versions', 'validate', 'save_draft', 'restore_version'];
+	const expected = ['list_toons', 'list_chapters', 'read_entity', 'read_characters', 'read_map_places', 'search_assets', 'upload_asset', 'list_entities', 'search_content', 'submit_for_review', 'list_versions', 'validate', 'save_draft', 'restore_version'];
 	check(expected.every((t) => tools.includes(t)), 'every tool is there', `missing: ${expected.filter((t) => !tools.includes(t))}`);
 	check(!tools.includes('publish_entity'), 'no publish tool without SCUTOONS_MCP_PUBLISH=1');
 
