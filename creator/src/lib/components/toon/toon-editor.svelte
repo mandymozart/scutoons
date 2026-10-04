@@ -6,7 +6,6 @@
 	import type { ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
-	import { knownImages } from '$lib/editor/images.ts';
 	import { STATUSES } from '$lib/editor/visibility.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import { fileLabel } from '$lib/labels.ts';
@@ -28,14 +27,12 @@
 	// svelte-ignore state_referenced_locally
 	const index = toonIndexDoc(toon);
 	const requests = requestsDoc();
-	let images = $state<string[]>([]);
 	const nav = getCreatorNav();
 
 	const wanted = $derived(mediaRequests(requestsOf(requests), { toon }));
 
 	onMount(async () => {
 		await Promise.all([file.load(), index.load(), requests.load().catch(() => {})]);
-		images = await knownImages(toon, file.locales, [$state.snapshot(file.data), $state.snapshot(index.data)]);
 	});
 </script>
 
@@ -72,7 +69,7 @@
 				<SharedField doc={index} path={['authors']} label="authors" kind="list" testid="toon-authors" />
 				<div class="sc-fields" data-cols="3" data-align="start">
 					<SharedField doc={index} path={['chapters']} label="chapters (count)" kind="number" />
-					<SharedField doc={index} path={['thumbnail']} label="thumbnail" kind="image" {toon} known={images} />
+					<SharedField doc={index} path={['thumbnail']} label="thumbnail" kind="image" {toon} />
 				</div>
 
 				{#if wanted.length}
@@ -100,7 +97,7 @@
 					</label>
 					<p class="hint">{m['creator.announce_hint']()}</p>
 					<div class="sc-fields" data-cols="3" data-align="start">
-						<SharedField doc={index} path={['tile', 'image']} label="tile.image" kind="image" {toon} known={images} />
+						<SharedField doc={index} path={['tile', 'image']} label="tile.image" kind="image" {toon} />
 						<SharedField doc={index} path={['tile', 'color']} label="tile.color" placeholder={m['creator.tile_color_placeholder']()} testid="toon-tile-color" />
 					</div>
 				</div>

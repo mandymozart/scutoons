@@ -303,6 +303,11 @@ Done (branch `components`):
   inputs, outside the tablist) and the panel margin only when it renders the panel. `check:tools-css` flags
   `class="tab(s)"` / `role="tablist"` outside tabs.svelte. Visible: next to nothing (slightly narrower tab padding; an
   active look without images is inverted, no longer dashed).
+- Step 14c ✓ (the commit adding this line) – `media/image-picker.svelte` retired: its last use (SharedField `kind="image"`,
+  the toon page's thumbnail and tile image) is a @scutoons/media `MediaSlot` (new `hideLabel`: the field shows the
+  label). Visible: those two fields are slots (preview = the button to the asset picker, × clears) instead of a path
+  input + "Choose …" + a 64px preview; typing a path and the known-paths suggestions are gone there (owner 2026-10-03:
+  "the preview does the job").
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,

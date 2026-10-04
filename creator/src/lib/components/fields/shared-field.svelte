@@ -2,7 +2,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import type { Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import ImagePicker from '$lib/components/media/image-picker.svelte';
+	import { MediaSlot } from '@scutoons/media';
 	import ListField from '$lib/components/fields/list-field.svelte';
 
 	/**
@@ -17,7 +17,6 @@
 		kind = 'text',
 		options = [],
 		toon = '',
-		known = [],
 		placeholder = '',
 		required = false,
 		splittable = true,
@@ -29,7 +28,6 @@
 		kind?: 'text' | 'number' | 'date' | 'select' | 'list' | 'image' | 'nullable';
 		options?: string[];
 		toon?: string;
-		known?: string[];
 		placeholder?: string;
 		/** required keys are never removed (empty number → 0, empty text → '') */
 		required?: boolean;
@@ -94,7 +92,7 @@
 				{#if kind === 'list'}
 					<ListField {value} onchange={(list) => write(l, list)} testid="{id}-{l}" />
 				{:else if kind === 'image'}
-					<ImagePicker {toon} label="{label}{perLocale ? ` · ${l}` : ''}" hideLabel value={typeof value === 'string' ? value : undefined} {known} onchange={(v) => write(l, v || (required ? '' : undefined))} />
+					<MediaSlot {toon} label="{label}{perLocale ? ` · ${l}` : ''}" hideLabel value={typeof value === 'string' && value ? value : undefined} onchange={(v) => write(l, v || (required ? '' : undefined))} testid="{id}-{l}" />
 				{:else if kind === 'select'}
 					<select value={show(value)} onchange={(e) => write(l, parse(e.currentTarget.value))} data-testid="{id}-{l}">
 						{#if !required}<option value="">–</option>{/if}
