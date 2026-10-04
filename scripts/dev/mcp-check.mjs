@@ -71,7 +71,7 @@ let original = null; // { id, content }
 let restored = false;
 try {
 	const tools = (await client.listTools()).tools.map((t) => t.name);
-	const expected = ['list_toons', 'list_chapters', 'read_entity', 'read_characters', 'read_map_places', 'search_assets', 'upload_asset', 'list_versions', 'validate', 'save_draft', 'restore_version'];
+	const expected = ['list_toons', 'list_chapters', 'read_entity', 'read_characters', 'read_map_places', 'search_assets', 'upload_asset', 'list_entities', 'search_content', 'list_versions', 'validate', 'save_draft', 'restore_version'];
 	check(expected.every((t) => tools.includes(t)), 'every tool is there', `missing: ${expected.filter((t) => !tools.includes(t))}`);
 	check(!tools.includes('publish_entity'), 'no publish tool without SCUTOONS_MCP_PUBLISH=1');
 
@@ -91,6 +91,18 @@ try {
 	const groups = chapters.json?.chapters?.[0]?.groups ?? [];
 	check(groups.some((g) => g.scene === SCENE), 'list_chapters: chapter 2 references scene-14', chapters.raw.slice(0, 300));
 	check(groups.some((g) => g.label === 'scene-20'), 'list_chapters: group labels (scene-20)');
+
+	// finding things: the document list, a full-text search in the screenplay (source language), a part of a long text
+	const listed = await call(client, 'list_entities', { toon: TOON });
+	check(listed.json?.some((e) => e.key === `script:${TOON}:de`), 'list_entities has the screenplay', listed.raw.slice(0, 200));
+	const found1 = await call(client, 'search_content', { query: 'not my city', toon: TOON });
+	const hit = found1.json?.hits?.find((h) => h.key === `script:${TOON}:de` && / line \d+$/.test(h.where));
+	check(hit, 'search_content finds the song in the German screenplay', found1.raw.slice(0, 300));
+	if (hit) {
+		const line = Number(/ line (\d+)$/.exec(hit.where)[1]);
+		const part = await call(client, 'read_entity', { key: `script:${TOON}:de`, path: ['text'], lines: [line, line + 2] });
+		check(typeof part.json?.content === 'string' && part.json.content.startsWith(`${line}: `) && part.json.content.split('\n').length === 3, 'read_entity lines: three numbered lines', part.raw.slice(0, 200));
+	}
 
 	const chars = await call(client, 'read_characters', { toon: TOON });
 	check(!chars.error && chars.json?.characters?.length > 0 && chars.json?.moods?.length > 0, 'read_characters: cast + moods', chars.raw.slice(0, 200));

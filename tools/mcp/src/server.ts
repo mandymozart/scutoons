@@ -282,25 +282,91 @@ export function createScutoonsServer(config: Config): McpServer {
 		'read_entity',
 		{
 			description:
-				'Reads a stored document by entity key (scutoons://rules/entity-keys). An entity without locale (`chapter:catpope:2`) returns every language; a full key one. Each result has `version.id` – pass it as `base` to save_draft. `source`: draft = the newest version (draft or published), published = what readers see, or one old version by id. `path` returns only that part of the content.',
+				'Reads a stored document by entity key (scutoons://rules/entity-keys). An entity without locale (`chapter:catpope:2`) returns every language; a full key one. Each result has `version.id` – pass it as `base` to save_draft. `source`: draft = the newest version (draft or published), published = what readers see, or one old version by id. `path` returns only that part of the content; `lines` [from, to] (1-based) only those lines of a text (e.g. the screenplay: path ["text"], line numbers from search_content).',
 			inputSchema: z.object({
 				key: z.string().describe('entity (`scene:catpope:2:scene-14`) or stored key (`…:de`)'),
 				source: z.enum(['draft', 'published']).optional().describe('default draft'),
 				version: z.number().int().optional().describe('one stored version by id (overrides source; needs a full key)'),
 				locale: z.string().optional().describe('one language of a localized entity, or "all" (default)'),
-				path: pathSchema.optional()
+				path: pathSchema.optional(),
+				lines: z.tuple([z.number().int().min(1), z.number().int().min(1)]).optional().describe('[from, to] lines of a text value')
 			}),
 			annotations: read
 		},
-		guard(async ({ key, source, version, locale, path }) => {
+		guard(async ({ key, source, version, locale, path, lines }) => {
 			const { keys } = await keysOf(key, locale);
 			const out = [];
 			for (const k of keys) {
 				const w = version !== undefined ? await content.getVersion<Json>(k, version) : await load(k, source ?? 'draft');
-				if (!w) out.push({ key: k, missing: true });
-				else out.push({ key: k, version: versionMeta(w), content: path ? getAt(w.content, path) : w.content });
+				if (!w) {
+					out.push({ key: k, missing: true });
+					continue;
+				}
+				let value = path ? getAt(w.content, path) : w.content;
+				if (lines && typeof value === 'string') {
+					const all = value.split(/\r?\n/);
+					value = all.slice(lines[0] - 1, lines[1]).map((l, i) => `${lines[0] + i}: ${l}`).join('\n');
+				}
+				out.push({ key: k, version: versionMeta(w), content: value });
 			}
 			return text(out.length === 1 ? out[0] : out);
+		})
+	);
+
+	server.registerTool(
+		'list_entities',
+		{
+			description:
+				'Every stored document of a toon (or the platform-wide ones with toon ""): key, kind, language, versions, newest / published version. The map of what exists – screenplay (script), seasons, chapters, scenes, cast, credits, settings.',
+			inputSchema: z.object({ toon: z.string().describe('toon id, "" = platform-wide (characters, moods, map …)') }),
+			annotations: read
+		},
+		guard(async ({ toon }) => {
+			const entities = (await content.contentIndex(toon)).entities;
+			return text(entities.map((e) => ({ key: e.key, kind: e.kind, locale: e.locale, versions: e.versions, latest: e.latest, published: e.published })));
+		})
+	);
+
+	server.registerTool(
+		'search_content',
+		{
+			description:
+				'Full-text search (case-insensitive) in the newest drafts of a toon\'s documents – the screenplay (script, per line), seasons, chapters, scenes, settings, cast, credits – or of the platform-wide ones (characters, moods, map) with toon "". Returns the document key, where (JSON path, screenplay line) and a snippet; read more with read_entity (path / lines). The source language holds the complete content – translations can be incomplete.',
+			inputSchema: z.object({
+				query: z.string().min(2),
+				toon: z.string().describe('toon id, "" = platform-wide documents'),
+				kinds: z.array(z.string()).optional().describe('only these kinds, e.g. ["script"]'),
+				locale: z.string().optional().describe('only this language'),
+				limit: z.number().int().min(1).max(100).optional().describe('default 30')
+			}),
+			annotations: read
+		},
+		guard(async ({ query, toon, kinds, locale, limit }) => {
+			const needle = query.toLowerCase();
+			const max = limit ?? 30;
+			const entities = (await content.contentIndex(toon)).entities.filter((e) => (!kinds || kinds.includes(e.kind)) && (!locale || e.locale === locale || e.locale === null));
+			const hits: { key: string; where: string; snippet: string }[] = [];
+			const snippet = (s: string) => {
+				const at = s.toLowerCase().indexOf(needle);
+				return (at > 60 ? '…' : '') + s.slice(Math.max(0, at - 60), at + needle.length + 100).trim() + (s.length > at + needle.length + 100 ? '…' : '');
+			};
+			const walk = (key: string, value: Json, at: Path) => {
+				if (hits.length >= max) return;
+				if (typeof value === 'string') {
+					if (!value.toLowerCase().includes(needle)) return;
+					// long texts (the screenplay): one hit per line, with its number for read_entity `lines`
+					if (value.includes('\n'))
+						value.split(/\r?\n/).forEach((l, i) => {
+							if (hits.length < max && l.toLowerCase().includes(needle)) hits.push({ key, where: `${JSON.stringify(at)} line ${i + 1}`, snippet: snippet(l) });
+						});
+					else hits.push({ key, where: JSON.stringify(at), snippet: snippet(value) });
+				} else if (value && typeof value === 'object') for (const [k, v] of Object.entries(value)) walk(key, v, [...at, Array.isArray(value) ? Number(k) : k]);
+			};
+			for (const e of entities) {
+				if (hits.length >= max) break;
+				walk(e.key, await data<Json>(e.key), []);
+			}
+			return text({ searched: entities.length, hits, ...(hits.length >= max ? { more: 'limit reached – narrow with kinds / locale or raise limit' } : {}) });
 		})
 	);
 
