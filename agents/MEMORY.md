@@ -1800,3 +1800,20 @@ character, persona, look and mood and doubles as the VN test bed.
   `import-content --update --only=toon,season` for catpope + sandbox (backup `server/db/local.sqlite.bak-2026-10-02-season-covers`
   in the cover-editor worktree's DB copy; the owner's DB needs the same after the merge). Gotcha: long Python heredocs
   in Git Bash broke on quotes – write the script to a file.
+
+## Player overlay: Netflix-style controls on player videos (2026-10-04)
+
+- **Owner:** player video slices get their own controls instead of the browser's (▶ / fading bar / mute / full screen /
+  "Überspringen" / ↺ at the end); loops stay bare (chapter 1's key visual = art). Fixed skip label; **skipping does not
+  count as watched**; `controls` on = the whole bar, off = only ▶ / ↺; the replay at the end only on the video (the
+  follow-up bar drops "Nochmal ansehen" for these groups). Spec: DESIGN.md "Player overlay".
+- Code: `@scutoons/reader` `player-overlay.svelte` (labels via `playerLabels`, `skippable`; viewer passes both, the
+  creator gets English defaults and no skip); `SLICE_SKIP_EVENT` (`sliceskip`) handled in the viewer's `next-bar.svelte`
+  (next slice → else the bar's primary when automatic → else show the bar + scroll its spacer into view). The bar now also
+  hides when a `time` event reports progress < 1 (seeked away from the end). `soundOnLabel` is gone (→ `playerLabels`).
+- Found: live chapter 1's key-visual video has no options (= loops). `loop: false` would still restart on every scroll
+  back into view (`play()` on an ended video starts at 0).
+- Testing against production without local servers: viewer `.env.development.local` with `VITE_API_URL` = a local
+  read-only CORS proxy to `https://api.scutoons.com/api` (the API's preflight rejects localhost) and
+  `VITE_CDN_URL=https://scutoons.b-cdn.net` (cdn.scutoons.com 404s/403s these files; the b-cdn host sends CORS `*`).
+  The in-app browser pane never completes `requestFullscreen` (pending promise) – check full screen in a real browser.

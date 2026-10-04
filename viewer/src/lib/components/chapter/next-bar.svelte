@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { isPrologue, type Group, type LoadedSequenceItem, type NextStep } from '@scutoons/content';
-	import { SLICE_PLAYER_EVENT, type SlicePlayerDetail } from '@scutoons/reader';
+	import { SLICE_PLAYER_EVENT, SLICE_SKIP_EVENT, type SlicePlayerDetail } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 	import { shopUrl } from '$lib/config.ts';
@@ -18,7 +18,9 @@
 	 * says what comes next (`nextStep`): the next group, the next chapter (a 5 s countdown, then it goes there), the
 	 * membership it needs (sign in / redeem a code), coming soon, or the season's end. The countdown stops with
 	 * "Abbrechen", when the end scrolls out of view, on any other click (a menu, an overlay) or Escape, and waits while the
-	 * tab is hidden; with reduced motion there is none. "Nochmal" replays the group (or the video) and stops it too.
+	 * tab is hidden; with reduced motion there is none. "Nochmal" replays the group and stops it too (a group ending with a
+	 * player video has none: its ↺ is on the video). A player video's "Überspringen" (`sliceskip`) goes to the next slice,
+	 * at the group's end to the next group / chapter, else (members, coming soon, the season's end) it shows the bar.
 	 */
 	let {
 		step,
@@ -109,12 +111,15 @@
 			const slice = (event.target as HTMLElement | null)?.closest<HTMLElement>('[data-slice-index]');
 			if (Number(slice?.dataset.sliceIndex) !== total - 1 || !detail) return;
 			if (detail.state === 'ended') reachedEnd = true;
-			// played again (the native controls, "Nochmal ansehen"): the bar goes until it ends again
-			else if (detail.state === 'play') reachedEnd = false;
+			// played again (its ↺) or moved away from the end (the seek line): the bar goes until it ends again
+			else if (detail.state === 'play' || (detail.state === 'time' && detail.progress < 1)) reachedEnd = false;
 		};
+		const onSkip = (event: Event) => skip(root, event.target as HTMLElement | null);
 		root.addEventListener(SLICE_PLAYER_EVENT, onPlayer);
+		root.addEventListener(SLICE_SKIP_EVENT, onSkip);
 		return () => {
 			root.removeEventListener(SLICE_PLAYER_EVENT, onPlayer);
+			root.removeEventListener(SLICE_SKIP_EVENT, onSkip);
 			mo.disconnect();
 			io.disconnect();
 		};
@@ -172,17 +177,26 @@
 
 	function replay() {
 		stop();
-		if (endsWithPlayer) {
-			// the video again, in place (the bar goes with its `play`)
-			const root = host?.closest('.chapter-view');
-			const video = root?.querySelector<HTMLVideoElement>(`[data-slice-index="${count - 1}"] video[data-player]`);
-			if (video) {
-				video.currentTime = 0;
-				video.play().catch(() => {});
-				return;
-			}
-		}
 		onreplay();
+	}
+
+	/** "Überspringen" on a player video (not watched): the next slice, else on to what comes next, else the bar */
+	function skip(root: Element, target: HTMLElement | null) {
+		const index = Number(target?.closest<HTMLElement>('[data-slice-index]')?.dataset.sliceIndex);
+		if (!Number.isInteger(index)) return;
+		const smooth = reducedMotion ? 'auto' : 'smooth';
+		const next = index < count - 1 ? root.querySelector(`[data-slice-index="${index + 1}"]`) : null;
+		if (next) {
+			next.scrollIntoView({ behavior: smooth, block: 'start' });
+			return;
+		}
+		if (automatic && primaryHref) {
+			goto(primaryHref);
+			return;
+		}
+		// members / coming soon / the season's end: the bar says what comes next, the video's end scrolls clear of it
+		reachedEnd = true;
+		requestAnimationFrame(() => host?.scrollIntoView({ behavior: smooth, block: 'end' }));
 	}
 
 	// ── the countdown ────────────────────────────────────────────────────────────────────────────────────────────────
@@ -271,9 +285,9 @@
 				{/if}
 				<div class="actions">
 					<!-- the secondary action (at most one): replay, redeem, where to get a code, the music -->
-					{#if automatic}
+					{#if automatic && !endsWithPlayer}
 						<button type="button" class="secondary" onclick={replay} data-testid="next-bar-replay">
-							↺ {endsWithPlayer ? m['next_bar.replay_video']() : m['next_bar.replay']()}
+							↺ {m['next_bar.replay']()}
 						</button>
 					{:else if step.kind === 'members' && !session.isLoggedIn}
 						<button type="button" class="secondary" onclick={redeem} data-testid="next-bar-secondary">{m['next_bar.redeem']()}</button>

@@ -7,6 +7,7 @@
 	import type { DialogPlay } from './types.ts';
 	import type { Dialog as DialogModel } from '@scutoons/content';
 	import SliceVideo from './slice-video.svelte';
+	import type { PlayerLabels } from './player-overlay.svelte';
 
 	/**
 	 * One slice: the image (or its video) and its text boxes. The app passes the resolved URLs and the text language,
@@ -28,7 +29,8 @@
 		alt = 'Slice',
 		eager = false,
 		autoplayPlayer = false,
-		soundOnLabel,
+		playerLabels,
+		skippable = false,
 		itemInfo,
 		itemHidden,
 		onitemtap,
@@ -53,8 +55,10 @@
 		eager?: boolean;
 		/** a player video slice starts by itself once in view (the reader; `SliceVideo`) */
 		autoplayPlayer?: boolean;
-		/** the label of the player's "Sound on" button (the app's language) */
-		soundOnLabel?: string;
+		/** the player video's texts (the app's language; `SliceVideo`) */
+		playerLabels?: Partial<PlayerLabels>;
+		/** a player video with controls shows "Überspringen" (the app handles the `sliceskip` event; `SliceVideo`) */
+		skippable?: boolean;
 		/** a placed item's icon URL + name (from the app's item catalog); none = placed items are not drawn */
 		itemInfo?: ResolveSliceItem;
 		/** a placed item the reader already took (not drawn) */
@@ -90,7 +94,8 @@
 			viewport={slice.video.viewport}
 			frame={slice.video.frame}
 			{autoplayPlayer}
-			{soundOnLabel}
+			{playerLabels}
+			{skippable}
 			{eager}
 		/>
 	{:else}

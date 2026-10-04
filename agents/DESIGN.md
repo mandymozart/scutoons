@@ -164,22 +164,44 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   is read by watching it, not by seeing it: its share of the position grows with the video's progress, and it counts as
   read once the video ended or reached 95 % (`PLAYER_WATCHED`); the chapter list's bar shows the same.
 - **Player video slice** (`SliceVideo.player`, `@scutoons/reader` `slice-video.svelte`, owner 2026-10-01 for the music
-  video "Roar Little Kitty"): instead of the muted in-view loop a video to watch – sound, native controls (fullscreen
-  through them), no loop, `playsinline`, `preload="metadata"`, the slice image as poster. **Autoplay** (owner 2026-10-01,
+  video "Roar Little Kitty"): instead of the muted in-view loop a video to watch – sound, our own controls (the
+  **player overlay** below; no native controls), no loop, `playsinline`, `preload="metadata"`, the slice image as poster. **Autoplay** (owner 2026-10-01,
   the reader only: `autoplayPlayer`, the creator's preview stays still): once half of it is in view it starts by itself,
   with sound when the browser allows it (a click earlier in the same document: the in-app way from the hero's "Trailer
-  ansehen ▶", the start button or the chapter list), otherwise muted with a centred "Ton an" / "Sound on" button (primary style, `player.sound_on`)
-  that unmutes and keeps playing (unmuting through the native controls hides it too); the `play()` rejection is handled
-  (`NotAllowedError` → muted, anything else → nothing; not even muted → the poster + the native play). Reduced motion: no
+  ansehen ▶", the start button or the chapter list), otherwise muted with a "Ton an" / "Sound on" button (primary style, `player.sound_on`)
+  in the mute button's place that unmutes and keeps playing (the mute button unmuting hides it too); the `play()` rejection is handled
+  (`NotAllowedError` → muted, anything else → nothing; not even muted → the poster + the overlay's ▶). Reduced motion: no
   autoplay. The slice's
   `width` / `height` are the video's ratio at 390 px (390 × 206 for 1280 × 676 / 2048 × 1080), `object-fit: contain` on
   ink. While it plays the chapter's music pauses and comes back after a pause or the end (bubbling `sliceplayer` event →
   the viewer's audio action → `holdForPlayer`). Which file plays is the reader's **media quality** (below), not the
   viewport: `SliceVideo.variants { low, medium, high }` + `src` (chapter 0: 480p / 720p / 1080p, `src` = 720p); the
   old `sources [{ src, media }]` is gone (a validation error). No adaptive streaming: HLS (e.g. Bunny Stream) may come
-  later. `SliceVideo.controls` (owner 2026-10-01, creator flag "controls" next to player / loop / autoplay): the
-  browser's basic controls, default on for a player and off for a loop; a player without them plays / pauses on a click
-  (and Space / Enter, it takes the focus).
+  later. `SliceVideo.controls` (owner 2026-10-01, creator flag "controls" next to player / loop / autoplay): default on
+  for a player and off for a loop; a player: on = the overlay's whole bar, off = only ▶ / ↺ (owner 2026-10-04); a loop:
+  the browser's basic controls.
+- **Player overlay** (`@scutoons/reader` `player-overlay.svelte`, owner 2026-10-04: "like the Netflix / Prime players",
+  replaces the native controls; loops never get it – they are art, chapter 1's key visual stays bare). House look on the
+  video: ink buttons with a 2px paper outline, IBM Plex Mono, no gradient; the top corners stay free (the app's fixed
+  logo and toggles).
+  - **▶** (4.5rem round, centred, a flat `rgb(0 0 0 / 0.35)` scrim): before the first play and while paused. **↺** in
+    the same place at the end ("Nochmal ansehen", the video from 0) – the only replay for a group ending with a player
+    video (the follow-up bar has none then).
+  - **Bar** (controls on), at the bottom, 1rem from the edges: a 2px seek line (watched part paper, rest 40 % white,
+    round 0.75rem thumb; a range input), below it play/pause (round) + "1:35 / 7:54" left, mute (round, `aria-pressed`)
+    and full screen (round) right. While it plays the bar **fades after 3 s** without activity (and the mouse cursor
+    over the video); a mouse move, a tap, a key or the keyboard focus in it bring it back; it never fades while paused.
+    Not before the first play, not at the end.
+  - **"Überspringen" / "Skip"** (fixed label, `player.skip`; the primary square style with ▶▶) bottom right above the bar
+    while it runs or is paused; it doesn't fade. It pauses the video and sends a bubbling `sliceskip` event; the viewer
+    (follow-up bar) goes to the next slice of the group, at the group's end to the next group / chapter (the bar's
+    primary, no countdown), else (members / coming soon / season's end) it shows the bar and scrolls the end clear of
+    it. **Skipping is not watching**: the progress stays where it was (owner 2026-10-04).
+  - Clicks: a mouse click on the video plays / pauses; a tap shows / hides the bar (before the first play and without the
+    bar a tap plays / pauses). Keys (focus in the overlay): Space / K play-pause, M mute, F full screen, ← / → 5 s.
+  - **Full screen**: the slice's box (`requestFullscreen`, the controls come along; the whole video, contain); iPhone
+    Safari has no element full screen → `webkitEnterFullscreen` (the system player).
+  - "Ton an" (sound blocked) sits in the mute button's place and stays while the bar fades; without the bar bottom right.
 - **Media quality** (owner 2026-10-01; PLAN.md "RULE: one file per quality level"): a reader setting, not a responsive
   question. Account page section **"Medienqualität" / "Media quality"** (`components/account/media-quality-setting.svelte`,
   for guests and members, between the account block and the inventory): one row of four square radio buttons
@@ -219,7 +241,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   - **Position** top / centre / bottom = which part stays when cropped at the top/bottom, or where the video sits with
     bars above/below; **cropping at the sides always keeps the centre**.
   - Drawing: full viewport + contain → the frame is the video's own box (`min(100%, 100svh × ratio)`) placed by the
-    position, so the native controls and "Ton an" stay on the video; cover → the video fills the box with
+    position, so the overlay's controls stay on the video; cover → the video fills the box with
     `object-position` 50 % 0 / 50 % / 50 % 100 %. In a frame the video always fills the box with `object-fit` contain /
     cover + `object-position` (bars are the box's ink). Player and loop alike; the poster (and the reduced-motion `<img>`)
     is placed the same way. Text boxes are in % of the column slice and don't follow a full-viewport video (validation
@@ -259,7 +281,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     | … signed in, no membership | "Kapitel 1 ist für Mitglieder: löse deinen Code ein." | "Code einlösen →" (the QR camera) | "Wo bekomme ich einen Code?" (the shop, like the blocker's "buy access") | no |
     | the next chapter coming soon | "Kapitel 3 erscheint am 1. Dezember 2025" (no date, or a draft not public here: "erscheint bald") | "Zur Übersicht →" | – | no |
     | the season's end | "Staffel 1 geschafft" | "Zur Übersicht →" | "Musik herunterladen" (only with `season.download.music`) | no |
-    After a group ending with a player video the replay is "↺ Nochmal ansehen" (the video again in place); "↺ Nochmal"
+    After a group ending with a player video there is no secondary: its replay is the ↺ on the video (player overlay);
+    moving the video away from its end (↺, the seek line) hides the bar until it ends again. "↺ Nochmal"
     scrolls to the top and starts the group again (a VN group runs its script again: the page's `{#key}` gets a replay
     counter). A redeemed code / a login turns the members case into the countdown case by itself.
   - **Countdown** (only next group / next chapter): a 2px rule under the primary fills in **5 s** + "Weiter in 4 s ·

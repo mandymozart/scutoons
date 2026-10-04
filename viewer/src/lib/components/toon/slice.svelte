@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { fromAction } from 'svelte/attachments';
 	import { pickQualityVariant, sanitizeNumber, type Dialog, type Slice as SliceModel, type SliceItem } from '@scutoons/content';
-	import { Slice, sliceAudio, type DialogPlay, type ResolveSliceItem } from '@scutoons/reader';
+	import { Slice, sliceAudio, type DialogPlay, type PlayerLabels, type ResolveSliceItem } from '@scutoons/reader';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
@@ -44,6 +44,19 @@
 	$effect(() => {
 		if (slice.image && Object.values(slice.imageVariants ?? {}).some((file) => !!file) && mediaQuality.needsMeasure) void mediaQuality.measure(asset(`${toonId}/${slice.image}`));
 	});
+	// the player video's controls (@scutoons/reader PlayerOverlay) in the reader's language
+	const playerLabels: Partial<PlayerLabels> = {
+		play: m['player.play'](),
+		pause: m['player.pause'](),
+		replay: m['player.replay'](),
+		mute: m['player.mute'](),
+		unmute: m['player.unmute'](),
+		soundOn: m['player.sound_on'](),
+		fullscreen: m['player.fullscreen'](),
+		exitFullscreen: m['player.exit_fullscreen'](),
+		seek: m['player.seek'](),
+		skip: m['player.skip']()
+	};
 	/** the first slices load right away, the rest lazily (agents/PERFORMANCE.md P2) */
 	const EAGER_SLICES = 2;
 	// chapter files are loaded per locale, so the UI locale is the language of the text
@@ -112,7 +125,8 @@
 	videoSrc={videoUrl}
 	eager={sliceIndex < EAGER_SLICES}
 	autoplayPlayer
-	soundOnLabel={m['player.sound_on']()}
+	{playerLabels}
+	skippable
 	{lang}
 	{itemInfo}
 	{itemHidden}

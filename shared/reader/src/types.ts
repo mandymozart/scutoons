@@ -35,6 +35,13 @@ export interface PercentRect {
  */
 export const SLICE_PLAYER_EVENT = 'sliceplayer';
 
+/**
+ * "Überspringen" on a player video slice (`PlayerOverlay`): a bubbling DOM event (no detail) on its `<video>`, which is
+ * paused first. The app decides where it goes (the viewer: the next slice, else the follow-up bar's next step). Skipping
+ * doesn't count as watched.
+ */
+export const SLICE_SKIP_EVENT = 'sliceskip';
+
 export interface SlicePlayerDetail {
 	state: 'play' | 'pause' | 'ended' | 'time';
 	/** the video is playing (play: true; pause / ended: false) */

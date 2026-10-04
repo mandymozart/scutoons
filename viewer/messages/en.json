@@ -114,7 +114,16 @@
 		"prologue": "Prologue"
 	},
 	"player": {
-		"sound_on": "Sound on"
+		"sound_on": "Sound on",
+		"play": "Play",
+		"pause": "Pause",
+		"replay": "Watch again",
+		"mute": "Mute",
+		"unmute": "Unmute",
+		"fullscreen": "Full screen",
+		"exit_fullscreen": "Exit full screen",
+		"seek": "Position in the video",
+		"skip": "Skip"
 	},
 	"media_quality": {
 		"title": "Media quality",
@@ -136,7 +145,6 @@
 		"chapter": "{chapter}: {title}",
 		"overview": "To the overview",
 		"replay": "Replay",
-		"replay_video": "Watch again",
 		"cancel": "Cancel",
 		"countdown": "Next in {seconds} s",
 		"coming_soon": "{chapter} comes out on {date}",
