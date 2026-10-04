@@ -121,7 +121,11 @@ Once:
 5. **Creator build**: GitHub variable `VITE_ASK_URL` = `https://ask.scutoons.com/api/ask`, then deploy the creator.
    Without it the panel says "not available".
 
-Updates: push to `main` → new image → bunny pulls it (automatic update on, or "redeploy" in the dashboard).
+Updates: push to `main` → new image (tagged with the commit) → the workflow tells bunny to run it (bunny's action
+`BunnyWay/actions/container-update-image`, a rolling update). Once: in GitHub → environment `production`, the variables
+`BUNNY_ASK_APP_ID` (the app id in the bunny dashboard) and `BUNNY_ASK_CONTAINER` (the container's name in that app);
+the secret `BUNNY_API_KEY` is already there (the main account key – bunny sub-user keys don't work). Without the app id
+the step is skipped: then "Container Settings → Edit → pick the new image version" in the dashboard.
 
 ## Example
 

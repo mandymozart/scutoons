@@ -1,8 +1,10 @@
 # The Ask service's container image (tools/mcp/Dockerfile, agents/CUTOVER.md 10.28): built on every push to main that
 # changes what the service is made of, pushed to the GitHub Container Registry as
 #   ghcr.io/mandymozart/scutoons-ask:latest   and   ghcr.io/mandymozart/scutoons-ask:<commit sha>
-# bunny.net Magic Containers pulls it from there (tools/mcp/README.md "Production"). Nothing is deployed by this
-# workflow – bunny updates the container when the image changes (or by hand in the bunny dashboard).
+# Then bunny.net Magic Containers is told to run the new image (bunny's own action, a rolling update): it needs the
+# environment `production` variables BUNNY_ASK_APP_ID (the app id in the bunny dashboard) + BUNNY_ASK_CONTAINER (the
+# container's name in that app) and the secret BUNNY_API_KEY (the main account key). Without the app id the step is
+# skipped and bunny keeps its image until a redeploy in the dashboard (tools/mcp/README.md "Production").
 # By hand: Actions → "Ask image" → Run workflow.
 on:
   push:
@@ -27,6 +29,8 @@ permissions:
 jobs:
   image:
     runs-on: ubuntu-latest
+    # the bunny app id / container (variables) and BUNNY_API_KEY (secret) live in the production environment
+    environment: production
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -43,3 +47,11 @@ jobs:
           tags: |
             ghcr.io/mandymozart/scutoons-ask:latest
             ghcr.io/mandymozart/scutoons-ask:${{ github.sha }}
+      - name: Update the bunny.net app
+        if: ${{ vars.BUNNY_ASK_APP_ID != '' }}
+        uses: BunnyWay/actions/container-update-image@main
+        with:
+          app_id: ${{ vars.BUNNY_ASK_APP_ID }}
+          api_key: ${{ secrets.BUNNY_API_KEY }}
+          container: ${{ vars.BUNNY_ASK_CONTAINER }}
+          image_tag: ${{ github.sha }}
