@@ -156,7 +156,7 @@ final class MailTemplates
             'audience' => 'creator',
             'description' => 'A creator submitted drafts for review (POST /api/reviews): to every reviewer of the toon (admin → user → review rules)',
             'vars' => ['author' => 'string', 'toon' => 'string', 'files' => 'string', 'note' => '?string', 'url' => 'url'],
-            'sample' => ['author' => 'writer@example.com', 'toon' => 'catpope', 'files' => 'chapter 2 (de, en), scene 2/kiosk (de, en)', 'note' => 'The kiosk scene is new, the rest are typo fixes.', 'url' => 'https://creator.scutoons.com/catpope'],
+            'sample' => ['author' => 'writer@example.com', 'toon' => 'Cat Pope', 'files' => 'chapter 2 (de, en), scene 2/kiosk (de, en)', 'note' => 'The kiosk scene is new, the rest are typo fixes.', 'url' => 'https://creator.scutoons.com/'],
             'blocks' => [
                 ['p', 'intro'],
                 ['p', 'files'],
@@ -169,7 +169,7 @@ final class MailTemplates
             'audience' => 'creator',
             'description' => 'A reviewer published submitted drafts (POST /api/reviews/publish): to the author',
             'vars' => ['reviewer' => 'string', 'toon' => 'string', 'files' => 'string', 'note' => '?string', 'url' => 'url'],
-            'sample' => ['reviewer' => 'editor@example.com', 'toon' => 'catpope', 'files' => 'chapter 2 (de, en)', 'note' => 'Lovely – thanks!', 'url' => 'https://creator.scutoons.com/catpope'],
+            'sample' => ['reviewer' => 'editor@example.com', 'toon' => 'Cat Pope', 'files' => 'chapter 2 (de, en)', 'note' => 'Lovely – thanks!', 'url' => 'https://creator.scutoons.com/'],
             'blocks' => [
                 ['p', 'intro'],
                 ['p', 'files'],
@@ -182,7 +182,7 @@ final class MailTemplates
             'audience' => 'creator',
             'description' => 'A reviewer sent submitted drafts back (POST /api/reviews/return): to the author',
             'vars' => ['reviewer' => 'string', 'toon' => 'string', 'files' => 'string', 'note' => '?string', 'url' => 'url'],
-            'sample' => ['reviewer' => 'editor@example.com', 'toon' => 'catpope', 'files' => 'chapter 2 (de, en)', 'note' => 'The cat would never say that – see slice 4.', 'url' => 'https://creator.scutoons.com/catpope'],
+            'sample' => ['reviewer' => 'editor@example.com', 'toon' => 'Cat Pope', 'files' => 'chapter 2 (de, en)', 'note' => 'The cat would never say that – see slice 4.', 'url' => 'https://creator.scutoons.com/'],
             'blocks' => [
                 ['p', 'intro'],
                 ['p', 'files'],

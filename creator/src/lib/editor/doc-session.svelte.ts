@@ -8,6 +8,7 @@ import { NEUTRAL_LOCALE } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { fileLabel, fileLabels } from '$lib/labels.ts';
 import { SaveConflict, type ContentDoc } from '$lib/editor/doc.svelte.ts';
+import { confirmSubmit, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
 
 /**
  * The confirm dialog before publishing (one structure everywhere): the files and their languages (none for the
@@ -104,13 +105,27 @@ export class DocSession {
 		await this.saveAll();
 	}
 
-	/** "Publish": saves first, then publishes every file with an unpublished version (after the confirm dialog) */
+	/**
+	 * "Publish": saves first, then publishes every file with an unpublished version (after the confirm dialog). Accounts
+	 * that need a review for the toon submit the same files for review instead (reviews.svelte.ts).
+	 */
 	async publishAll(): Promise<void> {
 		this.options.beforeSave?.();
 		const follow = [...new Set([...this.companions.filter((d) => d.dirty), ...this.savedCompanions])];
 		const files = [...this.docs.filter((d) => d.dirty || d.unpublished.length), ...follow];
 		if (!files.length) {
 			this.notice = m['creator.nothing_to_publish']();
+			return;
+		}
+		if (reviews.needsReview(files[0].toon)) {
+			const note = await confirmSubmit(files, this.options.errorCount?.() ?? 0);
+			if (note === null || !(await this.saveAll())) return;
+			try {
+				this.notice = await submitForReview([...this.docs, ...this.savedCompanions].filter((d) => d.stored.length && d.unpublished.length), note);
+				this.savedCompanions = [];
+			} catch (e) {
+				this.notice = e instanceof Error ? e.message : String(e);
+			}
 			return;
 		}
 		if (!(await confirmPublish(files, this.options.errorCount?.() ?? 0))) return;

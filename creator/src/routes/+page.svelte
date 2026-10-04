@@ -9,6 +9,7 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
+	import ReviewList from '$lib/components/page/review-list.svelte';
 
 	const session = getCreatorSession();
 	let toons = $state<ToonIndex[]>([]);
@@ -28,6 +29,7 @@
 
 <div class="creator-page">
 	<main class="browser">
+		<ReviewList />
 		<section>
 			<h2>{m['creator.toons']()}</h2>
 			{#if error}<p class="error">{error}</p>{/if}

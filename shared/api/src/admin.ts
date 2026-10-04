@@ -220,6 +220,16 @@ export interface AdminUserDetail extends Omit<AdminUserRow, 'codes'> {
 	last_seen_at: string | null;
 	/** avatar-body unlocks: the defaults (source `default`) + granted ones */
 	characters?: AdminCharacterUnlock[];
+	/** review before publish: per toon (`*` = every toon) reviewer / needs_review (docs/API.md "Reviews") */
+	review_rules?: AdminReviewRule[];
+}
+
+export interface AdminReviewRule {
+	toon: string;
+	rule: 'reviewer' | 'needs_review';
+	user: { id: string; email: string };
+	created_at: string | null;
+	created_by: string | null;
 }
 
 export interface AdminCharacterUnlock {
@@ -586,6 +596,13 @@ export function createAdminApi(api: ApiClient) {
 				`/admin/users/${seg(id)}/roles/${seg(role)}`
 			),
 		roles: () => api.get<{ status: string; items: RoleInfo[] }>('/admin/roles'),
+		/** review rules (toon id or `*`, reviewer | needs_review) */
+		reviewRules: () => api.get<{ status: string; items: AdminReviewRule[] }>('/admin/review-rules'),
+		setReviewRule: (id: string, toon: string, rule: AdminReviewRule['rule'], on: boolean) => {
+			const path = `/admin/users/${seg(id)}/review-rules/${seg(toon)}/${rule}`;
+			type Result = { status: string; changed: boolean; review_rules: AdminReviewRule[] };
+			return on ? api.put<Result>(path) : api.delete<Result>(path);
+		},
 		/** unlock an avatar-body character (+ further A-pose looks) for an account */
 		unlockCharacter: (id: string, character: string, body: { looks?: string[]; source?: AdminCharacterUnlock['source']; ref?: string } = {}) =>
 			api.put<{ status: string; changed: boolean; characters: AdminCharacterUnlock[] }>(`/admin/users/${seg(id)}/characters/${seg(character)}`, body),

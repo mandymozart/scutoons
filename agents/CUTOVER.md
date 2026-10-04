@@ -582,10 +582,15 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       `POST /api/reviews/publish|return`, `403 review_required` on `/api/entities/<key>/publish|unpublish`, admin
       `/api/admin/review-rules` + `/api/admin/users/{id}/review-rules/{toon}/{rule}`, mails `review_requested` /
       `review_published` / `review_returned` (de + en), setting `CREATOR_URL`. server/docs/API.md "Reviews", PHPUnit `ReviewsTest`.
-    - **Open:** UI (design drafts first): admin user page → review rules; creator → "Submit for review" instead of Publish
-      for `needs_review` accounts, a "Reviews (n)" list for reviewers (publish / send back with a note), "in review" in the
-      history panel; then the mail link → that list. `mcp` branch: a `submit_for_review` tool (`POST /api/reviews`);
-      `publish_entity` now gets `403 review_required` for `needs_review` tokens.
+    - **Built (UI, drafts approved by the owner 2026-10-04):** admin user page → section "Reviews" (the account's rules,
+      add toon / All toons + Reviewer / Needs review, remove). Creator: for `needs_review` accounts every page's Publish
+      button is "Submit for review" (the publish dialog + an optional note; `lib/editor/reviews.svelte.ts`), the history
+      panel hides publish / unpublish for them and marks versions "in review"; the dashboard shows "To review" (one row per
+      submit: author, time, languages, note, "newer drafts" hint, Send back / Publish with a note to the author) and "Your
+      submissions" (in review / sent back with the reviewer's note) – both only when not empty. Mails name the toon
+      ("Cat Pope", not the id) and link to the dashboard (owner: no further action needed than the list).
+    - **Open:** `mcp` branch: a `submit_for_review` tool (`POST /api/reviews`); `publish_entity` now gets
+      `403 review_required` for `needs_review` tokens.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

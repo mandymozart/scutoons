@@ -63,6 +63,8 @@ final class ReviewsTest extends TestCase
         self::assertSame(['editor@example.com'], $submitted['reviewers']);
         self::assertSame(['review_requested'], $this->mails('editor@example.com'), 'one mail for both files');
         self::assertStringContainsString('chapter 2 (de, en)', $this->mailLog());
+        self::assertStringContainsString('Subject: Review requested: Cat Pope', $this->mailLog(), 'the toon name, not its id');
+        self::assertStringContainsString("https://creator.scutoons.com/\n", $this->mailLog(), 'the dashboard (To review)');
 
         // a newer submit of the same file annuls the open one; the review stays pinned to its version
         $de2 = $store->save($writer, EntityKey::parse('chapter:catpope:2:de'), (object) ['content' => ['title' => 'Zwei!']])['version']['id'];

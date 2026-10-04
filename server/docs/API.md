@@ -417,7 +417,7 @@ call (a chapter = every language + its scenes) and every person gets one mail pe
 
 Admin (`/api/admin`): `GET /review-rules` → `{ items: [{ toon, rule, user: { id, email }, created_at, created_by }] }`,
 `PUT|DELETE /users/{id}/review-rules/{toon}/{rule}` → `{ changed, review_rules }` (`400 invalid_toon|invalid_rule`);
-`GET /users/{id}` includes `review_rules`. Mail links go to `CREATOR_URL/<toon>`.
+`GET /users/{id}` includes `review_rules`. Mails name the toon (its catalog name) and link to the creator dashboard `CREATOR_URL/` ("To review" / "Your submissions").
 
 ## Library (the reader's entities, agents/DATA.md)
 

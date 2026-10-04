@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Content;
 
 use Scutoons\Domain\ApiError;
+use Scutoons\Domain\Catalog\Toons;
 use Scutoons\Domain\Mail\MailFailed;
 use Scutoons\Domain\Mail\Mailer;
 use Scutoons\Domain\Mail\MailTemplates;
@@ -42,6 +43,7 @@ final class Reviews
         private readonly EntityStore $store,
         private readonly Mailer $mailer,
         private readonly Settings $settings,
+        private readonly Toons $toons,
     ) {
     }
 
@@ -217,10 +219,10 @@ final class Reviews
         foreach ($mails as $mail) {
             $this->mail(MailTemplates::REVIEW_REQUESTED, $mail['to']['email'], $mail['to']['locale'], [
                 'author' => (string) ($user['email'] ?? ''),
-                'toon' => implode(', ', array_keys($mail['toons'])),
+                'toon' => $this->toonNames(array_keys($mail['toons'])),
                 'files' => self::files($mail['keys']),
                 'note' => $note,
-                'url' => $this->creatorUrl((string) array_key_first($mail['toons'])),
+                'url' => $this->creatorUrl(),
             ]);
         }
         $emails = [];
@@ -275,10 +277,10 @@ final class Reviews
             $toons = array_values(array_unique(array_column($list, 'toon')));
             $this->mail($publish ? MailTemplates::REVIEW_PUBLISHED : MailTemplates::REVIEW_RETURNED, (string) $author['email'], $author['locale'] ?? null, [
                 'reviewer' => (string) ($user['email'] ?? ''),
-                'toon' => implode(', ', $toons),
+                'toon' => $this->toonNames($toons),
                 'files' => self::files(array_column($list, 'key')),
                 'note' => $note,
-                'url' => $this->creatorUrl($toons[0]),
+                'url' => $this->creatorUrl(),
             ]);
         }
         return ['status' => 'success', 'reviews' => $reviews, 'keys' => array_values(array_unique($keys))];
@@ -360,9 +362,22 @@ final class Reviews
         return implode(', ', $parts);
     }
 
-    private function creatorUrl(string $toon): string
+    /** The creator's dashboard: "To review" for reviewers, "Your submissions" for authors (owner 2026-10-04) */
+    private function creatorUrl(): string
     {
-        return rtrim($this->settings->get('CREATOR_URL'), '/') . '/' . rawurlencode($toon);
+        return rtrim($this->settings->get('CREATOR_URL'), '/') . '/';
+    }
+
+    /**
+     * The toons' names for the mails ("Cat Pope"; owner 2026-10-04), the id when the catalog has none
+     * @param list<string|int> $ids
+     */
+    private function toonNames(array $ids): string
+    {
+        return implode(', ', array_map(function (string|int $id): string {
+            $name = $this->toons->find((string) $id)['name'] ?? null;
+            return is_string($name) && $name !== '' ? $name : (string) $id;
+        }, $ids));
     }
 
     /** @param array<string, mixed> $vars */
