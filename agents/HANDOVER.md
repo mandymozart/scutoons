@@ -39,6 +39,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 ## UI rules (owner) – check before building UI
 - Less UI is better UI. No duplicate controls: the creator header's text-language switch is the ONLY language switch
   (script, cover editor, credits follow it).
+- Sizes in rem, never px (owner 2026-10-04: "a dogma across the app") – px only inside the tokens (border widths) and
+  the existing breakpoints.
 - Every control at `--control-height`; icon-only buttons are round (`class="sc-round"`, tools.css); one tooltip style
   via `title`; bold very rarely; field groups without frames (legend = label).
 - Spacing on a 1rem line: sidebars, outline, fold button all start at 1rem; dividers run edge to edge.
