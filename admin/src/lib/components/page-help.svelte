@@ -63,8 +63,6 @@
 			<dd>{m['claims.help_transfer_code']()}</dd>
 			<dt>{m['codes.section_certificate']()}</dt>
 			<dd>{m['codes.section_certificate_hint']()}</dd>
-			<dt>{m['codes.section_raw']()}</dt>
-			<dd>{m['codes.section_raw_hint']()}</dd>
 		</dl>
 	{:else if page === 'generate'}
 		<p>{m['generate.meta']()}</p>
@@ -80,8 +78,6 @@
 		<p>{m['help.batches']()}</p>
 	{:else if page === 'batch'}
 		<p>{m['help.batches']()}</p>
-		<h3>{m['batches.manifest']()}</h3>
-		<p>{m['batches.manifest_hint']()}</p>
 	{:else if page === 'users'}
 		<p>{m['help.users']()}</p>
 		{@render lists()}

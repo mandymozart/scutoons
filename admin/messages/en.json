@@ -97,13 +97,6 @@
 		"range": "{from}–{to} of {total}",
 		"per_page": "Per page"
 	},
-	"inspector": {
-		"fields": "Fields",
-		"json": "JSON",
-		"key": "Key",
-		"value": "Value",
-		"view": "View"
-	},
 	"dashboard": {
 		"title": "Dashboard",
 		"period": "{from} to {to} (UTC)",
@@ -217,8 +210,6 @@
 		"timeline_caption": "{count} events",
 		"section_certificate": "Certificate",
 		"section_certificate_hint": "Rebuilt from the stored signature: the same data as when it was signed.",
-		"section_raw": "Raw record",
-		"section_raw_hint": "The API answer as it is.",
 		"qr_url": "QR URL",
 		"qr_of": "QR code of {code}",
 		"items": "Items",
@@ -306,9 +297,7 @@
 		"done_toast": "Batch complete: {count} codes.",
 		"leave_confirm": "The batch is running. Stop it and leave? It can be resumed later.",
 		"leave_title": "Stop the batch?",
-		"leave_label": "Stop and leave",
-		"manifest": "Manifest",
-		"manifest_hint": "Stored on the server after every code (resumable)."
+		"leave_label": "Stop and leave"
 	},
 	"users": {
 		"title": "Users & roles",

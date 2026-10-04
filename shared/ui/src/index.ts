@@ -27,7 +27,6 @@ export { default as PaletteTrigger } from './palette-trigger.svelte';
 export { linkCommands, languageCommand, signOutCommand, otherLocale, type PaletteLink } from './palette-commands.ts';
 export { default as Skeleton } from './skeleton.svelte';
 export { default as Chart, type ChartSeries } from './chart.svelte';
-export { default as RecordInspector } from './record-inspector.svelte';
 export { entityLabel, ENTITY_LABELS, type EntityLabels } from './entity-label.ts';
 export { readList, listHref, listParams, type ListState, type ListDefaults } from './list-query.ts';
 export { default as ActionBar } from './action-bar.svelte';

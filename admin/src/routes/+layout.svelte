@@ -145,7 +145,8 @@
 						<img src="/SCUTOONS-logo.svg" alt="SCUTOONS" width="120" height="20" />
 						<span class="brand-name">{m['shell.admin']()}</span>
 					</a>
-					<PaletteTrigger label={m['shell.search']()} onclick={() => (paletteOpen = true)} />
+					<PaletteTrigger label={m['shell.search']()} compact onclick={() => (paletteOpen = true)} />
+					<span class="who">{session.user?.email ?? ''}</span>
 				</header>
 			{/snippet}
 			{#snippet sidebar()}
@@ -200,7 +201,7 @@
 	.topbar {
 		display: flex;
 		align-items: center;
-		gap: var(--space-1);
+		gap: var(--space-075);
 		height: var(--topbar-height);
 		padding: 0 var(--space-1);
 		box-sizing: border-box;
@@ -222,9 +223,23 @@
 		height: 1.25rem;
 		width: auto;
 	}
-	/* the palette trigger (@scutoons/ui PaletteTrigger) keeps a little more room after the brand */
+	/* as in the creator's bar: the search and the signed-in account sit on the right */
 	.topbar :global(.sc-palette-trigger) {
-		margin-left: var(--space-1);
+		margin-left: auto;
+	}
+	.who {
+		flex: none;
+		max-width: 16rem;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		font-size: var(--type-caption-size);
+		color: var(--text-muted);
+	}
+	@media (max-width: 1099px) {
+		.who {
+			display: none;
+		}
 	}
 	.burger {
 		display: none;
@@ -306,9 +321,6 @@
 	@media (max-width: 767px) {
 		.burger {
 			display: inline-flex;
-		}
-		.topbar :global(.sc-palette-trigger) {
-			margin-left: 0;
 		}
 		main {
 			padding: var(--space-1) var(--space-1) var(--space-3);
