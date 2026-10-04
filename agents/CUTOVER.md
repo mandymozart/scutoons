@@ -568,106 +568,57 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   - **Checks**: a script like `check:stroll` that drives the tools against the local stack (read → patch → validate → save
     draft → restore), never against production.
   - **Example task**: "set up the chapter 2 stroll" (today `scripts/dev/stroll-chapter2.mjs`) as one request.
-  - **Step 1 built (2026-10-03, branch `mcp`)**: `tools/mcp` (`@scutoons/mcp`, MCP TypeScript SDK v2
+  - **Step 1 built (2026-10-03/04, branch `mcp`)**: `tools/mcp` (`@scutoons/mcp`, MCP TypeScript SDK v2
     `@modelcontextprotocol/server` 2.3 – the split packages that replace `@modelcontextprotocol/sdk`; zod 4). Runs from
     the repo with Node's type stripping (`bin/scutoons-mcp.mjs` → `src/main.ts`, nothing built). Config: `SCUTOONS_API`
     (default local), `SCUTOONS_TOKEN` (locally falls back to `logs/dev/test-user.json`, never for a remote API),
-    no publishing (removed 2026-10-04, see below). Tools: `list_toons`, `list_chapters` (groups: label, scene entity, slices, `scriptLabels`
-    points), `read_entity` (draft / published / version id, one or every locale, `path` for a part), `read_characters`
-    (cast season 1 like the creator, looks, moods), `read_map_places`, `search_assets`, `upload_asset` (2026-10-04: a new
-    file from a URL or local file → the asset manager, 409 when the path is taken; returns the toon-relative content path), `validate` (validateFile with the
-    chapter editor's context + validateLocales; validateCast for cast), `save_draft` (`ops` set / insert / remove on the
-    `base` version, or whole `content`; errors refuse the save unless `allow_errors`; message gets "(agent)"; 409 explained),
-    `list_versions`, `restore_version`. Resources
-    `scutoons://rules/{workflow,entity-keys,vn-events,flow,text-presets,slices}` generated at start from the source (doc
-    comments, README section, types, TEXT_PRESETS, constants). `npm run check:mcp` (`scripts/dev/mcp-check.mjs`, 23 checks,
-    local only: catpope scene-14 de read → broken divert refused → save → 409 → versions → restore, original back; no
-    publish tool). `npm run check` runs the package's tsc. README: Claude Code / Desktop, local + production.
-    Not validated yet: season status of a chapter and placed items against the catalog (the creator passes both).
+    `SCUTOONS_MCP_PUBLISH=1` (publish tool, off by default). Tools: `list_toons`, `list_chapters` (groups: label, scene
+    entity, slices, `scriptLabels` points), `list_entities` (every stored document of a toon / the platform),
+    `search_content` (full text in a toon's documents, the screenplay per line), `read_entity` (draft / published /
+    version id, one or every locale, `path` / `lines` for a part), `read_characters` (cast season 1 like the creator,
+    looks, moods), `read_map_places`, `search_assets`, `upload_asset` (a new file from a URL or local file → the asset
+    manager, 409 when the path is taken), `validate` (validateFile with the chapter editor's context + validateLocales;
+    validateCast for cast), `save_draft` (`ops` set / insert / remove on the `base` version, or whole `content`; errors
+    refuse the save unless `allow_errors`; message gets "(agent)"; 409 explained), `list_versions`, `restore_version`,
+    `publish_entity` (only with the env flag, `confirm: true` per call). Resources
+    `scutoons://rules/{workflow,entity-keys,vn-events,flow,text-presets,slices}` generated at start from the source.
+    `npm run check:mcp` (`scripts/dev/mcp-check.mjs`, 31 checks, local only, restores what it changes). README: Claude
+    Code / Desktop, local + production. Not validated yet: season status of a chapter and placed items against the
+    catalog (the creator passes both).
   - **Step 2 decisions (owner 2026-10-04)**:
-    - **Agents never publish.** Their job is to build everything the creator has access to; the creator reviews the drafts
-      and publishes in the creator app. The publish tool is removed (step 1 too); remote: no publish at all.
-    - **Host: inside the PHP API** (MCP Streamable HTTP, stateless JSON answers – works on the shared hosting). Open: the
-      validator is TypeScript (`@scutoons/content` validate.ts) – a PHP port of the checks save_draft needs, or saves
-      without them there (the creator still shows the problems). Candidate library: the official PHP MCP SDK (`mcp/sdk`).
-    - **Auth: OAuth 2.1 (MCP authorization spec)** – recommended and safer: the creator signs in and consents in the browser,
-      the client gets short-lived, scoped tokens (no `publish` scope exists), one grant per client, revocable in the
-      creator ("Connected apps"); the claude.ai connector signs in this way. Personal access tokens (scoped, expiring,
-      revocable, never the browser session) only as a fallback for local Claude Code / Desktop, if at all.
-    - **"Ask" panel: the owner pays** (SCUTOONS, personal business). Every AI call is logged: creator, service (Claude
-      API, image / audio services …), model, input / output tokens (or units), cost – an admin overview by creator and
-      service per day / month. Model: open (default the current Sonnet; Opus for bigger jobs?), limits per creator: open.
-    - **Asset upload tool**: explained to the owner (an agent puts a file – e.g. an image made by another AI service – into
-      the asset manager at a CDN path, so a slice can use it); decision open.
-- [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
-
----
-
-## Decide-before list (all phases)
-
-| # | Decision | Blocks | Default / recommendation |
-|---|---|---|---|
-| D1 | old-layout files on the bunny zone: keep or prune | Phase 1 (no) | keep until the public release, then prune via Unused |
-| D2 | root folder name; test hostnames | 2.1, 2.6, T1 | **decided: `/web/`** ("the house of the applications"); hostnames still proposed: `next.` + `qr-next.` |
-| D3 | `VITE_API_URL` directly api. | 2.5 | yes |
-| D4 | duplicate Dago/beetles code sets: which was printed | public release (not the beta) | decide in the beta week |
-| D5 | embassy stays held back | 5 | yes |
-| D6 | admin mail recipients (`MAIL_ADMIN_TO` / Emails page) | 6.4 | owner's address |
-| D7 | the code you sign up with | 6.3 | promo code from the old `generate/` before 0.1 |
-| D8 | test data may be discarded on a DB rebuild | 7 | yes |
-| D9 | chapter 2 during the beta: draft or published | 8/9 | owner |
-| D10 | switch time window | 8 | quiet hour, Sat 2026-10-03 |
-| D11 | testers + their codes | 9 | promo codes |
-| D12 | feedback channel | 9 | owner |
-| D13 | ownership defaults: dispute sign-up, gift + claim limits | 9 | as built |
-| – | Not blocking the beta: record player coupon place once chapter 5 exists, tape/CD player sourcing (ITEMS.md); Nova Lux vs Nova Ludwig in the credits; stores' 7 open questions (EMBASSY.md); media-quality thresholds; trailer from the prologue film; the 11 unused CDN files | – | after the beta |
-
----
-
-## Progress log
-
-- 2026-10-02 — runbook written (side-by-side + new DB strategy). Next: 0.1.
-- 2026-10-02 — 0.1 done (export in the owner's Proton Drive backups; only the `qr` table). Owner: credentials only in the
-  GitHub `production` environment; relayout BEFORE the bunny upload, new platform on `https://scutoons.b-cdn.net`
-  (Phase 1 rewritten, waits for the assets merge), Phase 4 n/a. Next: 0.2 (+ the 0.1 numbers).
-- 2026-10-02 — 0.3 done (legacy `/scutoons.com/` backed up). KAS FTP users recorded; 2.1 = new user "github actions next"
-  rooted in `/web/` (T3 n/a), 2.2 folder layout + domain map, 10.9 FTP cleanup.
-- 2026-10-02 — D2 decided: the new root folder is `/web/` (was proposed `/scutoons-next/`); test hostnames still proposed.
-- 2026-10-02 — 0.2 done. Open: the 0.1 numbers, the 0.2 hash/publicKey check. Next in parallel: 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6.
-- 2026-10-02 — 0.1 numbers: 469 codes / 35 registered / 381 signed, MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per-edition + CHECKSUM pending.
-- 2026-10-02 — 0.1 per edition: NULL 169, 3_catpope_vinyl 300 (= 469). No dago/beetles codes in production. CHECKSUM pending.
-- 2026-10-02 — 0.1 complete: CHECKSUM TABLE qr = 3162238151 (Phase 7 reference).
-- 2026-10-02 — 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6 done; 2.3 partly (keypair pending); T1 done (6fcb82c). Next: keypair → 2.3 verify, then 3.1/3.2 on DB-T.
-- 2026-10-02 — keypair reference SHA-256 409c1983…7bbe recorded (dev key 11934cea… must never go to production); batch manifests for 3.4 are in the same ZIP (`qr.scutoons.com/generate/files/batch/`).
-- 2026-10-02 — 3.4 SQL generated (300 statements, vinyl batch only) → cdn/logs/edition-numbers-2026-10-02.sql.
-- 2026-10-02 — 3.1 + 3.2 done (16 migrations, 3 triggers). Next: 3.4 import + check 469 / 300 numbered / 381 signed / 35 registered; 2.3 keypair upload pending.
-- 2026-10-02 — 3.4 done; DB-T qr counts match (469 / 300 / 381 / 35). 3.3 waits for the assets merge (regenerated seed).
-- 2026-10-02 — assets merged (b3be086, 67774da), relayout done (1.1), .env in C:\Development\scutoons, bunny zone empty. Migration 17 `2026-10-02-assets` added to 3.2; 3.3 unblocked. Next: 3.3 seed, migration 17, then 1.3/1.4 from C:\Development\scutoons\server. Worktree scutoons-assets can be removed later.
-- 2026-10-02 — 3.3 + 3.5 done (48 entities, roles, users 0, editions NULL 169 + vinyl 300); migration 17 awaiting the owner's confirmation; 1.3 + 1.4 done. Owner running 1.5 (log cdn/logs/bunny-init-2026-10-02.json), then 1.6, 1.7.
-- 2026-10-02 — migration 17 ran on DB-T (3.2 complete). 1.5 bunny upload running.
-- 2026-10-02 — 1.5, 1.6, 1.7 done (bunny = cdn/root, CORS + Range verified). Open in Phase 1: 1.8. Next: 1.8, then Phase 5.
-- 2026-10-02 — 10.1b done (7 bunny secrets in production). Awaiting confirmation: 2.3 keypair upload, 1.8 write prefix.
-- 2026-10-03 — 10.10 done on branch `dev-mariadb` (local MariaDB in Docker, tests + CI on it). Open: production's version / sql_mode / collation from phpMyAdmin → `docker/compose.yml`.  - **Step 2 decisions (owner 2026-10-04)**:
-    - **Order (owner 2026-10-04): the creator's "Ask" panel is the way for creators; the API token (step 1, stdio) stays
-      for Claude Code / Desktop; no claude.ai connector for now** (no OAuth needed – revisit only if creators want claude.ai).
-    - **Host: bunny.net Magic Containers** (owner 2026-10-04; EU, the same bunny account as the CDN): this package in a
-      Docker container + Streamable HTTP, the validator stays TypeScript. Billed by usage (~$0.02 / core-hour + RAM, account
-      minimum $1/month) – check the real idle cost in the 14-day trial. Rejected: Cloudflare Workers (US; free plan 10 ms CPU
-      per request is tight for validating a big chapter; needs bundling), bunny Edge Scripting (Deno, a port), Koyeb /
-      Render / Hetzner / Scaleway (a second provider).
-    - **Auth: long-lived personal access tokens** (owner's choice; OAuth was recommended as safer). Build: a creator page
-      "Tokens" – create (shown once, only the hash stored), name, last used, revoke; never the browser session; the API
-      accepts them as Bearer like a session. Expiry optional. (A claude.ai connector would need OAuth – not planned.)
-    - **"Ask" panel: the owner pays** (SCUTOONS, personal business); default model the current Sonnet. Every AI call is
-      logged: creator, service (Claude API, image / audio services …), model, input / output tokens (or units), cost →
-      an admin overview by creator and service per day / month.
-      **No limits in SCUTOONS** (owner 2026-10-04: creators need to get the job done; the owner watches how usage develops
-      in the overview and controls spending on the Anthropic account side) – the app logs, it doesn't cap.
-    - **Asset upload: yes** – built in step 1 (`upload_asset`); remote: from a URL only (no local files there).
-    - **Publish: keep the tool** (owner: drafts are reviewed; with a chat history the drafts can be reviewed there too).
-      Today it is off by default (`SCUTOONS_MCP_PUBLISH=1`) with `confirm: true` per call, and the API lets every
-      creator publish. To build in the API: who may publish without a review, by hierarchy level (a role / permission
-      "publish" vs. "submit for review"), so the API decides for agents and the UI alike.
+    - **Order:** the creator's "Ask" panel is the way for creators; the API token (step 1, stdio) stays for Claude Code /
+      Desktop; no claude.ai connector for now (no OAuth needed – revisit only if creators want claude.ai).
+    - **Host: bunny.net Magic Containers** (EU, the same bunny account as the CDN): the Ask service in a Docker container.
+      Billed by usage (~$0.02 / core-hour + RAM, account minimum $1/month) – check the real idle cost in the 14-day trial.
+      Rejected: Cloudflare Workers (US; free plan 10 ms CPU per request is tight for validating a big chapter; needs
+      bundling), bunny Edge Scripting (Deno, a port), Koyeb / Render / Hetzner / Scaleway (a second provider).
+    - **Auth: long-lived personal access tokens** for Claude Code / Desktop (owner's choice; OAuth was recommended as
+      safer). To build: a creator page "Tokens" – create (shown once, only the hash stored), name, last used, revoke; never
+      the browser session; the API accepts them as Bearer like a session. Expiry optional.
+    - **"Ask" panel: the owner pays** (SCUTOONS, personal business); model Claude Sonnet 5.5. Every AI call is logged:
+      creator, service, model, tokens, cost → an admin overview by creator and service per day / month. **No limits in
+      SCUTOONS** (creators need to get the job done; the owner controls spending on the Anthropic account side).
+    - **Asset upload: yes** (`upload_asset`; remote: from a URL only).
+    - **Publish: keep the tool** (drafts get reviewed; the chat history shows what an agent did). Today off by default with
+      `confirm: true` per call, and the API lets every creator publish. Review levels (who may publish without a review)
+      are a separate task in the API, for agents and the UI alike.
+    - **Chat history: yes** (owner 2026-10-04: "I need to see what I did before if something stops or breaks").
+  - **Step 2 built (2026-10-04, branch `mcp`)**:
+    - **Ask service** `tools/mcp/src/ask.ts` (`npm run dev:ask`, port 9002 in dev-ports; `npm run dev` starts it when the
+      repo-root `.env` has `ANTHROPIC_API_KEY`): `POST /api/ask`, Server-Sent Events. The creator's session (Bearer or the
+      `scutoons_sid` cookie) checked against `/me/` (role creator); the MCP tools in-process (InMemoryTransport) with that
+      session; Claude Sonnet 5.5 (server-side fallback `default`, effort medium, cached system prompt with the format
+      rules); context per message: page, the header's text language, the app language. Every API call → JSON line in
+      `logs/ask/usage.jsonl` (creator, model, tokens, cost in USD). A loop guard of 60 rounds (not a spending limit).
+    - **Chat history** in the API: table `agent_chats` (migration `2026-10-04-agent-chats`, **to run on production**),
+      `/api/agent-chats` (list / get / put / delete, role creator, own chats only, 503 without the table). The service
+      saves after every round and loads a chat to go on with it.
+    - **Creator panel** (`creator/src/lib/components/ask/ask-panel.svelte`): round header button; docked right, the page
+      makes room, drags wider; full screen on phones. Streams the answer, each tool call a step, saved drafts as links;
+      stop, new chat, earlier chats (clock button), the open chat comes back after a reload. `VITE_ASK_URL` for
+      production (empty = "not available").
+    - **Open:** deploy the service on bunny Magic Containers (+ `VITE_ASK_URL`, `ASK_ORIGINS`); the usage log into the
+      database + the admin overview; personal access tokens; review levels for publishing (separate task).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

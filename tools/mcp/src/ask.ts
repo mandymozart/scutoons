@@ -3,13 +3,15 @@
 // Who asks: the creator's session (Bearer header or the cookie), checked against the API's /me/ – the agent then uses
 // that session for every tool, so the API's role checks decide what it may do. The tools are the SCUTOONS MCP server
 // (server.ts) connected in-process. The model: Claude via the Anthropic API, paid by the owner; every API call is
-// logged (creator, service, model, tokens, cost) – no limits in the app (owner 2026-10-04). Chats live in memory only
-// (no history for now, owner 2026-10-04).
+// logged (creator, service, model, tokens, cost) – no limits in the app (owner 2026-10-04). Chats are saved in the API
+// (`/api/agent-chats`, each creator's own) after every round, so a chat that stops or breaks stays readable and can go
+// on (owner 2026-10-04); the memory here is only a cache.
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
+import { ApiError, createAgentChatsApi, createApiClient, type AgentTurn } from '@scutoons/api';
 import { Client } from '@modelcontextprotocol/client';
 import { InMemoryTransport } from '@modelcontextprotocol/server';
 import { isLocalUrl, type Config } from './config.ts';
@@ -50,7 +52,11 @@ const SYSTEM = [
 	'for that publish in this chat. When something is unclear or risky, ask before saving. Finish with a short summary of',
 	'what you changed (which documents, which languages) – the panel lists your saved drafts as links.',
 	'',
-	'Each user message starts with [Page: …] – where the creator is in the app right now.',
+	'Each user message starts with [Page: … | Text language: … | App language: …]: where the creator is in the app,',
+	'which content language they are looking at in the creator (a language code, "source" = each text in its source',
+	'language, "all" = every language side by side) and the language of their app. Answer in the app language unless',
+	'they write in another one. Content you write goes into every language of the toon (the source language first); when',
+	'the text language is one language, that is the one the creator is working on – check it closely.',
 	'',
 	'# Format rules',
 	'',
@@ -85,11 +91,58 @@ async function creatorOf(api: string, token: string): Promise<Creator | null> {
 	return creator;
 }
 
-// ── chats (memory only) ─────────────────────────────────────────────────────────────────────────────────────────────
+// ── chats (saved in the API, cached here) ───────────────────────────────────────────────────────────────────────────
 
-const chats = new Map<string, { owner: string; messages: Param[]; at: number }>();
+interface Chat {
+	owner: string;
+	title: string;
+	page: string;
+	messages: Param[];
+	turns: AgentTurn[];
+	at: number;
+}
+const chats = new Map<string, Chat>();
 function sweep() {
 	for (const [id, c] of chats) if (Date.now() - c.at > CHAT_TTL_MS) chats.delete(id);
+}
+/** false once the API answered that it has no chat storage (the migration not run yet) – the panel works without */
+let storage = true;
+
+function chatsApi(cfg: AskConfig, creator: Creator) {
+	return createAgentChatsApi(createApiClient({ baseUrl: cfg.api, getToken: () => creator.token }));
+}
+
+/** the creator's chat: from the cache, else from the API (to go on with an earlier chat), else a new one */
+async function loadChat(cfg: AskConfig, creator: Creator, id: unknown): Promise<[string, Chat]> {
+	if (typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)) {
+		const cached = chats.get(id);
+		if (cached?.owner === creator.id) return [id, cached];
+		if (storage && !cached) {
+			try {
+				const { chat } = await chatsApi(cfg, creator).get(id, true);
+				const restored: Chat = { owner: creator.id, title: chat.title, page: chat.page ?? '', messages: (chat.messages ?? []) as Param[], turns: chat.turns ?? [], at: Date.now() };
+				chats.set(id, restored);
+				return [id, restored];
+			} catch (error) {
+				if (!(error instanceof ApiError && error.status === 404)) console.error('ask: loading a chat failed', error);
+			}
+		}
+	}
+	const chat: Chat = { owner: creator.id, title: '', page: '', messages: [], turns: [], at: Date.now() };
+	const fresh = randomUUID();
+	chats.set(fresh, chat);
+	return [fresh, chat];
+}
+
+async function saveChat(cfg: AskConfig, creator: Creator, id: string, chat: Chat) {
+	if (!storage) return;
+	try {
+		await chatsApi(cfg, creator).put(id, { title: chat.title, page: chat.page || null, turns: chat.turns, messages: chat.messages });
+	} catch (error) {
+		// 503: the table isn't there yet (migration 2026-10-04-agent-chats) – keep chatting without history
+		if (error instanceof ApiError && (error.status === 503 || error.status === 404)) storage = false;
+		console.error('ask: saving the chat failed', error instanceof Error ? error.message : error);
+	}
 }
 
 // ── usage ───────────────────────────────────────────────────────────────────────────────────────────────────────────
@@ -172,13 +225,27 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 	if (!text) return void res.writeHead(400).end();
 
 	sweep();
-	let chatId = typeof body.chat === 'string' && chats.get(body.chat)?.owner === creator.id ? body.chat : randomUUID();
-	const chat = chats.get(chatId) ?? { owner: creator.id, messages: [], at: Date.now() };
-	chats.set(chatId, chat);
+	const [chatId, chat] = await loadChat(cfg, creator, body.chat);
 	chat.at = Date.now();
+	const page = typeof body.context === 'string' ? body.context.slice(0, 300) : '';
+	const short = (v: unknown) => (typeof v === 'string' ? v.slice(0, 20) : '');
+	const textLanguage = short(body.textLanguage) || 'source';
+	const appLanguage = short(body.appLanguage) || 'en';
+	if (!chat.title) chat.title = text.replace(/\s+/g, ' ').slice(0, 120);
+	if (!chat.page) chat.page = page;
+	// what the panel shows, saved with the chat
+	chat.turns.push({ who: 'you', text, steps: [] });
+	const turn: AgentTurn = { who: 'agent', text: '', steps: [] };
+	chat.turns.push(turn);
 
 	res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
-	const send = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+	// every event also goes into the saved turn (the history shows what happened, also when the panel was closed)
+	const send = (event: string, data: any) => {
+		if (event === 'text') turn.text += data.delta;
+		else if (event === 'step') turn.steps.push(data);
+		else if (event === 'error') turn.error = data.message;
+		if (!closed) res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+	};
 	let closed = false;
 	res.on('close', () => (closed = true));
 	send('chat', { id: chatId });
@@ -197,8 +264,8 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 		eager_input_streaming: true
 	}));
 
-	const page = typeof body.context === 'string' ? body.context.slice(0, 300) : '';
-	chat.messages.push({ role: 'user', content: `[Page: ${page || '–'}]\n${text}` });
+	chat.messages.push({ role: 'user', content: `[Page: ${page || '–'} | Text language: ${textLanguage} | App language: ${appLanguage}]\n${text}` });
+	await saveChat(cfg, creator, chatId, chat);
 	const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 	let jsonRetries = 0;
 
@@ -273,6 +340,7 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 				send('step', stepOf(use.name, use.input, out, !!r.isError));
 			}
 			chat.messages.push({ role: 'user', content: results });
+			await saveChat(cfg, creator, chatId, chat);
 		}
 	} catch (error) {
 		const message =
@@ -287,11 +355,12 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 						: error instanceof Error
 							? error.message
 							: String(error);
-		if (!closed) send('error', { message });
+		send('error', { message });
 		console.error('ask:', error);
 	} finally {
 		await client.close().catch(() => {});
 		await mcp.close().catch(() => {});
+		await saveChat(cfg, creator, chatId, chat);
 	}
 	if (!closed) {
 		send('done', { usage: { ...total, cost: Number(total.cost.toFixed(4)) } });

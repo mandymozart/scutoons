@@ -2,12 +2,19 @@
 	// The "Ask" panel (CUTOVER 10.28 step 2): a chat with an agent that has the signed-in creator's rights (the SCUTOONS
 	// tools, tools/mcp). Docked on the right like the editor's side panels (drags wider up to half the window; the page
 	// makes room), full screen on phones. The agent's answer streams in; each tool call is a step, a saved draft links to
-	// its page. The chat lives in this panel and the service's memory only (no history for now, owner 2026-10-04).
+	// its page. Chats are saved by the Ask service in the API (`/api/agent-chats`, owner 2026-10-04: "I need to see what I
+	// did before if something stops or breaks"): the clock button lists the creator's earlier chats, one opens to read or
+	// go on; the open chat is remembered per browser and comes back after a reload. The context sent with every message:
+	// the page, the header's text language and the app language.
+	import { onMount } from 'svelte';
 	import { Icon, CloseButton } from '@scutoons/ui';
-	import { getSessionToken } from '@scutoons/api';
+	import { getSessionToken, type AgentChatSummary, type AgentTurn } from '@scutoons/api';
 	import { parseEntityKey } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
+	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { agentChatsApi } from '$lib/api.ts';
 	import { ASK_URL } from '$lib/config.ts';
 
 	let { context, onclose }: { context: string; onclose: () => void } = $props();
@@ -26,11 +33,63 @@
 		};
 	});
 
-	type Step = { tool: string; target: string; error?: string; key?: string; version?: number };
-	type Turn = { who: 'you' | 'agent'; text: string; steps: Step[]; error?: string };
+	type Turn = AgentTurn;
+	const CURRENT = 'scutoons_creator_ask_chat';
 
 	let turns = $state<Turn[]>([]);
-	let chat: string | null = null;
+	let chat = $state<string | null>(null);
+	let view = $state<'chat' | 'history'>('chat');
+	let history = $state<AgentChatSummary[] | null>(null);
+	let historyError = $state('');
+
+	function remember(id: string | null) {
+		chat = id;
+		try {
+			if (id) localStorage.setItem(CURRENT, id);
+			else localStorage.removeItem(CURRENT);
+		} catch {
+			/* storage blocked: the chat is still in the history */
+		}
+	}
+
+	async function openChat(id: string) {
+		try {
+			const { chat: saved } = await agentChatsApi.get(id);
+			turns = saved.turns ?? [];
+			remember(saved.id);
+			view = 'chat';
+			scrollDown();
+		} catch {
+			remember(null);
+		}
+	}
+
+	async function showHistory() {
+		if (view === 'history') return void (view = 'chat');
+		view = 'history';
+		historyError = '';
+		history = null;
+		try {
+			history = (await agentChatsApi.list()).chats;
+		} catch {
+			historyError = m['creator.ask_history_unavailable']();
+		}
+	}
+	const when = (iso: string) => {
+		const d = new Date(iso.endsWith('Z') || iso.includes('+') ? iso : `${iso}Z`);
+		return Number.isNaN(d.getTime()) ? iso : new Intl.DateTimeFormat(getLocale(), { dateStyle: 'medium', timeStyle: 'short' }).format(d);
+	};
+
+	// after a reload / a break: the chat that was open comes back
+	onMount(() => {
+		let id: string | null = null;
+		try {
+			id = localStorage.getItem(CURRENT);
+		} catch {
+			/* no storage */
+		}
+		if (id) openChat(id);
+	});
 	let input = $state('');
 	let busy = $state(false);
 	let controller: AbortController | null = null;
@@ -67,7 +126,8 @@
 	function newChat() {
 		controller?.abort();
 		turns = [];
-		chat = null;
+		remember(null);
+		view = 'chat';
 	}
 
 	/** one Server-Sent Event of the service ("event: <name>\ndata: <json>") */
@@ -76,7 +136,7 @@
 		const raw = /^data: (.*)$/m.exec(block)?.[1];
 		if (!name || raw === undefined) return;
 		const data = JSON.parse(raw);
-		if (name === 'chat') chat = data.id;
+		if (name === 'chat') remember(data.id);
 		else if (name === 'text') turn.text += data.delta;
 		else if (name === 'step') turn.steps.push(data);
 		else if (name === 'error') turn.error = data.message;
@@ -103,7 +163,7 @@
 				method: 'POST',
 				credentials: 'include',
 				headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-				body: JSON.stringify({ chat, text, context }),
+				body: JSON.stringify({ chat, text, context, textLanguage: textLanguage.value, appLanguage: getLocale() }),
 				signal: controller.signal
 			});
 			if (!res.ok || !res.body) throw new Error(res.status === 401 ? m['creator.ask_signed_out']() : m['creator.ask_unavailable']());
@@ -140,10 +200,28 @@
 <aside class="ask" style:--panel-width={size.css} aria-label={m['creator.ask']()} data-testid="ask-panel">
 	<header>
 		<h2>{m['creator.ask']()}</h2>
-		<button type="button" class="sc-round" title={m['creator.ask_new']()} aria-label={m['creator.ask_new']()} onclick={newChat} disabled={!turns.length}><Icon name="plus" /></button>
+		<button type="button" class="sc-round" class:is-active={view === 'history'} title={m['creator.ask_history']()} aria-label={m['creator.ask_history']()} aria-pressed={view === 'history'} onclick={showHistory}><Icon name="clock" /></button>
+		<button type="button" class="sc-round" title={m['creator.ask_new']()} aria-label={m['creator.ask_new']()} onclick={newChat} disabled={!turns.length && view === 'chat'}><Icon name="plus" /></button>
 		<CloseButton label={m['creator.ask_close']()} onclick={onclose} />
 	</header>
 
+	{#if view === 'history'}
+		<ol class="history" data-testid="ask-history">
+			{#if historyError}<li class="empty">{historyError}</li>
+			{:else if !history}<li class="empty">…</li>
+			{:else if !history.length}<li class="empty">{m['creator.ask_history_empty']()}</li>
+			{:else}
+				{#each history as item (item.id)}
+					<li>
+						<button type="button" class="sc-nav-item" class:is-current={item.id === chat} onclick={() => openChat(item.id)}>
+							<span class="title">{item.title || '–'}</span>
+							<span class="meta">{when(item.updated_at)}{item.page ? ` · ${item.page}` : ''}</span>
+						</button>
+					</li>
+				{/each}
+			{/if}
+		</ol>
+	{:else}
 	<ol class="chat" bind:this={list} aria-live="polite">
 		{#if !turns.length}<li class="empty">{m['creator.ask_empty']()}</li>{/if}
 		{#each turns as turn, i (i)}
@@ -169,6 +247,7 @@
 			</li>
 		{/each}
 	</ol>
+	{/if}
 
 	<form class="composer" onsubmit={send}>
 		<p class="context">{m['creator.ask_context']({ page: context })} · {m['creator.ask_drafts_only']()}</p>
@@ -211,8 +290,8 @@
 		display: flex;
 		align-items: center;
 		gap: var(--space-05);
-		padding: 0 var(--space-1);
-		min-height: var(--control-height);
+		/* the same strip as the editor's file row on the left (chapter-editor .files): one control row */
+		padding: var(--space-05) var(--space-1);
 		border-bottom: var(--border-width-regular) solid var(--ink);
 	}
 	h2 {
@@ -228,6 +307,30 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--space-15);
+	}
+	.history {
+		flex: 1;
+		overflow: auto;
+		list-style: none;
+		margin: 0;
+		padding: var(--space-05) 0;
+	}
+	.history button {
+		display: flex;
+		flex-direction: column;
+		align-items: flex-start;
+		width: 100%;
+		text-align: left;
+	}
+	.history .title {
+		overflow-wrap: anywhere;
+	}
+	.history .meta {
+		font-size: var(--type-caption-size);
+		color: var(--text-muted);
+	}
+	.history .empty {
+		padding: 0 var(--space-1);
 	}
 	.who {
 		margin: 0 0 var(--space-05);

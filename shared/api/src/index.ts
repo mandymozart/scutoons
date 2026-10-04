@@ -131,3 +131,11 @@ export {
 	type AssetVersion,
 	type AssetsApi
 } from './assets.ts';
+export {
+	createAgentChatsApi,
+	type AgentChat,
+	type AgentChatSummary,
+	type AgentChatsApi,
+	type AgentStep,
+	type AgentTurn
+} from './agent-chats.ts';

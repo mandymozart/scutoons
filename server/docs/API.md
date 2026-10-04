@@ -55,6 +55,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET | `/entities?toon=`, `/entities/<key>[?draft=1\|?version=<id>][&wrap=1]`, `/entities/<key>/versions` | creator | the content store by entity key – see "Entities" |
 | PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
 | POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft |
+| GET/PUT/DELETE | `/agent-chats[?limit=]`, `/agent-chats/<id>[?messages=1]` | creator | the creator's Ask panel chat history, own chats only – see "Agent chats" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -383,6 +384,27 @@ otherwise `401` / `403 forbidden { role: "creator" }`.
 [--update] [--dry-run] [--sql]`, `export-content <dir>` (see [DATABASE.md](DATABASE.md)); the path ↔ key mapping of the
 JSON folder layout is `Console\ContentFiles`. Migration `2026-09-30-entity-keys` created `entity_versions` from the
 former path-keyed `content_versions` (same ids).
+
+## Agent chats (the creator's Ask panel history, creator)
+
+The chats of the creator's Ask panel (agents/CUTOVER.md 10.28 step 2), saved by the Ask service (tools/mcp) so a creator
+can look at earlier agent chats when something stopped or broke. Table `agent_chats` (migration
+`2026-10-04-agent-chats`; without it every endpoint answers `503 not_available`). Code: `Domain\Agent\AgentChats`,
+`AgentChatsController`. A content editor (`creator`, for now also `admin`; `401` / `403 forbidden { role: "creator" }`
+otherwise) only ever sees and changes **their own** chats: another user's chat id answers `404 not_found` like an unknown
+one and is never overwritten. `<id>` = a UUID chosen by the client (lower-cased; malformed → `422 invalid_id`).
+
+| Method | Path | Body / query → answer |
+|---|---|---|
+| GET | `/agent-chats?limit=` | `{ status, chats: [{ id, title, page, created_at, updated_at, turns }] }` – newest updated first, `turns` = the number of turns, `limit` 1..200 (default 50) |
+| GET | `/agent-chats/<id>[?messages=1]` | `{ status, chat: { id, title, page, created_at, updated_at, turns: [...] (+ messages: [...]) } }` · 404 |
+| PUT | `/agent-chats/<id>` | `{ title?, page?, turns: [...], messages: [...] }` → `{ status, chat: { id, updated_at } }` – creates or replaces; `title` trimmed, cut to 200 characters; `page` (where in the creator the chat started) trimmed, cut to 300, `''` → null; `title` / `page` left out keep the stored values (a new chat: `''` / null); `created_at` stays |
+| DELETE | `/agent-chats/<id>` | `{ status }` · 404 |
+
+`turns` (what the panel shows) and `messages` (the model conversation) are stored as sent (decoded with objects, so `{}`
+stays `{}`). Errors: `422 invalid_id|invalid_body|invalid_turns|invalid_messages|invalid_title|invalid_page` (body not a
+JSON object, `turns` / `messages` not arrays, title not a string, page not a string or null), `413 too_large` (body over
+8 MB), `404 not_found`, `503 not_available`.
 
 ## Library (the reader's entities, agents/DATA.md)
 

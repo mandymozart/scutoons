@@ -884,7 +884,10 @@
 		"ask_working": "Working …",
 		"ask_draft": "Draft #{id}",
 		"ask_unavailable": "The agent is not available right now.",
-		"ask_signed_out": "Your session ended – sign in again."
+		"ask_signed_out": "Your session ended – sign in again.",
+		"ask_history": "Earlier chats",
+		"ask_history_empty": "No chats yet.",
+		"ask_history_unavailable": "The chat history is not available yet."
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

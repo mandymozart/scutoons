@@ -18,6 +18,7 @@ use Scutoons\Domain\Roles\Roles;
 use Scutoons\Domain\Secrets;
 use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
+use Scutoons\Http\Controllers\AgentChatsController;
 use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
@@ -147,6 +148,13 @@ return static function (App $app): void {
     $app->put('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'put']);
     $app->get('/api/entities/{key:[a-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
     $app->post('/api/entities/{key:[a-z0-9:_-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
+
+    // The creator's Ask panel chat history (docs/API.md "Agent chats", content editors, each only their own chats);
+    // the id is any path segment so a malformed one answers 422 invalid_id, not 404
+    $app->get('/api/agent-chats', [AgentChatsController::class, 'index']);
+    $app->get('/api/agent-chats/{id}', [AgentChatsController::class, 'get']);
+    $app->put('/api/agent-chats/{id}', [AgentChatsController::class, 'put']);
+    $app->delete('/api/agent-chats/{id}', [AgentChatsController::class, 'delete']);
 
     // Asset manager (agents/ASSETS.md): the creator's asset picker – browse, look up, upload new files (content editors)
     $asset = '{id:[0-9a-f-]{36}}';
