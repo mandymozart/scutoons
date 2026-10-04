@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { confirmRemove } from '$lib/editor/ask.ts';
-	import { Badge, Icon } from '@scutoons/ui';
+	import { Badge, Icon, Tabs } from '@scutoons/ui';
 	import {
 		REGULAR_PERSONA,
 		castsOf,
@@ -150,36 +150,46 @@
 		<!-- Personas → looks → moods -->
 		<section class="block" data-testid="personas">
 			<CharacterImport {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} {languages} bind:bust />
-			<nav class="tabs" aria-label={m['creator.characters_personas']()}>
-				{#each personas as p (p)}
-					<button type="button" class="tab" class:active={p === personaId} onclick={() => ((persona = p), (look = ''))} data-testid="persona-{p}">
-						{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, source, languages) || p}
-					</button>
-				{/each}
-				<span class="add">
-					<input type="text" bind:value={newPersonaLabel} placeholder={m['creator.characters_persona_label_placeholder']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), newPersona())} data-testid="new-persona" />
-					<button type="button" class="ghost" onclick={newPersona} disabled={!newPersonaLabel.trim()} data-testid="add-persona"><Icon name="plus" /> {m['creator.characters_add_persona']()}</button>
-				</span>
-			</nav>
+			<Tabs
+				variant="ruled"
+				label={m['creator.characters_personas']()}
+				value={personaId}
+				onchange={(p) => ((persona = p), (look = ''))}
+				tabs={personas.map((p) => ({ id: p, label: p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, source, languages) || p, testid: `persona-${p}` }))}
+			>
+				{#snippet after()}
+					<span class="add">
+						<input type="text" bind:value={newPersonaLabel} placeholder={m['creator.characters_persona_label_placeholder']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), newPersona())} data-testid="new-persona" />
+						<button type="button" class="ghost" onclick={newPersona} disabled={!newPersonaLabel.trim()} data-testid="add-persona"><Icon name="plus" /> {m['creator.characters_add_persona']()}</button>
+					</span>
+				{/snippet}
+			</Tabs>
 			{#if currentPersona}
 				<div class="persona" data-testid="persona-panel" data-persona={personaId}>
 					{#if personaId !== REGULAR_PERSONA}
 						<CharacterPersonaFields {registry} {character} persona={currentPersona} {languages} {toons} onremove={removePersona} />
 					{/if}
 
-					<nav class="tabs looks" aria-label={m['creator.characters_looks']()}>
-						{#each currentPersona.looks as l (l.id)}
-							{@const n = lookPortraitMoods(l).length}
-							<button type="button" class="tab" class:active={l.id === lookId} class:empty-look={n === 0} onclick={() => (look = l.id)} data-testid="look-{l.id}">
-								{lookLabel(currentPersona, l.id, source)}{#if l.default && currentPersona.looks.length > 1}<span class="hint"> · {m['creator.characters_default']()}</span>{/if}
-								{#if n}<span class="tally">{m['creator.characters_moods_count']({ count: n })}</span>{:else}<Badge tone="warning">{m['creator.characters_no_images']()}</Badge>{/if}
-							</button>
-						{/each}
-						<span class="add">
-							<input type="text" bind:value={newLookLabel} placeholder={m['creator.characters_new_look']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), newLook())} data-testid="new-look" />
-							<button type="button" class="ghost" onclick={newLook} disabled={!newLookLabel.trim()}><Icon name="plus" /> {m['creator.characters_add_look']()}</button>
-						</span>
-					</nav>
+					<Tabs
+						variant="sub"
+						label={m['creator.characters_looks']()}
+						value={lookId}
+						onchange={(l) => (look = l)}
+						tabs={currentPersona.looks.map((l) => ({ id: l.id, label: lookLabel(currentPersona, l.id, source), warning: lookPortraitMoods(l).length === 0, testid: `look-${l.id}` }))}
+					>
+						{#snippet tab(t)}
+							{@const l = currentPersona.looks.find((x) => x.id === t.id)}
+							{@const n = l ? lookPortraitMoods(l).length : 0}
+							{t.label}{#if l?.default && currentPersona.looks.length > 1}<span class="hint"> · {m['creator.characters_default']()}</span>{/if}
+							{#if n}<span class="tally">{m['creator.characters_moods_count']({ count: n })}</span>{:else}<Badge tone="warning">{m['creator.characters_no_images']()}</Badge>{/if}
+						{/snippet}
+						{#snippet after()}
+							<span class="add">
+								<input type="text" bind:value={newLookLabel} placeholder={m['creator.characters_new_look']()} onkeydown={(e) => e.key === 'Enter' && (e.preventDefault(), newLook())} data-testid="new-look" />
+								<button type="button" class="ghost" onclick={newLook} disabled={!newLookLabel.trim()}><Icon name="plus" /> {m['creator.characters_add_look']()}</button>
+							</span>
+						{/snippet}
+					</Tabs>
 					<CharacterLook {registry} {moodsDoc} {requestsDoc} {moods} {requests} {character} persona={currentPersona} {lookId} {languages} {source} {bust} onlookchange={(l) => (look = l)} />
 
 					<CharacterTransitions {registry} characterId={id} persona={currentPersona} {languages} {source} />
@@ -238,33 +248,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.6rem;
-	}
-	.tabs {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		align-items: center;
-		border-bottom: 2px solid var(--ink);
-		padding-bottom: 0.25rem;
-	}
-	.tabs.looks {
-		border-bottom-width: 1px;
-		margin-top: 0.5rem;
-	}
-	.tab {
-		background: var(--paper);
-		color: var(--ink);
-		border: 2px solid var(--border-muted);
-		padding: 0 0.6rem;
-	}
-	.tab.active {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
-	}
-	.tab.empty-look {
-		border-style: dashed;
-		border-color: var(--error);
 	}
 	.tally {
 		margin-left: 0.35rem;

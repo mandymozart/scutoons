@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { moveAt } from '$lib/editor/move.ts';
 	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { CloseIcon, Icon, Tabs } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import {
 		AUTHORED_VIEW,
@@ -144,11 +144,13 @@
 		<a class="bar-link" href="/characters?toon={toon}" data-testid="open-characters">{m['creator.characters']()}</a>
 	{/snippet}
 	<section class="cast" data-testid="cast-editor">
-		<nav class="seasons" aria-label={m['creator.cast_seasons']()}>
-			{#each seasons as s (s)}
-				<button type="button" class="tab" class:active={s === season} onclick={() => (season = s)} data-testid="cast-season-{s}">{m['creator.season']({ number: s })}</button>
-			{/each}
-		</nav>
+		<Tabs
+			variant="ruled"
+			label={m['creator.cast_seasons']()}
+			value={String(season)}
+			onchange={(id) => (season = Number(id))}
+			tabs={seasons.map((s) => ({ id: String(s), label: m['creator.season']({ number: s }), testid: `cast-season-${s}` }))}
+		/>
 		{#if cast.loading || registry.loading}
 			<p class="hint">{m['creator.loading']()}</p>
 		{:else}
@@ -258,24 +260,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-	}
-	.seasons {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		border-bottom: 2px solid var(--ink);
-		padding-bottom: 0.25rem;
-	}
-	.tab {
-		background: var(--paper);
-		color: var(--ink);
-		border: 2px solid var(--border-muted);
-		padding: 0 0.6rem;
-	}
-	.tab.active {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
 	}
 	ol {
 		list-style: none;

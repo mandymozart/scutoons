@@ -172,6 +172,9 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 	if (file.endsWith('.svelte'))
 		text.replace(/<style[^>]*>[\s\S]*?<\/style>/g, (s) => s.replace(/[^\n]/g, ' ')).split('\n').forEach((l, i) => {
 			if (/class="[^"]*\bg\d\b/.test(l)) fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)}`);
+			// hand-built tabs (COMPONENTS.md step 14b): @scutoons/ui Tabs (role="tab", arrow keys)
+			if ((/role="tablist"/.test(l) || /class="tabs?[\s"]/.test(l)) && !name.endsWith('shared/ui/src/tabs.svelte'))
+				fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (hand-built tabs: @scutoons/ui Tabs)`);
 		});
 }
 const BOLD_CSS = /font-weight:\s*(?:[6-9]00|bold|bolder|var\(--font-weight-bold\))/;

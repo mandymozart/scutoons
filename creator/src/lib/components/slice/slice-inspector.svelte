@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { Icon, Tabs } from '@scutoons/ui';
 	import { scriptLabels, type ChapterSliceRef, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import type { ChapterView } from '$lib/editor/chapter-state.svelte.ts';
+	import type { ChapterView, InspectorTab } from '$lib/editor/chapter-state.svelte.ts';
 	import { boxChoices } from '$lib/editor/slice-edit.ts';
 	import { matchTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
@@ -83,14 +83,20 @@
 </script>
 
 <aside class="inspector">
-	<div class="tabs" role="tablist">
-		<!-- one icon each (owner 2026-10-03), the same as the canvas tools; background + map are one "Slice" tab -->
-		<button class="ghost" class:active={view.inspectorTab === 'text'} onclick={() => view.setTab('text')} data-testid="tab-text"><Icon name="type" /> {m['creator.text_boxes']()} ({dialogs.length})</button>
-		<button class="ghost" class:active={view.inspectorTab === 'items'} onclick={() => view.setTab('items')} data-testid="tab-items"><Icon name="box" /> {m['creator.slice_items']()} ({items.length})</button>
-		<button class="ghost" class:active={view.inspectorTab === 'audio'} onclick={() => view.setTab('audio')} data-testid="tab-audio"><Icon name="music" /> {m['creator.audio']()}</button>
-		<button class="ghost" class:active={view.inspectorTab === 'events'} onclick={() => view.setTab('events')} data-testid="tab-events"><Icon name="zap" /> Events ({slice?.events?.length ?? 0})</button>
-		<button class="ghost" class:active={view.inspectorTab === 'slice'} onclick={() => view.setTab('slice')} data-testid="tab-background"><Icon name="image" /> {m['creator.slice_tab']()}</button>
-	</div>
+	<!-- one icon each (owner 2026-10-03), the same as the canvas tools; background + map are one "Slice" tab -->
+	<Tabs
+		variant="grid"
+		label={m['creator.slice_tab']()}
+		value={view.inspectorTab}
+		onchange={(id) => view.setTab(id as InspectorTab)}
+		tabs={[
+			{ id: 'text', icon: 'type', label: m['creator.text_boxes'](), count: dialogs.length, testid: 'tab-text' },
+			{ id: 'items', icon: 'box', label: m['creator.slice_items'](), count: items.length, testid: 'tab-items' },
+			{ id: 'audio', icon: 'music', label: m['creator.audio'](), testid: 'tab-audio' },
+			{ id: 'events', icon: 'zap', label: 'Events', count: slice?.events?.length ?? 0, testid: 'tab-events' },
+			{ id: 'slice', icon: 'image', label: m['creator.slice_tab'](), testid: 'tab-background' }
+		]}
+	/>
 
 	{#if view.inspectorTab === 'text'}
 		<ul class="boxes">
@@ -188,16 +194,6 @@
 			border-left: 0;
 			border-top: var(--border-width-regular) solid var(--ink);
 		}
-	}
-	/* inspector tabs: a framed grid, the open tab inverted */
-	.tabs {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-		border: var(--border-width-regular) solid var(--ink);
-	}
-	.tabs button {
-		justify-content: center;
-		gap: 0.4rem;
 	}
 	.slice-map {
 		border-top: var(--border-width-regular) solid var(--ink);

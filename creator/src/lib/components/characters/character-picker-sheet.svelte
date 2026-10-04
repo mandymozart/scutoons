@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	import { gridArrows } from '@scutoons/ui';
+	import { gridArrows, Tabs } from '@scutoons/ui';
 	import { isKnownMissing, imageExists } from '$lib/editor/characters.ts';
 	import PickerSheet from '$lib/components/controls/picker-sheet.svelte';
 	import {
@@ -189,20 +189,23 @@
 					{/each}
 				</div>
 			{:else}
-				<nav class="tabs">
-					{#each personaIds(character) as p (p)}
-						<button type="button" class="tab" class:active={p === currentPersona?.id} onclick={() => ((persona = p), (look = ''))} data-testid="picker-persona-{p}">
-							{p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, locale) || p}
-							{#if season && !castPersonas.includes(p)}<span class="hint"> +</span>{/if}
-						</button>
-					{/each}
-				</nav>
+				<Tabs
+					variant="ruled"
+					label={m['creator.characters_personas']()}
+					value={currentPersona?.id}
+					onchange={(p) => ((persona = p), (look = ''))}
+					tabs={personaIds(character).map((p) => ({ id: p, label: p === REGULAR_PERSONA ? m['creator.characters_regular']() : pickText(findPersona(character, p)?.label, locale) || p, testid: `picker-persona-${p}` }))}
+				>
+					{#snippet tab(t)}{t.label}{#if season && !castPersonas.includes(t.id)}<span class="hint"> +</span>{/if}{/snippet}
+				</Tabs>
 				{#if currentPersona && currentPersona.looks.length > 1}
-					<nav class="tabs sub">
-						{#each currentPersona.looks as l (l.id)}
-							<button type="button" class="tab" class:active={l.id === lookId} onclick={() => (look = l.id)} data-testid="picker-look-{l.id}">{lookLabel(currentPersona, l.id, locale)}</button>
-						{/each}
-					</nav>
+					<Tabs
+						variant="sub"
+						label={m['creator.characters_looks']()}
+						value={lookId}
+						onchange={(l) => (look = l)}
+						tabs={currentPersona.looks.map((l) => ({ id: l.id, label: lookLabel(currentPersona, l.id, locale), testid: `picker-look-${l.id}` }))}
+					/>
 				{/if}
 				<label class="check"><input type="checkbox" bind:checked={allMoods} /> {m['creator.characters_picker_all_moods']()}</label>
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -250,26 +253,5 @@
 		gap: 0.6rem;
 		align-items: center;
 		flex-wrap: wrap;
-	}
-	.tabs {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		border-bottom: 2px solid var(--ink);
-		padding-bottom: 0.25rem;
-	}
-	.tabs.sub {
-		border-bottom-width: 1px;
-	}
-	.tab {
-		background: var(--paper);
-		color: var(--ink);
-		border: 2px solid var(--border-muted);
-		padding: 0 0.5rem;
-	}
-	.tab.active {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
 	}
 </style>

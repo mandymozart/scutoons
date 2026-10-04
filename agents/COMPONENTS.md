@@ -296,6 +296,13 @@ Done (branch `components`):
   own admin role, revoke code, leaving a running batch. Not converted: embassy's two (remove person, delete org) – the
   app has no `DialogHost` yet and is being developed on branch `embassy` (merged after the 2026-10-04 release); do it there. Checks: check:creator-chapter
   asks on leave (64), creator-script-check answers the restore dialog.
+- Step 14b ✓ (the commit adding this line) – hand-built tabs → @scutoons/ui `Tabs` (role="tab", arrow keys / Home /
+  End, testids kept): slice inspector (`variant="grid"`, icon + count per tab), cast seasons, character personas + looks,
+  character picker personas + looks (`ruled` / `sub`). `Tabs` grew `icon`, `count`, `testid`, `title`, `warning` (the
+  look without images), a `tab` snippet for custom content, an `after` snippet beside the list (the "+ persona / look"
+  inputs, outside the tablist) and the panel margin only when it renders the panel. `check:tools-css` flags
+  `class="tab(s)"` / `role="tablist"` outside tabs.svelte. Visible: next to nothing (slightly narrower tab padding; an
+  active look without images is inverted, no longer dashed).
 
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,
