@@ -643,13 +643,15 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 1.5, 1.6, 1.7 done (bunny = cdn/root, CORS + Range verified). Open in Phase 1: 1.8. Next: 1.8, then Phase 5.
 - 2026-10-02 — 10.1b done (7 bunny secrets in production). Awaiting confirmation: 2.3 keypair upload, 1.8 write prefix.
 - 2026-10-03 — 10.10 done on branch `dev-mariadb` (local MariaDB in Docker, tests + CI on it). Open: production's version / sql_mode / collation from phpMyAdmin → `docker/compose.yml`.  - **Step 2 decisions (owner 2026-10-04)**:
+    - **Order (owner 2026-10-04): the creator's "Ask" panel is the way for creators; the API token (step 1, stdio) stays
+      for Claude Code / Desktop; no claude.ai connector for now** (no OAuth needed – revisit only if creators want claude.ai).
     - **Host: a small Node server** (this package + Streamable HTTP; the validator stays TypeScript). Free if possible,
       else European-hosted. Candidates: Koyeb (French, free always-on nano instance – check its EU region), Render free
       (sleeps after 15 min, ~1 min cold start), Scaleway / Clever Cloud (FR, ~5 €/month), Hetzner (DE, ~4 €/month VPS).
       Owner picks.
     - **Auth: long-lived personal access tokens** (owner's choice; OAuth was recommended as safer). Build: a creator page
       "Tokens" – create (shown once, only the hash stored), name, last used, revoke; never the browser session; the API
-      accepts them as Bearer like a session. Expiry optional. Note: the claude.ai connector needs OAuth – revisit then.
+      accepts them as Bearer like a session. Expiry optional. (A claude.ai connector would need OAuth – not planned.)
     - **"Ask" panel: the owner pays** (SCUTOONS, personal business); default model the current Sonnet. Every AI call is
       logged: creator, service (Claude API, image / audio services …), model, input / output tokens (or units), cost →
       an admin overview by creator and service per day / month. Limits per creator: open.
