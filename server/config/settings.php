@@ -40,6 +40,8 @@ return [
     'APP_URL' => 'https://scutoons.com',
     // The admin app (links in the admin notification mails, e.g. a new ownership claim)
     'ADMIN_URL' => 'https://admin.scutoons.com',
+    // The creator app (links in the review mails, Domain\Content\Reviews)
+    'CREATOR_URL' => 'https://creator.scutoons.com',
     // Item icons: <CDN_URL><icon path>. Local CDN: http://localhost:8001/
     'CDN_URL' => 'https://cdn.scutoons.com/',
     // Browser origins that may call the API with a Bearer token or the session cookie (comma separated): viewer, creator,

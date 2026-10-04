@@ -10,7 +10,7 @@ use InvalidArgumentException;
  * is used through Mailer::send($id, $to, $locale, $vars).
  *
  * A template = an id (const below) + a definition:
- *   audience     member (to a reader/account) | admin (to MailRecipients::admins())
+ *   audience     member (to a reader/account) | admin (to MailRecipients::admins()) | creator (creator app accounts)
  *   description  one line for the admin's Emails page: when it is sent, by what
  *   vars         name → type: string | url | int | bool | ?string (optional, null) – `{name}` in the texts; bool and
  *                ?string may be left out, the rest is required (InvalidArgumentException otherwise)
@@ -25,6 +25,8 @@ use InvalidArgumentException;
  * Mailer::send() (or sendToAdmins() for audience admin), a render test in tests/Unit/Domain/MailTest.php.
  * Ownership + gifting (agents/ITEMS.md "Ownership, claims, gifting"; Domain\Ownership): ownership_claim_received,
  * ownership_claim_admin, ownership_claim_rejected, ownership_transferred_from, ownership_transferred_to, gift_received.
+ * Review before publish (Domain\Content\Reviews, audience creator): review_requested (reviewers), review_published,
+ * review_returned (the author) – one mail per person per submit / decision, listing every file.
  * Planned (not registered until it is sent – same pattern):
  *   ownership_transfer_offer   the owner sends a code to another person's email
  */
@@ -38,6 +40,9 @@ final class MailTemplates
     public const OWNERSHIP_TRANSFERRED_FROM = 'ownership_transferred_from';
     public const OWNERSHIP_TRANSFERRED_TO = 'ownership_transferred_to';
     public const GIFT_RECEIVED = 'gift_received';
+    public const REVIEW_REQUESTED = 'review_requested';
+    public const REVIEW_PUBLISHED = 'review_published';
+    public const REVIEW_RETURNED = 'review_returned';
 
     public const LOCALES = ['de', 'en'];
     public const DEFAULT_LOCALE = 'en';
@@ -146,6 +151,46 @@ final class MailTemplates
                 ['button', 'button', 'url' => 'url'],
             ],
             'fineprint' => ['free'],
+        ],
+        self::REVIEW_REQUESTED => [
+            'audience' => 'creator',
+            'description' => 'A creator submitted drafts for review (POST /api/reviews): to every reviewer of the toon (admin → user → review rules)',
+            'vars' => ['author' => 'string', 'toon' => 'string', 'files' => 'string', 'note' => '?string', 'url' => 'url'],
+            'sample' => ['author' => 'writer@example.com', 'toon' => 'catpope', 'files' => 'chapter 2 (de, en), scene 2/kiosk (de, en)', 'note' => 'The kiosk scene is new, the rest are typo fixes.', 'url' => 'https://creator.scutoons.com/catpope'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'files'],
+                ['p', 'note', 'if' => 'note'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => ['why'],
+        ],
+        self::REVIEW_PUBLISHED => [
+            'audience' => 'creator',
+            'description' => 'A reviewer published submitted drafts (POST /api/reviews/publish): to the author',
+            'vars' => ['reviewer' => 'string', 'toon' => 'string', 'files' => 'string', 'note' => '?string', 'url' => 'url'],
+            'sample' => ['reviewer' => 'editor@example.com', 'toon' => 'catpope', 'files' => 'chapter 2 (de, en)', 'note' => 'Lovely – thanks!', 'url' => 'https://creator.scutoons.com/catpope'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'files'],
+                ['p', 'note', 'if' => 'note'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => [],
+        ],
+        self::REVIEW_RETURNED => [
+            'audience' => 'creator',
+            'description' => 'A reviewer sent submitted drafts back (POST /api/reviews/return): to the author',
+            'vars' => ['reviewer' => 'string', 'toon' => 'string', 'files' => 'string', 'note' => '?string', 'url' => 'url'],
+            'sample' => ['reviewer' => 'editor@example.com', 'toon' => 'catpope', 'files' => 'chapter 2 (de, en)', 'note' => 'The cat would never say that – see slice 4.', 'url' => 'https://creator.scutoons.com/catpope'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'files'],
+                ['p', 'note', 'if' => 'note'],
+                ['p', 'again'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => [],
         ],
     ];
 

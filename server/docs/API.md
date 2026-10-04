@@ -54,7 +54,8 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | GET | `/library/toons`, `/library/toons/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]`, `/events/` | – / creator | the reader's entities composed from the content store – see "Library" |
 | GET | `/entities?toon=`, `/entities/<key>[?draft=1\|?version=<id>][&wrap=1]`, `/entities/<key>/versions` | creator | the content store by entity key – see "Entities" |
 | PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
-| POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft |
+| POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft · publish / unpublish `403 review_required` when the account needs a review for the toon – see "Reviews" |
+| GET/POST | `/reviews`, `/reviews/publish`, `/reviews/return` | creator | review before publish – see "Reviews" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -383,6 +384,40 @@ otherwise `401` / `403 forbidden { role: "creator" }`.
 [--update] [--dry-run] [--sql]`, `export-content <dir>` (see [DATABASE.md](DATABASE.md)); the path ↔ key mapping of the
 JSON folder layout is `Console\ContentFiles`. Migration `2026-09-30-entity-keys` created `entity_versions` from the
 former path-keyed `content_versions` (same ids).
+
+## Reviews (review before publish, 2026-10-04 – migration `2026-10-04-reviews`)
+
+Owner 2026-10-04 (agents/CUTOVER.md 10.28 "Review levels"): who may publish without a review is **not a role** but a
+relation per toon, set by an admin like GitHub reviewers (`content_review_rules`, `toon` = a toon id or `*` = every toon):
+
+- `needs_review` – the account may save drafts, restore and submit, but `POST /entities/<key>/publish|unpublish` of
+  that toon answers **`403 review_required { toon }`**. Without the rule an account publishes directly (as before).
+- `reviewer` – gets the `review_requested` mail, publishes a submitted version or sends it back. Never their own submit.
+
+Reviewed levels: every **toon-level** entity (a toon in its key: `toon`, `toon-settings`, `season`, `chapter`, `scene`,
+`cast`, `credits`, `script`, …). Platform-wide entities (`characters`, `moods`, `people`, `roles`, `events`, `map`,
+`asset-requests`) publish directly for every creator. The API decides, so the creator app and agents (the MCP server
+calls with the creator's token) get the same answer. `Domain\Content\Reviews`.
+
+A submit (`content_reviews`) is **pinned to one version**: the reviewer publishes exactly that version, newer drafts stay
+drafts (`newest` > `version` shows them). A newer submit for the same key **annuls** the open one. Several files go in one
+call (a chapter = every language + its scenes) and every person gets one mail per call.
+
+| Method | Path | Body → answer |
+|---|---|---|
+| GET | `/reviews` | `{ needs_review: [toon\|*], reviewer_of: [toon\|*], to_review: [review], mine: [review] }` – to_review = open submits of the toons this account reviews (not its own), mine = its last 50 |
+| POST | `/reviews` | `{ items: [{ key, version? }], note? }` (version default the newest) → `{ reviews, reviewers: [email] }`; mails `review_requested` to each reviewer · `400 invalid_items` · `404 not_found` · `409 already_published` (that version is live) · **`409 no_reviewer { toon }`** (nobody reviews that toon – ask an admin) · `422 review_not_needed` (platform-wide) |
+| POST | `/reviews/publish` | `{ ids, note? }` → `{ reviews, keys }` – publishes each pinned version; mails `review_published` to each author |
+| POST | `/reviews/return` | `{ ids, note? }` → `{ reviews, keys }` – sends them back (entities unchanged); mails `review_returned` |
+
+`/reviews/publish|return`: `400 invalid_ids` · `404 not_found` · `409 review_closed { state }` · `403 not_reviewer { toon }`
+(not a reviewer of that toon, or the own submit); all-or-nothing. A reviewer who publishes the submitted version through
+`/entities/<key>/publish` closes the review too (no mail). `review = { id, key, toon, locale, version, newest, state
+(pending | published | returned | annulled), note, author: { id, email }, created_at, decided_by, decided_at, decision_note }`.
+
+Admin (`/api/admin`): `GET /review-rules` → `{ items: [{ toon, rule, user: { id, email }, created_at, created_by }] }`,
+`PUT|DELETE /users/{id}/review-rules/{toon}/{rule}` → `{ changed, review_rules }` (`400 invalid_toon|invalid_rule`);
+`GET /users/{id}` includes `review_rules`. Mail links go to `CREATOR_URL/<toon>`.
 
 ## Library (the reader's entities, agents/DATA.md)
 
