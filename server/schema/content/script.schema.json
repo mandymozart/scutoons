@@ -7,6 +7,13 @@
 		"ToonScript": {
 			"type": "object",
 			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
 				"text": {
 					"type": "string",
 					"description": "the whole screenplay, plain text in the screenplay format (LF line ends)"

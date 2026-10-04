@@ -36,6 +36,7 @@ import type { Level, Problem } from './validate.ts';
 import { AVATAR_SLOTS, type AvatarSlot } from './items.ts';
 import { isSensitive, type SensitiveFlag } from './sensitive.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
+import type { AcceptedWarnings } from './accepted.ts';
 
 // ── Vocabulary ────────────────────────────────────────────────────────────────────────────────────────────────
 
@@ -106,7 +107,7 @@ export interface MoodDef {
 }
 
 /** `scutoons/_/moods.json` */
-export interface MoodVocabulary {
+export interface MoodVocabulary extends AcceptedWarnings {
 	moods: MoodDef[];
 }
 
@@ -375,7 +376,7 @@ export interface RegistryCharacter {
 }
 
 /** `scutoons/_/characters.json` */
-export interface CharacterRegistry {
+export interface CharacterRegistry extends AcceptedWarnings {
 	characters: RegistryCharacter[];
 }
 
@@ -390,7 +391,7 @@ export interface CastEntry {
 }
 
 /** `<toon>/_/cast.json` – per season (key = season number), in display order */
-export interface ToonCast {
+export interface ToonCast extends AcceptedWarnings {
 	seasons: Record<string, CastEntry[]>;
 }
 
@@ -423,7 +424,7 @@ export interface AssetRequest {
 }
 
 /** `scutoons/_/asset-requests.json` */
-export interface AssetRequests {
+export interface AssetRequests extends AcceptedWarnings {
 	requests: AssetRequest[];
 }
 

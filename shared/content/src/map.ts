@@ -5,11 +5,12 @@
 import type { LocaleText } from './credits.ts';
 import type { AssetRequest } from './characters.ts';
 import type { Map as LegacyToonMap, MapLocation, MapRoute } from './content.ts';
+import type { AcceptedWarnings } from './accepted.ts';
 
 // ── The entity `map` ────────────────────────────────────────────────────────────────────────────────────────────
 
 /** The SCUTOONS world map (entity `map`, seed `scutoons/_/map.json`) */
-export interface WorldMap {
+export interface WorldMap extends AcceptedWarnings {
 	/** world units = px of the terrain artwork (2048 × 1046 today); every position is in this space */
 	width: number;
 	height: number;

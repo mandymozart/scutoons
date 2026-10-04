@@ -2,6 +2,7 @@
 // like every entity, for the creator only (no library endpoint, readers never get it). The text follows the format of
 // the screenplay editor (C:\Development\screenplay-editor, README "Writing Guide", lib/src/parse.js + utils/regex.js);
 // it is stored exactly as typed (whitespace, indentation and trailing spaces are part of the format).
+import type { AcceptedWarnings } from './accepted.ts';
 
 /** Title-page facts of a screenplay (the screenplay editor's `config.json` → `meta`), text in the script's language */
 export interface ScriptMeta {
@@ -18,7 +19,7 @@ export interface ScriptMeta {
 }
 
 /** The screenplay of a toon in one language (the source language is the master, translations may be partial) */
-export interface ToonScript {
+export interface ToonScript extends AcceptedWarnings {
 	/** the whole screenplay, plain text in the screenplay format (LF line ends) */
 	text: string;
 	meta?: ScriptMeta;

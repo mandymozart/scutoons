@@ -26,7 +26,8 @@
 				},
 				"description": {
 					"type": "string"
-				}
+				},
+				"accepted_warnings": {}
 			},
 			"required": [
 				"id",
@@ -34,7 +35,8 @@
 				"language",
 				"release",
 				"status",
-				"description"
+				"description",
+				"accepted_warnings"
 			],
 			"description": "The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings"
 		},

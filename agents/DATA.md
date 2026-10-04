@@ -253,6 +253,13 @@ through `/api/entities`, lists toons from `/library/toons?draft=1`, previews in 
 no static fallback (a missing entity starts empty). Labels come from one helper (`entityLabel` in `@scutoons/ui`, keyed
 by entity) – no file names, `_` chips or "file" wording in the creator or admin UI; JSON is named only in import/export.
 
+**Accepted warnings (2026-10-04):** a warning the creator found fine ("Looks fine" in the Problems panel) is stored in the
+document it is about, in the warning's locale (the source locale for one about every locale): `accepted_warnings: string[]`
+on every validated root type (`AcceptedWarnings`, `@scutoons/content` accepted.ts). An entry is `<place>#<hash>`: the path
+with array items by their `id` where they have one, and an FNV hash of message + value – a changed value brings the
+warning back. Accepting is an ordinary edit (unsaved, undoable, saved/published with the page); readers ignore the field.
+Errors can't be accepted. Creator side: `lib/editor/accepted.ts` (panel + the bar's warning count).
+
 ## 6. PWA concept (design only)
 
 - **Service Worker** (SvelteKit `src/service-worker.ts`): app build + fonts precached per build version (cache-first,

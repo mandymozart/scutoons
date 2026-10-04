@@ -7,6 +7,13 @@
 		"Chapter": {
 			"type": "object",
 			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
 				"title": {
 					"type": "string"
 				},
@@ -182,6 +189,13 @@
 		"Group": {
 			"type": "object",
 			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
 				"label": {
 					"type": "string"
 				},

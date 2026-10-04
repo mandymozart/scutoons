@@ -6,6 +6,7 @@ import type { QualityVariants } from './media-quality.ts';
 import type { ToonMapView } from './map.ts';
 import type { SliceItemRespawn } from './respawn.ts';
 import type { CoverLettering } from './cover.ts';
+import type { AcceptedWarnings } from './accepted.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -386,7 +387,7 @@ export interface Checkpoint {
 	updated_at: string;
 }
 
-export interface Group {
+export interface Group extends AcceptedWarnings {
 	label?: string;
 	renderer?: {
 		type: Renderer;
@@ -404,7 +405,7 @@ export interface RefLink {
 	type?: 'chapter' | 'group';
 }
 
-export interface Chapter {
+export interface Chapter extends AcceptedWarnings {
 	title: string;
 	author: string;
 	number: number;
@@ -503,7 +504,7 @@ export interface SequenceItem {
 	status: Status;
 }
 
-export interface Season {
+export interface Season extends AcceptedWarnings {
 	title: string;
 	authors?: string[];
 	language?: string;
@@ -593,7 +594,7 @@ export interface Download {
  * `toon-settings:<toon>:<l>` (`ToonSettings`: title, description, language, release, status) with the
  * language-neutral settings of the index entry `toon:<toon>` (`ToonNeutralSettings`) merged in by the library.
  */
-export interface Toon {
+export interface Toon extends AcceptedWarnings {
 	id: string;
 	title: string;
 	authors: string[];
@@ -651,7 +652,7 @@ export interface ToonTile {
  * One toon's entry in `toons.json` (language-neutral). The creator keeps the newest version of it in the content store
  * as `<toon>/_/index.json` (see `TOON_INDEX_FILE`); read the languages with `toonLanguages()`.
  */
-export interface ToonIndex extends ToonNeutralSettings {
+export interface ToonIndex extends ToonNeutralSettings, AcceptedWarnings {
 	id: string;
 	uri: string;
 	status: Status;

@@ -52,6 +52,7 @@
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
 	import { pagePanel } from '$lib/ask.svelte.ts';
+	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
@@ -413,7 +414,8 @@
 		return out.sort((a, b) => order[a.level] - order[b.level]);
 	});
 	const errorCount = $derived(problems.filter((p) => p.level === 'error').length);
-	const warningCount = $derived(problems.filter((p) => p.level === 'warning').length);
+	// accepted warnings ("Looks fine") don't count
+	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(allDocs, p)).length);
 
 	function gotoProblem(p: Problem) {
 		let path = p.path;
@@ -731,7 +733,7 @@
 			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
 		<aside class="side-panel">
 			{#if panel === 'problems'}
-				<ProblemsPanel {problems} home={chapter.entity} ongoto={gotoProblem} onclose={() => (panel = null)} />
+				<ProblemsPanel {problems} docs={allDocs} home={chapter.entity} ongoto={gotoProblem} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && activeDoc}
 				<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
 			{/if}

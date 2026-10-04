@@ -12,6 +12,7 @@
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
 	import { pagePanel } from '$lib/ask.svelte.ts';
+	import { isAccepted } from '$lib/editor/accepted.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
@@ -106,7 +107,8 @@
 		return out.sort((a, b) => order[a.level] - order[b.level]);
 	});
 	const errorCount = $derived(problems.filter((p) => p.level === 'error').length);
-	const warningCount = $derived(problems.filter((p) => p.level === 'warning').length);
+	// accepted warnings ("Looks fine") don't count
+	const warningCount = $derived(problems.filter((p) => p.level === 'warning' && !isAccepted(docs, p)).length);
 
 	// unsaved changes: leaving asks in-page (lib/editor/ask.ts)
 	beforeNavigate(leaveGuard(() => anyDirty));
@@ -169,7 +171,7 @@
 			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
 		<aside class="side-panel">
 			{#if panel === 'problems'}
-				<ProblemsPanel {problems} home={main?.entity} onclose={() => (panel = null)} />
+				<ProblemsPanel {problems} {docs} home={main?.entity} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && historyDoc}
 				{#if docs.length > 1}
 					<p class="history-files">

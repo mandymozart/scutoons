@@ -1,21 +1,26 @@
 <script lang="ts">
 	// The Problems panel (chapter editor, meta pages): errors and warnings of the open page, notes on request. A row
 	// jumps to its place; "Looks fine" accepts a warning (it moves behind "accepted"), "Ask" hands it to the Ask panel.
-	// DRAFT (owner 2026-10-04): acceptances live in memory only – they become a versioned `accepted` list per page next.
-	import { SvelteSet } from 'svelte/reactivity';
+	// An acceptance is an edit of the document the warning is about (`accepted_warnings` in that locale's file,
+	// @scutoons/content accepted.ts): the page turns unsaved, Save keeps it, undo takes it back.
 	import { CloseButton, Icon } from '@scutoons/ui';
 	import { fileLabel } from '$lib/labels.ts';
 	import { askAbout } from '$lib/ask.svelte.ts';
 	import type { Problem } from '@scutoons/content';
+	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
+	import { acceptStore, isAccepted as accepted, toggleAccepted } from '$lib/editor/accepted.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
 		problems,
+		docs = [],
 		home,
 		ongoto,
 		onclose
 	}: {
 		problems: Problem[];
+		/** the page's documents: a warning about one of them can be accepted (stored in it) */
+		docs?: ContentDoc[];
 		/** the page's own file: its name is left out of the places (other files, e.g. a scene group, keep theirs) */
 		home?: string;
 		ongoto?: (problem: Problem) => void;
@@ -25,13 +30,8 @@
 	let showInfo = $state(false);
 	let showAccepted = $state(false);
 
-	const keyOf = (p: Problem) => [p.file, p.locale ?? '', p.path.join('.'), p.message].join('|');
-	const isAccepted = (p: Problem) => p.level === 'warning' && accepted.has(keyOf(p));
-	function toggleAccepted(p: Problem) {
-		const key = keyOf(p);
-		if (accepted.has(key)) accepted.delete(key);
-		else accepted.add(key);
-	}
+	const storeOf = (p: Problem) => acceptStore(docs, p);
+	const isAccepted = (p: Problem) => accepted(docs, p);
 
 	const counts = $derived({
 		error: problems.filter((p) => p.level === 'error').length,
@@ -65,11 +65,6 @@
 	}
 </script>
 
-<script lang="ts" module>
-	/** acceptances of this browser session (draft): kept across panel open / close and page changes */
-	const accepted = new SvelteSet<string>();
-</script>
-
 <div class="problems" data-testid="problems-panel">
 	<header>
 		<h2>{m['creator.problems']()}</h2>
@@ -95,8 +90,8 @@
 					<span class="msg">{p.message}</span>
 				</button>
 				<span class="actions">
-					{#if p.level === 'warning'}
-						<button type="button" class="sc-round" class:is-active={done} aria-pressed={done} title={done ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} aria-label={done ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} onclick={() => toggleAccepted(p)}><Icon name="check" /></button>
+					{#if storeOf(p)}
+						<button type="button" class="sc-round" class:is-active={done} aria-pressed={done} title={done ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} aria-label={done ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} onclick={() => toggleAccepted(docs, p)}><Icon name="check" /></button>
 					{/if}
 					{#if p.level !== 'info' && !done}
 						<button type="button" class="sc-round" title={m['creator.problems_ask']()} aria-label={m['creator.problems_ask']()} onclick={() => askAbout(m['creator.problems_ask_text']({ place, message: p.message }))}><Icon name="message-square" /></button>

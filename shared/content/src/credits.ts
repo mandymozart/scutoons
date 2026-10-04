@@ -11,6 +11,7 @@ import { Language } from './enums.ts';
 import type { Path } from './paths.ts';
 import type { Level, Problem } from './validate.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
+import type { AcceptedWarnings } from './accepted.ts';
 
 /** Text per locale: `{ de: "Kostüm", en: "Costume Design" }`. */
 export type LocaleText = Record<string, string>;
@@ -37,7 +38,7 @@ export interface CreditPerson {
 	merged_into?: string;
 }
 
-export interface PeopleRegistry {
+export interface PeopleRegistry extends AcceptedWarnings {
 	people: CreditPerson[];
 }
 
@@ -69,7 +70,7 @@ export interface CreditRole {
 	label: LocaleText;
 }
 
-export interface RoleVocabulary {
+export interface RoleVocabulary extends AcceptedWarnings {
 	roles: CreditRole[];
 }
 
@@ -137,7 +138,7 @@ export type CreditSection =
 	| ThanksCreditSection;
 
 /** `<toon>/_/credits.json` */
-export interface ToonCredits {
+export interface ToonCredits extends AcceptedWarnings {
 	toon: string;
 	/** roles only this toon uses (ids must not clash with the vocabulary) */
 	roles?: CreditRole[];
