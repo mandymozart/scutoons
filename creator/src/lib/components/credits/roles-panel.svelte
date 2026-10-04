@@ -4,7 +4,7 @@
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { creditsOf, edit, newRole, rolesOf } from '$lib/editor/credits.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import LocaleMapField from './locale-map-field.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
 
 	/** The toon's custom roles (the credits' `roles`) and the shared vocabulary (entity `roles`). */
 	let { credits, roles, languages }: { credits: ContentDoc; roles: ContentDoc; languages: string[] } = $props();

@@ -51,7 +51,7 @@
 <label class="json">
 	<span class="sc-label">{label}</span>
 	<textarea {rows} spellcheck="false" value={text} oninput={(e) => input(e.currentTarget.value)} aria-invalid={!!error} data-testid={testid}></textarea>
-	{#if error}<span class="error" role="alert">{error}</span>{:else if hint}<span class="sc-caption muted">{hint}</span>{/if}
+	{#if error}<span class="sc-error" role="alert">{error}</span>{:else if hint}<span class="sc-caption muted">{hint}</span>{/if}
 </label>
 
 <style>
@@ -66,9 +66,5 @@
 		line-height: var(--type-caption-line);
 		white-space: pre;
 		overflow: auto;
-	}
-	.error {
-		color: var(--state-error);
-		font-size: var(--type-caption-size);
 	}
 </style>

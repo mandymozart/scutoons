@@ -1,6 +1,7 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import CloseButton from './close-button.svelte';
+	import { resizable } from './resizable.svelte.ts';
 
 	/**
 	 * Modal sheet on the native <dialog> (focus trap, Escape, top layer). `side`: bottom sheet (mobile reader
@@ -35,60 +36,17 @@
 
 	let dialog: HTMLDialogElement | null = $state(null);
 
-	// ---------- resizable right drawer ----------
-	const WIDTH_KEY = 'sc-sheet-width';
-	/** px set by dragging; null = the normal width */
-	let width = $state<number | null>(null);
+	// ---------- resizable right drawer (resizable.svelte.ts) ----------
 	let baseWidth = 0;
-	$effect(() => {
-		if (side !== 'right') return;
-		try {
-			const saved = Number(localStorage.getItem(WIDTH_KEY));
-			if (saved > 0) width = saved;
-		} catch {
-			// not remembered
-		}
-	});
 	function measureBase() {
-		if (!baseWidth && dialog && width === null) baseWidth = dialog.offsetWidth;
+		if (!baseWidth && dialog && size.width === null) baseWidth = dialog.offsetWidth;
 		return baseWidth || 512;
 	}
-	const clamp = (px: number) => Math.round(Math.min(Math.max(px, measureBase()), Math.max(measureBase(), window.innerWidth / 2)));
-	function remember() {
-		try {
-			if (width === null) localStorage.removeItem(WIDTH_KEY);
-			else localStorage.setItem(WIDTH_KEY, String(width));
-		} catch {
-			// not remembered
-		}
-	}
-	function startResize(event: PointerEvent) {
-		event.preventDefault();
-		event.stopPropagation();
-		measureBase();
-		const handle = event.currentTarget as HTMLElement;
-		handle.setPointerCapture(event.pointerId);
-		const move = (e: PointerEvent) => (width = clamp(window.innerWidth - e.clientX));
-		const end = () => {
-			handle.removeEventListener('pointermove', move);
-			handle.removeEventListener('pointerup', end);
-			handle.removeEventListener('pointercancel', end);
-			remember();
-		};
-		handle.addEventListener('pointermove', move);
-		handle.addEventListener('pointerup', end);
-		handle.addEventListener('pointercancel', end);
-	}
-	function keyResize(event: KeyboardEvent) {
-		const step = event.shiftKey ? 64 : 16;
-		const current = width ?? measureBase();
-		if (event.key === 'ArrowLeft') width = clamp(current + step);
-		else if (event.key === 'ArrowRight') width = clamp(current - step);
-		else if (event.key === 'Home') width = null;
-		else return;
-		event.preventDefault();
-		remember();
-	}
+	const size = resizable({ storageKey: 'sc-sheet-width', edge: 'left', anchor: () => window.innerWidth, min: measureBase, max: () => window.innerWidth / 2 });
+	$effect(() => {
+		if (side === 'right') size.restore();
+	});
+	const width = $derived(size.width);
 
 	$effect(() => {
 		if (!dialog) return;
@@ -128,9 +86,9 @@
 				aria-label={resizeLabel}
 				tabindex="0"
 				title={resizeLabel}
-				onpointerdown={startResize}
-				onkeydown={keyResize}
-				ondblclick={() => ((width = null), remember())}
+				onpointerdown={size.start}
+				onkeydown={size.key}
+				ondblclick={size.reset}
 			></div>
 		{/if}
 		<header>

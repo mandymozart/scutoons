@@ -160,6 +160,8 @@
 
 /* ── Groups: fieldset = no frame (owner 2026-10-03: framed groups looked like a different form concept than the other
    sections), legend = the tool label above the fields, like a field's label; details = a label row ─────────────── */
+/* a fold's row is a label like a legend (caption, uppercase); open, the content starts --space-05 below it
+   (owner 2026-10-03: one fold style – no component restyles its summary) */
 :where(.sc-tool) :where(fieldset) {
 	margin: 0 0 var(--space-1);
 	padding: 0;
@@ -184,6 +186,8 @@
 	align-items: center;
 	gap: var(--space-05);
 	min-height: var(--control-height);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
 	font-weight: var(--font-weight-regular);
 	text-transform: uppercase;
 	letter-spacing: var(--tracking-label);
@@ -206,6 +210,9 @@
 }
 :where(.sc-tool) :where(details[open] > summary)::before {
 	transform: rotate(90deg);
+}
+:where(.sc-tool) :where(details[open] > summary) {
+	margin-bottom: var(--space-05);
 }
 
 /* ── Tables: roomy rows, uppercase regular headers on a 2px ink rule ────────────────────────────────────────────────── */
@@ -304,6 +311,36 @@
 	background: var(--badge-info);
 	color: var(--badge-info-text);
 }
+/* colour only (the word is the tooltip / accessible name): a square */
+.sc-chip.is-dot {
+	width: 0.75rem;
+	height: 0.75rem;
+	padding: 0;
+	align-self: center;
+}
+/* a tag that names something (a persona, a rendition) rather than a state: a 1px frame, no fill; .is-quiet greys it */
+.sc-chip.is-tag {
+	background: transparent;
+	color: inherit;
+	box-shadow: inset 0 0 0 1px currentColor;
+}
+.sc-chip.is-quiet {
+	color: var(--text-muted);
+}
+/* a marked note in running text (an image request, a hint that something will happen): info fill, caption, sentence
+   case, wraps – not a chip (chips are short uppercase words) */
+.sc-mark {
+	padding: 0 var(--space-025);
+	background: var(--badge-info);
+	color: var(--badge-info-text);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+}
+/* a chip that shows its words on keyboard focus (the tool tooltip) */
+.sc-chip[tabindex]:focus-visible {
+	outline: var(--border-width-focus) solid var(--ink);
+	outline-offset: 1px;
+}
 /* a custom single-line control (a framed label around an invisible native select, a link that is a button): one
    control height (owner 2026-10-02). Zero specificity: the component's own rule still sets frame and colours. */
 :where(.sc-control) {
@@ -355,6 +392,36 @@
 .sc-chip-control :where(button:last-child) {
 	margin-right: calc(-1 * var(--border-width-regular));
 }
+/* with a picture before the name (an avatar, an item icon): tighter on the left */
+.sc-chip-control.has-image {
+	gap: var(--space-025);
+	padding-left: var(--space-025);
+}
+/* something to look at (not in the cast, an unknown item) */
+.sc-chip-control.is-warning {
+	border-color: var(--state-warning);
+}
+/* a filled tag with buttons (a credit's role): ink; .is-draft = a one-off (custom) value */
+.sc-chip-control.is-filled {
+	padding-left: 0;
+	background: var(--badge-neutral);
+	color: var(--badge-neutral-text);
+	border-color: var(--badge-neutral);
+}
+.sc-chip-control.is-filled.is-draft {
+	background: var(--badge-draft);
+	color: var(--badge-draft-text);
+	border-color: var(--badge-draft);
+}
+.sc-chip-control.is-filled :where(button) {
+	color: inherit;
+}
+.sc-chip-control.is-filled :where(button:hover:not(:disabled)) {
+	border-color: var(--paper);
+}
+.sc-chip-control.is-error :where(button:first-child) {
+	color: var(--state-error);
+}
 
 /* sidebar / list navigation: a group head, then full-width entries; hover frames, current (aria-current / .is-current) inverts */
 .sc-nav-head {
@@ -400,6 +467,207 @@
 	background: var(--ink);
 	color: var(--paper);
 }
+/* field grid: fields side by side (owner 2026-10-03, agents/COMPONENTS.md 4.4.2). The spacing follows the hierarchy
+   level, on the token scale only (row gap / column gap):
+     data-density="page"  (default) page forms – toon settings, character detail   --space-075 / --space-1
+     data-density="panel" inspector panels – text inspector, group panel             --space-05  / --space-075
+     data-density="dense" dense rows – VN events, slice audio                        --space-025 / --space-05
+   data-align: start | end (fields of different heights: tops or inputs in line).
+   data-cols: 1 (default) | 2 | 3 | 4 equal columns; "fill" = as many columns of at least --fields-fill-min (12rem) as fit;
+   "fit" = the same, stretched over the row (--fields-fit-min, 18rem). A genuinely special layout sets only its own
+   grid-template-columns (or align-items) locally – never a gap (check:tools-css). */
+.sc-fields {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: var(--space-075) var(--space-1);
+}
+.sc-fields[data-density='panel'] {
+	gap: var(--space-05) var(--space-075);
+}
+.sc-fields[data-density='dense'] {
+	gap: var(--space-025) var(--space-05);
+}
+.sc-fields[data-cols='2'] {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.sc-fields[data-cols='3'] {
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.sc-fields[data-cols='4'] {
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.sc-fields[data-cols='fill'] {
+	grid-template-columns: repeat(auto-fill, minmax(min(var(--fields-fill-min), 100%), 1fr));
+}
+.sc-fields[data-align='start'] {
+	align-items: start;
+}
+.sc-fields[data-align='end'] {
+	align-items: end;
+}
+.sc-fields[data-cols='fit'] {
+	grid-template-columns: repeat(auto-fit, minmax(min(var(--fields-fit-min), 100%), 1fr));
+}
+
+/* a problem line outside a Field (a list's or a group's problem after a save): the Field error's look – caption, ink
+   text, a state-colored rule (the error red is below 4.5:1 as small text) */
+.sc-error {
+	margin: 0;
+	padding-left: var(--space-05);
+	border-left: var(--border-width-regular) solid var(--state-error);
+	color: var(--ink);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+}
+
+/* segmented control (owner 2026-10-03, COMPONENTS.md step 6; @scutoons/ui Segmented renders it): one 2px ink frame
+   around a row of choices, no frame on the buttons, the chosen one (aria-pressed / aria-checked) inverted, a hover
+   frame inside. .is-grid wraps into equal columns of at least --seg-min (presets). Also the frame for a toggle + its
+   option (a <select> inside is fine). */
+.sc-seg {
+	display: inline-flex;
+	box-sizing: border-box;
+	border: var(--border-width-regular) solid var(--ink);
+	background: var(--paper);
+}
+.sc-seg.is-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(var(--seg-min), 100%), 1fr));
+}
+.sc-seg > button {
+	min-height: var(--control-height);
+	margin: 0;
+	padding: 0 var(--space-05);
+	border: var(--border-width-regular) solid transparent;
+	border-radius: var(--radius-none);
+	background: transparent;
+	color: var(--ink);
+}
+.sc-seg > button:hover:not(:disabled) {
+	border-color: var(--border-muted);
+}
+.sc-seg > button[aria-pressed='true'],
+.sc-seg > button[aria-checked='true'] {
+	background: var(--ink);
+	color: var(--paper);
+	border-color: var(--ink);
+}
+.sc-seg > select {
+	width: auto;
+}
+
+/* picker sheets (owner 2026-10-03, COMPONENTS.md step 7; the creator's PickerSheet): a filter row (search wider than
+   the selects, wraps on a phone), a grid of picture cards (--cards-min wide at least; set it on the grid for
+   smaller cells), the card = a framed button: hover ink, the current value marked on the left, the chosen one
+   inverted, a missing picture dashed */
+.sc-picker-filters {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-05);
+}
+.sc-picker-filters > :where(input[type='search']) {
+	flex: 2 1 12rem;
+	width: auto;
+	min-width: 0;
+}
+.sc-picker-filters > :where(select) {
+	flex: 1 1 8rem;
+	width: auto;
+	min-width: 0;
+}
+.sc-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(min(var(--cards-min), 100%), 1fr));
+	gap: var(--space-05);
+}
+.sc-card {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	align-items: stretch;
+	justify-content: flex-start;
+	gap: var(--space-025);
+	min-width: 0;
+	min-height: 0;
+	margin: 0;
+	padding: 0.35rem;
+	border: var(--border-width-regular) solid var(--border-muted);
+	border-radius: var(--radius-none);
+	background: var(--paper);
+	color: var(--ink);
+	font: inherit;
+	text-align: left;
+	overflow-wrap: anywhere;
+	cursor: pointer;
+}
+.sc-card:hover:not(:disabled) {
+	border-color: var(--ink);
+}
+.sc-card:focus-visible {
+	outline: var(--border-width-focus) solid var(--ink);
+	outline-offset: var(--focus-offset);
+}
+.sc-card.is-current {
+	border-left: 0.5rem solid var(--primary-cyan);
+}
+.sc-card.is-selected {
+	background: var(--ink);
+	color: var(--paper);
+	border-color: var(--ink);
+}
+.sc-card.is-selected .sc-caption {
+	color: inherit;
+}
+.sc-card.is-missing {
+	border-style: dashed;
+	border-color: var(--ink);
+}
+.sc-card:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+.sc-card-img {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 100%;
+	aspect-ratio: 1;
+	overflow: hidden;
+	background: var(--surface-hover);
+}
+.sc-card-img img {
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+/* a page's message bars under its file status (COMPONENTS.md step 11; the creator's DocNotices – the chapter editor's
+   look, which the meta pages now share): ink on paper with a thick state rule, no tinted fills; .is-dirty unsaved
+   changes (inverted), .is-warning (an autosave, a missing language), .is-error (a save conflict), .is-note (a notice) */
+.sc-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--space-05);
+	padding: var(--space-05) var(--space-1);
+	border-bottom: var(--border-width-regular) solid var(--ink);
+	border-left: 0.5rem solid var(--ink);
+}
+.sc-bar.is-dirty {
+	background: var(--ink);
+	color: var(--paper);
+}
+.sc-bar.is-warning {
+	border-left-color: var(--state-warning);
+}
+.sc-bar.is-error {
+	border-left-color: var(--state-error);
+}
+.sc-bar.is-note {
+	border-left-color: var(--primary-cyan);
+}
+
 /* a framed block */
 .sc-frame {
 	box-sizing: border-box;

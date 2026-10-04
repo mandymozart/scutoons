@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { problemFor, type CatalogFormProps } from '$lib/catalog/kinds.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from './catalog-field.svelte';
+	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
 
 	/**
 	 * The catalog's top-level facts (the old files without their lists): `items` / `permissions` { version },

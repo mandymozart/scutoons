@@ -34,7 +34,7 @@
 
 <div class="group">
 	<MediaSlot toon="" value={data.image ?? undefined} label={m['catalog.picture']()} place="{outputToon}/items/recipes/" {bust} onchange={(path) => { if (path) data.image = path; else delete data.image; bust = Date.now(); }} testid="recipe-image" />
-	{#if err('image')}<p class="error">{err('image')}</p>{/if}
+	{#if err('image')}<p class="sc-error">{err('image')}</p>{/if}
 </div>
 
 <fieldset class="group">
@@ -43,7 +43,7 @@
 		{@render part(input, `${m['catalog.recipe_input']()} ${i + 1}`, 'recipe-input', inputs.length > 1 ? () => (data.inputs = inputs.filter((_, j) => j !== i)) : undefined)}
 	{/each}
 	<span><Button size="sm" variant="secondary" onclick={() => (data.inputs = [...inputs, { item: '', qty: 1 }])} data-testid="recipe-add-input">{m['catalog.add_input']()}</Button></span>
-	{#if err('inputs', 'input')}<p class="error">{err('inputs', 'input')}</p>{/if}
+	{#if err('inputs', 'input')}<p class="sc-error">{err('inputs', 'input')}</p>{/if}
 </fieldset>
 
 <fieldset class="group">
@@ -53,7 +53,7 @@
 	{:else}
 		<span><Button size="sm" variant="secondary" onclick={() => (data.output = { item: '', qty: 1 })}>{m['catalog.add_output']()}</Button></span>
 	{/if}
-	{#if err('output')}<p class="error">{err('output')}</p>{/if}
+	{#if err('output')}<p class="sc-error">{err('output')}</p>{/if}
 </fieldset>
 
 <style>
@@ -68,9 +68,5 @@
 		grid-template-columns: minmax(0, 1fr) 5rem auto;
 		gap: var(--space-05);
 		align-items: center;
-	}
-	.error {
-		margin: 0;
-		color: var(--state-error);
 	}
 </style>

@@ -4,7 +4,7 @@
 // A chapter always belongs to a season (owner rule): new chapters are created inside it, a new season adopts existing
 // chapter files, and a chapter file without a season entry is a validation error.
 import { Status, type SequenceItem } from '@scutoons/content';
-import type { ContentDoc } from './doc.svelte.ts';
+import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 
 export const STATUSES = Object.values(Status) as Status[];
 

@@ -73,7 +73,7 @@
 	}
 </script>
 
-<form class="form-grid" onsubmit={submit}>
+<form class="sc-fields" data-cols="fit" onsubmit={submit}>
 	<label class="field wide">
 		<span>{m['org.name']()}</span>
 		<input bind:value={name} required maxlength="255" />
@@ -147,7 +147,7 @@
 				<input type="checkbox" bind:checked={independent} data-testid="store-independent" />
 				{m['store.independent']()}
 			</label>
-			<div class="pair">
+			<div class="sc-fields" data-cols="fit">
 				<label class="field">
 					<span>{m['store.address']()}</span>
 					<input bind:value={address} maxlength="255" placeholder={m['store.address_placeholder']()} />
@@ -197,11 +197,6 @@
 	}
 	.store p {
 		margin: 0;
-	}
-	.pair {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
-		gap: var(--space-075) var(--space-1);
 	}
 	.carries ul {
 		display: grid;

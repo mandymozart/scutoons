@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { moveAt } from '$lib/editor/move.ts';
+	import ReorderButtons from '$lib/components/controls/reorder-buttons.svelte';
+	import { CloseIcon, Icon, Tabs } from '@scutoons/ui';
 	import { onMount } from 'svelte';
 	import {
 		AUTHORED_VIEW,
@@ -40,9 +42,9 @@
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import MetaPage from '../meta-page.svelte';
-	import LocaleMapField from '../credits/locale-map-field.svelte';
-	import CharacterPickerSheet from './character-picker-sheet.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import LocaleMapField from '$lib/components/fields/locale-map-field.svelte';
+	import CharacterPickerSheet from '$lib/components/characters/character-picker-sheet.svelte';
 
 	/**
 	 * The cast of a toon per season (entity `cast:<toon>`): registry characters with the personas that appear in that
@@ -91,11 +93,7 @@
 	const list = (f: ToonCast) => (f.seasons[String(season)] ??= []);
 	function move(from: number, to: number) {
 		if (to < 0 || to >= entries.length || from === to) return;
-		change((f) => {
-			const l = list(f);
-			const [item] = l.splice(from, 1);
-			l.splice(to, 0, item);
-		});
+		change((f) => moveAt(list(f), from, to));
 	}
 	function togglePersona(character: string, persona: string, on: boolean) {
 		change((f) => {
@@ -146,11 +144,13 @@
 		<a class="bar-link" href="/characters?toon={toon}" data-testid="open-characters">{m['creator.characters']()}</a>
 	{/snippet}
 	<section class="cast" data-testid="cast-editor">
-		<nav class="seasons" aria-label={m['creator.cast_seasons']()}>
-			{#each seasons as s (s)}
-				<button type="button" class="tab" class:active={s === season} onclick={() => (season = s)} data-testid="cast-season-{s}">{m['creator.season']({ number: s })}</button>
-			{/each}
-		</nav>
+		<Tabs
+			variant="ruled"
+			label={m['creator.cast_seasons']()}
+			value={String(season)}
+			onchange={(id) => (season = Number(id))}
+			tabs={seasons.map((s) => ({ id: String(s), label: m['creator.season']({ number: s }), testid: `cast-season-${s}` }))}
+		/>
 		{#if cast.loading || registry.loading}
 			<p class="hint">{m['creator.loading']()}</p>
 		{:else}
@@ -196,7 +196,7 @@
 						<span class="avatar" style:background={c?.color || 'transparent'}>{#if src}<img src={asset(src)} onerror={() => imageExists(src)} alt="" />{/if}</span>
 						<span class="who">
 							{#if c}
-								<span>{characterName(c, source)}{#if c.id === star} <span class="star" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</span>
+								<span>{characterName(c, source)}{#if c.id === star} <span class="star sc-chip" title={m['creator.cast_star_locked']()} data-testid="cast-star">{m['creator.cast_star']()}</span>{/if}</span>
 								<a class="hint" href="/characters?id={encodeURIComponent(c.id)}&toon={toon}">{m['creator.characters_edit']()}</a>
 								<!-- a character with one persona has nothing to choose: no row (owner read "regular" as a flag) -->
 								{#if personaIds(c).length > 1}
@@ -220,8 +220,7 @@
 						</span>
 						<LocaleMapField value={entry.role} languages={langs} label={m['creator.cast_role']()} onchange={(v) => setRole(entry.character, v)} testid="cast-role-{entry.character}" />
 						<span class="order">
-							<button type="button" class="ghost" onclick={() => move(i, i - 1)} disabled={i === 0} aria-label={m['creator.credits_up']()}><Icon name="arrow-up" /></button>
-							<button type="button" class="ghost" onclick={() => move(i, i + 1)} disabled={i === entries.length - 1} aria-label={m['creator.credits_down']()}><Icon name="arrow-down" /></button>
+							<ReorderButtons index={i} count={entries.length} onmove={move} labels={{ up: m['creator.credits_up'](), down: m['creator.credits_down']() }} />
 							{#if entry.character === star}
 								<button type="button" class="ghost" disabled title={m['creator.cast_star_locked']()} aria-label={m['creator.cast_star_locked']()} data-testid="cast-star-locked"><CloseIcon /></button>
 							{:else}
@@ -261,24 +260,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.75rem;
-	}
-	.seasons {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.25rem;
-		border-bottom: 2px solid var(--ink);
-		padding-bottom: 0.25rem;
-	}
-	.tab {
-		background: var(--paper);
-		color: var(--ink);
-		border: 2px solid var(--border-muted);
-		padding: 0 0.6rem;
-	}
-	.tab.active {
-		background: var(--ink);
-		color: var(--paper);
-		border-color: var(--ink);
 	}
 	ol {
 		list-style: none;
@@ -357,11 +338,6 @@
 	}
 	.star {
 		margin-left: 0.4rem;
-		font-size: var(--type-caption-size);
-		font-weight: 400;
-		padding: 0 0.4em;
-		background: var(--badge-neutral);
-		color: var(--badge-neutral-text);
 		vertical-align: middle;
 	}
 

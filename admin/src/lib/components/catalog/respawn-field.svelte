@@ -61,7 +61,7 @@
 		{@render part('default', m['catalog.respawn_default']())}
 		{@render part('min', m['catalog.respawn_min']())}
 		{@render part('max', m['catalog.respawn_max']())}
-		{#each problems as p (p)}<p class="error">{p}</p>{/each}
+		{#each problems as p (p)}<p class="sc-error">{p}</p>{/each}
 	{/if}
 	<p class="sc-caption muted">{m['catalog.respawn_hint']()}</p>
 </fieldset>
@@ -88,10 +88,6 @@
 		display: inline-flex;
 		align-items: center;
 		gap: var(--space-05);
-	}
-	.error {
-		margin: 0;
-		color: var(--state-error);
 	}
 	p {
 		margin: 0;

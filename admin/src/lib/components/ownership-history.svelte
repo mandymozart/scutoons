@@ -5,7 +5,7 @@
 	import { transferKindLabel } from '$lib/claims.svelte.ts';
 	import { tableLabels } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AccountLink from './account-link.svelte';
+	import AccountLink from '$lib/components/account-link.svelte';
 
 	/** The ownership history of a code (`item_transfers`, newest first): claims decided, gifts, admin transfers. */
 	let { items }: { items: OwnershipTransfer[] } = $props();

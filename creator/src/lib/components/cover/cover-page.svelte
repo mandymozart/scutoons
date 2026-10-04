@@ -4,8 +4,8 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
-	import MetaPage from '../meta-page.svelte';
-	import CoverEditor from './cover-editor.svelte';
+	import MetaPage from '$lib/components/page/meta-page.svelte';
+	import CoverEditor from '$lib/components/cover/cover-editor.svelte';
 
 	/**
 	 * `/<toon>/season/<n>/cover` – a season's cover editor (owner 2026-10-02: covers are per season; the toon is shown

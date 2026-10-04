@@ -17,7 +17,8 @@
 		place = '',
 		onchange,
 		testid,
-		bust = 0
+		bust = 0,
+		hideLabel = false
 	}: {
 		/** the toon folder ('' = paths from the CDN root, e.g. the character registry's) */
 		toon: string;
@@ -30,6 +31,8 @@
 		testid?: string;
 		/** set after the file got new bytes at the same path (a timestamp): the preview loads again */
 		bust?: number;
+		/** no visible label – the surrounding field shows it (the slot button keeps it as its accessible name) */
+		hideLabel?: boolean;
 	} = $props();
 
 	const t = $derived(mediaText());
@@ -46,7 +49,7 @@
 </script>
 
 <div class="media-slot" data-testid={testid}>
-	<span class="sc-label">{label}</span>
+	{#if !hideLabel}<span class="sc-label">{label}</span>{/if}
 	<div class="row">
 		<button type="button" class="slot" class:empty={!value} onclick={() => (open = true)} title={value ? `${value}\n${t.chooseHint}` : t.chooseHint} aria-label="{label}: {value ?? t.choose}">
 			{#if !value}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { problemFor, type CatalogFormProps } from '$lib/catalog/kinds.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from './catalog-field.svelte';
+	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
 
 	/**
 	 * A toon (owner: main toons are created by admins only, here; the creator then fills content and meta): its name and

@@ -79,11 +79,6 @@
 		flex-direction: column;
 		gap: 0.35rem;
 	}
-	.tech summary {
-		cursor: pointer;
-		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-	}
 	table {
 		border-collapse: collapse;
 		margin-top: 0.3rem;

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { problemFor, type CatalogFormProps } from '$lib/catalog/kinds.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import CheckField from './check-field.svelte';
+	import CheckField from '$lib/components/catalog/check-field.svelte';
 
 	/**
 	 * A code type (security-relevant: the editor asks before saving): may a code of this type be claimed, does it allow
@@ -34,7 +34,7 @@
 		<CheckField label="{unknown} (?)" checked onchange={(on) => grant(unknown, on)} />
 	{/each}
 </fieldset>
-{#if err}<p class="error">{err}</p>{/if}
+{#if err}<p class="sc-error">{err}</p>{/if}
 
 <style>
 	.group {
@@ -44,8 +44,5 @@
 	}
 	p {
 		margin: 0;
-	}
-	.error {
-		color: var(--state-error);
 	}
 </style>

@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { AVATAR_SLOTS } from '@scutoons/content';
 	import { MediaSlot } from '@scutoons/media';
-	import { Button, CloseIcon } from '@scutoons/ui';
 	import { problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from './catalog-field.svelte';
-	import CheckField from './check-field.svelte';
-	import LocaleText from './locale-text.svelte';
-	import RespawnField from './respawn-field.svelte';
+	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
+	import CatalogRows from '$lib/components/catalog/catalog-rows.svelte';
+	import CheckField from '$lib/components/catalog/check-field.svelte';
+	import LocaleText from '$lib/components/catalog/locale-text.svelte';
+	import RespawnField from '$lib/components/catalog/respawn-field.svelte';
 
 	/**
 	 * An item (agents/ITEMS.md "Item definition"): texts per language, kind / category, the picture (a slot; uploads go
@@ -24,13 +24,7 @@
 	let bust = $state(0);
 
 	const variants = $derived<Data[]>(Array.isArray(data.variants) ? data.variants : []);
-	function addVariant() {
-		data.variants = [...variants, { id: '', name: { de: '', en: '' }, icon: null, ...(data.product ? { product: data.product } : {}) }];
-	}
-	function removeVariant(i: number) {
-		const next = variants.filter((_, j) => j !== i);
-		data.variants = next.length ? next : null;
-	}
+	const newVariant = (): Data => ({ id: '', name: { de: '', en: '' }, icon: null, ...(data.product ? { product: data.product } : {}) });
 	const err = (...words: string[]) => problemFor(problems, ...words);
 </script>
 
@@ -38,7 +32,7 @@
 <LocaleText label={m['catalog.name']()} required value={data.name} error={err('name')} onchange={(v) => (data.name = v)} testid="item-name" />
 <LocaleText label={m['catalog.description']()} multiline value={data.description} onchange={(v) => (data.description = v)} testid="item-description" />
 
-<div class="pair">
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="10rem">
 	<CatalogField
 		label={m['catalog.kind']()}
 		type="select"
@@ -67,7 +61,7 @@
 <CatalogField label={m['common.edition']()} type="select" value={data.edition_id} options={options('editions')} none={m['catalog.none']()} error={err('edition', 'edition_id')} onchange={(v) => (data.edition_id = v)} />
 <CatalogField label={m['catalog.product']()} type="select" value={data.product} options={options('products')} none={m['catalog.none']()} error={err('product')} onchange={(v) => (data.product = v)} />
 
-<div class="pair">
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="10rem">
 	<CatalogField
 		label={m['catalog.album']()}
 		type="select"
@@ -94,33 +88,36 @@
 	/>
 </div>
 
-<fieldset class="variants" data-testid="item-variants">
-	<legend>{m['catalog.variants']()}</legend>
-	{#if err('variant', 'variants')}<p class="error">{err('variant', 'variants')}</p>{/if}
-	{#each variants as v, i (i)}
-		<div class="variant" data-testid="item-variant">
-			<div class="variant-head">
-				<CatalogField label="id" value={v.id} onchange={(x) => (v.id = x)} testid="item-variant-id" />
-				<button type="button" class="sc-round" title={m['catalog.remove_variant']()} aria-label={m['catalog.remove_variant']()} onclick={() => removeVariant(i)}><CloseIcon /></button>
-			</div>
-			<LocaleText label={m['catalog.name']()} value={v.name} onchange={(x) => (v.name = x)} />
-			<CatalogField
-				label={m['catalog.product']()}
-				type="select"
-				value={v.product}
-				options={options('products')}
-				none={m['catalog.none']()}
-				onchange={(x) => {
-					if (x === null) delete v.product;
-					else v.product = x;
-				}}
-			/>
-			<MediaSlot toon="" value={v.icon ?? undefined} label={m['catalog.picture']()} {place} {bust} onchange={(path) => ((v.icon = path ?? null), (bust = Date.now()))} testid="item-variant-icon" />
-		</div>
-	{/each}
-	<span><Button size="sm" variant="secondary" onclick={addVariant} data-testid="item-add-variant">{m['catalog.add_variant']()}</Button></span>
-	{#if id && variants.length}<p class="sc-caption muted">{m['catalog.variant_files']({ id })}</p>{/if}
-</fieldset>
+<CatalogRows
+	legend={m['catalog.variants']()}
+	items={variants}
+	onchange={(next) => (data.variants = next.length ? next : null)}
+	create={newVariant}
+	addLabel={m['catalog.add_variant']()}
+	removeLabel={m['catalog.remove_variant']()}
+	error={err('variant', 'variants')}
+	testid="item-variants"
+	rowTestid="item-variant"
+	addTestid="item-add-variant"
+>
+	{#snippet head(v)}<CatalogField label="id" value={v.id} onchange={(x) => (v.id = x)} testid="item-variant-id" />{/snippet}
+	{#snippet row(v)}
+		<LocaleText label={m['catalog.name']()} value={v.name} onchange={(x) => (v.name = x)} />
+		<CatalogField
+			label={m['catalog.product']()}
+			type="select"
+			value={v.product}
+			options={options('products')}
+			none={m['catalog.none']()}
+			onchange={(x) => {
+				if (x === null) delete v.product;
+				else v.product = x;
+			}}
+		/>
+		<MediaSlot toon="" value={v.icon ?? undefined} label={m['catalog.picture']()} {place} {bust} onchange={(path) => ((v.icon = path ?? null), (bust = Date.now()))} testid="item-variant-icon" />
+	{/snippet}
+	{#snippet footer()}{#if id && variants.length}<p class="sc-caption muted">{m['catalog.variant_files']({ id })}</p>{/if}{/snippet}
+</CatalogRows>
 
 <RespawnField
 	value={data.respawn}
@@ -131,11 +128,6 @@
 />
 
 <style>
-	.pair {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-		gap: 0 var(--space-1);
-	}
 	.picture {
 		margin-bottom: var(--space-15);
 	}
@@ -144,33 +136,5 @@
 		flex-wrap: wrap;
 		gap: var(--space-05) var(--space-15);
 		margin-bottom: var(--space-15);
-	}
-	.variants {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-		margin-bottom: var(--space-15);
-	}
-	.variant {
-		padding-bottom: var(--space-1);
-		border-bottom: 1px solid var(--border-subtle, currentColor);
-	}
-	.variant-head {
-		display: flex;
-		align-items: flex-end;
-		gap: var(--space-05);
-	}
-	.variant-head :global(.field) {
-		flex: 1;
-	}
-	.variant-head .sc-round {
-		margin-bottom: var(--space-15);
-	}
-	.error {
-		margin: 0;
-		color: var(--state-error);
-	}
-	p {
-		margin: 0;
 	}
 </style>

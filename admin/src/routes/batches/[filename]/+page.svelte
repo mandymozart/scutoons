@@ -2,9 +2,9 @@
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { onDestroy, untrack } from 'svelte';
-	import { beforeNavigate, replaceState } from '$app/navigation';
+	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, RecordInspector, Section, Skeleton } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, confirmDialog, RecordInspector, Section, Skeleton } from '@scutoons/ui';
 	import { admin } from '$lib/api.ts';
 	import { downloadPrintSheet, downloadZip } from '$lib/batch-actions.ts';
 	import { errorText, number } from '$lib/format.ts';
@@ -51,11 +51,19 @@
 		});
 	}
 
+	// a running batch: leaving asks in-page (beforeNavigate can't wait, so the navigation is held and repeated)
+	let leaving = false;
 	beforeNavigate((navigation) => {
-		if (run?.state === 'running' || run?.state === 'paused') {
-			if (!confirm(m['batches.leave_confirm']())) navigation.cancel();
-			else run.abort();
-		}
+		if (leaving || !(run?.state === 'running' || run?.state === 'paused')) return;
+		navigation.cancel();
+		const to = navigation.to?.url;
+		if (navigation.type === 'leave' || !to) return;
+		confirmDialog({ title: m['batches.leave_title'](), message: m['batches.leave_confirm'](), confirmLabel: m['batches.leave_label']() }).then((ok) => {
+			if (!ok) return;
+			run?.abort();
+			leaving = true;
+			goto(to).finally(() => (leaving = false));
+		});
 	});
 	onDestroy(() => run?.abort());
 

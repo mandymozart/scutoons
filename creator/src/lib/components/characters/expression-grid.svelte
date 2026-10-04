@@ -22,7 +22,7 @@
 	import { imageExists, recheckImages, isKnownMissing } from '$lib/editor/characters.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import AssetDialog from './asset-dialog.svelte';
+	import AssetDialog from '$lib/components/characters/asset-dialog.svelte';
 
 	/**
 	 * The moods of one look (of one persona) – the portrait is the authored view: a live CDN preview per mood, ✓ found /
@@ -189,7 +189,7 @@
 							{#if avatar}
 								<span class="derived" title={m['creator.characters_avatar_derived']()}>avatar {#if !avatar.path}–{:else if status[avatar.path] === false}<Badge tone="error">{m['creator.characters_missing_file']()}</Badge>{:else}✓{/if}</span>
 							{/if}
-							{#if request}<span class="req" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
+							{#if request}<span class="sc-mark" title={request.note ?? ''}><Icon name="mail" /> {m['creator.characters_requested_short']()}</span>{/if}
 						</span>
 					</button>
 				{/each}
@@ -245,7 +245,7 @@
 		gap: 0.25rem;
 		align-items: center;
 	}
-	.grid {
+	.grid { /* grid-ok: the expression thumbnails, not fields */
 		display: grid;
 		grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
 		gap: 4px;
@@ -335,12 +335,6 @@
 		margin-left: auto;
 		font-size: var(--type-caption-size);
 		color: var(--muted);
-	}
-	.req {
-		font-size: var(--type-caption-size);
-		background: var(--badge-info);
-		color: var(--badge-info-text);
-		padding: 0 0.25rem;
 	}
 	.add-mood {
 		display: flex;

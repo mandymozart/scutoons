@@ -205,6 +205,123 @@ To tools.css: `.sc-fields[data-cols]`, `.sc-seg`, `.sc-bar.*`, `.sc-chip` everyw
 14. **Behaviour changes, each alone**: 15 `confirm()` → `confirmDialog` (`beforeNavigate` can't await: cancel, then
     `goto`); hand-built tabs → `Tabs` (`role="tab"`, arrow keys, testids); retire `image-picker`.
 
+Done (branch `components`):
+- Step 0 ✓ dc43ddc – `npm run check:creator-chapter` (44 checks, local stack only; `SCUTOONS_API` / `SCUTOONS_CREATOR` for
+  side ports). Found: Audio → Meta in the tree leaves `?section=audio` in the URL (logged as a note, not asserted).
+- Step 2 ✓ (the commit adding this line) – tools.css `.sc-fields[data-cols][data-density]` in the 6 places; local CSS gone
+  except column overrides (toon-editor 2 cols < 900px, vn-events cast row `2fr 1fr 1fr auto`, character-detail
+  `--fields-*-min`); `check:tools-css` flags new `.gN` copies / gaps on `.sc-fields`. 4c86e8a: the widths as tokens
+  (the tokens check had gone red). 0942160: content schemas regenerated (`npm run check` was red before the branch).
+- Fixes: 1fb604f URL ↔ selection compares with the address bar (replaceState leaves `page.url` behind) – chapter tree,
+  characters, map builder; checked. Field grids the analysis missed (the commit after 1fb604f): audio-panel, meta-panel,
+  season-editor (page), item-inspector, cover lettering inspector, script meta (panel), admin respawn-editor +
+  asset-detail, embassy forms (page); `check:tools-css` also flags a bare `.grid/.two/.pair/.form-grid/.meta-grid` field
+  grid (`grid-ok` exempts thumbnail grids).
+- Check fixes (red at the branch start): check:creator-cast, check-map builder (in-page note / publish dialogs),
+  check:creator-cover (text-language switch).
+- Step 1 ✓ 39439d4 – folders `page/ status/ fields/ media/ chapter/ slice/ text/ items/ events/ toon/` (4.1, names kept:
+  meta-page stays meta-page until step 11); `panel-width` → `lib/editor/`; all imports `$lib/…`.
+- Step 3 ✓ (the commit adding this line) – status chips on tools.css `.sc-chip.is-*` (+ `.is-dot` colour square,
+  `.is-tag` outlined name, `.is-quiet`): file-status, persona tags, renditions, locale-text source/missing/long, cast
+  star; interactive chips `.sc-chip-control` (+ `.has-image`, `.is-warning`, `.is-filled`/`.is-draft`, `.is-error`):
+  featuring, related items, credit roles; marked notes (image requests, "will be added") `.sc-mark`. The unused
+  `status-badges` component is gone (`statusWord` → `lib/editor/status-word.ts`). Not chips, left alone: the toggle
+  buttons named `.chip` (cast personas, map toon filters, role picker) – controls; @scutoons/ui `Badge` stays the shared
+  component (admin; no uppercase for ids). `check:tools-css` flags a local `--badge-*` filled rule.
+- Step 4 ✓ (the commit adding this line) – one fold row in tools.css: caption size (like a legend) + `--space-05` under an
+  open summary; local summary CSS gone (dialog-inspector, vn-events, group-panel, apose-editor, wanted-images,
+  script meta). Visible: the script's title-page fold row is caption size now. `check:tools-css` flags a restyled
+  summary (`fold-ok` for admin's events dropdown, a control).
+- Step 5 ✓ (the commit adding this line) – `controls/reorder-buttons.svelte` (vertical arrows / horizontal chevrons,
+  `down={false}`, own labels) + `lib/editor/move.ts` `moveAt` / `movedAt` in cast, moods, cover lines, credit sections,
+  featuring, related items, supporters, list field, route waypoints (credits' `move` is `moveAt`); `lib/editor/grid-keys.ts`
+  `gridArrows` replaces the copied `arrows()` in the asset + character pickers. Visible: the move buttons that had only
+  an aria-label (cast, moods, credit sections) now show it as the tooltip too. vn-events / chapter tree / slice list
+  reorder by drag (moveMany), unchanged.
+- Step 6 ✓ (the commit adding this line) – @scutoons/ui `Segmented` (options with label / icon / title / testid, `radio`,
+  `grid` + `min`) on tools.css `.sc-seg` (token `--seg-min`): chapter canvas tools, cover lettering mode, text presets,
+  onomatopoeia presets, video fit / position (radio), admin email language; the snap toggle + grid size share the
+  `.sc-seg` frame. Testids kept. Visible: video fit / position (was grey joined outlines) and the admin email language
+  (had dividers) look like the others now. `check:tools-css` flags a local `.seg/.segments`. Found: "+ event" on a slice
+  without events adds nothing visible (works on a slice that has events) – pre-existing, see step 8.
+- Step 7 ✓ (the commit adding this line) – `controls/picker-sheet.svelte` (Sheet from the right + the column) and the
+  tools.css vocabulary `.sc-picker-filters`, `.sc-cards` (token `--cards-min`), `.sc-card` (`.is-current`,
+  `.is-selected`, `.is-missing`), `.sc-card-img` for the asset, character and item pickers (~170 lines of copied CSS
+  gone). Visible: one card frame everywhere (2px border-muted; the item cards had a hairline ink frame, the character
+  cards a 1px grey one), filters wrap instead of a fixed 4-column grid; the item picker got arrow keys too.
+- Step 8 ✓ (the commit adding this line; platform merged before it, 2b29ddc) – vn-events 812 → 387 lines: the list + row
+  chrome; `events/event-message`, `-choice`, `-flow` (jumpTo, label, divert, setVariable), `-onomatopoeia`, `-cast`
+  (join / leave), `-target` (a jump's target), `-condition` ("Only if"), `-trigger`; pure parts in
+  `lib/editor/vn-forms.ts`. tools.css `.sc-fields[data-align=start|end]` replaces the local align rules (also toon /
+  season editor). check:creator-chapter covers the VN forms (55 checks). 797109b: fix found on the way – "+ event" on a
+  slice without events showed nothing (the new list was pushed to outside the state proxy).
+- Step 9 ✓ 9065aee map-props 703 → 121 (place-props, place-image, route-props, layer-props, map-toons-chips) · accaf56
+  character-detail 757 → 300 (character-identity, -import, -persona, -look, -transitions; lib/editor/character-form.ts) ·
+  08ba861 cover-editor 624 → 235 (cover-lettering-canvas, cover-inspector, cover-previews; the alignment control got its
+  frame back – step 6 had dropped it) · (the commit adding this line) script-editor 701 → 528 (script-outline,
+  script-meta; the text + its doc sync + the layout stay – the outline resize is step 13). Before / after shots identical
+  except the route waypoint buttons (their compact padding back) and the cover alignment.
+- Step 10 ✓ (the commit adding this line) – `lib/editor/canvas-geometry.ts` (grid steps, move / resize deltas, rotated +
+  scaled resize, rotate angle, scale factor, text scale, item scale) out of slice-canvas (736 → 645); 10 unit tests with
+  node's own runner (`npm run test -w creator`, part of `npm run check`) – no vitest dependency needed;
+  check:creator-chapter drags a box (move onto the grid, the rotate handle in 15° steps, one undo step per drag).
+- Step 11 ✓ (the commit adding this line; platform merged before it, 19be881) – `lib/editor/doc-session.svelte.ts`
+  (save all / Save draft with the note dialog / publish / conflict / notice; `confirmPublish` = the one publish dialog,
+  naming the files and exactly the languages with something to publish, never the neutral `_`),
+  `lib/editor/editor-keys.ts` (Ctrl+S; Ctrl+Z / Shift+Z / Y only outside a field – 4.4.1, now also in the chapter
+  editor), `components/page/doc-notices.svelte` + tools.css `.sc-bar.is-dirty|warning|error|note` (the chapter editor's
+  bar look, now also on the meta pages). Used by meta-page (416 → 273) and chapter-editor; the toon page keeps its own
+  save flow (followers, language reload) but uses `confirmPublish`. Behaviour changes (intended): undo inside a chapter
+  field is the browser's; the chapter's publish dialog names only the languages with a draft (was: all). check:creator-
+  chapter: undo in a field, the publish dialog's languages (62 checks).
+- Step 12 ✓ (the commit adding this line; platform merged before it, eb8e9ad – @scutoons/media) – chapter-editor 1345 →
+  820: the view state is one object (`lib/editor/chapter-state.svelte.ts` ChapterView: section / group / slice /
+  selection / tab / tool / fold / snap + grid / item spot / pickers; tool = tab = layer), the slice edits are
+  `lib/editor/slice-edit.ts`, the parts `chapter/chapter-tree.svelte` (with the group multi-select + drag),
+  `slice/slice-toolbar.svelte`, `slice/slice-inspector.svelte`. The shell keeps the documents, the URL ↔ selection
+  effects (run once there), problems, the keyboard (canvas nudge stays reachable through `canvas`) and the `{#key}`
+  remount. Before / after shots identical. Not reached: the 300-line target – the documents + problems (~250 lines) could
+  become a `chapter-docs.svelte.ts` next.
+- Step 13 ✓ (the commit adding this line) – @scutoons/ui `resizable()` (resizable.svelte.ts: edge left / right, anchor,
+  min / max / normal, keys 16 / 64 px, Home + double-click reset, remembered per key, `filter` for the app shell's fold
+  to a rail) in the AppShell sidebar, the Sheet's right drawer, the creator's `panelWidth` (side panels, slice
+  inspector) and the script outline. Checked by hand (drag + reset of all four) and in check:creator-chapter (the
+  inspector edge). `ResizeEdge.svelte` not made: the four edges differ in markup / position; one function is the
+  shared part.
+- Step 14a ✓ (the commit adding this line) – every creator / admin `confirm()` → `confirmDialog` (one structure: title,
+  the question, the action's own word). `lib/editor/ask.ts`: `confirmRemove`, `confirmDelete`, `leaveGuard(dirty)` (holds
+  the navigation, asks in-page, then `goto`s the same address; closing the tab keeps the browser's question) in the
+  chapter editor + meta pages; restore in the history is one question (unsaved changes + new draft) instead of two;
+  unpublish, merge people, change event type, the shared-place move in the map (the drag waits for the answer); admin:
+  own admin role, revoke code, leaving a running batch. Not converted: embassy's two (remove person, delete org) – the
+  app has no `DialogHost` yet and is being developed on branch `embassy` (merged after the 2026-10-04 release); do it there. Checks: check:creator-chapter
+  asks on leave (64), creator-script-check answers the restore dialog.
+- Step 14b ✓ (the commit adding this line) – hand-built tabs → @scutoons/ui `Tabs` (role="tab", arrow keys / Home /
+  End, testids kept): slice inspector (`variant="grid"`, icon + count per tab), cast seasons, character personas + looks,
+  character picker personas + looks (`ruled` / `sub`). `Tabs` grew `icon`, `count`, `testid`, `title`, `warning` (the
+  look without images), a `tab` snippet for custom content, an `after` snippet beside the list (the "+ persona / look"
+  inputs, outside the tablist) and the panel margin only when it renders the panel. `check:tools-css` flags
+  `class="tab(s)"` / `role="tablist"` outside tabs.svelte. Visible: next to nothing (slightly narrower tab padding; an
+  active look without images is inverted, no longer dashed).
+- Step 14c ✓ (the commit adding this line) – `media/image-picker.svelte` retired: its last use (SharedField `kind="image"`,
+  the toon page's thumbnail and tile image) is a @scutoons/media `MediaSlot` (new `hideLabel`: the field shows the
+  label). Visible: those two fields are slots (preview = the button to the asset picker, × clears) instead of a path
+  input + "Choose …" + a 64px preview; typing a path and the known-paths suggestions are gone there (owner 2026-10-03:
+  "the preview does the job").
+
+After the platform merge (2026-10-04; d5ab4b8 + 09516eb, the admin catalog editor of CATALOG.md part 3 came in with 3a48e7f, the recipe picture with 09516eb):
+- Admin catalog on the shared controls: the field pairs on `.sc-fields[data-cols=fit]` (f10c0e1); `ReorderButtons` moved to
+  @scutoons/ui (labels, `disabled`, `testid`; the creator's `controls/reorder-buttons` only adds its default labels) –
+  the catalog list order (testids `catalog-up/-down` kept) and the album tracks use it; `FileSlot` (audio / ZIP slot)
+  moved to @scutoons/media next to MediaSlot; `catalog/catalog-rows.svelte` = one list-in-a-form (variants of items,
+  products, editions; album tracks: head, ↑ / ↓, ×, + add) instead of four copies; problem lines outside a Field on
+  tools.css `.sc-error` (the Field error look – ink text + red rule; the plain red caption was below 4.5:1); the fold
+  rows without their own `sc-label` class; `$lib` imports. Behaviour unchanged (confirms were already in-page; no
+  editor undo keys). Left alone: catalog-editor (398 lines, one job: the scaffold), the homepage's featured-list
+  arrows (@scutoons/ui Button styles, not a class), the 20-odd older local `.error` text rules in creator / admin.
+- `check:tools-css` also flags a summary with a type class and app components imported by a relative path (the older
+  admin ones fixed).
+
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,
    contentEditable), Ctrl+Z / Ctrl+Y belong to the browser and undo the typing in that field. Outside a field (after a
@@ -219,5 +336,14 @@ To tools.css: `.sc-fields[data-cols]`, `.sc-seg`, `.sc-bar.*`, `.sc-chip` everyw
    names exactly what is published and in which language, e.g. "Publish chapter 2 (de) – readers see it immediately." /
    "Publish the toon settings for catpope (en)." No browser `confirm()`.
 
-Result: chapter-editor ~1400 → ~300 lines, largest creator component ~400, ~600 lines of duplicated CSS / logic gone, every
-recurring control in one named place.
+Result (planned): chapter-editor ~1400 → ~300 lines, largest creator component ~400, ~600 lines of duplicated CSS / logic
+gone, every recurring control in one named place.
+
+Result (branch `components`, 2026-10-04, against d7228e7): creator `.svelte` files 81 → 105, 19 159 → 17 673 lines
+(−1 486; the logic moved to tested `lib/editor/*.ts`); components over 400 lines 15 → 9, over 300 lines 20 → 13.
+chapter-editor 1462 → 814 (target 300 not reached, see step 12), vn-events 816 → 387, character-detail 710 → 300,
+map-props 706 → 121, script-editor 703 → 495, slice-canvas 736 → 645, cover-editor 624 → 235, meta-page 416 → 273.
+Largest now: chapter-editor 814, map-builder 722, slice-canvas 645, the toon route 593 (own save flow), map-canvas 522.
+Open: `chapter-docs.svelte.ts` (chapter-editor's documents + problems), map-builder / toon route splits, a
+`ResizeEdge` component (one `resizable()` instead), the toggle buttons named `.chip`, embassy's two `confirm()`.
+`check:tools-css` now guards the vocabulary (field grids, chips, folds, segmented controls, hand-built tabs).

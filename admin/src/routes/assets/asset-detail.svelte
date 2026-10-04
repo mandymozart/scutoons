@@ -171,7 +171,7 @@
 		</header>
 
 		<Section title={m['assets.meta_title']()}>
-			<div class="two">
+			<div class="sc-fields" data-cols="2">
 				<label class="field"><span class="sc-label">{m['assets.field_title']()}</span><input type="text" bind:value={title} /></label>
 				<label class="field"><span class="sc-label">{m['assets.field_tags']()}</span><input type="text" bind:value={tags} placeholder="cover, prologue" /></label>
 			</div>
@@ -209,7 +209,7 @@
 		{#if current}
 			<Section title={m['assets.replace_title']()}>
 				<p class="sc-caption">{m['assets.replace_hint']()}</p>
-				<div class="two">
+				<div class="sc-fields" data-cols="2">
 					<label class="field"><span class="sc-label">{m['assets.col_file']()}</span>
 						<select bind:value={replacePath}>{#each current.renditions as r (r.id)}<option value={r.path}>{r.label} – {r.path.split('/').pop()}</option>{/each}</select>
 					</label>
@@ -228,7 +228,7 @@
 
 			<Section title={m['assets.relink_title']()}>
 				<p class="sc-caption">{m['assets.relink_hint']()}</p>
-				<div class="two">
+				<div class="sc-fields" data-cols="2">
 					<label class="field"><span class="sc-label">{m['assets.relink_from']()}</span>
 						<select bind:value={relinkFrom}>{#each current.renditions as r (r.id)}<option value={r.path}>{r.path}</option>{/each}</select>
 					</label>
@@ -317,14 +317,9 @@
 	.slug {
 		overflow-wrap: anywhere;
 	}
-	.two {
-		display: grid;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--space-1);
-	}
 	@media (max-width: 700px) {
-		.two {
-			grid-template-columns: 1fr;
+		.sc-fields[data-cols] {
+			grid-template-columns: minmax(0, 1fr);
 		}
 	}
 	.field {

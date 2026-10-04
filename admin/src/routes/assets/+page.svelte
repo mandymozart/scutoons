@@ -319,7 +319,7 @@
 </Sheet>
 
 <style>
-	.grid {
+	.grid { /* grid-ok: the asset cards, not fields */
 		list-style: none;
 		margin: 0;
 		padding: 0;

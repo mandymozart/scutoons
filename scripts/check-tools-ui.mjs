@@ -14,7 +14,9 @@
 //                                                 is exempt; class-named buttons are left to the browser run);
 //                                                 close cross (owner 2026-10-02): no × ✕ ✖ glyph as a button's / link's
 //                                                 content and no Feather "x" in any app's markup – the one drawn
-//                                                 CloseIcon / CloseButton of @scutoons/ui (`close-ok` exempts a line)
+//                                                 CloseIcon / CloseButton of @scutoons/ui (`close-ok` exempts a line);
+//                                                 field grid (owner 2026-10-03): no local `.g2/.g3/.g4` copy (selector
+//                                                 or `class="grid gN"`) and no local gap on `.sc-fields` (tools.css)
 //   node scripts/check-tools-ui.mjs               + the pages in headless Chrome (dev servers from `npm run dev`, the
 //                                                 test user's session from `npm run dev:test-user`):
 //                                                 - 1440 px, fine pointer: no visible text under the caption size
@@ -133,6 +135,52 @@ for (const file of [...new Set(CONTROL_DIRS.flatMap(walk))].filter((f) => f.ends
 		if (GLYPH_CROSS.test(line) && !/close-ok/.test(line)) crosses.push(`${name}:${i + 1}: ${line.trim().slice(0, 120)}`);
 	});
 }
+// field grid (owner 2026-10-03, COMPONENTS.md 4.4.2): one tools.css `.sc-fields[data-cols][data-density]` – no local
+// `.g2/.g3/.g4` copies (selector or `class="grid gN"` markup), no local field-grid class (`.grid`, `.two`, `.pair`,
+// `.form-grid`, `.meta-grid` with display: grid; a line with `grid-ok` + the reason is exempt, e.g. a thumbnail grid)
+// and no local gap on `.sc-fields` (the density sets it)
+const fieldGrids = [];
+const FIELD_GRID_CLASS = /\.(grid|two|pair|form-grid|meta-grid)(?![\w-])[^\s>+~,]*\s*\)?\s*$/;
+for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
+	const text = readFileSync(file, 'utf8');
+	const name = relative(ROOT, file).replace(/\\/g, '/');
+	const lineAt = (i) => text.slice(0, i).split('\n').length;
+	const styles = file.endsWith('.css') ? [{ css: text, at: 0 }] : [...text.matchAll(/(<style[^>]*>)([\s\S]*?)<\/style>/g)].map((m) => ({ css: m[2], at: m.index + m[1].length }));
+	for (const { css, at } of styles) {
+		const plain = css.replace(/\/\*[\s\S]*?\*\//g, (c) => c.replace(/[^\n]/g, ' '));
+		for (const m of plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+			const sel = m[1].trim();
+			const line = lineAt(at + m.index + m[1].search(/\S/));
+			// `grid-ok` anywhere in the rule (the comments are blanked in `plain`, same offsets in `css`)
+			if (/grid-ok/.test(css.slice(m.index, m.index + m[0].length))) continue;
+			// a local status chip / badge filled from --badge-* (owner 2026-10-03, COMPONENTS.md step 3): tools.css .sc-chip
+			// (.is-*), .sc-chip-control, .sc-mark – @scutoons/ui's own Badge is the one shared component
+			if (/background(-color)?:\s*var\(--badge-/.test(m[2]) && !/\.sc-/.test(sel) && !name.endsWith('shared/ui/src/badge.svelte'))
+				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local status chip: tools.css .sc-chip.is-* / .sc-chip-control / .sc-mark)`);
+			// a restyled fold row (owner 2026-10-03, step 4: tools.css styles every summary; `fold-ok` + reason for a fold that is a control, e.g. a dropdown)
+			if (sel.split(/,(?![^(]*\))/).some((x) => /(^|[\s>])summary(\[|:(?!hover)|$)/.test(x.trim()) || /\]\s*>?\s*summary$/.test(x.trim())) && /(^|[;\s])(font-size|text-transform|letter-spacing|cursor|margin(-bottom)?)\s*:/.test(m[2]) && !/fold-ok/.test(css.slice(m.index, m.index + m[0].length)))
+				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local fold style: tools.css styles summary, or \`fold-ok\` + the reason)`);
+			// a local segmented control (owner 2026-10-03, step 6): @scutoons/ui Segmented / tools.css .sc-seg
+			if (sel.split(/,(?![^(]*\))/).some((x) => /\.(seg|segments|segmented)(?![\w-])[^\s>+~]*$/.test(x.trim())) && /display\s*:/.test(m[2]))
+				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local segmented control: @scutoons/ui Segmented / tools.css .sc-seg)`);
+			if (/\.g\d\b/.test(sel)) fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field-grid copy)`);
+			else if (/display:\s*grid/.test(m[2]) && sel.split(/,(?![^(]*\))/).some((x) => FIELD_GRID_CLASS.test(x.trim())))
+				fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} (a local field grid: tools.css .sc-fields, or \`grid-ok\` + the reason)`);
+			else if (/\.sc-fields\b/.test(sel) && /(^|[;\s])(row-|column-)?gap\s*:/.test(m[2])) fieldGrids.push(`${name}:${line}: ${sel.replace(/\s+/g, ' ').slice(0, 60)} { gap } (the density sets the gaps)`);
+		}
+	}
+	if (file.endsWith('.svelte'))
+		text.replace(/<style[^>]*>[\s\S]*?<\/style>/g, (s) => s.replace(/[^\n]/g, ' ')).split('\n').forEach((l, i) => {
+			if (/class="[^"]*\bg\d\b/.test(l)) fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)}`);
+			// a fold row with its own type class (tools.css styles every summary – COMPONENTS.md step 4)
+			if (/<summary\b[^>]*\bclass="[^"]*\bsc-(label|caption)\b/.test(l)) fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (a restyled fold row: tools.css styles summary)`);
+			// an app component imported by a relative path (COMPONENTS.md 4.2.6: `$lib/...`; the shared packages keep theirs)
+			if (/^(creator|admin|embassy)\/src\/lib\//.test(name) && /from '\.\.?\/[^']+\.svelte'/.test(l)) fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (import components via $lib/…)`);
+			// hand-built tabs (COMPONENTS.md step 14b): @scutoons/ui Tabs (role="tab", arrow keys)
+			if ((/role="tablist"/.test(l) || /class="tabs?[\s"]/.test(l)) && !name.endsWith('shared/ui/src/tabs.svelte'))
+				fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (hand-built tabs: @scutoons/ui Tabs)`);
+		});
+}
 const BOLD_CSS = /font-weight:\s*(?:[6-9]00|bold|bolder|var\(--font-weight-bold\))/;
 const BOLD_TAG = /<b[\s>]|<strong(?![^>]*\bsc-emphasis\b)[\s>]/;
 for (const file of DIRS.flatMap(walk)) {
@@ -159,10 +207,12 @@ if (problems.length) console.error(`tools CSS: ${problems.length} font sizes out
 if (bolds.length) console.error(`tools: ${bolds.length} bold (owner 2026-10-02 "only use bold very rarely": regular weight; only the page title h1 and <strong class="sc-emphasis"> are bold; DESIGN.md "Brutalist tools"):\n  ${bolds.join('\n  ')}`);
 if (heights.length) console.error(`controls: ${heights.length} heights / vertical paddings that bypass --control-height (owner 2026-10-02: every single-line control is exactly --control-height; padding-block 0, the height from the token; DESIGN.md "One control height"; a line with \`control-ok\` + the reason is exempt):\n  ${heights.join('\n  ')}`);
 if (crosses.length) console.error(`close crosses: ${crosses.length} font glyphs / Feather "x" (owner 2026-10-02: one drawn cross, @scutoons/ui CloseIcon / CloseButton, as high as the headline, 2px – 1px on thin-line UI; DESIGN.md "Close cross"; a line with \`close-ok\` + the reason is exempt):\n  ${crosses.join('\n  ')}`);
-if ((problems.length || bolds.length || heights.length || crosses.length) && !flag('--browser-only')) process.exit(1);
+if (fieldGrids.length) console.error(`field grids / chips: ${fieldGrids.length} local copies (owner 2026-10-03: one tools.css .sc-fields with data-cols="1|2|3|4|fill|fit" and data-density="page|panel|dense", gaps by the hierarchy level; a special layout sets only its grid-template-columns; agents/COMPONENTS.md 4.4.2):\n  ${fieldGrids.join('\n  ')}`);
+if ((problems.length || bolds.length || heights.length || crosses.length || fieldGrids.length) && !flag('--browser-only')) process.exit(1);
 console.log('tools: no px font sizes, nothing under caption, no bold beyond the page title / sc-emphasis – ok');
 console.log('controls: no height / vertical padding bypassing --control-height – ok');
 console.log('close crosses: the one drawn CloseIcon, no glyphs – ok');
+console.log('field grids / chips: tools.css .sc-fields and .sc-chip, no local field grids, gaps or status chips – ok');
 if (flag('--static')) process.exit(0);
 
 // ── browser ─────────────────────────────────────────────────────────────────────────────────────────────────────

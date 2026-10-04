@@ -271,7 +271,7 @@ Content editors: `GET /api/assets` (q, folder, kind, tag, state used|unused, pag
   picker): search, folder (the toon first), kind, unused-only; a grid of thumbnails with ONE line of name (no overlap –
   the owner's screenshot of the old "130 known images" grid), size / dimensions / "unused"; the chosen asset's files
   (renditions with quality) – click one to use exactly it, "Use" takes the source; upload into the toon's folder (path
-  editable, 409 when taken). Every image field (`image-picker.svelte`: the path input stays for typing) opens it via
+  editable, 409 when taken). Every image field (a `MediaSlot` from @scutoons/media; the old path input `image-picker.svelte` is gone since COMPONENTS.md step 14c) opens it via
   "Choose …". **Video fields** (slice video "Hintergrund", the season trailer) have "Choose video …": the asset's
   480p / 720p / 1080p become `variants` low / medium / high, 720p the default (`src` / `trailer.loop`). The season trailer is
   one slot since 2026-10-03 (`media-variants-slot.svelte`, DESIGN.md "Creator: season page"): the preview picks the whole
