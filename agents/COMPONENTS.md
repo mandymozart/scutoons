@@ -309,7 +309,7 @@ Done (branch `components`):
   input + "Choose …" + a 64px preview; typing a path and the known-paths suggestions are gone there (owner 2026-10-03:
   "the preview does the job").
 
-After the platform merge (2026-10-04; d5ab4b8, the admin catalog editor of CATALOG.md part 3 came in with 3a48e7f):
+After the platform merge (2026-10-04; d5ab4b8 + 09516eb, the admin catalog editor of CATALOG.md part 3 came in with 3a48e7f, the recipe picture with 09516eb):
 - Admin catalog on the shared controls: the field pairs on `.sc-fields[data-cols=fit]` (f10c0e1); `ReorderButtons` moved to
   @scutoons/ui (labels, `disabled`, `testid`; the creator's `controls/reorder-buttons` only adds its default labels) –
   the catalog list order (testids `catalog-up/-down` kept) and the album tracks use it; `FileSlot` (audio / ZIP slot)
