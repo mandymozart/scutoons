@@ -1140,8 +1140,7 @@ landing page [the season section of the toon page]."
   `owners` (owns a media item carrying the album). Defaults `download: members` (= the toon page's music download as it
   was), `listen: owners`; a player for the format is always needed to listen. *Per album, not per item:* one zip and one
   track list, whichever carrier (vinyl or test press) someone owns – a per-item flag could give two answers for the same
-  file. Awakening: `{ download: members, listen: owners }`. Shown in the admin's Catalog page (Albums table); edited in
-  items.json (no catalog editor exists).
+  file. Awakening: `{ download: members, listen: owners }`. Edited in the admin: Catalog → Albums (agents/CATALOG.md part 3).
 - **Related items**: `related_items: string[]` (catalog item ids, ordered) on the **season** and the **chapter**,
   language-neutral. Seasons have no neutral entity (DATA.md "Language-independent media": like `download`, `trailer`,
   `cover`, `supporters`) → one creator field writes the same list to every locale, `validateLocales` warns when the
@@ -1294,9 +1293,8 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   - ITEM (catalog, `ItemDef.respawn`): `{ default, min?, max? }` – the default interval and the range a placement may
     choose (no `min` = the default is the shortest); none / null = it never reappears (a one-time find). Set in
     server config/items.json (cucumber 6 h and tuna can 12 h (1 h … 7 d), weed 12 h (1 h … 7 d), testo 1 d (6 h … 7 d), psilocybin and lsd 3 d (1 … 14 d), semaglutide 7 d (1 … 30 d); every other item: never – there is no onion item in the catalog yet) and
-    overridable in admin → Catalog → Respawn (setting `item_respawn`, JSON map item id → rule | null; GET
-    `/admin/catalog/respawn`, PUT `/admin/catalog/respawn/<item>` `{ respawn }` | `{ reset: true }`); `/api/items/` and
-    the admin catalog serve the effective rule.
+    since 2026-10-04 stored in the item's catalog row, edited in admin → Catalog → Items (the item form's "Respawn"; the
+    API `/admin/catalog/respawn` stays); `/api/items/` and the admin catalog serve it.
   - PLACEMENT (`SliceItem.respawn`): none = the item's default; `"never"` = once here; an interval = an override within
     the item's range. The creator shows the item's default and offers only what the range allows; validation flags an
     out-of-range or never-reappearing choice (`placementRespawnProblem`, with the catalog in `ValidateContext.itemRespawn`).

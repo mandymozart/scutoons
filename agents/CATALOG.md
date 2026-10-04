@@ -125,4 +125,70 @@ AssetsTest / AppTest / contract suites adapted.
   from "chosen empty"); the admin can clear it again.
 - Undoing a toon's creation is refused while its starter content entry exists (`in_use`: a toon with content is never
   deleted by the API).
-- Part 3 (admin UI) can use the endpoints above; `@scutoons/api` has no client functions for them yet.
+- Part 3 (admin UI) uses the endpoints above through `@scutoons/api` `createAdminApi` (`catalogList` … `catalogUndo`).
+
+### Part 3 – the admin UI (branch `admin/catalog`, 2026-10-04)
+
+**Where:** `/catalog/<kind>` (`admin/src/routes/catalog/[kind]/+page.svelte`), one tab per kind: items, recipes, albums,
+products, editions, toons, permissions, code types, meta. `/catalog` redirects to items (the old `?tab=items|editions|
+toons|permissions` links land on that tab). The sidebar keeps one "Catalog" entry; Ctrl K has "Catalog: <kind>" per tab
+plus "New Item" / "New Toon".
+
+**One scaffold** (`admin/src/lib/components/catalog/catalog-editor.svelte`) + one definition per kind
+(`admin/src/lib/catalog/kinds.ts`: label, list columns, a new entry's data, the keys the form shows, id rule, what the
+kind allows) + one form component per kind (`…/catalog/<kind>-form.svelte`):
+- list in order (DataTable); round ↑ / ↓ per row = `catalogReorder` with the whole order (no drag: less UI, one way);
+- a click opens the entry next to the list (SplitView; a drawer below 1100 px), URL `?open=<id>`; "New …" = `?new=1`
+  with an id field (checked against the server's pattern and the existing ids before saving); leaving an edited entry
+  asks first ("Discard the changes?");
+- Save / Delete in the entry's header. 422 `invalid_catalog`: the problems as a list above the form, and each problem
+  that names a field (`problemFor`) under that field. Delete: in-page `confirmDialog`; 409 `in_use`: the uses listed
+  above the form;
+- "Advanced" (items, albums, products, editions): the keys the form does not show (skills, effects, effect, wear,
+  grantable, default_worn, plays …) as JSON, applied while typing once valid – so nothing is uneditable and nothing is
+  shown twice. Toons, permissions, code types, meta and recipes have no Advanced (their forms cover the whole shape);
+- history: per entry under the form (a fold), per kind behind "History" in the ActionBar (a drawer; also reorders);
+  each row: action, #, time, by, note, the changed top-level fields, "Undo". 409 `changed_since` → in-page "Changed
+  again since" → "Undo anyway" (= `force`).
+- `admin/src/lib/catalog.ts` `invalidateCatalog()` after every write (put / delete / reorder / undo / import): the
+  codes / batches / events pages' `loadCatalog()` (edition filters) read the server again on their next load.
+
+**Forms:** items – toon (or every toon), name / description per language (`locale-text.svelte`: one field group, a
+line per language), kind, category, picture (`MediaSlot`, CDN-root path, uploads to `<toon|scutoons>/items/`),
+stackable / starter, slot (`AVATAR_SLOTS`), edition, product, album + format, variants (id, name per language, product,
+picture slot each), respawn (`respawn-field.svelte`, was the separate RespawnEditor – removed); recipes – inputs (item +
+qty, add / remove) and output; albums – toon, title per language, cover slot, download + track audio as file slots
+(`file-slot.svelte`: the asset picker with kind archive / audio, a small player for audio – MediaSlot only previews
+images / video), access, tracks (id, title, duration, ↑ / ↓ / remove); products – toon, name, item, edition, category,
+edition size, link, price, limited, remaining, sizes (comma list) + sold-out sizes (checkboxes), credits (lines),
+picture slot, variants (id, name per language, sold out, picture slot, the shop images as slots – an empty slot at the
+end adds one), default variant; editions – toon, name, description, numbers, created, creators, variants (id, name,
+sizes, colours) + links to its codes / batches; toons – name, redirect URL ("Fill it in the creator" →
+`CREATOR_URL/<id>`); permissions – the description; code types – claimable, signup, grants (checkboxes of the
+permissions), **saving asks first** (security); meta – version (+ currency, checked, source for `products`).
+
+**Import images …** (items tab, `admin/src/lib/catalog/import.ts`): `<item-id>.<ext>` / `<item-id>_<variant>.<ext>`,
+case-insensitive, the longest matching item id first (`dago_hoodie_black` = item `dago_hoodie`, variant `black`) →
+`toWebp` (scaled so the longest side is ≤ 1024 px, never up; transparency kept) → `uploadOrReplace` to
+`<toon|scutoons>/items/<item-id>[_<variant>].webp` (ids in their stored case) → one `catalogPut` per item (note
+`image import`) only when an icon path changed. A report above the list: "n new · n replaced · n unchanged", the items
+whose pictures were set, unknown names ("no item with this id" / "has no such variant") and failures.
+
+**Decisions:**
+- One page with tabs, not nine sidebar entries (the admin's nav stays short; the old page was tabs too).
+- **Featured stays on the Homepage page** (`/homepage`, `/admin/featured`, table-backed since part 1): one place; the
+  products tab links to it. The `featured` kind has no tab.
+- Up / down buttons, no drag (one way to reorder; drag in a table + SplitView is fiddly on touch).
+- Per-field problems are matched by word (the server's problems are plain strings); the full list is always shown.
+- After the image import the open entry is read again (unless it has unsaved edits).
+- A toon can't be deleted once created (its starter content entry counts as a use – part 1's rule); the UI shows the
+  refusal like any other `in_use`.
+
+**Verified** (own dev server on :5173 against the main checkout's API / CDN, test user): edit + save an item name, undo
+it from the entry history, "Undo anyway" dialog on the older change (cancelled); create a recipe (422 "output: unknown
+item" shown in the list and at the field, then saved), reorder down / up, delete; deleting `cucumber` refused with its
+uses (3 recipes, a scan grant, 44 inventory entries); a test item: picture uploaded through the slot (to
+`scutoons/items/`) and replaced at the same path ("Replace the file?"), bulk import (2 matched → 1024×512 and 273×1024
+WebP, 1 unknown reported; a second run: 1 replaced, 1 unchanged, 1 unknown variant), then deleted; a test toon created
+(422 for a bad redirect URL first) and listed in the creator; saving every kind unchanged = "Nothing changed" (the forms
+don't alter data on load); code type save confirmation.
