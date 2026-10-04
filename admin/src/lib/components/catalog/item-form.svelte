@@ -38,7 +38,7 @@
 <LocaleText label={m['catalog.name']()} required value={data.name} error={err('name')} onchange={(v) => (data.name = v)} testid="item-name" />
 <LocaleText label={m['catalog.description']()} multiline value={data.description} onchange={(v) => (data.description = v)} testid="item-description" />
 
-<div class="pair">
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="10rem">
 	<CatalogField
 		label={m['catalog.kind']()}
 		type="select"
@@ -67,7 +67,7 @@
 <CatalogField label={m['common.edition']()} type="select" value={data.edition_id} options={options('editions')} none={m['catalog.none']()} error={err('edition', 'edition_id')} onchange={(v) => (data.edition_id = v)} />
 <CatalogField label={m['catalog.product']()} type="select" value={data.product} options={options('products')} none={m['catalog.none']()} error={err('product')} onchange={(v) => (data.product = v)} />
 
-<div class="pair">
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="10rem">
 	<CatalogField
 		label={m['catalog.album']()}
 		type="select"
@@ -131,11 +131,6 @@
 />
 
 <style>
-	.pair {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-		gap: 0 var(--space-1);
-	}
 	.picture {
 		margin-bottom: var(--space-15);
 	}

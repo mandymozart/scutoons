@@ -40,12 +40,12 @@
 <CatalogField label={m['catalog.name']()} required value={typeof data.name === 'string' ? data.name : text(data.name)} error={err('name')} onchange={(v) => (data.name = v)} testid="product-name" />
 <CatalogField label={m['catalog.item']()} type="select" value={data.item_id} options={options('items')} none={m['catalog.none']()} hint={m['catalog.product_item_hint']()} error={err('item', 'item_id')} onchange={(v) => (data.item_id = v)} />
 <CatalogField label={m['common.edition']()} type="select" value={data.edition_id} options={options('editions')} none={m['catalog.none']()} error={err('edition', 'edition_id')} onchange={(v) => (data.edition_id = v)} />
-<div class="pair">
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="8rem">
 	<CatalogField label={m['catalog.category']()} value={data.category} onchange={(v) => (data.category = v)} />
 	<CatalogField label={m['catalog.edition_size']()} type="number" value={data.edition_size} onchange={(v) => (data.edition_size = v)} />
 </div>
 <CatalogField label={m['catalog.link']()} type="url" value={data.link} onchange={(v) => (data.link = v)} />
-<div class="pair">
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="8rem">
 	<CatalogField label={m['catalog.price']()} type="number" value={data.price} error={err('price')} onchange={(v) => (data.price = v)} />
 	<CatalogField label={m['catalog.limited']()} type="number" value={data.limited} onchange={(v) => (data.limited = v)} />
 	<CatalogField label={m['catalog.remaining']()} type="number" value={data.remaining} onchange={(v) => (data.remaining = v)} />
@@ -93,11 +93,6 @@
 />
 
 <style>
-	.pair {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-		gap: 0 var(--space-1);
-	}
 	.inline {
 		display: flex;
 		flex-wrap: wrap;

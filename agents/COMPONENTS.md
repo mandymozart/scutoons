@@ -323,5 +323,14 @@ Done (branch `components`):
    names exactly what is published and in which language, e.g. "Publish chapter 2 (de) – readers see it immediately." /
    "Publish the toon settings for catpope (en)." No browser `confirm()`.
 
-Result: chapter-editor ~1400 → ~300 lines, largest creator component ~400, ~600 lines of duplicated CSS / logic gone, every
-recurring control in one named place.
+Result (planned): chapter-editor ~1400 → ~300 lines, largest creator component ~400, ~600 lines of duplicated CSS / logic
+gone, every recurring control in one named place.
+
+Result (branch `components`, 2026-10-04, against d7228e7): creator `.svelte` files 81 → 105, 19 159 → 17 673 lines
+(−1 486; the logic moved to tested `lib/editor/*.ts`); components over 400 lines 15 → 9, over 300 lines 20 → 13.
+chapter-editor 1462 → 814 (target 300 not reached, see step 12), vn-events 816 → 387, character-detail 710 → 300,
+map-props 706 → 121, script-editor 703 → 495, slice-canvas 736 → 645, cover-editor 624 → 235, meta-page 416 → 273.
+Largest now: chapter-editor 814, map-builder 722, slice-canvas 645, the toon route 593 (own save flow), map-canvas 522.
+Open: `chapter-docs.svelte.ts` (chapter-editor's documents + problems), map-builder / toon route splits, a
+`ResizeEdge` component (one `resizable()` instead), the toggle buttons named `.chip`, embassy's two `confirm()`.
+`check:tools-css` now guards the vocabulary (field grids, chips, folds, segmented controls, hand-built tabs).

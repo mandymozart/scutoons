@@ -16,7 +16,7 @@
 <CatalogField label={m['catalog.toon']()} type="select" value={data.toon} options={toons} error={err('toon')} onchange={(v) => (data.toon = v)} />
 <CatalogField label={m['catalog.name']()} required value={data.name} error={err('name')} onchange={(v) => (data.name = v)} testid="edition-name" />
 <CatalogField label={m['catalog.description']()} type="textarea" value={data.description} onchange={(v) => (data.description = v)} />
-<div class="pair">
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="8rem">
 	<CatalogField label={m['catalog.edition_number']()} type="number" value={data.edition_number} error={err('edition_number')} onchange={(v) => (data.edition_number = whole(v))} />
 	<CatalogField label={m['catalog.edition_count']()} type="number" value={data.edition_count} error={err('edition_count')} onchange={(v) => (data.edition_count = whole(v))} />
 	<CatalogField label={m['batches.excluded']()} type="number" value={data.excluded_number} error={err('excluded_number')} onchange={(v) => (data.excluded_number = whole(v))} />
@@ -34,7 +34,7 @@
 				<button type="button" class="sc-round" title={m['catalog.remove_variant']()} aria-label={m['catalog.remove_variant']()} onclick={() => (data.variants = variants.filter((_, j) => j !== i))}><CloseIcon /></button>
 			</div>
 			<CatalogField label={m['catalog.name']()} value={v.name} onchange={(x) => (v.name = x)} />
-			<div class="pair">
+			<div class="sc-fields" data-cols="fit" style:--fields-fit-min="8rem">
 				<CatalogField label={m['catalog.sizes']()} value={listText(v.sizes)} hint={m['catalog.list_hint']()} onchange={(x) => (v.sizes = parseList(x))} />
 				<CatalogField label={m['catalog.colors']()} value={listText(v.colors)} hint={m['catalog.list_hint']()} onchange={(x) => (v.colors = parseList(x))} />
 			</div>
@@ -51,11 +51,6 @@
 {/if}
 
 <style>
-	.pair {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-		gap: 0 var(--space-1);
-	}
 	.variants {
 		display: flex;
 		flex-direction: column;

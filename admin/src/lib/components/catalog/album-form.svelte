@@ -42,7 +42,7 @@
 </div>
 {#if err('cover', 'download')}<p class="error">{err('cover', 'download')}</p>{/if}
 
-<div class="pair">
+<div class="sc-fields" data-cols="fit" style:--fields-fit-min="10rem">
 	<CatalogField label={m['catalog.access_download']()} type="select" value={data.access?.download} options={ACCESS.map((a) => ({ value: a }))} none={m['catalog.access_default']({ value: 'members' })} onchange={(v) => setAccess('download', v)} />
 	<CatalogField label={m['catalog.access_listen']()} type="select" value={data.access?.listen} options={ACCESS.map((a) => ({ value: a }))} none={m['catalog.access_default']({ value: 'owners' })} onchange={(v) => setAccess('listen', v)} />
 </div>
@@ -60,7 +60,7 @@
 					<button type="button" class="sc-round" onclick={() => (data.tracks = tracks.filter((_, j) => j !== i))} title={m['catalog.remove']()} aria-label={m['catalog.remove']()}><CloseIcon /></button>
 				</span>
 			</div>
-			<div class="pair">
+			<div class="sc-fields" data-cols="fit" style:--fields-fit-min="10rem">
 				<CatalogField label="id" value={t.id} onchange={(v) => (t.id = v)} />
 				<CatalogField
 					label={m['catalog.duration']()}
@@ -85,11 +85,6 @@
 		flex-wrap: wrap;
 		gap: var(--space-1) var(--space-15);
 		margin-bottom: var(--space-15);
-	}
-	.pair {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
-		gap: 0 var(--space-1);
 	}
 	.tracks {
 		display: flex;
