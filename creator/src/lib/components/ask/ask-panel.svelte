@@ -91,6 +91,15 @@
 		if (id) openChat(id);
 	});
 	let input = $state('');
+	let field = $state<HTMLTextAreaElement>();
+
+	// the field grows with its text (up to half the panel, then it scrolls) and is small again once the text is sent
+	$effect(() => {
+		void input;
+		if (!field) return;
+		field.style.height = 'auto';
+		field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
+	});
 	let busy = $state(false);
 	let controller: AbortController | null = null;
 	let list = $state<HTMLElement>();
@@ -252,7 +261,7 @@
 	<form class="composer" onsubmit={send}>
 		<p class="context">{m['creator.ask_context']({ page: context })} · {m['creator.ask_drafts_only']()}</p>
 		<div class="row">
-			<textarea bind:value={input} rows="2" placeholder={m['creator.ask_placeholder']()} aria-label={m['creator.ask_placeholder']()} {onkeydown}></textarea>
+			<textarea bind:this={field} bind:value={input} rows="2" placeholder={m['creator.ask_placeholder']()} aria-label={m['creator.ask_placeholder']()} {onkeydown}></textarea>
 			{#if busy}
 				<button type="button" class="sc-round" title={m['creator.ask_stop']()} aria-label={m['creator.ask_stop']()} onclick={() => controller?.abort()}><Icon name="square" /></button>
 			{:else}
@@ -390,6 +399,9 @@
 		flex: 1;
 		resize: none;
 		min-height: var(--control-height);
+		max-height: 50vh;
+		max-height: 50dvh;
+		overflow-y: auto;
 		box-sizing: border-box;
 	}
 	@media (min-width: 768px) {
