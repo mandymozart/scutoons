@@ -1826,5 +1826,6 @@ character, persona, look and mood and doubles as the VN test bed.
 - Viewer: `lib/draft-preview.svelte.ts` reads `?preview=draft` at module start (before any load) and switches the
   account page's draft preview on (stored per device, the bar with "Turn off" on every page); the root layout removes
   the flag from the address. The old creator link's `?draft=1` was never read by the viewer.
-- The reader shows saved drafts only (the editor autosaves after 1 s). Without the creator role the API answers
+- The reader shows saved drafts only: "Save draft" (with its note) or Ctrl+S (no note). The editor's "autosave" is only
+  a local recovery copy in localStorage (no version, not on the server). Without the creator role the API answers
   401/403 and the preview switches itself off (published content).
