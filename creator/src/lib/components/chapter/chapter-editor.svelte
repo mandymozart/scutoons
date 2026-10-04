@@ -123,6 +123,43 @@
 	const star = $derived(toonStar(registryOf(registry), toon));
 	/** the chapter's groups with each scene document (source language) in place of its ref – what the VN plays */
 	const sceneGroups = () => groups.map((g) => (g?.ref?.src ? (refs[g.ref.src]?.data?.[refs[g.ref.src].primary] ?? {}) : g));
+	/**
+	 * A slice sample picked as a file (asset picker / upload): its sample-library id; a file not in the chapter's library
+	 * yet is added to it (id from the file name: s1c1-choir-loud.128.mp3 → choir_loud) – saved with the chapter.
+	 */
+	function librarySample(path: string): string {
+		const library: any[] = chapterData?.audio?.sampleLibrary ?? [];
+		const known = library.find((s) => s?.path === path);
+		if (known?.id) return known.id;
+		const base = (path.split('/').pop() ?? path).replace(/(\.\d+)?\.[a-z0-9]+$/i, '').replace(/^s\d+c\d+-/i, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'sample';
+		let id = base;
+		for (let n = 2; library.some((s) => s?.id === id); n++) id = `${base}_${n}`;
+		chapter.structural((file) => {
+			file.audio ??= {};
+			file.audio.sampleLibrary ??= [];
+			if (!file.audio.sampleLibrary.some((s: any) => s?.id === id)) file.audio.sampleLibrary.push({ id, path });
+		});
+		return id;
+	}
+	/**
+	 * The music level each track holds when the active slice comes into view: the last value an earlier slice set (the
+	 * reader keeps a track's level until a slice changes it; every track starts silent – AdaptiveMusicPlayer).
+	 */
+	const heldMusic = $derived.by(() => {
+		const out: Record<string, { volume: number; label: string }> = {};
+		if (view.section !== 'slice' || view.sliceIndex < 0) return out;
+		const all = sceneGroups();
+		for (let gi = 0; gi <= view.groupIndex && gi < all.length; gi++) {
+			const slices: any[] = all[gi]?.slices ?? [];
+			const until = gi === view.groupIndex ? view.sliceIndex : slices.length;
+			for (let si = 0; si < until; si++) {
+				for (const t of slices[si]?.audio?.music?.tracks ?? []) {
+					if (t?.id && typeof t.volume === 'number') out[t.id] = { volume: t.volume, label: gi === view.groupIndex ? `slice ${si + 1}` : `${groupName(groups[gi], gi)} · ${si + 1}` };
+				}
+			}
+		}
+		return out;
+	});
 	const allDocs = $derived<ContentDoc[]>([
 		chapter,
 		season,
@@ -201,12 +238,20 @@
 	});
 	// geometry is the same in every language: tell once when loading made a language follow the source (saved with the next save)
 	const unifiedGeometry = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.geometryUnified), 0));
+	const unifiedAudio = $derived(allDocs.reduce((sum, d) => sum + (d.loading ? 0 : d.audioUnified), 0));
+	let unifiedAudioShown = 0;
 	let unifiedShown = 0;
 	$effect(() => {
+		const notes: string[] = [];
 		if (unifiedGeometry > unifiedShown) {
-			session.notice = m['creator.geometry_unified']({ n: unifiedGeometry });
+			notes.push(m['creator.geometry_unified']({ n: unifiedGeometry }));
 			unifiedShown = unifiedGeometry;
 		}
+		if (unifiedAudio > unifiedAudioShown) {
+			notes.push(m['creator.audio_unified']({ n: unifiedAudio }));
+			unifiedAudioShown = unifiedAudio;
+		}
+		if (notes.length) session.notice = notes.join(' ');
 	});
 
 	const currentGroup = $derived(groups[view.groupIndex]);
@@ -593,7 +638,7 @@
 						{/snippet}
 					</MetaPanel>
 				{:else if view.section === 'audio'}
-					<AudioPanel doc={chapter} />
+					<AudioPanel doc={chapter} {season} number={chapterNumber} />
 				{:else if view.section === 'group'}
 					{#if activeDoc && !activeDoc.loading}
 						<GroupPanel doc={activeDoc} {groupPath} {refSrc} {toon} />
@@ -648,6 +693,8 @@
 					{choices}
 					{groupLabels}
 					chapterAudio={chapterData?.audio}
+					{librarySample}
+					{heldMusic}
 					{worldMap}
 					chapterSlices={chapterSlices(sceneGroups())}
 					onmaptouch={() => (mapTouched = true)}

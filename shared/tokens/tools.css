@@ -120,11 +120,51 @@
 :where(.sc-tool) :where([aria-invalid='true']) {
 	border-color: var(--state-error);
 }
-:where(.sc-tool) :where(input[type='checkbox'], input[type='radio']) {
+:where(.sc-tool) :where(input[type='radio']) {
 	width: 1.25rem;
 	height: 1.25rem;
 	margin: 0;
 	accent-color: var(--ink);
+}
+/* checkboxes are square switches (owner 2026-10-04: the native boxes looked odd): off = paper track, 2px border-muted
+   frame, a grey knob left; on = ink track, paper knob right. Hover / focus frame ink, like the secondary buttons.
+   Row selection in tables (@scutoons/ui DataTable) keeps the native box. */
+:where(.sc-tool) :where(input[type='checkbox']) {
+	--switch-knob: calc(1.25rem - 2 * var(--border-width-regular) - 0.25rem);
+	flex: none;
+	appearance: none;
+	box-sizing: border-box;
+	width: 2.25rem;
+	height: 1.25rem;
+	margin: 0;
+	border: var(--border-width-regular) solid var(--border-muted);
+	border-radius: var(--radius-none);
+	background: var(--paper) linear-gradient(var(--text-muted), var(--text-muted)) no-repeat left 0.125rem center /
+		var(--switch-knob) var(--switch-knob);
+	vertical-align: middle;
+	cursor: pointer;
+	transition:
+		background-position var(--duration-fast),
+		background-color var(--duration-fast),
+		border-color var(--duration-fast);
+}
+:where(.sc-tool) :where(input[type='checkbox']):is(:hover, :focus-visible):not(:disabled) {
+	border-color: var(--ink);
+}
+:where(.sc-tool) :where(input[type='checkbox']):checked {
+	border-color: var(--ink);
+	background-color: var(--ink);
+	background-image: linear-gradient(var(--paper), var(--paper));
+	background-position: right 0.125rem center;
+}
+:where(.sc-tool) :where(input[type='checkbox']):indeterminate {
+	background-position: center;
+}
+:where(.sc-tool) :where(input[type='checkbox']):disabled {
+	border-color: var(--border-muted);
+	background-color: var(--paper);
+	background-image: linear-gradient(var(--border-muted), var(--border-muted));
+	cursor: not-allowed;
 }
 :where(.sc-tool) :where(input[type='color']) {
 	box-sizing: border-box;

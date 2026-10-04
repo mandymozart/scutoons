@@ -1,7 +1,7 @@
 // Season downloads (season.download, moved from the toon settings 2026-09-30).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEntityKey, sceneEntityOfRef, unifyGeometry, validateFile } from '../src/index.ts';
+import { parseEntityKey, sceneEntityOfRef, unifyAudio, unifyGeometry, validateFile } from '../src/index.ts';
 
 const season = (extra: object) => ({ title: 'S', description: 'D', language: 'de', number: 1, sequence: [], ...extra });
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
@@ -314,4 +314,18 @@ test('VN flow in a group: enter before speaking, choices added then shown (owner
 	assert.deepEqual(flow(group([add])), ['warning events.0']);
 	// a divert / jump leaves before they are shown (the stroll end's showChoices further down doesn't count)
 	assert.deepEqual(flow(group([add, { type: 'divert', params: { to: 'x' } }, { type: 'label', params: { name: 'x' } }, add, { type: 'showChoices' }])), ['warning events.0']);
+});
+
+test('audio is the same in every language: unifyAudio replaces the old audio.samples of a locale with the source audio', () => {
+	const samples = [{ id: 'bells', trigger: { type: 'intersect' }, volume: 0.8 }];
+	const files: Record<string, any> = {
+		de: { audio: { sampleLibrary: [{ id: 'bells', path: 's1/c1/b.128.mp3' }] }, groups: [{ slices: [{ image: 'a.webp', audio: { audio: { samples } } }, { image: 'b.webp' }] }] },
+		en: { audio: { sampleLibrary: [{ id: 'bells', path: 's1/c1/b.128.mp3' }] }, groups: [{ slices: [{ image: 'a.webp', audio: { samples } }, { image: 'b.webp', audio: { music: { tracks: [{ id: 'x', volume: 1 }] } } }] }] }
+	};
+	assert.equal(unifyAudio('chapter', files, 'de'), 2);
+	const en = files.en.groups[0].slices;
+	assert.deepEqual(en[0].audio, { audio: { samples } });
+	assert.equal(en[1].audio, undefined);
+	assert.equal(unifyAudio('chapter', files, 'de'), 0);
+	assert.ok(!problems('chapter', files.en).some((p) => p.includes('audio.samples')));
 });

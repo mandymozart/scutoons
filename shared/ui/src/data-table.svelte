@@ -346,7 +346,11 @@
 		text-decoration: underline;
 		cursor: pointer;
 	}
+	/* row selection: the native box, not the tool's switch (tools.css) */
 	input[type='checkbox'] {
+		appearance: auto;
+		border: 0;
+		background: none;
 		width: 1.25rem;
 		height: 1.25rem;
 		margin: 0;

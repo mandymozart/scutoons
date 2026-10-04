@@ -7,7 +7,7 @@
 // `loadToonLanguages` in ./languages.ts), never from constants.
 import { ApiError } from '$lib/api.ts';
 import { getDraft, publishVersion, putDraft, type ContentVersion } from '$lib/api.ts';
-import { clone, deepEqual, entityKeyFor, getAt, parseEntityKey, setAt, type Path, unifyGeometry } from '@scutoons/content';
+import { clone, deepEqual, entityKeyFor, getAt, parseEntityKey, setAt, type Path, unifyAudio, unifyGeometry } from '@scutoons/content';
 
 export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script';
 export type DocSource = 'store' | 'new' | 'missing';
@@ -97,6 +97,8 @@ export class ContentDoc {
 	recoverable = $state<AutosaveEntry | null>(null);
 	/** text boxes / placed items whose geometry differed between languages and was set to the source's on load */
 	geometryUnified = $state(0);
+	/** chapter / slice audio blocks that differed in another locale and now follow the source (unifyAudio) */
+	audioUnified = $state(0);
 	lastSavedAt = $state<number | null>(null);
 
 	private undoStack = $state<string[]>([]);
@@ -184,6 +186,8 @@ export class ContentDoc {
 		this.adopt(data, base, published, source);
 		// geometry is the same in every language: a locale that differs follows the source (saved with the next save)
 		this.geometryUnified = this.kind === 'chapter' || this.kind === 'group' ? unifyGeometry(this.kind, this.data, this.primary) : 0;
+		// so is audio (music, sample library, slice volumes and samples)
+		this.audioUnified = this.kind === 'chapter' || this.kind === 'group' ? unifyAudio(this.kind, this.data, this.primary) : 0;
 		this.checkAutosave();
 		this.loading = false;
 	}

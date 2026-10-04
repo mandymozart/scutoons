@@ -6,9 +6,17 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from '$lib/components/fields/prop-field.svelte';
+	import { FileSlot } from '@scutoons/media';
 
-	/** Chapter audio: music tracks (adaptive music player) and the sample library. Shared by all locales. */
-	let { doc }: { doc: ContentDoc } = $props();
+	/**
+	 * Chapter audio: music tracks (adaptive music player) and the sample library. Shared by all locales. The files are
+	 * slots with the asset picker (UI rule: media fields are slots, not path text fields); uploads go to the chapter's
+	 * folder like its images. `season` / `number` as in MetaPanel.
+	 */
+	let { doc, season = null, number }: { doc: ContentDoc; season?: ContentDoc | null; number: number } = $props();
+
+	const place = $derived(`${doc.toon}/s${Number(season?.get(season.primary, ['number'])) || 1}/c${number}/`);
+	const setPath = (path: (string | number)[], value: string | null) => doc.setShared(path, value ?? '');
 
 	const audio = $derived(doc.get(doc.primary, ['audio']));
 	const tracks = $derived<any[]>(audio?.music?.tracks ?? []);
@@ -66,7 +74,7 @@
 			{#each tracks as track, i (i)}
 				<tr>
 					<td><PropField {doc} path={['audio', 'music', 'tracks', i, 'id']} label="" required /></td>
-					<td><PropField {doc} path={['audio', 'music', 'tracks', i, 'path']} label="" required /></td>
+					<td><FileSlot toon={doc.toon} kind="audio" value={track.path} label={track.id || 'audio'} {place} hideLabel player={false} clearable={false} onchange={(v) => setPath(['audio', 'music', 'tracks', i, 'path'], v)} testid="audio-track-path" /></td>
 					<td class="row-tools">
 						<button type="button" class="ghost" onclick={() => play(track.path)}>{playingPath === track.path ? '■' : '▶'}</button>
 						<button type="button" class="ghost" onclick={() => removeFrom('tracks', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
@@ -84,7 +92,7 @@
 			{#each samples as sample, i (i)}
 				<tr>
 					<td><PropField {doc} path={['audio', 'sampleLibrary', i, 'id']} label="" required /></td>
-					<td><PropField {doc} path={['audio', 'sampleLibrary', i, 'path']} label="" required /></td>
+					<td><FileSlot toon={doc.toon} kind="audio" value={sample.path} label={sample.id || 'audio'} {place} hideLabel player={false} clearable={false} onchange={(v) => setPath(['audio', 'sampleLibrary', i, 'path'], v)} testid="audio-sample-path" /></td>
 					<td class="row-tools">
 						<button type="button" class="ghost" onclick={() => play(sample.path)}>{playingPath === sample.path ? '■' : '▶'}</button>
 						<button type="button" class="ghost" onclick={() => removeFrom('sampleLibrary', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
@@ -109,6 +117,7 @@
 	table {
 		width: 100%;
 		border-collapse: collapse;
+		table-layout: fixed;
 		margin-bottom: 0.4rem;
 	}
 	th {
@@ -123,11 +132,18 @@
 		padding: 0.15rem 0.25rem 0.15rem 0;
 		vertical-align: top;
 	}
-	td:nth-child(1) {
+	th:nth-child(1) {
 		width: 10rem;
+	}
+	th:nth-child(3) {
+		width: 5rem;
+	}
+	/* the file slot fills the path column; a long name ellipsizes */
+	td :global(.file-slot .slot) {
+		width: 100%;
+		justify-content: flex-start;
 	}
 	.row-tools {
 		white-space: nowrap;
-		width: 4rem;
 	}
 </style>

@@ -50,3 +50,26 @@ export function unifyGeometry(kind: string, files: Record<string, any>, primary:
 	}
 	return changed;
 }
+
+/**
+ * Audio is the same in every language too (owner 2026-10-04: an `en` file still had its samples at the old
+ * `audio.samples` while the source had them at `audio.audio.samples` – the creator showed every sample field as an `en`
+ * override and the problems listed samples that never play): the chapter's `audio` (music, sample library) and every
+ * slice's `audio` (music volumes, samples) follow the source locale, slices matched by position. Mutates `files`;
+ * returns how many chapter / slice audio blocks were changed.
+ */
+export function unifyAudio(kind: string, files: Record<string, any>, primary: string): number {
+	const sourceFile = files[primary];
+	if (!sourceFile) return 0;
+	const source = slicesOf(kind, sourceFile);
+	let changed = 0;
+	for (const [locale, file] of Object.entries(files)) {
+		if (locale === primary || !file || typeof file !== 'object') continue;
+		if (kind === 'chapter' && copyKeys(sourceFile, file, ['audio'])) changed++;
+		slicesOf(kind, file).forEach((slice, i) => {
+			const from = source[i];
+			if (from && slice && copyKeys(from, slice, ['audio'])) changed++;
+		});
+	}
+	return changed;
+}
