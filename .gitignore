@@ -1,6 +1,5 @@
 node_modules
-/cdn/root
-/cdn/logs
+/media
 .env
 .venv
 .svelte-kit
@@ -13,8 +12,9 @@ node_modules
 .deploy/
 
 /logs/dev
+/logs/cutover
 /logs/ask
 
-# Python bytecode caches (written when cdn/tools/*.py run)
+# Python bytecode caches
 __pycache__/
 *.pyc

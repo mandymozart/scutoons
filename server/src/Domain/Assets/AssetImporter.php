@@ -12,7 +12,7 @@ use Scutoons\Infrastructure\Database\Database;
 /**
  * Registers what is on a storage (agents/ASSETS.md "Import"): every file becomes a rendition of an asset, files of one
  * slug (AssetPaths::group) one asset. Idempotent – a re-scan only adds new files to the CURRENT version, updates
- * sizes / checksums that changed on the storage (an out-of-band upload, e.g. cdn/sync.py) and drops renditions whose
+ * sizes / checksums that changed on the storage (an out-of-band upload, e.g. the bunny dashboard) and drops renditions whose
  * file is gone. Deleted assets are left alone. Never writes to the storage.
  */
 final class AssetImporter

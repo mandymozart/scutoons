@@ -7,10 +7,9 @@
 // → <out>/scutoons/_/{characters,moods,asset-requests}.json, <out>/<toon>/_/cast.json (+ report on stdout).
 //
 //   node --experimental-transform-types --no-warnings shared/content/scripts/migrate-characters.ts \
-//        [--api=shared/content/legacy] [--cdn=cdn/root] [--out=shared/content/seed] [--json] [--no-webp]
+//        [--api=shared/content/legacy] [--cdn=media] [--out=shared/content/seed] [--json]
 //
-// First it runs cdn/tools/make_character_webp.py (cdn/.venv Python + Pillow): every portrait / transition PNG gets a WebP
-// next to it and a portrait without an avatar gets a generated avatar WebP; the registry then points to the WebP files.
+// PNG deliveries have their WebP next to them (written by the creator's asset import); the registry points to the WebP files.
 //
 // Then import (published version 1, idempotent; `--update` after a seed change):
 //   (the script runs it at the end, `--no-import` to skip) php server/bin/console import-content shared/content/seed --only=characters,moods,asset-requests,cast --update
@@ -73,7 +72,7 @@ import {
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const arg = (name: string, fallback: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? fallback;
 const API = resolve(repo, arg('api', 'shared/content/legacy'));
-const CDN = resolve(repo, arg('cdn', 'cdn/root'));
+const CDN = resolve(repo, arg('cdn', 'media'));
 const OUT = resolve(repo, arg('out', 'shared/content/seed'));
 const LOCALES = ['de', 'en'];
 const SOURCE = 'de';
@@ -405,27 +404,13 @@ for (const [toon, cast] of Object.entries(casts)) if (ensureStar(cast, toonStar(
 
 // ── Convention folders on the CDN (the owner's delivered images) ─────────────────────────────────────────────────
 
-// New PNG deliveries get their WebP (+ the avatar when only the portrait came) first – agents/PERFORMANCE.md P3.
-if (!process.argv.includes('--no-webp')) {
-	const venv = resolve(repo, 'cdn/.venv', process.platform === 'win32' ? 'Scripts/python.exe' : 'bin/python');
-	const python = existsSync(venv) ? venv : 'python';
-	const run = spawnSync(python, [resolve(repo, 'cdn/tools/make_character_webp.py'), `--root=${CDN}`], { encoding: 'utf8' });
-	if (run.status !== 0) {
-		console.error(`make_character_webp.py failed (${python}): ${run.error?.message ?? run.stderr}`);
-		console.error('Install Pillow (cdn/tools/requirements.txt) or run with --no-webp.');
-		process.exit(1);
-	}
-	const summary = run.stdout.trim().split('\n').pop();
-	if (summary) console.error(`character WebP: ${summary}`);
-}
-
 for (const character of registry.characters) {
 	for (const persona of character.personas) {
 		const name = conventionName(character.id, persona.id);
 		const folder = join(CDN, CHARACTER_IMAGE_ROOT, name);
 		if (!existsSync(folder)) continue;
 		const escaped = name.replace(/-/g, '\\-');
-		// PNG deliveries have a WebP next to them (cdn/tools/make_character_webp.py, run above); the WebP wins
+		// PNG deliveries have a WebP next to them (written on upload); the WebP wins
 		const expression = new RegExp(`^${escaped}(?:_([a-z0-9-]+))?_(${CHARACTER_IMAGE_VARIANTS.join('|')})-([a-z0-9-]+)\\.(png|webp)$`);
 		const transition = new RegExp(`^${escaped}_transition-([a-z0-9]+)-to-([a-z0-9]+)\\.(png|webp)$`);
 		const files = readdirSync(folder).sort();

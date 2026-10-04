@@ -2,7 +2,7 @@
 
 Icons for **virtual items** (camera, cucumber, cucumber camera, …) in the same look as the SCUTOONS character
 renders, so items and characters feel like one world in the inventory and on the avatar. Physical merch keeps its
-cut-out product photos (`cdn/tools/make_item_icons.py`).
+cut-out product photos.
 
 ## Spec
 
@@ -12,12 +12,12 @@ cut-out product photos (`cdn/tools/make_item_icons.py`).
 | Framing | the object centred, ~6 % padding, slight three-quarter view from above, no cast shadow outside the object |
 | Style | identical rendering to the character portraits: soft realistic 3D render, same lighting direction and softness, same material quality and colour palette (pale sphynx pinks, cobalt blue ornaments, warm mouse yellows) |
 | Content | one object, no text, no logo, no background, no hands |
-| File | `catpope/items/<item_id>.png` (+ WebP by `make_character_webp.py`-style conversion), variants `<item_id>_<variant>.png` |
+| File | `catpope/items/<item_id>.png` (+ the WebP twin from the asset job on upload), variants `<item_id>_<variant>.png` |
 
 ## Style references (attach both to every prompt)
 
-- `cdn/root/characters/catpope/catpope_portrait-neutral.webp`
-- `cdn/root/characters/yellowmouse/yellowmouse_portrait-neutral.webp`
+- `media/characters/catpope/catpope_portrait-neutral.webp`
+- `media/characters/yellowmouse/yellowmouse_portrait-neutral.webp`
 
 ## Brief (image generator or designer; attach the style references)
 
@@ -46,7 +46,7 @@ reference for `cucumber_camera`).
 
 1. Generate with the prompt above (style references attached), one item at a time.
 2. Owner approves; artist-made icons always win and can replace generated ones later (same file name).
-3. Save as `cdn/root/catpope/items/<item_id>.png`, convert to WebP next to it, check on a checkerboard/white/black
-   contact sheet (`cdn/tools/make_item_icons.py` produces one).
+3. Upload as `catpope/items/<item_id>.png` in the creator / admin → Assets (the asset job makes the WebP twin); check
+   it on a checkerboard / white / black background.
 4. The catalog (`server/config/items.json`) already points at `catpope/items/<item_id>.*` — switch the extension to
-   `.webp` if needed; upload with `cdn/sync.py`.
+   `.webp` if needed.

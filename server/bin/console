@@ -12,7 +12,7 @@ declare(strict_types=1);
  *   php bin/console export-content <dir> [--toon=] [--draft] [--db=]   the store back into files (import/export format)
  *   php bin/console backfill-edition-numbers [--dry-run] [--sql] [--force] [--manifests=<dir>]
  *   php bin/console report-orphan-codes [--csv] [--manifests=<dir>]
- *   php bin/console assets:check-storage [--prefix=] [--hash] [--write-test] [--json]   bunny.net zone vs cdn/root (read-only)
+ *   php bin/console assets:check-storage [--prefix=] [--hash] [--write-test] [--json]   bunny.net zone vs media/ (read-only)
  *   php bin/console assets:sync | assets:scan | assets:jobs   the media asset layer (agents/ASSETS.md)
  *   php bin/console catalog:seed [--replace]          empty catalog tables ← server/config/*.json (agents/CATALOG.md)
  *   php bin/console catalog:export-sql [--write]      the catalog seed as INSERTs (migration 2026-10-04-catalog)

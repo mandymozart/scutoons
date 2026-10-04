@@ -473,7 +473,7 @@
 		"characters_note_hint": "Legt einen Bildwunsch für {file} an – aufgelistet unter „Gewünschte Bilder“. Szenen funktionieren weiter über den Rückfall.",
 		"characters_note_placeholder": "Was soll das Bild zeigen?",
 		"characters_nothing_wanted": "Nichts gewünscht – jede Standard-Stimmung hat ein Bild.",
-		"characters_path_missing_hint": "Noch nicht auf dem CDN – der Pfad kann trotzdem gespeichert werden (Datei mit cdn/sync.py hochladen).",
+		"characters_path_missing_hint": "Noch nicht auf dem CDN – der Pfad kann trotzdem gespeichert werden (Datei in der Asset-Verwaltung hochladen).",
 		"characters_picker_all": "Alle Figuren",
 		"characters_picker_all_moods": "alle Stimmungen des Vokabulars zeigen",
 		"characters_picker_back": "Figuren",

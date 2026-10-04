@@ -18,7 +18,7 @@
 //
 // usage: node scripts/check-wardrobe.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
 //        [--shots=<dir>] [--only=390] [--verbose]
-// Needs the viewer, the API, the CDN with the overlays (cdn/tools/make_wear_overlays.py) and the test user.
+// Needs the viewer, the API, the CDN with the wear overlays and the test user.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

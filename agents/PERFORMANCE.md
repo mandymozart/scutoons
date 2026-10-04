@@ -107,7 +107,7 @@ CPU drops from 5.3 s to 2.2 s (audio decoding).
 
 | Change | Files |
 |---|---|
-| Threaded CDN (`ThreadingHTTPServer`, daemon threads, 30 s idle socket timeout), listens on `127.0.0.1` + `::1` only, logs errors only, serves `root/` relative to the script | `cdn/server.py` |
+| Threaded CDN (`ThreadingHTTPServer`, daemon threads, 30 s idle socket timeout), listens on `127.0.0.1` + `::1` only, logs errors only, serves `root/` relative to the script | `cdn/server.py` (since 2026-10-04 `scripts/dev/media-serve.mjs`, serves `media/`) |
 | API dev server with concurrency on Windows: 4 `php -S` workers (`[::1]:9200-9203`, OPcache with `revalidate_freq=0`) behind a Node proxy on :9000 (`::1` + `127.0.0.1`, Host/headers/body unchanged, `REMOTE_ADDR` stays `::1`). `npm run dev:api` / `composer serve`. `composer serve:php` = the old single process | `server/bin/dev-serve.mjs`, `package.json`, `server/composer.json`, READMEs |
 | Paraglide `locale-modules` for `vite dev` and `npm run check`. Builds keep `message-modules` (tree-shaking; total JS gzip 488 vs 486 KB, so either is fine) | `*/vite.config.ts`, `*/scripts/paraglide.js` |
 | Content API: opt-in in-memory cache of published reads (in-flight sharing plus a 60 s TTL; drafts never cached; the creator keeps it off) | `shared/api/src/content.ts`, `viewer/src/lib/api.ts` |

@@ -39,7 +39,7 @@ final class AssetsRelayoutCommand extends Command
             ->addOption('apply', null, InputOption::VALUE_NONE, 'copy + rewrite (without it: dry run)')
             ->addOption('delete-old', null, InputOption::VALUE_NONE, 'delete the old paths and the planned deletions (separate, after the merge)')
             ->addOption('no-db', null, InputOption::VALUE_NONE, 'with --apply: leave the database alone')
-            ->addOption('report', null, InputOption::VALUE_REQUIRED, 'report file', '../cdn/logs/relayout-report.json');
+            ->addOption('report', null, InputOption::VALUE_REQUIRED, 'report file', '../logs/cutover/relayout-report.json');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

@@ -4,7 +4,7 @@ declare(strict_types=1);
 namespace Scutoons\Infrastructure\AssetStorage;
 
 /**
- * A media storage behind the asset layer (agents/ASSETS.md "Storage drivers"): the local CDN folder (cdn/root, dev),
+ * A media storage behind the asset layer (agents/ASSETS.md "Storage drivers"): the local media folder (media/, dev),
  * a bunny.net storage zone (production), later anything else (S3, R2, …). Keys are paths from the CDN root with "/"
  * separators, never a leading "/" and never ".." (StorageKey::normalize). Content never talks to a driver: it keeps
  * referencing the stable public paths; the drivers only move bytes for the asset layer.

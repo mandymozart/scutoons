@@ -19,9 +19,7 @@
 // Then the test user (agent@scutoons.test, `npm run dev:test-user`) as a member: chapter 0 plays, its finished
 // checkpoint reaches /api/progress/catpope; the member's previous server progress is restored afterwards.
 //
-// The local CDN (cdn/server.py) answers ranges since 2026-10-01; a CDN process started before that doesn't: then the
-// check serves the video requests through its own throw-away cdn/server.py (and says so) – restart the CDN with
-// `npm run dev` to get ranges on :8001.
+// The local CDN (scripts/dev/media-serve.mjs) answers ranges.
 //
 // usage: node scripts/check-prolog.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
 //        [--cdn=http://localhost:8001] [--shots=<dir>] [--only=375-de] [--no-member] [--verbose]
@@ -55,21 +53,10 @@ const chapter0 = await (await fetch(`${api}/library/toons/${toon}/chapters/0?loc
 const playerSlice = chapter0?.groups?.[0]?.slices?.[0];
 if (!playerSlice?.video?.player) { console.error('chapter 0 has no player video slice (is the content imported?)'); process.exit(2); }
 const videoPath = `${toon}/${playerSlice.video.src}`;
-let rangeCdn = null;
-let helper = null;
 {
 	const res = await fetch(`${cdn}/${videoPath}`, { headers: { Range: 'bytes=0-99' } });
 	await res.body?.cancel();
-	if (res.status !== 206) {
-		const port = 8400 + Math.floor(Math.random() * 400);
-		const python = process.platform === 'win32' && existsSync(join(root, 'cdn/.venv/Scripts/python.exe')) ? join(root, 'cdn/.venv/Scripts/python.exe') : 'python';
-		helper = spawn(python, ['server.py', String(port)], { cwd: join(root, 'cdn'), stdio: 'ignore' });
-		for (let i = 0; i < 50 && !rangeCdn; i++) {
-			try { const r = await fetch(`http://localhost:${port}/${videoPath}`, { headers: { Range: 'bytes=0-99' } }); await r.body?.cancel(); if (r.status === 206) rangeCdn = `http://localhost:${port}`; } catch {}
-			if (!rangeCdn) await sleep(200);
-		}
-		console.log(`note: ${cdn} answers ranges with ${res.status} (started before the Range support) – videos served through a throw-away CDN on ${rangeCdn}; restart the CDN with \`npm run dev\``);
-	}
+	if (res.status !== 206) console.log(`note: ${cdn} answers ranges with ${res.status} – seeking will fail (is the dev CDN scripts/dev/media-serve.mjs running?)`);
 }
 // chapter 1's music, injected into chapter 0 to check that the player pauses it
 const chapter1 = await (await fetch(`${api}/library/toons/${toon}/chapters/1?locale=de`)).json();
@@ -88,7 +75,6 @@ async function done(code) {
 	if (restoreMember) await restoreMember().catch((e) => console.log(`  could not restore the member's progress: ${e}`));
 	const exited = chrome.exitCode !== null ? Promise.resolve() : new Promise((r) => chrome.once('exit', r));
 	chrome.kill();
-	helper?.kill();
 	await Promise.race([exited, sleep(5000)]);
 	try { rmSync(profile, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }); } catch {}
 	process.exit(code);
@@ -111,9 +97,6 @@ ws.addEventListener('message', async (e) => {
 	if (m.method === 'Network.requestWillBeSent' && isVideo(p.request.url)) videoUrls.push(p.request.url);
 	if (m.method === 'Fetch.requestPaused') {
 		const url = p.request.url;
-		if (isVideo(url) && rangeCdn && p.responseStatusCode === undefined) {
-			return send('Fetch.continueRequest', { requestId: p.requestId, url: url.replace(cdn, rangeCdn) });
-		}
 		if (url.includes(`/library/toons/${toon}/chapters/0`) && p.responseStatusCode !== undefined) {
 			if (!injectMusic || p.responseStatusCode !== 200) return send('Fetch.continueResponse', { requestId: p.requestId });
 			const body = await send('Fetch.getResponseBody', { requestId: p.requestId });
@@ -131,7 +114,6 @@ const evaluate = async (expression) => { const r = await send('Runtime.evaluate'
 await send('Page.enable'); await send('Runtime.enable'); await send('Network.enable');
 await send('Network.setCacheDisabled', { cacheDisabled: true });
 await send('Fetch.enable', { patterns: [
-	...(rangeCdn ? [{ urlPattern: `${cdn}/${toon}/*.mp4*`, requestStage: 'Request' }] : []),
 	{ urlPattern: `*/library/toons/${toon}/chapters/0*`, requestStage: 'Response' }
 ] });
 // every media element that ever plays (the music's <audio> elements are not in the DOM)

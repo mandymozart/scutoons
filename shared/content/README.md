@@ -30,7 +30,7 @@ JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{ch
 
 - The standard slice is **390 × 625 px** (the Naver webtoon size, `DEFAULT_SLICE`), delivered and served at **1x only as
   WebP**: `<toon>/s<n>/c<n>/<sXcY>-slice-N.webp` (the chapter's folder, agents/ASSETS.md "Folder convention";
-  `cdn/tools/make_slice_webp.py` writes them, 390 px wide, never scaled up). Other heights are fine, the width stays 390.
+  390 px wide, never scaled up). Other heights are fine, the width stays 390.
 - Every slice carries `width` / `height` (px of the image): the reader reserves the space before the lazy image loads
   (no layout shift, the audio intersection triggers fire slice by slice). `validateFile` reports a missing size as an
   **error** and a width ≠ 390 as a warning; the creator reads the size from the CDN whenever an image path is set.
@@ -58,9 +58,8 @@ Convention for new files (stored paths are always explicit):
 `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (regular persona and default look
 left out), transitions `…/<character>[-<persona>]_transition-<from>-to-<to>.webp`, A-pose
 `characters/<character>/<character>_apose-<look>.webp` (or .png). The supplier delivers PNGs under the same names; the
-characters import (`migrate-characters.ts`, below) first runs `cdn/tools/make_character_webp.py`, which writes the WebP
-next to every portrait / avatar / transition PNG (quality 85, alpha kept) and a 192 px avatar WebP for a portrait that
-came without one, so the registry points to the WebP files (agents/PERFORMANCE.md P3: 600² portrait ~350 KB → ~55 KB).
+creator's asset import writes the WebP
+next to every portrait / avatar / transition PNG; a portrait that came without an avatar gets one from the Luma generation workflows, so the registry points to the WebP files (agents/PERFORMANCE.md P3: 600² portrait ~350 KB → ~55 KB).
 The PNGs stay on the CDN for older viewer builds; the missing-image substitutes stay PNG.
 
 Image fallback (`resolveExpression`, one implementation for the viewer VN components and the creator), regressive, one
@@ -111,9 +110,8 @@ $schema = json_decode(file_get_contents('…/shared/content/schema/chapter.schem
   `shared/content/legacy/<toon>/{de,en}/characters.json` (→ regular persona, default look) and the owner's additions
   (personas incl. the former characters plf / cat / mountain-tiger, looks, transitions, A-poses, casts per season) into
   `seed/scutoons/_/{characters,moods,asset-requests}.json`
-  + `seed/<toon>/_/cast.json`, takes every image found in the convention folders `cdn/root/characters/<character>[-<persona>]/`
-  (after writing their WebP versions with `cdn/tools/make_character_webp.py` via `cdn/.venv` – `--no-webp` skips that; the WebP wins
-  over the PNG of the same name)
+  + `seed/<toon>/_/cast.json`, takes every image found in the convention folders `media/characters/<character>[-<persona>]/`
+  (the WebP wins over the PNG of the same name)
   and compares `resolveCast()` with the old files, then imports them into the local content store
   (`php server/bin/console import-content shared/content/seed --only=characters,moods,asset-requests,cast --update`;
   `--no-import` skips it). Production statements: the same with `--sql`, committed as `seed/characters-seed.mysql.sql`

@@ -143,8 +143,8 @@ return [
     // Which storage the asset layer works on: auto (the local folder ASSET_LOCAL_ROOT when it exists – every dev
     // machine –, else bunny when configured) | local | bunny
     'ASSET_STORAGE' => 'auto',
-    // The local CDN folder (what `python cdn/server.py` serves and `cdn/sync.py` uploads): dev storage
-    'ASSET_LOCAL_ROOT' => '../cdn/root',
+    // The local media folder (what scripts/dev/media-serve.mjs serves on the dev CDN port): dev storage
+    'ASSET_LOCAL_ROOT' => '../media',
     // The public media base readers load (purge URLs, links in the asset manager); empty = CDN_URL
     'CDN_PUBLIC_URL' => '',
     // bunny.net (all optional; these are also read from plain env vars and the repository-root .env –

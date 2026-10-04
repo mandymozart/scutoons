@@ -33,7 +33,7 @@ export function loadClassifier(): Promise<Classifier> {
 		await tf.ready();
 		const mobilenet = await import('@tensorflow-models/mobilenet');
 		// served from our CDN (owner phone test 2026-10-02: the tfhub.dev → Kaggle bucket chain failed in Brave – "cucumber
-		// detector could not be loaded" – and every load told Google the reader's IP). Files: cdn/root/models/ (14 MB,
+		// detector could not be loaded" – and every load told Google the reader's IP). Files: models/ on the CDN (14 MB,
 		// MobileNet v2 1.0 224 from tfhub.dev/google/imagenet/mobilenet_v2_100_224/classification/2, Apache-2.0).
 		const model = await mobilenet.load({ version: 2, alpha: 1.0, modelUrl: asset(MOBILENET_MODEL), inputRange: [0, 1] });
 		const classifier: Classifier = {

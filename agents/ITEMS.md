@@ -688,7 +688,7 @@ Owner: "clothing becomes real, exchangeable items that overlay the character's A
 - **Bodies picker**: one tile per character (nakedness is the pants coming off, not a look). `body { character, look }`
   stays in the API; the look ids `swim`/`naked` stay in the registry (the safe base and the naked base).
 
-### Files the owner replaces later (same names; placeholders made by `cdn/tools/make_wear_overlays.py`)
+### Files the owner replaces later (same names; placeholders – replace in admin → Assets)
 
 Convention: `characters/<character>/wear/<item>.webp` (single figure) or `…/<item>-<slot instance>.webp` (multi-figure
 body), 768 × 1152 transparent WebP aligned to that character's A-pose; icon `scutoons/items/<item>.png` (512 px cut-out).
@@ -735,9 +735,8 @@ guest + test user, 24 checks: the basic dress, swim pants on → shorts back + t
 item detail swap, setting off → naked, Top Toy twins, back to Cat Pope). `npm run dev:test-user -- --reset` removes the
 default wearables so the next `/me/` hands them out and puts the basic dress on, like a signup.
 
-**Merge note (after the 2026-10-04 release):** no migration, no seed change. Deploy order: CDN first (`cdn/sync.py` the
-`characters/*/wear/` folders and `scutoons/items/` – run `cdn/tools/make_wear_overlays.py` on the owner's `cdn/root`
-first, the branch could not write there), then the API (items.json + services), then the viewer. Existing members get
+**Merge note (after the 2026-10-04 release):** no migration, no seed change. Deploy order: CDN first (the
+`characters/*/wear/` folders and `scutoons/items/`, uploaded in admin → Assets), then the API (items.json + services), then the viewer. Existing members get
 the four wearables on their next `/me/` with the basic dress (T-shirt, shorts, sandals – the swim pants on a body
 without a shorts overlay) worn where those slots were free. The bodies picker no longer
 offers "nackt" as a separate look.
@@ -839,11 +838,10 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
 - **Browser-check hook (DEV only):** `globalThis.__scutoonsFakePredictions` makes `loadClassifier()` return those
   predictions instead of downloading MobileNet (with a canvas `getUserMedia` stub the object loop runs headless); never
   active in a production build (`import.meta.env.DEV`).
-- **Icons** (placeholders in the house style, `cdn/tools/make_substance_icons.py` → `scutoons/items/`, to replace):
+- **Icons** (placeholders in the house style in `scutoons/items/`, to replace in admin → Assets):
   `checkit_camera.png` 31 KB (the camera with a small test tube, no logo), `testo.png` 41 KB (a squeeze tube), `testo_camera.png` 45 KB (the camera with a tube), `psilocybin.png` 29 KB (a
   mushroom), `lsd.png` 84 KB (a blotter square with a spiral), `semaglutide.png` 33 KB (a generic pen, no product look), `weed.png` 52 KB (a zip bag with green buds),
-  `tuna_can.png` 60 KB (a generic flat tin with a ring pull and a fish outline, no brand). The tool takes icon names to
-  render only those (`… --root cdn/root weed tuna_can`).
+  `tuna_can.png` 60 KB (a generic flat tin with a ring pull and a fish outline, no brand).
 - **Tests:** content `test/substances.test.ts` (catalog, decay, apply + cap, effect expiry/replace/end, testo bands,
   character validation), PHPUnit `ReaderStateTest` (decay math, apply + cap + decay with the frozen clock, semaglutide,
   the timed effect's expiry + end, recipe + scan grant + cooldown, story pickup once, weed / cucumber / tuna can on the
@@ -862,7 +860,7 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
 `member_stats`, `member_effects`, idempotent, after `2026-10-01-embassy`). The characters statement of
 `characters-seed.mysql.sql` / `content-seed.mysql.sql` carries Top Toy's `tendencies`; the seed skips an existing
 `characters` entity, so on production publish the registry once from the creator (or `import-content
---only=characters --update`). CDN: `cdn/tools/make_substance_icons.py`, then `cdn/sync.py` (`scutoons/items/`).
+--only=characters --update`). CDN: the icons (`scutoons/items/`) uploaded in admin → Assets.
 The Check It camera needs nothing extra on deploy (catalog + viewer): it is crafted from camera + testo (recipe
 `checkit_camera`, ingredients adjustable in `server/config/items.json`), a story grant stays possible.
 
@@ -1097,7 +1095,7 @@ often close to a release. They must never put a release at risk, and a finished 
    git worktree (e.g. `C:\Development\scutoons-<pack>`), branched from `platform` (or `main` after a release). Never
    on the branch that is being released.
 2. A pack only **adds**: new catalog entries (`server/config/items.json` items + recipes), CDN assets
-   (`cdn/root/<toon>/items/…`, `cdn/root/models/…`), texts, story grants (seed statements), tests. It never changes
+   (`<toon>/items/…`, `scutoons/models/…`; uploaded in the creator / admin → Assets), texts, story grants (seed statements), tests. It never changes
    the id or meaning of a released item – inventories reference ids forever; a rename is a new item plus a migration.
 3. If a pack needs something the fundamentals can't do yet (e.g. a camera with its own recognition model), **split
    it**: the fundamental lands first as a generic, dormant capability (no live item uses it), released and tested on
@@ -1133,8 +1131,7 @@ landing page [the season section of the toon page]."
   `awakening_vinyl` and `awakening_test_press` carry `awakening` as `vinyl`; their `play_audio` skill is gone
   (`legacyPlayAudio` still reads an old one: it plays without a player).
 - **Player**: `plays: MediaFormat[]` – `record_player` (vinyl), `tape_player` (tape), `cd_player` (cd); category tool,
-  not stackable, giftable (default), virtual, toon null. Icons `scutoons/items/{record,tape,cd}_player.png` (placeholders,
-  `cdn/tools/make_substance_icons.py record_player tape_player cd_player`).
+  not stackable, giftable (default), virtual, toon null. Icons `scutoons/items/{record,tape,cd}_player.png` (placeholders).
 - **Access per album** (owner 2026-10-02: marketing = open download, retrieval = owners re-download what they bought;
   "download and inline playing are different things"): `access.download` / `access.listen` = `everyone` (any visitor) |
   `members` (reading access: a member or a device unlocked by a code – the rule of the chapters and the download page) |
@@ -1250,7 +1247,7 @@ locally and import it at sign-in):
 **Seed / migration**: `content-seed.mysql.sql`: only the 4 changed statements (`chapter:catpope:2:{de,en}`,
 `scene:catpope:2:scene-14:{de,en}`), old timestamps kept. Local store: `import-content ../shared/content/seed
 --toon=catpope --only=chapter,scene --update` (backup `server/db/local.sqlite.bak-2026-10-02-record-player-repair`).
-CDN: the two icons (`cdn/tools/make_substance_icons.py broken_record_player repair_coupon`, then `cdn/sync.py`).
+CDN: the two icons (upload in admin → Assets).
 
 **Tests**: content `test/albums.test.ts` (the recipe: inputs, output, both story-grantable, not stackable, icons; the
 record player not grantable; chapter 2: the broken player on the first scene's first slice, the coupon on the last slice,

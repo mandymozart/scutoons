@@ -26,7 +26,7 @@
 // usage: node scripts/check-media-quality.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
 //        [--creator=http://localhost:10000] [--shots=<dir>] [--verbose]
 //        [--only=network,auto,switch,account,member,placement,controls,bar,creator]
-// Needs the dev servers (npm run dev) and the media in cdn/root. Exit code 1 on any failure.
+// Needs the dev servers (npm run dev) and the media in media/. Exit code 1 on any failure.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';

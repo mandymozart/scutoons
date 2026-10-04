@@ -550,7 +550,7 @@ people write themselves). Every mail goes through `Domain\Mail\Mailer::send($tem
 
 ## Assets (the media asset layer, 2026-10-02 – agents/ASSETS.md)
 
-Content keeps referencing CDN paths; this API manages the registry over the storage (local `cdn/root` or the bunny.net
+Content keeps referencing CDN paths; this API manages the registry over the storage (local `media/` or the bunny.net
 zone). Content editors (creator, admin):
 
 | Method | Path | |

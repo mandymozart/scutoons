@@ -473,7 +473,7 @@
 		"characters_note_hint": "Creates an asset request for {file} – listed under “Wanted images”. Scenes keep working with the fallback.",
 		"characters_note_placeholder": "What should the image show?",
 		"characters_nothing_wanted": "Nothing wanted – every standard mood has an image.",
-		"characters_path_missing_hint": "Not on the CDN yet – the path can be saved anyway (upload the file with cdn/sync.py).",
+		"characters_path_missing_hint": "Not on the CDN yet – the path can be saved anyway (upload the file in the asset manager).",
 		"characters_picker_all": "All characters",
 		"characters_picker_all_moods": "show every mood of the vocabulary",
 		"characters_picker_back": "Characters",

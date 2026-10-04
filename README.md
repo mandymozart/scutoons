@@ -20,7 +20,7 @@ scutoons/
 │   ├── reader/         @scutoons/reader    Slice, Dialogs, Onomatopoeia, pure slice actions
 │   ├── api/            @scutoons/api       typed API client (session, device id, accounts/items API, content store)
 │   └── ui/             @scutoons/ui        Svelte UI kit (Button, Field, Sheet, Tabs, Toasts, …)
-├── cdn/                python tools (sync, download, icons, bubble detector); cdn/root/ is gitignored
+├── media/              local dev media (gitignored; the dev CDN serves it, production media lives on bunny)
 └── agents/             plans and memory
 ```
 
@@ -49,7 +49,7 @@ Local dev ports — single source of truth: `shared/dev-ports.json` (agents/PLAT
 | Service | Port | Start |
 |---|---|---|
 | viewer | 8000 | `npm run dev:viewer` |
-| CDN | 8001 | `cd cdn && python server.py` (serves `cdn/root/`) |
+| CDN | 8001 | `node scripts/dev/media-serve.mjs` (serves `media/`) |
 | API (server) | 9000 | `npm run dev:api` or `cd server && composer serve` |
 | qr (qr.scutoons.com) | 9001 | `npm run dev:qr` or `cd qr && composer serve` – landing `/?c=`, `/verify.html`; config `qr/config.local.php` (`API_URL` :9000, same `QR_PROXY_SECRET` as `server/config.local.php`) |
 | creator | 10000 | `npm run dev:creator` |
