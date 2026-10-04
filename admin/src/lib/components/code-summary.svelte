@@ -5,8 +5,8 @@
 	import { day, errorText, minute, number } from '$lib/format.ts';
 	import { eventLabel } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import CodeStatus from './code-status.svelte';
-	import RevokeForm from './revoke-form.svelte';
+	import CodeStatus from '$lib/components/code-status.svelte';
+	import RevokeForm from '$lib/components/revoke-form.svelte';
 
 	/** Triage view of one code (drawer of the codes list): status, facts, activity, revoke, the latest events. */
 	let { code, onchanged }: { code: string; onchanged?: () => void } = $props();

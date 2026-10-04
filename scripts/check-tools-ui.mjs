@@ -172,6 +172,10 @@ for (const file of DIRS.flatMap(walk).filter((f) => !f.endsWith('tools.css'))) {
 	if (file.endsWith('.svelte'))
 		text.replace(/<style[^>]*>[\s\S]*?<\/style>/g, (s) => s.replace(/[^\n]/g, ' ')).split('\n').forEach((l, i) => {
 			if (/class="[^"]*\bg\d\b/.test(l)) fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)}`);
+			// a fold row with its own type class (tools.css styles every summary – COMPONENTS.md step 4)
+			if (/<summary\b[^>]*\bclass="[^"]*\bsc-(label|caption)\b/.test(l)) fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (a restyled fold row: tools.css styles summary)`);
+			// an app component imported by a relative path (COMPONENTS.md 4.2.6: `$lib/...`; the shared packages keep theirs)
+			if (/^(creator|admin|embassy)\/src\/lib\//.test(name) && /from '\.\.?\/[^']+\.svelte'/.test(l)) fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (import components via $lib/…)`);
 			// hand-built tabs (COMPONENTS.md step 14b): @scutoons/ui Tabs (role="tab", arrow keys)
 			if ((/role="tablist"/.test(l) || /class="tabs?[\s"]/.test(l)) && !name.endsWith('shared/ui/src/tabs.svelte'))
 				fieldGrids.push(`${name}:${i + 1}: ${l.trim().slice(0, 100)} (hand-built tabs: @scutoons/ui Tabs)`);

@@ -10,7 +10,7 @@
 	import { qrSvg } from '$lib/qr/qr.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import QrPreview from './qr-preview.svelte';
+	import QrPreview from '$lib/components/qr-preview.svelte';
 
 	/**
 	 * "Regenerate" of the legacy SPA: the certificate files of an existing code, rebuilt from its stored signature
