@@ -344,16 +344,26 @@
 		}
 	}
 
+	/* the header row sits --space-05 from the top/right edge, like the menu toggle, so the close button lands
+	   exactly where the toggle was (the rest of the menu keeps its --space-1 padding) */
 	.menu-header {
 		display: flex;
 		justify-content: space-between;
+		align-items: center;
+		margin: calc(var(--space-05) - var(--space-1)) calc(var(--space-05) - var(--space-1)) var(--space-1) 0;
 	}
 	.menu-header-end {
 		display: flex;
-		align-items: flex-start;
+		align-items: center;
+		gap: var(--space-05);
 	}
-	/* a grey cross, the size of a language button (--control-height), in the top-right corner */
-	.menu-close {
+	.main-menu .menu-header nav ul {
+		margin-bottom: 0;
+	}
+	/* language + close: the round icon toggles of the top-right group (.menu-toggle) – --control-height circles,
+	   regular frame, paper, cyan on hover (owner 2026-10-04) */
+	.menu-close,
+	.main-menu nav.nav--language ul.nav-list li.nav-item .nav-btn {
 		box-sizing: border-box;
 		display: flex;
 		align-items: center;
@@ -361,33 +371,33 @@
 		width: var(--control-height);
 		height: var(--control-height);
 		padding: 0;
-		background: transparent;
-		color: var(--text-muted);
-		border: 2px solid #ccc;
+		color: var(--ink);
+		background: var(--paper);
+		border: var(--border-width-regular) solid var(--ink);
+		border-radius: var(--radius-full);
 		cursor: pointer;
+		touch-action: manipulation;
+		transition: all 0.2s ease;
 	}
-	.menu-close:hover {
-		color: black;
-		border-color: black;
+	/* the inactive language: muted frame; the active one keeps the ink frame */
+	.main-menu nav.nav--language ul.nav-list li.nav-item .nav-btn:not(.active) {
+		border-color: var(--border-muted);
+	}
+	.menu-close:hover,
+	.main-menu nav.nav--language ul.nav-list li.nav-item .nav-btn:hover {
+		background: var(--primary-cyan);
+		border-color: var(--ink);
+	}
+	.menu-close:focus-visible {
+		outline: var(--border-width-regular) solid var(--ink);
+		outline-offset: 2px;
 	}
 	.nav.nav--account .nav-list {
 		display: flex;
 		flex-direction: row;
 	}
-	/* the language buttons are squares (the account link keeps its icon + label width) */
-	.nav.nav--language {
-		.nav-list {
-			display: flex;
-			flex-direction: row;
-			.nav-item .nav-btn {
-				display: flex;
-				width: 3rem;
-				justify-content: center;
-				&.active {
-					border-color: black;
-				}
-			}
-		}
+	.nav.nav--language .nav-list {
+		flex-direction: row;
 	}
 
 	.nav--toons .nav-item .nav-btn {

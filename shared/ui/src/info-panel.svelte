@@ -65,7 +65,8 @@
 		position: fixed;
 		z-index: 35;
 		top: var(--info-panel-top, var(--sc-shell-top, 0px));
-		right: 0;
+		/* left of a shell-level panel docked on the right (the creator's Ask panel sets --ask-inset) */
+		right: var(--ask-inset, 0rem);
 		bottom: var(--action-bar-height, 3.25rem);
 		display: flex;
 		flex-direction: column;

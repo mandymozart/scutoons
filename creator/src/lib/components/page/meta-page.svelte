@@ -232,7 +232,8 @@
 	.side-panel {
 		position: fixed;
 		top: var(--top);
-		right: 0;
+		/* left of the Ask panel: Ask belongs to the shell, the page's panels to the page */
+		right: var(--ask-inset, 0rem);
 		bottom: var(--action-bar-height);
 		width: var(--panel-width);
 		background: var(--paper);
@@ -251,7 +252,7 @@
 		z-index: 21;
 		top: var(--top);
 		bottom: var(--action-bar-height);
-		right: calc(var(--panel-width) - 0.375rem);
+		right: calc(var(--ask-inset, 0rem) + var(--panel-width) - 0.375rem);
 		width: 0.75rem;
 		cursor: col-resize;
 		touch-action: none;

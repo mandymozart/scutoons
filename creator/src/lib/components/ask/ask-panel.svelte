@@ -409,6 +409,10 @@
 		box-sizing: border-box;
 	}
 	@media (min-width: 768px) {
+		:global(html.sc-ask-open) {
+			/* the page's own right-docked panels (Problems, History, help) sit left of the chat */
+			--ask-inset: var(--ask-width);
+		}
 		:global(html.sc-ask-open .sc-shell-frame) {
 			margin-right: var(--ask-width);
 		}
