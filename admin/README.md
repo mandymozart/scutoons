@@ -11,6 +11,7 @@ the role `admin` (the server checks it on every `/api/admin/*` call). Replaces t
 |---|---|
 | `/` | Dashboard: KPIs, daily scans/unlocks and claims/signups (SVG charts), claimed/total per edition (`?days=&edition_id=`) |
 | `/codes` | Codes table: search, filters (edition, type, status), sort, pager, bulk revoke/unrevoke, CSV export, detail drawer (`?open=<code>`) |
+| `/calendar` | Events on scutoons.com/events (content entity `events`): edit the list, "Save & publish" stores a new version and publishes it |
 | `/codes/<code>` | Code page: facts, revoke/unrevoke with a reason, activity + event timeline, certificate (rebuilt from the stored signature: QR SVG, certificate PDF, printable QR, signature file) |
 | `/codes/new` | Generate one code (types membership, event, xr, promo, page; toon, redirect, expiry, edition + certificate fields), signed with ML-DSA-65 |
 | `/batches` | Batch history (resume, ZIP, print sheet) and "New batch" (`?new=1`) |

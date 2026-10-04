@@ -397,10 +397,11 @@ export interface Group {
 	ref?: RefLink;
 }
 
+/** A group stored on its own (a scene): `src` = `chapter<N>/<name>.json` (EntityKey::sceneOfRef); id / type are unused leftovers */
 export interface RefLink {
-	id: string;
 	src: string;
-	type: 'chapter' | 'group'; // db type
+	id?: string;
+	type?: 'chapter' | 'group';
 }
 
 export interface Chapter {
@@ -416,7 +417,8 @@ export interface Chapter {
 	status?: Status;
 	description: string;
 	thumbnail: string;
-	keyvisual?: KeyVisual;
+	/** a plain string = the image path (older chapters, e.g. catpope 3–5; the viewer reads both) */
+	keyvisual?: KeyVisual | string;
 	audio?: AudioConfiguration;
 	groups: Group[];
 	isPreview?: boolean;
@@ -531,14 +533,21 @@ export interface Season {
 	sequence: SequenceItem[];
 }
 
+/** One entry of the platform-wide `events` document (viewer /events, edited in the admin's /calendar) */
 export interface Event {
 	title: string;
+	/** local time `YYYY-MM-DDTHH:MM:SS` */
 	date: string;
 	location: string;
 	city: string;
 	category: EventCategory;
 	link?: string;
+	/** the toons the event belongs to (not shown yet) */
+	toon?: string[];
 }
+
+/** The `events` document: every event, in any order (the viewer sorts) */
+export type EventList = Event[];
 
 /** A supporter of a season (a logo row at the end of the credits fine print; without a logo its name as text) */
 export interface Supporter {

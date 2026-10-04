@@ -1,0 +1,58 @@
+{
+	"$id": "https://scutoons.com/schema/cast.schema.json",
+	"title": "ToonCast",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/ToonCast",
+	"definitions": {
+		"ToonCast": {
+			"type": "object",
+			"properties": {
+				"seasons": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "array",
+						"items": {
+							"$ref": "#/definitions/CastEntry"
+						}
+					}
+				}
+			},
+			"required": [
+				"seasons"
+			],
+			"description": "`<toon>/_/cast.json` – per season (key = season number), in display order"
+		},
+		"CastEntry": {
+			"type": "object",
+			"properties": {
+				"character": {
+					"type": "string",
+					"description": "registry id"
+				},
+				"personas": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "persona ids (`regular` …)"
+				},
+				"role": {
+					"$ref": "#/definitions/LocaleText",
+					"description": "the character's role in this toon, per locale (e.g. \"Erzähler\" / \"Narrator\")"
+				}
+			},
+			"required": [
+				"character",
+				"personas"
+			],
+			"description": "A character in a season's cast, with the personas that appear in that season."
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		}
+	}
+}

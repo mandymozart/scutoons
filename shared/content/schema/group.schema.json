@@ -364,24 +364,24 @@
 						"y",
 						"width",
 						"height"
-					]
+					],
+					"description": "hit area in % of the slice; none = the whole slice"
 				},
 				"mode": {
 					"$ref": "#/definitions/TriggerMode"
 				},
 				"exclusive": {
-					"type": "boolean"
+					"type": "boolean",
+					"description": "mute other audio (default false)"
 				},
 				"gate": {
-					"type": "boolean"
+					"type": "boolean",
+					"description": "only play if not already playing (default false)"
 				}
 			},
 			"required": [
 				"type",
-				"rect",
-				"mode",
-				"exclusive",
-				"gate"
+				"mode"
 			]
 		},
 		"Trigger": {
@@ -686,7 +686,7 @@
 								},
 								"character": {
 									"type": "string",
-									"description": "the speaking character's id"
+									"description": "the speaking character's id; none = narration (no speaker)"
 								},
 								"persona": {
 									"type": "string",
@@ -697,8 +697,7 @@
 								}
 							},
 							"required": [
-								"text",
-								"character"
+								"text"
 							]
 						}
 					},
@@ -1344,7 +1343,7 @@
 								},
 								"character": {
 									"type": "string",
-									"description": "the speaking character's id"
+									"description": "the speaking character's id; none = narration (no speaker)"
 								},
 								"persona": {
 									"type": "string",
@@ -1355,8 +1354,7 @@
 								}
 							},
 							"required": [
-								"text",
-								"character"
+								"text"
 							]
 						}
 					},
@@ -1738,10 +1736,10 @@
 		"RefLink": {
 			"type": "object",
 			"properties": {
-				"id": {
+				"src": {
 					"type": "string"
 				},
-				"src": {
+				"id": {
 					"type": "string"
 				},
 				"type": {
@@ -1753,10 +1751,9 @@
 				}
 			},
 			"required": [
-				"id",
-				"src",
-				"type"
-			]
+				"src"
+			],
+			"description": "A group stored on its own (a scene): `src` = `chapter<N>/<name>.json` (EntityKey::sceneOfRef); id / type are unused leftovers"
 		}
 	}
 }

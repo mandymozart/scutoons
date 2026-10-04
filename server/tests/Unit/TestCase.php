@@ -126,6 +126,16 @@ abstract class TestCase extends BaseTestCase
         return $this->db->transaction(fn() => $this->get(\Scutoons\Domain\Accounts\Users::class)->create($email, 'en'));
     }
 
+    /**
+     * The smallest chapter that fits its type (PUT /api/entities refuses others, ContentSchemas), as a JSON string
+     * @param array<string, mixed> $fields
+     */
+    protected static function chapterJson(array $fields = []): string
+    {
+        return (string) json_encode($fields + ['title' => 'Eins', 'author' => 'A', 'number' => 1, 'language' => 'de', 'release' => '2026-01-01',
+            'description' => '', 'thumbnail' => 'images/t.webp', 'groups' => []], JSON_UNESCAPED_SLASHES);
+    }
+
     private static function remove(string $path): void
     {
         if (is_dir($path)) {

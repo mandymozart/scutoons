@@ -8,6 +8,7 @@
         "php": "^8.3",
         "ext-json": "*",
         "ext-pdo": "*",
+        "opis/json-schema": "^2.4",
         "php-di/php-di": "^7.0",
         "slim/psr7": "^1.7",
         "slim/slim": "^4.14",

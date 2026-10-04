@@ -52,7 +52,9 @@
 		"homepage": "Homepage",
 		"homepage_hint": "Editions on the homepage",
 		"assets": "Assets",
-		"assets_hint": "Media on the CDN: files, versions, uses, storage"
+		"assets_hint": "Media on the CDN: files, versions, uses, storage",
+		"calendar": "Events",
+		"calendar_hint": "Dates on scutoons.com/events"
 	},
 	"palette": {
 		"label": "Command palette",
@@ -631,7 +633,8 @@
 		"catalog_media_title": "Pictures and files",
 		"catalog_media": "Pictures, covers and audio are slots: click to pick a file from the asset manager or upload one. “Import images …” on Items takes many files at once, named <item-id>.png or <item-id>_<variant>.png: they become WebP (at most 1024 px), go to <toon>/items/ (a file already there gets a new version) and are set as the item’s or variant’s picture.",
 		"catalog_kinds_title": "Toons, code types, featured",
-		"catalog_kinds": "Main toons are created here only (id, name, redirect URL); the creator then fills content and meta (“Fill it in the creator”). Code types decide what a scanned code may do – saving one asks first. The products on the landing page are chosen on the Homepage page."
+		"catalog_kinds": "Main toons are created here only (id, name, redirect URL); the creator then fills content and meta (“Fill it in the creator”). Code types decide what a scanned code may do – saving one asks first. The products on the landing page are chosen on the Homepage page.",
+		"calendar": "The public events list (scutoons.com/events): upcoming dates first, past ones below – the page sorts by date itself. Saving stores a new version of the events document in the content store and publishes it; live within a minute (cache). Older versions stay in its history."
 	},
 	"entity": {
 		"chapter": "Chapter {number}",
@@ -910,5 +913,33 @@
 		"term_rendition_text": "One file of a version: the original, a quality level (480p = low, 720p = medium, 1080p = high), a width, a WebP copy, a poster.",
 		"term_usage": "Use",
 		"term_usage_text": "Where content (published or the working draft) or the catalog references a file."
+	},
+	"calendar": {
+		"title": "Events",
+		"meta": "Dates on scutoons.com/events: concerts, readings, streams.",
+		"add": "Add an event",
+		"empty": "No events yet.",
+		"upcoming": "Upcoming",
+		"past": "Past",
+		"date": "Date & time",
+		"title_field": "Title",
+		"city": "City",
+		"location": "Venue",
+		"category": "Type",
+		"link": "Link",
+		"remove": "Remove",
+		"cat_irl": "On site",
+		"cat_virtual": "Online",
+		"cat_hybrid": "Hybrid",
+		"save": "Save & publish",
+		"saving": "Saving …",
+		"saved": "Events published.",
+		"unsaved": "Unsaved changes",
+		"last_change": "Published {at} by {by}",
+		"draft_newer": "The newest version ({at}) is not published yet",
+		"none_stored": "Nothing stored yet",
+		"preview": "Open the events page",
+		"invalid": "Every event needs a date, a title and a city.",
+		"conflict": "Someone saved the events meanwhile – reloaded, please redo your change."
 	}
 }

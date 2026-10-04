@@ -121,7 +121,7 @@ final class ReviewsTest extends TestCase
         $asWriter = $this->bearer($writer);
         $asEditor = $this->bearer($editor);
 
-        self::assertSame(200, $this->request('PUT', '/api/entities/chapter:catpope:2:de', $asWriter, '{"content":{"title":"Zwei"}}')->getStatusCode());
+        self::assertSame(200, $this->request('PUT', '/api/entities/chapter:catpope:2:de', $asWriter, '{"content":' . self::chapterJson(['title' => 'Zwei', 'number' => 2]) . '}')->getStatusCode());
         $denied = $this->request('POST', '/api/entities/chapter:catpope:2:de/publish', $asWriter, '{}');
         self::assertSame([403, 'review_required', 'catpope'], [$denied->getStatusCode(), self::json($denied)['error'] ?? null,self::json($denied)['toon'] ?? null]);
         $submit = $this->request('POST', '/api/reviews', $asWriter, '{"items":[{"key":"chapter:catpope:2:de"}],"note":"please"}');

@@ -62,6 +62,7 @@ export const navigation: NavGroup[] = [
 		items: [
 			{ id: 'assets', title: () => m['nav.assets'](), description: () => m['nav.assets_hint'](), href: '/assets', icon: 'image', keywords: 'media cdn files images videos bunny upload storage bandwidth' },
 			{ id: 'catalog', title: () => m['nav.catalog'](), description: () => m['nav.catalog_hint'](), href: '/catalog', icon: 'package', keywords: 'items recipes albums products editions toons permissions code types meta katalog rezepte alben produkte editionen berechtigungen' },
+			{ id: 'calendar', title: () => m['nav.calendar'](), description: () => m['nav.calendar_hint'](), href: '/calendar', icon: 'calendar', keywords: 'events termine gigs concerts shows dates konzerte veranstaltungen' },
 			{ id: 'homepage', title: () => m['nav.homepage'](), description: () => m['nav.homepage_hint'](), href: '/homepage', icon: 'home', keywords: 'startseite landing featured products editions slider shop' }
 		]
 	},

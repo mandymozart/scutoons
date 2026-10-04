@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetUsages;
+use Scutoons\Domain\Content\ContentSchemas;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
 use Scutoons\Domain\Content\Reviews;
@@ -21,7 +22,8 @@ use stdClass;
  * readers use the library endpoints):
  *   GET  /api/entities?toon=                     every stored entity of a toon (`toon=` empty: platform-wide ones)
  *   GET  /api/entities/<key>[?draft=1|?version=<id>][&wrap=1]   published / newest / one version (raw or wrapped)
- *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict)
+ *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict;
+ *                                                422 invalid_content { problems } when it doesn't fit its type: ContentSchemas)
  *   GET  /api/entities/<key>/versions?limit=     history, newest first
  *   POST /api/entities/<key>/publish { version? } · /unpublish · /restore { id, message? }
  * publish / unpublish: 403 review_required for accounts that need a review for the toon (Reviews; submit through
@@ -29,7 +31,7 @@ use stdClass;
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews, private readonly ContentSchemas $schemas)
     {
     }
 
@@ -62,7 +64,9 @@ final class EntitiesController
     {
         $key = EntityKey::parse($args['key']);
         $user = $this->creator($request);
-        $result = $this->store->save($user, $key, $this->body($request));
+        $body = $this->body($request);
+        if (property_exists($body, 'content')) $this->schemas->guard($key, $body->content);
+        $result = $this->store->save($user, $key, $body);
         $this->usages->reindexEntity((string) $key); // the asset usage index (agents/ASSETS.md); never fails the save
         return Json::response($response, 200, $result);
     }

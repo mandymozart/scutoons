@@ -1,0 +1,89 @@
+{
+	"$id": "https://scutoons.com/schema/people.schema.json",
+	"title": "PeopleRegistry",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/PeopleRegistry",
+	"definitions": {
+		"PeopleRegistry": {
+			"type": "object",
+			"properties": {
+				"people": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditPerson"
+					}
+				}
+			},
+			"required": [
+				"people"
+			]
+		},
+		"CreditPerson": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable id, referenced by the credits of every toon (`^[a-z0-9][a-z0-9-]*$`)"
+				},
+				"name": {
+					"type": "string",
+					"description": "name as credited"
+				},
+				"sort_name": {
+					"type": "string",
+					"description": "sort key when lists are sorted by name, e.g. \"Mozart, Mandy\""
+				},
+				"aliases": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "other spellings / artist names (found by the search, used by the migration)"
+				},
+				"links": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/PersonLink"
+					}
+				},
+				"image": {
+					"type": "string",
+					"description": "CDN path of a portrait, e.g. `people/mandy-mozart.jpg`"
+				},
+				"bio": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"merged_into": {
+					"type": "string",
+					"description": "set when this person was merged into another one: every reference resolves to that id"
+				}
+			},
+			"required": [
+				"id",
+				"name"
+			]
+		},
+		"PersonLink": {
+			"type": "object",
+			"properties": {
+				"label": {
+					"type": "string"
+				},
+				"url": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"label",
+				"url"
+			]
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		}
+	}
+}

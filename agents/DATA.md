@@ -218,6 +218,13 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
 `{ content, message?, base? }` (409 on a stale base) · `GET <key>/versions` · `POST <key>/publish { version? }` ·
 `/unpublish` · `/restore { id }`. `/api/content/*` (paths) is gone. Admin: `GET /api/admin/content` lists entities
 (`{ key, kind, toon, locale, latest, … }`).
+- **Type guard (2026-10-04):** every PUT is checked against its kind's JSON Schema (`ContentSchemas`, opis/json-schema;
+  the schemas are generated from the TS types – `npm run schema -w @scutoons/content` writes shared/content/schema/ and
+  the server's copy server/schema/content/, `npm run check` fails when either is stale) → `422 invalid_content
+  { problems: ["/0/city: …"] }`. Extra fields are allowed; `locations` / `routes` (old map) are not checked.
+  `php bin/console content:check [--db] [--kind]` checks what is stored (newest + published per key). Restore and
+  the seed import are not guarded. The first run fixed stale types (narration `showMessage` without `character`,
+  `RefLink { src }`, optional audio trigger `rect`/`gate`/`exclusive`, `keyvisual` as a plain path).
 
 ## 4. Seeds, compare, production cutover
 

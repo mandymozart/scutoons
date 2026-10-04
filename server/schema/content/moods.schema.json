@@ -1,0 +1,55 @@
+{
+	"$id": "https://scutoons.com/schema/moods.schema.json",
+	"title": "MoodVocabulary",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/MoodVocabulary",
+	"definitions": {
+		"MoodVocabulary": {
+			"type": "object",
+			"properties": {
+				"moods": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/MoodDef"
+					}
+				}
+			},
+			"required": [
+				"moods"
+			],
+			"description": "`scutoons/_/moods.json`"
+		},
+		"MoodDef": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z][a-z0-9-]*$` – the key in `look.images`"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				},
+				"standard": {
+					"type": "boolean",
+					"description": "part of the standard set (the creator's checklist; never required except `neutral`)"
+				},
+				"order": {
+					"type": "number",
+					"description": "display order (ascending; the file order when equal)"
+				}
+			},
+			"required": [
+				"id",
+				"label"
+			],
+			"description": "One mood of the vocabulary."
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		}
+	}
+}

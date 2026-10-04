@@ -1,0 +1,716 @@
+{
+	"$id": "https://scutoons.com/schema/catalog.schema.json",
+	"title": "Catalog",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/Catalog",
+	"definitions": {
+		"Catalog": {
+			"type": "object",
+			"properties": {
+				"version": {
+					"type": "number"
+				},
+				"slots": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AvatarSlot"
+					}
+				},
+				"items": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/ItemDef"
+					}
+				},
+				"recipes": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Recipe"
+					}
+				},
+				"stats": {
+					"type": "object",
+					"additionalProperties": {
+						"$ref": "#/definitions/StatDef"
+					},
+					"description": "the reader stats substances change (`testo`, `appetite`): baseline + half-life, ITEMS.md \"Substances\""
+				},
+				"albums": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Album"
+					},
+					"description": "the music media items carry (albums.ts), language-neutral"
+				}
+			},
+			"required": [
+				"version",
+				"slots",
+				"items",
+				"recipes"
+			]
+		},
+		"AvatarSlot": {
+			"type": "string",
+			"enum": [
+				"head",
+				"face",
+				"neck",
+				"torso",
+				"hands",
+				"legs",
+				"feet",
+				"back",
+				"accessory"
+			]
+		},
+		"ItemDef": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"toon": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"name": {
+					"$ref": "#/definitions/Localized"
+				},
+				"description": {
+					"$ref": "#/definitions/Localized"
+				},
+				"kind": {
+					"$ref": "#/definitions/ItemKind"
+				},
+				"category": {
+					"$ref": "#/definitions/ItemCategory"
+				},
+				"icon": {
+					"type": "string"
+				},
+				"stackable": {
+					"type": "boolean"
+				},
+				"starter": {
+					"type": "boolean"
+				},
+				"grantable": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/GrantSource"
+					}
+				},
+				"slot": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/AvatarSlot"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"skills": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Skill"
+					}
+				},
+				"edition_id": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"product": {
+					"type": [
+						"string",
+						"null"
+					]
+				},
+				"variants": {
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/ItemVariant"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"wear": {
+					"anyOf": [
+						{
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							}
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "Wardrobe overlays of a wearable (ITEMS.md \"Wardrobe\"): `<character>` or `<character>/<slot instance id>` → CDN path of a full-body overlay aligned to that character's A-pose (768 × 1152, transparent WebP, convention `characters/<character>/wear/<item>[-<slot instance>].webp`). A body without an overlay draws the item's icon at the slot anchor instead."
+				},
+				"default_worn": {
+					"type": "boolean",
+					"description": "Part of the basic dress (ITEMS.md \"Wardrobe\": T-shirt, shorts, sandals): a starter wearable that is put on when it is handed out (signup, older accounts, guests). A body without an overlay for it wears another starter of the same slot that has one instead (the swim pants on yellowmouse / Top Toy) – `basicDress`."
+				},
+				"respawn": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/ItemRespawn"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "When a picked-up placement of this item is back on its slice (respawn.ts): a default interval and the range a placement may choose; none / null = it never reappears (a one-time find). Admin → Catalog can override it."
+				},
+				"effects": {
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/StatEffect"
+							}
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "a substance's stat changes (`catalog.stats` ids), ITEMS.md \"Substances\""
+				},
+				"effect": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/TimedEffect"
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "a substance's temporary reader effect"
+				},
+				"max": {
+					"type": "number",
+					"description": "Collection limit: at most this many per account (owner 2026-10-02); none = `MAX_PER_ACCOUNT` (99). Rarer items set less. The server refuses more (409 max_reached); a claimed physical product (QR code) is always added."
+				},
+				"giftable": {
+					"type": "boolean",
+					"description": "Can a reader gift it to another reader (ITEMS.md \"Ownership, claims, gifting\")? None = yes, except starters / the basic dress and membership / access-only items (`isGiftable`). The server decides (403 not_giftable)."
+				},
+				"album": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "A media item's album (`catalog.albums` id) and its sound carrier (agents/ITEMS.md \"Players, albums, related items\"): it plays in the app only for a reader who owns a player of that format."
+				},
+				"format": {
+					"anyOf": [
+						{
+							"$ref": "#/definitions/MediaFormat"
+						},
+						{
+							"type": "null"
+						}
+					]
+				},
+				"plays": {
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/definitions/MediaFormat"
+							}
+						},
+						{
+							"type": "null"
+						}
+					],
+					"description": "A player: the formats it plays (`record_player` → `['vinyl']`)"
+				}
+			},
+			"required": [
+				"id",
+				"toon",
+				"name",
+				"description",
+				"kind",
+				"category",
+				"icon",
+				"stackable",
+				"starter",
+				"grantable",
+				"slot",
+				"skills",
+				"edition_id",
+				"product",
+				"variants"
+			]
+		},
+		"Localized": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			}
+		},
+		"ItemKind": {
+			"type": "string",
+			"enum": [
+				"physical",
+				"virtual"
+			]
+		},
+		"ItemCategory": {
+			"type": "string",
+			"enum": [
+				"tool",
+				"consumable",
+				"wearable",
+				"collectible",
+				"media",
+				"substance",
+				"food"
+			],
+			"description": "`food` = eaten with the `apply` skill (\"Essen\" instead of \"Benutzen\"), e.g. the cucumber and the tuna can lower appetite"
+		},
+		"GrantSource": {
+			"type": "string",
+			"enum": [
+				"story",
+				"scan"
+			]
+		},
+		"Skill": {
+			"anyOf": [
+				{
+					"$ref": "#/definitions/ScanQrSkill"
+				},
+				{
+					"$ref": "#/definitions/ScanObjectSkill"
+				},
+				{
+					"$ref": "#/definitions/MinigameSkill"
+				},
+				{
+					"$ref": "#/definitions/PlayAudioSkill"
+				},
+				{
+					"$ref": "#/definitions/ApplySkill"
+				}
+			]
+		},
+		"ScanQrSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "scan_qr"
+				}
+			},
+			"required": [
+				"type"
+			]
+		},
+		"ScanObjectSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "scan_object"
+				},
+				"labels": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "ImageNet class words that count as a hit (MobileNet on the device)"
+				},
+				"grants": {
+					"type": "string",
+					"description": "the item a hit grants"
+				},
+				"cooldown_s": {
+					"type": "number"
+				},
+				"per_day": {
+					"type": "number",
+					"description": "at most this many scan grants of `grants` per account in 24 h (server: 429 daily_limit); none = no daily limit"
+				},
+				"threshold": {
+					"type": "number"
+				},
+				"name": {
+					"$ref": "#/definitions/Localized",
+					"description": "what the camera says it recognised for `labels` (\"Pillendose\"); none = the matched model label"
+				},
+				"map": {
+					"type": "array",
+					"items": {
+						"type": "object",
+						"properties": {
+							"labels": {
+								"type": "array",
+								"items": {
+									"type": "string"
+								}
+							},
+							"grants": {
+								"type": "string"
+							},
+							"name": {
+								"$ref": "#/definitions/Localized"
+							}
+						},
+						"required": [
+							"labels",
+							"grants"
+						]
+					},
+					"description": "More things to find (the multi-label Check It camera, ITEMS.md \"Substances\"): recognised labels → the item they grant, checked together with `labels` → `grants` (the best match wins) – `scanTargets` / `matchScan`."
+				}
+			},
+			"required": [
+				"type",
+				"labels",
+				"grants"
+			]
+		},
+		"MinigameSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "minigame"
+				},
+				"id": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"id"
+			]
+		},
+		"PlayAudioSkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "play_audio"
+				},
+				"src": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"type",
+				"src"
+			],
+			"deprecated": "(2026-10-02) the music belongs to an album now: a media item has `album` + `format` and plays only with a\nplayer (`plays`), albums.ts. Still read gracefully (`legacyPlayAudio`): plays without a player."
+		},
+		"ApplySkill": {
+			"type": "object",
+			"properties": {
+				"type": {
+					"type": "string",
+					"const": "apply"
+				}
+			},
+			"required": [
+				"type"
+			],
+			"description": "\"Benutzen\" applies a substance (\"Essen\" for `food`): one piece is used up, its `effects` / `effect` hit the reader (substances.ts)"
+		},
+		"ItemVariant": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"name": {
+					"$ref": "#/definitions/Localized"
+				},
+				"icon": {
+					"type": [
+						"string",
+						"null"
+					]
+				}
+			},
+			"required": [
+				"id",
+				"name"
+			]
+		},
+		"ItemRespawn": {
+			"type": "object",
+			"properties": {
+				"default": {
+					"$ref": "#/definitions/RespawnInterval"
+				},
+				"min": {
+					"$ref": "#/definitions/RespawnInterval"
+				},
+				"max": {
+					"$ref": "#/definitions/RespawnInterval"
+				}
+			},
+			"required": [
+				"default"
+			],
+			"description": "An item's respawn rule (`ItemDef.respawn`; none / null = it never reappears, a one-time find). `min` / `max` = the shortest / longest interval a placement may choose (default: only `default`'s own length … any longer one)."
+		},
+		"RespawnInterval": {
+			"anyOf": [
+				{
+					"type": "string",
+					"const": "visit"
+				},
+				{
+					"type": "object",
+					"properties": {
+						"minutes": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"minutes"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"hours": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"hours"
+					]
+				},
+				{
+					"type": "object",
+					"properties": {
+						"days": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"days"
+					]
+				}
+			],
+			"description": "Every visit of the page (a reload counts), or every n minutes / hours / days."
+		},
+		"StatEffect": {
+			"type": "object",
+			"properties": {
+				"stat": {
+					"type": "string"
+				},
+				"delta": {
+					"type": "number",
+					"description": "added to the current (decayed) level, then clamped to 0–100"
+				}
+			},
+			"required": [
+				"stat",
+				"delta"
+			],
+			"description": "One stat change of a substance."
+		},
+		"TimedEffect": {
+			"type": "object",
+			"properties": {
+				"kind": {
+					"type": "string"
+				},
+				"duration_min": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"kind",
+				"duration_min"
+			],
+			"description": "A temporary reader effect of a substance (e.g. `psychedelic`): active until now + duration."
+		},
+		"MediaFormat": {
+			"type": "string",
+			"enum": [
+				"vinyl",
+				"tape",
+				"cd"
+			]
+		},
+		"Recipe": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"inputs": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/RecipePart"
+					}
+				},
+				"output": {
+					"$ref": "#/definitions/RecipePart"
+				},
+				"image": {
+					"type": "string",
+					"description": "the recipe's own picture (CDN path, `<toon>/items/recipes/<id>.webp`; owner 2026-10-04) – none = the output item's"
+				}
+			},
+			"required": [
+				"id",
+				"inputs",
+				"output"
+			]
+		},
+		"RecipePart": {
+			"type": "object",
+			"properties": {
+				"item": {
+					"type": "string"
+				},
+				"qty": {
+					"type": "number"
+				}
+			},
+			"required": [
+				"item",
+				"qty"
+			]
+		},
+		"StatDef": {
+			"type": "object",
+			"properties": {
+				"label": {
+					"$ref": "#/definitions/Localized"
+				},
+				"baseline": {
+					"type": "number",
+					"description": "0–100, the neutral start and where the level drifts back to"
+				},
+				"half_life_days": {
+					"type": "number",
+					"description": "the distance to the baseline halves every N days"
+				}
+			},
+			"required": [
+				"label",
+				"baseline",
+				"half_life_days"
+			],
+			"description": "A reader stat (`catalog.stats.<id>`): where it rests and how fast it gets back there."
+		},
+		"Album": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable, snake_case (`awakening`)"
+				},
+				"toon": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "the toon it belongs to (null = cross-toon)"
+				},
+				"title": {
+					"$ref": "#/definitions/Localized"
+				},
+				"tracks": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/AlbumTrack"
+					}
+				},
+				"download": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "CDN-root path of the album download (a zip), if there is one – reachable without a player"
+				},
+				"cover": {
+					"type": [
+						"string",
+						"null"
+					],
+					"description": "CDN-root path of a cover image, optional"
+				},
+				"access": {
+					"$ref": "#/definitions/AlbumAccess",
+					"description": "who may download / listen (per album: one zip and one track list, whichever of its media items someone owns)"
+				}
+			},
+			"required": [
+				"id",
+				"toon",
+				"title",
+				"tracks"
+			],
+			"description": "An album: the music a media item carries (language-neutral; only the title is text)"
+		},
+		"AlbumTrack": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "stable, unique within the album"
+				},
+				"title": {
+					"type": "string",
+					"description": "the song's name (proper names are the same in every language)"
+				},
+				"src": {
+					"type": "string",
+					"description": "CDN-root path of the streamable file (`<toon>/audio/music/<name>.128.mp3`)"
+				},
+				"duration": {
+					"type": "number",
+					"description": "seconds, optional"
+				}
+			},
+			"required": [
+				"id",
+				"title",
+				"src"
+			]
+		},
+		"AlbumAccess": {
+			"type": "object",
+			"properties": {
+				"download": {
+					"$ref": "#/definitions/MediaAccess",
+					"description": "who gets the album download (`download`), default `members` (the toon page's music download as before)"
+				},
+				"listen": {
+					"$ref": "#/definitions/MediaAccess",
+					"description": "who may listen in the app, default `owners`; a player for the format is always needed"
+				}
+			}
+		},
+		"MediaAccess": {
+			"type": "string",
+			"enum": [
+				"everyone",
+				"members",
+				"owners"
+			]
+		}
+	}
+}

@@ -15,8 +15,9 @@ use stdClass;
  * its entity key (EntityKey). Every save is a new version; per key at most one version is `published` (live), the
  * others are `draft` (the newest = the working copy). The document format is @scutoons/content's configuration format.
  *
- * Validation is minimal on purpose (the creator validates against the TypeScript types): a valid key, JSON object or
- * array, size limit (CONTENT_MAX_BYTES, default 2 MB).
+ * The store itself checks only a valid key, JSON object or array, size limit (CONTENT_MAX_BYTES, default 2 MB); the
+ * API's write path (EntitiesController PUT) first checks the document against its type (ContentSchemas, 422
+ * invalid_content). `bin/console content:check` runs the same check over what is stored.
  */
 final class EntityStore
 {

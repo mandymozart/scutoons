@@ -13,6 +13,7 @@
 		| 'catalog'
 		| 'settings'
 		| 'homepage'
+		| 'calendar'
 		| 'emails'
 		| 'assets'
 		| 'claims'
@@ -96,6 +97,8 @@
 	{:else if page === 'events'}
 		<p>{m['help.events']()}</p>
 		{@render lists()}
+	{:else if page === 'calendar'}
+		<p>{m['help.calendar']()}</p>
 	{:else if page === 'content'}
 		<p>{m['help.content']()}</p>
 	{:else if page === 'catalog'}

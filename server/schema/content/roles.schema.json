@@ -1,0 +1,61 @@
+{
+	"$id": "https://scutoons.com/schema/roles.schema.json",
+	"title": "RoleVocabulary",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/RoleVocabulary",
+	"definitions": {
+		"RoleVocabulary": {
+			"type": "object",
+			"properties": {
+				"roles": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/CreditRole"
+					}
+				}
+			},
+			"required": [
+				"roles"
+			]
+		},
+		"CreditRole": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string",
+					"description": "`^[a-z0-9][a-z0-9-]*$`; custom roles of a toon must not reuse a global id"
+				},
+				"category": {
+					"$ref": "#/definitions/RoleCategory"
+				},
+				"label": {
+					"$ref": "#/definitions/LocaleText"
+				}
+			},
+			"required": [
+				"id",
+				"category",
+				"label"
+			]
+		},
+		"RoleCategory": {
+			"type": "string",
+			"enum": [
+				"story",
+				"art",
+				"music",
+				"performance",
+				"production",
+				"translation",
+				"other"
+			]
+		},
+		"LocaleText": {
+			"type": "object",
+			"additionalProperties": {
+				"type": "string"
+			},
+			"description": "Text per locale: `{ de: \"Kostüm\", en: \"Costume Design\" }`."
+		}
+	}
+}

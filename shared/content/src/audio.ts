@@ -27,15 +27,18 @@ export interface MusicEvent {
 
 export interface SampleTrigger {
   type: Trigger;
-	rect: {
+	/** hit area in % of the slice; none = the whole slice */
+	rect?: {
 		x: number;
 		y: number;
 		width: number;
 		height: number;
 	}
 	mode: TriggerMode;
-	exclusive: boolean;
-	gate: boolean;
+	/** mute other audio (default false) */
+	exclusive?: boolean;
+	/** only play if not already playing (default false) */
+	gate?: boolean;
 }
 
 export interface Sample {
