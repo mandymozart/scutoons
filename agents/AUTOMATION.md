@@ -34,8 +34,9 @@ story ──► script ──► scenes ──► frames / slices ──► VN e
 
 ### Creator roadmap (recorded 2026-09-30, not built)
 
-Future creator actions from `workflows/`. Nothing is implemented; the character page shows them as disabled
-"coming soon" buttons (Actions: Complete base views · Complete moods · Upload images) so the place is reserved.
+Future creator actions from `workflows/`. Nothing is implemented. The disabled "coming soon" Actions buttons were
+removed (owner 2026-10-04); meanwhile the character page ends with **Prompts** (`character-prompts.svelte`): the
+base-views and missing-moods briefs, filled in for the persona + look shown, to copy for an image generator or an artist.
 
 | Action | Where in the creator | From | Needs first |
 |---|---|---|---|

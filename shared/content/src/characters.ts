@@ -1177,6 +1177,61 @@ export function wantedImagesText(wanted: WantedImage[]): string {
 	return lines.join('\n');
 }
 
+// ── Prompts (briefs for an image generator or an artist) ─────────────────────────────────────────────────────
+
+const pngName = (path: string) => (path.split('/').pop() ?? path).replace(/\.webp$/, '.png');
+
+/**
+ * The base-views brief of one look (workflows/characters/base-views.md "Brief"), filled in: attach any one reference
+ * image of the character; the result is avatar, portrait, full and both A-poses, named by convention (PNG).
+ */
+export function characterBaseViewsBrief(character: RegistryCharacter, persona: string, look: string, locale: string): string {
+	const name = characterName(character, locale, persona);
+	const lookName = lookLabel(findPersona(character, persona), look, locale);
+	const file = (view: string) => pngName(conventionImagePath(character.id, view, DEFAULT_MOOD, look, persona));
+	return [
+		`Attached is a reference image of the character ${name} (look: ${lookName}).`,
+		'It is the starting point. Create this character\'s complete set of base views as SEPARATE images, recreating the character EXACTLY: same character, same art style and rendering, same colours, lighting, proportions, face, markings and clothing of this look. Do not redesign, restyle, add props or change anything else.',
+		'',
+		'First decide what the attached image is:',
+		'- If it already IS one of the views below (same framing and pose), keep it as that view and create ONLY the views that are missing.',
+		'- If it is NOT one of the views (a snapshot, an action pose, a sketch, a scene), use it ONLY as the identity reference and create ALL views below.',
+		'',
+		'The views (all with a neutral expression):',
+		'1. AVATAR – head with neck, facing the viewer, eyes on a horizontal line, fully inside the frame, 600 × 600 px, transparent background.',
+		'2. PORTRAIT – head down to above the waist with arms, facing the viewer, eyes on a horizontal line at 40 % of the image height, head centred, 600 × 600 px, transparent background.',
+		'3. FULL – the whole figure standing in its natural, characteristic pose, feet fully visible, small even margin above the head and below the feet, 600 × 1200 px, transparent background.',
+		'4. A-POSE (SWIM) – strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the thighs, legs slightly apart, feet flat and fully visible, figure centred, head top at ~5 % and soles at ~92 % of the height, 768 × 1152 px, transparent background with a soft shadow under the feet, wearing plain swim shorts.',
+		'5. A-POSE (NAKED) – identical to 4 in pose, scale and framing, but without the swim shorts (cartoon-neutral, no anatomical detail).',
+		'',
+		'Deliver each view as its own image, named:',
+		`  ${file('avatar')}`,
+		`  ${file(AUTHORED_VIEW)}`,
+		`  ${file('full')}`,
+		`  ${pngName(aposeConventionPath(character.id, 'swim'))}`,
+		`  ${pngName(aposeConventionPath(character.id, 'naked'))}`,
+		'Consistency check before delivering: side by side with the reference, the character must be recognisably identical in every view; only framing and pose may differ, and the two A-poses must overlay exactly.'
+	].join('\n');
+}
+
+/**
+ * The moods brief of one look: attach its neutral portrait; one portrait per listed mood, only the expression changes
+ * (moods are variations of the portrait view only – base-views.md). `moods`: id + label, in the order wanted.
+ */
+export function characterMoodsBrief(character: RegistryCharacter, persona: string, look: string, moods: { id: string; label: string }[], locale: string): string {
+	const name = characterName(character, locale, persona);
+	const lookName = lookLabel(findPersona(character, persona), look, locale);
+	return [
+		`Attached is the approved NEUTRAL PORTRAIT of the character ${name} (look: ${lookName}) – the only reference.`,
+		'Create one new portrait per mood below, as SEPARATE images. Each is the attached portrait with ONLY the facial expression changed (and, where the mood needs it, the hands and shoulders): same character, art style, rendering, colours, lighting, proportions, clothing, framing and scale – eyes on the same horizontal line at 40 % of the image height, head centred, 600 × 600 px, transparent background. No text, no props, nothing added.',
+		'',
+		'Moods (mood – file name):',
+		...moods.map((x) => `  ${x.label}${x.label !== x.id ? ` (${x.id})` : ''} – ${pngName(conventionImagePath(character.id, AUTHORED_VIEW, x.id, look, persona))}`),
+		'',
+		'Consistency check before delivering: laid over the neutral portrait, only the expression (and hands) may differ; the mood must read clearly at 192 px.'
+	].join('\n');
+}
+
 /** CSV: character,persona,look,mood,view,file,path,note */
 export function wantedImagesCsv(wanted: WantedImage[]): string {
 	const q = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);

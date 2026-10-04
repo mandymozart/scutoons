@@ -28,11 +28,13 @@
 	import CharacterTransitions from '$lib/components/characters/character-transitions.svelte';
 	import AposeEditor from '$lib/components/characters/apose-editor.svelte';
 	import WantedImages from '$lib/components/characters/wanted-images.svelte';
+	import CharacterPrompts from '$lib/components/characters/character-prompts.svelte';
 
 	/**
 	 * One character (COMPONENTS.md step 9: in sections): identity (CharacterIdentity), the image import, its personas as
 	 * tabs → the persona's own fields (CharacterPersonaFields) → its looks as sub-tabs → the look's mood grid
-	 * (CharacterLook) and transitions, the A-pose looks and the character's wanted images.
+	 * (CharacterLook) and transitions, the A-pose looks, the character's wanted images and – at the very end – prompts
+	 * for an image generator or an artist (CharacterPrompts).
 	 */
 	let {
 		registry,
@@ -137,13 +139,6 @@
 			<span>{m['creator.characters_appears_in']()}:</span>
 			{#each appearsIn as t (t)}<a href="/{t}/cast">{toons.find((x) => x.id === t)?.name ?? t}</a>{:else}<span class="hint">{m['creator.characters_in_no_cast']()}</span>{/each}
 		</p>
-		<!-- Creator roadmap (agents/AUTOMATION.md "Creator roadmap"): recorded, not built yet -->
-		<p class="roadmap" data-testid="character-actions">
-			<span>{m['creator.actions_title']()}:</span>
-			{#each [m['creator.action_base_views'](), m['creator.action_moods'](), m['creator.action_upload']()] as label (label)}
-				<button type="button" class="secondary" disabled title={m['creator.coming_soon']()}>{label} ({m['creator.coming_soon']()})</button>
-			{/each}
-		</p>
 
 		<CharacterIdentity {registry} {character} {languages} {toons} {people} />
 
@@ -205,6 +200,11 @@
 		<section class="block">
 			<h3>{m['creator.characters_wanted']()}</h3>
 			<WantedImages registry={file} {moods} {requests} locale={source} character={id} onopen={(_, p, l) => ((persona = p), (look = l))} />
+		</section>
+
+		<section class="block" data-testid="prompts">
+			<h3>{m['creator.prompts_title']()}</h3>
+			<CharacterPrompts registry={file} {character} persona={personaId} look={lookId} {moods} {requests} locale={source} />
 		</section>
 	</article>
 {:else}
@@ -274,11 +274,5 @@
 	}
 	.pad {
 		padding: 1rem;
-	}
-	.roadmap {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		gap: 0.4rem;
 	}
 </style>

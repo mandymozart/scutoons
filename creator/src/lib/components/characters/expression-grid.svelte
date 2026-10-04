@@ -69,7 +69,8 @@
 
 	const standard = $derived(sortedMoods(moods).filter((x) => x.standard).map((x) => x.id));
 	const rowMoods = $derived.by(() => {
-		const own = lookMoods(look, moods);
+		// the moods with an image + the ones added without one yet (`images[mood] = {}`, "Add mood")
+		const own = [...new Set([...lookMoods(look, moods), ...Object.keys(look.images ?? {})])];
 		if (!showStandard) return own;
 		const order = sortedMoods(moods).map((x) => x.id);
 		return [...new Set([...own, ...standard])].sort((a, b) => {
