@@ -10,6 +10,18 @@
 
 	const size = panelWidth('sc-panel-width:ask', 24);
 
+	// the page makes room for the panel (owner 2026-10-04: "the chat pushes the page"): from 768px the shell's frame
+	// ends at the panel's edge, so the editor stays usable next to the chat
+	$effect(() => {
+		const root = document.documentElement;
+		root.classList.add('sc-ask-open');
+		root.style.setProperty('--ask-width', size.css);
+		return () => {
+			root.classList.remove('sc-ask-open');
+			root.style.removeProperty('--ask-width');
+		};
+	});
+
 	type Step = { text: string; draft?: { label: string; href: string } };
 	type Turn = { who: 'you' | 'agent'; text?: string; steps?: Step[] };
 
@@ -168,6 +180,11 @@
 		resize: none;
 		min-height: var(--control-height);
 		box-sizing: border-box;
+	}
+	@media (min-width: 768px) {
+		:global(html.sc-ask-open .sc-shell-frame) {
+			margin-right: var(--ask-width);
+		}
 	}
 	@media (max-width: 767px) {
 		.ask {
