@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
+	import { AUDIO_QUALITY_LABELS, IMAGE_QUALITY_DENSITIES, MEDIA_QUALITIES, VIDEO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
 	import { rootPath, toonRelativePath } from '@scutoons/api';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 	import { mediaText, mediaUrl as asset } from './setup.ts';
@@ -12,7 +12,8 @@
 	 * (480p / 720p / 1080p, the medium one the default); under it one chip per level shows which files exist, a chip
 	 * opens the picker on that file's asset (its files listed) to replace just that level, its × clears it. Paths only
 	 * as tooltips; × beside the preview clears the whole medium. Same `{ src, variants }` shape as the slice video – the
-	 * season trailer maps its `loop` to `src`.
+	 * season trailer maps its `loop` to `src`. Audio (owner 2026-10-04): the preview is ♪ + the file's name (a small player
+	 * under it), the levels 96k / 128k / 320k; music tracks and samples map their `path` to `src`.
 	 */
 	let {
 		toon,
@@ -23,12 +24,15 @@
 		poster,
 		onchange,
 		onmeta,
-		testid
+		testid,
+		hideLabel = false,
+		clearable = true,
+		player = true
 	}: {
 		toon: string;
 		/** toon-relative paths */
 		value: VariantMedia;
-		kind?: 'video' | 'image';
+		kind?: 'video' | 'image' | 'audio';
 		label: string;
 		/** where uploads go by the content rules (CDN-root folder, e.g. catpope/s1/) */
 		place?: string;
@@ -38,10 +42,17 @@
 		/** the default file's state: its size once loaded, `null` when it is missing on the CDN */
 		onmeta?: (size: { w: number; h: number } | null) => void;
 		testid?: string;
+		/** no visible label – a table column says it (the slot keeps it as its accessible name) */
+		hideLabel?: boolean;
+		/** false: no × for the whole medium (a row with its own remove) */
+		clearable?: boolean;
+		/** audio: false = no player under the slot (the row has its own ▶) */
+		player?: boolean;
 	} = $props();
 
 	const t = $derived(mediaText());
-	const levelLabel = (level: MediaQuality) => (kind === 'image' ? `${IMAGE_QUALITY_DENSITIES[level]}x` : VIDEO_QUALITY_LABELS[level]);
+	const levelLabel = (level: MediaQuality) =>
+		kind === 'image' ? `${IMAGE_QUALITY_DENSITIES[level]}x` : kind === 'audio' ? AUDIO_QUALITY_LABELS[level] : VIDEO_QUALITY_LABELS[level];
 	const url = (path: string) => asset(`${toon}/${path}`);
 	const main = $derived(defaultLevel(value));
 
@@ -63,7 +74,7 @@
 	}
 
 	function pick(picked: PickedAsset) {
-		if (target === null) onchange(mediaFromAsset(picked.asset.renditions, picked.path, toon, kind === 'image' ? 'image/' : 'video/'));
+		if (target === null) onchange(mediaFromAsset(picked.asset.renditions, picked.path, toon, `${kind}/`));
 		else onchange(withVariant(value, target, toonRelativePath(picked.path, toon)));
 	}
 
@@ -75,20 +86,23 @@
 </script>
 
 <div class="variants-slot" data-testid={testid}>
-	<span class="sc-label">{label}</span>
+	{#if !hideLabel}<span class="sc-label">{label}</span>{/if}
 	<div class="row">
 		<button
 			type="button"
 			class="slot"
 			class:image={kind === 'image'}
+			class:audio={kind === 'audio'}
 			class:empty={!value.src}
 			onclick={() => choose(null)}
-			title={value.src ? `${value.src}\n${t.variantsChooseHint}` : t.variantsChooseHint}
+			title={value.src ? `${value.src}\n${kind === 'audio' ? t.audioVariantsChooseHint : t.variantsChooseHint}` : kind === 'audio' ? t.audioVariantsChooseHint : t.variantsChooseHint}
 			aria-label="{label}: {value.src ?? t.choose}"
 			data-testid={testid ? `${testid}-choose` : undefined}
 		>
 			{#if !value.src}
 				<Icon name="plus" />
+			{:else if kind === 'audio'}
+				<Icon name="music" /> <span class="name">{value.src.split('/').pop()}</span>
 			{:else if failed}
 				<span class="bad">{t.missing}</span>
 			{:else if kind === 'video'}
@@ -98,7 +112,7 @@
 				<img src={url(value.src)} alt="" onload={(e) => { const img = e.currentTarget as HTMLImageElement; size = { w: img.naturalWidth, h: img.naturalHeight }; onmeta?.(size); }} onerror={() => { failed = true; onmeta?.(null); }} />
 			{/if}
 		</button>
-		{#if value.src}
+		{#if value.src && clearable}
 			<!-- icon only → round (owner 2026-10-03) -->
 			<button type="button" class="sc-round" aria-label={t.remove} title={t.remove} onclick={() => onchange({})} data-testid={testid ? `${testid}-clear` : undefined}><CloseIcon /></button>
 		{/if}
@@ -125,6 +139,9 @@
 		</ul>
 		{#if main === null}
 			<span class="sc-caption" title={value.src}>{t.single}</span>
+		{/if}
+		{#if kind === 'audio' && player}
+			<audio controls preload="none" src={url(value.src)}></audio>
 		{/if}
 		{#if size}<span class="sc-caption">{size.w} × {size.h} px</span>{/if}
 	{/if}
@@ -170,6 +187,27 @@
 	/* an image (a portrait slice) is a small preview, like the single media slot (owner 2026-10-03) */
 	.slot.image {
 		flex-basis: 6rem;
+	}
+	/* audio: a one-line slot (♪ + the file's name), the control height, full width */
+	.slot.audio {
+		flex: 1 1 auto;
+		justify-content: flex-start;
+		gap: var(--space-05);
+		min-height: var(--control-height);
+		padding: 0 var(--space-075);
+		color: var(--ink);
+	}
+	.slot.audio.empty {
+		justify-content: center;
+	}
+	.name {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	audio {
+		width: 100%;
+		max-width: 22rem;
 	}
 	.slot.empty {
 		border-style: dashed;

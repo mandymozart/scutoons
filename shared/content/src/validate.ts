@@ -602,10 +602,12 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 		if (new Set(ids).size !== ids.length) c.error(['audio', 'music', 'tracks'], 'music track ids must be unique');
 		(music?.tracks ?? []).forEach((t: any, i: number) => {
 			if (!isStr(t?.id) || !isStr(t?.path)) c.error(['audio', 'music', 'tracks', i], 'track needs id and path');
+			checkAudioVariants(c, t, ['audio', 'music', 'tracks', i]);
 		});
 		if (music?.defaultTrack && !ids.includes(music.defaultTrack)) c.error(['audio', 'music', 'defaultTrack'], 'defaultTrack is not one of the tracks');
 		const sids = (ch.audio?.sampleLibrary ?? []).map((t: any) => t?.id);
 		if (new Set(sids).size !== sids.length) c.error(['audio', 'sampleLibrary'], 'sample ids must be unique');
+		(ch.audio?.sampleLibrary ?? []).forEach((t: any, i: number) => checkAudioVariants(c, t, ['audio', 'sampleLibrary', i]));
 	}
 	if (!Array.isArray(ch.groups) || !ch.groups.length) c.error(['groups'], 'chapter needs at least one group');
 	else ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
@@ -958,4 +960,19 @@ export function validateLocales(kind: string, file: string, files: Record<string
 		});
 	}
 	return problems;
+}
+
+/** a music track's / sample's `variants` (low 96k / medium 128k / high 320k): known levels, audio paths */
+function checkAudioVariants(c: Collector, t: any, path: Path) {
+	if (t?.variants === undefined) return;
+	if (!isObj(t.variants)) {
+		c.error([...path, 'variants'], 'variants must be { low?, medium?, high? } (96k / 128k / 320k files)');
+		return;
+	}
+	for (const [level, file] of Object.entries(t.variants)) {
+		const vp = [...path, 'variants', level];
+		if (!isMediaQuality(level)) c.error(vp, `unknown quality level "${level}" (low, medium, high)`);
+		else if (!isStr(file) || !file) c.error(vp, `variants.${level} is missing (an .mp3 on the CDN)`);
+		else if (!/\.(mp3|m4a|aac|ogg|opus|wav)$/i.test(file)) c.warn(vp, `variants.${level} is not an audio path (.mp3 …)`);
+	}
 }

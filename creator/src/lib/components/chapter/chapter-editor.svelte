@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { VariantMedia } from '@scutoons/media';
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
@@ -124,20 +125,31 @@
 	/** the chapter's groups with each scene document (source language) in place of its ref – what the VN plays */
 	const sceneGroups = () => groups.map((g) => (g?.ref?.src ? (refs[g.ref.src]?.data?.[refs[g.ref.src].primary] ?? {}) : g));
 	/**
-	 * A slice sample picked as a file (asset picker / upload): its sample-library id; a file not in the chapter's library
-	 * yet is added to it (id from the file name: s1c1-choir-loud.128.mp3 → choir_loud) – saved with the chapter.
+	 * A slice sample picked as files (asset picker / upload; `src` = the 128k default, `variants` = its levels): its
+	 * sample-library id. An entry with that file gets the levels; a file not in the chapter's library yet is added to it
+	 * (id from the file name: s1c1-choir-loud.128.mp3 → choir_loud) – saved with the chapter.
 	 */
-	function librarySample(path: string): string {
+	function librarySample(media: VariantMedia): string {
+		const path = media.src ?? '';
 		const library: any[] = chapterData?.audio?.sampleLibrary ?? [];
-		const known = library.find((s) => s?.path === path);
-		if (known?.id) return known.id;
+		const known = library.find((s) => s?.path === path || (media.variants && Object.values(s?.variants ?? {}).includes(path)));
+		if (known?.id) {
+			chapter.structural((file) => {
+				const entry = (file.audio?.sampleLibrary ?? []).find((s: any) => s?.id === known.id);
+				if (!entry) return;
+				entry.path = path;
+				if (media.variants) entry.variants = media.variants;
+				else delete entry.variants;
+			});
+			return known.id;
+		}
 		const base = (path.split('/').pop() ?? path).replace(/(\.\d+)?\.[a-z0-9]+$/i, '').replace(/^s\d+c\d+-/i, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'sample';
 		let id = base;
 		for (let n = 2; library.some((s) => s?.id === id); n++) id = `${base}_${n}`;
 		chapter.structural((file) => {
 			file.audio ??= {};
 			file.audio.sampleLibrary ??= [];
-			if (!file.audio.sampleLibrary.some((s: any) => s?.id === id)) file.audio.sampleLibrary.push({ id, path });
+			if (!file.audio.sampleLibrary.some((s: any) => s?.id === id)) file.audio.sampleLibrary.push(media.variants ? { id, path, variants: media.variants } : { id, path });
 		});
 		return id;
 	}
@@ -843,7 +855,8 @@
 	.side-panel {
 		position: fixed;
 		top: var(--top);
-		right: 0;
+		/* left of the Ask panel: Ask belongs to the shell, the page's panels to the page */
+		right: var(--ask-inset, 0rem);
 		/* ends at the bottom ActionBar (its border and last lines are not hidden behind it) */
 		bottom: var(--action-bar-height);
 		width: var(--panel-width);
@@ -866,7 +879,7 @@
 		z-index: 21;
 		top: var(--top);
 		bottom: var(--action-bar-height);
-		right: calc(var(--panel-width) - 0.375rem);
+		right: calc(var(--ask-inset, 0rem) + var(--panel-width) - 0.375rem);
 		width: 0.75rem;
 		cursor: col-resize;
 		touch-action: none;

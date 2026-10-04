@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
-	import { FileSlot } from '@scutoons/media';
+	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, deleteAt, type Path } from '@scutoons/content';
@@ -28,7 +28,7 @@
 		slicePath: Path;
 		/** the chapter's audio config (tracks, sampleLibrary) */
 		chapterAudio: any;
-		librarySample: (path: string) => string;
+		librarySample: (media: VariantMedia) => string;
 		/** per track: the level it holds from an earlier slice (none = silent) */
 		heldMusic?: Record<string, { volume: number; label: string }>;
 		toon: string;
@@ -41,7 +41,8 @@
 	const slice = $derived(doc.get(doc.primary, slicePath));
 	const musicTracks = $derived<any[]>(chapterAudio?.music?.tracks ?? []);
 	const libraryEntries = $derived<any[]>(chapterAudio?.sampleLibrary ?? []);
-	const pathOf = (id: string): string | undefined => libraryEntries.find((s) => s?.id === id)?.path || undefined;
+	const entryOf = (id: string): any => libraryEntries.find((s) => s?.id === id);
+	const pathOf = (id: string): string | undefined => entryOf(id)?.path || undefined;
 	const sliceMusic = $derived<any[]>(slice?.audio?.music?.tracks ?? []);
 	const samples = $derived<any[]>(slice?.audio?.audio?.samples ?? []);
 	const misplaced = $derived<any[]>(Array.isArray(slice?.audio?.samples) ? slice.audio.samples : []);
@@ -91,9 +92,10 @@
 		onselectsample?.(index);
 	}
 
-	/** a picked / uploaded file: its library id (added to the library when new) becomes the sample's */
-	function setSound(index: number, path: string) {
-		const id = librarySample(path);
+	/** picked / uploaded files: their library id (added to the library when new, levels updated) becomes the sample's */
+	function setSound(index: number, media: VariantMedia) {
+		if (!media.src) return;
+		const id = librarySample(media);
 		doc.structural((file) => {
 			const sample = getAt(file, [...samplesPath, index]);
 			if (sample) sample.id = id;
@@ -194,7 +196,7 @@
 				</span>
 			</header>
 			{#if isOpen(i)}
-				<FileSlot {toon} kind="audio" label="sound" value={file} {place} clearable={false} onchange={(path) => path && setSound(i, path)} testid="sample-sound-{i}" />
+				<MediaVariantsSlot {toon} kind="audio" label="sound" value={{ src: file, variants: entryOf(sample?.id)?.variants }} {place} clearable={false} onchange={(media) => setSound(i, media)} testid="sample-sound-{i}" />
 				{#if sample?.id && !file}
 					<p class="warn">"{sample.id}" is not in the chapter's sample library – pick its file.</p>
 				{/if}

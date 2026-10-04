@@ -323,7 +323,8 @@ guests on the device). "Automatic" = by the bandwidth (DESIGN.md "Media quality"
   stays valid.
 - **Slices (later):** 1x / 2x / 3x WebP (390 / 780 / 1170 px wide) as the same `{ src, variants }` shape on the slice
   image (`IMAGE_QUALITY_DENSITIES`); until then slices stay one 1x WebP, 390 px wide. Text boxes are in % of the slice, so
-  they don't care. **Audio (later):** the same levels for music (e.g. 96 / 128 / 192 kbps).
+  they don't care. **Audio (2026-10-04):** music tracks and samples: low 96k / medium 128k / high 320k MP3 (`<name>.96.mp3` …),
+  `AudioTrack { path, variants }` (`path` = the 128k default); the creator encodes the levels below an upload in the browser.
 - **CDN / upload workflow:** every level is its own immutable file with the level in the name
   (`videos/<name>.480p.mp4`, later `images/webtoon/<sXcY>/<sXcY>-slice-N.2x.webp`), encoded together from the master,
   uploaded in the creator / admin → Assets; the creator's "Hintergrund" tab has one resolution slot (an asset fills every level, a chip per level). A new version = new names.

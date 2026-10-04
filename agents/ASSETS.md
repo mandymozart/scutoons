@@ -53,7 +53,7 @@ AssetJobs, MediaProbe); storage: `server/src/Infrastructure/AssetStorage`.
 |---|---|---|
 | `videos/x.{480p,720p,1080p}.mp4` | `…/videos/x` | 480p low, 720p medium, 1080p high |
 | `videos/x.{1280w,1920w}.mp4`, `x.mp4` | same slug | widths; a plain file is `original` |
-| `audio/music/x.{128,320}.mp3` | `…/audio/music/x` | 128k medium, 320k high (≤ 96 low) |
+| `…/x.{96,128,320}.mp3` | `…/x` | 96k low, 128k medium, 320k high (≤ 96 low, ≤ 160 medium) – the content's audio levels (below) |
 | `images/{1x,2x,3x}/y.jpg`, `y@2x.png` | `…/images/y` | 1x low, 2x medium, 3x high |
 | `images/z.png` + `images/z.webp` | `…/images/z` | the PNG/JPEG is `original`, the WebP twin `webp` |
 | `videos/x.poster.webp` | `…/videos/x` | poster (a video's frame) |
@@ -321,3 +321,17 @@ delete), admin Assets (library, detail, delete check, storage + bandwidth), view
   picker can fill them like video variants.
 - When production writes to bunny: `ASSET_STORAGE=bunny` in the deploy's config (the shared host has no local media folder);
   the picker's uploads then go straight to the zone.
+
+## Audio quality levels (2026-10-04, owner)
+
+Music tracks and sample-library sounds carry `variants { low, medium, high }` = 96k / 128k / 320k MP3 next to `path` (the
+128k default; `AUDIO_QUALITY_KBPS` / `AUDIO_QUALITY_LABELS` in @scutoons/content). The reader loads the file for its media
+quality level when the chapter's audio loads (`viewer/src/lib/contexts/audio.svelte.ts`, `pickQualityVariant`); `path` while
+the level isn't known. The creator shows them as a `MediaVariantsSlot` with `kind="audio"` (chips 96k / 128k / 320k).
+**Lower levels are made in the browser** (`shared/media/src/audio-levels.ts`, `wasm-media-encoders` = LAME as WebAssembly,
+MIT wrapper, loaded only when encoding): an upload in the picker is decoded, its rate estimated (size / duration), the
+original stored as `<name>.<rate>.<ext>` and every level clearly below it encoded (CBR) and uploaded – a 320k upload gives
+96k + 128k, a 128k upload 96k; a lossless source (WAV / FLAC / AIFF) gives all three and isn't uploaded itself. An existing
+audio asset gets a "Create 96k …" button in the picker's detail (its best file fetched from the CDN – CORS – and encoded).
+No server job: the shared host has no ffmpeg, and this works in production. Existing content keeps `path` only until a
+track / sample is picked again (then all levels fill in).

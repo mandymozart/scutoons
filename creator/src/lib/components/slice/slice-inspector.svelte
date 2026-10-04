@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { VariantMedia } from '@scutoons/media';
 	import { Icon, Tabs } from '@scutoons/ui';
 	import { scriptLabels, type ChapterSliceRef, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
@@ -65,7 +66,7 @@
 		groupLabels: string[];
 		chapterAudio: any;
 		/** a picked / uploaded sample file → its id in the chapter's sample library (added when new) */
-		librarySample: (path: string) => string;
+		librarySample: (media: VariantMedia) => string;
 		/** per track: the level it holds from an earlier slice (none = silent) */
 		heldMusic: Record<string, { volume: number; label: string }>;
 		worldMap: ContentDoc;

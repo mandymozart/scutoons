@@ -44,6 +44,15 @@ export interface MediaLabels {
 	levelClear: (level: string) => string;
 	defaultLevel: string;
 	single: string;
+	/** audio levels made in the browser (96k / 128k / 320k MP3) */
+	audioVariantsChooseHint: string;
+	audioLevelsPlan: (levels: string) => string;
+	audioLossless: string;
+	audioLevelsMake: (levels: string) => string;
+	audioLevelsHint: string;
+	audioEncoding: (level: string, percent: number) => string;
+	audioUploading: (file: string) => string;
+	audioUndecodable: string;
 }
 
 export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
@@ -86,7 +95,15 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		levelMissing: 'Nicht gesetzt – eine Datei für diese Qualität wählen',
 		levelClear: (level) => `${level} entfernen`,
 		defaultLevel: 'Standard',
-		single: 'Eine Datei für jede Qualität'
+		single: 'Eine Datei für jede Qualität',
+		audioVariantsChooseHint: 'Ein Asset wählen: alle seine Qualitätsdateien (96k / 128k / 320k) auf einmal, 128k der Standard',
+		audioLevelsPlan: (levels) => `Erzeugt hier zusätzlich ${levels} (MP3)`,
+		audioLossless: 'Verlustfrei: wird nicht selbst hochgeladen, nur als Quelle für die MP3s',
+		audioLevelsMake: (levels) => `${levels} erzeugen`,
+		audioLevelsHint: 'Kodiert die fehlenden Qualitätsstufen aus der besten Datei dieses Assets im Browser und lädt sie hoch',
+		audioEncoding: (level, percent) => `${level} wird kodiert … ${percent} %`,
+		audioUploading: (file) => `${file} wird hochgeladen …`,
+		audioUndecodable: 'Diese Audiodatei kann der Browser nicht lesen – keine weiteren Qualitätsstufen.'
 	},
 	en: {
 		pickerTitle: 'Choose a file',
@@ -127,7 +144,15 @@ export const MEDIA_LABELS: Record<'de' | 'en', MediaLabels> = {
 		levelMissing: 'Not set – choose a file for this quality',
 		levelClear: (level) => `Remove ${level}`,
 		defaultLevel: 'Default',
-		single: 'One file for every quality'
+		single: 'One file for every quality',
+		audioVariantsChooseHint: 'Pick an asset: all its quality files (96k / 128k / 320k) at once, 128k the default',
+		audioLevelsPlan: (levels) => `Also creates ${levels} here (MP3)`,
+		audioLossless: 'Lossless: not uploaded itself, only the source of the MP3s',
+		audioLevelsMake: (levels) => `Create ${levels}`,
+		audioLevelsHint: "Encodes the missing quality levels from this asset's best file in the browser and uploads them",
+		audioEncoding: (level, percent) => `Encoding ${level} … ${percent} %`,
+		audioUploading: (file) => `Uploading ${file} …`,
+		audioUndecodable: "The browser can't read this audio file – no further quality levels."
 	}
 };
 

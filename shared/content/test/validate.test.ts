@@ -329,3 +329,16 @@ test('audio is the same in every language: unifyAudio replaces the old audio.sam
 	assert.equal(unifyAudio('chapter', files, 'de'), 0);
 	assert.ok(!problems('chapter', files.en).some((p) => p.includes('audio.samples')));
 });
+
+test('audio quality levels: variants on music tracks and samples (96k / 128k / 320k)', () => {
+	const chapter = (variants: unknown) => ({
+		title: 'C', description: 'D', number: 1, thumbnail: 't.webp', keyvisual: { image: 'k.webp' },
+		audio: { music: { tracks: [{ id: 'calm', path: 's1/c1/calm.128.mp3', variants }] }, sampleLibrary: [{ id: 'bell', path: 's1/c1/bell.128.mp3', variants }] },
+		groups: [{ slices: [{ image: 'a.webp', width: 390, height: 625 }] }]
+	});
+	const audioProblems = (variants: unknown) => problems('chapter', chapter(variants)).filter((p) => p.includes('variants'));
+	assert.deepEqual(audioProblems({ low: 's1/c1/calm.96.mp3', medium: 's1/c1/calm.128.mp3', high: 's1/c1/calm.320.mp3' }), []);
+	assert.deepEqual(audioProblems(undefined), []);
+	assert.deepEqual(audioProblems({ ultra: 'x.mp3' }), ['error audio.music.tracks.0.variants.ultra', 'error audio.sampleLibrary.0.variants.ultra']);
+	assert.deepEqual(audioProblems({ low: 'x.png' }), ['warning audio.music.tracks.0.variants.low', 'warning audio.sampleLibrary.0.variants.low']);
+});

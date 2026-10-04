@@ -3,8 +3,8 @@
 // Members store it on the server (`users.media_quality`, `GET/PUT /me/`), guests in localStorage
 // (`scutoons_media_quality`). Media with several files carry `variants` keyed by the level next to their default `src`;
 // `pickQualityVariant` turns a level into a file. Implemented for slice videos (480p / 720p / 1080p); the same levels and the
-// same `{ src, variants }` shape are meant for audio and for slice images (1x / 2x / 3x WebP) later (agents/DESIGN.md
-// "Media quality").
+// same `{ src, variants }` shape is used by audio (`AudioTrack { path, variants }`, 96k / 128k / 320k, 2026-10-04) and is
+// meant for slice images (1x / 2x / 3x WebP) later (agents/DESIGN.md "Media quality").
 
 /** The quality levels, lowest first. */
 export const MEDIA_QUALITIES = ['low', 'medium', 'high'] as const;
@@ -22,6 +22,13 @@ export type QualityVariants = Partial<Record<MediaQuality, string>>;
 
 /** What each level means for a video (the encodings on the CDN: `<name>.480p.mp4` …). */
 export const VIDEO_QUALITY_LABELS: Record<MediaQuality, string> = { low: '480p', medium: '720p', high: '1080p' };
+
+/**
+ * What each level means for audio (music and samples, owner 2026-10-04): `<name>.96.mp3` / `.128.mp3` / `.320.mp3`, the
+ * kbit/s in the name (the asset registry groups them: ≤ 96 low, ≤ 160 medium, above high – AssetPaths).
+ */
+export const AUDIO_QUALITY_KBPS: Record<MediaQuality, number> = { low: 96, medium: 128, high: 320 };
+export const AUDIO_QUALITY_LABELS: Record<MediaQuality, string> = { low: '96k', medium: '128k', high: '320k' };
 
 /** Later, for slice images: the density per level (1x / 2x / 3x WebP, 390 / 780 / 1170 px wide). Not used yet. */
 export const IMAGE_QUALITY_DENSITIES: Record<MediaQuality, number> = { low: 1, medium: 2, high: 3 };

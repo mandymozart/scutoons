@@ -6,7 +6,7 @@
 	import { asset } from '$lib/utils/cdn.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from '$lib/components/fields/prop-field.svelte';
-	import { FileSlot } from '@scutoons/media';
+	import { MediaVariantsSlot, type VariantMedia } from '@scutoons/media';
 
 	/**
 	 * Chapter audio: music tracks (adaptive music player) and the sample library. Shared by all locales. The files are
@@ -16,7 +16,17 @@
 	let { doc, season = null, number }: { doc: ContentDoc; season?: ContentDoc | null; number: number } = $props();
 
 	const place = $derived(`${doc.toon}/s${Number(season?.get(season.primary, ['number'])) || 1}/c${number}/`);
-	const setPath = (path: (string | number)[], value: string | null) => doc.setShared(path, value ?? '');
+	/** a track's / sample's files: `path` = the default (128k), `variants` = one per level (96k / 128k / 320k) */
+	const mediaOf = (entry: any): VariantMedia => ({ src: entry?.path || undefined, variants: entry?.variants });
+	function setMedia(path: (string | number)[], media: VariantMedia) {
+		doc.structural((file) => {
+			const entry = getAt(file, path);
+			if (!entry) return;
+			entry.path = media.src ?? '';
+			if (media.variants) entry.variants = media.variants;
+			else delete entry.variants;
+		}, path.join('.'));
+	}
 
 	const audio = $derived(doc.get(doc.primary, ['audio']));
 	const tracks = $derived<any[]>(audio?.music?.tracks ?? []);
@@ -74,7 +84,7 @@
 			{#each tracks as track, i (i)}
 				<tr>
 					<td><PropField {doc} path={['audio', 'music', 'tracks', i, 'id']} label="" required /></td>
-					<td><FileSlot toon={doc.toon} kind="audio" value={track.path} label={track.id || 'audio'} {place} hideLabel player={false} clearable={false} onchange={(v) => setPath(['audio', 'music', 'tracks', i, 'path'], v)} testid="audio-track-path" /></td>
+					<td><MediaVariantsSlot toon={doc.toon} kind="audio" value={mediaOf(track)} label={track.id || 'audio'} {place} hideLabel player={false} clearable={false} onchange={(v) => setMedia(['audio', 'music', 'tracks', i], v)} testid="audio-track-path" /></td>
 					<td class="row-tools">
 						<button type="button" class="ghost" onclick={() => play(track.path)}>{playingPath === track.path ? '■' : '▶'}</button>
 						<button type="button" class="ghost" onclick={() => removeFrom('tracks', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
@@ -92,7 +102,7 @@
 			{#each samples as sample, i (i)}
 				<tr>
 					<td><PropField {doc} path={['audio', 'sampleLibrary', i, 'id']} label="" required /></td>
-					<td><FileSlot toon={doc.toon} kind="audio" value={sample.path} label={sample.id || 'audio'} {place} hideLabel player={false} clearable={false} onchange={(v) => setPath(['audio', 'sampleLibrary', i, 'path'], v)} testid="audio-sample-path" /></td>
+					<td><MediaVariantsSlot toon={doc.toon} kind="audio" value={mediaOf(sample)} label={sample.id || 'audio'} {place} hideLabel player={false} clearable={false} onchange={(v) => setMedia(['audio', 'sampleLibrary', i], v)} testid="audio-sample-path" /></td>
 					<td class="row-tools">
 						<button type="button" class="ghost" onclick={() => play(sample.path)}>{playingPath === sample.path ? '■' : '▶'}</button>
 						<button type="button" class="ghost" onclick={() => removeFrom('sampleLibrary', i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
@@ -139,9 +149,8 @@
 		width: 5rem;
 	}
 	/* the file slot fills the path column; a long name ellipsizes */
-	td :global(.file-slot .slot) {
+	td :global(.variants-slot .slot) {
 		width: 100%;
-		justify-content: flex-start;
 	}
 	.row-tools {
 		white-space: nowrap;

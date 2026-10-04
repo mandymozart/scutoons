@@ -27,7 +27,8 @@
 		"@scutoons/api": "*",
 		"@scutoons/content": "*",
 		"@scutoons/tokens": "*",
-		"@scutoons/ui": "*"
+		"@scutoons/ui": "*",
+		"wasm-media-encoders": "^0.7.0"
 	},
 	"peerDependencies": {
 		"svelte": "^5.32.0"

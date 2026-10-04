@@ -1,9 +1,16 @@
 import type { Slice } from './content.ts';
 import { Trigger, TriggerMode } from './enums.ts';
+import type { QualityVariants } from './media-quality.ts';
 
+/**
+ * A music track or a sample-library sound. `path` = the default file (the medium level, 128k – what older readers and a
+ * reader without a known level play); `variants` = one file per quality level (low 96k / medium 128k / high 320k, PLAN.md
+ * "RULE: one file per quality level"), toon-relative like `path`. A missing level falls back to the next lower one.
+ */
 export interface AudioTrack {
   id: string;
   path: string;
+  variants?: QualityVariants;
 }
 
 export interface MusicEventTrack {

@@ -29,6 +29,9 @@
 	import { ApiError, ASSET_KINDS } from '@scutoons/api';
 	import { Button, CloseButton, confirmDialog, gridArrows, Icon, Sheet } from '@scutoons/ui';
 	import { mediaAssets, mediaText, mediaUrl as cdnAsset } from './setup.ts';
+	import { AUDIO_QUALITY_LABELS, type MediaQuality } from '@scutoons/content';
+	import { bestAudioSource, decodeAudio, encodeMp3, nearestKbps, planAudioUpload, type AudioUploadPlan } from './audio-levels.ts';
+	import { uploadOrReplace } from './media-upload.ts';
 
 	/**
 	 * The asset picker (agents/ASSETS.md "Asset selector") – like the character picker: a searchable grid of the media
@@ -198,10 +201,73 @@
 		const season = name.match(/^s(\d+)[-_]/);
 		return season ? `s${season[1]}/` : '';
 	};
+	// ── audio: the quality levels below the uploaded file, encoded here (audio-levels.ts) ──
+	let uploadAudio = $state<AudioBuffer | null>(null);
+	let audioProgress = $state('');
+	const isAudioFile = (file: File) => file.type.startsWith('audio/') || /\.(mp3|m4a|aac|ogg|opus|wav|wave|flac|aiff?)$/i.test(file.name);
+	const uploadPlan = $derived<AudioUploadPlan | null>(uploadFile && uploadAudio && uploadPath ? planAudioUpload(uploadPath.trim(), uploadFile.size, uploadAudio.duration) : null);
+	const levelNames = (levels: { level: MediaQuality }[]) => levels.map((l) => AUDIO_QUALITY_LABELS[l.level]).join(', ');
+
+	/** encode the plan's levels from `audio` and upload them (a file already there gets the new bytes) */
+	async function makeLevels(audio: AudioBuffer, plan: AudioUploadPlan) {
+		for (const l of plan.levels) {
+			const label = AUDIO_QUALITY_LABELS[l.level];
+			const blob = await encodeMp3(audio, l.kbps, (share) => (audioProgress = t.audioEncoding(label, Math.round(share * 100))));
+			audioProgress = t.audioUploading(l.path.split('/').pop() ?? l.path);
+			await uploadOrReplace(blob, l.path, `${label} encoded in the browser`);
+		}
+		audioProgress = '';
+	}
+
+	/** an existing audio asset: its missing levels from its best file (fetched from the CDN, which sends CORS headers) */
+	const missingPlan = (a: AssetSummary): { plan: AudioUploadPlan; source: AssetRendition } | null => {
+		if (a.kind !== 'audio') return null;
+		const source = bestAudioSource(a.renditions);
+		if (!source) return null;
+		const rate = Number(source.label.match(/^(\d+)k$/)?.[1] ?? 0) || (source.size && source.duration ? nearestKbps((source.size * 8) / source.duration / 1000) : 0);
+		const existing = Object.fromEntries(a.renditions.filter((r) => r.quality).map((r) => [r.quality, r.path]));
+		// the plan from the source's path and its known rate (size / duration chosen so that the estimate is that rate)
+		const plan = planAudioUpload(source.path, rate * 125, rate ? 1 : 0, existing);
+		return plan.levels.length ? { plan, source } : null;
+	};
+	let making = $state(false);
+	async function makeMissing(a: AssetSummary) {
+		const missing = missingPlan(a);
+		if (!missing) return;
+		making = true;
+		uploadError = '';
+		try {
+			audioProgress = '…';
+			const response = await fetch(cdnAsset(missing.source.path));
+			if (!response.ok) throw new Error(`${missing.source.path}: ${response.status}`);
+			const audio = await decodeAudio(await response.arrayBuffer());
+			await makeLevels(audio, missing.plan);
+			await load(1, value || missing.source.path);
+			const fresh = items.find((x) => x.id === a.id);
+			if (fresh) chosen = fresh;
+		} catch (e) {
+			uploadError = e instanceof Error ? e.message : String(e);
+			audioProgress = '';
+		} finally {
+			making = false;
+		}
+	}
+
 	function chooseFile(event: Event) {
 		const file = (event.currentTarget as HTMLInputElement).files?.[0] ?? null;
 		uploadFile = file;
 		uploadError = '';
+		uploadAudio = null;
+		if (file && isAudioFile(file)) {
+			file.arrayBuffer()
+				.then(decodeAudio)
+				.then((audio) => {
+					if (uploadFile === file) uploadAudio = audio;
+				})
+				.catch(() => {
+					if (uploadFile === file) uploadError = t.audioUndecodable;
+				});
+		}
 		if (file) {
 			const clean = file.name.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/-+/g, '-');
 			// the field's place first (owner 2026-10-03: uploads go next to where they are used, by the content rules)
@@ -212,23 +278,35 @@
 		if (!uploadFile || !uploadPath) return;
 		uploading = true;
 		uploadError = '';
-		const path = uploadPath.trim();
+		const plan = uploadPlan;
+		const audio = uploadAudio;
+		// audio: the original under its rate's name (s1c1-bells.320.mp3); a lossless source isn't uploaded itself
+		const path = plan ? (plan.original ?? '') : uploadPath.trim();
 		try {
-			let uploaded: string;
-			try {
-				uploaded = (await assetsApi.upload(uploadFile, path)).uploaded;
-			} catch (e) {
-				if (!(e instanceof ApiError && e.code === 'exists')) throw e;
-				// a new version at the same path (owner 2026-10-03: updating media meant renaming): replace in place, the old
-				// bytes stay as the asset's previous version
-				if (!(await confirmDialog({ title: t.replaceTitle, message: t.replaceMessage(path), confirmLabel: t.replace }))) return;
-				uploaded = (await assetsApi.replaceAt(uploadFile, path)).replaced;
+			let uploaded = '';
+			if (path) {
+				try {
+					uploaded = (await assetsApi.upload(uploadFile, path)).uploaded;
+				} catch (e) {
+					if (!(e instanceof ApiError && e.code === 'exists')) throw e;
+					// a new version at the same path (owner 2026-10-03: updating media meant renaming): replace in place, the old
+					// bytes stay as the asset's previous version
+					if (!(await confirmDialog({ title: t.replaceTitle, message: t.replaceMessage(path), confirmLabel: t.replace }))) return;
+					uploaded = (await assetsApi.replaceAt(uploadFile, path)).replaced;
+				}
+			}
+			if (plan && audio && plan.levels.length) {
+				await makeLevels(audio, plan);
+				// the medium file is what a field takes by default (the picker's "Use")
+				uploaded = plan.levels.find((l) => l.level === 'medium')?.path || uploaded || plan.levels[0].path;
 			}
 			query = '';
 			await load(1, uploaded);
 			uploadFile = null;
+			uploadAudio = null;
 		} catch (e) {
 			uploadError = e instanceof ApiError && e.code === 'unchanged' ? t.replaceUnchanged : e instanceof Error ? e.message : String(e);
+			audioProgress = '';
 		} finally {
 			uploading = false;
 		}
@@ -263,6 +341,10 @@
 						</li>
 					{/each}
 				</ul>
+				{#if missingPlan(c)}
+					{@const missing = missingPlan(c)!}
+					<Button size="sm" variant="secondary" disabled={making || uploading} onclick={() => makeMissing(c)} title={t.audioLevelsHint} data-testid="asset-audio-levels">{making ? audioProgress || '…' : t.audioLevelsMake(levelNames(missing.plan.levels))}</Button>
+				{/if}
 				<Button size="sm" class="use" onclick={() => pick(c)} data-testid="asset-use">{t.use}</Button>
 			</section>
 		{/if}
@@ -274,7 +356,13 @@
 			{#if uploadFile}
 				<label class="sc-label" for="asset-upload-path">{t.uploadPath}</label>
 				<input id="asset-upload-path" type="text" bind:value={uploadPath} data-testid="asset-upload-path" />
-				<Button size="sm" disabled={uploading || !uploadPath} onclick={upload} data-testid="asset-upload-go">{uploading ? '…' : t.upload} · {bytes(uploadFile.size)}</Button>
+				{#if uploadPlan}
+					<p class="sc-caption" data-testid="asset-upload-levels">
+						{#if !uploadPlan.original}{t.audioLossless}<br />{/if}
+						{#if uploadPlan.original}{uploadPlan.original.split('/').pop()}{/if}{#if uploadPlan.levels.length}{uploadPlan.original ? ' · ' : ''}{t.audioLevelsPlan(levelNames(uploadPlan.levels))}{/if}
+					</p>
+				{/if}
+				<Button size="sm" disabled={uploading || !uploadPath} onclick={upload} data-testid="asset-upload-go">{uploading ? audioProgress || '…' : t.upload} · {bytes(uploadFile.size)}</Button>
 			{/if}
 			{#if uploadError}<p class="error" role="alert">{uploadError}</p>{/if}
 		</div>
