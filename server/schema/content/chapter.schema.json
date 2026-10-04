@@ -153,12 +153,31 @@
 				},
 				"path": {
 					"type": "string"
+				},
+				"variants": {
+					"$ref": "#/definitions/QualityVariants"
 				}
 			},
 			"required": [
 				"id",
 				"path"
-			]
+			],
+			"description": "A music track or a sample-library sound. `path` = the default file (the medium level, 128k – what older readers and a reader without a known level play); `variants` = one file per quality level (low 96k / medium 128k / high 320k, PLAN.md \"RULE: one file per quality level\"), toon-relative like `path`. A missing level falls back to the next lower one."
+		},
+		"QualityVariants": {
+			"type": "object",
+			"properties": {
+				"low": {
+					"type": "string"
+				},
+				"medium": {
+					"type": "string"
+				},
+				"high": {
+					"type": "string"
+				}
+			},
+			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
 		},
 		"Group": {
 			"type": "object",
@@ -290,21 +309,6 @@
 				"width",
 				"height"
 			]
-		},
-		"QualityVariants": {
-			"type": "object",
-			"properties": {
-				"low": {
-					"type": "string"
-				},
-				"medium": {
-					"type": "string"
-				},
-				"high": {
-					"type": "string"
-				}
-			},
-			"description": "One file per quality level (CDN paths like `src`); a missing level falls back (`pickQualityVariant`)."
 		},
 		"SliceVideo": {
 			"type": "object",
