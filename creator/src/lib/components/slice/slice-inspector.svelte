@@ -40,6 +40,7 @@
 		groupLabels,
 		chapterAudio,
 		librarySample,
+		heldMusic,
 		worldMap,
 		chapterSlices,
 		onmaptouch,
@@ -65,6 +66,8 @@
 		chapterAudio: any;
 		/** a picked / uploaded sample file → its id in the chapter's sample library (added when new) */
 		librarySample: (path: string) => string;
+		/** per track: the level it holds from an earlier slice (none = silent) */
+		heldMusic: Record<string, { volume: number; label: string }>;
 		worldMap: ContentDoc;
 		chapterSlices: ChapterSliceRef[];
 		onmaptouch: () => void;
@@ -163,6 +166,7 @@
 			{slicePath}
 			{chapterAudio}
 			{librarySample}
+			{heldMusic}
 			{toon}
 			place="{toon}/s{seasonNumber}/c{chapterNumber}/"
 			selectedSample={selection?.kind === 'sample' ? selection.index : -1}

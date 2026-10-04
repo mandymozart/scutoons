@@ -359,3 +359,10 @@ file · trigger; opens on click or when selected on the canvas). The opened samp
 upload into the chapter folder); a file not in the chapter's sample library yet is added to it (`librarySample` in the
 chapter editor: id from the file name, `s1c1-choir-loud.128.mp3` → `choir_loud`, saved with the chapter). A new sample
 starts without a sound and opens (the old "+" selected one past it). Music volumes: the value column no longer cuts off.
+Slice music as a mixer (same day, owner: "a different UI could be useful"): one vertical strip per chapter track (value 0–100,
+fader, name). A track the slice doesn't set holds the level of the last earlier slice that did (the reader keeps a level
+until a slice changes it; every track starts silent) – shown faint and dashed with "slice n" (`heldMusic`, computed in the
+chapter editor across groups); moving the fader sets it for this slice, × hands it back. No checkbox.
+Audio is the same in every language (`unifyAudio` in @scutoons/content geometry.ts, run on load next to unifyGeometry,
+notice `creator.audio_unified`): the chapter's `audio` and each slice's `audio` follow the source locale – an `en` file
+with samples at the old `audio.samples` showed every sample field as an en override and filled the problems list.

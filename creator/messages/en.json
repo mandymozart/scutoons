@@ -163,6 +163,7 @@
 		"canvas_snap_hint": "Snap to the grid: moving, resizing and scaling in grid steps, rotating in 15° steps (Shift switches). Remembered on this device.",
 		"canvas_snap": "Snap",
 		"geometry_unified": "{n} texts / items had another position or size in another language – they now follow the source language (geometry is the same in every language). Save to keep it.",
+		"audio_unified": "{n} audio settings (music, samples) differed in another language or sat at the old place – they now follow the source language (audio is the same in every language). Save to keep it.",
 		"slice_item_change": "Choose the item …",
 		"respawn_item_never": "This item never reappears (catalog) – a one-time find. Admin → Catalog sets which items can reappear.",
 		"respawn_item_default": "Item default ({every})",

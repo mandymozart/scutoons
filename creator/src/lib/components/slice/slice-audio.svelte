@@ -18,6 +18,7 @@
 		slicePath,
 		chapterAudio,
 		librarySample,
+		heldMusic = {},
 		toon,
 		place,
 		selectedSample = -1,
@@ -28,6 +29,8 @@
 		/** the chapter's audio config (tracks, sampleLibrary) */
 		chapterAudio: any;
 		librarySample: (path: string) => string;
+		/** per track: the level it holds from an earlier slice (none = silent) */
+		heldMusic?: Record<string, { volume: number; label: string }>;
 		toon: string;
 		/** where uploads go (the chapter folder) */
 		place: string;
@@ -144,21 +147,29 @@
 </script>
 
 <section class="slice-audio" data-testid="slice-audio">
-	<h4>Music volumes</h4>
+	<h4>Music</h4>
 	{#if !musicTracks.length}
 		<p class="hint">The chapter has no music tracks (Audio in the tree).</p>
 	{/if}
-	{#each musicTracks as track (track.id)}
-		{@const v = volumeOf(track.id)}
-		<div class="volume">
-			<label>
-				<input type="checkbox" checked={v !== undefined} onchange={(e) => setVolume(track.id, e.currentTarget.checked ? 0.5 : undefined)} />
-				{track.id}
-			</label>
-			<input type="range" min="0" max="1" step="0.05" value={v ?? 0} disabled={v === undefined} oninput={(e) => setVolume(track.id, Number(e.currentTarget.value))} />
-			<span class="num" title={v === undefined ? 'unchanged' : undefined}>{v === undefined ? '–' : v.toFixed(2)}</span>
-		</div>
-	{/each}
+	<!-- a mixer (owner 2026-10-04): one strip per chapter track. A track the slice doesn't set holds the level of an earlier
+	     slice (shown faint, "from …"); moving its fader sets it here, × hands it back to the earlier level. -->
+	<div class="mixer" data-testid="slice-mixer">
+		{#each musicTracks as track (track.id)}
+			{@const v = volumeOf(track.id)}
+			{@const held = heldMusic[track.id]}
+			{@const level = v ?? held?.volume ?? 0}
+			<div class="strip" class:held={v === undefined} data-testid="mixer-{track.id}">
+				<span class="val">{Math.round(level * 100)}</span>
+				<input class="fader" type="range" min="0" max="1" step="0.05" value={level} aria-label="{track.id} volume" oninput={(e) => setVolume(track.id, Number(e.currentTarget.value))} />
+				<span class="name" title={track.id}>{track.id}</span>
+				{#if v === undefined}
+					<span class="from" title={held ? `holds ${Math.round(held.volume * 100)} from ${held.label}` : 'silent – no earlier slice sets it'}>{held ? held.label : 'silent'}</span>
+				{:else}
+					<button type="button" class="sc-round" aria-label="{track.id}: hold the earlier level" title="Hold the earlier level ({held ? `${Math.round(held.volume * 100)}, ${held.label}` : 'silent'})" onclick={() => setVolume(track.id, undefined)}><CloseIcon /></button>
+				{/if}
+			</div>
+		{/each}
+	</div>
 
 	<h4>Samples</h4>
 	{#if misplaced.length}
@@ -224,26 +235,48 @@
 		text-transform: uppercase;
 		letter-spacing: var(--tracking-label);
 	}
-	.volume {
-		display: grid;
-		grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) 2.5em;
-		align-items: center;
-		gap: 0.4rem;
+	.mixer {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-05);
 	}
-	.volume label {
-		min-width: 0;
+	.strip {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 0.3rem;
+		width: 4.5rem;
+		padding: 0.4rem 0.25rem;
+		border: var(--border-width-regular) solid var(--ink);
+	}
+	/* held from an earlier slice: faint, dashed – moving the fader sets it here */
+	.strip.held {
+		border-style: dashed;
+		color: var(--text-muted);
+	}
+	.strip.held .fader {
+		opacity: 0.45;
+	}
+	.val {
+		font-variant-numeric: tabular-nums;
+	}
+	.fader {
+		writing-mode: vertical-lr;
+		direction: rtl;
+		width: 1.5rem;
+		height: 8rem;
+		margin: 0;
+	}
+	.name,
+	.from {
+		max-width: 100%;
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
-		display: flex;
-		gap: 0.3rem;
-		align-items: center;
 	}
-	.num {
-		text-align: right;
+	.from {
 		font-size: var(--type-caption-size);
-		line-height: var(--type-caption-line);
-		color: var(--muted);
+		line-height: var(--control-height);
 	}
 	/* a sample = one line until opened, the VN events' look (vn-events.svelte) */
 	.sample {

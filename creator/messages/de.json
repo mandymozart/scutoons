@@ -163,6 +163,7 @@
 		"canvas_snap_hint": "Am Raster ausrichten: Verschieben, Größe und Skalieren in Rasterschritten, Drehen in 15°-Schritten (Shift schaltet um). Wird auf diesem Gerät gemerkt.",
 		"canvas_snap": "Raster",
 		"geometry_unified": "{n} Texte / Gegenstände hatten in einer anderen Sprache eine andere Position oder Größe – sie folgen jetzt der Quellsprache (die Geometrie ist in allen Sprachen gleich). Speichern, um das zu übernehmen.",
+		"audio_unified": "{n} Audio-Einstellungen (Musik, Samples) waren in einer anderen Sprache anders oder am alten Ort – sie folgen jetzt der Quellsprache (Audio ist in allen Sprachen gleich). Speichern, um das zu übernehmen.",
 		"slice_item_change": "Gegenstand wählen …",
 		"respawn_item_never": "Dieser Gegenstand taucht nie wieder auf (Katalog) – ein einmaliger Fund. Welche Gegenstände wiederkommen, legt Admin → Katalog fest.",
 		"respawn_item_default": "Wie beim Gegenstand ({every})",
