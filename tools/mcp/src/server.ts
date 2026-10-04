@@ -1,9 +1,10 @@
 // The SCUTOONS MCP server (CUTOVER 10.28): tools over the existing content API with the creator's token – the API's role
 // checks are the only authority, this server adds the creator's validator in front of every save. Saves only ever add
-// draft versions (append-only, restorable); there is no publish tool – agents build, the creator publishes (owner 2026-10-04).
+// draft versions (append-only, restorable); publishing is a separate tool that exists only with SCUTOONS_MCP_PUBLISH=1.
+import { readFile } from 'node:fs/promises';
 import { McpServer } from '@modelcontextprotocol/server';
 import * as z from 'zod';
-import { ApiError, createApiClient, createAssetsApi, createContentApi, type ContentIndexEntity, type WrappedContent } from '@scutoons/api';
+import { ApiError, createApiClient, createAssetsApi, createContentApi, toonRelativePath, type ContentIndexEntity, type WrappedContent } from '@scutoons/api';
 import {
 	castIndex,
 	clone,
@@ -59,6 +60,9 @@ const guard =
 		}
 	};
 
+const MIME: Record<string, string> = { webp: 'image/webp', png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', gif: 'image/gif', svg: 'image/svg+xml', avif: 'image/avif', mp4: 'video/mp4', webm: 'video/webm', mp3: 'audio/mpeg', m4a: 'audio/mp4', ogg: 'audio/ogg', wav: 'audio/wav', json: 'application/json', pdf: 'application/pdf' };
+const mimeOf = (name: string) => MIME[name.split('.').pop()?.toLowerCase() ?? ''] ?? 'application/octet-stream';
+
 // ── patch operations ─────────────────────────────────────────────────────────────────────────────────────────────────
 
 const pathSchema = z.array(z.union([z.string(), z.number().int()])).describe('JSON path, e.g. ["groups", 5, "events", 0]');
@@ -110,7 +114,7 @@ export function createScutoonsServer(config: Config): McpServer {
 				`SCUTOONS content (${config.local ? 'LOCAL dev API' : config.api}). You have the rights of the signed-in creator.`,
 				'Read scutoons://rules/workflow first, then the rules for what you touch.',
 				'Saves create new DRAFT versions only (append-only, restorable with restore_version); readers see published versions.',
-				'You cannot publish: the creator reviews the drafts and publishes them in the creator app.'
+				config.publish ? 'publish_entity is enabled: publish only when the owner asked for it, with confirm: true.' : 'Publishing is disabled on this server.'
 			].join(' ')
 		}
 	);
@@ -373,6 +377,37 @@ export function createScutoonsServer(config: Config): McpServer {
 	);
 
 	server.registerTool(
+		'upload_asset',
+		{
+			description:
+				'Puts a NEW file into the asset manager (CDN) so content can use it – e.g. an image another AI service made. Source: an http(s) `url` or a local `file`. `path` = CDN-root path incl. the toon folder (e.g. "catpope/s1/c2/s1c2-slice-31.webp"; see scutoons://rules/slices for sizes). Never overwrites: a taken path → 409. Returns the path to store in the toon\'s documents (relative to the toon folder).',
+			inputSchema: z.object({
+				url: z.string().url().optional(),
+				file: z.string().optional().describe('local file path (stdio server only)'),
+				path: z.string().describe('CDN-root target path'),
+				title: z.string().optional(),
+				tags: z.array(z.string()).optional()
+			}),
+			annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+		},
+		guard(async ({ url, file, path, title, tags }) => {
+			if (!url === !file) return fail('give either url or file');
+			let blob: Blob;
+			if (url) {
+				if (!/^https?:\/\//i.test(url)) return fail('url must be http(s)');
+				const res = await fetch(url);
+				if (!res.ok) return fail(`download failed: ${res.status} ${res.statusText}`);
+				blob = new Blob([await res.arrayBuffer()], { type: res.headers.get('content-type')?.split(';')[0] || mimeOf(path) });
+			} else {
+				blob = new Blob([await readFile(file!)], { type: mimeOf(file!) });
+			}
+			const r = await assets.upload(blob, path, { title, tags });
+			const toon = path.split('/')[0];
+			return text({ uploaded: r.uploaded, asset: r.asset.id, kind: r.asset.kind, contentPath: toonRelativePath(r.uploaded, toon), size: blob.size });
+		})
+	);
+
+	server.registerTool(
 		'list_versions',
 		{
 			description: 'The version history of a stored key (newest first): id, draft / published, author, message. Every save is its own version.',
@@ -469,6 +504,27 @@ export function createScutoonsServer(config: Config): McpServer {
 			return text({ restored: version, version: r.version.id, status: r.version.status });
 		})
 	);
+
+	if (config.publish) {
+		server.registerTool(
+			'publish_entity',
+			{
+				description:
+					'PUBLISHES a version: readers see it right away. Only when the owner explicitly asked for this publish; every call needs confirm: true. Default: the newest version.',
+				inputSchema: z.object({
+					key: z.string().describe('stored key'),
+					version: z.number().int().optional(),
+					confirm: z.literal(true).describe('must be true – the owner asked for this publish')
+				}),
+				annotations: { readOnlyHint: false, destructiveHint: true, openWorldHint: true }
+			},
+			guard(async ({ key, version, confirm }) => {
+				if (confirm !== true) return fail('publishing needs confirm: true');
+				const r = await content.publishVersion(key, version);
+				return text({ published: r.version.id, key });
+			})
+		);
+	}
 
 	return server;
 }

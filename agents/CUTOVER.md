@@ -569,7 +569,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
     (default local), `SCUTOONS_TOKEN` (locally falls back to `logs/dev/test-user.json`, never for a remote API),
     no publishing (removed 2026-10-04, see below). Tools: `list_toons`, `list_chapters` (groups: label, scene entity, slices, `scriptLabels`
     points), `read_entity` (draft / published / version id, one or every locale, `path` for a part), `read_characters`
-    (cast season 1 like the creator, looks, moods), `read_map_places`, `search_assets`, `validate` (validateFile with the
+    (cast season 1 like the creator, looks, moods), `read_map_places`, `search_assets`, `upload_asset` (2026-10-04: a new
+    file from a URL or local file → the asset manager, 409 when the path is taken; returns the toon-relative content path), `validate` (validateFile with the
     chapter editor's context + validateLocales; validateCast for cast), `save_draft` (`ops` set / insert / remove on the
     `base` version, or whole `content`; errors refuse the save unless `allow_errors`; message gets "(agent)"; 409 explained),
     `list_versions`, `restore_version`. Resources
@@ -593,6 +594,70 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       service per day / month. Model: open (default the current Sonnet; Opus for bigger jobs?), limits per creator: open.
     - **Asset upload tool**: explained to the owner (an agent puts a file – e.g. an image made by another AI service – into
       the asset manager at a CDN path, so a slice can use it); decision open.
+- [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
+
+---
+
+## Decide-before list (all phases)
+
+| # | Decision | Blocks | Default / recommendation |
+|---|---|---|---|
+| D1 | old-layout files on the bunny zone: keep or prune | Phase 1 (no) | keep until the public release, then prune via Unused |
+| D2 | root folder name; test hostnames | 2.1, 2.6, T1 | **decided: `/web/`** ("the house of the applications"); hostnames still proposed: `next.` + `qr-next.` |
+| D3 | `VITE_API_URL` directly api. | 2.5 | yes |
+| D4 | duplicate Dago/beetles code sets: which was printed | public release (not the beta) | decide in the beta week |
+| D5 | embassy stays held back | 5 | yes |
+| D6 | admin mail recipients (`MAIL_ADMIN_TO` / Emails page) | 6.4 | owner's address |
+| D7 | the code you sign up with | 6.3 | promo code from the old `generate/` before 0.1 |
+| D8 | test data may be discarded on a DB rebuild | 7 | yes |
+| D9 | chapter 2 during the beta: draft or published | 8/9 | owner |
+| D10 | switch time window | 8 | quiet hour, Sat 2026-10-03 |
+| D11 | testers + their codes | 9 | promo codes |
+| D12 | feedback channel | 9 | owner |
+| D13 | ownership defaults: dispute sign-up, gift + claim limits | 9 | as built |
+| – | Not blocking the beta: record player coupon place once chapter 5 exists, tape/CD player sourcing (ITEMS.md); Nova Lux vs Nova Ludwig in the credits; stores' 7 open questions (EMBASSY.md); media-quality thresholds; trailer from the prologue film; the 11 unused CDN files | – | after the beta |
+
+---
+
+## Progress log
+
+- 2026-10-02 — runbook written (side-by-side + new DB strategy). Next: 0.1.
+- 2026-10-02 — 0.1 done (export in the owner's Proton Drive backups; only the `qr` table). Owner: credentials only in the
+  GitHub `production` environment; relayout BEFORE the bunny upload, new platform on `https://scutoons.b-cdn.net`
+  (Phase 1 rewritten, waits for the assets merge), Phase 4 n/a. Next: 0.2 (+ the 0.1 numbers).
+- 2026-10-02 — 0.3 done (legacy `/scutoons.com/` backed up). KAS FTP users recorded; 2.1 = new user "github actions next"
+  rooted in `/web/` (T3 n/a), 2.2 folder layout + domain map, 10.9 FTP cleanup.
+- 2026-10-02 — D2 decided: the new root folder is `/web/` (was proposed `/scutoons-next/`); test hostnames still proposed.
+- 2026-10-02 — 0.2 done. Open: the 0.1 numbers, the 0.2 hash/publicKey check. Next in parallel: 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6.
+- 2026-10-02 — 0.1 numbers: 469 codes / 35 registered / 381 signed, MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per-edition + CHECKSUM pending.
+- 2026-10-02 — 0.1 per edition: NULL 169, 3_catpope_vinyl 300 (= 469). No dago/beetles codes in production. CHECKSUM pending.
+- 2026-10-02 — 0.1 complete: CHECKSUM TABLE qr = 3162238151 (Phase 7 reference).
+- 2026-10-02 — 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6 done; 2.3 partly (keypair pending); T1 done (6fcb82c). Next: keypair → 2.3 verify, then 3.1/3.2 on DB-T.
+- 2026-10-02 — keypair reference SHA-256 409c1983…7bbe recorded (dev key 11934cea… must never go to production); batch manifests for 3.4 are in the same ZIP (`qr.scutoons.com/generate/files/batch/`).
+- 2026-10-02 — 3.4 SQL generated (300 statements, vinyl batch only) → cdn/logs/edition-numbers-2026-10-02.sql.
+- 2026-10-02 — 3.1 + 3.2 done (16 migrations, 3 triggers). Next: 3.4 import + check 469 / 300 numbered / 381 signed / 35 registered; 2.3 keypair upload pending.
+- 2026-10-02 — 3.4 done; DB-T qr counts match (469 / 300 / 381 / 35). 3.3 waits for the assets merge (regenerated seed).
+- 2026-10-02 — assets merged (b3be086, 67774da), relayout done (1.1), .env in C:\Development\scutoons, bunny zone empty. Migration 17 `2026-10-02-assets` added to 3.2; 3.3 unblocked. Next: 3.3 seed, migration 17, then 1.3/1.4 from C:\Development\scutoons\server. Worktree scutoons-assets can be removed later.
+- 2026-10-02 — 3.3 + 3.5 done (48 entities, roles, users 0, editions NULL 169 + vinyl 300); migration 17 awaiting the owner's confirmation; 1.3 + 1.4 done. Owner running 1.5 (log cdn/logs/bunny-init-2026-10-02.json), then 1.6, 1.7.
+- 2026-10-02 — migration 17 ran on DB-T (3.2 complete). 1.5 bunny upload running.
+- 2026-10-02 — 1.5, 1.6, 1.7 done (bunny = cdn/root, CORS + Range verified). Open in Phase 1: 1.8. Next: 1.8, then Phase 5.
+- 2026-10-02 — 10.1b done (7 bunny secrets in production). Awaiting confirmation: 2.3 keypair upload, 1.8 write prefix.
+- 2026-10-03 — 10.10 done on branch `dev-mariadb` (local MariaDB in Docker, tests + CI on it). Open: production's version / sql_mode / collation from phpMyAdmin → `docker/compose.yml`.  - **Step 2 decisions (owner 2026-10-04)**:
+    - **Host: a small Node server** (this package + Streamable HTTP; the validator stays TypeScript). Free if possible,
+      else European-hosted. Candidates: Koyeb (French, free always-on nano instance – check its EU region), Render free
+      (sleeps after 15 min, ~1 min cold start), Scaleway / Clever Cloud (FR, ~5 €/month), Hetzner (DE, ~4 €/month VPS).
+      Owner picks.
+    - **Auth: long-lived personal access tokens** (owner's choice; OAuth was recommended as safer). Build: a creator page
+      "Tokens" – create (shown once, only the hash stored), name, last used, revoke; never the browser session; the API
+      accepts them as Bearer like a session. Expiry optional. Note: the claude.ai connector needs OAuth – revisit then.
+    - **"Ask" panel: the owner pays** (SCUTOONS, personal business); default model the current Sonnet. Every AI call is
+      logged: creator, service (Claude API, image / audio services …), model, input / output tokens (or units), cost →
+      an admin overview by creator and service per day / month. Limits per creator: open.
+    - **Asset upload: yes** – built in step 1 (`upload_asset`); remote: from a URL only (no local files there).
+    - **Publish: keep the tool** (owner: drafts are reviewed; with a chat history the drafts can be reviewed there too).
+      Today it is off by default (`SCUTOONS_MCP_PUBLISH=1`) with `confirm: true` per call, and the API lets every
+      creator publish. To build in the API: who may publish without a review, by hierarchy level (a role / permission
+      "publish" vs. "submit for review"), so the API decides for agents and the UI alike.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
