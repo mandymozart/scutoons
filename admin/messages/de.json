@@ -97,13 +97,6 @@
 		"range": "{from}–{to} von {total}",
 		"per_page": "Pro Seite"
 	},
-	"inspector": {
-		"fields": "Felder",
-		"json": "JSON",
-		"key": "Schlüssel",
-		"value": "Wert",
-		"view": "Ansicht"
-	},
 	"dashboard": {
 		"title": "Dashboard",
 		"period": "{from} bis {to} (UTC)",
@@ -217,8 +210,6 @@
 		"timeline_caption": "{count} Ereignisse",
 		"section_certificate": "Zertifikat",
 		"section_certificate_hint": "Aus der gespeicherten Signatur neu erzeugt: dieselben Daten wie beim Signieren.",
-		"section_raw": "Rohdaten",
-		"section_raw_hint": "Die API-Antwort, wie sie ist.",
 		"qr_url": "QR-URL",
 		"qr_of": "QR-Code von {code}",
 		"items": "Items",
@@ -306,9 +297,7 @@
 		"done_toast": "Batch fertig: {count} Codes.",
 		"leave_confirm": "Der Batch läuft. Anhalten und verlassen? Er kann später fortgesetzt werden.",
 		"leave_title": "Batch anhalten?",
-		"leave_label": "Anhalten und verlassen",
-		"manifest": "Manifest",
-		"manifest_hint": "Wird nach jedem Code auf dem Server gespeichert (fortsetzbar)."
+		"leave_label": "Anhalten und verlassen"
 	},
 	"users": {
 		"title": "Konten & Rollen",

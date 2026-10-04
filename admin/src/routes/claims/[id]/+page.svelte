@@ -3,12 +3,11 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { onDestroy } from 'svelte';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, Field, RecordInspector, Section, Sheet, Skeleton } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, Field, Section, Sheet, Skeleton } from '@scutoons/ui';
 	import type { AdminClaimDetail, AdminClaimFile } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { choiceLabel, claimStatusLabel, claimTone, itemChoices, openClaims, type ItemChoice } from '$lib/claims.svelte.ts';
 	import { errorText, minute } from '$lib/format.ts';
-	import { inspectorLabels } from '$lib/labels.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -336,10 +335,6 @@
 		{:else}
 			<p class="muted">{m['claims.no_other']()}</p>
 		{/if}
-	</Section>
-
-	<Section title={m['codes.section_raw']()}>
-		<RecordInspector record={detail} labels={inspectorLabels()} />
 	</Section>
 
 	<Sheet bind:open={confirmOpen} title={confirming === 'transfer' ? m['claims.confirm_transfer_title']() : m['claims.confirm_reject_title']()} closeLabel={m['common.close']()}>

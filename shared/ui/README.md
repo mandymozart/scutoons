@@ -40,7 +40,6 @@ state, no routing, no paraglide: every visible string is a prop (defaults are En
 | `linkCommands(links, go, group?)` · `languageCommand({ locales, current, setLocale, label, group })` · `signOutCommand({ label, run, group })` · `otherLocale` | the palette commands every tool has: "go to" from nav links (`{ id, label, href, hint?, keywords?, group? }`), language switch, sign out |
 | `Skeleton` | loading placeholder: `variant` `text` (`lines`) \| `block` (`height`) \| `table` (`rows`, `columns`), `label`; static bars, no shimmer |
 | `Chart` | plain SVG `kind` `line` \| `bar`, `labels` (x), `series: { label, values }[]` (≤ 4), `height`, `ariaLabel`, `formatLabel`, `formatValue`; one y-axis from 0, cyan only as fill, series told apart by fill/outline/hatch or dash pattern + legend; hover / arrow keys = crosshair + values |
-| `RecordInspector` | raw record as key/value table or JSON (toggle): `record`, `labels` |
 | `ToonAvatar` | a toon's navigation avatar (CDN `<toonId>/avatar.webp`, 512² transparent WebP): `src`, `alt` (default `''`), `name` (placeholder letter, default `alt`), `size` (CSS length for width + height, default `2.5rem`); `radius-sm`, no border, `object-fit: contain`, `loading="lazy"`; no `src` or a load error → first letter on `surface-hover` |
 
 ## Example

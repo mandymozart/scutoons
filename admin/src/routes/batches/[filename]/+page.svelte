@@ -4,11 +4,10 @@
 	import { onDestroy, untrack } from 'svelte';
 	import { beforeNavigate, goto, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, confirmDialog, RecordInspector, Section, Skeleton } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, confirmDialog, Skeleton } from '@scutoons/ui';
 	import { admin } from '$lib/api.ts';
 	import { downloadPrintSheet, downloadZip } from '$lib/batch-actions.ts';
 	import { errorText, number } from '$lib/format.ts';
-	import { inspectorLabels } from '$lib/labels.ts';
 	import { BatchRun, PIPELINE, type PipelineStep } from '$lib/qr/batch.svelte.ts';
 	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
@@ -186,10 +185,6 @@
 			</tbody>
 		</table>
 	</div>
-
-	<Section title={m['batches.manifest']()}>
-		<RecordInspector record={{ ...b, codes: `${b.codes.length} …` }} labels={inspectorLabels()} />
-	</Section>
 {/if}
 
 <style>

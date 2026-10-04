@@ -177,7 +177,7 @@ which the new qr app proxies after the switch).
   | `/web/admin/dist/` | target `admin` | `admin.scutoons.com` (new) | same |
   | `/web/creator/dist/` | target `creator` | `creator.scutoons.com` | same |
   | `/web/shop/dist/` | target `shop` | `shop.scutoons.com` (new) | same |
-  | `/web/embassy/dist/` | held back (D5) | – | later (10.6) |
+  | `/web/embassy/dist/` | target `embassy` | `embassy.scutoons.com` (new, owner sets it up) | same |
   | `/scutoons.com/` (old viewer, untouched) | – | `scutoons.com`, `www.` | **`legacy.scutoons.com`** |
   | `/qr.scutoons.com/` (old qr + generate/, untouched) | – | `qr.scutoons.com` | **`qr-legacy.scutoons.com`** |
   | `/cdn.scutoons.com/` (old FTP CDN, untouched) | – | `cdn.scutoons.com` | same (legacy only; new platform = `scutoons.b-cdn.net`) |
@@ -273,7 +273,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
 ---
 ## Phase 5 — Deploy the new platform into `/web/` (nothing points at it except the new/test hostnames)
 
-Decide before: **D5** embassy stays held back for the beta (default yes: not in `targets.json` `order`, workflow manual).
+Decided: **D5** embassy ships with the release (owner 2026-10-04; in `targets.json` `order`).
 Preconditions: **2.1 done (FTP secrets = the subfolder user!)**, 0.4 done, T1 done. After the assets merge also: the 7 `BUNNY_*` / `CDN_PUBLIC_URL`
 secrets in `production` (step 10.1b – needed from the first deploy, since the merge ships the asset manager).
 
@@ -427,7 +427,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   then prune (ASSETS.md "Migration plan").
 - [ ] 10.5 Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
   no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
-- [ ] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain, `order`, workflow trigger, roles, import.
+- [ ] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04).
 - [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
 - [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3), github actions
   `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
@@ -668,7 +668,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 | D2 | root folder name; test hostnames | 2.1, 2.6, T1 | **decided: `/web/`** ("the house of the applications"); hostnames still proposed: `next.` + `qr-next.` |
 | D3 | `VITE_API_URL` directly api. | 2.5 | yes |
 | D4 | duplicate Dago/beetles code sets: which was printed | public release (not the beta) | decide in the beta week |
-| D5 | embassy stays held back | 5 | yes |
+| D5 | embassy stays held back | 5 | no – ships with the release (owner 2026-10-04) |
 | D6 | admin mail recipients (`MAIL_ADMIN_TO` / Emails page) | 6.4 | owner's address |
 | D7 | the code you sign up with | 6.3 | promo code from the old `generate/` before 0.1 |
 | D8 | test data may be discarded on a DB rebuild | 7 | yes |

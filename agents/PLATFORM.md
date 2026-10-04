@@ -219,7 +219,7 @@ one-line description; burger < 768px) + the fixed bottom `ActionBar` on every pa
 | Route | Parity with `generate/` + new |
 |---|---|
 | `/` | Stats chart → KPIs (totals + period), daily scans/unlocks (line) and claims/signups (bar), claimed/total per edition |
-| `/codes`, `/codes/<code>` | Stats table/detail → URL-driven table (search, edition/type/status filters, sort, pager, bulk revoke/unrevoke, CSV), split-view drawer, detail page (facts, revoke with reason, stats, full timeline, raw record) |
+| `/codes`, `/codes/<code>` | Stats table/detail → URL-driven table (search, edition/type/status filters, sort, pager, bulk revoke/unrevoke, CSV), split-view drawer, detail page (facts, revoke with reason, stats, full timeline) |
 | `/codes/new` | Generate → all types, toon/redirect prefill, expiry, edition + template fields, ML-DSA-65 signing, archived SVG + signature, downloads SVG / CoA / printable QR / signature |
 | `/codes/<code>` → Certificate | Regenerate → rebuilt from the stored signature (`qr_data`), local signature check, legacy regenerate download names |
 | `/batches`, `/batches/<file>` | Batch → history (resume, ZIP, print sheet), new batch (edition, count, start number, `409 batch_complete` → "Create anyway"), resumable pipeline sign → db → svg → pdf → sig with pause/abort, manifest saved after every code |
@@ -428,7 +428,8 @@ reimplemented in SCUTOONS style, no copying of akin's look).
 - **Forms:** `.field` / label / `.field-hint` / `.has-error` / `.field-error`; sticky bottom action bar.
 - **Toasts:** runes store `addToast({ message, type, timeout })` + fixed bottom-right stack.
 - **Badges** for status (claimed, revoked, draft, published); **Menu** dropdown with click-outside; **Toggle**.
-- **Raw record inspector:** key/value table with a JSON toggle on every detail page.
+- **No raw record sections** on admin detail pages (owner 2026-10-04: uninformative). `RecordInspector` was removed
+  from `@scutoons/ui`.
 - **CSS split by concern:** color, typography, forms, lists, entities, notifications, columns — values from
   `@scutoons/tokens`.
 

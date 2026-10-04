@@ -2,11 +2,11 @@
 	import { infoBar } from '$lib/info.ts';
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, Field, RecordInspector, Section, Sheet, Skeleton, type Column } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, DataTable, Field, Section, Sheet, Skeleton, type Column } from '@scutoons/ui';
 	import type { AdminCodeDetail, CodeEvent, OwnershipTransfer } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { errorText, minute, number } from '$lib/format.ts';
-	import { eventLabel, inspectorLabels, tableLabels } from '$lib/labels.ts';
+	import { eventLabel, tableLabels } from '$lib/labels.ts';
 	import { qrUrl } from '$lib/qr/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
@@ -268,10 +268,6 @@
 
 	<Section title={m['codes.section_certificate']()}>
 		<CertificatePanel code={c.code} type={c.type} />
-	</Section>
-
-	<Section title={m['codes.section_raw']()}>
-		<RecordInspector record={detail} labels={inspectorLabels()} />
 	</Section>
 {/if}
 

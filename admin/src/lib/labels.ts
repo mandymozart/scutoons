@@ -45,14 +45,6 @@ export const pagerLabels = () => ({
 	pageSize: m['table.per_page']()
 });
 
-export const inspectorLabels = () => ({
-	fields: m['inspector.fields'](),
-	json: m['inspector.json'](),
-	key: m['inspector.key'](),
-	value: m['inspector.value'](),
-	view: m['inspector.view']()
-});
-
 /**
  * What people see instead of an entity key (no file names in the UI, owner 2026-09-30): `chapter:catpope:2` →
  * "Chapter 2" … The one mapping is @scutoons/ui `entityLabel`; this passes the admin's translations.

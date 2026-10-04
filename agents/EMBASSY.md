@@ -203,14 +203,12 @@ own data, no per-seat fees. Phase 0 works either way.
   phone width 375 px, German).
 
 **To go live (owner):** subdomain `embassy.scutoons.com` on all-inkl → folder `embassy/dist/` (+ SSL); run
-`server/migrations/mysql/2026-10-01-embassy.mysql.sql` then `2026-10-02-embassy-stores.mysql.sql` in phpMyAdmin; merge `embassy` after the release (the api
-deploy adds the origin to `ALLOWED_ORIGINS`); grant roles in the admin app (Users); import the file on `/import`
+`server/migrations/mysql/2026-10-01-embassy.mysql.sql` then `2026-10-02-embassy-stores.mysql.sql` in phpMyAdmin (the api deploy adds the origin to `ALLOWED_ORIGINS`); grant roles in the admin app (Users); import the file on `/import`
 (dry run first). Local: nothing to add, the dev API allows every port of `shared/dev-ports.json` (PLATFORM.md "Local dev ports").
 
-**Held back from the 2026-10-04 rollout (owner 2026-10-01):** `embassy` is merged into `platform` but NOT in
-`deploy/targets.json` `order` (so "Deploy all" skips it), and `.github/workflows/embassy.yml` has no push trigger (manual
-runs only). At go-live: add `"embassy"` back to `order`, restore the workflow's push trigger (paths are listed in its header
-comment). The DB migration is additive and may run with the release or later.
+**Released with the 2026-10-04 rollout (owner 2026-10-04; was held back since 2026-10-01):** `embassy` is in
+`deploy/targets.json` `order`, so the Deploy workflow ships it on pushes to main; `.github/workflows/embassy.yml` stays the
+manual single-app run. The DB migrations are additive.
 
 **Next (phase 2):** sending from the app (SMTP, shared mailbox), inbox sync, templates + call notes, member updates
 to opted-in members, daily reminder. Then phase 3 (AI enrichment, drafts, research runs).
