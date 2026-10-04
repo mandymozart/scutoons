@@ -228,6 +228,8 @@ final class CatalogValidator
             if (!isset($items[$part['item']])) $p[] = "$what: unknown item \"{$part['item']}\"";
             if (!is_int($part['qty'] ?? null) || $part['qty'] < 1) $p[] = "$what: qty must be a whole number ≥ 1";
         }
+        // the recipe's own picture (owner 2026-10-04), optional – without it readers see the output item's picture
+        if (($recipe['image'] ?? null) !== null && !(is_string($recipe['image']) && preg_match('/\.(png|webp|avif|svg)$/i', $recipe['image']))) $p[] = 'image must be an image path (.webp / .png / .avif / .svg)';
         return $p;
     }
 

@@ -100,6 +100,10 @@ final class CatalogApiTest extends TestCase
         // a recipe that uses it, then the item can't go
         $r = $this->request('PUT', '/api/admin/catalog/recipes/onion_soup', $auth, (string) json_encode(['data' => ['id' => 'onion_soup', 'inputs' => [['item' => 'onion', 'qty' => 2]], 'output' => ['item' => 'cucumber', 'qty' => 1]]]));
         self::assertSame(201, $r->getStatusCode());
+        // a recipe's own picture must be an image path (refused = no history row)
+        $r = $this->request('PUT', '/api/admin/catalog/recipes/onion_soup', $auth, (string) json_encode(['data' => ['id' => 'onion_soup', 'inputs' => [['item' => 'onion', 'qty' => 2]], 'output' => ['item' => 'cucumber', 'qty' => 1], 'image' => 'catpope/items/recipes/onion_soup.txt']]));
+        self::assertSame([422, 'invalid_catalog'], [$r->getStatusCode(), self::json($r)['error']]);
+        self::assertStringContainsString('image must be an image path', implode(' ', self::json($r)['problems']));
         $r = $this->request('DELETE', '/api/admin/catalog/items/onion', $auth);
         self::assertSame([409, 'in_use', ['recipe onion_soup']], [$r->getStatusCode(), self::json($r)['error'], self::json($r)['uses']]);
         // reorder

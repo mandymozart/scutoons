@@ -51,7 +51,8 @@ fetches it from the QR API; it is not duplicated in the viewer.
     {
       "id": "cucumber_camera",
       "inputs": [ { "item": "camera", "qty": 1 }, { "item": "cucumber", "qty": 1 } ],  // all consumed
-      "output": { "item": "cucumber_camera", "qty": 1 }
+      "output": { "item": "cucumber_camera", "qty": 1 },
+      "image": "catpope/items/recipes/cucumber_camera.webp"   // optional, own picture (admin); none = the output item's
     }
   ]
 }
