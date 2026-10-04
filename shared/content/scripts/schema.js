@@ -49,7 +49,8 @@ for (const [name, type] of Object.entries(SCHEMAS)) {
 		title: type,
 		...generator.createSchema(type)
 	};
-	const text = JSON.stringify(schema, null, '\t') + '\n';
+	// doc comments carry the checkout's line endings (CRLF on Windows): the same schema on every machine
+	const text = JSON.stringify(schema, (_key, value) => (typeof value === 'string' ? value.replace(/\r\n/g, '\n') : value), '\t') + '\n';
 	const file = join(root, 'schema', `${name}.schema.json`);
 	if (check) {
 		if (!existsSync(file) || readFileSync(file, 'utf8').replace(/\r\n/g, '\n') !== text) stale.push(file);
