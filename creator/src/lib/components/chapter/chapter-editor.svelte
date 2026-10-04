@@ -51,6 +51,7 @@
 	import GroupPanel from '$lib/components/chapter/group-panel.svelte';
 	import AudioPanel from '$lib/components/chapter/audio-panel.svelte';
 	import VnEvents from '$lib/components/events/vn-events.svelte';
+	import { pagePanel } from '$lib/ask.svelte.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
@@ -232,6 +233,11 @@
 		view.savePrefs();
 	});
 	let panel = $state<'problems' | 'history' | null>(null);
+	// with the Ask panel open too, the sidebar folds to its rail (the page keeps room)
+	$effect(() => {
+		pagePanel.open = panel !== null;
+		return () => (pagePanel.open = false);
+	});
 	function togglePanel(next: 'problems' | 'history') {
 		panel = panel === next ? null : next;
 	}
@@ -725,7 +731,7 @@
 			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
 		<aside class="side-panel">
 			{#if panel === 'problems'}
-				<ProblemsPanel {problems} ongoto={gotoProblem} onclose={() => (panel = null)} />
+				<ProblemsPanel {problems} home={chapter.entity} ongoto={gotoProblem} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && activeDoc}
 				<HistoryPanel doc={view.section === 'group' || view.section === 'slice' ? activeDoc : chapter} onclose={() => (panel = null)} />
 			{/if}
@@ -872,6 +878,12 @@
 	}
 	.error {
 		color: var(--error);
+	}
+	/* the page makes room for the side panel instead of hiding under it (like the meta pages); phones: it covers the page */
+	@media (min-width: 768px) {
+		.editor.with-panel {
+			margin-right: var(--panel-width);
+		}
 	}
 	/* the side panel's left edge drags it wider (lib/panel-width.svelte.ts) */
 	.panel-resize {

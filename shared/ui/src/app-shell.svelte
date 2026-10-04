@@ -47,6 +47,7 @@
 		railLabel = '',
 		foldLabel = 'Fold the sidebar',
 		unfoldLabel = 'Show the sidebar',
+		foldWhen = false,
 		class: className = ''
 	}: {
 		topbar?: Snippet;
@@ -74,22 +75,37 @@
 		railLabel?: string;
 		foldLabel?: string;
 		unfoldLabel?: string;
+		/** fold to the rail while true (the page needs the room, e.g. two panels docked on the right); not remembered –
+		 * unfolding by hand wins until it turns false again */
+		foldWhen?: boolean;
 		class?: string;
 	} = $props();
 
 	// ---------- foldable sidebar (a rail) ----------
-	let folded = $state(false);
+	/** folded by the user (remembered) */
+	let foldedByUser = $state(false);
+	/** unfolded by hand while `foldWhen` holds */
+	let unfoldedByHand = $state(false);
+	$effect(() => {
+		if (!foldWhen) unfoldedByHand = false;
+	});
+	const folded = $derived(foldedByUser || (foldWhen && !unfoldedByHand));
 	const foldKey = $derived(foldable && resizeKey ? `sc-sidebar-folded:${resizeKey}` : '');
 	$effect(() => {
 		if (!foldKey) return;
 		try {
-			folded = localStorage.getItem(foldKey) === '1';
+			foldedByUser = localStorage.getItem(foldKey) === '1';
 		} catch {
 			// not remembered
 		}
 	});
 	function setFolded(value: boolean) {
-		folded = value;
+		if (foldWhen) {
+			// folded for the page's sake: unfolding is a choice for now, not a remembered setting
+			unfoldedByHand = !value;
+			if (!foldedByUser) return;
+		}
+		foldedByUser = value;
 		try {
 			if (value) localStorage.setItem(foldKey, '1');
 			else localStorage.removeItem(foldKey);

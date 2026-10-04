@@ -11,6 +11,7 @@
 	import { editorKeys } from '$lib/editor/editor-keys.ts';
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
+	import { pagePanel } from '$lib/ask.svelte.ts';
 	import ProblemsPanel from '$lib/components/page/problems-panel.svelte';
 	import HistoryPanel from '$lib/components/page/history-panel.svelte';
 	import FileStatus, { hasStatus } from '$lib/components/status/file-status.svelte';
@@ -75,6 +76,11 @@
 	const anyDirty = $derived(session.anyDirty);
 	const anySaving = $derived(session.anySaving);
 	let panel = $state<'problems' | 'history' | null>(null);
+	// with the Ask panel open too, the sidebar folds to its rail (the page keeps room)
+	$effect(() => {
+		pagePanel.open = panel !== null;
+		return () => (pagePanel.open = false);
+	});
 	function togglePanel(next: 'problems' | 'history') {
 		panel = panel === next ? null : next;
 	}
@@ -163,7 +169,7 @@
 			<div class="panel-resize" role="separator" aria-orientation="vertical" aria-label={m['creator.resize_panel']()} title={m['creator.resize_panel']()} tabindex="0" onpointerdown={panelSize.start} onkeydown={panelSize.key} ondblclick={panelSize.reset}></div>
 		<aside class="side-panel">
 			{#if panel === 'problems'}
-				<ProblemsPanel {problems} onclose={() => (panel = null)} />
+				<ProblemsPanel {problems} home={main?.entity} onclose={() => (panel = null)} />
 			{:else if panel === 'history' && historyDoc}
 				{#if docs.length > 1}
 					<p class="history-files">

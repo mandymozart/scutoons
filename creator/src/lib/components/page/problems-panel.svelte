@@ -1,40 +1,107 @@
 <script lang="ts">
-	import { CloseIcon } from '@scutoons/ui';
+	// The Problems panel (chapter editor, meta pages): errors and warnings of the open page, notes on request. A row
+	// jumps to its place; "Looks fine" accepts a warning (it moves behind "accepted"), "Ask" hands it to the Ask panel.
+	// DRAFT (owner 2026-10-04): acceptances live in memory only – they become a versioned `accepted` list per page next.
+	import { SvelteSet } from 'svelte/reactivity';
+	import { CloseButton, Icon } from '@scutoons/ui';
 	import { fileLabel } from '$lib/labels.ts';
+	import { askAbout } from '$lib/ask.svelte.ts';
 	import type { Problem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	let {
 		problems,
+		home,
 		ongoto,
 		onclose
-	}: { problems: Problem[]; ongoto?: (problem: Problem) => void; onclose?: () => void } = $props();
+	}: {
+		problems: Problem[];
+		/** the page's own file: its name is left out of the places (other files, e.g. a scene group, keep theirs) */
+		home?: string;
+		ongoto?: (problem: Problem) => void;
+		onclose?: () => void;
+	} = $props();
 
 	let showInfo = $state(false);
-	const visible = $derived(problems.filter((p) => showInfo || p.level !== 'info'));
+	let showAccepted = $state(false);
+
+	const keyOf = (p: Problem) => [p.file, p.locale ?? '', p.path.join('.'), p.message].join('|');
+	const isAccepted = (p: Problem) => p.level === 'warning' && accepted.has(keyOf(p));
+	function toggleAccepted(p: Problem) {
+		const key = keyOf(p);
+		if (accepted.has(key)) accepted.delete(key);
+		else accepted.add(key);
+	}
+
 	const counts = $derived({
 		error: problems.filter((p) => p.level === 'error').length,
-		warning: problems.filter((p) => p.level === 'warning').length,
+		warning: problems.filter((p) => p.level === 'warning' && !isAccepted(p)).length,
+		accepted: problems.filter(isAccepted).length,
 		info: problems.filter((p) => p.level === 'info').length
 	});
+	const visible = $derived(problems.filter((p) => (p.level === 'info' ? showInfo : isAccepted(p) ? showAccepted : true)));
+
+	// a path as a place: groups.0.slices.42.dialog.1.text → Group 1 · Slice 43 · Line 2 (the page's own file and a
+	// line's "text" field add nothing)
+	const NUMBERED: Record<string, (n: number) => string> = {
+		groups: (n) => m['creator.group_n']({ number: n }),
+		slices: (n) => m['creator.slice_n']({ number: n }),
+		dialog: (n) => m['creator.line_n']({ number: n }),
+		events: (n) => m['creator.event_n']({ number: n })
+	};
+	function placeOf(p: Problem): string {
+		const parts = p.file === home ? [] : [fileLabel(p.file)];
+		const path = p.path.at(-1) === 'text' ? p.path.slice(0, -1) : p.path;
+		for (let i = 0; i < path.length; i++) {
+			const key = path[i];
+			const next = path[i + 1];
+			if (typeof key === 'string' && typeof next === 'number' && NUMBERED[key]) {
+				parts.push(NUMBERED[key](next + 1));
+				i++;
+			} else parts.push(typeof key === 'number' ? `#${key + 1}` : String(key));
+		}
+		if (p.locale) parts.push(p.locale);
+		return parts.join(' · ') || fileLabel(p.file);
+	}
+</script>
+
+<script lang="ts" module>
+	/** acceptances of this browser session (draft): kept across panel open / close and page changes */
+	const accepted = new SvelteSet<string>();
 </script>
 
 <div class="problems" data-testid="problems-panel">
 	<header>
-		<h2>{m['creator.problems']()} · {counts.error} errors · {counts.warning} warnings</h2>
-		{#if onclose}<button class="ghost" onclick={onclose} aria-label="Close"><CloseIcon /></button>{/if}
+		<h2>{m['creator.problems']()}</h2>
+		{#if onclose}<CloseButton label={m['creator.info_close']()} onclick={onclose} />{/if}
 	</header>
-	<label class="toggle"><input type="checkbox" bind:checked={showInfo} /> show {counts.info} notes</label>
+	<p class="summary">
+		<span class:bad={counts.error > 0}>{m['creator.problems_errors']({ count: counts.error })}</span> · {m['creator.problems_warnings']({ count: counts.warning })}
+	</p>
+	<div class="filters">
+		<label><input type="checkbox" bind:checked={showAccepted} disabled={!counts.accepted} /> {m['creator.problems_accepted']({ count: counts.accepted })}</label>
+		<label><input type="checkbox" bind:checked={showInfo} disabled={!counts.info} /> {m['creator.problems_notes']({ count: counts.info })}</label>
+	</div>
 	{#if !visible.length}
 		<p class="hint">{m['creator.no_problems']()}</p>
 	{/if}
 	<ul>
 		{#each visible as p, i (i)}
-			<li class="level-{p.level}">
-				<button type="button" class="ghost" onclick={() => ongoto?.(p)}>
-					<span class="where">{fileLabel(p.file)}{p.locale ? ` · ${p.locale}` : ''} · {p.path.join('.') || '/'}</span>
+			{@const place = placeOf(p)}
+			{@const done = isAccepted(p)}
+			<li class="level-{p.level}" class:is-accepted={done}>
+				<button type="button" class="goto" onclick={() => ongoto?.(p)} title={m['creator.problems_goto']()}>
+					<span class="where">{place}</span>
 					<span class="msg">{p.message}</span>
 				</button>
+				<span class="actions">
+					{#if p.level === 'warning'}
+						<button type="button" class="sc-round" class:is-active={done} aria-pressed={done} title={done ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} aria-label={done ? m['creator.problems_unaccept']() : m['creator.problems_accept']()} onclick={() => toggleAccepted(p)}><Icon name="check" /></button>
+					{/if}
+					{#if p.level !== 'info' && !done}
+						<button type="button" class="sc-round" title={m['creator.problems_ask']()} aria-label={m['creator.problems_ask']()} onclick={() => askAbout(m['creator.problems_ask_text']({ place, message: p.message }))}><Icon name="message-square" /></button>
+					{/if}
+				</span>
 			</li>
 		{/each}
 	</ul>
@@ -45,16 +112,39 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		border-bottom: 2px solid var(--ink);
+		gap: var(--space-05);
 	}
 	h2 {
-		margin: 0.25rem 0;
+		margin: 0;
+		font-size: var(--type-body-size);
+		line-height: var(--type-body-line);
+		font-weight: normal;
 	}
-	.toggle {
+	.summary {
+		margin: 0 0 var(--space-05);
+		color: var(--muted);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+	}
+	.summary .bad {
+		color: var(--error);
+	}
+	.filters {
 		display: flex;
-		gap: 0.3rem;
+		flex-wrap: wrap;
+		gap: var(--space-05) var(--space-1);
+		padding-bottom: var(--space-05);
+		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+	}
+	.filters label {
+		display: flex;
 		align-items: center;
-		margin: 0.3rem 0;
+		gap: var(--space-05);
+	}
+	.hint {
+		color: var(--muted);
 	}
 	ul {
 		list-style: none;
@@ -62,8 +152,12 @@
 		padding: 0;
 	}
 	li {
-		border-left: 3px solid var(--border-muted);
-		margin-bottom: 0.2rem;
+		display: flex;
+		align-items: flex-start;
+		gap: var(--space-05);
+		padding: var(--space-05) 0 var(--space-05) var(--space-075);
+		border-left: var(--border-width-focus) solid var(--border-muted);
+		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
 	}
 	li.level-error {
 		border-left-color: var(--error);
@@ -71,17 +165,39 @@
 	li.level-warning {
 		border-left-color: var(--warn);
 	}
-	li button {
+	li.is-accepted {
+		border-left-color: var(--border-muted);
+	}
+	li.is-accepted .msg {
+		color: var(--muted);
+	}
+	.goto {
+		flex: 1;
+		min-width: 0;
 		display: flex;
 		flex-direction: column;
+		gap: var(--space-025);
+		padding: 0;
+		border: 0;
+		background: none;
+		color: inherit;
+		font: inherit;
 		text-align: left;
-		width: 100%;
+		cursor: pointer;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 	}
+	.goto:hover .msg,
+	.goto:focus-visible .msg {
+		text-decoration: underline;
+	}
 	.where {
 		color: var(--muted);
-		font-size: var(--type-caption-size);
-		word-break: break-all;
+		overflow-wrap: anywhere;
+	}
+	.actions {
+		display: flex;
+		gap: var(--space-025);
+		flex: none;
 	}
 </style>

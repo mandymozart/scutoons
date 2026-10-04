@@ -15,6 +15,7 @@
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { agentChatsApi } from '$lib/api.ts';
+	import { ask } from '$lib/ask.svelte.ts';
 	import { ASK_URL } from '$lib/config.ts';
 
 	let { context, onclose }: { context: string; onclose: () => void } = $props();
@@ -101,6 +102,14 @@
 		field.style.height = 'auto';
 		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 		field.style.height = `${(field.scrollHeight + field.offsetHeight - field.clientHeight) / rem}rem`;
+	});
+	// a question handed over by the page (a problem's "Ask"): into the field, the creator sends it
+	$effect(() => {
+		if (!ask.prefill || !field) return;
+		input = ask.prefill;
+		ask.prefill = '';
+		if (view === 'history') view = 'chat';
+		field.focus();
 	});
 	let busy = $state(false);
 	let controller: AbortController | null = null;

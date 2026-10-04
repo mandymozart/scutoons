@@ -32,6 +32,7 @@
 	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
 	import AskPanel from '$lib/components/ask/ask-panel.svelte';
+	import { ask, pagePanel } from '$lib/ask.svelte.ts';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -52,8 +53,6 @@
 	// ── Navigation (agents/DESIGN.md "Creator navigation"): one top bar, sidebar = children of the current level ──
 	const nav = setCreatorNav();
 	let menuOpen = $state(false);
-	/** the Ask panel (CUTOVER 10.28 step 2) */
-	let askOpen = $state(false);
 	// the toons (names for crumbs, sidebar, titles): loaded once the signed-in creator is known – a request before the
 	// session is restored (or before a login) would be refused and leave the ids in the UI
 	let toonsLoaded = false;
@@ -234,6 +233,7 @@
 			railLabel={nav.crumbs.slice(-2).map((c) => c.label).join(' · ')}
 			foldLabel={m['creator.fold_sidebar']()}
 			unfoldLabel={m['creator.unfold_sidebar']()}
+			foldWhen={ask.open && pagePanel.open}
 			sidebarLabel={m['creator.nav_label']()}
 			sidebarId="creator-nav"
 			collapsible
@@ -270,7 +270,7 @@
 					{#if textLanguages.languages.length > 1}
 						<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
 					{/if}
-					<button type="button" class="sc-round" class:is-active={askOpen} title={m['creator.ask_open']()} aria-label={m['creator.ask_open']()} aria-pressed={askOpen} data-testid="ask-toggle" onclick={() => (askOpen = !askOpen)}><Icon name="message-square" /></button>
+					<button type="button" class="sc-round" class:is-active={ask.open} title={m['creator.ask_open']()} aria-label={m['creator.ask_open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 					<span class="who">{session.user?.email ?? ''}</span>
 				</header>
@@ -305,7 +305,7 @@
 			emptyLabel={m['palette.empty']()}
 			hint={m['palette.keys']()}
 		/>
-		{#if askOpen}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (askOpen = false)} />{/if}
+		{#if ask.open}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (ask.open = false)} />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 </div>
