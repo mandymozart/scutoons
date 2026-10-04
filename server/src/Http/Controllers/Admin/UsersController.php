@@ -7,6 +7,7 @@ use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\Admin\ListQuery;
 use Scutoons\Domain\Admin\UserAdmin;
+use Scutoons\Domain\Content\Reviews;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
@@ -22,10 +23,13 @@ use Scutoons\Infrastructure\Config\Settings;
  *   DELETE /users/{id}/characters/{c}    revoke it (with its looks) → { changed, characters }
  *   DELETE /users/{id}/characters/{c}/looks/{look}   revoke one A-pose look → { changed, characters }
  *   GET    /roles                        every role
+ *   GET    /review-rules                 every review rule (Domain\Content\Reviews) → { items }
+ *   PUT    /users/{id}/review-rules/{toon}/{rule}   add (toon id or *, rule reviewer | needs_review) → { changed, review_rules }
+ *   DELETE /users/{id}/review-rules/{toon}/{rule}   remove → { changed, review_rules }
  */
 final class UsersController
 {
-    public function __construct(private readonly UserAdmin $users, private readonly Roles $roles, private readonly Settings $settings)
+    public function __construct(private readonly UserAdmin $users, private readonly Roles $roles, private readonly Settings $settings, private readonly Reviews $reviews)
     {
     }
 
@@ -75,6 +79,31 @@ final class UsersController
     public function roles(Request $request, Response $response): Response
     {
         return Json::response($response, 200, ['status' => 'success', 'items' => $this->roles->all()]);
+    }
+
+    public function reviewRules(Request $request, Response $response): Response
+    {
+        return Json::response($response, 200, ['status' => 'success', 'items' => $this->reviews->rules()]);
+    }
+
+    /** @param array{id: string, toon: string, rule: string} $args */
+    public function addReviewRule(Request $request, Response $response, array $args): Response
+    {
+        return $this->reviewRule($request, $response, $args, true);
+    }
+
+    /** @param array{id: string, toon: string, rule: string} $args */
+    public function removeReviewRule(Request $request, Response $response, array $args): Response
+    {
+        return $this->reviewRule($request, $response, $args, false);
+    }
+
+    /** @param array{id: string, toon: string, rule: string} $args */
+    private function reviewRule(Request $request, Response $response, array $args, bool $on): Response
+    {
+        $this->users->detail($args['id']); // 404 for unknown accounts
+        $changed = $this->reviews->setRule($args['id'], $args['toon'], $args['rule'], $on, self::by($request));
+        return Json::response($response, 200, ['status' => 'success', 'changed' => $changed, 'review_rules' => $this->reviews->rules($args['id'])]);
     }
 
     /** user_roles.granted_by: "admin:<email>" of the signed-in admin */

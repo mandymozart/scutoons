@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Admin;
 use Scutoons\Domain\Accounts\Users;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Characters\CharacterUnlocks;
+use Scutoons\Domain\Content\Reviews;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
@@ -23,6 +24,7 @@ final class UserAdmin
         private readonly Users $users,
         private readonly Roles $roles,
         private readonly CharacterUnlocks $unlocks,
+        private readonly Reviews $reviews,
     ) {
     }
 
@@ -96,6 +98,7 @@ final class UserAdmin
             'sessions' => (int) ($sessions['n'] ?? 0),
             'last_seen_at' => Time::iso($sessions['last_used_at'] ?? null),
             'characters' => $this->characters($id),
+            'review_rules' => $this->reviews->rules($id),
         ];
     }
 

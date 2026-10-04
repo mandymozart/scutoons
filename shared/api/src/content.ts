@@ -35,6 +35,40 @@ export interface ContentIndexEntity {
 	versions: number;
 }
 
+/** A submit for review (server `/api/reviews`, docs/API.md "Reviews"), pinned to one version */
+export interface ContentReview {
+	id: number;
+	key: string;
+	toon: string;
+	locale: string | null;
+	/** the submitted version – what the reviewer publishes */
+	version: number;
+	/** the entity's newest version; greater than `version` = newer drafts, not part of the review */
+	newest: number | null;
+	state: 'pending' | 'published' | 'returned' | 'annulled';
+	note: string | null;
+	author: { id: string; email: string | null } | null;
+	created_at: string;
+	decided_by: { id: string; email: string | null } | null;
+	decided_at: string | null;
+	decision_note: string | null;
+}
+
+export interface ReviewOverview {
+	status: string;
+	/** toons (or `*`) where this account needs a review to publish */
+	needs_review: string[];
+	/** toons (or `*`) this account reviews */
+	reviewer_of: string[];
+	to_review: ContentReview[];
+	mine: ContentReview[];
+}
+
+/** Does an account with these rules need a review to publish in this toon? */
+export function needsReview(rules: { needs_review: string[] } | null | undefined, toon: string | null | undefined): boolean {
+	return !!toon && !!rules && (rules.needs_review.includes('*') || rules.needs_review.includes(toon));
+}
+
 export type ContentApi = ReturnType<typeof createContentApi>;
 
 export function createContentApi(client: ApiClient) {
@@ -65,6 +99,17 @@ export function createContentApi(client: ApiClient) {
 			client.post<{ status: string; version: ContentVersion }>(`${at(key)}/restore`, { id, message }),
 
 		listVersions: (key: string) => client.get<{ status: string; versions: ContentVersion[] }>(`${at(key)}/versions`),
+
+		/** Review before publish: this account's rules, the open submits it reviews, its own submits */
+		reviews: () => client.get<ReviewOverview>('/reviews'),
+
+		/** Submit versions for review (default: the newest) → 409 no_reviewer when nobody reviews the toon */
+		submitReview: (items: { key: string; version?: number }[], note?: string) =>
+			client.post<{ status: string; reviews: ContentReview[]; reviewers: string[] }>('/reviews', { items, note: note || undefined }),
+
+		/** A reviewer publishes the submitted versions / sends them back (with an optional note to the author) */
+		decideReviews: (action: 'publish' | 'return', ids: number[], note?: string) =>
+			client.post<{ status: string; reviews: ContentReview[]; keys: string[] }>(`/reviews/${action}`, { ids, note: note || undefined }),
 
 		/** Every stored entity of a toon; `''` = the platform-wide ones (characters, people, events …). */
 		contentIndex: (toon: string) =>

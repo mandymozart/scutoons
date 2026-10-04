@@ -9,6 +9,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Assets\AssetUsages;
 use Scutoons\Domain\Content\EntityKey;
 use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Content\Reviews;
 use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
@@ -23,10 +24,12 @@ use stdClass;
  *   PUT  /api/entities/<key>                     { content, message?, base? } → new draft version (409 conflict)
  *   GET  /api/entities/<key>/versions?limit=     history, newest first
  *   POST /api/entities/<key>/publish { version? } · /unpublish · /restore { id, message? }
+ * publish / unpublish: 403 review_required for accounts that need a review for the toon (Reviews; submit through
+ * /api/reviews instead).
  */
 final class EntitiesController
 {
-    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages)
+    public function __construct(private readonly EntityStore $store, private readonly Roles $roles, private readonly AssetUsages $usages, private readonly Reviews $reviews)
     {
     }
 
@@ -78,12 +81,15 @@ final class EntitiesController
         $key = (string) EntityKey::parse($args['key']);
         $user = $this->creator($request);
         $body = JsonBody::raw($request) === '' ? new stdClass() : $this->body($request);
+        $version = isset($body->version) ? (int) $body->version : null;
+        if ($args['action'] !== 'restore') $this->reviews->guardPublish($user, EntityKey::parse($key), $version, $args['action'] === 'unpublish');
         $result = match ($args['action']) {
-            'publish' => $this->store->publish($key, isset($body->version) ? (int) $body->version : null),
+            'publish' => $this->store->publish($key, $version),
             'unpublish' => $this->store->unpublish($key),
             'restore' => $this->store->restore($user, $key, $body),
             default => throw new ApiError(404, 'not_found', 'Unknown endpoint.'),
         };
+        if ($args['action'] === 'publish') $this->reviews->markPublished($user, $key, (int) $result['version']['id']);
         $this->usages->reindexEntity($key);
         return Json::response($response, 200, $result);
     }

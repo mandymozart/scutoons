@@ -29,6 +29,7 @@
 	import { setCreatorNav, type Crumb } from '$lib/nav.svelte.ts';
 	import { fileLabel } from '$lib/labels.ts';
 	import NavSidebar from '$lib/components/page/nav-sidebar.svelte';
+	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
 	import AskPanel from '$lib/components/ask/ask-panel.svelte';
 
@@ -63,6 +64,10 @@
 			.fetchToons({ draft: true })
 			.then((list) => (nav.toons = list))
 			.catch(() => (toonsLoaded = false));
+	});
+	// review before publish: this account's rules + open reviews (Publish vs "Submit for review", the dashboard list)
+	$effect(() => {
+		if (isCreator) void reviews.load();
 	});
 
 	const toonId = $derived((page.params.toonId as string | undefined) ?? null);

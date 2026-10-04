@@ -3,7 +3,7 @@
 	import PageHelp from '$lib/components/page-help.svelte';
 	import { page } from '$app/state';
 	import { ActionBar, Badge, Button, confirmDialog, DataTable, Field, RecordInspector, Section, Skeleton, Toggle, type Column } from '@scutoons/ui';
-	import type { AdminUserDetail, RoleInfo } from '@scutoons/api';
+	import type { AdminReviewRule, AdminUserDetail, RoleInfo } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { day, errorText, minute } from '$lib/format.ts';
 	import { inspectorLabels, tableLabels } from '$lib/labels.ts';
@@ -18,6 +18,7 @@
 
 	let user = $state<AdminUserDetail | null>(null);
 	let roles = $state<RoleInfo[]>([]);
+	let toons = $state<{ id: string; name: string }[]>([]);
 	let error = $state<string | null>(null);
 	let working = $state<string | null>(null);
 
@@ -25,10 +26,11 @@
 		const current = id;
 		user = null;
 		error = null;
-		Promise.all([admin.getUser(current), admin.roles()])
-			.then(([u, r]) => {
+		Promise.all([admin.getUser(current), admin.roles(), admin.catalog()])
+			.then(([u, r, c]) => {
 				user = u.user;
 				roles = r.items;
+				toons = c.toons.map((t) => ({ id: t.id, name: t.name }));
 			})
 			.catch((e) => (error = errorText(e)));
 	});
@@ -55,6 +57,32 @@
 		} finally {
 			working = null;
 		}
+	}
+
+	// ── Review rules (docs/API.md "Reviews"): per toon or every toon, reviewer | needs_review ──
+	let ruleToon = $state('*');
+	let ruleKind = $state<AdminReviewRule['rule']>('needs_review');
+	const ruleLabel = (rule: string) => (rule === 'reviewer' ? m['users.rule_reviewer']() : m['users.rule_needs_review']());
+	const toonLabel = (toon: string) => (toon === '*' ? m['users.review_all_toons']() : (toons.find((t) => t.id === toon)?.name ?? toon));
+
+	async function setReviewRule(toon: string, rule: AdminReviewRule['rule'], on: boolean) {
+		if (!user) return;
+		working = 'reviews';
+		try {
+			const result = await admin.setReviewRule(user.id, toon, rule, on);
+			user = { ...user, review_rules: result.review_rules };
+			const vars = { rule: ruleLabel(rule), toon: toonLabel(toon) };
+			toaster.addToast({ message: on ? m['users.review_added'](vars) : m['users.review_removed'](vars), type: 'success' });
+		} catch (e) {
+			toaster.addToast({ message: errorText(e), type: 'error' });
+		} finally {
+			working = null;
+		}
+	}
+
+	function addReviewRule(e: SubmitEvent) {
+		e.preventDefault();
+		void setReviewRule(ruleToon, ruleKind, true);
 	}
 
 	// ── Avatar-body unlocks (ITEMS.md "Reader avatar bodies & character unlocks") ──
@@ -152,6 +180,41 @@
 		</Section>
 	</div>
 
+	<Section title={m['users.section_reviews']()} hint={m['users.section_reviews_hint']()}>
+		{#if user.review_rules?.length}
+			<ul class="rules" data-testid="review-rules">
+				{#each user.review_rules as r (r.toon + r.rule)}
+					<li>
+						<span>{toonLabel(r.toon)}</span>
+						<Badge tone={r.rule === 'reviewer' ? 'ink' : 'neutral'}>{ruleLabel(r.rule)}</Badge>
+						<Button variant="clear" size="sm" disabled={working !== null} onclick={() => setReviewRule(r.toon, r.rule, false)}>{m['users.review_remove']()}</Button>
+					</li>
+				{/each}
+			</ul>
+		{:else}
+			<p class="hint">{m['users.review_none']()}</p>
+		{/if}
+		<form class="unlock" onsubmit={addReviewRule}>
+			<Field label={m['users.review_toon']()}>
+				{#snippet children({ id, describedby, invalid })}
+					<select {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={ruleToon} data-testid="review-toon">
+						<option value="*">{m['users.review_all_toons']()}</option>
+						{#each toons as t (t.id)}<option value={t.id}>{t.name}</option>{/each}
+					</select>
+				{/snippet}
+			</Field>
+			<Field label={m['users.review_rule']()}>
+				{#snippet children({ id, describedby, invalid })}
+					<select {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={ruleKind} data-testid="review-rule">
+						<option value="needs_review">{m['users.rule_needs_review']()}</option>
+						<option value="reviewer">{m['users.rule_reviewer']()}</option>
+					</select>
+				{/snippet}
+			</Field>
+			<Button type="submit" disabled={working !== null}>{m['users.review_add']()}</Button>
+		</form>
+	</Section>
+
 	<Section title={m['users.section_characters']()}>
 		<ul class="unlocks" data-testid="character-unlocks">
 			{#each user.characters ?? [] as u (u.character)}
@@ -219,6 +282,25 @@
 		flex-wrap: wrap;
 		align-items: center;
 		gap: var(--space-05);
+	}
+	.rules {
+		list-style: none;
+		margin: 0 0 var(--space-1);
+		padding: 0;
+		display: flex;
+		flex-direction: column;
+		gap: var(--space-05);
+	}
+	.rules li {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--space-05);
+	}
+	.hint {
+		margin: 0 0 var(--space-1);
+		font-size: var(--type-caption-size);
+		opacity: 0.7;
 	}
 	.unlocks .meta {
 		font-size: var(--type-caption-size);

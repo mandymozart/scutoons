@@ -16,7 +16,10 @@ export {
 	type ContentApi,
 	type ContentVersion,
 	type WrappedContent,
-	type ContentIndexEntity
+	type ContentIndexEntity,
+	type ContentReview,
+	type ReviewOverview,
+	needsReview
 } from './content.ts';
 export { createLibraryApi, type LibraryApi, type LibraryApiOptions, type LibraryOptions } from './library.ts';
 export { createProductsApi, type ProductsApi, type Stockist, type StockistList } from './products.ts';
@@ -55,6 +58,7 @@ export {
 	type AdminSettings,
 	type AdminUserDetail,
 	type AdminCharacterUnlock,
+	type AdminReviewRule,
 	type AdminUserRow,
 	type BatchManifest,
 	type BatchManifestCode,

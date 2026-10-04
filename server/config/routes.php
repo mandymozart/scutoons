@@ -20,6 +20,7 @@ use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\AgentChatsController;
 use Scutoons\Http\Controllers\AgentUsageController;
+use Scutoons\Http\Controllers\ReviewsController;
 use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
@@ -149,6 +150,10 @@ return static function (App $app): void {
     $app->put('/api/entities/{key:[a-z0-9:_-]+}', [EntitiesController::class, 'put']);
     $app->get('/api/entities/{key:[a-z0-9:_-]+}/versions', [EntitiesController::class, 'versions']);
     $app->post('/api/entities/{key:[a-z0-9:_-]+}/{action:publish|unpublish|restore}', [EntitiesController::class, 'action']);
+    // Review before publish (docs/API.md "Reviews", role creator; the review rules per toon decide the rest)
+    $app->get('/api/reviews', [ReviewsController::class, 'overview']);
+    $app->post('/api/reviews', [ReviewsController::class, 'submit']);
+    $app->post('/api/reviews/{action:publish|return}', [ReviewsController::class, 'decide']);
 
     // The creator's Ask panel chat history (docs/API.md "Agent chats", content editors, each only their own chats);
     // the id is any path segment so a malformed one answers 422 invalid_id, not 404
@@ -273,6 +278,9 @@ return static function (App $app): void {
         $admin->get('/users/{id}', [UsersController::class, 'get']);
         $admin->put('/users/{id}/roles/{role}', [UsersController::class, 'grant']);
         $admin->delete('/users/{id}/roles/{role}', [UsersController::class, 'revoke']);
+        $admin->get('/review-rules', [UsersController::class, 'reviewRules']);
+        $admin->put('/users/{id}/review-rules/{toon}/{rule}', [UsersController::class, 'addReviewRule']);
+        $admin->delete('/users/{id}/review-rules/{toon}/{rule}', [UsersController::class, 'removeReviewRule']);
         $admin->put('/users/{id}/characters/{character}', [UsersController::class, 'unlockCharacter']);
         $admin->delete('/users/{id}/characters/{character}', [UsersController::class, 'lockCharacter']);
         $admin->delete('/users/{id}/characters/{character}/looks/{look}', [UsersController::class, 'lockLook']);

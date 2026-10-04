@@ -7,6 +7,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { DocSession } from '$lib/editor/doc-session.svelte.ts';
+	import { publishLabel } from '$lib/editor/reviews.svelte.ts';
 	import { editorKeys } from '$lib/editor/editor-keys.ts';
 	import { validateFile, validateLocales, type Problem } from '@scutoons/content';
 	import DocNotices from '$lib/components/page/doc-notices.svelte';
@@ -135,7 +136,7 @@
 			<button class:secondary={!anyDirty} onclick={() => session.saveDraft()} disabled={anySaving} title={anyDirty ? undefined : m['creator.nothing_to_save']()} data-testid="save-draft">
 				{anySaving ? m['creator.saving']() : m['creator.save_draft']()}{anyDirty ? ' •' : ''}
 			</button>
-			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{m['creator.publish']()}</button>
+			<button class="secondary" onclick={() => session.publishAll()} disabled={anySaving} data-testid="publish">{publishLabel(toon)}</button>
 		{/snippet}
 	</ActionBar>
 
