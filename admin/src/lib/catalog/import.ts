@@ -34,7 +34,7 @@ export interface ImportReport {
 	/** the items whose icon(s) were set */
 	updated: string[];
 	/** per file: what went wrong (the caller words the unknown names) */
-	problems: { file: string; problem: 'unknown_item' | 'unknown_variant' | 'failed'; item?: string; message?: string }[];
+	problems: { file: string; problem: 'unknown_item' | 'unknown_variant' | 'unknown_recipe' | 'failed'; item?: string; message?: string }[];
 }
 
 /** the longest side at most MAX_SIDE (never scaled up) */
@@ -92,6 +92,47 @@ export async function importItemImages(files: File[], items: CatalogEntry[], pro
 			report.updated.push(id);
 		} catch (e) {
 			report.problems.push({ file: id, problem: 'failed', message: e instanceof Error ? e.message : String(e) });
+		}
+	}
+	return report;
+}
+
+/** where a recipe's own picture goes: the output item's toon folder (`scutoons` for a shared item), `items/recipes/` */
+export const recipeImagePath = (recipe: CatalogEntry, items: CatalogEntry[]) =>
+	`${items.find((i) => i.id === recipe.data?.output?.item)?.data?.toon || 'scutoons'}/items/recipes/${recipe.id}.webp`;
+
+/**
+ * "Import images …" of the recipes page (owner 2026-10-04: "recipes also have images"): files named `<recipe-id>.<ext>`
+ * (case-insensitive) → WebP (as the item import) at `recipeImagePath` → the recipe's `image`, one PUT per recipe.
+ */
+export async function importRecipeImages(files: File[], recipes: CatalogEntry[], items: CatalogEntry[], progress?: (done: number, total: number) => void): Promise<ImportReport> {
+	const report: ImportReport = { uploaded: 0, replaced: 0, unchanged: 0, updated: [], problems: [] };
+	let done = 0;
+	for (const file of files) {
+		const stem = file.name.replace(/\.[^.]+$/, '').trim().toLowerCase();
+		const recipe = recipes.find((r) => r.id.toLowerCase() === stem);
+		try {
+			if (!recipe) {
+				report.problems.push({ file: file.name, problem: 'unknown_recipe' });
+				continue;
+			}
+			const bitmap = await createImageBitmap(file);
+			let blob: Blob;
+			try {
+				blob = (await toWebp(bitmap, targetWidth(bitmap.width, bitmap.height))).blob;
+			} finally {
+				bitmap.close();
+			}
+			const path = recipeImagePath(recipe, items);
+			report[await uploadOrReplace(blob, path, 'catalog image import')]++;
+			if (recipe.data?.image !== path) {
+				await admin.catalogPut('recipes', recipe.id, { ...JSON.parse(JSON.stringify(recipe.data)), image: path }, 'image import');
+				report.updated.push(recipe.id);
+			}
+		} catch (e) {
+			report.problems.push({ file: file.name, problem: 'failed', message: e instanceof Error ? e.message : String(e) });
+		} finally {
+			progress?.(++done, files.length);
 		}
 	}
 	return report;

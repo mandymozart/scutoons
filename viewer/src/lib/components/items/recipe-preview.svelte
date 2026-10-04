@@ -55,7 +55,7 @@
 			<span class="op">=</span>
 			<div class="part output">
 				<ItemIcon
-					srcs={[inventory.item(recipe.output.item)?.icon ?? '']}
+					srcs={[recipe.image ?? '', inventory.item(recipe.output.item)?.icon ?? '']}
 					name={inventory.nameOf(part(recipe.output.item))}
 				/>
 				<span>{inventory.nameOf(part(recipe.output.item))}</span>

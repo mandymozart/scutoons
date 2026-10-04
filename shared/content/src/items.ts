@@ -171,6 +171,8 @@ export interface Recipe {
 	id: string;
 	inputs: RecipePart[];
 	output: RecipePart;
+	/** the recipe's own picture (CDN path, `<toon>/items/recipes/<id>.webp`; owner 2026-10-04) – none = the output item's */
+	image?: string;
 }
 
 export interface Catalog {

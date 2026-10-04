@@ -6,7 +6,7 @@
 	import type { CatalogEntry, CatalogKind } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
 	import { invalidateCatalog } from '$lib/catalog.ts';
-	import { importItemImages, type ImportReport } from '$lib/catalog/import.ts';
+	import { importItemImages, importRecipeImages, type ImportReport } from '$lib/catalog/import.ts';
 	import { EDITED_KINDS, KINDS, type CatalogFormProps, type CatalogLists, type EditedKind } from '$lib/catalog/kinds.ts';
 	import { CREATOR_URL } from '$lib/config.ts';
 	import { errorText } from '$lib/format.ts';
@@ -62,7 +62,7 @@
 
 	const tabs = $derived(EDITED_KINDS.map((k) => ({ id: k, label: KINDS[k].label() })));
 
-	// ── items: "Import images …" ────────────────────────────────────────────────────────────────────────────────
+	// ── items / recipes: "Import images …" ────────────────────────────────────────────────────────────────────────────────
 	let importInput = $state<HTMLInputElement>();
 	let importing = $state<{ done: number; total: number } | null>(null);
 	let report = $state<ImportReport | null>(null);
@@ -76,9 +76,10 @@
 		report = null;
 		importing = { done: 0, total: files.length };
 		try {
-			report = await importItemImages(files, lists.items ?? [], (done, total) => (importing = { done, total }));
+			const step = (done: number, total: number) => (importing = { done, total });
+			report = kind === 'recipes' ? await importRecipeImages(files, lists.recipes ?? [], lists.items ?? [], step) : await importItemImages(files, lists.items ?? [], step);
 			invalidateCatalog();
-			await refresh('items');
+			await refresh(kind === 'recipes' ? 'recipes' : 'items');
 			editorReload++;
 			toaster.addToast({ message: summary(report), type: report.problems.length ? 'warning' : 'success' });
 		} catch (e) {
@@ -89,7 +90,7 @@
 	}
 	const summary = (r: ImportReport) => m['catalog.import_summary']({ uploaded: r.uploaded, replaced: r.replaced, unchanged: r.unchanged });
 	const problemText = (p: ImportReport['problems'][number]) =>
-		p.problem === 'unknown_item' ? m['catalog.import_unknown_item']({ file: p.file }) : p.problem === 'unknown_variant' ? m['catalog.import_unknown_variant']({ file: p.file, item: p.item ?? '' }) : `${p.file}: ${p.message ?? ''}`;
+		p.problem === 'unknown_item' ? m['catalog.import_unknown_item']({ file: p.file }) : p.problem === 'unknown_recipe' ? m['catalog.import_unknown_recipe']({ file: p.file }) : p.problem === 'unknown_variant' ? m['catalog.import_unknown_variant']({ file: p.file, item: p.item ?? '' }) : `${p.file}: ${p.message ?? ''}`;
 </script>
 
 <PageHeader type={m['nav.group_data']()} title={m['catalog.title']()} meta={m['catalog.meta']()} />
@@ -100,7 +101,7 @@
 		{#if kind === 'products'}
 			<p class="muted note">{m['catalog.featured_note']()} <a href="/homepage">{m['nav.homepage']()}</a></p>
 		{/if}
-		{#if kind === 'items' && report}
+		{#if (kind === 'items' || kind === 'recipes') && report}
 			<div class="report" role="status" data-testid="import-report">
 				<p>
 					{summary(report)}{#if report.updated.length}{' · '}{m['catalog.import_updated']({ items: report.updated.join(', ') })}{/if}
@@ -112,14 +113,14 @@
 			</div>
 		{/if}
 		{#key kind}
-			<CatalogEditor {def} {lists} {fallback} {refresh} reload={editorReload} form={FORMS[kind]} barActions={kind === 'items' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
+			<CatalogEditor {def} {lists} {fallback} {refresh} reload={editorReload} form={FORMS[kind]} barActions={kind === 'items' || kind === 'recipes' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
 		{/key}
 	{/snippet}
 </Tabs>
 
 {#snippet itemActions()}
 	<input bind:this={importInput} type="file" accept="image/png,image/jpeg,image/webp" multiple hidden onchange={importImages} data-testid="import-images-input" />
-	<Button size="sm" variant="secondary" disabled={!!importing || !lists.items} onclick={() => importInput?.click()} title={m['catalog.import_hint']()} data-testid="import-images">
+	<Button size="sm" variant="secondary" disabled={!!importing || !lists.items} onclick={() => importInput?.click()} title={kind === 'recipes' ? m['catalog.import_recipes_hint']() : m['catalog.import_hint']()} data-testid="import-images">
 		{importing ? m['catalog.importing']({ done: importing.done, total: importing.total }) : m['catalog.import_images']()}
 	</Button>
 {/snippet}

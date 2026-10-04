@@ -1,15 +1,21 @@
 <script lang="ts">
+	import { MediaSlot } from '@scutoons/media';
 	import { Button, CloseIcon } from '@scutoons/ui';
 	import { problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
 	import { m } from '$lib/paraglide/messages.js';
 
-	/** A recipe (agents/ITEMS.md): the items it takes (all consumed) and the item it makes, each with a quantity */
+	/**
+	 * A recipe (agents/ITEMS.md): the items it takes (all consumed) and the item it makes, each with a quantity, and its own
+	 * optional picture (owner 2026-10-04; readers see the output item's picture without one) in the output item's toon folder.
+	 */
 	let { data = $bindable(), lists, problems }: CatalogFormProps = $props();
 
 	const items = $derived((lists.items ?? []).map((e) => ({ value: e.id, label: `${text(e.data?.name) || e.id} · ${e.id}` })));
 	const inputs = $derived<Data[]>(Array.isArray(data.inputs) ? data.inputs : []);
 	const qty = (raw: string) => Math.max(1, Math.floor(Number(raw) || 1));
 	const err = (...words: string[]) => problemFor(problems, ...words);
+	const outputToon = $derived((lists.items ?? []).find((e) => e.id === data.output?.item)?.data?.toon || 'scutoons');
+	let bust = $state(0);
 </script>
 
 {#snippet part(p: Data, label: string, testid: string, remove?: () => void)}
@@ -25,6 +31,11 @@
 		{/if}
 	</div>
 {/snippet}
+
+<div class="group">
+	<MediaSlot toon="" value={data.image ?? undefined} label={m['catalog.picture']()} place="{outputToon}/items/recipes/" {bust} onchange={(path) => { if (path) data.image = path; else delete data.image; bust = Date.now(); }} testid="recipe-image" />
+	{#if err('image')}<p class="error">{err('image')}</p>{/if}
+</div>
 
 <fieldset class="group">
 	<legend>{m['catalog.recipe_inputs']()}</legend>

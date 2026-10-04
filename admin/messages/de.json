@@ -513,7 +513,9 @@
 		"import_summary": "{uploaded} neu · {replaced} ersetzt · {unchanged} unverändert",
 		"import_updated": "Bilder gesetzt: {items}",
 		"import_unknown_item": "{file}: kein Item mit dieser ID",
-		"import_unknown_variant": "{file}: {item} hat keine solche Variante"
+		"import_unknown_variant": "{file}: {item} hat keine solche Variante",
+		"import_unknown_recipe": "{file}: kein Rezept mit dieser ID",
+		"import_recipes_hint": "Dateien namens <rezept-id>.png: WebP (höchstens 1024 px), hochgeladen nach <toon>/items/recipes/, als Bild des Rezepts gesetzt (ohne eigenes sehen Lesende das Bild des Ergebnis-Items)"
 	},
 	"content": {
 		"title": "Inhalte",
