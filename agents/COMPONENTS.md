@@ -294,7 +294,7 @@ Done (branch `components`):
   chapter editor + meta pages; restore in the history is one question (unsaved changes + new draft) instead of two;
   unpublish, merge people, change event type, the shared-place move in the map (the drag waits for the answer); admin:
   own admin role, revoke code, leaving a running batch. Not converted: embassy's two (remove person, delete org) – the
-  app has no `DialogHost` yet and is being developed on branch `embassy` (merged after the 2026-10-04 release); do it there. Checks: check:creator-chapter
+  app has no `DialogHost` yet (open follow-up). Checks: check:creator-chapter
   asks on leave (64), creator-script-check answers the restore dialog.
 - Step 14b ✓ (the commit adding this line) – hand-built tabs → @scutoons/ui `Tabs` (role="tab", arrow keys / Home /
   End, testids kept): slice inspector (`variant="grid"`, icon + count per tab), cast seasons, character personas + looks,

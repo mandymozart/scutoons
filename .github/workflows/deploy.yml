@@ -4,7 +4,7 @@
 #               picks the ones with changes under their `watch` paths since then. Compared with what is LIVE, so a
 #               failed or skipped run is simply caught by the next one.
 #   2. tests  – API (server.yml) and qr (qr.yml) checks, when those are in the plan
-#   3. deploy – the picked targets strictly one after another in deploy order (api → qr → viewer → shop → creator → admin),
+#   3. deploy – the picked targets strictly one after another in deploy order (api → qr → viewer → shop → creator → admin → embassy),
 #               steps in deploy-app.yml (with one FTP retry).
 # By hand: Actions → "Deploy" → Run workflow: apps = changed (default) | all | a list like "viewer,admin"; optional dry run.
 # A tag `deploy-*` deploys all. Check what is live: `npm run deploy:status`. Docs: deploy/README.md.

@@ -1,8 +1,7 @@
 # Manual deploy of the embassy (embassy.scutoons.com). Target (host path, build, include/exclude):
 # deploy/targets.json → "embassy"; the steps: .github/workflows/deploy-app.yml; docs: deploy/README.md.
-# HELD BACK until the embassy go-live (owner 2026-10-01: not part of the 2026-10-04 rollout; no subdomain on all-inkl
-# yet). Only a manual run is possible. At go-live: add "embassy" to deploy/targets.json order – deploy.yml then deploys it
-# on pushes to main like every other app.
+# Released with the 2026-10-04 rollout (owner): "embassy" is in deploy/targets.json order, so deploy.yml deploys it on
+# pushes to main like every other app. This workflow is the manual single-app run.
 on:
   workflow_dispatch:
     inputs:
