@@ -52,7 +52,9 @@
 		"homepage": "Startseite",
 		"homepage_hint": "Editionen auf der Startseite",
 		"assets": "Assets",
-		"assets_hint": "Medien im CDN: Dateien, Fassungen, Verwendung, Speicher"
+		"assets_hint": "Medien im CDN: Dateien, Fassungen, Verwendung, Speicher",
+		"calendar": "Termine",
+		"calendar_hint": "Termine auf scutoons.com/events"
 	},
 	"palette": {
 		"label": "Befehlspalette",
@@ -631,7 +633,8 @@
 		"catalog_media_title": "Bilder und Dateien",
 		"catalog_media": "Bilder, Cover und Audio sind Felder zum Anklicken: Datei aus der Asset-Verwaltung wählen oder hochladen. „Bilder importieren …“ bei Items nimmt viele Dateien auf einmal, benannt <item-id>.png oder <item-id>_<variante>.png: sie werden WebP (höchstens 1024 px), landen in <toon>/items/ (eine vorhandene Datei bekommt eine neue Version) und werden als Bild des Items bzw. der Variante gesetzt.",
 		"catalog_kinds_title": "Toons, Code-Typen, Startseite",
-		"catalog_kinds": "Haupt-Toons werden nur hier angelegt (ID, Name, Weiterleitungs-URL); Inhalte und Meta füllt danach der Creator („Im Creator füllen“). Code-Typen entscheiden, was ein gescannter Code darf – Speichern fragt vorher. Die Produkte der Startseite werden auf der Seite „Startseite“ gewählt."
+		"catalog_kinds": "Haupt-Toons werden nur hier angelegt (ID, Name, Weiterleitungs-URL); Inhalte und Meta füllt danach der Creator („Im Creator füllen“). Code-Typen entscheiden, was ein gescannter Code darf – Speichern fragt vorher. Die Produkte der Startseite werden auf der Seite „Startseite“ gewählt.",
+		"calendar": "Die öffentliche Terminliste (scutoons.com/events): kommende Termine oben, vergangene darunter – die Seite sortiert selbst nach Datum. Speichern legt eine neue Version des Events-Dokuments im Content-Store an und veröffentlicht sie; nach spätestens einer Minute live (Cache). Ältere Versionen bleiben in der Historie."
 	},
 	"entity": {
 		"chapter": "Kapitel {number}",
@@ -910,5 +913,33 @@
 		"term_rendition_text": "Eine Datei einer Fassung: das Original, eine Qualitätsstufe (480p = niedrig, 720p = mittel, 1080p = hoch), eine Breite, eine WebP-Kopie, ein Standbild.",
 		"term_usage": "Verwendung",
 		"term_usage_text": "Wo Inhalte (veröffentlicht oder der Arbeitsentwurf) oder der Katalog auf eine Datei verweisen."
+	},
+	"calendar": {
+		"title": "Termine",
+		"meta": "Termine auf scutoons.com/events: Konzerte, Lesungen, Streams.",
+		"add": "Termin hinzufügen",
+		"empty": "Noch keine Termine.",
+		"upcoming": "Kommend",
+		"past": "Vergangen",
+		"date": "Datum & Uhrzeit",
+		"title_field": "Titel",
+		"city": "Stadt",
+		"location": "Ort",
+		"category": "Art",
+		"link": "Link",
+		"remove": "Entfernen",
+		"cat_irl": "Vor Ort",
+		"cat_virtual": "Online",
+		"cat_hybrid": "Hybrid",
+		"save": "Speichern & veröffentlichen",
+		"saving": "Speichert …",
+		"saved": "Termine veröffentlicht.",
+		"unsaved": "Ungespeicherte Änderungen",
+		"last_change": "Veröffentlicht {at} von {by}",
+		"draft_newer": "Die neueste Version ({at}) ist noch nicht veröffentlicht",
+		"none_stored": "Noch nichts gespeichert",
+		"preview": "Termine-Seite öffnen",
+		"invalid": "Jeder Termin braucht Datum, Titel und Stadt.",
+		"conflict": "Jemand hat die Termine inzwischen gespeichert – neu geladen, bitte die Änderung wiederholen."
 	}
 }
