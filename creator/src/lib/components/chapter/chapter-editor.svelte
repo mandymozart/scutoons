@@ -3,7 +3,7 @@
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, untrack } from 'svelte';
-	import { ActionBar, CloseIcon, Icon } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, confirmDialog, Icon } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -429,6 +429,23 @@
 	const readerLocales = $derived(chapter.locales.filter((l) => l === 'de' || l === 'en'));
 	const previewHref = (locale: string) =>
 		`${VIEWER_URL}/${locale}/${toon}/chapter/${chapterNumber}?preview=draft${previewLabel ? `&label=${encodeURIComponent(previewLabel)}` : ''}`;
+	/** unsaved changes would be missing in the reader: save the draft first (with the note dialog), then open it */
+	async function openPreview(event: MouseEvent, locale: string) {
+		if (!anyDirty) return;
+		event.preventDefault();
+		const save = await confirmDialog({
+			title: m['creator.preview_unsaved_title'](),
+			message: m['creator.preview_unsaved_message'](),
+			confirmLabel: m['creator.preview_unsaved_save']()
+		});
+		if (!save) return;
+		await session.saveDraft();
+		if (anyDirty) return;
+		// a popup blocker may refuse the window after the dialogs: then a hint (not 'noopener': that always returns null)
+		const tab = window.open(previewHref(locale), '_blank');
+		if (tab) tab.opener = null;
+		else session.notice = m['creator.preview_saved_open']();
+	}
 
 	// ── Guards, autosave, keyboard ──────────────────────────────────────────────────────────────────────
 	// unsaved changes: leaving asks in-page (preview links open in a new tab); lib/editor/ask.ts
@@ -503,7 +520,7 @@
 			<span class="preview">
 				{m['creator.preview']()}:
 				{#each readerLocales as l}
-					<a href={previewHref(l)} target="_blank" rel="noopener" title="In the reader, {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
+					<a href={previewHref(l)} target="_blank" rel="noopener" onclick={(e) => openPreview(e, l)} title="In the reader, {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>
