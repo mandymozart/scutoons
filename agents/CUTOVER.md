@@ -656,12 +656,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
     - **"Ask" panel: the owner pays** (SCUTOONS, personal business); default model the current Sonnet. Every AI call is
       logged: creator, service (Claude API, image / audio services …), model, input / output tokens (or units), cost →
       an admin overview by creator and service per day / month.
-      **Limits (decided 2026-10-04, owner delegated; in euros from the logged cost, so price changes don't matter):**
-      per creator 5 €/day and 50 €/month; all creators together 150 €/month; per question at most 25 tool calls and a
-      capped answer length (a runaway loop can't eat a day). At 80 % the panel shows a notice, at 100 % it stops with
-      "limit reached, resets <date>"; the owner's account is exempt from the per-creator caps (not from the total), an admin
-      can raise a creator's limit. Backstop outside SCUTOONS: a monthly spend limit of 200 € on the Anthropic account
-      (Console) and no auto-reload – an empty account stops the panel for everyone, so the own caps must hit first.
+      **No limits in SCUTOONS** (owner 2026-10-04: creators need to get the job done; the owner watches how usage develops
+      in the overview and controls spending on the Anthropic account side) – the app logs, it doesn't cap.
     - **Asset upload: yes** – built in step 1 (`upload_asset`); remote: from a URL only (no local files there).
     - **Publish: keep the tool** (owner: drafts are reviewed; with a chat history the drafts can be reviewed there too).
       Today it is off by default (`SCUTOONS_MCP_PUBLISH=1`) with `confirm: true` per call, and the API lets every
