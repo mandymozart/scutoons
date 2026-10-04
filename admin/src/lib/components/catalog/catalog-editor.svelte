@@ -3,7 +3,7 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, Field, Icon, Sheet, Skeleton, SplitView, ToonAvatar, confirmDialog, listHref, type Column } from '@scutoons/ui';
+	import { ActionBar, Badge, Button, DataTable, Field, ReorderButtons, Sheet, Skeleton, SplitView, ToonAvatar, confirmDialog, listHref, type Column } from '@scutoons/ui';
 	import { mediaUrl } from '@scutoons/media';
 	import { ApiError, type CatalogEntry } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
@@ -16,8 +16,8 @@
 	import { getToaster } from '$lib/toasts.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHelp from '$lib/components/page-help.svelte';
-	import CatalogHistory from './catalog-history.svelte';
-	import JsonField from './json-field.svelte';
+	import CatalogHistory from '$lib/components/catalog/catalog-history.svelte';
+	import JsonField from '$lib/components/catalog/json-field.svelte';
 
 
 	/**
@@ -274,8 +274,7 @@
 					{#if column.id === 'order'}
 						{@const i = entries.indexOf(entry)}
 						<span class="order">
-							<button type="button" class="sc-round" disabled={moving || i === 0} onclick={() => move(i, -1)} title={m['catalog.up']()} aria-label={m['catalog.up']()} data-testid="catalog-up"><Icon name="arrow-up" /></button>
-							<button type="button" class="sc-round" disabled={moving || i === entries.length - 1} onclick={() => move(i, 1)} title={m['catalog.down']()} aria-label={m['catalog.down']()} data-testid="catalog-down"><Icon name="arrow-down" /></button>
+							<ReorderButtons index={i} count={entries.length} onmove={(from, to) => move(from, to - from)} variant="sc-round" disabled={moving} labels={{ up: m['catalog.up'](), down: m['catalog.down']() }} testid="catalog" />
 						</span>
 					{:else if column.id === 'avatar'}
 						<ToonAvatar src={toonAvatarUrl(entry.id)} name={String(entry.data?.name ?? entry.id)} />
@@ -337,7 +336,7 @@
 				<Form bind:data={draft} creating={shown === 'new'} id={currentId} {lists} {problems} />
 				{#if advanced}
 					<details class="advanced" open={Object.keys(advanced).length > 0 && problems.length > 0}>
-						<summary class="sc-label">{m['catalog.advanced']()}</summary>
+						<summary>{m['catalog.advanced']()}</summary>
 						<JsonField
 							label={m['catalog.advanced_json']()}
 							hint={m['catalog.advanced_hint']()}
@@ -351,7 +350,7 @@
 			</form>
 			{#if shown === 'entry' && openId}
 				<details class="entry-history">
-					<summary class="sc-label">{m['catalog.history']()}</summary>
+					<summary>{m['catalog.history']()}</summary>
 					<CatalogHistory {kind} id={openId} reload={historyReload} onundone={undone} />
 				</details>
 			{/if}

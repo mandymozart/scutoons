@@ -309,6 +309,19 @@ Done (branch `components`):
   input + "Choose …" + a 64px preview; typing a path and the known-paths suggestions are gone there (owner 2026-10-03:
   "the preview does the job").
 
+After the platform merge (2026-10-04; d5ab4b8, the admin catalog editor of CATALOG.md part 3 came in with 3a48e7f):
+- Admin catalog on the shared controls: the field pairs on `.sc-fields[data-cols=fit]` (f10c0e1); `ReorderButtons` moved to
+  @scutoons/ui (labels, `disabled`, `testid`; the creator's `controls/reorder-buttons` only adds its default labels) –
+  the catalog list order (testids `catalog-up/-down` kept) and the album tracks use it; `FileSlot` (audio / ZIP slot)
+  moved to @scutoons/media next to MediaSlot; `catalog/catalog-rows.svelte` = one list-in-a-form (variants of items,
+  products, editions; album tracks: head, ↑ / ↓, ×, + add) instead of four copies; problem lines outside a Field on
+  tools.css `.sc-error` (the Field error look – ink text + red rule; the plain red caption was below 4.5:1); the fold
+  rows without their own `sc-label` class; `$lib` imports. Behaviour unchanged (confirms were already in-page; no
+  editor undo keys). Left alone: catalog-editor (398 lines, one job: the scaffold), the homepage's featured-list
+  arrows (@scutoons/ui Button styles, not a class), the 20-odd older local `.error` text rules in creator / admin.
+- `check:tools-css` also flags a summary with a type class and app components imported by a relative path (the older
+  admin ones fixed).
+
 ### 4.4 Owner decisions (2026-10-03)
 1. **Undo inside a field:** the meta-page behaviour everywhere. With the cursor in a text field (input, textarea,
    contentEditable), Ctrl+Z / Ctrl+Y belong to the browser and undo the typing in that field. Outside a field (after a

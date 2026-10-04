@@ -44,7 +44,7 @@
 			{/if}
 		</label>
 	{/each}
-	{#if error}<p class="field-error" role="alert">{error}</p>{/if}
+	{#if error}<p class="sc-error" role="alert">{error}</p>{/if}
 </fieldset>
 
 <style>
@@ -62,10 +62,5 @@
 	}
 	.lang textarea {
 		align-self: stretch;
-	}
-	.field-error {
-		margin: 0;
-		color: var(--state-error);
-		font-size: var(--type-caption-size);
 	}
 </style>

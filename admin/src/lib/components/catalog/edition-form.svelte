@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { Button, CloseIcon } from '@scutoons/ui';
 	import { listText, parseList, problemFor, text, type CatalogFormProps, type Data } from '$lib/catalog/kinds.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import CatalogField from './catalog-field.svelte';
+	import CatalogField from '$lib/components/catalog/catalog-field.svelte';
+	import CatalogRows from '$lib/components/catalog/catalog-rows.svelte';
 
 	/** An edition (the QR codes' editions: batches, certificates): name, numbers, creators and its variants (sizes / colours) */
 	let { data = $bindable(), id, creating, lists, problems }: CatalogFormProps = $props();
@@ -24,24 +24,24 @@
 <CatalogField label={m['catalog.created_at']()} value={data.created_at} placeholder="2026-10-04T20:00:00.000Z" onchange={(v) => (v ? (data.created_at = v) : delete data.created_at)} />
 <CatalogField label={m['catalog.creators']()} type="textarea" value={data.creators} onchange={(v) => (data.creators = v)} />
 
-<fieldset class="variants">
-	<legend>{m['catalog.variants']()}</legend>
-	{#if err('variant', 'variants')}<p class="error">{err('variant', 'variants')}</p>{/if}
-	{#each variants as v, i (i)}
-		<div class="variant">
-			<div class="variant-head">
-				<CatalogField label="id" value={v.id} onchange={(x) => (v.id = x)} />
-				<button type="button" class="sc-round" title={m['catalog.remove_variant']()} aria-label={m['catalog.remove_variant']()} onclick={() => (data.variants = variants.filter((_, j) => j !== i))}><CloseIcon /></button>
-			</div>
-			<CatalogField label={m['catalog.name']()} value={v.name} onchange={(x) => (v.name = x)} />
-			<div class="sc-fields" data-cols="fit" style:--fields-fit-min="8rem">
-				<CatalogField label={m['catalog.sizes']()} value={listText(v.sizes)} hint={m['catalog.list_hint']()} onchange={(x) => (v.sizes = parseList(x))} />
-				<CatalogField label={m['catalog.colors']()} value={listText(v.colors)} hint={m['catalog.list_hint']()} onchange={(x) => (v.colors = parseList(x))} />
-			</div>
+<CatalogRows
+	legend={m['catalog.variants']()}
+	items={variants}
+	onchange={(next) => (data.variants = next)}
+	create={() => ({ id: '', name: '', sizes: [], colors: [] })}
+	addLabel={m['catalog.add_variant']()}
+	removeLabel={m['catalog.remove_variant']()}
+	error={err('variant', 'variants')}
+>
+	{#snippet head(v)}<CatalogField label="id" value={v.id} onchange={(x) => (v.id = x)} />{/snippet}
+	{#snippet row(v)}
+		<CatalogField label={m['catalog.name']()} value={v.name} onchange={(x) => (v.name = x)} />
+		<div class="sc-fields" data-cols="fit" style:--fields-fit-min="8rem">
+			<CatalogField label={m['catalog.sizes']()} value={listText(v.sizes)} hint={m['catalog.list_hint']()} onchange={(x) => (v.sizes = parseList(x))} />
+			<CatalogField label={m['catalog.colors']()} value={listText(v.colors)} hint={m['catalog.list_hint']()} onchange={(x) => (v.colors = parseList(x))} />
 		</div>
-	{/each}
-	<span><Button size="sm" variant="secondary" onclick={() => (data.variants = [...variants, { id: '', name: '', sizes: [], colors: [] }])}>{m['catalog.add_variant']()}</Button></span>
-</fieldset>
+	{/snippet}
+</CatalogRows>
 
 {#if !creating && id}
 	<p class="links">
@@ -51,34 +51,9 @@
 {/if}
 
 <style>
-	.variants {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-1);
-		margin-bottom: var(--space-15);
-	}
-	.variant {
-		padding-bottom: var(--space-1);
-		border-bottom: 1px solid var(--border-subtle, currentColor);
-	}
-	.variant-head {
-		display: flex;
-		align-items: flex-end;
-		gap: var(--space-05);
-	}
-	.variant-head :global(.field) {
-		flex: 1;
-	}
-	.variant-head .sc-round {
-		margin-bottom: var(--space-15);
-	}
 	.links {
 		display: flex;
 		gap: var(--space-1);
 		margin: 0;
-	}
-	.error {
-		margin: 0;
-		color: var(--state-error);
 	}
 </style>

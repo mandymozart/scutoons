@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { AssetPickerSheet, mediaText, mediaUrl } from '@scutoons/media';
+	import { mediaText, mediaUrl } from './setup.ts';
+	import AssetPickerSheet from './asset-picker-sheet.svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
 
 	/**

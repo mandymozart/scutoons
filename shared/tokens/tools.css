@@ -509,6 +509,17 @@
 	grid-template-columns: repeat(auto-fit, minmax(min(var(--fields-fit-min), 100%), 1fr));
 }
 
+/* a problem line outside a Field (a list's or a group's problem after a save): the Field error's look – caption, ink
+   text, a state-colored rule (the error red is below 4.5:1 as small text) */
+.sc-error {
+	margin: 0;
+	padding-left: var(--space-05);
+	border-left: var(--border-width-regular) solid var(--state-error);
+	color: var(--ink);
+	font-size: var(--type-caption-size);
+	line-height: var(--type-caption-line);
+}
+
 /* segmented control (owner 2026-10-03, COMPONENTS.md step 6; @scutoons/ui Segmented renders it): one 2px ink frame
    around a row of choices, no frame on the buttons, the chosen one (aria-pressed / aria-checked) inverted, a hover
    frame inside. .is-grid wraps into equal columns of at least --seg-min (presets). Also the frame for a toggle + its
