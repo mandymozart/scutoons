@@ -19,6 +19,7 @@ use Scutoons\Domain\Secrets;
 use Scutoons\Domain\Settings\RuntimeSettings;
 use Scutoons\Http\Controllers\AccessController;
 use Scutoons\Http\Controllers\AgentChatsController;
+use Scutoons\Http\Controllers\AgentUsageController;
 use Scutoons\Http\Controllers\AssetsController;
 use Scutoons\Http\Controllers\Admin\BatchesController;
 use Scutoons\Http\Controllers\Admin\CatalogController as CatalogAdminController;
@@ -155,6 +156,9 @@ return static function (App $app): void {
     $app->get('/api/agent-chats/{id}', [AgentChatsController::class, 'get']);
     $app->put('/api/agent-chats/{id}', [AgentChatsController::class, 'put']);
     $app->delete('/api/agent-chats/{id}', [AgentChatsController::class, 'delete']);
+    // ...and its usage log: one row per AI API call, written by the Ask service with the creator's session AND its
+    // X-Service-Key (docs/API.md "Agent usage"); the admin overview is GET /api/admin/agent-usage
+    $app->post('/api/agent-usage', [AgentUsageController::class, 'record']);
 
     // Asset manager (agents/ASSETS.md): the creator's asset picker – browse, look up, upload new files (content editors)
     $asset = '{id:[0-9a-f-]{36}}';
@@ -209,6 +213,8 @@ return static function (App $app): void {
     $app->group('/api/admin', function (RouteCollectorProxy $admin): void {
         $admin->get('/dashboard', [SystemController::class, 'dashboard']);
         $admin->get('/events', [SystemController::class, 'events']);
+        // the Ask panel's AI usage per day / month, creator, service, model (docs/API.md "Agent usage")
+        $admin->get('/agent-usage', [AgentUsageController::class, 'overview']);
         $admin->get('/catalog', [SystemController::class, 'catalog']);
         // when picked-up placed items reappear, per item (an update of the item's `respawn` in catalog_items)
         $admin->get('/catalog/respawn', [RespawnController::class, 'get']);

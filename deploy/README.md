@@ -98,6 +98,7 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `DB_USER`, `DB_PASS` | secret | api `config.php` |
 | `AUTH_SECRET` | secret | api |
 | `QR_PROXY_SECRET` | secret | api **and** qr `config.php` (same value: the API trusts the client IP / device id the qr app forwards) |
+| `AGENT_SERVICE_KEY` | secret | api `config.php` – the same value as the Ask service's `SCUTOONS_SERVICE_KEY` on bunny (lets it write the AI usage log; unset = the service keeps its own file; tools/mcp/README.md) |
 | `SMTP_USER`, `SMTP_PASS` | secret | api |
 | `GENERATE_PASSWORD` | secret | api – only until the admin app replaces `generate/` |
 | `DB_HOST`, `DB_NAME` | variable | api |
@@ -108,6 +109,7 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `VITE_CREATOR_URL` | variable | viewer, admin |
 | `VITE_SHOP_URL` | variable | viewer |
 | `VITE_ADMIN_URL` | variable | admin |
+| `VITE_ASK_URL` | variable | creator – the Ask service, e.g. `https://ask.scutoons.com/api/ask` (unset = the Ask panel says "not available"; tools/mcp/README.md) |
 | `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_API_KEY` | secret | api `config.php` – the asset manager's bunny.net storage zone passwords (read/write, read-only) and the account API key (all optional; agents/ASSETS.md) |
 | `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_PULLZONE_ID`, `CDN_PUBLIC_URL` | variable | api `config.php` (optional, same) |
 

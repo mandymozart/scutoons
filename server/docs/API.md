@@ -56,6 +56,7 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
 | POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft |
 | GET/PUT/DELETE | `/agent-chats[?limit=]`, `/agent-chats/<id>[?messages=1]` | creator | the creator's Ask panel chat history, own chats only – see "Agent chats" |
+| POST | `/agent-usage` | creator + `X-Service-Key` | the Ask service logs one AI API call of the creator – see "Agent usage" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -131,6 +132,7 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | PUT | `/users/{id}/characters/{character}` | unlock an avatar-body character `{ looks?, source?: default\|code\|item\|story\|admin (admin), ref? (admin:<email>) }` → `{ changed, characters }` · `400 unknown_character\|invalid_look\|invalid_source\|invalid_body` · 404 |
 | DELETE | `/users/{id}/characters/{character}[/looks/{look}]` | revoke the character (with its looks) or one look → `{ changed, characters }`; a worn body that is no longer unlocked is reset; defaults can't be revoked per account |
 | GET | `/events` | activity log (filters code, event list, edition_id, toon, from, to) |
+| GET | `/agent-usage?from=&to=&group=day\|month` | the Ask panel's AI usage per period, creator, service, model – see "Agent usage" |
 | GET | `/catalog` · `/keys` | items, editions, toons, permissions map in one answer (read-only; editing: "Catalog" below) · the ML-DSA-65 keypair for client-side signing |
 | GET/PUT | `/catalog/respawn` · `/catalog/respawn/<item>` | when picked-up placed items reappear, per item (`Domain\Catalog\ItemRespawn`; an update of the item's `respawn`, recorded in `catalog_history` with note `respawn`): `GET` → `{ status, items: [{ id, file (the seed's rule), override, overridden, effective }], updated_at, updated_by }`; `PUT { respawn: { default, min?, max? } \| null }` (null = never) or `{ reset: true }` (= the seed's rule) → `{ status, changed, …same }` · `400 invalid_respawn { problems }`, `404 unknown_item` |
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
@@ -405,6 +407,38 @@ one and is never overwritten. `<id>` = a UUID chosen by the client (lower-cased;
 stays `{}`). Errors: `422 invalid_id|invalid_body|invalid_turns|invalid_messages|invalid_title|invalid_page` (body not a
 JSON object, `turns` / `messages` not arrays, title not a string, page not a string or null), `413 too_large` (body over
 8 MB), `404 not_found`, `503 not_available`.
+
+## Agent usage (the Ask panel's AI usage log)
+
+Every AI API call of the creator's Ask panel is logged (agents/CUTOVER.md 10.28; no limits are enforced from it). Table
+`agent_usage` (migration `2026-10-04-agent-usage`; without it both endpoints answer `503 not_available` and the Ask
+service only logs to its own file). Code: `Domain\Agent\AgentUsage`, `AgentUsageController`.
+
+**`POST /agent-usage`** – server to server, called by the Ask service (tools/mcp) with **both** the creator's session
+(`Authorization: Bearer`, the token the creator's browser gave the service; no `Origin` needed – the CSRF check only
+concerns the cookie) **and** `X-Service-Key: <AGENT_SERVICE_KEY>` (compared with `hash_equals`). The row's user is
+always the session's user, never a body field. Body:
+
+`{ service, model, chat_id?, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd }` →
+`201 { status: "success" }`. `service` / `model`: non-empty strings, trimmed, cut to 40 / 100 characters; `chat_id`: a
+UUID (lower-cased) or null / left out (no foreign key – the chat may be deleted later); the four token counts: JSON
+integers 0..2147483647; `cost_usd`: a JSON number (USD) from 0 to below 1000, stored with 6 decimals. `created_at` = the
+server's UTC time.
+
+Errors, in this order: `503 not_configured` (`AGENT_SERVICE_KEY` empty), `403 forbidden` (key missing or wrong),
+`401 unauthorized` (no session), `403 forbidden { role: "creator" }` (not a content editor: `creator`, for now also
+`admin`), `422 invalid_body|invalid_service|invalid_model|invalid_chat_id|invalid_input_tokens|invalid_output_tokens|
+invalid_cache_read_tokens|invalid_cache_write_tokens|invalid_cost_usd`, `503 not_available`.
+
+**`GET /admin/agent-usage?from=YYYY-MM-DD&to=YYYY-MM-DD&group=day|month`** (admin) – sums per period (UTC day
+`2026-10-04` or month `2026-10`), creator, service and model:
+
+`{ status, from, to, group, rows: [{ period, user_id, email, service, model, calls, input_tokens, output_tokens,
+cache_read_tokens, cache_write_tokens, cost_usd }], totals: { calls, input_tokens, output_tokens, cache_read_tokens,
+cache_write_tokens, cost_usd } }` – newest period first, then the highest cost. `from` / `to` are UTC days, both
+included; default `to` = today, `from` = `to` − 29 days (the last 30 days), `group` = `day`. `cost_usd` is a number with
+up to 6 decimals; `email` = the creator's current email (deleting a user deletes their rows – `ON DELETE CASCADE`). Errors:
+`422 invalid_from|invalid_to|invalid_group|invalid_range` (from after to, or more than 400 days), `503 not_available`.
 
 ## Library (the reader's entities, agents/DATA.md)
 

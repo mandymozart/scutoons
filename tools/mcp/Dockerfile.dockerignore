@@ -1,0 +1,24 @@
+# Build context of tools/mcp/Dockerfile (the repository root): nothing but what the Ask service needs.
+*
+!package.json
+!package-lock.json
+!viewer/package.json
+!creator/package.json
+!admin/package.json
+!shop/package.json
+!embassy/package.json
+!shared/api/package.json
+!shared/api/src/**
+!shared/content/package.json
+!shared/content/src/**
+!shared/dev-ports.json
+!shared/media/package.json
+!shared/auth/package.json
+!shared/reader/package.json
+!shared/tokens/package.json
+!shared/ui/package.json
+!tools/mcp/package.json
+!tools/mcp/bin/**
+!tools/mcp/src/**
+!creator/src/lib/editor/text-presets.ts
+!viewer/src/lib/visual-novel/README.md

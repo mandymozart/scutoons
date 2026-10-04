@@ -129,6 +129,7 @@ or after the deploy of the matching API), `2026-10-04-catalog.mysql.sql` (the ca
 tables with today's data, history; folds and removes the settings `item_respawn` / `featured_products` – agents/CATALOG.md
 "Status"; safe in either order with the deploy: without the tables the API reads the files, read-only),
 `2026-10-04-agent-chats.mysql.sql` (the creator's Ask panel chat history; without it the panel works but keeps no history –
-`/api/agent-chats` answers 503); then the content seed and the
+`/api/agent-chats` answers 503), `2026-10-04-agent-usage.mysql.sql` (the Ask panel's usage log – one row per AI call,
+the admin's overview per creator and service; without it the Ask service keeps logging to its own file); then the content seed and the
 edition-number backfill above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

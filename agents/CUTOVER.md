@@ -620,8 +620,19 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       makes room, drags wider; full screen on phones. Streams the answer, each tool call a step, saved drafts as links;
       stop, new chat, earlier chats (clock button), the open chat comes back after a reload. `VITE_ASK_URL` for
       production (empty = "not available").
-    - **Open:** deploy the service on bunny Magic Containers (+ `VITE_ASK_URL`, `ASK_ORIGINS`); the usage log into the
-      database + the admin overview; personal access tokens; review levels for publishing (separate task).
+    - **Deploy prepared (2026-10-04, branch `ask-deploy`)**: `tools/mcp/Dockerfile` (+ `Dockerfile.dockerignore`, build
+      from the repo root; node:22-alpine, runs the TS sources, port 8080, health `/api/ask/health`, SIGTERM; built and run
+      locally); `.github/workflows/ask-image.yml` pushes `ghcr.io/mandymozart/scutoons-ask:latest` on changes to main.
+      Usage log in the API: table `agent_usage` (migration `2026-10-04-agent-usage`), `POST /api/agent-usage` (the
+      creator's session + the shared `AGENT_SERVICE_KEY` / `SCUTOONS_SERVICE_KEY`; user from the session), admin
+      `GET /api/admin/agent-usage?from&to&group=day|month` (per creator / service / model); the service falls back to its
+      file. Deploy: `AGENT_SERVICE_KEY` into the API's config.php (targets.json), `VITE_ASK_URL` into the creator build.
+      Verified locally: a question → 2 calls, $0.04, one row per call in the database, the overview sums them.
+      **Owner steps** (tools/mcp/README.md "Production"): the two migrations in phpMyAdmin; the secret `AGENT_SERVICE_KEY`;
+      bunny Magic Containers app (image from ghcr.io, port 8080, env `ANTHROPIC_API_KEY`, `SCUTOONS_API`, `ASK_ORIGINS`,
+      `SCUTOONS_SERVICE_KEY`); DNS `ask.scutoons.com`; the variable `VITE_ASK_URL`.
+    - **Open:** an admin page for the usage overview (the API is there); check that bunny's proxy streams the answer
+      (Server-Sent Events) and doesn't buffer it; personal access tokens; review levels for publishing (separate task).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

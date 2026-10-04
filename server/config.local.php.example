@@ -10,6 +10,9 @@ define('AUTH_SECRET', '');
 define('GENERATE_PASSWORD', 'your-password-here');
 // Shared with the qr app (qr/config.local.php, same value): it forwards the visitor's IP / device id and logs scans
 define('QR_PROXY_SECRET', '');
+// Shared with the creator's Ask service (tools/mcp, same value there): it writes the AI usage log (POST /api/agent-usage
+// with X-Service-Key). Empty = the usage log is off (503 not_configured). openssl rand -hex 32
+define('AGENT_SERVICE_KEY', '');
 
 // ── Database ────────────────────────────────────────────────────────────────────────────────────────────
 // SQLite (zero setup). A new file gets its tables with: php bin/console migrate

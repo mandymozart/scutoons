@@ -33,6 +33,10 @@ return [
     // X-Scutoons-Proxy-Secret may forward the client IP / device id (Http\Middleware\DeviceId). Empty = trust nobody.
     // Same value as QR_PROXY_SECRET in the qr app's config. openssl rand -hex 32
     'QR_PROXY_SECRET' => '',
+    // Shared secret of the creator's Ask service (tools/mcp, a Node server): only requests carrying it in X-Service-Key
+    // may write the AI usage log (POST /api/agent-usage, docs/API.md "Agent usage"). Empty = not configured (503).
+    // Same value as in the Ask service's environment. openssl rand -hex 32
+    'AGENT_SERVICE_KEY' => '',
 
     // ── URLs ───────────────────────────────────────────────────────────────────────────────────────────
     // The qr app (magic links of login requests without an Origin; it forwards /?login= to the viewer) and the viewer

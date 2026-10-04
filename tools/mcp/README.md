@@ -84,6 +84,44 @@ Claude Desktop (`claude_desktop_config.json`, Settings → Developer → Edit co
 
 Add `"SCUTOONS_MCP_PUBLISH": "1"` only for a session that should be able to publish.
 
+## The Ask service (the creator's "Ask" panel)
+
+`src/ask.ts` + `src/ask-main.ts`: the agent behind the creator's Ask panel – one HTTP endpoint `POST /api/ask`
+(Server-Sent Events). It checks the creator's session at the API (`/me/`, role creator), runs Claude (Sonnet 5.5) with
+the tools above in-process, saves the chat in the API (`/api/agent-chats`) after every round and logs every AI call
+(`/api/agent-usage`, else its own file). Locally: `npm run dev:ask` (port 9002; key `ANTHROPIC_API_KEY` in the
+repo-root `.env`).
+
+### Production: bunny.net Magic Containers
+
+The image is built by GitHub (`.github/workflows/ask-image.yml`) on every push to `main` that changes the service:
+`ghcr.io/mandymozart/scutoons-ask:latest` (and `:<commit>`). Build it by hand from the repository root:
+`docker build -f tools/mcp/Dockerfile -t scutoons-ask .`
+
+Once:
+
+1. **Database** (phpMyAdmin): `server/migrations/mysql/2026-10-04-agent-chats.mysql.sql` (chat history) and
+   `2026-10-04-agent-usage.mysql.sql` (usage log).
+2. **Service key**: a long random value (`openssl rand -hex 32`) – GitHub `production` secret `AGENT_SERVICE_KEY` (goes
+   into the API's `config.php` with the next API deploy) and the same value as `SCUTOONS_SERVICE_KEY` on bunny.
+3. **bunny → Magic Containers → new app**: image `ghcr.io/mandymozart/scutoons-ask:latest` (GitHub registry; the package
+   is private by default – give bunny a GitHub token with `read:packages`, or make the package public), port **8080**,
+   health check `GET /api/ask/health`, a region in the EU, the smallest size. Environment:
+
+   | name | value |
+   |---|---|
+   | `ANTHROPIC_API_KEY` | the Claude API key (platform.claude.com) – secret |
+   | `SCUTOONS_API` | `https://api.scutoons.com/api` |
+   | `ASK_ORIGINS` | `https://creator.scutoons.com` |
+   | `SCUTOONS_SERVICE_KEY` | the service key from 2. – secret |
+
+4. **Address**: `ask.scutoons.com` → the container (a CNAME to the address bunny shows). It must be a scutoons.com name:
+   the creator's sign-in cookie is sent only there (and only under `/api`, which is where the endpoint lives).
+5. **Creator build**: GitHub variable `VITE_ASK_URL` = `https://ask.scutoons.com/api/ask`, then deploy the creator.
+   Without it the panel says "not available".
+
+Updates: push to `main` → new image → bunny pulls it (automatic update on, or "redeploy" in the dashboard).
+
 ## Example
 
 "Set up the chapter 2 stroll" (what `scripts/dev/stroll-chapter2.mjs` does): the agent reads `scutoons://rules/vn-events`

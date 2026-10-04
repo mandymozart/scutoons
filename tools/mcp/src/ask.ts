@@ -26,7 +26,10 @@ export interface AskConfig {
 	/** browser origins allowed to call (CORS with credentials) */
 	origins: string[];
 	/** JSON lines, one per Anthropic API call */
+	/** fallback when the API can't take the usage log */
 	usageLog: string;
+	/** AGENT_SERVICE_KEY of the API: lets the service write the usage log there ('' = file only) */
+	serviceKey: string;
 	publish: boolean;
 	anthropic: Anthropic;
 }
@@ -154,10 +157,38 @@ export function costOf(model: string, u: Anthropic.Beta.BetaUsage): number {
 	return (u.input_tokens * p.input + u.output_tokens * p.output + (u.cache_read_input_tokens ?? 0) * p.cacheRead + (u.cache_creation_input_tokens ?? 0) * p.cacheWrite) / m;
 }
 
-function logUsage(cfg: AskConfig, entry: Record<string, unknown>) {
+interface Usage {
+	service: string;
+	model: string;
+	chat_id: string;
+	input_tokens: number;
+	output_tokens: number;
+	cache_read_tokens: number;
+	cache_write_tokens: number;
+	cost_usd: number;
+}
+
+/**
+ * One AI call into the usage log: the API's `agent_usage` (POST /api/agent-usage with the creator's session and the
+ * service key – the admin overview reads it), else (no key, no table, API down) a JSON line in the service's own file.
+ */
+async function logUsage(cfg: AskConfig, creator: Creator, usage: Usage) {
+	if (cfg.serviceKey) {
+		try {
+			const res = await fetch(`${cfg.api}/agent-usage`, {
+				method: 'POST',
+				headers: { Authorization: `Bearer ${creator.token}`, 'X-Service-Key': cfg.serviceKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+				body: JSON.stringify(usage)
+			});
+			if (res.ok) return;
+			console.error(`ask: usage log in the API failed (${res.status}) – written to the file`);
+		} catch (error) {
+			console.error('ask: usage log in the API failed – written to the file', error instanceof Error ? error.message : error);
+		}
+	}
 	try {
 		mkdirSync(dirname(cfg.usageLog), { recursive: true });
-		appendFileSync(cfg.usageLog, JSON.stringify(entry) + '\n');
+		appendFileSync(cfg.usageLog, JSON.stringify({ at: new Date().toISOString(), creator: creator.id, email: creator.email, ...usage }) + '\n');
 	} catch (error) {
 		console.error('ask: usage log failed', error);
 	}
@@ -304,17 +335,14 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 			total.cacheRead += u.cache_read_input_tokens ?? 0;
 			total.cacheWrite += u.cache_creation_input_tokens ?? 0;
 			total.cost += cost;
-			logUsage(cfg, {
-				at: new Date().toISOString(),
-				creator: creator.id,
-				email: creator.email,
+			await logUsage(cfg, creator, {
 				service: 'anthropic',
 				model: message.model,
-				chat: chatId,
+				chat_id: chatId,
 				input_tokens: u.input_tokens,
 				output_tokens: u.output_tokens,
-				cache_read_input_tokens: u.cache_read_input_tokens ?? 0,
-				cache_creation_input_tokens: u.cache_creation_input_tokens ?? 0,
+				cache_read_tokens: u.cache_read_input_tokens ?? 0,
+				cache_write_tokens: u.cache_creation_input_tokens ?? 0,
 				cost_usd: Number(cost.toFixed(6))
 			});
 
