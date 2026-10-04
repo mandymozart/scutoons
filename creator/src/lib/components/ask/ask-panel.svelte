@@ -93,12 +93,14 @@
 	let input = $state('');
 	let field = $state<HTMLTextAreaElement>();
 
-	// the field grows with its text (up to half the panel, then it scrolls) and is small again once the text is sent
+	// the field grows with its text (one line when empty, up to half the window, then it scrolls) and is one line again
+	// once the text is sent; sizes in rem like everywhere in the app
 	$effect(() => {
 		void input;
 		if (!field) return;
 		field.style.height = 'auto';
-		field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
+		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+		field.style.height = `${(field.scrollHeight + field.offsetHeight - field.clientHeight) / rem}rem`;
 	});
 	let busy = $state(false);
 	let controller: AbortController | null = null;
@@ -261,7 +263,7 @@
 	<form class="composer" onsubmit={send}>
 		<p class="context">{m['creator.ask_context']({ page: context })} · {m['creator.ask_drafts_only']()}</p>
 		<div class="row">
-			<textarea bind:this={field} bind:value={input} rows="2" placeholder={m['creator.ask_placeholder']()} aria-label={m['creator.ask_placeholder']()} {onkeydown}></textarea>
+			<textarea bind:this={field} bind:value={input} rows="1" placeholder={m['creator.ask_placeholder']()} aria-label={m['creator.ask_placeholder']()} {onkeydown}></textarea>
 			{#if busy}
 				<button type="button" class="sc-round" title={m['creator.ask_stop']()} aria-label={m['creator.ask_stop']()} onclick={() => controller?.abort()}><Icon name="square" /></button>
 			{:else}
@@ -276,7 +278,7 @@
 		position: fixed;
 		top: var(--top);
 		right: 0;
-		bottom: var(--action-bar-height, 0px);
+		bottom: var(--action-bar-height, 0rem);
 		width: var(--panel-width);
 		z-index: 30;
 		display: flex;
@@ -289,7 +291,7 @@
 		position: fixed;
 		z-index: 31;
 		top: var(--top);
-		bottom: var(--action-bar-height, 0px);
+		bottom: var(--action-bar-height, 0rem);
 		right: calc(var(--panel-width) - 0.375rem);
 		width: 0.75rem;
 		cursor: col-resize;
@@ -372,7 +374,7 @@
 		align-items: center;
 		gap: var(--space-05);
 		padding: 0.15rem 0;
-		border-bottom: 1px solid var(--border-subtle);
+		border-bottom: var(--border-width-hairline) solid var(--border-subtle);
 	}
 	.steps .what {
 		flex: 1;
@@ -398,6 +400,8 @@
 	textarea {
 		flex: 1;
 		resize: none;
+		/* one line = exactly one control (the send button next to it); more lines grow from there */
+		padding-block: calc((var(--control-height) - 1lh - 2 * var(--border-width-hairline)) / 2); /* control-ok: one line = --control-height */
 		min-height: var(--control-height);
 		max-height: 50vh;
 		max-height: 50dvh;
