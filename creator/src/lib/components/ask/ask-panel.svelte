@@ -17,6 +17,8 @@
 	import { agentChatsApi } from '$lib/api.ts';
 	import { ask } from '$lib/ask.svelte.ts';
 	import { ASK_URL } from '$lib/config.ts';
+	import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
+	import { chatMarkdown } from '$lib/utils/chat-markdown.ts';
 
 	let { context, onclose }: { context: string; onclose: () => void } = $props();
 
@@ -158,7 +160,11 @@
 		const data = JSON.parse(raw);
 		if (name === 'chat') remember(data.id);
 		else if (name === 'text') turn.text += data.delta;
-		else if (name === 'step') turn.steps.push(data);
+		else if (name === 'step') {
+			turn.steps.push(data);
+			// a saved draft: the open editor follows it (agent-saves.svelte.ts)
+			if (data.key && data.version && !data.error) agentSaves.report(data.key, data.version);
+		}
 		else if (name === 'error') turn.error = data.message;
 	}
 
@@ -261,7 +267,10 @@
 						{/each}
 					</ul>
 				{/if}
-				{#if turn.text}<p class="text">{turn.text}</p>{/if}
+				{#if turn.text && turn.who === 'agent'}
+					<!-- Markdown, HTML-escaped first (chat-markdown.ts) -->
+					<div class="text md">{@html chatMarkdown(turn.text)}</div>
+				{:else if turn.text}<p class="text">{turn.text}</p>{/if}
 				{#if turn.error}<p class="sc-error">{turn.error}</p>{/if}
 				{#if busy && i === turns.length - 1}<p class="working">{m['creator.ask_working']()}</p>{/if}
 			</li>
@@ -366,6 +375,38 @@
 	.text {
 		margin: 0;
 		white-space: pre-wrap;
+	}
+	/* the agent's answer: rendered Markdown */
+	.md {
+		white-space: normal;
+	}
+	.md :global(:is(p, ul, ol, pre)) {
+		margin: 0 0 var(--space-05);
+	}
+	.md :global(:is(p, ul, ol, pre):last-child) {
+		margin-bottom: 0;
+	}
+	.md :global(:is(ul, ol)) {
+		padding-left: var(--space-15);
+	}
+	.md :global(.heading) {
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		font-size: var(--type-caption-size);
+		margin-top: var(--space-1);
+	}
+	.md :global(code) {
+		background: var(--surface-panel);
+		padding: 0 0.2em;
+	}
+	.md :global(pre) {
+		overflow-x: auto;
+		padding: var(--space-05);
+		background: var(--surface-panel);
+	}
+	.md :global(pre code) {
+		background: none;
+		padding: 0;
 	}
 	.empty,
 	.working {
