@@ -4,6 +4,13 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Review before publish (docs/API.md "Reviews", agents/CUTOVER.md 10.28, 2026-10-04): review rules per toon set by an
+  admin (`reviewer` / `needs_review`, `*` = every toon; `/api/admin/review-rules`, `/api/admin/users/{id}/review-rules/…`);
+  `needs_review` accounts get `403 review_required` on `/entities/<key>/publish|unpublish` of toon-level entities and
+  submit through `POST /api/reviews` instead (pinned version, a newer submit annuls the open one, `409 no_reviewer`);
+  reviewers `POST /api/reviews/publish|return`. Three mails (`review_requested`, `review_published`, `review_returned`),
+  setting `CREATOR_URL`. Migration `2026-10-04-reviews` (two new tables; without rules nothing changes). PHPUnit `ReviewsTest`.
+
 - Embassy stores + the public "Where to buy" list (agents/EMBASSY.md "Stores", 2026-10-02): organisation type `store`;
   `store` + `record_shop` are stockists with `listed`, `independent`, `address`, `opening`, `carries` (product ids,
   validated against config/products.json; migration `2026-10-02-embassy-stores`, additive). Public `GET /api/stockists/`

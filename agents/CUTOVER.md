@@ -568,6 +568,29 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   - **Checks**: a script like `check:stroll` that drives the tools against the local stack (read → patch → validate → save
     draft → restore), never against production.
   - **Example task**: "set up the chapter 2 stroll" (today `scripts/dev/stroll-chapter2.mjs`) as one request.
+  - **Review levels (owner 2026-10-04; follows "Publish: keep the tool")** – who may publish without a review:
+    - **Decided:** not a role – a relation per toon, set by an admin, like GitHub reviewers. `reviewer` (per toon or `*`)
+      gets a mail on every submit and publishes or sends back; `needs_review` (per account per toon or `*`) = may save
+      drafts and submit, not publish / unpublish. No rule = publishes directly (as before; no backfill). Reviewed levels:
+      every toon-level entity (toon page + settings, season, chapter + scenes, cast, credits, **script** too); platform-wide
+      ones (characters, moods, people, roles, events, map, asset-requests) publish directly for everyone. A submit is
+      pinned to its version (the reviewer publishes what they read; newer drafts stay drafts); a newer submit of the same
+      file annuls the open one. No reviewer assigned → `409 no_reviewer` "ask an admin to add a reviewer". Mails: review
+      requested (reviewers), published / sent back (author) – one per person per action, listing the files.
+    - **Built (API, branch `claude/vigilant-chandrasekhar-67b979`):** migration `2026-10-04-reviews` (**production: run it**;
+      two new tables `content_review_rules`, `content_reviews`), `Domain\Content\Reviews`, `GET|POST /api/reviews`,
+      `POST /api/reviews/publish|return`, `403 review_required` on `/api/entities/<key>/publish|unpublish`, admin
+      `/api/admin/review-rules` + `/api/admin/users/{id}/review-rules/{toon}/{rule}`, mails `review_requested` /
+      `review_published` / `review_returned` (de + en), setting `CREATOR_URL`. server/docs/API.md "Reviews", PHPUnit `ReviewsTest`.
+    - **Built (UI, drafts approved by the owner 2026-10-04):** admin user page → section "Reviews" (the account's rules,
+      add toon / All toons + Reviewer / Needs review, remove). Creator: for `needs_review` accounts every page's Publish
+      button is "Submit for review" (the publish dialog + an optional note; `lib/editor/reviews.svelte.ts`), the history
+      panel hides publish / unpublish for them and marks versions "in review"; the dashboard shows "To review" (one row per
+      submit: author, time, languages, note, "newer drafts" hint, Send back / Publish with a note to the author) and "Your
+      submissions" (in review / sent back with the reviewer's note) – both only when not empty. Mails name the toon
+      ("Cat Pope", not the id) and link to the dashboard (owner: no further action needed than the list).
+    - **Open:** `mcp` branch: a `submit_for_review` tool (`POST /api/reviews`); `publish_entity` now gets
+      `403 review_required` for `needs_review` tokens.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

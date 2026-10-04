@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { reviews } from '$lib/editor/reviews.svelte.ts';
 	import { confirmDialog } from '@scutoons/ui';
 	import { CloseIcon } from '@scutoons/ui';
 	import { listVersions, publishVersion, restoreVersion, unpublish as unpublishEntity, type ContentVersion } from '$lib/api.ts';
@@ -48,6 +49,11 @@
 		}
 	}
 
+	// review before publish: accounts that need a review submit through the page's button (no publish / unpublish here);
+	// versions waiting for a review are marked
+	const reviewed = $derived(reviews.needsReview(doc.toon));
+	const inReview = $derived(new Set([...(reviews.overview?.to_review ?? []), ...(reviews.overview?.mine ?? [])].filter((r) => r.state === 'pending').map((r) => r.version)));
+
 	async function restore(locale: string, v: ContentVersion) {
 		// one question: unsaved changes in that language are lost, and the version becomes a new draft
 		const message = `${doc.dirtyLocales.includes(locale) ? `${m['creator.leave_confirm']()} ` : ''}${m['creator.restore_confirm_when']({ when: when(v.created_at), locale })}`;
@@ -87,15 +93,15 @@
 				{#each versions[l] as v (v.id)}
 					<li class:live={v.status === 'published'} class:current={v.id === doc.base[l]}>
 						<span class="what">
-							<span>{when(v.created_at)}</span>{#if v.id === doc.base[l]} <span class="tag">{m['creator.history_current']()}</span>{/if}
+							<span>{when(v.created_at)}</span>{#if v.id === doc.base[l]} <span class="tag">{m['creator.history_current']()}</span>{/if}{#if inReview.has(v.id)} <span class="tag">{m['creator.review_state_pending']()}</span>{/if}
 							<br />{v.author_email ? m['creator.history_by']({ author: v.author_email }) : m['creator.history_import']()}
 							{#if v.message}<br /><i>{v.message}</i>{/if}
 						</span>
 						<span class="acts">
 							{#if v.status === 'published'}
 								<span>{m['creator.state_published']()}</span>
-								<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>unpublish</button>
-							{:else}
+								{#if !reviewed}<button class="ghost" disabled={busy} onclick={() => unpublish(l)}>unpublish</button>{/if}
+							{:else if !reviewed}
 								<button class="ghost" disabled={busy} onclick={() => publish(l, v)}>{m['creator.publish']()}</button>
 							{/if}
 							{#if v.id !== doc.base[l]}

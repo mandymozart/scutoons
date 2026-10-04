@@ -348,7 +348,19 @@
 		"unlock": "Unlock",
 		"unlock_revoke": "Revoke",
 		"unlocked": "{character} unlocked for {email}",
-		"unlock_revoked": "{character} revoked for {email}"
+		"unlock_revoked": "{character} revoked for {email}",
+		"section_reviews": "Reviews",
+		"section_reviews_hint": "Who reviews before publishing, per toon. Reviewer: gets a mail for every submit, publishes or sends back. Needs review: may only submit drafts for review in that toon. Without a rule the account publishes directly.",
+		"review_toon": "Toon",
+		"review_all_toons": "All toons",
+		"review_rule": "Rule",
+		"rule_reviewer": "Reviewer",
+		"rule_needs_review": "Needs review",
+		"review_add": "Add",
+		"review_remove": "Remove",
+		"review_none": "No rules – publishes directly.",
+		"review_added": "{rule} for {toon} added.",
+		"review_removed": "{rule} for {toon} removed."
 	},
 	"catalog": {
 		"respawn": "Respawn",

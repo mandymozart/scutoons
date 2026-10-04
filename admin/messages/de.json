@@ -348,7 +348,19 @@
 		"unlock": "Freischalten",
 		"unlock_revoke": "Entziehen",
 		"unlocked": "{character} für {email} freigeschaltet",
-		"unlock_revoked": "{character} für {email} entzogen"
+		"unlock_revoked": "{character} für {email} entzogen",
+		"section_reviews": "Reviews",
+		"section_reviews_hint": "Wer vor dem Veröffentlichen prüft, je Toon. Reviewer: bekommt bei jeder Einreichung eine Mail, veröffentlicht oder gibt zurück. Braucht Review: darf in diesem Toon Entwürfe nur zum Review einreichen. Ohne Regel veröffentlicht das Konto direkt.",
+		"review_toon": "Toon",
+		"review_all_toons": "Alle Toons",
+		"review_rule": "Regel",
+		"rule_reviewer": "Reviewer",
+		"rule_needs_review": "Braucht Review",
+		"review_add": "Hinzufügen",
+		"review_remove": "Entfernen",
+		"review_none": "Keine Regeln – veröffentlicht direkt.",
+		"review_added": "{rule} für {toon} hinzugefügt.",
+		"review_removed": "{rule} für {toon} entfernt."
 	},
 	"catalog": {
 		"respawn": "Wiederkehr",
