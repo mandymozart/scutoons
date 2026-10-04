@@ -15,7 +15,7 @@ scutoons/                         one git repo, npm workspaces (Node 22), Compos
 ├── server/              PHP 8.3, Slim 4    → qr.scutoons.com (+ later api.scutoons.com)
 │   ├── public/                   web root: front controller, QR landing page, verify page, assets
 │   ├── src/                      Http (controllers, middleware) · Domain · Infrastructure
-│   ├── config/                   settings, permissions.json, items.json, editions.json
+│   ├── config/                   settings, routes; the catalog SEED (*.json – the catalog is in DB tables, agents/CATALOG.md)
 │   ├── migrations/{mysql,sqlite}/
 │   ├── bin/console               migrate, roles, import-content, backfill, reports
 │   ├── templates/                landing page, mails
@@ -225,7 +225,7 @@ one-line description; burger < 768px) + the fixed bottom `ActionBar` on every pa
 | `/batches`, `/batches/<file>` | Batch → history (resume, ZIP, print sheet), new batch (edition, count, start number, `409 batch_complete` → "Create anyway"), resumable pipeline sign → db → svg → pdf → sig with pause/abort, manifest saved after every code |
 | `/users`, `/users/<id>` | Users → search + role/opt-in filters, detail (owned codes, signup code, opt-in, sessions), role toggles |
 | `/events` | new: activity log with event-type/code/edition/toon/date filters |
-| `/catalog` | new: items + recipes, editions, toons, permissions map (read-only) |
+| `/catalog/<kind>` | the catalog editor (agents/CATALOG.md part 3): every kind, list + form + history / undo |
 | `/content` | new: content store per toon/file/locale (newest + published version, state), links into the creator |
 
 **Parity checks** (browser, same data, legacy `generate/` modules on :9000 vs the admin's): certificate PDF of a

@@ -48,6 +48,9 @@ echo "Database copy: $copy (from $source)\n";
 
 $copyDb = Scutoons\Infrastructure\Database\Database::sqlite($copy);
 (new Scutoons\Infrastructure\Database\MigrationRunner($copyDb, $root . '/migrations'))->migrate(static fn() => null);
+// The catalog of the copy = the seed files (the local database may hold admin edits, e.g. a featured list folded in by
+// the 2026-10-04-catalog migration): the suites check the seed's items / products
+(new Scutoons\Domain\Catalog\CatalogSeed($settings))->seed($copyDb, true);
 $copyDb->close();
 $copyDb = null;
 

@@ -4,20 +4,22 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Access;
 
 use RuntimeException;
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
- * What a code type grants – the permissions map config/permissions.json (agents/ITEMS.md "Access model"), edited by
- * the owner, no code change needed. Server-only: never served over HTTP. Every claimable/signup/grants decision goes
- * through this class:
+ * What a code type grants – the permissions map (agents/ITEMS.md "Access model"): the tables catalog_permissions +
+ * catalog_code_types (agents/CATALOG.md; seed config/permissions.json), edited by admins (/api/admin/catalog/…), no
+ * code change needed. Server-only: never served to readers. Every claimable/signup/grants decision goes through this
+ * class:
  *   types.<type>.claimable  can be owned by one account (inventory, edition number)
  *   types.<type>.signup     a new account can be created with a code of this type (membership, promo)
  *   types.<type>.grants     permission ids while the code is valid – for anyone holding the code (device access via
  *                           /access/) and for its owner (/me/)
  *   default                 for types not listed
- * Another file: setting PERMISSIONS_PATH, or useFile() (tests).
+ * A map file instead of the tables: useFile() (tests).
  */
 final class Permissions
 {
@@ -29,32 +31,49 @@ final class Permissions
         private readonly Settings $settings,
         private readonly AccessTokens $tokens,
         private readonly Clock $clock,
+        private readonly CatalogStore $store,
     ) {
     }
 
+    /** The seed file (config/permissions.json), or the useFile() override */
     public function path(): string
     {
         return $this->override ?? $this->settings->path('PERMISSIONS_PATH');
     }
 
-    /** Use another map file (null = back to the configured one) – for tests */
+    /** Use a map file instead of the tables (null = back to the tables) – for tests */
     public function useFile(?string $path): void
     {
         $this->override = $path;
         $this->map = null;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * The map in the shape of the old permissions.json: { version, permissions: { id: description }, types: { type:
+     * { claimable, signup, grants } }, default } – from the tables (or the useFile() file)
+     * @return array<string, mixed>
+     */
     public function map(): array
     {
-        if ($this->map === null) {
-            $map = json_decode((string) @file_get_contents($this->path()), true);
+        if ($this->map !== null) return $this->map;
+        if ($this->override !== null) {
+            $map = json_decode((string) @file_get_contents($this->override), true);
             if (!is_array($map) || !is_array($map['types'] ?? null)) {
-                throw new RuntimeException('permissions.json is missing or invalid: ' . $this->path());
+                throw new RuntimeException('permissions map is missing or invalid: ' . $this->override);
             }
-            $this->map = $map;
+            return $this->map = $map;
         }
-        return $this->map;
+        $types = $this->store->map('code-types');
+        $default = $types[CatalogStore::DEFAULT_CODE_TYPE] ?? null;
+        unset($types[CatalogStore::DEFAULT_CODE_TYPE]);
+        $meta = $this->store->get('meta', 'permissions');
+        $map = [
+            'version' => is_array($meta) ? ($meta['version'] ?? 1) : 1,
+            'permissions' => $this->store->map('permissions'),
+            'types' => $types,
+        ];
+        if ($default !== null) $map['default'] = $default;
+        return $map;
     }
 
     /** @return array{claimable: bool, signup: bool, grants: list<string>} */

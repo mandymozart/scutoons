@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Assets;
 
+use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
@@ -13,8 +14,9 @@ use Throwable;
  *   - the content store: per entity its PUBLISHED version (state `published`) and, when newer, its working copy
  *     (state `draft`) – history versions are not indexed (restoring an old version may bring back a deleted path;
  *     the delete check says so);
- *   - the catalog files (items.json incl. albums, products.json, editions.json, toons.json, featured-products.json):
- *     state `config`;
+ *   - the catalog rows (CatalogStore: items, recipes, albums, products, editions, featured, toons – agents/CATALOG.md):
+ *     source `catalog`, ref `<kind label>:<id>` (`item:camera`, `product:dago_hoodie` …), field = the JSON pointer
+ *     in the entry's data, state `config` (until 2026-10-04 the catalog files, ref = the file name);
  *   - app code (CODE_REFERENCES – paths the viewer builds itself, e.g. the camera's MobileNet model): source `code`,
  *     state `config`, so they never show as unused and block a delete like the catalog does.
  * A reference is any string with a media extension. Content paths are relative to the document's toon folder (the
@@ -25,7 +27,8 @@ use Throwable;
 final class AssetUsages
 {
     public const SKIP_KINDS = ['asset-requests'];
-    public const CATALOG_FILES = ['ITEMS_PATH', 'PRODUCTS_PATH', 'EDITIONS_PATH', 'TOONS_PATH', 'FEATURED_PRODUCTS_PATH'];
+    /** the catalog kinds whose rows may reference media (permissions / code types / meta never do) */
+    public const CATALOG_KINDS = ['items', 'recipes', 'albums', 'products', 'editions', 'featured', 'toons'];
     /**
      * CDN paths (a trailing `/` = everything below) that app code references directly → the code file (repo-relative).
      * Keep in step with the code: AssetsTest checks every entry still appears in its file.
@@ -43,6 +46,7 @@ final class AssetUsages
         private readonly Clock $clock,
         private readonly Settings $settings,
         private readonly AssetRegistry $registry,
+        private readonly CatalogStore $catalog,
     ) {
     }
 
@@ -117,9 +121,10 @@ final class AssetUsages
         }
     }
 
-    /** Refreshes the catalog rows (after a catalog file changed, e.g. a relink) */
+    /** Refreshes the catalog usages (after a catalog write, e.g. an admin edit or a relink) */
     public function reindexCatalog(): void
     {
+        $this->known = null;
         $rows = $this->catalogUsages();
         $this->db->transaction(function () use ($rows) {
             $this->db->run("DELETE FROM asset_usages WHERE source = 'catalog'");
@@ -159,16 +164,35 @@ final class AssetUsages
     private function catalogUsages(): array
     {
         $out = [];
-        foreach (self::CATALOG_FILES as $setting) {
-            $file = $this->settings->path($setting);
-            if ($file === '' || !is_file($file)) continue;
-            $doc = json_decode((string) file_get_contents($file), true);
-            if (!is_array($doc)) continue;
-            foreach ($this->references($doc, '', false) as $ref) {
-                $out[] = ['source' => 'catalog', 'ref' => basename($file), 'state' => 'config', 'version_id' => null] + $ref;
+        foreach (self::CATALOG_KINDS as $kind) {
+            foreach ($this->catalog->rows($kind) as $row) {
+                $doc = json_decode($row['data'], true);
+                if (!is_array($doc)) continue;
+                foreach ($this->references($doc, '', false) as $ref) {
+                    $out[] = ['source' => 'catalog', 'ref' => self::catalogRef($kind, $row['id']), 'state' => 'config', 'version_id' => null] + $ref;
+                }
             }
         }
         return $out;
+    }
+
+    /** The ref of a catalog entry's usages: `<kind label>:<id>` (item:camera) */
+    public static function catalogRef(string $kind, string $id): string
+    {
+        return CatalogStore::KINDS[$kind]['label'] . ':' . $id;
+    }
+
+    /**
+     * The catalog entry of a usage ref, null when it is none (e.g. an old file-name ref)
+     * @return array{0: string, 1: string}|null [kind, id]
+     */
+    public static function catalogEntry(string $ref): ?array
+    {
+        [$label, $id] = array_pad(explode(':', $ref, 2), 2, '');
+        foreach (self::CATALOG_KINDS as $kind) {
+            if (CatalogStore::KINDS[$kind]['label'] === $label && $id !== '') return [$kind, $id];
+        }
+        return null;
     }
 
     /**

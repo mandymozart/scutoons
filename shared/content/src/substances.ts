@@ -9,6 +9,7 @@
 //   lazily from `{ level, updated_at }` – no cron. The server stores the same and applies the same math
 //   (Domain\Reader\ReaderState); guests keep it in localStorage.
 import type { Catalog, ItemDef, Localized, ScanObjectSkill } from './items.ts';
+import { AVATAR_SLOTS } from './items.ts';
 
 export const STAT_MIN = 0;
 export const STAT_MAX = 100;
@@ -35,6 +36,24 @@ export interface StatEffect {
 export interface TimedEffect {
 	kind: string;
 	duration_min: number;
+}
+
+/**
+ * The reader stats (code, not catalog data – owner 2026-10-04, agents/CATALOG.md): the server serves the same as
+ * `stats` in GET /api/items/ (server Domain\Reader\ReaderStats; its CatalogTest keeps both equal).
+ */
+export const READER_STATS: Record<string, StatDef> = {
+	testo: { label: { de: 'Testo', en: 'Testo' }, baseline: 50, half_life_days: 3 },
+	appetite: { label: { de: 'Appetit', en: 'Appetite' }, baseline: 50, half_life_days: 3 }
+};
+
+/**
+ * A catalog in the served shape (GET /api/items/) from the server's seed file `server/config/items.json`, which no
+ * longer carries the code parts: `slots` (AVATAR_SLOTS) and `stats` (READER_STATS) are added – for tests and scripts.
+ */
+export function catalogFromSeed(seed: Omit<Catalog, 'slots' | 'stats'> & Partial<Pick<Catalog, 'slots' | 'stats'>>): Catalog {
+	const { version, items, recipes, albums } = seed;
+	return { version, slots: seed.slots ?? [...AVATAR_SLOTS], items, recipes, ...(albums ? { albums } : {}), stats: seed.stats ?? READER_STATS };
 }
 
 /** A stored stat: the level at `updated_at` (ISO); the current level is `statLevel` of it. */

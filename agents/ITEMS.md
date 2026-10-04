@@ -245,7 +245,8 @@ Two separate things:
 
 ### Permissions map
 
-The server's `config/permissions.json` (was qr `api/permissions.json`; the owner edits this file; no code change):
+Since 2026-10-04 the tables `catalog_permissions` + `catalog_code_types`, edited in the admin API (agents/CATALOG.md); the
+shape below is the seed `config/permissions.json` (was qr `api/permissions.json`) and what `Permissions::map()` builds:
 ```json
 {
   "version": 1,
@@ -491,17 +492,17 @@ Privacy: the log shows recipient addresses (admin only, like the users endpoints
 ### Featured editions on the landing page (2026-10-01, owner)
 
 Admin page **"Startseite" / "Homepage"** (`admin/src/routes/homepage`, nav group Data): which products of the shop
-catalog, in which colour (= which images), in which order the landing page shows. Stored in the same `settings` table
-under the key `featured_products` (JSON list, `updated_by` = `admin:<email>`; no new table, no migration). Without a row
-(or before the `settings` migration) the default is `server/config/featured-products.json` (dago_hoodie beige,
-dago_heavy_t white).
+catalog, in which colour (= which images), in which order the landing page shows. Since 2026-10-04 the table
+`catalog_featured` (agents/CATALOG.md; one `catalog_history` row per change); until then the setting `featured_products`,
+folded into the table by the migration 2026-10-04-catalog. The default (`null`) is the seed's list
+`server/config/featured-products.json` (dago_hoodie beige, dago_heavy_t white).
 
 | Method | Path | Request | Response |
 |---|---|---|---|
 | GET | `/admin/featured` | – | `{ status, items: [{ product, variant? }], default, stored, updated_at, updated_by, max: 12 }` |
 | PUT | `/admin/featured` | `{ items: [{ product, variant? }] \| null }` | `{ status, changed, …as GET }` · `400 invalid_featured\|unknown_product\|unknown_variant\|duplicate_featured` |
 
-The public `GET /products/featured/` returns the stored list (else the default file byte-for-byte), `max-age=60`.
+The public `GET /products/featured/` returns the list, `max-age=60`.
 Contract: `admin-smoke` "Featured editions" (401/403, validation, store, public read, back to the default).
 
 ### Content (read-only overview, platform P2a)
@@ -1139,8 +1140,7 @@ landing page [the season section of the toon page]."
   `owners` (owns a media item carrying the album). Defaults `download: members` (= the toon page's music download as it
   was), `listen: owners`; a player for the format is always needed to listen. *Per album, not per item:* one zip and one
   track list, whichever carrier (vinyl or test press) someone owns – a per-item flag could give two answers for the same
-  file. Awakening: `{ download: members, listen: owners }`. Shown in the admin's Catalog page (Albums table); edited in
-  items.json (no catalog editor exists).
+  file. Awakening: `{ download: members, listen: owners }`. Edited in the admin: Catalog → Albums (agents/CATALOG.md part 3).
 - **Related items**: `related_items: string[]` (catalog item ids, ordered) on the **season** and the **chapter**,
   language-neutral. Seasons have no neutral entity (DATA.md "Language-independent media": like `download`, `trailer`,
   `cover`, `supporters`) → one creator field writes the same list to every locale, `validateLocales` warns when the
@@ -1293,9 +1293,8 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   - ITEM (catalog, `ItemDef.respawn`): `{ default, min?, max? }` – the default interval and the range a placement may
     choose (no `min` = the default is the shortest); none / null = it never reappears (a one-time find). Set in
     server config/items.json (cucumber 6 h and tuna can 12 h (1 h … 7 d), weed 12 h (1 h … 7 d), testo 1 d (6 h … 7 d), psilocybin and lsd 3 d (1 … 14 d), semaglutide 7 d (1 … 30 d); every other item: never – there is no onion item in the catalog yet) and
-    overridable in admin → Catalog → Respawn (setting `item_respawn`, JSON map item id → rule | null; GET
-    `/admin/catalog/respawn`, PUT `/admin/catalog/respawn/<item>` `{ respawn }` | `{ reset: true }`); `/api/items/` and
-    the admin catalog serve the effective rule.
+    since 2026-10-04 stored in the item's catalog row, edited in admin → Catalog → Items (the item form's "Respawn"; the
+    API `/admin/catalog/respawn` stays); `/api/items/` and the admin catalog serve it.
   - PLACEMENT (`SliceItem.respawn`): none = the item's default; `"never"` = once here; an interval = an override within
     the item's range. The creator shows the item's default and offers only what the range allows; validation flags an
     out-of-range or never-reappearing choice (`placementRespawnProblem`, with the catalog in `ValidateContext.itemRespawn`).

@@ -28,9 +28,9 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
 | the toon's screenplay (per language, creator only, never served to readers) | DB `script:<toon>:<l>` | creator (script page) |
 | events | DB `events` (toon-bound entries) | import (no editor yet) |
-| items, recipes, editions, products (catalog texts; wearables' `wear` overlays per body, ITEMS.md "Wardrobe") | server `config/*.json` via `/api/items/`, `/api/editions/`, `/api/products/` | file → **B2** (after this) |
-| the landing page's featured editions (order, colour) | table `settings`, key `featured_products` (default `config/featured-products.json`) via `/api/products/featured/` | admin ("Startseite") |
-| permissions map | server `config/permissions.json`, never served | file (private) |
+| items, recipes, albums, editions, products, toons (catalog texts; wearables' `wear` overlays per body, ITEMS.md "Wardrobe") | tables `catalog_*` / `toons` (2026-10-04, agents/CATALOG.md; seed `server/config/*.json`) via `/api/items/`, `/api/editions/`, `/api/products/`, `/api/toons/` | admin API `/api/admin/catalog/…` (history, undo); admin UI = CATALOG Part 3 |
+| the landing page's featured editions (order, colour) | table `catalog_featured` (default = the seed `config/featured-products.json`) via `/api/products/featured/` | admin ("Startseite") |
+| permissions map | tables `catalog_permissions` / `catalog_code_types` (seed `config/permissions.json`), never served to readers | admin API |
 | UI chrome (buttons, labels, errors) | each app's paraglide `messages/{de,en}.json` | code |
 | codes, users, inventory, progress, avatar, settings | relational tables | admin / API |
 | member preferences ("Hide sensitive content", "Media quality") | columns `users.hide_sensitive` (default on), `users.media_quality` (default `auto`), `GET/PUT /me/`; a guest's media quality in localStorage | reader account page |
