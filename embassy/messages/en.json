@@ -52,7 +52,9 @@
 		"more": "Show more",
 		"empty": "No organisation matches.",
 		"next": "next {date}",
-		"no_leads": "no track"
+		"no_leads": "no track",
+		"quiet_only": "answered before, quiet now",
+		"quiet_hint": "They replied, met you or picked up the phone once – and nothing for 90 days, no date planned. Worth a call."
 	},
 	"org": {
 		"new_title": "New organisation",
@@ -221,7 +223,8 @@
 		"track": "Leads in {track}",
 		"mine": "My leads",
 		"due": "Due leads",
-		"new_org": "New organisation"
+		"new_org": "New organisation",
+		"quiet": "Answered before, quiet now"
 	},
 	"ask": {
 		"title": "Ask",

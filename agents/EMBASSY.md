@@ -126,8 +126,10 @@ Relatability beats volume: few, specific, personal messages.
 | Inbox | IMAP sync: replies matched to leads, sequence stopped, AI suggests the stage + next date | confirms |
 | Reporting | per track: contacted, replies, won, per helper | – |
 
-First mails: **a person approves every send**. Follow-ups: automated (owner OK 2026-10-01), mostly as call tasks; an
-automatic follow-up mail only in a running thread, and never after a reply or opt-out.
+First mails: **a person approves every send**. ~~Follow-ups: automated (owner OK 2026-10-01), mostly as call tasks; an
+automatic follow-up mail only in a running thread, and never after a reply or opt-out.~~ **No automatic follow-ups
+(owner 2026-10-04):** nothing is sent on its own; the tool helps compose mails and prepare phone follow-ups (the next
+date puts a call on the Today list), and keeps track of dormant contacts that were responsive in the past.
 
 **Legal (check before sending, not legal advice):** in Austria (TKG 2021 §174) and Germany (UWG §7) unsolicited
 advertising emails generally need prior consent, also B2B. Individual, relevant inquiries to published
@@ -299,6 +301,10 @@ and products** (no new "pitch" record yet). The agent only **drafts**: a person 
   2 minutes), `php bin/console embassy:inbox` for a cron job. Matched by thread, else by sender address; unknown
   senders are skipped and nothing about them is stored. A reply → `mail_in` (in conversation, 10 days: the follow-ups
   stop); a reply that is just "stop" / "Stopp" / "unsubscribe" sets do-not-contact.
+- **Answered before, quiet now** (owner 2026-10-04: "keep track of dormant contacts that have been responsive in the
+  past"): `GET /embassy/orgs?quiet=1` (or `quiet=<days>`, default 90) = leads with a reply, meeting or reached call
+  and then nothing for 90 days, no date ahead, not "no", not opted out. Leads checkbox "answered before, quiet now",
+  palette entry, and the agent's `search_orgs` `quiet`.
 - **Not yet:** templates per track × language (the agent follows the strategy instead), a "who should hear about this
   release" list across leads, member updates, the legal opinion on automated follow-ups (see "Legal" above – nothing
   here sends on its own).

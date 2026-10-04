@@ -104,12 +104,13 @@ export function createEmbassyServer(config: Config): McpServer {
 				tier: z.enum(['A', 'B', 'C']).optional(),
 				owner: z.string().optional().describe('"me", "none" or a user id'),
 				due: z.boolean().optional().describe('only leads due today or earlier'),
+				quiet: z.number().int().min(1).max(3650).optional().describe('only leads that answered before (a reply, a meeting, a reached call) and then had nothing for this many days (90 is a good default), no date ahead, not "no", not opted out – the people worth a call again'),
 				limit: z.number().int().min(1).max(100).optional()
 			}),
 			annotations: read
 		},
-		guard(async ({ due, limit, ...filters }) => {
-			const r = await embassy.orgs({ ...filters, ...(due ? { due: 1 } : {}), limit: limit ?? 25 });
+		guard(async ({ due, quiet, limit, ...filters }) => {
+			const r = await embassy.orgs({ ...filters, ...(due ? { due: 1 } : {}), ...(quiet ? { quiet } : {}), limit: limit ?? 25 });
 			return text({
 				total: r.total,
 				items: r.items.map((o) => ({

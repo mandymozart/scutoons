@@ -79,6 +79,7 @@
 				[
 					{ id: 'leads-mine', label: m['palette.mine'](), href: '/leads?owner=me' },
 					{ id: 'leads-due', label: m['palette.due'](), href: '/leads?due=1', keywords: 'overdue fällig' },
+					{ id: 'leads-quiet', label: m['palette.quiet'](), href: '/leads?quiet=1', keywords: 'dormant quiet reconnect ruhig' },
 					...TRACKS.map((track) => ({ id: `leads-${track}`, label: m['palette.track']({ track: label('track', track) }), href: `/leads?track=${track}` }))
 				],
 				goto,

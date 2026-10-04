@@ -302,6 +302,9 @@ endpoint list: `src/Http/Controllers/EmbassyController.php`. Migration `2026-10-
 - `POST /orgs/{id}/activities` with a `track` moves the lead on (and anything but a note makes the user owner of an unowned lead): `mail_out` → contacted + call in 6 days; `call`
   `reached` / `mail_in` / `meeting` → in conversation + 10 days; `voicemail` / `no_answer` → 3 days (weekend dates move to Monday); `call_back` needs
   `next_at`; `declined` → stage `no`, no date. `stage` / `next_at` in the body override.
+- `GET /orgs?quiet=1` (or `quiet=<days>`, default 90): "answered before, quiet now" – organisations with a lead (or an
+  entry without a track) that had a reply, a meeting or a reached call, then no entry for that many days, no next date
+  ahead, stage not `no`, organisation not do-not-contact. Nothing is ever sent automatically (owner 2026-10-04).
 - `GET /today?owner=me|all|none|<id>`: leads due today or earlier (not do-not-contact), with organisation, people and
   the last activity; `unscheduled` = leads in research/ready without a date.
 - Duplicates: same normalized name (`Embassy::nameKey`) and same city (or country): `POST /orgs` → `409 duplicate

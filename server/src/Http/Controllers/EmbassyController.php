@@ -18,7 +18,7 @@ use Scutoons\Http\Middleware\JsonBody;
  *   GET    /embassy/me                          → { access, user, tracks, stages, types, stockist_types, kinds, outcomes, tiers, mail: { from, inbox } }
  *   GET    /embassy/team                        → { items: [{ id, email, access }] }
  *   GET    /embassy/today?owner=me|all|none|<id> → { today, due: [{ lead, org, people, last_activity, overdue_days }], unscheduled }
- *   GET    /embassy/orgs?q&type&country&tier&track&stage&owner&due&sort&limit&offset → { items, total }
+ *   GET    /embassy/orgs?q&type&country&tier&track&stage&owner&due&quiet&sort&limit&offset → { items, total }
  *   POST   /embassy/orgs                        { …org, people?, leads?, force? } → { org, people, leads, activities } (201)
  *   GET    /embassy/orgs/{id}                   → { org, people, leads, activities }
  *   PUT    /embassy/orgs/{id}                   { …fields } → same

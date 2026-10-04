@@ -128,6 +128,30 @@ final class EmbassyApiTest extends TestCase
         self::assertSame(404, $this->request('GET', "/api/embassy/orgs/$id", $amb)->getStatusCode());
     }
 
+    /** quiet=1: leads that answered before (reply, meeting, reached call) and then had nothing for 90 days, no date ahead */
+    public function testQuietListsResponsiveContactsThatWentQuiet(): void
+    {
+        $liaison = $this->auth('liaison');
+        $ids = [];
+        foreach (['Answered', 'Voicemail only', 'Opted out', 'Said no'] as $name) {
+            $r = self::json($this->request('POST', '/api/embassy/orgs', $liaison, ['name' => $name, 'city' => 'Graz', 'leads' => [['track' => 'live']],
+                'do_not_contact' => $name === 'Opted out']));
+            $ids[$name] = $r['org']['id'];
+        }
+        $call = fn(string $name, string $outcome) => $this->request('POST', "/api/embassy/orgs/{$ids[$name]}/activities", $liaison, ['kind' => 'call', 'track' => 'live', 'outcome' => $outcome]);
+        $call('Answered', 'reached');
+        $call('Voicemail only', 'voicemail');
+        $call('Opted out', 'reached');
+        $call('Said no', 'reached');
+        $call('Said no', 'declined');
+        $quiet = fn() => array_map(fn(array $o) => $o['name'], self::json($this->request('GET', '/api/embassy/orgs?quiet=1', $liaison))['items']);
+        self::assertSame([], $quiet(), 'just talked: not quiet');
+        $this->clock->advance(100 * 86400);
+        self::assertSame(['Answered'], $quiet());
+        $this->request('POST', "/api/embassy/orgs/{$ids['Answered']}/activities", $liaison, ['kind' => 'note', 'note' => 'sent a postcard']);
+        self::assertSame([], $quiet(), 'anything new ends the quiet');
+    }
+
     public function testStockistsArePublicAndCarryNoPrivateFields(): void
     {
         $liaison = $this->auth('liaison');

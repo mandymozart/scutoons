@@ -8,7 +8,7 @@
 	import { m } from '$lib/paraglide/messages.js';
 
 	/** All organisations with their leads; the filters live in the URL (shareable, back button) */
-	const FILTERS = ['q', 'track', 'stage', 'type', 'country', 'tier', 'owner', 'due'] as const;
+	const FILTERS = ['q', 'track', 'stage', 'type', 'country', 'tier', 'owner', 'due', 'quiet'] as const;
 	const PAGE = 100;
 
 	const params = $derived(Object.fromEntries(FILTERS.map((k) => [k, page.url.searchParams.get(k) ?? ''])) as Record<(typeof FILTERS)[number], string>);
@@ -109,6 +109,11 @@
 	<label class="check">
 		<input type="checkbox" checked={params.due === '1'} onchange={(e) => set('due', e.currentTarget.checked ? '1' : '')} />
 		{m['leads.due_only']()}
+	</label>
+	<!-- answered before, quiet for 90 days, nothing planned: worth a call again (owner 2026-10-04) -->
+	<label class="check" title={m['leads.quiet_hint']()}>
+		<input type="checkbox" checked={params.quiet === '1'} onchange={(e) => set('quiet', e.currentTarget.checked ? '1' : '')} />
+		{m['leads.quiet_only']()}
 	</label>
 </div>
 

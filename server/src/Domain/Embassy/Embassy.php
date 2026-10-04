@@ -47,6 +47,8 @@ final class Embassy
      */
     public const STOCKIST_TYPES = ['store', 'record_shop'];
     public const KINDS = ['mail_out', 'mail_in', 'call', 'dm', 'meeting', 'note'];
+    /** "answered before, quiet now": days without any entry (list filter `quiet`) */
+    public const QUIET_DAYS = 90;
     public const OUTCOMES = ['reached', 'voicemail', 'no_answer', 'call_back', 'declined'];
     public const TIERS = ['A', 'B', 'C'];
 
@@ -118,7 +120,7 @@ final class Embassy
 
     /**
      * @param array<string, mixed> $filters q, type, country, track, stage, tier, owner (me | none | user id), due (1),
-     *                                      sort (name | next), limit, offset
+     *                                      quiet (days, "1" = QUIET_DAYS), sort (name | next), limit, offset
      * @param array<string, mixed> $user
      * @return array{items: list<array<string, mixed>>, total: int}
      */
@@ -156,6 +158,19 @@ final class Embassy
         if (($filters['due'] ?? '') === '1' || ($filters['due'] ?? null) === true) {
             $leadWhere[] = 'l.next_at IS NOT NULL AND l.next_at <= ?';
             $leadParams[] = $this->todayDate();
+        }
+        // "answered before, quiet now" (owner 2026-10-04: keep track of dormant contacts that were responsive in the past):
+        // the lead (or the organisation, for entries without a track) had a reply, a meeting or a reached call, nothing
+        // happened for `quiet` days and no date is ahead – the people worth a call again. Not: "no", opted out.
+        $quiet = (string) ($filters['quiet'] ?? '');
+        if ($quiet !== '' && $quiet !== '0') {
+            $days = $quiet === '1' || $quiet === 'true' ? self::QUIET_DAYS : max(1, min(3650, (int) $quiet));
+            $mine = '(a.lead_id = l.id OR (a.lead_id IS NULL AND a.org_id = l.org_id))';
+            $leadWhere[] = "l.stage <> 'no' AND (l.next_at IS NULL OR l.next_at <= ?)"
+                . " AND EXISTS (SELECT 1 FROM embassy_activities a WHERE $mine AND (a.kind IN ('mail_in', 'meeting') OR (a.kind = 'call' AND a.outcome = 'reached')))"
+                . " AND NOT EXISTS (SELECT 1 FROM embassy_activities a WHERE $mine AND a.at >= ?)";
+            array_push($leadParams, $this->todayDate(), $this->clock->utc(-$days * 86400));
+            $where[] = 'o.do_not_contact = 0';
         }
         if ($leadWhere) {
             $where[] = 'EXISTS (SELECT 1 FROM embassy_leads l WHERE l.org_id = o.id AND ' . implode(' AND ', $leadWhere) . ')';

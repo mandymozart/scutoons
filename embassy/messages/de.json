@@ -52,7 +52,9 @@
 		"more": "Mehr zeigen",
 		"empty": "Keine Organisation passt.",
 		"next": "nächstes {date}",
-		"no_leads": "kein Bereich"
+		"no_leads": "kein Bereich",
+		"quiet_only": "früher geantwortet, jetzt still",
+		"quiet_hint": "Sie haben geantwortet, euch getroffen oder abgehoben – und seit 90 Tagen nichts, kein Termin geplant. Ein Anruf lohnt sich."
 	},
 	"org": {
 		"new_title": "Neue Organisation",
@@ -221,7 +223,8 @@
 		"track": "Leads in {track}",
 		"mine": "Meine Leads",
 		"due": "Fällige Leads",
-		"new_org": "Neue Organisation"
+		"new_org": "Neue Organisation",
+		"quiet": "Früher geantwortet, jetzt still"
 	},
 	"ask": {
 		"title": "Ask",
