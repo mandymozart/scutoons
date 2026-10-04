@@ -47,6 +47,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Right-side drawers/panels drag wider (up to half the window); the sidebar folds to a rail (Feather chevrons button at its top right / drag / Ctrl+\); the script outline folds
   the same way, its rail labelled "Outline". The script is read-only until "Edit script" is confirmed.
 - Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()`.
+- Right-docked page panels (Problems, History, help) sit left of the Ask panel (`--ask-inset`); with both open the
+  sidebar folds to its rail. Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
+  can't. Admin catalog warnings: not yet (separate branch).
 - Media fields are slots (preview = button, empty dashed slot), not path text fields; multi-resolution media =
   one slot with resolution chips (default 720p → 480p → 1080p).
 - Show design drafts (on the real page, mobile + desktop) before building bigger UI.
