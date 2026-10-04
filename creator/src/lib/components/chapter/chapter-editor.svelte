@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
+	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, untrack } from 'svelte';
 	import { ActionBar, CloseIcon, Icon } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
@@ -421,9 +422,13 @@
 	}
 
 	const previewLabel = $derived(view.section === 'group' || view.section === 'slice' ? (activeGroup?.label ?? '') : '');
-	/** the creator's own draft preview (saved drafts rendered with @scutoons/reader), in a new tab */
+	/**
+	 * The chapter in the live reader with its draft preview on (`?preview=draft`, viewer lib/draft-preview.svelte.ts):
+	 * the saved drafts, at the open group. The locale prefix picks the text language; the reader has de and en only.
+	 */
+	const readerLocales = $derived(chapter.locales.filter((l) => l === 'de' || l === 'en'));
 	const previewHref = (locale: string) =>
-		`/${toon}/chapter/${chapterNumber}/preview?locale=${locale}${previewLabel ? `&label=${encodeURIComponent(previewLabel)}` : ''}`;
+		`${VIEWER_URL}/${locale}/${toon}/chapter/${chapterNumber}?preview=draft${previewLabel ? `&label=${encodeURIComponent(previewLabel)}` : ''}`;
 
 	// ── Guards, autosave, keyboard ──────────────────────────────────────────────────────────────────────
 	// unsaved changes: leaving asks in-page (preview links open in a new tab); lib/editor/ask.ts
@@ -497,8 +502,8 @@
 			<button class="ghost" title="{m['creator.redo']()} (Ctrl+Shift+Z)" aria-label={m['creator.redo']()} disabled={!redoDoc} onclick={redoLast} data-testid="redo"><Icon name="rotate-cw" /></button>
 			<span class="preview">
 				{m['creator.preview']()}:
-				{#each chapter.locales as l}
-					<a href={previewHref(l)} target="_blank" rel="noopener" title="Draft preview in {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
+				{#each readerLocales as l}
+					<a href={previewHref(l)} target="_blank" rel="noopener" title="In the reader, {l} (saved drafts)" data-testid="preview-{l}">{l}</a>
 				{/each}
 			</span>
 			<button class="ghost" class:active={panel === 'history'} onclick={() => togglePanel('history')}>{m['creator.history']()}</button>

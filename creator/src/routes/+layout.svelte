@@ -99,7 +99,6 @@
 		if (page.params.chapterNumber) {
 			const n = page.params.chapterNumber;
 			out.push({ href: `/${toonId}/chapter/${n}`, label: fileLabel(entities.chapter(toonId, Number(n))) });
-			if (route.endsWith('/preview')) out.push({ href: page.url.pathname + page.url.search, label: m['creator.preview_title']() });
 		}
 		if (route === '/[toonId]/cast') out.push({ href: `/${toonId}/cast`, label: m['creator.cast']() });
 		if (route === '/[toonId]/credits') out.push({ href: `/${toonId}/credits`, label: m['creator.credits']() });

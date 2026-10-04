@@ -1817,3 +1817,14 @@ character, persona, look and mood and doubles as the VN test bed.
   read-only CORS proxy to `https://api.scutoons.com/api` (the API's preflight rejects localhost) and
   `VITE_CDN_URL=https://scutoons.b-cdn.net` (cdn.scutoons.com 404s/403s these files; the b-cdn host sends CORS `*`).
   The in-app browser pane never completes `requestFullscreen` (pending promise) – check full screen in a real browser.
+
+## Creator preview = the live reader (2026-10-04)
+- Owner: no own preview in the creator ("no point in rebuilding the viewer"). The route
+  `creator/…/chapter/<n>/preview` is gone (with its help text and breadcrumb). The chapter editor's "Preview: de en"
+  links open `<VIEWER_URL>/<locale>/<toon>/chapter/<n>?preview=draft[&label=<group>]` in a new tab (de/en only – the
+  reader's locales; the explicit locale prefix picks the text language).
+- Viewer: `lib/draft-preview.svelte.ts` reads `?preview=draft` at module start (before any load) and switches the
+  account page's draft preview on (stored per device, the bar with "Turn off" on every page); the root layout removes
+  the flag from the address. The old creator link's `?draft=1` was never read by the viewer.
+- The reader shows saved drafts only (the editor autosaves after 1 s). Without the creator role the API answers
+  401/403 and the preview switches itself off (published content).

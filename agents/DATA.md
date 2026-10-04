@@ -242,7 +242,7 @@ nothing breaks in between; after step 3 every frontend reads the library (no fal
 ## 5. Creator / admin
 
 The creator edits `ContentDoc`s keyed by entity (`new ContentDoc(entity, locales, primary)`, `doc.key(locale)`), writes
-through `/api/entities`, lists toons from `/library/toons?draft=1`, previews through the library in draft mode, and has
+through `/api/entities`, lists toons from `/library/toons?draft=1`, previews in the live reader (`?preview=draft`, the viewer's draft preview), and has
 no static fallback (a missing entity starts empty). Labels come from one helper (`entityLabel` in `@scutoons/ui`, keyed
 by entity) – no file names, `_` chips or "file" wording in the creator or admin UI; JSON is named only in import/export.
 

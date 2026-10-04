@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'cast' | 'script' | 'preview' | 'guide' | 'map';
+	export type HelpPage = 'home' | 'toon' | 'chapter' | 'season' | 'toon-file' | 'cover' | 'credits' | 'characters' | 'cast' | 'script' | 'guide' | 'map';
 	export type ChapterSection = 'meta' | 'audio' | 'group' | 'slice';
 </script>
 
@@ -136,12 +136,6 @@
 		<h3>{m['creator.script_rules']()}</h3>
 		<ScriptRules />
 		{@render saving()}
-	{:else if page === 'preview'}
-		<p>{m['creator.preview_hint']()}</p>
-		<ul>
-			<li>{m['creator.preview_vn_note']()}</li>
-			<li>{m['creator.preview_renderer_note']()}</li>
-		</ul>
 	{:else if page === 'guide'}
 		<p>{m['creator.help_guide']()}</p>
 	{/if}

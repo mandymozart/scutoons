@@ -260,7 +260,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   shown otherwise; one small preview of the poster placed: a phone, plus a desktop in full-viewport mode, or the frame.
   No help sentences. The size line is short: "390 × 693" (frame), "Bildschirm · 1,89:1" (full viewport), else the image
   size as before. Sizes in `em` of the creator's fixed 13 px base (its root `rem` is the reader's fluid one). "Original"
-  with a poster whose ratio differs from the video's (> 2 %) shows a warning (the slice would shift while loading). The creator's chapter preview plays `src`.
+  with a poster whose ratio differs from the video's (> 2 %) shows a warning (the slice would shift while loading).
 - **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group.
   - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
     track-reading.ts), or – a group ending with a player video – the video **ended** (playing it again hides the bar);
@@ -484,7 +484,7 @@ The creator is a hierarchy: **Creator → toon → season → chapter → group 
   shrink first, "Creator" and the current level stay whole; burger for the sidebar below 768 px).
 - **Left sidebar = the children of the current level:** home → toons; toon (and its cast / credits / settings) →
   seasons + Cast + Credits + Script + Toon settings; season → its chapters with the status per language; chapter → Meta,
-  Audio, groups → slices (the chapter tree); draft preview → its groups. A leaf page shows its siblings with the
+  Audio, groups → slices (the chapter tree). A leaf page shows its siblings with the
   current one marked. The **Universe** section (Characters, Moods, Wanted images) is pinned to the bottom of the
   sidebar on every page.
 - **Content** edits the selected item. **Bottom ActionBar** is the same component everywhere: Info (left-most),
