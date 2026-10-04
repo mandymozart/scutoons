@@ -1,4 +1,6 @@
-// The catalog (items, editions, toons, permissions) changes only with a deploy: loaded once per page load.
+// The catalog (items, editions, toons, permissions) lives in the database and is edited on the Catalog pages
+// (agents/CATALOG.md part 3): loaded once and kept until a catalog write calls invalidateCatalog() – the next
+// loadCatalog() (e.g. the codes / batches pages' edition filters) then fetches it again.
 import type { AdminCatalog } from '@scutoons/api';
 import { admin } from '$lib/api.ts';
 
@@ -10,6 +12,11 @@ export function loadCatalog(): Promise<AdminCatalog> {
 		throw error;
 	});
 	return cached;
+}
+
+/** after every catalog write (put / delete / reorder / undo): the next loadCatalog() reads the server again */
+export function invalidateCatalog(): void {
+	cached = null;
 }
 
 /** Code types of the legacy generate form (+ what the permissions map knows) */

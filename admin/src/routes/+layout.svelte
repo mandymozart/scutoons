@@ -23,6 +23,7 @@
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
+	import { EDITED_KINDS, KINDS } from '$lib/catalog/kinds.ts';
 	import { openClaims } from '$lib/claims.svelte.ts';
 	import { setupMedia } from '@scutoons/media';
 	import { assets } from '$lib/api.ts';
@@ -68,10 +69,18 @@
 			goto,
 			m['palette.go_to']()
 		),
+		// the catalog's kinds (one tab each, /catalog/<kind>)
+		...linkCommands(
+			EDITED_KINDS.map((kind) => ({ id: `catalog-${kind}`, label: m['palette.catalog_kind']({ what: KINDS[kind].label() }), keywords: `catalog katalog ${kind}`, href: `/catalog/${kind}` })),
+			goto,
+			m['palette.go_to']()
+		),
 		...linkCommands(
 			[
 				{ id: 'new-batch', label: m['palette.new_batch'](), keywords: 'batch edition', href: '/batches?new=1' },
 				{ id: 'generate', label: m['palette.generate'](), keywords: 'code qr', href: '/codes/new' },
+				{ id: 'new-item', label: m['catalog.new']({ what: m['catalog.item']() }), keywords: 'catalog item', href: '/catalog/items?new=1' },
+				{ id: 'new-toon', label: m['catalog.new']({ what: m['catalog.toon']() }), keywords: 'catalog toon', href: '/catalog/toons?new=1' },
 				{ id: 'revoked', label: m['palette.revoked_codes'](), href: '/codes?status=revoked' },
 				{ id: 'admins', label: m['palette.admins'](), href: '/users?role=admin' }
 			],

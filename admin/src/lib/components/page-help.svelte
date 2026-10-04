@@ -104,8 +104,13 @@
 		<p>{m['help.content']()}</p>
 	{:else if page === 'catalog'}
 		<p>{m['catalog.meta']()}</p>
-		<h3>{m['catalog.types']()}</h3>
-		<p>{m['catalog.types_hint']()}</p>
+		<p>{m['help.catalog']()}</p>
+		<h3>{m['help.catalog_history_title']()}</h3>
+		<p>{m['help.catalog_history']()}</p>
+		<h3>{m['help.catalog_media_title']()}</h3>
+		<p>{m['help.catalog_media']()}</p>
+		<h3>{m['help.catalog_kinds_title']()}</h3>
+		<p>{m['help.catalog_kinds']()}</p>
 	{:else if page === 'settings'}
 		<p>{m['help.settings']()}</p>
 		<h3>{m['settings.section_limits']()}</h3>
