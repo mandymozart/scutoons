@@ -1,12 +1,15 @@
-// Generates the JSON Schemas in ../schema from the TypeScript types (the server validates creator writes with them).
+// Generates the JSON Schemas in ../schema from the TypeScript types, and the copy the API ships in server/schema/content/
+// (the server checks every content save against them: server/src/Domain/Content/ContentSchemas.php).
 //   node scripts/schema.js          write schema/*.schema.json
 //   node scripts/schema.js --check  fail when a committed schema is out of date (part of `npm run check`)
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGenerator } from 'ts-json-schema-generator';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+/** the API deploys only server/, so it carries its own copy */
+const serverCopy = join(root, '../../server/schema/content');
 
 /** file name → root type. Content files: `<toon>/<locale>/{toon,season1,chapterN,<chapter>/scene-N}.json`;
  *  credits: `<toon>/_/credits.json`, `scutoons/_/people.json`, `scutoons/_/roles.json`;
@@ -27,7 +30,8 @@ const SCHEMAS = {
 	'asset-requests': 'AssetRequests',
 	cast: 'ToonCast',
 	script: 'ToonScript',
-	map: 'WorldMap'
+	map: 'WorldMap',
+	events: 'EventList'
 };
 
 const generator = createGenerator({
@@ -51,13 +55,15 @@ for (const [name, type] of Object.entries(SCHEMAS)) {
 	};
 	// doc comments carry the checkout's line endings (CRLF on Windows): the same schema on every machine
 	const text = JSON.stringify(schema, (_key, value) => (typeof value === 'string' ? value.replace(/\r\n/g, '\n') : value), '\t') + '\n';
-	const file = join(root, 'schema', `${name}.schema.json`);
-	if (check) {
-		if (!existsSync(file) || readFileSync(file, 'utf8').replace(/\r\n/g, '\n') !== text) stale.push(file);
-	} else {
-		writeFileSync(file, text);
-		console.log(`schema/${name}.schema.json ← ${type}`);
+	for (const file of [join(root, 'schema', `${name}.schema.json`), join(serverCopy, `${name}.schema.json`)]) {
+		if (check) {
+			if (!existsSync(file) || readFileSync(file, 'utf8').replace(/\r\n/g, '\n') !== text) stale.push(file);
+		} else {
+			mkdirSync(dirname(file), { recursive: true });
+			writeFileSync(file, text);
+		}
 	}
+	if (!check) console.log(`schema/${name}.schema.json (+ server copy) ← ${type}`);
 }
 
 if (stale.length) {

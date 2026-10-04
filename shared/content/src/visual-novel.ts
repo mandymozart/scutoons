@@ -157,8 +157,8 @@ export interface VNShowMessageEvent {
 	type: 'showMessage';
 	params: {
 		text: string;
-		/** the speaking character's id */
-		character: string;
+		/** the speaking character's id; none = narration (no speaker) */
+		character?: string;
 		/** the speaker's persona (none = regular) */
 		persona?: string;
 		wait?: boolean;

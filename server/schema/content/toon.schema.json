@@ -1,0 +1,50 @@
+{
+	"$id": "https://scutoons.com/schema/toon.schema.json",
+	"title": "ToonSettings",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/ToonSettings",
+	"definitions": {
+		"ToonSettings": {
+			"type": "object",
+			"properties": {
+				"id": {
+					"type": "string"
+				},
+				"title": {
+					"type": "string"
+				},
+				"language": {
+					"type": "string"
+				},
+				"release": {
+					"type": "string",
+					"description": "per language (a translation can be released later)"
+				},
+				"status": {
+					"$ref": "#/definitions/Status",
+					"description": "per language (a translation can stay a draft)"
+				},
+				"description": {
+					"type": "string"
+				}
+			},
+			"required": [
+				"id",
+				"title",
+				"language",
+				"release",
+				"status",
+				"description"
+			],
+			"description": "The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings"
+		},
+		"Status": {
+			"type": "string",
+			"enum": [
+				"published",
+				"draft",
+				"coming-soon"
+			]
+		}
+	}
+}

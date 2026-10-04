@@ -35,6 +35,7 @@ use Scutoons\Console\AssetsSyncCommand;
 use Scutoons\Console\BackfillEditionNumbersCommand;
 use Scutoons\Console\CatalogExportSqlCommand;
 use Scutoons\Console\CatalogSeedCommand;
+use Scutoons\Console\ContentCheckCommand;
 use Scutoons\Console\ExportContentCommand;
 use Scutoons\Console\ImportContentCommand;
 use Scutoons\Console\MigrateCommand;
@@ -46,7 +47,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, CatalogSeedCommand::class, CatalogExportSqlCommand::class] as $command) {
+foreach ([MigrateCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, CatalogSeedCommand::class, CatalogExportSqlCommand::class, ContentCheckCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

@@ -1,0 +1,62 @@
+{
+	"$id": "https://scutoons.com/schema/events.schema.json",
+	"title": "EventList",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/EventList",
+	"definitions": {
+		"EventList": {
+			"type": "array",
+			"items": {
+				"$ref": "#/definitions/Event"
+			},
+			"description": "The `events` document: every event, in any order (the viewer sorts)"
+		},
+		"Event": {
+			"type": "object",
+			"properties": {
+				"title": {
+					"type": "string"
+				},
+				"date": {
+					"type": "string",
+					"description": "local time `YYYY-MM-DDTHH:MM:SS`"
+				},
+				"location": {
+					"type": "string"
+				},
+				"city": {
+					"type": "string"
+				},
+				"category": {
+					"$ref": "#/definitions/EventCategory"
+				},
+				"link": {
+					"type": "string"
+				},
+				"toon": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "the toons the event belongs to (not shown yet)"
+				}
+			},
+			"required": [
+				"title",
+				"date",
+				"location",
+				"city",
+				"category"
+			],
+			"description": "One entry of the platform-wide `events` document (viewer /events, edited in the admin's /calendar)"
+		},
+		"EventCategory": {
+			"type": "string",
+			"enum": [
+				"irl",
+				"virtual",
+				"hybrid"
+			]
+		}
+	}
+}

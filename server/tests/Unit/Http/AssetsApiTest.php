@@ -121,7 +121,7 @@ final class AssetsApiTest extends TestCase
         self::assertSame(['The clip', ['prologue']], [$meta['asset']['title'], $meta['asset']['tags']]);
 
         // a creator save re-indexes the entity: the chapter now uses the 480p file instead
-        $put = $this->request('PUT', '/api/entities/chapter:catpope:1:de', $creator + ['Content-Type' => 'application/json'], '{"content":{"groups":[{"slices":[{"video":{"src":"videos/clip.480p.mp4"}}]}]}}');
+        $put = $this->request('PUT', '/api/entities/chapter:catpope:1:de', $creator + ['Content-Type' => 'application/json'], '{"content":' . self::chapterJson(['groups' => [['slices' => [['image' => 'images/s.webp', 'width' => 390, 'height' => 600, 'video' => ['src' => 'videos/clip.480p.mp4']]]]]]) . '}');
         self::assertSame(200, $put->getStatusCode(), (string) $put->getBody());
         $detail = self::json($this->request('GET', "/api/assets/$id", $creator));
         self::assertEqualsCanonicalizing([['catpope/videos/clip.720p.mp4', 'published'], ['catpope/videos/clip.480p.mp4', 'draft']], array_map(fn($u) => [$u['path'], $u['state']], $detail['usages']));

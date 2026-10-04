@@ -1,0 +1,140 @@
+{
+	"$id": "https://scutoons.com/schema/toon-index.schema.json",
+	"title": "ToonIndex",
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"$ref": "#/definitions/ToonIndex",
+	"definitions": {
+		"ToonIndex": {
+			"type": "object",
+			"properties": {
+				"map": {
+					"$ref": "#/definitions/ToonMapView"
+				},
+				"authors": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					}
+				},
+				"chapters": {
+					"type": "number"
+				},
+				"thumbnail": {
+					"type": "string"
+				},
+				"announce": {
+					"type": "boolean",
+					"description": "Show the toon publicly before it is published (owner 2026-10-01): the landing page's tile and the main menu list it as \"bald\" / \"soon\" (not clickable, no dates, no chapters). Language-neutral."
+				},
+				"tile": {
+					"$ref": "#/definitions/ToonTile",
+					"description": "The landing page's tile (language-neutral); without it the tile uses the toon's avatar"
+				},
+				"id": {
+					"type": "string"
+				},
+				"uri": {
+					"type": "string"
+				},
+				"status": {
+					"$ref": "#/definitions/Status"
+				},
+				"avatar": {
+					"type": "string"
+				},
+				"i18n": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "string"
+						}
+					}
+				},
+				"sourceLanguage": {
+					"$ref": "#/definitions/Language",
+					"description": "The language the toon is written in; every other language is a translation of it. Default: `languages[0]`, else the first `i18n` key, else `de`."
+				},
+				"languages": {
+					"type": "array",
+					"items": {
+						"$ref": "#/definitions/Language"
+					},
+					"description": "Every language of the toon, the source first. Default: the `i18n` keys (source first)."
+				},
+				"announced": {
+					"type": "boolean",
+					"description": "Library answer only (`/library/toons`): the toon is not published but announced (`announce`) – list it as \"soon\", never link it (its pages stay 404 publicly)"
+				}
+			},
+			"required": [
+				"id",
+				"uri",
+				"status",
+				"avatar",
+				"i18n"
+			],
+			"description": "One toon's entry in `toons.json` (language-neutral). The creator keeps the newest version of it in the content store as `<toon>/_/index.json` (see `TOON_INDEX_FILE`); read the languages with `toonLanguages()`."
+		},
+		"ToonMapView": {
+			"type": "object",
+			"properties": {
+				"center": {
+					"type": "object",
+					"properties": {
+						"x": {
+							"type": "number"
+						},
+						"y": {
+							"type": "number"
+						}
+					},
+					"required": [
+						"x",
+						"y"
+					]
+				},
+				"zoom": {
+					"type": "number"
+				}
+			},
+			"description": "The toon's start view on the world map (`toon:<toon>` → `map`; language-neutral)"
+		},
+		"ToonTile": {
+			"type": "object",
+			"properties": {
+				"image": {
+					"type": "string",
+					"description": "image path in the toon's CDN folder (`../characters/<id>/…` for a registry portrait), e.g. the star's neutral portrait"
+				},
+				"color": {
+					"type": "string",
+					"description": "CSS colour behind the image; default: the colour of the toon's star in the character registry (`own_toon`)"
+				}
+			},
+			"required": [
+				"image"
+			],
+			"description": "A toon's tile on the landing page: a square image on a colour"
+		},
+		"Status": {
+			"type": "string",
+			"enum": [
+				"published",
+				"draft",
+				"coming-soon"
+			]
+		},
+		"Language": {
+			"type": "string",
+			"enum": [
+				"de",
+				"en",
+				"jp",
+				"ko",
+				"es"
+			],
+			"description": "Content languages (a toon's `languages`); ISO 639-1. Korean is `ko` (2026-10-02, was the unused country code `kr`)."
+		}
+	}
+}
