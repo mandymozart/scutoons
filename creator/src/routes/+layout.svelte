@@ -30,6 +30,7 @@
 	import { fileLabel } from '$lib/labels.ts';
 	import NavSidebar from '$lib/components/page/nav-sidebar.svelte';
 	import TextLanguageSwitch from '$lib/components/text/text-language-switch.svelte';
+	import AskPanel from '$lib/components/ask/ask-panel.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -50,6 +51,8 @@
 	// ── Navigation (agents/DESIGN.md "Creator navigation"): one top bar, sidebar = children of the current level ──
 	const nav = setCreatorNav();
 	let menuOpen = $state(false);
+	/** the Ask panel (CUTOVER 10.28 step 2) */
+	let askOpen = $state(false);
 	// the toons (names for crumbs, sidebar, titles): loaded once the signed-in creator is known – a request before the
 	// session is restored (or before a login) would be refused and leave the ids in the UI
 	let toonsLoaded = false;
@@ -263,6 +266,7 @@
 					{#if textLanguages.languages.length > 1}
 						<TextLanguageSwitch languages={textLanguages.languages} source={textLanguages.source} />
 					{/if}
+					<button type="button" class="sc-round" class:is-active={askOpen} title={m['creator.ask_open']()} aria-label={m['creator.ask_open']()} aria-pressed={askOpen} data-testid="ask-toggle" onclick={() => (askOpen = !askOpen)}><Icon name="message-square" /></button>
 					<PaletteTrigger label={m['palette.search']()} compact onclick={() => (paletteOpen = true)} />
 					<span class="who">{session.user?.email ?? ''}</span>
 				</header>
@@ -297,6 +301,7 @@
 			emptyLabel={m['palette.empty']()}
 			hint={m['palette.keys']()}
 		/>
+		{#if askOpen}<AskPanel context={nav.crumbs.slice(1).map((c) => c.label).join(' · ') || m['creator.app_label']()} onclose={() => (askOpen = false)} />{/if}
 		<DialogHost cancelLabel={m['creator.cancel']()} />
 	</AuthGate>
 </div>

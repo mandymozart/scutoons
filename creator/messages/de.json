@@ -868,7 +868,17 @@
 		"season_language_fix": "Korrigieren",
 		"season_neutral_hint": "Titel und Beschreibung gibt es je Sprache; alles andere auf dieser Seite ist in jeder Sprache gleich.",
 		"assets_choose_file": "Datei wählen …",
-		"season_music_from_album": "Die Musik der Staffel (Download, die Platte neben dem Musik-Knopf) kommt vom Album einer verwandten Platte im Item-Katalog – dessen Zip und Cover."
+		"season_music_from_album": "Die Musik der Staffel (Download, die Platte neben dem Musik-Knopf) kommt vom Album einer verwandten Platte im Item-Katalog – dessen Zip und Cover.",
+		"ask": "Fragen",
+		"ask_open": "Den Agenten fragen",
+		"ask_new": "Neuer Chat",
+		"ask_close": "Schließen",
+		"ask_you": "Du",
+		"ask_agent": "Agent",
+		"ask_placeholder": "Was soll der Agent tun?",
+		"ask_send": "Senden",
+		"ask_context": "Kontext: {page}",
+		"ask_drafts_only": "speichert Entwürfe – veröffentlichen tust du"
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

@@ -868,7 +868,17 @@
 		"season_language_fix": "Fix",
 		"season_neutral_hint": "Title and description are per language; everything else on this page is the same in every language.",
 		"assets_choose_file": "Choose file …",
-		"season_music_from_album": "The season's music (download, the record beside the music button) comes from the album of a related record in the item catalog – its zip and its cover."
+		"season_music_from_album": "The season's music (download, the record beside the music button) comes from the album of a related record in the item catalog – its zip and its cover.",
+		"ask": "Ask",
+		"ask_open": "Ask the agent",
+		"ask_new": "New chat",
+		"ask_close": "Close",
+		"ask_you": "You",
+		"ask_agent": "Agent",
+		"ask_placeholder": "What should the agent do?",
+		"ask_send": "Send",
+		"ask_context": "Context: {page}",
+		"ask_drafts_only": "saves drafts – you publish"
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",
