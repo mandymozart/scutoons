@@ -1817,6 +1817,9 @@ character, persona, look and mood and doubles as the VN test bed.
   read-only CORS proxy to `https://api.scutoons.com/api` (the API's preflight rejects localhost) and
   `VITE_CDN_URL=https://scutoons.b-cdn.net` (cdn.scutoons.com 404s/403s these files; the b-cdn host sends CORS `*`).
   The in-app browser pane never completes `requestFullscreen` (pending promise) – check full screen in a real browser.
+- Owner feedback the same day: "Überspringen" now fades with the bar (also in full screen); the video's end leaves full
+  screen – the follow-up bar's countdown ran invisibly behind it and chapter 1's music started before the reader saw the
+  chapter change.
 
 ## Creator preview = the live reader (2026-10-04)
 - Owner: no own preview in the creator ("no point in rebuilding the viewer"). The route

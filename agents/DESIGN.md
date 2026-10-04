@@ -193,14 +193,16 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     over the video); a mouse move, a tap, a key or the keyboard focus in it bring it back; it never fades while paused.
     Not before the first play, not at the end.
   - **"Überspringen" / "Skip"** (fixed label, `player.skip`; the primary square style with ▶▶) bottom right above the bar
-    while it runs or is paused; it doesn't fade. It pauses the video and sends a bubbling `sliceskip` event; the viewer
+    while it runs or is paused; it fades with the bar (owner 2026-10-04: also in full screen). It pauses the video and sends a bubbling `sliceskip` event; the viewer
     (follow-up bar) goes to the next slice of the group, at the group's end to the next group / chapter (the bar's
     primary, no countdown), else (members / coming soon / season's end) it shows the bar and scrolls the end clear of
     it. **Skipping is not watching**: the progress stays where it was (owner 2026-10-04).
   - Clicks: a mouse click on the video plays / pauses; a tap shows / hides the bar (before the first play and without the
     bar a tap plays / pauses). Keys (focus in the overlay): Space / K play-pause, M mute, F full screen, ← / → 5 s.
   - **Full screen**: the slice's box (`requestFullscreen`, the controls come along; the whole video, contain); iPhone
-    Safari has no element full screen → `webkitEnterFullscreen` (the system player).
+    Safari has no element full screen → `webkitEnterFullscreen` (the system player); **the end leaves full screen** (owner
+    2026-10-04: the follow-up bar and its countdown are outside the box – the next chapter's music started behind the
+    still full-screen video).
   - "Ton an" (sound blocked) sits in the mute button's place and stays while the bar fades; without the bar bottom right.
 - **Media quality** (owner 2026-10-01; PLAN.md "RULE: one file per quality level"): a reader setting, not a responsive
   question. Account page section **"Medienqualität" / "Media quality"** (`components/account/media-quality-setting.svelte`,

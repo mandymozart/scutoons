@@ -39,7 +39,7 @@
 	 * - `full` (`SliceVideo.controls`, default on): a bar at the bottom – a seek line, play/pause + the time, mute,
 	 *   full screen – that fades after `IDLE_MS` while it plays (and the mouse cursor with it); a mouse move, a tap, a key
 	 *   or the keyboard focus brings it back. A mouse click on the video plays / pauses, a tap shows / hides the bar.
-	 *   `skippable`: "Überspringen" bottom right while it runs (a bubbling `sliceskip` event; the app decides where to go).
+	 *   `skippable`: "Überspringen" bottom right while it runs, fading with the bar (a bubbling `sliceskip` event; the app decides where to go).
 	 * - not `full`: only ▶ / ↺, a click or tap plays / pauses.
 	 * - muted because the browser blocked sound (`soundBlocked`): a "Ton an" button that stays while the bar fades.
 	 * Keys while the focus is in it: Space / K play-pause, M mute, F full screen, ← / → 5 s.
@@ -107,6 +107,19 @@
 		return () => {
 			for (const name of events) el.removeEventListener(name, sync);
 		};
+	});
+
+	// the end leaves full screen: what comes next (the app's follow-up bar, its countdown) is outside the box, and the next
+	// chapter must not start (its music) behind a full-screen video
+	$effect(() => {
+		const el = video as (HTMLVideoElement & { webkitDisplayingFullscreen?: boolean; webkitExitFullscreen?: () => void }) | null;
+		if (!el) return;
+		const onEnded = () => {
+			if (box && document.fullscreenElement === box) document.exitFullscreen().catch(() => {});
+			else if (el.webkitDisplayingFullscreen) el.webkitExitFullscreen?.();
+		};
+		el.addEventListener('ended', onEnded);
+		return () => el.removeEventListener('ended', onEnded);
 	});
 
 	$effect(() => {
@@ -280,7 +293,7 @@
 	{/if}
 
 	{#if full && skippable && started && !ended}
-		<button type="button" class="square skip" onclick={skip} data-testid="player-skip">
+		<button type="button" class="square skip fades" class:hidden={!chrome} onclick={skip} data-testid="player-skip">
 			{labels.skip}
 			<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 2l6 6-6 6zM9 2l6 6-6 6z" fill="currentColor" /></svg>
 		</button>
@@ -500,7 +513,7 @@
 		text-shadow: 0 0 0.25rem rgb(0 0 0 / 0.6);
 		pointer-events: none;
 	}
-	/* the bar's parts fade while it plays; "Ton an" and "Überspringen" stay */
+	/* the bar's parts and "Überspringen" fade while it plays; "Ton an" stays */
 	.fades {
 		transition: opacity 0.3s;
 	}
