@@ -39,7 +39,7 @@ const text = (value: unknown): Result => ({
 const fail = (message: string): Result => ({ ...text(message), isError: true });
 
 /** An API error as the agent should read it (409 = someone saved a newer version) */
-function apiMessage(error: unknown): string {
+export function apiMessage(error: unknown): string {
 	if (!(error instanceof ApiError)) return error instanceof Error ? error.message : String(error);
 	if (error.status === 409)
 		return `409 conflict: ${error.message} – a newer version was saved since your base. Read the draft again (read_entity), reapply your change and save with the new version id as base.`;

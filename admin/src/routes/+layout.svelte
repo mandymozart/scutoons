@@ -20,14 +20,15 @@
 		installTooltips,
 	} from '@scutoons/ui';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
+	import { AskPanel, ask, type AskLabels } from '@scutoons/ask';
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
 	import { EDITED_KINDS, KINDS } from '$lib/catalog/kinds.ts';
 	import { openClaims } from '$lib/claims.svelte.ts';
 	import { setupMedia } from '@scutoons/media';
-	import { assets } from '$lib/api.ts';
-	import { CDN_SERVER, CREATOR_URL, VIEWER_URL } from '$lib/config.ts';
+	import { agentChats, assets } from '$lib/api.ts';
+	import { ASK_URL, CDN_SERVER, CREATOR_URL, VIEWER_URL } from '$lib/config.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, locales, setLocale } from '$lib/paraglide/runtime.js';
 
@@ -107,6 +108,28 @@
 		);
 		return list;
 	}
+
+	// Ask (@scutoons/ask): the agent with the admin's rights, reading only for now (tools/mcp ask.ts "admin")
+	const askLabels: AskLabels = {
+		title: m['ask.title'](),
+		history: m['ask.history'](),
+		historyEmpty: m['ask.history_empty'](),
+		historyUnavailable: m['ask.history_unavailable'](),
+		newChat: m['ask.new'](),
+		close: m['ask.close'](),
+		empty: m['ask.empty'](),
+		you: m['ask.you'](),
+		agent: m['ask.agent'](),
+		working: m['ask.working'](),
+		context: (page) => m['ask.context']({ page }),
+		placeholder: m['ask.placeholder'](),
+		send: m['ask.send'](),
+		stop: m['ask.stop'](),
+		resize: m['ask.resize'](),
+		unavailable: m['ask.unavailable'](),
+		signedOut: m['ask.signed_out'](),
+		draft: (id) => m['ask.draft']({ id })
+	};
 </script>
 
 <svelte:head>
@@ -146,6 +169,7 @@
 						<span class="brand-name">{m['shell.admin']()}</span>
 					</a>
 					<PaletteTrigger label={m['shell.search']()} compact onclick={() => (paletteOpen = true)} />
+					<button type="button" class="sc-round" class:is-active={ask.open} title={m['ask.open']()} aria-label={m['ask.open']()} aria-pressed={ask.open} data-testid="ask-toggle" onclick={() => (ask.open = !ask.open)}><Icon name="message-square" /></button>
 					<span class="who">{session.user?.email ?? ''}</span>
 				</header>
 			{/snippet}
@@ -171,6 +195,9 @@
 				{@render children()}
 			</main>
 		</AppShell>
+		{#if ask.open}
+			<AskPanel app="admin" url={ASK_URL} chats={agentChats} context={current?.title() ?? m['shell.admin']()} appLanguage={getLocale()} labels={askLabels} onclose={() => (ask.open = false)} />
+		{/if}
 		<CommandPalette
 			bind:open={paletteOpen}
 			{commands}
@@ -191,6 +218,8 @@
 	   No px font sizes and no root override. */
 	.admin {
 		--topbar-height: var(--tool-bar-height);
+		/* the Ask panel docks below the top bar */
+		--ask-top: var(--topbar-height);
 		--action-bar-height: var(--topbar-height);
 		--split-view-top: calc(var(--topbar-height) + var(--space-1));
 		--split-view-bottom: calc(var(--action-bar-height) + var(--space-1));

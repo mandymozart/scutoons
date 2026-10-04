@@ -98,6 +98,8 @@ export {
 	type ImportReport,
 	type Lead,
 	type LogInput,
+	type MailInput,
+	type InboxState,
 	type Org,
 	type OrgDetail,
 	type OrgInput,
@@ -138,6 +140,7 @@ export {
 export {
 	createAgentChatsApi,
 	type AgentChat,
+	type AgentApp,
 	type AgentChatSummary,
 	type AgentChatsApi,
 	type AgentStep,

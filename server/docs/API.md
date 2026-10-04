@@ -56,8 +56,8 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
 | POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft · publish / unpublish `403 review_required` when the account needs a review for the toon – see "Reviews" |
 | GET/POST | `/reviews`, `/reviews/publish`, `/reviews/return` | creator | review before publish – see "Reviews" |
-| GET/PUT/DELETE | `/agent-chats[?limit=]`, `/agent-chats/<id>[?messages=1]` | creator | the creator's Ask panel chat history, own chats only – see "Agent chats" |
-| POST | `/agent-usage` | creator + `X-Service-Key` | the Ask service logs one AI API call of the creator – see "Agent usage" |
+| GET/PUT/DELETE | `/agent-chats[?app=&limit=]`, `/agent-chats/<id>[?messages=1&app=]` | the app's role | the Ask panel chat history per app (`creator`, `embassy`, `admin`), own chats only – see "Agent chats" |
+| POST | `/agent-usage` | the app's role + `X-Service-Key` | the Ask service logs one AI API call of a user in an app's panel – see "Agent usage" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -307,6 +307,65 @@ endpoint list: `src/Http/Controllers/EmbassyController.php`. Migration `2026-10-
 - Duplicates: same normalized name (`Embassy::nameKey`) and same city (or country): `POST /orgs` → `409 duplicate
   { id }` unless `force: true`; `POST /import` merges (fills empty fields, unites lists, adds new people and tracks,
   never overwrites). `dry_run: true` reports without writing.
+- Activities (in `GET /orgs/{id}`, `/today`, the log answers): `{ id, org_id, lead_id, track, person_id, kind, outcome,
+  note, by_email, at, subject, mail_from, mail_to, message_id }` – the last four only for mails sent from the app / read
+  back from the inbox (else `null`). `GET /me` adds `mail: { from, inbox }` (the sender address; `inbox` = the sync is
+  configured).
+
+### Mail (2026-10-04, migration `2026-10-04-ask-embassy-mail`)
+
+People send one-to-one mails from the app (owner 2026-10-04): from the shared mailbox `EMBASSY_MAIL_FROM`
+(hello@scutoons.com, name `EMBASSY_MAIL_FROM_NAME`), its own SMTP account (`EMBASSY_SMTP_USER` / `_PASS`, else
+`SMTP_USER` / `_PASS`; server and `MAIL_TRANSPORT` as for every mail – `log` locally). Every Embassy role may send (no
+approval step). The AI agent only drafts – it has no send endpoint; the browser calls this when the person clicks Send.
+Code: `Domain\Embassy\EmbassyMail`.
+
+**`POST /embassy/orgs/{id}/mail`** `{ to, person_id?, track?, subject, text, reply_to_activity_id?, language? }` →
+`201 { status, activity, lead }` (like `POST /orgs/{id}/activities`; `lead` null without a `track`)
+
+- `to` = the organisation's address or one of its people's (case-insensitive) – else `400 invalid_recipient`.
+  `person_id` (else the person `to` belongs to) must be one of the organisation's people (`400 invalid_person`).
+- Do-not-contact on the organisation, the person or the owner of `to` → `409 do_not_contact` (checked before every send).
+- `subject` 1–300 characters (line breaks become spaces; `400 subject_required|subject_too_long`), `text` 1–20000
+  (`400 text_required|text_too_long`), `track` one of the tracks (`400 invalid_track`); a liaison on somebody else's
+  lead → `403 not_your_lead` – all checked before anything goes out.
+- The server always ends the text with the opt-out line (unless the text has it already), German or English: `language`
+  (`de` | `en`) if given, else the person's `language`, else German for organisations in DE / AT / CH / LI, else English:
+  `—` + "Keine weiteren Nachrichten von uns? Einfach mit „Stopp“ antworten." / "Rather not hear from us? Just reply
+  “stop”.".
+- Plain text, UTF-8, quoted-printable; `Reply-To` = the sender; our own `Message-ID: <uuid@scutoons.com>`;
+  `reply_to_activity_id` = a mail activity (`mail_in` / `mail_out`) of this organisation → `In-Reply-To` / `References`
+  (`400 invalid_reply_to` otherwise).
+- Then: a `mail_log` row (template `embassy`, admin app → Emails), the `mail_out` activity (note = the text as sent,
+  `subject`, `mail_from`, `mail_to`, `message_id`, by the user; cadence as above: contacted + call in 6 days) and – when
+  `EMBASSY_IMAP_SENT` is set – a copy in that IMAP folder (best effort; a failure there never fails the send).
+- The transport refused it → `502 mail_failed` (message = the short reason), logged as `failed` in `mail_log`, nothing on
+  the organisation. Before the migration the mail is sent and logged without the mail fields.
+
+### Inbox (2026-10-04, migration `2026-10-04-ask-embassy-mail`)
+
+Replies are read back by IMAP from `EMBASSY_IMAP_FOLDER` (`INBOX`) of `EMBASSY_IMAP_HOST` (`Domain\Embassy\EmbassyInbox`,
+`Infrastructure\Mail\Imap` – no ext-imap needed; `bin/console embassy:inbox` for a cron job). Where it stopped is kept
+per folder in `embassy_mail_state` (UIDVALIDITY + last UID; a new UIDVALIDITY starts over, already logged mails are
+not logged twice). The first run reads the last 30 days; at most 200 mails per run.
+
+- Matching: In-Reply-To / References name one of our `mail_out` mails → its organisation, track and person (the sender
+  when they are another person of that organisation); else the sender's address is a person's or an organisation's →
+  that one, track = the organisation's latest `mail_out`. **Unknown senders are skipped and nothing about them is
+  stored** (only counted); so are our own address, automatic replies (`Auto-Submitted`, `X-Autoreply`, `Precedence:
+  bulk|list|junk|auto_reply`) and bounces (`mailer-daemon@`, `postmaster@`). A Message-ID already logged → skipped.
+- A match → a `mail_in` activity (by `inbox`, no user; `at` = the mail's Date in UTC; `subject`, `mail_from`,
+  `message_id`, `in_reply_to`; note = the reply text without the quoted mail – `>` lines, "On … wrote:", "Am …
+  schrieb …:", "-----Original Message-----", Outlook's "Von: / Gesendet:" block – at most 4000 characters). The cadence
+  moves the lead to in conversation + 10 days: the sequence stops. No lead is created by the sync.
+- First line of the reply just `stop` / `stopp` / `unsubscribe` / `abmelden` (any case, punctuation ok) → do-not-contact
+  on the person (or, from the organisation's address, on the organisation + lead stage `no`), no next date, noted in the
+  activity. Respected forever: every later send answers `409 do_not_contact`.
+
+| Method | Path | Body → answer |
+|---|---|---|
+| GET | `/embassy/inbox` | `{ status, configured, synced_at, error }` (`synced_at` ISO UTC of the last attempt, `error` its error or null) |
+| POST | `/embassy/inbox/sync` | `{ force? }` → `{ status, configured: true, synced_at, matched, skipped, new_activities, error, throttled }` – runs unless the last run is younger than 2 minutes (then `throttled: true`, counts 0); `force: true` skips that for ambassadors / admins. Not configured (no `EMBASSY_IMAP_HOST`) → `{ status, configured: false }`. A mailbox error is answered in `error` (200) and stored. `503 not_available` before the migration |
 
 ### Stores (2026-10-02, migration `2026-10-02-embassy-stores`)
 
@@ -388,53 +447,62 @@ otherwise `401` / `403 forbidden { role: "creator" }`.
 JSON folder layout is `Console\ContentFiles`. Migration `2026-09-30-entity-keys` created `entity_versions` from the
 former path-keyed `content_versions` (same ids).
 
-## Agent chats (the creator's Ask panel history, creator)
+## Agent chats (the Ask panel history, per app)
 
-The chats of the creator's Ask panel (agents/CUTOVER.md 10.28 step 2), saved by the Ask service (tools/mcp) so a creator
-can look at earlier agent chats when something stopped or broke. Table `agent_chats` (migration
-`2026-10-04-agent-chats`; without it every endpoint answers `503 not_available`). Code: `Domain\Agent\AgentChats`,
-`AgentChatsController`. A content editor (`creator`, for now also `admin`; `401` / `403 forbidden { role: "creator" }`
-otherwise) only ever sees and changes **their own** chats: another user's chat id answers `404 not_found` like an unknown
-one and is never overwritten. `<id>` = a UUID chosen by the client (lower-cased; malformed → `422 invalid_id`).
+The chats of the Ask panels (agents/CUTOVER.md 10.28 step 2), saved by the Ask service (tools/mcp) so a user can look
+at earlier agent chats when something stopped or broke. Table `agent_chats` (migration `2026-10-04-agent-chats`; without
+it every endpoint answers `503 not_available`). Code: `Domain\Agent\AgentChats`, `AgentApps`, `AgentChatsController`.
+
+Every chat belongs to one app's panel, `app` = `creator` (default), `embassy` or `admin` (column `app`, migration
+`2026-10-04-ask-embassy-mail`; before it every chat is the creator's and the other apps answer `503 not_available`;
+unknown → `422 invalid_app { allowed }`). Who may use a panel follows that app: `creator` = a content editor (`creator`,
+for now also `admin`), `embassy` = the Embassy access (`liaison`, `ambassador`, `admin`), `admin` = `admin`; `401` /
+`403 forbidden { role }` otherwise (`role` = `creator` / `liaison` / `admin`). By id the check follows the stored chat's
+app. A user only ever sees and changes **their own** chats of that app: another user's chat id – or one of another app –
+answers `404 not_found` like an unknown one and is never overwritten. `<id>` = a UUID chosen by the client (lower-cased;
+malformed → `422 invalid_id`).
 
 | Method | Path | Body / query → answer |
 |---|---|---|
-| GET | `/agent-chats?limit=` | `{ status, chats: [{ id, title, page, created_at, updated_at, turns }] }` – newest updated first, `turns` = the number of turns, `limit` 1..200 (default 50) |
-| GET | `/agent-chats/<id>[?messages=1]` | `{ status, chat: { id, title, page, created_at, updated_at, turns: [...] (+ messages: [...]) } }` · 404 |
-| PUT | `/agent-chats/<id>` | `{ title?, page?, turns: [...], messages: [...] }` → `{ status, chat: { id, updated_at } }` – creates or replaces; `title` trimmed, cut to 200 characters; `page` (where in the creator the chat started) trimmed, cut to 300, `''` → null; `title` / `page` left out keep the stored values (a new chat: `''` / null); `created_at` stays |
-| DELETE | `/agent-chats/<id>` | `{ status }` · 404 |
+| GET | `/agent-chats?app=&limit=` | `{ status, chats: [{ id, title, page, app, created_at, updated_at, turns }] }` – the app's chats (default `creator`), newest updated first, `turns` = the number of turns, `limit` 1..200 (default 50) |
+| GET | `/agent-chats/<id>[?messages=1&app=]` | `{ status, chat: { id, title, page, app, created_at, updated_at, turns: [...] (+ messages: [...]) } }` · 404 (also when `app` is given and the chat is another app's) |
+| PUT | `/agent-chats/<id>` | `{ app?, title?, page?, turns: [...], messages: [...] }` → `{ status, chat: { id, updated_at } }` – creates or replaces; `app` default `creator`, stored on create (a chat of another app → 404); `title` trimmed, cut to 200 characters; `page` (where in the app the chat started) trimmed, cut to 300, `''` → null; `title` / `page` left out keep the stored values (a new chat: `''` / null); `created_at` stays |
+| DELETE | `/agent-chats/<id>[?app=]` | `{ status }` · 404 |
 
 `turns` (what the panel shows) and `messages` (the model conversation) are stored as sent (decoded with objects, so `{}`
-stays `{}`). Errors: `422 invalid_id|invalid_body|invalid_turns|invalid_messages|invalid_title|invalid_page` (body not a
-JSON object, `turns` / `messages` not arrays, title not a string, page not a string or null), `413 too_large` (body over
-8 MB), `404 not_found`, `503 not_available`.
+stays `{}`). Errors: `422 invalid_id|invalid_body|invalid_app|invalid_turns|invalid_messages|invalid_title|invalid_page`
+(body not a JSON object, `turns` / `messages` not arrays, title not a string, page not a string or null), `413
+too_large` (body over 8 MB), `404 not_found`, `503 not_available`.
 
 ## Agent usage (the Ask panel's AI usage log)
 
-Every AI API call of the creator's Ask panel is logged (agents/CUTOVER.md 10.28; no limits are enforced from it). Table
+Every AI API call of an Ask panel is logged (agents/CUTOVER.md 10.28; no limits are enforced from it). Table
 `agent_usage` (migration `2026-10-04-agent-usage`; without it both endpoints answer `503 not_available` and the Ask
 service only logs to its own file). Code: `Domain\Agent\AgentUsage`, `AgentUsageController`.
 
-**`POST /agent-usage`** – server to server, called by the Ask service (tools/mcp) with **both** the creator's session
-(`Authorization: Bearer`, the token the creator's browser gave the service; no `Origin` needed – the CSRF check only
+**`POST /agent-usage`** – server to server, called by the Ask service (tools/mcp) with **both** the user's session
+(`Authorization: Bearer`, the token the user's browser gave the service; no `Origin` needed – the CSRF check only
 concerns the cookie) **and** `X-Service-Key: <AGENT_SERVICE_KEY>` (compared with `hash_equals`). The row's user is
 always the session's user, never a body field. Body:
 
-`{ service, model, chat_id?, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd }` →
-`201 { status: "success" }`. `service` / `model`: non-empty strings, trimmed, cut to 40 / 100 characters; `chat_id`: a
+`{ app?, service, model, chat_id?, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd }` →
+`201 { status: "success" }`. `app`: whose panel asked – `creator` (default), `embassy`, `admin`; the user must be allowed
+to use that app's panel (same rule as "Agent chats"; column `app` from migration `2026-10-04-ask-embassy-mail`, before
+it only `creator` works, the others answer `503 not_available`). `service` / `model`: non-empty strings, trimmed, cut to 40 / 100 characters; `chat_id`: a
 UUID (lower-cased) or null / left out (no foreign key – the chat may be deleted later); the four token counts: JSON
 integers 0..2147483647; `cost_usd`: a JSON number (USD) from 0 to below 1000, stored with 6 decimals. `created_at` = the
 server's UTC time.
 
 Errors, in this order: `503 not_configured` (`AGENT_SERVICE_KEY` empty), `403 forbidden` (key missing or wrong),
-`401 unauthorized` (no session), `403 forbidden { role: "creator" }` (not a content editor: `creator`, for now also
-`admin`), `422 invalid_body|invalid_service|invalid_model|invalid_chat_id|invalid_input_tokens|invalid_output_tokens|
-invalid_cache_read_tokens|invalid_cache_write_tokens|invalid_cost_usd`, `503 not_available`.
+`401 unauthorized` (no session), `422 invalid_body|invalid_app`, `403 forbidden { role }` (may not use the app's
+panel: `creator` for the creator, `liaison` for the Embassy, `admin` for the admin app), `422
+invalid_service|invalid_model|invalid_chat_id|invalid_input_tokens|invalid_output_tokens|invalid_cache_read_tokens|
+invalid_cache_write_tokens|invalid_cost_usd`, `503 not_available`.
 
 **`GET /admin/agent-usage?from=YYYY-MM-DD&to=YYYY-MM-DD&group=day|month`** (admin) – sums per period (UTC day
-`2026-10-04` or month `2026-10`), creator, service and model:
+`2026-10-04` or month `2026-10`), app, user, service and model:
 
-`{ status, from, to, group, rows: [{ period, user_id, email, service, model, calls, input_tokens, output_tokens,
+`{ status, from, to, group, rows: [{ period, app, user_id, email, service, model, calls, input_tokens, output_tokens,
 cache_read_tokens, cache_write_tokens, cost_usd }], totals: { calls, input_tokens, output_tokens, cache_read_tokens,
 cache_write_tokens, cost_usd } }` – newest period first, then the highest cost. `from` / `to` are UTC days, both
 included; default `to` = today, `from` = `to` − 29 days (the last 30 days), `group` = `day`. `cost_usd` is a number with
@@ -527,8 +595,9 @@ transfer core + history + admin transfer + `received` notices + the two ownershi
 
 ## Emails (the email module, 2026-10-02)
 
-The API is the only sender of email (the qr app, the frontends and scripts send none; the Embassy only logs mails
-people write themselves). Every mail goes through `Domain\Mail\Mailer::send($templateId, $to, $locale, $vars)`:
+The API is the only sender of email (the qr app, the frontends and scripts send none). Every platform mail goes through
+`Domain\Mail\Mailer::send($templateId, $to, $locale, $vars)`; the one exception are the mails people write in the Embassy
+app (`Domain\Embassy\EmbassyMail`, "Embassy" → "Mail": same transport, logged in `mail_log` as template `embassy`):
 
 - **Registry** `Domain\Mail\MailTemplates` – template ids with audience, description, variables, sample values (the
   admin preview), the body as blocks (`p`, `button`, `code`, conditional with `if`) and the fine print. Registered:

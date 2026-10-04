@@ -11,10 +11,12 @@ use stdClass;
 use Throwable;
 
 /**
- * The creator's Ask panel chat history (agents/CUTOVER.md 10.28 step 2, docs/API.md "Agent chats"): one row per chat
- * in `agent_chats`, owned by the creator who saved it. A creator only ever sees or changes their own chats – another
- * user's chat id answers 404 like an unknown one and is never overwritten. `turns` (what the panel shows) and
- * `messages` (the model conversation) are client JSON arrays, stored re-encoded (objects stay objects).
+ * The Ask panel chat history (agents/CUTOVER.md 10.28 step 2, docs/API.md "Agent chats"): one row per chat in
+ * `agent_chats`, owned by the user who saved it, in one app's panel (`app`: AgentApps – creator, embassy, admin). A user
+ * only ever sees or changes their own chats of that app – another user's or another app's chat id answers 404 like an
+ * unknown one and is never overwritten. `turns` (what the panel shows) and `messages` (the model conversation) are
+ * client JSON arrays, stored re-encoded (objects stay objects). Before migration 2026-10-04-ask-embassy-mail there is no
+ * `app` column: every chat is the creator's, other apps answer 503 not_available.
  */
 final class AgentChats
 {
@@ -24,6 +26,8 @@ final class AgentChats
     public const PAGE_MAX = 300;
     private const ID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/';
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
+
+    private ?bool $hasApp = null;
 
     public function __construct(private readonly Database $db, private readonly Clock $clock)
     {
@@ -40,9 +44,26 @@ final class AgentChats
         }
     }
 
-    public function requireAvailable(): void
+    public function requireAvailable(string $app = AgentApps::CREATOR): void
     {
         if (!$this->available()) throw new ApiError(503, 'not_available', 'The chat history is not set up yet (migration 2026-10-04-agent-chats).');
+        if ($app !== AgentApps::CREATOR && !$this->hasApp()) {
+            throw new ApiError(503, 'not_available', "The chat history of the $app app is not set up yet (migration 2026-10-04-ask-embassy-mail).");
+        }
+    }
+
+    /** The `app` column (migration 2026-10-04-ask-embassy-mail); without it every chat is the creator's */
+    private function hasApp(): bool
+    {
+        if ($this->hasApp === null) {
+            try {
+                $this->db->value('SELECT app FROM agent_chats WHERE 1 = 0');
+                $this->hasApp = true;
+            } catch (Throwable) {
+                $this->hasApp = false;
+            }
+        }
+        return $this->hasApp;
     }
 
     /** A chat id: a UUID (any version), normalised to lower case · 422 invalid_id */
@@ -54,41 +75,52 @@ final class AgentChats
     }
 
     /**
-     * The user's chats, newest updated first, without their content (`turns` = the number of turns)
+     * The user's chats of one app, newest updated first, without their content (`turns` = the number of turns)
      * @return list<array<string, mixed>>
      */
-    public function list(string $userId, int $limit = 50): array
+    public function list(string $userId, int $limit = 50, string $app = AgentApps::CREATOR): array
     {
-        $this->requireAvailable();
+        $this->requireAvailable($app);
         $limit = max(1, min(200, $limit));
         $count = $this->db->isSqlite() ? 'json_array_length(turns)' : 'JSON_LENGTH(turns)';
-        $rows = $this->db->all("SELECT id, title, page, created_at, updated_at, $count AS turn_count FROM agent_chats WHERE user_id = ? ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT $limit", [$userId]);
+        [$appSql, $params] = $this->hasApp() ? [' AND app = ?', [$userId, $app]] : ['', [$userId]];
+        $rows = $this->db->all("SELECT id, title, page, {$this->appColumn()}, created_at, updated_at, $count AS turn_count FROM agent_chats WHERE user_id = ?$appSql ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT $limit", $params);
         return array_map(fn(array $row) => $this->meta($row) + ['turns' => (int) $row['turn_count']], $rows);
     }
 
-    /**
-     * One of the user's chats with its turns (and the model messages when asked) · 404 not_found
-     * @return array<string, mixed>
-     */
-    public function get(string $userId, string $id, bool $withMessages = false): array
+    /** The app of one of the user's chats (null = no such chat of theirs) · 422 invalid_id */
+    public function appOf(string $userId, string $id): ?string
     {
         $this->requireAvailable();
-        $columns = 'id, title, page, created_at, updated_at, turns' . ($withMessages ? ', messages' : '');
+        $app = $this->db->value("SELECT {$this->appColumn()} FROM agent_chats WHERE id = ? AND user_id = ?", [self::id($id), $userId]);
+        return $app === null ? null : (string) $app;
+    }
+
+    /**
+     * One of the user's chats with its turns (and the model messages when asked); $app given = it must be that app's
+     * · 404 not_found
+     * @return array<string, mixed>
+     */
+    public function get(string $userId, string $id, bool $withMessages = false, ?string $app = null): array
+    {
+        $this->requireAvailable($app ?? AgentApps::CREATOR);
+        $columns = "id, title, page, {$this->appColumn()}, created_at, updated_at, turns" . ($withMessages ? ', messages' : '');
         $row = $this->db->one("SELECT $columns FROM agent_chats WHERE id = ? AND user_id = ?", [self::id($id), $userId]);
-        if ($row === null) throw self::notFound();
+        if ($row === null || ($app !== null && (string) $row['app'] !== $app)) throw self::notFound();
         $chat = $this->meta($row) + ['turns' => self::decode($row['turns'])];
         if ($withMessages) $chat['messages'] = self::decode($row['messages']);
         return $chat;
     }
 
     /**
-     * Creates or replaces one of the user's chats. Body `{ title?, page?, turns, messages }` (decoded with objects);
-     * `title` / `page` left out keep the stored values (new chat: '' / null). Another user's id → 404, never written.
+     * Creates or replaces one of the user's chats of an app. Body `{ title?, page?, turns, messages }` (decoded with
+     * objects; `app` is read by the caller); `title` / `page` left out keep the stored values (new chat: '' / null).
+     * Another user's or another app's id → 404, never written.
      * @return array{id: string, updated_at: string|null}
      */
-    public function save(string $userId, string $id, stdClass $body): array
+    public function save(string $userId, string $id, stdClass $body, string $app = AgentApps::CREATOR): array
     {
-        $this->requireAvailable();
+        $this->requireAvailable($app);
         $id = self::id($id);
         $turns = self::encodeList($body, 'turns');
         $messages = self::encodeList($body, 'messages');
@@ -97,12 +129,13 @@ final class AgentChats
         $page = $hasPage ? self::page($body->page) : null;
         $now = $this->clock->utc();
 
-        $this->db->transaction(function () use ($userId, $id, $turns, $messages, $title, $hasPage, $page, $now) {
-            $owner = $this->db->value('SELECT user_id FROM agent_chats WHERE id = ?' . $this->db->forUpdate(), [$id]);
-            if ($owner !== null && (string) $owner !== $userId) throw self::notFound();
-            if ($owner === null) {
-                $this->db->run('INSERT INTO agent_chats (id, user_id, title, page, turns, messages, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                    [$id, $userId, $title ?? '', $page, $turns, $messages, $now, $now]);
+        $this->db->transaction(function () use ($userId, $id, $turns, $messages, $title, $hasPage, $page, $now, $app) {
+            $existing = $this->db->one("SELECT user_id, {$this->appColumn()} FROM agent_chats WHERE id = ?" . $this->db->forUpdate(), [$id]);
+            if ($existing !== null && ((string) $existing['user_id'] !== $userId || (string) $existing['app'] !== $app)) throw self::notFound();
+            if ($existing === null) {
+                $withApp = $this->hasApp();
+                $this->db->run('INSERT INTO agent_chats (id, user_id, title, page, turns, messages, created_at, updated_at' . ($withApp ? ', app' : '') . ') VALUES (?, ?, ?, ?, ?, ?, ?, ?' . ($withApp ? ', ?' : '') . ')',
+                    [$id, $userId, $title ?? '', $page, $turns, $messages, $now, $now, ...($withApp ? [$app] : [])]);
                 return;
             }
             $set = 'turns = ?, messages = ?, updated_at = ?';
@@ -129,6 +162,12 @@ final class AgentChats
 
     // ── Helpers ───────────────────────────────────────────────────────────────────────────────────────────
 
+    /** `app` in a SELECT list ('creator' before the migration) */
+    private function appColumn(): string
+    {
+        return $this->hasApp() ? 'app' : "'creator' AS app";
+    }
+
     /**
      * @param array<string, mixed> $row
      * @return array<string, mixed>
@@ -139,6 +178,7 @@ final class AgentChats
             'id' => (string) $row['id'],
             'title' => (string) $row['title'],
             'page' => $row['page'] === null ? null : (string) $row['page'],
+            'app' => (string) ($row['app'] ?? AgentApps::CREATOR),
             'created_at' => Time::iso($row['created_at']),
             'updated_at' => Time::iso($row['updated_at']),
         ];

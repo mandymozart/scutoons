@@ -32,7 +32,7 @@ if (production && !process.env.SCUTOONS_API) fail('SCUTOONS_API is required in p
 const config: AskConfig = {
 	api: (process.env.SCUTOONS_API || `http://localhost:${ports.api}/api`).replace(/\/+$/, ''),
 	model: process.env.ASK_MODEL || 'claude-sonnet-5-5',
-	origins: (process.env.ASK_ORIGINS || 'https://creator.scutoons.com').split(',').map((o) => o.trim()).filter(Boolean),
+	origins: (process.env.ASK_ORIGINS || 'https://creator.scutoons.com,https://embassy.scutoons.com,https://admin.scutoons.com').split(',').map((o) => o.trim()).filter(Boolean),
 	usageLog: process.env.ASK_USAGE_LOG || resolve(ROOT, 'logs/ask/usage.jsonl'),
 	serviceKey: process.env.SCUTOONS_SERVICE_KEY || dotenv('SCUTOONS_SERVICE_KEY') || '',
 	publish: process.env.SCUTOONS_MCP_PUBLISH === '1',

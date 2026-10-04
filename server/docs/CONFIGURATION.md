@@ -44,6 +44,11 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `MAIL_ADMIN_LOCALE` | `de` | language of the admin notification mails |
 | `MAIL_LOG_DAYS` | 180 | days the sent-mail log (`mail_log`, with recipient addresses) is kept; 0 = forever |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_TIMEOUT` | –, 587, `tls`, –, –, 15 | `SMTP_SECURE`: `tls` (STARTTLS) / `ssl` (465) / `none` |
+| `EMBASSY_MAIL_FROM`, `EMBASSY_MAIL_FROM_NAME` | `hello@scutoons.com`, `Top Toy · SCUTOONS` | sender (and Reply-To) of the mails people send from the Embassy app (docs/API.md "Embassy" → "Mail"); same transport and SMTP server as above |
+| `EMBASSY_SMTP_USER`, `EMBASSY_SMTP_PASS` | – | the SMTP account of that mailbox; empty = `SMTP_USER` / `SMTP_PASS` |
+| `EMBASSY_IMAP_HOST`, `EMBASSY_IMAP_PORT` | –, 993 | the Embassy inbox sync (implicit TLS; 143 = plain, local test servers only); empty host = no sync |
+| `EMBASSY_IMAP_USER`, `EMBASSY_IMAP_PASS` | – | the IMAP account; empty = the Embassy's SMTP account |
+| `EMBASSY_IMAP_FOLDER`, `EMBASSY_IMAP_SENT` | `INBOX`, – | where replies arrive; a folder that gets a copy of every mail sent from the app (e.g. `Sent`), empty = no copy |
 | `ACCESS_MAX_PER_IP_HOUR` | 120 | direct `/access/` + `/code/` lookups per IP and hour; 0 = no limit. Default of the runtime setting `lookup_limit_per_hour` |
 | `SCAN_MAX_PER_IP_HOUR` | 1000 | QR scans per client IP and hour (`/code/?scan=1` from the qr app, own bucket); 0 = no limit. Default of the runtime setting `scan_limit_per_hour` |
 | `LOGIN_TTL_MINUTES`, `LOGIN_MAX_ATTEMPTS` | 30, 5 | validity of link + code; wrong codes per mail |
@@ -76,6 +81,6 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 
 Production values come from the GitHub environment `production` (the full list with comments: root `.env.example`);
 `deploy/targets.json` → `api.generate["config.php"]` says which of them become constants in the generated `config.php`
-(`GENERATE_PASSWORD`, `DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `BUNNY_*`, `CDN_PUBLIC_URL`, `ALLOWED_ORIGINS`; an unset value is left out); quotes and
+(`GENERATE_PASSWORD`, `DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `EMBASSY_*`, `BUNNY_*`, `CDN_PUBLIC_URL`, `ALLOWED_ORIGINS`; an unset value is left out); quotes and
 backslashes in values are escaped by the generator. The API's version: `composer.json` `version` + the
 deploy's `version.json` (git sha) → `GET /api/health/`.

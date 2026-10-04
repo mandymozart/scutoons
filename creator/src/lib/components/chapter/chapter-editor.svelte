@@ -1,10 +1,9 @@
 <script lang="ts">
 	import type { VariantMedia } from '@scutoons/media';
 	import { leaveGuard } from '$lib/editor/ask.ts';
-	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import { VIEWER_URL } from '$lib/config.ts';
 	import { onMount, untrack } from 'svelte';
-	import { ActionBar, CloseIcon, confirmDialog, Icon } from '@scutoons/ui';
+	import { ActionBar, CloseIcon, confirmDialog, Icon, panelWidth } from '@scutoons/ui';
 	import { beforeNavigate, replaceState } from '$app/navigation';
 	import { page } from '$app/state';
 	import { usePageNav } from '$lib/nav.svelte.ts';
@@ -804,7 +803,7 @@
 	.columns.has-inspector {
 		grid-template-columns: minmax(0, 1fr) var(--inspector-width, 22rem);
 	}
-	/* the inspector's left border drags it wider (lib/panel-width.svelte.ts) */
+	/* the inspector's left border drags it wider (@scutoons/ui panelWidth) */
 	.inspector-resize {
 		position: absolute;
 		z-index: 5;
@@ -887,7 +886,7 @@
 			margin-right: var(--panel-width);
 		}
 	}
-	/* the side panel's left edge drags it wider (lib/panel-width.svelte.ts) */
+	/* the side panel's left edge drags it wider (@scutoons/ui panelWidth) */
 	.panel-resize {
 		position: fixed;
 		z-index: 21;

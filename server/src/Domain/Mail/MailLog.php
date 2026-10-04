@@ -12,7 +12,8 @@ use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
 
 /**
- * The sent-mail log (table `mail_log`, migration 2026-10-02-mail-log): one row per mail Mailer tried to send –
+ * The sent-mail log (table `mail_log`, migration 2026-10-02-mail-log): one row per mail Mailer (or the Embassy's
+ * EmbassyMail, template `embassy`) tried to send –
  * template, recipient, locale, status (sent | failed), transport, error, created_at. Never the subject, the text or
  * the variables (a login mail carries a one-time code and a sign-in link).
  *
@@ -25,6 +26,8 @@ final class MailLog
     public const STATUSES = ['sent', 'failed'];
     public const SORTABLE = ['created_at', 'template', 'status', 'recipient'];
     public const FILTERS = ['template', 'status', 'recipient', 'from', 'to'];
+    /** Logged mails that are no registered template: `embassy` = written by a person in the Embassy app (EmbassyMail) */
+    public const OTHER_TEMPLATES = ['embassy'];
 
     public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly Settings $settings)
     {
@@ -60,7 +63,9 @@ final class MailLog
             $params[] = Database::likeContains(strtolower($query->q));
         }
         if (($template = $query->filter('template')) !== null) {
-            if (!MailTemplates::exists($template)) throw new ApiError(400, 'invalid_template', "Unknown email template $template.", ['templates' => MailTemplates::ids()]);
+            if (!MailTemplates::exists($template) && !in_array($template, self::OTHER_TEMPLATES, true)) {
+                throw new ApiError(400, 'invalid_template', "Unknown email template $template.", ['templates' => [...MailTemplates::ids(), ...self::OTHER_TEMPLATES]]);
+            }
             $conditions[] = 'template = ?';
             $params[] = $template;
         }

@@ -58,6 +58,36 @@ final class EmbassyApiTest extends TestCase
         self::assertSame('ambassador', self::json($this->request('GET', '/api/embassy/me', $this->auth('ambassador')))['access']);
     }
 
+    public function testMailAndInbox(): void
+    {
+        $liaison = $this->auth('liaison');
+        $me = self::json($this->request('GET', '/api/embassy/me', $liaison));
+        self::assertSame(['from' => 'hello@scutoons.com', 'inbox' => false], $me['mail']);
+        $org = self::json($this->request('POST', '/api/embassy/orgs', $liaison, ['name' => 'Rote Fabrik', 'city' => 'Zürich', 'country' => 'CH',
+            'people' => [['name' => 'Lea', 'email' => 'lea@rotefabrik.ch']]]));
+        $id = $org['org']['id'];
+
+        $r = $this->request('POST', "/api/embassy/orgs/$id/mail", $liaison, ['to' => 'lea@rotefabrik.ch', 'track' => 'live', 'subject' => 'Top Toy', 'text' => 'Hallo Lea']);
+        self::assertSame(201, $r->getStatusCode(), (string) $r->getBody());
+        $sent = self::json($r);
+        self::assertSame(['success', 'mail_out', 'Top Toy', 'lea@rotefabrik.ch', 'contacted'],
+            [$sent['status'], $sent['activity']['kind'], $sent['activity']['subject'], $sent['activity']['mail_to'], $sent['lead']['stage']]);
+        self::assertStringEndsWith('Einfach mit „Stopp“ antworten.', $sent['activity']['note']);
+        self::assertStringContainsString('Subject: Top Toy', (string) file_get_contents($this->dir . '/mail.log'));
+        $timeline = self::json($this->request('GET', "/api/embassy/orgs/$id", $liaison))['activities'];
+        self::assertSame([$sent['activity']['message_id']], array_column($timeline, 'message_id'));
+
+        $r = $this->request('POST', "/api/embassy/orgs/$id/mail", $liaison, ['to' => 'x@example.com', 'subject' => 'Hi', 'text' => 'x']);
+        self::assertSame([400, 'invalid_recipient'], [$r->getStatusCode(), self::json($r)['error']]);
+        self::assertSame(403, $this->request('POST', "/api/embassy/orgs/$id/mail", $this->auth(''), ['to' => 'lea@rotefabrik.ch', 'subject' => 'Hi', 'text' => 'x'])->getStatusCode());
+        self::assertSame(404, $this->request('POST', '/api/embassy/orgs/00000000-0000-0000-0000-000000000000/mail', $liaison, ['to' => 'lea@rotefabrik.ch', 'subject' => 'Hi', 'text' => 'x'])->getStatusCode());
+
+        // no IMAP host here: the inbox is not configured
+        self::assertSame(['status' => 'success', 'configured' => false, 'synced_at' => null, 'error' => null], self::json($this->request('GET', '/api/embassy/inbox', $liaison)));
+        self::assertSame(['status' => 'success', 'configured' => false], self::json($this->request('POST', '/api/embassy/inbox/sync', $liaison, ['force' => true])));
+        self::assertSame(401, $this->request('POST', '/api/embassy/inbox/sync')->getStatusCode());
+    }
+
     public function testCorsAllowsDeleteForTheEmbassyOrigin(): void
     {
         $r = $this->request('OPTIONS', '/api/embassy/orgs', ['Origin' => 'http://embassy.test']);

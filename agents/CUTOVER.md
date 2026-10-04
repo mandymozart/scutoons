@@ -632,6 +632,14 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       `SCUTOONS_SERVICE_KEY`); DNS `ask.scutoons.com`; the variable `VITE_ASK_URL`.
     - **Open:** an admin page for the usage overview (the API is there); check that bunny's proxy streams the answer
       (Server-Sent Events) and doesn't buffer it; personal access tokens.
+    - **Shared in three apps (2026-10-04, branch `ask-shared`; owner: "make Ask a shared integration in embassy,
+      creator, admin")**: the panel is `@scutoons/ask` (shared/ask: `AskPanel` + `ask` / `askAbout` / `pagePanel`; the
+      app passes its name, chats API, labels, context, links and an optional result snippet; `panelWidth` moved to
+      `@scutoons/ui`). The request names its app; the service picks role, prompt and tools per app (`APPS` in ask.ts):
+      creator → role creator, content tools (unchanged); embassy → liaison / ambassador / admin, `src/embassy.ts`
+      (agents/EMBASSY.md "Ask + mail"); admin → role admin, the content tools that only read + `agent_usage`. Chats
+      and usage rows carry `app` (migration `2026-10-04-ask-embassy-mail`); every message carries today's date.
+      `ASK_ORIGINS` default now lists creator, embassy, admin; `VITE_ASK_URL` goes into the embassy and admin builds too.
   - **Review levels (owner 2026-10-04; follows "Publish: keep the tool")** – who may publish without a review:
     - **Decided:** not a role – a relation per toon, set by an admin, like GitHub reviewers. `reviewer` (per toon or `*`)
       gets a mail on every submit and publishes or sends back; `needs_review` (per account per toon or `*`) = may save

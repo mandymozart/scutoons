@@ -7,8 +7,9 @@ use RuntimeException;
 use Scutoons\Infrastructure\Config\Settings;
 
 /**
- * Delivers one rendered email (text + HTML). Nothing else calls this: every mail goes through the email module
- * (Domain\Mail\Mailer: template → render → deliver here → mail_log). MAIL_TRANSPORT:
+ * Delivers one rendered email (text + HTML). Platform mails go through the email module (Domain\Mail\Mailer: template →
+ * render → deliver here → mail_log); the one other caller is the Embassy's person-written mail (deliverText, logged
+ * in mail_log as template `embassy` by Domain\Embassy\EmbassyMail). MAIL_TRANSPORT:
  * - `log`: appends the mail to MAIL_LOG_PATH – local development (the smoke tests and scripts/dev/test-user.mjs read
  *   the one-time codes there; keep the entry format: "=== <ISO time> ===", headers, To, Subject, blank line, text)
  * - `mail`: PHP mail() – quick tests on a host that has it set up
@@ -29,24 +30,65 @@ class Transport
     /** @throws RuntimeException when the mail could not be handed over */
     public function deliver(string $to, string $subject, string $text, string $html): void
     {
-        $transport = $this->name();
         $message = $this->message($subject, $text, $html);
+        $this->hand($this->settings->get('MAIL_FROM'), $to, $subject, $message['headers'], $message['body'], $text);
+    }
+
+    /**
+     * Delivers one plain-text mail a person wrote (the Embassy, Domain\Embassy\EmbassyMail): UTF-8, quoted-printable,
+     * from its own address and SMTP account, threaded with In-Reply-To / References. Same transports as deliver().
+     * @param array{from: string, from_name?: string, reply_to?: string, message_id: string, in_reply_to?: ?string, references?: list<string>, user?: ?string, pass?: ?string} $envelope
+     *        message_id / in_reply_to / references without the angle brackets; user / pass null = SMTP_USER / SMTP_PASS
+     * @return string the whole message as handed over (headers, To, Subject, body) – e.g. for a copy in the Sent folder
+     * @throws RuntimeException when the mail could not be handed over
+     */
+    public function deliverText(string $to, string $subject, string $text, array $envelope): string
+    {
+        $from = $envelope['from'];
+        $name = $envelope['from_name'] ?? '';
+        $references = array_values(array_filter($envelope['references'] ?? [], fn(string $id) => $id !== ''));
+        $replyTo = $envelope['reply_to'] ?? '';
+        $inReplyTo = $envelope['in_reply_to'] ?? '';
+        $headers = implode("\r\n", [
+            'From: ' . ($name !== '' ? self::encodeHeader($name) . " <$from>" : "<$from>"),
+            ...(filter_var($replyTo, FILTER_VALIDATE_EMAIL) ? ["Reply-To: <$replyTo>"] : []),
+            'Date: ' . date(DATE_RFC2822),
+            'Message-ID: <' . $envelope['message_id'] . '>',
+            ...($inReplyTo !== '' ? ["In-Reply-To: <$inReplyTo>"] : []),
+            ...($references ? ['References: ' . implode(' ', array_map(fn(string $id) => "<$id>", $references))] : []),
+            'MIME-Version: 1.0',
+            'Content-Type: text/plain; charset=UTF-8',
+            'Content-Transfer-Encoding: quoted-printable',
+        ]);
+        // CRLF line breaks stay hard breaks (a bare LF would be encoded as =0A)
+        $body = quoted_printable_encode(str_replace("\n", "\r\n", str_replace(["\r\n", "\r"], "\n", $text)));
+        $this->hand($from, $to, $subject, $headers, $body, $text, $envelope['user'] ?? null, $envelope['pass'] ?? null);
+        return $headers . "\r\nTo: $to\r\nSubject: " . self::encodeHeader($subject) . "\r\n\r\n" . $body;
+    }
+
+    /**
+     * Hands a prepared message to MAIL_TRANSPORT. $headers without To / Subject (mail() adds those); $text = the plain
+     * text for the log file; $user / $pass = the SMTP account (null = SMTP_USER / SMTP_PASS)
+     */
+    private function hand(string $from, string $to, string $subject, string $headers, string $body, string $text, ?string $user = null, ?string $pass = null): void
+    {
+        $transport = $this->name();
         switch ($transport) {
             case 'log':
                 $path = $this->settings->path('MAIL_LOG_PATH') ?: sys_get_temp_dir() . '/scutoons-mail.log';
                 if (!is_dir(dirname($path))) @mkdir(dirname($path), 0770, true);
-                $entry = "=== " . gmdate('c') . " ===\r\n" . $message['headers'] . "\r\nTo: $to\r\nSubject: $subject\r\n\r\n$text\r\n\r\n";
+                $entry = "=== " . gmdate('c') . " ===\r\n" . $headers . "\r\nTo: $to\r\nSubject: $subject\r\n\r\n$text\r\n\r\n";
                 if (@file_put_contents($path, $entry, FILE_APPEND | LOCK_EX) === false) {
                     throw new RuntimeException("Mail log not writable: $path");
                 }
                 return;
             case 'mail':
-                $ok = mail($to, self::encodeHeader($subject), $message['body'], $message['headers'], '-f' . $this->settings->get('MAIL_FROM'));
+                $ok = mail($to, self::encodeHeader($subject), $body, $headers, '-f' . $from);
                 if (!$ok) throw new RuntimeException('mail() failed');
                 return;
             case 'smtp':
-                $data = $message['headers'] . "\r\nTo: $to\r\nSubject: " . self::encodeHeader($subject) . "\r\n\r\n" . $message['body'];
-                (new Smtp($this->settings))->send($this->settings->get('MAIL_FROM'), $to, $data);
+                $data = $headers . "\r\nTo: $to\r\nSubject: " . self::encodeHeader($subject) . "\r\n\r\n" . $body;
+                (new Smtp($this->settings))->send($from, $to, $data, $user, $pass);
                 return;
             default:
                 throw new RuntimeException("Unknown MAIL_TRANSPORT: $transport");
@@ -80,7 +122,8 @@ class Transport
         return ['headers' => $headers, 'body' => $body];
     }
 
-    private static function encodeHeader(string $value): string
+    /** RFC 2047 encoded-word (base64) for a header value with non-ASCII characters */
+    public static function encodeHeader(string $value): string
     {
         return preg_match('/[^\x20-\x7e]/', $value) ? '=?UTF-8?B?' . base64_encode($value) . '?=' : $value;
     }

@@ -152,8 +152,8 @@ Fits the existing structure (PLATFORM.md): new SvelteKit static app + API module
 - AI: Claude API on the server (drafts, reply classification, enrichment with web search), every result is a
   suggestion stored with its sources, never written straight into the data.
 - Two roles, and they differ only where the rights differ:
-  - `liaison` (part time): sees all leads, works the leads assigned to them (calls, mails, notes); their first-contact
-    mails wait for approval.
+  - `liaison` (part time): sees all leads, works the leads assigned to them (calls, mails, notes); ~~their first-contact
+    mails wait for approval~~ – changed 2026-10-04 (owner): anyone with the role sends, no approval step ("Ask + mail").
   - `ambassador` (full time): everything a liaison does, plus sending without approval, approving liaisons' first
     mails, assigning leads, owning territories/tracks, starting research runs, member updates and reporting.
   - owner/admin: everything, plus role toggles in the admin app.
@@ -274,6 +274,34 @@ expects the new footer link; check-toon-hero still green (the related row's butt
 5. A map view and "near me" (geolocation, coordinates per store) – later; today grouping by country and city.
 6. Per-store stock (sizes, variants, sold out) and a deep link per product in the store's web shop – today only "carries".
 7. Opening info is free text in the store's own words (not translated) – fine, or structured hours?
+
+## Ask + mail (2026-10-04, owner — built on branch `ask-shared`)
+
+Owner: the Ask agent in Embassy helps communicate with the clientele (send out new releases, track communication);
+start with basics, and make Ask a shared integration of embassy, creator and admin. Decisions (2026-10-04): mails are
+**sent over SMTP from the app**, from **hello@scutoons.com**; **anyone with the role** (liaison / ambassador / admin)
+sends – no approval step; replies are **read back by IMAP** in this slice; what gets pitched are the **catalog's albums
+and products** (no new "pitch" record yet). The agent only **drafts**: a person reads the draft and presses Send.
+
+- **Ask panel** (`@scutoons/ask`, shared/ask): round message button in the top bar, docked right below it (the page
+  makes room, stays centred), full screen on phones. On an organisation page the agent knows which one (name shown,
+  id sent). Tools (tools/mcp `src/embassy.ts`): `today`, `search_orgs`, `read_org` (incl. the log and `recipients` =
+  addresses that may get mail), `list_team`, `list_releases`, `log_activity`, `set_lead`, `draft_mail`, `check_inbox`.
+  The system prompt carries the "Communication strategy" above (individual first contact, their language, "Top Toy /
+  <name>", one ask, one link, never invent facts, calls for follow-ups).
+- **Draft card** (`embassy/src/lib/components/mail-draft.svelte`): `draft_mail` comes back as a card (to, subject,
+  text – editable); Send → `POST /api/embassy/orgs/{id}/mail`. The same card on the organisation page: "mail sent" in
+  the log form = write the mail there and send it ("only log it" for a mail sent elsewhere). A sent card stays "Sent and
+  logged" (remembered per browser), and the open organisation page reloads on every change the agent makes.
+- **Sending** (API): one-to-one, plain text, our own Message-ID (threads), the opt-out line appended by the server,
+  do-not-contact checked (409), logged as `mail_out` (subject, text, to) → contacted, call in 6 days.
+- **Replies** (API, IMAP): `POST /api/embassy/inbox/sync` when Today or an organisation page opens (at most every
+  2 minutes), `php bin/console embassy:inbox` for a cron job. Matched by thread, else by sender address; unknown
+  senders are skipped and nothing about them is stored. A reply → `mail_in` (in conversation, 10 days: the follow-ups
+  stop); a reply that is just "stop" / "Stopp" / "unsubscribe" sets do-not-contact.
+- **Not yet:** templates per track × language (the agent follows the strategy instead), a "who should hear about this
+  release" list across leads, member updates, the legal opinion on automated follow-ups (see "Legal" above – nothing
+  here sends on its own).
 
 ## Security note
 

@@ -76,6 +76,26 @@ return [
     'SMTP_PASS' => '',
     'SMTP_TIMEOUT' => '15',
 
+    // ── Embassy mail (agents/EMBASSY.md "Communication strategy"; docs/API.md "Embassy" → "Mail" / "Inbox") ───
+    // People send one-to-one mails from the Embassy app (POST /api/embassy/orgs/{id}/mail) from this shared mailbox,
+    // through MAIL_TRANSPORT and the SMTP server in SMTP_HOST / _PORT / _SECURE; Reply-To is the same address. The
+    // name shows as the sender ("Top Toy · SCUTOONS").
+    'EMBASSY_MAIL_FROM' => 'hello@scutoons.com',
+    'EMBASSY_MAIL_FROM_NAME' => 'Top Toy · SCUTOONS',
+    // The SMTP account of that mailbox; empty = SMTP_USER / SMTP_PASS
+    'EMBASSY_SMTP_USER' => '',
+    'EMBASSY_SMTP_PASS' => '',
+    // The inbox sync (POST /api/embassy/inbox/sync, bin/console embassy:inbox): replies are read back by IMAP (implicit
+    // TLS) and logged on the organisation they answer. Empty host = no sync. User / password empty = the Embassy's SMTP
+    // account. FOLDER = where replies arrive; SENT = a folder that gets a copy of every mail sent from the app (e.g.
+    // "Sent", so the shared mailbox shows it too); empty = no copy.
+    'EMBASSY_IMAP_HOST' => '',
+    'EMBASSY_IMAP_PORT' => '993',
+    'EMBASSY_IMAP_USER' => '',
+    'EMBASSY_IMAP_PASS' => '',
+    'EMBASSY_IMAP_FOLDER' => 'INBOX',
+    'EMBASSY_IMAP_SENT' => '',
+
     // ── Limits ─────────────────────────────────────────────────────────────────────────────────────────
     // GET/POST /access/ + /code/ lookups per IP and hour (every attempt counts – against code enumeration); 0 = no limit.
     // Default of the runtime setting lookup_limit_per_hour (admin app → Settings; a stored value wins)

@@ -6,6 +6,8 @@ namespace Scutoons\Http\Controllers;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Scutoons\Domain\Embassy\Embassy;
+use Scutoons\Domain\Embassy\EmbassyInbox;
+use Scutoons\Domain\Embassy\EmbassyMail;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
@@ -13,7 +15,7 @@ use Scutoons\Http\Middleware\JsonBody;
 /**
  * /api/embassy/* – the Embassy app (embassy.scutoons.com), roles liaison / ambassador (admin counts as ambassador).
  * Contract: server/docs/API.md "Embassy"; rules: Domain\Embassy\Embassy.
- *   GET    /embassy/me                          → { access, user, tracks, stages, types, stockist_types, kinds, outcomes, tiers }
+ *   GET    /embassy/me                          → { access, user, tracks, stages, types, stockist_types, kinds, outcomes, tiers, mail: { from, inbox } }
  *   GET    /embassy/team                        → { items: [{ id, email, access }] }
  *   GET    /embassy/today?owner=me|all|none|<id> → { today, due: [{ lead, org, people, last_activity, overdue_days }], unscheduled }
  *   GET    /embassy/orgs?q&type&country&tier&track&stage&owner&due&sort&limit&offset → { items, total }
@@ -26,11 +28,16 @@ use Scutoons\Http\Middleware\JsonBody;
  *   DELETE /embassy/people/{id}                 (ambassador)
  *   PUT    /embassy/orgs/{id}/leads/{track}     { stage?, owner_id?, next_at? } → { lead }
  *   POST   /embassy/orgs/{id}/activities        { kind, track?, person_id?, outcome?, note?, stage?, next_at? } → { activity, lead } (201)
+ *   POST   /embassy/orgs/{id}/mail              { to, person_id?, track?, subject, text, reply_to_activity_id?, language? } → { activity, lead } (201)
+ *                                               sends from the shared mailbox (EmbassyMail) · 400 / 409 do_not_contact / 502 mail_failed
+ *   GET    /embassy/inbox                       → { configured, synced_at, error }
+ *   POST   /embassy/inbox/sync                  { force? } → { configured, synced_at, matched, skipped, new_activities, error, throttled }
+ *                                               (EmbassyInbox; at most every 2 minutes – ambassadors may force)
  *   POST   /embassy/import                      { organisations: [ … ], dry_run? } → report (ambassador)
  */
 final class EmbassyController
 {
-    public function __construct(private readonly Embassy $embassy)
+    public function __construct(private readonly Embassy $embassy, private readonly EmbassyMail $mail, private readonly EmbassyInbox $inbox)
     {
     }
 
@@ -42,6 +49,7 @@ final class EmbassyController
             'user' => ['id' => (string) $user['id'], 'email' => (string) $user['email']],
             'tracks' => Embassy::TRACKS, 'stages' => Embassy::STAGES, 'types' => Embassy::TYPES, 'stockist_types' => Embassy::STOCKIST_TYPES,
             'kinds' => Embassy::KINDS, 'outcomes' => Embassy::OUTCOMES, 'tiers' => Embassy::TIERS,
+            'mail' => ['from' => $this->mail->from(), 'inbox' => $this->inbox->configured()],
         ]);
     }
 
@@ -117,6 +125,24 @@ final class EmbassyController
     public function log(Request $request, Response $response, array $args): Response
     {
         return $this->ok($response, $this->embassy->log($args['id'], JsonBody::of($request), $this->user($request)), 201);
+    }
+
+    /** @param array<string, string> $args */
+    public function mail(Request $request, Response $response, array $args): Response
+    {
+        return $this->ok($response, $this->mail->send($args['id'], JsonBody::of($request), $this->user($request)), 201);
+    }
+
+    public function inbox(Request $request, Response $response): Response
+    {
+        $this->user($request);
+        return $this->ok($response, $this->inbox->status());
+    }
+
+    public function syncInbox(Request $request, Response $response): Response
+    {
+        $force = (JsonBody::of($request)['force'] ?? false) === true;
+        return $this->ok($response, $this->inbox->sync($this->user($request), $force));
     }
 
     public function import(Request $request, Response $response): Response

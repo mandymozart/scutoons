@@ -222,5 +222,41 @@
 		"mine": "My leads",
 		"due": "Due leads",
 		"new_org": "New organisation"
+	},
+	"ask": {
+		"title": "Ask",
+		"open": "Ask the agent",
+		"new": "New chat",
+		"close": "Close",
+		"you": "You",
+		"agent": "Agent",
+		"placeholder": "Find contacts, log a call, draft a mail …",
+		"send": "Send",
+		"stop": "Stop",
+		"working": "Working …",
+		"context": "{page} · drafts only – you send",
+		"empty": "Ask about your contacts and leads, log what happened, or let the agent draft a mail – for a new release, a follow-up, a thank-you. It never sends: you read the draft and send it.",
+		"unavailable": "The agent is not available right now.",
+		"signed_out": "Your session ended – sign in again.",
+		"history": "Earlier chats",
+		"history_empty": "No chats yet.",
+		"history_unavailable": "The chat history is not available yet.",
+		"resize": "Drag to resize",
+		"draft": "Draft #{id}"
+	},
+	"mail": {
+		"to": "To",
+		"subject": "Subject",
+		"text": "Text",
+		"send": "Send",
+		"sending": "Sending …",
+		"sent": "Sent and logged.",
+		"only_log": "Only log it (sent elsewhere)",
+		"footer_note": "Sent from hello@scutoons.com; the opt-out line is added.",
+		"draft": "Draft",
+		"reply": "Reply",
+		"blocked": "Opted out – no mail.",
+		"empty": "Subject and text first.",
+		"no_recipient": "No address to write to – or everyone here opted out."
 	}
 }

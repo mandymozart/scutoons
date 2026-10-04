@@ -222,5 +222,41 @@
 		"mine": "Meine Leads",
 		"due": "Fällige Leads",
 		"new_org": "Neue Organisation"
+	},
+	"ask": {
+		"title": "Ask",
+		"open": "Den Agenten fragen",
+		"new": "Neuer Chat",
+		"close": "Schließen",
+		"you": "Du",
+		"agent": "Agent",
+		"placeholder": "Kontakte finden, einen Anruf eintragen, eine Mail entwerfen …",
+		"send": "Senden",
+		"stop": "Stopp",
+		"working": "Arbeitet …",
+		"context": "{page} · nur Entwürfe – du sendest",
+		"empty": "Frag nach deinen Kontakten und Leads, trag ein, was passiert ist, oder lass den Agenten eine Mail entwerfen – zu einem neuen Release, zum Nachfassen, als Dankeschön. Er sendet nie: du liest den Entwurf und sendest ihn.",
+		"unavailable": "Der Agent ist gerade nicht erreichbar.",
+		"signed_out": "Deine Sitzung ist abgelaufen – melde dich neu an.",
+		"history": "Frühere Chats",
+		"history_empty": "Noch keine Chats.",
+		"history_unavailable": "Der Chat-Verlauf ist noch nicht verfügbar.",
+		"resize": "Ziehen, um die Breite zu ändern",
+		"draft": "Entwurf #{id}"
+	},
+	"mail": {
+		"to": "An",
+		"subject": "Betreff",
+		"text": "Text",
+		"send": "Senden",
+		"sending": "Wird gesendet …",
+		"sent": "Gesendet und eingetragen.",
+		"only_log": "Nur eintragen (anderswo gesendet)",
+		"footer_note": "Geht von hello@scutoons.com raus; die Abmelde-Zeile wird angehängt.",
+		"draft": "Entwurf",
+		"reply": "Antwort",
+		"blocked": "Abgemeldet – keine Mail.",
+		"empty": "Erst Betreff und Text.",
+		"no_recipient": "Keine Adresse – oder alle hier haben sich abgemeldet."
 	}
 }

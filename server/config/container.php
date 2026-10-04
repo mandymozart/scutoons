@@ -18,6 +18,8 @@ use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Clock\SystemClock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
+use Scutoons\Infrastructure\Mail\Imap;
+use Scutoons\Infrastructure\Mail\Mailbox;
 use Scutoons\Infrastructure\Signing\KeyStore;
 use Scutoons\Infrastructure\Storage\FileStore;
 use Scutoons\Infrastructure\Templates\Templates;
@@ -44,6 +46,8 @@ return [
     // media storages of the asset layer (agents/ASSETS.md): local CDN folder, bunny.net
     AssetStorages::class => static fn(ContainerInterface $c): AssetStorages => new AssetStorages($c->get(Settings::class)),
     FileStore::class => static fn(ContainerInterface $c): FileStore => new FileStore($c->get(Settings::class)->path('FILES_PATH')),
+    // the Embassy's shared mailbox (inbox sync, copies of sent mails): IMAP over a TLS socket; tests set a fake
+    Mailbox::class => DI\get(Imap::class),
 
     // Composed library answers (agents/DATA.md §3): APCu when the host has it, else files in CACHE_PATH
     Cache::class => static function (ContainerInterface $c): Cache {

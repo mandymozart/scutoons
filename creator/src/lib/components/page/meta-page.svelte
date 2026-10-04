@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { leaveGuard } from '$lib/editor/ask.ts';
-	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
 	import type { Snippet } from 'svelte';
-	import { ActionBar } from '@scutoons/ui';
+	import { ActionBar, panelWidth } from '@scutoons/ui';
 	import { beforeNavigate } from '$app/navigation';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -254,7 +253,7 @@
 	.pad {
 		padding: 1rem;
 	}
-	/* the side panel's left edge drags it wider (lib/panel-width.svelte.ts) */
+	/* the side panel's left edge drags it wider (@scutoons/ui panelWidth) */
 	.panel-resize {
 		position: fixed;
 		z-index: 21;

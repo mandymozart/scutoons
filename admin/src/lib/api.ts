@@ -1,6 +1,6 @@
 // The admin's API wiring: @scutoons/api with this app's API base; the session is the single sign-on cookie
 // (@scutoons/auth), a token stored by older builds still goes as Bearer until the session has moved it into the cookie.
-import { createAdminApi, createApiClient, createAssetsApi, createContentApi, createProductsApi, createQrApi, getDeviceId, getSessionToken } from '@scutoons/api';
+import { createAdminApi, createAgentChatsApi, createApiClient, createAssetsApi, createContentApi, createProductsApi, createQrApi, getDeviceId, getSessionToken } from '@scutoons/api';
 import { API_URL } from '$lib/config.ts';
 
 export { ApiError } from '@scutoons/api';
@@ -20,3 +20,6 @@ export const assets = createAssetsApi(api);
 
 /** The shop catalog (public), for choosing the homepage's editions */
 export const { fetchProducts } = createProductsApi(api);
+
+/** the Ask panel's chats (`/api/agent-chats`, app admin) */
+export const agentChats = createAgentChatsApi(api, 'admin');

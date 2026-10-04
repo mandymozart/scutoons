@@ -85,11 +85,20 @@ Claude Desktop (`claude_desktop_config.json`, Settings → Developer → Edit co
 
 Add `"SCUTOONS_MCP_PUBLISH": "1"` only for a session that should be able to publish.
 
-## The Ask service (the creator's "Ask" panel)
+## The Ask service (the "Ask" panel of creator, embassy, admin)
 
-`src/ask.ts` + `src/ask-main.ts`: the agent behind the creator's Ask panel – one HTTP endpoint `POST /api/ask`
-(Server-Sent Events). It checks the creator's session at the API (`/me/`, role creator), runs Claude (Sonnet 5.5) with
-the tools above in-process, saves the chat in the API (`/api/agent-chats`) after every round and logs every AI call
+`src/ask.ts` + `src/ask-main.ts`: the agent behind the Ask panel (`@scutoons/ask`) – one HTTP endpoint `POST /api/ask`
+(Server-Sent Events). The request names its app (`creator` when missing); the app sets the role, the system prompt and
+the tools (`APPS` in ask.ts):
+
+| app | role (API `/me/`) | tools |
+| --- | --- | --- |
+| `creator` | creator | the tools above (`src/server.ts`) |
+| `embassy` | liaison / ambassador / admin | `src/embassy.ts`: `today`, `search_orgs`, `read_org`, `list_team`, `list_releases`, `log_activity`, `set_lead`, `draft_mail` (a card in the panel – the person sends it from the app, the agent never sends), `check_inbox` |
+| `admin` | admin | the tools above that only read + `agent_usage` (`src/admin.ts`) |
+
+It runs Claude (Sonnet 5.5) with the app's tools in-process (the person's session; the API's role checks decide),
+saves the chat in the API (`/api/agent-chats`, per app) after every round and logs every AI call with its app
 (`/api/agent-usage`, else its own file). Locally: `npm run dev:ask` (port 9002; key `ANTHROPIC_API_KEY` in the
 repo-root `.env`).
 
@@ -113,7 +122,7 @@ Once:
    |---|---|
    | `ANTHROPIC_API_KEY` | the Claude API key (platform.claude.com) – secret |
    | `SCUTOONS_API` | `https://api.scutoons.com/api` |
-   | `ASK_ORIGINS` | `https://creator.scutoons.com` |
+   | `ASK_ORIGINS` | `https://creator.scutoons.com,https://embassy.scutoons.com,https://admin.scutoons.com` |
    | `SCUTOONS_SERVICE_KEY` | the service key from 2. – secret |
 
 4. **Address**: `ask.scutoons.com` → the container (a CNAME to the address bunny shows). It must be a scutoons.com name:

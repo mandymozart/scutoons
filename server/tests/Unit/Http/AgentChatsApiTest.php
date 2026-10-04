@@ -85,7 +85,7 @@ final class AgentChatsApiTest extends TestCase
         $list = self::json($this->request('GET', '/api/agent-chats', $creator));
         self::assertSame('success', $list['status']);
         self::assertSame([self::B, self::A], array_column($list['chats'], 'id')); // newest updated first
-        self::assertSame(['id' => self::A, 'title' => 'Find the screenplay', 'page' => '/toons/catpope/script', 'created_at' => '2026-09-21T14:13:20+00:00', 'updated_at' => '2026-09-21T14:13:20+00:00', 'turns' => 2], $list['chats'][1]);
+        self::assertSame(['id' => self::A, 'title' => 'Find the screenplay', 'page' => '/toons/catpope/script', 'app' => 'creator', 'created_at' => '2026-09-21T14:13:20+00:00', 'updated_at' => '2026-09-21T14:13:20+00:00', 'turns' => 2], $list['chats'][1]);
         self::assertSame(['Second', null], [$list['chats'][0]['title'], $list['chats'][0]['page']]);
         self::assertSame([self::B], array_column(self::json($this->request('GET', '/api/agent-chats?limit=1', $creator))['chats'], 'id'));
         self::assertCount(1, self::json($this->request('GET', '/api/agent-chats?limit=0', $creator))['chats']); // clamped to 1..200
@@ -174,6 +174,61 @@ final class AgentChatsApiTest extends TestCase
         // just under the limit is stored (a long model conversation)
         $large = (string) json_encode(['turns' => [], 'messages' => [str_repeat('y', 3 * 1048576)]]);
         self::assertSame(200, $this->request('PUT', $url, $creator, $large)->getStatusCode());
+    }
+
+    public function testChatsPerAppWithTheRoleOfThatApp(): void
+    {
+        $liaison = $this->as('liaison');
+        $creator = $this->as('creator');
+        $admin = $this->as('admin', 'boss@example.com'); // creator + embassy + admin panels
+
+        // the Embassy panel: the Embassy roles (liaison / ambassador / admin)
+        $put = $this->request('PUT', '/api/agent-chats/' . self::A, $liaison, self::body(['app' => 'embassy', 'page' => '/orgs/x']));
+        self::assertSame(200, $put->getStatusCode(), (string) $put->getBody());
+        $list = self::json($this->request('GET', '/api/agent-chats?app=embassy', $liaison));
+        self::assertSame([[self::A, 'embassy']], array_map(fn(array $c) => [$c['id'], $c['app']], $list['chats']));
+        $chat = self::json($this->request('GET', '/api/agent-chats/' . self::A, $liaison))['chat']; // by id: the stored chat's app
+        self::assertSame(['embassy', 2], [$chat['app'], count($chat['turns'])]);
+        $forbidden = $this->request('GET', '/api/agent-chats', $liaison); // the creator panel needs a content editor
+        self::assertSame([403, 'creator'], [$forbidden->getStatusCode(), self::json($forbidden)['role']]);
+        $forbidden = $this->request('PUT', '/api/agent-chats/' . self::B, $creator, self::body(['app' => 'embassy']));
+        self::assertSame([403, 'liaison'], [$forbidden->getStatusCode(), self::json($forbidden)['role']]);
+        $forbidden = $this->request('PUT', '/api/agent-chats/' . self::B, $creator, self::body(['app' => 'admin']));
+        self::assertSame([403, 'admin'], [$forbidden->getStatusCode(), self::json($forbidden)['role']]);
+        $invalid = $this->request('PUT', '/api/agent-chats/' . self::B, $creator, self::body(['app' => 'shop']));
+        self::assertSame([422, 'invalid_app'], [$invalid->getStatusCode(), self::json($invalid)['error']]);
+        self::assertSame(422, $this->request('GET', '/api/agent-chats?app=shop', $creator)->getStatusCode());
+
+        // one user, several panels: each list only has its app's chats; another app's id is 404, never overwritten
+        $this->request('PUT', '/api/agent-chats/' . self::B, $admin, self::body(['app' => 'admin', 'title' => 'Admin chat']));
+        self::assertSame([], self::json($this->request('GET', '/api/agent-chats', $admin))['chats']);
+        self::assertSame([], self::json($this->request('GET', '/api/agent-chats?app=embassy', $admin))['chats']);
+        self::assertSame([self::B], array_column(self::json($this->request('GET', '/api/agent-chats?app=admin', $admin))['chats'], 'id'));
+        self::assertSame(404, $this->request('PUT', '/api/agent-chats/' . self::B, $admin, self::body(['title' => 'Now creator']))->getStatusCode());
+        self::assertSame(404, $this->request('PUT', '/api/agent-chats/' . self::B, $admin, self::body(['app' => 'embassy']))->getStatusCode());
+        self::assertSame(404, $this->request('GET', '/api/agent-chats/' . self::B . '?app=creator', $admin)->getStatusCode());
+        self::assertSame(404, $this->request('DELETE', '/api/agent-chats/' . self::B . '?app=embassy', $admin)->getStatusCode());
+        self::assertSame('Admin chat', self::json($this->request('GET', '/api/agent-chats/' . self::B . '?app=admin', $admin))['chat']['title']);
+        self::assertSame(404, $this->request('GET', '/api/agent-chats/' . self::A, $admin)->getStatusCode()); // the liaison's chat
+        self::assertSame(200, $this->request('DELETE', '/api/agent-chats/' . self::B, $admin)->getStatusCode());
+        self::assertSame(['embassy'], array_column($this->db->all('SELECT app FROM agent_chats'), 'app'));
+    }
+
+    public function testWithoutTheAppColumnEveryChatIsTheCreators(): void
+    {
+        if (!$this->db->isSqlite()) self::markTestSkipped('drops a column (the MySQL test database is only rebuilt for dropped tables)');
+        $creator = $this->as('creator');
+        $liaison = $this->as('liaison');
+        $this->db->exec('DROP INDEX agent_chats_user_app');
+        $this->db->exec('ALTER TABLE agent_chats DROP COLUMN app');
+        self::assertSame(200, $this->request('PUT', '/api/agent-chats/' . self::A, $creator, self::body())->getStatusCode());
+        $list = self::json($this->request('GET', '/api/agent-chats', $creator))['chats'];
+        self::assertSame([[self::A, 'creator']], array_map(fn(array $c) => [$c['id'], $c['app']], $list));
+        self::assertSame('creator', self::json($this->request('GET', '/api/agent-chats/' . self::A, $creator))['chat']['app']);
+        $response = $this->request('PUT', '/api/agent-chats/' . self::B, $liaison, self::body(['app' => 'embassy']));
+        self::assertSame([503, 'not_available'], [$response->getStatusCode(), self::json($response)['error']]);
+        self::assertSame(503, $this->request('GET', '/api/agent-chats?app=embassy', $liaison)->getStatusCode());
+        self::assertSame(200, $this->request('DELETE', '/api/agent-chats/' . self::A, $creator)->getStatusCode());
     }
 
     public function testWithoutTheMigrationTheEndpointsAnswer503(): void

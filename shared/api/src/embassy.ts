@@ -95,6 +95,11 @@ export interface Activity {
 	by_email: string;
 	/** UTC `YYYY-MM-DD HH:MM:SS` */
 	at: string;
+	/** mails (sent from the app / read back from the inbox): subject, addresses, the Message-ID of the thread */
+	subject?: string | null;
+	mail_from?: string | null;
+	mail_to?: string | null;
+	message_id?: string | null;
 }
 
 export interface OrgSummary extends Org {
@@ -149,6 +154,28 @@ export interface LogInput {
 	next_at?: string | null;
 }
 
+/** A mail a person sends from the app (`POST /embassy/orgs/{id}/mail`): one-to-one, the server adds the opt-out line */
+export interface MailInput {
+	/** the organisation's address or one of its people's */
+	to: string;
+	person_id?: string | null;
+	track?: Track | null;
+	subject: string;
+	text: string;
+	/** a mail activity of this organisation to answer (threading) */
+	reply_to_activity_id?: string | null;
+}
+
+/** The shared mailbox's inbox sync (IMAP): replies land in the log */
+export interface InboxState {
+	configured: boolean;
+	synced_at?: string | null;
+	error?: string | null;
+	matched?: number;
+	skipped?: number;
+	new_activities?: number;
+}
+
 const seg = encodeURIComponent;
 
 export type EmbassyApi = ReturnType<typeof createEmbassyApi>;
@@ -169,6 +196,9 @@ export function createEmbassyApi(api: ApiClient) {
 		setLead: (orgId: string, track: Track, input: { stage?: Stage; owner_id?: string | null; next_at?: string | null }) =>
 			api.put<{ lead: Lead }>(`/embassy/orgs/${seg(orgId)}/leads/${seg(track)}`, input),
 		log: (orgId: string, input: LogInput) => api.post<{ activity: Activity; lead: Lead | null }>(`/embassy/orgs/${seg(orgId)}/activities`, input),
+		sendMail: (orgId: string, input: MailInput) => api.post<{ activity: Activity; lead: Lead | null }>(`/embassy/orgs/${seg(orgId)}/mail`, input),
+		inbox: () => api.get<InboxState>('/embassy/inbox'),
+		syncInbox: (force = false) => api.post<InboxState>('/embassy/inbox/sync', force ? { force } : {}),
 		import: (organisations: OrgInput[], dryRun: boolean) =>
 			api.post<ImportReport>('/embassy/import', { organisations, dry_run: dryRun })
 	};

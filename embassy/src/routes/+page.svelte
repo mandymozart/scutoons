@@ -38,6 +38,11 @@
 		void owner;
 		load();
 	});
+	// replies in the shared mailbox land in the log (IMAP; the API reads at most every 2 minutes) and take their leads
+	// off the due list – look when the list opens
+	$effect(() => {
+		embassy.syncInbox().then((r) => void (r.new_activities && load()), () => {});
+	});
 	$effect(() => {
 		embassy.team().then((r) => (team = r.items.filter((t) => t.id !== session.user?.id)), () => {});
 	});

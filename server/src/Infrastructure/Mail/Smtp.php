@@ -9,6 +9,7 @@ use Scutoons\Infrastructure\Config\Settings;
 /**
  * Minimal SMTP client (RFC 5321): STARTTLS or implicit TLS, AUTH LOGIN, one recipient. Enough for the login mails –
  * no library on the host needed. Settings: SMTP_HOST, SMTP_PORT, SMTP_SECURE, SMTP_USER, SMTP_PASS, SMTP_TIMEOUT.
+ * Another account on the same server (the Embassy's shared mailbox) passes its own user / password to send().
  */
 final class Smtp
 {
@@ -19,7 +20,8 @@ final class Smtp
     {
     }
 
-    public function send(string $from, string $to, string $data): void
+    /** $user / $pass: null = SMTP_USER / SMTP_PASS */
+    public function send(string $from, string $to, string $data, ?string $user = null, ?string $pass = null): void
     {
         $host = $this->settings->get('SMTP_HOST');
         $port = $this->settings->int('SMTP_PORT');
@@ -44,11 +46,11 @@ final class Smtp
                 }
                 $this->command($ehlo, 250);
             }
-            $user = $this->settings->get('SMTP_USER');
+            $user ??= $this->settings->get('SMTP_USER');
             if ($user !== '') {
                 $this->command('AUTH LOGIN', 334);
                 $this->command(base64_encode($user), 334);
-                $this->command(base64_encode($this->settings->get('SMTP_PASS')), 235, 'AUTH (password hidden)');
+                $this->command(base64_encode($pass ?? $this->settings->get('SMTP_PASS')), 235, 'AUTH (password hidden)');
             }
             $this->command("MAIL FROM:<$from>", 250);
             $this->command("RCPT TO:<$to>", [250, 251]);

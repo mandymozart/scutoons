@@ -209,6 +209,10 @@ return static function (App $app): void {
         $embassy->post("/orgs/$id/people", [EmbassyController::class, 'addPerson']);
         $embassy->put("/orgs/$id/leads/{track:[a-z]{1,16}}", [EmbassyController::class, 'lead']);
         $embassy->post("/orgs/$id/activities", [EmbassyController::class, 'log']);
+        // mail from the shared mailbox (SMTP) and the replies read back (IMAP) – agents/EMBASSY.md "Automation"
+        $embassy->post("/orgs/$id/mail", [EmbassyController::class, 'mail']);
+        $embassy->get('/inbox', [EmbassyController::class, 'inbox']);
+        $embassy->post('/inbox/sync', [EmbassyController::class, 'syncInbox']);
         $embassy->put("/people/$id", [EmbassyController::class, 'updatePerson']);
         $embassy->delete("/people/$id", [EmbassyController::class, 'deletePerson']);
         $embassy->post('/import', [EmbassyController::class, 'import']);
