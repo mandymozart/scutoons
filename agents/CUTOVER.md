@@ -592,6 +592,9 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       Billed by usage (~$0.02 / core-hour + RAM, account minimum $1/month) – check the real idle cost in the 14-day trial.
       Rejected: Cloudflare Workers (US; free plan 10 ms CPU per request is tight for validating a big chapter; needs
       bundling), bunny Edge Scripting (Deno, a port), Koyeb / Render / Hetzner / Scaleway (a second provider).
+      Also considered and set aside (owner 2026-10-04: "we stick to the node server on bunny"): the agent loop in the PHP
+      API (tools in the browser, or a PHP port of the story rules). Separate idea, not decided: the API checking every
+      save against the generated JSON Schemas (`shared/content/schema`).
     - **Auth: long-lived personal access tokens** for Claude Code / Desktop (owner's choice; OAuth was recommended as
       safer). To build: a creator page "Tokens" – create (shown once, only the hash stored), name, last used, revoke; never
       the browser session; the API accepts them as Bearer like a session. Expiry optional.
