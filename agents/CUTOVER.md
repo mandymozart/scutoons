@@ -645,10 +645,11 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-03 — 10.10 done on branch `dev-mariadb` (local MariaDB in Docker, tests + CI on it). Open: production's version / sql_mode / collation from phpMyAdmin → `docker/compose.yml`.  - **Step 2 decisions (owner 2026-10-04)**:
     - **Order (owner 2026-10-04): the creator's "Ask" panel is the way for creators; the API token (step 1, stdio) stays
       for Claude Code / Desktop; no claude.ai connector for now** (no OAuth needed – revisit only if creators want claude.ai).
-    - **Host: a small Node server** (this package + Streamable HTTP; the validator stays TypeScript). Free if possible,
-      else European-hosted. Candidates: Koyeb (French, free always-on nano instance – check its EU region), Render free
-      (sleeps after 15 min, ~1 min cold start), Scaleway / Clever Cloud (FR, ~5 €/month), Hetzner (DE, ~4 €/month VPS).
-      Owner picks.
+    - **Host: bunny.net Magic Containers** (owner 2026-10-04; EU, the same bunny account as the CDN): this package in a
+      Docker container + Streamable HTTP, the validator stays TypeScript. Billed by usage (~$0.02 / core-hour + RAM, account
+      minimum $1/month) – check the real idle cost in the 14-day trial. Rejected: Cloudflare Workers (US; free plan 10 ms CPU
+      per request is tight for validating a big chapter; needs bundling), bunny Edge Scripting (Deno, a port), Koyeb /
+      Render / Hetzner / Scaleway (a second provider).
     - **Auth: long-lived personal access tokens** (owner's choice; OAuth was recommended as safer). Build: a creator page
       "Tokens" – create (shown once, only the hash stored), name, last used, revoke; never the browser session; the API
       accepts them as Bearer like a session. Expiry optional. (A claude.ai connector would need OAuth – not planned.)
