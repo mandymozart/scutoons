@@ -123,6 +123,24 @@
 	const star = $derived(toonStar(registryOf(registry), toon));
 	/** the chapter's groups with each scene document (source language) in place of its ref – what the VN plays */
 	const sceneGroups = () => groups.map((g) => (g?.ref?.src ? (refs[g.ref.src]?.data?.[refs[g.ref.src].primary] ?? {}) : g));
+	/**
+	 * A slice sample picked as a file (asset picker / upload): its sample-library id; a file not in the chapter's library
+	 * yet is added to it (id from the file name: s1c1-choir-loud.128.mp3 → choir_loud) – saved with the chapter.
+	 */
+	function librarySample(path: string): string {
+		const library: any[] = chapterData?.audio?.sampleLibrary ?? [];
+		const known = library.find((s) => s?.path === path);
+		if (known?.id) return known.id;
+		const base = (path.split('/').pop() ?? path).replace(/(\.\d+)?\.[a-z0-9]+$/i, '').replace(/^s\d+c\d+-/i, '').replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() || 'sample';
+		let id = base;
+		for (let n = 2; library.some((s) => s?.id === id); n++) id = `${base}_${n}`;
+		chapter.structural((file) => {
+			file.audio ??= {};
+			file.audio.sampleLibrary ??= [];
+			if (!file.audio.sampleLibrary.some((s: any) => s?.id === id)) file.audio.sampleLibrary.push({ id, path });
+		});
+		return id;
+	}
 	const allDocs = $derived<ContentDoc[]>([
 		chapter,
 		season,
@@ -648,6 +666,7 @@
 					{choices}
 					{groupLabels}
 					chapterAudio={chapterData?.audio}
+					{librarySample}
 					{worldMap}
 					chapterSlices={chapterSlices(sceneGroups())}
 					onmaptouch={() => (mapTouched = true)}

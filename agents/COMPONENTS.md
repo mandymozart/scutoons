@@ -354,3 +354,8 @@ path text fields. `FileSlot` got `toon` (toon-relative paths like MediaSlot; '' 
 `player` (false: the row's own ▶) and `clearable` (false: the row's × removes it). Uploads go to the chapter folder
 (`<toon>/s<n>/c<n>/`). The picker's "Use" keeps the field's current file when it is one of the asset's renditions, and
 for audio otherwise takes the 128k (medium) stream – the reader plays exactly the path, audio has no quality variants yet.
+Slice audio (same day, owner): the inspector's samples are one-liners like the VN events (chevron · number · library id ·
+file · trigger; opens on click or when selected on the canvas). The opened sample's sound is a FileSlot (asset picker +
+upload into the chapter folder); a file not in the chapter's sample library yet is added to it (`librarySample` in the
+chapter editor: id from the file name, `s1c1-choir-loud.128.mp3` → `choir_loud`, saved with the chapter). A new sample
+starts without a sound and opens (the old "+" selected one past it). Music volumes: the value column no longer cuts off.

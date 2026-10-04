@@ -1,16 +1,25 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { CloseIcon, Icon } from '@scutoons/ui';
+	import { FileSlot } from '@scutoons/media';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 	import { getAt, deleteAt, type Path } from '@scutoons/content';
 	import { Trigger, TriggerMode } from '@scutoons/content';
 	import PropField from '$lib/components/fields/prop-field.svelte';
 
-	/** Per-slice audio: music volumes (per chapter track) and samples with triggers (rects drawn on the canvas). */
+	/**
+	 * Per-slice audio: music volumes (per chapter track) and samples with triggers (rects drawn on the canvas). A sample is
+	 * one line until opened, like the VN events (owner 2026-10-04); its sound is a slot with the asset picker (+ upload) –
+	 * a file not in the chapter's sample library yet is added to it (`librarySample`).
+	 */
 	let {
 		doc,
 		slicePath,
 		chapterAudio,
+		librarySample,
+		toon,
+		place,
 		selectedSample = -1,
 		onselectsample
 	}: {
@@ -18,13 +27,18 @@
 		slicePath: Path;
 		/** the chapter's audio config (tracks, sampleLibrary) */
 		chapterAudio: any;
+		librarySample: (path: string) => string;
+		toon: string;
+		/** where uploads go (the chapter folder) */
+		place: string;
 		selectedSample?: number;
 		onselectsample?: (index: number) => void;
 	} = $props();
 
 	const slice = $derived(doc.get(doc.primary, slicePath));
 	const musicTracks = $derived<any[]>(chapterAudio?.music?.tracks ?? []);
-	const library = $derived<string[]>((chapterAudio?.sampleLibrary ?? []).map((s: any) => s.id));
+	const libraryEntries = $derived<any[]>(chapterAudio?.sampleLibrary ?? []);
+	const pathOf = (id: string): string | undefined => libraryEntries.find((s) => s?.id === id)?.path || undefined;
 	const sliceMusic = $derived<any[]>(slice?.audio?.music?.tracks ?? []);
 	const samples = $derived<any[]>(slice?.audio?.audio?.samples ?? []);
 	const misplaced = $derived<any[]>(Array.isArray(slice?.audio?.samples) ? slice.audio.samples : []);
@@ -58,6 +72,8 @@
 	}
 
 	function addSample(type: Trigger) {
+		// the new one's index before the push (read after it, the derived list already has it: one past – the old bug)
+		const index = samples.length;
 		doc.structural((file) => {
 			const s = getAt(file, slicePath);
 			if (!s) return;
@@ -66,10 +82,33 @@
 			s.audio.audio.samples ??= [];
 			const trigger: any = { type, mode: type === Trigger.INTERSECT ? TriggerMode.MONO : TriggerMode.POLY };
 			if (type !== Trigger.INTERSECT) trigger.rect = { x: 25, y: 25, width: 50, height: 50 };
-			s.audio.audio.samples.push({ id: library[0] ?? '', trigger, volume: 0.6 });
+			s.audio.audio.samples.push({ id: '', trigger, volume: 0.6 });
 		});
-		onselectsample?.(samples.length);
+		open = [...open, index];
+		onselectsample?.(index);
 	}
+
+	/** a picked / uploaded file: its library id (added to the library when new) becomes the sample's */
+	function setSound(index: number, path: string) {
+		const id = librarySample(path);
+		doc.structural((file) => {
+			const sample = getAt(file, [...samplesPath, index]);
+			if (sample) sample.id = id;
+		});
+	}
+
+	// ── one line until opened (like the VN events); the sample selected on the canvas opens ──
+	let open = $state<number[]>([]);
+	$effect(() => {
+		if (selectedSample >= 0 && !untrack(() => open).includes(selectedSample)) open = [...untrack(() => open), selectedSample];
+	});
+	const isOpen = (i: number) => open.includes(i);
+	function clickLine(i: number) {
+		open = isOpen(i) ? open.filter((x) => x !== i) : [...open, i];
+		onselectsample?.(i);
+	}
+	const TRIGGER_WORDS: Record<string, string> = { intersect: 'on scroll', click: 'on click', hover: 'on hover' };
+	const triggerWord = (sample: any) => `${TRIGGER_WORDS[sample?.trigger?.type] ?? sample?.trigger?.type ?? ''}${sample?.trigger?.rect ? ' · area' : ''}`;
 
 	function removeSample(index: number) {
 		doc.structural((file) => {
@@ -78,6 +117,7 @@
 			list.splice(index, 1);
 			if (!list.length) deleteAt(file, samplesPath, slicePath.length);
 		});
+		open = open.filter((i) => i !== index).map((i) => (i > index ? i - 1 : i));
 		onselectsample?.(-1);
 	}
 
@@ -116,7 +156,7 @@
 				{track.id}
 			</label>
 			<input type="range" min="0" max="1" step="0.05" value={v ?? 0} disabled={v === undefined} oninput={(e) => setVolume(track.id, Number(e.currentTarget.value))} />
-			<span class="num">{v === undefined ? 'unchanged' : v.toFixed(2)}</span>
+			<span class="num" title={v === undefined ? 'unchanged' : undefined}>{v === undefined ? '–' : v.toFixed(2)}</span>
 		</div>
 	{/each}
 
@@ -128,34 +168,48 @@
 		</p>
 	{/if}
 	{#each samples as sample, i (i)}
-		<div class="sample" class:selected={i === selectedSample}>
-			<div class="row">
-				<button type="button" class="ghost" onclick={() => onselectsample?.(i)}><Icon name="music" /> {i + 1}</button>
-				<button type="button" class="ghost" onclick={() => removeSample(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
-			</div>
-			<div class="sc-fields" data-cols="2" data-density="dense">
-				<PropField {doc} path={[...samplesPath, i, 'id']} label="id" type="select" options={library} required />
-				<PropField {doc} path={[...samplesPath, i, 'volume']} label="volume" type="number" step={0.05} min={0} max={1} placeholder="1" />
-				<PropField {doc} path={[...samplesPath, i, 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
-				<div class="field">
-					<label for="tt-{i}">trigger</label>
-					<select id="tt-{i}" value={sample.trigger?.type ?? ''} onchange={(e) => setTriggerType(i, e.currentTarget.value)}>
-						{#each Object.values(Trigger) as t}<option value={t}>{t}</option>{/each}
-					</select>
+		{@const file = pathOf(sample?.id)}
+		<article class="sample" class:selected={i === selectedSample} class:open={isOpen(i)} data-testid="sample-{i}">
+			<header>
+				<button type="button" class="ghost line" onclick={() => clickLine(i)} aria-expanded={isOpen(i)} data-testid="sample-line-{i}">
+					<Icon name="chevron-right" />
+					<span class="idx">{i + 1}</span>
+					<span class="type">{sample?.id || '–'}</span>
+					<span class="sum">{file?.split('/').pop() ?? ''}</span>
+					<span class="trig">{triggerWord(sample)}</span>
+				</button>
+				<span class="tools">
+					<button type="button" class="ghost" onclick={() => removeSample(i)} aria-label={m['creator.remove']()} title={m['creator.remove']()}><CloseIcon /></button>
+				</span>
+			</header>
+			{#if isOpen(i)}
+				<FileSlot {toon} kind="audio" label="sound" value={file} {place} clearable={false} onchange={(path) => path && setSound(i, path)} testid="sample-sound-{i}" />
+				{#if sample?.id && !file}
+					<p class="warn">"{sample.id}" is not in the chapter's sample library – pick its file.</p>
+				{/if}
+				<div class="sc-fields" data-cols="2" data-density="dense">
+					<PropField {doc} path={[...samplesPath, i, 'volume']} label="volume" type="number" step={0.05} min={0} max={1} placeholder="1" />
+					<PropField {doc} path={[...samplesPath, i, 'delay']} label="delay ms" type="number" step={100} placeholder="0" />
+					<div class="field">
+						<label for="tt-{i}">trigger</label>
+						<select id="tt-{i}" value={sample.trigger?.type ?? ''} onchange={(e) => setTriggerType(i, e.currentTarget.value)}>
+							{#each Object.values(Trigger) as t}<option value={t}>{t}</option>{/each}
+						</select>
+					</div>
+					<PropField {doc} path={[...samplesPath, i, 'trigger', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="mono" />
+					<PropField {doc} path={[...samplesPath, i, 'loop']} label="loop" type="bool" placeholder="false" />
+					<PropField {doc} path={[...samplesPath, i, 'trigger', 'exclusive']} label="exclusive" type="bool" placeholder="false" />
+					<PropField {doc} path={[...samplesPath, i, 'trigger', 'gate']} label="gate" type="bool" placeholder="false" />
 				</div>
-				<PropField {doc} path={[...samplesPath, i, 'trigger', 'mode']} label="mode" type="select" options={Object.values(TriggerMode)} placeholder="mono" />
-				<PropField {doc} path={[...samplesPath, i, 'loop']} label="loop" type="bool" placeholder="false" />
-				<PropField {doc} path={[...samplesPath, i, 'trigger', 'exclusive']} label="exclusive" type="bool" placeholder="false" />
-				<PropField {doc} path={[...samplesPath, i, 'trigger', 'gate']} label="gate" type="bool" placeholder="false" />
-			</div>
-			{#if sample.trigger?.rect}
-				<p class="hint">Area: {sample.trigger.rect.x}/{sample.trigger.rect.y} {sample.trigger.rect.width}×{sample.trigger.rect.height}%</p>
+				{#if sample.trigger?.rect}
+					<p class="hint">Area: {sample.trigger.rect.x}/{sample.trigger.rect.y} {sample.trigger.rect.width}×{sample.trigger.rect.height}%</p>
+				{/if}
 			{/if}
-		</div>
+		</article>
 	{/each}
 	<div class="row">
-		<button type="button" class="secondary" onclick={() => addSample(Trigger.INTERSECT)} disabled={!library.length}>+ on scroll</button>
-		<button type="button" class="secondary" onclick={() => addSample(Trigger.CLICK)} disabled={!library.length}>+ on click (area)</button>
+		<button type="button" class="secondary" onclick={() => addSample(Trigger.INTERSECT)}>+ on scroll</button>
+		<button type="button" class="secondary" onclick={() => addSample(Trigger.CLICK)}>+ on click (area)</button>
 	</div>
 </section>
 
@@ -172,26 +226,87 @@
 	}
 	.volume {
 		display: grid;
-		grid-template-columns: 8rem 1fr 5rem;
+		grid-template-columns: minmax(0, 8rem) minmax(0, 1fr) 2.5em;
 		align-items: center;
 		gap: 0.4rem;
 	}
 	.volume label {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 		display: flex;
 		gap: 0.3rem;
 		align-items: center;
 	}
 	.num {
+		text-align: right;
 		font-size: var(--type-caption-size);
 		line-height: var(--type-caption-line);
 		color: var(--muted);
 	}
+	/* a sample = one line until opened, the VN events' look (vn-events.svelte) */
 	.sample {
-		border: 1px solid var(--border-subtle);
-		padding: 0.3rem;
+		border: 1px solid var(--border-muted);
+		padding: 0.4rem;
+		display: flex;
+		flex-direction: column;
+		gap: 0.35rem;
 	}
 	.sample.selected {
-		border: 2px solid var(--acid-purple);
+		border: 2px solid var(--ink);
+	}
+	header {
+		display: flex;
+		gap: 0.4rem;
+		align-items: center;
+	}
+	.line {
+		flex: 1;
+		min-width: 0;
+		justify-content: flex-start;
+		gap: 0.5rem;
+		padding: 0 0.25rem;
+		text-align: left;
+	}
+	.line,
+	.line:hover {
+		border-color: transparent;
+		background: none;
+	}
+	.line :global(svg) {
+		flex: none;
+		transition: transform var(--duration-base) var(--easing);
+	}
+	.sample.open .line :global(svg) {
+		transform: rotate(90deg);
+	}
+	.line .idx {
+		flex: none;
+		min-width: 1.5em;
+	}
+	.line .type {
+		flex: none;
+	}
+	.line .sum,
+	.line .trig {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		color: var(--text-muted);
+	}
+	.line .sum {
+		flex: 1 1 auto;
+		min-width: 3em;
+	}
+	.line .trig {
+		flex: 0 4 auto;
+	}
+	.tools {
+		margin-left: auto;
+		display: flex;
+		flex: none;
 	}
 	.row {
 		display: flex;

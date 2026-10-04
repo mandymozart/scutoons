@@ -39,6 +39,7 @@
 		choices,
 		groupLabels,
 		chapterAudio,
+		librarySample,
 		worldMap,
 		chapterSlices,
 		onmaptouch,
@@ -62,6 +63,8 @@
 		choices: CharacterChoices | undefined;
 		groupLabels: string[];
 		chapterAudio: any;
+		/** a picked / uploaded sample file → its id in the chapter's sample library (added when new) */
+		librarySample: (path: string) => string;
 		worldMap: ContentDoc;
 		chapterSlices: ChapterSliceRef[];
 		onmaptouch: () => void;
@@ -159,6 +162,9 @@
 			{doc}
 			{slicePath}
 			{chapterAudio}
+			{librarySample}
+			{toon}
+			place="{toon}/s{seasonNumber}/c{chapterNumber}/"
 			selectedSample={selection?.kind === 'sample' ? selection.index : -1}
 			onselectsample={(i) => (view.selection = i >= 0 ? { kind: 'sample', index: i } : null)}
 		/>
