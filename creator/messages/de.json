@@ -878,7 +878,13 @@
 		"ask_placeholder": "Was soll der Agent tun?",
 		"ask_send": "Senden",
 		"ask_context": "Kontext: {page}",
-		"ask_drafts_only": "speichert Entwürfe – veröffentlichen tust du"
+		"ask_drafts_only": "speichert Entwürfe – veröffentlichen tust du",
+		"ask_empty": "Bitte den Agenten, etwas zu bauen oder zu ändern – er arbeitet an Entwürfen, mit deinen Rechten.",
+		"ask_stop": "Stopp",
+		"ask_working": "Arbeitet …",
+		"ask_draft": "Entwurf #{id}",
+		"ask_unavailable": "Der Agent ist gerade nicht erreichbar.",
+		"ask_signed_out": "Deine Sitzung ist abgelaufen – melde dich neu an."
 	},
 	"login": {
 		"network_error": "Der SCUTOONS-Server ist nicht erreichbar. Versuche es später nochmal.",

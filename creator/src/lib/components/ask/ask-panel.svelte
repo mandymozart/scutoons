@@ -1,10 +1,14 @@
 <script lang="ts">
 	// The "Ask" panel (CUTOVER 10.28 step 2): a chat with an agent that has the signed-in creator's rights (the SCUTOONS
-	// MCP tools). Docked on the right like the editor's side panels (drags wider up to half the window), full screen on
-	// phones. Every draft the agent saved is a link to review it. DESIGN DRAFT: sample conversation, no backend yet.
+	// tools, tools/mcp). Docked on the right like the editor's side panels (drags wider up to half the window; the page
+	// makes room), full screen on phones. The agent's answer streams in; each tool call is a step, a saved draft links to
+	// its page. The chat lives in this panel and the service's memory only (no history for now, owner 2026-10-04).
 	import { Icon, CloseButton } from '@scutoons/ui';
+	import { getSessionToken } from '@scutoons/api';
+	import { parseEntityKey } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { panelWidth } from '$lib/editor/panel-width.svelte.ts';
+	import { ASK_URL } from '$lib/config.ts';
 
 	let { context, onclose }: { context: string; onclose: () => void } = $props();
 
@@ -22,27 +26,112 @@
 		};
 	});
 
-	type Step = { text: string; draft?: { label: string; href: string } };
-	type Turn = { who: 'you' | 'agent'; text?: string; steps?: Step[] };
+	type Step = { tool: string; target: string; error?: string; key?: string; version?: number };
+	type Turn = { who: 'you' | 'agent'; text: string; steps: Step[]; error?: string };
 
-	// DRAFT: a sample of what the panel shows (the stroll request, CUTOVER 10.27)
-	const turns: Turn[] = [
-		{ who: 'you', text: 'Set up the chapter 2 stroll: every stroll scene ends with "end the stroll" or "keep walking" to a random other stroll scene, 15 minutes per scene, at 7:00 it ends.' },
-		{
-			who: 'agent',
-			steps: [
-				{ text: 'Read the rules: VN events, flow' },
-				{ text: 'Chapter 2: 5 stroll scenes (scene-14 … scene-18), end scene-20' },
-				{ text: 'scene-14 · de', draft: { label: 'Draft #812', href: '/catpope/chapter/2' } },
-				{ text: 'scene-14 · en', draft: { label: 'Draft #813', href: '/catpope/chapter/2' } },
-				{ text: 'scene-15 … scene-18 · de, en', draft: { label: '8 drafts', href: '/catpope/chapter/2' } },
-				{ text: 'Checked: no errors, 0 warnings' }
-			],
-			text: 'Done. Each stroll scene\'s last slice now starts "stroll-end": +15 minutes, at 7:00 it jumps to scene-20, otherwise the reader picks "End the stroll" or "Keep walking". Nothing is published – review the drafts and publish when it reads right.'
-		}
-	];
-
+	let turns = $state<Turn[]>([]);
+	let chat: string | null = null;
 	let input = $state('');
+	let busy = $state(false);
+	let controller: AbortController | null = null;
+	let list = $state<HTMLElement>();
+
+	/** the creator page of a saved document */
+	function hrefOf(key: string): string | null {
+		const ref = parseEntityKey(key);
+		if (!ref?.toon) return null;
+		switch (ref.kind) {
+			case 'chapter':
+				return `/${ref.toon}/chapter/${ref.number}`;
+			case 'scene':
+				return `/${ref.toon}/chapter/${ref.number}?group=${encodeURIComponent(ref.scene ?? '')}`;
+			case 'season':
+				return `/${ref.toon}/season/${ref.number}`;
+			case 'script':
+			case 'cast':
+			case 'credits':
+				return `/${ref.toon}/${ref.kind}`;
+			case 'toon':
+			case 'toon-settings':
+				return `/${ref.toon}/toon`;
+			default:
+				return null;
+		}
+	}
+	const keyLabel = (key: string) => key.split(':').slice(1).join(' · ');
+
+	function scrollDown() {
+		queueMicrotask(() => list?.scrollTo({ top: list.scrollHeight }));
+	}
+
+	function newChat() {
+		controller?.abort();
+		turns = [];
+		chat = null;
+	}
+
+	/** one Server-Sent Event of the service ("event: <name>\ndata: <json>") */
+	function apply(turn: Turn, block: string) {
+		const name = /^event: (.*)$/m.exec(block)?.[1];
+		const raw = /^data: (.*)$/m.exec(block)?.[1];
+		if (!name || raw === undefined) return;
+		const data = JSON.parse(raw);
+		if (name === 'chat') chat = data.id;
+		else if (name === 'text') turn.text += data.delta;
+		else if (name === 'step') turn.steps.push(data);
+		else if (name === 'error') turn.error = data.message;
+	}
+
+	async function send(event?: Event) {
+		event?.preventDefault();
+		const text = input.trim();
+		if (!text || busy) return;
+		input = '';
+		turns.push({ who: 'you', text, steps: [] });
+		turns.push({ who: 'agent', text: '', steps: [] });
+		const turn = turns[turns.length - 1];
+		scrollDown();
+		if (!ASK_URL) {
+			turn.error = m['creator.ask_unavailable']();
+			return;
+		}
+		busy = true;
+		controller = new AbortController();
+		try {
+			const token = getSessionToken();
+			const res = await fetch(ASK_URL, {
+				method: 'POST',
+				credentials: 'include',
+				headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+				body: JSON.stringify({ chat, text, context }),
+				signal: controller.signal
+			});
+			if (!res.ok || !res.body) throw new Error(res.status === 401 ? m['creator.ask_signed_out']() : m['creator.ask_unavailable']());
+			const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+			let buffer = '';
+			for (;;) {
+				const { value, done } = await reader.read();
+				if (done) break;
+				buffer += value;
+				let cut: number;
+				while ((cut = buffer.indexOf('\n\n')) >= 0) {
+					apply(turn, buffer.slice(0, cut));
+					buffer = buffer.slice(cut + 2);
+					scrollDown();
+				}
+			}
+		} catch (error) {
+			if (!(error instanceof DOMException && error.name === 'AbortError')) turn.error = error instanceof Error ? error.message : m['creator.ask_unavailable']();
+		} finally {
+			busy = false;
+			controller = null;
+		}
+	}
+
+	function onkeydown(event: KeyboardEvent) {
+		// Enter sends, Shift+Enter is a new line
+		if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) send(event);
+	}
 </script>
 
 <!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
@@ -51,35 +140,45 @@
 <aside class="ask" style:--panel-width={size.css} aria-label={m['creator.ask']()} data-testid="ask-panel">
 	<header>
 		<h2>{m['creator.ask']()}</h2>
-		<button type="button" class="sc-round" title={m['creator.ask_new']()} aria-label={m['creator.ask_new']()}><Icon name="plus" /></button>
+		<button type="button" class="sc-round" title={m['creator.ask_new']()} aria-label={m['creator.ask_new']()} onclick={newChat} disabled={!turns.length}><Icon name="plus" /></button>
 		<CloseButton label={m['creator.ask_close']()} onclick={onclose} />
 	</header>
 
-	<ol class="chat">
+	<ol class="chat" bind:this={list} aria-live="polite">
+		{#if !turns.length}<li class="empty">{m['creator.ask_empty']()}</li>{/if}
 		{#each turns as turn, i (i)}
 			<li class="turn {turn.who}">
 				<p class="who">{turn.who === 'you' ? m['creator.ask_you']() : m['creator.ask_agent']()}</p>
-				{#if turn.steps}
+				{#if turn.steps.length}
 					<ul class="steps">
 						{#each turn.steps as step, j (j)}
-							<li>
-								<Icon name={step.draft ? 'edit-3' : 'check'} size="1em" />
-								<span>{step.text}</span>
-								{#if step.draft}<a href={step.draft.href}>{step.draft.label}</a>{/if}
+							{@const href = step.key ? hrefOf(step.key) : null}
+							<li class:failed={!!step.error} title={step.error}>
+								<Icon name={step.error ? 'x' : step.key ? 'edit-3' : 'check'} size="1em" />
+								<span class="what">{step.tool}{step.key ? ` · ${keyLabel(step.key)}` : step.target ? ` · ${step.target}` : ''}</span>
+								{#if step.key && step.version}
+									{#if href}<a {href}>{m['creator.ask_draft']({ id: String(step.version) })}</a>{:else}<span>{m['creator.ask_draft']({ id: String(step.version) })}</span>{/if}
+								{/if}
 							</li>
 						{/each}
 					</ul>
 				{/if}
 				{#if turn.text}<p class="text">{turn.text}</p>{/if}
+				{#if turn.error}<p class="sc-error">{turn.error}</p>{/if}
+				{#if busy && i === turns.length - 1}<p class="working">{m['creator.ask_working']()}</p>{/if}
 			</li>
 		{/each}
 	</ol>
 
-	<form class="composer" onsubmit={(e) => e.preventDefault()}>
+	<form class="composer" onsubmit={send}>
 		<p class="context">{m['creator.ask_context']({ page: context })} · {m['creator.ask_drafts_only']()}</p>
 		<div class="row">
-			<textarea bind:value={input} rows="2" placeholder={m['creator.ask_placeholder']()} aria-label={m['creator.ask_placeholder']()}></textarea>
-			<button type="submit" class="sc-round send" title={m['creator.ask_send']()} aria-label={m['creator.ask_send']()} disabled={!input.trim()}><Icon name="arrow-up" /></button>
+			<textarea bind:value={input} rows="2" placeholder={m['creator.ask_placeholder']()} aria-label={m['creator.ask_placeholder']()} {onkeydown}></textarea>
+			{#if busy}
+				<button type="button" class="sc-round" title={m['creator.ask_stop']()} aria-label={m['creator.ask_stop']()} onclick={() => controller?.abort()}><Icon name="square" /></button>
+			{:else}
+				<button type="submit" class="sc-round" title={m['creator.ask_send']()} aria-label={m['creator.ask_send']()} disabled={!input.trim()}><Icon name="arrow-up" /></button>
+			{/if}
 		</div>
 	</form>
 </aside>
@@ -145,6 +244,11 @@
 		margin: 0;
 		white-space: pre-wrap;
 	}
+	.empty,
+	.working {
+		margin: 0;
+		color: var(--text-muted);
+	}
 	.steps {
 		list-style: none;
 		margin: 0 0 var(--space-1);
@@ -158,8 +262,12 @@
 		padding: 0.15rem 0;
 		border-bottom: 1px solid var(--border-subtle);
 	}
-	.steps span {
+	.steps .what {
 		flex: 1;
+		overflow-wrap: anywhere;
+	}
+	.steps .failed {
+		color: var(--text-muted);
 	}
 	.composer {
 		border-top: var(--border-width-regular) solid var(--ink);

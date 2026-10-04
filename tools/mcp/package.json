@@ -5,20 +5,23 @@
 	"type": "module",
 	"description": "SCUTOONS MCP server (stdio): an agent with the signed-in creator's rights over the content API – drafts only, publish off by default",
 	"bin": {
-		"scutoons-mcp": "./bin/scutoons-mcp.mjs"
+		"scutoons-mcp": "./bin/scutoons-mcp.mjs",
+		"scutoons-ask": "./bin/scutoons-ask.mjs"
 	},
 	"scripts": {
 		"start": "node bin/scutoons-mcp.mjs",
-		"check": "tsc --noEmit -p tsconfig.json"
+		"check": "tsc --noEmit -p tsconfig.json",
+		"ask": "node bin/scutoons-ask.mjs"
 	},
 	"dependencies": {
+		"@anthropic-ai/sdk": "^0.131.0",
+		"@modelcontextprotocol/client": "^2.3.0",
 		"@modelcontextprotocol/server": "^2.3.0",
 		"@scutoons/api": "*",
 		"@scutoons/content": "*",
 		"zod": "^4.2.0"
 	},
 	"devDependencies": {
-		"@modelcontextprotocol/client": "^2.3.0",
 		"@types/node": "^22",
 		"typescript": "^5.9.3"
 	}

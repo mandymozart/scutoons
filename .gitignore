@@ -13,6 +13,7 @@ node_modules
 .deploy/
 
 /logs/dev
+/logs/ask
 
 # Python bytecode caches (written when cdn/tools/*.py run)
 __pycache__/

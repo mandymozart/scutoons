@@ -878,7 +878,13 @@
 		"ask_placeholder": "What should the agent do?",
 		"ask_send": "Send",
 		"ask_context": "Context: {page}",
-		"ask_drafts_only": "saves drafts – you publish"
+		"ask_drafts_only": "saves drafts – you publish",
+		"ask_empty": "Ask the agent to build or change something – it works on drafts, with your rights.",
+		"ask_stop": "Stop",
+		"ask_working": "Working …",
+		"ask_draft": "Draft #{id}",
+		"ask_unavailable": "The agent is not available right now.",
+		"ask_signed_out": "Your session ended – sign in again."
 	},
 	"login": {
 		"network_error": "Can't reach the SCUTOONS server. Try again later.",

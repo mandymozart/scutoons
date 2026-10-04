@@ -503,6 +503,7 @@ The docker services (`docker/compose.yml`: mariadb, adminer) take the port from 
 | cdn (static files) | **8001** | `cd cdn && python server.py` |
 | API (server/, api.scutoons.com) | **9000** | `npm run dev:api` or `cd server && composer serve` |
 | qr (qr/, qr.scutoons.com) | **9001** | `npm run dev:qr` or `cd qr && composer serve` (calls the API on :9000) |
+| ask (tools/mcp: the creator's Ask panel, CUTOVER 10.28) | **9002** | `npm run dev:ask` (needs ANTHROPIC_API_KEY in the repo-root `.env`) |
 | creator (creator.scutoons.com) | **10000** | `npm run dev:creator` |
 | admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
 | shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |

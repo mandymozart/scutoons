@@ -8,7 +8,7 @@
 // Database: SQLite unless `npm run dev:db` switched the stack to the MariaDB container (scripts/dev/db-env.mjs); then
 // the container is started first (docker compose) and the API runs on it. adminer only starts when named.
 import { spawn } from 'node:child_process';
-import { mkdirSync, openSync } from 'node:fs';
+import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +17,8 @@ import { PORTS } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const db = selectedDb();
+// the Ask service (tools/mcp, CUTOVER 10.28) needs the Anthropic key – without one it is not started
+const askKey = !!process.env.ANTHROPIC_API_KEY || (existsSync(resolve(ROOT, '.env')) && /^ANTHROPIC_API_KEY=\S/m.test(readFileSync(resolve(ROOT, '.env'), 'utf8')));
 const SERVICES = [
 	// docker services (docker/compose.yml): mariadb only when the stack uses it, adminer only on request
 	{ name: 'mariadb', docker: true, tcp: true, skip: db !== 'mariadb' && 'not used (SQLite; npm run dev:db switches)' },
@@ -25,6 +27,7 @@ const SERVICES = [
 	{ name: 'cdn', path: '/', cmd: `python server.py ${PORTS.cdn}`, cwd: 'cdn', python: true },
 	{ name: 'api', path: '/api/health/', cmd: 'node server/bin/dev-serve.mjs' },
 	{ name: 'qr', path: '/version.json', cmd: `php -S localhost:${PORTS.qr} -t qr/public qr/public/router.php` },
+	{ name: 'ask', path: '/api/ask/health', cmd: 'node tools/mcp/bin/scutoons-ask.mjs', skip: !askKey && 'off (no ANTHROPIC_API_KEY in the repo-root .env)' },
 	{ name: 'creator', path: '/', cmd: 'npm run dev -w creator' },
 	{ name: 'admin', path: '/', cmd: 'npm run dev -w admin' },
 	{ name: 'shop', path: '/', cmd: 'npm run dev -w shop' },
