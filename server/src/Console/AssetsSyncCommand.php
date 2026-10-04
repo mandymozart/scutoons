@@ -17,13 +17,13 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
 /**
- * Copies media from one storage to another (agents/ASSETS.md "Migration"): today local cdn/root → the bunny.net zone.
+ * Copies media from one storage to another (agents/ASSETS.md "Migration"): e.g. local media/ → the bunny.net zone.
  * A DRY RUN by default – it prints the plan: files missing on the target (upload), files whose size differs (would be
  * overwritten – only with --overwrite), files only on the target (never touched: this command never deletes).
  * --apply performs the uploads (and with --overwrite the replacements, each followed by a purge when possible); every
  * upload is verified (listed size + SHA-256 when the target reports it) and retried up to 3 times; --purge-zone purges
  * the whole pull zone afterwards; --log writes the run's summary (no secrets) as JSON.
- * --source-root reads the source from another local folder (e.g. the main checkout's cdn/root – read-only).
+ * --source-root reads the source from another local folder (e.g. the main checkout's media/ – read-only).
  * Skipped always: dot files / dot folders, Thumbs.db, desktop.ini, half-written `*.uploading-*` files.
  */
 #[AsCommand(name: 'assets:sync', description: 'Plan (default) or perform a copy of media between storages – never deletes')]

@@ -2,19 +2,17 @@
 // Writes .claude/launch.json (local, gitignored: the Claude desktop app's preview servers) from shared/dev-ports.json,
 // so its ports never drift from the single source of truth. The owner's stack still starts with `npm run dev`.
 //   npm run dev:launch-json
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PORTS } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const venvPython = resolve(ROOT, 'cdn/.venv/Scripts/python.exe');
-const python = process.platform === 'win32' && existsSync(venvPython) ? venvPython.replace(/\\/g, '/') : 'python';
 
 /** service → [executable, args] (cwd = the repository root) */
 const COMMANDS = {
 	viewer: ['npm', ['run', 'dev', '-w', 'viewer']],
-	cdn: [python, ['cdn/server.py']],
+	cdn: ['node', ['scripts/dev/media-serve.mjs']],
 	api: ['node', ['server/bin/dev-serve.mjs']],
 	qr: ['php', ['scripts/dev/php-serve.php', 'qr', 'qr/public', 'qr/public/router.php']],
 	ask: ['node', ['tools/mcp/bin/scutoons-ask.mjs']],

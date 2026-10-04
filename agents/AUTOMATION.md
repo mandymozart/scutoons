@@ -30,7 +30,7 @@ story ──► script ──► scenes ──► frames / slices ──► VN e
 | Scenes / shots | `workflows/scenes/generate-shots.md` (FLORA) → creator "Scene → shot list → stills" | script import |
 | Script import | story/screenplay (e.g. `de/screenplay.txt`) → scenes, characters, dialogue lines | data refactor (entities in DB) |
 | Wanted list | one queue of everything missing (images, looks, moods, translations) — today "Wanted images" | asset requests |
-| Asset upload | upload + normalize + WebP in the creator, replacing the manual `cdn/sync.py` step | CDN plan (P6) |
+| Asset upload | upload + normalize + WebP in the creator, replacing the old manual FTP upload (repo `cdn/` removed 2026-10-04) | CDN plan (P6) |
 
 ### Creator roadmap (recorded 2026-09-30, not built)
 
@@ -42,7 +42,7 @@ Future creator actions from `workflows/`. Nothing is implemented; the character 
 | **Complete base views** | character detail → Actions | `workflows/characters/base-views.md` (any 1 of 4 views → portrait, avatar, full, A-pose; normalized, named, registered) | asset upload; the character registry through the API (data refactor) |
 | **Complete moods** | character detail → Actions (per look) | moods workflow (`moods.md`, to come): portrait variations per mood of the standard set | base views; asset upload |
 | **Scene → shot list → stills** | chapter editor, group (scene) level | `workflows/scenes/generate-shots.md` (FLORA) | script import; scenes / characters as entities (data refactor) |
-| **Upload images** | character detail → Actions; later every image field | replaces `cdn/sync.py` + the manual naming step (normalize, WebP, avatar) | CDN plan (P6) + an upload API |
+| **Upload images** | character detail → Actions; later every image field | replaces the old FTP upload + the manual naming step (normalize, WebP, avatar) | CDN plan (P6) + an upload API |
 
 Dependencies in order: data refactor (entities in the DB, the API instead of files) → asset upload (API/CDN plan)
 → base views → moods; script import → shot lists. Each action writes normal drafts (review → publish) like manual edits.

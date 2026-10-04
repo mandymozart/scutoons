@@ -24,7 +24,7 @@ const SERVICES = [
 	{ name: 'mariadb', docker: true, tcp: true, skip: db !== 'mariadb' && 'not used (SQLite; npm run dev:db switches)' },
 	{ name: 'adminer', docker: true, path: '/', profile: 'tools', skip: 'off (npm run dev -- adminer, or npm run dev:db adminer)' },
 	{ name: 'viewer', path: '/', cmd: 'npm run dev -w viewer' },
-	{ name: 'cdn', path: '/', cmd: `python server.py ${PORTS.cdn}`, cwd: 'cdn', python: true },
+	{ name: 'cdn', path: '/', cmd: 'node scripts/dev/media-serve.mjs' },
 	{ name: 'api', path: '/api/health/', cmd: 'node server/bin/dev-serve.mjs' },
 	{ name: 'qr', path: '/version.json', cmd: `php -S localhost:${PORTS.qr} -t qr/public qr/public/router.php` },
 	{ name: 'ask', path: '/api/ask/health', cmd: 'node tools/mcp/bin/scutoons-ask.mjs', skip: !askKey && 'off (no ANTHROPIC_API_KEY in the repo-root .env)' },
@@ -70,8 +70,7 @@ function start(s) {
 	}
 	mkdirSync(resolve(ROOT, 'logs/dev'), { recursive: true });
 	const log = openSync(resolve(ROOT, `logs/dev/${s.name}.log`), 'a');
-	const cmd = s.python && process.platform === 'win32' ? s.cmd.replace(/^python /, `${resolve(ROOT, 'cdn/.venv/Scripts/python.exe')} `) : s.cmd;
-	const child = spawn(cmd, { cwd: resolve(ROOT, s.cwd ?? '.'), shell: true, detached: true, stdio: ['ignore', log, log], windowsHide: true });
+	const child = spawn(s.cmd, { cwd: resolve(ROOT, s.cwd ?? '.'), shell: true, detached: true, stdio: ['ignore', log, log], windowsHide: true });
 	child.unref();
 }
 

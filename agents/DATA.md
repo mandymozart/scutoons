@@ -390,7 +390,7 @@ cover editor"):
   shows the cover (thumbnail + lettering state) and links to it; its two path fields are gone. The toon settings have no
   cover any more.
 - **catpope** stays as it is (lettering off, the baked German cover) until the owner switches it on with the text-free art
-  (`s1/s1-cover-square-textless.webp`, delivered 2026-10-02, upload with `cdn/sync.py`): Season 1 → "Open the cover
+  (`s1/s1-cover-square-textless.webp`, delivered 2026-10-02, upload in admin → Assets): Season 1 → "Open the cover
   editor" → "Art" → choose
   it, "Default" (or an own layout), Save draft, Publish. The default layout sits where the hand lettering was (the toon's
   name at y 19 %, the season's title at y 31 %).

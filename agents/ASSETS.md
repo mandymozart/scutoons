@@ -17,13 +17,13 @@ way we could even migrate in the future or run various systems behind it. Long-t
    from the CDN root). The registry maps logical assets ↔ files; readers never call the layer. Replacing a file keeps its
    path (new version + purge); a rename copies and relinks.
 2. **No `asset:<id>` references now.** Reasons: the reader and the seed / interchange JSON stay self-contained and work
-   without the registry (static export, PWA preload, other hosts); every existing tool (cdn/sync.py, the validation's
+   without the registry (static export, PWA preload, other hosts); every existing tool (the validation's
    media checks, the language-independence audit) keeps working; a path is human-readable in the creator's raw JSON.
    *Compatible later:* if ever wanted, `asset:<id>[@quality]` would be resolved by the server's library at compose time
    (the entity store keeps the reference, the reader gets paths) – the usage scanner already maps both directions, so
    introducing it is a migration, not a rewrite. Not needed for anything the owner asked.
 3. **The registry is an index, not the source of truth for bytes.** The storage is. `assets:scan` (re-)registers what is
-   on the storage at any time; out-of-band uploads (cdn/sync.py, the bunny dashboard) are picked up by a rescan.
+   on the storage at any time; out-of-band uploads (the bunny dashboard) are picked up by a rescan.
 4. **Two places:** creators pick and upload in the creator (the asset picker); admins manage storage, delete, rename,
    relink, run jobs and see bandwidth in the admin (Assets page). The API checks the same split (content editors vs admin).
 5. **Grouping by name conventions** (PLAN.md "RULE: one file per quality level"): files that differ only by a marker or
@@ -95,7 +95,7 @@ Tested for real on a copy (`s1c1-key-visual` → 480p 460 KB + poster in ~4 s).
 
 `name, describe, list(prefix), stat, download, upload, delete, copy, publicUrl, purge`. Keys = CDN-root paths.
 
-- **LocalStorage** – the local CDN folder (`ASSET_LOCAL_ROOT`, default `../cdn/root`), atomic writes (temp + rename), purge
+- **LocalStorage** – the local CDN folder (`ASSET_LOCAL_ROOT`, default `../media` = the repo-root `media/`, gitignored), atomic writes (temp + rename), purge
   no-op, public URL = `CDN_URL`. Dev storage and the test double.
 - **BunnyStorage** – bunny.net Edge Storage, built against the official reference: **bunny.net/docs/api-reference/storage
   = "bunny.net Edge Storage API", OpenAPI 1.0.0 (`/docs/api-reference/storage/openapi.json`), fetched 2026-10-02**, plus
@@ -107,7 +107,7 @@ Tested for real on a copy (`s1c1-key-visual` → 480p 460 KB + poster in ~4 s).
   `GET /statistics`; Logging API `logging.bunnycdn.com/{MM-DD-YY}/{id}.log` for per-file traffic (later). Errors never
   contain a secret (401/404 come with a hint). `CurlHttpClient` verifies TLS (Windows dev machines without a CA bundle in
   php.ini use the OS certificate store); tests run against `FakeBunny` (the documented wire format).
-- **FTP** – not a driver: `cdn/sync.py` stays as it is until the switch (the registry picks its uploads up on a rescan).
+- **FTP** – not a driver: the old cdn.scutoons.com stays untouched until the switch (the repo's FTP tooling `cdn/` was removed 2026-10-04).
 - **AssetStorages** – the configured set; `ASSET_STORAGE` = auto | local | bunny (auto: the local folder when it exists,
   else bunny). Migration between storages = `assets:sync` (below) + switching the setting.
 
@@ -126,10 +126,10 @@ unit-tested): `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT` (region hostname, w
 1. Repository-root `.env` (local) / GitHub environment `production` (deploy): the seven keys above
    (`.env.example` "bunny.net (asset manager)"; `deploy/targets.json` writes them into the API's `config.php`).
 2. `cd server && php bin/console assets:check-storage` – read-only: key status, zone listing (objects / bytes per folder),
-   comparison with `cdn/root` (only on bunny / only local / size), a HEAD through `CDN_PUBLIC_URL`, the pull zone (origin,
+   comparison with `media/` (only on bunny / only local / size), a HEAD through `CDN_PUBLIC_URL`, the pull zone (origin,
    hostnames) and its 30-day statistics. `--write-test` puts / reads back / deletes one file below `_test/`.
-3. `php bin/console assets:sync --source-root=<cdn/root> --hash` – the upload plan (dry run). `--apply [--overwrite]
-   [--purge-zone] --log=../cdn/logs/<name>.json` performs it (verified uploads, retries, never deletes).
+3. `php bin/console assets:sync --source-root=<media> --hash` – the upload plan (dry run). `--apply [--overwrite]
+   [--purge-zone] --log=../logs/cutover/<name>.json` performs it (verified uploads, retries, never deletes).
 4. `php bin/console migrate` (local) / phpMyAdmin `2026-10-02-assets.mysql.sql` (production), then `assets:scan`.
 
 **State 2026-10-02 (read-only checks with the owner's keys):** zone `scutoons` (storage zone #1599226) at
@@ -209,7 +209,7 @@ The folders ARE the toon hierarchy; videos and audio belong to their season / ch
   and proposes `<toon>/s1/c2/s1c2-slice-<next>.webp`; the path stays editable. Until the migration, new files may
   already go to the new places (both conventions coexist; the registry does not care).
 
-### Migration plan (dry run: `php bin/console assets:layout --json=../cdn/logs/layout-plan.json`)
+### Migration plan (dry run: `php bin/console assets:layout --json=../logs/cutover/layout-plan.json`)
 
 `AssetLayout` maps every file of the storage: the name's `s<n>c<n>-` / `s<n>-` prefix places it; topic folders stay
 topics; otherwise the uses decide (one chapter → that chapter's folder, one season → the season; chapters → season via the
@@ -244,7 +244,7 @@ one draft per document, `--publish`), (4) the viewer code change for the model p
   the same step as the move.
 - `scene:catpope:2:scene-19` (the stale draft): **leave it** – the owner cleans up when preparing chapter 2's final
   release on production.
-- Deletions happen **with the move** (local cdn/root and bunny), after the owner reviews the final mapping run;
+- Deletions happen **with the move** (local `media/` and bunny), after the owner reviews the final mapping run;
   `assets:layout` lists them (`action: delete`, `summary.delete_list`). A file that is used is never planned for deletion.
 
 Mapping after these decisions (local cdn/root, 824 files): **213 move, 506 stay, 105 delete**; 567 uses in 103
@@ -253,7 +253,7 @@ documents to rewrite; 0 conflicts.
 ### Backup (owner 2026-10-02)
 
 No second bunny zone (too expensive). The backup target, later, is the **old all-inkl FTP CDN** (cheap, no global reach
-needed): an `FtpStorage` driver behind the same `AssetStorage` interface (list / get / put; the cdn/sync.py logic) and a
+needed): an `FtpStorage` driver behind the same `AssetStorage` interface (list / get / put) and a
 scheduled `assets:sync --from=bunny --to=ftp` (copies only, never deletes). Not needed now.
 
 ## API (server docs/API.md "Assets")
@@ -319,5 +319,5 @@ delete), admin Assets (library, detail, delete check, storage + bandwidth), view
 - Per-file bandwidth from the Logging API (aggregate the daily logs into a table; per asset in the detail).
 - Image renditions for slices (`IMAGE_QUALITY_DENSITIES` 1x/2x/3x as `{ src, variants }`) once the reader reads them – the
   picker can fill them like video variants.
-- When production writes to bunny: `ASSET_STORAGE=bunny` in the deploy's config (the shared host has no cdn/root);
+- When production writes to bunny: `ASSET_STORAGE=bunny` in the deploy's config (the shared host has no local media folder);
   the picker's uploads then go straight to the zone.

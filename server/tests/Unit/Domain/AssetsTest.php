@@ -164,7 +164,7 @@ final class AssetsTest extends TestCase
         self::assertSame(['1080p' => 'high', '1280w' => null, '1920w' => null, '480p' => 'low', '720p' => 'medium'], (function () use ($labels) { ksort($labels); return $labels; })());
         self::assertSame(['catpope/images/3x/s1c3-key-visual.jpg', 'catpope/images/1x/s1c3-key-visual.jpg'], array_reverse(array_column($registry->renditions($this->versionId('catpope/images/s1c3-key-visual')), 'path')));
 
-        // a new rendition appears, one disappears (out-of-band changes, e.g. cdn/sync.py)
+        // a new rendition appears, one disappears (out-of-band changes, e.g. the bunny dashboard)
         unlink($this->dir . '/cdn/catpope/videos/s1-trailer-loop.1280w.mp4');
         $this->put('catpope/videos/s1-trailer-loop.360p.mp4', self::MP4);
         $this->put('catpope/videos/s1-trailer-loop.480p.mp4', self::MP4 . 'changed!');

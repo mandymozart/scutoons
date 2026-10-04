@@ -419,12 +419,12 @@ To be written as `workflows/map/location-images.md` when built (house style like
 | Framing | the place as a small self-contained diorama, three-quarter view from above (≈ 30°), centred horizontally, ~6 % side padding |
 | Anchor | the place's **ground point at 50 % / 90 %** (bottom centre, where the building meets the ground) – the default `anchor`, so most images need no setting |
 | Content | one place, no text, no signs with letters, no characters, no logos |
-| File | `cdn/root/map/locations/<place id>.webp` (PNG master next to it); a changed image gets a new name (`<id>.v2.webp`, PLATFORM.md CDN rule) |
+| File | `map/locations/<place id>.webp` (locally under `media/`; PNG master next to it); a changed image gets a new name (`<id>.v2.webp`, PLATFORM.md CDN rule) |
 
 ### 5.2 Brief template (tool-agnostic: any image generator that takes style references, or a designer)
 
-Attach as **style** references: `cdn/root/characters/catpope/catpope_portrait-neutral.webp`,
-`cdn/root/characters/yellowmouse/yellowmouse_portrait-neutral.webp`, and – for architecture – one chapter slice
+Attach as **style** references: `media/characters/catpope/catpope_portrait-neutral.webp`,
+`media/characters/yellowmouse/yellowmouse_portrait-neutral.webp`, and – for architecture – one chapter slice
 showing the place if there is one (e.g. `catpope/images/webtoon/s1c2/s1c2-slice-15.webp` for the lantern street).
 
 ```
@@ -443,15 +443,15 @@ no people or animals, no shadow outside the ground patch.
 Keep a series consistent: generate the first image of a cluster, approve it, then attach it as a fourth reference for
 the others ("same scale, same ground patch, same light").
 
-### 5.3 Post-processing (a new `cdn/tools/make_location_webp.py`, like `make_character_webp.py`)
+### 5.3 Post-processing (to build in the creator / admin like the other image steps; repo `cdn/tools/` removed 2026-10-04)
 
 1. Background removal if the generator returned none (alpha check; `rembg` as fallback).
 2. Trim to the alpha bounding box, then pad to a square so the lowest opaque row of the ground patch's centre sits at
    90 % and the content is centred horizontally (the anchor rule; `--anchor x,y` overrides for odd shapes, then the
-   builder's anchor must match – the script prints it).
+   builder's anchor must match – the tool reports it).
 3. Resize to 256 × 256 (Lanczos), WebP q85 with alpha; if > 40 KB → q75, then report.
 4. Contact sheet (`--sheet`): every image at 48 px and 96 px on `#00d1ff` (the map), white and black.
-5. Owner approves; artist-made images always win (same file name → re-run). Upload with `cdn/sync.py` (new folder
+5. Owner approves; artist-made images always win (same file name → re-run). Upload in the creator / admin → Assets (new folder
    `map/`), then pick it in the builder.
 
 ### 5.4 Place descriptions for today's catpope places (to generate first)
@@ -552,7 +552,7 @@ same unlocks after sync.
 | **M3 events + state** | `MapEvent` types, `runMapEvents`, slice map triggers (`sliceSeen`), `scutoons` game state + merge sync, notices kind `map`, badge, follow-up bar text | the sandbox story's state assertions pass |
 | **M4 editor pickers** | map events in the VN and slice editors with pickers, "used in", cross-entity validation | no id typed by hand |
 | **M5 sandbox story** | `mapWalk()` in make-sandbox.ts, `scripts/check-map.mjs` (de 375, en 500) | 0 console errors, end state as in §6.3 |
-| **parallel from M0** | location images (owner, workflow §5), `make_location_webp.py`, upload | catpope's 9 places have images |
+| **parallel from M0** | location images (owner, workflow §5), post-processing (§5.3), upload | catpope's 9 places have images |
 
 ### 7.2 Open questions for the owner
 
@@ -791,7 +791,7 @@ dream montage), 4 Werbung Schaffhausen, 23 Werbung Fidget Cube (commercials). Th
 
 M3 events (`MapEvent`, `runMapEvents`, slice triggers, toasts, follow-up bar text, travel, positions); M4 the event pickers,
 "Used in" from events, the server's 409 `in_use`; M5 the sandbox story; the place images (workflow §5,
-`make_location_webp.py`).
+post-processing §5.3).
 
 ### 8.7 Checks
 

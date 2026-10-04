@@ -29,7 +29,7 @@ Agents never run production-changing commands, never see or print credentials.
 **Owner rule (2026-10-02):** the new DB and the FTP subfolder credentials go **only** into the GitHub `production`
 environment (the deploy writes them into the api's `config.php` on the server) – never into a local file. The local
 repo-root `.env` holds the bunny keys and nothing else that is used.
-| old CDN FTP (cdn.scutoons.com) | `cdn/.env` (gitignored) – unchanged | `cdn/sync.py` |
+| old CDN FTP (cdn.scutoons.com) | the owner's password store (the repo copy was deleted 2026-10-04) | nothing in the repo (`cdn/` removed 2026-10-04) |
 | old DB, old FTP | unchanged, your password manager | old system (legacy) |
 
 ---
@@ -55,7 +55,7 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 | # | Task | Needed for | Estimate |
 |---|---|---|---|
 | T1 | **DONE (coordinator, commit 6fcb82c).** Was required. Add the viewer test origin `https://next.scutoons.com` to `ALLOWED_ORIGINS` in `deploy/targets.json` (api `config.php`; it is also the CSRF list) + deploy README note. Without it the viewer on the test host cannot sign in (CORS). Fallback without a code change: use `embassy.scutoons.com` as the viewer test host (already allowed; embassy is held back). | Phase 6 | 15 min + dry run |
-| T2 | n/a since Phase 4 is dropped (kept for 10.3). `cdn/sync.py` skips `.json` / `.bin` → the camera model `models/mobilenet_v2_100_224/` never reaches cdn.scutoons.com. Add both to `SYNC_EXTENSIONS` – or upload that folder by hand (step 4.3). | Phase 4 | 10 min |
+| T2 | **n/a** – Phase 4 dropped, and `cdn/` removed 2026-10-04 (no sync.py). Was: `cdn/sync.py` skips `.json` / `.bin` → the camera model `models/mobilenet_v2_100_224/` never reaches cdn.scutoons.com. Add both to `SYNC_EXTENSIONS` – or upload that folder by hand (step 4.3). | Phase 4 | 10 min |
 | T3 | **n/a** – KAS creates subfolder-rooted FTP users (2.1). Was: only if the owner cannot get an FTP user rooted in the subfolder: a remote prefix in `deploy/targets.json` / `deploy.mjs` (e.g. `${FTP_ROOT}`). | Phase 5 | 30–60 min |
 | T4 | Only if the owner rejects "rebuild or keep" in Phase 7: a delta import (`bin/console legacy-delta --since=<T0> --sql` from an old-DB export: new codes INSERT IGNORE, new email registrations / re-signatures UPDATE where the new DB has no owner). Not recommended – the checksum gate in 7.1 makes it unnecessary. | Phase 7 | 2–3 h |
 
@@ -100,11 +100,11 @@ Decide before: nothing.
   in the old `generate/` from now on** (they would not reach the new DB – see 7.1).
 - [x] **0.5 O – Record the KAS state** *(done 2026-10-02)* (KAS → Domains): the target directory of every (sub)domain → "Current state".
   Check that none of the new folder names below would collide with an existing folder.
-- [ ] **0.6 A – Local copies checked:** `cdn/root` = 824 files / 855,854,341 bytes, identical copy in
+- [ ] **0.6 A – Local copies checked:** `media/` (then `cdn/root`) = 824 files / 855,854,341 bytes, identical copy in
   `C:\Development\scutoons-assets\cdn\root` (checked 2026-10-02) = the media backup; `server/db/local.sqlite` copied
   to `server/db/local.sqlite.bak-2026-10-0X-cutover`.
 - [ ] **0.7 O (optional) – Old CDN listing:** WinSCP/FileZilla on the CDN FTP folder → a recursive listing saved to
-  `cdn/logs/remote-listing-2026-10-0X.txt` (the sync never deletes, so this is documentation only).
+  `logs/cutover/remote-listing-2026-10-0X.txt` (the sync never deletes, so this is documentation only).
 
 Phase 1 waits for the assets merge (see its preconditions); Phase 0, 2 and 3 do not depend on it.
 
@@ -136,7 +136,7 @@ All commands in `C:\Development\scutoons\server` (PowerShell), after the merge.
 - [x] **1.4 O – Plan (dry run):** *(done: 720 files / 805.9 MB to upload, 0 same / different / only on target)* *(the zone is EMPTY now – the owner emptied it, D1 moot: expect ≈ 720 to upload / ≈ 806 MB, 0 different, 0 only on
   the target)* `php bin/console assets:sync --source-root=../cdn/root --hash` → paste the summary
   (to upload / different / only on target) to the guide before applying.
-- [x] **1.5 O – Apply:** *(done 2026-10-02, log `cdn/logs/bunny-init-2026-10-02.json`)* `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
+- [x] **1.5 O – Apply:** *(done 2026-10-02, log now `logs/cutover/bunny-init-2026-10-02.json`)* `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
   --log=../cdn/logs/bunny-init-2026-10-0X.json` (verified uploads, retries, never deletes; long-running). This includes
   the camera model (`models` → its new folder) – sync.py's `.json`/`.bin` gap does not apply here.
 - [x] **1.6 O – CORS on the pull zone:** *(done: CORS on; extensions eot, ttf, woff, woff2, css, js, jpg, jpeg, png, webp, gif, mp3, mp4, mpeg, svg, webm, json, bin, zip, avif, pdf)* bunny dashboard → Pull Zones → `scutoons` → Headers → *Add CORS headers* ON,
@@ -266,9 +266,8 @@ manifest codes. Decide before the public release which set was printed (revoke t
 ## Phase 4 — Uploads to the old FTP CDN cdn.scutoons.com — n/a (owner decision 2026-10-02)
 
 - [-] **4.x** Not needed: the new platform reads media from bunny (`https://scutoons.b-cdn.net`, Phase 1); the legacy
-  system keeps `cdn.scutoons.com` with what it already has. Do **not** run `cdn/sync.py` against the new layout (it would
-  upload the relayouted tree next to the old one). Note for later (10.3 backup target): `sync.py` skips `.json`/`.bin`,
-  and answering `n` to a "DIFFERS" prompt downloads the server's file over the local one.
+  system keeps `cdn.scutoons.com` with what it already has. The repo's FTP tooling (`cdn/sync.py`) was removed
+  2026-10-04; a later backup to the old FTP CDN (10.3) = the `FtpStorage` driver (ASSETS.md "Backup").
 
 ---
 ## Phase 5 — Deploy the new platform into `/web/` (nothing points at it except the new/test hostnames)
@@ -429,7 +428,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
 - [ ] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04).
 - [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
-- [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3), github actions
+- [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions
   `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
   workflow). The main user stays, used only by hand.
 - [x] 10.10 Local MariaDB in Docker instead of SQLite for dev + tests (owner 2026-10-02, after the admin dashboard 500 on
@@ -696,12 +695,13 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 0.1 complete: CHECKSUM TABLE qr = 3162238151 (Phase 7 reference).
 - 2026-10-02 — 0.4, 0.5, 2.1, 2.2, 2.4, 2.5, 2.6 done; 2.3 partly (keypair pending); T1 done (6fcb82c). Next: keypair → 2.3 verify, then 3.1/3.2 on DB-T.
 - 2026-10-02 — keypair reference SHA-256 409c1983…7bbe recorded (dev key 11934cea… must never go to production); batch manifests for 3.4 are in the same ZIP (`qr.scutoons.com/generate/files/batch/`).
-- 2026-10-02 — 3.4 SQL generated (300 statements, vinyl batch only) → cdn/logs/edition-numbers-2026-10-02.sql.
+- 2026-10-02 — 3.4 SQL generated (300 statements, vinyl batch only) → cdn/logs/edition-numbers-2026-10-02.sql (now logs/cutover/).
 - 2026-10-02 — 3.1 + 3.2 done (16 migrations, 3 triggers). Next: 3.4 import + check 469 / 300 numbered / 381 signed / 35 registered; 2.3 keypair upload pending.
 - 2026-10-02 — 3.4 done; DB-T qr counts match (469 / 300 / 381 / 35). 3.3 waits for the assets merge (regenerated seed).
 - 2026-10-02 — assets merged (b3be086, 67774da), relayout done (1.1), .env in C:\Development\scutoons, bunny zone empty. Migration 17 `2026-10-02-assets` added to 3.2; 3.3 unblocked. Next: 3.3 seed, migration 17, then 1.3/1.4 from C:\Development\scutoons\server. Worktree scutoons-assets can be removed later.
-- 2026-10-02 — 3.3 + 3.5 done (48 entities, roles, users 0, editions NULL 169 + vinyl 300); migration 17 awaiting the owner's confirmation; 1.3 + 1.4 done. Owner running 1.5 (log cdn/logs/bunny-init-2026-10-02.json), then 1.6, 1.7.
+- 2026-10-02 — 3.3 + 3.5 done (48 entities, roles, users 0, editions NULL 169 + vinyl 300); migration 17 awaiting the owner's confirmation; 1.3 + 1.4 done. Owner running 1.5 (log cdn/logs/bunny-init-2026-10-02.json, now logs/cutover/), then 1.6, 1.7.
 - 2026-10-02 — migration 17 ran on DB-T (3.2 complete). 1.5 bunny upload running.
 - 2026-10-02 — 1.5, 1.6, 1.7 done (bunny = cdn/root, CORS + Range verified). Open in Phase 1: 1.8. Next: 1.8, then Phase 5.
 - 2026-10-02 — 10.1b done (7 bunny secrets in production). Awaiting confirmation: 2.3 keypair upload, 1.8 write prefix.
 - 2026-10-03 — 10.10 done on branch `dev-mariadb` (local MariaDB in Docker, tests + CI on it). Open: production's version / sql_mode / collation from phpMyAdmin → `docker/compose.yml`.
+- 2026-10-04 — repo `cdn/` removed (branch media-folder): media/ + scripts/dev/media-serve.mjs, logs → logs/cutover/.

@@ -10,7 +10,7 @@ use RuntimeException;
 use SplFileInfo;
 
 /**
- * The local CDN folder (cdn/root – what `python cdn/server.py` serves on :8001 and `cdn/sync.py` uploads by FTP):
+ * The local media folder (media/ – what scripts/dev/media-serve.mjs serves on :8001):
  * the development storage, and the test double of every other driver. Purging is a no-op (no cache in front).
  * Dot files and dot folders (.htaccess, .assets-trash) are not listed.
  */

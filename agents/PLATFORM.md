@@ -27,7 +27,7 @@ scutoons/                         one git repo, npm workspaces (Node 22), Compos
 │   ├── reader/   @scutoons/reader    rendering: Slice, Dialogs (+ onomatopoeia effects), placed items, group renderers, audio/VN actions
 │   ├── api/      @scutoons/api       typed client: session, device id, access, items, inventory, content, admin
 │   └── auth/     @scutoons/auth      single sign-on: session factory, login form, app gate, signed-in-as (SSO, 2026-10-01)
-├── cdn/                          python tools (sync, download, icons, bubble detector), root/ gitignored
+├── media/                        local dev media (gitignored; served by scripts/dev/media-serve.mjs)
 └── agents/                       plans and memory (this folder)
 ```
 
@@ -407,7 +407,7 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 - Server: `cd server && composer serve` (:9000),
   local-only files (config.local.php, db/local.sqlite, storage/files, storage/keys/keypair.json) — gitignored.
   `composer test` = PHPUnit + every contract suite on freshly started servers and a copy of the DB.
-- CDN: `python cdn/server.py`. All ports: "Local dev ports" (`shared/dev-ports.json`).
+- CDN: `scripts/dev/media-serve.mjs` serving `media/` (gitignored), started by `npm run dev`. All ports: "Local dev ports" (`shared/dev-ports.json`).
 
 ## Admin UI patterns (from akin)
 
@@ -487,8 +487,8 @@ they are** — in every refactor, on every host/docroot change, in both old and 
 **Single source of truth: `shared/dev-ports.json`** (owner 2026-10-01: "in code, no special place"). Every consumer
 reads it: the apps' `vite.config.ts` (`server`/`preview` port + `strictPort`) and their `src/lib/config.ts` dev
 fallbacks, `scripts/dev/up.mjs` (`npm run dev`), `server/bin/dev-serve.mjs` (`composer serve`, `npm run dev:api`),
-`scripts/dev/php-serve.php` (`qr` `composer serve`, `npm run dev:qr`, server `composer serve:php`), `cdn/server.py`'s
-default, `qr/tests/public-urls.php`'s defaults (`qr composer test`), the Node check scripts (`scripts/dev/ports.mjs`),
+`scripts/dev/php-serve.php` (`qr` `composer serve`, `npm run dev:qr`, server `composer serve:php`), `scripts/dev/media-serve.mjs`
+(`npm run dev`), `qr/tests/public-urls.php`'s defaults (`qr composer test`), the Node check scripts (`scripts/dev/ports.mjs`),
 `.claude/launch.json` (local, generated: `npm run dev:launch-json`) and the API's local CORS: on a dev server
 (`php -S`, never production) `Settings::allowedOrigins()` allows `http://localhost:<port>` + `http://127.0.0.1:<port>`
 for every port in the file, so a new app needs no `config.local.php` entry. `npm run check:ports` (part of the root
@@ -501,7 +501,7 @@ The docker services (`docker/compose.yml`: mariadb, adminer) take the port from 
 | App | Port | Start |
 |---|---|---|
 | viewer (main, scutoons.com) | **8000** | `npm run dev:viewer` |
-| cdn (static files) | **8001** | `cd cdn && python server.py` |
+| cdn (static files, `media/`) | **8001** | `npm run dev` (`scripts/dev/media-serve.mjs`) |
 | API (server/, api.scutoons.com) | **9000** | `npm run dev:api` or `cd server && composer serve` |
 | qr (qr/, qr.scutoons.com) | **9001** | `npm run dev:qr` or `cd qr && composer serve` (calls the API on :9000) |
 | ask (tools/mcp: the creator's Ask panel, CUTOVER 10.28) | **9002** | `npm run dev:ask` (needs ANTHROPIC_API_KEY in the repo-root `.env`) |
@@ -530,7 +530,7 @@ admin, e.g. `/creator.scutoons.com/`), so each app deploys independently by FTP 
 | `admin.scutoons.com` | `admin/` | administration: QR generation/batches (port of `generate/` to Svelte), codes, revoke, stats, users & roles, content, catalog, data migrations | static build |
 | `creator.scutoons.com` | `creator/` | the creator editor (role `creator`) | static build |
 | `shop.scutoons.com` | `shop/` | the shop (moves out of the viewer; `scutoons.com/shop` keeps working as a redirect) | static build |
-| `cdn.scutoons.com` | `cdn/` (tools) | all static media — see CDN below | all-inkl origin (+ bunny.net) |
+| `cdn.scutoons.com` | – (media: asset manager, local `media/`) | all static media — see CDN below | all-inkl origin (+ bunny.net) |
 
 **Server host routing:** one codebase (`server/`), deployed once; `qr.` and `api.` both point to `server/public/`.
 The Slim app routes by host:
@@ -629,7 +629,7 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
   `portrait` is authored; `avatar` = generated 192px downscale, `full` unused.
 - Former characters are Cat Pope personas: plf → `human`, cat → `cat`, mountain-tiger → `mountaintiger`
   (`LEGACY_CHARACTER_IDS`: old refs still resolve).
-- Paths are stored explicitly (CDN root). Convention for new files: `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (delivered as PNG under the same name; the characters import runs `cdn/tools/make_character_webp.py` first: WebP q85 + a generated 192 px avatar, the registry points to the WebP; transitions likewise `.webp`),
+- Paths are stored explicitly (CDN root). Convention for new files: `characters/<character>[-<persona>]/<character>[-<persona>][_<look>]_<view>-<mood>.webp` (delivered as PNG under the same name; the creator's asset import writes the WebP (`toWebp`, `@scutoons/media`), the 192 px avatar comes from the owner's Luma generation workflows (repo `cdn/tools/` removed 2026-10-04), the registry points to the WebP; transitions likewise `.webp`),
   A-pose `characters/<character>/<character>_apose-<look>.webp`.
 - **Transitions are named after their states (owner 2026-09-30):**
   `characters/<character>[-<persona>]/<character>[-<persona>]_transition-<from>-to-<to>.png` (look ids, e.g.
@@ -640,7 +640,7 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
 - Fallback (`resolveExpression`, used by the viewer VN and the creator): per step the view, then the same mood's
   portrait; steps persona+look+mood → persona+look+neutral → persona default look+mood → +neutral → regular default
   look+mood → +neutral → legacy `image` → **missing-image substitute** `characters/_missing/missing_<view>.png`
-  (avatar 192², portrait 600², full 600×1200, apose 768×1152; `cdn/tools/make_missing_images.py`, reproducible) – also
+  (avatar 192², portrait 600², full 600×1200, apose 768×1152) – also
   when the resolved file is known to be missing (`options.isMissing`: viewer VN = an `<img>` error, creator = its CDN
   check). The A-pose never falls back to expressions (only to its substitute). The creator still flags the real file ✗.
 - Viewer: the toon layout loads `fetchCharacters()` (@scutoons/api: registry + the toon's cast of every season from the
@@ -656,8 +656,8 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
   exist – nothing reads it.
 - Seed / production: `shared/content/seed/` (`shared/content/scripts/migrate-characters.ts`), import
   `bin/console import-content shared/content/seed --only=characters,moods,asset-requests,cast` (entity kinds, DATA.md);
-  production SQL `shared/content/seed/characters-seed.mysql.sql` (idempotent) – **not yet run on production**. Upload
-  `cdn/root/characters/` first (`python cdn/sync.py`; `cdn/root` is not in git), or Cat Pope's avatar in the reader
+  production SQL `shared/content/seed/characters-seed.mysql.sql` (idempotent) – **not yet run on production**. The
+  `characters/` files must be on the CDN first (bunny; missing ones via admin → Assets), or Cat Pope's avatar in the reader
   breaks. (The old chapter 6 VN test bed with the only character refs, `chapter6/scene-200.json`, was removed 2026-09-30;
   production never had it in the store – nothing to migrate there.)
 
@@ -674,12 +674,11 @@ Rules now:
 - Media conventions (2026-09-30, PERFORMANCE.md P1–P3): slices `<toon>/images/webtoon/<sXcY>/<sXcY>-slice-N.webp` (1x, 390 px
   wide, standard 390 × 625, every slice carries width/height); character images WebP next to the delivered PNGs; music
   `audio/music/<name>.128.mp3` (128 kbps, streamed); slice videos H.264 MP4 ≤ 3 MB with the size in the name
-  (`videos/s1c1-key-visual.900w.mp4`). A changed file gets a new name – the old one stays on the CDN for older builds
-  (sync.py never deletes; a local file with the old name but other content would make sync.py ask to overwrite).
+  (`videos/s1c1-key-visual.900w.mp4`). A changed file gets a new name – the old one stays on the CDN for older builds.
 - A separate CDN plan (bunny pull zone ↔ all-inkl origin, cache purge on sync, app builds on CDN) is written with the
   owner before any change.
 - **Asset manager (2026-10-02, agents/ASSETS.md):** the in-between layer – a registry of assets / versions / renditions /
-  uses over the storage drivers (local `cdn/root`, bunny.net Storage + pull zone purge / statistics); content keeps the
+  uses over the storage drivers (local `media/`, bunny.net Storage + pull zone purge / statistics); content keeps the
   CDN paths. bunny.net state, the domain switch (`cdn.scutoons.com` → bunny when the new system is deployed) and the
   owner's setup steps: agents/ASSETS.md "Connecting bunny.net".
 
@@ -861,14 +860,14 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
   `season:catpope:1:{de,en}` and the record-player pickup in `chapter:catpope:2:{de,en}`. The statements skip stored keys
   – a database that already has them needs those 4 entities imported separately (`import-content … --toon=catpope
   --only=season,chapter --update` against it, or a one-off INSERT of the new published versions).
-- CDN (2026-10-02): upload the player icons `scutoons/items/{record_player,tape_player,cd_player}.png` (made by
-  `cdn/tools/make_substance_icons.py record_player tape_player cd_player` into `cdn/root`, then `cdn/sync.py`) before the
+- CDN (2026-10-02): upload the player icons `scutoons/items/{record_player,tape_player,cd_player}.png` (admin →
+  Assets, unless already on bunny) before the
   API serves the new catalog – otherwise the items show their initials.
 - Record player repair (2026-10-02): `content-seed.mysql.sql` now has the broken-record-player pickup in
   `scene:catpope:2:scene-14:{de,en}` and the repair-coupon pickup (instead of the record player) in
   `chapter:catpope:2:{de,en}` – a database that already has these 4 keys needs `import-content … --toon=catpope
   --only=chapter,scene --update` against it. CDN: upload `scutoons/items/{broken_record_player,repair_coupon}.png`
-  (`cdn/tools/make_substance_icons.py broken_record_player repair_coupon`, then `cdn/sync.py`). agents/ITEMS.md "Record
+  (admin → Assets, unless already on bunny). agents/ITEMS.md "Record
   player repair".
 
 - Asset manager (2026-10-02, branch `assets`, agents/ASSETS.md): run `2026-10-02-assets.mysql.sql` (any time; without it
@@ -877,8 +876,8 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
   → Assets → Rescan (registers the storage's files, indexes the uses). The bunny zone is reached at the interim
   `https://scutoons.b-cdn.net` until the owner moves `cdn.scutoons.com` to bunny (custom hostname on pull zone 6731366 +
   CNAME + SSL) – then `CDN_PUBLIC_URL` = `https://cdn.scutoons.com`; content keeps its CDN-relative paths, so nothing in
-  content changes; printed URLs stay valid. Before that switch: `php bin/console assets:sync --source-root=cdn/root
-  --apply --overwrite --purge-zone` (the initialisation, agents/ASSETS.md "Connecting bunny.net").
+  content changes; printed URLs stay valid. Before that switch: `php bin/console assets:sync --source-root=../media
+  --apply --overwrite --purge-zone` (the initialisation – done 2026-10-02, CUTOVER 1.5; agents/ASSETS.md "Connecting bunny.net").
 
 **4. Deploy into the new folders** (nothing points at them yet)
 - Merge `platform` into `main` (the push deploys the touched apps into the new folders).

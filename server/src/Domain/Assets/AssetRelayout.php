@@ -24,7 +24,7 @@ final class AssetRelayout
     /** tracked files whose JSON strings are content / catalog references */
     public const JSON_SCOPES = ['shared/content/seed/', 'server/config/'];
     /** tracked code / test / script files searched for exact CDN paths */
-    public const CODE_SCOPES = ['viewer/src/', 'creator/src/', 'admin/src/', 'shop/src/', 'embassy/src/', 'shared/', 'server/src/', 'server/tests/', 'server/templates/', 'qr/', 'scripts/', 'cdn/tools/'];
+    public const CODE_SCOPES = ['viewer/src/', 'creator/src/', 'admin/src/', 'shop/src/', 'embassy/src/', 'shared/', 'server/src/', 'server/tests/', 'server/templates/', 'qr/', 'scripts/'];
     public const CODE_EXTENSIONS = ['ts', 'js', 'mjs', 'svelte', 'php', 'py', 'html', 'css'];
 
     /** @var array<string, string> old CDN-root path → new */

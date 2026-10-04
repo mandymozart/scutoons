@@ -5,7 +5,7 @@ Companion files: [MEMORY.md](MEMORY.md) (facts, gotchas, findings), [DESIGN.md](
 
 ## Goals
 
-1. **Figma → CDN pipeline**: export chapter slices from Figma straight into `cdn/root/catpope/images/…`,
+1. **Figma → CDN pipeline**: export chapter slices from Figma straight into `media/catpope/images/…`,
    repeatable, no manual "export → rename → copy".
 2. **Generated chapter config**: build `viewer/static/api/catpope/{de,en}/chapter2.json` from the Figma file,
    with every speech bubble / caption coming from Figma TEXT layers → rendered as live, translatable text
@@ -56,11 +56,11 @@ Page "S1C2 Anger"
 
 ### Script behaviour
 
-1. `GET /v1/files/:key/nodes?ids=<page>` (token from `cdn/.env` `FIGMA_TOKEN`, file key `FIGMA_FILE_KEY`).
+1. `GET /v1/files/:key/nodes?ids=<page>` (token `FIGMA_TOKEN`, file key `FIGMA_FILE_KEY`; were in `cdn/.env`, removed 2026-10-04 – location to decide).
 2. Collect slice frames, their `art` child ids and TEXT nodes (characters, absoluteBoundingBox, style:
    fontFamily, fontSize, fontWeight, textAlignHorizontal, fills, textCase).
 3. `GET /v1/images/:key?ids=<art ids>&format=jpg&scale=1` and `scale=3` → download to
-   `cdn/root/catpope/images/1x/s1c2-slice-NN.jpg` and `…/3x/s1c2-slice-NN.jpg`
+   `media/catpope/images/1x/s1c2-slice-NN.jpg` and `…/3x/s1c2-slice-NN.jpg`
    (language-neutral paths — no `/de/` since the art has no text).
 4. Convert text boxes to % of the slice frame (see DESIGN.md → Text box), font size to `cqw`.
 5. Write/merge:
@@ -70,7 +70,7 @@ Page "S1C2 Anger"
      `image` + `dialog`, all hand-authored fields (`audio`, `events`, `onomatopoeia`, group `renderer`,
      VN `ref` scene files) are preserved.
 6. `--dry-run` prints a diff/report (new/removed slices, missing translations) without writing.
-7. Upload stays `python sync.py` (existing FTP sync, option 3 → catpope).
+7. Upload in admin → Assets (the FTP `sync.py` was removed 2026-10-04).
 
 Alternatives kept on file: extend `C:\Development\graphic-novel-figma-plugin` with an "Export chapter"
 command (hide text → `exportAsync` → collect TEXT) if the art/text layer split can't be kept in the file;
@@ -91,14 +91,14 @@ The `Dialog` type and one usage in chapter 2 exist, **nothing renders them** (se
 
 ## Track C — Chapter 2 content & release
 
-- Run exporter → review in dev (`python cdn/server.py` + `npm run dev`) at 375/390/500 px widths.
+- Run exporter → review in dev (`npm run dev`, starts the media server too) at 375/390/500 px widths.
 - Translate `i18n/s1c2.json` → `en` (German is source of truth, like the screenplay).
 - Chapter meta: `release: 2026-10-04`, `status: published` in `chapter2.json` (both locales) and
   `season1.json` `sequence`; create missing `images/s1c2-thumbnail.jpg`, fix `keyvisual` to object form.
 - Decide what happens to the VN scene files `chapter2/scene-14..19.json` (placeholder cucumber choice,
   18/19 duplicates).
 - Fix homepage "next release" block (`routes/+page.svelte:19-31`, typo `2.&Auml;ger` → `2.Ärger`).
-- `python sync.py` → CDN; merge `anger` → `main` → GitHub Action deploys viewer.
+- New media → CDN (admin → Assets); merge `anger` → `main` → GitHub Action deploys viewer.
 
 ## Track D — Physical merch → inventory (priority TBC)
 
@@ -138,7 +138,7 @@ translation files). Details: MEMORY.md → "Creator editor"; API: qr `docs/ACCOU
   undo/redo, autosave, unsaved guard, save draft / publish / preview, style guide, version history.
 
 **Phase 2 — open**
-1. Image upload to the CDN (separate FTP host; today `python cdn/sync.py`) – upload from the image picker.
+1. Image upload to the CDN – upload from the image picker (the asset manager on bunny; the FTP `cdn/sync.py` was removed 2026-10-04).
 2. Figma import (Track A: art frames → images, TEXT layers → `dialog` boxes, merge into the store instead of files).
 3. Production rollout: run `2026-09-30-content-versions.mysql.sql`, seed with `import-content.php` (needs PHP + DB
    access or a phpMyAdmin import), grant `creator`, then treat the static files as seed/fallback only.
@@ -185,10 +185,10 @@ Agents don't commit in the scutoons repo (shared working tree); the coordinator 
 
 1. User review in the browser (see "Run locally" in MEMORY.md / below) and of the chapter-1 translations.
 2. Chapter 2 content from the user's Figma layout: slices 390×625 → `images/{1x,3x}/s1c2-slice-NN.jpg` (text-free),
-   dialogs authored per DESIGN.md Part 2 (manual or via `cdn/tools` scripts), release meta for 2026-10-04.
+   dialogs authored per DESIGN.md Part 2 (manual or in the creator), release meta for 2026-10-04.
 3. Production rollout of qr.scutoons.com (docs/ACCOUNTS.md there): DB migration, backfill, secrets (AUTH_SECRET, SMTP),
    decide which duplicate dago/beetles code set was printed, then merge qr `anger` → main.
-4. `python cdn/sync.py` for new icons (`catpope/items/`) and `merch/bandcamp/`.
+4. Upload new icons (`catpope/items/`) and `merch/bandcamp/` in admin → Assets.
 5. **Server-side content gate (security, after release unless the user wants it earlier):** the paywall is
    client-side today (device access in localStorage, chapter JSON shipped static with the viewer build, slice images
    on the public CDN with predictable names). Plan: chapter configs served by a PHP gate that verifies the signed
@@ -198,7 +198,7 @@ Agents don't commit in the scutoons repo (shared working tree); the coordinator 
 
 ## Run locally
 
-- CDN: `python cdn/server.py 8001` (port 8000 is used by nadeos on this machine)
+- CDN: `scripts/dev/media-serve.mjs` serving `media/` (port "cdn" in `shared/dev-ports.json`), started by `npm run dev`
 - QR API: `cd C:\Development\qr.scutoons.com && php -S localhost:9000 router.php` (login codes in `logs/mail.log`)
 - Viewer: `cd viewer && npm run dev` (dev env in `viewer/.env.development`: VITE_CDN_URL, VITE_QR_API)
 - 2026-09-30 — access model final: codes (membership/promo via permissions map) unlock reading on the device without
@@ -326,7 +326,7 @@ guests on the device). "Automatic" = by the bandwidth (DESIGN.md "Media quality"
   they don't care. **Audio (later):** the same levels for music (e.g. 96 / 128 / 192 kbps).
 - **CDN / upload workflow:** every level is its own immutable file with the level in the name
   (`videos/<name>.480p.mp4`, later `images/webtoon/<sXcY>/<sXcY>-slice-N.2x.webp`), encoded together from the master,
-  uploaded with `cdn/sync.py`; the creator's "Hintergrund" tab has one resolution slot (an asset fills every level, a chip per level). A new version = new names.
+  uploaded in the creator / admin → Assets; the creator's "Hintergrund" tab has one resolution slot (an asset fills every level, a chip per level). A new version = new names.
 
 ## RULE: content is served by the API from the database (2026-09-30, owner)
 
@@ -379,7 +379,7 @@ tabs/sessions. Local dev only (the script refuses a non-localhost API).
 Full suite green on this state: `npm run check`, 4 builds, `server composer test`, `qr composer test`, vn-check,
 `check:locale`, `check:fonts`, `check:creator-cast`; all 7 dev servers via `npm run dev`. Nothing pushed.
 
-**CDN upload still pending (`cdn/root` is not in git, upload with `cdn/sync.py`):**
+**CDN upload still pending (`cdn/root` is not in git, upload with `cdn/sync.py`)** – superseded: bunny was initialised from the whole local folder 2026-10-02 (CUTOVER 1.5); repo `cdn/` removed 2026-10-04:
 - `catpope/images/s1c2-key-visual.{png,webp}`
 - `catpope/images/supporters/{ske,westbahnstudios,kuenstlerhof-frohnau}.svg`
 - `catpope/items/{cucumber_slice,camera_photo,cucumber_camera_photo}.png`
@@ -409,7 +409,7 @@ All tested green on their own; none is in `platform` yet. Merge in this order, e
    Deploy order: API before frontends (agents/PLATFORM.md "SSO — result").
 2. `wardrobe` – clothing overlays (basic dress tee/shorts/sandals, swim pants as safety), testo + substances, Check It
    camera (game notice + checkit.wien link). Migration `2026-10-01-reader-state`; overlays/icons already in local
-   `cdn/root` (upload with `cdn/sync.py` at merge). Open: how readers obtain the Check It camera.
+   `media/` (upload in admin → Assets at merge). Open: how readers obtain the Check It camera.
 3. `media-quality` – quality setting (low/medium/high/auto), video placement (4 fits, frame ratios, full viewport),
    "Hintergrund" tab. Migration `2026-10-01-media-quality` + `shared/content/seed/2026-10-01-media-quality-chapter0.mysql.sql`;
    `agents/MERGE-media-quality.md`.
@@ -417,5 +417,5 @@ All tested green on their own; none is in `platform` yet. Merge in this order, e
    run `shared/content/scripts/migrate-map.ts`; production: the seed's `map` statement (MAP.md §8.8).
 5. `brutal-ui` – brutalist tools (phase 1+2); conflicts are style/markup regions only (its report lists them per branch).
 Preview servers that may still run from agent worktrees: 21310/21320/21330/21340 (media-quality). Remove merged
-worktrees afterwards (`cdn/root` inside a worktree can be a junction: `rmdir`, never a recursive delete).
+worktrees afterwards (`media/` inside a worktree can be a junction: `rmdir`, never a recursive delete).
 

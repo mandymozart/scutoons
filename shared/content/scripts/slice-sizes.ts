@@ -2,13 +2,13 @@
 // size; agents/PERFORMANCE.md P2) and, with --webp, points slices to their 1x WebP.
 //
 //   node --experimental-transform-types --no-warnings shared/content/scripts/slice-sizes.ts <chapter / scene files …>
-//        [--toon=catpope] [--cdn=cdn/root] [--webp] [--default-missing] [--dry-run]
+//        [--toon=catpope] [--cdn=media] [--webp] [--default-missing] [--dry-run]
 //
 // Files are chapter or group (VN scene) JSON files, e.g. viewer/static/api/catpope/de/chapter1.json; the toon is taken
 // from the path (…/api/<toon>/<locale>/…) unless --toon is given. Image paths are relative to <cdn>/<toon>/.
 //   --webp             a slice whose image isn't a WebP gets `s<n>/c<n>/<slug>.webp` when that file exists
 //                      (slug = the file name in lower case, runs of other characters → "-": "S1C1 - Slice 7.jpg" →
-//                      "s1c1-slice-7"; written by cdn/tools/make_slice_webp.py). Only for files whose slices map 1:1.
+//                      "s1c1-slice-7"). Only for files whose slices map 1:1.
 //   --default-missing  a slice whose image isn't on the local CDN copy gets DEFAULT_SLICE (390 × 625) instead of
 //                      staying without a size (reported either way)
 // Then publish the files to the store: php server/bin/console import-content viewer/static/api --toon=<toon> --only=… --update
@@ -21,7 +21,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const args = process.argv.slice(2);
 const opt = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const flag = (name: string) => args.includes(`--${name}`);
-const CDN = resolve(repo, opt('cdn') ?? 'cdn/root');
+const CDN = resolve(repo, opt('cdn') ?? 'media');
 const files = args.filter((a) => !a.startsWith('--'));
 if (!files.length) {
 	console.error('usage: slice-sizes.ts <chapter / scene json files…> [--toon=] [--cdn=] [--webp] [--default-missing] [--dry-run]');

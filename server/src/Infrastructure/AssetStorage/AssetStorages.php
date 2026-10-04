@@ -9,7 +9,7 @@ use Scutoons\Infrastructure\Config\Settings;
 /**
  * The configured media storages (agents/ASSETS.md "Configuration"):
  *   ASSET_STORAGE        local | bunny – the one the asset layer writes to and scans (default local)
- *   ASSET_LOCAL_ROOT     the local CDN folder (default ../cdn/root)
+ *   ASSET_LOCAL_ROOT     the local media folder (default ../media)
  *   CDN_PUBLIC_URL       the public base readers load media from (default CDN_URL)
  *   BUNNY_STORAGE_ZONE, BUNNY_STORAGE_ENDPOINT, BUNNY_STORAGE_PASSWORD, BUNNY_STORAGE_READONLY_PASSWORD,
  *   BUNNY_PULLZONE_ID, BUNNY_API_KEY, BUNNY_WRITE_PREFIX (BunnyConfig)
@@ -65,7 +65,7 @@ final class AssetStorages
 
     public function local(): LocalStorage
     {
-        $root = $this->settings->path('ASSET_LOCAL_ROOT') ?: $this->settings->root() . '/../cdn/root';
+        $root = $this->settings->path('ASSET_LOCAL_ROOT') ?: $this->settings->root() . '/../media';
         $real = realpath($root);
         // the local folder is what CDN_URL serves (dev: the CDN on :8001); bunny's public base is CDN_PUBLIC_URL
         return $this->local ??= new LocalStorage($real !== false ? $real : $root, $this->settings->get('CDN_URL'));
