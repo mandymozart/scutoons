@@ -51,8 +51,10 @@
 		// `?code=…&claim=1` = "This is mine? File a claim" from the QR landing page (ITEMS.md "Ownership, claims, gifting")
 		const dispute = params.get('claim') === '1';
 
-		if (code || magicToken) {
+		// `?preview=draft` from the creator: already read by lib/draft-preview.svelte.ts
+		if (code || magicToken || params.has('preview')) {
 			const url = new URL(window.location.href);
+			url.searchParams.delete('preview');
 			url.searchParams.delete('code');
 			url.searchParams.delete('claim');
 			if (magicToken) url.searchParams.delete('c');

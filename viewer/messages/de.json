@@ -114,7 +114,16 @@
 		"prologue": "Prolog"
 	},
 	"player": {
-		"sound_on": "Ton an"
+		"sound_on": "Ton an",
+		"play": "Abspielen",
+		"pause": "Pause",
+		"replay": "Nochmal ansehen",
+		"mute": "Ton aus",
+		"unmute": "Ton an",
+		"fullscreen": "Vollbild",
+		"exit_fullscreen": "Vollbild beenden",
+		"seek": "Position im Video",
+		"skip": "Überspringen"
 	},
 	"media_quality": {
 		"title": "Medienqualität",
@@ -136,7 +145,6 @@
 		"chapter": "{chapter}: {title}",
 		"overview": "Zur Übersicht",
 		"replay": "Nochmal",
-		"replay_video": "Nochmal ansehen",
 		"cancel": "Abbrechen",
 		"countdown": "Weiter in {seconds} s",
 		"coming_soon": "{chapter} erscheint am {date}",

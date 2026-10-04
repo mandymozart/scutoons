@@ -6,12 +6,23 @@ import { isItemListed, isItemPublic, Status } from '@scutoons/content';
  * the library is read with `?draft=1` (the API checks the role: newest versions, no status gates) and the reader's own
  * gates let draft and coming-soon chapters (and draft toons) through. A banner says so on every page.
  * In a dev build drafts are readable anyway (as before); coming-soon chapters still need the preview.
+ * The creator's chapter editor links here with `?preview=draft` (owner 2026-10-04: no own preview in the creator): the
+ * flag switches the preview on before the first load; the root layout takes it out of the address.
  */
 const KEY = 'scutoons.draft-preview';
 
 function stored(): boolean {
 	try {
 		return typeof localStorage !== 'undefined' && localStorage.getItem(KEY) === '1';
+	} catch {
+		return false;
+	}
+}
+
+/** `?preview=draft` in the address the app was opened with (the creator's "Preview" links) */
+function linked(): boolean {
+	try {
+		return typeof location !== 'undefined' && new URLSearchParams(location.search).get('preview') === 'draft';
 	} catch {
 		return false;
 	}
@@ -33,6 +44,8 @@ export const draftPreview = {
 		}
 	}
 };
+
+if (linked()) draftPreview.set(true);
 
 /** drafts are readable: a dev build or a creator's draft preview */
 export const showDrafts = (): boolean => import.meta.env.DEV || on;

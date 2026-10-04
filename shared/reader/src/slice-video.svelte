@@ -2,18 +2,19 @@
 	import { onMount, untrack } from 'svelte';
 	import { parseFrameRatio, viewportObjectFit, viewportObjectPosition, type SliceFrame, type SliceViewport } from '@scutoons/content';
 	import { SLICE_PLAYER_EVENT, type SlicePlayerDetail } from './types.ts';
+	import PlayerOverlay, { DEFAULT_PLAYER_LABELS, type PlayerLabels } from './player-overlay.svelte';
 
 	/**
 	 * A slice video: muted, inline, looping by default; plays while in view and pauses outside. With
 	 * `prefers-reduced-motion: reduce` only the poster is shown (an `<img>`, no video download).
 	 *
-	 * `player`: a video to watch instead (a music video): sound, native controls (fullscreen through them), no loop, only
-	 * its metadata is loaded up front. It tells its ancestors about play / pause / end and how far it was watched with a
+	 * `player`: a video to watch instead (a music video): sound, our own controls over it (`PlayerOverlay`: ▶ / ↺, with
+	 * `controls` the fading bar + "Überspringen" when `skippable`), no loop, only its metadata is loaded up front. It tells its ancestors about play / pause / end and how far it was watched with a
 	 * bubbling `sliceplayer` event (`SlicePlayerDetail`): the app pauses its music and records progress.
 	 * With `autoplayPlayer` (the reader; not the creator's preview) it starts once it is in view: with sound when the
 	 * browser allows it (a click earlier in the same document, e.g. the in-app navigation from "Trailer ansehen"),
-	 * otherwise muted with a "Sound on" button over it (`soundOnLabel`) that unmutes and keeps playing. Reduced motion:
-	 * no autoplay, the poster and the native play button.
+	 * otherwise muted with a "Sound on" button over it (`labels.soundOn`) that unmutes and keeps playing. Reduced motion:
+	 * no autoplay, the poster and the ▶.
 	 *
 	 * `src` is the one file to load: the app picks it for the reader's media quality (`pickQualityVariant`); undefined =
 	 * not decided yet (the poster only). A new `src` while it plays (the reader changed the quality) keeps the position and
@@ -34,7 +35,8 @@
 		viewport,
 		frame,
 		autoplayPlayer = false,
-		soundOnLabel = 'Sound on',
+		playerLabels,
+		skippable = false,
 		eager = false
 	}: {
 		/** absolute URL of the file to play (picked by quality); undefined = the poster until it is known */
@@ -48,16 +50,18 @@
 		autoplay?: boolean;
 		/** a video player (sound, controls) instead of the muted loop */
 		player?: boolean;
-		/** the native controls; default: on for a player, off for a loop */
+		/** a player: the whole bar (else only ▶ / ↺); a loop: the native controls. Default: on for a player, off for a loop */
 		controls?: boolean;
 		/** fill the viewport, placed like this (`SliceVideo.viewport`) */
 		viewport?: SliceViewport;
 		/** in the column: a box of the frame's ratio (`SliceVideo.frame`; ignored with `viewport`) */
 		frame?: SliceFrame;
-		/** the player starts by itself once it is in view (muted + `soundOnLabel` when sound is blocked); needs `autoplay` */
+		/** the player starts by itself once it is in view (muted + "Sound on" when sound is blocked); needs `autoplay` */
 		autoplayPlayer?: boolean;
-		/** the label of the button that unmutes an autoplaying player (the app's language) */
-		soundOnLabel?: string;
+		/** the player's texts in the app's language (English by default) */
+		playerLabels?: Partial<PlayerLabels>;
+		/** a player with controls shows "Überspringen" (the app handles the bubbling `sliceskip` event) */
+		skippable?: boolean;
 		/** one of the first slices: start buffering right away */
 		eager?: boolean;
 	} = $props();
@@ -72,6 +76,7 @@
 	let loaded = $state<string | undefined>(untrack(() => src));
 	const hasSource = $derived(!!loaded);
 	const showControls = $derived(controls ?? player);
+	const labels = $derived<PlayerLabels>({ ...DEFAULT_PLAYER_LABELS, ...playerLabels });
 	/** the placement: full viewport, else a frame in the column, else none (the media's own ratio) */
 	const placement = $derived<SliceViewport | SliceFrame | null>(viewport ?? (frame && parseFrameRatio(frame.ratio) ? frame : null));
 	const position = $derived(placement?.position ?? 'center');
@@ -222,40 +227,6 @@
 		}
 	}
 
-	function soundOn() {
-		const el = video;
-		soundBlocked = false;
-		if (!el) return;
-		// this click is a user gesture: unmuting keeps it playing
-		el.muted = false;
-		if (el.paused) el.play().catch(() => {});
-	}
-
-	/** a player without controls: a click / Space / Enter plays and pauses it */
-	function toggle(event: Event) {
-		const el = video;
-		if (!el || showControls || !player) return;
-		if (event instanceof KeyboardEvent) {
-			if (event.key !== ' ' && event.key !== 'Enter') return;
-			event.preventDefault();
-		}
-		if (el.paused || el.ended) {
-			el.play().catch(() => {});
-			soundBlocked = soundBlocked && el.muted;
-		} else el.pause();
-	}
-
-	// unmuted another way (the native controls) → the button goes
-	$effect(() => {
-		const el = video;
-		if (!el || !player) return;
-		const onVolume = () => {
-			if (!el.muted) soundBlocked = false;
-		};
-		el.addEventListener('volumechange', onVolume);
-		return () => el.removeEventListener('volumechange', onVolume);
-	});
-
 	// the player: tells the app what it does
 	$effect(() => {
 		const el = video;
@@ -314,35 +285,22 @@
 	<div class="frame">
 		{#if player}
 			<!-- a video to watch: the slice's size is the video's ratio, so nothing is cropped (in the column) -->
-			<!-- (no captions exist for the music video; without controls it takes the focus to play/pause by keyboard) -->
-			<!-- svelte-ignore a11y_media_has_caption a11y_no_noninteractive_tabindex -->
+			<!-- (no captions exist for the music video; the overlay's controls replace the browser's) -->
+			<!-- svelte-ignore a11y_media_has_caption -->
 			<video
 				bind:this={video}
 				class="player"
-				class:clickable={!showControls}
 				src={loaded}
 				{poster}
 				{width}
 				{height}
-				controls={showControls}
 				playsinline
 				preload="metadata"
 				style:aspect-ratio={`${width} / ${height}`}
 				aria-label={alt || undefined}
-				tabindex={showControls ? undefined : 0}
-				onclick={toggle}
-				onkeydown={toggle}
 				data-player
 			></video>
-			{#if soundBlocked}
-				<button type="button" class="sound-on" onclick={soundOn} data-testid="player-sound-on">
-					<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-						<path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor" />
-						<path d="M11 5.5c1 .8 1.5 1.6 1.5 2.5s-.5 1.7-1.5 2.5M13 3.5c1.5 1.2 2.2 2.7 2.2 4.5s-.7 3.3-2.2 4.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" />
-					</svg>
-					{soundOnLabel}
-				</button>
-			{/if}
+			<PlayerOverlay {video} {box} full={showControls} {skippable} {labels} bind:soundBlocked />
 		{:else if reducedMotion}
 			<img src={poster} {alt} {width} {height} loading={eager ? 'eager' : 'lazy'} decoding="async" />
 		{:else}
@@ -382,9 +340,6 @@
 	video.player {
 		object-fit: contain;
 		background: var(--ink, #000);
-	}
-	video.clickable {
-		cursor: pointer;
 	}
 
 	/* full viewport (SliceVideo.viewport): the whole width of the viewport (out of the reading column) and the screen's
@@ -448,33 +403,22 @@
 		object-fit: cover;
 	}
 
-	/* autoplay without sound: the primary button (ink / paper, square) in the middle of the video (the corners are under
-	   the app's fixed logo and toggles, the bottom under the native controls) */
-	.sound-on {
-		position: absolute;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		display: inline-flex;
+	/* full screen (the player's button): the box fills the screen, the whole video in it (the controls come along) */
+	.video-box:fullscreen {
+		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		box-sizing: border-box;
-		min-height: var(--control-height, 2.25rem);
-		margin: 0;
-		padding: 0 0.75rem;
-		border: 2px solid var(--paper, #fff);
-		border-radius: 0;
+		justify-content: center;
 		background: var(--ink, #000);
-		color: var(--paper, #fff);
-		font-family: var(--font-mono, 'IBM Plex Mono', monospace);
-		font-size: 0.75rem;
-		line-height: 1;
-		cursor: pointer;
-		touch-action: manipulation;
 	}
-	.sound-on:hover,
-	.sound-on:focus-visible {
-		background: var(--paper, #fff);
-		color: var(--ink, #000);
+	.video-box:fullscreen .frame {
+		width: min(100%, calc(100vh * var(--ratio)));
+		height: auto;
+		aspect-ratio: var(--ratio);
+	}
+	.video-box:fullscreen video {
+		width: 100%;
+		height: 100%;
+		aspect-ratio: auto !important;
+		object-fit: contain;
 	}
 </style>
