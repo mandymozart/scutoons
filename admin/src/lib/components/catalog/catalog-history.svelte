@@ -95,8 +95,8 @@
 			{@const keys = h.action === 'update' ? changedKeys(h) : []}
 			<li data-testid="history-row" data-action={h.action}>
 				<span class="what">
-					<span>{ACTIONS[h.action]?.() ?? h.action}{#if id === undefined && h.entry_id} · {h.entry_id}{/if}{#if h.undo_of} · {m['catalog.history_undo_of']({ n: h.undo_of })}{/if}</span>
-					<span class="sc-caption muted">#{h.id} · {minute(h.at)} · {(h.by ?? '—').replace(/^admin:/, '')}{#if h.note} · {h.note}{/if}</span>
+					<span>{ACTIONS[h.action]?.() ?? h.action}{#if id === undefined && h.entry_id}{' · '}{h.entry_id}{/if}{#if h.undo_of}{' · '}{m['catalog.history_undo_of']({ n: h.undo_of })}{/if}</span>
+					<span class="sc-caption muted">#{h.id} · {minute(h.at)} · {(h.by ?? '—').replace(/^admin:/, '')}{#if h.note}{' · '}{h.note}{/if}</span>
 					{#if keys.length}<span class="sc-caption muted">{keys.join(', ')}</span>{/if}
 				</span>
 				<Button size="sm" variant="secondary" onclick={() => undo(h)} disabled={busy !== null} data-testid="history-undo">{busy === h.id ? '…' : m['catalog.undo']()}</Button>

@@ -34,8 +34,11 @@
 		refresh,
 		form: Form,
 		barActions,
-		detailActions
+		detailActions,
+		reload = 0
 	}: {
+		/** bumped by the page after it wrote entries itself (the open entry is read again) */
+		reload?: number;
 		def: KindDef;
 		lists: CatalogLists;
 		/** the tables are missing (the API reads the seed files): read-only */
@@ -95,6 +98,13 @@
 		if (entries === null) return;
 		void def;
 		untrack(() => select(key, isNew));
+	});
+	// the page changed entries itself (the items' image import): the open entry again from the list, unless it has edits
+	$effect(() => {
+		if (!reload) return;
+		untrack(() => {
+			if (shown === 'entry' && openId && !dirty) select(openId, false);
+		});
 	});
 
 	const nav = (patch: Record<string, string | number | null>) => goto(listHref(page.url, patch), { keepFocus: true, noScroll: true });

@@ -66,6 +66,8 @@
 	let importInput = $state<HTMLInputElement>();
 	let importing = $state<{ done: number; total: number } | null>(null);
 	let report = $state<ImportReport | null>(null);
+	/** bumped after the import wrote items: the open item is read again */
+	let editorReload = $state(0);
 
 	async function importImages(event: Event) {
 		const files = [...((event.currentTarget as HTMLInputElement).files ?? [])];
@@ -77,6 +79,7 @@
 			report = await importItemImages(files, lists.items ?? [], (done, total) => (importing = { done, total }));
 			invalidateCatalog();
 			await refresh('items');
+			editorReload++;
 			toaster.addToast({ message: summary(report), type: report.problems.length ? 'warning' : 'success' });
 		} catch (e) {
 			toaster.addToast({ message: errorText(e), type: 'error' });
@@ -100,7 +103,7 @@
 		{#if kind === 'items' && report}
 			<div class="report" role="status" data-testid="import-report">
 				<p>
-					{summary(report)}{#if report.updated.length} · {m['catalog.import_updated']({ items: report.updated.join(', ') })}{/if}
+					{summary(report)}{#if report.updated.length}{' · '}{m['catalog.import_updated']({ items: report.updated.join(', ') })}{/if}
 				</p>
 				{#if report.problems.length}
 					<ul class="problems">{#each report.problems as p, i (i)}<li>{problemText(p)}</li>{/each}</ul>
@@ -109,7 +112,7 @@
 			</div>
 		{/if}
 		{#key kind}
-			<CatalogEditor {def} {lists} {fallback} {refresh} form={FORMS[kind]} barActions={kind === 'items' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
+			<CatalogEditor {def} {lists} {fallback} {refresh} reload={editorReload} form={FORMS[kind]} barActions={kind === 'items' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
 		{/key}
 	{/snippet}
 </Tabs>

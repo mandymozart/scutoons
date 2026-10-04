@@ -127,7 +127,7 @@ export const KINDS: Record<EditedKind, KindDef> = {
 		],
 		title: (_d, id) => id,
 		blank: () => ({ inputs: [{ item: '', qty: 1 }], output: { item: '', qty: 1 } }),
-		formKeys: ['id', 'inputs', 'output'],
+		formKeys: null,
 		dataId: true,
 		idPattern: ID,
 		creatable: true,
