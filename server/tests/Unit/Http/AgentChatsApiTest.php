@@ -214,23 +214,6 @@ final class AgentChatsApiTest extends TestCase
         self::assertSame(['embassy'], array_column($this->db->all('SELECT app FROM agent_chats'), 'app'));
     }
 
-    public function testWithoutTheAppColumnEveryChatIsTheCreators(): void
-    {
-        if (!$this->db->isSqlite()) self::markTestSkipped('drops a column (the MySQL test database is only rebuilt for dropped tables)');
-        $creator = $this->as('creator');
-        $liaison = $this->as('liaison');
-        $this->db->exec('DROP INDEX agent_chats_user_app');
-        $this->db->exec('ALTER TABLE agent_chats DROP COLUMN app');
-        self::assertSame(200, $this->request('PUT', '/api/agent-chats/' . self::A, $creator, self::body())->getStatusCode());
-        $list = self::json($this->request('GET', '/api/agent-chats', $creator))['chats'];
-        self::assertSame([[self::A, 'creator']], array_map(fn(array $c) => [$c['id'], $c['app']], $list));
-        self::assertSame('creator', self::json($this->request('GET', '/api/agent-chats/' . self::A, $creator))['chat']['app']);
-        $response = $this->request('PUT', '/api/agent-chats/' . self::B, $liaison, self::body(['app' => 'embassy']));
-        self::assertSame([503, 'not_available'], [$response->getStatusCode(), self::json($response)['error']]);
-        self::assertSame(503, $this->request('GET', '/api/agent-chats?app=embassy', $liaison)->getStatusCode());
-        self::assertSame(200, $this->request('DELETE', '/api/agent-chats/' . self::A, $creator)->getStatusCode());
-    }
-
     public function testWithoutTheMigrationTheEndpointsAnswer503(): void
     {
         $creator = $this->as('creator');

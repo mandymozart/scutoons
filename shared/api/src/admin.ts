@@ -1,7 +1,7 @@
 // Admin API (agents/ITEMS.md → "Admin API"): `/admin/*`, session + role `admin`. Framework-agnostic like the rest
 // of the package; the app keeps list state in its URLs and passes the query through.
 import type { ApiClient } from './client.ts';
-import type { FeaturedProduct, ItemRespawn } from '@scutoons/content';
+import type { FeaturedProduct } from '@scutoons/content';
 
 /** URL-driven list query: `page` from 1, `page_size` (server clamps 1…500), `sort` = field | -field, `q`, filters */
 export type ListParams = Record<string, string | number | boolean | null | undefined>;
@@ -321,32 +321,10 @@ export interface AdminSettings {
 }
 
 /** The editions on the landing page (admin page "Startseite", `GET/PUT /admin/featured`): `[{ product, variant? }]` in order */
-/** When picked-up placed items reappear, per item (`GET /admin/catalog/respawn`, agents/ITEMS.md "Placed items" → "Respawn") */
-export interface AdminRespawn {
-	status: 'success';
-	items: {
-		id: string;
-		/** the rule of the catalog seed (server config/items.json; null = never) */
-		file: ItemRespawn | null;
-		/** the admin's override (null = never; only meaningful with `overridden`) */
-		override: ItemRespawn | null;
-		overridden: boolean;
-		/** what applies (null = never reappears) */
-		effective: ItemRespawn | null;
-	}[];
-	updated_at: string | null;
-	updated_by: string | null;
-	/** PUT only */
-	changed?: boolean;
-}
-
 export interface AdminFeatured {
 	status: 'success';
-	/** the effective list (the stored one, else the default) */
+	/** the stored list (empty = nothing featured) */
 	items: FeaturedProduct[];
-	/** server config/featured-products.json, used while nothing is stored */
-	default: FeaturedProduct[];
-	stored: boolean;
 	updated_at: string | null;
 	/** `admin:<email>` of the last change */
 	updated_by: string | null;
@@ -674,15 +652,10 @@ export function createAdminApi(api: ApiClient) {
 		/** key → whole number (min…max), or null = back to the default */
 		saveSettings: (values: Record<string, number | null>) => api.put<AdminSettings>('/admin/settings', values),
 
-		respawn: () => api.get<AdminRespawn>('/admin/catalog/respawn'),
-		/** an item's rule (an update of the item, catalog_history), null = never reappears, `reset` = back to the seed's rule */
-		saveRespawn: (item: string, change: { respawn: ItemRespawn | null } | { reset: true }) =>
-			api.put<AdminRespawn>(`/admin/catalog/respawn/${seg(item)}`, change),
-
 		// the catalog in the database (CUTOVER 10.29): list / get / put (create 201 or update) / delete / reorder per kind,
 		// every write validated (422 invalid_catalog { problems }) and recorded in the history (undo)
 		catalogList: <T = Record<string, any>>(kind: CatalogKind) =>
-			api.get<{ status: 'success'; kind: CatalogKind; items: CatalogEntry<T>[]; fallback: boolean }>(`/admin/catalog/${seg(kind)}`),
+			api.get<{ status: 'success'; kind: CatalogKind; items: CatalogEntry<T>[] }>(`/admin/catalog/${seg(kind)}`),
 		catalogGet: <T = Record<string, any>>(kind: CatalogKind, id: string) =>
 			api.get<{ status: 'success'; entry: CatalogEntry<T> }>(`/admin/catalog/${seg(kind)}/${seg(id)}`),
 		catalogPut: <T = Record<string, any>>(kind: CatalogKind, id: string, data: T, note?: string) =>
@@ -707,7 +680,7 @@ export function createAdminApi(api: ApiClient) {
 
 		featured: () => api.get<AdminFeatured>('/admin/featured'),
 		/** the new ordered list, or null = back to the default */
-		saveFeatured: (items: FeaturedProduct[] | null) => api.put<AdminFeatured>('/admin/featured', { items }),
+		saveFeatured: (items: FeaturedProduct[]) => api.put<AdminFeatured>('/admin/featured', { items }),
 
 		emailTemplates: () => api.get<AdminEmailTemplates>('/admin/emails/templates'),
 		/** a template rendered with its sample vars */

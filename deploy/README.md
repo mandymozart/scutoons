@@ -69,8 +69,8 @@ node deploy/deploy.mjs api --dry-run            # every file of one app
 | `deploy-app.yml` | called by the others | the steps for one target: Node, `--setup`, npm ci / PHP, `deploy.mjs --github`, upload (one retry after 60 s), reminder |
 | `viewer.yml`, `shop.yml`, `creator.yml`, `admin.yml`, `embassy.yml` | manual only (with dry run) | deploy that one app |
 | `deploy-all.yml` | manual (optional dry run) | lists the DB migrations, then api → qr → frontends one at a time (the cutover runbook's button) |
-| `qr.yml` | push to `platform` / PR touching `qr/**`; called by `deploy.yml` | checks: `php -l`, offline smoke test |
-| `server.yml` | push to `platform` / PR touching `server/**`; called by `deploy.yml` | PHPUnit + PHPStan |
+| `qr.yml` | PR touching `qr/**`; called by `deploy.yml` | checks: `php -l`, offline smoke test |
+| `server.yml` | PR touching `server/**`; called by `deploy.yml` | PHPUnit (MariaDB, docker/compose.yml) + PHPStan |
 
 **One upload at a time.** all-inkl drops parallel FTP connections (ECONNRESET, 2026-10-02), so every deploying workflow
 shares the concurrency group `production-deploy` and `deploy.yml` runs its targets with `max-parallel: 1`. A run waiting

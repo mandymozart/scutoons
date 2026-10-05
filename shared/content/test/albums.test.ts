@@ -1,5 +1,5 @@
-// Players, albums, related items (agents/ITEMS.md "Players, albums, related items"): against the real server catalog
-// (server/config/items.json) and the catpope seed.   npm test -w @scutoons/content
+// Players, albums, related items (agents/ITEMS.md "Players, albums, related items"): against the test fixtures
+// (server/tests/fixtures: the catalog + a few catpope files of 2026-10-04).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -21,7 +21,7 @@ import {
 } from '../src/index.ts';
 
 const json = (rel: string) => JSON.parse(readFileSync(new URL(rel, import.meta.url), 'utf8'));
-const catalog: Catalog = catalogFromSeed(json('../../../server/config/items.json'));
+const catalog: Catalog = catalogFromSeed(json('../../../server/tests/fixtures/catalog/items.json'));
 const item = (id: string) => catalog.items.find((i) => i.id === id)!;
 const itemIds = catalog.items.map((i) => i.id);
 
@@ -138,33 +138,6 @@ test('albums: the record player is repaired - broken record player + repair coup
 	assert.deepEqual(playersFor(catalog, 'vinyl').map((p) => p.id), ['record_player']);
 });
 
-const pickup = (events: any[], variable: string) => events.find((e: any) => e.params?.onSelect?.add?.variable === variable);
-
-test('albums: chapter 2 - the broken record player in the first scene, the repair coupon at the end, once', () => {
-	for (const l of ['de', 'en']) {
-		const chapter = json(`../seed/catpope/${l}/chapter2.json`);
-		// the first scene: the first group (a scene file) and its first slice
-		assert.equal(chapter.groups[0].ref?.src, 'chapter2/scene-14.json');
-		const scene = json(`../seed/catpope/${l}/chapter2/scene-14.json`);
-		const first = scene.slices[0].events ?? [];
-		const broken = pickup(first, 'broken_record_player');
-		assert.ok(broken, `${l}: the first slice adds broken_record_player`);
-		assert.equal(broken.params.onSelect.add.value, 1);
-		assert.equal(first.filter((e: any) => e.type === 'addChoice').length, 1, `${l}: one choice only (intersect order)`);
-		assert.ok(first.every((e: any) => e.trigger?.type === 'intersect' && e.trigger.once === true));
-		assert.deepEqual(validateFile('group', scene, l, { file: 'scene:catpope:2:scene-14' }).filter((p) => p.level === 'error'), []);
-
-		const last = chapter.groups.at(-1).slices.at(-1);
-		const events = last.events ?? [];
-		const coupon = pickup(events, 'repair_coupon');
-		assert.ok(coupon, `${l}: the last slice adds repair_coupon`);
-		assert.equal(coupon.params.onSelect.add.value, 1);
-		assert.equal(pickup(events, 'record_player'), undefined, `${l}: the record player is no longer handed out`);
-		assert.equal(events.filter((e: any) => e.type === 'addChoice').length, 1, `${l}: one choice only (intersect order)`);
-		assert.ok(events.every((e: any) => e.trigger?.type === 'intersect' && e.trigger.once === true));
-		assert.deepEqual(validateFile('chapter', chapter, l, { file: 'chapter:catpope:2' }).filter((p) => p.level === 'error'), []);
-	}
-});
 
 test('albums: validation errors', () => {
 	const bad = structuredClone(catalog);
@@ -182,9 +155,9 @@ test('albums: validation errors', () => {
 	assert.ok(validateCatalog(lonely).some((p) => p.level === 'warning' && p.message.includes('no player plays "vinyl"')));
 });
 
-test('related items: the seed season lists catalog items, the same in every language', () => {
-	const de = json('../seed/catpope/de/season1.json');
-	const en = json('../seed/catpope/en/season1.json');
+test('related items: the fixture season lists catalog items, the same in every language', () => {
+	const de = json('../../../server/tests/fixtures/content/catpope/de/season1.json');
+	const en = json('../../../server/tests/fixtures/content/catpope/en/season1.json');
 	assert.deepEqual(de.related_items, ['awakening_vinyl']);
 	for (const [l, doc] of [['de', de], ['en', en]] as const) {
 		const problems = validateFile('season', doc, l, { file: 'season:catpope:1', items: itemIds }).filter((p) => p.path[0] === 'related_items');
@@ -199,14 +172,14 @@ test('related items: the seed season lists catalog items, the same in every lang
 	assert.ok(wrong.some((p) => p.message.includes('listed twice')));
 	assert.ok(validateFile('season', { ...de, related_items: 'awakening_vinyl' }, 'de', { file: 's' }).some((p) => p.level === 'error' && p.path[0] === 'related_items'));
 	// chapters take the same field
-	const chapter = json('../seed/catpope/de/chapter1.json');
+	const chapter = json('../../../server/tests/fixtures/content/catpope/de/chapter1.json');
 	const ch = validateFile('chapter', { ...chapter, related_items: ['record_player', 'nope'] }, 'de', { file: 'c', items: itemIds }).filter((p) => p.path[0] === 'related_items');
 	assert.equal(ch.length, 1);
 	assert.match(ch[0].message, /"nope"/);
 });
 
 test('season music comes from the related items’ album; old seasons keep their download fields', () => {
-	const season = json('../seed/catpope/de/season1.json');
+	const season = json('../../../server/tests/fixtures/content/catpope/de/season1.json');
 	const music = seasonMusic(catalog, season, 'catpope');
 	assert.equal(music?.album?.id, 'awakening');
 	assert.equal(music?.carrier, 'awakening_vinyl');

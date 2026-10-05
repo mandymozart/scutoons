@@ -36,11 +36,11 @@ final class CatalogAdmin
 
     // ── Reads ─────────────────────────────────────────────────────────────────────────────────────────────
 
-    /** @return array{kind: string, items: list<array<string, mixed>>, fallback: bool} */
+    /** @return array{kind: string, items: list<array<string, mixed>>} */
     public function list(string $kind): array
     {
         CatalogStore::kind($kind);
-        return ['kind' => $kind, 'items' => array_map(fn(array $r) => self::entryOf($r), $this->store->rows($kind)), 'fallback' => $this->store->isFallback()];
+        return ['kind' => $kind, 'items' => array_map(fn(array $r) => self::entryOf($r), $this->store->rows($kind))];
     }
 
     /** @return array<string, mixed> { id, position, data, updated_at, updated_by } */
@@ -93,7 +93,6 @@ final class CatalogAdmin
     public function putIn(string $kind, string $id, mixed $data, string $by, ?string $note = null, ?int $undoOf = null, ?int $position = null): array
     {
         $kind = CatalogStore::kind($kind);
-        $this->store->requireTables();
         $json = CatalogStore::encode($data);
         $problems = $this->validator->problems($kind, $id, json_decode($json, true));
         if ($problems) throw new ApiError(422, 'invalid_catalog', implode('; ', $problems), ['problems' => $problems, 'kind' => $kind, 'id' => $id]);
@@ -115,8 +114,7 @@ final class CatalogAdmin
     {
         $result = $this->db->transaction(function () use ($kind, $id, $by, $undoOf) {
             $kind = CatalogStore::kind($kind);
-            $this->store->requireTables();
-            $row = $this->store->row($kind, $id) ?? throw new ApiError(404, 'not_found', "No $kind entry $id.");
+                $row = $this->store->row($kind, $id) ?? throw new ApiError(404, 'not_found', "No $kind entry $id.");
             $uses = $this->validator->uses($kind, $id);
             if ($uses) throw new ApiError(409, 'in_use', "$id is still used: " . implode(', ', $uses) . '.', ['uses' => $uses]);
             $this->store->remove($kind, $id);
@@ -155,8 +153,7 @@ final class CatalogAdmin
     {
         $result = $this->db->transaction(function () use ($kind, $entries, $by, $undoOf) {
             $kind = CatalogStore::kind($kind);
-            $this->store->requireTables();
-            $before = array_map(fn(array $r) => json_decode($r['data']), $this->store->rows($kind));
+                $before = array_map(fn(array $r) => json_decode($r['data']), $this->store->rows($kind));
             $beforeJson = CatalogStore::encode($before);
             $afterJson = CatalogStore::encode(array_values($entries));
             if ($beforeJson === $afterJson) return ['changed' => false, 'history_id' => null];

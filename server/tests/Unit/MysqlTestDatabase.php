@@ -8,11 +8,11 @@ use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Infrastructure\Database\MigrationRunner;
 
 /**
- * The PHPUnit suite on MariaDB/MySQL (the production engine) instead of SQLite: `vendor/bin/phpunit -c
- * phpunit.mysql.xml` (TEST_DB_* below; docs/DATABASE.md "Local MariaDB"). Once per run the test database is emptied
+ * The PHPUnit suite's database: MariaDB, the production engine (TEST_DB_* below, defaults in phpunit.xml.dist;
+ * docs/DATABASE.md "Local MariaDB"). Once per run the test database is emptied
  * (every table dropped) and migrated with migrations/mysql – a fresh production-like schema. Its rows after that (seed
  * rows of the migrations) are kept in memory. Before each test the tables a test touched are truncated (AUTO_INCREMENT
- * back to the start, like a fresh SQLite copy) and the seed rows written again; tables with seed rows always are.
+ * back to the start) and the seed rows written again; tables with seed rows always are.
  * Refuses a database whose name does not end in "test" (it drops every table).
  */
 final class MysqlTestDatabase
@@ -26,18 +26,17 @@ final class MysqlTestDatabase
     /**
      * TEST_DB_SQL_MODE: the API's DB_SQL_MODE for this run (unset = its default, strict; `server` = the server's own
      * mode – production's is not strict: `TEST_DB_SQL_MODE=server` runs the suite the way the host would behave alone)
-     * @return array{host: string, port: string, name: string, user: string, pass: string, sql_mode: string|null}|null null = SQLite
+     * @return array{host: string, port: string, name: string, user: string, pass: string, sql_mode: string|null}
      */
-    public static function config(): ?array
+    public static function config(): array
     {
-        if (strtolower((string) getenv('TEST_DB_DRIVER')) !== 'mysql') return null;
         $env = static fn(string $key, string $default): string => (string) (getenv($key) ?: $default);
         return [
             'host' => $env('TEST_DB_HOST', '127.0.0.1'),
-            'port' => $env('TEST_DB_PORT', '3306'),
+            'port' => $env('TEST_DB_PORT', '13306'),
             'name' => $env('TEST_DB_NAME', 'scutoons_test'),
             'user' => $env('TEST_DB_USER', 'scutoons'),
-            'pass' => $env('TEST_DB_PASS', ''),
+            'pass' => $env('TEST_DB_PASS', 'scutoons'),
             'sql_mode' => getenv('TEST_DB_SQL_MODE') !== false && getenv('TEST_DB_SQL_MODE') !== '' ? (string) getenv('TEST_DB_SQL_MODE') : null,
         ];
     }
@@ -72,7 +71,7 @@ final class MysqlTestDatabase
                     $columns = implode(', ', array_map(static fn(string $c) => "`$c`", array_keys($row)));
                     $db->run("INSERT INTO `$table` ($columns) VALUES (" . implode(', ', array_fill(0, count($row), '?')) . ')', array_values($row));
                 }
-                // AUTO_INCREMENT back to where the migrations left it (ids start like on a fresh SQLite copy)
+                // AUTO_INCREMENT back to where the migrations left it
                 $start = self::$autoIncrement[$table];
                 if ($start !== null) $db->exec("ALTER TABLE `$table` AUTO_INCREMENT = $start");
             }
@@ -83,12 +82,12 @@ final class MysqlTestDatabase
 
     private static function prepare(string $root): Database
     {
-        $config = self::config() ?? throw new RuntimeException('TEST_DB_DRIVER is not mysql');
+        $config = self::config();
         if (!str_ends_with($config['name'], 'test')) {
             throw new RuntimeException("TEST_DB_NAME '{$config['name']}' must end in 'test': the suite drops every table of it");
         }
         if (!extension_loaded('pdo_mysql')) {
-            throw new RuntimeException('pdo_mysql is not loaded: php -d extension=pdo_mysql vendor/bin/phpunit -c phpunit.mysql.xml (or enable it in php.ini)');
+            throw new RuntimeException('pdo_mysql is not loaded: npm run dev:db test, or php -d extension=pdo_mysql vendor/bin/phpunit (or enable it in php.ini)');
         }
         $db = Database::mysql($config['host'], $config['name'], $config['user'], $config['pass'], $config['port']);
         self::migrateFresh($db, $root);

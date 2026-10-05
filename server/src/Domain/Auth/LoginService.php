@@ -193,7 +193,7 @@ final class LoginService
      * A NEW account with a claimable code (a product) is created and claims that code in ONE transaction – if the
      * claim fails (409 already_claimed, 422 choose_item / invalid_item, …) nothing is created and the request stays
      * unused, so the client can confirm again (e.g. with item_id/variant). Existing accounts claim afterwards, and a
-     * failed claim is only reported as claim_error. Public for tests/claim-race.php (signup mode).
+     * failed claim is only reported as claim_error. Public for concurrent-signup tests.
      * @param array<string, mixed> $request the login_requests row
      * @param array<string, mixed> $body    item_id?, variant?, marketing_opt_in?
      * @return array<string, mixed> the /auth/verify/ response

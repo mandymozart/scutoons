@@ -11,11 +11,11 @@
 //   - every visible element with its own text and every form control (input, select, textarea, button): the computed
 //     font-family starts with 'IBM Plex Mono'; 'Bangers' only as the lettering stack (--font-lettering, text boxes)
 //   - the font Chrome really rendered with (CSS.getPlatformFontsForNode) for the form controls and a sample of texts
-// Signed-in pages (creator, admin, viewer account) need a session: --token= / SCUTOONS_TOKEN, or --session, which
-// creates a throw-away admin + creator user in the LOCAL database (server/tests/support/legacy.php) and removes it at
-// the end. Without one, creator and admin are checked on their sign-in screen only.
+// Signed-in pages (creator, admin, viewer account) need a session: --token= / SCUTOONS_TOKEN, or --session = the local
+// test user's (npm run dev:test-user: member + creator + admin). Without one, creator and admin are checked on their
+// sign-in screen only.
 // Needs the dev servers (npm run dev). Exit code 1 on any failure.
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -46,17 +46,13 @@ const FONT_CDN = /fonts\.googleapis\.com|fonts\.gstatic\.com|use\.typekit|fonts\
 
 // ── session ─────────────────────────────────────────────────────────────────────────────────────────────────────────
 let token = opt.token || process.env.SCUTOONS_TOKEN || null;
-let minted = null;
-const php = (code) => execFileSync('php', ['-r', `chdir(${JSON.stringify(join(root, 'server'))}); require 'tests/support/legacy.php'; ${code}`], { encoding: 'utf8' }).trim();
 if (!token && opt.session) {
-	const email = `check-fonts-${Date.now()}@example.com`;
-	token = php(`$u = Users::create('${email}', 'en'); Roles::grant($u['id'], Roles::ADMIN, 'check-fonts'); Roles::grant($u['id'], Roles::CREATOR, 'check-fonts'); echo Auth::createSession($u['id']);`);
-	minted = email;
-}
-function dropSession() {
-	if (!minted) return;
-	php(`$id = Db::run('SELECT id FROM users WHERE email = ?', ['${minted}'])->fetchColumn(); if ($id) { foreach (['sessions', 'user_roles', 'inventory', 'access_devices'] as $t) { try { Db::run("DELETE FROM $t WHERE user_id = ?", [$id]); } catch (Throwable) {} } Db::run('DELETE FROM users WHERE id = ?', [$id]); }`);
-	minted = null;
+	const file = join(root, 'logs/dev/test-user.json');
+	token = existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')).token : null;
+	if (!token) {
+		console.error('--session: no test-user session (npm run dev:test-user)');
+		process.exit(2);
+	}
 }
 const apiGet = async (path) => {
 	try { const r = await fetch(api + path, { headers: token ? { Authorization: `Bearer ${token}` } : {} }); return r.ok ? await r.json() : null; } catch { return null; }
@@ -139,7 +135,6 @@ const port = 9400 + Math.floor(Math.random() * 400);
 const profile = mkdtempSync(join(tmpdir(), 'check-fonts-'));
 const chrome = spawn(CHROME, ['--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-extensions', '--mute-audio', `--window-size=${width},${height}`, 'about:blank'], { stdio: 'ignore' });
 async function done(code) {
-	try { dropSession(); } catch (e) { console.error('session cleanup failed:', e.message); }
 	const exited = chrome.exitCode !== null ? Promise.resolve() : new Promise((r) => chrome.once('exit', r));
 	chrome.kill();
 	await Promise.race([exited, sleep(5000)]);
@@ -239,7 +234,7 @@ const list = (await pages()).filter((p) => apps.includes(p.app) && (!opt.only ||
 if (opt.list) { for (const p of list) console.log(`${p.app.padEnd(8)} ${p.name.padEnd(34)} ${base[p.app]}${p.path}`); await done(0); }
 const origins = [base.viewer, base.creator, base.admin, base.shop].map((u) => new URL(u).origin);
 let failed = 0, passed = 0, skipped = 0;
-console.log(`Font check (IBM Plex Mono) · ${width}×${height} · session: ${token ? (minted ? 'throw-away' : 'given') : 'none (signed-in pages: sign-in screens only)'}\n`);
+console.log(`Font check (IBM Plex Mono) · ${width}×${height} · session: ${token ? (opt.session ? 'test user' : 'given') : 'none (signed-in pages: sign-in screens only)'}\n`);
 for (const p of list) {
 	const label = `${p.app.padEnd(8)} ${p.name}`;
 	if (p.auth && !token) { skipped++; if (opt.verbose) console.log(`  SKIP  ${label} (needs a session)`); continue; }

@@ -11,37 +11,29 @@ use Scutoons\Infrastructure\AssetStorage\StorageKey;
  * The folder relayout (agents/ASSETS.md "Folder convention", owner 2026-10-02: done before the bunny upload, bunny gets
  * the new structure once). From the reviewed AssetLayout mapping it
  *   a) COPIES each moving file to its new path in a local CDN folder (never moves; verifies size + SHA-256),
- *   b) rewrites every reference in the repository's tracked files: the content seed JSON (all toons + the platform-wide
- *      `scutoons/_`), the server's catalog JSON (items incl. albums, products, editions, toons), and exact CDN paths in
- *      code (e.g. the camera model path); paths are rewritten in the style they were written (toon-relative,
- *      `../`-relative, root-relative),
+ *   b) rewrites exact CDN paths in the repository's tracked code (e.g. the camera model path) – content and catalog
+ *      live in the database (production) and move with the relink (agents/ASSETS.md), not here,
  *   c) reports everything (`report()`), incl. the planned deletions and lines that look like CDN paths but were not
  *      rewritten (manual review).
  * Deleting the old paths is a separate step (deleteOld) – only after the merge, so running dev stacks keep working.
  */
 final class AssetRelayout
 {
-    /** tracked files whose JSON strings are content / catalog references */
-    public const JSON_SCOPES = ['shared/content/seed/', 'server/config/'];
     /** tracked code / test / script files searched for exact CDN paths */
     public const CODE_SCOPES = ['viewer/src/', 'creator/src/', 'admin/src/', 'shop/src/', 'embassy/src/', 'shared/', 'server/src/', 'server/tests/', 'server/templates/', 'qr/', 'scripts/'];
     public const CODE_EXTENSIONS = ['ts', 'js', 'mjs', 'svelte', 'php', 'py', 'html', 'css'];
 
     /** @var array<string, string> old CDN-root path → new */
     private array $map = [];
-    /** @var array<string, true> every old file (resolution: does a path exist from the root?) */
-    private array $known = [];
     /** @var list<string> */
     private array $deletes = [];
 
     /**
      * @param list<array<string, mixed>> $planItems AssetLayout::plan()['items']
-     * @param list<string> $publicBases URL prefixes that mean "the CDN"
      */
-    public function __construct(array $planItems, private readonly array $publicBases = [])
+    public function __construct(array $planItems)
     {
         foreach ($planItems as $item) {
-            $this->known[(string) $item['from']] = true;
             if (($item['action'] ?? '') === 'move') $this->map[(string) $item['from']] = (string) $item['to'];
             if (($item['action'] ?? '') === 'delete') $this->deletes[] = (string) $item['from'];
         }
@@ -101,17 +93,13 @@ final class AssetRelayout
         foreach ($tracked as $rel) {
             $rel = str_replace('\\', '/', $rel);
             $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
-            $isJson = $ext === 'json' && $this->inScope($rel, self::JSON_SCOPES);
-            $isCode = in_array($ext, self::CODE_EXTENSIONS, true) && $this->inScope($rel, self::CODE_SCOPES);
-            if (!$isJson && !$isCode) continue;
+            if (!in_array($ext, self::CODE_EXTENSIONS, true) || !$this->inScope($rel, self::CODE_SCOPES)) continue;
             $path = "$repo/$rel";
             $text = (string) file_get_contents($path);
-            $changes = $isJson ? $this->jsonChanges($rel, $text, $result['conflicts']) : $this->codeChanges($text);
-            if ($isCode) {
-                foreach (preg_split('/\r?\n/', $text) ?: [] as $n => $line) {
-                    if (preg_match('#[\'"`/](images|videos|audio|models)/[^\'"`\s]*\.(webp|png|jpe?g|svg|mp4|mp3|zip|json)#', $line) && !$this->lineRewritten($line, $changes)) {
-                        $result['review'][] = "$rel:" . ($n + 1) . ': ' . trim(mb_substr($line, 0, 200));
-                    }
+            $changes = $this->codeChanges($text);
+            foreach (preg_split('/\r?\n/', $text) ?: [] as $n => $line) {
+                if (preg_match('#[\'"`/](images|videos|audio|models)/[^\'"`\s]*\.(webp|png|jpe?g|svg|mp4|mp3|zip|json)#', $line) && !$this->lineRewritten($line, $changes)) {
+                    $result['review'][] = "$rel:" . ($n + 1) . ': ' . trim(mb_substr($line, 0, 200));
                 }
             }
             if (!$changes) continue;
@@ -119,16 +107,10 @@ final class AssetRelayout
             $list = [];
             foreach ($changes as $from => $to) {
                 $count = 0;
-                $new = $isJson
-                    ? str_replace(self::token($from), self::token($to), $new, $count)
-                    : (string) preg_replace(self::codePattern($from), $to, $new, -1, $count);
+                $new = (string) preg_replace(self::codePattern($from), $to, $new, -1, $count);
                 if ($count) $list[] = ['from' => $from, 'to' => $to, 'count' => $count];
             }
             if (!$list) continue;
-            if ($isJson && json_decode($new) === null) {
-                $result['conflicts'][] = "$rel: the rewrite would break the JSON – skipped";
-                continue;
-            }
             if ($apply) file_put_contents($path, $new);
             $result['files'][$rel] = $list;
         }
@@ -142,66 +124,11 @@ final class AssetRelayout
         return false;
     }
 
-    private static function token(string $value): string
-    {
-        return (string) json_encode($value, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
-
     /** @param array<string, string> $changes */
     private function lineRewritten(string $line, array $changes): bool
     {
         foreach (array_keys($changes) as $from) if (str_contains($line, $from)) return true;
         return false;
-    }
-
-    /** The toon folder a seed file's paths are relative to ('' = the CDN root) */
-    public static function baseOf(string $rel): string
-    {
-        if (preg_match('#^shared/content/seed/([a-z0-9_-]+)/#', $rel, $m)) return $m[1] === 'scutoons' ? '' : $m[1];
-        return '';
-    }
-
-    /**
-     * raw string → new raw string for every media reference of a JSON file whose target moves
-     * @param list<string> $conflicts
-     * @return array<string, string>
-     */
-    private function jsonChanges(string $rel, string $text, array &$conflicts): array
-    {
-        $doc = json_decode($text, true);
-        if (!is_array($doc)) return [];
-        $changes = [];
-        $walk = function (mixed $node, string $base) use (&$walk, &$changes, &$conflicts, $rel): void {
-            if (is_array($node)) {
-                if (isset($node['toon']) && is_string($node['toon']) && preg_match('/^[a-z0-9_-]{1,64}$/', $node['toon']) && !str_starts_with($rel, 'server/config/')) $base = $node['toon'];
-                // the toon index (seed toons.json): one entry per toon, its paths are relative to that toon's folder
-                if (str_ends_with($rel, 'seed/toons.json') && isset($node['id'], $node['uri']) && is_string($node['id']) && preg_match('/^[a-z0-9_-]{1,64}$/', $node['id'])) $base = $node['id'];
-                foreach ($node as $v) $walk($v, $base);
-                return;
-            }
-            if (!is_string($node) || !preg_match(AssetPaths::MEDIA_EXTENSION, trim((string) preg_replace('/[?#].*$/', '', $node)))) return;
-            [$path, $usedBase] = $this->resolve($node, $base);
-            if ($path === null || !isset($this->map[$path])) return;
-            $new = AssetPaths::relativeTo($this->map[$path], $usedBase, $node);
-            if (isset($changes[$node]) && $changes[$node] !== $new) {
-                $conflicts[] = "$rel: \"$node\" means different files in different places – rewrite by hand";
-                return;
-            }
-            $changes[$node] = $new;
-        };
-        $walk($doc, self::baseOf($rel));
-        return $changes;
-    }
-
-    /** @return array{0: ?string, 1: string} */
-    private function resolve(string $raw, string $base): array
-    {
-        $primary = AssetPaths::resolve($raw, $base, $this->publicBases);
-        if ($base === '' || $primary === null) return [$primary, ''];
-        if (isset($this->known[$primary])) return [$primary, $base];
-        $root = AssetPaths::resolve($raw, '', $this->publicBases);
-        if ($root !== null && isset($this->known[$root]) && !str_starts_with(trim($raw), '../')) return [$root, ''];
-        return [$primary, $base];
     }
 
     /**

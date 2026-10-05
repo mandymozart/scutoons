@@ -56,7 +56,8 @@ Like `characters`: one document for the whole universe, names as `{ de, en }` in
 `{ de, en }`). **Key `map`** (kind `map`, shape `[false, false, false, false]` in `entities.ts` / `EntityKey`). If a
 second map ever exists (an interior, another planet) the key grows to `map:<id>` – not now (keep the configuration small).
 Versioned like every entity (`entity_versions`: drafts, publish, history, restore); the creator writes it through
-`PUT /api/entities/map`; seed file `shared/content/seed/scutoons/_/map.json` (next to `characters.json`).
+`PUT /api/entities/map`. Production's store is the source (CUTOVER 10.30: the seed file is gone; the TS tests use the
+fixture `server/tests/fixtures/content/scutoons/_/map.json`).
 
 ```ts
 /** The SCUTOONS world map (entity `map`) */
@@ -201,7 +202,7 @@ interface MapState {
 ### 2.6 Migration from catpope's `locations.json` / `routes.json` (all values survive)
 
 A one-time script `shared/content/scripts/migrate-map.ts` (pattern of `migrate-characters.ts`: writes the seed, then
-`import-content --only=map --update`; `--no-import`):
+`import-content --only=map --update`; `--no-import`; both scripts deleted in CUTOVER 10.30 – done, production has the map):
 
 | Old (per locale) | New (`map`) |
 |---|---|
@@ -806,6 +807,9 @@ post-processing §5.3).
   world-state merge incl. a stale write), `entities-compare` (§8.2).
 
 ### 8.8 Merge note (the owner merges after the 2026-10-04 release)
+
+_(History: since CUTOVER 10.30 there is no seed SQL, no SQLite store and no `migrate-map.ts`; local dev loads
+production's map with `npm run dev:db -- seed`.)_
 
 1. `platform` is merged into `map` (`932c578`, 2026-10-01; conflicts resolved keeping both sides: covers / lettering, script
    entities, media requests + the world map; schemas regenerated; the seed SQL = platform's file + only the changed

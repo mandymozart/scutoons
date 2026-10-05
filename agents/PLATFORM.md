@@ -15,11 +15,11 @@ scutoons/                         one git repo, npm workspaces (Node 22), Compos
 ├── server/              PHP 8.3, Slim 4    → qr.scutoons.com (+ later api.scutoons.com)
 │   ├── public/                   web root: front controller, QR landing page, verify page, assets
 │   ├── src/                      Http (controllers, middleware) · Domain · Infrastructure
-│   ├── config/                   settings, routes; the catalog SEED (*.json – the catalog is in DB tables, agents/CATALOG.md)
-│   ├── migrations/{mysql,sqlite}/
+│   ├── config/                   settings, routes (the catalog is in DB tables, agents/CATALOG.md)
+│   ├── migrations/mysql/
 │   ├── bin/console               migrate, roles, import-content, backfill, reports
 │   ├── templates/                landing page, mails
-│   └── tests/                    PHPUnit + contract suites (api-smoke, content-smoke, claim-race)
+│   └── tests/                    PHPUnit (+ fixtures/catalog, fixtures/content)
 ├── shared/
 │   ├── tokens/   @scutoons/tokens    design tokens (CSS custom properties), fonts, base CSS
 │   ├── ui/       @scutoons/ui        Svelte UI kit: Button, IconButton, Field, Panel, Sheet, Tabs, Toast, DataTable, …
@@ -72,7 +72,7 @@ PHPUnit, PHPStan. Composer `vendor/` is built in CI and uploaded (the host has n
   ErrorHandler (the `{status:"error", error, message}` shape).
 - `Domain/*` (Accounts, Auth, Codes, Access/Permissions, Inventory, Catalog, Avatar, Progress, Content, Events, Roles):
   services + repositories, no HTTP.
-- `Infrastructure/*`: Database (PDO, MySQL/SQLite, transactions, migrations runner), Mail (SMTP, log), Signing (ML-DSA
+- `Infrastructure/*`: Database (PDO, MySQL/MariaDB only since CUTOVER 10.30, transactions, migrations runner), Mail (SMTP, log), Signing (ML-DSA
   keys), Clock.
 - Config from env/`config.local.php` → `config/settings.php`; JSON data (permissions, items, editions) in `config/`.
 - **Contract first:** the HTTP API (ITEMS.md) does not change during the refactor. The existing suites
@@ -158,14 +158,14 @@ Clock) · `src/Console` + `bin/console` · `config/` (settings, container, route
 - Host routing: `QR_HOST` = public pages + `/api/validate/` + `/api/keys/keys.php` + legacy generate/;
   `API_HOST` = `/api/*` only; transition flag `QR_HOST_SERVES_API` (default on); other hosts both. Both subdomains
   point at `<server folder>/public/`; the root `.htaccess` keeps the old document root working (forward into public/).
-- Settings: env `QR_<KEY>` → constant (config.local.php / CI-generated config.php) → `config/settings.php`; SQLite when
-  `DB_SQLITE_PATH` is set. Batch output `generate/files/` → `storage/files/`, keypair `api/keys/` → `storage/keys/`.
+- Settings: env `QR_<KEY>` → constant (config.local.php / CI-generated config.php) → `config/settings.php`; (SQLite via
+  `DB_SQLITE_PATH` removed in CUTOVER 10.30). Batch output `generate/files/` → `storage/files/`, keypair `api/keys/` → `storage/keys/`.
 - Migrations moved to `migrations/<driver>/` with unchanged file names (schema_migrations stays valid);
   `migrations/schema/qr.<driver>.sql` for fresh databases. No schema change in this phase.
 - The legacy `generate/*.php` URLs run on Slim (`Legacy\GenerateController` + `GenerateToken`) on the same services as
   the admin API; `generate/get-signature.php` and `generate/files/signatures/*` stay public for the verify page.
 - Contract suites boot through `tests/support/legacy.php` (the old static calls as facades); `tests/admin-smoke.php`
-  and `tests/public-urls.php` (printed URLs, identical to the old server; `--hosts`) are new; `composer test` runs all.
+  and `tests/public-urls.php` (printed URLs, identical to the old server; `--hosts`) are new; `composer test` runs all. (All removed in CUTOVER 10.30; `composer test` = PHPUnit.)
 - CI `server.yml`: tests on every push/PR (incl. `platform`), deploy only from `main`; same secret/variable names as
   the old workflow (`FTP_SERVER` var, `FTP_USERNAME`/`FTP_PASSWORD` secrets – not `SERVER_FTP_*`), production
   `ALLOWED_ORIGINS` = scutoons.com, www, creator, admin, shop.
@@ -180,7 +180,7 @@ Clock) · `src/Console` + `bin/console` · `config/` (settings, container, route
 | `lib/components/shop/products/product-item.svelte` | `shop/src/lib/components/product-item.svelte` |
 | `lib/components/shop/products/shop.ts` (types + price/variant helpers) | `@scutoons/content` `products.ts` (`ProductCatalog`, `Product`, `ProductVariant`, `FeaturedProduct`, `LocalizedText`, `isSoldOut`, `pickVariant`, `variantPrice`, `formatPrice`, `editionPieces`, `localized`) |
 | `lib/components/shop/products/product-slides.svelte` (homepage only, Swiper) | stays in the viewer: `lib/components/home/product-slides.svelte` (not generic → not in `@scutoons/ui`) |
-| `static/api/products.json`, `featured-products.json` | server `config/products.json`, `config/featured-products.json` (`PRODUCTS_PATH`, `FEATURED_PRODUCTS_PATH`) |
+| `static/api/products.json`, `featured-products.json` | server `config/products.json`, `config/featured-products.json` (since 2026-10-04 the catalog tables; the files are a test fixture since 10.30) |
 | messages `shop.title/description/variants/remaining` | `shop/messages/{de,en}.json` (the homepage keeps `shop.buy/sold_out/sizes/colors/price/limited_edition_of/credits`) |
 
 **API** (public, like `/api/items/`): `GET /api/products/` and `GET /api/products/featured/` return the stored files
@@ -405,8 +405,8 @@ The old `qr.scutoons.com` GitHub repo is archived after cutover; its workflow is
 ## Local dev (platform branch)
 
 - Server: `cd server && composer serve` (:9000),
-  local-only files (config.local.php, db/local.sqlite, storage/files, storage/keys/keypair.json) — gitignored.
-  `composer test` = PHPUnit + every contract suite on freshly started servers and a copy of the DB.
+  local-only files (config.local.php, db/prod-seed.sql, storage/files, storage/keys/keypair.json) — gitignored.
+  Database: MariaDB in Docker only (`npm run dev:db`, CUTOVER 10.30); `composer test` = PHPUnit (`npm run dev:db test`).
 - CDN: `scripts/dev/media-serve.mjs` serving `media/` (gitignored), started by `npm run dev`. All ports: "Local dev ports" (`shared/dev-ports.json`).
 
 ## Admin UI patterns (from akin)
@@ -496,7 +496,7 @@ for every port in the file, so a new app needs no `config.local.php` entry. `npm
 `.env.example` / `config.local.php.example` URL doesn't match the file, or when this table drifts from it.
 New service: add it to the file, then to `up.mjs` + `launch-json.mjs` (both refuse an unknown name) and this table.
 The docker services (`docker/compose.yml`: mariadb, adminer) take the port from the file through `npm run dev:db` /
-`up.mjs`; the compose file's defaults and `server/phpunit.mysql.xml` must match it (`check:ports` checks).
+`up.mjs`; the compose file's defaults and `server/phpunit.xml.dist` must match it (`check:ports` checks).
 
 | App | Port | Start |
 |---|---|---|
@@ -509,7 +509,7 @@ The docker services (`docker/compose.yml`: mariadb, adminer) take the port from 
 | admin (admin.scutoons.com) | **11000** | `npm run dev:admin` |
 | shop (shop.scutoons.com) | **12000** | `npm run dev:shop` |
 | embassy (embassy.scutoons.com) | **13000** | `npm run dev:embassy` (agents/EMBASSY.md) |
-| mariadb (Docker, the production engine; optional) | **13306** | `npm run dev:db` – switches the stack from SQLite to it (server/docs/DATABASE.md "Local MariaDB") |
+| mariadb (Docker, the production engine; the only local database) | **13306** | `npm run dev:db` (server/docs/DATABASE.md "Local MariaDB"); `npm run dev` starts it too |
 | adminer (Docker, web UI of the MariaDB; optional) | **13380** | `npm run dev:db adminer` |
 
 `ALLOWED_ORIGINS` (dev): nothing to list for the ports above (automatic on the dev server, see above); a local
@@ -606,9 +606,8 @@ Language-neutral content store files (locale `_`), types/validation/schemas in `
 - Viewer `/<toon>/credits` (printed URL, unchanged): store (published) → `resolveCredits()` in the reader's locale →
   `CreditsView` (@scutoons/reader, also the creator's preview); fallback while a toon has no `credits.json`: the old
   static `<toon>/<locale>/credits.json` (current locale, then `de`).
-- Seed / production: `shared/content/seed/` (written by `shared/content/scripts/migrate-credits.ts`), imported with
-  `bin/console import-content shared/content/seed` (the command accepts `_/{credits,people,roles}.json`); production SQL
-  = `shared/content/seed/credits-seed.mysql.sql` (`--sql`, idempotent) – **not yet run on production**.
+- Production has them since the Oct 3 content seed; the seed files and `migrate-credits.ts` were deleted in CUTOVER 10.30
+  (local dev = production's export, `npm run dev:db -- seed`).
 - `Season.credits` is deprecated (creator shows it read-only); the old per-locale `credits.json` files stay as fallback
   until production has the store files, then they can go.
 
@@ -654,9 +653,8 @@ Language-neutral content store files (locale `_`), types / validation / schemas 
 - Removed on the owner's request (keep it small): shared groups / affiliations (`groups.json`), the cast group
   (`lead/support/…`, nothing read it), the `mannequin` field. A local store version of `scutoons/_/groups.json` may
   exist – nothing reads it.
-- Seed / production: `shared/content/seed/` (`shared/content/scripts/migrate-characters.ts`), import
-  `bin/console import-content shared/content/seed --only=characters,moods,asset-requests,cast` (entity kinds, DATA.md);
-  production SQL `shared/content/seed/characters-seed.mysql.sql` (idempotent) – **not yet run on production**. The
+- Production has them since the Oct 3 content seed; the seed files and `migrate-characters.ts` were deleted in CUTOVER
+  10.30 (local dev = production's export). The
   `characters/` files must be on the CDN first (bunny; missing ones via admin → Assets), or Cat Pope's avatar in the reader
   breaks. (The old chapter 6 VN test bed with the only character refs, `chapter6/scene-200.json`, was removed 2026-09-30;
   production never had it in the store – nothing to migrate there.)
@@ -847,7 +845,7 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
   admin's Settings page; without it the API uses the config defaults: scans 1000/h, lookups 120/h), then the seeds if not done: edition numbers
   (`php bin/console backfill-edition-numbers --sql` locally → run the output) and the content store
   (`shared/content/seed/content-seed.mysql.sql` = `php bin/console import-content shared/content/seed --sql`, every toon's
-  content incl. characters + credits). server/docs/DATABASE.md, agents/DATA.md §4.
+  content incl. characters + credits; seed removed in 10.30). server/docs/DATABASE.md, agents/DATA.md §4.
 
 - Embassy stores (2026-10-02, branch `stores`): `2026-10-02-embassy-stores` (additive: `embassy_orgs.listed`,
   `independent`, `address`, `opening`, `carries`) – run it right after `2026-10-01-embassy` (it needs that table; both

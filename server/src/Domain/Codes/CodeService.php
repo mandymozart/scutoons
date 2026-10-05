@@ -218,13 +218,13 @@ final class CodeService
 
     /**
      * The claim itself – call inside Database::transaction() (the login service uses it to create an account and claim
-     * its product code atomically). Locks the qr row (MySQL FOR UPDATE; SQLite: the transaction's write lock).
+     * its product code atomically). Locks the qr row (FOR UPDATE).
      * No events are logged here. Returns true when newly claimed.
      * @param array<string, mixed> $user
      */
     public function claimInTransaction(array $user, string $code, ?string $itemId, ?string $variant): bool
     {
-        $row = $this->db->one('SELECT * FROM qr WHERE code = ?' . $this->db->forUpdate(), [$code]);
+        $row = $this->db->one('SELECT * FROM qr WHERE code = ? FOR UPDATE', [$code]);
         if (!$row) throw new ApiError(404, 'not_found', 'This code does not exist.');
         $this->assertValid($row);
         if ($row['claimed_by'] === $user['id']) return false;

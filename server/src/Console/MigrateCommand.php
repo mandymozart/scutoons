@@ -23,11 +23,9 @@ final class MigrateCommand extends Command
     protected function configure(): void
     {
         $this->addOption('status', null, InputOption::VALUE_NONE, 'Only list the migrations and whether they are applied')
-            ->addOption('db', null, InputOption::VALUE_REQUIRED, 'Another SQLite file instead of the configured database')
             ->setHelp(<<<'HELP'
-                Applies the dated migrations that match the database driver (*.sqlite.sql for SQLite, *.mysql.sql for
-                MySQL/MariaDB) and records them in schema_migrations (same names as before, nothing re-runs). A fresh
-                database first gets migrations/schema/qr.<driver>.sql.
+                Applies the dated migrations (migrations/mysql/*.mysql.sql) and records them in schema_migrations (same
+                names as before, nothing re-runs). A fresh database first gets migrations/schema/qr.mysql.sql.
 
                 Production (shared host, no shell): run the pending *.mysql.sql files in phpMyAdmin – they are idempotent.
                 HELP);
@@ -35,10 +33,8 @@ final class MigrateCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $file = $input->getOption('db');
-        $db = is_string($file) ? Database::sqlite($file) : $this->db;
-        $runner = new MigrationRunner($db, $this->settings->root() . '/migrations');
-        $output->writeln('Database driver: ' . $db->driver());
+        $runner = new MigrationRunner($this->db, $this->settings->root() . '/migrations');
+        $output->writeln('Database: ' . (string) $this->db->value('SELECT DATABASE()'));
         if ($input->getOption('status')) {
             if ($runner->needsBaseSchema()) $output->writeln('  pending  base schema (no qr table)');
             foreach ($runner->status() as $name => $appliedAt) {

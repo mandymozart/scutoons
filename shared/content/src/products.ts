@@ -1,5 +1,5 @@
-// Shop data contract: GET /api/products/ (server config/products.json, version 2) and GET /api/products/featured/
-// (config/featured-products.json). Was the viewer's static/api/*.json + lib/components/shop/products/shop.ts.
+// Shop data contract: GET /api/products/ (the shop catalog, version 2) and GET /api/products/featured/
+// (the landing page's list; both from the catalog tables, agents/CATALOG.md). Was the viewer's static/api/*.json + lib/components/shop/products/shop.ts.
 // One product per Bandcamp item; colours / test-press numbers are variants.
 // `item_id` links to the item catalog (/api/items/), `edition_id` to the server's editions.json.
 

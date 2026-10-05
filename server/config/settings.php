@@ -9,11 +9,8 @@ declare(strict_types=1);
  * @return array<string, string>
  */
 return [
-    // ── Database: SQLite when DB_SQLITE_PATH is set (local), else MySQL/MariaDB (production) ──────────────
-    // '' = by DB_SQLITE_PATH | mysql = MySQL/MariaDB even when DB_SQLITE_PATH is set (the local MariaDB container:
-    // npm run dev:db sets QR_DB_DRIVER=mysql + QR_DB_* for the API and the console – docs/DATABASE.md)
-    'DB_DRIVER' => '',
-    'DB_SQLITE_PATH' => '',
+    // ── Database: MariaDB (production; locally the Docker container – npm run dev:db sets QR_DB_* for the API and the
+    // console, docs/DATABASE.md "Local MariaDB")
     'DB_HOST' => 'localhost',
     'DB_PORT' => '',
     'DB_NAME' => '',
@@ -144,13 +141,7 @@ return [
     // (Domain\Characters\CharacterUnlocks). JSON { "<character>": ["<look>", …] }. Owner 2026-09-30: Cat Pope, swim + naked.
     'AVATAR_DEFAULT_UNLOCKS' => '{"catpope":["swim","naked"]}',
 
-    // ── Data files (config/) and private storage ───────────────────────────────────────────────────────
-    'ITEMS_PATH' => 'config/items.json',
-    'EDITIONS_PATH' => 'config/editions.json',
-    'TOONS_PATH' => 'config/toons.json',
-    // Shop catalog + homepage featured products (GET /api/products/, /api/products/featured/)
-    'PRODUCTS_PATH' => 'config/products.json',
-    'FEATURED_PRODUCTS_PATH' => 'config/featured-products.json',
+    // ── Caches and private storage (the catalog is in the database: agents/CATALOG.md) ───────────────────
     // Composed answers of the library endpoints /api/library/* (agents/DATA.md): auto (APCu when enabled, else files
     // in CACHE_PATH) | apcu | file | none. The keys contain the version ids, so publishing needs no invalidation.
     'CACHE_DRIVER' => 'auto',
@@ -158,8 +149,6 @@ return [
     // 1 = toons / chapters with the status `draft` are readable through the public library endpoints (local
     // development, like the viewer's dev mode); production 0. Creators read drafts with ?draft=1 either way.
     'CONTENT_SHOW_DRAFTS' => '0',
-    // What each code type grants (server-only, never served)
-    'PERMISSIONS_PATH' => 'config/permissions.json',
     // Batch manifests, QR SVGs, certificates, signatures, ZIPs (was generate/files/)
     'FILES_PATH' => 'storage/files',
     // ML-DSA-65 keypair of the certificate signatures (was api/keys/keypair.json)

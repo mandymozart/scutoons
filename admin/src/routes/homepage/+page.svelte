@@ -48,7 +48,6 @@
 	const same = (a: FeaturedProduct[], b: FeaturedProduct[]) =>
 		a.length === b.length && a.every((x, i) => x.product === b[i].product && (x.variant ?? '') === (b[i].variant ?? ''));
 	const changed = $derived(current !== null && !same(draft, current.items));
-	const isDefault = $derived(current !== null && same(draft, current.default));
 	const max = $derived(current?.max ?? 12);
 
 	function move(index: number, by: number) {
@@ -72,15 +71,15 @@
 		adding = '';
 	}
 
-	async function save(items: FeaturedProduct[] | null) {
-		if (items !== null && !changed) {
+	async function save(items: FeaturedProduct[]) {
+		if (!changed) {
 			toaster.addToast({ message: m['homepage.nothing_changed'](), type: 'info' });
 			return;
 		}
 		saving = true;
 		try {
 			apply(await admin.saveFeatured(items));
-			toaster.addToast({ message: items === null ? m['homepage.reset_done']() : m['homepage.saved'](), type: 'success' });
+			toaster.addToast({ message: m['homepage.saved'](), type: 'success' });
 		} catch (e) {
 			toaster.addToast({ message: errorText(e), type: 'error' });
 		} finally {
@@ -98,21 +97,12 @@
 	{#snippet info()}<PageHelp page="homepage" />{/snippet}
 	{#snippet start()}
 		{#if changed}<span class="unsaved">{m['homepage.unsaved']()}</span>
-		{:else if current}
-			<span class="muted">
-				{current.stored && current.updated_at
-					? m['homepage.last_change']({ at: minute(current.updated_at), by: (current.updated_by ?? '—').replace(/^admin:/, '') })
-					: m['homepage.state_default']()}
-			</span>
+		{:else if current?.updated_at}
+			<span class="muted">{m['homepage.last_change']({ at: minute(current.updated_at), by: (current.updated_by ?? '—').replace(/^admin:/, '') })}</span>
 		{/if}
 	{/snippet}
 	{#snippet end()}
 		<Button size="sm" variant="secondary" href={homepage} target="_blank" rel="noopener">{m['homepage.preview']()}</Button>
-		{#if current?.stored}
-			<Button size="sm" variant="secondary" onclick={() => save(null)} disabled={saving} data-testid="featured-reset">{m['homepage.reset']()}</Button>
-		{:else if current && !isDefault}
-			<Button size="sm" variant="secondary" onclick={() => (draft = current ? current.default.map((d) => ({ ...d })) : [])} disabled={saving}>{m['homepage.reset']()}</Button>
-		{/if}
 		<Button size="sm" onclick={() => save($state.snapshot(draft))} disabled={!current || saving || !changed} data-testid="featured-save">
 			{saving ? m['homepage.saving']() : m['homepage.save']()}
 		</Button>

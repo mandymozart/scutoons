@@ -36,9 +36,6 @@ JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{ch
   **error** and a width ≠ 390 as a warning; the creator reads the size from the CDN whenever an image path is set.
 - A slice can be a video (`video: { src, loop?, autoplay? }`, H.264 MP4 ≤ 3 MB, new name per version): muted, inline,
   looping, plays in view, poster = `image` (the only image with reduced motion and in older viewers).
-- `node --experimental-transform-types --no-warnings shared/content/scripts/slice-sizes.ts <chapter/scene files…> [--webp]
-  [--default-missing] [--dry-run]` fills the sizes from the local CDN copy (`--webp` also points JPG slices to their WebP
-  by the naming rule); then `import-content … --update` publishes them to the store.
 
 ## Characters: glossary and the image fallback rule
 
@@ -100,36 +97,26 @@ $schema = json_decode(file_get_contents('…/shared/content/schema/chapter.schem
 
 ## Scripts
 
-- `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-credits.ts [--toon=catpope]`
-  (from the repo root) converts the old `shared/content/legacy/<toon>/{de,en}/credits.json` + season `credits` + toon
-  `authors` into `seed/` (`scutoons/_/people.json`, `scutoons/_/roles.json`, `<toon>/_/credits.json`) and prints a report
-  (ambiguous roles, aliases, possible duplicates). Import: `php server/bin/console import-content shared/content/seed`
-  (`--sql` = production statements, committed as `seed/credits-seed.mysql.sql`).
+Production is the content's source of truth (CUTOVER 10.30): the committed seed (`seed/`, `legacy/`) and the one-off
+migration scripts (`migrate-credits.ts`, `migrate-characters.ts`, `migrate-map.ts`, `migrate-scene-refs.ts`,
+`slice-sizes.ts`) are gone; local dev loads production's export (`npm run dev:db`, server/docs/DATABASE.md). The unit
+tests read a small fixture in `server/tests/fixtures/content/`.
 
-- `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-characters.ts` converts the old
-  `shared/content/legacy/<toon>/{de,en}/characters.json` (→ regular persona, default look) and the owner's additions
-  (personas incl. the former characters plf / cat / mountain-tiger, looks, transitions, A-poses, casts per season) into
-  `seed/scutoons/_/{characters,moods,asset-requests}.json`
-  + `seed/<toon>/_/cast.json`, takes every image found in the convention folders `media/characters/<character>[-<persona>]/`
-  (the WebP wins over the PNG of the same name)
-  and compares `resolveCast()` with the old files, then imports them into the local content store
-  (`php server/bin/console import-content shared/content/seed --only=characters,moods,asset-requests,cast --update`;
-  `--no-import` skips it). Production statements: the same with `--sql`, committed as `seed/characters-seed.mysql.sql`
-  (and `seed/content-seed.mysql.sql` for everything).
-- `node --experimental-transform-types --no-warnings shared/content/scripts/migrate-scene-refs.ts [--dry-run] <files>`
-  rewrites VN character refs into the current form (`transformSceneRefs()`).
-
-- `node --experimental-transform-types --no-warnings shared/content/scripts/make-sandbox.ts [--from=<api base>] [--no-import] [--dry-run]`
-  generates the **sandbox toon** "Cat Pope's walk" (dev + creator only, hidden in production: toon, season chapters
-  all `draft`) from the registry + moods (seed files, or the store with `--from=http://localhost:9000/api` and a creator
-  session in `SCUTOONS_TOKEN`) into the interchange folder `seed/sandbox/` (rewritten completely): one chapter per encounter (every other character, then Cat
+- `node --experimental-transform-types --no-warnings shared/content/scripts/make-sandbox.ts [--out=<dir>] [--no-import] [--dry-run]`
+  generates the **sandbox toon** "Cat Pope's walk" (dev + creator only, never in production: toon, season chapters
+  all `draft`) from the newest registry + moods of the local dev database into the interchange folder `--out` (default
+  `logs/dev/sandbox`, gitignored, rewritten completely): one chapter per encounter (every other character, then Cat
   Pope's own personas), one VN group per persona × look; everyone shows every mood of every look, Cat Pope mimics it
   (or is `sad` when his regular look lacks it), look changes use the registry transitions, Cat Pope tries each look.
-  Then it imports it (`php server/bin/console import-content shared/content/seed --toon=sandbox --update`; `--no-import`
-  skips that; the production seed `--sql` leaves the sandbox out). Re-run after adding characters, personas, looks,
-  moods or transitions. It is also the VN test bed. A third language `ko` (2026-10-02, for the creator's i18n switch):
-  the `de` files copied with Korean toon / season / chapter titles and descriptions (`PARTIAL` in the script; the
-  dialogue is still German, like a translation in progress); `toons.json` lists `ko` for the sandbox.
+  Then it imports it (`php server/bin/console import-content logs/dev/sandbox --toon=sandbox --update`; `--no-import`
+  skips that). `npm run dev:db` runs it after loading the production seed; `npm run dev:db sandbox` runs it alone.
+  Re-run after adding characters, personas, looks, moods or transitions. It is also the VN test bed. A third language
+  `ko` (2026-10-02, for the creator's i18n switch): the `de` files copied with Korean toon / season / chapter titles and
+  descriptions (`PARTIAL` in the script; the dialogue is still German, like a translation in progress); `toons.json`
+  lists `ko` for the sandbox.
+- `node --experimental-transform-types --no-warnings shared/content/scripts/import-screenplay.ts --dir=<dir> --toon= --locale=`
+  writes a screenplay as the toon's `script` entity file (default out `logs/dev/screenplay`); then
+  `npm run dev:db -- console import-content ../logs/dev/screenplay --toon=<toon> --only=script [--update]`.
 - `npm run schema -w @scutoons/content` regenerates `schema/*.schema.json` (commit the result).
 - `npm run check -w @scutoons/content` = `tsc --noEmit` + fails when a committed schema is out of date + the unit tests (`npm test`).
 

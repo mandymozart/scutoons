@@ -39,9 +39,8 @@ final class ImportContentCommand extends Command
 
     protected function configure(): void
     {
-        $this->addArgument('root', InputArgument::REQUIRED, 'A folder in the interchange layout (e.g. shared/content/seed, an export-content folder)')
+        $this->addArgument('root', InputArgument::REQUIRED, 'A folder in the interchange layout (an export-content folder, the test fixture server/tests/fixtures/content)')
             ->addOption('toon', null, InputOption::VALUE_REQUIRED, 'Only this toon')
-            ->addOption('db', null, InputOption::VALUE_REQUIRED, 'Use this SQLite file instead of the configured database (e.g. a copy for tests)')
             ->addOption('update', null, InputOption::VALUE_NONE, 'Stored entities get a new published version when the file differs')
             ->addOption('dry-run', null, InputOption::VALUE_NONE, 'Only report')
             ->addOption('sql', null, InputOption::VALUE_NONE, 'Print idempotent MySQL INSERTs instead of writing (production seed for phpMyAdmin)')
@@ -53,8 +52,8 @@ final class ImportContentCommand extends Command
                 entity as a published version (author NULL, message "import"), keyed by its entity key.
                 Idempotent: entities already in the store are skipped (the store is the source of truth once seeded);
                 --update adds a new published version where the file differs.
-                Production: bin/console import-content shared/content/seed --sql > content-seed.sql, then import that file in
-                phpMyAdmin after migrations/mysql/2026-09-30-entity-keys.mysql.sql. Each statement skips stored entities.
+                --sql prints the same as guarded INSERTs (each skips stored entities) for phpMyAdmin. Production is the source of
+                content (the creator); a local database gets it from db:prod-seed.
                 The dev-only sandbox toon (DEV_ONLY_TOONS) is left out of --sql unless named with --toon; the creator-only
                 screenplays (script:<toon>:<l>, EntityKey::CREATOR_ONLY_KINDS) unless named with --only=script.
                 HELP);
@@ -65,7 +64,7 @@ final class ImportContentCommand extends Command
         $errors = $output instanceof ConsoleOutputInterface ? $output->getErrorOutput() : $output;
         $root = (string) $input->getArgument('root');
         if (!is_dir($root)) {
-            $errors->writeln('Usage: bin/console import-content <folder> [--toon=<id>] [--db=<sqlite file>] [--update] [--dry-run] [--sql] [--only=<kinds>]');
+            $errors->writeln('Usage: bin/console import-content <folder> [--toon=<id>] [--update] [--dry-run] [--sql] [--only=<kinds>]');
             return 2;
         }
         $root = rtrim(str_replace('\\', '/', (string) realpath($root)), '/');
@@ -78,14 +77,6 @@ final class ImportContentCommand extends Command
         $report = fn(string $line) => $sqlMode ? $errors->write($line) : $output->write($line);
 
         $db = $this->db;
-        $dbFile = $input->getOption('db');
-        if (is_string($dbFile)) {
-            if (!is_file($dbFile)) {
-                $errors->writeln("No such database file: $dbFile");
-                return 2;
-            }
-            $db = Database::sqlite($dbFile);
-        }
         $store = new EntityStore($db, $this->clock, $this->settings);
 
         if ($sqlMode) {

@@ -10,19 +10,19 @@ The public pages of **qr.scutoons.com** (QR landing page `/?c=CODE`, `/verify.ht
 transition) here byte for byte. It is a **trusted proxy**: with `QR_PROXY_SECRET` the API takes the client IP and
 device id it forwards.
 
-PHP 8.3 · [Slim 4](https://www.slimframework.com/) + PHP-DI · Composer (PSR-4 `Scutoons\` → `src/`) · MySQL/MariaDB in
-production, SQLite locally · PHPUnit · PHPStan (level 8). Shared hosting friendly: no long-running process, no shell
+PHP 8.3 · [Slim 4](https://www.slimframework.com/) + PHP-DI · Composer (PSR-4 `Scutoons\` → `src/`) · MySQL/MariaDB
+(production; locally MariaDB in Docker) · PHPUnit · PHPStan (level 8). Shared hosting friendly: no long-running process, no shell
 needed in production (`vendor/` is built by CI and uploaded).
 
 The HTTP contract of the public API is `agents/ITEMS.md` in the monorepo (it must not change); the admin API is its
-section "Admin API". **Printed URLs never change** (agents/PLATFORM.md "RULE") – `tests/public-urls.php` guards them.
+section "Admin API". **Printed URLs never change** (agents/PLATFORM.md "RULE").
 
 ## Local setup
 
 ```bash
 composer install
 cp config.local.php.example config.local.php     # set AUTH_SECRET: php -r "echo bin2hex(random_bytes(32));"
-php bin/console migrate                           # creates/upgrades db/local.sqlite
+npm run dev:db                                    # (repo root) MariaDB container + migrate + production seed + API
 composer serve                                    # http://localhost:9000  (bin/dev-serve.mjs: php -S workers + OPcache)
 ```
 
@@ -33,9 +33,10 @@ composer serve                                    # http://localhost:9000  (bin/
   single-process `php -S` on the same port. Numbers: agents/PERFORMANCE.md.
 - Legacy admin SPA: http://localhost:9000/generate/ (password = `GENERATE_PASSWORD`)
 - Login mails land in `logs/mail.log` (`MAIL_TRANSPORT = log`).
-- Database: SQLite (`db/local.sqlite`) by default; `npm run dev:db` (root) switches the local stack to a MariaDB
-  container – the production engine – and `npm run dev:db sqlite` back (docs/DATABASE.md "Local MariaDB").
-- Local-only files (gitignored): `config.local.php`, `db/local.sqlite`, `storage/files/` (batch output),
+- Database: MariaDB only – the Docker container from `npm run dev:db` (root; 127.0.0.1:13306, scutoons/scutoons, as in
+  `config.local.php.example`). Content + catalog come from production: `db/prod-seed.sql` (phpMyAdmin export) loaded by
+  `db:prod-seed` (docs/DATABASE.md "Local MariaDB").
+- Local-only files (gitignored): `config.local.php`, `db/prod-seed*.sql`, `storage/files/` (batch output),
   `storage/keys/keypair.json` (signing keys), `logs/`.
 - Dev ports: `../shared/dev-ports.json` (the single source; viewer 8000, CDN 8001, API 9000, qr 9001, creator 10000,
   admin 11000, shop 12000, embassy 13000, MariaDB container 13306, Adminer 13380). On the dev server (`php -S`) CORS allows every port of that file
@@ -46,14 +47,13 @@ composer serve                                    # http://localhost:9000  (bin/
 | Command | What |
 |---|---|
 | `composer serve` | dev server on :9000 |
-| `composer test` | PHPUnit **and** every HTTP contract suite against freshly started servers on a copy of the DB |
-| `composer test:unit` / `composer test:contract` | only one of the two |
+| `composer test` | PHPUnit (on the MariaDB of `phpunit.xml.dist`: `TEST_DB_HOST/PORT/NAME/USER/PASS`, default 127.0.0.1:13306 `scutoons_test`) |
 | `composer analyse` | PHPStan |
-| `npm run dev:db test` (root) · `php -d extension=pdo_mysql vendor/bin/phpunit -c phpunit.mysql.xml` | PHPUnit on the local MariaDB container (docs/DATABASE.md "Local MariaDB") |
+| `npm run dev:db test` (root) | PHPUnit on the local MariaDB container (docs/DATABASE.md "Local MariaDB") |
 | `php bin/console migrate [--status]` | apply pending migrations |
 | `php bin/console roles grant\|revoke\|list <email> [role]` | account roles (member, admin, creator) |
-| `php bin/console catalog:seed [--replace]` · `catalog:export-sql [--write]` | empty catalog tables ← `config/*.json` · the seed as the INSERTs of the `2026-10-04-catalog` migrations (agents/CATALOG.md) |
-| `php bin/console import-content shared/content/seed [--sql]` · `export-content <dir>` | content in/out of the store in the interchange format (`--sql` = production seed; agents/DATA.md) |
+| `php bin/console db:prod-seed [--from=<dump>] [--force]` | production's content + catalog + asset tables (`db/prod-seed.sql`) into the local database; same file again = no-op (docs/DATABASE.md) |
+| `php bin/console import-content <dir> [--sql]` · `export-content <dir>` | content in/out of the store in the interchange format (agents/DATA.md) |
 | `php bin/console backfill-edition-numbers [--sql]` · `report-orphan-codes` | edition numbers from batch manifests |
 
 ## Structure
@@ -68,14 +68,13 @@ src/Infrastructure/ Config (Settings), Database (PDO, MigrationRunner), Mail (Tr
                    Storage (FileStore), Templates, Clock
 src/Console/       bin/console commands
 src/Kernel.php     builds the container and the Slim app (middleware order)
-config/            settings.php (defaults of every setting), container.php (DI), routes.php (every URL),
-                   the catalog seed: items.json, products.json, featured-products.json, editions.json, toons.json,
-                   permissions.json (the catalog is in the database – catalog:seed, agents/CATALOG.md)
+config/            settings.php (defaults of every setting), container.php (DI), routes.php (every URL)
+                   (the catalog is in the database – agents/CATALOG.md)
 templates/         login mails
-migrations/        sqlite/, mysql/ (dated, recorded in schema_migrations), schema/ (base schema), mysql/legacy/
+migrations/        mysql/ (dated, recorded in schema_migrations), schema/ (base schema), mysql/legacy/
 bin/console        command line
-tests/             Unit/ (PHPUnit) + contract suites: api-smoke, content-smoke, claim-race, admin-smoke,
-                   and ../qr/tests/public-urls.php; run-contract.php starts the API + the qr app and runs them all
+tests/             Unit/ (PHPUnit); fixtures/catalog (the frozen 2026-10-04 catalog), fixtures/content (TS tests)
+db/                prod-seed.sql (gitignored, production export for local dev)
 storage/           private files (batch output, keys) – not in git, never served
 tools/keys/        one-time key generation pages (never deployed)
 .htaccess          only for the old host layout (document root = this folder): forwards into public/

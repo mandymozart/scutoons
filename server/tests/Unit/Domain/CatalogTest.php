@@ -24,9 +24,9 @@ use Scutoons\Support\Json;
 use Scutoons\Tests\TestCase;
 
 /**
- * The catalog in the database (agents/CATALOG.md): the migrated tables serve what the config files served, the seed /
- * export tools, the code constants (slots, stats) against @scutoons/content, validation, history + undo, toon creation,
- * the folds of the retired settings, the fallback before the migration.
+ * The catalog in the database (agents/CATALOG.md): the migrated tables serve the fixture (server/tests/fixtures/catalog
+ * = the frozen 2026-10-04 snapshot of the migration), seeding from catalog files, the code constants (slots, stats)
+ * against @scutoons/content, validation, history + undo, toon creation, the folds of the retired settings.
  */
 final class CatalogTest extends TestCase
 {
@@ -34,7 +34,12 @@ final class CatalogTest extends TestCase
 
     private static function config(string $file): string
     {
-        return (string) file_get_contents(self::root() . "/config/$file");
+        return (string) file_get_contents(self::root() . '/' . CatalogSeed::FIXTURE . "/$file");
+    }
+
+    private static function fixture(): CatalogSeed
+    {
+        return new CatalogSeed(self::root() . '/' . CatalogSeed::FIXTURE);
     }
 
     /** JSON with objects kept, slashes / unicode unescaped, 1.0 kept – compares documents, not their whitespace */
@@ -44,8 +49,8 @@ final class CatalogTest extends TestCase
     }
 
     /**
-     * What GET /api/items/ answered when it read config/items.json: the file (with its slots / stats, now code)
-     * decoded as arrays, encoded with the API's flags
+     * What GET /api/items/ answers for the fixture's items.json: the file (+ slots / stats, which are code) decoded as
+     * arrays, encoded with the API's flags
      */
     private static function servedItemsBefore(): string
     {
@@ -72,25 +77,12 @@ final class CatalogTest extends TestCase
         self::assertSame(['1_catpope_dago', '2_catpope_beetles', '3_catpope_vinyl'], array_column($this->db->all('SELECT id FROM catalog_editions ORDER BY position'), 'id'));
         self::assertSame(['dago_hoodie', '1_catpope_dago'], array_values($this->db->one("SELECT item_id, edition_id FROM catalog_products WHERE id = 'dago_hoodie'") ?? []), 'real relation columns');
         self::assertSame(['dago_hoodie', 'beige'], array_values($this->db->one("SELECT product_id, variant_id FROM catalog_featured WHERE id = 'dago_hoodie:beige'") ?? []));
-        // the seed command refills from the files: same answers
-        $counts = $this->get(CatalogSeed::class)->seed($this->db, true);
+        // seeding from the files replaces the rows: same answers
+        $counts = self::fixture()->seed($this->db, true);
         self::assertSame(27, $counts['items']);
         $this->get(CatalogStore::class)->forget();
-        $this->assertServesTheSeedFiles('catalog:seed --replace');
-        self::assertSame(array_fill_keys(array_keys(CatalogStore::KINDS), null), $this->get(CatalogSeed::class)->seed($this->db), 'catalog:seed leaves filled tables alone');
-    }
-
-    public function testTheMigrationsCarryTheSeed(): void
-    {
-        foreach (['mysql', 'sqlite'] as $driver) {
-            $sql = (string) file_get_contents(self::root() . "/migrations/$driver/2026-10-04-catalog.$driver.sql");
-            $begin = (int) strpos($sql, "\n", (int) strpos($sql, '-- BEGIN catalog seed')) + 1;
-            $block = substr($sql, $begin, (int) strpos($sql, '-- END catalog seed') - $begin);
-            self::assertSame(implode("\n", $this->get(CatalogSeed::class)->inserts($driver)) . "\n", $block,
-                "$driver: the migration's INSERTs are the seed files (php bin/console catalog:export-sql --write) – the database is the catalog now, change it in the admin, not in server/config");
-        }
-        self::assertSame("'a\\\\b ''c'''", CatalogSeed::literal("a\\b 'c'", 'mysql'));
-        self::assertSame("'a\\b ''c'''", CatalogSeed::literal("a\\b 'c'", 'sqlite'));
+        $this->assertServesTheSeedFiles('seeded from the fixture');
+        self::assertSame(array_fill_keys(array_keys(CatalogStore::KINDS), null), self::fixture()->seed($this->db), 'filled tables are left alone');
     }
 
     public function testTheMigrationFoldsTheRetiredSettings(): void
@@ -99,35 +91,20 @@ final class CatalogTest extends TestCase
         foreach (CatalogStore::KINDS as $def) $this->db->exec('DELETE FROM ' . $def['table']);
         $this->db->run('INSERT INTO settings (`key`, `value`, updated_at, updated_by) VALUES (?, ?, ?, ?)', [ItemRespawn::SETTING, '{"cucumber":{"default":"visit","min":"visit","max":{"days":1}},"tuna_can":null}', '2026-10-02 10:00:00', 'admin:old@example.com']);
         $this->db->run('INSERT INTO settings (`key`, `value`, updated_at, updated_by) VALUES (?, ?, ?, ?)', [FeaturedProducts::SETTING, '[{"product":"scorpion_amulet"},{"product":"dago_hoodie","variant":"black"}]', '2026-10-03 10:00:00', 'admin:old@example.com']);
-        $driver = $this->db->driver();
         $runner = new MigrationRunner($this->db, self::root() . '/migrations');
-        $runner->runFile(self::root() . "/migrations/$driver/2026-10-04-catalog.$driver.sql");
-        $runner->runFile(self::root() . "/migrations/$driver/2026-10-04-catalog.$driver.sql"); // idempotent
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-04-catalog.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-04-catalog.mysql.sql'); // idempotent
         $store = $this->get(CatalogStore::class);
         $store->forget();
         self::assertSame(['default' => 'visit', 'min' => 'visit', 'max' => ['days' => 1]], $store->get('items', 'cucumber')['respawn'] ?? null);
         $tuna = $store->get('items', 'tuna_can');
         self::assertTrue(is_array($tuna) && array_key_exists('respawn', $tuna) && $tuna['respawn'] === null, 'an override null = never reappears');
         self::assertSame('admin:old@example.com', $store->row('items', 'cucumber')['updated_by'] ?? null);
-        self::assertSame($this->get(CatalogSeed::class)->entry('items', 'testo')['respawn'] ?? 'none', $store->get('items', 'testo')['respawn'] ?? 'none', 'the others keep the file\'s rule');
+        self::assertSame(self::fixture()->entry('items', 'testo')['respawn'] ?? 'none', $store->get('items', 'testo')['respawn'] ?? 'none', 'the others keep the file\'s rule');
         self::assertSame([['product' => 'scorpion_amulet'], ['product' => 'dago_hoodie', 'variant' => 'black']], $store->list('featured'));
         self::assertSame(['scorpion_amulet', 'dago_hoodie:black'], array_column($store->rows('featured'), 'id'));
         self::assertNull($this->db->value("SELECT 1 FROM settings WHERE `key` IN ('item_respawn', 'featured_products')"), 'the settings are retired');
         self::assertSame(27, count($store->rows('items')));
-    }
-
-    public function testBeforeTheMigrationTheFilesAreServedReadOnly(): void
-    {
-        foreach (CatalogStore::KINDS as $def) $this->db->exec('DROP TABLE ' . $def['table']);
-        $this->get(CatalogStore::class)->forget();
-        $this->assertServesTheSeedFiles('fallback');
-        self::assertTrue($this->get(CatalogStore::class)->isFallback());
-        try {
-            $this->get(CatalogAdmin::class)->put('toons', 'newtoon', (object) ['id' => 'newtoon', 'name' => 'New', 'redirectUrl' => 'https://scutoons.com/newtoon'], self::BY);
-            self::fail('a write without tables');
-        } catch (ApiError $error) {
-            self::assertSame([503, 'migration_pending'], [$error->status, $error->errorCode]);
-        }
     }
 
     public function testSlotsAndStatsAreTheContentPackagesConstants(): void
@@ -141,7 +118,7 @@ final class CatalogTest extends TestCase
         $ts = [];
         foreach ($rows as $r) $ts[$r[1]] = ['label' => ['de' => $r[2], 'en' => $r[3]], 'baseline' => (int) $r[4], 'half_life_days' => (int) $r[5]];
         self::assertSame(ReaderStats::DEFINITIONS, $ts);
-        self::assertArrayNotHasKey('slots', json_decode(self::config('items.json'), true), 'code, not seed data');
+        self::assertArrayNotHasKey('slots', json_decode(self::config('items.json'), true), 'code, not catalog data');
         self::assertArrayNotHasKey('stats', json_decode(self::config('items.json'), true));
     }
 
@@ -270,29 +247,23 @@ final class CatalogTest extends TestCase
         self::assertNull($this->get(Toons::class)->find('sandbox'), 'the sandbox is content only (dev), never a QR toon');
     }
 
-    public function testRespawnAndFeaturedAreCatalogWrites(): void
+    public function testFeaturedIsACatalogWrite(): void
     {
-        $respawn = $this->get(ItemRespawn::class);
-        self::assertTrue($respawn->update('cucumber', null, false, self::BY));
-        self::assertNull($respawn->rule('cucumber'));
-        $row = $this->get(CatalogAdmin::class)->history('items', 'cucumber')[0];
-        self::assertSame(['update', 'respawn'], [$row['action'], $row['note']]);
-        $state = array_column($respawn->state()['items'], null, 'id');
-        self::assertSame([true, null], [$state['cucumber']['overridden'], $state['cucumber']['effective']]);
-        self::assertFalse($state['testo']['overridden']);
-        self::assertTrue($respawn->update('cucumber', null, true, self::BY), 'reset → the seed\'s rule');
-        self::assertSame(['hours' => 6], $respawn->rule('cucumber')['default'] ?? null);
-
         $featured = $this->get(FeaturedProducts::class);
         self::assertTrue($featured->update([['product' => 'scorpion_amulet']], self::BY));
         self::assertSame('[{"product":"scorpion_amulet"}]', $featured->json());
-        self::assertSame([true, self::BY], [$featured->state()['stored'], $featured->state()['updated_by']]);
+        self::assertSame(self::BY, $featured->state()['updated_by']);
         $replace = $this->get(CatalogAdmin::class)->history('featured', null)[0];
         self::assertSame('replace', $replace['action']);
         $this->get(CatalogAdmin::class)->undo($replace['id'], self::BY);
         self::assertSame(self::canonical(self::config('featured-products.json')), self::canonical($featured->json()));
-        self::assertTrue($featured->update([['product' => 'scorpion_amulet']], self::BY));
-        self::assertTrue($featured->update(null, self::BY), 'null = back to the default');
-        self::assertFalse($featured->state()['stored']);
+        self::assertTrue($featured->update([], self::BY), 'an empty list = nothing featured (there is no default list)');
+        self::assertSame('[]', $featured->json());
+        try {
+            $featured->update(null, self::BY);
+            self::fail('null is not a list');
+        } catch (ApiError $error) {
+            self::assertSame('invalid_featured', $error->errorCode);
+        }
     }
 }

@@ -4,6 +4,20 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Production is the source of truth; MariaDB only (agents/CUTOVER.md 10.30, owner 2026-10-05): `bin/console db:prod-seed
+  [--from=<dump>] [--force]` loads production's content + catalog + asset tables (15 tables, from the gitignored
+  `db/prod-seed.sql` phpMyAdmin export or a full dump) into the local database in one transaction; the file's SHA-256 in
+  setting `dev_prod_seed` makes a re-run a no-op. SQLite removed: `migrations/sqlite/`, `migrations/schema/qr.sqlite.sql`,
+  `Database::sqlite()` / `isSqlite()` / `forUpdate()`, settings `DB_DRIVER` / `DB_SQLITE_PATH`, the `--db=` options of
+  migrate / import-content / export-content / content:check, `phpunit.mysql.xml` (`phpunit.xml.dist` targets MariaDB:
+  `TEST_DB_*`, default 127.0.0.1:13306 `scutoons_test`). Catalog files → test fixture `tests/fixtures/catalog/`
+  (`CatalogSeed` test-only); removed `catalog:seed`, `catalog:export-sql`, settings `ITEMS_PATH` / `EDITIONS_PATH` /
+  `TOONS_PATH` / `PRODUCTS_PATH` / `FEATURED_PRODUCTS_PATH` / `PERMISSIONS_PATH`, the file fallback (`fallback` field,
+  `503 migration_pending`), the featured default (`GET /api/admin/featured` = `{ items, updated_at, updated_by, max }`;
+  PUT `null` → `400 invalid_featured`, `[]` = nothing featured) and `GET|PUT /api/admin/catalog/respawn` (respawn is an
+  item field). Contract suites + `composer test:contract` removed (`composer test` = PHPUnit); CI = one MariaDB job
+  (PHPUnit + PHPStan). `assets:relayout` rewrites code paths only.
+
 - Embassy mail + the Ask panel per app (agents/EMBASSY.md "Automation", owner 2026-10-04): `POST /api/embassy/orgs/{id}/mail`
   sends a person's mail from the shared mailbox (`EMBASSY_MAIL_FROM`, own SMTP account; recipient must belong to the
   organisation, `409 do_not_contact`, opt-out line always added, threaded, `mail_log` template `embassy`, `mail_out`

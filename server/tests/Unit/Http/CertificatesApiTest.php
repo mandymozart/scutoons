@@ -120,7 +120,7 @@ final class CertificatesApiTest extends TestCase
     {
         self::assertSame([false, 'unknown_code', null, null, null, null], array_values(array_intersect_key($this->lookup('Nope1234'),
             array_flip(['valid', 'reason', 'code', 'registered', 'revoked', 'certificate']))));
-        // codes that differ only in case are two codes (qr.code is case-sensitive on SQLite and on MariaDB), each found exactly
+        // codes that differ only in case are two codes (qr.code is case-sensitive, utf8mb4_bin), each found exactly
         $this->code('membership', ['code' => 'twinCode']);
         $this->code('membership', ['code' => 'TwinCode']);
         self::assertSame(['twinCode', 'TwinCode'], [$this->lookup('twinCode')['code'], $this->lookup('TwinCode')['code']]);

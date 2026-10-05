@@ -82,7 +82,7 @@ final class AgentChats
     {
         $this->requireAvailable($app);
         $limit = max(1, min(200, $limit));
-        $count = $this->db->isSqlite() ? 'json_array_length(turns)' : 'JSON_LENGTH(turns)';
+        $count = 'JSON_LENGTH(turns)';
         [$appSql, $params] = $this->hasApp() ? [' AND app = ?', [$userId, $app]] : ['', [$userId]];
         $rows = $this->db->all("SELECT id, title, page, {$this->appColumn()}, created_at, updated_at, $count AS turn_count FROM agent_chats WHERE user_id = ?$appSql ORDER BY updated_at DESC, created_at DESC, id DESC LIMIT $limit", $params);
         return array_map(fn(array $row) => $this->meta($row) + ['turns' => (int) $row['turn_count']], $rows);
@@ -130,7 +130,7 @@ final class AgentChats
         $now = $this->clock->utc();
 
         $this->db->transaction(function () use ($userId, $id, $turns, $messages, $title, $hasPage, $page, $now, $app) {
-            $existing = $this->db->one("SELECT user_id, {$this->appColumn()} FROM agent_chats WHERE id = ?" . $this->db->forUpdate(), [$id]);
+            $existing = $this->db->one("SELECT user_id, {$this->appColumn()} FROM agent_chats WHERE id = ? FOR UPDATE", [$id]);
             if ($existing !== null && ((string) $existing['user_id'] !== $userId || (string) $existing['app'] !== $app)) throw self::notFound();
             if ($existing === null) {
                 $withApp = $this->hasApp();

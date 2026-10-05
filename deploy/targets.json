@@ -1,6 +1,6 @@
 {
 	"$comment": "Where every app is deployed – the ONE place for it (agents/PLATFORM.md 'Hosting layout & deployment'). Read by deploy/deploy.mjs, used by every workflow via .github/actions/deploy. Docs: deploy/README.md.",
-	"$status_comment": "status = the URL answering with the live git_sha (version.json / API health); watch = the paths whose change needs a redeploy of that target (\"!…\" excludes: the content seed is DB data, no app bundles it). Both used by deploy/changed.mjs (what the Deploy workflow uploads) and npm run deploy:status. qr and viewer moved to their real hosts at the cutover switch (2026-10-05).",
+	"$status_comment": "status = the URL answering with the live git_sha (version.json / API health); watch = the paths whose change needs a redeploy of that target (\"!…\" excludes). Both used by deploy/changed.mjs (what the Deploy workflow uploads) and npm run deploy:status. qr and viewer moved to their real hosts at the cutover switch (2026-10-05).",
 	"order": ["api", "qr", "viewer", "shop", "creator", "admin", "embassy"],
 	"protocols": {
 		"ftp": {
@@ -152,7 +152,6 @@
 			"watch": [
 				"viewer/**",
 				"shared/**",
-				"!shared/content/seed/**",
 				"package.json",
 				"package-lock.json",
 				".npmrc",
@@ -183,7 +182,6 @@
 			"watch": [
 				"shop/**",
 				"shared/**",
-				"!shared/content/seed/**",
 				"package.json",
 				"package-lock.json",
 				".npmrc",
@@ -213,7 +211,6 @@
 			"watch": [
 				"creator/**",
 				"shared/**",
-				"!shared/content/seed/**",
 				"package.json",
 				"package-lock.json",
 				".npmrc",
@@ -244,7 +241,6 @@
 			"watch": [
 				"admin/**",
 				"shared/**",
-				"!shared/content/seed/**",
 				"package.json",
 				"package-lock.json",
 				".npmrc",
@@ -278,7 +274,6 @@
 			"watch": [
 				"embassy/**",
 				"shared/**",
-				"!shared/content/seed/**",
 				"package.json",
 				"package-lock.json",
 				".npmrc",

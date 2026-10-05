@@ -16,13 +16,14 @@
 //
 // usage: node scripts/check-sso.mjs [--viewer=http://localhost:8000] [--creator=http://localhost:10000]
 //        [--admin=http://localhost:11000] [--shop=http://localhost:12000] [--embassy=http://localhost:13000]
-//        [--api=http://localhost:9000/api] [--mail-log=server/logs/mail.log] [--db=server/db/local.sqlite] [--verbose]
-// Local only (refuses a non-localhost API). --db is the API's SQLite file (the throw-away account is removed from it).
-import { execFileSync, spawn } from 'node:child_process';
+//        [--api=http://localhost:9000/api] [--mail-log=server/logs/mail.log] [--verbose]
+// Local only (refuses a non-localhost API). The throw-away account is removed from the local dev database again.
+import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { localSql } from './dev/db-env.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
@@ -36,12 +37,10 @@ const apps = {
 };
 const api = url('api', 'http://localhost:9000/api');
 const mailLog = resolve(root, String(opt['mail-log'] || 'server/logs/mail.log'));
-const db = resolve(root, String(opt.db || process.env.QR_DB_SQLITE_PATH || 'server/db/local.sqlite'));
 const TEST_USER = 'agent@scutoons.test';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]']);
 if (!LOCAL.has(new URL(api).hostname)) { console.error(`refusing: ${api} is not local`); process.exit(2); }
-if (!existsSync(db)) { console.error(`SQLite database not found: ${db} (--db)`); process.exit(2); }
 
 // ── API + DB helpers (the throw-away account) ───────────────────────────────────────────────────────────────────────
 async function call(method, path, body, headers = {}) {
@@ -68,13 +67,10 @@ async function otpFor(email, since) {
 	}
 	throw new Error(`no login mail for ${email} in ${mailLog}`);
 }
-function sql(statements, params = {}) {
-	const php = `$d=new PDO('sqlite:'.getenv('SSO_DB'));$d->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$p=json_decode(getenv('SSO_PARAMS'),true);$out=[];foreach(json_decode(getenv('SSO_SQL'),true) as $s){$st=$d->prepare($s);$st->execute(array_intersect_key($p,array_flip(array_map(fn($m)=>substr($m,1),(preg_match_all('/:\\w+/',$s,$m)?$m[0]:[])))));$out[]=$st->columnCount()?$st->fetchAll(PDO::FETCH_ASSOC):$st->rowCount();}echo json_encode($out);`;
-	return JSON.parse(execFileSync('php', ['-r', php], { env: { ...process.env, SSO_DB: db, SSO_SQL: JSON.stringify(statements), SSO_PARAMS: JSON.stringify(params) }, encoding: 'utf8' }));
-}
+const sql = localSql;
 const [testUser] = sql(['SELECT id FROM users WHERE email = :email'], { email: TEST_USER });
-if (!testUser.length) { console.error(`${TEST_USER} does not exist in ${db} – run npm run dev:test-user first`); process.exit(2); }
-const [promoRows] = sql([`SELECT code FROM qr WHERE type = 'promo' AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > datetime('now')) ORDER BY (code = 'promo_test') DESC, created_at LIMIT 1`]);
+if (!testUser.length) { console.error(`${TEST_USER} does not exist in the local database – run npm run dev:test-user first`); process.exit(2); }
+const [promoRows] = sql([`SELECT code FROM qr WHERE type = 'promo' AND revoked_at IS NULL AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY (code = 'promo_test') DESC, created_at LIMIT 1`]);
 if (!promoRows.length) { console.error('no local promo (signup) code in the DB'); process.exit(2); }
 const memberEmail = `sso-member-${Date.now().toString(36)}@scutoons.test`;
 /** The throw-away account: the normal signup (promo code → one-time code → verify), role member only */
@@ -248,7 +244,7 @@ try {
 
 	// ── 3b. the same account with `admin` (no `creator`) gets into the creator – "for now" (owner 2026-10-01) ─────
 	{
-		sql([`INSERT INTO user_roles (user_id, role_id, granted_at, granted_by) SELECT u.id, r.id, datetime('now'), 'check-sso' FROM users u, roles r WHERE u.email = :email AND r.name = 'admin'`], { email: memberEmail });
+		sql([`INSERT INTO user_roles (user_id, role_id, granted_at, granted_by) SELECT u.id, r.id, UTC_TIMESTAMP(), 'check-sso' FROM users u, roles r WHERE u.email = :email AND r.name = 'admin'`], { email: memberEmail });
 		await open(`${apps.creator}/`);
 		const problems = await signIn(memberEmail);
 		if (!(await waitFor(`document.querySelector('[data-testid="creator-bar"]') && true`))) problems.push(`creator: ${JSON.stringify(await state())}`);

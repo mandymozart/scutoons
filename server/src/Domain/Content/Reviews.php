@@ -248,7 +248,7 @@ final class Reviews
             $now = $this->clock->utc();
             $keys = [];
             foreach ($ids as $id) {
-                $row = $this->db->one('SELECT * FROM content_reviews WHERE id = ?' . $this->db->forUpdate(), [$id]);
+                $row = $this->db->one('SELECT * FROM content_reviews WHERE id = ? FOR UPDATE', [$id]);
                 if (!$row) throw new ApiError(404, 'not_found', "Unknown review $id.");
                 if ($row['state'] !== 'pending') throw new ApiError(409, 'review_closed', "Review $id is {$row['state']}.", ['id' => $id, 'state' => $row['state']]);
                 if ($row['author'] === $userId || !$this->hasRule($userId, (string) $row['toon'], self::REVIEWER)) {

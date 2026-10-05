@@ -13,15 +13,15 @@
 // talks to the workers over [::1], so PHP still sees REMOTE_ADDR ::1 (as with a plain `php -S localhost:<port>`).
 // It listens on both ::1 and 127.0.0.1: `localhost` then answers at once for every client (curl tries 127.0.0.1
 // first and waited ~200 ms for the IPv6 fallback when only ::1 listened).
-// Database: the one scripts/dev/db-env.mjs selects – SQLite (config.local.php) by default, the MariaDB container after
-// `npm run dev:db` (the workers get QR_DB_DRIVER=mysql + QR_DB_*, and pdo_mysql when php.ini lacks it). What this
-// server runs on is written to logs/dev/api-server-<port>.json (pid, db), so `npm run dev:db` can restart it after a switch.
+// Database: the local MariaDB container (scripts/dev/db-env.mjs; the workers get QR_DB_*, and pdo_mysql when php.ini
+// lacks it). The database it runs on is written to logs/dev/api-server-<port>.json (pid, db), so `npm run dev:db` can
+// restart it on another one (SCUTOONS_DB_NAME).
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { phpDbEnv, phpMysqlArgs, selectedDb, ROOT as REPO_ROOT } from '../../scripts/dev/db-env.mjs';
+import { MARIADB, phpDbEnv, phpMysqlArgs, ROOT as REPO_ROOT } from '../../scripts/dev/db-env.mjs';
 
 const args = Object.fromEntries(
 	process.argv.slice(2).map((a) => {
@@ -39,9 +39,9 @@ const opcache = args['no-opcache']
 	? []
 	: [...(loaded ? [] : ['-d', 'zend_extension=opcache']), '-d', 'opcache.enable_cli=1', '-d', 'opcache.validate_timestamps=1', '-d', 'opcache.revalidate_freq=0'];
 
-const db = selectedDb();
-const dbArgs = db === 'mariadb' ? phpMysqlArgs(php) : [];
-const env = { ...process.env, ...phpDbEnv(db) };
+const db = MARIADB.name;
+const dbArgs = phpMysqlArgs(php);
+const env = { ...process.env, ...phpDbEnv() };
 
 const pool = [];
 for (let i = 0; i < workers; i++) {
@@ -110,7 +110,7 @@ const servers = ['::1', '127.0.0.1'].map((host) => {
 	server.listen(port, host);
 	return server;
 });
-console.log(`API dev server on http://localhost:${port} -> ${workers} php -S workers (${pool.map((w) => w.port).join(', ')}), OPcache ${opcache.length ? 'on' : 'off'}, database ${db === 'mariadb' ? 'MariaDB container' : 'SQLite'}`);
+console.log(`API dev server on http://localhost:${port} -> ${workers} php -S workers (${pool.map((w) => w.port).join(', ')}), OPcache ${opcache.length ? 'on' : 'off'}, MariaDB database ${db}`);
 const stateFile = join(REPO_ROOT, `logs/dev/api-server-${port}.json`);
 try {
 	mkdirSync(dirname(stateFile), { recursive: true });

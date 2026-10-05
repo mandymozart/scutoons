@@ -48,5 +48,5 @@ reference for `cucumber_camera`).
 2. Owner approves; artist-made icons always win and can replace generated ones later (same file name).
 3. Upload as `catpope/items/<item_id>.png` in the creator / admin → Assets (the asset job makes the WebP twin); check
    it on a checkerboard / white / black background.
-4. The catalog (`server/config/items.json`) already points at `catpope/items/<item_id>.*` — switch the extension to
-   `.webp` if needed.
+4. The catalog (admin → Catalog → Items, the item's picture) already points at `catpope/items/<item_id>.*` — switch the
+   extension to `.webp` if needed.

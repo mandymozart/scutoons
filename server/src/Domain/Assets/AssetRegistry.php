@@ -137,7 +137,7 @@ final class AssetRegistry
             $assetId, $number, $file->key, $storage, $file->size, $file->sha256, $file->mime, $probe['width'] ?? null, $probe['height'] ?? null, $probe['duration'] ?? null,
             'current', $note, $createdAt ?? $this->clock->utc(), $by,
         ]);
-        // read the id before touch(): after an UPDATE, MySQL/MariaDB report 0 (SQLite keeps the last insert)
+        // read the id before touch(): after an UPDATE, MariaDB reports 0
         $id = $this->db->lastInsertId();
         $this->touch($assetId);
         return $id;

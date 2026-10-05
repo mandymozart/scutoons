@@ -30,7 +30,6 @@ final class InfrastructureTest extends TestCase
         file_put_contents($file, implode("\n", [
             '# production values',
             'DB_HOST=db.production.example',
-            'DB_SQLITE_PATH=',
             'AUTH_SECRET=production-secret-production-secret',
             'SMTP_PASS="x"',
             'export BUNNY_STORAGE_ZONE="scutoons"   # the zone',
@@ -74,50 +73,20 @@ final class InfrastructureTest extends TestCase
     {
         $runner = new MigrationRunner($this->db, self::root() . '/migrations');
         self::assertSame([], array_keys(array_filter($runner->status(), fn($applied) => $applied === null)), 'the template is fully migrated');
-        self::assertContains('2026-09-29-accounts-inventory.' . $this->db->driver() . '.sql', $runner->files());
+        self::assertContains('2026-09-29-accounts-inventory.mysql.sql', $runner->files());
         self::assertSame([], $runner->migrate(static fn() => null), 're-running applies nothing');
-
-        $fresh = $this->dir . '/fresh.sqlite';
-        $freshRunner = new MigrationRunner(Database::sqlite($fresh), self::root() . '/migrations');
-        self::assertTrue($freshRunner->needsBaseSchema());
-        self::assertSame($freshRunner->files(), $freshRunner->migrate(static fn() => null), 'every migration runs on the base schema');
-        self::assertTrue($freshRunner->tableExists('content_versions'));
-        self::assertTrue($freshRunner->tableExists('settings'));
+        // the test database itself was built from the base schema + every migration (MysqlTestDatabase)
+        self::assertFalse($runner->needsBaseSchema());
+        self::assertTrue($runner->tableExists('content_versions'));
+        self::assertTrue($runner->tableExists('settings'));
     }
 
     /**
-     * MariaDB/MySQL only: the mysql migrations build the same tables and columns as the sqlite ones. A table or column
-     * that only one driver gets (a migration that silently creates nothing on MariaDB) fails here instead of in production.
-     */
-    public function testMysqlAndSqliteMigrationsBuildTheSameSchema(): void
-    {
-        if ($this->db->isSqlite()) self::markTestSkipped('compares against MariaDB/MySQL (run with phpunit.mysql.xml)');
-        $sqlite = Database::sqlite($this->dir . '/schema.sqlite');
-        (new MigrationRunner($sqlite, self::root() . '/migrations'))->migrate(static fn() => null);
-        $expected = [];
-        foreach ($sqlite->all("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name") as $table) {
-            $columns = array_map(fn(array $c) => strtolower((string) $c['name']), $sqlite->all("PRAGMA table_info({$table['name']})"));
-            sort($columns);
-            $expected[(string) $table['name']] = $columns;
-        }
-        $sqlite->close();
-        $actual = [];
-        // no driver-only columns: qr.template_data (migrations/mysql/legacy) was never applied in production (checked 2026-10-05)
-        foreach ($this->db->all('SELECT TABLE_NAME AS t, COLUMN_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, COLUMN_NAME') as $row) {
-            $actual[(string) $row['t']][] = strtolower((string) $row['c']);
-        }
-        ksort($actual);
-        self::assertSame(array_keys($expected), array_keys($actual), 'the same tables');
-        self::assertSame($expected, $actual, 'the same columns per table');
-    }
-
-    /**
-     * MariaDB/MySQL only: every text column is utf8mb4, although the test database's default is latin1 like
+     * Every text column is utf8mb4, although the test database's default is latin1 like
      * production's server (character_set_server = latin1): a CREATE TABLE without its own charset would be latin1.
      */
     public function testEveryTextColumnIsUtf8mb4(): void
     {
-        if ($this->db->isSqlite()) self::markTestSkipped('MariaDB/MySQL charsets (run with phpunit.mysql.xml)');
         $rows = $this->db->all("SELECT CONCAT(TABLE_NAME, '.', COLUMN_NAME, ' ', CHARACTER_SET_NAME) AS c FROM information_schema.COLUMNS
             WHERE TABLE_SCHEMA = DATABASE() AND CHARACTER_SET_NAME IS NOT NULL AND CHARACTER_SET_NAME <> 'utf8mb4'");
         self::assertSame([], array_column($rows, 'c'));
@@ -126,13 +95,12 @@ final class InfrastructureTest extends TestCase
     }
 
     /**
-     * MariaDB/MySQL only: the API sets its session sql_mode (DB_SQL_MODE, strict by default) whatever the server's
+     * The API sets its session sql_mode (DB_SQL_MODE, strict by default) whatever the server's
      * default is (production: NO_ENGINE_SUBSTITUTION) – a too long value fails instead of being cut silently.
      * DB_SQL_MODE=server keeps the server's mode.
      */
     public function testTheSessionSqlModeIsStrictByDefault(): void
     {
-        if ($this->db->isSqlite()) self::markTestSkipped('MariaDB/MySQL sql_mode (run with phpunit.mysql.xml)');
         $connect = fn(array $override): Database => \Scutoons\Kernel::container(Settings::fixed(self::root(), $override + $this->settings()))->get(Database::class);
         $strict = $connect(['DB_SQL_MODE' => 'STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION']);
         self::assertStringContainsString('STRICT_TRANS_TABLES', (string) $strict->value('SELECT @@SESSION.sql_mode'));

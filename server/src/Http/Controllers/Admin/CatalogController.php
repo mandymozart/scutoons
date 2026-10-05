@@ -15,7 +15,7 @@ use Scutoons\Http\Middleware\JsonBody;
  * /api/admin/catalog/… – role admin: the catalog tables (Domain\Catalog\CatalogAdmin, agents/CATALOG.md, docs/API.md
  * "Admin API → Catalog"). <kind> = items | recipes | albums | products | editions | featured | permissions | code-types |
  * toons | meta.
- *   GET    /catalog/<kind>               → { status, kind, items: [{ id, position, data, updated_at, updated_by }], fallback }
+ *   GET    /catalog/<kind>               → { status, kind, items: [{ id, position, data, updated_at, updated_by }] }
  *   GET    /catalog/<kind>/<id>          → { status, entry }
  *   PUT    /catalog/<kind>/<id>          { data } → { status, created, changed, entry, history_id } (422 invalid_catalog + problems)
  *   DELETE /catalog/<kind>/<id>          → { status, deleted, history_id } (409 in_use + uses)

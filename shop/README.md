@@ -7,7 +7,7 @@ app (printed-URL rule, agents/PLATFORM.md).
 - One tile per colourway / test press; sold-out pieces stay visible with a badge and a disabled button.
 - "Buy" links to the product on Bandcamp; edition info ("Limited edition of N · N left"), sizes (sold-out sizes
   struck through), variant prices.
-- Data: `GET <VITE_API_URL>/products/` (server `config/products.json`) via `@scutoons/api` `createProductsApi`,
+- Data: `GET <VITE_API_URL>/products/` (the API's catalog tables, agents/CATALOG.md) via `@scutoons/api` `createProductsApi`,
   with a header-free client (simple GET, no CORS preflight). Types + helpers: `@scutoons/content` (`ProductCatalog`,
   `pickVariant`, `formatPrice`, …). Images from the CDN (`VITE_CDN_URL`).
 - Locale: URL prefix `/de/`, `/en/` first (the viewer's redirect sends the reader's locale), then the cookie, then

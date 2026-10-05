@@ -151,11 +151,10 @@ final class WardrobeTest extends TestCase
      * MariaDB/MySQL only: two signups in flight at the same moment (two connections, both transactions open) must not
      * block each other. The basic dress used to DELETE a not-yet-existing avatar_slots row first – on InnoDB that takes
      * a gap lock, the other signup's INSERT waits for it, and with both doing so it is a deadlock (1213; 3 of 8 parallel
-     * signups failed in tests/claim-race.php). SQLite serializes writers anyway.
+     * signups failed in the former claim-race suite).
      */
     public function testTwoSignupsAtOnceDoNotBlockEachOther(): void
     {
-        if ($this->db->isSqlite()) self::markTestSkipped('InnoDB locking (run with phpunit.mysql.xml)');
         $this->registry();
         $second = \Scutoons\Kernel::container(\Scutoons\Infrastructure\Config\Settings::fixed(self::root(), $this->settings()));
         $second->set(\Scutoons\Infrastructure\Clock\Clock::class, $this->clock);

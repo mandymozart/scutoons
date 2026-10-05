@@ -21,16 +21,14 @@ final class ContentCheckCommand extends Command
 
     protected function configure(): void
     {
-        $this->addOption('db', null, InputOption::VALUE_REQUIRED, 'Another SQLite database file')
-            ->addOption('kind', null, InputOption::VALUE_REQUIRED, 'Only this entity kind')
+        $this->addOption('kind', null, InputOption::VALUE_REQUIRED, 'Only this entity kind')
             ->addOption('limit', null, InputOption::VALUE_REQUIRED, 'Problems shown per document', '5')
             ->setHelp('Exit code 1 when a document does not fit. Saves are refused with 422 invalid_content for the same problems.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        $dbFile = $input->getOption('db');
-        $db = is_string($dbFile) ? Database::sqlite($dbFile) : $this->db;
+        $db = $this->db;
         $kind = $input->getOption('kind');
         $limit = max(1, (int) $input->getOption('limit'));
 

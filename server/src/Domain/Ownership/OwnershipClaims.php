@@ -310,7 +310,7 @@ final class OwnershipClaims
         $itemId = is_string($body['item_id'] ?? null) && $body['item_id'] !== '' ? $body['item_id'] : null;
         $variant = is_string($body['variant'] ?? null) && $body['variant'] !== '' ? $body['variant'] : null;
         $moved = $this->db->transaction(function () use ($admin, $claimId, $note, $itemId, $variant) {
-            $claim = $this->db->one('SELECT * FROM ownership_claims WHERE id = ?' . $this->db->forUpdate(), [$claimId]) ?? throw new ApiError(404, 'not_found', 'Claim not found.');
+            $claim = $this->db->one('SELECT * FROM ownership_claims WHERE id = ? FOR UPDATE', [$claimId]) ?? throw new ApiError(404, 'not_found', 'Claim not found.');
             if ($claim['status'] !== 'open') throw new ApiError(409, 'claim_closed', 'This claim is already decided.');
             $claimant = $this->users->byId((string) $claim['claimant_id']) ?? throw new ApiError(404, 'unknown_user', 'The claimant\'s account is gone.');
             $moved = $this->transfers->moveCode((string) $claim['code'], $claimant, 'claim', (string) $admin['id'], $note, $claimId, $itemId, $variant);

@@ -44,7 +44,7 @@ final class AdminTest extends TestCase
         $claimed = $admin->list(ListQuery::from(['status' => 'claimed'], CodeAdmin::SORTABLE, 'code', CodeAdmin::FILTERS));
         self::assertSame([$b], array_column($claimed['items'], 'code'));
         self::assertCount(2, $admin->export(ListQuery::from(['edition_id' => '3_catpope_vinyl'], CodeAdmin::SORTABLE, 'code', CodeAdmin::FILTERS)));
-        // the search box ignores case on SQLite and MariaDB alike (codes themselves are case-sensitive: utf8mb4_bin)
+        // the search box ignores case (codes themselves are case-sensitive: utf8mb4_bin)
         $this->code('membership', ['code' => 'FindMe12']);
         $this->code('membership', ['code' => 'findme12']);
         $found = $admin->list(ListQuery::from(['q' => 'FINDME'], CodeAdmin::SORTABLE, 'code', CodeAdmin::FILTERS));

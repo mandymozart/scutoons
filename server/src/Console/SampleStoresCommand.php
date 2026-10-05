@@ -5,6 +5,7 @@ namespace Scutoons\Console;
 
 use Scutoons\Domain\Embassy\Embassy;
 use Scutoons\Infrastructure\Clock\Clock;
+use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Ids;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -15,8 +16,8 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 /**
  * Clearly fake stores for the local "Where to buy" page (agents/EMBASSY.md "Stores"): two independent shops and one
- * chain, listed, carrying real product ids. Local SQLite only – it refuses any other database, and nothing of it is in
- * a production seed. Idempotent (same name + city = skipped); `--remove` deletes them again.
+ * chain, listed, carrying real product ids. Local dev database only (the container's databases are
+ * named scutoons…; production's is not) – nothing of it is in a production seed. Idempotent (same name + city = skipped); `--remove` deletes them again.
  */
 #[AsCommand(name: 'sample-stores', description: 'Add (or --remove) fake sample stores to the local dev database (Embassy stores, /stores page)')]
 final class SampleStoresCommand extends Command
@@ -33,7 +34,7 @@ final class SampleStoresCommand extends Command
             'website' => 'https://example.com/testkette', 'opening' => '', 'independent' => 0, 'carries' => ['awakening_vinyl']],
     ];
 
-    public function __construct(private readonly Database $db, private readonly Clock $clock)
+    public function __construct(private readonly Database $db, private readonly Clock $clock, private readonly Settings $settings)
     {
         parent::__construct();
     }
@@ -45,8 +46,8 @@ final class SampleStoresCommand extends Command
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
-        if (!$this->db->isSqlite()) {
-            $output->writeln('<error>sample-stores is for the local SQLite dev database only.</error>');
+        if (!str_starts_with($this->settings->get('DB_NAME'), 'scutoons')) {
+            $output->writeln('<error>sample-stores is for the local dev database only (npm run dev:db).</error>');
             return self::FAILURE;
         }
         if ($input->getOption('remove')) {

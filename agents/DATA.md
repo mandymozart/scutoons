@@ -28,9 +28,9 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | credits (sections, custom roles) · people · role labels | DB `credits:<toon>` · `people` · `roles` | creator (credits) |
 | the toon's screenplay (per language, creator only, never served to readers) | DB `script:<toon>:<l>` | creator (script page) |
 | events | DB `events` (toon-bound entries) | import (no editor yet) |
-| items, recipes, albums, editions, products, toons (catalog texts; wearables' `wear` overlays per body, ITEMS.md "Wardrobe") | tables `catalog_*` / `toons` (2026-10-04, agents/CATALOG.md; seed `server/config/*.json`) via `/api/items/`, `/api/editions/`, `/api/products/`, `/api/toons/` | admin API `/api/admin/catalog/…` (history, undo); admin UI = CATALOG Part 3 |
-| the landing page's featured editions (order, colour) | table `catalog_featured` (default = the seed `config/featured-products.json`) via `/api/products/featured/` | admin ("Startseite") |
-| permissions map | tables `catalog_permissions` / `catalog_code_types` (seed `config/permissions.json`), never served to readers | admin API |
+| items, recipes, albums, editions, products, toons (catalog texts; wearables' `wear` overlays per body, ITEMS.md "Wardrobe") | tables `catalog_*` / `toons` (2026-10-04, agents/CATALOG.md; no file seed since 10.30 – tests: `server/tests/fixtures/catalog/`) via `/api/items/`, `/api/editions/`, `/api/products/`, `/api/toons/` | admin API `/api/admin/catalog/…` (history, undo); admin UI = CATALOG Part 3 |
+| the landing page's featured editions (order, colour) | table `catalog_featured` (no default list since 10.30) via `/api/products/featured/` | admin ("Startseite") |
+| permissions map | tables `catalog_permissions` / `catalog_code_types`, never served to readers | admin API |
 | UI chrome (buttons, labels, errors) | each app's paraglide `messages/{de,en}.json` | code |
 | codes, users, inventory, progress, avatar, settings | relational tables | admin / API |
 | member preferences ("Hide sensitive content", "Media quality") | columns `users.hide_sensitive` (default on), `users.media_quality` (default `auto`), `GET/PUT /me/`; a guest's media quality in localStorage | reader account page |
@@ -194,11 +194,11 @@ of readable toons, names resolved, `view { center, zoom, color }` – the sea is
 `entity_versions` and copies every `content_versions` row with the **same id** (history, "v71" labels, drafts stay) and
 a key computed from its old path. `content_versions` is left untouched (rollback) and unused.
 
-**Interchange format** (JSON files, the only place with file names): `shared/content/seed/` = `toons.json`,
+**Interchange format** (JSON files, the only place with file names; `shared/content/seed/` + `legacy/` were deleted in
+CUTOVER 10.30 – the layout stays for `import-content` / `export-content`): `toons.json`,
 `events.json`, `<toon>/<l>/{toon,season<N>,chapter<N>,locations,routes}.json`, `<toon>/<l>/chapter<N>/<scene>.json`,
 `<toon>/_/{cast,credits}.json`, `scutoons/_/{characters,moods,asset-requests,people,roles}.json`. The mapping lives only in
-the server's `Console\ContentFiles` (`import-content`, `export-content`). Legacy inputs of the one-time migrations
-(per-locale `characters.json`, `credits.json`) are in `shared/content/legacy/`.
+the server's `Console\ContentFiles` (`import-content`, `export-content`).
 
 ## 3. API
 
@@ -228,18 +228,16 @@ empty = platform-wide) · `GET /api/entities/<key>[?draft=1|?version=][&wrap=1]`
 
 ## 4. Seeds, compare, production cutover
 
-- `php server/bin/console import-content shared/content/seed [--toon=] [--only=<kinds>] [--update] [--sql]` –
-  idempotent; `--sql` prints guarded INSERTs into `entity_versions` (dev-only `sandbox` left out).
-  Committed SQL: `shared/content/seed/content-seed.mysql.sql` (everything), `characters-seed.mysql.sql`,
-  `credits-seed.mysql.sql` (subsets; all idempotent – running more than one is harmless).
-- `export-content <dir> [--toon] [--draft]` writes the store back into the layout (backup, diff, refresh the seed).
-- Generators write the interchange layout and import it: `make-sandbox.ts` (→ `shared/content/seed/sandbox`, then
-  `import-content --toon=sandbox --update`), `migrate-characters.ts` (→ seed, then `--only=characters,moods,
-  asset-requests,cast --update`); `--no-import` skips the import. Regenerate the SQL after a seed change.
-- Compare: `tests/entities-compare.php` (in `composer test`, fresh DB seeded from `shared/content/seed`) checks every
-  library answer against the files; against production: `--report`.
+- **Since CUTOVER 10.30 (2026-10-05) production is the only source**: local dev loads production's `entity_versions`
+  (+ catalog + asset tables) from `server/db/prod-seed.sql` (`npm run dev:db -- seed`, `db:prod-seed`). The committed
+  content seed, its SQL files, `migrate-*.ts` and `tests/entities-compare.php` are gone.
+- `php server/bin/console import-content <dir> [--toon=] [--only=<kinds>] [--update] [--sql]` – idempotent; `--sql`
+  prints guarded INSERTs into `entity_versions` (dev-only `sandbox` left out).
+- `export-content <dir> [--toon] [--draft]` writes the store back into the layout (backup, diff).
+- The sandbox toon (dev only): `make-sandbox.ts` reads characters + moods from the local DB, writes `logs/dev/sandbox`
+  and imports it (`npm run dev:db sandbox`).
 
-**Cutover on production (Oct 3, phpMyAdmin, in this order)** – replaces the earlier `import-content <viewer/static/api>`
+**Cutover on production (Oct 3, phpMyAdmin, in this order; history – the seed SQL and compare suite no longer exist)** – replaces the earlier `import-content <viewer/static/api>`
 step: (1) the pending migrations in file-name order, including `2026-09-30-content-versions` and then
 `2026-09-30-entity-keys`; (2) `shared/content/seed/content-seed.mysql.sql` (covers credits + characters too); (3) deploy
 api → qr → frontends ("Deploy all"); (4) `php server/tests/entities-compare.php https://api.scutoons.com --report` and

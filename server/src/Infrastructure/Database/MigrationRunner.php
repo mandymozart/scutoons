@@ -5,10 +5,10 @@ namespace Scutoons\Infrastructure\Database;
 
 
 /**
- * Applies the dated SQL migrations in migrations/<driver>/*.<driver>.sql (sqlite | mysql) in name order and records
+ * Applies the dated SQL migrations in migrations/mysql/*.mysql.sql (MariaDB) in name order and records
  * each in `schema_migrations` by its file name – the same names the old scripts/migrate.php recorded, so an existing
  * database re-runs nothing. A database without the `qr` table first gets the base schema
- * (migrations/schema/qr.<driver>.sql). `ALTER TABLE x ADD COLUMN y` is skipped when the column exists, so re-running
+ * (migrations/schema/qr.mysql.sql). `ALTER TABLE x ADD COLUMN y` is skipped when the column exists, so re-running
  * a file is safe. migrations/mysql/legacy/ holds the two MySQL-only changes from before the account system; they are
  * never run (edition_id is in the base schema; template_data was never applied in production – checked 2026-10-05 –
  * and is not in the base schema either).
@@ -17,14 +17,17 @@ namespace Scutoons\Infrastructure\Database;
  */
 final class MigrationRunner
 {
+    /** the folder / file suffix of the migrations (the names schema_migrations records) */
+    public const DRIVER = 'mysql';
+
     public function __construct(private readonly Database $db, private readonly string $directory)
     {
     }
 
-    /** @return list<string> file names of this driver's migrations, sorted */
+    /** @return list<string> file names of the migrations, sorted */
     public function files(): array
     {
-        $driver = $this->db->driver();
+        $driver = self::DRIVER;
         $files = array_map('basename', glob("{$this->directory}/$driver/*.$driver.sql") ?: []);
         sort($files);
         return $files;
@@ -53,7 +56,7 @@ final class MigrationRunner
      */
     public function migrate(callable $log): array
     {
-        $driver = $this->db->driver();
+        $driver = self::DRIVER;
         if ($this->needsBaseSchema()) {
             $count = $this->runFile("{$this->directory}/schema/qr.$driver.sql");
             $log("  schema   qr.$driver.sql ($count statements)");
@@ -102,25 +105,19 @@ final class MigrationRunner
 
     private function ensureTable(): void
     {
-        $this->db->exec($this->db->isSqlite()
-            ? 'CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT NOT NULL PRIMARY KEY, applied_at TEXT NOT NULL)'
-            : 'CREATE TABLE IF NOT EXISTS `schema_migrations` (`name` VARCHAR(191) NOT NULL, `applied_at` DATETIME NOT NULL, PRIMARY KEY (`name`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
+        $this->db->exec('CREATE TABLE IF NOT EXISTS `schema_migrations` (`name` VARCHAR(191) NOT NULL, `applied_at` DATETIME NOT NULL, PRIMARY KEY (`name`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci');
     }
 
     public function tableExists(string $table): bool
     {
-        return $this->db->isSqlite()
-            ? $this->db->value("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", [$table]) !== null
-            : $this->db->value('SHOW TABLES LIKE ' . $this->db->pdo()->quote($table)) !== null;
+        return $this->db->value('SHOW TABLES LIKE ' . $this->db->pdo()->quote($table)) !== null;
     }
 
     private function hasColumn(string $table, string $column): bool
     {
-        $rows = $this->db->isSqlite()
-            ? $this->db->all("PRAGMA table_info($table)")
-            : $this->db->all("SHOW COLUMNS FROM `$table`");
+        $rows = $this->db->all("SHOW COLUMNS FROM `$table`");
         foreach ($rows as $row) {
-            if (strcasecmp((string) ($row['name'] ?? $row['Field'] ?? ''), $column) === 0) return true;
+            if (strcasecmp((string) ($row['Field'] ?? ''), $column) === 0) return true;
         }
         return false;
     }

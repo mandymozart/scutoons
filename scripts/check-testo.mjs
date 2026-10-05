@@ -5,7 +5,7 @@
 //   2. the testo bar is in the Avatar tab (owner 2026-10-01: "the testo is part of the avatar"), appetite in the Items
 //      tab; it shows "Testo 50"; "Benutzen" on the testo → 70, the tube is used up;
 //   2b. "Essen" on a cucumber → appetite −5, the cucumber is eaten;
-//   3. the decay: the stored time moved back three days (guests: localStorage; the member: the local SQLite DB) → 60;
+//   3. the decay: the stored time moved back three days (guests: localStorage; the member: the local dev DB) → 60;
 //   4. testo + camera combined in the inventory → the testo camera; its scan grant (members: the API's scan grant with the
 //      tool, then the cooldown – the camera's on-device detection itself is not driven here);
 //   5. a magic mushroom (psychedelic): the effect bar + the slices' hue/wobble animation, off with reduced motion,
@@ -13,23 +13,23 @@
 // The member's inventory, stats and effects are put back with `npm run dev:test-user -- --reset` at the end.
 //
 // usage: node scripts/check-testo.mjs [--viewer=http://localhost:8000] [--api=http://localhost:9000/api]
-//        [--db=server/db/local.sqlite] [--shots=<dir>] [--verbose]
+//        [--shots=<dir>] [--verbose]
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { localSql } from './dev/db-env.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const opt = Object.fromEntries(process.argv.slice(2).filter((a) => a.startsWith('--')).map((a) => { const [k, ...v] = a.slice(2).split('='); return [k, v.length ? v.join('=') : true]; }));
 const viewer = String(opt.viewer || 'http://localhost:8000').replace(/\/$/, '');
 const api = String(opt.api || 'http://localhost:9000/api').replace(/\/$/, '');
-const db = resolve(root, String(opt.db || 'server/db/local.sqlite'));
 const shots = opt.shots ? String(opt.shots) : null;
 if (shots) mkdirSync(shots, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const de = JSON.parse(readFileSync(join(root, 'viewer/messages/de.json'), 'utf8'));
-const catalog = JSON.parse(readFileSync(join(root, 'server/config/items.json'), 'utf8'));
+const catalog = await (await fetch(`${api}/items/`)).json(); // the local catalog (production's, npm run dev:db)
 const nameOf = (id) => catalog.items.find((i) => i.id === id).name.de;
 const isLocal = (u) => /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/.test(u);
 if (!isLocal(api) || !isLocal(viewer)) { console.error('local servers only'); process.exit(2); }
@@ -42,8 +42,7 @@ const call = async (method, path, body) => { const r = await fetch(api + path, {
 const me = (await call('GET', '/me/')).json;
 /** raw SQL on the local dev DB (the decay test moves the stored time back) */
 function sql(statement, params) {
-	const php = `$d=new PDO('sqlite:'.getenv('CT_DB'));$s=$d->prepare(getenv('CT_SQL'));$s->execute(json_decode(getenv('CT_PARAMS'),true));echo $s->rowCount();`;
-	return execFileSync(process.env.PHP_BINARY || 'php', ['-r', php], { env: { ...process.env, CT_DB: db, CT_SQL: statement, CT_PARAMS: JSON.stringify(params) }, encoding: 'utf8' });
+	return localSql([statement], params)[0];
 }
 
 // ── Chrome ──────────────────────────────────────────────────────────────────────────────────────────────────────────

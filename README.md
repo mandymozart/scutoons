@@ -38,7 +38,7 @@ npm run dev:shop            # shop     http://localhost:12000
 npm run dev:embassy         # embassy  http://localhost:13000
 npm run dev:api             # API      http://localhost:9000   (= cd server && composer serve: 4 php -S workers + OPcache)
 npm run dev:qr              # qr app   http://localhost:9001   (= cd qr && composer serve; needs the API)
-npm run dev:db              # optional: the API on MariaDB in Docker instead of SQLite (server/docs/DATABASE.md)
+npm run dev:db              # MariaDB in Docker (the only database): migrate + production seed + sandbox + API (server/docs/DATABASE.md)
 npm run check               # svelte-check / tsc in every workspace
 npm run build               # builds every workspace that has a build script (+ version.json in each output)
 npm run deploy:dry-run      # builds + stages every app, lists what would be uploaded where (deploy/README.md)
@@ -56,7 +56,7 @@ Local dev ports — single source of truth: `shared/dev-ports.json` (agents/PLAT
 | admin | 11000 | `npm run dev:admin` |
 | shop | 12000 | `npm run dev:shop` |
 | embassy | 13000 | `npm run dev:embassy` |
-| MariaDB (Docker, optional) | 13306 | `npm run dev:db` – the production engine instead of SQLite ([server/docs/DATABASE.md](server/docs/DATABASE.md) "Local MariaDB") |
+| MariaDB (Docker) | 13306 | `npm run dev:db` – the production engine, the only local database; `npm run dev` starts it too ([server/docs/DATABASE.md](server/docs/DATABASE.md) "Local MariaDB") |
 | Adminer (Docker, optional) | 13380 | `npm run dev:db adminer` |
 
 Dev settings live in each app's `.env.development` (gitignored, see `.env.example`): `VITE_API_URL` (API base, e.g.

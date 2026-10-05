@@ -46,13 +46,11 @@
 	const def = $derived(KINDS[kind]);
 
 	let lists = $state<CatalogLists>({});
-	let fallback = $state(false);
 	let error = $state<string | null>(null);
 
 	async function refresh(k: CatalogKind) {
 		const result = await admin.catalogList(k);
 		lists[k] = result.items;
-		fallback = result.fallback;
 	}
 
 	// the published characters, for the wear overlays' problems (not loaded = not checked; never blocks the page)
@@ -120,7 +118,7 @@
 			</div>
 		{/if}
 		{#key kind}
-			<CatalogEditor {def} {lists} {registry} {fallback} {refresh} reload={editorReload} form={FORMS[kind]} barActions={kind === 'items' || kind === 'recipes' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
+			<CatalogEditor {def} {lists} {registry} {refresh} reload={editorReload} form={FORMS[kind]} barActions={kind === 'items' || kind === 'recipes' ? itemActions : undefined} detailActions={kind === 'toons' ? toonActions : undefined} />
 		{/key}
 	{/snippet}
 </Tabs>

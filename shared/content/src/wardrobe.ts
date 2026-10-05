@@ -144,7 +144,7 @@ export function missingWearOverlays(catalog: Pick<Catalog, 'items'> | null | und
 const isObj = (v: unknown): v is Record<string, any> => typeof v === 'object' && v !== null && !Array.isArray(v);
 
 /**
- * The item catalog (served by GET /api/items/; seed: server `config/items.json` without slots / stats – those are code,
+ * The item catalog (served by GET /api/items/; a catalog file without slots / stats – those are code,
  * AVATAR_SLOTS / READER_STATS, used when the catalog has none): ids, slots, starters and the wardrobe overlays (`wear`). With the
  * registry, `wear` keys are checked against the characters and their slot instances.
  */

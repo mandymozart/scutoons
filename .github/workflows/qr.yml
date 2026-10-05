@@ -1,16 +1,7 @@
 # The qr app (qr.scutoons.com: QR landing page, verify page, proxies to the API; plain PHP, qr/).
-# Checks on pushes to platform / pull requests that touch it, and as the test step of the deploy (deploy.yml). Target: deploy/targets.json → "qr";
+# Checks on pull requests that touch it, and as the test step of the deploy (deploy.yml). Target: deploy/targets.json → "qr";
 # the steps: .github/workflows/deploy-app.yml; docs: qr/README.md, deploy/README.md.
-# The printed-URL suite (qr/tests/public-urls.php) needs a database with codes – it runs locally with `composer test`
-# in server/ (agents/PLATFORM.md "RULE: printed / public URLs never change").
 on:
-  push:
-    branches:
-      - platform
-    paths:
-      - 'qr/**'
-      - 'shared/tokens/**'
-      - '.github/workflows/qr.yml'
   pull_request:
     paths:
       - 'qr/**'

@@ -9,7 +9,7 @@ use Scutoons\Infrastructure\Database\Database;
 
 /**
  * The public "Where to buy" list (GET /api/stockists/, scutoons.com/stores; agents/EMBASSY.md "Stores"): the Embassy's
- * stores (Embassy::STOCKIST_TYPES) that are `listed` and carry at least one product of config/products.json, with their
+ * stores (Embassy::STOCKIST_TYPES) that are `listed` and carry at least one product of the shop catalog, with their
  * PUBLIC fields only – never people, emails, phones, notes, tags, tier, source, leads or activities.
  *
  * Small / independent vendors come first (owner 2026-10-02: "I want to encourage small vendors at first"), then by
@@ -102,10 +102,10 @@ final class Stockists
         return preg_match('#^https?://[^\s]+$#i', $url) ? $url : '';
     }
 
-    /** SQLite "no such table/column", MySQL 42S02 (table) / 42S22 (column) */
+    /** MariaDB 42S02 (table) / 42S22 (column) */
     private static function missingSchema(PDOException $error): bool
     {
         return in_array($error->getCode(), ['42S02', '42S22'], true)
-            || preg_match('/no such (table|column)|Base table or view not found|Unknown column/i', $error->getMessage()) === 1;
+            || preg_match('/Base table or view not found|Unknown column/i', $error->getMessage()) === 1;
     }
 }

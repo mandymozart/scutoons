@@ -52,12 +52,12 @@ final class CatalogApiTest extends TestCase
 
     private static function config(string $file): string
     {
-        return (string) file_get_contents(self::root() . "/config/$file");
+        return (string) file_get_contents(self::root() . '/' . \Scutoons\Domain\Catalog\CatalogSeed::FIXTURE . "/$file");
     }
 
-    public function testThePublicEndpointsAnswerWhatTheFilesDid(): void
+    public function testThePublicEndpointsAnswerTheFixture(): void
     {
-        // GET /api/items/ read config/items.json (with slots / stats, now code), decoded as arrays, the API's flags
+        // the migrated tables = the fixture's files (+ slots / stats, which are code), decoded as arrays, the API's flags
         $file = json_decode(self::config('items.json'), true);
         $items = Json::encode(['version' => $file['version'], 'slots' => AvatarSlots::ALL, 'items' => $file['items'], 'recipes' => $file['recipes'], 'albums' => $file['albums'], 'stats' => ReaderStats::DEFINITIONS]);
         self::assertSame($items, (string) $this->request('GET', '/api/items/')->getBody());
@@ -79,7 +79,7 @@ final class CatalogApiTest extends TestCase
         $auth = $this->admin();
 
         $list = self::json($this->request('GET', '/api/admin/catalog/items', $auth));
-        self::assertSame([27, 'camera', 0, false], [count($list['items']), $list['items'][0]['id'], $list['items'][0]['position'], $list['fallback']]);
+        self::assertSame([27, 'camera', 0], [count($list['items']), $list['items'][0]['id'], $list['items'][0]['position']]);
         self::assertSame(['membership', 'promo', 'page', 'event', 'xr', 'default'], array_column(self::json($this->request('GET', '/api/admin/catalog/code-types', $auth))['items'], 'id'));
         $entry = self::json($this->request('GET', '/api/admin/catalog/products/dago_hoodie', $auth))['entry'];
         self::assertSame(['dago_hoodie', 'beige', 'seed'], [$entry['data']['item_id'], $entry['data']['defaultVariant'], $entry['updated_by']]);
@@ -171,23 +171,15 @@ final class CatalogApiTest extends TestCase
         self::assertSame(422, $this->request('PUT', '/api/admin/catalog/toons/Sand', $auth, '{"data":{"id":"Sand","name":"S","redirectUrl":"https://scutoons.com/s"}}')->getStatusCode(), 'toon ids are content toon ids');
     }
 
-    public function testRespawnAndFeaturedEndpointsKeepWorking(): void
+    public function testTheFeaturedEndpoint(): void
     {
         $auth = $this->admin();
-        $r = $this->request('PUT', '/api/admin/catalog/respawn/cucumber', $auth, '{"respawn":null}');
-        self::assertSame([200, true], [$r->getStatusCode(), self::json($r)['changed']]);
-        $items = array_column(self::json($this->request('GET', '/api/items/'))['items'], null, 'id');
-        self::assertTrue(array_key_exists('respawn', $items['cucumber']) && $items['cucumber']['respawn'] === null);
-        $state = array_column(self::json($this->request('GET', '/api/admin/catalog/respawn', $auth))['items'], null, 'id');
-        self::assertSame([true, ['hours' => 6]], [$state['cucumber']['overridden'], $state['cucumber']['file']['default'] ?? null]);
-        self::assertSame(200, $this->request('PUT', '/api/admin/catalog/respawn/cucumber', $auth, '{"reset":true}')->getStatusCode());
-
         $r = $this->request('PUT', '/api/admin/featured', $auth, '{"items":[{"product":"scorpion_amulet"}]}');
-        self::assertSame([200, true, true], [$r->getStatusCode(), self::json($r)['changed'], self::json($r)['stored']]);
+        self::assertSame([200, true], [$r->getStatusCode(), self::json($r)['changed']]);
         self::assertSame('[{"product":"scorpion_amulet"}]', (string) $this->request('GET', '/api/products/featured/')->getBody());
         $r = $this->request('PUT', '/api/admin/featured', $auth, '{"items":[{"product":"scorpion_amulet","variant":"gold"}]}');
         self::assertSame([400, 'unknown_variant'], [$r->getStatusCode(), self::json($r)['error']]);
-        $this->request('PUT', '/api/admin/featured', $auth, '{"items":null}');
-        self::assertSame(json_decode(self::config('featured-products.json'), true), self::json($this->request('GET', '/api/products/featured/')));
+        self::assertSame(400, $this->request('PUT', '/api/admin/featured', $auth, '{"items":null}')->getStatusCode(), 'no default list to go back to');
+        self::assertSame(404, $this->request('GET', '/api/admin/catalog/respawn', $auth)->getStatusCode(), 'respawn is edited in the item');
     }
 }

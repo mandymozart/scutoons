@@ -55,7 +55,7 @@ final class OwnershipTransfers
      */
     public function moveCode(string $code, array $to, string $kind, ?string $byUserId, ?string $note, ?string $claimId = null, ?string $itemId = null, ?string $variant = null): array
     {
-        $row = $this->db->one('SELECT * FROM qr WHERE code = ?' . $this->db->forUpdate(), [$code]) ?? throw new ApiError(404, 'not_found', 'This code does not exist.');
+        $row = $this->db->one('SELECT * FROM qr WHERE code = ? FOR UPDATE', [$code]) ?? throw new ApiError(404, 'not_found', 'This code does not exist.');
         if (!$this->permissions->claimable((string) $row['type'])) throw new ApiError(422, 'not_claimable', 'Nobody can own this code.');
         $toId = (string) $to['id'];
         $from = $row['claimed_by'] !== null ? (string) $row['claimed_by'] : null;
@@ -209,12 +209,12 @@ final class OwnershipTransfers
     }
 
     /**
-     * A query failed because a table of the 2026-10-02-ownership migration is missing (SQLite "no such table", MySQL
-     * 42S02 "Base table or view not found") – production runs the code before the migration is applied in phpMyAdmin
+     * A query failed because a table of the 2026-10-02-ownership migration is missing (MariaDB 42S02 "Base table or view
+     * not found") – production runs the code before the migration is applied in phpMyAdmin
      */
     public static function missingTable(PDOException $error): bool
     {
-        return $error->getCode() === '42S02' || preg_match('/no such table|Base table or view not found/i', $error->getMessage()) === 1;
+        return $error->getCode() === '42S02' || preg_match('/Base table or view not found/i', $error->getMessage()) === 1;
     }
 
     /**

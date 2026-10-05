@@ -7,11 +7,10 @@ use RuntimeException;
 use Scutoons\Domain\Catalog\CatalogStore;
 use Scutoons\Domain\Codes\CodeRules;
 use Scutoons\Infrastructure\Clock\Clock;
-use Scutoons\Infrastructure\Config\Settings;
 
 /**
  * What a code type grants – the permissions map (agents/ITEMS.md "Access model"): the tables catalog_permissions +
- * catalog_code_types (agents/CATALOG.md; seed config/permissions.json), edited by admins (/api/admin/catalog/…), no
+ * catalog_code_types (agents/CATALOG.md), edited by admins (/api/admin/catalog/…), no
  * code change needed. Server-only: never served to readers. Every claimable/signup/grants decision goes through this
  * class:
  *   types.<type>.claimable  can be owned by one account (inventory, edition number)
@@ -28,17 +27,10 @@ final class Permissions
     private ?string $override = null;
 
     public function __construct(
-        private readonly Settings $settings,
         private readonly AccessTokens $tokens,
         private readonly Clock $clock,
         private readonly CatalogStore $store,
     ) {
-    }
-
-    /** The seed file (config/permissions.json), or the useFile() override */
-    public function path(): string
-    {
-        return $this->override ?? $this->settings->path('PERMISSIONS_PATH');
     }
 
     /** Use a map file instead of the tables (null = back to the tables) – for tests */

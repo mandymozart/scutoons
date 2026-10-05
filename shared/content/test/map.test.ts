@@ -11,12 +11,10 @@ import {
 	checkWorldMap,
 	emptyMapState,
 	isPlaceVisible,
-	legacyToonMap,
 	mapImageRequests,
 	mapImageRequestsText,
 	mapMediaRequests,
 	placeImagePath,
-	legacyToonMapSettings,
 	markPlacesSeen,
 	mergeMapState,
 	migrateLegacyMap,
@@ -33,37 +31,8 @@ import {
 	type WorldMap
 } from '../src/index.ts';
 
-const seed = new URL('../seed/', import.meta.url);
+const seed = new URL('../../../server/tests/fixtures/content/', import.meta.url);
 const json = (path: string) => JSON.parse(readFileSync(new URL(path, seed), 'utf8'));
-
-test('migration: every old catpope value survives in the seed world map (ids, coordinates, labels, route order)', () => {
-	const world: WorldMap = json('scutoons/_/map.json');
-	for (const locale of ['de', 'en']) {
-		const old: MapLocation[] = json(`catpope/${locale}/locations.json`);
-		const computed = legacyToonMap(world, 'catpope', locale);
-		for (const o of old) {
-			const n = computed.locations.find((l) => l.id === o.id);
-			assert.ok(n, `${o.id} is still there`);
-			assert.deepEqual({ ...n, chapterNumber: undefined }, { ...o, chapterNumber: undefined }, `${locale} ${o.id}`);
-		}
-		const oldRoute = json(`catpope/${locale}/routes.json`)[0];
-		assert.deepEqual(computed.routes, [{ id: oldRoute.id, title: oldRoute.title ?? oldRoute.titel, locations: oldRoute.locations }]);
-	}
-	// the toon's old map settings come back from the world + the start view
-	const toons = json('toons.json');
-	assert.deepEqual(legacyToonMapSettings(world, 'catpope', toons.find((t: any) => t.id === 'catpope').map), {
-		layers: { terrain: 'map/map-layer-terrain.svg' },
-		width: 2048,
-		height: 1046,
-		center: { x: 1320, y: 440 }
-	});
-	assert.equal(legacyToonMapSettings(world, 'sandbox', toons.find((t: any) => t.id === 'sandbox').map).layers.terrain, '../catpope/map/map-layer-terrain.svg');
-	// owner 2026-10-01: garden is a place now (the route is complete), places unlock over time
-	assert.deepEqual(checkWorldMap(world), [], 'no problem left (the airport is "not unlockable yet": unlock null)');
-	assert.equal(world.locations.find((p) => p.id === 'airport')?.unlock, null);
-	assert.ok(world.locations.every((p) => p.hidden));
-	assert.deepEqual(world.locations.find((p) => p.id === 'garden')?.unlock, { toon: 'catpope', chapter: 5, at: 1, scene: 38 });
-});
 
 test('migrateLegacyMap: names per locale, the en `titel` typo, unknown route places kept', () => {
 	const loc = (id: string, label: string) => ({ id, label, toonId: 't', type: 'chapter', chapterNumber: '2', image: '', coordinates: { x: 1, y: 2 } });
@@ -191,7 +160,7 @@ test('checkWorldMap: ids, positions, waypoints, unlock points', () => {
 	assert.deepEqual(problems({ ...ok, locations: [{ ...ok.locations[0], image: { src: 'map/a.webp', anchor: { x: 50, y: 120 } } }] }), ['error locations.0.image.anchor']);
 });
 
-test('wanted images: every place without an image, derived from the map (all 20 of the seed)', () => {
+test('wanted images: every place without an image, derived from the map (all 20 of the fixture)', () => {
 	const world: WorldMap = json('scutoons/_/map.json');
 	const wanted = mapImageRequests(world);
 	assert.equal(wanted.length, world.locations.filter((p) => !p.image?.src).length);

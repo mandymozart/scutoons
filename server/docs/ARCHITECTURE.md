@@ -30,7 +30,7 @@ CORS runs outside the error handler, so error responses carry the CORS headers t
   code, message, extra)` for contract errors. No superglobals, no headers, no `exit`. The request data they need
   (IP, device id, origin) comes from `RequestContext`.
 - **`src/Infrastructure/*`** – `Settings` (env `QR_<KEY>` → constant `<KEY>` → `config/settings.php`), `Database`
-  (lazy PDO, MySQL/SQLite, `transaction()` with `BEGIN IMMEDIATE` on SQLite / `FOR UPDATE` on MySQL),
+  (lazy PDO on MariaDB, `transaction()`; row locks with `SELECT … FOR UPDATE` inside it), `ProdSeed` (local seed),
   `MigrationRunner`, `Mail\Transport` + `Smtp` (delivery only – mails are sent through `Domain\Mail\Mailer`, see API.md "Emails"), `KeyStore` (ML-DSA-65 keypair), `FileStore` (batch output), `Templates`
   (plain PHP templates in `templates/`), `Clock` (`SystemClock`, `FrozenClock` for tests).
 - **`config/`** – `settings.php` (every setting with its default), `container.php` (the few non-autowired services),
@@ -56,10 +56,10 @@ answers `Time::localIso()`).
    Per-IP limit: `->add($lookupLimit)` or a new `RateLimit`.
 4. **Contract:** document request/response/errors in `agents/ITEMS.md` (public API) or its "Admin API" section, and
    in `docs/API.md`.
-5. **Tests:** a unit test for the service in `tests/Unit/Domain/` (fresh SQLite per test, `FrozenClock`), and HTTP
-   checks in a contract suite (`tests/api-smoke.php`, `tests/admin-smoke.php`, …). `composer test` and
+5. **Tests:** a unit test for the service in `tests/Unit/Domain/` (the MariaDB test database reset per test,
+   `FrozenClock`), HTTP checks in `tests/Unit/Http/` (the Slim app in-process). `npm run dev:db test` and
    `composer analyse` must pass.
-6. **Database changes:** a new dated file per driver in `migrations/sqlite/` and `migrations/mysql/` (idempotent:
+6. **Database changes:** a new dated file in `migrations/mysql/` (idempotent:
    `IF NOT EXISTS`; `ADD COLUMN` is skipped when the column exists) – see [DATABASE.md](DATABASE.md).
 
 ## Conventions
@@ -76,13 +76,10 @@ answers `Time::localIso()`).
 
 ## Tests
 
-- `tests/Unit/` (PHPUnit, `composer test:unit`): services, the Slim app in-process (`AppTest`), infrastructure.
-  `TestCase` gives each test a fresh copy of a migrated SQLite database, a `FrozenClock` and isolated settings
-  (`Settings::fixed()` – no `config.local.php`, no environment).
-- Contract suites (`composer test:contract` = `tests/run-contract.php`: copies the local DB, starts the API with
-  `php -S` on :9180 (+ :9185 with a lookup limit of 1) and the qr app on :9181–9184, runs everything, stops them):
-  `api-smoke.php` (the public API, 187 checks), `content-smoke.php`, `claim-race.php` (concurrent claims and signups),
-  `admin-smoke.php` (admin API) – both take the qr app's URL as second argument for the landing-page scans – and
-  `../qr/tests/public-urls.php` (printed URLs through the qr app, identical to the old server; proxies byte-identical;
-  API down; rate limit; `PROXY_FULL_API=0`). They boot through `tests/support/legacy.php`, which gives
-  them the static calls of the old server (`Db::`, `Codes::`, …) as facades over the new services.
+- `tests/Unit/` (PHPUnit, `npm run dev:db test` or `composer test`): services, the Slim app in-process (`AppTest`,
+  `*ApiTest`), infrastructure. `TestCase` resets the MariaDB test database (`MysqlTestDatabase`: migrated once per run,
+  every test from that state), gives a `FrozenClock` and isolated settings (`Settings::fixed()` – no `config.local.php`,
+  no environment). Catalog data in tests = the fixture `tests/fixtures/catalog` (the migration's 2026-10-04 snapshot).
+- The cutover's HTTP contract suites (api-smoke, admin-smoke, content-smoke, claim-race, entities-compare, the qr
+  printed-URL suite) were removed with CUTOVER 10.30 (2026-10-05): they needed a populated SQLite copy and duplicated
+  the in-process HTTP tests.

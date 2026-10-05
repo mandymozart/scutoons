@@ -34,7 +34,7 @@ if (shots) mkdirSync(shots, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const de = JSON.parse(readFileSync(join(root, 'viewer/messages/de.json'), 'utf8'));
 const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k]));
-const catalog = JSON.parse(readFileSync(join(root, 'server/config/items.json'), 'utf8'));
+const catalog = await (await fetch(`${api}/items/`)).json(); // the local catalog (production's, npm run dev:db)
 const nameOf = (id) => catalog.items.find((i) => i.id === id).name.de;
 
 // ── the test user ───────────────────────────────────────────────────────────────────────────────────────────────────
