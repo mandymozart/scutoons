@@ -3,6 +3,7 @@
 import {
 	APOSE_LOOKS,
 	APOSE_VIEW,
+	isRetiredAposeLook,
 	type AposeLook,
 	type AssetRequests,
 	type CharacterFileSlot,
@@ -40,17 +41,18 @@ export function setPoint(p: StoryPoint | undefined, key: 'toon' | 'season' | 'ch
 /** the A-pose looks shown: the stored ones plus the standard looks not stored yet (empty slots) */
 export function aposeLooksOf(character: RegistryCharacter | null): AposeLook[] {
 	const stored = character?.apose?.looks ?? [];
-	const missing = APOSE_LOOKS.filter((l) => !stored.some((x) => x.id === l.id)).map((l) => ({ id: l.id, label: { ...l.label }, ...(l.sensitive ? { sensitive: true } : {}) }));
+	const missing = APOSE_LOOKS.filter((l) => !stored.some((x) => x.id === l.id)).map((l) => ({ id: l.id, label: { ...l.label } }));
 	return [...stored, ...missing];
 }
 
-/** an A-pose look's file (the look is created when it isn't stored; swim is the default) */
+/** an A-pose look's file (the look is created when it isn't stored; swim is the default; a retired look id is refused) */
 export function applyApose(c: RegistryCharacter, target: string, path: string, languages: string[]) {
+	if (isRetiredAposeLook({ id: target })) return;
 	c.apose ??= { looks: [] };
 	let look = c.apose.looks.find((l) => l.id === target);
 	if (!look) {
 		const standard = APOSE_LOOKS.find((l) => l.id === target);
-		look = { id: target, label: standard ? { ...standard.label } : { [languages[0] ?? 'en']: target }, ...(standard?.sensitive ? { sensitive: true } : {}) };
+		look = { id: target, label: standard ? { ...standard.label } : { [languages[0] ?? 'en']: target } };
 		c.apose.looks.push(look);
 	}
 	c.apose.looks.find((l) => l.id === target)!.path = path;

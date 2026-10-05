@@ -432,6 +432,7 @@
 		"characters_import_no_slot": "the name names no slot – e.g. {example}",
 		"characters_import_other": "the name is for \"{name}\", not this character",
 		"characters_import_unknown_look": "the transition needs the look \"{name}\" – add it first",
+		"characters_import_retired_look": "the A-pose look \"{name}\" is no longer used",
 		"characters_import_unknown_persona": "this character has no persona \"{name}\" – add it first",
 		"characters_import_summary": "{uploaded} new · {replaced} replaced · {unchanged} unchanged",
 		"characters_remove": "Remove",

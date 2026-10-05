@@ -245,19 +245,19 @@ test('A-pose: character level, its own view without fallback, avatar bodies', as
 	c.apose = {
 		looks: [
 			{ id: 'swim', label: { en: 'swim pants' }, default: true, path: 'catpope/avatar/mannequin.webp', slots: [{ id: 'head', slot: 'head', x: 370, y: 70, size: 170 }] },
-			{ id: 'naked', label: { en: 'naked' }, path: 'catpope/avatar/mannequin-nude.webp' }
+			{ id: 'winter', label: { en: 'winter' }, path: 'catpope/avatar/mannequin-winter.webp' }
 		]
 	};
-	const m2: RegistryCharacter = { ...structuredClone(mouse), apose: { looks: [{ id: 'swim', default: true, path: 'yellowmouse/avatar/mannequin.webp' }, { id: 'naked' }] } };
+	const m2: RegistryCharacter = { ...structuredClone(mouse), apose: { looks: [{ id: 'swim', default: true, path: 'yellowmouse/avatar/mannequin.webp' }, { id: 'winter' }] } };
 	assert.equal(characterImage(c, {}, 'apose'), 'catpope/avatar/mannequin.webp');
-	assert.equal(characterImage(c, { look: 'naked' }, 'apose'), 'catpope/avatar/mannequin-nude.webp');
+	assert.equal(characterImage(c, { look: 'winter' }, 'apose'), 'catpope/avatar/mannequin-winter.webp');
 	// no A-pose → the A-pose substitute (never the portrait)
 	assert.equal(characterImage(catpope, {}, 'apose'), 'characters/_missing/missing_apose.png');
 	assert.equal(characterImage(catpope, {}, 'apose', { substitute: '' }), '');
 	const bodies = avatarBodies({ characters: [c, m2] }, 'en');
-	assert.deepEqual(bodies.map((b) => `${b.character}/${b.look}${b.default ? '*' : ''}: ${b.label}`), ['catpope/swim*: Cat Pope (swim pants)', 'catpope/naked: Cat Pope (naked)', 'yellowmouse/swim*: Yellow Mouse (swim)']);
-	// the missing naked A-pose of the mouse is a wanted image
-	assert.ok(wantedImages({ characters: [m2] }).some((w) => w.view === 'apose' && w.look === 'naked' && w.path === 'characters/yellowmouse/yellowmouse_apose-naked.webp'));
+	assert.deepEqual(bodies.map((b) => `${b.character}/${b.look}${b.default ? '*' : ''}: ${b.label}`), ['catpope/swim*: Cat Pope (swim pants)', 'catpope/winter: Cat Pope (winter)', 'yellowmouse/swim*: Yellow Mouse (swim)']);
+	// the missing winter A-pose of the mouse is a wanted image
+	assert.ok(wantedImages({ characters: [m2] }).some((w) => w.view === 'apose' && w.look === 'winter' && w.path === 'characters/yellowmouse/yellowmouse_apose-winter.webp'));
 	assert.ok(!validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error'));
 	// a body without slots gets one unplaced instance per slot type
 	assert.deepEqual(bodies[0].slots.map((s) => s.id), ['head']);
@@ -265,27 +265,31 @@ test('A-pose: character level, its own view without fallback, avatar bodies', as
 	assert.deepEqual(bodies[1].slots[3], { id: 'torso', slot: 'torso', x: 0, y: 0, size: 0 });
 });
 
-test('sensitive content: A-pose looks, the reader setting, validation', async () => {
-	const { avatarBodies, hidesSensitive, withoutSensitive, isSensitive, APOSE_LOOKS } = await import('../src/index.ts');
+test('the naked A-pose look is retired (owner 2026-10-05): ignored, a warning; the reader setting stays', async () => {
+	const { avatarBodies, wantedImages, hidesSensitive, withoutSensitive, APOSE_LOOKS } = await import('../src/index.ts');
+	assert.deepEqual(APOSE_LOOKS.map((l) => l.id), ['swim']);
 	const c: RegistryCharacter = structuredClone(catpope);
 	c.apose = {
 		looks: [
 			{ id: 'swim', default: true, path: 'characters/catpope/catpope_apose-swim.webp' },
-			{ id: 'naked', sensitive: true, path: 'characters/catpope/catpope_apose-naked.webp' }
+			{ id: 'naked', path: 'characters/catpope/catpope_apose-naked.webp' },
+			{ id: 'beach', sensitive: true } as any
 		]
 	};
-	const bodies = avatarBodies({ characters: [c] }, 'en');
-	assert.deepEqual(bodies.map((b) => `${b.look}:${b.sensitive}`), ['swim:false', 'naked:true']);
-	// guests always hide, members by their setting (default on)
+	// leftover looks of older registry data: no avatar body, no wanted image
+	assert.deepEqual(avatarBodies({ characters: [c] }, 'en').map((b) => b.look), ['swim']);
+	assert.ok(!wantedImages({ characters: [c] }).some((w) => w.view === 'apose'));
+	const problems = validateCharacters({ characters: [c] }, { languages: ['en'] });
+	assert.ok(!problems.some((p) => p.level === 'error'));
+	assert.deepEqual(
+		problems.filter((p) => p.message.includes('no longer used')).map((p) => `${p.level} ${p.path.join('.')}`),
+		['warning characters.0.apose.looks.1.id', 'warning characters.0.apose.looks.2.id']
+	);
+	// the setting itself stays (guests always hide, members by their setting, default on)
 	assert.equal(hidesSensitive(null), true);
 	assert.equal(hidesSensitive({}), true);
 	assert.equal(hidesSensitive({ hide_sensitive: false }), false);
-	assert.deepEqual(withoutSensitive(bodies, true).map((b) => b.look), ['swim']);
-	assert.deepEqual(withoutSensitive(bodies, false).map((b) => b.look), ['swim', 'naked']);
-	assert.equal(isSensitive(APOSE_LOOKS.find((l) => l.id === 'naked')), true);
-	assert.ok(!validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error'));
-	(c.apose!.looks[1] as any).sensitive = 'yes';
-	assert.ok(validateCharacters({ characters: [c] }, { languages: ['en'] }).some((p) => p.level === 'error' && p.path.join('.').endsWith('looks.1.sensitive')));
+	assert.deepEqual(withoutSensitive([{ id: 1, sensitive: true }, { id: 2 }], true).map((x) => x.id), [2]);
 });
 
 test('A-pose slot instances: twins, validation, remapping between bodies', async () => {

@@ -7,6 +7,7 @@
 		characterName,
 		defaultLookId,
 		findPersona,
+		isRetiredAposeLook,
 		lookLabel,
 		lookPortraitMoods,
 		personaIds,
@@ -108,7 +109,10 @@
 
 	/** the A-pose looks shown: the stored ones plus the standard looks not stored yet (empty slots) */
 	const aposeLooks = $derived(aposeLooksOf(character));
-	/** an A-pose slot picked (a path closes its open request) or cleared (an unused standard look disappears again) */
+	/**
+	 * an A-pose slot picked (a path closes its open request) or cleared (an unused standard look disappears again, a
+	 * retired one – the removed naked look – always)
+	 */
 	function setAposePath(target: string, path: string | undefined) {
 		change((c) => {
 			if (path) return applyApose(c, target, path, languages);
@@ -116,7 +120,7 @@
 			const look = looks?.find((l) => l.id === target);
 			if (!looks || !look) return;
 			delete look.path;
-			if (!look.slots?.length && aposeLooksOf(null).some((l) => l.id === target)) looks.splice(looks.indexOf(look), 1);
+			if (isRetiredAposeLook(look) || (!look.slots?.length && aposeLooksOf(null).some((l) => l.id === target))) looks.splice(looks.indexOf(look), 1);
 			if (!looks.length) delete c.apose;
 			else if (!looks.some((l) => l.default)) looks[0].default = true;
 		}, `apose-${target}-path`);

@@ -1,9 +1,8 @@
 // Wardrobe (owner 2026-10-01, agents/ITEMS.md "Wardrobe"): clothing is real, exchangeable items drawn as full-body
 // overlays on the reader's avatar body (a character's A-pose). Every reader starts with the SCUTOONS T-shirt and swim
-// pants worn; another item in the same slot instance swaps the worn one back into the inventory. While "Hide sensitive
-// content" is on (members: by default, guests: always) a body never shows naked: the cover slots (`legs`) are refilled
-// from the inventory (swim pants first) and – where nothing is left to wear – the character's safe look (the swim
-// A-pose with the pants painted in) is the base image. The server applies the same rules (AvatarService).
+// pants worn; another item in the same slot instance swaps the worn one back into the inventory. The base image is the
+// body's own A-pose (the swim look, pants painted in – owner 2026-10-05: no naked A-pose any more), so every slot may be
+// empty. The server applies the same rules (AvatarService).
 import type { AvatarBody, AvatarSlotInstance, CharacterRegistry } from './characters.ts';
 import { bodySlots } from './characters.ts';
 import type { AvatarSlot, Catalog, ItemDef } from './items.ts';
@@ -18,9 +17,6 @@ import { READER_STATS } from './substances.ts';
  * their slot anchors.
  */
 export const WEAR_ORDER: AvatarSlot[] = ['legs', 'feet', 'torso', 'back', 'hands', 'accessory', 'neck', 'head', 'face'];
-
-/** Slot types that must be covered while "Hide sensitive content" is on (a naked body would show otherwise). */
-export const SENSITIVE_COVER: AvatarSlot[] = ['legs'];
 
 /** `catpope`, `toptoy/legs-left` – a key of `ItemDef.wear` */
 export const WEAR_KEY = /^[a-z0-9][a-z0-9-]*(\/[a-z0-9][a-z0-9-]{0,31})?$/;
@@ -70,46 +66,9 @@ export function basicDress<T extends Pick<ItemDef, 'id' | 'slot' | 'wear' | 'def
 	return out;
 }
 
-/**
- * Fills the empty cover-slot instances of a body (SENSITIVE_COVER) with owned, unworn entries – in the order given
- * (the caller passes the inventory in catalog order, so the swim pants come first). Instances stay empty when nothing
- * is left (twins with one pair of pants: the safe base covers that figure). Returns the new worn map and the filled ids.
- */
-export function coverSensitive<E extends string | number>(
-	worn: Record<string, E | null | undefined>,
-	instances: Pick<AvatarSlotInstance, 'id' | 'slot'>[],
-	candidates: { id: E; slot: AvatarSlot | null | undefined }[]
-): { worn: Record<string, E | null>; restored: string[] } {
-	const out: Record<string, E | null> = {};
-	for (const [k, v] of Object.entries(worn)) out[k] = v ?? null;
-	const used = new Set(Object.values(out).filter((v) => v != null).map(String));
-	const restored: string[] = [];
-	for (const inst of instances) {
-		if (!SENSITIVE_COVER.includes(inst.slot) || out[inst.id] != null) continue;
-		const next = candidates.find((c) => c.slot === inst.slot && !used.has(String(c.id)));
-		if (!next) continue;
-		out[inst.id] = next.id;
-		used.add(String(next.id));
-		restored.push(inst.id);
-	}
-	return { worn: out, restored };
-}
-
-/**
- * The base image of the avatar: the character's sensitive (naked) look when the reader may see it – setting off, or
- * every cover instance wears an item with an overlay for this character –, else its safe look (default, non-sensitive).
- * `bodies` = the reader's unlocked bodies *including* sensitive ones; `body` = the shown (safe) body.
- */
-export function wardrobeBase(
-	bodies: AvatarBody[],
-	body: AvatarBody | null | undefined,
-	opts: { hide: boolean; covered: boolean }
-): { path: string; naked: boolean } | null {
-	if (!body) return null;
-	const naked = bodies.find((b) => b.character === body.character && b.sensitive);
-	if (naked && (!opts.hide || opts.covered)) return { path: naked.path, naked: true };
-	const safe = body.sensitive ? (bodies.find((b) => b.character === body.character && !b.sensitive) ?? null) : body;
-	return safe ? { path: safe.path, naked: false } : null;
+/** The base image of the avatar: the shown body's A-pose (the safe swim look; the naked base was removed 2026-10-05). */
+export function wardrobeBase(body: Pick<AvatarBody, 'path'> | null | undefined): { path: string } | null {
+	return body?.path ? { path: body.path } : null;
 }
 
 /** A wearable × body slot instance without an overlay (an asset request for the owner; the icon is drawn meanwhile). */
@@ -225,11 +184,6 @@ export function validateCatalog(catalog: unknown, registry?: CharacterRegistry |
 		const d = def as any;
 		if (!isObj(d) || typeof d.baseline !== 'number' || d.baseline < 0 || d.baseline > 100 || typeof d.half_life_days !== 'number' || d.half_life_days <= 0) {
 			add('error', ['stats', id], `stat "${id}" must be { label, baseline 0–100, half_life_days > 0 }`);
-		}
-	}
-		for (const slot of SENSITIVE_COVER) {
-		if (!catalog.items.some((it: any) => isObj(it) && it.starter === true && it.slot === slot)) {
-			add('warning', ['items'], `no starter item for the "${slot}" slot: "Hide sensitive content" can't keep the avatar covered`);
 		}
 	}
 	return problems;

@@ -138,8 +138,8 @@ return [
 
     // ── Avatar bodies ──────────────────────────────────────────────────────────────────────────────────
     // Characters (with their A-pose looks) every member may wear as the reader's avatar body, without per-member rows
-    // (Domain\Characters\CharacterUnlocks). JSON { "<character>": ["<look>", …] }. Owner 2026-09-30: Cat Pope, swim + naked.
-    'AVATAR_DEFAULT_UNLOCKS' => '{"catpope":["swim","naked"]}',
+    // (Domain\Characters\CharacterUnlocks). JSON { "<character>": ["<look>", …] }. Owner 2026-10-05: Cat Pope, swim (no naked look any more).
+    'AVATAR_DEFAULT_UNLOCKS' => '{"catpope":["swim"]}',
 
     // ── Caches and private storage (the catalog is in the database: agents/CATALOG.md) ───────────────────
     // Composed answers of the library endpoints /api/library/* (agents/DATA.md): auto (APCu when enabled, else files
