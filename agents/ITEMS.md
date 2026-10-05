@@ -595,7 +595,7 @@ Owner: "Make it a member-wide setting. Hide sensitive content is on by default."
   `@scutoons/content` (`sensitive.ts`: `isSensitive`, `hidesSensitive(user)`, `withoutSensitive(items, hide)`,
   `HIDE_SENSITIVE_DEFAULT`). `AposeLook extends SensitiveFlag`; **every `naked` look is `sensitive: true`**
   (`migrate-characters.ts`, `APOSE_LOOKS`, the creator's "start A-pose"); schema + validation (not a boolean = error);
-  `AvatarBody.sensitive`. Other content can take the same flag later (not built).
+  `AvatarBody.sensitive`. Slices use the same flag since 2026-10-05 ("Sensitive slices" below).
 - **Setting `hide_sensitive`, default on.** Members: column `users.hide_sensitive` (migration
   `2026-09-30-sensitive-content`, MySQL + SQLite, idempotent – the existing member-setting pattern of `marketing_opt_in`,
   no preferences table exists), `GET /me/ user.hide_sensitive`, changed with `PUT /me/ { hide_sensitive }` (alone or with
@@ -613,6 +613,21 @@ Owner: "Make it a member-wide setting. Hide sensitive content is on by default."
 - Tests: admin-smoke "(Hide sensitive content)" (default on, 422 sensitive_hidden, 400, off → naked, on → moved to swim
   and stored, a stored naked body reads as swim), api-smoke (new accounts: on), PHPUnit
   `CharacterUnlocksTest::testSensitiveLooksFollowHideSensitive`, content test "sensitive content".
+
+### Sensitive slices (2026-10-05, owner)
+
+Owner: "Keep the safe-for-work switch in the account. Let's build in a per-slice flag: turned on, it will blur out the
+slice and mute the audio, with a tiny overlay note."
+- **Data:** `Slice.sensitive?: boolean` (stored only when on, language-neutral; validation + locale check, DATA.md).
+- **Creator:** chapter editor → slice → "Slice" tab, under the media: one checkbox "Sensibler Inhalt" / "Sensitive content"
+  + a one-line hint (`slice-media.svelte`, `doc.structural` = every locale, undoable).
+- **Viewer** (`components/toon/slice.svelte`, reactive on `hidesSensitive(session user)`; guests and a session still
+  loading hide): `@scutoons/reader` `Slice` `blurred` – the image (a video slice: its poster; the video is not loaded,
+  so no sound) blurred 1.5rem, scaled 1.15, clipped to the slice. The slice's samples are not wired (its music levels
+  still apply – the chapter's soundtrack, not the slice's sound); text boxes, placed items and VN triggers stay. Note: a
+  caption pill in the middle, "Sensibler Inhalt ausgeblendet" / "Sensitive content hidden"; members: a link to the
+  account page (tooltip names the setting), guests: plain text. No reveal button. Switching the setting off shows the
+  slices right away.
 
 ## Cast & "featuring" (2026-09-30, owner — concept, build after data refactor Phase C)
 
