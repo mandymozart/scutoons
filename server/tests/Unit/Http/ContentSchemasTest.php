@@ -71,6 +71,15 @@ final class ContentSchemasTest extends TestCase
         self::assertSame([], $this->problems('locations', ['anything' => 1]), 'the old map is not checked');
     }
 
+    public function testNewToonSettingsWithoutAcceptedWarnings(): void
+    {
+        // as the creator's "Create season 1" writes them (newToon): no accepted_warnings until a warning is accepted
+        $settings = ['id' => 'catpope', 'title' => 'Cat Pope', 'language' => 'de', 'release' => '2026-10-06', 'status' => 'draft', 'description' => ''];
+        self::assertSame([], $this->problems('toon-settings', $settings));
+        self::assertSame([], $this->problems('toon-settings', $settings + ['accepted_warnings' => ['title#1a2b3c4d']]));
+        self::assertNotSame([], $this->problems('toon-settings', $settings + ['accepted_warnings' => 'title']), 'a list of strings');
+    }
+
     public function testThePutIsRefused(): void
     {
         $user = $this->user('creator@example.com');

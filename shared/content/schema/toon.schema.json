@@ -7,6 +7,13 @@
 		"ToonSettings": {
 			"type": "object",
 			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
 				"id": {
 					"type": "string"
 				},
@@ -26,17 +33,15 @@
 				},
 				"description": {
 					"type": "string"
-				},
-				"accepted_warnings": {}
+				}
 			},
 			"required": [
+				"description",
 				"id",
-				"title",
 				"language",
 				"release",
 				"status",
-				"description",
-				"accepted_warnings"
+				"title"
 			],
 			"description": "The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings"
 		},

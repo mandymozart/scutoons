@@ -644,7 +644,8 @@ export type ToonNeutralField = (typeof TOON_NEUTRAL_FIELDS)[number];
 export type ToonNeutralSettings = Partial<Pick<Toon, Exclude<ToonNeutralField, 'map'>>> & { map?: ToonMapView };
 
 /** The per-language document `toon-settings:<toon>:<l>` (file `<toon>/<l>/toon.json`): the `Toon` without the neutral settings */
-export type ToonSettings = Omit<Toon, ToonNeutralField | 'cover'>;
+// AcceptedWarnings added back explicitly: through `Omit` the schema generator made the inherited optional field required
+export type ToonSettings = Omit<Toon, ToonNeutralField | 'cover' | 'accepted_warnings'> & AcceptedWarnings;
 
 /** A toon's tile on the landing page: a square image on a colour */
 export interface ToonTile {
