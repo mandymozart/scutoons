@@ -10,13 +10,13 @@ export const CDN_SERVER: string = (
 
 /**
  * Backend API (accounts, access, items, inventory, content store). No trailing slash. `VITE_API_URL`
- * (dev: .env.development, port in shared/dev-ports.json); prod fallback https://qr.scutoons.com/api until api.scutoons.com exists.
+ * (dev: .env.development, port in shared/dev-ports.json); prod fallback https://api.scutoons.com/api.
  * `VITE_QR_API` is the old name, still read for now.
  */
 export const API_URL: string = (
 	import.meta.env.VITE_API_URL ||
 	import.meta.env.VITE_QR_API ||
-	'https://qr.scutoons.com/api'
+	'https://api.scutoons.com/api'
 ).replace(/\/+$/, '');
 
 /** Hosts whose QR codes carry SCUTOONS items (`https://qr.scutoons.com/?c=CODE`). */

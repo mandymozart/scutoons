@@ -60,4 +60,5 @@ jobs:
           check '/?c=abcDEF12' 503 && grep -q 'Scanning works, try again in a minute' /tmp/body
           check '/?c=not%20a%20code' 404
           check '/api/validate/?c=abcDEF12' 502
+          check '/api/health/' 404
           check '/?login=token' 302

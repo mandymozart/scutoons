@@ -15,10 +15,10 @@ final class Config
         'API_URL' => 'https://api.scutoons.com',
         // Shared secret with the API (its QR_PROXY_SECRET): lets the API trust the client IP / device id we forward
         'QR_PROXY_SECRET' => '',
-        // TRANSITION: proxy the whole /api/* to the API (released viewers call https://qr.scutoons.com/api/…).
-        // /api/validate/ and /api/keys/keys.php are always proxied (printed URLs). Switch off (0) when the stats show
-        // no more API traffic on qr.
-        'PROXY_FULL_API' => '1',
+        // Proxy the whole /api/* to the API: the transition switch for the old viewer (it called
+        // https://qr.scutoons.com/api/…), off since 2026-10-05 (CUTOVER 10.5) – every app calls api.scutoons.com. Off,
+        // only the printed /api/validate/ + /api/keys/keys.php and the verify page's data are proxied. '1' = rollback.
+        'PROXY_FULL_API' => '0',
         // The viewer (old magic links /?login= go there; account link fallback)
         'WWW_URL' => 'https://scutoons.com',
         // Item icons: <CDN_URL><icon path>

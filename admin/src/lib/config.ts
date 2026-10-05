@@ -4,10 +4,10 @@ const trim = (url: string) => url.replace(/\/+$/, '');
 
 /**
  * Backend API (accounts, admin API). `VITE_API_URL` (dev: .env.development, the API port is in
- * shared/dev-ports.json); prod fallback https://qr.scutoons.com/api until api.scutoons.com exists. `VITE_QR_API` = old name.
+ * shared/dev-ports.json); prod fallback https://api.scutoons.com/api. `VITE_QR_API` = old name.
  */
 export const API_URL: string = trim(
-	import.meta.env.VITE_API_URL || import.meta.env.VITE_QR_API || 'https://qr.scutoons.com/api'
+	import.meta.env.VITE_API_URL || import.meta.env.VITE_QR_API || 'https://api.scutoons.com/api'
 );
 
 /** The creator app: "Open in the creator" links (`VITE_CREATOR_URL`; dev: shared/dev-ports.json). */

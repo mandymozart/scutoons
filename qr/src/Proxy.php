@@ -13,8 +13,9 @@ final class Proxy
 {
     /**
      * Request headers never forwarded: hop-by-hop, the host, compression (the body must stay identical), cookies – except
-     * the API's single sign-on cookie (SESSION_COOKIE), which goes along alone: during the transition the apps call
-     * the API through this proxy (qr.scutoons.com/api), and the cookie (Domain=scutoons.com, Path=/api) is theirs.
+     * the API's single sign-on cookie (SESSION_COOKIE), which goes along alone: with PROXY_FULL_API on (the old
+     * viewer's transition, off since CUTOVER 10.5) apps called the API through this proxy (qr.scutoons.com/api), and
+     * the cookie (Domain=scutoons.com, Path=/api) is theirs.
      */
     public const SESSION_COOKIE = 'scutoons_sid';
     private const DROP_REQUEST = ['host', 'connection', 'keep-alive', 'proxy-authorization', 'proxy-connection', 'te',

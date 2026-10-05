@@ -7,7 +7,7 @@ namespace Qr;
  * qr.scutoons.com – every request that is not a static file in public/ (verify.html, assets/, version.json):
  *
  *   /api/validate[/…], /api/keys/keys.php     PRINTED: always proxied to the API, byte for byte
- *   /api[/…]                                  proxied while PROXY_FULL_API is on (released viewers), else 404 JSON
+ *   /api[/…]                                  404 JSON (proxied only while PROXY_FULL_API is on – off since 10.5)
  *   /api/certificates[/…]                     the verify page's certificate check: always proxied to the API
  *   /generate/get-signature.php,
  *   /generate/files/signatures/SIGNATURE-*    (old verify page, signature downloads): proxied to the API

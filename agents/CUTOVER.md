@@ -19,12 +19,12 @@ Agents never run production-changing commands, never see or print credentials.
 
 **Where credentials go (never into chat, commits or this file):**
 
-| Credential | Goes into | Used by |
-|---|---|---|
-| FTP user of the new subfolder | GitHub → `scutoons` → Settings → Environments → `production`: secrets `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` (replace the old values; keep the old ones in your password manager) | every deploy |
-| New MySQL DB (name / user / password) | `production`: variables `DB_HOST`, `DB_NAME`; secrets `DB_USER`, `DB_PASS` | api `config.php` |
-| `AUTH_SECRET`, `QR_PROXY_SECRET` (new random, ≥ 32 chars), `SMTP_*`, `GENERATE_PASSWORD` | `production` (list: root `.env.example`) | api, qr |
-| bunny keys (`BUNNY_*`, `CDN_PUBLIC_URL`) | **the only thing in a local repo-root `.env`** (gitignored): today `C:\Development\scutoons-assets\.env`, after the assets merge `C:\Development\scutoons\.env` (move the file) | asset manager / the one-time `assets:sync` (local) |
+| Credential                                                                               | Goes into                                                                                                                                                                               | Used by                                            |
+| ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| FTP user of the new subfolder                                                            | GitHub → `scutoons` → Settings → Environments → `production`: secrets `FTP_SERVER`, `FTP_USERNAME`, `FTP_PASSWORD` (replace the old values; keep the old ones in your password manager) | every deploy                                       |
+| New MySQL DB (name / user / password)                                                    | `production`: variables `DB_HOST`, `DB_NAME`; secrets `DB_USER`, `DB_PASS`                                                                                                              | api `config.php`                                   |
+| `AUTH_SECRET`, `QR_PROXY_SECRET` (new random, ≥ 32 chars), `SMTP_*`, `GENERATE_PASSWORD` | `production` (list: root `.env.example`)                                                                                                                                                | api, qr                                            |
+| bunny keys (`BUNNY_*`, `CDN_PUBLIC_URL`)                                                 | **the only thing in a local repo-root `.env`** (gitignored): today `C:\Development\scutoons-assets\.env`, after the assets merge `C:\Development\scutoons\.env` (move the file)         | asset manager / the one-time `assets:sync` (local) |
 
 **Owner rule (2026-10-02):** the new DB and the FTP subfolder credentials go **only** into the GitHub `production`
 environment (the deploy writes them into the api's `config.php` on the server) – never into a local file. The local
@@ -36,28 +36,28 @@ repo-root `.env` holds the bunny keys and nothing else that is used.
 
 ## Current state (fill in during Phase 0 – no secrets, only names/paths/numbers)
 
-| What | Value |
-|---|---|
-| KAS target dir `scutoons.com` / `www.` | `/scutoons.com/` (per its FTP user; confirm in KAS → Domains) |
-| KAS target dir `qr.scutoons.com` (old qr folder) | `/qr.scutoons.com/` (per its FTP user; confirm) |
-| KAS target dir `creator.scutoons.com` (in use?) | |
-| KAS target dir `cdn.scutoons.com` (old CDN folder) | `/cdn.scutoons.com/` (per its FTP user; confirm) |
-| Old DB tables (expected: `qr` only, maybe `schema_migrations`) | |
+| What                                                                                                  | Value                                                                                                                                                                                      |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| KAS target dir `scutoons.com` / `www.`                                                                | `/scutoons.com/` (per its FTP user; confirm in KAS → Domains)                                                                                                                              |
+| KAS target dir `qr.scutoons.com` (old qr folder)                                                      | `/qr.scutoons.com/` (per its FTP user; confirm)                                                                                                                                            |
+| KAS target dir `creator.scutoons.com` (in use?)                                                       |                                                                                                                                                                                            |
+| KAS target dir `cdn.scutoons.com` (old CDN folder)                                                    | `/cdn.scutoons.com/` (per its FTP user; confirm)                                                                                                                                           |
+| Old DB tables (expected: `qr` only, maybe `schema_migrations`)                                        |                                                                                                                                                                                            |
 | Old DB `qr` at export T0: rows / registered (`email<>''`) / signed / `CHECKSUM TABLE qr` / time (UTC) | **469 / 35 / 381**; MAX(created_at) 2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46; per edition: NULL 169, `3_catpope_vinyl` 300 (sum 469); `CHECKSUM TABLE qr` = **3162238151** |
-| New root folder + FTP user | `/web/`, user "github actions next" (2.1) |
-| Test hostnames (proposal `next.scutoons.com` = viewer, `qr-next.scutoons.com` = qr) | |
-| DB labels: **DB-T** (test build) / **DB-P** (switch-day build, only if needed – Phase 7) | |
+| New root folder + FTP user                                                                            | `/web/`, user "github actions next" (2.1)                                                                                                                                                  |
+| Test hostnames (proposal `next.scutoons.com` = viewer, `qr-next.scutoons.com` = qr)                   |                                                                                                                                                                                            |
+| DB labels: **DB-T** (test build) / **DB-P** (switch-day build, only if needed – Phase 7)              |                                                                                                                                                                                            |
 
 ---
 
 ## Agent work this plan needs (flagged, not done yet)
 
-| # | Task | Needed for | Estimate |
-|---|---|---|---|
-| T1 | **DONE (coordinator, commit 6fcb82c).** Was required. Add the viewer test origin `https://next.scutoons.com` to `ALLOWED_ORIGINS` in `deploy/targets.json` (api `config.php`; it is also the CSRF list) + deploy README note. Without it the viewer on the test host cannot sign in (CORS). Fallback without a code change: use `embassy.scutoons.com` as the viewer test host (already allowed; embassy is held back). | Phase 6 | 15 min + dry run |
-| T2 | **n/a** – Phase 4 dropped, and `cdn/` removed 2026-10-04 (no sync.py). Was: `cdn/sync.py` skips `.json` / `.bin` → the camera model `models/mobilenet_v2_100_224/` never reaches cdn.scutoons.com. Add both to `SYNC_EXTENSIONS` – or upload that folder by hand (step 4.3). | Phase 4 | 10 min |
-| T3 | **n/a** – KAS creates subfolder-rooted FTP users (2.1). Was: only if the owner cannot get an FTP user rooted in the subfolder: a remote prefix in `deploy/targets.json` / `deploy.mjs` (e.g. `${FTP_ROOT}`). | Phase 5 | 30–60 min |
-| T4 | Only if the owner rejects "rebuild or keep" in Phase 7: a delta import (`bin/console legacy-delta --since=<T0> --sql` from an old-DB export: new codes INSERT IGNORE, new email registrations / re-signatures UPDATE where the new DB has no owner). Not recommended – the checksum gate in 7.1 makes it unnecessary. | Phase 7 | 2–3 h |
+| #   | Task                                                                                                                                                                                                                                                                                                                                                                                                                    | Needed for | Estimate         |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------- |
+| T1  | **DONE (coordinator, commit 6fcb82c).** Was required. Add the viewer test origin `https://next.scutoons.com` to `ALLOWED_ORIGINS` in `deploy/targets.json` (api `config.php`; it is also the CSRF list) + deploy README note. Without it the viewer on the test host cannot sign in (CORS). Fallback without a code change: use `embassy.scutoons.com` as the viewer test host (already allowed; embassy is held back). | Phase 6    | 15 min + dry run |
+| T2  | **n/a** – Phase 4 dropped, and `cdn/` removed 2026-10-04 (no sync.py). Was: `cdn/sync.py` skips `.json` / `.bin` → the camera model `models/mobilenet_v2_100_224/` never reaches cdn.scutoons.com. Add both to `SYNC_EXTENSIONS` – or upload that folder by hand (step 4.3).                                                                                                                                            | Phase 4    | 10 min           |
+| T3  | **n/a** – KAS creates subfolder-rooted FTP users (2.1). Was: only if the owner cannot get an FTP user rooted in the subfolder: a remote prefix in `deploy/targets.json` / `deploy.mjs` (e.g. `${FTP_ROOT}`).                                                                                                                                                                                                            | Phase 5    | 30–60 min        |
+| T4  | Only if the owner rejects "rebuild or keep" in Phase 7: a delta import (`bin/console legacy-delta --since=<T0> --sql` from an old-DB export: new codes INSERT IGNORE, new email registrations / re-signatures UPDATE where the new DB has no owner). Not recommended – the checksum gate in 7.1 makes it unnecessary.                                                                                                   | Phase 7    | 2–3 h            |
 
 What already exists (no build needed): the 16 idempotent migrations (they turn a copy of the old `qr` table into the
 new schema exactly like an in-place upgrade), `content-seed.mysql.sql`, `backfill-edition-numbers --sql` (no DB needed),
@@ -74,37 +74,37 @@ Decide before: nothing.
   new admin / the api's legacy `generate/` (5.5) on DB-T, or in the old `generate/` now – then 7.1's checksum differs
   and DB-P is rebuilt from a fresh export (it then carries the code).
 - [x] **0.1 O – Export the OLD database.** Done 2026-10-02: export stored in the owner's Proton Drive backups folder
-  (Scutoons/Backups); it contains **only the `qr` table** (confirmed – no accounts/inventories/progress to migrate).
-  Numbers recorded in "Current state" (469 / 35 / 381, checksum 3162238151). phpMyAdmin → old DB → *Export* → *Custom* → all tables, structure + data,
-  format SQL, compression gzip → save as `scutoons-db-old-2026-10-0X.sql.gz` in two places offline (disk + USB/cloud
-  drive). Right after, in the old DB's *SQL* tab run and note the numbers in "Current state":
+      (Scutoons/Backups); it contains **only the `qr` table** (confirmed – no accounts/inventories/progress to migrate).
+      Numbers recorded in "Current state" (469 / 35 / 381, checksum 3162238151). phpMyAdmin → old DB → _Export_ → _Custom_ → all tables, structure + data,
+      format SQL, compression gzip → save as `scutoons-db-old-2026-10-0X.sql.gz` in two places offline (disk + USB/cloud
+      drive). Right after, in the old DB's _SQL_ tab run and note the numbers in "Current state":
   ```sql
   SELECT COUNT(*) AS codes, SUM(email <> '') AS registered, SUM(signature IS NOT NULL) AS signed, MAX(created_at), MAX(claimed_at) FROM qr;
   SELECT edition_id, COUNT(*) FROM qr GROUP BY edition_id;
   CHECKSUM TABLE qr;
   SHOW TABLES;
   ```
-  Verify: the .gz opens (7-Zip), contains `CREATE TABLE \`qr\`` and `INSERT INTO \`qr\``. Rollback: n/a (read-only).
-  If `SHOW TABLES` lists more than `qr` (+ `schema_migrations`): stop and tell the guide.
+  Verify: the .gz opens (7-Zip), contains `CREATE TABLE \`qr\``and`INSERT INTO \`qr\``. Rollback: n/a (read-only).
+If `SHOW TABLES`lists more than`qr`(+`schema_migrations`): stop and tell the guide.
 - [x] **0.2 O – Back up the old qr folder** – done 2026-10-02 (hash / publicKey check result not reported yet). FTP/WinSCP, the main FTP account. Download into an offline folder:
-  `api/keys/keypair.json` (**CRITICAL – the private signing key; never upload anywhere public, never send by mail/chat**),
-  the whole `generate/files/` (`batch/`, `certificates/`, `svgs/`, `signatures/`, …), `generate/.htpasswd`, `config.php`.
-  Verify: per subfolder of `generate/files/` file count + total size = the server's (WinSCP "Properties");
-  `Get-FileHash keypair.json -Algorithm SHA256` noted (hash only, here in the log is fine); the `publicKey` inside the
-  file equals the one served by `https://qr.scutoons.com/api/keys/keys.php` (you compare the first/last 20 characters –
-  agents never open the keypair file).
+      `api/keys/keypair.json` (**CRITICAL – the private signing key; never upload anywhere public, never send by mail/chat**),
+      the whole `generate/files/` (`batch/`, `certificates/`, `svgs/`, `signatures/`, …), `generate/.htpasswd`, `config.php`.
+      Verify: per subfolder of `generate/files/` file count + total size = the server's (WinSCP "Properties");
+      `Get-FileHash keypair.json -Algorithm SHA256` noted (hash only, here in the log is fine); the `publicKey` inside the
+      file equals the one served by `https://qr.scutoons.com/api/keys/keys.php` (you compare the first/last 20 characters –
+      agents never open the keypair file).
 - [x] **0.3 O – Back up the old viewer folder** – done 2026-10-02 (`/scutoons.com/` → Proton Drive backups). (FTP download of the folder from "Current state"). Optional – it stays
-  untouched anyway.
-- [x] **0.4 O – Freeze the old system's deploys:** *(done 2026-10-02)* GitHub → `mandymozart/qr.scutoons.com` → Settings → Actions →
-  *Disable actions* (its workflow deploys production on a push to any branch). Also: **no new batches / regenerations
-  in the old `generate/` from now on** (they would not reach the new DB – see 7.1).
-- [x] **0.5 O – Record the KAS state** *(done 2026-10-02)* (KAS → Domains): the target directory of every (sub)domain → "Current state".
-  Check that none of the new folder names below would collide with an existing folder.
+      untouched anyway.
+- [x] **0.4 O – Freeze the old system's deploys:** _(done 2026-10-02)_ GitHub → `mandymozart/qr.scutoons.com` → Settings → Actions →
+      _Disable actions_ (its workflow deploys production on a push to any branch). Also: **no new batches / regenerations
+      in the old `generate/` from now on** (they would not reach the new DB – see 7.1).
+- [x] **0.5 O – Record the KAS state** _(done 2026-10-02)_ (KAS → Domains): the target directory of every (sub)domain → "Current state".
+      Check that none of the new folder names below would collide with an existing folder.
 - [ ] **0.6 A – Local copies checked:** `media/` (then `cdn/root`) = 824 files / 855,854,341 bytes, identical copy in
-  `C:\Development\scutoons-assets\cdn\root` (checked 2026-10-02) = the media backup; `server/db/local.sqlite` copied
-  to `server/db/local.sqlite.bak-2026-10-0X-cutover`.
+      `C:\Development\scutoons-assets\cdn\root` (checked 2026-10-02) = the media backup; `server/db/local.sqlite` copied
+      to `server/db/local.sqlite.bak-2026-10-0X-cutover`.
 - [ ] **0.7 O (optional) – Old CDN listing:** WinSCP/FileZilla on the CDN FTP folder → a recursive listing saved to
-  `logs/cutover/remote-listing-2026-10-0X.txt` (the sync never deletes, so this is documentation only).
+      `logs/cutover/remote-listing-2026-10-0X.txt` (the sync never deletes, so this is documentation only).
 
 Phase 1 waits for the assets merge (see its preconditions); Phase 0, 2 and 3 do not depend on it.
 
@@ -127,27 +127,27 @@ new platform no longer references them, the legacy system uses all-inkl → reco
 release, then prune via the admin's Unused list (never via a bulk dashboard delete).
 
 All commands in `C:\Development\scutoons\server` (PowerShell), after the merge.
-- [x] **1.1 O – Relayout locally:** *(done 2026-10-02 by the coordinator: assets merged into `platform` (b3be086, 67774da), 318 old files removed, `cdn/root` = 720 files / 806 MB, new layout only; full suite + browser checks green)* `php bin/console assets:relayout --delete-old` (exact options as the assets merge
-  report states; `cdn/root` then holds only the new layout). Verify: A runs the validation's media checks /
-  `assets:check-storage` comparison – 0 references to missing files.
-- [x] **1.2 O – Write fence off:** *(n/a now: the main checkout's `server/config.local.php` has no `BUNNY_WRITE_PREFIX` line – the `.env` with the 7 keys moved to `C:\Development\scutoons`)* in `server/config.local.php` the `BUNNY_WRITE_PREFIX` line commented out.
-- [x] **1.3 O – Read-only check:** *(done: 7 keys set, zone empty, pull zone 6731366 origin = storage zone #1599226, API key valid)* `php bin/console assets:check-storage` → all keys "set", zone `scutoons`, pull zone
-  6731366 origin = the storage zone.
-- [x] **1.4 O – Plan (dry run):** *(done: 720 files / 805.9 MB to upload, 0 same / different / only on target)* *(the zone is EMPTY now – the owner emptied it, D1 moot: expect ≈ 720 to upload / ≈ 806 MB, 0 different, 0 only on
-  the target)* `php bin/console assets:sync --source-root=../cdn/root --hash` → paste the summary
-  (to upload / different / only on target) to the guide before applying.
-- [x] **1.5 O – Apply:** *(done 2026-10-02, log now `logs/cutover/bunny-init-2026-10-02.json`)* `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
-  --log=../cdn/logs/bunny-init-2026-10-0X.json` (verified uploads, retries, never deletes; long-running). This includes
-  the camera model (`models` → its new folder) – sync.py's `.json`/`.bin` gap does not apply here.
-- [x] **1.6 O – CORS on the pull zone:** *(done: CORS on; extensions eot, ttf, woff, woff2, css, js, jpg, jpeg, png, webp, gif, mp3, mp4, mpeg, svg, webm, json, bin, zip, avif, pdf)* bunny dashboard → Pull Zones → `scutoons` → Headers → *Add CORS headers* ON,
-  extension list incl. `mp4, mp3, json, bin, webp, png, jpg, jpeg, svg, zip` (the media-quality probe `fetch`es the 480p
-  video with `Range`, the camera loads `model.json` + shards).
-- [x] **1.7 O+A – Verify:** *(done: 720 paths on both, 0 only local / 0 only bunny / 0 different, 805.9 MB – catpope 305, characters 391, scutoons 22, toptoy 1, yellowmouse 1; samples model.json, trailer 720p, prologue 480p with Origin + Range → 206, right content-range/type, ACAO `*`)* `assets:check-storage` → **0 missing, 0 different**. A: HEAD/GET through
-  `https://scutoons.b-cdn.net/…` on samples of the new layout (trailer 720p, prologue 480p, a chapter-2 slice, an item
-  icon, a wear overlay, `model.json`, the album zip), size = local, `Access-Control-Allow-Origin` present with an
-  `Origin: https://scutoons.com` request, `Range` → 206.
+
+- [x] **1.1 O – Relayout locally:** _(done 2026-10-02 by the coordinator: assets merged into `platform` (b3be086, 67774da), 318 old files removed, `cdn/root` = 720 files / 806 MB, new layout only; full suite + browser checks green)_ `php bin/console assets:relayout --delete-old` (exact options as the assets merge
+      report states; `cdn/root` then holds only the new layout). Verify: A runs the validation's media checks /
+      `assets:check-storage` comparison – 0 references to missing files.
+- [x] **1.2 O – Write fence off:** _(n/a now: the main checkout's `server/config.local.php` has no `BUNNY_WRITE_PREFIX` line – the `.env` with the 7 keys moved to `C:\Development\scutoons`)_ in `server/config.local.php` the `BUNNY_WRITE_PREFIX` line commented out.
+- [x] **1.3 O – Read-only check:** _(done: 7 keys set, zone empty, pull zone 6731366 origin = storage zone #1599226, API key valid)_ `php bin/console assets:check-storage` → all keys "set", zone `scutoons`, pull zone
+      6731366 origin = the storage zone.
+- [x] **1.4 O – Plan (dry run):** _(done: 720 files / 805.9 MB to upload, 0 same / different / only on target)_ _(the zone is EMPTY now – the owner emptied it, D1 moot: expect ≈ 720 to upload / ≈ 806 MB, 0 different, 0 only on
+      the target)_ `php bin/console assets:sync --source-root=../cdn/root --hash` → paste the summary
+      (to upload / different / only on target) to the guide before applying.
+- [x] **1.5 O – Apply:** _(done 2026-10-02, log now `logs/cutover/bunny-init-2026-10-02.json`)_ `php bin/console assets:sync --source-root=../cdn/root --hash --apply --overwrite --purge-zone
+--log=../cdn/logs/bunny-init-2026-10-0X.json` (verified uploads, retries, never deletes; long-running). This includes
+      the camera model (`models` → its new folder) – sync.py's `.json`/`.bin` gap does not apply here.
+- [x] **1.6 O – CORS on the pull zone:** _(done: CORS on; extensions eot, ttf, woff, woff2, css, js, jpg, jpeg, png, webp, gif, mp3, mp4, mpeg, svg, webm, json, bin, zip, avif, pdf)_ bunny dashboard → Pull Zones → `scutoons` → Headers → _Add CORS headers_ ON,
+      extension list incl. `mp4, mp3, json, bin, webp, png, jpg, jpeg, svg, zip` (the media-quality probe `fetch`es the 480p
+      video with `Range`, the camera loads `model.json` + shards).
+- [x] **1.7 O+A – Verify:** _(done: 720 paths on both, 0 only local / 0 only bunny / 0 different, 805.9 MB – catpope 305, characters 391, scutoons 22, toptoy 1, yellowmouse 1; samples model.json, trailer 720p, prologue 480p with Origin + Range → 206, right content-range/type, ACAO `_`)* `assets:check-storage`→ **0 missing, 0 different**. A: HEAD/GET through`https://scutoons.b-cdn.net/…` on samples of the new layout (trailer 720p, prologue 480p, a chapter-2 slice, an item
+      icon, a wear overlay, `model.json`, the album zip), size = local, `Access-Control-Allow-Origin` present with an
+      `Origin: https://scutoons.com` request, `Range` → 206.
 - [ ] **1.8 O – Write fence back on:** add `define('BUNNY_WRITE_PREFIX', '_test/');` to `C:\Development\scutoons\server\config.local.php`
-  (the main checkout's local server must not write to the production zone).
+      (the main checkout's local server must not write to the production zone).
 - Rollback: none needed (no reader uses bunny yet; re-runnable; nothing deleted on the zone).
 
 ---
@@ -158,52 +158,52 @@ Decide before: **D2** subfolder name + test hostnames (proposal above) · **D3**
 `https://api.scutoons.com/api` (recommended – api. exists from day one; the old viewer keeps using qr.scutoons.com/api,
 which the new qr app proxies after the switch).
 
-- [x] **2.1 O – New root folder + its own FTP user.** *(done: user rooted in `/web/`, FTP_* secrets set)* KAS today has 4 FTP users – main `w020b50e` (`/`, root),
-  `cdn-sync` `f017c2d3` (`/cdn.scutoons.com/`), github actions `f017b642` (`/scutoons.com/`), github actions `f017b651`
-  (`/qr.scutoons.com/`). **Leave all four untouched** until after the switch (old deploys, legacy, CDN sync).
-  KAS → FTP → *new FTP user* "github actions next", directory = a **new root folder `/web/`** (D2 decided 2026-10-02; created
-  with it), rights read/write/list/view. Its credentials **only** into GitHub → `production` secrets `FTP_SERVER`,
-  `FTP_USERNAME`, `FTP_PASSWORD` (replace whatever is there) – not into the local `.env`, never the root user's login.
-  Verify: WinSCP with the new user → an empty folder (you must not see `scutoons.com/` or `qr.scutoons.com/`).
-  No deploy change needed (T3 n/a): `deploy/targets.json` remotes are relative (`api/`, `qr/`, `viewer/dist/`, …) and
-  `deploy.mjs` hands them to the FTP action as `server-dir` = relative to this user's login folder = `/web/`.
-- [x] **2.2 O – Folder layout inside `/web/`** *(done)* (create the empty folders; the deploys fill them):
+- [x] **2.1 O – New root folder + its own FTP user.** \_(done: user rooted in `/web/`, FTP\_\_ secrets set)* KAS today has 4 FTP users – main `w020b50e` (`/`, root),
+      `cdn-sync` `f017c2d3` (`/cdn.scutoons.com/`), github actions `f017b642` (`/scutoons.com/`), github actions `f017b651`
+      (`/qr.scutoons.com/`). **Leave all four untouched** until after the switch (old deploys, legacy, CDN sync).
+      KAS → FTP → *new FTP user\* "github actions next", directory = a **new root folder `/web/`** (D2 decided 2026-10-02; created
+      with it), rights read/write/list/view. Its credentials **only** into GitHub → `production` secrets `FTP_SERVER`,
+      `FTP_USERNAME`, `FTP_PASSWORD` (replace whatever is there) – not into the local `.env`, never the root user's login.
+      Verify: WinSCP with the new user → an empty folder (you must not see `scutoons.com/` or `qr.scutoons.com/`).
+      No deploy change needed (T3 n/a): `deploy/targets.json` remotes are relative (`api/`, `qr/`, `viewer/dist/`, …) and
+      `deploy.mjs` hands them to the FTP action as `server-dir` = relative to this user's login folder = `/web/`.
+- [x] **2.2 O – Folder layout inside `/web/`** _(done)_ (create the empty folders; the deploys fill them):
 
-  | Folder (from the KAS root) | Filled by | Domain at the test phase (2.6) | Domain after the switch (Phase 8) |
-  |---|---|---|---|
-  | `/web/api/` (docroot `api/public/`; private `api/storage/keys/`, `api/storage/files/`, `api/logs/`) | target `api` (server/) + 2.3 | `api.scutoons.com` (new) | same |
-  | `/web/qr/` (docroot `qr/public/`) | target `qr` | `qr-next.scutoons.com` (test) | **`qr.scutoons.com`** |
-  | `/web/viewer/dist/` | target `viewer` | `next.scutoons.com` (test) | **`scutoons.com` + `www.scutoons.com`** |
-  | `/web/admin/dist/` | target `admin` | `admin.scutoons.com` (new) | same |
-  | `/web/creator/dist/` | target `creator` | `creator.scutoons.com` | same |
-  | `/web/shop/dist/` | target `shop` | `shop.scutoons.com` (new) | same |
-  | `/web/embassy/dist/` | target `embassy` | `embassy.scutoons.com` (new, owner sets it up) | same |
-  | `/scutoons.com/` (old viewer, untouched) | – | `scutoons.com`, `www.` | **`legacy.scutoons.com`** |
-  | `/qr.scutoons.com/` (old qr + generate/, untouched) | – | `qr.scutoons.com` | **`qr-legacy.scutoons.com`** |
-  | `/cdn.scutoons.com/` (old FTP CDN, untouched) | – | `cdn.scutoons.com` | same (legacy only; new platform = `scutoons.b-cdn.net`) |
+  | Folder (from the KAS root)                                                                          | Filled by                    | Domain at the test phase (2.6)                 | Domain after the switch (Phase 8)                       |
+  | --------------------------------------------------------------------------------------------------- | ---------------------------- | ---------------------------------------------- | ------------------------------------------------------- |
+  | `/web/api/` (docroot `api/public/`; private `api/storage/keys/`, `api/storage/files/`, `api/logs/`) | target `api` (server/) + 2.3 | `api.scutoons.com` (new)                       | same                                                    |
+  | `/web/qr/` (docroot `qr/public/`)                                                                   | target `qr`                  | `qr-next.scutoons.com` (test)                  | **`qr.scutoons.com`**                                   |
+  | `/web/viewer/dist/`                                                                                 | target `viewer`              | `next.scutoons.com` (test)                     | **`scutoons.com` + `www.scutoons.com`**                 |
+  | `/web/admin/dist/`                                                                                  | target `admin`               | `admin.scutoons.com` (new)                     | same                                                    |
+  | `/web/creator/dist/`                                                                                | target `creator`             | `creator.scutoons.com`                         | same                                                    |
+  | `/web/shop/dist/`                                                                                   | target `shop`                | `shop.scutoons.com` (new)                      | same                                                    |
+  | `/web/embassy/dist/`                                                                                | target `embassy`             | `embassy.scutoons.com` (new, owner sets it up) | same                                                    |
+  | `/scutoons.com/` (old viewer, untouched)                                                            | –                            | `scutoons.com`, `www.`                         | **`legacy.scutoons.com`**                               |
+  | `/qr.scutoons.com/` (old qr + generate/, untouched)                                                 | –                            | `qr.scutoons.com`                              | **`qr-legacy.scutoons.com`**                            |
+  | `/cdn.scutoons.com/` (old FTP CDN, untouched)                                                       | –                            | `cdn.scutoons.com`                             | same (legacy only; new platform = `scutoons.b-cdn.net`) |
 
 > **Keypair reference (0.2/2.3):** production `keypair.json` = backup ZIP `…\Scutoons\Backups\qr.scutoons.com.zip` →
 > `qr.scutoons.com/api/keys/keypair.json`, SHA-256 `409c19834377d1d9a6e82bd542fcc58a116c1a0a728aae8a0e26624df1e77bbe`.
 > **WARNING:** the local dev key `server/storage/keys/keypair.json` is a DIFFERENT key (SHA-256 `11934cea…`) – never upload it
 > to production. After uploading, `/api/keys/keys.php` on api. must serve the same `publicKey` as the old qr site.
 
-- [ ] **2.3 O – Private data → `/web/api/storage/`** *(partly: `generate/files` copied; keypair extracted to the backup folder, SHA-256 409c1983… ✓; upload to
-`/web/api/storage/keys/` pending confirmation)* (before the first api deploy): backup's `api/keys/keypair.json`
-  → `api/storage/keys/keypair.json`; backup's `generate/files/*` → `api/storage/files/` (same subfolders).
-  Verify: file counts + sizes per subfolder = 0.2; keypair SHA-256 = 0.2. Rollback: delete the copies (old untouched).
-- [x] **2.4 O – New database DB-T.** *(done; `DB_HOST`/`DB_NAME` stored as secrets – fine, the workflow passes secrets and variables)* KAS → Databases → new database (MariaDB, utf8mb4). Name/user/password → GitHub
-  `production` (`DB_HOST`, `DB_NAME` variables; `DB_USER`, `DB_PASS` secrets).
-- [x] **2.5 O – GitHub environment `production`** *(done: all keys `deploy/targets.json` references are present; `SMTP_HOST` = the main account's kasserver host, 465/ssl)* (restricted to branch `main`): every entry of the root
-  `.env.example` – `AUTH_SECRET`, `QR_PROXY_SECRET` new random strings ≥ 32 chars; `MAIL_FROM=no-reply@scutoons.com`,
-  `SMTP_*` of that mailbox (exists, SPF/DKIM set); `VITE_API_URL=https://api.scutoons.com/api` (D3),
-  `VITE_CDN_URL=https://scutoons.b-cdn.net` (bunny interim URL – new platform only; the qr app's `CDN_URL` follows it), `VITE_WWW_URL=https://www.scutoons.com`, `VITE_CREATOR_URL`,
-  `VITE_SHOP_URL`, `VITE_ADMIN_URL`; `GENERATE_PASSWORD` (old value, only for the legacy `generate/`).
-  Verify: the summary at the end of `.env.example` (10 secrets, 12 variables) all present.
-- [x] **2.6 O – Subdomains → `/web/`** *(done: admin./api./creator./next./qr-next./shop. → `/web/…` with SSL, PHP 8.5; `embassy.` → `/web/embassy/dist/` exists, stays undeployed; qr./cdn./scutoons.com untouched)* (KAS → Domains → Subdomain; SSL Let's Encrypt + "force HTTPS" on each):
-  new `api.` → `/web/api/public/` · new `admin.` → `/web/admin/dist/` · new `shop.` → `/web/shop/dist/` ·
-  `creator.` → `/web/creator/dist/` (if 0.5 shows it unused) · test `next.` → `/web/viewer/dist/` · test `qr-next.`
-  → `/web/qr/public/`. **Do not touch `scutoons.com`, `www.`, `qr.`, `cdn.` yet.**
-  Rollback: delete the new subdomains.
+- [ ] **2.3 O – Private data → `/web/api/storage/`** _(partly: `generate/files` copied; keypair extracted to the backup folder, SHA-256 409c1983… ✓; upload to
+      `/web/api/storage/keys/` pending confirmation)_ (before the first api deploy): backup's `api/keys/keypair.json`
+      → `api/storage/keys/keypair.json`; backup's `generate/files/*` → `api/storage/files/` (same subfolders).
+      Verify: file counts + sizes per subfolder = 0.2; keypair SHA-256 = 0.2. Rollback: delete the copies (old untouched).
+- [x] **2.4 O – New database DB-T.** _(done; `DB_HOST`/`DB_NAME` stored as secrets – fine, the workflow passes secrets and variables)_ KAS → Databases → new database (MariaDB, utf8mb4). Name/user/password → GitHub
+      `production` (`DB_HOST`, `DB_NAME` variables; `DB_USER`, `DB_PASS` secrets).
+- [x] **2.5 O – GitHub environment `production`** _(done: all keys `deploy/targets.json` references are present; `SMTP_HOST` = the main account's kasserver host, 465/ssl)_ (restricted to branch `main`): every entry of the root
+      `.env.example` – `AUTH_SECRET`, `QR_PROXY_SECRET` new random strings ≥ 32 chars; `MAIL_FROM=no-reply@scutoons.com`,
+      `SMTP_*` of that mailbox (exists, SPF/DKIM set); `VITE_API_URL=https://api.scutoons.com/api` (D3),
+      `VITE_CDN_URL=https://scutoons.b-cdn.net` (bunny interim URL – new platform only; the qr app's `CDN_URL` follows it), `VITE_WWW_URL=https://www.scutoons.com`, `VITE_CREATOR_URL`,
+      `VITE_SHOP_URL`, `VITE_ADMIN_URL`; `GENERATE_PASSWORD` (old value, only for the legacy `generate/`).
+      Verify: the summary at the end of `.env.example` (10 secrets, 12 variables) all present.
+- [x] **2.6 O – Subdomains → `/web/`** _(done: admin./api./creator./next./qr-next./shop. → `/web/…` with SSL, PHP 8.5; `embassy.` → `/web/embassy/dist/` exists, stays undeployed; qr./cdn./scutoons.com untouched)_ (KAS → Domains → Subdomain; SSL Let's Encrypt + "force HTTPS" on each):
+      new `api.` → `/web/api/public/` · new `admin.` → `/web/admin/dist/` · new `shop.` → `/web/shop/dist/` ·
+      `creator.` → `/web/creator/dist/` (if 0.5 shows it unused) · test `next.` → `/web/viewer/dist/` · test `qr-next.`
+      → `/web/qr/public/`. **Do not touch `scutoons.com`, `www.`, `qr.`, `cdn.` yet.**
+      Rollback: delete the new subdomains.
 
 ---
 
@@ -214,12 +214,12 @@ dev DB / the batch files only, not this import. Decide before: **D4** the duplic
 MEMORY "qr.scutoons.com backend") – **not blocking**: the import copies every code as it is; the backfill numbers only
 manifest codes. Decide before the public release which set was printed (revoke the other in the admin).
 
-- [x] **3.1 O – Import the old data.** *(done 2026-10-02)* phpMyAdmin → DB-T → *Import* → the 0.1 file (`.sql.gz` is fine). Verify:
-  `SELECT COUNT(*) FROM qr;` = 0.1's number.
-- [x] **3.2 O – Migrations, in this order** *(done 2026-10-02: all 17 incl. `2026-10-02-assets`; 3 triggers present)* (`server/migrations/mysql/`, *Import* tab per file; all idempotent):
+- [x] **3.1 O – Import the old data.** _(done 2026-10-02)_ phpMyAdmin → DB-T → _Import_ → the 0.1 file (`.sql.gz` is fine). Verify:
+      `SELECT COUNT(*) FROM qr;` = 0.1's number.
+- [x] **3.2 O – Migrations, in this order** _(done 2026-10-02: all 17 incl. `2026-10-02-assets`; 3 triggers present)_ (`server/migrations/mysql/`, _Import_ tab per file; all idempotent):
   1. `2026-09-29-accounts-inventory.mysql.sql`
   2. `2026-09-30-code-owner-guard.mysql.sql` – **SQL tab, not Import:** paste the 3 `CREATE TRIGGER` lines, set the
-     *Delimiter* field to `$$`, and replace the trailing `;` of each line with `$$`
+     _Delimiter_ field to `$$`, and replace the trailing `;` of each line with `$$`
   3. `2026-09-30-content-versions.mysql.sql`
   4. `2026-09-30-entity-keys.mysql.sql` (after content-versions)
   5. `2026-09-30-settings.mysql.sql` (before member-characters – that file's header asks for it)
@@ -235,21 +235,21 @@ manifest codes. Decide before the public release which set was printed (revoke t
   15. `2026-10-02-ownership.mysql.sql` (after code-owner-guard)
   16. `2026-10-02-ownership-signup.mysql.sql`
   17. `2026-10-02-assets.mysql.sql` (the asset registry; came with the assets merge – run after the 16)
-  Hint: if phpMyAdmin's *Import* answers "Incorrect format parameter" (seen on content-versions), paste the file into
-  the *SQL* tab with delimiter `;` instead.
-  Not to run: `migrations/mysql/legacy/*` (edition_id was in the old data; template_data never was – unused, 2026-10-05), `schema/qr.mysql.sql`.
-- [x] **3.3 O – Content seed:** *(done 2026-10-02: entity_versions = 48)* *(unblocked 2026-10-02: the file is regenerated with the new media paths – import THIS version)* *Import* `shared/content/seed/content-seed.mysql.sql` (48 entities: catpope chapters
-  0–5, scenes, season 1 with related items, the record-player-repair pickups, trailer + chapter-0 quality variants,
-  credits, characters with Top Toy's tendencies, map, toptoy/yellowmouse). **Not needed:** `credits-seed`,
-  `characters-seed` (subsets), `2026-10-01-media-quality-chapter0.mysql.sql` (only acts on an old chapter 0 – harmless
-  if run).
-- [x] **3.4 A+O – Edition numbers.** *(done 2026-10-02: imported, 300 numbered)* *(A part done 2026-10-02: `C:\Development\scutoons\cdn\logs\edition-numbers-2026-10-02.sql`
-  (gitignored), 300 UPDATEs from the one production manifest `BATCH-2026-06-16T1431-3_catpope_vinyl.json` – all
-  `3_catpope_vinyl`, only where `edition_number IS NULL`; after import expect `numbered` = 300. O: import it after 3.2.)* A: `cd server; php bin/console backfill-edition-numbers --sql
-  --manifests=<backup>/generate/files/batch > ../logs/edition-numbers-2026-10-0X.sql` (no DB needed; A reports the
-  statement count). O: *Import* that file into DB-T.
-- [x] **3.5 O – Verify DB-T** *(done 2026-10-02: all checks as expected)* *(qr counts ✓ 2026-10-02: 469 codes / 300 numbered / 381 signed / 35 registered; still open:
-  per edition, entity_versions after 3.3, roles, users = 0)* (SQL tab; paste the results to the guide):
+      Hint: if phpMyAdmin's _Import_ answers "Incorrect format parameter" (seen on content-versions), paste the file into
+      the _SQL_ tab with delimiter `;` instead.
+      Not to run: `migrations/mysql/legacy/*` (edition_id was in the old data; template_data never was – unused, 2026-10-05), `schema/qr.mysql.sql`.
+- [x] **3.3 O – Content seed:** _(done 2026-10-02: entity_versions = 48)_ _(unblocked 2026-10-02: the file is regenerated with the new media paths – import THIS version)_ _Import_ `shared/content/seed/content-seed.mysql.sql` (48 entities: catpope chapters
+      0–5, scenes, season 1 with related items, the record-player-repair pickups, trailer + chapter-0 quality variants,
+      credits, characters with Top Toy's tendencies, map, toptoy/yellowmouse). **Not needed:** `credits-seed`,
+      `characters-seed` (subsets), `2026-10-01-media-quality-chapter0.mysql.sql` (only acts on an old chapter 0 – harmless
+      if run).
+- [x] **3.4 A+O – Edition numbers.** _(done 2026-10-02: imported, 300 numbered)_ _(A part done 2026-10-02: `C:\Development\scutoons\cdn\logs\edition-numbers-2026-10-02.sql`
+      (gitignored), 300 UPDATEs from the one production manifest `BATCH-2026-06-16T1431-3_catpope_vinyl.json` – all
+      `3_catpope_vinyl`, only where `edition_number IS NULL`; after import expect `numbered` = 300. O: import it after 3.2.)_ A: `cd server; php bin/console backfill-edition-numbers --sql
+--manifests=<backup>/generate/files/batch > ../logs/edition-numbers-2026-10-0X.sql` (no DB needed; A reports the
+      statement count). O: _Import_ that file into DB-T.
+- [x] **3.5 O – Verify DB-T** _(done 2026-10-02: all checks as expected)_ _(qr counts ✓ 2026-10-02: 469 codes / 300 numbered / 381 signed / 35 registered; still open:
+      per edition, entity_versions after 3.3, roles, users = 0)_ (SQL tab; paste the results to the guide):
   ```sql
   SELECT COUNT(*) AS codes, SUM(email <> '') AS registered, SUM(signature IS NOT NULL) AS signed, SUM(edition_number IS NOT NULL) AS numbered FROM qr;
   SELECT edition_id, COUNT(*) FROM qr GROUP BY edition_id;
@@ -270,6 +270,7 @@ manifest codes. Decide before the public release which set was printed (revoke t
   2026-10-04; a later backup to the old FTP CDN (10.3) = the `FtpStorage` driver (ASSETS.md "Backup").
 
 ---
+
 ## Phase 5 — Deploy the new platform into `/web/` (nothing points at it except the new/test hostnames)
 
 Decided: **D5** embassy ships with the release (owner 2026-10-04; in `targets.json` `order`).
@@ -277,22 +278,22 @@ Preconditions: **2.1 done (FTP secrets = the subfolder user!)**, 0.4 done, T1 do
 secrets in `production` (step 10.1b – needed from the first deploy, since the merge ships the asset manager).
 
 - [ ] **5.1 A – Local dry run:** `npm run deploy:dry-run` (builds everything; plan: api → `api/`, qr → `qr/`, viewer →
-  `viewer/dist/`, shop, creator, admin; protected `storage/**`, `db/**`, `logs/**`). Plus the full suite on the tree
-  to release (PLAN.md "definition of done").
+      `viewer/dist/`, shop, creator, admin; protected `storage/**`, `db/**`, `logs/**`). Plus the full suite on the tree
+      to release (PLAN.md "definition of done").
 - [ ] **5.2 O (with the coordinator) – Merge `platform` → `main` and push.** Every push to `main` deploys the touched
-  apps (environment `production`) – into `/web/` because of 2.1.
+      apps (environment `production`) – into `/web/` because of 2.1.
 - [ ] **5.3 O – GitHub → Actions → "Deploy all" → Run workflow with dry run** → read the plan, then **without dry run**
-  (order api → qr → frontends). Every run prints the migrations reminder – already done in Phase 3.
-- [x] **5.4 A – Verify** *(done 2026-10-02: all six on `88e4d88`, `npm run deploy:status`)* (PHP note: KAS runs PHP 8.5, CI builds/tests on 8.3 – if `/api/health/` or qr show errors or
-  deprecation output, set the subdomains to PHP 8.3 in KAS): `https://api.scutoons.com/api/health/` → `status ok`, `db ok`, `version 1.0.0`, `git_sha` =
-  main's head; `https://{admin,shop,creator,next}.scutoons.com/version.json`, `https://qr-next.scutoons.com/version.json`.
+      (order api → qr → frontends). Every run prints the migrations reminder – already done in Phase 3.
+- [x] **5.4 A – Verify** _(done 2026-10-02: all six on `88e4d88`, `npm run deploy:status`)_ (PHP note: KAS runs PHP 8.5, CI builds/tests on 8.3 – if `/api/health/` or qr show errors or
+      deprecation output, set the subdomains to PHP 8.3 in KAS): `https://api.scutoons.com/api/health/` → `status ok`, `db ok`, `version 1.0.0`, `git_sha` =
+      main's head; `https://{admin,shop,creator,next}.scutoons.com/version.json`, `https://qr-next.scutoons.com/version.json`.
 - [x] **5.5 – n/a (owner 2026-10-02: no legacy `generate/` on the new platform).** The old generate UI is excluded from the api deploy (`public/generate/**`); the verify page's `generate/get-signature.php` + signature-file routes are API routes and keep working. Former text: upload the backup's `generate/.htpasswd` to
-  `/web/api/public/generate/.htpasswd`, set `AuthUserFile` in `/web/api/public/generate/.htaccess` to its absolute
-  path (KAS shows `/www/htdocs/<account>/web/api/public/generate/.htpasswd`).
-- [x] **5.6 – One deploy pipeline** *(2026-10-02, after the ECONNRESET failures of parallel uploads)*: pushes to `main` run
-  only `deploy.yml` – it deploys the targets whose live `git_sha` is behind (per `watch` paths), one at a time, with one
-  FTP retry; per-app workflows and "Deploy all" are manual buttons in the same queue. Check with `npm run deploy:status`
-  (deploy/README.md "Workflows").
+      `/web/api/public/generate/.htpasswd`, set `AuthUserFile` in `/web/api/public/generate/.htaccess` to its absolute
+      path (KAS shows `/www/htdocs/<account>/web/api/public/generate/.htpasswd`).
+- [x] **5.6 – One deploy pipeline** _(2026-10-02, after the ECONNRESET failures of parallel uploads)_: pushes to `main` run
+      only `deploy.yml` – it deploys the targets whose live `git_sha` is behind (per `watch` paths), one at a time, with one
+      FTP retry; per-app workflows and "Deploy all" are manual buttons in the same queue. Check with `npm run deploy:status`
+      (deploy/README.md "Workflows").
 - Rollback: Actions → the app's workflow on an earlier commit; nothing public points here yet.
 
 ---
@@ -303,43 +304,43 @@ Decide before: **D6** admin notification recipients (who gets "new ownership cla
 `MAIL_ADMIN_TO`) · **D7** your sign-up code: a promo code created in the OLD `generate/` before 0.1 (it is copied
 into the new DB) or one of your own product codes.
 
-- [x] **6.1 A+O – api.scutoons.com:** *(done 2026-10-02: relayout-paths SQL run, compare re-run – only the expected differences left; `/generate/` → 404 as 5.5)* *(A done 2026-10-02: items 27; certificates valid for real membership / promo /
-  page codes (the keys match); stockists empty; `/?c=x` 404. entities-compare (locally: `php -d curl.cainfo=<ca-bundle>`):
-  the expected differences are chapter 2 (draft, D9), the draft toons toptoy / yellowmouse and the dev-only sandbox; the real
-  one: `map`, `characters`, `asset-requests` still had the pre-relayout paths (map + character images 404) → **O: run
-  `shared/content/seed/2026-10-02-relayout-paths.mysql.sql` in phpMyAdmin (SQL tab), then A re-runs the compare.** Not
-  cutover-related, open since before: `boy_full.svg`, `crows_portrait.svg` exist on no CDN.)* A checks `/api/items/` (27 items), `/api/keys/keys.php` (same `publicKey` as
-  the old `qr.scutoons.com/api/keys/keys.php`), `/api/certificates/<CODE>` for 3 real codes from different batches,
-  printed UPPER CASE → `valid: true`, `/api/stockists/` → empty list, `/?c=x` → 404, and
-  `php server/tests/entities-compare.php https://api.scutoons.com --report` (library = seed). O: `/generate/` asks for
-  the password (if 5.5).
-- [x] **6.2 O – qr-next.scutoons.com (printed URLs):** *(done 2026-10-02: all 9 cases; A: validate CORS + keys checked)* with real codes: membership `/?c=CODE` and `?c=CODE` (no slash)
-  → item page with Continue + Add to my account; a registered one → Read + "This is mine? File a claim"; promo → Create
-  account; `/?c=CODE&skip=1` → redirect; unknown → 404 page; `/verify.html?code=<UPPER CASE>` → Authentic + fingerprint
-  = the printed one; `/api/validate/?c=CODE` (JSON, `Access-Control-Allow-Origin: *`); `/api/keys/keys.php`.
-  (Continue / Add-to-account links still go to the OLD viewer at scutoons.com during this test – expected.)
-- [x] **6.3 O – Your account + roles.** *(done 2026-10-02: signed up with promo KbYfB3qp; SMTP_PASS secret was wrong → fixed, checked with `server/bin/smtp-login-test.php`)* `https://next.scutoons.com/account?code=<D7 code>` → sign up with your email →
-  the login mail arrives (check spam; SPF/DKIM). Then phpMyAdmin → DB-T → SQL:
+- [x] **6.1 A+O – api.scutoons.com:** _(done 2026-10-02: relayout-paths SQL run, compare re-run – only the expected differences left; `/generate/` → 404 as 5.5)_ _(A done 2026-10-02: items 27; certificates valid for real membership / promo /
+      page codes (the keys match); stockists empty; `/?c=x` 404. entities-compare (locally: `php -d curl.cainfo=<ca-bundle>`):
+      the expected differences are chapter 2 (draft, D9), the draft toons toptoy / yellowmouse and the dev-only sandbox; the real
+      one: `map`, `characters`, `asset-requests` still had the pre-relayout paths (map + character images 404) → **O: run
+      `shared/content/seed/2026-10-02-relayout-paths.mysql.sql` in phpMyAdmin (SQL tab), then A re-runs the compare.** Not
+      cutover-related, open since before: `boy_full.svg`, `crows_portrait.svg` exist on no CDN.)_ A checks `/api/items/` (27 items), `/api/keys/keys.php` (same `publicKey` as
+      the old `qr.scutoons.com/api/keys/keys.php`), `/api/certificates/<CODE>` for 3 real codes from different batches,
+      printed UPPER CASE → `valid: true`, `/api/stockists/` → empty list, `/?c=x` → 404, and
+      `php server/tests/entities-compare.php https://api.scutoons.com --report` (library = seed). O: `/generate/` asks for
+      the password (if 5.5).
+- [x] **6.2 O – qr-next.scutoons.com (printed URLs):** _(done 2026-10-02: all 9 cases; A: validate CORS + keys checked)_ with real codes: membership `/?c=CODE` and `?c=CODE` (no slash)
+      → item page with Continue + Add to my account; a registered one → Read + "This is mine? File a claim"; promo → Create
+      account; `/?c=CODE&skip=1` → redirect; unknown → 404 page; `/verify.html?code=<UPPER CASE>` → Authentic + fingerprint
+      = the printed one; `/api/validate/?c=CODE` (JSON, `Access-Control-Allow-Origin: *`); `/api/keys/keys.php`.
+      (Continue / Add-to-account links still go to the OLD viewer at scutoons.com during this test – expected.)
+- [x] **6.3 O – Your account + roles.** _(done 2026-10-02: signed up with promo KbYfB3qp; SMTP_PASS secret was wrong → fixed, checked with `server/bin/smtp-login-test.php`)_ `https://next.scutoons.com/account?code=<D7 code>` → sign up with your email →
+      the login mail arrives (check spam; SPF/DKIM). Then phpMyAdmin → DB-T → SQL:
   ```sql
   INSERT IGNORE INTO user_roles (user_id, role_id, granted_at, granted_by)
     SELECT users.id, r.id, UTC_TIMESTAMP(), 'cli' FROM users JOIN roles r ON r.name IN ('admin','creator') WHERE users.email = '<your email>';
   ```
-- [x] **6.4 O – admin.scutoons.com:** *(done 2026-10-02: dashboard 500 = `REVOKE` reserved in MariaDB → fixed 93946ef; `settings` table was missing on DB-T although 3.2 lists it → created by hand; recipients set (D6): tilman@porschuetz.de, admin@scutoons.com)* sign in (SSO: already signed in from 6.3) → Dashboard, Codes (search a real
-  code), Events (the 6.2 scans with different IP hashes – one hash for all = `QR_PROXY_SECRET` differs), Claims (empty),
-  Catalog (27 items, Albums), **Emails → set the admin recipients (D6)**, templates render de/en, the log shows 6.3's
-  `login_code` as sent; versions of every app.
-- [x] **6.5 O – next.scutoons.com (viewer):** *(done 2026-10-02: all but the QR camera on the owner's webcam – never worked there (blurry webcam), test on the phone in Phase 9; credits/download pages work but nothing links to them → 10.12)* home, `/catpope`, chapter 0 (video plays; account → Medienqualität
-  works), chapter 1 de + `/en/catpope/chapter/1`, `?code=CODE` unlocks on the device, inventory (basic dress on the
-  avatar, testo bar), the camera opens and loads the model, `/catpope/credits`, `/catpope/download`, `/shop` → shop,
-  `/stores` → empty state, account page (My claims, media quality, hide sensitive content).
-- [x] **6.6 O – creator.scutoons.com:** *(done 2026-10-02: sign-in, chapter 2 preview de/en. The preview does not play reader events, so the record player / coupon pickups are tested in the viewer once chapter 2 is released on 2026-10-04 – Phase 9.)* sign in → catpope → chapter 2 → preview de/en (broken record player on the first
-  slice, the coupon on the last). **Do not publish yet** if 7.1 might rebuild the DB (edits would be lost).
-- [x] **6.7 O – shop.scutoons.com:** *(done 2026-10-02)* `/de/` and `/en/` list the products, Bandcamp links work.
-- [ ] **6.8 O – Ownership end to end (DB-T only):** *(2026-10-02, owner's vinyl #127 `LyBWEkur`: register to A, claim from B (dispute sign-up), admin transfer + the old-owner mail work; open: gift B → A, transfer back to A)* on a test code: register it to account A, file a claim from
-  account B (with a photo), admin → Claims → transfer → both mails in Emails log; gift an item A → B (`gift_received`).
-- [x] **6.9 O – Assets on production:** *(done 2026-10-03: first rescan failed – MariaDB insert id after UPDATE, fixed 50b0782; then 720 files, 659 uses, 10 missing; the creator's trailer picker lists the videos. Open: the 10 missing paths; the trailer tile shows no poster)* admin → Assets → **Rescan** (registers the bunny files as assets + the usage index;
-  until then the creator's asset picker says "Nothing found"). Check the summary's `missing`, then pick a video in the
-  creator (season → trailer). *(found 2026-10-02 by the owner in the creator)*
+- [x] **6.4 O – admin.scutoons.com:** _(done 2026-10-02: dashboard 500 = `REVOKE` reserved in MariaDB → fixed 93946ef; `settings` table was missing on DB-T although 3.2 lists it → created by hand; recipients set (D6): tilman@porschuetz.de, admin@scutoons.com)_ sign in (SSO: already signed in from 6.3) → Dashboard, Codes (search a real
+      code), Events (the 6.2 scans with different IP hashes – one hash for all = `QR_PROXY_SECRET` differs), Claims (empty),
+      Catalog (27 items, Albums), **Emails → set the admin recipients (D6)**, templates render de/en, the log shows 6.3's
+      `login_code` as sent; versions of every app.
+- [x] **6.5 O – next.scutoons.com (viewer):** _(done 2026-10-02: all but the QR camera on the owner's webcam – never worked there (blurry webcam), test on the phone in Phase 9; credits/download pages work but nothing links to them → 10.12)_ home, `/catpope`, chapter 0 (video plays; account → Medienqualität
+      works), chapter 1 de + `/en/catpope/chapter/1`, `?code=CODE` unlocks on the device, inventory (basic dress on the
+      avatar, testo bar), the camera opens and loads the model, `/catpope/credits`, `/catpope/download`, `/shop` → shop,
+      `/stores` → empty state, account page (My claims, media quality, hide sensitive content).
+- [x] **6.6 O – creator.scutoons.com:** _(done 2026-10-02: sign-in, chapter 2 preview de/en. The preview does not play reader events, so the record player / coupon pickups are tested in the viewer once chapter 2 is released on 2026-10-04 – Phase 9.)_ sign in → catpope → chapter 2 → preview de/en (broken record player on the first
+      slice, the coupon on the last). **Do not publish yet** if 7.1 might rebuild the DB (edits would be lost).
+- [x] **6.7 O – shop.scutoons.com:** _(done 2026-10-02)_ `/de/` and `/en/` list the products, Bandcamp links work.
+- [ ] **6.8 O – Ownership end to end (DB-T only):** _(2026-10-02, owner's vinyl #127 `LyBWEkur`: register to A, claim from B (dispute sign-up), admin transfer + the old-owner mail work; open: gift B → A, transfer back to A)_ on a test code: register it to account A, file a claim from
+      account B (with a photo), admin → Claims → transfer → both mails in Emails log; gift an item A → B (`gift_received`).
+- [x] **6.9 O – Assets on production:** _(done 2026-10-03: first rescan failed – MariaDB insert id after UPDATE, fixed 50b0782; then 720 files, 659 uses, 10 missing; the creator's trailer picker lists the videos. Open: the 10 missing paths; the trailer tile shows no poster)_ admin → Assets → **Rescan** (registers the bunny files as assets + the usage index;
+      until then the creator's asset picker says "Nothing found"). Check the summary's `missing`, then pick a video in the
+      creator (season → trailer). _(found 2026-10-02 by the owner in the creator)_
 - More owner tests before the switch: to be listed (owner 2026-10-02: "we still need to test some things").
 - Rollback: none needed (test hosts only).
 
@@ -350,14 +351,14 @@ into the new DB) or one of your own product codes.
 Decide before: **D8** accept that test-phase data is thrown away if the old DB changed since T0 (recommended; the
 alternative is T4).
 
-- [ ] **7.1 O – Gate.** *(owner 2026-10-02: DB-T stays the production DB – no rebuild; 7.2–7.5 drop. A late delta is handled by 8.5.)* In the OLD DB: `CHECKSUM TABLE qr;` and the 0.1 count query (T0: 469 / 35 / 381, MAX(created_at)
-  2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46, checksum **3162238151**). **Identical to 0.1 → keep DB-T**
-  (it is already the production DB; tick 7.2–7.5 as `[-]`). Different (a registration, a new code, a re-signature since
-  T0) → 7.2.
+- [ ] **7.1 O – Gate.** _(owner 2026-10-02: DB-T stays the production DB – no rebuild; 7.2–7.5 drop. A late delta is handled by 8.5.)_ In the OLD DB: `CHECKSUM TABLE qr;` and the 0.1 count query (T0: 469 / 35 / 381, MAX(created_at)
+      2026-09-26 13:28:27, MAX(claimed_at) 2026-09-28 07:49:46, checksum **3162238151**). **Identical to 0.1 → keep DB-T**
+      (it is already the production DB; tick 7.2–7.5 as `[-]`). Different (a registration, a new code, a re-signature since
+      T0) → 7.2.
 - [ ] **7.2 O – Fresh export** of the old DB at a quiet hour (as 0.1, new T0 values in "Current state").
 - [ ] **7.3 O – DB-P:** new database in KAS → 3.1–3.5 on it.
 - [ ] **7.4 O – Point the api at DB-P:** GitHub `production` `DB_NAME` / `DB_USER` / `DB_PASS` → DB-P; Actions →
-  `server.yml` (or the api's deploy) → Run. A: `/api/health/` → `db ok`; `SELECT COUNT(*) FROM users` on DB-P = 0.
+      `server.yml` (or the api's deploy) → Run. A: `/api/health/` → `db ok`; `SELECT COUNT(*) FROM users` on DB-P = 0.
 - [ ] **7.5 O – Redo the small setup on DB-P:** 6.3 (account + roles), 6.4 (admin recipients).
 - Rollback: `DB_*` back to DB-T and redeploy the api.
 
@@ -368,22 +369,22 @@ alternative is T4).
 Decide before: **D9** the beta runs on the public domains – chapter 2 stays **draft** (only creators/admins read it)
 or is **published** now (everyone on scutoons.com sees it a week before the public release)? · **D10** a quiet hour.
 
-- [x] **8.1 O – Keep the old system reachable first:** *(done; owner 2026-10-05: qr-legacy dropped – never got SSL, not needed; legacy. and the test hosts next. / qr-next. deleted after the switch. The old folders `/scutoons.com/` + `/qr.scutoons.com/` stay on disk = rollback until 10.7)* new subdomains `legacy.scutoons.com` → the old viewer folder,
-  `qr-legacy.scutoons.com` → the old qr folder (SSL each). Verify both load. (The old viewer's API calls go to
-  qr.scutoons.com – after 8.2 that is the new system; its sign-in features may fail on CORS – expected.)
-- [x] **8.2 O – qr.scutoons.com → `/web/qr/public/`** *(done 2026-10-05 night: version.json = qr 82c325d, /verify.html 200, http→https, /api/health db ok, CORS for scutoons.com; owner tested. Set its PHP 8.4 → 8.5 like the other /web/ hosts)* (SSL stays; re-issue if KAS asks). Repeat 6.2 on
-  `qr.scutoons.com` with real codes, incl. 3 printed certificates on `/verify.html`. **Rollback: target back to the old
-  qr folder (instant).**
-- [x] **8.3 O – scutoons.com + www.scutoons.com → `/web/viewer/dist/`** *(done 2026-10-04/05: both serve the new viewer, http→https, deep routes 200, API CORS for both, bunny CDN 206 + ACAO `*` – the CDN needed no change; owner did the switch-over test)* (SSL both). Repeat 6.5 on the real domain;
-  scan a sticker with a phone end to end (qr → Continue → viewer → Add to my account). **Rollback: both targets back
-  to the old viewer folder.**
-- [x] **8.4 A – After-switch checks:** *(done 2026-10-05: status URLs → qr.scutoons.com / scutoons.com, `https://next.scutoons.com` removed from ALLOWED_ORIGINS – deploy needed for the api config)* first set `status` in `deploy/targets.json` to the real hosts (qr →
-  `https://qr.scutoons.com/version.json`, viewer → `https://scutoons.com/version.json`) so `deploy.yml` and
-  `npm run deploy:status` read the live commits there; `/version.json` on every host, the printed-URL list of PLATFORM.md "RULE: printed
-  / public URLs" (status + target), `entities-compare --report` against the api.
-- [x] **8.5 O – Late-delta check** *(done 2026-10-05, owner: passes; the two claims after T0 (LyBWEkur, qzbDVKqj) are complete in the new DB with `claimed_by`)* (old DB, 30 min after 8.2 and again the next day):
-  `SELECT code, email, claimed_at FROM qr WHERE claimed_at > '<T0>' OR created_at > '<T0>';` → expected empty (the
-  old landing page is only reachable on qr-legacy now). Rows → tell the guide (re-apply by hand in the new DB).
+- [x] **8.1 O – Keep the old system reachable first:** _(done; owner 2026-10-05: qr-legacy dropped – never got SSL, not needed; legacy. and the test hosts next. / qr-next. deleted after the switch. The old folders `/scutoons.com/` + `/qr.scutoons.com/` stay on disk = rollback until 10.7)_ new subdomains `legacy.scutoons.com` → the old viewer folder,
+      `qr-legacy.scutoons.com` → the old qr folder (SSL each). Verify both load. (The old viewer's API calls go to
+      qr.scutoons.com – after 8.2 that is the new system; its sign-in features may fail on CORS – expected.)
+- [x] **8.2 O – qr.scutoons.com → `/web/qr/public/`** _(done 2026-10-05 night: version.json = qr 82c325d, /verify.html 200, http→https, /api/health db ok, CORS for scutoons.com; owner tested. Set its PHP 8.4 → 8.5 like the other /web/ hosts)_ (SSL stays; re-issue if KAS asks). Repeat 6.2 on
+      `qr.scutoons.com` with real codes, incl. 3 printed certificates on `/verify.html`. **Rollback: target back to the old
+      qr folder (instant).**
+- [x] **8.3 O – scutoons.com + www.scutoons.com → `/web/viewer/dist/`** _(done 2026-10-04/05: both serve the new viewer, http→https, deep routes 200, API CORS for both, bunny CDN 206 + ACAO `_` – the CDN needed no change; owner did the switch-over test)\* (SSL both). Repeat 6.5 on the real domain;
+      scan a sticker with a phone end to end (qr → Continue → viewer → Add to my account). **Rollback: both targets back
+      to the old viewer folder.**
+- [x] **8.4 A – After-switch checks:** _(done 2026-10-05: status URLs → qr.scutoons.com / scutoons.com, `https://next.scutoons.com` removed from ALLOWED_ORIGINS – deploy needed for the api config)_ first set `status` in `deploy/targets.json` to the real hosts (qr →
+      `https://qr.scutoons.com/version.json`, viewer → `https://scutoons.com/version.json`) so `deploy.yml` and
+      `npm run deploy:status` read the live commits there; `/version.json` on every host, the printed-URL list of PLATFORM.md "RULE: printed
+      / public URLs" (status + target), `entities-compare --report` against the api.
+- [x] **8.5 O – Late-delta check** _(done 2026-10-05, owner: passes; the two claims after T0 (LyBWEkur, qzbDVKqj) are complete in the new DB with `claimed_by`)_ (old DB, 30 min after 8.2 and again the next day):
+      `SELECT code, email, claimed_at FROM qr WHERE claimed_at > '<T0>' OR created_at > '<T0>';` → expected empty (the
+      old landing page is only reachable on qr-legacy now). Rows → tell the guide (re-apply by hand in the new DB).
 - Rollback of the whole switch: 8.3 and 8.2 targets back. Data written in the new DB since the switch (sign-ups,
   registrations, claims) is not in the old DB.
 
@@ -400,36 +401,36 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 
 - [ ] **9.1 O – Chapter 2** per D9 (creator → catpope → season 1 → chapter 2 status → Publish).
 - [ ] **9.2 O – Testers get:** `https://scutoons.com` (+ `/catpope`), their promo code (`https://qr.scutoons.com/?c=<CODE>`
-  or `https://scutoons.com/account?code=<CODE>`), `https://shop.scutoons.com`, the feedback channel (D12), a short
-  list of what to try: sign up, read chapters 0–2 de/en, avatar + wardrobe, camera (cucumber), record player repair
-  (broken player in chapter 2 scene 1 + coupon at the end → combine), gift an item to another tester, media quality.
+      or `https://scutoons.com/account?code=<CODE>`), `https://shop.scutoons.com`, the feedback channel (D12), a short
+      list of what to try: sign up, read chapters 0–2 de/en, avatar + wardrobe, camera (cucumber), record player repair
+      (broken player in chapter 2 scene 1 + coupon at the end → combine), gift an item to another tester, media quality.
 - [ ] **9.3 O/A – Watch daily:** `/web/api/logs/error.log` (FTP; paste excerpts to the guide), admin → Emails (failed
-  mails), Claims (open), Events (scans, sign-ups), Dashboard; KAS traffic of qr.; `/api/health/`.
+      mails), Claims (open), Events (scans, sign-ups), Dashboard; KAS traffic of qr.; `/api/health/`.
 
 ---
 
 ## Phase 10 — After the beta (towards the public release, ~a week later)
 
 - [ ] 10.1 Fix the beta's issues on `platform` → `main` (deploys automatically).
-- [x] 10.1b *(done 2026-10-02. Hint: setting secrets with `gh` gave 404 until gh was re-authorised – the fine-grained
-  token did not cover the `scutoons` repo.)* Right after the assets merge: the 7 bunny keys (`BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`,
-  `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL`)
-  as GitHub `production` secrets for the live asset manager (the merge adds them to `targets.json`); verify in admin →
-  Assets → Storage (set / missing per key, no values).
+- [x] 10.1b _(done 2026-10-02. Hint: setting secrets with `gh` gave 404 until gh was re-authorised – the fine-grained
+      token did not cover the `scutoons` repo.)_ Right after the assets merge: the 7 bunny keys (`BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`,
+      `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL`)
+      as GitHub `production` secrets for the live asset manager (the merge adds them to `targets.json`); verify in admin →
+      Assets → Storage (set / missing per key, no values).
 - [ ] 10.1c Fonts (IBM Plex Mono, Bangers + OFL licences) to `scutoons/fonts/` on the CDN. Branch `10.1c-cdn-fonts`
-  (2026-10-05): staged in `media/scutoons/fonts/` (18 files); the apps and qr's landing page load `@font-face` from
-  `<CDN>/scutoons/fonts/` with their local copy as fallback (ASSETS.md "Fonts").
-  Merged into platform 2026-10-05 (owner: "merge it now", after 10.3). Uploaded by hand to
-  `scutoons/fonts/` and registered (admin Rescan: 18 new assets) 2026-10-05; cdn.scutoons.com answers 200 + ACAO *.
-  Tick after `check:fonts` on production shows 200s from the CDN.
+      (2026-10-05): staged in `media/scutoons/fonts/` (18 files); the apps and qr's landing page load `@font-face` from
+      `<CDN>/scutoons/fonts/` with their local copy as fallback (ASSETS.md "Fonts").
+      Merged into platform 2026-10-05 (owner: "merge it now", after 10.3). Uploaded by hand to
+      `scutoons/fonts/` and registered (admin Rescan: 18 new assets) 2026-10-05; cdn.scutoons.com answers 200 + ACAO \*.
+      Tick after `check:fonts` on production shows 200s from the CDN.
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
-  into `production`/targets, `assets:scan`) – ASSETS.md.
-- [ ] 10.3 cdn.scutoons.com → bunny *(code ready on branch `10.3-cdn-domain`, 2026-10-05; steps 1–5 done + verified 2026-10-05, GitHub `CDN_PUBLIC_URL` changed; open: 6 deploy, 7 optional, 8 verify, local `.env`)*:
-  custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL; then every CDN URL in `deploy/targets.json`
-  (api `CDN_URL` + `CDN_PUBLIC_URL`, qr `CDN_URL`, every app's `VITE_CDN_URL`) = `https://cdn.scutoons.com` + redeploy.
-  The legacy system is gone, so nothing live uses cdn.scutoons.com: the apps stay on `scutoons.b-cdn.net` until the
-  redeploy, which comes only after cdn.scutoons.com is verified on bunny → **no downtime for the apps**. Only old deep
-  links to cdn.scutoons.com change source (up to the 2 h KAS TTL, plus a few minutes without a certificate until step 4).
+      into `production`/targets, `assets:scan`) – ASSETS.md.
+- [ ] 10.3 cdn.scutoons.com → bunny _(code ready on branch `10.3-cdn-domain`, 2026-10-05; steps 1–5 done + verified 2026-10-05, GitHub `CDN_PUBLIC_URL` changed; open: 6 deploy, 7 optional, 8 verify, local `.env`)_:
+      custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL; then every CDN URL in `deploy/targets.json`
+      (api `CDN_URL` + `CDN_PUBLIC_URL`, qr `CDN_URL`, every app's `VITE_CDN_URL`) = `https://cdn.scutoons.com` + redeploy.
+      The legacy system is gone, so nothing live uses cdn.scutoons.com: the apps stay on `scutoons.b-cdn.net` until the
+      redeploy, which comes only after cdn.scutoons.com is verified on bunny → **no downtime for the apps**. Only old deep
+      links to cdn.scutoons.com change source (up to the 2 h KAS TTL, plus a few minutes without a certificate until step 4).
   - **State before (read-only, 2026-10-05):** cdn.scutoons.com = KAS A record `85.13.151.120`, TTL 7200
     (ns5/ns6.kasserver.com), no AAAA; it 404s every new-layout path. `scutoons.b-cdn.net` on samples (trailer
     `catpope/s1/s1-trailer-loop.720p.mp4`, slice `catpope/s1/c2/s1c2-slice-14.webp`,
@@ -444,9 +445,8 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
     (now `catpope/s1/…`), `catpope/images/s1s{1..6}-thumbnail.jpg`, `catpope/images/collectables/cucumber.png`,
     4 × `catpope/images/vectors/*.svg`; they 404 after the switch (none is a printed URL – PLAN.md RULE; optional: a
     bunny Edge Rule redirect for the album zip if that link was shared).
-  - **Owner steps, in this order (the agent verifies each read-only):**
-    1. Read-only check SQL in phpMyAdmin (absolute media URLs stored in the DB):
-       ```sql
+  - **Owner steps, in this order (the agent verifies each read-only):** 1. Read-only check SQL in phpMyAdmin (absolute media URLs stored in the DB):
+    `sql
        SELECT 'entity_versions' t, SUM(json LIKE '%scutoons.b-cdn.net%') bcdn, SUM(json LIKE '%cdn.scutoons.com/%') cdn FROM entity_versions
        UNION ALL SELECT 'content_versions', SUM(json LIKE '%scutoons.b-cdn.net%'), SUM(json LIKE '%cdn.scutoons.com/%') FROM content_versions
        UNION ALL SELECT 'toons', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM toons
@@ -454,31 +454,23 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
        UNION ALL SELECT 'catalog_items', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_items
        UNION ALL SELECT 'catalog_albums', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_albums
        UNION ALL SELECT 'catalog_products', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_products;
-       ```
-       (the catalog lines need `2026-10-04-catalog`; drop them if it has not run.) `bcdn` > 0 → the migration
-       `2026-10-05-cdn-domain` (step 7) rewrites them – both names serve the same files, so it is cleanup; nothing breaks
-       before. `cdn` > 0 → absolute URLs that today load the OLD FTP CDN: the agent checks those paths on bunny first
-       (`SELECT id, entity_key, status FROM entity_versions WHERE json LIKE '%cdn.scutoons.com/%'`).
-    2. bunny dashboard → Pull Zones → `scutoons` (6731366) → General → Hostnames → add `cdn.scutoons.com` (harmless
-       before DNS). "Force SSL" not yet.
-    3. KAS → Tools → DNS-Einstellungen → `scutoons.com`: the row `cdn` type A `85.13.151.120` → edit to type `CNAME`,
-       Prio 0, Data **`scutoons.b-cdn.net.`** (trailing dot). If KAS refuses to edit the subdomain's automatic record:
-       delete the `cdn` A row and add a new entry with those values. **Leave the KAS subdomain cdn.scutoons.com and its
-       folder `/cdn.scutoons.com/` as they are** (backup until 10.7). Agent: `nslookup -type=CNAME cdn.scutoons.com
-       ns5.kasserver.com` → `scutoons.b-cdn.net`.
-    4. bunny → Hostnames → `cdn.scutoons.com` → "Verify & Activate SSL" (free certificate; needs step 3 visible to bunny –
-       retry after a few minutes if it fails). Then "Force SSL" on for that hostname.
-    5. Agent: `https://cdn.scutoons.com/…` on the three samples with Origin + Range → 206, ACAO `*`, same sizes,
-       `server: BunnyCDN-…`; `assets:check-storage` lists both hostnames on the pull zone.
-    6. Merge + deploy (`targets.json` is in every target's `watch`, so all apps rebuild): `git checkout main` ·
-       `git merge --ff-only platform` · `git push origin main` · `git checkout platform`.
-    7. phpMyAdmin: `server/migrations/mysql/2026-10-05-cdn-domain.mysql.sql` (idempotent; a no-op when step 1 found
-       nothing), then admin → Assets → Rescan.
-    8. Agent: the live apps (scutoons.com reader, qr., creator., admin., shop.) load media from `cdn.scutoons.com`
-       (network requests, own browser tab); `npm run deploy:status`.
-    9. Tidy (not read by the deploy): GitHub environment `production` `CDN_PUBLIC_URL` → `https://cdn.scutoons.com` or
-       delete it (`targets.json` fixes the value); the local root `.env` `CDN_PUBLIC_URL=https://cdn.scutoons.com` (only
-       the local `assets:check-storage` HEAD uses it).
+       `
+    (the catalog lines need `2026-10-04-catalog`; drop them if it has not run.) `bcdn` > 0 → the migration
+    `2026-10-05-cdn-domain` (step 7) rewrites them – both names serve the same files, so it is cleanup; nothing breaks
+    before. `cdn` > 0 → absolute URLs that today load the OLD FTP CDN: the agent checks those paths on bunny first
+    (`SELECT id, entity_key, status FROM entity_versions WHERE json LIKE '%cdn.scutoons.com/%'`). 2. bunny dashboard → Pull Zones → `scutoons` (6731366) → General → Hostnames → add `cdn.scutoons.com` (harmless
+    before DNS). "Force SSL" not yet. 3. KAS → Tools → DNS-Einstellungen → `scutoons.com`: the row `cdn` type A `85.13.151.120` → edit to type `CNAME`,
+    Prio 0, Data **`scutoons.b-cdn.net.`** (trailing dot). If KAS refuses to edit the subdomain's automatic record:
+    delete the `cdn` A row and add a new entry with those values. **Leave the KAS subdomain cdn.scutoons.com and its
+    folder `/cdn.scutoons.com/` as they are** (backup until 10.7). Agent: `nslookup -type=CNAME cdn.scutoons.com
+ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scutoons.com` → "Verify & Activate SSL" (free certificate; needs step 3 visible to bunny –
+    retry after a few minutes if it fails). Then "Force SSL" on for that hostname. 5. Agent: `https://cdn.scutoons.com/…` on the three samples with Origin + Range → 206, ACAO `*`, same sizes,
+    `server: BunnyCDN-…`; `assets:check-storage` lists both hostnames on the pull zone. 6. Merge + deploy (`targets.json` is in every target's `watch`, so all apps rebuild): `git checkout main` ·
+    `git merge --ff-only platform` · `git push origin main` · `git checkout platform`. 7. phpMyAdmin: `server/migrations/mysql/2026-10-05-cdn-domain.mysql.sql` (idempotent; a no-op when step 1 found
+    nothing), then admin → Assets → Rescan. 8. Agent: the live apps (scutoons.com reader, qr., creator., admin., shop.) load media from `cdn.scutoons.com`
+    (network requests, own browser tab); `npm run deploy:status`. 9. Tidy (not read by the deploy): GitHub environment `production` `CDN_PUBLIC_URL` → `https://cdn.scutoons.com` or
+    delete it (`targets.json` fixes the value); the local root `.env` `CDN_PUBLIC_URL=https://cdn.scutoons.com` (only
+    the local `assets:check-storage` HEAD uses it).
   - **Rollback:** before step 6 – KAS: the `cdn` row back to type A `85.13.151.120` (the old FTP CDN answers again; the
     apps never left `scutoons.b-cdn.net`). After step 6 – revert the `targets.json` commit and redeploy: the apps go back
     to `scutoons.b-cdn.net`, which keeps working whatever the DNS says. The migration needs no rollback (both names serve
@@ -490,78 +482,88 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   - Afterwards: **10.9 is unblocked** (nothing uses the old FTP CDN any more); the folder `/cdn.scutoons.com/` stays as a
     backup until 10.7 and is the later backup target (ASSETS.md "Backup", `FtpStorage`).
 - [ ] 10.4 Folder restructure: `assets:layout` re-run + owner review, batch relink (to build), the model path code change,
-  then prune (ASSETS.md "Migration plan").
-- [ ] 10.5 *(test hosts + T1's origin removed 2026-10-05)* Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
-  no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
-- [x] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04). *(done, owner 2026-10-05)*
+      then prune (ASSETS.md "Migration plan").
+- [ ] 10.5 _(test hosts + T1's origin removed 2026-10-05)_ Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
+      no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
+      _`PROXY_FULL_API=0` (branch `10.5-qr-proxy-off`, 2026-10-05):_ `deploy/targets.json` qr "0" and the default in
+      `qr/src/Config.php` ("1" = rollback, then deploy qr). Still proxied: `/api/validate/`, `/api/keys/keys.php`,
+      `/api/certificates/*`, `generate/get-signature.php` + signature files; the rest of `/api/*` → 404 JSON. Evidence: the
+      old viewer (built from this repo's old `main`, `viewer/build`) never had a service worker – no `service-worker.*`,
+      `serviceWorker`, workbox or PWA plugin anywhere in git history (only `site.webmanifest`, no SW), the old qr repo neither;
+      the new viewer registers none either, so nothing can keep serving the old app. Every live app bundle (viewer,
+      creator, admin, shop, embassy at 82c325d; all chunks crawled) calls `https://api.scutoons.com/api`, none
+      `qr.scutoons.com/api`; their prod fallbacks now point there too. Mails link only `?login=` / `/account`; the Ask
+      service needs `SCUTOONS_API`. Neither the qr app nor the API logs proxied requests – traffic only in all-inkl's
+      stats (owner check before the deploy). `generate/` + `GENERATE_PASSWORD` stay (after admin parity, 10.18).
+- [x] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04). _(done, owner 2026-10-05)_
 - [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
 - [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move – unblocked once 10.3 is live): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions
-  `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
-  workflow). The main user stays, used only by hand.
+      `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
+      workflow). The main user stays, used only by hand.
 - [x] 10.10 Local MariaDB in Docker instead of SQLite for dev + tests (owner 2026-10-02, after the admin dashboard 500 on
-  DB-T that SQLite never showed): same server version as all-inkl, the mysql migrations, CI runs the suite on it too.
-  *(done 2026-10-03, branch `dev-mariadb`; server/docs/DATABASE.md "Local MariaDB")* `docker/compose.yml` (MariaDB
-  10.11, port 13306, volume, healthcheck; Adminer 13380 behind a profile); `npm run dev:db` = container + databases +
-  migrate + the `*.mysql.sql` content seed + promo `devpromo` + switch + API restart + test user; `npm run dev:db sqlite`
-  back (SQLite stays the default); `npm run dev:db test` / `phpunit -c phpunit.mysql.xml` = the unit suite on MariaDB;
-  CI job `test-mariadb` in server.yml. Found on MariaDB: two signups at the same moment deadlocked in the basic dress
-  (fixed, test); `qr.code` was case-insensitive in production (utf8mb4_general_ci) → 10.24; a flaky test fixture.
-  Production's values (owner, phpMyAdmin 2026-10-03: 10.11.14, sql_mode NO_ENGINE_SUBSTITUTION, latin1 server
-  defaults) are the container's defaults since branch `db-case`.
+      DB-T that SQLite never showed): same server version as all-inkl, the mysql migrations, CI runs the suite on it too.
+      _(done 2026-10-03, branch `dev-mariadb`; server/docs/DATABASE.md "Local MariaDB")_ `docker/compose.yml` (MariaDB
+      10.11, port 13306, volume, healthcheck; Adminer 13380 behind a profile); `npm run dev:db` = container + databases +
+      migrate + the `*.mysql.sql` content seed + promo `devpromo` + switch + API restart + test user; `npm run dev:db sqlite`
+      back (SQLite stays the default); `npm run dev:db test` / `phpunit -c phpunit.mysql.xml` = the unit suite on MariaDB;
+      CI job `test-mariadb` in server.yml. Found on MariaDB: two signups at the same moment deadlocked in the basic dress
+      (fixed, test); `qr.code` was case-insensitive in production (utf8mb4_general_ci) → 10.24; a flaky test fixture.
+      Production's values (owner, phpMyAdmin 2026-10-03: 10.11.14, sql_mode NO_ENGINE_SUBSTITUTION, latin1 server
+      defaults) are the container's defaults since branch `db-case`.
 - [ ] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
-  500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
-  messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
+      500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
+      messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
 - [ ] 10.12 Viewer: `/catpope/credits` and `/catpope/download` work but no page links to them (owner 2026-10-02) –
-  **owner decision: link them (toon page / season slot / menu) or drop the routes.** Also: the QR camera never decoded on the owner's webcam (blurry
-  image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
+      **owner decision: link them (toon page / season slot / menu) or drop the routes.** Also: the QR camera never decoded on the owner's webcam (blurry
+      image) – check focus / resolution constraints and a sharper decode path once the phone test (Phase 9) is in.
 - [ ] 10.13 Visibility rule (owner 2026-10-02): `draft` is seen by creators only, `coming-soon` is the only non-published
-  status the public sees. Production's public API follows it (season 1 lists chapters 0, 1, 2 = coming soon). Check
-  the signed-in creator's viewer list: it showed chapters 4 and 5 as "coming soon" while the creator marks them draft.
-  Later: drafts only for creators who are authors of that toon.
+      status the public sees. Production's public API follows it (season 1 lists chapters 0, 1, 2 = coming soon). Check
+      the signed-in creator's viewer list: it showed chapters 4 and 5 as "coming soon" while the creator marks them draft.
+      Later: drafts only for creators who are authors of that toon.
 - [ ] 10.14 Admin claim page rework (owner 2026-10-02, during 6.8: "the ui in admin for claim needs rework") – details
-  from the owner; first guess: the two side-by-side note fields + the decision buttons hidden in the bottom bar.
-  Also: the viewer's claim form promises the current owner never reads the statement – true for owners, but an owner who
-  is also an admin recipient gets it in `ownership_claim_admin`; reword if the owner wants.
+      from the owner; first guess: the two side-by-side note fields + the decision buttons hidden in the bottom bar.
+      Also: the viewer's claim form promises the current owner never reads the statement – true for owners, but an owner who
+      is also an admin recipient gets it in `ownership_claim_admin`; reword if the owner wants.
 - [ ] 10.15 Content source of truth is the DB now (owner 2026-10-02): local dev from `export-content` of production
-  instead of the stale `shared/content/seed`; the seed becomes a starter set for empty databases (or goes).
+      instead of the stale `shared/content/seed`; the seed becomes a starter set for empty databases (or goes).
 - [x] 10.16 Mail Reply-To (owner 2026-10-02: a mistake, fixed before the beta): `MAIL_REPLY_TO` = hello@scutoons.com
-  (Reply-To header; the texts say "reply to this email", mail comes from no-reply@).
+      (Reply-To header; the texts say "reply to this email", mail comes from no-reply@).
 - [ ] 10.16b Admin claim page: no raw data (owner 2026-10-02) – part of 10.14.
 - [ ] 10.17 Deploys are not atomic: FTP replaces files one by one, so for a few seconds the API runs half old / half new
-  code (2026-10-02 23:49: "No entry or class found for Transport" during a deploy). Upload to a fresh folder and switch
-  (rename / symlink), or a maintenance flag during the upload.
+      code (2026-10-02 23:49: "No entry or class found for Transport" during a deploy). Upload to a fresh folder and switch
+      (rename / symlink), or a maintenance flag during the upload.
 - [ ] 10.18 Batches + code generation on real data (owner 2026-10-03): admin → Batches (and the generate side) still
-  read the static lists (editions / items / batch manifests from files); populate them from the database (catalog,
-  editions, codes) instead.
+      read the static lists (editions / items / batch manifests from files); populate them from the database (catalog,
+      editions, codes) instead.
 - [ ] 10.19 Setup / installer for a fresh environment (owner 2026-10-03): one step that runs the migrations, the content
-  seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
-  only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.
+      seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
+      only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.
 - [ ] 10.20 Asset picker: the selected tile turns black but its kind icon stays black (blank white box) – invert the icon
-  too (owner screenshot 2026-10-03). The tile's size sums every file incl. the master (roar-little-kitty 491 MB) – show the
-  default rendition's size or label the total.
+      too (owner screenshot 2026-10-03). The tile's size sums every file incl. the master (roar-little-kitty 491 MB) – show the
+      default rendition's size or label the total.
 - [ ] 10.21 Asset picker rework (owner 2026-10-03: "we do have to fix the ui of the picker and its relation to the page
-  where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
-  opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
-  includes 10.20.
+      where we pick media – there is redundance and confusion"): drafts first (2–3 layouts, owner picks). Known: the choice box
+      opens above the grid, the upload is a heading-looking fold-out, the page's own path fields repeat what the picker shows;
+      includes 10.20.
 - [ ] 10.22 Creator chapter tree: "Add group" + "Add separate scene" (cut off, owner 2026-10-03: "weird") – the second is a
-  storage detail (a ref group = its own scene entity, from the old file layout). One "Add group"; the editor picks the
-  storage. Scene keys (`chapter2/scene-14`) are internal IDs only, never shown as names (owner 2026-10-03: "legacy from
-  files – in the db we don't care about ids that way"); the label is the name (done for the tree / crumbs: 3109fd8).
+      storage detail (a ref group = its own scene entity, from the old file layout). One "Add group"; the editor picks the
+      storage. Scene keys (`chapter2/scene-14`) are internal IDs only, never shown as names (owner 2026-10-03: "legacy from
+      files – in the db we don't care about ids that way"); the label is the name (done for the tree / crumbs: 3109fd8).
 - [ ] 10.23 Asset jobs on production (owner 2026-10-03: "Optimize" stays queued): `assets:jobs` reads the queue from its
-  own DB – locally the dev DB, and production's MariaDB is not reachable from outside. The runner on the owner's machine
-  (ffmpeg) should take jobs through the API (admin token): list queued → download the source from bunny → transcode →
-  upload → mark done. Job #1 (video-renditions, 2026-10-02 22:45) can be dropped.
+      own DB – locally the dev DB, and production's MariaDB is not reachable from outside. The runner on the owner's machine
+      (ffmpeg) should take jobs through the API (admin token): list queued → download the source from bunny → transcode →
+      upload → mark done. Job #1 (video-renditions, 2026-10-02 22:45) can be dropped.
 - [ ] 10.24 Codes case-sensitive + strict session sql_mode (owner 2026-10-03, branch `db-case`): **O – run
-  `server/migrations/mysql/2026-10-03-code-case.mysql.sql` in phpMyAdmin** (whole file at once; before or after the API
-  deploy, both orders are safe; idempotent). Every code lookup is exact, also `/api/certificates/` + the verify page
-  (no case-insensitive fallback; certificates printed before show UPPER CASE – typed that way they are unknown now, the
-  QR / signature file still verify); new certificates print the exact code. The API sets a strict session `sql_mode`
-  (`DB_SQL_MODE`, production's server mode is not strict). Optional check afterwards: the information_schema SQL in
-  server/docs/DATABASE.md "Matching production" (all utf8mb4; the code columns utf8mb4_bin).
+      `server/migrations/mysql/2026-10-03-code-case.mysql.sql` in phpMyAdmin** (whole file at once; before or after the API
+      deploy, both orders are safe; idempotent). Every code lookup is exact, also `/api/certificates/` + the verify page
+      (no case-insensitive fallback; certificates printed before show UPPER CASE – typed that way they are unknown now, the
+      QR / signature file still verify); new certificates print the exact code. The API sets a strict session `sql_mode`
+      (`DB_SQL_MODE`, production's server mode is not strict). Optional check afterwards: the information_schema SQL in
+      server/docs/DATABASE.md "Matching production" (all utf8mb4; the code columns utf8mb4_bin).
 - [ ] 10.25 Map places ↔ story: where a place lives (owner 2026-10-03, "lets investigate … isn't group the better place?" –
-  **decide first, after the open UI fixes**). Findings 2026-10-03:
+      **decide first, after the open UI fixes**). Findings 2026-10-03:
   - **Unlock today:** on the place (world map `place.unlock` = toon, chapter, `slice` = the slice's image path, `at`).
-    The viewer unlocks it when the reader *sees* that slice (`world.svelte.ts` `sliceSeen` → `placesForSlice`); a place
+    The viewer unlocks it when the reader _sees_ that slice (`world.svelte.ts` `sliceSeen` → `placesForSlice`); a place
     whose chapter has no slices yet unlocks from the chapter position `at` / a finished chapter (`unlocksFromProgress`).
     The position never unlocks a slice place (VN choices skip groups). The slice inspector's "Unlocks place" box is the same
     setting from the slice's side – its wording confuses ("the slice represents the place").
@@ -577,46 +579,46 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
     as they are and let a place point at a group + an optional slice (unlock precision) instead of splitting.
   - **Open decisions:** split vs. group + slice; rename groups to their places (labels are in jump links – only with OK).
 - [x] 10.27 VN story logic – **built 2026-10-03 for the release** (owner: "we have to build it now. it is part of the release").
-  Concept: jumpTo = navigation (groups are pages, by design); the story's own flow lives in the group's script. Done:
-  one runner (`viewer/src/lib/visual-novel/runner.ts`, group script + slice / item triggers); `label` (named point) +
-  `divert` (event, choice action, a slice event diverting into its group's script); `if` ("Only if") on any event;
-  `setVariable` (set / add); choice actions as a list; `jumpTo.target.anyOf` (a random group, never the current one);
-  `{var:clock}`; validation (points unique, diverts hit a point, VN flow per group); creator forms. Chapter 2 stroll:
-  `scripts/dev/stroll-chapter2.mjs` (local), `npm run check:stroll` (headless play-through, 15 checks). Still open from the
-  research: `once` choices + fallback, visit counts. Original notes:
+      Concept: jumpTo = navigation (groups are pages, by design); the story's own flow lives in the group's script. Done:
+      one runner (`viewer/src/lib/visual-novel/runner.ts`, group script + slice / item triggers); `label` (named point) +
+      `divert` (event, choice action, a slice event diverting into its group's script); `if` ("Only if") on any event;
+      `setVariable` (set / add); choice actions as a list; `jumpTo.target.anyOf` (a random group, never the current one);
+      `{var:clock}`; validation (points unique, diverts hit a point, VN flow per group); creator forms. Chapter 2 stroll:
+      `scripts/dev/stroll-chapter2.mjs` (local), `npm run check:stroll` (headless play-through, 15 checks). Still open from the
+      research: `once` choices + fallback, visit counts. Original notes:
 - [ ] (history) 10.27 VN story logic, ink's ideas in our JSON events (owner 2026-10-03, **after 10.25**; research into inkle's ink).
-  **Owner decision 2026-10-03: adopt some of the concepts below – which ones is still open (pick before starting).**
-  Not ink itself: ink is a text script (our authors use the creator's forms), its localisation is one file per language
-  or line-ID tooling (breaks our per-field de source / en override), and knots would be a second address system next to
-  group labels. Today: variables are written (`set`/`add`, `{var}` in text, item grants) but nothing reads them – no
-  conditions; a choice has one action; the only branch is leaving the group (a choice without jump continues with the same
-  lines). Steps, all shared (structural) fields so translation and 10.25 stay untouched:
+      **Owner decision 2026-10-03: adopt some of the concepts below – which ones is still open (pick before starting).**
+      Not ink itself: ink is a text script (our authors use the creator's forms), its localisation is one file per language
+      or line-ID tooling (breaks our per-field de source / en override), and knots would be a second address system next to
+      group labels. Today: variables are written (`set`/`add`, `{var}` in text, item grants) but nothing reads them – no
+      conditions; a choice has one action; the only branch is leaving the group (a choice without jump continues with the same
+      lines). Steps, all shared (structural) fields so translation and 10.25 stay untouched:
   1. One runner: `toon/interactions/visual-novel.svelte` and `visual-novel/event-processor.ts` both run events (the
      README calls the second deprecated, slice triggers + placed items still use it) – one shared step function first.
   2. `addChoice.params.if: { variable, op: '=='|'!='|'>='|'<', value }` – schema, `checkEvent` in validate.ts, an
      "Only if" fold under Advanced in `vn-events.svelte`, the runner skips the choice when false. Then on `showMessage`.
-  3. `once` choices (+ a fallback choice) and `onSelect` as a list (set a flag *and* jump).
+  3. `once` choices (+ a fallback choice) and `onSelect` as a list (set a flag _and_ jump).
   4. In-group labels + `jumpTo {type:'label'}` (branch for a few lines, rejoin – ink's gathers; guard against loops).
   5. Visit counts per group / label (`seen:scene-15`) next to the variables.
 - [ ] 10.26 Delete a chapter safely (owner 2026-10-03: "how could i delete a chapter? … super dangerous"). Today nothing
-  can be deleted: the API has no delete for entities (versions are append-only), so no chapter is lost. Numbers are given
-  automatically (next free, never reused) and are the chapter's identity (entity `chapter:<toon>:<n>`, URL, release order;
-  shown big in the chapter's Meta since f345743). Proposed rules, enforced by the **server**, the creator only mirrors them:
-  only a chapter that was **never published** in any language (status draft) and is the **last of its season**; a typed
-  confirmation (the chapter number, in-page dialog); delete = removed from the season's sequence + the entity marked deleted,
-  its versions kept (admin can restore; purging is a separate admin step). A published chapter is never deleted – at most
-  hidden (draft / coming soon), so links and reading progress keep working.
+      can be deleted: the API has no delete for entities (versions are append-only), so no chapter is lost. Numbers are given
+      automatically (next free, never reused) and are the chapter's identity (entity `chapter:<toon>:<n>`, URL, release order;
+      shown big in the chapter's Meta since f345743). Proposed rules, enforced by the **server**, the creator only mirrors them:
+      only a chapter that was **never published** in any language (status draft) and is the **last of its season**; a typed
+      confirmation (the chapter number, in-page dialog); delete = removed from the season's sequence + the entity marked deleted,
+      its versions kept (admin can restore; purging is a separate admin step). A published chapter is never deleted – at most
+      hidden (draft / coming soon), so links and reading progress keep working.
 - [ ] 10.29 **Catalog into the database** (owner 2026-10-04: "lets just do it properly … we have to do them all now"): items, recipes,
-  albums, products, editions, featured, permissions / code types, toons (admin-created) → tables + history; slots / stats → code;
-  basic admin UI with the asset picker and bulk imports. Plan and status: agents/CATALOG.md. Part 1 (tables, loaders,
-  admin API) built 2026-10-04 on branch `catalog/db` *(production migration has run – owner check 2026-10-05: 11 tables, old settings folded)*: **O – run `server/migrations/mysql/2026-10-04-catalog.mysql.sql` in
-  phpMyAdmin** (whole file at once; before or after the deploy; idempotent) – steps + check query in CATALOG.md "Status".
+      albums, products, editions, featured, permissions / code types, toons (admin-created) → tables + history; slots / stats → code;
+      basic admin UI with the asset picker and bulk imports. Plan and status: agents/CATALOG.md. Part 1 (tables, loaders,
+      admin API) built 2026-10-04 on branch `catalog/db` _(production migration has run – owner check 2026-10-05: 11 tables, old settings folded)_: **O – run `server/migrations/mysql/2026-10-04-catalog.mysql.sql` in
+      phpMyAdmin** (whole file at once; before or after the deploy; idempotent) – steps + check query in CATALOG.md "Status".
 - [ ] 10.28 **SCUTOONS MCP server** – an agent with the rights of the signed-in creator (owner 2026-10-03: "very important
-  … i want to also connect other services that help me create more sophisticated assets"; first step right after the
-  release, branch `mcp`). Why MCP and not only an "Ask" panel: the API can do much more than the UI, any MCP client can use
-  it (Claude Code / Desktop today, claude.ai connector + the creator's own panel later), and other MCP servers (asset
-  generation, image / audio tools) combine with it in the same client – the agent makes an asset there and puts it into a
-  slice here.
+      … i want to also connect other services that help me create more sophisticated assets"; first step right after the
+      release, branch `mcp`). Why MCP and not only an "Ask" panel: the API can do much more than the UI, any MCP client can use
+      it (Claude Code / Desktop today, claude.ai connector + the creator's own panel later), and other MCP servers (asset
+      generation, image / audio tools) combine with it in the same client – the agent makes an asset there and puts it into a
+      slice here.
   - **Package** `tools/mcp` (`@scutoons/mcp`, TypeScript, official MCP TypeScript SDK; versions checked when building).
     Calls the existing PHP API with the creator's token (`Authorization: Bearer`, like the creator) → the API's role
     checks apply unchanged: the agent can do exactly what that creator can.
@@ -762,22 +764,22 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 
 ## Decide-before list (all phases)
 
-| # | Decision | Blocks | Default / recommendation |
-|---|---|---|---|
-| D1 | old-layout files on the bunny zone: keep or prune | Phase 1 (no) | keep until the public release, then prune via Unused |
-| D2 | root folder name; test hostnames | 2.1, 2.6, T1 | **decided: `/web/`** ("the house of the applications"); hostnames still proposed: `next.` + `qr-next.` |
-| D3 | `VITE_API_URL` directly api. | 2.5 | yes |
-| D4 | duplicate Dago/beetles code sets: which was printed | public release (not the beta) | decide in the beta week |
-| D5 | embassy stays held back | 5 | no – ships with the release (owner 2026-10-04) |
-| D6 | admin mail recipients (`MAIL_ADMIN_TO` / Emails page) | 6.4 | owner's address |
-| D7 | the code you sign up with | 6.3 | promo code from the old `generate/` before 0.1 |
-| D8 | test data may be discarded on a DB rebuild | 7 | yes |
-| D9 | chapter 2 during the beta: draft or published | 8/9 | owner |
-| D10 | switch time window | 8 | quiet hour, Sat 2026-10-03 |
-| D11 | testers + their codes | 9 | promo codes |
-| D12 | feedback channel | 9 | owner |
-| D13 | ownership defaults: dispute sign-up, gift + claim limits | 9 | as built |
-| – | Not blocking the beta: record player coupon place once chapter 5 exists, tape/CD player sourcing (ITEMS.md); Nova Lux vs Nova Ludwig in the credits; stores' 7 open questions (EMBASSY.md); media-quality thresholds; trailer from the prologue film; the 11 unused CDN files | – | after the beta |
+| #   | Decision                                                                                                                                                                                                                                                                      | Blocks                        | Default / recommendation                                                                               |
+| --- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------ |
+| D1  | old-layout files on the bunny zone: keep or prune                                                                                                                                                                                                                             | Phase 1 (no)                  | keep until the public release, then prune via Unused                                                   |
+| D2  | root folder name; test hostnames                                                                                                                                                                                                                                              | 2.1, 2.6, T1                  | **decided: `/web/`** ("the house of the applications"); hostnames still proposed: `next.` + `qr-next.` |
+| D3  | `VITE_API_URL` directly api.                                                                                                                                                                                                                                                  | 2.5                           | yes                                                                                                    |
+| D4  | duplicate Dago/beetles code sets: which was printed                                                                                                                                                                                                                           | public release (not the beta) | decide in the beta week                                                                                |
+| D5  | embassy stays held back                                                                                                                                                                                                                                                       | 5                             | no – ships with the release (owner 2026-10-04)                                                         |
+| D6  | admin mail recipients (`MAIL_ADMIN_TO` / Emails page)                                                                                                                                                                                                                         | 6.4                           | owner's address                                                                                        |
+| D7  | the code you sign up with                                                                                                                                                                                                                                                     | 6.3                           | promo code from the old `generate/` before 0.1                                                         |
+| D8  | test data may be discarded on a DB rebuild                                                                                                                                                                                                                                    | 7                             | yes                                                                                                    |
+| D9  | chapter 2 during the beta: draft or published                                                                                                                                                                                                                                 | 8/9                           | owner                                                                                                  |
+| D10 | switch time window                                                                                                                                                                                                                                                            | 8                             | quiet hour, Sat 2026-10-03                                                                             |
+| D11 | testers + their codes                                                                                                                                                                                                                                                         | 9                             | promo codes                                                                                            |
+| D12 | feedback channel                                                                                                                                                                                                                                                              | 9                             | owner                                                                                                  |
+| D13 | ownership defaults: dispute sign-up, gift + claim limits                                                                                                                                                                                                                      | 9                             | as built                                                                                               |
+| –   | Not blocking the beta: record player coupon place once chapter 5 exists, tape/CD player sourcing (ITEMS.md); Nova Lux vs Nova Ludwig in the credits; stores' 7 open questions (EMBASSY.md); media-quality thresholds; trailer from the prologue film; the 11 unused CDN files | –                             | after the beta                                                                                         |
 
 ---
 

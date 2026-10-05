@@ -13,8 +13,8 @@ SCUTOONS product or a promo code) – see "Signup rule".
 
 ## Hosts
 
-Base `https://api.scutoons.com/api` (target). `https://qr.scutoons.com/api` answers the same during the transition: the
-qr app (`../qr`) proxies the whole `/api/*` here byte for byte while its `PROXY_FULL_API` is on (released viewers).
+Base `https://api.scutoons.com/api`. `https://qr.scutoons.com/api` is NOT an alias any more: the qr app's `PROXY_FULL_API`
+(the old viewer's transition) is off since 2026-10-05 – only the paths below are proxied there.
 Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Public on qr forever (qr app): `/?c=`,
 `/verify.html`, and – proxied – `/api/validate/`, `/api/keys/keys.php`. The qr app is a **trusted proxy**: with
 `X-Scutoons-Proxy-Secret` = `QR_PROXY_SECRET` the API takes the client IP / device id from `X-Scutoons-Client-Ip` /
