@@ -4,7 +4,7 @@ State at the end of the 2026-10-02/03 coordinator session. Keep this file short:
 the files it points to – read those only for the part you touch (MEMORY.md is 1800 lines: grep it, never read it whole).
 
 ## Where things are
-- Release branch `platform`; production = `main`. Pushing `main` runs `.github/workflows/deploy.yml`: it deploys only the
+- `main` is the only branch (owner 2026-10-05: `platform` abandoned "for now"); production = `main`. Pushing `main` runs `.github/workflows/deploy.yml`: it deploys only the
   targets whose live `git_sha` is behind (`deploy/changed.mjs`), one FTP upload at a time. `npm run deploy:status` shows
   what is live. Docs: deploy/README.md.
 - Production runs the NEW platform on the real hosts since 2026-10-05: scutoons.com/www (viewer), qr., api., creator.,
@@ -29,13 +29,12 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Post-beta work list: CUTOVER.md items 10.10–10.24.
 
 ## Working rules learned (owner)
-- Commit ONLY on `platform`, always guarded: `[ "$(git branch --show-current)" = platform ] && git commit …`. The owner
-  switches to `main` for deploys; unguarded commits landed on `main` three times. Never add Claude attribution lines.
-- Deploy steps for the owner: `git checkout main` · `git merge --ff-only platform` · `git push origin main` ·
-  `git checkout platform` (one command per block).
+- Commit ONLY on `main`, guarded: `[ "$(git branch --show-current)" = main ] && git commit …`. **Never push** – pushing
+  `main` deploys; the owner pushes, or asks you to (owner 2026-10-05). Never add Claude attribution lines.
+- Deploy: the owner runs `git push origin main` (or asks an agent to).
 - The owner works in the shared browser pane: test in your OWN tab (`tabs_create`), never in theirs.
 - Give the owner steps one at a time; don't re-ask answered questions (e.g. "no upper-case certificates exist – ever").
-- Agents work on their own branch in a worktree; the coordinator reviews, merges into `platform`, runs the checks
+- Agents work on their own branch in a worktree; the coordinator reviews, merges into `main` (no push), runs the checks
   (`npm run check`, `check:tools-css`, server phpunit + phpstan).
 
 ## UI rules (owner) – check before building UI
