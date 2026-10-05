@@ -102,8 +102,8 @@ final class InfrastructureTest extends TestCase
         }
         $sqlite->close();
         $actual = [];
-        // production's legacy column (migrations/mysql/legacy, the old generate/ templates), never read by the API
-        $mysqlOnly = ['qr.template_data'];
+        // no driver-only columns: qr.template_data (migrations/mysql/legacy) was never applied in production (checked 2026-10-05)
+        $mysqlOnly = [];
         foreach ($this->db->all('SELECT TABLE_NAME AS t, COLUMN_NAME AS c FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME, COLUMN_NAME') as $row) {
             if (in_array("{$row['t']}.{$row['c']}", $mysqlOnly, true)) continue;
             $actual[(string) $row['t']][] = strtolower((string) $row['c']);

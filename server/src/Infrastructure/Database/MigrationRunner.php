@@ -10,7 +10,8 @@ namespace Scutoons\Infrastructure\Database;
  * database re-runs nothing. A database without the `qr` table first gets the base schema
  * (migrations/schema/qr.<driver>.sql). `ALTER TABLE x ADD COLUMN y` is skipped when the column exists, so re-running
  * a file is safe. migrations/mysql/legacy/ holds the two MySQL-only changes from before the account system; they are
- * applied in production already and never run.
+ * never run (edition_id is in the base schema; template_data was never applied in production – checked 2026-10-05 –
+ * and is not in the base schema either).
  *
  * Production (shared host, no shell): run the pending *.mysql.sql files in phpMyAdmin instead – they are idempotent.
  */
