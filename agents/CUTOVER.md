@@ -418,7 +418,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   copies for the beta.
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
   into `production`/targets, `assets:scan`) – ASSETS.md.
-- [ ] 10.3 cdn.scutoons.com → bunny *(code ready on branch `10.3-cdn-domain`, 2026-10-05; owner steps below open)*:
+- [ ] 10.3 cdn.scutoons.com → bunny *(code ready on branch `10.3-cdn-domain`, 2026-10-05; steps 1–5 done + verified 2026-10-05, GitHub `CDN_PUBLIC_URL` changed; open: 6 deploy, 7 optional, 8 verify, local `.env`)*:
   custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL; then every CDN URL in `deploy/targets.json`
   (api `CDN_URL` + `CDN_PUBLIC_URL`, qr `CDN_URL`, every app's `VITE_CDN_URL`) = `https://cdn.scutoons.com` + redeploy.
   The legacy system is gone, so nothing live uses cdn.scutoons.com: the apps stay on `scutoons.b-cdn.net` until the
@@ -477,6 +477,10 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
     apps never left `scutoons.b-cdn.net`). After step 6 – revert the `targets.json` commit and redeploy: the apps go back
     to `scutoons.b-cdn.net`, which keeps working whatever the DNS says. The migration needs no rollback (both names serve
     the same zone; reverse = the same REPLACE the other way round).
+  - **Done 2026-10-05:** step 1 – no absolute media URL in the DB (all 0; content_versions empty), so step 7 is a no-op.
+    Steps 2–4 by the owner; agent check: ns5.kasserver.com + 8.8.8.8 answer CNAME `scutoons.b-cdn.net`; pull zone
+    hostnames `scutoons.b-cdn.net, cdn.scutoons.com`; certificate CN cdn.scutoons.com (Let's Encrypt, to 2027-01-03),
+    http → 301 https; the three samples through cdn.scutoons.com (bunny edge) → 206, ACAO `*`, sizes = the files.
   - Afterwards: **10.9 is unblocked** (nothing uses the old FTP CDN any more); the folder `/cdn.scutoons.com/` stays as a
     backup until 10.7 and is the later backup target (ASSETS.md "Backup", `FtpStorage`).
 - [ ] 10.4 Folder restructure: `assets:layout` re-run + owner review, batch relink (to build), the model path code change,
