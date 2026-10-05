@@ -27,7 +27,7 @@ story ──► script ──► scenes ──► frames / slices ──► VN e
 |---|---|---|
 | Character base views | `workflows/characters/base-views.md` → creator action "Complete base views" | character registry, asset upload (CDN refactor) |
 | Moods | portrait variations per mood → "Complete moods" | base views |
-| Scenes / shots | `workflows/scenes/generate-shots.md` (FLORA) → creator "Scene → shot list → stills" | script import |
+| Scenes / shots | `workflows/scenes/generate-shots.md` (FLORA) → creator "Scene → shot list → stills"; concept: [TREATMENTS.md](TREATMENTS.md) | script import |
 | Script import | story/screenplay (e.g. `de/screenplay.txt`) → scenes, characters, dialogue lines | data refactor (entities in DB) |
 | Wanted list | one queue of everything missing (images, looks, moods, translations) — today "Wanted images" | asset requests |
 | Asset upload | upload + normalize + WebP in the creator, replacing the old manual FTP upload (repo `cdn/` removed 2026-10-04) | CDN plan (P6) |
