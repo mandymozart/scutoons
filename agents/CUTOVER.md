@@ -414,8 +414,10 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL`)
   as GitHub `production` secrets for the live asset manager (the merge adds them to `targets.json`); verify in admin →
   Assets → Storage (set / missing per key, no values).
-- [ ] 10.1c Fonts (IBM Plex Mono, Bangers + OFL licences) to `scutoons/fonts/` on the CDN; the apps keep their local
-  copies for the beta.
+- [ ] 10.1c Fonts (IBM Plex Mono, Bangers + OFL licences) to `scutoons/fonts/` on the CDN. Branch `10.1c-cdn-fonts`
+  (2026-10-05): staged in `media/scutoons/fonts/` (18 files); the apps and qr's landing page load `@font-face` from
+  `<CDN>/scutoons/fonts/` with their local copy as fallback (ASSETS.md "Fonts"). Left: the owner's upload
+  (`assets:sync --prefix=scutoons/fonts/`), then merge + deploy; tick after `check:fonts` on production shows 200s.
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
   into `production`/targets, `assets:scan`) – ASSETS.md.
 - [ ] 10.3 cdn.scutoons.com → bunny: custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL;

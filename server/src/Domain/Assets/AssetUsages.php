@@ -35,6 +35,7 @@ final class AssetUsages
      */
     public const CODE_REFERENCES = [
         'scutoons/models/' => 'viewer/src/lib/components/camera/object-detector.ts',
+        'scutoons/fonts/' => 'shared/tokens/vite.js',
         'catpope/vectors/vector-demon-saw-1.svg' => 'viewer/src/lib/components/toon/map/map-overlay.svelte',
     ];
 

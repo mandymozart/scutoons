@@ -2,7 +2,9 @@
 /**
  * Page frame of the QR landing page in the Scutoons design (IBM Plex Mono, ink on paper, square, 2px rules).
  * Tokens + self-hosted fonts: /assets/tokens/scutoons-tokens.css, qr's generated copy of @scutoons/tokens (bin/sync-tokens.mjs).
- * @var callable $e  @var string $locale  @var string $title  @var string $body (already escaped HTML)
+ * Fonts from the CDN first: $fontFaces (Landing::cdnFontFaces) redefines the Plex faces after the stylesheet – the later
+ * @font-face wins, the stylesheet's local file stays the fallback (agents/ASSETS.md "Fonts").
+ * @var callable $e  @var string $locale  @var string $title  @var string $body (already escaped HTML)  @var string $fontFaces (CSS)
  */
 ?>
 <!DOCTYPE html>
@@ -13,6 +15,9 @@
     <meta name="robots" content="noindex">
     <title><?= $e($title) ?> · SCUTOONS</title>
     <link rel="stylesheet" href="/assets/tokens/scutoons-tokens.css">
+<?php if (($fontFaces ?? '') !== ''): ?>
+    <style><?= $fontFaces ?></style>
+<?php endif ?>
     <style>
         html { font-size: 16px; }
         @media (max-width: 479px) { html { font-size: 14px; } }
