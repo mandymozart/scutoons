@@ -28,7 +28,7 @@ directory has to be `api/`, the root `.htaccess` forwards every request into `pu
 This server is **the API only** (+ `/api/health/`, and the legacy `generate/` SPA until the admin app retires it).
 `qr.scutoons.com` is the separate qr app (`qr/` → host folder `qr/`, docroot `qr/public/`): it renders the landing
 page and the verify page and proxies `/api/validate/`, `/api/keys/keys.php`, `generate/get-signature.php` +
-`generate/files/signatures/*` (verify page) and – transition, `PROXY_FULL_API` – the whole `/api/*` here. Both share
+`generate/files/signatures/*` + `/api/certificates/*` (verify page); `PROXY_FULL_API` (whole `/api/*`) is off since 2026-10-05. Both share
 `QR_PROXY_SECRET` (the API trusts the client IP / device id the qr app forwards only with it).
 
 ## Cutover

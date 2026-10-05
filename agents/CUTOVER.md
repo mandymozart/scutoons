@@ -426,6 +426,16 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   then prune (ASSETS.md "Migration plan").
 - [ ] 10.5 *(test hosts + T1's origin removed 2026-10-05)* Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
   no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
+  *`PROXY_FULL_API=0` (branch `10.5-qr-proxy-off`, 2026-10-05):* `deploy/targets.json` qr "0" and the default in
+  `qr/src/Config.php` ("1" = rollback, then deploy qr). Still proxied: `/api/validate/`, `/api/keys/keys.php`,
+  `/api/certificates/*`, `generate/get-signature.php` + signature files; the rest of `/api/*` → 404 JSON. Evidence: the
+  old viewer (built from this repo's old `main`, `viewer/build`) never had a service worker – no `service-worker.*`,
+  `serviceWorker`, workbox or PWA plugin anywhere in git history (only `site.webmanifest`, no SW), the old qr repo neither;
+  the new viewer registers none either, so nothing can keep serving the old app. Every live app bundle (viewer,
+  creator, admin, shop, embassy at 82c325d; all chunks crawled) calls `https://api.scutoons.com/api`, none
+  `qr.scutoons.com/api`; their prod fallbacks now point there too. Mails link only `?login=` / `/account`; the Ask
+  service needs `SCUTOONS_API`. Neither the qr app nor the API logs proxied requests – traffic only in all-inkl's
+  stats (owner check before the deploy). `generate/` + `GENERATE_PASSWORD` stay (after admin parity, 10.18).
 - [ ] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04).
 - [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
 - [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions

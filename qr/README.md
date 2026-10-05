@@ -13,7 +13,8 @@ CORS, lookups are cached and a friendly page shows when the API is briefly down.
 | `/` | enter a code by hand (form parameter `c`) |
 | `/verify.html` | certificate verify page (static; loads `assets/js/*` and, via the proxy, `generate/get-signature.php` + `generate/files/signatures/SIGNATURE-<code>.json`) |
 | `/api/validate/`, `/api/keys/keys.php` | **proxied** to the API byte for byte (status, body, content type, caching, CORS headers) – printed / linked URLs |
-| `/api/*` | proxied too while `PROXY_FULL_API` is on (default; released viewers call `https://qr.scutoons.com/api/…`), else 404 JSON |
+| `/api/certificates/…` | the verify page's check – **proxied** always |
+| `/api/*` (the rest) | 404 JSON. `PROXY_FULL_API` = 1 proxies it too – the old viewer's transition, **off since 2026-10-05** (CUTOVER 10.5); kept as a rollback switch |
 | `/generate/…` | the legacy admin SPA lives on the API: 302 to `API_URL/generate/…` (until the admin app retires it) |
 | `/version.json` | `{ app: "qr", version, git_sha, built_at }` (written by the deploy; computed locally) |
 
@@ -80,5 +81,6 @@ php tests/public-urls.php http://localhost:9001 --api=http://localhost:9000 [--o
 
 `.github/workflows/qr.yml` (lint + offline smoke test; deploy from `main`) → host folder `qr/`, docroot `qr/public/`
 (deploy/README.md). The generated `config.php` sets `API_URL=https://api.scutoons.com`, `QR_PROXY_SECRET` and
-`CDN_URL`. Switch the transition off by setting `PROXY_FULL_API` to `0` in `deploy/targets.json` once the stats show no
-more `/api/*` traffic on qr – `/api/validate/` and `/api/keys/keys.php` stay proxied forever.
+`CDN_URL` and `PROXY_FULL_API=0` (the default too, since 2026-10-05: every app calls `api.scutoons.com`; rollback =
+`"1"` in `deploy/targets.json` + deploy qr). `/api/validate/`, `/api/keys/keys.php` and the verify page's data stay
+proxied forever.

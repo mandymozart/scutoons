@@ -89,7 +89,7 @@
           "values": {
             "API_URL": "https://api.scutoons.com",
             "QR_PROXY_SECRET": "${QR_PROXY_SECRET}",
-            "PROXY_FULL_API": "1",
+            "PROXY_FULL_API": "0",
             "CDN_URL": "https://scutoons.b-cdn.net/"
           }
         }

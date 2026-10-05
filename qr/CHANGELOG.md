@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- `PROXY_FULL_API` off (2026-10-05, CUTOVER 10.5): the default and production; `/api/*` is 404 JSON except the printed
+  `/api/validate/`, `/api/keys/keys.php` and the verify page's `/api/certificates/*` (+ `generate/` signature sources).
+  The old viewer – its only caller – is gone; every app calls `api.scutoons.com`. `"1"` stays as a rollback switch.
+
 - Landing page (2026-10-02, agents/ITEMS.md "Ownership, claims, gifting"): an unregistered product code shows "Add to
   my account" first with "Register it now – otherwise someone else can"; a registered one shows Read + "This is mine?
   File a claim" (`redirect_to?code=…&claim=1`, the viewer's claim form). Never says whose it is.

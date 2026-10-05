@@ -706,7 +706,7 @@ the other frontends anyway; its own defences stay: rate limits, no owner data, o
 Printed-URL RULE still holds on `qr.scutoons.com`: `?c=` (with/without `/`), `skip=1`, `/verify.html`,
 `/api/validate/`, `/api/keys/keys.php` keep answering identically — `qr/` serves the pages and **proxies** the two
 legacy endpoints to the API. Transition: the released viewer calls `https://qr.scutoons.com/api/*` → `qr/` proxies the
-whole `/api/*` to `api.scutoons.com` behind one flag (`PROXY_FULL_API`, default on) until stats show no traffic.
+whole `/api/*` to `api.scutoons.com` behind one flag (`PROXY_FULL_API`) – **off since 2026-10-05** (CUTOVER 10.5).
 The legacy `generate/` SPA is not moved: it retires when the admin app reaches parity (at cutover at the latest).
 
 **Host (all-inkl): one FTP account, its root is the deploy root; each subdomain points into it:**
@@ -799,8 +799,7 @@ flags mismatches (e.g. a frontend built against an older `@scutoons/api` than th
   shared package versions.
 
 **Open**
-- Switch `VITE_API_URL` to `https://api.scutoons.com/api` after the cutover (checklist step 8), then later
-  `PROXY_FULL_API` → 0 (targets.json) once qr's access log shows no more `/api/*` except validate/keys.
+- ~~Switch `VITE_API_URL` to `https://api.scutoons.com/api`, then `PROXY_FULL_API` → 0~~ done (CUTOVER 10.5, 2026-10-05).
 - Admin dashboard widget for `GET /api/admin/versions` (admin app).
 - Remove `generate/` + `GENERATE_PASSWORD` after admin parity; keep `generate/get-signature.php` and the signature
   files route in the API (the verify page needs them) – e.g. move them to `/api/…` paths and change qr's proxy map.
@@ -922,8 +921,7 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 - When the admin app has parity: remove `generate/` and `GENERATE_PASSWORD` (separate change).
 
 **10. Later**
-- When qr's access log (KAS statistics) shows no `/api/*` traffic except `/api/validate/` and `/api/keys/keys.php`:
-  set `PROXY_FULL_API` to `0` in `deploy/targets.json` and deploy qr.
+- ~~`PROXY_FULL_API` → `0` in `deploy/targets.json`, deploy qr~~ done 2026-10-05 (CUTOVER 10.5).
 - After one release without problems: delete the old qr folder and the old viewer folder (keep the backups).
 
 **Rollback**
