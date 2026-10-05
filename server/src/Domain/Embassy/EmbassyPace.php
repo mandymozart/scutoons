@@ -122,7 +122,7 @@ final class EmbassyPace
         }
         $id = (string) $user['id'];
         $this->db->transaction(function () use ($id, $answer): void {
-            $row = $this->db->one('SELECT per_week FROM embassy_pace WHERE user_id = ?' . $this->db->forUpdate(), [$id])
+            $row = $this->db->one('SELECT per_week FROM embassy_pace WHERE user_id = ? FOR UPDATE', [$id])
                 ?? throw new ApiError(409, 'not_onboarded', 'Set your pace first (PUT /embassy/pace).');
             $before = (int) $row['per_week'];
             $after = max(self::MIN, min(self::MAX, $before + self::ANSWERS[$answer]));

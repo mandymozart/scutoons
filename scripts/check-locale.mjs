@@ -18,11 +18,12 @@
 // is the build-time shell (`<html lang="de">`, no text; ssr = false), so only its status is checked there – the
 // language is set on the client (routes/+layout.svelte) and checked after hydration as usual.
 // Needs the dev servers (npm run dev). Exit code 1 on any failure.
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { localSql } from './dev/db-env.mjs';
 import { local } from './dev/ports.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -197,8 +198,8 @@ await page('/catpope/chapter/1, cookie en → en', `/${toon}/chapter/1`, { cooki
 {
 	let codes = [];
 	try {
-		const out = execFileSync('php', ['-r', `chdir(${JSON.stringify(join(root, 'server'))}); require 'tests/support/legacy.php'; foreach (Db::run("SELECT MIN(code) code, redirect_to FROM qr WHERE revoked_at IS NULL AND redirect_to LIKE 'https://%scutoons.com/%' AND type IN ('membership', 'page') GROUP BY redirect_to")->fetchAll(PDO::FETCH_ASSOC) as $r) echo json_encode($r), "\\n";`], { encoding: 'utf8' });
-		codes = out.trim().split('\n').filter(Boolean).map((l) => JSON.parse(l));
+		const [rows] = localSql(["SELECT MIN(code) code, redirect_to FROM qr WHERE revoked_at IS NULL AND redirect_to LIKE 'https://%scutoons.com/%' AND type IN ('membership', 'page') GROUP BY redirect_to"]);
+		codes = rows;
 	} catch (e) { report('qr: printed codes from the local database', [e.message.split('\n')[0]]); }
 	if (!codes.length) report('qr: printed codes from the local database', ['none found']);
 	for (const { code, redirect_to } of codes) {

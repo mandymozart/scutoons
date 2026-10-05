@@ -27,12 +27,11 @@ final class ExportContentCommand extends Command
         $this->addArgument('dir', InputArgument::REQUIRED, 'Target folder (created; existing files are overwritten)')
             ->addOption('toon', null, InputOption::VALUE_REQUIRED, 'Only this toon (its entities, without the platform-wide ones)')
             ->addOption('draft', null, InputOption::VALUE_NONE, 'The newest version of every entity instead of the published one')
-            ->addOption('db', null, InputOption::VALUE_REQUIRED, 'Read this SQLite file instead of the configured database')
             ->setHelp(<<<'HELP'
                 The reverse of import-content (agents/DATA.md §4, Console\ContentFiles): every published entity (or, with
                 --draft, the newest version) as a file of the interchange layout; the toon index entries together as
-                toons.json (creation order). `import-content <dir>` reads the result back. Use it as a backup, to diff, or to
-                refresh the seed (shared/content/seed) for new environments and the production SQL.
+                toons.json (creation order). `import-content <dir>` reads the result back. Use it as a backup or to diff
+                (a local database gets production's content from db:prod-seed, docs/DATABASE.md "Production seed").
                 HELP);
     }
 
@@ -41,7 +40,7 @@ final class ExportContentCommand extends Command
         $dir = rtrim(str_replace('\\', '/', (string) $input->getArgument('dir')), '/');
         $draft = (bool) $input->getOption('draft');
         $onlyToon = $input->getOption('toon');
-        $db = is_string($input->getOption('db')) ? Database::sqlite((string) $input->getOption('db')) : $this->db;
+        $db = $this->db;
 
         $rows = $draft
             ? $db->all('SELECT v.entity_key, v.json FROM entity_versions v JOIN (SELECT MAX(id) AS id, MIN(id) AS first FROM entity_versions GROUP BY entity_key) m ON m.id = v.id ORDER BY m.first')

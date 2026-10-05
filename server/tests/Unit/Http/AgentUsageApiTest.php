@@ -284,20 +284,6 @@ final class AgentUsageApiTest extends TestCase
         ], array_map(fn(array $r) => [$r['app'], $r['user_id'], $r['cost_usd']], $data['rows']));
     }
 
-    public function testWithoutTheAppColumnEveryRowIsTheCreators(): void
-    {
-        if (!$this->db->isSqlite()) self::markTestSkipped('drops a column (the MySQL test database is only rebuilt for dropped tables)');
-        [, $creator] = $this->as('creator');
-        [, $liaison] = $this->as('liaison');
-        [, $admin] = $this->as('admin');
-        $this->db->exec('ALTER TABLE agent_usage DROP COLUMN app');
-        self::assertSame(201, $this->log(self::service($creator))->getStatusCode());
-        $response = $this->log(self::service($liaison), ['app' => 'embassy']);
-        self::assertSame([503, 'not_available'], [$response->getStatusCode(), self::json($response)['error']]);
-        $rows = self::json($this->request('GET', '/api/admin/agent-usage', $admin))['rows'];
-        self::assertSame([['creator', 1]], array_map(fn(array $r) => [$r['app'], $r['calls']], $rows));
-    }
-
     public function testWithoutTheMigrationTheEndpointsAnswer503(): void
     {
         [, $creator] = $this->as('creator');

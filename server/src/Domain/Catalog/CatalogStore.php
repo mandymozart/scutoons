@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Catalog;
 
-use PDOException;
 use Scutoons\Domain\ApiError;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
@@ -15,9 +14,6 @@ use stdClass;
  * edition_id …, kept in step with `data` on every write). Every reader of the catalog goes through here (Catalog,
  * Editions, Products, FeaturedProducts, Toons, Permissions, AssetUsages); writes with validation + history are
  * CatalogAdmin's.
- *
- * Before the migration ran (tables missing) the rows come from the seed files (CatalogSeed, server/config/*.json) –
- * read-only: a write answers 503 migration_pending. So deploy and migration may happen in either order.
  */
 final class CatalogStore
 {
@@ -51,10 +47,9 @@ final class CatalogStore
 
     /** @var array<string, list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}>> */
     private array $rows = [];
-    private bool $fallback = false;
     private int $generation = 0;
 
-    public function __construct(private readonly Database $db, private readonly CatalogSeed $seed, private readonly Clock $clock)
+    public function __construct(private readonly Database $db, private readonly Clock $clock)
     {
     }
 
@@ -96,13 +91,6 @@ final class CatalogStore
         return $json;
     }
 
-    /** true when the tables are missing and the rows came from the seed files */
-    public function isFallback(): bool
-    {
-        $this->rows('meta');
-        return $this->fallback;
-    }
-
     /**
      * The rows of a kind in their order
      * @return list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}>
@@ -111,21 +99,14 @@ final class CatalogStore
     {
         $kind = self::kind($kind);
         if (isset($this->rows[$kind])) return $this->rows[$kind];
-        if (!$this->fallback) {
-            try {
-                $rows = $this->db->all('SELECT id, position, data, updated_at, updated_by FROM ' . self::KINDS[$kind]['table'] . ' ORDER BY position, id');
-                return $this->rows[$kind] = array_map(fn(array $r) => [
-                    'id' => (string) $r['id'],
-                    'position' => (int) $r['position'],
-                    'data' => (string) $r['data'],
-                    'updated_at' => $r['updated_at'] !== null ? (string) $r['updated_at'] : null,
-                    'updated_by' => $r['updated_by'] !== null ? (string) $r['updated_by'] : null,
-                ], $rows);
-            } catch (PDOException) {
-                $this->fallback = true; // the 2026-10-04-catalog migration has not run yet
-            }
-        }
-        return $this->rows[$kind] = array_map(fn(array $r) => ['id' => $r['id'], 'position' => $r['position'], 'data' => $r['data'], 'updated_at' => null, 'updated_by' => null], $this->seed->rows()[$kind]);
+        $rows = $this->db->all('SELECT id, position, data, updated_at, updated_by FROM ' . self::KINDS[$kind]['table'] . ' ORDER BY position, id');
+        return $this->rows[$kind] = array_map(fn(array $r) => [
+            'id' => (string) $r['id'],
+            'position' => (int) $r['position'],
+            'data' => (string) $r['data'],
+            'updated_at' => $r['updated_at'] !== null ? (string) $r['updated_at'] : null,
+            'updated_by' => $r['updated_by'] !== null ? (string) $r['updated_by'] : null,
+        ], $rows);
     }
 
     /**
@@ -173,7 +154,6 @@ final class CatalogStore
     public function forget(): void
     {
         $this->rows = [];
-        $this->fallback = false;
         $this->generation++;
     }
 
@@ -185,20 +165,12 @@ final class CatalogStore
 
     // ── Writes (no validation, no history – CatalogAdmin; inside the caller's transaction) ─────────────────────
 
-    public function requireTables(): void
-    {
-        if ($this->isFallback()) {
-            throw new ApiError(503, 'migration_pending', 'The catalog tables are missing: run the migration 2026-10-04-catalog first.');
-        }
-    }
-
     /**
      * Inserts or updates an entry; a new one goes to the end unless $position is given. $data decoded with objects
      * (stdClass) keeps `{}` an object.
      */
     public function save(string $kind, string $id, mixed $data, string $by, ?int $position = null): void
     {
-        $this->requireTables();
         $table = self::table($kind);
         $json = self::encode($data);
         $columns = self::columns($kind, json_decode($json, true));
@@ -224,7 +196,6 @@ final class CatalogStore
 
     public function remove(string $kind, string $id): void
     {
-        $this->requireTables();
         $this->db->run('DELETE FROM ' . self::table($kind) . ' WHERE id = ?', [$id]);
         $this->forget();
     }
@@ -236,7 +207,6 @@ final class CatalogStore
      */
     public function reorder(string $kind, array $ids): array
     {
-        $this->requireTables();
         $current = array_column($this->rows($kind), 'id');
         $order = array_values(array_unique([...array_values(array_filter($ids, fn($id) => in_array($id, $current, true))), ...$current]));
         $table = self::table($kind);

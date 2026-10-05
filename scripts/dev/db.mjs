@@ -1,33 +1,39 @@
 #!/usr/bin/env node
-// The local MariaDB container (docker/compose.yml) – the production engine for development and tests.
-// Docs: server/docs/DATABASE.md "Local MariaDB (Docker)". Needs Docker Desktop; PHP's pdo_mysql is added on the fly.
+// The local database: the MariaDB container (docker/compose.yml), production's engine and settings. The only local
+// database (no SQLite since 2026-10-05). Docs: server/docs/DATABASE.md "Local MariaDB" + "Production seed".
+// Needs Docker Desktop; PHP's pdo_mysql is added on the fly.
 //
-//   npm run dev:db                 = up: start the container (wait until healthy), create the databases, migrate,
-//                                    import the content seed (shared/content/seed/*.mysql.sql, as in phpMyAdmin), a
-//                                    local promo code, switch the stack to MariaDB, (re)start the API on it, test user
-//   npm run dev:db sqlite          switch the stack back to SQLite (restarts an API this script can restart)
-//   npm run dev:db status          container, selected database, what the API runs on
+//   npm run dev:db                 = up: start the container (wait until healthy), create the databases, migrate, load
+//                                    production's content + catalog (server/db/prod-seed.sql, gitignored – how to get
+//                                    it is printed when it is missing), a local promo code, (re)start the API on it,
+//                                    the test user. Idempotent: run it any time (an unchanged seed is not loaded again)
+//   npm run dev:db -- up --no-api  the same without touching the API dev server / test user (e.g. a second worktree)
+//   npm run dev:db seed            load server/db/prod-seed.sql again (--force: even when unchanged – local edits of
+//                                  content / catalog / assets are replaced); -- seed --from=<dump.sql> extracts it from
+//                                  any phpMyAdmin export first (only the 15 seed tables are kept)
+//   npm run dev:db media           media missing in the local media/ folder from bunny.net (plan; -- media --apply copies;
+//                                  never deletes, never overwrites; -- media --prefix=catpope/ for one folder)
+//   npm run dev:db status          container, database, what the API runs on
 //   npm run dev:db stop            stop the container (data stays in the volume; `npm run dev` starts it again)
-//   npm run dev:db reset           delete the container AND its data, then `up` again (fresh database)
-//   npm run dev:db test            the PHPUnit suite on MariaDB (server/phpunit.mysql.xml, database scutoons_test);
+//   npm run dev:db reset           drop this database (+ its test database), then `up` again (fresh from the seed)
+//   npm run dev:db test            the PHPUnit suite (database <name>_test, server/phpunit.xml.dist);
 //                                  options after `--`: npm run dev:db -- test --filter Wardrobe
-//   npm run dev:db -- console <args>  php bin/console on the MariaDB dev database, e.g. -- console migrate --status
-//   npm run dev:db sql             a mariadb shell in the container (database scutoons)
+//   npm run dev:db -- console <args>  php bin/console on the dev database, e.g. -- console migrate --status
+//   npm run dev:db sql             a mariadb shell in the container
 //   npm run dev:db adminer         Adminer (web UI) on the "adminer" dev port
 //   npm run dev:db version         server version, sql_mode, charset, collation (compare with production)
 //
-// The switch (logs/dev/db.json) is what `npm run dev`, the API dev server and `npm run dev:test-user` follow;
-// SCUTOONS_DB=sqlite|mariadb in the environment wins over it. Local dev credentials only (docker/compose.yml).
+// SCUTOONS_DB_NAME=scutoons_<x> works on another database of the same container (a worktree's own). Local dev
+// credentials only (docker/compose.yml).
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { compose, MARIADB, phpDbEnv, phpMysqlArgs, ROOT, selectDb, selectedDb } from './db-env.mjs';
+import { compose, MARIADB, phpDbEnv, phpMysqlArgs, ROOT } from './db-env.mjs';
 import { local, PORTS } from './ports.mjs';
 
 const SERVER = resolve(ROOT, 'server');
-const SEED = resolve(ROOT, 'shared/content/seed');
 const API_STATE = resolve(ROOT, `logs/dev/api-server-${PORTS.api}.json`);
-const PROMO = 'devpromo'; // qr.code is VARCHAR(8) on MariaDB
+const PROMO = 'devpromo'; // qr.code is VARCHAR(8)
 const [command = 'up', ...rest] = process.argv.slice(2);
 
 function fail(message) {
@@ -60,23 +66,24 @@ function rootSql(sql) {
 	if (r.status !== 0) fail('SQL as root failed');
 }
 
-/** SQL (a file's text) into the dev database through the mariadb client – the same path as phpMyAdmin's import */
-function importSql(sql, label) {
-	const r = compose(['exec', '-T', 'mariadb', 'mariadb', '--default-character-set=utf8mb4', `-u${MARIADB.user}`, `-p${MARIADB.pass}`, MARIADB.name], {
-		input: sql,
-		stdio: ['pipe', 'inherit', 'inherit']
-	});
-	if (r.status !== 0) fail(`import of ${label} failed`);
+/** The databases exist, latin1 by default like production's server: every table must declare utf8mb4 itself */
+function createDatabases() {
+	rootSql(
+		[MARIADB.name, MARIADB.testName]
+			.map((name) => `CREATE DATABASE IF NOT EXISTS \`${name}\` CHARACTER SET latin1 COLLATE latin1_swedish_ci; GRANT ALL PRIVILEGES ON \`${name}\`.* TO '${MARIADB.user}'@'%';`)
+			.join(' ')
+	);
 }
 
 function phpConsole(args, stdio = 'inherit') {
-	return spawnSync('php', [...phpMysqlArgs(), 'bin/console', ...args], { cwd: SERVER, env: { ...process.env, ...phpDbEnv('mariadb') }, stdio, encoding: 'utf8' });
+	return spawnSync('php', [...phpMysqlArgs(), 'bin/console', ...args], { cwd: SERVER, env: { ...process.env, ...phpDbEnv() }, stdio, encoding: 'utf8' });
 }
 
-function seedFiles() {
-	const first = ['content-seed.mysql.sql', 'characters-seed.mysql.sql', 'credits-seed.mysql.sql'];
-	const dated = readdirSync(SEED).filter((f) => f.endsWith('.mysql.sql') && !first.includes(f)).sort();
-	return [...first.filter((f) => existsSync(resolve(SEED, f))), ...dated];
+/** db:prod-seed; a missing file is not an error (the command prints how to get it) */
+function seed(args = []) {
+	const status = phpConsole(['db:prod-seed', ...args]).status;
+	if (status !== 0 && status !== 2) fail('db:prod-seed failed');
+	return status === 0;
 }
 
 async function apiAnswers() {
@@ -104,20 +111,16 @@ function isDevServe(pid) {
 	return /dev-serve\.mjs/.test(r.stdout ?? '');
 }
 
-/** Makes the API dev server run on `db`: start it, or restart a dev-serve.mjs that runs on the other database */
+/** Makes the API dev server run on this database: start it, or restart a dev-serve.mjs that runs on another one */
 async function apiOn(db) {
 	if (await apiAnswers()) {
 		const state = apiState();
-		if (state?.db === db || (!state?.db && db === 'sqlite')) return true;
-		if (!state?.pid) {
+		if (state?.db === db) return true;
+		if (!state?.pid || !isDevServe(state.pid)) {
 			console.warn(`The API on :${PORTS.api} was not started by server/bin/dev-serve.mjs – restart it yourself to use ${db}.`);
 			return false;
 		}
-		if (!isDevServe(state.pid)) {
-			console.warn(`The API on :${PORTS.api} is not the dev server of logs/dev/api-server-${PORTS.api}.json (pid ${state.pid}) – restart it yourself to use ${db}.`);
-			return false;
-		}
-		console.log(`Restarting the API dev server (pid ${state.pid}, on ${state.db ?? 'sqlite'}) …`);
+		console.log(`Restarting the API dev server (pid ${state.pid}, on ${state.db ?? 'an older setup'}) …`);
 		if (process.platform === 'win32') spawnSync('taskkill', ['/PID', String(state.pid), '/T', '/F'], { stdio: 'ignore' });
 		else {
 			try {
@@ -131,51 +134,61 @@ async function apiOn(db) {
 	return run('node', [resolve(ROOT, 'scripts/dev/up.mjs'), 'api']) === 0;
 }
 
-async function up() {
+async function up(noApi = rest.includes('--no-api')) {
 	containerUp();
-	// database default latin1 like production's server default: every table must declare utf8mb4 itself
-	rootSql(
-		[MARIADB.name, MARIADB.testName]
-			.map((name) => `CREATE DATABASE IF NOT EXISTS \`${name}\`; ALTER DATABASE \`${name}\` CHARACTER SET latin1 COLLATE latin1_swedish_ci; GRANT ALL PRIVILEGES ON \`${name}\`.* TO '${MARIADB.user}'@'%';`)
-			.join(' ')
-	);
-	console.log('\nMigrations (php bin/console migrate) …');
+	createDatabases();
+	console.log(`\nMigrations (php bin/console migrate) on ${MARIADB.name} …`);
 	if (phpConsole(['migrate']).status !== 0) fail('migrate failed');
-	console.log('\nContent seed (shared/content/seed/*.mysql.sql, as imported in phpMyAdmin) …');
-	for (const file of seedFiles()) {
-		importSql(readFileSync(resolve(SEED, file)), file);
-		console.log(`  imported ${file}`);
-	}
-	// a promo code to sign up with (npm run dev:test-user, the apps' sign-up form); the SQLite dev DB has its own
-	importSql(`INSERT IGNORE INTO qr (code, redirect_to, type, email) VALUES ('${PROMO}', 'https://scutoons.com/catpope', 'promo', '');\n`, 'the promo code');
+	console.log('\nProduction seed (php bin/console db:prod-seed) …');
+	seed();
+	// a promo code to sign up with (npm run dev:test-user, the apps' sign-up form)
+	const r = compose(['exec', '-T', 'mariadb', 'mariadb', '--default-character-set=utf8mb4', `-u${MARIADB.user}`, `-p${MARIADB.pass}`, MARIADB.name], {
+		input: `INSERT IGNORE INTO qr (code, redirect_to, type, email) VALUES ('${PROMO}', 'https://scutoons.com/catpope', 'promo', '');\n`,
+		stdio: ['pipe', 'inherit', 'inherit']
+	});
+	if (r.status !== 0) fail('the promo code could not be added');
 	console.log(`  promo code ${PROMO} (sign-up)`);
-	selectDb('mariadb');
-	console.log('\nThe local stack now uses MariaDB (npm run dev:db sqlite switches back).');
-	if (!(await apiOn('mariadb'))) fail('the API did not start on MariaDB (logs/dev/api.log)');
+	if (noApi) {
+		console.log(`\nDone: ${MARIADB.name} on 127.0.0.1:${PORTS.mariadb} (API and test user left alone: --no-api).`);
+		return;
+	}
+	if (!(await apiOn(MARIADB.name))) fail('the API did not start on the database (logs/dev/api.log)');
 	console.log('\nTest user (npm run dev:test-user) …');
 	if (run('node', [resolve(ROOT, 'scripts/dev/test-user.mjs')]) !== 0) fail('test user failed');
-	console.log(`\nDone: API ${local('api')} on MariaDB 127.0.0.1:${PORTS.mariadb}/${MARIADB.name}. npm run dev starts the rest.`);
+	console.log(`\nDone: API ${local('api')} on ${MARIADB.name} (127.0.0.1:${PORTS.mariadb}). npm run dev starts the rest.`);
 }
 
 async function status() {
-	const db = selectedDb();
 	const ps = compose(['ps', '--format', '{{.Service}} {{.State}} {{.Status}}'], { stdio: ['ignore', 'pipe', 'pipe'] });
-	console.log(`selected database: ${db}${process.env.SCUTOONS_DB ? ' (SCUTOONS_DB)' : ''}`);
-	console.log(`containers:        ${ps.status === 0 ? ps.stdout.trim().replace(/\n/g, ' · ') || 'none running' : 'docker not available'}`);
+	console.log(`database:   ${MARIADB.name}${process.env.SCUTOONS_DB_NAME ? ' (SCUTOONS_DB_NAME)' : ''} on 127.0.0.1:${PORTS.mariadb}`);
+	console.log(`containers: ${ps.status === 0 ? ps.stdout.trim().replace(/\n/g, ' · ') || 'none running' : 'docker not available'}`);
 	const state = apiState();
 	const running = await apiAnswers();
 	console.log(`API ${local('api')}: ${running ? `running on ${state?.db ?? 'unknown (not dev-serve.mjs)'}` : 'down'}`);
-	if (running && state?.db && state.db !== db) console.log('  → it runs on the other database: npm run dev:db (or npm run dev:db sqlite) restarts it');
+	if (running && state?.db && state.db !== MARIADB.name) console.log(`  → it runs on another database: npm run dev:db restarts it on ${MARIADB.name}`);
+}
+
+/** assets:sync bunny → local media/ (adds missing files only); a plan unless --apply */
+function media() {
+	const apply = rest.includes('--apply');
+	const prefix = rest.find((a) => a.startsWith('--prefix='));
+	const args = ['assets:sync', '--from=bunny', '--to=local', '--list=10', ...(prefix ? [prefix] : []), ...(apply ? ['--apply'] : [])];
+	const status = phpConsole(args).status;
+	if (!apply && status === 0) console.log('\nA plan only – npm run dev:db -- media --apply copies the missing files (never deletes, never overwrites).');
+	process.exit(status ?? 1);
 }
 
 switch (command) {
 	case 'up':
 		await up();
 		break;
-	case 'sqlite':
-		selectDb('sqlite');
-		console.log('The local stack uses SQLite again (server/db/local.sqlite via config.local.php). The container keeps running: npm run dev:db stop.');
-		if (await apiAnswers()) await apiOn('sqlite');
+	case 'seed': {
+		containerUp();
+		process.exit(seed(rest) ? 0 : 2);
+		break;
+	}
+	case 'media':
+		media();
 		break;
 	case 'status':
 		await status();
@@ -185,16 +198,16 @@ switch (command) {
 		process.exit(compose(['--profile', 'tools', 'stop'], { stdio: 'inherit' }).status ?? 1);
 		break;
 	case 'reset':
-		requireDocker();
-		console.log('Removing the container and its data (volume scutoons_mariadb) …');
-		if (compose(['--profile', 'tools', 'down', '-v'], { stdio: 'inherit' }).status !== 0) fail('docker compose down failed');
+		containerUp();
+		console.log(`Dropping ${MARIADB.name} and ${MARIADB.testName} …`);
+		rootSql(`DROP DATABASE IF EXISTS \`${MARIADB.name}\`; DROP DATABASE IF EXISTS \`${MARIADB.testName}\`;`);
 		await up();
 		break;
 	case 'test': {
 		containerUp();
-		rootSql(`CREATE DATABASE IF NOT EXISTS \`${MARIADB.testName}\`; ALTER DATABASE \`${MARIADB.testName}\` CHARACTER SET latin1 COLLATE latin1_swedish_ci; GRANT ALL PRIVILEGES ON \`${MARIADB.testName}\`.* TO '${MARIADB.user}'@'%';`);
-		const env = { ...process.env, TEST_DB_PORT: String(PORTS.mariadb) };
-		process.exit(run('php', [...phpMysqlArgs(), 'vendor/bin/phpunit', '-c', 'phpunit.mysql.xml', ...rest], { cwd: SERVER, env }));
+		createDatabases();
+		const env = { ...process.env, TEST_DB_PORT: String(PORTS.mariadb), TEST_DB_NAME: process.env.TEST_DB_NAME || MARIADB.testName };
+		process.exit(run('php', [...phpMysqlArgs(), 'vendor/bin/phpunit', ...rest], { cwd: SERVER, env }));
 		break;
 	}
 	case 'console':
@@ -216,5 +229,5 @@ switch (command) {
 		console.log('Production: run the same two SELECTs in phpMyAdmin (SQL tab) and compare – docs/DATABASE.md.');
 		break;
 	default:
-		fail(`unknown command "${command}" – up | sqlite | status | stop | reset | test | console | sql | adminer | version`);
+		fail(`unknown command "${command}" – up | seed | media | status | stop | reset | test | console | sql | adminer | version`);
 }

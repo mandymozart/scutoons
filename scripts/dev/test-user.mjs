@@ -14,13 +14,13 @@
 //   4. Cat Pope (every A-pose look) via the admin API PUT /api/admin/users/<id>/characters/catpope
 // Session: logs/dev/test-user.json { email, token, created } (gitignored). Refuses anything but a localhost API.
 // --reset is local-only maintenance on the dev DB (there is no API to empty an inventory).
-// Database: the one the local stack uses (scripts/dev/db-env.mjs) – SQLite, or the MariaDB container after npm run dev:db.
+// Database: the local MariaDB container (scripts/dev/db-env.mjs, npm run dev:db).
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { phpDbEnv, phpMysqlArgs, selectedDb } from './db-env.mjs';
+import { localSql as sql, phpDbEnv, phpMysqlArgs } from './db-env.mjs';
 import { local } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -30,8 +30,6 @@ const CHARACTER = 'catpope';
 const API = (process.env.SCUTOONS_API ?? local('api', '/api')).replace(/\/$/, '');
 const SESSION_FILE = resolve(ROOT, 'logs/dev/test-user.json');
 const MAIL_LOG = resolve(ROOT, 'server/logs/mail.log');
-const DB = process.env.QR_DB_SQLITE_PATH ?? resolve(ROOT, 'server/db/local.sqlite');
-const MYSQL = selectedDb() === 'mariadb';
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
 const args = process.argv.slice(2);
@@ -68,19 +66,6 @@ async function api(method, path, body, token) {
 		/* not JSON */
 	}
 	return { status: res.status, json, text };
-}
-
-/** Run SQL on the local dev DB through PHP's PDO (no sqlite3 / mariadb CLI needed). Keep the SQL portable. */
-function sql(statements, params = {}) {
-	const connect = MYSQL
-		? `$d=new PDO('mysql:host='.getenv('QR_DB_HOST').';port='.getenv('QR_DB_PORT').';dbname='.getenv('QR_DB_NAME').';charset=utf8mb4',getenv('QR_DB_USER'),getenv('QR_DB_PASS'));`
-		: `$d=new PDO('sqlite:'.getenv('TU_DB'));`;
-	const php = `${connect}$d->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$p=json_decode(getenv('TU_PARAMS'),true);$out=[];foreach(json_decode(getenv('TU_SQL'),true) as $s){$st=$d->prepare($s);$st->execute(array_intersect_key($p,array_flip(array_map(fn($m)=>substr($m,1),(preg_match_all('/:\\w+/',$s,$m)?$m[0]:[])))));$out[]=$st->columnCount()?$st->fetchAll(PDO::FETCH_ASSOC):$st->rowCount();}echo json_encode($out);`;
-	const out = execFileSync('php', [...(MYSQL ? phpMysqlArgs() : []), '-r', php], {
-		env: { ...process.env, ...phpDbEnv(), TU_DB: DB, TU_SQL: JSON.stringify(statements), TU_PARAMS: JSON.stringify(params) },
-		encoding: 'utf8'
-	});
-	return JSON.parse(out);
 }
 
 function readSession() {
@@ -153,7 +138,7 @@ async function main() {
 	// roles (member comes with the signup): the documented CLI
 	for (const role of ROLES) {
 		if (user.roles.includes(role)) continue;
-		execFileSync('php', [...(MYSQL ? phpMysqlArgs() : []), 'bin/console', 'roles', 'grant', EMAIL, role], { cwd: resolve(ROOT, 'server'), env: { ...process.env, ...phpDbEnv() }, stdio: 'inherit' });
+		execFileSync('php', [...phpMysqlArgs(), 'bin/console', 'roles', 'grant', EMAIL, role], { cwd: resolve(ROOT, 'server'), env: { ...process.env, ...phpDbEnv() }, stdio: 'inherit' });
 	}
 
 	// Cat Pope with every A-pose look: admin API
@@ -184,9 +169,7 @@ async function main() {
 		// reader stats + effects (agents/ITEMS.md "Substances", tables of 2026-10-01-reader-state when migrated), the
 		// starter items a recipe used up (the camera in the cucumber / testo camera) – back like a fresh signup
 		const [tables] = sql([
-			MYSQL
-				? "SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('member_stats', 'member_effects')"
-				: "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('member_stats', 'member_effects')"
+			"SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('member_stats', 'member_effects')"
 		]);
 		const clear = tables.map((t) => `DELETE FROM ${t.name} WHERE user_id = :id`);
 		// story pickups are granted once per place (a ref per user + item): a fresh reader can pick them up again

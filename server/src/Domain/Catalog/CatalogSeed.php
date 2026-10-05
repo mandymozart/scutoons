@@ -4,21 +4,20 @@ declare(strict_types=1);
 namespace Scutoons\Domain\Catalog;
 
 use RuntimeException;
-use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
 use stdClass;
 
 /**
- * The seed of the catalog tables: server/config/*.json (items.json, products.json, editions.json, toons.json,
- * featured-products.json, permissions.json – the snapshot of 2026-10-04, agents/CATALOG.md). Used for
- *   - `catalog:seed`        empty tables of a local / dev database ← the files (`--replace`: overwrite);
- *   - `catalog:export-sql`  the INSERTs of the migration 2026-10-04-catalog (production gets today's data that way);
- *   - the fallback of CatalogStore before the migration ran;
- *   - the respawn / featured "default" of the admin (the rule / list in the files).
- * The files' `slots` / `stats` are code now (AvatarSlots, ReaderStats) and are ignored here.
+ * Catalog files in the shape of the old server/config/*.json (items.json, products.json, editions.json, toons.json,
+ * featured-products.json, permissions.json) → the catalog tables. Only for tests: the fixture
+ * server/tests/fixtures/catalog (FIXTURE) is the 2026-10-04 snapshot – the same rows the migration 2026-10-04-catalog
+ * inserts into a fresh database. Production is the catalog (agents/CATALOG.md); a local database gets it from
+ * `db:prod-seed` (agents/CUTOVER.md 10.30). The files' `slots` / `stats` are code (AvatarSlots, ReaderStats).
  */
 final class CatalogSeed
 {
+    /** the committed test fixture, relative to the server folder */
+    public const FIXTURE = 'tests/fixtures/catalog';
     /** updated_at / updated_by of the seed rows */
     public const SEEDED_AT = '2026-10-04 00:00:00';
     public const SEEDED_BY = 'seed';
@@ -26,7 +25,8 @@ final class CatalogSeed
     /** @var array<string, list<array{id: string, position: int, data: string}>>|null */
     private ?array $rows = null;
 
-    public function __construct(private readonly Settings $settings)
+    /** @param string $dir a folder with the catalog files (e.g. the server root + FIXTURE) */
+    public function __construct(private readonly string $dir)
     {
     }
 
@@ -37,17 +37,17 @@ final class CatalogSeed
     public function rows(): array
     {
         if ($this->rows !== null) return $this->rows;
-        $items = self::object($this->file('ITEMS_PATH'));
-        $products = self::object($this->file('PRODUCTS_PATH'));
-        $permissions = self::object($this->file('PERMISSIONS_PATH'));
+        $items = self::object($this->file('items.json'));
+        $products = self::object($this->file('products.json'));
+        $permissions = self::object($this->file('permissions.json'));
         $entries = array_fill_keys(array_keys(CatalogStore::KINDS), []);
         foreach (['items', 'recipes', 'albums'] as $kind) {
             foreach ((array) ($items->$kind ?? []) as $entry) $entries[$kind][] = [self::id($entry), $entry];
         }
         foreach ((array) ($products->products ?? []) as $entry) $entries['products'][] = [self::id($entry), $entry];
-        foreach (self::listOf($this->file('EDITIONS_PATH')) as $entry) $entries['editions'][] = [self::id($entry), $entry];
-        foreach (self::listOf($this->file('TOONS_PATH')) as $entry) $entries['toons'][] = [self::id($entry), $entry];
-        foreach (self::listOf($this->file('FEATURED_PRODUCTS_PATH')) as $entry) {
+        foreach (self::listOf($this->file('editions.json')) as $entry) $entries['editions'][] = [self::id($entry), $entry];
+        foreach (self::listOf($this->file('toons.json')) as $entry) $entries['toons'][] = [self::id($entry), $entry];
+        foreach (self::listOf($this->file('featured-products.json')) as $entry) {
             $entries['featured'][] = [CatalogStore::featuredId((string) ($entry->product ?? ''), isset($entry->variant) ? (string) $entry->variant : null), $entry];
         }
         foreach ((array) ($permissions->permissions ?? []) as $id => $description) $entries['permissions'][] = [(string) $id, $description];
@@ -101,49 +101,11 @@ final class CatalogSeed
         return $counts;
     }
 
-    /**
-     * The seed as one INSERT per table for a driver, each only while that table is EMPTY – running the migration again
-     * never brings back an entry an admin deleted, nor mixes rows into a list (one row per line, the first line names
-     * the columns)
-     * @return list<string>
-     */
-    public function inserts(string $driver): array
+    private function file(string $name): mixed
     {
-        $out = [];
-        $q = fn(string $name) => $driver === 'mysql' ? "`$name`" : $name;
-        foreach ($this->rows() as $kind => $rows) {
-            if ($rows === []) continue;
-            $table = $q(CatalogStore::table($kind));
-            $lines = [];
-            $header = '';
-            foreach ($rows as $i => $row) {
-                $columns = CatalogStore::columns($kind, json_decode($row['data'], true));
-                $names = ['id', 'position', 'data', 'updated_at', 'updated_by', ...array_keys($columns)];
-                $values = [$row['id'], $row['position'], $row['data'], self::SEEDED_AT, self::SEEDED_BY, ...array_values($columns)];
-                $lines[] = ($i === 0 ? '  SELECT ' : '  UNION ALL SELECT ') . implode(', ', array_map(
-                    fn($v, $n) => self::literal($v, $driver) . ($i === 0 ? ' AS ' . $q($n) : ''), $values, $names));
-                if ($i === 0) $header = "INSERT INTO $table (" . implode(', ', array_map($q, $names)) . ') SELECT * FROM (';
-            }
-            $out[] = $header . "\n" . implode("\n", $lines) . "\n) AS seed WHERE NOT EXISTS (SELECT 1 FROM $table);";
-        }
-        return $out;
-    }
-
-    /** A SQL literal (MariaDB: backslashes escaped too – the server does not run with NO_BACKSLASH_ESCAPES) */
-    public static function literal(mixed $value, string $driver): string
-    {
-        if ($value === null) return 'NULL';
-        if (is_int($value)) return (string) $value;
-        $text = (string) $value;
-        if ($driver === 'mysql') $text = str_replace('\\', '\\\\', $text);
-        return "'" . str_replace("'", "''", $text) . "'";
-    }
-
-    private function file(string $setting): mixed
-    {
-        $path = $this->settings->path($setting);
-        $raw = $path !== '' ? @file_get_contents($path) : false;
-        if ($raw === false) throw new RuntimeException("Catalog seed file missing: $setting ($path)");
+        $path = "{$this->dir}/$name";
+        $raw = @file_get_contents($path);
+        if ($raw === false) throw new RuntimeException("Catalog file missing: $path");
         $data = json_decode($raw);
         if ($data === null) throw new RuntimeException("Catalog seed file invalid: $path");
         return $data;

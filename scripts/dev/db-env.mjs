@@ -1,46 +1,27 @@
-// Which database the local stack uses – SQLite (server/db/local.sqlite, the default) or the MariaDB container
-// (docker/compose.yml, `npm run dev:db`) – and how PHP is pointed at it. Shared by scripts/dev/db.mjs, up.mjs,
-// test-user.mjs and server/bin/dev-serve.mjs. Docs: server/docs/DATABASE.md "Local MariaDB (Docker)".
+// The local database: the MariaDB container (docker/compose.yml, `npm run dev:db`) – the only one (no SQLite since
+// 2026-10-05, CUTOVER 10.30). How PHP and the Node scripts reach it. Shared by scripts/dev/db.mjs, up.mjs,
+// test-user.mjs, server/bin/dev-serve.mjs and the check scripts. Docs: server/docs/DATABASE.md "Local MariaDB".
 //
-// The switch is explicit: `npm run dev:db` selects MariaDB, `npm run dev:db sqlite` goes back. It is stored in
-// logs/dev/db.json (gitignored); the environment variable SCUTOONS_DB=sqlite|mariadb wins over the file.
-// PHP never reads the file: the Node scripts pass QR_DB_DRIVER=mysql + QR_DB_* (environment, wins over
-// config.local.php) to the API workers and the console. Local dev values only – never production's.
-import { spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+// PHP gets QR_DB_HOST/PORT/NAME/USER/PASS (environment, wins over config.local.php) from these scripts.
+// SCUTOONS_DB_NAME picks another database in the same container (e.g. a worktree's own: scutoons_wt – its tests then
+// use scutoons_wt_test), so parallel checkouts never share data. Local dev values only – never production's.
+import { execFileSync, spawnSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PORTS } from './ports.mjs';
 
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-export const SWITCH_FILE = resolve(ROOT, 'logs/dev/db.json');
 export const COMPOSE_FILE = resolve(ROOT, 'docker/compose.yml');
 
-/** The container's dev credentials (docker/compose.yml); the test database is scutoons_test (phpunit.mysql.xml) */
-export const MARIADB = { host: '127.0.0.1', port: PORTS.mariadb, name: 'scutoons', testName: 'scutoons_test', user: 'scutoons', pass: 'scutoons', rootPass: 'scutoons-root' };
+const NAME = process.env.SCUTOONS_DB_NAME || 'scutoons';
+if (!/^scutoons[a-z0-9_]*$/.test(NAME)) throw new Error(`SCUTOONS_DB_NAME "${NAME}" must start with "scutoons" (letters, digits, _)`);
 
-/** 'mariadb' | 'sqlite' */
-export function selectedDb() {
-	const env = (process.env.SCUTOONS_DB ?? '').toLowerCase();
-	if (env === 'mariadb' || env === 'mysql') return 'mariadb';
-	if (env === 'sqlite') return 'sqlite';
-	try {
-		return JSON.parse(readFileSync(SWITCH_FILE, 'utf8')).db === 'mariadb' ? 'mariadb' : 'sqlite';
-	} catch {
-		return 'sqlite';
-	}
-}
+/** The container's dev credentials (docker/compose.yml); the test database is <name>_test (phpunit.xml.dist) */
+export const MARIADB = { host: '127.0.0.1', port: PORTS.mariadb, name: NAME, testName: `${NAME}_test`, user: 'scutoons', pass: 'scutoons', rootPass: 'scutoons-root' };
 
-export function selectDb(db) {
-	mkdirSync(dirname(SWITCH_FILE), { recursive: true });
-	writeFileSync(SWITCH_FILE, JSON.stringify({ db, changed: new Date().toISOString() }, null, '\t') + '\n');
-}
-
-/** The environment that points the API / console at the selected database (empty for SQLite = config.local.php) */
-export function phpDbEnv(db = selectedDb()) {
-	if (db !== 'mariadb') return {};
+/** The environment that points the API / console at the local database */
+export function phpDbEnv() {
 	return {
-		QR_DB_DRIVER: 'mysql',
 		QR_DB_HOST: MARIADB.host,
 		QR_DB_PORT: String(MARIADB.port),
 		QR_DB_NAME: MARIADB.name,
@@ -56,6 +37,19 @@ export function phpMysqlArgs(php = process.env.PHP_BINARY || 'php') {
 		pdoMysqlLoaded = spawnSync(php, ['-r', "echo extension_loaded('pdo_mysql') ? 1 : 0;"], { encoding: 'utf8' }).stdout?.trim() === '1';
 	}
 	return pdoMysqlLoaded ? [] : ['-d', 'extension=pdo_mysql'];
+}
+
+/**
+ * SQL on the local dev database through PHP's PDO (no mariadb client needed): each statement with its named
+ * parameters (`:name` taken from `params`); returns per statement the rows (SELECT) or the affected row count
+ */
+export function localSql(statements, params = {}) {
+	const php = `$d=new PDO('mysql:host='.getenv('QR_DB_HOST').';port='.getenv('QR_DB_PORT').';dbname='.getenv('QR_DB_NAME').';charset=utf8mb4',getenv('QR_DB_USER'),getenv('QR_DB_PASS'));$d->setAttribute(PDO::ATTR_ERRMODE,PDO::ERRMODE_EXCEPTION);$p=json_decode(getenv('LS_PARAMS'),true);$out=[];foreach(json_decode(getenv('LS_SQL'),true) as $s){$st=$d->prepare($s);$st->execute(array_intersect_key($p,array_flip(array_map(fn($m)=>substr($m,1),(preg_match_all('/:\\w+/',$s,$m)?$m[0]:[])))));$out[]=$st->columnCount()?$st->fetchAll(PDO::FETCH_ASSOC):$st->rowCount();}echo json_encode($out);`;
+	const out = execFileSync('php', [...phpMysqlArgs(), '-r', php], {
+		env: { ...process.env, ...phpDbEnv(), LS_SQL: JSON.stringify(statements), LS_PARAMS: JSON.stringify(params) },
+		encoding: 'utf8'
+	});
+	return JSON.parse(out);
 }
 
 /** The environment of `docker compose` (the ports of shared/dev-ports.json) */

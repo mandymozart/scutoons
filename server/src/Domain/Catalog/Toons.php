@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Catalog;
 
-use Scutoons\Infrastructure\Config\Settings;
 
 /**
  * The toons QR codes can point to (table `toons`: id, name, redirectUrl – created by admins, agents/CATALOG.md; the
@@ -11,14 +10,8 @@ use Scutoons\Infrastructure\Config\Settings;
  */
 final class Toons
 {
-    public function __construct(private readonly Settings $settings, private readonly CatalogStore $store)
+    public function __construct(private readonly CatalogStore $store)
     {
-    }
-
-    /** The seed file (config/toons.json) */
-    public function path(): string
-    {
-        return $this->settings->path('TOONS_PATH');
     }
 
     /** @return list<array<string, mixed>> */

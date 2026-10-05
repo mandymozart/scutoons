@@ -12,16 +12,15 @@ import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { compose, selectedDb } from './db-env.mjs';
+import { compose, MARIADB } from './db-env.mjs';
 import { PORTS } from './ports.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const db = selectedDb();
 // the Ask service (tools/mcp, CUTOVER 10.28) needs the Anthropic key – without one it is not started
 const askKey = !!process.env.ANTHROPIC_API_KEY || (existsSync(resolve(ROOT, '.env')) && /^ANTHROPIC_API_KEY=\S/m.test(readFileSync(resolve(ROOT, '.env'), 'utf8')));
 const SERVICES = [
-	// docker services (docker/compose.yml): mariadb only when the stack uses it, adminer only on request
-	{ name: 'mariadb', docker: true, tcp: true, skip: db !== 'mariadb' && 'not used (SQLite; npm run dev:db switches)' },
+	// docker services (docker/compose.yml): mariadb always (the only database), adminer only on request
+	{ name: 'mariadb', docker: true, tcp: true },
 	{ name: 'adminer', docker: true, path: '/', profile: 'tools', skip: 'off (npm run dev -- adminer, or npm run dev:db adminer)' },
 	{ name: 'viewer', path: '/', cmd: 'npm run dev -w viewer' },
 	{ name: 'cdn', path: '/', cmd: 'node scripts/dev/media-serve.mjs' },
@@ -98,5 +97,5 @@ for (const s of selected) {
 	rows.push([s.name, url, state]);
 }
 for (const [name, url, state] of rows) console.log(`${name.padEnd(8)} ${url.padEnd(24)} ${state}`);
-console.log(`database: ${db === 'mariadb' ? 'MariaDB container (npm run dev:db sqlite switches back)' : 'SQLite (npm run dev:db switches to MariaDB)'}`);
+console.log(`database: MariaDB container, database ${MARIADB.name} (a fresh setup: npm run dev:db)`);
 process.exit(rows.some((r) => r[2].startsWith('FAILED')) ? 1 : 0);

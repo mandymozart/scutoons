@@ -28,7 +28,6 @@ use Scutoons\Http\Controllers\Admin\ClaimsController as AdminClaimsController;
 use Scutoons\Http\Controllers\Admin\CodesController;
 use Scutoons\Http\Controllers\Admin\EmailsController;
 use Scutoons\Http\Controllers\Admin\FeaturedController;
-use Scutoons\Http\Controllers\Admin\RespawnController;
 use Scutoons\Http\Controllers\Admin\ContentController as AdminContentController;
 use Scutoons\Http\Controllers\Admin\SettingsController;
 use Scutoons\Http\Controllers\Admin\SystemController;
@@ -232,8 +231,6 @@ return static function (App $app): void {
         $admin->get('/agent-usage', [AgentUsageController::class, 'overview']);
         $admin->get('/catalog', [SystemController::class, 'catalog']);
         // when picked-up placed items reappear, per item (an update of the item's `respawn` in catalog_items)
-        $admin->get('/catalog/respawn', [RespawnController::class, 'get']);
-        $admin->put('/catalog/respawn/{item}', [RespawnController::class, 'put']);
         // the catalog tables (agents/CATALOG.md): per kind list / get / put / delete / reorder, history + undo
         $kind = '{kind:items|recipes|albums|products|editions|featured|permissions|code-types|toons|meta}';
         $entry = '{id:[A-Za-z0-9][A-Za-z0-9_:.-]{0,190}}';

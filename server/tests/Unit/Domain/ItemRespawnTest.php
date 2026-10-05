@@ -32,7 +32,7 @@ final class ItemRespawnTest extends TestCase
         self::assertSame([], ItemRespawn::problems(null));
         self::assertSame([], ItemRespawn::problems(['default' => ['hours' => 6], 'min' => ['hours' => 1], 'max' => ['days' => 7]]));
         self::assertNotSame([], ItemRespawn::problems(['default' => ['hours' => 1], 'min' => ['hours' => 2]]));
-        // config/items.json: cucumber 1 h … 7 d (default 6 h); the record player never reappears
+        // the fixture catalog: cucumber 1 h … 7 d (default 6 h); the record player never reappears
         self::assertSame(['default' => ['hours' => 6], 'min' => ['hours' => 1], 'max' => ['days' => 7]], $this->respawn->rule('cucumber'));
         self::assertNull($this->respawn->rule('broken_record_player'));
     }
@@ -53,27 +53,28 @@ final class ItemRespawnTest extends TestCase
         $this->assertError('ref_required', fn() => $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'story', 'respawn' => ['hours' => 1]]));
     }
 
-    public function testAdminOverridesTheItemsRule(): void
+    public function testAnAdminChangesTheItemsRule(): void
     {
         $id = (string) $this->user()['id'];
-        self::assertTrue($this->respawn->update('cucumber', ['default' => 'visit', 'min' => 'visit', 'max' => ['days' => 1]], false, 'admin:a@b.c'));
-        self::assertFalse($this->respawn->update('cucumber', ['default' => 'visit', 'min' => 'visit', 'max' => ['days' => 1]], false, 'admin:a@b.c'), 'unchanged');
+        $admin = $this->get(\Scutoons\Domain\Catalog\CatalogAdmin::class);
+        $setRule = function (mixed $rule) use ($admin): bool {
+            $item = json_decode((string) ($this->get(\Scutoons\Domain\Catalog\CatalogStore::class)->row('items', 'cucumber')['data'] ?? ''));
+            $item->respawn = json_decode((string) json_encode($rule));
+            return $admin->put('items', 'cucumber', $item, 'admin:a@b.c', null, 'respawn')['changed'];
+        };
+        self::assertTrue($setRule(['default' => 'visit', 'min' => 'visit', 'max' => ['days' => 1]]));
+        self::assertFalse($setRule(['default' => 'visit', 'min' => 'visit', 'max' => ['days' => 1]]), 'unchanged');
         $grant = fn(?string $visit) => $this->inventory->grant($id, ['item_id' => 'cucumber', 'source' => 'story', 'ref' => 'place', 'respawn' => 'visit', 'visit' => $visit]);
         self::assertSame(1, $grant('visit1'));
         self::assertSame(0, $grant('visit1'), 'once per visit');
         self::assertSame(1, $grant('visit2'));
         $this->assertError('visit_required', fn() => $grant(null));
-        // the served catalog carries the override; null = never
-        $served = array_column($this->respawn->apply($this->get(\Scutoons\Domain\Catalog\Catalog::class)->data())['items'], null, 'id');
+        // the served catalog carries the rule; null = never
+        $served = array_column($this->get(\Scutoons\Domain\Catalog\Catalog::class)->data()['items'], null, 'id');
         self::assertSame('visit', $served['cucumber']['respawn']['default']);
-        $this->respawn->update('cucumber', null, false, 'admin:a@b.c');
+        $setRule(null);
         self::assertNull($this->respawn->rule('cucumber'));
-        $this->respawn->update('cucumber', null, true, 'admin:a@b.c');
-        self::assertSame(['hours' => 6], $this->respawn->rule('cucumber')['default'] ?? null, 'reset → the file');
-        $this->assertError('invalid_respawn', fn() => $this->respawn->update('cucumber', ['default' => 'x'], false, 'admin:a@b.c'));
-        $this->assertError('unknown_item', fn() => $this->respawn->update('nope', null, false, 'admin:a@b.c'));
-        $state = $this->respawn->state();
-        self::assertSame('admin:a@b.c', $state['updated_by']);
+        $this->assertError('invalid_catalog', fn() => $setRule(['default' => 'x']));
     }
 
     private function assertError(string $code, callable $call, string $message = ''): void

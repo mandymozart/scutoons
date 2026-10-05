@@ -12,8 +12,8 @@ use Scutoons\Http\Middleware\JsonBody;
 
 /**
  * /api/admin/featured – role admin (docs/API.md "Admin API"): the editions on the landing page (Domain\Catalog\FeaturedProducts).
- *   GET  /featured   → { status, items: [{ product, variant? }], default, stored, updated_at, updated_by, max }
- *   PUT  /featured   { items: [{ product, variant? }] | null } → { status, changed, …same } (null = back to the default)
+ *   GET  /featured   → { status, items: [{ product, variant? }], updated_at, updated_by, max }
+ *   PUT  /featured   { items: [{ product, variant? }] } → { status, changed, …same }
  */
 final class FeaturedController
 {
@@ -30,7 +30,7 @@ final class FeaturedController
     {
         $body = JsonBody::of($request);
         if (!array_key_exists('items', $body)) {
-            throw new ApiError(400, 'invalid_featured', 'Send { items: [{ product, variant? }] } or { items: null } for the default.');
+            throw new ApiError(400, 'invalid_featured', 'Send { items: [{ product, variant? }] }.');
         }
         $admin = $request->getAttribute('user');
         $by = 'admin:' . (is_array($admin) ? (string) ($admin['email'] ?? '') : '');

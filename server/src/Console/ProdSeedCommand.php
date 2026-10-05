@@ -53,10 +53,6 @@ final class ProdSeedCommand extends Command
             $output->writeln("Wrote $file (" . array_sum(array_map('count', $statements)) . ' INSERTs of ' . count(array_filter($statements)) . ' tables'
                 . ($skipped !== [] ? '; left out: ' . implode(', ', array_keys($skipped)) : '') . ')');
         }
-        if ($this->db->driver() !== 'mysql') {
-            $output->writeln('<error>db:prod-seed needs MariaDB (npm run dev:db).</error>');
-            return self::FAILURE;
-        }
         $sql = is_file($file) ? (string) file_get_contents($file) : null;
         if ($sql === null) {
             $output->writeln(self::missing($file));

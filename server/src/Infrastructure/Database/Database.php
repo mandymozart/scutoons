@@ -9,8 +9,8 @@ use PDOStatement;
 use Throwable;
 
 /**
- * Thin PDO wrapper: MySQL/MariaDB in production, SQLite locally. Connects lazily (endpoints that need no database
- * never open one). Queries use positional parameters and PHP-side times so the same SQL runs on both drivers.
+ * Thin PDO wrapper around MariaDB (production; locally the Docker container of `npm run dev:db`). Connects lazily
+ * (endpoints that need no database never open one). Queries use positional parameters and PHP-side times.
  */
 final class Database
 {
@@ -21,15 +21,10 @@ final class Database
     {
     }
 
-    public static function sqlite(string $path): self
-    {
-        return new self(static fn(): PDO => new PDO('sqlite:' . $path));
-    }
-
     /**
      * @param string $sqlMode the session sql_mode set right after connecting ('' = keep the server's). The API passes
      *                        DB_SQL_MODE (strict by default): production's server default is NO_ENGINE_SUBSTITUTION,
-     *                        which silently truncates / coerces bad values instead of failing like SQLite tests expect.
+     *                        which silently truncates / coerces bad values instead of failing.
      */
     public static function mysql(string $host, string $name, string $user, string $password, string $port = '', string $sqlMode = ''): self
     {
@@ -47,28 +42,13 @@ final class Database
         $pdo = ($this->connect)();
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        if ($pdo->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite') {
-            $pdo->exec('PRAGMA foreign_keys = ON');
-            $pdo->exec('PRAGMA busy_timeout = 5000');
-        }
         return $this->pdo = $pdo;
     }
 
-    /** Drops the connection (the next query connects again) – e.g. before deleting an SQLite file */
+    /** Drops the connection (the next query connects again) */
     public function close(): void
     {
         $this->pdo = null;
-    }
-
-    /** "sqlite" or "mysql" */
-    public function driver(): string
-    {
-        return $this->pdo()->getAttribute(PDO::ATTR_DRIVER_NAME) === 'sqlite' ? 'sqlite' : 'mysql';
-    }
-
-    public function isSqlite(): bool
-    {
-        return $this->driver() === 'sqlite';
     }
 
     /** @param list<mixed> $params */
@@ -117,15 +97,8 @@ final class Database
         return (int) $this->pdo()->lastInsertId();
     }
 
-    /** ` FOR UPDATE` on MySQL (row lock inside a transaction), nothing on SQLite (the write lock covers it) */
-    public function forUpdate(): string
-    {
-        return $this->isSqlite() ? '' : ' FOR UPDATE';
-    }
-
     /**
-     * Runs $work in a transaction and returns its result. SQLite takes the write lock up front (BEGIN IMMEDIATE),
-     * so concurrent claims serialize; MySQL relies on SELECT … FOR UPDATE inside $work.
+     * Runs $work in a transaction and returns its result (row locks: SELECT … FOR UPDATE inside $work)
      * @template T
      * @param callable(): T $work
      * @return T
@@ -133,14 +106,13 @@ final class Database
     public function transaction(callable $work): mixed
     {
         $pdo = $this->pdo();
-        $sqlite = $this->isSqlite();
-        $sqlite ? $pdo->exec('BEGIN IMMEDIATE') : $pdo->beginTransaction();
+        $pdo->beginTransaction();
         try {
             $result = $work();
-            $sqlite ? $pdo->exec('COMMIT') : $pdo->commit();
+            $pdo->commit();
             return $result;
         } catch (Throwable $error) {
-            $sqlite ? $pdo->exec('ROLLBACK') : $pdo->rollBack();
+            $pdo->rollBack();
             throw $error;
         }
     }

@@ -6,17 +6,16 @@ declare(strict_types=1);
  * Command line of the SCUTOONS server (local development / a host with a shell; production has none – see
  * docs/DEPLOY.md for the phpMyAdmin equivalents):
  *
- *   php bin/console migrate [--status]                 apply pending migrations (migrations/<driver>/)
+ *   php bin/console migrate [--status]                 apply pending migrations (migrations/mysql/)
+ *   php bin/console db:prod-seed [--from=<dump>] [--force]   production's content + catalog (server/db/prod-seed.sql)
  *   php bin/console roles grant|revoke|list <email> [role]
- *   php bin/console import-content <viewer/static/api> [--toon=] [--db=] [--update] [--dry-run] [--sql]
- *   php bin/console export-content <dir> [--toon=] [--draft] [--db=]   the store back into files (import/export format)
+ *   php bin/console import-content <folder> [--toon=] [--update] [--dry-run] [--sql]
+ *   php bin/console export-content <dir> [--toon=] [--draft]   the store back into files (import/export format)
  *   php bin/console backfill-edition-numbers [--dry-run] [--sql] [--force] [--manifests=<dir>]
  *   php bin/console report-orphan-codes [--csv] [--manifests=<dir>]
  *   php bin/console assets:check-storage [--prefix=] [--hash] [--write-test] [--json]   bunny.net zone vs media/ (read-only)
  *   php bin/console assets:sync | assets:scan | assets:jobs   the media asset layer (agents/ASSETS.md)
- *   php bin/console catalog:seed [--replace]          empty catalog tables ← server/config/*.json (agents/CATALOG.md)
- *   php bin/console catalog:export-sql [--write]      the catalog seed as INSERTs (migration 2026-10-04-catalog)
- *   php bin/console sample-stores [--remove]          fake stores for the local /stores page (SQLite dev DB only)
+ *   php bin/console sample-stores [--remove]          fake stores for the local /stores page (local dev DB only)
  *   php bin/console embassy:inbox                     read the Embassy mailbox (IMAP), log the replies (cron)
  *   php bin/console embassy:cron                      inbox sync + reminder mails to the team (= GET /api/embassy/cron)
  *   php bin/console list                               all commands, `help <command>` for details
@@ -35,8 +34,6 @@ use Scutoons\Console\AssetsJobsCommand;
 use Scutoons\Console\AssetsScanCommand;
 use Scutoons\Console\AssetsSyncCommand;
 use Scutoons\Console\BackfillEditionNumbersCommand;
-use Scutoons\Console\CatalogExportSqlCommand;
-use Scutoons\Console\CatalogSeedCommand;
 use Scutoons\Console\ContentCheckCommand;
 use Scutoons\Console\EmbassyCronCommand;
 use Scutoons\Console\EmbassyInboxCommand;
@@ -52,7 +49,7 @@ use Symfony\Component\Console\Application;
 
 $container = Kernel::container();
 $console = new Application('SCUTOONS server', '1.0');
-foreach ([MigrateCommand::class, ProdSeedCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, CatalogSeedCommand::class, CatalogExportSqlCommand::class, ContentCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class] as $command) {
+foreach ([MigrateCommand::class, ProdSeedCommand::class, RolesCommand::class, ImportContentCommand::class, ExportContentCommand::class, BackfillEditionNumbersCommand::class, ReportOrphanCodesCommand::class, AssetsCheckStorageCommand::class, AssetsSyncCommand::class, AssetsScanCommand::class, AssetsJobsCommand::class, AssetsLayoutCommand::class, AssetsRelayoutCommand::class, SampleStoresCommand::class, ContentCheckCommand::class, EmbassyInboxCommand::class, EmbassyCronCommand::class] as $command) {
     $console->add($container->get($command));
 }
 exit($console->run());

@@ -251,21 +251,6 @@ final class EmbassyMailTest extends TestCase
         self::assertSame([], $this->mailbox->appended);
     }
 
-    public function testSendWorksBeforeTheMigration(): void
-    {
-        if (!$this->db->isSqlite()) self::markTestSkipped('drops columns (the MySQL test database is only rebuilt for dropped tables)');
-        $amb = $this->member('ambassador');
-        $id = $this->venue($amb)['org']['id'];
-        $this->db->exec('DROP INDEX embassy_activities_message');
-        foreach (['subject', 'mail_from', 'mail_to', 'message_id', 'in_reply_to'] as $column) $this->db->exec("ALTER TABLE embassy_activities DROP COLUMN $column");
-        $this->db->exec('DROP TABLE embassy_mail_state');
-        $result = $this->get(EmbassyMail::class)->send($id, ['to' => 'kathi@flex.at', 'track' => 'live', 'subject' => 'Hi', 'text' => 'Text'], $amb);
-        self::assertSame(['mail_out', null, null, 'contacted'], [$result['activity']['kind'], $result['activity']['subject'], $result['activity']['message_id'], $result['lead']['stage'] ?? null]);
-        self::assertStringContainsString('Subject: Hi', $this->mailLog());
-        $e = $this->error(fn() => $this->get(EmbassyInbox::class)->run());
-        self::assertSame([503, 'not_available'], [$e->status, $e->errorCode]);
-    }
-
     // ── Inbox ─────────────────────────────────────────────────────────────────────────────────────────────
 
     /** @param array<string, string> $headers */

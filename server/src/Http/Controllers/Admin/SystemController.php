@@ -12,7 +12,6 @@ use Scutoons\Domain\Admin\ListQuery;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Catalog\Catalog;
 use Scutoons\Domain\Catalog\Editions;
-use Scutoons\Domain\Catalog\ItemRespawn;
 use Scutoons\Domain\Catalog\Toons;
 use Scutoons\Http\Json;
 use Scutoons\Infrastructure\Config\Settings;

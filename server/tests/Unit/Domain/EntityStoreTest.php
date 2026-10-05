@@ -126,35 +126,4 @@ final class EntityStoreTest extends TestCase
         self::assertSame($text, $read->text);
     }
 
-    /** The dated migration copies every content_versions row with the same id and a key from its path */
-    public function testKeyMigrationKeepsEveryVersion(): void
-    {
-        $file = $this->dir . '/old.sqlite';
-        $db = Database::sqlite($file);
-        $runner = new MigrationRunner($db, self::root() . '/migrations');
-        $db->exec(implode(";\n", MigrationRunner::statements(self::root() . '/migrations/schema/qr.sqlite.sql')));
-        $db->exec(implode(";\n", MigrationRunner::statements(self::root() . '/migrations/sqlite/2026-09-30-content-versions.sqlite.sql')));
-        $rows = [
-            ['catpope', '_', 'index.json', 'toon:catpope'], ['catpope', 'de', 'toon.json', 'toon-settings:catpope:de'],
-            ['catpope', 'de', 'season1.json', 'season:catpope:1:de'], ['catpope', 'en', 'chapter12.json', 'chapter:catpope:12:en'],
-            ['catpope', 'de', 'chapter2/scene-14.json', 'scene:catpope:2:scene-14:de'], ['catpope', 'de', 'locations.json', 'locations:catpope:de'],
-            ['catpope', '_', 'cast.json', 'cast:catpope'], ['catpope', '_', 'credits.json', 'credits:catpope'],
-            ['scutoons', '_', 'characters.json', 'characters'], ['scutoons', '_', 'asset-requests.json', 'asset-requests'], ['scutoons', '_', 'events.json', 'events'],
-        ];
-        foreach ($rows as $i => [$toon, $locale, $path]) {
-            $db->run("INSERT INTO content_versions (id, toon, locale, path, json, created_at, status) VALUES (?, ?, ?, ?, '{}', '2026-09-30 10:00:00', ?)",
-                [100 + $i, $toon, $locale, $path, $i % 2 ? 'draft' : 'published']);
-        }
-        foreach (MigrationRunner::statements(self::root() . '/migrations/sqlite/2026-09-30-entity-keys.sqlite.sql') as $statement) $db->exec($statement);
-        foreach (MigrationRunner::statements(self::root() . '/migrations/sqlite/2026-09-30-entity-keys.sqlite.sql') as $statement) $db->exec($statement);
-        $migrated = $db->all('SELECT id, entity_key, kind, toon, locale, status FROM entity_versions ORDER BY id');
-        self::assertCount(count($rows), $migrated, 'idempotent');
-        foreach ($rows as $i => [$toon, $locale, , $key]) {
-            $parsed = EntityKey::parse($key);
-            self::assertSame([100 + $i, $key, $parsed->kind, $parsed->toon, $parsed->locale, $i % 2 ? 'draft' : 'published'],
-                [(int) $migrated[$i]['id'], $migrated[$i]['entity_key'], $migrated[$i]['kind'], $migrated[$i]['toon'], $migrated[$i]['locale'], $migrated[$i]['status']], $key);
-        }
-        unset($runner);
-        $db->close();
-    }
 }

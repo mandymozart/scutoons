@@ -52,7 +52,7 @@ final class ProgressService
         if (!is_int($updatedAt) || $updatedAt < 0) throw new ApiError(400, 'invalid_updated_at', 'updated_at must be milliseconds since 1970.');
 
         $result = $this->db->transaction(function () use ($userId, $toonId, $json, $updatedAt, $state) {
-            $current = $this->db->one('SELECT state, updated_at FROM progress WHERE user_id = ? AND toon_id = ?' . $this->db->forUpdate(), [$userId, $toonId]);
+            $current = $this->db->one('SELECT state, updated_at FROM progress WHERE user_id = ? AND toon_id = ? FOR UPDATE', [$userId, $toonId]);
             if ($toonId === self::WORLD && $current) {
                 // the world state: the map's discoveries merge as sets (agents/MAP.md §2.4) – a write from a device that
                 // missed another device's unlocks never loses them; everything else: the newer write wins

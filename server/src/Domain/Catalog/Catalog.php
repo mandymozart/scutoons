@@ -25,12 +25,6 @@ final class Catalog
     {
     }
 
-    /** The seed file (config/items.json) – the database is the catalog, the file only seeds empty databases */
-    public function path(): string
-    {
-        return $this->settings->path('ITEMS_PATH');
-    }
-
     /**
      * @return array<string, mixed> the whole catalog as served by GET /api/items/: { version, slots, items, recipes,
      *   albums, stats } (the order of the old file)

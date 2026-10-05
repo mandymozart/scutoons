@@ -173,7 +173,7 @@ final class EntityStore
         $message = self::message($body->message ?? null);
 
         [$row, $unchanged] = $this->db->transaction(function () use ($key, $json, $message, $user, $body) {
-            $latest = $this->db->one('SELECT * FROM entity_versions WHERE entity_key = ? ORDER BY id DESC LIMIT 1' . $this->db->forUpdate(), [(string) $key]);
+            $latest = $this->db->one('SELECT * FROM entity_versions WHERE entity_key = ? ORDER BY id DESC LIMIT 1 FOR UPDATE', [(string) $key]);
             if (property_exists($body, 'base')) {
                 $base = $body->base === null ? null : (int) $body->base;
                 $latestId = $latest ? (int) $latest['id'] : null;

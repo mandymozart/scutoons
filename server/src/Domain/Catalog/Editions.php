@@ -3,19 +3,12 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Catalog;
 
-use Scutoons\Infrastructure\Config\Settings;
 
 /** Limited editions (table catalog_editions, agents/CATALOG.md): the physical products QR codes are printed for */
 final class Editions
 {
-    public function __construct(private readonly Settings $settings, private readonly CatalogStore $store)
+    public function __construct(private readonly CatalogStore $store)
     {
-    }
-
-    /** The seed file (config/editions.json) */
-    public function path(): string
-    {
-        return $this->settings->path('EDITIONS_PATH');
     }
 
     /** @return list<array<string, mixed>> in their order (the public GET /api/editions/ list) */

@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Catalog;
 
-use PDOException;
 use Scutoons\Domain\ApiError;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Time;
@@ -11,11 +10,11 @@ use Scutoons\Support\Time;
 /**
  * The editions featured on the landing page (owner 2026-10-01: chosen in the admin app, page "Startseite"): an ordered list
  * `[{ product, variant? }]` of the shop catalog – the table catalog_featured (agents/CATALOG.md; until 2026-10-04 the
- * runtime setting `featured_products` over config/featured-products.json – the migration 2026-10-04-catalog moved it
- * into the table). The "default" is the seed's list (config/featured-products.json).
+ * runtime setting `featured_products` – the migration 2026-10-04-catalog moved it into the table). No default list:
+ * what is stored is shown (empty = nothing featured).
  *   GET  /api/products/featured/  the list (public)
- *   GET  /api/admin/featured      { items, default, stored, updated_at, updated_by }
- *   PUT  /api/admin/featured      { items: [...] | null } (null = back to the default) – one catalog_history row
+ *   GET  /api/admin/featured      { items, updated_at, updated_by, max }
+ *   PUT  /api/admin/featured      { items: [...] } – one catalog_history row
  */
 final class FeaturedProducts
 {
@@ -23,7 +22,7 @@ final class FeaturedProducts
     public const SETTING = 'featured_products';
     public const MAX_ITEMS = 12;
 
-    public function __construct(private readonly Database $db, private readonly Products $products, private readonly CatalogSeed $seed, private readonly CatalogAdmin $admin)
+    public function __construct(private readonly Database $db, private readonly Products $products, private readonly CatalogAdmin $admin)
     {
     }
 
@@ -34,22 +33,14 @@ final class FeaturedProducts
     }
 
     /**
-     * The admin view: the list, the default, whether it differs from the default and its last change
-     * @return array{items: list<array<string, mixed>>, default: list<array<string, mixed>>, stored: bool, updated_at: ?string, updated_by: ?string, max: int}
+     * The admin view: the list and its last change
+     * @return array{items: list<array<string, mixed>>, updated_at: ?string, updated_by: ?string, max: int}
      */
     public function state(): array
     {
-        $items = $this->products->featured();
-        $default = $this->defaults();
-        try {
-            $last = $this->db->one("SELECT changed_at, changed_by FROM catalog_history WHERE kind = 'featured' ORDER BY id DESC LIMIT 1");
-        } catch (PDOException) {
-            $last = null; // before the migration
-        }
+        $last = $this->db->one("SELECT changed_at, changed_by FROM catalog_history WHERE kind = 'featured' ORDER BY id DESC LIMIT 1");
         return [
-            'items' => $items,
-            'default' => $default,
-            'stored' => $items !== $default,
+            'items' => $this->products->featured(),
             'updated_at' => Time::iso($last['changed_at'] ?? null),
             'updated_by' => isset($last['changed_by']) ? (string) $last['changed_by'] : null,
             'max' => self::MAX_ITEMS,
@@ -57,20 +48,14 @@ final class FeaturedProducts
     }
 
     /**
-     * Replaces the list (validated against the catalog: known product, known variant, no duplicates, at most MAX_ITEMS),
-     * or – null – goes back to the default. Returns whether anything changed.
-     * @param mixed $items list of { product, variant? } or null
+     * Replaces the list (validated against the catalog: known product, known variant, no duplicates, at most MAX_ITEMS).
+     * Returns whether anything changed.
+     * @param mixed $items list of { product, variant? }
      */
     public function update(mixed $items, string $by): bool
     {
-        $clean = $items === null ? $this->defaults() : $this->validate($items);
+        $clean = $this->validate($items);
         return $this->admin->replace('featured', array_map(fn(array $i) => (object) $i, $clean), $by)['changed'];
-    }
-
-    /** @return list<array<string, mixed>> the seed's list */
-    private function defaults(): array
-    {
-        return array_values(array_filter(array_map(fn(array $r) => json_decode($r['data'], true), $this->seed->rows()['featured']), 'is_array'));
     }
 
     /**
@@ -79,7 +64,7 @@ final class FeaturedProducts
     private function validate(mixed $items): array
     {
         if (!is_array($items) || !array_is_list($items)) {
-            throw new ApiError(400, 'invalid_featured', 'items must be a list of { product, variant? } (or null for the default).');
+            throw new ApiError(400, 'invalid_featured', 'items must be a list of { product, variant? }.');
         }
         if (count($items) > self::MAX_ITEMS) {
             throw new ApiError(400, 'invalid_featured', 'At most ' . self::MAX_ITEMS . ' featured products.', ['max' => self::MAX_ITEMS]);

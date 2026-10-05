@@ -3,7 +3,6 @@ declare(strict_types=1);
 
 namespace Scutoons\Domain\Catalog;
 
-use Scutoons\Infrastructure\Config\Settings;
 use stdClass;
 
 /**
@@ -16,20 +15,8 @@ final class Products
 {
     private const JSON_FLAGS = JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION;
 
-    public function __construct(private readonly Settings $settings, private readonly CatalogStore $store)
+    public function __construct(private readonly CatalogStore $store)
     {
-    }
-
-    /** The seed file (config/products.json) */
-    public function catalogPath(): string
-    {
-        return $this->settings->path('PRODUCTS_PATH');
-    }
-
-    /** The seed file (config/featured-products.json) */
-    public function featuredPath(): string
-    {
-        return $this->settings->path('FEATURED_PRODUCTS_PATH');
     }
 
     /** The JSON of the shop catalog (GET /api/products/) */

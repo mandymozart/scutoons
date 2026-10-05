@@ -55,7 +55,7 @@ final class OwnershipTransfers
      */
     public function moveCode(string $code, array $to, string $kind, ?string $byUserId, ?string $note, ?string $claimId = null, ?string $itemId = null, ?string $variant = null): array
     {
-        $row = $this->db->one('SELECT * FROM qr WHERE code = ?' . $this->db->forUpdate(), [$code]) ?? throw new ApiError(404, 'not_found', 'This code does not exist.');
+        $row = $this->db->one('SELECT * FROM qr WHERE code = ? FOR UPDATE', [$code]) ?? throw new ApiError(404, 'not_found', 'This code does not exist.');
         if (!$this->permissions->claimable((string) $row['type'])) throw new ApiError(422, 'not_claimable', 'Nobody can own this code.');
         $toId = (string) $to['id'];
         $from = $row['claimed_by'] !== null ? (string) $row['claimed_by'] : null;
