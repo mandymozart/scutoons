@@ -57,7 +57,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Show design drafts (on the real page, mobile + desktop) before building bigger UI.
 
 ## Open owner decisions / loose ends
-- Onions: no onion item in the catalog yet (needed before it can respawn).
+- Onions: no onion item in the catalog yet (needed before it can respawn). The onion camera (branch `items/onion-camera`,
+  6 commits, checkout `C:\Development\scutoons-onion-camera`) waits until **February 2027** (owner 2026-10-05: no priority
+  before); it predates the catalog in the database – its items.json changes go through the admin catalog then.
 - Respawn: should the server also read a placement's own interval (today only the item's range is enforced)?
 - `CloseButton` (sheets/dialogs) round too?
 - Upload the text-free season cover art and switch the cover editor's lettering on (CUTOVER / DESIGN "cover editor").
