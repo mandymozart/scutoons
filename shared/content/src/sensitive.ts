@@ -1,7 +1,7 @@
 // Sensitive content (owner 2026-09-30, agents/ITEMS.md "Sensitive content"): anything marked `sensitive: true` is hidden
 // while the reader's "Hide sensitive content" setting is on – the default for every member (`users.hide_sensitive`,
-// `GET /me/ user.hide_sensitive`, changed with `PUT /me/`), always on for guests (no toggle). Generic on purpose; only
-// A-pose looks (`character.apose.looks[].sensitive`, e.g. every `naked` look) use it so far.
+// `GET /me/ user.hide_sensitive`, changed with `PUT /me/`), always on for guests (no toggle). Generic on purpose: slices
+// use it (a marked panel is blurred and muted).
 
 /** A piece of content that can be marked sensitive. */
 export interface SensitiveFlag {

@@ -20,7 +20,7 @@
 //               every UI label says "View" / "Ansicht". Only `portrait` is authored now: `avatar` is a derived 192px
 //               downscale of the portrait, `full` is unused. Completeness counts portraits only.
 //   A-pose    – `character.apose.looks` (character level, not per persona): the reader's avatar body in its own looks
-//               (`swim` default, `naked`), each one image + its wear slots (slot instances with anchors; a duo/twins
+//               (`swim` = the standard look; the `naked` look was removed 2026-10-05), each one image + its wear slots (slot instances with anchors; a duo/twins
 //               body has a slot type more than once). Never a fallback; outfitting happens only in the reader's inventory.
 //
 // Image fallback: `resolveExpression` (one implementation for the viewer VN and the creator). `resolveCast()` turns the
@@ -34,7 +34,6 @@ import type { Character, CharacterImage, ResolvedPersona } from './visual-novel.
 import type { Path } from './paths.ts';
 import type { Level, Problem } from './validate.ts';
 import { AVATAR_SLOTS, type AvatarSlot } from './items.ts';
-import { isSensitive, type SensitiveFlag } from './sensitive.ts';
 import { mediaLocaleMessage, mediaPathsWithLocale } from './media.ts';
 import type { AcceptedWarnings } from './accepted.ts';
 
@@ -277,12 +276,9 @@ export interface AvatarSlotInstance {
 	label?: LocaleText;
 }
 
-/**
- * One A-pose look of a character (full body, neutral): an avatar body with its wear slots. `sensitive: true` (every
- * `naked` look) = hidden while the reader's "Hide sensitive content" is on (sensitive.ts).
- */
-export interface AposeLook extends SensitiveFlag {
-	/** `swim` (default) | `naked` | … */
+/** One A-pose look of a character (full body, neutral): an avatar body with its wear slots. */
+export interface AposeLook {
+	/** `swim` (the standard look) | … */
 	id: string;
 	label?: LocaleText;
 	/** exactly one A-pose look is the default */
@@ -341,11 +337,19 @@ export interface CharacterApose {
 	looks: AposeLook[];
 }
 
-/** The standard A-pose looks. */
-export const APOSE_LOOKS: { id: string; label: LocaleText; sensitive?: boolean }[] = [
-	{ id: 'swim', label: { de: 'Badehose', en: 'swim pants' } },
-	{ id: 'naked', label: { de: 'nackt', en: 'naked' }, sensitive: true }
-];
+/** The standard A-pose looks (owner 2026-10-05: only `swim` – the `naked` look was removed). */
+export const APOSE_LOOKS: { id: string; label: LocaleText }[] = [{ id: 'swim', label: { de: 'Badehose', en: 'swim pants' } }];
+
+/** A-pose look ids that are no longer used (owner 2026-10-05: the naked A-pose was removed). */
+export const RETIRED_APOSE_LOOKS: readonly string[] = ['naked'];
+
+/**
+ * A leftover A-pose look of older registry data – the removed `naked` look, or any look still marked `sensitive: true` –
+ * that is ignored everywhere (avatar bodies, wanted images; the server's CharacterUnlocks). `validateCharacters` warns.
+ */
+export function isRetiredAposeLook(look: { id?: unknown; sensitive?: unknown } | null | undefined): boolean {
+	return !!look && ((typeof look.id === 'string' && RETIRED_APOSE_LOOKS.includes(look.id)) || look.sensitive === true);
+}
 
 /** One character of the registry. Image values are CDN paths from the CDN root (`catpope/images/characters/…`). */
 export interface RegistryCharacter {
@@ -1028,7 +1032,7 @@ export function searchCharacters(characters: RegistryCharacter[], query: string,
 /** An avatar body for the reader: a character's A-pose look with an image. */
 export interface AvatarBody {
 	character: string;
-	/** A-pose look id (`swim`, `naked`, …) */
+	/** A-pose look id (`swim`, …) */
 	look: string;
 	/** "Cat Pope (swim pants)" in the requested locale */
 	label: string;
@@ -1041,22 +1045,20 @@ export interface AvatarBody {
 	slots: AvatarSlotInstance[];
 	/** the character's default A-pose look */
 	default: boolean;
-	/** the look is marked sensitive (hidden while "Hide sensitive content" is on) */
-	sensitive: boolean;
 }
 
-/** Every A-pose look with an image (registry order) – what the reader's avatar picker offers. */
+/** Every A-pose look with an image (registry order, retired looks left out) – what the reader's avatar picker offers. */
 export function avatarBodies(registry: CharacterRegistry | null | undefined, locale = 'en'): AvatarBody[] {
 	const out: AvatarBody[] = [];
 	for (const c of registry?.characters ?? []) {
 		if (!c?.id) continue;
-		const looks = c.apose?.looks ?? [];
+		const looks = (c.apose?.looks ?? []).filter((l) => !isRetiredAposeLook(l));
 		const defaultId = looks.find((l) => l?.default)?.id ?? looks[0]?.id;
 		for (const look of looks) {
 			if (!look?.id || !look.path?.trim()) continue;
 			const lookName = pickText(look.label, locale, ['en', 'de']) || look.id;
 			const name = characterName(c, locale);
-			out.push({ character: c.id, look: look.id, label: `${name} (${lookName})`, name, lookLabel: lookName, path: look.path.trim(), slots: bodySlots(look.slots), default: look.id === defaultId, sensitive: isSensitive(look) });
+			out.push({ character: c.id, look: look.id, label: `${name} (${lookName})`, name, lookLabel: lookName, path: look.path.trim(), slots: bodySlots(look.slots), default: look.id === defaultId });
 		}
 	}
 	return out;
@@ -1108,7 +1110,7 @@ export function wantedImages(
 	for (const c of registry?.characters ?? []) {
 		if (!c?.id || (options.character && c.id !== options.character)) continue;
 		for (const look of c.apose?.looks ?? []) {
-			if (!look?.id || look.path?.trim()) continue;
+			if (!look?.id || look.path?.trim() || isRetiredAposeLook(look)) continue;
 			const request = open.find((r) => r.character === c.id && r.view === APOSE_VIEW && r.look === look.id);
 			const path = request?.path ?? aposeConventionPath(c.id, look.id);
 			if (options.exists?.(path)) continue;
@@ -1184,7 +1186,7 @@ const pngName = (path: string) => (path.split('/').pop() ?? path).replace(/\.web
 
 /**
  * The base-views brief of one look (workflows/characters/base-views.md "Brief"), filled in: attach any one reference
- * image of the character; the result is avatar, portrait, full and both A-poses, named by convention (PNG).
+ * image of the character; the result is avatar, portrait, full and the A-pose, named by convention (PNG).
  */
 export function characterBaseViewsBrief(character: RegistryCharacter, persona: string, look: string, locale: string): string {
 	const name = characterName(character, locale, persona);
@@ -1203,15 +1205,13 @@ export function characterBaseViewsBrief(character: RegistryCharacter, persona: s
 		'2. PORTRAIT – head down to above the waist with arms, facing the viewer, eyes on a horizontal line at 40 % of the image height, head centred, 600 × 600 px, transparent background.',
 		'3. FULL – the whole figure standing in its natural, characteristic pose, feet fully visible, small even margin above the head and below the feet, 600 × 1200 px, transparent background.',
 		'4. A-POSE (SWIM) – strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the thighs, legs slightly apart, feet flat and fully visible, figure centred, head top at ~5 % and soles at ~92 % of the height, 768 × 1152 px, transparent background with a soft shadow under the feet, wearing plain swim shorts.',
-		'5. A-POSE (NAKED) – identical to 4 in pose, scale and framing, but without the swim shorts (cartoon-neutral, no anatomical detail).',
 		'',
 		'Deliver each view as its own image, named:',
 		`  ${file('avatar')}`,
 		`  ${file(AUTHORED_VIEW)}`,
 		`  ${file('full')}`,
 		`  ${pngName(aposeConventionPath(character.id, 'swim'))}`,
-		`  ${pngName(aposeConventionPath(character.id, 'naked'))}`,
-		'Consistency check before delivering: side by side with the reference, the character must be recognisably identical in every view; only framing and pose may differ, and the two A-poses must overlay exactly.'
+		'Consistency check before delivering: side by side with the reference, the character must be recognisably identical in every view; only framing and pose may differ.'
 	].join('\n');
 }
 
@@ -1355,7 +1355,7 @@ export function validateCharacters(registry: unknown, ctx: CharactersContext): P
 					checkText(add, l.label, [...lp, 'label'], `${who}: A-pose ${l.id} label`, languages);
 					if (l.path === undefined || l.path === '') add('warning', [...lp, 'path'], `${who}: A-pose "${l.id}" has no image yet`);
 					else if (!isStr(l.path) || !IMAGE_PATH.test(l.path)) add('error', [...lp, 'path'], `${who}: A-pose "${l.id}" needs a CDN image path`);
-					if (l.sensitive !== undefined && typeof l.sensitive !== 'boolean') add('error', [...lp, 'sensitive'], `${who}: A-pose "${l.id}" sensitive must be true or false`);
+					if (isRetiredAposeLook(l)) add('warning', [...lp, 'id'], `${who}: A-pose "${l.id}" is no longer used – remove it in the creator`);
 					if (l.anchors !== undefined) add('error', [...lp, 'anchors'], `${who}: A-pose "${l.id}" uses the old "anchors" – wear slots are "slots": [{ id, slot, x, y, size }]`);
 					if (l.slots !== undefined) {
 						if (!Array.isArray(l.slots)) add('error', [...lp, 'slots'], `${who}: A-pose "${l.id}" slots must be a list of { id, slot, x, y, size, label? }`);

@@ -208,7 +208,7 @@ export type UnlockSource = 'default' | 'code' | 'item' | 'story' | 'admin';
 /** A character the member may wear as avatar body, with the unlocked A-pose looks (`/me/ avatar.unlocked`) */
 export interface CharacterUnlock {
 	character: string;
-	/** A-pose look ids (`swim`, `naked`, …) */
+	/** A-pose look ids (`swim`, …) */
 	looks: string[];
 	source: UnlockSource;
 }
@@ -220,10 +220,10 @@ export interface AvatarBodyRef {
 }
 
 /**
- * The default unlocks of every member and of guests (owner 2026-09-30: Cat Pope, swim + naked). The server's value is
+ * The default unlocks of every member and of guests (owner 2026-10-05: Cat Pope, swim). The server's value is
  * the setting AVATAR_DEFAULT_UNLOCKS (members get theirs from `/me/`); guests use this one.
  */
-export const DEFAULT_AVATAR_UNLOCKS: CharacterUnlock[] = [{ character: 'catpope', looks: ['swim', 'naked'], source: 'default' }];
+export const DEFAULT_AVATAR_UNLOCKS: CharacterUnlock[] = [{ character: 'catpope', looks: ['swim'], source: 'default' }];
 
 export interface Avatar {
 	/**
