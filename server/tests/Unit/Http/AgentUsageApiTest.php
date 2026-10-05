@@ -212,7 +212,8 @@ final class AgentUsageApiTest extends TestCase
             ['2026-08-31', $alice, 'alice@example.com', 'anthropic', 'claude-opus-5-5', 1, 0.5],
         ], array_map(fn(array $r) => [$r['period'], $r['user_id'], $r['email'], $r['service'], $r['model'], $r['calls'], $r['cost_usd']], $data['rows']));
         self::assertSame(['calls' => 2, 'input_tokens' => 300, 'output_tokens' => 600, 'cache_read_tokens' => 10000, 'cache_write_tokens' => 1600, 'cost_usd' => 0.3],
-            array_diff_key($data['rows'][1], array_flip(['period', 'user_id', 'email', 'service', 'model'])));
+            array_diff_key($data['rows'][1], array_flip(['period', 'app', 'user_id', 'email', 'service', 'model'])));
+        self::assertSame(['creator'], array_values(array_unique(array_column($data['rows'], 'app'))));
         self::assertSame(['calls' => 6, 'input_tokens' => 321, 'output_tokens' => 1800, 'cache_read_tokens' => 30000, 'cache_write_tokens' => 4800, 'cost_usd' => 2.11], $data['totals']);
 
         // by month
@@ -251,6 +252,50 @@ final class AgentUsageApiTest extends TestCase
 
         self::assertSame(401, $this->request('GET', '/api/admin/agent-usage')->getStatusCode());
         self::assertSame(403, $this->request('GET', '/api/admin/agent-usage', $creator)->getStatusCode());
+    }
+
+    public function testUsagePerAppWithTheRoleOfThatApp(): void
+    {
+        [$liaisonId, $liaison] = $this->as('liaison');
+        [, $creator] = $this->as('creator');
+        [$adminId, $admin] = $this->as('admin');
+
+        self::assertSame(201, $this->log(self::service($liaison), ['app' => 'embassy', 'cost_usd' => 0.2])->getStatusCode());
+        self::assertSame(201, $this->log(self::service($admin), ['app' => 'admin', 'cost_usd' => 0.1])->getStatusCode());
+        self::assertSame(201, $this->log(self::service($admin), ['app' => 'embassy', 'cost_usd' => 0.3])->getStatusCode()); // admin = ambassador
+        self::assertSame(201, $this->log(self::service($admin), ['cost_usd' => 0.4])->getStatusCode()); // default creator (admin edits content)
+
+        $forbidden = $this->log(self::service($creator), ['app' => 'embassy']);
+        self::assertSame([403, 'forbidden', 'liaison'], [$forbidden->getStatusCode(), self::json($forbidden)['error'], self::json($forbidden)['role']]);
+        $forbidden = $this->log(self::service($liaison), ['app' => 'admin']);
+        self::assertSame([403, 'admin'], [$forbidden->getStatusCode(), self::json($forbidden)['role']]);
+        $forbidden = $this->log(self::service($liaison));
+        self::assertSame([403, 'creator'], [$forbidden->getStatusCode(), self::json($forbidden)['role']]);
+        $invalid = $this->log(self::service($creator), ['app' => 'shop']);
+        self::assertSame([422, 'invalid_app'], [$invalid->getStatusCode(), self::json($invalid)['error']]);
+        self::assertSame(401, $this->log(['X-Service-Key' => self::KEY], ['app' => 'embassy'])->getStatusCode());
+
+        $data = self::json($this->request('GET', '/api/admin/agent-usage', $admin));
+        self::assertSame([
+            ['creator', $adminId, 0.4],
+            ['embassy', $adminId, 0.3],
+            ['embassy', $liaisonId, 0.2],
+            ['admin', $adminId, 0.1],
+        ], array_map(fn(array $r) => [$r['app'], $r['user_id'], $r['cost_usd']], $data['rows']));
+    }
+
+    public function testWithoutTheAppColumnEveryRowIsTheCreators(): void
+    {
+        if (!$this->db->isSqlite()) self::markTestSkipped('drops a column (the MySQL test database is only rebuilt for dropped tables)');
+        [, $creator] = $this->as('creator');
+        [, $liaison] = $this->as('liaison');
+        [, $admin] = $this->as('admin');
+        $this->db->exec('ALTER TABLE agent_usage DROP COLUMN app');
+        self::assertSame(201, $this->log(self::service($creator))->getStatusCode());
+        $response = $this->log(self::service($liaison), ['app' => 'embassy']);
+        self::assertSame([503, 'not_available'], [$response->getStatusCode(), self::json($response)['error']]);
+        $rows = self::json($this->request('GET', '/api/admin/agent-usage', $admin))['rows'];
+        self::assertSame([['creator', 1]], array_map(fn(array $r) => [$r['app'], $r['calls']], $rows));
     }
 
     public function testWithoutTheMigrationTheEndpointsAnswer503(): void

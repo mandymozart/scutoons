@@ -941,5 +941,26 @@
 		"preview": "Termine-Seite öffnen",
 		"invalid": "Jeder Termin braucht Datum, Titel und Stadt.",
 		"conflict": "Jemand hat die Termine inzwischen gespeichert – neu geladen, bitte die Änderung wiederholen."
+	},
+	"ask": {
+		"title": "Ask",
+		"open": "Den Agenten fragen",
+		"new": "Neuer Chat",
+		"close": "Schließen",
+		"you": "Du",
+		"agent": "Agent",
+		"placeholder": "Was willst du wissen?",
+		"send": "Senden",
+		"stop": "Stopp",
+		"working": "Arbeitet …",
+		"context": "{page} · liest nur",
+		"empty": "Frag nach den Inhalten der Toons oder was die KI-Agenten kosten. Hier liest der Agent nur.",
+		"unavailable": "Der Agent ist gerade nicht erreichbar.",
+		"signed_out": "Deine Sitzung ist abgelaufen – melde dich neu an.",
+		"history": "Frühere Chats",
+		"history_empty": "Noch keine Chats.",
+		"history_unavailable": "Der Chat-Verlauf ist noch nicht verfügbar.",
+		"resize": "Ziehen, um die Breite zu ändern",
+		"draft": "Entwurf #{id}"
 	}
 }

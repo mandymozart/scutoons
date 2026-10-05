@@ -4,6 +4,16 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Embassy mail + the Ask panel per app (agents/EMBASSY.md "Automation", owner 2026-10-04): `POST /api/embassy/orgs/{id}/mail`
+  sends a person's mail from the shared mailbox (`EMBASSY_MAIL_FROM`, own SMTP account; recipient must belong to the
+  organisation, `409 do_not_contact`, opt-out line always added, threaded, `mail_log` template `embassy`, `mail_out`
+  activity with subject / addresses / Message-ID, copy in `EMBASSY_IMAP_SENT`); the inbox sync reads replies back by IMAP
+  (`POST /api/embassy/inbox/sync`, `GET /api/embassy/inbox`, `bin/console embassy:inbox`; matched by thread or sender,
+  unknown senders never stored, "stop" → do-not-contact). `/api/agent-chats` + `POST /api/agent-usage` take an `app`
+  (`creator` | `embassy` | `admin`) with that app's role; the admin usage overview groups by it. Migration
+  `2026-10-04-ask-embassy-mail` (additive; everything degrades without it). Settings `EMBASSY_*`. PHPUnit
+  `EmbassyMailTest`, `MimeMessageTest`, `AgentChatsApiTest`, `AgentUsageApiTest`, `EmbassyApiTest`.
+
 - Review before publish (docs/API.md "Reviews", agents/CUTOVER.md 10.28, 2026-10-04): review rules per toon set by an
   admin (`reviewer` / `needs_review`, `*` = every toon; `/api/admin/review-rules`, `/api/admin/users/{id}/review-rules/…`);
   `needs_review` accounts get `403 review_required` on `/entities/<key>/publish|unpublish` of toon-level entities and

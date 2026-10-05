@@ -2,7 +2,7 @@
 /**
  * The HTML frame of every email (Domain\Mail\MailRenderer): ink on paper, monospace, square 2px frame, the SCUTOONS
  * header, the template's blocks, the fine print. Plain inline styles only (mail clients).
- * Blocks: p (a paragraph) · button (a black link button) · code (a label + a big code).
+ * Blocks: p (a paragraph) · lines (a paragraph with line breaks) · button (a black link button) · code (a label + a big code).
  * @var callable $e  @var string $locale
  * @var list<array{type: string, text: string, url?: string, value?: string}> $blocks
  * @var list<string> $fineprint
@@ -17,6 +17,9 @@ $mono = "'IBM Plex Mono',Menlo,Consolas,monospace";
 <?php foreach ($blocks as $block): ?>
 <?php if ($block['type'] === 'p'): ?>
 <p style="margin:0 0 20px"><?= $e($block['text']) ?></p>
+<?php elseif ($block['type'] === 'lines'): ?>
+<p style="margin:0 0 20px"><?= implode('<br>', array_map($e, explode("
+", $block['text']))) ?></p>
 <?php elseif ($block['type'] === 'button'): ?>
 <p style="margin:0 0 24px"><a href="<?= $e($block['url'] ?? '') ?>" style="display:inline-block;padding:12px 32px;background:#000000;color:#ffffff;text-decoration:none"><?= $e($block['text']) ?></a></p>
 <?php elseif ($block['type'] === 'code'): ?>

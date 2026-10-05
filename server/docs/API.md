@@ -56,8 +56,8 @@ Locally `http://localhost:9000/api` (`VITE_API_URL`; the qr app on :9001). Publi
 | PUT | `/entities/<key>` | creator | `{ content, message?, base? }` → new draft version |
 | POST | `/entities/<key>/publish`, `/unpublish`, `/restore` | creator | make a version live / nothing live / old version → new draft · publish / unpublish `403 review_required` when the account needs a review for the toon – see "Reviews" |
 | GET/POST | `/reviews`, `/reviews/publish`, `/reviews/return` | creator | review before publish – see "Reviews" |
-| GET/PUT/DELETE | `/agent-chats[?limit=]`, `/agent-chats/<id>[?messages=1]` | creator | the creator's Ask panel chat history, own chats only – see "Agent chats" |
-| POST | `/agent-usage` | creator + `X-Service-Key` | the Ask service logs one AI API call of the creator – see "Agent usage" |
+| GET/PUT/DELETE | `/agent-chats[?app=&limit=]`, `/agent-chats/<id>[?messages=1&app=]` | the app's role | the Ask panel chat history per app (`creator`, `embassy`, `admin`), own chats only – see "Agent chats" |
+| POST | `/agent-usage` | the app's role + `X-Service-Key` | the Ask service logs one AI API call of a user in an app's panel – see "Agent usage" |
 | GET/POST | `/validate/` | – | PUBLIC URL (printed): legacy, backwards compatible – success for any existing, unexpired, unrevoked code (claimed or not); CORS `*` |
 | GET | `/keys/keys.php` | – | PUBLIC URL (printed): the public key of the certificate signatures |
 | * | `/admin/*` | admin | the admin API – see "Admin API" |
@@ -302,11 +302,151 @@ endpoint list: `src/Http/Controllers/EmbassyController.php`. Migration `2026-10-
 - `POST /orgs/{id}/activities` with a `track` moves the lead on (and anything but a note makes the user owner of an unowned lead): `mail_out` → contacted + call in 6 days; `call`
   `reached` / `mail_in` / `meeting` → in conversation + 10 days; `voicemail` / `no_answer` → 3 days (weekend dates move to Monday); `call_back` needs
   `next_at`; `declined` → stage `no`, no date. `stage` / `next_at` in the body override.
+- `GET /orgs?quiet=1` (or `quiet=<days>`, default 90): "answered before, quiet now" – organisations with a lead (or an
+  entry without a track) that had a reply, a meeting or a reached call, then no entry for that many days, no next date
+  ahead, stage not `no`, organisation not do-not-contact. Nothing is ever sent automatically (owner 2026-10-04).
 - `GET /today?owner=me|all|none|<id>`: leads due today or earlier (not do-not-contact), with organisation, people and
   the last activity; `unscheduled` = leads in research/ready without a date.
 - Duplicates: same normalized name (`Embassy::nameKey`) and same city (or country): `POST /orgs` → `409 duplicate
   { id }` unless `force: true`; `POST /import` merges (fills empty fields, unites lists, adds new people and tracks,
   never overwrites). `dry_run: true` reports without writing.
+- Activities (in `GET /orgs/{id}`, `/today`, the log answers): `{ id, org_id, lead_id, track, person_id, kind, outcome,
+  note, by_email, at, subject, mail_from, mail_to, message_id }` – the last four only for mails sent from the app / read
+  back from the inbox (else `null`). `GET /me` adds `mail: { from, inbox }` (the sender address; `inbox` = the sync is
+  configured) and `pace` (see "Pace": `null` = not onboarded yet, or the migration is missing).
+
+### Mail (2026-10-04, migration `2026-10-04-ask-embassy-mail`)
+
+People send one-to-one mails from the app (owner 2026-10-04): from the shared mailbox `EMBASSY_MAIL_FROM`
+(hello@scutoons.com, name `EMBASSY_MAIL_FROM_NAME`), its own SMTP account (`EMBASSY_SMTP_USER` / `_PASS`, else
+`SMTP_USER` / `_PASS`; server and `MAIL_TRANSPORT` as for every mail – `log` locally). Every Embassy role may send (no
+approval step). The AI agent only drafts – it has no send endpoint; the browser calls this when the person clicks Send.
+Code: `Domain\Embassy\EmbassyMail`.
+
+**`POST /embassy/orgs/{id}/mail`** `{ to, person_id?, track?, subject, text, reply_to_activity_id?, language? }` →
+`201 { status, activity, lead }` (like `POST /orgs/{id}/activities`; `lead` null without a `track`)
+
+- `to` = the organisation's address or one of its people's (case-insensitive) – else `400 invalid_recipient`.
+  `person_id` (else the person `to` belongs to) must be one of the organisation's people (`400 invalid_person`).
+- Do-not-contact on the organisation, the person or the owner of `to` → `409 do_not_contact` (checked before every send).
+- `subject` 1–300 characters (line breaks become spaces; `400 subject_required|subject_too_long`), `text` 1–20000
+  (`400 text_required|text_too_long`), `track` one of the tracks (`400 invalid_track`); a liaison on somebody else's
+  lead → `403 not_your_lead` – all checked before anything goes out.
+- The server always ends the text with the opt-out line (unless the text has it already), German or English: `language`
+  (`de` | `en`) if given, else the person's `language`, else German for organisations in DE / AT / CH / LI, else English:
+  `—` + "Keine weiteren Nachrichten von uns? Einfach mit „Stopp“ antworten." / "Rather not hear from us? Just reply
+  “stop”.".
+- Plain text, UTF-8, quoted-printable; `Reply-To` = the sender; our own `Message-ID: <uuid@scutoons.com>`;
+  `reply_to_activity_id` = a mail activity (`mail_in` / `mail_out`) of this organisation → `In-Reply-To` / `References`
+  (`400 invalid_reply_to` otherwise).
+- Then: a `mail_log` row (template `embassy`, admin app → Emails), the `mail_out` activity (note = the text as sent,
+  `subject`, `mail_from`, `mail_to`, `message_id`, by the user; cadence as above: contacted + call in 6 days) and – when
+  `EMBASSY_IMAP_SENT` is set – a copy in that IMAP folder (best effort; a failure there never fails the send).
+- The transport refused it → `502 mail_failed` (message = the short reason), logged as `failed` in `mail_log`, nothing on
+  the organisation. Before the migration the mail is sent and logged without the mail fields.
+
+### Inbox (2026-10-04, migration `2026-10-04-ask-embassy-mail`)
+
+Replies are read back by IMAP from the INBOX of the hello@ mailbox – the same login (`EMBASSY_SMTP_USER` / `_PASS`) on the
+same server (`SMTP_HOST`); `EMBASSY_IMAP_*` only override that for an unusual mailbox (`Domain\Embassy\EmbassyInbox`,
+`Infrastructure\Mail\Imap` – no ext-imap needed; `bin/console embassy:inbox` for a cron job). Where it stopped is kept
+per folder in `embassy_mail_state` (UIDVALIDITY + last UID; a new UIDVALIDITY starts over, already logged mails are
+not logged twice). The first run reads the last 30 days; at most 200 mails per run.
+
+- Matching: In-Reply-To / References name one of our `mail_out` mails → its organisation, track and person (the sender
+  when they are another person of that organisation); else the sender's address is a person's or an organisation's →
+  that one, track = the organisation's latest `mail_out`. **Unknown senders are skipped and nothing about them is
+  stored** (only counted); so are our own address, automatic replies (`Auto-Submitted`, `X-Autoreply`, `Precedence:
+  bulk|list|junk|auto_reply`) and bounces (`mailer-daemon@`, `postmaster@`). A Message-ID already logged → skipped.
+- A match → a `mail_in` activity (by `inbox`, no user; `at` = the mail's Date in UTC; `subject`, `mail_from`,
+  `message_id`, `in_reply_to`; note = the reply text without the quoted mail – `>` lines, "On … wrote:", "Am …
+  schrieb …:", "-----Original Message-----", Outlook's "Von: / Gesendet:" block – at most 4000 characters). The cadence
+  moves the lead to in conversation + 10 days: the sequence stops. No lead is created by the sync.
+- First line of the reply just `stop` / `stopp` / `unsubscribe` / `abmelden` (any case, punctuation ok) → do-not-contact
+  on the person (or, from the organisation's address, on the organisation + lead stage `no`), no next date, noted in the
+  activity. Respected forever: every later send answers `409 do_not_contact`.
+
+| Method | Path | Body → answer |
+|---|---|---|
+| GET | `/embassy/inbox` | `{ status, configured, synced_at, error }` (`synced_at` ISO UTC of the last attempt, `error` its error or null) |
+| POST | `/embassy/inbox/sync` | `{ force? }` → `{ status, configured: true, synced_at, matched, skipped, new_activities, error, throttled }` – runs unless the last run is younger than 2 minutes (then `throttled: true`, counts 0); `force: true` skips that for ambassadors / admins. Not configured (no `EMBASSY_IMAP_HOST`) → `{ status, configured: false }`. A mailbox error is answered in `error` (200) and stored. `503 not_available` before the migration |
+
+### Pace (2026-10-05, migration `2026-10-05-embassy-pace`)
+
+The Embassy work is done by part-time liaisons at their own pace (owner 2026-10-05). Each person sets how many contacts a
+week they take on and a reminder mail **to themselves**; every 4 weeks the app asks whether the pace is right.
+Ambassadors / admins see everyone's pace, answers and numbers. Nothing here ever mails a contact. Code:
+`Domain\Embassy\EmbassyPace` (pace, portion, team), `Domain\Embassy\EmbassyReminders` (cron + mails). Tables
+`embassy_pace` (one row per person: `per_week`, `reminder`, `onboarded_at`, `asked_at`, `reminded_at`) and
+`embassy_checkins` (every answer with the pace before / after). Before the migration: `GET /me` says `pace: null`, every
+endpoint below answers `503 not_available`, the cron URL runs only the inbox sync (`reminders: null`).
+
+`pace` = `{ per_week, reminder, onboarded_at, asked_at, checkin_due }` – `per_week` 1–100 (preset 10), `reminder`
+`weekly` (Monday mail, the preset) | `daily` (every working day Mon–Fri) | `off`, times ISO UTC, `checkin_due` = now ≥
+(`asked_at` ?? `onboarded_at`) + 28 days. `null` = not onboarded: the app shows the onboarding.
+
+| Method | Path | Body → answer |
+|---|---|---|
+| PUT | `/embassy/pace` | `{ per_week?, reminder? }` → `{ status, pace }` – the first call is the onboarding (`onboarded_at` = `asked_at` = now; missing values = 10 / `weekly`), later calls change what is given. `per_week` a whole number 1–100 (`400 invalid_pace { field, min, max }`), `reminder` (`400 invalid_reminder { field, allowed }`) |
+| POST | `/embassy/pace/checkin` | `{ answer: less \| fine \| more }` → `{ status, pace }` – per week −5 / 0 / +5 (floor 1, cap 100), `asked_at` = now, the answer stored in `embassy_checkins`. `400 invalid_answer`, `409 not_onboarded` |
+| GET | `/embassy/portion?owner=me\|<user id>` | the person's weekly portion (below). Somebody else's only for ambassadors / admins (`403 forbidden { role }`; unknown user `404`) |
+| GET | `/embassy/team/pace` | ambassadors / admins (`403 forbidden` otherwise) → `{ status, items: [{ user: { id, email, access }, pace \| null, owned, weeks: [{ start, done }] (the last 4 weeks, oldest first, this week last), last_checkin: { at, answer, per_week_before, per_week_after } \| null }] }` – everyone with an Embassy role, by email |
+| GET, POST | `/embassy/cron?key=…` | the host's daily job (no session) → `{ status, inbox, reminders }` (below) |
+
+**The weekly portion** (`GET /embassy/portion`):
+
+```
+{ status, today: "YYYY-MM-DD",
+  week: { start: "YYYY-MM-DD" (Monday), end (Sunday), pace, done, left },
+  today_count, today_done,
+  items: [{ group: "due" | "quiet" | "first", hint: { kind, … }, lead, org, people, last_activity }],
+  more: { due, quiet, first },
+  owned }
+```
+
+- The week is Monday–Sunday in the API's time zone (like `next_at`). `pace` = the person's `per_week` (10 when not
+  onboarded). `done` = distinct organisations the person contacted this week (`mail_out`, `call` of any outcome, `dm`,
+  `meeting` logged by them – mails sent from the app count; notes and replies don't). `left` = max(0, pace − done).
+- `items`: at most `left`, **one per organisation** (an organisation with several leads shows once, with its most urgent
+  lead), never a do-not-contact organisation, only the person's own leads, in this order: (1) `due` – next date today or
+  earlier, oldest first; (2) `quiet` – "answered before, quiet now" (the `quiet` list filter, 90 days); (3) `first` –
+  stage research / ready, never contacted (no mail_out / call / dm / meeting on the lead), no date ahead; tier A first.
+  `lead`, `org`, `people` (those that may be contacted), `last_activity` = the same shape as `GET /today`'s items.
+  `more` = what did not fit this week, per group (counted once per organisation).
+- `today_count` = how many of `items` (from the top) are today's slice: what was left this morning (pace − done before
+  today), spread over the working days left incl. today (Mon–Fri; ceil), minus what was done today (`today_done`) –
+  so the slice shrinks as the person works and does not refill the same day. Saturday / Sunday: everything left. Capped
+  at the number of items.
+- `owned` = all leads the person owns (0 → the app says "add your first contacts, or take unowned ones").
+- `hint` – why the item is on the list, for the app to say in de / en (the reminder mail renders the same):
+
+| `kind` | fields | when |
+|---|---|---|
+| `due` | `date` (the next date) | due, no more specific reason (no activity yet, a reached call, a meeting, a DM, a note) |
+| `mail_no_answer` | `days`, `subject?` | the last entry is our mail (`subject` when sent from the app) |
+| `voicemail` | `days` | the last entry is a call → voicemail |
+| `no_answer` | `days` | the last entry is a call → no answer |
+| `call_back` | `date` | the last entry is a call → call back on `date` |
+| `replied` | `days`, `subject?` | the last entry is their reply |
+| `answered_then_quiet` | `date`, `days` | group `quiet`: their last reply / meeting / reached call |
+| `no_contact_yet` | – | group `first` |
+
+`days` = whole days from that entry's local date to today.
+
+**Reminders + cron.** `GET|POST /api/embassy/cron?key=<EMBASSY_CRON_KEY>` – or the key as the HTTP Basic password (the
+host's cron calls a URL and cannot set headers; compared in constant time). `EMBASSY_CRON_KEY` empty → `404` (off);
+missing / wrong key → `403 forbidden`. All-inkl: KAS → Tools → Cronjobs → URL
+`https://api.scutoons.com/api/embassy/cron?key=…`, daily at 07:00. Locally: `php bin/console embassy:cron` (same job).
+It runs (a) the inbox sync (`inbox` = like `POST /inbox/sync`, no throttle; `null` when no IMAP host is configured) and
+(b) the due reminder mails: `reminders: { sent, skipped, failed }` (`null` before the migration).
+
+- `weekly`: on Monday – or the first run of the week when Monday's was missed; `daily`: Mon–Fri; `off`: never. At most
+  one mail per local day (daily) / week (weekly) (`reminded_at`; a failed send is tried on the next run). Only people
+  who still have an Embassy role. No mail when the portion has no items and no check-in is due (`skipped`).
+- The mail: template `embassy_portion` (admin app → Emails; from `MAIL_FROM`, in the account's language de / en, a
+  `mail_log` row): "This week: X of Y contacts done", the items as "• organisation · person – hint" (weekly: the week's
+  items; daily: today's slice), "+N more if you have time", the check-in line when due, a button to the Today page
+  (`EMBASSY_URL`), and how to change the reminder (on Today).
 
 ### Stores (2026-10-02, migration `2026-10-02-embassy-stores`)
 
@@ -388,53 +528,62 @@ otherwise `401` / `403 forbidden { role: "creator" }`.
 JSON folder layout is `Console\ContentFiles`. Migration `2026-09-30-entity-keys` created `entity_versions` from the
 former path-keyed `content_versions` (same ids).
 
-## Agent chats (the creator's Ask panel history, creator)
+## Agent chats (the Ask panel history, per app)
 
-The chats of the creator's Ask panel (agents/CUTOVER.md 10.28 step 2), saved by the Ask service (tools/mcp) so a creator
-can look at earlier agent chats when something stopped or broke. Table `agent_chats` (migration
-`2026-10-04-agent-chats`; without it every endpoint answers `503 not_available`). Code: `Domain\Agent\AgentChats`,
-`AgentChatsController`. A content editor (`creator`, for now also `admin`; `401` / `403 forbidden { role: "creator" }`
-otherwise) only ever sees and changes **their own** chats: another user's chat id answers `404 not_found` like an unknown
-one and is never overwritten. `<id>` = a UUID chosen by the client (lower-cased; malformed → `422 invalid_id`).
+The chats of the Ask panels (agents/CUTOVER.md 10.28 step 2), saved by the Ask service (tools/mcp) so a user can look
+at earlier agent chats when something stopped or broke. Table `agent_chats` (migration `2026-10-04-agent-chats`; without
+it every endpoint answers `503 not_available`). Code: `Domain\Agent\AgentChats`, `AgentApps`, `AgentChatsController`.
+
+Every chat belongs to one app's panel, `app` = `creator` (default), `embassy` or `admin` (column `app`, migration
+`2026-10-04-ask-embassy-mail`; before it every chat is the creator's and the other apps answer `503 not_available`;
+unknown → `422 invalid_app { allowed }`). Who may use a panel follows that app: `creator` = a content editor (`creator`,
+for now also `admin`), `embassy` = the Embassy access (`liaison`, `ambassador`, `admin`), `admin` = `admin`; `401` /
+`403 forbidden { role }` otherwise (`role` = `creator` / `liaison` / `admin`). By id the check follows the stored chat's
+app. A user only ever sees and changes **their own** chats of that app: another user's chat id – or one of another app –
+answers `404 not_found` like an unknown one and is never overwritten. `<id>` = a UUID chosen by the client (lower-cased;
+malformed → `422 invalid_id`).
 
 | Method | Path | Body / query → answer |
 |---|---|---|
-| GET | `/agent-chats?limit=` | `{ status, chats: [{ id, title, page, created_at, updated_at, turns }] }` – newest updated first, `turns` = the number of turns, `limit` 1..200 (default 50) |
-| GET | `/agent-chats/<id>[?messages=1]` | `{ status, chat: { id, title, page, created_at, updated_at, turns: [...] (+ messages: [...]) } }` · 404 |
-| PUT | `/agent-chats/<id>` | `{ title?, page?, turns: [...], messages: [...] }` → `{ status, chat: { id, updated_at } }` – creates or replaces; `title` trimmed, cut to 200 characters; `page` (where in the creator the chat started) trimmed, cut to 300, `''` → null; `title` / `page` left out keep the stored values (a new chat: `''` / null); `created_at` stays |
-| DELETE | `/agent-chats/<id>` | `{ status }` · 404 |
+| GET | `/agent-chats?app=&limit=` | `{ status, chats: [{ id, title, page, app, created_at, updated_at, turns }] }` – the app's chats (default `creator`), newest updated first, `turns` = the number of turns, `limit` 1..200 (default 50) |
+| GET | `/agent-chats/<id>[?messages=1&app=]` | `{ status, chat: { id, title, page, app, created_at, updated_at, turns: [...] (+ messages: [...]) } }` · 404 (also when `app` is given and the chat is another app's) |
+| PUT | `/agent-chats/<id>` | `{ app?, title?, page?, turns: [...], messages: [...] }` → `{ status, chat: { id, updated_at } }` – creates or replaces; `app` default `creator`, stored on create (a chat of another app → 404); `title` trimmed, cut to 200 characters; `page` (where in the app the chat started) trimmed, cut to 300, `''` → null; `title` / `page` left out keep the stored values (a new chat: `''` / null); `created_at` stays |
+| DELETE | `/agent-chats/<id>[?app=]` | `{ status }` · 404 |
 
 `turns` (what the panel shows) and `messages` (the model conversation) are stored as sent (decoded with objects, so `{}`
-stays `{}`). Errors: `422 invalid_id|invalid_body|invalid_turns|invalid_messages|invalid_title|invalid_page` (body not a
-JSON object, `turns` / `messages` not arrays, title not a string, page not a string or null), `413 too_large` (body over
-8 MB), `404 not_found`, `503 not_available`.
+stays `{}`). Errors: `422 invalid_id|invalid_body|invalid_app|invalid_turns|invalid_messages|invalid_title|invalid_page`
+(body not a JSON object, `turns` / `messages` not arrays, title not a string, page not a string or null), `413
+too_large` (body over 8 MB), `404 not_found`, `503 not_available`.
 
 ## Agent usage (the Ask panel's AI usage log)
 
-Every AI API call of the creator's Ask panel is logged (agents/CUTOVER.md 10.28; no limits are enforced from it). Table
+Every AI API call of an Ask panel is logged (agents/CUTOVER.md 10.28; no limits are enforced from it). Table
 `agent_usage` (migration `2026-10-04-agent-usage`; without it both endpoints answer `503 not_available` and the Ask
 service only logs to its own file). Code: `Domain\Agent\AgentUsage`, `AgentUsageController`.
 
-**`POST /agent-usage`** – server to server, called by the Ask service (tools/mcp) with **both** the creator's session
-(`Authorization: Bearer`, the token the creator's browser gave the service; no `Origin` needed – the CSRF check only
+**`POST /agent-usage`** – server to server, called by the Ask service (tools/mcp) with **both** the user's session
+(`Authorization: Bearer`, the token the user's browser gave the service; no `Origin` needed – the CSRF check only
 concerns the cookie) **and** `X-Service-Key: <AGENT_SERVICE_KEY>` (compared with `hash_equals`). The row's user is
 always the session's user, never a body field. Body:
 
-`{ service, model, chat_id?, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd }` →
-`201 { status: "success" }`. `service` / `model`: non-empty strings, trimmed, cut to 40 / 100 characters; `chat_id`: a
+`{ app?, service, model, chat_id?, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd }` →
+`201 { status: "success" }`. `app`: whose panel asked – `creator` (default), `embassy`, `admin`; the user must be allowed
+to use that app's panel (same rule as "Agent chats"; column `app` from migration `2026-10-04-ask-embassy-mail`, before
+it only `creator` works, the others answer `503 not_available`). `service` / `model`: non-empty strings, trimmed, cut to 40 / 100 characters; `chat_id`: a
 UUID (lower-cased) or null / left out (no foreign key – the chat may be deleted later); the four token counts: JSON
 integers 0..2147483647; `cost_usd`: a JSON number (USD) from 0 to below 1000, stored with 6 decimals. `created_at` = the
 server's UTC time.
 
 Errors, in this order: `503 not_configured` (`AGENT_SERVICE_KEY` empty), `403 forbidden` (key missing or wrong),
-`401 unauthorized` (no session), `403 forbidden { role: "creator" }` (not a content editor: `creator`, for now also
-`admin`), `422 invalid_body|invalid_service|invalid_model|invalid_chat_id|invalid_input_tokens|invalid_output_tokens|
-invalid_cache_read_tokens|invalid_cache_write_tokens|invalid_cost_usd`, `503 not_available`.
+`401 unauthorized` (no session), `422 invalid_body|invalid_app`, `403 forbidden { role }` (may not use the app's
+panel: `creator` for the creator, `liaison` for the Embassy, `admin` for the admin app), `422
+invalid_service|invalid_model|invalid_chat_id|invalid_input_tokens|invalid_output_tokens|invalid_cache_read_tokens|
+invalid_cache_write_tokens|invalid_cost_usd`, `503 not_available`.
 
 **`GET /admin/agent-usage?from=YYYY-MM-DD&to=YYYY-MM-DD&group=day|month`** (admin) – sums per period (UTC day
-`2026-10-04` or month `2026-10`), creator, service and model:
+`2026-10-04` or month `2026-10`), app, user, service and model:
 
-`{ status, from, to, group, rows: [{ period, user_id, email, service, model, calls, input_tokens, output_tokens,
+`{ status, from, to, group, rows: [{ period, app, user_id, email, service, model, calls, input_tokens, output_tokens,
 cache_read_tokens, cache_write_tokens, cost_usd }], totals: { calls, input_tokens, output_tokens, cache_read_tokens,
 cache_write_tokens, cost_usd } }` – newest period first, then the highest cost. `from` / `to` are UTC days, both
 included; default `to` = today, `from` = `to` − 29 days (the last 30 days), `group` = `day`. `cost_usd` is a number with
@@ -527,8 +676,9 @@ transfer core + history + admin transfer + `received` notices + the two ownershi
 
 ## Emails (the email module, 2026-10-02)
 
-The API is the only sender of email (the qr app, the frontends and scripts send none; the Embassy only logs mails
-people write themselves). Every mail goes through `Domain\Mail\Mailer::send($templateId, $to, $locale, $vars)`:
+The API is the only sender of email (the qr app, the frontends and scripts send none). Every platform mail goes through
+`Domain\Mail\Mailer::send($templateId, $to, $locale, $vars)`; the one exception are the mails people write in the Embassy
+app (`Domain\Embassy\EmbassyMail`, "Embassy" → "Mail": same transport, logged in `mail_log` as template `embassy`):
 
 - **Registry** `Domain\Mail\MailTemplates` – template ids with audience, description, variables, sample values (the
   admin preview), the body as blocks (`p`, `button`, `code`, conditional with `if`) and the fine print. Registered:

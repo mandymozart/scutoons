@@ -5,9 +5,9 @@ namespace Scutoons\Http\Controllers;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use Scutoons\Domain\Agent\AgentApps;
 use Scutoons\Domain\Agent\AgentUsage;
 use Scutoons\Domain\ApiError;
-use Scutoons\Domain\Roles\Roles;
 use Scutoons\Http\CurrentSession;
 use Scutoons\Http\Json;
 use Scutoons\Http\Middleware\JsonBody;
@@ -15,16 +15,17 @@ use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Support\Json as JsonEncoding;
 
 /**
- * The usage log of the creator's Ask panel (docs/API.md "Agent usage"):
- *   POST /api/agent-usage             the Ask service logs one AI API call: the creator's session (Bearer) AND
- *                                     X-Service-Key = AGENT_SERVICE_KEY; the row's user = the session's user
+ * The usage log of the Ask panels (docs/API.md "Agent usage"):
+ *   POST /api/agent-usage             the Ask service logs one AI API call: the user's session (Bearer) AND
+ *                                     X-Service-Key = AGENT_SERVICE_KEY; the row's user = the session's user, who must
+ *                                     be allowed to use the body's `app` (default creator; AgentApps)
  *   GET  /api/admin/agent-usage       ?from=&to=&group=day|month – the admin overview (admin group, RequireRole)
  */
 final class AgentUsageController
 {
     public const KEY_HEADER = 'X-Service-Key';
 
-    public function __construct(private readonly AgentUsage $usage, private readonly Roles $roles, private readonly Settings $settings)
+    public function __construct(private readonly AgentUsage $usage, private readonly AgentApps $apps, private readonly Settings $settings)
     {
     }
 
@@ -33,9 +34,11 @@ final class AgentUsageController
         $this->requireServiceKey($request);
         $session = CurrentSession::of($request);
         $session->rejectCsrf();
-        $user = $this->roles->requireContentEditor($session->user());
+        $user = $session->user() ?? throw new ApiError(401, 'unauthorized', 'Not signed in.');
         $body = JsonBody::object($request) ?? throw new ApiError(422, 'invalid_body', 'The request body must be a JSON object { service, model, … }.');
-        $this->usage->record((string) $user['id'], $body);
+        $app = AgentApps::app($body->app ?? null);
+        $user = $this->apps->requireUser($app, $user);
+        $this->usage->record((string) $user['id'], $body, $app);
         return Json::response($response, 201, ['status' => 'success']);
     }
 

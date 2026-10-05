@@ -30,10 +30,12 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `AUTH_SECRET` | – | **required**, ≥ 32 chars: HMAC of login codes, IP/device hashes, access tokens. Rotating it invalidates open login mails and access tokens |
 | `GENERATE_PASSWORD` | – | legacy `generate/` SPA password (its token = HMAC of it); empty = the SPA is locked |
 | `QR_PROXY_SECRET` | – | shared with the qr app (qr.scutoons.com): only requests carrying it in `X-Scutoons-Proxy-Secret` may forward the client IP (`X-Scutoons-Client-Ip`) and device id (`X-Scutoons-Device-Id`), and only they can log landing-page scans (`/api/code/?scan=1`). Empty = trust nobody |
+| `EMBASSY_CRON_KEY` | – | key of the Embassy cron URL `GET\|POST /api/embassy/cron?key=…` (inbox sync + the team's reminder mails; also accepted as the HTTP Basic password – docs/API.md "Embassy" → "Pace"). Empty = the URL answers 404 (off). `openssl rand -hex 32` |
 | `AGENT_SERVICE_KEY` | – | shared with the creator's Ask service (tools/mcp): only requests carrying it in `X-Service-Key` (plus a creator's session) may write the AI usage log `POST /api/agent-usage` (docs/API.md "Agent usage"). Empty = not configured (`503 not_configured`) |
 | `QR_URL` | `https://qr.scutoons.com` | the qr app: magic links of login requests without an Origin (it forwards `/?login=` to the viewer) |
 | `APP_URL` | `https://scutoons.com` | the viewer: old magic links are forwarded there; "Open SCUTOONS" in mails |
 | `ADMIN_URL` | `https://admin.scutoons.com` | the admin app: links in admin notification mails (a new ownership claim) |
+| `EMBASSY_URL` | `https://embassy.scutoons.com` | the Embassy app: the Today link in the team's reminder mails (`embassy_portion`). Local: `http://localhost:13000` in config.local.php |
 | `CDN_URL` | `https://cdn.scutoons.com/` | item icons `<CDN_URL><icon>`; local `http://localhost:8001/` |
 | `ALLOWED_ORIGINS` | scutoons.com, www, creator, admin, shop, embassy + dev ports | comma separated; production sets it in the workflow (without localhost). On a local dev server (`php -S`) every port of `shared/dev-ports.json` is added automatically (`Settings::allowedOrigins`). Also the CSRF list of the session cookie: only these origins may change things with it |
 | `MAIL_TRANSPORT` | `smtp` | `smtp` \| `log` (dev: `MAIL_LOG_PATH`) \| `mail` (PHP `mail()`) |
@@ -44,6 +46,11 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `MAIL_ADMIN_LOCALE` | `de` | language of the admin notification mails |
 | `MAIL_LOG_DAYS` | 180 | days the sent-mail log (`mail_log`, with recipient addresses) is kept; 0 = forever |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_TIMEOUT` | –, 587, `tls`, –, –, 15 | `SMTP_SECURE`: `tls` (STARTTLS) / `ssl` (465) / `none` |
+| `EMBASSY_MAIL_FROM`, `EMBASSY_MAIL_FROM_NAME` | `hello@scutoons.com`, `Top Toy · SCUTOONS` | sender (and Reply-To) of the mails people send from the Embassy app (docs/API.md "Embassy" → "Mail"); same transport and SMTP server as above |
+| `EMBASSY_SMTP_USER`, `EMBASSY_SMTP_PASS` | – | the SMTP account of that mailbox; empty = `SMTP_USER` / `SMTP_PASS` |
+| `EMBASSY_IMAP_HOST`, `EMBASSY_IMAP_PORT` | –, 993 | the Embassy inbox sync (implicit TLS; 143 = plain, local test servers only); empty host = no sync |
+| `EMBASSY_IMAP_USER`, `EMBASSY_IMAP_PASS` | – | the IMAP account; empty = the Embassy's SMTP account |
+| `EMBASSY_IMAP_FOLDER`, `EMBASSY_IMAP_SENT` | `INBOX`, – | where replies arrive; a folder that gets a copy of every mail sent from the app (e.g. `Sent`), empty = no copy |
 | `ACCESS_MAX_PER_IP_HOUR` | 120 | direct `/access/` + `/code/` lookups per IP and hour; 0 = no limit. Default of the runtime setting `lookup_limit_per_hour` |
 | `SCAN_MAX_PER_IP_HOUR` | 1000 | QR scans per client IP and hour (`/code/?scan=1` from the qr app, own bucket); 0 = no limit. Default of the runtime setting `scan_limit_per_hour` |
 | `LOGIN_TTL_MINUTES`, `LOGIN_MAX_ATTEMPTS` | 30, 5 | validity of link + code; wrong codes per mail |
@@ -76,6 +83,6 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 
 Production values come from the GitHub environment `production` (the full list with comments: root `.env.example`);
 `deploy/targets.json` → `api.generate["config.php"]` says which of them become constants in the generated `config.php`
-(`GENERATE_PASSWORD`, `DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `BUNNY_*`, `CDN_PUBLIC_URL`, `ALLOWED_ORIGINS`; an unset value is left out); quotes and
+(`GENERATE_PASSWORD`, `DB_*`, `AUTH_SECRET`, `QR_PROXY_SECRET`, `MAIL_*`, `SMTP_*`, `EMBASSY_*`, `BUNNY_*`, `CDN_PUBLIC_URL`, `ALLOWED_ORIGINS`; an unset value is left out); quotes and
 backslashes in values are escaped by the generator. The API's version: `composer.json` `version` + the
 deploy's `version.json` (git sha) → `GET /api/health/`.

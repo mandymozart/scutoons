@@ -12,9 +12,11 @@ use stdClass;
 use Throwable;
 
 /**
- * The usage log of the creator's Ask panel (agents/CUTOVER.md 10.28: "Every AI call is logged", docs/API.md "Agent
- * usage"): one row per AI API call in `agent_usage`, written by the Ask service for the signed-in creator, summed for
- * the admin per day / month, creator, service and model. Nothing is limited from it.
+ * The usage log of the Ask panels (agents/CUTOVER.md 10.28: "Every AI call is logged", docs/API.md "Agent usage"): one
+ * row per AI API call in `agent_usage`, written by the Ask service for the signed-in user and the app whose panel asked
+ * (`app`: AgentApps – creator, embassy, admin), summed for the admin per day / month, app, user, service and model.
+ * Nothing is limited from it. Before migration 2026-10-04-ask-embassy-mail there is no `app` column: every row is the
+ * creator's, other apps answer 503 not_available.
  */
 final class AgentUsage
 {
@@ -28,6 +30,8 @@ final class AgentUsage
     public const DEFAULT_DAYS = 30;
     public const TOKEN_FIELDS = ['input_tokens', 'output_tokens', 'cache_read_tokens', 'cache_write_tokens'];
     private const ID_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/';
+
+    private ?bool $hasApp = null;
 
     public function __construct(private readonly Database $db, private readonly Clock $clock)
     {
@@ -44,30 +48,49 @@ final class AgentUsage
         }
     }
 
-    public function requireAvailable(): void
+    public function requireAvailable(string $app = AgentApps::CREATOR): void
     {
         if (!$this->available()) throw new ApiError(503, 'not_available', 'The usage log is not set up yet (migration 2026-10-04-agent-usage).');
+        if ($app !== AgentApps::CREATOR && !$this->hasApp()) {
+            throw new ApiError(503, 'not_available', "The usage log of the $app app is not set up yet (migration 2026-10-04-ask-embassy-mail).");
+        }
+    }
+
+    /** The `app` column (migration 2026-10-04-ask-embassy-mail); without it every row is the creator's */
+    private function hasApp(): bool
+    {
+        if ($this->hasApp === null) {
+            try {
+                $this->db->value('SELECT app FROM agent_usage WHERE 1 = 0');
+                $this->hasApp = true;
+            } catch (Throwable) {
+                $this->hasApp = false;
+            }
+        }
+        return $this->hasApp;
     }
 
     /**
-     * Logs one AI API call of the user. Body `{ service, model, chat_id?, input_tokens, output_tokens,
-     * cache_read_tokens, cache_write_tokens, cost_usd }` · 422 invalid_<field>
+     * Logs one AI API call of the user in an app's Ask panel. Body `{ app?, service, model, chat_id?, input_tokens,
+     * output_tokens, cache_read_tokens, cache_write_tokens, cost_usd }` (`app` is read by the caller) · 422 invalid_<field>
      */
-    public function record(string $userId, stdClass $body): void
+    public function record(string $userId, stdClass $body, string $app = AgentApps::CREATOR): void
     {
-        $this->requireAvailable();
+        $this->requireAvailable($app);
         $service = self::text($body, 'service', self::SERVICE_MAX);
         $model = self::text($body, 'model', self::MODEL_MAX);
         $chatId = self::chatId($body->chat_id ?? null);
         $tokens = array_map(fn(string $field) => self::tokens($body, $field), self::TOKEN_FIELDS);
         $cost = self::cost($body->cost_usd ?? null);
-        $this->db->run('INSERT INTO agent_usage (created_at, user_id, service, model, chat_id, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [$this->clock->utc(), $userId, $service, $model, $chatId, ...$tokens, number_format($cost, 6, '.', '')]);
+        $withApp = $this->hasApp();
+        $this->db->run('INSERT INTO agent_usage (created_at, user_id, service, model, chat_id, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd'
+            . ($withApp ? ', app' : '') . ') VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?' . ($withApp ? ', ?' : '') . ')',
+            [$this->clock->utc(), $userId, $service, $model, $chatId, ...$tokens, number_format($cost, 6, '.', ''), ...($withApp ? [$app] : [])]);
     }
 
     /**
-     * The admin overview: calls, tokens and cost per period (UTC day `YYYY-MM-DD` or month `YYYY-MM`), creator, service
-     * and model, newest period first, then the most expensive. `from` / `to` = UTC days, both included; default the
+     * The admin overview: calls, tokens and cost per period (UTC day `YYYY-MM-DD` or month `YYYY-MM`), app, user,
+     * service and model, newest period first, then the most expensive. `from` / `to` = UTC days, both included; default the
      * last 30 days · 422 invalid_from|invalid_to|invalid_group|invalid_range
      * @param array<string, mixed> $query
      * @return array<string, mixed>
@@ -90,12 +113,14 @@ final class AgentUsage
         $sums = implode(', ', array_map(fn(string $f) => "SUM(a.$f) AS $f", self::TOKEN_FIELDS));
         $where = 'a.created_at >= ? AND a.created_at < ?';
         $params = [$from->format('Y-m-d') . ' 00:00:00', $to->modify('+1 day')->format('Y-m-d') . ' 00:00:00'];
-        $rows = $this->db->all("SELECT SUBSTR(a.created_at, 1, $length) AS period, a.user_id, u.email, a.service, a.model,
+        // before the migration there is no app column: every row is the creator's
+        $app = $this->hasApp() ? 'a.app' : "'" . AgentApps::CREATOR . "'";
+        $rows = $this->db->all("SELECT SUBSTR(a.created_at, 1, $length) AS period, $app AS app, a.user_id, u.email, a.service, a.model,
                 COUNT(*) AS calls, $sums, SUM(a.cost_usd) AS cost_usd
             FROM agent_usage a LEFT JOIN users u ON u.id = a.user_id
             WHERE $where
-            GROUP BY SUBSTR(a.created_at, 1, $length), a.user_id, u.email, a.service, a.model
-            ORDER BY period DESC, SUM(a.cost_usd) DESC, u.email, a.service, a.model", $params);
+            GROUP BY SUBSTR(a.created_at, 1, $length), $app, a.user_id, u.email, a.service, a.model
+            ORDER BY period DESC, SUM(a.cost_usd) DESC, $app, u.email, a.service, a.model", $params);
         $totals = $this->db->one("SELECT COUNT(*) AS calls, $sums, SUM(a.cost_usd) AS cost_usd FROM agent_usage a WHERE $where", $params) ?? [];
 
         return [
@@ -104,6 +129,7 @@ final class AgentUsage
             'group' => $group,
             'rows' => array_map(fn(array $row) => [
                 'period' => (string) $row['period'],
+                'app' => (string) $row['app'],
                 'user_id' => (string) $row['user_id'],
                 'email' => $row['email'] === null ? null : (string) $row['email'],
                 'service' => (string) $row['service'],

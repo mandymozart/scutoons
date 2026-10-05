@@ -59,3 +59,26 @@ export function splitList(text: string): string[] {
 
 /** tel: link of a phone number as written */
 export const telHref = (phone: string) => `tel:${phone.replace(/[^\d+]/g, '')}`;
+
+/** Why an item is in someone's weekly portion (the API's `hint`, agents/EMBASSY.md "Pace"), in the app's language */
+export function hintText(hint: { kind: string; days?: number; subject?: string; date?: string }): string {
+	const days = hint.days ?? 0;
+	switch (hint.kind) {
+		case 'mail_no_answer':
+			return hint.subject ? m['hint.mail_no_answer']({ days, subject: hint.subject }) : m['hint.mail_no_answer_plain']({ days });
+		case 'voicemail':
+			return m['hint.voicemail']({ days });
+		case 'no_answer':
+			return m['hint.no_answer']({ days });
+		case 'replied':
+			return hint.subject ? m['hint.replied']({ days, subject: hint.subject }) : m['hint.replied_plain']({ days });
+		case 'call_back':
+			return m['hint.call_back']({ date: shortDate(hint.date) });
+		case 'answered_then_quiet':
+			return m['hint.answered_then_quiet']({ date: shortDate(hint.date) });
+		case 'no_contact_yet':
+			return m['hint.no_contact_yet']();
+		default:
+			return hint.date ? m['hint.due_since']({ date: shortDate(hint.date) }) : m['hint.due']();
+	}
+}

@@ -27,4 +27,4 @@ export const library = createLibraryApi({ publicClient: api, sessionClient: api 
 export const assetsApi = createAssetsApi(api);
 
 // the Ask panel's chat history (CUTOVER 10.28)
-export const agentChatsApi = createAgentChatsApi(api);
+export const agentChatsApi = createAgentChatsApi(api, 'creator');

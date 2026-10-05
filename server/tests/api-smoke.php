@@ -559,6 +559,14 @@ $r = call('GET', "$api/stockists/?product=awakening_vinyl&country=at");
 check(in_array($storeId, array_column($r['body']['stores'] ?? [], 'id'), true), '?product=awakening_vinyl&country=at → the store', $r['body']);
 $r = call('GET', "$api/stockists/?country=Austria");
 check($r['status'] === 400 && ($r['body']['error'] ?? '') === 'invalid_country', '?country=Austria → 400', $r);
+// Embassy mail (docs/API.md "Embassy" → "Mail"; MAIL_TRANSPORT=log here): to one of the organisation's people only
+$r = call('POST', "$api/embassy/orgs/$storeId/mail", ['to' => "person-$run@store.example", 'track' => 'vinyl', 'subject' => 'Smoke mail', 'text' => 'Hallo'], $tokenC);
+check($r['status'] === 201 && ($r['body']['activity']['kind'] ?? '') === 'mail_out' && ($r['body']['activity']['subject'] ?? '') === 'Smoke mail'
+    && str_contains((string) ($r['body']['activity']['note'] ?? ''), 'Stopp'), 'POST /embassy/orgs/{id}/mail → mail_out with subject + opt-out line', $r);
+$r = call('POST', "$api/embassy/orgs/$storeId/mail", ['to' => 'stranger@example.com', 'subject' => 'x', 'text' => 'y'], $tokenC);
+check($r['status'] === 400 && ($r['body']['error'] ?? '') === 'invalid_recipient', 'mail to a stranger → 400 invalid_recipient', $r);
+$r = call('GET', "$api/embassy/inbox", null, $tokenC);
+check($r['status'] === 200 && is_bool($r['body']['configured'] ?? null), 'GET /embassy/inbox → { configured }', $r);
 call('PUT', "$api/embassy/orgs/$storeId", ['listed' => false], $tokenC);
 $r = call('GET', "$api/stockists/");
 check(!in_array($storeId, array_column($r['body']['stores'] ?? [], 'id'), true), 'unlisted → gone from /stockists/', null);

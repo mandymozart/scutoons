@@ -941,5 +941,26 @@
 		"preview": "Open the events page",
 		"invalid": "Every event needs a date, a title and a city.",
 		"conflict": "Someone saved the events meanwhile – reloaded, please redo your change."
+	},
+	"ask": {
+		"title": "Ask",
+		"open": "Ask the agent",
+		"new": "New chat",
+		"close": "Close",
+		"you": "You",
+		"agent": "Agent",
+		"placeholder": "What do you want to know?",
+		"send": "Send",
+		"stop": "Stop",
+		"working": "Working …",
+		"context": "{page} · reads only",
+		"empty": "Ask about the toons' content or what the AI agents cost. Here the agent only reads.",
+		"unavailable": "The agent is not available right now.",
+		"signed_out": "Your session ended – sign in again.",
+		"history": "Earlier chats",
+		"history_empty": "No chats yet.",
+		"history_unavailable": "The chat history is not available yet.",
+		"resize": "Drag to resize",
+		"draft": "Draft #{id}"
 	}
 }

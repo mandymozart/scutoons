@@ -1,20 +1,25 @@
-// The Ask service (CUTOVER 10.28 step 2): the creator's "Ask" panel talks to it. One HTTP endpoint, `POST /api/ask`
-// (under /api so the single sign-on cookie `scutoons_sid` reaches it in production), streams Server-Sent Events.
-// Who asks: the creator's session (Bearer header or the cookie), checked against the API's /me/ – the agent then uses
-// that session for every tool, so the API's role checks decide what it may do. The tools are the SCUTOONS MCP server
-// (server.ts) connected in-process. The model: Claude via the Anthropic API, paid by the owner; every API call is
-// logged (creator, service, model, tokens, cost) – no limits in the app (owner 2026-10-04). Chats are saved in the API
-// (`/api/agent-chats`, each creator's own) after every round, so a chat that stops or breaks stays readable and can go
-// on (owner 2026-10-04); the memory here is only a cache.
+// The Ask service (CUTOVER 10.28 step 2): the "Ask" panel (@scutoons/ask) of the creator, the embassy and the admin
+// talks to it. One HTTP endpoint, `POST /api/ask` (under /api so the single sign-on cookie `scutoons_sid` reaches it
+// in production), streams Server-Sent Events. The request names its app; the app decides the role it needs (checked
+// against the API's /me/), the system prompt and the tools (APPS): creator → the SCUTOONS content tools (server.ts),
+// embassy → the partner network (embassy.ts: read, log, next dates, mail DRAFTS – people send), admin → the content
+// tools that only read + the usage overview (admin.ts). The agent uses the person's session for every tool, so the
+// API's role checks decide what it may do; the tools are MCP servers connected in-process. The model: Claude via the
+// Anthropic API, paid by the owner; every API call is logged (user, app, service, model, tokens, cost) – no limits in
+// the app (owner 2026-10-04). Chats are saved in the API (`/api/agent-chats`, each person's own, per app) after every
+// round, so a chat that stops or breaks stays readable and can go on (owner 2026-10-04); the memory here is only a
+// cache.
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import Anthropic from '@anthropic-ai/sdk';
-import { ApiError, createAgentChatsApi, createApiClient, type AgentTurn } from '@scutoons/api';
+import { ApiError, createAgentChatsApi, createApiClient, type AgentApp, type AgentStep, type AgentTurn } from '@scutoons/api';
 import { Client } from '@modelcontextprotocol/client';
-import { InMemoryTransport } from '@modelcontextprotocol/server';
+import { InMemoryTransport, type McpServer } from '@modelcontextprotocol/server';
+import { createAdminServer } from './admin.ts';
 import { isLocalUrl, type Config } from './config.ts';
+import { createEmbassyServer } from './embassy.ts';
 import { RULES } from './resources.ts';
 import { createScutoonsServer } from './server.ts';
 
@@ -43,7 +48,7 @@ const PRICES: Record<string, { input: number; output: number; cacheRead: number;
 const MAX_ROUNDS = 60;
 const CHAT_TTL_MS = 2 * 60 * 60 * 1000;
 
-const SYSTEM = [
+const CREATOR_SYSTEM = [
 	'You are the SCUTOONS agent inside the creator app. You help the signed-in creator build their webtoon content with the',
 	'SCUTOONS tools: read documents, change them, check them, save drafts, find and upload media. You have exactly the',
 	"creator's rights. Work in the creator's language (German or English, as they write).",
@@ -55,25 +60,82 @@ const SYSTEM = [
 	'for that publish in this chat. When something is unclear or risky, ask before saving. Finish with a short summary of',
 	'what you changed (which documents, which languages) – the panel lists your saved drafts as links.',
 	'',
-	'Each user message starts with [Page: … | Text language: … | App language: …]: where the creator is in the app,',
+	'Each user message starts with [Page: … | Text language: … | App language: … | Today: …]: where the creator is in the app,',
 	'which content language they are looking at in the creator (a language code, "source" = each text in its source',
 	'language, "all" = every language side by side) and the language of their app. Answer in the app language unless',
 	'they write in another one. Content you write goes into every language of the toon (the source language first); when',
-	'the text language is one language, that is the one the creator is working on – check it closely.',
+	'the text language is one language, that is the one the creator is working on – check it closely. Today: the date.',
 	'',
 	'# Format rules',
 	'',
 	...RULES.map((r) => r.text())
 ].join('\n');
 
+// agents/EMBASSY.md "Communication strategy" – the agent writes the way the owner wants the network to be spoken to
+const EMBASSY_SYSTEM = [
+	'You are the SCUTOONS agent inside Embassy, the partner network of Top Toy / SCUTOONS: stages (venues, festivals,',
+	'residencies, web radios), vinyl outlets (distributors, record shops), booking agents and press (radio, blogs,',
+	'magazines). You help the signed-in liaison or ambassador keep in touch with them: find organisations and people,',
+	'read the communication log, log touchpoints they tell you about, set next check dates, and draft mails – for example',
+	'about a new release. You have exactly their rights.',
+	'',
+	'Sending: you never send. draft_mail puts a draft card in front of the person; they edit it and send it from the app',
+	'(one-to-one, from hello@scutoons.com; the sent mail is logged and the lead moves on by itself). Never say a mail was',
+	'sent. No mass mail: one individual draft per recipient, and only to addresses in read_org recipients – people who',
+	'opted out (do not contact) never get mail, whatever is asked. The opt-out line is added when the mail is sent.',
+	'',
+	'How we write (relatability beats volume – few, specific, personal messages):',
+	'- Every first contact is individual: one line that proves we know them (a show they ran, an article, an artist they',
+	'  work with – only what the log, the notes or the person told you; never invent facts), what we are in one sentence',
+	'  (Top Toy – music and the SCUTOONS webtoon), one concrete ask, one link (from list_releases). Short.',
+	"- In the recipient's language (the person's language; else by the country; German or English when unsure – say which).",
+	"- Signed as \"Top Toy / <first name>\" of the person you work for (ask for their name if you don't know it).",
+	'- Read the log first: never pitch as new what they already got, answer an open thread instead (reply_to_activity_id),',
+	'  and a reply means a conversation – no follow-up sequence after a reply.',
+	'- Nothing follows up on its own (owner 2026-10-04): you help the person write mails and prepare calls. Follow-ups',
+	'  are mostly phone calls: when a mail went out about a week ago with no answer, suggest the call (the number, what',
+	'  to say, which mail to refer to) rather than another mail.',
+	"- People work at their own pace (contacts per week): my_portion is their week – today's slice first. Help them",
+	'  through it; never pile more on them than their pace.',
+	'- Contacts who answered before and went quiet are worth a call: search_orgs with quiet (e.g. 90 days) finds them;',
+	'  read the log first and suggest a reason to call (a new release, a show in their city, a thank-you).',
+	'',
+	'Only log what the person tells you happened. Before changing a lead or the log for several organisations, list what',
+	'you will do and ask. Keep answers short; the panel shows your tool calls as steps and drafts as cards.',
+	'',
+	'A draft card may have been sent since you made it: the log (read_org) shows what went out.',
+	'',
+	'Each user message starts with [Page: … | App language: … | Today: …]: where the person is in the app (on an',
+	'organisation page its name and "(organisation <id>)"), the language of their app – answer in it unless they write',
+	'in another one – and the date of today.'
+].join('\n');
+
+const ADMIN_SYSTEM = [
+	'You are the SCUTOONS agent inside the admin app. You help the signed-in admin look things up: the content of the',
+	'toons (read only) and what the AI agents cost (agent_usage). You cannot change anything here; say so when asked,',
+	'and point to the page in the admin or the creator where it is done.',
+	'',
+	'Each user message starts with [Page: … | App language: … | Today: …]: where the admin is, the language of their',
+	'app – answer in it unless they write in another one – and the date of today.'
+].join('\n');
+
+/** What each app's panel gets: who may ask, the system prompt, the tools (`readOnly`: only tools that only read) */
+const APPS: Record<AgentApp, { roles: string[]; system: string; servers: (config: Config) => McpServer[]; readOnly?: boolean }> = {
+	creator: { roles: ['creator'], system: CREATOR_SYSTEM, servers: (c) => [createScutoonsServer(c)] },
+	embassy: { roles: ['liaison', 'ambassador', 'admin'], system: EMBASSY_SYSTEM, servers: (c) => [createEmbassyServer(c)] },
+	admin: { roles: ['admin'], system: ADMIN_SYSTEM, servers: (c) => [createScutoonsServer(c), createAdminServer(c)], readOnly: true }
+};
+const isApp = (app: unknown): app is AgentApp => typeof app === 'string' && Object.hasOwn(APPS, app);
+
 // ── who asks ────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-interface Creator {
+interface Person {
 	id: string;
 	email: string;
 	token: string;
+	roles: string[];
 }
-const sessions = new Map<string, { creator: Creator | null; at: number }>();
+const sessions = new Map<string, { person: Person | null; at: number }>();
 
 function tokenOf(req: IncomingMessage): string | null {
 	const bearer = /^Bearer\s+([A-Za-z0-9_-]{20,128})$/.exec(req.headers.authorization?.trim() ?? '')?.[1];
@@ -82,22 +144,23 @@ function tokenOf(req: IncomingMessage): string | null {
 	return cookie ?? null;
 }
 
-/** The creator behind a session token (API /me/, role creator), cached a minute */
-async function creatorOf(api: string, token: string): Promise<Creator | null> {
+/** The person behind a session token (API /me/) with their roles, cached a minute */
+async function personOf(api: string, token: string): Promise<Person | null> {
 	const hit = sessions.get(token);
-	if (hit && Date.now() - hit.at < 60_000) return hit.creator;
+	if (hit && Date.now() - hit.at < 60_000) return hit.person;
 	const res = await fetch(`${api}/me/`, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' } });
 	const body: any = res.ok ? await res.json() : null;
 	const user = body?.user;
-	const creator = user && Array.isArray(user.roles) && user.roles.includes('creator') ? { id: String(user.id), email: String(user.email ?? ''), token } : null;
-	sessions.set(token, { creator, at: Date.now() });
-	return creator;
+	const person = user ? { id: String(user.id), email: String(user.email ?? ''), token, roles: Array.isArray(user.roles) ? user.roles.map(String) : [] } : null;
+	sessions.set(token, { person, at: Date.now() });
+	return person;
 }
 
 // ── chats (saved in the API, cached here) ───────────────────────────────────────────────────────────────────────────
 
 interface Chat {
 	owner: string;
+	app: AgentApp;
 	title: string;
 	page: string;
 	messages: Param[];
@@ -111,19 +174,19 @@ function sweep() {
 /** false once the API answered that it has no chat storage (the migration not run yet) – the panel works without */
 let storage = true;
 
-function chatsApi(cfg: AskConfig, creator: Creator) {
-	return createAgentChatsApi(createApiClient({ baseUrl: cfg.api, getToken: () => creator.token }));
+function chatsApi(cfg: AskConfig, person: Person, app: AgentApp) {
+	return createAgentChatsApi(createApiClient({ baseUrl: cfg.api, getToken: () => person.token }), app);
 }
 
-/** the creator's chat: from the cache, else from the API (to go on with an earlier chat), else a new one */
-async function loadChat(cfg: AskConfig, creator: Creator, id: unknown): Promise<[string, Chat]> {
+/** the person's chat in this app: from the cache, else from the API (to go on with an earlier chat), else a new one */
+async function loadChat(cfg: AskConfig, person: Person, app: AgentApp, id: unknown): Promise<[string, Chat]> {
 	if (typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)) {
 		const cached = chats.get(id);
-		if (cached?.owner === creator.id) return [id, cached];
+		if (cached?.owner === person.id && cached.app === app) return [id, cached];
 		if (storage && !cached) {
 			try {
-				const { chat } = await chatsApi(cfg, creator).get(id, true);
-				const restored: Chat = { owner: creator.id, title: chat.title, page: chat.page ?? '', messages: (chat.messages ?? []) as Param[], turns: chat.turns ?? [], at: Date.now() };
+				const { chat } = await chatsApi(cfg, person, app).get(id, true);
+				const restored: Chat = { owner: person.id, app, title: chat.title, page: chat.page ?? '', messages: (chat.messages ?? []) as Param[], turns: chat.turns ?? [], at: Date.now() };
 				chats.set(id, restored);
 				return [id, restored];
 			} catch (error) {
@@ -131,16 +194,16 @@ async function loadChat(cfg: AskConfig, creator: Creator, id: unknown): Promise<
 			}
 		}
 	}
-	const chat: Chat = { owner: creator.id, title: '', page: '', messages: [], turns: [], at: Date.now() };
+	const chat: Chat = { owner: person.id, app, title: '', page: '', messages: [], turns: [], at: Date.now() };
 	const fresh = randomUUID();
 	chats.set(fresh, chat);
 	return [fresh, chat];
 }
 
-async function saveChat(cfg: AskConfig, creator: Creator, id: string, chat: Chat) {
+async function saveChat(cfg: AskConfig, person: Person, id: string, chat: Chat) {
 	if (!storage) return;
 	try {
-		await chatsApi(cfg, creator).put(id, { title: chat.title, page: chat.page || null, turns: chat.turns, messages: chat.messages });
+		await chatsApi(cfg, person, chat.app).put(id, { app: chat.app, title: chat.title, page: chat.page || null, turns: chat.turns, messages: chat.messages });
 	} catch (error) {
 		// 503: the table isn't there yet (migration 2026-10-04-agent-chats) – keep chatting without history
 		if (error instanceof ApiError && (error.status === 503 || error.status === 404)) storage = false;
@@ -158,6 +221,7 @@ export function costOf(model: string, u: Anthropic.Beta.BetaUsage): number {
 }
 
 interface Usage {
+	app: AgentApp;
 	service: string;
 	model: string;
 	chat_id: string;
@@ -169,15 +233,15 @@ interface Usage {
 }
 
 /**
- * One AI call into the usage log: the API's `agent_usage` (POST /api/agent-usage with the creator's session and the
+ * One AI call into the usage log: the API's `agent_usage` (POST /api/agent-usage with the person's session and the
  * service key – the admin overview reads it), else (no key, no table, API down) a JSON line in the service's own file.
  */
-async function logUsage(cfg: AskConfig, creator: Creator, usage: Usage) {
+async function logUsage(cfg: AskConfig, person: Person, usage: Usage) {
 	if (cfg.serviceKey) {
 		try {
 			const res = await fetch(`${cfg.api}/agent-usage`, {
 				method: 'POST',
-				headers: { Authorization: `Bearer ${creator.token}`, 'X-Service-Key': cfg.serviceKey, 'Content-Type': 'application/json', Accept: 'application/json' },
+				headers: { Authorization: `Bearer ${person.token}`, 'X-Service-Key': cfg.serviceKey, 'Content-Type': 'application/json', Accept: 'application/json' },
 				body: JSON.stringify(usage)
 			});
 			if (res.ok) return;
@@ -188,7 +252,7 @@ async function logUsage(cfg: AskConfig, creator: Creator, usage: Usage) {
 	}
 	try {
 		mkdirSync(dirname(cfg.usageLog), { recursive: true });
-		appendFileSync(cfg.usageLog, JSON.stringify({ at: new Date().toISOString(), creator: creator.id, email: creator.email, ...usage }) + '\n');
+		appendFileSync(cfg.usageLog, JSON.stringify({ at: new Date().toISOString(), user: person.id, email: person.email, ...usage }) + '\n');
 	} catch (error) {
 		console.error('ask: usage log failed', error);
 	}
@@ -196,7 +260,10 @@ async function logUsage(cfg: AskConfig, creator: Creator, usage: Usage) {
 
 // ── steps shown in the panel ────────────────────────────────────────────────────────────────────────────────────────
 
-/** What a tool call did, for the panel: a line, and the saved draft (key + version) when there is one */
+/**
+ * What a tool call did, for the panel: a line, the saved draft (key + version) when there is one; embassy steps link to
+ * the organisation (`link`, app-relative), say when they changed something and hand a mail draft to the panel (`data`)
+ */
 function stepOf(name: string, input: any, text: string, isError: boolean) {
 	let result: any = null;
 	try {
@@ -204,9 +271,14 @@ function stepOf(name: string, input: any, text: string, isError: boolean) {
 	} catch {
 		// plain text result
 	}
-	const target = input?.key ?? input?.path ?? (input?.toon ? `${input.toon}${input.chapter !== undefined ? ` · ${input.chapter}` : ''}` : '');
-	const step: { tool: string; target: string; error?: string; key?: string; version?: number } = { tool: name, target: String(target ?? '') };
+	const target = input?.key ?? input?.path ?? input?.to ?? input?.q ?? (input?.toon ? `${input.toon}${input.chapter !== undefined ? ` · ${input.chapter}` : ''}` : '');
+	const step: AgentStep = { tool: name, target: String(target ?? '') };
+	const org = input?.org_id ?? (name === 'read_org' ? input?.id : undefined);
+	if (typeof org === 'string' && /^[0-9a-f-]{36}$/i.test(org)) step.link = `/orgs/${org}`;
+	if (name === 'read_org' && result?.org?.name) step.target = result.org.name;
 	if (isError) step.error = text.slice(0, 300);
+	else if (name === 'draft_mail' && result?.draft) Object.assign(step, { data: result.draft, target: `${result.draft.org} · ${result.draft.to}` });
+	else if (name === 'log_activity' || name === 'set_lead') step.changed = true;
 	else if (name === 'save_draft' && result?.version) Object.assign(step, { key: input.key, version: result.version });
 	else if (name === 'restore_version' && result?.version) Object.assign(step, { key: input.key, version: result.version });
 	else if (name === 'publish_entity' && result?.published) Object.assign(step, { key: input.key, version: result.published });
@@ -242,10 +314,6 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 	if (req.method === 'GET' && path === '/api/ask/health') return void res.writeHead(200, { 'Content-Type': 'application/json' }).end('{"status":"ok"}');
 	if (req.method !== 'POST' || path !== '/api/ask') return void res.writeHead(404).end();
 
-	const token = tokenOf(req);
-	const creator = token ? await creatorOf(cfg.api, token).catch(() => null) : null;
-	if (!creator) return void res.writeHead(401, { 'Content-Type': 'application/json' }).end('{"status":"error","error":"unauthorized","message":"Sign in as a creator."}');
-
 	let body: any;
 	try {
 		body = await readJson(req);
@@ -253,15 +321,33 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 		return void res.writeHead(400).end();
 	}
 	const text = typeof body.text === 'string' ? body.text.trim() : '';
-	if (!text) return void res.writeHead(400).end();
+	// requests without `app` come from creator builds before the shared panel
+	const app: AgentApp | null = body.app === undefined ? 'creator' : isApp(body.app) ? body.app : null;
+	if (!text || !app) return void res.writeHead(400).end();
+	const setup = APPS[app];
+
+	// who asks: their session, and the role this app needs
+	const token = tokenOf(req);
+	const person = token ? await personOf(cfg.api, token).catch(() => null) : null;
+	if (!person || !setup.roles.some((r) => person.roles.includes(r)))
+		return void res.writeHead(401, { 'Content-Type': 'application/json' }).end(JSON.stringify({ status: 'error', error: 'unauthorized', message: `Sign in with the role ${setup.roles.join(' / ')}.` }));
 
 	sweep();
-	const [chatId, chat] = await loadChat(cfg, creator, body.chat);
+	const [chatId, chat] = await loadChat(cfg, person, app, body.chat);
 	chat.at = Date.now();
 	const page = typeof body.context === 'string' ? body.context.slice(0, 300) : '';
 	const short = (v: unknown) => (typeof v === 'string' ? v.slice(0, 20) : '');
 	const textLanguage = short(body.textLanguage) || 'source';
 	const appLanguage = short(body.appLanguage) || 'en';
+	// `ref`: what the page shows, for the agent only (the embassy's "organisation <id>")
+	const ref = typeof body.ref === 'string' ? body.ref.slice(0, 100) : '';
+	const where = `${page || '–'}${ref ? ` (${ref})` : ''}`;
+	// today in the owner's time zone: "next Tuesday" and next check dates need it
+	const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vienna', year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'long' }).format(new Date());
+	const header =
+		app === 'creator'
+			? `[Page: ${where} | Text language: ${textLanguage} | App language: ${appLanguage} | Today: ${today}]`
+			: `[Page: ${where} | App language: ${appLanguage} | Today: ${today}]`;
 	if (!chat.title) chat.title = text.replace(/\s+/g, ' ').slice(0, 120);
 	if (!chat.page) chat.page = page;
 	// what the panel shows, saved with the chat
@@ -281,22 +367,27 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 	res.on('close', () => (closed = true));
 	send('chat', { id: chatId });
 
-	// the creator's own tools: the MCP server with their session, connected in-process
-	const toolConfig: Config = { api: cfg.api, token: creator.token, tokenSource: 'env', local: isLocalUrl(cfg.api), publish: cfg.publish };
-	const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
-	const mcp = createScutoonsServer(toolConfig);
-	await mcp.connect(serverSide);
-	const client = new Client({ name: 'scutoons-ask', version: '0.1.0' });
-	await client.connect(clientSide);
-	const tools: Anthropic.Beta.BetaTool[] = (await client.listTools()).tools.map((t) => ({
-		name: t.name,
-		description: t.description ?? '',
-		input_schema: t.inputSchema as Anthropic.Beta.BetaTool.InputSchema,
-		eager_input_streaming: true
-	}));
+	// the app's tools: its MCP servers with the person's session, connected in-process (publishing only in the creator)
+	const toolConfig: Config = { api: cfg.api, token: person.token, tokenSource: 'env', local: isLocalUrl(cfg.api), publish: app === 'creator' && cfg.publish };
+	const servers = setup.servers(toolConfig);
+	const clients: Client[] = [];
+	const owner = new Map<string, Client>();
+	const tools: Anthropic.Beta.BetaTool[] = [];
+	for (const mcp of servers) {
+		const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+		await mcp.connect(serverSide);
+		const client = new Client({ name: 'scutoons-ask', version: '0.1.0' });
+		await client.connect(clientSide);
+		clients.push(client);
+		for (const t of (await client.listTools()).tools) {
+			if (setup.readOnly && !t.annotations?.readOnlyHint) continue;
+			owner.set(t.name, client);
+			tools.push({ name: t.name, description: t.description ?? '', input_schema: t.inputSchema as Anthropic.Beta.BetaTool.InputSchema, eager_input_streaming: true });
+		}
+	}
 
-	chat.messages.push({ role: 'user', content: `[Page: ${page || '–'} | Text language: ${textLanguage} | App language: ${appLanguage}]\n${text}` });
-	await saveChat(cfg, creator, chatId, chat);
+	chat.messages.push({ role: 'user', content: `${header}\n${text}` });
+	await saveChat(cfg, person, chatId, chat);
 	const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
 	let jsonRetries = 0;
 
@@ -305,7 +396,7 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 			const stream = cfg.anthropic.beta.messages.stream({
 				model: cfg.model,
 				max_tokens: 64000,
-				system: [{ type: 'text', text: SYSTEM, cache_control: { type: 'ephemeral' } }],
+				system: [{ type: 'text', text: setup.system, cache_control: { type: 'ephemeral' } }],
 				cache_control: { type: 'ephemeral' },
 				tools,
 				messages: chat.messages,
@@ -335,7 +426,8 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 			total.cacheRead += u.cache_read_input_tokens ?? 0;
 			total.cacheWrite += u.cache_creation_input_tokens ?? 0;
 			total.cost += cost;
-			await logUsage(cfg, creator, {
+			await logUsage(cfg, person, {
+				app,
 				service: 'anthropic',
 				model: message.model,
 				chat_id: chatId,
@@ -362,13 +454,16 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 			const results: Anthropic.Beta.BetaToolResultBlockParam[] = [];
 			for (const use of uses) {
 				// the MCP server validates the input against the tool's schema before it runs (an error result otherwise)
-				const r: any = await client.callTool({ name: use.name, arguments: (use.input ?? {}) as Record<string, unknown> }).catch((error) => ({ isError: true, content: [{ type: 'text', text: String(error?.message ?? error) }] }));
+				const client = owner.get(use.name);
+				const r: any = client
+					? await client.callTool({ name: use.name, arguments: (use.input ?? {}) as Record<string, unknown> }).catch((error) => ({ isError: true, content: [{ type: 'text', text: String(error?.message ?? error) }] }))
+					: { isError: true, content: [{ type: 'text', text: `unknown tool ${use.name}` }] };
 				const out = (r.content ?? []).map((c: any) => c.text ?? '').join('');
 				results.push({ type: 'tool_result', tool_use_id: use.id, content: out, is_error: !!r.isError });
 				send('step', stepOf(use.name, use.input, out, !!r.isError));
 			}
 			chat.messages.push({ role: 'user', content: results });
-			await saveChat(cfg, creator, chatId, chat);
+			await saveChat(cfg, person, chatId, chat);
 		}
 	} catch (error) {
 		const message =
@@ -386,9 +481,9 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 		send('error', { message });
 		console.error('ask:', error);
 	} finally {
-		await client.close().catch(() => {});
-		await mcp.close().catch(() => {});
-		await saveChat(cfg, creator, chatId, chat);
+		for (const client of clients) await client.close().catch(() => {});
+		for (const mcp of servers) await mcp.close().catch(() => {});
+		await saveChat(cfg, person, chatId, chat);
 	}
 	if (!closed) {
 		send('done', { usage: { ...total, cost: Number(total.cost.toFixed(4)) } });

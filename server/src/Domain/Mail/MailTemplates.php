@@ -15,9 +15,9 @@ use InvalidArgumentException;
  *   vars         name → type: string | url | int | bool | ?string (optional, null) – `{name}` in the texts; bool and
  *                ?string may be left out, the rest is required (InvalidArgumentException otherwise)
  *   sample       values for the admin preview (every var)
- *   blocks       the body in order: ['p', key] a paragraph · ['button', key, 'url' => var] a link button (the text part
- *                prints the URL) · ['code', key, 'value' => var] a label + a big code; `'if' => var` = only when that
- *                var is true / not null / not ''
+ *   blocks       the body in order: ['p', key] a paragraph · ['lines', key] a paragraph whose line breaks stay (lists)
+ *                · ['button', key, 'url' => var] a link button (the text part prints the URL) · ['code', key, 'value' =>
+ *                var] a label + a big code; `'if' => var` = only when that var is true / not null / not ''
  *   fineprint    keys of the small print under the body (joined by a line break)
  * Texts (subject + every key, de and en): templates/mail/texts.php → [locale][id][key]. HTML frame: layout.html.php.
  *
@@ -27,6 +27,8 @@ use InvalidArgumentException;
  * ownership_claim_admin, ownership_claim_rejected, ownership_transferred_from, ownership_transferred_to, gift_received.
  * Review before publish (Domain\Content\Reviews, audience creator): review_requested (reviewers), review_published,
  * review_returned (the author) – one mail per person per submit / decision, listing every file.
+ * Embassy (Domain\Embassy\EmbassyReminders, audience embassy): embassy_portion – a team member's own reminder (weekly
+ * or daily) of their portion; never to a contact.
  * Planned (not registered until it is sent – same pattern):
  *   ownership_transfer_offer   the owner sends a code to another person's email
  */
@@ -43,6 +45,7 @@ final class MailTemplates
     public const REVIEW_REQUESTED = 'review_requested';
     public const REVIEW_PUBLISHED = 'review_published';
     public const REVIEW_RETURNED = 'review_returned';
+    public const EMBASSY_PORTION = 'embassy_portion';
 
     public const LOCALES = ['de', 'en'];
     public const DEFAULT_LOCALE = 'en';
@@ -191,6 +194,25 @@ final class MailTemplates
                 ['button', 'button', 'url' => 'url'],
             ],
             'fineprint' => [],
+        ],
+        self::EMBASSY_PORTION => [
+            'audience' => 'embassy',
+            'description' => 'Embassy reminder (cron GET /api/embassy/cron, weekly on Monday or daily Mon–Fri as the person chose): to a team member – their portion of contacts, never to a contact',
+            'vars' => ['done' => 'int', 'pace' => 'int', 'items' => '?string', 'more' => '?string', 'daily' => 'bool', 'weekly' => 'bool', 'checkin' => 'bool', 'url' => 'url'],
+            'sample' => ['done' => 3, 'pace' => 10, 'items' => "• Rote Fabrik · Lea – mail 6 days ago, no answer yet (“Top Toy in Zürich”)
+• Dachstock – voicemail 3 days ago – try again
+• Openground – no contact yet – first mail",
+                'more' => '4', 'daily' => false, 'weekly' => true, 'checkin' => true, 'url' => 'https://embassy.scutoons.com/'],
+            'blocks' => [
+                ['p', 'intro'],
+                ['p', 'week', 'if' => 'weekly'],
+                ['p', 'today', 'if' => 'daily'],
+                ['lines', 'items', 'if' => 'items'],
+                ['p', 'more', 'if' => 'more'],
+                ['p', 'checkin', 'if' => 'checkin'],
+                ['button', 'button', 'url' => 'url'],
+            ],
+            'fineprint' => ['change'],
         ],
     ];
 

@@ -10,6 +10,7 @@ use Scutoons\Domain\Roles\Roles;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Ids;
+use Throwable;
 
 /**
  * Embassy (embassy.scutoons.com, agents/EMBASSY.md): the partner network. Organisations (venues, festivals, radios,
@@ -23,6 +24,10 @@ use Scutoons\Support\Ids;
  * Stores (agents/EMBASSY.md "Stores"): an organisation of a STOCKIST_TYPES type (`store`, `record_shop`) can carry
  * SCUTOONS products (`carries` = product ids of config/products.json) and be `listed` on the public "Where to buy" page
  * (Stockists, GET /api/stockists/) with `independent`, `address`, `opening` – the other fields stay internal.
+ *
+ * Mail (agents/EMBASSY.md "Automation"): EmbassyMail sends a person's mail and logs it here as `mail_out`, EmbassyInbox
+ * logs matched replies as `mail_in` (logMail(): subject, addresses, Message-ID – migration 2026-10-04-ask-embassy-mail;
+ * before it the activity is logged without them).
  */
 final class Embassy
 {
@@ -42,6 +47,8 @@ final class Embassy
      */
     public const STOCKIST_TYPES = ['store', 'record_shop'];
     public const KINDS = ['mail_out', 'mail_in', 'call', 'dm', 'meeting', 'note'];
+    /** "answered before, quiet now": days without any entry (list filter `quiet`) */
+    public const QUIET_DAYS = 90;
     public const OUTCOMES = ['reached', 'voicemail', 'no_answer', 'call_back', 'declined'];
     public const TIERS = ['A', 'B', 'C'];
 
@@ -54,6 +61,8 @@ final class Embassy
         'address' => 255, 'opening' => 255];
     private const PERSON_TEXT = ['name' => 255, 'role' => 255, 'email' => 255, 'phone' => 64, 'link' => 1024, 'language' => 16, 'notes' => 20000];
     private const MAX_IMPORT = 2000;
+    /** The mail columns of embassy_activities exist (migration 2026-10-04-ask-embassy-mail) – null = not checked yet */
+    private ?bool $mailColumns = null;
 
     public function __construct(
         private readonly Database $db,
@@ -111,7 +120,7 @@ final class Embassy
 
     /**
      * @param array<string, mixed> $filters q, type, country, track, stage, tier, owner (me | none | user id), due (1),
-     *                                      sort (name | next), limit, offset
+     *                                      quiet (days, "1" = QUIET_DAYS), sort (name | next), limit, offset
      * @param array<string, mixed> $user
      * @return array{items: list<array<string, mixed>>, total: int}
      */
@@ -149,6 +158,14 @@ final class Embassy
         if (($filters['due'] ?? '') === '1' || ($filters['due'] ?? null) === true) {
             $leadWhere[] = 'l.next_at IS NOT NULL AND l.next_at <= ?';
             $leadParams[] = $this->todayDate();
+        }
+        // "answered before, quiet now" (quietCondition()), not opted out
+        $quiet = (string) ($filters['quiet'] ?? '');
+        if ($quiet !== '' && $quiet !== '0') {
+            [$sql, $quietParams] = $this->quietCondition($quiet === '1' || $quiet === 'true' ? self::QUIET_DAYS : max(1, min(3650, (int) $quiet)));
+            $leadWhere[] = $sql;
+            array_push($leadParams, ...$quietParams);
+            $where[] = 'o.do_not_contact = 0';
         }
         if ($leadWhere) {
             $where[] = 'EXISTS (SELECT 1 FROM embassy_leads l WHERE l.org_id = o.id AND ' . implode(' AND ', $leadWhere) . ')';
@@ -309,7 +326,77 @@ final class Embassy
      */
     public function log(string $orgId, array $data, array $user): array
     {
+        return $this->write($orgId, $data, $user, []);
+    }
+
+    /**
+     * Logs a mail (kind mail_out / mail_in) like log(), with its mail fields. $user null = the inbox sync (no access
+     * check, nobody becomes the owner, a missing lead is not created). Without the migration the mail fields are dropped.
+     * @param array<string, mixed> $data kind, track?, person_id?, note?, stage?, next_at?
+     * @param array<string, mixed>|null $user
+     * @param array{subject?: ?string, mail_from?: ?string, mail_to?: ?string, message_id?: ?string, in_reply_to?: ?string, at?: string, by_email?: string} $mail
+     * @return array{activity: array<string, mixed>, lead: array<string, mixed>|null}
+     */
+    public function logMail(string $orgId, array $data, ?array $user, array $mail): array
+    {
+        return $this->write($orgId, $data, $user, $mail);
+    }
+
+    /** Whether embassy_activities has the mail columns (migration 2026-10-04-ask-embassy-mail) */
+    public function hasMailColumns(): bool
+    {
+        if ($this->mailColumns === null) {
+            try {
+                $this->db->value('SELECT subject, mail_from, mail_to, message_id, in_reply_to FROM embassy_activities WHERE 1 = 0');
+                $this->mailColumns = true;
+            } catch (Throwable) {
+                $this->mailColumns = false;
+            }
+        }
+        return $this->mailColumns;
+    }
+
+    /**
+     * Checks before a mail goes out what log() would refuse afterwards: a known track, and a liaison works only their
+     * own or unowned leads (403 not_your_lead)
+     * @param array<string, mixed> $user
+     */
+    public function assertMayLog(string $orgId, ?string $track, array $user): void
+    {
         $this->access($user);
+        if ($track === null) return;
+        if (!in_array($track, self::TRACKS, true)) throw $this->invalid('track', self::TRACKS);
+        $lead = $this->db->one('SELECT * FROM embassy_leads WHERE org_id = ? AND track = ?', [$orgId, $track]);
+        if ($lead !== null) $this->assertMayWork($lead, $user);
+    }
+
+    /** Opt-out ("stop" reply): do-not-contact on the person, or on the organisation when there is no person */
+    public function optOut(string $orgId, ?string $personId): void
+    {
+        if ($personId !== null) {
+            $this->db->run('UPDATE embassy_people SET do_not_contact = 1, updated_at = ? WHERE id = ? AND org_id = ?', [$this->clock->utc(), $personId, $orgId]);
+        } else {
+            $this->db->run('UPDATE embassy_orgs SET do_not_contact = 1 WHERE id = ?', [$orgId]);
+        }
+        $this->touch($orgId);
+    }
+
+    /** @return array<string, mixed>|null one activity row (with its lead's track) */
+    public function activityRow(string $id): ?array
+    {
+        return $this->db->one('SELECT a.*, l.track FROM embassy_activities a LEFT JOIN embassy_leads l ON l.id = a.lead_id WHERE a.id = ?', [$id]);
+    }
+
+    /**
+     * log() / logMail()
+     * @param array<string, mixed> $data
+     * @param array<string, mixed>|null $user
+     * @param array<string, mixed> $mail
+     * @return array{activity: array<string, mixed>, lead: array<string, mixed>|null}
+     */
+    private function write(string $orgId, array $data, ?array $user, array $mail): array
+    {
+        if ($user !== null) $this->access($user);
         $this->get($orgId);
         $kind = (string) ($data['kind'] ?? '');
         if (!in_array($kind, self::KINDS, true)) throw $this->invalid('kind', self::KINDS);
@@ -327,30 +414,41 @@ final class Embassy
         $note = mb_substr(trim((string) ($data['note'] ?? '')), 0, 20000);
         $track = isset($data['track']) && $data['track'] !== '' ? (string) $data['track'] : null;
 
-        $result = $this->db->transaction(function () use ($orgId, $kind, $outcome, $personId, $explicitNext, $note, $track, $data, $user): array {
+        $result = $this->db->transaction(function () use ($orgId, $kind, $outcome, $personId, $explicitNext, $note, $track, $data, $user, $mail): array {
             $leadId = null;
-            if ($track !== null) {
-                $existing = $this->db->one('SELECT * FROM embassy_leads WHERE org_id = ? AND track = ?', [$orgId, $track]);
-                $leadId = $existing !== null ? (string) $existing['id'] : $this->writeLead($orgId, ['track' => $track], $user);
+            $existing = $track !== null ? $this->db->one('SELECT * FROM embassy_leads WHERE org_id = ? AND track = ?', [$orgId, $track]) : null;
+            // the inbox sync (no user) never creates a lead
+            if ($track !== null && ($existing !== null || $user !== null)) {
+                $leadId = $existing !== null ? (string) $existing['id'] : $this->writeLead($orgId, ['track' => $track], $user ?? []);
                 $lead = $this->db->one('SELECT * FROM embassy_leads WHERE id = ?', [$leadId]) ?? [];
-                $this->assertMayWork($lead, $user);
+                if ($user !== null) $this->assertMayWork($lead, $user);
                 [$stage, $next] = $this->cadence((string) $lead['stage'], $kind, $outcome, $lead['next_at'] !== null ? (string) $lead['next_at'] : null);
                 if (isset($data['stage']) && $data['stage'] !== '') $stage = $this->stage($data['stage']);
                 if ($explicitNext !== false) $next = $explicitNext;
                 $contact = in_array($kind, ['mail_out', 'mail_in', 'dm', 'meeting'], true) || ($kind === 'call' && $outcome !== 'no_answer');
                 // whoever works an unowned lead takes it (it shows up on their Today list from now on)
                 $owner = $lead['owner_id'] ?? null;
-                if ($owner === null && $kind !== 'note') $owner = (string) $user['id'];
+                if ($owner === null && $kind !== 'note' && $user !== null) $owner = (string) $user['id'];
                 $this->db->run('UPDATE embassy_leads SET stage = ?, next_at = ?, owner_id = ?, last_contact_at = ' . ($contact ? '?' : 'last_contact_at') . ', updated_at = ? WHERE id = ?',
                     $contact ? [$stage, $next, $owner, $this->clock->utc(), $this->clock->utc(), $leadId] : [$stage, $next, $owner, $this->clock->utc(), $leadId]);
             }
-            $id = Ids::uuid7();
-            $this->db->run('INSERT INTO embassy_activities (id, org_id, lead_id, person_id, kind, outcome, note, by_user_id, by_email, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [$id, $orgId, $leadId, $personId, $kind, $outcome, $note, (string) $user['id'], (string) ($user['email'] ?? ''), $this->clock->utc()]);
-            return [$id, $leadId];
+            $row = [
+                'id' => Ids::uuid7(), 'org_id' => $orgId, 'lead_id' => $leadId, 'person_id' => $personId, 'kind' => $kind, 'outcome' => $outcome, 'note' => $note,
+                'by_user_id' => $user !== null ? (string) $user['id'] : null,
+                'by_email' => $user !== null ? (string) ($user['email'] ?? '') : mb_substr((string) ($mail['by_email'] ?? ''), 0, 255),
+                'at' => (string) ($mail['at'] ?? $this->clock->utc()),
+            ];
+            if ($mail && $this->hasMailColumns()) {
+                foreach (['subject' => 300, 'mail_from' => 254, 'mail_to' => 254, 'message_id' => 255, 'in_reply_to' => 255] as $key => $max) {
+                    $value = isset($mail[$key]) && $mail[$key] !== '' ? mb_substr((string) $mail[$key], 0, $max) : null;
+                    if ($value !== null) $row[$key] = $value;
+                }
+            }
+            $this->db->run('INSERT INTO embassy_activities (' . implode(', ', array_keys($row)) . ') VALUES (' . implode(', ', array_fill(0, count($row), '?')) . ')', array_values($row));
+            return [$row['id'], $leadId];
         });
         $this->touch($orgId);
-        $activity = $this->db->one('SELECT a.*, l.track FROM embassy_activities a LEFT JOIN embassy_leads l ON l.id = a.lead_id WHERE a.id = ?', [$result[0]]) ?? [];
+        $activity = $this->activityRow($result[0]) ?? [];
         return ['activity' => $this->activity($activity), 'lead' => $result[1] !== null ? $this->lead($result[1]) : null];
     }
 
@@ -373,16 +471,42 @@ final class Embassy
             WHERE l.next_at IS NOT NULL AND l.next_at <= ? AND o.do_not_contact = 0$ownerSql ORDER BY l.next_at, o.name_key LIMIT 300", [$today, ...$params]);
         $due = [];
         foreach ($rows as $row) {
-            $lead = $this->lead((string) $row['id']);
-            $org = $this->org($this->db->one('SELECT * FROM embassy_orgs WHERE id = ?', [$lead['org_id']]) ?? []);
-            $people = array_map(fn(array $p) => $this->person($p),
-                $this->db->all('SELECT * FROM embassy_people WHERE org_id = ? AND do_not_contact = 0 ORDER BY created_at, name', [$lead['org_id']]));
-            $last = $this->db->one("SELECT a.*, l.track FROM embassy_activities a LEFT JOIN embassy_leads l ON l.id = a.lead_id WHERE a.lead_id = ? ORDER BY a.at DESC, a.id DESC LIMIT 1", [$lead['id']]);
-            $due[] = ['lead' => $lead, 'org' => $org, 'people' => $people, 'last_activity' => $last !== null ? $this->activity($last) : null,
-                'overdue_days' => (int) (new DateTimeImmutable($today))->diff(new DateTimeImmutable((string) $lead['next_at']))->days];
+            $item = $this->item((string) $row['id']);
+            $due[] = $item + ['overdue_days' => (int) (new DateTimeImmutable($today))->diff(new DateTimeImmutable((string) $item['lead']['next_at']))->days];
         }
         $unscheduled = (int) $this->db->value("SELECT COUNT(*) FROM embassy_leads l WHERE l.next_at IS NULL AND l.stage IN ('research', 'ready')$ownerSql", $params);
         return ['today' => $today, 'due' => $due, 'unscheduled' => $unscheduled];
+    }
+
+    /**
+     * One lead as a work item (the Today list, the weekly portion – EmbassyPace): the lead, its organisation, the
+     * people that may be contacted and the lead's last activity
+     * @return array{lead: array<string, mixed>, org: array<string, mixed>, people: list<array<string, mixed>>, last_activity: array<string, mixed>|null}
+     */
+    public function item(string $leadId): array
+    {
+        $lead = $this->lead($leadId);
+        $org = $this->org($this->db->one('SELECT * FROM embassy_orgs WHERE id = ?', [$lead['org_id']]) ?? []);
+        $people = array_map(fn(array $p) => $this->person($p),
+            $this->db->all('SELECT * FROM embassy_people WHERE org_id = ? AND do_not_contact = 0 ORDER BY created_at, name', [$lead['org_id']]));
+        $last = $this->db->one('SELECT a.*, l.track FROM embassy_activities a LEFT JOIN embassy_leads l ON l.id = a.lead_id WHERE a.lead_id = ? ORDER BY a.at DESC, a.id DESC LIMIT 1', [$leadId]);
+        return ['lead' => $lead, 'org' => $org, 'people' => $people, 'last_activity' => $last !== null ? $this->activity($last) : null];
+    }
+
+    /**
+     * "Answered before, quiet now" (owner 2026-10-04: keep track of dormant contacts that were responsive in the past) as
+     * a condition on the lead `l`: the lead (or the organisation, for entries without a track) had a reply, a meeting or
+     * a reached call, nothing happened for $days days and no date is ahead – the people worth a call again. Not: "no".
+     * (The organisation's do-not-contact is the caller's part.) List filter `quiet`, the weekly portion's `quiet` group.
+     * @return array{0: string, 1: list<string>} SQL + its parameters
+     */
+    public function quietCondition(int $days): array
+    {
+        $mine = '(a.lead_id = l.id OR (a.lead_id IS NULL AND a.org_id = l.org_id))';
+        return ["l.stage <> 'no' AND (l.next_at IS NULL OR l.next_at <= ?)"
+            . " AND EXISTS (SELECT 1 FROM embassy_activities a WHERE $mine AND (a.kind IN ('mail_in', 'meeting') OR (a.kind = 'call' AND a.outcome = 'reached')))"
+            . " AND NOT EXISTS (SELECT 1 FROM embassy_activities a WHERE $mine AND a.at >= ?)",
+            [$this->todayDate(), $this->clock->utc(-$days * 86400)]];
     }
 
     // ── Import ────────────────────────────────────────────────────────────────────────────────────────────
@@ -453,7 +577,8 @@ final class Embassy
 
     // ── Internals ─────────────────────────────────────────────────────────────────────────────────────────
 
-    private function todayDate(): string
+    /** Today's date in the API's time zone (YYYY-MM-DD) – next_at dates are local dates */
+    public function todayDate(): string
     {
         return substr($this->clock->local(), 0, 10);
     }
@@ -763,6 +888,9 @@ final class Embassy
             'track' => isset($r['track']) ? (string) $r['track'] : null, 'person_id' => $r['person_id'] !== null ? (string) $r['person_id'] : null,
             'kind' => (string) $r['kind'], 'outcome' => $r['outcome'] !== null ? (string) $r['outcome'] : null, 'note' => (string) $r['note'],
             'by_email' => (string) $r['by_email'], 'at' => (string) $r['at'],
+            // mails (migration 2026-10-04-ask-embassy-mail)
+            'subject' => isset($r['subject']) ? (string) $r['subject'] : null, 'mail_from' => isset($r['mail_from']) ? (string) $r['mail_from'] : null,
+            'mail_to' => isset($r['mail_to']) ? (string) $r['mail_to'] : null, 'message_id' => isset($r['message_id']) ? (string) $r['message_id'] : null,
         ];
     }
 

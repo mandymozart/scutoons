@@ -130,6 +130,9 @@ tables with today's data, history; folds and removes the settings `item_respawn`
 "Status"; safe in either order with the deploy: without the tables the API reads the files, read-only),
 `2026-10-04-agent-chats.mysql.sql` (the creator's Ask panel chat history; without it the panel works but keeps no history –
 `/api/agent-chats` answers 503), `2026-10-04-agent-usage.mysql.sql` (the Ask panel's usage log – one row per AI call,
-the admin's overview per creator and service; without it the Ask service keeps logging to its own file); then the content seed and the
+the admin's overview per creator and service; without it the Ask service keeps logging to its own file),
+`2026-10-04-ask-embassy-mail.mysql.sql` (after those two and the Embassy ones: `app` on agent chats / usage, the mail
+fields of `embassy_activities`, `embassy_mail_state` for the inbox sync; without it chats and usage are the creator's
+only, Embassy mails are sent and logged without subject / addresses, the inbox sync answers 503); then the content seed and the
 edition-number backfill above; review `report-orphan-codes` against a copy of the production DB (nothing is deleted
 automatically).

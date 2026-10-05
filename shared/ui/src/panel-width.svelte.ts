@@ -1,4 +1,4 @@
-import { resizable } from '@scutoons/ui';
+import { resizable } from './resizable.svelte.ts';
 
 /**
  * A right side panel's width that its left edge drags (owner 2026-10-03: "version history should also be draggable,

@@ -3,7 +3,7 @@
 #
 #   docker build -f tools/mcp/Dockerfile -t scutoons-ask .
 #   docker run --rm -p 8080:8080 -e ANTHROPIC_API_KEY=… -e SCUTOONS_API=https://api.scutoons.com/api \
-#     -e ASK_ORIGINS=https://creator.scutoons.com -e SCUTOONS_SERVICE_KEY=… scutoons-ask
+#     -e ASK_ORIGINS=https://creator.scutoons.com,https://embassy.scutoons.com,https://admin.scutoons.com -e SCUTOONS_SERVICE_KEY=… scutoons-ask
 #
 # Only what Dockerfile.dockerignore lets through is in the build context. Nothing is compiled: Node runs the TypeScript
 # sources with its type stripping, like in development.

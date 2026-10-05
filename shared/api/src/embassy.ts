@@ -95,6 +95,11 @@ export interface Activity {
 	by_email: string;
 	/** UTC `YYYY-MM-DD HH:MM:SS` */
 	at: string;
+	/** mails (sent from the app / read back from the inbox): subject, addresses, the Message-ID of the thread */
+	subject?: string | null;
+	mail_from?: string | null;
+	mail_to?: string | null;
+	message_id?: string | null;
 }
 
 export interface OrgSummary extends Org {
@@ -149,13 +154,92 @@ export interface LogInput {
 	next_at?: string | null;
 }
 
+/**
+ * A team member's own pace (owner 2026-10-05: liaisons work at their own pace): contacts per week and the reminder
+ * mail; `null` in `/embassy/me` = not onboarded yet. Every 4 weeks `checkin_due`: "is your pace right?"
+ */
+export interface EmbassyPace {
+	per_week: number;
+	reminder: PaceReminder;
+	onboarded_at: string;
+	/** the last check-in (or the onboarding) */
+	asked_at: string;
+	checkin_due: boolean;
+}
+export type PaceReminder = 'weekly' | 'daily' | 'off';
+export const PACE_REMINDERS: PaceReminder[] = ['weekly', 'daily', 'off'];
+export type CheckinAnswer = 'less' | 'fine' | 'more';
+
+/** Why an item is in the portion – the app writes it in its language */
+export interface PortionHint {
+	kind: string;
+	days?: number;
+	subject?: string;
+	date?: string;
+}
+
+export interface PortionItem extends DueItem {
+	group: 'due' | 'quiet' | 'first';
+	hint: PortionHint;
+}
+
+/** This week's portion of a team member: what fits their pace, in order due → quiet → first contacts */
+export interface Portion {
+	today: string;
+	week: { start: string; end: string; pace: number; done: number; left: number };
+	/** how many of `items` are today's slice (what was left this morning, spread over the working days left, minus today's) */
+	today_count: number;
+	/** contacts done today */
+	today_done: number;
+	items: PortionItem[];
+	/** what didn't fit this week */
+	more: { due: number; quiet: number; first: number };
+	/** leads they own */
+	owned: number;
+}
+
+export interface TeamPaceRow {
+	user: TeamMember;
+	pace: EmbassyPace | null;
+	owned: number;
+	/** the last 4 weeks, this one last */
+	weeks: { start: string; done: number }[];
+	last_checkin: { at: string; answer: CheckinAnswer; per_week_before: number; per_week_after: number } | null;
+}
+
+/** A mail a person sends from the app (`POST /embassy/orgs/{id}/mail`): one-to-one, the server adds the opt-out line */
+export interface MailInput {
+	/** the organisation's address or one of its people's */
+	to: string;
+	person_id?: string | null;
+	track?: Track | null;
+	subject: string;
+	text: string;
+	/** a mail activity of this organisation to answer (threading) */
+	reply_to_activity_id?: string | null;
+}
+
+/** The shared mailbox's inbox sync (IMAP): replies land in the log */
+export interface InboxState {
+	configured: boolean;
+	synced_at?: string | null;
+	error?: string | null;
+	matched?: number;
+	skipped?: number;
+	new_activities?: number;
+}
+
 const seg = encodeURIComponent;
 
 export type EmbassyApi = ReturnType<typeof createEmbassyApi>;
 
 export function createEmbassyApi(api: ApiClient) {
 	return {
-		me: () => api.get<{ access: EmbassyAccess; user: { id: string; email: string } }>('/embassy/me'),
+		me: () => api.get<{ access: EmbassyAccess; user: { id: string; email: string }; pace?: EmbassyPace | null }>('/embassy/me'),
+		setPace: (input: { per_week: number; reminder: PaceReminder }) => api.put<{ pace: EmbassyPace }>('/embassy/pace', input),
+		checkin: (answer: CheckinAnswer) => api.post<{ pace: EmbassyPace }>('/embassy/pace/checkin', { answer }),
+		portion: (owner: string = 'me') => api.get<Portion>(`/embassy/portion${toQuery({ owner })}`),
+		teamPace: () => api.get<{ items: TeamPaceRow[] }>('/embassy/team/pace'),
 		team: () => api.get<{ items: TeamMember[] }>('/embassy/team'),
 		today: (owner: string = 'me') => api.get<{ today: string; due: DueItem[]; unscheduled: number }>(`/embassy/today${toQuery({ owner })}`),
 		orgs: (params: ListParams = {}) => api.get<{ items: OrgSummary[]; total: number }>(`/embassy/orgs${toQuery(params)}`),
@@ -169,6 +253,9 @@ export function createEmbassyApi(api: ApiClient) {
 		setLead: (orgId: string, track: Track, input: { stage?: Stage; owner_id?: string | null; next_at?: string | null }) =>
 			api.put<{ lead: Lead }>(`/embassy/orgs/${seg(orgId)}/leads/${seg(track)}`, input),
 		log: (orgId: string, input: LogInput) => api.post<{ activity: Activity; lead: Lead | null }>(`/embassy/orgs/${seg(orgId)}/activities`, input),
+		sendMail: (orgId: string, input: MailInput) => api.post<{ activity: Activity; lead: Lead | null }>(`/embassy/orgs/${seg(orgId)}/mail`, input),
+		inbox: () => api.get<InboxState>('/embassy/inbox'),
+		syncInbox: (force = false) => api.post<InboxState>('/embassy/inbox/sync', force ? { force } : {}),
 		import: (organisations: OrgInput[], dryRun: boolean) =>
 			api.post<ImportReport>('/embassy/import', { organisations, dry_run: dryRun })
 	};

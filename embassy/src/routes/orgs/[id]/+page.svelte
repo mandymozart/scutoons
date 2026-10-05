@@ -23,6 +23,8 @@
 	import { dateTime, label, relativeDay, shortDate, telHref } from '$lib/labels.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import OrgForm from '$lib/components/org-form.svelte';
+	import MailDraft from '$lib/components/mail-draft.svelte';
+	import { askAboutPage, changed } from '$lib/ask-page.svelte.ts';
 	import { isStockist } from '@scutoons/api';
 	import type { Product } from '@scutoons/content';
 	import { loadProducts, productIcon } from '$lib/products.ts';
@@ -76,6 +78,30 @@
 	});
 	$effect(() => {
 		embassy.team().then((r) => (team = r.items), () => {});
+	});
+	// replies in the shared mailbox land in the log (IMAP; the API reads at most every 2 minutes): look on every visit
+	$effect(() => {
+		void id;
+		embassy.syncInbox().then((r) => void (r.new_activities && load()), () => {});
+	});
+	// the Ask panel knows which organisation is open; what it changes (a mail sent from its card, a logged call, a lead)
+	// shows right away
+	$effect(() => {
+		if (detail) return askAboutPage(detail.org.name, `organisation ${detail.org.id}`);
+	});
+	$effect(() => {
+		if (changed.count) load();
+	});
+
+	// "mail sent" in the log form = write it here and send it (MailDraft); `onlyLog` = it went out elsewhere, log it
+	let onlyLog = $state(false);
+	let mails = $state(0);
+	const writing = $derived(kind === 'mail_out' && !onlyLog);
+	const recipients = $derived.by(() => {
+		if (!detail || detail.org.do_not_contact) return [];
+		const out: { email: string; person_id: string | null; label: string }[] = detail.org.email ? [{ email: detail.org.email, person_id: null, label: `${detail.org.name} <${detail.org.email}>` }] : [];
+		for (const p of detail.people) if (p.email && !p.do_not_contact) out.push({ email: p.email, person_id: p.id, label: p.name ? `${p.name} <${p.email}>` : p.email });
+		return out;
 	});
 
 	async function save(input: OrgInput) {
@@ -295,6 +321,9 @@
 				{#each ACTIVITY_KINDS as k (k)}<option value={k}>{label('kind', k)}</option>{/each}
 			</select>
 		</label>
+		{#if kind === 'mail_out'}
+			<label class="check wide"><input type="checkbox" bind:checked={onlyLog} /> {m['mail.only_log']()}</label>
+		{/if}
 		{#if kind === 'call'}
 			<label class="field">
 				<span>{m['org.outcome']()}</span>
@@ -310,6 +339,7 @@
 				{#each TRACKS as t (t)}<option value={t}>{label('track', t)}</option>{/each}
 			</select>
 		</label>
+		{#if !writing}
 		<label class="field">
 			<span>{m['org.person']()}</span>
 			<select bind:value={personId}>
@@ -326,7 +356,17 @@
 			<input type="date" bind:value={nextAt} required={kind === 'call' && outcome === 'call_back'} />
 		</label>
 		<div class="wide row"><Button type="submit" disabled={working}>{m['org.log']()}</Button></div>
+		{/if}
 	</form>
+	{#if writing}
+		{#if recipients.length}
+			{#key mails}
+				<MailDraft draft={{ org_id: id, to: recipients[0].email, track: track || null, subject: '', text: '' }} {recipients} onsent={() => (mails++, (kind = 'call'))} />
+			{/key}
+		{:else}
+			<p class="caption muted">{m['mail.no_recipient']()}</p>
+		{/if}
+	{/if}
 
 	<h2>{m['org.people']()}</h2>
 	<ul class="people">
@@ -374,6 +414,7 @@
 					{#if a.track}<span class="caption"> · {label('track', a.track)}</span>{/if}
 					{#if a.person_id}<span class="caption"> · {personName(a.person_id)}</span>{/if}
 				</span>
+				{#if a.subject}<span class="caption">{a.kind === 'mail_in' ? a.mail_from : a.mail_to} · {a.subject}</span>{/if}
 				{#if a.note}<span class="note">{a.note}</span>{/if}
 			</li>
 		{/each}
@@ -469,6 +510,8 @@
 		flex-direction: column;
 		gap: var(--space-025);
 		padding: var(--space-05) 0 var(--space-05) var(--space-1);
+		/* mail texts: long links wrap instead of widening the page */
+		overflow-wrap: anywhere;
 	}
 	.note {
 		white-space: pre-line;

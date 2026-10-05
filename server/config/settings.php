@@ -37,6 +37,10 @@ return [
     // may write the AI usage log (POST /api/agent-usage, docs/API.md "Agent usage"). Empty = not configured (503).
     // Same value as in the Ask service's environment. openssl rand -hex 32
     'AGENT_SERVICE_KEY' => '',
+    // Key of the Embassy cron URL (GET|POST /api/embassy/cron?key=… – inbox sync + reminder mails; the host's cron job
+    // calls it daily, docs/API.md "Embassy" → "Pace"). Also accepted as the HTTP Basic password. Empty = the URL answers
+    // 404 (off). openssl rand -hex 32
+    'EMBASSY_CRON_KEY' => '',
 
     // ── URLs ───────────────────────────────────────────────────────────────────────────────────────────
     // The qr app (magic links of login requests without an Origin; it forwards /?login= to the viewer) and the viewer
@@ -46,6 +50,8 @@ return [
     'ADMIN_URL' => 'https://admin.scutoons.com',
     // The creator app (links in the review mails, Domain\Content\Reviews)
     'CREATOR_URL' => 'https://creator.scutoons.com',
+    // The Embassy app (the Today link in the reminder mails, Domain\Embassy\EmbassyReminders). Local: http://localhost:13000
+    'EMBASSY_URL' => 'https://embassy.scutoons.com',
     // Item icons: <CDN_URL><icon path>. Local CDN: http://localhost:8001/
     'CDN_URL' => 'https://cdn.scutoons.com/',
     // Browser origins that may call the API with a Bearer token or the session cookie (comma separated): viewer, creator,
@@ -75,6 +81,26 @@ return [
     'SMTP_USER' => '',
     'SMTP_PASS' => '',
     'SMTP_TIMEOUT' => '15',
+
+    // ── Embassy mail (agents/EMBASSY.md "Communication strategy"; docs/API.md "Embassy" → "Mail" / "Inbox") ───
+    // People send one-to-one mails from the Embassy app (POST /api/embassy/orgs/{id}/mail) from this shared mailbox,
+    // through MAIL_TRANSPORT and the SMTP server in SMTP_HOST / _PORT / _SECURE; Reply-To is the same address. The
+    // name shows as the sender ("Top Toy · SCUTOONS").
+    'EMBASSY_MAIL_FROM' => 'hello@scutoons.com',
+    'EMBASSY_MAIL_FROM_NAME' => 'Top Toy · SCUTOONS',
+    // The SMTP account of that mailbox; empty = SMTP_USER / SMTP_PASS
+    'EMBASSY_SMTP_USER' => '',
+    'EMBASSY_SMTP_PASS' => '',
+    // The inbox sync (POST /api/embassy/inbox/sync, bin/console embassy:inbox): replies are read back by IMAP (implicit
+    // TLS) and logged on the organisation they answer. Empty host = no sync. User / password empty = the Embassy's SMTP
+    // account. FOLDER = where replies arrive; SENT = a folder that gets a copy of every mail sent from the app (e.g.
+    // "Sent", so the shared mailbox shows it too); empty = no copy.
+    'EMBASSY_IMAP_HOST' => '',
+    'EMBASSY_IMAP_PORT' => '993',
+    'EMBASSY_IMAP_USER' => '',
+    'EMBASSY_IMAP_PASS' => '',
+    'EMBASSY_IMAP_FOLDER' => 'INBOX',
+    'EMBASSY_IMAP_SENT' => '',
 
     // ── Limits ─────────────────────────────────────────────────────────────────────────────────────────
     // GET/POST /access/ + /code/ lookups per IP and hour (every attempt counts – against code enumeration); 0 = no limit.

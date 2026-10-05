@@ -11,7 +11,7 @@ use Scutoons\Infrastructure\Templates\Templates;
  * parts always say the same. Texts from templates/mail/texts.php ({var} placeholders filled), HTML frame
  * templates/mail/layout.html.php. Pure – sends nothing (the admin preview uses it with the sample vars).
  *
- * Plain text: each block + a blank line (p = the text, button = the URL, code = the label, a blank line, the code
+ * Plain text: each block + a blank line (p / lines = the text, button = the URL, code = the label, a blank line, the code
  * indented by four spaces), then the fine print lines and the signature ("– SCUTOONS").
  */
 final class MailRenderer
@@ -52,6 +52,12 @@ final class MailRenderer
                 case 'p':
                     $blocks[] = ['type' => 'p', 'text' => $t($key)];
                     $text .= $t($key) . "\n\n";
+                    break;
+                case 'lines':
+                    $blocks[] = ['type' => 'lines', 'text' => $t($key)];
+                    $text .= $t($key) . "
+
+";
                     break;
                 case 'button':
                     $url = (string) $vars[$block['url']];
