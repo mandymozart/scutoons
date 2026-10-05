@@ -7,6 +7,7 @@ use Scutoons\Domain\ApiError;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
+use Scutoons\Infrastructure\Mail\Imap;
 use Scutoons\Infrastructure\Mail\Mailbox;
 use Scutoons\Infrastructure\Mail\MimeMessage;
 use Scutoons\Support\Time;
@@ -50,7 +51,7 @@ final class EmbassyInbox
 
     public function configured(): bool
     {
-        return $this->settings->get('EMBASSY_IMAP_HOST') !== '';
+        return Imap::host($this->settings) !== '';
     }
 
     /** @return array{configured: bool, synced_at: ?string, error: ?string} */

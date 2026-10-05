@@ -347,7 +347,8 @@ Code: `Domain\Embassy\EmbassyMail`.
 
 ### Inbox (2026-10-04, migration `2026-10-04-ask-embassy-mail`)
 
-Replies are read back by IMAP from `EMBASSY_IMAP_FOLDER` (`INBOX`) of `EMBASSY_IMAP_HOST` (`Domain\Embassy\EmbassyInbox`,
+Replies are read back by IMAP from the INBOX of the hello@ mailbox – the same login (`EMBASSY_SMTP_USER` / `_PASS`) on the
+same server (`SMTP_HOST`); `EMBASSY_IMAP_*` only override that for an unusual mailbox (`Domain\Embassy\EmbassyInbox`,
 `Infrastructure\Mail\Imap` – no ext-imap needed; `bin/console embassy:inbox` for a cron job). Where it stopped is kept
 per folder in `embassy_mail_state` (UIDVALIDITY + last UID; a new UIDVALIDITY starts over, already logged mails are
 not logged twice). The first run reads the last 30 days; at most 200 mails per run.

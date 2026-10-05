@@ -10,7 +10,7 @@ use Scutoons\Infrastructure\Config\Settings;
  * Minimal IMAP4rev1 client (RFC 3501) over stream_socket_client – the host has no ext-imap. Implicit TLS (port 993;
  * port 143 = plain, local test servers only), LOGIN (quoted strings, literals for anything else), EXAMINE (= a read-only
  * SELECT), UID SEARCH, UID FETCH BODY.PEEK[] (partial, never marks a mail as read), APPEND, LOGOUT. Settings:
- * EMBASSY_IMAP_HOST, EMBASSY_IMAP_PORT, EMBASSY_IMAP_USER / _PASS (empty = EMBASSY_SMTP_USER / _PASS, then SMTP_USER /
+ * EMBASSY_IMAP_HOST (empty = SMTP_HOST, see host()), EMBASSY_IMAP_PORT, EMBASSY_IMAP_USER / _PASS (empty = EMBASSY_SMTP_USER / _PASS, then SMTP_USER /
  * _PASS), SMTP_TIMEOUT (seconds per read).
  */
 final class Imap implements Mailbox
@@ -25,8 +25,8 @@ final class Imap implements Mailbox
 
     public function open(): void
     {
-        $host = $this->settings->get('EMBASSY_IMAP_HOST');
-        if ($host === '') throw new RuntimeException('EMBASSY_IMAP_HOST is not set');
+        $host = self::host($this->settings);
+        if ($host === '') throw new RuntimeException('EMBASSY_IMAP_HOST is not set (and no Embassy mailbox login for SMTP_HOST)');
         $port = $this->settings->int('EMBASSY_IMAP_PORT') ?: 993;
         $timeout = max(5, $this->settings->int('SMTP_TIMEOUT'));
         $address = ($port === 143 ? 'tcp://' : 'ssl://') . "$host:$port";
@@ -93,6 +93,19 @@ final class Imap implements Mailbox
         }
         @fclose($this->socket);
         $this->socket = null;
+    }
+
+    /**
+     * The IMAP server: EMBASSY_IMAP_HOST, else SMTP_HOST (owner 2026-10-05: the same all-inkl server as the no-reply
+     * mail) – but only with an Embassy mailbox login (EMBASSY_IMAP_USER / EMBASSY_SMTP_USER), so the sync never reads
+     * the no-reply mailbox. '' = no inbox sync.
+     */
+    public static function host(Settings $settings): string
+    {
+        $host = $settings->get('EMBASSY_IMAP_HOST');
+        if ($host !== '') return $host;
+        $account = $settings->get('EMBASSY_IMAP_USER') !== '' || $settings->get('EMBASSY_SMTP_USER') !== '';
+        return $account ? $settings->get('SMTP_HOST') : '';
     }
 
     /**

@@ -26,7 +26,7 @@ final class EmbassyCronCommand extends Command
     {
         $result = $this->reminders->cron();
         $inbox = $result['inbox'];
-        $output->writeln($inbox === null ? 'Inbox: not configured (EMBASSY_IMAP_HOST is empty).'
+        $output->writeln($inbox === null ? 'Inbox: not configured (no EMBASSY_IMAP_HOST, and no Embassy mailbox login for SMTP_HOST).'
             : sprintf('Inbox: %d matched, %d skipped, %d new activities.', $inbox['matched'] ?? 0, $inbox['skipped'] ?? 0, $inbox['new_activities'] ?? 0));
         $reminders = $result['reminders'];
         $output->writeln($reminders === null ? 'Reminders: not available (migration 2026-10-05-embassy-pace).'

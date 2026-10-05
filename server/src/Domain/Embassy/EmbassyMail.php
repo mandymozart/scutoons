@@ -6,6 +6,7 @@ namespace Scutoons\Domain\Embassy;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Mail\MailLog;
 use Scutoons\Infrastructure\Config\Settings;
+use Scutoons\Infrastructure\Mail\Imap;
 use Scutoons\Infrastructure\Mail\Mailbox;
 use Scutoons\Infrastructure\Mail\Transport;
 use Scutoons\Support\Ids;
@@ -169,7 +170,7 @@ final class EmbassyMail
     private function copyToSent(string $raw): void
     {
         $folder = $this->settings->get('EMBASSY_IMAP_SENT');
-        if ($folder === '' || $this->settings->get('EMBASSY_IMAP_HOST') === '') return;
+        if ($folder === '' || Imap::host($this->settings) === '') return;
         try {
             $this->mailbox->open();
             $this->mailbox->append($folder, $raw);

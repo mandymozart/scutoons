@@ -32,7 +32,7 @@ final class EmbassyInboxCommand extends Command
             return self::FAILURE;
         }
         if (!$result['configured']) {
-            $output->writeln('Not configured (EMBASSY_IMAP_HOST is empty) – nothing to do.');
+            $output->writeln('Not configured (no EMBASSY_IMAP_HOST, and no Embassy mailbox login for SMTP_HOST) – nothing to do.');
             return self::SUCCESS;
         }
         $output->writeln(sprintf('Embassy inbox: %d matched, %d skipped, %d new activities.', $result['matched'] ?? 0, $result['skipped'] ?? 0, $result['new_activities'] ?? 0));
