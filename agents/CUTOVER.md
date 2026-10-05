@@ -389,7 +389,9 @@ or is **published** now (everyone on scutoons.com sees it a week before the publ
 
 ---
 
-## Phase 9 — Beta go (Sunday 2026-10-04)
+## ~~Phase 9 — Beta go (Sunday 2026-10-04)~~ – scratched (owner 2026-10-05)
+
+No beta phase: the list below stays for reference only; open items go to Phase 10.
 
 Decide before: **D9** (chapter 2) · **D11** testers (who, how many) and their codes: promo codes from admin → Codes →
 New (type promo) or a batch · **D12** where testers report problems · **D13** confirm the ownership defaults: dispute
@@ -426,7 +428,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   then prune (ASSETS.md "Migration plan").
 - [ ] 10.5 *(test hosts + T1's origin removed 2026-10-05)* Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
   no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
-- [ ] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04).
+- [x] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04). *(done, owner 2026-10-05)*
 - [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
 - [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions
   `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
@@ -723,3 +725,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-04 — repo `cdn/` removed (branch media-folder): media/ + scripts/dev/media-serve.mjs, logs → logs/cutover/.
 - 2026-10-05 — Phase 8 switched at night: scutoons.com/www + qr.scutoons.com on `/web/`; qr-legacy dropped, legacy./next./qr-next. deleted (old folders stay). targets.json status + ALLOWED_ORIGINS updated. Next: 8.5 late-delta check (30 min after 8.2 and the next day), then Phase 9.
 - 2026-10-05 — 8.5 passed (owner) → Phase 8 complete. Catalog migration confirmed run on production (11 tables, settings item_respawn / featured_products gone). Next: Phase 9.
+- 2026-10-05 — Phase 9 (beta) scratched (owner); 10.6 Embassy go-live done (owner). Ask + Embassy mail + pace merged into `platform` (ask-shared, ask-live); migrations 2026-10-04-ask-embassy-mail + 2026-10-05-embassy-pace run on production, Embassy cron job set up (owner).

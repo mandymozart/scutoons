@@ -9,8 +9,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   what is live. Docs: deploy/README.md.
 - Production runs the NEW platform on the real hosts since 2026-10-05: scutoons.com/www (viewer), qr., api., creator.,
   admin., shop. (all under `/web/`). Test hosts next./qr-next. and legacy. are deleted; old folders stay as rollback
-  (CUTOVER 8.x). 8.5 late-delta check passed – Phase 8 complete; next: Phase 9.
-  Beta (Phase 9) is internal; public release ~a week later.
+  (CUTOVER 8.x). 8.5 late-delta check passed – Phase 8 complete. Phase 9 (beta) scratched (owner 2026-10-05); next:
+  Phase 10. Embassy is live (10.6, embassy.scutoons.com).
 - Content lives in the production DB (entity_versions), edited in the creator. `shared/content/seed` is only a starter
   set for empty/local DBs (CUTOVER 10.15). Creator-only kinds (script) were not in the production seed – the script was
   added with `shared/content/seed/2026-10-03-script.mysql.sql`.
