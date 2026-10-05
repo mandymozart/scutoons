@@ -368,16 +368,16 @@ alternative is T4).
 Decide before: **D9** the beta runs on the public domains – chapter 2 stays **draft** (only creators/admins read it)
 or is **published** now (everyone on scutoons.com sees it a week before the public release)? · **D10** a quiet hour.
 
-- [ ] **8.1 O – Keep the old system reachable first:** new subdomains `legacy.scutoons.com` → the old viewer folder,
+- [x] **8.1 O – Keep the old system reachable first:** *(done; owner 2026-10-05: qr-legacy dropped – never got SSL, not needed; legacy. and the test hosts next. / qr-next. deleted after the switch. The old folders `/scutoons.com/` + `/qr.scutoons.com/` stay on disk = rollback until 10.7)* new subdomains `legacy.scutoons.com` → the old viewer folder,
   `qr-legacy.scutoons.com` → the old qr folder (SSL each). Verify both load. (The old viewer's API calls go to
   qr.scutoons.com – after 8.2 that is the new system; its sign-in features may fail on CORS – expected.)
-- [ ] **8.2 O – qr.scutoons.com → `/web/qr/public/`** (SSL stays; re-issue if KAS asks). Repeat 6.2 on
+- [x] **8.2 O – qr.scutoons.com → `/web/qr/public/`** *(done 2026-10-05 night: version.json = qr 82c325d, /verify.html 200, http→https, /api/health db ok, CORS for scutoons.com; owner tested. Set its PHP 8.4 → 8.5 like the other /web/ hosts)* (SSL stays; re-issue if KAS asks). Repeat 6.2 on
   `qr.scutoons.com` with real codes, incl. 3 printed certificates on `/verify.html`. **Rollback: target back to the old
   qr folder (instant).**
-- [ ] **8.3 O – scutoons.com + www.scutoons.com → `/web/viewer/dist/`** (SSL both). Repeat 6.5 on the real domain;
+- [x] **8.3 O – scutoons.com + www.scutoons.com → `/web/viewer/dist/`** *(done 2026-10-04/05: both serve the new viewer, http→https, deep routes 200, API CORS for both, bunny CDN 206 + ACAO `*` – the CDN needed no change; owner did the switch-over test)* (SSL both). Repeat 6.5 on the real domain;
   scan a sticker with a phone end to end (qr → Continue → viewer → Add to my account). **Rollback: both targets back
   to the old viewer folder.**
-- [ ] **8.4 A – After-switch checks:** first set `status` in `deploy/targets.json` to the real hosts (qr →
+- [x] **8.4 A – After-switch checks:** *(done 2026-10-05: status URLs → qr.scutoons.com / scutoons.com, `https://next.scutoons.com` removed from ALLOWED_ORIGINS – deploy needed for the api config)* first set `status` in `deploy/targets.json` to the real hosts (qr →
   `https://qr.scutoons.com/version.json`, viewer → `https://scutoons.com/version.json`) so `deploy.yml` and
   `npm run deploy:status` read the live commits there; `/version.json` on every host, the printed-URL list of PLATFORM.md "RULE: printed
   / public URLs" (status + target), `entities-compare --report` against the api.
@@ -424,7 +424,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   becomes the backup target.
 - [ ] 10.4 Folder restructure: `assets:layout` re-run + owner review, batch relink (to build), the model path code change,
   then prune (ASSETS.md "Migration plan").
-- [ ] 10.5 Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
+- [ ] 10.5 *(test hosts + T1's origin removed 2026-10-05)* Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
   no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
 - [ ] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04).
 - [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
@@ -705,3 +705,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-02 — 10.1b done (7 bunny secrets in production). Awaiting confirmation: 2.3 keypair upload, 1.8 write prefix.
 - 2026-10-03 — 10.10 done on branch `dev-mariadb` (local MariaDB in Docker, tests + CI on it). Open: production's version / sql_mode / collation from phpMyAdmin → `docker/compose.yml`.
 - 2026-10-04 — repo `cdn/` removed (branch media-folder): media/ + scripts/dev/media-serve.mjs, logs → logs/cutover/.
+- 2026-10-05 — Phase 8 switched at night: scutoons.com/www + qr.scutoons.com on `/web/`; qr-legacy dropped, legacy./next./qr-next. deleted (old folders stay). targets.json status + ALLOWED_ORIGINS updated. Next: 8.5 late-delta check (30 min after 8.2 and the next day), then Phase 9.

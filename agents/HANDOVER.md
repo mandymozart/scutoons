@@ -7,8 +7,9 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Release branch `platform`; production = `main`. Pushing `main` runs `.github/workflows/deploy.yml`: it deploys only the
   targets whose live `git_sha` is behind (`deploy/changed.mjs`), one FTP upload at a time. `npm run deploy:status` shows
   what is live. Docs: deploy/README.md.
-- Production runs the NEW platform on the test hosts: api., next. (viewer), qr-next., creator., admin., shop.
-  **Not switched yet:** CUTOVER.md Phase 8 (legacy./qr-legacy. hosts, then qr.scutoons.com and scutoons.com → `/web/`).
+- Production runs the NEW platform on the real hosts since 2026-10-05: scutoons.com/www (viewer), qr., api., creator.,
+  admin., shop. (all under `/web/`). Test hosts next./qr-next. and legacy. are deleted; old folders stay as rollback
+  (CUTOVER 8.x). Open: 8.5 late-delta check.
   Beta (Phase 9) is internal; public release ~a week later.
 - Content lives in the production DB (entity_versions), edited in the creator. `shared/content/seed` is only a starter
   set for empty/local DBs (CUTOVER 10.15). Creator-only kinds (script) were not in the production seed – the script was

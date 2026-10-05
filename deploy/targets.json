@@ -1,6 +1,6 @@
 {
   "$comment": "Where every app is deployed – the ONE place for it (agents/PLATFORM.md 'Hosting layout & deployment'). Read by deploy/deploy.mjs, used by every workflow via .github/actions/deploy. Docs: deploy/README.md.",
-  "$status_comment": "status = the URL answering with the live git_sha (version.json / API health); watch = the paths whose change needs a redeploy of that target (\"!…\" excludes: the content seed is DB data, no app bundles it). Both used by deploy/changed.mjs (what the Deploy workflow uploads) and npm run deploy:status. qr status moves to qr.scutoons.com and viewer to scutoons.com at the cutover switch (agents/CUTOVER.md).",
+  "$status_comment": "status = the URL answering with the live git_sha (version.json / API health); watch = the paths whose change needs a redeploy of that target (\"!…\" excludes: the content seed is DB data, no app bundles it). Both used by deploy/changed.mjs (what the Deploy workflow uploads) and npm run deploy:status. qr and viewer moved to their real hosts at the cutover switch (2026-10-05).",
   "order": ["api", "qr", "viewer", "shop", "creator", "admin", "embassy"],
   "protocols": {
     "ftp": {
@@ -56,7 +56,7 @@
             "BUNNY_API_KEY": "${BUNNY_API_KEY}",
             "CDN_URL": "https://scutoons.b-cdn.net/",
             "CDN_PUBLIC_URL": "https://scutoons.b-cdn.net",
-            "ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://next.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com"
+            "ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com"
           }
         }
       },
@@ -64,7 +64,7 @@
     },
     "qr": {
       "description": "qr/ → qr.scutoons.com (docroot qr/public/; root .htaccess forwards if the docroot is qr/)",
-      "status": "https://qr-next.scutoons.com/version.json",
+      "status": "https://qr.scutoons.com/version.json",
       "watch": ["qr/**", "shared/tokens/**", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
       "source": "qr",
       "setup": [],
@@ -91,7 +91,7 @@
     },
     "viewer": {
       "description": "viewer/ → scutoons.com, www.scutoons.com (static)",
-      "status": "https://next.scutoons.com/version.json",
+      "status": "https://scutoons.com/version.json",
       "watch": ["viewer/**", "shared/**", "!shared/content/seed/**", "package.json", "package-lock.json", ".npmrc", "deploy/deploy.mjs", "deploy/targets.json", ".github/workflows/deploy-app.yml"],
       "source": "viewer",
       "setup": ["npm"],
