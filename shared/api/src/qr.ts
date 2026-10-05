@@ -109,7 +109,6 @@ export function createQrApi(api: ApiClient) {
 
 		/**
 		 * Account settings: `PUT /me/ { marketing_opt_in?, hide_sensitive?, media_quality? }` → the updated user and avatar
-		 * (turning `hide_sensitive` on moves a worn sensitive body to the character's first non-sensitive look)
 		 */
 		updateMe: (patch: { marketing_opt_in?: boolean; hide_sensitive?: boolean; media_quality?: User['media_quality'] }) =>
 			api.put<{ status: string; user: User; avatar?: Avatar }>('/me/', patch),
@@ -167,12 +166,11 @@ export function createQrApi(api: ApiClient) {
 		withdrawClaim: (claimId: string) =>
 			api.post<{ status: string; claim: OwnershipClaim }>(`/claims/${encodeURIComponent(claimId)}/withdraw`),
 
-		/** `restored` = slot instances the cover rule refilled ("Hide sensitive content", ITEMS.md "Wardrobe") */
 		putAvatar: (slots: Avatar['slots']) =>
-			api.put<{ status: string; avatar: Avatar; restored?: string[] }>('/avatar/', { slots }),
+			api.put<{ status: string; avatar: Avatar }>('/avatar/', { slots }),
 		/** the avatar body (must be unlocked and have an A-pose image: 422 locked / no_apose); null = the default */
 		putAvatarBody: (body: AvatarBodyRef | null) =>
-			api.put<{ status: string; avatar: Avatar; restored?: string[] }>('/avatar/', { body }),
+			api.put<{ status: string; avatar: Avatar }>('/avatar/', { body }),
 
 		fetchProgress: (toonId: string) =>
 			api.get<ProgressResult>(`/progress/${encodeURIComponent(toonId)}/`),

@@ -236,7 +236,7 @@
 			</Field>
 			<Field label={m['users.character_looks']()}>
 				{#snippet children({ id, describedby, invalid })}
-					<input {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={unlockLooks} placeholder="naked" />
+					<input {id} aria-describedby={describedby} aria-invalid={invalid} bind:value={unlockLooks} placeholder="swim" />
 				{/snippet}
 			</Field>
 			<Button type="submit" disabled={working !== null || !unlockCharacter.trim()}>{m['users.unlock']()}</Button>

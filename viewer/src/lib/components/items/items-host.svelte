@@ -56,7 +56,6 @@
 		if (n.kind === 'claim') return m['items.claimed']({ name });
 		if (n.kind === 'returned') return m['items.returned']({ name });
 		if (n.kind === 'used') return (inventory.item(n.item_id)?.category === 'food' ? m['items.eaten'] : m['items.used'])({ name });
-		if (n.kind === 'restored') return m['items.restored']({ name });
 		return m['items.granted']({ qty: n.qty, name });
 	}
 

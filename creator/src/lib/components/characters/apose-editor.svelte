@@ -5,9 +5,10 @@
 
 	/**
 	 * The character's A-pose looks (the reader's avatar body, character level) as image slots (owner 2026-10-03: "the
-	 * standard A-pose is a case for the asset picker"): the standard looks (swim pants, naked) are always there, an empty
+	 * standard A-pose is a case for the asset picker"): the standard look (swim pants) is always there, an empty
 	 * slot until a file is picked or uploaded (the picker suggests the character's folder; the convention name is the
-	 * tooltip) – picking creates the look in the registry, × clears it. The wear slots (slot instances: id, type, label,
+	 * tooltip) – picking creates the look in the registry, × clears it (a retired look – the removed naked one – is
+	 * removed with it; the validation warns about it). The wear slots (slot instances: id, type, label,
 	 * anchor x/y/size in image px – a duo has a type twice) are read-only numbers in a collapsed technical section (they
 	 * come from the characters import). No anchor dragging – outfitting happens in the reader's inventory.
 	 */

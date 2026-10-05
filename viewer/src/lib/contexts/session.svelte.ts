@@ -53,8 +53,8 @@ export function createSessionContext() {
 	}
 
 	/**
-	 * Account page toggle "Hide sensitive content": `PUT /me/ { hide_sensitive }` (on by default; turning it on moves a
-	 * worn sensitive avatar body to the character's first non-sensitive look – the answer carries the avatar)
+	 * Account page toggle "Hide sensitive content": `PUT /me/ { hide_sensitive }` (on by default; it blurs and mutes
+	 * slices marked sensitive)
 	 */
 	async function setHideSensitive(value: boolean) {
 		const result = await updateMe({ hide_sensitive: value });

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import {
+		isRetiredAposeLook,
 		matchCharacterImageFile,
 		newLook as lookEntry,
 		setLookImage,
@@ -71,6 +72,7 @@
 			if (slot.kind === 'expression' && slot.newLook) known.personas.find((p) => p.id === slot.persona)?.looks.push(lookEntry(slot.look, undefined, false));
 			try {
 				if (slot.kind === 'unknown') throw new Error(problemOf(slot));
+				if (slot.kind === 'apose' && isRetiredAposeLook({ id: slot.look })) throw new Error(m['creator.characters_import_retired_look']({ name: slot.look }));
 				const bitmap = await createImageBitmap(file);
 				let blob: Blob;
 				try {

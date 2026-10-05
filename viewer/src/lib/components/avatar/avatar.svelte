@@ -2,7 +2,6 @@
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import {
 		AVATAR_SLOTS,
-		SENSITIVE_COVER,
 		WEAR_ORDER,
 		pickText,
 		wardrobeBase,
@@ -23,12 +22,11 @@
 	 * not shown. A body's wear slots are slot instances (`apose.looks[].slots`: id, slot type, anchor) – a duo has every
 	 * slot type twice ("Kopf links" / "Kopf rechts").
 	 *
-	 * Wardrobe (ITEMS.md "Wardrobe"): the base image is the character's naked A-pose when the reader may see it ("Hide
-	 * sensitive content" off, or every legs instance wears an item with an overlay – and only once those overlays have
-	 * loaded), else the safe look (swim, pants painted in). On top: worn items with an overlay for this body as full-body
-	 * layers in WEAR_ORDER (legs → feet → torso → back → hands → accessory → neck → head → face), then the items without
-	 * one as icons at their slot anchors. The picker shows one tile per character (nakedness is the swim pants coming off,
-	 * not a look). ITEMS.md "Reader avatar bodies & character unlocks", "Slots per avatar body".
+	 * Wardrobe (ITEMS.md "Wardrobe"): the base image is the body's A-pose (the swim look, pants painted in – the naked
+	 * look was removed 2026-10-05). On top: worn items with an overlay for this body as full-body layers in WEAR_ORDER
+	 * (legs → feet → torso → back → hands → accessory → neck → head → face), then the items without one as icons at their
+	 * slot anchors. The picker shows one tile per character. ITEMS.md "Reader avatar bodies & character unlocks", "Slots
+	 * per avatar body".
 	 */
 	const W = 768;
 	const H = 1152;
@@ -38,11 +36,9 @@
 		inventory.loadRegistry();
 	});
 
-	// every visible look of the unlocked characters; looks marked `sensitive` (naked) are left out while "Hide sensitive
-	// content" is on (members: account page, on by default; guests: always) – ITEMS.md "Sensitive content". A hidden
-	// chosen body shows as the character's first visible look (inventory context; the server moves it on save).
+	// the current body (inventory context: the chosen one, else the first unlocked default)
 	const body = $derived<AvatarBody | undefined>(inventory.currentBody);
-	/** one tile per character: its current body, else its first visible look (the default first) */
+	/** one tile per character: its current body, else its first look (the default first) */
 	const bodies = $derived<AvatarBody[]>(
 		inventory.bodies.filter((b, i, all) => all.findIndex((x) => x.character === b.character) === i).map((b) => (body?.character === b.character ? body : b))
 	);
@@ -88,19 +84,10 @@
 	);
 	/** worn items without an overlay: icons at the anchors */
 	const drawn = $derived(byType(instances.filter((s) => s.size > 0 && !overlays.some((o) => o.slot.id === s.id)), WORN_ORDER));
-	// the base: naked only when allowed; while hidden it waits until the legs overlays are there (never a naked frame)
-	let loaded = $state<Record<string, boolean>>({});
-	const coverSrcs = $derived(overlays.filter((o) => SENSITIVE_COVER.includes(o.slot.slot)).map((o) => asset(o.src)));
-	const coverReady = $derived(coverSrcs.every((src) => loaded[src] === true));
-	const wanted = $derived(wardrobeBase(inventory.unlockedBodies, body, { hide: inventory.hideSensitive, covered: inventory.covered }));
-	const safe = $derived(wardrobeBase(inventory.unlockedBodies, body, { hide: true, covered: false }));
-	const showNaked = $derived(!!wanted?.naked && (!inventory.hideSensitive || coverReady));
-	const base = $derived(showNaked ? wanted : safe);
-	/** the newest swap note (back in the inventory / put back on) for the status line */
-	const note = $derived([...inventory.notices].reverse().find((n) => n.kind === 'returned' || n.kind === 'restored'));
-	const noteText = $derived(
-		note ? (note.kind === 'returned' ? m['items.returned'] : m['items.restored'])({ name: inventory.nameOf({ item_id: note.item_id, variant: null }) }) : ''
-	);
+	const base = $derived(wardrobeBase(body));
+	/** the newest swap note (back in the inventory) for the status line */
+	const note = $derived([...inventory.notices].reverse().find((n) => n.kind === 'returned'));
+	const noteText = $derived(note ? m['items.returned']({ name: inventory.nameOf({ item_id: note.item_id, variant: null }) }) : '');
 
 	let selectedId = $state<string | null>(null);
 	const selected = $derived(instances.find((s) => s.id === selectedId));
@@ -171,13 +158,9 @@
 		<div class="column">
 			{#each left as slot (slot.id)}{@render tile(slot)}{/each}
 		</div>
-		<div class="figure" style="aspect-ratio: {W} / {H}" data-base={showNaked ? 'naked' : 'safe'}>
-			{#if body && safe && (!showNaked || inventory.hideSensitive)}
-				<!-- the safe look (swim): under the naked base while hidden, so nothing naked shows if a layer fails -->
-				<img class="apose" src={asset(safe.path)} alt={showNaked ? '' : body.name} draggable="false" data-layer="base-safe" />
-			{/if}
-			{#if body && showNaked && wanted}
-				<img class="apose" src={asset(wanted.path)} alt={body.name} draggable="false" data-layer="base-naked" />
+		<div class="figure" style="aspect-ratio: {W} / {H}">
+			{#if body && base}
+				<img class="apose" src={asset(base.path)} alt={body.name} draggable="false" data-layer="base" />
 			{/if}
 			{#each overlays as o (o.slot.id)}
 				<img
@@ -187,8 +170,6 @@
 					draggable="false"
 					data-overlay={o.slot.id}
 					data-item={o.entry.item_id}
-					onload={() => (loaded[asset(o.src)] = true)}
-					onerror={() => (loaded[asset(o.src)] = false)}
 				/>
 			{/each}
 			{#each drawn as w (w.id)}

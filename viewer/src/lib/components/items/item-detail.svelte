@@ -59,9 +59,9 @@
 	const total = $derived(inventory.editionTotal(entry.item_id));
 	// "Anziehen" swaps (ITEMS.md "Wardrobe"): what was on that slot goes back into the inventory, or – while "Hide
 	// sensitive content" is on – the swim pants come back on; the newest such note is shown under the buttons
-	const note = $derived([...inventory.notices].reverse().find((n) => n.kind === 'returned' || n.kind === 'restored'));
+	const note = $derived([...inventory.notices].reverse().find((n) => n.kind === 'returned'));
 	const noteText = $derived(
-		note ? (note.kind === 'returned' ? m['items.returned'] : m['items.restored'])({ name: inventory.nameOf({ item_id: note.item_id, variant: null }) }) : ''
+		note ? m['items.returned']({ name: inventory.nameOf({ item_id: note.item_id, variant: null }) }) : ''
 	);
 	let working = $state(false);
 

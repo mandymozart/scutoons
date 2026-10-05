@@ -432,6 +432,7 @@
 		"characters_import_no_slot": "der Name nennt keinen Slot – z. B. {example}",
 		"characters_import_other": "der Name ist für „{name}“, nicht für diese Figur",
 		"characters_import_unknown_look": "der Übergang braucht den Look „{name}“ – zuerst anlegen",
+		"characters_import_retired_look": "den A-Pose-Look „{name}“ gibt es nicht mehr",
 		"characters_import_unknown_persona": "diese Figur hat keine Persona „{name}“ – zuerst anlegen",
 		"characters_import_summary": "{uploaded} neu · {replaced} ersetzt · {unchanged} unverändert",
 		"characters_remove": "Entfernen",

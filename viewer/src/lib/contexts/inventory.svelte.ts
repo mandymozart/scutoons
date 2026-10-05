@@ -17,7 +17,6 @@ import {
 } from '$lib/api.ts';
 import {
 	DEFAULT_AVATAR_UNLOCKS,
-	SENSITIVE_COVER,
 	activeEffects,
 	applySubstance,
 	avatarBodies,
@@ -26,13 +25,10 @@ import {
 	statLevels,
 	basicDress,
 	bodySlots as bodySlotsOf,
-	coverSensitive,
-	hidesSensitive,
 	maxOf,
 	remapAvatarSlots,
 	unlockedBodies,
-	wearOverlay,
-	withoutSensitive
+	wearOverlay
 } from '@scutoons/content';
 import type {
 	Avatar,
@@ -74,7 +70,7 @@ function readGuestReader(): ReaderState {
 }
 const LEGACY_BODIES: Record<string, AvatarBodyRef> = {
 	sphynx: { character: 'catpope', look: 'swim' },
-	sphynx_nude: { character: 'catpope', look: 'naked' },
+	sphynx_nude: { character: 'catpope', look: 'swim' },
 	mouse: { character: 'yellowmouse', look: 'swim' }
 };
 
@@ -108,11 +104,11 @@ export interface Notice {
 	id: number;
 	item_id: string;
 	qty: number;
-	/** returned = a worn item came off by a swap (back in the inventory); restored = the cover rule put it back on */
-	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'restored' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused';
+	/** returned = a worn item came off by a swap (back in the inventory) */
+	kind: 'grant' | 'craft' | 'claim' | 'returned' | 'used' | 'gifted' | 'gift_received' | 'now_yours' | 'refused';
 	/** refused: why the item could not be taken (the API's error code, or max_reached / not_grantable / failed …) */
 	reason?: string;
-	/** the inventory entry (returned / restored) */
+	/** the inventory entry (returned) */
 	entry?: EntryId;
 	/** gifted: the recipient's email · gift_received: the giver's email (ITEMS.md "Ownership, claims, gifting") */
 	email?: string | null;
@@ -157,12 +153,9 @@ export function createInventoryContext(session: SessionContext) {
 	// the bodies the reader may pick (registry, lazily loaded) and the current one with its wear slots (slot instances)
 	let registry = $state<CharacterRegistry | null>(null);
 	let registryLoaded = $state(false);
-	// "Hide sensitive content" (ITEMS.md "Sensitive content"): members by their setting (on by default), guests always
-	const hideSensitive = $derived(hidesSensitive(isAccount ? session.me?.user : null));
-	// every unlocked body incl. the sensitive (naked) looks – the wardrobe's base image (ITEMS.md "Wardrobe")
-	const unlockedAll = $derived<AvatarBody[]>(unlockedBodies(avatarBodies(registry, getLocale()), unlocked));
-	const bodies = $derived<AvatarBody[]>(withoutSensitive(unlockedAll, hideSensitive));
-	// the chosen body; a hidden (sensitive) one shows the same character's default / first visible look instead
+	// the unlocked bodies (avatarBodies leaves the removed naked look out – ITEMS.md "Reader avatar bodies")
+	const bodies = $derived<AvatarBody[]>(unlockedBodies(avatarBodies(registry, getLocale()), unlocked));
+	// the chosen body; an unknown look (e.g. the removed naked one) shows the same character's default look instead
 	const currentBody = $derived<AvatarBody | undefined>(
 		bodies.find((b) => b.character === body?.character && b.look === body?.look) ??
 			bodies.find((b) => b.character === body?.character && b.default) ??
@@ -178,14 +171,6 @@ export function createInventoryContext(session: SessionContext) {
 		const entry = entries.find((e) => String(e.id) === String(id));
 		return entry ? (itemsById[entry.item_id]?.slot ?? undefined) : undefined;
 	};
-	/** the wearable entries in catalog order (the cover rule takes the first unworn one: the swim pants before the shorts) */
-	const wearableEntries = $derived(
-		entries
-			.map((e) => ({ e, i: (catalog?.items ?? []).findIndex((it) => it.id === e.item_id) }))
-			.filter(({ e }) => !!itemsById[e.item_id]?.slot)
-			.sort((a, b) => a.i - b.i)
-			.map(({ e }) => ({ id: e.id, slot: itemsById[e.item_id]?.slot ?? null }))
-	);
 	// reader stats + effects (ITEMS.md "Substances"): members from /me/, guests per device; `now` ticks so levels decay
 	// and effects end on screen
 	let guestReader = $state<ReaderState>(typeof localStorage === 'undefined' ? { stats: {}, effects: [] } : readGuestReader());
@@ -512,40 +497,30 @@ export function createInventoryContext(session: SessionContext) {
 
 	/**
 	 * Put `entryId` on the slot instance `slotId` (null = empty it); one entry is worn at most once. A swap: the entry
-	 * that was on the instance comes off and stays in the inventory (notice "returned"). While "Hide sensitive content" is
-	 * on the cover rule refills empty legs (members: the server, `restored`; guests: here) – notice "restored".
+	 * that was on the instance comes off and stays in the inventory (notice "returned"). Every slot may be empty.
 	 */
 	async function setSlot(slotId: string, entryId: EntryId | null) {
 		const before = { ...worn };
 		const next = { ...worn };
 		if (entryId != null) for (const [id, e] of Object.entries(next)) if (e != null && String(e) === String(entryId)) next[id] = null;
 		next[slotId] = entryId;
-		let restored: string[] = [];
 		if (isAccount) {
 			const result = await putAvatar({ [slotId]: entryId });
-			restored = result.restored ?? [];
 			session.patchMe({ avatar: result.avatar ?? { ...avatar, slots: next } });
 		} else {
-			const covered = hideSensitive ? coverSensitive(next, slots, wearableEntries) : { worn: next, restored: [] };
-			restored = covered.restored;
-			guest.avatar = { ...guest.avatar, slots: covered.worn };
+			guest.avatar = { ...guest.avatar, slots: next };
 			saveGuest();
 		}
-		announce(before, restored);
+		announce(before);
 	}
 
-	/** Notices after an avatar change: what came off (back in the inventory) and what the cover rule put back on. */
-	function announce(before: Record<string, EntryId | null>, restored: string[]) {
+	/** Notices after an avatar change: what came off (back in the inventory). */
+	function announce(before: Record<string, EntryId | null>) {
 		const now = new Set(Object.values(worn).filter((e) => e != null).map(String));
 		for (const e of Object.values(before)) {
 			if (e == null || now.has(String(e))) continue;
 			const entry = entries.find((x) => String(x.id) === String(e));
 			if (entry) notify(entry.item_id, 1, 'returned', entry.id);
-		}
-		// last = the newest note: what the cover rule put back on matters most
-		for (const id of restored) {
-			const entry = equippedEntry(id);
-			if (entry) notify(entry.item_id, 1, 'restored', entry.id);
 		}
 	}
 
@@ -554,20 +529,13 @@ export function createInventoryContext(session: SessionContext) {
 	 * move along: same slot id, else the first free slot of their type (the server does the same for members).
 	 */
 	async function setBody(ref: AvatarBodyRef | null) {
-		const before = { ...worn };
-		let restored: string[] = [];
 		if (isAccount) {
 			const result = await putAvatarBody(ref);
-			restored = result.restored ?? [];
 			session.patchMe({ avatar: result.avatar ?? { ...avatar, body: ref } });
 		} else {
 			const target = ref ? bodies.find((b) => b.character === ref.character && b.look === ref.look) : (bodies.find((b) => b.default) ?? bodies[0]);
 			const targetSlots = target?.slots ?? bodySlotsOf(null);
-			const moved = remapAvatarSlots(worn, targetSlots, slotTypeOf);
-			// guests always hide sensitive content: the new body's legs are covered too (twins: every figure)
-			const covered = coverSensitive(moved, targetSlots, wearableEntries);
-			restored = covered.restored;
-			guest.avatar = { ...guest.avatar, slots: covered.worn };
+			guest.avatar = { ...guest.avatar, slots: remapAvatarSlots(worn, targetSlots, slotTypeOf) };
 			saveGuest();
 			guestBody = ref;
 			try {
@@ -577,25 +545,13 @@ export function createInventoryContext(session: SessionContext) {
 				// not persisted, still switches for this visit
 			}
 		}
-		// a body switch only announces what the cover rule put on (items that don't fit the new body just come off)
-		announce({}, restored);
+		// items that don't fit the new body just come off (no notice)
 	}
 
 	/** The wardrobe overlay of an entry on a slot instance of the current body (null = draw its icon at the anchor). */
 	function overlayOf(entry: Pick<Entry, 'item_id'>, slotId: string): string | null {
 		return wearOverlay(item(entry.item_id), currentBody?.character, slotId);
 	}
-
-	/** Every cover instance (legs) of the current body wears an item that has an overlay for it. */
-	const covered = $derived(
-		slots
-			.filter((s) => SENSITIVE_COVER.includes(s.slot))
-			.every((s) => {
-				const id = worn[s.id];
-				const entry = id == null ? undefined : entries.find((e) => String(e.id) === String(id));
-				return !!entry && !!wearOverlay(itemsById[entry.item_id], currentBody?.character, s.id);
-			})
-	);
 
 	/**
 	 * Wear an entry: on `slotId` (a slot instance of the current body) or – without one – on the first free instance of
@@ -726,18 +682,6 @@ export function createInventoryContext(session: SessionContext) {
 		/** the chosen avatar body (null = the first unlocked default) */
 		get body() {
 			return body;
-		},
-		/** "Hide sensitive content" is on (guests: always) – sensitive A-pose looks are left out of `bodies` */
-		get hideSensitive() {
-			return hideSensitive;
-		},
-		/** every unlocked body incl. sensitive looks (the wardrobe's naked base) */
-		get unlockedBodies() {
-			return unlockedAll;
-		},
-		/** the current body's cover instances (legs) all wear an item with an overlay */
-		get covered() {
-			return covered;
 		},
 		overlayOf,
 		/** the bodies the reader may pick (after `loadRegistry()`) */
