@@ -111,6 +111,9 @@ export function createEmbassyServer(config: Config): McpServer {
 					org_id: i.org.id,
 					org: i.org.name,
 					city: i.org.city,
+					// the organisation's own address / number (a mail can go there when no person is known)
+					email: i.org.email,
+					phone: i.org.phone,
 					track: i.lead.track,
 					stage: i.lead.stage,
 					people: i.people.map((x) => ({ id: x.id, name: x.name, role: x.role, phone: x.phone, email: x.email })),
