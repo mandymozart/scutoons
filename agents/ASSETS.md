@@ -107,7 +107,7 @@ Tested for real on a copy (`s1c1-key-visual` → 480p 460 KB + poster in ~4 s).
   `GET /statistics`; Logging API `logging.bunnycdn.com/{MM-DD-YY}/{id}.log` for per-file traffic (later). Errors never
   contain a secret (401/404 come with a hint). `CurlHttpClient` verifies TLS (Windows dev machines without a CA bundle in
   php.ini use the OS certificate store); tests run against `FakeBunny` (the documented wire format).
-- **FTP** – not a driver: the old cdn.scutoons.com stays untouched until the switch (the repo's FTP tooling `cdn/` was removed 2026-10-04).
+- **FTP** – not a driver: the old FTP CDN folder `/cdn.scutoons.com/` stays as a backup until CUTOVER 10.7 (the name moves to bunny in 10.3; the repo's FTP tooling `cdn/` was removed 2026-10-04).
 - **AssetStorages** – the configured set; `ASSET_STORAGE` = auto | local | bunny (auto: the local folder when it exists,
   else bunny). Migration between storages = `assets:sync` (below) + switching the setting.
 
@@ -158,6 +158,12 @@ interim `https://scutoons.b-cdn.net` (`CDN_PUBLIC_URL`). When it is deployed the
 `https://cdn.scutoons.com` and every stored / printed URL stays valid (PLAN.md RULE "printed / public URLs never change").
 Content keeps CDN-relative paths, so nothing in content changes at the switch. Production readers stay on
 cdn.scutoons.com (all-inkl) until then; `VITE_CDN_URL` / `CDN_URL` unchanged.
+**2026-10-05 (branch `10.3-cdn-domain`; CUTOVER 10.3 has the owner runbook + rollback):** `deploy/targets.json` =
+`https://cdn.scutoons.com` everywhere. `scutoons.b-cdn.net` stays a hostname of the zone and stays valid:
+`AssetPaths::PUBLIC_BASES` (both names) resolves absolute references to CDN-root paths (usage index, relayout);
+migration `2026-10-05-cdn-domain` rewrites stored absolute b-cdn URLs (content versions, catalog + its history, toons,
+settings, usage index) to cdn.scutoons.com. The asset registry stores CDN-root paths only – nothing to rewrite there.
+No local → bunny sync at the switch: bunny is ahead of the dev copy (production uploads go straight to the zone).
 
 ## Relayout DONE (2026-10-02, owner: "I want to risk it; I keep the old CDN until the switch")
 

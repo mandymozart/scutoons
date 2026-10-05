@@ -135,6 +135,7 @@ final class AssetsTest extends TestCase
         self::assertSame('characters/x.webp', AssetPaths::resolve('../characters/x.webp', 'catpope'));
         self::assertSame('catpope/images/a.webp', AssetPaths::resolve('images/a.webp', 'catpope'));
         self::assertSame('catpope/images/a.webp', AssetPaths::resolve('https://cdn.scutoons.com/catpope/images/a.webp', '', ['https://cdn.scutoons.com']));
+        self::assertSame('catpope/images/a.webp', AssetPaths::resolve('https://scutoons.b-cdn.net/catpope/images/a.webp', '', AssetPaths::PUBLIC_BASES), 'the pull zone hostname stays valid after the domain switch');
         self::assertNull(AssetPaths::resolve('https://elsewhere.example/a.webp', ''));
         self::assertNull(AssetPaths::resolve('../../x.png', 'catpope'));
         self::assertSame('videos/b.mp4', AssetPaths::relativeTo('catpope/videos/b.mp4', 'catpope', 'videos/a.mp4'));
