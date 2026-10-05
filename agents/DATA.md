@@ -200,6 +200,11 @@ CUTOVER 10.30 – the layout stays for `import-content` / `export-content`): `to
 `<toon>/_/{cast,credits}.json`, `scutoons/_/{characters,moods,asset-requests,people,roles}.json`. The mapping lives only in
 the server's `Console\ContentFiles` (`import-content`, `export-content`).
 
+**Sensitive slices (2026-10-05, owner):** `Slice.sensitive?: boolean` (`SensitiveFlag`, sensitive.ts) – stored only when
+true, the same in every language (the creator writes it to every locale like the media; `validateLocales` warns when
+locales differ; not a boolean = error). Readers with "Hide sensitive content" on see the slice blurred and muted
+(ITEMS.md "Sensitive slices"). Nothing stored needs a migration.
+
 ## 3. API
 
 **Library** (public GETs, readers; `LibraryController`): `/api/library/toons` · `/library/toons/<toon>?locale=`

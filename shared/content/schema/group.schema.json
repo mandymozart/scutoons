@@ -89,6 +89,10 @@
 		"Slice": {
 			"type": "object",
 			"properties": {
+				"sensitive": {
+					"type": "boolean",
+					"description": "hidden while \"Hide sensitive content\" is on (members: on by default, guests: always on)"
+				},
 				"image": {
 					"type": "string",
 					"description": "CDN path of the slice image (1x WebP, 390 px wide) relative to the toon's folder; the poster of a video slice"
@@ -140,7 +144,8 @@
 				"image",
 				"width",
 				"height"
-			]
+			],
+			"description": "One slice. `sensitive: true` (SensitiveFlag, the same in every language) = while the reader's \"Hide sensitive content\" is on, the image / video is blurred, the slice's sounds stay silent and a small note sits on it (agents/ITEMS.md \"Sensitive slices\")."
 		},
 		"QualityVariants": {
 			"type": "object",

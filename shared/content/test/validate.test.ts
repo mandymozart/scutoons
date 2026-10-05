@@ -1,7 +1,7 @@
 // Season downloads (season.download, moved from the toon settings 2026-09-30).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseEntityKey, sceneEntityOfRef, unifyAudio, unifyGeometry, validateFile } from '../src/index.ts';
+import { parseEntityKey, sceneEntityOfRef, unifyAudio, unifyGeometry, validateFile, validateLocales } from '../src/index.ts';
 
 const season = (extra: object) => ({ title: 'S', description: 'D', language: 'de', number: 1, sequence: [], ...extra });
 const problems = (kind: string, data: object) => validateFile(kind, data, 'de', { file: 'x' } as never).map((p) => `${p.level} ${p.path.join('.')}`);
@@ -60,6 +60,18 @@ test('slice video: variants { low, medium, high }, controls, viewport; sources i
 	]);
 	assert.deepEqual(videoProblems({ src: 'videos/p.mp4', viewport: {} }, { dialog: [{ rect: { x: 1, y: 1, width: 10 }, text: 'x' }] }), ['warning groups.0.slices.0.dialog']);
 	for (const fit of ['contain', 'width', 'height', 'cover']) assert.deepEqual(videoProblems({ src: 'videos/p.mp4', viewport: { fit, position: 'bottom' } }), []);
+});
+
+test('slice.sensitive: a boolean, the same in every language (ITEMS.md "Sensitive slices")', () => {
+	const chapter = (slice: object) => ({ title: 'P', number: 0, groups: [{ slices: [{ image: 'images/p.webp', width: 390, height: 625, ...slice }] }] });
+	const sliceProblems = (slice: object) => problems('chapter', chapter(slice)).filter((p) => p.includes('slices.0'));
+	assert.deepEqual(sliceProblems({ sensitive: true }), []);
+	assert.deepEqual(sliceProblems({ sensitive: false }), []);
+	assert.deepEqual(sliceProblems({ sensitive: 'yes' }), ['error groups.0.slices.0.sensitive']);
+	assert.deepEqual(sliceProblems({ sensitive: 1 }), ['error groups.0.slices.0.sensitive']);
+	const locales = validateLocales('chapter', 'x', { de: chapter({ sensitive: true }), en: chapter({}) }, 'de').map((p) => `${p.level} ${p.locale} ${p.path.join('.')}`);
+	assert.deepEqual(locales, ['warning en groups.0.slices.0.sensitive']);
+	assert.deepEqual(validateLocales('chapter', 'x', { de: chapter({ sensitive: true }), en: chapter({ sensitive: true }) }, 'de'), []);
 });
 
 test('slice video frame: a ratio within 4:1 … 1:4, the slice height follows it', () => {

@@ -539,6 +539,8 @@
 		"media_type": "Medium",
 		"media_image": "Bild",
 		"media_video": "Video",
+		"slice_sensitive": "Sensibler Inhalt",
+		"slice_sensitive_hint": "Wer „Sensible Inhalte ausblenden“ an hat, sieht die Slice unscharf und ohne Ton.",
 		"video_missing": "Video nicht auf dem CDN gefunden",
 		"video_player_hint": "Videoplayer: mit Ton und Steuerung, ohne Loop / Autoplay; die Slice bekommt das Seitenverhältnis des Videos",
 		"video_hint": "Läuft stumm und inline in Schleife, solange die Slice sichtbar ist (bei reduzierter Bewegung nur das Poster). H.264-MP4, für jede neue Fassung ein neuer Dateiname: <name>.480p.mp4 / .720p.mp4 / .1080p.mp4. Das Bild darunter ist das Poster.",

@@ -539,6 +539,8 @@
 		"media_type": "Media",
 		"media_image": "Image",
 		"media_video": "Video",
+		"slice_sensitive": "Sensitive content",
+		"slice_sensitive_hint": "Readers with “Hide sensitive content” on see it blurred and muted.",
 		"video_missing": "video not found on the CDN",
 		"video_player_hint": "Video player: sound and controls, no loop / autoplay; the slice gets the video's aspect ratio",
 		"video_hint": "Plays muted and inline, looping, while the slice is in view (poster only with reduced motion). H.264 MP4, a new file name for every new version: <name>.480p.mp4 / .720p.mp4 / .1080p.mp4. The image below is the poster.",

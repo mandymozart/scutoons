@@ -7,6 +7,7 @@ import type { ToonMapView } from './map.ts';
 import type { SliceItemRespawn } from './respawn.ts';
 import type { CoverLettering } from './cover.ts';
 import type { AcceptedWarnings } from './accepted.ts';
+import type { SensitiveFlag } from './sensitive.ts';
 
 export interface KeyVisual {
 	image: string;
@@ -335,7 +336,12 @@ export interface SliceItem {
 	respawn?: SliceItemRespawn;
 }
 
-export interface Slice {
+/**
+ * One slice. `sensitive: true` (SensitiveFlag, the same in every language) = while the reader's "Hide sensitive content"
+ * is on, the image / video is blurred, the slice's sounds stay silent and a small note sits on it (agents/ITEMS.md
+ * "Sensitive slices").
+ */
+export interface Slice extends SensitiveFlag {
 	/** CDN path of the slice image (1x WebP, 390 px wide) relative to the toon's folder; the poster of a video slice */
 	image: string;
 	/** Size of the image in px (1x): the reader reserves the space before the lazy image loads. */

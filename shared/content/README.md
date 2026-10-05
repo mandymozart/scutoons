@@ -36,6 +36,9 @@ JSON Schemas (generated from the types, draft-07): `@scutoons/content/schema/{ch
   **error** and a width ≠ 390 as a warning; the creator reads the size from the CDN whenever an image path is set.
 - A slice can be a video (`video: { src, loop?, autoplay? }`, H.264 MP4 ≤ 3 MB, new name per version): muted, inline,
   looping, plays in view, poster = `image` (the only image with reduced motion and in older viewers).
+- `sensitive: true` (`SensitiveFlag`, `sensitive.ts`; the same in every language, not a boolean = error): while the reader's
+  "Hide sensitive content" is on (`hidesSensitive(user)`; guests always) the reader blurs the image (a video shows its
+  poster), keeps the slice's samples silent and shows a small note (agents/ITEMS.md "Sensitive slices").
 
 ## Characters: glossary and the image fallback rule
 

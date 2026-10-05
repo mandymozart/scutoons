@@ -369,6 +369,7 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 		if (!isNum(s[key]) || s[key] <= 0) c.error([...path, key], `slice.${key} is missing (px of the image, the standard is ${DEFAULT_SLICE.width} × ${DEFAULT_SLICE.height})`);
 	}
 	if (isNum(s.width) && s.width > 0 && s.width !== DEFAULT_SLICE.width) c.warn([...path, 'width'], `slices are ${DEFAULT_SLICE.width} px wide (this one is ${s.width})`);
+	if (s.sensitive !== undefined && typeof s.sensitive !== 'boolean') c.error([...path, 'sensitive'], 'slice.sensitive must be true or false');
 	if (s.imageVariants !== undefined) {
 		if (!isObj(s.imageVariants)) c.error([...path, 'imageVariants'], 'imageVariants must be { low, medium, high } (1x / 2x / 3x paths)');
 		else for (const [level, file] of Object.entries(s.imageVariants)) {
@@ -939,6 +940,7 @@ export function validateLocales(kind: string, file: string, files: Record<string
 			const other = getAt(data, path);
 			if (!other) return;
 			if (other.image !== slice.image) add('info', locale, [...path, 'image'], `${locale} uses another image (override)`);
+			if ((other.sensitive === true) !== (slice.sensitive === true)) add('warning', locale, [...path, 'sensitive'], `"sensitive" differs between ${primary} and ${locale}: it is the same in every language`);
 			const da: any[] = slice.dialog ?? [];
 			const db: any[] = other.dialog ?? [];
 			if (da.length !== db.length) {

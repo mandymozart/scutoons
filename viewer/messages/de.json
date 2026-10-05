@@ -111,7 +111,9 @@
 		"coming_soon": "Demnächst",
 		"release": "Erscheint am {date}",
 		"season_title": "Staffel {number}: {title}",
-		"prologue": "Prolog"
+		"prologue": "Prolog",
+		"sensitive_hidden": "Sensibler Inhalt ausgeblendet",
+		"sensitive_hidden_hint": "In deinem Konto: „Sensible Inhalte ausblenden“"
 	},
 	"player": {
 		"sound_on": "Ton an",

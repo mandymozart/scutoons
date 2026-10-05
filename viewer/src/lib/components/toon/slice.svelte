@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { fromAction } from 'svelte/attachments';
-	import { pickQualityVariant, sanitizeNumber, type Dialog, type Slice as SliceModel, type SliceItem } from '@scutoons/content';
+	import { hidesSensitive, isSensitive, pickQualityVariant, sanitizeNumber, type Dialog, type Slice as SliceModel, type SliceItem } from '@scutoons/content';
 	import { Slice, sliceAudio, type DialogPlay, type PlayerLabels, type ResolveSliceItem } from '@scutoons/reader';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
@@ -9,7 +9,8 @@
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { isTaken, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
 	import { asset } from '$lib/utils/cdn.ts';
-	import { getLocale } from '$lib/paraglide/runtime.js';
+	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
+	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audioPlayer } from '$lib/actions/audio/index.ts';
 	import { mediaQuality } from '$lib/media-quality.svelte.ts';
@@ -20,6 +21,14 @@
 		$props();
 
 	const toonId = $derived(page.params.toonId);
+	// a sensitive slice while the reader hides sensitive content (members: their account setting, on by default; guests and
+	// a session still loading: always): blurred, its sounds silent, a small note on it (agents/ITEMS.md "Sensitive slices").
+	// Reactive: switching the setting off on the account page shows the slice.
+	const session = getSessionContext();
+	const member = $derived(!!session?.isLoggedIn);
+	const blurred = $derived(isSensitive(slice) && hidesSensitive(member ? session.me?.user : null));
+	/** the slice's audio events without its own sounds while blurred (the chapter's music levels still follow the slices) */
+	const audioEvents = $derived(blurred ? (slice.audio?.music ? { music: slice.audio.music } : undefined) : slice.audio);
 	// the image for the reader's media quality (1x / 2x / 3x = low / medium / high); 1x until the level is known
 	const imageUrl = $derived.by(() => {
 		const hasImageVariants = Object.values(slice.imageVariants ?? {}).some((file) => !!file);
@@ -30,7 +39,7 @@
 	const hasVariants = $derived(Object.values(slice.video?.variants ?? {}).some((file) => !!file));
 	const videoUrl = $derived.by(() => {
 		const video = slice.video;
-		if (!video?.src) return undefined;
+		if (!video?.src || blurred) return undefined;
 		if (!hasVariants) return asset(`${toonId}/${video.src}`);
 		const level = mediaQuality.level;
 		return level ? asset(`${toonId}/${pickQualityVariant(video, level)}`) : undefined;
@@ -38,7 +47,7 @@
 	// "Automatic" without the Network Information API: measure with the first media (its low variant)
 	$effect(() => {
 		const video = slice.video;
-		if (video?.src && hasVariants && mediaQuality.needsMeasure) void mediaQuality.measure(asset(`${toonId}/${pickQualityVariant(video, 'low')}`));
+		if (video?.src && !blurred && hasVariants && mediaQuality.needsMeasure) void mediaQuality.measure(asset(`${toonId}/${pickQualityVariant(video, 'low')}`));
 	});
 	// the same for an image with 2x / 3x: measured with its 1x file
 	$effect(() => {
@@ -133,15 +142,50 @@
 	onitemtap={onItemTap}
 	{dialogHidden}
 	{dialogPlay}
+	{blurred}
 	{@attach fromAction(sliceAudio, () => ({
-		events: slice.audio,
+		events: audioEvents,
 		index: sliceIndex,
 		slices: allSlices,
 		player: audioPlayer()
 	}))}
 >
 	{#snippet before()}
-		<Samples samples={slice.audio?.audio?.samples} />
+		{#if !blurred}
+			<Samples samples={slice.audio?.audio?.samples} />
+		{/if}
 		<Triggers events={slice.events} />
 	{/snippet}
+	{#snippet children()}
+		{#if blurred}
+			<!-- the note: members can switch the setting off in their account, guests always hide (no link, less UI) -->
+			{#if member}
+				<a class="sensitive-note" href={localizeHref('/account')} title={m['chapter.sensitive_hidden_hint']()} data-testid="sensitive-note">{m['chapter.sensitive_hidden']()}</a>
+			{:else}
+				<span class="sensitive-note" data-testid="sensitive-note">{m['chapter.sensitive_hidden']()}</span>
+			{/if}
+		{/if}
+	{/snippet}
 </Slice>
+
+<style>
+	/* a caption-size pill in the middle of the blurred slice */
+	.sensitive-note {
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		z-index: 2;
+		padding: 0.25rem 0.75rem;
+		border-radius: 999rem;
+		background: var(--ink);
+		color: var(--paper);
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		white-space: nowrap;
+		text-decoration: none;
+	}
+	a.sensitive-note:hover {
+		text-decoration: underline;
+	}
+</style>
