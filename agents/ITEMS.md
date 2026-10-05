@@ -93,7 +93,7 @@ your code" still opens the QR scanner without any item).
 | cd_player | virtual | tool | – | – (`plays: ["cd"]`) | – | not obtainable yet (`grantable: []`) |
 | kangaroo_cat_hoodie | physical | wearable | torso | – | (no edition yet) | "Love For Women" |
 | scutoons_tshirt | virtual | wearable | torso | – | – | starter, basic dress (`default_worn`), `wear` overlays ("Wardrobe") |
-| scutoons_swim_pants | virtual | wearable | legs | – | – | starter in the inventory, the cover rule's first choice (sensitive-content safety) |
+| scutoons_swim_pants | virtual | wearable | legs | – | – | starter in the inventory (worn by bodies without a shorts overlay) |
 | scutoons_shorts | virtual | wearable | legs | – | – | starter, basic dress (owner may still move it to a story find) |
 | scutoons_sandals | virtual | wearable | feet | – | – | starter, basic dress |
 
@@ -142,7 +142,7 @@ CORS: `ALLOWED_ORIGINS` (with `Access-Control-Allow-Credentials: true`). Errors:
 | GET | `/auth/session/` | – | `{ status, user \| null, via: "cookie"\|"bearer"\|null }` – who is signed in; renews the cookie |
 | POST | `/auth/session/` | Bearer | `{ status, user, via: "cookie" }` + the cookie for that same session (an app's stored token moves into the cookie once) · 400 `bearer_required` · 403 `csrf_rejected` (Origin not an app) |
 | GET | `/me/` | – | `{ user, memberships:[{code,type,expires_at}], inventory:[Entry], avatar:{ slots:{ <slot>: entryId|null } } }` – `user.hide_sensitive` ("Sensitive content") |
-| PUT | `/me/` | `{ marketing_opt_in?, hide_sensitive? }` | `{ status, user, avatar }` – turning `hide_sensitive` on moves a worn sensitive body to the character's first non-sensitive look · 400 `invalid_body` |
+| PUT | `/me/` | `{ marketing_opt_in?, hide_sensitive? }` | `{ status, user, avatar }` · 400 `invalid_body` |
 | GET | `/items/` | – | catalog (above) |
 | GET | `/products/` | – | shop catalog, table `catalog_products` + `catalog_meta` (`{ version:2, currency, checked_at, source, products:[Product] }`, `@scutoons/content` `ProductCatalog`); CORS `*`, cached 5 min (platform P2b) |
 | GET | `/products/featured/` | – | the landing page's editions `[{ product, variant? }]`: chosen in the admin app ("Startseite", `GET/PUT /admin/featured`, table `catalog_featured`; no default list since 10.30); cached 1 min |
@@ -154,7 +154,7 @@ CORS: `ALLOWED_ORIGINS` (with `Access-Control-Allow-Credentials: true`). Errors:
 | POST | `/inventory/craft/` | `{ recipe_id }` | `{ status, inventory }` · 422 `missing_inputs` |
 | POST | `/inventory/grant/` | `{ item_id, source:"story"\|"scan", ref? }` | `{ status, inventory }` · 403 if not in item's `grantable` · 429 rate limit |
 | POST | `/inventory/import/` | `{ items:[{ item_id, qty }] }` | merge guest inventory on first login (grantable items only) |
-| PUT | `/avatar/` | `{ slots:{ <slot instance id>: entryId\|null }, body? }` | `{ status, avatar, restored }` · 422 invalid_slot/wrong_slot/not owned ("Slots per avatar body") · 422 `sensitive_hidden` ("Sensitive content") · `restored` = instances the cover rule refilled ("Wardrobe") |
+| PUT | `/avatar/` | `{ slots:{ <slot instance id>: entryId\|null }, body? }` | `{ status, avatar }` · 422 invalid_slot/wrong_slot/not owned ("Slots per avatar body") |
 | GET/PUT | `/progress/<toonId>/` | `{ state, updated_at }` | last-write-wins by `updated_at` |
 | POST/GET | `/validate/` | unchanged input | unchanged shape **minus** `email` and `signature` (backwards compatible for old viewer) |
 | GET | `/certificates/<CODE>` (or `?code=`) | – | certificate check of a code, server-side ("Certificates" below): `{ status, valid, reason, source:"code", code, registered, revoked, certificate }` – never the owner; CORS `*`; lookup limit |
@@ -518,13 +518,14 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
 
 ## Reader avatar bodies & character unlocks (2026-09-30, owner — built 2026-09-30)
 
-- The reader avatar body is a **character's A-pose** (character level, not persona) in one of its A-pose looks:
-  `swim` (default, swim pants) or `naked`. Data lives in the character registry (`character.apose.looks[]` with
-  path + wear slots, see "Slots per avatar body"); helper `avatarBodies(registry)` in `@scutoons/content`.
+- The reader avatar body is a **character's A-pose** (character level, not persona) in its A-pose look `swim` (swim
+  pants painted in; **the `naked` look was removed 2026-10-05 (owner)** – see below). Data lives in the character
+  registry (`character.apose.looks[]` with path + wear slots, see "Slots per avatar body"); helper
+  `avatarBodies(registry)` in `@scutoons/content`.
 - **Members can only pick characters they have unlocked.** Server tables (to build):
   `member_characters (user_id, character_id, source: default|code|item|story|admin, ref?, unlocked_at)` and
   `member_character_looks (user_id, character_id, look_id, source, unlocked_at)` for A-pose looks beyond the default.
-  A default-unlocked set is configurable (permissions/settings) — **owner decision 2026-09-30: only `catpope` (both A-pose looks swim + naked) is unlocked for every member by default**; unlocks can be granted by codes/items (catalog),
+  A default-unlocked set is configurable (permissions/settings) — **owner decision 2026-09-30: only `catpope` is unlocked for every member by default** (swim); unlocks can be granted by codes/items (catalog),
   story events (VN `add`/grant) and admins. `avatar` gets `body: { character, look }` (server, per account; guests
   per device).
 - **No look creator:** outfitting (putting items on the body) happens only in the reader's inventory avatar view;
@@ -534,7 +535,7 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
 - Server: migration `2026-09-30-member-characters.{mysql,sqlite}.sql` (idempotent; after `settings`): `member_characters
   (user_id, character_id, source, ref, unlocked_at)`, `member_character_looks (user_id, character_id, look_id, source, ref,
   unlocked_at)`, `avatar_body (user_id, character_id, look_id, updated_at)`. `Domain\Characters\CharacterUnlocks`: the
-  default unlocks are **one setting** `AVATAR_DEFAULT_UNLOCKS` (config/settings.php, JSON `{"catpope":["swim","naked"]}`,
+  default unlocks are **one setting** `AVATAR_DEFAULT_UNLOCKS` (config/settings.php, JSON `{"catpope":["swim"]}`,
   overridable per install like every setting) – no rows per member; a `member_characters` row unlocks the character with
   its **default** A-pose look, `member_character_looks` adds further looks. The registry is the published store file
   `scutoons/_/characters.json` (which looks exist and have an image). Sources `default|code|item|story|admin` + `ref` are
@@ -551,6 +552,14 @@ admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
   Members save with `PUT /avatar/ { body }`; guests get `DEFAULT_AVATAR_UNLOCKS` (@scutoons/content, same list as the
   server default) and store `{ character, look }` in localStorage `scutoons_avatar_body` (old values sphynx /
   sphynx_nude / mouse are mapped; a locked choice falls back to the default).
+- **Naked look removed (owner 2026-10-05: "Remove the naked A-pose variant. Keep the safe-for-work switch in the
+  account.")**: `APOSE_LOOKS` = swim only. Production's registry still holds `naked` looks until the owner deletes them
+  in the creator (CUTOVER 10.31): a look with id `naked` or still marked `sensitive: true` is **retired** –
+  `isRetiredAposeLook` / `RETIRED_APOSE_LOOKS` (@scutoons/content), `CharacterUnlocks::RETIRED_LOOKS` – and ignored by
+  `avatarBodies`, wanted images, the unlocks (rows, setting) and grants (`invalid_look`); a body stored with it reads as
+  the character's default look. `validateCharacters` warns ("no longer used – remove it in the creator"); × on its
+  A-pose slot removes it, the import refuses `…_apose-naked.png`. Migration `2026-10-05-no-naked` moves `avatar_body`
+  rows to swim and deletes the `member_character_looks` rows (keeping the character unlock).
 
 ## Slots per avatar body (2026-09-30, owner — built 2026-09-30)
 
@@ -587,32 +596,22 @@ twins or triplets."
   switching single ↔ duo, a legacy type row); PHPUnit `CharacterUnlocksTest::testSlotInstancesAndTheDefaultBody`; content
   tests "A-pose slot instances".
 
-## Sensitive content (2026-09-30, owner — built 2026-09-30)
+## Sensitive content (2026-09-30, owner — built 2026-09-30; A-pose use removed 2026-10-05)
 
-Owner: "Make it a member-wide setting. Hide sensitive content is on by default."
+Owner: "Make it a member-wide setting. Hide sensitive content is on by default." 2026-10-05: the naked A-pose that used
+it is gone ("Keep the safe-for-work switch in the account"); the setting will govern slices marked sensitive (blurred,
+muted – another branch).
 
-- **Data** (generic on purpose, only A-pose looks use it so far): `sensitive?: boolean` = `SensitiveFlag` in
-  `@scutoons/content` (`sensitive.ts`: `isSensitive`, `hidesSensitive(user)`, `withoutSensitive(items, hide)`,
-  `HIDE_SENSITIVE_DEFAULT`). `AposeLook extends SensitiveFlag`; **every `naked` look is `sensitive: true`**
-  (`migrate-characters.ts`, `APOSE_LOOKS`, the creator's "start A-pose"); schema + validation (not a boolean = error);
-  `AvatarBody.sensitive`. Other content can take the same flag later (not built).
+- **Data** (generic): `sensitive?: boolean` = `SensitiveFlag` in `@scutoons/content` (`sensitive.ts`: `isSensitive`,
+  `hidesSensitive(user)`, `withoutSensitive(items, hide)`, `HIDE_SENSITIVE_DEFAULT`). A-pose looks no longer use it (a
+  look still marked `sensitive: true` is retired – "Reader avatar bodies").
 - **Setting `hide_sensitive`, default on.** Members: column `users.hide_sensitive` (migration
-  `2026-09-30-sensitive-content`, MySQL + SQLite, idempotent – the existing member-setting pattern of `marketing_opt_in`,
-  no preferences table exists), `GET /me/ user.hide_sensitive`, changed with `PUT /me/ { hide_sensitive }` (alone or with
-  `marketing_opt_in`; the answer adds `avatar`). **Guests: always on, no toggle** (a missing user counts as "hide").
-- **Server:** `PUT /avatar/ { body }` with a sensitive look while on → `422 sensitive_hidden { character, look }`.
-  Turning the setting on while wearing a sensitive look moves the body to the same character's first non-sensitive,
-  unlocked look with an image (its default look first; worn items move like on any body switch; none → the default
-  body) – `AvatarService::hideSensitiveBody`. A sensitive body stored earlier reads as that safe look while the setting
-  is on (`AvatarService::body`); the default body skips sensitive looks.
-- **Viewer:** the inventory context filters `bodies` with `withoutSensitive(…, hideSensitive)` (replaces the hard-coded
-  swim-only filter and its "move to swim" effect of 5e2b10d); `currentBody` falls back to the same character's visible
-  look. The picker shows only with more than one body; the look label under the name only when a character has more
-  than one visible look. (Superseded 2026-10-01 by "Wardrobe": one tile per character, the naked base comes from taking the swim pants off.) Account page: checkbox "Sensible Inhalte ausblenden" / "Hide sensitive content" + one-line hint,
-  under the news opt-in (plain `.opt-in` style).
-- Tests: admin-smoke "(Hide sensitive content)" (default on, 422 sensitive_hidden, 400, off → naked, on → moved to swim
-  and stored, a stored naked body reads as swim), api-smoke (new accounts: on), PHPUnit
-  `CharacterUnlocksTest::testSensitiveLooksFollowHideSensitive`, content test "sensitive content".
+  `2026-09-30-sensitive-content`, idempotent – the member-setting pattern of `marketing_opt_in`), `GET /me/
+  user.hide_sensitive`, changed with `PUT /me/ { hide_sensitive }` (alone or with the other settings; the answer adds
+  `avatar`). **Guests: always on, no toggle.** Account page: checkbox "Sensible Inhalte ausblenden" / "Hide sensitive
+  content", hint "Markierte Bilder werden unscharf, ihr Ton stumm." / "Blurs marked panels and mutes their sound."
+- Tests: PHPUnit `CharacterUnlocksTest::testTheRetiredNakedLookIsIgnored` (the setting: default on, off/on, 400),
+  `MediaQualityTest`; content test "the naked A-pose look is retired".
 
 ## Cast & "featuring" (2026-09-30, owner — concept, build after data refactor Phase C)
 
@@ -655,8 +654,8 @@ Owner: "clothing becomes real, exchangeable items that overlay the character's A
   type the `default_worn` item with an overlay for the body's character; if it has none, another starter of that type with
   one – so **yellowmouse and Top Toy (no shorts overlay) wear the swim pants** and their base never looks wrong; if no
   starter of the type has one, the `default_worn` item anyway (drawn as an icon: the T-shirt and sandals there). The body
-  is the one the reader has at that moment (signup / guests: the default body, Cat Pope). The **swim pants** stay a starter
-  in the inventory: the sensitive-content safety (cover rule below). Members: granted at signup (`Users::create` →
+  is the one the reader has at that moment (signup / guests: the default body, Cat Pope). The **swim pants** stay a normal
+  starter in the inventory. Members: granted at signup (`Users::create` →
   `grantStarterWearables` + `wearBasicDress`), accounts older than the items get them lazily on `GET /me/` /
   `GET|PUT /avatar/` (`AvatarService::ensureWardrobe`: only items the member owns none of – wearables are never consumed,
   so no extra table). Guests: `giveGuestStarters` (once per item id, as before) dresses the same way.
@@ -665,7 +664,7 @@ Owner: "clothing becomes real, exchangeable items that overlay the character's A
   A-pose (same 768 × 1152 canvas, transparent WebP). Lookup `<character>/<instance>` first, then `<character>`
   (`wearOverlay`). A body without an overlay for the worn item draws the item's **icon at the slot anchor** (as before;
   hoodies, tee, amulet keep that). Validation: keys must be a known character / slot instance of the item's type, `.webp`
-  /`.png`, only wearables, a warning for one overlay on a multi-figure body, a warning when no starter covers `legs`.
+  /`.png`, only wearables, a warning for one overlay on a multi-figure body.
 - **Draw order** (`WEAR_ORDER`, bottom → top): legs → feet → torso → back → hands → accessory → neck → head → face; then
   the icon-only items (old order back … face) above all overlays.
 - **Swap**: putting an item on an occupied instance takes the old one off; it stays an inventory entry (nothing is ever
@@ -673,19 +672,11 @@ Owner: "clothing becomes real, exchangeable items that overlay the character's A
   in the item detail). **Worn items are not listed in the Items tab** (owner 2026-10-01; replaces the "Am Avatar" /
   "Im Inventar" sections): they are seen and managed in the Avatar tab's slot tiles only; taking one off makes it appear
   in Items again; a stackable entry with more pieces than are worn shows the rest (an entry is worn at most once).
-- **Sensitive rule** ("Hide sensitive content" on = members by default, guests always): the cover slots
-  (`SENSITIVE_COVER = ['legs']`) are never left empty – every save (`PUT /avatar/` slots or body, `PUT /me/
-  { hide_sensitive: true }`) refills each empty legs instance with the first unworn legs item in catalog order (swim
-  pants before shorts); the answer's `restored` lists them, the viewer notes "„Sensible Inhalte ausblenden“ ist an:
-  SCUTOONS Badehose angezogen." So taking off the swim pants is effectively blocked, taking off the shorts puts the swim
-  pants back. Same rule for guests in the inventory context (`coverSensitive`). With the setting off, legs may be empty
-  (naked allowed).
-- **Base image** (`wardrobeBase`): the character's sensitive (naked) look when it is unlocked and either the setting is
-  off or every legs instance wears an item **with an overlay** for this body; otherwise the safe look (swim, pants painted
-  in). While hidden the naked base is only shown once the legs overlays have loaded, on top of the safe look (a failed
-  layer can never reveal a naked body). Twins with one pair of pants (or an item without an overlay) → safe base.
-- **Bodies picker**: one tile per character (nakedness is the pants coming off, not a look). `body { character, look }`
-  stays in the API; the look ids `swim`/`naked` stay in the registry (the safe base and the naked base).
+- **Base image** (`wardrobeBase`): the body's own A-pose – the swim look with the pants painted in. **Naked look removed
+  2026-10-05 (owner):** no naked base, no cover rule (`SENSITIVE_COVER`, `coverSensitive`, the "restored" note,
+  `AvatarService::cover`/`coverSensitive`/`hideSensitiveBody`, `restored` in `PUT /avatar/` are gone) – every slot,
+  legs included, may be empty; "Hide sensitive content" doesn't touch the avatar.
+- **Bodies picker**: one tile per character. `body { character, look }` stays in the API.
 
 ### Files the owner replaces later (same names; placeholders – replace in admin → Assets)
 
@@ -694,7 +685,7 @@ body), 768 × 1152 transparent WebP aligned to that character's A-pose; icon `sc
 
 | File (CDN root) | Size | Source / method |
 |---|---|---|
-| `characters/catpope/wear/scutoons_swim_pants.webp` | 8 KB | swim − naked difference |
+| `characters/catpope/wear/scutoons_swim_pants.webp` | 8 KB | swim − naked difference (the naked A-poses of 2026-10-01) |
 | `characters/catpope/wear/scutoons_tshirt.webp` | 14 KB | the reference `catpope_apose-example-dressed.webp`, colour segmentation (low saturation) |
 | `characters/catpope/wear/scutoons_shorts.webp` | 16 KB | the same reference, colour segmentation (denim blue) |
 | `characters/catpope/wear/scutoons_sandals.webp` | 10 KB | the same reference: brown/cork below the ankles, each sandal moved + scaled onto the naked foot |
@@ -727,18 +718,17 @@ foot, the sole edge keeps a few ragged shadow pixels.
 Placeholders only – the owner's branded artwork replaces them.
 
 **Tests:** content `test/wardrobe.test.ts` (catalog vs registry, validation errors, overlay lookup, the basic dress per
-body, cover rule, base image), PHPUnit `WardrobeTest` (new account wears the basic dress, basic dress per body, lazy grant
-once – the swim pants on Top Toy –, swap keeps the entry, cover rule, setting off/on, twins), api-smoke (a new account wears
-the basic dress, the swim pants wait), admin-smoke "Wardrobe" (9 checks), `npm run check:wardrobe` (headless, 390 + 1440,
-guest + test user, 24 checks: the basic dress, swim pants on → shorts back + the Items tab lists them and none of the worn items, swim pants stay on while hidden,
-item detail swap, setting off → naked, Top Toy twins, back to Cat Pope). `npm run dev:test-user -- --reset` removes the
+body, base image = swim), PHPUnit `WardrobeTest` (new account wears the basic dress, basic dress per body, lazy grant
+once – the swim pants on Top Toy –, swap keeps the entry, legs may be empty, twins), `npm run check:wardrobe` (headless,
+390 + 1440, guest + test user: the basic dress on the swim base, swim pants on → shorts back + the Items tab lists them and
+none of the worn items, swim pants off → legs empty, item detail, the setting doesn't touch the avatar, Top Toy twins, back
+to Cat Pope). `npm run dev:test-user -- --reset` removes the
 default wearables so the next `/me/` hands them out and puts the basic dress on, like a signup.
 
 **Merge note (after the 2026-10-04 release):** no migration, no seed change. Deploy order: CDN first (the
 `characters/*/wear/` folders and `scutoons/items/`, uploaded in admin → Assets), then the API (items.json + services), then the viewer. Existing members get
 the four wearables on their next `/me/` with the basic dress (T-shirt, shorts, sandals – the swim pants on a body
-without a shorts overlay) worn where those slots were free. The bodies picker no longer
-offers "nackt" as a separate look.
+without a shorts overlay) worn where those slots were free.
 
 ## Substances, reader stats, testo (2026-10-01, owner — built 2026-10-01 on branch `wardrobe`)
 

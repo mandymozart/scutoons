@@ -780,6 +780,18 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
     shared/content/seed + legacy + the one-off migrate-*.ts / slice-sizes.ts deleted (TS tests: fixture
     `server/tests/fixtures/content/`). Contract suites + `composer test:contract` removed (`composer test` = PHPUnit);
     CI = one MariaDB job (PHPUnit + PHPStan).
+- [ ] 10.31 **Naked A-pose removed** (owner 2026-10-05: "Remove the naked A-pose variant. Keep the safe-for-work switch in
+      the account.") _(branch `apose/no-naked`)_: the only standard A-pose look is `swim`; the API and the reader ignore a
+      leftover `naked` look (or one still marked `sensitive: true`), the creator's validation warns about it; no cover rule
+      any more (legs may be empty – the swim body has the pants painted in); `AVATAR_DEFAULT_UNLOCKS` = `{"catpope":["swim"]}`.
+      "Hide sensitive content" stays in the account (it will blur / mute sensitive slices). **O – production steps, in order:**
+  1. Deploy (API + viewer + creator).
+  2. phpMyAdmin → d0487143 → SQL: run `server/migrations/mysql/2026-10-05-no-naked.mysql.sql` (idempotent: naked bodies →
+     swim, naked unlock rows deleted – the character stays unlocked –, a stored settings override cleaned). If the
+     installation's `config.php` / environment overrides `AVATAR_DEFAULT_UNLOCKS`, drop `"naked"` there too (harmless
+     otherwise: the API ignores it).
+  3. Delete the naked A-pose looks in the creator (registry: each character → A-pose → × on "naked"; the Problems panel
+     lists them as "no longer used"), publish the registry, then delete the CDN files `characters/*/…_apose-naked.webp`.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

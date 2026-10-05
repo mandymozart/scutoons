@@ -21,8 +21,8 @@ Moods are a separate step (`moods.md`, to come): every mood is a variation of th
 | **full**     | full-body scenes                              | 600 × 1200 px (1 : 2) | whole figure in the character's characteristic standing pose, feet ~4 % above the bottom edge, head ~4 % below the top                                                                                                                         | transparent                                              | neutral    |
 | **apose**    | reader avatar body (items are drawn on it)    | 768 × 1152 px (2 : 3) | strict A-pose, front view, symmetrical, arms ~30–40° away from the body, palms towards the thighs, legs slightly apart, feet flat and fully visible, figure centred, same scale for every character (head top ~5 %, soles ~92 % of the height); **multi-figure bodies** (duos, twins, triplets) that would exceed the width at that scale are scaled to fit the width (≥10 px side margins) with the soles still at ~92 %, so the heads sit lower (Toptoy ~22 %) | transparent with a soft floor shadow (as the existing A-poses) | neutral    |
 
-A-pose looks: `swim` (plain swim shorts/pants, the default) and `naked` (cartoon-neutral, no anatomical detail, as the
-existing Cat Pope and Yellow Mouse A-poses). Story looks (e.g. helmet) are **not** A-pose looks.
+A-pose look: `swim` (plain swim shorts/pants) – the only standard A-pose look (the `naked` one was removed 2026-10-05,
+owner). Story looks (e.g. helmet) are **not** A-pose looks.
 
 Style for all views: identical to the reference — same rendering, line quality, colours, lighting, proportions,
 clothing of the look. No text, no watermark, no props unless they belong to the look.
@@ -53,8 +53,6 @@ The views (all with a neutral expression):
 4. A-POSE (SWIM) — strict front-view A-pose, symmetrical, arms 30–40° away from the body with palms facing the
    thighs, legs slightly apart, feet flat and fully visible, figure centred, head top at ~5 % and soles at ~92 % of
    the height, 768 × 1152 px, transparent background with a soft shadow under the feet, wearing plain swim shorts.
-5. A-POSE (NAKED) — identical to 4 in every pixel of pose, scale and framing, but without the swim shorts
-   (cartoon-neutral, no anatomical detail).
 
 
 Deliver each view as its own image, named:
@@ -62,13 +60,12 @@ Deliver each view as its own image, named:
   <character>[-<persona>][_<look>]_portrait-neutral.png
   <character>[-<persona>][_<look>]_full-neutral.png
   <character>_apose-swim.png
-  <character>_apose-naked.png
 Consistency check before delivering: placed side by side with the reference, the character must be recognisably
-identical in every view; only framing and pose may differ, and the two A-poses must overlay exactly.
+identical in every view; only framing and pose may differ.
 ```
 
 File names for the delivery (the importer also accepts any name inside a folder named after the character):
-`<character>[-<persona>][_<look>]_<view>-neutral.png` · A-pose: `<character>_apose-<swim|naked>.png`
+`<character>[-<persona>][_<look>]_<view>-neutral.png` · A-pose: `<character>_apose-swim.png`
 
 ## Workflow steps
 
@@ -84,7 +81,7 @@ File names for the delivery (the importer also accepts any name inside a folder 
    - An **avatar** (head with neck) is a view of its own now; as the only source it is a weak reference for the
      body, so the full and A-pose views rely more on any other reference given.
 3. **Generate the missing views** with the single brief above (any image generator or a designer): it keeps a matching view and creates all the
-   others — portrait, full, A-pose swim and A-pose naked. If a result drifts, regenerate just that view with the
+   others — portrait, full and the A-pose (swim). If a result drifts, regenerate just that view with the
    approved portrait attached as a second reference (the most faithful source for the face).
 4. **Review** (owner): approve each view or regenerate; artist-made images always win over generated ones and can
    replace them later (same file name → re-import).

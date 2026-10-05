@@ -4,6 +4,13 @@ Versions: `composer.json` `version`; `GET /api/health/` returns `version` + `git
 
 ## Unreleased
 
+- Naked A-pose removed (agents/CUTOVER.md 10.31, owner 2026-10-05): `AVATAR_DEFAULT_UNLOCKS` default
+  `{"catpope":["swim"]}`; a look `naked` (or one still marked `sensitive: true`) in the registry is ignored
+  (`CharacterUnlocks::RETIRED_LOOKS`: no grant – `invalid_look` –, no unlock from rows / the setting, a stored body reads
+  as the character's default look). The cover rule is gone: `PUT /api/avatar/` answers `{ status, avatar }` (no
+  `restored`), no `422 sensitive_hidden`, `PUT /api/me/ { hide_sensitive }` no longer touches the avatar (the setting
+  stays). Migration `2026-10-05-no-naked` (naked bodies → swim, naked unlock rows deleted, a stored settings override
+  cleaned).
 - Production is the source of truth; MariaDB only (agents/CUTOVER.md 10.30, owner 2026-10-05): `bin/console db:prod-seed
   [--from=<dump>] [--force]` loads production's content + catalog + asset tables (15 tables, from the gitignored
   `db/prod-seed.sql` phpMyAdmin export or a full dump) into the local database in one transaction; the file's SHA-256 in
