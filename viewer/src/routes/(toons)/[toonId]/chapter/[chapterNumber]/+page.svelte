@@ -100,13 +100,19 @@
 	<!-- visibility comes from the season status (the load gates drafts in production and coming-soon chapters); the URL stays valid -->
 	<div class="chapter-view chapter-gate" data-testid="chapter-gate">
 		{#if data.gate?.reason === 'coming-soon'}
-			<p class="gate-badge">{m['chapter.coming_soon']()}</p>
-			<h1>{chapterName(data.gate.number)}{data.gate.title ? `: ${data.gate.title}` : ''}</h1>
-			{#if data.gate.release}
-				<p class="gate-release">{m['chapter.release']({ date: formatRelease(data.gate.release) })}</p>
-			{/if}
-			{#if data.gate.keyvisual}
-				<ChapterTeaser toonId={page.params.toonId ?? ''} keyvisual={data.gate.keyvisual} />
+			{@const gate = data.gate}
+			{#snippet text()}
+				<p class="gate-badge">{m['chapter.coming_soon']()}</p>
+				<h1>{chapterName(gate.number)}{gate.title ? `: ${gate.title}` : ''}</h1>
+				{#if gate.release}
+					<p class="gate-release">{m['chapter.release']({ date: formatRelease(gate.release) })}</p>
+				{/if}
+			{/snippet}
+			<!-- with a key visual: the fullscreen teaser loop, the text on top (owner 2026-10-05) -->
+			{#if gate.keyvisual}
+				<ChapterTeaser toonId={page.params.toonId ?? ''} keyvisual={gate.keyvisual} children={text} />
+			{:else}
+				{@render text()}
 			{/if}
 		{:else}
 			<p>{m['chapter.not_public']()}</p>
@@ -153,8 +159,11 @@
 			margin: 0;
 		}
 		.gate-release {
-			color: #6b6b6b;
 			margin: 0;
+		}
+		/* grey on the page; over the teaser it stays white on the scrim */
+		> .gate-release {
+			color: #6b6b6b;
 		}
 	}
 	.chapter-view {

@@ -77,6 +77,10 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   (the season's prologue) shows "Prolog" / "Prologue" (paraglide `chapter.prologue`) instead of "#0"; prev/next in the
   chapter navigation and the coming-soon page name it the same way (`chapterName`, viewer `lib/utils/chapter-name.ts`). No "featuring" in the reader (owner 2026-09-30: the reader must stay super logical
   and simple; the data – `Chapter.featuring`, the creator's featuring field, `/cast?chapter=` – stays for later).
+- **Coming-soon page** (owner 2026-10-05): with a key visual the page is a fullscreen teaser (`chapter-teaser.svelte`):
+  the key visual video fills the window, muted, on a loop, autoplay (reduced motion: the poster until "Ton an"); the
+  text ("Demnächst", chapter name, release date) sits over its lower part on a dark scrim, "Ton an" bottom right.
+  Portrait windows crop to fill, landscape windows show the whole key visual on black. No key visual: the text page.
 - **Toon page, top to bottom** (owner 2026-09-30): cover, toon title + description, "Staffel 1: <title>", the season
   text, **the start button**, the chapter list, **the season's music** (a secondary button "Musik herunterladen" /
   "Download the music" → `/<toon>/download`, only when `season.download.music` is set; with `season.download.image`
