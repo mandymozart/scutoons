@@ -9,8 +9,9 @@ MySQL/MariaDB (≥ 10.3, production 10.11) in production, SQLite locally – or 
 migrations/schema/qr.sqlite.sql, qr.mysql.sql     base schema of a fresh database (applied when `qr` is missing)
 migrations/sqlite/<date>-<name>.sqlite.sql        dated changes, applied in name order
 migrations/mysql/<date>-<name>.mysql.sql          the same for MySQL/MariaDB
-migrations/mysql/legacy/                          two MySQL-only changes from before the account system (applied in
-                                                  production long ago; never run)
+migrations/mysql/legacy/                          two MySQL-only changes from before the account system (never run;
+                                                  qr.template_data never reached production – 2026-10-05 – and is
+                                                  not in the base schema)
 ```
 
 `php bin/console migrate` applies the pending files of the configured driver and records each **file name** in

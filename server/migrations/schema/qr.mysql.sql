@@ -38,7 +38,6 @@ CREATE TABLE `qr` (
   `email` varchar(255) NOT NULL COMMENT 'claimed by',
   `edition_id` varchar(100) DEFAULT NULL COMMENT 'links to editions.json id',
   `signature` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`signature`)),
-  `template_data` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`template_data`)),
   `edition_number` int(11) DEFAULT NULL COMMENT 'n of the edition (batch manifest)',
   `claimed_by` char(36) DEFAULT NULL COMMENT 'users.id of the claimer',
   `revoked_at` datetime DEFAULT NULL COMMENT 'set = the code grants nothing',
