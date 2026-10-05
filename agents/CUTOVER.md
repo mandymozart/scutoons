@@ -445,7 +445,6 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
        UNION ALL SELECT 'content_versions', SUM(json LIKE '%scutoons.b-cdn.net%'), SUM(json LIKE '%cdn.scutoons.com/%') FROM content_versions
        UNION ALL SELECT 'toons', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM toons
        UNION ALL SELECT 'settings', SUM(value LIKE '%scutoons.b-cdn.net%'), SUM(value LIKE '%cdn.scutoons.com/%') FROM settings
-       UNION ALL SELECT 'qr', SUM(template_data LIKE '%b-cdn.net%' OR redirect_to LIKE '%b-cdn.net%'), SUM(template_data LIKE '%cdn.scutoons.com/%' OR redirect_to LIKE '%cdn.scutoons.com/%') FROM qr
        UNION ALL SELECT 'catalog_items', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_items
        UNION ALL SELECT 'catalog_albums', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_albums
        UNION ALL SELECT 'catalog_products', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_products;
