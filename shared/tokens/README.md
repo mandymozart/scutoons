@@ -14,6 +14,7 @@ bundles the CSS and emits the font files.
 | `@scutoons/tokens/base.css` | `html` / `body` / headings / `p`, fluid root font size (14px < 480px, 16px, 24px ≥ 768px); form controls (`button`, `input`, `select`, `textarea`) `font: inherit` and `code`/`kbd`/`samp`/`pre` in `--font-mono`, both with `:where()` (specificity 0) |
 | `@scutoons/tokens/tools.css` | the brutalist tool base (DESIGN.md "Brutalist tools"), **opt-in** with the class `sc-tool` on an app root (creator, admin, embassy): `:where()` element rules (specificity 0) for headings, links, fields (2px ink, `--control-height`), buttons (shape/size), focus (3px ink outline), fieldset/legend, details/summary, tables; utility classes `sc-label`, `sc-heading`, `sc-caption`, `sc-chip` (filled: `is-published|draft|soon|error|warning|info`, neutral default), `sc-frame`, `sc-nav-head`, `sc-nav-item`. Inert without `sc-tool` (reader, shop) |
 | `@scutoons/tokens/fonts/*` | the font files (e.g. for a copy on the server) |
+| `@scutoons/tokens/vite` | `cdnFonts()`: a Vite plugin (every app's `vite.config.ts`) that loads `index.css` / `fonts.css` with each `@font-face` `src` = the CDN copy (`<VITE_CDN_URL>/scutoons/fonts/<file>`) first, the bundled file as the fallback; without `VITE_CDN_URL` the CSS stays as it is (agents/ASSETS.md "Fonts") |
 
 Tokens (see `tokens.css` for values and usage notes):
 

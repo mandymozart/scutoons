@@ -25,6 +25,7 @@ final class AssetLayout
     /** paths built in app code (not in content) – a move needs a code change there too */
     public const CODE_REFERENCES = [
         'models/' => 'viewer/src/lib/components/camera/object-detector.ts (MOBILENET_MODEL)',
+        'scutoons/fonts/' => 'shared/tokens/vite.js (@font-face of the apps) + qr/templates/landing/fonts-cdn.css',
     ];
 
     public function __construct(private readonly Database $db)

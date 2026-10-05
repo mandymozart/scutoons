@@ -62,6 +62,9 @@ timeouts and cache TTLs, `CACHE_DIR`. An environment variable `QRAPP_<KEY>` wins
 
 The landing page and verify.html load `assets/tokens/scutoons-tokens.css` – tokens, the IBM Plex Mono `@font-face`
 rules and the base styles of `@scutoons/tokens` – with the woff2 files beside it (relative `url()`s, no font CDN).
+The landing layout also inlines `templates/landing/fonts-cdn.css` (generated too) with `{{CDN}}` = `CDN_URL`: the same
+Plex faces with the CDN copy (`scutoons/fonts/`) first and the local file as the fallback; the later `@font-face` wins, so
+the page shares the cached fonts with the viewer (agents/ASSETS.md "Fonts"). verify.html (static) keeps the local fonts.
 It is generated, never edited by hand: after a change in `shared/tokens` run `node qr/bin/sync-tokens.mjs` and commit
 the result. `npm run check` (the tokens package) and `qr.yml` fail when the copy is stale; `bin/` is not deployed.
 

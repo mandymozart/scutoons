@@ -14,11 +14,13 @@
 		"./fonts.css": "./fonts.css",
 		"./base.css": "./base.css",
 		"./tools.css": "./tools.css",
-		"./fonts/*": "./fonts/*"
+		"./fonts/*": "./fonts/*",
+		"./vite": "./vite.js"
 	},
 	"files": [
 		"*.css",
-		"fonts"
+		"fonts",
+		"vite.js"
 	],
 	"scripts": {
 		"check": "node scripts/check.js"

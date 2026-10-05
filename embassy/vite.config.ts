@@ -1,5 +1,6 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { cdnFonts } from '@scutoons/tokens/vite';
 import { defineConfig } from 'vite';
 import paraglide from './paraglide.config.js';
 import ports from '../shared/dev-ports.json' with { type: 'json' };
@@ -8,7 +9,7 @@ import ports from '../shared/dev-ports.json' with { type: 'json' };
 // message files one by one before the first render, agents/PERFORMANCE.md). Builds use the same layout (+2 KB gzip) so a
 // build never swaps the modules under a running dev server (it used to break the dev apps until a restart).
 export default defineConfig(({ command }) => ({
-	plugins: [sveltekit(), paraglideVitePlugin({ ...paraglide, outputStructure: 'locale-modules' })],
+	plugins: [cdnFonts(), sveltekit(), paraglideVitePlugin({ ...paraglide, outputStructure: 'locale-modules' })],
 	server: {
 		// local dev port: shared/dev-ports.json (the single source of truth)
 		port: ports.embassy,

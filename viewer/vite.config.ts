@@ -1,5 +1,6 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { cdnFonts } from '@scutoons/tokens/vite';
 import { defineConfig } from 'vite';
 import paraglide from './paraglide.config.js';
 import ports from '../shared/dev-ports.json' with { type: 'json' };
@@ -9,6 +10,7 @@ import ports from '../shared/dev-ports.json' with { type: 'json' };
 // build never swaps the modules under a running dev server (it used to break the dev apps until a restart).
 export default defineConfig(({ command }) => ({
 	plugins: [
+		cdnFonts(), // @font-face from the CDN (VITE_CDN_URL), the bundled copy as fallback
 		sveltekit(),
 		paraglideVitePlugin({ ...paraglide, outputStructure: 'locale-modules' })
 	],

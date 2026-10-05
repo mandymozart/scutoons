@@ -180,7 +180,16 @@ final class Landing
 
     private function page(int $status, string $title, string $body): Response
     {
-        return Response::html($status, $this->view->render('landing/layout', ['locale' => $this->locale, 'title' => $title, 'body' => $body]));
+        return Response::html($status, $this->view->render('landing/layout', ['locale' => $this->locale, 'title' => $title, 'body' => $body, 'fontFaces' => $this->cdnFontFaces()]));
+    }
+
+    /** IBM Plex Mono @font-face rules with the CDN copy first (templates/landing/fonts-cdn.css, bin/sync-tokens.mjs); '' without CDN_URL */
+    private function cdnFontFaces(): string
+    {
+        $cdn = rtrim($this->config->get('CDN_URL'), '/');
+        $template = dirname(__DIR__) . '/templates/landing/fonts-cdn.css';
+        if ($cdn === '' || !is_file($template)) return '';
+        return str_replace('{{CDN}}', $cdn, (string) file_get_contents($template));
     }
 
     /** redirect_to + ?code=CODE */
