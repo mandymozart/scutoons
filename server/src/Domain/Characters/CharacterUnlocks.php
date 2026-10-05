@@ -16,12 +16,14 @@ use Throwable;
  * (agents/ITEMS.md "Reader avatar bodies & character unlocks").
  *
  *   default   the setting AVATAR_DEFAULT_UNLOCKS – JSON { "<character>": ["<look>", …] } – for every member, no rows
- *             (owner 2026-09-30: catpope with swim + naked)
+ *             (owner 2026-10-05: catpope with swim)
  *   rows      member_characters (the character with its default A-pose look) + member_character_looks (further
  *             looks), each with `source` (default | code | item | story | admin) and `ref`
  *
  * The character registry (published content store file `scutoons/_/characters.json`) says which A-pose looks exist and
- * have an image; a body must be unlocked AND have an A-pose image.
+ * have an image; a body must be unlocked AND have an A-pose image. Retired looks of older registry data – the removed
+ * `naked` look (owner 2026-10-05) or any look still marked `sensitive: true` – are ignored everywhere (isRetiredAposeLook
+ * in @scutoons/content; the creator's validation warns about them).
  */
 final class CharacterUnlocks
 {
@@ -29,6 +31,8 @@ final class CharacterUnlocks
     /** The character registry's entity key (published version) */
     public const REGISTRY_KEY = 'characters';
     private const ID = '/^[a-z0-9][a-z0-9-]{0,63}$/';
+    /** A-pose look ids that are no longer used (RETIRED_APOSE_LOOKS in @scutoons/content) */
+    public const RETIRED_LOOKS = ['naked'];
 
     /** @var array<string, array<string, mixed>>|null character id → registry character (per request) */
     private ?array $registry = null;
@@ -52,7 +56,7 @@ final class CharacterUnlocks
         $out = [];
         foreach ($decoded as $character => $looks) {
             if (!is_string($character) || !preg_match(self::ID, $character) || !is_array($looks)) continue;
-            $out[$character] = array_values(array_filter($looks, fn($l) => is_string($l) && preg_match(self::ID, $l) === 1));
+            $out[$character] = array_values(array_filter($looks, fn($l) => is_string($l) && preg_match(self::ID, $l) === 1 && !$this->isRetired($character, $l)));
         }
         return $out;
     }
@@ -77,11 +81,31 @@ final class CharacterUnlocks
         return $this->registry;
     }
 
-    /** @return list<array<string, mixed>> the character's A-pose looks */
-    private function aposeLooks(string $character): array
+    /** @return list<array<string, mixed>> the character's A-pose looks as stored (retired ones included) */
+    private function registryLooks(string $character): array
     {
         $looks = $this->registry()[$character]['apose']['looks'] ?? [];
         return is_array($looks) ? array_values(array_filter($looks, 'is_array')) : [];
+    }
+
+    /** @return list<array<string, mixed>> the character's A-pose looks in use (retired ones left out) */
+    private function aposeLooks(string $character): array
+    {
+        return array_values(array_filter($this->registryLooks($character), fn(array $l) => !self::retiredLook($l)));
+    }
+
+    /** @param array<string, mixed> $look true for a leftover look of older registry data (`naked`, or `sensitive: true`) */
+    private static function retiredLook(array $look): bool
+    {
+        return in_array($look['id'] ?? null, self::RETIRED_LOOKS, true) || ($look['sensitive'] ?? false) === true;
+    }
+
+    /** true when the A-pose look id is retired (`naked`, or the registry still marks the look `sensitive: true`) */
+    public function isRetired(string $character, string $look): bool
+    {
+        if (in_array($look, self::RETIRED_LOOKS, true)) return true;
+        foreach ($this->registryLooks($character) as $l) if (($l['id'] ?? null) === $look) return self::retiredLook($l);
+        return false;
     }
 
     /** The default A-pose look id of a character (marked default, else the first; null = no A-pose) */
@@ -99,32 +123,6 @@ final class CharacterUnlocks
             if (($l['id'] ?? null) === $look) return is_string($l['path'] ?? null) && trim($l['path']) !== '';
         }
         return false;
-    }
-
-    /** true when the character's A-pose look is marked `sensitive: true` (agents/ITEMS.md "Sensitive content") */
-    public function isSensitive(string $character, string $look): bool
-    {
-        foreach ($this->aposeLooks($character) as $l) {
-            if (($l['id'] ?? null) === $look) return ($l['sensitive'] ?? false) === true;
-        }
-        return false;
-    }
-
-    /**
-     * The look a member wears instead of a hidden sensitive one: the character's first unlocked, non-sensitive A-pose
-     * look with an image (its default look first, then registry order); null = none.
-     */
-    public function safeLook(string $userId, string $character): ?string
-    {
-        $unlocked = [];
-        foreach ($this->forUser($userId) as $u) if ($u['character'] === $character) $unlocked = $u['looks'];
-        $ids = array_values(array_filter(array_map(fn(array $l) => $l['id'] ?? null, $this->aposeLooks($character)), 'is_string'));
-        $default = $this->defaultLook($character);
-        if ($default !== null) $ids = array_values(array_unique([$default, ...$ids]));
-        foreach ($ids as $look) {
-            if (in_array($look, $unlocked, true) && !$this->isSensitive($character, $look) && $this->hasApose($character, $look)) return $look;
-        }
-        return null;
     }
 
     /**
@@ -148,14 +146,13 @@ final class CharacterUnlocks
 
     /**
      * The body the reader sees when none is chosen (the viewer's rule): the first unlocked character whose default
-     * A-pose look is unlocked and has an image, else the first unlocked look with an image; null = none. With
-     * $hideSensitive, looks marked sensitive are skipped.
+     * A-pose look is unlocked and has an image, else the first unlocked look with an image; null = none.
      * @return array{character: string, look: string}|null
      */
-    public function defaultBody(string $userId, bool $hideSensitive = false): ?array
+    public function defaultBody(string $userId): ?array
     {
         $unlocked = $this->forUser($userId);
-        $ok = fn(string $character, string $look) => $this->hasApose($character, $look) && !($hideSensitive && $this->isSensitive($character, $look));
+        $ok = fn(string $character, string $look) => $this->hasApose($character, $look);
         foreach ($unlocked as $u) {
             $look = $this->defaultLook($u['character']);
             if ($look !== null && in_array($look, $u['looks'], true) && $ok($u['character'], $look)) return ['character' => $u['character'], 'look' => $look];
@@ -168,7 +165,8 @@ final class CharacterUnlocks
 
     /**
      * Everything the member has unlocked, defaults first, then rows (unlock order):
-     * [{ character, looks: [look ids], source, ref, unlocked_at }] – `source` / `ref` of the character unlock.
+     * [{ character, looks: [look ids], source, ref, unlocked_at }] – `source` / `ref` of the character unlock. Retired
+     * looks (old rows, an old setting value) are left out.
      * @return list<array<string, mixed>>
      */
     public function forUser(string $userId): array
@@ -193,6 +191,7 @@ final class CharacterUnlocks
         }
         foreach ($looks as $r) {
             $id = (string) $r['character_id'];
+            if ($this->isRetired($id, (string) $r['look_id'])) continue;
             // a look without the character unlock also unlocks the character (with just that look)
             $out[$id] ??= ['character' => $id, 'looks' => [], 'source' => 'admin', 'ref' => null, 'unlocked_at' => null];
             if (!in_array($r['look_id'], $out[$id]['looks'], true)) $out[$id]['looks'][] = (string) $r['look_id'];

@@ -22,24 +22,18 @@ use Scutoons\Infrastructure\Database\Database;
  * an item stays on the instance with the same id, otherwise it goes to the first free instance of its slot type, else
  * it comes off (the same rule as `remapAvatarSlots` in @scutoons/content).
  *
- * Sensitive looks (agents/ITEMS.md "Sensitive content"): while the member's "Hide sensitive content" is on
- * (`users.hide_sensitive`, the default) a look marked `sensitive: true` can't be chosen (422 sensitive_hidden), a stored
- * one reads as the character's first non-sensitive look, and turning the setting on moves it there (hideSensitiveBody).
+ * The naked A-pose look was removed (owner 2026-10-05): a body stored with a retired look reads as the character's
+ * default look (migration 2026-10-05-no-naked moves the rows).
  *
  * Wardrobe (agents/ITEMS.md "Wardrobe"): the default wearables (starter items with a slot: SCUTOONS T-shirt, swim
  * pants, shorts, sandals) are granted at signup and lazily for accounts older than them (ensureWardrobe); the basic
  * dress (`default_worn`: T-shirt, shorts, sandals – the swim pants instead of the shorts on a body without a shorts
  * overlay) is put on where nothing of that slot type is worn (wearBasicDress). Putting an item on an
- * occupied instance swaps the old one back into the inventory (it stays an entry, just not worn). While "Hide
- * sensitive content" is on, every save refills the empty cover instances (SENSITIVE_COVER: `legs`) with an unworn
- * wearable of that type, in catalog order (the swim pants first) – `restored` in the answer; the same rule as
- * `coverSensitive` in @scutoons/content.
+ * occupied instance swaps the old one back into the inventory (it stays an entry, just not worn). Every slot may be
+ * empty: the base image is the swim A-pose with the pants painted in.
  */
 final class AvatarService
 {
-    /** Slot types that must stay covered while "Hide sensitive content" is on (SENSITIVE_COVER in @scutoons/content) */
-    public const SENSITIVE_COVER = ['legs'];
-
     public function __construct(
         private readonly Database $db,
         private readonly Clock $clock,
@@ -98,7 +92,7 @@ final class AvatarService
     {
         if (!$granted) return;
         $types = array_unique(array_filter(array_map(fn(string $id) => $this->catalog->item($id)['slot'] ?? null, $granted), 'is_string'));
-        $body = $this->body($userId) ?? $this->unlocks->defaultBody($userId, $this->hidesSensitive($userId));
+        $body = $this->body($userId) ?? $this->unlocks->defaultBody($userId);
         $worn = array_map(fn(array $w) => $w['type'], $this->stored($userId));
         $now = $this->clock->utc();
         foreach ($this->basicDress($body['character'] ?? null) as $item) {
@@ -117,16 +111,6 @@ final class AvatarService
     }
 
     /**
-     * Applies the cover rule to the stored avatar now (after "Hide sensitive content" was turned on). Returns the
-     * refilled slot instance ids.
-     * @return list<string>
-     */
-    public function coverSensitive(string $userId): array
-    {
-        return $this->update($userId, ['slots' => []]);
-    }
-
-    /**
      * { slots, body, unlocked }: every slot instance of the current body → entry id or null (a JSON object also when
      * empty); body = the chosen { character, look } or null (= the reader shows the first unlocked default);
      * unlocked = CharacterUnlocks::toJson
@@ -135,49 +119,24 @@ final class AvatarService
     public function toJson(string $userId): array
     {
         $body = $this->body($userId);
-        $slots = $this->remap($this->stored($userId), $this->instances($body ?? $this->unlocks->defaultBody($userId, $this->hidesSensitive($userId))));
+        $slots = $this->remap($this->stored($userId), $this->instances($body ?? $this->unlocks->defaultBody($userId)));
         return ['slots' => (object) $slots, 'body' => $body, 'unlocked' => $this->unlocks->toJson($userId)];
     }
 
     /**
-     * The chosen body while it is still unlocked; a sensitive look while the member hides sensitive content reads as
-     * the character's first non-sensitive look (null when it has none).
+     * The chosen body while it is still unlocked; a retired look (the removed `naked`) reads as the character's default
+     * look.
      * @return array{character: string, look: string}|null
      */
     public function body(string $userId): ?array
     {
         $row = $this->storedBody($userId);
+        if ($row && $this->unlocks->isRetired($row['character'], $row['look'])) {
+            $look = $this->unlocks->defaultLook($row['character']);
+            $row = $look !== null ? ['character' => $row['character'], 'look' => $look] : null;
+        }
         if (!$row || !$this->unlocks->isUnlocked($userId, $row['character'], $row['look'])) return null;
-        if ($this->unlocks->isSensitive($row['character'], $row['look']) && $this->hidesSensitive($userId)) {
-            $safe = $this->unlocks->safeLook($userId, $row['character']);
-            return $safe !== null ? ['character' => $row['character'], 'look' => $safe] : null;
-        }
         return $row;
-    }
-
-    /** "Hide sensitive content" of the member (users.hide_sensitive; on by default and when not migrated yet) */
-    public function hidesSensitive(string $userId): bool
-    {
-        try {
-            $row = $this->db->one('SELECT hide_sensitive FROM users WHERE id = ?', [$userId]);
-        } catch (PDOException) {
-            return true;
-        }
-        return !$row || $row['hide_sensitive'] === null || (int) $row['hide_sensitive'] !== 0;
-    }
-
-    /**
-     * After "Hide sensitive content" was turned on: a stored sensitive body moves to the same character's first
-     * non-sensitive look (worn items move along like on any body switch); without one, back to the default body.
-     * Returns whether the body changed.
-     */
-    public function hideSensitiveBody(string $userId): bool
-    {
-        $row = $this->storedBody($userId);
-        if (!$row || !$this->unlocks->isSensitive($row['character'], $row['look'])) return false;
-        $safe = $this->unlocks->safeLook($userId, $row['character']);
-        $this->update($userId, ['body' => $safe !== null ? ['character' => $row['character'], 'look' => $safe] : null]);
-        return true;
     }
 
     /** @return array{character: string, look: string}|null the stored avatar_body row, unchecked */
@@ -209,14 +168,11 @@ final class AvatarService
      * default; the worn items move to the new body (same instance id, else the first free instance of their type).
      * slots: instance ids of the (new) body; the item's slot type must match the instance's type.
      * 400 invalid_slots (neither given / not an object), invalid_body; 422 invalid_slot (no such instance on this body),
-     * not_owned (entry is not the user's), wrong_slot, locked (body not unlocked), no_apose (no A-pose image for that look),
-     * sensitive_hidden (a look marked sensitive while the member's "Hide sensitive content" is on).
-     * Swap: the entry that was on an instance just comes off (stays in the inventory). While "Hide sensitive content" is
-     * on, empty cover instances are refilled (class doc); returns their ids (`restored`).
+     * not_owned (entry is not the user's), wrong_slot, locked (body not unlocked), no_apose (no A-pose image for that look).
+     * Swap: the entry that was on an instance just comes off (stays in the inventory).
      * @param array<string, mixed> $body
-     * @return list<string>
      */
-    public function update(string $userId, array $body): array
+    public function update(string $userId, array $body): void
     {
         $hasBody = array_key_exists('body', $body);
         if ($hasBody) $this->checkBody($userId, $body['body']);
@@ -229,7 +185,7 @@ final class AvatarService
         $target = $hasBody
             ? (is_array($body['body']) ? ['character' => (string) $body['body']['character'], 'look' => (string) $body['body']['look']] : null)
             : $this->body($userId);
-        $instances = $this->instances($target ?? $this->unlocks->defaultBody($userId, $this->hidesSensitive($userId)));
+        $instances = $this->instances($target ?? $this->unlocks->defaultBody($userId));
         $types = array_column($instances, 'slot', 'id');
 
         $changes = [];
@@ -247,9 +203,7 @@ final class AvatarService
             $changes[$id] = $entryId;
         }
 
-        $hide = $this->hidesSensitive($userId);
-        /** @var list<string> */
-        return $this->db->transaction(function () use ($userId, $changes, $hasBody, $body, $instances, $hide): array {
+        $this->db->transaction(function () use ($userId, $changes, $hasBody, $body, $instances): void {
             if ($hasBody) $this->saveBody($userId, $body['body']);
             // the worn items on the (new) body, then the changes; one entry is worn once
             $worn = $this->remap($this->stored($userId), $instances);
@@ -259,40 +213,12 @@ final class AvatarService
                 }
                 $worn[$id] = $entryId;
             }
-            $restored = [];
-            if ($hide) [$worn, $restored] = $this->cover($worn, $instances, $this->inventory->wearableEntries($userId));
             $this->db->run('DELETE FROM avatar_slots WHERE user_id = ?', [$userId]);
             $now = $this->clock->utc();
             foreach ($worn as $id => $entryId) {
                 if ($entryId !== null) $this->db->run('INSERT INTO avatar_slots (user_id, slot, entry_id, updated_at) VALUES (?, ?, ?, ?)', [$userId, $id, $entryId, $now]);
             }
-            return $restored;
         });
-    }
-
-    /**
-     * The cover rule: every empty instance of a SENSITIVE_COVER type gets the first candidate of that type that is not
-     * worn anywhere (candidates in catalog order); nothing left = stays empty (the reader draws the safe look).
-     * @param array<string, string|null> $worn
-     * @param list<array{id: string, slot: string}> $instances
-     * @param list<array{id: string, slot: string}> $candidates
-     * @return array{0: array<string, string|null>, 1: list<string>}
-     */
-    public static function cover(array $worn, array $instances, array $candidates): array
-    {
-        $used = array_flip(array_filter($worn, fn($e) => $e !== null));
-        $restored = [];
-        foreach ($instances as $i) {
-            if (!in_array($i['slot'], self::SENSITIVE_COVER, true) || ($worn[$i['id']] ?? null) !== null) continue;
-            foreach ($candidates as $c) {
-                if ($c['slot'] !== $i['slot'] || isset($used[$c['id']])) continue;
-                $worn[$i['id']] = $c['id'];
-                $used[$c['id']] = true;
-                $restored[] = $i['id'];
-                break;
-            }
-        }
-        return [$worn, $restored];
     }
 
     /**
@@ -363,9 +289,6 @@ final class AvatarService
         }
         if (!$this->unlocks->hasApose($character, $look)) {
             throw new ApiError(422, 'no_apose', 'This character has no A-pose image for that look.', ['character' => $character, 'look' => $look]);
-        }
-        if ($this->unlocks->isSensitive($character, $look) && $this->hidesSensitive($userId)) {
-            throw new ApiError(422, 'sensitive_hidden', 'This look is sensitive content: turn off "Hide sensitive content" on your account page to choose it.', ['character' => $character, 'look' => $look]);
         }
     }
 

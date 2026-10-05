@@ -11,7 +11,7 @@ use Scutoons\Tests\TestCase;
 
 /**
  * agents/ITEMS.md "Wardrobe": the default wearables, the basic dress (T-shirt, shorts, sandals – the swim pants on a body
- * without a shorts overlay), swap, the cover rule while "Hide sensitive content" is on
+ * without a shorts overlay), swap; every slot may be empty (owner 2026-10-05: no naked A-pose, no cover rule)
  */
 final class WardrobeTest extends TestCase
 {
@@ -22,7 +22,6 @@ final class WardrobeTest extends TestCase
         $twins = [$slot('torso-left', 'torso'), $slot('torso-right', 'torso'), $slot('legs-left', 'legs'), $slot('legs-right', 'legs'), $slot('feet-left', 'feet'), $slot('feet-right', 'feet')];
         $looks = fn(string $c, array $slots) => ['looks' => [
             ['id' => 'swim', 'default' => true, 'path' => "characters/$c/{$c}_apose-swim.webp", 'slots' => $slots],
-            ['id' => 'naked', 'sensitive' => true, 'path' => "characters/$c/{$c}_apose-naked.webp", 'slots' => $slots],
         ]];
         $json = json_encode(['characters' => [['id' => 'catpope', 'apose' => $looks('catpope', $single)], ['id' => 'toptoy', 'apose' => $looks('toptoy', $twins)]]]);
         $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
@@ -91,7 +90,7 @@ final class WardrobeTest extends TestCase
         self::assertSame($e['scutoons_swim_pants'], $this->slots($user)['legs-left'], 'Top Toy has no shorts overlay: the swim pants');
     }
 
-    public function testSwapKeepsTheOldItemAndTheCoverRuleRefillsLegs(): void
+    public function testSwapKeepsTheOldItemAndLegsMayBeEmpty(): void
     {
         $this->registry();
         $user = (string) $this->user()['id'];
@@ -99,52 +98,34 @@ final class WardrobeTest extends TestCase
         $avatar = $this->get(AvatarService::class);
 
         // swim pants on → the shorts come off but stay in the inventory
-        self::assertSame([], $avatar->update($user, ['slots' => ['legs' => $e['scutoons_swim_pants']]]));
+        $avatar->update($user, ['slots' => ['legs' => $e['scutoons_swim_pants']]]);
         self::assertSame($e['scutoons_swim_pants'], $this->slots($user)['legs']);
         self::assertSame(1, $this->get(InventoryService::class)->count($user, 'scutoons_shorts'));
-        // hidden (default): the swim pants can't come off
-        self::assertSame(['legs'], $avatar->update($user, ['slots' => ['legs' => null]]));
-        self::assertSame($e['scutoons_swim_pants'], $this->slots($user)['legs']);
-        // shorts on again, shorts off → the swim pants come back on
-        $avatar->update($user, ['slots' => ['legs' => $e['scutoons_shorts']]]);
-        self::assertSame(['legs'], $avatar->update($user, ['slots' => ['legs' => null]]));
-        self::assertSame($e['scutoons_swim_pants'], $this->slots($user)['legs']);
-        // shirt and sandals are no cover slots
-        self::assertSame([], $avatar->update($user, ['slots' => ['torso' => null, 'feet' => null]]));
-        self::assertSame([null, null], [$this->slots($user)['torso'], $this->slots($user)['feet']]);
-
-        // setting off: naked allowed
+        // the swim pants come off (the base is the swim A-pose, pants painted in) – also with "Hide sensitive content" on
+        $avatar->update($user, ['slots' => ['legs' => null, 'torso' => null, 'feet' => null]]);
+        self::assertSame([null, null, null], [$this->slots($user)['legs'], $this->slots($user)['torso'], $this->slots($user)['feet']]);
+        // the setting doesn't touch the avatar
         $accounts = $this->get(AccountService::class);
         $row = $this->db->one('SELECT * FROM users WHERE id = ?', [$user]) ?? [];
         $accounts->update($row, ['hide_sensitive' => false]);
-        self::assertSame([], $avatar->update($user, ['slots' => ['legs' => null]]));
-        self::assertNull($this->slots($user)['legs']);
-        // on again: the pants come back
         $out = $accounts->update($row, ['hide_sensitive' => true]);
-        self::assertSame($e['scutoons_swim_pants'], ((array) $out['avatar']['slots'])['legs']);
+        self::assertNull(((array) $out['avatar']['slots'])['legs']);
     }
 
-    public function testTwinsGetEveryLegsItemThereIs(): void
+    public function testTwinsKeepTheirItemsOnABodySwitch(): void
     {
         $this->registry();
         $user = (string) $this->user()['id'];
         $e = $this->entries($user);
         $this->get(CharacterUnlocks::class)->grant($user, 'toptoy', [], 'admin', null);
         $avatar = $this->get(AvatarService::class);
-        // switching to the twins: the shorts stay on the first figure, the swim pants cover the second
-        self::assertSame(['legs-right'], $avatar->update($user, ['body' => ['character' => 'toptoy', 'look' => 'swim']]));
+        // switching to the twins: the worn items go to the first figure, the second stays empty
+        $avatar->update($user, ['body' => ['character' => 'toptoy', 'look' => 'swim']]);
         $slots = $this->slots($user);
-        self::assertSame([$e['scutoons_shorts'], $e['scutoons_swim_pants'], $e['scutoons_tshirt'], $e['scutoons_sandals']], [$slots['legs-left'], $slots['legs-right'], $slots['torso-left'], $slots['feet-left']]);
-        // back to a single figure: one legs slot, the rule keeps working
+        self::assertSame([$e['scutoons_shorts'], null, $e['scutoons_tshirt'], $e['scutoons_sandals']], [$slots['legs-left'], $slots['legs-right'], $slots['torso-left'], $slots['feet-left']]);
+        // back to a single figure: one legs slot
         $avatar->update($user, ['body' => ['character' => 'catpope', 'look' => 'swim']]);
         self::assertSame($e['scutoons_shorts'], $this->slots($user)['legs']);
-    }
-
-    public function testCoverRule(): void
-    {
-        $inst = [['id' => 'legs-left', 'slot' => 'legs'], ['id' => 'legs-right', 'slot' => 'legs'], ['id' => 'torso-left', 'slot' => 'torso']];
-        [$worn, $restored] = AvatarService::cover(['legs-left' => 'a', 'legs-right' => null, 'torso-left' => null], $inst, [['id' => 'a', 'slot' => 'legs'], ['id' => 't', 'slot' => 'torso']]);
-        self::assertSame([[], null, null], [$restored, $worn['legs-right'], $worn['torso-left']], 'one pair of pants only covers one figure, the torso is never refilled');
     }
 
     /**

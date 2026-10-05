@@ -63,8 +63,7 @@ final class AccountService
 
     /**
      * PUT /me/ { marketing_opt_in?: bool, hide_sensitive?: bool, media_quality?: auto|low|medium|high } (at least one)
-     * → { user, avatar }. Turning hide_sensitive on while wearing a sensitive A-pose look moves the body to the same
-     * character's first non-sensitive look (AvatarService::hideSensitiveBody). 400 invalid_body.
+     * → { user, avatar }. 400 invalid_body.
      * @param array<string, mixed> $user
      * @param array<string, mixed> $body
      * @return array{user: array<string, mixed>, avatar: array<string, mixed>}
@@ -80,14 +79,7 @@ final class AccountService
         $userId = (string) $user['id'];
         if (array_key_exists('media_quality', $fields)) $this->users->setMediaQuality($userId, (string) $fields['media_quality']);
         if (array_key_exists('marketing_opt_in', $fields)) $this->users->setMarketingOptIn($userId, $fields['marketing_opt_in']);
-        if (array_key_exists('hide_sensitive', $fields)) {
-            $this->users->setHideSensitive($userId, $fields['hide_sensitive']);
-            // (own transaction) a worn sensitive body moves to the character's first non-sensitive look
-            if ($fields['hide_sensitive']) {
-                $this->avatar->hideSensitiveBody($userId);
-                $this->avatar->coverSensitive($userId); // empty legs get the swim pants back (agents/ITEMS.md "Wardrobe")
-            }
-        }
+        if (array_key_exists('hide_sensitive', $fields)) $this->users->setHideSensitive($userId, $fields['hide_sensitive']);
         return ['user' => $this->users->toJson($this->users->byId($userId) ?? $user), 'avatar' => $this->avatar->toJson($userId)];
     }
 

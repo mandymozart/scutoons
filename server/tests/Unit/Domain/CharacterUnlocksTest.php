@@ -7,6 +7,7 @@ use Scutoons\Domain\Accounts\AccountService;
 use Scutoons\Domain\ApiError;
 use Scutoons\Domain\Avatar\AvatarService;
 use Scutoons\Domain\Characters\CharacterUnlocks;
+use Scutoons\Infrastructure\Database\MigrationRunner;
 use Scutoons\Tests\TestCase;
 
 final class CharacterUnlocksTest extends TestCase
@@ -15,8 +16,8 @@ final class CharacterUnlocksTest extends TestCase
     {
         $look = fn(string $c, string $l, bool $default, bool $image = true) => ['id' => $l, 'default' => $default] + ($image ? ['path' => "characters/$c/{$c}_apose-$l.webp"] : []);
         $json = json_encode(['characters' => [
-            ['id' => 'catpope', 'apose' => ['looks' => [$look('catpope', 'swim', true), $look('catpope', 'naked', false)]]],
-            ['id' => 'yellowmouse', 'apose' => ['looks' => [$look('yellowmouse', 'swim', true), $look('yellowmouse', 'naked', false, false)]]],
+            ['id' => 'catpope', 'apose' => ['looks' => [$look('catpope', 'swim', true), $look('catpope', 'winter', false)]]],
+            ['id' => 'yellowmouse', 'apose' => ['looks' => [$look('yellowmouse', 'swim', true), $look('yellowmouse', 'winter', false, false)]]],
             ['id' => 'toptoy'],
         ]]);
         $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
@@ -30,8 +31,8 @@ final class CharacterUnlocksTest extends TestCase
     public function testDefaultsComeFromOneSetting(): void
     {
         $unlocks = $this->get(CharacterUnlocks::class);
-        self::assertSame(['catpope' => ['swim', 'naked']], $unlocks->defaults());
-        self::assertSame([['character' => 'catpope', 'looks' => ['swim', 'naked'], 'source' => 'default']], $unlocks->toJson($this->userId()));
+        self::assertSame(['catpope' => ['swim']], $unlocks->defaults());
+        self::assertSame([['character' => 'catpope', 'looks' => ['swim'], 'source' => 'default']], $unlocks->toJson($this->userId()));
     }
 
     public function testGrantUnlocksTheDefaultLookAndFurtherLooks(): void
@@ -43,15 +44,15 @@ final class CharacterUnlocksTest extends TestCase
         self::assertTrue($unlocks->grant($user, 'yellowmouse', [], 'code', 'ABC123'));
         self::assertFalse($unlocks->grant($user, 'yellowmouse', [], 'code', 'ABC123'));
         self::assertTrue($unlocks->isUnlocked($user, 'yellowmouse', 'swim'));
-        self::assertFalse($unlocks->isUnlocked($user, 'yellowmouse', 'naked'));
-        self::assertTrue($unlocks->grant($user, 'yellowmouse', ['naked'], 'story', null));
-        self::assertSame(['swim', 'naked'], $unlocks->forUser($user)[1]['looks']);
+        self::assertFalse($unlocks->isUnlocked($user, 'yellowmouse', 'winter'));
+        self::assertTrue($unlocks->grant($user, 'yellowmouse', ['winter'], 'story', null));
+        self::assertSame(['swim', 'winter'], $unlocks->forUser($user)[1]['looks']);
         self::assertSame(['code', 'ABC123'], [$unlocks->forUser($user)[1]['source'], $unlocks->forUser($user)[1]['ref']]);
 
         // unlocked but no A-pose image → cannot be worn
         $avatar = $this->get(AvatarService::class);
         try {
-            $avatar->update($user, ['body' => ['character' => 'yellowmouse', 'look' => 'naked']]);
+            $avatar->update($user, ['body' => ['character' => 'yellowmouse', 'look' => 'winter']]);
             self::fail('no_apose expected');
         } catch (ApiError $e) {
             self::assertSame('no_apose', $e->errorCode);
@@ -88,12 +89,14 @@ final class CharacterUnlocksTest extends TestCase
         self::assertSame(['torso-left' => $shirt, 'torso-right' => null], (array) $avatar->toJson($user)['slots']);
     }
 
-    public function testSensitiveLooksFollowHideSensitive(): void
+    /** The naked A-pose look was removed (owner 2026-10-05): leftovers of older registry data and rows are ignored. */
+    public function testTheRetiredNakedLookIsIgnored(): void
     {
         $json = json_encode(['characters' => [
             ['id' => 'catpope', 'apose' => ['looks' => [
                 ['id' => 'swim', 'default' => true, 'path' => 'characters/catpope/catpope_apose-swim.webp'],
                 ['id' => 'naked', 'sensitive' => true, 'path' => 'characters/catpope/catpope_apose-naked.webp'],
+                ['id' => 'beach', 'sensitive' => true, 'path' => 'characters/catpope/catpope_apose-beach.webp'],
             ]]],
         ]]);
         $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('characters', 'characters', NULL, NULL, ?, NULL, '2026-09-30 00:00:00', 'published', NULL)", [$json]);
@@ -102,36 +105,40 @@ final class CharacterUnlocksTest extends TestCase
         $accounts = $this->get(AccountService::class);
         $user = $this->user();
         $id = (string) $user['id'];
-        self::assertTrue($unlocks->isSensitive('catpope', 'naked'));
-        self::assertFalse($unlocks->isSensitive('catpope', 'swim'));
-        self::assertSame('swim', $unlocks->safeLook($id, 'catpope'));
+        self::assertTrue($unlocks->isRetired('catpope', 'naked'));
+        self::assertTrue($unlocks->isRetired('catpope', 'beach'), 'a look still marked sensitive');
+        self::assertFalse($unlocks->isRetired('catpope', 'swim'));
+        self::assertFalse($unlocks->hasApose('catpope', 'naked'));
 
-        // on by default: a sensitive look can't be chosen
-        self::assertTrue($avatar->hidesSensitive($id));
-        self::assertTrue($accounts->me($user)['user']['hide_sensitive']);
+        // can't be granted or worn; an old unlock row is left out
+        try {
+            $unlocks->grant($id, 'catpope', ['naked'], 'admin', null);
+            self::fail('invalid_look expected');
+        } catch (ApiError $e) {
+            self::assertSame('invalid_look', $e->errorCode);
+        }
+        $this->db->run("INSERT INTO member_character_looks (user_id, character_id, look_id, source, ref, unlocked_at) VALUES (?, 'catpope', 'naked', 'admin', NULL, '2026-10-01 00:00:00')", [$id]);
+        self::assertSame([['character' => 'catpope', 'looks' => ['swim'], 'source' => 'default']], $unlocks->toJson($id));
         try {
             $avatar->update($id, ['body' => ['character' => 'catpope', 'look' => 'naked']]);
-            self::fail('sensitive_hidden expected');
+            self::fail('locked expected');
         } catch (ApiError $e) {
-            self::assertSame(['sensitive_hidden', 422], [$e->errorCode, $e->status]);
+            self::assertSame('locked', $e->errorCode);
         }
 
-        // off: the naked look can be worn
+        // a naked body stored before reads as the character's default look; legs may be empty (no cover rule)
+        $this->db->run("INSERT INTO avatar_body (user_id, character_id, look_id, updated_at) VALUES (?, 'catpope', 'naked', '2026-10-01 00:00:00')", [$id]);
+        self::assertSame(['character' => 'catpope', 'look' => 'swim'], $avatar->body($id));
+        $avatar->update($id, ['slots' => ['legs' => null]]);
+        self::assertNull(((array) $avatar->toJson($id)['slots'])['legs'] ?? null);
+
+        // the account setting stays (it governs sensitive slices): on by default, switchable, validated
+        self::assertTrue($accounts->me($user)['user']['hide_sensitive']);
         $out = $accounts->update($user, ['hide_sensitive' => false]);
         self::assertFalse($out['user']['hide_sensitive']);
-        $avatar->update($id, ['body' => ['character' => 'catpope', 'look' => 'naked']]);
-        self::assertSame(['character' => 'catpope', 'look' => 'naked'], $avatar->body($id));
-
-        // on again: the body moves to the same character's first non-sensitive look (stored, and in the answer)
-        $out = $accounts->update($user, ['hide_sensitive' => true]);
-        self::assertTrue($out['user']['hide_sensitive']);
         self::assertSame(['character' => 'catpope', 'look' => 'swim'], $out['avatar']['body']);
-        self::assertSame('swim', $this->db->value('SELECT look_id FROM avatar_body WHERE user_id = ?', [$id]));
-
-        // a sensitive body stored before (e.g. before the setting existed) reads as the safe look while hidden
-        $this->db->run("UPDATE avatar_body SET look_id = 'naked' WHERE user_id = ?", [$id]);
-        self::assertSame(['character' => 'catpope', 'look' => 'swim'], $avatar->body($id));
-
+        self::assertTrue($accounts->update($user, ['hide_sensitive' => true])['user']['hide_sensitive']);
+        self::assertNull(((array) $avatar->toJson($id)['slots'])['legs'] ?? null, 'turning it on puts nothing on');
         foreach ([[], ['hide_sensitive' => 'yes'], ['marketing_opt_in' => true, 'hide_sensitive' => 1]] as $bad) {
             try {
                 $accounts->update($user, $bad);
@@ -140,6 +147,33 @@ final class CharacterUnlocksTest extends TestCase
                 self::assertSame('invalid_body', $e->errorCode);
             }
         }
+    }
+
+    public function testTheNoNakedMigration(): void
+    {
+        $id = $this->userId();
+        $other = $this->userId();
+        $this->db->run("INSERT INTO avatar_body (user_id, character_id, look_id, updated_at) VALUES (?, 'yellowmouse', 'naked', '2026-10-01 00:00:00')", [$id]);
+        $this->db->run("INSERT INTO member_characters (user_id, character_id, source, ref, unlocked_at) VALUES (?, 'catpope', 'admin', NULL, '2026-10-01 00:00:00')", [$id]);
+        $this->db->run("INSERT INTO member_character_looks (user_id, character_id, look_id, source, ref, unlocked_at) VALUES (?, 'catpope', 'naked', 'admin', NULL, '2026-10-01 00:00:00')", [$id]);
+        $this->db->run("INSERT INTO member_character_looks (user_id, character_id, look_id, source, ref, unlocked_at) VALUES (?, 'yellowmouse', 'naked', 'code', 'ABC', '2026-10-02 00:00:00')", [$id]);
+        $this->db->run("INSERT INTO member_character_looks (user_id, character_id, look_id, source, ref, unlocked_at) VALUES (?, 'yellowmouse', 'winter', 'story', NULL, '2026-10-02 00:00:00')", [$other]);
+        $this->db->run('INSERT INTO settings (`key`, `value`, updated_at, updated_by) VALUES (?, ?, ?, ?)', ['AVATAR_DEFAULT_UNLOCKS', '{"catpope": ["swim", "naked"], "toptoy": ["naked"]}', '2026-10-01 00:00:00', 'cli']);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-05-no-naked.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-05-no-naked.mysql.sql'); // idempotent
+        self::assertSame('swim', $this->db->value('SELECT look_id FROM avatar_body WHERE user_id = ?', [$id]));
+        self::assertSame(['winter'], array_column($this->db->all('SELECT look_id FROM member_character_looks ORDER BY look_id'), 'look_id'));
+        // the character a naked unlock brought along stays unlocked (with its default look)
+        self::assertSame([['catpope', 'admin', null], ['yellowmouse', 'code', 'ABC']], array_map(
+            fn(array $r) => [$r['character_id'], $r['source'], $r['ref']],
+            $this->db->all('SELECT character_id, source, ref FROM member_characters WHERE user_id = ? ORDER BY character_id', [$id])
+        ));
+        self::assertSame(['catpope' => ['swim'], 'toptoy' => []], json_decode((string) $this->db->value("SELECT `value` FROM settings WHERE `key` = 'AVATAR_DEFAULT_UNLOCKS'"), true));
+        // the same in a JSON string (an override stored as text)
+        $this->db->run("UPDATE settings SET `value` = ? WHERE `key` = 'AVATAR_DEFAULT_UNLOCKS'", [json_encode('{"catpope":["swim","naked"]}')]);
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-05-no-naked.mysql.sql');
+        self::assertSame('{"catpope":["swim"]}', json_decode((string) $this->db->value("SELECT `value` FROM settings WHERE `key` = 'AVATAR_DEFAULT_UNLOCKS'"), true));
     }
 
     public function testValidation(): void

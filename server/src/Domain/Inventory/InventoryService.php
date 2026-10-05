@@ -107,24 +107,6 @@ final class InventoryService
         return $granted;
     }
 
-    /**
-     * The member's wearable entries in catalog order (then oldest first) – the order the cover rule takes them in
-     * (agents/ITEMS.md "Wardrobe": the swim pants before the shorts).
-     * @return list<array{id: string, slot: string}>
-     */
-    public function wearableEntries(string $userId): array
-    {
-        $order = array_flip(array_keys($this->catalog->items()));
-        $rows = $this->db->all('SELECT id, item_id FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY acquired_at, id', [$userId]);
-        $out = [];
-        foreach ($rows as $r) {
-            $slot = $this->catalog->item((string) $r['item_id'])['slot'] ?? null;
-            if (is_string($slot)) $out[] = ['id' => (string) $r['id'], 'slot' => $slot, 'order' => $order[$r['item_id']] ?? PHP_INT_MAX];
-        }
-        usort($out, fn(array $a, array $b) => $a['order'] <=> $b['order']);
-        return array_map(fn(array $e) => ['id' => $e['id'], 'slot' => $e['slot']], $out);
-    }
-
     /** Default collection limit: at most this many of one item per account (owner 2026-10-02). */
     public const MAX_PER_ACCOUNT = 99;
 

@@ -12,8 +12,7 @@ use Scutoons\Http\Middleware\JsonBody;
 
 /**
  *   GET /api/avatar/  → { status, avatar: { slots, body, unlocked } }
- *   PUT /api/avatar/  { slots?: { <slot>: entryId|null }, body?: { character, look }|null } → { status, avatar, restored }
- *                     (restored = slot instances the cover rule refilled, agents/ITEMS.md "Wardrobe")
+ *   PUT /api/avatar/  { slots?: { <slot>: entryId|null }, body?: { character, look }|null } → { status, avatar }
  */
 final class AvatarController
 {
@@ -33,7 +32,7 @@ final class AvatarController
         $body = JsonBody::of($request);
         $user = CurrentSession::of($request)->requireUser();
         $this->avatar->ensureWardrobe((string) $user['id']);
-        $restored = $this->avatar->update((string) $user['id'], $body);
-        return Json::response($response, 200, ['status' => 'success', 'avatar' => $this->avatar->toJson((string) $user['id']), 'restored' => $restored]);
+        $this->avatar->update((string) $user['id'], $body);
+        return Json::response($response, 200, ['status' => 'success', 'avatar' => $this->avatar->toJson((string) $user['id'])]);
     }
 }
