@@ -873,10 +873,10 @@ subdomain back at its old folder (the old folders stay untouched until step 10).
 - Asset manager (2026-10-02, branch `assets`, agents/ASSETS.md): run `2026-10-02-assets.mysql.sql` (any time; without it
   only the asset manager answers 503). GitHub environment `production`: the optional bunny.net keys (`.env.example`
   "bunny.net (asset manager)" – `deploy/targets.json` writes them into the API's `config.php`). After the deploy: admin
-  → Assets → Rescan (registers the storage's files, indexes the uses). The bunny zone is reached at the interim
-  `https://scutoons.b-cdn.net` until the owner moves `cdn.scutoons.com` to bunny (custom hostname on pull zone 6731366 +
-  CNAME + SSL) – then `CDN_PUBLIC_URL` = `https://cdn.scutoons.com`; content keeps its CDN-relative paths, so nothing in
-  content changes; printed URLs stay valid. Before that switch: `php bin/console assets:sync --source-root=../media
+  → Assets → Rescan (registers the storage's files, indexes the uses). The bunny zone is reached at
+  `https://cdn.scutoons.com` (custom hostname on pull zone 6731366 + CNAME + SSL, CUTOVER 10.3; before that the interim
+  `https://scutoons.b-cdn.net`, which stays valid) – `CDN_PUBLIC_URL` / `VITE_CDN_URL` in `deploy/targets.json`; content
+  keeps its CDN-relative paths (absolute b-cdn URLs: migration `2026-10-05-cdn-domain`). Before that switch: `php bin/console assets:sync --source-root=../media
   --apply --overwrite --purge-zone` (the initialisation – done 2026-10-02, CUTOVER 1.5; agents/ASSETS.md "Connecting bunny.net").
 
 **4. Deploy into the new folders** (nothing points at them yet)

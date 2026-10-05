@@ -418,17 +418,75 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   copies for the beta.
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
   into `production`/targets, `assets:scan`) – ASSETS.md.
-- [ ] 10.3 cdn.scutoons.com → bunny: custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL;
-  `CDN_PUBLIC_URL` and `VITE_CDN_URL` → `https://cdn.scutoons.com` + redeploy (the legacy system loses the old FTP CDN
-  then – keep legacy hosts only until that point); a final `assets:sync` first (ASSETS.md "domain switch"). The old FTP CDN
-  becomes the backup target.
+- [ ] 10.3 cdn.scutoons.com → bunny *(code ready on branch `10.3-cdn-domain`, 2026-10-05; owner steps below open)*:
+  custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL; then every CDN URL in `deploy/targets.json`
+  (api `CDN_URL` + `CDN_PUBLIC_URL`, qr `CDN_URL`, every app's `VITE_CDN_URL`) = `https://cdn.scutoons.com` + redeploy.
+  The legacy system is gone, so nothing live uses cdn.scutoons.com: the apps stay on `scutoons.b-cdn.net` until the
+  redeploy, which comes only after cdn.scutoons.com is verified on bunny → **no downtime for the apps**. Only old deep
+  links to cdn.scutoons.com change source (up to the 2 h KAS TTL, plus a few minutes without a certificate until step 4).
+  - **State before (read-only, 2026-10-05):** cdn.scutoons.com = KAS A record `85.13.151.120`, TTL 7200
+    (ns5/ns6.kasserver.com), no AAAA; it 404s every new-layout path. `scutoons.b-cdn.net` on samples (trailer
+    `catpope/s1/s1-trailer-loop.720p.mp4`, slice `catpope/s1/c2/s1c2-slice-14.webp`,
+    `scutoons/models/mobilenet_v2_100_224/model.json`) with Origin `https://scutoons.com` + Range → 206, ACAO `*`,
+    content-range sizes = the files. `assets:check-storage` (main checkout, read-only): zone 866 files / 787.3 MB, pull
+    zone hostnames `scutoons.b-cdn.net` only; vs the dev copy `media/`: 686 same, 180 only on bunny + 39 different size
+    (= production uploads since the init – bunny is ahead), 56 only local (dev-only: catpope/characters SVGs,
+    merch/bandcamp, a few items/slices). **No `assets:sync` before the switch:** the switch does not change which bytes
+    are served, and a local → bunny `--overwrite` would replace the 39 newer production files. The decisive check is
+    production admin → Assets → Missing (nothing new). Old FTP CDN paths that still answer there but not on bunny
+    (moved/deleted by the relayout, `logs/cutover/relayout-report.json`): 12 – `catpope/audio/CatPope-Awakening-Music.zip`
+    (now `catpope/s1/…`), `catpope/images/s1s{1..6}-thumbnail.jpg`, `catpope/images/collectables/cucumber.png`,
+    4 × `catpope/images/vectors/*.svg`; they 404 after the switch (none is a printed URL – PLAN.md RULE; optional: a
+    bunny Edge Rule redirect for the album zip if that link was shared).
+  - **Owner steps, in this order (the agent verifies each read-only):**
+    1. Read-only check SQL in phpMyAdmin (absolute media URLs stored in the DB):
+       ```sql
+       SELECT 'entity_versions' t, SUM(json LIKE '%scutoons.b-cdn.net%') bcdn, SUM(json LIKE '%cdn.scutoons.com/%') cdn FROM entity_versions
+       UNION ALL SELECT 'content_versions', SUM(json LIKE '%scutoons.b-cdn.net%'), SUM(json LIKE '%cdn.scutoons.com/%') FROM content_versions
+       UNION ALL SELECT 'toons', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM toons
+       UNION ALL SELECT 'settings', SUM(value LIKE '%scutoons.b-cdn.net%'), SUM(value LIKE '%cdn.scutoons.com/%') FROM settings
+       UNION ALL SELECT 'qr', SUM(template_data LIKE '%b-cdn.net%' OR redirect_to LIKE '%b-cdn.net%'), SUM(template_data LIKE '%cdn.scutoons.com/%' OR redirect_to LIKE '%cdn.scutoons.com/%') FROM qr
+       UNION ALL SELECT 'catalog_items', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_items
+       UNION ALL SELECT 'catalog_albums', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_albums
+       UNION ALL SELECT 'catalog_products', SUM(data LIKE '%scutoons.b-cdn.net%'), SUM(data LIKE '%cdn.scutoons.com/%') FROM catalog_products;
+       ```
+       (the catalog lines need `2026-10-04-catalog`; drop them if it has not run.) `bcdn` > 0 → the migration
+       `2026-10-05-cdn-domain` (step 7) rewrites them – both names serve the same files, so it is cleanup; nothing breaks
+       before. `cdn` > 0 → absolute URLs that today load the OLD FTP CDN: the agent checks those paths on bunny first
+       (`SELECT id, entity_key, status FROM entity_versions WHERE json LIKE '%cdn.scutoons.com/%'`).
+    2. bunny dashboard → Pull Zones → `scutoons` (6731366) → General → Hostnames → add `cdn.scutoons.com` (harmless
+       before DNS). "Force SSL" not yet.
+    3. KAS → Tools → DNS-Einstellungen → `scutoons.com`: the row `cdn` type A `85.13.151.120` → edit to type `CNAME`,
+       Prio 0, Data **`scutoons.b-cdn.net.`** (trailing dot). If KAS refuses to edit the subdomain's automatic record:
+       delete the `cdn` A row and add a new entry with those values. **Leave the KAS subdomain cdn.scutoons.com and its
+       folder `/cdn.scutoons.com/` as they are** (backup until 10.7). Agent: `nslookup -type=CNAME cdn.scutoons.com
+       ns5.kasserver.com` → `scutoons.b-cdn.net`.
+    4. bunny → Hostnames → `cdn.scutoons.com` → "Verify & Activate SSL" (free certificate; needs step 3 visible to bunny –
+       retry after a few minutes if it fails). Then "Force SSL" on for that hostname.
+    5. Agent: `https://cdn.scutoons.com/…` on the three samples with Origin + Range → 206, ACAO `*`, same sizes,
+       `server: BunnyCDN-…`; `assets:check-storage` lists both hostnames on the pull zone.
+    6. Merge + deploy (`targets.json` is in every target's `watch`, so all apps rebuild): `git checkout main` ·
+       `git merge --ff-only platform` · `git push origin main` · `git checkout platform`.
+    7. phpMyAdmin: `server/migrations/mysql/2026-10-05-cdn-domain.mysql.sql` (idempotent; a no-op when step 1 found
+       nothing), then admin → Assets → Rescan.
+    8. Agent: the live apps (scutoons.com reader, qr., creator., admin., shop.) load media from `cdn.scutoons.com`
+       (network requests, own browser tab); `npm run deploy:status`.
+    9. Tidy (not read by the deploy): GitHub environment `production` `CDN_PUBLIC_URL` → `https://cdn.scutoons.com` or
+       delete it (`targets.json` fixes the value); the local root `.env` `CDN_PUBLIC_URL=https://cdn.scutoons.com` (only
+       the local `assets:check-storage` HEAD uses it).
+  - **Rollback:** before step 6 – KAS: the `cdn` row back to type A `85.13.151.120` (the old FTP CDN answers again; the
+    apps never left `scutoons.b-cdn.net`). After step 6 – revert the `targets.json` commit and redeploy: the apps go back
+    to `scutoons.b-cdn.net`, which keeps working whatever the DNS says. The migration needs no rollback (both names serve
+    the same zone; reverse = the same REPLACE the other way round).
+  - Afterwards: **10.9 is unblocked** (nothing uses the old FTP CDN any more); the folder `/cdn.scutoons.com/` stays as a
+    backup until 10.7 and is the later backup target (ASSETS.md "Backup", `FtpStorage`).
 - [ ] 10.4 Folder restructure: `assets:layout` re-run + owner review, batch relink (to build), the model path code change,
   then prune (ASSETS.md "Migration plan").
 - [ ] 10.5 Remove the test hosts `next.` / `qr-next.` (and T1's origin); later `PROXY_FULL_API=0` when qr's log shows
   no `/api/*` traffic; remove `generate/` + `GENERATE_PASSWORD` after admin parity.
 - [ ] 10.6 Embassy go-live (EMBASSY.md "To go live"): subdomain + SSL, roles, import (`order` done 2026-10-04).
 - [ ] 10.7 After one release without problems: delete the old folders (keep backups); the old DB stays as an archive.
-- [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions
+- [ ] 10.9 KAS FTP cleanup (after the switch + the CDN move – unblocked once 10.3 is live): delete the users `cdn-sync` (f017c2d3; its repo tooling is gone since 2026-10-04), github actions
   `f017b642` and `f017b651`; remove their old secrets from GitHub (old qr repo, repo-level FTP secrets of the old viewer
   workflow). The main user stays, used only by hand.
 - [x] 10.10 Local MariaDB in Docker instead of SQLite for dev + tests (owner 2026-10-02, after the admin dashboard 500 on

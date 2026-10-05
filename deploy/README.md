@@ -103,14 +103,14 @@ The owner's checklist with comments is [`.env.example`](../.env.example); these 
 | `DB_HOST`, `DB_NAME` | variable | api |
 | `MAIL_FROM` (a plain address), `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE` | variable | api |
 | `VITE_API_URL` | variable | viewer, shop, creator, admin builds (`https://qr.scutoons.com/api` until the cutover, then `https://api.scutoons.com/api`) |
-| `VITE_CDN_URL` | – | **fixed in `targets.json`** since 2026-10-02 (owner): the new platform loads media from bunny's interim `https://scutoons.b-cdn.net` (every build, the API's `CDN_URL` / `CDN_PUBLIC_URL`, qr's `CDN_URL`); the legacy system keeps cdn.scutoons.com until the domain moves to bunny – then change it here once (agents/ASSETS.md) |
+| `VITE_CDN_URL` | – | **fixed in `targets.json`** `https://cdn.scutoons.com` = the bunny.net pull zone 6731366 (custom hostname since CUTOVER 10.3; until then the interim `https://scutoons.b-cdn.net`, which stays valid): every build, the API's `CDN_URL` / `CDN_PUBLIC_URL`, qr's `CDN_URL` (agents/ASSETS.md) |
 | `VITE_WWW_URL` | variable | shop, creator (reader link), admin (as `VITE_VIEWER_URL`) |
 | `VITE_CREATOR_URL` | variable | viewer, admin |
 | `VITE_SHOP_URL` | variable | viewer |
 | `VITE_ADMIN_URL` | variable | admin |
 | `VITE_ASK_URL` | variable | creator – the Ask service, e.g. `https://ask.scutoons.com/api/ask` (unset = the Ask panel says "not available"; tools/mcp/README.md) |
 | `BUNNY_STORAGE_PASSWORD`, `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_API_KEY` | secret | api `config.php` – the asset manager's bunny.net storage zone passwords (read/write, read-only) and the account API key (all optional; agents/ASSETS.md) |
-| `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_PULLZONE_ID`, `CDN_PUBLIC_URL` | variable | api `config.php` (optional, same) |
+| `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_PULLZONE_ID` | variable | api `config.php` (optional, same); `CDN_PUBLIC_URL` is fixed in `targets.json` (a `production` variable of that name is not read) |
 
 Not used any more: `CREATOR_FTP_*`, `SHOP_FTP_*`, `ADMIN_FTP_*`, `SERVER_FTP_DIR`, `VITE_VIEWER_URL` (→ `VITE_WWW_URL`),
 `VITE_QR_API` (→ `VITE_API_URL`), `VITE_STATIC_API` (no static files any more: content comes from the API, agents/DATA.md).

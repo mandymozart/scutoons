@@ -53,7 +53,7 @@ final class AssetUsages
     /** @return list<string> URL prefixes of the CDN (absolute references are accepted when they start with one) */
     private function publicBases(): array
     {
-        return array_values(array_filter(array_unique([$this->settings->get('CDN_PUBLIC_URL'), $this->settings->get('CDN_URL'), 'https://cdn.scutoons.com/'])));
+        return array_values(array_filter(array_unique([$this->settings->get('CDN_PUBLIC_URL'), $this->settings->get('CDN_URL'), ...AssetPaths::PUBLIC_BASES])));
     }
 
     /** @return array<string, true> the files the registry knows (current versions) */

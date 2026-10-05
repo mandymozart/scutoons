@@ -54,8 +54,8 @@
             "BUNNY_STORAGE_READONLY_PASSWORD": "${BUNNY_STORAGE_READONLY_PASSWORD}",
             "BUNNY_PULLZONE_ID": "${BUNNY_PULLZONE_ID}",
             "BUNNY_API_KEY": "${BUNNY_API_KEY}",
-            "CDN_URL": "https://scutoons.b-cdn.net/",
-            "CDN_PUBLIC_URL": "https://scutoons.b-cdn.net",
+            "CDN_URL": "https://cdn.scutoons.com/",
+            "CDN_PUBLIC_URL": "https://cdn.scutoons.com",
             "ALLOWED_ORIGINS": "https://scutoons.com,https://www.scutoons.com,https://next.scutoons.com,https://creator.scutoons.com,https://admin.scutoons.com,https://shop.scutoons.com,https://embassy.scutoons.com"
           }
         }
@@ -84,7 +84,7 @@
             "API_URL": "https://api.scutoons.com",
             "QR_PROXY_SECRET": "${QR_PROXY_SECRET}",
             "PROXY_FULL_API": "1",
-            "CDN_URL": "https://scutoons.b-cdn.net/"
+            "CDN_URL": "https://cdn.scutoons.com/"
           }
         }
       }
@@ -99,7 +99,7 @@
       "remote": "viewer/dist/",
       "build": "npm run build -w viewer",
       "output": "viewer/build",
-      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://scutoons.b-cdn.net", "VITE_CREATOR_URL", "VITE_SHOP_URL"],
+      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://cdn.scutoons.com", "VITE_CREATOR_URL", "VITE_SHOP_URL"],
       "include": ["**"],
       "exclude": ["**/.DS_Store"],
       "protect": [],
@@ -115,7 +115,7 @@
       "remote": "shop/dist/",
       "build": "npm run build -w shop",
       "output": "shop/build",
-      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://scutoons.b-cdn.net", "VITE_WWW_URL"],
+      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://cdn.scutoons.com", "VITE_WWW_URL"],
       "include": ["**"],
       "exclude": ["**/.DS_Store"],
       "protect": [],
@@ -131,7 +131,7 @@
       "remote": "creator/dist/",
       "build": "npm run build -w creator",
       "output": "creator/build",
-      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://scutoons.b-cdn.net", "VITE_WWW_URL", "VITE_ASK_URL"],
+      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://cdn.scutoons.com", "VITE_WWW_URL", "VITE_ASK_URL"],
       "include": ["**"],
       "exclude": ["**/.DS_Store"],
       "protect": [],
@@ -147,7 +147,7 @@
       "remote": "admin/dist/",
       "build": "npm run build -w admin",
       "output": "admin/build",
-      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://scutoons.b-cdn.net", "VITE_CREATOR_URL", "VITE_WWW_URL", "VITE_ADMIN_URL", "VITE_VIEWER_URL=${VITE_WWW_URL}"],
+      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://cdn.scutoons.com", "VITE_CREATOR_URL", "VITE_WWW_URL", "VITE_ADMIN_URL", "VITE_VIEWER_URL=${VITE_WWW_URL}"],
       "include": ["**"],
       "exclude": ["**/.DS_Store"],
       "protect": [],
@@ -163,7 +163,7 @@
       "remote": "embassy/dist/",
       "build": "npm run build -w embassy",
       "output": "embassy/build",
-      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://scutoons.b-cdn.net", "VITE_VIEWER_URL=${VITE_WWW_URL}"],
+      "buildEnv": ["VITE_API_URL", "VITE_CDN_URL=https://cdn.scutoons.com", "VITE_VIEWER_URL=${VITE_WWW_URL}"],
       "include": ["**"],
       "exclude": ["**/.DS_Store"],
       "protect": [],

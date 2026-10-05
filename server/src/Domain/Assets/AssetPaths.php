@@ -25,6 +25,9 @@ final class AssetPaths
     public const VIDEO_QUALITY = [480 => 'low', 720 => 'medium', 1080 => 'high'];
     /** slice densities (IMAGE_QUALITY_DENSITIES) */
     public const DENSITY_QUALITY = ['1x' => 'low', '2x' => 'medium', '3x' => 'high'];
+    /** the production CDN's public bases: cdn.scutoons.com (bunny custom hostname since 10.3) and the pull zone's own
+     * hostname, which stays valid – absolute references starting with either resolve to CDN-root paths */
+    public const PUBLIC_BASES = ['https://cdn.scutoons.com/', 'https://scutoons.b-cdn.net/'];
     /** the extensions content may reference as media (usage scanner) */
     public const MEDIA_EXTENSION = '/\.(jpe?g|png|webp|gif|svg|avif|mp4|webm|mov|m4v|mp3|m4a|aac|ogg|oga|wav|flac|zip|pdf|mscz)$/i';
 
