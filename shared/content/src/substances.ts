@@ -48,8 +48,8 @@ export const READER_STATS: Record<string, StatDef> = {
 };
 
 /**
- * A catalog in the served shape (GET /api/items/) from the server's seed file `server/config/items.json`, which no
- * longer carries the code parts: `slots` (AVATAR_SLOTS) and `stats` (READER_STATS) are added – for tests and scripts.
+ * A catalog in the served shape (GET /api/items/) from a catalog file without the code parts (the test fixture
+ * server/tests/fixtures/catalog/items.json): `slots` (AVATAR_SLOTS) and `stats` (READER_STATS) are added – for tests.
  */
 export function catalogFromSeed(seed: Omit<Catalog, 'slots' | 'stats'> & Partial<Pick<Catalog, 'slots' | 'stats'>>): Catalog {
 	const { version, items, recipes, albums } = seed;

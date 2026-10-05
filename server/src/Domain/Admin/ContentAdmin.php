@@ -21,7 +21,7 @@ final class ContentAdmin
 
     /**
      * GET /admin/content[?toon=] → { toons: [{ id, name }], entities: [{ key, kind, toon, locale, latest, latest_status,
-     * latest_at, published, published_at, versions }] } – toons = config/toons.json + toons that only exist in the store
+     * latest_at, published, published_at, versions }] } – toons = the toons table + toons that only exist in the store
      * @return array{toons: list<array{id: string, name: string}>, entities: list<array<string, mixed>>}
      */
     public function index(mixed $toon = null): array

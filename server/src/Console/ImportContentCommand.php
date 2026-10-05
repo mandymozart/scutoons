@@ -52,8 +52,8 @@ final class ImportContentCommand extends Command
                 entity as a published version (author NULL, message "import"), keyed by its entity key.
                 Idempotent: entities already in the store are skipped (the store is the source of truth once seeded);
                 --update adds a new published version where the file differs.
-                Production: bin/console import-content shared/content/seed --sql > content-seed.sql, then import that file in
-                phpMyAdmin after migrations/mysql/2026-09-30-entity-keys.mysql.sql. Each statement skips stored entities.
+                --sql prints the same as guarded INSERTs (each skips stored entities) for phpMyAdmin. Production is the source of
+                content (the creator); a local database gets it from db:prod-seed.
                 The dev-only sandbox toon (DEV_ONLY_TOONS) is left out of --sql unless named with --toon; the creator-only
                 screenplays (script:<toon>:<l>, EntityKey::CREATOR_ONLY_KINDS) unless named with --only=script.
                 HELP);

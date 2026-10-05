@@ -46,7 +46,6 @@
 		lists: CatalogLists;
 		/** the published character registry (wear overlays are checked against it); null = not loaded, not checked */
 		registry?: CharacterRegistry | null;
-		/** the tables are missing (the API reads the seed files): read-only */
 		/** reads a kind's list again (after a write) */
 		refresh: (kind: KindDef['kind']) => Promise<void>;
 		form: Component<CatalogFormProps, {}, 'data'>;

@@ -22,7 +22,7 @@ use Throwable;
  * work the leads that are theirs or unowned. Only ambassadors import, delete and assign leads to somebody else.
  *
  * Stores (agents/EMBASSY.md "Stores"): an organisation of a STOCKIST_TYPES type (`store`, `record_shop`) can carry
- * SCUTOONS products (`carries` = product ids of config/products.json) and be `listed` on the public "Where to buy" page
+ * SCUTOONS products (`carries` = product ids of the shop catalog) and be `listed` on the public "Where to buy" page
  * (Stockists, GET /api/stockists/) with `independent`, `address`, `opening` – the other fields stay internal.
  *
  * Mail (agents/EMBASSY.md "Automation"): EmbassyMail sends a person's mail and logs it here as `mail_out`, EmbassyInbox
@@ -72,7 +72,7 @@ final class Embassy
     ) {
     }
 
-    /** @return list<string> the product ids a store may carry (config/products.json) */
+    /** @return list<string> the product ids a store may carry (the shop catalog) */
     public function productIds(): array
     {
         $ids = [];
@@ -240,7 +240,7 @@ final class Embassy
         $this->requireAmbassador($user);
         $this->get($id);
         $this->db->transaction(function () use ($id): void {
-            // explicit order: SQLite runs without enforced foreign keys on some setups
+            // explicit order: children first
             $this->db->run('DELETE FROM embassy_activities WHERE org_id = ?', [$id]);
             $this->db->run('DELETE FROM embassy_leads WHERE org_id = ?', [$id]);
             $this->db->run('DELETE FROM embassy_people WHERE org_id = ?', [$id]);

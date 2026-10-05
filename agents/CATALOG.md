@@ -21,8 +21,10 @@ and replace the usage". Beta for friends – no release pressure.
 | – | `catalog_history` | every change: kind, id, before / after JSON, by, at – an admin can see and undo |
 
 Rules:
-- The JSON files become **seeds** for empty / local databases only (like `shared/content/seed`, CUTOVER 10.15); the
-  production migration carries today's data as INSERTs (generated from the files, owner runs it in phpMyAdmin).
+- ~~The JSON files become seeds for empty / local databases~~ – since 10.30 (2026-10-05) production is the only source:
+  local dev loads production's tables (`server/db/prod-seed.sql`, `db:prod-seed`); the files are the committed test
+  fixture `server/tests/fixtures/catalog/`. The production migration carries the 2026-10-04 data as INSERTs (FROZEN;
+  owner ran it in phpMyAdmin).
 - Every consumer keeps its output: `GET /api/items/`, `/api/products/`, the admin catalog response, the QR toons –
   same JSON shape, so the viewer / shop / qr / embassy don't change.
 - The asset registry indexes the catalog rows as uses (today it scans the catalog files: `AssetUsages::CATALOG_FILES`),
@@ -50,10 +52,14 @@ Rules:
   locale })` in their root layout (both render `DialogHost`). Ready for part 3 – COMPONENTS.md "Shared media components".
 - 2026-10-04: **Part 1 built** (branch `catalog/db`). Details below.
 - 2026-10-05: production migration has run (owner check: all 11 tables, the old settings folded).
+- 10.30 (2026-10-05): files are no data source any more – test fixture `server/tests/fixtures/catalog/` (`CatalogSeed`
+  = test-only loader); `catalog:seed` / `catalog:export-sql`, the file fallback (`fallback` field, 503
+  `migration_pending`), the featured default list and the respawn endpoints (`/admin/catalog/respawn`, "reset") removed;
+  SQLite migrations gone. Local data = production's (`npm run dev:db -- seed`). Part 1 below is the 2026-10-04 state.
 
 ### Part 1 – what is built
 
-**Tables** (migration `2026-10-04-catalog`, `server/migrations/{mysql,sqlite}/`; utf8mb4, `utf8mb4_bin` = case-sensitive
+**Tables** (migration `2026-10-04-catalog`, `server/migrations/mysql/` – the sqlite one is gone since 10.30; utf8mb4, `utf8mb4_bin` = case-sensitive
 ids): `catalog_items` (+ `toon`, `edition_id`), `catalog_recipes`, `catalog_albums` (+ `toon`), `catalog_products`
 (+ `toon`, `item_id`, `edition_id`), `catalog_editions` (+ `toon`), `catalog_featured` (+ `product_id`, `variant_id`; id
 `<product>[:<variant>]`), `catalog_permissions` (data = the description string), `catalog_code_types` (id `default` =
@@ -62,32 +68,33 @@ currency, checked_at, source }`, `permissions` `{ version }` – not in the orig
 `catalog_history` (kind, entry_id, action create/update/delete/reorder/replace, before_json / after_json, position,
 undo_of, note, changed_by, changed_at). Every row: `id`, `position`, `data` (LONGTEXT + JSON_VALID – not MySQL's JSON
 type, which reorders keys), `updated_at`, `updated_by`. Relations are real columns kept in step with `data`; integrity
-is checked by the API (no FOREIGN KEYs: undo / reorder / SQLite stay simple).
+is checked by the API (no FOREIGN KEYs: undo / reorder stay simple).
 - The migration carries **today's data** (one INSERT per table, each only while the table is empty → re-running never
-  brings back deleted entries), generated from the files: `php bin/console catalog:export-sql --write` (CatalogTest
-  checks the committed block = the generator's output). It **folds and deletes** the settings `item_respawn` (overrides →
+  brings back deleted entries), generated from the files (the generator `catalog:export-sql` and its CatalogTest check
+  were removed in 10.30; the block is FROZEN). It **folds and deletes** the settings `item_respawn` (overrides →
   the items' `respawn`) and `featured_products` (the stored list → `catalog_featured`, before the seed).
 - `migrations/schema/*` (the base schema of a fresh DB) is NOT changed: it has never had the later tables; a fresh
   database gets the base schema and then every migration, this one included.
-- `php bin/console catalog:seed [--replace] [--db=]`: empty tables ← the files (a fresh DB is already seeded by the
-  migration; `--replace` resets a local DB to the files). `npm run dev` / `npm run dev:db` need nothing new (`migrate`).
-- Without the tables (deploy before the migration) the API reads the files, read-only (writes → `503 migration_pending`).
+- ~~`catalog:seed`~~ and ~~the file fallback without the tables (`503 migration_pending`)~~ – removed 2026-10-05
+  (10.30); a local DB gets production's rows from `npm run dev:db -- seed`.
 
 **Loaders** (`server/src/Domain/Catalog/`): `CatalogStore` (rows per kind, the only reader of the tables), `Catalog`
 (`data()` = `{ version, slots, items, recipes, albums, stats }` as before), `Editions`, `Products` (catalogJson /
 featuredJson keep objects and key order), `FeaturedProducts`, `Toons`, `Access\Permissions::map()` – APIs unchanged,
 the ~25 consumers untouched. `ItemRespawn` reads the item rows (`apply()` is a no-op now); its admin update is an item
-update (history, note `respawn`); "file" in its admin view = the seed's rule, `reset` = back to it.
+update (history, note `respawn`). (Its admin endpoints with "file" = the seed's rule and `reset` were removed in 10.30;
+respawn is edited in the item form.)
 **slots / stats are code:** `Domain\Avatar\AvatarSlots::ALL`, `Domain\Reader\ReaderStats::DEFINITIONS` =
-`@scutoons/content` `AVATAR_SLOTS`, `READER_STATS` (CatalogTest compares them); removed from `config/items.json`;
-`catalogFromSeed()` (content) adds them back for tests / scripts reading the seed file; `validateCatalog` falls back to
+`@scutoons/content` `AVATAR_SLOTS`, `READER_STATS` (CatalogTest compares them); removed from `items.json`;
+`catalogFromSeed()` (content) adds them back for tests / scripts reading the fixture file; `validateCatalog` falls back to
 them.
 
 **Admin API** (role admin; docs/API.md "Admin API → Catalog"): `GET /api/admin/catalog/<kind>`, `GET|PUT|DELETE
 /api/admin/catalog/<kind>/<id>` (`PUT { data }` creates 201 / updates 200; `422 invalid_catalog { problems }`, `409
 in_use { uses }`), `POST /api/admin/catalog/<kind>/reorder { ids }`, `GET /api/admin/catalog/history?kind=&id=&limit=`,
 `POST /api/admin/catalog/history/<n>/undo { force? }` (`409 changed_since`). Kinds: items, recipes, albums, products,
-editions, featured, permissions, code-types, toons, meta. The old `/catalog`, `/catalog/respawn`, `/featured` keep working.
+editions, featured, permissions, code-types, toons, meta. The old `/catalog`, `/featured` keep working (`/catalog/respawn`
+removed in 10.30; `/featured` has no default list since then – PUT needs a list, `[]` = nothing featured).
 Validation = `CatalogValidator` (the essentials of validateCatalog / validateAlbums; wear-vs-registry stays client-side).
 **Toons:** `PUT /api/admin/catalog/toons/<id> { data: { id, name, redirectUrl } }` – the id must be a content toon id
 (`[a-z0-9_-]`); creating also stores a draft content index entry `toon:<id>` (names from `name`, de + en) when none
@@ -98,9 +105,9 @@ was a QR toon). A toon with content / catalog entries can't be deleted.
 `album:awakening`), field = the pointer in `data`; every catalog write re-indexes; relink / rename update the rows through
 the admin path (validated, history; a refused one is reported as `manual`).
 
-**Tests:** `CatalogTest` (tables = files, seed / export, the folds on SQLite + MariaDB, fallback, constants vs TS,
-validation, history / undo, toons, respawn / featured), `CatalogApiTest` (public answers = files, admin CRUD, toons),
-AssetsTest / AppTest / contract suites adapted.
+**Tests:** `CatalogTest` (tables = fixture, the folds, constants vs TS, validation, history / undo, toons, respawn /
+featured), `CatalogApiTest` (public answers = fixture, admin CRUD, toons), AssetsTest / AppTest adapted (10.30: MariaDB
+only; the export / fallback tests and the contract suites are gone).
 
 ### Production (owner)
 
@@ -118,12 +125,12 @@ AssetsTest / AppTest / contract suites adapted.
    ```
    Expected: items 27, recipes 5, albums 1, products 6, editions 3, featured = the landing page's list (2 if none was
    chosen in the admin), permissions 1, code_types 6, toons 3, meta 3, old settings left 0.
-3. After the deploy: `https://api.scutoons.com/api/admin/catalog/items` (signed in as admin) answers `"fallback": false`.
+3. After the deploy: `https://api.scutoons.com/api/admin/catalog/items` (signed in as admin) answers `"fallback": false`
+   (that field is gone since 10.30).
 
 ### Open / decided differently
 
-- An empty featured list stored as the setting (`[]`) comes back as the default list (the table can't tell "never set"
-  from "chosen empty"); the admin can clear it again.
+- ~~An empty featured list comes back as the default list~~ – 10.30: no default list; `[]` = nothing featured.
 - Undoing a toon's creation is refused while its starter content entry exists (`in_use`: a toon with content is never
   deleted by the API).
 - Part 3 (admin UI) uses the endpoints above through `@scutoons/api` `createAdminApi` (`catalogList` … `catalogUndo`).

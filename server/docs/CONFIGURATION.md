@@ -2,7 +2,7 @@
 
 Every setting has a default in `config/settings.php`. Per installation, a value comes from (first non-empty wins):
 
-1. the environment variable `QR_<KEY>` (e.g. `QR_DB_SQLITE_PATH` – `composer test` points the servers at a DB copy),
+1. the environment variable `QR_<KEY>` (e.g. `QR_DB_NAME` – `npm run dev:db` points the API and the console at the local database),
 2. **only for the media storage keys** `BUNNY_STORAGE_ZONE`, `BUNNY_STORAGE_ENDPOINT`, `BUNNY_STORAGE_PASSWORD`,
    `BUNNY_STORAGE_READONLY_PASSWORD`, `BUNNY_PULLZONE_ID`, `BUNNY_API_KEY`, `CDN_PUBLIC_URL` (`Settings::DOTENV_KEYS`): the plain environment variable
    `<KEY>`, then the same key in the **repository-root `.env`** (gitignored; the owner's deploy checklist, `.env.example`).
@@ -23,9 +23,7 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 
 | Key | Default | Notes |
 |---|---|---|
-| `DB_DRIVER` | – | `mysql` = MySQL/MariaDB even when `DB_SQLITE_PATH` is set (the local MariaDB container: `npm run dev:db` passes `QR_DB_DRIVER=mysql` + `QR_DB_*` to the API and the console – docs/DATABASE.md "Local MariaDB"); empty = by `DB_SQLITE_PATH` |
-| `DB_SQLITE_PATH` | – | set → SQLite (local, tests); empty → MySQL/MariaDB with the next keys |
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` | localhost, –, –, –, – | production |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS` | localhost, –, –, –, – | MariaDB: production's; locally the container (`config.local.php.example`; the dev scripts pass `QR_DB_*` – docs/DATABASE.md "Local MariaDB") |
 | `DB_SQL_MODE` | `STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION` | the session `sql_mode` set on every MySQL/MariaDB connection – strict, whatever the host's default (production's is `NO_ENGINE_SUBSTITUTION`: too long values would be cut silently); `server` = keep the server's mode (docs/DATABASE.md) |
 | `AUTH_SECRET` | – | **required**, ≥ 32 chars: HMAC of login codes, IP/device hashes, access tokens. Rotating it invalidates open login mails and access tokens |
 | `GENERATE_PASSWORD` | – | legacy `generate/` SPA password (its token = HMAC of it); empty = the SPA is locked |
@@ -63,11 +61,8 @@ Today: `scan_limit_per_hour` (default `SCAN_MAX_PER_IP_HOUR`), `lookup_limit_per
 | `PROGRESS_MAX_BYTES`, `CONTENT_MAX_BYTES` | 262144, 2097152 | |
 | `ADMIN_MAX_PAGE_SIZE` | 500 | largest `page_size` of the admin lists |
 | `VERSION_URLS` | the five production `version.json` URLs | `app=url,…` fetched by `GET /api/admin/versions` (viewer, admin, creator, shop, qr) |
-| `ITEMS_PATH`, `EDITIONS_PATH`, `TOONS_PATH` | `config/*.json` | the catalog SEED (`catalog:seed`, the 2026-10-04-catalog migration; read only while the tables are missing) – the catalog itself is in the database (agents/CATALOG.md) |
-| `PRODUCTS_PATH`, `FEATURED_PRODUCTS_PATH` | `config/products.json`, `config/featured-products.json` | seed of the shop catalog + homepage featured products (as above) |
 | `CACHE_DRIVER`, `CACHE_PATH` | `auto`, `storage/cache` | server cache of the library answers (docs/API.md "Library"): `auto` = APCu when enabled, else files below `CACHE_PATH`; `apcu`, `file`, `none` |
 | `CONTENT_SHOW_DRAFTS` | `0` | `1` = the library endpoints show `draft` toons/chapters (local development, like the dev viewer); production `0` |
-| `PERMISSIONS_PATH` | `config/permissions.json` | seed of what each code type grants (server-only; tables `catalog_permissions` / `catalog_code_types`) – see docs/API.md |
 | `FILES_PATH` | `storage/files` | batch manifests, QR SVGs, certificates, signatures, ZIPs (was `generate/files/`) |
 | `KEYPAIR_PATH` | `storage/keys/keypair.json` | ML-DSA-65 keypair (was `api/keys/keypair.json`) |
 | `LOG_PATH` | `logs/error.log` | PHP/API error log; empty = the host's log |

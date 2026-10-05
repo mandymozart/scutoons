@@ -37,7 +37,7 @@ export function createProductsApi(api: ApiClient) {
 			return api.get<StockistList>(`/stockists/${query ? `?${query}` : ''}`, { auth: false });
 		},
 
-		/** The shop catalog (server `config/products.json`, version 2) */
+		/** The shop catalog (version 2; the catalog tables, agents/CATALOG.md) */
 		fetchProducts: () => api.get<ProductCatalog>('/products/', { auth: false }),
 
 		/** The products featured on the homepage (`[{ product, variant? }]`, resolved against the catalog) */

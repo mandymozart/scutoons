@@ -209,12 +209,12 @@ final class OwnershipTransfers
     }
 
     /**
-     * A query failed because a table of the 2026-10-02-ownership migration is missing (SQLite "no such table", MySQL
-     * 42S02 "Base table or view not found") – production runs the code before the migration is applied in phpMyAdmin
+     * A query failed because a table of the 2026-10-02-ownership migration is missing (MariaDB 42S02 "Base table or view
+     * not found") – production runs the code before the migration is applied in phpMyAdmin
      */
     public static function missingTable(PDOException $error): bool
     {
-        return $error->getCode() === '42S02' || preg_match('/no such table|Base table or view not found/i', $error->getMessage()) === 1;
+        return $error->getCode() === '42S02' || preg_match('/Base table or view not found/i', $error->getMessage()) === 1;
     }
 
     /**

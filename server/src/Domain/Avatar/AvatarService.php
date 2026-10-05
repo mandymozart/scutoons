@@ -107,7 +107,7 @@ final class AvatarService
             if ($entry === null || $entry === false) continue;
             // DELETE only a row that exists: on MariaDB/MySQL (InnoDB, REPEATABLE READ) a DELETE that matches nothing
             // takes a gap lock, and two signups at the same moment (time-ordered user ids = the same gap) then
-            // deadlock on their INSERTs (1213, found by tests/claim-race.php signup on MariaDB). A plain read takes no lock.
+            // deadlock on their INSERTs (1213, found by parallel signups on MariaDB; WardrobeTest). A plain read takes no lock.
             if ($this->db->value('SELECT 1 FROM avatar_slots WHERE user_id = ? AND slot = ?', [$userId, $item['slot']]) !== null) {
                 $this->db->run('DELETE FROM avatar_slots WHERE user_id = ? AND slot = ?', [$userId, $item['slot']]);
             }

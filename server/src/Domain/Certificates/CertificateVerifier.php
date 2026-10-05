@@ -101,7 +101,7 @@ final class CertificateVerifier
 
     /**
      * The code's row – exact match only: codes are case-sensitive (owner 2026-10-03: one rule everywhere, no
-     * case-insensitive lookup). qr.code is utf8mb4_bin on MariaDB (migration 2026-10-03-code-case), BINARY on SQLite.
+     * case-insensitive lookup). qr.code is utf8mb4_bin (migration 2026-10-03-code-case).
      * @return array{0: array<string, mixed>|null, 1: string|null}
      */
     private function resolve(string $code): array

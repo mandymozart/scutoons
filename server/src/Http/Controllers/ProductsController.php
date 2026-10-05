@@ -13,10 +13,10 @@ use Scutoons\Http\Middleware\Cors;
 
 /**
  * The shop's public product data, identical for everyone (like /api/items/):
- *   GET /api/products/           config/products.json (shop catalog, version 2)
+ *   GET /api/products/           the shop catalog (version 2; tables catalog_products + meta `products`)
  *   GET /api/products/featured/  the landing page's editions [{ product, variant? }]: the list chosen in the admin app
- *                                (setting `featured_products`), else config/featured-products.json byte-for-byte
- * The catalog is the stored file byte-for-byte. Any origin may read both (`*` for origins outside ALLOWED_ORIGINS),
+ *                                (table catalog_featured)
+ * Both in the shape of the old files (objects, key order kept). Any origin may read both (`*` for origins outside ALLOWED_ORIGINS),
  * the catalog cached 5 minutes, the featured list 1 minute (an admin change shows up soon). Other methods → 405
  * method_not_allowed (like /api/items/).
  */

@@ -135,10 +135,9 @@ Full contract: agents/ITEMS.md "Admin API". Session (Bearer) + `RequireRole(admi
 | GET | `/events` | activity log (filters code, event list, edition_id, toon, from, to) |
 | GET | `/agent-usage?from=&to=&group=day\|month` | the Ask panel's AI usage per period, creator, service, model – see "Agent usage" |
 | GET | `/catalog` · `/keys` | items, editions, toons, permissions map in one answer (read-only; editing: "Catalog" below) · the ML-DSA-65 keypair for client-side signing |
-| GET/PUT | `/catalog/respawn` · `/catalog/respawn/<item>` | when picked-up placed items reappear, per item (`Domain\Catalog\ItemRespawn`; an update of the item's `respawn`, recorded in `catalog_history` with note `respawn`): `GET` → `{ status, items: [{ id, file (the seed's rule), override, overridden, effective }], updated_at, updated_by }`; `PUT { respawn: { default, min?, max? } \| null }` (null = never) or `{ reset: true }` (= the seed's rule) → `{ status, changed, …same }` · `400 invalid_respawn { problems }`, `404 unknown_item` |
 | GET | `/content?toon=` | content store overview, every toon: per stored file the newest version (+ status, time), the published version, the version count (read-only; platform P2a) |
 | GET/PUT | `/settings` | runtime settings (table `settings`): `GET` → `{ status, items: [{ key, value, default, min, max, stored, updated_at, updated_by }] }`; `PUT { key: int\|null, … }` (or `{ settings: {…} }`) → `{ status, changed, items }` – integer `min…max` (0…1000000), `null` = back to the config default; only changed values are written, `updated_by` = `admin:<email>` · `400 invalid_setting { key, min, max }\|unknown_setting { settings }\|invalid_settings`. Keys: `scan_limit_per_hour`, `lookup_limit_per_hour` (see "Rate limits") |
-| GET/PUT | `/featured` | the landing page's editions (`Domain\Catalog\FeaturedProducts`, table `catalog_featured`; one `catalog_history` row `replace` per change): `GET` → `{ status, items, default, stored, updated_at, updated_by, max: 12 }`; `PUT { items: [{ product, variant? }] \| null }` → `{ status, changed, …same }` – products / variants of the shop catalog, no duplicates, ≤ 12, the order is the page's; `null` = back to the seed's list (`config/featured-products.json`) · `400 invalid_featured\|unknown_product { product, products }\|unknown_variant { product, variant, variants }\|duplicate_featured` |
+| GET/PUT | `/featured` | the landing page's editions (`Domain\Catalog\FeaturedProducts`, table `catalog_featured`; one `catalog_history` row `replace` per change): `GET` → `{ status, items, updated_at, updated_by, max: 12 }`; `PUT { items: [{ product, variant? }] }` → `{ status, changed, …same }` – products / variants of the shop catalog, no duplicates, ≤ 12, the order is the page's; `[]` = nothing featured (there is no default list since 10.30) · `400 invalid_featured\|unknown_product { product, products }\|unknown_variant { product, variant, variants }\|duplicate_featured` |
 | GET | `/emails/templates` | the email module's registry: `{ status, locales: ["de","en"], transport, items: [{ id, audience: member\|admin, description, vars: { name: type }, sample }] }` |
 | GET | `/emails/templates/{id}/preview?locale=de\|en` | `{ status, id, locale, subject, text, html }` rendered with the template's sample vars · `404 not_found` · `400 invalid_locale` |
 | GET | `/emails/log` | the sent-mail log (table `mail_log`), list: sort `created_at` (default `-created_at`), `template`, `status`, `recipient`; filters `template`, `status` (`sent`\|`failed`), `recipient`, `from`, `to` (`YYYY-MM-DD`, UTC); `q` = part of the address → items `{ id, template, recipient, locale, status, transport, error, created_at }` · `400 invalid_template\|invalid_status\|invalid_date\|invalid_sort`. Recipient addresses are shown here (admin only, like `/users`) |
@@ -152,7 +151,9 @@ app has parity; they call the same services.
 
 The catalog lives in database tables, one row per entry with its definition as JSON in the shape of the old
 `server/config/*.json` files (`data`), its order (`position`) and lookup columns (`toon`, `item_id`, `edition_id`,
-`product_id`, `variant_id`). The files stay as the seed of empty / local databases (`php bin/console catalog:seed`).
+`product_id`, `variant_id`). Production is the catalog; a local database gets it with the production seed
+(docs/DATABASE.md "Production seed"), tests from `tests/fixtures/catalog`. An item's respawn rule is its `respawn`
+field (edited with `PUT /catalog/items/<id>`).
 `slots` and `stats` are code (`Domain\Avatar\AvatarSlots`, `Domain\Reader\ReaderStats` = `@scutoons/content`
 `AVATAR_SLOTS`, `READER_STATS`) and are still served in `GET /api/items/`.
 
@@ -163,9 +164,9 @@ grants }`; id `default` = types not listed) · `toons` (`{ id, name, redirectUrl
 
 | Method | Path | What |
 |---|---|---|
-| GET | `/catalog/<kind>` | `{ status, kind, items: [{ id, position, data, updated_at, updated_by }], fallback }` in order (`fallback: true` = the tables are missing, read from the seed files) |
+| GET | `/catalog/<kind>` | `{ status, kind, items: [{ id, position, data, updated_at, updated_by }] }` in order |
 | GET | `/catalog/<kind>/<id>` | `{ status, entry }` · `404 not_found` |
-| PUT | `/catalog/<kind>/<id>` | `{ data, note? }` → create (201) or update (200) `{ status, created, changed, entry, history_id }` – validated (`Domain\Catalog\CatalogValidator`: id pattern, `data.id` = the id, required fields, slots / stats, item ↔ product ↔ edition, recipe items, scan_object grants, respawn rules, album ↔ format, featured product / variant (≤ 12), code type grants ↔ permissions, toon id / redirectUrl) · `422 invalid_catalog { problems, kind, id }` · `400 missing_data` · `503 migration_pending`. Objects stay objects (`{}`). A new toon also gets its content index entry `toon:<id>` (draft) when the creator has none – it then shows in the creator's toon list |
+| PUT | `/catalog/<kind>/<id>` | `{ data, note? }` → create (201) or update (200) `{ status, created, changed, entry, history_id }` – validated (`Domain\Catalog\CatalogValidator`: id pattern, `data.id` = the id, required fields, slots / stats, item ↔ product ↔ edition, recipe items, scan_object grants, respawn rules, album ↔ format, featured product / variant (≤ 12), code type grants ↔ permissions, toon id / redirectUrl) · `422 invalid_catalog { problems, kind, id }` · `400 missing_data`. Objects stay objects (`{}`). A new toon also gets its content index entry `toon:<id>` (draft) when the creator has none – it then shows in the creator's toon list |
 | DELETE | `/catalog/<kind>/<id>` | `{ status, deleted, history_id }` · `409 in_use { uses }` while anything refers to it (recipes, products, featured, scan grants, items' edition / product / album, code types' grants, codes / inventory rows, a toon's content; meta never) |
 | POST | `/catalog/<kind>/reorder` | `{ ids: [...] }` – those first, the rest after them in their order → `{ status, changed, ids, history_id }` · `400 invalid_order` |
 | GET | `/catalog/history?kind=&id=&limit=50` | `{ status, items: [{ id, kind, entry_id, action: create\|update\|delete\|reorder\|replace, before, after, position, undo_of, note, by, at }] }` newest first (≤ 500); `entry_id` `''` = the whole kind (reorder / replace) |
@@ -187,7 +188,7 @@ Writes refresh the asset usage index (source `catalog`, ref `<kind>:<id>` with t
 
 ### One owner per code (ownership)
 
-1. **API** – `CodeService::claim` runs in a transaction (`BEGIN IMMEDIATE` on SQLite, `SELECT … FOR UPDATE` on MariaDB)
+1. **API** – `CodeService::claim` runs in a transaction (`SELECT … FOR UPDATE`)
    and binds with `UPDATE qr SET claimed_by = ? … WHERE claimed_by IS NULL`; a second account gets 409
    `already_claimed` (it can still read with the code). Codes claimed by the old email-only form can only be claimed by
    an account with that email (409 `email_required`). The owner claiming again is a no-op (`already_yours`).
@@ -195,9 +196,8 @@ Writes refresh the asset usage index (source `catalog`, ref `<kind>:<id>` with t
    refuse inventory rows whose `code` belongs to someone else, even for writes outside the API. Releasing a code
    (support case) = set `claimed_by` to NULL and delete its inventory rows.
 
-Tests: `tests/api-smoke.php` and `tests/claim-race.php [n] [claim|signup|both]` (n processes claim one code at once →
-exactly one owner; n fresh emails sign up with one product code at once → exactly one account, owning it). `/access/`
-+ `/code/` share a per-IP limit (120/hour) – `composer test` works on a fresh DB copy each run; against the dev DB use
+Tests: `CodeServiceTest`, `WardrobeTest::testTwoSignupsAtOnceDoNotBlockEachOther` (InnoDB locking). `/access/`
++ `/code/` share a per-IP limit (120/hour) – against the dev DB use
 `DELETE FROM rate_limits WHERE bucket LIKE 'lookup:%'` or raise the limit (admin app → Settings).
 
 ### Rate limits (code lookups, QR scans)
@@ -218,7 +218,7 @@ applies to the next request. `scan=1` without the proxy secret is an ordinary lo
 ## Permissions map – how to change what a code type unlocks
 
 The tables `catalog_permissions` + `catalog_code_types` (server-only, never served to readers; since 2026-10-04 –
-until then `config/permissions.json`, now the seed). `Domain\Access\Permissions::map()` builds the old file's shape:
+until then `config/permissions.json`). `Domain\Access\Permissions::map()` builds the old file's shape:
 
 ```json
 {
@@ -453,12 +453,12 @@ It runs (a) the inbox sync (`inbox` = like `POST /inbox/sync`, no throttle; `nul
 Organisation type `store` (new) and `record_shop` are **stockists** (`Embassy::STOCKIST_TYPES`): they sell to readers.
 Fields on `embassy_orgs` (in every organisation answer, edited with `POST/PUT /orgs`): `listed` (bool, "show on
 scutoons.com"), `independent` (bool, small / independent vendor – listed first), `address`, `opening` (free text ≤ 255),
-`carries` (product ids of `config/products.json`; unknown → `400 invalid_product { allowed }`; the import unites them).
+`carries` (product ids of the shop catalog; unknown → `400 invalid_product { allowed }`; the import unites them).
 `GET /embassy/me` adds `stockist_types`. The public read is `GET /api/stockists/` (`Domain\Embassy\Stockists`,
 endpoint table above): only `listed` stockists with at least one product still in the catalog, only `id, name, type,
 independent, city, country, address, website (http(s) only), opening, carries` – never people, email, phone, notes, tags,
 tier, source, leads or activities. Before the migration ran it answers an empty list. Local fake data:
-`php bin/console sample-stores [--remove]` (SQLite only).
+`php bin/console sample-stores [--remove]` (local dev database only).
 
 ## Access tokens
 
@@ -523,8 +523,8 @@ otherwise `401` / `403 forbidden { role: "creator" }`.
 `400 invalid_key|invalid_toon|invalid_json|missing_content`, `413 content_too_large`, `422 invalid_content`,
 `401 unauthorized`, `403 forbidden` (`role: "creator"`).
 
-**Seeding / interchange** – `php bin/console import-content shared/content/seed [--toon=] [--only=<kinds>] [--db=<sqlite>]
-[--update] [--dry-run] [--sql]`, `export-content <dir>` (see [DATABASE.md](DATABASE.md)); the path ↔ key mapping of the
+**Seeding / interchange** – a local database gets production's content from the production seed (docs/DATABASE.md);
+`php bin/console import-content <folder> [--toon=] [--only=<kinds>] [--update] [--dry-run] [--sql]`, `export-content <dir>` (see [DATABASE.md](DATABASE.md)); the path ↔ key mapping of the
 JSON folder layout is `Console\ContentFiles`. Migration `2026-09-30-entity-keys` created `entity_versions` from the
 former path-keyed `content_versions` (same ids).
 
@@ -654,8 +654,6 @@ is the format of every answer). Implementation: `Domain\Library\Library` + `Libr
   version of the toon and of the platform-wide entities – a publish changes the key, so nothing is ever invalidated; drafts are never
   cached. APCu when enabled, else files in `storage/cache/library/` (pruned by age).
 - Errors: `400 invalid_toon|invalid_locale|invalid_chapter`, `404 not_found`, `403 coming_soon|not_public`.
-- Compare: `tests/entities-compare.php` checks every answer against the interchange files of `shared/content/seed`
-  (fresh DB, part of `composer test`; `--report` against production).
 
 ## Ownership, claims, gifting (2026-10-02)
 
