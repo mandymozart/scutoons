@@ -1,5 +1,5 @@
 // Substances & reader stats (agents/ITEMS.md "Substances"): decay, apply, effects, testo bands, validation – against the
-// real server catalog.   npm test -w @scutoons/content
+// fixture catalog (server/tests/fixtures/catalog).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -24,8 +24,8 @@ import {
 	type RegistryCharacter
 } from '../src/index.ts';
 
-// the server's seed file + the code parts it no longer carries (slots, stats) = the served shape
-const catalog: Catalog = catalogFromSeed(JSON.parse(readFileSync(new URL('../../../server/config/items.json', import.meta.url), 'utf8')));
+// the fixture catalog + the code parts it does not carry (slots, stats) = the served shape
+const catalog: Catalog = catalogFromSeed(JSON.parse(readFileSync(new URL('../../../server/tests/fixtures/catalog/items.json', import.meta.url), 'utf8')));
 const item = (id: string) => catalog.items.find((i) => i.id === id)!;
 const stats = catalog.stats!;
 const T0 = Date.parse('2026-10-01T12:00:00Z');

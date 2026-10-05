@@ -3,7 +3,7 @@
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { ActionBar, Badge, Button, DataTable, Field, ReorderButtons, Sheet, Skeleton, SplitView, ToonAvatar, confirmDialog, listHref, type Column } from '@scutoons/ui';
+	import { ActionBar, Button, DataTable, Field, ReorderButtons, Sheet, Skeleton, SplitView, ToonAvatar, confirmDialog, listHref, type Column } from '@scutoons/ui';
 	import { mediaUrl } from '@scutoons/media';
 	import { ApiError, type CatalogEntry } from '@scutoons/api';
 	import { admin } from '$lib/api.ts';
@@ -34,7 +34,6 @@
 		def,
 		lists,
 		registry = null,
-		fallback = false,
 		refresh,
 		form: Form,
 		barActions,
@@ -48,7 +47,6 @@
 		/** the published character registry (wear overlays are checked against it); null = not loaded, not checked */
 		registry?: CharacterRegistry | null;
 		/** the tables are missing (the API reads the seed files): read-only */
-		fallback?: boolean;
 		/** reads a kind's list again (after a write) */
 		refresh: (kind: KindDef['kind']) => Promise<void>;
 		form: Component<CatalogFormProps, {}, 'data'>;
@@ -237,7 +235,7 @@
 
 	const columns = $derived<Column[]>([
 		...def.columns.map((c) => ({ id: c.id, label: c.label(), secondary: c.secondary, width: c.image || c.id === 'avatar' ? '3.5rem' : undefined })),
-		...(def.reorderable && !fallback ? [{ id: 'order', label: '', width: '6rem' }] : [])
+		...(def.reorderable ? [{ id: 'order', label: '', width: '6rem' }] : [])
 	]);
 	const columnDef = (id: string) => def.columns.find((c) => c.id === id);
 	// accepted warnings are kept out of the Advanced JSON: the Problems panel is their one control
@@ -297,7 +295,6 @@
 	{#snippet info()}<PageHelp page="catalog" />{/snippet}
 	{#snippet start()}
 		{#if entries}<span class="muted">{m['catalog.count']({ count: entries.length, what: def.label() })}</span>{/if}
-		{#if fallback}<Badge tone="warning">{m['catalog.fallback']()}</Badge>{/if}
 		{#if dirty}<span>{m['catalog.unsaved']()}</span>{/if}
 	{/snippet}
 	{#snippet secondary()}
@@ -309,8 +306,8 @@
 		<Button size="sm" variant="secondary" onclick={() => (kindHistoryOpen = true)} data-testid="catalog-kind-history">{m['catalog.history']()}</Button>
 	{/snippet}
 	{#snippet end()}
-		{#if barActions && !fallback}{@render barActions()}{/if}
-		{#if def.creatable && !fallback}
+		{#if barActions}{@render barActions()}{/if}
+		{#if def.creatable}
 			<Button size="sm" onclick={openNew} data-testid="catalog-new">{m['catalog.new']({ what: def.singular() })}</Button>
 		{/if}
 	{/snippet}
@@ -351,10 +348,10 @@
 	{/snippet}
 	{#snippet actions()}
 		{#if shown === 'entry' && openId && detailActions}{@render detailActions(openId)}{/if}
-		{#if shown === 'entry' && def.deletable && !fallback}
+		{#if shown === 'entry' && def.deletable}
 			<Button size="sm" variant="secondary" onclick={remove} disabled={saving} data-testid="catalog-delete">{m['catalog.delete']()}</Button>
 		{/if}
-		{#if (shown === 'entry' || shown === 'new') && !fallback}
+		{#if (shown === 'entry' || shown === 'new')}
 			<Button size="sm" onclick={save} disabled={saving || (shown === 'new' && (!newId.trim() || !!newIdError))} data-testid="catalog-save">
 				{saving ? m['catalog.saving']() : m['catalog.save']()}
 			</Button>

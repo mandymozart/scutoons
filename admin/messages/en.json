@@ -423,7 +423,6 @@
 		"permission": "Permission",
 		"code_type": "Code type",
 		"count": "{count} · {what}",
-		"fallback": "Read-only: the catalog tables are missing (migration pending)",
 		"unsaved": "Unsaved changes",
 		"history": "History",
 		"history_of": "History · {what}",
@@ -698,9 +697,6 @@
 		"saved": "Homepage saved.",
 		"nothing_changed": "Nothing changed.",
 		"unsaved": "Unsaved changes",
-		"reset": "Use the default",
-		"reset_done": "Back to the default.",
-		"state_default": "Default (never changed)",
 		"last_change": "Changed {at} by {by}",
 		"preview": "Open the homepage",
 		"unknown": "Not in the catalog: {product}"

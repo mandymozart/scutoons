@@ -1,12 +1,13 @@
 // Writes a screenplay of the screenplay editor's layout (`<dir>/screenplay.txt` + `<dir>/config.json` → `meta`) as the
-// seed of a toon's script entity (agents/DATA.md "Script"): `shared/content/seed/<toon>/<locale>/script.json`
+// file of a toon's script entity (agents/DATA.md "Script"): `<out>/<toon>/<locale>/script.json` (default out:
+// logs/dev/screenplay, gitignored – production is the content's source of truth; the creator edits scripts there)
 // = `{ text, meta }`, the text byte for byte (no trimming, no line-end or whitespace changes; LF stays LF).
 //
 //   node --experimental-transform-types --no-warnings shared/content/scripts/import-screenplay.ts \
 //        --dir=C:/Development/cat-pope-agent/external-repos/cat-pope-awakening/de --toon=catpope --locale=de
 //
 // Then into the local store (published, idempotent; --update replaces a stored, different one with a new version):
-//   php server/bin/console import-content shared/content/seed --toon=catpope --only=script [--update]
+//   npm run dev:db -- console import-content ../logs/dev/screenplay --toon=catpope --only=script [--update]
 // Scripts are creator-only: `import-content --sql` (the production seed) leaves them out unless --only=script.
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -18,9 +19,9 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = args.dir;
 const toon = args.toon;
 const locale = args.locale;
-const out = resolve(args.out ?? join(root, 'seed'));
+const out = resolve(args.out ?? join(root, '../../logs/dev/screenplay'));
 if (!dir || !toon || !locale || !/^[a-z0-9_-]{1,64}$/.test(toon) || !/^[a-z]{2}$/.test(locale)) {
-	console.error('usage: import-screenplay.ts --dir=<folder with screenplay.txt [+ config.json]> --toon=<id> --locale=<xx> [--out=shared/content/seed]');
+	console.error('usage: import-screenplay.ts --dir=<folder with screenplay.txt [+ config.json]> --toon=<id> --locale=<xx> [--out=logs/dev/screenplay]');
 	process.exit(2);
 }
 

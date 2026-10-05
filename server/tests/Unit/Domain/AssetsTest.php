@@ -419,15 +419,10 @@ final class AssetsTest extends TestCase
         $this->put('catpope/videos/s1-trailer-loop.720p.mp4', self::MP4 . 'loop');
         $this->put('catpope/images/vectors/frame.svg', '<svg/>');
         $repo = $this->dir . '/repo';
-        @mkdir("$repo/shared/content/seed/catpope/de", 0777, true);
         @mkdir("$repo/viewer/src", 0777, true);
-        file_put_contents("$repo/shared/content/seed/catpope/de/season1.json", "{
-	\"trailer\": { \"loop\": \"videos/s1-trailer-loop.720p.mp4\" }
-}
-");
         file_put_contents("$repo/viewer/src/frame.ts", "export const FRAME = 'catpope/images/vectors/frame.svg';
 ");
-        $tracked = ['shared/content/seed/catpope/de/season1.json', 'viewer/src/frame.ts'];
+        $tracked = ['viewer/src/frame.ts'];
         $keys = ['catpope/videos/s1-trailer-loop.720p.mp4', 'catpope/images/vectors/frame.svg'];
         $code = AssetRelayout::codeReferences($repo, $tracked, $keys);
         self::assertSame(['catpope/images/vectors/frame.svg'], array_keys($code), 'code counts as a use');
@@ -444,9 +439,8 @@ final class AssetsTest extends TestCase
         self::assertSame(2, $relayout->copy($storage, true)['identical']);
 
         $rewrite = $relayout->rewrite($repo, $tracked, true);
-        self::assertStringContainsString('"loop": "s1/s1-trailer-loop.720p.mp4"', (string) file_get_contents("$repo/shared/content/seed/catpope/de/season1.json"), 'toon-relative stays toon-relative');
         self::assertStringContainsString("'catpope/vectors/frame.svg'", (string) file_get_contents("$repo/viewer/src/frame.ts"));
-        self::assertCount(2, $rewrite['files']);
+        self::assertCount(1, $rewrite['files']);
 
         $deleted = $relayout->deleteOld($storage, true);
         self::assertSame(2, $deleted['deleted']);

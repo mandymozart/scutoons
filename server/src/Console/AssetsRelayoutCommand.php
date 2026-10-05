@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Scutoons\Console;
 
 use Scutoons\Domain\Assets\AssetLayout;
-use Scutoons\Domain\Assets\AssetPaths;
 use Scutoons\Domain\Assets\AssetRegistry;
 use Scutoons\Domain\Assets\AssetRelayout;
 use Scutoons\Infrastructure\AssetStorage\AssetStorages;
@@ -53,7 +52,7 @@ final class AssetsRelayoutCommand extends Command
         foreach ($storage->list('') as $file) $keys[] = $file->key;
         exec('git -C ' . escapeshellarg($repo) . ' ls-files', $tracked);
         $plan = $this->layout->plan($keys, AssetRelayout::codeReferences($repo, $tracked, $keys));
-        $relayout = new AssetRelayout($plan['items'], array_values(array_filter([$this->settings->get('CDN_URL'), $this->settings->get('CDN_PUBLIC_URL'), ...AssetPaths::PUBLIC_BASES])));
+        $relayout = new AssetRelayout($plan['items']);
         $report = ['at' => gmdate('c'), 'source' => $storage->describe(), 'mode' => $deleteOld ? 'delete-old' : ($apply ? 'apply' : 'dry-run'), 'summary' => $plan['summary']];
 
         if ($deleteOld) {

@@ -423,7 +423,6 @@
 		"permission": "Berechtigung",
 		"code_type": "Code-Typ",
 		"count": "{count} · {what}",
-		"fallback": "Nur lesen: die Katalog-Tabellen fehlen (Migration ausstehend)",
 		"unsaved": "Ungespeicherte Änderungen",
 		"history": "Historie",
 		"history_of": "Historie · {what}",
@@ -698,9 +697,6 @@
 		"saved": "Startseite gespeichert.",
 		"nothing_changed": "Nichts geändert.",
 		"unsaved": "Ungespeicherte Änderungen",
-		"reset": "Standard verwenden",
-		"reset_done": "Zurück auf den Standard.",
-		"state_default": "Standard (nie geändert)",
 		"last_change": "Geändert {at} von {by}",
 		"preview": "Startseite öffnen",
 		"unknown": "Nicht im Katalog: {product}"

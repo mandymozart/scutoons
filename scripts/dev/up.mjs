@@ -5,8 +5,8 @@
 //   node scripts/dev/up.mjs viewer api  limit to some services
 // A service that already answers on its port is never started twice (that race used to make parallel starts fail).
 // Logs of services started here: logs/dev/<name>.log (gitignored).
-// Database: SQLite unless `npm run dev:db` switched the stack to the MariaDB container (scripts/dev/db-env.mjs); then
-// the container is started first (docker compose) and the API runs on it. adminer only starts when named.
+// Database: the MariaDB container (scripts/dev/db-env.mjs) is started first (docker compose) and the API runs on it;
+// a fresh setup (migrations + production seed) is `npm run dev:db`. adminer only starts when named.
 import { spawn } from 'node:child_process';
 import { existsSync, mkdirSync, openSync, readFileSync } from 'node:fs';
 import { createConnection } from 'node:net';

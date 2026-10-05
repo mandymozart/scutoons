@@ -13,7 +13,6 @@
         "process-timeout": 0
     },
     "scripts": {
-        "serve": "@php ../scripts/dev/php-serve.php qr public public/router.php",
-        "test": "@php tests/public-urls.php"
+        "serve": "@php ../scripts/dev/php-serve.php qr public public/router.php"
     }
 }

@@ -6,8 +6,8 @@
 //
 //   npm run check:creator-script
 //
-// Checks on Katzenpapst: the German script loads byte-identical to its seed (and to the screenplay file, when
-// SCREENPLAY_DE or the default path exists); the outline lists chapters / scenes / songs and jumps (cursor + scroll);
+// Checks on Katzenpapst: the German script loads byte-identical to its published version (and to the screenplay file,
+// when SCREENPLAY_DE or the default path exists); the outline lists chapters / scenes / songs and jumps (cursor + scroll);
 // read-only until "Edit script" is confirmed; typing stays fast on the ~1800-line text (median keystroke round trip, no long tasks); an edited line → Save draft
 // (PUT) → Publish; the history lists both versions; restoring the original gives the identical text again (published
 // again); the language switch shows the English script. Afterwards the published versions are as before (restored also
@@ -35,7 +35,6 @@ const check = (ok, label, detail = '') => {
 	return ok;
 };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const seed = Object.fromEntries(LOCALES.map((l) => [l, JSON.parse(readFileSync(resolve(ROOT, `shared/content/seed/${TOON}/${l}/script.json`), 'utf8'))]));
 
 // ── session of the test user ─────────────────────────────────────────────────────────────────────────────
 execFileSync(process.execPath, [resolve(ROOT, 'scripts/dev/test-user.mjs')], { stdio: ['ignore', 'ignore', 'inherit'], env: { ...process.env, SCUTOONS_API: API } });
@@ -63,7 +62,7 @@ for (const key of KEYS) {
 	baseline[key] = { id: latest.version.id, content: latest.content };
 }
 const source = baseline[KEYS[0]].content.text;
-check(source === seed.de.text, `the stored German script equals its seed (${source.length} characters)`);
+const english = baseline[KEYS[1]].content.text;
 if (existsSync(SCREENPLAY_DE)) {
 	check(Buffer.from(source, 'utf8').equals(readFileSync(SCREENPLAY_DE)), 'and is byte-identical to the screenplay file');
 }
@@ -277,7 +276,7 @@ try {
 
 	// 6. the language switch
 	await setLanguage('en');
-	check(await until(`${area}.value === ${JSON.stringify(seed.en.text)}`), `en: the English script (${seed.en.text.split('\n').length - 1} lines)`);
+	check(await until(`${area}.value === ${JSON.stringify(english)}`), `en: the English script (${english.split('\n').length - 1} lines)`);
 	const enOutline = await js(`document.querySelectorAll('[data-testid="script-outline-item"]').length`);
 	check(enOutline > 5, `en outline (${enOutline} items, "Chapter" / "Song" markers)`);
 	await setLanguage('de');

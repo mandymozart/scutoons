@@ -25,19 +25,15 @@ final class AssetRelayout
 
     /** @var array<string, string> old CDN-root path → new */
     private array $map = [];
-    /** @var array<string, true> every old file (resolution: does a path exist from the root?) */
-    private array $known = [];
     /** @var list<string> */
     private array $deletes = [];
 
     /**
      * @param list<array<string, mixed>> $planItems AssetLayout::plan()['items']
-     * @param list<string> $publicBases URL prefixes that mean "the CDN"
      */
-    public function __construct(array $planItems, private readonly array $publicBases = [])
+    public function __construct(array $planItems)
     {
         foreach ($planItems as $item) {
-            $this->known[(string) $item['from']] = true;
             if (($item['action'] ?? '') === 'move') $this->map[(string) $item['from']] = (string) $item['to'];
             if (($item['action'] ?? '') === 'delete') $this->deletes[] = (string) $item['from'];
         }
@@ -97,17 +93,13 @@ final class AssetRelayout
         foreach ($tracked as $rel) {
             $rel = str_replace('\\', '/', $rel);
             $ext = strtolower(pathinfo($rel, PATHINFO_EXTENSION));
-            $isJson = $ext === 'json' && $this->inScope($rel, self::JSON_SCOPES);
-            $isCode = in_array($ext, self::CODE_EXTENSIONS, true) && $this->inScope($rel, self::CODE_SCOPES);
-            if (!$isJson && !$isCode) continue;
+            if (!in_array($ext, self::CODE_EXTENSIONS, true) || !$this->inScope($rel, self::CODE_SCOPES)) continue;
             $path = "$repo/$rel";
             $text = (string) file_get_contents($path);
-            $changes = $isJson ? $this->jsonChanges($rel, $text, $result['conflicts']) : $this->codeChanges($text);
-            if ($isCode) {
-                foreach (preg_split('/\r?\n/', $text) ?: [] as $n => $line) {
-                    if (preg_match('#[\'"`/](images|videos|audio|models)/[^\'"`\s]*\.(webp|png|jpe?g|svg|mp4|mp3|zip|json)#', $line) && !$this->lineRewritten($line, $changes)) {
-                        $result['review'][] = "$rel:" . ($n + 1) . ': ' . trim(mb_substr($line, 0, 200));
-                    }
+            $changes = $this->codeChanges($text);
+            foreach (preg_split('/\r?\n/', $text) ?: [] as $n => $line) {
+                if (preg_match('#[\'"`/](images|videos|audio|models)/[^\'"`\s]*\.(webp|png|jpe?g|svg|mp4|mp3|zip|json)#', $line) && !$this->lineRewritten($line, $changes)) {
+                    $result['review'][] = "$rel:" . ($n + 1) . ': ' . trim(mb_substr($line, 0, 200));
                 }
             }
             if (!$changes) continue;

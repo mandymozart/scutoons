@@ -11,6 +11,8 @@
 //   npm run dev:db seed            load server/db/prod-seed.sql again (--force: even when unchanged – local edits of
 //                                  content / catalog / assets are replaced); -- seed --from=<dump.sql> extracts it from
 //                                  any phpMyAdmin export first (only the 15 seed tables are kept)
+//   npm run dev:db sandbox         rebuild the dev-only sandbox toon from the database's character registry (up does it
+//                                  after a seed load; shared/content/scripts/make-sandbox.ts)
 //   npm run dev:db media           media missing in the local media/ folder from bunny.net (plan; -- media --apply copies;
 //                                  never deletes, never overwrites; -- media --prefix=catpope/ for one folder)
 //   npm run dev:db status          container, database, what the API runs on
@@ -55,6 +57,10 @@ function requireDocker() {
 
 function containerUp() {
 	requireDocker();
+	// a running container is left alone: `up` from another checkout (a worktree) would recreate it with that checkout's
+	// bind mounts – same data volume, but a container that breaks once the worktree is gone
+	const health = spawnSync('docker', ['inspect', '--format', '{{.State.Health.Status}}', 'scutoons-mariadb-1'], { encoding: 'utf8' });
+	if (health.status === 0 && health.stdout.trim() === 'healthy') return;
 	console.log(`MariaDB container (docker/compose.yml) on 127.0.0.1:${PORTS.mariadb} …`);
 	const r = compose(['up', '-d', '--wait', 'mariadb'], { stdio: 'inherit' });
 	if (r.status !== 0) fail('docker compose up failed (docker compose -f docker/compose.yml logs mariadb).');
@@ -77,6 +83,11 @@ function createDatabases() {
 
 function phpConsole(args, stdio = 'inherit') {
 	return spawnSync('php', [...phpMysqlArgs(), 'bin/console', ...args], { cwd: SERVER, env: { ...process.env, ...phpDbEnv() }, stdio, encoding: 'utf8' });
+}
+
+/** The dev-only sandbox toon from the local character registry (make-sandbox.ts) */
+function sandbox() {
+	return run('node', ['--experimental-transform-types', '--no-warnings', resolve(ROOT, 'shared/content/scripts/make-sandbox.ts')], { env: { ...process.env, SCUTOONS_DB_NAME: MARIADB.name } }) === 0;
 }
 
 /** db:prod-seed; a missing file is not an error (the command prints how to get it) */
@@ -140,7 +151,10 @@ async function up(noApi = rest.includes('--no-api')) {
 	console.log(`\nMigrations (php bin/console migrate) on ${MARIADB.name} …`);
 	if (phpConsole(['migrate']).status !== 0) fail('migrate failed');
 	console.log('\nProduction seed (php bin/console db:prod-seed) …');
-	seed();
+	if (seed()) {
+		console.log('\nSandbox toon (dev only, from the character registry) …');
+		if (!sandbox()) console.warn('  the sandbox could not be built (npm run dev:db sandbox to retry)');
+	}
 	// a promo code to sign up with (npm run dev:test-user, the apps' sign-up form)
 	const r = compose(['exec', '-T', 'mariadb', 'mariadb', '--default-character-set=utf8mb4', `-u${MARIADB.user}`, `-p${MARIADB.pass}`, MARIADB.name], {
 		input: `INSERT IGNORE INTO qr (code, redirect_to, type, email) VALUES ('${PROMO}', 'https://scutoons.com/catpope', 'promo', '');\n`,
@@ -187,6 +201,10 @@ switch (command) {
 		process.exit(seed(rest) ? 0 : 2);
 		break;
 	}
+	case 'sandbox':
+		containerUp();
+		process.exit(sandbox() ? 0 : 1);
+		break;
 	case 'media':
 		media();
 		break;
@@ -229,5 +247,5 @@ switch (command) {
 		console.log('Production: run the same two SELECTs in phpMyAdmin (SQL tab) and compare – docs/DATABASE.md.');
 		break;
 	default:
-		fail(`unknown command "${command}" – up | seed | media | status | stop | reset | test | console | sql | adminer | version`);
+		fail(`unknown command "${command}" – up | seed | sandbox | media | status | stop | reset | test | console | sql | adminer | version`);
 }

@@ -5,6 +5,7 @@ namespace Scutoons\Console;
 
 use Scutoons\Domain\Embassy\Embassy;
 use Scutoons\Infrastructure\Clock\Clock;
+use Scutoons\Infrastructure\Config\Settings;
 use Scutoons\Infrastructure\Database\Database;
 use Scutoons\Support\Ids;
 use Symfony\Component\Console\Attribute\AsCommand;

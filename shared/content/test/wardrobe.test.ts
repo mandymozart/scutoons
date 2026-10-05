@@ -1,5 +1,5 @@
 // Wardrobe (agents/ITEMS.md "Wardrobe"): overlays, the cover rule, the base image, the catalog validation – against the
-// real server catalog (server/config/items.json) and the seed registry.   npm test -w @scutoons/content
+// test fixtures (server/tests/fixtures: the catalog and the character registry of 2026-10-04).   npm test -w @scutoons/content
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -20,8 +20,8 @@ import {
 } from '../src/index.ts';
 
 const json = (rel: string) => JSON.parse(readFileSync(new URL(rel, import.meta.url), 'utf8'));
-const catalog: Catalog = catalogFromSeed(json('../../../server/config/items.json'));
-const registry: CharacterRegistry = json('../seed/scutoons/_/characters.json');
+const catalog: Catalog = catalogFromSeed(json('../../../server/tests/fixtures/catalog/items.json'));
+const registry: CharacterRegistry = json('../../../server/tests/fixtures/content/scutoons/_/characters.json');
 const item = (id: string) => catalog.items.find((i) => i.id === id)!;
 
 test('wardrobe: the catalog validates against the registry', () => {
