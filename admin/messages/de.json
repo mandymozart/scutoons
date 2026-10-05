@@ -125,7 +125,20 @@
 		"editions_hint": "Eingelöst von allen Codes (gesamt); Scans und Claims im Zeitraum.",
 		"claimed_total": "Eingelöst / Codes",
 		"of_edition": "Edition von {count}",
-		"signed": "Signiert"
+		"signed": "Signiert",
+		"ai_title": "KI-Nutzung",
+		"ai_hint": "Was die Ask-Agenten kosten (Anthropic API, USD): dieser Monat pro App und Person, pro Tag im Zeitraum.",
+		"ai_month": "Dieser Monat",
+		"ai_calls": "{count} Aufrufe",
+		"ai_chart": "KI-Kosten pro Tag (USD)",
+		"ai_people": "Pro Person, dieser Monat",
+		"ai_person": "Person",
+		"ai_total": "Gesamt",
+		"ai_none": "Diesen Monat keine KI-Nutzung.",
+		"ai_unavailable": "Das KI-Nutzungsprotokoll ist noch nicht verfügbar.",
+		"app_creator": "Creator",
+		"app_embassy": "Embassy",
+		"app_admin": "Admin"
 	},
 	"events": {
 		"scan": "Scan",
@@ -953,7 +966,8 @@
 		"none_stored": "Noch nichts gespeichert",
 		"preview": "Termine-Seite öffnen",
 		"invalid": "Jeder Termin braucht Datum, Titel und Stadt.",
-		"conflict": "Jemand hat die Termine inzwischen gespeichert – neu geladen, bitte die Änderung wiederholen."
+		"conflict": "Jemand hat die Termine inzwischen gespeichert – neu geladen, bitte die Änderung wiederholen.",
+		"publish": "Veröffentlichen"
 	},
 	"ask": {
 		"title": "Ask",
@@ -966,8 +980,8 @@
 		"send": "Senden",
 		"stop": "Stopp",
 		"working": "Arbeitet …",
-		"context": "{page} · liest nur",
-		"empty": "Frag nach den Inhalten der Toons oder was die KI-Agenten kosten. Hier liest der Agent nur.",
+		"context": "{page}",
+		"empty": "Frag nach Codes, Konten, Ansprüchen, dem Katalog, Assets, dem Kalender oder den KI-Kosten. Änderungen kommen als Karte – nichts ändert sich, bevor du sie übernimmst.",
 		"unavailable": "Der Agent ist gerade nicht erreichbar.",
 		"signed_out": "Deine Sitzung ist abgelaufen – melde dich neu an.",
 		"history": "Frühere Chats",
@@ -975,5 +989,24 @@
 		"history_unavailable": "Der Chat-Verlauf ist noch nicht verfügbar.",
 		"resize": "Ziehen, um die Breite zu ändern",
 		"draft": "Entwurf #{id}"
+	},
+	"changes": {
+		"title": "Vorgeschlagene Änderungen",
+		"apply": "Übernehmen",
+		"applying": "Wird übernommen …",
+		"applied": "Übernommen",
+		"partly": "{done} von {total} übernommen",
+		"note": "Nichts ändert sich, bevor du übernimmst.",
+		"undo_catalog": "Rückgängig: Verlauf auf der Katalogseite",
+		"calendar_new": "Neuer Kalendereintrag",
+		"calendar_entry": "Kalender",
+		"calendar_draft": "Als Entwurf gespeichert – auf der Kalenderseite veröffentlichen",
+		"asset": "Datei ersetzen",
+		"asset_used": "{count}× verwendet",
+		"asset_from": "durch {path}",
+		"asset_pick": "Neue Datei wählen",
+		"asset_missing": "Erst die neue Datei wählen.",
+		"changed_since": "Seit dem Lesen geändert – frag noch einmal.",
+		"empty": "(leer)"
 	}
 }

@@ -705,7 +705,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       `ask-image.yml` → bunny's action `BunnyWay/actions/container-update-image` with the environment variables
       `BUNNY_ASK_APP_ID` / `BUNNY_ASK_CONTAINER` and the secret `BUNNY_API_KEY` (verified: bunny switched to the pushed
       commit's image, rolling update, health 200 throughout).
-    - **Open:** an admin page for the usage overview (the API is there); the build's commit in `/api/ask/health` (to see
+    - **Open:** ~~an admin page for the usage overview~~ (Dashboard, 2026-10-05); the build's commit in `/api/ask/health` (to see
       which image runs); personal access tokens.
     - **Shared in three apps (2026-10-04, branch `ask-shared`; owner: "make Ask a shared integration in embassy,
       creator, admin")**: the panel is `@scutoons/ask` (shared/ask: `AskPanel` + `ask` / `askAbout` / `pagePanel`; the
@@ -715,6 +715,24 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       (agents/EMBASSY.md "Ask + mail"); admin → role admin, the content tools that only read + `agent_usage`. Chats
       and usage rows carry `app` (migration `2026-10-04-ask-embassy-mail`); every message carries today's date.
       `ASK_ORIGINS` (bunny env) must list creator, embassy and admin (the code default does, the env wins); `VITE_ASK_URL` goes into the embassy and admin builds too.
+    - **Admin agent (2026-10-05, branch `ask-admin`; owner: the admin's Ask could not answer "signed codes for Cat Pope –
+      Awakening", "add an event", "replace item images" and guessed wrong):** step 1 – read tools over the admin API in
+      `tools/mcp/src/admin.ts`: `dashboard`, `count_codes` (per edition; toon / edition / status / type), `list_codes`,
+      `read_code` (+ timeline + ownership history), `list_events` (the activity log), `list_users` / `read_user`,
+      `list_claims` / `read_claim`, `email_log`, `read_catalog` (any kind, `q`, `fields`), `catalog_history`,
+      `read_calendar`, `asset_usages`, `read_settings`, `agent_usage`; the admin prompt (ask.ts `ADMIN_SYSTEM`) carries a
+      map of the admin's pages, what the agent can't do, and the ambiguous words (event, edition, item image, season →
+      the toon's editions). Step 2 – `propose_changes` (never writes): a **changes card** in the panel
+      (`admin/src/lib/components/changes-card.svelte`, the mail-draft pattern; before → after, image thumbnails); Apply
+      makes the changes in the admin app with the admin's session: catalog entries of items / recipes / albums / products /
+      editions / toons (fields by dot path, one PUT per entry with note "Ask: …" → catalog history + undo; refused when
+      the entry changed since the agent read it), calendar entries (add / update → ONE new draft of `events`; the Calendar
+      page now offers Publish for a newer draft), an asset file replaced under its path (`PUT /assets/replace`; the new
+      file from another asset path or picked in the card). Not offered: revoking / transferring codes, claims decisions,
+      deletes, roles, asset cleanup, new catalog entries. **Dashboard → AI usage**: this month per app (tiles) and per
+      person, cost per day in the dashboard's period (bars per app) – `admin.agentUsage` in `@scutoons/api`. No migration
+      (uses `agent_usage` from 2026-10-04). Verified locally: the three questions, a catalog change applied through the
+      card and undone in the History. Not verified live: an asset replace (the local asset registry was empty).
   - **Review levels (owner 2026-10-04; follows "Publish: keep the tool")** – who may publish without a review:
     - **Decided:** not a role – a relation per toon, set by an admin, like GitHub reviewers. `reviewer` (per toon or `*`)
       gets a mail on every submit and publishes or sends back; `needs_review` (per account per toon or `*`) = may save

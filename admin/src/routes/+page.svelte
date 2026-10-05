@@ -9,6 +9,7 @@
 	import { errorText, number, percent, shortDay } from '$lib/format.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import PageHeader from '$lib/components/page-header.svelte';
+	import AiUsage from '$lib/components/ai-usage.svelte';
 
 	const DAY_CHOICES = [7, 14, 30, 60, 90, 180, 365];
 
@@ -171,6 +172,8 @@
 			</table>
 		</div>
 	</Panel>
+
+	<div class="ai"><AiUsage {days} /></div>
 {/if}
 
 <style>
@@ -251,5 +254,8 @@
 	}
 	.nums {
 		font-size: var(--type-caption-size);
+	}
+	.ai {
+		margin-top: var(--space-15);
 	}
 </style>
