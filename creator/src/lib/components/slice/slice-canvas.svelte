@@ -15,6 +15,7 @@
 	import { DEFAULT_SLICE, getAt, round2, type Path } from '@scutoons/content';
 	import { SLICE_RATIO } from '$lib/editor/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import { deltas, dialogScale, gridSteps, rotationAngle, scaleFactor, scaledRect, transformedDeltas, type Handle, type Rect } from '$lib/editor/canvas-geometry.ts';
 
@@ -48,7 +49,7 @@
 	} = $props();
 
 	const slice = $derived(doc.get(locale, slicePath) ?? doc.get(doc.primary, slicePath));
-	const image = $derived(slice?.image ? asset(`${doc.toon}/${slice.image}`) : '');
+	const image = $derived(slice?.image ? replacedImages.src(asset(`${doc.toon}/${slice.image}`), `${doc.toon}/${slice.image}`) : '');
 	/** the slice's 1x size (standard 390 × 625) – the canvas never shows it larger */
 	const sliceWidth = $derived(slice?.width > 0 ? slice.width : DEFAULT_SLICE.width);
 	const sliceRatio = $derived(slice?.width > 0 && slice?.height > 0 ? slice.height / slice.width : SLICE_RATIO);

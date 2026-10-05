@@ -6,6 +6,7 @@
 	import { fillSliceSize } from '$lib/editor/images.ts';
 	import { newSlice } from '$lib/editor/defaults.ts';
 	import { asset } from '$lib/utils/cdn.ts';
+	import { replacedImages } from '$lib/editor/replaced-images.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import SliceImport from '$lib/components/chapter/slice-import.svelte';
 	import { clickSelect, moveMany } from '$lib/editor/multi-select.ts';
@@ -32,6 +33,20 @@
 	let anchor = $state<number | null>(null);
 	let dragging = $state<number[] | null>(null);
 	let dragOver = $state<number | null>(null);
+	// image files dragged from the computer (owner 2026-10-06): onto the middle of a slice = replace its image, onto its
+	// top / bottom edge = new slices before / after it (between two slices, before the first, after the last)
+	let fileOver = $state<{ index: number; zone: 'before' | 'on' | 'after' } | null>(null);
+	let importer = $state<SliceImport>();
+	const hasFiles = (e: DragEvent) => !!e.dataTransfer?.types.includes('Files');
+	function fileZone(e: DragEvent): 'before' | 'on' | 'after' {
+		const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		const y = (e.clientY - box.top) / box.height;
+		return y < 0.25 ? 'before' : y > 0.75 ? 'after' : 'on';
+	}
+	function dropFiles(index: number, files: File[], zone: 'before' | 'on' | 'after') {
+		if (zone === 'on') importer?.replace(index, files);
+		else importer?.insert(zone === 'before' ? index : index + 1, files);
+	}
 	// the shown slice changed elsewhere (canvas prev / next, a problem link): it alone is picked
 	$effect(() => {
 		if (selected >= 0 && !picked.includes(selected)) {
@@ -106,6 +121,9 @@
 			class:over={dragOver === index && !dragging?.includes(index)}
 			class:moving={dragging?.includes(index)}
 			class:below={dragOver === index && !!dragging?.length && index > Math.min(...dragging)}
+			class:file-on={fileOver?.index === index && fileOver.zone === 'on'}
+			class:file-before={fileOver?.index === index && fileOver.zone === 'before'}
+			class:file-after={fileOver?.index === index && fileOver.zone === 'after'}
 			draggable="true"
 			ondragstart={(e) => {
 				dragging = picked.includes(index) ? [...picked] : [index];
@@ -115,19 +133,27 @@
 			}}
 			ondragover={(e) => {
 				e.preventDefault();
-				dragOver = index;
+				if (hasFiles(e)) {
+					fileOver = { index, zone: fileZone(e) };
+					if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+				} else dragOver = index;
 			}}
-			ondragleave={() => (dragOver = dragOver === index ? null : dragOver)}
+			ondragleave={() => {
+				dragOver = dragOver === index ? null : dragOver;
+				fileOver = fileOver?.index === index ? null : fileOver;
+			}}
 			ondrop={(e) => {
 				e.preventDefault();
-				moveTo(index);
-				dragging = dragOver = null;
+				const files = [...(e.dataTransfer?.files ?? [])];
+				if (files.length) dropFiles(index, files, fileZone(e));
+				else moveTo(index);
+				dragging = dragOver = fileOver = null;
 			}}
 			ondragend={() => (dragging = dragOver = null)}
 		>
 			<button type="button" class="thumb" data-control-exempt="slice thumbnail card" onclick={(e) => pick(index, e)} data-testid="slice-{index}">
 				<span class="no">{index + 1}</span>
-				<img src={asset(`${doc.toon}/${slice?.image}`)} alt="" loading="lazy" draggable="false" />
+				<img src={replacedImages.src(asset(`${doc.toon}/${slice?.image}`), `${doc.toon}/${slice?.image}`)} alt="" loading="lazy" draggable="false" />
 				<span class="info">
 					<span class="name">{slice?.image?.split('/').pop()}</span>
 					<span class="marks">
@@ -147,7 +173,7 @@
 {#if !slices.length}
 	<button type="button" class="secondary" onclick={() => add(-1)}><Icon name="plus" /> {m['creator.add_slice']()}</button>
 {/if}
-<SliceImport {doc} {groupPath} {chapterNumber} {onselect} />
+<SliceImport bind:this={importer} {doc} {groupPath} {chapterNumber} {selected} {onselect} />
 
 <style>
 	.slices {
@@ -174,16 +200,24 @@
 		color: var(--paper);
 	}
 	/* the drop line: above the target when moving up, below it when moving down (where the slices land) */
-	li.over {
+	li.over,
+	li.file-before {
 		box-shadow: inset 0 3px 0 var(--cyan);
 	}
-	li.over.below {
+	li.over.below,
+	li.file-after {
 		box-shadow: inset 0 -3px 0 var(--cyan);
 	}
 	/* picked with Shift / Ctrl besides the shown slice: framed */
 	li.picked {
 		outline: var(--border-width-regular) solid var(--ink);
 		outline-offset: calc(-1 * var(--border-width-regular));
+	}
+	/* image files from the computer: the middle of a slice framed in cyan (replace its image); an edge shows the drop
+	   line above (li.over / .file-before) or below (li.over.below / .file-after) – new slices there */
+	li.file-on {
+		outline: var(--border-width-focus) solid var(--cyan);
+		outline-offset: calc(-1 * var(--border-width-focus));
 	}
 	li.moving {
 		opacity: 0.5;
