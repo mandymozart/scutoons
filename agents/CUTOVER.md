@@ -416,8 +416,10 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   Assets → Storage (set / missing per key, no values).
 - [ ] 10.1c Fonts (IBM Plex Mono, Bangers + OFL licences) to `scutoons/fonts/` on the CDN. Branch `10.1c-cdn-fonts`
   (2026-10-05): staged in `media/scutoons/fonts/` (18 files); the apps and qr's landing page load `@font-face` from
-  `<CDN>/scutoons/fonts/` with their local copy as fallback (ASSETS.md "Fonts"). Left: the owner's upload
-  (`assets:sync --prefix=scutoons/fonts/`), then merge + deploy; tick after `check:fonts` on production shows 200s.
+  `<CDN>/scutoons/fonts/` with their local copy as fallback (ASSETS.md "Fonts"). Order (owner 2026-10-05: no local bunny sync
+  before the CDN switch): 10.3 first, then the upload (`assets:sync --source-root=../media --prefix=scutoons/fonts/`,
+  BUNNY_WRITE_PREFIX lifted for the run), THEN merge + deploy – merged earlier, every page pays a 404 per face before
+  the fallback. Tick after `check:fonts` on production shows 200s from the CDN.
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
   into `production`/targets, `assets:scan`) – ASSETS.md.
 - [ ] 10.3 cdn.scutoons.com → bunny: custom hostname on pull zone 6731366 + CNAME → `scutoons.b-cdn.net` + SSL;
