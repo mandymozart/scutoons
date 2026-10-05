@@ -56,6 +56,8 @@
 			return;
 		}
 		if (raw === '' && !required) return write(undefined);
+		// the <select> yields "true"/"false" – the schema wants a boolean
+		if (type === 'bool') return write(raw === 'true');
 		if (type === 'select') {
 			const option = opts.find((o) => String(o.value) === raw);
 			return write(option ? option.value : raw);
