@@ -9,7 +9,7 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   what is live. Docs: deploy/README.md.
 - Production runs the NEW platform on the real hosts since 2026-10-05: scutoons.com/www (viewer), qr., api., creator.,
   admin., shop. (all under `/web/`). Test hosts next./qr-next. and legacy. are deleted; old folders stay as rollback
-  (CUTOVER 8.x). Open: 8.5 late-delta check.
+  (CUTOVER 8.x). 8.5 late-delta check passed – Phase 8 complete; next: Phase 9.
   Beta (Phase 9) is internal; public release ~a week later.
 - Content lives in the production DB (entity_versions), edited in the creator. `shared/content/seed` is only a starter
   set for empty/local DBs (CUTOVER 10.15). Creator-only kinds (script) were not in the production seed – the script was
@@ -20,8 +20,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
   the database first – `DATABASE()` is `information_schema` otherwise; the DB is `d0487143`).
 - The catalog (items, recipes, albums, products, editions, featured, permissions / code types, toons) lives in the
   database since 2026-10-04 (CUTOVER 10.29, agents/CATALOG.md), edited in the admin (`/catalog/<kind>`, history + undo);
-  `server/config/*.json` are only the seed. **Production: run `server/migrations/mysql/2026-10-04-catalog.mysql.sql`**
-  (not run yet; safe before or after the deploy, check query in CATALOG.md "Status"). Media tooling for both apps:
+  `server/config/*.json` are only the seed. Production: `2026-10-04-catalog.mysql.sql` has run
+  (owner check 2026-10-05: all 11 tables, old settings folded). Media tooling for both apps:
   `@scutoons/media` (shared/media).
 - Local dev: `npm run dev` (SQLite) or `npm run dev:db` (MariaDB in Docker, same settings as production;
   `npm run dev:db test` = PHPUnit on MariaDB). Test user: `npm run dev:test-user` (`--browser <url>` for a sign-in snippet).

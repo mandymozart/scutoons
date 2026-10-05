@@ -381,7 +381,7 @@ or is **published** now (everyone on scutoons.com sees it a week before the publ
   `https://qr.scutoons.com/version.json`, viewer → `https://scutoons.com/version.json`) so `deploy.yml` and
   `npm run deploy:status` read the live commits there; `/version.json` on every host, the printed-URL list of PLATFORM.md "RULE: printed
   / public URLs" (status + target), `entities-compare --report` against the api.
-- [ ] **8.5 O – Late-delta check** (old DB, 30 min after 8.2 and again the next day):
+- [x] **8.5 O – Late-delta check** *(done 2026-10-05, owner: passes; the two claims after T0 (LyBWEkur, qzbDVKqj) are complete in the new DB with `claimed_by`)* (old DB, 30 min after 8.2 and again the next day):
   `SELECT code, email, claimed_at FROM qr WHERE claimed_at > '<T0>' OR created_at > '<T0>';` → expected empty (the
   old landing page is only reachable on qr-legacy now). Rows → tell the guide (re-apply by hand in the new DB).
 - Rollback of the whole switch: 8.3 and 8.2 targets back. Data written in the new DB since the switch (sign-ups,
@@ -542,7 +542,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - [ ] 10.29 **Catalog into the database** (owner 2026-10-04: "lets just do it properly … we have to do them all now"): items, recipes,
   albums, products, editions, featured, permissions / code types, toons (admin-created) → tables + history; slots / stats → code;
   basic admin UI with the asset picker and bulk imports. Plan and status: agents/CATALOG.md. Part 1 (tables, loaders,
-  admin API) built 2026-10-04 on branch `catalog/db`: **O – run `server/migrations/mysql/2026-10-04-catalog.mysql.sql` in
+  admin API) built 2026-10-04 on branch `catalog/db` *(production migration has run – owner check 2026-10-05: 11 tables, old settings folded)*: **O – run `server/migrations/mysql/2026-10-04-catalog.mysql.sql` in
   phpMyAdmin** (whole file at once; before or after the deploy; idempotent) – steps + check query in CATALOG.md "Status".
 - [ ] 10.28 **SCUTOONS MCP server** – an agent with the rights of the signed-in creator (owner 2026-10-03: "very important
   … i want to also connect other services that help me create more sophisticated assets"; first step right after the
@@ -706,3 +706,4 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
 - 2026-10-03 — 10.10 done on branch `dev-mariadb` (local MariaDB in Docker, tests + CI on it). Open: production's version / sql_mode / collation from phpMyAdmin → `docker/compose.yml`.
 - 2026-10-04 — repo `cdn/` removed (branch media-folder): media/ + scripts/dev/media-serve.mjs, logs → logs/cutover/.
 - 2026-10-05 — Phase 8 switched at night: scutoons.com/www + qr.scutoons.com on `/web/`; qr-legacy dropped, legacy./next./qr-next. deleted (old folders stay). targets.json status + ALLOWED_ORIGINS updated. Next: 8.5 late-delta check (30 min after 8.2 and the next day), then Phase 9.
+- 2026-10-05 — 8.5 passed (owner) → Phase 8 complete. Catalog migration confirmed run on production (11 tables, settings item_respawn / featured_products gone). Next: Phase 9.

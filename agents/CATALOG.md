@@ -49,6 +49,7 @@ Rules:
   de/en texts; creator call sites switched, creator copies deleted; creator and admin call `setupMedia({ assets, cdn,
   locale })` in their root layout (both render `DialogHost`). Ready for part 3 – COMPONENTS.md "Shared media components".
 - 2026-10-04: **Part 1 built** (branch `catalog/db`). Details below.
+- 2026-10-05: production migration has run (owner check: all 11 tables, the old settings folded).
 
 ### Part 1 – what is built
 
