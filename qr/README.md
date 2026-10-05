@@ -42,7 +42,6 @@ bin/               sync-tokens.mjs – writes public/assets/tokens from shared/t
 src/               App (routing), Landing (the page), Api (lookups + cache), Proxy, Http (curl), Cache, Config,
                    View (templates), Response, Client
 templates/landing/ page templates + texts (de/en) – moved from the server unchanged, + unavailable.php
-tests/             public-urls.php – the printed-URL regression suite (run by server/ `composer test`)
 .htaccess          only when the docroot is qr/ instead of qr/public/: forwards into public/, denies the rest
 config.php         production, written by the deploy (deploy/targets.json → "qr"); never in git
 config.local.php   local (copy config.local.php.example); never in git
@@ -71,14 +70,9 @@ the result. `npm run check` (the tokens package) and `qr.yml` fail when the copy
 
 ## Tests
 
-`composer test` in `server/` starts the API and this app on a copy of the database and runs
-`tests/public-urls.php` against it: every printed URL (status, type, redirect target, `?c=` with and without the
-slash), the proxies byte for byte against the API, `PROXY_FULL_API=0`, the fallback page with the API down, the
-rate-limited page. By hand against running servers:
-
-```sh
-php tests/public-urls.php http://localhost:9001 --api=http://localhost:9000 [--out=results.txt]
-```
+The printed-URL suite `tests/public-urls.php` was removed with the other contract suites (CUTOVER 10.30: they needed a
+populated SQLite copy). What stays: `qr.yml` (lint + offline smoke test) and a check by hand against the running dev
+stack (`npm run dev`): the landing page `/?c=`, `/verify.html`, `/api/validate/`, `/api/keys/keys.php`.
 
 ## Deploy
 

@@ -228,7 +228,7 @@ their choice. I want to encourage small vendors at first."
   sell to shops, not to readers, so they are not listed (open decision below).
 - Store fields, edited in the organisation form when the type is a stockist: `listed` ("Auf scutoons.com zeigen"),
   `independent` (small / independent vendor, listed first), `address`, `opening` (free text as the store writes it),
-  `carries` = product ids of `server/config/products.json` (the shop catalog; unknown ids → `400 invalid_product`). Kept
+  `carries` = product ids of the shop catalog (table `catalog_products`; unknown ids → `400 invalid_product`). Kept
   on the row when the type changes, but only stockist types are public. The import unites `carries` like the tags.
 - No separate table: a store is an organisation like every other partner (people, leads in the Vinyl track, timeline);
   the public page only reads the five store columns plus name / type / city / country / website.
@@ -255,13 +255,13 @@ product → "Online kaufen" (the product's Bandcamp link) + "Alle Läden zeigen"
 store carries that product; "Wo kaufen" in the main menu and the landing footer – both only once at least one store
 is listed (no empty page in the menu at the release). Texts in the messages (de/en).
 
-**Dev data**: `php server/bin/console sample-stores [--remove]` adds three clearly fake stores to the local SQLite DB
+**Dev data**: `php server/bin/console sample-stores [--remove]` adds three clearly fake stores to the local dev database
 ("Testladen (Beispiel)" Wien, "Beispiel-Plattenladen" Berlin – both independent –, "Testkette Megastore (Beispiel)" Graz),
-source "dev sample". It refuses MySQL; nothing is in any production seed.
+source "dev sample". Only on a local database named `scutoons…` (production's is not); nothing is in any production seed.
 
 **Tests**: PHPUnit `EmbassyTest::testStoreFieldsAndTheStockistList` (fields, validation, order, filters, unlisting,
 import merge, public keys only), `EmbassyApiTest::testStockistsArePublicAndCarryNoPrivateFields` (no session, CORS *,
-cache, 304, no private strings, filters, 400s); api-smoke "Stockists" (12 checks); `npm run check:stores` (headless,
+cache, 304, no private strings, filters, 400s); api-smoke "Stockists" (12 checks; suite removed in CUTOVER 10.30); `npm run check:stores` (headless,
 390 / 1440 × de / en: the list, independent first, filters, empty states, the "Local stores" links, menu); check-landing
 expects the new footer link; check-toon-hero still green (the related row's buttons now wrap).
 

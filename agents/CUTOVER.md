@@ -510,6 +510,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       (fixed, test); `qr.code` was case-insensitive in production (utf8mb4_general_ci) → 10.24; a flaky test fixture.
       Production's values (owner, phpMyAdmin 2026-10-03: 10.11.14, sql_mode NO_ENGINE_SUBSTITUTION, latin1 server
       defaults) are the container's defaults since branch `db-case`.
+      _(10.30: SQLite, the switch, `dev:db sqlite`, phpunit.mysql.xml and the content seed are gone – MariaDB only, prod seed)_
 - [ ] 10.11 Server errors in admin (owner 2026-10-02, after reading `/web/api/logs/error.log` by FTP to find the dashboard
       500): an admin-only API endpoint that reads the newest lines of `LOG_PATH` (newest first, size-capped, no secrets –
       messages only), and an admin page "Server errors" showing them (filter by day / text). Same for the qr app's log.
@@ -524,8 +525,9 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       from the owner; first guess: the two side-by-side note fields + the decision buttons hidden in the bottom bar.
       Also: the viewer's claim form promises the current owner never reads the statement – true for owners, but an owner who
       is also an admin recipient gets it in `ownership_claim_admin`; reword if the owner wants.
-- [ ] 10.15 Content source of truth is the DB now (owner 2026-10-02): local dev from `export-content` of production
+- [x] 10.15 Content source of truth is the DB now (owner 2026-10-02): local dev from `export-content` of production
       instead of the stale `shared/content/seed`; the seed becomes a starter set for empty databases (or goes).
+      _(covered by 10.30: the seed is gone, local dev loads production's export)_
 - [x] 10.16 Mail Reply-To (owner 2026-10-02: a mistake, fixed before the beta): `MAIL_REPLY_TO` = hello@scutoons.com
       (Reply-To header; the texts say "reply to this email", mail comes from no-reply@).
 - [ ] 10.16b Admin claim page: no raw data (owner 2026-10-02) – part of 10.14.
@@ -538,6 +540,7 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
 - [ ] 10.19 Setup / installer for a fresh environment (owner 2026-10-03): one step that runs the migrations, the content
       seed and the asset scan in order and checks each (the cutover did them by hand – 6.9 found the empty asset registry
       only through the creator's picker). Content keeps plain CDN paths; the registry is the index for the tools.
+      _(locally largely `npm run dev:db` since 10.30: migrate + prod seed incl. the asset tables; no content seed any more)_
 - [ ] 10.20 Asset picker: the selected tile turns black but its kind icon stays black (blank white box) – invert the icon
       too (owner screenshot 2026-10-03). The tile's size sums every file incl. the master (roar-little-kitty 491 MB) – show the
       default rendition's size or label the total.
@@ -758,6 +761,25 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       ("Cat Pope", not the id) and link to the dashboard (owner: no further action needed than the list).
     - **Agents (2026-10-04, branch `ask-deploy`):** the MCP tool `submit_for_review` (`POST /api/reviews`, items pinned to a
       version + note); `publish_entity` answers `403 review_required` for `needs_review` accounts – the agent submits instead.
+- [x] 10.30 Production export as the local seed (owner 2026-10-05: production is the source of truth for content and
+      catalog; "i want no sqlite also anymore") _(branch `10.30-prod-seed`)_:
+  - **Prod seed:** phpMyAdmin → d0487143 → Export → Custom → SQL, data only, tables entity_versions, toons, catalog_meta,
+    catalog_items, catalog_recipes, catalog_albums, catalog_editions, catalog_products, catalog_featured,
+    catalog_permissions, catalog_code_types, assets, asset_versions, asset_renditions, asset_usages → `server/db/prod-seed.sql`
+    (gitignored – may hold creator ids; a full dump works too: `npm run dev:db -- seed --from=<dump.sql>` keeps those 15
+    tables). `php bin/console db:prod-seed [--from=] [--force]` empties the 15 tables and loads the rows in one
+    transaction; same file again (SHA-256 in setting `dev_prod_seed`) = no-op.
+  - **MariaDB only:** SQLite removed everywhere (migrations/sqlite, `DB_DRIVER` / `DB_SQLITE_PATH`, `--db=` options,
+    `npm run dev:db sqlite`, the db.json switch, phpunit.mysql.xml – phpunit.xml.dist targets MariaDB `TEST_DB_*`,
+    default 127.0.0.1:13306 `scutoons_test`). `npm run dev:db` = container → databases → migrate → prod seed → sandbox
+    toon (make-sandbox.ts from the local DB, written to logs/dev/sandbox) → devpromo → API → test user; subcommands `up`,
+    `seed`, `sandbox`, `media [--apply]` (missing media from bunny.net, never deletes / overwrites), `status`, `stop`,
+    `reset`, `test`, `console`, `sql`, `adminer`, `version`; `SCUTOONS_DB_NAME=scutoons_<x>` per worktree.
+  - **No file sources:** catalog JSON → test fixture `server/tests/fixtures/catalog/` (CatalogSeed test-only;
+    `catalog:seed`, `catalog:export-sql`, file fallback, featured default list, `/admin/catalog/respawn` removed);
+    shared/content/seed + legacy + the one-off migrate-*.ts / slice-sizes.ts deleted (TS tests: fixture
+    `server/tests/fixtures/content/`). Contract suites + `composer test:contract` removed (`composer test` = PHPUnit);
+    CI = one MariaDB job (PHPUnit + PHPStan).
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---

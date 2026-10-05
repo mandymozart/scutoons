@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Guards shared/dev-ports.json as the single source of the local dev ports (part of the root `npm run check`):
 // - the apps' vite configs and the dev start-up code read it instead of hard-coding a port,
-// - the local URLs in the .env / config examples, the docker/compose.yml defaults, server/phpunit.mysql.xml and the
+// - the local URLs in the .env / config examples, the docker/compose.yml defaults, server/phpunit.xml.dist and the
 //   PLATFORM.md table match it.
 //   npm run check:ports
 import { readFileSync } from 'node:fs';
@@ -66,8 +66,8 @@ for (const [service, variable] of [['mariadb', 'SCUTOONS_DB_PORT'], ['adminer', 
 	if (!m) errors.push(`docker/compose.yml: no \${${variable}:-<port>} for ${service}`);
 	else if (Number(m[1]) !== PORTS[service]) errors.push(`docker/compose.yml: ${variable} defaults to ${m[1]}, shared/dev-ports.json says ${service} ${PORTS[service]}`);
 }
-const phpunitPort = read('server/phpunit.mysql.xml').match(/name="TEST_DB_PORT" value="(\d+)"/);
-if (!phpunitPort || Number(phpunitPort[1]) !== PORTS.mariadb) errors.push(`server/phpunit.mysql.xml: TEST_DB_PORT should be ${PORTS.mariadb} (mariadb)`);
+const phpunitPort = read('server/phpunit.xml.dist').match(/name="TEST_DB_PORT" value="(\d+)"/);
+if (!phpunitPort || Number(phpunitPort[1]) !== PORTS.mariadb) errors.push(`server/phpunit.xml.dist: TEST_DB_PORT should be ${PORTS.mariadb} (mariadb)`);
 
 // 4. the readable table in agents/PLATFORM.md "Local dev ports"
 const platform = read('agents/PLATFORM.md');

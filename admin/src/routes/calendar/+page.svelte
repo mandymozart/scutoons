@@ -13,8 +13,8 @@
 	import PageHeader from '$lib/components/page-header.svelte';
 
 	/**
-	 * The public events list (viewer /events): the platform-wide content entity `events` (entity_versions, seed
-	 * shared/content/seed/events.json). Saving stores a new version and publishes it; a stored draft that is newer (the
+	 * The public events list (viewer /events): the platform-wide content entity `events` (entity_versions;
+	 * production's events entity is the source). Saving stores a new version and publishes it; a stored draft that is newer (the
 	 * Ask agent's calendar changes are drafts) is published with Publish. The viewer splits upcoming / past.
 	 * Fields the form doesn't know (e.g. `toon`) are kept as they are.
 	 */

@@ -33,7 +33,7 @@ way we could even migrate in the future or run various systems behind it. Long-t
    (every dev machine), so credentials in the root `.env` never turn a dev server into a writer on the production zone;
    `BUNNY_WRITE_PREFIX` can fence writes further (`_test/`).
 
-## Data model (migration `2026-10-02-assets`, MySQL + SQLite)
+## Data model (migration `2026-10-02-assets`, MySQL)
 
 | Table | What | Key columns |
 |---|---|---|
@@ -64,8 +64,8 @@ Thumbs.db, half-written uploads are never registered.
 ### Usages (`AssetUsages`)
 
 Every string with a media extension in: the content store (per entity its **published** version and, when newer, its
-**working draft**; `asset-requests` are wishes, not uses) and the catalog files (items.json incl. albums, products.json,
-editions.json, toons.json, featured-products.json). Content paths resolve against the document's toon folder – the nearest
+**working draft**; `asset-requests` are wishes, not uses) and the catalog rows (items incl. albums, products, editions,
+toons, featured – source `catalog`, agents/CATALOG.md; the files until 2026-10-04). Content paths resolve against the document's toon folder – the nearest
 enclosing `toon` field wins (map locations) – and fall back to the CDN root when only that exists (registry style).
 History versions are not indexed (the delete check says so: restoring an old version may bring a reference back). Rebuilt
 by `assets:scan`, refreshed per entity on every creator save / publish / restore (EntitiesController). Not indexed: paths
@@ -166,6 +166,9 @@ settings, usage index) to cdn.scutoons.com. The asset registry stores CDN-root p
 No local → bunny sync at the switch: bunny is ahead of the dev copy (production uploads go straight to the zone).
 
 ## Relayout DONE (2026-10-02, owner: "I want to risk it; I keep the old CDN until the switch")
+
+_(Since CUTOVER 10.30 `assets:relayout` rewrites code paths only – content and catalog live in the DB; the seed JSON /
+seed SQL below no longer exist.)_
 
 Run in the `assets` worktree after merging `platform` (c6a06bc): `assets:relayout --apply
 --source-root=C:/Development/scutoons/cdn/root` – **214 files copied** (712 MB, verified, 0 failed) next to the old

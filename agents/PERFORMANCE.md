@@ -2,7 +2,7 @@
 
 Owner question: "Why does the entire app feel so slow? Is it because of the file-based system?"
 
-**Short answer: no, the file-based system isn't the cause.** A content file from SQLite costs 0.2 ms. Two different
+**Short answer: no, the file-based system isn't the cause.** A content file from SQLite costs 0.2 ms (local dev was SQLite then; MariaDB only since CUTOVER 10.30). Two different
 things made the app feel slow:
 
 1. **The local dev stack** (only on this machine). A single-process PHP server without OPcache, a single-threaded

@@ -36,7 +36,7 @@ import { local, PORTS } from './ports.mjs';
 const SERVER = resolve(ROOT, 'server');
 const API_STATE = resolve(ROOT, `logs/dev/api-server-${PORTS.api}.json`);
 const PROMO = 'devpromo'; // qr.code is VARCHAR(8)
-const [command = 'up', ...rest] = process.argv.slice(2);
+const [command = 'up', ...rest] = process.argv.slice(2).filter((a, i) => !(i === 0 && a === '--'));
 
 function fail(message) {
 	console.error(`dev:db: ${message}`);

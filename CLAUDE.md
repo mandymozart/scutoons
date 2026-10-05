@@ -6,7 +6,7 @@ PLATFORM.md / DATA.md / ITEMS.md / ASSETS.md (system). `agents/MEMORY.md` is lon
 
 Keep context small: prefer targeted reads/greps over whole files; delegate broad work to agents on their own branches.
 
-**Local dev and tests run on MariaDB in Docker, not SQLite** (owner 2026-10-05: "important for all local dev"; production
-is MariaDB 10.11): `npm run dev:db` (start + migrate + switch the stack), PHPUnit with `npm run dev:db test` (database
-`scutoons_test`, doesn't switch the running stack), migrations as their `.mysql.sql`. SQLite only as a fallback when
-Docker isn't available – say so in the hand-back. Don't switch the owner's running stack without asking.
+**Local dev and tests run on MariaDB in Docker – the only database, no SQLite** (owner 2026-10-05; production is MariaDB
+10.11): `npm run dev:db` (container + migrate + production seed `server/db/prod-seed.sql` + sandbox + API), PHPUnit with
+`npm run dev:db test` (database `<name>_test`), migrations as their `.mysql.sql`. A worktree's own database:
+`SCUTOONS_DB_NAME=scutoons_<x>`. Don't reset or reseed the owner's running database without asking.

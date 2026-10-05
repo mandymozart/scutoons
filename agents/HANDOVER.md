@@ -26,7 +26,7 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Local dev: **MariaDB in Docker only** – no SQLite any more (owner 2026-10-05): `npm run dev:db` (container, migrate,
   prod seed, sandbox, API, test user), PHPUnit with `npm run dev:db test`. A worktree's own database:
   `SCUTOONS_DB_NAME=scutoons_<x>`. Missing media: `npm run dev:db -- media --apply` (from bunny.net). Test user: `npm run dev:test-user` (`--browser <url>` for a sign-in snippet).
-- Post-beta work list: CUTOVER.md items 10.10–10.24.
+- Post-beta work list: CUTOVER.md items 10.10–10.30.
 
 ## Working rules learned (owner)
 - Commit ONLY on `main`, guarded: `[ "$(git branch --show-current)" = main ] && git commit …`. **Never push** – pushing

@@ -21,7 +21,7 @@ Guiding example (U):
 
 ## Item definition (catalog)
 
-Single source: the server's `config/items.json` (was qr `api/items/items.json`), served at `GET /api/items/` (public). The viewer
+Single source: the catalog tables (`catalog_items` …, agents/CATALOG.md; was `server/config/items.json`, before that qr `api/items/items.json` – the file is now the test fixture `server/tests/fixtures/catalog/`), served at `GET /api/items/` (public). The viewer
 fetches it from the QR API; it is not duplicated in the viewer.
 
 ```jsonc
@@ -144,8 +144,8 @@ CORS: `ALLOWED_ORIGINS` (with `Access-Control-Allow-Credentials: true`). Errors:
 | GET | `/me/` | – | `{ user, memberships:[{code,type,expires_at}], inventory:[Entry], avatar:{ slots:{ <slot>: entryId|null } } }` – `user.hide_sensitive` ("Sensitive content") |
 | PUT | `/me/` | `{ marketing_opt_in?, hide_sensitive? }` | `{ status, user, avatar }` – turning `hide_sensitive` on moves a worn sensitive body to the character's first non-sensitive look · 400 `invalid_body` |
 | GET | `/items/` | – | catalog (above) |
-| GET | `/products/` | – | shop catalog, `config/products.json` as stored (`{ version:2, currency, checked_at, source, products:[Product] }`, `@scutoons/content` `ProductCatalog`); CORS `*`, cached 5 min (platform P2b) |
-| GET | `/products/featured/` | – | the landing page's editions `[{ product, variant? }]`: chosen in the admin app ("Startseite", `GET/PUT /admin/featured`, setting `featured_products`), default `config/featured-products.json` as stored; cached 1 min |
+| GET | `/products/` | – | shop catalog, table `catalog_products` + `catalog_meta` (`{ version:2, currency, checked_at, source, products:[Product] }`, `@scutoons/content` `ProductCatalog`); CORS `*`, cached 5 min (platform P2b) |
+| GET | `/products/featured/` | – | the landing page's editions `[{ product, variant? }]`: chosen in the admin app ("Startseite", `GET/PUT /admin/featured`, table `catalog_featured`; no default list since 10.30); cached 1 min |
 | GET | `/stockists/?product=&country=` | – | "Where to buy": the Embassy's listed stores carrying products (public fields only, independent first; `{ stores, products: { id: count }, countries }`), CORS `*`, cached 5 min + ETag, 600 / IP / hour – agents/EMBASSY.md "Stores" |
 | GET | `/library/toons[/<toon>[/seasons/<n>\|/chapters/<n>\|/cast\|/credits]]`, `/library/characters`, `/events/` | – (`?draft=1`: creator) | the reader's entities from the content store (agents/DATA.md §3, server docs/API.md "Library"): toons list, toon bundle, season overview, chapter with scenes inlined, cast, credits, events; `?locale=`, ETag, 403 `coming_soon`/`not_public` |
 | GET/PUT/POST | `/entities/<key>…` | creator | the content store by entity key (`chapter:catpope:2:de`, `characters` …): read, save draft, versions, publish, unpublish, restore – server docs/API.md "Entities" (replaced `/content/*`) |
@@ -247,7 +247,7 @@ Two separate things:
 ### Permissions map
 
 Since 2026-10-04 the tables `catalog_permissions` + `catalog_code_types`, edited in the admin API (agents/CATALOG.md); the
-shape below is the seed `config/permissions.json` (was qr `api/permissions.json`) and what `Permissions::map()` builds:
+shape below is the old `config/permissions.json` (now the test fixture; was qr `api/permissions.json`) and what `Permissions::map()` builds:
 ```json
 {
   "version": 1,
@@ -336,7 +336,7 @@ page. Non-claimable types keep their direct redirect.
 - `creator` → may use `scutoons.com/creator` and the content API; `admin` → reserved (later: admin UI in the viewer).
 
 ### Accounts only with a product or a PR code
-- **A new account can only be created with a code whose type has `"signup": true`** in `config/permissions.json` (server):
+- **A new account can only be created with a code whose type has `"signup": true`** in its code type (table `catalog_code_types`, admin → Catalog):
   - `membership` — physical product: signup + claim of that item (one owner, as before).
   - `promo` — PR code: **not claimable** (no item, no owner, reusable by many people), grants `catalog` and allows
     signup. Account = save progress across devices + optional promotional updates about new releases.
@@ -367,7 +367,7 @@ Buttons: "Continue reading" · "Create account" (email → code → opt-in check
 ## Admin API (2026-09-30, platform P1b — final for the admin app)
 
 Server-side replacement of the `generate/*.php` endpoints for the admin app (admin.scutoons.com) plus KPIs and lists.
-Implemented in the server (`src/Http/Controllers/Admin/*`, `src/Domain/Admin/*`); tested by `tests/admin-smoke.php`.
+Implemented in the server (`src/Http/Controllers/Admin/*`, `src/Domain/Admin/*`); tested by PHPUnit (the `tests/admin-smoke.php` contract suite was removed in CUTOVER 10.30).
 
 - **Base** `{API}/admin` (`VITE_API_URL` + `/admin`, e.g. `http://localhost:9000/api/admin`, prod
   `https://api.scutoons.com/api/admin`). All JSON (UTF-8, unescaped), `Cache-Control: no-store`.
@@ -495,16 +495,15 @@ Privacy: the log shows recipient addresses (admin only, like the users endpoints
 Admin page **"Startseite" / "Homepage"** (`admin/src/routes/homepage`, nav group Data): which products of the shop
 catalog, in which colour (= which images), in which order the landing page shows. Since 2026-10-04 the table
 `catalog_featured` (agents/CATALOG.md; one `catalog_history` row per change); until then the setting `featured_products`,
-folded into the table by the migration 2026-10-04-catalog. The default (`null`) is the seed's list
-`server/config/featured-products.json` (dago_hoodie beige, dago_heavy_t white).
+folded into the table by the migration 2026-10-04-catalog. No default list since CUTOVER 10.30 (the "Use the default"
+button is gone): `[]` = nothing featured.
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| GET | `/admin/featured` | – | `{ status, items: [{ product, variant? }], default, stored, updated_at, updated_by, max: 12 }` |
-| PUT | `/admin/featured` | `{ items: [{ product, variant? }] \| null }` | `{ status, changed, …as GET }` · `400 invalid_featured\|unknown_product\|unknown_variant\|duplicate_featured` |
+| GET | `/admin/featured` | – | `{ status, items: [{ product, variant? }], updated_at, updated_by, max: 12 }` |
+| PUT | `/admin/featured` | `{ items: [{ product, variant? }] }` (`null` → 400) | `{ status, changed, …as GET }` · `400 invalid_featured\|unknown_product\|unknown_variant\|duplicate_featured` |
 
 The public `GET /products/featured/` returns the list, `max-age=60`.
-Contract: `admin-smoke` "Featured editions" (401/403, validation, store, public read, back to the default).
 
 ### Content (read-only overview, platform P2a)
 
@@ -512,7 +511,7 @@ The admin app lists the content store without the `creator` role; editing stays 
 
 | Method | Path | Request | Response |
 |---|---|---|---|
-| GET | `/admin/content` | optional `toon` (`[a-z0-9_-]{1,64}`) | `{ status, toons: [{ id, name }], files: [{ toon, locale, path, latest, latest_status: "draft"\|"published", latest_at, published: id\|null, published_at, versions }] }` – `toons` = `config/toons.json` + toons that only exist in the store; files ordered by toon, path, locale; times are the store's `YYYY-MM-DD HH:MM:SS` (UTC) · `400 invalid_toon` |
+| GET | `/admin/content` | optional `toon` (`[a-z0-9_-]{1,64}`) | `{ status, toons: [{ id, name }], files: [{ toon, locale, path, latest, latest_status: "draft"\|"published", latest_at, published: id\|null, published_at, versions }] }` – `toons` = table `toons` + toons that only exist in the store; files ordered by toon, path, locale; times are the store's `YYYY-MM-DD HH:MM:SS` (UTC) · `400 invalid_toon` |
 
 The legacy `generate/*.php` endpoints (static `X-Generate-Token`) keep working unchanged for the `generate/` SPA until the
 admin app has parity; then `generate/` and `GENERATE_PASSWORD` are removed.
@@ -758,7 +757,7 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
 - **Character tendencies** (`RegistryCharacter.tendencies: string[]`, creator field "Neigungen"): story/workflow
   reference only, no runtime effect. Top Toy: `["psychedelics"]` (owner: "tends to take a lot of psychedelics";
   `migrate-characters.ts`, the characters seed, the characters statement of both seed SQL files).
-- **Reader stats** (`catalog.stats` in `server/config/items.json`): `testo` and `appetite` (a placeholder stat, no
+- **Reader stats** (code since 2026-10-04: `ReaderStats::DEFINITIONS` / `READER_STATS`; was `catalog.stats` in `server/config/items.json`): `testo` and `appetite` (a placeholder stat, no
   gameplay yet), each `{ label, baseline: 50, half_life_days: 3 }`. **Neutral start 50.** **Decay:** the level drifts back
   to the baseline, `level(t) = baseline + (stored − baseline) · 0.5^(days / half_life_days)` – computed lazily on read from
   `{ level, updated_at }`, no cron (one constant per stat, in the catalog). Members: table `member_stats`; guests:
@@ -862,7 +861,7 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
 `characters` entity, so on production publish the registry once from the creator (or `import-content
 --only=characters --update`). CDN: the icons (`scutoons/items/`) uploaded in admin → Assets.
 The Check It camera needs nothing extra on deploy (catalog + viewer): it is crafted from camera + testo (recipe
-`checkit_camera`, ingredients adjustable in `server/config/items.json`), a story grant stays possible.
+`checkit_camera`, ingredients adjustable in admin → Catalog → Recipes), a story grant stays possible.
 
 ## Collection limits & object-camera rules (2026-10-02, owner)
 
@@ -1094,7 +1093,7 @@ often close to a release. They must never put a release at risk, and a finished 
 1. A new set of items/recipes is a **pack** with a short name, built on its own branch `items/<pack>` in a separate
    git worktree (e.g. `C:\Development\scutoons-<pack>`), branched from `platform` (or `main` after a release). Never
    on the branch that is being released.
-2. A pack only **adds**: new catalog entries (`server/config/items.json` items + recipes), CDN assets
+2. A pack only **adds**: new catalog entries (items + recipes in the catalog tables, admin → Catalog), CDN assets
    (`<toon>/items/…`, `scutoons/models/…`; uploaded in the creator / admin → Assets), texts, story grants (seed statements), tests. It never changes
    the id or meaning of a released item – inventories reference ids forever; a rename is a new item plus a migration.
 3. If a pack needs something the fundamentals can't do yet (e.g. a camera with its own recognition model), **split
@@ -1102,7 +1101,7 @@ often close to a release. They must never put a release at risk, and a finished 
    its own; the pack follows and only switches it on with data. Both may be developed together on the pack branch,
    but merge the fundamental first.
 4. **Patchable** means: merging the pack touches only catalog data, assets, texts and seed statements – no schema
-   migration, no edits to other packs. Its merge checklist: catalog-count tests updated (api-smoke / admin-smoke),
+   migration, no edits to other packs. Its merge checklist: catalog-count tests updated (PHPUnit; the fixture `server/tests/fixtures/catalog/` if tests need the entry),
    validation and content tests green, icons/models uploaded to the CDN, a browser check for its skill if it adds
    behaviour, ITEMS.md section for the pack, cutover note.
 5. Unfinished packs stay unmerged. Nothing half-built ships in a release behind a flag.
@@ -1120,8 +1119,8 @@ season. We need a similar relation for chapters … Related items are nice to up
 landing page [the season section of the toon page]."
 
 **Data model** (`@scutoons/content` `albums.ts`, types in `items.ts` / `content.ts`, schemas regenerated):
-- **Album** = the music, a language-neutral media entity in the **item catalog** (`server/config/items.json` →
-  `catalog.albums`, served by `GET /api/items/`): `{ id, toon, title: Localized, tracks: [{ id, title, src, duration? }],
+- **Album** = the music, a language-neutral media entity in the **item catalog** (table `catalog_albums`, was `server/config/items.json` →
+  `catalog.albums`; served by `GET /api/items/`): `{ id, toon, title: Localized, tracks: [{ id, title, src, duration? }],
   download?: <zip>, cover?, access?: { download, listen } }`, paths from the CDN root like item icons.
   *Why the catalog and not the content store:* the album only exists through the items that carry it (records, tapes,
   CDs – owner-edited config like products / editions, not creator content); the reader needs album + carriers + players
@@ -1290,9 +1289,9 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   - Interval = `"visit"` (every visit / reload) or `{ minutes | hours | days: n }`.
   - ITEM (catalog, `ItemDef.respawn`): `{ default, min?, max? }` – the default interval and the range a placement may
     choose (no `min` = the default is the shortest); none / null = it never reappears (a one-time find). Set in
-    server config/items.json (cucumber 6 h and tuna can 12 h (1 h … 7 d), weed 12 h (1 h … 7 d), testo 1 d (6 h … 7 d), psilocybin and lsd 3 d (1 … 14 d), semaglutide 7 d (1 … 30 d); every other item: never – there is no onion item in the catalog yet) and
+    the catalog (was server config/items.json; cucumber 6 h and tuna can 12 h (1 h … 7 d), weed 12 h (1 h … 7 d), testo 1 d (6 h … 7 d), psilocybin and lsd 3 d (1 … 14 d), semaglutide 7 d (1 … 30 d); every other item: never – there is no onion item in the catalog yet) and
     since 2026-10-04 stored in the item's catalog row, edited in admin → Catalog → Items (the item form's "Respawn"; the
-    API `/admin/catalog/respawn` stays); `/api/items/` and the admin catalog serve it.
+    API `/admin/catalog/respawn` was removed in 10.30); `/api/items/` and the admin catalog serve it.
   - PLACEMENT (`SliceItem.respawn`): none = the item's default; `"never"` = once here; an interval = an override within
     the item's range. The creator shows the item's default and offers only what the range allows; validation flags an
     out-of-range or never-reappearing choice (`placementRespawnProblem`, with the catalog in `ValidateContext.itemRespawn`).
