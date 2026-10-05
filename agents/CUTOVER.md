@@ -421,7 +421,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
   `<CDN>/scutoons/fonts/` with their local copy as fallback (ASSETS.md "Fonts").
   Merged into platform 2026-10-05 (owner: "merge it now", after 10.3). Left: the owner
   uploads the 18 files of `media/scutoons/fonts/` by hand (bunny dashboard → storage zone `scutoons` → folder
-  `scutoons/fonts/`; no local bunny sync), then `assets:scan` registers them. Until then each page pays one 404 per face
+  `scutoons/fonts/`; no local bunny sync), then Rescan on the admin Assets page registers them. Until then each page pays one 404 per face
   before the bundled fallback. Tick after `check:fonts` on production shows 200s from the CDN.
 - [ ] 10.2 Asset layer: merge `assets` (migration `2026-10-02-assets` in phpMyAdmin, `ASSET_STORAGE=bunny` + `BUNNY_*`
   into `production`/targets, `assets:scan`) – ASSETS.md.

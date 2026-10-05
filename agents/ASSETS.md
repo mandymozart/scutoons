@@ -323,7 +323,7 @@ delete), admin Assets (library, detail, delete check, storage + bandwidth), view
 subset (cyrillic-ext, cyrillic, vietnamese, latin-ext, latin) + italic 400/700 (latin, latin-ext), Bangers 400 (latin,
 latin-ext) – 16 woff2 – and both SIL OFL 1.1 texts (`IBMPlexMono-OFL.txt`, `Bangers-OFL.txt`); 18 files, 212 KB.
 Staged in the local `media/scutoons/fonts/` (byte-identical); the owner uploads them by hand in the bunny dashboard
-(owner 2026-10-05: no local bunny sync), `assets:scan` registers them afterwards.
+(owner 2026-10-05: no local bunny sync), Rescan on the admin Assets page registers them afterwards.
 Registered as app code in `AssetUsages::CODE_REFERENCES` (+ AssetLayout): never "unused", a delete is blocked.
 
 **Served from the CDN, the local copy as fallback** (decision 2026-10-05, evidence below):
