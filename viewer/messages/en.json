@@ -111,7 +111,9 @@
 		"coming_soon": "Coming soon",
 		"release": "Release: {date}",
 		"season_title": "Season {number}: {title}",
-		"prologue": "Prologue"
+		"prologue": "Prologue",
+		"sensitive_hidden": "Sensitive content hidden",
+		"sensitive_hidden_hint": "In your account: “Hide sensitive content”"
 	},
 	"player": {
 		"sound_on": "Sound on",

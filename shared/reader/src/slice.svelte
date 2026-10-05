@@ -20,6 +20,10 @@
 	 *
 	 * The image loads lazily (`eager` for the first slices) with `width` / `height` from the slice, so the box has its
 	 * final height before the image arrives: no layout shift, and the slices below don't all intersect at once.
+	 *
+	 * `blurred` (a sensitive slice while the reader hides sensitive content, agents/ITEMS.md "Sensitive slices"): the image
+	 * – a video slice's poster, the video itself is not loaded (no sound, nothing to reveal) – is drawn blurred, clipped
+	 * to the slice; the app mutes the slice's sounds and puts its note on top (`children`).
 	 */
 	let {
 		slice,
@@ -36,6 +40,7 @@
 		onitemtap,
 		dialogHidden,
 		dialogPlay,
+		blurred = false,
 		before,
 		children,
 		...rest
@@ -69,6 +74,8 @@
 		dialogHidden?: (dialog: DialogModel) => boolean;
 		/** a text box being revealed by an onomatopoeia event right now */
 		dialogPlay?: (dialog: DialogModel) => DialogPlay | null | undefined;
+		/** draw the image blurred and leave a video unloaded (a sensitive slice the reader hides) */
+		blurred?: boolean;
 		before?: Snippet;
 		children?: Snippet;
 	} & Omit<HTMLAttributes<HTMLDivElement>, 'children'> = $props();
@@ -80,7 +87,11 @@
 
 <div {...rest} class="slice">
 	{@render before?.()}
-	{#if slice.video}
+	{#if blurred}
+		<div class="blurred">
+			<img {src} alt="" {width} {height} loading={eager ? 'eager' : 'lazy'} decoding="async" />
+		</div>
+	{:else if slice.video}
 		<SliceVideo
 			src={videoSrc}
 			poster={src}
@@ -127,5 +138,14 @@
 		width: 100%;
 		height: auto;
 		display: block;
+	}
+
+	/* a sensitive slice: blurred, clipped to the slice, scaled a little so the edges stay filled */
+	.blurred {
+		overflow: hidden;
+	}
+	.blurred img {
+		filter: blur(1.5rem);
+		transform: scale(1.15);
 	}
 </style>

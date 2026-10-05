@@ -70,6 +70,19 @@
 		}, 'slice-image-files');
 		if (image) fillSliceSize(doc, slicePath, url);
 	}
+	/**
+	 * "Sensitive content" (ITEMS.md "Sensitive slices"): stored only when on, the same in every language like the media –
+	 * readers with "Hide sensitive content" on see the slice blurred and muted.
+	 */
+	function setSensitive(on: boolean) {
+		doc.structural((file) => {
+			const s = getAt(file, slicePath);
+			if (!s) return;
+			if (on) s.sensitive = true;
+			else delete s.sensitive;
+		}, 'slice-sensitive');
+	}
+
 	/** the size line only when it is not the standard 390 × 625 (owner 2026-10-03) */
 	const offStandard = $derived(!!slice && (slice.width !== DEFAULT_SLICE.width || slice.height !== DEFAULT_SLICE.height));
 
@@ -321,6 +334,11 @@
 		{/if}
 	</p>
 	{/if}
+
+	<label data-testid="slice-sensitive"
+		><input type="checkbox" checked={slice?.sensitive === true} onchange={(e) => setSensitive(e.currentTarget.checked)} /> {m['creator.slice_sensitive']()}</label
+	>
+	<p class="hint">{m['creator.slice_sensitive_hint']()}</p>
 </div>
 
 <style>
