@@ -548,6 +548,59 @@ export interface CatalogProblem {
 	[key: string]: unknown;
 }
 
+/** One row of the AI usage overview (`GET /admin/agent-usage`): the sums of a period (UTC day or month), app, person, service, model */
+export interface AgentUsageRow {
+	period: string;
+	app: 'creator' | 'embassy' | 'admin';
+	user_id: string;
+	email: string | null;
+	service: string;
+	model: string;
+	calls: number;
+	input_tokens: number;
+	output_tokens: number;
+	cache_read_tokens: number;
+	cache_write_tokens: number;
+	cost_usd: number;
+}
+
+export interface AgentUsageOverview {
+	status: 'success';
+	from: string;
+	to: string;
+	group: 'day' | 'month';
+	rows: AgentUsageRow[];
+	totals: Omit<AgentUsageRow, 'period' | 'app' | 'user_id' | 'email' | 'service' | 'model'>;
+}
+
+/**
+ * Changes the admin's Ask agent proposes (tools/mcp admin.ts `propose_changes`): a card in the Ask panel, applied only when
+ * the admin presses Apply – by the admin app, with the admin's session. `before` values are what the agent read; Apply
+ * refuses a catalog entry / the calendar when it changed since (`base`).
+ */
+export interface AdminChangeField {
+	/** dot path in the entry's data, e.g. `icon`, `name.en`, `variants.0.icon` */
+	path: string;
+	before: unknown;
+	after: unknown;
+}
+
+export type AdminChange =
+	| { type: 'catalog'; kind: CatalogKind; id: string; label: string; base: string; fields: AdminChangeField[] }
+	| { type: 'calendar'; action: 'add'; event: Record<string, unknown> }
+	| { type: 'calendar'; action: 'update'; index: number; label: string; fields: AdminChangeField[] }
+	| { type: 'asset'; path: string; source: string | null; usages: number };
+
+export interface AdminChangesCard {
+	kind: 'admin_changes';
+	id: string;
+	/** one line: what the changes do */
+	title: string;
+	changes: AdminChange[];
+	/** the calendar's draft version the calendar changes were made on (null = no calendar yet / no calendar change) */
+	calendar_base: number | null;
+}
+
 export function createAdminApi(api: ApiClient) {
 	return {
 		dashboard: (params: { days?: number; edition_id?: string | null } = {}) =>
@@ -648,6 +701,9 @@ export function createAdminApi(api: ApiClient) {
 				`/admin/catalog/history/${historyId}/undo`,
 				force ? { force: true } : {}
 			),
+
+		/** the Ask panels' AI usage (from / to: UTC days YYYY-MM-DD, default the last 30 days) */
+		agentUsage: (params: { from?: string; to?: string; group?: 'day' | 'month' } = {}) => api.get<AgentUsageOverview>(`/admin/agent-usage${toQuery(params)}`),
 
 		featured: () => api.get<AdminFeatured>('/admin/featured'),
 		/** the new ordered list, or null = back to the default */

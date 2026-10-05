@@ -21,6 +21,7 @@
 	} from '@scutoons/ui';
 	import { AuthGate, takeMagicToken } from '@scutoons/auth';
 	import { AskPanel, ask, type AskLabels } from '@scutoons/ask';
+	import ChangesCard, { isChangesCard } from '$lib/components/changes-card.svelte';
 	import { setAdminSession } from '$lib/session.svelte.ts';
 	import { setToaster } from '$lib/toasts.ts';
 	import { activeItem, navigation, navItems } from '$lib/navigation.ts';
@@ -109,7 +110,8 @@
 		return list;
 	}
 
-	// Ask (@scutoons/ask): the agent with the admin's rights, reading only for now (tools/mcp ask.ts "admin")
+	// Ask (@scutoons/ask): the agent with the admin's rights (tools/mcp ask.ts "admin"): it reads; changes come as a card
+	// the admin applies (ChangesCard)
 	const askLabels: AskLabels = {
 		title: m['ask.title'](),
 		history: m['ask.history'](),
@@ -196,7 +198,11 @@
 			</main>
 		</AppShell>
 		{#if ask.open}
-			<AskPanel app="admin" url={ASK_URL} chats={agentChats} context={current?.title() ?? m['shell.admin']()} appLanguage={getLocale()} labels={askLabels} onclose={() => (ask.open = false)} />
+			<AskPanel app="admin" url={ASK_URL} chats={agentChats} context={current?.title() ?? m['shell.admin']()} appLanguage={getLocale()} labels={askLabels} onclose={() => (ask.open = false)}>
+				{#snippet result(step)}
+					{#if isChangesCard(step.data)}<ChangesCard card={step.data} />{/if}
+				{/snippet}
+			</AskPanel>
 		{/if}
 		<CommandPalette
 			bind:open={paletteOpen}

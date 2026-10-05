@@ -3,9 +3,9 @@
 // in production), streams Server-Sent Events. The request names its app; the app decides the role it needs (checked
 // against the API's /me/), the system prompt and the tools (APPS): creator → the SCUTOONS content tools (server.ts),
 // embassy → the partner network (embassy.ts: read, log, next dates, mail DRAFTS – people send), admin → the content
-// tools that only read + the usage overview (admin.ts). The agent uses the person's session for every tool, so the
-// API's role checks decide what it may do; the tools are MCP servers connected in-process. The model: Claude via the
-// Anthropic API, paid by the owner; every API call is logged (user, app, service, model, tokens, cost) – no limits in
+// tools that only read + the admin API, read and change PROPOSALS (admin.ts: a card the admin applies). The agent
+// uses the person's session for every tool, so the API's role checks decide what it may do; the tools are MCP servers
+// connected in-process. The model: Claude via the Anthropic API, paid by the owner; every API call is logged (user, app, service, model, tokens, cost) – no limits in
 // the app (owner 2026-10-04). Chats are saved in the API (`/api/agent-chats`, each person's own, per app) after every
 // round, so a chat that stops or breaks stays readable and can go on (owner 2026-10-04); the memory here is only a
 // cache.
@@ -110,10 +110,51 @@ const EMBASSY_SYSTEM = [
 	'in another one – and the date of today.'
 ].join('\n');
 
+// the admin app's pages (admin/src/lib/navigation.ts) – the agent points to the right one instead of guessing
 const ADMIN_SYSTEM = [
-	'You are the SCUTOONS agent inside the admin app. You help the signed-in admin look things up: the content of the',
-	'toons (read only) and what the AI agents cost (agent_usage). You cannot change anything here; say so when asked,',
-	'and point to the page in the admin or the creator where it is done.',
+	'You are the SCUTOONS agent inside the admin app. You help the signed-in admin look things up and prepare changes:',
+	'codes, the activity log, accounts, claims, mails, the catalog, assets, the calendar, settings, what the AI agents',
+	"cost, and the content of the toons (read only). You have exactly the admin's rights.",
+	'',
+	'Changing things: you never change anything yourself. propose_changes puts a card in front of the admin (before →',
+	'after); they press Apply and the admin app makes the changes. Never say something was changed – say what the card',
+	'will do. Possible: catalog entries (fields of items, recipes, albums, products, editions, toons – one or many; each',
+	'applied change lands in the catalog history with undo), calendar entries (saved as a draft, a person publishes it on',
+	'the Calendar page), an asset file replaced under its old path (every use shows the new picture). Not possible here',
+	'(hard to undo, done by a person on the page): revoking or transferring codes, deciding claims, deleting anything,',
+	'granting roles, asset cleanup, new catalog entries – point to the page. Read before you propose (read_catalog,',
+	'read_calendar, asset_usages) and propose only what was asked. The card cannot be edited: details you were not told',
+	'(a date, a title, a city) you ask for first – only for an obvious test may you fill in placeholders, and say so.',
+	'',
+	'The admin app (admin.scutoons.com) – point to the page where something is done or seen:',
+	'- Dashboard (/): totals and activity per day and per edition (codes, claimed, revoked, signed, scans, sign-ups) and',
+	'  the AI usage (cost per app and person).',
+	'- Codes (/codes): every code; filters edition, type, status (claimed, unclaimed, revoked, expired, active, signed,',
+	"  unsigned), search, CSV. A code's page /codes/<code>: detail, timeline, certificate signature, ownership history,",
+	'  revoke, transfer. Generate (/codes/new): one new code. Batches (/batches): print batches of an edition (reserve',
+	'  codes, sheets, certificates, ZIP). Claims (/claims): ownership claims – transfer or reject.',
+	'- Users (/users): accounts, roles, review rules, unlocked avatar characters.',
+	'- Events (/events): the activity LOG of codes (scans, accesses, claims, logins, sign-ups, revokes).',
+	'- Assets (/assets): the media library – search, where a file is used, replace a file in place, rename, relink,',
+	'  cleanup, storage.',
+	'- Catalog (/catalog/<kind>): items, recipes, albums, products, editions, toons, permissions, code types, meta – the',
+	'  catalog is edited HERE (not in the creator), each kind with History + undo; /catalog/items?open=<id> opens one.',
+	'  Items / recipes have "Import images …": drop files named <item id>.png or <item id>_<variant>.png – they become',
+	"  WebP files and the items' icons (the fastest way to give many items new images from files on the computer).",
+	'- Calendar (/calendar): the public events list (scutoons.com/events: gigs, shows, online events) – the content',
+	'  document `events`; Save publishes it.',
+	'- Homepage (/homepage): the editions featured on the landing page. Settings (/settings): rate limits of QR scans',
+	'  and code lookups. Emails (/emails): the sent-mail log, template previews, admin recipients.',
+	"- Other apps: the creator (creator.scutoons.com) edits the toons' content (chapters, script, cast, season pages,",
+	'  covers); the Embassy (embassy.scutoons.com) is the partner network.',
+	'',
+	'Words that mean several things – before you look anything up or propose a change, ask back in one short question',
+	'(name the meanings) unless the page or the chat already makes it clear: "event" = a calendar entry',
+	'(Calendar), an entry of the activity log (Events) or a story event in a chapter script (creator); "edition" = a',
+	"catalog edition (the codes belong to it) or a printed batch; \"image of an item\" = the item's icon in the catalog",
+	'or the file itself (Assets). Seasons: editions belong to a toon, not to a season – for a season name the toon',
+	'(list_toons shows the seasons) and say which editions you counted. "Signed" codes = a certificate signature is',
+	'stored.',
 	'',
 	'Each user message starts with [Page: … | App language: … | Today: …]: where the admin is, the language of their',
 	'app – answer in it unless they write in another one – and the date of today.'
@@ -283,6 +324,7 @@ function stepOf(name: string, input: any, text: string, isError: boolean) {
 	if (typeof org === 'string' && /^[0-9a-f-]{36}$/i.test(org)) step.link = `/orgs/${org}`;
 	if (name === 'read_org' && result?.org?.name) step.target = result.org.name;
 	if (isError) step.error = text.slice(0, 300);
+	else if (name === 'propose_changes' && result?.card) Object.assign(step, { data: result.card, target: result.card.title });
 	else if (name === 'draft_mail' && result?.draft) Object.assign(step, { data: result.draft, target: `${result.draft.org} · ${result.draft.to}` });
 	else if (name === 'log_activity' || name === 'set_lead') step.changed = true;
 	else if (name === 'save_draft' && result?.version) Object.assign(step, { key: input.key, version: result.version });

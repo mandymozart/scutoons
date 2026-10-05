@@ -125,7 +125,20 @@
 		"editions_hint": "Claimed of all codes (all time); scans and claims in the period.",
 		"claimed_total": "Claimed / codes",
 		"of_edition": "edition of {count}",
-		"signed": "Signed"
+		"signed": "Signed",
+		"ai_title": "AI usage",
+		"ai_hint": "What the Ask agents cost (Anthropic API, USD): this month per app and person, per day in the period.",
+		"ai_month": "This month",
+		"ai_calls": "{count} calls",
+		"ai_chart": "AI cost per day (USD)",
+		"ai_people": "Per person, this month",
+		"ai_person": "Person",
+		"ai_total": "Total",
+		"ai_none": "No AI usage this month.",
+		"ai_unavailable": "The AI usage log is not available yet.",
+		"app_creator": "Creator",
+		"app_embassy": "Embassy",
+		"app_admin": "Admin"
 	},
 	"events": {
 		"scan": "Scan",
@@ -953,7 +966,8 @@
 		"none_stored": "Nothing stored yet",
 		"preview": "Open the events page",
 		"invalid": "Every event needs a date, a title and a city.",
-		"conflict": "Someone saved the events meanwhile – reloaded, please redo your change."
+		"conflict": "Someone saved the events meanwhile – reloaded, please redo your change.",
+		"publish": "Publish"
 	},
 	"ask": {
 		"title": "Ask",
@@ -966,8 +980,8 @@
 		"send": "Send",
 		"stop": "Stop",
 		"working": "Working …",
-		"context": "{page} · reads only",
-		"empty": "Ask about the toons' content or what the AI agents cost. Here the agent only reads.",
+		"context": "{page}",
+		"empty": "Ask about codes, accounts, claims, the catalog, assets, the calendar or what the AI costs. Changes come as a card – nothing changes until you apply it.",
 		"unavailable": "The agent is not available right now.",
 		"signed_out": "Your session ended – sign in again.",
 		"history": "Earlier chats",
@@ -975,5 +989,24 @@
 		"history_unavailable": "The chat history is not available yet.",
 		"resize": "Drag to resize",
 		"draft": "Draft #{id}"
+	},
+	"changes": {
+		"title": "Proposed changes",
+		"apply": "Apply",
+		"applying": "Applying …",
+		"applied": "Applied",
+		"partly": "{done} of {total} applied",
+		"note": "Nothing is changed until you apply.",
+		"undo_catalog": "Undo: History on the catalog page",
+		"calendar_new": "New calendar entry",
+		"calendar_entry": "Calendar",
+		"calendar_draft": "Saved as a draft – publish it on the Calendar page",
+		"asset": "Replace the file",
+		"asset_used": "used {count}×",
+		"asset_from": "with {path}",
+		"asset_pick": "Choose the new file",
+		"asset_missing": "Choose the new file first.",
+		"changed_since": "Changed since the agent read it – ask again.",
+		"empty": "(empty)"
 	}
 }

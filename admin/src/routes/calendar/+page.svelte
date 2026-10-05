@@ -14,7 +14,8 @@
 
 	/**
 	 * The public events list (viewer /events): the platform-wide content entity `events` (entity_versions, seed
-	 * shared/content/seed/events.json). Saving stores a new version and publishes it; the viewer splits upcoming / past.
+	 * shared/content/seed/events.json). Saving stores a new version and publishes it; a stored draft that is newer (the
+	 * Ask agent's calendar changes are drafts) is published with Publish. The viewer splits upcoming / past.
 	 * Fields the form doesn't know (e.g. `toon`) are kept as they are.
 	 */
 	const KEY = 'events';
@@ -58,6 +59,8 @@
 
 	const list = () => draft.map((d) => $state.snapshot(d.event) as Event);
 	const changed = $derived(loaded && JSON.stringify(draft.map((d) => d.event)) !== saved);
+	/** a stored draft newer than the published list (e.g. from the Ask agent's changes card): Publish makes it live */
+	const unpublished = $derived(!!stored && stored.version.status !== 'published');
 	const now = Date.now();
 	const upcoming = $derived(draft.filter((d) => !d.event.date || Date.parse(d.event.date) > now).sort((a, b) => (a.event.date || '￿').localeCompare(b.event.date || '￿')));
 	const past = $derived(draft.filter((d) => d.event.date && Date.parse(d.event.date) <= now).sort((a, b) => b.event.date.localeCompare(a.event.date)));
@@ -83,8 +86,8 @@
 		events.sort((a, b) => b.date.localeCompare(a.date));
 		saving = true;
 		try {
-			const put = await content.putDraft(KEY, events, stored?.version.id ?? null, 'admin: events');
-			await content.publishVersion(KEY, put.version.id);
+			const id = !changed && stored ? stored.version.id : (await content.putDraft(KEY, events, stored?.version.id ?? null, 'admin: events')).version.id;
+			await content.publishVersion(KEY, id);
 			apply(await content.getDraft<Event[]>(KEY));
 			toaster.addToast({ message: m['calendar.saved'](), type: 'success' });
 		} catch (e) {
@@ -120,8 +123,8 @@
 	{#snippet end()}
 		<Button size="sm" variant="secondary" href={eventsPage} target="_blank" rel="noopener">{m['calendar.preview']()}</Button>
 		<Button size="sm" variant="secondary" onclick={add} disabled={!loaded} data-testid="events-add">{m['calendar.add']()}</Button>
-		<Button size="sm" onclick={save} disabled={!loaded || saving || !changed} data-testid="events-save">
-			{saving ? m['calendar.saving']() : m['calendar.save']()}
+		<Button size="sm" onclick={save} disabled={!loaded || saving || !(changed || unpublished)} data-testid="events-save">
+			{saving ? m['calendar.saving']() : changed ? m['calendar.save']() : unpublished ? m['calendar.publish']() : m['calendar.save']()}
 		</Button>
 	{/snippet}
 </ActionBar>
