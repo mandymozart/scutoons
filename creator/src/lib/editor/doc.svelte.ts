@@ -347,7 +347,8 @@ export class ContentDoc {
 			if (!this.dirty) this.clearAutosave();
 			return done;
 		} catch (e) {
-			this.error = e instanceof Error ? e.message : String(e);
+			// a conflict is the session's bar (Reload / Overwrite), not a load error: `error` replaces the whole editor
+			if (!(e instanceof SaveConflict)) this.error = e instanceof Error ? e.message : String(e);
 			throw e;
 		} finally {
 			this.saving = false;

@@ -12,6 +12,7 @@
 	import { Icon, CloseButton, panelWidth } from '@scutoons/ui';
 	import { getSessionToken, type AgentApp, type AgentChatsApi, type AgentChatSummary, type AgentStep, type AgentTurn } from '@scutoons/api';
 	import { ask } from './ask.svelte.ts';
+	import { chatMarkdown } from './chat-markdown.ts';
 	import type { AskLabels } from './labels.ts';
 
 	let {
@@ -270,7 +271,10 @@
 						{/each}
 					</ul>
 				{/if}
-				{#if turn.text}<p class="text">{turn.text}</p>{/if}
+				{#if turn.text && turn.who === 'agent'}
+					<!-- Markdown, HTML-escaped first (chat-markdown.ts) -->
+					<div class="text md">{@html chatMarkdown(turn.text)}</div>
+				{:else if turn.text}<p class="text">{turn.text}</p>{/if}
 				{#if result}
 					{#each turn.steps as step, j (j)}
 						{#if step.data && !step.error}{@render result(step)}{/if}
@@ -383,6 +387,38 @@
 		margin: 0;
 		white-space: pre-wrap;
 		overflow-wrap: anywhere;
+	}
+	/* the agent's answer: rendered Markdown */
+	.md {
+		white-space: normal;
+	}
+	.md :global(:is(p, ul, ol, pre)) {
+		margin: 0 0 var(--space-05);
+	}
+	.md :global(:is(p, ul, ol, pre):last-child) {
+		margin-bottom: 0;
+	}
+	.md :global(:is(ul, ol)) {
+		padding-left: var(--space-15);
+	}
+	.md :global(.heading) {
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		font-size: var(--type-caption-size);
+		margin-top: var(--space-1);
+	}
+	.md :global(code) {
+		background: var(--surface-panel);
+		padding: 0 0.2em;
+	}
+	.md :global(pre) {
+		overflow-x: auto;
+		padding: var(--space-05);
+		background: var(--surface-panel);
+	}
+	.md :global(pre code) {
+		background: none;
+		padding: 0;
 	}
 	.empty,
 	.working {

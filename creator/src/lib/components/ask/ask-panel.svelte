@@ -1,7 +1,7 @@
 <script lang="ts">
 	// The creator's Ask panel (@scutoons/ask): the agent with the signed-in creator's content rights (tools/mcp). What
-	// the creator adds: its labels, the header's text language with every message, and links from a saved draft to its
-	// page.
+	// the creator adds: its labels, the header's text language with every message, links from a saved draft to its
+	// page, and the open editors follow the agent's saves (agent-saves.svelte.ts).
 	import { AskPanel, type AskLabels } from '@scutoons/ask';
 	import type { AgentStep } from '@scutoons/api';
 	import { parseEntityKey } from '@scutoons/content';
@@ -10,6 +10,7 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { agentChatsApi } from '$lib/api.ts';
 	import { ASK_URL } from '$lib/config.ts';
+	import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
 
 	let { context, onclose }: { context: string; onclose: () => void } = $props();
 
@@ -70,5 +71,9 @@
 	extra={() => ({ textLanguage: textLanguage.value })}
 	{hrefOf}
 	{stepLabel}
+	onstep={(step) => {
+		// a saved draft: the open editor follows it
+		if (step.key && step.version && !step.error) agentSaves.report(step.key, step.version);
+	}}
 	{onclose}
 />

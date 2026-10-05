@@ -3,12 +3,14 @@
 // session saves the dirty ones (asking for a note first), publishes after one confirm dialog that names exactly what
 // is published and in which language (owner 2026-10-03, 4.4.3), and keeps the notice / conflict the page shows
 // (DocNotices).
+import { untrack } from 'svelte';
 import { askDialog, confirmDialog } from '@scutoons/ui';
 import { NEUTRAL_LOCALE } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
 import { fileLabel, fileLabels } from '$lib/labels.ts';
 import { SaveConflict, type ContentDoc } from '$lib/editor/doc.svelte.ts';
 import { confirmSubmit, reviews, submitForReview } from '$lib/editor/reviews.svelte.ts';
+import { agentSaves } from '$lib/editor/agent-saves.svelte.ts';
 
 /**
  * The confirm dialog before publishing (one structure everywhere): the files and their languages (none for the
@@ -46,7 +48,23 @@ export class DocSession {
 	/** companions saved on this page (published together with the docs) */
 	private savedCompanions: ContentDoc[] = [];
 
-	constructor(private readonly options: DocSessionOptions) {}
+	constructor(private readonly options: DocSessionOptions) {
+		// the Ask panel saved one of this page's files: load it when nothing is unsaved here, else the conflict bar now
+		// (owner 2026-10-04 – not only when the next save fails)
+		$effect(() => {
+			const saved = agentSaves.last;
+			if (saved) untrack(() => this.agentSaved(saved.key, saved.version));
+		});
+	}
+
+	private agentSaved(key: string, version: number) {
+		for (const doc of [...this.docs, ...this.companions]) {
+			const locale = doc.locales.find((l) => doc.key(l) === key);
+			if (locale === undefined || doc.base[locale] === version) continue;
+			if (doc.dirty) this.conflict = { doc, error: new SaveConflict(locale, null) };
+			else void doc.load();
+		}
+	}
 
 	private get docs() {
 		return this.options.docs();

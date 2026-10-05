@@ -630,8 +630,16 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       **Owner steps** (tools/mcp/README.md "Production"): the two migrations in phpMyAdmin; the secret `AGENT_SERVICE_KEY`;
       bunny Magic Containers app (image from ghcr.io, port 8080, env `ANTHROPIC_API_KEY`, `SCUTOONS_API`, `ASK_ORIGINS`,
       `SCUTOONS_SERVICE_KEY`); DNS `ask.scutoons.com`; the variable `VITE_ASK_URL`.
-    - **Open:** an admin page for the usage overview (the API is there); check that bunny's proxy streams the answer
-      (Server-Sent Events) and doesn't buffer it; personal access tokens.
+    - **Live (2026-10-04):** the three migrations (reviews, agent-chats, agent-usage) ran on production; secret
+      `AGENT_SERVICE_KEY`; bunny Magic Containers app `scutoons-ask` (id `ZBYjE7aB2VZvKZ6`, container `scutoons-ask`, region
+      AT, CDN endpoint → `https://ask.scutoons.com`, env `ANTHROPIC_API_KEY` (its own production key), `SCUTOONS_API`,
+      `ASK_ORIGINS`, `SCUTOONS_SERVICE_KEY`; registry: a GitHub token with `read:packages`); creator built with
+      `VITE_ASK_URL=https://ask.scutoons.com/api/ask`. The answer streams through bunny (owner checked). **Auto-deploy:**
+      `ask-image.yml` → bunny's action `BunnyWay/actions/container-update-image` with the environment variables
+      `BUNNY_ASK_APP_ID` / `BUNNY_ASK_CONTAINER` and the secret `BUNNY_API_KEY` (verified: bunny switched to the pushed
+      commit's image, rolling update, health 200 throughout).
+    - **Open:** an admin page for the usage overview (the API is there); the build's commit in `/api/ask/health` (to see
+      which image runs); personal access tokens.
     - **Shared in three apps (2026-10-04, branch `ask-shared`; owner: "make Ask a shared integration in embassy,
       creator, admin")**: the panel is `@scutoons/ask` (shared/ask: `AskPanel` + `ask` / `askAbout` / `pagePanel`; the
       app passes its name, chats API, labels, context, links and an optional result snippet; `panelWidth` moved to
@@ -639,7 +647,7 @@ sign-up (a reader without an account may sign up only to file a claim), gift lim
       creator → role creator, content tools (unchanged); embassy → liaison / ambassador / admin, `src/embassy.ts`
       (agents/EMBASSY.md "Ask + mail"); admin → role admin, the content tools that only read + `agent_usage`. Chats
       and usage rows carry `app` (migration `2026-10-04-ask-embassy-mail`); every message carries today's date.
-      `ASK_ORIGINS` default now lists creator, embassy, admin; `VITE_ASK_URL` goes into the embassy and admin builds too.
+      `ASK_ORIGINS` (bunny env) must list creator, embassy and admin (the code default does, the env wins); `VITE_ASK_URL` goes into the embassy and admin builds too.
   - **Review levels (owner 2026-10-04; follows "Publish: keep the tool")** – who may publish without a review:
     - **Decided:** not a role – a relation per toon, set by an admin, like GitHub reviewers. `reviewer` (per toon or `*`)
       gets a mail on every submit and publishes or sends back; `needs_review` (per account per toon or `*`) = may save

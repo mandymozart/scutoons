@@ -119,14 +119,17 @@ const ADMIN_SYSTEM = [
 	'app – answer in it unless they write in another one – and the date of today.'
 ].join('\n');
 
-// the panel shows text as it is (no Markdown rendering): **bold** or # headings would show as characters
-const PLAIN = 'Write plain text: the panel shows no Markdown – no **, #, tables or links in brackets; short lines and "- " lists are fine.';
+// the panel renders simple Markdown (@scutoons/ask chat-markdown.ts) in a narrow column – every app's agent keeps it sparse
+const FORMAT = [
+	'Answers are shown as simple Markdown in a narrow panel: short paragraphs and "-" lists; bold only for the one thing',
+	'that matters (rarely), no tables, no headings for short answers.'
+].join('\n');
 
 /** What each app's panel gets: who may ask, the system prompt, the tools (`readOnly`: only tools that only read) */
 const APPS: Record<AgentApp, { roles: string[]; system: string; servers: (config: Config) => McpServer[]; readOnly?: boolean }> = {
-	creator: { roles: ['creator'], system: `${CREATOR_SYSTEM}\n\n${PLAIN}`, servers: (c) => [createScutoonsServer(c)] },
-	embassy: { roles: ['liaison', 'ambassador', 'admin'], system: `${EMBASSY_SYSTEM}\n\n${PLAIN}`, servers: (c) => [createEmbassyServer(c)] },
-	admin: { roles: ['admin'], system: `${ADMIN_SYSTEM}\n\n${PLAIN}`, servers: (c) => [createScutoonsServer(c), createAdminServer(c)], readOnly: true }
+	creator: { roles: ['creator'], system: `${CREATOR_SYSTEM}\n\n${FORMAT}`, servers: (c) => [createScutoonsServer(c)] },
+	embassy: { roles: ['liaison', 'ambassador', 'admin'], system: `${EMBASSY_SYSTEM}\n\n${FORMAT}`, servers: (c) => [createEmbassyServer(c)] },
+	admin: { roles: ['admin'], system: `${ADMIN_SYSTEM}\n\n${FORMAT}`, servers: (c) => [createScutoonsServer(c), createAdminServer(c)], readOnly: true }
 };
 const isApp = (app: unknown): app is AgentApp => typeof app === 'string' && Object.hasOwn(APPS, app);
 
