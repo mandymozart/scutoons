@@ -221,8 +221,15 @@ final class AssetRegistry
             array_push($params, $like, $like, $like);
         }
         if (($folder = $list->filter('folder')) !== null) {
-            $where[] = 'a.folder = ?';
-            $params[] = $folder;
+            if (str_contains($folder, '/')) {
+                // a path prefix: `characters/catpope` = the character's folder and its persona folders
+                // (characters/catpope/, characters/catpope-human/ …) – the top-level column can't tell them apart
+                $where[] = "a.slug LIKE ? ESCAPE '!'";
+                $params[] = substr(Database::likeContains($folder), 1);
+            } else {
+                $where[] = 'a.folder = ?';
+                $params[] = $folder;
+            }
         }
         if (($kind = $list->filter('kind')) !== null) {
             if (!in_array($kind, AssetPaths::KINDS, true)) throw new ApiError(400, 'invalid_kind', 'Unknown kind.', ['kinds' => AssetPaths::KINDS]);

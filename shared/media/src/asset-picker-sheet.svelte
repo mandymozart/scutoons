@@ -84,10 +84,15 @@
 	const assetsApi = mediaAssets();
 	const t = $derived(mediaText());
 
-	// every time it opens: the toon's folder, the field's kind, the current file preselected
+	// the folder it opens on: the toon's, else a character field's character with its personas (place
+	// characters/catpope/ → "characters/catpope", a path prefix: catpope/, catpope-human/ …; owner 2026-10-05: a search
+	// for "human" found nothing under "catpope" – the toon folder, character images all live under characters/)
+	const home = $derived(toon || (/^characters\/[^/]+\/$/.test(place) ? place.slice(0, -1) : ''));
+
+	// every time it opens: the home folder, the field's kind, the current file preselected
 	$effect(() => {
 		if (!open) return;
-		folder = toon;
+		folder = home;
 		kindFilter = kind;
 		query = '';
 		unusedOnly = false;
@@ -374,7 +379,7 @@
 			     kind of the field were lost on the next load (owner 2026-10-03) -->
 			<select value={folder} onchange={(e) => { folder = e.currentTarget.value; load(1); }} aria-label={t.folder} data-testid="asset-folder">
 				<option value="">{t.allFolders}</option>
-				{#if folder && !folders.some((f) => (f.folder ?? '') === folder)}<option value={folder}>{folder}</option>{/if}
+				{#if home && !folders.some((f) => (f.folder ?? '') === home)}<option value={home}>{home}</option>{/if}
 				{#each folders as f (f.folder ?? '')}<option value={f.folder ?? ''} selected={(f.folder ?? '') === folder}>{f.folder ?? '/'} ({f.assets})</option>{/each}
 			</select>
 			<select value={kindFilter} onchange={(e) => { kindFilter = e.currentTarget.value as AssetPickerKind; load(1); }} aria-label={t.kind} data-testid="asset-kind">

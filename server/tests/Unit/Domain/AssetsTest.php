@@ -173,6 +173,25 @@ final class AssetsTest extends TestCase
         self::assertSame([0, 1, 1, 1], [$third['assets_created'], $third['renditions_added'], $third['renditions_updated'], $third['renditions_removed']]);
     }
 
+    public function testFolderFilterTakesAPathPrefix(): void
+    {
+        $this->put('characters/catpope/catpope_portrait-neutral.webp', self::WEBP . 'a');
+        $this->put('characters/catpope-human/catpope-human_portrait-neutral.webp', self::WEBP . 'b');
+        $this->put('characters/catpopes/catpopes_portrait-neutral.webp', self::WEBP . 'c');
+        $this->put('characters/yellowmouse/yellowmouse_portrait-neutral.webp', self::WEBP . 'd');
+        $this->put('catpope/s1/s1-cover.webp', self::WEBP . 'e');
+        $this->get(AssetImporter::class)->import($this->get(AssetStorages::class)->local());
+        $registry = $this->get(AssetRegistry::class);
+        $slugs = fn(array $query) => array_column($registry->list($query)['items'], 'slug');
+
+        // the toon folder never holds character images (owner 2026-10-05: "human" found nothing under "catpope")
+        self::assertSame(['catpope/s1/s1-cover'], $slugs(['folder' => 'catpope']));
+        // `characters/catpope` = the character's folder and its persona folders (and, as a plain prefix, catpopes/)
+        self::assertSame(['characters/catpope-human/catpope-human_portrait-neutral', 'characters/catpope/catpope_portrait-neutral', 'characters/catpopes/catpopes_portrait-neutral'], $slugs(['folder' => 'characters/catpope']));
+        self::assertSame(['characters/catpope-human/catpope-human_portrait-neutral'], $slugs(['folder' => 'characters/catpope', 'q' => 'human']));
+        self::assertSame([], $slugs(['folder' => 'characters/cat%_']), 'LIKE wildcards are literal');
+    }
+
     public function testUsageIndex(): void
     {
         $this->fixture();

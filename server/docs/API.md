@@ -703,7 +703,7 @@ zone). Content editors (creator, admin):
 
 | Method | Path | |
 |---|---|---|
-| GET | `/assets?q=&folder=&kind=&tag=&state=used\|unused&page=&page_size=&sort=` | `{ items: [asset summary], pagination, folders, cdn }` – current versions with their renditions and use counts |
+| GET | `/assets?q=&folder=&kind=&tag=&state=used\|unused&page=&page_size=&sort=` | `{ items: [asset summary], pagination, folders, cdn }` – current versions with their renditions and use counts; `folder` = a top-level folder, or with a `/` a path prefix (`characters/catpope` = the character and its persona folders) |
 | GET | `/assets/lookup?path=` | `{ asset: detail \| null, rendition }` – the asset a CDN path belongs to |
 | GET / PUT | `/assets/{id}` | detail `{ asset, versions: [{ …, renditions }], usages, jobs }` · PUT `{ title?, tags? }` |
 | PUT | `/assets/upload?path=&title=&tags=` | raw body = the file → 201 detail + `uploaded`; 409 `exists`, 422 `invalid_path` / `invalid_type` / `content_mismatch` / `unsafe_svg` / `empty_file`, 413 `file_too_large` (`ASSET_UPLOAD_MAX_BYTES`) |
