@@ -127,6 +127,38 @@ final class CatalogApiTest extends TestCase
         self::assertSame(404, $this->request('POST', '/api/admin/catalog/history/999999/undo', $auth)->getStatusCode());
     }
 
+    public function testAcceptedWarningsAreStoredUndoneAndNeverServed(): void
+    {
+        // the admin's "Looks fine" (@scutoons/content catalogWarningPlace): accepted_warnings in the entry / meta items,
+        // versioned like any change, left out of every reader answer
+        $auth = $this->admin();
+        $public = (string) $this->request('GET', '/api/items/')->getBody();
+        $products = (string) $this->request('GET', '/api/products/')->getBody();
+        $camera = self::json($this->request('GET', '/api/admin/catalog/items/camera', $auth))['entry']['data'];
+        $r = $this->request('PUT', '/api/admin/catalog/items/camera', $auth, (string) json_encode(['data' => $camera + ['accepted_warnings' => ['category#1x2y3z']], 'note' => 'warning accepted']));
+        self::assertSame([200, true], [$r->getStatusCode(), self::json($r)['changed']]);
+        $meta = self::json($this->request('GET', '/api/admin/catalog/meta/items', $auth))['entry']['data'];
+        self::assertSame(200, $this->request('PUT', '/api/admin/catalog/meta/items', $auth, (string) json_encode(['data' => $meta + ['accepted_warnings' => ['#abc']]]))->getStatusCode());
+        $product = self::json($this->request('GET', '/api/admin/catalog/products/dago_hoodie', $auth))['entry']['data'];
+        self::assertSame(200, $this->request('PUT', '/api/admin/catalog/products/dago_hoodie', $auth, (string) json_encode(['data' => $product + ['accepted_warnings' => ['price#q']]]))->getStatusCode());
+        self::assertSame(['category#1x2y3z'], self::json($this->request('GET', '/api/admin/catalog/items/camera', $auth))['entry']['data']['accepted_warnings']);
+        self::assertSame($public, (string) $this->request('GET', '/api/items/')->getBody(), 'readers never get accepted warnings');
+        self::assertSame($products, (string) $this->request('GET', '/api/products/')->getBody());
+        foreach ([['x'], [''], 'x', [1], []] as $bad) {
+            $r = $this->request('PUT', '/api/admin/catalog/items/camera', $auth, (string) json_encode(['data' => ['accepted_warnings' => $bad] + $camera]));
+            if ($bad === ['x']) {
+                self::assertSame(200, $r->getStatusCode());
+                continue;
+            }
+            self::assertSame([422, 'invalid_catalog'], [$r->getStatusCode(), self::json($r)['error']], (string) json_encode($bad));
+        }
+        // undo the last change of camera (['x']) and the acceptance before it: back to the stored item without the field
+        $history = self::json($this->request('GET', '/api/admin/catalog/history?kind=items&id=camera&limit=5', $auth))['items'];
+        self::assertSame('warning accepted', $history[1]['note']);
+        foreach ([$history[0], $history[1]] as $h) self::assertSame(200, $this->request('POST', "/api/admin/catalog/history/{$h['id']}/undo", $auth)->getStatusCode());
+        self::assertArrayNotHasKey('accepted_warnings', self::json($this->request('GET', '/api/admin/catalog/items/camera', $auth))['entry']['data']);
+    }
+
     public function testAdminsCreateToons(): void
     {
         $auth = $this->admin();

@@ -8,6 +8,7 @@
 // CDN-root paths like item icons.
 import type { Catalog, ItemDef, Localized, Skill } from './items.ts';
 import type { Problem } from './validate.ts';
+import type { AcceptedWarnings } from './accepted.ts';
 
 /** The sound carriers the catalog knows; a player's `plays` lists some of them */
 export const MEDIA_FORMATS = ['vinyl', 'tape', 'cd'] as const;
@@ -53,7 +54,7 @@ export interface AlbumTrack {
 }
 
 /** An album: the music a media item carries (language-neutral; only the title is text) */
-export interface Album {
+export interface Album extends AcceptedWarnings {
 	/** stable, snake_case (`awakening`) */
 	id: string;
 	/** the toon it belongs to (null = cross-toon) */

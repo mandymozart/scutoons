@@ -57,3 +57,32 @@ export function withAcceptedWarning(warning: { path: Path; message: string }, da
 	if (on) list.push(key);
 	return list.length ? list : undefined;
 }
+
+/** The catalog kinds a catalog warning (validateCatalog) is stored in (admin → Catalog, agents/CATALOG.md) */
+export type CatalogWarningKind = 'items' | 'recipes' | 'albums' | 'meta';
+
+/** Where a catalog warning is accepted: the catalog entry it is about and the path inside that entry */
+export interface CatalogWarningPlace {
+	kind: CatalogWarningKind;
+	id: string;
+	path: Path;
+}
+
+/** the meta entry that holds what is accepted about a whole list (the file `items` / `albums` came from) */
+export const CATALOG_LIST_META = 'items';
+
+/**
+ * Where a warning of `validateCatalog` (a path into `{ items, recipes, albums }`) is accepted (admin, owner 2026-10-04):
+ * one about an entry (`items.3.category`) in that entry – kind + id, the rest of the path – so it is versioned with
+ * the entry (history, undo); one about a whole list (`items`: "no player plays …") in the catalog's `meta` entry
+ * `items`, keyed by its message. null = not about a stored entry (stats are code, an entry without an id).
+ */
+export function catalogWarningPlace(problem: { path: Path }, catalog: unknown): CatalogWarningPlace | null {
+	const [list, index, ...rest] = problem.path;
+	if (list !== 'items' && list !== 'recipes' && list !== 'albums') return null;
+	if (index === undefined) return { kind: 'meta', id: CATALOG_LIST_META, path: [] };
+	const entries = catalog !== null && typeof catalog === 'object' ? (catalog as Record<string, unknown>)[list] : undefined;
+	const entry = typeof index === 'number' && Array.isArray(entries) ? entries[index] : undefined;
+	const id = entry !== null && typeof entry === 'object' ? (entry as { id?: unknown }).id : undefined;
+	return typeof id === 'string' && id ? { kind: list, id, path: rest } : null;
+}

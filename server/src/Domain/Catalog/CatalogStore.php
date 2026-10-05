@@ -7,6 +7,7 @@ use PDOException;
 use Scutoons\Domain\ApiError;
 use Scutoons\Infrastructure\Clock\Clock;
 use Scutoons\Infrastructure\Database\Database;
+use stdClass;
 
 /**
  * The catalog tables (agents/CATALOG.md, migration 2026-10-04-catalog): one row per entry, its definition as JSON in
@@ -42,6 +43,11 @@ final class CatalogStore
     public const DEFAULT_CODE_TYPE = 'default';
     /** the meta entries: items.json / products.json / permissions.json without their lists */
     public const META_IDS = ['items', 'products', 'permissions'];
+    /**
+     * The admin's accepted catalog warnings in an entry's data (@scutoons/content accepted.ts `catalogWarningPlace`):
+     * versioned with the entry (history, undo), never served to readers – list() / map() / get() / reader() drop it.
+     */
+    public const ACCEPTED_WARNINGS = 'accepted_warnings';
 
     /** @var array<string, list<array{id: string, position: int, data: string, updated_at: ?string, updated_by: ?string}>> */
     private array $rows = [];
@@ -122,17 +128,29 @@ final class CatalogStore
         return $this->rows[$kind] = array_map(fn(array $r) => ['id' => $r['id'], 'position' => $r['position'], 'data' => $r['data'], 'updated_at' => null, 'updated_by' => null], $this->seed->rows()[$kind]);
     }
 
+    /**
+     * An entry's data as readers get it: decoded (objects as arrays, or stdClass with $assoc false) without the admin's
+     * accepted warnings
+     */
+    public static function reader(string $json, bool $assoc = true): mixed
+    {
+        $data = json_decode($json, $assoc);
+        if (is_array($data) && !array_is_list($data)) unset($data[self::ACCEPTED_WARNINGS]);
+        elseif ($data instanceof stdClass) unset($data->{self::ACCEPTED_WARNINGS});
+        return $data;
+    }
+
     /** @return list<mixed> the decoded entries in their order (objects as arrays) */
     public function list(string $kind): array
     {
-        return array_map(fn(array $r) => json_decode($r['data'], true), $this->rows($kind));
+        return array_map(fn(array $r) => self::reader($r['data']), $this->rows($kind));
     }
 
     /** @return array<string, mixed> id → decoded entry, in order */
     public function map(string $kind): array
     {
         $out = [];
-        foreach ($this->rows($kind) as $r) $out[$r['id']] = json_decode($r['data'], true);
+        foreach ($this->rows($kind) as $r) $out[$r['id']] = self::reader($r['data']);
         return $out;
     }
 
@@ -148,7 +166,7 @@ final class CatalogStore
     public function get(string $kind, string $id): mixed
     {
         $row = $this->row($kind, $id);
-        return $row === null ? null : json_decode($row['data'], true);
+        return $row === null ? null : self::reader($row['data']);
     }
 
     /** Forgets what was read (after a write; another request reads again anyway) */

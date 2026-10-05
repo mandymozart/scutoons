@@ -7,6 +7,13 @@
 		"Catalog": {
 			"type": "object",
 			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
 				"version": {
 					"type": "number"
 				},
@@ -48,7 +55,8 @@
 				"slots",
 				"items",
 				"recipes"
-			]
+			],
+			"description": "The item catalog. `accepted_warnings` (here and on items / albums) are the admin's accepted catalog warnings (catalogWarningPlace): stored with the entries – a list-wide one in the meta entry `items` – never served to readers."
 		},
 		"AvatarSlot": {
 			"type": "string",
@@ -67,6 +75,13 @@
 		"ItemDef": {
 			"type": "object",
 			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
 				"id": {
 					"type": "string"
 				},
@@ -618,6 +633,13 @@
 		"Album": {
 			"type": "object",
 			"properties": {
+				"accepted_warnings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "warnings accepted in the creator: `<place>#<hash>` (acceptedWarningKey)"
+				},
 				"id": {
 					"type": "string",
 					"description": "stable, snake_case (`awakening`)"
