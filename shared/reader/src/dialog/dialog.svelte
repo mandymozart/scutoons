@@ -162,7 +162,7 @@
 >
 	{#if play && Effect}
 		{#key play.key}
-			<Effect duration={play.duration} delay={play.delay} onComplete={play.onComplete}>
+			<Effect duration={play.duration} delay={play.delay} onComplete={() => play?.onComplete()}>
 				{@render body()}
 			</Effect>
 		{/key}
