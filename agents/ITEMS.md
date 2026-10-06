@@ -101,9 +101,10 @@ your code" still opens the QR scanner without any item).
 
 The old VN inventory ("collectables": `<toon>/<locale>/collectables.json`, `Collectable`/`CollectableRef` types, the
 inventory showing game variables that matched a collectable id) is gone everywhere (files, types, loaders, UI, import /
-seed, library bundle, docs). Everything a reader can own is a catalog item. VN variables stay story logic (`{cucumber}`
-interpolation, conditions); the VN → item bridge (`set`/`add` of a variable whose name is a catalog item id grants the
-item, source `story`, ref per place) does the collecting. The old art `catpope/images/collectables/cucumber.png` is
+seed, library bundle, docs). Everything a reader can own is a catalog item. VN variables stay story logic; an item is never a variable
+(BACKLOG 10.38, 2026-10-07): a script gives one with the VN event `giveItem` / a choice's action `give` (source `story`, ref
+per place), reads it with `inventory.<item>`; the old bridge (`set`/`add` of an item-named variable granted it) is gone
+(migration 2026-10-07-give-item). The old art `catpope/images/collectables/cucumber.png` is
 unreferenced (left on the CDN).
 
 ## Codes → items
@@ -803,8 +804,8 @@ mechanics only: no dosing, no real-world use instructions, no claims about real 
   the tabs, still right) and **at the right of the account page's "Avatar" heading** (owner 2026-10-03: "less massive",
   replaces 2026-10-01's big testo bar under the body picker): "Testo 62" + a thin 2.5rem bar, no gendered wording.
 - **Story pickup:** one `testo` in the sandbox, chapter 2 (the Top Toy encounter), slice 6: a click on the stone ledge
-  right of the figure (the art has no tube drawn in) → "Eine Tube Testo!" / "Einsammeln" (`add testo 1` → the VN item
-  bridge grants it, source story, once per place). `make-sandbox.ts` (`TESTOS`), the sandbox seed (dev only; not in the
+  right of the figure (the art has no tube drawn in) → "Eine Tube Testo!" / "Einsammeln" (`give testo 1` – source story, once
+  per place). `make-sandbox.ts` (`TESTOS`), the sandbox seed (dev only; not in the
   production seed SQL).
 - **Testo camera detection – the limits, honestly:** the camera uses MobileNet v2 (ImageNet 1000 classes) on the device,
   like the cucumber camera. ImageNet has no "testosterone" or "gel tube" class; the closest are `lotion`, `sunscreen` and
@@ -1241,7 +1242,7 @@ consumed. Combining in the inventory (item → "Kombinieren" → the other one) 
 sign-in the crafted record player is split back into its two story finds (`importGuest`), the account repairs again.
 
 **Story** (slice events, `trigger: { type: intersect, once: true }`, one choice only – intersect observers fire in no
-fixed order; the VN item bridge grants with source story and `ref` = the place, once per account; guests keep it
+fixed order; `give` grants with source story and `ref` = the place, once per account; guests keep it
 locally and import it at sign-in):
 - **First scene of chapter 2** = the chapter's first group, the scene file `chapter2/scene-14.json`
   (`scene:catpope:2:scene-14:{de,en}`), first slice `s1c2-slice-1`: "Ein alter Plattenspieler – kaputt. Mitnehmen?" +
@@ -1272,9 +1273,9 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   source on load, `unifyGeometry`).
 - Rendering: `@scutoons/reader` `SliceItems` (inside `Slice`, between the image and the text boxes): the catalog icon,
   rotated around its centre; only `action` ≠ `none` makes it a button. The app resolves the icon (`itemInfo`).
-- Tap (`viewer/src/lib/visual-novel/slice-items.ts`): `none` = art only (default); `pickup` = the VN item bridge
-  (`grantStoryItem` in variable-actions.ts → `inventory.grant(item, 'story', qty, ref)` with the ref
-  `vn:<item>:<page>#<slice image>#<placement id>`, then `add <item> <qty>` on the game variable) – the catalog's rules apply
+- Tap (`viewer/src/lib/visual-novel/slice-items.ts`): `none` = art only (default); `pickup` = a give
+  (`giveStoryItem` in variable-actions.ts → `inventory.grant(item, 'story', qty, ref)` with the ref
+  `vn:<item>:<page>#<slice image>#<placement id>`; no story variable since 2026-10-07 – BACKLOG 10.38) – the catalog's rules apply
   (grantable story, max count, the server's once-per-ref); on success the game state gets `picked:<slice image>#<id>`
   (synced with a member's progress) and the item is gone from the slice for that reader; on a refusal it stays.
   `events` = the placement's VN events run like a click trigger's (`EventProcessor`), `once` per page view by default.

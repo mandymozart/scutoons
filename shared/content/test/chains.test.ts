@@ -44,7 +44,8 @@ test('toonFacts / neverTrue: variables set somewhere, labels something jumps to'
 		{ places: [{ unlock: { type: 'chapter', value: '1', label: 'map-label' } }] },
 		{ slices: [{ items: [{ item: 'onion', action: 'pickup' }] }] }
 	]);
-	assert.deepEqual([...facts.variables].sort(), ['clock', 'coins', 'onion']);
+	// a pickup gives an item, it sets no story variable (BACKLOG 10.38)
+	assert.deepEqual([...facts.variables].sort(), ['clock', 'coins']);
 	assert.deepEqual([...facts.labels].sort(), ['map-label', 'there', 'x', 'y']);
 	assert.equal(neverTrue({ variable: 'nope', op: 'set' }, facts), true);
 	assert.equal(neverTrue({ variable: 'nope', op: '==', value: 'a' }, facts), true);

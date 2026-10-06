@@ -70,7 +70,6 @@ export function toonFacts(docs: Iterable<unknown>, options: ToonFactsOptions = {
 		if (askVariable(o)) add(askVariable(o)!);
 		if (typeof o.set?.variable === 'string') add(o.set.variable);
 		if (typeof o.add?.variable === 'string') add(o.add.variable);
-		if (o.action === 'pickup' && typeof o.item === 'string') add(o.item);
 		if (typeof o.type === 'string' && 'value' in o && !(typeof o.toon === 'string' && o.toon && o.toon !== options.toon)) {
 			if (typeof o.label === 'string' && o.label) labels.add(o.label);
 			if (Array.isArray(o.anyOf)) for (const l of o.anyOf) if (typeof l === 'string' && l) labels.add(l);

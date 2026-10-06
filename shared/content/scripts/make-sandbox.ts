@@ -185,14 +185,14 @@ const say = (who: { character: string; persona: string } | null, text: Text): Dr
 });
 const jump = (target: { type: 'chapter' | 'toon'; value: string; label?: string }): Draft => ({ type: 'jumpTo', params: { target, wait: true } });
 /**
- * A cucumber to collect: a click on it (once per page view) offers it – message + "Collect" (`add cucumber 1`, which also puts the
+ * A cucumber to collect: a click on it (once per page view) offers it – message + "Collect" (`give cucumber 1` – BACKLOG 10.38; it puts the
  * item into the inventory, with its "+1" notice) / "Leave it". Slice events, all with the same trigger.
  */
 const cucumberOffer = (rect: { x: number; y: number; width: number; height: number }, item: 'cucumber' | 'testo' = 'cucumber'): Draft[] => {
 	const trigger = { type: 'click', rect, repeat: { mode: 'view' } };
 	return [
 		{ type: 'showMessage', params: { text: LINES[item] }, trigger },
-		{ type: 'addChoice', params: { label: LINES.collect, onSelect: { add: { variable: item, value: 1 } } }, trigger },
+		{ type: 'addChoice', params: { label: LINES.collect, onSelect: { give: { item, qty: 1 } } }, trigger },
 		{ type: 'addChoice', params: { label: LINES.leave }, trigger },
 		{ type: 'showChoices', trigger }
 	];

@@ -308,10 +308,10 @@ export type SliceItemAction = (typeof SLICE_ITEM_ACTIONS)[number];
  *
  * What a tap does is the creator's choice (`action`, default `none`):
  * - `none`: just an image on the slice;
- * - `pickup`: the reader takes it – the VN item bridge (`add <item> <qty>`: game variable + story grant with a ref per
+ * - `pickup`: the reader takes it – like a choice's `give <item> <qty>` (BACKLOG 10.38: the inventory only, no story variable; a story grant with a ref per
  *   place, so the catalog's rules apply: grantable, max count, one-time refs); a taken item is gone from the slice
  *   for that reader (game state, synced with the account's progress);
- * - `events`: runs `events` – the same VN events as a slice's / group's script (showMessage, addChoice → add item …),
+ * - `events`: runs `events` – the same VN events as a slice's / group's script (showMessage, addChoice → give an item …),
  *   like a click trigger whose area is the item.
  */
 export interface SliceItem {

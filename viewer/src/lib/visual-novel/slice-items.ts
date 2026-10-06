@@ -3,13 +3,13 @@ import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 import { EventProcessor, type GroupScript } from './event-processor.ts';
-import { grantStoryItem } from './variable-actions.ts';
+import { giveStoryItem } from './variable-actions.ts';
 import { pageView } from './page-view.ts';
 
 /**
  * Taps on items placed on a slice (`Slice.items`, agents/ITEMS.md "Placed items"). What a tap does is the creator's
  * choice per placement (`action`):
- * - `pickup`: the VN item bridge, like a choice's `add <item> <qty>` – the story grant (source story, a ref per place,
+ * - `pickup`: like a choice's `give <item> <qty>` (BACKLOG 10.38: no story variable any more) – the story grant (source story, a ref per place,
  *   so the catalog's rules apply: grantable, max count, the server's once-per-ref) and the game variable.
  *   Whether it reappears (respawn.ts): the item's rule (catalog `respawn`), the placement may override within its range
  *   or say `never`. Once (no respawn): the ref is the place; a taken item is remembered in the game state
@@ -76,7 +76,7 @@ export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceIt
 		const qty = Math.max(1, Math.floor(Number(item.qty) || 1));
 		const respawn = interval === null ? undefined : { respawn: interval, ...(interval === 'visit' ? { visit: visitId() } : {}) };
 		// guests have no server: their period is the local key (the grant ref isn't checked anywhere)
-		const result = await grantStoryItem(item.item, qty, place, { quietWhenNone: true, respawn });
+		const result = await giveStoryItem(item.item, qty, place, { quietWhenNone: true, respawn });
 		if (!result) return { ok: false, error: 'not_grantable' }; // not in the catalog (yet)
 		if (!result.ok) return { ok: false, error: result.error ?? 'failed' };
 		if (result.granted === 0) {
@@ -84,7 +84,6 @@ export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceIt
 			remember(slice, item, interval, game);
 			return { ok: false, error: 'already_taken' };
 		}
-		game.addVariable(item.item, result.granted ?? qty);
 		remember(slice, item, interval, game);
 		return { ok: true };
 	} finally {

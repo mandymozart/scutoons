@@ -228,4 +228,38 @@ final class EntityStoreTest extends TestCase
         $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-repeat.mysql.sql'); // idempotent
         self::assertSame([$expected, $expected], [$first, $stored()]);
     }
+
+    /**
+     * 2026-10-07-give-item: `add` of an item-named story variable (a catalog id, with or without a domain) becomes a give –
+     * a choice's action and a setVariable event; other variables, a `set`, a qty over 10 and texts stay; idempotent
+     */
+    public function testTheGiveItemMigration(): void
+    {
+        foreach (['cucumber', 'repair_coupon'] as $i => $id) {
+            $this->db->run("INSERT IGNORE INTO catalog_items (id, position, toon, edition_id, data, updated_at, updated_by) VALUES (?, ?, NULL, NULL, '{}', '2026-10-01 00:00:00', NULL)", [$id, $i]);
+        }
+        $json = '{"groups":[{"events":['
+            . '{"type":"addChoice","params":{"label":{"de":"\\"add\\":{\\"variable\\":\\"cucumber\\",\\"value\\":1}}"},"onSelect":{"add":{"variable":"cucumber","value":1}}}},'
+            . '{"type":"addChoice","params":{"label":{"de":"b"},"onSelect":[{"add":{"variable":"catpope.repair_coupon","value":2}},{"add":{"variable":"minutes","value":15}},{"jumpTo":{"target":{"type":"chapter","value":"2"}}}]}},'
+            . '{"type":"addChoice","params":{"label":{"de":"c"},"onSelect":{"set":{"variable":"cucumber","value":"1"}}}},'
+            . '{"type":"addChoice","params":{"label":{"de":"d"},"onSelect":{"add":{"variable":"cucumber","value":11}}}},'
+            . '{"type":"addChoice","params":{"label":{"de":"e"},"onSelect":{"add":{"variable":"cucumbers","value":1}}}},'
+            . '{"type":"setVariable","params":{"variable":"global.cucumber","value":3,"op":"add"}},'
+            . '{"type":"setVariable","params":{"variable":"cucumber","value":1,"op":"set"}}'
+            . ']}]}';
+        $expected = '{"groups":[{"events":['
+            . '{"type":"addChoice","params":{"label":{"de":"\\"add\\":{\\"variable\\":\\"cucumber\\",\\"value\\":1}}"},"onSelect":{"give":{"item":"cucumber","qty":1}}}},'
+            . '{"type":"addChoice","params":{"label":{"de":"b"},"onSelect":[{"give":{"item":"repair_coupon","qty":2}},{"add":{"variable":"minutes","value":15}},{"jumpTo":{"target":{"type":"chapter","value":"2"}}}]}},'
+            . '{"type":"addChoice","params":{"label":{"de":"c"},"onSelect":{"set":{"variable":"cucumber","value":"1"}}}},'
+            . '{"type":"addChoice","params":{"label":{"de":"d"},"onSelect":{"add":{"variable":"cucumber","value":11}}}},'
+            . '{"type":"addChoice","params":{"label":{"de":"e"},"onSelect":{"add":{"variable":"cucumbers","value":1}}}},'
+            . '{"type":"giveItem","params":{"item":"cucumber","qty":3}},'
+            . '{"type":"setVariable","params":{"variable":"cucumber","value":1,"op":"set"}}'
+            . ']}]}';
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('scene:smoke:1:s', 'scene', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-07-give-item.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-07-give-item.mysql.sql'); // idempotent
+        self::assertSame($expected, $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'scene:smoke:1:s'"));
+    }
 }

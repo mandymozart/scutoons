@@ -10,40 +10,28 @@ type VariableAction = VNVariableSetter | VNVariableAdder | VNGiveItem | VNJumpTo
  * account, so each find counts once – replaying the same scene grants nothing, another find (another group) does.
  * `place` narrows it to one spot of the page (a placed item on a slice: `<slice image>#<placement id>`).
  */
-function storyRef(variable: string, place?: string): string {
+function storyRef(item: string, place?: string): string {
 	const at = place ? `#${place}` : '';
-	if (typeof location === 'undefined') return `vn:${variable}${at}`;
+	if (typeof location === 'undefined') return `vn:${item}${at}`;
 	const path = location.pathname.replace(/^\/(de|en)(?=\/)/, '');
 	const label = new URLSearchParams(location.search).get('label');
-	return `vn:${variable}:${path}${label ? `?label=${label}` : ''}${at}`;
-}
-
-/**
- * A VN variable whose (plain) name is a catalog item id (e.g. `cucumber`) also grants that item (source "story").
- * The game variable itself is kept for text interpolation. Resolves to the inventory's answer (null = no such item).
- */
-export function grantStoryItem(
-	variable: string,
-	qty: number,
-	place?: string,
-	options?: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string } }
-): Promise<{ ok: boolean; error?: string; granted?: number }> | null {
-	const inventory = getCurrentInventory();
-	// the plain name decides, whatever its domain (`cucumber`, `global.cucumber`, `toptoy.cucumber` – variables.ts)
-	const item = variable.slice(variable.indexOf('.') + 1);
-	if (!inventory?.item(item) || qty <= 0) return null;
-	return inventory.grant(item, 'story', qty, storyRef(item, place), options);
+	return `vn:${item}:${path}${label ? `?label=${label}` : ''}${at}`;
 }
 
 /**
  * Give the reader a catalog item (`giveItem` / a choice's `give` – BACKLOG 10.38: an item is never a story variable):
  * source "story", once per place (the ref), the catalog's rules (grantable, max). null = no such item.
  */
-export function giveStoryItem(item: string, qty = 1, place?: string): Promise<{ ok: boolean; error?: string; granted?: number }> | null {
+export function giveStoryItem(
+	item: string,
+	qty = 1,
+	place?: string,
+	options?: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string } }
+): Promise<{ ok: boolean; error?: string; granted?: number }> | null {
 	const inventory = getCurrentInventory();
 	const n = Math.min(GIVE_ITEM_MAX, Math.max(1, Math.floor(Number(qty) || 1)));
 	if (!inventory?.item(item)) return null;
-	return inventory.grant(item, 'story', n, storyRef(item, place));
+	return inventory.grant(item, 'story', n, storyRef(item, place), options);
 }
 
 export function executeVariableAction(
@@ -54,20 +42,12 @@ export function executeVariableAction(
 	check?: (target: VNJumpTo['jumpTo']['target']) => string | null
 ): string | null {
 	if ('set' in action) {
-		const previous = Number(gameContext.getVariable(action.set.variable)) || 0;
 		gameContext.setVariable(action.set.variable, action.set.value);
 		console.log(`Set ${action.set.variable} = ${action.set.value}`);
-		const next = Number(action.set.value);
-		// numeric set grants the difference, any other truthy value one piece
-		grantStoryItem(
-			action.set.variable,
-			Number.isFinite(next) ? next - previous : action.set.value && action.set.value !== 'false' ? 1 : 0
-		);
 		return null;
 	} else if ('add' in action) {
 		gameContext.addVariable(action.add.variable, action.add.value);
 		console.log(`Add ${action.add.variable} += ${action.add.value}`);
-		grantStoryItem(action.add.variable, action.add.value);
 		return null;
 	} else if ('give' in action) {
 		giveStoryItem(action.give.item, action.give.qty);

@@ -286,7 +286,6 @@ final class FlowIndex
                 foreach (['set', 'add'] as $op) {
                     if (is_array($v[$op] ?? null) && is_string($v[$op]['variable'] ?? null)) $add($v[$op]['variable']);
                 }
-                if (($v['action'] ?? null) === 'pickup' && is_string($v['item'] ?? null)) $add($v['item']);
                 $other = is_string($v['toon'] ?? null) && $v['toon'] !== '' && $v['toon'] !== $toon;
                 if (is_string($v['type'] ?? null) && array_key_exists('value', $v) && !$other) {
                     if (is_string($v['label'] ?? null) && $v['label'] !== '') $labels[$v['label']] = true;

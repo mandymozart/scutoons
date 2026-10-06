@@ -34,7 +34,7 @@ UI translations stay in the apps' message files; the catalog (items, editions, p
 | UI chrome (buttons, labels, errors) | each app's paraglide `messages/{de,en}.json` | code |
 | codes, users, inventory, progress, avatar, settings | relational tables | admin / API |
 | member preferences ("Hide sensitive content", "Media quality") | columns `users.hide_sensitive` (default on), `users.media_quality` (default `auto`), `GET/PUT /me/`; a guest's media quality in localStorage | reader account page |
-| collectables | **removed** (merged into items; VN variables stay story logic, the VN → item grant bridge collects) | – |
+| collectables | **removed** (merged into items; VN variables stay story logic; a script gives an item with `giveItem` / `give` – BACKLOG 10.38) | – |
 
 No app ships content files any more: `viewer/static/api/**` is gone, and so is every static fallback.
 

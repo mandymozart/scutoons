@@ -7,8 +7,7 @@ find them here) and the known bugs that were in MEMORY.md. CUTOVER.md stays the 
 New entries: the next free number (10.39, …), owner + date, then **O –** for steps the owner runs on production. Tick
 an item ([x]) when it is done and move it to "Done" at the bottom.
 
-## Priorities (owner 2026-10-06 evening: "prioritise now and then set a plan to work through it alone through the night";
-## then: "prioritize based on technical implementation and when refactors would be needed")
+## Priorities (owner 2026-10-06 evening: "prioritise now and then set a plan to work through it alone through the night"; – then: "prioritize based on technical implementation and when refactors would be needed")
 
 **Night run 2026-10-06 → 07 (agent alone).** Rules: commit / merge on `main` in small steps, **never push** (a push
 deploys – owner: "just merge to main, but do not push to production"), nothing on production; the dev DB is free to
@@ -441,18 +440,33 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       variables.ts). Today they mix: `set` / `add` of a variable named like a catalog item also grants the item (the VN
       item bridge, `grantStoryItem` in viewer variable-actions.ts; a slice pickup grants and then `add`s the variable),
       so `catpope/cucumber` is a story count that drifts from the real inventory (eating, crafting). Steps:
-  1. Read: `inventory.<item>` = how many the reader has (shorthand for `inventory.count("<item>")`; registry, the
-     analyser, viewer expressions/reader.ts, the creator's sample readers). The expression namespaces and `global`
-     can't be written as a variable's domain (`inventory.x = 1` is refused, not "toon inventory's x").
-  2. Warn: a story variable named like a catalog item (validate.ts `checkVariableNames` with `ctx.items`) – "an item:
-     Give item / inventory.<item>".
-  3. Give: VN event `giveItem` { item (catalog picker), qty } – the grant rules stay (grantable story, max, once per
-     place); types, validate, schema, flow / reach facts (+ FlowIndex.php), the runner, the creator form.
-  4. Take: VN event `takeItem` { item, qty } – needs a server endpoint (`InventoryService::remove` is internal today:
-     craft / use only) and rules (story only, once per place, too few pieces → ?). **Owner decision before building.**
-  5. Data: analyse every `setVariable` / choice `set|add` on an item name in `entity_versions` / `content_versions`
-     → a SQL migration to `giveItem` (the 2026-10-06-show-text-box pattern), then drop the bridge's side effect; a
-     slice pickup only grants (no variable any more).
+  1. ✅ _(2026-10-06, 6b7a46f0)_ Read: `inventory.<item>` = how many the reader has (shorthand for
+     `inventory.count("<item>")`; the analyser checks it against the catalog – `unknown-item`; viewer, creator sample
+     readers, the PHP analyser). A namespace is never a variable's domain (`inventory.x = 1` is refused).
+  2. ✅ _(dadb1e2d)_ Warn: a story variable named like a catalog item – setVariable / choice set + add / askText ("give
+     it with giveItem"), a condition ("what the reader has is inventory.<item>"), a bare item name in an expression
+     (`item-as-variable` → `inventory.<item>`).
+  3. ✅ _(dadb1e2d)_ Give: VN event `giveItem` { item, qty 1 … 10 } and a choice's action `give` { item, qty } – types,
+     validation, schemas, the Flow box ("gives cucumber ×2"), the viewer (`giveStoryItem`: source story, once per place),
+     the creator (+ giveItem, "give an item", the GiveItemField with the catalog picker).
+  4. **Proposal – owner decision** – Take: VN event `takeItem` { item, qty } / a choice's `take`. Today nothing can take:
+     `InventoryService::remove` is internal (craft / use). Proposed: `POST /api/inventory/take { item_id, qty, ref }`,
+     source story only (the item's catalog flag `takeable` – default no, so a story can't eat a bought hoodie), once
+     per ref like a grant (a replay takes nothing), **too few pieces → nothing is taken and the event says so**
+     (`taken: 0`; the script goes on – for "pay 3 coins to pass" a condition `inventory.coin >= 3` guards the choice
+     first, the creator suggests it). Guests: their local inventory the same way. Questions: is `takeable` per item
+     right (or per category – food, collectibles)? Should a failed take stop the script (a dead-end risk) or just go
+     on (proposed)?
+  5. ✅ _(this commit)_ Data: the dev DB analysed (latest versions: 4 choice adds in scene:sandbox:1/2/5 – cucumber ×3,
+     testo; older versions catpope's repair_coupon / broken_record_player; no setVariable / condition on an item) →
+     `server/migrations/mysql/2026-10-07-give-item.mysql.sql` (choice `add` / setVariable `add` of an item-named
+     variable → `give` / `giveItem`, history included; PHPUnit `testTheGiveItemMigration`) – run on the dev DB: 52
+     versions. The bridge is gone (`set` / `add` never grant; a slice pickup only grants – no story variable, and it no
+     longer counts as a set variable in the facts / FlowIndex). make-sandbox.ts writes `give`. Checked in the browser:
+     sandbox chapter 2's testo ("Einsammeln") lands in the inventory, source story, no `sandbox/testo` variable.
+      **O – production:** run `2026-10-07-give-item.mysql.sql` in phpMyAdmin **together with** the viewer + creator
+      + API deploy (an old viewer doesn't know `give` – a choice would give nothing; the new one doesn't grant on
+      `add`). Check first: the header's SELECT; afterwards it answers nothing.
 - [ ] M.1 **Reader: the intersect area shows** – the orange dashed outline where a sticker overlaps a speech bubble must
       not appear in the reader (owner 2026-10-06 "minor bugs" list).
 - [ ] M.2 **Reader: the page jumps when animations fire** – e.g. when a showTextBox effect fires, the page jumps oddly.
