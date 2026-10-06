@@ -11,6 +11,7 @@
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import EventMessage from '$lib/components/events/event-message.svelte';
+	import EventAskText from '$lib/components/events/event-ask-text.svelte';
 	import EventChoice from '$lib/components/events/event-choice.svelte';
 	import EventFlow from '$lib/components/events/event-flow.svelte';
 	import EventShowTextBox from '$lib/components/events/event-show-text-box.svelte';
@@ -105,7 +106,7 @@
 		if (!root) return;
 		const first = (selector: string) => root.querySelector<HTMLElement>(selector);
 		const target =
-			(type === 'showMessage' && first('textarea')) ||
+			((type === 'showMessage' || type === 'askText') && first('textarea')) ||
 			((type === 'joinScene' || type === 'leaveScene') && first('[data-testid="character-ref-open"]')) ||
 			[...root.querySelectorAll<HTMLElement>('input:not([type="checkbox"]), textarea, select, button[data-testid]')].find(
 				(el) => !el.closest('.type-field') && !el.closest('header')
@@ -182,7 +183,7 @@
 	}
 	/** who the line is about: the speaker (showMessage) or everyone joining / leaving – avatar, else the name (owner 2026-10-03) */
 	function people(event: any): { id: string; src: string }[] {
-		const refs = event?.type === 'showMessage' ? (event.params?.character ? [event.params] : []) : event?.type === 'joinScene' || event?.type === 'leaveScene' ? (event.params?.characters ?? []) : [];
+		const refs = event?.type === 'showMessage' || event?.type === 'askText' ? (event.params?.character ? [event.params] : []) : event?.type === 'joinScene' || event?.type === 'leaveScene' ? (event.params?.characters ?? []) : [];
 		return refs.map((r: any) => ({ id: String(r?.character ?? r?.name ?? ''), src: avatarOf(r) })).filter((p: { id: string }) => p.id);
 	}
 </script>
@@ -231,7 +232,7 @@
 					{#each people(event) as who, wi (wi)}
 						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
-					<span class="sum">{event?.if?.variable ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain, dialogs)}</span>
+					<span class="sum">{conditionWords(event?.if) ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain, dialogs)}</span>
 					<ReachChip mark={markOf(i)} />
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>
@@ -252,6 +253,8 @@
 					<p class="hint">{m['creator.event_unknown']({ type: String(event?.type) })}</p>
 				{:else if event.type === 'showMessage'}
 					<EventMessage {doc} path={p} {choices} {charOptions} {cast} />
+				{:else if event.type === 'askText'}
+					<EventAskText {doc} path={p} {event} {choices} {charOptions} />
 				{:else if event.type === 'addChoice'}
 					<EventChoice {doc} path={p} {event} index={i} {pointNames} {groupLabels} />
 				{:else if event.type === 'jumpTo' || event.type === 'label' || event.type === 'divert' || event.type === 'setVariable'}

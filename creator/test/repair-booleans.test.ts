@@ -8,7 +8,7 @@ test('repairBooleans: the bool fields\' "true" / "false" strings become booleans
 		renderer: { type: 'horizontal', params: { loop: 'true', autoPlay: { enabled: 'false', delay: 3000 }, freeMode: true } },
 		events: [
 			{ type: 'showMessage', params: { text: 'true', wait: 'true' } },
-			{ type: 'trigger', trigger: { once: 'false' } }
+			{ type: 'trigger', trigger: { gate: 'false' } }
 		],
 		slices: [{ image: 'a.webp', video: { src: 'v.mp4', frame: { ratio: '1:1' } }, dialog: [{ text: 'false', uppercase: 'true', frame: 'false' }] }]
 	};
@@ -17,7 +17,7 @@ test('repairBooleans: the bool fields\' "true" / "false" strings become booleans
 	assert.equal(scene.renderer.params.autoPlay.enabled, false);
 	assert.equal(scene.renderer.params.freeMode, true);
 	assert.equal(scene.events[0].params!.wait, true);
-	assert.equal(scene.events[1].trigger!.once, false);
+	assert.equal(scene.events[1].trigger!.gate, false);
 	assert.equal(scene.slices[0].dialog[0].uppercase, true);
 	assert.equal(scene.slices[0].dialog[0].frame, false);
 	// texts and other values stay as they are

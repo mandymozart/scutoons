@@ -10,8 +10,8 @@
 
 	/**
 	 * The bars under an editor page's file status (COMPONENTS.md step 11; meta pages and the chapter editor had copies):
-	 * unsaved changes, an autosave to recover, a document converted from its per-language versions on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded), a
-	 * save conflict, the last notice.
+	 * unsaved changes, an autosave to recover, a document converted from its per-language versions on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded),
+	 * events that got their hidden id on load (saving keeps them), a save conflict, the last notice.
 	 */
 	let {
 		session,
@@ -33,6 +33,8 @@
 	const recoverables = $derived(docs.filter((d) => d.recoverable));
 	/** documents converted in memory that are not stored yet – one bar for all of them */
 	const conversions = $derived(docs.filter((d) => d.unconverted));
+	/** events that got their hidden id on load (agents/EXPRESSIONS.md §5): the next save stores them */
+	const withNewIds = $derived(docs.filter((d) => d.idsAssigned > 0));
 	const differences = $derived(conversions.flatMap((d) => visibleDifferences(d.converted!.report).map((r) => ({ file: fileLabel(d.entity), line: differenceLine(r) }))));
 	/** "Chapter 2", "Script (en)": a language only for a document stored per language (not the neutral `_`) */
 	const conflictLabel = (locale: string | undefined, entity: string) => (locale && locale !== NEUTRAL_LOCALE ? `${fileLabel(entity)} (${locale})` : fileLabel(entity));
@@ -60,6 +62,11 @@
 		{:else}
 			<span>{m['creator.converted_no_differences']()}</span>
 		{/if}
+	</div>
+{/if}
+{#if withNewIds.length}
+	<div class="sc-bar is-warning" data-testid="event-ids-assigned">
+		{m['creator.event_ids_assigned']({ count: withNewIds.reduce((n, d) => n + d.idsAssigned, 0), files: fileLabels(withNewIds.map((d) => d.entity)) })}
 	</div>
 {/if}
 {#if session.conflict}

@@ -12,9 +12,8 @@ export const BOOLEAN_KEYS = new Set([
 	'cube',
 	'keyboard',
 	'freeMode',
-	// VN events: params.wait, trigger.once; slice items: once
+	// VN events: params.wait (trigger.once / a slice item's once are gone: `repeat`, migration 2026-10-06-repeat)
 	'wait',
-	'once',
 	// slice audio samples: loop, trigger.exclusive, trigger.gate
 	'exclusive',
 	'gate',

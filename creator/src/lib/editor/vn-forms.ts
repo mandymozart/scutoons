@@ -23,7 +23,7 @@ import { matchRevealPreset } from '$lib/editor/event-presets.ts';
 import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 
 /** the types the editor has a form for (another type is only named, to remove) */
-export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showTextBox', 'joinScene', 'leaveScene', 'label', 'divert', 'setVariable'];
+export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'askText', 'jumpTo', 'showTextBox', 'joinScene', 'leaveScene', 'label', 'divert', 'setVariable'];
 
 /** the view of a joined character is its slot in the reader (DESIGN.md → "VN layout") */
 export const viewSlots = () => [
@@ -54,6 +54,9 @@ export function template(type: string, ctx: { firstCharacter?: string; events: a
 			return { type, params: { to: ctx.pointNames[0] ?? '' } };
 		case 'setVariable':
 			return { type, params: { variable: '', value: '', op: 'set' } };
+		case 'askText':
+			// the question per language; the answer goes to a story variable (or the reader's name, the scope select)
+			return { type, params: { text: {}, variable: '' } };
 		default:
 			return { type };
 	}
@@ -76,7 +79,21 @@ export const actionPath = (event: any, eventPath: Path, ai: number): Path => [..
 // ── "Only if" ──
 const OP_SIGNS: Record<string, string> = { '==': '=', '!=': '≠', '<': '<', '<=': '≤', '>': '>', '>=': '≥' };
 export const opWord = (op: string) => (op === 'set' ? m['creator.vn_op_set']() : op === 'unset' ? m['creator.vn_op_unset']() : (OP_SIGNS[op] ?? op));
-export const conditionWords = (c: any) => (c?.variable ? `${c.variable} ${opWord(c.op)}${c.op === 'set' || c.op === 'unset' ? '' : ` ${c.value ?? ''}`}` : '');
+export const conditionWords = (c: any) =>
+	typeof c?.expr === 'string' ? c.expr.trim() : c?.variable ? `${c.variable} ${opWord(c.op)}${c.op === 'set' || c.op === 'unset' ? '' : ` ${c.value ?? ''}`}` : '';
+
+/**
+ * The simple test as an expression (ink logic) – what the "Expression" switch starts with: `coins >= 3`, `name == "Mia"`;
+ * set / unset = has a value at all (`name != ""` / `name == ""` – a missing value equals only a missing one, so `not name`).
+ */
+export function conditionAsExpression(c: any): string {
+	if (!c?.variable) return '';
+	if (c.op === 'set') return c.variable;
+	if (c.op === 'unset') return `not ${c.variable}`;
+	const v = c.value;
+	const literal = typeof v === 'number' || (typeof v === 'string' && v.trim() !== '' && Number.isFinite(Number(v))) ? String(v).trim() : JSON.stringify(String(v ?? ''));
+	return `${c.variable} ${c.op} ${literal}`;
+}
 
 /** the trigger in words (owner 2026-10-03) */
 export const triggerOptions = () => [
@@ -120,6 +137,8 @@ export function summary(event: any, chain: readonly string[] = [], boxes: { id: 
 			return `↪ ${p.to ?? ''}`;
 		case 'setVariable':
 			return `${p.variable ?? ''} ${p.op === 'add' ? '+' : '='} ${p.value ?? ''}`;
+		case 'askText':
+			return `${cut(p.text) ? `“${cut(p.text, 32)}” ` : ''}→ ${p.scope === 'reader' ? 'reader.name' : (p.variable ?? '')}`;
 		case 'showTextBox': {
 			const preset = matchRevealPreset(p);
 			const box = p.dialog ? (boxes.find((b) => b.id === p.dialog)?.label ?? m['creator.reveal_box_missing']()) : '';

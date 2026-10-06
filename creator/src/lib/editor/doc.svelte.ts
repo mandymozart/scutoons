@@ -41,6 +41,7 @@ import {
 	type ToonSettings
 } from '@scutoons/content';
 import { repairBooleans } from '$lib/editor/repair-booleans.ts';
+import { assignEventIds } from '$lib/editor/event-ids.ts';
 
 export type DocKind = 'chapter' | 'group' | 'season' | 'toon' | 'index' | 'credits' | 'people' | 'roles' | 'characters' | 'cast' | 'moods' | 'requests' | 'map' | 'events' | 'script';
 export type DocSource = 'store' | 'new' | 'missing';
@@ -156,6 +157,11 @@ export class ContentDoc {
 	/** the stored version the conversion was made on (null: none – a new neutral document; the toon entry: its version) */
 	private convertedBase: number | null = null;
 	lastSavedAt = $state<number | null>(null);
+	/**
+	 * events that got their hidden id on load (stored before step 3, agents/EXPRESSIONS.md §5) – in memory, stored with
+	 * the next save; the page says so (doc-notices.svelte); 0 once saved
+	 */
+	idsAssigned = $state(0);
 
 	private undoStack = $state<string[]>([]);
 	private redoStack = $state<string[]>([]);
@@ -371,8 +377,12 @@ export class ContentDoc {
 		this.base = base;
 		this.published = published;
 		this.source = source;
+		// events without their hidden id get one in memory (event-ids.ts); not a change of the author's: the document stays
+		// saved (no autosave, no "unsaved" bar) – the page says so, and the next save stores them (no silent conversion)
+		this.idsAssigned = this.kind === 'chapter' || this.kind === 'group' ? this.locales.reduce((n, l) => n + assignEventIds(this.data[l], this.kind as 'chapter' | 'group'), 0) : 0;
 		const saved: Record<string, string> = {};
-		for (const l of this.locales) saved[l] = data[l] === null || data[l] === undefined ? '' : JSON.stringify(data[l]);
+		// (through the state: the ids above live in it, not in `data`)
+		for (const l of this.locales) saved[l] = data[l] === null || data[l] === undefined ? '' : JSON.stringify(this.data[l]);
 		this.saved = saved;
 		// old "true" / "false" strings of bool fields → booleans (repair-booleans.ts); the repaired locales are unsaved
 		for (const l of this.locales) repairBooleans(this.data[l]);
@@ -435,6 +445,8 @@ export class ContentDoc {
 		if (!file) return;
 		this.checkpoint(key);
 		change(file);
+		// a new, pasted or imported event gets its hidden id right away (event-ids.ts)
+		if (this.kind === 'chapter' || this.kind === 'group') assignEventIds(file, this.kind);
 	}
 
 	/** Sets a field of the (neutral) document; `undefined` removes it. */
@@ -541,7 +553,10 @@ export class ContentDoc {
 				}
 			}
 			this.lastSavedAt = Date.now();
-			if (!this.dirty) this.clearAutosave();
+			if (!this.dirty) {
+				this.clearAutosave();
+				this.idsAssigned = 0;
+			}
 			return done;
 		} catch (e) {
 			// a conflict is the session's bar (Reload / Overwrite), not a load error: `error` replaces the whole editor
