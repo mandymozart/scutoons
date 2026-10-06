@@ -237,3 +237,56 @@ the account, synced, changeable on the account page).
   guest's name; draft, progress, name, inventory and grant refs put back). Screenshots `step3-*`.
 - **For the flow graph / reachability (LANE A's flow.ts / reach.ts, not changed here)**: see the coordinator's notes –
   "once for good" events run at most once; askText (scope toon) sets its variable; `if.expr` conditions.
+
+## Step 4 – done (2026-10-06, branch chapter-neutral)
+
+Creator: editing expressions (owner's design, §4). DESIGN.md "Expressions in text fields" has the UI rules.
+- **One field** – `creator/src/lib/components/fields/expr-text.svelte` (`LocaleText expressions`): text box text, VN
+  message, choice label, askText question; the condition's "Expression" mode (`expression`: the whole value is code).
+  askText's placeholder / default stay plain (the reader shows them as written, step 3). Stored value = plain text.
+- **Component choice**: an overlay, not contenteditable – a real `<textarea>` with transparent text over a mirror that
+  draws the same text (chips, wavy underlines) and a transparent hit layer on top (chip / range clicks + `title`
+  tooltips). Caret, selection, IME, undo / redo, paste (plain; single-line fields turn line breaks into spaces), labels
+  and screen readers stay native; problems are also in an `aria-describedby` text. The mirror sizes the field (grows with
+  its text; single-line = a one-row textarea at `--control-height`). Cost: a chip shows its code in the field's font
+  (the tools' mono), not a summary – the summary is the chip's tooltip. The field's own edits (a chip removed, the
+  builder's code) go through `execCommand('insertText')` so Ctrl+Z / Ctrl+Y include them.
+- **Chips** (`editor/expr-edit.ts`, pure, tests `creator/test/expr-edit.test.ts`): top-level closed `{…}` (print /
+  conditional / list, and closed ones that don't parse – a chip with its error). Click (250 ms, so a double-click wins)
+  = builder; double-click / long-press (500 ms, touch / pen) = edit in place until the caret leaves it, Escape, blur or
+  a typed `}`; Backspace / Delete next to one removes it whole; ←/→ step over it; a caret put inside snaps to the edge
+  it came from; selections grow to whole chips.
+- **Problems**: the analyser with the toon's story variables (`knownNames`) and validation's levels (`exprLevel`,
+  @scutoons/content validate.ts – doubts warn); a text box's lines (string[]) analysed one by one like validation.
+  Settled 300 ms after the last keystroke (chips follow every keystroke). Messages: ONE map `creator.expr_<code>` in
+  `creator/messages/{de,en}.json` + `editor/expr-messages.ts` (`exprText` / `exprTextAt`: args, "did you mean", place;
+  argument counts and types worded per language) – tooltips, builder and the Problems panel use it.
+- **Builder** – `fields/expr-builder.svelte` (in-page, portalled into `.sc-tool`, placed under the caret / chip or
+  above, inside the window; Escape closes, Enter applies, Enter on a highlighted search hit picks it): Value · If … else
+  · Per visit · Code; value search over story variables (`exprContext.variables` – the chapter editor's toon facts),
+  `EXPR_NAMESPACES` (grouped, de/en descriptions; functions with placeholder arguments) and `EXPR_FUNCTIONS` (description
+  + example; picked after a value it wraps it); operator (== != < <= > >= + - * / %) + second value (a datalist of
+  names); then / else; list kind (sequence / cycle / shuffle / once only) + items. `modelOf` reads a chip back (a value
+  with its top operator split off, a conditional, a list), anything else opens as Code; `codeOf` writes ink syntax
+  (`{a: then|else}`, `{&a|b}`, a one-item sequence `{$a}`). Preview: evaluateText / evaluateExpression with a sample
+  reader + the code (muted) + its problems.
+- **Sample readers** – `editor/sample-readers.ts`: new guest / halfway / everything collected answer every registry
+  name and state function (reader.*, read.*, inventory.*, avatar.*, stats.*, effects.*, map.*, has / count_of /
+  read_chapter / resolved / count; `now.*` = the creator's clock); story variables unset / 3 / 10 (the creator doesn't
+  know their kind); lists show their first / second / last item. One choice (`exprContext.sample`) for the builder's
+  preview and the canvas.
+- **Insert-variable shortcut** (decided): no `{}` button – `{` + Enter is shown at the caret when it matters, Ctrl+Enter
+  opens the builder anywhere, and the builder's value search IS the list of all names.
+- **Canvas** – text boxes evaluated for the toolbar's sample reader (`@scutoons/reader` `expressions` prop); the select
+  (as written / new guest – the default / halfway / everything collected) only on slices whose text boxes hold `{…}`.
+- **Problems panel** – `Problem.expr` (validate.ts: start / end, a text box's `line`, args, suggestion) → the message in
+  the creator's language; a row sets `exprContext.focus` – the field at that place (`fieldKey(file, path, locale)`)
+  scrolls in, focuses and selects the range (a VN event's form opens for it).
+- **Save** – the server refuses a syntax error (422, step 2/3 guards); the creator no longer replaces the editor with a
+  refused save's message (`doc.error` is for load errors – the session's bar says why), so the text can be fixed.
+- **Check** – `npm run check:creator-expr` (headless Chrome 1280 wide, own profile, a sandbox chapter 9 draft with a
+  test group; every version the run adds is deleted again, checked): chip, `{` + Enter → builder (if / else, preview
+  new guest "arm" / halfway "reich", Apply → `{coins >= 3: reich|arm}`, undo / redo), `{map.totl}` wavy + tooltip with
+  `map.total`, Backspace / arrows, double-click edit, click → builder parsed back, the canvas' sample reader, Problems
+  panel jumps (text box + condition), Enter in a condition, save 422 with a syntax error (the field stays) and 200 with a
+  warning. `EXPR_SHOTS=<dir>` → screenshots `builder-*.png`.

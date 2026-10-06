@@ -695,6 +695,37 @@ Translators switch back and forth to copy, adapt and review originals, and there
 - **Header on phones** (< 480 px): only the current crumb (truncated), the i18n control and the search icon.
 - Language-neutral fields (`PropField`, media slots: the same in every language) don't follow the switch.
 
+### Expressions in text fields (owner 2026-10-06, agents/EXPRESSIONS.md step 4)
+
+One field for every text that can hold `{…}` (`fields/expr-text.svelte` via `LocaleText expressions`): text box text,
+VN message, choice label, askText question, and the "Only if" expression (expression mode: the whole value is code).
+askText's placeholder / default stay plain fields (the reader shows them as written). The stored value stays plain text.
+- **Chips**: a top-level `{…}` (closed) is drawn as a chip – the code on the cyan tint with a thin cyan ring, rounded.
+  Click = the builder; double-click / long-press = edit in place (plain until the caret leaves it, Escape, blur or its
+  `}`); Backspace / Delete next to it removes it whole; ←/→ step over it; a selection grows to whole chips; copy /
+  paste is plain text. The chip's tooltip (`title`) says what it does ("if coins >= 3: rich | else: poor – click:
+  builder · double-click: edit").
+- **Problems**: a wavy underline – `--state-error` for errors (syntax: saving is refused), `--state-warning` for doubts
+  (unknown names / functions / arguments; saving works) – on the whole chip, or on the exact range outside chips / while
+  editing in place; the tooltip = the problem in the creator's language with its place and the suggestion ("unknown
+  name `map.totl` – did you mean `map.total`? – at 2–9"). They settle 300 ms after typing. The browser's spell check is
+  off while a text has chips. The Problems panel words them the same way; a row selects the range in its field.
+- **Builder** (in-page popover at the caret / chip, `fields/expr-builder.svelte`): What = Value · If … else · Per visit
+  · Code (a Segmented, the long words as titles); the value is one search over the toon's story variables, the reader
+  state (grouped by namespace, with descriptions) and the functions (description + example; a function picked after a
+  value wraps it: `clock(time)`); then an operator with a second value, the then / else texts (the field's language) or
+  the list's items; a live preview "Preview as" new guest / halfway / everything collected, and the code (muted, mono).
+  Escape closes, Enter applies. A chip the builder can't show (shuffle once, nested constructs) opens as Code.
+- **Opening it** – no extra button (less UI): typing `{` shows a small "Enter = builder" at the caret (Enter opens it
+  there, typing on writes the code); Ctrl+Enter opens it anywhere in a field (on the chip next to the caret, else a new
+  one); in a condition plain Enter.
+- **Canvas**: a slice whose text boxes hold `{…}` gets one small select in the canvas toolbar – as written / new guest
+  (default) / halfway / everything collected (the same choice as the builder's preview).
+- **Technique** (robust + accessible over pretty): a real `<textarea>` with transparent text (caret, selection, IME,
+  undo, paste, labels, screen readers stay native) over a mirror that draws the text with chips and underlines, plus a
+  transparent hit layer on top for the chips' / ranges' clicks and tooltips. So a chip shows its code (the same glyphs),
+  not a summary – the summary is its tooltip. The field's own edits go through `insertText` (Ctrl+Z works).
+
 ### Creator: script page (owner 2026-10-01)
 
 `/<toon>/script` – "Drehbuch" / "Script" in the toon's sidebar between Credits and Toon settings (DATA.md "Script").
