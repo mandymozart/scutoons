@@ -40,7 +40,7 @@ const chain = (base) => ({
 			events: [
 				{ type: 'joinScene', params: { characters: [{ character: 'catpope', persona: 'regular', look: 'default', mood: 'neutral', variant: 'avatar' }] } },
 				msg('A1'),
-				{ type: 'showOnomatopeia', params: { dialog: 'vn-chain-a-box' } },
+				{ type: 'showTextBox', params: { dialog: 'vn-chain-a-box' } },
 				msg('A2', false)
 			]
 		},

@@ -4,7 +4,7 @@
 	import type { DialogPlay } from '../types.ts';
 
 	/**
-	 * `lang` = language of the text (chapter files are per locale): drives hyphenation. `hidden` = boxes an onomatopoeia
+	 * `lang` = language of the text (chapter files are per locale): drives hyphenation. `hidden` = boxes a showTextBox
 	 * event reveals later (not drawn yet), `play` = a box being revealed right now (the event's effect).
 	 */
 	let {

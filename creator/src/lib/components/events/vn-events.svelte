@@ -13,7 +13,7 @@
 	import EventMessage from '$lib/components/events/event-message.svelte';
 	import EventChoice from '$lib/components/events/event-choice.svelte';
 	import EventFlow from '$lib/components/events/event-flow.svelte';
-	import EventOnomatopoeia from '$lib/components/events/event-onomatopoeia.svelte';
+	import EventShowTextBox from '$lib/components/events/event-show-text-box.svelte';
 	import EventCast from '$lib/components/events/event-cast.svelte';
 	import EventCondition from '$lib/components/events/event-condition.svelte';
 	import EventTrigger from '$lib/components/events/event-trigger.svelte';
@@ -48,7 +48,7 @@
 		selected?: number;
 		onselect?: (index: number) => void;
 		/**
-		 * text boxes an onomatopoeia event may reveal (`params.dialog`): the slice's boxes (slice events) or the boxes of
+		 * text boxes a showTextBox event may reveal (`params.dialog`): the slice's boxes (slice events) or the boxes of
 		 * the group's slices (a group script)
 		 */
 		dialogs?: { id: string; label: string }[];
@@ -256,8 +256,8 @@
 					<EventChoice {doc} path={p} {event} index={i} {pointNames} {groupLabels} />
 				{:else if event.type === 'jumpTo' || event.type === 'label' || event.type === 'divert' || event.type === 'setVariable'}
 					<EventFlow {doc} path={p} {event} {pointNames} {groupLabels} />
-				{:else if event.type === 'showOnomatopeia'}
-					<EventOnomatopoeia {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
+				{:else if event.type === 'showTextBox'}
+					<EventShowTextBox {doc} path={p} {event} index={i} {dialogs} {oncreatebox} />
 				{:else if event.type === 'joinScene' || event.type === 'leaveScene'}
 					<EventCast {doc} path={p} {event} index={i} {choices} {charOptions} {cast} />
 				{:else}

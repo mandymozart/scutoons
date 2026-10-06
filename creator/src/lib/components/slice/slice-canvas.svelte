@@ -65,16 +65,16 @@
 		rotation: number;
 		/** text boxes' uniform scale */
 		scale: number;
-		/** a text box an onomatopoeia event reveals: which one ("⚡ 2" on the slice, "script 3" in the group's script) */
+		/** a text box a showTextBox event reveals: which one ("⚡ 2" on the slice, "script 3" in the group's script) */
 		revealedBy?: string;
 	}
 
-	/** text box id → the onomatopoeia event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
+	/** text box id → the showTextBox event that reveals it (`params.dialog`): the slice's events, its placed items' tap events, the group script */
 	const revealers = $derived.by(() => {
 		const out = new Map<string, string>();
 		const add = (events: any, label: (i: number) => string) =>
 			(Array.isArray(events) ? events : []).forEach((e: any, i: number) => {
-				const ref = e?.type === 'showOnomatopeia' ? e?.params?.dialog : undefined;
+				const ref = e?.type === 'showTextBox' ? e?.params?.dialog : undefined;
 				if (typeof ref === 'string' && ref && !out.has(ref)) out.set(ref, label(i));
 			});
 		add(slice?.events, (i) => `⚡ ${i + 1}`);
@@ -465,7 +465,7 @@
 				>
 					<span class="tag">{item.label}</span>
 					{#if item.revealedBy}
-						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.ono_hidden_until']({ event: item.revealedBy })}</span>
+						<span class="tag hidden-until" data-testid="hidden-until-{item.index}">{m['creator.reveal_hidden_until']({ event: item.revealedBy })}</span>
 					{/if}
 					{#if selected}
 						{#each handlesOf(item) as h}
@@ -600,7 +600,7 @@
 		pointer-events: none;
 		opacity: 0;
 	}
-	/* a text box an onomatopoeia event reveals: always marked, under the box */
+	/* a text box a showTextBox event reveals: always marked, under the box */
 	.tag.hidden-until {
 		bottom: auto;
 		top: 100%;

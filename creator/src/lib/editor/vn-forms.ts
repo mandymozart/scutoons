@@ -19,11 +19,11 @@ import {
 	type Path
 } from '@scutoons/content';
 import { m } from '$lib/paraglide/messages.js';
-import { matchOnoPreset } from '$lib/editor/event-presets.ts';
+import { matchRevealPreset } from '$lib/editor/event-presets.ts';
 import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 
 /** the types the editor has a form for (another type is only named, to remove) */
-export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showOnomatopeia', 'joinScene', 'leaveScene', 'label', 'divert', 'setVariable'];
+export const FORM_TYPES = ['showMessage', 'addChoice', 'showChoices', 'hideMessage', 'jumpTo', 'showTextBox', 'joinScene', 'leaveScene', 'label', 'divert', 'setVariable'];
 
 /** the view of a joined character is its slot in the reader (DESIGN.md → "VN layout") */
 export const viewSlots = () => [
@@ -42,7 +42,7 @@ export function template(type: string, ctx: { firstCharacter?: string; events: a
 			return { type, params: { label: {} } };
 		case 'jumpTo':
 			return { type, params: { target: { type: 'chapter', value: '1' } } };
-		case 'showOnomatopeia':
+		case 'showTextBox':
 			// the text box is picked (or created) in the form
 			return { type, params: { effect: 'shiver' } };
 		case 'joinScene':
@@ -117,9 +117,9 @@ export function summary(event: any, chain: readonly string[] = []): string {
 			return `↪ ${p.to ?? ''}`;
 		case 'setVariable':
 			return `${p.variable ?? ''} ${p.op === 'add' ? '+' : '='} ${p.value ?? ''}`;
-		case 'showOnomatopeia': {
-			const preset = matchOnoPreset(p);
-			return [p.dialog, preset ? m[`creator.ono_preset_${preset}`]() : ''].filter(Boolean).join(' · ');
+		case 'showTextBox': {
+			const preset = matchRevealPreset(p);
+			return [p.dialog, preset ? m[`creator.reveal_preset_${preset}`]() : ''].filter(Boolean).join(' · ');
 		}
 		default:
 			// joinScene / leaveScene: the avatars say who

@@ -3,7 +3,7 @@
 import {
 	JumpToTargetType,
 	Language,
-	OnomatopoeiaEffect,
+	TextBoxEffect,
 	Renderer,
 	Status,
 	Trigger,
@@ -52,7 +52,7 @@ export const LENGTH_WARNING_RATIO = 1.3;
 
 const values = (e: object) => Object.values(e) as string[];
 const DIALOG_VARIANTS = ['bubble', 'caption', 'narration'];
-const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showOnomatopeia', 'jumpTo', 'label', 'divert', 'setVariable'];
+const EVENT_TYPES = ['showMessage', 'showChoices', 'addChoice', 'joinScene', 'leaveScene', 'hideMessage', 'showTextBox', 'jumpTo', 'label', 'divert', 'setVariable'];
 const CONDITION_OPS = ['==', '!=', '<', '<=', '>', '>=', 'set', 'unset'];
 const CHARACTER_VARIANTS = ['avatar', 'full', 'portrait'];
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -342,11 +342,11 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 					}
 				});
 			break;
-		case 'showOnomatopeia':
-			// an onomatopoeia is a text box this event reveals (owner 2026-10-03)
-			if (!isObj(p) || !isStr(p.dialog) || !p.dialog) c.error([...pp, 'dialog'], 'showOnomatopeia needs params.dialog (the id of the text box it reveals)');
+		case 'showTextBox':
+			// any text box (e.g. an onomatopoeia) this event reveals (owner 2026-10-03)
+			if (!isObj(p) || !isStr(p.dialog) || !p.dialog) c.error([...pp, 'dialog'], 'showTextBox needs params.dialog (the id of the text box it reveals)');
 			if (isObj(p)) {
-				if (p.effect !== undefined && !values(OnomatopoeiaEffect).includes(p.effect)) c.error([...pp, 'effect'], `effect must be one of ${values(OnomatopoeiaEffect).join(', ')}`);
+				if (p.effect !== undefined && !values(TextBoxEffect).includes(p.effect)) c.error([...pp, 'effect'], `effect must be one of ${values(TextBoxEffect).join(', ')}`);
 				if (p.duration !== undefined && (!isNum(p.duration) || p.duration > 5000)) c.warn([...pp, 'duration'], 'duration is capped at 5000 ms by the reader');
 				if (p.delay !== undefined && (!isNum(p.delay) || p.delay > 5000)) c.warn([...pp, 'delay'], 'delay is capped at 5000 ms by the reader');
 				if (p.mode !== undefined && !values(TriggerMode).includes(p.mode)) c.error([...pp, 'mode'], 'mode must be mono or poly');
@@ -501,12 +501,12 @@ function checkSlice(c: Collector, s: any, path: Path, ctx: ValidateContext) {
 	}
 }
 
-/** onomatopoeia events that reveal a text box (`params.dialog`): the box must be there (slice events: on the slice) */
+/** showTextBox events that reveal a text box (`params.dialog`): the box must be there (slice events: on the slice) */
 function checkDialogRefs(c: Collector, events: any[], slices: any[], path: Path, where: string) {
 	const ids = new Set(slices.flatMap((s) => (Array.isArray(s?.dialog) ? s.dialog.map((d: any) => d?.id) : [])).filter(isStr));
 	const seen = new Map<string, number>();
 	events.forEach((e: any, i: number) => {
-		const ref = e?.type === 'showOnomatopeia' ? e?.params?.dialog : undefined;
+		const ref = e?.type === 'showTextBox' ? e?.params?.dialog : undefined;
 		if (!isStr(ref) || !ref) return;
 		if (!ids.has(ref)) c.warn([...path, i, 'params', 'dialog'], `text box "${ref}" is not on ${where} – the event shows nothing`);
 		if (seen.has(ref)) c.info([...path, i, 'params', 'dialog'], `text box "${ref}" is revealed by event ${seen.get(ref)! + 1} already`);
@@ -649,7 +649,7 @@ function getIf(groups: any[], path: (string | number)[]): any {
 
 /**
  * Text box ids are unique within the chapter, its scenes included (owner 2026-10-06): linked groups share one page, and an
- * onomatopoeia event reveals a box by its id. The creator assigns fresh ids; this is the safety net.
+ * showTextBox event reveals a box by its id. The creator assigns fresh ids; this is the safety net.
  */
 function checkDialogIds(c: Collector, groups: any[]) {
 	const seen = new Map<string, string>();

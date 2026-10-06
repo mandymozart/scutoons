@@ -367,7 +367,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   - No mood text anywhere (the art shows the mood).
   - One click per message, the last one included: the click on the last message also jumps (`jumpTo` with `wait`), and
     a group's box closes after its last message is clicked away.
-- **Onomatopoeia** — a text box on the slice that a `showOnomatopeia` event reveals with an effect (`shiver`, `pulse`,
+- **Onomatopoeia** — a text box on the slice that a `showTextBox` event reveals with an effect (`shiver`, `pulse`,
   `wobble`, none); see Part 2 "Onomatopoeia = a text box". (The old full-screen onomatopoeia with its own text, size and
   variants `default` / `outline` / `thorns` / `bubble` was removed on 2026-10-03 – never used in content.)
 
@@ -481,7 +481,7 @@ Backwards compatible with the existing chapter-2 entry (`rect {x,y,width}` + `te
 
 ### Onomatopoeia = a text box (owner 2026-10-03, option B; legacy removed the same day)
 
-A `showOnomatopeia` event reveals a text box: `params` = `{ dialog, effect?, duration?, delay?, mode?, wait? }`,
+A `showTextBox` event reveals a text box: `params` = `{ dialog, effect?, duration?, delay?, mode?, wait? }`,
 `dialog` (required – an event without it is a validation error and shows nothing) = the id of a text box on its slice
 (slice events) or on one of the group's slices (a group script). The box is hidden until the event fires, then appears
 with the event's `effect` / `delay` / `duration` (`@scutoons/reader` `src/effects`, filling the box) and **stays**;

@@ -1,5 +1,5 @@
 // The chapter editor's slice edits (COMPONENTS.md step 12): add a text (with a preset's look), a box for an
-// onomatopoeia event, a placed item, a ⚡ event, a sample area, remove the selection. Each one is one edit of the
+// showTextBox event, a placed item, a ⚡ event, a sample area, remove the selection. Each one is one edit of the
 // language-neutral document (texts start empty or in the source language) and answers what to select next.
 import { deleteAt, getAt, previewText, Trigger, TriggerMode, type Path } from '@scutoons/content';
 import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
@@ -42,7 +42,7 @@ export function addDialog(t: SliceTarget, rect?: { x: number; y: number; width: 
 }
 
 /**
- * "Create a text box for this" (onomatopoeia event `index` of the slice's events, or of `eventsPath` = a placed item's
+ * "Create a text box for this" (showTextBox event `index` of the slice's events, or of `eventsPath` = a placed item's
  * tap events, relative to the slice): a bare lettering box in the middle of the slice (white letters, ink outline,
  * uppercase, "BAM" in the source language – the other languages show it until they get their own), revealed by the event.
  */
@@ -52,7 +52,7 @@ export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Pat
 	t.doc.edit((file) => {
 		const slice = getAt(file, t.slicePath);
 		const event = slice ? getAt(slice, eventsPath)?.[index] : undefined;
-		if (!slice || event?.type !== 'showOnomatopeia') return;
+		if (!slice || event?.type !== 'showTextBox') return;
 		slice.dialog ??= [];
 		const ono = presetOf('onomatopoeia');
 		const dialog = { ...newDialog(id, { ...ono.rect }), text: { [t.doc.textSource]: 'BAM' } };
@@ -128,7 +128,7 @@ export function removeSelected(t: SliceTarget, selection: CanvasSelection) {
 	});
 }
 
-/** text boxes as choices for an onomatopoeia event (`params.dialog`): id + the start of the text (`chain`: the languages to try) */
+/** text boxes as choices for a showTextBox event (`params.dialog`): id + the start of the text (`chain`: the languages to try) */
 export const boxChoices = (slices: any[] | undefined, chain: readonly string[] = []) =>
 	(slices ?? []).flatMap((sl: any) =>
 		(sl?.dialog ?? [])

@@ -125,12 +125,12 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 					vn.leaveScene(event.params.characters);
 					break;
 
-				case 'showOnomatopeia': {
+				case 'showTextBox': {
 					const { wait = false } = event.params;
-					if (!vn.showOnomatopeia(event.params, deps.scope ?? '')) break;
+					if (!vn.showTextBox(event.params, deps.scope ?? '')) break;
 					if (wait) {
 						jumpsWithoutWait = 0;
-						await new Promise<void>((resolve) => vn.setOnomatopoeiaResolver(resolve));
+						await new Promise<void>((resolve) => vn.setTextBoxResolver(resolve));
 					}
 					break;
 				}

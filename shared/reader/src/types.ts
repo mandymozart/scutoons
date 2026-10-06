@@ -1,7 +1,7 @@
-import type { OnomatopoeiaEffect, OnomatopoeiaParams, TriggerMode } from '@scutoons/content';
+import type { TextBoxEffect, ShowTextBoxParams, TriggerMode } from '@scutoons/content';
 
-/** An onomatopoeia event playing right now (its text box is drawn by the slice): the params + the VN player's runtime bits. */
-export interface ActiveOnomatopoeia extends Omit<OnomatopoeiaParams, 'wait' | 'mode'> {
+/** A showTextBox event playing right now (its text box is drawn by the slice): the params + the VN player's runtime bits. */
+export interface ActiveTextBox extends Omit<ShowTextBoxParams, 'wait' | 'mode'> {
 	id: string;
 	/** the VN sequence waits for a tap before it continues */
 	wait: boolean;
@@ -10,11 +10,11 @@ export interface ActiveOnomatopoeia extends Omit<OnomatopoeiaParams, 'wait' | 'm
 	onComplete: () => void;
 }
 
-/** An onomatopoeia event revealing a text box right now (`Dialog` `play`): the event's timing and effect. */
+/** A showTextBox event revealing a text box right now (`Dialog` `play`): the event's timing and effect. */
 export interface DialogPlay {
 	/** changes when the event fires again (replays the effect) */
 	key: string;
-	effect?: OnomatopoeiaEffect;
+	effect?: TextBoxEffect;
 	duration?: number;
 	delay?: number;
 	onComplete: () => void;

@@ -1280,7 +1280,7 @@ no record player pickup, one choice each, validation); api-smoke (27 items; `rec
   `events` = the placement's VN events run like a click trigger's (`EventProcessor`), `once` per page view by default.
 - Creator: slice inspector tab "Items": "Place an item …" / "Choose the item …" open the item drawer
   (`ItemPickerSheet`), x / y / width / rotation, "On tap" (nothing · pick up + pieces + respawn · run events with the VN
-  event editor, whose onomatopoeia events pick or create the text box they reveal). On the canvas: move, a round rotate
+  event editor, whose "show text box" events pick or create the text box they reveal). On the canvas: move, a round rotate
   handle above the box and a round scale handle off the bottom-right corner (width around the centre); the Snap toggle
   (grid 0.5 / 1 / 2.5 / 5 %, remembered per device) snaps moving, resizing, scaling and rotating (15°, Shift switches).
 - **Round 2 (2026-10-03, owner):**

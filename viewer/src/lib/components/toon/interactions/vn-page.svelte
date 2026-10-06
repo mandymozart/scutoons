@@ -17,7 +17,7 @@
 	import { createScriptQueue } from '$lib/visual-novel/script-queue.ts';
 	import { m } from '$lib/paraglide/messages.js';
 	import Characters from '../vn/characters.svelte';
-	import OnomatopoeiaWait from '../vn/onomatopoeia-wait.svelte';
+	import TextBoxWait from '../vn/text-box-wait.svelte';
 	import MessageBox from '../vn/message.svelte';
 
 	/**
@@ -66,7 +66,7 @@
 
 {#if hasVn}
 	<Characters />
-	<OnomatopoeiaWait />
+	<TextBoxWait />
 	<MessageBox />
 	{#if frozen}
 		<!-- an indicator, not a button: scrolling waits for the story (owner 2026-10-06) -->

@@ -47,7 +47,7 @@
 				"type": "showChoices"
 			},
 			{
-				"type": "showOnomatopeia",
+				"type": "showTextBox",
 				"params": {
 					"dialog": "o1"
 				}
@@ -95,7 +95,7 @@
 							"type": "showChoices"
 						},
 						{
-							"type": "showOnomatopeia",
+							"type": "showTextBox",
 							"params": {
 								"dialog": "o1"
 							}
@@ -144,7 +144,7 @@
 							"type": "showChoices"
 						},
 						{
-							"type": "showOnomatopeia",
+							"type": "showTextBox",
 							"params": {
 								"dialog": "o1"
 							}

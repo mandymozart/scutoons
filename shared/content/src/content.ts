@@ -16,8 +16,8 @@ export interface KeyVisual {
 }
 
 /**
- * An onomatopoeia is a text box too (e.g. white letters with an ink outline) that a `showOnomatopeia` event reveals
- * (`VNShowOnomatopeiaEvent` `params.dialog`).
+ * An onomatopoeia is a text box too (the "onomatopoeia" text preset: white letters with an ink outline); a `showTextBox`
+ * event reveals any text box with an effect (`VNShowTextBoxEvent` `params.dialog`).
  */
 export type DialogVariant = 'bubble' | 'caption' | 'narration';
 

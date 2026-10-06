@@ -1,4 +1,4 @@
-<!-- An onomatopoeia event's effect on the text box it reveals (Dialog `play`): delay, then the effect for `duration`. -->
+<!-- A showTextBox event's effect on the text box it reveals (Dialog `play`): delay, then the effect for `duration`. -->
 <script lang="ts">
 	import { onMount, untrack } from 'svelte';
 	import type { Snippet } from 'svelte';

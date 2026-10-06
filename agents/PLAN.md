@@ -143,7 +143,7 @@ translation files). Details: MEMORY.md → "Creator editor"; API: qr `docs/ACCOU
 3. Production rollout: run `2026-09-30-content-versions.mysql.sql`, seed with `import-content.php` (needs PHP + DB
    access or a phpMyAdmin import), grant `creator`, then treat the static files as seed/fallback only.
 4. Nice to have: publish per locale / per file from the top bar, diff view between versions, locking or live presence
-   for two editors, creating/renaming VN scene files for existing groups, slice-level `onomatopoeia` (typed, not rendered).
+   for two editors, creating/renaming VN scene files for existing groups, slice-level `onomatopoeia` (typed, not rendered – dropped 2026-10-03: an onomatopoeia is a text box revealed by a `showTextBox` event).
 
 ## Parallelisation (running 2026-09-29)
 

@@ -35,7 +35,7 @@ export enum TriggerMode {
 	POLY = "poly",
 }
 
-export enum OnomatopoeiaEffect {
+export enum TextBoxEffect {
 	NONE = "none",
 	SHIVER = "shiver",
 	PULSE = "pulse",

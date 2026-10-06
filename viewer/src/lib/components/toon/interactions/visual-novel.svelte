@@ -9,7 +9,7 @@
 	import { SEEN_THRESHOLDS, sliceSeen } from '$lib/reading/track-reading.ts';
 	import { getVnPage } from './vn-page.svelte';
 	import Characters from '../vn/characters.svelte';
-	import OnomatopoeiaWait from '../vn/onomatopoeia-wait.svelte';
+	import TextBoxWait from '../vn/text-box-wait.svelte';
 	import MessageBox from '../vn/message.svelte';
 
 	/**
@@ -52,10 +52,10 @@
 
 	let cancelled = false;
 
-	// text boxes the group script reveals (showOnomatopeia params.dialog) stay hidden until then – per group; registered
+	// text boxes the group script reveals (showTextBox params.dialog) stay hidden until then – per group; registered
 	// before the slices render (this component comes first in group.svelte)
 	const dialogRefs = () =>
-		(group.events ?? []).flatMap((e) => (e.type === 'showOnomatopeia' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []));
+		(group.events ?? []).flatMap((e) => (e.type === 'showTextBox' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []));
 	// svelte-ignore state_referenced_locally
 	if (!done) vn.registerDialogRefs(dialogRefs(), scope);
 
@@ -134,6 +134,6 @@
 
 {#if !page}
 	<Characters />
-	<OnomatopoeiaWait />
+	<TextBoxWait />
 	<MessageBox />
 {/if}

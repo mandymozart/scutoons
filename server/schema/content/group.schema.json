@@ -584,7 +584,7 @@
 				"caption",
 				"narration"
 			],
-			"description": "An onomatopoeia is a text box too (e.g. white letters with an ink outline) that a `showOnomatopeia` event reveals (`VNShowOnomatopeiaEvent` `params.dialog`)."
+			"description": "An onomatopoeia is a text box too (the \"onomatopoeia\" text preset: white letters with an ink outline); a `showTextBox` event reveals any text box with an effect (`VNShowTextBoxEvent` `params.dialog`)."
 		},
 		"DialogShape": {
 			"type": "string",
@@ -884,10 +884,10 @@
 						},
 						"type": {
 							"type": "string",
-							"const": "showOnomatopeia"
+							"const": "showTextBox"
 						},
 						"params": {
-							"$ref": "#/definitions/OnomatopoeiaParams"
+							"$ref": "#/definitions/ShowTextBoxParams"
 						}
 					},
 					"required": [
@@ -1248,14 +1248,14 @@
 			],
 			"description": "A view (framing) of a character in a scene."
 		},
-		"OnomatopoeiaParams": {
+		"ShowTextBoxParams": {
 			"type": "object",
 			"properties": {
 				"dialog": {
 					"type": "string"
 				},
 				"effect": {
-					"$ref": "#/definitions/OnomatopoeiaEffect",
+					"$ref": "#/definitions/TextBoxEffect",
 					"description": "default 'none'"
 				},
 				"duration": {
@@ -1282,9 +1282,9 @@
 			"required": [
 				"dialog"
 			],
-			"description": "An onomatopoeia = a text box revealed by this event (owner 2026-10-03, option B): `dialog` is the id of a text box (`Dialog.id`) on the event's slice, or for a group script on one of the group's slices. The box stays hidden until the event fires, then appears with `effect` / `delay` / `duration` and stays; the box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing."
+			"description": "A text box revealed by this event (owner 2026-10-03, option B; any text box, e.g. an onomatopoeia): `dialog` is the id of a text box (`Dialog.id`) on the event's slice, or for a group script on one of the group's slices. The box stays hidden until the event fires, then appears with `effect` / `delay` / `duration` and stays; the box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing."
 		},
-		"OnomatopoeiaEffect": {
+		"TextBoxEffect": {
 			"type": "string",
 			"enum": [
 				"none",
@@ -1569,10 +1569,10 @@
 						},
 						"type": {
 							"type": "string",
-							"const": "showOnomatopeia"
+							"const": "showTextBox"
 						},
 						"params": {
-							"$ref": "#/definitions/OnomatopoeiaParams"
+							"$ref": "#/definitions/ShowTextBoxParams"
 						}
 					},
 					"required": [

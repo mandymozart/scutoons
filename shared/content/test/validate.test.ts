@@ -227,10 +227,10 @@ test('slice items: placed catalog items with an action chosen by the creator; te
 	assert.deepEqual(sliceProblems({ dialog: [{ rect, text: 'BAM', variant: 'sfx' }] }), ['error groups.0.slices.0.dialog.0.variant']);
 });
 
-test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {
+test('showTextBox event → text box (params.dialog); bubble frame + tail; outline; pickup mode', () => {
 	const rect = { x: 10, y: 10, width: 30 };
 	const box = (extra: object = {}) => ({ id: 'b1', rect, text: 'BAM', ...extra });
-	const ono = (params: object) => ({ type: 'showOnomatopeia', params, trigger: { type: 'intersect' } });
+	const ono = (params: object) => ({ type: 'showTextBox', params, trigger: { type: 'intersect' } });
 	const chapter = (slice: object, events?: object[]) => ({
 		title: 'P',
 		number: 2,
@@ -248,7 +248,7 @@ test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outl
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 'nope' })] })), ['warning groups.0.slices.0.events.0.params.dialog']);
 	assert.deepEqual(list(chapter({ dialog: [box()], events: [ono({ dialog: 3 })] })), ['error groups.0.slices.0.events.0.params.dialog']);
 	// a group script may reveal a box on any of the group's slices
-	const groupEvent = { type: 'showOnomatopeia', params: { dialog: 'b1' } };
+	const groupEvent = { type: 'showTextBox', params: { dialog: 'b1' } };
 	assert.deepEqual(list(chapter({ dialog: [box()] }, [groupEvent])), []);
 	assert.deepEqual(list(chapter({}, [groupEvent])), ['warning groups.0.events.0.params.dialog']);
 	// bubble: frame (a drawn bubble) + tail; outline
@@ -277,7 +277,7 @@ test('onomatopoeia event → text box (params.dialog); bubble frame + tail; outl
 	assert.deepEqual(withRules({ days: 2 }), ['error groups.0.slices.0.items.0.respawn'], 'longer than the item allows');
 	assert.deepEqual(withRules({ hours: 2 }, 'weed'), ['error groups.0.slices.0.items.0.respawn'], 'the item never reappears');
 	// a placed item's tap events may reveal a text box on its slice
-	const tapEvents = (dialog: string) => ({ items: [{ id: 'x-1', item: 'x', rect, action: 'events', events: [{ type: 'showOnomatopeia', params: { dialog } }] }] });
+	const tapEvents = (dialog: string) => ({ items: [{ id: 'x-1', item: 'x', rect, action: 'events', events: [{ type: 'showTextBox', params: { dialog } }] }] });
 	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b1') })), []);
 	assert.deepEqual(list(chapter({ dialog: [box()], ...tapEvents('b2') })), ['warning groups.0.slices.0.items.0.events.0.params.dialog']);
 	// the box stays or disappears again; the wobbly (shout) bubble

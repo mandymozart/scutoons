@@ -1,5 +1,5 @@
 import type { JumpToTarget } from './content.ts';
-import type { OnomatopoeiaEffect, Trigger, TriggerMode } from './enums.ts';
+import type { TextBoxEffect, Trigger, TriggerMode } from './enums.ts';
 
 /**
  * One mood of a character in its three views (framings). "View" is the term in the UI (never "variant", which would be
@@ -200,15 +200,15 @@ export interface VNHideMessageEvent {
 }
 
 /**
- * An onomatopoeia = a text box revealed by this event (owner 2026-10-03, option B): `dialog` is the id of a text box
- * (`Dialog.id`) on the event's slice, or for a group script on one of the group's slices. The box stays hidden until the
+ * A text box revealed by this event (owner 2026-10-03, option B; any text box, e.g. an onomatopoeia): `dialog` is the id
+ * of a text box (`Dialog.id`) on the event's slice, or for a group script on one of the group's slices. The box stays hidden until the
  * event fires, then appears with `effect` / `delay` / `duration` and stays; the box gives the look (variant, font,
  * colour, outline, rotation, scale, text per language), the event the timing.
  */
-export interface OnomatopoeiaParams {
+export interface ShowTextBoxParams {
 	dialog: string;
 	/** default 'none' */
-	effect?: OnomatopoeiaEffect;
+	effect?: TextBoxEffect;
 	/** ms the effect plays, default 2000 (max 5000) */
 	duration?: number;
 	/** ms before the box appears, default 0 (max 5000) */
@@ -221,9 +221,9 @@ export interface OnomatopoeiaParams {
 	stay?: boolean;
 }
 
-export interface VNShowOnomatopeiaEvent {
-	type: 'showOnomatopeia';
-	params: OnomatopoeiaParams;
+export interface VNShowTextBoxEvent {
+	type: 'showTextBox';
+	params: ShowTextBoxParams;
 }
 
 export interface VNJumpToEvent {
@@ -241,7 +241,7 @@ export type VNEvent = (
 	| VNJoinSceneEvent
 	| VNLeaveSceneEvent
 	| VNHideMessageEvent
-	| VNShowOnomatopeiaEvent
+	| VNShowTextBoxEvent
 	| VNJumpToEvent
 	| VNLabelEvent
 	| VNDivertEvent

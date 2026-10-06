@@ -10,7 +10,7 @@ export { sliceEvents, type SliceEventsConfig } from './actions/slice-events.ts';
 export { getMusicStateForSlice } from './actions/music.ts';
 export { isWithinRect } from './rect.ts';
 export { default as CreditsView } from './credits/credits-view.svelte';
-export type { ActiveOnomatopoeia, DialogPlay, PercentRect, SlicePlayerDetail } from './types.ts';
+export type { ActiveTextBox, DialogPlay, PercentRect, SlicePlayerDetail } from './types.ts';
 export { SLICE_PLAYER_EVENT, SLICE_SKIP_EVENT } from './types.ts';
 export { default as PlayerOverlay, DEFAULT_PLAYER_LABELS, type PlayerLabels } from './player-overlay.svelte';
 export { default as CreditsColophon } from './credits/credits-colophon.svelte';

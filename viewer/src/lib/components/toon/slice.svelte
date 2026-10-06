@@ -122,12 +122,12 @@
 		}
 	}
 
-	// text boxes revealed by onomatopoeia events (params.dialog): hidden until then, then they play the event's effect
+	// text boxes revealed by showTextBox events (params.dialog): hidden until then, then they play the event's effect
 	// the slice's events and its placed items' tap events
 	const sliceRefs = $derived(
 		new Set(
 			[...(slice.events ?? []), ...(slice.items ?? []).flatMap((it) => it.events ?? [])].flatMap((e) =>
-				e.type === 'showOnomatopeia' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []
+				e.type === 'showTextBox' && typeof e.params?.dialog === 'string' && e.params.dialog ? [e.params.dialog] : []
 			)
 		)
 	);
@@ -138,7 +138,7 @@
 		return {
 			key: active.id,
 			effect: active.effect,
-			// the same limits as the event's own onomatopoeia (@scutoons/reader Onomatopoeia)
+			// the limits of a showTextBox event's timing (ShowTextBoxParams)
 			duration: sanitizeNumber(active.duration ?? 2000, 2000, 0, 5000),
 			delay: sanitizeNumber(active.delay ?? 0, 0, 0, 5000),
 			onComplete: active.onComplete

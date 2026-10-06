@@ -17,7 +17,7 @@ scutoons/
 ├── shared/
 │   ├── tokens/         @scutoons/tokens    design tokens (CSS custom properties), fonts, base CSS
 │   ├── content/        @scutoons/content   content/items types, pure helpers, validation, JSON Schema
-│   ├── reader/         @scutoons/reader    Slice, Dialogs, Onomatopoeia, pure slice actions
+│   ├── reader/         @scutoons/reader    Slice, Dialogs (+ text box reveal effects), pure slice actions
 │   ├── api/            @scutoons/api       typed API client (session, device id, accounts/items API, content store)
 │   └── ui/             @scutoons/ui        Svelte UI kit (Button, Field, Sheet, Tabs, Toasts, …)
 ├── media/              local dev media (gitignored; the dev CDN serves it, production media lives on bunny)

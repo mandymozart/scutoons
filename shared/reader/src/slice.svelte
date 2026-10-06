@@ -70,9 +70,9 @@
 		itemHidden?: (item: SliceItem) => boolean;
 		/** a tap on a placed item whose `action` isn't `none` */
 		onitemtap?: (item: SliceItem, index: number) => void;
-		/** a text box an onomatopoeia event reveals later (not drawn yet) */
+		/** a text box a showTextBox event reveals later (not drawn yet) */
 		dialogHidden?: (dialog: DialogModel) => boolean;
-		/** a text box being revealed by an onomatopoeia event right now */
+		/** a text box being revealed by a showTextBox event right now */
 		dialogPlay?: (dialog: DialogModel) => DialogPlay | null | undefined;
 		/** draw the image blurred and leave a video unloaded (a sensitive slice the reader hides) */
 		blurred?: boolean;

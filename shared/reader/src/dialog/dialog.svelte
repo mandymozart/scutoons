@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { OnomatopoeiaEffect, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
+	import { TextBoxEffect, type Dialog, type DialogFont, type DialogVariant } from '@scutoons/content';
 	import type { DialogPlay } from '../types.ts';
 	import { wobblyPath } from './wobbly.ts';
 	import EffectNone from '../effects/effect-none.svelte';
@@ -9,18 +9,18 @@
 	import EffectWobble from '../effects/effect-wobble.svelte';
 
 	/**
-	 * One text box. `play` = an onomatopoeia event is revealing it right now (`params.dialog`): the box appears with the
+	 * One text box. `play` = a showTextBox event is revealing it right now (`params.dialog`): the box appears with the
 	 * event's effect / delay / duration and stays.
 	 */
 	let { dialog, play }: { dialog: Dialog; play?: DialogPlay | null } = $props();
 
 	const EFFECTS = {
-		[OnomatopoeiaEffect.NONE]: EffectNone,
-		[OnomatopoeiaEffect.SHIVER]: EffectShiver,
-		[OnomatopoeiaEffect.PULSE]: EffectPulse,
-		[OnomatopoeiaEffect.WOBBLE]: EffectWobble
+		[TextBoxEffect.NONE]: EffectNone,
+		[TextBoxEffect.SHIVER]: EffectShiver,
+		[TextBoxEffect.PULSE]: EffectPulse,
+		[TextBoxEffect.WOBBLE]: EffectWobble
 	};
-	const Effect = $derived(play ? (EFFECTS[play.effect ?? OnomatopoeiaEffect.NONE] ?? EffectNone) : null);
+	const Effect = $derived(play ? (EFFECTS[play.effect ?? TextBoxEffect.NONE] ?? EffectNone) : null);
 
 	/** Smallest scale the auto-fit pass may shrink the font to before it lets the text overflow. */
 	const MIN_FIT = 0.8;
