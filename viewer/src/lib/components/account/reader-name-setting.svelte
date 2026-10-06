@@ -65,7 +65,7 @@
 		font-weight: 700;
 	}
 	input {
-		height: 2.75rem;
+		height: var(--control-height);
 		padding: 0 0.75rem;
 		border: 2px solid #cccccc;
 		background: white;

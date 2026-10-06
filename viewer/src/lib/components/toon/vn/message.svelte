@@ -159,7 +159,7 @@
 	.ask input {
 		flex: 1;
 		min-width: 0;
-		height: 2.75rem;
+		height: var(--control-height);
 		padding: 0 0.75rem;
 		border: 2px solid black;
 		background: white;
@@ -169,10 +169,10 @@
 	}
 	/* the round ✓ (icon-only buttons are round) */
 	.ok {
-		flex: 0 0 2.75rem;
-		width: 2.75rem;
+		flex: 0 0 var(--control-height);
+		width: var(--control-height);
 		min-width: 0;
-		height: 2.75rem;
+		height: var(--control-height);
 		padding: 0;
 		border-radius: 50%;
 		border: 2px solid black;
