@@ -21,7 +21,7 @@
 		"note_message": "A short note helps others see what changed in this draft.",
 		"note_label": "Note",
 		"note_placeholder": "Fixed the bubble positions in group 3",
-		"note_save": "Save with note",
+		"note_save": "Save",
 		"note_skip": "Save without note",
 		"publish_confirm_neutral": "Publish {file}? Readers see it right away.",
 		"nothing_to_save": "Nothing to save: no changes since the last save.",

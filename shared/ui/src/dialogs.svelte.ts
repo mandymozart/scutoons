@@ -4,8 +4,8 @@
  * `<DialogHost />` in the app's root layout shows them; the functions resolve when the user answers.
  *
  *   if (!(await confirmDialog({ title: 'Publish?', message: '…', confirmLabel: 'Publish' }))) return;
- *   const note = await askDialog({ title: 'Add a note?', label: 'Note', confirmLabel: 'Save', skipLabel: 'Save without' });
- *   // note: the text, '' = skipped, null = cancelled
+ *   const note = await askDialog({ title: 'Add a note?', label: 'Note', confirmLabel: 'Save', skipLabel: 'Save without note' });
+ *   // note: the text, '' = skipped, null = cancelled – one primary button: skipLabel while the field is empty, else confirmLabel
  */
 export interface DialogRequest {
 	title: string;
@@ -41,7 +41,7 @@ export async function confirmDialog(options: { title: string; message?: string; 
 	return (await open(options)) === true;
 }
 
-/** the entered text; '' when skipped (skipLabel); null when cancelled */
+/** the entered text; '' when skipped (submitted empty – the button then says skipLabel); null when cancelled */
 export async function askDialog(options: {
 	title: string;
 	message?: string;

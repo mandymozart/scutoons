@@ -36,11 +36,10 @@
 			{/if}
 			<div class="buttons">
 				<button type="button" class="ghost" onclick={() => dialogState.close(request?.input ? null : false)}>{request.cancelLabel ?? cancelLabel}</button>
-				{#if request.input?.skipLabel}
-					<button type="button" class="secondary" onclick={() => dialogState.close('')}>{request.input.skipLabel}</button>
-				{/if}
+				<!-- one primary action, last (owner 2026-10-06): with a skip label it says "save without note" while the field
+				     is empty and "save" once something is typed – submitting empty is the skip -->
 				<!-- svelte-ignore a11y_autofocus -->
-				<button type="submit" class="primary" autofocus={!request.input}>{request.confirmLabel}</button>
+				<button type="submit" class="primary" autofocus={!request.input}>{request.input?.skipLabel && !text.trim() ? request.input.skipLabel : request.confirmLabel}</button>
 			</div>
 		</form>
 	{/if}

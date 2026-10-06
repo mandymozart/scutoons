@@ -55,7 +55,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Right-side drawers/panels drag wider (up to half the window); the sidebar folds to a rail (Feather chevrons button at its top right / drag / Ctrl+\; the rail is as wide as the
   round button + 0.5rem either side); the script outline folds
   the same way, its rail labelled "Outline". The script is read-only until "Edit script" is confirmed.
-- Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()`.
+- Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()` – the primary action last, one primary
+  only: the save-draft note's button says "Save without note" while empty, "Save" once typed (owner 2026-10-06).
 - Right-docked page panels (Problems, History, help) sit left of the Ask panel (`--ask-inset`); with both open the
   sidebar folds to its rail. Warnings can be accepted (✓ "Looks fine", versioned in the document – DATA.md §5); errors
   can't. The admin catalog has the same panel (items / recipes / albums; stored in the entry, DATA.md §5).

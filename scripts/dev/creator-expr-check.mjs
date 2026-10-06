@@ -319,7 +319,7 @@ try {
 	check(c.find((x) => x.text === '{coins ==}')?.error, '{coins ==}: a red wavy underline (a syntax error)');
 	let n = writes.length;
 	await click('[data-testid="save-draft"]');
-	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click('dialog.sc-dialog[open] button.secondary');
+	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click('dialog.sc-dialog[open] button.primary');
 	await until(`${JSON.stringify(n)} < 0 || false`, 1500);
 	let saved = writes.slice(n).filter((w) => w.url.startsWith(`/entities/${KEY}`));
 	check(saved.length && saved.every((w) => w.status === 422), `Save draft with a syntax error: refused (${saved.map((w) => `${w.method} ${w.status}`).join(', ')})`);
@@ -363,7 +363,7 @@ try {
 
 	n = writes.length;
 	await click('[data-testid="save-draft"]');
-	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click('dialog.sc-dialog[open] button.secondary');
+	if (await until(`!!document.querySelector('dialog.sc-dialog[open]')`, 3000)) await click('dialog.sc-dialog[open] button.primary');
 	await until(`!document.querySelector('.sc-bar.is-dirty')`, 5000);
 	saved = writes.slice(n).filter((w) => w.url.startsWith(`/entities/${KEY}`));
 	const stored = (await api('GET', `/entities/${KEY}?draft=1&wrap=1`)).content.groups.find((g) => g.label === GROUP)?.slices[0].dialog[0].text.de;
