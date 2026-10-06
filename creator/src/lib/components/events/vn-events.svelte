@@ -52,7 +52,7 @@
 		 * the group's slices (a group script)
 		 */
 		dialogs?: { id: string; label: string }[];
-		/** "Create a text box for this": a new text box on the slice, revealed by event `index` */
+		/** "+ New text box": a new text box on the slice, revealed by event `index` */
 		oncreatebox?: (index: number) => void;
 		/** the named points of the group's script (slice events divert into it); a group script uses its own */
 		points?: string[];
@@ -231,7 +231,7 @@
 					{#each people(event) as who, wi (wi)}
 						{#if who.src}<img class="avatar" src={who.src} alt={who.id} title={who.id} />{:else}<span class="who">{who.id}</span>{/if}
 					{/each}
-					<span class="sum">{event?.if?.variable ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain)}</span>
+					<span class="sum">{event?.if?.variable ? `${m['creator.vn_if_short']({ test: conditionWords(event.if) })} · ` : ''}{summary(event, chain, dialogs)}</span>
 					<ReachChip mark={markOf(i)} />
 					{#if sliceEvents && event?.trigger}<span class="trig">{triggerWord(event)}{event.trigger.rect ? '' : ` · ${m['creator.event_whole_slice']()}`}</span>{/if}
 				</button>

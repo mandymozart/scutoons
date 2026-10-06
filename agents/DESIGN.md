@@ -489,8 +489,19 @@ with the event's `effect` / `delay` / `duration` (`@scutoons/reader` `src/effect
 time. The box gives the look (variant, font, colour, outline, rotation, scale, text per language), the event the timing.
 `stay` (default true): after its effect the box stays, or – `false`, "the box disappears again" – is hidden again after
 `delay` + `duration`. A placed item's tap events may reveal boxes on its slice too (hidden in advance like the others).
-Creator: the event's "Text box" select (the slice's / group's boxes) or "Create a text box for this" (a lettering box,
-white, ink outline, uppercase, "BAM"); the canvas marks a revealed box "hidden until ⚡ n" / "script n".
+Creator: the event's "Text box" field is one select "choose or create new" (owner 2026-10-06): the slice's boxes (a
+group script: the group's slices' boxes, "Slice n · …") labelled by the start of their text in the header's text language
+(never the id; the same text twice gets "(2)"), last "+ New text box" (slice and placed-item events) – a lettering box
+in the middle of the slice (the onomatopoeia preset: white, ink outline, uppercase; text "Text" in the source language),
+revealed by the event, selected on the canvas with its text field focused. The event line names its box by the same
+label. The canvas marks a revealed box "hidden until ⚡ n" / "script n".
+
+Naming (owner 2026-10-06): the event is `showTextBox` (was the misspelt `showOnomatopeia`, no alias; stored versions
+rewritten by migration `2026-10-06-show-text-box`), its params `ShowTextBoxParams`, its effect `TextBoxEffect`; in the
+viewer `showTextBox`, `activeTextBoxes`, `ActiveTextBox` (@scutoons/reader), `text-box-wait`; in the creator
+`event-show-text-box`, the reveal presets (`REVEAL_PRESETS`, messages `creator.reveal_*`). "Onomatopoeia" remains only
+for the look – the text preset `onomatopoeia` (lettering, outline) and the style guide; there is no slice-level
+onomatopoeia field (the old one was dropped 2026-10-03).
 
 - Overflow guard: if translated text exceeds the box, shrink font down to 80% via a `fit` pass
   (ResizeObserver), then allow overflow; the exporter report lists boxes where `en` is > 130% of `de` length.
@@ -565,7 +576,7 @@ word, never a data path; technical detail at most in the label's `title`). One t
 | Gruppe | group | a part of a chapter (its slices, layout, VN script); one stored on its own is still a group in the UI ("Gruppe scene-14") |
 | Szene | scene | only the screenplay's scene (script, map unlock) |
 | der Slice | slice | |
-| Textbox | text box | the inspector tab says "Texte / Texts" (short) |
+| Textbox | text box | the inspector tab says "Textboxen / Text boxes" (owner 2026-10-06; the count a small trailing number) |
 | Vorlage | preset | a text box's preset (Erzählung, Rede …) – never "Look" (that is a character's) |
 | Gegenstand | item | catalog items, also "Verwandte Gegenstände" |
 | Event | event | slice and VN events; **VN-Skript / VN script** = a group's events |

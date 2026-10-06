@@ -531,7 +531,10 @@
 	}
 	function createBoxForEvent(index: number, eventsPath?: Path) {
 		const t = sliceTarget();
-		if (t) view.select(edits.createBoxForEvent(t, index, eventsPath));
+		if (!t) return;
+		// the new box is selected (the text box tab opens) with its text ready to type
+		view.select(edits.createBoxForEvent(t, index, eventsPath));
+		requestAnimationFrame(() => document.querySelector<HTMLTextAreaElement>('[data-testid="dialog-inspector"] textarea')?.focus());
 	}
 	function addSliceItem(itemId: string) {
 		const spot = view.itemSpot;

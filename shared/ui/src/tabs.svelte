@@ -5,7 +5,7 @@
 		disabled?: boolean;
 		/** an Icon name before the label */
 		icon?: string;
-		/** shown as "(n)" after the label */
+		/** shown as "(n)" after the label; in the `grid` variant a small trailing number */
 		count?: number;
 		testid?: string;
 		title?: string;
@@ -90,7 +90,7 @@
 					onclick={() => select(t.id)}
 					onkeydown={(event) => onKeydown(event, index)}
 				>
-					{#if tab}{@render tab(t, active === t.id)}{:else}{#if t.icon}<Icon name={t.icon} />{/if}{t.label}{#if t.count !== undefined}{' '}({t.count}){/if}{/if}
+					{#if tab}{@render tab(t, active === t.id)}{:else}{#if t.icon}<Icon name={t.icon} />{/if}<span class="label">{t.label}</span>{#if t.count !== undefined}{#if variant === 'grid'}<span class="count">{t.count}</span>{:else}{' '}({t.count}){/if}{/if}{/if}
 				</button>
 			{/each}
 		</div>
@@ -186,10 +186,13 @@
 		gap: 0;
 		border: var(--border-width-regular) solid var(--ink);
 	}
+	/* one line per tab (owner 2026-10-06: "Text boxes (0)" wrapped): the count is a small trailing number */
 	[data-variant='grid'] button {
 		justify-content: center;
 		gap: var(--space-05);
+		min-width: 0;
 		padding: 0 var(--space-05);
+		white-space: nowrap;
 		background: transparent;
 		border-color: transparent;
 	}
@@ -199,5 +202,14 @@
 	[data-variant='grid'] button.active {
 		background: var(--ink);
 		border-color: var(--ink);
+	}
+	[data-variant='grid'] .label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	[data-variant='grid'] .count {
+		font-size: var(--type-caption-size);
+		line-height: var(--type-caption-line);
+		opacity: 0.7;
 	}
 </style>

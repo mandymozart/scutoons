@@ -6,6 +6,7 @@ import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
 import type { CanvasSelection } from '$lib/components/slice/slice-canvas.svelte';
 import { newDialog, nextDialogId } from '$lib/editor/defaults.ts';
 import { TEXT_PRESETS, applyTextPreset, type TextPreset } from '$lib/editor/text-presets.ts';
+import { m } from '$lib/paraglide/messages.js';
 
 /** the slice being edited: its doc, its path, its number and data */
 export interface SliceTarget {
@@ -42,11 +43,12 @@ export function addDialog(t: SliceTarget, rect?: { x: number; y: number; width: 
 }
 
 /**
- * "Create a text box for this" (showTextBox event `index` of the slice's events, or of `eventsPath` = a placed item's
- * tap events, relative to the slice): a bare lettering box in the middle of the slice (white letters, ink outline,
- * uppercase, "BAM" in the source language – the other languages show it until they get their own), revealed by the event.
+ * "+ New text box" of a showTextBox event (event `index` of the slice's events, or of `eventsPath` = a placed item's tap
+ * events, relative to the slice): a bare lettering box in the middle of the slice (the "onomatopoeia" preset: white
+ * letters, ink outline, uppercase) with `text` in the source language (the other languages show it until they get their
+ * own), revealed by the event. The new box is selected: the author edits its text and look in the text box inspector.
  */
-export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Path = ['events']): CanvasSelection {
+export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Path = ['events'], text = m['creator.reveal_new_box_text']()): CanvasSelection {
 	const id = nextId(t);
 	const boxIndex = (t.slice?.dialog ?? []).length;
 	t.doc.edit((file) => {
@@ -55,7 +57,7 @@ export function createBoxForEvent(t: SliceTarget, index: number, eventsPath: Pat
 		if (!slice || event?.type !== 'showTextBox') return;
 		slice.dialog ??= [];
 		const ono = presetOf('onomatopoeia');
-		const dialog = { ...newDialog(id, { ...ono.rect }), text: { [t.doc.textSource]: 'BAM' } };
+		const dialog = { ...newDialog(id, { ...ono.rect }), text: { [t.doc.textSource]: text } };
 		applyTextPreset(dialog as unknown as Record<string, unknown>, ono);
 		slice.dialog.push(dialog);
 		(event.params ??= {}).dialog = id;
@@ -128,10 +130,25 @@ export function removeSelected(t: SliceTarget, selection: CanvasSelection) {
 	});
 }
 
-/** text boxes as choices for a showTextBox event (`params.dialog`): id + the start of the text (`chain`: the languages to try) */
-export const boxChoices = (slices: any[] | undefined, chain: readonly string[] = []) =>
-	(slices ?? []).flatMap((sl: any) =>
+/**
+ * text boxes as choices for a showTextBox event (`params.dialog`): the id as the value, the start of the text as the label
+ * (`chain`: the languages to try – the header's text language first; never the id, owner 2026-10-06). A box without text
+ * says so; boxes of several slices (a group script) start with the slice ("Slice 3 · …"); the same text twice gets a
+ * number ("TEXT (2)").
+ */
+export function boxChoices(slices: any[] | undefined, chain: readonly string[] = []) {
+	const list = slices ?? [];
+	const seen = new Map<string, number>();
+	return list.flatMap((sl: any, si: number) =>
 		(sl?.dialog ?? [])
 			.filter((d: any) => typeof d?.id === 'string' && d.id)
-			.map((d: any) => ({ id: d.id as string, label: `${d.id} · ${previewText(d.text, chain).slice(0, 24)}` }))
+			.map((d: any) => {
+				const text = previewText(d.text, chain).replace(/\s+/g, ' ').trim();
+				let label = text ? (text.length > 28 ? `${text.slice(0, 27).trimEnd()}…` : text) : m['creator.reveal_box_empty']();
+				if (list.length > 1) label = `${m['creator.slice_n']({ number: si + 1 })} · ${label}`;
+				const n = (seen.get(label) ?? 0) + 1;
+				seen.set(label, n);
+				return { id: d.id as string, label: n > 1 ? `${label} (${n})` : label };
+			})
 	);
+}

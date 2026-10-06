@@ -76,7 +76,7 @@
 		onmaptouch: () => void;
 		onaddtext: (preset: TextPreset) => void;
 		onadditem: (itemId: string) => void;
-		/** "Create a text box for this": a showTextBox event's box (`eventsPath` relative to the slice) */
+		/** "+ New text box": a showTextBox event's box (`eventsPath` relative to the slice) */
 		oncreatebox: (index: number, eventsPath?: Path) => void;
 		onremove: () => void;
 		/** the reachability mark of a slice event (never true, endless loop – @scutoons/content reach.ts) */

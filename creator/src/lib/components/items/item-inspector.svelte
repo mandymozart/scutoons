@@ -31,7 +31,7 @@
 		choices?: CharacterChoices;
 		/** the slice's text boxes (a showTextBox tap event reveals one) */
 		dialogs?: { id: string; label: string }[];
-		/** "Create a text box for this" for tap event `index` */
+		/** "+ New text box" for tap event `index` */
 		oncreatebox?: (index: number) => void;
 		onremove?: () => void;
 	} = $props();

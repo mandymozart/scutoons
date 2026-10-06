@@ -92,8 +92,11 @@ export function jumpWords(t: any): string {
 	return `${t.type ?? ''} ${t.value ?? ''}${t.label ? ` · ${t.label}` : ''}`;
 }
 
-/** the line's words: what the event does, in the first language of `chain` that has the text (else any) */
-export function summary(event: any, chain: readonly string[] = []): string {
+/**
+ * the line's words: what the event does, in the first language of `chain` that has the text (else any); `boxes` = the
+ * text boxes a showTextBox event may reveal (it names its box by the label, never the id)
+ */
+export function summary(event: any, chain: readonly string[] = [], boxes: { id: string; label: string }[] = []): string {
 	const p = event?.params ?? {};
 	const cut = (s: unknown, n = 48) => {
 		const t = previewText(s, chain).replace(/\s+/g, ' ').trim();
@@ -119,7 +122,8 @@ export function summary(event: any, chain: readonly string[] = []): string {
 			return `${p.variable ?? ''} ${p.op === 'add' ? '+' : '='} ${p.value ?? ''}`;
 		case 'showTextBox': {
 			const preset = matchRevealPreset(p);
-			return [p.dialog, preset ? m[`creator.reveal_preset_${preset}`]() : ''].filter(Boolean).join(' · ');
+			const box = p.dialog ? (boxes.find((b) => b.id === p.dialog)?.label ?? m['creator.reveal_box_missing']()) : '';
+			return [box, preset ? m[`creator.reveal_preset_${preset}`]() : ''].filter(Boolean).join(' · ');
 		}
 		default:
 			// joinScene / leaveScene: the avatars say who
