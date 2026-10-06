@@ -7,6 +7,27 @@ locale (`structural`, `setShared` with overrides, `unifyGeometry`/`unifyAudio` o
 part of it (not `renderer`, `label`, slice `items`/`events`/`video`/`audio`, VN events, `isPreview`, season `download`…).
 Real drift already exists (catpope ch2 scenes' `interaction` en-only, season covers, credits).
 
+## For the owner (state 2026-10-06 morning) – everything on branch `chapter-neutral`, not merged, not pushed
+
+Done: steps 1–5 below + linked groups (`Group.continues` / `Group.end`, merged from `groups/chains`) + the tokens check
+fix. All checks green: `npm run check`, every `check:creator-*`, `check:mcp`, PHPUnit 269, phpstan, `content:neutral-check`
+(only the 7 explained catpope differences). The dev DB `scutoons` is fully converted.
+
+**Decide:**
+1. catpope chapter 1 **en**: 70 text boxes were styled differently from de (deprecated `mask`, `size` 4.04–4.15, 11 ×
+   `bubble` where de has `caption`). Source-wins gives them the German style. Keep that, or do we need a per-language
+   style override on text boxes (fit tweaks for longer translations)?
+2. catpope chapter 2 **en**: 9 untranslated text boxes + 2 empty VN messages now show the German text (fallback)
+   instead of nothing. OK?
+3. `/library/toons?locale=` now leaves out a toon whose page is closed in that language (announced ones stay "soon") –
+   a draft translation no longer puts a dead link on that language's landing page. OK?
+4. The toon entry's `i18n.<l>.name` repeats the new per-language `title` – fold them into one?
+
+**Ship (when you like it):** merge `chapter-neutral` into `main`, push (deploys api, creator, viewer, admin). Readers see
+no change – without neutral documents the library serves the per-language ones as before. Then in the creator, per
+toon: the bar "still stored per language" → **Convert** (dry run first, then Convert). Afterwards (follow-up): remove the
+legacy per-language path (library fallback, per-locale schemas, MCP legacy read, the Convert page).
+
 ## Decision: model "inline locale maps" (like `map`, `characters`, `roles`)
 
 One document per entity, stored under the entity itself (no locale segment): `chapter:<toon>:<n>`,
