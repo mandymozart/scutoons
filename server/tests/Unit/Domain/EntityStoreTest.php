@@ -134,4 +134,16 @@ final class EntityStoreTest extends TestCase
         self::assertSame($text, $read->text);
     }
 
+    /** 2026-10-06-show-text-box: the event type `showOnomatopeia` → `showTextBox` in every stored version, texts untouched */
+    public function testTheShowTextBoxMigration(): void
+    {
+        $json = '{"groups":[{"slices":[{"events":[{"type":"showOnomatopeia","params":{"dialog":"b1"}}],"dialog":[{"id":"b1","text":{"de":"kein showOnomatopeia hier"}}]}]}]}';
+        $this->db->run("INSERT INTO entity_versions (entity_key, kind, toon, locale, json, author, created_at, status, message) VALUES ('chapter:smoke:1', 'chapter', 'smoke', NULL, ?, NULL, '2026-10-01 00:00:00', 'published', NULL)", [$json]);
+        $runner = new MigrationRunner($this->db, self::root() . '/migrations');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-show-text-box.mysql.sql');
+        $runner->runFile(self::root() . '/migrations/mysql/2026-10-06-show-text-box.mysql.sql'); // idempotent
+        self::assertSame(str_replace('"showOnomatopeia"', '"showTextBox"', $json), $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
+        self::assertStringContainsString('kein showOnomatopeia hier', (string) $this->db->value("SELECT json FROM entity_versions WHERE entity_key = 'chapter:smoke:1'"));
+    }
+
 }

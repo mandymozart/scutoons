@@ -792,6 +792,14 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
      otherwise: the API ignores it).
   3. Delete the naked A-pose looks in the creator (registry: each character → A-pose → × on "naked"; the Problems panel
      lists them as "no longer used"), publish the registry, then delete the CDN files `characters/*/…_apose-naked.webp`.
+- [ ] 10.32 **VN event `showOnomatopeia` → `showTextBox`** (owner 2026-10-06, branch `chapter-neutral`): the event
+      reveals any text box; the misspelt old name is gone without an alias (types, validation, schemas, viewer, creator).
+      The creator's picker is one select "choose or create new" (DESIGN.md "Onomatopoeia = a text box"). Dev DB done
+      2026-10-06 (31 rows in entity_versions, all compact `"type":"showOnomatopeia"` in old catpope chapter 2 / scene-14
+      versions; 0 left). **O – production steps, together (old code can't read the new type, new code not the old):**
+  1. phpMyAdmin → d0487143 → SQL, check first: `SELECT COUNT(*) FROM entity_versions WHERE json LIKE '%"showOnomatopeia"%';`
+  2. Deploy (API + viewer + creator), then right away run `server/migrations/mysql/2026-10-06-show-text-box.mysql.sql`
+     (idempotent; entity_versions + content_versions); the SELECT of step 1 answers 0 afterwards.
 - [ ] 10.8 Public release. Set one version everywhere (root + every app + api/qr → `1.0.0`; today root 0.0.0, frontends 0.1.0, api/qr 1.0.0) and tag the commit `v1.0.0`; optional tag `v1.0.0-beta.1` on the beta commit (owner 2026-10-03).
 
 ---
