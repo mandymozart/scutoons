@@ -363,6 +363,5 @@ Slice music as a mixer (same day, owner: "a different UI could be useful"): one 
 fader, name). A track the slice doesn't set holds the level of the last earlier slice that did (the reader keeps a level
 until a slice changes it; every track starts silent) – shown faint and dashed with "slice n" (`heldMusic`, computed in the
 chapter editor across groups); moving the fader sets it for this slice, × hands it back. No checkbox.
-Audio is the same in every language (`unifyAudio` in @scutoons/content geometry.ts, run on load next to unifyGeometry,
-notice `creator.audio_unified`): the chapter's `audio` and each slice's `audio` follow the source locale – an `en` file
-with samples at the old `audio.samples` showed every sample field as an en override and filled the problems list.
+Audio is the same in every language: since 2026-10-06 the chapter is one language-neutral document (agents/NEUTRAL.md),
+so audio exists once (`unifyAudio` / `unifyGeometry` and their load notices are gone).

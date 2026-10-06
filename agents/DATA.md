@@ -72,6 +72,12 @@ text box `text` (`{ de: string | string[] }`), VN `showMessage.params.text` / `a
 without locale, `ContentSchemas::NEUTRAL_BY_KIND`). The per-locale keys stay valid (legacy) until production is
 converted; the library prefers a neutral document and falls back to them per entity (§3). The interchange layout puts
 neutral documents in `<toon>/_/chapter<N>.json`, `<toon>/_/chapter<N>/<scene>.json`, `<toon>/_/season<N>.json`.
+The creator edits only the neutral documents (phase 2A, 2026-10-06): one `ContentDoc` per chapter / scene / season
+(locale `_`, `texts` = the toon's languages), texts in the header's text language (`doc.text` / `doc.setText`); an
+entity without a neutral document is converted in memory on load (`neutralizeDocs`, a notice) and saved as the neutral
+key – the per-locale keys are never written again. Validation: `validateNeutral` (structure once + per-locale
+completeness); accepted per-locale warnings keep their locale in the key (`en:<place>#<hash>`). The owner converts a
+whole toon on `/<toon>/convert` (`planConversion`, shared with `npm run dev:neutralize`).
 
 **Season downloads and supporters (2026-09-30, owner):** the music album belongs to its season: `Season.download
 { music?, complete? }` (was `Toon.download`, removed from the type/schema; a leftover `download` in toon settings is only
@@ -451,7 +457,8 @@ cover editor"):
   reads `cover.portrait` (owner 2026-10-02: "portrait I think we are not using"). The type keeps `portrait` optional and
   the layout per format; the editor edits `square`.
 - **Which cover:** the season's (`season.cover`, owner 2026-10-02). The editor is `/<toon>/season/<n>/cover`; it writes
-  `cover.lettering` and `cover.square` to every locale's season document (`ContentDoc.structural`). The season editor
+  `cover.lettering` and `cover.square` to the language-neutral season document (since 2026-10-06; before: every
+locale's season document). The season editor
   shows the cover (thumbnail + lettering state) and links to it; its two path fields are gone. The toon settings have no
   cover any more.
 - **catpope** stays as it is (lettering off, the baked German cover) until the owner switches it on with the text-free art

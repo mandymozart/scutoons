@@ -76,8 +76,9 @@ translation by design).
 1. ~~Foundation~~ done 2026-10-06 (see Phase 1 below): types, keys, schemas, resolve (TS + PHP), neutralize (TS),
    library read path + legacy fallback, server validation/schemas/AssetUsages/Reviews/ContentFiles, conversion script +
    equivalence check on the dev DB (sandbox / fixtures stay per locale until phase 2).
-2. Creator: chapter editor (inline groups + scenes), season editor, cover editor, visibility, new chapter / season /
-   language, Convert page, MCP tools.
+2. Creator: ~~2A editing core~~ done 2026-10-06 (see Phase 2A below: document model, in-memory conversion, Convert
+   page, chapter editor, validation, history). 2B: season editor UI, cover editor, visibility / status per locale, new
+   chapter / season / toon flows, MCP tools, make-sandbox, server test fixtures.
 3. Linked groups (`groups/chains`) merged in; its fields live in the neutral document.
 4. Toon settings into the toon entry.
 5. Creator messages refactor (owner 2026-10-06): `creator/messages/{de,en}.json` + hints/tooltips in the code still
@@ -167,12 +168,84 @@ don't fit the group schema (an `addChoice` jumpTo `value` is a number; an `end` 
 
 ### Open for the creator phase
 
-- After a conversion the creator still edits the per-locale documents while the reader and the creator's draft preview
-  show the neutral ones: per-locale edits are shadowed. Production must not be converted before phase 2 ships.
-- Creator: one `ContentDoc` per neutral entity, the Convert page (dry run per toon = the `neutralizeDocs` report, then
-  save + publish), new chapter / season / language, validation of neutral documents (`validateFile` /
-  `validateLocales` work on per-locale documents today: resolve per locale + check, plus per-locale completeness).
-- MCP tools (`tools/mcp/src/server.ts`) read / write per-locale keys (`entityKeyFor`): switch with the creator.
-- Sandbox generator (`make-sandbox.ts`) and `server/tests/fixtures/content` → neutral documents.
+- ~~After a conversion the creator still edits the per-locale documents~~ – phase 2A: the creator edits only neutral
+  documents.
+- MCP tools (`tools/mcp/src/server.ts`) read / write per-locale keys (`entityKeyFor`): switch with the creator (2B).
+  Until then an Ask-panel edit of a converted chapter writes a shadowed per-locale version.
+- Sandbox generator (`make-sandbox.ts`) and `server/tests/fixtures/content` → neutral documents (2B).
 - Once production is converted: remove the legacy per-locale path (library fallback, per-locale schemas of these kinds,
   the write path) – a CUTOVER follow-up.
+
+## Phase 2A "Creator editing core" – done (2026-10-06, branch `chapter-neutral`)
+
+- **Document model** (`creator/src/lib/editor/doc.svelte.ts`, `languages.ts`): `toonDoc` gives a chapter / scene /
+  season ONE `ContentDoc` under the entity key (locale `_`) with `texts = { source, languages }` (the toon's). New:
+  `doc.neutral`, `textLanguages` / `textSource`, `edit(change)` / `set(path, value)` (one undo step on the document),
+  `text(path, locale)` / `setText(path, locale, value)` / `hasText` (a text leaf's locale map; a blank text leaves the
+  language out – it falls back like a missing one), `resolvedGroup` / `resolvedSlice` (the reader's shape in a locale,
+  `resolveGroup` / new `resolveSlice`, for the canvas and the strip preview). `LocaleText` (fields/locale-text.svelte)
+  is the one text field for both models (header text language, source, or all; translate mode; `type="date"` for a
+  `release` per language). Toon settings and the script stay per locale (`structural` / `setShared` / `setLocal` remain
+  for them; `prop-field` lost its per-locale override mode – it only edits neutral documents now).
+- **Removed**: `unifyGeometry` / `unifyAudio` (`@scutoons/content` geometry.ts + tests), the load notices, the
+  per-locale override rows (slice image, thumbnail, prop fields), the chapter's status mirror on save (`syncChapter`
+  now drops `published` / `status` / `language` – a neutral chapter stores none), "create <locale> from <source>" for
+  neutral documents (a language is just missing texts).
+- **Opening an entity without a neutral document**: `load()` gets the neutral key; on 404 it loads the newest
+  per-locale documents, `neutralizeDocs` → the document (unsaved: `doc.converted` = report + locales, `unconverted` until
+  stored). DocNotices shows ONE bar for the page's converted documents ("converted from the per-language documents –
+  saving stores the language-neutral documents") with the differences readers will see folded (`visibleDifferences`:
+  text-lost, text-missing, structure, `differs` except the invisible `interaction` / season `credits`). Saving writes
+  the neutral keys (chapter + the scenes the editor loaded + the season shown in the meta panel); the per-locale keys
+  are never written by the creator again.
+- **Decision**: the season page and the toon page don't save converted documents as a side effect (`unconverted` docs
+  are left out of their companions / page docs) – otherwise publishing a season title would publish every chapter's
+  newest per-locale draft. The chapter editor does save + publish the season it shows (it is one of its documents,
+  named in the publish confirmation).
+- **Convert page** `/<toon>/convert` (`lib/editor/conversion.ts`, `components/toon/convert-page.svelte`): the dry run
+  runs on open (content index → every chapter / scene / season stored per locale WITHOUT a neutral document, their
+  published + newest versions → `planConversion` from `@scutoons/content`, shared with `npm run dev:neutralize`); per
+  entity: the steps (published / draft) and the visible differences folded. "Convert" (confirmDialog) stores per entity
+  the published version (saved, then published) and the draft after it. Idempotent: entities with a neutral document
+  are never touched (the creator may have edited them) – a second run lists nothing. Reached from the toon page's bar
+  "… still stored per language. Convert …", shown only while the season or a chapter is unconverted. Note: an entity
+  whose neutral document is a draft only (saved in the editor, never published) is not listed – publish it in the
+  editor.
+- **Validation** (`validateNeutral` in validate.ts): the document resolved for the source language through
+  `validateFile` once (problems without a locale; a chapter's `seasonStatus` = its season entry's status in the source),
+  the locale maps' shape (a text per language, `release` a date per language, `sequence[].status` a status per
+  language – errors with the locale), and per toon language the completeness: missing text (warning, with the start of
+  the source text), the same as the source (info), > 130 % of the source for text boxes / VN messages / choice labels
+  (warning), a source without text where another language has one (warning on the source). `forEachText` (neutralize.ts)
+  walks every locale-map leaf by the conversion's rules. `validateLocales` stays for the per-locale documents.
+- **Accepted warnings**: `acceptedWarningKey` takes an optional `scope`; the creator passes the warning's locale for a
+  neutral document (`en:<place>#<hash>`), per-locale documents' keys are unchanged. The keys converted from per-locale
+  documents (decision 5) don't match the neutral document's values – those warnings show again once (accept anew).
+- **History / restore**: generic per key – checked on `chapter:catpope:2` / scenes (restore API → a new draft with the
+  old content; the History panel lists the neutral key's versions, no `_` heading; the confirm names the languages).
+- **Server**: nothing changed (the save guard, reviews and the library already handle neutral keys).
+- **Checks**: `check:creator-chapter` (catpope ch1 – converted – one neutral key; publish confirm names de, en),
+  `check:creator-cover` (the sandbox's neutral season, `validateNeutral`) adapted; `dev:test-user` retries the Cat Pope
+  unlock with the looks the server knows (the library listed `naked`, the server only `swim` – a data mismatch).
+
+### Dev DB state after phase 2A testing (2026-10-06)
+
+- catpope chapter 2 + scenes 14 / 18: the browser test's edits were restored (new drafts #325–327 with the content of
+  #196 / #202 / #208).
+- **sandbox converted** (in the editor: chapter 1 + its scenes + season, published by hand; the rest with the Convert
+  page): every sandbox chapter / scene / season is neutral, published, identical answers in `content:neutral-check`.
+  Caveat until make-sandbox writes neutral documents (2B): `npm run dev:db sandbox` re-imports per-locale versions that
+  the neutral ones shadow – delete the sandbox's neutral rows first
+  (`DELETE FROM entity_versions WHERE toon = 'sandbox' AND locale IS NULL AND kind IN ('chapter', 'scene', 'season')`).
+- `check:creator-chapter`: the VN part fails on today's content – scene-14's newest version (per-locale #183 and
+  neutral #202 alike) has no group script and no slice events any more; the check expects some (pre-existing, content).
+
+### Left for 2B
+
+- Season editor UI per the neutral model (it works: title / description / release via LocaleText, the rest once; the
+  status per language is still edited in the chapter's meta panel), cover editor (`structural` on the neutral season –
+  works, untouched), visibility per locale wording.
+- New chapter / season / toon flows: minimal neutral shapes are in (`newChapterDoc`, `newSeasonDoc`,
+  `sequenceStatus` in defaults.ts; the toon page's "New chapter" / "Create season"), not browser-tested.
+- MCP tools, make-sandbox, server test fixtures → neutral; creator message wording cleanup.
+- Toon settings into the toon entry (step 4).

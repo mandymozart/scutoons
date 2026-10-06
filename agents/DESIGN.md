@@ -398,8 +398,8 @@ images and only the words change.
 - The bubble **shape** belongs to the art (exported from Figma `art` frame). The viewer renders only the words.
 - Geometry in **% of the slice box** (same convention as triggers/samples) → resolution-independent.
 - **Geometry is the same in every language** (owner 2026-10-03): position, size, rotation and scale of text boxes and
-  placed items; only the text is per language. The creator has no per-language geometry; on load it makes a language
-  that differs follow the source (`unifyGeometry`, a notice, saved with the next save). Chapter 1 en had 5 wider boxes.
+  placed items; only the text is per language. Since 2026-10-06 a chapter is one language-neutral document
+  (agents/NEUTRAL.md): geometry exists once, only the texts are locale maps (`unifyGeometry` is gone).
 - Font size in **% of slice width** rendered as `cqw` (`.slice { container-type: inline-size }`) → lettering scales
   exactly like the art at any column width (≤ 500px).
 - It is comic lettering, not UI chrome: the UI tokens above do not apply, except `ink`/`paper` as default colors.
