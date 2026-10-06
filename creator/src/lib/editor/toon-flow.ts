@@ -63,7 +63,14 @@ export async function loadToonFlow(toon: string, locale: string): Promise<ToonFl
 		if (kind !== 'chapter' || number === undefined) continue;
 		const groups = (Array.isArray(doc?.groups) ? doc.groups : []).map((g: any) => (g?.ref?.src ? (scene(g.ref.src) ?? g) : g));
 		const n = Number(number);
-		chapters.push({ number: n, groups, ...(statusOf.has(n) ? { status: statusOf.get(n) } : {}), ...(pickText(doc?.title, locale) ? { title: pickText(doc?.title, locale) } : {}) });
+		chapters.push({
+			number: n,
+			groups,
+			...(statusOf.has(n) ? { status: statusOf.get(n) } : {}),
+			...(pickText(doc?.title, locale) ? { title: pickText(doc?.title, locale) } : {}),
+			// the box's picture (images in the Flow)
+			...(typeof doc?.thumbnail === 'string' && doc.thumbnail ? { thumbnail: doc.thumbnail } : {})
+		});
 	}
 	chapters.sort((a, b) => a.number - b.number);
 	const places: FlowPlace[] = (Array.isArray(map?.locations) ? map.locations : [])

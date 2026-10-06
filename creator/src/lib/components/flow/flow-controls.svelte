@@ -1,12 +1,14 @@
 <script lang="ts">
-	import { Panel, useNodesInitialized, useStore, useSvelteFlow } from '@xyflow/svelte';
+	import { Panel, useNodesInitialized, useStore, useSvelteFlow, useViewport } from '@xyflow/svelte';
 	import { Icon } from '@scutoons/ui';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/** zoom / fit as the creator's round icon buttons (instead of Svelte Flow's small square controls) */
-	let { focus, entry }: { focus?: string; entry?: string } = $props();
+	let { focus, entry, onzoom }: { focus?: string; entry?: string; onzoom?: (zoom: number) => void } = $props();
 	const flow = useSvelteFlow();
 	const store = useStore();
+	const viewport = useViewport();
+	$effect(() => onzoom?.(viewport.current.zoom));
 
 	/** below this zoom the boxes' caption type is too small to read: "Show everything" stops there (the minimap shows the rest) */
 	const READABLE = 0.5;

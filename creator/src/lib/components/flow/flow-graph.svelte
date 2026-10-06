@@ -10,12 +10,15 @@
 	import FlowControls from '$lib/components/flow/flow-controls.svelte';
 	import FlowLine, { type FlowEdgeData } from '$lib/components/flow/flow-edge.svelte';
 	import { boxSize, boxText, chipOf, edgeText, hintOf, type FlowTextContext } from '$lib/components/flow/flow-texts.ts';
+	import { lazyPictures } from '$lib/components/flow/flow-pic.svelte';
+	import { setFlowPictures, type FlowPictures } from '$lib/components/flow/flow-pictures.svelte.ts';
 
 	let {
 		flow,
 		ctx = {},
 		current = () => false,
 		link = (n: FlowNode) => !!n.path,
+		pictures,
 		onopen
 	}: {
 		flow: { nodes: FlowNode[]; edges: FlowEdge[] };
@@ -24,8 +27,18 @@
 		current?: (n: FlowNode) => boolean;
 		/** a click on the box opens something */
 		link?: (n: FlowNode) => boolean;
+		/** the boxes' pictures (images in the Flow): resolved in the boxes, loaded when a box comes near the view */
+		pictures?: FlowPictures;
 		onopen: (node: FlowNode) => void;
 	} = $props();
+
+	// svelte-ignore state_referenced_locally
+	setFlowPictures(pictures);
+	let canvas = $state<HTMLElement | null>(null);
+	lazyPictures(() => canvas);
+	/** zoomed far out: faces and pictures step back (the boxes keep their size) */
+	let small = $state(false);
+	const SMALL_ZOOM = 0.6;
 
 	const nodeTypes: NodeTypes = { flow: FlowBox };
 	const edgeTypes: EdgeTypes = { flow: FlowLine };
@@ -102,7 +115,7 @@
 	const miniSize = rem();
 </script>
 
-<div class="graph" data-testid="flow-graph">
+<div class="graph" class:flow-small={small} bind:this={canvas} data-testid="flow-graph">
 	<SvelteFlow
 		bind:nodes
 		bind:edges
@@ -121,7 +134,7 @@
 			if (d.link) onopen(d.flow);
 		}}
 	>
-		<FlowControls {focus} {entry} />
+		<FlowControls {focus} {entry} onzoom={(zoom) => (small = zoom < SMALL_ZOOM)} />
 		<MiniMap position="bottom-right" width={miniSize * 7.5} height={miniSize * 5.5} nodeColor={miniColor} nodeStrokeWidth={0} pannable zoomable ariaLabel={m['creator.flow']()} />
 	</SvelteFlow>
 </div>

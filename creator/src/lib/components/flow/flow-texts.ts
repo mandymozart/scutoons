@@ -19,9 +19,54 @@ export interface FlowTextContext {
 const clip = (s: string, n = 28) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
 const list = (items: string[] | undefined, n = 3) => (items?.length ? (items.length > n ? `${items.slice(0, n).join(', ')} +${items.length - n}` : items.join(', ')) : '');
 
-/** how often a trigger / item tap runs, when not every time (once for good with its ✓) */
+/** how often a trigger / item tap runs, when not every time (once for good: the box's ✓ icon says it too) */
 export const repeatWord = (mode: string) =>
-	mode === 'once' ? `✓ ${m['creator.repeat_once']()}` : mode === 'view' ? m['creator.repeat_view']() : mode === 'interval' ? m['creator.flow_repeat_interval']() : '';
+	mode === 'once' ? m['creator.repeat_once']() : mode === 'view' ? m['creator.repeat_view']() : mode === 'interval' ? m['creator.flow_repeat_interval']() : '';
+
+/**
+ * A box's Feather icon (owner 2026-10-06): message `message-square`, question / choice `git-branch`, jump
+ * `corner-down-right`, askText `help-circle`, text box `type`, once for good `check`, again (per page view, per period,
+ * an endless loop) `repeat`; a group: an entry point `log-in` (its own icon in the title, see `layoutIcon`).
+ */
+export function iconOf(n: FlowNode): string | undefined {
+	switch (n.kind) {
+		case 'choices':
+			return 'git-branch';
+		case 'jump':
+			return 'corner-down-right';
+		case 'divert':
+			return n.status === 'loop' ? 'repeat' : undefined;
+		case 'trigger':
+			return n.repeat === 'once' ? 'check' : n.repeat ? 'repeat' : undefined;
+		case 'run':
+			return n.messages ? 'message-square' : n.boxes?.length ? 'type' : undefined;
+		case 'step':
+			return n.event === 'askText' ? 'help-circle' : n.event === 'showTextBox' ? 'type' : n.event === 'showMessage' ? 'message-square' : undefined;
+	}
+	return undefined;
+}
+
+/** a group's layout as an icon + its word: one under the other, side by side (swiper), a full-width strip */
+export function layoutIcon(n: FlowNode): { name: string; title: string } | undefined {
+	if (n.kind !== 'group' || !n.layout) return undefined;
+	if (n.layout === 'strip') return { name: 'film', title: m['creator.group_full_width']() };
+	if (n.layout === 'horizontal') return { name: 'columns', title: m['creator.layout_horizontal']() };
+	return { name: 'align-justify', title: m['creator.layout_vertical']() };
+}
+
+/** which kinds of box have a picture slot (a fixed place – dashed while there is nothing to show) */
+export const picSlot = (n: FlowNode): 'tall' | 'wide' | 'round' | 'small' | 'top' | null =>
+	n.kind === 'group'
+		? 'tall'
+		: n.kind === 'chapter'
+			? 'wide'
+			: n.kind === 'toon'
+				? 'round'
+				: n.kind === 'slice'
+					? 'top'
+					: (n.kind === 'jump' || n.kind === 'exit' || n.kind === 'trigger') && n.image
+						? 'small'
+						: null;
 
 export const triggerWord = (t: string | undefined) =>
 	t === 'click' ? m['creator.trigger_click']() : t === 'hover' ? m['creator.trigger_hover']() : t === 'intersect' ? m['creator.trigger_intersect']() : t === 'item' ? m['creator.flow_item_tap']() : (t ?? '');
@@ -154,10 +199,20 @@ export function edgeText(e: FlowEdge): string {
 	return parts.join(' · ');
 }
 
-/** a box's size in rem (the box's CSS gets the same numbers) */
+/**
+ * A box's size in rem (the box's CSS gets the same numbers). Fixed per kind of box and known before any picture loads
+ * (a picture slot is part of it), so dagre's layout never moves while the pictures come in.
+ */
 export function boxSize(n: FlowNode, d: { chip?: string; meta?: string }): { w: number; h: number } {
-	const big = n.kind === 'group' || n.kind === 'chapter' || n.kind === 'toon' || n.kind === 'run' || n.kind === 'step' || (n.kind === 'trigger' && !!d.meta);
-	const w = n.kind === 'run' || n.kind === 'step' ? 15 : n.kind === 'toon' || n.kind === 'chapter' ? 14 : big ? 13 : 12;
-	const h = big ? 3.25 : 2 + (d.chip ? 1.25 : 0);
+	const slot = picSlot(n);
+	// a group / chapter / toon: its picture on the left, title, meta and the faces (a group) on the right
+	if (slot === 'tall') return { w: 17, h: 4.75 };
+	if (slot === 'wide') return { w: 19, h: 4.25 };
+	if (slot === 'round') return { w: 16, h: 4.25 };
+	// a slice: its image on top
+	if (slot === 'top') return { w: 10, h: 10.5 + (d.chip ? 1.25 : 0) };
+	const big = n.kind === 'run' || n.kind === 'step' || (n.kind === 'trigger' && !!d.meta);
+	const w = (n.kind === 'run' || n.kind === 'step' ? 15 : big ? 13 : 12) + (slot === 'small' ? 2.5 : 0);
+	const h = Math.max(big ? 3.25 : 2 + (d.chip ? 1.25 : 0), slot === 'small' ? 2.75 : 0);
 	return { w, h };
 }

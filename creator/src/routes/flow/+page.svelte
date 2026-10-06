@@ -8,6 +8,7 @@
 	import { pickText } from '$lib/editor/toon-flow.ts';
 	import FlowDead from '$lib/components/flow/flow-dead.svelte';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
+	import { FlowPictures } from '$lib/components/flow/flow-pictures.svelte.ts';
 
 	/**
 	 * The SCUTOONS-wide Flow (owner 2026-10-06, agents/DESIGN.md "Flow panel"; Universe, next to the world map): one box
@@ -28,6 +29,8 @@
 	const flow = $derived(index ? universeFlow(index, { text: (v) => pickText(v, getLocale()) }) : null);
 	const status = (state: string) => (state === 'published' ? m['creator.status_published']() : state === 'draft' ? m['creator.status_draft']() : state);
 	const ctx: FlowTextContext = { status };
+	/** the toons' avatars (from the same index) */
+	const pictures = $derived(index ? new FlowPictures('', { index }) : undefined);
 	const link = (n: FlowNode) => n.kind === 'toon' || (n.kind === 'exit' && n.target?.type === 'toon');
 	const open = (n: FlowNode) => goto(`/${n.toon ?? n.target?.value}?flow=1`);
 	const deadOf = $derived(index?.dead ? Object.entries(index.dead).filter(([, d]) => d.unread.length + d.unset.length + d.points.length + d.labels.length > 0) : []);
@@ -44,7 +47,7 @@
 			{#await graph}
 				<p class="hint">{m['creator.loading']()}</p>
 			{:then mod}
-				<mod.default {flow} {ctx} {link} onopen={open} />
+				<mod.default {flow} {ctx} {link} {pictures} onopen={open} />
 			{/await}
 		{/if}
 	</div>

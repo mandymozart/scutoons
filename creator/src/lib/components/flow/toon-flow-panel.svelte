@@ -7,6 +7,7 @@
 	import { loadToonFlow, type ToonFlowData } from '$lib/editor/toon-flow.ts';
 	import FlowDead from '$lib/components/flow/flow-dead.svelte';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
+	import { FlowPictures } from '$lib/components/flow/flow-pictures.svelte.ts';
 
 	/**
 	 * The season's / toon's flow (owner 2026-10-06, agents/DESIGN.md "Flow panel"): one box per chapter (its status, its
@@ -32,6 +33,9 @@
 	const status = (state: string) =>
 		state === 'published' ? m['creator.status_published']() : state === 'coming-soon' ? m['creator.status_coming_soon']() : state === 'draft' ? m['creator.status_draft']() : state;
 	const ctx: FlowTextContext = { status };
+	/** the boxes' pictures: chapters' thumbnails, other chapters / toons (the flow index) */
+	// svelte-ignore state_referenced_locally
+	const pictures = new FlowPictures(toon);
 	const link = (n: FlowNode) => n.kind === 'chapter' || n.kind === 'place' || (n.kind === 'exit' && !!n.target && ['chapter', 'season', 'toon'].includes(n.target.type));
 	function open(n: FlowNode) {
 		if (n.kind === 'chapter' || n.kind === 'place') return goto(`/${toon}/chapter/${n.chapter}?flow=1`);
@@ -58,7 +62,7 @@
 			{#await graph}
 				<p class="hint">{m['creator.loading']()}</p>
 			{:then mod}
-				<mod.default {flow} {ctx} {link} onopen={open} />
+				<mod.default {flow} {ctx} {link} {pictures} onopen={open} />
 			{/await}
 		{/if}
 	</div>

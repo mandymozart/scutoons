@@ -513,6 +513,13 @@
 		const [id, persona] = key.split('·');
 		return characterName(registryIndex.get(id), displayLocale, persona) || key;
 	};
+	/** the chapter the follow-up bar leads to after the last group: the season's next one (the Flow's next-chapter picture) */
+	const flowNextChapter = $derived.by(() => {
+		const items: any[] = (season.get(season.primary, ['sequence']) as any[] | undefined) ?? [];
+		const numbers = items.filter((i) => (i?.type ?? 'chapter') === 'chapter' && Number.isFinite(Number(i?.number))).map((i) => Number(i.number));
+		const at = numbers.indexOf(chapterNumber);
+		return at >= 0 ? numbers[at + 1] : undefined;
+	});
 	async function openFlowNode(node: FlowNode) {
 		if (!node.path) return;
 		gotoProblem({ level: 'info', file: chapter.entity, locale: null, path: node.path, message: '' });
@@ -867,6 +874,10 @@
 					current={view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1}
 					slice={view.section === 'slice' ? view.sliceIndex : -1}
 					who={flowWho}
+					{toon}
+					registry={registryOf(registry)}
+					{facts}
+					nextChapter={flowNextChapter}
 					name={flowName}
 					text={flowText}
 					onopen={openFlowNode}

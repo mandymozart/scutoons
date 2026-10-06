@@ -684,6 +684,7 @@
 		"flow_dead_labels_n": "{count} labels",
 		"flow_asks": "asks → {into}",
 		"flow_once_hint": "runs at most once per reader (once for good)",
+		"flow_entry": "Entry point: a jump, an end or a map place from outside leads to this label",
 		"flow_repeat_interval": "once per period",
 		"flow_at": "C{chapter} · {group}",
 		"group_end": "End",

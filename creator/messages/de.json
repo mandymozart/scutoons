@@ -684,6 +684,7 @@
 		"flow_dead_labels_n": "{count} Labels",
 		"flow_asks": "fragt → {into}",
 		"flow_once_hint": "läuft höchstens einmal pro Leser:in (einmal für immer)",
+		"flow_entry": "Einstiegspunkt: ein Sprung, ein Ende oder ein Kartenort von außen führt zu diesem Label",
 		"flow_repeat_interval": "einmal pro Zeitraum",
 		"flow_at": "K{chapter} · {group}",
 		"group_end": "Ende",

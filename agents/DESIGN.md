@@ -291,6 +291,22 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     group / chapter / toon) near the top; "Show everything" fits down to 0.5 at most (smaller is unreadable – the
     minimap shows the rest). Edges follow dagre's route and their labels sit where dagre made room for them (a label is a
     node in dagre's layout), so the labels of edges leaving one box never overlap (`flow-edge.svelte`).
+  - **Pictures** (owner 2026-10-06): every box shows small images – the graph model names them as data (`FlowNode.image`
+    / `badge` / `faces`, flow.ts), the creator resolves them (`flow/flow-pictures.svelte.ts`): a group – its first slice
+    (left, the low variant) and a face stack of the characters acting in its script (joins + speakers + askText, in
+    order of appearance, persona / look / mood as named; 3 + "+n"); a chapter – its thumbnail; a toon – its avatar
+    (round); a slice – its image on top; a run / step – the speaker's face, a question – who asks it; an item tap – the
+    catalog item; a jump / exit – where it lands (the label's group's first slice, else the chapter's thumbnail; another
+    toon's avatar as a small badge). Faces = the registry's avatar view (`characterImage`, the reader's rule). Other
+    chapters / toons come from the flow index (each toon's `avatar`, per chapter `thumbnail` + label → first slice –
+    `chapterPictures`, TS and PHP agree). Icons (Feather, in the title): `message-square` messages, `git-branch` a
+    question, `corner-down-right` a jump, `help-circle` askText, `type` a text box, `check` once for good, `repeat` again
+    (per page view / period, an endless loop), `log-in` an entry point (a group something outside jumps to); a group's
+    layout at the title's end (`align-justify` vertical, `columns` horizontal, `film` full-width strip). Rules: only small
+    files; loaded lazily (one IntersectionObserver on the canvas, a box within one canvas size of the view); every box
+    kind has a fixed rem size with its picture place (`boxSize`), so the layout never moves while pictures load; no
+    picture / not found / broken = the dashed empty slot; an image's `title` is its name; zoomed out below 0.6 faces hide
+    and pictures fade (their places stay). No toggle.
   - Expressions step 3: an `if: { expr }` is a condition like a simple test (dashed, its text on the edge – the
     expression as written; never judged "never true"); `askText` is a step of its own on the group / slice level
     ("fragt → name / reader.name" + the question) and sets its variable (scope toon) for reach and dead things; a

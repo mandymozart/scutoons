@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { CloseIcon, Segmented } from '@scutoons/ui';
-	import { chapterFlow, groupFlow, sliceFlow, type ChapterReach, type FlowNode } from '@scutoons/content';
+	import { chapterFlow, groupFlow, sliceFlow, type ChapterReach, type CharacterRegistry, type FlowNode, type ToonFacts } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import type { FlowTextContext } from '$lib/components/flow/flow-texts.ts';
+	import { FlowPictures } from '$lib/components/flow/flow-pictures.svelte.ts';
 
 	/**
 	 * The chapter's story flow (owner 2026-10-06, agents/DESIGN.md "Flow panel"): a read-only, zoomable graph of what leads
@@ -20,6 +21,10 @@
 		name,
 		text,
 		who,
+		toon,
+		registry = null,
+		facts,
+		nextChapter,
 		onopen,
 		onclose
 	}: {
@@ -35,6 +40,14 @@
 		text: (value: unknown) => string;
 		/** a character key (`boy`, `catpope·cat`) as shown */
 		who?: (key: string) => string;
+		/** the chapter's toon (the pictures: slices, other chapters, toons) */
+		toon: string;
+		/** the character registry: the faces */
+		registry?: CharacterRegistry | null;
+		/** the toon's facts: which groups are entry points */
+		facts?: ToonFacts;
+		/** the season's next chapter (the follow-up bar's picture after the last group) */
+		nextChapter?: number;
 		onopen: (node: FlowNode) => void;
 		onclose: () => void;
 	} = $props();
@@ -62,12 +75,18 @@
 
 	const flow = $derived.by(() => {
 		if (!groups || !reach) return null;
-		const options = { chapter, reach, name, text };
+		const options = { chapter, toon, reach, name, text, facts, nextChapter };
 		if (level === 'slice') return sliceFlow(groups, current, slice, options);
 		if (level === 'group') return groupFlow(groups, current, options);
 		return chapterFlow(groups, options);
 	});
 	const ctx = $derived<FlowTextContext>({ chapter, who });
+	/** the boxes' pictures: slices, chapters, toons, items, faces (resolved in the boxes, loaded lazily) */
+	// svelte-ignore state_referenced_locally
+	const pictures = new FlowPictures(toon, { registry, items: true });
+	$effect(() => {
+		pictures.registry = registry;
+	});
 	/** the box of what's open: the group on the chapter level, the head of the group / slice level */
 	const isCurrent = (n: FlowNode) =>
 		level === 'chapter' ? n.kind === 'group' && n.group === current : level === 'group' ? n.kind === 'group' && n.group === current && !n.stub : n.kind === 'slice';
@@ -91,7 +110,7 @@
 				<p class="hint">{m['creator.loading']()}</p>
 			{:then mod}
 				{#key `${level}:${current}:${slice}`}
-					<mod.default {flow} {ctx} current={isCurrent} {onopen} />
+					<mod.default {flow} {ctx} current={isCurrent} {pictures} {onopen} />
 				{/key}
 			{:catch error}
 				<p class="hint error">{String(error?.message ?? error)}</p>
