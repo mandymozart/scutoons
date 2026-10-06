@@ -26,6 +26,7 @@ export * from './neutralize.ts';
 export * from './progress.ts';
 export * from './chains.ts';
 export * from './reach.ts';
+export * from './flow.ts';
 export * from './script.ts';
 export * from './media-quality.ts';
 export * from './map.ts';
