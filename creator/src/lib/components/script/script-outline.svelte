@@ -1,26 +1,25 @@
 <script lang="ts">
-	import { Icon } from '@scutoons/ui';
+	import { FoldButton } from '@scutoons/ui';
 	import type { ScriptOutlineItem } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 
 	/**
 	 * The script's outline (screenplay editor rules, `scriptOutline`): chapters, songs and scenes; a click jumps there, the
-	 * cursor's item is marked. Folds to a rail labelled "Outline" (owner 2026-10-03).
+	 * cursor's item is marked. Its fold button folds the page's outline region to a rail labelled "Outline" (owner 2026-10-03;
+	 * the rail and the region: script-editor.svelte, @scutoons/ui `Rail` / `dockRegion`).
 	 */
 	let {
 		outline,
 		current,
-		folded,
 		list = $bindable(),
 		onfold,
 		onjump
 	}: {
 		outline: ScriptOutlineItem[];
 		current: ScriptOutlineItem | null;
-		folded: boolean;
 		/** the scrolling list (its height is fitted to the action bar by the page) */
 		list?: HTMLElement;
-		onfold: (folded: boolean) => void;
+		onfold: () => void;
 		onjump: (line: number) => void;
 	} = $props();
 
@@ -31,30 +30,24 @@
 	}
 </script>
 
-{#if folded}
-	<button type="button" class="fold sc-round" onclick={() => onfold(false)} aria-label={m['creator.script_outline_show']()} title={m['creator.script_outline_show']()} aria-expanded="false" data-testid="script-outline-unfold"><Icon name="chevrons-right" /></button>
-	<!-- folded: written vertically, like the main sidebar's rail (owner 2026-10-03) -->
-	<span class="rail-label">{m['creator.script_outline']()}</span>
-{:else}
-	<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
-		<h2>
-			<span>{m['creator.script_outline']()}</span>
-			<button type="button" class="fold sc-round" onclick={() => onfold(true)} aria-label={m['creator.script_outline_fold']()} title={m['creator.script_outline_fold']()} aria-expanded="true" data-testid="script-outline-fold"><Icon name="chevrons-left" /></button>
-		</h2>
-		{#if outline.length}
-			<ol bind:this={list} class="outline-list">
-				{#each outline as item (item.line)}
-					<li class={item.kind}>
-						<button type="button" class:current={item === current} onclick={() => onjump(item.line)} title="{itemLabel(item)} ({item.line})" data-line={item.line} data-testid="script-outline-item">
-							{#if item.kind === 'scene'}<span class="num">{item.number}</span>{/if}
-							<span class="label">{itemLabel(item)}</span>
-						</button>
-					</li>
-				{/each}
-			</ol>
-		{/if}
-	</section>
-{/if}
+<section class="outline" data-testid="script-outline" aria-label={m['creator.script_outline']()}>
+	<h2>
+		<span>{m['creator.script_outline']()}</span>
+		<FoldButton side="left" label={m['creator.script_outline_fold']()} controls="script-outline" onclick={onfold} testid="script-outline-fold" />
+	</h2>
+	{#if outline.length}
+		<ol bind:this={list} class="outline-list">
+			{#each outline as item (item.line)}
+				<li class={item.kind}>
+					<button type="button" class:current={item === current} onclick={() => onjump(item.line)} title="{itemLabel(item)} ({item.line})" data-line={item.line} data-testid="script-outline-item">
+						{#if item.kind === 'scene'}<span class="num">{item.number}</span>{/if}
+						<span class="label">{itemLabel(item)}</span>
+					</button>
+				</li>
+			{/each}
+		</ol>
+	{/if}
+</section>
 
 <style>
 	h2 {
@@ -69,22 +62,15 @@
 		text-transform: uppercase;
 		margin: 0 0 0.3rem;
 	}
-	/* like the app shell's rail label */
-	.rail-label {
-		writing-mode: vertical-rl;
-		transform: rotate(180deg);
-		color: var(--muted);
-		white-space: nowrap;
-	}
 	.outline-list {
-		max-height: var(--outline-height, calc(100vh - 220px));
+		max-height: var(--outline-height, calc(100vh - 14rem));
 		overflow: auto;
 		/* thin, so the highlight reaches (almost) the divider */
 		scrollbar-width: thin;
 	}
 	@media (max-width: 900px) {
 		.outline-list {
-			max-height: 240px !important;
+			max-height: 15rem !important;
 		}
 	}
 	ol {
@@ -126,7 +112,7 @@
 		margin-top: 0.35rem;
 	}
 	.num {
-		min-width: 28px;
+		min-width: 1.75rem;
 		color: var(--muted);
 	}
 	.label {

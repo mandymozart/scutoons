@@ -15,7 +15,7 @@
 	import { toonDoc } from '$lib/editor/languages.ts';
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import { m } from '$lib/paraglide/messages.js';
-	import { Icon, confirmDialog, resizable } from '@scutoons/ui';
+	import { Divider, Icon, Rail, confirmDialog, dockRegion } from '@scutoons/ui';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import ScriptOutline from '$lib/components/script/script-outline.svelte';
 	import ScriptTitlePage from '$lib/components/script/script-meta.svelte';
@@ -51,49 +51,38 @@
 	});
 	let area = $state<HTMLTextAreaElement | undefined>();
 
-	// ── layout (owner 2026-10-03): a drag edge between the index and the text; the text ends 1rem above the footer ──
+	// ── layout (agents/DOCKING.md): the outline is a left region of the page – a Divider between it and the text drags it
+	// (16rem … half the page), it folds to a rail labelled "Outline" (its fold button, dragging it narrow; remembered) –
+	// the sidebar's dockRegion; the text ends 1rem above the footer ──
 	let layoutEl = $state<HTMLElement>();
-	/** the outline's width: its right edge drags it (160 px … half the page; @scutoons/ui resizable) */
-	const outlineSize = resizable({
-		storageKey: 'sc-script-outline-width',
-		edge: 'right',
+	const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+	const outlineRegion = dockRegion({
+		key: () => 'sc-script-outline-width',
+		foldKey: () => 'sc-script-outline-folded',
+		side: 'left',
 		anchor: () => layoutEl?.getBoundingClientRect().left ?? 0,
-		min: () => 160,
-		max: () => (layoutEl?.clientWidth ?? 800) / 2,
-		normal: () => 260
+		normal: () => 16 * rem(),
+		max: () => (layoutEl?.clientWidth ?? 50 * rem()) / 2
 	});
-	outlineSize.restore();
-	const outlineWidth = $derived(outlineSize.width);
+	outlineRegion.restore();
+	const outlineFolded = $derived(outlineRegion.folded);
+	const outlineCss = $derived(outlineFolded ? '2.5rem' : outlineRegion.width !== null ? `${outlineRegion.width}px` : '16rem');
 	let textHeight = $state<number | null>(null);
 	let outlineHeight = $state<number | null>(null);
-	/** the outline folded to a narrow strip (owner 2026-10-03) */
-	const FOLD_KEY = 'sc-script-outline-folded';
-	let outlineFolded = $state(false);
-	try {
-		outlineFolded = typeof localStorage !== 'undefined' && localStorage.getItem(FOLD_KEY) === '1';
-	} catch {
-		// not remembered
-	}
-	function foldOutline(value: boolean) {
-		outlineFolded = value;
-		try {
-			if (value) localStorage.setItem(FOLD_KEY, '1');
-			else localStorage.removeItem(FOLD_KEY);
-		} catch {
-			// not remembered
-		}
+	// folding changes where the list starts: fit the heights again
+	$effect(() => {
+		void outlineFolded;
 		queueMicrotask(fitHeight);
-	}
+	});
 	let outlineList = $state<HTMLElement>();
 	/** the text (and the index) reach down to 1rem above the bottom action bar – never under it */
 	function fitHeight() {
 		if (!area) return;
 		const bar = document.querySelector<HTMLElement>('.sc-action-bar');
 		const barHeight = bar ? bar.getBoundingClientRect().height : 0;
-		const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-		textHeight = Math.max(240, Math.floor(window.innerHeight - area.getBoundingClientRect().top - barHeight - rem));
+		textHeight = Math.max(15 * rem(), Math.floor(window.innerHeight - area.getBoundingClientRect().top - barHeight - rem()));
 		// the outline's list scrolls down to the bar exactly (owner 2026-10-03); its heading stays above it
-		if (outlineList) outlineHeight = Math.max(120, Math.floor(window.innerHeight - outlineList.getBoundingClientRect().top - barHeight));
+		if (outlineList) outlineHeight = Math.max(7.5 * rem(), Math.floor(window.innerHeight - outlineList.getBoundingClientRect().top - barHeight));
 	}
 	$effect(() => {
 		if (!area) return;
@@ -332,23 +321,15 @@
 				</p>
 			</section>
 		{:else}
-			<div class="layout" class:folded={outlineFolded} bind:this={layoutEl} style:--outline-width={outlineWidth !== null ? `${outlineWidth}px` : undefined} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
-				<aside class="side">
-					<ScriptOutline {outline} {current} folded={outlineFolded} bind:list={outlineList} onfold={foldOutline} onjump={jump} />
+			<div class="layout" class:folded={outlineFolded} bind:this={layoutEl} style:--outline-width={outlineCss} style:--script-height={textHeight !== null ? `${textHeight}px` : undefined} style:--outline-height={outlineHeight !== null ? `${outlineHeight}px` : undefined}>
+				<aside class="side" id="script-outline">
+					{#if outlineFolded}
+						<Rail side="left" label={m['creator.script_outline']()} unfoldLabel={m['creator.script_outline_show']()} controls="script-outline" onunfold={() => outlineRegion.fold(false)} testid="script-outline-rail" />
+					{:else}
+						<ScriptOutline {outline} {current} bind:list={outlineList} onfold={() => outlineRegion.fold(true)} onjump={jump} />
+					{/if}
 				</aside>
-				<!-- a focusable separator is a widget (WAI-ARIA window splitter) -->
-				<!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-				<div
-					class="split"
-					role="separator"
-					aria-orientation="vertical"
-					aria-label={m['creator.resize_panel']()}
-					tabindex="0"
-					title={m['creator.resize_panel']()}
-					onpointerdown={(e) => !outlineFolded && layoutEl && outlineSize.start(e)}
-					onkeydown={outlineSize.key}
-					ondblclick={outlineSize.reset}
-				></div>
+				<Divider size={outlineRegion} edge="right" at="var(--outline-width)" label={m['creator.resize_panel']()} controls="script-outline" class="outline-resize" />
 
 				<div class="main">
 					<div class="head">
@@ -389,33 +370,30 @@
 		flex-direction: column;
 		gap: 0.5rem;
 	}
-	/* the outline starts at the sidebar's divider (no page padding before it) and has a divider on its right */
+	/* the outline starts at the sidebar's divider (no page padding before it); its right border is the Divider's line */
 	.layout {
+		position: relative;
 		display: grid;
-		grid-template-columns: var(--outline-width, 260px) 0.75rem minmax(0, 1fr);
+		grid-template-columns: var(--outline-width, 16rem) minmax(0, 1fr);
 		gap: 0;
 		align-items: start;
-		/* flush with the sidebar divider, up to the status line and down to the action bar: the divider runs the full
+		/* flush with the sidebar divider, up to the status line and down to the action bar: the border runs the full
 		   height; only the text keeps its 1rem above the bar (fitHeight) */
 		margin: -1rem 0 -1rem -1rem;
 	}
 	.side {
+		align-self: stretch;
+		box-sizing: border-box;
+		min-width: 0;
 		padding: 1rem 0 0;
-	}
-	/* the content 1rem from the divider */
-	.main {
-		/* the drag edge (0.75rem, its line on the left) + this = 1rem */
-		padding: 1rem 0 0 0.25rem;
-	}
-	.layout.folded {
-		grid-template-columns: 2.5rem 0.75rem minmax(0, 1fr);
+		border-right: var(--border-width-regular) solid var(--ink);
 	}
 	.layout.folded .side {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 0.75rem;
-		padding: 1rem 0 0;
+		padding: 0;
+	}
+	/* the content 1rem from the border; its 1rem below the text keeps the border running down to the action bar */
+	.main {
+		padding: 1rem 0 1rem 1rem;
 	}
 	/* the title page row; "Edit script" at its right while the script is read-only */
 	.head {
@@ -429,38 +407,20 @@
 		gap: 0.5rem;
 		flex: none;
 	}
-	/* the divider right of the outline, also its drag edge */
-	.split {
-		align-self: stretch;
-		cursor: col-resize;
-		touch-action: none;
-		background: linear-gradient(var(--ink), var(--ink)) left / var(--border-width-regular) 100% no-repeat;
-	}
-	.layout.folded .split {
-		cursor: default;
-	}
-	.split:hover,
-	.split:focus-visible {
-		background: linear-gradient(var(--ink), var(--ink)) left / var(--border-width-focus) 100% no-repeat;
-		outline: none;
-	}
 	.rules-link {
 		color: var(--ink);
 	}
+	/* narrower: the outline above the text (no rail, no divider) */
 	@media (max-width: 900px) {
 		.layout {
 			grid-template-columns: minmax(0, 1fr);
 		}
 		.side {
-			position: static !important;
+			border-right: 0;
 		}
-		.split {
+		.layout :global(.outline-resize) {
 			display: none;
 		}
-	}
-	.side {
-		position: sticky;
-		top: 0.5rem;
 	}
 	.main {
 		display: flex;
@@ -476,7 +436,7 @@
 		white-space: pre;
 		overflow: auto;
 		width: 100%;
-		height: var(--script-height, calc(100vh - 260px));
+		height: var(--script-height, calc(100vh - 16rem));
 		box-sizing: border-box;
 		padding: var(--space-05) var(--space-075);
 		border: 2px solid var(--ink);
