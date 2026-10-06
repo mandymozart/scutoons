@@ -142,7 +142,8 @@ try {
 	const flow = await until(`(() => { const c = (id) => document.querySelector('[data-testid="flow-node-' + id + '"]')?.className ?? ''; return c('g0') && c('g2e2') ? { a: c('g0'), b: c('g1'), c: c('g2'), jump: c('g0e1'), loop: c('g2e2') } : null; })()`, 20000);
 	check(/is-reachable/.test(flow?.a) && /is-unreachable/.test(flow?.b) && /is-reachable/.test(flow?.c) && /is-reachable/.test(flow?.jump), 'Flow panel: A and C reachable, group 2 unreachable (like the tree)', JSON.stringify(flow));
 	check(/is-loop/.test(flow?.loop), 'Flow panel: the divert back in C is an endless loop', JSON.stringify(flow));
-	const edge = await js(`[...document.querySelectorAll('.svelte-flow__edge')].some((e) => e.getAttribute('data-id')?.startsWith('g0e1>g2'))`);
+	// edges are drawn once the boxes are measured (a moment after the boxes): wait for it
+	const edge = await until(`[...document.querySelectorAll('.svelte-flow__edge')].some((e) => e.getAttribute('data-id')?.startsWith('g0e1>g2')) || null`, 5000);
 	check(edge, 'Flow panel: the jump leads to group C');
 	await js(`${q('group-0')}.click(), true`);
 	await sleep(500);
