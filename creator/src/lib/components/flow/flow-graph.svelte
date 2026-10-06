@@ -1,128 +1,48 @@
 <script lang="ts">
-	// Loaded only when the Flow panel opens (flow-panel.svelte imports it dynamically): Svelte Flow + dagre stay out of
-	// the pages that never show it.
+	// Loaded only when a Flow panel / page opens (flow-panel.svelte, flow-dock.svelte import it dynamically): Svelte Flow +
+	// dagre stay out of the pages that never show it. Draws any level's graph (@scutoons/content flow.ts) the same way.
 	import '@xyflow/svelte/dist/style.css';
 	import { SvelteFlow, MiniMap, MarkerType, type Edge, type Node, type NodeTypes } from '@xyflow/svelte';
 	import dagre from '@dagrejs/dagre';
-	import { chapterFlow, type ChapterReach, type FlowEdge, type FlowNode, type JumpToTarget } from '@scutoons/content';
+	import type { FlowEdge, FlowNode } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import FlowBox, { type FlowNodeData } from '$lib/components/flow/flow-node.svelte';
 	import FlowControls from '$lib/components/flow/flow-controls.svelte';
+	import { boxSize, boxText, chipOf, edgeText, hintOf, type FlowTextContext } from '$lib/components/flow/flow-texts.ts';
 
 	let {
-		groups,
-		reach,
-		chapter,
-		current = -1,
-		name,
-		text,
+		flow,
+		ctx = {},
+		current = () => false,
+		link = (n: FlowNode) => !!n.path,
 		onopen
 	}: {
-		groups: readonly any[];
-		reach: ChapterReach;
-		chapter: number;
-		current?: number;
-		name: (group: any, index: number) => string;
-		text: (value: unknown) => string;
+		flow: { nodes: FlowNode[]; edges: FlowEdge[] };
+		ctx?: FlowTextContext;
+		/** the box of what's open in the editor (inverted) */
+		current?: (n: FlowNode) => boolean;
+		/** a click on the box opens something */
+		link?: (n: FlowNode) => boolean;
 		onopen: (node: FlowNode) => void;
 	} = $props();
 
 	const nodeTypes: NodeTypes = { flow: FlowBox };
-
-	// ── texts ───────────────────────────────────────────────────────────────────────────────────────────────────
-	const triggerWord = (t: string | undefined) =>
-		t === 'click' ? m['creator.trigger_click']() : t === 'hover' ? m['creator.trigger_hover']() : t === 'intersect' ? m['creator.trigger_intersect']() : t === 'item' ? m['creator.flow_item_tap']() : (t ?? '');
-	function targetText(t: JumpToTarget | undefined): string {
-		if (!t) return '';
-		const value = t.value;
-		const head =
-			t.type === 'chapter'
-				? m['creator.flow_chapter']({ value })
-				: t.type === 'season'
-					? m['creator.flow_season']({ value })
-					: t.type === 'toon'
-						? m['creator.flow_toon']({ value })
-						: t.type === 'product'
-							? m['creator.flow_product']({ value })
-							: m['creator.flow_xr']({ value });
-		if (t.anyOf?.length) return `${head} · ${m['creator.vn_random_one']({ list: t.anyOf.join(', ') })}`;
-		return t.label ? `${head} · ${t.label}` : head;
-	}
-	/** a jump within this chapter: just the group(s) it leads to */
-	function hereText(t: JumpToTarget | undefined): string | null {
-		if (!t || t.type !== 'chapter' || Number(t.value) !== chapter) return null;
-		if (t.anyOf?.length) return m['creator.vn_random_one']({ list: t.anyOf.join(', ') });
-		return t.label ?? m['creator.vn_group_first']();
-	}
-	function boxText(n: FlowNode): { title: string; meta?: string } {
-		switch (n.kind) {
-			case 'group': {
-				const parts = [m['creator.flow_slices']({ count: n.count ?? 0 })];
-				if (n.script) parts.push(m['creator.script']());
-				if (n.deadSlices?.length) parts.push(m['creator.flow_dead_slices']({ list: n.deadSlices.map((k) => k + 1).join(', ') }));
-				return { title: n.name ?? '', meta: parts.join(' · ') };
-			}
-			case 'label':
-				return { title: `${m['creator.vn_point']()} ${n.name ?? ''}` };
-			case 'choices':
-				return { title: m['creator.flow_question']({ count: n.count ?? 0 }) };
-			case 'divert':
-				return { title: m['creator.flow_divert']({ name: n.name ?? '' }) };
-			case 'jump':
-				return { title: `${m['creator.flow_jump']()} → ${hereText(n.target) ?? targetText(n.target)}` };
-			case 'trigger':
-				return { title: `${m['creator.flow_slice']({ number: (n.slice ?? 0) + 1 })} · ${triggerWord(n.trigger)}` };
-			case 'exit':
-				return { title: n.next ? `→ ${m['creator.flow_next_chapter']()}` : `→ ${targetText(n.target)}` };
-		}
-	}
-	const chipOf = (n: FlowNode) =>
-		n.status === 'unreachable' && n.kind !== 'exit'
-			? m['creator.reach_unreachable']()
-			: n.status === 'never'
-				? m['creator.reach_never']()
-				: n.status === 'loop'
-					? m['creator.reach_loop']()
-					: undefined;
-	const hintOf = (n: FlowNode) =>
-		n.status === 'unreachable'
-			? m['creator.reach_unreachable_hint']()
-			: n.status === 'never'
-				? m['creator.reach_never_hint']()
-				: n.status === 'loop'
-					? m['creator.reach_loop_hint']()
-					: n.status === 'conditional'
-						? m['creator.flow_conditional']()
-						: undefined;
-	const clip = (s: string, n = 28) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-	function edgeText(e: FlowEdge): string {
-		const parts: string[] = [];
-		if (e.label) parts.push(clip(e.label));
-		if (e.branch) parts.push(e.branch === 'else' ? m['creator.flow_else']() : e.branch === 'none' ? m['creator.flow_none']() : m['creator.flow_auto']());
-		if (e.condition && e.branch !== 'else') parts.push(m['creator.vn_if_short']({ test: e.condition }));
-		return parts.join(' · ');
-	}
-
-	// ── layout (dagre, top to bottom); sizes in rem, converted once for the layout ────────────────────────────────
-	/** a box's size in rem (the box's CSS gets the same numbers) */
-	const sizeOf = (n: FlowNode, d: FlowNodeData) => ({ w: n.kind === 'group' ? 13 : 12, h: (n.kind === 'group' ? 3.25 : 2) + (n.kind !== 'group' && d.chip ? 1.25 : 0) });
 	const rem = () => parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
 
 	let nodes = $state.raw<Node<FlowNodeData>[]>([]);
 	let edges = $state.raw<Edge[]>([]);
 
+	// layout: dagre, top to bottom; sizes in rem, converted once for the layout
 	$effect(() => {
-		const flow = chapterFlow(groups, { chapter, reach, name, text });
 		const px = rem();
 		const g = new dagre.graphlib.Graph({ multigraph: true });
 		g.setGraph({ rankdir: 'TB', nodesep: px * 1.25, ranksep: px * 2.25, edgesep: px * 0.75, marginx: px, marginy: px });
 		g.setDefaultEdgeLabel(() => ({}));
 		const data = new Map<string, FlowNodeData>();
 		for (const n of flow.nodes) {
-			const t = boxText(n);
-			const d: FlowNodeData = { flow: n, ...t, chip: chipOf(n), hint: hintOf(n), current: n.kind === 'group' && n.group === current };
+			const d: FlowNodeData = { flow: n, ...boxText(n, ctx), chip: chipOf(n), hint: hintOf(n), current: current(n), link: link(n) };
 			data.set(n.id, d);
-			const s = sizeOf(n, d);
+			const s = boxSize(n, d);
 			g.setNode(n.id, { width: s.w * px, height: s.h * px });
 		}
 		const labels = new Map<string, string>();
@@ -134,7 +54,7 @@
 		dagre.layout(g);
 		nodes = flow.nodes.map((n) => {
 			const p = g.node(n.id);
-			const s = sizeOf(n, data.get(n.id)!);
+			const s = boxSize(n, data.get(n.id)!);
 			return {
 				id: n.id,
 				type: 'flow',
@@ -151,7 +71,7 @@
 			source: e.from,
 			target: e.to,
 			label: labels.get(e.id) || undefined,
-			class: `flow-edge kind-${e.kind} from-${e.status}${e.never ? ' is-never' : ''}${e.condition ? ' is-conditional' : ''}`,
+			class: `flow-edge kind-${e.kind} from-${e.status}${e.never ? ' is-never' : ''}${e.condition || e.status === 'conditional' ? ' is-conditional' : ''}`,
 			markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16, color: e.never || e.status === 'unreachable' ? 'var(--badge-warning)' : 'var(--ink)' }, // px-ok: the marker's own units
 			deletable: false,
 			selectable: false
@@ -161,7 +81,7 @@
 	const miniColor = (n: Node) => {
 		const f = (n.data as FlowNodeData).flow;
 		if (f.status === 'unreachable' || f.status === 'never' || f.status === 'loop') return 'var(--badge-warning)';
-		return f.kind === 'group' ? 'var(--ink)' : 'var(--border-muted)';
+		return f.kind === 'group' || f.kind === 'chapter' || f.kind === 'toon' ? 'var(--ink)' : 'var(--border-muted)';
 	};
 	const miniSize = rem();
 </script>
@@ -180,8 +100,8 @@
 		colorMode="light"
 		proOptions={{ hideAttribution: true }}
 		onnodeclick={({ node }) => {
-			const f = (node.data as FlowNodeData).flow;
-			if (f.path) onopen(f);
+			const d = node.data as FlowNodeData;
+			if (d.link) onopen(d.flow);
 		}}
 	>
 		<FlowControls />
@@ -222,10 +142,13 @@
 	.graph :global(.flow-edge.is-conditional path.svelte-flow__edge-path) {
 		stroke-dasharray: 6 4;
 	}
-	.graph :global(.flow-edge.kind-continues path.svelte-flow__edge-path) {
+	.graph :global(.flow-edge.kind-continues path.svelte-flow__edge-path),
+	.graph :global(.flow-edge.kind-order path.svelte-flow__edge-path) {
 		stroke-width: 3;
 	}
-	.graph :global(.flow-edge.kind-trigger path.svelte-flow__edge-path) {
+	.graph :global(.flow-edge.kind-trigger path.svelte-flow__edge-path),
+	.graph :global(.flow-edge.kind-reveal path.svelte-flow__edge-path),
+	.graph :global(.flow-edge.kind-place path.svelte-flow__edge-path) {
 		stroke-dasharray: 2 4;
 	}
 	.graph :global(.flow-edge.is-never path.svelte-flow__edge-path),

@@ -19,6 +19,8 @@
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import { listLanguage } from '$lib/editor/text-language.svelte.ts';
+	import { page } from '$app/state';
+	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
 
 	/**
 	 * Season meta (the entity season:<toon>:<N>, ONE language-neutral document – agents/NEUTRAL.md), cleaned up like the
@@ -82,9 +84,15 @@
 	}
 
 	// the season's children in the sidebar: its chapters with their status per language
-	usePageNav({ sidebar: chapterNav });
+	usePageNav({ sidebar: chapterNav, actions: flowToggle });
+	// the season's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it
+	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
 	const nav = getCreatorNav();
 </script>
+
+{#snippet flowToggle()}
+	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_season_open']()} aria-label={m['creator.flow_season_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+{/snippet}
 
 {#snippet chapterNav()}
 	<p class="nav-head">{m['creator.chapters']()}</p>
@@ -179,6 +187,9 @@
 		</section>
 	{/if}
 </MetaPage>
+{#if flowOpen}
+	<ToonFlowPanel {toon} season={number} onclose={() => (flowOpen = false)} />
+{/if}
 
 <style>
 	.block {

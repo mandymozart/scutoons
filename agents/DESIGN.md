@@ -279,16 +279,44 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   chain: the groups above count as read. Creator: a jumping group that continues into an unlabelled one gets a note
   above its script with "Label vergeben"; unreachable groups / slices / events and never-true tests carry a warning
   chip ("unerreichbar", "nie wahr", "Endlosschleife").
-- **Flow panel** (owner 2026-10-06, DRAFT – chapter level only; `components/flow/`): a read-only, zoomable graph of the
-  chapter's story flow ("Ablauf" / "Flow") – `@scutoons/content` `chapterFlow` over the editor's own `chapterReach`, so it
-  says what the chips say. Opened by a round Feather `git-merge` button in the top bar left of the Ask button (a page's
-  `usePageNav({ actions })`); docked on the right like Problems / History (left of Ask, pushes the page, drags wider up to
-  half the window, 28rem by default). Boxes: group (2px ink; slices · Script · unreachable slices), script points
-  (hairline: point, question, divert, jump), slice triggers / item taps that branch, exits (pill: another chapter /
-  season / toon, the next chapter). Only through a condition = dashed; unreachable / never true / endless loop = the
-  warning colour + its chip; the group open in the editor = inverted. Edges: linked (thick), follow-up bar, end, choices
-  (their text), conditions ("wenn …"), else. A box opens its group / slice / event (navigation only). Svelte Flow +
-  dagre are loaded only when the panel opens; zoom / fit are the creator's round buttons, a minimap bottom right.
+- **Flow panel** (owner 2026-10-06; `components/flow/`, @scutoons/content flow.ts): a read-only, zoomable graph of the
+  story flow ("Ablauf" / "Flow") on every level, one look (boxes, edges, buttons, minimap). Opened by a round Feather
+  `git-merge` button in the top bar left of the Ask button (a page's `usePageNav({ actions })`); docked on the right like
+  Problems / History (left of Ask, drags wider up to half the window, 28rem by default; `?flow=1` opens it). Svelte Flow +
+  dagre are loaded only when it opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates
+  (read-only otherwise).
+  - **Chapter** (chapter editor, nothing selected): `chapterFlow` over the editor's own `chapterReach` (so it says what the
+    chips say). Boxes: group (2px ink; slices · Script · unreachable slices), script points (hairline: point, question,
+    divert, jump), slice triggers / item taps that branch, exits (pill: another chapter / season / toon, the next chapter).
+    Only through a condition = dashed; unreachable / never true / endless loop = the warning colour + its chip; the group
+    open in the editor = inverted. Edges: linked (thick), follow-up bar, end, choices (their text), conditions ("wenn …"),
+    else. A box opens its group / slice / event.
+  - **Group** (a group selected) – `groupFlow`: every script event; plain ones (messages, joins / leaves, variables, text
+    boxes) collapsed into runs between the key points ("„first message“ · 3 Nachr. (who) · kommt: … · setzt …"); a plain
+    event under a test is a dashed step in line, the test on the edge into it; every slice trigger / item tap with its own
+    events; the groups the reader comes from and goes on to as dashed hairline stubs.
+  - **Slice** (a slice selected) – `sliceFlow`: the slice, its triggers and item taps with every event, the points of the
+    group's script they divert into (stubs), the script events that reveal its text boxes ("zeigt").
+  - The level follows the editor's selection (decision: no separate picker); a small segmented "Kapitel · Gruppe · Slice"
+    above the graph goes back up (only the levels the selection allows; a new selection follows again).
+  - **Season** (season page) / **toon** (toon page) – `toonFlow` over `toonReach`: one box per chapter ("Kapitel 2 ·
+    Ärger", status · groups · unreachable groups; unreachable in the toon = warning chip). Toon reach: entries are each
+    season's first chapter, the published chapters (readable from the overview) and chapters a visible map place opens;
+    from a reached chapter its follow-up bar leads to the next chapter of the season (only when the chapter can get
+    there – a chapter that always jumps away breaks the order), its jumps / ends to chapters / seasons / the toon page.
+    Edges: the season order (thick), jumps / ends between chapters (parallel ways merged, their choice texts), exits
+    (other seasons on the season level, other toons, products, XR). The toon adds the map places ("Karte: …", one box per
+    chapter, dashed when they are all hidden = unlocked by reading). A chapter box opens the chapter with its Flow.
+  - **SCUTOONS** (Universum → "Ablauf", `/flow`, next to the world map) – `universeFlow` over the server's flow index
+    (`GET /api/creator/flow-index`, so the browser doesn't load every toon): one box per toon (status · seasons ·
+    chapters), the jumps between toons (merged, counted, their texts), products / XR as exits. A toon box opens the
+    toon page with its Flow (the seasons and chapters).
+  - **Dead things** (season / toon / SCUTOONS, `deadThings`; the server's index uses the same rules): one muted line under
+    the graph – "Tot: 1 · 1 · 0 · 5" (set never read · read never set · points nothing diverts to · labels nothing jumps
+    to) – opening into the lists, each with where it is (a link to its chapter). Nothing dead: nothing shown. Reads =
+    conditions + `{name}` in texts (today's interpolation; the expression language will add its own names). A group
+    label counts as used when something jumps there or the follow-up bar leads there (the group before doesn't continue
+    and has no end).
 - **Creator group panel** (owner 2026-10-06, `chapter/group-panel.svelte`): compact – one tight field grid (`data-cols="fill"`):
   Name · Layout ("vertikal / horizontal", "vertical / horizontal") · Volle Breite / Full width (horizontal only) ·
   Durchgehend / Continuous · "Ende festlegen"; the explanations are the fields' `title` tooltips, no hint lines; the

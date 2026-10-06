@@ -895,13 +895,13 @@ export function universeFlow(index: FlowIndex, options: { text?: (value: unknown
 		} else continue; // chapter / season: inside the toon
 		const kind: FlowEdgeKind = e.kind;
 		const key = `${from}|${to}|${kind}`;
-		const where = `${e.source.chapter}${e.label ? `: ${e.label}` : ''}`;
 		const had = merged.get(key);
 		if (had) {
 			had.count = (had.count ?? 1) + 1;
+			if (e.label && !(had.label ?? '').split(' · ').includes(e.label)) had.label = had.label ? `${had.label} · ${e.label}` : e.label;
 			continue;
 		}
-		const edge: FlowEdge = { id: `${from}>${to}#${edges.length}`, from, to, kind, status: 'reachable', label: where, count: 1 };
+		const edge: FlowEdge = { id: `${from}>${to}#${edges.length}`, from, to, kind, status: 'reachable', ...(e.label ? { label: e.label } : {}), count: 1 };
 		merged.set(key, edge);
 		edges.push(edge);
 	}

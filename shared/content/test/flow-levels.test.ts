@@ -182,6 +182,7 @@ test('universeFlow: one box per toon, jumps between toons merged, products / XR 
 	});
 	assert.deepEqual(f.nodes.map((n) => `${n.id}:${n.kind}:${n.name ?? ''}:${n.count ?? ''}`), ['t:catpope:toon:Katzenpapst:2', 't:toptoy:toon:Top Toy:1', 'x:product:vinyl:exit::']);
 	assert.deepEqual(f.edges.map((e) => `${e.from}>${e.to}:${e.kind}:${e.count}`), ['t:catpope>t:toptoy:choice:2', 't:toptoy>t:catpope:jump:1', 't:toptoy>x:product:vinyl:end:1']);
+	assert.equal(f.edges[0].label, 'Hyper City · again', 'the merged ways keep their texts');
 });
 
 test('deadThings: variables set but never read, read but never set, points and labels nothing jumps to', () => {

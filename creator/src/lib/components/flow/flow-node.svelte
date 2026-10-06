@@ -11,6 +11,8 @@
 		hint?: string;
 		/** the group open in the editor */
 		current?: boolean;
+		/** a click opens something (navigation) */
+		link?: boolean;
 	}
 </script>
 
@@ -24,7 +26,8 @@
 <div
 	class="box kind-{data.flow.kind} is-{data.flow.status}"
 	class:current={data.current}
-	class:link={!!data.flow.path}
+	class:link={!!data.link}
+	class:stub={!!data.flow.stub}
 	title={data.hint ? `${data.title} – ${data.hint}` : data.title}
 	data-testid="flow-node-{data.flow.id}"
 >
@@ -66,7 +69,10 @@
 		overflow: hidden;
 		text-overflow: ellipsis;
 	}
-	.kind-group .title {
+	.kind-group .title,
+	.kind-chapter .title,
+	.kind-toon .title,
+	.kind-slice .title {
 		font-size: 1rem;
 	}
 	.meta {
@@ -83,8 +89,15 @@
 	.kind-choices,
 	.kind-divert,
 	.kind-jump,
-	.kind-trigger {
+	.kind-trigger,
+	.kind-run,
+	.kind-step,
+	.kind-place {
 		border-width: var(--border-width-hairline);
+	}
+	/* only if its test holds */
+	.kind-step {
+		border-style: dashed;
 	}
 	.kind-exit {
 		border-radius: calc(infinity * 1rem);
@@ -111,6 +124,12 @@
 	}
 	.current .meta {
 		color: var(--paper);
+	}
+	/* drawn for context (another group, a point of the script): lighter */
+	.stub {
+		border-width: var(--border-width-hairline);
+		border-style: dashed;
+		color: var(--text-muted);
 	}
 	.link:hover {
 		outline: var(--border-width-focus) solid var(--ink);

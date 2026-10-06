@@ -99,6 +99,8 @@
 		}
 		// the world map (agents/MAP.md §4.1): Creator / Karte / <selection – added by the builder>
 		if (route === '/map') out.push({ href: '/map', label: m['creator.map']() });
+		// the SCUTOONS-wide Flow (owner 2026-10-06): Creator / Ablauf
+		if (route === '/flow') out.push({ href: '/flow', label: m['creator.flow_universe']() });
 		if (!toonId) return out;
 		out.push({ href: `/${toonId}`, label: toonName(toonId) });
 		// every chapter belongs to a season; the editor works on season 1 for now
@@ -128,11 +130,12 @@
 		{ href: '/characters', label: m['creator.characters'](), tab: null as string | null },
 		{ href: '/characters?tab=moods', label: m['creator.characters_moods'](), tab: 'moods' },
 		{ href: '/characters?tab=wanted', label: m['creator.characters_wanted'](), tab: 'wanted' },
-		{ href: '/map', label: m['creator.map'](), tab: 'map' }
+		{ href: '/map', label: m['creator.map'](), tab: 'map' },
+		{ href: '/flow', label: m['creator.flow_universe'](), tab: 'flow' }
 	]);
 	const universeCurrent = (tab: string | null) =>
-		tab === 'map'
-			? page.route.id === '/map'
+		tab === 'map' || tab === 'flow'
+			? page.route.id === `/${tab}`
 				? 'page'
 				: undefined
 			: page.route.id === '/characters' && (page.url.searchParams.get('tab') ?? null) === tab

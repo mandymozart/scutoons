@@ -275,7 +275,8 @@
 		void view.gridSize;
 		view.savePrefs();
 	});
-	let panel = $state<'problems' | 'history' | 'flow' | null>(null);
+	// `?flow=1` (from the season's / toon's Flow): the chapter opens with its Flow panel
+	let panel = $state<'problems' | 'history' | 'flow' | null>(page.url.searchParams.get('flow') === '1' ? 'flow' : null);
 	// with the Ask panel open too, the sidebar folds to its rail (the page keeps room)
 	$effect(() => {
 		pagePanel.open = panel !== null;
@@ -487,6 +488,11 @@
 		const map = v as Record<string, unknown>;
 		const pick = [displayLocale, languages.source, ...Object.keys(map)].map((l) => map[l]).find((t) => typeof t === 'string' && t.trim());
 		return typeof pick === 'string' ? pick : '';
+	};
+	/** a character key of the graph (`boy`, `catpope·cat`) as its name in the header's language */
+	const flowWho = (key: string): string => {
+		const [id, persona] = key.split('·');
+		return characterName(registryIndex.get(id), displayLocale, persona) || key;
 	};
 	async function openFlowNode(node: FlowNode) {
 		if (!node.path) return;
@@ -828,6 +834,8 @@
 					{reach}
 					chapter={chapterNumber}
 					current={view.section === 'group' || view.section === 'slice' ? view.groupIndex : -1}
+					slice={view.section === 'slice' ? view.sliceIndex : -1}
+					who={flowWho}
 					name={flowName}
 					text={flowText}
 					onopen={openFlowNode}

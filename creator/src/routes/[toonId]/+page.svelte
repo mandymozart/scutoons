@@ -18,11 +18,15 @@
 	import { fileLabel, fileLabels } from '$lib/labels.ts';
 	import FileStatus from '$lib/components/status/file-status.svelte';
 	import ChapterBadges from '$lib/components/status/chapter-badges.svelte';
-	import { getCreatorNav } from '$lib/nav.svelte.ts';
+	import { getCreatorNav, usePageNav } from '$lib/nav.svelte.ts';
+	import ToonFlowPanel from '$lib/components/flow/toon-flow-panel.svelte';
 	import { listLanguage, otherTexts } from '$lib/editor/text-language.svelte.ts';
 
 	const toonId = $derived(page.params.toonId as string);
 	const nav = getCreatorNav();
+	// the toon's Flow (owner 2026-10-06): a round button in the top bar like the chapter's; `?flow=1` opens it
+	let flowOpen = $state(page.url.searchParams.get('flow') === '1');
+	usePageNav({ actions: flowToggle });
 	/** the toon's display name in the UI language (never the id as a title) */
 	const toonName = $derived(nav.toonName(toonId));
 
@@ -426,6 +430,15 @@
 		{/snippet}
 	</ActionBar>
 </div>
+{#if flowOpen}
+	{#key toonId}
+		<ToonFlowPanel toon={toonId} onclose={() => (flowOpen = false)} />
+	{/key}
+{/if}
+
+{#snippet flowToggle()}
+	<button type="button" class="sc-round" aria-pressed={flowOpen} title={m['creator.flow_toon_open']()} aria-label={m['creator.flow_toon_open']()} onclick={() => (flowOpen = !flowOpen)} data-testid="flow-toggle"><Icon name="git-merge" /></button>
+{/snippet}
 
 <style>
 	.toon-title {
