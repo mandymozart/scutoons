@@ -408,7 +408,8 @@
 		padding: 1rem 0 0 0.25rem;
 	}
 	.layout.folded {
-		grid-template-columns: 2.5rem 0.75rem minmax(0, 1fr);
+		/* the rail fits its round fold button (--control-height, 44px on touch screens), like the app shell's rail */
+		grid-template-columns: calc(var(--control-height) + 1rem) 0.75rem minmax(0, 1fr);
 	}
 	.layout.folded .side {
 		display: flex;

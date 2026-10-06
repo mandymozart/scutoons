@@ -52,7 +52,8 @@ the files it points to – read those only for the part you touch (MEMORY.md is 
 - Every control at `--control-height`; icon-only buttons are round (`class="sc-round"`, tools.css); one tooltip style
   via `title`; bold very rarely; field groups without frames (legend = label).
 - Spacing on a 1rem line: sidebars, outline, fold button all start at 1rem; dividers run edge to edge.
-- Right-side drawers/panels drag wider (up to half the window); the sidebar folds to a rail (Feather chevrons button at its top right / drag / Ctrl+\); the script outline folds
+- Right-side drawers/panels drag wider (up to half the window); the sidebar folds to a rail (Feather chevrons button at its top right / drag / Ctrl+\; the rail is as wide as the
+  round button + 0.5rem either side); the script outline folds
   the same way, its rail labelled "Outline". The script is read-only until "Edit script" is confirmed.
 - Confirmations are in-page (`confirmDialog` / `askDialog` from @scutoons/ui), never `confirm()`.
 - Right-docked page panels (Problems, History, help) sit left of the Ask panel (`--ask-inset`); with both open the

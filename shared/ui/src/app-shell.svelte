@@ -22,7 +22,7 @@
 	 * `resizeKey`: from 768px on, the sidebar's right edge can be dragged wider (owner 2026-10-02: creator) – from its
 	 * normal width up to a third of the window; arrow keys on the handle, double-click resets; remembered per key in
 	 * localStorage (`sc-sidebar-width:<key>`).
-	 * `foldable` (with `resizeKey`, owner 2026-10-03 "version A"): from 768px on the sidebar folds to a 2.5rem rail –
+	 * `foldable` (with `resizeKey`, owner 2026-10-03 "version A"): from 768px on the sidebar folds to a rail –
 	 * the fold button (Feather chevrons-left) at its top right, dragging the edge narrower than the normal width, or Ctrl + \; the rail shows chevrons-right and
 	 * `railLabel` (the current place) written vertically. Remembered per key (`sc-sidebar-folded:<key>`).
 	 */
@@ -341,7 +341,9 @@
 
 	/* the folded sidebar: a rail (foldable) */
 	.sc-app-shell {
-		--sc-shell-rail-width: 2.5rem;
+		/* the fold button and 0.5rem on either side, plus the border (owner 2026-10-06: a fixed 2.5rem clipped the
+		   round button – it is --control-height, 44px on touch screens) */
+		--sc-shell-rail-width: calc(var(--control-height) + 1rem + var(--border-width-regular));
 	}
 	.sc-shell-rail {
 		display: flex;

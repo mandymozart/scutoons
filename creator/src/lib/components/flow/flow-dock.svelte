@@ -42,7 +42,6 @@
 		max-width: 100vw;
 		background: var(--paper);
 		border-left: var(--border-width-regular) solid var(--ink);
-		padding: var(--space-1);
 		z-index: 20;
 		box-sizing: border-box;
 		overflow: hidden;

@@ -61,7 +61,10 @@
 	.dead {
 		font-size: var(--type-caption-size);
 		color: var(--text-muted);
-		margin: var(--space-05) 0 0;
+		/* under the frameless canvas (owner 2026-10-06): a divider edge to edge, the text on the panel's 1rem line */
+		margin: 0;
+		padding: 0 var(--space-1) var(--space-05);
+		border-top: var(--border-width-regular) solid var(--ink);
 		max-height: 40vh;
 		overflow: auto;
 	}

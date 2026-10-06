@@ -1023,9 +1023,10 @@
 		box-sizing: border-box;
 	}
 	/* the Flow panel: its graph fills the panel's height (it pans / zooms itself) */
+	/* the Flow fills the panel edge to edge: its header is the Ask panel's, the canvas has no frame (owner 2026-10-06) */
 	.side-panel.is-flow {
 		overflow: hidden;
-		padding-bottom: var(--space-1);
+		padding: 0;
 	}
 	.pad {
 		padding: var(--space-1);

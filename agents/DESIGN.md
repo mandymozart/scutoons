@@ -287,6 +287,8 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   half the window, one stored width, 28rem by default; `?flow=1` opens it; the chapter editor and MetaPage take turns
   with Problems / History, the toon page uses `flow/flow-dock.svelte`). Svelte Flow + dagre are loaded only when it
   opens; zoom / fit are the creator's round buttons, a minimap bottom right. A box navigates (read-only otherwise).
+  The panel is edge to edge (owner 2026-10-06): its header is the Ask panel's (one control row, title, round close
+  button, the divider across), the canvas has no frame of its own; the toon's dead-things line sits under a divider.
   - Readable first: the first view is 1:1 – centred on what's open (the group in the editor), else the entry (first
     group / chapter / toon) near the top; "Show everything" fits down to 0.5 at most (smaller is unreadable – the
     minimap shows the rest). Edges follow dagre's route and their labels sit where dagre made room for them (a label is a
