@@ -2,7 +2,7 @@
 // builder's live preview and the slice canvas. Three readers ("new guest", "halfway", "everything collected") answer
 // every registry name (EXPR_NAMESPACES / EXPR_FUNCTIONS) the way such a reader would; story variables are unknown to
 // the creator in kind, so they are unset / 3 / 10. `now.*` is the creator's own clock. Pure (tests: expr-edit.test.ts).
-import type { ExprResolver, ExprValue } from '@scutoons/content';
+import { isStoryPath, type ExprResolver, type ExprValue } from '@scutoons/content';
 
 export const SAMPLE_READERS = ['guest', 'halfway', 'complete'] as const;
 export type SampleReaderId = (typeof SAMPLE_READERS)[number];
@@ -123,7 +123,8 @@ export function sampleResolver(id: SampleReaderId, language: string, now: Date =
 		'map.place': () => f.map.place
 	};
 	return {
-		name: (path) => (path.length === 1 ? f.variable : names[path[0]]?.[path[1]]),
+		// a story variable as written (`coins`, `global.coins`, `toptoy.coins`) or a namespace member
+		name: (path) => (isStoryPath(path) ? f.variable : names[path[0]]?.[path[1]]),
 		call: (name, args) => (Object.hasOwn(calls, name) ? calls[name](args) : undefined),
 		visit: () => f.visits,
 		seed: id,

@@ -99,8 +99,8 @@ export interface JumpToTarget {
 	value: string;
 	/**
 	 * `type: 'chapter'` only: the chapter (and `label` / `anyOf`) of ANOTHER toon (owner 2026-10-06, "at label");
-	 * absent = this toon. `type: 'toon'` stays the toon's page. Variables are per toon – a jump into another toon reads
-	 * and writes that toon's story variables (`targetToon`, DATA.md "Linked groups").
+	 * absent = this toon. `type: 'toon'` stays the toon's page. Variables travel along (one save game); their names
+	 * have a domain (variables.ts: `x` is the toon's own, `global.x` every toon's, `toptoy.x` toptoy's).
 	 */
 	toon?: string;
 	label?: string;

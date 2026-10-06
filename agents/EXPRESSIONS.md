@@ -57,7 +57,8 @@ compiles whole stories; we evaluate single texts).
   rewrites `{name:clock}` → `{clock(name)}` in `entity_versions` / `content_versions` (MariaDB `REGEXP_REPLACE`,
   idempotent, SELECT first). Dev DB check 2026-10-06: 0 occurrences – it's for production's newer test content. Rule
   (owner): data changes = DB migrations, never code that converts old data on load.
-- Story variables are bare names as in ink (`{coins}` keeps working); reader state is namespaced (`map.total`, …).
+- Story variables are bare names as in ink (`{coins}` keeps working – this toon's), `global.coins` / `toptoy.coins` for
+  the other domains; reader state is namespaced (`map.total`, …).
 - Missing value: readers never see raw code – empty; the creator warns.
 - Difference to real ink: a text using our names / functions doesn't run in inkle's Inky – the syntax rules are ink's.
 
@@ -65,7 +66,9 @@ compiles whole stories; we evaluate single texts).
 
 | Namespace | Names |
 |---|---|
-| (bare) | the story variables – one save game for every toon (a name is the same variable in every toon), ink-style bare names: `coins` (VN `setVariable` / choice set+add) |
+| (bare) | this toon's story variables, ink-style bare names: `coins` (VN `setVariable` / choice set+add) – one save game, names with a domain (DATA.md "The save game") |
+| `global.` | the story variables of every toon: `global.coins` |
+| `<toon>.` | another toon's story variables, read and write: `toptoy.coins` (a toon id of a–z, 0–9, `_`) |
 | `reader.` | `name` (askText, platform scope), `signedIn`, `member`, `memberDays`, `since`, `gifts`, `language`, `daysSinceStart` |
 | `read.` | `chapter(n)`, `chapters`, `finished`, `position(n)` |
 | `inventory.` | `has(id)`, `count(id)`, `items`, `edition(id)` |

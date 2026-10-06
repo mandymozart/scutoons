@@ -16,8 +16,15 @@ export interface ExprFocus {
 }
 
 class ExprContext {
-	/** the toon's story variables (sorted); null = not known (no facts loaded: unknown names aren't judged) */
+	/**
+	 * the story variables there are, as written in this toon (`x`, `global.x`, `toptoy.x` – @scutoons/content
+	 * variables.ts; sorted); null = not known (no facts loaded: unknown names aren't judged)
+	 */
 	variables = $state<string[] | null>(null);
+	/** the toon being edited (a bare variable name is its own) */
+	toon = $state('');
+	/** every toon (id + name): the domains of the variable fields */
+	toons = $state<{ id: string; name: string }[]>([]);
 	/** the previews' sample reader; 'written' = the canvas shows texts as written */
 	sample = $state<SampleReaderId | 'written'>('guest');
 	/** a pending jump to a range (taken by the field it names) */

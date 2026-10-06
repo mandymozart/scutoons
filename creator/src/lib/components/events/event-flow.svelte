@@ -3,6 +3,7 @@
 	import type { Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import PropField from '$lib/components/fields/prop-field.svelte';
+	import VariableField from '$lib/components/fields/variable-field.svelte';
 	import EventTarget from '$lib/components/events/event-target.svelte';
 
 	/**
@@ -27,7 +28,7 @@
 	{:else if event.type === 'divert'}
 		<PropField {doc} path={[...path, 'params', 'to']} label={m['creator.vn_point']()} type="select" options={pointNames} required />
 	{:else if event.type === 'setVariable'}
-		<PropField {doc} path={[...path, 'params', 'variable']} label={m['creator.field_variable']()} required />
+		<VariableField {doc} path={[...path, 'params', 'variable']} />
 		<PropField {doc} path={[...path, 'params', 'op']} label={m['creator.vn_action']()} type="select" options={[{ value: 'add', label: m['creator.vn_action_add']() }]} placeholder={m['creator.vn_action_set']()} />
 		<PropField {doc} path={[...path, 'params', 'value']} label={m['creator.field_value']()} type={event.params?.op === 'add' ? 'number' : 'text'} required />
 	{/if}

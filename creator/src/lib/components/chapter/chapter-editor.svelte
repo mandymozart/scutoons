@@ -33,7 +33,7 @@
 	import type { CharacterChoices } from '$lib/components/characters/character-ref-field.svelte';
 	import { knownImages } from '$lib/editor/images.ts';
 	import { seasonStatusOf, syncChapter } from '$lib/editor/visibility.ts';
-	import { validateFile, validateNeutral, chapterReach, scriptJumps, toonFacts, type ChapterReach, type FlowNode, type Problem, type ToonFacts } from '@scutoons/content';
+	import { validateFile, validateNeutral, chapterReach, scriptJumps, toonFacts, factNames, type ChapterReach, type FlowNode, type Problem, type ToonFacts } from '@scutoons/content';
 	import { loadIncoming, loadToonDocs } from '$lib/editor/toon-facts.ts';
 	import { JumpPlaces, setJumpPlaces } from '$lib/editor/jump-places.svelte.ts';
 	import type { ReachMark } from '$lib/components/chapter/reach-chip.svelte';
@@ -230,10 +230,15 @@
 		const rest = toonDocsFacts;
 		if (!rest) return undefined;
 		const live = toonFacts([...sliceDocs.map((d) => $state.snapshot(d.data[d.primary])), $state.snapshot(worldMap.data?.[worldMap.primary])], { toon });
-		return { variables: new Set([...rest.variables, ...live.variables]), labels: new Set([...rest.labels, ...live.labels]), ...(rest.reads ? { reads: rest.reads } : {}) };
+		return { toon, variables: new Set([...rest.variables, ...live.variables]), labels: new Set([...rest.labels, ...live.labels]), ...(rest.reads ? { reads: rest.reads } : {}) };
 	});
-	// the expression fields: the story variables of every toon (one save game – the builder offers them, unknown names warn)
-	$effect(() => exprContext.setVariables(facts?.variables));
+	// the expression and variable fields: the story variables of every toon as written here (`x`, `global.x`,
+	// `toptoy.x` – one save game; the builder and the variable typeahead offer them, unknown names warn) and the toons
+	$effect(() => exprContext.setVariables(facts ? factNames(facts) : null));
+	$effect(() => {
+		exprContext.toon = toon;
+		exprContext.toons = toonInfos.map((t) => ({ id: t.id, name: t.name }));
+	});
 	$effect(() => () => exprContext.setVariables(null));
 	/** the chapter's reachability for the labels in the tree / slice list / event lists – debounced while editing */
 	let reach = $state<ChapterReach | null>(null);
