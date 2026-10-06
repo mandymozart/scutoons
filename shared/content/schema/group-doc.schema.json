@@ -736,6 +736,9 @@
 								"placeholder": {
 									"$ref": "#/definitions/LocaleText"
 								},
+								"answer": {
+									"$ref": "#/definitions/LocaleText"
+								},
 								"default": {
 									"$ref": "#/definitions/LocaleText"
 								},
@@ -1639,6 +1642,9 @@
 									"$ref": "#/definitions/LocaleText"
 								},
 								"placeholder": {
+									"$ref": "#/definitions/LocaleText"
+								},
+								"answer": {
 									"$ref": "#/definitions/LocaleText"
 								},
 								"default": {

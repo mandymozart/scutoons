@@ -8,7 +8,7 @@
 //     the history's event:<id>)
 //   - a placed item's tap events (once per page view); a pickup with respawn every hour – gone until the next period,
 //     the server's grant stays the authority (a second grant in its real period: already taken)
-//   - askText: a story variable (typed + Enter / ✓) and the reader's name (Skip → the default), both shown in later
+//   - askText: a story variable (typed + Enter / ✓) and the reader's name (the answer button → the default), both shown in later
 //     messages; each asked only while unanswered (`if: { expr: 'not hero' }`); a message whose condition is an expression
 //   - the account page: the member's name field (shows the askText answer, edits it); a guest's name on the device
 //
@@ -69,7 +69,7 @@ const doc = (base) => ({
 			events: [
 				{ id: 'evc-ask1', type: 'askText', if: { expr: 'not hero' }, params: { text: t('Q1 Wie heißt du?', 'Q1 Your name?'), variable: 'hero', placeholder: t('Name'), maxLength: 12 } },
 				msg('evc-m1', 'HERO {hero}'),
-				{ id: 'evc-ask2', type: 'askText', if: { expr: 'not reader.name' }, params: { text: t('Q2 Und überall?', 'Q2 And everywhere?'), scope: 'reader', default: t('Ada') } },
+				{ id: 'evc-ask2', type: 'askText', if: { expr: 'not reader.name' }, params: { text: t('Q2 Und überall?', 'Q2 And everywhere?'), scope: 'reader', answer: t('Nenn mich Ada', 'Call me Ada'), default: t('Ada') } },
 				msg('evc-m2', 'READER {reader.name}'),
 				msg('evc-m3', 'COND yes', { if: { expr: 'hero == "Zed" and count("evc-every") == 0' } }),
 				msg('evc-m4', 'COND no', { if: { expr: 'count("evc-every") > 0' } }),

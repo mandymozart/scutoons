@@ -26,7 +26,7 @@ final class NeutralDoc
     private const EVENT_TEXT_FIELDS = [
         'showMessage' => ['text'],
         'addChoice' => ['label'],
-        'askText' => ['text', 'placeholder', 'default'],
+        'askText' => ['text', 'placeholder', 'answer', 'default'],
     ];
 
     /** Whether a locale map's value is a text: not blank (JS `trim()`), a list when one line isn't blank */

@@ -14,7 +14,7 @@
 	// the page doesn't scroll while the story waits: interactions/vn-page.svelte (the whole page's scripts and triggers)
 
 	// an askText (agents/EXPRESSIONS.md §6): one input line under the question; Enter / ✓ answers, the answer button
-	// (the default's text) answers with the default
+	// (its own text) answers with the default – or nothing
 	let typed = $state('');
 	let input = $state<HTMLInputElement | null>(null);
 	const question = $derived(vn.state.question);
@@ -69,10 +69,10 @@
 				/>
 				<button type="submit" class="ok" aria-label={m['chapter.ask_ok']()} title={m['chapter.ask_ok']()} data-testid="vn-ask-ok">✓</button>
 			</form>
-			<!-- the ready answer as an action button with its own text (owner 2026-10-06: no "Skip" link); none set: no
-			     button – an empty ✓ goes on without storing anything -->
-			{#if question.fallback}
-				<button type="button" class="vn-choice answer" data-control-exempt="dialogue answer (may wrap)" onclick={() => vn.answer(null)} data-testid="vn-ask-skip">{question.fallback}</button>
+			<!-- the ready answer as an action button with its own text (owner 2026-10-06: no "Skip" link; button text and
+			     stored value are two fields); no text: no button – an empty ✓ goes on (the default or nothing) -->
+			{#if question.answer}
+				<button type="button" class="vn-choice answer" data-control-exempt="dialogue answer (may wrap)" onclick={() => vn.answer(null)} data-testid="vn-ask-skip">{question.answer}</button>
 			{/if}
 		{/if}
 		<Choices />

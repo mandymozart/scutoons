@@ -42,6 +42,9 @@
 {#if reader}<p class="hint">{m['creator.ask_scope_reader_hint']()}</p>{/if}
 <LocaleText {doc} path={[...path, 'params', 'text']} label={m['creator.ask_question']()} rows={2} expressions />
 <LocaleText {doc} path={[...path, 'params', 'placeholder']} label={m['creator.ask_placeholder']()} multiline={false} />
+<!-- the answer button (owner 2026-10-06): its text and what it stores are two fields; no text = no button, nothing
+     stored = the variable stays unset (a later condition can tell) -->
+<LocaleText {doc} path={[...path, 'params', 'answer']} label={m['creator.ask_answer']()} multiline={false} />
 <LocaleText {doc} path={[...path, 'params', 'default']} label={m['creator.ask_default']()} multiline={false} />
 
 <style>

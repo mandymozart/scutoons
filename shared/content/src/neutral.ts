@@ -59,14 +59,14 @@ export interface VNAddChoiceEventDoc {
 
 export interface VNAskTextEventDoc {
 	type: 'askText';
-	params: Omit<VNAskTextEvent['params'], 'text' | 'placeholder' | 'default'> & { text: LocaleText; placeholder?: LocaleText; default?: LocaleText };
+	params: Omit<VNAskTextEvent['params'], 'text' | 'placeholder' | 'answer' | 'default'> & { text: LocaleText; placeholder?: LocaleText; answer?: LocaleText; default?: LocaleText };
 }
 
 /** the texts (locale maps) of an event's params, by event type */
 export const EVENT_TEXT_FIELDS: Readonly<Record<string, readonly string[]>> = {
 	showMessage: ['text'],
 	addChoice: ['label'],
-	askText: ['text', 'placeholder', 'default']
+	askText: ['text', 'placeholder', 'answer', 'default']
 };
 
 /** `VNEvent` with its texts as locale maps (the same members as `VNEvent`) */

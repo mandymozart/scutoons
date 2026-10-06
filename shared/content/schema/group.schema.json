@@ -1109,9 +1109,13 @@
 									"type": "number",
 									"description": "at most this many characters (default 24, at most 200)"
 								},
+								"answer": {
+									"type": "string",
+									"description": "a ready answer as a button under the input line: its text (none = no button)"
+								},
 								"default": {
 									"type": "string",
-									"description": "what Skip (or an empty answer) stores; none = nothing is stored"
+									"description": "what the answer button (or an empty answer) stores; none = nothing is stored – the variable stays unset, so a later condition can tell it apart"
 								},
 								"scope": {
 									"$ref": "#/definitions/AskTextScope",
@@ -1984,9 +1988,13 @@
 									"type": "number",
 									"description": "at most this many characters (default 24, at most 200)"
 								},
+								"answer": {
+									"type": "string",
+									"description": "a ready answer as a button under the input line: its text (none = no button)"
+								},
 								"default": {
 									"type": "string",
-									"description": "what Skip (or an empty answer) stores; none = nothing is stored"
+									"description": "what the answer button (or an empty answer) stores; none = nothing is stored – the variable stays unset, so a later condition can tell it apart"
 								},
 								"scope": {
 									"$ref": "#/definitions/AskTextScope",

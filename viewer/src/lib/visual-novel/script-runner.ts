@@ -156,16 +156,16 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 				}
 
 				case 'askText': {
-					// the question in the box with one input line; the page waits for Enter / ✓ / Skip (EXPRESSIONS.md §6)
-					const { text, character, persona, placeholder, maxLength, default: fallback, scope = 'toon', variable } = event.params;
+					// the question in the box with one input line; the page waits for Enter / ✓ / the answer button (EXPRESSIONS.md §6)
+					const { text, character, persona, placeholder, maxLength, answer, default: fallback, scope = 'toon', variable } = event.params;
 					const speaker = character ? (vn.findInScene(character, persona) ?? null) : null;
 					if (character && !speaker) console.error(`Character "${character}" is not in the scene. Add them with joinScene first.`);
 					vn.showMessage(speaker, show(text, i - 1), false);
 					jumpsWithoutWait = 0;
 					const limit = Math.min(scope === 'reader' ? env.readerNameMax : ASK_TEXT_LIMIT, Math.max(1, Math.floor(Number(maxLength) || ASK_TEXT_MAX_LENGTH)));
-					const typed = await vn.ask({ placeholder: placeholder ?? '', maxLength: limit, fallback: env.cleanText(fallback ?? '', limit) });
+					const typed = await vn.ask({ placeholder: placeholder ?? '', maxLength: limit, answer: (answer ?? '').trim() });
 					if (cancelled()) return 'cancelled';
-					// plain text, trimmed (never markup: shown as text); empty or skipped → the default, none → nothing stored
+					// plain text, trimmed (never markup: shown as text); empty or the answer button → the default, none → nothing stored
 					const value = env.cleanText(typed ?? '', limit) || env.cleanText(fallback ?? '', limit);
 					// the question's text goes – unless a slice-trigger run took the box meanwhile (its message is shown)
 					if (!deps.yieldToRuns || !vn.runHolds()) vn.hideMessage();

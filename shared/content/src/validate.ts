@@ -450,7 +450,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 					else if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(p.variable)) c.error([...pp, 'variable'], 'a variable name is letters, digits and _ (not starting with a digit)');
 				} else if (p.variable !== undefined) c.info([...pp, 'variable'], "the answer is the reader's name (reader.name) – the variable is not used");
 				if (p.maxLength !== undefined && (!Number.isInteger(p.maxLength) || p.maxLength < 1 || p.maxLength > ASK_TEXT_LIMIT)) c.error([...pp, 'maxLength'], `maxLength is a whole number 1 … ${ASK_TEXT_LIMIT}`);
-				for (const key of ['placeholder', 'default'] as const) if (p[key] !== undefined && !isStr(p[key])) c.error([...pp, key], `${key} must be a text`);
+				for (const key of ['placeholder', 'answer', 'default'] as const) if (p[key] !== undefined && !isStr(p[key])) c.error([...pp, key], `${key} must be a text`);
 				if (isStr(p.default) && p.default.trim().length > (p.maxLength ?? ASK_TEXT_MAX_LENGTH)) c.warn([...pp, 'default'], 'the default answer is longer than maxLength');
 			}
 			break;
