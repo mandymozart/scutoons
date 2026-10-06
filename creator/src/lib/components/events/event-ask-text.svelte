@@ -40,7 +40,7 @@
 	<PropField {doc} path={[...path, 'params', 'maxLength']} label={m['creator.ask_max_length']()} type="number" step={1} min={1} max={ASK_TEXT_LIMIT} placeholder={String(ASK_TEXT_MAX_LENGTH)} />
 </div>
 {#if reader}<p class="hint">{m['creator.ask_scope_reader_hint']()}</p>{/if}
-<LocaleText {doc} path={[...path, 'params', 'text']} label={m['creator.ask_question']()} rows={2} />
+<LocaleText {doc} path={[...path, 'params', 'text']} label={m['creator.ask_question']()} rows={2} expressions />
 <LocaleText {doc} path={[...path, 'params', 'placeholder']} label={m['creator.ask_placeholder']()} multiline={false} />
 <LocaleText {doc} path={[...path, 'params', 'default']} label={m['creator.ask_default']()} multiline={false} />
 

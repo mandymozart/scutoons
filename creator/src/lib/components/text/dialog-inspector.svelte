@@ -55,7 +55,7 @@
 			options={TEXT_PRESETS.map((t) => ({ value: t.id, label: m[`creator.preset_${t.id}`](), testid: `dialog-preset-${t.id}` }))}
 		/>
 
-		<LocaleText {doc} path={p('text')} rows={4} />
+		<LocaleText {doc} path={p('text')} rows={4} expressions />
 
 		<!-- two fields per row (the reader's type size needs the width, DESIGN.md "Brutalist tools") -->
 		<!-- the fine-tuning, folded (owner 2026-10-03: "where we have presets … an advanced collapsible"); position and size

@@ -6,6 +6,8 @@
 	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import TextOriginal from '$lib/components/fields/text-original.svelte';
 	import SourceMark from '$lib/components/text/source-mark.svelte';
+	import ExprText from '$lib/components/fields/expr-text.svelte';
+	import { fieldKey } from '$lib/editor/expr-context.svelte.ts';
 
 	/**
 	 * One text field in the creator's chosen TEXT language (text-language.svelte.ts – the header's switch; default the
@@ -13,6 +15,8 @@
 	 * (translate mode). A language-neutral document (chapter, scene, season) keeps the text as a locale map at `path`
 	 * (`doc.text` / `doc.setText`); a per-locale document in each locale's file. `string[]` values (paragraphs) are
 	 * edited with a blank line between entries and stay arrays. `type="date"`: a date per language (`release`).
+	 * `expressions`: a text that can hold `{…}` (agents/EXPRESSIONS.md – text box, VN message, choice label, askText
+	 * question): the expression-aware field (chips, builder, wavy underlines; fields/expr-text.svelte).
 	 */
 	let {
 		doc,
@@ -20,8 +24,9 @@
 		label = m['creator.field_text'](),
 		rows = 3,
 		multiline = true,
-		type = 'text'
-	}: { doc: ContentDoc; path: Path; label?: string; rows?: number; multiline?: boolean; type?: 'text' | 'date' } = $props();
+		type = 'text',
+		expressions = false
+	}: { doc: ContentDoc; path: Path; label?: string; rows?: number; multiline?: boolean; type?: 'text' | 'date'; expressions?: boolean } = $props();
 
 	const source = $derived(doc.textSource);
 	const sourceText = $derived(textOf(doc.text(path, source)).trim());
@@ -74,7 +79,19 @@
 					{#if s.long}<span class="sc-chip is-warning">{Math.round(s.ratio * 100)}%</span>{/if}
 					{#if Array.isArray(value)}<button type="button" class="ghost mini" title={m['creator.text_paragraphs_hint']()} onclick={() => toggleArray(locale)}>[ ]</button>{/if}
 				</span>
-				{#if type === 'date'}
+				{#if expressions && type === 'text'}
+					<ExprText
+						value={display(value)}
+						onchange={(v) => update(locale, v)}
+						{multiline}
+						{rows}
+						lang={locale}
+						paragraphs={Array.isArray(value)}
+						focusKey={fieldKey(doc.entity, path, locale)}
+						tone={s.missing ? 'missing' : s.long ? 'long' : undefined}
+						testid="text-{locale}"
+					/>
+				{:else if type === 'date'}
 					<input type="date" value={display(value)} oninput={(e) => update(locale, e.currentTarget.value)} data-testid="{path.join('-')}-{locale}" />
 				{:else if multiline}
 					<textarea

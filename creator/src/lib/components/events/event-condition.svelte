@@ -1,21 +1,27 @@
 <script lang="ts">
 	import type { ContentDoc } from '$lib/editor/doc.svelte.ts';
-	import { analyseExpression, getAt, isExprCondition, VN_CONDITION_OPS, type Path } from '@scutoons/content';
+	import { getAt, isExprCondition, VN_CONDITION_OPS, type Path } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
 	import { confirmDialog } from '@scutoons/ui';
 	import { opWord, conditionAsExpression, conditionWords } from '$lib/editor/vn-forms.ts';
 	import PropField from '$lib/components/fields/prop-field.svelte';
+	import ExprText from '$lib/components/fields/expr-text.svelte';
+	import { fieldKey } from '$lib/editor/expr-context.svelte.ts';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 
 	/**
 	 * "Only if" (CUTOVER 10.27): the event runs only when the test passes – the simple form (a variable compared with a
 	 * value, the default) or an expression (agents/EXPRESSIONS.md §3: ink logic on the expression engine, answered for
-	 * the reader – `count("e…") < 3 and not has("cucumber")`). A plain text field for now; step 4 brings the builder.
+	 * the reader – `count("e…") < 3 and not has("cucumber")`): the expression-aware field in expression mode (wavy
+	 * underlines with the problem as tooltip, Enter = the builder; fields/expr-text.svelte).
 	 */
 	let { doc, path, event, index }: { doc: ContentDoc; path: Path; event: any; index: number } = $props();
 
 	const expression = $derived(isExprCondition(event.if));
-	/** the expression's problems while typing (syntax errors; unknown names are only doubts) */
-	const problems = $derived(expression && event.if.expr.trim() ? analyseExpression(event.if.expr).errors : []);
+	/** the builder's preview language: the header's text language */
+	const previewLang = $derived(textLanguage.visible(doc.textLanguages, doc.textSource)[0] ?? doc.textSource);
+
+	const setExpr = (value: string) => doc.set([...path, 'if', 'expr'], value);
 
 	function setCondition(on: boolean) {
 		doc.edit((file) => {
@@ -64,10 +70,18 @@
 		</div>
 		{#if expression}
 			<div class="expr">
-				<PropField {doc} path={[...path, 'if', 'expr']} label={m['creator.vn_condition_expression']()} placeholder={m['creator.vn_condition_expr_hint']()} required testid="condition-expr-{index}" />
-				{#each problems as p, pi (pi)}
-					<p class={p.severity === 'error' ? 'error' : 'warn'} data-testid="condition-problem-{index}">{p.message} – {p.start + 1}{p.end > p.start + 1 ? `–${p.end}` : ''}</p>
-				{/each}
+				<label for="if-expr-{path.join('-')}">{m['creator.vn_condition_expression']()}</label>
+				<ExprText
+					id="if-expr-{path.join('-')}"
+					value={event.if.expr ?? ''}
+					onchange={setExpr}
+					multiline={false}
+					expression
+					lang={previewLang}
+					placeholder={m['creator.vn_condition_expr_hint']()}
+					focusKey={fieldKey(doc.entity, [...path, 'if', 'expr'], null)}
+					testid="condition-expr-{index}"
+				/>
 			</div>
 		{/if}
 		<button type="button" class="ghost" onclick={() => setCondition(false)}>{m['creator.vn_only_if_remove']()}</button>
@@ -97,14 +111,11 @@
 		flex-direction: column;
 		gap: var(--space-025);
 	}
-	.error,
-	.warn {
-		margin: 0;
-		padding-left: var(--space-05);
+	.expr label {
 		font-size: var(--type-caption-size);
-		border-left: 0.5rem solid var(--state-warning);
-	}
-	.error {
-		border-left-color: var(--state-error, var(--state-warning));
+		line-height: var(--type-caption-line);
+		text-transform: uppercase;
+		letter-spacing: var(--tracking-label);
+		color: var(--ink);
 	}
 </style>

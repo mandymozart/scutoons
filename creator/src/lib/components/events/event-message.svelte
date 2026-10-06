@@ -26,4 +26,4 @@
 	<PropField {doc} path={[...path, 'params', 'wait']} label={m['creator.vn_wait']()} type="bool" placeholder="false" />
 	<PropField {doc} path={[...path, 'params', 'mood']} label={m['creator.characters_mood']()} type="select" options={cast.moodOptions(null)} placeholder="–" />
 </div>
-<LocaleText {doc} path={[...path, 'params', 'text']} rows={2} />
+<LocaleText {doc} path={[...path, 'params', 'text']} rows={2} expressions />

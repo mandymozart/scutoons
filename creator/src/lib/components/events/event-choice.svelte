@@ -33,7 +33,7 @@
 	}
 </script>
 
-<LocaleText {doc} path={[...path, 'params', 'label']} label={m['creator.field_text']()} multiline={false} />
+<LocaleText {doc} path={[...path, 'params', 'label']} label={m['creator.field_text']()} multiline={false} expressions />
 <div class="actions" data-testid="choice-actions-{index}">
 	<span class="sc-label">{m['creator.vn_actions']()}</span>
 	{#each actionsOf(event.params?.onSelect) as any[] as action, ai (ai)}
