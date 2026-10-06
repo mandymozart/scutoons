@@ -51,6 +51,9 @@ export interface Problem {
 	message: string;
 	/** a stable code for problems that have one (`expr:<code>` – expressions in texts; the creator translates by it) */
 	code?: string;
+	/** `expr:*` problems: where in the text (UTF-16 offsets, end exclusive; `line` = a text box's line in a string[]) and
+	 *  the analyser's `args` / `suggestion` – the creator jumps to the range and words the message in its language */
+	expr?: { start: number; end: number; line?: number; args?: string[]; suggestion?: string };
 }
 
 export const LENGTH_WARNING_RATIO = 1.3;
@@ -125,8 +128,8 @@ class Collector {
 		private file: string,
 		private locale: string | null
 	) {}
-	add(level: Level, path: Path, message: string, code?: string) {
-		this.problems.push({ level, file: this.file, locale: this.locale, path, message, ...(code ? { code } : {}) });
+	add(level: Level, path: Path, message: string, code?: string, expr?: Problem['expr']) {
+		this.problems.push({ level, file: this.file, locale: this.locale, path, message, ...(code ? { code } : {}), ...(expr ? { expr } : {}) });
 	}
 	error(path: Path, message: string) {
 		this.add('error', path, message);
@@ -264,8 +267,7 @@ function checkCondition(c: Collector, cond: any, path: Path, ctx: ValidateContex
 		for (const key of Object.keys(cond)) if (key !== 'expr') c.error([...path, key], 'an expression condition has only expr');
 		const knownNames = ctx.facts ? [...ctx.facts.variables] : undefined;
 		for (const p of analyseExpression(cond.expr, { knownNames }).errors) {
-			const level: Level = EXPR_DOUBTS.has(p.code) ? 'warning' : p.severity;
-			c.add(level, [...path, 'expr'], `the condition: ${p.message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''}`, `expr:${p.code}`);
+			c.add(exprLevel(p), [...path, 'expr'], `the condition: ${p.message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''}`, `expr:${p.code}`, exprAt(p));
 		}
 		return;
 	}
@@ -1105,16 +1107,28 @@ export function forEachSlice(kind: string, data: any, fn: (slice: any, path: Pat
  */
 const EXPR_DOUBTS = new Set(['unknown-name', 'unknown-variable', 'unknown-function', 'function-needs-call', 'not-a-function', 'namespace-needs-member', 'argument-count', 'argument-type']);
 
-function checkTextExpressions(c: Collector, path: Path, text: string, what: string, knownNames?: readonly string[]) {
+/** an analyser problem's level in validation (and in the creator's text fields): doubts warn, the old clock form is an error */
+export function exprLevel(p: { code: string; severity: 'error' | 'warning' }): Level {
+	return p.code === 'old-clock-syntax' ? 'error' : EXPR_DOUBTS.has(p.code) ? 'warning' : p.severity;
+}
+const exprAt = (p: { start: number; end: number; args?: string[]; suggestion?: string }, line?: number): Problem['expr'] => ({
+	start: p.start,
+	end: p.end,
+	...(line !== undefined ? { line } : {}),
+	...(p.args ? { args: p.args } : {}),
+	...(p.suggestion ? { suggestion: p.suggestion } : {})
+});
+
+function checkTextExpressions(c: Collector, path: Path, text: string, what: string, knownNames?: readonly string[], line?: number) {
 	if (!/[{}\\]/.test(text)) return;
 	for (const p of analyseText(text, { knownNames }).errors) {
-		const level: Level = p.code === 'old-clock-syntax' ? 'error' : EXPR_DOUBTS.has(p.code) ? 'warning' : p.severity;
+		const level = exprLevel(p);
 		const message =
 			p.code === 'old-clock-syntax'
 				? `\`{${p.args?.[0]}:clock}\` is the old clock form – write \`{clock(${p.args?.[0]})}\` (stored texts: run the migration 2026-10-06-clock-syntax)`
 				: p.message;
 		const snippet = text.slice(p.start, Math.min(p.end, p.start + 40)) || text.slice(Math.max(0, p.start - 10), p.start + 10);
-		c.add(level, path, `${what}: ${message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''} \`${snippet}\``, `expr:${p.code}`);
+		c.add(level, path, `${what}: ${message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''} \`${snippet}\``, `expr:${p.code}`, exprAt(p, line));
 	}
 }
 
@@ -1185,7 +1199,7 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 			} else if (leaf === 'dialog' || leaf === 'message' || leaf === 'choice') {
 				// expressions in the text (each line of a text box on its own)
 				const lines = Array.isArray(v) ? v : [v];
-				lines.forEach((line, i) => checkTextExpressions(l, path, line, `the ${locale} ${word}${Array.isArray(v) ? ` (line ${i + 1})` : ''}`, knownNames));
+				lines.forEach((line, i) => checkTextExpressions(l, path, line, `the ${locale} ${word}${Array.isArray(v) ? ` (line ${i + 1})` : ''}`, knownNames, Array.isArray(v) ? i : undefined));
 			}
 		}
 		if (leaf === 'release' || leaf === 'status') return;
