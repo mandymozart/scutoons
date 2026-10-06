@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { isPrologue, type Group, type LoadedSequenceItem, type NextStep } from '@scutoons/content';
+	import { isPrologue, Renderer, type Group, type LoadedSequenceItem, type NextStep } from '@scutoons/content';
 	import { SLICE_PLAYER_EVENT, SLICE_SKIP_EVENT, type SlicePlayerDetail } from '@scutoons/reader';
 	import { m } from '$lib/paraglide/messages.js';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
@@ -58,6 +58,12 @@
 	const count = $derived(group.slices?.length ?? 0);
 	/** the group ends with a player video: it is done when the video ended (not when it was seen) */
 	const endsWithPlayer = $derived(group.slices?.[count - 1]?.video?.player === true);
+	/**
+	 * a full-width strip (renderer.params.fullWidth): it already fills the screen, so the bar sits over its last screen
+	 * instead of adding room below it – that room made the page longer right at the strip's end, and the next scroll
+	 * pushed the whole strip up (owner 2026-10-06: "the entire page jumps up")
+	 */
+	const strip = $derived(group.renderer?.type === Renderer.HORIZONTAL && !!group.renderer.params?.fullWidth);
 
 	let host = $state<HTMLElement>();
 	let bar = $state<HTMLElement>();
@@ -269,7 +275,7 @@
 	});
 </script>
 
-<div class="next-host" bind:this={host} class:shown>
+<div class="next-host" bind:this={host} class:shown={shown && !strip}>
 	{#if shown}
 		<section
 			class="next-bar"
