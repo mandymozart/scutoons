@@ -1,0 +1,101 @@
+<?php
+declare(strict_types=1);
+
+namespace Scutoons\Tests\Http;
+
+use Psr\Http\Message\ResponseInterface;
+use Scutoons\Domain\Auth\Sessions;
+use Scutoons\Domain\Content\EntityKey;
+use Scutoons\Domain\Content\EntityStore;
+use Scutoons\Domain\Roles\Roles;
+use Scutoons\Infrastructure\Clock\Clock;
+use Scutoons\Infrastructure\Config\Settings;
+use Scutoons\Kernel;
+use Scutoons\Tests\TestCase;
+use Slim\Psr7\Factory\ServerRequestFactory;
+
+/** GET /api/creator/flow-index (role creator): every toon's ways out of its chapters, seasons, dead things */
+final class FlowIndexApiTest extends TestCase
+{
+    private function request(string $uri, string $token = ''): ResponseInterface
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('GET', "http://localhost$uri", ['REMOTE_ADDR' => '127.0.0.1']);
+        if ($token !== '') $request = $request->withHeader('Authorization', "Bearer $token");
+        $container = Kernel::container(Settings::fixed(self::root(), $this->settings()));
+        $container->set(Clock::class, $this->clock);
+        return Kernel::app($container)->handle($request);
+    }
+
+    private function token(string $role): string
+    {
+        $user = $this->user($role . '@example.com');
+        if ($role !== 'member') $this->get(Roles::class)->grant((string) $user['id'], $role);
+        return $this->get(Sessions::class)->create((string) $user['id']);
+    }
+
+    /** @param array<mixed> $doc */
+    private function store(string $key, array $doc, bool $publish = true): void
+    {
+        $store = $this->get(EntityStore::class);
+        $json = (string) json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        if ($publish) $store->insertPublished(EntityKey::parse($key), $json, null);
+        else $store->insert(EntityKey::parse($key), $json, null, 'draft', null);
+    }
+
+    public function testTheIndex(): void
+    {
+        $jump = fn(string $type, string $value, ?string $label = null) => ['type' => $type, 'value' => $value] + ($label !== null ? ['label' => $label] : []);
+        $this->store('toon:catpope', ['id' => 'catpope', 'status' => 'published', 'title' => ['de' => 'Katzenpapst', 'en' => 'Cat Pope']]);
+        $this->store('season:catpope:1', ['number' => 1, 'sequence' => [['type' => 'chapter', 'number' => 2, 'status' => ['de' => 'draft']], ['type' => 'chapter', 'number' => 3, 'status' => ['de' => 'draft']]]]);
+        $this->store('chapter:catpope:2', ['number' => 2, 'groups' => [
+            ['label' => 'start', 'continues' => true, 'slices' => [['events' => [['type' => 'jumpTo', 'params' => ['target' => $jump('product', 'vinyl')], 'trigger' => ['type' => 'click']]]]],
+                'events' => [
+                    ['type' => 'setVariable', 'params' => ['variable' => 'searching', 'value' => 'yes']],
+                    ['type' => 'showMessage', 'params' => ['text' => ['de' => 'Zum {visits}. Mal']], 'if' => ['variable' => 'rocket', 'op' => 'set']],
+                    ['type' => 'label', 'params' => ['name' => 'lonely']],
+                    ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Zu Top Toy'], 'onSelect' => [['add' => ['variable' => 'visits', 'value' => 1]], ['jumpTo' => ['target' => $jump('toon', 'toptoy')]]]]],
+                    ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Wald'], 'onSelect' => ['jumpTo' => ['target' => $jump('chapter', '3', 'forest')]]]],
+                    ['type' => 'showChoices'],
+                ]],
+            ['label' => 'middle', 'slices' => [[]]],
+            ['ref' => ['src' => 'chapter2/scene-9.json']],
+        ]]);
+        // a ref group: its scene's end; the newest version counts (a draft)
+        $this->store('scene:catpope:2:scene-9', ['label' => 'scene-9', 'slices' => [[]], 'end' => ['target' => $jump('chapter', '3')]], false);
+        $this->store('scene:catpope:2:scene-9', ['label' => 'scene-9', 'slices' => [[]], 'end' => ['target' => $jump('chapter', '3', 'forest'), 'auto' => true]], false);
+        // a legacy per-locale chapter (no neutral document): read too
+        $this->store('chapter:toptoy:1:de', ['number' => 1, 'groups' => [['label' => 'city', 'slices' => [[]], 'end' => ['target' => $jump('toon', 'catpope')]]]]);
+
+        self::assertSame(401, $this->request('/api/creator/flow-index')->getStatusCode());
+        self::assertSame(403, $this->request('/api/creator/flow-index', $this->token('member'))->getStatusCode());
+        $token = $this->token('creator');
+        $response = $this->request('/api/creator/flow-index', $token);
+        self::assertSame(200, $response->getStatusCode());
+        $index = (array) json_decode((string) $response->getBody(), true);
+
+        self::assertSame(['catpope', 'toptoy'], array_column($index['toons'], 'id'));
+        self::assertSame(['de' => 'Katzenpapst', 'en' => 'Cat Pope'], $index['toons'][0]['title']);
+        self::assertSame([['number' => 1, 'chapters' => [['number' => 2, 'status' => ['de' => 'draft']], ['number' => 3, 'status' => ['de' => 'draft']]]]], $index['toons'][0]['seasons']);
+        $edges = array_map(fn(array $e) => sprintf('%s:%d:%s %s %s:%s%s%s', $e['source']['toon'], $e['source']['chapter'], $e['source']['group'] ?? '-', $e['kind'],
+            $e['target']['type'], $e['target']['value'], isset($e['target']['label']) ? '#' . $e['target']['label'] : '', isset($e['label']) ? ' [' . $e['label'] . ']' : ''), $index['edges']);
+        self::assertSame([
+            'catpope:2:start choice toon:toptoy [Zu Top Toy]',
+            'catpope:2:start choice chapter:3#forest [Wald]',
+            'catpope:2:start jump product:vinyl',
+            'catpope:2:scene-9 end chapter:3#forest',
+            'toptoy:1:city end toon:catpope',
+        ], $edges);
+        $dead = $index['dead']['catpope'];
+        self::assertSame(['searching'], array_column($dead['unread'], 'name'));
+        self::assertSame(['rocket'], array_column($dead['unset'], 'name'));
+        self::assertSame([['name' => 'lonely', 'at' => [['chapter' => 2, 'group' => 0, 'label' => 'start']]]], $dead['points']);
+        // `middle` follows a linked group and nothing jumps there; `scene-9` gets the follow-up bar
+        self::assertSame(['middle'], array_column($dead['labels'], 'name'));
+
+        // the same versions: the cached answer; a new version: a new answer
+        self::assertSame($index, (array) json_decode((string) $this->request('/api/creator/flow-index', $token)->getBody(), true));
+        $this->store('chapter:toptoy:1:de', ['number' => 1, 'groups' => [['label' => 'city', 'slices' => [[]]]]]);
+        $again = (array) json_decode((string) $this->request('/api/creator/flow-index', $token)->getBody(), true);
+        self::assertCount(4, $again['edges']);
+    }
+}
