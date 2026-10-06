@@ -45,9 +45,9 @@ final class FlowIndexApiTest extends TestCase
     public function testTheIndex(): void
     {
         $jump = fn(string $type, string $value, ?string $label = null) => ['type' => $type, 'value' => $value] + ($label !== null ? ['label' => $label] : []);
-        $this->store('toon:catpope', ['id' => 'catpope', 'status' => 'published', 'title' => ['de' => 'Katzenpapst', 'en' => 'Cat Pope']]);
+        $this->store('toon:catpope', ['id' => 'catpope', 'status' => 'published', 'avatar' => 'avatar.webp', 'title' => ['de' => 'Katzenpapst', 'en' => 'Cat Pope']]);
         $this->store('season:catpope:1', ['number' => 1, 'sequence' => [['type' => 'chapter', 'number' => 2, 'status' => ['de' => 'draft']], ['type' => 'chapter', 'number' => 3, 'status' => ['de' => 'draft']]]]);
-        $this->store('chapter:catpope:2', ['number' => 2, 'groups' => [
+        $this->store('chapter:catpope:2', ['number' => 2, 'thumbnail' => 's1/c2/thumb.jpg', 'groups' => [
             ['label' => 'start', 'continues' => true, 'slices' => [['events' => [['type' => 'jumpTo', 'params' => ['target' => $jump('product', 'vinyl')], 'trigger' => ['type' => 'click']]]]],
                 'events' => [
                     ['type' => 'setVariable', 'params' => ['variable' => 'searching', 'value' => 'yes']],
@@ -61,7 +61,7 @@ final class FlowIndexApiTest extends TestCase
                     ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Wald'], 'onSelect' => ['jumpTo' => ['target' => $jump('chapter', '3', 'forest')]]]],
                     ['type' => 'showChoices'],
                 ]],
-            ['label' => 'middle', 'slices' => [[]]],
+            ['label' => 'middle', 'slices' => [['image' => 's1/c2/m.webp', 'imageVariants' => ['low' => 's1/c2/m.webp', 'medium' => 's1/c2/m.2x.webp']]]],
             ['ref' => ['src' => 'chapter2/scene-9.json']],
         ]]);
         // a ref group: its scene's end; the newest version counts (a draft)
@@ -80,6 +80,11 @@ final class FlowIndexApiTest extends TestCase
         self::assertSame(['catpope', 'toptoy'], array_column($index['toons'], 'id'));
         self::assertSame(['de' => 'Katzenpapst', 'en' => 'Cat Pope'], $index['toons'][0]['title']);
         self::assertSame([['number' => 1, 'chapters' => [['number' => 2, 'status' => ['de' => 'draft']], ['number' => 3, 'status' => ['de' => 'draft']]]]], $index['toons'][0]['seasons']);
+        // the Flow's pictures (@scutoons/content chapterPictures): the avatar, a chapter's thumbnail, per label the low
+        // variant of its group's first slice
+        self::assertSame('avatar.webp', $index['toons'][0]['avatar']);
+        self::assertNull($index['toons'][1]['avatar']);
+        self::assertSame(['thumbnail' => 's1/c2/thumb.jpg', 'labels' => ['middle' => 's1/c2/m.webp']], $index['toons'][0]['chapters']['2']);
         $edges = array_map(fn(array $e) => sprintf('%s:%d:%s %s %s:%s%s%s', $e['source']['toon'], $e['source']['chapter'], $e['source']['group'] ?? '-', $e['kind'],
             $e['target']['type'], $e['target']['value'], isset($e['target']['label']) ? '#' . $e['target']['label'] : '', isset($e['label']) ? ' [' . $e['label'] . ']' : ''), $index['edges']);
         self::assertSame([
@@ -117,7 +122,7 @@ final class FlowIndexApiTest extends TestCase
                 ['type' => 'addChoice', 'params' => ['label' => ['de' => 'Mitte'], 'onSelect' => ['jumpTo' => ['target' => $into('toptoy', '1', 'middle')]]]],
                 ['type' => 'showChoices'],
             ]],
-            ['label' => 'middle', 'slices' => [[]]],
+            ['label' => 'middle', 'slices' => [['image' => 's1/c2/m.webp', 'imageVariants' => ['low' => 's1/c2/m.webp', 'medium' => 's1/c2/m.2x.webp']]]],
             ['label' => 'biker', 'slices' => [[]]],
         ]]);
         // toptoy: `hyper` and `middle` follow linked groups – reached from catpope only; `lost` from nowhere
@@ -147,7 +152,7 @@ final class FlowIndexApiTest extends TestCase
     {
         $set = fn(string $v) => ['type' => 'setVariable', 'params' => ['variable' => $v, 'value' => 1, 'op' => 'add']];
         $this->store('chapter:toptoy:1', ['number' => 1, 'groups' => [['label' => 'a', 'slices' => [[]], 'events' => [$set('mama_tips'), $set('lonely')]]]]);
-        $this->store('chapter:catpope:2', ['number' => 2, 'groups' => [['label' => 'b', 'slices' => [[]], 'events' => [
+        $this->store('chapter:catpope:2', ['number' => 2, 'thumbnail' => 's1/c2/thumb.jpg', 'groups' => [['label' => 'b', 'slices' => [[]], 'events' => [
             $set('mama_tips'),
             ['type' => 'showMessage', 'params' => ['text' => ['de' => 'Mama!']], 'if' => ['variable' => 'mama_tips', 'op' => '>=', 'value' => 2]],
             ['type' => 'showMessage', 'params' => ['text' => ['de' => '{rocket} {nowhere}']]],

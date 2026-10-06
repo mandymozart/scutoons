@@ -12,7 +12,10 @@
 //   - SCUTOONS (`universeFlow`): one box per toon, the jumps between toons (to a toon's page or a chapter + label of
 //     another toon – `target.toon`) and to products / XR (from the server's flow index; `incomingJumps` = what other
 //     toons jump into one toon: entries of its reach);
-//   - dead things (`deadThings`): variables set but never read, read but never set, points and labels nothing jumps to.
+//   - dead things (`deadThings`): variables set but never read, read but never set, points and labels nothing jumps to;
+//   - pictures (owner 2026-10-06, "Images in the Flow"): every box names its small picture as data (`image`, `badge`,
+//     `faces`) – a slice's low variant, a chapter's thumbnail, a toon's avatar, a catalog item, the characters' faces;
+//     the creator resolves them to URLs (and loads them lazily).
 // Statuses come from `chapterReach` (reach.ts) – the single source of truth, so the graph agrees with the chips. Pure: no
 // layout, no texts of the UI.
 import { groupEnd, linksToNext, type ChainGroupLike } from './chains.ts';
@@ -21,6 +24,8 @@ import { analyseExpression, analyseText } from './expr/analyse.ts';
 import { askVariable, chapterReach, isConditional, runRepeat, triggerKey, type ChapterReach, type Reach, type ToonFacts } from './reach.ts';
 import type { RepeatMode } from './recurrence.ts';
 import { actionsOf, intoOtherToon } from './vn-script.ts';
+import { REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
+import { pickQualityVariant, type QualityVariants } from './media-quality.ts';
 
 /**
  * a node's state: the reach of its item, or a condition that can never be true / a loop with no way out at it / a
@@ -55,6 +60,37 @@ export type FlowNodeKind =
 	| 'place'
 	/** SCUTOONS level: a toon */
 	| 'toon';
+
+/**
+ * A box's picture as data (the creator resolves it to a small image URL – never a big one): paths relative to the toon's
+ * folder like the documents store them (`s1/c2/…`, `../catpope/…`); `toon` none = the flow's own toon.
+ */
+export type FlowImage =
+	/** a slice's image, already its low variant (1x) */
+	| { kind: 'slice'; path: string; toon?: string; group?: number; slice: number }
+	/** a chapter's thumbnail (the toon / season level reads it from the chapter's document) */
+	| { kind: 'thumbnail'; path: string; toon?: string; chapter: number }
+	/**
+	 * a chapter elsewhere (another chapter / toon, the next chapter): its thumbnail, or with `label` the first slice of
+	 * the group that label names (where the jump lands) – the creator looks both up (the server's flow index)
+	 */
+	| { kind: 'chapter'; chapter: number; toon?: string; label?: string }
+	/** a toon's avatar (its entry's `avatar`) */
+	| { kind: 'toon'; toon: string }
+	/** a catalog item's image (an item tap) */
+	| { kind: 'item'; item: string };
+
+/** a character's face as the script names it: the registry id (legacy ids resolved) and the persona / look / mood when given */
+export interface FlowFace {
+	character: string;
+	/** none = the regular persona */
+	persona?: string;
+	look?: string;
+	mood?: string;
+}
+
+/** how a group's slices read: one under the other, side by side (swiper), or a full-width strip */
+export type FlowLayout = 'vertical' | 'horizontal' | 'strip';
 
 export interface FlowNode {
 	id: string;
@@ -115,6 +151,21 @@ export interface FlowNode {
 	toon?: string;
 	/** toon: its seasons' numbers */
 	seasons?: number[];
+	/** its picture: a group's first slice, a slice, a jump's / exit's landing place, a chapter's thumbnail, a toon's avatar, an item */
+	image?: FlowImage;
+	/** a small second picture: the target toon's avatar when a jump leads into another toon */
+	badge?: FlowImage;
+	/**
+	 * the faces to show, in order of appearance: a group – everyone acting in its script (joins, speakers, askText); a
+	 * run / step – its speakers; a question – who asks it (the last speaker before it)
+	 */
+	faces?: FlowFace[];
+	/** group: how its slices read */
+	layout?: FlowLayout;
+	/** group: an entry point – a jump, an end, a random list or a map place from outside leads to its label (`?label=`) */
+	entry?: boolean;
+	/** trigger (an item tap): the catalog item */
+	item?: string;
 }
 
 export type FlowEdgeKind =
@@ -179,6 +230,8 @@ export interface FlowOptions {
 	name?: (group: any, index: number) => string;
 	/** a text (a choice's label: a string or a locale map) as shown – default the string or the map's first text */
 	text?: (value: unknown) => string;
+	/** the chapter the follow-up bar leads to after the last group (the season's next one): the next-chapter exit's picture */
+	nextChapter?: number;
 }
 
 /** a condition as one line: "coins >= 3", "met set", "name == Ana"; an expression as written ("coins >= 3 && met") */
@@ -207,6 +260,59 @@ const who = (c: any): string => {
 	return c?.persona && c.persona !== 'regular' ? `${id}·${c.persona}` : id;
 };
 
+/** a character ref (a join's, a message's) as a face: legacy ids resolved, persona / look / mood when given */
+function faceOf(c: any): FlowFace | null {
+	const id = c?.character ?? c?.name;
+	if (typeof id !== 'string' || !id) return null;
+	const r = resolveCharacterId(id, typeof c?.persona === 'string' ? c.persona : undefined);
+	return {
+		character: r.character,
+		...(r.persona !== REGULAR_PERSONA ? { persona: r.persona } : {}),
+		...(typeof c?.look === 'string' && c.look ? { look: c.look } : {}),
+		...(typeof c?.mood === 'string' && c.mood ? { mood: c.mood } : {})
+	};
+}
+/** adds a face once per character + persona (its first appearance keeps its look / mood) */
+function addFace(list: FlowFace[], face: FlowFace | null) {
+	if (face && !list.some((f) => f.character === face.character && f.persona === face.persona)) list.push(face);
+}
+/** everyone acting in a script, in order of appearance: who joins, who speaks, who asks */
+export function scriptFaces(events: readonly any[] | null | undefined): FlowFace[] {
+	const out: FlowFace[] = [];
+	for (const e of Array.isArray(events) ? events : []) {
+		if (e?.type === 'joinScene') for (const c of Array.isArray(e.params?.characters) ? e.params.characters : []) addFace(out, faceOf(c));
+		else if ((e?.type === 'showMessage' || e?.type === 'askText') && e.params?.character) addFace(out, faceOf(e.params));
+	}
+	return out;
+}
+/** a group's layout: vertical (default), horizontal (swiper) or a full-width strip */
+export function groupLayout(g: any): FlowLayout {
+	if (g?.renderer?.type !== 'horizontal') return 'vertical';
+	return g.renderer.params?.fullWidth ? 'strip' : 'horizontal';
+}
+/** a slice's picture: its low variant (1x); none without an image */
+export function sliceImage(slice: any, k: number, extra: { toon?: string; group?: number } = {}): FlowImage | undefined {
+	const src = typeof slice?.image === 'string' ? slice.image.trim() : '';
+	if (!src) return undefined;
+	const variants = slice?.imageVariants && typeof slice.imageVariants === 'object' ? (slice.imageVariants as QualityVariants) : undefined;
+	return { kind: 'slice', path: pickQualityVariant({ src, variants }, 'low'), slice: k, ...(extra.toon ? { toon: extra.toon } : {}), ...(extra.group !== undefined ? { group: extra.group } : {}) };
+}
+/**
+ * Where a jump / an end outside the chapter lands, as pictures: a chapter (+ label) – its thumbnail or the label's first
+ * slice, with the toon's avatar as the badge when it is another toon's; a toon page – its avatar. `own` = the flow's toon.
+ */
+export function targetPictures(t: Partial<JumpToTarget> | null | undefined, own?: string): Pick<FlowNode, 'image' | 'badge'> {
+	if (!t || typeof t !== 'object') return {};
+	if (t.type === 'toon' && typeof t.value === 'string' && t.value) return { image: { kind: 'toon', toon: t.value } };
+	if (t.type !== 'chapter' || t.value === undefined || String(t.value) === '' || !Number.isFinite(Number(t.value))) return {};
+	const other = intoOtherToon(t, own) ? (t.toon as string) : undefined;
+	const label = typeof t.label === 'string' && t.label ? t.label : undefined;
+	return {
+		image: { kind: 'chapter', chapter: Number(t.value), ...(other ? { toon: other } : {}), ...(label ? { label } : {}) },
+		...(other ? { badge: { kind: 'toon', toon: other } as FlowImage } : {})
+	};
+}
+
 type Path = (string | number)[];
 type Pending = { from: string; kind: FlowEdgeKind; label?: string; branch?: FlowEdge['branch']; condition?: string; never?: boolean };
 interface ScriptWalk {
@@ -218,6 +324,8 @@ interface ScriptWalk {
 }
 interface TriggerRun {
 	trigger: string;
+	/** an item tap: the catalog item */
+	item?: string;
 	repeat: RepeatMode;
 	events: any[];
 	idx: number[];
@@ -236,7 +344,7 @@ function runsOf(slice: any, gi: number, k: number): TriggerRun[] {
 	});
 	(Array.isArray(slice?.items) ? slice.items : []).forEach((item: any, x: number) => {
 		if (!Array.isArray(item?.events) || !item.events.length) return;
-		runs.set(`item${x}`, { trigger: 'item', repeat: runRepeat(item).mode, events: item.events, idx: item.events.map((_: unknown, j: number) => j), base: ['groups', gi, 'slices', k, 'items', x, 'events'] });
+		runs.set(`item${x}`, { trigger: 'item', ...(typeof item.item === 'string' && item.item ? { item: item.item } : {}), repeat: runRepeat(item).mode, events: item.events, idx: item.events.map((_: unknown, j: number) => j), base: ['groups', gi, 'slices', k, 'items', x, 'events'] });
 	});
 	return [...runs.values()];
 }
@@ -288,6 +396,10 @@ class Builder {
 		const slices: any[] = Array.isArray(g?.slices) ? g.slices : [];
 		const status = this.reach.groups[gi] ?? 'unreachable';
 		const dead = status === 'unreachable' ? [] : (this.reach.slices[gi] ?? []).flatMap((r, k) => (r === 'unreachable' ? [k] : []));
+		const image = this.firstSlice(gi);
+		const faces = scriptFaces(g?.events);
+		const facts = this.options.facts;
+		const entry = gi > 0 && !!facts && typeof g?.label === 'string' && !!g.label && facts.labels.has(g.label);
 		return this.add({
 			id,
 			kind: 'group',
@@ -298,8 +410,27 @@ class Builder {
 			count: slices.length,
 			...(dead.length ? { deadSlices: dead } : {}),
 			...(Array.isArray(g?.events) && g.events.length ? { script: true } : {}),
-			...(stub ? { stub: true } : {})
+			...(stub ? { stub: true } : {}),
+			layout: groupLayout(g),
+			...(image ? { image } : {}),
+			...(faces.length ? { faces } : {}),
+			...(entry ? { entry: true } : {})
 		});
+	}
+	/** a group's first slice as its picture (where a jump to its label lands) */
+	firstSlice(gi: number): FlowImage | undefined {
+		const slices = this.groups[gi]?.slices;
+		return Array.isArray(slices) ? sliceImage(slices[0], 0, { group: gi, ...(this.options.toon ? { toon: this.options.toon } : {}) }) : undefined;
+	}
+	/** a jump's picture: where it lands – a group of this chapter (its first slice), else the chapter / toon outside */
+	jumpPictures(t: any): Pick<FlowNode, 'image' | 'badge'> {
+		if (!t || typeof t !== 'object') return {};
+		const here = t.type === 'chapter' && !intoOtherToon(t, this.options.toon) && this.options.chapter !== undefined && Number(t.value) === this.options.chapter;
+		if (!here) return targetPictures(t, this.options.toon);
+		if (Array.isArray(t.anyOf) && t.anyOf.length) return {};
+		const gi = typeof t.label === 'string' && t.label ? this.labelled.get(t.label) : 0;
+		const image = gi === undefined ? undefined : this.firstSlice(gi);
+		return image ? { image } : {};
 	}
 	/** where a jump leads: groups of this chapter, else an exit node */
 	targets(t: any): { id: string; random: boolean }[] {
@@ -322,7 +453,7 @@ class Builder {
 		if (typeof t.label === 'string' && t.label) target.label = t.label;
 		if (anyOf.length) target.anyOf = anyOf;
 		const id = `x:${t.type}:${other ? `${t.toon}/` : ''}${target.value}:${target.label ?? ''}:${anyOf.join('|')}`;
-		return [{ id: this.add({ id, kind: 'exit', status: 'unreachable', target }), random: false }];
+		return [{ id: this.add({ id, kind: 'exit', status: 'unreachable', target, ...targetPictures(target, this.options.toon) }), random: false }];
 	}
 	jumpEdges(from: string, t: unknown, extra: Partial<FlowEdge>) {
 		for (const x of this.targets(t)) this.edge(from, x.id, x.random ? 'random' : 'jump', extra);
@@ -353,6 +484,8 @@ class Builder {
 			}
 		});
 		let block: number[] = [];
+		/** who asks the next question: the last speaker so far */
+		let asker: FlowFace | null = null;
 		let run: FlowNode | null = null;
 		const enter = (to: string, extra: Partial<FlowEdge> = {}) => {
 			for (const p of pending) this.edge(p.from, to, p.kind, { ...this.carry(p), ...extra });
@@ -361,6 +494,7 @@ class Builder {
 		events.forEach((e, j) => {
 			const dead = this.never.has(path(j).join('.'));
 			const type = e?.type;
+			if ((type === 'showMessage' || type === 'askText') && e.params?.character) asker = faceOf(e.params);
 			if (KEY_EVENTS.has(type)) run = null;
 			switch (type) {
 				case 'label': {
@@ -381,7 +515,7 @@ class Builder {
 						status: status(j),
 						group: gi,
 						path: path(j),
-						...(type === 'divert' ? { name: String(e.params?.to ?? '') } : { target: e.params?.target })
+						...(type === 'divert' ? { name: String(e.params?.to ?? '') } : { target: e.params?.target, ...this.jumpPictures(e.params?.target) })
 					});
 					enter(at);
 					const extra = { ...this.cond(e), ...(dead ? { never: true } : {}) };
@@ -399,7 +533,7 @@ class Builder {
 				case 'showChoices': {
 					const choices = block;
 					block = [];
-					const at = this.add({ id: id(j), kind: 'choices', status: status(j), group: gi, path: path(j), count: choices.length });
+					const at = this.add({ id: id(j), kind: 'choices', status: status(j), group: gi, path: path(j), count: choices.length, ...(asker ? { faces: [asker] } : {}) });
 					enter(at);
 					const extra = { ...this.cond(e), ...(dead ? { never: true } : {}) };
 					let sure = false;
@@ -463,7 +597,7 @@ class Builder {
 		switch (e?.type) {
 			case 'showMessage':
 				n.messages = (n.messages ?? 0) + 1;
-				if (e.params?.character) push('speakers', who(e.params));
+				if (e.params?.character) (push('speakers', who(e.params)), addFace((n.faces ??= []), faceOf(e.params)));
 				if (n.first === undefined) {
 					const t = this.text(e.params?.text);
 					if (t) n.first = t;
@@ -486,7 +620,7 @@ class Builder {
 				if (t && n.first === undefined) n.first = t;
 				const into = asksInto(e);
 				if (into) n.asks = into;
-				if (e.params?.character) push('speakers', who(e.params));
+				if (e.params?.character) (push('speakers', who(e.params)), addFace((n.faces ??= []), faceOf(e.params)));
 				break;
 			}
 		}
@@ -523,7 +657,7 @@ class Builder {
 				const branches = run.events.some((e) => e?.type === 'divert' || e?.type === 'jumpTo' || e?.type === 'showChoices');
 				if (!branches && !o.detail) continue;
 				const id = `g${gi}s${k}t${n++}`;
-				this.add({ id, kind: 'trigger', status: sliceStatus, group: gi, path: [...run.base, run.idx[0]], slice: k, trigger: run.trigger, ...(run.repeat !== 'every' ? { repeat: run.repeat } : {}) });
+				this.add({ id, kind: 'trigger', status: sliceStatus, group: gi, path: [...run.base, run.idx[0]], slice: k, trigger: run.trigger, ...(run.item ? { item: run.item, image: { kind: 'item', item: run.item } as FlowImage } : {}), ...(run.repeat !== 'every' ? { repeat: run.repeat } : {}) });
 				this.edge(o.from(k), id, 'trigger');
 				// a lone divert goes into the group's script at its point
 				const lone = run.events.length === 1 && run.events[0]?.type === 'divert' ? run.events[0] : null;
@@ -563,7 +697,8 @@ class Builder {
 		}
 		const next = this.groups[gi + 1];
 		if (next && typeof next.label === 'string' && next.label) return link(this.group(gi + 1, true), 'follow');
-		link(this.add({ id: 'x:next', kind: 'exit', status: 'unreachable', next: true }), 'follow');
+		const nextChapter = this.options.nextChapter;
+		link(this.add({ id: 'x:next', kind: 'exit', status: 'unreachable', next: true, ...(nextChapter !== undefined ? { image: { kind: 'chapter', chapter: nextChapter } as FlowImage } : {}) }), 'follow');
 	}
 
 	/** an exit is as reachable as the best way into it */
@@ -638,7 +773,8 @@ export function sliceFlow(groups: readonly any[], gi: number, k: number, options
 	const slice = Array.isArray(g?.slices) ? g.slices[k] : undefined;
 	if (!slice) return b.done();
 	const group = b.group(gi, true);
-	const head = b.add({ id: `g${gi}s${k}`, kind: 'slice', status: reach.slices[gi]?.[k] ?? 'unreachable', group: gi, slice: k, path: ['groups', gi, 'slices', k], name: `${k + 1}` });
+	const image = sliceImage(slice, k, { group: gi, ...(options.toon ? { toon: options.toon } : {}) });
+	const head = b.add({ id: `g${gi}s${k}`, kind: 'slice', status: reach.slices[gi]?.[k] ?? 'unreachable', group: gi, slice: k, path: ['groups', gi, 'slices', k], name: `${k + 1}`, ...(image ? { image } : {}) });
 	b.edge(group, head, 'then');
 	// the group's script events that reveal one of this slice's text boxes
 	const boxes = new Set<string>((Array.isArray(slice.dialog) ? slice.dialog : []).map((d: any) => d?.id).filter((id: unknown): id is string => typeof id === 'string'));
@@ -663,6 +799,8 @@ export interface FlowChapter {
 	/** its status in its season (source language): draft / coming-soon / published */
 	status?: string;
 	title?: string;
+	/** its thumbnail (`Chapter.thumbnail`, relative to the toon's folder) */
+	thumbnail?: string;
 }
 /** a season and its chapters in reading order (`sequence`) */
 export interface FlowSeason {
@@ -805,7 +943,8 @@ export function toonFlow(input: ToonFlowInput, options: { season?: number; reach
 			...(c.status ? { state: c.status } : {}),
 			...(c.title ? { name: c.title } : {}),
 			count: c.groups.length,
-			dead: r.dead
+			dead: r.dead,
+			...(c.thumbnail ? { image: { kind: 'thumbnail', path: c.thumbnail, chapter: c.number, toon: input.toon } as FlowImage } : {})
 		});
 	}
 	/** merged edges: from|to|kind → edge */
@@ -828,7 +967,10 @@ export function toonFlow(input: ToonFlowInput, options: { season?: number; reach
 		const other = intoOtherToon(t, input.toon);
 		const id = `x:${t.type}:${other ? `${t.toon}/` : ''}${t.value}`;
 		const target: JumpToTarget = { type: t.type, value: String(t.value), ...(other ? { toon: t.toon } : {}) };
-		return add({ id, kind: 'exit', status: 'unreachable', target, ...(t.type === 'chapter' && !other && seasonOf.has(Number(t.value)) ? { season: seasonOf.get(Number(t.value)) } : {}) });
+		// a chapter of this toon in another season: its thumbnail from its document; else looked up by the creator
+		const own = t.type === 'chapter' && !other ? input.chapters.find((c) => c.number === Number(t.value))?.thumbnail : undefined;
+		const pictures = own ? { image: { kind: 'thumbnail', path: own, chapter: Number(t.value), toon: input.toon } as FlowImage } : targetPictures(target, input.toon);
+		return add({ id, kind: 'exit', status: 'unreachable', target, ...pictures, ...(t.type === 'chapter' && !other && seasonOf.has(Number(t.value)) ? { season: seasonOf.get(Number(t.value)) } : {}) });
 	};
 	for (const c of ordered) {
 		if (!shown(c.number)) continue;
@@ -887,6 +1029,38 @@ export interface FlowIndexToon {
 	title?: unknown;
 	status?: string;
 	seasons: { number: number; chapters: { number: number; status?: unknown }[] }[];
+	/** its avatar (the toon entry's `avatar`, relative to the toon's folder) */
+	avatar?: string | null;
+	/**
+	 * per chapter number: its thumbnail and, per group label, the low variant of the group's first slice (where a jump to
+	 * that label lands) – the Flow's pictures of places in other chapters / toons (`chapterPictures`)
+	 */
+	chapters?: Record<string, ChapterPictures>;
+}
+/** a chapter's pictures as the flow index lists them (paths relative to the toon's folder) */
+export interface ChapterPictures {
+	thumbnail?: string;
+	/** group label → its first slice's low variant */
+	labels?: Record<string, string>;
+	/** the first group's first slice (a jump to the chapter without a label lands there) */
+	first?: string;
+}
+
+/** a chapter's pictures from its groups (scenes in place of their refs) and thumbnail – what the server's flow index lists */
+export function chapterPictures(groups: readonly any[], thumbnail?: unknown): ChapterPictures {
+	const labels: Record<string, string> = {};
+	const low = (g: any) => (Array.isArray(g?.slices) ? sliceImage(g.slices[0], 0) : undefined);
+	for (const g of groups) {
+		if (typeof g?.label !== 'string' || !g.label || g.label in labels) continue;
+		const image = low(g);
+		if (image?.kind === 'slice') labels[g.label] = image.path;
+	}
+	const first = low(groups[0]);
+	return {
+		...(typeof thumbnail === 'string' && thumbnail ? { thumbnail } : {}),
+		...(Object.keys(labels).length ? { labels } : {}),
+		...(first?.kind === 'slice' ? { first: first.path } : {})
+	};
 }
 export interface FlowIndex {
 	toons: FlowIndexToon[];
@@ -926,6 +1100,7 @@ export function universeFlow(index: FlowIndex, options: { text?: (value: unknown
 			toon: t.id,
 			name: text(t.title) || t.id,
 			...(t.status ? { state: t.status } : {}),
+			image: { kind: 'toon', toon: t.id },
 			seasons: t.seasons.map((s) => s.number),
 			count: t.seasons.reduce((sum, s) => sum + s.chapters.length, 0)
 		});
@@ -941,7 +1116,7 @@ export function universeFlow(index: FlowIndex, options: { text?: (value: unknown
 		const label = e.label;
 		if (into !== null) {
 			if (into === e.source.toon) continue;
-			to = byId.has(`t:${into}`) ? `t:${into}` : add({ id: `x:toon:${into}`, kind: 'exit', status: 'reachable', target: { type: 'toon', value: into } as JumpToTarget });
+			to = byId.has(`t:${into}`) ? `t:${into}` : add({ id: `x:toon:${into}`, kind: 'exit', status: 'reachable', target: { type: 'toon', value: into } as JumpToTarget, image: { kind: 'toon', toon: into } });
 		} else if (t.type === 'product' || t.type === 'xr') {
 			to = add({ id: `x:${t.type}:${t.value}`, kind: 'exit', status: 'reachable', target: { type: t.type, value: String(t.value) } });
 		} else continue; // chapter / season: inside the toon

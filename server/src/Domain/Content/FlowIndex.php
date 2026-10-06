@@ -16,13 +16,14 @@ use Scutoons\Infrastructure\Database\Database;
  * from this toon or another one: a chapter target with `toon`). Story variables are ONE save game for every toon (owner
  * 2026-10-06, DATA.md "The save game"): set in toptoy and read in catpope = used – `variables` lists every name with the
  * toons that set / read it, and the dead things judge variables across all toons. The browser draws it without loading
- * every toon.
+ * every toon. The Flow's pictures (owner 2026-10-06): each toon's `avatar` and per chapter its thumbnail and the low
+ * variant of each labelled group's first slice (`chapters`, the same as @scutoons/content `chapterPictures`).
  * Cached under the version ids it was built from (content-addressed like the library: nothing to invalidate).
  */
 final class FlowIndex
 {
     private const CACHE_TTL = 3600;
-    private const VERSION = 'v4';
+    private const VERSION = 'v5';
     private const KINDS = ['chapter', 'scene', 'season', 'toon', 'map'];
     private const TARGET_TYPES = ['chapter', 'season', 'toon', 'product', 'xr'];
 
@@ -86,7 +87,7 @@ final class FlowIndex
      */
     private function compose(array $docs): array
     {
-        /** @var array<string, array{id: string, title: mixed, status: ?string, seasons: array<int, list<array{number: int, status: mixed}>>}> $toons */
+        /** @var array<string, array{id: string, title: mixed, status: ?string, avatar: ?string, seasons: array<int, list<array{number: int, status: mixed}>>, chapters: array<int, array<string, mixed>>}> $toons */
         $toons = [];
         /** @var array<string, array<int, list<mixed>>> $chapters toon → chapter number → resolved groups */
         $chapters = [];
@@ -98,11 +99,12 @@ final class FlowIndex
             $kind = $parts[0];
             if ($kind === 'map' || count($parts) < 2) continue;
             $toon = $parts[1];
-            $toons[$toon] ??= ['id' => $toon, 'title' => null, 'status' => null, 'seasons' => []];
+            $toons[$toon] ??= ['id' => $toon, 'title' => null, 'status' => null, 'avatar' => null, 'seasons' => [], 'chapters' => []];
             $toonDocs[$toon][] = $doc;
             if ($kind === 'toon') {
                 $toons[$toon]['title'] = $doc['title'] ?? null;
                 $toons[$toon]['status'] = is_string($doc['status'] ?? null) ? $doc['status'] : null;
+                $toons[$toon]['avatar'] = is_string($doc['avatar'] ?? null) && $doc['avatar'] !== '' ? $doc['avatar'] : null;
             } elseif ($kind === 'season' && isset($parts[2])) {
                 $list = [];
                 foreach (is_array($doc['sequence'] ?? null) ? $doc['sequence'] : [] as $item) {
@@ -119,6 +121,7 @@ final class FlowIndex
                     $groups[] = $scene !== null && isset($docs[$scene]) ? $docs[$scene] : $group;
                 }
                 $chapters[$toon][(int) $parts[2]] = $groups;
+                $toons[$toon]['chapters'][(int) $parts[2]] = self::pictures($groups, $doc['thumbnail'] ?? null);
             }
         }
         ksort($toons);
@@ -181,7 +184,10 @@ final class FlowIndex
             ksort($entry['seasons']);
             $seasons = [];
             foreach ($entry['seasons'] as $n => $items) $seasons[] = ['number' => $n, 'chapters' => $items];
-            $list[] = ['id' => $entry['id'], 'title' => $entry['title'], 'status' => $entry['status'], 'seasons' => $seasons];
+            ksort($entry['chapters']);
+            $pictures = [];
+            foreach ($entry['chapters'] as $n => $p) $pictures[(string) $n] = (object) $p;
+            $list[] = ['id' => $entry['id'], 'title' => $entry['title'], 'status' => $entry['status'], 'seasons' => $seasons, 'avatar' => $entry['avatar'], 'chapters' => (object) $pictures];
         }
         return ['status' => 'success', 'toons' => $list, 'edges' => $edges, 'dead' => $dead, 'variables' => (object) $variableList];
     }
@@ -396,6 +402,36 @@ final class FlowIndex
     {
         $out = [];
         foreach ($names as $path) if (count($path) === 1) $out[] = $path[0];
+        return $out;
+    }
+
+    /**
+     * A chapter's pictures for the Flow (the same as @scutoons/content `chapterPictures`): its thumbnail, per group label
+     * the low variant of the group's first slice (where a jump to that label lands), the first group's first slice.
+     * @param list<mixed> $groups
+     * @return array{thumbnail?: string, labels?: array<string, string>, first?: string}
+     */
+    private static function pictures(array $groups, mixed $thumbnail): array
+    {
+        $low = static function (mixed $group): ?string {
+            $slice = is_array($group) && is_array($group['slices'] ?? null) ? ($group['slices'][0] ?? null) : null;
+            $image = is_array($slice) && is_string($slice['image'] ?? null) ? trim($slice['image']) : '';
+            if ($image === '') return null;
+            $variant = is_array($slice['imageVariants'] ?? null) ? ($slice['imageVariants']['low'] ?? null) : null;
+            return is_string($variant) && $variant !== '' ? $variant : $image;
+        };
+        $labels = [];
+        foreach ($groups as $group) {
+            $label = is_array($group) && is_string($group['label'] ?? null) ? $group['label'] : '';
+            if ($label === '' || isset($labels[$label])) continue;
+            $image = $low($group);
+            if ($image !== null) $labels[$label] = $image;
+        }
+        $out = [];
+        if (is_string($thumbnail) && $thumbnail !== '') $out['thumbnail'] = $thumbnail;
+        if ($labels !== []) $out['labels'] = $labels;
+        $first = $low($groups[0] ?? null);
+        if ($first !== null) $out['first'] = $first;
         return $out;
     }
 

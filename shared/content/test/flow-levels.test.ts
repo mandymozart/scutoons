@@ -2,7 +2,7 @@
 // SCUTOONS, dead things.   node --experimental-transform-types --no-warnings --test test/flow-levels.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chapterExits, chapterFlow, chapterReach, deadThings, groupFlow, sliceFlow, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
+import { chapterExits, chapterFlow, chapterPictures, chapterReach, deadThings, groupFlow, scriptFaces, sliceFlow, sliceImage, targetPictures, toonFacts, toonFlow, toonReach, universeFlow, type ChapterFlow, type FlowChapter } from '../src/index.ts';
 
 const msg = (text: string, character?: string) => ({ type: 'showMessage', params: { text, ...(character ? { character } : {}) } });
 const join = (character: string, persona?: string) => ({ type: 'joinScene', params: { characters: [{ character, ...(persona ? { persona } : {}), variant: 'avatar' }] } });
@@ -275,4 +275,64 @@ test('step 3: expression conditions, askText, repeat rules (once for good), the 
 	const dead = deadThings([{ number: 2, groups }], facts);
 	assert.deepEqual(dead.unread, [], JSON.stringify(dead.unread));
 	assert.deepEqual(dead.unset.map((d) => d.name), ['coins', 'gold', 'met']);
+});
+
+test('pictures: every level names its small picture as data (slices low, thumbnails, avatars, items, faces)', () => {
+	const s = (n: number, variants = false) => ({ image: `s1/c2/slice-${n}.webp`, width: 390, height: 625, ...(variants ? { imageVariants: { low: `s1/c2/slice-${n}.webp`, medium: `s1/c2/slice-${n}.2x.webp` } } : {}) });
+	const groups = [
+		{
+			label: 'start',
+			slices: [s(1, true), { ...s(2), items: [{ id: 'cucumber-1', item: 'cucumber', rect: { x: 0, y: 0, width: 10 }, events: [msg('crunch')] }] }],
+			events: [
+				join('cat'), // legacy id → catpope · cat
+				{ type: 'showMessage', params: { text: 'Mama?', character: 'cat', mood: 'sad' } },
+				msg('Not your mama', 'boy'),
+				choice('harbour', { jumpTo: { target: { type: 'chapter', value: '2', label: 'harbour' } } }),
+				choice('forest', { jumpTo: { target: { type: 'chapter', value: '3', label: 'forest' } } }),
+				choice('hypercity', { jumpTo: { target: { type: 'chapter', value: '1', toon: 'toptoy', label: 'hyper' } } }),
+				{ type: 'showChoices' },
+				jump('2', 'harbour')
+			]
+		},
+		{ label: 'harbour', renderer: { type: 'horizontal' }, slices: [s(5)] },
+		{ label: 'strip', renderer: { type: 'horizontal', params: { fullWidth: true } }, slices: [] }
+	];
+	const facts = toonFacts([groups], { toon: 'catpope' });
+	const f = chapterFlow(groups, { chapter: 2, toon: 'catpope', facts, nextChapter: 3 });
+	// a group: its first slice (the low variant), everyone acting in order (persona / mood as named), its layout, entry
+	assert.deepEqual(node(f, 'g0')?.image, { kind: 'slice', path: 's1/c2/slice-1.webp', slice: 0, toon: 'catpope', group: 0 });
+	assert.deepEqual(node(f, 'g0')?.faces, [{ character: 'catpope', persona: 'cat' }, { character: 'boy' }]);
+	assert.deepEqual([node(f, 'g0')?.layout, node(f, 'g1')?.layout, node(f, 'g2')?.layout], ['vertical', 'horizontal', 'strip']);
+	assert.equal(node(f, 'g2')?.image, undefined, 'no slice: no picture (the UI draws the dashed slot)');
+	assert.deepEqual([node(f, 'g0')?.entry, node(f, 'g1')?.entry, node(f, 'g2')?.entry], [undefined, true, undefined], 'harbour: something jumps there');
+	// the question: who asks (the last speaker before it)
+	const q = f.nodes.find((n) => n.kind === 'choices')!;
+	assert.deepEqual(q.faces, [{ character: 'boy' }]);
+	// a jump in the chapter: where the label lands (its group's first slice); outside: the chapter (+ label), another toon's badge
+	assert.deepEqual(node(f, 'g0e7')?.image, { kind: 'slice', path: 's1/c2/slice-5.webp', slice: 0, toon: 'catpope', group: 1 });
+	const forest = f.nodes.find((n) => n.kind === 'exit' && n.target?.value === '3')!;
+	assert.deepEqual([forest.image, forest.badge], [{ kind: 'chapter', chapter: 3, label: 'forest' }, undefined]);
+	const toptoy = f.nodes.find((n) => n.kind === 'exit' && n.target?.toon === 'toptoy')!;
+	assert.deepEqual([toptoy.image, toptoy.badge], [{ kind: 'chapter', chapter: 1, toon: 'toptoy', label: 'hyper' }, { kind: 'toon', toon: 'toptoy' }]);
+	// the next chapter: its picture when the caller knows which one
+	assert.deepEqual(node(f, 'x:next')?.image, { kind: 'chapter', chapter: 3 });
+	// group level: a run's speakers' faces (mood as named), an item tap's item
+	const g = groupFlow(groups, 0, { chapter: 2, toon: 'catpope', facts });
+	assert.deepEqual(node(g, 'g0e0')?.faces, [{ character: 'catpope', persona: 'cat', mood: 'sad' }, { character: 'boy' }]);
+	const tap = g.nodes.find((n) => n.kind === 'trigger' && n.trigger === 'item')!;
+	assert.deepEqual([tap.item, tap.image], ['cucumber', { kind: 'item', item: 'cucumber' }]);
+	// slice level: the slice's own image
+	assert.deepEqual(node(sliceFlow(groups, 0, 1, { chapter: 2, toon: 'catpope' }), 'g0s1')?.image, { kind: 'slice', path: 's1/c2/slice-2.webp', slice: 1, toon: 'catpope', group: 0 });
+	// season / toon: a chapter's thumbnail from its document
+	const toon = toonFlow({ toon: 'catpope', seasons: [{ number: 1, chapters: [2, 3] }], chapters: [{ number: 2, groups, thumbnail: 's1/c2/thumb.jpg' }, { number: 3, groups: [{ label: 'forest', slices: [s(9)] }] }] });
+	assert.deepEqual(node(toon, 'c2')?.image, { kind: 'thumbnail', path: 's1/c2/thumb.jpg', chapter: 2, toon: 'catpope' });
+	assert.equal(node(toon, 'c3')?.image, undefined);
+	// SCUTOONS: a toon's avatar; the flow index's chapter pictures (what the server lists)
+	const u = universeFlow({ toons: [{ id: 'catpope', seasons: [] }], edges: [{ source: { toon: 'catpope', chapter: 2 }, target: { type: 'toon', value: 'nobody' }, kind: 'jump' }] });
+	assert.deepEqual([node(u, 't:catpope')?.image, node(u, 'x:toon:nobody')?.image], [{ kind: 'toon', toon: 'catpope' }, { kind: 'toon', toon: 'nobody' }]);
+	assert.deepEqual(chapterPictures(groups, 's1/c2/thumb.jpg'), { thumbnail: 's1/c2/thumb.jpg', labels: { start: 's1/c2/slice-1.webp', harbour: 's1/c2/slice-5.webp' }, first: 's1/c2/slice-1.webp' });
+	assert.deepEqual(chapterPictures([]), {});
+	assert.deepEqual(scriptFaces([join('plf'), msg('x', 'plf')]), [{ character: 'catpope', persona: 'human' }]);
+	assert.deepEqual(sliceImage({ image: 'a.webp', imageVariants: { medium: 'a.2x.webp' } }, 0), { kind: 'slice', path: 'a.webp', slice: 0 });
+	assert.deepEqual(targetPictures({ type: 'season', value: '2' }), {});
 });
