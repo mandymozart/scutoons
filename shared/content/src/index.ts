@@ -23,6 +23,7 @@ export * from './validate.ts';
 export * from './media.ts';
 export * from './entities.ts';
 export * from './progress.ts';
+export * from './chains.ts';
 export * from './script.ts';
 export * from './media-quality.ts';
 export * from './map.ts';

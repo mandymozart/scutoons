@@ -409,6 +409,23 @@ export interface Group extends AcceptedWarnings {
 	slices?: Slice[];
 	events?: VNEvent[];
 	ref?: RefLink;
+	/**
+	 * Linked groups (owner 2026-10-06): this group flows straight into the next group on the same page, no follow-up bar
+	 * between. A chain = consecutive groups where every one but the last continues (`chainOf` in chains.ts). A group with
+	 * a VN script or slice events can only be a chain's last group (its `continues` is ignored).
+	 */
+	continues?: boolean;
+	/**
+	 * Where the reader goes when this group – the chain's last – is done, instead of the next group / chapter. Ignored on a
+	 * group that `continues`.
+	 */
+	end?: GroupEnd;
+}
+
+/** A group's authored end (`Group.end`): the destination; `auto` = go there at once, else the follow-up bar offers it */
+export interface GroupEnd {
+	target: JumpToTarget;
+	auto?: boolean;
 }
 
 /** A group stored on its own (a scene): `src` = `chapter<N>/<name>.json` (EntityKey::sceneOfRef); id / type are unused leftovers */
