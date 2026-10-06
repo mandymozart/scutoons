@@ -12,6 +12,7 @@ import { page } from '$app/state';
 import { evaluateText, textHistoryKey, type ExprResolver, type ExprValue } from '@scutoons/content';
 import type { TextExpressions } from '@scutoons/reader';
 import type { GameContext } from '$lib/contexts/game.svelte';
+import { fetchMap } from '$lib/api.ts';
 import { readerCall, readerName, type ReaderSources } from './reader.ts';
 
 const KEY = Symbol('reader-expressions');
@@ -92,6 +93,26 @@ export function createReaderExpressions(sources: ReaderSources, game: GameContex
 	}
 
 	return { name, call, textBoxes, evaluate };
+}
+
+let worldPlaces = $state<readonly { id: string; name?: string }[] | null>(null);
+let worldLoading = '';
+
+/**
+ * The world map's places for `map.total` / `map.here` when the toon's map (toon/map/map.svelte → the world context) has
+ * none – a toon not on the map, or before the map's idle load: the whole world (`/library/map`), loaded once per language
+ * when a text first asks (null meanwhile; texts re-render when it arrives).
+ */
+export function lazyWorldPlaces(locale: string): readonly { id: string; name?: string }[] | null {
+	if (worldLoading !== locale) {
+		worldLoading = locale;
+		fetchMap(locale)
+			.then((map) => {
+				if (worldLoading === locale) worldPlaces = (map?.locations ?? []).map((p) => ({ id: p.id, name: p.name }));
+			})
+			.catch(() => {});
+	}
+	return worldPlaces;
 }
 
 /** a short stable identity for a longer one (a slice trigger's JSON): FNV-1a, base 36 – history keys stay small */

@@ -25,7 +25,7 @@ export interface RunnerDeps {
 	scope?: string;
 	/**
 	 * where the events come from, for their texts' identity (visits of `{a|b|c}`): `script` = the group's script (default),
-	 * else e.g. a slice trigger / a placed item – a message is `<scope>/<origin>/<event index>`
+	 * else e.g. a slice trigger / a placed item – a message is `<group label>/<origin>/<event index>`
 	 */
 	origin?: string;
 }
@@ -45,7 +45,7 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 	const expressions = getCurrentReaderExpressions();
 	const show = (source: string, at: number): string =>
 		expressions
-			? expressions.evaluate(source, `${deps.scope ?? ''}/${deps.origin ?? 'script'}/${at}`)
+			? expressions.evaluate(source, `${label() ?? deps.scope ?? ''}/${deps.origin ?? 'script'}/${at}`)
 			: evaluateText(source, { name: (path) => (path.length === 1 ? get(path[0]) : undefined) }).text;
 	let i = Math.max(0, start);
 	let jumpsWithoutWait = 0;

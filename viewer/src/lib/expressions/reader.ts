@@ -68,6 +68,13 @@ function checkpoint(s: ReaderSources, chapter: unknown): Checkpoint | undefined 
 	return s.checkpoints?.().find((c) => c?.uri === uri);
 }
 
+/** the unlocked places – of the reader's world map once it is loaded (so `map.total - map.unlocked` adds up), else all */
+function mapPlaces(s: ReaderSources): { unlocked: number; seen?: number }[] {
+	const unlocked = s.map?.()?.places ?? {};
+	const world = s.places?.();
+	return world ? world.flatMap((p) => (unlocked[p.id] ? [unlocked[p.id]] : [])) : Object.values(unlocked);
+}
+
 const count = (s: ReaderSources, item: unknown): number =>
 	typeof item === 'string' ? (s.entries?.() ?? []).filter((e) => e.item_id === item).reduce((sum, e) => sum + e.qty, 0) : 0;
 
@@ -112,9 +119,9 @@ export function readerName(s: ReaderSources, path: readonly string[]): ExprValue
 		case 'effects.count':
 			return s.effects?.().length ?? 0;
 		case 'map.unlocked':
-			return Object.keys(s.map?.()?.places ?? {}).length;
+			return mapPlaces(s).length;
 		case 'map.seen':
-			return Object.values(s.map?.()?.places ?? {}).filter((p) => p.seen !== undefined).length;
+			return mapPlaces(s).filter((p) => p.seen !== undefined).length;
 		case 'map.total':
 			return s.places?.()?.length ?? undefined;
 		case 'map.here': {

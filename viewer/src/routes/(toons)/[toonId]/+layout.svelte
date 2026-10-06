@@ -12,7 +12,7 @@
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getWorldContext } from '$lib/contexts/world.svelte.ts';
-	import { createReaderExpressions, setReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
+	import { createReaderExpressions, lazyWorldPlaces, setReaderExpressions } from '$lib/expressions/resolver.svelte.ts';
 	import { getLocale } from '$lib/paraglide/runtime.js';
 	import { isReadable } from '$lib/draft-preview.svelte.ts';
 	import type { LoadedSequenceItem } from '@scutoons/content';
@@ -49,7 +49,7 @@
 				stat: (id) => inventory?.stats.find((s) => s.id === id)?.level,
 				effects: () => (inventory?.effects ?? []).map((e) => e.kind),
 				map: () => world?.map,
-				places: () => world?.places
+				places: () => world?.places ?? lazyWorldPlaces(getLocale())
 			},
 			game,
 			() => getLocale()
