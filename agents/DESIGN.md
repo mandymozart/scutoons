@@ -267,7 +267,15 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
   No help sentences. The size line is short: "390 × 693" (frame), "Bildschirm · 1,89:1" (full viewport), else the image
   size as before. Sizes in `em` of the creator's fixed 13 px base (its root `rem` is the reader's fluid one). "Original"
   with a poster whose ratio differs from the video's (> 2 %) shows a warning (the slice would shift while loading).
-- **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group.
+- **Linked groups** (owner 2026-10-06, DATA.md "Linked groups"): groups with `continues` share one chapter page – a
+  chain read top to bottom (vertical → strip → strip → vertical reads smoothly: each strip pins, moves sideways,
+  releases). One URL: `?label=` of a group inside a chain renders the whole chain and jumps (instant) to that group,
+  kept aligned while the page above settles. One `{#key}` per chain; the follow-up bar only after its last group, "↺
+  Nochmal" from the chain's top. Creator: "geht weiter in die nächste Gruppe" (not on the chapter's last group), "Ende"
+  (set / removed with a button: the jumpTo target fields + "sofort") on a group that doesn't continue; a Feather link
+  mark in the chapter tree on a group that continues.
+- **Follow-up bar** (`chapter/next-bar.svelte` on the chapter page, owner 2026-10-01): what comes after the shown group
+  (of linked groups: after the last one).
   - **When:** the group is done = its last slice was seen (≥ 50 % on screen or its bottom edge, `sliceSeen` in
     track-reading.ts), or – a group ending with a player video – the video **ended** (playing it again hides the bar);
     a VN group additionally needs its script run to the end without a jump (`vn.state.eventsDone`, set by `endOfEvents`)
@@ -281,6 +289,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     never skipped –, `isItemPublic` for drafts in dev, the membership context):
     | case | text | primary | secondary | countdown |
     |---|---|---|---|---|
+    | the group has an authored end (`Group.end`, 2026-10-06) | – | "Weiter →", to a chapter like the next-chapter case ("Kapitel 2: Ärger →"); with `auto` no bar: it goes there at once | "↺ Nochmal" | yes |
     | more groups follow | – | "Weiter →" (`?label=` of the next group) | "↺ Nochmal" | yes |
     | the next chapter readable (preview or member) | – | "Kapitel 2: Ärger →" (`chapterName` + title); from the prologue "S1 K1 lesen →" | "↺ Nochmal" | yes |
     | the next chapter members-only, not signed in | "Kapitel 1 ist für Mitglieder: melde dich an oder löse deinen Code ein." | "Anmelden →" (`/account?return=<chapter>`, back there after the login) | "Code einlösen" (the QR camera = the claim flow) | no |
@@ -295,8 +304,7 @@ Wordmark always "SCUTOONS" and always the logo file, never re-set in type.
     Abbrechen" in caption type, then it navigates. Stops (the button stays): "Abbrechen", the end scrolled out of view, a
     click anywhere outside the bar (the main menu, a toggle), Escape, an overlay (chapter list, map, inventory), the
     camera or a claim sheet. A hidden tab pauses it (the time away doesn't count). Reduced motion: no countdown.
-  - Strings: paraglide `next_bar.*`. **Later idea (not built):** a per-group override `group.next` (e.g. a different
-    target or no bar after a cliffhanger) – only when the owner needs it (keep the configuration small).
+  - Strings: paraglide `next_bar.*`. The per-group override is `Group.end` (built 2026-10-06, table above).
 - **Credits colophon** (`@scutoons/reader` `CreditsColophon`, owner 2026-09-30, typography after the back of the vinyl
   cover; content = `credits:<toon>` as it is): `0.8125rem` (≈ 11.4 px on a phone), line-height 1.5, centred, max
   36em; section headings in capitals, bold, letter-spacing 0.08em, inside a 2px `ink` framed bar (square); names as

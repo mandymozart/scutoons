@@ -336,6 +336,23 @@ Decisions: a season entry whose chapter is missing is listed with empty fields (
   | chapter 1 | 2839 → **2672 ms** | 1036 → **896 ms** | 86 → 78 | 14 → **4** |
   | sandbox chapter 5 (VN) | 1008 → **862 ms** | 808 → **740 ms** | 67 → 61 | 13 → **4** |
 
+## Linked groups and a group's end (2026-10-06, owner)
+
+- **`Group.continues: true`** – the group flows straight into the next one on the same reader page, no follow-up bar
+  between. A **chain** = a maximal run of consecutive groups where all but the last continue (`chainOf`, `chainSlices`,
+  `linksToNext` in `@scutoons/content` chains.ts). `?label=` of any group of a chain shows the whole chain (scrolled to
+  that group); slice indices on the page run on across it.
+- A group with a VN script (`events`) or slice events can only be a chain's **last** group: its `continues` is ignored
+  (the reader treats it as a break); further down a chain its script starts when its first slice is seen.
+- **`Group.end: { target: JumpToTarget, auto? }`** – where the reader goes after the chain's last group instead of the
+  next group / chapter (`nextStep` kind `jump`; the URL via the VN's `buildJumpToUrl`). `auto` = at once, else the
+  follow-up bar offers it with the countdown. Only read on a chain's last group.
+- Stored like `renderer.params.fullWidth`: on the group itself (a `ref` group's in its scene document); the creator writes
+  them to every language. Validation: `continues` on the chapter's last group / on a VN group = error; `end` on a group
+  that continues = warning (ignored); a chain that isn't the chapter's start without a label on its first group =
+  warning (unreachable); `end.target` is checked like a jumpTo target. The chapter check reads ref groups' scenes through
+  `ValidateContext.resolveGroup` (the creator passes its loaded scenes).
+
 ## Language-independent media (2026-10-01, owner rule – PLAN.md RULES)
 
 "Everything should be language-independent": media are shared by every language, text lives only in text fields, lettering
