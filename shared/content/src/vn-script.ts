@@ -73,3 +73,84 @@ export function interpolateText(text: string, get: (variable: string) => Value):
 		return String(value);
 	});
 }
+
+/** what can happen from a point of a script (`scriptFlow`) */
+export interface ScriptFlow {
+	/** the events a run from the start can reach (by index) */
+	reachable: Set<number>;
+	/** some run reaches the script's end (it is done without leaving the page) */
+	ends: boolean;
+	/** some run navigates away (a `jumpTo` event or a picked choice's jumpTo) */
+	jumps: boolean;
+}
+
+/** a test that can fail (an `if` with a variable): the event may be skipped */
+const conditional = (e: any) => !!e?.if?.variable;
+
+/**
+ * Where a script can go from `start` (the runner's rules, viewer runner.ts): an `if` may skip its event, `divert` goes
+ * to its named point (a missing one: on), `jumpTo` leaves the page (the run ends), `showChoices` waits for one of the
+ * choices added since the last question – each choice's divert / jumpTo / nothing is a way on. Used for "unreachable"
+ * (events no run reaches, groups after a script that always leaves) and "always leaves" (`!ends && jumps`). Pure and
+ * bounded (states are visited once; a huge script stops early and counts as ending).
+ */
+export function scriptFlow(events: readonly unknown[] | null | undefined, start = 0): ScriptFlow {
+	const list = (events ?? []) as any[];
+	const reachable = new Set<number>();
+	const flow: ScriptFlow = { reachable, ends: false, jumps: false };
+	if (start < 0) return flow;
+	const seen = new Set<string>();
+	const todo: { i: number; pending: number[] }[] = [{ i: start, pending: [] }];
+	const go = (i: number, pending: number[]) => todo.push({ i, pending });
+	const point = (to: unknown) => (typeof to === 'string' && to ? labelIndex(list as VNEvent[], to) : -1);
+	while (todo.length) {
+		if (seen.size > 20_000) {
+			flow.ends = true;
+			break;
+		}
+		const { i, pending } = todo.pop()!;
+		const key = `${i}|${pending.join(',')}`;
+		if (seen.has(key)) continue;
+		seen.add(key);
+		if (i >= list.length) {
+			flow.ends = true;
+			continue;
+		}
+		reachable.add(i);
+		const e = list[i];
+		if (conditional(e)) go(i + 1, pending);
+		switch (e?.type) {
+			case 'divert': {
+				const at = point(e.params?.to);
+				go(at >= 0 ? at : i + 1, pending);
+				break;
+			}
+			case 'jumpTo':
+				flow.jumps = true;
+				break;
+			case 'addChoice':
+				go(i + 1, [...pending, i]);
+				break;
+			case 'showChoices': {
+				if (!pending.length) {
+					go(i + 1, []);
+					break;
+				}
+				for (const c of pending) {
+					const actions = actionsOf(list[c]?.params?.onSelect);
+					if (actions.some((a: any) => a && 'jumpTo' in a)) {
+						flow.jumps = true;
+						continue;
+					}
+					const divert = actions.find((a: any) => a && 'divert' in a) as { divert?: { to?: string } } | undefined;
+					const at = divert ? point(divert.divert?.to) : -1;
+					go(at >= 0 ? at : i + 1, []);
+				}
+				break;
+			}
+			default:
+				go(i + 1, pending);
+		}
+	}
+	return flow;
+}

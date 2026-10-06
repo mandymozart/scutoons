@@ -10,7 +10,7 @@ import {
 	TriggerMode
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
-import { hasVisualNovel, linksToNext } from './chains.ts';
+import { linksToNext, scriptJumps, unreachable, unreachableEvents } from './chains.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import {
 	DEFAULT_SLICE,
@@ -508,8 +508,9 @@ function checkDialogRefs(c: Collector, events: any[], slices: any[], path: Path,
 }
 
 /**
- * The VN's logic in a group (owner 2026-10-03: "people need to enter before they can speak"): the scene starts empty and
- * is cleared when the group ends (viewer visual-novel.svelte.ts `clear`), so per group – the group's script first, then
+ * The VN's logic in a group (owner 2026-10-03: "people need to enter before they can speak"): the scene starts empty on a
+ * page and is cleared when the page ends (viewer visual-novel.svelte.ts `clear`); linked groups carry the stage on, but
+ * a chain can be entered in the middle (`?label=`), so each group is checked on its own – per group – the group's script first, then
  * the slices' events in reading order – a speaker must have joined and not left, nobody leaves without being there (joining
  * again updates the character on stage), and choices are added before they are shown and shown once added. Warnings: the reader still plays it.
  */
@@ -584,6 +585,7 @@ export function checkGroup(c: Collector, g: any, path: Path, ctx: ValidateContex
 	}
 	checkScriptPoints(c, g, path);
 	checkVnFlow(c, g, path);
+	for (const i of unreachableEvents(g)) c.warn([...path, 'events', i], 'unreachable: no run of the script gets here (an unconditional divert or jumpTo before it, and no divert leads here)');
 	checkGroupLinks(c, g, path);
 }
 
@@ -598,17 +600,40 @@ function checkGroupLinks(c: Collector, g: any, path: Path) {
 }
 
 /**
- * The chapter's chains (chains.ts): the last group can't continue, a VN group (script or slice events) only ends a chain,
- * a chain that isn't the chapter's start needs a label on its first group (else nothing reaches it). `groups` = the
- * chapter's groups with each scene in place of its ref (where known).
+ * The chapter's chains (chains.ts, owner 2026-10-06): the last group can't continue; a chain that isn't the chapter's start
+ * needs a label on its first group (else nothing reaches it); a group whose script can jump away and continues needs a
+ * label on the next group (whatever follows a jumpTo must be reachable by a label); content after a script that always
+ * leaves is unreachable. `groups` = the chapter's groups with each scene in place of its ref (where known).
  */
 function checkChains(c: Collector, groups: any[]) {
 	groups.forEach((g, i) => {
 		if (!isObj(g) || g.continues !== true) return;
 		if (i === groups.length - 1) c.error(['groups', i, 'continues'], "the chapter's last group can't continue (nothing follows it on the page)");
-		else if (hasVisualNovel(g)) c.error(['groups', i, 'continues'], 'a group with a VN script or slice events can only be the last group of linked groups – remove continues');
+		else if (scriptJumps(g) && isObj(groups[i + 1]) && !groups[i + 1].label)
+			c.warn(['groups', i + 1, 'label'], 'the group before can jump away (jumpTo) and continues into this one – give this group a label so a jump can lead back here');
 		if (i > 0 && !g.label && !linksToNext(groups, i - 1)) c.warn(['groups', i, 'label'], 'linked groups start here without a label – nothing can reach them');
 	});
+	const lost = unreachable(groups);
+	for (const gi of lost.groups) c.warn(['groups', gi], 'unreachable: the group before always jumps away and this group has no label a jump could lead to');
+	for (const [gi, slices] of lost.slices) for (const si of slices) c.warn(['groups', gi, 'slices', si], 'unreachable: a slice before always jumps away when it is seen');
+}
+
+/**
+ * Text box ids are unique within the chapter, its scenes included (owner 2026-10-06): linked groups share one page, and an
+ * onomatopoeia event reveals a box by its id. The creator assigns fresh ids; this is the safety net.
+ */
+function checkDialogIds(c: Collector, groups: any[]) {
+	const seen = new Map<string, string>();
+	groups.forEach((g, gi) =>
+		(isObj(g) && Array.isArray(g.slices) ? g.slices : []).forEach((s: any, si: number) =>
+			(isObj(s) && Array.isArray(s.dialog) ? s.dialog : []).forEach((d: any, di: number) => {
+				if (!isStr(d?.id) || !d.id) return;
+				const where = `group ${gi + 1}, slice ${si + 1}`;
+				if (seen.has(d.id)) c.error(['groups', gi, 'slices', si, 'dialog', di, 'id'], `text box id "${d.id}" is used twice in this chapter (also ${seen.get(d.id)})`);
+				else seen.set(d.id, where);
+			})
+		)
+	);
 }
 
 function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContext) {
@@ -658,7 +683,9 @@ function checkChapter(c: Collector, ch: any, locale: string, ctx: ValidateContex
 	if (!Array.isArray(ch.groups) || !ch.groups.length) c.error(['groups'], 'chapter needs at least one group');
 	else {
 		ch.groups.forEach((g: any, i: number) => checkGroup(c, g, ['groups', i], { ...ctx, audio: ch.audio }));
-		checkChains(c, ch.groups.map((g: any) => (isObj(g) && g.ref ? (ctx.resolveGroup?.(g) ?? g) : g)));
+		const resolved = ch.groups.map((g: any) => (isObj(g) && g.ref ? (ctx.resolveGroup?.(g) ?? g) : g));
+		checkChains(c, resolved);
+		checkDialogIds(c, resolved);
 	}
 }
 

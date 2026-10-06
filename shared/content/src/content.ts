@@ -414,8 +414,9 @@ export interface Group extends AcceptedWarnings {
 	interaction?: string;
 	/**
 	 * Linked groups (owner 2026-10-06): this group flows straight into the next group on the same page, no follow-up bar
-	 * between. A chain = consecutive groups where every one but the last continues (`chainOf` in chains.ts). A group with
-	 * a VN script or slice events can only be a chain's last group (its `continues` is ignored).
+	 * between. A chain = consecutive groups where every one but the last continues (`chainOf` in chains.ts). Any group may
+	 * have a VN script or slice events (their scripts run one after another on the page); after a group whose script can
+	 * jump away, the next group needs a label.
 	 */
 	continues?: boolean;
 	/**
