@@ -1,117 +1,132 @@
 <script lang="ts">
 	import { Icon } from '@scutoons/ui';
-	import { entities, mediaRequests, NEUTRAL_LOCALE } from '@scutoons/content';
+	import { entities, mediaRequests, resolveText, type Status, type ToonLanguages } from '@scutoons/content';
+	import { MediaSlot } from '@scutoons/media';
 	import { requestsDoc, requestsOf } from '$lib/editor/characters.ts';
 	import { onMount } from 'svelte';
-	import type { ToonLanguages } from '@scutoons/content';
 	import { m } from '$lib/paraglide/messages.js';
-	import { toonDoc, toonIndexDoc } from '$lib/editor/languages.ts';
+	import { toonIndexDoc } from '$lib/editor/languages.ts';
 	import { STATUSES } from '$lib/editor/visibility.ts';
+	import { statusWord } from '$lib/editor/status-word.ts';
+	import { textLanguage } from '$lib/editor/text-language.svelte.ts';
 	import MetaPage from '$lib/components/page/meta-page.svelte';
 	import { fileLabel } from '$lib/labels.ts';
 	import LocaleText from '$lib/components/fields/locale-text.svelte';
-	import SharedField from '$lib/components/fields/shared-field.svelte';
+	import PropField from '$lib/components/fields/prop-field.svelte';
 	import { getCreatorNav } from '$lib/nav.svelte.ts';
 
 	/**
-	 * The toon's settings. Per language (entity toon-settings:<toon>, `ToonSettings`): title / description, plus release
-	 * and status (shared with per-language overrides). The same in every language (`TOON_NEUTRAL_FIELDS`: authors,
-	 * chapter count, thumbnail, the landing tile, announce, the map) live once in the toon's index entry `toon:<toon>`,
-	 * saved and published with the settings through the same bottom bar. Plus the toon's open media requests (wanted
-	 * images). Covers are per season (owner 2026-10-02; the season's cover editor) – the toon is shown with its avatar.
+	 * The toon's settings: ONE document, the toon entry `toon:<toon>` (agents/NEUTRAL.md step 4). Per language: title /
+	 * description and release (the header's text language, like a chapter's), the status (the toon page of a language
+	 * that isn't published is closed in it); the same in every language (`TOON_NEUTRAL_FIELDS`): authors, chapter count,
+	 * thumbnail, the landing tile, announce, the map's start view. An entry without texts yet gets them from the old
+	 * per-language toon settings on load (a notice; saving stores them in the entry). Plus the toon's open media requests
+	 * (wanted images). Covers are per season (owner 2026-10-02; the season's cover editor) – the toon is shown with its avatar.
 	 */
 	let { toon, languages }: { toon: string; languages: ToonLanguages } = $props();
 
 	// svelte-ignore state_referenced_locally
-	const file = toonDoc(entities.toonSettings(toon), languages);
-	// svelte-ignore state_referenced_locally
-	const index = toonIndexDoc(toon);
+	const entry = toonIndexDoc(toon, languages);
 	const requests = requestsDoc();
 	const nav = getCreatorNav();
 
 	const wanted = $derived(mediaRequests(requestsOf(requests), { toon }));
+	const data = $derived(entry.get(entry.primary, []));
+	/** the status per language follows the header's text language like the texts (source, one language, or all) */
+	const statusLocales = $derived(textLanguage.visible(entry.textLanguages, entry.textSource));
+	/** a language's status: its own, else the source's (the reader's rule) – null: none at all (= published) */
+	const statusOf = (locale: string) => resolveText<Status>(data?.languageStatus, [locale, entry.textSource, ...entry.textLanguages]) ?? null;
+	const ownStatus = (locale: string) => entry.text(['languageStatus'], locale) !== undefined;
 
 	onMount(async () => {
-		await Promise.all([file.load(), index.load(), requests.load().catch(() => {})]);
+		await Promise.all([entry.load(), requests.load().catch(() => {})]);
 	});
 </script>
 
-<MetaPage {toon} title={fileLabel(entities.toonSettings(toon))} docs={[file, index]} help="toon-file">
-	{#if file.present.length === 0}
-		<p>{m['creator.toon_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
+<MetaPage {toon} title={fileLabel(entities.toonSettings(toon))} docs={[entry]} help="toon-file">
+	{#if entry.loading}
+		<p>{m['creator.loading']()}</p>
+	{:else if entry.present.length === 0}
+		<p class="warn">{m['creator.toon_entry_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
 	{:else}
 		<section class="block" data-testid="toon-meta">
 			<h2>{m['creator.meta']()}</h2>
-			<LocaleText doc={file} path={['title']} label="title" multiline={false} />
-			<LocaleText doc={file} path={['description']} label="description" rows={3} />
-			<p class="hint">
-				language:
-				{#each file.present as l, i}
-					{@const value = file.get(l, ['language'])}
-					{#if i > 0}·{/if}
-					<span class:warn={value !== l}>{l}: {value ?? '–'}</span>
-					{#if value !== l}<button type="button" class="ghost mini" onclick={() => file.setLocal(l, ['language'], l)}>= {l}</button>{/if}
-				{/each}
-			</p>
-			<div class="sc-fields" data-cols="3" data-align="start">
-				<SharedField doc={file} path={['id']} label="id" required />
-				<SharedField doc={file} path={['status']} label="status" kind="select" options={STATUSES} required />
-				<SharedField doc={file} path={['release']} label="release" kind="date" required />
+			<LocaleText doc={entry} path={['title']} label="title" multiline={false} />
+			<LocaleText doc={entry} path={['description']} label="description" rows={3} />
+			<div class="status" data-testid="toon-status">
+				<span class="sc-label">{m['creator.status']()}</span>
+				<div class="status-row">
+					{#each statusLocales as l (l)}
+						<label class="status-field">
+							<span>{l}{l === entry.textSource ? ` (${m['creator.source']()})` : ''}</span>
+							<select
+								class:inherited={!ownStatus(l)}
+								value={statusOf(l) ?? 'published'}
+								onchange={(e) => entry.setText(['languageStatus'], l, e.currentTarget.value, `status:${l}`)}
+								data-testid="toon-status-{l}"
+							>
+								{#each STATUSES as s}<option value={s}>{statusWord(s)}</option>{/each}
+							</select>
+						</label>
+					{/each}
+				</div>
+				<p class="hint">{m['creator.toon_status_hint']()}</p>
 			</div>
+			<LocaleText doc={entry} path={['release']} label="release" type="date" />
 		</section>
 
 		<section class="block neutral" data-testid="toon-neutral">
 			<h2>{m['creator.toon_neutral']()}</h2>
 			<p class="hint">{m['creator.toon_neutral_hint']()}</p>
-			{#if index.present.length === 0}
-				<p class="warn">{m['creator.toon_entry_missing']()} <a href="/{toon}">{nav.toonName(toon)}</a></p>
-			{:else}
-				<SharedField doc={index} path={['authors']} label="authors" kind="list" testid="toon-authors" />
-				<div class="sc-fields" data-cols="3" data-align="start">
-					<SharedField doc={index} path={['chapters']} label="chapters (count)" kind="number" />
-					<SharedField doc={index} path={['thumbnail']} label="thumbnail" kind="image" {toon} />
-				</div>
+			<PropField doc={entry} path={['authors']} label="authors" type="list" testid="toon-authors" />
+			<div class="sc-fields" data-cols="3" data-align="start">
+				<PropField doc={entry} path={['chapters']} label="chapters (count)" type="number" step={1} min={0} />
+			</div>
+			<div class="media">
+				<MediaSlot {toon} label="thumbnail" value={data?.thumbnail || undefined} onchange={(v) => entry.set(['thumbnail'], v || undefined)} testid="toon-thumbnail" />
+			</div>
 
-				{#if wanted.length}
-					<div class="sub" data-testid="toon-media-requests">
-						<h3>{m['creator.cover_requests']()}</h3>
-						<ul class="wanted">
-							{#each wanted as r (r.id)}
-								<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="sc-mark"><Icon name="mail" /> {r.note}</span>{/if}</li>
-							{/each}
-						</ul>
-					</div>
-				{/if}
-
-				<div class="sub" data-testid="toon-landing">
-					<h3>{m['creator.landing']()}</h3>
-					<p class="hint">{m['creator.landing_hint']()}</p>
-					<label class="check">
-						<input
-							type="checkbox"
-							checked={index.get(NEUTRAL_LOCALE, ['announce']) === true}
-							onchange={(e) => index.setShared(['announce'], e.currentTarget.checked ? true : undefined, 'announce')}
-							data-testid="toon-announce"
-						/>
-						<span>{m['creator.announce']()}</span>
-					</label>
-					<p class="hint">{m['creator.announce_hint']()}</p>
-					<div class="sc-fields" data-cols="3" data-align="start">
-						<SharedField doc={index} path={['tile', 'image']} label="tile.image" kind="image" {toon} />
-						<SharedField doc={index} path={['tile', 'color']} label="tile.color" placeholder={m['creator.tile_color_placeholder']()} testid="toon-tile-color" />
-					</div>
-				</div>
-
-				<div class="sub" data-testid="toon-map">
-					<h3>{m['creator.map_start_view']()}</h3>
-					<p class="hint">{m['creator.map_start_view_hint']()} <a href="/map?toon={toon}">{m['creator.map_open_builder']()}</a></p>
-					<div class="sc-fields" data-cols="4" data-align="start">
-						<SharedField doc={index} path={['map', 'center', 'x']} label="map.center.x" kind="number" />
-						<SharedField doc={index} path={['map', 'center', 'y']} label="map.center.y" kind="number" />
-						<SharedField doc={index} path={['map', 'zoom']} label="map.zoom" kind="number" />
-					</div>
+			{#if wanted.length}
+				<div class="sub" data-testid="toon-media-requests">
+					<h3>{m['creator.cover_requests']()}</h3>
+					<ul class="wanted">
+						{#each wanted as r (r.id)}
+							<li><code>{r.path}</code>{#if r.size} <span class="hint">{r.size}</span>{/if}{#if r.note} <span class="sc-mark"><Icon name="mail" /> {r.note}</span>{/if}</li>
+						{/each}
+					</ul>
 				</div>
 			{/if}
+
+			<div class="sub" data-testid="toon-landing">
+				<h3>{m['creator.landing']()}</h3>
+				<p class="hint">{m['creator.landing_hint']()}</p>
+				<label class="check">
+					<input
+						type="checkbox"
+						checked={data?.announce === true}
+						onchange={(e) => entry.set(['announce'], e.currentTarget.checked ? true : undefined, 'announce')}
+						data-testid="toon-announce"
+					/>
+					<span>{m['creator.announce']()}</span>
+				</label>
+				<p class="hint">{m['creator.announce_hint']()}</p>
+				<div class="media">
+					<MediaSlot {toon} label="tile.image" value={data?.tile?.image || undefined} onchange={(v) => entry.set(['tile', 'image'], v || undefined)} testid="toon-tile-image" />
+				</div>
+				<div class="sc-fields" data-cols="3" data-align="start">
+					<PropField doc={entry} path={['tile', 'color']} label="tile.color" placeholder={m['creator.tile_color_placeholder']()} testid="toon-tile-color" />
+				</div>
+			</div>
+
+			<div class="sub" data-testid="toon-map">
+				<h3>{m['creator.map_start_view']()}</h3>
+				<p class="hint">{m['creator.map_start_view_hint']()} <a href="/map?toon={toon}">{m['creator.map_open_builder']()}</a></p>
+				<div class="sc-fields" data-cols="4" data-align="start">
+					<PropField doc={entry} path={['map', 'center', 'x']} label="map.center.x" type="number" step={1} />
+					<PropField doc={entry} path={['map', 'center', 'y']} label="map.center.y" type="number" step={1} />
+					<PropField doc={entry} path={['map', 'zoom']} label="map.zoom" type="number" />
+				</div>
+			</div>
 		</section>
 	{/if}
 </MetaPage>
@@ -152,6 +167,34 @@
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
+	.media {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem 1rem;
+	}
+	.status {
+		display: flex;
+		flex-direction: column;
+		gap: 0.4rem;
+		align-items: flex-start;
+	}
+	.status-row {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem 1.25rem;
+	}
+	.status-field {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.4rem;
+	}
+	.status-field select {
+		width: auto;
+	}
+	/* a language without its own status shows the source's */
+	.status-field select.inherited {
+		color: var(--text-muted);
+	}
 	.warn {
 		color: var(--warn);
 	}
@@ -162,9 +205,5 @@
 		display: flex;
 		align-items: center;
 		gap: 0.4rem;
-	}
-	.mini {
-		font-size: var(--type-caption-size);
-		padding: 0 0.3em;
 	}
 </style>

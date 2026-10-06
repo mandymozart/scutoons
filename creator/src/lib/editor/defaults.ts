@@ -1,5 +1,5 @@
 // Defaults for new content, following the existing catpope configs and agents/DESIGN.md (SCUTOONS style).
-import type { Chapter, ChapterDoc, Dialog, DialogDoc, Group, Season, SeasonDoc, SequenceItemDoc, Slice, ToonIndex, ToonSettings } from '@scutoons/content';
+import type { Chapter, ChapterDoc, Dialog, DialogDoc, Group, Season, SeasonDoc, SequenceItemDoc, Slice } from '@scutoons/content';
 import { DEFAULT_SLICE, Renderer, Status } from '@scutoons/content';
 
 /** The standard slice (PLAN.md rule, owner 2026-09-30): 390 × 625 px, delivered at 1x as WebP; other heights are fine. */
@@ -57,13 +57,6 @@ export function newChapterDoc(number: number, languages: readonly string[], auth
 export const sequenceStatus = (languages: readonly string[], status: Status = Status.DRAFT): SequenceItemDoc['status'] =>
 	Object.fromEntries(languages.map((l) => [l, status]));
 
-/** The toon's name in a locale from its index entry (i18n name / title), else the id. */
-export function toonName(entry: ToonIndex | null | undefined, locale: string, fallback: string) {
-	const i18n = entry?.i18n ?? {};
-	const texts = i18n[locale] ?? Object.values(i18n)[0] ?? {};
-	return texts.name || texts.title || fallback;
-}
-
 const SEASON_TITLES: Record<string, (n: number) => string> = {
 	de: (n) => `Staffel ${n}`,
 	en: (n) => `Season ${n}`,
@@ -96,21 +89,6 @@ export function newSeasonDoc(languages: readonly string[], authors: string[] = [
 		description: {},
 		release: Object.fromEntries(languages.map((l) => [l, release ?? isoDate()])),
 		sequence: []
-	};
-}
-
-/**
- * New per-language toon settings (title / description from the index entry; downloads are per season). The
- * language-neutral settings (authors, map, tile, cover …) start empty in the index entry and are edited on the toon settings page.
- */
-export function newToon(id: string, locale: string, entry: ToonIndex | null | undefined): ToonSettings {
-	return {
-		id,
-		title: toonName(entry, locale, id),
-		language: locale,
-		release: isoDate(),
-		status: Status.DRAFT,
-		description: entry?.i18n?.[locale]?.description ?? ''
 	};
 }
 

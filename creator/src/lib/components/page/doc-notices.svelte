@@ -10,8 +10,7 @@
 
 	/**
 	 * The bars under an editor page's file status (COMPONENTS.md step 11; meta pages and the chapter editor had copies):
-	 * unsaved changes, an autosave to recover, a language file to create, a document converted from its per-language
-	 * documents on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded), a
+	 * unsaved changes, an autosave to recover, a document converted from its per-language documents on load (agents/NEUTRAL.md: saving stores the neutral one; what readers will see differently, folded), a
 	 * save conflict, the last notice.
 	 */
 	let {
@@ -19,8 +18,6 @@
 		docs,
 		dirty,
 		dirtyDetail,
-		translationsOptional = false,
-		createLocale = (doc, locale) => doc.createLocale(locale, (f) => (f && typeof f === 'object' && 'language' in f ? { ...f, language: locale } : f)),
 		extra
 	}: {
 		session: DocSession;
@@ -29,9 +26,6 @@
 		dirty: boolean;
 		/** after "unsaved" (e.g. the slice's languages with changes) */
 		dirtyDetail?: string;
-		/** a missing translation is no problem (no "create" bars) */
-		translationsOptional?: boolean;
-		createLocale?: (doc: ContentDoc, locale: string) => void;
 		/** more bars at the end (e.g. the chapter's cast notice) */
 		extra?: Snippet;
 	} = $props();
@@ -40,10 +34,6 @@
 	/** documents converted in memory that are not stored yet – one bar for all of them */
 	const conversions = $derived(docs.filter((d) => d.unconverted));
 	const differences = $derived(conversions.flatMap((d) => visibleDifferences(d.converted!.report).map((r) => ({ file: fileLabel(d.entity), line: differenceLine(r) }))));
-
-	const missingLocales = $derived(
-		translationsOptional ? [] : docs.flatMap((d) => (d.loading || d.data[d.primary] == null ? [] : d.locales.filter((l) => l !== d.primary && d.data[l] == null).map((l) => ({ doc: d, locale: l }))))
-	);
 </script>
 
 {#if dirty}<div class="sc-bar is-dirty">{m['creator.unsaved']()}{#if dirtyDetail} · {dirtyDetail}{/if}</div>{/if}
@@ -70,14 +60,6 @@
 		{/if}
 	</div>
 {/if}
-{#each missingLocales as { doc, locale } (doc.entity + locale)}
-	<div class="sc-bar is-warning">
-		{fileLabel(doc.entity)}: {locale} {m['creator.missing']()}
-		<button class="secondary" onclick={() => createLocale(doc, locale)}>
-			{m['creator.create_locale']({ locale, source: doc.primary })}
-		</button>
-	</div>
-{/each}
 {#if session.conflict}
 	<div class="sc-bar is-error">
 		{m['creator.conflict']({ locale: session.conflict.error.locale, file: fileLabel(session.conflict.doc.entity) })}

@@ -307,7 +307,7 @@
 
 </script>
 
-<MetaPage {toon} title={m['creator.script']()} docs={[doc]} {validate} wide help="script" translationsOptional beforeSave={flush}>
+<MetaPage {toon} title={m['creator.script']()} docs={[doc]} {validate} wide help="script" beforeSave={flush}>
 	<!-- format rules + line / column in the file status line (owner 2026-10-03: no row of their own) -->
 	{#snippet status()}
 		<a class="rules-link" href="/guide#script-format" target="_blank" rel="noopener" data-testid="script-rules-link">{m['creator.script_rules']()}</a>

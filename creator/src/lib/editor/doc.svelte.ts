@@ -1,16 +1,18 @@
 // One entity of a toon (agents/DATA.md: `chapter:catpope:1`, `scene:catpope:2:scene-14`, `season:catpope:1`,
-// `toon-settings:catpope`, `characters` …), edited in all locales at once. Localized entities are stored per locale
+// `toon:catpope`, `characters` …), edited in all locales at once. Localized entities are stored per locale
 // (`<entity>:<locale>`); language-neutral ones under the entity itself (locale `_` in the editor).
 //
-// Chapters, scenes and seasons are ONE language-neutral document each (agents/NEUTRAL.md): structure once, every text a
-// locale map `{ de: …, en: … }` (`texts` = the toon's languages). `edit` / `set` change the document, `text` / `setText`
-// one language of a text leaf (the creator header's text language). An entity without a neutral document yet
-// (production before its conversion) is loaded from its per-locale documents and converted in memory (`neutralizeDocs`,
-// `converted` = the report): saving stores the neutral document; the per-locale keys are never written again.
+// Chapters, scenes, seasons and the toon entry are ONE language-neutral document each (agents/NEUTRAL.md): structure
+// once, every text a locale map `{ de: …, en: … }` (`texts` = the toon's languages). `edit` / `set` change the document,
+// `text` / `setText` one language of a text leaf (the creator header's text language). An entity without a neutral
+// document yet (production before its conversion) is loaded from its per-locale documents and converted in memory
+// (`neutralizeDocs`, `converted` = the report): saving stores the neutral document; the per-locale keys are never
+// written again. A toon entry without texts gets them from the per-language toon settings the same way
+// (`neutralizeToon`, step 4).
 //
-// Other localized entities (toon settings, script) keep one document per locale: `setShared` a shared field in every
-// locale that has not overridden it, `setLocal` one locale, `createLocale` a missing locale from the source. Language-
-// neutral entities (cast, credits, the map …) are one document under locale `_`, edited with `edit` / `set`.
+// The script is the only localized entity with one document per locale (a translation by design): `setLocal` one
+// locale, `createLocale` a missing locale from the source. Language-neutral entities (cast, credits, the map …) are one
+// document under locale `_`, edited with `edit` / `set`.
 // The locales and the source ("primary") come from the toon (`ToonIndex.languages` / `.sourceLanguage`, loaded with
 // `loadToonLanguages` in ./languages.ts), never from constants.
 import { ApiError } from '$lib/api.ts';
@@ -20,8 +22,10 @@ import {
 	deepEqual,
 	entityKeyFor,
 	getAt,
+	hasToonTexts,
 	isLocaleValue,
 	neutralizeDocs,
+	neutralizeToon,
 	parseEntityKey,
 	resolveGroup,
 	resolveSlice,
@@ -30,7 +34,9 @@ import {
 	type NeutralDifference,
 	type NeutralKind,
 	type Path,
-	type Slice
+	type Slice,
+	type ToonIndex,
+	type ToonSettings
 } from '@scutoons/content';
 import { repairBooleans } from '$lib/editor/repair-booleans.ts';
 
@@ -145,6 +151,8 @@ export class ContentDoc {
 	recoverable = $state<AutosaveEntry | null>(null);
 	/** set when the neutral document was converted from the per-locale ones on load (not stored yet) */
 	converted = $state<DocConversion | null>(null);
+	/** the stored version the conversion was made on (null: none – a new neutral document; the toon entry: its version) */
+	private convertedBase: number | null = null;
 	lastSavedAt = $state<number | null>(null);
 
 	private undoStack = $state<string[]>([]);
@@ -159,7 +167,8 @@ export class ContentDoc {
 
 	/**
 	 * `locales`: the toon's languages (`['_']` for language-neutral entities); `primary`: its source language;
-	 * `texts`: a neutral chapter / scene / season's text languages (languages.ts `toonDoc`).
+	 * `texts`: a neutral chapter / scene / season's / the toon entry's text languages (languages.ts `toonDoc`,
+	 * `toonIndexDoc`).
 	 */
 	constructor(entity: string, locales: readonly string[], primary: string, texts: DocTexts | null = null) {
 		this.entity = entity;
@@ -172,10 +181,10 @@ export class ContentDoc {
 
 	/** converted from the per-locale documents on load and not stored yet (only a save of this document stores it) */
 	get unconverted(): boolean {
-		return !!this.converted && this.base[this.primary] == null;
+		return !!this.converted && (this.base[this.primary] ?? null) === this.convertedBase;
 	}
 
-	/** a language-neutral document with locale-map texts (chapter, scene, season) */
+	/** a language-neutral document with locale-map texts (chapter, scene, season, the toon entry) */
 	get neutral(): boolean {
 		return this.texts !== null;
 	}
@@ -265,10 +274,22 @@ export class ContentDoc {
 			this.loading = false;
 			return;
 		}
+		// the toon entry without texts: the per-language toon settings folded in (agents/NEUTRAL.md step 4)
+		if (!legacy && this.kind === 'index' && this.texts && data[this.primary] && !hasToonTexts(data[this.primary])) {
+			try {
+				legacy = await this.loadToonSettings(data[this.primary]);
+			} catch (e) {
+				this.error = e instanceof Error ? e.message : String(e);
+				this.loading = false;
+				return;
+			}
+			if (legacy) data[this.primary] = legacy.doc;
+		}
 		this.adopt(data, base, published, source);
 		// a conversion is not stored yet: unsaved until the next save stores the neutral document
 		if (legacy) this.saved[this.primary] = '';
 		this.converted = legacy?.conversion ?? null;
+		this.convertedBase = legacy ? (base[this.primary] ?? null) : null;
 		this.checkAutosave();
 		this.loading = false;
 	}
@@ -294,6 +315,28 @@ export class ContentDoc {
 		found.sort((a, b) => texts.languages.indexOf(a[0]) - texts.languages.indexOf(b[0]));
 		const kind = parseEntityKey(this.entity)!.kind as NeutralKind;
 		const result = neutralizeDocs(kind, Object.fromEntries(found.map(([l, doc]) => [l, doc])), texts.source);
+		return { doc: result.doc, conversion: { report: result.report, locales: found.map(([l]) => l) } };
+	}
+
+	/**
+	 * The toon entry with the newest per-language toon settings (`toon-settings:<toon>:<l>`) folded in
+	 * (@scutoons/content neutralizeToon); null when there are none
+	 */
+	private async loadToonSettings(entry: ToonIndex): Promise<{ doc: unknown; conversion: DocConversion } | null> {
+		const texts = this.texts!;
+		const found: [string, ToonSettings][] = [];
+		await Promise.all(
+			texts.languages.map(async (locale) => {
+				try {
+					found.push([locale, (await getDraft<ToonSettings>(`toon-settings:${this.toon}:${locale}`)).content]);
+				} catch (e) {
+					if (!(e instanceof ApiError) || e.status !== 404) throw e;
+				}
+			})
+		);
+		if (!found.length) return null;
+		found.sort((a, b) => texts.languages.indexOf(a[0]) - texts.languages.indexOf(b[0]));
+		const result = neutralizeToon(entry, Object.fromEntries(found), texts.source);
 		return { doc: result.doc, conversion: { report: result.report, locales: found.map(([l]) => l) } };
 	}
 
@@ -453,35 +496,11 @@ export class ContentDoc {
 		setAt(file, path, map);
 	}
 
-	/**
-	 * A shared field (geometry, style, image …): written to the source locale and to every locale whose value
-	 * still equals the source's old value. Locales that differ keep their value (a per-locale override).
-	 */
-	setShared(path: Path, value: any, key?: string) {
-		this.checkpoint(key ?? path.join('.'));
-		const old = clone(getAt(this.data[this.primary], path));
-		for (const l of this.present) {
-			if (l === this.primary || deepEqual(getAt(this.data[l], path), old)) {
-				setAt(this.data[l], path, clone(value));
-			}
-		}
-	}
-
-	/** A per-locale field (text) or an explicit override. */
+	/** A field of one locale's document (the script; `_` of a language-neutral document). */
 	setLocal(locale: string, path: Path, value: any, key?: string) {
 		if (!this.data[locale]) return;
 		this.checkpoint(key ?? `${locale}:${path.join('.')}`);
 		setAt(this.data[locale], path, clone(value));
-	}
-
-	/** Locales whose value at `path` differs from the source locale (overrides). */
-	overrides(path: Path): string[] {
-		const reference = getAt(this.data[this.primary], path);
-		return this.present.filter((l) => l !== this.primary && !deepEqual(getAt(this.data[l], path), reference));
-	}
-
-	resetOverride(locale: string, path: Path) {
-		this.setLocal(locale, path, getAt(this.data[this.primary], path));
 	}
 
 	/** Copies the source locale's document to a locale that has none. */

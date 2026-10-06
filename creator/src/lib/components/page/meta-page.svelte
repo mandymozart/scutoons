@@ -36,7 +36,6 @@
 		fill = false,
 		actions,
 		help,
-		translationsOptional = false,
 		children,
 		status
 	}: {
@@ -56,8 +55,6 @@
 		actions?: Snippet;
 		/** the page's help in the ActionBar's Info panel */
 		help: HelpPage;
-		/** a missing translation is no problem (the script: the page offers to start one itself) – no "create" bars */
-		translationsOptional?: boolean;
 		children: Snippet;
 		/** right end of the file status line (e.g. the script's line / column) – no row of its own */
 		status?: Snippet;
@@ -163,7 +160,7 @@
 			{#if status}<span class="status-end">{@render status()}</span>{/if}
 		</div>
 		{/if}
-		<DocNotices {session} {docs} dirty={anyDirty} {translationsOptional} />
+		<DocNotices {session} {docs} dirty={anyDirty} />
 		<main class="content">
 			{@render children()}
 		</main>
