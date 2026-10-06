@@ -62,6 +62,11 @@ final class ContentNeutralCheckCommand extends Command
                 $output->writeln("$toon: no neutral documents – skipped");
                 continue;
             }
+            if ($info['locales'] === []) {
+                // e.g. the sandbox (make-sandbox writes neutral documents only): nothing to compare with
+                $output->writeln("$toon: no per-locale chapters / seasons – skipped");
+                continue;
+            }
             $locales = array_map('strval', array_keys($info['locales']));
             sort($locales);
             $locales[] = self::FOREIGN_LOCALE;
