@@ -115,7 +115,9 @@
 			{#await graph}
 				<p class="hint">{m['creator.loading']()}</p>
 			{:then mod}
-				{#key `${level}:${current}:${slice}`}
+				<!-- rebuilt only for another level; a new selection on the same level updates the graph in place and keeps the
+				     view (owner 2026-10-06, BACKLOG M.6: the Flow "jumped" on every selection) -->
+				{#key level}
 					<mod.default {flow} {ctx} current={isCurrent} {pictures} onopen={open} />
 				{/key}
 			{:catch error}

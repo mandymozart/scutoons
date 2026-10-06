@@ -495,6 +495,12 @@ ns5.kasserver.com` → `scutoons.b-cdn.net`. 4. bunny → Hostnames → `cdn.scu
       other), so it's never clear how the edit view relates to the Flow's level. Idea: the left menu and the main
       panel are linked and ARE the hierarchy; Ask and Flow only take their context from it and otherwise stay
       independent – entry points, not a second navigation. _(with M.14 – E.3)_
+      _(2026-10-07, the jump fixed (UI-CONCEPTS.md E.3 a): the chapter Flow was rebuilt on every selection
+      ({#key level:current:slice} → SvelteFlow + dagre + the first view at zoom 1 again). Now only a level change rebuilds
+      it; a new group / slice on the same level updates the graph in place, the zoom stays and the view pans only when
+      the current box is out of sight (flow-panel.svelte, flow-controls.svelte). creator-dock 82, creator-reach 21; the
+      feel not watched (the pane was hidden) – **owner: try group → group, slice → slice**. The concept (sidebar + main =
+      the hierarchy, the dock keeps the panel across pages) = E.3 b/c.)_
 - [ ] M.9 **Creator: strip preview for vertical groups** – the same strip preview horizontal groups have. _(after M.4)_
 - [ ] M.10 **Explore: the viewer as a dock panel** (like Flow and Ask) – up to date with every saved draft; selecting
       an element in the other views jumps the viewer there. Exploration first, not a fix. _(after M.6)_

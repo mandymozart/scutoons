@@ -16,7 +16,7 @@
 	// the first view never shrinks the text: 1:1 around what's open (`focus`: the current box, centred) or else the
 	// entry (the chapter's first group, the season's first chapter, the first toon), near the top below the buttons; "Show everything" fits the graph down to READABLE
 	const ready = useNodesInitialized();
-	let started = false;
+	let started = $state(false);
 	$effect(() => {
 		if (!ready.current || started) return;
 		started = true;
@@ -33,6 +33,24 @@
 		const s = box(top);
 		// the entry's top edge 4rem below the canvas' top (the zoom buttons sit there)
 		void flow.setCenter(top.position.x + s.w / 2, top.position.y - 4 * rem + store.height / 2, { zoom: 1 });
+	});
+	// later: another box becomes the current one (a new selection, the graph updated in place) – the zoom stays, the
+	// view only pans to it when it is out of sight (owner 2026-10-06, BACKLOG M.6)
+	// svelte-ignore state_referenced_locally
+	let shown = focus;
+	$effect(() => {
+		const id = focus;
+		if (!started || !ready.current || id === shown) return;
+		shown = id;
+		const n = id ? flow.getNode(id) : undefined;
+		if (!n) return;
+		const w = n.measured?.width ?? n.width ?? 0;
+		const h = n.measured?.height ?? n.height ?? 0;
+		const { x, y, zoom } = viewport.current;
+		const left = n.position.x * zoom + x;
+		const top = n.position.y * zoom + y;
+		const inside = left >= 0 && top >= 0 && left + w * zoom <= store.width && top + h * zoom <= store.height;
+		if (!inside) void flow.setCenter(n.position.x + w / 2, n.position.y + h / 2, { zoom, duration: 300 });
 	});
 	const fit = () => flow.fitView({ padding: 0.1, minZoom: READABLE, maxZoom: 1 });
 </script>
