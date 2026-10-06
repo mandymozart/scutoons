@@ -5,8 +5,9 @@
 // embassy → the partner network (embassy.ts: read, log, next dates, mail DRAFTS – people send), admin → the content
 // tools that only read + the admin API, read and change PROPOSALS (admin.ts: a card the admin applies). The agent
 // uses the person's session for every tool, so the API's role checks decide what it may do; the tools are MCP servers
-// connected in-process. The model: Claude via the Anthropic API, paid by the owner; every API call is logged (user, app, service, model, tokens, cost) – no limits in
-// the app (owner 2026-10-04). Chats are saved in the API (`/api/agent-chats`, each person's own, per app) after every
+// connected in-process, plus Anthropic's web search / web fetch in every app (owner 2026-10-06: research, e.g. for the
+// Embassy). The model: Claude via the Anthropic API, paid by the owner; every API call is logged (user, app, service,
+// model, tokens, web searches, cost = tokens + searches) – no limits in the app (owner 2026-10-04). Chats are saved in the API (`/api/agent-chats`, each person's own, per app) after every
 // round, so a chat that stops or breaks stays readable and can go on (owner 2026-10-04); the memory here is only a
 // cache.
 import { appendFileSync, mkdirSync } from 'node:fs';
@@ -39,11 +40,37 @@ export interface AskConfig {
 	anthropic: Anthropic;
 }
 
-/** USD per million tokens (cache writes: the 5-minute TTL, 1.25 × input) */
+/**
+ * USD per million tokens (cache writes: the 5-minute TTL, 1.25 × input) – the models ASK_MODEL may name and the ones the
+ * server-side fallback (refusals) may hand a turn to; a model missing here is logged as an error (its tokens cost 0)
+ */
 const PRICES: Record<string, { input: number; output: number; cacheRead: number; cacheWrite: number }> = {
 	'claude-sonnet-5-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
-	'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 }
+	'claude-opus-5-5': { input: 4, output: 20, cacheRead: 0.2, cacheWrite: 5 },
+	'claude-fable-5-1': { input: 10, output: 50, cacheRead: 0.25, cacheWrite: 12.5 },
+	'claude-opus-5': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+	'claude-opus-4-8': { input: 5, output: 25, cacheRead: 0.5, cacheWrite: 6.25 },
+	'claude-sonnet-5': { input: 2, output: 10, cacheRead: 0.2, cacheWrite: 2.5 },
+	'claude-sonnet-4-6': { input: 3, output: 15, cacheRead: 0.3, cacheWrite: 3.75 },
+	'claude-haiku-4-5': { input: 1, output: 5, cacheRead: 0.1, cacheWrite: 1.25 }
 };
+/** USD per web search request ($10 per 1,000); a web fetch costs only the tokens it adds */
+const WEB_SEARCH_PRICE = 0.01;
+/**
+ * Anthropic's server tools in every app's panel: they run at Anthropic, their results come back in the same answer
+ * (no MCP call here). Limits per answer against a runaway search (not a spending limit); a fetched page is cut to
+ * `max_content_tokens`.
+ */
+const WEB_TOOLS: Anthropic.Beta.BetaToolUnion[] = [
+	{ type: 'web_search_20260209', name: 'web_search', max_uses: 8 },
+	{ type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 8, max_content_tokens: 20000 }
+];
+const WEB = [
+	'',
+	'Web: you can search the web (web_search) and read a page (web_fetch) – for facts outside SCUTOONS (e.g. a venue,',
+	"label, radio or person: what they do, their contact page, recent news). Search only when the SCUTOONS tools can't",
+	'answer. Name the source (the link) of what you found; never invent contact data.'
+].join('\n');
 /** a loop guard against an agent that never ends (not a spending limit) */
 const MAX_ROUNDS = 60;
 const CHAT_TTL_MS = 2 * 60 * 60 * 1000;
@@ -168,9 +195,9 @@ const FORMAT = [
 
 /** What each app's panel gets: who may ask, the system prompt, the tools (`readOnly`: only tools that only read) */
 const APPS: Record<AgentApp, { roles: string[]; system: string; servers: (config: Config) => McpServer[]; readOnly?: boolean }> = {
-	creator: { roles: ['creator'], system: `${CREATOR_SYSTEM}\n\n${FORMAT}`, servers: (c) => [createScutoonsServer(c)] },
-	embassy: { roles: ['liaison', 'ambassador', 'admin'], system: `${EMBASSY_SYSTEM}\n\n${FORMAT}`, servers: (c) => [createEmbassyServer(c)] },
-	admin: { roles: ['admin'], system: `${ADMIN_SYSTEM}\n\n${FORMAT}`, servers: (c) => [createScutoonsServer(c), createAdminServer(c)], readOnly: true }
+	creator: { roles: ['creator'], system: `${CREATOR_SYSTEM}\n${WEB}\n\n${FORMAT}`, servers: (c) => [createScutoonsServer(c)] },
+	embassy: { roles: ['liaison', 'ambassador', 'admin'], system: `${EMBASSY_SYSTEM}\n${WEB}\n\n${FORMAT}`, servers: (c) => [createEmbassyServer(c)] },
+	admin: { roles: ['admin'], system: `${ADMIN_SYSTEM}\n${WEB}\n\n${FORMAT}`, servers: (c) => [createScutoonsServer(c), createAdminServer(c)], readOnly: true }
 };
 const isApp = (app: unknown): app is AgentApp => typeof app === 'string' && Object.hasOwn(APPS, app);
 
@@ -260,11 +287,25 @@ async function saveChat(cfg: AskConfig, person: Person, id: string, chat: Chat) 
 
 // ── usage ───────────────────────────────────────────────────────────────────────────────────────────────────────────
 
-export function costOf(model: string, u: Anthropic.Beta.BetaUsage): number {
+const unpriced = new Set<string>();
+function tokenCost(model: string, t: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }): number {
 	const p = PRICES[model];
-	if (!p) return 0;
-	const m = 1_000_000;
-	return (u.input_tokens * p.input + u.output_tokens * p.output + (u.cache_read_input_tokens ?? 0) * p.cacheRead + (u.cache_creation_input_tokens ?? 0) * p.cacheWrite) / m;
+	if (!p) {
+		if (!unpriced.has(model)) console.error(`ask: no price for ${model} – its tokens are logged at 0 USD (add it to PRICES)`);
+		unpriced.add(model);
+		return 0;
+	}
+	return (t.input_tokens * p.input + t.output_tokens * p.output + (t.cache_read_input_tokens ?? 0) * p.cacheRead + (t.cache_creation_input_tokens ?? 0) * p.cacheWrite) / 1_000_000;
+}
+
+/**
+ * What one API call cost: the tokens of every model that ran in it (`usage.iterations`: the sampling rounds around web
+ * searches, a fallback model that took over a refused turn – each at its own model's price) + the web searches
+ */
+export function costOf(model: string, u: Anthropic.Beta.BetaUsage): number {
+	const runs = (u.iterations ?? []).filter((i) => i.type === 'message' || i.type === 'fallback_message');
+	const tokens = runs.length ? runs.reduce((sum, i) => sum + tokenCost(i.model ?? model, i), 0) : tokenCost(model, u);
+	return tokens + (u.server_tool_use?.web_search_requests ?? 0) * WEB_SEARCH_PRICE;
 }
 
 interface Usage {
@@ -276,6 +317,7 @@ interface Usage {
 	output_tokens: number;
 	cache_read_tokens: number;
 	cache_write_tokens: number;
+	web_searches: number;
 	cost_usd: number;
 }
 
@@ -330,6 +372,16 @@ function stepOf(name: string, input: any, text: string, isError: boolean) {
 	else if (name === 'save_draft' && result?.version) Object.assign(step, { key: input.key, version: result.version });
 	else if (name === 'restore_version' && result?.version) Object.assign(step, { key: input.key, version: result.version });
 	else if (name === 'publish_entity' && result?.published) Object.assign(step, { key: input.key, version: result.published });
+	return step;
+}
+
+/** A web search / page read (server tool) for the panel: the query or the URL; an error when its result says so */
+function webStepOf(use: Anthropic.Beta.BetaServerToolUseBlock, content: Anthropic.Beta.BetaContentBlock[]): AgentStep {
+	const input: any = use.input;
+	const step: AgentStep = { tool: use.name, target: String(input?.query ?? input?.url ?? '') };
+	const result: any = content.find((b: any) => b.tool_use_id === use.id && b.type !== 'server_tool_use');
+	const code = result && !Array.isArray(result.content) ? result.content?.error_code : undefined;
+	if (code) step.error = String(code);
 	return step;
 }
 
@@ -415,7 +467,8 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 	res.on('close', () => (closed = true));
 	send('chat', { id: chatId });
 
-	// the app's tools: its MCP servers with the person's session, connected in-process (publishing only in the creator)
+	// the app's tools: its MCP servers with the person's session, connected in-process (publishing only in the creator),
+	// then the web
 	const toolConfig: Config = { api: cfg.api, token: person.token, tokenSource: 'env', local: isLocalUrl(cfg.api), publish: app === 'creator' && cfg.publish };
 	const servers = setup.servers(toolConfig);
 	const clients: Client[] = [];
@@ -433,10 +486,11 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 			tools.push({ name: t.name, description: t.description ?? '', input_schema: t.inputSchema as Anthropic.Beta.BetaTool.InputSchema, eager_input_streaming: true });
 		}
 	}
+	const allTools: Anthropic.Beta.BetaToolUnion[] = [...tools, ...WEB_TOOLS];
 
 	chat.messages.push({ role: 'user', content: `${header}\n${text}` });
 	await saveChat(cfg, person, chatId, chat);
-	const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0 };
+	const total = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, webSearches: 0, cost: 0 };
 	let jsonRetries = 0;
 
 	try {
@@ -446,7 +500,7 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 				max_tokens: 64000,
 				system: [{ type: 'text', text: setup.system, cache_control: { type: 'ephemeral' } }],
 				cache_control: { type: 'ephemeral' },
-				tools,
+				tools: allTools,
 				messages: chat.messages,
 				output_config: { effort: 'medium' },
 				betas: ['server-side-fallback-2026-07-01'],
@@ -473,6 +527,8 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 			total.output += u.output_tokens;
 			total.cacheRead += u.cache_read_input_tokens ?? 0;
 			total.cacheWrite += u.cache_creation_input_tokens ?? 0;
+			const searches = u.server_tool_use?.web_search_requests ?? 0;
+			total.webSearches += searches;
 			total.cost += cost;
 			await logUsage(cfg, person, {
 				app,
@@ -483,10 +539,13 @@ export async function handle(cfg: AskConfig, req: IncomingMessage, res: ServerRe
 				output_tokens: u.output_tokens,
 				cache_read_tokens: u.cache_read_input_tokens ?? 0,
 				cache_write_tokens: u.cache_creation_input_tokens ?? 0,
+				web_searches: searches,
 				cost_usd: Number(cost.toFixed(6))
 			});
 
 			chat.messages.push({ role: 'assistant', content: message.content });
+			// the web searches / page reads of this answer as steps in the panel (they ran at Anthropic)
+			for (const block of message.content) if (block.type === 'server_tool_use') send('step', webStepOf(block, message.content));
 			if (message.stop_reason === 'refusal') {
 				send('error', { message: 'The model declined this request.' });
 				break;

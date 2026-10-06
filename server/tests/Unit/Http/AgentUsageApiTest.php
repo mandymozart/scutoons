@@ -98,9 +98,9 @@ final class AgentUsageApiTest extends TestCase
 
         $row = $this->db->one('SELECT * FROM agent_usage');
         self::assertNotNull($row);
-        self::assertSame([$id, '2026-09-21 14:13:20', 'anthropic', 'claude-opus-5-5', self::CHAT, 1200, 300, 5000, 800, 0.0425],
+        self::assertSame([$id, '2026-09-21 14:13:20', 'anthropic', 'claude-opus-5-5', self::CHAT, 1200, 300, 5000, 800, 0, 0.0425],
             [$row['user_id'], $row['created_at'], $row['service'], $row['model'], $row['chat_id'], (int) $row['input_tokens'], (int) $row['output_tokens'],
-                (int) $row['cache_read_tokens'], (int) $row['cache_write_tokens'], round((float) $row['cost_usd'], 6)]);
+                (int) $row['cache_read_tokens'], (int) $row['cache_write_tokens'], (int) $row['web_searches'], round((float) $row['cost_usd'], 6)]);
 
         // chat_id is optional; strings are trimmed and cut; a Bearer request without an Origin passes the CSRF check
         $response = $this->request('POST', '/api/agent-usage', self::service($creator), (string) json_encode([
@@ -166,6 +166,8 @@ final class AgentUsageApiTest extends TestCase
             [['output_tokens' => 1.5], 'invalid_output_tokens'],
             [['cache_read_tokens' => '10'], 'invalid_cache_read_tokens'],
             [['cache_write_tokens' => 3000000000], 'invalid_cache_write_tokens'],
+            [['web_searches' => -1], 'invalid_web_searches'],
+            [['web_searches' => 1.5], 'invalid_web_searches'],
             [['cost_usd' => -0.01], 'invalid_cost_usd'],
             [['cost_usd' => 1000], 'invalid_cost_usd'],
             [['cost_usd' => '0.5'], 'invalid_cost_usd'],
@@ -190,7 +192,7 @@ final class AgentUsageApiTest extends TestCase
         // 2026-09-21 (today): alice anthropic ×2, alice openai, bob anthropic
         $this->clock->advance(21 * 86400);
         $this->log(self::service($aliceSession), ['cost_usd' => 0.1, 'input_tokens' => 100]);
-        $this->log(self::service($aliceSession), ['cost_usd' => 0.2, 'input_tokens' => 200]);
+        $this->log(self::service($aliceSession), ['cost_usd' => 0.2, 'input_tokens' => 200, 'web_searches' => 3]);
         $this->log(self::service($aliceSession), ['service' => 'openai', 'model' => 'gpt-x', 'cost_usd' => 0.05, 'input_tokens' => 1]);
         $this->log(self::service($bobSession), ['cost_usd' => 1.25, 'input_tokens' => 7, 'chat_id' => null]);
         // 2026-09-20: bob
@@ -211,10 +213,10 @@ final class AgentUsageApiTest extends TestCase
             ['2026-09-20', $bob, 'bob@example.com', 'anthropic', 'claude-opus-5-5', 1, 0.01],
             ['2026-08-31', $alice, 'alice@example.com', 'anthropic', 'claude-opus-5-5', 1, 0.5],
         ], array_map(fn(array $r) => [$r['period'], $r['user_id'], $r['email'], $r['service'], $r['model'], $r['calls'], $r['cost_usd']], $data['rows']));
-        self::assertSame(['calls' => 2, 'input_tokens' => 300, 'output_tokens' => 600, 'cache_read_tokens' => 10000, 'cache_write_tokens' => 1600, 'cost_usd' => 0.3],
+        self::assertSame(['calls' => 2, 'input_tokens' => 300, 'output_tokens' => 600, 'cache_read_tokens' => 10000, 'cache_write_tokens' => 1600, 'web_searches' => 3, 'cost_usd' => 0.3],
             array_diff_key($data['rows'][1], array_flip(['period', 'app', 'user_id', 'email', 'service', 'model'])));
         self::assertSame(['creator'], array_values(array_unique(array_column($data['rows'], 'app'))));
-        self::assertSame(['calls' => 6, 'input_tokens' => 321, 'output_tokens' => 1800, 'cache_read_tokens' => 30000, 'cache_write_tokens' => 4800, 'cost_usd' => 2.11], $data['totals']);
+        self::assertSame(['calls' => 6, 'input_tokens' => 321, 'output_tokens' => 1800, 'cache_read_tokens' => 30000, 'cache_write_tokens' => 4800, 'web_searches' => 3, 'cost_usd' => 2.11], $data['totals']);
 
         // by month
         $data = self::json($this->request('GET', '/api/admin/agent-usage?from=2026-08-01&to=2026-09-30&group=month', $admin));
@@ -230,7 +232,7 @@ final class AgentUsageApiTest extends TestCase
         $data = self::json($this->request('GET', '/api/admin/agent-usage?from=2026-09-20&to=2026-09-20', $admin));
         self::assertSame([['2026-09-20', 'bob@example.com']], array_map(fn(array $r) => [$r['period'], $r['email']], $data['rows']));
         $data = self::json($this->request('GET', '/api/admin/agent-usage?from=2025-01-01&to=2025-01-31', $admin));
-        self::assertSame([[], ['calls' => 0, 'input_tokens' => 0, 'output_tokens' => 0, 'cache_read_tokens' => 0, 'cache_write_tokens' => 0, 'cost_usd' => 0.0]], [$data['rows'], $data['totals']]);
+        self::assertSame([[], ['calls' => 0, 'input_tokens' => 0, 'output_tokens' => 0, 'cache_read_tokens' => 0, 'cache_write_tokens' => 0, 'web_searches' => 0, 'cost_usd' => 0.0]], [$data['rows'], $data['totals']]);
     }
 
     public function testAdminOverviewQueryErrorsAndRoles(): void

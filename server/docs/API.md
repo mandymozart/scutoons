@@ -566,26 +566,28 @@ service only logs to its own file). Code: `Domain\Agent\AgentUsage`, `AgentUsage
 concerns the cookie) **and** `X-Service-Key: <AGENT_SERVICE_KEY>` (compared with `hash_equals`). The row's user is
 always the session's user, never a body field. Body:
 
-`{ app?, service, model, chat_id?, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, cost_usd }` →
+`{ app?, service, model, chat_id?, input_tokens, output_tokens, cache_read_tokens, cache_write_tokens, web_searches?,
+cost_usd }` →
 `201 { status: "success" }`. `app`: whose panel asked – `creator` (default), `embassy`, `admin`; the user must be allowed
 to use that app's panel (same rule as "Agent chats"; column `app` from migration `2026-10-04-ask-embassy-mail`, before
 it only `creator` works, the others answer `503 not_available`). `service` / `model`: non-empty strings, trimmed, cut to 40 / 100 characters; `chat_id`: a
 UUID (lower-cased) or null / left out (no foreign key – the chat may be deleted later); the four token counts: JSON
-integers 0..2147483647; `cost_usd`: a JSON number (USD) from 0 to below 1000, stored with 6 decimals. `created_at` = the
-server's UTC time.
+integers 0..2147483647; `web_searches`: the call's web search requests (JSON integer ≥ 0, default 0; column from
+migration `2026-10-06-agent-web-search`, dropped before it); `cost_usd`: the whole cost of the call (tokens + web
+searches), a JSON number (USD) from 0 to below 1000, stored with 6 decimals. `created_at` = the server's UTC time.
 
 Errors, in this order: `503 not_configured` (`AGENT_SERVICE_KEY` empty), `403 forbidden` (key missing or wrong),
 `401 unauthorized` (no session), `422 invalid_body|invalid_app`, `403 forbidden { role }` (may not use the app's
 panel: `creator` for the creator, `liaison` for the Embassy, `admin` for the admin app), `422
 invalid_service|invalid_model|invalid_chat_id|invalid_input_tokens|invalid_output_tokens|invalid_cache_read_tokens|
-invalid_cache_write_tokens|invalid_cost_usd`, `503 not_available`.
+invalid_cache_write_tokens|invalid_web_searches|invalid_cost_usd`, `503 not_available`.
 
 **`GET /admin/agent-usage?from=YYYY-MM-DD&to=YYYY-MM-DD&group=day|month`** (admin) – sums per period (UTC day
 `2026-10-04` or month `2026-10`), app, user, service and model:
 
 `{ status, from, to, group, rows: [{ period, app, user_id, email, service, model, calls, input_tokens, output_tokens,
-cache_read_tokens, cache_write_tokens, cost_usd }], totals: { calls, input_tokens, output_tokens, cache_read_tokens,
-cache_write_tokens, cost_usd } }` – newest period first, then the highest cost. `from` / `to` are UTC days, both
+cache_read_tokens, cache_write_tokens, web_searches, cost_usd }], totals: { calls, input_tokens, output_tokens,
+cache_read_tokens, cache_write_tokens, web_searches, cost_usd } }` – newest period first, then the highest cost. `from` / `to` are UTC days, both
 included; default `to` = today, `from` = `to` − 29 days (the last 30 days), `group` = `day`. `cost_usd` is a number with
 up to 6 decimals; `email` = the creator's current email (deleting a user deletes their rows – `ON DELETE CASCADE`). Errors:
 `422 invalid_from|invalid_to|invalid_group|invalid_range` (from after to, or more than 400 days), `503 not_available`.

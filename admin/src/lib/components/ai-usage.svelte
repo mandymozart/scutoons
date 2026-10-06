@@ -1,7 +1,8 @@
 <script lang="ts">
 	// The AI usage on the Dashboard (owner 2026-10-05): what the Ask agents cost (GET /api/admin/agent-usage, the Ask
-	// service logs every Anthropic call) – this month per app and per person, and per day in the dashboard's period
-	// (one bar series per app). Days are UTC days, as the log stores them.
+	// service logs every Anthropic call; the cost includes the web searches, counted beside the calls) – this month per app
+	// and per person, and per day in the dashboard's period (one bar series per app). Days are UTC days, as the log stores
+	// them.
 	import { ApiError, type AgentUsageOverview, type AgentUsageRow } from '@scutoons/api';
 	import { Chart, Panel, Skeleton } from '@scutoons/ui';
 	import { admin } from '$lib/api.ts';
@@ -46,12 +47,19 @@
 
 	const sum = (rows: AgentUsageRow[], match: (r: AgentUsageRow) => boolean) => rows.filter(match).reduce((total, r) => total + r.cost_usd, 0);
 	const calls = (rows: AgentUsageRow[], match: (r: AgentUsageRow) => boolean) => rows.filter(match).reduce((total, r) => total + r.calls, 0);
+	const searches = (rows: AgentUsageRow[], match: (r: AgentUsageRow) => boolean) => rows.filter(match).reduce((total, r) => total + (r.web_searches ?? 0), 0);
+	/** a tile's note: the calls, the web searches when there were any */
+	const note = (rows: AgentUsageRow[], match: (r: AgentUsageRow) => boolean) => {
+		const n = searches(rows, match);
+		const text = m['dashboard.ai_calls']({ count: number(calls(rows, match)) });
+		return n ? `${text} · ${m['dashboard.ai_searches']({ count: number(n) })}` : text;
+	};
 
 	const tiles = $derived(
 		month
 			? [
-					{ label: m['dashboard.ai_month'](), value: cost(month.totals.cost_usd), note: m['dashboard.ai_calls']({ count: number(month.totals.calls) }) },
-					...APPS.map((app) => ({ label: appLabel(app), value: cost(sum(month!.rows, (r) => r.app === app)), note: m['dashboard.ai_calls']({ count: number(calls(month!.rows, (r) => r.app === app)) }) }))
+					{ label: m['dashboard.ai_month'](), value: cost(month.totals.cost_usd), note: note(month.rows, () => true) },
+					...APPS.map((app) => ({ label: appLabel(app), value: cost(sum(month!.rows, (r) => r.app === app)), note: note(month!.rows, (r) => r.app === app) }))
 				]
 			: []
 	);
