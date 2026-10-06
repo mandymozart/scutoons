@@ -11,7 +11,11 @@ import {
 } from './enums.ts';
 import { getAt, type Path } from './paths.ts';
 import { linksToNext, scriptJumps } from './chains.ts';
-import { askVariable, chapterReach, similarVariable, type ToonFacts } from './reach.ts';
+import { askVariable, chapterReach, factKey, factNames, similarVariable, type ToonFacts } from './reach.ts';
+import { isWrittenVariable } from './variables.ts';
+
+/** a variable's spelling (variables.ts) */
+const VARIABLE_FORM = 'a variable is a name of letters, digits and _ (not starting with a digit) – this toon\'s; global.name for every toon, <toon>.name for another toon\'s';
 import { stuckMessage, stuckPoints } from './stuck.ts';
 import { LEGACY_CHARACTER_IDS, REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
 import {
@@ -319,13 +323,14 @@ function checkCondition(c: Collector, cond: any, path: Path, ctx: ValidateContex
 	if (isObj(cond) && cond.expr !== undefined) {
 		if (!isStr(cond.expr) || !cond.expr.trim()) return c.error([...path, 'expr'], 'the condition needs an expression');
 		for (const key of Object.keys(cond)) if (key !== 'expr') c.error([...path, key], 'an expression condition has only expr');
-		const knownNames = ctx.facts ? [...ctx.facts.variables] : undefined;
+		const knownNames = ctx.facts ? factNames(ctx.facts) : undefined;
 		for (const p of analyseExpression(cond.expr, { knownNames }).errors) {
 			c.add(exprLevel(p), [...path, 'expr'], `the condition: ${p.message} – at ${p.start + 1}${p.end > p.start + 1 ? `–${p.end}` : ''}`, `expr:${p.code}`, exprAt(p));
 		}
 		return;
 	}
 	if (!isObj(cond) || !isStr(cond.variable) || !cond.variable) return c.error([...path, 'variable'], 'the condition needs a variable');
+	if (!isWrittenVariable(cond.variable) && !cond.variable.startsWith('picked:')) c.warn([...path, 'variable'], VARIABLE_FORM);
 	if (!CONDITION_OPS.includes(cond.op)) return c.error([...path, 'op'], `the condition's op must be one of ${CONDITION_OPS.join(' ')}`);
 	if (cond.op !== 'set' && cond.op !== 'unset' && (cond.value === undefined || cond.value === '')) c.error([...path, 'value'], 'the condition needs a value to compare with');
 }
@@ -342,8 +347,10 @@ function checkActions(c: Collector, onSelect: any, path: Path, ctx: ValidateCont
 			if (!isStr(a.divert.to) || !a.divert.to) c.error([...ap, 'divert', 'to'], 'divert needs the name of a point in the script');
 		} else if (isObj(a.set)) {
 			if (!isStr(a.set.variable) || !a.set.variable) c.error([...ap, 'set', 'variable'], 'set needs a variable');
+			else if (!isWrittenVariable(a.set.variable)) c.warn([...ap, 'set', 'variable'], VARIABLE_FORM);
 		} else if (isObj(a.add)) {
 			if (!isStr(a.add.variable) || !a.add.variable) c.error([...ap, 'add', 'variable'], 'add needs a variable');
+			else if (!isWrittenVariable(a.add.variable)) c.warn([...ap, 'add', 'variable'], VARIABLE_FORM);
 			if (!isNum(a.add.value)) c.error([...ap, 'add', 'value'], 'add needs a number');
 		} else c.error(ap, 'an action is set, add, jumpTo or divert');
 	});
@@ -416,6 +423,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 		case 'setVariable':
 			if (!isObj(p) || !isStr(p.variable) || !p.variable) c.error([...pp, 'variable'], 'setVariable needs a variable');
 			else {
+				if (!isWrittenVariable(p.variable)) c.warn([...pp, 'variable'], VARIABLE_FORM);
 				if (p.op !== undefined && p.op !== 'set' && p.op !== 'add') c.error([...pp, 'op'], 'op is set or add');
 				if (p.op === 'add' && !isNum(p.value)) c.error([...pp, 'value'], 'add needs a number');
 				if (p.op !== 'add' && (p.value === undefined || p.value === '')) c.error([...pp, 'value'], 'setVariable needs a value');
@@ -447,7 +455,7 @@ export function checkEvent(c: Collector, e: any, path: Path, ctx: ValidateContex
 				if (p.scope !== undefined && !(ASK_TEXT_SCOPES as readonly string[]).includes(p.scope)) c.error([...pp, 'scope'], `scope must be ${ASK_TEXT_SCOPES.join(' or ')}`);
 				if (p.scope !== 'reader') {
 					if (!isStr(p.variable) || !p.variable) c.error([...pp, 'variable'], 'askText needs the variable the answer goes to');
-					else if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(p.variable)) c.error([...pp, 'variable'], 'a variable name is letters, digits and _ (not starting with a digit)');
+					else if (!isWrittenVariable(p.variable)) c.error([...pp, 'variable'], VARIABLE_FORM);
 				} else if (p.variable !== undefined) c.info([...pp, 'variable'], "the answer is the reader's name (reader.name) – the variable is not used");
 				if (p.maxLength !== undefined && (!Number.isInteger(p.maxLength) || p.maxLength < 1 || p.maxLength > ASK_TEXT_LIMIT)) c.error([...pp, 'maxLength'], `maxLength is a whole number 1 … ${ASK_TEXT_LIMIT}`);
 				for (const key of ['placeholder', 'answer', 'default'] as const) if (p[key] !== undefined && !isStr(p[key])) c.error([...pp, key], `${key} must be a text`);
@@ -776,10 +784,11 @@ function checkVariableNames(c: Collector, groups: any[], facts: ToonFacts) {
 		for (const key in o) walk(o[key], [...path, key]);
 	};
 	groups.forEach((g, gi) => walk(g, ['groups', gi]));
-	const known = new Set([...facts.variables, ...(facts.reads ?? []), ...first.keys()]);
+	// storage keys (variables.ts): `x` here and `catpope.x` elsewhere are one variable; shown as written here
+	const known = new Set([...facts.variables, ...(facts.reads ?? []), ...[...first.keys()].map((n) => factKey(facts, n))]);
 	for (const [name, path] of first) {
-		const like = similarVariable(name, known);
-		if (like) c.warn(path, `story variable "${name}" looks like "${like}" – the same one? (story variables are shared by every toon; a slip makes a second variable)`);
+		const like = similarVariable(factKey(facts, name), known);
+		if (like) c.warn(path, `story variable "${name}" looks like "${factNames(facts, [like])[0]}" – the same one? (a slip makes a second variable)`);
 	}
 }
 
@@ -1265,7 +1274,7 @@ export function validateNeutral(kind: string, data: any, languages: NeutralLangu
 	const neutralKind: NeutralKind | 'toon' = kind === 'group' ? 'scene' : kind === 'index' ? 'toon' : (kind as NeutralKind);
 	const perLocale: Collector[] = [];
 	// the toon's story variables (what something sets – the creator loads the toon's documents): an unknown one in a text warns
-	const knownNames = ctx.facts ? [...ctx.facts.variables] : undefined;
+	const knownNames = ctx.facts ? factNames(ctx.facts) : undefined;
 	forEachText(neutralKind, data, (path, value, leaf) => {
 		const word = LEAF_WORD[leaf];
 		if (!isObj(value)) {

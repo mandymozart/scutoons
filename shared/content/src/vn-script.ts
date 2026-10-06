@@ -1,6 +1,7 @@
 // The VN script's logic as pure functions (owner 2026-10-03, CUTOVER 10.27): one runner in the viewer uses them, the
 // creator's forms and the validator read the same rules. A group's `events` is its script; `label` events are named points
 // in it, a divert continues there (no page change); jumpTo is navigation only (another group / chapter, or a random one).
+import { isStoryPath } from './variables.ts';
 import type { VNAction, VNEvent, VNEventCondition, VNExprCondition } from './visual-novel.ts';
 import { evaluateExpression, isTruthy, type ExprResolver } from './expr/index.ts';
 
@@ -18,7 +19,7 @@ export const isExprCondition = (condition: unknown): condition is VNExprConditio
 export function testCondition(condition: VNEventCondition | null | undefined, get: (variable: string) => Value, resolver?: ExprResolver): boolean {
 	if (isExprCondition(condition)) {
 		if (!condition.expr.trim()) return true;
-		const { value } = evaluateExpression(condition.expr, resolver ?? { name: (path) => (path.length === 1 ? get(path[0]) : undefined) });
+		const { value } = evaluateExpression(condition.expr, resolver ?? { name: (path) => (isStoryPath(path) ? get(path.join('.')) : undefined) });
 		return isTruthy(value);
 	}
 	if (!condition || !condition.variable) return true;

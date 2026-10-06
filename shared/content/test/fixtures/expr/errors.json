@@ -19,7 +19,8 @@
 			"reader.signedIn": true,
 			"reader.language": "en",
 			"now.hour": 21,
-			"stats.testo": 7
+			"stats.testo": 7,
+			"global.coins": 7
 		},
 		"calls": {
 			"has(\"cucumber\")": true,
@@ -48,7 +49,8 @@
 		"no",
 		"half",
 		"five",
-		"missing"
+		"missing",
+		"global.coins"
 	],
 	"cases": [
 		{
@@ -528,15 +530,20 @@
 			"ast": "(print xyz.total)",
 			"errors": [
 				{
-					"code": "unknown-name",
-					"severity": "error",
+					"code": "unknown-variable",
+					"severity": "warning",
 					"start": 1,
 					"end": 10,
-					"message": "unknown name `xyz.total`"
+					"message": "unknown variable `xyz.total`"
 				}
 			],
 			"reads": {
-				"names": [],
+				"names": [
+					[
+						"xyz",
+						"total"
+					]
+				],
 				"functions": [],
 				"sequences": 0
 			},
@@ -812,15 +819,20 @@
 			"ast": "(print __proto__.x)",
 			"errors": [
 				{
-					"code": "unknown-name",
-					"severity": "error",
+					"code": "unknown-variable",
+					"severity": "warning",
 					"start": 1,
 					"end": 12,
-					"message": "unknown name `__proto__.x`"
+					"message": "unknown variable `__proto__.x`"
 				}
 			],
 			"reads": {
-				"names": [],
+				"names": [
+					[
+						"__proto__",
+						"x"
+					]
+				],
 				"functions": [],
 				"sequences": 0
 			},
@@ -876,6 +888,39 @@
 			"out": "",
 			"runtime": [
 				"missing-value@1"
+			],
+			"visited": []
+		},
+		{
+			"text": "{global.coins} / {toptoy.cookies}",
+			"ast": "(print global.coins) \" / \" (print toptoy.cookies)",
+			"errors": [
+				{
+					"code": "unknown-variable",
+					"severity": "warning",
+					"start": 18,
+					"end": 32,
+					"message": "unknown variable `toptoy.cookies`"
+				}
+			],
+			"reads": {
+				"names": [
+					[
+						"global",
+						"coins"
+					],
+					[
+						"toptoy",
+						"cookies"
+					]
+				],
+				"functions": [],
+				"sequences": 0
+			},
+			"constructs": 2,
+			"out": "7 /",
+			"runtime": [
+				"missing-value@18"
 			],
 			"visited": []
 		}

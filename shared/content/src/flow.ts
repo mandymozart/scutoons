@@ -21,7 +21,8 @@
 import { groupEnd, linksToNext, type ChainGroupLike } from './chains.ts';
 import type { JumpToTarget } from './content.ts';
 import { analyseExpression, analyseText } from './expr/analyse.ts';
-import { askVariable, chapterReach, isConditional, runRepeat, triggerKey, type ChapterReach, type Reach, type ToonFacts } from './reach.ts';
+import { askVariable, chapterReach, factKey, isConditional, runRepeat, triggerKey, type ChapterReach, type Reach, type ToonFacts } from './reach.ts';
+import { isStoryPath, writtenVariable } from './variables.ts';
 import type { RepeatMode } from './recurrence.ts';
 import { actionsOf, intoOtherToon } from './vn-script.ts';
 import { REGULAR_PERSONA, resolveCharacterId } from './characters.ts';
@@ -1067,13 +1068,13 @@ export interface FlowIndex {
 	edges: FlowIndexEdge[];
 	/** per toon: its dead things (the same rules as `deadThings`, variables judged across every toon) */
 	dead?: Record<string, DeadThings>;
-	/** every story variable of SCUTOONS: the toons that set it, the toons that read it (one save game for all toons) */
+	/** every story variable of SCUTOONS by storage key (`catpope/x`, `x` = global – variables.ts): the toons that set it,
+	 *  the toons that read it (one save game for all toons) */
 	variables?: Record<string, { set: string[]; read: string[] }>;
 }
 
 /**
- * What the OTHER toons do with story variables (from the server's flow index): the names they set and the names they
- * read – `toonFacts(…, { elsewhere })` (dead things, never-true tests and unknown names judged across all toons).
+ * What the OTHER toons do with story variables (from the server's flow index): the storage keys they set and read – `toonFacts(…, { elsewhere })` (dead things, never-true tests and unknown names judged across all toons).
  */
 export function variablesElsewhere(index: Pick<FlowIndex, 'variables'> | null | undefined, toon: string): { sets: string[]; reads: string[] } {
 	const sets: string[] = [];
@@ -1178,8 +1179,9 @@ export interface DeadThings {
 	labels: DeadItem[];
 }
 
-/** the story variables an expression / a text's `{…}` reads: names of one part (`coins`; `reader.name` is no variable) */
-const storyNames = (names: string[][]): string[] => names.filter((n) => n.length === 1).map((n) => n[0]);
+/** the story variables an expression / a text's `{…}` reads, as written: `coins`, `global.coins`, `toptoy.coins`
+ *  (`reader.name` and the other namespaces are no variables – variables.ts) */
+const storyNames = (names: string[][]): string[] => names.filter(isStoryPath).map((n) => n.join('.'));
 
 /**
  * The toon's dead things over its chapters (groups with each scene in place of its ref). `facts` = the toon's
@@ -1187,14 +1189,17 @@ const storyNames = (names: string[][]): string[] => names.filter((n) => n.length
  * pickups, other documents, other toons) and labels something refers to; without them no label is judged.
  */
 export function deadThings(chapters: readonly { number: number; groups: readonly any[] }[], facts?: ToonFacts): DeadThings {
+	// keyed by storage keys (variables.ts: `x` here and `catpope.x` elsewhere are one variable), shown as written here
 	const sets = new Map<string, DeadPlace[]>();
 	const reads = new Map<string, DeadPlace[]>();
 	const note = (map: Map<string, DeadPlace[]>, name: string, at: DeadPlace) => {
 		if (!name || name.startsWith('picked:')) return;
-		const list = map.get(name) ?? [];
+		const key = factKey(facts, name);
+		const list = map.get(key) ?? [];
 		if (!list.some((p) => p.chapter === at.chapter && p.group === at.group)) list.push(at);
-		map.set(name, list);
+		map.set(key, list);
 	};
+	const shown = (key: string) => (facts?.toon ? writtenVariable(key, facts.toon) : key);
 	const points: DeadItem[] = [];
 	const labels: DeadItem[] = [];
 	for (const c of chapters) {
@@ -1239,8 +1244,8 @@ export function deadThings(chapters: readonly { number: number; groups: readonly
 	const setAnywhere = (name: string) => sets.has(name) || !!facts?.variables.has(name);
 	const sorted = (list: DeadItem[]) => list.sort((a, b) => a.name.localeCompare(b.name));
 	return {
-		unread: sorted([...sets].filter(([name]) => !reads.has(name) && !facts?.reads?.has(name)).map(([name, at]) => ({ name, at }))),
-		unset: sorted([...reads].filter(([name]) => !setAnywhere(name)).map(([name, at]) => ({ name, at }))),
+		unread: sorted([...sets].filter(([key]) => !reads.has(key) && !facts?.reads?.has(key)).map(([key, at]) => ({ name: shown(key), at }))),
+		unset: sorted([...reads].filter(([key]) => !setAnywhere(key)).map(([key, at]) => ({ name: shown(key), at }))),
 		points,
 		labels
 	};

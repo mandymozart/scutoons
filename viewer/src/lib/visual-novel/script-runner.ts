@@ -1,4 +1,4 @@
-import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, evaluateText, labelIndex, testCondition, type ExprResolver, type ExprValue, type JumpToTarget, type VNEvent } from '@scutoons/content';
+import { ASK_TEXT_LIMIT, ASK_TEXT_MAX_LENGTH, evaluateText, isStoryPath, labelIndex, testCondition, type ExprResolver, type ExprValue, type JumpToTarget, type VNEvent } from '@scutoons/content';
 import { buildJumpToUrl } from './jump-to.ts';
 
 /**
@@ -94,7 +94,7 @@ export async function runEvents(events: readonly VNEvent[], start: number, deps:
 	const show = (source: string, at: number): string =>
 		env.evaluate
 			? env.evaluate(source, `${label() ?? deps.scope ?? ''}/${deps.origin ?? 'script'}/${at}`)
-			: evaluateText(source, { name: (path) => (path.length === 1 ? (get(path[0]) as ExprValue) : undefined) }).text;
+			: evaluateText(source, { name: (path) => (isStoryPath(path) ? (get(path.join('.')) as ExprValue) : undefined) }).text;
 	let i = Math.max(0, start);
 	let jumpsWithoutWait = 0;
 	/** choices this run added that no showChoices has shown yet (dropped when the run ends) */

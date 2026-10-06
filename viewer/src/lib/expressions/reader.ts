@@ -3,7 +3,7 @@
 // state – pure, over getters (resolver.svelte.ts wires them to the contexts; the getters read reactive state, so a text
 // evaluated in a `$derived` re-renders when a value changes). Never: email, codes, account / entry ids, anything about
 // other readers. No generic property access: an unknown name is `undefined` (the text shows nothing there).
-import { chapterCheckpointUri, checkpointPosition, isPrologue, type Checkpoint, type ExprValue, type MapState } from '@scutoons/content';
+import { chapterCheckpointUri, isStoryPath, checkpointPosition, isPrologue, type Checkpoint, type ExprValue, type MapState } from '@scutoons/content';
 
 /** an inventory entry as far as a text may see it (no id, no code) */
 export interface ReaderEntry {
@@ -84,7 +84,8 @@ const count = (s: ReaderSources, item: unknown): number =>
 
 /** a name's value: `['coins']` (a story variable), `['map', 'total']` … – undefined when there is none */
 export function readerName(s: ReaderSources, path: readonly string[]): ExprValue {
-	if (path.length === 1) return s.variable?.(path[0]);
+	// a story variable as written (`coins`, `global.coins`, `toptoy.coins` – the game context resolves its domain)
+	if (isStoryPath(path)) return s.variable?.(path.join('.'));
 	if (path.length !== 2) return undefined;
 	const [ns, name] = path;
 	const now = s.now?.() ?? new Date();

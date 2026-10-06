@@ -19,7 +19,7 @@ function storyRef(variable: string, place?: string): string {
 }
 
 /**
- * A VN variable whose name is a catalog item id (e.g. `cucumber`) also grants that item (source "story").
+ * A VN variable whose (plain) name is a catalog item id (e.g. `cucumber`) also grants that item (source "story").
  * The game variable itself is kept for text interpolation. Resolves to the inventory's answer (null = no such item).
  */
 export function grantStoryItem(
@@ -29,8 +29,10 @@ export function grantStoryItem(
 	options?: { quietWhenNone?: boolean; respawn?: { respawn: RecurrenceInterval; visit?: string } }
 ): Promise<{ ok: boolean; error?: string; granted?: number }> | null {
 	const inventory = getCurrentInventory();
-	if (!inventory?.item(variable) || qty <= 0) return null;
-	return inventory.grant(variable, 'story', qty, storyRef(variable, place), options);
+	// the plain name decides, whatever its domain (`cucumber`, `global.cucumber`, `toptoy.cucumber` – variables.ts)
+	const item = variable.slice(variable.indexOf('.') + 1);
+	if (!inventory?.item(item) || qty <= 0) return null;
+	return inventory.grant(item, 'story', qty, storyRef(item, place), options);
 }
 
 export function executeVariableAction(

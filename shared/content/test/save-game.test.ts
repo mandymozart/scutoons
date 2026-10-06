@@ -59,12 +59,15 @@ test('the old per-toon states: the newest state wins a clash, everything else me
 		{ toon: 'catpope', state: { variables: { tips: 2, visits_harbour: 3 }, progress: [cp('catpope/chapter/2', '2026-02-01T00:00:00Z')], history: { 'event:c': { n: 1, first: 1, last: 1 } }, created_at: '2026-01-01T00:00:00Z', updated_at: '2026-02-01T00:00:00Z' } },
 		{ toon: 'toptoy', state: { variables: { tips: 5, visits_hypercity: 1 }, progress: [cp('toptoy/chapter/1', '2026-01-15T00:00:00Z')], history: {}, created_at: '2026-01-10T00:00:00Z', updated_at: '2026-01-15T00:00:00Z' } }
 	]);
-	assert.deepEqual(out.variables, { tips: 2, visits_harbour: 3, visits_hypercity: 1 }, 'catpope is newer: its tips win');
-	assert.deepEqual(clashes, ['tips']);
+	// each toon's variables keep their domain (variables.ts): catpope's tips and toptoy's tips are two variables
+	assert.deepEqual(out.variables, { 'catpope/tips': 2, 'catpope/visits_harbour': 3, 'toptoy/tips': 5, 'toptoy/visits_hypercity': 1 });
+	assert.deepEqual(clashes, []);
 	assert.deepEqual(out.progress.map((c) => c.uri).sort(), ['catpope/chapter/2', 'toptoy/chapter/1']);
 	assert.ok(out.history['event:c']);
 	assert.equal(out.created_at, '2026-01-01T00:00:00Z', 'the earliest start');
 	// the save game is newer than both: its own value wins
-	const later = { ...emptySaveGame(), variables: { tips: 9 }, updated_at: '2026-05-01T00:00:00Z' };
-	assert.equal(absorbToonStates(later, [{ toon: 'catpope', state: { variables: { tips: 2 }, updated_at: '2026-02-01T00:00:00Z' } }]).save.variables.tips, 9);
+	const later = { ...emptySaveGame(), variables: { 'catpope/tips': 9 }, updated_at: '2026-05-01T00:00:00Z' };
+	const again = absorbToonStates(later, [{ toon: 'catpope', state: { variables: { tips: 2 }, updated_at: '2026-02-01T00:00:00Z' } }]);
+	assert.equal(again.save.variables['catpope/tips'], 9);
+	assert.deepEqual(again.clashes, ['catpope/tips']);
 });

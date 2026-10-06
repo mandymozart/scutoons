@@ -32,7 +32,8 @@ export interface ExprAnalysis {
 
 export interface AnalyseOptions {
 	registry?: ExprRegistry;
-	/** the story variables there are (bare names): an unknown one becomes a warning with a suggestion */
+	/** the story variables there are, as written in this toon (`coins`, `global.coins`, `toptoy.coins` – variables.ts):
+	 *  an unknown one becomes a warning with a suggestion */
 	knownNames?: readonly string[];
 }
 
@@ -169,6 +170,9 @@ class Analyser {
 			const ns = this.spaces.get(full);
 			if (ns) return this.problem('namespace-needs-member', e, [full, `${full}.${ns.members[0]?.name ?? 'name'}`]);
 			if (this.fns.has(full)) return this.problem('function-needs-call', e, [full]);
+			if (this.known && !this.known.has(full)) this.problem('unknown-variable', e, [full], didYouMean(full, this.known), 'warning');
+		} else if (e.path.length === 2 && !this.spaces.has(e.path[0])) {
+			// a story variable with a domain (variables.ts): `global.coins`, `toptoy.coins`
 			if (this.known && !this.known.has(full)) this.problem('unknown-variable', e, [full], didYouMean(full, this.known), 'warning');
 		} else {
 			const { ns, m } = this.member(full);
