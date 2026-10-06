@@ -27,6 +27,7 @@
 		"check:creator-chapter": "node scripts/dev/creator-chapter-check.mjs",
 		"check:creator-script": "node scripts/dev/creator-script-check.mjs",
 		"check:stroll": "node scripts/dev/stroll-check.mjs",
+		"check:chain-vn": "node scripts/dev/chain-vn-check.mjs",
 		"check:mcp": "node scripts/dev/mcp-check.mjs",
 		"check:creator-cover": "node --experimental-transform-types --no-warnings scripts/dev/creator-cover-check.mjs",
 		"dev:viewer": "npm run dev -w viewer",

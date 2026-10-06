@@ -117,7 +117,8 @@
 		"season_title": "Staffel {number}: {title}",
 		"prologue": "Prolog",
 		"sensitive_hidden": "Sensibler Inhalt ausgeblendet",
-		"sensitive_hidden_hint": "In deinem Konto: „Sensible Inhalte ausblenden“"
+		"sensitive_hidden_hint": "In deinem Konto: „Sensible Inhalte ausblenden“",
+		"scroll_paused": "Scrollen pausiert – erst die Nachricht beantworten"
 	},
 	"player": {
 		"sound_on": "Ton an",

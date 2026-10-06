@@ -2,7 +2,7 @@ import { effectiveRespawn, respawnPeriod, type RespawnInterval, type Slice, type
 import { getCurrentInventory } from '$lib/contexts/inventory.svelte.ts';
 import type { GameContext } from '$lib/contexts/game.svelte';
 import type { VisualNovelContext } from '$lib/contexts/visual-novel.svelte';
-import { EventProcessor } from './event-processor.ts';
+import { EventProcessor, type GroupScript } from './event-processor.ts';
 import { grantStoryItem } from './variable-actions.ts';
 
 /**
@@ -95,6 +95,6 @@ export async function pickUpSliceItem(slice: Pick<Slice, 'image'>, item: SliceIt
 }
 
 /** Runs a placement's tap events; resolves to a URL when one of them jumps. */
-export function runSliceItemEvents(item: SliceItem, game: GameContext, vn: VisualNovelContext): Promise<string | null> {
-	return new EventProcessor((item.events ?? []) as VNEvent[], game, vn).run();
+export function runSliceItemEvents(item: SliceItem, game: GameContext, vn: VisualNovelContext, group?: GroupScript): Promise<string | null> {
+	return new EventProcessor((item.events ?? []) as VNEvent[], game, vn, group).run();
 }

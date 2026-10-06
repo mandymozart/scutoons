@@ -2,10 +2,11 @@
 	import MembershipBlocker from '$lib/components/chapter/membership-blocker.svelte';
 	import NextBar from '$lib/components/chapter/next-bar.svelte';
 	import ChapterTeaser from '$lib/components/chapter/chapter-teaser.svelte';
-	import { chainOf, chainSlices, nextStep, seasonMusic } from '@scutoons/content';
+	import { chainOf, chainSlices, hasVisualNovel, nextStep, seasonMusic } from '@scutoons/content';
 	import { getInventoryContext } from '$lib/contexts/inventory.svelte.ts';
 	import { getMembershipContext } from '$lib/contexts/membership.svelte.ts';
 	import Group from '$lib/components/toon/group.svelte';
+	import VnPage from '$lib/components/toon/interactions/vn-page.svelte';
 	import { m } from '$lib/paraglide/messages.js';
 	import { audio } from '$lib/actions/audio/index.ts';
 	import type { PageProps } from './$types.js';
@@ -50,13 +51,17 @@
 		};
 	});
 	const lastGroup = $derived(chain ? chain.groups[chain.groups.length - 1].group : undefined);
+	// a VN anywhere on the page (a script or slice events): one box, one script line (vn-page.svelte)
+	const pageVn = $derived(!!chain?.groups.some((linked) => hasVisualNovel(linked.group)));
 
 	// `?label=` of a group further down a chain: the chain from its top, scrolled to that group (instant) – on arrival
 	// only (not on "Nochmal", not on back / forward: the browser restores the place). Kept aligned while the page above
 	// settles (a strip measures its sideways travel after it mounted, images load) until the reader scrolls themselves.
 	const SETTLE_MS = 2000;
-	afterNavigate(async ({ type }) => {
+	afterNavigate(async ({ type, from, to }) => {
 		if (type === 'popstate') return;
+		// a jump (a script, a choice, an end) to the very page the reader is on: it starts again, like "Nochmal"
+		if (type === 'goto' && from?.url.href === to?.url.href) replays++;
 		const c = chain;
 		if (!c || c.at === c.start) return;
 		const offset = c.groups[c.at - c.start].offset;
@@ -135,8 +140,8 @@
 			member: membership.isValid
 		});
 	});
-	// "Nochmal": the group (linked groups: from the first one, the page's top) from its start (a VN group runs its script
-	// again)
+	// "Nochmal": the group (linked groups: from the first one, the page's top) from its start (every script of the page
+	// again, the stage cleared – groups above a `?label=` target stay read)
 	let replays = $state(0);
 	function replay() {
 		window.scrollTo({ top: 0 });
@@ -176,14 +181,25 @@
 {:else}
 <MembershipBlocker isPreview={data.chapter.isPreview}>
 	<div class="chapter-view" use:audio={data.chapter.audio} {@attach trackReading(spot)}>
-		<!-- another chain (linked groups: a label inside the same chain keeps the page) or another chapter starts the page
-		     from scratch (a VN group runs its events on mount) -->
-		{#key `${data.chapter.number}:${chain?.start ?? currentLabel}:${replays}`}
+		<!-- another chain, another group of it (`?label=` – also a jump back into the same chain) or another chapter starts
+		     the page from scratch (scripts, stage, the follow-up bar) -->
+		{#key `${data.chapter.number}:${chain?.start ?? currentLabel}:${chain?.at ?? ''}:${replays}`}
 			{#if chain && lastGroup}
-				{#each chain.groups as linked (linked.index)}
-					<!-- a VN group can only end a chain: further down it starts when its first slice is seen -->
-					<Group group={linked.group} sliceOffset={linked.offset} deferScript={linked.index !== chain.start} />
-				{/each}
+				<VnPage vn={pageVn}>
+					<!-- linked groups (owner 2026-10-06): every script starts when its group's first slice is seen, one after
+					     another; a lone group's on mount. Groups above the `?label=` target count as read (`done`): no
+					     script, no triggers, their text boxes shown -->
+					{#each chain.groups as linked (linked.index)}
+						<Group
+							group={linked.group}
+							sliceOffset={linked.offset}
+							scope={String(linked.index)}
+							deferScript={chain.end > chain.start}
+							required={linked.index >= chain.at}
+							done={linked.index < chain.at}
+						/>
+					{/each}
+				</VnPage>
 				{#if step}
 					<NextBar
 						{step}

@@ -21,6 +21,8 @@ export interface RunnerDeps {
 	cancelled?: () => boolean;
 	/** the group the reader is on (a random jump never picks it) */
 	currentLabel?: () => string | null;
+	/** the group of the page whose script / slice events run (its text boxes, linked groups share a page) */
+	scope?: string;
 }
 
 export type RunResult = 'done' | 'navigated' | 'cancelled';
@@ -96,7 +98,7 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 					break;
 
 				case 'addChoice':
-					vn.addChoice({ label: interpolateVariables(event.params.label, game), onSelect: event.params.onSelect });
+					vn.addChoice({ label: interpolateVariables(event.params.label, game), onSelect: event.params.onSelect, from: label() });
 					unshown++;
 					break;
 
@@ -125,7 +127,7 @@ export async function runScript(events: readonly VNEvent[], start: number, deps:
 
 				case 'showOnomatopeia': {
 					const { wait = false } = event.params;
-					if (!vn.showOnomatopeia(event.params)) break;
+					if (!vn.showOnomatopeia(event.params, deps.scope ?? '')) break;
 					if (wait) {
 						jumpsWithoutWait = 0;
 						await new Promise<void>((resolve) => vn.setOnomatopoeiaResolver(resolve));

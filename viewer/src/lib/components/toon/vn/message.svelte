@@ -10,27 +10,7 @@
 	let height = $state(0);
 	$effect(() => vn.setBoxHeight(height));
 
-	/**
-	 * The story waits for the reader (open choices, or a message waiting for its click): the page doesn't scroll until it
-	 * is answered (owner 2026-10-03: "freeze the ability to scroll once a message or choice depends on it") – so a scroll
-	 * trigger further down can't start while a question is open, and nobody reads past a question.
-	 */
-	const blocking = $derived(vn.state.choicesVisible || (vn.state.messageVisible && vn.state.message.wait));
-	$effect(() => {
-		if (!blocking) return;
-		const html = document.documentElement;
-		const before = { overflow: html.style.overflow, overscroll: html.style.overscrollBehavior, touch: html.style.touchAction };
-		html.style.overflow = 'hidden';
-		html.style.overscrollBehavior = 'none';
-		html.style.touchAction = 'none';
-		html.dataset.vnBlocking = '';
-		return () => {
-			html.style.overflow = before.overflow;
-			html.style.overscrollBehavior = before.overscroll;
-			html.style.touchAction = before.touch;
-			delete html.dataset.vnBlocking;
-		};
-	});
+	// the page doesn't scroll while the story waits: interactions/vn-page.svelte (the whole page's scripts and triggers)
 
 	function handleClick() {
 		if (vn.state.message.wait && !vn.state.choicesVisible) {

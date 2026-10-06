@@ -13,8 +13,17 @@ const TRANSITION_MS = 800;
 /** A character in a scene is identified by id + persona (Cat Pope may meet Cat Pope · Biker). */
 export const sceneKey = (ref: Pick<SceneCharacter, 'name' | 'persona'>) => `${ref.name}:${ref.persona || REGULAR_PERSONA}`;
 
-/** An onomatopoeia event playing: its text box is drawn by its slice (`dialogPlaying`). */
-export type VNActiveOnomatopoeia = ActiveOnomatopoeia;
+/**
+ * An onomatopoeia event playing: its text box is drawn by its slice (`dialogPlaying`). `scope` = the group whose script /
+ * slice events revealed it (linked groups share a page: a box is looked up in its own group).
+ */
+export type VNActiveOnomatopoeia = ActiveOnomatopoeia & { scope: string };
+
+/** A choice on the box, with the label of the script that added it (a random jump never picks that group) */
+export type VNPageChoice = VNChoice & { from?: string | null };
+
+/** text boxes are kept per group of the page: `scope` + the box id */
+const boxKey = (scope: string, id: string) => `${scope}|${id}`;
 
 export type VisualNovelContext = ReturnType<typeof createVisualNovelContext>;
 
@@ -23,7 +32,7 @@ let _currentContext: VisualNovelContext | undefined;
 export function createVisualNovelContext() {
 	const characters = $state(new Map<string, Character>());
 	const sceneCharacters = $state<SceneCharacter[]>([]);
-	const pendingChoices = $state<VNChoice[]>([]);
+	const pendingChoices = $state<VNPageChoice[]>([]);
 	const isProcessingEvents = $state(false);
 	const activeOnomatopoeia = $state<VNActiveOnomatopoeia[]>([]);
 	const onomatopoeiaQueue = $state<VNActiveOnomatopoeia[]>([]);
@@ -34,6 +43,15 @@ export function createVisualNovelContext() {
 	 */
 	const dialogRefs = $state<Record<string, true>>({});
 	const revealedDialogs = $state<Record<string, true>>({});
+	/**
+	 * The reader page (owner 2026-10-06, toon/interactions/vn-page.svelte): its scripts running or waiting in line
+	 * (`pageBusy`), all it must run done (`pageDone`), slice-trigger runs going on (`runs`). `page` = the page that owns
+	 * the context now (a page going away clears only its own state).
+	 */
+	let pageBusy = $state(0);
+	let pageDone = $state(true);
+	let runs = $state(0);
+	let page = 0;
 
 	let messageVisible = $state(false);
 	const message = $state<Message>({
@@ -225,7 +243,7 @@ export function createVisualNovelContext() {
 		eventsDone = true;
 	}
 
-	function addChoice(choice: VNChoice): void {
+	function addChoice(choice: VNPageChoice): void {
 		pendingChoices.push(choice);
 	}
 
@@ -301,7 +319,7 @@ export function createVisualNovelContext() {
 
 
 	/** Reveals the event's text box (`params.dialog`); an event without one shows nothing (the validation flags it). */
-	function showOnomatopeia(params: OnomatopoeiaParams): boolean {
+	function showOnomatopeia(params: OnomatopoeiaParams, scope = ''): boolean {
 		if (typeof params?.dialog !== 'string' || !params.dialog) {
 			console.warn('showOnomatopeia without params.dialog – nothing to reveal');
 			return false;
@@ -312,6 +330,7 @@ export function createVisualNovelContext() {
 		const item: VNActiveOnomatopoeia = {
 			...data,
 			id,
+			scope,
 			wait,
 			mode,
 			onComplete: () => handleOnomatopoeiaComplete(id)
@@ -333,25 +352,53 @@ export function createVisualNovelContext() {
 	 */
 	function activate(item: VNActiveOnomatopoeia): void {
 		activeOnomatopoeia.push(item);
-		revealedDialogs[item.dialog] = true;
+		revealedDialogs[boxKey(item.scope, item.dialog)] = true;
 		const time = (item.delay ?? 0) + (item.duration ?? 2000);
 		setTimeout(() => handleOnomatopoeiaComplete(item.id), Math.min(Math.max(time, 0), 10_000) + 1500);
 	}
 
-	/** a group script's text box refs (hidden until an event reveals them) */
-	function registerDialogRefs(ids: string[]): void {
-		for (const id of ids) dialogRefs[id] = true;
+	/** a group script's text box refs (hidden until an event reveals them), per group (`scope`) */
+	function registerDialogRefs(ids: string[], scope = ''): void {
+		for (const id of ids) dialogRefs[boxKey(scope, id)] = true;
 	}
 
-	/** a text box waits for its onomatopoeia event (`sliceRefs` = the refs of its own slice's events) */
-	function dialogHidden(id: string | undefined, sliceRefs?: ReadonlySet<string>): boolean {
-		if (!id || revealedDialogs[id]) return false;
-		return !!dialogRefs[id] || !!sliceRefs?.has(id);
+	/** a text box waits for its onomatopoeia event (`sliceRefs` = the refs of its own slice's events; `scope` = its group) */
+	function dialogHidden(id: string | undefined, sliceRefs?: ReadonlySet<string>, scope = ''): boolean {
+		if (!id || revealedDialogs[boxKey(scope, id)]) return false;
+		return !!dialogRefs[boxKey(scope, id)] || !!sliceRefs?.has(id);
 	}
 
-	/** the onomatopoeia event revealing this text box right now */
-	function dialogPlaying(id: string | undefined): VNActiveOnomatopoeia | undefined {
-		return id ? activeOnomatopoeia.find((o) => o.dialog === id) : undefined;
+	/** the onomatopoeia event revealing this text box (of group `scope`) right now */
+	function dialogPlaying(id: string | undefined, scope = ''): VNActiveOnomatopoeia | undefined {
+		return id ? activeOnomatopoeia.find((o) => o.dialog === id && o.scope === scope) : undefined;
+	}
+
+	/**
+	 * A reader page takes the context: the scene starts fresh (the page before may only go away after this one came –
+	 * "Nochmal", another chain); returns its token for `pageState` / `releasePage`
+	 */
+	function claimPage(): number {
+		page++;
+		clear();
+		return page;
+	}
+	/** the page's script line changed (stale pages are ignored) */
+	function pageState(token: number, state: { busy: number; done: boolean }): void {
+		if (token !== page) return;
+		pageBusy = state.busy;
+		pageDone = state.done;
+	}
+	/** the page went away: the scene is cleared – unless another page took the context meanwhile */
+	function releasePage(token: number): void {
+		if (token !== page) return;
+		clear();
+	}
+	/** a slice trigger / placed item run starts / ends (the page stays frozen while one runs) */
+	function beginRun(): void {
+		runs++;
+	}
+	function endRun(): void {
+		runs = Math.max(0, runs - 1);
 	}
 
 	function handleOnomatopoeiaComplete(id: string): void {
@@ -360,7 +407,7 @@ export function createVisualNovelContext() {
 			const item = activeOnomatopoeia[index];
 			activeOnomatopoeia.splice(index, 1);
 			// `stay: false`: the box disappears again after its effect (hidden like before the event)
-			if (item.stay === false) delete revealedDialogs[item.dialog];
+			if (item.stay === false) delete revealedDialogs[boxKey(item.scope, item.dialog)];
 
 			if (item.mode === 'mono' && onomatopoeiaQueue.length > 0) {
 				const next = onomatopoeiaQueue.shift();
@@ -411,6 +458,9 @@ export function createVisualNovelContext() {
 		navigationTriggered = false;
 		eventsDone = false;
 		pendingDivert = null;
+		pageBusy = 0;
+		pageDone = true;
+		runs = 0;
 	}
 
 	return {
@@ -426,7 +476,15 @@ export function createVisualNovelContext() {
 				activeOnomatopoeia,
 				boxHeight,
 				lastSpoke,
-				eventsDone
+				eventsDone,
+				pageBusy,
+				pageDone,
+				runs,
+				/**
+				 * The story waits (owner 2026-10-03 / 2026-10-06): a message waiting for its click, a choice open, a script of
+				 * the page running or in line, a slice trigger running – the page doesn't scroll until all of it is through.
+				 */
+				frozen: choicesVisible || (messageVisible && message.wait) || pendingChoices.length > 0 || pageBusy > 0 || runs > 0
 			};
 		},
 		setCharacters,
@@ -469,6 +527,11 @@ export function createVisualNovelContext() {
 		dialogPlaying,
 		setOnomatopoeiaResolver,
 		continueFromOnomatopoeia,
+		claimPage,
+		pageState,
+		releasePage,
+		beginRun,
+		endRun,
 		clear
 	};
 }

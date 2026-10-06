@@ -78,10 +78,9 @@
 	/** the last slice is (partly) on screen */
 	let endInView = $state(false);
 
-	// a VN group: its script ran to the end, nothing waits for a click or a choice; slice triggers (a cucumber offer) too
-	const sceneDone = $derived(
-		(!group.events || vn.state.eventsDone) && !vn.state.choicesVisible && !(vn.state.messageVisible && vn.state.message.wait)
-	);
+	// the page's VN is through (owner 2026-10-06): every script it must run finished (linked groups: all from the shown
+	// group on), none in line, nothing waits for a click or a choice, no slice trigger running (a cucumber offer)
+	const sceneDone = $derived(vn.state.pageDone && !vn.state.frozen);
 	const shown = $derived(reachedEnd && sceneDone);
 
 	// the end of the group in the chapter view (the bar's host sits in it, after the group)

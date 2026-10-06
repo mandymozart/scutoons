@@ -65,6 +65,8 @@ await send('Page.enable');
 await send('Page.navigate', { url: `${VIEWER}/` });
 await until('document.readyState === "complete"');
 await js(`localStorage.setItem('scutoons_session', ${JSON.stringify(token)})`);
+// chapter 2 is "coming soon": the creator's draft preview reads it (viewer draft-preview.svelte.ts)
+await js(`localStorage.setItem('scutoons.draft-preview', '1')`);
 
 const label = () => js(`new URLSearchParams(location.search).get('label')`);
 /** scrolls the group's slices one by one (the last one starts the stroll end), returns the message + choices */

@@ -8,6 +8,7 @@
 	import { getGameContext } from '$lib/contexts/game.svelte';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { isTaken, pickUpSliceItem, runSliceItemEvents } from '$lib/visual-novel/slice-items.ts';
+	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 	import { asset } from '$lib/utils/cdn.ts';
 	import { getLocale, localizeHref } from '$lib/paraglide/runtime.js';
 	import { getSessionContext } from '$lib/contexts/session.svelte.ts';
@@ -88,6 +89,10 @@
 	// placed items (Slice.items): icons from the item catalog; a tap does what the creator chose (lib/visual-novel/slice-items.ts)
 	const game = getGameContext();
 	const vn = getVisualNovelContext();
+	// the slice's group (linked groups share a page): its script for diverts, its text boxes; `done` = above the `?label=`
+	// target of a chain – read already: its boxes show as they are (owner 2026-10-06)
+	const group = getGroupScope();
+	const scope = group?.scope ?? '';
 	const itemInfo: ResolveSliceItem = (item) => {
 		const inventory = getCurrentInventory();
 		const def = inventory?.item(item.item);
@@ -112,7 +117,7 @@
 			const once = item.once ?? true;
 			if (once && ran.has(item.id)) return;
 			if (once) ran.add(item.id);
-			const destination = await runSliceItemEvents(item, game, vn);
+			const destination = await runSliceItemEvents(item, game, vn, group);
 			if (destination) goto(destination);
 		}
 	}
@@ -126,9 +131,9 @@
 			)
 		)
 	);
-	const dialogHidden = (dialog: Dialog) => !!vn?.dialogHidden(dialog.id, sliceRefs);
+	const dialogHidden = (dialog: Dialog) => !group?.done && !!vn?.dialogHidden(dialog.id, sliceRefs, scope);
 	const dialogPlay = (dialog: Dialog): DialogPlay | null => {
-		const active = vn?.dialogPlaying(dialog.id);
+		const active = vn?.dialogPlaying(dialog.id, scope);
 		if (!active) return null;
 		return {
 			key: active.id,

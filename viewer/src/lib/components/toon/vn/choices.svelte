@@ -12,7 +12,7 @@
 
 	function handleSelect(choice: typeof choices[0]) {
 		// the choice's actions in order: variables, then a jump (navigates) or a divert (the script continues there)
-		const { jumpTo, divert } = runChoiceActions(choice.onSelect, game, vn.scriptLabel);
+		const { jumpTo, divert } = runChoiceActions(choice.onSelect, game, choice.from ?? vn.scriptLabel);
 		if (divert) vn.setPendingDivert(divert);
 
 		if (jumpTo) {

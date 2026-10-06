@@ -117,7 +117,8 @@
 		"season_title": "Season {number}: {title}",
 		"prologue": "Prologue",
 		"sensitive_hidden": "Sensitive content hidden",
-		"sensitive_hidden_hint": "In your account: “Hide sensitive content”"
+		"sensitive_hidden_hint": "In your account: “Hide sensitive content”",
+		"scroll_paused": "Scrolling paused – answer the message first"
 	},
 	"player": {
 		"sound_on": "Sound on",

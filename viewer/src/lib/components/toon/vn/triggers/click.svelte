@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import type { VNSliceEvent, VNEvent } from '@scutoons/content';
 	import { EventProcessor } from '$lib/visual-novel/event-processor.ts';
+	import { getGroupScope } from '$lib/visual-novel/group-scope.ts';
 	import { getVisualNovelContext } from '$lib/contexts/visual-novel.svelte';
 	import { getGameContext } from '$lib/contexts/game.svelte';
 
@@ -11,6 +12,8 @@
 
 	const vn = getVisualNovelContext();
 	const game = getGameContext();
+	// the slice's group: a divert goes into its script, its text boxes (linked groups share a page)
+	const group = getGroupScope();
 
 	let triggerElement: HTMLDivElement | null = $state(null);
 	let triggered = $state(false);
@@ -37,7 +40,7 @@
 		if (!triggerElement?.parentElement) return;
 		if (!isWithinRect(e, triggerElement.parentElement)) return;
 
-		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn);
+		const processor = new EventProcessor(events.map(({ trigger, ...vnEvent }) => vnEvent as VNEvent), game, vn, group);
 		running = true;
 		// marked before the run (it can wait for the reader a long time)
 		if (once) triggered = true;
