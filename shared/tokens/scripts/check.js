@@ -24,8 +24,11 @@ const defined = new Set([...tokens.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m
 for (const name of required) if (!defined.has(name)) errors.push(`tokens.css: --${name} is missing`);
 
 for (const file of ['tokens.css', 'base.css', 'fonts.css', 'tools.css']) {
-	for (const [, name] of read(file).matchAll(/var\(--([a-z0-9-]+)/g)) {
-		if (!defined.has(name)) errors.push(`${file}: var(--${name}) is not defined in tokens.css`);
+	const css = read(file);
+	// a custom property the file sets itself on a rule (e.g. tools.css --switch-knob) is local, not a token
+	const local = new Set([...css.matchAll(/--([a-z0-9-]+)\s*:/g)].map((m) => m[1]));
+	for (const [, name] of css.matchAll(/var\(--([a-z0-9-]+)/g)) {
+		if (!defined.has(name) && !local.has(name)) errors.push(`${file}: var(--${name}) is not defined in tokens.css`);
 	}
 }
 
